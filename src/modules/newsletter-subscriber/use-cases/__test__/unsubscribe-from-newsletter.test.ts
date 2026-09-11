@@ -1,7 +1,7 @@
 import type * as StartServerModule from "@tanstack/react-start/server"
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
+import { NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { unsubscribeFromNewsletter } from "~/src/modules/newsletter-subscriber/use-cases/unsubscribe-from-newsletter"
 
 const HEADERS = new Headers()

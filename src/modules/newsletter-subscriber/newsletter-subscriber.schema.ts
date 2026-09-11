@@ -3,16 +3,13 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-export const newsletterStatusEnum = { enumValues: ["subscribed", "unsubscribed", "pending"] } as const
-
-export const newsletterSourceEnum = { enumValues: ["footer", "blog", "app"] } as const
-export const newsletterLocaleEnum = { enumValues: I18N.SUPPORTED_LOCALES } as const
-
-export const NEWSLETTER_TOKEN_LENGTH = 64
-
-export const CONFIRMATION_WINDOW_IN_HOURS = 24
-
-export const EMAIL_MAX_LENGTH = 255
+import {
+  EMAIL_MAX_LENGTH,
+  NEWSLETTER_TOKEN_LENGTH,
+  newsletterLocaleEnum,
+  newsletterSourceEnum,
+  newsletterStatusEnum,
+} from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 
 export const newsletterSubscriber = sqliteTable(
   "newsletter_subscriber",

@@ -5,10 +5,10 @@ import { useTranslations } from "use-intl/react"
 
 import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
 
-import { NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
+import { NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { unsubscribeFromNewsletter } from "~/src/modules/newsletter-subscriber/use-cases/unsubscribe-from-newsletter"
 
-import { UnsubscribeConfirmation } from "~/src/presentation/components/custom/landing-page/components/unsubscribe-confirmation"
+import { UnsubscribeConfirmation } from "~/src/presentation/components/custom/newsletter/unsubscribe-confirmation"
 
 import { ROUTES } from "~/src/routes"
 

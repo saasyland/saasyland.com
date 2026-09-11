@@ -13,6 +13,8 @@ import { GithubInfo } from "~/src/presentation/components/custom/github-info"
 import { LocaleSwitch } from "~/src/presentation/components/custom/locale-switch"
 import { ThemeSwitch } from "~/src/presentation/components/custom/theme-switch"
 
+import docsCss from "~/src/presentation/styles/docs.css?url"
+
 import { APP_GITHUB_OWNER, APP_GITHUB_REPO, APP_NAME } from "~/src/presentation/branding"
 
 const DOCS_LINKS = [
@@ -26,7 +28,7 @@ const DOCS_NAV = { title: APP_NAME } as const
 const DOCS_THEME_SWITCH = { enabled: false } as const
 const DOCS_SLOTS = { languageSelect: false } as const
 
-const LOCALE_SWITCH_FALLBACK = <div className="h-9 w-full rounded-md bg-fd-muted/50" />
+const LOCALE_SWITCH_FALLBACK = <div className="bg-fd-muted/50 h-9 w-full rounded-md" />
 
 const DocsSidebarFooter = (): ReactNode => {
   const locale = getCurrentLocale()
@@ -56,8 +58,11 @@ const DocumentationLayout = (): ReactNode => {
   )
 }
 
+const DOCS_STYLESHEET = [{ href: docsCss, rel: "stylesheet" as const }]
+
 export const Route = createFileRoute("/docs")({
   component: DocumentationLayout,
+  head: () => ({ links: DOCS_STYLESHEET }),
   loader: () => getDocsTree(),
   staticData: { namespaces: [] },
 })

@@ -1,6 +1,5 @@
 import { type ReactNode, Suspense } from "react"
 
-import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router"
 import { ThemeScript } from "@wrksz/themes/script"
 
@@ -18,21 +17,18 @@ import { Toaster } from "~/src/presentation/components/shadcn/sonner"
 import { GlobalError } from "~/src/presentation/components/custom/default-error"
 import { OfflineBanner } from "~/src/presentation/components/custom/offline-banner"
 
-import globalsCss from "~/src/presentation/styles/globals.css?url"
-
+import { DOCUMENT_STYLESHEET, fontPreloads } from "~/src/presentation/document-assets"
 import type { RouterContext } from "~/src/router"
 
 const RootComponent = () => (
   <TranslationsProvider>
     <AppRouterProvider>
       <ThemeProvider>
-        <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={0}>
-          <OfflineBanner />
-          <Suspense>
-            <Outlet />
-          </Suspense>
-          <Toaster />
-        </TooltipPrimitive.Provider>
+        <OfflineBanner />
+        <Suspense>
+          <Outlet />
+        </Suspense>
+        <Toaster />
       </ThemeProvider>
     </AppRouterProvider>
   </TranslationsProvider>
@@ -41,6 +37,7 @@ const RootComponent = () => (
 const RootDocument = ({ children }: Readonly<{ children: ReactNode }>) => (
   <html
     lang={getCurrentLocale()}
+    dir="ltr"
     className="h-full bg-background text-foreground antialiased"
     data-scroll-behavior="smooth"
     suppressHydrationWarning
@@ -63,11 +60,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
   errorComponent: GlobalError,
   head: () => ({
-    links: [
-      { href: globalsCss, rel: "stylesheet" },
-      { as: "font", crossOrigin: "anonymous", href: "/fonts/caa3a2e1cccd8315-s.p.0wgildi0cnwt9.woff2", rel: "preload", type: "font/woff2" },
-      { as: "font", crossOrigin: "anonymous", href: "/fonts/7178b3e590c64307-s.p.21jp631_3pja2.woff2", rel: "preload", type: "font/woff2" },
-    ],
+    links: [DOCUMENT_STYLESHEET, ...fontPreloads(getCurrentLocale())],
     meta: [
       { content: "width=device-width, initial-scale=1", name: "viewport" },
       ...(import.meta.env.MODE === "production" ? [] : [{ content: "noindex, nofollow", name: "robots" }]),

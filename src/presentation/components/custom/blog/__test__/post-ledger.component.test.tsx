@@ -16,7 +16,6 @@ const post: BlogPostSummary = {
     date: new Date("2026-09-01T00:00:00Z"),
     description: "A post with a reading time calculated by the server.",
     excerpt: undefined,
-    faq: undefined,
     featured: false,
     image: undefined,
     published: true,

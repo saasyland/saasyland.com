@@ -12,6 +12,15 @@ import { AdminCommandPalette } from "~/src/presentation/components/custom/admin/
 import { ROUTES } from "~/src/routes"
 
 describe("admin command palette", () => {
+  it("opens from the search button", async () => {
+    renderWithRouter(
+      <IntlProvider locale="en-US" messages={getTestMessages("en-US")}>
+        <AdminCommandPalette />
+      </IntlProvider>,
+    )
+    await userEvent.click(screen.getByRole("button", { name: /Search the console/u }))
+    expect(screen.getByRole("dialog")).toBeVisible()
+  })
   it("opens with the keyboard shortcut and navigates to the selected destination", async () => {
     const router = createTestRouter()
     const navigate = vi.spyOn(router, "navigate").mockResolvedValue()

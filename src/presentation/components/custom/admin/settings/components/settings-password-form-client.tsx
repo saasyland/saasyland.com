@@ -75,12 +75,15 @@ export const SettingsPasswordFormClient = (): JSX.Element => {
               <form.Field name="currentPassword">
                 {(field) => (
                   <Field>
-                    <FieldLabel className="text-xs">{t("security.password.current")}</FieldLabel>
+                    <FieldLabel className="text-xs" htmlFor={field.name}>
+                      {t("security.password.current")}
+                    </FieldLabel>
                     <FieldContent>
                       <Input
                         type="password"
                         autoComplete="current-password"
                         name={field.name}
+                        id={field.name}
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(event) => {
@@ -95,12 +98,15 @@ export const SettingsPasswordFormClient = (): JSX.Element => {
               <form.Field name="newPassword">
                 {(field) => (
                   <Field>
-                    <FieldLabel className="text-xs">{t("security.password.new")}</FieldLabel>
+                    <FieldLabel className="text-xs" htmlFor={field.name}>
+                      {t("security.password.new")}
+                    </FieldLabel>
                     <FieldContent>
                       <Input
                         type="password"
                         autoComplete="new-password"
                         name={field.name}
+                        id={field.name}
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(event) => {
@@ -115,12 +121,15 @@ export const SettingsPasswordFormClient = (): JSX.Element => {
               <form.Field name="confirmNewPassword">
                 {(field) => (
                   <Field>
-                    <FieldLabel className="text-xs">{t("security.password.confirm")}</FieldLabel>
+                    <FieldLabel className="text-xs" htmlFor={field.name}>
+                      {t("security.password.confirm")}
+                    </FieldLabel>
                     <FieldContent>
                       <Input
                         type="password"
                         autoComplete="new-password"
                         name={field.name}
+                        id={field.name}
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(event) => {

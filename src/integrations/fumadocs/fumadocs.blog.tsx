@@ -3,11 +3,9 @@ import { Children, type ReactNode, isValidElement } from "react"
 import { queryOptions } from "@tanstack/react-query"
 import { notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
-import browserCollections from "collections/browser"
 import { z } from "zod"
 
 import { blogSource } from "~/src/integrations/fumadocs/fumadocs.source"
-import { getMDXComponents } from "~/src/integrations/fumadocs/mdx"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
@@ -32,7 +30,7 @@ const tocItemTitle = (title: ReactNode): string =>
     .join("")
 
 const serializePost = (page: ReturnType<typeof blogSource.getPages>[number], locale: SupportedLocale) => {
-  const { authorImage, authorName, date, description, excerpt, faq, featured, image, published, tags, updated, title, structuredData } =
+  const { authorImage, authorName, date, description, excerpt, featured, image, published, tags, updated, title, structuredData } =
     page.data
 
   return {
@@ -42,7 +40,6 @@ const serializePost = (page: ReturnType<typeof blogSource.getPages>[number], loc
       date,
       description,
       excerpt,
-      faq,
       featured,
       image,
       published,
@@ -80,13 +77,10 @@ export const getBlogPost = createServerFn({ method: "GET" })
     if (!page || !page.data.published) {
       throw notFound()
     }
+    const post = serializePost(page, getCurrentLocale())
     return {
-      ...serializePost(page, getCurrentLocale()),
+      ...post,
+      data: { ...post.data, faq: page.data.faq },
       toc: page.data.toc.map((item) => ({ depth: item.depth, title: tocItemTitle(item.title), url: item.url })),
     }
   })
-
-export const blogLoader = browserCollections.blog.createClientLoader({
-  component: ({ default: Mdx }) => <Mdx components={getMDXComponents()} />,
-  id: "blog",
-})

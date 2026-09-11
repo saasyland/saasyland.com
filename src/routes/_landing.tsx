@@ -5,10 +5,10 @@ import { Outlet, createFileRoute } from "@tanstack/react-router"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { Footer } from "~/src/presentation/components/custom/landing-page/components/footer"
-import { MotionProvider } from "~/src/presentation/components/custom/landing-page/components/motion-provider"
-import { Navigation } from "~/src/presentation/components/custom/landing-page/components/navigation"
-import { PageFrame } from "~/src/presentation/components/custom/landing-page/components/page-frame"
+import { Footer } from "~/src/presentation/components/custom/footer/footer"
+import { MotionProvider } from "~/src/presentation/components/custom/motion-provider"
+import { Navigation } from "~/src/presentation/components/custom/navigation/navigation"
+import { PageFrame } from "~/src/presentation/components/custom/page-frame"
 
 const LandingPageLayout = (): JSX.Element => (
   <div className="dark relative isolate min-h-svh bg-background text-foreground">

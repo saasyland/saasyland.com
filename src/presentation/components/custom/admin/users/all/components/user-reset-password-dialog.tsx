@@ -1,4 +1,4 @@
-import { type JSX } from "react"
+import { type JSX, useId } from "react"
 
 import { useForm, useSelector } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -33,6 +33,7 @@ export const UserResetPasswordDialog = ({
   readonly userId: string
   readonly userName: string
 }): JSX.Element => {
+  const passwordId = useId()
   const queryClient = useQueryClient()
   const setUserPasswordRequest = useMutation({
     ...setUserPasswordMutation,
@@ -83,9 +84,10 @@ export const UserResetPasswordDialog = ({
         <form.Field name="newPassword">
           {(field) => (
             <Field>
-              <FieldLabel>{t("actions.resetPasswordDialog.password")}</FieldLabel>
+              <FieldLabel htmlFor={passwordId}>{t("actions.resetPasswordDialog.password")}</FieldLabel>
               <FieldContent>
                 <Input
+                  id={passwordId}
                   type="password"
                   autoComplete="new-password"
                   name={field.name}

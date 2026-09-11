@@ -7,7 +7,7 @@ The website, account area, admin console, and documentation share a visual syste
 - `src/presentation/styles/globals.css`: theme colors, typography, radii, and animation utilities.
 - `src/presentation/styles/fonts.css`: local font faces.
 - `src/presentation/styles/typeset.css`: prose and documentation styles.
-- `src/presentation/components/custom/landing-page/constants/motion-tokens.ts`: shared Motion transitions.
+- `src/presentation/components/custom/motion-tokens.ts`: shared Motion transitions.
 - `src/presentation/components/custom/admin/constants/status-colors.ts`: console status styles.
 
 Use these definitions directly. Keep token values in CSS instead of copying them into documentation or individual components.

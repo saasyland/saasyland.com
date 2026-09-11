@@ -52,6 +52,9 @@ const TerminalRow = ({ line }: Readonly<{ line: TerminalLine }>): JSX.Element =>
   return <div className="whitespace-pre text-muted-foreground">{line.text}</div>
 }
 
+const TERMINAL_IMAGE_SIZES =
+  "(min-width: 80rem) calc((80rem - 9rem) * 1.05 / 2.05 - 2px), (min-width: 64rem) calc((100vw - 9rem) * 1.05 / 2.05 - 2px), (min-width: 48rem) calc(100vw - 5rem - 2px), calc(100vw - 3rem - 2px)"
+
 // Keep static output for screen readers and reduced-motion preferences.
 const QualityTerminal = ({ title }: Readonly<{ title: string }>): JSX.Element => (
   <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -60,7 +63,7 @@ const QualityTerminal = ({ title }: Readonly<{ title: string }>): JSX.Element =>
       <span className="font-mono text-spec text-muted-foreground">{title}</span>
     </div>
 
-    <ConceptLoop className="motion-reduce:hidden max-sm:hidden" name="coverage-run" />
+    <ConceptLoop className="motion-reduce:hidden max-sm:hidden" name="coverage-run" sizes={TERMINAL_IMAGE_SIZES} />
 
     <pre className="custom-scrollbar sr-only overflow-x-auto p-5 font-mono text-spec leading-[1.9] motion-reduce:not-sr-only max-sm:not-sr-only md:p-7">
       {TERMINAL_LINES.map((line) => (

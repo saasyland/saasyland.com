@@ -28,7 +28,10 @@ export const AdminSidebarNavItem = ({ item, pathname }: AdminSidebarNavItemProps
         isActive={isActive}
       >
         <item.icon
-          className={cn("size-4 transition-colors duration-200 ease-exp", isActive ? "text-ring" : "text-muted-foreground")}
+          className={cn("size-4 transition-colors duration-200 ease-exp", {
+            "text-muted-foreground": !isActive,
+            "text-ring": isActive,
+          })}
           strokeWidth={1.5}
         />
         <span className={isActive ? "text-foreground" : "text-sidebar-foreground/80"}>{t(`links.${item.titleKey}`)}</span>

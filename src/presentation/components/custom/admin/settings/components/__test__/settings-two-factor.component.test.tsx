@@ -180,6 +180,20 @@ describe("two-factor settings pending requests", () => {
 })
 
 describe("two-factor settings", () => {
+  it.each([false, true])("reports a failed request without closing the password step (disabling: %s)", async (enabled) => {
+    const request = enabled ? disableMock : enableMock
+    request.mockRejectedValueOnce(new Error("Request failed"))
+    const { user, invalidate } = renderCard(enabled)
+    await user.click(screen.getByRole("button", { name: enabled ? labels.disable : labels.enable }))
+    await user.type(screen.getByLabelText(labels.password), "Secret1!")
+    await user.click(screen.getByRole("button", { name: enabled ? labels.disableConfirm : labels.continue }))
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledOnce()
+    })
+    expect(screen.getByRole("dialog")).toBeVisible()
+    expect(screen.getByLabelText(labels.password)).toHaveValue("Secret1!")
+    expect(invalidate).not.toHaveBeenCalled()
+  })
   it("allows setup to be retried when the server returns a different verification method", async () => {
     enableMock.mockResolvedValueOnce({ method: "otp" })
     const { user } = renderCard()

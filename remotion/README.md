@@ -1,8 +1,8 @@
 # Landing page videos
 
-This directory is a separate Remotion project. The app serves the rendered videos and posters from `public/motion/`; it does not import Remotion. The app's TypeScript and Vite checks exclude this directory.
+This directory is a separate Remotion project. Finished videos and posters live in `src/presentation/assets/motion/` at the repository root. Vite emits them with content hashes under `/assets/` for immutable caching. The app does not import Remotion, and its TypeScript and Vite checks exclude this directory.
 
-Keep this source, its configuration and `package-lock.json` in Git. Keep the published `.webm` and `.webp` files in `../public/motion/` tracked too: deployments serve them without running a renderer. Local `node_modules/`, `build/`, `dist/`, `out/` and `.cache/` directories are ignored. The root ignore rules also cover secrets and editor files here.
+Keep this source, its configuration and `package-lock.json` in Git. Keep the published `.webm` and `.webp` files in `../src/presentation/assets/motion/` tracked too: deployments serve them without running a renderer. Local `node_modules/`, `build/`, `dist/`, `out/` and `.cache/` directories are ignored. The root ignore rules also cover secrets and editor files here.
 
 The separate package keeps the renderer, browser types and Remotion-specific lint rules outside the Cloudflare application. It uses npm's lockfile independently of the app's Bun lockfile. CI checks and bundles this source when it or the shared locale configuration changes.
 
@@ -46,6 +46,14 @@ npx remotion still locale-format out/locale-format.png --frame=200
 cwebp -q 90 out/locale-format.png -o out/locale-format.webp
 ```
 
-Install the [WebP command-line tools](https://developers.google.com/speed/webp/docs/precompiled) for `cwebp`. Inspect the temporary video and poster, then copy both into `../public/motion/` with the same basename. Use CRF 38 for the two 1600 × 1000 compositions and CRF 36 for the remaining videos. All compositions use 60 fps.
+Install the [WebP command-line tools](https://developers.google.com/speed/webp/docs/precompiled) for `cwebp`. Inspect the temporary video and poster, then copy both into `../src/presentation/assets/motion/` with the same basename. Use CRF 38 for the two 1600 × 1000 compositions and CRF 36 for the remaining videos. All compositions use 60 fps.
 
-Regenerate both the video and poster after changing any visible content. Verify product loops at frame 0 and their final frame before replacing existing assets.
+Create responsive WebP posters from the same PNG at quality 82: `app-tour` needs widths 640, 800 and 1280; `page-designer` needs width 800; the other compositions need width 600. Name them `{composition}-{width}.webp` beside the full-size poster. For example:
+
+```sh
+cwebp -q 82 -m 6 -sharp_yuv -resize 800 0 out/app-tour.png -o ../src/presentation/assets/motion/app-tour-800.webp
+```
+
+Keep the full-size poster for high-density displays. `ConceptLoop` supplies the candidates through native `srcset`; the browser chooses according to the rendered width and pixel density. A media-constrained preload gives the hero image high priority on desktop. Images load lazily elsewhere. The image remains visible for reduced motion or failed playback and is hidden once the video starts playing.
+
+Regenerate the video, full-size poster and responsive posters after changing any visible content. Verify product loops at frame 0 and their final frame before replacing existing assets.

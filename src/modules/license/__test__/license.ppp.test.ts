@@ -8,6 +8,8 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 
 import type { polar } from "~/src/integrations/polar/polar.config"
 
+import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
+
 type DiscountPages = Awaited<ReturnType<typeof polar.discounts.list>>
 const listDiscountsMock = vi.hoisted(() => vi.fn<typeof polar.discounts.list>())
 
@@ -72,7 +74,7 @@ const discountProduct = (id: string): Discount["products"][number] => ({
 })
 
 const findDiscount = async (country?: string, productId = env.POLAR_PRODUCT_ID_CORE): Promise<string | undefined> => {
-  const { COUNTRY_HEADER, pppDiscountId } = await import("~/src/modules/license/license.ppp")
+  const { pppDiscountId } = await import("~/src/modules/license/license.ppp")
   const headers = new Headers()
   if (country !== undefined) {
     headers.set(COUNTRY_HEADER, country)

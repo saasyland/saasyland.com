@@ -2499,7 +2499,7 @@ declare const messages: {
           "marte": {
             "name": "marte-bizuteria.pl",
             "kind": "Jewellery store, Poland",
-            "body": "A real shop selling real jewellery to Polish customers. It uses the commerce module with sample products stripped out, the admin for stock and orders, and the i18n layer for Polish copy and złoty formatting. Nothing about it is a demo.",
+            "body": "A real shop selling real jewellery to Polish customers. It uses the commerce module with sample products stripped out, the admin for stock and orders, and the i18n layer for Polish copy and zloty formatting. Nothing about it is a demo.",
             "modules": "commerce · admin · i18n · email · content"
           }
         },

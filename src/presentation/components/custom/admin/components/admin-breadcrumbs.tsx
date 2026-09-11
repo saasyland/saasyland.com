@@ -3,10 +3,6 @@ import type { JSX } from "react"
 import { Link, type LinkProps, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-const ADMIN_PATH_INDEX = 0
-const ADMIN_ROUTE_INDEX = 1
-const MIN_ADMIN_PATH_PARTS = 1
-
 const routeMappings: Record<string, { group: string; link: string; to: NonNullable<LinkProps["to"]> }> = {
   analytics: { group: "overview", link: "analytics", to: "/admin/analytics" },
   blog: { group: "content", link: "blog", to: "/admin/blog" },
@@ -33,12 +29,12 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
   const t = useTranslations("pages.admin.sidebar")
   const tBreadcrumbs = useTranslations("pages.admin.components.breadcrumbs")
 
-  const pathParts = pathname.split("/").filter(Boolean)
-  if (pathParts.length === 0 || pathParts[ADMIN_PATH_INDEX] !== "admin") {
+  const [area, currentPath, action] = pathname.split("/").filter(Boolean)
+  if (area !== "admin") {
     return undefined
   }
 
-  if (pathParts.length === MIN_ADMIN_PATH_PARTS) {
+  if (currentPath === undefined) {
     return (
       <nav aria-label={tBreadcrumbs("home")} className={TRAIL_CLASSNAME}>
         <span>{tBreadcrumbs("home")}</span>
@@ -48,8 +44,7 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
     )
   }
 
-  const [currentPath, action] = pathParts.slice(ADMIN_ROUTE_INDEX)
-  const mapping = currentPath === undefined ? undefined : routeMappings[currentPath]
+  const mapping = routeMappings[currentPath]
 
   return (
     <nav aria-label={tBreadcrumbs("home")} className={TRAIL_CLASSNAME}>

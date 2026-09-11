@@ -32,16 +32,16 @@ export const UserCell = ({ row }: Readonly<CellContext<DataTableFeatures, User["
         />
       ) : (
         <div
-          className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-[0.6875rem] font-semibold",
-            banned ? "text-muted-foreground" : "text-foreground",
-          )}
+          className={cn("flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-[0.6875rem] font-semibold", {
+            "text-foreground": !banned,
+            "text-muted-foreground": banned,
+          })}
         >
           {initialsFromName(name)}
         </div>
       )}
       <div className="min-w-0">
-        <p className={cn("font-medium", banned ? "text-muted-foreground line-through" : "text-foreground")}>{name}</p>
+        <p className={cn("font-medium", { "text-foreground": !banned, "text-muted-foreground line-through": banned })}>{name}</p>
         <p className="text-xs text-muted-foreground">{email}</p>
       </div>
     </div>

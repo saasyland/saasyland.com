@@ -13,11 +13,8 @@ const MS_PER_HOUR = 3_600_000
 const MS_PER_DAY = 86_400_000
 const MOBILE_USER_AGENT_PATTERN = /mobile|iphone|android|ipad|ipod/iu
 
-const sessionUpdatedAtMs = (updatedAt: Date | string): number =>
-  updatedAt instanceof Date ? updatedAt.getTime() : new Date(updatedAt).getTime()
-
-const formatRelativeActiveTime = (updatedAt: Date | string, now: Date): string => {
-  const elapsedMs = now.getTime() - sessionUpdatedAtMs(updatedAt)
+const formatRelativeActiveTime = (updatedAt: Date, now: Date): string => {
+  const elapsedMs = now.getTime() - updatedAt.getTime()
 
   if (elapsedMs < MS_PER_MINUTE) {
     return "just now"
@@ -64,8 +61,6 @@ export const AdminActiveSessionRowClient = ({
     deviceLabel = session.ipAddress
   }
 
-  const activeAgo = isCurrent ? undefined : formatRelativeActiveTime(session.updatedAt, new Date())
-
   const handleRevoke = () => {
     onRevoke(session.token)
   }
@@ -87,7 +82,10 @@ export const AdminActiveSessionRowClient = ({
           </div>
           <p className="text-xs text-muted-foreground">
             {tCommon("labels.unknownLocation")}
-            {t("security.sessions.separator")} {isCurrent ? session.ipAddress : t("security.sessions.activeAgo", { time: activeAgo ?? "" })}
+            {t("security.sessions.separator")}{" "}
+            {isCurrent
+              ? session.ipAddress
+              : t("security.sessions.activeAgo", { time: formatRelativeActiveTime(session.updatedAt, new Date()) })}
           </p>
         </div>
       </div>

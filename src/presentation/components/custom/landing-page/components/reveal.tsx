@@ -1,40 +1,25 @@
-import {
-  type CSSProperties,
-  type JSX,
-  type ReactNode,
-  type TransitionEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import type { JSX, ReactNode } from "react"
 
 import { cn } from "~/src/lib/cn"
 
 const REVEAL_THRESHOLD = 0.12
 
-const SETTLE_FALLBACK_MS = 900
-
-type OnReveal = (isVisible: boolean) => void
+type OnIntersection = (entry: IntersectionObserverEntry) => void
 
 const observerHolder: { current?: IntersectionObserver } = {}
-const observedTargets = new WeakMap<Element, OnReveal>()
+const observedTargets = new WeakMap<Element, OnIntersection>()
 
-const observe = (element: Element, onReveal: OnReveal): (() => void) => {
+const observe = (element: Element, onIntersection: OnIntersection): (() => void) => {
   observerHolder.current ??= new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
-        if (entry.isIntersecting) {
-          observedTargets.get(entry.target)?.(true)
-          observerHolder.current?.unobserve(entry.target)
-        }
+        observedTargets.get(entry.target)?.(entry)
       }
     },
     { threshold: REVEAL_THRESHOLD },
   )
 
-  observedTargets.set(element, onReveal)
+  observedTargets.set(element, onIntersection)
   observerHolder.current.observe(element)
 
   return () => {
@@ -43,24 +28,34 @@ const observe = (element: Element, onReveal: OnReveal): (() => void) => {
   }
 }
 
+const observeElement = (element: HTMLDivElement): (() => void) => {
+  let isInitial = true
+  const unobserve = observe(element, (entry): void => {
+    if (isInitial) {
+      isInitial = false
+      if (entry.boundingClientRect.top < (entry.rootBounds?.bottom ?? globalThis.innerHeight)) {
+        unobserve()
+        return
+      }
+      element.dataset["reveal"] = "hidden"
+    } else if (entry.isIntersecting) {
+      element.dataset["reveal"] = "revealed"
+      unobserve()
+    }
+  })
+
+  return () => {
+    unobserve()
+    delete element.dataset["reveal"]
+  }
+}
+
 type RevealVariant = "block" | "heading" | "quiet"
 
-const SHOWN_CLASSNAME: Record<RevealVariant, string> = {
-  block: "translate-y-0 opacity-100",
-  heading: "translate-y-0 opacity-100",
-  quiet: "opacity-100",
-}
-
-const HIDDEN_CLASSNAME: Record<RevealVariant, string> = {
-  block: "translate-y-3 opacity-0",
-  heading: "translate-y-4 opacity-0",
-  quiet: "opacity-0",
-}
-
-const DURATION_CLASSNAME: Record<RevealVariant, string> = {
-  block: "duration-[560ms]",
-  heading: "duration-[700ms]",
-  quiet: "duration-[420ms]",
+const VARIANT_CLASSNAME: Record<RevealVariant, string> = {
+  block: "[--rise-duration:560ms] [--rise-distance:0.75rem]",
+  heading: "[--rise-duration:700ms] [--rise-distance:1rem]",
+  quiet: "[--rise-duration:420ms] [--rise-distance:0rem]",
 }
 
 interface RevealProps {
@@ -70,71 +65,16 @@ interface RevealProps {
   readonly variant?: RevealVariant
 }
 
-export const Reveal = ({ children, className, delay = 0, variant = "block" }: RevealProps): JSX.Element => {
-  const elementRef = useRef<HTMLDivElement>(null)
-
-  const [isVisible, setIsVisible] = useState(true)
-  const [hasSettled, setHasSettled] = useState(true)
-
-  const [isArmed, setIsArmed] = useState(false)
-
-  useEffect(() => {
-    const element = elementRef.current
-    if (!element) {
-      return
-    }
-    if (element.getBoundingClientRect().top < globalThis.innerHeight) {
-      return
-    }
-
-    setIsVisible(false)
-    setHasSettled(false)
-
-    const frame = globalThis.requestAnimationFrame(() => {
-      setIsArmed(true)
-    })
-    const unobserve = observe(element, setIsVisible)
-
-    return () => {
-      globalThis.cancelAnimationFrame(frame)
-      unobserve()
-    }
-  }, [])
-
-  const delayStyle: CSSProperties | undefined = useMemo(() => (delay > 0 ? { transitionDelay: `${delay}ms` } : undefined), [delay])
-
-  useEffect(() => {
-    if (!isVisible || hasSettled) {
-      return
-    }
-    const timeoutId = globalThis.setTimeout(() => {
-      setHasSettled(true)
-    }, SETTLE_FALLBACK_MS + delay)
-    return () => {
-      globalThis.clearTimeout(timeoutId)
-    }
-  }, [delay, hasSettled, isVisible])
-
-  const handleTransitionEnd = useCallback((event: TransitionEvent<HTMLDivElement>): void => {
-    if (event.target === elementRef.current) {
-      setHasSettled(true)
-    }
-  }, [])
-
-  return (
-    <div
-      ref={elementRef}
-      style={delayStyle}
-      onTransitionEnd={handleTransitionEnd}
-      className={cn(
-        isArmed ? cn("transition-[opacity,transform] ease-exp", DURATION_CLASSNAME[variant]) : "transition-none",
-        isVisible && !hasSettled ? "will-change-[opacity,transform]" : "will-change-auto",
-        isVisible ? SHOWN_CLASSNAME[variant] : HIDDEN_CLASSNAME[variant],
-        "motion-reduce:translate-y-0 motion-reduce:opacity-100 motion-reduce:transition-none motion-reduce:will-change-auto",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  )
-}
+export const Reveal = ({ children, className, delay = 0, variant = "block" }: RevealProps): JSX.Element => (
+  <div
+    ref={observeElement}
+    style={{ animationDelay: `${delay}ms`, animationFillMode: "backwards" }}
+    className={cn(
+      VARIANT_CLASSNAME[variant],
+      "motion-safe:data-[reveal=hidden]:opacity-0 motion-safe:data-[reveal=revealed]:animate-rise",
+      className,
+    )}
+  >
+    {children}
+  </div>
+)

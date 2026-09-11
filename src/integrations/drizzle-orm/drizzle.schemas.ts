@@ -5,8 +5,8 @@ export {
   newsletterLocaleEnum,
   newsletterSourceEnum,
   newsletterStatusEnum,
-  newsletterSubscriber,
-} from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
+} from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+export { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
 export { product, productStatusEnum, productTypeEnum } from "~/src/modules/product/product.schema"
 export { session, sessionRelations } from "~/src/modules/session/session.schema"
 export { twoFactor, twoFactorRelations } from "~/src/modules/two-factor/two-factor.schema"

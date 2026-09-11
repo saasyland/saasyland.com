@@ -5,12 +5,12 @@ import { useTranslations } from "use-intl/react"
 
 import { FEATURED_TIER, FEATURE_IDS, TIERS, TIER_PRICES } from "~/src/data/marketing-pricing"
 
+import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
 import { ConsultingBand } from "~/src/presentation/components/custom/landing-page/components/consulting-band"
-import { HighlightGroup } from "~/src/presentation/components/custom/landing-page/components/hover-highlight"
 import { ParityNote } from "~/src/presentation/components/custom/landing-page/components/parity-note"
 import { Price } from "~/src/presentation/components/custom/landing-page/components/price"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
-import { type Tier, TierColumn } from "~/src/presentation/components/custom/landing-page/components/tier-column"
+import { type Tier, TierColumn } from "~/src/presentation/components/custom/landing-page/components/tier/tier-column"
 
 const GRID_DELAY_MS = 100
 

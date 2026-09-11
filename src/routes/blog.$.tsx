@@ -4,7 +4,8 @@ import { Link, createFileRoute } from "@tanstack/react-router"
 import { InlineTOC } from "fumadocs-ui/components/inline-toc"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { blogLoader, getBlogPost } from "~/src/integrations/fumadocs/fumadocs.blog"
+import { getBlogPost } from "~/src/integrations/fumadocs/fumadocs.blog"
+import { blogLoader } from "~/src/integrations/fumadocs/fumadocs.blog.loader"
 import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 

@@ -1,26 +1,5 @@
-import { createCn } from "cn/config"
+import { createCn } from "cn/engine"
 
-// Register the typography tokens from globals.css so cn keeps sizes alongside text colors.
-const TYPE_RAMP_SIZES = [
-  "body",
-  "body-sm",
-  "display-blast",
-  "display-gate",
-  "display-hero",
-  "headline-peak",
-  "headline-support",
-  "label",
-  "lead",
-  "price",
-  "spec",
-  "statement",
-  "title",
-] as const
+import tables from "~/.source/cn-tables"
 
-export const cn = createCn({
-  extend: {
-    classGroups: {
-      "font-size": [{ text: [...TYPE_RAMP_SIZES] }],
-    },
-  },
-})
+export const cn = createCn(tables)

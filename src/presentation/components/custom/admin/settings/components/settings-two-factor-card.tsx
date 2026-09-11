@@ -69,10 +69,8 @@ export const SettingsTwoFactorCard = ({ twoFactorEnabled }: Readonly<SettingsTwo
       <Dialog
         className="max-w-md"
         isOpen={Boolean(dialog)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDialog(undefined)
-          }
+        onOpenChange={() => {
+          setDialog(undefined)
         }}
       >
         <DialogHeader>

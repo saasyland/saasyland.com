@@ -8,7 +8,8 @@ import { starCountQuery } from "~/src/integrations/github/github.queries"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/landing-page/components/hover-highlight"
+import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
+import { HighlightItem } from "~/src/presentation/components/custom/highlight/highlight-item"
 
 const FACT_KEYS = ["coverage", "tests", "locales", "components", "mau", "stars", "upkeep", "types", "tables", "admin"] as const
 

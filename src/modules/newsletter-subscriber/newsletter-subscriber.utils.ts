@@ -1,7 +1,7 @@
 import type { Locale } from "~/src/integrations/use-intl/i18n.config"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { CONFIRMATION_WINDOW_IN_HOURS, NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
+import { CONFIRMATION_WINDOW_IN_HOURS, NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 
 import { ROUTES } from "~/src/routes"
 

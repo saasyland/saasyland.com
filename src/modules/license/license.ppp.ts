@@ -6,9 +6,8 @@ import type { Discount } from "@polar-sh/sdk/models/components/discount.js"
 
 import { polar } from "~/src/integrations/polar/polar.config"
 
+import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
 import { getPppPercentOff } from "~/src/modules/_core/constants/pricing"
-
-export const COUNTRY_HEADER = "cf-ipcountry"
 
 const BASIS_POINTS_PER_PERCENT = 100
 const DISCOUNT_PAGE_SIZE = 100

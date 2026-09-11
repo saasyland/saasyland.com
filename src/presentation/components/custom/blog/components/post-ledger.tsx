@@ -7,7 +7,8 @@ import type { BlogPostSummary as BlogPost } from "~/src/integrations/fumadocs/fu
 
 import { summaryFromFrontmatter } from "~/src/lib/blog"
 
-import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/landing-page/components/hover-highlight"
+import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
+import { HighlightItem } from "~/src/presentation/components/custom/highlight/highlight-item"
 
 interface PostRowProps {
   readonly post: BlogPost

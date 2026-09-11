@@ -34,7 +34,12 @@ export const VerifyEmailPanel = ({ email = "", invalid = false }: { readonly ema
 
   return (
     <div className="flex flex-col gap-6" data-testid="verify-email-pending">
-      <p className={cn("text-body text-pretty", invalid ? "text-destructive" : "text-muted-foreground")}>
+      <p
+        className={cn("text-body text-pretty", {
+          "text-destructive": invalid,
+          "text-muted-foreground": !invalid,
+        })}
+      >
         {t(invalid ? "form.invalidToken" : "form.pendingDescription")}
       </p>
 

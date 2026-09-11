@@ -3,8 +3,9 @@ import type { JSX } from "react"
 import { Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
+import { HighlightItem } from "~/src/presentation/components/custom/highlight/highlight-item"
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
-import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/landing-page/components/hover-highlight"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
 const RECORD_ITEMS = ["coverage", "gate", "suites", "locales", "auth", "author"] as const
@@ -44,7 +45,7 @@ export const RecordSection = (): JSX.Element => {
             ))}
           </HighlightGroup>
 
-          <ConceptLoop className="mt-12 max-w-2xl max-sm:hidden" name="record-audit" />
+          <ConceptLoop className="mt-12 max-w-2xl max-sm:hidden" name="record-audit" sizes="(min-width: 48rem) 42rem, calc(100vw - 3rem)" />
         </Reveal>
       </div>
     </section>

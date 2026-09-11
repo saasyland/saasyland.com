@@ -5,13 +5,16 @@ import * as m from "motion/react-m"
 
 import { cn } from "~/src/lib/cn"
 
-import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
-import { PRESS } from "~/src/presentation/components/custom/landing-page/constants/motion-tokens"
+import { ConceptLoop, type ConceptLoopName } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
+import { PRESS } from "~/src/presentation/components/custom/motion-tokens"
 
 const HIGHLIGHT_ID = "line-station-highlight"
 
 const HIDDEN = { opacity: 0 }
 const SHOWN = { opacity: 1 }
+
+const STATION_IMAGE_SIZES =
+  "(min-width: 80rem) calc((80rem - 5rem - 3px) / 2 - 5rem), (min-width: 64rem) calc((100vw - 5rem - 3px) / 2 - 5rem), (min-width: 48rem) calc(100vw - 10rem - 2px), calc(100vw - 6.5rem - 2px)"
 
 interface StationGridState {
   readonly hovered?: string | undefined
@@ -58,7 +61,7 @@ const SpecChip = ({ label }: SpecChipProps): JSX.Element => (
 interface StationCellProps {
   readonly body: string
   readonly id: string
-  readonly loop: string
+  readonly loop: ConceptLoopName
   readonly offsetSeconds: number
   readonly spec: string
   readonly title: string
@@ -70,7 +73,7 @@ export const StationCell = ({ body, id, loop, offsetSeconds, spec, title }: Stat
 
   return (
     <div
-      className={cn("relative bg-background", isLit && "z-10")}
+      className={cn("relative bg-background", { "z-10": isLit })}
       onMouseEnter={() => {
         setHovered(id)
       }}
@@ -94,15 +97,15 @@ export const StationCell = ({ body, id, loop, offsetSeconds, spec, title }: Stat
       <div className="relative flex h-full flex-col p-7 md:p-10">
         <h3 className="text-headline-support text-balance text-foreground">{title}</h3>
         <p
-          className={cn(
-            "mt-4 max-w-[44ch] text-body text-pretty transition-colors duration-400 ease-exp",
-            isLit ? "text-foreground" : "text-muted-foreground",
-          )}
+          className={cn("mt-4 max-w-[44ch] text-body text-pretty transition-colors duration-400 ease-exp", {
+            "text-foreground": isLit,
+            "text-muted-foreground": !isLit,
+          })}
         >
           {body}
         </p>
         <SpecChip label={spec} />
-        <ConceptLoop className="mt-7 max-sm:hidden md:mt-9" name={loop} offsetSeconds={offsetSeconds} />
+        <ConceptLoop className="mt-7 max-sm:hidden md:mt-9" name={loop} offsetSeconds={offsetSeconds} sizes={STATION_IMAGE_SIZES} />
       </div>
     </div>
   )

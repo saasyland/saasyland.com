@@ -20,7 +20,10 @@ const SurfaceSwatch = ({ isSelected, label, surfaceClassName }: SurfaceSwatchPro
   <button
     aria-label={label}
     aria-pressed={isSelected}
-    className={cn(SWATCH_BASE, surfaceClassName, isSelected ? "border-ring" : "border-border hover:border-muted-foreground")}
+    className={cn(SWATCH_BASE, surfaceClassName, {
+      "border-border hover:border-muted-foreground": !isSelected,
+      "border-ring": isSelected,
+    })}
     type="button"
   >
     {isSelected ? <span aria-hidden className="size-1.5 bg-primary" /> : undefined}

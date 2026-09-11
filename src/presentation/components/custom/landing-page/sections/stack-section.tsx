@@ -47,10 +47,10 @@ export const StackSection = (): JSX.Element => {
                 {LINE_STACK.map((name, index) => (
                   <span
                     key={`${set}-${name}`}
-                    className={cn(
-                      "px-5 text-body-sm font-medium whitespace-nowrap md:px-7",
-                      index % RECESSED_INTERVAL === RECESSED_POSITION ? "text-muted-foreground/60" : "text-muted-foreground",
-                    )}
+                    className={cn("px-5 text-body-sm font-medium whitespace-nowrap md:px-7", {
+                      "text-muted-foreground": index % RECESSED_INTERVAL !== RECESSED_POSITION,
+                      "text-muted-foreground/80": index % RECESSED_INTERVAL === RECESSED_POSITION,
+                    })}
                   >
                     {name}
                   </span>

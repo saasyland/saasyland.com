@@ -11,11 +11,19 @@ const projectRoot = import.meta.dirname
 
 const isE2E = process.env["E2E"] === "true"
 const usesRemoteBindings = !isE2E && process.env["CLOUDFLARE_ENV"] === "development"
-const testEnvPath = resolve(projectRoot, ".env.test")
-const testEnv = isE2E ? parseEnv(readFileSync(testEnvPath, "utf8")) : {}
-const testBindings = Object.fromEntries(Object.entries(testEnv).filter((entry): entry is [string, string] => entry[1] !== undefined))
+const testBindings: Record<string, string> = {}
 
-const UNLISTED_ROUTES = [ROUTES.ADMIN, ROUTES.APP, "/auth", "/newsletter", "/api"]
+if (isE2E) {
+  const testEnv = parseEnv(readFileSync(resolve(projectRoot, ".env.test"), "utf8"))
+
+  for (const [key, value] of Object.entries(testEnv)) {
+    if (value !== undefined) {
+      testBindings[key] = value
+    }
+  }
+}
+
+const UNLISTED_ROUTES = [ROUTES.ADMIN, ROUTES.APP, ROUTES.AUTH, ROUTES.NEWSLETTER, ROUTES.API]
 
 const ignorePatterns = [
   "**/*.d.ts",
@@ -280,6 +288,9 @@ export default defineConfig({
               )
             },
           },
+          router: {
+            codeSplittingOptions: { defaultBehavior: [["component"], ["loader"], ["errorComponent"], ["notFoundComponent"]] },
+          },
         }),
         viteReact(),
       ]
@@ -299,24 +310,10 @@ export default defineConfig({
         "**/*.{test,spec}.{ts,tsx}",
         "**/__test__/**",
         "**/*.d.ts",
-        "**/migrations/**",
-        "src/routes/**",
         "src/routeTree.gen.ts",
-        "src/presentation/components/custom/admin/**",
-        "src/presentation/components/custom/app/**",
-        "src/presentation/components/custom/auth/**",
-        "src/presentation/components/custom/blog/**",
-        "src/presentation/components/custom/landing-page/**",
         "src/presentation/components/shadcn/**",
-        "src/integrations/drizzle-orm/migrations/**",
-        "src/integrations/fumadocs/**",
         "src/integrations/use-intl/*.d.json.ts",
-        "src/providers/translations-provider.tsx",
-        "src/presentation/styles/**",
-        "src/types/**",
-        "src/modules/**/*.types.ts",
         "src/platform/testing/**",
-        "e2e/**",
       ],
       include: ["src/**/*.{ts,tsx}"],
       provider: "v8",
@@ -326,30 +323,6 @@ export default defineConfig({
         branches: 100,
         functions: 100,
         lines: 100,
-        "src/integrations/better-auth/auth.access.ts": {
-          branches: 100,
-          functions: 100,
-          lines: 100,
-          statements: 100,
-        },
-        "src/integrations/use-intl/i18n.locale.ts": {
-          branches: 100,
-          functions: 100,
-          lines: 100,
-          statements: 100,
-        },
-        "src/integrations/use-intl/i18n.utils.ts": {
-          branches: 100,
-          functions: 100,
-          lines: 100,
-          statements: 100,
-        },
-        "src/lib/_utils/**": {
-          branches: 100,
-          functions: 100,
-          lines: 100,
-          statements: 100,
-        },
         statements: 100,
       },
     },

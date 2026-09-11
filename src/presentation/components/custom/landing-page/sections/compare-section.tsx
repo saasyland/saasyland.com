@@ -3,7 +3,8 @@ import type { JSX } from "react"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/landing-page/components/hover-highlight"
+import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
+import { HighlightItem } from "~/src/presentation/components/custom/highlight/highlight-item"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
 import { ROUTES } from "~/src/routes"
@@ -86,10 +87,10 @@ export const CompareSection = (): JSX.Element => {
 
           <div className="mt-14 grid gap-x-16 gap-y-10 md:mt-16 md:grid-cols-2 md:items-start">
             <p className="text-statement text-pretty text-foreground">{t("close")}</p>
-            <aside className="rounded-xl border border-border bg-card p-7 md:p-8">
+            <div className="rounded-xl border border-border bg-card p-7 md:p-8">
               <h3 className="text-title text-foreground">{t("notFor.title")}</h3>
               <p className="mt-3 text-body text-pretty text-muted-foreground">{t("notFor.body")}</p>
-            </aside>
+            </div>
           </div>
 
           <a

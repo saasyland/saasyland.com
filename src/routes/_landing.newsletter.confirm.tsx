@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "use-intl/react"
 import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
+import { NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { confirmNewsletterSubscription } from "~/src/modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription"
 
 import { ROUTES } from "~/src/routes"

@@ -1,17 +1,10 @@
-import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { emailSchema } from "~/src/integrations/better-auth/auth.zod"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import {
-  NEWSLETTER_TOKEN_LENGTH,
-  newsletterSourceEnum,
-  newsletterSubscriber,
-} from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
+import { NEWSLETTER_TOKEN_LENGTH, newsletterSourceEnum } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { NEWSLETTER_SUBSCRIBER_VALIDATION_MESSAGE } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.validations"
-
-const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
 
 const localeField = zod.enum(I18N.SUPPORTED_LOCALES)
 
@@ -36,16 +29,9 @@ const setNewsletterSubscription = zod.object({
   locale: localeField,
 })
 
-const insert = createInsertSchema(newsletterSubscriber)
-const select = createSelectSchema(newsletterSubscriber)
-const update = createUpdateSchema(newsletterSubscriber)
-
 export const newsletterSubscriberZodSchemas = {
   confirmNewsletterSubscription,
-  insert,
-  select,
   setNewsletterSubscription,
   subscribeToNewsletter,
   unsubscribeFromNewsletter,
-  update,
 }

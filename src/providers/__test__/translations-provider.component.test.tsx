@@ -9,13 +9,14 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 import { TranslationsProvider } from "~/src/providers/translations-provider"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
 
 const Probe = () => {
   const t = useTranslations("common")
   return <span>{t("loading")}</span>
 }
 it("loads shared translations through React Query before rendering consumers", async () => {
-  renderWithRouter(
+  const { queryClient } = renderWithRouter(
     <Suspense fallback="pending">
       <TranslationsProvider>
         <Probe />
@@ -23,4 +24,7 @@ it("loads shared translations through React Query before rendering consumers", a
     </Suspense>,
   )
   expect(await screen.findByText(getTestMessages("en-US").common.loading)).toBeInTheDocument()
+  expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "common" }).queryKey)).toEqual(
+    getTestMessages("en-US").common,
+  )
 })

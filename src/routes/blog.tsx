@@ -6,9 +6,11 @@ import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { BlogHeader } from "~/src/presentation/components/custom/blog/components/blog-header"
-import { Footer } from "~/src/presentation/components/custom/landing-page/components/footer"
-import { MotionProvider } from "~/src/presentation/components/custom/landing-page/components/motion-provider"
-import { PageFrame } from "~/src/presentation/components/custom/landing-page/components/page-frame"
+import { Footer } from "~/src/presentation/components/custom/footer/footer"
+import { MotionProvider } from "~/src/presentation/components/custom/motion-provider"
+import { PageFrame } from "~/src/presentation/components/custom/page-frame"
+
+import docsCss from "~/src/presentation/styles/docs.css?url"
 
 const BlogLayout = (): JSX.Element => (
   <div className="dark relative isolate min-h-svh bg-background text-foreground">
@@ -23,8 +25,11 @@ const BlogLayout = (): JSX.Element => (
   </div>
 )
 
+const DOCS_STYLESHEET = [{ href: docsCss, rel: "stylesheet" as const }]
+
 export const Route = createFileRoute("/blog")({
   component: BlogLayout,
+  head: () => ({ links: DOCS_STYLESHEET }),
   loader: ({ context }) =>
     preloadNamespaces({
       locale: getCurrentLocale(),

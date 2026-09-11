@@ -20,7 +20,10 @@ const AlignButton = ({ icon: Icon, isActive, label }: AlignButtonProps): JSX.Ele
   <button
     aria-label={label}
     aria-pressed={isActive}
-    className={cn(ALIGN_BUTTON_BASE, isActive ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
+    className={cn(ALIGN_BUTTON_BASE, {
+      "bg-muted text-foreground": isActive,
+      "text-muted-foreground hover:text-foreground": !isActive,
+    })}
     type="button"
   >
     <Icon aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />

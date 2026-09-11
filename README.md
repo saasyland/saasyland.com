@@ -25,7 +25,6 @@ Development uses the preview D1 and KV bindings through Cloudflare's remote bind
 ```text
 content/                         Localized MDX documentation and blog posts
 messages/{locale}/               Dotted translation namespaces
-public/motion/                   Published landing page videos and posters
 remotion/                        Video authoring source and its isolated toolchain
 src/
   routes/                        Flat TanStack file routes, loaders, guards, and HTTP handlers
@@ -34,6 +33,7 @@ src/
   integrations/{vendor}/         Vendor setup, adapters, and shared integration helpers
   modules/{feature}/             Schemas, validation, constants, and use-cases/*.ts
   presentation/
+    assets/motion/               Published landing page videos and posters
     branding/                    Application identity and public URL
     components/shadcn/           UI primitives
     components/custom/           Feature and shared components
@@ -82,9 +82,11 @@ bun run test:e2e           # Chromium and WebKit
 
 Tests run through Vite+ and retain separate node, integration, and component projects. The RPC bridge runs TanStack's real validation and middleware pipeline. The D1 test adapter executes the checked-in SQLite migrations; browser tests build against `.env.test` and separate local Cloudflare test bindings. Tests never require a remote database. External provider calls must be mocked when exercising mutations.
 
+Coverage includes TypeScript application code under `src`, including routes, custom UI, providers, and integrations. Only tests and test infrastructure, generated router and declaration files, and the shadcn primitives are excluded. The 100% thresholds are CI requirements; the measured results are in `coverage/index.html`. Playwright runs separately and does not contribute to this coverage report.
+
 ## Landing page videos
 
-[`remotion/`](remotion/README.md) contains the editable video source and a separate, locked npm toolchain. Install it only when editing videos. Remotion and its rendering dependencies are not imported by the app or installed for Cloudflare deployment; the website serves the finished videos and posters from `public/motion/`.
+[`remotion/`](remotion/README.md) contains the editable video source and a separate, locked npm toolchain. Install it only when editing videos. Remotion and its rendering dependencies are not imported by the app or installed for Cloudflare deployment. Finished videos and posters live in `src/presentation/assets/motion/`; Vite emits them with content hashes under `/assets/` for immutable caching.
 
 Keep both the source and published assets in Git. The editor's dependencies, caches, bundles and temporary renders are ignored. Video changes have their own CI formatting, lint, type and bundle checks. Rendering remains an explicit authoring step, so ordinary app builds use the checked-in assets.
 

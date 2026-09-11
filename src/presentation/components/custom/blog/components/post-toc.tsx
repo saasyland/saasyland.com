@@ -15,7 +15,10 @@ export const PostTocItem = ({ children, depth, href }: PostTocItemProps): JSX.El
     <a
       className={cn(
         "block border-l border-border py-1.5 text-body-sm text-pretty text-muted-foreground transition-colors duration-200 ease-exp hover:border-ring hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-        depth > TOP_DEPTH ? "pl-7" : "pl-4",
+        {
+          "pl-4": depth <= TOP_DEPTH,
+          "pl-7": depth > TOP_DEPTH,
+        },
       )}
       href={href}
     >

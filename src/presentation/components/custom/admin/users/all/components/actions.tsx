@@ -19,7 +19,6 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
@@ -129,18 +128,16 @@ export const UserRowActions = ({ row }: Readonly<CellContext<DataTableFeatures, 
       </DropdownMenuTrigger>
 
       <AlertDialog isOpen={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("actions.deleteDialog.title")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("actions.deleteDialog.description", { name: user.name })}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("actions.deleteDialog.cancel")}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" isDisabled={isPending} onPress={handleDelete}>
-              {isPending ? <Loader2 className="size-4 animate-spin" /> : t("actions.deleteDialog.confirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("actions.deleteDialog.title")}</AlertDialogTitle>
+          <AlertDialogDescription>{t("actions.deleteDialog.description", { name: user.name })}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("actions.deleteDialog.cancel")}</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" isDisabled={isPending} onPress={handleDelete}>
+            {isPending ? <Loader2 className="size-4 animate-spin" /> : t("actions.deleteDialog.confirm")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
       </AlertDialog>
 
       <UserResetPasswordDialog isOpen={resetPasswordOpen} onOpenChange={setResetPasswordOpen} userId={user.id} userName={user.name} />

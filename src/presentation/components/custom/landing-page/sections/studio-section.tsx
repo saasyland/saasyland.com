@@ -16,6 +16,9 @@ const LESSON_NUMBER_PAD = 2
 
 const SECOND_CARD_DELAY_MS = 100
 
+const BUILDER_IMAGE_SIZES =
+  "(min-width: 80rem) calc((80rem - 5rem - 2px) * 1.35 / 2.35 - 4.5rem - 3px), (min-width: 64rem) calc((100vw - 5rem - 2px) * 1.35 / 2.35 - 4.5rem - 3px), (min-width: 48rem) calc(100vw - 9.5rem - 4px), calc(100vw - 6.5rem - 4px)"
+
 interface BuilderCardProps {
   readonly body: string
   readonly imageAlt: string
@@ -26,7 +29,12 @@ interface BuilderCardProps {
 const BuilderCard = ({ body, imageAlt, spec, title }: BuilderCardProps): JSX.Element => (
   <article className="grid overflow-hidden rounded-xl border border-border bg-card lg:grid-cols-[1.35fr_1fr] lg:divide-x lg:divide-border">
     <div className="flex items-center border-b border-border p-7 md:p-9 lg:border-b-0">
-      <ConceptLoop className="overflow-hidden rounded-lg border border-border" label={imageAlt} name="page-designer" />
+      <ConceptLoop
+        className="overflow-hidden rounded-lg border border-border"
+        label={imageAlt}
+        name="page-designer"
+        sizes={BUILDER_IMAGE_SIZES}
+      />
     </div>
     <div className="flex flex-col justify-center p-7 md:p-9">
       <h3 className="text-headline-support text-balance text-foreground">{title}</h3>
@@ -63,7 +71,14 @@ const LessonRow = ({ index, isPreview, lockedLabel, title }: LessonRowProps): JS
     <span aria-hidden className="font-mono text-spec text-muted-foreground/60 tabular-nums">
       {String(index + LESSON_NUMBER_BASE).padStart(LESSON_NUMBER_PAD, "0")}
     </span>
-    <span className={cn("min-w-0 flex-1 text-body-sm text-pretty", isPreview ? "text-foreground" : "text-muted-foreground")}>{title}</span>
+    <span
+      className={cn("min-w-0 flex-1 text-body-sm text-pretty", {
+        "text-foreground": isPreview,
+        "text-muted-foreground": !isPreview,
+      })}
+    >
+      {title}
+    </span>
     <LessonMarker isPreview={isPreview} lockedLabel={lockedLabel} />
   </li>
 )

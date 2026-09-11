@@ -14,6 +14,7 @@ export const ROUTES = {
   ADMIN_USERS_INVITATIONS: "/admin/users/invitations",
   ADMIN_USERS_ROLES: "/admin/users/roles",
   ADMIN_USERS_SECURITY: "/admin/users/security",
+  API: "/api",
   API_AUTH: {
     CHANGE_EMAIL: "/change-email",
     CHANGE_PASSWORD: "/change-password",
@@ -31,6 +32,7 @@ export const ROUTES = {
   API_AUTH_VERIFY_EMAIL: "/api/auth/verify-email",
   APP: "/app",
   APP_LICENSE: "/app/license",
+  AUTH: "/auth",
   AUTH_CALLBACK: "/auth/callback",
   BLOG: "/blog",
   DOCS: "/docs",
@@ -43,6 +45,7 @@ export const ROUTES = {
   HOME_QUALITY_SECTION: "#quality",
   HOME_TOOLKIT_SECTION: "#toolkit",
   LICENCE: "/licence",
+  NEWSLETTER: "/newsletter",
   NEWSLETTER_CONFIRM: "/newsletter/confirm",
   NEWSLETTER_UNSUBSCRIBE: "/newsletter/unsubscribe",
   PRIVACY: "/privacy",

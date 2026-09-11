@@ -31,7 +31,10 @@ test("localized newsletter signup, confirmation and unsubscribe survive hydratio
   await landingPage.goto("/pl-PL")
 
   const footer = page.getByRole("contentinfo")
-  await footer.getByRole("textbox", { exact: true, name: "Adres e-mail" }).fill(email)
+  const emailField = footer.getByRole("textbox", { exact: true, name: "Adres e-mail" })
+  await emailField.scrollIntoViewIfNeeded()
+  await expect(emailField).toBeEditable()
+  await emailField.fill(email)
   await footer.getByRole("button", { exact: true, name: "Zapisz się" }).click()
   await expect.poll(async () => (await readEmails(request, email)).length).toBe(1)
   const [confirmation] = await readEmails(request, email)

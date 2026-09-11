@@ -211,4 +211,4 @@ const AFTER_FIRST_TIMEZONE = 1
 
 export const TIMEZONE_CODES = [TIMEZONES[0].iana, ...TIMEZONES.slice(AFTER_FIRST_TIMEZONE).map((timezone) => timezone.iana)] as const
 
-export const DEFAULT_TIMEZONE_CODE: TimezoneCode = "UTC"
+export { DEFAULT_TIMEZONE_CODE } from "~/src/modules/_core/constants/timezone.default"

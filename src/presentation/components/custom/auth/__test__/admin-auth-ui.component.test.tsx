@@ -11,6 +11,7 @@ import { AnalyticsChartBar } from "~/src/presentation/components/custom/admin/an
 import { RegionProgressBar } from "~/src/presentation/components/custom/admin/analytics/components/region-progress-bar"
 import { ProductStatusBadge } from "~/src/presentation/components/custom/admin/products/components/product-status-badge"
 import { AuthGateFrame } from "~/src/presentation/components/custom/auth/components/auth-gate-frame"
+import { AuthHeaderFallback } from "~/src/presentation/components/custom/auth/components/auth-header"
 import { AuthSeparator } from "~/src/presentation/components/custom/auth/components/auth-separator"
 import { PasswordRequirements } from "~/src/presentation/components/custom/auth/components/password-requirements"
 
@@ -21,6 +22,14 @@ const MessagesProvider = ({ children }: Readonly<{ children: ReactNode }>) => (
 )
 
 const renderWithMessages = (ui: ReactNode): ReturnType<typeof render> => render(ui, { wrapper: MessagesProvider })
+
+it("keeps the brand visible while the header is loading without announcing placeholder controls", () => {
+  render(<AuthHeaderFallback />)
+  expect(screen.getByText("SaaSy Land")).toBeVisible()
+  expect(screen.getByRole("banner")).toBeInTheDocument()
+  expect(screen.queryByRole("link")).not.toBeInTheDocument()
+  expect(screen.queryByRole("button")).not.toBeInTheDocument()
+})
 
 describe("product status badge component", () => {
   it("renders the status label with a colored badge", () => {

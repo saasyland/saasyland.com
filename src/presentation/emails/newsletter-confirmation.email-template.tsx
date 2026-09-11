@@ -6,7 +6,7 @@ import { createTranslator } from "use-intl"
 import { I18N, type Locale } from "~/src/integrations/use-intl/i18n.config"
 import { getEmailMessages } from "~/src/integrations/use-intl/i18n.emails"
 
-import { NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
+import { NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { confirmationUrl } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.utils"
 
 import { APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"

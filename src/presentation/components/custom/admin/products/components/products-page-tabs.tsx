@@ -22,7 +22,7 @@ interface ProductsPageTabsProps {
   readonly labels: Readonly<Record<ProductTab, string>>
 }
 
-const ActivePanel = ({ activeTab, categories, products }: Omit<ProductsPageTabsProps, "labels">): JSX.Element | undefined => {
+const ActivePanel = ({ activeTab, categories, products }: Omit<ProductsPageTabsProps, "labels">): JSX.Element => {
   switch (activeTab) {
     case "all":
     case "drafts": {
@@ -42,9 +42,6 @@ const ActivePanel = ({ activeTab, categories, products }: Omit<ProductsPageTabsP
     }
     case "courses": {
       return <ProductsCoursesTab />
-    }
-    default: {
-      return undefined
     }
   }
 }

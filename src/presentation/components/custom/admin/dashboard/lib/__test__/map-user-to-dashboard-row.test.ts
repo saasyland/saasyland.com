@@ -29,6 +29,12 @@ const makeRow = (overrides: Partial<User["select"]> = {}): User["select"] => ({
 })
 
 describe("map user row to dashboard row", () => {
+  it.each([
+    ["", "?"],
+    [" Grace ", "GR"],
+  ])("uses fallback initials for a missing or single name: %s", (name, initials) => {
+    expect(mapUserRowToDashboardRow(makeRow({ image: "", name })).initials).toBe(initials)
+  })
   it("maps core fields from the admin row mapper", () => {
     expect.hasAssertions()
 

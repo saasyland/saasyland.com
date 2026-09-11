@@ -43,6 +43,7 @@ describe("admin status color helpers", () => {
     expect(getBlogPostStatusDotClass("scheduled")).toContain("amber")
     expect(getBlogPostStatusDotClass("draft")).toContain("muted-foreground")
     expect(getBlogPostStatusBadgeClass("published")).toContain("text-ring")
+    expect(getBlogPostStatusBadgeClass("scheduled")).toContain("amber")
     expect(getBlogPostStatusBadgeClass("draft")).toContain("text-muted-foreground")
   })
 

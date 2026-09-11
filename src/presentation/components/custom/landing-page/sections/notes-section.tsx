@@ -10,7 +10,8 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { isPublished, sortPostsByDateDesc, summaryFromFrontmatter } from "~/src/lib/blog"
 
-import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/landing-page/components/hover-highlight"
+import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
+import { HighlightItem } from "~/src/presentation/components/custom/highlight/highlight-item"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
 import { ROUTES } from "~/src/routes"

@@ -17,10 +17,10 @@ const PasswordRule = ({ label, satisfied, stateLabel }: Readonly<PasswordRulePro
   <li className="flex items-start gap-2.5">
     <span
       aria-hidden
-      className={cn(
-        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-xs border transition-colors duration-200 ease-exp",
-        satisfied ? "border-foreground bg-foreground text-background" : "border-muted-foreground text-muted-foreground",
-      )}
+      className={cn("mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-xs border transition-colors duration-200 ease-exp", {
+        "border-foreground bg-foreground text-background": satisfied,
+        "border-muted-foreground text-muted-foreground": !satisfied,
+      })}
     >
       {satisfied ? <Check className="size-3" strokeWidth={2} /> : <Minus className="size-3" strokeWidth={2} />}
     </span>

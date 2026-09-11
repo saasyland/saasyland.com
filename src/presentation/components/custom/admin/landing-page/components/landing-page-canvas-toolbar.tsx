@@ -22,7 +22,10 @@ const ViewportButton = ({ icon: Icon, isActive, label }: ViewportButtonProps): J
   <button
     aria-label={label}
     aria-pressed={isActive}
-    className={cn(VIEWPORT_BUTTON_BASE, isActive ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
+    className={cn(VIEWPORT_BUTTON_BASE, {
+      "bg-muted text-foreground": isActive,
+      "text-muted-foreground hover:text-foreground": !isActive,
+    })}
     type="button"
   >
     <Icon aria-hidden className="size-4" strokeWidth={ICON_STROKE_WIDTH} />

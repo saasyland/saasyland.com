@@ -7,9 +7,9 @@ import { CLI_CHOICES, CLI_EXTRAS, CLI_MODULES, NONE, PACKAGE_MANAGERS, SCAFFOLD_
 
 import { cn } from "~/src/lib/cn"
 
-import { CopyButton } from "~/src/presentation/components/custom/landing-page/components/copy-button"
+import { CopyButton } from "~/src/presentation/components/custom/copy-button"
 import { RunnerTabs } from "~/src/presentation/components/custom/landing-page/components/runner-tabs"
-import { EXP, EXP_FAST, PRESS, TAP } from "~/src/presentation/components/custom/landing-page/constants/motion-tokens"
+import { EXP, EXP_FAST, PRESS, TAP } from "~/src/presentation/components/custom/motion-tokens"
 
 interface ConfiguratorState {
   readonly extras: readonly string[]
@@ -55,7 +55,9 @@ const reconcile = (taken: Taken): Taken => {
     const isLegal = current !== undefined && isVisible(current, next) && !isUnavailable(current, next)
     if (!isLegal) {
       const fallback: ChoiceOption | undefined = choice.options.find((option) => isVisible(option, next) && !isUnavailable(option, next))
-      next[choice.id] = fallback?.id ?? next[choice.id] ?? ""
+      if (fallback) {
+        next[choice.id] = fallback.id
+      }
     }
   }
   return next
@@ -101,13 +103,10 @@ export const CliChoiceOption = ({ choiceId, label, optionId, unavailableReason }
   return (
     <m.button
       aria-pressed={isTaken}
-      className={cn(
-        CHIP_CLASSNAME,
-        "cursor-pointer",
-        isTaken
-          ? "border-transparent bg-muted font-medium text-foreground"
-          : "border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground",
-      )}
+      className={cn(CHIP_CLASSNAME, "cursor-pointer", {
+        "border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground": !isTaken,
+        "border-transparent bg-muted font-medium text-foreground": isTaken,
+      })}
       onClick={() => {
         select(choiceId, optionId)
       }}
@@ -148,13 +147,10 @@ export const CliExtraOption = ({ extraId, label, unavailableReason }: CliExtraOp
   return (
     <m.button
       aria-pressed={isOn}
-      className={cn(
-        CHIP_CLASSNAME,
-        "cursor-pointer",
-        isOn
-          ? "border-transparent bg-muted font-medium text-foreground"
-          : "border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground",
-      )}
+      className={cn(CHIP_CLASSNAME, "cursor-pointer", {
+        "border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground": !isOn,
+        "border-transparent bg-muted font-medium text-foreground": isOn,
+      })}
       onClick={() => {
         toggle(extraId)
       }}
@@ -288,7 +284,10 @@ const CommandBlock = ({ copiedLabel, copyLabel, label, lines, value }: CommandBl
         $
       </span>
       {lines.map((line, index) => (
-        <span className={cn("whitespace-pre-wrap", index > 0 ? "block pl-6 text-muted-foreground" : "text-foreground")} key={line}>
+        <span
+          className={cn("whitespace-pre-wrap", { "block pl-6 text-muted-foreground": index > 0, "text-foreground": index <= 0 })}
+          key={line}
+        >
           {line}
           {index < lines.length - LAST_LINE_OFFSET ? " \\" : ""}
         </span>
@@ -357,19 +356,17 @@ export const CliConfigurator = ({
     reconcile(Object.fromEntries(CLI_CHOICES.map((choice) => [choice.id, choice.options[0].id]))),
   )
   const [extras, setExtras] = useState<readonly string[]>([])
-  const [runner, setRunner] = useState<string>(PACKAGE_MANAGERS[0].id)
-
-  const chosenRunner = PACKAGE_MANAGERS.find((manager) => manager.id === runner) ?? PACKAGE_MANAGERS[0]
+  const [runner, setRunner] = useState<(typeof PACKAGE_MANAGERS)[number]>(PACKAGE_MANAGERS[0])
 
   const lines = useMemo(() => {
-    const { exec } = chosenRunner
+    const { exec } = runner
     const flags = CLI_CHOICES.map((choice) => {
       const option = choice.options.find((entry) => entry.id === taken[choice.id])
       return option !== undefined && isVisible(option, taken) ? option.flag : ""
     })
     const added = CLI_EXTRAS.filter((extra) => extras.includes(extra.id) && !isUnavailable(extra, taken)).map((extra) => extra.flag)
     return [`${exec} ${SCAFFOLD_TARGET}`, ...flags.filter((flag) => flag.length > 0), ...added]
-  }, [chosenRunner, extras, taken])
+  }, [runner, extras, taken])
 
   const command = lines.join(" \\\n  ")
 
@@ -386,15 +383,15 @@ export const CliConfigurator = ({
   return (
     <ConfiguratorContext value={state}>
       <div className="overflow-hidden rounded-xl border border-border">
-        <RunnerTabs className="bg-card px-3 py-2 md:px-5" label={runnerLabel} onSelect={setRunner} taken={runner} />
+        <RunnerTabs className="bg-card px-3 py-2 md:px-5" label={runnerLabel} onSelect={setRunner} taken={runner.id} />
 
         <div className="grid divide-y divide-border lg:grid-cols-[1.45fr_1fr] lg:divide-x lg:divide-y-0">
-          <dl className="divide-y divide-border">{children}</dl>
+          <div className="divide-y divide-border">{children}</div>
 
           <div className="flex flex-col divide-y divide-border bg-card">
             <CommandBlock copiedLabel={copiedLabel} copyLabel={copyLabel} label={commandLabel} lines={lines} value={command} />
             <CliRun greenLabel={greenLabel} label={outputLabel} moduleLabel={moduleLabel} />
-            <NextBlock dev={chosenRunner.dev} label={nextLabel} />
+            <NextBlock dev={runner.dev} label={nextLabel} />
           </div>
         </div>
 

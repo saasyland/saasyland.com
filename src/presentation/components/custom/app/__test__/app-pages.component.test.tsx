@@ -12,7 +12,7 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { LICENSE_MUTATION_KEYS, LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS, LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import type { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"
 import {
@@ -152,6 +152,19 @@ describe("app overview", () => {
     })
     expect(toast.error).toHaveBeenCalledWith(messages.errors.action.INTERNAL_ERROR)
   })
+
+  it("refreshes license data before opening the successful checkout URL", async () => {
+    checkoutMock.mockResolvedValue({ url: "#checkout" })
+    const { queryClient, user } = renderPage(<Overview />, JSON_NULL)
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries")
+    await user.click(screen.getByRole("button", { name: licenseMessages.buy.core }))
+    await waitFor(() => {
+      expect(globalThis.location.hash).toBe("#checkout")
+    })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: LICENSE_QUERY_KEYS.ALL })
+    expect(checkoutMock).toHaveBeenCalledExactlyOnceWith({ tier: LICENSE_TIER.CORE }, expect.anything())
+    globalThis.history.replaceState({}, "", "/")
+  })
 })
 
 describe("license page", () => {
@@ -194,5 +207,47 @@ describe("license page", () => {
     expect(activationsMock).toHaveBeenCalledOnce()
     expect(screen.getByText(licenseMessages.activations.none)).toBeVisible()
     expect(toast.success).toHaveBeenCalledWith(licenseMessages.activations.success)
+  })
+
+  it("shows revoked and pending licenses honestly, without a machine list before provisioning", () => {
+    renderPage(<LicensePage />, { ...ownedLicense, key: JSON_NULL, polarLicenseKeyId: JSON_NULL, status: LICENSE_STATUS.REVOKED })
+    expect(screen.getByText(licenseMessages.revoked)).toBeVisible()
+    expect(screen.getByText(licenseMessages.pending)).toBeVisible()
+    expect(screen.queryByRole("heading", { name: licenseMessages.activations.title })).not.toBeInTheDocument()
+  })
+
+  it("supports unlimited activations and keeps the machine when deactivation fails", async () => {
+    const request = Promise.withResolvers<{ deactivated: true }>()
+    deactivateMock.mockReturnValueOnce(request.promise)
+    const { queryClient, user } = renderPage(<LicensePage />, ownedLicense)
+    act(() => {
+      queryClient.setQueryData(licenseActivationsQuery.queryKey, {
+        activations: [
+          {
+            createdAt: new Date("2026-09-08T10:00:00Z"),
+            id: "activation-2",
+            label: "Workstation",
+            licenseKeyId: "polar-license-1",
+            meta: {},
+            modifiedAt: JSON_NULL,
+          },
+        ],
+        limitActivations: JSON_NULL,
+      })
+    })
+    expect(await screen.findByText("Workstation")).toBeVisible()
+    expect(screen.getByText("1 in use")).toBeVisible()
+    await user.click(screen.getByRole("button", { name: licenseMessages.activations.deactivate }))
+    expect(screen.getByRole("button", { name: (name) => name.endsWith(licenseMessages.activations.deactivating) })).toBeDisabled()
+    await act(async () => {
+      request.reject(new Error("Deactivation unavailable"))
+      await request.promise.catch(() => {})
+    })
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(messages.errors.action.INTERNAL_ERROR)
+    })
+    expect(screen.getByText("Workstation")).toBeVisible()
+    expect(screen.getByRole("button", { name: licenseMessages.activations.deactivate })).toBeEnabled()
+    expect(activationsMock).not.toHaveBeenCalled()
   })
 })

@@ -1,7 +1,7 @@
 import { type JSX, type ReactNode } from "react"
 /** @vitest-environment jsdom */
 
-import type { SuccessContext } from "@better-fetch/fetch"
+import { BetterFetchError, type ErrorContext, type SuccessContext } from "@better-fetch/fetch"
 import type * as StartServerModule from "@tanstack/react-start/server"
 import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -14,6 +14,7 @@ import { createTestRouter, renderWithRouter as render } from "~/src/platform/tes
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import type * as AuthClient from "~/src/integrations/better-auth/auth.client"
+import { AUTH_ERRORS } from "~/src/integrations/better-auth/auth.errors"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
@@ -229,6 +230,71 @@ vi.mock(import("~/src/integrations/better-auth/auth.client"), async (importOrigi
 })
 
 describe("sign in with password form component", () => {
+  it("lets the user reveal and hide their password without changing it", async () => {
+    setupSignInWithPasswordFormMocks()
+    const user = userEvent.setup()
+    renderWithAuthMessages(<SignInWithPasswordForm />)
+    const input = getPasswordInput("sign-in-password")
+    await user.type(input, TEST_PASSWORD)
+    await user.click(screen.getByRole("button", { name: enMessages.auth.form.showPassword }))
+    expect(input).toHaveAttribute("type", "text")
+    expect(input).toHaveValue(TEST_PASSWORD)
+    await user.click(screen.getByRole("button", { name: enMessages.auth.form.hidePassword }))
+    expect(input).toHaveAttribute("type", "password")
+    expect(signInEmailMock).not.toHaveBeenCalled()
+  })
+
+  it.each(["EMAIL_NOT_VERIFIED", "INVALID_EMAIL_OR_PASSWORD"] as const)("handles %s without entering the workspace", async (code) => {
+    setupSignInWithPasswordFormMocks()
+    signInEmailMock.mockResolvedValueOnce({
+      data: null,
+      error: { code, message: "Sign in rejected", status: 403, statusText: "Forbidden" },
+    })
+    const user = userEvent.setup()
+    renderWithAuthMessages(<SignInWithPasswordForm />)
+    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
+    await user.click(screen.getByTestId("sign-in-form-submit-button"))
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(enMessages.auth.errors[AUTH_ERRORS[code]])
+    })
+    expect(toastSuccessMock).not.toHaveBeenCalled()
+    if (code === "EMAIL_NOT_VERIFIED") {
+      expect(pushMock).toHaveBeenCalledWith({ to: `${ROUTES.VERIFY_EMAIL}?email=${encodeURIComponent(TEST_EMAIL)}` })
+    } else {
+      expect(pushMock).not.toHaveBeenCalled()
+    }
+  })
+
+  it("reports network failures and lets the customer retry", async () => {
+    setupSignInWithPasswordFormMocks()
+    signInEmailMock.mockRejectedValueOnce(new Error("Network unavailable"))
+    const user = userEvent.setup()
+    renderWithAuthMessages(<SignInWithPasswordForm />)
+    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
+    await user.click(screen.getByTestId("sign-in-form-submit-button"))
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(enMessages.errors.action.INTERNAL_ERROR)
+    })
+    expect(screen.getByTestId("sign-in-form-submit-button")).toBeEnabled()
+    expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it("waits for the two-factor challenge instead of announcing a completed sign-in", async () => {
+    setupSignInWithPasswordFormMocks()
+    signInEmailMock.mockResolvedValueOnce({ data: { twoFactorRedirect: true }, error: null })
+    const user = userEvent.setup()
+    renderWithAuthMessages(<SignInWithPasswordForm />)
+    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
+    await user.click(screen.getByTestId("sign-in-form-submit-button"))
+    await waitFor(() => {
+      expect(signInEmailMock).toHaveBeenCalledOnce()
+    })
+    expect(toastSuccessMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
+  })
   it("blocks submit when email is invalid", async () => {
     expect.hasAssertions()
     setupSignInWithPasswordFormMocks()
@@ -266,6 +332,23 @@ describe("sign in with password form component", () => {
 })
 
 describe("sign up with password form component", () => {
+  it("does not show the verification page or celebrate when account creation fails", async () => {
+    setupSignUpWithPasswordFormMocks()
+    toastErrorMock.mockClear()
+    signUpEmailMock.mockRejectedValueOnce(new Error("Sign up unavailable"))
+    const user = userEvent.setup()
+    renderWithAuthMessages(<SignUpWithPasswordForm />)
+    await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
+    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await user.type(getPasswordInput("sign-up-password"), TEST_PASSWORD)
+    await user.type(getPasswordInput("sign-up-confirmPassword"), TEST_PASSWORD)
+    await user.click(screen.getByRole("button", { name: "Continue" }))
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(enMessages.errors.action.INTERNAL_ERROR)
+    })
+    expect(triggerConfettiMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
+  })
   it("blocks submit when passwords do not match", async () => {
     expect.hasAssertions()
     setupSignUpWithPasswordFormMocks()
@@ -371,6 +454,21 @@ describe("forgot password form component", () => {
 })
 
 describe("reset password form component", () => {
+  it("keeps the reset form available when the token is rejected", async () => {
+    setupResetPasswordFormMocks()
+    toastErrorMock.mockClear()
+    resetPasswordMock.mockRejectedValueOnce(new Error("Reset link expired"))
+    const user = userEvent.setup()
+    renderWithAuthMessages(<ResetPasswordForm token={RESET_TOKEN} />)
+    await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
+    await user.type(getPasswordInput("reset-password-confirmPassword"), TEST_PASSWORD)
+    await user.click(screen.getByTestId("reset-password-form-submit-button"))
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(enMessages.errors.action.INTERNAL_ERROR)
+    })
+    expect(screen.getByTestId("reset-password-form-submit-button")).toBeEnabled()
+    expect(pushMock).not.toHaveBeenCalled()
+  })
   it("blocks submit when passwords do not match", async () => {
     expect.hasAssertions()
     setupResetPasswordFormMocks()
@@ -407,6 +505,24 @@ describe("reset password form component", () => {
 })
 
 describe("o auth button component", () => {
+  it("shows the provider error when OAuth cannot start", async () => {
+    setupOAuthButtonMocks()
+    toastErrorMock.mockClear()
+    signInSocialMock.mockImplementationOnce(async ({ fetchOptions }) => {
+      const context: ErrorContext = {
+        ...createAuthSuccessContext(),
+        error: Object.assign(new BetterFetchError(401, "Unauthorized", {}), { code: "INVALID_EMAIL_OR_PASSWORD" }),
+      }
+      await fetchOptions?.onError?.(context)
+    })
+    const user = userEvent.setup()
+    renderWithAuthMessages(<OAuthButton provider="github" Icon={GitHubIconMock} />)
+    await user.click(screen.getByRole("button", { name: /sign in with github/iu }))
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(enMessages.auth.errors.invalidEmailOrPassword)
+    })
+    expect(toastSuccessMock).not.toHaveBeenCalled()
+  })
   it("uses a neutral continue label when creating an account", () => {
     setupOAuthButtonMocks()
     renderWithAuthMessages(<OAuthButton intent="sign-up" provider="github" Icon={GitHubIconMock} />)

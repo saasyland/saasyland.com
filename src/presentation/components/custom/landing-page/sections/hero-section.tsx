@@ -14,6 +14,9 @@ const HERO_TAGS = {
   strong: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong>,
 }
 
+const HERO_IMAGE_SIZES =
+  "(min-width: 80rem) calc(80rem - 5rem - 2px), (min-width: 48rem) calc(100vw - 5rem - 2px), (min-width: 40rem) calc((100vw - 3rem - 2px) * 1.35), calc((100vw - 3rem - 2px) * 1.9)"
+
 export const HeroSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.hero")
 
@@ -23,15 +26,13 @@ export const HeroSection = (): JSX.Element => {
       <div aria-hidden className="field-signal pointer-events-none absolute inset-0" />
 
       <div className="relative mx-auto w-full max-w-7xl px-6 pt-32 pb-16 md:px-10 md:pt-40 md:pb-20">
-        <h1 className="max-w-[11.6em] animate-in text-display-hero text-foreground duration-700 ease-exp fade-in-0 fill-mode-both slide-in-from-bottom-3 motion-reduce:animate-none">
-          {t.rich("title", HERO_TAGS)}
-        </h1>
+        <h1 className="max-w-[11.6em] text-display-hero text-foreground sm:motion-safe:animate-rise">{t.rich("title", HERO_TAGS)}</h1>
 
-        <p className="mt-6 max-w-2xl animate-in text-lead text-pretty text-muted-foreground delay-100 duration-700 ease-exp fade-in-0 fill-mode-both slide-in-from-bottom-3 motion-reduce:animate-none">
+        <p className="mt-6 max-w-2xl text-lead text-pretty text-muted-foreground sm:[--rise-delay:100ms] sm:motion-safe:animate-rise">
           {t.rich("description", HERO_TAGS)}
         </p>
 
-        <div className="mt-9 flex animate-in flex-wrap items-center gap-x-3 gap-y-4 delay-200 duration-700 ease-exp fade-in-0 fill-mode-both slide-in-from-bottom-3 motion-reduce:animate-none">
+        <div className="mt-9 flex flex-wrap items-center gap-x-3 gap-y-4 sm:[--rise-delay:200ms] sm:motion-safe:animate-rise">
           <a
             className="inline-flex h-11 items-center rounded-lg bg-primary px-5 text-body-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-exp hover:bg-primary/88 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px"
             href={ROUTES.HOME_PRICING_SECTION}
@@ -51,12 +52,14 @@ export const HeroSection = (): JSX.Element => {
           </a>
         </div>
 
-        <div className="mt-16 animate-in overflow-hidden rounded-xl border border-border bg-card delay-300 duration-1000 ease-exp fade-in-0 fill-mode-both slide-in-from-bottom-4 motion-reduce:animate-none md:mt-20">
+        <div className="mt-16 overflow-hidden rounded-xl border border-border bg-card sm:[--rise-delay:300ms] sm:[--rise-distance:1rem] sm:[--rise-duration:1000ms] sm:motion-safe:animate-rise md:mt-20">
           <InstallCommand copiedLabel={t("surface.copied")} copyLabel={t("surface.copy")} runnerLabel={t("surface.runner")} />
           <ConceptLoop
             className="w-[190%] max-w-none border-t border-border sm:w-[135%] md:w-full"
             label={t("surface.imageAlt")}
             name="app-tour"
+            preloadMedia="(min-width: 48rem)"
+            sizes={HERO_IMAGE_SIZES}
           />
         </div>
       </div>

@@ -3,7 +3,8 @@ import type { JSX } from "react"
 import { ArrowRight, ArrowUpRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/landing-page/components/hover-highlight"
+import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
+import { HighlightItem } from "~/src/presentation/components/custom/highlight/highlight-item"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
 const GRID_DELAY_MS = 100

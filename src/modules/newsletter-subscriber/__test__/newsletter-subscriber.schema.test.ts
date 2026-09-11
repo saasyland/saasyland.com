@@ -5,8 +5,8 @@ import {
   newsletterLocaleEnum,
   newsletterSourceEnum,
   newsletterStatusEnum,
-  newsletterSubscriber,
-} from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
+} from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
 
 describe("newsletter subscriber schema", () => {
   it("materializes through drizzle adapter", () => {

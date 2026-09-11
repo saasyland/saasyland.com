@@ -23,31 +23,33 @@ const CliGroup = ({ group }: Readonly<{ group: string }>): JSX.Element => {
   return (
     <>
       <CliGroupHeading label={t(`groups.${group}`)} />
-      {CLI_CHOICES.filter((choice) => choice.group === group).map((choice) => (
-        <CliChoiceRow choiceId={choice.id} key={choice.id} label={t(`choices.${choice.id}.label`)}>
-          {choice.options.map((option) => (
-            <CliChoiceOption
-              choiceId={choice.id}
-              key={option.id}
-              label={t(`choices.${choice.id}.options.${option.id}`)}
-              optionId={option.id}
-              unavailableReason={"unavailableWhen" in option ? t(`choices.${choice.id}.unavailable.${option.id}`) : undefined}
-            />
-          ))}
-        </CliChoiceRow>
-      ))}
-      {group === EXTRAS_GROUP && (
-        <CliChoiceRow choiceId={group} label={t("choices.extras.label")}>
-          {CLI_EXTRAS.map((extra) => (
-            <CliExtraOption
-              extraId={extra.id}
-              key={extra.id}
-              label={t(`choices.extras.options.${extra.id}`)}
-              unavailableReason={"unavailableWhen" in extra ? t(`choices.extras.unavailable.${extra.id}`) : undefined}
-            />
-          ))}
-        </CliChoiceRow>
-      )}
+      <dl className="divide-y divide-border">
+        {CLI_CHOICES.filter((choice) => choice.group === group).map((choice) => (
+          <CliChoiceRow choiceId={choice.id} key={choice.id} label={t(`choices.${choice.id}.label`)}>
+            {choice.options.map((option) => (
+              <CliChoiceOption
+                choiceId={choice.id}
+                key={option.id}
+                label={t(`choices.${choice.id}.options.${option.id}`)}
+                optionId={option.id}
+                unavailableReason={"unavailableWhen" in option ? t(`choices.${choice.id}.unavailable.${option.id}`) : undefined}
+              />
+            ))}
+          </CliChoiceRow>
+        ))}
+        {group === EXTRAS_GROUP && (
+          <CliChoiceRow choiceId={group} label={t("choices.extras.label")}>
+            {CLI_EXTRAS.map((extra) => (
+              <CliExtraOption
+                extraId={extra.id}
+                key={extra.id}
+                label={t(`choices.extras.options.${extra.id}`)}
+                unavailableReason={"unavailableWhen" in extra ? t(`choices.extras.unavailable.${extra.id}`) : undefined}
+              />
+            ))}
+          </CliChoiceRow>
+        )}
+      </dl>
     </>
   )
 }

@@ -290,6 +290,7 @@ export default defineConfig({
           },
           router: {
             codeSplittingOptions: { defaultBehavior: [["component"], ["loader"], ["errorComponent"], ["notFoundComponent"]] },
+            routeFileIgnorePattern: "__test__",
           },
         }),
         viteReact(),

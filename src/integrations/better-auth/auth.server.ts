@@ -39,7 +39,7 @@ export const auth = betterAuth({
     encryptOAuthTokens: true,
   },
   advanced: {
-    database: { generateId: () => v7() },
+    database: { generateId: () => v7(), joins: true },
     ipAddress: { ipAddressHeaders: [...TRUSTED_IP_HEADERS] },
   },
   appName: APP_NAME,
@@ -59,7 +59,6 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     sendVerificationEmail: authEmailHandlers.sendVerificationEmail,
   },
-  experimental: { joins: true },
   plugins: [
     admin({
       ac,

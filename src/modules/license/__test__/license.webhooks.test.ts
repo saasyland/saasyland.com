@@ -29,11 +29,11 @@ vi.mock(import("~/src/modules/license/use-cases/grant-license"), () => ({ grantL
 vi.mock(import("~/src/modules/license/use-cases/revoke-license"), () => ({ revokeLicense: useCaseMocks.revokeLicense }))
 
 const orderPayload = (productId: string | null = JSON_NULL, externalId?: string) => ({
-  data: { customer: { externalId }, customerId: "cus_1", id: "ord_1", productId },
+  data: { createdAt: new Date("2026-09-24T10:00:00Z"), customer: { externalId }, customerId: "cus_1", id: "ord_1", productId },
 })
 
 const grantPayload = (licenseKeyId?: string, externalId?: string) => ({
-  data: { customer: { externalId }, id: "grant_1", properties: { licenseKeyId } },
+  data: { customer: { externalId }, id: "grant_1", orderId: "ord_1", properties: { licenseKeyId } },
 })
 
 const resetUseCases = (): void => {
@@ -52,6 +52,7 @@ describe("license webhooks", () => {
     expect(useCaseMocks.grantLicense).toHaveBeenCalledWith({
       polarCustomerId: "cus_1",
       polarOrderId: "ord_1",
+      purchaseCreatedAt: new Date("2026-09-24T10:00:00Z"),
       tier: "complete",
       userId: USER_ID,
     })
@@ -85,7 +86,7 @@ describe("license webhooks", () => {
 
     await licenseWebhookHandlers.onBenefitGrantCreated(grantPayload("lk_1", USER_ID))
 
-    expect(useCaseMocks.attachLicenseKey).toHaveBeenCalledWith({ polarLicenseKeyId: "lk_1", userId: USER_ID })
+    expect(useCaseMocks.attachLicenseKey).toHaveBeenCalledWith({ polarLicenseKeyId: "lk_1", polarOrderId: "ord_1", userId: USER_ID })
   })
 
   it("ignores a grant for a benefit that carries no license key", async () => {
@@ -117,7 +118,7 @@ describe("license webhooks", () => {
     await licenseWebhookHandlers.onBenefitGrantRevoked(grantPayload("lk_1", USER_ID))
 
     expect(useCaseMocks.revokeLicense).toHaveBeenCalledTimes(REVOCATIONS)
-    expect(useCaseMocks.revokeLicense).toHaveBeenCalledWith(USER_ID)
+    expect(useCaseMocks.revokeLicense).toHaveBeenCalledWith({ polarOrderId: "ord_1", userId: USER_ID })
   })
 
   it("leaves anonymous revocations alone", async () => {

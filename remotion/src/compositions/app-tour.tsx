@@ -33,7 +33,6 @@ const KPIS = [
 
 const BARS = [0.45, 0.35, 0.62, 0.5, 0.4, 0.7, 0.86, 0.55, 0.45, 0.3, 0.66, 0.76, 0.92, 0.8, 0.6, 0.51, 0.71, 0.42] as const
 
-// The tour starts and ends on the same dashboard frame; its poster is frame 0.
 const TOUR_TO_ANALYTICS = 1.4 * FPS
 const TOUR_TO_DASHBOARD = 5.2 * FPS
 

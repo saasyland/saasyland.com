@@ -1,6 +1,5 @@
 import * as zod from "zod"
 
-/** External provider fixtures for the dedicated local Cloudflare test environment. */
 const customers = new Map<string, Record<string, unknown>>()
 const nativeFetch = globalThis.fetch
 const recipientsSchema = zod.array(zod.string())

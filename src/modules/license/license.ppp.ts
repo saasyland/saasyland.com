@@ -49,7 +49,6 @@ export const pppDiscountId = async (headers: Headers, productId: string): Promis
   }
 
   if (!cache.discounts || cache.expiresAt <= Date.now()) {
-    // Pending requests share this lookup until it settles.
     cache.expiresAt = Infinity
     cache.discounts = loadDiscounts()
   }

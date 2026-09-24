@@ -22,7 +22,7 @@ const loadRouteSession = async ({ context: { queryClient }, preload = false }: A
 }
 
 const redirectToWorkspace = (role: string | null | undefined): never => {
-  throw redirect({ replace: true, to: hasPermission(role, { admin: ["access"] }) ? ROUTES.ADMIN : ROUTES.APP })
+  throw redirect({ replace: true, to: hasPermission({ permission: { admin: ["access"] }, role }) ? ROUTES.ADMIN : ROUTES.APP })
 }
 
 export const redirectIfSignedIn = async (context: AuthRouteContext): Promise<void> => {
@@ -42,7 +42,7 @@ export const requireSignedIn = async (context: AuthRouteContext) => {
 
 export const requireAdmin = async (context: AuthRouteContext) => {
   const result = await requireSignedIn(context)
-  if (!hasPermission(result.session.user.role, { admin: ["access"] })) {
+  if (!hasPermission({ permission: { admin: ["access"] }, role: result.session.user.role })) {
     throw redirect({ replace: true, to: ROUTES.APP })
   }
   return result

@@ -78,7 +78,6 @@ export const StationCell = ({ body, id, loop, offsetSeconds, spec, title }: Stat
         setHovered(id)
       }}
     >
-      {/* Raise the active cell above opaque siblings while the shared highlight moves. */}
       <AnimatePresence>
         {isLit && (
           <m.div

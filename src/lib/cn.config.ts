@@ -3,7 +3,6 @@ import type { ConfigExtension } from "cn/config"
 export default {
   extend: {
     classGroups: {
-      // Keep typography sizes alongside text colors when merging classes.
       "font-size": [
         {
           text: [

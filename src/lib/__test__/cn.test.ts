@@ -1,5 +1,9 @@
+import { build } from "cn/build"
 import { compileToTables } from "cn/compiler"
-import { createCn, defaultConfig, mergeConfigs } from "cn/config"
+import { createCn } from "cn/config"
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
 
 import { cn } from "~/src/lib/cn"
@@ -10,10 +14,16 @@ import tables from "~/.source/cn-tables"
 const referenceCn = createCn(config)
 
 describe("cn helper", () => {
-  it("uses current full compiled tables for every class group", () => {
-    const { tables: expected } = compileToTables(mergeConfigs(defaultConfig(), config))
+  it("uses current full compiled tables for every class group and stylesheet theme", async () => {
+    const outputDirectory = await mkdtemp(join(tmpdir(), "saasyland-cn-"))
+    try {
+      const { fullConfig } = await build({ config: "src/lib/cn.config.ts", full: true, out: join(outputDirectory, "cn-tables.ts") })
+      const { tables: expected } = compileToTables(fullConfig)
 
-    expect(tables).toEqual(expected)
+      expect(tables).toEqual(expected)
+    } finally {
+      await rm(outputDirectory, { force: true, recursive: true })
+    }
   })
 
   it("merges class names and resolves tailwind conflicts", () => {

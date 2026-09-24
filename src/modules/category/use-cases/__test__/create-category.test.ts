@@ -14,7 +14,6 @@ const HEADERS = new Headers()
 const SINGLE_CALL = 1
 const USER_ID = "01900000-0000-7000-8000-000000000001"
 
-/** Stable UUID returned by this suite’s uuid mock. */
 const CREATED_ID = vi.hoisted(() => "00000000-0000-7000-8000-000000000001")
 
 type AuthApi = typeof auth.api

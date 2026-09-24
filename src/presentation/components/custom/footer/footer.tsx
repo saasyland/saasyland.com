@@ -1,4 +1,4 @@
-import { type JSX, Suspense } from "react"
+import type { JSX } from "react"
 
 import { useTranslations } from "use-intl/react"
 
@@ -62,9 +62,7 @@ export const Footer = (): JSX.Element => {
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 border-t border-border py-7">
           <p className="font-mono text-spec text-muted-foreground">
             <span>{APP_NAME}</span>
-            <Suspense>
-              <FooterCopyright />
-            </Suspense>
+            <FooterCopyright />
             <span className="ml-2">{t("rights")}</span>
           </p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">

@@ -1,4 +1,4 @@
-import { type JSX, Suspense } from "react"
+import type { JSX } from "react"
 
 import { Outlet, createFileRoute, useRouterState } from "@tanstack/react-router"
 
@@ -7,20 +7,16 @@ import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { AuthGateFrame } from "~/src/presentation/components/custom/auth/components/auth-gate-frame"
-import { AuthHeader, AuthHeaderFallback } from "~/src/presentation/components/custom/auth/components/auth-header"
+import { AuthHeader } from "~/src/presentation/components/custom/auth/components/auth-header"
 
 import { ROUTES } from "~/src/routes"
-
-const authHeaderFallback = <AuthHeaderFallback />
 
 const AuthLayout = (): JSX.Element => {
   const isSignUp = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) === ROUTES.SIGN_UP })
 
   return (
     <div className="dark relative grid min-h-svh grid-cols-1 bg-background text-foreground antialiased lg:grid-cols-2">
-      <Suspense fallback={authHeaderFallback}>
-        <AuthHeader />
-      </Suspense>
+      <AuthHeader />
 
       <AuthGateFrame isSignUp={isSignUp} />
 

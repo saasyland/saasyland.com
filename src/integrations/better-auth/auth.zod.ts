@@ -12,7 +12,6 @@ import { AUTH_VALIDATION_MESSAGE } from "~/src/integrations/better-auth/auth.val
 
 import { MIN_FIELD_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 
-/** A single leading slash, so a redirect target stays on the host the request arrived at. */
 const INTERNAL_PATH_PATTERN = /^\/(?!\/)/u
 
 export const emailSchema = zod.email({ message: AUTH_VALIDATION_MESSAGE.emailInvalid }).max(EMAIL_MAX_LENGTH, {

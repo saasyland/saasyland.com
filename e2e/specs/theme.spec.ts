@@ -29,7 +29,6 @@ for (const preference of PREFERENCES) {
       })
       observer.observe(document, { childList: true, subtree: true })
     }, preference.stored)
-    // The server-rendered document must have the correct theme even if hydration never runs.
     await page.route("**/*", (route) => (route.request().resourceType() === "script" ? route.abort() : route.continue()))
     const account = TEST_ACCOUNTS[0]
     const signedIn = await page.request.post("/api/auth/sign-in/email", {

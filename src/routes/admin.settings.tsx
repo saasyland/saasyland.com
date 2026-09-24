@@ -1,4 +1,4 @@
-import { type JSX, Suspense } from "react"
+import type { JSX } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
@@ -11,14 +11,6 @@ import { Tabs, TabsList, TabsTrigger } from "~/src/presentation/components/shadc
 
 import { SettingsGeneralTab } from "~/src/presentation/components/custom/admin/settings/components/settings-general-tab"
 import { SettingsSecurityTab } from "~/src/presentation/components/custom/admin/settings/components/settings-security-tab"
-
-const SETTINGS_SECURITY_TAB_FALLBACK = (
-  <div className="mt-8 space-y-6">
-    <div className="h-40 animate-pulse rounded-lg border border-border bg-muted/40" />
-    <div className="h-40 animate-pulse rounded-lg border border-border bg-muted/40" />
-    <div className="h-48 animate-pulse rounded-lg border border-border bg-muted/40" />
-  </div>
-)
 
 const SettingsPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.settings")
@@ -57,9 +49,7 @@ const SettingsPage = (): JSX.Element => {
         </div>
 
         <SettingsGeneralTab />
-        <Suspense fallback={SETTINGS_SECURITY_TAB_FALLBACK}>
-          <SettingsSecurityTab />
-        </Suspense>
+        <SettingsSecurityTab />
       </Tabs>
     </div>
   )

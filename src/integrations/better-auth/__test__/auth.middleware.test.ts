@@ -1,5 +1,3 @@
-import { env } from "cloudflare:workers"
-
 import { createServerFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
 import { APIError } from "better-auth/api"
@@ -10,8 +8,15 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { RATE_LIMITS, authorized, withRateLimit, withRequest } from "~/src/integrations/better-auth/auth.middleware"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { getCurrentSession } from "~/src/integrations/better-auth/auth.session"
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { getCategory } from "~/src/modules/category/use-cases/get-category"
+import { getProduct } from "~/src/modules/product/use-cases/get-product"
+import { getUser } from "~/src/modules/user/use-cases/get-user"
+import { getUsers } from "~/src/modules/user/use-cases/get-users"
+
+import { withinRateLimit } from "~/src/lib/rate-limit"
 
 beforeEach(() => {
   vi.mocked(getRequest).mockImplementation(() => new Request("http://localhost/app"))
@@ -133,7 +138,7 @@ describe("rate limiting middleware", () => {
       .middleware([withRateLimit("test", RATE_LIMITS.SENSITIVE)])
       .handler(() => "done")
     await expect(action()).resolves.toBe("done")
-    expect(await env.CACHE.get("test:203.0.113.1")).toBe("1")
+    expect(await withinRateLimit({ key: "test:203.0.113.1", limit: 1, windowSeconds: 60 })).toBe(false)
   })
   it("rejects attempts over the configured limit", async () => {
     const action = createServerFn()
@@ -144,11 +149,23 @@ describe("rate limiting middleware", () => {
     }
     await expect(action()).rejects.toThrow("TOO_MANY_REQUESTS")
   })
-  it("stays available when its storage is unavailable", async () => {
-    vi.spyOn(env.CACHE, "get").mockRejectedValueOnce(new Error("offline"))
+  it("rejects requests when its storage is unavailable", async () => {
+    vi.spyOn(db, "batch").mockRejectedValueOnce(new Error("offline"))
+    vi.spyOn(console, "error").mockImplementation(() => {})
     const action = createServerFn()
       .middleware([withRateLimit("test", RATE_LIMITS.SENSITIVE)])
       .handler(() => "done")
-    await expect(action()).resolves.toBe("done")
+    await expect(action()).rejects.toThrow("TOO_MANY_REQUESTS")
+  })
+})
+
+describe("RPC input boundaries", () => {
+  it.each([getUser, getProduct, getCategory])("rejects invalid record identifiers before storage access", async (readRecord) => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "admin" }))
+    await expect(readRecord({ data: "" })).rejects.toMatchObject({ code: "VALIDATION" })
+  })
+  it("returns a localized validation code for invalid page sizes", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "admin" }))
+    await expect(getUsers({ data: { pageSize: 101 } })).rejects.toMatchObject({ code: "VALIDATION" })
   })
 })

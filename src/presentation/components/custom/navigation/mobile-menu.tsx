@@ -54,7 +54,6 @@ export const MobileMenu = (): JSX.Element => {
         {isOpen ? <X aria-hidden className="size-4.5" strokeWidth={1.5} /> : <Menu aria-hidden className="size-4.5" strokeWidth={1.5} />}
       </Button>
       {isOpen && (
-        // The backdrop-filtered header is the positioning container.
         <div
           className="absolute inset-x-0 top-full h-[calc(100svh-4rem)] overflow-y-auto overscroll-contain border-t border-border bg-background transition-[opacity,transform] duration-300 ease-exp motion-reduce:transition-none starting:-translate-y-2 starting:opacity-0"
           id={MENU_ID}

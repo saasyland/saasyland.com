@@ -66,6 +66,7 @@ const ownedLicense: License["select"] = {
   polarCustomerId: "customer-1",
   polarLicenseKeyId: "polar-license-1",
   polarOrderId: "order-1",
+  purchaseCreatedAt: new Date(0),
   status: LICENSE_STATUS.ACTIVE,
   tier: LICENSE_TIER.AGENCY,
   updatedAt: new Date("2026-09-08T10:00:00Z"),

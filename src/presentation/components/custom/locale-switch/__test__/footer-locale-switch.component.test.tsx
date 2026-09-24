@@ -43,6 +43,8 @@ describe("footer locale switch", () => {
     expect(screen.getByRole("listbox")).toBeVisible()
     await user.keyboard("{Escape}")
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
-    await waitFor(() => expect(trigger).toHaveFocus())
+    await waitFor(() => {
+      expect(trigger).toHaveFocus()
+    })
   })
 })

@@ -1,4 +1,4 @@
-import { type ReactNode, Suspense } from "react"
+import type { ReactNode } from "react"
 
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router"
 import { ThemeScript } from "@wrksz/themes/script"
@@ -14,7 +14,6 @@ import { THEME } from "~/src/presentation/theme"
 
 import { Toaster } from "~/src/presentation/components/shadcn/sonner"
 
-import { GlobalError } from "~/src/presentation/components/custom/default-error"
 import { OfflineBanner } from "~/src/presentation/components/custom/offline-banner"
 
 import { DOCUMENT_STYLESHEET, fontPreloads } from "~/src/presentation/document-assets"
@@ -25,9 +24,7 @@ const RootComponent = () => (
     <AppRouterProvider>
       <ThemeProvider>
         <OfflineBanner />
-        <Suspense>
-          <Outlet />
-        </Suspense>
+        <Outlet />
         <Toaster />
       </ThemeProvider>
     </AppRouterProvider>
@@ -58,7 +55,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: ({ context }) =>
     preloadNamespaces({ locale: getCurrentLocale(), namespaces: ROOT_NAMESPACES, queryClient: context.queryClient }),
   component: RootComponent,
-  errorComponent: GlobalError,
   head: () => ({
     links: [DOCUMENT_STYLESHEET, ...fontPreloads(getCurrentLocale())],
     meta: [

@@ -1,4 +1,4 @@
-import { type ReactNode, Suspense } from "react"
+import type { ReactNode } from "react"
 
 import { Outlet, createFileRoute } from "@tanstack/react-router"
 import { useFumadocsLoader } from "fumadocs-core/source/client"
@@ -28,16 +28,12 @@ const DOCS_NAV = { title: APP_NAME } as const
 const DOCS_THEME_SWITCH = { enabled: false } as const
 const DOCS_SLOTS = { languageSelect: false } as const
 
-const LOCALE_SWITCH_FALLBACK = <div className="bg-fd-muted/50 h-9 w-full rounded-md" />
-
 const DocsSidebarFooter = (): ReactNode => {
   const locale = getCurrentLocale()
 
   return (
     <div className="flex flex-col gap-2">
-      <Suspense fallback={LOCALE_SWITCH_FALLBACK}>
-        <LocaleSwitch locale={locale} />
-      </Suspense>
+      <LocaleSwitch locale={locale} />
       <ThemeSwitch />
     </div>
   )

@@ -162,11 +162,6 @@ vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerMo
 }))
 
 // @ts-expect-error Vitest module mock factory is not inferred for module export.
-vi.mock(import("~/src/integrations/drizzle-orm/drizzle.database"), () => ({
-  db: {},
-}))
-
-// @ts-expect-error Vitest module mock factory is not inferred for module export.
 vi.mock(import("~/src/integrations/resend/resend.config"), () => ({
   resend: {},
 }))

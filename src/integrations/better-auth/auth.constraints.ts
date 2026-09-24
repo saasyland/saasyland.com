@@ -1,5 +1,3 @@
-/** Shared auth limits and password policy — single source for zod, UI checklists, and i18n params. */
-
 export const BACKUP_CODE_MAX_LENGTH = 12
 export const BACKUP_CODE_MIN_LENGTH = 8
 

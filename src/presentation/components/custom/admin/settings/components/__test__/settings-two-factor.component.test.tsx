@@ -80,7 +80,9 @@ beforeEach(() => {
 
 const dismissPendingDialog = async (user: ReturnType<typeof userEvent.setup>, launcherLabel: string) => {
   await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }))
-  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  await waitFor(() => {
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
   const launcher = screen.getByRole("button", { name: launcherLabel })
   expect(launcher).toBeDisabled()
   fireEvent.click(launcher)
@@ -107,7 +109,9 @@ describe("two-factor settings pending requests", () => {
     })
 
     expect(queryClient.getQueryState(getCurrentSessionQuery.queryKey)?.isInvalidated).toBe(true)
-    await waitFor(() => expect(launcher).toBeEnabled())
+    await waitFor(() => {
+      expect(launcher).toBeEnabled()
+    })
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
     expect(screen.queryByText("TESTSECRET")).not.toBeInTheDocument()
     expect(screen.queryByLabelText(labels.verificationCode)).not.toBeInTheDocument()
@@ -139,7 +143,9 @@ describe("two-factor settings pending requests", () => {
     })
 
     expect(queryClient.getQueryState(getCurrentSessionQuery.queryKey)?.isInvalidated).toBe(true)
-    await waitFor(() => expect(launcher).toBeEnabled())
+    await waitFor(() => {
+      expect(launcher).toBeEnabled()
+    })
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
     expect(screen.queryByText(FIRST_BACKUP_CODE)).not.toBeInTheDocument()
     expect(verifyMock).toHaveBeenCalledOnce()
@@ -169,7 +175,9 @@ describe("two-factor settings pending requests", () => {
     })
 
     expect(queryClient.getQueryState(getCurrentSessionQuery.queryKey)?.isInvalidated).toBe(true)
-    await waitFor(() => expect(launcher).toBeEnabled())
+    await waitFor(() => {
+      expect(launcher).toBeEnabled()
+    })
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
     expect(disableMock).toHaveBeenCalledOnce()
     expect(invalidate).not.toHaveBeenCalled()
@@ -235,7 +243,9 @@ describe("two-factor settings", () => {
       expect(await screen.findByText(code)).toBeVisible()
     }
     await user.click(screen.getByRole("button", { name: labels.done }))
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    })
     expect(invalidate).toHaveBeenCalledOnce()
   })
 
@@ -260,7 +270,9 @@ describe("two-factor settings", () => {
     const { user } = renderCard()
     await startSetup(user)
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }))
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    })
     await user.click(screen.getByRole("button", { name: labels.enable }))
 
     expect(screen.getByLabelText(labels.password)).toHaveValue("")
@@ -276,7 +288,9 @@ describe("two-factor settings", () => {
     await user.type(within(dialog).getByLabelText(labels.password), "Secret1!")
     await user.click(within(dialog).getByRole("button", { name: labels.disableConfirm }))
 
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    })
     expect(disableMock).toHaveBeenCalledExactlyOnceWith({ password: "Secret1!" }, expect.anything())
     expect(toast.success).toHaveBeenCalledWith(labels.disabledSuccess)
     expect(invalidate).toHaveBeenCalledOnce()

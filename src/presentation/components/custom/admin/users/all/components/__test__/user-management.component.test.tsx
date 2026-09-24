@@ -7,7 +7,7 @@ import { createAuthUserMutationResult } from "~/src/integrations/better-auth/__t
 
 import type { banUserMutation } from "~/src/modules/user/use-cases/ban-user"
 import type { deleteUserMutation } from "~/src/modules/user/use-cases/delete-user"
-import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
+import { getUsersPageQuery, getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 import type { setUserPasswordMutation } from "~/src/modules/user/use-cases/set-user-password"
 import type { unbanUserMutation } from "~/src/modules/user/use-cases/unban-user"
 import { USER_MUTATION_KEYS, USER_QUERY_KEYS } from "~/src/modules/user/user.constants"
@@ -15,7 +15,6 @@ import { USER_MUTATION_KEYS, USER_QUERY_KEYS } from "~/src/modules/user/user.con
 import { Route as UsersRoute } from "~/src/routes/admin.users.all"
 
 import { adminMessages, adminQueryClient, adminUser, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
-import { AllUsersTable } from "~/src/presentation/components/custom/admin/users/all/components/all-users-table"
 import { initialsFromName } from "~/src/presentation/components/custom/admin/users/all/utils"
 
 const ban = vi.hoisted(() => vi.fn<NonNullable<typeof banUserMutation.mutationFn>>())
@@ -38,9 +37,9 @@ vi.mock(import("~/src/modules/user/use-cases/set-user-password"), () => ({
 
 const labels = adminMessages.pages.admin.users
 
-const renderUser = (banned = false) => {
+const renderUser = (banned = false, users = [adminUser({ banned })]) => {
   const queryClient = adminQueryClient()
-  queryClient.setQueryData(getUsersQuery.queryKey, [adminUser({ banned })])
+  queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 0, rows: users, total: users.length })
   const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue()
   const Page = UsersRoute.options.component
   if (!Page) {
@@ -68,16 +67,12 @@ beforeEach(() => {
 
 describe("admin user management", () => {
   it("renders user details and supports individual and page selection", async () => {
-    renderAdmin(
-      <AllUsersTable
-        users={[
-          adminUser(),
-          adminUser({ emailVerified: false, id: "pending", image: "https://example.com/grace.jpg", name: "Grace", twoFactorEnabled: true }),
-          adminUser({ banned: true, id: "banned", image: "https://example.com/linus.jpg", name: "Linus" }),
-          adminUser({ banned: true, id: "nameless", name: "" }),
-        ]}
-      />,
-    )
+    renderUser(false, [
+      adminUser(),
+      adminUser({ emailVerified: false, id: "pending", image: "https://example.com/grace.jpg", name: "Grace", twoFactorEnabled: true }),
+      adminUser({ banned: true, id: "banned", image: "https://example.com/linus.jpg", name: "Linus" }),
+      adminUser({ banned: true, id: "nameless", name: "" }),
+    ])
     expect(screen.getAllByText("ada@example.com")[0]).toBeVisible()
     expect(screen.getByRole("img", { name: "Grace" })).toHaveAttribute("src", "https://example.com/grace.jpg")
     const [first] = screen.getAllByRole("checkbox", { name: labels.table.selectRow })
@@ -130,7 +125,9 @@ describe("admin user management", () => {
     expect(remove).not.toHaveBeenCalled()
     const confirmation = within(dialog).getByRole("button", { name: labels.actions.deleteDialog.confirm })
     await user.click(confirmation)
-    await waitFor(() => expect(confirmation).toBeDisabled())
+    await waitFor(() => {
+      expect(confirmation).toBeDisabled()
+    })
     await act(async () => {
       pending.resolve({ success: true })
       await pending.promise
@@ -172,7 +169,9 @@ describe("admin user management", () => {
     fireEvent.blur(input)
     const submit = within(dialog).getByRole("button", { name: labels.actions.resetPasswordDialog.confirm })
     await user.click(submit)
-    await waitFor(() => expect(submit).toBeDisabled())
+    await waitFor(() => {
+      expect(submit).toBeDisabled()
+    })
     expect(resetPassword).toHaveBeenCalledWith({ newPassword: "Stronger1!", userId: "ada" }, expect.anything())
     await act(async () => {
       if (fails) {
@@ -194,17 +193,41 @@ describe("admin user management", () => {
     }
   })
 
-  it("renders a loading table when user records have not arrived", () => {
-    renderAdmin(<AllUsersTable />)
-    expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument()
-    expect(screen.getByRole("table")).toBeInTheDocument()
-  })
-
   it.each([
     ["", "?"],
     ["  Grace  ", "GR"],
     ["Ada Lovelace", "AL"],
   ])("uses meaningful initials for %s", (name, initials) => {
     expect(initialsFromName(name)).toBe(initials)
+  })
+})
+
+describe("server user pagination", () => {
+  it("requests another server page and resets to page one when sorting changes", async () => {
+    const queryClient = adminQueryClient()
+    const firstPage = Array.from({ length: 10 }, (_, index) => adminUser({ id: `first-${index}`, name: `Member ${index}` }))
+    queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 0, rows: firstPage, total: 11 })
+    queryClient.setQueryData(getUsersPageQuery({ pageIndex: 1 }).queryKey, {
+      pendingVerification: 0,
+      rows: [adminUser({ name: "Last member" })],
+      total: 11,
+    })
+    for (const desc of [false, true]) {
+      queryClient.setQueryData(getUsersPageQuery({ sorting: [{ desc, id: "user" }] }).queryKey, {
+        pendingVerification: 0,
+        rows: [adminUser({ name: "Sorted member" })],
+        total: 11,
+      })
+    }
+    const Page = UsersRoute.options.component
+    if (!Page) {
+      throw new Error("Missing users page")
+    }
+    renderAdmin(<Page />, { queryClient })
+    await userEvent.click(screen.getByRole("button", { name: "Next page" }))
+    expect(await screen.findByText("Last member")).toBeVisible()
+    await userEvent.click(screen.getByRole("button", { name: /^User/u }))
+    expect(await screen.findByText("Sorted member")).toBeVisible()
+    expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled()
   })
 })

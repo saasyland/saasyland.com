@@ -74,7 +74,9 @@ describe("session revocation", () => {
     const { queryClient, invalidate } = renderSessions()
     const button = screen.getByRole("button", { name: labels.logoutAll })
     fireEvent.click(button)
-    await waitFor(() => expect(button).toBeDisabled())
+    await waitFor(() => {
+      expect(button).toBeDisabled()
+    })
     await act(async () => {
       pending.resolve({ status: true })
       await pending.promise
@@ -116,11 +118,28 @@ const renderSession = (overrides: Partial<AuthActiveSession> = {}, currentSessio
 }
 
 describe("active session details", () => {
+  it("localizes session details in Polish", () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(now)
+    renderWithRouter(
+      <IntlProvider locale="pl-PL" messages={getTestMessages("pl-PL")}>
+        <AdminActiveSessionRowClient
+          currentSessionId={undefined}
+          isPending={false}
+          onRevoke={() => {}}
+          session={{ ...session, ipAddress: "", updatedAt: new Date(now.getTime() - 180_000), userAgent: "" }}
+        />
+      </IntlProvider>,
+    )
+    expect(screen.getByText("Nieznane urządzenie")).toBeInTheDocument()
+    expect(screen.getByText(/Ostatnia aktywność: 3 minuty temu/u)).toBeInTheDocument()
+  })
+
   it.each([
-    { elapsed: 0, time: "just now" },
-    { elapsed: 180_000, time: "3 min" },
-    { elapsed: 7_200_000, time: "2 h" },
-    { elapsed: 172_800_000, time: "2 d" },
+    { elapsed: 0, time: "now" },
+    { elapsed: 180_000, time: "3 minutes ago" },
+    { elapsed: 7_200_000, time: "2 hours ago" },
+    { elapsed: 172_800_000, time: "2 days ago" },
   ])("shows $time for an inactive session", ({ elapsed, time }) => {
     vi.useFakeTimers({ toFake: ["Date"] })
     vi.setSystemTime(now)

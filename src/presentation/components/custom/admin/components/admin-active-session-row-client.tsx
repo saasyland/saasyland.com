@@ -1,38 +1,14 @@
 import { type JSX } from "react"
 
 import { Laptop, Loader2, Smartphone } from "lucide-react"
-import { useTranslations } from "use-intl/react"
+import { useFormatter, useTranslations } from "use-intl/react"
 
 import type { AuthActiveSession } from "~/src/integrations/better-auth/auth.types"
 
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 import { Button } from "~/src/presentation/components/shadcn/button"
 
-const MS_PER_MINUTE = 60_000
-const MS_PER_HOUR = 3_600_000
-const MS_PER_DAY = 86_400_000
 const MOBILE_USER_AGENT_PATTERN = /mobile|iphone|android|ipad|ipod/iu
-
-const formatRelativeActiveTime = (updatedAt: Date, now: Date): string => {
-  const elapsedMs = now.getTime() - updatedAt.getTime()
-
-  if (elapsedMs < MS_PER_MINUTE) {
-    return "just now"
-  }
-
-  if (elapsedMs < MS_PER_HOUR) {
-    const minutes = Math.floor(elapsedMs / MS_PER_MINUTE)
-    return `${minutes} min`
-  }
-
-  if (elapsedMs < MS_PER_DAY) {
-    const hours = Math.floor(elapsedMs / MS_PER_HOUR)
-    return `${hours} h`
-  }
-
-  const days = Math.floor(elapsedMs / MS_PER_DAY)
-  return `${days} d`
-}
 
 interface AdminActiveSessionRowClientProps {
   readonly currentSessionId: string | undefined
@@ -47,6 +23,7 @@ export const AdminActiveSessionRowClient = ({
   onRevoke,
   session,
 }: AdminActiveSessionRowClientProps): JSX.Element => {
+  const format = useFormatter()
   const tCommon = useTranslations("pages.admin")
 
   const t = useTranslations("pages.admin.settings")
@@ -54,7 +31,7 @@ export const AdminActiveSessionRowClient = ({
   const isCurrent = currentSessionId !== undefined && session.id === currentSessionId
   const isMobile = session.userAgent !== undefined && session.userAgent !== null && MOBILE_USER_AGENT_PATTERN.test(session.userAgent)
 
-  let deviceLabel = "Unknown device"
+  let deviceLabel = t("security.sessions.unknownDevice")
   if (session.userAgent !== undefined && session.userAgent !== null && session.userAgent.length > 0) {
     deviceLabel = session.userAgent
   } else if (session.ipAddress !== undefined && session.ipAddress !== null && session.ipAddress.length > 0) {
@@ -83,9 +60,7 @@ export const AdminActiveSessionRowClient = ({
           <p className="text-xs text-muted-foreground">
             {tCommon("labels.unknownLocation")}
             {t("security.sessions.separator")}{" "}
-            {isCurrent
-              ? session.ipAddress
-              : t("security.sessions.activeAgo", { time: formatRelativeActiveTime(session.updatedAt, new Date()) })}
+            {isCurrent ? session.ipAddress : t("security.sessions.activeAgo", { time: format.relativeTime(session.updatedAt, new Date()) })}
           </p>
         </div>
       </div>

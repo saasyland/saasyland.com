@@ -7,15 +7,15 @@ import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
 export const DashboardStatsGrid = (): JSX.Element => {
-  const userRows = useSuspenseQuery(getUsersQuery).data
+  const users = useSuspenseQuery(getUsersQuery).data
   const products = useSuspenseQuery(getProductsQuery).data
   const t = useTranslations("pages.admin.dashboard")
 
-  const pendingVerificationCount = userRows.filter((row) => !row.emailVerified && !row.banned).length
+  const pendingVerificationCount = users.pendingVerification
 
   const stats = [
-    { key: "activeUsers", value: userRows.length },
-    { key: "totalProducts", value: products.length },
+    { key: "activeUsers", value: users.total },
+    { key: "totalProducts", value: products.total },
     { key: "pendingVerification", value: pendingVerificationCount },
   ] as const
 

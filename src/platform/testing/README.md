@@ -1,6 +1,6 @@
 # Testing
 
-All **suites** live next to the code under `src/**/__test__/`. This folder is only Vitest **process wiring** that cannot belong to one feature (setup, global module aliases, cross-cutting request URL helpers).
+All **suites** live next to the code under `src/**/__test__/`. This folder is Vite+ **test runtime wiring** that cannot belong to one feature (setup, global module aliases, cross-cutting request URL helpers).
 
 ## Where to look
 
@@ -28,8 +28,9 @@ Form / API validation schemas keep their own names (e.g. `auth.zod.test.ts` besi
 
 ### What belongs in `platform/testing/`
 
-- `vitest-env.d.ts` — Vitest + jest-dom globals for TypeScript
-- Test env + jest-dom setup live in root `vite.config.ts` (`test.env`, `test.setupFiles`)
+- `vitest-env.d.ts` — Vitest globals and jest-dom matcher types for Vitest 5
+- `setup.ts` — registers jest-dom matchers and shared test hooks; loaded by `test.setupFiles` in root `vite.config.ts`
+- `.env.test` supplies the dummy test credentials. Vite+ loads them through `test.env`; Cloudflare loads them for its named `test` environment.
 - `mocks/cloudflare.ts` and `mocks/wrksz-themes.ts` — local binding and theme adapters used across suites
 - `lib/` — small shared helpers imported from many suites (URL/cookie helpers, nullable DB fixtures, component test utilities)
 
@@ -38,7 +39,8 @@ Everything else is colocated with its owner.
 ## Commands
 
 ```bash
-bun run test                 # full Vitest suite
+bun run test                 # full Vite+ suite (vp test run)
+bun run test:watch           # vp test watch
 bun run test:unit            # --project node
 bun run test:component       # --project component
 bun run test:integration     # --project integration
@@ -62,3 +64,20 @@ Session fixtures for action/use-case tests: `__test__/fixtures/auth.session.fixt
 `auth.signup.integration.test.ts` exercises the production signup server function, Better Auth configuration, database adapter, email templates, and Resend SDK. It captures outbound HTTP requests to check that verification delivery finishes before fresh or repeated signup returns.
 
 Browser tests use `worker.ts` and `mocks/providers.ts` with isolated local bindings. The test Worker exposes captured email payloads at `/__test/emails?to=...`, allowing Playwright to follow the actual verification link. This endpoint and provider interception belong only to the test entry; deployed builds use `src/server.ts`.
+
+## Vite+ and the browser test app
+
+`vp test` runs the Node, integration, and jsdom projects from the `test` block of `vite.config.ts`. It uses only the React transform; it does not start a Worker or contact remote bindings.
+
+Playwright runs the built application through `vp preview`. At build time, the standard `CLOUDFLARE_ENV=test` setting selects `env.test` in the root `wrangler.jsonc`: the test Worker entry point, local D1/KV bindings, and secrets from `.env.test`. Cloudflare carries that configuration and those local secrets into the preview build automatically. Preview uses `--mode test` to select isolated local storage; it does not reselect the already-built Cloudflare environment. No custom `E2E` flag, dotenv parser, or shell sourcing is needed.
+
+Local D1 migrations, seeding, and the preview server all use `.wrangler/test`. Remote bindings are enabled only for `CLOUDFLARE_ENV=development`.
+
+```sh
+bun run db:migrate:test
+bun run db:seed:test
+bun run build:test
+bun run start:test
+```
+
+Reference: [Vite+ testing](https://viteplus.dev/guide/test), [Cloudflare local environment variables](https://developers.cloudflare.com/workers/local-development/environment-variables/).

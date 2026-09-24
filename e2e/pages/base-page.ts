@@ -1,6 +1,5 @@
 import type { Page, Response } from "@playwright/test"
 
-/** Parse the streamed document before checking TanStack hydration and React boundaries. */
 export const APP_NAVIGATION_WAIT_UNTIL = "domcontentloaded" as const
 
 const APP_READY_TIMEOUT_MS = 30_000

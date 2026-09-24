@@ -365,7 +365,6 @@ const ChartLegendContent = ({
   hideIcon?: boolean | undefined
   nameKey?: string | undefined
   payload?: RechartsPrimitive.DefaultLegendContentProps["payload"]
-  /** Recharts 3.10+ legend placement. Prefer this over `verticalAlign`. */
   position?: string | undefined
   /** Still injected by Recharts when `Legend` uses the legacy prop. */
   verticalAlign?: "bottom" | "middle" | "top" | undefined

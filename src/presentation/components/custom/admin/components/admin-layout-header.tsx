@@ -1,4 +1,4 @@
-import { type JSX, Suspense } from "react"
+import type { JSX } from "react"
 
 import { SidebarTrigger } from "~/src/presentation/components/shadcn/sidebar"
 
@@ -10,9 +10,7 @@ export const AdminLayoutHeader = (): JSX.Element => (
     <div className="flex min-w-0 items-center gap-2">
       <SidebarTrigger className="-ml-1 text-muted-foreground" />
       <span aria-hidden className="hidden h-4 w-px bg-border sm:block" />
-      <Suspense>
-        <AdminBreadcrumbs />
-      </Suspense>
+      <AdminBreadcrumbs />
     </div>
     <div className="flex shrink-0 items-center gap-2">
       <AdminCommandPalette />

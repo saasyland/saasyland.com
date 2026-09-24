@@ -30,7 +30,6 @@ describe("background helper", () => {
     expect.hasAssertions()
     const { container } = render(<Background className="test-grid" />)
     expect(container.querySelector(".test-grid")).toHaveClass(backgroundGridPatternClassName)
-    // The wash is the accent token, not a tint of primary: primary is monochrome in this palette.
     expect(container.querySelector(".field-signal")).toBeInTheDocument()
   })
 

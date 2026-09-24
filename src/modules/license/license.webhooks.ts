@@ -11,6 +11,7 @@ interface PolarCustomer {
 
 interface OrderEvent {
   readonly data: {
+    readonly createdAt: Date
     readonly customer: PolarCustomer
     readonly customerId: string
     readonly id: string
@@ -22,6 +23,7 @@ interface BenefitGrantEvent {
   readonly data: {
     readonly customer: PolarCustomer
     readonly id: string
+    readonly orderId: string | null
     readonly properties: Readonly<Record<string, unknown>>
   }
 }
@@ -31,7 +33,7 @@ export const licenseWebhookHandlers = {
     const { externalId } = data.customer
     const { licenseKeyId } = data.properties
 
-    if (typeof licenseKeyId !== "string") {
+    if (typeof licenseKeyId !== "string" || data.orderId === null) {
       return
     }
 
@@ -40,14 +42,19 @@ export const licenseWebhookHandlers = {
       return
     }
 
-    await attachLicenseKey({ polarLicenseKeyId: licenseKeyId, userId: externalId })
+    await attachLicenseKey({ polarLicenseKeyId: licenseKeyId, polarOrderId: data.orderId, userId: externalId })
   },
 
   onBenefitGrantRevoked: async ({ data }: BenefitGrantEvent): Promise<void> => {
     const { externalId } = data.customer
 
-    if (typeof externalId === "string" && externalId.length > 0) {
-      await revokeLicense(externalId)
+    if (
+      typeof externalId === "string" &&
+      externalId.length > 0 &&
+      typeof data.properties["licenseKeyId"] === "string" &&
+      data.orderId !== null
+    ) {
+      await revokeLicense({ polarOrderId: data.orderId, userId: externalId })
     }
   },
 
@@ -60,14 +67,25 @@ export const licenseWebhookHandlers = {
       return
     }
 
-    await grantLicense({ polarCustomerId: data.customerId, polarOrderId: data.id, tier, userId: externalId })
+    await grantLicense({
+      polarCustomerId: data.customerId,
+      polarOrderId: data.id,
+      purchaseCreatedAt: data.createdAt,
+      tier,
+      userId: externalId,
+    })
   },
 
   onOrderRefunded: async ({ data }: OrderEvent): Promise<void> => {
     const { externalId } = data.customer
 
-    if (typeof externalId === "string" && externalId.length > 0) {
-      await revokeLicense(externalId)
+    if (
+      typeof externalId === "string" &&
+      externalId.length > 0 &&
+      data.productId !== null &&
+      licenseTierForProduct(data.productId) !== undefined
+    ) {
+      await revokeLicense({ polarOrderId: data.id, userId: externalId })
     }
   },
 }

@@ -1,15 +1,12 @@
 import type enMessages from "~/src/integrations/use-intl/en-US.d.json.ts"
 import type { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-type AppMessages = typeof enMessages
+export type AppMessages = typeof enMessages
 
 declare module "use-intl" {
   interface AppConfig {
     Locale: (typeof I18N.SUPPORTED_LOCALES)[number]
-  }
-
-  interface IntlMessages extends AppMessages {
-    readonly __appMessagesBrand?: never
+    Messages: AppMessages
   }
 }
 

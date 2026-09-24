@@ -2,7 +2,6 @@ import type { JSX, ReactNode } from "react"
 
 interface AccentProps {
   readonly children: ReactNode
-  /** Unique per instance: two accents on one page would otherwise share a gradient id. */
   readonly id: string
 }
 

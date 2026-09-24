@@ -1,0 +1,45 @@
+import type { Order } from "@polar-sh/sdk/models/components/order.js"
+
+import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
+
+import { POLAR_LICENSE_KEY } from "~/src/integrations/polar/__test__/fixtures/license-key"
+
+export const POLAR_ORDER: Order = {
+  appliedBalanceAmount: 0,
+  billingAddress: JSON_NULL,
+  billingName: JSON_NULL,
+  billingReason: "purchase",
+  checkoutId: JSON_NULL,
+  createdAt: new Date("2026-09-24T10:00:00Z"),
+  currency: "usd",
+  customer: POLAR_LICENSE_KEY.customer,
+  customerId: "cus_1",
+  description: "License purchase",
+  discount: JSON_NULL,
+  discountAmount: 0,
+  discountId: JSON_NULL,
+  dueAmount: 0,
+  id: "ord_1",
+  invoiceNumber: "INV-1",
+  isInvoiceGenerated: true,
+  items: [],
+  metadata: {},
+  modifiedAt: JSON_NULL,
+  netAmount: 24_900,
+  paid: true,
+  platformFeeAmount: 0,
+  platformFeeCurrency: "usd",
+  product: JSON_NULL,
+  productId: "prod_1",
+  receiptNumber: JSON_NULL,
+  refundableAmount: 24_900,
+  refundableTaxAmount: 0,
+  refundedAmount: 0,
+  refundedTaxAmount: 0,
+  status: "paid",
+  subscription: JSON_NULL,
+  subscriptionId: JSON_NULL,
+  subtotalAmount: 24_900,
+  taxAmount: 0,
+  totalAmount: 24_900,
+}

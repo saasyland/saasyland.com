@@ -45,6 +45,8 @@ describe("admin command palette", () => {
     await user.click(await screen.findByRole("menuitem", { name: "Settings" }))
 
     expect(navigate).toHaveBeenCalledExactlyOnceWith({ to: ROUTES.ADMIN_SETTINGS })
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    })
   })
 })

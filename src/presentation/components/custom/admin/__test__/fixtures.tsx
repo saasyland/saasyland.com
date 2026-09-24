@@ -66,9 +66,9 @@ export const adminCategory = (overrides: Partial<Category["select"]> = {}): Cate
 export const adminQueryClient = () => {
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false, staleTime: Infinity } } })
   queryClient.setQueryData(getCurrentSessionQuery.queryKey, createAuthSessionFixture({ role: "admin" }))
-  queryClient.setQueryData(getProductsQuery.queryKey, [adminProduct()])
-  queryClient.setQueryData(getUsersQuery.queryKey, [adminUser()])
-  queryClient.setQueryData(getCategoriesQuery.queryKey, [adminCategory()])
+  queryClient.setQueryData(getProductsQuery.queryKey, { rows: [adminProduct()], total: 1 })
+  queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 0, rows: [adminUser()], total: 1 })
+  queryClient.setQueryData(getCategoriesQuery.queryKey, { rows: [adminCategory()], total: 1 })
   queryClient.setQueryData(getActiveSessionsQuery.queryKey, [])
   return queryClient
 }

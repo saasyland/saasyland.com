@@ -9,7 +9,6 @@ import {
 } from "~/src/presentation/components/custom/landing-page/components/cli-configurator"
 import { StationCell } from "~/src/presentation/components/custom/landing-page/components/station-grid"
 
-// These public primitives also have safe defaults when rendered outside their interactive groups.
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()

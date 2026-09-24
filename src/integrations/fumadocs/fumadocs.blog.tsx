@@ -4,8 +4,10 @@ import { queryOptions } from "@tanstack/react-query"
 import { notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import type zod from "zod/v4"
 
 import { blogSource } from "~/src/integrations/fumadocs/fumadocs.source"
+import { contentSlugSchema } from "~/src/integrations/fumadocs/fumadocs.zod"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
@@ -71,7 +73,7 @@ export const blogPostsQuery = (locale = getCurrentLocale()) =>
   })
 
 export const getBlogPost = createServerFn({ method: "GET" })
-  .validator((slug: string) => slug)
+  .validator((input: zod.input<typeof contentSlugSchema>) => contentSlugSchema.parse(input))
   .handler(({ data: slug }) => {
     const page = blogSource.getPage(slug.split("/"), getCurrentLocale())
     if (!page || !page.data.published) {

@@ -1,56 +1,55 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_LICENSE_KEY } from "~/src/integrations/polar/__test__/fixtures/license-key"
+import { POLAR_ORDER } from "~/src/integrations/polar/__test__/fixtures/order"
 import { polar } from "~/src/integrations/polar/polar.config"
 
 import { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
+import { getLicense } from "~/src/modules/license/use-cases/get-license"
+import { grantLicense } from "~/src/modules/license/use-cases/grant-license"
+import { revokeLicense } from "~/src/modules/license/use-cases/revoke-license"
+import { user } from "~/src/modules/user/user.schema"
 
-const USER_ID = "018f2b9c-0000-7000-8000-000000000004"
-const LICENSE_KEY_ID = "lk_1"
-const FULL_KEY = "SAASY-FULL-KEY"
-
-const dbMocks = vi.hoisted(() => {
-  const returning = vi.fn<() => Promise<{ id: string }[]>>()
-  const where = vi.fn<() => { returning: typeof returning }>().mockReturnValue({ returning })
-  const set = vi.fn<(update: Record<string, unknown>) => { where: typeof where }>().mockReturnValue({ where })
-  const updateMock = vi.fn<() => { set: typeof set }>().mockReturnValue({ set })
-
-  return { returning, set, updateMock }
+const USER_ID = "key-owner"
+const input = { polarLicenseKeyId: "lk_1", polarOrderId: "ord_1", userId: USER_ID }
+const purchase = {
+  polarCustomerId: "cus_1",
+  polarOrderId: "ord_1",
+  purchaseCreatedAt: POLAR_ORDER.createdAt,
+  tier: "core",
+  userId: USER_ID,
+} as const
+beforeEach(async () => {
+  await db.delete(user)
+  await db.insert(user).values({ email: "key@example.test", id: USER_ID, name: "Buyer" })
+  vi.spyOn(polar.licenseKeys, "get").mockResolvedValue(POLAR_LICENSE_KEY)
 })
-
-vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
-
-vi.mock(import("~/src/integrations/drizzle-orm/drizzle.database"), async (importOriginal) => {
-  const actual = await importOriginal()
-  return { ...actual, db: Object.assign(actual.db, { update: dbMocks.updateMock }) }
-})
-
 afterEach(() => vi.restoreAllMocks())
 
 describe("attach-license-key", () => {
-  it("stores the full key, which the webhook only sends masked", async () => {
-    expect.hasAssertions()
-    const get = vi.spyOn(polar.licenseKeys, "get").mockResolvedValue({ ...POLAR_LICENSE_KEY, key: FULL_KEY })
-    dbMocks.returning.mockResolvedValue([{ id: "row_1" }])
-
-    await attachLicenseKey({ polarLicenseKeyId: LICENSE_KEY_ID, userId: USER_ID })
-
-    expect(get).toHaveBeenCalledWith({ id: LICENSE_KEY_ID })
-    expect(dbMocks.set).toHaveBeenCalledWith({ key: FULL_KEY, polarLicenseKeyId: LICENSE_KEY_ID })
+  it("rejects an early grant and attaches its retry after the order arrives", async () => {
+    await expect(attachLicenseKey(input)).rejects.toThrow("The license purchase has not been recorded yet")
+    await grantLicense(purchase)
+    await attachLicenseKey(input)
+    expect(await getLicense(USER_ID)).toMatchObject({ key: POLAR_LICENSE_KEY.key, polarLicenseKeyId: "lk_1" })
   })
 
-  it("rejects an early benefit delivery and accepts its retry once the order exists", async () => {
-    expect.hasAssertions()
-    vi.spyOn(polar.licenseKeys, "get").mockResolvedValue({ ...POLAR_LICENSE_KEY, key: FULL_KEY })
-    dbMocks.returning.mockResolvedValue([])
+  it("waits for a newer order instead of attaching its key to the old purchase", async () => {
+    await grantLicense(purchase)
+    vi.spyOn(polar.orders, "get").mockResolvedValue({ ...POLAR_ORDER, createdAt: new Date("2026-09-25T10:00:00Z"), id: "newer" })
+    await expect(attachLicenseKey({ ...input, polarOrderId: "newer" })).rejects.toThrow("The license purchase has not been recorded yet")
+    expect(await getLicense(USER_ID)).toMatchObject({ key: null, polarOrderId: "ord_1" })
+  })
 
-    await expect(attachLicenseKey({ polarLicenseKeyId: LICENSE_KEY_ID, userId: USER_ID })).rejects.toThrow(
-      "The license purchase has not been recorded yet",
-    )
-
-    dbMocks.returning.mockResolvedValue([{ id: "row_1" }])
-
-    await expect(attachLicenseKey({ polarLicenseKeyId: LICENSE_KEY_ID, userId: USER_ID })).resolves.toBeUndefined()
-    expect(dbMocks.set).toHaveBeenLastCalledWith({ key: FULL_KEY, polarLicenseKeyId: LICENSE_KEY_ID })
+  it("ignores older grants and grants for a revoked purchase", async () => {
+    await grantLicense(purchase)
+    vi.spyOn(polar.orders, "get").mockResolvedValue({ ...POLAR_ORDER, createdAt: new Date("2026-09-23T10:00:00Z"), id: "older" })
+    await attachLicenseKey({ ...input, polarOrderId: "older" })
+    await revokeLicense({ polarOrderId: "ord_1", userId: USER_ID })
+    await attachLicenseKey(input)
+    const fetchKey = vi.spyOn(polar.licenseKeys, "get")
+    expect(fetchKey).not.toHaveBeenCalled()
+    expect(await getLicense(USER_ID)).toMatchObject({ key: null, status: "revoked" })
   })
 })

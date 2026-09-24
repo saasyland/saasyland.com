@@ -6,6 +6,10 @@ import { userZodSchemas } from "~/src/modules/user/user.zod"
 const USER_ID = "00000000-0000-7000-8000-000000000001"
 
 describe("user zod schemas", () => {
+  it.each([-60, 0, 0.5])("rejects invalid ban duration %s", (banExpiresIn) => {
+    expect(userZodSchemas.banUser.safeParse({ banExpiresIn, userId: USER_ID }).success).toBe(false)
+  })
+
   it("accepts valid insert payloads", () => {
     expect.hasAssertions()
     expect(

@@ -1,8 +1,9 @@
 import { screen, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
-import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
+import { getCategoriesPageQuery } from "~/src/modules/category/use-cases/get-categories"
+import { getProductsPageQuery } from "~/src/modules/product/use-cases/get-products"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
 import { Route as DashboardRoute } from "~/src/routes/admin.index"
@@ -16,6 +17,7 @@ import {
   adminUser,
   renderAdmin,
 } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { ProductsPagination } from "~/src/presentation/components/custom/admin/products/components/products-pagination"
 import { ProductsTabToolbar } from "~/src/presentation/components/custom/admin/products/components/products-tab-toolbar"
 import { ProductsTaggedRow } from "~/src/presentation/components/custom/admin/products/components/products-tagged-row"
 import { resolveProductTab } from "~/src/presentation/components/custom/admin/products/constants/product-tabs"
@@ -35,6 +37,37 @@ const categories = [
 afterEach(() => vi.restoreAllMocks())
 
 describe("admin catalog", () => {
+  it.each([0, 5])("shows a static preview range for %i rows without enabling navigation", (end) => {
+    renderAdmin(<ProductsPagination end={end} total={end} />)
+    expect(screen.getByRole("button", { name: adminMessages.pages.admin.labels.previousPage })).toBeDisabled()
+    expect(screen.getByRole("button", { name: adminMessages.pages.admin.labels.nextPage })).toBeDisabled()
+    expect(screen.getByText(`Showing ${end === 0 ? 0 : 1} to ${end} of ${end} products`)).toBeVisible()
+  })
+
+  it("navigates between server pages and disables navigation at the boundaries", async () => {
+    vi.spyOn(ProductsRoute, "useSearch").mockReturnValue({})
+    const queryClient = adminQueryClient()
+    queryClient.setQueryData(getProductsPageQuery().queryKey, {
+      rows: Array.from({ length: 10 }, (_, index) => adminProduct({ id: `item-${index}`, name: `Item ${index}` })),
+      total: 11,
+    })
+    queryClient.setQueryData(getProductsPageQuery({ pageIndex: 1 }).queryKey, { rows: [adminProduct({ name: "Last product" })], total: 11 })
+    for (const pageIndex of [0, 1]) {
+      queryClient.setQueryData(getCategoriesPageQuery({ pageIndex, kind: "category" }).queryKey, { rows: [], total: 0 })
+    }
+    const Page = ProductsRoute.options.component
+    if (!Page) {
+      throw new Error("Missing product page")
+    }
+    renderAdmin(<Page />, { queryClient })
+    expect(screen.getByRole("button", { name: adminMessages.pages.admin.labels.previousPage })).toBeDisabled()
+    await userEvent.click(screen.getByRole("button", { name: adminMessages.pages.admin.labels.nextPage }))
+    expect(await screen.findByText("Last product")).toBeVisible()
+    expect(screen.getByRole("button", { name: adminMessages.pages.admin.labels.nextPage })).toBeDisabled()
+    await userEvent.click(screen.getByRole("button", { name: adminMessages.pages.admin.labels.previousPage }))
+    expect(await screen.findByText("Item 0")).toBeVisible()
+  })
+
   it.each([
     ["all", "Starter Kit"],
     ["drafts", "Monthly subscription"],
@@ -46,8 +79,18 @@ describe("admin catalog", () => {
   ])("renders the requested %s product panel", (tab, expected) => {
     vi.spyOn(ProductsRoute, "useSearch").mockReturnValue({ tab })
     const queryClient = adminQueryClient()
-    queryClient.setQueryData(getProductsQuery.queryKey, products)
-    queryClient.setQueryData(getCategoriesQuery.queryKey, categories)
+    const productInput = {
+      ...(tab === "subscriptions" ? { type: "subscription" as const } : {}),
+      ...(tab === "onetime" ? { type: "one_time" as const } : {}),
+      ...(tab === "drafts" ? { status: "draft" as const } : {}),
+    }
+    const visibleProducts = products.filter(
+      (row) => (!productInput.type || row.type === productInput.type) && (!productInput.status || row.status === productInput.status),
+    )
+    queryClient.setQueryData(getProductsPageQuery(productInput).queryKey, { rows: visibleProducts, total: visibleProducts.length })
+    const kind = tab === "collections" ? "collection" : "category"
+    const visibleCategories = categories.filter((row) => row.kind === kind)
+    queryClient.setQueryData(getCategoriesPageQuery({ kind }).queryKey, { rows: visibleCategories, total: visibleCategories.length })
     const Page = ProductsRoute.options.component
     if (!Page) {
       throw new Error("Missing product page")
@@ -101,7 +144,11 @@ describe("admin dashboard", () => {
         banned: index === 3,
       }),
     )
-    queryClient.setQueryData(getUsersQuery.queryKey, users)
+    queryClient.setQueryData(getUsersQuery.queryKey, {
+      rows: users,
+      total: users.length,
+      pendingVerification: users.filter((row) => !row.emailVerified && !row.banned).length,
+    })
     const Page = DashboardRoute.options.component
     if (!Page) {
       throw new Error("Missing dashboard page")

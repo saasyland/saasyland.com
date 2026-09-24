@@ -51,7 +51,6 @@ const NoteCard = ({ post }: Readonly<{ post: BlogPost }>): JSX.Element => {
   )
 }
 
-// Show featured posts first, then fill remaining slots with the newest posts.
 export const NotesSection = (): JSX.Element => {
   const locale = getCurrentLocale()
   const t = useTranslations("pages.landing.notes")

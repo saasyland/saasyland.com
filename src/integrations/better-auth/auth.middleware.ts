@@ -45,7 +45,7 @@ export const authorized = (permission?: Permission) =>
       if (!session) {
         throw new AppError(ERROR_CODES.UNAUTHORIZED)
       }
-      if (permission && !hasPermission(session.user.role, permission)) {
+      if (permission && !hasPermission({ permission, role: session.user.role })) {
         throw new AppError(ERROR_CODES.FORBIDDEN)
       }
       return next({ context: { auth: session } })

@@ -59,22 +59,22 @@ describe("role permission config", () => {
 describe("has permission", () => {
   it("returns true when the role grants the permission", () => {
     expect.hasAssertions()
-    expect(hasPermission(ROLE_CODES.ADMIN, { product: ["create"] })).toBe(true)
-    expect(hasPermission(ROLE_CODES.ADMIN, { user: ["list"] })).toBe(true)
+    expect(hasPermission({ permission: { product: ["create"] }, role: ROLE_CODES.ADMIN })).toBe(true)
+    expect(hasPermission({ permission: { user: ["list"] }, role: ROLE_CODES.ADMIN })).toBe(true)
   })
 
   it("returns false when the role does not grant the permission", () => {
     expect.hasAssertions()
-    expect(hasPermission(ROLE_CODES.CUSTOMER, { user: ["list"] })).toBe(false)
-    expect(hasPermission(ROLE_CODES.CUSTOMER, { product: ["create"] })).toBe(false)
-    expect(hasPermission(ROLE_CODES.CUSTOMER, { settings: ["manage"] })).toBe(false)
-    expect(hasPermission("", { product: ["create"] })).toBe(false)
-    expect(hasPermission(undefined, { product: ["create"] })).toBe(false)
+    expect(hasPermission({ permission: { user: ["list"] }, role: ROLE_CODES.CUSTOMER })).toBe(false)
+    expect(hasPermission({ permission: { product: ["create"] }, role: ROLE_CODES.CUSTOMER })).toBe(false)
+    expect(hasPermission({ permission: { settings: ["manage"] }, role: ROLE_CODES.CUSTOMER })).toBe(false)
+    expect(hasPermission({ permission: { product: ["create"] }, role: "" })).toBe(false)
+    expect(hasPermission({ permission: { product: ["create"] }, role: undefined })).toBe(false)
   })
 
   it("fails closed for unknown or composite role strings", () => {
     expect.hasAssertions()
-    expect(hasPermission("unknown-role", { product: ["create"] })).toBe(false)
-    expect(hasPermission(`customer,${ROLE_CODES.ADMIN}`, { product: ["create"] })).toBe(false)
+    expect(hasPermission({ permission: { product: ["create"] }, role: "unknown-role" })).toBe(false)
+    expect(hasPermission({ permission: { product: ["create"] }, role: `customer,${ROLE_CODES.ADMIN}` })).toBe(false)
   })
 })

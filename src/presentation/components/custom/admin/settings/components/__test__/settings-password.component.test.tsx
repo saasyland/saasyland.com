@@ -56,7 +56,9 @@ describe("settings password change", () => {
     fillPasswords()
     const button = screen.getByRole("button", { name: labels.update })
     fireEvent.click(button)
-    await waitFor(() => expect(button).toBeDisabled())
+    await waitFor(() => {
+      expect(button).toBeDisabled()
+    })
     expect(changePassword).toHaveBeenCalledWith({ currentPassword: "OldPassword1!", newPassword: "NewPassword1!" }, expect.anything())
     await act(async () => {
       pending.resolve({})
@@ -88,7 +90,9 @@ describe("settings password change", () => {
     renderPasswordForm()
     fillPasswords("DifferentPassword1!")
     fireEvent.click(screen.getByRole("button", { name: labels.update }))
-    await waitFor(() => expect(screen.getByText(messages.auth.validations.passwordsMustMatch)).toBeInTheDocument())
+    await waitFor(() => {
+      expect(screen.getByText(messages.auth.validations.passwordsMustMatch)).toBeInTheDocument()
+    })
     expect(changePassword).not.toHaveBeenCalled()
   })
 })

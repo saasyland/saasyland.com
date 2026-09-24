@@ -1,6 +1,9 @@
-import { beforeEach, vi } from "vite-plus/test"
+import * as matchers from "@testing-library/jest-dom/matchers"
+import { beforeEach, expect, vi } from "vite-plus/test"
 
 import { resetTestBindings } from "~/src/platform/testing/mocks/cloudflare"
+
+expect.extend(matchers)
 
 beforeEach(resetTestBindings)
 

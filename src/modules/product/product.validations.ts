@@ -2,7 +2,6 @@ import type { ProductValidationMessageKey } from "~/src/integrations/use-intl/i1
 
 const PRODUCT_NAME_MAX_LENGTH = 255
 
-/** Keys under `product.validations` — translate at the UI with `useTranslations("product.validations")`. */
 export const PRODUCT_VALIDATION_MESSAGE = {
   atLeastOneFieldRequired: "atLeastOneFieldRequired",
   nameMaxLength: "nameMaxLength",

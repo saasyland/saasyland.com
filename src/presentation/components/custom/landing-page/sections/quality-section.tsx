@@ -12,7 +12,6 @@ const SPEC_KEYS = ["vitest", "playwright", "typescript"] as const
 
 const TERMINAL_DELAY_MS = 120
 
-// Preserve command output in its original language.
 const TERMINAL_LINES = [
   { kind: "command", text: "bun run test:coverage" },
   { kind: "output", text: "Test Files  140 passed (140)" },
@@ -55,7 +54,6 @@ const TerminalRow = ({ line }: Readonly<{ line: TerminalLine }>): JSX.Element =>
 const TERMINAL_IMAGE_SIZES =
   "(min-width: 80rem) calc((80rem - 9rem) * 1.05 / 2.05 - 2px), (min-width: 64rem) calc((100vw - 9rem) * 1.05 / 2.05 - 2px), (min-width: 48rem) calc(100vw - 5rem - 2px), calc(100vw - 3rem - 2px)"
 
-// Keep static output for screen readers and reduced-motion preferences.
 const QualityTerminal = ({ title }: Readonly<{ title: string }>): JSX.Element => (
   <div className="overflow-hidden rounded-xl border border-border bg-card">
     <div className="flex items-center gap-2.5 border-b border-border bg-background/40 px-4 py-2.5">

@@ -6,14 +6,6 @@ const TableContainer = ({ className, ...props }: ComponentProps<"div">): JSX.Ele
   <div data-slot="table-container" className={cn("custom-scrollbar relative w-full overflow-x-auto", className)} {...props} />
 )
 
-/*
- * 13px, not 12px, and rows a third taller than the shadcn default.
- *
- * Tables are where a console is actually used, and 12px in a 32px row is a spreadsheet: it fits
- * more and it is read less. The extra pixel and the extra padding are the difference between
- * scanning a list and squinting at one. Numeric columns should add `tabular-nums` at the call
- * site so figures stay in their columns while the data changes.
- */
 const Table = ({ className, ...props }: ComponentProps<"table">): JSX.Element => (
   <table data-slot="table" className={cn("w-full caption-bottom text-[0.8125rem]", className)} {...props} />
 )

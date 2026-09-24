@@ -2,16 +2,18 @@ import type { JSX, ReactNode } from "react"
 /** @vitest-environment jsdom */
 
 import { createColumnHelper } from "@tanstack/react-table"
-import { render, renderHook, screen, within } from "@testing-library/react"
+import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
+
+import { renderWithRouter as render } from "~/src/platform/testing/lib/render"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { Checkbox } from "~/src/presentation/components/shadcn/checkbox"
 
-import { DataTable, useDataTable } from "~/src/presentation/components/custom/data-table/data-table"
+import { DataTable } from "~/src/presentation/components/custom/data-table/data-table"
 import type { DataTableColumnDef, DataTableFeatures, DataTableOptions } from "~/src/presentation/components/custom/data-table/features"
 
 interface Person {
@@ -65,9 +67,11 @@ const PAGED_ROWS: Person[] = Array.from({ length: PAGED_ROW_COUNT }, (_, index) 
   name: `Person ${String(index).padStart(ID_PAD, "0")}`,
 }))
 
-const GROUP_CHILD_COLUMNS = columnHelper.columns([columnHelper.accessor("name", { header: "Name", id: "name" })])
+const GROUP_CHILD_COLUMNS = columnHelper.columns([
+  columnHelper.accessor("id", { header: "Identifier", id: "identifier" }),
+  columnHelper.accessor("name", { header: "Name", id: "name" }),
+])
 
-// A grouped column beside an ungrouped one leaves a placeholder cell in the group row.
 const GROUPED_COLUMNS: DataTableColumnDef<Person>[] = columnHelper.columns([
   columnHelper.display({ cell: () => <span>row</span>, header: "Id", id: "id" }),
   columnHelper.group({ columns: GROUP_CHILD_COLUMNS, header: "Details", id: "details" }),
@@ -90,6 +94,9 @@ const EXPECTED_ROW_COUNT = 3
 const SELECTED_AFTER_ONE_CLICK = 1
 const FIRST_ROW_CHECKBOX = 0
 const HEADER_ROW_COUNT = 1
+
+const rowCheckbox = (): HTMLElement => screen.getAllByRole("checkbox", { name: "Select row" })[FIRST_ROW_CHECKBOX]!
+const firstBodyRow = (): HTMLElement => screen.getAllByRole("row")[HEADER_ROW_COUNT]!
 
 const renderTable = (data: Person[] = ROWS): void => {
   const messages = getTestMessages("en-US")
@@ -125,13 +132,9 @@ describe("data table component", () => {
     const user = userEvent.setup()
     renderTable()
 
-    const rowCheckbox = (): HTMLElement => screen.getAllByRole("checkbox", { name: "Select row" })[FIRST_ROW_CHECKBOX]!
-
     expect(rowCheckbox()).not.toBeChecked()
 
     await user.click(rowCheckbox())
-    // The count alone would pass even with a checkbox stuck reporting unselected, which
-    // Is what let a stale-memo bug through before.
     expect(rowCheckbox()).toBeChecked()
     expect(screen.getByText(`${SELECTED_AFTER_ONE_CLICK} selected`)).toBeInTheDocument()
 
@@ -180,8 +183,7 @@ describe("data table component", () => {
 
     await user.click(screen.getByRole("button", { name: /Name/u }))
 
-    const [, firstBodyRow] = screen.getAllByRole("row")
-    expect(within(firstBodyRow!).getByText("Ada")).toBeInTheDocument()
+    expect(within(firstBodyRow()).getByText("Ada")).toBeInTheDocument()
   })
 
   it("toggles a column through ascending, descending, and back", async () => {
@@ -190,7 +192,6 @@ describe("data table component", () => {
     renderTable()
 
     const header = screen.getByRole("button", { name: /Name/u })
-    const firstBodyRow = (): HTMLElement => screen.getAllByRole("row")[HEADER_ROW_COUNT]!
 
     await user.click(header)
     expect(within(firstBodyRow()).getByText("Ada")).toBeInTheDocument()
@@ -233,7 +234,33 @@ describe("data table structure", () => {
     render(<DataTable columns={GROUPED_COLUMNS} data={ROWS} />, { wrapper: Wrapper })
 
     expect(screen.getByText("Details")).toBeInTheDocument()
+    expect(screen.getByRole("columnheader", { name: "Details" })).toHaveAttribute("colspan", "2")
     expect(screen.getAllByRole("row")).toHaveLength(ROWS.length + HEADER_ROW_COUNT + HEADER_ROW_COUNT)
+  })
+
+  it("splits a grouped header across the scrollable and pinned columns", () => {
+    render(
+      <IntlProvider locale="en-US" messages={getTestMessages("en-US")}>
+        <DataTable
+          columns={GROUPED_COLUMNS}
+          data={ROWS}
+          options={{ initialState: { columnPinning: { end: ["name", "id"], start: [] } } }}
+        />
+      </IntlProvider>,
+    )
+
+    const groups = screen.getAllByRole("columnheader", { name: "Details" })
+    expect(groups).toHaveLength(2)
+    for (const group of groups) {
+      expect(group).toHaveAttribute("colspan", "1")
+    }
+    const [scrollable, pinned] = groups
+    expect(scrollable).not.toHaveClass("sticky")
+    expect(pinned).toHaveClass("sticky")
+    expect(pinned).toHaveStyle({ insetInlineEnd: "150px", width: "150px" })
+    expect(screen.getByRole("columnheader", { name: "Identifier" })).toBeVisible()
+    expect(screen.getByRole("columnheader", { name: "Name" })).toHaveStyle({ insetInlineEnd: "150px" })
+    expect(screen.getByRole("row", { name: "1 Ada row" })).toBeVisible()
   })
 
   it("shows skeleton rows instead of the empty state while data is in flight", () => {
@@ -288,11 +315,5 @@ describe("data table structure", () => {
     expect(container.querySelector("tbody")).toHaveClass("slot-body")
     expect(container.querySelector("tbody tr")).toHaveClass("slot-row")
     expect(container.querySelector(".slot-pagination")).toBeInTheDocument()
-  })
-
-  it("refuses to hand out a table instance outside a DataTable", () => {
-    expect.hasAssertions()
-
-    expect(() => renderHook(() => useDataTable())).toThrow(/inside a <DataTable>/u)
   })
 })

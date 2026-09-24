@@ -1,6 +1,6 @@
-import { type JSX, Suspense } from "react"
+import type { JSX } from "react"
 
-import { createFileRoute } from "@tanstack/react-router"
+import { type SearchSchemaInput, createFileRoute, stripSearchParams } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
@@ -10,12 +10,8 @@ import { Tabs, TabsList, TabsTrigger } from "~/src/presentation/components/shadc
 import { BlogAdminStats } from "~/src/presentation/components/custom/admin/blog/components/blog-admin-stats"
 import { BlogPostsPanel } from "~/src/presentation/components/custom/admin/blog/components/blog-posts-panel"
 
-const BLOG_POSTS_FALLBACK = <div className="mt-6 h-64 w-full animate-pulse rounded-lg border border-border bg-muted/30" />
-
-type SearchParams = Record<string, string | undefined>
-
 const BlogAdminPage = (): JSX.Element => {
-  const searchParams = Route.useSearch()
+  const { view } = Route.useSearch()
   const t = useTranslations("pages.admin.blog")
 
   return (
@@ -47,19 +43,10 @@ const BlogAdminPage = (): JSX.Element => {
           </TabsList>
         </div>
 
-        <Suspense fallback={BLOG_POSTS_FALLBACK}>
-          <BlogPostsView searchParams={searchParams} />
-        </Suspense>
+        <BlogPostsPanel view={view} />
       </Tabs>
     </div>
   )
-}
-
-const BlogPostsView = ({ searchParams }: { searchParams: SearchParams }): JSX.Element => {
-  const resolvedParams = searchParams
-  const view = resolvedParams["view"] === "table" ? "table" : "grid"
-
-  return <BlogPostsPanel view={view} />
 }
 
 export const Route = createFileRoute("/admin/blog/")({
@@ -80,6 +67,7 @@ export const Route = createFileRoute("/admin/blog/")({
       pathname: "/admin/blog",
       queryClient: context.queryClient,
     }),
+  search: { middlewares: [stripSearchParams({ view: "grid" })] },
   staticData: {
     namespaces: [
       "auth.errors",
@@ -91,6 +79,7 @@ export const Route = createFileRoute("/admin/blog/")({
       "user.validations",
     ],
   },
-  validateSearch: (search: Record<string, unknown>): Record<string, string | undefined> =>
-    Object.fromEntries(Object.entries(search).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
+  validateSearch: (search: SearchSchemaInput & { view?: unknown }): { view: "grid" | "table" } => ({
+    view: search.view === "table" ? "table" : "grid",
+  }),
 })

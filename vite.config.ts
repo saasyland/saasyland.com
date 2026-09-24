@@ -1,27 +1,11 @@
-import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
-import { parseEnv } from "node:util"
-import { type PluginOption, defineConfig, lazyPlugins, loadEnv } from "vite-plus"
+import { type PluginOption, type UserConfig, defineConfig, lazyPlugins, loadEnv } from "vite-plus"
 
 import { I18N } from "./src/integrations/use-intl/i18n.config.ts"
 import { canonicalizePathname, deLocalizePathname, localizePathname } from "./src/integrations/use-intl/i18n.paths.ts"
 import { ROUTES } from "./src/routes.ts"
 
 const projectRoot = import.meta.dirname
-
-const isE2E = process.env["E2E"] === "true"
-const usesRemoteBindings = !isE2E && process.env["CLOUDFLARE_ENV"] === "development"
-const testBindings: Record<string, string> = {}
-
-if (isE2E) {
-  const testEnv = parseEnv(readFileSync(resolve(projectRoot, ".env.test"), "utf8"))
-
-  for (const [key, value] of Object.entries(testEnv)) {
-    if (value !== undefined) {
-      testBindings[key] = value
-    }
-  }
-}
 
 const UNLISTED_ROUTES = [ROUTES.ADMIN, ROUTES.APP, ROUTES.AUTH, ROUTES.NEWSLETTER, ROUTES.API]
 
@@ -52,7 +36,7 @@ const ignorePatterns = [
   "test-results",
 ]
 
-export default defineConfig({
+const tooling = {
   fmt: {
     arrowParens: "always",
     bracketSpacing: true,
@@ -210,7 +194,6 @@ export default defineConfig({
       },
       {
         files: ["src/routes/**"],
-        // TanStack infers loader types from preceding search and loaderDeps options.
         rules: { "sort-keys": "off" },
       },
       {
@@ -244,6 +227,10 @@ export default defineConfig({
       "unicorn/no-useless-undefined": ["error", { checkArguments: false }],
     },
   },
+} satisfies Pick<UserConfig, "fmt" | "lint">
+
+export default defineConfig(({ mode }) => ({
+  ...tooling,
   plugins:
     lazyPlugins(async (): Promise<PluginOption[]> => {
       const { cloudflare } = await import("@cloudflare/vite-plugin")
@@ -259,15 +246,9 @@ export default defineConfig({
 
       return [
         cloudflare({
-          ...(isE2E
-            ? {
-                config: { vars: testBindings },
-                configPath: "./src/platform/testing/wrangler.jsonc",
-              }
-            : {}),
           inspectorPort: false,
-          persistState: isE2E ? { path: ".wrangler/test" } : true,
-          remoteBindings: usesRemoteBindings,
+          persistState: mode === "test" ? { path: ".wrangler/test" } : true,
+          remoteBindings: mode !== "test" && process.env["CLOUDFLARE_ENV"] === "development",
           viteEnvironment: { name: "ssr" },
         }),
         fumadocsMdx({ configPath: "./src/integrations/fumadocs/fumadocs.config.ts" }),
@@ -371,6 +352,6 @@ export default defineConfig({
         inline: ["better-auth"],
       },
     },
-    setupFiles: ["@testing-library/jest-dom/vitest", "src/platform/testing/setup.ts"],
+    setupFiles: ["src/platform/testing/setup.ts"],
   },
-})
+}))

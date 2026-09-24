@@ -2,7 +2,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { getTableConfig } from "drizzle-orm/sqlite-core"
 import { describe, expect, it } from "vite-plus/test"
 
-import { license, licenseRelations, licenseStatusEnum, licenseTierEnum } from "~/src/modules/license/license.schema"
+import { license, licenseRelations, licenseStatusEnum, licenseTierEnum, revokedLicenseOrder } from "~/src/modules/license/license.schema"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { user } from "~/src/modules/user/user.schema"
 
@@ -16,6 +16,7 @@ describe("license schema", () => {
     expect.hasAssertions()
     expect(getTableConfig(license).foreignKeys[0]?.reference().foreignColumns[0]).toBe(user.id)
     expect(licenseRelations).toBeDefined()
+    expect(getTableConfig(revokedLicenseOrder).foreignKeys[0]?.reference().foreignColumns[0]).toBe(user.id)
   })
 
   it("defines enums and updatedAt onUpdate", () => {

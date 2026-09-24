@@ -1,4 +1,3 @@
-/** The portion of a TanStack string field used by our presentation components. */
 export interface StringField {
   readonly name: string
   readonly state: {

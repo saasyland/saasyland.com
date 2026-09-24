@@ -28,7 +28,12 @@ describe("copy command", () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy command" }))
     await screen.findByRole("button", { name: "Copied" })
     expect(writeText).toHaveBeenCalledExactlyOnceWith("bunx saasyland init")
-    await waitFor(() => expect(screen.getByRole("button", { name: "Copy command" })).toBeInTheDocument(), { timeout: 3000 })
+    await waitFor(
+      () => {
+        expect(screen.getByRole("button", { name: "Copy command" })).toBeInTheDocument()
+      },
+      { timeout: 3000 },
+    )
   })
 
   it("keeps the copy action available after clipboard permission is denied", async () => {

@@ -12,32 +12,34 @@ import { BlogPostTableRow } from "~/src/presentation/components/custom/admin/blo
 import { useDemoPosts } from "~/src/presentation/components/custom/admin/blog/hooks/use-demo-posts"
 import { PAGINATION_FIRST_PAGE } from "~/src/presentation/components/custom/admin/constants/constants"
 
-const BlogPostsTableHeader = ({ t }: { readonly t: (key: string) => string }): JSX.Element => (
-  <TableHeader className="bg-muted/40">
-    <TableRow>
-      <TableHead className="w-12 px-4 text-center">
-        <Checkbox className="mx-auto" />
-      </TableHead>
-      <TableHead className="w-[35%] font-medium">{t("table.postDetails")}</TableHead>
-      <TableHead className="font-medium">{t("table.status")}</TableHead>
-      <TableHead className="font-medium">{t("table.category")}</TableHead>
-      <TableHead className="font-medium">{t("table.author")}</TableHead>
-      <TableHead className="font-medium">{t("table.date")}</TableHead>
-      <TableHead className="font-medium">{t("table.views")}</TableHead>
-      <TableHead className="w-12 px-4 text-right" />
-    </TableRow>
-  </TableHeader>
-)
+const BlogPostsTableHeader = (): JSX.Element => {
+  const t = useTranslations("pages.admin.blog")
+  return (
+    <TableHeader className="bg-muted/40">
+      <TableRow>
+        <TableHead className="w-12 px-4 text-center">
+          <Checkbox className="mx-auto" />
+        </TableHead>
+        <TableHead className="w-[35%] font-medium">{t("table.postDetails")}</TableHead>
+        <TableHead className="font-medium">{t("table.status")}</TableHead>
+        <TableHead className="font-medium">{t("table.category")}</TableHead>
+        <TableHead className="font-medium">{t("table.author")}</TableHead>
+        <TableHead className="font-medium">{t("table.date")}</TableHead>
+        <TableHead className="font-medium">{t("table.views")}</TableHead>
+        <TableHead className="w-12 px-4 text-right" />
+      </TableRow>
+    </TableHeader>
+  )
+}
 
 export const BlogPostsTable = (): JSX.Element => {
   const posts = useDemoPosts()
-  const t = useTranslations("pages.admin.blog")
 
   return (
     <Card className="overflow-hidden border-border">
       <TableContainer>
         <Table>
-          <BlogPostsTableHeader t={t} />
+          <BlogPostsTableHeader />
           <TableBody>
             {posts.map((post) => (
               <BlogPostTableRow key={post.id} post={post} />

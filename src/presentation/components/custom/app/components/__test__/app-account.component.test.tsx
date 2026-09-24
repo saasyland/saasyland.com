@@ -33,6 +33,7 @@ const license = {
   polarCustomerId: "fixture-customer",
   polarLicenseKeyId: "fixture-polar-license",
   polarOrderId: null,
+  purchaseCreatedAt: new Date(0),
   status: "active",
   tier: "core",
   updatedAt: new Date("2026-09-01T00:00:00Z"),

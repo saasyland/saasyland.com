@@ -22,7 +22,6 @@ const LINE_STACK = [
   "Playwright",
 ] as const
 
-/** Duplicate the roster for the -50% marquee loop. */
 const MARQUEE_DUPLICATES = ["first", "second"] as const
 
 const RECESSED_INTERVAL = 3
@@ -39,7 +38,6 @@ export const StackSection = (): JSX.Element => {
           {t("title")}
         </p>
 
-        {/* Clip the moving track before it reaches the static label. */}
         <div className="relative min-w-0 flex-1 overflow-hidden py-5">
           <div className="flex w-max animate-marquee items-center focus-within:paused hover:paused motion-reduce:paused">
             {MARQUEE_DUPLICATES.map((set) => (

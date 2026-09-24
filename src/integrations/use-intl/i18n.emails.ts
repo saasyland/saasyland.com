@@ -19,7 +19,6 @@ import ptNewsletter from "~/messages/pt-BR/emails.newsletter.json"
 import ukEmails from "~/messages/uk-UA/emails.json"
 import ukNewsletter from "~/messages/uk-UA/emails.newsletter.json"
 
-// Email rendering is synchronous; bundle only its namespaces with the Worker.
 const EMAIL_MESSAGES = {
   "de-DE": { emails: { ...deEmails, newsletter: deNewsletter } },
   "en-US": { emails: { ...enEmails, newsletter: enNewsletter } },

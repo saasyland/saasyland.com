@@ -26,7 +26,6 @@ interface AuthEmailPayload {
   readonly user: { readonly email: string; readonly name: string }
 }
 
-/** Adapts a localized template to Better Auth's `(payload, request)` email callback contract. */
 const createAuthEmailHandler =
   <Payload extends AuthEmailPayload>(
     kind: string,

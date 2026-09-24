@@ -21,11 +21,11 @@ const DASHBOARD_USER_PREVIEW_LIMIT = 5
 const FIRST_PREVIEW_INDEX = 1
 
 export const DashboardUsersTable = (): JSX.Element => {
-  const userRows = useSuspenseQuery(getUsersQuery).data
+  const page = useSuspenseQuery(getUsersQuery).data
   const t = useTranslations("pages.admin.dashboard")
-  const users = userRows.slice(0, DASHBOARD_USER_PREVIEW_LIMIT).map((row) => mapUserRowToDashboardRow(row))
+  const users = page.rows.slice(0, DASHBOARD_USER_PREVIEW_LIMIT).map((row) => mapUserRowToDashboardRow(row))
 
-  const totalUserCount = userRows.length
+  const totalUserCount = page.total
   const previewCount = users.length
   const rangeStart = previewCount === 0 ? 0 : FIRST_PREVIEW_INDEX
 

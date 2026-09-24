@@ -9,7 +9,6 @@ import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 const SESSION_STALE_TIME_MS = 60_000
 
 // Share the pending lookup within one HTTP request; never cache across requests.
-// Weak keys allow completed requests and their sessions to be garbage-collected.
 const requestSessions = new WeakMap<Request, ReturnType<typeof auth.api.getSession>>()
 
 export const getRequestSession = createServerOnlyFn((request: Request) => {

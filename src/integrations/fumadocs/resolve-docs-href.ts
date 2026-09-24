@@ -2,7 +2,6 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 const LOCALIZED_MDX_EXTENSION = new RegExp(`(?:\\.(?:${I18N.SUPPORTED_LOCALES.join("|")}))?\\.mdx?$`, "u")
 
-/** Resolve MDX links against their source file, including directory index pages. */
 export const resolveDocsRelativeHref = ({
   href,
   pathname,

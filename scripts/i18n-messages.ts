@@ -40,7 +40,6 @@ function deepMergeMessages(target: MessageTree, source: MessageTree): MessageTre
   return merged
 }
 
-/** Mutating insert: walks the dotted-filename path once instead of cloning the whole tree per file. */
 function insertMessageFile(tree: MessageTree, filename: string, content: MessageTree): void {
   const segments = filename
     .replace(/\.json$/u, "")

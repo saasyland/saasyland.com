@@ -1,5 +1,6 @@
 import type { JSX } from "react"
 
+import type { ListPagination } from "~/src/modules/_core/utils/pagination"
 import type { Product } from "~/src/modules/product/product.types"
 
 import { TabsContent } from "~/src/presentation/components/shadcn/tabs"
@@ -10,14 +11,15 @@ import { ProductsTableHead } from "~/src/presentation/components/custom/admin/pr
 import { ProductsTaggedRow } from "~/src/presentation/components/custom/admin/products/components/products-tagged-row"
 
 interface ProductsOnetimeTabProps {
+  readonly pagination?: ListPagination | undefined
   readonly products: readonly Product["select"][]
 }
 
-export const ProductsOnetimeTab = ({ products }: ProductsOnetimeTabProps): JSX.Element => (
+export const ProductsOnetimeTab = ({ products, pagination }: ProductsOnetimeTabProps): JSX.Element => (
   <TabsContent id="onetime" className="mt-6 space-y-4 outline-none">
     <ProductsTabToolbar />
 
-    <ProductsTableCard end={3} total={3}>
+    <ProductsTableCard pagination={pagination} end={products.length} total={products.length}>
       <ProductsTableHead variant="all" />
       <tbody className="divide-y divide-border">
         {products

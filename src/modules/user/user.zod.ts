@@ -12,14 +12,15 @@ import { USER_VALIDATION_MESSAGE } from "~/src/modules/user/user.validations"
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
 
 const USER_IMAGE_MAX_LENGTH = 2048
+const MAX_BAN_REASON_LENGTH = 255
 
 const userIdInput = zod.object({
   userId: idField,
 })
 
 const banUser = zod.object({
-  banExpiresIn: zod.number().optional(),
-  banReason: zod.string().optional(),
+  banExpiresIn: zod.int().positive().optional(),
+  banReason: zod.string().trim().max(MAX_BAN_REASON_LENGTH).optional(),
   userId: idField,
 })
 

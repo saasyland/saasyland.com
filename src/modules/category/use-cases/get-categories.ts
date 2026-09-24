@@ -1,15 +1,41 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import { desc } from "drizzle-orm"
+import { count, desc, eq } from "drizzle-orm"
+import zod from "zod/v4"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { CATEGORY_QUERY_KEYS } from "~/src/modules/category/category.constants"
-import { category } from "~/src/modules/category/category.schema"
+import { category, categoryKindEnum } from "~/src/modules/category/category.schema"
+
+export const listCategoriesSchema = paginationSchema.extend({
+  kind: zod.enum(categoryKindEnum.enumValues).optional(),
+})
 
 export const getCategories = createServerFn({ method: "GET" })
   .middleware([authorized({ category: ["read"] })])
-  .handler(() => db.select().from(category).orderBy(desc(category.createdAt)))
+  .validator((input: zod.input<typeof listCategoriesSchema>) => listCategoriesSchema.parse(input))
+  .handler(async ({ data }) => {
+    const filter = data.kind === undefined ? undefined : eq(category.kind, data.kind)
+    const [rows, totals] = await db.batch([
+      db
+        .select()
+        .from(category)
+        .where(filter)
+        .orderBy(desc(category.createdAt), desc(category.id))
+        .limit(data.pageSize)
+        .offset(data.pageIndex * data.pageSize),
+      db.select({ total: count() }).from(category).where(filter),
+    ])
+    return { rows, total: totals.reduce((sum, row) => sum + row.total, 0) }
+  })
 
-export const getCategoriesQuery = queryOptions({ queryFn: () => getCategories(), queryKey: CATEGORY_QUERY_KEYS.LIST })
+export const getCategoriesPageQuery = (input: zod.input<typeof listCategoriesSchema> = {}) =>
+  queryOptions({
+    queryFn: () => getCategories({ data: input }),
+    queryKey: [...CATEGORY_QUERY_KEYS.LIST, listCategoriesSchema.parse(input)],
+  })
+
+export const getCategoriesQuery = getCategoriesPageQuery()

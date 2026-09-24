@@ -76,7 +76,6 @@ test("client navigation rechecks an ended session despite cached workspace data"
   expect(signedIn.ok()).toBe(true)
   await page.goto("/app", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
-  // End the server session without running the UI's cache cleanup.
   const signedOut = await page.request.post("/api/auth/sign-out", { data: {}, headers: { Origin: new URL(page.url()).origin } })
   expect(signedOut.ok()).toBe(true)
   await page.getByRole("navigation", { name: "App navigation", exact: true }).getByRole("link", { name: "License", exact: true }).click()

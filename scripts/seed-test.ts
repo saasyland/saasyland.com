@@ -17,8 +17,7 @@ const directory = await mkdtemp(join(tmpdir(), "saasyland-test-seed-"))
 try {
   const file = join(directory, "seed.sql")
   await writeFile(file, statements.join("\n"))
-  // Test fixtures always target the separate local binding. No remote option is accepted.
-  const result = spawnSync("bun", ["x", "wrangler", "d1", "execute", "DB", "--config", "src/platform/testing/wrangler.jsonc", "--local", "--persist-to", ".wrangler/test", "--file", file], {
+  const result = spawnSync("bun", ["x", "wrangler", "d1", "execute", "DB", "--env", "test", "--local", "--persist-to", ".wrangler/test", "--file", file], {
     stdio: "inherit",
   })
   if (result.status !== 0) throw new Error("Could not seed the local test database")

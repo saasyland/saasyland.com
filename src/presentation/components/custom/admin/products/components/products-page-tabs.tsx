@@ -1,5 +1,6 @@
 import type { JSX } from "react"
 
+import type { ListPagination } from "~/src/modules/_core/utils/pagination"
 import type { Category } from "~/src/modules/category/category.types"
 import type { Product } from "~/src/modules/product/product.types"
 
@@ -16,29 +17,30 @@ import { PRODUCT_TABS, type ProductTab } from "~/src/presentation/components/cus
 import { ROUTES } from "~/src/routes"
 
 interface ProductsPageTabsProps {
+  readonly pagination?: ListPagination | undefined
   readonly activeTab: ProductTab
   readonly products: readonly Product["select"][]
   readonly categories: readonly Category["select"][]
   readonly labels: Readonly<Record<ProductTab, string>>
 }
 
-const ActivePanel = ({ activeTab, categories, products }: Omit<ProductsPageTabsProps, "labels">): JSX.Element => {
+const ActivePanel = ({ activeTab, categories, products, pagination }: Omit<ProductsPageTabsProps, "labels">): JSX.Element => {
   switch (activeTab) {
     case "all":
     case "drafts": {
-      return <ProductsAllTab products={products} />
+      return <ProductsAllTab products={products} pagination={pagination} />
     }
     case "onetime": {
-      return <ProductsOnetimeTab products={products} />
+      return <ProductsOnetimeTab products={products} pagination={pagination} />
     }
     case "subscriptions": {
-      return <ProductsSubscriptionsTab products={products} />
+      return <ProductsSubscriptionsTab products={products} pagination={pagination} />
     }
     case "categories": {
-      return <ProductsCategoriesTab categories={categories} />
+      return <ProductsCategoriesTab categories={categories} pagination={pagination} />
     }
     case "collections": {
-      return <ProductsCollectionsTab categories={categories} />
+      return <ProductsCollectionsTab categories={categories} pagination={pagination} />
     }
     case "courses": {
       return <ProductsCoursesTab />
@@ -46,7 +48,7 @@ const ActivePanel = ({ activeTab, categories, products }: Omit<ProductsPageTabsP
   }
 }
 
-export const ProductsPageTabs = ({ activeTab, products, categories, labels }: ProductsPageTabsProps): JSX.Element => (
+export const ProductsPageTabs = ({ activeTab, products, categories, labels, pagination }: ProductsPageTabsProps): JSX.Element => (
   <Tabs selectedKey={activeTab === "drafts" ? "all" : activeTab} className="w-full">
     <div className="flex flex-col gap-4 border-b border-border sm:flex-row sm:items-center sm:justify-between">
       <TabsList variant="line" className="no-scrollbar flex-1 justify-start gap-6 overflow-x-auto">
@@ -58,6 +60,6 @@ export const ProductsPageTabs = ({ activeTab, products, categories, labels }: Pr
       </TabsList>
     </div>
 
-    <ActivePanel activeTab={activeTab} categories={categories} products={products} />
+    <ActivePanel activeTab={activeTab} categories={categories} products={products} pagination={pagination} />
   </Tabs>
 )

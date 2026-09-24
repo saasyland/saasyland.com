@@ -3,6 +3,8 @@ import type { JSX } from "react"
 import { CheckCircle2, type LucideIcon, MoreHorizontal, Pencil, Trash2, Users } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import type { AppMessages } from "~/src/integrations/use-intl/i18n.types"
+
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent } from "~/src/presentation/components/shadcn/card"
@@ -13,7 +15,7 @@ interface PricingModelCardProps {
   readonly cardClassName?: string
   readonly defaultChecked?: boolean
   readonly descriptionClassName?: string
-  readonly featureKeys: readonly string[]
+  readonly featureKeys: readonly (keyof AppMessages["pages"]["admin"]["pricing-models"]["features"])[]
   readonly footerIcon?: LucideIcon
   readonly footerLabelKey: "labels.activeUsers" | "labels.inactive"
   readonly modelKey: "annual" | "lifetime" | "monthly"

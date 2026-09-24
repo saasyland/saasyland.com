@@ -1,6 +1,4 @@
-import type { JSX, ReactNode } from "react"
-
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { QueryClient } from "@tanstack/react-query"
 import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 
@@ -8,6 +6,7 @@ import { deLocalizeUrl, localizeUrl } from "~/src/integrations/use-intl/i18n.uti
 
 import { DefaultError } from "~/src/presentation/components/custom/default-error"
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
+import { DefaultPending } from "~/src/presentation/components/custom/default-pending"
 
 import { routeTree } from "~/src/routeTree.gen"
 
@@ -21,7 +20,7 @@ export interface RouterContext {
   queryClient: QueryClient
 }
 
-const getContext = () => {
+export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -31,25 +30,17 @@ const getContext = () => {
     },
   })
 
-  return { queryClient }
-}
-
-export const getRouter = () => {
-  const requestContext = getContext()
-
   const router = createRouter({
-    Wrap: ({ children }: Readonly<{ children: ReactNode }>): JSX.Element => (
-      <QueryClientProvider client={requestContext.queryClient}>{children}</QueryClientProvider>
-    ),
-    context: { ...requestContext },
+    context: { queryClient },
     defaultErrorComponent: DefaultError,
     defaultNotFoundComponent: DefaultNotFound,
+    defaultPendingComponent: DefaultPending,
     defaultPendingMinMs: PENDING_MIN_DISPLAY_MS,
     defaultPendingMs: PENDING_SHOW_DELAY_MS,
     defaultPreload: "intent",
     defaultPreloadDelay: 100,
     defaultPreloadIntentProximity: 0,
-    defaultPreloadStaleTime: 30_000,
+    defaultPreloadStaleTime: 0,
     defaultStaleTime: ONE_MIN_IN_MS,
     defaultStructuralSharing: true,
     rewrite: {
@@ -61,7 +52,7 @@ export const getRouter = () => {
     scrollRestorationBehavior: "instant",
   })
 
-  setupRouterSsrQueryIntegration({ queryClient: requestContext.queryClient, router })
+  setupRouterSsrQueryIntegration({ queryClient, router })
 
   return router
 }

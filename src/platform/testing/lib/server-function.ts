@@ -18,7 +18,6 @@ const context = () => ({
   startOptions: {},
 })
 
-/** Supply the compiler's RPC bridge while retaining TanStack's real validation and middleware pipeline. */
 export const withTestRpc = (builder: Builder): Builder =>
   new Proxy(builder, {
     get(target, property, receiver) {

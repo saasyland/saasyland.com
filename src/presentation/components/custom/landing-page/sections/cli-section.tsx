@@ -17,7 +17,7 @@ const FRAME_DELAY_MS = 100
 
 const EXTRAS_GROUP = "extras"
 
-const CliGroup = ({ group }: Readonly<{ group: string }>): JSX.Element => {
+const CliGroup = ({ group }: Readonly<{ group: (typeof CLI_GROUPS)[number] }>): JSX.Element => {
   const t = useTranslations("pages.landing.cli")
 
   return (
@@ -30,9 +30,9 @@ const CliGroup = ({ group }: Readonly<{ group: string }>): JSX.Element => {
               <CliChoiceOption
                 choiceId={choice.id}
                 key={option.id}
-                label={t(`choices.${choice.id}.options.${option.id}`)}
+                label={t(option.labelKey)}
                 optionId={option.id}
-                unavailableReason={"unavailableWhen" in option ? t(`choices.${choice.id}.unavailable.${option.id}`) : undefined}
+                unavailableReason={"unavailableWhen" in option ? t(option.unavailableKey) : undefined}
               />
             ))}
           </CliChoiceRow>

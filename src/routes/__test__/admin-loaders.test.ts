@@ -10,7 +10,6 @@ import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
-import { Route as BlogRoute } from "~/src/routes/admin.blog.index"
 import { Route as ProductsRoute } from "~/src/routes/admin.products.index"
 import { Route as UsersIndexRoute } from "~/src/routes/admin.users.index"
 
@@ -28,15 +27,18 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
 })
 vi.mock(import("~/src/modules/category/use-cases/get-categories"), async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, getCategoriesQuery: { ...actual.getCategoriesQuery, queryFn: vi.fn(() => Promise.resolve([])) } }
+  return { ...actual, getCategoriesQuery: { ...actual.getCategoriesQuery, queryFn: vi.fn(() => Promise.resolve({ rows: [], total: 0 })) } }
 })
 vi.mock(import("~/src/modules/product/use-cases/get-products"), async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, getProductsQuery: { ...actual.getProductsQuery, queryFn: vi.fn(() => Promise.resolve([])) } }
+  return { ...actual, getProductsQuery: { ...actual.getProductsQuery, queryFn: vi.fn(() => Promise.resolve({ rows: [], total: 0 })) } }
 })
 vi.mock(import("~/src/modules/user/use-cases/get-users"), async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, getUsersQuery: { ...actual.getUsersQuery, queryFn: vi.fn(() => Promise.resolve([])) } }
+  return {
+    ...actual,
+    getUsersQuery: { ...actual.getUsersQuery, queryFn: vi.fn(() => Promise.resolve({ rows: [], total: 0, pendingVerification: 0 })) },
+  }
 })
 vi.mock(import("~/src/modules/session/use-cases/get-active-sessions"), async (importOriginal) => {
   const actual = await importOriginal()
@@ -98,7 +100,9 @@ describe("admin route loaders", () => {
     const router = await loadAdmin(path)
     for (const query of queries) {
       expect(query.queryFn).toHaveBeenCalledOnce()
-      expect(router.options.context.queryClient.getQueryData(query.queryKey)).toEqual([])
+      expect(router.options.context.queryClient.getQueryData(query.queryKey)).toEqual(
+        query === getActiveSessionsQuery ? [] : expect.objectContaining({ rows: [], total: 0 }),
+      )
     }
   })
 
@@ -109,11 +113,22 @@ describe("admin route loaders", () => {
     expect(beforeLoad.mock.results[0]?.value).toHaveProperty("options.to", "/admin/users/all")
   })
 
-  it.each([BlogRoute, ProductsRoute])("accepts only string values in validated catalog searches", (route) => {
-    const validate = route.options.validateSearch
+  it("accepts only string values in validated product searches", () => {
+    const validate = ProductsRoute.options.validateSearch
     if (typeof validate !== "function") {
       throw new TypeError("Missing search validator")
     }
     expect(validate({ view: "table", tab: "categories", invalid: 12, object: { bad: true } })).toEqual({ view: "table", tab: "categories" })
+  })
+
+  it.each([
+    ["table", "table"],
+    ["grid", "grid"],
+    [undefined, "grid"],
+    ["invalid", "grid"],
+    [12, "grid"],
+  ])("validates the requested blog view: %s", (view, expected) => {
+    const router = getRouter()
+    expect(router.matchRoutes("/admin/blog", { view }).at(-1)?.search).toMatchObject({ view: expected })
   })
 })

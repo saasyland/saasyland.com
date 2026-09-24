@@ -3,7 +3,12 @@ import type { JSX } from "react"
 import { Link, type LinkProps, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-const routeMappings: Record<string, { group: string; link: string; to: NonNullable<LinkProps["to"]> }> = {
+import type { AppMessages } from "~/src/integrations/use-intl/i18n.types"
+
+const routeMappings: Record<
+  string,
+  { group: string; link: keyof AppMessages["pages"]["admin"]["sidebar"]["links"]; to: NonNullable<LinkProps["to"]> }
+> = {
   analytics: { group: "overview", link: "analytics", to: "/admin/analytics" },
   blog: { group: "content", link: "blog", to: "/admin/blog" },
   "landing-page": { group: "content", link: "landingPage", to: "/admin/landing-page" },

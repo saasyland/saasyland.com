@@ -2,7 +2,6 @@ import type { CategoryValidationMessageKey } from "~/src/integrations/use-intl/i
 
 const CATEGORY_NAME_MAX_LENGTH = 255
 
-/** Keys under `category.validations` — translate at the UI with `useTranslations("category.validations")`. */
 export const CATEGORY_VALIDATION_MESSAGE = {
   atLeastOneFieldRequired: "atLeastOneFieldRequired",
   nameMaxLength: "nameMaxLength",

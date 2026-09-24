@@ -1,5 +1,6 @@
 import type { JSX } from "react"
 
+import type { ListPagination } from "~/src/modules/_core/utils/pagination"
 import type { Product } from "~/src/modules/product/product.types"
 
 import { TabsContent } from "~/src/presentation/components/shadcn/tabs"
@@ -10,14 +11,15 @@ import { ProductsTableHead } from "~/src/presentation/components/custom/admin/pr
 import { ProductsTableRow } from "~/src/presentation/components/custom/admin/products/components/products-table-row"
 
 interface ProductsAllTabProps {
+  readonly pagination?: ListPagination | undefined
   readonly products: readonly Product["select"][]
 }
 
-export const ProductsAllTab = ({ products }: ProductsAllTabProps): JSX.Element => (
+export const ProductsAllTab = ({ products, pagination }: ProductsAllTabProps): JSX.Element => (
   <TabsContent id="all" className="mt-6 space-y-4 outline-none">
     <ProductsTabToolbar />
 
-    <ProductsTableCard end={4} total={4}>
+    <ProductsTableCard pagination={pagination} end={products.length} total={products.length}>
       <ProductsTableHead variant="all" />
       <tbody className="divide-y divide-border">
         {products.map((product) => (

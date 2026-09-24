@@ -43,7 +43,6 @@ const readErrorCode = (value: unknown): string | undefined => {
   return typeof code === "string" ? code : undefined
 }
 
-/** Maps a Better Auth error — client result or thrown `APIError` (code on `body`) — to its i18n key. */
 export const authErrorKey = (error: unknown): AuthErrorMessageKey => {
   const body = typeof error === "object" && error !== null && "body" in error ? error.body : undefined
   const code = readErrorCode(error) ?? readErrorCode(body)

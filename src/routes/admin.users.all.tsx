@@ -1,18 +1,17 @@
-import { type JSX } from "react"
+import type { JSX } from "react"
 
-import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
 
-import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
+import { getUsersPageQuery, getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
 import { AddUserButton } from "~/src/presentation/components/custom/admin/users/all/components/actions"
-import { AllUsersTable } from "~/src/presentation/components/custom/admin/users/all/components/all-users-table"
-import { SectionErrorBoundary } from "~/src/presentation/components/custom/section-error-boundary"
+import { useAllUsersColumns } from "~/src/presentation/components/custom/admin/users/all/components/columns"
+import { DataTable } from "~/src/presentation/components/custom/data-table/data-table"
 
 const AllUsersPage = (): JSX.Element => {
-  const users = useSuspenseQuery(getUsersQuery).data
+  const columns = useAllUsersColumns()
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-4">
@@ -20,9 +19,11 @@ const AllUsersPage = (): JSX.Element => {
         <AddUserButton />
       </div>
 
-      <SectionErrorBoundary>
-        <AllUsersTable users={users} />
-      </SectionErrorBoundary>
+      <DataTable
+        columns={columns}
+        query={getUsersPageQuery}
+        options={{ initialState: { columnPinning: { end: ["actions"], start: ["select"] } } }}
+      />
     </div>
   )
 }

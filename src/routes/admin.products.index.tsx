@@ -1,4 +1,4 @@
-import { type JSX, Suspense } from "react"
+import { type JSX, Suspense, useState } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
@@ -6,8 +6,9 @@ import { useTranslations } from "use-intl/react"
 
 import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
 
-import { getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
-import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
+import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
+import { getCategoriesPageQuery, getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
+import { getProductsPageQuery, getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 
 import { ProductsPageTabs } from "~/src/presentation/components/custom/admin/products/components/products-page-tabs"
 import { resolveProductTab } from "~/src/presentation/components/custom/admin/products/constants/product-tabs"
@@ -33,7 +34,7 @@ const ProductsPage = (): JSX.Element => {
       </div>
 
       <Suspense fallback={PRODUCTS_CATALOG_FALLBACK}>
-        <ProductsCatalog searchParams={searchParams} />
+        <ProductsCatalog key={searchParams["tab"] ?? "all"} searchParams={searchParams} />
       </Suspense>
     </div>
   )
@@ -56,11 +57,30 @@ const catalogLabels = (
 const ProductsCatalog = ({ searchParams }: { searchParams: Record<string, string | undefined> }): JSX.Element => {
   const t = useTranslations("pages.admin.products")
   const params = searchParams
-  const products = useSuspenseQuery(getProductsQuery).data
-  const categories = useSuspenseQuery(getCategoriesQuery).data
+  const [pageIndex, setPageIndex] = useState(0)
   const activeTab = resolveProductTab(params["tab"])
+  const products = useSuspenseQuery(
+    getProductsPageQuery({
+      pageIndex,
+      ...(activeTab === "onetime" ? { type: "one_time" } : {}),
+      ...(activeTab === "subscriptions" ? { type: "subscription" } : {}),
+      ...(activeTab === "drafts" ? { status: "draft" } : {}),
+    }),
+  ).data
+  const categories = useSuspenseQuery(
+    getCategoriesPageQuery({ pageIndex, kind: activeTab === "collections" ? "collection" : "category" }),
+  ).data
+  const total = activeTab === "categories" || activeTab === "collections" ? categories.total : products.total
 
-  return <ProductsPageTabs activeTab={activeTab} categories={categories} labels={catalogLabels(t)} products={products} />
+  return (
+    <ProductsPageTabs
+      activeTab={activeTab}
+      categories={categories.rows}
+      labels={catalogLabels(t)}
+      products={products.rows}
+      pagination={{ onPageChange: setPageIndex, pageIndex, pageSize: DEFAULT_PAGE_SIZE, total }}
+    />
+  )
 }
 
 export const Route = createFileRoute("/admin/products/")({

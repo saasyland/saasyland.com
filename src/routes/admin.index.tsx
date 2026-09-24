@@ -1,4 +1,4 @@
-import { type JSX, Suspense } from "react"
+import type { JSX } from "react"
 
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { Calendar, PlusCircle } from "lucide-react"
@@ -13,12 +13,7 @@ import { Button } from "~/src/presentation/components/shadcn/button"
 
 import { DashboardChart } from "~/src/presentation/components/custom/admin/dashboard/components/dashboard-chart"
 import { DashboardStatsGrid } from "~/src/presentation/components/custom/admin/dashboard/components/dashboard-stats-grid"
-import { DashboardStatsGridSkeleton } from "~/src/presentation/components/custom/admin/dashboard/components/dashboard-stats-grid-skeleton"
 import { DashboardUsersTable } from "~/src/presentation/components/custom/admin/dashboard/components/dashboard-users-table"
-import { DashboardUsersTableSkeleton } from "~/src/presentation/components/custom/admin/dashboard/components/dashboard-users-table-skeleton"
-
-const DASHBOARD_STATS_GRID_FALLBACK = <DashboardStatsGridSkeleton />
-const DASHBOARD_USERS_TABLE_FALLBACK = <DashboardUsersTableSkeleton />
 
 const AdminPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.dashboard")
@@ -44,15 +39,11 @@ const AdminPage = (): JSX.Element => {
         </div>
       </div>
 
-      <Suspense fallback={DASHBOARD_STATS_GRID_FALLBACK}>
-        <DashboardStatsGrid />
-      </Suspense>
+      <DashboardStatsGrid />
 
       <DashboardChart />
 
-      <Suspense fallback={DASHBOARD_USERS_TABLE_FALLBACK}>
-        <DashboardUsersTable />
-      </Suspense>
+      <DashboardUsersTable />
     </div>
   )
 }

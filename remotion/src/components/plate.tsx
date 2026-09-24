@@ -5,7 +5,6 @@ import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } fr
 import { SANS } from "../fonts"
 import { SEAM, THEME } from "../theme"
 
-// Match the surrounding surface; fading both ends to it keeps the video loop seamless.
 export function Plate({ children, ground = THEME.card, seam = true }: Readonly<{ children: ReactNode; ground?: string; seam?: boolean }>) {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()

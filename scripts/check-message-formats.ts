@@ -49,4 +49,4 @@ if (problems.length > 0) {
   console.error(problems.join("\n"))
   process.exit(1)
 }
-console.log("Every translated message parses and preserves its ICU arguments and rich-text tags.")
+console.log("✅ Every translated message parses and preserves its ICU arguments and rich-text tags.")

@@ -47,7 +47,6 @@ const findOption = (choiceId: string, optionId: string | undefined): ChoiceOptio
   return choice?.options.find((entry) => entry.id === optionId)
 }
 
-// Reset choices invalidated by another selection.
 const reconcile = (taken: Taken): Taken => {
   const next: Record<string, string> = { ...taken }
   for (const choice of CLI_CHOICES) {

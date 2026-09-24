@@ -18,6 +18,7 @@ const ownedLicense = {
   polarCustomerId: "customer",
   polarLicenseKeyId: "polar-license",
   polarOrderId: null,
+  purchaseCreatedAt: new Date(0),
   status: "active",
   tier: "core",
   updatedAt: new Date(),

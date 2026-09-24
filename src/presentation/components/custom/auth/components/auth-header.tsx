@@ -14,13 +14,6 @@ const BACK_LINK_CLASS =
 const BACK_ARROW_CLASS =
   "size-4 transition-transform duration-200 ease-exp group-hover:-translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none"
 
-export const AuthHeaderFallback = (): JSX.Element => (
-  <header className={HEADER_CLASS}>
-    <Wordmark className="h-11" />
-    <span aria-hidden className="h-4 w-28 animate-pulse rounded-sm bg-muted motion-reduce:animate-none" />
-  </header>
-)
-
 export const AuthHeader = (): JSX.Element => {
   const t = useTranslations("auth.layout")
 

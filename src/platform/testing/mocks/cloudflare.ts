@@ -11,11 +11,13 @@ for (const file of readdirSync(migrations)
 }
 
 const prepare = (query: string, values: SQLInputValue[] = []) => ({
-  async all() {
-    const results = database.prepare(query).all(...values)
-    return { meta: {}, results, success: true }
+  all() {
+    return Promise.resolve(this.execute())
   },
   bind: (...parameters: SQLInputValue[]) => prepare(query, parameters),
+  execute() {
+    return { meta: {}, results: database.prepare(query).all(...values), success: true }
+  },
   async first(column?: string) {
     const row = database.prepare(query).get(...values)
     return column === undefined ? (row ?? null) : (row?.[column] ?? null)
@@ -34,9 +36,9 @@ const prepare = (query: string, values: SQLInputValue[] = []) => ({
 const cache = new Map<string, string>()
 export const resetTestBindings = (): void => {
   cache.clear()
+  database.exec("DELETE FROM rate_limit")
 }
 // The harness supplies only the bindings exercised by local tests.
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 export const env = {
   ...process.env,
   ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
@@ -56,8 +58,21 @@ export const env = {
       cache.set(key, value)
     },
   },
-  DB: { batch: (statements: ReturnType<typeof prepare>[]) => Promise.all(statements.map((statement) => statement.all())), prepare },
-} as unknown as Cloudflare.Env
+  DB: {
+    batch: (statements: ReturnType<typeof prepare>[]) => {
+      database.exec("BEGIN")
+      try {
+        const results = statements.map((statement) => statement.execute())
+        database.exec("COMMIT")
+        return Promise.resolve(results)
+      } catch (error) {
+        database.exec("ROLLBACK")
+        return Promise.reject(error instanceof Error ? error : new Error("SQLite batch failed", { cause: error }))
+      }
+    },
+    prepare,
+  },
+}
 
 export const waitUntil = (promise: Promise<unknown>): void => {
   void promise

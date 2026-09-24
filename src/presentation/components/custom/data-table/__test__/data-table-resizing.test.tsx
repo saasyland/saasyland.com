@@ -2,9 +2,11 @@ import type { JSX, ReactNode } from "react"
 // @vitest-environment jsdom
 
 import { createColumnHelper } from "@tanstack/react-table"
-import { type RenderResult, act, render } from "@testing-library/react"
+import { type RenderResult, act } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
+
+import { renderWithRouter as render } from "~/src/platform/testing/lib/render"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
@@ -43,11 +45,11 @@ const helper = createColumnHelper<DataTableFeatures, Row>()
 const DATA: Row[] = [{ id: "1", name: "Ada", status: "active" }]
 const EMPTY_DATA: Row[] = []
 
-const COLUMNS = helper.columns([
+const COLUMNS: DataTableColumnDef<Row>[] = helper.columns([
   helper.display({ enableResizing: false, header: "", id: "select", size: SELECT_SIZE }),
   helper.accessor("name", { header: "Name", id: "name", minSize: NAME_MIN_SIZE, size: NAME_SIZE }),
   helper.accessor("status", { header: "Status", id: "status", size: STATUS_SIZE }),
-]) as DataTableColumnDef<Row>[]
+])
 
 const PINNED_OPTIONS: DataTableOptions<Row> = { initialState: { columnPinning: { end: ["status"], start: ["select"] } } }
 
@@ -93,7 +95,6 @@ describe("column resizing", () => {
 
     const { container } = renderTable()
 
-    // Only the fixed select column opts out; data columns all resize.
     expect(container.querySelectorAll('thead th button[aria-label="Resize column"]')).toHaveLength(RESIZABLE_COLUMN_COUNT)
   })
 

@@ -2,8 +2,10 @@ import { notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import browserCollections from "collections/browser"
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/layouts/docs/page"
+import type zod from "zod/v4"
 
 import { source } from "~/src/integrations/fumadocs/fumadocs.source"
+import { contentSlugSchema } from "~/src/integrations/fumadocs/fumadocs.zod"
 import { MdxSourcePath, getMDXComponents } from "~/src/integrations/fumadocs/mdx"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -12,7 +14,7 @@ export const getDocsTree = createServerFn({ method: "GET" }).handler(async () =>
 }))
 
 const getDocsPage = createServerFn({ method: "GET" })
-  .validator((slug: string) => slug)
+  .validator((input: zod.input<typeof contentSlugSchema>) => contentSlugSchema.parse(input))
   .handler(({ data: slug }) => {
     const page = source.getPage(slug ? slug.split("/") : [], getCurrentLocale())
     if (!page) {

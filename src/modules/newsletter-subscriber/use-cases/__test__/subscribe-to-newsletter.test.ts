@@ -4,13 +4,16 @@ import type * as StartServerModule from "@tanstack/react-start/server"
 import { getRequest } from "@tanstack/react-start/server"
 import { render } from "react-email"
 import type { Resend } from "resend"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { SUBSCRIPTION_RESULT } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 import { subscribeToNewsletterMutation } from "~/src/modules/newsletter-subscriber/use-cases/subscribe-to-newsletter"
 
@@ -23,31 +26,19 @@ const SINGLE_CALL = 1
 
 const resendSendMock = vi.hoisted(() => vi.fn<Resend["emails"]["send"]>())
 
-const dbMocks = vi.hoisted(() => {
-  const onConflictDoUpdate = vi.fn<() => Promise<void>>().mockResolvedValue()
-  const values = vi
-    .fn<(row: { confirmationToken: string; email: string }) => { onConflictDoUpdate: typeof onConflictDoUpdate }>()
-    .mockReturnValue({ onConflictDoUpdate })
-  const insertMock = vi.fn<() => { values: typeof values }>().mockReturnValue({ values })
-
-  const limit = vi.fn<() => Promise<{ status: string }[]>>()
-  const where = vi.fn<() => { limit: typeof limit }>().mockReturnValue({ limit })
-  const from = vi.fn<() => { where: typeof where }>().mockReturnValue({ where })
-  const selectMock = vi.fn<() => { from: typeof from }>().mockReturnValue({ from })
-
-  return { insertMock, limit, selectMock, values }
+beforeEach(async () => {
+  await db.delete(newsletterSubscriber)
 })
+const readSubscriber = async () => {
+  const rows = await db.select().from(newsletterSubscriber).limit(1)
+  return rows[0]
+}
 
 vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
 
 vi.mock(import("~/src/integrations/resend/resend.config"), async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual, resend: Object.assign(actual.resend, { emails: { send: resendSendMock } }) }
-})
-
-vi.mock(import("~/src/integrations/drizzle-orm/drizzle.database"), async (importOriginal) => {
-  const actual = await importOriginal()
-  return { ...actual, db: Object.assign(actual.db, { insert: dbMocks.insertMock, select: dbMocks.selectMock }) }
 })
 
 vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerModule> => ({
@@ -57,10 +48,6 @@ vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerMo
 const mockSuccessfulSend = (): void => {
   resendSendMock.mockReset()
   resendSendMock.mockResolvedValue({ data: { id: "email_1" }, error: JSON_NULL, headers: JSON_NULL })
-  dbMocks.insertMock.mockClear()
-  dbMocks.selectMock.mockClear()
-  dbMocks.values.mockClear()
-  dbMocks.limit.mockResolvedValue([])
   vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/", { headers: HEADERS }))
 }
 
@@ -73,7 +60,7 @@ describe("subscribe-to-newsletter", () => {
       status: SUBSCRIPTION_RESULT.CONFIRMATION_SENT,
     })
 
-    const [row] = dbMocks.values.mock.calls.map(([value]) => value)
+    const row = await readSubscriber()
     const [payload, options] = resendSendMock.mock.calls[0]!
 
     expect(row).toHaveProperty("email", ADDRESS)
@@ -100,7 +87,7 @@ describe("subscribe-to-newsletter", () => {
     await executeMutation(subscribeToNewsletterMutation, { email: SUBSCRIBER, locale: "en-US" })
     await executeMutation(subscribeToNewsletterMutation, { email: SUBSCRIBER, locale: "en-US" })
 
-    const tokens = dbMocks.values.mock.calls.map(([row]) => row.confirmationToken)
+    const tokens = resendSendMock.mock.calls.map(([, options]) => options?.idempotencyKey)
 
     expect(new Set(tokens).size).toBe(tokens.length)
   })
@@ -108,26 +95,30 @@ describe("subscribe-to-newsletter", () => {
   it("reports an address that is already on the list and sends nothing", async () => {
     expect.hasAssertions()
     mockSuccessfulSend()
-    dbMocks.limit.mockResolvedValue([{ status: "subscribed" }])
+    await db
+      .insert(newsletterSubscriber)
+      .values({ email: ADDRESS, id: "existing", status: "subscribed", unsubscribeToken: "existing-token" })
 
     await expect(executeMutation(subscribeToNewsletterMutation, { email: SUBSCRIBER, locale: "en-US" })).resolves.toMatchObject({
       status: SUBSCRIPTION_RESULT.ALREADY_SUBSCRIBED,
     })
 
-    expect(dbMocks.insertMock).not.toHaveBeenCalled()
+    expect(await readSubscriber()).toMatchObject({ status: "subscribed" })
     expect(resendSendMock).not.toHaveBeenCalled()
   })
 
   it("asks an address that had unsubscribed to confirm again", async () => {
     expect.hasAssertions()
     mockSuccessfulSend()
-    dbMocks.limit.mockResolvedValue([{ status: "unsubscribed" }])
+    await db
+      .insert(newsletterSubscriber)
+      .values({ email: ADDRESS, id: "existing", status: "unsubscribed", unsubscribeToken: "existing-token" })
 
     await expect(executeMutation(subscribeToNewsletterMutation, { email: SUBSCRIBER, locale: "en-US" })).resolves.toMatchObject({
       status: SUBSCRIPTION_RESULT.CONFIRMATION_SENT,
     })
 
-    expect(dbMocks.insertMock).toHaveBeenCalledTimes(SINGLE_CALL)
+    expect(await db.select().from(newsletterSubscriber)).toHaveLength(SINGLE_CALL)
   })
 
   it("reports a server error when Resend rejects the send", async () => {
@@ -174,7 +165,7 @@ describe("subscribe-to-newsletter", () => {
 
       await executeMutation(subscribeToNewsletterMutation, { email: SUBSCRIBER, locale: "pl-PL" })
 
-      const row = dbMocks.values.mock.calls[0]?.[0]
+      const row = await readSubscriber()
       const payload = resendSendMock.mock.calls[0]?.[0]
       expect(payload?.react).toBeDefined()
       const html = await render(payload!.react)
@@ -191,8 +182,7 @@ describe("subscribe-to-newsletter", () => {
     await expect(executeMutation(subscribeToNewsletterMutation, { email: SUBSCRIBER, locale: "en-US" })).rejects.toThrow(
       ERROR_CODES.FORBIDDEN,
     )
-    expect(dbMocks.selectMock).not.toHaveBeenCalled()
-    expect(dbMocks.insertMock).not.toHaveBeenCalled()
+    expect(await readSubscriber()).toBeUndefined()
     expect(resendSendMock).not.toHaveBeenCalled()
   })
 })

@@ -1,23 +1,15 @@
 import {
   type ColumnDef,
+  type ReactTable,
   type RowData,
   type TableOptions,
-  columnFilteringFeature,
-  columnOrderingFeature,
   columnPinningFeature,
   columnResizingFeature,
   columnSizingFeature,
   columnVisibilityFeature,
-  createExpandedRowModel,
-  createFilteredRowModel,
   createPaginatedRowModel,
   createSortedRowModel,
-  filterFn_equals,
-  filterFn_inNumberRange,
-  filterFn_includesString,
-  globalFilteringFeature,
   metaHelper,
-  rowExpandingFeature,
   rowPaginationFeature,
   rowSelectionFeature,
   rowSortingFeature,
@@ -45,23 +37,12 @@ interface DataTableColumnMeta {
 }
 
 export const dataTableFeatures = tableFeatures({
-  columnFilteringFeature,
   columnMeta: metaHelper<DataTableColumnMeta>(),
-  columnOrderingFeature,
   columnPinningFeature,
   columnResizingFeature,
   columnSizingFeature,
   columnVisibilityFeature,
-  expandedRowModel: createExpandedRowModel(),
-  filterFns: {
-    equals: filterFn_equals,
-    inNumberRange: filterFn_inNumberRange,
-    includesString: filterFn_includesString,
-  },
-  filteredRowModel: createFilteredRowModel(),
-  globalFilteringFeature,
   paginatedRowModel: createPaginatedRowModel(),
-  rowExpandingFeature,
   rowPaginationFeature,
   rowSelectionFeature,
   rowSortingFeature,
@@ -76,5 +57,9 @@ export const dataTableFeatures = tableFeatures({
 })
 
 export type DataTableFeatures = typeof dataTableFeatures
+export type DataTableInstance<TData extends RowData> = ReactTable<DataTableFeatures, TData>
 export type DataTableColumnDef<TData extends RowData> = ColumnDef<DataTableFeatures, TData>
-export type DataTableOptions<TData extends RowData> = Omit<TableOptions<DataTableFeatures, TData>, "columns" | "data" | "features">
+export type DataTableOptions<TData extends RowData> = Omit<
+  TableOptions<DataTableFeatures, TData>,
+  "atoms" | "columns" | "data" | "features" | "onPaginationChange" | "onSortingChange" | "state"
+>

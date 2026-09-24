@@ -1,12 +1,19 @@
-type ValidationTranslator = (key: string, values?: Record<string, string | number>) => string
+import { VALIDATION_MESSAGE_KEYS } from "~/src/integrations/use-intl/validation-keys"
 
-/** Translate a zod issue message key with optional interpolation params. */
+type ValidationKey = (typeof VALIDATION_MESSAGE_KEYS)[number]
+export type ValidationNamespace = ValidationKey extends `${infer Module}.validations.${string}` ? `${Module}.validations` : never
+type ValidationTranslator = (key: ValidationKey | "errors.action.VALIDATION", values?: Record<string, string | number>) => string
+
 export const translateValidationMessage = (
-  message: string,
+  { namespace, message }: Readonly<{ namespace: ValidationNamespace; message: string }>,
   t: ValidationTranslator,
   paramsByKey?: Readonly<Record<string, Readonly<Record<string, string | number>>>>,
 ): string => {
+  const key = VALIDATION_MESSAGE_KEYS.find((candidate) => candidate === `${namespace}.${message}`)
+  if (key === undefined) {
+    return t("errors.action.VALIDATION")
+  }
   const params = paramsByKey?.[message]
 
-  return params === undefined ? t(message) : t(message, params)
+  return params === undefined ? t(key) : t(key, params)
 }

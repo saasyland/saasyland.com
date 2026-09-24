@@ -9,7 +9,7 @@ export const AuthFieldError = ({
   id,
   message,
 }: Readonly<{ id?: string | undefined; message?: string | undefined }>): JSX.Element | undefined => {
-  const t = useTranslations("auth.validations")
+  const t = useTranslations()
 
   if (message === undefined || message === "") {
     return undefined
@@ -17,7 +17,7 @@ export const AuthFieldError = ({
 
   return (
     <p className="text-body-sm text-destructive" id={id} role="alert">
-      {translateValidationMessage(message, t, AUTH_VALIDATION_PARAMS)}
+      {translateValidationMessage({ message, namespace: "auth.validations" }, t, AUTH_VALIDATION_PARAMS)}
     </p>
   )
 }

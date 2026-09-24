@@ -73,4 +73,4 @@ if (problems.length > 0) {
   console.error(problems.join("\n"))
   process.exit(1)
 }
-console.log(`Content files, navigation, and code examples match across ${I18N.SUPPORTED_LOCALES.length} locales.`)
+console.log(`✅ Content files, navigation, and code examples match across ${I18N.SUPPORTED_LOCALES.length} locales.`)

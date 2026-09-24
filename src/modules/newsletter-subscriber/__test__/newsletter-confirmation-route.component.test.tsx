@@ -39,7 +39,6 @@ const createNewsletterRouter = (path = "/") => {
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
   const landing = createRoute({ getParentRoute: () => root, id: "_landing" })
   const home = createRoute({ component: () => <p>Home</p>, getParentRoute: () => root, path: "/" })
-  // Attach the actual file routes to a small layout, as the generated route tree does.
   Object.assign(ConfirmRoute.options, { getParentRoute: () => landing, id: "/newsletter/confirm", path: "/newsletter/confirm" })
   Object.assign(UnsubscribeRoute.options, { getParentRoute: () => landing, id: "/newsletter/unsubscribe", path: "/newsletter/unsubscribe" })
   return createRouter({

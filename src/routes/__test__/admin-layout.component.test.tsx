@@ -13,7 +13,6 @@ import { SidebarProvider } from "~/src/presentation/components/shadcn/sidebar"
 
 import { adminMessages, adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminBreadcrumbs } from "~/src/presentation/components/custom/admin/components/admin-breadcrumbs"
-import AdminLoading from "~/src/presentation/components/custom/admin/components/loading"
 import { UserWidget } from "~/src/presentation/components/custom/admin/components/user-widget"
 
 vi.mock(import("~/src/hooks/use-mobile"), () => ({ useIsMobile: () => false }))
@@ -84,12 +83,6 @@ describe("admin navigation", () => {
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, null)
     const { container } = renderAdmin(<UserWidget />, { queryClient })
     expect(container).toBeEmptyDOMElement()
-  })
-
-  it("renders a lightweight loading placeholder", () => {
-    const { container } = renderAdmin(<AdminLoading />)
-    expect(container.firstElementChild).not.toBeEmptyDOMElement()
-    expect(screen.queryByRole("button")).not.toBeInTheDocument()
   })
 })
 

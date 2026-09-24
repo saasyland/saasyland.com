@@ -23,6 +23,9 @@ export const license = sqliteTable(
     polarCustomerId: text("polar_customer_id", { length: POLAR_ID_MAX_LENGTH }).notNull(),
     polarLicenseKeyId: text("polar_license_key_id", { length: POLAR_ID_MAX_LENGTH }).unique(),
     polarOrderId: text("polar_order_id", { length: POLAR_ID_MAX_LENGTH }),
+    purchaseCreatedAt: integer("purchase_created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`0`),
     status: text("status", { enum: licenseStatusEnum.enumValues }).notNull().default(LICENSE_STATUS.ACTIVE),
     tier: text("tier", { enum: licenseTierEnum.enumValues }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
@@ -40,6 +43,14 @@ export const license = sqliteTable(
   },
   (table) => [index("license_status_tier_idx").on(table.status, table.tier)],
 )
+
+// Retain terminal order revocations even if their webhook precedes order.paid.
+export const revokedLicenseOrder = sqliteTable("revoked_license_order", {
+  polarOrderId: text("polar_order_id", { length: POLAR_ID_MAX_LENGTH }).primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+})
 
 export const licenseRelations = relations(license, ({ one }) => ({
   user: one(user, { fields: [license.userId], references: [user.id] }),

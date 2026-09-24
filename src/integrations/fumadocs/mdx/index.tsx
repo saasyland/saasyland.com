@@ -43,11 +43,6 @@ const MdxLink = ({ href, ...props }: ComponentPropsWithoutRef<"a">) => {
   return <Anchor {...props} {...(resolved === undefined ? {} : { href: resolved })} />
 }
 
-/**
- * MDX component map for docs/blog.
- * Prefer Fumadocs primitives (Cards, Callout, Steps, Tabs, Accordions) for doc UX;
- * shadcn exports are available when you need product-UI parity.
- */
 const defaultMDXComponents: MDXComponents = {
   ...defaultMdxComponents,
   Accordion,
@@ -67,7 +62,6 @@ const defaultMDXComponents: MDXComponents = {
   Files,
   Folder,
   Separator,
-  // Shadcn Card namespaced — collides with Fumadocs Card
   ShadcnCard,
   Step,
   Steps,

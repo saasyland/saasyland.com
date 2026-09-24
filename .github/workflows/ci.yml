@@ -8,7 +8,8 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: read
@@ -44,9 +45,35 @@ jobs:
 
   e2e:
     name: Build and E2E
-    if: github.event_name == 'pull_request'
     permissions:
       contents: read
     uses: ./.github/workflows/e2e-reusable.yml
     with:
       browser: chromium
+
+  deploy-preview:
+    name: Deploy preview
+    needs: [verify, e2e]
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      deployments: write
+    uses: ./.github/workflows/deploy-reusable.yml
+    with:
+      target: preview
+    secrets: inherit
+
+  deploy-production:
+    name: Deploy production
+    needs: [verify, e2e]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      deployments: write
+    uses: ./.github/workflows/deploy-reusable.yml
+    with:
+      target: production
+    secrets: inherit

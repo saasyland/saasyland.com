@@ -149,7 +149,7 @@ When adapting the application to your own domain, update these locations togethe
 | [`src/modules/newsletter-subscriber/newsletter-subscriber.server.ts`](src/modules/newsletter-subscriber/newsletter-subscriber.server.ts) | The allowed Workers hostname suffix for newsletter request origins. Custom-domain checks derive from `APP_URL`. |
 | [`wrangler.jsonc`](wrangler.jsonc)                                                                                                       | Worker names, custom-domain routes, D1 databases, and KV namespaces for each environment.                       |
 | [`src/data/marketing-pricing.ts`](src/data/marketing-pricing.ts)                                                                         | Displayed packages and prices; keep these aligned with the configured Polar products.                           |
-| [`src/presentation/styles/`](src/presentation/styles) and [`DESIGN.md`](DESIGN.md)                                                       | Theme, typography, fonts, and component design conventions.                                                     |
+| [`src/presentation/styles/`](src/presentation/styles)                                                                                    | Theme, typography, fonts, and shared style definitions.                                                         |
 
 Changing an environment file alone does not change the canonical URL. Rebuild after changing branding or deployment configuration.
 
@@ -170,7 +170,6 @@ content/
   blog/                          Localized MDX posts
   docs/                          Localized MDX documentation and navigation metadata
 messages/{locale}/               JSON catalogues split into dotted namespaces
-docs/engineering/                Shared implementation conventions
 e2e/                             Playwright specs and local test-account fixtures
 scripts/                         Content checks, build checks, seeding, and tooling
 remotion/                        Video authoring source and isolated npm toolchain
@@ -197,7 +196,7 @@ src/
 
 Routes coordinate loading and rendering. Business operations live in feature modules and export native TanStack `createServerFn` functions with query or mutation options. Components consume those options; database and provider clients stay behind server boundaries.
 
-Validate inputs at the server boundary and authorize protected functions themselves, in addition to page guards. Query and mutation keys are readonly tuples owned by the feature's `*.constants.ts`; include inputs that change the result in the query key. Reuse exported options for cache access, and invalidate only the data a mutation changes. See [shared conventions](docs/engineering/shared-conventions.md).
+Validate inputs at the server boundary and authorize protected functions themselves, in addition to page guards. Query and mutation keys are readonly tuples owned by the feature's `*.constants.ts`; include inputs that change the result in the query key. Reuse exported options for cache access, and invalidate only the data a mutation changes. Application documentation lives in [`content/docs/`](content/docs), including the [architecture guides](content/docs/architecture).
 
 Authentication entry points are in [`src/integrations/better-auth/`](src/integrations/better-auth):
 
@@ -383,7 +382,7 @@ Normal application builds serve the checked-in assets without installing Remotio
 
 ## Contributing
 
-Follow [shared engineering conventions](docs/engineering/shared-conventions.md) and [design guidance](DESIGN.md). Keep tests beside their owner, and update localized content and documentation when changing user-facing behavior.
+Follow the [architecture guides](content/docs/architecture) and use the existing [theme and typography definitions](src/presentation/styles). Keep tests beside their owner, and update localized content and documentation under `content/docs/` when changing user-facing behavior.
 
 Before opening a pull request, run the checks relevant to your change. The application verification sequence is:
 

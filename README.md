@@ -256,11 +256,11 @@ Locally, Playwright migrates and seeds the test database, builds the test applic
 
 `build:test` selects `env.test` in the root `wrangler.jsonc` using `CLOUDFLARE_ENV=test`. It uses the test Worker entry, local bindings, `.env.test`, and `.wrangler/test`; no separate test Wrangler file or `E2E=true` flag is needed. In CI, migrations, seeding, and building run explicitly before Playwright starts the server.
 
-- [Main CI](.github/workflows/ci.yml) runs checks and coverage on pull requests and pushes to `main`, plus Chromium E2E on pull requests.
-- [Full E2E](.github/workflows/e2e-full.yml) runs Chromium and WebKit on pushes to `main`, weekly, and on manual dispatch.
+- [Main CI](.github/workflows/ci.yml) runs checks, coverage, and Chromium E2E on pull requests and pushes to `main`. Successful eligible runs then deploy to Cloudflare.
+- [Full E2E](.github/workflows/e2e-full.yml) adds WebKit on pushes to `main` and runs Chromium and WebKit weekly and on manual dispatch.
 - [Video CI](.github/workflows/remotion.yml) separately checks and bundles affected Remotion source.
 
-These workflows validate builds and tests; they do not deploy the application.
+The [deployment workflow](.github/workflows/deploy-reusable.yml) records actual deployment results in GitHub's `Preview` and `Production` environments. Configure its credentials as described below before enabling deployments.
 
 ## Database and deployment
 
@@ -300,7 +300,35 @@ Review and commit SQL files under `src/integrations/drizzle-orm/migrations/` wit
 
 Existing data from a PostgreSQL installation needs a separate export and import into the SQLite/D1 schema; these migrations do not transfer it.
 
-### Deploy preview and production
+### Automatic GitHub deployments
+
+The CI workflow deploys only after formatting, lint, types, localization, coverage, and Chromium E2E pass:
+
+| Event                                                                      | Cloudflare target               | GitHub environment | URL                             |
+| -------------------------------------------------------------------------- | ------------------------------- | ------------------ | ------------------------------- |
+| Pull request opened, reopened, or updated from a branch in this repository | `saasyland-preview` (`preview`) | `Preview`          | <https://preview.saasyland.com> |
+| Push to `main`, including merging a pull request                           | `saasyland` (`production`)      | `Production`       | <https://saasyland.com>         |
+
+Preview is a **shared environment**: each successful PR deployment replaces the previous preview, using the same preview D1 database and KV namespace. It does not create a separate Worker or database for each PR. Fork and Dependabot PRs run validation without privileged deployments; move a reviewed change to a trusted repository branch to preview it.
+
+In [repository Settings → Environments](https://github.com/saasyland/saasyland.com/settings/environments), configure the existing `Preview` and `Production` environments with these secrets:
+
+| Secret                  | Purpose                                                                                                                                                                          |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | Wrangler authentication with permission to deploy the Worker, manage its configured bindings/routes, and apply D1 migrations. Scope the token to the intended account and zones. |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account containing the selected Worker, D1 database, and KV namespace.                                                                                                |
+
+These are deployment credentials. `CLOUDFLARE_API_TOKEN` is separate from the `CLOUDFLARE_ACCESS_TOKEN` used by Drizzle Studio. Repository secrets with the same names can be used as a fallback; environment-specific secrets allow different credentials for preview and production. Follow [Cloudflare's GitHub Actions authentication guide](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/) when creating the token.
+
+The existing Workers must already have all runtime secrets required by `wrangler.jsonc`. CI builds with committed dummy credentials from `.env.test` because prerendering initializes provider clients, while still selecting the real preview/production configuration and Worker entry. It removes the generated local `.dev.vars` file before deployment. No real provider credentials are needed in GitHub, and no secrets file is uploaded: Wrangler inherits the selected Worker's existing secrets. A new Worker still needs the initial provisioning described in the manual deployment section.
+
+Deployment jobs build and verify artifacts, apply the target D1 migrations, then deploy the tested revision. Workflow runs and deployments queue rather than cancel one another, with a separate deployment queue per environment. Schema changes must remain compatible with the currently running application because migrations run before the new Worker is deployed. WebKit's additional main-branch suite runs independently of the production deployment gate.
+
+GitHub creates deployment records from the job's `environment` declaration and shows the job's real result. A successful Cloudflare deployment supersedes the old Vercel result for that environment; historical Vercel failures remain in deployment history. See [GitHub's deployment tracking documentation](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments).
+
+When switching to this workflow, disconnect any remaining Vercel Git integration for this repository and disable duplicate automatic deploy triggers in Cloudflare Workers Builds. Use one deployment owner so a push does not deploy twice or bypass the CI gate. Production environment branch rules can restrict deployment to `main`; preview rules must allow PR merge refs. Required environment reviewers, if configured, pause deployment until approval.
+
+### Manual preview and production deployment
 
 After provisioning resources and configuring domains and secrets:
 

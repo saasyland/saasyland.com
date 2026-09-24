@@ -1,0 +1,71 @@
+name: Deploy Cloudflare Worker
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: Wrangler environment to deploy (preview or production).
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: ${{ inputs.target == 'production' && 'Production' || 'Preview' }}
+      url: ${{ inputs.target == 'production' && 'https://saasyland.com' || 'https://preview.saasyland.com' }}
+    concurrency:
+      group: cloudflare-deploy-${{ inputs.target }}
+      cancel-in-progress: false
+      queue: max
+    env:
+      DEPLOY_TARGET: ${{ inputs.target }}
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Validate deployment credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          case "$DEPLOY_TARGET" in
+            preview|production) ;;
+            *) echo "::error::Expected preview or production."; exit 1 ;;
+          esac
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo "::error::Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in the GitHub Preview and Production environments. See README.md."
+            exit 1
+          fi
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
+
+      - name: Verify Cloudflare bindings
+        run: bun scripts/verify-bindings.ts "$DEPLOY_TARGET"
+
+      - name: Build Worker and verify artifacts
+        run: |
+          bun --env-file=.env.test run "build:$DEPLOY_TARGET"
+          rm -f dist/server/.dev.vars
+
+      - name: Apply D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bun run "db:migrate:$DEPLOY_TARGET"
+
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bunx wrangler deploy

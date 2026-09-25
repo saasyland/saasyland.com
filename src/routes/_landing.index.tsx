@@ -2,6 +2,8 @@ import type { JSX } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
 
+import { MotionProvider } from "~/src/providers/motion-provider"
+
 import { blogPostsQuery } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { starCountQuery } from "~/src/integrations/github/github.queries"
 import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
@@ -25,7 +27,7 @@ import { StackSection } from "~/src/presentation/components/custom/landing-page/
 import { StudioSection } from "~/src/presentation/components/custom/landing-page/sections/studio-section"
 
 const LandingPage = (): JSX.Element => (
-  <>
+  <MotionProvider>
     <HeroSection />
     <ProofSection />
     <StackSection />
@@ -43,7 +45,7 @@ const LandingPage = (): JSX.Element => (
     <FaqSection />
     <NotesSection />
     <GateSection />
-  </>
+  </MotionProvider>
 )
 
 export const Route = createFileRoute("/_landing/")({

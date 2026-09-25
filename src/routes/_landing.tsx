@@ -6,20 +6,17 @@ import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { Footer } from "~/src/presentation/components/custom/footer/footer"
-import { MotionProvider } from "~/src/presentation/components/custom/motion-provider"
 import { Navigation } from "~/src/presentation/components/custom/navigation/navigation"
 import { PageFrame } from "~/src/presentation/components/custom/page-frame"
 
 const LandingPageLayout = (): JSX.Element => (
   <div className="dark relative isolate min-h-svh bg-background text-foreground">
     <PageFrame />
-    <MotionProvider>
-      <Navigation />
-      <main className="relative z-10">
-        <Outlet />
-      </main>
-      <Footer />
-    </MotionProvider>
+    <Navigation />
+    <main className="relative z-10">
+      <Outlet />
+    </main>
+    <Footer />
   </div>
 )
 

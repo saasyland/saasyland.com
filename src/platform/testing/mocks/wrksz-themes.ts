@@ -8,6 +8,7 @@ export interface ThemeProviderProps<Themes extends string = DefaultTheme> {
   children: ReactNode
   defaultTheme?: Themes
   disableTransitionOnChange?: boolean
+  enableSameDocumentSync?: boolean
   storage?: string
   storageKey?: string
 }
@@ -17,6 +18,8 @@ export const ThemeProvider = <Themes extends string = DefaultTheme>(props: Reado
 
   return createElement("div", { "data-props": JSON.stringify(rest), "data-testid": "theme-provider" }, children)
 }
+
+export { ThemeProvider as ClientThemeProvider }
 
 export const setThemeMock = vi.fn<(theme: DefaultTheme) => void>()
 export const themeState: { value: DefaultTheme | undefined } = { value: "system" }

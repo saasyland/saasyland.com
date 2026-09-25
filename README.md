@@ -4,6 +4,10 @@ Source code for the SaaSy Land website, customer workspace, and admin console. T
 
 This repository contains the website application. The SaaSy Land CLI and private generator templates are maintained separately and are not included here. See [licensing](#licensing) for the distinction between the website source and the commercial product.
 
+[![SaaSy Land landing page: the headline "The 300+ hour head start for builders who care about quality", the install command, and the admin dashboard](.github/assets/landing-page-preview.webp)](.github/assets/landing-page.jpg)
+
+The landing page in September 2026. [View the full page](.github/assets/landing-page.jpg).
+
 ## Contents
 
 - [Features and implementation status](#features-and-implementation-status)
@@ -14,6 +18,7 @@ This repository contains the website application. The SaaSy Land CLI and private
 - [Commands and verification](#commands-and-verification)
 - [Database and deployment](#database-and-deployment)
 - [Localization and content](#localization-and-content)
+- [Performance](#performance)
 - [Landing page videos](#landing-page-videos)
 - [Contributing](#contributing)
 - [Licensing](#licensing)
@@ -364,6 +369,35 @@ English uses unprefixed paths. Other languages use the full locale, such as `/de
 - Run `bun run check:i18n` after changes. Builds additionally verify localized home and legal-page output.
 
 Fumadocs generates `.source/`; edit the source MDX and catalogues instead of generated output. The public legal routes are `/privacy`, `/terms`, `/refunds`, and `/licence`. Review their content when adapting the application to a different business.
+
+## Performance
+
+PageSpeed Insights results for `https://saasyland.com/`, measured on 25 September 2026 with Lighthouse 13.5.0.
+
+**Mobile** (emulated Moto G Power, Slow 4G throttling)
+
+![PageSpeed Insights mobile scores: Performance 98, Accessibility 100, Best Practices 100, SEO 100, Agentic Browsing 3/3](.github/assets/pagespeed-mobile.png)
+
+**Desktop**
+
+![PageSpeed Insights desktop scores: Performance 100, Accessibility 100, Best Practices 100, SEO 100, Agentic Browsing 3/3](.github/assets/pagespeed-desktop.png)
+
+| Metric                   | Mobile | Desktop |
+| ------------------------ | ------ | ------- |
+| First Contentful Paint   | 1.2 s  | 0.4 s   |
+| Largest Contentful Paint | 2.3 s  | 0.7 s   |
+| Total Blocking Time      | 0 ms   | 10 ms   |
+| Cumulative Layout Shift  | 0      | 0       |
+| Speed Index              | 2.4 s  | 0.6 s   |
+
+These are lab results. PageSpeed Insights runs on shared hardware, so scores vary between runs; compare several runs before judging a change. [Run the analysis](https://pagespeed.web.dev/analysis?url=https%3A%2F%2Fsaasyland.com%2F) for current results.
+
+The following decisions produce these results. Review them before changing the related code:
+
+- Public pages are prerendered. [`optimize-prerendered-html.ts`](scripts/optimize-prerendered-html.ts) removes dependency `modulepreload` hints and keeps each page's entry hint at low priority, so the stylesheet and fonts load first.
+- Providers whose value changes after hydration, such as the [theme](src/providers/theme-provider.tsx) and [Motion](src/providers/motion-provider.tsx) providers, wrap only their consumers and never a route `<Outlet />`. A change above a route's Suspense boundary forces that route to hydrate synchronously in one long task, or to render on the client and shift the layout.
+- `robots.txt` and `llms.txt` are static files that bypass the Worker through `run_worker_first` in [`wrangler.jsonc`](wrangler.jsonc). Lighthouse fails the SEO and Agentic Browsing audits for these files when the requests time out.
+- [`src/server.ts`](src/server.ts) serves prerendered pages from static assets and imports the TanStack Start handler only for other requests, so page requests do not load the full server bundle.
 
 ## Landing page videos
 

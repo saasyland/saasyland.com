@@ -4,6 +4,8 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
+import { MotionProvider } from "~/src/providers/motion-provider"
+
 import { blogPostsQuery } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
@@ -41,7 +43,9 @@ const BlogIndexPage = (): JSX.Element => {
         <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("index.description")}</p>
 
         <div className="mt-14 md:mt-20">
-          <PostList />
+          <MotionProvider>
+            <PostList />
+          </MotionProvider>
         </div>
       </div>
     </section>

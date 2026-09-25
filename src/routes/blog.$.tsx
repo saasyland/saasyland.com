@@ -4,6 +4,8 @@ import { Link, createFileRoute } from "@tanstack/react-router"
 import { InlineTOC } from "fumadocs-ui/components/inline-toc"
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { MotionProvider } from "~/src/providers/motion-provider"
+
 import { getBlogPost } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { blogLoader } from "~/src/integrations/fumadocs/fumadocs.blog.loader"
 import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
@@ -107,7 +109,9 @@ const BlogPostPage = (): JSX.Element => {
             <div className="typeset typeset-article">{content}</div>
             <PostCta />
             <div className="mt-16 border-t border-border pt-8">
-              <PostShare title={data.title} url={canonical} />
+              <MotionProvider>
+                <PostShare title={data.title} url={canonical} />
+              </MotionProvider>
             </div>
           </div>
 

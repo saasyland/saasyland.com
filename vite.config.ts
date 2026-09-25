@@ -284,7 +284,10 @@ export default defineConfig(({ mode }) => ({
     alias: [
       { find: "vitest", replacement: resolve(projectRoot, "node_modules/vite-plus/dist/test/index.js") },
       { find: "cloudflare:workers", replacement: resolve(projectRoot, "src/platform/testing/mocks/cloudflare.ts") },
-      { find: /^@wrksz\/themes(?:\/client)?$/u, replacement: resolve(projectRoot, "src/platform/testing/mocks/wrksz-themes.ts") },
+      {
+        find: /^@wrksz\/themes(?:\/client(?:\/extended-provider)?)?$/u,
+        replacement: resolve(projectRoot, "src/platform/testing/mocks/wrksz-themes.ts"),
+      },
     ],
     coverage: {
       clean: true,

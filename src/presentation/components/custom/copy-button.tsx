@@ -4,9 +4,9 @@ import { Copy } from "lucide-react"
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 
-import { cn } from "~/src/lib/cn"
+import { DRAW, PRESS, SWAP, TAP } from "~/src/integrations/motion/motion.tokens"
 
-import { DRAW, PRESS, SWAP, TAP } from "~/src/presentation/components/custom/motion-tokens"
+import { cn } from "~/src/lib/cn"
 
 const CONFIRMATION_MS = 2000
 

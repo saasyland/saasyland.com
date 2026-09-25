@@ -22,9 +22,9 @@ import type { RouterContext } from "~/src/router"
 const RootComponent = () => (
   <TranslationsProvider>
     <AppRouterProvider>
+      <OfflineBanner />
+      <Outlet />
       <ThemeProvider>
-        <OfflineBanner />
-        <Outlet />
         <Toaster />
       </ThemeProvider>
     </AppRouterProvider>

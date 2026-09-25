@@ -11,6 +11,8 @@ const DocumentationPage = () => {
 
 export const Route = createFileRoute("/docs/$")({
   component: DocumentationPage,
+  pendingMs: Number.POSITIVE_INFINITY,
+  wrapInSuspense: false,
   head: routeHead,
   loader: async ({ params }) => {
     const page = await loadDocsPage(params._splat)

@@ -22,4 +22,33 @@ test.describe("server rendering and client navigation", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
     await expect(page.locator("html")).toHaveAttribute("data-navigation-probe", "same-document")
   })
+
+  test("landing keeps its responsive styles after visiting the docs", async ({ appPage, page }) => {
+    await page.goto("/")
+    await appPage.waitForAppReady()
+    await page.locator('header a[href="/docs"]').first().click()
+    await expect(page.getByRole("heading", { level: 1, name: "Documentation" })).toBeVisible()
+    await page.locator('a[href="/"]:visible').first().click()
+    await page.waitForURL((url) => url.pathname === "/")
+    await expect(page.locator("h1 svg")).toBeVisible()
+    await expect(page.locator('header a[href="/docs"]').first()).toBeVisible()
+  })
+
+  for (const prefix of ["", "/ja-JP", "/pt-BR"]) {
+    test(`${prefix || "/"} docs navigation during hydration keeps the next page intact`, async ({ appPage, browserName, page }) => {
+      test.skip(browserName !== "chromium", "CPU throttling uses the Chrome DevTools Protocol")
+      const errors: string[] = []
+      page.on("pageerror", (error) => errors.push(error.message))
+      // A slow CPU keeps the docs page as server HTML when the sidebar link is clicked.
+      const devtools = await page.context().newCDPSession(page)
+      await devtools.send("Emulation.setCPUThrottlingRate", { rate: 6 })
+      await page.goto(`${prefix}/docs/getting-started`)
+      await appPage.waitForAppReady()
+      await page.locator(`a[href="${prefix}/docs/getting-started/installation"]`).first().click()
+      await expect(page).toHaveURL(new RegExp(`${prefix}/docs/getting-started/installation$`, "u"))
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+      await expect(page.locator("html")).toHaveAttribute("lang", prefix === "" ? "en-US" : prefix.slice(1))
+      expect(errors).toEqual([])
+    })
+  }
 })

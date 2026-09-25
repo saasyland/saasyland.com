@@ -2,7 +2,7 @@ import type { ComponentProps } from "react"
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
-import { act, cleanup, render, screen } from "@testing-library/react"
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import type { DocsLayout } from "fumadocs-ui/layouts/docs"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
@@ -113,4 +113,27 @@ it.each([
   })
   expect(router.state.matches.some((match) => match.links?.some((link) => link?.rel === "stylesheet") === true)).toBe(true)
   queryClient.clear()
+})
+
+it("shows the docs-shaped skeleton while the documentation layout loads", async () => {
+  vi.mocked(getDocsTree).mockReturnValue(new Promise(() => {}))
+  const queryClient = new QueryClient()
+  const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
+  Object.assign(DocsRoute.options, { getParentRoute: () => root, id: "/docs", path: "/docs" })
+  Object.assign(DocsIndexRoute.options, { getParentRoute: () => DocsRoute, id: "/", path: "/" })
+  const router = createRouter({
+    context: { queryClient },
+    defaultPendingMs: 0,
+    history: createMemoryHistory({ initialEntries: ["/docs"] }),
+    routeTree: root.addChildren([DocsRoute.addChildren([DocsIndexRoute])]),
+  })
+  const { container } = render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
+  await waitFor(() => {
+    expect(container.querySelector('[aria-busy="true"]')).toBeInTheDocument()
+  })
+  expect(screen.queryByText("Documentation content")).not.toBeInTheDocument()
 })

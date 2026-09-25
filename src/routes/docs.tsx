@@ -10,6 +10,7 @@ import { ThemeProvider } from "~/src/providers/theme-provider"
 import { getDocsTree } from "~/src/integrations/fumadocs/fumadocs.docs"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { DocsPending } from "~/src/presentation/components/custom/docs-pending"
 import { GithubInfo } from "~/src/presentation/components/custom/github-info"
 import { LocaleSwitch } from "~/src/presentation/components/custom/locale-switch"
 import { ThemeSwitch } from "~/src/presentation/components/custom/theme-switch"
@@ -63,5 +64,6 @@ export const Route = createFileRoute("/docs")({
   component: DocumentationLayout,
   head: () => ({ links: DOCS_STYLESHEET }),
   loader: () => getDocsTree(),
+  pendingComponent: DocsPending,
   staticData: { namespaces: [] },
 })

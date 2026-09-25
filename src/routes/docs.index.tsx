@@ -11,6 +11,7 @@ const DocumentationPage = () => {
 
 export const Route = createFileRoute("/docs/")({
   component: DocumentationPage,
+  pendingMs: Number.POSITIVE_INFINITY,
   head: routeHead,
   loader: async () => {
     const page = await loadDocsPage()

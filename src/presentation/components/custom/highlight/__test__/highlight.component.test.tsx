@@ -1,9 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vite-plus/test"
 
+import { MotionProvider } from "~/src/providers/motion-provider"
+
 import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
 import { HighlightItem } from "~/src/presentation/components/custom/highlight/highlight-item"
-import { MotionProvider } from "~/src/presentation/components/custom/motion-provider"
 
 describe("group highlights", () => {
   it.each(["div", "dl"] as const)("moves and clears the highlight in a %s group", (element) => {

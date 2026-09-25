@@ -13,6 +13,7 @@ describe("theme provider component", () => {
       </ThemeProvider>,
     )
     expect(screen.getByTestId("theme-provider")).toBeInTheDocument()
+    expect(JSON.parse(screen.getByTestId("theme-provider").dataset["props"] ?? "{}")).toMatchObject({ enableSameDocumentSync: true })
     expect(screen.getByText("child")).toBeInTheDocument()
   })
 })

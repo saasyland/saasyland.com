@@ -5,6 +5,7 @@ import { useFumadocsLoader } from "fumadocs-core/source/client"
 import { DocsLayout } from "fumadocs-ui/layouts/docs"
 
 import { DocsProvider } from "~/src/providers/docs-provider"
+import { ThemeProvider } from "~/src/providers/theme-provider"
 
 import { getDocsTree } from "~/src/integrations/fumadocs/fumadocs.docs"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
@@ -34,7 +35,9 @@ const DocsSidebarFooter = (): ReactNode => {
   return (
     <div className="flex flex-col gap-2">
       <LocaleSwitch locale={locale} />
-      <ThemeSwitch />
+      <ThemeProvider>
+        <ThemeSwitch />
+      </ThemeProvider>
     </div>
   )
 }

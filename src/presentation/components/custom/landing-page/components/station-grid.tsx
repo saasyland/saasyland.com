@@ -3,10 +3,11 @@ import { type JSX, type ReactNode, createContext, use, useMemo, useState } from 
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 
+import { PRESS } from "~/src/integrations/motion/motion.tokens"
+
 import { cn } from "~/src/lib/cn"
 
 import { ConceptLoop, type ConceptLoopName } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
-import { PRESS } from "~/src/presentation/components/custom/motion-tokens"
 
 const HIGHLIGHT_ID = "line-station-highlight"
 

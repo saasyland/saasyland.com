@@ -3,13 +3,14 @@ import { type JSX, type ReactNode, createContext, use, useCallback, useEffect, u
 import { AnimatePresence, animate, useMotionValue, useTransform } from "motion/react"
 import * as m from "motion/react-m"
 
+import { EXP, EXP_FAST, PRESS, TAP } from "~/src/integrations/motion/motion.tokens"
+
 import { CLI_CHOICES, CLI_EXTRAS, CLI_MODULES, NONE, PACKAGE_MANAGERS, SCAFFOLD_DIR, SCAFFOLD_TARGET } from "~/src/data/cli"
 
 import { cn } from "~/src/lib/cn"
 
 import { CopyButton } from "~/src/presentation/components/custom/copy-button"
 import { RunnerTabs } from "~/src/presentation/components/custom/landing-page/components/runner-tabs"
-import { EXP, EXP_FAST, PRESS, TAP } from "~/src/presentation/components/custom/motion-tokens"
 
 interface ConfiguratorState {
   readonly extras: readonly string[]

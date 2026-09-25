@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
+import { MotionProvider } from "~/src/providers/motion-provider"
+
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { CasesSection } from "~/src/presentation/components/custom/landing-page/sections/cases-section"
@@ -24,7 +26,6 @@ import { RallySection } from "~/src/presentation/components/custom/landing-page/
 import { RecordSection } from "~/src/presentation/components/custom/landing-page/sections/record-section"
 import { StackSection } from "~/src/presentation/components/custom/landing-page/sections/stack-section"
 import { StudioSection } from "~/src/presentation/components/custom/landing-page/sections/studio-section"
-import { MotionProvider } from "~/src/presentation/components/custom/motion-provider"
 
 import english from "~/messages/en-US/pages.landing.json"
 

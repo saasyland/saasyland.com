@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 
-import { PRESS } from "~/src/presentation/components/custom/motion-tokens"
+import { PRESS } from "~/src/integrations/motion/motion.tokens"
 
 const HIDDEN = { opacity: 0 }
 const SHOWN = { opacity: 1 }

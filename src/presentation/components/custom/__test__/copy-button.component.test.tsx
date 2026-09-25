@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { MotionProvider } from "~/src/providers/motion-provider"
+
 import { CopyButton } from "~/src/presentation/components/custom/copy-button"
-import { MotionProvider } from "~/src/presentation/components/custom/motion-provider"
 
 const writeText = vi.fn<(value: string) => Promise<void>>()
 

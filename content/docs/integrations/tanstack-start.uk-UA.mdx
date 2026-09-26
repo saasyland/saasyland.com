@@ -1,28 +1,46 @@
 ---
-title: TanStack Start HTTP обробники
-description: TanStack Start HTTP обробники - SaaSy Land
+title: "TanStack Start"
+description: "Файлові маршрути, завантажувачі, попередній рендеринг і HTTP-обробники."
 ---
 
-HTTP endpoints використовувати рідні TanStack Start обробники сервера в `src/routes`. Better Auth власники GET і POST під `/api/auth/$`; Fumadocs пошук використовує `/api/search`. . Робота з серверами є локальними функціями.
+Застосунок побудовано на TanStack Start. `src/router.tsx` створює роутер з окремим QueryClient для кожного запиту, SSR-інтеграцією запитів, типовими компонентами помилки та «не знайдено», попереднім завантаженням за наміром і `rewrite` локалі. Типового компонента очікування немає: кожен маршрут задає власний скелетон (див. [Скелетони завантаження](/docs/architecture/delivery-layer#loading-skeletons)). `src/routes.ts` експортує `ROUTES` — константи шляхів, які використовують посилання, гарди та теги head.
 
-Декларатори на ручках `createFileRoute` з `server.handlers`. . Використовуйте поставку `request`, валідувати вхід, виконувати перевірки дозволу, і повернути Веб-сайт `Response`. . Зберігати перевірку вебхока в інтеграції провайдера. Не піддавати дублікати REST кінцевої точки для операції, яка використовується тільки цим користувачем RPC клієнту.
+## Маршрути
+
+`src/routes/` містить пласкі файлові маршрути: `admin.users.all.tsx` обслуговує `/admin/users/all`, `_landing.tsx` — це макет без шляху, а `docs.$.tsx` — splat-маршрут. Ідентифікатор у `createFileRoute("…")` — це рядковий літерал, який підтримує генератор роутера в `src/routeTree.gen.ts`; папки `__test__` не вважаються маршрутами.
+
+Файл маршруту лише компонує свою сторінку. Він визначає компонент `<Name>Page` або `<Name>Layout`, `NAMESPACE` або `NAMESPACES`, завантажувач, що виконує завантаження метаданих, повідомлень і даних в одному `Promise.all`, `head: pageHead(ROUTES.X)` і, для захищених зон, гард у `beforeLoad`. Віджети, діалоги, форми та стовпці таблиць розміщено в `src/presentation/components/custom/`, і вони самі зчитують свої переклади та дані. Про завантажувач див. [use-intl](/docs/integrations/use-intl), а про гарди — [Better Auth](/docs/integrations/better-auth).
+
+## Серверні функції
+
+Операції — це нативні функції `createServerFn`, експортовані зі сценаріїв використання модулів, тож застосунок не відкриває для них REST-ендпоінтів. Див. [Серверні функції та сценарії використання](/docs/integrations/server-functions).
+
+## HTTP-обробники
+
+Лише три маршрути в `src/routes/api/` оголошують `server.handlers`:
+
+| Маршрут       | Обробник                                                                                  |
+| ------------- | ----------------------------------------------------------------------------------------- |
+| `/api`        | Повертає середовище виконання у форматі JSON                                              |
+| `/api/auth/$` | Better Auth, зокрема OAuth-колбеки та вебхуки Polar за адресою `/api/auth/polar/webhooks` |
+| `/api/search` | Пошук документації Fumadocs                                                               |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
-## Схожі посібники
+## Попередній рендеринг
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+`vite.config.ts` вмикає попередній рендеринг з обходом посилань. `build:preview`, `build:production` і `build:test` попередньо рендерять публічні сторінки (лендинг, юридичні сторінки, блог і документацію) в усіх дев'яти локалях. Фільтр пропускає `/admin`, `/api`, `/app`, `/auth` і `/newsletter` з префіксом локалі чи без нього, а також посилання, що містять `?` або `#`. Пропущені сторінки рендеряться у Worker для кожного запиту.
+
+## Пов'язані посібники
+
+- [Життєвий цикл запиту](/docs/architecture/request-lifecycle)
+- [Кешування та SSR](/docs/architecture/caching-and-ssr)
+- [Додавання API-маршруту](/docs/guides/add-an-api-route)

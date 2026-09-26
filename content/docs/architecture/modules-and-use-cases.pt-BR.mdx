@@ -1,30 +1,92 @@
 ---
-title: Funções do servidor e casos de uso
-description: Funções do servidor e casos de uso - SaaSy Land
+title: "Server functions e casos de uso"
+description: "Como um módulo é dono de uma tabela do banco de dados e expõe suas operações como casos de uso."
 ---
 
-Operações de recurso ao vivo. `src/modules/{feature}/use-cases/{operation}.ts`. . Exportar um nativo. `createServerFn` com seu esquema de entrada, autorização ou middleware limite de taxa, e um manipulador que chama D1 ou o adaptador do provedor. Uma mutação devolve dados diretamente e joga um cofre. `AppError` Não devolve um envelope de ação específico.
+## Módulos
 
-Exportar `mutationOptions` Ao lado de mutações e `queryOptions` Além das leituras, componentes usam TanStack Query e traduzir erros com `useActionError`. . Mutações bem-sucedidas invalidam suas chaves de busca. Nunca confie em uma identidade de usuário fornecida por um cliente quando a operação deve agir. `context.auth.user.id`.
+Um módulo em `src/modules/<table>` existe apenas para uma tabela real do banco de dados. Ele contém:
 
-Use `withAuth` para operações protegidas e `withRateLimit` para operações públicas sensíveis. A validação é feita antes do encarregado. Mantenha os erros do provedor e os detalhes internos fora das respostas públicas.
+- `<table>.schema.ts`: a tabela Drizzle, reexportada por `src/integrations/drizzle-orm/drizzle.schemas.ts`
+- `<table>.zod.ts`: os schemas de entrada, usados tanto pelos formulários quanto pelas server functions
+- `<table>.constants.ts`: chaves de query e de mutation, enums
+- `<table>.types.ts` e `<table>.utils.ts`: quando a tabela precisa deles
+- `use-cases/<operation>.ts`: uma operação por arquivo
+
+Módulos atuais: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user e verification. Constantes e helpers compartilhados ficam em [`_core`](/docs/architecture/core). Uma server function que não trabalha com uma tabela pertence a `src/lib` ou à única rota que a usa.
+
+## Casos de uso
+
+A maioria dos casos de uso são server functions chamadas pelo navegador. Cada arquivo exporta o `createServerFn` e as respectivas query ou mutation options:
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
 import { mutationOptions } from "@tanstack/react-query"
+import { createServerFn } from "@tanstack/react-start"
+import { v7 } from "uuid"
 import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
+
+import { authorized } from "~/src/integrations/better-auth/auth.middleware"
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+
+import { CATEGORY_MUTATION_KEYS } from "~/src/modules/category/category.constants"
+import { category } from "~/src/modules/category/category.schema"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
 ```
 
-O existente. `createCategory` A operação demonstra validação, verificação de permissão, D1 inserir e exportar opções de mutação.
+- **O middleware** vem de `src/integrations/better-auth/auth.middleware.ts`. `authorized()` exige uma sessão, `authorized({ category: ["create"] })` também verifica uma permissão e `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` limita as operações públicas.
+- **A validação** analisa a entrada com o schema Zod do módulo antes de o handler rodar.
+- **A titularidade** vem da sessão. Operações sobre os dados do próprio chamador filtram por `context.auth.user.id` e nunca confiam em um ID de usuário vindo da entrada.
+- **Os erros** são lançados como `new AppError(ERROR_CODES.X)`. Qualquer outro erro é registrado em log e chega ao cliente como `INTERNAL_ERROR`.
+- **As leituras** exportam `queryOptions` no lugar, por exemplo `getCategoriesPageQuery(input)`, que resolve `{ rows, total }` para a tabela de dados.
 
-## Guias relacionados
+Alguns casos de uso são funções assíncronas comuns que rodam apenas no servidor e não têm endpoint RPC, como `send-verify-email.ts` ou `grant-license.ts`. Quem os chama são os hooks do Better Auth e os handlers de webhooks do Polar.
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+## Chamando um caso de uso a partir de um componente
+
+Os componentes passam as options exportadas para `useMutation` com spread, traduzem os erros com `useErrorMessage()` e invalidam as chaves de query do módulo em caso de sucesso:
+
+```tsx
+const t = useTranslations("pages.admin.users.actions")
+const queryClient = useQueryClient()
+const errorMessage = useErrorMessage()
+
+const deleteUser = useMutation({
+  ...deleteUserMutation,
+  onError: (error) => {
+    toast.error(errorMessage(error))
+  },
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL })
+    toast.success(t("feedback.deleteSuccess"))
+  },
+})
+```
+
+## Páginas relacionadas
+
+- [Catálogo de módulos](/docs/reference/modules)
+- [Matriz de permissões](/docs/reference/permissions)
+- [Adicionar um caso de uso](/docs/guides/add-a-use-case)

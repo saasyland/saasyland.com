@@ -1,8 +1,66 @@
 ---
-title: Matrice des autorisations
-description: Où vivent les rôles et les déclarations de permission.
+title: "Matrice des permissions"
+description: "Les rôles, les déclarations de permissions et les fonctions serveur qui les vérifient."
 ---
 
-Source de vérité: `integrations/better-auth/auth.access.ts`.
+Les rôles et les permissions sont définis dans `src/integrations/better-auth/auth.access.ts` avec le contrôle d'accès de Better Auth. Les mêmes définitions sont utilisées par le serveur (`authorized`, guards de route) et par le client Better Auth.
 
-Document nouveau `APP_STATEMENTS` ressources et actions ici quand vous les ajoutez. Paire avec les guides → Rôles et permissions.
+## Rôles
+
+| Rôle           | Code       | Permissions                                                                                                                         |
+| -------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Administrateur | `admin`    | Toutes les déclarations de l'application ci-dessous, plus les déclarations d'administration de Better Auth pour `user` et `session` |
+| Client         | `customer` | Aucune. Les clients peuvent appeler les fonctions serveur qui n'exigent qu'une session.                                             |
+
+Les nouveaux utilisateurs reçoivent le rôle `customer` (`DEFAULT_ROLE_CODE`).
+
+## Déclarations
+
+Déclarations de l'application (`APP_STATEMENTS`) :
+
+| Ressource  | Actions                                         |
+| ---------- | ----------------------------------------------- |
+| `admin`    | `access`                                        |
+| `category` | `create`, `read`, `update`, `delete`            |
+| `order`    | `read`, `update`, `refund`                      |
+| `product`  | `create`, `read`, `update`, `delete`, `publish` |
+| `settings` | `manage`                                        |
+
+Déclarations Better Auth accordées aux administrateurs :
+
+| Ressource | Actions                                                                                                    |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| `user`    | `create`, `list`, `set-role`, `ban`, `impersonate`, `delete`, `set-password`, `set-email`, `get`, `update` |
+| `session` | `list`, `revoke`, `delete`                                                                                 |
+
+## Où les permissions sont vérifiées
+
+| Permission                   | Vérifiée par                                                                                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `admin: ["access"]`          | `requireAdmin` sur le layout `/admin` et la redirection après la connexion                                                                                                           |
+| Actions `category`           | Les cas d'usage des catégories : `read`, `create`, `update`, `delete`                                                                                                                |
+| Actions `product`            | Les cas d'usage des produits : `read`, `create`, `update`, `delete`                                                                                                                  |
+| Actions `user`               | Les cas d'usage des utilisateurs, une action chacun ; `ban` couvre à la fois `ban-user` et `unban-user`                                                                              |
+| Actions `session`            | `list-user-sessions` (`list`), `revoke-user-session` et `revoke-user-sessions` (`revoke`)                                                                                            |
+| Une session, sans permission | Les cas d'usage du compte, de la licence, de l'authentification à deux facteurs, des préférences de newsletter et des sessions de l'utilisateur, ainsi que `stop-impersonating-user` |
+
+`order`, `product: ["publish"]` et `settings` sont déclarés, mais aucune fonction serveur ne les vérifie encore.
+
+## Vérifier une permission
+
+Les fonctions serveur utilisent le middleware, par exemple `authorized({ category: ["read"] })`. Le reste du code appelle `hasPermission`, comme le fait le guard d'administration :
+
+```ts
+export const requireAdmin = async (context: AuthRouteContext) => {
+  const result = await requireSignedIn(context)
+  if (!hasPermission({ permission: { admin: ["access"] }, role: result.session.user.role })) {
+    throw redirect({ replace: true, to: ROUTES.APP })
+  }
+  return result
+}
+```
+
+## Pages associées
+
+- [Rôles et permissions](/docs/guides/roles-and-permissions)
+- [Authentification et sécurité](/docs/architecture/security-model)

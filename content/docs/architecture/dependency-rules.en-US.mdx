@@ -1,14 +1,42 @@
 ---
 title: "Dependency rules"
-description: "Dependency rules — SaaSy Land"
+description: "Which folders may import which, and how server-only code stays out of the browser bundle."
 ---
 
-Routes import presentation and use cases. Presentation imports native query/mutation options, schemas, and shared helpers. Use cases import the database and vendor adapters through server-only boundaries. Module constants and validation must remain usable by both forms and server functions.
+## Import directions
 
-Do not import Worker bindings or secret-bearing configuration into a browser component. TanStack Start splits `createServerFn` handlers out of the browser bundle. Shared adapters that must never execute in the browser import `@tanstack/react-start/server-only`.
+| Folder                    | May import                                                                                                | Must not import                                        |
+| ------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `src/routes`              | presentation, module query/mutation options, integrations (guards, i18n, Fumadocs), `src/data`, `src/lib` | database or provider clients outside a server function |
+| `src/presentation`        | module options, Zod schemas, constants and types, hooks, `src/data`, `src/lib`, browser-safe integrations | `db`, `auth` from `auth.server.ts`, Polar, Resend      |
+| `src/modules/*/use-cases` | integrations (`db`, `auth`, `sendEmail`, `polar`), `_core`, module schemas, email templates               | components                                             |
+| `src/integrations`        | `_core`, module schemas and use cases that the vendor calls back into                                     | components                                             |
+| `src/server.ts`           | locale helpers, cookies, `_core` constants, document assets                                               | the database, Better Auth or the Polar SDK             |
 
-## Related guides
+Browser-safe integrations include `i18n.paths.ts`, `i18n.utils.ts`, `auth.client.ts`, `auth.access.ts` and `form.fields.ts`.
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+## Server-only boundaries
+
+- **Server functions.** TanStack Start compiles every `createServerFn` handler out of the browser bundle and replaces the call with an RPC request. That is why a component can import `createCategoryMutation` from the same file that imports `db`.
+- **Server-only modules.** Files that read secrets or bindings start with `import "@tanstack/react-start/server-only"`, which keeps them out of the client build. Examples: `drizzle.database.ts`, `auth.server.ts`, `polar.config.ts`, `resend.utils.ts`, `src/lib/rate-limit.ts` and `i18n.middleware.ts`.
+- **Environment-specific functions.** `createServerOnlyFn` wraps code that only runs on the server (`getRequestSession`). `createIsomorphicFn` provides separate server and browser implementations (`getCurrentLocale`, `getCookie`).
+- **Bindings and secrets** come from `env` in `cloudflare:workers` and are read only inside server-only modules or server function handlers.
+- **Worker entry.** `src/server.ts` runs on every request, including static files. It keeps its static imports small and loads the TanStack Start handler with a dynamic `import()` only when no static asset matches.
+
+```ts
+import "@tanstack/react-start/server-only"
+
+import { env } from "cloudflare:workers"
+
+import { drizzle } from "drizzle-orm/d1"
+
+import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
+
+export const db = drizzle(env.DB, { schema })
+```
+
+## Related pages
+
+- [Directory structure](/docs/architecture/directory-structure)
+- [Server functions and use cases](/docs/architecture/modules-and-use-cases)
+- [Request lifecycle](/docs/architecture/request-lifecycle)

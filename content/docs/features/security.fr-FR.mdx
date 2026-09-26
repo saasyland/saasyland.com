@@ -1,8 +1,27 @@
 ---
-title: Sécurité & durcissement
-description: Caractéristiques de sécurité face au produit et contrôles planifiés.
+title: "Sécurité et durcissement"
+description: "Les contrôles de sécurité que l’application met en œuvre, et ceux qu’elle ne met pas en œuvre."
 ---
 
-Cross-link: Architecture → Modèle de sécurité, Guides → Liste de contrôle de sécurité, Caractéristiques → Deux facteurs / Sessions / Impersonation.
+## Mis en œuvre
 
-Prévue : signatures webhook, isolement des org, protection optionnelle des robots, pistes de vérification plus solides.
+- **Sessions** : sessions Better Auth dans D1, préfixe de cookie `saasyland`, cookies sécurisés hors des modes locaux, hôtes autorisés par mode et `cf-connecting-ip` comme adresse du client. La session côté client ne contient jamais le jeton.
+- **Comptes** : vérification obligatoire de l’e-mail, sessions révoquées lors d’une réinitialisation du mot de passe, TOTP facultatif avec codes de secours, identifiants de vérification stockés sous forme de hachage et jetons OAuth chiffrés.
+- **Autorisation** : `requireSignedIn` et `requireAdmin` sur les routes ; `authorized(permission)` sur les fonctions serveur avec les rôles de `auth.access.ts`.
+- **Limites de débit** : le limiteur de Better Auth et le middleware `withRateLimit` partagent la table `rate_limit` de D1. `RATE_LIMITS.SENSITIVE` autorise 3 appels et `RATE_LIMITS.TOKEN` 5 appels par tranche de 60 secondes, par client et par action.
+- **Erreurs** : le middleware de requête transforme les échecs en codes `AppError` (`src/modules/_core/constants/errors.ts`), si bien que les clients ne reçoivent jamais de messages bruts du serveur ; les composants les affichent avec `useErrorMessage`.
+- **Webhooks et formulaires** : les webhooks Polar sont vérifiés avec `POLAR_WEBHOOK_SECRET` ; les requêtes de newsletter ne sont acceptées que depuis des hôtes connus et en HTTPS (`newsletterRequestOrigin`).
+
+## Non mis en œuvre
+
+- En-têtes de sécurité comme une Content Security Policy : `public/_headers` ne définit que la mise en cache.
+- Un journal d’audit, y compris pour les bannissements, les suppressions et les usurpations.
+- Une protection anti-bots ou un CAPTCHA sur les formulaires publics.
+- Un écran d’usurpation d’identité ([Usurpation d’identité](/docs/features/impersonation)).
+
+## Guides associés
+
+- [Modèle de sécurité](/docs/architecture/security-model)
+- [Liste de contrôle de sécurité](/docs/guides/security-checklist)
+- [Authentification à deux facteurs](/docs/features/two-factor)
+- [Sessions](/docs/features/sessions)

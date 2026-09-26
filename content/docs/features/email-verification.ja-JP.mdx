@@ -1,10 +1,22 @@
 ---
-title: メール認証
-description: メール認証トークンの送信と消費。
+title: "メール確認"
+description: "ローカライズされたリンクと再送フォームを備えた必須のメール確認。"
 ---
 
-## モジュール
+Better Auth は `requireEmailVerification`、`sendOnSignUp`、`autoSignInAfterVerification` を有効にして動作するため、新しいアカウントはアドレスを確認するまでサインインできません。
 
-`modules/verification` — `send-verification-email`, `verify-email`.
+## 送信
 
-Better Authメールヘルパーによるテンプレート+ Resend配線。
+`auth.server.ts` の `emailVerification.sendVerificationEmail` は `sendVerifyEmail`（`src/modules/verification/use-cases/send-verify-email.ts`）です。現在の言語で `/auth/verify-email?token=…` へのリンクを作成し、`VerifyEmail` テンプレートを送信します（[トランザクションメール](/docs/features/email)を参照）。未確認のアドレスで再登録された場合、`onExistingUserSignUp` はアカウントの存在を明かさずに新しいリンクを送信します。
+
+## 確認
+
+`/auth/verify-email` は `beforeLoad` でリンクを処理します。
+
+- `?token=` がある場合は、同じ言語の `/auth/verify-email?verified=true` を `callbackURL` にして `/api/auth/verify-email` でドキュメントを再読み込みします。
+- `?verified=true` があり `error` がない場合は `/auth/callback` へリダイレクトし、ユーザーを `/admin` または `/app` へ送ります。
+- それ以外はページを表示し、`?error=` があれば無効なリンクのメッセージを表示します。
+
+## 再送
+
+`VerifyEmailForm` は、登録とサインインがここへリダイレクトするときに付ける `?email=` からアドレスを入力します。サーバー関数 `sendVerificationEmail`（`src/modules/verification/use-cases/send-verification-email.ts`）を呼び出し、`RATE_LIMITS.SENSITIVE` で制限されます。

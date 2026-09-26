@@ -1,30 +1,92 @@
 ---
-title: Funzioni del server e casi di utilizzo
-description: Funzioni del server e casi di utilizzo — SaaSy Land
+title: "Server function e casi d'uso"
+description: "Come un modulo possiede una tabella del database ed espone le sue operazioni come casi d'uso."
 ---
 
-Le operazioni di funzionalità vivono in `src/modules/{feature}/use-cases/{operation}.ts`. Esportare un nativo `createServerFn` con lo schema di input, l'autorizzazione o il middleware di tasso-limit, e un gestore che chiama D1 o l'adattatore del fornitore. Una mutazione restituisce i dati direttamente e getta una cassaforte `AppError`; non restituisce una busta d'azione specifica per il quadro.
+## Moduli
 
-Esportazione `mutationOptions` accanto alle mutazioni e `queryOptions` accanto alle letture. I componenti usano TanStack Query e traducono errori con `useActionError`. Le mutazioni di successo invalidano le loro chiavi di query caratteristica. Non fidarsi mai di un ID utente fornito da un cliente quando l'operazione dovrebbe agire `context.auth.user.id`.
+Un modulo in `src/modules/<table>` esiste solo per una tabella reale del database. Contiene:
 
-Uso `withAuth` per operazioni protette e `withRateLimit` per le operazioni pubbliche sensibili. La validazione viene eseguita prima del gestore. Tenere gli errori del fornitore e i dettagli interni dalle risposte pubbliche.
+- `<table>.schema.ts`: la tabella Drizzle, riesportata da `src/integrations/drizzle-orm/drizzle.schemas.ts`
+- `<table>.zod.ts`: gli schemi di input, usati sia dai form sia dalle server function
+- `<table>.constants.ts`: chiavi di query e di mutazione, enum
+- `<table>.types.ts` e `<table>.utils.ts`: quando la tabella ne ha bisogno
+- `use-cases/<operation>.ts`: un'operazione per file
+
+Moduli attuali: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user e verification. Le costanti e gli helper condivisi si trovano in [`_core`](/docs/architecture/core). Una server function che non lavora su una tabella va in `src/lib` o nell'unica route che la usa.
+
+## Casi d'uso
+
+La maggior parte dei casi d'uso sono server function chiamate dal browser. Ogni file esporta la `createServerFn` e le relative opzioni di query o di mutazione:
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
 import { mutationOptions } from "@tanstack/react-query"
+import { createServerFn } from "@tanstack/react-start"
+import { v7 } from "uuid"
 import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
+
+import { authorized } from "~/src/integrations/better-auth/auth.middleware"
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+
+import { CATEGORY_MUTATION_KEYS } from "~/src/modules/category/category.constants"
+import { category } from "~/src/modules/category/category.schema"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
 ```
 
-L'esistente `createCategory` operazione dimostra validazione, controlli di autorizzazione, un D1 inserimento e opzioni di mutazione esportate.
+- **Il middleware** proviene da `src/integrations/better-auth/auth.middleware.ts`. `authorized()` richiede una sessione, `authorized({ category: ["create"] })` controlla anche un permesso e `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` limita le operazioni pubbliche.
+- **La validazione** analizza l'input con lo schema Zod del modulo prima che venga eseguito l'handler.
+- **La proprietà dei dati** deriva dalla sessione. Le operazioni sui dati del chiamante filtrano per `context.auth.user.id` e non si fidano mai di un ID utente preso dall'input.
+- **Gli errori** vengono lanciati come `new AppError(ERROR_CODES.X)`. Qualsiasi altro errore viene registrato nei log e arriva al client come `INTERNAL_ERROR`.
+- **Le letture** esportano invece `queryOptions`, ad esempio `getCategoriesPageQuery(input)`, che restituisce `{ rows, total }` per la tabella dati.
 
-## Guide correlate
+Alcuni casi d'uso sono semplici funzioni async che vengono eseguite solo sul server e non hanno un endpoint RPC, come `send-verify-email.ts` o `grant-license.ts`. Li chiamano gli hook di Better Auth e gli handler dei webhook di Polar.
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+## Chiamare un caso d'uso da un componente
+
+I componenti espandono le opzioni esportate in `useMutation`, traducono gli errori con `useErrorMessage()` e, in caso di successo, invalidano le chiavi di query del modulo:
+
+```tsx
+const t = useTranslations("pages.admin.users.actions")
+const queryClient = useQueryClient()
+const errorMessage = useErrorMessage()
+
+const deleteUser = useMutation({
+  ...deleteUserMutation,
+  onError: (error) => {
+    toast.error(errorMessage(error))
+  },
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL })
+    toast.success(t("feedback.deleteSuccess"))
+  },
+})
+```
+
+## Pagine correlate
+
+- [Catalogo dei moduli](/docs/reference/modules)
+- [Matrice dei permessi](/docs/reference/permissions)
+- [Aggiungere un caso d'uso](/docs/guides/add-a-use-case)

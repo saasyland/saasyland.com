@@ -1,13 +1,102 @@
 ---
 title: "Add an admin page"
-description: "Register routes, sidebar, and page shell."
+description: "Register the route, sidebar entry, messages and widgets of a new admin page."
 ---
 
-## Steps
+Admin pages are flat route files under the `/admin` layout (`src/routes/admin.tsx`), which runs `requireAdmin` in `beforeLoad` and renders the sidebar, breadcrumbs and command palette. The steps below add a page at `/admin/reports`; `src/routes/admin.payments.tsx` is a complete real example.
 
-1. Add path to `ROUTES`
-2. Add sidebar entry in `admin/constants/sidebar.ts` (+ i18n labels)
-3. Create `app/[locale]/(admin)/admin/<feature>/page.tsx`
-4. Colocate `_components` / `_lib`
-5. Gate data with use-cases + Suspense
-6. Document under Features
+## 1. Add the path
+
+Add the constant to `ROUTES` in `src/routes.ts`:
+
+```ts
+ADMIN_REPORTS: "/admin/reports",
+```
+
+## 2. Create the route file
+
+Create `src/routes/admin.reports.tsx`. The route defines only the page component, `NAMESPACE`, the loader, `head` and `pendingComponent`; the router generator registers the file in `src/routeTree.gen.ts`.
+
+```tsx
+import type { JSX } from "react"
+
+import { createFileRoute } from "@tanstack/react-router"
+import { useTranslations } from "use-intl/react"
+
+import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
+
+import { pageHead } from "~/src/lib/seo"
+
+import { AdminReportsPending } from "~/src/presentation/components/custom/admin/overview-pending"
+import { ReportStats } from "~/src/presentation/components/custom/admin/reports/report-stats"
+
+import { ROUTES } from "~/src/routes"
+
+const ReportsPage = (): JSX.Element => {
+  const t = useTranslations("pages.admin.reports")
+
+  return (
+    <div className="flex w-full flex-col space-y-8">
+      <div>
+        <h1 className="text-statement font-semibold text-foreground">{t("metadata.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("metadata.description")}</p>
+      </div>
+
+      <ReportStats />
+    </div>
+  )
+}
+
+const NAMESPACE = "pages.admin.reports"
+
+export const Route = createFileRoute("/admin/reports")({
+  component: ReportsPage,
+  head: pageHead(ROUTES.ADMIN_REPORTS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: AdminReportsPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+Queries the page needs go into the same `Promise.all`, for example `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` in `src/routes/admin.users.all.tsx`. `pageHead` builds the title, description, canonical URL and alternate-locale links from the loader's `metadata`. `AdminReportsPending` is the page's own skeleton, shown only when a navigation takes over a second. Write it in the file of the page's sidebar group (`overview-pending.tsx`, `offerings-pending.tsx`, `content-pending.tsx` or `administration-pending.tsx` in `custom/admin/`) from the blocks in `pending-blocks.tsx`, so that it mirrors the page's layout. Then add it to `ADMIN_PAGES` in `admin-pending.tsx`, so the admin layout skeleton shows it when someone enters `/admin/reports` from outside the admin area. See [Loading skeletons](/docs/architecture/delivery-layer#loading-skeletons).
+
+## 3. Add the sidebar entry
+
+Add an item to a group in `ADMIN_SIDEBAR_GROUPS` (`src/data/admin.ts`) with a `lucide-react` icon:
+
+```ts
+{ icon: FileText, titleKey: "reports", url: ROUTES.ADMIN_REPORTS },
+```
+
+Add `links.reports` to `messages/<locale>/pages.admin.sidebar.json` in all nine locales. A new group also needs `groups.<titleKey>`. The sidebar, the breadcrumbs and the ⌘K command palette all read `ADMIN_SIDEBAR_GROUPS`, so the page appears in all three. A third URL segment, such as `/admin/reports/create`, shows the breadcrumb label `components.breadcrumbs.actions.create` from `pages.admin.json`.
+
+## 4. Add the page messages
+
+Create `messages/<locale>/pages.admin.reports.json` in all nine locales. `metadata` is required because the loader reads it for the document head:
+
+```json
+{
+  "metadata": {
+    "title": "Reports",
+    "description": "Revenue and usage reports."
+  }
+}
+```
+
+## 5. Add the widgets
+
+Put each widget, dialog, form and table column set in its own file under `src/presentation/components/custom/admin/reports/`, for example `report-stats.tsx` or `report-columns.tsx`. Widgets call `useTranslations("pages.admin.reports")` and read their own data with `useSuspenseQuery`; the page passes them no labels or data. Tables use the generic `DataTable`; see [Add a data table](/docs/guides/add-a-data-table).
+
+## 6. Protect and test
+
+- The layout guard covers page access. Every server function the page calls still needs `authorized(permission)`; see [Roles and permissions](/docs/guides/roles-and-permissions).
+- `/admin` is excluded from prerendering.
+- Add route tests beside the existing ones in `src/routes/__test__/` and widget tests in `src/presentation/components/custom/admin/__test__/`, then run `bun run check:i18n` and `bun run test:coverage`.

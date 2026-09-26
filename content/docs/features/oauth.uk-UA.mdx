@@ -1,6 +1,30 @@
 ---
-title: OAuth постачальників
-description: GitHub і Google конфігурація соціального входу.
+title: "Провайдери OAuth"
+description: "Вхід через GitHub і Google за допомогою соціальних провайдерів Better Auth."
 ---
 
-Конфігурація в Better Auth з ідентифікатором клієнтів/зняттям. Зареєструвати перенаправлені URL-адреси для місцевих, попередньо переглядових та виробничих господарств. Див. Особливості → Ауттентифікація та початок → Внутрішня змінна.
+`auth.server.ts` реєструє двох провайдерів з обліковими даними із середовища Worker:
+
+```ts
+socialProviders: {
+  github: { clientId: env.AUTH_GITHUB_CLIENT_ID, clientSecret: env.AUTH_GITHUB_CLIENT_SECRET },
+  google: { clientId: env.AUTH_GOOGLE_CLIENT_ID, clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET },
+},
+```
+
+## Перебіг
+
+`OAuthButtons` (`src/presentation/components/custom/auth/oauth-buttons.tsx`) показує по одній кнопці для кожного провайдера на сторінках входу й реєстрації. Він викликає `signIn.social` з Better Auth із локалізованими `callbackURL` (`/auth/callback`) і `errorCallbackURL` (`/auth/sign-in`). Після повернення від провайдера `/auth/callback` перенаправляє адміністраторів на `/admin`, а клієнтів на `/app`. Невдала спроба повертає на сторінку входу з `?error=`, де показано перекладене повідомлення з `auth.errors`.
+
+`accountLinking` увімкнено, тож соціальний вхід прив’язується до наявного користувача з тією самою адресою пошти. Токени провайдера зберігаються зашифрованими в таблиці `account`.
+
+## Налаштування провайдера
+
+Зареєструйте адреси повернення `/api/auth/callback/github` і `/api/auth/callback/google` для кожного хоста, який використовуєте: `localhost:3000` локально, `preview.saasyland.com` і `saasyland.com` (див. `appHostsForMode` у `src/modules/_core/constants/api.ts`). Ідентифікатори та секрети клієнтів додайте до наведених вище змінних середовища.
+
+Облікові дані GitHub також використовуються для запиту кількості зірок репозиторію в `src/lib/github.ts`.
+
+## Пов’язані посібники
+
+- [Змінні середовища](/docs/getting-started/environment-variables)
+- [Автентифікація](/docs/features/authentication)

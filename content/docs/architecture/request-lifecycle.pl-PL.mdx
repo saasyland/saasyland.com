@@ -1,23 +1,44 @@
 ---
-title: Cykl żądania
-description: Cykl żądania — SaaSy Land
+title: "Cykl życia żądania"
+description: "Etapy, przez które przechodzi żądanie strony i wywołanie funkcji serwerowej, od Workera do wyrenderowanego wyniku."
 ---
 
-`src/server.ts` kanonizuje adresy językowe i synchronizuje cookie języka. `src/router.tsx` tworzy osobny QueryClient dla routera i łączy go z SSR. Natywne pliki tras deklarują komponenty, strażników, loadery, walidację parametrów i metadane.
+## Żądanie strony
 
-Układy panelu i aplikacji klienta używają strażników `beforeLoad`. Każda chroniona funkcja serwerowa również sprawdza użytkownika, ponieważ RPC można wywołać niezależnie od strony. Odpowiedzi uwierzytelnionych nie umieszczaj we wspólnej pamięci statycznej.
+1. **Kanonizacja locale.** `src/server.ts` wywołuje `resolveLocale` dla żądań dokumentów `GET` i `HEAD` poza `/api` i `/_serverFn`. Prefiks zawierający sam język lub domyślne locale (`/pl/docs`, `/en-US/docs`) jest przekierowywany kodem `308` do postaci kanonicznej (`/pl-PL/docs`, `/docs`). Gdy locale w URL-u różni się od locale w cookie, cookie jest aktualizowane w odpowiedzi.
+2. **Najpierw zasoby statyczne.** Worker pyta binding `ASSETS` o ścieżkę. Prerenderowane strony i pliki statyczne są zwracane bez zmian. Dopiero przy `404` Worker ładuje handler TanStack Start dynamicznym `import()`.
+3. **Routing.** `getRouter` tworzy nowy router i `QueryClient`. `rewrite` routera usuwa prefiks locale, więc `/pl-PL/docs` pasuje do tras `/docs`.
+4. **Główne `beforeLoad`** wstępnie ładuje główne przestrzenie nazw tłumaczeń (`common`, `components.*`, `errors*`).
+5. **Guardy.** Funkcje `beforeLoad` layoutów, takie jak `requireAdmin`, ładują zapytanie o sesję i przekierowują, gdy dostęp jest niedozwolony.
+6. **Loadery** działają równolegle. Każdy wstępnie ładuje swoje przestrzenie nazw, metadane strony i zapytania do `QueryClient` danego żądania.
+7. **Renderowanie.** Główny shell renderuje `<html lang dir>` i opakowuje body w `TranslationsProvider`. Cache zapytań jest serializowany do HTML, więc przeglądarka nie pobiera tych samych danych ponownie.
+8. **Nagłówki odpowiedzi.** Dla odpowiedzi HTML Worker dodaje nagłówek `Link` z preloadem arkusza stylów i fontów dla locale, w razie potrzeby ustawia cookie z locale i stosuje atrybuty cen regionalnych, gdy nagłówek `cf-ipcountry` kwalifikuje się do zniżki.
+9. **Hydratacja.** Przeglądarka hydratuje stronę z zserializowanym cache. Kolejne nawigacje uruchamiają guardy i loadery w przeglądarce i pobierają dane przez funkcje serwerowe.
+
+## Wywołanie funkcji serwerowej
+
+1. Przeglądarka wywołuje funkcję serwerową, którą build zastąpił żądaniem RPC do `/_serverFn/…`. Worker pomija obsługę locale dla tej ścieżki, a `getCurrentLocale()` odczytuje locale z cookie zamiast z URL-a.
+2. Middleware działa w zadeklarowanej kolejności. `withRequest` przechwytuje nagłówki żądania i normalizuje błędy, `withRateLimit` zlicza próbę w D1, a `authorized` ładuje sesję i sprawdza uprawnienie.
+3. Walidator parsuje dane wejściowe schematem Zod modułu.
+4. Handler wykonuje zapytanie do D1 lub wywołuje dostawcę i zwraca zwykłe dane.
+5. Komponent otrzymuje dane albo kod `AppError`. Po sukcesie unieważnia klucze zapytań modułu; w razie błędu wyświetla `useErrorMessage()(error)`.
 
 ```text
-Request → Worker locale middleware → TanStack Router
-        → beforeLoad session/permission guard
-        → loader: messages + authorized query data
-        → SSR + hydrated React presentation
-Mutation → validated server function → auth/rate limit → D1 or provider
-         → result/error → scoped query invalidation
+GET /pl-PL/admin/users/all
+  src/server.ts        resolveLocale, ASSETS lookup, TanStack Start handler
+  router rewrite       /admin/users/all
+  __root beforeLoad    root namespaces
+  /admin beforeLoad    requireAdmin
+  loaders              metadata, namespaces, queries
+  SSR                  HTML with serialized query cache
+  src/server.ts        Link header, locale cookie, regional pricing
+
+POST /_serverFn/…
+  withRequest → withRateLimit → authorized → validator → handler → data or AppError
 ```
 
-## Powiązane przewodniki
+## Powiązane strony
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [Trasy i warstwa dostarczania](/docs/architecture/delivery-layer)
+- [Cache i SSR](/docs/architecture/caching-and-ssr)
+- [Uwierzytelnianie i bezpieczeństwo](/docs/architecture/security-model)

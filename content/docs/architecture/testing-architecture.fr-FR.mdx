@@ -1,26 +1,59 @@
 ---
-title: Essais et CI
-description: Essais et CI — SaaSy Land
+title: "Tests et CI"
+description: "Les projets Vitest, le seuil de couverture de 100 %, la suite Playwright et le pipeline CI."
 ---
 
-Vite+ exécute Vitest dans trois projets : tests de nœuds, tests d'intégration et tests de composants de jsdom. Gardez les tests de comportement existants à côté du code qu'ils exercent sous `__test__`C'est vrai. Importer des API test à partir de `vite-plus/test`C'est vrai. Utilisez Playwright pour les flux complets du navigateur et les vérifications de rendu.
+## Projets Vitest
 
-La configuration partagée fournit des maquettes locales D1 et KV. D1 exécute les migrations SQL cochées contre SQLite. Le pont RPC fonction serveur préserve TanStacks véritable intergiciel et pipeline de validation. Les helpers de rendu de composants fournissent de vrais contextes QueryClient et Router. Les courriels externes, OAuth et les appels de paiement sont simulés dans les tests.
+`vp test` exécute Vitest via Vite+ avec trois projets définis dans `vite.config.ts`. Les tests se trouvent dans un dossier `__test__` à côté du code qu'ils couvrent et importent les API de test depuis `vite-plus/test`.
 
-Exécutez le projet ciblé pendant l'édition, puis exécutez la suite complète, la porte de couverture, vérifiez et prévisualiser la construction. Les tests du navigateur vérifient les pages publiques, les redirections auth, SSR sans JavaScript et la navigation client. CI utilise des liaisons locales et ne nécessite pas de base de données en direct ou de secrets de fournisseur.
+| Projet        | Environnement | Motif de fichier        |
+| ------------- | ------------- | ----------------------- |
+| `node`        | Node          | `*.test.ts`             |
+| `integration` | Node          | `*.integration.test.ts` |
+| `component`   | jsdom         | `*.component.test.tsx`  |
+
+Aucun test ne contacte un vrai compte Cloudflare ni un vrai fournisseur :
+
+- D1 est une base SQLite en mémoire qui exécute les migrations versionnées, et KV est une map en mémoire. KV et les compteurs de limitation de débit sont réinitialisés avant chaque test.
+- `createServerFn` est remplacé afin qu'une fonction serveur s'exécute dans le processus en passant par ses vrais middlewares et son vrai validateur.
+- Les tests de composants effectuent le rendu avec un vrai `QueryClient` et un vrai routeur.
+- Les requêtes d'e-mail, d'OAuth et de paiement sont simulées.
+
+## Couverture
+
+`bun run test:coverage` impose une couverture de 100 % des lignes, des instructions, des fonctions et des branches dans tout `src`. Les primitives shadcn, `src/platform/testing`, les fichiers générés et les déclarations de types sont exclus. Couvrez le comportement réel, et supprimez les branches qui ne peuvent jamais s'exécuter plutôt que de simuler des globales pour les atteindre.
+
+## Tests navigateur
+
+Les specs Playwright se trouvent dans `e2e/specs`, avec les page objects dans `e2e/pages` et les fixtures dans `e2e/fixtures`. Elles s'exécutent sur un build proche de la production qui utilise l'environnement Wrangler `test` : D1 et KV locaux dans `.wrangler/test`, secrets factices issus de `.env.test`, et un Worker de test qui capture les e-mails sortants afin qu'une spec puisse suivre un vrai lien de vérification. En local, Playwright applique lui-même les migrations, peuple la base, compile puis démarre l'application. La suite s'exécute dans Chromium et WebKit.
+
+## Scripts
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
 bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:pr
 ```
 
-## Guides connexes
+## CI
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+`.github/workflows/ci.yml` s'exécute sur les pull requests et sur les pushs vers `main` :
+
+1. `bun run check` : formatage, lint, vérification des types et `check:i18n`
+2. `bun run test:coverage`
+3. Un build de test et la suite Playwright dans Chromium
+4. Un déploiement de preview pour les pull requests, ou un déploiement de production pour `main`
+
+## Pages associées
+
+- [Tests](/docs/tooling/testing)
+- [Playwright](/docs/tooling/playwright)
+- [Écrire des tests](/docs/guides/writing-tests)

@@ -1,8 +1,66 @@
 ---
-title: Матриця пропусків
-description: Де живуть ролі та дозволи.
+title: "Матриця дозволів"
+description: "Ролі, декларації дозволів і серверні функції, які їх перевіряють."
 ---
 
-Джерело правди: `integrations/better-auth/auth.access.ts`.
+Ролі та дозволи визначено в `src/integrations/better-auth/auth.access.ts` за допомогою контролю доступу Better Auth. Ті самі визначення використовують і сервер (`authorized`, guard-функції маршрутів), і клієнт Better Auth.
 
-Документація нового `APP_STATEMENTS` ресурси і дії тут, коли ви додаєте їх. Pair з посібниками → Ролі та дозволи.
+## Ролі
+
+| Роль          | Код        | Дозволи                                                                                                          |
+| ------------- | ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| Адміністратор | `admin`    | Усі декларації застосунку, наведені нижче, а також адміністративні декларації Better Auth для `user` і `session` |
+| Клієнт        | `customer` | Немає. Клієнти можуть викликати серверні функції, які вимагають лише сесії.                                      |
+
+Нові користувачі отримують роль `customer` (`DEFAULT_ROLE_CODE`).
+
+## Декларації
+
+Декларації застосунку (`APP_STATEMENTS`):
+
+| Ресурс     | Дії                                             |
+| ---------- | ----------------------------------------------- |
+| `admin`    | `access`                                        |
+| `category` | `create`, `read`, `update`, `delete`            |
+| `order`    | `read`, `update`, `refund`                      |
+| `product`  | `create`, `read`, `update`, `delete`, `publish` |
+| `settings` | `manage`                                        |
+
+Декларації Better Auth, надані адміністраторам:
+
+| Ресурс    | Дії                                                                                                        |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| `user`    | `create`, `list`, `set-role`, `ban`, `impersonate`, `delete`, `set-password`, `set-email`, `get`, `update` |
+| `session` | `list`, `revoke`, `delete`                                                                                 |
+
+## Де перевіряються дозволи
+
+| Дозвіл              | Що перевіряє                                                                                                                                             |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin: ["access"]` | `requireAdmin` у макеті `/admin` і перенаправлення після входу                                                                                           |
+| Дії `category`      | Сценарії використання категорій: `read`, `create`, `update`, `delete`                                                                                    |
+| Дії `product`       | Сценарії використання продуктів: `read`, `create`, `update`, `delete`                                                                                    |
+| Дії `user`          | Сценарії використання користувачів, кожен зі своєю дією; `ban` охоплює і `ban-user`, і `unban-user`                                                      |
+| Дії `session`       | `list-user-sessions` (`list`), `revoke-user-session` і `revoke-user-sessions` (`revoke`)                                                                 |
+| Сесія без дозволу   | Сценарії використання облікового запису, ліцензії, двофакторної автентифікації, налаштувань розсилки та власних сесій, а також `stop-impersonating-user` |
+
+`order`, `product: ["publish"]` і `settings` оголошено, але поки що жодна серверна функція їх не перевіряє.
+
+## Перевірка дозволу
+
+Серверні функції використовують middleware, наприклад `authorized({ category: ["read"] })`. Інший код викликає `hasPermission`, як це робить guard-функція адмін-панелі:
+
+```ts
+export const requireAdmin = async (context: AuthRouteContext) => {
+  const result = await requireSignedIn(context)
+  if (!hasPermission({ permission: { admin: ["access"] }, role: result.session.user.role })) {
+    throw redirect({ replace: true, to: ROUTES.APP })
+  }
+  return result
+}
+```
+
+## Пов'язані сторінки
+
+- [Ролі та дозволи](/docs/guides/roles-and-permissions)
+- [Автентифікація та безпека](/docs/architecture/security-model)

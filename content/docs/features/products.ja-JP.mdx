@@ -1,12 +1,35 @@
 ---
-title: 製品情報
-description: 製品カタログのユースケースと管理UI。
+title: "商品"
+description: "D1 の商品テーブルと管理画面のページ分割された一覧。作成フォームはデモです。"
 ---
 
-## モジュール
+## データ
 
-`modules/product/use-cases` — CRUD + リスト。
+`src/modules/product/product.schema.ts` は `product` テーブルを定義します。列は `name`、`description`、`priceCents`、`currency`、`type`（`one_time`、`subscription`、`course`）、`status`（`draft`、`published`、`archived`）、`billingCycle`、タイムスタンプです。
 
-## アドミン
+`src/modules/product/use-cases` のユースケースは、それぞれ対応する `product` 権限で保護されています。
 
-`/admin/products` (+作成) 参照パターンとしてusersテーブルを使用して、mocksをユースケースデータに置き換え続ける。
+- `getProducts` — ページ分割に対応し、`type` と `status` のフィルターを任意で指定できます。`getProductsPageQuery` と `getProductsQuery` をエクスポートします。
+- `getProduct`、`createProduct`、`updateProduct`、`deleteProduct`。
+
+## 管理画面
+
+`/admin/products` は選択中のタブを検索パラメーター `?tab=` に保持します。値は `all`、`onetime`、`subscriptions`、`categories`、`collections`、`drafts`、`courses` です。商品タブはサーバー側でページ分割します。
+
+```tsx
+<DataTable
+  columns={productColumns}
+  key={tab}
+  options={{ query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] }) }}
+/>
+```
+
+`categories` と `collections` は `getCategoriesPageQuery` とともに `categoryColumns` を表示し（[カテゴリー](/docs/features/categories)を参照）、`courses` は空の状態を表示します。ダッシュボードのカウンターも `getProductsQuery` を読み取ります。
+
+## デモ部分
+
+- `/admin/products/create` は `ProductDetails` と `ProductSidebar` を静的なフォームとして表示し、**保存** と **キャンセル** は未接続です。
+- 行アクションのボタン（`RowActionsCell`）にはメニューがありません。
+- `createProduct`、`updateProduct`、`deleteProduct`、`getProduct` を呼び出す画面はまだありません。
+
+購入処理はこのテーブルを使いません。購入できるプランは Polar の商品です（[決済とライセンス](/docs/features/payments)を参照）。

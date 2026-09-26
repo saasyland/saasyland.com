@@ -1,26 +1,100 @@
 ---
-title: テストとCI
-description: テストとCI — SaaSy Land
+title: "テストを書く"
+description: "テストの置き場所、Vitest のプロジェクトとテスト用バインディングの仕組み、100% カバレッジゲート、Playwright について説明します。"
 ---
 
-Vite+ は 3 つのプロジェクトで Vitest を実行します。ノードのテスト、統合テスト、jsdom コンポーネントのテスト。 既存の振る舞いのテストは、演習中のコードの横に保つ `__test__`. . インポートテスト API から `vite-plus/test`. . ブラウザのフルフローとレンダリングチェックに Playwright を使用します。
+Vite+ は Vitest（`vp test`）を 3 つのプロジェクトで実行します。テストは対象のコードの隣にある `__test__` フォルダーに置き、API は `vite-plus/test` からインポートします。
 
-共有セットアップはローカル D1 と KV のモックを供給します。 D1 は SQLite に対するチェックイン SQL のマイグレーションを実行します。 サーバ機能 RPC ブリッジは、TanStack の真のミドルウェアと検証パイプラインを維持します。 コンポーネント レンダー ヘルパーは、実際の QueryClient と Router のコンテキストを提供します。 外部メール、OAuth、支払いコールはテストでモックされます。
+| プロジェクト  | ファイル                         | 環境  |
+| ------------- | -------------------------------- | ----- |
+| `node`        | `__test__/*.test.ts(x)`          | Node  |
+| `integration` | `__test__/*.integration.test.ts` | Node  |
+| `component`   | `__test__/*.component.test.tsx`  | jsdom |
 
-編集中に集中したプロジェクトを実行し、完全なスイート、カバレッジゲート、チェック、プレビュービルドを実行します。 ブラウザテストでは、パブリックページ、authリダイレクト、SSRなしJavaScript、およびクライアントナビゲーションを確認します。 CIはローカルバインディングを使用し、ライブデータベースやプロバイダシークレットを必要としません。
+テストには、ソースファイルに合わせた名前を付けます。`category.zod.ts` は `__test__/category.zod.test.ts` でカバーします。
+
+## コマンド
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
 ```
 
-## 関連ガイド
+`bun test` ではなく `bun run test` を使ってください。プロジェクト、環境、セットアップファイルを読み込むのは Vitest だけです。
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+## カバレッジゲート
+
+`bun run test:coverage` は、`src` 配下のアプリケーションコードについて、行、ステートメント、関数、分岐のいずれかが **100%** を下回ると失敗します。テスト、`src/platform/testing`、shadcn のプリミティブ、生成されたファイルは除外されます。実際の振る舞いをカバーし、決して実行されない分岐は、グローバルをスタブして到達させるのではなく削除してください。レポートは `coverage/` に出力されます。
+
+## テストランタイム
+
+- `src/platform/testing/setup.ts` は、jest-dom のマッチャーを登録し、各テストの前にバインディングをリセットし、すべての `createServerFn` を `withTestRpc` 経由で実行します。そのため、呼び出しは実際のミドルウェアとバリデーターを通ります。
+- `cloudflare:workers` は `src/platform/testing/mocks/cloudflare.ts` に解決されます。D1 はチェックイン済みのすべてのマイグレーションを適用したインメモリの SQLite データベース、KV はインメモリのマップで、`flushWaitUntil()` はバックグラウンドタスクの完了を待ちます。
+- `.env.test` はダミーの認証情報を提供します。メール、OAuth、決済の呼び出しはモックされており、マシンの外には何も送信されません。
+- `src/platform/testing/lib/render.tsx` の `renderWithRouter` は、実際のルーターと `QueryClient` を使ってコンポーネントをレンダリングします。
+
+## ユースケースをテストする
+
+`src/modules/category/use-cases/__test__/create-category.test.ts` から抜粋したものです。
+
+```ts
+import { describe, expect, it, vi } from "vite-plus/test"
+
+import { executeMutation } from "~/src/platform/testing/lib/query"
+
+import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import type { auth } from "~/src/integrations/better-auth/auth.server"
+import * as authServer from "~/src/integrations/better-auth/auth.server"
+
+import { createCategoryMutation } from "~/src/modules/category/use-cases/create-category"
+
+const getSessionMock = vi.hoisted(() => vi.fn<(typeof auth.api)["getSession"]>())
+
+vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
+
+describe("create-category", () => {
+  it("returns a domain error when the caller is not an admin", async () => {
+    vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
+    getSessionMock.mockResolvedValue(
+      createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: "01900000-0000-7000-8000-000000000001" }),
+    )
+
+    await expect(executeMutation(createCategoryMutation, { kind: "category", name: "SaaS Plans" })).rejects.toThrow("FORBIDDEN")
+  })
+})
+```
+
+ユースケースのすべての結果をテストします。成功、それぞれの `AppError` コード、セッションがない場合、権限がない場合です。
+
+## コンポーネントをテストする
+
+コンポーネントのテストは、`messages/en-US` の実際のメッセージを使ってレンダリングし、ミューテーションオプションを提供するユースケースのモジュールをモックして、Testing Library と `userEvent` で UI を操作します。処理中の状態をテストするには、`Promise.withResolvers()` でモックしたリクエストを保留したままにして処理中の UI をアサートし、その後 `act` 内で解決してアイドル状態の UI をアサートします。完全な例は `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx` です。
+
+## ブラウザテスト
+
+Playwright のスペックは `e2e/specs` に、ページオブジェクトは `e2e/pages` に、フィクスチャは `e2e/fixtures` にあります。これらは、`.wrangler/test` にあるローカルの D1 と KV、そして `e2e/data/accounts.ts` のシード済みアカウントを使い、ビルド済みのテスト用アプリケーションに対して実行されます。ローカルでは、Playwright がそのアプリケーションのマイグレーション、シード、ビルド、起動を自ら行います。
+
+```sh
+bun run test:e2e:install
+bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:ui
+```
+
+テスト用の Worker は送信されたメールを記録するため、スペックは `/__test/emails?to=<address>` から認証リンクを読み取れます。
+
+## プッシュする前に
+
+```sh
+bun run check
+bun run test:coverage
+bun run build
+```
+
+CI は、すべてのプルリクエストと `main` へのプッシュでチェック、カバレッジ、Chromium のブラウザスイートを実行し、WebKit のスイートは毎週と `main` へのプッシュ時に実行します。

@@ -1,17 +1,98 @@
 ---
 title: "DataTable"
-description: "Toolbar, kolumny, filtry, export, fetch."
+description: "Jeden uniwersalny komponent tabeli: kolumny, dane po stronie klienta lub serwera, filtry i zaznaczanie wierszy."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+`DataTable` (`src/presentation/components/custom/data-table.tsx`) to jedyny komponent tabeli. Tworzy instancję TanStack Table v9 za pomocą `tableFeatures` i `useTable` (filtrowanie, sortowanie, paginacja, zaznaczanie wierszy) i renderuje ją prymitywami tabeli z shadcn.
 
-## Capabilities
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
 
-- Column sizing / pinning helpers
-- Toolbar: search, filters slot, settings (density), export CSV, async fetch/refetch
-- Selection column + row actions slot
-- Pagination
+## Właściwości
 
-## Testing
+| Właściwość | Przeznaczenie                                                                                                           |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `columns`  | Definicje kolumn (`DataTableColumnDef`). Każdy wiersz potrzebuje tekstowego `id`, używanego jako identyfikator wiersza. |
+| `data`     | Wiersze w pamięci. Ignorowane, gdy ustawiono `options.query`.                                                           |
+| `filters`  | Kontrolki filtrów nad tabelą.                                                                                           |
+| `options`  | `initialState`, `query` i `selectable`.                                                                                 |
 
-Component tests under `data-table/__test__`. Keep coverage when changing toolbar pending states.
+## Opcje
+
+- `initialState` ustawia początkową `pagination` (domyślnie pierwsza strona, 10 wierszy) i `sorting`.
+- `query` włącza tryb serwerowy. To funkcja `{ pageIndex, pageSize, sorting }` zwracająca opcje zapytania, które rozwiązują się do `{ rows, total }`. Tabela paginuje i sortuje wtedy ręcznie, podczas ładowania pozostawia widoczną poprzednią stronę, pokazuje wiersze szkieletowe i przekazuje błędy zapytania do granicy błędów trasy.
+- `selectable` dodaje kolumnę pól wyboru; stopka pokazuje liczbę zaznaczonych wierszy.
+
+Zmiana sortowania wraca do pierwszej strony. Stopka pokazuje liczbę wierszy, wskaźnik strony oraz przyciski poprzedniej i następnej strony, przetłumaczone z `components.custom.data-table`.
+
+## Filtry
+
+Filtr to `type: "search"` z `placeholder` albo `type: "select"` z `label` i `options`; oba wskazują `columnId`. Pulpit używa obu:
+
+```tsx
+filters={[
+  { columnId: "user", placeholder: t("users.search"), type: "search" },
+  {
+    columnId: "status",
+    label: t("users.filters.status"),
+    options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+    type: "select",
+  },
+]}
+```
+
+Filtry działają na wierszach w pamięci. W trybie serwerowym filtrują tylko załadowaną stronę, dlatego tabele serwerowe ich nie używają.
+
+## Kolumny
+
+Kolumny znajdują się w pliku `<entity>-columns.tsx` obok widżetów strony i używają `createColumnHelper<DataTableFeatures, Row>()`. Nagłówki i komórki to małe komponenty, które same odczytują swoje tłumaczenia:
+
+```tsx
+const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
+  const t = useTranslations("pages.admin.users.table.headers")
+
+  return t(id)
+}
+```
+
+```tsx
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor((row) => getUserStatus(row), { cell: StatusCell, header: () => <ColumnHeader id="status" />, id: "status" }),
+  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
+  columnHelper.accessor("twoFactorEnabled", { cell: BooleanCell, header: () => <ColumnHeader id="twoFactorEnabled" /> }),
+  columnHelper.accessor("timezone", {
+    cell: ({ getValue }) => <span className="text-muted-foreground">{getValue()}</span>,
+    header: () => <ColumnHeader id="timezone" />,
+  }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+  columnHelper.accessor("updatedAt", { cell: DateCell, header: () => <ColumnHeader id="updatedAt" />, sortFn: "datetime" }),
+  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: "", id: "actions" }),
+])
+```
+
+- Każdą kolumnę można sortować, chyba że ustawia `enableSorting: false`. Zarejestrowane funkcje sortowania to `alphanumeric`, `basic`, `datetime` i `text`.
+- W trybie serwerowym funkcja zapytania otrzymuje stan sortowania; `getUsers` przypisuje każdemu identyfikatorowi kolumny wyrażenie SQL.
+- Akcje wiersza to kolumna wyświetlania, której komórką jest komponent, na przykład `UserRowActions`.
+
+## Zastosowania
+
+| Ekran                                                                              | Tryb                                                                    |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `/admin/users/all`                                                                 | Serwer: `getUsersPageQuery`, sortowanie, zaznaczanie                    |
+| `/admin/products`                                                                  | Serwer: `getProductsPageQuery`, `getCategoriesPageQuery`                |
+| `/admin`                                                                           | W pamięci: pierwsza strona użytkowników, filtry, pięć wierszy na stronę |
+| `/admin/users/invitations`, `/admin/users/roles`, `/admin/payments`, `/admin/blog` | W pamięci: wiersze demonstracyjne                                       |
+
+## Testy
+
+`src/presentation/components/custom/__test__/data-table.component.test.tsx` obejmuje tabele w pamięci, a `data-table-query.component.test.tsx` tryb serwerowy. Uruchom je poleceniem `bun run test:component`.
+
+## Powiązane przewodniki
+
+- [Dodawanie tabeli danych](/docs/guides/add-a-data-table)
+- [TanStack Table](/docs/integrations/tanstack-table)

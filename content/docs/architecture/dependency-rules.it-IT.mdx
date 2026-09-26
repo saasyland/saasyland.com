@@ -1,14 +1,42 @@
 ---
-title: Regole di dipendenza
-description: Regole di dipendenza — SaaSy Land
+title: "Regole sulle dipendenze"
+description: "Quali cartelle possono importare quali altre e come il codice solo server resta fuori dal bundle del browser."
 ---
 
-Percorsi importare la presentazione e i casi di utilizzo. Presentazione importa opzioni di query/mutazione nativo, schemi e helper condivisi. Utilizzare i casi importare il database e gli adattatori del fornitore attraverso i limiti solo del server. Le costanti del modulo e la validazione devono rimanere utilizzabili sia da forme che da funzioni del server.
+## Direzioni degli import
 
-Non importare i binding di Worker o la configurazione portante segreta in un componente del browser. TanStack Start divide `createServerFn` i gestori fuori dal pacchetto del browser. Adattatori condivisi che non devono mai eseguire nell'importazione del browser `@tanstack/react-start/server-only`.
+| Cartella                  | Può importare                                                                                                          | Non deve importare                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `src/routes`              | presentazione, opzioni di query e di mutazione dei moduli, integrazioni (guard, i18n, Fumadocs), `src/data`, `src/lib` | client del database o dei provider al di fuori di una server function |
+| `src/presentation`        | opzioni dei moduli, schemi Zod, costanti e tipi, hook, `src/data`, `src/lib`, integrazioni sicure per il browser       | `db`, `auth` da `auth.server.ts`, Polar, Resend                       |
+| `src/modules/*/use-cases` | integrazioni (`db`, `auth`, `sendEmail`, `polar`), `_core`, schemi dei moduli, template email                          | componenti                                                            |
+| `src/integrations`        | `_core`, schemi dei moduli e casi d'uso che il fornitore richiama                                                      | componenti                                                            |
+| `src/server.ts`           | helper per i locale, cookie, costanti di `_core`, asset del documento                                                  | il database, Better Auth o l'SDK di Polar                             |
 
-## Guide correlate
+Tra le integrazioni sicure per il browser ci sono `i18n.paths.ts`, `i18n.utils.ts`, `auth.client.ts`, `auth.access.ts` e `form.fields.ts`.
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+## Confini del codice solo server
+
+- **Server function.** In fase di compilazione TanStack Start rimuove dal bundle del browser ogni handler di `createServerFn` e sostituisce la chiamata con una richiesta RPC. Per questo un componente può importare `createCategoryMutation` dallo stesso file che importa `db`.
+- **Moduli solo server.** I file che leggono secret o binding iniziano con `import "@tanstack/react-start/server-only"`, che li tiene fuori dalla build client. Esempi: `drizzle.database.ts`, `auth.server.ts`, `polar.config.ts`, `resend.utils.ts`, `src/lib/rate-limit.ts` e `i18n.middleware.ts`.
+- **Funzioni specifiche per ambiente.** `createServerOnlyFn` incapsula codice che viene eseguito solo sul server (`getRequestSession`). `createIsomorphicFn` fornisce implementazioni separate per server e browser (`getCurrentLocale`, `getCookie`).
+- **Binding e secret** provengono da `env` in `cloudflare:workers` e vengono letti solo all'interno di moduli solo server o di handler di server function.
+- **Entry point del Worker.** `src/server.ts` viene eseguito a ogni richiesta, compresi i file statici. Mantiene ridotti i propri import statici e carica l'handler di TanStack Start con un `import()` dinamico solo quando nessun asset statico corrisponde.
+
+```ts
+import "@tanstack/react-start/server-only"
+
+import { env } from "cloudflare:workers"
+
+import { drizzle } from "drizzle-orm/d1"
+
+import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
+
+export const db = drizzle(env.DB, { schema })
+```
+
+## Pagine correlate
+
+- [Struttura delle directory](/docs/architecture/directory-structure)
+- [Server function e casi d'uso](/docs/architecture/modules-and-use-cases)
+- [Ciclo di vita della richiesta](/docs/architecture/request-lifecycle)

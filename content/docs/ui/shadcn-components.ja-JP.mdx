@@ -1,6 +1,65 @@
 ---
-title: Shadcn コンポーネント
-description: プライマリ在庫と使用ノート。
+title: "shadcn コンポーネント"
+description: "React Aria ベースの shadcn プリミティブと、画面で使うときの規約。"
 ---
 
-ブラウザ `presentation/components/shadcn`. . 既存のボタン/入力/タブ/ダイアログパターンを優先します。 React Aria intact からアクセシビリティ属性を保持します。
+`src/presentation/components/shadcn/` のプリミティブは、React Aria Components の上に構築された shadcn/ui コンポーネントです。`input-otp`、`carousel`、`resizable`、`chart`、`sonner` は他のライブラリをラップし、それ以外は React Aria に従います。`components.json` は `ui` エイリアスをこのフォルダーに、`utils` を `~/src/lib/cn` に向けています。画面はプリミティブを直接インポートし、周囲にラッパーコンポーネントはありません。
+
+## React Aria の props
+
+| DOM や Radix での書き方   | ここでの書き方                            |
+| ------------------------- | ----------------------------------------- |
+| `onClick`                 | `onPress`                                 |
+| `disabled`                | `isDisabled`                              |
+| ダイアログの `open`       | `isOpen` と `onOpenChange`                |
+| `checked`                 | `isSelected`                              |
+| タブの `value`            | `selectedKey` または `defaultSelectedKey` |
+| メニュー項目の `onSelect` | `onAction`                                |
+
+`Input` はネイティブの `onChange` イベントのままです。`Select` はラベルを描画する `fieldLabel` を受け取ります。
+
+## 規約
+
+- **処理中のボタン**: ミューテーションの状態を `Button` に渡します: `<Button isPending={mutation.isPending} type="submit">`。
+- **リンク**: `LinkButton`、`TabsTrigger`、`SidebarMenuButton` は `href` を受け取ります。`AriaProvider` がこれらを TanStack Router 経由で遷移させ、言語プレフィックスを付けます。他の要素をボタンの見た目にするには `buttonVariants` を使います。
+- **フォーム**: TanStack Form とともに `Field`、`FieldGroup`、`FieldLabel`、`Input`、`ValidationFieldError` を使います。`ResetPasswordDialog` のフィールドの例です。
+
+```tsx
+<Field data-invalid={isInvalid}>
+  <FieldLabel htmlFor={passwordId}>{t("resetPasswordDialog.password")}</FieldLabel>
+  <Input
+    aria-invalid={isInvalid}
+    autoComplete="new-password"
+    id={passwordId}
+    name={field.name}
+    onBlur={field.handleBlur}
+    onChange={(event) => {
+      field.handleChange(event.target.value)
+    }}
+    type="password"
+    value={field.state.value}
+  />
+  {isInvalid && (
+    <ValidationFieldError
+      message={fieldErrorMessage(field.state.meta.errors)}
+      namespace="auth.validations"
+      params={AUTH_VALIDATION_PARAMS}
+    />
+  )}
+</Field>
+```
+
+- **ダイアログ**: `Dialog` と `AlertDialog` は `isOpen` と `onOpenChange` で制御し、`admin/users/delete-user-dialog.tsx` のように 1 ダイアログ 1 ファイルにします。
+- **メニュー**: `DropdownMenuTrigger` がトリガーの `Button` と `DropdownMenu` を包みます。項目は `onAction` を実行し、危険な操作には `variant="destructive"` を使います。
+- **トースト**: `sonner` の `toast.success` または `toast.error` を呼び出します。ルートルートは `ThemeProvider` の中に `Toaster` を描画します。
+- **フォーカスリング**: `checkbox`、`select`、`switch`、`radio-group` と同じように、React Aria のトリガーには `data-focus-visible:` バリアントでスタイルを当てます。
+- **クラス名**: 条件付きクラスには、オブジェクト構文で `~/src/lib/cn` の `cn` を使います。
+
+## CSS のサイズ
+
+`globals.css` は `@source not` のリストで、どの画面でも使われていないプリミティブを Tailwind のソース走査から除外しています。そのいずれかを使い始めるときは、リストから外してください。外さないとクラスが生成されません。
+
+## 関連ガイド
+
+- [shadcn/ui と React Aria](/docs/integrations/shadcn)
+- [フォームとバリデーション](/docs/guides/forms-and-validation)

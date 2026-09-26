@@ -1,28 +1,76 @@
 ---
-title: Verzeichnisstruktur.
-description: Verzeichnisstruktur — SaaSy Land
+title: "Verzeichnisstruktur"
+description: "Alle Ordner der obersten Ebene in SaaSy Land und die Regeln dafür, was wohin gehört."
 ---
 
-Verwenden Sie kebab-case für Dateien und Ordner. Dateirouten verwenden die Konventionen von TanStack Router mit Punkten und Routen ohne Pfad. Wiederverwendbare UI-Elemente gehören unter `presentation/components/custom`; generierte Basiselemente gehören unter `presentation/components/shadcn`. Eine Funktion kann `components`, `constants`, `hooks` und `types` enthalten, falls erforderlich.
-
 ```text
-content/                         Localized MDX
-messages/{locale}/           Translation namespaces
-src/routes/                      Flat file routes
-src/router.tsx                   Router and per-request query cache
-src/server.ts                    Cloudflare Worker entry
-src/modules/{feature}/           Schemas, constants, validation
-src/modules/{feature}/use-cases/  Server functions and query/mutation options
-src/integrations/{vendor}/       Vendor adapters and setup
-src/presentation/                Components, styles, branding, emails
-src/providers/                   Application providers
-src/hooks/                       Shared hooks
-src/lib/                         Shared utilities
-src/platform/testing/            Binding mocks and test helpers
+content/
+├── blog/                            <slug>.<locale>.mdx
+└── docs/                            <page>.<locale>.mdx and meta.<locale>.json
+messages/<locale>/<namespace>.json   One file per translation namespace
+e2e/                                 Playwright specs, page objects, fixtures
+scripts/                             Check, build and Git hook scripts
+public/                              Fonts and other static files
+src/
+├── routes/                          Flat TanStack file routes
+│   └── api/                         HTTP handlers
+├── routes.ts                        ROUTES path constants
+├── router.tsx                       Router, QueryClient, locale rewrite
+├── server.ts                        Worker entry
+├── modules/
+│   ├── _core/
+│   │   ├── constants/               errors, api, locale, country, currency, timezone, pricing
+│   │   └── utils/                   pagination, zod-fields
+│   └── <table>/
+│       ├── <table>.schema.ts
+│       ├── <table>.zod.ts
+│       ├── <table>.constants.ts
+│       ├── <table>.types.ts
+│       ├── <table>.utils.ts
+│       └── use-cases/<operation>.ts
+├── integrations/<vendor>/           <vendor>.<concern>.ts
+├── presentation/
+│   ├── components/
+│   │   ├── shadcn/                  Generated primitives
+│   │   └── custom/
+│   │       ├── footer.tsx           Shared components, flat
+│   │       ├── data-table.tsx
+│   │       ├── admin/
+│   │       │   └── users/           user-columns.tsx, reset-password-dialog.tsx
+│   │       ├── app/
+│   │       ├── auth/
+│   │       ├── blog/
+│   │       └── landing-page/
+│   │           ├── components/
+│   │           └── sections/
+│   ├── emails/                      React Email templates
+│   ├── styles/                      globals.css, docs.css, fonts.css, typeset.css
+│   ├── theme/
+│   ├── branding/
+│   ├── assets/
+│   └── document-assets.ts
+├── data/                            Data shared by several files
+├── lib/                             cn, cookie, github, rate-limit, seo, confetti
+├── hooks/                           Shared React hooks
+├── providers/                       aria, motion, theme, translations
+├── platform/testing/                Test setup, binding mocks, RPC bridge
+└── types/                           Bindings, router and generated Worker types
 ```
 
-## Verwandte Anleitungen.
+## Ablageregeln
+
+- **Dateien und Ordner verwenden kebab-case.** Tests liegen in einem benachbarten `__test__`-Ordner.
+- **Routen setzen nur zusammen.** Eine Routendatei definiert die Seiten- oder Layout-Komponente, `NAMESPACE` oder `NAMESPACES`, den Loader und `head`. Sie enthält keine Widgets, Dialoge oder Spaltendefinitionen.
+- **Module sind Datenbanktabellen.** Lege `src/modules/<name>` nur für eine echte Tabelle an. Eine Server Function, die nicht mit einer Tabelle arbeitet, gehört nach `src/lib` (zum Beispiel `src/lib/github.ts`) oder, wenn nur eine Route sie nutzt, in diese Routendatei.
+- **Gemeinsame Komponenten liegen flach.** Eine Komponente, die in mehreren Bereichen genutzt wird, ist eine einzelne Datei direkt in `presentation/components/custom`.
+- **Bereichs- und Seitenordner.** Komponenten, die nur ein Bereich nutzt, liegen in `admin/`, `app/`, `auth/`, `blog/` oder `landing-page/`. Admin-Seiten bekommen einen eigenen Ordner, etwa `admin/users/` oder `admin/settings/`. Die Landingpage ist aufgeteilt in `sections/` (eine Datei pro Seitenabschnitt) und `components/` (Bausteine, die sich die Abschnitte teilen).
+- **Ein Widget, Dialog, Formular oder Spaltensatz pro Datei.** Teile eine Komponente nicht in einen Wrapper und eine `-content`-Datei auf.
+- **Keine verschachtelten Hilfsordner.** Komponentenordner enthalten nie Unterordner wie `components/`, `constants/`, `hooks/`, `lib/` oder `types/`, und neben einer Komponente liegt keine `.ts`-Hilfsdatei. Eine Konstante, die nur eine Komponente nutzt, bleibt in deren Datei.
+- **Gemeinsame Daten gehören nach `src/data`.** Beispiele: die Gruppen der Admin-Sidebar, `MARKETING_SECTION_IDS`, die App-Navigation, die CLI-Auswahloptionen und die Demo-Zeilen.
+- **Generierte Dateien werden nicht von Hand bearbeitet.** Das Router-Plugin schreibt `src/routeTree.gen.ts`, `bun run cf-typegen` schreibt `src/types/worker-configuration.d.ts`, und `bun run content` sowie `bun run generate:cn` schreiben `.source/`.
+
+## Verwandte Seiten
 
 - [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+- [Dateibenennung](/docs/reference/file-naming)
+- [Konventionen](/docs/reference/conventions)

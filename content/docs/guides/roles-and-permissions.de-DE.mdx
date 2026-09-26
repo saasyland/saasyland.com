@@ -1,14 +1,61 @@
 ---
-title: Rollen und Berechtigungen.
-description: Rollen und Berechtigungen — SaaSy Land
+title: "Rollen und Berechtigungen"
+description: "Statements und Rollen in auth.access.ts definieren und in Route-Guards und Server-Funktionen prüfen."
 ---
 
-Die Rollen und Anweisungen sind im Verzeichnis `src/integrations/better-auth/auth.access.ts` gespeichert. Die Standardrolle ist "Kunde". Administratorzugriff wird durch `requireAdmin` geprüft; jede Serveroperation überprüft die benötigte Anweisung mit `withAuth`.
+Die Zugriffskontrolle nutzt das Admin-Plugin von Better Auth. Statements, Rollen und die Berechtigungsprüfung liegen in `src/integrations/better-auth/auth.access.ts`.
 
-Behalten Sie Rollenwechsel, Sperrungen, Sitzungsaufhebungen und Identitätsdiebstahl in den Anwendungsfällen für Benutzer und Sitzungen bei. Leiten Sie den aktuellen Benutzer aus der Anfrage-Sitzung ab und ungültig machen Sie betroffene Abfragegruppen nach einer Änderung. Das Ausblenden eines Buttons ist eine Darstellungseigenschaft und ersetzt keine Autorisierung.
+## Statements und Rollen
 
-## Verwandte Anleitungen.
+```ts
+const APP_STATEMENTS = {
+  admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
+  settings: ["manage"],
+} as const
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
+
+export const ROLES = {
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
+}
+```
+
+- `defaultStatements` von Better Auth fügen die Ressourcen `user` und `session` hinzu (etwa `user: ["list", "set-role", "ban", "impersonate", "delete"]` und `session: ["list", "revoke"]`).
+- `admin` hat jedes Statement; `customer`, die Standardrolle für neue Benutzer, hat keines.
+- `ROLE_VALUES` typisiert die Spalte `user.role` und die Rollenschemas in `user.zod.ts`.
+
+## Wo Berechtigungen geprüft werden
+
+| Schicht         | Prüfung                                                                       |
+| --------------- | ----------------------------------------------------------------------------- |
+| Route-Guard     | `requireAdmin` verlangt `admin: ["access"]` für den gesamten `/admin`-Bereich |
+| Server-Funktion | `authorized({ product: ["update"] })` auf jeder geschützten Operation         |
+| Nur angemeldet  | `authorized()` für Operationen auf den eigenen Daten des Aufrufers            |
+| Überall sonst   | `hasPermission({ permission, role })` gibt einen booleschen Wert zurück       |
+
+Der Route-Guard entscheidet nur, welche Seiten gerendert werden. Server-Funktionen sind direkt per RPC aufrufbar, daher muss jede ihre eigene Berechtigung prüfen. Einen Button auszublenden ist Darstellung, keine Autorisierung.
+
+## Berechtigung hinzufügen
+
+1. Die Aktion zu `APP_STATEMENTS` hinzufügen, zum Beispiel `report: ["read", "export"]`.
+2. `admin` erhält sie automatisch; anderen Rollen in `ROLES` nach Bedarf zuweisen.
+3. In der Server-Funktion verlangen: `.middleware([authorized({ report: ["export"] })])`.
+4. Sowohl den erlaubten als auch den `FORBIDDEN`-Fall testen.
+
+## Rolle hinzufügen
+
+1. Den Code zu `ROLE_CODES` und `ROLE_VALUES` hinzufügen.
+2. Die Statements der Rolle in `ROLES` definieren.
+3. Die Rollenbeschriftung zu `filters.role.options` in `messages/<locale>/pages.admin.users.json` für alle neun Locales hinzufügen.
+
+Der Auth-Client (`auth.client.ts`) erhält `ac` und `ROLES`, sodass Admin-Aktionen im Browser dieselben Definitionen verwenden.
+
+## Benutzer- und Session-Verwaltung
+
+Die Module für Benutzer und Sessions kapseln die Admin-API von Better Auth in Use Cases, jeder mit eigener Berechtigung: `setUserRole`, `banUser`, `unbanUser`, `impersonateUser`, `deleteUser`, `setUserPassword`, `revokeUserSession` und weitere. Operationen auf den eigenen Daten des Aufrufers, etwa `revokeSession`, verwenden `authorized()` und filtern nach `context.auth.user.id`.
+
+Außerhalb der Testdatenbank gibt es keinen Admin-Seed. Um den ersten Admin anzulegen: registrieren, die E-Mail-Adresse verifizieren und die `role` dieses Benutzers in D1 auf `admin` setzen, zum Beispiel mit `bun run db:studio:development`.

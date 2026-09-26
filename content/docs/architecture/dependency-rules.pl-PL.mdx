@@ -1,14 +1,42 @@
 ---
-title: Reguły zależności
-description: Reguły zależności — SaaSy Land
+title: "Reguły zależności"
+description: "Które foldery mogą importować z których oraz jak kod wyłącznie serwerowy pozostaje poza bundlem przeglądarki."
 ---
 
-Trasy importują prezentację i przypadki użycia. Prezentacja korzysta z opcji zapytań i mutacji, schematów oraz wspólnych narzędzi. Przypadki użycia importują bazę i adaptery usług wewnątrz granicy serwera. Stałe modułów i walidacja pozostają dostępne dla formularzy i funkcji serwerowych.
+## Kierunki importów
 
-Nie importuj bindingów Workera ani konfiguracji sekretów do komponentu przeglądarki. TanStack Start usuwa handlery `createServerFn` z pakietu przeglądarki. Adaptery przeznaczone wyłącznie dla serwera importują `@tanstack/react-start/server-only`.
+| Folder                    | Może importować                                                                                                  | Nie może importować                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `src/routes`              | warstwę prezentacji, opcje zapytań i mutacji modułów, integracje (guardy, i18n, Fumadocs), `src/data`, `src/lib` | klientów bazy danych ani dostawców poza funkcją serwerową |
+| `src/presentation`        | opcje modułów, schematy Zod, stałe i typy, hooki, `src/data`, `src/lib`, integracje bezpieczne dla przeglądarki  | `db`, `auth` z `auth.server.ts`, Polar, Resend            |
+| `src/modules/*/use-cases` | integracje (`db`, `auth`, `sendEmail`, `polar`), `_core`, schematy modułów, szablony e-maili                     | komponentów                                               |
+| `src/integrations`        | `_core`, schematy modułów i przypadki użycia, które dostawca wywołuje zwrotnie                                   | komponentów                                               |
+| `src/server.ts`           | helpery locale, cookies, stałe `_core`, zasoby dokumentu                                                         | bazy danych, Better Auth ani Polar SDK                    |
 
-## Powiązane przewodniki
+Do integracji bezpiecznych dla przeglądarki należą `i18n.paths.ts`, `i18n.utils.ts`, `auth.client.ts`, `auth.access.ts` i `form.fields.ts`.
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+## Granice kodu serwerowego
+
+- **Funkcje serwerowe.** TanStack Start usuwa z bundla przeglądarki każdy handler `createServerFn` i zastępuje wywołanie żądaniem RPC. Dlatego komponent może zaimportować `createCategoryMutation` z tego samego pliku, który importuje `db`.
+- **Moduły wyłącznie serwerowe.** Pliki, które odczytują sekrety lub bindingi, zaczynają się od `import "@tanstack/react-start/server-only"`, co wyklucza je z builda klienta. Przykłady: `drizzle.database.ts`, `auth.server.ts`, `polar.config.ts`, `resend.utils.ts`, `src/lib/rate-limit.ts` i `i18n.middleware.ts`.
+- **Funkcje zależne od środowiska.** `createServerOnlyFn` opakowuje kod, który działa tylko na serwerze (`getRequestSession`). `createIsomorphicFn` dostarcza osobne implementacje dla serwera i przeglądarki (`getCurrentLocale`, `getCookie`).
+- **Bindingi i sekrety** pochodzą z `env` w `cloudflare:workers` i są odczytywane wyłącznie w modułach serwerowych lub w handlerach funkcji serwerowych.
+- **Punkt wejścia Workera.** `src/server.ts` działa przy każdym żądaniu, również dla plików statycznych. Ma niewiele statycznych importów, a handler TanStack Start ładuje dynamicznym `import()` dopiero wtedy, gdy nie pasuje żaden zasób statyczny.
+
+```ts
+import "@tanstack/react-start/server-only"
+
+import { env } from "cloudflare:workers"
+
+import { drizzle } from "drizzle-orm/d1"
+
+import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
+
+export const db = drizzle(env.DB, { schema })
+```
+
+## Powiązane strony
+
+- [Struktura katalogów](/docs/architecture/directory-structure)
+- [Funkcje serwerowe i przypadki użycia](/docs/architecture/modules-and-use-cases)
+- [Cykl życia żądania](/docs/architecture/request-lifecycle)

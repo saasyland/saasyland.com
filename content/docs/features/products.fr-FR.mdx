@@ -1,12 +1,35 @@
 ---
-title: Produits
-description: Catalogue de produits cas d'utilisation et interface utilisateur admin.
+title: "Produits"
+description: "La table des produits dans D1 et sa liste paginée dans l’administration ; le formulaire de création est une démo."
 ---
 
-## Module
+## Données
 
-`modules/product/use-cases` — CRUD + liste.
+`src/modules/product/product.schema.ts` définit la table `product` : `name`, `description`, `priceCents`, `currency`, `type` (`one_time`, `subscription`, `course`), `status` (`draft`, `published`, `archived`), `billingCycle` et les horodatages.
 
-## Administrateur
+Cas d’usage dans `src/modules/product/use-cases`, chacun protégé par la permission `product` correspondante :
 
-`/admin/products` (+ créer). Continuer à remplacer les maquettes par des données de cas d'utilisation en utilisant le tableau des utilisateurs comme modèle de référence.
+- `getProducts` — paginé, avec des filtres facultatifs `type` et `status` ; exporte `getProductsPageQuery` et `getProductsQuery`.
+- `getProduct`, `createProduct`, `updateProduct`, `deleteProduct`.
+
+## Écran d’administration
+
+`/admin/products` conserve son onglet dans le paramètre de recherche `?tab=` : `all`, `onetime`, `subscriptions`, `categories`, `collections`, `drafts` et `courses`. Les onglets de produits paginent côté serveur :
+
+```tsx
+<DataTable
+  columns={productColumns}
+  key={tab}
+  options={{ query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] }) }}
+/>
+```
+
+`categories` et `collections` affichent `categoryColumns` avec `getCategoriesPageQuery` (voir [Catégories](/docs/features/categories)) ; `courses` affiche un état vide. Le compteur du tableau de bord lit aussi `getProductsQuery`.
+
+## Parties de démo
+
+- `/admin/products/create` affiche `ProductDetails` et `ProductSidebar` sous forme de formulaire statique ; **Enregistrer** et **Annuler** ne sont pas branchés.
+- Le bouton d’actions de ligne (`RowActionsCell`) n’a pas de menu.
+- Aucun écran n’appelle encore `createProduct`, `updateProduct`, `deleteProduct` ou `getProduct`.
+
+Le paiement n’utilise pas cette table : les offres achetables sont des produits Polar (voir [Paiements et licences](/docs/features/payments)).

@@ -1,10 +1,43 @@
 ---
-title: 管理者ダッシュボード
-description: ダッシュボードのステータス、チャート、および最近のユーザーのウィジェット。
+title: "管理ダッシュボード"
+description: "/admin の骨格とダッシュボード: 稼働中のカウンターとユーザーテーブル、静的な売上グラフ。"
 ---
 
-## 交通アクセス
+## 管理画面の骨格
 
-`/admin` — stats グリッド、チャート、ユーザーテーブルを Suspense で構成します。
+`src/routes/admin.tsx` はすべての管理ページを `requireAdmin` で保護し、共通の名前空間をプリロードします。レイアウトは次を表示します。
 
-モジュールを介して、メトリックを難しめるように、実際の集計を優先します。スケルトンはサーバーのみのインポートを自由に保ちます。
+- `AdminSidebar`、`AdminBreadcrumbs`、`AdminCommandPalette`（⌘K で開く）。いずれも `src/data/admin.ts` の `ADMIN_SIDEBAR_GROUPS` から構築され、概要（ダッシュボード、アナリティクス）、商品構成（商品、料金モデル）、コンテンツ（ブログ、ランディングページ）、管理（ユーザー管理、決済、設定）のグループがあります。
+- サイドバー下部のユーザーウィジェット。設定へのリンクと `SignOutButton` を含みます。
+
+## ダッシュボード
+
+`/admin`（`src/routes/admin.index.tsx`）はローダーで `getProductsQuery` と `getUsersQuery` をプリロードし、`src/presentation/components/custom/admin/dashboard` の 3 つのウィジェットを組み合わせます。
+
+- `DashboardStats`（稼働中）: ユーザー数、商品数、メール確認待ちのユーザー数。
+- `RevenueChart`（デモ）: 軸が固定された静的な SVG で、期間ボタンは何もしません。
+- ユーザーカード（稼働中）: 検索とステータスのフィルターを備えた最新ユーザーの一覧で、1 ページ 5 行です。
+
+```tsx
+<DataTable
+  columns={dashboardUserColumns}
+  data={users.rows}
+  filters={[
+    { columnId: "user", placeholder: t("users.search"), type: "search" },
+    {
+      columnId: "status",
+      label: t("users.filters.status"),
+      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+      type: "select",
+    },
+  ]}
+  options={{ initialState: { pagination: PREVIEW_PAGINATION }, selectable: true }}
+/>
+```
+
+このテーブルはブラウザー上で `getUsersQuery` の最初のページ（10 人）を扱います。ユーザーがそれより多い場合、**すべて表示** は `/admin/users` へリンクします。**商品を追加** は `/admin/products/create` へリンクし、**過去 30 日間** は無効で、**エクスポート** は未接続です。
+
+## 関連ガイド
+
+- [管理ページを追加する](/docs/guides/add-an-admin-page)
+- [DataTable](/docs/ui/data-table)

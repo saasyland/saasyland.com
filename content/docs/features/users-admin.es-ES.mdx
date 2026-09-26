@@ -1,20 +1,44 @@
 ---
-title: Usuarios (administrador)
-description: Usuarios activos (tabla), pestañas, suplantación de identidad, bloqueo/rol/contraseña.
+title: "Usuarios (admin)"
+description: "Gestión de usuarios en /admin/users: una tabla de usuarios real con acciones por fila y pestañas de invitaciones y roles de demostración."
 ---
 
-## Rutas.
+## Rutas
 
-`/admin/users` con el parámetro de búsqueda `tab` de TanStack Router (`allUsers` | `invitations` | `roles` | `security`).
+`src/routes/admin.users.tsx` es un layout con cuatro pestañas enlazadas; `/admin/users` redirige a `/admin/users/all`. Todas las pestañas usan el espacio de nombres `pages.admin.users`.
 
-## Módulo.
+| Ruta                       | Contenido                                                               |
+| -------------------------- | ----------------------------------------------------------------------- |
+| `/admin/users/all`         | Tabla de usuarios real                                                  |
+| `/admin/users/invitations` | Filas de demostración (`ADMIN_INVITATION_ROWS`) con búsqueda por correo |
+| `/admin/users/roles`       | Filas de demostración (`ADMIN_ROLE_ROWS`)                               |
+| `/admin/users/security`    | Estado vacío                                                            |
 
-`modules/user/use-cases` — listado/creación/actualización/eliminación, bloqueo/desbloqueo, establecer rol/contraseña, suplantar identidad, actualizar tabla.
+## Todos los usuarios
 
-## Interfaz de usuario.
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
 
-La tabla se encuentra en `admin/users/components/all-users-tab`. El estado se obtiene de forma **derivada** (`getUserStatus`: activo / pendiente / bloqueado), y no es una columna de tipo enumeración en la base de datos.
+- `getUsersPageQuery` llama a la función de servidor `getUsers` (`src/modules/user/use-cases/get-users.ts`, permiso `user: ["list"]`). La paginación y la ordenación se ejecutan en el servidor sobre nombre, rol, estado, verificación del correo, 2FA, zona horaria y las fechas de creación y actualización.
+- El estado no es una columna. `getUserStatus` (`user.utils.ts`) deriva `banned`, `pending` o `active` a partir de `banned` y `emailVerified`, y el servidor ordena con la misma expresión SQL `case`.
+- `userColumns` está en `src/presentation/components/custom/admin/users/user-columns.tsx`; las fechas se muestran en la zona horaria de cada usuario.
 
-## Estado de la URL.
+## Acciones por fila
 
-`admin/users/constants/search-params.ts` — analizadores compartidos + `searchParamsCache`.
+`UserRowActions` (`row-actions.tsx`) es el menú de la última columna:
+
+- **Restablecer contraseña** abre `ResetPasswordDialog`, que llama a `setUserPassword`.
+- **Bloquear** o **Desbloquear** llama a `banUser` o `unbanUser`.
+- **Eliminar** abre `DeleteUserDialog`, que llama a `deleteUser`.
+
+Cada acción correcta invalida `USER_QUERY_KEYS.ALL` y muestra un aviso; los errores pasan por `useErrorMessage`. Los elementos **Editar** y **Ver perfil** y el botón **Añadir usuario** todavía no hacen nada.
+
+## Sin conectar
+
+`createUser`, `getUser`, `updateUser`, `setUserRole`, `impersonateUser` y `stopImpersonatingUser` existen en `src/modules/user/use-cases` con su middleware de permisos, pero ninguna pantalla los llama. No hay tabla de invitaciones; los roles reales son `admin` y `customer` en `auth.access.ts`.
+
+## Guías relacionadas
+
+- [DataTable](/docs/ui/data-table)
+- [Suplantación](/docs/features/impersonation)

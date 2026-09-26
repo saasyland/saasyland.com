@@ -1,8 +1,27 @@
 ---
-title: Seguridad y endurecimiento.
-description: Características de seguridad orientadas al producto y controles planificados.
+title: "Seguridad y endurecimiento"
+description: "Los controles de seguridad que implementa la aplicación y los que no."
 ---
 
-Conexiones internas: Arquitectura → Modelo de seguridad, Guías → Lista de seguridad, Funcionalidades → Autenticación de dos factores / Sesiones / Suplantación de identidad.
+## Implementado
 
-Planificado: firmas de webhook, aislamiento de organizaciones, protección de bots opcional, registros de auditoría más robustos.
+- **Sesiones**: sesiones de Better Auth en D1, prefijo de cookie `saasyland`, cookies seguras fuera de los modos locales, hosts permitidos por modo y `cf-connecting-ip` como dirección del cliente. La sesión del cliente nunca contiene el token.
+- **Cuentas**: verificación obligatoria del correo, sesiones revocadas al restablecer la contraseña, TOTP opcional con códigos de respaldo, identificadores de verificación guardados con hash y tokens OAuth cifrados.
+- **Autorización**: `requireSignedIn` y `requireAdmin` en las rutas; `authorized(permission)` en las funciones de servidor con los roles de `auth.access.ts`.
+- **Límites de peticiones**: el limitador de Better Auth y el middleware `withRateLimit` comparten la tabla `rate_limit` de D1. `RATE_LIMITS.SENSITIVE` permite 3 llamadas y `RATE_LIMITS.TOKEN` 5 llamadas cada 60 segundos por cliente y acción.
+- **Errores**: el middleware de peticiones convierte los fallos en códigos `AppError` (`src/modules/_core/constants/errors.ts`), así que los clientes nunca reciben mensajes internos del servidor; los componentes los muestran con `useErrorMessage`.
+- **Webhooks y formularios**: los webhooks de Polar se verifican con `POLAR_WEBHOOK_SECRET`; las peticiones del boletín solo se aceptan desde hosts conocidos y por HTTPS (`newsletterRequestOrigin`).
+
+## No implementado
+
+- Cabeceras de seguridad como una Content Security Policy: `public/_headers` solo define la caché.
+- Un registro de auditoría, incluidos bloqueos, eliminaciones y suplantaciones.
+- Protección contra bots o CAPTCHA en los formularios públicos.
+- Una pantalla de suplantación ([Suplantación](/docs/features/impersonation)).
+
+## Guías relacionadas
+
+- [Modelo de seguridad](/docs/architecture/security-model)
+- [Lista de comprobación de seguridad](/docs/guides/security-checklist)
+- [Autenticación en dos pasos](/docs/features/two-factor)
+- [Sesiones](/docs/features/sessions)

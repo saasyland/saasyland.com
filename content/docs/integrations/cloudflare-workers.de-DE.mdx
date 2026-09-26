@@ -1,25 +1,33 @@
 ---
-title: Bereitstellen auf Cloudflare Workers.
-description: Bereitstellen auf Cloudflare Workers – SaaSy Land
+title: "Cloudflare Workers"
+description: "Worker-Einstiegspunkt, Sprach-Middleware, Bindings und Deployment."
 ---
 
-Der Worker Build wird durch Vite+, TanStack Start und `@cloudflare/vite-plugin` erstellt. Die Datei `wrangler.jsonc` definiert den Einstiegspunkt, die Kompatibilitätseinstellungen, die Assets, die Observability-Funktionen sowie separate Bindungen für die Entwicklung, die Vorschau- und die Produktionsumgebung.
+Die Anwendung läuft als ein einziger Cloudflare Worker. `@cloudflare/vite-plugin` baut ihn, und `CLOUDFLARE_ENV` wählt die Wrangler-Umgebung aus. `wrangler.jsonc` setzt `main` auf `./src/server.ts`, aktiviert `nodejs_compat` und Observability und liefert statische Dateien über das `ASSETS`-Binding aus. Der Worker läuft für jeden Pfad zuerst, außer für `/assets/*`, `/fonts/*`, `/robots.txt` und `/llms.txt`.
 
-Bereich D1 und KV, und ersetzen Sie die Platzhalter-IDs für die Zielumgebung. Legen Sie die URL und die Anmeldeinformationen des Anbieters in `.env.preview` oder `.env.production` fest. Führen Sie die Migrationen explizit aus und anschließend die Bereitstellung. Die Bereitstellungsskripte validieren zunächst die Binding-IDs; die Build-Skripte rendern öffentliche Seiten vorab und überprüfen die erstellten Artefakte. Die Authentifizierung und die privaten Anwendungsseiten werden dynamisch auf dem Worker ausgeführt.
+| Umgebung      | Worker                  | D1 und KV                             | Domain                  |
+| ------------- | ----------------------- | ------------------------------------- | ----------------------- |
+| `development` | `saasyland-development` | Entfernte Preview-Ressourcen          | `localhost:3000`        |
+| `preview`     | `saasyland-preview`     | Preview-Ressourcen                    | `preview.saasyland.com` |
+| `production`  | `saasyland`             | Produktionsressourcen                 | `saasyland.com`         |
+| `test`        | `saasyland-test`        | Lokale Ressourcen in `.wrangler/test` | `127.0.0.1:3000`        |
 
-Legen Sie die benutzerdefinierte Domain und die OAuth-Callback-URLs für die Zielumgebung fest. Das Installieren von Abhängigkeiten und der Build-Prozess führen niemals eine Remote-Migration durch.
+Jede Umgebung bindet D1 als `DB` und KV als `CACHE` und führt ihre erforderlichen Secrets auf. Die Umgebung `test` verwendet `src/platform/testing/worker.ts` als Einstiegspunkt; sie fängt Anfragen an Resend und Polar ab und stellt Endpunkte bereit, die nur für Playwright-Tests existieren.
 
-```sh
-bunx wrangler login
-bunx wrangler d1 create saasyland_preview
-bunx wrangler kv namespace create CACHE --env preview
-# Update wrangler.jsonc and .env.preview first.
-bun run db:migrate:preview
-bun run deploy:preview
-```
+## Ablauf eines Requests
 
-## Verwandte Anleitungen.
+`src/server.ts` verarbeitet jeden Request:
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+1. `resolveLocale` aus `i18n.middleware.ts` prüft `GET`- und `HEAD`-Dokument-Requests außerhalb von `/api` und `/_serverFn`. Es leitet Sprachkürzel und nicht kanonische Sprachpfade mit Status 308 weiter und meldet, wenn das Sprach-Cookie von der Sprache der URL abweicht.
+2. `GET`- und `HEAD`-Requests außerhalb von `/api` und `/_serverFn` werden zuerst aus `ASSETS` bedient, was vorab gerenderte Seiten abdeckt. Bei einem 404 übernimmt der TanStack Start-Handler.
+3. Wenn das Sprach-Cookie aktualisiert werden muss, hängt der Worker es an die Antwort an. HTML-Antworten erhalten außerdem `Link`-Preload-Header für das Stylesheet und die Schriften der Sprache.
+4. HTML-Antworten erhalten regionale Preise: Qualifiziert sich das Land aus `cf-ipcountry` für einen kaufkraftbasierten Rabatt, fügt ein `HTMLRewriter` die Rabattattribute zu `<html>` hinzu, und die Antwort wird `private, no-cache`.
+
+## Deployment
+
+`bun run deploy:preview` und `bun run deploy:production` führen `scripts/verify-bindings.ts` aus, das Platzhalter-IDs für D1 und KV ablehnt, danach den passenden Build und `wrangler deploy --secrets-file .env.<environment>`. Builds rendern öffentliche Seiten vorab und führen `scripts/verify-build.ts` und `scripts/optimize-prerendered-html.ts` aus. Migrationen sind eigene Befehle; siehe [Eine Preview deployen](/docs/getting-started/deploy-preview) und [CI/CD](/docs/tooling/ci-cd).
+
+## Verwandte Anleitungen
+
+- [Umgebung und Bindings](/docs/tooling/environment)
+- [Plattformschicht](/docs/architecture/platform-layer)

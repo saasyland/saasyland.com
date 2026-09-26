@@ -1,16 +1,32 @@
 ---
-title: Додаток для клієнтів
-description: Захищений /ап зона для зареєстрованих клієнтів.
+title: "Застосунок клієнта"
+description: "Зона /app для користувачів із сесією: огляд, сторінка ліцензії та бічна панель."
 ---
 
-## Маршрутна група
+## Макет
 
-`src/routes/app*.tsx` і `src/presentation/components/custom/app/`
+`src/routes/app.tsx` захищає зону за допомогою `requireSignedIn` і попередньо завантажує її простори імен:
 
-## Статус на сервери
+```tsx
+const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
 
-Шелл після входу. Очікується порталом, бібліотечною бібліотекою, обліковими записами глибоких посилань, а також авторським правом.
+export const Route = createFileRoute("/app")({
+  beforeLoad: requireSignedIn,
+  component: AppLayout,
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  staticData: { namespaces: NAMESPACES },
+})
+```
 
-## Охорони
+`AppLayout` показує `AppSidebar` і `AppHeader` з `src/presentation/components/custom/app` усередині `SidebarProvider` з shadcn. Бічна панель будує посилання з `APP_NAVIGATION` у `src/data/app.ts`, читає користувача з контексту маршруту (`getRouteApi("/app")`) і закінчується кнопкою `SignOutButton`. Заголовок показує поточну сторінку та посилання назад на сайт. Після входу адміністратори потрапляють на `/admin`, а решта — на `/app`.
 
-`src/integrations/better-auth/auth.guards.ts` + сеанс; віддають перевагу в користувацьких роботах для будь-якої мутації з цієї поверхні.
+## Сторінки
+
+| Маршрут        | Вміст                                                                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/app`         | `CheckoutOptions` без ліцензії, інакше `LicenseStatusCard` (план, статус і посилання на сторінку ліцензії); посилання на документацію та підтримку електронною поштою. |
+| `/app/license` | `CheckoutOptions` без ліцензії, інакше `LicenseCard` (ключ, команда встановлення, посилання на портал клієнта) і, коли Polar видав ключ, `LicenseActivations`.         |
+
+Обидва loader попередньо завантажують `currentLicenseQuery`; `/app/license` також завантажує `licenseActivationsQuery`. Оплату, вебхуки та стани ліцензії описано на сторінці [Платежі та ліцензії](/docs/features/payments).
+
+У `/app` немає історії рахунків, налаштувань облікового запису чи екранів курсів.

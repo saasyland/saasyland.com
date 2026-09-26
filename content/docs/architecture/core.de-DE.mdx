@@ -1,14 +1,61 @@
 ---
-title: Gemeinsamer Kern
-description: Domänenfehler und gemeinsame Kataloge im Modul "_core".
+title: "Gemeinsamer Kern"
+description: "Das Fehlervokabular, die Kataloge und die Hilfsfunktionen in src/modules/_core, die alle Module gemeinsam nutzen."
 ---
 
-## Inhaltsverzeichnis
+`src/modules/_core` ist der einzige Modulordner, der keine Tabelle besitzt. Er enthält Werte und Hilfsfunktionen, die mehrere Module brauchen, damit kein Modul sie neu definiert.
 
-- `constants/errors.ts` — `ERROR_CODES`, `AppError`, `ActionServerError` (die zentrale Fehlerterminologie)
-- `constants/` — Lokalisierungs- (und zugehörige) Kataloge, die von der Internationalisierung (i18n) und den Produkteinstellungen verwendet werden.
-- `utils/` — reine Hilfsfunktionen, die von verschiedenen Modulen gemeinsam genutzt werden.
+## Konstanten
 
-## Warum es existiert.
+| Datei                   | Inhalt                                                                                                |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| `constants/errors.ts`   | `ERROR_CODES`, der Typ `ErrorCode` und die Klasse `AppError`                                          |
+| `constants/api.ts`      | `HTTP_STATUS`, die Header-Namen `cf-ipcountry` und `cf-connecting-ip`, erlaubte Hosts pro Build-Modus |
+| `constants/locale.ts`   | Der Katalog `LOCALES`, `LocaleCode`, `getLocaleName` und `getLocaleDirection`                         |
+| `constants/country.ts`  | Der Katalog `COUNTRIES` und `CountryCode`                                                             |
+| `constants/currency.ts` | Der Katalog `CURRENCIES`, `CurrencyCode` und `DEFAULT_CURRENCY_CODE`                                  |
+| `constants/timezone.ts` | Der Katalog `TIMEZONES` und `TimezoneCode`                                                            |
+| `constants/pricing.ts`  | Multiplikatoren für regionale Preise, das Cookie für regionale Preise und die Währungsformatierung    |
 
-Gemeinsame **gültige Werte** und **Fehlercodes** sollten nicht für jede Funktion neu definiert werden. App-unterstützte Regionen (eine Auswahl) sind weiterhin in `i18n.config.ts`; der umfassendere Katalog kann in `_core` gespeichert werden.
+Der Locale-Katalog führt jede bekannte Locale auf. Die neun Locales, die die Anwendung tatsächlich ausliefert, stehen in `I18N.SUPPORTED_LOCALES` in `src/integrations/use-intl/i18n.config.ts`.
+
+## Hilfsfunktionen
+
+- `utils/pagination.ts`: `paginationSchema` (`pageIndex`, `pageSize`), `DEFAULT_PAGINATION` und `DEFAULT_PAGE_SIZE`
+- `utils/zod-fields.ts`: wiederverwendbare Zod-Felder wie `idField` und `localeField`
+
+## Fehler
+
+Es gibt eine einzige Fehlerklasse und eine einzige Liste von Codes:
+
+```ts
+export const ERROR_CODES = {
+  AUTH_API_ERROR: "AUTH_API_ERROR",
+  CONFLICT: "CONFLICT",
+  FORBIDDEN: "FORBIDDEN",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
+  NOT_FOUND: "NOT_FOUND",
+  TOO_MANY_REQUESTS: "TOO_MANY_REQUESTS",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  VALIDATION: "VALIDATION",
+} as const
+
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]
+
+export class AppError extends Error {
+  readonly code: ErrorCode
+
+  constructor(code: ErrorCode, message: string = code) {
+    super(message)
+    this.name = "AppError"
+    this.code = code
+  }
+}
+```
+
+Server Functions werfen `AppError`. Die Middleware `withRequest` normalisiert alles andere: Better-Auth-API-Fehler werden zu `AUTH_API_ERROR` mit dem Better-Auth-Fehlerschlüssel als Nachricht, Zod-Fehler werden zu `VALIDATION`, und unbekannte Fehler werden geloggt und zu `INTERNAL_ERROR`. Im Browser ordnet `useErrorMessage()` aus `src/hooks/use-error-message.ts` die Nachricht den Übersetzungen unter `auth.errors.*` oder `errors.codes.*` zu.
+
+## Verwandte Seiten
+
+- [Server Functions und Use Cases](/docs/architecture/modules-and-use-cases)
+- [Authentifizierung und Sicherheit](/docs/architecture/security-model)

@@ -1,16 +1,54 @@
 ---
-title: 環境と結合
-description: 環境とバインディング — SaaSy Land
+title: "環境とバインディング"
+description: "Wrangler の各環境で使う環境ファイル、シークレット、Cloudflare バインディング。"
 ---
 
-利用条件 `.env.development`, `.env.preview`, と `.env.production` 対応するViteとCloudflare環境の場合。 これらのファイルは無視されます。 `.env.example` 必要なキーを文書化します。 `VITE_APP_URL` 公開され、ビルド時に置換されます。 労働者の秘密は持っていません `VITE_` 接頭辞とアクセス `env` から から `cloudflare:workers`.
+## 環境ファイル
 
-設定 `AUTH_SECRET`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, Resend 設定と Polar 設定をインストールします。 実際の資格情報をコミットしないでください。 ビンディング ID は、適切な `wrangler.jsonc` 環境; 生成されたワーカー宣言は、そのタイプを記述します。
+| ファイル           | コミット対象 | 使用箇所                                                                                    |
+| ------------------ | ------------ | ------------------------------------------------------------------------------------------- |
+| `.env.example`     | はい         | すべての変数を空の値で列挙                                                                  |
+| `.env.development` | いいえ       | `bun run dev`、`db:studio:development`、`db:introspect:development`                         |
+| `.env.preview`     | いいえ       | `deploy:preview`（`--secrets-file`）、`db:studio:preview`、`db:introspect:preview`          |
+| `.env.production`  | いいえ       | `deploy:production`（`--secrets-file`）、`db:studio:production`、`db:introspect:production` |
+| `.env.test`        | はい         | Vitest と `test` Wrangler 環境。ダミー値のみ                                                |
 
-Drizzle スタジオおよびイントロスペクションの必要性だけ `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` そして、 `CLOUDFLARE_ACCESS_TOKEN`. . ローカル D1 はリモートの資格情報を使用しません。 CI コピー `.env.test` ローカル環境ファイルに移動し、ローカルバインディングで実行します。
+## 変数
 
-## 関連ガイド
+| 変数                        | 使用箇所                                                |
+| --------------------------- | ------------------------------------------------------- |
+| `AUTH_SECRET`               | Better Auth の署名、暗号化、メール認証トークン          |
+| `AUTH_GITHUB_CLIENT_ID`     | GitHub OAuth。GitHub スター数のリクエストの認証にも使用 |
+| `AUTH_GITHUB_CLIENT_SECRET` | GitHub OAuth。GitHub スター数のリクエストの認証にも使用 |
+| `AUTH_GOOGLE_CLIENT_ID`     | Google OAuth                                            |
+| `AUTH_GOOGLE_CLIENT_SECRET` | Google OAuth                                            |
+| `RESEND_API_KEY`            | Resend クライアント                                     |
+| `RESEND_EMAIL_FROM`         | `sendEmail` のデフォルトの送信元                        |
+| `POLAR_ACCESS_TOKEN`        | Polar SDK クライアント                                  |
+| `POLAR_SERVER`              | `sandbox` または `production`                           |
+| `POLAR_WEBHOOK_SECRET`      | Polar の Webhook 署名の検証                             |
+| `POLAR_ORGANIZATION_ID`     | Polar のライセンスキーの無効化と割引の検索              |
+| `POLAR_PRODUCT_ID_CORE`     | Core プランのチェックアウト用商品                       |
+| `POLAR_PRODUCT_ID_COMPLETE` | Complete プランのチェックアウト用商品                   |
+| `POLAR_PRODUCT_ID_AGENCY`   | Agency プランのチェックアウト用商品                     |
+| `CLOUDFLARE_ACCOUNT_ID`     | Drizzle Kit の D1 HTTP ドライバー                       |
+| `CLOUDFLARE_DATABASE_ID`    | Drizzle Kit の D1 HTTP ドライバー                       |
+| `CLOUDFLARE_ACCESS_TOKEN`   | Drizzle Kit の D1 HTTP ドライバー                       |
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+`wrangler.jsonc` の各環境は、必要な変数を `secrets.required` に列挙します。ただし `test` 環境では、3 つの Cloudflare 変数を省略しています。Worker のコードはこれらの変数を `cloudflare:workers` の `env` から読み取り、その型は `src/types/bindings.d.ts` で定義されています。`VITE_` 変数はありません。公開 URL とドメインは `src/presentation/branding` の定数です。
+
+## バインディング
+
+| バインディング | 種類         | `development`                        | `preview`    | `production` | `test`                      |
+| -------------- | ------------ | ------------------------------------ | ------------ | ------------ | --------------------------- |
+| `DB`           | D1           | プレビュー用データベース（リモート） | プレビュー用 | 本番用       | ローカルの `saasyland_test` |
+| `CACHE`        | KV           | プレビュー用名前空間（リモート）     | プレビュー用 | 本番用       | ローカル                    |
+| `ASSETS`       | 静的アセット | あり                                 | あり         | あり         | あり                        |
+
+プレビューと本番のデプロイスクリプトは、最初に `scripts/verify-bindings.ts` を実行します。このスクリプトは、環境に D1 や KV のプレースホルダー ID が残っている場合に失敗します。
+
+## 関連ページ
+
+- [環境変数](/docs/getting-started/environment-variables)
+- [プラットフォームとテスト](/docs/architecture/platform-layer)
+- [プレビューをデプロイする](/docs/getting-started/deploy-preview)

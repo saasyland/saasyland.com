@@ -1,28 +1,52 @@
 ---
-title: Handlery HTTP TanStack Start
-description: Handlery HTTP TanStack Start — SaaSy Land
+title: "Dodawanie trasy API"
+description: "Dodaj handler HTTP pod /api dla webhooków i innych wywołań z zewnątrz."
 ---
 
-Endpointy HTTP korzystają z natywnych handlerów TanStack Start w `src/routes`. Better Auth obsługuje GET i POST pod `/api/auth/$`, a wyszukiwanie Fumadocs używa `/api/search`. Operacje produktu są natywnymi funkcjami serwerowymi w modułach.
+Trasy API to handlery serwerowe TanStack Start w `src/routes/api/`. Ekrany aplikacji nigdy ich nie potrzebują, bo wywołują funkcje serwerowe. Dodawaj trasę API tylko dla wywołań spoza aplikacji, takich jak webhooki, klienci zewnętrzni czy roboty indeksujące.
 
-Deklaruj handlery w `createFileRoute` przez `server.handlers`. Używaj przekazanego `request`, waliduj dane, sprawdzaj uprawnienia i zwracaj Web `Response`. Weryfikacja webhooka należy do integracji usługodawcy. Nie twórz dodatkowego endpointu REST dla operacji używanej wyłącznie przez typowanego klienta RPC tej aplikacji.
+## Istniejące trasy
+
+| Plik                       | Ścieżka       | Przeznaczenie                                                                                            |
+| -------------------------- | ------------- | -------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | Better Auth: logowanie, wywołania zwrotne OAuth, weryfikacja e-maila, płatności, portal i webhooki Polar |
+| `src/routes/api/search.ts` | `/api/search` | Wyszukiwarka Fumadocs dla dokumentacji                                                                   |
+| `src/routes/api/index.ts`  | `/api`        | Sprawdzenie środowiska uruchomieniowego, które zwraca `{ "runtime": "cloudflare-workers" }`              |
+
+Webhooki Polar trafiają na `/api/auth/polar/webhooks`; wtyczka Polar dla Better Auth weryfikuje ich podpis za pomocą `POLAR_WEBHOOK_SECRET`, zanim obsłuży je `license.webhooks.ts`.
+
+## Napisz handler
+
+Zadeklaruj metody w `server.handlers`. Każdy handler otrzymuje webowy `Request` i zwraca webowy `Response`:
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
-import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/auth/$")({
+import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+
+export const Route = createFileRoute("/api/search")({
   server: {
     handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
+      GET: ({ request }) => search.GET(request),
     },
   },
 })
 ```
 
-## Powiązane przewodniki
+Wewnątrz handlera:
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- Waliduj parametry zapytania lub treść schematem Zod i zwracaj `HTTP_STATUS.BAD_REQUEST` (z `src/modules/_core/constants/api.ts`), gdy walidacja się nie powiedzie. Jeśli handler potrzebuje nowego statusu, dodaj go tam.
+- Odczytuj sesję przez `getRequestSession(request)` i sprawdzaj ją przez `hasPermission`. Middleware funkcji, np. `authorized`, dotyczy funkcji serwerowych, a nie handlerów.
+- Ogranicz liczbę żądań do publicznych endpointów przez `withinRateLimit({ key, limit, windowSeconds })` i `clientAddress(request.headers)` z `src/lib/rate-limit.ts`.
+- Weryfikuj podpisy, zanim zaufasz treści webhooka.
+- Zwracaj bezpieczne treści błędów, a szczegóły zapisuj przez `console.error`.
+
+## Zasady routingu
+
+- Ścieżki `/api` nigdy nie dostają prefiksu języka, a Worker pomija dla nich wyszukiwanie zasobów statycznych i przekierowania językowe.
+- Adresy `/api` nie zawierają języka, więc `getCurrentLocale()` zwraca tam język domyślny. Zlokalizowana odpowiedź pobiera język z żądania, tak jak `/api/search` z parametru zapytania `locale`.
+- `/api` jest wyłączone z prerenderingu.
+
+## Test
+
+Wywołuj handler przez opcje trasy, tak jak `src/routes/api/__test__/handlers.test.ts` robi to z `Route.options.server.handlers`, i mockuj dostawcę, do którego przekazuje żądanie.

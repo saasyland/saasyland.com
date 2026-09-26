@@ -1,30 +1,136 @@
 ---
-title: "Server functions and use cases"
-description: "Server functions and use cases — SaaSy Land"
+title: "Add a module"
+description: "Add a database table with its Drizzle schema, Zod schemas, constants, types and use cases."
 ---
 
-Feature operations live in `src/modules/{feature}/use-cases/{operation}.ts`. Export a native `createServerFn` with its input schema, authorization or rate-limit middleware, and a handler that calls D1 or the provider adapter. A mutation returns data directly and throws a safe `AppError`; it does not return a framework-specific action envelope.
+A module is one database table. `src/modules/<table>/` exists only for real tables; server functions that do not own a table live in `src/lib` or in the route that uses them. `src/modules/category` is the smallest complete example.
 
-Export `mutationOptions` beside mutations and `queryOptions` beside reads. Components use TanStack Query and translate errors with `useActionError`. Successful mutations invalidate their feature query keys. Never trust a user ID supplied by a customer when the operation should act on `context.auth.user.id`.
+## Files
 
-Use `withAuth` for protected operations and `withRateLimit` for sensitive public operations. Validation runs before the handler. Keep provider errors and internal details out of public responses.
+| File                       | Contents                                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`        | Drizzle table, indexes, relations and enum value lists                                          |
+| `<table>.zod.ts`           | One input schema per operation plus `drizzle-zod` schemas, exported as `<table>ZodSchemas`      |
+| `<table>.constants.ts`     | Query and mutation key tuples and module limits                                                 |
+| `<table>.types.ts`         | Row types inferred from the table                                                               |
+| `<table>.utils.ts`         | Optional pure helpers                                                                           |
+| `use-cases/<operation>.ts` | One server function per file with its query or mutation options                                 |
+| `__test__/`                | Tests named after the source file, such as `category.schema.test.ts` and `category.zod.test.ts` |
+
+## 1. Define the table
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
-import { mutationOptions } from "@tanstack/react-query"
-import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
-import { categoryZodSchemas } from "~/src/modules/category/category.zod"
+import { sql } from "drizzle-orm"
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const CATEGORY_KINDS = ["category", "collection"] as const
+
+export const category = sqliteTable(
+  "category",
+  {
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    id: text("id").primaryKey(),
+    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default("category"),
+    name: text("name", { length: 255 }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("category_createdAt_idx").on(table.createdAt)],
+)
 ```
 
-The existing `createCategory` operation demonstrates validation, permission checks, a D1 insert and exported mutation options.
+- Column names are snake_case, properties camelCase.
+- IDs are `text` primary keys filled with `v7()` from `uuid` in the insert use case.
+- Dates are `integer(..., { mode: "timestamp_ms" })`; booleans are `integer(..., { mode: "boolean" })`.
+- Foreign keys use `.references(() => user.id, { onDelete: "cascade" })`, and `relations(...)` declares joins (see `session.schema.ts`).
 
-## Related guides
+## 2. Register the schema
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+Export the table, and its relations if it has any, from `src/integrations/drizzle-orm/drizzle.schemas.ts`:
+
+```ts
+export { category } from "~/src/modules/category/category.schema"
+```
+
+This file feeds the D1 client (`drizzle(env.DB, { schema })`), the Better Auth Drizzle adapter and drizzle-kit. A table that is missing here gets no migration.
+
+## 3. Generate the migration
+
+```sh
+bun run db:generate
+bun run db:migrate:local
+```
+
+Review the generated SQL in `src/integrations/drizzle-orm/migrations/` and commit it with the schema. [Database migrations](/docs/guides/database-migrations) covers the remote environments.
+
+## 4. Add the Zod schemas
+
+Each operation gets its own input schema. Validation messages are translation keys, resolved in the `<table>.validations` namespace.
+
+```ts
+import { createSchemaFactory } from "drizzle-zod"
+import zod from "zod/v4"
+
+import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
+import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
+
+const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
+
+export const CATEGORY_NAME_MAX_LENGTH = 255
+
+const createCategory = zod.object({
+  kind: zod.enum(CATEGORY_KINDS),
+  name: zod.string().min(MIN_FIELD_LENGTH, { message: "nameRequired" }).max(CATEGORY_NAME_MAX_LENGTH, { message: "nameMaxLength" }),
+})
+
+const deleteCategory = zod.object({ categoryId: idField })
+
+export const categoryZodSchemas = {
+  createCategory,
+  deleteCategory,
+  insert: createInsertSchema(category),
+  select: createSelectSchema(category),
+  update: createUpdateSchema(category),
+}
+```
+
+Add `messages/<locale>/<table>.validations.json` for all nine locales with every key the schemas use.
+
+## 5. Add constants and types
+
+```ts
+export const CATEGORY_QUERY_KEYS = {
+  ALL: ["category"],
+  LIST: ["category", "getCategories"],
+} as const
+
+export const CATEGORY_MUTATION_KEYS = {
+  CREATE: ["category", "createCategory"],
+  DELETE: ["category", "deleteCategory"],
+  UPDATE: ["category", "updateCategory"],
+} as const
+```
+
+```ts
+import type { category } from "~/src/modules/category/category.schema"
+
+export interface Category {
+  select: typeof category.$inferSelect
+  insert: typeof category.$inferInsert
+}
+```
+
+Every key starts with the module name, so invalidating `ALL` refreshes every query of the module.
+
+## 6. Add permissions and use cases
+
+- Add the table's actions to `APP_STATEMENTS` in `src/integrations/better-auth/auth.access.ts` when the operations need permissions. See [Roles and permissions](/docs/guides/roles-and-permissions).
+- Add one file per operation under `use-cases/`. See [Add a use case](/docs/guides/add-a-use-case).
+
+## 7. Test
+
+Add `__test__/<table>.schema.test.ts`, `<table>.zod.test.ts` and `<table>.types.test.ts` beside the module and `use-cases/__test__/<operation>.test.ts` for every operation. The coverage gate is 100%; see [Writing tests](/docs/guides/writing-tests).

@@ -1,6 +1,40 @@
 ---
-title: Resend
-description: Livraison de courriels transactionnels.
+title: "Resend"
+description: "E-mails transactionnels avec Resend et des modèles React Email."
 ---
 
-API touche + de l'adresse via env. `sendEmail` en `resend.utils.ts` est l'aide partagée; les modèles vivent dans `presentation/emails`.
+`src/integrations/resend/resend.config.ts` crée le client Resend à partir de `RESEND_API_KEY`. `resend.utils.ts` exporte `sendEmail`, la seule fonction qui envoie des e-mails. `from` vaut par défaut `RESEND_EMAIL_FROM`, la clé d'idempotence obligatoire empêche Resend d'envoyer deux fois une requête relancée, et toute erreur Resend est levée. Les deux fichiers sont réservés au serveur.
+
+## Modèles et cas d'usage
+
+Les modèles de `src/presentation/emails/` sont des composants React Email qui ne contiennent que du balisage. Chacun exporte une constante `*_NAMESPACE`, reçoit `locale` et `messages` en props et traduit avec `createTranslator` de use-intl. Le cas d'usage qui envoie un e-mail charge les messages, rend le modèle et appelle `sendEmail` :
+
+```ts
+const locale = getCurrentLocale()
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+await sendEmail({
+  idempotencyKey: `verify-email/${token}`,
+  react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+  subject: createTranslator({ locale, messages })("subject"),
+  to: user.email,
+})
+```
+
+| Modèle                                | Espace de noms                           | Envoyé par                                                                   |
+| ------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
+| `verify-email.tsx`                    | `emails.verify-email`                    | `modules/verification/use-cases/send-verify-email.ts`                        |
+| `reset-password-email.tsx`            | `emails.reset-password-email`            | `modules/verification/use-cases/send-reset-password-email.ts`                |
+| `change-email-confirmation-email.tsx` | `emails.change-email-confirmation-email` | `modules/account/use-cases/send-change-email-confirmation-email.ts`          |
+| `newsletter-confirmation-email.tsx`   | `emails.newsletter-confirmation-email`   | `modules/newsletter-subscriber/use-cases/subscribe-to-newsletter.ts`         |
+| `newsletter-notification-email.tsx`   | `emails.newsletter-notification-email`   | `modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription.ts` |
+
+Better Auth appelle les trois premiers cas d'usage depuis ses hooks dans `auth.server.ts`. La notification de newsletter est envoyée en anglais au propriétaire du site une fois un abonnement confirmé. Les liens contenus dans les e-mails sont construits avec `localizePathname` et s'ouvrent donc dans la langue du destinataire.
+
+## Tests
+
+Vitest simule les appels au fournisseur. Dans le Worker de test Playwright, les requêtes vers l'API Resend sont capturées au lieu d'être envoyées, et `/__test/emails?to=<address>` renvoie les e-mails capturés.
+
+## Guides associés
+
+- [Modèles d'e-mail](/docs/guides/email-templates)
+- [E-mail](/docs/features/email)

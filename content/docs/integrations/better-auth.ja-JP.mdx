@@ -1,16 +1,51 @@
 ---
-title: 認証とセキュリティ
-description: 認証とセキュリティ — SaaSy Land
+title: "認証とセキュリティ"
+description: "Better Auth のセッション、ルートガード、サーバー関数のミドルウェア、ロールです。"
 ---
 
-認証は2回実施されます: ルート `beforeLoad` ガードは管理者および顧客のレイアウトを保護し、各保護されたサーバー機能は発信者を独自に点検します。 利用条件 `requireAdmin` または `requireSession` レイアウトのためおよび `withAuth(permission)` 業務用。 セッションから顧客操作の派手な所有権。
+Better Auth は、ユーザー、アカウント、セッション、検証トークンを Drizzle アダプター経由で D1 に保存します。メールアドレスとパスワードによるサインアップ（メール認証必須）、GitHub と Google によるサインイン、パスワードリセット、メールアドレスの変更、TOTP による二要素認証、管理者によるユーザー管理、Polar のチェックアウトを提供します。HTTP API は `src/routes/api/auth.$.ts` から提供されます。
 
-Better Auth は D1 でセッションを保存し、資格情報、OAuth、認証、パスワードリセット、2 要素認証、偽装および再発を処理します。 保護されたサーバー機能をチェックするとき、クッキーキャッシュはバイパスされます。 最終的なauthプラグインは `tanstackStartCookies`認証クッキーをサーバー機能の応答で転送する。
+## ファイル
 
-D1 レート制限は、原子書き込みと Cloudflare クライアント IP ヘッダを使用します。 敏感な公共操作は別の限界のキーを備えています。 モジュールZodスキーマで入力を検証し、予期しない失敗をマスクし、支払いのWebhookシグネチャを検証して、サーバーのみの境界の背後にあるすべての資格情報を保持します。 プライベートなルートとトークンのミューテーションは、プレンダーから除外されます。
+| ファイル                                               | 役割                                                                                                                                                                       |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.server.ts`                                       | `betterAuth` インスタンス。プロバイダー、`admin`・`twoFactor`・Polar・`tanstackStartCookies` の各プラグイン、許可するホスト、D1 によるレート制限、メールフックを設定します |
+| `auth.client.ts`                                       | `authClient` とそのメソッド（`signIn`、`signUp`、`signOut`、`useSession`、`twoFactor` など）                                                                               |
+| `auth.routes.ts`                                       | `beforeLoad` 用のルートガード                                                                                                                                              |
+| `auth.middleware.ts`                                   | サーバー関数のミドルウェア: `withRequest`、`authorized`、`withRateLimit`、`RATE_LIMITS`                                                                                    |
+| `auth.access.ts`                                       | ロール、権限ステートメント、`hasPermission`                                                                                                                                |
+| `auth.session.ts`                                      | `getRequestSession`、`getCurrentSession` サーバー関数、`getCurrentSessionQuery`                                                                                            |
+| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | エラーキー、フォームのスキーマ、パスワードの制限                                                                                                                           |
+
+## ルートガード
+
+| ガード               | 使用箇所                         | 動作                                                                                  |
+| -------------------- | -------------------------------- | ------------------------------------------------------------------------------------- |
+| `requireSignedIn`    | `/app`                           | セッションがなければサインインへリダイレクトし、セッションを返します                  |
+| `requireAdmin`       | `/admin`                         | さらに `admin: ["access"]` 権限を要求し、持っていなければ `/app` へリダイレクトします |
+| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | サインイン済みのユーザーを、ロールに応じて `/admin` または `/app` へ送ります          |
+| `redirectAfterAuth`  | `/auth/callback`                 | セッションを要求し、ロールに対応するワークスペースへリダイレクトします                |
+
+ガードはクエリキャッシュを通じてセッションを読み込み、サインイン中のユーザーが変わるとキャッシュをクリアします。
+
+## サーバー関数
+
+ページのガードが保護するのはナビゲーションだけです。そのため、保護されたサーバー関数はすべて `auth.middleware.ts` のミドルウェアで呼び出し元を改めてチェックします。
+
+- `authorized(permission?)` はセッションを要求し、必要に応じて権限をチェックし、セッションを `context.auth` としてコンテキストに追加します。呼び出し元自身のデータに対する操作では、入力に含まれるユーザー ID ではなく、必ず `context.auth.user.id` を使います。
+- `withRateLimit(kind, RATE_LIMITS.SENSITIVE)`（60 秒あたり 3 リクエスト）または `RATE_LIMITS.TOKEN`（60 秒あたり 5 リクエスト）は、`cf-connecting-ip` から取得したクライアント IP ごとに公開操作を制限します。
+- 上記の両方に含まれる `withRequest` は、エラーを `AppError` のコードに変換します。Better Auth のエラーはエラーキー付きの `AUTH_API_ERROR` に、Zod のエラーは `VALIDATION` になり、予期しないエラーはログに記録されたうえで `INTERNAL_ERROR` として返されます。
+
+## ロールと権限
+
+`auth.access.ts` は 2 つのロールを定義します。`admin` と `customer`（新規アカウントのデフォルト）です。アプリケーションのステートメントは `admin`、`category`、`order`、`product`、`settings` を対象とし、admin ロールには Better Auth の管理者用ステートメントも付与されます。`hasPermission({ permission, role })` はガード、ミドルウェア、UI で共有されます。
+
+## メールとレート制限
+
+`auth.server.ts` のメールフックは、`sendVerifyEmail`、`sendResetPasswordEmail`、`sendChangeEmailConfirmationEmail` の各ユースケースを呼び出します。Better Auth 自身のレートリミッターは、`src/lib/rate-limit.ts` の `authRateLimitStorage` を通じて D1 の `rate_limit` テーブルにカウンターを保存します。このストレージはアトミックなアップサートを使い、ストレージが利用できない場合はリクエストを拒否します。`getRequestSession` は Cookie キャッシュを経由しないため、認可では常に D1 からセッションを読み込みます。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [認証フロー](/docs/guides/auth-flows)
+- [ロールと権限](/docs/guides/roles-and-permissions)
+- [セキュリティモデル](/docs/architecture/security-model)

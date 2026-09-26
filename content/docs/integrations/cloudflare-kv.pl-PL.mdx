@@ -1,14 +1,22 @@
 ---
 title: "Cloudflare KV"
-description: "Cloudflare KV — SaaSy Land"
+description: "Przestrzeń nazw CACHE i buforowana liczba gwiazdek na GitHubie."
 ---
 
-`env.CACHE` przechowuje publiczne, odtwarzalne dane cache. Integracja GitHuba zapisuje liczbę gwiazdek z TTL i używa `waitUntil` do zapisu. Przy niedostępności GitHuba lub KV zwraca wartość zastępczą.
+Każde środowisko wiąże przestrzeń nazw KV jako `CACHE`. Służy ona wyłącznie do przechowywania liczby gwiazdek na GitHubie wyświetlanej w serwisie, zaimplementowanej w `src/lib/github.ts`:
 
-KV ma spójność ostateczną. Sesje uwierzytelniania i limity są przechowywane w D1. Limiter akcji używa jednego atomowego upsertu SQL dla klucza i okna czasu, dzięki czemu osobne instancje Workera dzielą limit. Nie używaj liczników KV do autoryzacji ani wrażliwych limitów.
+- `getStarCount` odczytuje wpis `github:<owner>/<repo>:stars`.
+- Gdy wpisu nie ma, pobiera dane repozytorium z API GitHuba z trzysekundowym limitem czasu, zwraca liczbę gwiazdek i zapisuje `count` oraz `fetchedAt` w KV za pomocą `waitUntil`.
+- Gdy wpis jest starszy niż godzina, zwraca zapisaną liczbę i odświeża ją w tle.
+- `starCountQuery` przechowuje wynik w cache zapytań przez godzinę.
+
+Wpisy nie mają ustawionego czasu wygaśnięcia w KV; o odświeżeniu decyduje `fetchedAt`. Żądanie do GitHuba uwierzytelnia się danymi aplikacji GitHub OAuth `AUTH_GITHUB_CLIENT_ID` i `AUTH_GITHUB_CLIENT_SECRET`.
+
+KV zapewnia jedynie spójność ostateczną. Sesje, limity żądań i wszystko, co służy autoryzacji, znajduje się w D1.
+
+W Vitest `cloudflare:workers` wskazuje na `src/platform/testing/mocks/cloudflare.ts`, który zapewnia `CACHE` w pamięci. Środowisko Wranglera `test` używa lokalnej przestrzeni nazw w `.wrangler/test`.
 
 ## Powiązane przewodniki
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [Cache i SSR](/docs/architecture/caching-and-ssr)
+- [Środowisko i bindingi](/docs/tooling/environment)

@@ -1,14 +1,54 @@
 ---
-title: Plateforme et essais
-description: Plateforme et essais — SaaSy Land
+title: "Plateforme et tests"
+description: "Le runtime Cloudflare : point d'entrée du Worker, bindings, environnements, types générés et câblage du runtime de test."
 ---
 
-Cloudflare fournit le temps d'exécution au moyen de liaisons explicites D1, KV et d'actifs. Les déclarations générées vivent sous `src/types`C'est vrai. Configuration spécifique au fournisseur `src/integrations`C'est vrai. Le reste du répertoire de plate-forme contient une infrastructure de test : des maquettes de liaison, des installations de demande, le pont RPC et des aides de rendu.
+## Worker et bindings
 
-Conserver les paramètres de déploiement spécifiques à l'environnement dans `wrangler.jsonc` et le fichier d'environnement ignoré correspondant. Conserver les références de test dans `.env.test` et ne jamais les remplacer par des références de production.
+`wrangler.jsonc` définit `src/server.ts` comme point d'entrée du Worker. Le Worker reçoit trois bindings :
 
-## Guides connexes
+| Binding  | Type                 | Utilisé pour                                                                      |
+| -------- | -------------------- | --------------------------------------------------------------------------------- |
+| `DB`     | Base de données D1   | Toutes les tables, y compris les sessions et les compteurs de limitation de débit |
+| `CACHE`  | Namespace KV         | Le nombre d'étoiles GitHub mis en cache                                           |
+| `ASSETS` | Ressources statiques | Les pages prérendues et les fichiers de `public`                                  |
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+Les requêtes vers `/assets/*`, `/fonts/*`, `/robots.txt` et `/llms.txt` sont servies depuis les ressources statiques sans exécuter le Worker. Le code serveur lit les bindings, les secrets et `waitUntil` depuis `cloudflare:workers`.
+
+## Environnements
+
+`wrangler.jsonc` définit quatre environnements. `CLOUDFLARE_ENV` en sélectionne un pour `vp dev` et `vp build`.
+
+| Environnement | Bindings                              | Utilisé par                                     |
+| ------------- | ------------------------------------- | ----------------------------------------------- |
+| `development` | D1 et KV de preview distants          | `bun run dev`                                   |
+| `preview`     | D1 et KV de preview                   | `bun run build:preview`, `deploy:preview`       |
+| `production`  | D1 et KV de production                | `bun run build:production`, `deploy:production` |
+| `test`        | D1 et KV locaux dans `.wrangler/test` | `bun run build:test`, Playwright                |
+
+Chaque environnement liste ses secrets obligatoires sous `secrets.required`. Les valeurs proviennent du fichier `.env.<environment>` correspondant ; les scripts de déploiement le transmettent à Wrangler avec `--secrets-file`. L'environnement `test` utilise `src/platform/testing/worker.ts` comme point d'entrée et les valeurs factices versionnées dans `.env.test`.
+
+## Types
+
+- `src/types/bindings.d.ts` déclare `Cloudflare.Env` : les bindings et tous les secrets.
+- `src/types/worker-configuration.d.ts` est généré par `bun run cf-typegen`.
+- `src/types/router.d.ts` enregistre le type du routeur et l'option de route `staticData.namespaces`.
+
+## Câblage du runtime de test
+
+`src/platform/testing` ne contient que ce qui ne peut pas appartenir à une seule fonctionnalité :
+
+- `setup.ts` : les matchers jest-dom, une réinitialisation des bindings avant chaque test et le remplacement de `createServerFn` qui exécute les fonctions serveur dans le processus
+- `mocks/cloudflare.ts` : un D1 SQLite en mémoire qui exécute les migrations versionnées, un KV en mémoire et un `waitUntil` que les tests peuvent vider
+- `mocks/providers.ts` : l'interception des appels fetch vers Resend et Polar dans les tests navigateur, y compris la capture des e-mails
+- `mocks/wrksz-themes.ts` : un remplaçant de la bibliothèque de thèmes
+- `lib/` : le pont RPC des fonctions serveur, des utilitaires de rendu, des utilitaires d'URL de requête et des exécuteurs de queries
+- `worker.ts` : le point d'entrée du Worker pour les tests navigateur, qui capture les e-mails sortants
+
+Consultez [Tests et CI](/docs/architecture/testing-architecture) pour voir comment les suites de tests les utilisent.
+
+## Pages associées
+
+- [Environnement et bindings](/docs/reference/environment)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Déployer une preview](/docs/getting-started/deploy-preview)

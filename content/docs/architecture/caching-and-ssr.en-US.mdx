@@ -1,14 +1,39 @@
 ---
 title: "Caching and SSR"
-description: "Caching and SSR — SaaSy Land"
+description: "Where data is cached: the per-request query cache, prerendered pages, KV and D1."
 ---
 
-The QueryClient belongs to a router instance and is integrated with server rendering. Loaders preload data and namespace JSON; components read the same cache with `useSuspenseQuery` or `useSuspenseQueries`. Queries declare stable keys. Successful mutations invalidate only the affected feature keys.
+## Query cache
 
-Public documentation, blog and landing pages are prerendered at build time. Admin, customer, auth and newsletter token routes are excluded. Cloudflare KV caches public GitHub metadata. D1 stores persistent sessions and atomic rate-limit counters; KV is not used for permission decisions.
+`getRouter` creates a new `QueryClient` for every request, so no data leaks between users on the server. Defaults:
 
-## Related guides
+| Setting                   | Value     |
+| ------------------------- | --------- |
+| Query `staleTime`         | 1 minute  |
+| Query `gcTime`            | 5 minutes |
+| Router `defaultStaleTime` | 1 minute  |
+| Preloading                | On intent |
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+Loaders fill the cache with `queryClient.query({ ...options, staleTime: "static" })` and components read the same keys with `useSuspenseQuery`. `setupRouterSsrQueryIntegration` serializes the server cache into the HTML and hydrates it in the browser.
+
+- **Translation messages** are cached per locale and namespace with an infinite `staleTime` and `gcTime`.
+- **The session query** (`getCurrentSessionQuery`) has a one-minute `staleTime`. Route guards refetch it on real navigations and clear the whole cache when the signed-in user changes.
+- **Mutations** invalidate their module's query keys, for example `USER_QUERY_KEYS.ALL`, after they succeed.
+
+## Prerendering
+
+`bun run build` prerenders the public pages by crawling links: landing, legal, blog and docs pages in all nine locales. Paths under `/admin`, `/app`, `/auth`, `/newsletter` and `/api` (with or without a locale prefix) and links with a query string or hash are excluded.
+
+The Worker serves prerendered HTML from the `ASSETS` binding before it loads the application. A prerendered page contains no user data, so it is safe to serve to everyone. When a visitor qualifies for regional pricing, the Worker rewrites the HTML and marks the response `Cache-Control: private, no-cache`.
+
+## KV and D1
+
+- **KV (`CACHE`)** stores only the GitHub star count for `src/lib/github.ts`. A cached value older than one hour is returned immediately and refreshed in the background with `waitUntil`.
+- **D1 (`DB`)** stores sessions and rate-limit counters. Session checks for server functions bypass Better Auth's cookie cache and are memoized for the rest of the request.
+- Server functions never make a permission decision from cached data.
+
+## Related pages
+
+- [Request lifecycle](/docs/architecture/request-lifecycle)
+- [Cloudflare KV](/docs/integrations/cloudflare-kv)
+- [TanStack Start](/docs/integrations/tanstack-start)

@@ -1,14 +1,116 @@
 ---
-title: フォームと検証
-description: フォームと検証 — SaaSy Land
+title: "フォームとバリデーション"
+description: "TanStack Form、shadcn のフィールド、そしてサーバーでも適用されるモジュールの Zod スキーマでフォームを構築します。"
 ---
 
-利用条件 `useForm` そして、 `form.Field` から から `@tanstack/react-form`. . 機能の検証ファイルで Zod スキーマを翻訳し、サーバー境界で再利用します。 投稿状態を読んでください。 `useSelector(form.store, selector)`; 既存のプレゼンテーションのプリミティブでアクセス可能なフィールドをレンダリングします。
+フォームは shadcn の TanStack Form パターンに従います。モジュールの Zod スキーマを使う `useForm`、`form.Field` の render props、shadcn の `Field` コンポーネント、そして送信用のミューテーションです。サーバー関数が同じスキーマで再度検証するため、クライアント側のチェックはフィードバックのためだけのものです。
 
-auth のフィールドコンポーネントは小さい受け入れます `StringField` 契約から `integrations/tanstack-form/form.fields.ts`. . ラベル、フォーカス動作、パスワードトグル、エラーメッセージを保存します。 エクスポートされたミューテーションオプションを使用して送信し、安全なエラーを処理し、送信ボタンを保留します。 完全な例については、サインイン、サインアップ、パスワードリセット、および2要素フォームを参照してください。
+## 例
 
-## 関連ガイド
+`src/presentation/components/custom/newsletter-form.tsx` から抜粋したものです（スタイルは省略しています）。
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+```tsx
+const emailSchema = newsletterSubscriberZodSchemas.subscribeToNewsletter.pick({ email: true })
+
+export const NewsletterForm = (): JSX.Element => {
+  const t = useTranslations("components.custom.newsletter-form")
+  const inputId = useId()
+  const errorMessage = useErrorMessage()
+  const queryClient = useQueryClient()
+
+  const subscribe = useMutation({
+    ...subscribeToNewsletterMutation,
+    onError: (error) => {
+      toast.error(errorMessage(error))
+    },
+    onSuccess: ({ status }) => {
+      toast.success(t(status))
+      return queryClient.invalidateQueries({ queryKey: NEWSLETTER_SUBSCRIBER_QUERY_KEYS.ALL })
+    },
+  })
+
+  const form = useForm({
+    defaultValues: { email: "" },
+    onSubmit: ({ value, formApi }) => {
+      subscribe.mutate(
+        { email: value.email, locale: getCurrentLocale() },
+        {
+          onSuccess: () => {
+            formApi.reset()
+          },
+        },
+      )
+    },
+    validators: { onChange: emailSchema, onSubmit: emailSchema },
+  })
+
+  return (
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault()
+        void form.handleSubmit()
+      }}
+    >
+      <form.Field name="email">
+        {(field) => {
+          const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+
+          return (
+            <Field data-invalid={isInvalid}>
+              <FieldLabel htmlFor={inputId}>{t("label")}</FieldLabel>
+              <Input
+                aria-describedby={`${inputId}-error`}
+                aria-invalid={isInvalid}
+                autoComplete="email"
+                id={inputId}
+                name={field.name}
+                onBlur={field.handleBlur}
+                onChange={(event) => {
+                  field.handleChange(event.target.value)
+                }}
+                placeholder={t("placeholder")}
+                type="email"
+                value={field.state.value}
+              />
+              <Button isPending={subscribe.isPending} type="submit">
+                {subscribe.isPending ? t("submitting") : t("button")}
+              </Button>
+              <div id={`${inputId}-error`}>
+                {isInvalid && (
+                  <ValidationFieldError
+                    message={fieldErrorMessage(field.state.meta.errors)}
+                    namespace="auth.validations"
+                    params={AUTH_VALIDATION_PARAMS}
+                  />
+                )}
+              </div>
+            </Field>
+          )
+        }}
+      </form.Field>
+    </form>
+  )
+}
+```
+
+## スキーマ
+
+- モジュールの `<table>.zod.ts` にあるスキーマを使います。認証フォームでは `src/integrations/better-auth/auth.zod.ts` のスキーマを使います。`.pick(...)` でフォームに表示するフィールドを選びます。ロケールのように、ユーザーが入力しない値は `onSubmit` で追加します。
+- `onChange` はユーザーの入力中に検証し、`onSubmit` はフォームの送信時にすべてのフィールドを検証します。
+- `noValidate` はブラウザのバリデーションを無効にし、Zod のメッセージだけがエラーとして表示されるようにします。
+
+## エラー
+
+- フィールドは、タッチされた後にのみエラーを表示します：`field.state.meta.isTouched && !field.state.meta.isValid`。この値によって、`Field` に `data-invalid` が、入力要素に `aria-invalid` が設定されます。
+- Zod のメッセージは、`emailInvalid` のような翻訳キーです。`fieldErrorMessage` は最初のキーを取り出し、`ValidationFieldError` は `<namespace>.<key>` を `params` の対応するエントリとともにレンダリングします。例えば `emailMaxLength` には `{ max: 64 }` を使います。存在しないキーは `errors.codes.VALIDATION` にフォールバックします。
+- 認証とメールのフィールドは `auth.validations` を使い、モジュールのスキーマは `user.validations` のように `<table>.validations` を使います。ルートはその名前空間を読み込む必要があります。`_landing`、`blog`、`auth`、`admin` の各レイアウトは `auth.validations` をプリロードします。
+- サーバーのエラーは、ミューテーションの `onError` で `useErrorMessage()` を通して処理します。
+
+## 送信
+
+- ユースケースのミューテーションオプションを `useMutation` に展開し、それを通して送信します。
+- `<Button isPending={mutation.isPending} type="submit">` は、リクエストの実行中にボタンを無効化し、処理中であることを支援技術に伝えます。
+- ミューテーションの `onSuccess` でフォームをリセットするかページを遷移し、ミューテーションが変更したモジュールのクエリを無効化します。
+
+その他の例は、`src/presentation/components/custom/auth/` の `sign-in-form.tsx`、`sign-up-form.tsx`、`reset-password-form.tsx`、`two-factor-form.tsx` です。

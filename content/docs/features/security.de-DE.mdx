@@ -1,8 +1,27 @@
 ---
-title: Sicherheit und Härtung.
-description: Produktspezifische Sicherheitsfunktionen und geplante Kontrollmaßnahmen.
+title: "Sicherheit und Härtung"
+description: "Die Sicherheitsmaßnahmen, die die App umsetzt, und jene, die sie nicht umsetzt."
 ---
 
-Verknüpfungen: Architektur → Sicherheitsmodell, Anleitungen → Sicherheitsliste, Funktionen → Zwei-Faktor-Authentifizierung / Sitzungen / Identitätsübernahme.
+## Implementiert
 
-Geplant: Webhook-Signaturen, Organisationsisolation, optionale Bot-Schutzfunktionen sowie verbesserte Protokollierungsfunktionen.
+- **Sitzungen**: Better-Auth-Sitzungen in D1, Cookie-Präfix `saasyland`, sichere Cookies außerhalb der lokalen Modi, erlaubte Hosts pro Modus und `cf-connecting-ip` als Client-Adresse. Die clientseitige Sitzung enthält nie das Token.
+- **Konten**: verpflichtende E-Mail-Bestätigung, Widerruf der Sitzungen beim Zurücksetzen des Passworts, optionales TOTP mit Backup-Codes, gehasht gespeicherte Bestätigungskennungen und verschlüsselte OAuth-Tokens.
+- **Autorisierung**: `requireSignedIn` und `requireAdmin` auf Routen; `authorized(permission)` auf Serverfunktionen mit den Rollen aus `auth.access.ts`.
+- **Rate-Limits**: Der Limiter von Better Auth und die Middleware `withRateLimit` teilen sich die D1-Tabelle `rate_limit`. `RATE_LIMITS.SENSITIVE` erlaubt 3 Aufrufe und `RATE_LIMITS.TOKEN` 5 Aufrufe pro 60 Sekunden je Client und Aktion.
+- **Fehler**: Die Request-Middleware wandelt Fehler in `AppError`-Codes um (`src/modules/_core/constants/errors.ts`), sodass Clients nie rohe Servermeldungen erhalten; Komponenten zeigen sie mit `useErrorMessage` an.
+- **Webhooks und Formulare**: Polar-Webhooks werden mit `POLAR_WEBHOOK_SECRET` verifiziert; Newsletter-Anfragen werden nur von bekannten Hosts über HTTPS angenommen (`newsletterRequestOrigin`).
+
+## Nicht implementiert
+
+- Sicherheits-Header wie eine Content Security Policy: `public/_headers` setzt nur Caching-Header.
+- Ein Audit-Log, auch für Sperrungen, Löschungen und Impersonation.
+- Bot-Schutz oder CAPTCHA auf öffentlichen Formularen.
+- Eine Ansicht für Impersonation ([Impersonation](/docs/features/impersonation)).
+
+## Verwandte Anleitungen
+
+- [Sicherheitsmodell](/docs/architecture/security-model)
+- [Sicherheits-Checkliste](/docs/guides/security-checklist)
+- [Zwei-Faktor-Authentifizierung](/docs/features/two-factor)
+- [Sitzungen](/docs/features/sessions)

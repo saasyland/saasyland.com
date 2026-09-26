@@ -1,28 +1,37 @@
 ---
-title: TanStack Start HTTP обробники
-description: TanStack Start HTTP обробники - SaaSy Land
+title: "HTTP-обробники TanStack Start"
+description: "Серверні маршрути під /api та їхній зв’язок із серверними функціями."
 ---
 
-HTTP endpoints використовувати рідні TanStack Start обробники сервера в `src/routes`. Better Auth власники GET і POST під `/api/auth/$`; Fumadocs пошук використовує `/api/search`. . Робота з серверами є локальними функціями.
+Застосунок надає три HTTP-маршрути, оголошені через `server.handlers` у `createFileRoute` в `src/routes/api`:
 
-Декларатори на ручках `createFileRoute` з `server.handlers`. . Використовуйте поставку `request`, валідувати вхід, виконувати перевірки дозволу, і повернути Веб-сайт `Response`. . Зберігати перевірку вебхока в інтеграції провайдера. Не піддавати дублікати REST кінцевої точки для операції, яка використовується тільки цим користувачем RPC клієнту.
+| Маршрут       | Методи    | Обробник                                                                                                                                                     |
+| ------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/api`        | GET       | Повертає `{ "runtime": "cloudflare-workers" }`.                                                                                                              |
+| `/api/auth/$` | GET, POST | Better Auth: вхід, повернення OAuth, `/api/auth/verify-email`, а також кінцеві точки плагіна Polar `/api/auth/polar/webhooks` і `/api/auth/customer/portal`. |
+| `/api/search` | GET       | Пошук Fumadocs (`fumadocs.search.ts`).                                                                                                                       |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
-## Схожі посібники
+## Серверні функції замість REST
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+Операції застосунку — це функції `createServerFn` у `src/modules/<table>/use-cases` (або в єдиному маршруті, який їх використовує). TanStack Start викликає їх через RPC під `/_serverFn` з middleware для сесій, дозволів і обмеження частоти запитів. Не додавайте REST-ендпоінт для операції, яку викликає лише цей застосунок; HTTP-маршрут додавайте тільки для зовнішніх викликачів, як-от вебхуки, і перевіряйте їхні підписи в інтеграції провайдера.
+
+## Поведінка
+
+- Worker не застосовує мовні перенаправлення до `/api` і `/_serverFn`; ці запити беруть мову з cookie.
+- Збирання не рендерить `/api` заздалегідь.
+- Тести обробників розташовані в `src/routes/api/__test__/handlers.test.ts`.
+
+## Пов’язані посібники
+
+- [Додавання маршруту API](/docs/guides/add-an-api-route)
+- [Серверні функції](/docs/guides/server-functions)

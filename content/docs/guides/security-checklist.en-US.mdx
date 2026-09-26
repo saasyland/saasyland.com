@@ -1,16 +1,59 @@
 ---
-title: "Authentication and security"
-description: "Authentication and security — SaaSy Land"
+title: "Security checklist"
+description: "What to verify before merging a change that touches routes, server functions, data or secrets."
 ---
 
-Authorization is enforced twice: route `beforeLoad` guards protect the admin and customer layouts, and each protected server function checks the caller independently. Use `requireAdmin` or `requireSession` for layouts and `withAuth(permission)` for operations. Customer operations derive ownership from the session.
+Go through the list for every change that adds a page, an operation, an endpoint or a secret.
 
-Better Auth stores sessions in D1 and handles credentials, OAuth, verification, password reset, two-factor authentication, impersonation and revocation. Cookie caching is bypassed when checking a protected server function. The final auth plugin is `tanstackStartCookies`, which forwards authentication cookies through server-function responses.
+## Access
 
-D1 rate limits use atomic writes and the Cloudflare client IP header. Sensitive public operations have separate limit keys. Validate inputs with the module Zod schema, mask unexpected failures, verify payment webhook signatures, and keep all credentials behind server-only boundaries. Private routes and token mutations are excluded from prerendering.
+- [ ] Private pages sit under a guarded layout: `requireAdmin` (`/admin`) or `requireSignedIn` (`/app`) in `beforeLoad`.
+- [ ] Every protected server function has `authorized(permission)` or `authorized()`. The route guard does not protect the RPC call.
+- [ ] Operations on the caller's own data take the user from `context.auth.user.id`, never from the input.
+- [ ] New permissions are in `APP_STATEMENTS` and granted only to the roles that need them.
+- [ ] Tests cover `UNAUTHORIZED` and `FORBIDDEN`.
+
+## Input
+
+- [ ] Every server function has a `.validator` that parses the module's Zod schema.
+- [ ] API handlers validate their query and body before using them.
+- [ ] Redirect targets are internal paths built with `localizePathname`; `callbackPathSchema` in `auth.zod.ts` accepts only paths that start with a single `/`, and sign-up and email change use it for `callbackURL`.
+
+## Abuse
+
+- [ ] Public operations that send email, check a code or consume a token use `withRateLimit` with `RATE_LIMITS.SENSITIVE` or `RATE_LIMITS.TOKEN`.
+- [ ] The rate limiter stores counters in D1 per operation and client IP (`cf-connecting-ip`) and rejects the request when its storage is unavailable. Better Auth's own endpoints use the same storage.
+- [ ] Emails are sent with an idempotency key.
+
+## Errors
+
+- [ ] Expected failures throw `AppError` with an `ERROR_CODES` code.
+- [ ] Nothing else reaches the client: `withRequest` logs unknown errors and replaces them with `INTERNAL_ERROR`.
+- [ ] Components show errors through `useErrorMessage`, never raw `error.message`.
+
+## Secrets and server-only code
+
+- [ ] Secrets are read from `env` in `cloudflare:workers`, only in modules that import `@tanstack/react-start/server-only`.
+- [ ] No private value has a `VITE_` prefix, which would expose it to the browser.
+- [ ] Session data sent to the client comes from `getCurrentSession`, which removes the session token.
+
+## Sessions and cookies
+
+These are set in `auth.server.ts`; keep them when you change the configuration:
+
+- [ ] `requireEmailVerification: true` and `revokeSessionsOnPasswordReset: true`.
+- [ ] `useSecureCookies` outside local modes and `baseURL.allowedHosts` limited to the environment's hosts.
+- [ ] `encryptOAuthTokens: true` and `verification.storeIdentifier: "hashed"`.
+- [ ] Sign-in and sign-out clear the query cache, and the guards clear it when the user changes.
+
+## Webhooks and output
+
+- [ ] Webhooks verify their signature before handling the payload; Polar uses `POLAR_WEBHOOK_SECRET`.
+- [ ] Private and token-consuming pages stay out of prerendering: `/admin`, `/app`, `/auth`, `/newsletter` and `/api` are excluded.
+- [ ] Token links in loaders set `preload: false`, as the newsletter confirmation and unsubscribe routes do.
 
 ## Related guides
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Authentication flows](/docs/guides/auth-flows)
+- [Roles and permissions](/docs/guides/roles-and-permissions)
+- [Server functions](/docs/guides/server-functions)

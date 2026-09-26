@@ -1,16 +1,62 @@
 ---
-title: Authentifizierung und Sicherheit.
-description: Authentifizierung und Sicherheit — SaaSy Land
+title: "Authentifizierungsabläufe"
+description: "Wie Anmeldung, Registrierung mit E-Mail-Verifizierung, Passwort-Reset, Zwei-Faktor-Authentifizierung, OAuth und Abmeldung funktionieren."
 ---
 
-Die Autorisierung wird zweimal durchgesetzt: Die `beforeLoad`-Routen schützen sowohl das Admin- als auch das Kunden-Layout, und jede geschützte Serverfunktion überprüft den Aufrufer unabhängig. Verwenden Sie `requireAdmin` oder `requireSession` für Layouts und `withAuth(permission)` für Operationen. Kundenoperationen leiten die Eigentumsrechte aus der Sitzung ab.
+Better Auth (`src/integrations/better-auth/auth.server.ts`) speichert Benutzer, Sessions und Verifizierungstokens in D1 und stellt seine Endpunkte unter `/api/auth` bereit. Die Auth-Seiten liegen unter dem `/auth`-Layout; ihre Formulare befinden sich in `src/presentation/components/custom/auth/`.
 
-Better Auth speichert Sitzungen in D1 und verwaltet Anmeldeinformationen, OAuth, Verifizierung, Passwortzurücksetzung, Zwei-Faktor-Authentifizierung, Identitätsübernahme und Widerruf. Die Cookie-Zwischenspeicherung wird umgangen, wenn eine geschützte Serverfunktion überprüft wird. Das finale Authentifizierungs-Plugin ist `tanstackStartCookies`, welches Authentifizierungs-Cookies über Serverfunktionsantworten weiterleitet.
+## Route-Guards
 
-D1-Ratenbegrenzungen verwenden atomare Schreibvorgänge und den Cloudflare-Client-IP-Header. Sensible öffentliche Operationen verwenden separate Limit-Schlüssel. Eingaben werden mit dem Zod-Schema validiert, unerwartete Fehler werden ausgeblendet, die Signatur von Zahlungs-Webhooks wird überprüft und alle Zugangsdaten werden innerhalb von serverseitigen Bereichen verwahrt. Private Routen und Token-Änderungen werden nicht vorab gerendert.
+`src/integrations/better-auth/auth.routes.ts` exportiert die in `beforeLoad` verwendeten Guards:
 
-## Verwandte Anleitungen.
+| Guard                | Verwendet auf                    | Wirkung                                                                      |
+| -------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
+| `requireSignedIn`    | `/app`-Layout                    | Leitet ohne Session zu `/auth/sign-in` weiter                                |
+| `requireAdmin`       | `/admin`-Layout                  | Leitet zusätzlich ohne die Berechtigung `admin: ["access"]` zu `/app` weiter |
+| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Schickt einen angemeldeten Benutzer zu `/admin` oder `/app`                  |
+| `redirectAfterAuth`  | `/auth/callback`                 | Schickt die neue Session je nach Rolle zu `/admin` oder `/app`               |
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+`requireSignedIn` und `requireAdmin` prüfen die Session bei jeder Navigation erneut, `redirectIfSignedIn` verwendet die zwischengespeicherte Session, und jeder Guard leert den Query-Cache, wenn sich der angemeldete Benutzer ändert.
+
+## Anmeldung
+
+1. `SignInForm` ruft `signIn.email` des Better-Auth-Clients auf.
+2. Ein nicht verifiziertes Konto erhält den Fehler `EMAIL_NOT_VERIFIED` und wird mit seiner E-Mail-Adresse zu `/auth/verify-email` geschickt.
+3. Ein Konto mit Zwei-Faktor-Authentifizierung erhält `twoFactorRedirect`; das Client-Plugin öffnet dann `/auth/two-factor` in der aktuellen Locale.
+4. Bei Erfolg leert `usePostAuthRedirect` die Query- und Router-Caches und navigiert zu `/auth/callback`, das je nach Rolle weiterleitet.
+
+Fehler, die Better Auth per Weiterleitung meldet, kommen als `?error=` auf `/auth/sign-in` an und werden aus `auth.errors` angezeigt.
+
+## Registrierung und E-Mail-Verifizierung
+
+1. `SignUpForm` validiert `signUpWithPasswordSchema` und ruft `signUpWithPasswordMutation` auf, eine ratenbegrenzte Server-Funktion, die `auth.api.signUpEmail` aufruft.
+2. Better Auth legt den Benutzer an und ruft `sendVerifyEmail` auf, das einen Link zu `/auth/verify-email?token=…` in der Locale der Seite versendet, auf der die Registrierung begonnen hat. Eine erneute Registrierung mit einer nicht verifizierten Adresse sendet einen neuen Link.
+3. Das Formular navigiert zu `/auth/verify-email?email=…`, wo `VerifyEmailForm` den Link über die ratenbegrenzte `sendVerificationEmailMutation` erneut senden kann.
+4. Öffnen des Links: Das `beforeLoad` der Route übergibt das Token an `/api/auth/verify-email`. Better Auth prüft es, meldet den Benutzer an und kehrt zu `/auth/verify-email?verified=true` zurück, das zu `/auth/callback` weiterleitet. Ein ungültiger oder abgelaufener Link kehrt mit `error` zurück, und die Seite bietet einen neuen an.
+
+Die Anmeldung bleibt gesperrt, bis die E-Mail-Adresse verifiziert ist (`requireEmailVerification: true`).
+
+## Passwort-Reset
+
+1. `/auth/forgot-password`: `ForgotPasswordForm` ruft `requestPasswordResetMutation` auf, wobei `redirectTo` auf das lokalisierte `/auth/reset-password` gesetzt ist.
+2. Better Auth ruft `sendResetPasswordEmail` auf. Der per E-Mail versendete Link läuft über Better Auth, das zu `/auth/reset-password?token=…` weiterleitet, oder mit `error`, wenn das Token ungültig oder abgelaufen ist.
+3. `ResetPasswordForm` sendet das neue Passwort über `resetPasswordMutation`. Better Auth widerruft jede bestehende Session (`revokeSessionsOnPasswordReset: true`), und das Formular navigiert zur Anmeldung.
+
+## Zwei-Faktor-Authentifizierung
+
+- Aktivieren (Admin-Einstellungen, Sicherheit): `TwoFactorDialog` fragt nach dem Passwort (`enableTwoFactorMutation`), zeigt das TOTP-Secret zum Hinzufügen in einer Authenticator-App, bestätigt einen Code (`verifyTotpMutation`) und zeigt dann die Backup-Codes an. `disableTwoFactorMutation` schaltet die Funktion wieder ab.
+- Anmelden: `/auth/two-factor` akzeptiert einen Authenticator-Code (`verifyTotpMutation`) oder einen Backup-Code (`verifyBackupCodeMutation`), beide ratenbegrenzt, mit der Option, dem Gerät zu vertrauen. Bei Erfolg wird `usePostAuthRedirect` ausgeführt.
+
+## OAuth
+
+`OAuthButtons` ruft `authClient.signIn.social` für Google oder GitHub auf, mit `callbackURL` auf dem lokalisierten `/auth/callback` und `errorCallbackURL` auf dem lokalisierten `/auth/sign-in`. Die Provider sind in `socialProviders` konfiguriert; `https://<host>/api/auth/callback/google` und `https://<host>/api/auth/callback/github` bei ihnen registrieren. Konten mit derselben E-Mail-Adresse werden automatisch verknüpft, und Provider-Tokens werden verschlüsselt gespeichert.
+
+## Abmeldung
+
+`useSignOut` ruft `signOutUserMutation` auf, leert den Query-Cache, navigiert zu `/auth/sign-in` und leert den Router-Cache.
+
+## Verwandte Anleitungen
+
+- [Sicherheits-Checkliste](/docs/guides/security-checklist)
+- [Rollen und Berechtigungen](/docs/guides/roles-and-permissions)
+- [E-Mail-Vorlagen](/docs/guides/email-templates)

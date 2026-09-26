@@ -1,23 +1,58 @@
 ---
-title: ローカル開発
-description: ローカル開発 — SaaSy Land
+title: "ローカルでのデバッグ"
+description: "ローカル環境を選び、サーバーエラーを読み、データを確認し、テストをデバッグします。"
 ---
 
-Bun 1.4 および Node 24 または newer をインストールし、依存関係をインストールします。 コピー `.env.example` とりあえず `.env.development` 長いランダムな設定 `AUTH_SECRET`, 公共 `VITE_APP_URL`, あなたが運動する任意の外部の統合.
+## 環境を選ぶ
 
-ローカル開発は Cloudflare のローカル D1 と KV のバインディングを使用します。 開始前にチェックイン SQLite のマイグレーションを適用します。 開発コマンドは Fumadocs コンテンツを生成し、 Vite+ を Cloudflare プラグインで実行します。 現地の州生活 `.wrangler/`.
-
-OAuth、電子メールおよび請求はプロバイダの資格情報を必要とします;開発するときテストの資格情報およびPolarのサンドボックスを使用します。 テストは、実際のメッセージを送信するか、顧客を充電するのではなく、コミットされたダミー値とモックを使用します。
+| 環境           | コマンド                                                      | データ                                                             | プロバイダー                                  |
+| -------------- | ------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------- |
+| 分離プレビュー | `db:migrate:test`、`db:seed:test`、`build:test`、`start:test` | `.wrangler/test` にあるローカルの D1 と KV、シード済みのアカウント | インターセプトされるため、アカウントは不要    |
+| 開発           | `db:migrate:development`、`dev`                               | リモートのプレビュー用 D1 と KV                                    | 実際のプロバイダー（`.env.development` から） |
 
 ```sh
-bun install
+bun run db:migrate:test
+bun run db:seed:test
+bun run build:test
+bun run start:test
+```
+
+分離プレビューは、ビルドを `http://127.0.0.1:3000` で配信します。ソースの変更を反映するには再ビルドしてください。`admin@saasyland.example.test` または `customer@saasyland.example.test` として、`e2e/data/accounts.ts` にあるパスワードでサインインします。メールは送信されずにキャプチャされます。認証リンクを含むメールを読むには、`/__test/emails?to=<address>` を開きます。
+
+```sh
+bunx wrangler login
 cp .env.example .env.development
 bun run db:migrate:development
 bun run dev
 ```
 
+開発サーバーは `http://localhost:3000` でホットリロード付きで動作します。その `DB` と `CACHE` のバインディングはリモートのプレビュー用リソースであるため、書き込みとマイグレーションは共有のプレビュー用データベースに影響します。`POLAR_SERVER=sandbox` を使ってください。
+
+## サーバーエラーを読む
+
+- 失敗したサーバー関数は、元のエラーとともに `Server function failed` をログに出力します。出力先は、`bun run dev` を実行しているターミナル、またはデプロイ済みの環境では Workers Logs です。ブラウザが受け取るのはエラーコードだけです。
+- `Rate-limit storage unavailable` は、レート制限のチェック中に D1 に到達できなかったことを意味します。そのリクエストは拒否されています。
+- `No messages/<locale>/<namespace>.json` は、そのロケールのファイルが存在しない名前空間を、ルートが宣言していることを意味します。
+
+## データを確認する
+
+- Drizzle Studio：`bun run db:studio:development`（`:preview` と `:production` もあります）。対応する環境ファイルに `CLOUDFLARE_*` 変数が必要です。
+- ローカルのテスト用データベース：`bunx wrangler d1 execute DB --env test --local --persist-to .wrangler/test --command "SELECT email, role FROM user"`。
+
+## 生成されたファイルを修正する
+
+- Worker のバインディング、クラス名のテーブル、ドキュメントコンテンツの型が古くなっている場合：`bun run typegen`。
+- 翻訳が解決されない場合：`bun run check:i18n` が、ロケールごとの不足しているキーと、`useTranslations` のスコープで解決されないキーを一覧表示します。
+- `bun run clean` は、ローカルのテスト用データベースを含め、ビルド出力、キャッシュ、`.wrangler` を削除します。その後、`db:migrate:test` と `db:seed:test` を再度実行してください。
+
+## テストをデバッグする
+
+- 1 つのプロジェクトだけ、または影響を受けたテストだけを実行するには：`bun run test:unit`、`bun run test:component`、`bun run test:changed`、`bun run test:watch`。
+- Playwright：`bun run test:e2e:headed` はブラウザを表示し、`bun run test:e2e:ui` は UI モードを開きます。ローカルでの実行では、失敗したテストのトレースが保存され、失敗時には HTML レポートが開きます。
+- `bun run test:e2e` を実行する前に、ポート 3000 を使っている他のサーバーを停止するか、`PLAYWRIGHT_BASE_URL` を設定します。
+
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [テストを書く](/docs/guides/writing-tests)
+- [データベースマイグレーション](/docs/guides/database-migrations)
+- [初回起動](/docs/getting-started/first-run)

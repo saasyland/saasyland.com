@@ -1,13 +1,36 @@
 ---
-title: Theming & Branding
-description: Jetons de thème, polices et actifs de marque.
+title: "Thèmes et identité visuelle"
+description: "Modifiez le nom du produit, le domaine, les tokens de couleur, l'échelle typographique et les polices."
 ---
 
-## Emplacements
+## Identité de la marque
 
-- `presentation/theme`
-- `presentation/branding`
-- `presentation/fonts`
-- Styles mondiaux sous les styles de présentation
+`src/presentation/branding/index.ts` est la source unique de l'identité du produit : `APP_NAME`, `APP_DOMAIN`, `APP_URL` (dérivé sous la forme `https://${APP_DOMAIN}`), `CONTACT_EMAIL`, `NOTIFICATIONS_EMAIL`, `APP_FOUNDED_YEAR` ainsi que le propriétaire, le dépôt et l'URL GitHub. Les titres de page, les URL canoniques, le nom de l'application dans Better Auth, l'émetteur de la double authentification et les noms des cookies de thème et de langue en dérivent.
 
-Le commutateur de thème est un contrôle client; par défaut, il faut éviter les patrons de flicker d'hydratation déjà utilisés dans les fournisseurs.
+Lors d'un changement de marque, mettez aussi à jour :
+
+- `Wordmark` dans `src/presentation/components/custom/wordmark.tsx` : le logo SVG intégré à côté de `APP_NAME`.
+- `public/favicon.ico` et les images de `public/images`.
+- Le préfixe des cookies d'authentification, `advanced.cookiePrefix` dans `src/integrations/better-auth/auth.server.ts`, et les hôtes autorisés par environnement dans `src/modules/_core/constants/api.ts`.
+
+Recompilez après avoir changé la marque ; les fichiers d'environnement ne modifient pas l'URL canonique.
+
+## Thème
+
+`src/presentation/theme/index.ts` définit `THEME` : les thèmes `light`, `dark` et `system`, le thème par défaut `system` et le cookie qui mémorise le choix. `ThemeScript`, dans l'en-tête du document racine, applique le thème enregistré avant le premier affichage : les pages ne clignotent donc jamais avec le mauvais thème. `ThemeSwitch` (`src/presentation/components/custom/theme-switch.tsx`) le modifie. `ThemeProvider` (`src/providers/theme-provider.tsx`) n'enveloppe que les composants qui utilisent le thème, comme `<ThemeSwitch />` dans `src/routes/docs.tsx` et le toaster de la route racine. Il n'enveloppe jamais un `Outlet` de route, car il se met à jour après l'hydratation et réafficherait toute la page.
+
+## Tokens de couleur
+
+`src/presentation/styles/globals.css` est l'unique point d'entrée de Tailwind. Il définit les tokens shadcn (`--background`, `--foreground`, `--primary`, `--muted`, `--border`, `--ring`, `--sidebar-*`, `--chart-*` et d'autres) dans `:root` pour le mode clair et dans `.dark` pour le mode sombre, puis les associe aux couleurs Tailwind dans `@theme inline`. Modifiez les valeurs à cet endroit ; les composants utilisent les classes sémantiques (`bg-background`, `text-muted-foreground`, `border-border`). Les accents d'état, comme l'ambre et le rose, font exception.
+
+`docs.css` et `typeset.css`, dans le même dossier, sont du CSS simple chargé uniquement par les layouts de la documentation et du blog.
+
+## Échelle typographique
+
+L'échelle typographique est un ensemble de tokens `--text-*` dans `globals.css` : `display-hero`, `display-gate`, `display-blast`, `headline-peak`, `headline-support`, `price`, `title`, `statement`, `lead`, `body`, `body-sm`, `label` et `spec`. Chaque token définit la taille, l'interlignage et l'espacement des lettres, les plus grands aussi la graisse, et s'utilise comme classe : `text-body`, `text-title`, etc.
+
+Lorsque vous ajoutez un token `text-*`, ajoutez aussi son nom à `src/lib/cn.config.ts`. `cn` de `src/lib/cn.ts` utilise cette configuration pour traiter les tailles personnalisées comme des tailles de police lors de la fusion des classes ; sans elle, `cn` les supprime. `bun run generate:cn` régénère les tables de classes et s'exécute dans `dev`, `build` et `check`.
+
+## Polices
+
+Geist et Geist Mono sont auto-hébergées dans `public/fonts` et déclarées avec `@font-face` dans `src/presentation/styles/fonts.css`, un fichier par plage Unicode. `fontPreloads` dans `src/presentation/document-assets.ts` précharge le latin et le latin à chasse fixe sur toutes les pages, le latin étendu pour `pl-PL` et le cyrillique pour `uk-UA`. Pour changer de polices, remplacez les fichiers et les règles `@font-face`, puis mettez à jour la liste de préchargement en conséquence.

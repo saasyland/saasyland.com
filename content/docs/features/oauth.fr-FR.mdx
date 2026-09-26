@@ -1,6 +1,30 @@
 ---
-title: Fournisseurs OAuth
-description: Configuration de connexion sociale GitHub et Google.
+title: "Fournisseurs OAuth"
+description: "Connexion avec GitHub et Google via les fournisseurs sociaux de Better Auth."
 ---
 
-Configurer dans Better Auth avec les ID/secrets du client env. Enregistrez rediriger les URLs pour les hôtes locaux, d'aperçu et de production. Voir Caractéristiques → Authentification et démarrage → Variables d'environnement.
+`auth.server.ts` enregistre deux fournisseurs avec des identifiants issus de l’environnement du Worker :
+
+```ts
+socialProviders: {
+  github: { clientId: env.AUTH_GITHUB_CLIENT_ID, clientSecret: env.AUTH_GITHUB_CLIENT_SECRET },
+  google: { clientId: env.AUTH_GOOGLE_CLIENT_ID, clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET },
+},
+```
+
+## Déroulement
+
+`OAuthButtons` (`src/presentation/components/custom/auth/oauth-buttons.tsx`) affiche un bouton par fournisseur sur la connexion et l’inscription. Il appelle `signIn.social` de Better Auth avec un `callbackURL` localisé (`/auth/callback`) et un `errorCallbackURL` (`/auth/sign-in`). Au retour du fournisseur, `/auth/callback` redirige les administrateurs vers `/admin` et les clients vers `/app`. Une tentative échouée revient sur la page de connexion avec `?error=`, qui affiche le message traduit de `auth.errors`.
+
+`accountLinking` est activé : une connexion sociale est rattachée à un utilisateur existant ayant le même e-mail. Les jetons du fournisseur sont stockés chiffrés dans la table `account`.
+
+## Configuration du fournisseur
+
+Enregistrez les URL de rappel `/api/auth/callback/github` et `/api/auth/callback/google` pour chaque hôte utilisé : `localhost:3000` en local, `preview.saasyland.com` et `saasyland.com` (voir `appHostsForMode` dans `src/modules/_core/constants/api.ts`). Placez les identifiants et secrets client dans les variables d’environnement ci-dessus.
+
+Les identifiants GitHub authentifient aussi la requête du nombre d’étoiles du dépôt dans `src/lib/github.ts`.
+
+## Guides associés
+
+- [Variables d’environnement](/docs/getting-started/environment-variables)
+- [Authentification](/docs/features/authentication)

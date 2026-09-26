@@ -1,6 +1,83 @@
 ---
-title: Shadcn / React アリア
-description: コンポーネントのプリミティブとスタイリング条約。
+title: "shadcn/ui と React Aria"
+description: "React Aria のプリミティブ、components.json、フォームのパターンです。"
 ---
 
-コンポーネント下 `presentation/components/shadcn`. . React Aria / Base UI のパターンをこのリポジトリで使用 - 既存のプリミティブをフォローして、新しいものを追加します。`bunx shadcn@latest` + プロジェクトスキル
+`src/presentation/components/shadcn/` にあるプリミティブは、React Aria Components をベースにした shadcn/ui コンポーネントです。そのため `onPress`、`isDisabled`、`isPending`、`isSelected` といった React Aria のプロパティを使います。一部は他のライブラリをラップしています。`input-otp`、`embla-carousel-react`、`react-resizable-panels`、`recharts`、`sonner` です。アプリケーションのコンポーネントは `src/presentation/components/custom/` に置かれ、shadcn フォルダーはテストカバレッジの対象外です。
+
+`components.json` は shadcn CLI を設定します。スタイルは `base-lyra`、ベースカラーは `neutral`、CSS 変数は `src/presentation/styles/globals.css`、アイコンは Lucide、`rsc: false` で、エイリアスは `ui`（`~/src/presentation/components/shadcn`）、`utils`（`~/src/lib/cn`）、`hooks`（`~/src/hooks`）です。新しいプリミティブは既存のものにならい、React Aria Components、`class-variance-authority` のバリアント、`cn` を使います。
+
+## クラス名
+
+`cn` は `~/src/lib/cn` からインポートします。`src/lib/cn.config.ts` の設定がカスタムの `text-*` タイプスケールを登録しているため、クラスをマージしてもこれらのクラスは保持されます。`bun run generate:cn` は `.source/cn-tables.ts` にルックアップテーブルを生成します。条件付きのクラスにはオブジェクト構文を使います。
+
+```tsx
+className={cn("flex items-center gap-4 border-b", {
+  "border-border focus-within:border-foreground": !isInvalid,
+  "border-destructive": isInvalid,
+})}
+```
+
+## フォーム
+
+すべてのフォームは、モジュールの Zod スキーマを使った shadcn の TanStack Form パターンに従います。
+
+```tsx
+const form = useForm({
+  defaultValues: { email: "" },
+  onSubmit: ({ value }) => {
+    subscribe.mutate({ email: value.email, locale: getCurrentLocale() })
+  },
+  validators: { onChange: emailSchema, onSubmit: emailSchema },
+})
+
+return (
+  <form
+    noValidate
+    onSubmit={(event) => {
+      event.preventDefault()
+      void form.handleSubmit()
+    }}
+  >
+    <form.Field name="email">
+      {(field) => {
+        const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+
+        return (
+          <Field data-invalid={isInvalid}>
+            <FieldLabel htmlFor="newsletter-email">{t("label")}</FieldLabel>
+            <Input
+              aria-invalid={isInvalid}
+              id="newsletter-email"
+              name={field.name}
+              onBlur={field.handleBlur}
+              onChange={(event) => {
+                field.handleChange(event.target.value)
+              }}
+              type="email"
+              value={field.state.value}
+            />
+            {isInvalid && (
+              <ValidationFieldError
+                message={fieldErrorMessage(field.state.meta.errors)}
+                namespace="auth.validations"
+                params={AUTH_VALIDATION_PARAMS}
+              />
+            )}
+          </Field>
+        )
+      }}
+    </form.Field>
+    <Button isPending={subscribe.isPending} type="submit">
+      {t("button")}
+    </Button>
+  </form>
+)
+```
+
+Zod のメッセージは翻訳キーです。`fieldErrorMessage`（`src/integrations/tanstack-form/form.fields.ts`）が最初のエラーを取り出し、`ValidationFieldError` が指定された名前空間でそれを翻訳します。翻訳できない場合は `errors.codes.VALIDATION` にフォールバックします。完全な例は `src/presentation/components/custom/newsletter-form.tsx` と `src/presentation/components/custom/auth/sign-in-form.tsx` です。
+
+## 関連ガイド
+
+- [shadcn コンポーネント](/docs/ui/shadcn-components)
+- [フォームとバリデーション](/docs/guides/forms-and-validation)

@@ -1,13 +1,36 @@
 ---
-title: Theming & branding
-description: Tokens, fontes e ativos de marca.
+title: "Temas e identidade visual"
+description: "Altere o nome do produto, o domínio, os tokens de cor, a escala tipográfica e as fontes."
 ---
 
-## Locais
+## Identidade da marca
 
-- `presentation/theme`
-- `presentation/branding`
-- `presentation/fonts`
-- Estilos globais sob estilos de apresentação
+`src/presentation/branding/index.ts` é a única fonte da identidade do produto: `APP_NAME`, `APP_DOMAIN`, `APP_URL` (derivado como `https://${APP_DOMAIN}`), `CONTACT_EMAIL`, `NOTIFICATIONS_EMAIL`, `APP_FOUNDED_YEAR` e o dono, o repositório e a URL no GitHub. Os títulos de página, as URLs canônicas, o nome da aplicação no Better Auth, o emissor da autenticação em dois fatores e os nomes dos cookies de tema e idioma derivam dele.
 
-O interruptor temático é um controle do cliente, o padrão deve evitar padrões de hidratação que já são usados nos fornecedores.
+Ao mudar a marca, atualize também:
+
+- `Wordmark` em `src/presentation/components/custom/wordmark.tsx`: o logotipo SVG embutido ao lado de `APP_NAME`.
+- `public/favicon.ico` e as imagens em `public/images`.
+- O prefixo dos cookies de autenticação, `advanced.cookiePrefix` em `src/integrations/better-auth/auth.server.ts`, e os hosts permitidos por ambiente em `src/modules/_core/constants/api.ts`.
+
+Compile de novo depois de mudar a marca; os arquivos de ambiente não alteram a URL canônica.
+
+## Tema
+
+`src/presentation/theme/index.ts` define `THEME`: os temas `light`, `dark` e `system`, o padrão `system` e o cookie que guarda a escolha. `ThemeScript` no cabeçalho do documento raiz aplica o tema salvo antes da primeira pintura, então as páginas nunca piscam com o tema errado. `ThemeSwitch` (`src/presentation/components/custom/theme-switch.tsx`) o altera. `ThemeProvider` (`src/providers/theme-provider.tsx`) envolve apenas os componentes que usam o tema, como `<ThemeSwitch />` em `src/routes/docs.tsx` e o toaster da rota raiz. Ele nunca envolve um `Outlet` de rota, porque se atualiza depois da hidratação e renderizaria a página inteira de novo.
+
+## Tokens de cor
+
+`src/presentation/styles/globals.css` é o único ponto de entrada do Tailwind. Ele define os tokens do shadcn (`--background`, `--foreground`, `--primary`, `--muted`, `--border`, `--ring`, `--sidebar-*`, `--chart-*` e outros) em `:root` para o modo claro e em `.dark` para o modo escuro, e os mapeia para cores do Tailwind em `@theme inline`. Altere os valores ali; os componentes usam as classes semânticas (`bg-background`, `text-muted-foreground`, `border-border`). Os destaques de status, como âmbar e rosa, são a exceção.
+
+`docs.css` e `typeset.css`, na mesma pasta, são CSS puro carregado apenas pelos layouts da documentação e do blog.
+
+## Escala tipográfica
+
+A escala tipográfica é um conjunto de tokens `--text-*` em `globals.css`: `display-hero`, `display-gate`, `display-blast`, `headline-peak`, `headline-support`, `price`, `title`, `statement`, `lead`, `body`, `body-sm`, `label` e `spec`. Cada token define o tamanho, a altura da linha e o espaçamento entre letras, os maiores também o peso, e é usado como classe: `text-body`, `text-title` e assim por diante.
+
+Ao adicionar um token `text-*`, adicione também o nome dele a `src/lib/cn.config.ts`. O `cn` de `src/lib/cn.ts` usa essa configuração para tratar tamanhos personalizados como tamanhos de fonte ao mesclar classes; sem ela, o `cn` os descarta. `bun run generate:cn` recria as tabelas de classes e roda como parte de `dev`, `build` e `check`.
+
+## Fontes
+
+Geist e Geist Mono ficam hospedadas em `public/fonts` e são declaradas com `@font-face` em `src/presentation/styles/fonts.css`, um arquivo por faixa Unicode. `fontPreloads` em `src/presentation/document-assets.ts` pré-carrega o latim e o latim monoespaçado em todas as páginas, o latim estendido para `pl-PL` e o cirílico para `uk-UA`. Para trocar as fontes, substitua os arquivos e as regras `@font-face` e ajuste a lista de pré-carregamento.

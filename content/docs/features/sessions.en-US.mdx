@@ -1,10 +1,24 @@
 ---
 title: "Sessions"
-description: "List and revoke sessions for self and admin targets."
+description: "Better Auth sessions in D1, with self-service revocation in admin settings."
 ---
 
-## Module
+Sessions live in the D1 `session` table (`src/modules/session/session.schema.ts`). `auth.session.ts` reads them with `getRequestSession`, memoized per request, and exposes `getCurrentSessionQuery` to routes and components. The client copy never includes the session token.
 
-`modules/session/use-cases` — list active/user sessions, revoke one/many/others.
+## Use cases
 
-Surfaced in admin settings security UI and user admin actions.
+| Use case                                  | Middleware                   | Used by              |
+| ----------------------------------------- | ---------------------------- | -------------------- |
+| `getActiveSessions`                       | signed in                    | `SettingsSessions`   |
+| `revokeSession`                           | signed in; own sessions only | `SessionRow`         |
+| `revokeOtherSessions`                     | signed in                    | `SettingsSessions`   |
+| `listUserSessions`                        | `session: ["list"]`          | not used by a screen |
+| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`        | not used by a screen |
+
+`getActiveSessions` returns the current user's unexpired sessions, newest first, and leaves out impersonation sessions.
+
+## UI
+
+**Settings → Security** in `/admin/settings` renders `SettingsSessions` (`src/presentation/components/custom/admin/settings/sessions.tsx`). Each `SessionRow` shows the device (user agent or IP address), the last activity and a badge on the current session, and can revoke that session. A header button revokes all other sessions. Changing the password also refreshes the session list.
+
+The admin variants for other users' sessions exist as server functions only.

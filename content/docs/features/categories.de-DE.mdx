@@ -1,10 +1,46 @@
 ---
-title: Kategorien
-description: Kategorienbezogene CRUD-Anwendungsfälle.
+title: "Kategorien"
+description: "Kategorien und Sammlungen in D1, aufgelistet in der Admin-Ansicht der Produkte."
 ---
 
-## Modul
+## Daten
 
-`modules/category/use-cases`.
+`src/modules/category/category.schema.ts` definiert die Tabelle `category`: `name`, `description`, `kind` (`category` oder `collection`), `visibility` (`public` oder `hidden`), `icon` (`Archive`, `FolderOpen` oder `Puzzle`) und Zeitstempel.
 
-Von der Produktorganisation für die Benutzeroberfläche und zukünftige Filter im Online-Shop verwendet.
+Die Anwendungsfälle in `src/modules/category/use-cases` sind jeweils durch die passende `category`-Berechtigung geschützt: `getCategories` (paginiert, optional `kind`), `getCategory`, `createCategory`, `updateCategory` und `deleteCategory`. `createCategory` ist die Referenzstruktur für einen mutierenden Anwendungsfall:
+
+```ts
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
+```
+
+Validierungs- und Fehlermeldungen liegen in den Namespaces `category.validations` und `category.errors`.
+
+## Admin-Ansicht
+
+Die Tabs **Kategorien** und **Sammlungen** von `/admin/products` rendern `categoryColumns` mit `getCategoriesPageQuery({ kind, pageIndex, pageSize })`. Angebunden ist nur das Auflisten: Keine Ansicht erstellt, bearbeitet oder löscht Kategorien. Produkte haben noch keine Beziehung zu Kategorien, daher zeigt die Spalte mit der Artikelanzahl einen Platzhalter.
+
+## Verwandte Anleitungen
+
+- [Anwendungsfall hinzufügen](/docs/guides/add-a-use-case)
+- [Serverfunktionen](/docs/guides/server-functions)

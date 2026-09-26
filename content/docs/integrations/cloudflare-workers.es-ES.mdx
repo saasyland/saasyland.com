@@ -1,25 +1,33 @@
 ---
-title: Implementar en Cloudflare Workers
-description: Implementación en Cloudflare Workers – SaaSy Land
+title: "Cloudflare Workers"
+description: "Punto de entrada del Worker, middleware de idioma, bindings y despliegue."
 ---
 
-La versión de Worker se genera con Vite+, TanStack Start y `@cloudflare/vite-plugin`. `wrangler.jsonc` define la entrada, la configuración de compatibilidad, los activos, la observabilidad y el desarrollo separado, así como las vinculaciones de previsualización y producción.
+La aplicación se ejecuta como un único Cloudflare Worker. `@cloudflare/vite-plugin` lo compila y `CLOUDFLARE_ENV` selecciona el entorno de Wrangler. `wrangler.jsonc` establece `main` en `./src/server.ts`, activa `nodejs_compat` y la observabilidad, y sirve los archivos estáticos mediante el binding `ASSETS`. El Worker se ejecuta primero en todas las rutas excepto `/assets/*`, `/fonts/*`, `/robots.txt` y `/llms.txt`.
 
-Provee D1 y KV y reemplaza los identificadores de marcador para el entorno objetivo. Establece su URL y los secretos del proveedor. `.env.preview` No se proporcionó ningún texto para traducir. Por favor, proporcione el texto en inglés. `.env.production`. Aplicar las migraciones explícitamente, y luego desplegar. Los scripts de despliegue validan los IDs de vinculación primero; los scripts de construcción prerenderizan las páginas públicas y verifican los artefactos de salida. La autenticación y las páginas de la aplicación privada se ejecutan dinámicamente en el Worker.
+| Entorno       | Worker                  | D1 y KV                              | Dominio                 |
+| ------------- | ----------------------- | ------------------------------------ | ----------------------- |
+| `development` | `saasyland-development` | Recursos remotos de preview          | `localhost:3000`        |
+| `preview`     | `saasyland-preview`     | Recursos de preview                  | `preview.saasyland.com` |
+| `production`  | `saasyland`             | Recursos de producción               | `saasyland.com`         |
+| `test`        | `saasyland-test`        | Recursos locales en `.wrangler/test` | `127.0.0.1:3000`        |
 
-Configure el dominio personalizado y las URLs de callback de OAuth para el entorno objetivo. La instalación de dependencias y la construcción nunca activan una migración remota.
+Todos los entornos vinculan D1 como `DB` y KV como `CACHE` y enumeran sus secretos obligatorios. El entorno `test` usa `src/platform/testing/worker.ts` como punto de entrada; intercepta las solicitudes a Resend y a Polar y expone endpoints exclusivos de pruebas para Playwright.
 
-```sh
-bunx wrangler login
-bunx wrangler d1 create saasyland_preview
-bunx wrangler kv namespace create CACHE --env preview
-# Update wrangler.jsonc and .env.preview first.
-bun run db:migrate:preview
-bun run deploy:preview
-```
+## Flujo de una solicitud
+
+`src/server.ts` gestiona todas las solicitudes:
+
+1. `resolveLocale` de `i18n.middleware.ts` examina las solicitudes de documentos `GET` y `HEAD` fuera de `/api` y `/_serverFn`. Redirige los alias de idioma y las rutas de idioma no canónicas con el estado 308 e indica cuándo la cookie de idioma no coincide con el idioma de la URL.
+2. Las solicitudes `GET` y `HEAD` fuera de `/api` y `/_serverFn` se sirven primero desde `ASSETS`, lo que cubre las páginas prerenderizadas. Un 404 pasa al handler de TanStack Start.
+3. Cuando hay que actualizar la cookie de idioma, el Worker la añade a la respuesta. Las respuestas HTML reciben además cabeceras `Link` de precarga para la hoja de estilos y las fuentes del idioma.
+4. Las respuestas HTML reciben precios regionales: cuando el país de `cf-ipcountry` cumple los requisitos para un descuento por paridad de poder adquisitivo, un `HTMLRewriter` añade los atributos del descuento a `<html>` y la respuesta pasa a ser `private, no-cache`.
+
+## Despliegue
+
+`bun run deploy:preview` y `bun run deploy:production` ejecutan `scripts/verify-bindings.ts`, que rechaza los ID de D1 y KV de marcador de posición, y después la compilación correspondiente y `wrangler deploy --secrets-file .env.<environment>`. Las compilaciones prerenderizan las páginas públicas y ejecutan `scripts/verify-build.ts` y `scripts/optimize-prerendered-html.ts`. Las migraciones son comandos independientes; consulte [Desplegar una preview](/docs/getting-started/deploy-preview) y [CI/CD](/docs/tooling/ci-cd).
 
 ## Guías relacionadas
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+- [Entorno y bindings](/docs/tooling/environment)
+- [Capa de plataforma](/docs/architecture/platform-layer)

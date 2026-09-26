@@ -1,6 +1,83 @@
 ---
-title: Шадкн / React Арія
-description: Компонентні примітиви і укладання конвенцій.
+title: "shadcn/ui і React Aria"
+description: "Примітиви React Aria, components.json і шаблон форм."
 ---
 
-Компоненти під `presentation/components/shadcn`. . Вбудовані React Aria / Base UI візерунки, що використовуються в цій репо - дотримуйтесь існуючих примітивів при додаванні нових (04/07/2019)`bunx shadcn@latest` + майстерність проекту.
+Примітиви в `src/presentation/components/shadcn/` — це компоненти shadcn/ui, побудовані на React Aria Components, тому вони використовують пропси React Aria, як-от `onPress`, `isDisabled`, `isPending` і `isSelected`. Кілька з них обгортають інші бібліотеки: `input-otp`, `embla-carousel-react`, `react-resizable-panels`, `recharts` і `sonner`. Компоненти застосунку розміщено в `src/presentation/components/custom/`; папку shadcn виключено з покриття тестами.
+
+`components.json` налаштовує shadcn CLI: стиль `base-lyra`, базовий колір `neutral`, CSS-змінні в `src/presentation/styles/globals.css`, іконки Lucide, `rsc: false` і псевдоніми `ui` (`~/src/presentation/components/shadcn`), `utils` (`~/src/lib/cn`) та `hooks` (`~/src/hooks`). Новий примітив наслідує сусідні: React Aria Components, варіанти `class-variance-authority` і `cn`.
+
+## Імена класів
+
+Імпортуйте `cn` з `~/src/lib/cn`. Його конфігурація в `src/lib/cn.config.ts` реєструє власну типографічну шкалу `text-*`, тож під час злиття класів ці класи зберігаються; `bun run generate:cn` будує таблиці пошуку в `.source/cn-tables.ts`. Умовні класи використовують об'єктний синтаксис:
+
+```tsx
+className={cn("flex items-center gap-4 border-b", {
+  "border-border focus-within:border-foreground": !isInvalid,
+  "border-destructive": isInvalid,
+})}
+```
+
+## Форми
+
+Кожна форма дотримується шаблону shadcn для TanStack Form зі схемою Zod відповідного модуля:
+
+```tsx
+const form = useForm({
+  defaultValues: { email: "" },
+  onSubmit: ({ value }) => {
+    subscribe.mutate({ email: value.email, locale: getCurrentLocale() })
+  },
+  validators: { onChange: emailSchema, onSubmit: emailSchema },
+})
+
+return (
+  <form
+    noValidate
+    onSubmit={(event) => {
+      event.preventDefault()
+      void form.handleSubmit()
+    }}
+  >
+    <form.Field name="email">
+      {(field) => {
+        const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+
+        return (
+          <Field data-invalid={isInvalid}>
+            <FieldLabel htmlFor="newsletter-email">{t("label")}</FieldLabel>
+            <Input
+              aria-invalid={isInvalid}
+              id="newsletter-email"
+              name={field.name}
+              onBlur={field.handleBlur}
+              onChange={(event) => {
+                field.handleChange(event.target.value)
+              }}
+              type="email"
+              value={field.state.value}
+            />
+            {isInvalid && (
+              <ValidationFieldError
+                message={fieldErrorMessage(field.state.meta.errors)}
+                namespace="auth.validations"
+                params={AUTH_VALIDATION_PARAMS}
+              />
+            )}
+          </Field>
+        )
+      }}
+    </form.Field>
+    <Button isPending={subscribe.isPending} type="submit">
+      {t("button")}
+    </Button>
+  </form>
+)
+```
+
+Повідомлення Zod — це ключі перекладу. `fieldErrorMessage` (`src/integrations/tanstack-form/form.fields.ts`) витягує першу помилку, а `ValidationFieldError` перекладає її в заданому просторі імен або повертається до `errors.codes.VALIDATION`. Повні приклади: `src/presentation/components/custom/newsletter-form.tsx` і `src/presentation/components/custom/auth/sign-in-form.tsx`.
+
+## Пов'язані посібники
+
+- [Компоненти shadcn](/docs/ui/shadcn-components)
+- [Форми та валідація](/docs/guides/forms-and-validation)

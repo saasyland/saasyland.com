@@ -1,30 +1,136 @@
 ---
-title: Fonctions du serveur et cas d'utilisation
-description: Fonctions du serveur et cas d'utilisation — SaaSy Land
+title: "Ajouter un module"
+description: "Ajoutez une table de base de données avec son schéma Drizzle, ses schémas Zod, ses constantes, ses types et ses cas d'usage."
 ---
 
-Fonctionnalités en cours `src/modules/{feature}/use-cases/{operation}.ts`C'est vrai. Exporter un natif `createServerFn` avec son schéma d'entrée, son autorisation ou son intergiciel de limite tarifaire, et un gestionnaire qui appelle D1 ou l'adaptateur fournisseur. Une mutation retourne les données directement et lance un coffre-fort `AppError`; il ne renvoie pas une enveloppe d'action spécifique au cadre.
+Un module correspond à une table de la base de données. `src/modules/<table>/` n'existe que pour de vraies tables ; les fonctions serveur qui ne possèdent pas de table vont dans `src/lib` ou dans la route qui les utilise. `src/modules/category` est le plus petit exemple complet.
 
-Exportations `mutationOptions` à côté des mutations et `queryOptions` à côté de lire. Les composants utilisent TanStack Query et traduisent les erreurs avec `useActionError`C'est vrai. Les mutations réussies invalident leurs touches de requête de fonctionnalités. Ne jamais faire confiance à un identifiant utilisateur fourni par un client lorsque l'opération doit agir sur `context.auth.user.id`.
+## Fichiers
 
-Utilisation `withAuth` pour les opérations protégées et `withRateLimit` pour les opérations publiques sensibles. La validation s'effectue avant le gestionnaire. Tenir les erreurs du fournisseur et les détails internes hors des réponses du public.
+| Fichier                    | Contenu                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`        | Table Drizzle, index, relations et listes de valeurs énumérées                                    |
+| `<table>.zod.ts`           | Un schéma d'entrée par opération et les schémas `drizzle-zod`, exportés sous `<table>ZodSchemas`  |
+| `<table>.constants.ts`     | Tuples de clés de queries et de mutations, limites du module                                      |
+| `<table>.types.ts`         | Types de ligne inférés depuis la table                                                            |
+| `<table>.utils.ts`         | Fonctions utilitaires pures facultatives                                                          |
+| `use-cases/<operation>.ts` | Une fonction serveur par fichier avec ses options de query ou de mutation                         |
+| `__test__/`                | Tests nommés d'après le fichier source, comme `category.schema.test.ts` et `category.zod.test.ts` |
+
+## 1. Définir la table
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
-import { mutationOptions } from "@tanstack/react-query"
-import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
-import { categoryZodSchemas } from "~/src/modules/category/category.zod"
+import { sql } from "drizzle-orm"
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const CATEGORY_KINDS = ["category", "collection"] as const
+
+export const category = sqliteTable(
+  "category",
+  {
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    id: text("id").primaryKey(),
+    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default("category"),
+    name: text("name", { length: 255 }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("category_createdAt_idx").on(table.createdAt)],
+)
 ```
 
-L'actuel `createCategory` l'opération démontre la validation, les vérifications d'autorisation, un D1 insérer et exporter des options de mutation.
+- Les noms de colonnes sont en snake_case, les propriétés en camelCase.
+- Les identifiants sont des clés primaires `text` remplies avec `v7()` de `uuid` dans le cas d'usage d'insertion.
+- Les dates sont des `integer(..., { mode: "timestamp_ms" })` ; les booléens des `integer(..., { mode: "boolean" })`.
+- Les clés étrangères utilisent `.references(() => user.id, { onDelete: "cascade" })`, et `relations(...)` déclare les jointures (voir `session.schema.ts`).
 
-## Guides connexes
+## 2. Enregistrer le schéma
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+Exportez la table, ainsi que ses relations le cas échéant, depuis `src/integrations/drizzle-orm/drizzle.schemas.ts` :
+
+```ts
+export { category } from "~/src/modules/category/category.schema"
+```
+
+Ce fichier alimente le client D1 (`drizzle(env.DB, { schema })`), l'adaptateur Drizzle de Better Auth et drizzle-kit. Une table absente de ce fichier n'obtient aucune migration.
+
+## 3. Générer la migration
+
+```sh
+bun run db:generate
+bun run db:migrate:local
+```
+
+Relisez le SQL généré dans `src/integrations/drizzle-orm/migrations/` et commitez-le avec le schéma. [Migrations de base de données](/docs/guides/database-migrations) couvre les environnements distants.
+
+## 4. Ajouter les schémas Zod
+
+Chaque opération a son propre schéma d'entrée. Les messages de validation sont des clés de traduction, résolues dans l'espace de noms `<table>.validations`.
+
+```ts
+import { createSchemaFactory } from "drizzle-zod"
+import zod from "zod/v4"
+
+import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
+import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
+
+const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
+
+export const CATEGORY_NAME_MAX_LENGTH = 255
+
+const createCategory = zod.object({
+  kind: zod.enum(CATEGORY_KINDS),
+  name: zod.string().min(MIN_FIELD_LENGTH, { message: "nameRequired" }).max(CATEGORY_NAME_MAX_LENGTH, { message: "nameMaxLength" }),
+})
+
+const deleteCategory = zod.object({ categoryId: idField })
+
+export const categoryZodSchemas = {
+  createCategory,
+  deleteCategory,
+  insert: createInsertSchema(category),
+  select: createSelectSchema(category),
+  update: createUpdateSchema(category),
+}
+```
+
+Ajoutez `messages/<locale>/<table>.validations.json` dans les neuf langues avec toutes les clés utilisées par les schémas.
+
+## 5. Ajouter les constantes et les types
+
+```ts
+export const CATEGORY_QUERY_KEYS = {
+  ALL: ["category"],
+  LIST: ["category", "getCategories"],
+} as const
+
+export const CATEGORY_MUTATION_KEYS = {
+  CREATE: ["category", "createCategory"],
+  DELETE: ["category", "deleteCategory"],
+  UPDATE: ["category", "updateCategory"],
+} as const
+```
+
+```ts
+import type { category } from "~/src/modules/category/category.schema"
+
+export interface Category {
+  select: typeof category.$inferSelect
+  insert: typeof category.$inferInsert
+}
+```
+
+Chaque clé commence par le nom du module ; invalider `ALL` rafraîchit donc toutes les queries du module.
+
+## 6. Ajouter les permissions et les cas d'usage
+
+- Ajoutez les actions de la table à `APP_STATEMENTS` dans `src/integrations/better-auth/auth.access.ts` lorsque les opérations exigent des permissions. Voir [Rôles et permissions](/docs/guides/roles-and-permissions).
+- Ajoutez un fichier par opération dans `use-cases/`. Voir [Ajouter un cas d'usage](/docs/guides/add-a-use-case).
+
+## 7. Tester
+
+Ajoutez `__test__/<table>.schema.test.ts`, `<table>.zod.test.ts` et `<table>.types.test.ts` à côté du module, ainsi que `use-cases/__test__/<operation>.test.ts` pour chaque opération. Le seuil de couverture est de 100 % ; voir [Écrire des tests](/docs/guides/writing-tests).

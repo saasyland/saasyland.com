@@ -1,19 +1,89 @@
 ---
-title: Додати дані
-description: Використовуйте спільну програму TanStack DataTable у екранах адміністратора.
+title: "Додавання таблиці даних"
+description: "Визначте колонки й відрендерте їх універсальним DataTable з даними на клієнті або на сервері."
 ---
 
-## Місце розташування
+Кожна таблиця рендериться одним компонентом — `DataTable` у `src/presentation/components/custom/data-table.tsx`. Він побудований на TanStack Table v9 (`tableFeatures` і `useTable`) та примітивах таблиць shadcn і забезпечує сортування, пагінацію, вибір рядків, фільтри, скелетони завантаження й порожній стан. Таблиці потрібні лише файл колонок і один виклик `<DataTable columns data options filters />`.
 
-`src/presentation/components/custom/data-table`
+## 1. Визначте колонки
 
-## Характеристика шаблону (користувачів)
+Створіть `<entity>-columns.tsx` поруч з іншими віджетами сторінки. Клітинки й заголовки — це невеликі компоненти, що самі читають свої переклади. Скорочена версія `src/presentation/components/custom/admin/users/user-columns.tsx`:
 
-- `columns.tsx` / `cells.tsx` / `filters.tsx` / `actions.tsx` / `options.tsx`
-- Карта DB рядків → таблиці рядків в `_lib` або модуль utils
-- Toolbar оновлений → недійсний ключ TanStack Query
-- Зберігати запобіжники безкоштовно з таблиці runtime
+```tsx
+const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
+  const t = useTranslations("pages.admin.users.table.headers")
 
-## Варіанти
+  return t(id)
+}
 
-Налаштування панелі інструментів (search, filters, import CSV, fetch, налаштування), пагінація, вибір та щільність через `options` — див. UI → DataTable.
+const BooleanCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, boolean>): JSX.Element => {
+  const t = useTranslations("pages.admin.users.table.booleans")
+
+  return <span className="text-muted-foreground">{getValue() ? t("yes") : t("no")}</span>
+}
+
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: "", id: "actions" }),
+])
+```
+
+- Рядки мають мати рядковий `id`; він стає ідентифікатором рядка для вибору.
+- `DataTableFeatures` — спільний набір можливостей. Функції сортування: `alphanumeric`, `basic`, `datetime` і `text`.
+- Дії з рядком — це колонка відображення, клітинка якої є окремим компонентом (`UserRowActions` у `row-actions.tsx`).
+
+## 2. Рендеринг з даними на клієнті
+
+Передайте рядки в `data`. Сортування, пагінація й фільтри працюють у браузері. З `src/routes/admin.index.tsx`:
+
+```tsx
+<DataTable
+  columns={dashboardUserColumns}
+  data={users.rows}
+  filters={[
+    { columnId: "user", placeholder: t("users.search"), type: "search" },
+    {
+      columnId: "status",
+      label: t("users.filters.status"),
+      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+      type: "select",
+    },
+  ]}
+  options={{ initialState: { pagination: PREVIEW_PAGINATION }, selectable: true }}
+/>
+```
+
+- `filters` приймає `{ type: "search", columnId, placeholder }` і `{ type: "select", columnId, label, options }`. Список вибору додає варіант «усі» з міткою `label`.
+- `options.initialState` задає початкові `pagination` і `sorting`; типовий розмір сторінки — 10.
+- `options.selectable` додає колонку прапорців і показує кількість вибраних рядків.
+
+## 3. Рендеринг із пагінацією на сервері
+
+Передайте `options.query`: функцію від `{ pageIndex, pageSize, sorting }`, яка повертає параметри запиту, що розв'язуються в `{ rows, total }`. Тоді таблиця розбиває на сторінки й сортує на сервері, показує попередню сторінку, поки завантажується наступна, і відображає скелетони рядків під час першого завантаження. З `src/routes/admin.users.all.tsx`:
+
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
+
+`getUsersPageQuery` додає провалідовані вхідні дані до ключа запиту, а `getUsers` перевіряє `sorting` за ідентифікаторами колонок, які можна сортувати:
+
+```ts
+export const getUsersPageQuery = (input: zod.input<typeof listUsersSchema> = {}) =>
+  queryOptions<Awaited<ReturnType<typeof getUsers>>>({
+    queryFn: () => getUsers({ data: input }),
+    queryKey: [...USER_QUERY_KEYS.LIST, listUsersSchema.parse(input)],
+  })
+```
+
+Завантажте першу сторінку заздалегідь у loader маршруту через `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })`. Щоб передати додаткові фільтри, обгорніть запит: `src/routes/admin.products.index.tsx` використовує `query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] })`. Фільтри колонок `filters` працюють у браузері над рядками, які має таблиця, тож використовуйте їх разом із `data`.
+
+## 4. Повідомлення
+
+Порожній стан і мітки пагінації та вибору беруться з `components.custom.data-table`, який завантажує кожна сторінка. Заголовки колонок і тексти клітинок належать до простору імен сторінки, наприклад `pages.admin.users.table.headers`.
+
+Коли мутація змінює рядки, інвалідуйте ключі запитів модуля; таблиця повторно завантажить поточну сторінку. Див. [Додавання сценарію використання](/docs/guides/add-a-use-case).

@@ -1,15 +1,24 @@
 ---
 title: "Impersonation"
-description: "Admin impersonation of users (Better Auth admin plugin)."
+description: "Better Auth admin impersonation: the server functions exist, no screen uses them yet."
 ---
 
-## Status
+The Better Auth `admin` plugin provides impersonation, and `src/modules/user/use-cases` wraps it:
 
-Exposed via users admin actions / use-cases with permission checks.
+```ts
+export const impersonateUser = createServerFn({ method: "POST" })
+  .middleware([authorized({ user: ["impersonate"] })])
+  .validator((input: zod.input<typeof userZodSchemas.impersonateUser>) => userZodSchemas.impersonateUser.parse(input))
+  .handler(({ context, data }) => auth.api.impersonateUser({ body: data, headers: context.requestHeaders }))
+```
 
-## Rules
+`stopImpersonatingUser` needs only a signed-in session. Both files export mutation options (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-- Admin-only
-- Clear UI indication when impersonating
-- Prefer audit logging when you harden ops
-- Never allow privilege escalation beyond intended support workflows
+## Current state
+
+- No screen calls these functions: the users row actions menu has no impersonate item and there is no banner to stop impersonating.
+- Better Auth marks impersonation sessions with `impersonatedBy`; `getActiveSessions` leaves them out of the settings session list.
+- The route guards clear the query cache when the session user changes, so the next navigation after impersonating loads the other user's data.
+- There is no audit log of impersonation.
+
+To add it, put a menu item in `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) and a visible way to stop impersonating in the layouts.

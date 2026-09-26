@@ -1,10 +1,43 @@
 ---
 title: "Admin dashboard"
-description: "Dashboard stats, charts, and recent users widgets."
+description: "The /admin shell and dashboard: live counters and users table, static revenue chart."
 ---
 
-## Route
+## Admin shell
 
-`/admin` — composes stats grid, chart, users table with Suspense.
+`src/routes/admin.tsx` guards every admin page with `requireAdmin` and preloads the shared admin namespaces. The layout renders:
 
-Prefer real aggregations via modules as you harden metrics; keep skeletons free of server-only imports.
+- `AdminSidebar`, `AdminBreadcrumbs` and `AdminCommandPalette` (opened with ⌘K), all built from `ADMIN_SIDEBAR_GROUPS` in `src/data/admin.ts`: Overview (Dashboard, Analytics), Offerings (Products, Pricing models), Content (Blog, Landing page) and Administration (User management, Payments, Settings).
+- The user widget in the sidebar footer, with a link to settings and `SignOutButton`.
+
+## Dashboard
+
+`/admin` (`src/routes/admin.index.tsx`) preloads `getProductsQuery` and `getUsersQuery` in its loader and composes three widgets from `src/presentation/components/custom/admin/dashboard`:
+
+- `DashboardStats` (live): the number of users, the number of products and the users waiting for email verification.
+- `RevenueChart` (demo): a static SVG with fixed axes; the range buttons do nothing.
+- A users card (live): the newest users with search and status filters, five rows per page.
+
+```tsx
+<DataTable
+  columns={dashboardUserColumns}
+  data={users.rows}
+  filters={[
+    { columnId: "user", placeholder: t("users.search"), type: "search" },
+    {
+      columnId: "status",
+      label: t("users.filters.status"),
+      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+      type: "select",
+    },
+  ]}
+  options={{ initialState: { pagination: PREVIEW_PAGINATION }, selectable: true }}
+/>
+```
+
+The table works on the first page of `getUsersQuery` (ten users) in the browser. **View all** links to `/admin/users` when there are more users. **Add product** links to `/admin/products/create`; **Last 30 days** is disabled and **Export** is not wired.
+
+## Related guides
+
+- [Add an admin page](/docs/guides/add-an-admin-page)
+- [DataTable](/docs/ui/data-table)

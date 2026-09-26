@@ -1,12 +1,46 @@
 ---
 title: "Kategorie"
-description: "CRUD kategorii."
+description: "Kategorie i kolekcje w D1, wyświetlane na ekranie produktów w panelu administracyjnym."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+## Dane
 
-## Module
+`src/modules/category/category.schema.ts` definiuje tabelę `category`: `name`, `description`, `kind` (`category` lub `collection`), `visibility` (`public` lub `hidden`), `icon` (`Archive`, `FolderOpen` lub `Puzzle`) i znaczniki czasu.
 
-`modules/category/use-cases`.
+Przypadki użycia w `src/modules/category/use-cases`, każdy chroniony odpowiednim uprawnieniem `category`: `getCategories` (stronicowany, opcjonalny `kind`), `getCategory`, `createCategory`, `updateCategory` i `deleteCategory`. `createCategory` to wzorcowa struktura przypadku użycia z mutacją:
 
-Wykorzystywane przez interfejs porządkowania produktów i przyszłe filtry sklepu.
+```ts
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
+```
+
+Komunikaty walidacji i błędów znajdują się w przestrzeniach nazw `category.validations` i `category.errors`.
+
+## Ekran administracyjny
+
+Karty **Kategorie** i **Kolekcje** w `/admin/products` wyświetlają `categoryColumns` z `getCategoriesPageQuery({ kind, pageIndex, pageSize })`. Podłączona jest tylko lista: żaden ekran nie tworzy, nie edytuje ani nie usuwa kategorii. Produkty nie mają jeszcze powiązania z kategoriami, dlatego kolumna liczby elementów pokazuje wartość zastępczą.
+
+## Powiązane przewodniki
+
+- [Dodawanie przypadku użycia](/docs/guides/add-a-use-case)
+- [Funkcje serwerowe](/docs/guides/server-functions)

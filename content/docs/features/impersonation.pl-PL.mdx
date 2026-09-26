@@ -1,17 +1,24 @@
 ---
-title: "Impersonacja"
-description: "Impersonacja użytkowników przez admina (plugin admin)."
+title: "Podszywanie się"
+description: "Podszywanie się administratora pod użytkownika w Better Auth: funkcje serwerowe istnieją, ale żaden ekran jeszcze z nich nie korzysta."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+Wtyczka `admin` z Better Auth zapewnia podszywanie się pod użytkowników, a `src/modules/user/use-cases` ją opakowuje:
 
-## Status
+```ts
+export const impersonateUser = createServerFn({ method: "POST" })
+  .middleware([authorized({ user: ["impersonate"] })])
+  .validator((input: zod.input<typeof userZodSchemas.impersonateUser>) => userZodSchemas.impersonateUser.parse(input))
+  .handler(({ context, data }) => auth.api.impersonateUser({ body: data, headers: context.requestHeaders }))
+```
 
-Udostępniane przez akcje administracyjne użytkowników i przypadki użycia z kontrolą uprawnień.
+`stopImpersonatingUser` wymaga jedynie zalogowanej sesji. Oba pliki eksportują opcje mutacji (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-## Rules
+## Stan obecny
 
-- Tylko dla administratorów
-- Wyraźne oznaczenie w interfejsie podczas podszywania się
-- Utwardzając operacje, włącz rejestrowanie zdarzeń audytowych
-- Nigdy nie dopuszczaj do eskalacji uprawnień poza przewidziane przepływy wsparcia
+- Żaden ekran nie wywołuje tych funkcji: menu akcji wiersza użytkownika nie ma pozycji podszywania się i nie ma paska pozwalającego je zakończyć.
+- Better Auth oznacza sesje podszywania się polem `impersonatedBy`; `getActiveSessions` pomija je na liście sesji w ustawieniach.
+- Strażnicy tras czyszczą pamięć podręczną zapytań, gdy zmienia się użytkownik sesji, więc następna nawigacja po rozpoczęciu podszywania się ładuje dane drugiego użytkownika.
+- Nie ma dziennika audytu podszywania się.
+
+Aby to dodać, umieść pozycję menu w `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) i widoczny sposób zakończenia podszywania się w layoutach.

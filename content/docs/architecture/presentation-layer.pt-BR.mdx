@@ -1,14 +1,66 @@
 ---
-title: Apresentação
-description: Apresentação... SaaSy Land
+title: "Apresentação"
+description: "Onde ficam os componentes, os e-mails e os estilos, e as regras que todo componente segue."
 ---
 
-A camada de apresentação possui a tipografia, layout, cores e interações existentes. Primitivos compartilhados estão em `presentation/components/shadcn` Os componentes das características estão dentro. `presentation/components/custom`. . Mantenha componentes de seção, ganchos e constantes perto de sua seção.
+## Pastas
 
-Rotas fornecem contexto de carga e navegação. Componentes consomem mensagens traduzidas e opções de pesquisa/mutação nativas. Os arquivos de fontes do Geist local são servidos de `public/fonts`. . O `cn` Ajudante em `src/lib/cn.ts` preserva a rampa do tipo personalizado enquanto se funde Tailwind Aulas.
+- `presentation/components/shadcn`: primitivos do shadcn/ui na variante React Aria Components
+- `presentation/components/custom`: componentes da aplicação
+- `presentation/emails`: templates do React Email
+- `presentation/styles`: `globals.css` (o único build do Tailwind), `docs.css` (CSS puro carregado apenas pelo layout de `/docs`), `fonts.css` e `typeset.css`
+- `presentation/theme`: `THEME` (claro, escuro, sistema; nome do cookie; padrão)
+- `presentation/branding`: nome do app, domínio, URLs e repositório do GitHub
+- `presentation/document-assets.ts`: a folha de estilos do documento e os preloads de fontes de cada locale
 
-## Guias relacionados
+## Organização dos componentes
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- Componentes compartilhados são arquivos planos em `custom/`, por exemplo `footer.tsx`, `navigation.tsx`, `data-table.tsx` e `locale-switcher.tsx`.
+- Componentes de uma única área ficam em uma pasta de área: `admin/`, `app/`, `auth/`, `blog/` ou `landing-page/`. As páginas do admin têm pasta própria, como em `admin/dashboard/revenue-chart.tsx` ou `admin/users/reset-password-dialog.tsx`.
+- Cada arquivo contém um widget, diálogo, formulário ou definição de colunas. As colunas de tabela ficam em `<entity>-columns.tsx`, ao lado dos outros componentes da página.
+- Os arquivos de rota apenas compõem esses componentes. Dados compartilhados por vários arquivos ficam em `src/data`; uma constante usada por um único componente permanece no arquivo dele.
+
+## Regras dos componentes
+
+- Um componente lê suas próprias traduções e dados com `useTranslations`, `useSuspenseQuery` ou `getRouteApi(…).useLoaderData()`. Ele não recebe props de texto, rótulo ou dados que um componente pai teria de ler por ele.
+- Um componente chama `useTranslations` exatamente uma vez e chama o tradutor de `t`. Para chaves de dois namespaces, ele usa o namespace pai comum ou `useTranslations()` com as chaves completas.
+- Não há wrappers que só repassam props nem prop drilling.
+- Os mapas de tags de rich text são constantes no nível do módulo. Classes condicionais usam a sintaxe de objeto do `cn`, por exemplo `cn("base", { "text-foreground": isActive })`.
+- Componentes nunca importam clientes de banco de dados ou de provedores. Eles usam as query e mutation options exportadas pelos casos de uso.
+
+```tsx
+export const SignOutButton = (): JSX.Element => {
+  const t = useTranslations("common")
+  const { isPending, mutate } = useSignOut()
+
+  return (
+    <Button
+      aria-label={isPending ? t("signingOut") : t("signOut")}
+      className="shrink-0 text-muted-foreground"
+      isDisabled={isPending}
+      onPress={() => {
+        mutate()
+      }}
+      size="icon-sm"
+      variant="ghost"
+    >
+      {isPending && <Spinner />}
+      {!isPending && <LogOut aria-hidden strokeWidth={1.5} />}
+    </Button>
+  )
+}
+```
+
+## Estilização
+
+`cn`, de `src/lib/cn.ts`, mescla classes do Tailwind usando tabelas geradas a partir de `src/lib/cn.config.ts`, que registra a escala tipográfica personalizada `text-*` para que a mesclagem preserve essas classes. Os arquivos da fonte Geist são servidos de `public/fonts`; todo locale pré-carrega os arquivos latinos e mono, o polonês acrescenta o latino estendido e o ucraniano acrescenta o cirílico.
+
+## E-mails
+
+Um template de e-mail em `presentation/emails` contém apenas markup e exporta seu namespace, por exemplo `VERIFY_EMAIL_NAMESPACE = "emails.verify-email"`. Ele traduz os textos com o `createTranslator` do use-intl. O caso de uso que envia o e-mail carrega as mensagens e as repassa ao template.
+
+## Páginas relacionadas
+
+- [Componentes shadcn](/docs/ui/shadcn-components)
+- [Padrões de composição](/docs/ui/composition-patterns)
+- [Templates de e-mail](/docs/guides/email-templates)

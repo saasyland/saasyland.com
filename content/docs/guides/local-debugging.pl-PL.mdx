@@ -1,23 +1,58 @@
 ---
-title: Środowisko lokalne
-description: Praca lokalna — SaaSy Land
+title: "Debugowanie lokalne"
+description: "Wybierz środowisko lokalne, odczytuj błędy serwera, przeglądaj dane i debuguj testy."
 ---
 
-Zainstaluj Bun 1.4 i Node 24 lub nowszy, a następnie zależności projektu. Skopiuj `.env.example` do `.env.development` i ustaw długi, losowy `AUTH_SECRET`, publiczny `VITE_APP_URL` oraz integracje, których będziesz używać.
+## Wybierz środowisko
 
-Serwer deweloperski korzysta z zasobów D1 i KV środowiska preview przez zdalne bindingi Cloudflare. Zaloguj się przez Wrangler i przed uruchomieniem zastosuj zapisane migracje SQLite w środowisku development. Polecenie deweloperskie generuje treść Fumadocs i uruchamia Vite+ z pluginem Cloudflare. Testy przeglądarkowe używają osobnego lokalnego magazynu w `.wrangler/test`.
-
-OAuth, e-maile i płatności wymagają danych usługodawców; podczas pracy używaj danych testowych i środowiska sandbox Polar. Testy korzystają z przykładowych wartości i mocków, zamiast wysyłać wiadomości lub obciążać klienta.
+| Środowisko        | Polecenia                                                     | Dane                                              | Dostawcy                               |
+| ----------------- | ------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------- |
+| Izolowany podgląd | `db:migrate:test`, `db:seed:test`, `build:test`, `start:test` | Lokalne D1 i KV w `.wrangler/test`, konta testowe | Przechwytywani; konta nie są potrzebne |
+| Deweloperskie     | `db:migrate:development`, `dev`                               | Zdalne D1 i KV podglądu                           | Prawdziwi, z `.env.development`        |
 
 ```sh
-bun install
+bun run db:migrate:test
+bun run db:seed:test
+bun run build:test
+bun run start:test
+```
+
+Izolowany podgląd serwuje build pod `http://127.0.0.1:3000`; aby zobaczyć zmiany w kodzie, zbuduj go ponownie. Zaloguj się jako `admin@saasyland.example.test` lub `customer@saasyland.example.test` hasłem z `e2e/data/accounts.ts`. E-maile są przechwytywane zamiast wysyłane: otwórz `/__test/emails?to=<address>`, aby je przeczytać, łącznie z linkami weryfikacyjnymi.
+
+```sh
+bunx wrangler login
 cp .env.example .env.development
 bun run db:migrate:development
 bun run dev
 ```
 
-## Powiązane przewodniki
+Serwer deweloperski działa pod `http://localhost:3000` z przeładowaniem na gorąco. Jego bindingi `DB` i `CACHE` to zdalne zasoby podglądu, więc zapisy i migracje wpływają na współdzieloną bazę podglądu. Ustaw `POLAR_SERVER=sandbox`.
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+## Odczytuj błędy serwera
+
+- Nieudana funkcja serwerowa zapisuje `Server function failed` z oryginalnym błędem w terminalu z `bun run dev` albo w Workers Logs w środowiskach wdrożonych. Przeglądarka otrzymuje tylko kod błędu.
+- `Rate-limit storage unavailable` oznacza, że D1 było nieosiągalne podczas sprawdzania limitu żądań; żądanie zostało odrzucone.
+- `No messages/<locale>/<namespace>.json` oznacza, że trasa deklaruje przestrzeń nazw bez pliku dla danego języka.
+
+## Przeglądaj dane
+
+- Drizzle Studio: `bun run db:studio:development` (a także `:preview` i `:production`). Wymaga zmiennych `CLOUDFLARE_*` w odpowiednim pliku środowiskowym.
+- Lokalna baza testowa: `bunx wrangler d1 execute DB --env test --local --persist-to .wrangler/test --command "SELECT email, role FROM user"`.
+
+## Napraw pliki generowane
+
+- Nieaktualne typy bindingów Workera, tabele nazw klas lub treść dokumentacji: `bun run typegen`.
+- Tłumaczenia się nie rozwiązują: `bun run check:i18n` wypisuje brakujące klucze dla każdego języka oraz klucze, które nie rozwiązują się w swoim zakresie `useTranslations`.
+- `bun run clean` usuwa wynik builda, cache i `.wrangler`, łącznie z lokalną bazą testową; potem uruchom ponownie `db:migrate:test` i `db:seed:test`.
+
+## Debuguj testy
+
+- Uruchom jeden projekt lub tylko testy objęte zmianami: `bun run test:unit`, `bun run test:component`, `bun run test:changed`, `bun run test:watch`.
+- Playwright: `bun run test:e2e:headed` pokazuje przeglądarkę, a `bun run test:e2e:ui` otwiera tryb UI. Lokalne uruchomienia zachowują ślady nieudanych testów i otwierają raport HTML w razie błędów.
+- Przed `bun run test:e2e` zatrzymaj inne serwery na porcie 3000 albo ustaw `PLAYWRIGHT_BASE_URL`.
+
+## Powiązane poradniki
+
+- [Pisanie testów](/docs/guides/writing-tests)
+- [Migracje bazy danych](/docs/guides/database-migrations)
+- [Pierwsze uruchomienie](/docs/getting-started/first-run)

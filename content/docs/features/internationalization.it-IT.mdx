@@ -1,16 +1,57 @@
 ---
-title: Internazionalizzazione e localizzazione
-description: Internazionalizzazione e localizzazione — SaaSy Land
+title: "Internazionalizzazione e lingue"
+description: "Nove lingue, prefissi negli URL, il cookie della lingua e messaggi use-intl suddivisi in namespace."
 ---
 
-I messaggi vivono in `messages/{locale}` per tutte le nove lingue configurate come file tratteggiati namespace, ad esempio `pages.admin.users.json`. Configurazione locale, helper URL, caricamento messaggi, metadati e helper di traduzione e-mail vivono in `src/integrations/use-intl`.
+## Lingue
 
-Utilizzazione inglese `/docs`; usi polacchi `/pl-PL/docs`. Legacy `/en` e `/pl` i collegamenti sono canonicalizzati. I file di route dichiarano `staticData.namespaces` e precaricare gli stessi namespaces nel loro caricatore. `TranslationsProvider` assembla gli spazi di nome del percorso attivo in un `IntlProvider`. I messaggi condivisi sono caricati alla radice; gli spazi dei nomi e-mail rimangono sul server.
+`I18N` in `src/integrations/use-intl/i18n.config.ts` definisce `en-US` (predefinita), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` e `uk-UA`, il cookie `saasyland.com_locale` e il fuso orario predefinito `UTC`.
 
-Leggi il locale con `getCurrentLocale` sul server e `useLocale` in componenti. L'URL sceglie il documento locale. Le richieste di funzionalità server utilizzano il cookie locale. Un cambiamento linguistico mantiene il percorso, la query e il frammento e ricarica il documento per caricare il contenuto corrispondente. Corri! `bun run check:i18n` dopo aver cambiato le chiavi.
+## URL
+
+La lingua predefinita non ha prefisso; ogni altra lingua è un prefisso del percorso, ad esempio `/docs` e `/pl-PL/docs`. Per le richieste di documenti, il Worker (`resolveLocale` in `i18n.middleware.ts`) reindirizza i percorsi non canonici con un 308: `/en-US/docs` diventa `/docs` e `/pl/docs` diventa `/pl-PL/docs`. I percorsi `/api` e `/_serverFn` non hanno mai un prefisso.
+
+Il `rewrite` del router in `src/router.tsx` rimuove il prefisso dagli URL in ingresso e lo aggiunge a quelli in uscita, quindi rotte e link usano percorsi semplici: `<Link to={ROUTES.SIGN_IN}>`. Usa `localizePathname({ locale, pathname })` solo per gli URL grezzi: `callbackURL` ed `errorCallbackURL` di Better Auth, link nelle email e `<a href>` costruiti a mano. `AriaProvider` localizza l’`href` dei componenti React Aria.
+
+## Cookie della lingua
+
+Quando la lingua nell’URL di un documento è diversa da quella del cookie, il Worker imposta il cookie nella risposta. `getCurrentLocale()` funziona su entrambi i lati: legge l’URL per le pagine e il cookie per le richieste a `/api` e alle funzioni server, così email e messaggi lato server usano la lingua della pagina in cui si trova l’utente.
+
+## Messaggi
+
+I messaggi sono file `messages/<locale>/<namespace>.json`; il nome del file è il namespace, ad esempio `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` o `common`. Ogni namespace di pagina contiene `metadata.title` e `metadata.description`.
+
+- I namespace radice (`common`, `components.*`, `errors*`) vengono precaricati nel `beforeLoad` radice.
+- Un layout dichiara `NAMESPACES`, una pagina dichiara `NAMESPACE`. Entrambi finiscono in `staticData.namespaces` e vengono precaricati dal loader:
+
+```ts
+loader: async ({ context }) => {
+  const locale = getCurrentLocale()
+  const [metadata] = await Promise.all([
+    loadPageMetadata({ locale, namespace: NAMESPACE }),
+    preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+  ])
+  return { locale, metadata }
+},
+```
+
+- `TranslationsProvider` avvolge il corpo del documento e unisce i namespace radice con quelli delle rotte corrispondenti in un unico `IntlProvider`, quindi anche le schermate di errore sono tradotte.
+- Le email caricano il proprio namespace sul server con `loadNamespace`.
+
+## Componenti
+
+Ogni componente chiama `useTranslations` una sola volta e chiama `t` il traduttore. Un componente che ha bisogno di due namespace usa il loro genitore comune oppure `useTranslations()` con chiavi complete. Formatta numeri e date con `useFormatter`, `useDateFormatter` e `useCurrencyFormatter`.
+
+## Cambiare lingua
+
+`locale-switcher.tsx` contiene due controlli per la lingua. `LocaleSwitcher`, nel footer delle pagine di marketing, è un menu `<details>` con un semplice link per ogni lingua verso il percorso corrente in quella lingua, quindi funziona già prima dell’idratazione. `LocaleSelect`, nelle barre laterali della documentazione e dell’app cliente, è un campo di selezione con lo stesso stile di `ThemeSwitch` che apre lo stesso URL. In entrambi i casi la scelta di una lingua carica un nuovo documento, e query string e frammento non vengono mantenuti. Le pagine in polacco e ucraino precaricano anche i sottoinsiemi di font latino esteso e cirillico ([Font e branding](/docs/ui/fonts-and-branding)).
+
+## Controlli
+
+`bun run check:i18n` verifica la parità delle chiavi tra le lingue, risolve le chiavi statiche nell’ambito del rispettivo `useTranslations`, convalida la sintassi dei messaggi ICU e controlla la parità dei contenuti di documentazione e blog.
 
 ## Guide correlate
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Architettura i18n](/docs/architecture/i18n-architecture)
+- [Messaggi i18n](/docs/guides/i18n-messages)
+- [use-intl](/docs/integrations/use-intl)

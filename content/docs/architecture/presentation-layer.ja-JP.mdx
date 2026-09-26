@@ -1,14 +1,66 @@
 ---
-title: プレゼンテーション
-description: プレゼンテーション — SaaSy Land
+title: "プレゼンテーション"
+description: "コンポーネント、メール、スタイルの置き場所と、すべてのコンポーネントが従うルール。"
 ---
 
-プレゼンテーションレイヤーは、既存のタイポグラフィ、レイアウト、カラー、インタラクションを所有しています。 共有のプリミティブは、 `presentation/components/shadcn`;特徴の部品はあります `presentation/components/custom`. . セクションのみのコンポーネント、ホック、定数をセクションで保持します。
+## フォルダー
 
-ルートはローディングおよび運行コンテキストを提供します。 コンポーネントは、翻訳されたメッセージとネイティブのクエリ/マイテーションオプションを消費します。 ローカルGeistフォントファイルから提供される `public/fonts`. . ザ・オブ・ザ・ザ・ `cn` 助け `src/lib/cn.ts` Tailwind クラスをマージしながら、カスタム型ランプを保存します。
+- `presentation/components/shadcn`：React Aria Components 版の shadcn/ui プリミティブ
+- `presentation/components/custom`：アプリケーションのコンポーネント
+- `presentation/emails`：React Email のテンプレート
+- `presentation/styles`：`globals.css`（唯一の Tailwind ビルド）、`docs.css`（`/docs` レイアウトだけが読み込むプレーンな CSS）、`fonts.css`、`typeset.css`
+- `presentation/theme`：`THEME`（light、dark、system、クッキー名、デフォルト値）
+- `presentation/branding`：アプリ名、ドメイン、URL、GitHub リポジトリ
+- `presentation/document-assets.ts`：ドキュメントのスタイルシートと、ロケールごとのフォントのプリロード
 
-## 関連ガイド
+## コンポーネントの構成
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- 共有コンポーネントは `custom/` 内のフラットなファイルです。例：`footer.tsx`、`navigation.tsx`、`data-table.tsx`、`locale-switcher.tsx`。
+- 1 つのエリアで使うコンポーネントは、エリアのフォルダー（`admin/`、`app/`、`auth/`、`blog/`、`landing-page/`）に置きます。管理画面のページには、`admin/dashboard/revenue-chart.tsx` や `admin/users/reset-password-dialog.tsx` のように専用のフォルダーがあります。
+- 各ファイルには、ウィジェット、ダイアログ、フォーム、カラム定義のいずれか 1 つを置きます。テーブルのカラムは、ページの他のコンポーネントと同じ場所にある `<entity>-columns.tsx` に置きます。
+- ルートファイルは、これらのコンポーネントを組み立てるだけです。複数のファイルで共有するデータは `src/data` に置き、1 つのコンポーネントだけが使う定数はそのファイル内に置きます。
+
+## コンポーネントのルール
+
+- コンポーネントは、`useTranslations`、`useSuspenseQuery`、または `getRouteApi(…).useLoaderData()` を使って、自分の翻訳とデータを読み取ります。親が自分で読み取れたはずのテキスト、ラベル、データを props として受け取ることはありません。
+- コンポーネントは `useTranslations` をちょうど 1 回だけ呼び出し、翻訳関数を `t` と名付けます。2 つの名前空間のキーが必要な場合は、共通の親名前空間を使うか、完全なキーを指定して `useTranslations()` を使います。
+- 値を受け渡すだけのラッパーや、props のバケツリレー（prop drilling）はありません。
+- リッチテキストのタグマップは、モジュールレベルの定数にします。条件付きクラスには `cn` のオブジェクト構文を使います。例：`cn("base", { "text-foreground": isActive })`。
+- コンポーネントがデータベースやプロバイダーのクライアントをインポートすることはありません。ユースケースがエクスポートするクエリオプションとミューテーションオプションを使います。
+
+```tsx
+export const SignOutButton = (): JSX.Element => {
+  const t = useTranslations("common")
+  const { isPending, mutate } = useSignOut()
+
+  return (
+    <Button
+      aria-label={isPending ? t("signingOut") : t("signOut")}
+      className="shrink-0 text-muted-foreground"
+      isDisabled={isPending}
+      onPress={() => {
+        mutate()
+      }}
+      size="icon-sm"
+      variant="ghost"
+    >
+      {isPending && <Spinner />}
+      {!isPending && <LogOut aria-hidden strokeWidth={1.5} />}
+    </Button>
+  )
+}
+```
+
+## スタイリング
+
+`src/lib/cn.ts` の `cn` は、`src/lib/cn.config.ts` から生成されたテーブルを使って Tailwind のクラスをマージします。この設定にはカスタムの `text-*` タイプスケールが登録されているため、マージしてもそれらのクラスは保持されます。Geist のフォントファイルは `public/fonts` から配信されます。すべてのロケールで Latin と mono のファイルをプリロードし、ポーランド語では Latin Extended、ウクライナ語では Cyrillic を追加でプリロードします。
+
+## メール
+
+`presentation/emails` のメールテンプレートにはマークアップだけを含め、名前空間をエクスポートします（例：`VERIFY_EMAIL_NAMESPACE = "emails.verify-email"`）。翻訳には use-intl の `createTranslator` を使います。メッセージは、メールを送信するユースケースが読み込んでテンプレートに渡します。
+
+## 関連ページ
+
+- [shadcn コンポーネント](/docs/ui/shadcn-components)
+- [コンポジションパターン](/docs/ui/composition-patterns)
+- [メールテンプレート](/docs/guides/email-templates)

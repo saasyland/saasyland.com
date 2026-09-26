@@ -1,28 +1,37 @@
 ---
 title: "TanStack Start HTTP handlers"
-description: "TanStack Start HTTP handlers — SaaSy Land"
+description: "The HTTP endpoints under /api and when to add one instead of a server function."
 ---
 
-HTTP endpoints use native TanStack Start server handlers in `src/routes`. Better Auth owns GET and POST under `/api/auth/$`; Fumadocs search uses `/api/search`. Product operations are native server functions in feature modules.
+The application's own operations are server functions. HTTP handlers exist only where something outside the application's RPC client calls a URL: Better Auth's browser client, OAuth providers, Polar webhooks and the docs search box.
 
-Declare handlers on `createFileRoute` with `server.handlers`. Use the supplied `request`, validate input, enforce permission checks, and return a Web `Response`. Keep webhook verification in the provider integration. Do not expose a duplicate REST endpoint for an operation that is only used by this application’s typed RPC client.
+| File                       | Path          | Methods   | Handles                                                                                                                             |
+| -------------------------- | ------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/index.ts`  | `/api`        | GET       | A JSON status response `{ runtime: "cloudflare-workers" }`                                                                          |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | GET, POST | Every Better Auth endpoint, including OAuth callbacks, email verification, the Polar customer portal and `/api/auth/polar/webhooks` |
+| `src/routes/api/search.ts` | `/api/search` | GET       | Fumadocs search over the documentation                                                                                              |
+
+A handler is declared with `server.handlers` on `createFileRoute`. It receives the Web `Request` and returns a `Response`:
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
-## Related guides
+## Rules
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- Do not add a REST endpoint for an operation that only this application calls. Write a use case with `createServerFn` instead; it gets typed input, middleware and query options.
+- A handler validates its input and checks permissions itself. The server function middleware (`authorized`, `withRateLimit`) does not run for handlers.
+- Keep vendor-specific verification in the integration. Polar webhook signatures are verified by the Polar plugin inside Better Auth, not by a custom handler.
+- `/api` paths are never localized, never prerendered and skip the Worker's locale handling.
+
+## Related pages
+
+- [Add an API route](/docs/guides/add-an-api-route)
+- [Server functions and use cases](/docs/architecture/modules-and-use-cases)
+- [API surface](/docs/features/api-surface)

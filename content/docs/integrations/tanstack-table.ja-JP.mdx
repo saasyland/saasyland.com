@@ -1,6 +1,43 @@
 ---
-title: タンスタックテーブル
-description: 共有DataTableを出力するヘッドレステーブル。
+title: "TanStack Table"
+description: "1 つの汎用 DataTable の裏で動く TanStack Table v9 です。"
 ---
 
-ラッピング `presentation/components/custom/data-table`. . キャッシュコンポーネントの下にサスペンスフォールバック内のテーブルAPIを呼び出しないでください。
+すべてのテーブルは、`src/presentation/components/custom/data-table.tsx` にある 1 つの汎用 `DataTable` で描画されます。`DataTable` は `tableFeatures`（カラムフィルタリング、ソート、ページネーション、行選択）と `useTable` で TanStack Table v9 のインスタンスを作成し、shadcn のテーブルプリミティブ、読み込み中のスケルトン行、ローカライズされた空状態を描画します。
+
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
+
+## プロパティ
+
+| プロパティ             | 目的                                                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`              | 行の型に対応するカラム定義。すべての行に `id` が必要です                                                                                    |
+| `data`                 | クライアント側でソート、フィルター、ページネーションを行うテーブルの行                                                                      |
+| `options.initialState` | `pagination` と `sorting` の初期値                                                                                                          |
+| `options.query`        | サーバー側のページングとソート。`pageIndex`、`pageSize`、`sorting` を受け取り、`rows` と `total` に解決されるクエリオプションを返す関数です |
+| `options.selectable`   | 行選択用のチェックボックスカラムを追加します                                                                                                |
+| `filters`              | 検索フィルター（`type: "search"`、`columnId`、`placeholder`）または選択フィルター（`type: "select"`、`columnId`、`label`、`options`）       |
+
+`options.query` を指定すると、テーブルは手動のページネーションとソートに切り替わります。次のページを読み込んでいる間は前のページを表示したままにし、ソートが変わると最初のページに戻ります。
+
+## カラム
+
+カラムはページのウィジェットと同じ場所にある `<entity>-columns.tsx` ファイルに置き、`createColumnHelper<DataTableFeatures, Row>()` を使います。セルとヘッダーは自身の翻訳を読み込む小さなコンポーネントなので、ルートからラベルを渡す必要はありません。
+
+```tsx
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+])
+```
+
+完全な例は `src/presentation/components/custom/admin/users/user-columns.tsx` で、`src/routes/admin.users.all.tsx` から描画されています。
+
+## 関連ガイド
+
+- [DataTable](/docs/ui/data-table)
+- [DataTable を追加する](/docs/guides/add-a-data-table)

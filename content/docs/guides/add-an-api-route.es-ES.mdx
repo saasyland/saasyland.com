@@ -1,28 +1,52 @@
 ---
-title: TanStack Start HTTP handlers
-description: TanStack Start HTTP handlers – SaaSy Land
+title: "Añadir una ruta de API"
+description: "Añade un handler HTTP bajo /api para webhooks y otros clientes externos."
 ---
 
-Las URL de HTTP utilizan los manejadores nativos de TanStack Start. `src/routes`. Better Auth gestiona GET y POST. `/api/auth/$`; El motor de búsqueda de Fumadocs utiliza: `/api/search`Las operaciones de producto son funciones nativas del servidor dentro de los módulos de características.
+Las rutas de API son handlers de servidor de TanStack Start en `src/routes/api/`. Las pantallas de la aplicación nunca las necesitan: llaman a funciones de servidor. Añade una ruta de API solo para clientes ajenos a la aplicación, como webhooks, clientes de terceros o rastreadores.
 
-Define los manejadores en `createFileRoute` con `server.handlers`Utiliza. `request`Verificar la entrada, aplicar controles de permisos, y devolver una Web. `Response`Manten la verificación de webhook en la integración del proveedor. No expongas un endpoint REST duplicado para una operación que solo es utilizada por el cliente RPC tipificado de esta aplicación.
+## Rutas existentes
+
+| Archivo                    | Ruta          | Propósito                                                                                                       |
+| -------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | Better Auth: inicio de sesión, callbacks de OAuth, verificación de correo, checkout, portal y webhooks de Polar |
+| `src/routes/api/search.ts` | `/api/search` | Búsqueda de Fumadocs para la documentación                                                                      |
+| `src/routes/api/index.ts`  | `/api`        | Comprobación del entorno de ejecución que devuelve `{ "runtime": "cloudflare-workers" }`                        |
+
+Los webhooks de Polar llegan a `/api/auth/polar/webhooks`; el plugin de Polar para Better Auth verifica su firma con `POLAR_WEBHOOK_SECRET` antes de que `license.webhooks.ts` los procese.
+
+## Escribe un handler
+
+Declara los métodos en `server.handlers`. Cada handler recibe la `Request` web y devuelve una `Response` web:
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
-import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/auth/$")({
+import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+
+export const Route = createFileRoute("/api/search")({
   server: {
     handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
+      GET: ({ request }) => search.GET(request),
     },
   },
 })
 ```
 
-## Guías relacionadas
+Dentro de un handler:
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+- Valida la query o el cuerpo con un esquema Zod y devuelve `HTTP_STATUS.BAD_REQUEST` (de `src/modules/_core/constants/api.ts`) cuando falle. Si el handler necesita un estado nuevo, añádelo ahí.
+- Lee la sesión con `getRequestSession(request)` y compruébala con `hasPermission`. El middleware de función, como `authorized`, se aplica a las funciones de servidor, no a los handlers.
+- Limita las peticiones a los endpoints públicos con `withinRateLimit({ key, limit, windowSeconds })` y `clientAddress(request.headers)` de `src/lib/rate-limit.ts`.
+- Verifica las firmas antes de confiar en el contenido de un webhook.
+- Devuelve cuerpos de error seguros y registra los detalles con `console.error`.
+
+## Reglas de enrutamiento
+
+- Las rutas `/api` nunca llevan prefijo de idioma, y el Worker omite para ellas la búsqueda de recursos estáticos y las redirecciones de idioma.
+- Las URL de `/api` no llevan idioma, así que `getCurrentLocale()` devuelve ahí el idioma por defecto. Una respuesta localizada toma el idioma de la petición, como hace `/api/search` con su parámetro de query `locale`.
+- `/api` queda fuera del prerenderizado.
+
+## Test
+
+Llama al handler a través de las opciones de la ruta, como hace `src/routes/api/__test__/handlers.test.ts` con `Route.options.server.handlers`, y simula el proveedor al que reenvía la petición.

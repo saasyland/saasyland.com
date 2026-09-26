@@ -1,13 +1,121 @@
 ---
-title: Шаблони електронної пошти
-description: Resend доставка та React Шаблони електронної пошти.
+title: "Шаблони листів"
+description: "Пишіть шаблони React Email з перекладеними повідомленнями й надсилайте їх зі сценаріїв використання через Resend."
 ---
 
-## Де придбати
+Лист складається з трьох частин: шаблону в `src/presentation/emails/`, простору імен повідомлень у `messages/<locale>/emails.<name>.json` і сценарію використання, що завантажує повідомлення, рендерить шаблон і надсилає його. Шаблони: `verify-email`, `reset-password-email`, `change-email-confirmation-email`, `newsletter-confirmation-email` і `newsletter-notification-email`.
 
-- Відправити помічник: `integrations/resend`
-- Шаблони: `presentation/emails` (вчіть експорт своєї складової + `*Subject(locale)`; проводка в `integrations/better-auth/auth.emails.ts`)
+## Шаблон
 
-## Місцеві поради
+Шаблон містить лише розмітку й експортує свій простір імен. Він перекладає через `createTranslator` з `use-intl`, бо рендериться поза контекстом React. `src/presentation/emails/verify-email.tsx`:
 
-Використовуйте Resend на борту відправника для тестування диму; ніколи не коментуйте ключі API.
+```tsx
+import type { JSX } from "react"
+
+import { Body, Button, Container, Head, Heading, Html, Preview, Section, Tailwind, Text, pixelBasedPreset } from "react-email"
+import { createTranslator } from "use-intl"
+
+import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+
+import type emailMessages from "~/messages/en-US/emails.verify-email.json"
+
+export const VERIFY_EMAIL_NAMESPACE = "emails.verify-email"
+
+const TAILWIND_CONFIG = { presets: [pixelBasedPreset] }
+
+interface VerifyEmailProps {
+  readonly locale: SupportedLocale
+  readonly messages: typeof emailMessages
+  readonly name: string
+  readonly verifyUrl: string
+}
+
+export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<VerifyEmailProps>): JSX.Element => {
+  const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
+
+  return (
+    <Html lang={locale}>
+      <Tailwind config={TAILWIND_CONFIG}>
+        <Head />
+        <Body className="font-sans">
+          <Preview>{t("preview")}</Preview>
+          <Container className="mx-auto px-5 py-10">
+            <Section>
+              <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading")}</Heading>
+              <Text className="m-0 mb-6 text-base text-neutral-600">{t("body", { name })}</Text>
+              <Button
+                href={verifyUrl}
+                className="box-border rounded-md bg-neutral-900 px-5 py-3 text-center text-base text-white no-underline"
+              >
+                {t("button")}
+              </Button>
+              <Text className="mt-6 text-sm text-neutral-500">{t("footer")}</Text>
+            </Section>
+          </Container>
+        </Body>
+      </Tailwind>
+    </Html>
+  )
+}
+```
+
+## Повідомлення
+
+Створіть `messages/<locale>/emails.<name>.json` для всіх дев'яти мов. Додайте ключ `subject`; сценарій використання перекладає його окремо від тіла листа.
+
+```json
+{
+  "subject": "Verify your email address",
+  "preview": "Verify your email for SaaSy Land",
+  "heading": "Verify your email",
+  "body": "Hi {name}, thanks for signing up. Confirm your email address to finish setting up your account.",
+  "button": "Verify email",
+  "footer": "If you did not create an account, you can safely ignore this email."
+}
+```
+
+Маршрути ніколи не завантажують простори імен листів заздалегідь; їх завантажує на сервері сценарій використання, що надсилає лист.
+
+## Надсилання
+
+Сценарій використання отримує мову, завантажує повідомлення, будує абсолютні посилання через `localizePathname` і викликає `sendEmail`. `src/modules/verification/use-cases/send-verify-email.ts`:
+
+```ts
+export const sendVerifyEmail = async ({
+  locale,
+  token,
+  user,
+}: {
+  locale: SupportedLocale
+  token: string
+  user: { email: string; name: string }
+}): Promise<void> => {
+  const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+  const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+  verifyUrl.searchParams.set("token", token)
+
+  await sendEmail({
+    idempotencyKey: `verify-email/${token}`,
+    react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+    subject: createTranslator({ locale, messages })("subject"),
+    to: user.email,
+  })
+}
+```
+
+`sendEmail` (`src/integrations/resend/resend.utils.ts`) надсилає через Resend з адреси `RESEND_EMAIL_FROM`, якщо не вказано `from`, передає ключ ідемпотентності, щоб повторна спроба ніколи не надіслала лист двічі, і кидає помилку, коли Resend її повертає.
+
+## Хто що надсилає
+
+- Hooks Better Auth у `src/integrations/better-auth/auth.server.ts` викликають сценарії використання: `sendVerifyEmail` для `emailVerification.sendVerificationEmail` і повторних реєстрацій непідтверджених облікових записів, `sendResetPasswordEmail` для `emailAndPassword.sendResetPassword` і `sendChangeEmailConfirmationEmail` для `user.changeEmail`.
+- Запити Better Auth надходять на `/api/auth` без мовного префікса, тож hooks визначають мову листа з `callbackURL` сценарію, тобто локалізованого шляху сторінки, через `extractLocaleFromCallbackURL` або `extractLocaleFromPath` з `src/integrations/use-intl/i18n.paths.ts`. Резервною мовою є англійська.
+- Сценарії використання розсилки самі надсилають листи підтвердження й сповіщення, наприклад `subscribeToNewsletter`.
+
+## Додайте лист
+
+1. Додайте шаблон у `src/presentation/emails/<name>.tsx` з експортованою константою `<NAME>_NAMESPACE`.
+2. Додайте `messages/<locale>/emails.<name>.json` для всіх дев'яти мов.
+3. Надсилайте його зі сценарію використання, якому належить дія, з ключем ідемпотентності, виведеним з токена чи запису, що ініціює лист.
+4. Протестуйте шаблон у `src/presentation/emails/__test__/`, а сценарій використання — із замоканим `sendEmail`.
+
+Облікові дані Resend: `RESEND_API_KEY` і `RESEND_EMAIL_FROM`. Тести ніколи не звертаються до Resend.

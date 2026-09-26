@@ -1,16 +1,67 @@
 ---
-title: L'internationalisation et les lieux
-description: Internationalisation et localisations — SaaSy Land
+title: "Internationalisation et langues"
+description: "Ajoutez des espaces de noms et des clés de messages dans les neuf langues, chargez-les dans les routes et vérifiez-les avec check:i18n."
 ---
 
-Les messages vivent dans `messages/{locale}` pour les neuf langues configurées comme des fichiers d'espace de noms pointillés, par exemple `pages.admin.users.json`C'est vrai. Configuration locale, helpers d'URL, chargement de messages, métadonnées et helper de traduction d'email vivent dans `src/integrations/use-intl`.
+Les messages utilisent `use-intl` avec la syntaxe ICU. Chaque espace de noms est un fichier JSON par langue dans `messages/<locale>/<namespace>.json`, pour les neuf langues `en-US` (par défaut), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` et `uk-UA`. Le nom du fichier est l'espace de noms : `messages/en-US/pages.admin.users.json` correspond à `pages.admin.users`.
 
-Utilisations en anglais `/docs`; Utilisations polonaises `/pl-PL/docs`C'est vrai. Héritage `/en` et `/pl` les liens sont canonicisés. Les fichiers d'itinéraire déclarent `staticData.namespaces` et préchargez les mêmes espaces de noms dans leur chargeur. `TranslationsProvider` assemble les espaces de noms de route actifs dans un `IntlProvider`C'est vrai. Les messages partagés sont chargés à la racine ; les espaces de noms uniquement par courriel restent sur le serveur.
+## Types d'espaces de noms
 
-Lire le local avec `getCurrentLocale` sur le serveur et `useLocale` dans les composants. L'URL choisit la locale du document. Les requêtes de fonction serveur utilisent le cookie local. Un changement de langue maintient le chemin, la requête et le fragment et recharge le document pour charger le contenu correspondant. Courir `bun run check:i18n` après avoir changé les clés.
+| Espace de noms                              | Chargé par                                                            |
+| ------------------------------------------- | --------------------------------------------------------------------- |
+| `common`, `components.*`, `errors*`         | Le `beforeLoad` de la route racine, sur chaque page                   |
+| `pages.*`                                   | La route de page qui le déclare                                       |
+| Espaces de layout, comme `auth.validations` | La route de layout (`src/routes/auth.tsx`, `admin.tsx`, `app.tsx`, …) |
+| `emails.*`                                  | Le cas d'usage qui envoie l'e-mail, uniquement sur le serveur         |
 
-## Guides connexes
+`TranslationsProvider` enveloppe le corps du document et fusionne les espaces de noms racine avec ceux de toutes les routes correspondantes : chaque écran, y compris les écrans d'erreur, est donc traduit.
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+## Ajouter une clé
+
+Ajoutez la clé au même fichier dans les neuf langues, avec la même structure. `bun run check:i18n` échoue lorsqu'une langue a une clé manquante ou en trop.
+
+## Ajouter un espace de noms de page
+
+1. Créez `messages/<locale>/pages.<area>.<page>.json` dans les neuf langues. Chaque espace de noms de page contient `metadata.title` et `metadata.description` ; `loadPageMetadata` les lit pour l'en-tête du document.
+2. Déclarez-le et chargez-le dans la route :
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: LegalPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+Les routes de layout déclarent `const NAMESPACES = [...] as const`, les préchargent dans le loader et les listent dans `staticData`. Un espace de noms déclaré sans fichier lève `No messages/<locale>/<namespace>.json`.
+
+## Utiliser les messages dans les composants
+
+- Appelez `useTranslations` exactement une fois par composant et nommez le traducteur `t`. i18n-ally et `check:i18n` résolvent chaque `t("key")` par rapport à la portée `useTranslations` précédente la plus proche.
+- Lorsqu'un composant a besoin de clés de deux espaces de noms sans lien, limitez `t` à leur parent commun ou appelez `useTranslations()` avec des clés complètes, comme le fait `sign-in-form.tsx`.
+- Les composants lisent leurs propres messages ; les parents ne transmettent jamais de libellés en props.
+- Le texte enrichi utilise `t.rich("key", TAGS)` avec la table de balises définie comme constante de module, comme `LEGAL_TAGS` dans `src/routes/auth.sign-up.tsx`.
+- `getCurrentLocale()` renvoie la langue sur le serveur comme dans le navigateur. `useDateFormatter` et `useCurrencyFormatter` formatent les dates et les montants pour cette langue.
+
+## Vérifier
+
+```sh
+bun run check:i18n
+```
+
+La commande vérifie la parité des clés entre les langues, les clés statiques par rapport à leur portée `useTranslations`, les formats de messages ICU et la parité du contenu de la documentation entre les langues. `bun run check` l'exécute aussi.
+
+## Langues dans les URL
+
+Les pages en anglais n'ont pas de préfixe (`/docs`) ; les autres langues en utilisent un (`/pl-PL/docs`). Le Worker redirige les préfixes courts comme `/pl` vers `/pl-PL` et synchronise le cookie de langue avec l'URL de la page. Les URL des fonctions serveur et de `/api` ne contiennent pas de langue : les fonctions serveur qui renvoient du contenu localisé reçoivent donc la langue en entrée.

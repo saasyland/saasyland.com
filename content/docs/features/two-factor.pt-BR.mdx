@@ -1,12 +1,29 @@
 ---
-title: Autenticação de dois fatores
-description: TOTP habilitação, verificação e códigos de backup.
+title: "Autenticação em dois fatores"
+description: "Autenticação em dois fatores TOTP com códigos de backup, configurada nas configurações administrativas."
 ---
 
-## Módulo
+O plugin `twoFactor` do Better Auth usa `APP_NAME` como emissor. As funções de servidor ficam em `src/modules/two-factor/use-cases`:
 
-`modules/two-factor/use-cases` - Ativar, desativar, verificar TOTP, verificar código de backup.
+| Caso de uso        | Middleware       | Usado por                              |
+| ------------------ | ---------------- | -------------------------------------- |
+| `enableTwoFactor`  | logado, limitado | `TwoFactorPasswordStep`                |
+| `disableTwoFactor` | logado, limitado | `TwoFactorPasswordStep`                |
+| `verifyTotp`       | limitado         | `TwoFactorVerifyStep`, `TwoFactorForm` |
+| `verifyBackupCode` | limitado         | `TwoFactorForm`                        |
 
-## UX.
+## Configuração
 
-Configurações guia de segurança + `/auth/two-factor` Rota de desafio. Siga Better Auth 2FA plugin restrições em `auth.constraints.ts`.
+**Configurações → Segurança** em `/admin/settings` mostra `TwoFactorDialog` (`src/presentation/components/custom/admin/settings`):
+
+1. A etapa de senha chama `enableTwoFactor` e recebe a URI TOTP e os códigos de backup.
+2. A etapa de verificação mostra o segredo extraído da URI (`extractTotpSecret`) para digitação manual em um aplicativo autenticador e confirma um código de 6 dígitos com `verifyTotp`.
+3. A última etapa mostra os códigos de backup.
+
+Com a 2FA ativa, o mesmo botão abre a etapa de senha com `disableTwoFactor`. O botão lê `twoFactorEnabled` da sessão atual.
+
+## Desafio no login
+
+Para uma conta com 2FA, o Better Auth responde ao login com um redirecionamento de dois fatores; `twoFactorClient` em `auth.client.ts` leva o navegador para `/auth/two-factor` no idioma atual. `TwoFactorForm` aceita um código de 6 dígitos (`InputOTP`) ou, após trocar de modo, um código de backup, e envia `trustDevice: true`. Em caso de sucesso, `usePostAuthRedirect` continua para `/auth/callback`.
+
+Os tamanhos dos códigos estão em `auth.constraints.ts`: `TWO_FACTOR_CODE_LENGTH` é 6 e os códigos de backup têm de 8 a 12 caracteres.

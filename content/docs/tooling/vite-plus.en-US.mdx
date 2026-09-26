@@ -1,6 +1,40 @@
 ---
 title: "Vite+"
-description: "Unified toolchain (vp) usage."
+description: "The vp toolchain: dev server, builds, tests, lint, format and Git hooks."
 ---
 
-Scripts delegate to `vp` for test/lint/fmt/config. Prefer repo scripts over ad-hoc vp flags unless debugging.
+Vite+ (`vite-plus`, command `vp`) bundles Vite, Vitest, oxlint and oxfmt behind one CLI, and `vite.config.ts` configures all of them. `package.json` overrides `vite` with `@voidzero-dev/vite-plus-core` and pins `vitest` to 5.0.1. The package scripts call `vp`; outside them use the global Vite+ CLI or `bunx vp`.
+
+| Command           | Used by                                           |
+| ----------------- | ------------------------------------------------- |
+| `vp dev`          | `dev`                                             |
+| `vp build --mode` | `build:preview`, `build:production`, `build:test` |
+| `vp preview`      | `start`, `start:test`                             |
+| `vp test`         | `test` and the `test:*` Vitest scripts            |
+| `vp lint`         | `lint`                                            |
+| `vp fmt`          | `format`, `format:check`                          |
+| `vp check`        | `check`, `check:fix`                              |
+| `vp staged`       | `check:pre-commit`                                |
+| `vp config`       | `prepare`, which installs the Git hooks           |
+
+## Configuration
+
+`vite.config.ts` loads its plugins lazily. Under Vitest only `@vitejs/plugin-react` loads; otherwise the stack is:
+
+- `@cloudflare/vite-plugin`: runs the Worker in the SSR environment, persists local state (in `.wrangler/test` for the `test` mode) and uses remote bindings for `development`.
+- `fumadocs-mdx`: compiles the docs and blog collections.
+- `@tailwindcss/vite`: Tailwind CSS 4.
+- `tanstackStart`: routing, code splitting and prerendering of public pages.
+- `@vitejs/plugin-react`.
+
+The dev server uses port 3000 and fails if it is taken. `resolve.tsconfigPaths` provides the `~/` import alias. The same file holds the `fmt`, `lint`, `staged` and `test` sections; see [Lint and format](/docs/tooling/lint-format) and [Testing](/docs/tooling/testing).
+
+## Git hooks
+
+`bun install` runs `prepare`, which calls `vp config --no-agent` to install the hook dispatcher for `.vite-hooks/`. `pre-commit` runs `bun run check:pre-commit`, and `prepare-commit-msg` runs `scripts/commit-msg.ts` (see [Conventional commits](/docs/tooling/conventional-commits)). `vp hooks status` shows whether the hooks are active in a clone.
+
+Prefer the package scripts; call `vp` directly for targeted runs, such as formatting or linting specific paths.
+
+## Related guides
+
+- [Project scripts](/docs/tooling/scripts)

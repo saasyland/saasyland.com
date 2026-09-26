@@ -1,26 +1,46 @@
 ---
-title: テストとCI
-description: テストとCI — SaaSy Land
+title: "テスト"
+description: "Vitest のプロジェクト、テストヘルパー、100% カバレッジのゲートです。"
 ---
 
-Vite+ は 3 つのプロジェクトで Vitest を実行します。ノードのテスト、統合テスト、jsdom コンポーネントのテスト。 既存の振る舞いのテストは、演習中のコードの横に保つ `__test__`. . インポートテスト API から `vite-plus/test`. . ブラウザのフルフローとレンダリングチェックに Playwright を使用します。
+Vite+ は `vite.config.ts` の設定で Vitest を実行します。テストは対象のコードと同じ場所にある `__test__` フォルダーに置き、API は `vite-plus/test` からインポートします。
 
-共有セットアップはローカル D1 と KV のモックを供給します。 D1 は SQLite に対するチェックイン SQL のマイグレーションを実行します。 サーバ機能 RPC ブリッジは、TanStack の真のミドルウェアと検証パイプラインを維持します。 コンポーネント レンダー ヘルパーは、実際の QueryClient と Router のコンテキストを提供します。 外部メール、OAuth、支払いコールはテストでモックされます。
-
-編集中に集中したプロジェクトを実行し、完全なスイート、カバレッジゲート、チェック、プレビュービルドを実行します。 ブラウザテストでは、パブリックページ、authリダイレクト、SSRなしJavaScript、およびクライアントナビゲーションを確認します。 CIはローカルバインディングを使用し、ライブデータベースやプロバイダシークレットを必要としません。
+| プロジェクト  | ファイル                                         | 環境                     |
+| ------------- | ------------------------------------------------ | ------------------------ |
+| `node`        | `*.test.ts` と `*.test.tsx`（下の 2 種類を除く） | Node                     |
+| `integration` | `*.integration.test.ts`                          | Node、タイムアウト 20 秒 |
+| `component`   | `*.component.test.tsx`                           | jsdom                    |
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
 ```
+
+`bun test` ではなく `bun run test` を使ってください。Bun 独自のテストランナーは、Vitest のプロジェクト、環境、セットアップファイルを無視します。
+
+## テストプラットフォーム
+
+`src/platform/testing/` には共通の配線がまとめられています。それ以外はすべて、所有するコードと同じ場所に置かれます。
+
+- `setup.ts` は jest-dom のマッチャーと共通のフックを登録します。
+- `mocks/cloudflare.ts` は `cloudflare:workers` を置き換えます。D1 はチェックイン済みのすべてのマイグレーションを適用したインメモリの `node:sqlite` データベースで、KV はインメモリのマップです。
+- `lib/server-function.ts` は、TanStack の本物のミドルウェアとバリデーションのパイプラインを通してサーバー関数を呼び出します。
+- `lib/render.tsx` は、本物の QueryClient とルーターを使ってコンポーネントを描画します。
+- `mocks/providers.ts` は Resend と Polar へのリクエストを横取りします。これをインストールするのは Playwright のテスト用 Worker（`worker.ts`）だけです。
+
+外部のメール、OAuth、決済の呼び出しがテストプロセスの外に出ることはありません。
+
+## カバレッジ
+
+`bun run test:coverage` は、`src/**/*.{ts,tsx}` に対して行、ステートメント、関数、分岐のすべてで 100% のカバレッジを強制します。テスト、`__test__` フォルダー、型宣言ファイル、`src/routeTree.gen.ts`、shadcn のプリミティブ、`src/platform/testing/` は対象外です。レポートはテキスト、HTML、`coverage-summary.json` として `coverage/` に書き出されます。実際の振る舞いをカバーし、決して実行されない分岐は、グローバルをスタブして到達させるのではなく削除してください。CI はすべてのプルリクエストでカバレッジのゲートを実行します。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [テストを書く](/docs/guides/writing-tests)
+- [テストのアーキテクチャ](/docs/architecture/testing-architecture)
+- [Playwright](/docs/tooling/playwright)

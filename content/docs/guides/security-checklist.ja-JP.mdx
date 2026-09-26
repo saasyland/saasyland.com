@@ -1,16 +1,59 @@
 ---
-title: 認証とセキュリティ
-description: 認証とセキュリティ — SaaSy Land
+title: "セキュリティチェックリスト"
+description: "ルート、サーバー関数、データ、シークレットに関わる変更をマージする前に確認すること。"
 ---
 
-認証は2回実施されます: ルート `beforeLoad` ガードは管理者および顧客のレイアウトを保護し、各保護されたサーバー機能は発信者を独自に点検します。 利用条件 `requireAdmin` または `requireSession` レイアウトのためおよび `withAuth(permission)` 業務用。 セッションから顧客操作の派手な所有権。
+ページ、操作、エンドポイント、シークレットを追加するすべての変更について、このリストを確認してください。
 
-Better Auth は D1 でセッションを保存し、資格情報、OAuth、認証、パスワードリセット、2 要素認証、偽装および再発を処理します。 保護されたサーバー機能をチェックするとき、クッキーキャッシュはバイパスされます。 最終的なauthプラグインは `tanstackStartCookies`認証クッキーをサーバー機能の応答で転送する。
+## アクセス
 
-D1 レート制限は、原子書き込みと Cloudflare クライアント IP ヘッダを使用します。 敏感な公共操作は別の限界のキーを備えています。 モジュールZodスキーマで入力を検証し、予期しない失敗をマスクし、支払いのWebhookシグネチャを検証して、サーバーのみの境界の背後にあるすべての資格情報を保持します。 プライベートなルートとトークンのミューテーションは、プレンダーから除外されます。
+- [ ] 非公開のページは、ガード付きのレイアウトの下にあります：`beforeLoad` で `requireAdmin`（`/admin`）または `requireSignedIn`（`/app`）。
+- [ ] 保護されたすべてのサーバー関数に、`authorized(permission)` または `authorized()` があります。ルートガードは RPC 呼び出しを保護しません。
+- [ ] 呼び出し元自身のデータに対する操作は、ユーザーを入力からではなく、`context.auth.user.id` から取得しています。
+- [ ] 新しい権限は `APP_STATEMENTS` にあり、それを必要とするロールにだけ付与されています。
+- [ ] テストで `UNAUTHORIZED` と `FORBIDDEN` をカバーしています。
+
+## 入力
+
+- [ ] すべてのサーバー関数に、モジュールの Zod スキーマでパースする `.validator` があります。
+- [ ] API ハンドラーは、クエリとボディを使う前に検証しています。
+- [ ] リダイレクト先は、`localizePathname` で組み立てた内部パスです。`auth.zod.ts` の `callbackPathSchema` は単一の `/` で始まるパスだけを受け付け、サインアップとメールアドレス変更は `callbackURL` にこれを使います。
+
+## 悪用への対策
+
+- [ ] メールを送信する、コードを確認する、またはトークンを消費する公開操作は、`RATE_LIMITS.SENSITIVE` または `RATE_LIMITS.TOKEN` を指定した `withRateLimit` を使っています。
+- [ ] レートリミッターは、操作とクライアント IP（`cf-connecting-ip`）ごとのカウンターを D1 に保存し、ストレージが利用できない場合はリクエストを拒否します。Better Auth 自身のエンドポイントも同じストレージを使います。
+- [ ] メールは、べき等性キー付きで送信されています。
+
+## エラー
+
+- [ ] 想定される失敗では、`ERROR_CODES` のコードを指定した `AppError` をスローしています。
+- [ ] それ以外のものはクライアントに届きません。`withRequest` が未知のエラーをログに記録し、`INTERNAL_ERROR` に置き換えます。
+- [ ] コンポーネントは、生の `error.message` ではなく、`useErrorMessage` を通してエラーを表示しています。
+
+## シークレットとサーバー専用のコード
+
+- [ ] シークレットは `cloudflare:workers` の `env` から、`@tanstack/react-start/server-only` をインポートするモジュール内でのみ読み取っています。
+- [ ] 非公開の値に `VITE_` プレフィックスが付いていません。付いているとブラウザに公開されてしまいます。
+- [ ] クライアントに送るセッションデータは、セッショントークンを取り除く `getCurrentSession` から取得しています。
+
+## セッションと Cookie
+
+これらは `auth.server.ts` で設定されています。設定を変更する際も、維持してください。
+
+- [ ] `requireEmailVerification: true` と `revokeSessionsOnPasswordReset: true`。
+- [ ] ローカルモード以外での `useSecureCookies` と、環境のホストに限定された `baseURL.allowedHosts`。
+- [ ] `encryptOAuthTokens: true` と `verification.storeIdentifier: "hashed"`。
+- [ ] サインインとサインアウトでクエリキャッシュがクリアされ、ユーザーが変わったときにはガードがクリアします。
+
+## Webhook と出力
+
+- [ ] Webhook は、ペイロードを処理する前に署名を検証しています。Polar は `POLAR_WEBHOOK_SECRET` を使います。
+- [ ] 非公開のページとトークンを消費するページは、プリレンダリングの対象外です。`/admin`、`/app`、`/auth`、`/newsletter`、`/api` は除外されています。
+- [ ] ローダー内のトークンリンクは、ニュースレターの確認ルートや配信停止ルートと同様に、`preload: false` を設定しています。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [認証フロー](/docs/guides/auth-flows)
+- [ロールと権限](/docs/guides/roles-and-permissions)
+- [サーバー関数](/docs/guides/server-functions)

@@ -1,28 +1,46 @@
 ---
-title: TanStack Start HTTP handlers
-description: TanStack Start HTTP handlers – SaaSy Land
+title: "TanStack Start"
+description: "Rutas de archivo, loaders, prerenderizado y handlers HTTP."
 ---
 
-Las URL de HTTP utilizan los manejadores nativos de TanStack Start. `src/routes`. Better Auth gestiona GET y POST. `/api/auth/$`; El motor de búsqueda de Fumadocs utiliza: `/api/search`Las operaciones de producto son funciones nativas del servidor dentro de los módulos de características.
+La aplicación es una app de TanStack Start. `src/router.tsx` crea el router con un QueryClient por solicitud, la integración de consultas con SSR, componentes predeterminados de error y de página no encontrada, precarga por intención y el `rewrite` de idioma. No hay ningún componente de carga predeterminado: cada ruta define su propio esqueleto (consulte [Esqueletos de carga](/docs/architecture/delivery-layer#esqueletos-de-carga)). `src/routes.ts` exporta `ROUTES`, las constantes de rutas que usan los enlaces, las guardas y las etiquetas del encabezado.
 
-Define los manejadores en `createFileRoute` con `server.handlers`Utiliza. `request`Verificar la entrada, aplicar controles de permisos, y devolver una Web. `Response`Manten la verificación de webhook en la integración del proveedor. No expongas un endpoint REST duplicado para una operación que solo es utilizada por el cliente RPC tipificado de esta aplicación.
+## Rutas
+
+`src/routes/` contiene rutas de archivo planas: `admin.users.all.tsx` sirve `/admin/users/all`, `_landing.tsx` es un layout sin ruta propia y `docs.$.tsx` es una ruta comodín. El ID de `createFileRoute("…")` es un literal de cadena que mantiene el generador del router en `src/routeTree.gen.ts`; las carpetas `__test__` no se tratan como rutas.
+
+Un archivo de ruta solo compone su página. Define el componente `<Name>Page` o `<Name>Layout`, `NAMESPACE` o `NAMESPACES`, un loader que ejecuta la carga de metadatos, mensajes y datos en un único `Promise.all`, `head: pageHead(ROUTES.X)` y, en las áreas protegidas, una guarda en `beforeLoad`. Los widgets, diálogos, formularios y columnas de tabla se encuentran en `src/presentation/components/custom/` y leen sus propias traducciones y datos. Consulte [use-intl](/docs/integrations/use-intl) para el loader y [Better Auth](/docs/integrations/better-auth) para las guardas.
+
+## Funciones de servidor
+
+Las operaciones son funciones `createServerFn` nativas exportadas desde los casos de uso de los módulos, por lo que la aplicación no expone ningún endpoint REST para ellas. Consulte [Funciones de servidor y casos de uso](/docs/integrations/server-functions).
+
+## Handlers HTTP
+
+Solo tres rutas declaran `server.handlers` en `src/routes/api/`:
+
+| Ruta          | Handler                                                                                             |
+| ------------- | --------------------------------------------------------------------------------------------------- |
+| `/api`        | Devuelve el entorno de ejecución como JSON                                                          |
+| `/api/auth/$` | Better Auth, incluidos los callbacks de OAuth y los webhooks de Polar en `/api/auth/polar/webhooks` |
+| `/api/search` | Búsqueda en la documentación de Fumadocs                                                            |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
+## Prerenderizado
+
+`vite.config.ts` activa el prerenderizado con rastreo de enlaces. `build:preview`, `build:production` y `build:test` prerenderizan las páginas públicas (landing, páginas legales, blog y documentación) en los nueve idiomas. El filtro omite `/admin`, `/api`, `/app`, `/auth` y `/newsletter`, con o sin prefijo de idioma, así como los enlaces que contienen `?` o `#`. Las páginas omitidas se renderizan en el Worker en cada solicitud.
+
 ## Guías relacionadas
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+- [Ciclo de vida de las solicitudes](/docs/architecture/request-lifecycle)
+- [Caché y SSR](/docs/architecture/caching-and-ssr)
+- [Añadir una ruta de API](/docs/guides/add-an-api-route)

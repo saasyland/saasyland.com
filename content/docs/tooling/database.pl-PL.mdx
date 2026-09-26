@@ -1,23 +1,46 @@
 ---
-title: D1 i Drizzle
-description: D1 i Drizzle — SaaSy Land
+title: "Migracje bazy danych"
+description: "Generowanie, stosowanie i inspekcja migracji D1."
 ---
 
-Cloudflare D1 jest bazą aplikacji. Schematy modułów używają `drizzle-orm/sqlite-core`; zbiera je `src/integrations/drizzle-orm/drizzle.schemas.ts`. Plik `drizzle.database.ts` tworzy adapter Drizzle D1 z `env.DB`.
+Schematy znajdują się w modułach tabel i są zbierane przez `src/integrations/drizzle-orm/drizzle.schemas.ts`. Migracje to pliki SQL z prefiksem znacznika czasu w `src/integrations/drizzle-orm/migrations/`, commitowane razem ze zmianą schematu.
 
-Daty używają całkowitych znaczników czasu SQLite w milisekundach. Pola logiczne korzystają z trybu integer boolean. Relacje, ograniczenia unikalności i klucze obce pozostają w schemacie. Zapewnij atomowość odpowiednim poleceniem SQL lub batchem D1; nie wprowadzaj puli połączeń PostgreSQL ani transakcji interaktywnej.
+## Przebieg pracy
 
-Po zmianie schematów uruchom `db:generate`, sprawdź i zapisz SQL w repozytorium oraz zastosuj go lokalnie. Migracje zdalne są osobnymi poleceniami dla środowiska. Wdrożona baza PostgreSQL wymaga osobnego eksportu i importu; wygenerowanie migracji SQLite nie przenosi istniejących danych.
+1. Zmień `src/modules/<table>/<table>.schema.ts`.
+2. Uruchom `bun run db:generate` i przejrzyj wygenerowany SQL.
+3. Zastosuj migrację lokalnie i uruchom testy; Vitest stosuje każdą migrację do swojej bazy w pamięci.
+4. Zastosuj ją na zdalnej bazie danych przed wdrożeniem kodu, który od niej zależy.
 
 ```sh
 bun run db:generate
 bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
+bun run db:migrate:test
 ```
+
+## Polecenia
+
+| Polecenie                             | Cel                                                                    |
+| ------------------------------------- | ---------------------------------------------------------------------- |
+| `bun run db:generate`                 | Nowa migracja na podstawie różnic w schemacie (drizzle-kit)            |
+| `bun run db:migrate:local`            | Lokalna baza danych środowiska `development`                           |
+| `bun run db:migrate:test`             | Lokalna testowa baza danych w `.wrangler/test`                         |
+| `bun run db:seed:test`                | Konta testowe w lokalnej testowej bazie danych                         |
+| `bun run db:migrate:development`      | Zdalna baza danych `development`, którą domyślnie jest baza preview    |
+| `bun run db:migrate:preview`          | Zdalna baza danych preview                                             |
+| `bun run db:migrate:production`       | Zdalna produkcyjna baza danych                                         |
+| `bun run db:studio:<environment>`     | Drizzle Studio dla `development`, `preview` lub `production`           |
+| `bun run db:introspect:<environment>` | Introspekcja drizzle-kit dla `development`, `preview` lub `production` |
+
+Studio i introspekcja korzystają z API HTTP D1 z `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` i `CLOUDFLARE_ACCESS_TOKEN` z odpowiedniego pliku środowiskowego. Sama aplikacja zawsze używa bindingu `DB`.
+
+Serwer deweloperski używa zdalnych bindingów, więc `db:migrate:local` go nie dotyczy, w przeciwieństwie do `db:migrate:development`. Wdrożenie w CI stosuje `db:migrate:preview` lub `db:migrate:production` przed `wrangler deploy`. Instalacja zależności i budowanie nigdy nie migrują zdalnej bazy danych.
+
+## Konto administratora
+
+Poza testową bazą danych nie ma żadnych danych początkowych. Aby uruchomić nową instalację, zarejestruj się, zweryfikuj adres e-mail, a następnie ustaw `role` tego użytkownika na `admin` w Drizzle Studio.
 
 ## Powiązane przewodniki
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [D1 i Drizzle](/docs/integrations/cloudflare-d1)
+- [Przewodnik po migracjach bazy danych](/docs/guides/database-migrations)

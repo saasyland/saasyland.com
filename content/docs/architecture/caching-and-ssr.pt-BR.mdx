@@ -1,14 +1,39 @@
 ---
-title: Caching e RCE
-description: Caching e RCE - SaaSy Land
+title: "Cache e SSR"
+description: "Onde os dados ficam em cache: o cache de queries por requisição, as páginas pré-renderizadas, o KV e o D1."
 ---
 
-O QueryClient pertence a uma instância de roteador e está integrado com renderização de servidor. Carregadores pré-carregam dados e espaço de nomes JSON; componentes lêem o mesmo cache com `useSuspenseQuery` ou `useSuspenseQueries`. . Consultas declaram chaves estáveis. Mutações bem-sucedidas invalidam apenas as chaves afetadas.
+## Cache de queries
 
-Documentação pública, blog e landing pages são pré-renderizadas em tempo de construção. Cloudflare KV "Caches públicos" GitHub Metadados. D1 Guarda sessões persistentes e contadores atômicos de limite de velocidade; KV não é usado para decisões de permissão.
+`getRouter` cria um novo `QueryClient` a cada requisição, então nenhum dado vaza entre usuários no servidor. Valores padrão:
 
-## Guias relacionados
+| Configuração                 | Valor        |
+| ---------------------------- | ------------ |
+| `staleTime` das queries      | 1 minuto     |
+| `gcTime` das queries         | 5 minutos    |
+| `defaultStaleTime` do router | 1 minuto     |
+| Pré-carregamento             | Por intenção |
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+Os loaders preenchem o cache com `queryClient.query({ ...options, staleTime: "static" })` e os componentes leem as mesmas chaves com `useSuspenseQuery`. `setupRouterSsrQueryIntegration` serializa o cache do servidor no HTML e o hidrata no navegador.
+
+- **Mensagens de tradução** ficam em cache por locale e namespace, com `staleTime` e `gcTime` infinitos.
+- **A query de sessão** (`getCurrentSessionQuery`) tem `staleTime` de um minuto. Os guards de rota a buscam novamente em navegações reais e limpam todo o cache quando o usuário autenticado muda.
+- **Mutations** invalidam as chaves de query do seu módulo, por exemplo `USER_QUERY_KEYS.ALL`, depois de concluídas com sucesso.
+
+## Pré-renderização
+
+`bun run build` pré-renderiza as páginas públicas seguindo os links: a landing, as páginas legais, o blog e a documentação nos nove locales. Ficam de fora os caminhos em `/admin`, `/app`, `/auth`, `/newsletter` e `/api` (com ou sem prefixo de locale) e os links com query string ou hash.
+
+O Worker serve o HTML pré-renderizado a partir do binding `ASSETS` antes de carregar a aplicação. Uma página pré-renderizada não contém dados de usuário, então é seguro servi-la para todos. Quando um visitante se qualifica para preços regionais, o Worker reescreve o HTML e marca a resposta com `Cache-Control: private, no-cache`.
+
+## KV e D1
+
+- **KV (`CACHE`)** armazena apenas a contagem de estrelas do GitHub usada por `src/lib/github.ts`. Um valor em cache com mais de uma hora é retornado imediatamente e atualizado em segundo plano com `waitUntil`.
+- **D1 (`DB`)** armazena as sessões e os contadores de rate limit. As verificações de sessão das server functions ignoram o cache de cookie do Better Auth e ficam memoizadas pelo restante da requisição.
+- Server functions nunca tomam uma decisão de permissão com base em dados em cache.
+
+## Páginas relacionadas
+
+- [Ciclo de vida da requisição](/docs/architecture/request-lifecycle)
+- [Cloudflare KV](/docs/integrations/cloudflare-kv)
+- [TanStack Start](/docs/integrations/tanstack-start)

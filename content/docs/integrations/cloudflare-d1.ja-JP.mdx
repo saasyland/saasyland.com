@@ -1,23 +1,53 @@
 ---
-title: D1とDrizzle
-description: D1 と Drizzle — SaaSy Land
+title: "D1 と Drizzle"
+description: "D1 データベース、Drizzle のスキーマ、アトミックな書き込みです。"
 ---
 
-Cloudflare D1 はアプリケーションデータベースです。 モジュールスキーマの使用 `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` それらを収集します。 `drizzle.database.ts` Drizzle D1 アダプターを作成します。 `env.DB`.
+Cloudflare D1（SQLite）はアプリケーションのデータベースで、`DB` としてバインドされています。`src/integrations/drizzle-orm/` がこれを Drizzle に接続します。
 
-日付は、ミリ秒でSQLite整数タイムスタンプを使用します。 Boolean フィールドは SQLite integer boolean モードを使用します。 関係、固有の制約、外部キーはスキーマに残ります。 適切なSQLステートメントまたはD1のバッチで操作原子を保持します。 PostgreSQL接続プールまたはインタラクティブなトランザクションは導入しません。
+| ファイル              | 目的                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `drizzle.database.ts` | `drizzle(env.DB, { schema })` で作成されるサーバー専用の `db`                                                |
+| `drizzle.schemas.ts`  | すべてのテーブルスキーマとそのリレーションを再エクスポートします                                             |
+| `drizzle.config.ts`   | drizzle-kit: SQLite ダイアレクト、`d1-http` ドライバー、`migrations/` 内のタイムスタンプ付きマイグレーション |
 
-ログイン `db:generate` スキーマを変更した後、生成されたSQLを見直してコミットし、ローカルで適用します。 リモートマイグレーションは、明示的な環境固有のコマンドです。 デプロイされた PostgreSQL データベースには、別のレビューされたエクスポートとインポートが必要です。 SQLite のマイグレーションを生成すると、既存のデータを転送しません。
+## テーブル
 
-```sh
-bun run db:generate
-bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
+各テーブルは `src/modules/<table>/` に専用のモジュールを持ち、`<table>.schema.ts`（`drizzle-orm/sqlite-core`）、`.zod.ts`、`.constants.ts`、`.types.ts`、`.utils.ts`、`use-cases/` で構成されます。モジュールは `account`、`category`、`license`、`newsletter-subscriber`、`product`、`rate-limit`、`session`、`two-factor`、`user`、`verification` です。テーブルを所有しないコードにはモジュールを作りません。
+
+スキーマは共通の規約に従います。
+
+- ID は UUID v7 の文字列です。
+- 日付は `timestamp_ms` モードの `integer` カラムで、デフォルト値は `unixepoch() * 1000` です。
+- 真偽値は `boolean` モードの `integer` カラムです。
+- リレーション、インデックス、一意制約、外部キーはスキーマ内で宣言します。
+
+## アトミックな書き込み
+
+D1 にはインタラクティブなトランザクションがありません。`onConflictDoUpdate` を使ったアップサートのような 1 つの文で操作をアトミックに保つか、`db.batch` で複数の文をまとめてください。ページング付きの一覧を返すユースケースは、1 回のバッチでページとその合計件数を取得します（`src/modules/category/use-cases/get-categories.ts`）。
+
+```ts
+const filter = data.kind === undefined ? undefined : eq(category.kind, data.kind)
+const [rows, totals] = await db.batch([
+  db
+    .select()
+    .from(category)
+    .where(filter)
+    .orderBy(desc(category.createdAt), desc(category.id))
+    .limit(data.pageSize)
+    .offset(data.pageIndex * data.pageSize),
+  db.select({ total: count() }).from(category).where(filter),
+])
+return { rows, total: totals.reduce((sum, row) => sum + row.total, 0) }
 ```
+
+`src/lib/rate-limit.ts` のレートリミッターは、クリーンアップ、アトミックなアップサート、読み取りを 1 回のバッチにまとめています。そのため、すべての Worker インスタンスが同じ制限を共有します。
+
+## マイグレーション
+
+マイグレーションは `src/integrations/drizzle-orm/migrations/` にある SQL ファイルです。`bun run db:generate` で生成し、Wrangler で適用します。Vitest はインメモリの SQLite データベースに対してマイグレーションを実行します。コマンドについては[データベースのマイグレーション](/docs/tooling/database)を参照してください。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [モジュールを追加する](/docs/guides/add-a-module)
+- [データベースのマイグレーション](/docs/guides/database-migrations)

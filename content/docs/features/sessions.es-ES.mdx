@@ -1,10 +1,24 @@
 ---
-title: Sesiones.
-description: Listar y revocar sesiones para usuarios y administradores.
+title: "Sesiones"
+description: "Sesiones de Better Auth en D1, con revocación de autoservicio en los ajustes de administración."
 ---
 
-## Módulo.
+Las sesiones se guardan en la tabla `session` de D1 (`src/modules/session/session.schema.ts`). `auth.session.ts` las lee con `getRequestSession`, memorizada por petición, y expone `getCurrentSessionQuery` a rutas y componentes. La copia del cliente nunca incluye el token de sesión.
 
-`modules/session/use-cases` — listado de sesiones activas/de usuario, revocación de una/muchas/otras.
+## Casos de uso
 
-Aparecen en la interfaz de seguridad de la configuración administrativa y en las acciones de administración de usuarios.
+| Caso de uso                               | Middleware                        | Lo usa             |
+| ----------------------------------------- | --------------------------------- | ------------------ |
+| `getActiveSessions`                       | con sesión                        | `SettingsSessions` |
+| `revokeSession`                           | con sesión; solo sesiones propias | `SessionRow`       |
+| `revokeOtherSessions`                     | con sesión                        | `SettingsSessions` |
+| `listUserSessions`                        | `session: ["list"]`               | ninguna pantalla   |
+| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`             | ninguna pantalla   |
+
+`getActiveSessions` devuelve las sesiones no caducadas del usuario actual, de la más reciente a la más antigua, y omite las sesiones de suplantación.
+
+## Interfaz
+
+**Ajustes → Seguridad** en `/admin/settings` muestra `SettingsSessions` (`src/presentation/components/custom/admin/settings/sessions.tsx`). Cada `SessionRow` muestra el dispositivo (agente de usuario o dirección IP), la última actividad y una etiqueta en la sesión actual, y puede revocar esa sesión. Un botón de la cabecera revoca todas las demás sesiones. Cambiar la contraseña también actualiza la lista de sesiones.
+
+Las variantes de administración para las sesiones de otros usuarios existen solo como funciones de servidor.

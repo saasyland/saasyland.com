@@ -1,23 +1,58 @@
 ---
-title: Regionale Entwicklung.
-description: Lokale Entwicklung – SaaSy Land
+title: "Lokales Debugging"
+description: "Eine lokale Umgebung wählen, Serverfehler lesen, Daten untersuchen und Tests debuggen."
 ---
 
-Installieren Sie Bun 1.4 und Node 24 oder eine neuere Version, und installieren Sie anschließend die Abhängigkeiten. Kopieren Sie `.env.example` in `.env.development` und konfigurieren Sie ein langes, zufälliges `AUTH_SECRET`, die öffentliche `VITE_APP_URL` sowie alle externen Integrationen, die Sie testen möchten.
+## Umgebung wählen
 
-Der Entwicklungsserver nutzt die Preview-D1- und KV-Ressourcen über Cloudflare’s Remote Bindings, und entspricht damit den React-Projekten. Melden Sie sich mit Wrangler an und führen Sie die in das Repository eingecheckten SQLite-Migrationen im Entwicklungsumfeld aus, bevor Sie beginnen. Der Entwicklungskommando erzeugt Inhalte für Fumadocs und führt Vite+ mit dem Cloudflare-Plugin aus. Browser-Tests verwenden separaten lokalen Speicher unter `.wrangler/test`.
-
-OAuth, E-Mail und Abrechnung erfordern Anmeldeinformationen des Anbieters. Verwenden Sie Testanmeldeinformationen und die Polar-Sandbox während der Entwicklung. Tests verwenden vordefinierte Dummy-Werte und Mock-Objekte anstelle des Versendens echter Nachrichten oder des Belastens eines Kunden.
+| Umgebung          | Befehle                                                       | Daten                                                     | Provider                       |
+| ----------------- | ------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------ |
+| Isolierte Preview | `db:migrate:test`, `db:seed:test`, `build:test`, `start:test` | Lokales D1 und KV in `.wrangler/test`, vorbefüllte Konten | Abgefangen; keine Konten nötig |
+| Entwicklung       | `db:migrate:development`, `dev`                               | Remote-Preview-D1 und -KV                                 | Echt, aus `.env.development`   |
 
 ```sh
-bun install
+bun run db:migrate:test
+bun run db:seed:test
+bun run build:test
+bun run start:test
+```
+
+Die isolierte Preview liefert einen Build unter `http://127.0.0.1:3000` aus; um Änderungen am Quellcode zu sehen, neu bauen. Als `admin@saasyland.example.test` oder `customer@saasyland.example.test` mit dem Passwort aus `e2e/data/accounts.ts` anmelden. E-Mails werden abgefangen statt versendet: `/__test/emails?to=<address>` öffnen, um sie zu lesen, einschließlich der Verifizierungslinks.
+
+```sh
+bunx wrangler login
 cp .env.example .env.development
 bun run db:migrate:development
 bun run dev
 ```
 
-## Verwandte Anleitungen.
+Der Entwicklungsserver läuft unter `http://localhost:3000` mit Hot Reload. Seine Bindings `DB` und `CACHE` sind die Remote-Preview-Ressourcen, sodass Schreibvorgänge und Migrationen die gemeinsam genutzte Preview-Datenbank betreffen. `POLAR_SERVER=sandbox` verwenden.
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+## Serverfehler lesen
+
+- Eine fehlschlagende Server-Funktion protokolliert `Server function failed` mit dem ursprünglichen Fehler im Terminal, in dem `bun run dev` läuft, bzw. in den Workers Logs für deployte Umgebungen. Der Browser erhält nur den Fehlercode.
+- `Rate-limit storage unavailable` bedeutet, dass D1 während einer Rate-Limit-Prüfung nicht erreichbar war; die Anfrage wurde abgelehnt.
+- `No messages/<locale>/<namespace>.json` bedeutet, dass eine Route einen Namespace deklariert, für den es in dieser Locale keine Datei gibt.
+
+## Daten untersuchen
+
+- Drizzle Studio: `bun run db:studio:development` (auch `:preview` und `:production`). Es benötigt die `CLOUDFLARE_*`-Variablen in der passenden Umgebungsdatei.
+- Lokale Testdatenbank: `bunx wrangler d1 execute DB --env test --local --persist-to .wrangler/test --command "SELECT email, role FROM user"`.
+
+## Generierte Dateien reparieren
+
+- Typen für Worker-Bindings, Klassennamen-Tabellen oder Docs-Inhalte sind veraltet: `bun run typegen`.
+- Übersetzungen werden nicht aufgelöst: `bun run check:i18n` listet fehlende Schlüssel pro Locale sowie Schlüssel auf, die in ihrem `useTranslations`-Scope nicht aufgelöst werden.
+- `bun run clean` entfernt Build-Ausgaben, Caches und `.wrangler`, einschließlich der lokalen Testdatenbank; danach `db:migrate:test` und `db:seed:test` erneut ausführen.
+
+## Tests debuggen
+
+- Ein einzelnes Projekt oder nur betroffene Tests ausführen: `bun run test:unit`, `bun run test:component`, `bun run test:changed`, `bun run test:watch`.
+- Playwright: `bun run test:e2e:headed` zeigt den Browser, und `bun run test:e2e:ui` öffnet den UI-Modus. Lokale Läufe behalten Traces fehlgeschlagener Tests und öffnen bei einem Fehlschlag den HTML-Bericht.
+- Andere Server auf Port 3000 vor `bun run test:e2e` beenden oder `PLAYWRIGHT_BASE_URL` setzen.
+
+## Verwandte Anleitungen
+
+- [Tests schreiben](/docs/guides/writing-tests)
+- [Datenbankmigrationen](/docs/guides/database-migrations)
+- [Erster Start](/docs/getting-started/first-run)

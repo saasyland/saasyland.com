@@ -1,6 +1,58 @@
 ---
-title: フォント&ブランディング
-description: ブランドアセットとタイポグラフィロード。
+title: "フォントとブランディング"
+description: "セルフホストの Geist フォント、言語に応じたプリロード、ブランド定数。"
 ---
 
-`presentation/branding` + `presentation/fonts`. . ブランド信号を着陸に強く保って下さい;管理は密度および明快さを優先します。
+## フォント
+
+Geist と Geist Mono は、可変フォントの WOFF2 サブセットとして `public/fonts` にセルフホストされ、1 年間の不変キャッシュ（`public/_headers`）で配信されます。`src/presentation/styles/fonts.css` は Unicode の範囲（ラテン、ラテン拡張、キリル文字）ごとの `@font-face`、メトリクスを合わせたフォールバックフォント、変数 `--font-geist-sans` と `--font-geist-mono` を宣言します。`globals.css` はこれらを `--font-sans`、`--font-heading`、`--font-mono` に対応付けます。日本語のテキストはシステムフォントで表示されます。
+
+## プリロード
+
+`src/presentation/document-assets.ts` は `DOCUMENT_STYLESHEET`（`globals.css`）と、言語ごとのフォントのプリロードをエクスポートします。
+
+```ts
+export const fontPreloads = (locale: SupportedLocale) => {
+  const fonts = [GEIST_LATIN, GEIST_MONO_LATIN]
+  if (locale === "pl-PL") {
+    fonts.push(GEIST_LATIN_EXT)
+  } else if (locale === "uk-UA") {
+    fonts.push(GEIST_CYRILLIC)
+  }
+  return fonts
+}
+```
+
+ルートルートはこれらを `link` タグとして追加し、Worker（`src/server.ts`）はすべての HTML レスポンスで、スタイルシートと同じフォントを `Link` プリロードヘッダーとして送ります。フォントのファイル名は内容のハッシュなので、フォントを差し替えたら `fonts.css` と `document-assets.ts` の両方を更新してください。
+
+## ブランド定数
+
+`src/presentation/branding/index.ts` はブランド情報の唯一の出どころです。
+
+```ts
+export const APP_NAME = "SaaSy Land"
+export const APP_DOMAIN = "saasyland.com"
+
+export const APP_URL = `https://${APP_DOMAIN}`
+export const CONTACT_EMAIL = `hello@${APP_DOMAIN}`
+export const NOTIFICATIONS_EMAIL = `notifications@${APP_DOMAIN}`
+
+export const APP_FOUNDED_YEAR = 2023
+
+export const APP_GITHUB_OWNER = "saasyland"
+export const APP_GITHUB_REPO = APP_DOMAIN
+export const APP_GITHUB_URL = `https://github.com/${APP_GITHUB_OWNER}/${APP_GITHUB_REPO}`
+```
+
+これらは Better Auth のアプリ名と 2FA の発行者、テーマと言語の Cookie 名、許可ホスト、フッター、ドキュメントのナビゲーション、GitHub のスター数、ブログの構造化データ、メールの送信者と宛先に使われます。
+
+## ロゴとメディア
+
+- `Wordmark`（`src/presentation/components/custom/wordmark.tsx`）は、ロゴをインライン SVG として `APP_NAME` の横に描画します。
+- ファビコンは `public/favicon.ico` で、ブログの画像は `public/images/blog` にあります。
+- ランディングページの動画は、WebP のポスター付きの WebM ファイルとして `src/presentation/assets/motion` にあります。ポスターは対応する動画と同じ寸法を保つ必要があります。
+
+## 関連ガイド
+
+- [テーマとブランディング](/docs/guides/theming-and-branding)
+- [テーマ](/docs/ui/theme)

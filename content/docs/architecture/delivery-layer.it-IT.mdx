@@ -1,23 +1,97 @@
 ---
-title: Percorsi e consegna
-description: Percorsi e consegne — SaaSy Land
+title: "Route e delivery"
+description: "Come vengono nominati e strutturati i file di route e come è configurato il router."
 ---
 
-`src/server.ts` canonizza gli URL locali e mantiene il cookie locale in sincronia. `src/router.tsx` crea un QueryClient fresco per router e lo collega alla SSR. I file di route nativi dichiarano componenti, guardie, caricatori, validazione di ricerca e metadati.
+## File di route
 
-Admin e layout dei clienti utilizzano `beforeLoad` Guardie. Ogni funzione server protetta controlla anche il suo chiamante, perché un RPC può essere chiamato indipendentemente da una pagina. Non posizionare mai una risposta autenticata in una cache statica condivisa.
+Le route sono file piatti in `src/routes`. I punti diventano segmenti del percorso:
 
-```text
-Request → Worker locale middleware → TanStack Router
-        → beforeLoad session/permission guard
-        → loader: messages + authorized query data
-        → SSR + hydrated React presentation
-Mutation → validated server function → auth/rate limit → D1 or provider
-         → result/error → scoped query invalidation
+| File                  | URL                | Note                                             |
+| --------------------- | ------------------ | ------------------------------------------------ |
+| `__root.tsx`          | tutte le pagine    | Shell del documento e namespace radice           |
+| `_landing.tsx`        | nessuno            | Layout senza percorso per le pagine di marketing |
+| `_landing.terms.tsx`  | `/terms`           | Pagina all'interno del layout landing            |
+| `admin.tsx`           | `/admin`           | Layout con la guard `requireAdmin`               |
+| `admin.users.all.tsx` | `/admin/users/all` | Pagina all'interno del layout admin              |
+| `blog.index.tsx`      | `/blog`            | Pagina indice del layout `blog`                  |
+| `docs.$.tsx`          | `/docs/*`          | Route splat per le pagine della documentazione   |
+| `api/auth.$.ts`       | `/api/auth/*`      | Handler HTTP, senza componente                   |
+
+Gli ID di `createFileRoute("…")` sono stringhe letterali gestite dal generatore del router, che scrive anche `src/routeTree.gen.ts`. I file nelle cartelle `__test__` vengono ignorati. Ogni URL ha una costante in `ROUTES` (`src/routes.ts`) e i link usano `<Link to={ROUTES.X}>`.
+
+## Route di pagina
+
+Una route di pagina definisce un componente `<Name>Page`, una costante `NAMESPACE` subito sopra `export const Route` e un loader che carica i metadati della pagina e il namespace in un unico `Promise.all`:
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: LegalPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
 ```
 
-## Guide correlate
+I dati aggiuntivi vanno nello stesso `Promise.all`, ad esempio `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` in `admin.users.all.tsx`. `pageHead` di `src/lib/seo.ts` costruisce i tag title, description, canonical, `hreflang` e Open Graph a partire dai `metadata` del loader.
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+## Route di layout
+
+Una route di layout definisce un componente `<Name>Layout`, un array `NAMESPACES` e, per le aree protette, una guard in `beforeLoad`:
+
+```tsx
+const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
+
+export const Route = createFileRoute("/app")({
+  beforeLoad: requireSignedIn,
+  component: AppLayout,
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  pendingComponent: AppPending,
+  staticData: { namespaces: NAMESPACES },
+})
+```
+
+Le guard `requireSignedIn`, `requireAdmin`, `redirectIfSignedIn` e `redirectAfterAuth` provengono da `src/integrations/better-auth/auth.routes.ts`.
+
+## Scheletri di caricamento
+
+La maggior parte delle navigazioni termina prima che compaia qualsiasi UI di attesa. I link precaricano la loro route al passaggio del mouse e al tocco, le pagine pubbliche sono prerenderizzate e il router attende il suo `pendingMs` predefinito di un secondo prima di mostrare qualcosa. Uno scheletro compare solo quando una navigazione richiede più tempo, di solito alla prima visita di un'area con una connessione lenta.
+
+Non esiste un componente pending predefinito. Ogni route di layout e di pagina imposta il proprio `pendingComponent`, e ogni scheletro riproduce la pagina che sostituisce:
+
+- **Gli scheletri di pagina**, come `SignInPending` e `LegalPending`, si trovano nel file pending dell'area e marcano il proprio elemento radice con `aria-busy="true"`. I file sono `custom/auth/auth-pending.tsx`, i file di amministrazione in `custom/admin/` (`admin-pending.tsx` per il layout, un file per ogni gruppo della barra laterale e blocchi condivisi in `pending-blocks.tsx`), `custom/app/app-pending.tsx`, `custom/blog/blog-pending.tsx`, `custom/marketing-pending.tsx` e `custom/docs-pending.tsx`.
+- **Gli scheletri di layout**, come `AuthPending` e `MarketingPending`, renderizzano la cornice del layout e scelgono lo scheletro di pagina per il percorso corrente da una mappa con chiavi prese da `ROUTES`. Entrando in un'area da un'altra parte del sito si vede quindi la pagina giusta. Gli elementi della cornice che non richiedono dati, come `Wordmark`, `PageFrame` e la `Navigation` del marketing, vengono renderizzati davvero.
+- **I segnaposto di testo** sono barre `Skeleton` con il token tipografico dell'elemento reale più `h-lh scale-y-70`, così ogni barra riempie esattamente una line box. I riquadri usano le altezze e i raggi reali. Gli elenchi prendono la loro lunghezza dalle stesse costanti della UI, come `OAUTH_PROVIDERS` e `PASSWORD_RULES` in `src/data/auth.ts`.
+
+Quando aggiungi una pagina, aggiungi il suo scheletro al file pending dell'area, registralo nella mappa dello scheletro di layout e impostalo come `pendingComponent` della route.
+
+## Altri aspetti delle route
+
+- **I parametri di ricerca** vengono analizzati da `validateSearch` nella route, ad esempio il parametro `tab` di `/admin/products` o il parametro `view` di `/admin/blog`.
+- **Le server function di una sola route** possono essere definite nel file della route con `createServerFn`, come avviene per `getBlogPosts` in `blog.index.tsx`.
+- **Gli endpoint HTTP** si trovano in `src/routes/api`. Vedi [Handler HTTP di TanStack Start](/docs/architecture/api-layer).
+
+## Router
+
+`src/router.tsx` esporta `getRouter`, che crea un nuovo `QueryClient` e un nuovo router per ogni richiesta. Imposta:
+
+- i componenti predefiniti di errore e not-found da `presentation/components/custom`, e nessun componente pending predefinito (vedi [Scheletri di caricamento](#scheletri-di-caricamento))
+- il precaricamento su intent e uno stale time predefinito di un minuto
+- un `rewrite` che rimuove il prefisso del locale dagli URL in entrata e lo aggiunge di nuovo ai link generati
+- l'integrazione SSR delle query tramite `setupRouterSsrQueryIntegration`
+
+## Pagine correlate
+
+- [Ciclo di vita della richiesta](/docs/architecture/request-lifecycle)
+- [Route](/docs/reference/routes)
+- [Aggiungere una pagina admin](/docs/guides/add-an-admin-page)

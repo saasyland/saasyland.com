@@ -1,23 +1,53 @@
 ---
-title: D1 і Drizzle
-description: D1 і Drizzle - SaaSy Land
+title: "D1 і Drizzle"
+description: "База даних D1, схеми Drizzle та атомарні записи."
 ---
 
-Cloudflare D1 - База даних додатків. Використання модульних схем `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` збирає їх. `drizzle.database.ts` створює адаптер Drizzle D1 від `env.DB`.
+Cloudflare D1 (SQLite) — це база даних застосунку, прив'язана як `DB`. `src/integrations/drizzle-orm/` підключає її до Drizzle:
 
-Дати використання SQLite цілих міток в мілісекундах. Болеанські поля використовують SQLite загальний режим болеана. Відносини, унікальні обмеження та іноземні ключі залишаються в шемалі. Зберігайте атомію роботи з відповідним протоколом SQL або пакетом D1; не введіть басейн з підключенням PostgreSQL або інтерактивну операцію.
+| Файл                  | Призначення                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------ |
+| `drizzle.database.ts` | Серверний `db`, створений через `drizzle(env.DB, { schema })`                                    |
+| `drizzle.schemas.ts`  | Повторно експортує схему кожної таблиці та її зв'язки                                            |
+| `drizzle.config.ts`   | drizzle-kit: діалект SQLite, драйвер `d1-http`, міграції з префіксом-міткою часу в `migrations/` |
 
-Зареєструватися `db:generate` після зміни schemas, рецензування та впорядкування створеного SQL, і застосувати його локально. Віддалені міграції є чіткими командами середовища. База даних PostgreSQL вимагає окремого переглянуто експорт і імпорт; генерування міграції SQLite не передає існуючі дані.
+## Таблиці
 
-```sh
-bun run db:generate
-bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
+Кожна таблиця має власний модуль у `src/modules/<table>/` з `<table>.schema.ts` (`drizzle-orm/sqlite-core`), `.zod.ts`, `.constants.ts`, `.types.ts`, `.utils.ts` і `use-cases/`. Модулі: `account`, `category`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user` і `verification`. Код, який не володіє таблицею, не отримує модуля.
+
+Схеми дотримуються однакових конвенцій:
+
+- Ідентифікатори — це рядки UUID v7.
+- Дати — це стовпці `integer` у режимі `timestamp_ms` з типовим значенням `unixepoch() * 1000`.
+- Булеві значення — це стовпці `integer` у режимі `boolean`.
+- Зв'язки, індекси, обмеження унікальності та зовнішні ключі оголошуються в схемі.
+
+## Атомарні записи
+
+D1 не підтримує інтерактивних транзакцій. Зберігайте атомарність операції за допомогою одного запиту, наприклад upsert з `onConflictDoUpdate`, або групуйте запити через `db.batch`. Сценарії використання посторінкових списків отримують сторінку та загальну кількість в одному пакеті (`src/modules/category/use-cases/get-categories.ts`):
+
+```ts
+const filter = data.kind === undefined ? undefined : eq(category.kind, data.kind)
+const [rows, totals] = await db.batch([
+  db
+    .select()
+    .from(category)
+    .where(filter)
+    .orderBy(desc(category.createdAt), desc(category.id))
+    .limit(data.pageSize)
+    .offset(data.pageIndex * data.pageSize),
+  db.select({ total: count() }).from(category).where(filter),
+])
+return { rows, total: totals.reduce((sum, row) => sum + row.total, 0) }
 ```
 
-## Схожі посібники
+Обмежувач частоти запитів у `src/lib/rate-limit.ts` поєднує очищення, атомарний upsert і читання в одному пакеті, тож екземпляри Worker мають спільні ліміти.
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+## Міграції
+
+Міграції — це SQL-файли в `src/integrations/drizzle-orm/migrations/`, які генерує `bun run db:generate` і застосовує Wrangler. Vitest запускає їх на SQLite-базі в пам'яті. Команди описано в розділі [Міграції бази даних](/docs/tooling/database).
+
+## Пов'язані посібники
+
+- [Додавання модуля](/docs/guides/add-a-module)
+- [Міграції бази даних](/docs/guides/database-migrations)

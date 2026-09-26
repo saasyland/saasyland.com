@@ -1,16 +1,32 @@
 ---
 title: "Customer app"
-description: "Protected /app area for signed-in customers."
+description: "The signed-in /app area: overview, licence page and sidebar."
 ---
 
-## Route group
+## Layout
 
-`src/routes/app*.tsx` and `src/presentation/components/custom/app/`
+`src/routes/app.tsx` guards the area with `requireSignedIn` and preloads its namespaces:
 
-## Status
+```tsx
+const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
 
-Shell after sign-in. Expand with billing portal, course library, account deep-links, and entitlement-gated content.
+export const Route = createFileRoute("/app")({
+  beforeLoad: requireSignedIn,
+  component: AppLayout,
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  staticData: { namespaces: NAMESPACES },
+})
+```
 
-## Guards
+`AppLayout` renders `AppSidebar` and `AppHeader` from `src/presentation/components/custom/app` inside the shadcn `SidebarProvider`. The sidebar builds its links from `APP_NAVIGATION` in `src/data/app.ts`, reads the user from the route context (`getRouteApi("/app")`) and ends with `SignOutButton`. The header shows the current page and a link back to the website. Admins land on `/admin` after sign-in, everyone else on `/app`.
 
-`src/integrations/better-auth/auth.guards.ts` + session; prefer use-cases for any mutation from this surface.
+## Pages
+
+| Route          | Content                                                                                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/app`         | `CheckoutOptions` without a licence, otherwise `LicenseStatusCard` (tier, status and a link to the licence page); links to the docs and to support by email.        |
+| `/app/license` | `CheckoutOptions` without a licence, otherwise `LicenseCard` (key, install command, customer portal link) and, once Polar has issued the key, `LicenseActivations`. |
+
+Both loaders preload `currentLicenseQuery`; `/app/license` also preloads `licenseActivationsQuery`. Checkout, webhooks and licence states are described in [Payments and licences](/docs/features/payments).
+
+There are no billing history, account settings or course screens in `/app`.

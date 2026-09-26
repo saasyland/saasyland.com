@@ -1,6 +1,83 @@
 ---
-title: Shadcn / React Aria condizionata
-description: Primitivi componenti e convenzioni di styling.
+title: "shadcn/ui e React Aria"
+description: "Primitive React Aria, components.json e il pattern dei form."
 ---
 
-Componenti sotto `presentation/components/shadcn`. Costruito su React Aria / Base UI modelli utilizzati in questo repo — seguire i primitivi esistenti quando l'aggiunta di nuovi (`bunx shadcn@latest` + abilità di progetto).
+Le primitive in `src/presentation/components/shadcn/` sono componenti shadcn/ui costruiti su React Aria Components, quindi usano props di React Aria come `onPress`, `isDisabled`, `isPending` e `isSelected`. Alcune incapsulano altre librerie: `input-otp`, `embla-carousel-react`, `react-resizable-panels`, `recharts` e `sonner`. I componenti dell'applicazione si trovano in `src/presentation/components/custom/`; la cartella shadcn è esclusa dalla copertura dei test.
+
+`components.json` configura la CLI di shadcn: stile `base-lyra`, colore di base `neutral`, variabili CSS in `src/presentation/styles/globals.css`, icone Lucide, `rsc: false` e gli alias `ui` (`~/src/presentation/components/shadcn`), `utils` (`~/src/lib/cn`) e `hooks` (`~/src/hooks`). Una nuova primitiva segue le altre: React Aria Components, varianti `class-variance-authority` e `cn`.
+
+## Nomi delle classi
+
+Importa `cn` da `~/src/lib/cn`. La sua configurazione in `src/lib/cn.config.ts` registra la scala tipografica personalizzata `text-*`, così l'unione delle classi mantiene quelle classi; `bun run generate:cn` genera le tabelle di lookup in `.source/cn-tables.ts`. Le classi condizionali usano la sintassi a oggetto:
+
+```tsx
+className={cn("flex items-center gap-4 border-b", {
+  "border-border focus-within:border-foreground": !isInvalid,
+  "border-destructive": isInvalid,
+})}
+```
+
+## Form
+
+Ogni form segue il pattern shadcn per TanStack Form con lo schema Zod del modulo:
+
+```tsx
+const form = useForm({
+  defaultValues: { email: "" },
+  onSubmit: ({ value }) => {
+    subscribe.mutate({ email: value.email, locale: getCurrentLocale() })
+  },
+  validators: { onChange: emailSchema, onSubmit: emailSchema },
+})
+
+return (
+  <form
+    noValidate
+    onSubmit={(event) => {
+      event.preventDefault()
+      void form.handleSubmit()
+    }}
+  >
+    <form.Field name="email">
+      {(field) => {
+        const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+
+        return (
+          <Field data-invalid={isInvalid}>
+            <FieldLabel htmlFor="newsletter-email">{t("label")}</FieldLabel>
+            <Input
+              aria-invalid={isInvalid}
+              id="newsletter-email"
+              name={field.name}
+              onBlur={field.handleBlur}
+              onChange={(event) => {
+                field.handleChange(event.target.value)
+              }}
+              type="email"
+              value={field.state.value}
+            />
+            {isInvalid && (
+              <ValidationFieldError
+                message={fieldErrorMessage(field.state.meta.errors)}
+                namespace="auth.validations"
+                params={AUTH_VALIDATION_PARAMS}
+              />
+            )}
+          </Field>
+        )
+      }}
+    </form.Field>
+    <Button isPending={subscribe.isPending} type="submit">
+      {t("button")}
+    </Button>
+  </form>
+)
+```
+
+I messaggi di Zod sono chiavi di traduzione. `fieldErrorMessage` (`src/integrations/tanstack-form/form.fields.ts`) estrae il primo errore, e `ValidationFieldError` lo traduce nel namespace indicato oppure ripiega su `errors.codes.VALIDATION`. Esempi completi: `src/presentation/components/custom/newsletter-form.tsx` e `src/presentation/components/custom/auth/sign-in-form.tsx`.
+
+## Guide correlate
+
+- [Componenti shadcn](/docs/ui/shadcn-components)
+- [Form e validazione](/docs/guides/forms-and-validation)

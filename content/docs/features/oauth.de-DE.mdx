@@ -1,6 +1,30 @@
 ---
-title: OAuth-Anbieter.
-description: Konfiguration der sozialen Anmeldungen über GitHub und Google.
+title: "OAuth-Anbieter"
+description: "Anmeldung mit GitHub und Google über die Social-Provider von Better Auth."
 ---
 
-Konfiguriert in Better Auth mit den jeweiligen Client-IDs und geheimen Schlüsseln. Registrieren Sie die Weiterleitungs-URLs für die lokalen, Preview- und Produktionsumgebungen. Weitere Informationen finden Sie unter Funktionen → Authentifizierung und Erste Schritte → Umgebungsvariablen.
+`auth.server.ts` registriert zwei Anbieter mit Zugangsdaten aus der Worker-Umgebung:
+
+```ts
+socialProviders: {
+  github: { clientId: env.AUTH_GITHUB_CLIENT_ID, clientSecret: env.AUTH_GITHUB_CLIENT_SECRET },
+  google: { clientId: env.AUTH_GOOGLE_CLIENT_ID, clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET },
+},
+```
+
+## Ablauf
+
+`OAuthButtons` (`src/presentation/components/custom/auth/oauth-buttons.tsx`) rendert bei Anmeldung und Registrierung eine Schaltfläche pro Anbieter. Die Komponente ruft Better Auth `signIn.social` mit einer lokalisierten `callbackURL` (`/auth/callback`) und `errorCallbackURL` (`/auth/sign-in`) auf. Nach der Rückkehr vom Anbieter leitet `/auth/callback` Admins zu `/admin` und Kunden zu `/app` weiter. Ein fehlgeschlagener Versuch kehrt mit `?error=` zur Anmeldeseite zurück, die die übersetzte Meldung aus `auth.errors` anzeigt.
+
+`accountLinking` ist aktiviert, sodass eine Social-Anmeldung mit einem bestehenden Benutzer mit derselben E-Mail-Adresse verknüpft wird. Anbieter-Tokens werden verschlüsselt in der Tabelle `account` gespeichert.
+
+## Einrichtung der Anbieter
+
+Registrieren Sie die Callback-URLs `/api/auth/callback/github` und `/api/auth/callback/google` für jeden Host, den Sie betreiben: lokal `localhost:3000`, `preview.saasyland.com` und `saasyland.com` (siehe `appHostsForMode` in `src/modules/_core/constants/api.ts`). Tragen Sie die Client-IDs und Secrets in die oben genannten Umgebungsvariablen ein.
+
+Die GitHub-Zugangsdaten authentifizieren außerdem die Abfrage der Repository-Sterne in `src/lib/github.ts`.
+
+## Verwandte Anleitungen
+
+- [Umgebungsvariablen](/docs/getting-started/environment-variables)
+- [Authentifizierung](/docs/features/authentication)

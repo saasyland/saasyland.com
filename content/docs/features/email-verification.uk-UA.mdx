@@ -1,10 +1,22 @@
 ---
-title: Перевірка електронної пошти
-description: Відправити і споживати токени електронної пошти.
+title: "Підтвердження електронної пошти"
+description: "Обов’язкове підтвердження адреси з локалізованими посиланнями та формою повторного надсилання."
 ---
 
-## Модуль
+Better Auth працює з увімкненими `requireEmailVerification`, `sendOnSignUp` і `autoSignInAfterVerification`, тому новий обліковий запис має підтвердити адресу, перш ніж зможе увійти.
 
-`modules/verification` — `send-verification-email`, `verify-email`.
+## Надсилання
 
-Шаблони + Resend Проведення через Better Auth помічників електронної пошти.
+`emailVerification.sendVerificationEmail` в `auth.server.ts` — це `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`). Він формує посилання на `/auth/verify-email?token=…` поточною мовою і надсилає шаблон `VerifyEmail` (див. [Транзакційні листи](/docs/features/email)). Коли хтось повторно реєструється з непідтвердженою адресою, `onExistingUserSignUp` надсилає нове посилання замість того, щоб розкривати, що обліковий запис існує.
+
+## Підтвердження
+
+`/auth/verify-email` обробляє посилання в `beforeLoad`:
+
+- З `?token=` перезавантажує документ на `/api/auth/verify-email` з `callbackURL`, що дорівнює `/auth/verify-email?verified=true` тією самою мовою.
+- З `?verified=true` і без `error` перенаправляє на `/auth/callback`, який веде користувача на `/admin` або `/app`.
+- В інших випадках показує сторінку; з `?error=` виводить повідомлення про недійсне посилання.
+
+## Повторне надсилання
+
+`VerifyEmailForm` заповнює адресу з `?email=`, який реєстрація та вхід додають під час перенаправлення сюди. Форма викликає серверну функцію `sendVerificationEmail` (`src/modules/verification/use-cases/send-verification-email.ts`), обмежену `RATE_LIMITS.SENSITIVE`.

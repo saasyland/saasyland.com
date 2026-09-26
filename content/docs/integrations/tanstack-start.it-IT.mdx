@@ -1,28 +1,46 @@
 ---
-title: TanStack Start Manigliere HTTP
-description: TanStack Start handlers HTTP — SaaSy Land
+title: "TanStack Start"
+description: "Route basate su file, loader, prerendering e handler HTTP."
 ---
 
-Gli endpoint HTTP usano i gestori di server nativi TanStack Start in `src/routes`. Better Auth possiede GET e POST sotto `/api/auth/$`; Fumadocs usi di ricerca `/api/search`. Le operazioni del prodotto sono funzioni server native nei moduli di funzionalità.
+L'applicazione è un'app TanStack Start. `src/router.tsx` crea il router con un QueryClient per ogni richiesta, l'integrazione SSR delle query, i componenti predefiniti per errore e pagina non trovata, il preloading su intento e il `rewrite` del locale. Non esiste un componente di attesa predefinito: ogni route imposta il proprio scheletro (vedi [Scheletri di caricamento](/docs/architecture/delivery-layer#scheletri-di-caricamento)). `src/routes.ts` esporta `ROUTES`, le costanti dei percorsi usate da link, guard e tag dell'head.
 
-Decidere i manici su `createFileRoute` con `server.handlers`. Utilizzare i dati forniti `request`, convalidare l'ingresso, eseguire i controlli di autorizzazione e restituire un Web `Response`. Mantenere la verifica webhook nell'integrazione del fornitore. Non esporre un endpoint REST duplicato per un'operazione che viene utilizzata solo dal client RPC tipo di questa applicazione.
+## Route
+
+`src/routes/` contiene route basate su file in una struttura piatta: `admin.users.all.tsx` serve `/admin/users/all`, `_landing.tsx` è un layout senza percorso e `docs.$.tsx` è una route splat. L'ID in `createFileRoute("…")` è una stringa letterale gestita dal generatore del router in `src/routeTree.gen.ts`; le cartelle `__test__` non vengono considerate route.
+
+Un file di route si limita a comporre la propria pagina. Definisce il componente `<Name>Page` o `<Name>Layout`, `NAMESPACE` o `NAMESPACES`, un loader che esegue il caricamento di metadati, messaggi e dati in un unico `Promise.all`, `head: pageHead(ROUTES.X)` e, per le aree protette, un guard in `beforeLoad`. Widget, dialog, form e colonne delle tabelle si trovano in `src/presentation/components/custom/` e leggono autonomamente le proprie traduzioni e i propri dati. Vedi [use-intl](/docs/integrations/use-intl) per il loader e [Better Auth](/docs/integrations/better-auth) per i guard.
+
+## Funzioni server
+
+Le operazioni sono funzioni `createServerFn` native esportate dai casi d'uso dei moduli, quindi l'applicazione non espone alcun endpoint REST per esse. Vedi [Funzioni server e casi d'uso](/docs/integrations/server-functions).
+
+## Handler HTTP
+
+Solo tre route in `src/routes/api/` dichiarano `server.handlers`:
+
+| Route         | Handler                                                                                  |
+| ------------- | ---------------------------------------------------------------------------------------- |
+| `/api`        | Restituisce il runtime in formato JSON                                                   |
+| `/api/auth/$` | Better Auth, inclusi i callback OAuth e i webhook di Polar su `/api/auth/polar/webhooks` |
+| `/api/search` | Ricerca nella documentazione di Fumadocs                                                 |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
+## Prerendering
+
+`vite.config.ts` abilita il prerendering con la scansione dei link. `build:preview`, `build:production` e `build:test` prerenderizzano le pagine pubbliche (landing, pagine legali, blog e documentazione) in tutti e nove i locale. Il filtro esclude `/admin`, `/api`, `/app`, `/auth` e `/newsletter`, con o senza prefisso del locale, oltre ai link che contengono `?` o `#`. Le pagine escluse vengono renderizzate dal Worker a ogni richiesta.
+
 ## Guide correlate
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Ciclo di vita delle richieste](/docs/architecture/request-lifecycle)
+- [Caching e SSR](/docs/architecture/caching-and-ssr)
+- [Aggiungere una route API](/docs/guides/add-an-api-route)

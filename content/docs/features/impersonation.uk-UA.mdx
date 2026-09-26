@@ -1,15 +1,24 @@
 ---
-title: Імперація
-description: Адміністратор імперсонація користувачів (Better Auth admin плагін).
+title: "Вхід від імені користувача"
+description: "Вхід адміністратора від імені користувача в Better Auth: серверні функції існують, але жоден екран їх поки не використовує."
 ---
 
-## Статус
+Плагін `admin` з Better Auth дає змогу входити від імені користувача, а `src/modules/user/use-cases` обгортає цю можливість:
 
-Випробувано через користувачів admin дії / use-cases з перевіркою дозволу.
+```ts
+export const impersonateUser = createServerFn({ method: "POST" })
+  .middleware([authorized({ user: ["impersonate"] })])
+  .validator((input: zod.input<typeof userZodSchemas.impersonateUser>) => userZodSchemas.impersonateUser.parse(input))
+  .handler(({ context, data }) => auth.api.impersonateUser({ body: data, headers: context.requestHeaders }))
+```
 
-## Правила
+`stopImpersonatingUser` потребує лише активної сесії. Обидва файли експортують параметри мутацій (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-- Статус на сервери
-- Очистити UI показання при порушенні
-- Зареєструвати журнал перевірок, коли ви затвердили ops
-- Ніколи не дозволяйте ескалації привілеїв за межами призначених робочих процесів підтримки
+## Поточний стан
+
+- Жоден екран не викликає ці функції: у меню дій над рядком користувача немає відповідного пункту, і немає банера, щоб завершити вхід від імені іншого користувача.
+- Better Auth позначає такі сесії полем `impersonatedBy`; `getActiveSessions` виключає їх зі списку сесій у налаштуваннях.
+- Охоронці маршрутів очищують кеш запитів, коли змінюється користувач сесії, тож наступна навігація після входу від імені іншого користувача завантажує його дані.
+- Журналу аудиту для таких входів немає.
+
+Щоб додати цю функцію, розмістіть пункт меню в `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) і помітний спосіб завершити вхід від імені користувача в макетах.

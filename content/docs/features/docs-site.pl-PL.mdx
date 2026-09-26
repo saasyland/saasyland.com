@@ -1,18 +1,32 @@
 ---
-title: "Dokumentacja w aplikacji"
-description: "Jak budowana i rozszerzana jest ta dokumentacja."
+title: "Serwis dokumentacji"
+description: "Jak /docs powstaje z content/docs za pomocą Fumadocs."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+## Treść
 
-## Content root
+- Strony to pliki `content/docs/<section>/<page>.<locale>.mdx` we wszystkich dziewięciu językach.
+- `meta.<locale>.json` w każdym folderze określa tytuł sekcji, ikonę i kolejność stron.
+- `src/integrations/fumadocs/fumadocs.i18n.ts` używa parsera `dot`, `en-US` jako języka domyślnego i zapasowego oraz `hideLocale: "always"`, ponieważ prefiksem języka zajmuje się sama aplikacja.
+- `bun run content` generuje `.source` na podstawie `fumadocs.config.ts`.
 
-`content/docs`
+## Trasy
 
-- MDX pages: `*.en-US.mdx` / `*.pl-PL.mdx` (dot parser)
-- Folder `meta.<locale>.json` for titles/order/icons
-- `fallbackLanguage: en-US` for missing translations
+- Layout `/docs` (`src/routes/docs.tsx`): funkcja serwerowa zwraca drzewo stron dla bieżącego języka; layout wyświetla `DocsLayout` z Fumadocs z linkiem do GitHuba oraz `LocaleSelect` i `ThemeSwitch` jako jednolicie wyglądającymi polami wyboru u dołu paska bocznego, ładuje `docs.css` i pokazuje `DocsPending` podczas ładowania.
+- `/docs/` i `/docs/$` wywołują `loadDocsPage` (`fumadocs.docs.ts`), które odnajduje stronę i przed renderowaniem wstępnie ładuje jej skompilowany MDX (`docsContent`).
+- `/api/search` udostępnia wyszukiwarkę Fumadocs we wszystkich językach (`fumadocs.search.ts`).
 
-## App wiring
+Strony MDX mogą używać `mdxComponents` z `src/presentation/components/custom/mdx.tsx`: domyślnych komponentów Fumadocs, `Accordions`, `Steps` i `Tabs` z Fumadocs oraz `Alert`, `Badge`, `Button`, elementów karty, `Separator` i elementów tabeli z shadcn. Linki są lokalizowane automatycznie.
 
-`fumadocs.source.ts`, docs layout, search API. Add pages → update meta `pages` arrays → rebuild.
+## Dodawanie strony
+
+1. Napisz `<page>.en-US.mdx` z polami `title` i `description`.
+2. Dodaj slug do `meta.en-US.json` i do każdego pozostałego `meta.<locale>.json` w tej samej kolejności.
+3. Dodaj osiem tłumaczeń z blokami kodu identycznymi co do bajtu.
+4. Uruchom `bun scripts/check-content.ts` (część `bun run check:i18n`) oraz `bun run content`.
+
+`bun run build` prerenderuje każdą stronę dokumentacji we wszystkich językach.
+
+## Powiązane przewodniki
+
+- [Fumadocs](/docs/integrations/fumadocs)

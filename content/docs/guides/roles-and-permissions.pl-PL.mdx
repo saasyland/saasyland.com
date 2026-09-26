@@ -1,14 +1,61 @@
 ---
-title: Role i uprawnienia
-description: Role i uprawnienia — SaaSy Land
+title: "Role i uprawnienia"
+description: "Definiuj uprawnienia i role w auth.access.ts i sprawdzaj je w strażnikach tras oraz funkcjach serwerowych."
 ---
 
-Role i uprawnienia znajdują się w `src/integrations/better-auth/auth.access.ts`. Domyślną rolą jest klient. Dostęp do panelu sprawdza `requireAdmin`, a każda operacja serwerowa sprawdza wymagane uprawnienie przez `withAuth`.
+Kontrola dostępu korzysta z wtyczki admin Better Auth. Uprawnienia, role i funkcja sprawdzająca znajdują się w `src/integrations/better-auth/auth.access.ts`.
 
-Zmiany ról, blokady, unieważnianie sesji i impersonacja pozostają w przypadkach użycia użytkowników i sesji. Odczytuj bieżącego użytkownika z sesji żądania i odświeżaj powiązane grupy zapytań po mutacji. Ukrycie przycisku jest zachowaniem prezentacji i nie zastępuje autoryzacji.
+## Uprawnienia i role
 
-## Powiązane przewodniki
+```ts
+const APP_STATEMENTS = {
+  admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
+  settings: ["manage"],
+} as const
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
+
+export const ROLES = {
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
+}
+```
+
+- `defaultStatements` z Better Auth dodają zasoby `user` i `session` (np. `user: ["list", "set-role", "ban", "impersonate", "delete"]` oraz `session: ["list", "revoke"]`).
+- `admin` ma wszystkie uprawnienia; `customer`, domyślna rola nowych użytkowników, nie ma żadnego.
+- `ROLE_VALUES` typuje kolumnę `user.role` i schematy ról w `user.zod.ts`.
+
+## Gdzie sprawdzane są uprawnienia
+
+| Warstwa           | Sprawdzenie                                                           |
+| ----------------- | --------------------------------------------------------------------- |
+| Strażnik trasy    | `requireAdmin` wymaga `admin: ["access"]` dla całego obszaru `/admin` |
+| Funkcja serwerowa | `authorized({ product: ["update"] })` w każdej chronionej operacji    |
+| Tylko zalogowani  | `authorized()` dla operacji na własnych danych wywołującego           |
+| Wszędzie indziej  | `hasPermission({ permission, role })` zwraca wartość logiczną         |
+
+Strażnik trasy decyduje tylko o tym, które strony się renderują. Funkcje serwerowe można wywołać bezpośrednio przez RPC, więc każda musi sama sprawdzać uprawnienia. Ukrycie przycisku to kwestia prezentacji, a nie autoryzacji.
+
+## Dodaj uprawnienie
+
+1. Dodaj akcję do `APP_STATEMENTS`, np. `report: ["read", "export"]`.
+2. `admin` otrzymuje ją automatycznie; innym rolom przypisz ją w `ROLES` w razie potrzeby.
+3. Wymagaj jej w funkcji serwerowej: `.middleware([authorized({ report: ["export"] })])`.
+4. Przetestuj zarówno przypadek dozwolony, jak i `FORBIDDEN`.
+
+## Dodaj rolę
+
+1. Dodaj kod do `ROLE_CODES` i `ROLE_VALUES`.
+2. Zdefiniuj jej uprawnienia w `ROLES`.
+3. Dodaj etykietę roli do `filters.role.options` w `messages/<locale>/pages.admin.users.json` we wszystkich dziewięciu językach.
+
+Klient uwierzytelniania (`auth.client.ts`) otrzymuje `ac` i `ROLES`, więc akcje administracyjne w przeglądarce używają tych samych definicji.
+
+## Administrowanie użytkownikami i sesjami
+
+Moduły użytkowników i sesji opakowują API administracyjne Better Auth w przypadki użycia, każdy z własnym uprawnieniem: `setUserRole`, `banUser`, `unbanUser`, `impersonateUser`, `deleteUser`, `setUserPassword`, `revokeUserSession` i inne. Operacje na własnych danych wywołującego, np. `revokeSession`, używają `authorized()` i filtrują po `context.auth.user.id`.
+
+Poza bazą testową nie ma żadnego wstępnego konta administratora. Aby utworzyć pierwszego administratora, zarejestruj się, zweryfikuj adres e-mail i ustaw `role` tego użytkownika na `admin` w D1, np. przez `bun run db:studio:development`.

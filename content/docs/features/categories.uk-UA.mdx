@@ -1,10 +1,46 @@
 ---
-title: Категорії
-description: Категорія КРУД використання-кейси.
+title: "Категорії"
+description: "Категорії та колекції в D1, що відображаються на екрані продуктів адмінпанелі."
 ---
 
-## Модуль
+## Дані
 
-`modules/category/use-cases`.
+`src/modules/category/category.schema.ts` визначає таблицю `category`: `name`, `description`, `kind` (`category` або `collection`), `visibility` (`public` або `hidden`), `icon` (`Archive`, `FolderOpen` або `Puzzle`) і позначки часу.
 
-Використовуються за допомогою фільтрів UI та майбутнього магазину.
+Сценарії використання в `src/modules/category/use-cases`, кожен захищений відповідним дозволом `category`: `getCategories` (посторінковий, необов’язковий `kind`), `getCategory`, `createCategory`, `updateCategory` і `deleteCategory`. `createCategory` — еталонна структура сценарію зі зміною даних:
+
+```ts
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
+```
+
+Повідомлення валідації та помилок розташовані в просторах імен `category.validations` і `category.errors`.
+
+## Екран адмінпанелі
+
+Вкладки **Категорії** та **Колекції** в `/admin/products` показують `categoryColumns` з `getCategoriesPageQuery({ kind, pageIndex, pageSize })`. Підключено лише список: жоден екран не створює, не редагує й не видаляє категорій. Продукти ще не мають зв’язку з категоріями, тому стовпець кількості елементів показує значення-заглушку.
+
+## Пов’язані посібники
+
+- [Додавання сценарію використання](/docs/guides/add-a-use-case)
+- [Серверні функції](/docs/guides/server-functions)

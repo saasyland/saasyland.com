@@ -1,16 +1,62 @@
 ---
-title: Аутентифікація та безпека
-description: Автентифікація та безпека — SaaSy Land
+title: "Сценарії автентифікації"
+description: "Як працюють вхід, реєстрація з підтвердженням пошти, скидання пароля, двофакторна автентифікація, OAuth і вихід."
 ---
 
-Авторизація здійснюється двічі: маршрут `beforeLoad` охоронці оберігають макети адміністратора та замовника, і кожна функція захищеного сервера перевіряє абонента самостійно. Зареєструватися `requireAdmin` або `requireSession` для макетів і `withAuth(permission)` для операцій. Операції з обслуговування клієнтів деревої власності з сеансу.
+Better Auth (`src/integrations/better-auth/auth.server.ts`) зберігає користувачів, сесії та токени підтвердження в D1 й обслуговує свої ендпоінти під `/api/auth`. Сторінки автентифікації розміщено під layout `/auth`, а їхні форми — у `src/presentation/components/custom/auth/`.
 
-Better Auth зберігає сеанси в D1 і керує обліковими записами, OAuth, перевірку, скидання пароля, двофакторна автентифікація, імперсонація та відкликання. При перевірці захищеної функції сервера ми використовуємо cookie-файли. Остаточний плагін auth `tanstackStartCookies`, які пересилають автентифікацію файлів cookie через функції сервера.
+## Guard маршрутів
 
-D1 обмеження швидкості використання атомних записів і Cloudflare клієнт IP-голова. Чутливі громадські операції мають окремі обмежувальні ключі. Дійсні вводи з модулем Zod schema, маска несподіваних збоїв, перевірка підписів на сайті, і збереження всіх облікових даних за межами сервера. Приватні маршрути та токенні мутаци виключаються з хижаків.
+`src/integrations/better-auth/auth.routes.ts` експортує guard, які використовуються в `beforeLoad`:
 
-## Схожі посібники
+| Guard                | Де використовується              | Дія                                                               |
+| -------------------- | -------------------------------- | ----------------------------------------------------------------- |
+| `requireSignedIn`    | Layout `/app`                    | Без сесії перенаправляє на `/auth/sign-in`                        |
+| `requireAdmin`       | Layout `/admin`                  | Додатково перенаправляє на `/app` без дозволу `admin: ["access"]` |
+| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Надсилає користувача, що увійшов, на `/admin` або `/app`          |
+| `redirectAfterAuth`  | `/auth/callback`                 | Надсилає нову сесію на `/admin` або `/app` залежно від ролі       |
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+`requireSignedIn` і `requireAdmin` повторно перевіряють сесію під час кожної навігації, `redirectIfSignedIn` використовує сесію з кешу, а кожен guard очищає кеш запитів, коли змінюється користувач, що увійшов.
+
+## Вхід
+
+1. `SignInForm` викликає `signIn.email` клієнта Better Auth.
+2. Непідтверджений обліковий запис отримує помилку `EMAIL_NOT_VERIFIED` і переходить на `/auth/verify-email` зі своєю адресою пошти.
+3. Обліковий запис із двофакторною автентифікацією отримує `twoFactorRedirect`; тоді клієнтський плагін відкриває `/auth/two-factor` поточною мовою.
+4. Після успіху `usePostAuthRedirect` очищає кеші запитів і роутера та переходить на `/auth/callback`, який перенаправляє залежно від ролі.
+
+Помилки, про які Better Auth повідомляє перенаправленням, надходять як `?error=` на `/auth/sign-in` і показуються з `auth.errors`.
+
+## Реєстрація та підтвердження пошти
+
+1. `SignUpForm` валідує `signUpWithPasswordSchema` і викликає `signUpWithPasswordMutation` — серверну функцію з обмеженням запитів, що викликає `auth.api.signUpEmail`.
+2. Better Auth створює користувача й викликає `sendVerifyEmail`, який надсилає посилання на `/auth/verify-email?token=…` мовою сторінки, з якої почалася реєстрація. Повторна реєстрація з непідтвердженою адресою надсилає нове посилання.
+3. Форма переходить на `/auth/verify-email?email=…`, де `VerifyEmailForm` може надіслати посилання ще раз через `sendVerificationEmailMutation`, яка також має обмеження запитів.
+4. Відкриття посилання: `beforeLoad` маршруту передає токен на `/api/auth/verify-email`. Better Auth перевіряє його, виконує вхід користувача й повертає на `/auth/verify-email?verified=true`, звідки відбувається перенаправлення на `/auth/callback`. Недійсне чи прострочене посилання повертається з `error`, і сторінка пропонує нове.
+
+Вхід заблоковано, доки пошту не підтверджено (`requireEmailVerification: true`).
+
+## Скидання пароля
+
+1. `/auth/forgot-password`: `ForgotPasswordForm` викликає `requestPasswordResetMutation` з `redirectTo`, що вказує на локалізований `/auth/reset-password`.
+2. Better Auth викликає `sendResetPasswordEmail`. Посилання з листа проходить через Better Auth, який перенаправляє на `/auth/reset-password?token=…` або з `error`, якщо токен недійсний чи прострочений.
+3. `ResetPasswordForm` надсилає новий пароль через `resetPasswordMutation`. Better Auth відкликає всі наявні сесії (`revokeSessionsOnPasswordReset: true`), а форма переходить на сторінку входу.
+
+## Двофакторна автентифікація
+
+- Увімкнення (налаштування адмін-панелі, розділ «Безпека»): `TwoFactorDialog` просить пароль (`enableTwoFactorMutation`), показує секрет TOTP для додавання в застосунок-автентифікатор, підтверджує один код (`verifyTotpMutation`), а потім показує резервні коди. `disableTwoFactorMutation` вимикає її.
+- Вхід: `/auth/two-factor` приймає код із застосунку-автентифікатора (`verifyTotpMutation`) або резервний код (`verifyBackupCodeMutation`), обидва з обмеженням запитів, з можливістю довіряти пристрою. Після успіху виконується `usePostAuthRedirect`.
+
+## OAuth
+
+`OAuthButtons` викликає `authClient.signIn.social` для Google або GitHub з `callbackURL`, що вказує на локалізований `/auth/callback`, і `errorCallbackURL` — на локалізований `/auth/sign-in`. Провайдерів налаштовано в `socialProviders`; зареєструйте в них `https://<host>/api/auth/callback/google` і `https://<host>/api/auth/callback/github`. Облікові записи з тією самою поштою пов'язуються автоматично, а токени провайдерів зберігаються в зашифрованому вигляді.
+
+## Вихід
+
+`useSignOut` викликає `signOutUserMutation`, очищає кеш запитів, переходить на `/auth/sign-in` і очищає кеш роутера.
+
+## Пов'язані посібники
+
+- [Чекліст безпеки](/docs/guides/security-checklist)
+- [Ролі та дозволи](/docs/guides/roles-and-permissions)
+- [Шаблони листів](/docs/guides/email-templates)

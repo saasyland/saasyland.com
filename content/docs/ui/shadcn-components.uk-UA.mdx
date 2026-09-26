@@ -1,6 +1,65 @@
 ---
-title: Шадкн компоненти
-description: Примітивний інвентар і примітки використання.
+title: "Компоненти shadcn"
+description: "Примітиви shadcn на основі React Aria та правила, яких дотримуються екрани під час їх використання."
 ---
 
-Поза «Ложки» `presentation/components/shadcn`. . Зашифрувати існуючі кнопки / Вхід / Таблиці / Діалогові візерунки. Зберігати атрибути доступності від React Aria intact.
+Примітиви в `src/presentation/components/shadcn/` — це компоненти shadcn/ui, побудовані на React Aria Components. `input-otp`, `carousel`, `resizable`, `chart` і `sonner` обгортають інші бібліотеки; решта працює за правилами React Aria. `components.json` спрямовує псевдонім `ui` на цю теку, а `utils` — на `~/src/lib/cn`. Екрани імпортують примітиви напряму; обгорток навколо них немає.
+
+## Властивості React Aria
+
+| Звичка з DOM або Radix   | Тут використовуйте                     |
+| ------------------------ | -------------------------------------- |
+| `onClick`                | `onPress`                              |
+| `disabled`               | `isDisabled`                           |
+| `open` у діалозі         | `isOpen` з `onOpenChange`              |
+| `checked`                | `isSelected`                           |
+| `value` у вкладках       | `selectedKey` або `defaultSelectedKey` |
+| `onSelect` у пункті меню | `onAction`                             |
+
+`Input` зберігає нативну подію `onChange`. `Select` приймає `fieldLabel`, який рендерить його мітку.
+
+## Правила
+
+- **Кнопки в очікуванні**: передавайте стан мутації в `Button`: `<Button isPending={mutation.isPending} type="submit">`.
+- **Посилання**: `LinkButton`, `TabsTrigger` і `SidebarMenuButton` приймають `href`. `AriaProvider` спрямовує їх через TanStack Router і додає префікс мови. Щоб надати іншим елементам вигляду кнопки, використовуйте `buttonVariants`.
+- **Форми**: `Field`, `FieldGroup`, `FieldLabel`, `Input` і `ValidationFieldError` з TanStack Form, як у цьому полі з `ResetPasswordDialog`:
+
+```tsx
+<Field data-invalid={isInvalid}>
+  <FieldLabel htmlFor={passwordId}>{t("resetPasswordDialog.password")}</FieldLabel>
+  <Input
+    aria-invalid={isInvalid}
+    autoComplete="new-password"
+    id={passwordId}
+    name={field.name}
+    onBlur={field.handleBlur}
+    onChange={(event) => {
+      field.handleChange(event.target.value)
+    }}
+    type="password"
+    value={field.state.value}
+  />
+  {isInvalid && (
+    <ValidationFieldError
+      message={fieldErrorMessage(field.state.meta.errors)}
+      namespace="auth.validations"
+      params={AUTH_VALIDATION_PARAMS}
+    />
+  )}
+</Field>
+```
+
+- **Діалоги**: `Dialog` і `AlertDialog` керуються через `isOpen` і `onOpenChange`; кожен діалог має власний файл, наприклад `admin/users/delete-user-dialog.tsx`.
+- **Меню**: `DropdownMenuTrigger` обгортає `Button`, що його відкриває, і `DropdownMenu`; пункти виконують `onAction`, а для небезпечних дій використовують `variant="destructive"`.
+- **Сповіщення**: викликайте `toast.success` або `toast.error` з `sonner`; кореневий маршрут рендерить `Toaster` усередині `ThemeProvider`.
+- **Рамки фокуса**: стилізуйте тригери React Aria варіантами `data-focus-visible:`, як це роблять `checkbox`, `select`, `switch` і `radio-group`.
+- **Назви класів**: використовуйте `cn` з `~/src/lib/cn` з об’єктним синтаксисом для умовних класів.
+
+## Розмір CSS
+
+`globals.css` виключає зі сканування джерел Tailwind примітиви, які не використовує жоден екран, через список `@source not`. Коли почнете використовувати один із них, приберіть його з цього списку, інакше його класів бракуватиме.
+
+## Пов’язані посібники
+
+- [shadcn/ui і React Aria](/docs/integrations/shadcn)
+- [Форми та валідація](/docs/guides/forms-and-validation)

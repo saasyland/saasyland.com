@@ -1,16 +1,54 @@
 ---
-title: Internazionalizzazione e localizzazione
-description: Internazionalizzazione e localizzazione — SaaSy Land
+title: "Internazionalizzazione e locale"
+description: "Come i locale compaiono negli URL, come vengono caricati i namespace di traduzione e come li usano i componenti."
 ---
 
-I messaggi vivono in `messages/{locale}` per tutte le nove lingue configurate come file tratteggiati namespace, ad esempio `pages.admin.users.json`. Configurazione locale, helper URL, caricamento messaggi, metadati e helper di traduzione e-mail vivono in `src/integrations/use-intl`.
+## Locale e URL
 
-Utilizzazione inglese `/docs`; usi polacchi `/pl-PL/docs`. Legacy `/en` e `/pl` i collegamenti sono canonicalizzati. I file di route dichiarano `staticData.namespaces` e precaricare gli stessi namespaces nel loro caricatore. `TranslationsProvider` assembla gli spazi di nome del percorso attivo in un `IntlProvider`. I messaggi condivisi sono caricati alla radice; gli spazi dei nomi e-mail rimangono sul server.
+SaaSy Land serve nove locale: en-US (predefinito), de-DE, es-ES, fr-FR, it-IT, ja-JP, pl-PL, pt-BR e uk-UA. Il locale predefinito non ha prefisso (`/docs`); ogni altro locale usa il proprio tag completo (`/pl-PL/docs`). Il Worker reindirizza all'URL canonico i prefissi composti dalla sola lingua o dal locale predefinito, come `/pl/docs` o `/en-US/docs`.
 
-Leggi il locale con `getCurrentLocale` sul server e `useLocale` in componenti. L'URL sceglie il documento locale. Le richieste di funzionalità server utilizzano il cookie locale. Un cambiamento linguistico mantiene il percorso, la query e il frammento e ricarica il documento per caricare il contenuto corrispondente. Corri! `bun run check:i18n` dopo aver cambiato le chiavi.
+`getCurrentLocale()` è isomorfa. Sul server legge l'URL, oppure il cookie del locale per le richieste `/api` e per quelle delle server function. Nel browser legge l'URL. Il Worker mantiene il cookie sincronizzato con l'URL della pagina. Le server function che restituiscono contenuti localizzati ricevono il locale come input invece di basarsi sul cookie.
 
-## Guide correlate
+## Messaggi
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+Le traduzioni si trovano in `messages/<locale>/<namespace>.json`. Il nome del file è il namespace, ad esempio `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` o `common`. I namespace con i punti vengono uniti in un unico albero di messaggi, quindi `useTranslations("pages.admin.users")` legge `pages.admin.users.json`. Ogni namespace di pagina contiene `metadata.title` e `metadata.description` per i tag head. I messaggi sono JSON semplice, senza tipi generati.
+
+## Caricamento
+
+- **I namespace radice** (`common`, `components.*`, `errors*`) vengono precaricati nel `beforeLoad` della route radice.
+- **Le route di pagina** dichiarano `const NAMESPACE = "pages.x"`, lo precaricano nel loader e lo elencano in `staticData.namespaces`.
+- **Le route di layout** dichiarano `const NAMESPACES = [...] as const` e fanno lo stesso.
+- **`TranslationsProvider`** avvolge il body del documento nella shell radice. Combina i namespace radice con gli `staticData.namespaces` delle route corrispondenti e passa il risultato a `IntlProvider`, così ogni schermata, comprese quelle di errore, risulta tradotta.
+- **Le email** caricano il proprio namespace sul server con `loadNamespace` nel caso d'uso che le invia.
+
+## `src/integrations/use-intl`
+
+| File                 | Esporta                                                                                             |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| `i18n.config.ts`     | `I18N`: `SUPPORTED_LOCALES`, `DEFAULT_LOCALE`, `COOKIE_NAME`, `DEFAULT_TIMEZONE`                    |
+| `i18n.messages.ts`   | `loadNamespace`, `loadPageMetadata`, `messagesQueryOptions`, `preloadNamespaces`, `ROOT_NAMESPACES` |
+| `i18n.middleware.ts` | `resolveLocale`, usato dal Worker per i reindirizzamenti e per il cookie                            |
+| `i18n.paths.ts`      | `localizePathname`, `deLocalizePathname`, `canonicalizePathname`, `localeLinks`                     |
+| `i18n.utils.ts`      | `getCurrentLocale`, `localizeUrl`, `deLocalizeUrl`, `parseLocaleCookie`                             |
+
+## Link
+
+I link del router non richiedono alcuna gestione del locale: `<Link to={ROUTES.SIGN_IN}>` riceve il prefisso dal `rewrite` del router. `localizePathname` serve solo per gli URL grezzi che non passano dal router, come i valori `callbackURL` di Better Auth, i link nelle email e gli elementi `<a href>` costruiti a mano:
+
+```ts
+const callbackURL = localizePathname({ locale: getCurrentLocale(), pathname: `${ROUTES.VERIFY_EMAIL}?verified=true` })
+```
+
+Il selettore della lingua renderizza un semplice link allo stesso percorso in ciascun locale, quindi cambiare lingua carica un nuovo documento.
+
+## Traduzioni nei componenti
+
+Un componente chiama `useTranslations` esattamente una volta e assegna al traduttore il nome `t`. i18n-ally riassegna lo scope di ogni chiamata `t()` che segue un'ulteriore chiamata a `useTranslations`, e `bun run check:i18n` fallisce sulle chiavi che non si risolvono nel loro scope. Un componente che ha bisogno di due namespace non correlati usa il loro genitore comune oppure `useTranslations()` con le chiavi complete.
+
+`bun run check:i18n` esegue tre script: `check-i18n.ts` (parità delle chiavi tra i locale e risoluzione delle chiavi nel loro scope), `check-message-formats.ts` (sintassi dei messaggi ICU) e `check-content.ts` (parità di documentazione e blog tra i locale).
+
+## Pagine correlate
+
+- [use-intl](/docs/integrations/use-intl)
+- [Messaggi di traduzione](/docs/guides/i18n-messages)
+- [Internazionalizzazione](/docs/features/internationalization)

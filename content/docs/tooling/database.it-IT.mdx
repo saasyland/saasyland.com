@@ -1,23 +1,46 @@
 ---
-title: D1 e Drizzle
-description: D1 e Drizzle — SaaSy Land
+title: "Migrazioni del database"
+description: "Generare, applicare e ispezionare le migrazioni D1."
 ---
 
-Cloudflare D1 è il database delle applicazioni. Uso degli schemi del modulo `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` Li raccoglie. `drizzle.database.ts` crea l'adattatore Drizzle D1 da `env.DB`.
+Gli schemi si trovano nei moduli delle tabelle e vengono raccolti da `src/integrations/drizzle-orm/drizzle.schemas.ts`. Le migrazioni sono file SQL con prefisso di timestamp in `src/integrations/drizzle-orm/migrations/`, versionati insieme alla modifica dello schema.
 
-Le date usano i timestamp interi di SQLite in millisecondi. I campi booleani usano SQLite integer modalità booleana. Le relazioni, i vincoli unici e le chiavi straniere rimangono nello schema. Mantenere un'operazione atomica con un'adeguata dichiarazione SQL o D1 batch; non introdurre un PostgreSQL pool di connessione o una transazione interattiva.
+## Flusso di lavoro
 
-Corri! `db:generate` dopo aver cambiato schemi, rivedere e commettere SQL generato, e applicarlo localmente. Le migrazioni remote sono comandi specifici per l'ambiente. Un database distribuito PostgreSQL richiede un'esportazione e un'importazione separate; generare le migrazioni SQLite non trasferisce i dati esistenti.
+1. Modifica `src/modules/<table>/<table>.schema.ts`.
+2. Esegui `bun run db:generate` e rivedi l'SQL generato.
+3. Applicala in locale ed esegui i test; Vitest applica ogni migrazione al proprio database in memoria.
+4. Applicala a un database remoto prima di fare il deploy del codice che ne dipende.
 
 ```sh
 bun run db:generate
 bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
+bun run db:migrate:test
 ```
+
+## Comandi
+
+| Comando                               | Destinazione                                                                           |
+| ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `bun run db:generate`                 | Nuova migrazione a partire dal diff dello schema (drizzle-kit)                         |
+| `bun run db:migrate:local`            | Database locale dell'ambiente `development`                                            |
+| `bun run db:migrate:test`             | Database di test locale in `.wrangler/test`                                            |
+| `bun run db:seed:test`                | Account di test nel database di test locale                                            |
+| `bun run db:migrate:development`      | Database remoto di `development`, che per impostazione predefinita è quello di preview |
+| `bun run db:migrate:preview`          | Database di preview remoto                                                             |
+| `bun run db:migrate:production`       | Database di produzione remoto                                                          |
+| `bun run db:studio:<environment>`     | Drizzle Studio per `development`, `preview` o `production`                             |
+| `bun run db:introspect:<environment>` | Introspezione con drizzle-kit per `development`, `preview` o `production`              |
+
+Studio e l'introspezione usano l'API HTTP di D1 con `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` e `CLOUDFLARE_ACCESS_TOKEN` dal file di ambiente corrispondente. L'applicazione invece usa sempre il binding `DB`.
+
+Il server di sviluppo usa binding remoti, quindi `db:migrate:local` non ha effetto su di esso; `db:migrate:development` sì. Il deploy in CI applica `db:migrate:preview` o `db:migrate:production` prima di `wrangler deploy`. L'installazione delle dipendenze e la build non migrano mai un database remoto.
+
+## Account amministratore
+
+Non esiste alcun seed al di fuori del database di test. Per inizializzare un'installazione, registrati, verifica l'indirizzo email e poi imposta il `role` di quell'utente su `admin` in Drizzle Studio.
 
 ## Guide correlate
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [D1 e Drizzle](/docs/integrations/cloudflare-d1)
+- [Guida alle migrazioni del database](/docs/guides/database-migrations)

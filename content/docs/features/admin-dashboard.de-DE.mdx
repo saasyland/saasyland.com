@@ -1,10 +1,43 @@
 ---
-title: Administrationsbereich.
-description: Dashboard-Statistiken, Diagramme und Widgets für kürzlich aktive Benutzer.
+title: "Admin-Dashboard"
+description: "Die /admin-Shell und das Dashboard: Live-Zähler und Benutzertabelle, statisches Umsatzdiagramm."
 ---
 
-## Route
+## Admin-Shell
 
-`/admin` — erstellt ein Statistik-Raster, ein Diagramm und eine Benutzerübersicht mit Suspense.
+`src/routes/admin.tsx` schützt jede Admin-Seite mit `requireAdmin` und lädt die gemeinsamen Admin-Namespaces vorab. Das Layout rendert:
 
-Bevorzugen Sie echte Aggregationen über Module, während Sie Metriken weiterentwickeln; halten Sie die Grundstrukturen frei von Imports, die ausschließlich auf Server-seitiger Logik basieren.
+- `AdminSidebar`, `AdminBreadcrumbs` und `AdminCommandPalette` (Öffnen mit ⌘K), alle aufgebaut aus `ADMIN_SIDEBAR_GROUPS` in `src/data/admin.ts`: Überblick (Dashboard, Analytics), Angebote (Produkte, Preismodelle), Inhalte (Blog, Landingpage) und Verwaltung (Benutzerverwaltung, Zahlungen, Einstellungen).
+- Das Benutzer-Widget im Fußbereich der Seitenleiste mit einem Link zu den Einstellungen und `SignOutButton`.
+
+## Dashboard
+
+`/admin` (`src/routes/admin.index.tsx`) lädt im Loader `getProductsQuery` und `getUsersQuery` vorab und setzt drei Widgets aus `src/presentation/components/custom/admin/dashboard` zusammen:
+
+- `DashboardStats` (live): die Anzahl der Benutzer, die Anzahl der Produkte und die Benutzer, deren E-Mail-Bestätigung noch aussteht.
+- `RevenueChart` (Demo): ein statisches SVG mit festen Achsen; die Zeitraum-Schaltflächen haben keine Funktion.
+- Eine Benutzerkarte (live): die neuesten Benutzer mit Suche und Statusfiltern, fünf Zeilen pro Seite.
+
+```tsx
+<DataTable
+  columns={dashboardUserColumns}
+  data={users.rows}
+  filters={[
+    { columnId: "user", placeholder: t("users.search"), type: "search" },
+    {
+      columnId: "status",
+      label: t("users.filters.status"),
+      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+      type: "select",
+    },
+  ]}
+  options={{ initialState: { pagination: PREVIEW_PAGINATION }, selectable: true }}
+/>
+```
+
+Die Tabelle arbeitet im Browser mit der ersten Seite von `getUsersQuery` (zehn Benutzer). **Alle anzeigen** verlinkt auf `/admin/users`, wenn es weitere Benutzer gibt. **Produkt hinzufügen** verlinkt auf `/admin/products/create`; **Letzte 30 Tage** ist deaktiviert und **Exportieren** ist nicht angebunden.
+
+## Verwandte Anleitungen
+
+- [Admin-Seite hinzufügen](/docs/guides/add-an-admin-page)
+- [DataTable](/docs/ui/data-table)

@@ -1,23 +1,58 @@
 ---
-title: Desenvolvimento local
-description: Desenvolvimento local... SaaSy Land
+title: "Depuração local"
+description: "Escolha um ambiente local, leia erros do servidor, inspecione dados e depure testes."
 ---
 
-Instalar Bun 1.4 e Node 24 ou mais novo, então instale dependências. `.env.example` para `.env.development` e configurar um longo aleatório `AUTH_SECRET`, o público `VITE_APP_URL`, e qualquer integração externa que você vai exercer.
+## Escolha um ambiente
 
-O desenvolvimento local usa CloudflareÉ local. D1 e... KV Aplique o check-in SQLite O comando de desenvolvimento gera Fumadocs Contente e corra. Vite+ com o Cloudflare O estado local vive sob `.wrangler/`.
-
-OAuth, e-mail e faturamento requerem credenciais de provedor; use credenciais de teste e Polar Testes usam valores falsos e zombam em vez de enviar mensagens reais ou carregar um cliente.
+| Ambiente        | Comandos                                                      | Dados                                               | Provedores                              |
+| --------------- | ------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------- |
+| Prévia isolada  | `db:migrate:test`, `db:seed:test`, `build:test`, `start:test` | D1 e KV locais em `.wrangler/test`, contas semeadas | Interceptados; nenhuma conta necessária |
+| Desenvolvimento | `db:migrate:development`, `dev`                               | D1 e KV remotos da prévia                           | Reais, a partir de `.env.development`   |
 
 ```sh
-bun install
+bun run db:migrate:test
+bun run db:seed:test
+bun run build:test
+bun run start:test
+```
+
+A prévia isolada serve um build em `http://127.0.0.1:3000`; compile de novo para ver as mudanças no código. Entre como `admin@saasyland.example.test` ou `customer@saasyland.example.test` com a senha de `e2e/data/accounts.ts`. Os e-mails são capturados em vez de enviados: abra `/__test/emails?to=<address>` para lê-los, inclusive os links de verificação.
+
+```sh
+bunx wrangler login
 cp .env.example .env.development
 bun run db:migrate:development
 bun run dev
 ```
 
+O servidor de desenvolvimento roda em `http://localhost:3000` com recarregamento automático. Os bindings `DB` e `CACHE` dele são os recursos remotos da prévia, então escritas e migrações afetam o banco compartilhado da prévia. Use `POLAR_SERVER=sandbox`.
+
+## Leia erros do servidor
+
+- Uma função de servidor com falha registra `Server function failed` com o erro original no terminal em que roda `bun run dev`, ou no Workers Logs nos ambientes publicados. O navegador recebe apenas o código de erro.
+- `Rate-limit storage unavailable` significa que o D1 estava inacessível durante uma verificação de limite de requisições; a requisição foi rejeitada.
+- `No messages/<locale>/<namespace>.json` significa que uma rota declara um namespace sem arquivo para aquele idioma.
+
+## Inspecione dados
+
+- Drizzle Studio: `bun run db:studio:development` (também `:preview` e `:production`). Ele precisa das variáveis `CLOUDFLARE_*` no arquivo de ambiente correspondente.
+- Banco de teste local: `bunx wrangler d1 execute DB --env test --local --persist-to .wrangler/test --command "SELECT email, role FROM user"`.
+
+## Corrija arquivos gerados
+
+- Tipos dos bindings do Worker, tabelas de nomes de classe ou conteúdo da documentação desatualizados: `bun run typegen`.
+- Traduções não resolvem: `bun run check:i18n` lista as chaves ausentes por idioma e as que não resolvem no escopo de `useTranslations`.
+- `bun run clean` remove a saída do build, os caches e `.wrangler`, inclusive o banco de teste local; depois execute `db:migrate:test` e `db:seed:test` de novo.
+
+## Depure testes
+
+- Execute um único projeto ou apenas os testes afetados: `bun run test:unit`, `bun run test:component`, `bun run test:changed`, `bun run test:watch`.
+- Playwright: `bun run test:e2e:headed` mostra o navegador e `bun run test:e2e:ui` abre o modo UI. Execuções locais mantêm os traces dos testes com falha e abrem o relatório HTML quando há falhas.
+- Pare outros servidores na porta 3000 antes de `bun run test:e2e` ou defina `PLAYWRIGHT_BASE_URL`.
+
 ## Guias relacionados
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Escrever testes](/docs/guides/writing-tests)
+- [Migrações de banco de dados](/docs/guides/database-migrations)
+- [Primeira execução](/docs/getting-started/first-run)

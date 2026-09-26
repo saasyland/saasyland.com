@@ -1,20 +1,61 @@
 ---
 title: "Konwencje"
-description: "Nazewnictwo, foldery, commity i PR."
+description: "Konwencje dotyczące kodu, tras, komponentów, tłumaczeń i commitów stosowane w całej bazie kodu."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+## Kod
 
-## Naming
+- Bez komentarzy w kodzie. Znaczenie przekazują nazwy i małe funkcje.
+- Bez wyłączania reguł lintera, `@ts-expect-error` i rzutowań `as` tylko po to, by spełnić regułę. Usuń przyczynę.
+- Bez wieloliniowych operatorów trójargumentowych. Użyj wczesnego returna albo małego komponentu.
+- Klasy warunkowe używają składni obiektowej `cn`: `cn("base", { "text-foreground": isActive })`.
+- Bez wrapperów, interfejsów i warstw, które jedynie przekazują wywołania dalej. Importuj konkretną funkcję.
+- Magiczne liczby stają się nazwanymi stałymi, na przykład `const SINGLE_ROW = 1`.
+- `vp fmt` sortuje importy w grupy: server-only, `cloudflare:workers`, React, pakiety, następnie foldery `src` w ustalonej kolejności, a na końcu style.
 
-- Use-cases: `verb-noun.ts`
-- Tests: colocated `__test__`
-- Route privates: `_components`, `_lib`
+## Trasy
 
-## Commits
+- Trasy stron definiują `<Name>Page`, stałą `NAMESPACE` bezpośrednio nad `export const Route`, `head: pageHead(ROUTES.X)` oraz loader, który uruchamia `loadPageMetadata`, `preloadNamespaces` i ewentualne zapytania w jednym `Promise.all`.
+- Trasy layoutów definiują `<Name>Layout` oraz tablicę `NAMESPACES` zadeklarowaną w `staticData` i wstępnie ładowaną przez loader.
+- Ścieżki pochodzą z `ROUTES`. Linki routera nigdy nie dodają prefiksu locale samodzielnie; surowe URL-e używają `localizePathname`.
+- Tablice elementów do wyrenderowania są stałymi na poziomie modułu, a nie literałami wpisanymi bezpośrednio w JSX.
 
-Konwencjonalne commity (`feat`, `fix`, `refactor`, …) z prefiksem emoji dodawanym przez `scripts/commit-msg.ts`.
+## Komponenty
 
-## PRs
+- Jeden widżet, dialog, formularz lub definicja kolumn na plik.
+- Komponenty same odczytują swoje tłumaczenia i dane. Bez propsów z tekstem, etykietami lub danymi, które komponent może odczytać samodzielnie.
+- Dokładnie jedno wywołanie `useTranslations` na komponent, z funkcją tłumaczącą nazwaną `t`.
+- Formularze stosują wzorzec shadcn dla TanStack Form: `useForm` ze schematem Zod modułu, `Field`, `FieldLabel`, `Input` i `ValidationFieldError`.
+- Tabele korzystają z generycznego `<DataTable columns data options filters />` z kolumnami w pliku `<entity>-columns.tsx`.
 
-Zaczynaj od typu widocznego dla użytkownika (`feat`, gdy zmienia się zachowanie). Refaktory opisuj w treści commita.
+## Kod serwerowy
+
+- Przypadki użycia mają nazwy w formacie `<verb>-<noun>.ts` i eksportują funkcję serwerową wraz z jej opcjami zapytania lub mutacji.
+- Błędy są rzucane jako `AppError(ERROR_CODES.X)` i tłumaczone w przeglądarce przez `useErrorMessage()`.
+- Każdy URL, klucz zapytania i klucz mutacji pochodzi ze stałej (`ROUTES`, `<TABLE>_QUERY_KEYS`, `<TABLE>_MUTATION_KEYS`).
+
+## Commity i pull requesty
+
+Wiadomości commitów są zgodne z Conventional Commits: `<type>(<scope>): <description>`. Hook `prepare-commit-msg` uruchamia `scripts/commit-msg.ts`, który odrzuca nieznane typy i poprzedza temat emoji danego typu:
+
+| Typ        | Emoji |
+| ---------- | ----- |
+| `feat`     | ✨    |
+| `fix`      | 🐛    |
+| `perf`     | 🚀    |
+| `refactor` | 📦    |
+| `docs`     | 📚    |
+| `test`     | 🚨    |
+| `build`    | 🛠️    |
+| `ci`       | ⚙️    |
+| `chore`    | ♻️    |
+| `style`    | 💎    |
+| `revert`   | 🗑️    |
+
+Hook `pre-commit` uruchamia `bun run check:pre-commit`. Pull requesty uruchamiają workflow CI: `bun run check`, `bun run test:coverage` i zestaw testów Playwright, a następnie wdrożenie preview.
+
+## Powiązane strony
+
+- [Nazewnictwo plików](/docs/reference/file-naming)
+- [Conventional Commits](/docs/tooling/conventional-commits)
+- [Struktura katalogów](/docs/architecture/directory-structure)

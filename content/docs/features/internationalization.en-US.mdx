@@ -1,16 +1,57 @@
 ---
 title: "Internationalization and locales"
-description: "Internationalization and locales — SaaSy Land"
+description: "Nine locales, URL prefixes, the locale cookie and namespaced use-intl messages."
 ---
 
-Messages live in `messages/{locale}` for all nine configured languages as dotted namespace files, for example `pages.admin.users.json`. Locale configuration, URL helpers, message loading, metadata and email translation helpers live in `src/integrations/use-intl`.
+## Locales
 
-English uses `/docs`; Polish uses `/pl-PL/docs`. Legacy `/en` and `/pl` links are canonicalized. Route files declare `staticData.namespaces` and preload the same namespaces in their loader. `TranslationsProvider` assembles the active route namespaces into an `IntlProvider`. Shared messages are loaded at the root; email-only namespaces stay on the server.
+`I18N` in `src/integrations/use-intl/i18n.config.ts` defines `en-US` (default), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` and `uk-UA`, the cookie `saasyland.com_locale` and the default time zone `UTC`.
 
-Read the locale with `getCurrentLocale` on the server and `useLocale` in components. The URL chooses the document locale. Server-function requests use the locale cookie. A language change keeps the path, query and fragment and reloads the document to load the corresponding content. Run `bun run check:i18n` after changing keys.
+## URLs
+
+The default locale has no prefix; every other locale is a path prefix, for example `/docs` and `/pl-PL/docs`. For document requests the Worker (`resolveLocale` in `i18n.middleware.ts`) redirects non-canonical paths with a 308: `/en-US/docs` becomes `/docs` and `/pl/docs` becomes `/pl-PL/docs`. `/api` and `/_serverFn` paths never carry a prefix.
+
+The router `rewrite` in `src/router.tsx` removes the prefix from incoming URLs and adds it to outgoing ones, so routes and links use plain paths: `<Link to={ROUTES.SIGN_IN}>`. Use `localizePathname({ locale, pathname })` only for raw URLs: Better Auth `callbackURL` and `errorCallbackURL`, links in emails and hand-built `<a href>`. `AriaProvider` localizes the `href` of React Aria components.
+
+## Locale cookie
+
+When the locale in a document URL differs from the cookie, the Worker sets the cookie on the response. `getCurrentLocale()` works on both sides: it reads the URL for pages and the cookie for `/api` and server-function requests, so emails and server-side messages use the language of the page the user is on.
+
+## Messages
+
+Messages are `messages/<locale>/<namespace>.json`; the file name is the namespace, for example `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` or `common`. Every page namespace has `metadata.title` and `metadata.description`.
+
+- Root namespaces (`common`, `components.*`, `errors*`) are preloaded in the root `beforeLoad`.
+- A layout declares `NAMESPACES`, a page declares `NAMESPACE`. Both go into `staticData.namespaces` and are preloaded by the loader:
+
+```ts
+loader: async ({ context }) => {
+  const locale = getCurrentLocale()
+  const [metadata] = await Promise.all([
+    loadPageMetadata({ locale, namespace: NAMESPACE }),
+    preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+  ])
+  return { locale, metadata }
+},
+```
+
+- `TranslationsProvider` wraps the document body and merges the root namespaces with the namespaces of the matched routes into one `IntlProvider`, so error screens are translated too.
+- Emails load their namespace on the server with `loadNamespace`.
+
+## Components
+
+Each component calls `useTranslations` once and names the translator `t`. A component that needs two namespaces uses their common parent or `useTranslations()` with full keys. Format numbers and dates with `useFormatter`, `useDateFormatter` and `useCurrencyFormatter`.
+
+## Switching language
+
+`locale-switcher.tsx` has two language controls. `LocaleSwitcher`, in the marketing footer, is a `<details>` menu with a plain link per locale to the current path in that locale, so it works before hydration. `LocaleSelect`, in the docs and customer app sidebars, is a select field styled like `ThemeSwitch` that opens the same URL. Either way, choosing a language loads a new document, and the query string and hash are not carried over. Polish and Ukrainian pages also preload the Latin Extended and Cyrillic font subsets ([Fonts and branding](/docs/ui/fonts-and-branding)).
+
+## Checks
+
+`bun run check:i18n` checks key parity across locales, resolves static keys in their `useTranslations` scope, validates ICU message syntax and checks docs and blog content parity.
 
 ## Related guides
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [i18n architecture](/docs/architecture/i18n-architecture)
+- [i18n messages](/docs/guides/i18n-messages)
+- [use-intl](/docs/integrations/use-intl)

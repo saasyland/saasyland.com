@@ -1,16 +1,48 @@
 ---
-title: Dépannage
-description: Dépannage — SaaSy Land
+title: "Dépannage"
+description: "Erreurs courantes pendant le développement, les tests et le déploiement, et comment les corriger."
 ---
 
-Si les requêtes locales rapportent des tables manquantes, lancez `bun run db:migrate:local`; utilisation des tests du navigateur `db:migrate:test` et une liaison séparée D1. Si l'authentification échoue, vérifiez l'URL de l'environnement, `AUTH_SECRET`, les identifiants du fournisseur et les URLs de rappel.
+## Base de données
 
-Les erreurs de traduction manquantes indiquent habituellement un espace de noms omis de l'itinéraire ou une clé manquante dans une localité. Courir `check:i18n`C'est vrai. Pour la documentation 404s, vérifiez le nom de fichier local MDX, les métadonnées de page et le lien source relatif. Pour les défaillances de prérender, inspectez la première URL défaillante dans la sortie de build.
+**`no such table` dans `bun run dev`.** L'environnement `development` utilise la base D1 de preview distante. Appliquez-y les migrations avec `bun run db:migrate:development`. Pour la base de développement locale, utilisez `bun run db:migrate:local`.
 
-Un déploiement rejeté pour les fixations de placeholder nécessite des identifiants réels D1 et KV dans l'environnement cible. Les opérations de construction et de test ne créent pas automatiquement des ressources distantes.
+**`no such table` dans Playwright.** Les tests navigateur utilisent leur propre base locale. Exécutez `bun run db:migrate:test` et `bun run db:seed:test`, ou laissez Playwright démarrer l'application, ce qui exécute les deux.
 
-## Guides connexes
+**Les tables de Vitest ne sont pas à jour.** Le mock D1 applique chaque fichier SQL de `src/integrations/drizzle-orm/migrations` au démarrage. Après une modification du schéma, générez une migration avec `bun run db:generate`.
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+## Serveur de développement
+
+**Le serveur de développement ne démarre pas.** Il utilise le port 3000 avec `strictPort` et échoue donc si le port est déjà occupé. Arrêtez l'autre processus.
+
+**La connexion ou OAuth échoue.** Vérifiez `AUTH_SECRET` et les identifiants du client OAuth dans le fichier d'environnement, ainsi que l'URL de callback du fournisseur, qui doit pointer vers `/api/auth/callback/<provider>` sur l'hôte que vous utilisez. Better Auth n'accepte que les hôtes configurés pour le mode de build : `localhost:3000` et `127.0.0.1:3000` en local.
+
+**Il manque un binding ou un secret dans les types du Worker.** Exécutez `bun run cf-typegen` après avoir modifié `wrangler.jsonc`, et ajoutez la variable à `src/types/bindings.d.ts`.
+
+**Les classes `text-*` personnalisées disparaissent lors de la fusion.** `cn` dépend de tables générées à partir de `src/lib/cn.config.ts`. `bun run dev`, `bun run check` et les builds les régénèrent ; exécutez `bun run generate:cn` si `.source/cn-tables.ts` est absent.
+
+## Traductions
+
+**`No messages/<locale>/<namespace>.json`.** Une route déclare un namespace qui n'a pas de fichier pour cette locale. Créez le fichier dans chaque locale.
+
+**Une clé s'affiche sous la forme de son chemin, ou `check:i18n` signale une clé manquante.** La clé manque dans une locale, ou le composant la lit en dehors de la portée de son appel à `useTranslations`. Utilisez un seul `useTranslations` par composant et exécutez `bun run check:i18n`.
+
+## Documentation
+
+**Une page de documentation renvoie une erreur 404.** Le fichier doit s'appeler `<page>.<locale>.mdx` et figurer dans `pages` du fichier `meta.<locale>.json` du dossier. Exécutez `bun run content` pour régénérer `.source`.
+
+**`check-content.ts` échoue.** Il compare chaque locale à en-US. `Changed code examples` signifie qu'un bloc de code diffère de celui de la version anglaise ; les blocs de code doivent être identiques. `Untranslated English paragraph` signifie qu'un paragraphe a été copié sans être traduit. `Missing <file>` signifie qu'un fichier de locale n'existe pas.
+
+## Tests et déploiement
+
+**`test:coverage` échoue.** La couverture doit atteindre 100 % pour les lignes, les instructions, les fonctions et les branches. Le rapport dans `coverage/` liste les lignes non couvertes.
+
+**Le déploiement s'arrête à `verify-bindings.ts`.** L'environnement cible dans `wrangler.jsonc` contient encore des identifiants D1 ou KV provisoires. Créez les ressources dans Cloudflare et remplacez les identifiants.
+
+**Un build avec prérendu échoue.** La sortie du build indique la première URL en échec. Ouvrez cette page avec `bun run dev` pour voir l'erreur.
+
+## Pages associées
+
+- [Débogage en local](/docs/guides/local-debugging)
+- [Questions fréquentes](/docs/reference/faq)
+- [Environnement et bindings](/docs/reference/environment)

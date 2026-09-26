@@ -1,30 +1,92 @@
 ---
-title: サーバー機能とユースケース
-description: サーバー機能とユースケース — SaaSy Land
+title: "サーバー関数とユースケース"
+description: "モジュールが 1 つのデータベーステーブルを所有し、その操作をユースケースとして公開する仕組み。"
 ---
 
-特徴の操作はで住んでいます `src/modules/{feature}/use-cases/{operation}.ts`. . ネイティブのエクスポート `createServerFn` 入力スキーマ、承認、またはレートリミットミドルウェア、およびD1またはプロバイダアダプタを呼び出すハンドラ。 ミューテーションはデータを直接返し、安全を投げます `AppError`;フレームワーク固有のアクションエンベロープを返さない。
+## モジュール
 
-輸出入 `mutationOptions` 変異の横にある `queryOptions` 読んでいる側。 コンポーネントは TanStack Query を使用し、エラーを変換します。 `useActionError`. . 成功した突然変異は、その機能のクエリキーを無効化します。 操作が機能するべきとき顧客によって供給されるユーザー ID を信頼しないで下さい `context.auth.user.id`.
+`src/modules/<table>` 配下のモジュールは、実在するデータベーステーブルのためだけに存在します。モジュールには次のファイルが含まれます。
 
-利用条件 `withAuth` 保護された操作のためおよび `withRateLimit` 敏感な公共の操作のため。 バリデーションはハンドラの前に実行されます。 プロバイダのエラーと内部の詳細は、パブリックレスポンスから守ってください。
+- `<table>.schema.ts`：Drizzle のテーブル。`src/integrations/drizzle-orm/drizzle.schemas.ts` から再エクスポートされます
+- `<table>.zod.ts`：入力スキーマ。フォームとサーバー関数の両方で使います
+- `<table>.constants.ts`：クエリキー、ミューテーションキー、enum
+- `<table>.types.ts` と `<table>.utils.ts`：テーブルが必要とする場合のみ
+- `use-cases/<operation>.ts`：1 ファイルにつき 1 つの操作
+
+現在のモジュールは、account、category、license、newsletter-subscriber、product、rate-limit、session、two-factor、user、verification です。共有の定数とヘルパーは [`_core`](/docs/architecture/core) にあります。テーブルを扱わないサーバー関数は、`src/lib` か、それを使う唯一のルートに置きます。
+
+## ユースケース
+
+ほとんどのユースケースは、ブラウザから呼び出されるサーバー関数です。各ファイルは、`createServerFn` と、そのクエリオプションまたはミューテーションオプションをエクスポートします。
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
 import { mutationOptions } from "@tanstack/react-query"
+import { createServerFn } from "@tanstack/react-start"
+import { v7 } from "uuid"
 import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
+
+import { authorized } from "~/src/integrations/better-auth/auth.middleware"
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+
+import { CATEGORY_MUTATION_KEYS } from "~/src/modules/category/category.constants"
+import { category } from "~/src/modules/category/category.schema"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
 ```
 
-既存の `createCategory` 操作は検証、許可チェック、D1 インサート、およびエクスポートされたミューテーションオプションを示します。
+- **ミドルウェア**は `src/integrations/better-auth/auth.middleware.ts` で提供されています。`authorized()` はセッションを必須とし、`authorized({ category: ["create"] })` はさらに権限もチェックします。`withRateLimit(kind, RATE_LIMITS.SENSITIVE)` は公開された操作の実行回数を制限します。
+- **バリデーション**では、ハンドラーの実行前に、モジュールの Zod スキーマで入力をパースします。
+- **所有権**はセッションから判断します。呼び出し元自身のデータに対する操作は `context.auth.user.id` で絞り込み、入力に含まれるユーザー ID を信用することはありません。
+- **エラー**は `new AppError(ERROR_CODES.X)` としてスローします。それ以外のエラーはログに記録され、クライアントには `INTERNAL_ERROR` として届きます。
+- **読み取り**では、代わりに `queryOptions` をエクスポートします。たとえば `getCategoriesPageQuery(input)` は、データテーブル用に `{ rows, total }` を返します。
 
-## 関連ガイド
+一部のユースケースは、サーバー上でのみ実行され RPC エンドポイントを持たない、通常の async 関数です。`send-verify-email.ts` や `grant-license.ts` などがこれにあたり、Better Auth のフックや Polar の Webhook ハンドラーから呼び出されます。
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+## コンポーネントからユースケースを呼び出す
+
+コンポーネントは、エクスポートされたオプションを `useMutation` に展開し、`useErrorMessage()` でエラーを翻訳して、成功時にモジュールのクエリキーを無効化します。
+
+```tsx
+const t = useTranslations("pages.admin.users.actions")
+const queryClient = useQueryClient()
+const errorMessage = useErrorMessage()
+
+const deleteUser = useMutation({
+  ...deleteUserMutation,
+  onError: (error) => {
+    toast.error(errorMessage(error))
+  },
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL })
+    toast.success(t("feedback.deleteSuccess"))
+  },
+})
+```
+
+## 関連ページ
+
+- [モジュールカタログ](/docs/reference/modules)
+- [権限マトリクス](/docs/reference/permissions)
+- [ユースケースを追加する](/docs/guides/add-a-use-case)

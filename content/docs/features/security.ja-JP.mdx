@@ -1,8 +1,27 @@
 ---
-title: セキュリティと硬化
-description: 製品のセキュリティ機能と計画された制御。
+title: "セキュリティと堅牢化"
+description: "アプリが実装しているセキュリティ対策と、実装していない対策。"
 ---
 
-クロスリンク:アーキテクチャ→セキュリティモデル、ガイド→セキュリティチェックリスト、機能→2要素/セッション/応答。
+## 実装済み
 
-計画される: webhook の署名、org の分離、任意ボット保護、より強い監査の跡。
+- **セッション**: D1 に保存される Better Auth のセッション、Cookie プレフィックス `saasyland`、ローカル以外のモードでのセキュア Cookie、モード別の許可ホスト、クライアントアドレスとしての `cf-connecting-ip`。クライアント側のセッションにトークンは含まれません。
+- **アカウント**: 必須のメール確認、パスワードリセット時のセッション失効、バックアップコード付きの任意の TOTP、ハッシュ化して保存される確認用識別子、暗号化された OAuth トークン。
+- **認可**: ルートでは `requireSignedIn` と `requireAdmin`、サーバー関数では `auth.access.ts` のロールを使う `authorized(permission)`。
+- **レート制限**: Better Auth のリミッターと `withRateLimit` ミドルウェアが D1 の `rate_limit` テーブルを共有します。`RATE_LIMITS.SENSITIVE` はクライアントとアクションごとに 60 秒あたり 3 回、`RATE_LIMITS.TOKEN` は 5 回まで許可します。
+- **エラー**: リクエストミドルウェアが失敗を `AppError` のコード（`src/modules/_core/constants/errors.ts`）に変換するため、クライアントがサーバーの生のメッセージを受け取ることはありません。コンポーネントは `useErrorMessage` で表示します。
+- **Webhook とフォーム**: Polar の Webhook は `POLAR_WEBHOOK_SECRET` で検証されます。ニュースレターのリクエストは既知のホストから HTTPS で送られたものだけを受け付けます（`newsletterRequestOrigin`）。
+
+## 未実装
+
+- Content Security Policy などのセキュリティヘッダー。`public/_headers` はキャッシュのみを設定します。
+- 利用停止、削除、なりすましを含む監査ログ。
+- 公開フォームのボット対策や CAPTCHA。
+- なりすましの画面（[なりすまし](/docs/features/impersonation)）。
+
+## 関連ガイド
+
+- [セキュリティモデル](/docs/architecture/security-model)
+- [セキュリティチェックリスト](/docs/guides/security-checklist)
+- [二要素認証](/docs/features/two-factor)
+- [セッション](/docs/features/sessions)

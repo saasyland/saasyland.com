@@ -1,12 +1,35 @@
 ---
 title: "Landing page"
-description: "Marketing landing composition and admin builder shell."
+description: "The marketing page at /, its sections, pricing with regional discounts, the CLI configurator and the footer newsletter form."
 ---
 
-## Public
+## Route
 
-`app/[locale]/(landing)` with colocated `_lib` content.
+`src/routes/_landing.index.tsx` composes seventeen sections from `src/presentation/components/custom/landing-page/sections` inside `MotionProvider`: Hero, Proof, Stack, Manifesto, CLI, Line, Quality, Rally, Manifest, Studio, Record, Cases, Compare, Pricing, FAQ, Notes and Gate. Copy comes from the `pages.landing` namespace. The loader also fetches the three latest blog posts (featured first) for the Notes section and warms `starCountQuery`, the GitHub star count cached in KV for the Proof section.
 
-## Admin
+The `_landing` layout wraps `/`, the legal pages, `/premium` and the newsletter pages with `Navigation`, `PageFrame` and `Footer`, always in the dark theme. Section anchors are `MARKETING_SECTION_IDS` in `src/data/marketing.ts` (`foundation`, `cli`, `quality`, `toolkit`, `pricing`, `faq`); links use `<Link to={ROUTES.HOME} hash={MARKETING_SECTION_IDS.PRICING}>`.
 
-`/admin/landing-page` UI shell for future visual builder — document intended blocks as you implement them.
+## Pricing and regional pricing
+
+`PricingSection` renders the `TIERS` with `TIER_PRICES` and links to `/auth/sign-up`. Regional pricing works without client JavaScript, so the page stays prerendered:
+
+1. `Price` renders the amount once per regional multiplier (`PPP_KEYS`) plus the struck-through regular price.
+2. The Worker (`src/server.ts`) reads `cf-ipcountry`. For a country in `PPP_TIERS` it uses `HTMLRewriter` to set `data-ppp` and the `--ppp-region` and `--ppp-percent` variables on the `html` element, and marks the response `private, no-cache`.
+3. CSS in `globals.css` shows the matching price while the regional offer checkbox is checked.
+4. Unchecking stores `regional_pricing=off` in a cookie; the Worker and `startCheckout` both respect it.
+
+## CLI configurator
+
+`CliSection` hosts `CliConfigurator` (`landing-page/components/cli-configurator.tsx`). Choices, extras and package managers from `src/data/cli.ts` build a `saasyland@latest init my-app` command with flags, which `CopyButton` copies.
+
+## Newsletter
+
+`Footer` renders `NewsletterForm` (`src/presentation/components/custom/newsletter-form.tsx`):
+
+1. `subscribeToNewsletter` (rate limited) stores a pending `newsletter_subscriber` row and sends `NewsletterConfirmationEmail`.
+2. `/newsletter/confirm?token=` confirms the subscription and sends `NewsletterNotificationEmail` to `CONTACT_EMAIL`.
+3. `/newsletter/unsubscribe?token=` unsubscribes.
+
+## Admin screen (demo)
+
+`/admin/landing-page` is a static builder mock: a section list, a canvas and a properties panel built from constants. It does not change the landing page.

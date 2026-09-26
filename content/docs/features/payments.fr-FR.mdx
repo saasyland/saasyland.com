@@ -1,18 +1,54 @@
 ---
-title: Paiements & facturation
-description: Commandes, remboursements et facturation orientée Stripe (prévue).
+title: "Paiements et licences"
+description: "Paiement Polar, portail client et webhooks qui accordent des licences ; l’écran des paiements de l’administration est une démo."
 ---
 
-## État
+Les paiements passent par Polar avec le plugin `@polar-sh/better-auth` dans `auth.server.ts` :
 
-Administrateur `/admin/payments` L'interface utilisateur utilise des lignes simulées aujourd'hui. Les `order` déclarations faites en `APP_STATEMENTS` déjà esquisse lecture/mise à jour/remboursement.
+```ts
+polarPlugin({
+  client: polar,
+  use: [
+    checkout({
+      authenticatedUsersOnly: true,
+      products: POLAR_CHECKOUT_PRODUCTS,
+      successUrl: ROUTES.APP,
+    }),
+    portal(),
+    webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
+  ],
+}),
+```
 
-## Architecture prévue
+Le client Polar (`src/integrations/polar/polar.config.ts`) utilise `POLAR_ACCESS_TOKEN` et `POLAR_SERVER`. `POLAR_CHECKOUT_PRODUCTS` associe les identifiants d’offre `core`, `complete` et `agency` à `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` et `POLAR_PRODUCT_ID_AGENCY`.
 
-- `modules/billing` ou `modules/order` Cas d'utilisation
-- Stripe (ou Polar) dossier d'intégration
-- Gestionnaire de route Webhooks
-- Les factures des clients `/app`
-- Carte Better Auth identificateur de client
+## Paiement
 
-Implémenter derrière les permissions; ne jamais exposer les clés secrètes au client.
+Un utilisateur connecté sans licence voit `CheckoutOptions` sur `/app` et `/app/license`. Il appelle `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`), qui :
+
+1. cherche une remise régionale avec `pppDiscountId` (`license.ppp.ts`) : le pourcentage du pays `cf-ipcountry`, comparé aux remises automatiques en pourcentage actives dans Polar, ignoré lorsque le cookie `regional_pricing` vaut `off` ;
+2. crée un paiement Polar pour l’offre avec les codes de réduction désactivés ;
+3. renvoie l’URL de paiement, que le navigateur ouvre.
+
+Un paiement réussi revient sur `/app`.
+
+## Webhooks et licences
+
+Polar envoie ses événements à `/api/auth/polar/webhooks`, vérifiés avec `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) retrouvent l’utilisateur grâce au `externalId` du client Polar :
+
+- `onOrderPaid` → `grantLicense` : crée ou met à jour la licence unique de l’utilisateur avec l’offre du produit acheté ; un achat plus récent remplace un achat plus ancien.
+- `onBenefitGrantCreated` → `attachLicenseKey` : enregistre la clé de licence Polar sur la licence.
+- `onOrderRefunded` et `onBenefitGrantRevoked` → `revokeLicense` : passe le statut à `revoked` et consigne la commande dans `revoked_license_order`, afin qu’un webhook tardif ne puisse pas l’accorder de nouveau.
+
+## Écrans client
+
+`/app/license` affiche `LicenseCard` (offre, clé, commande d’installation et lien vers le portail client Polar à `/api/auth/customer/portal`) et `LicenseActivations`, qui liste les activations de la clé dans Polar et en supprime une avec `deactivateLicense`. Voir [Application client](/docs/features/customer-app).
+
+## Écran d’administration (démo)
+
+`/admin/payments` affiche `RefundStats` et un `DataTable` de remboursements sur `ADMIN_PAYMENT_ROWS` de `src/data/admin.ts` ; ses boutons ne sont pas branchés. Les déclarations de permission `order` (`read`, `update`, `refund`) existent dans `auth.access.ts`, mais aucun cas d’usage ne lit de commandes ni de remboursements.
+
+## Pages associées
+
+- [Page d’accueil](/docs/features/landing-page) pour les prix régionaux de la section tarifs
+- [Variables d’environnement](/docs/getting-started/environment-variables)

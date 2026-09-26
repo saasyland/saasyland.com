@@ -1,8 +1,48 @@
 ---
 title: "Motyw"
-description: "Tryby kolorów i zmienne CSS."
+description: "Motywy jasny, ciemny i systemowy zapisywane w ciasteczku oraz tokeny CSS, na których się opierają."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+## Wybór motywu
 
-Theme provider + CSS variables. Avoid purple-default clichés on marketing pages; admin can stay neutral/system.
+`THEME` w `src/presentation/theme/index.ts` definiuje motywy `light`, `dark` i `system` (domyślny) oraz ciasteczko `saasyland.com_theme`. Aplikacja korzysta z `@wrksz/themes`:
+
+- `ThemeScript` w `head` głównego dokumentu (`src/routes/__root.tsx`) odczytuje ciasteczko i ustawia klasę motywu przed pierwszym malowaniem, więc nie ma mignięcia.
+- `ThemeProvider` (`src/providers/theme-provider.tsx`) startuje od wartości z ciasteczka (`getStoredTheme`), zapisuje w nim zmiany i synchronizuje je między kartami.
+- `ThemeProvider` otacza tylko widżety, które odczytują lub zmieniają motyw: główny `Toaster` i `ThemeSwitch` w pasku bocznym dokumentacji. Nigdy nie otacza `Outlet` trasy, ponieważ provider aktualizowany po hydratacji wymusiłby ponowne renderowanie całej strony.
+
+```tsx
+const RootComponent = () => (
+  <AriaProvider>
+    <OfflineBanner />
+    <Outlet />
+    <ThemeProvider>
+      <Toaster />
+    </ThemeProvider>
+  </AriaProvider>
+)
+```
+
+`/admin`, `/app` i `/docs` stosują zapisany motyw; jedyny przełącznik motywu znajduje się w pasku bocznym dokumentacji. Layouty strony głównej, uwierzytelniania i bloga dodają klasę `dark` do swojego kontenera i zawsze są ciemne.
+
+## Tokeny
+
+`src/presentation/styles/globals.css` definiuje tokeny shadcn jako zmienne OKLCH w `:root` (jasny) i `.dark`: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, od `chart-1` do `chart-5`, zestaw `sidebar-*` oraz `radius`. Akcentem marki jest `ring`: koloruje obramowania fokusu, stany aktywne i wyróżnienia oraz odpowiada `chart-1`. Narzędzia `dark:` podążają za klasą:
+
+```css
+@custom-variant dark (&:is(.dark *));
+```
+
+`@theme inline` mapuje zmienne na kolory Tailwinda, ustawia rodziny czcionek i definiuje skalę typograficzną. `globals.css` importuje też style Fumadocs UI, więc dokumentacja używa tych samych tokenów.
+
+## Skala typograficzna
+
+Zamiast surowych rozmiarów używaj nazwanych klas tekstu: `text-display-hero`, `text-display-gate`, `text-display-blast`, `text-headline-peak`, `text-headline-support`, `text-price`, `text-title`, `text-statement`, `text-lead`, `text-body`, `text-body-sm`, `text-spec` i `text-label`. Każda ustawia rozmiar, interlinię, odstępy między literami, a w nagłówkach także grubość. `src/lib/cn.config.ts` rejestruje je, aby `cn` zachowywał je przy łączeniu klas; `bun run generate:cn` odbudowuje tablice wyszukiwania.
+
+## Arkusze stylów tras
+
+`docs.css` zawiera style prozy `typeset` dla dokumentacji i artykułów na blogu. To zwykły CSS ładowany przez layouty `/docs` i `/blog` jako link do arkusza stylów `?url`. Arkusze stylów tras nie mogą uruchamiać drugiej kompilacji Tailwinda.
+
+## Powiązane przewodniki
+
+- [Motywy i branding](/docs/guides/theming-and-branding)

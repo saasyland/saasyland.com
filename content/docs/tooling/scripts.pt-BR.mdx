@@ -1,24 +1,78 @@
 ---
-title: Roteiros do projeto.
-description: Roteiros do projeto - SaaSy Land
+title: "Scripts do projeto"
+description: "Todos os scripts do package.json e o que cada um executa."
 ---
 
-Roteiros em `package.json` usar Vite+ para desenvolvimento, formatação, fiapos, tipos, Vitest e constrói. `content` Gera. MDX Coleções; `cf-typegen` Gera tipos de ligação de trabalhadores. `db:generate` cria migrações SQL; `db:migrate:local` Aplicá-los para local D1Migração remota e implante comandos nomeie seu ambiente explicitamente.
+Execute os scripts a partir da raiz do repositório com `bun run <script>`.
 
-`build:preview` e... `build:production` Construir o trabalhador, pré-render páginas públicas e verificar artefatos de implantação. `clean` remove a saída gerada e o estado de ligação local, então exporte qualquer dado local que queira manter primeiro.
+## Desenvolvimento e build
 
-```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
-```
+| Script              | Executa                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev`               | `generate:cn`, `content` e `vp dev` no ambiente `development` em http://localhost:3000                                                |
+| `build`             | O mesmo que `build:preview`                                                                                                           |
+| `build:preview`     | Limpa `dist`, `generate:cn`, `content`, `vp build` para `preview`, `scripts/verify-build.ts` e `scripts/optimize-prerendered-html.ts` |
+| `build:production`  | As mesmas etapas para `production`                                                                                                    |
+| `build:test`        | As mesmas etapas para o ambiente `test`                                                                                               |
+| `start`             | `vp preview` do build mais recente em http://127.0.0.1:3000                                                                           |
+| `start:test`        | `vp preview` do build de testes                                                                                                       |
+| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `build:preview` e `wrangler deploy --secrets-file .env.preview`                                 |
+| `deploy:production` | `scripts/verify-bindings.ts production`, `build:production` e `wrangler deploy --secrets-file .env.production`                        |
+
+`verify-build.ts` verifica a configuração de deploy, o idioma do documento, os links canônicos e alternativos da página inicial e das páginas legais localizadas, as fontes, que páginas protegidas e aliases de locale não foram pré-renderizados e que nenhum asset do cliente importa `cloudflare:workers`. `optimize-prerendered-html.ts` remove das páginas pré-renderizadas as dicas `modulepreload` de dependências e mantém a dica da entrada com baixa prioridade.
+
+## Verificações
+
+| Script             | Executa                                                                                  |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| `check`            | `generate:cn`, `check:i18n` e `vp check` (formatação, lint e tipos)                      |
+| `check:fix`        | O mesmo com `vp check --fix`                                                             |
+| `check:i18n`       | `scripts/check-i18n.ts`, `scripts/check-message-formats.ts` e `scripts/check-content.ts` |
+| `check:pre-commit` | `generate:cn`, `check:i18n` e `vp staged`; executado pelo hook de pre-commit             |
+| `lint`             | `vp lint`                                                                                |
+| `format`           | `vp fmt`                                                                                 |
+| `format:check`     | `vp fmt --check`                                                                         |
+
+## Testes
+
+| Script                                                                                            | Executa                                                   |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `test`                                                                                            | `vp test run` para todos os projetos do Vitest            |
+| `test:unit`, `test:integration`, `test:component`                                                 | Um projeto do Vitest (`node`, `integration`, `component`) |
+| `test:changed`                                                                                    | Testes afetados pelos arquivos alterados                  |
+| `test:watch`                                                                                      | Vitest em modo watch                                      |
+| `test:coverage`                                                                                   | Todos os projetos com a verificação de cobertura          |
+| `test:all`                                                                                        | `test` e, depois, `test:e2e:smoke`                        |
+| `test:e2e`, `test:e2e:smoke`, `test:e2e:pr`, `test:e2e:headed`, `test:e2e:ui`, `test:e2e:install` | Playwright; veja [Playwright](/docs/tooling/playwright)   |
+
+## Banco de dados
+
+| Script                                                                           | Executa                                           |
+| -------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `db:generate`                                                                    | Geração de migrações com o drizzle-kit            |
+| `db:migrate:local`, `db:migrate:test`                                            | Migrações do Wrangler em um banco de dados local  |
+| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Migrações do Wrangler em um banco de dados remoto |
+| `db:seed:test`                                                                   | `scripts/seed-test.ts`: contas de teste           |
+| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                    |
+| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Introspecção do drizzle-kit                       |
+
+## Geração e manutenção
+
+| Script           | Executa                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| `content`        | `fumadocs-mdx`: gera `.source/` a partir de `content/`                                                  |
+| `generate:cn`    | Gera as tabelas de mesclagem de classes em `.source/cn-tables.ts` a partir de `src/lib/cn.config.ts`    |
+| `cf-typegen`     | `wrangler types` para `development`: gera novamente `src/types/worker-configuration.d.ts`               |
+| `typegen`        | `cf-typegen`, `generate:cn` e `content`                                                                 |
+| `skills:sync`    | `scripts/sync-skills.ts`: restaura as skills para agentes a partir de `skills-lock.json`                |
+| `clean`          | Remove `.source`, `.tanstack`, `.wrangler`, `dist`, `coverage`, a saída do Playwright e `*.tsbuildinfo` |
+| `clean:deep`     | `clean` e `node_modules`                                                                                |
+| `clean:hardcore` | `clean:deep`, `bun.lock` e `skills-lock.json`                                                           |
+| `prepare`        | Executado na instalação: `vp config --no-agent` (hooks do Git), `generate:cn` e `content`               |
+
+`clean` apaga `.wrangler`, incluindo os bancos de dados locais de desenvolvimento e de testes, então exporte antes os dados locais que quiser manter.
 
 ## Guias relacionados
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Scripts do dia a dia](/docs/getting-started/project-scripts)
+- [Migrações de banco de dados](/docs/tooling/database)

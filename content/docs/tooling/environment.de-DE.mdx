@@ -1,16 +1,40 @@
 ---
-title: Umgebung und Abhängigkeiten.
-description: Umgebung und Konfigurationen — SaaSy Land
+title: "Umgebung und Bindings"
+description: "Wrangler-Umgebungen, Bindings, Secrets und Umgebungsdateien."
 ---
 
-Verwenden Sie `.env.development`, `.env.preview` und `.env.production` für die entsprechenden Vite- und Cloudflare-Umgebungen. Diese Dateien werden ignoriert; `.env.example` dokumentiert die benötigten Schlüssel. `VITE_APP_URL` ist öffentlich und wird während des Build-Prozesses ersetzt. Worker-Geheimnisse haben kein `VITE_`-Präfix und werden über `env` von `cloudflare:workers` aufgerufen.
+`wrangler.jsonc` definiert vier Umgebungen. `CLOUDFLARE_ENV` wählt eine davon für den Dev-Server und die Builds aus, und jede liest ihre Secrets aus ihrer eigenen Umgebungsdatei:
 
-Konfiguriere `AUTH_SECRET`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET` sowie die Einstellungen für Resend und Polar für deine Installation. Committe niemals echte Zugangsdaten. Binding-IDs gehören in die passende Umgebung in `wrangler.jsonc`; generierte Worker-Deklarationen beschreiben ihre Typen.
+| Umgebung      | Ausgewählt durch                              | Bindings                             | Secrets aus        |
+| ------------- | --------------------------------------------- | ------------------------------------ | ------------------ |
+| `development` | `bun run dev`                                 | Entfernte Preview-D1 und -KV         | `.env.development` |
+| `preview`     | `build:preview`, `deploy:preview`             | Preview-D1 und -KV                   | `.env.preview`     |
+| `production`  | `build:production`, `deploy:production`       | Produktions-D1 und -KV               | `.env.production`  |
+| `test`        | `build:test`, `start:test`, `db:migrate:test` | Lokale D1 und KV in `.wrangler/test` | `.env.test`        |
 
-Die erforderlichen Geheimnisnamen werden für jede Umgebung in `wrangler.jsonc` deklariert, einschließlich der Authentifizierungsdaten, der Resend-Daten, der Polar-Daten sowie der Cloudflare-Anmeldeinformationen, die von den Drizzle-Tools verwendet werden. Die Entwicklungsumgebung verbindet sich mit den Preview-Bindings. Die Browser-Tests verwenden ihre eigene lokale Konfiguration in `src/platform/testing/wrangler.jsonc` und verwenden Dummy-Werte aus `.env.test`; sie benötigen keine externen Anmeldeinformationen.
+`.env.development`, `.env.preview` und `.env.production` werden von Git ignoriert; `.env.example` listet ihre Schlüssel auf. `.env.test` ist eingecheckt und enthält nur Platzhalterwerte. Die Deploy-Skripte laden die passende Datei mit `wrangler deploy --secrets-file` hoch.
 
-## Verwandte Anleitungen.
+## Secrets
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+Jede Umgebung führt ihre Secrets in `secrets.required` auf: die Schlüssel für Better Auth, OAuth, Resend und Polar sowie `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` und `CLOUDFLARE_ACCESS_TOKEN` für die Drizzle-Werkzeuge (die Umgebung `test` lässt diese drei weg). Die einzelnen Schlüssel sind unter [Umgebungsvariablen](/docs/getting-started/environment-variables) beschrieben.
+
+Servercode liest Secrets mit `import { env } from "cloudflare:workers"`. Keine Stelle verwendet eine `VITE_`-Variable, und keine darf ein Secret enthalten, weil Vite solche Variablen im Browser verfügbar macht. `scripts/verify-build.ts` lässt den Build fehlschlagen, wenn ein Client-Asset `cloudflare:workers` importiert. Die kanonische Domain stammt aus `APP_DOMAIN` in `src/presentation/branding/index.ts`, nicht aus einer Umgebungsvariablen.
+
+## Bindings
+
+| Binding  | Typ              | Verwendung                                                 |
+| -------- | ---------------- | ---------------------------------------------------------- |
+| `DB`     | D1               | Datenbank der Anwendung, Sitzungen und Ratenbegrenzung     |
+| `CACHE`  | KV               | Anzahl der GitHub-Sterne                                   |
+| `ASSETS` | Statische Assets | Vorab gerenderte Seiten, Schriften und öffentliche Dateien |
+
+Die Entwicklung verwendet Remote-Bindings von Cloudflare, daher liest und schreibt `bun run dev` die Preview-Datenbank. Führen Sie nach einer Änderung der Bindings `bun run cf-typegen` aus, um `src/types/worker-configuration.d.ts` neu zu erzeugen.
+
+## Tests
+
+Vitest lädt `.env.test` über `test.env` und löst `cloudflare:workers` zu `src/platform/testing/mocks/cloudflare.ts` auf, das D1 und KV im Arbeitsspeicher bereitstellt. Playwright verwendet die Umgebung `test` und deren Einstiegspunkt `src/platform/testing/worker.ts`. Keines von beiden benötigt echte Zugangsdaten.
+
+## Verwandte Anleitungen
+
+- [Referenz der Umgebung](/docs/reference/environment)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)

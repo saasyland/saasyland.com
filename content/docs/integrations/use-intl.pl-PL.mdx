@@ -1,16 +1,67 @@
 ---
-title: Tłumaczenia i języki
-description: Tłumaczenia i języki — SaaSy Land
+title: "Internacjonalizacja i języki"
+description: "Języki, przestrzenie nazw komunikatów i funkcje pomocnicze URL oparte na use-intl."
 ---
 
-Tłumaczenia znajdują się w `messages/{locale}` dla wszystkich dziewięciu skonfigurowanych języków, w plikach namespace takich jak `pages.admin.users.json`. Konfiguracja języków, funkcje URL, ładowanie wiadomości, metadane i tłumaczenia e-maili znajdują się w `src/integrations/use-intl`.
+SaaSy Land obsługuje dziewięć języków: `en-US` (domyślny), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` i `uk-UA`. Angielski używa ścieżek bez prefiksu (`/docs`), a pozostałe języki pełnego prefiksu językowego (`/pl-PL/docs`). Aliasy języków, takie jak `/pl/docs`, przekierowują na stałe do ścieżki kanonicznej.
 
-Angielski używa `/docs`, a polski `/pl-PL/docs`. Starsze linki `/en` i `/pl` są kanonizowane. Plik trasy deklaruje `staticData.namespaces` i ładuje te same namespace w loaderze. `TranslationsProvider` składa wiadomości aktywnych tras dla `IntlProvider`. Wspólne wiadomości ładowane są na poziomie root, a namespace e-maili pozostają na serwerze.
+## Pliki
 
-Na serwerze odczytuj język przez `getCurrentLocale`, a w komponentach przez `useLocale`. URL określa język dokumentu. Funkcje serwerowe korzystają z cookie języka. Zmiana języka zachowuje ścieżkę, parametry i fragment oraz przeładowuje dokument. Po zmianie kluczy uruchom `bun run check:i18n`.
+Cała logika języków znajduje się w `src/integrations/use-intl/`:
+
+| Plik                 | Odpowiedzialność                                                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `i18n.config.ts`     | `I18N` z `SUPPORTED_LOCALES`, `DEFAULT_LOCALE`, `COOKIE_NAME` i `DEFAULT_TIMEZONE`                                                |
+| `i18n.messages.ts`   | `loadNamespace`, `loadPageMetadata`, `messagesQueryOptions`, `preloadNamespaces` i `ROOT_NAMESPACES`                              |
+| `i18n.middleware.ts` | `resolveLocale`: przekierowania kanoniczne i synchronizacja ciasteczka języka dla żądań dokumentów, używane przez `src/server.ts` |
+| `i18n.paths.ts`      | `localizePathname`, `deLocalizePathname`, `canonicalizePathname`, `localeLinks` i powiązane funkcje pomocnicze ścieżek            |
+| `i18n.utils.ts`      | `getCurrentLocale`, `localizeUrl`, `deLocalizeUrl` i `parseLocaleCookie`                                                          |
+
+## Przestrzenie nazw
+
+Komunikaty znajdują się w `messages/<locale>/<namespace>.json`, a nazwa pliku jest nazwą przestrzeni nazw: `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` lub `common`. Komunikaty to zwykły JSON bez generowanych typów. Każda przestrzeń nazw strony zawiera `metadata.title` i `metadata.description` dla sekcji head strony.
+
+Trasa główna wstępnie ładuje główne przestrzenie nazw (`common`, `components.*` i `errors*`) w `beforeLoad`. Trasa strony deklaruje jedną `NAMESPACE`, a trasa układu deklaruje `NAMESPACES` dla swojego poddrzewa; obie wymieniają je w `staticData.namespaces` i wstępnie ładują w loaderze:
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+`TranslationsProvider` opakowuje body dokumentu i łączy główne przestrzenie nazw z przestrzeniami nazw każdej dopasowanej trasy w jeden `IntlProvider`, dzięki czemu ekrany błędu i „nie znaleziono” również są przetłumaczone. Przestrzenie nazw e-maili ładuje wyłącznie serwerowy przypadek użycia, który wysyła dany e-mail.
+
+## Język i linki
+
+`getCurrentLocale()` działa izomorficznie. Na serwerze odczytuje język z URL-a, a w przypadku żądań `/api` i funkcji serwerowych z ciasteczka języka; w przeglądarce odczytuje URL. Worker utrzymuje ciasteczko w zgodzie z URL-em strony.
+
+`rewrite` routera usuwa prefiks języka z przychodzących URL-i i dodaje go do wychodzących, więc `<Link to={ROUTES.X}>` zawsze pozostaje w bieżącym języku. Używaj `localizePathname({ locale, pathname })` tylko dla surowych URL-i: adresów zwrotnych Better Auth, linków w e-mailach i ręcznie tworzonych elementów `<a href>`. Przełącznik języka jest właśnie takim linkiem, więc wybór języka ładuje tę samą stronę w nowym dokumencie.
+
+## Komponenty
+
+Komponent wywołuje `useTranslations` dokładnie raz i nazywa funkcję tłumaczącą `t`. i18n-ally zmienia zakres każdego późniejszego `t()` po kolejnym wywołaniu `useTranslations`, a `bun run check:i18n` zgłasza błąd dla kluczy, których nie da się rozwiązać w ich zakresie. Komponent, który potrzebuje dwóch niepowiązanych przestrzeni nazw, używa ich wspólnej przestrzeni nadrzędnej albo `useTranslations()` z pełnymi kluczami.
+
+## Kontrole
+
+`bun run check:i18n` uruchamia trzy skrypty, a `bun run check` go obejmuje:
+
+- `scripts/check-i18n.ts`: zgodność kluczy z `en-US` i rozwiązywanie statycznych kluczy w ich zakresie.
+- `scripts/check-message-formats.ts`: każdy komunikat daje się sparsować jako ICU i zachowuje swoje argumenty oraz tagi formatowania.
+- `scripts/check-content.ts`: pliki dokumentacji i bloga, nawigacja oraz przykłady kodu są zgodne we wszystkich językach.
 
 ## Powiązane przewodniki
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [Architektura i18n](/docs/architecture/i18n-architecture)
+- [Komunikaty i18n](/docs/guides/i18n-messages)

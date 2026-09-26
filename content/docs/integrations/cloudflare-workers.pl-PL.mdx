@@ -1,25 +1,33 @@
 ---
-title: Wdrożenie na Cloudflare Workers
-description: Wdrożenie na Cloudflare Workers — SaaSy Land
+title: "Cloudflare Workers"
+description: "Punkt wejścia Workera, middleware języka, bindingi i wdrożenie."
 ---
 
-Pakiet Workera powstaje przy użyciu Vite+, TanStack Start i `@cloudflare/vite-plugin`. Plik `wrangler.jsonc` deklaruje punkt wejścia, ustawienia zgodności, zasoby, obserwowalność oraz osobne bindingi development, preview i production.
+Aplikacja działa jako jeden Cloudflare Worker. Buduje go `@cloudflare/vite-plugin`, a `CLOUDFLARE_ENV` wybiera środowisko Wranglera. `wrangler.jsonc` ustawia `main` na `./src/server.ts`, włącza `nodejs_compat` i obserwowalność oraz serwuje pliki statyczne przez binding `ASSETS`. Worker uruchamia się jako pierwszy dla każdej ścieżki z wyjątkiem `/assets/*`, `/fonts/*`, `/robots.txt` i `/llms.txt`.
 
-Utwórz D1 i KV, a następnie zastąp przykładowe identyfikatory w docelowym środowisku. Ustaw URL i sekrety usług w `.env.preview` lub `.env.production`. Jawnie zastosuj migracje i wykonaj wdrożenie. Skrypty wdrażania najpierw sprawdzają bindingi; skrypty budowania prerenderują publiczne strony i sprawdzają artefakty. Uwierzytelnianie i prywatne strony są renderowane dynamicznie przez Workera.
+| Środowisko    | Worker                  | D1 i KV                           | Domena                  |
+| ------------- | ----------------------- | --------------------------------- | ----------------------- |
+| `development` | `saasyland-development` | Zdalne zasoby preview             | `localhost:3000`        |
+| `preview`     | `saasyland-preview`     | Zasoby preview                    | `preview.saasyland.com` |
+| `production`  | `saasyland`             | Zasoby produkcyjne                | `saasyland.com`         |
+| `test`        | `saasyland-test`        | Lokalne zasoby w `.wrangler/test` | `127.0.0.1:3000`        |
 
-Ustaw domenę i adresy callback OAuth dla danego środowiska. Instalacja zależności i budowanie nigdy nie stosują zdalnych migracji.
+Każde środowisko wiąże D1 jako `DB` i KV jako `CACHE` oraz wymienia swoje wymagane sekrety. Środowisko `test` używa `src/platform/testing/worker.ts` jako punktu wejścia; przechwytuje on żądania do Resend i Polar i udostępnia endpointy przeznaczone wyłącznie dla testów Playwright.
 
-```sh
-bunx wrangler login
-bunx wrangler d1 create saasyland_preview
-bunx wrangler kv namespace create CACHE --env preview
-# Update wrangler.jsonc and .env.preview first.
-bun run db:migrate:preview
-bun run deploy:preview
-```
+## Przepływ żądania
+
+`src/server.ts` obsługuje każde żądanie:
+
+1. `resolveLocale` z `i18n.middleware.ts` analizuje żądania dokumentów `GET` i `HEAD` spoza `/api` i `/_serverFn`. Przekierowuje aliasy języków i niekanoniczne ścieżki językowe ze statusem 308 oraz sygnalizuje, gdy ciasteczko języka różni się od języka w URL-u.
+2. Żądania `GET` i `HEAD` spoza `/api` i `/_serverFn` są najpierw obsługiwane z `ASSETS`, co obejmuje prerenderowane strony. Odpowiedź 404 przechodzi dalej do handlera TanStack Start.
+3. Gdy ciasteczko języka wymaga aktualizacji, Worker dołącza je do odpowiedzi. Odpowiedzi HTML otrzymują też nagłówki `Link` z preloadem arkusza stylów i czcionek danego języka.
+4. Odpowiedzi HTML otrzymują ceny regionalne: gdy kraj z `cf-ipcountry` kwalifikuje się do zniżki opartej na parytecie siły nabywczej, `HTMLRewriter` dodaje atrybuty zniżki do `<html>`, a odpowiedź otrzymuje nagłówek `private, no-cache`.
+
+## Wdrożenie
+
+`bun run deploy:preview` i `bun run deploy:production` uruchamiają `scripts/verify-bindings.ts`, który odrzuca zastępcze identyfikatory D1 i KV, następnie odpowiedni build i `wrangler deploy --secrets-file .env.<environment>`. Buildy prerenderują strony publiczne i uruchamiają `scripts/verify-build.ts` oraz `scripts/optimize-prerendered-html.ts`. Migracje to osobne polecenia; zobacz [Wdrożenie podglądu](/docs/getting-started/deploy-preview) i [CI/CD](/docs/tooling/ci-cd).
 
 ## Powiązane przewodniki
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [Środowisko i bindingi](/docs/tooling/environment)
+- [Warstwa platformy](/docs/architecture/platform-layer)

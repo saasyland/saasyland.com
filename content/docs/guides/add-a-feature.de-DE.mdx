@@ -1,14 +1,64 @@
 ---
-title: Fügen Sie eine Funktion hinzu.
-description: Fügen Sie eine Funktion hinzu – SaaSy Land.
+title: "Feature hinzufügen"
+description: "Durchgängige Anleitung von der Datenbanktabelle bis zur getesteten Seite, mit Verweisen auf die ausführlichen Anleitungen."
 ---
 
-Erstellen oder erweitern Sie das Schema, die Validierungsregeln, die Konstanten und die Anwendungsfälle des zugehörigen Moduls. Fügen Sie eine flache Route unter `src/routes` hinzu, einschließlich der Berechtigungsprüfung, der validierten Suchparameter, der Metadaten und des Namespace-Preloads. Platzieren Sie die Benutzeroberfläche der Funktion unter `presentation/components/custom/{feature}` zusammen mit zugehörigen Komponenten, Hooks und Konstanten.
+Ein Feature berührt meist jede Schicht: ein Tabellenmodul, seine Use Cases, eine Route, Präsentationskomponenten, Messages und Tests. Die Produktkategorien zeigen den vollständigen Weg: `src/modules/category`, der Kategorien-Tab in `src/routes/admin.products.index.tsx` und `src/presentation/components/custom/admin/products/category-columns.tsx`.
 
-Führen Sie unabhängige Datenabfragen im Loader zusammen, rendern Sie diese aus dem gemeinsamen QueryClient-Cache und übermitteln Sie sie über die nativen Mutationsoptionen. Fügen Sie Schlüssel für alle neun konfigurierten Sprachen zusammen. Behalten Sie das bestehende Layout und die zugänglichen Basiselemente bei, und überprüfen Sie anschließend die Funktionalität, das Verhalten der Komponente und die Browserperformance auf der entsprechenden Ebene.
+## 1. Daten modellieren
 
-## Verwandte Anleitungen.
+Wenn das Feature neue Daten speichert, ein Modul für seine Tabelle hinzufügen und die Migration generieren.
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+- [Modul hinzufügen](/docs/guides/add-a-module)
+- [Datenbankmigrationen](/docs/guides/database-migrations)
+
+## 2. Festlegen, wer was darf
+
+Die neuen Aktionen zu `APP_STATEMENTS` in `src/integrations/better-auth/auth.access.ts` hinzufügen und Rollen zuweisen.
+
+- [Rollen und Berechtigungen](/docs/guides/roles-and-permissions)
+
+## 3. Operationen schreiben
+
+Pro Operation einen Use Case mit Middleware, Validator, Handler und Query- oder Mutation-Optionen hinzufügen.
+
+- [Use Case hinzufügen](/docs/guides/add-a-use-case)
+- [Server-Funktionen](/docs/guides/server-functions)
+
+## 4. Route hinzufügen
+
+1. Den Pfad zu `ROUTES` in `src/routes.ts` hinzufügen.
+2. Eine flache Route-Datei für den Bereich anlegen: `src/routes/admin.<feature>.tsx` unter dem Admin-Layout, `src/routes/app.<feature>.tsx` unter dem Layout für angemeldete Kunden oder `src/routes/_landing.<page>.tsx` für eine öffentliche Seite.
+3. Der Route-Konvention folgen: `const NAMESPACE`, `staticData: { namespaces: [NAMESPACE] }`, `head: pageHead(ROUTES.X)`, ein Loader, der Metadaten, Messages und Daten in einem einzigen `Promise.all` lädt, sowie das eigene Skeleton der Seite als `pendingComponent`, registriert in der Map des zugehörigen Layout-Skeletons (siehe [Lade-Skeletons](/docs/architecture/delivery-layer#lade-skeletons)).
+4. Der `beforeLoad`-Guard des Layouts (`requireAdmin` für `/admin`, `requireSignedIn` für `/app`) schützt die Seite. Die Server-Funktionen autorisieren trotzdem jeden Aufruf selbst.
+
+- [Admin-Seite hinzufügen](/docs/guides/add-an-admin-page)
+- [URL-Zustand](/docs/guides/url-state)
+
+## 5. UI bauen
+
+Widgets, Dialoge, Formulare und Tabellenspalten in `src/presentation/components/custom/<area>/<feature>/` ablegen, jeweils eine Komponente pro Datei. Jede Komponente liest ihre eigenen Übersetzungen und Daten; die Route setzt sie nur zusammen.
+
+- [Datentabelle hinzufügen](/docs/guides/add-a-data-table)
+- [Formulare und Validierung](/docs/guides/forms-and-validation)
+
+## 6. Messages hinzufügen
+
+Den Seiten-Namespace und gegebenenfalls einen Validierungs-Namespace in allen neun Locales anlegen. Seiten-Namespaces benötigen `metadata.title` und `metadata.description`.
+
+- [Internationalisierung und Locales](/docs/guides/i18n-messages)
+- [E-Mail-Vorlagen](/docs/guides/email-templates), wenn das Feature E-Mails versendet
+
+## 7. Testen und prüfen
+
+Die Use Cases, Komponenten und die Route mit Tests abdecken und anschließend alle Gates ausführen:
+
+```sh
+bun run check
+bun run test:coverage
+bun run build
+bun run test:e2e:smoke
+```
+
+- [Tests schreiben](/docs/guides/writing-tests)
+- [Sicherheits-Checkliste](/docs/guides/security-checklist)

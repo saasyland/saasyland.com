@@ -1,6 +1,40 @@
 ---
-title: Resend
-description: Доставка електронної пошти в режимі 24/7.
+title: "Resend"
+description: "Транзакційні листи з Resend і шаблонами React Email."
 ---
 
-API ключ + від адреси через env. `sendEmail` в наявності `resend.utils.ts` є спільним помічником; шаблони, які живуть в `presentation/emails`.
+`src/integrations/resend/resend.config.ts` створює клієнт Resend з `RESEND_API_KEY`. `resend.utils.ts` експортує `sendEmail` — єдину функцію, яка надсилає листи. `from` типово дорівнює `RESEND_EMAIL_FROM`, обов'язковий ключ ідемпотентності не дає Resend надіслати повторений запит двічі, а помилка Resend викидається як виняток. Обидва файли призначені лише для сервера.
+
+## Шаблони та сценарії використання
+
+Шаблони в `src/presentation/emails/` — це компоненти React Email, що містять лише розмітку. Кожен експортує константу `*_NAMESPACE`, отримує `locale` і `messages` як пропси та перекладає за допомогою `createTranslator` з use-intl. Сценарій використання, який надсилає лист, завантажує повідомлення, рендерить шаблон і викликає `sendEmail`:
+
+```ts
+const locale = getCurrentLocale()
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+await sendEmail({
+  idempotencyKey: `verify-email/${token}`,
+  react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+  subject: createTranslator({ locale, messages })("subject"),
+  to: user.email,
+})
+```
+
+| Шаблон                                | Простір імен                             | Надсилає                                                                     |
+| ------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
+| `verify-email.tsx`                    | `emails.verify-email`                    | `modules/verification/use-cases/send-verify-email.ts`                        |
+| `reset-password-email.tsx`            | `emails.reset-password-email`            | `modules/verification/use-cases/send-reset-password-email.ts`                |
+| `change-email-confirmation-email.tsx` | `emails.change-email-confirmation-email` | `modules/account/use-cases/send-change-email-confirmation-email.ts`          |
+| `newsletter-confirmation-email.tsx`   | `emails.newsletter-confirmation-email`   | `modules/newsletter-subscriber/use-cases/subscribe-to-newsletter.ts`         |
+| `newsletter-notification-email.tsx`   | `emails.newsletter-notification-email`   | `modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription.ts` |
+
+Better Auth викликає перші три сценарії використання зі своїх хуків в `auth.server.ts`. Сповіщення про розсилку надходить власникові сайту англійською після підтвердження підписки. Посилання в листах будуються за допомогою `localizePathname`, тож вони відкриваються в локалі одержувача.
+
+## Тестування
+
+Vitest мокає виклики постачальника. У тестовому Worker для Playwright запити до API Resend перехоплюються замість надсилання, а `/__test/emails?to=<address>` повертає перехоплені листи.
+
+## Пов'язані посібники
+
+- [Шаблони листів](/docs/guides/email-templates)
+- [Електронна пошта](/docs/features/email)

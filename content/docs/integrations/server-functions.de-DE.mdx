@@ -1,30 +1,64 @@
 ---
-title: Serverfunktionen und Anwendungsfälle.
-description: Serverfunktionen und Anwendungsfälle – SaaSy Land
+title: "Serverfunktionen und Anwendungsfälle"
+description: "Native TanStack Start-Serverfunktionen mit Validierung, Middleware und Query-Optionen."
 ---
 
-Funktionen werden im Verzeichnis `src/modules/{feature}/use-cases/{operation}.ts` gespeichert. Exportieren Sie eine native `createServerFn` mit ihrem Eingabedefinitionschema, Autorisierungs- oder Ratenbegrenzung (Rate-Limit)-Middleware sowie eine Handler-Funktion, die entweder D1 oder den Provider-Adapter aufruft. Eine Mutation gibt Daten direkt zurück und wirft einen sicheren `AppError`; sie gibt kein framework-spezifisches Action-Envelope zurück.
-
-Exportieren Sie `mutationOptions` neben den Mutationen und `queryOptions` neben den Leseoperationen. Komponenten verwenden TanStack Query und übersetzen Fehler mit `useActionError`. Erfolgreiche Mutationen invalidieren die zugehörigen Feature-Query-Schlüssel. Verlassen Sie sich niemals auf eine Benutzer-ID, die von einem Kunden bereitgestellt wird, wenn die Operation auf `context.auth.user.id` angewendet werden soll.
-
-Verwenden Sie `withAuth` für geschützte Operationen und `withRateLimit` für sensible, öffentliche Operationen. Die Validierung läuft vor der Ausführung des Handlers ab. Halten Sie Provider-Fehler und interne Details aus öffentlichen Antworten heraus.
+Geschäftsoperationen liegen in `src/modules/<table>/use-cases/<operation>.ts`, eine Operation pro Datei. Jede exportiert ein natives `createServerFn` mit Middleware, Zod-Validierung und Handler sowie die Query- oder Mutation-Optionen, die Komponenten verwenden. Eine Serverfunktion, die zu keiner Tabelle gehört, kommt nach `src/lib` (zum Beispiel `getStarCount` in `src/lib/github.ts`), und eine, die nur eine einzige Route nutzt, kann in dieser Routendatei definiert werden (`getBlogPosts` in `src/routes/blog.index.tsx`).
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
-import { mutationOptions } from "@tanstack/react-query"
-import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
-import { categoryZodSchemas } from "~/src/modules/category/category.zod"
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
 ```
 
-Die bestehende Operation `createCategory` demonstriert die Validierung, die Überprüfung von Berechtigungen, einen D1-Eintrag sowie exportierte Mutationsoptionen.
+## Regeln
 
-## Verwandte Anleitungen.
+- Middleware läuft vor der Validierung und dem Handler. Verwenden Sie `authorized(permission?)` für geschützte Operationen und `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` oder `RATE_LIMITS.TOKEN` für sensible öffentliche Operationen; siehe [Better Auth](/docs/integrations/better-auth).
+- Validieren Sie Eingaben mit dem Zod-Schema des Moduls (`<table>.zod.ts`).
+- Geben Sie Daten direkt zurück und werfen Sie bei erwarteten Fehlern `AppError(ERROR_CODES.X)` aus `src/modules/_core/constants/errors.ts`. Andere Fehler erreichen den Client als `INTERNAL_ERROR`, sodass Details der Anbieter auf dem Server bleiben.
+- Query- und Mutation-Schlüssel sind schreibgeschützte Tupel in der `<table>.constants.ts` des Moduls, und Query-Schlüssel enthalten jede Eingabe, die das Ergebnis verändert.
+- Halten Sie Operationen mit einer einzelnen SQL-Anweisung oder `db.batch` atomar; D1 hat keine interaktiven Transaktionen.
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+## Einen Anwendungsfall verwenden
+
+Komponenten übernehmen die exportierten Optionen per Spread in `useQuery`, `useSuspenseQuery` oder `useMutation`, übersetzen Fehler mit `useErrorMessage()` aus `src/hooks/use-error-message.ts` und invalidieren nach einer erfolgreichen Mutation die Query-Schlüssel des Moduls:
+
+```tsx
+const deleteUser = useMutation({
+  ...deleteUserMutation,
+  onError: (error) => {
+    toast.error(errorMessage(error))
+  },
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL })
+    toast.success(t("feedback.deleteSuccess"))
+  },
+})
+```
+
+Loader laden dieselben Query-Optionen in ihrem `Promise.all` vor, sodass Server-Rendering und Client einen gemeinsamen Cache-Eintrag nutzen.
+
+## Verwandte Anleitungen
+
+- [Einen Anwendungsfall hinzufügen](/docs/guides/add-a-use-case)
+- [Serverfunktionen](/docs/guides/server-functions)
+- [Module und Anwendungsfälle](/docs/architecture/modules-and-use-cases)

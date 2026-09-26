@@ -1,14 +1,48 @@
 ---
-title: Prise en charge de l'intégration
-description: Propriété de l'intégration — SaaSy Land
+title: "Périmètre des intégrations"
+description: "Les dossiers par fournisseur dans src/integrations, ce que chacun configure et ce qui n'y a pas sa place."
 ---
 
-Chaque bibliothèque ou fournisseur externe possède un répertoire `src/integrations`: Better Auth, Drizzle, Fumadocs, use-intl, Polar, Resend et GitHub. Les fichiers de configuration initialisent les clients. Les adaptateurs partagés normalisent les résultats du fournisseur et maintiennent les identifiants derrière les frontières du serveur.
+Chaque bibliothèque ou service tiers qui nécessite une configuration possède un dossier dans `src/integrations`. Les fichiers sont nommés `<prefix>.<concern>.ts`, où le préfixe est le nom court du fournisseur.
 
-Les décisions d'affaires demeurent dans les modules de fonctionnalités. Par exemple, Polar les gestionnaires de webhook mettent à jour les enregistrements de licence grâce à des cas d'utilisation de module; l'intégration elle-même configure le SDK et vérifie les webhooks entrants.
+| Dossier         | Fichiers                                                                                                                                     | Responsabilité                                                                                                   |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `better-auth`   | `auth.server`, `auth.client`, `auth.access`, `auth.middleware`, `auth.routes`, `auth.session`, `auth.errors`, `auth.zod`, `auth.constraints` | Configuration de l'authentification, rôles, middlewares des fonctions serveur, guards de route, query de session |
+| `drizzle-orm`   | `drizzle.config`, `drizzle.database`, `drizzle.schemas`, `migrations/`                                                                       | Le client D1, le registre des schémas et les migrations SQL                                                      |
+| `fumadocs`      | `fumadocs.config`, `fumadocs.source`, `fumadocs.docs`, `fumadocs.search`, `fumadocs.i18n`                                                    | Les collections MDX de la documentation et du blog, le chargement des pages et la recherche                      |
+| `motion`        | `motion.features`, `motion.tokens`                                                                                                           | Le bundle de fonctionnalités Motion chargé en différé et les transitions partagées                               |
+| `polar`         | `polar.config`, `polar.constants`                                                                                                            | Le client du SDK Polar et les identifiants des produits proposés au paiement                                     |
+| `resend`        | `resend.config`, `resend.utils`                                                                                                              | Le client Resend et `sendEmail`                                                                                  |
+| `tanstack-form` | `form.fields`                                                                                                                                | Les types de champs et `fieldErrorMessage` pour TanStack Form                                                    |
+| `use-intl`      | `i18n.config`, `i18n.messages`, `i18n.middleware`, `i18n.paths`, `i18n.utils`                                                                | Les locales, le chargement des messages, les URL localisées et les cookies                                       |
 
-## Guides connexes
+## Ce qui n'est pas une intégration
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+- Le nombre d'étoiles GitHub est une fonction serveur dans `src/lib/github.ts`, mise en cache dans KV.
+- La limitation de débit se trouve dans `src/lib/rate-limit.ts` et s'appuie sur la table `rate_limit`.
+- Les bindings Cloudflare ne nécessitent aucun adaptateur. Le code serveur les lit depuis `env` dans `cloudflare:workers`.
+
+## La logique métier reste dans les modules
+
+Une intégration configure un fournisseur. Les décisions concernant les données de l'application appartiennent au module qui possède la table :
+
+- Le plugin Polar dans `auth.server.ts` vérifie les signatures des webhooks avec `POLAR_WEBHOOK_SECRET` et transmet les événements à `licenseWebhookHandlers` dans `src/modules/license/license.webhooks.ts`, qui appellent les cas d'usage de licence.
+- Les hooks e-mail de Better Auth appellent `sendVerifyEmail`, `sendResetPasswordEmail` et `sendChangeEmailConfirmationEmail`, issus des modules verification et account.
+- Un cas d'usage envoie un e-mail en chargeant le namespace du modèle, en effectuant le rendu du modèle, puis en appelant `sendEmail` :
+
+```ts
+const locale = getCurrentLocale()
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+await sendEmail({
+  idempotencyKey: `verify-email/${token}`,
+  react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+  subject: createTranslator({ locale, messages })("subject"),
+  to: user.email,
+})
+```
+
+## Pages associées
+
+- [Intégrations](/docs/integrations)
+- [Better Auth](/docs/integrations/better-auth)
+- [Règles de dépendance](/docs/architecture/dependency-rules)

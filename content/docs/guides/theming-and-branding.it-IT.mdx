@@ -1,13 +1,36 @@
 ---
-title: Theming & branding
-description: Token tematici, font e beni di marca.
+title: "Temi e identità del marchio"
+description: "Modifica il nome del prodotto, il dominio, i token di colore, la scala tipografica e i font."
 ---
 
-## Località
+## Identità del marchio
 
-- `presentation/theme`
-- `presentation/branding`
-- `presentation/fonts`
-- Stili globali sotto gli stili di presentazione
+`src/presentation/branding/index.ts` è l'unica fonte dell'identità del prodotto: `APP_NAME`, `APP_DOMAIN`, `APP_URL` (derivato come `https://${APP_DOMAIN}`), `CONTACT_EMAIL`, `NOTIFICATIONS_EMAIL`, `APP_FOUNDED_YEAR` e proprietario, repository e URL di GitHub. Ne derivano i titoli delle pagine, gli URL canonici, il nome dell'applicazione in Better Auth, l'emittente dell'autenticazione a due fattori e i nomi dei cookie di tema e lingua.
 
-L'interruttore a tema è un controllo client; i default dovrebbero evitare i modelli di flicker di idratazione già utilizzati nei fornitori.
+Quando cambi marchio, aggiorna anche:
+
+- `Wordmark` in `src/presentation/components/custom/wordmark.tsx`: il logo SVG incorporato accanto ad `APP_NAME`.
+- `public/favicon.ico` e le immagini in `public/images`.
+- Il prefisso dei cookie di autenticazione, `advanced.cookiePrefix` in `src/integrations/better-auth/auth.server.ts`, e gli host consentiti per ambiente in `src/modules/_core/constants/api.ts`.
+
+Ricompila dopo aver cambiato il marchio; i file di ambiente non modificano l'URL canonico.
+
+## Tema
+
+`src/presentation/theme/index.ts` definisce `THEME`: i temi `light`, `dark` e `system`, il predefinito `system` e il cookie che memorizza la scelta. `ThemeScript` nell'intestazione del documento radice applica il tema salvato prima del primo rendering, così le pagine non lampeggiano mai con il tema sbagliato. `ThemeSwitch` (`src/presentation/components/custom/theme-switch.tsx`) lo modifica. `ThemeProvider` (`src/providers/theme-provider.tsx`) avvolge solo i componenti che usano il tema, come `<ThemeSwitch />` in `src/routes/docs.tsx` e il toaster nella route radice. Non avvolge mai un `Outlet` di route, perché si aggiorna dopo l'idratazione e renderebbe di nuovo l'intera pagina.
+
+## Token di colore
+
+`src/presentation/styles/globals.css` è l'unico punto di ingresso di Tailwind. Definisce i token shadcn (`--background`, `--foreground`, `--primary`, `--muted`, `--border`, `--ring`, `--sidebar-*`, `--chart-*` e altri) in `:root` per la modalità chiara e in `.dark` per la modalità scura, e li mappa sui colori Tailwind in `@theme inline`. Modifica i valori lì; i componenti usano le classi semantiche (`bg-background`, `text-muted-foreground`, `border-border`). Fanno eccezione gli accenti di stato, come ambra e rosa.
+
+`docs.css` e `typeset.css`, nella stessa cartella, sono CSS semplice caricato solo dai layout della documentazione e del blog.
+
+## Scala tipografica
+
+La scala tipografica è un insieme di token `--text-*` in `globals.css`: `display-hero`, `display-gate`, `display-blast`, `headline-peak`, `headline-support`, `price`, `title`, `statement`, `lead`, `body`, `body-sm`, `label` e `spec`. Ogni token imposta dimensione, interlinea e spaziatura delle lettere, i più grandi anche il peso, e si usa come classe: `text-body`, `text-title` e così via.
+
+Quando aggiungi un token `text-*`, aggiungi il suo nome anche a `src/lib/cn.config.ts`. `cn` di `src/lib/cn.ts` usa questa configurazione per trattare le dimensioni personalizzate come dimensioni del font durante l'unione delle classi; senza di essa, `cn` le scarta. `bun run generate:cn` rigenera le tabelle delle classi e viene eseguito come parte di `dev`, `build` e `check`.
+
+## Font
+
+Geist e Geist Mono sono ospitati in `public/fonts` e dichiarati con `@font-face` in `src/presentation/styles/fonts.css`, un file per intervallo Unicode. `fontPreloads` in `src/presentation/document-assets.ts` precarica il latino e il latino monospaziato su ogni pagina, il latino esteso per `pl-PL` e il cirillico per `uk-UA`. Per cambiare font, sostituisci i file e le regole `@font-face`, poi aggiorna di conseguenza l'elenco di precaricamento.

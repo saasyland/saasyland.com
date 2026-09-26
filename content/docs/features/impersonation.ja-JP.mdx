@@ -1,15 +1,24 @@
 ---
-title: インフォメーション
-description: ユーザー (Better Auth 管理者プラグイン) の偽装を管理します。
+title: "なりすまし"
+description: "Better Auth の管理者によるなりすまし: サーバー関数はありますが、まだどの画面も使っていません。"
 ---
 
-## ステータス
+Better Auth の `admin` プラグインがなりすまし機能を提供し、`src/modules/user/use-cases` がそれをラップしています。
 
-ユーザーの管理者アクション/使用ケースによる許可チェックによる露出。
+```ts
+export const impersonateUser = createServerFn({ method: "POST" })
+  .middleware([authorized({ user: ["impersonate"] })])
+  .validator((input: zod.input<typeof userZodSchemas.impersonateUser>) => userZodSchemas.impersonateUser.parse(input))
+  .handler(({ context, data }) => auth.api.impersonateUser({ body: data, headers: context.requestHeaders }))
+```
 
-## ルールのルール
+`stopImpersonatingUser` はサインイン済みのセッションだけを必要とします。両ファイルはミューテーションのオプション（`impersonateUserMutation`、`stopImpersonatingUserMutation`）をエクスポートします。
 
-- 管理者専用
-- 偽装するときの明確なUIの徴候
-- あなたがopsを硬化させるとき、適切な監査ロギング
-- 意図したサポートワークフローを超えて特権エスカレーションを許可しない
+## 現状
+
+- これらの関数を呼び出す画面はありません。ユーザーの行アクションメニューになりすましの項目はなく、なりすましを終了するバナーもありません。
+- Better Auth はなりすましセッションに `impersonatedBy` を記録し、`getActiveSessions` は設定のセッション一覧からそれらを除外します。
+- ルートガードはセッションのユーザーが変わるとクエリキャッシュをクリアするため、なりすまし後の次の画面遷移では相手ユーザーのデータが読み込まれます。
+- なりすましの監査ログはありません。
+
+追加する場合は、`UserRowActions`（`src/presentation/components/custom/admin/users/row-actions.tsx`）にメニュー項目を置き、レイアウトになりすましを終了する目に見える手段を用意します。

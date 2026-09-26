@@ -1,6 +1,48 @@
 ---
 title: "Transactional email"
-description: "Resend delivery for auth and product mail."
+description: "React Email templates in src/presentation/emails, sent by use cases through Resend."
 ---
 
-See Integrations → Resend and Guides → Email templates. Auth verification / reset mail is required for local auth flows; product receipts come with payments.
+## Templates
+
+Templates live in `src/presentation/emails`. Each file holds markup only and exports its namespace constant:
+
+| Template                       | Namespace                                | Sent by                                               |
+| ------------------------------ | ---------------------------------------- | ----------------------------------------------------- |
+| `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail` (Better Auth hook)                  |
+| `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail` (Better Auth hook)           |
+| `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail` (Better Auth hook) |
+| `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                               |
+| `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`, to `CONTACT_EMAIL`   |
+
+A template receives `locale` and `messages` and translates with use-intl `createTranslator`:
+
+```tsx
+const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
+```
+
+## Sending
+
+The use case loads the messages, renders the template and sends it (`src/modules/verification/use-cases/send-verify-email.ts`):
+
+```ts
+const locale = getCurrentLocale()
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+verifyUrl.searchParams.set("token", token)
+await sendEmail({
+  idempotencyKey: `verify-email/${token}`,
+  react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+  subject: createTranslator({ locale, messages })("subject"),
+  to: user.email,
+})
+```
+
+`sendEmail` (`src/integrations/resend/resend.utils.ts`) sends through Resend from `RESEND_EMAIL_FROM` unless a `from` is given (the owner notification uses `NOTIFICATIONS_EMAIL`), passes the idempotency key and throws on failure.
+
+Account emails use the locale of the current request. Newsletter emails use the locale submitted with the form; the owner notification is always in `en-US`.
+
+## Related guides
+
+- [Email templates](/docs/guides/email-templates)
+- [Resend](/docs/integrations/resend)

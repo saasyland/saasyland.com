@@ -1,10 +1,46 @@
 ---
-title: Categorías
-description: Casos de uso de operaciones CRUD para categorías.
+title: "Categorías"
+description: "Categorías y colecciones en D1, listadas en la pantalla de productos de administración."
 ---
 
-## Módulo.
+## Datos
 
-`modules/category/use-cases`.
+`src/modules/category/category.schema.ts` define la tabla `category`: `name`, `description`, `kind` (`category` o `collection`), `visibility` (`public` o `hidden`), `icon` (`Archive`, `FolderOpen` o `Puzzle`) y marcas de tiempo.
 
-Utilizado por la interfaz de usuario de la organización de productos y los futuros filtros de la tienda.
+Casos de uso en `src/modules/category/use-cases`, cada uno protegido por el permiso `category` correspondiente: `getCategories` (paginado, con `kind` opcional), `getCategory`, `createCategory`, `updateCategory` y `deleteCategory`. `createCategory` es la estructura de referencia para un caso de uso de mutación:
+
+```ts
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
+```
+
+Los mensajes de validación y de error están en los espacios de nombres `category.validations` y `category.errors`.
+
+## Pantalla de administración
+
+Las pestañas **Categorías** y **Colecciones** de `/admin/products` muestran `categoryColumns` con `getCategoriesPageQuery({ kind, pageIndex, pageSize })`. Solo el listado está conectado: ninguna pantalla crea, edita ni elimina categorías. Los productos aún no tienen relación con las categorías, así que la columna del número de elementos muestra un valor provisional.
+
+## Guías relacionadas
+
+- [Añadir un caso de uso](/docs/guides/add-a-use-case)
+- [Funciones de servidor](/docs/guides/server-functions)

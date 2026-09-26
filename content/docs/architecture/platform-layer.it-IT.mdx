@@ -1,14 +1,54 @@
 ---
-title: Piattaforma e test
-description: Piattaforma e test — SaaSy Land
+title: "Piattaforma e test"
+description: "Il runtime Cloudflare: entry point del Worker, binding, ambienti, tipi generati e configurazione del runtime di test."
 ---
 
-Cloudflare fornisce il runtime attraverso l'esplicito D1, KV e gli binding di asset. Le dichiarazioni generate vivono sotto `src/types`. La configurazione specifica del fornitore appartiene a `src/integrations`. La directory rimanente della piattaforma detiene l'infrastruttura di prova: mocks vincolanti, fixture di richiesta, il ponte RPC e render helper.
+## Worker e binding
 
-Mantenere le impostazioni di distribuzione specifiche dell'ambiente in `wrangler.jsonc` e il corrispondente file di ambiente ignorato. Tenere le credenziali di prova in `.env.test` e non sostituirli mai con le credenziali di produzione.
+`wrangler.jsonc` imposta `src/server.ts` come entry point del Worker. Il Worker riceve tre binding:
 
-## Guide correlate
+| Binding  | Tipo          | Usato per                                                      |
+| -------- | ------------- | -------------------------------------------------------------- |
+| `DB`     | Database D1   | Tutte le tabelle, comprese sessioni e contatori del rate limit |
+| `CACHE`  | Namespace KV  | Il numero di stelle GitHub in cache                            |
+| `ASSETS` | Asset statici | Le pagine prerenderizzate e i file di `public`                 |
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+Le richieste per `/assets/*`, `/fonts/*`, `/robots.txt` e `/llms.txt` vengono servite dagli asset statici senza eseguire il Worker. Il codice server legge binding, secret e `waitUntil` da `cloudflare:workers`.
+
+## Ambienti
+
+`wrangler.jsonc` definisce quattro ambienti. `CLOUDFLARE_ENV` ne seleziona uno per `vp dev` e `vp build`.
+
+| Ambiente      | Binding                            | Usato da                                        |
+| ------------- | ---------------------------------- | ----------------------------------------------- |
+| `development` | D1 e KV di preview remoti          | `bun run dev`                                   |
+| `preview`     | D1 e KV di preview                 | `bun run build:preview`, `deploy:preview`       |
+| `production`  | D1 e KV di produzione              | `bun run build:production`, `deploy:production` |
+| `test`        | D1 e KV locali in `.wrangler/test` | `bun run build:test`, Playwright                |
+
+Ogni ambiente elenca i secret obbligatori in `secrets.required`. I valori provengono dal file `.env.<environment>` corrispondente; gli script di deploy lo passano a Wrangler con `--secrets-file`. L'ambiente `test` usa `src/platform/testing/worker.ts` come entry point e i valori fittizi versionati in `.env.test`.
+
+## Tipi
+
+- `src/types/bindings.d.ts` dichiara `Cloudflare.Env`: i binding e tutti i secret.
+- `src/types/worker-configuration.d.ts` viene generato da `bun run cf-typegen`.
+- `src/types/router.d.ts` registra il tipo del router e l'opzione di route `staticData.namespaces`.
+
+## Configurazione del runtime di test
+
+`src/platform/testing` contiene solo ciò che non può appartenere a una singola funzionalità:
+
+- `setup.ts`: i matcher di jest-dom, un reset dei binding prima di ogni test e il sostituto di `createServerFn` che esegue le server function nello stesso processo
+- `mocks/cloudflare.ts`: un D1 SQLite in memoria che esegue le migrazioni versionate, un KV in memoria e un `waitUntil` che i test possono svuotare
+- `mocks/providers.ts`: l'intercettazione di fetch per Resend e Polar nei test browser, comprese le email catturate
+- `mocks/wrksz-themes.ts`: un sostituto della libreria dei temi
+- `lib/`: il bridge RPC delle server function, helper di rendering, helper per gli URL delle richieste e runner delle query
+- `worker.ts`: l'entry point del Worker per i test browser, che cattura le email in uscita
+
+Consulta [Test e CI](/docs/architecture/testing-architecture) per vedere come le suite li usano.
+
+## Pagine correlate
+
+- [Ambiente e binding](/docs/reference/environment)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Deploy di una preview](/docs/getting-started/deploy-preview)

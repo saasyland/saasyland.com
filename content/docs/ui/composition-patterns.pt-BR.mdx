@@ -1,6 +1,101 @@
 ---
-title: Padrões de composição
-description: Preferir composição sobre adereços booleanos, elevar o estado em fornecedores.
+title: "Padrões de composição"
+description: "As regras para compor rotas, páginas e componentes neste código."
 ---
 
-Siga. `.agents/skills/vercel-composition-patterns`: componentes compostos, contexto genérico (`state` / `actions` / `meta`), React 19 `use()`, não `forwardRef`.
+## Rotas compõem páginas
+
+Um arquivo de rota define o componente `<Name>Page` ou `<Name>Layout`, `NAMESPACE` ou `NAMESPACES`, o loader e `head`. A página apenas posiciona widgets; os widgets ficam em `src/presentation/components/custom/<area>/`. Um layout fica assim (`src/routes/app.tsx`):
+
+```tsx
+const AppLayout = (): JSX.Element => (
+  <SidebarProvider className="h-svh overflow-hidden">
+    <AppSidebar />
+    <SidebarInset className="relative min-h-0 min-w-0 overflow-hidden">
+      <Background className="z-[-1]" glow={false} />
+      <AppHeader />
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-5 pb-6 md:px-6 md:pt-7 md:pb-8">
+        <div className="mx-auto w-full max-w-5xl">
+          <Outlet />
+        </div>
+      </div>
+    </SidebarInset>
+  </SidebarProvider>
+)
+```
+
+Uma função de servidor usada por uma única rota pode ser definida no próprio arquivo da rota com `createServerFn`, como faz `src/routes/blog.index.tsx`.
+
+## Um widget, diálogo ou formulário por arquivo
+
+Cada widget, diálogo, formulário ou conjunto de colunas tem o próprio arquivo: `admin/users/row-actions.tsx`, `delete-user-dialog.tsx`, `reset-password-dialog.tsx`, `user-columns.tsx`. As pastas de componentes são planas: sem subpastas `components/`, `hooks/`, `constants/` ou `types/`, e sem divisão em `x.tsx` mais `x-content.tsx`. Os componentes compartilhados ficam diretamente em `custom/`.
+
+## Componentes leem os próprios dados
+
+Um componente obtém sozinho os textos e os dados em vez de recebê-los por props:
+
+- traduções com `useTranslations`;
+- dados de consulta com `useSuspenseQuery`, já buscados pelo loader da rota;
+- dados do loader, contexto da rota e parâmetros de busca com `getRouteApi("…")`.
+
+```tsx
+const route = getRouteApi("/blog/$")
+
+export const PostMeta = (): JSX.Element => {
+  const { post } = route.useLoaderData()
+  const t = useTranslations("pages.blog.post")
+  const format = useFormatter()
+
+  const details = [post.authorName, t("readingTime", { minutes: post.readingTimeMinutes }), post.tags.join(", ")].filter(
+    (item) => item.trim().length > 0,
+  )
+
+  return (
+    <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-border py-4 font-mono text-body-sm text-muted-foreground">
+      <span className="flex items-center gap-2.5">
+        <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
+        <time className="tabular-nums" dateTime={new Date(post.date).toISOString()}>
+          {format.dateTime(new Date(post.date), { day: "numeric", month: "long", year: "numeric" })}
+        </time>
+      </span>
+      {details.map((item) => (
+        <span className="flex items-center gap-3" key={item}>
+          <span aria-hidden className="text-border">
+            &middot;
+          </span>
+          {item}
+        </span>
+      ))}
+    </div>
+  )
+}
+```
+
+As props carregam identidade ou estado que só o pai conhece, como o `user` de um diálogo com `isOpen` e `onOpenChange`, ou um `activationId`. Não há props de texto ou de rótulo, nem repasse de props em cadeia, nem wrappers que só renomeiam props ou repassam filhos. Uma constante usada por um único arquivo fica nesse arquivo; dados compartilhados por vários arquivos vão para `src/data`.
+
+## Texto rico
+
+Os mapas de tags para `t.rich` são constantes de módulo, nunca objetos criados durante a renderização:
+
+```tsx
+const REUSE_TAGS = { accent: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong> }
+```
+
+## Classes condicionais
+
+Use `cn` de `~/src/lib/cn` com a sintaxe de objeto:
+
+```tsx
+<p className={cn("font-medium", { "text-foreground": !banned, "text-muted-foreground line-through": banned })}>{name}</p>
+```
+
+Renderize alternativas com um par de condições `&&` ou um retorno antecipado em vez de um ternário de várias linhas.
+
+## Providers
+
+Os providers que mudam depois da hidratação envolvem apenas os widgets que precisam deles, nunca um `Outlet` de rota: `ThemeProvider` envolve o `Toaster` e o `ThemeSwitch` da documentação, e `MotionProvider` envolve as seções da landing page e a lista do blog. `AriaProvider` envolve o outlet raiz e `TranslationsProvider` o corpo do documento, porque todas as telas precisam deles.
+
+## Guias relacionados
+
+- [Camada de apresentação](/docs/architecture/presentation-layer)
+- [Convenções](/docs/reference/conventions)

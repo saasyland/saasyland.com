@@ -1,16 +1,49 @@
 ---
-title: Authentification et sécurité
-description: Authentification et sécurité — SaaSy Land
+title: "Authentification et sécurité"
+description: "Comment l'accès est contrôlé sur les routes et les fonctions serveur, et comment les sessions, les limites de débit et les erreurs sont protégées."
 ---
 
-L'autorisation est appliquée deux fois : itinéraire `beforeLoad` protège l'administrateur et le client, et chaque fonction de serveur protégé vérifie l'appelant indépendamment. Utilisation `requireAdmin` ou `requireSession` pour la mise en page et `withAuth(permission)` pour les opérations. Les opérations du client sont la propriété de la session.
+## Deux niveaux de contrôle d'accès
 
-Better Auth stocke les sessions dans D1 et gère les identifiants, OAuth, vérification, réinitialisation du mot de passe, authentification à deux facteurs, imitation et révocation. La mise en cache des cookies est contournée lors de la vérification d'une fonction de serveur protégée. Le dernier plugin d'authentification est `tanstackStartCookies`, qui transmet les cookies d'authentification par des réponses serveur-fonction.
+**Les guards de route** de `src/integrations/better-auth/auth.routes.ts` s'exécutent dans `beforeLoad` et redirigent :
 
-Les limites de taux D1 utilisent les écritures atomiques et l'en-tête IP du client Cloudflare. Les opérations publiques sensibles ont des clés limites distinctes. Valider les entrées avec le schéma du module Zod, masquer les défaillances inattendues, vérifier les signatures de paiement webhook, et garder toutes les identifiants derrière les limites du serveur seulement. Les voies privées et les mutations de jeton sont exclues du prérendement.
+| Guard                | Utilisé par                         | Comportement                                                                |
+| -------------------- | ----------------------------------- | --------------------------------------------------------------------------- |
+| `requireSignedIn`    | Layout `/app`                       | Redirige vers la connexion en l'absence de session                          |
+| `requireAdmin`       | Layout `/admin`                     | Exige en plus la permission `admin: ["access"]`, sinon redirige vers `/app` |
+| `redirectIfSignedIn` | Pages de connexion et d'inscription | Envoie un utilisateur connecté vers son espace                              |
+| `redirectAfterAuth`  | `/auth/callback`                    | Envoie l'utilisateur vers `/admin` ou `/app` après l'authentification       |
 
-## Guides connexes
+Les guards décident seulement de ce que l'utilisateur voit. **Les middlewares des fonctions serveur** dans `auth.middleware.ts` protègent les données, car n'importe quelle fonction serveur peut être appelée sans passer par sa page :
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+- `authorized()` charge la session de la requête et lève `UNAUTHORIZED` s'il n'y en a pas.
+- `authorized({ user: ["ban"] })` vérifie en plus les permissions du rôle définies dans `auth.access.ts` et lève `FORBIDDEN`.
+- Le handler reçoit la session dans `context.auth`. Les opérations sur les données de l'appelant utilisent `context.auth.user.id`, jamais un identifiant utilisateur fourni en entrée.
+
+## Sessions
+
+- Better Auth stocke les sessions dans D1 et utilise le préfixe de cookie `saasyland`, avec des cookies sécurisés en dehors des builds de développement et de test.
+- `getRequestSession` contourne le cache de cookies et mémoïse la session pour le reste de la requête.
+- La session envoyée au navigateur est dépourvue de son jeton.
+- `tanstackStartCookies` est le dernier plugin Better Auth, de sorte que les cookies définis pendant une fonction serveur parviennent jusqu'à la réponse.
+- Les hôtes autorisés sont fixés par mode de build : `saasyland.com` en production, `preview.saasyland.com` en preview, `localhost:3000` et `127.0.0.1:3000` en local.
+
+Better Auth gère aussi la vérification de l'e-mail (obligatoire avant la connexion), la réinitialisation du mot de passe (qui révoque les sessions existantes), OAuth avec GitHub et Google (jetons chiffrés au repos), l'authentification à deux facteurs et l'emprunt d'identité par un administrateur. Les identifiants de vérification sont stockés sous forme hachée.
+
+## Limitation de débit
+
+`withRateLimit(kind, limit)` compte les tentatives par opération et par IP client (`cf-connecting-ip`) dans la table `rate_limit`, au moyen d'un seul batch D1 atomique. `RATE_LIMITS.SENSITIVE` autorise 3 tentatives par minute et `RATE_LIMITS.TOKEN` en autorise 5. Si le stockage des compteurs échoue, la requête est refusée. Le limiteur de débit propre à Better Auth utilise la même table avec le préfixe de clé `auth:` ; les lectures de session, la déconnexion et les webhooks Polar en sont exemptés.
+
+## Erreurs et entrées
+
+- Les fonctions serveur qui acceptent une entrée l'analysent avec un schéma Zod avant l'exécution du handler.
+- `withRequest` transforme les erreurs inattendues en `INTERNAL_ERROR` et journalise l'erreur d'origine sur le serveur, afin que les détails internes n'atteignent jamais le client.
+- Les webhooks Polar sont vérifiés avec `POLAR_WEBHOOK_SECRET` avant toute modification de licence.
+- Les secrets ne sont lus depuis `cloudflare:workers` que dans des modules exclusivement serveur.
+- Les zones privées (`/admin`, `/app`, `/auth`, `/newsletter`) ne sont jamais prérendues.
+
+## Pages associées
+
+- [Matrice des permissions](/docs/reference/permissions)
+- [Rôles et permissions](/docs/guides/roles-and-permissions)
+- [Liste de contrôle de sécurité](/docs/guides/security-checklist)

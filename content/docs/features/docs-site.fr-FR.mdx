@@ -1,16 +1,32 @@
 ---
-title: Site des docs
-description: Comment cette documentation est construite et étendue.
+title: "Site de documentation"
+description: "Comment /docs est construit à partir de content/docs avec Fumadocs."
 ---
 
-## Racine de contenu
+## Contenu
 
-`content/docs`
+- Les pages sont des fichiers `content/docs/<section>/<page>.<locale>.mdx` pour les neuf langues.
+- `meta.<locale>.json` dans chaque dossier définit le titre de la section, son icône et l’ordre des pages.
+- `src/integrations/fumadocs/fumadocs.i18n.ts` utilise l’analyseur `dot`, `en-US` comme langue par défaut et de repli, et `hideLocale: "always"`, car l’application gère elle-même le préfixe de langue.
+- `bun run content` génère `.source` à partir de `fumadocs.config.ts`.
 
-- MDX pages & #160;: `*.{locale}.mdx` pour les neuf langues configurées (analyseur de points)
-- Dossier `meta.<locale>.json` pour titres/commande/icônes
-- `fallbackLanguage: en-US` pour les traductions manquantes
+## Routes
 
-## Câble de l'application
+- Layout `/docs` (`src/routes/docs.tsx`) : une fonction serveur renvoie l’arborescence des pages pour la langue courante ; le layout affiche le `DocsLayout` de Fumadocs avec le lien GitHub, ainsi que `LocaleSelect` et `ThemeSwitch` sous forme de champs de sélection assortis en bas de la barre latérale, charge `docs.css` et affiche `DocsPending` pendant le chargement.
+- `/docs/` et `/docs/$` appellent `loadDocsPage` (`fumadocs.docs.ts`), qui résout la page et précharge son MDX compilé (`docsContent`) avant le rendu.
+- `/api/search` fournit la recherche Fumadocs dans toutes les langues (`fumadocs.search.ts`).
 
-`fumadocs.source.ts`, mise en page des documents, recherche API. Ajouter des pages → mettre à jour meta `pages` tableaux → reconstruire.
+Les pages MDX peuvent utiliser `mdxComponents` de `src/presentation/components/custom/mdx.tsx` : les composants par défaut de Fumadocs, `Accordions`, `Steps` et `Tabs` de Fumadocs, ainsi que `Alert`, `Badge`, `Button`, les éléments de carte, `Separator` et les éléments de tableau de shadcn. Les liens sont localisés automatiquement.
+
+## Ajouter une page
+
+1. Écrivez `<page>.en-US.mdx` avec un `title` et une `description`.
+2. Ajoutez le slug à `meta.en-US.json` et à chaque autre `meta.<locale>.json` dans le même ordre.
+3. Ajoutez les huit traductions avec des blocs de code identiques à l’octet près.
+4. Lancez `bun scripts/check-content.ts` (inclus dans `bun run check:i18n`) et `bun run content`.
+
+`bun run build` prérend chaque page de documentation dans toutes les langues.
+
+## Guides associés
+
+- [Fumadocs](/docs/integrations/fumadocs)

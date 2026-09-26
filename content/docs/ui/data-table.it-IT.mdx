@@ -1,15 +1,98 @@
 ---
-title: DataTable
-description: Barra degli strumenti, colonne, filtri, esportazione, fetch.
+title: "DataTable"
+description: "Un unico componente tabella generico: colonne, dati lato client o server, filtri e selezione delle righe."
 ---
 
-## Capacità
+`DataTable` (`src/presentation/components/custom/data-table.tsx`) è l’unico componente tabella. Crea un’istanza di TanStack Table v9 con `tableFeatures` e `useTable` (filtri, ordinamento, paginazione, selezione delle righe) e la mostra con le primitive tabella di shadcn.
 
-- Colonna di dimensionamento / pinning helper
-- Barra degli strumenti: ricerca, filtri slot, impostazioni (densità), esportazione CSV, asincantesimo fetch/refetch
-- Colonna di selezione + fessura delle azioni di riga
-- Paginazione
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
 
-## Testing
+## Props
 
-Test dei componenti `data-table/__test__`. Mantenere la copertura quando si cambia la barra degli strumenti in attesa di stati.
+| Prop      | Scopo                                                                                                                       |
+| --------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `columns` | Definizioni delle colonne (`DataTableColumnDef`). Ogni riga richiede un `id` stringa, usato come identificativo della riga. |
+| `data`    | Righe in memoria. Ignorato quando è impostato `options.query`.                                                              |
+| `filters` | Controlli di filtro sopra la tabella.                                                                                       |
+| `options` | `initialState`, `query` e `selectable`.                                                                                     |
+
+## Opzioni
+
+- `initialState` imposta la `pagination` iniziale (predefinita: prima pagina, 10 righe) e il `sorting`.
+- `query` attiva la modalità server. È una funzione di `{ pageIndex, pageSize, sorting }` che restituisce opzioni di query che risolvono `{ rows, total }`. La tabella allora pagina e ordina manualmente, mantiene visibile la pagina precedente durante il caricamento, mostra righe skeleton e lascia che gli errori della query raggiungano l’error boundary della rotta.
+- `selectable` aggiunge una colonna di caselle di controllo; il piè di pagina mostra quante righe sono selezionate.
+
+Cambiare l’ordinamento riporta alla prima pagina. Il piè di pagina mostra il numero di righe, l’indicatore di pagina e i pulsanti precedente e successivo, tradotti da `components.custom.data-table`.
+
+## Filtri
+
+Un filtro è `type: "search"` con un `placeholder`, oppure `type: "select"` con una `label` e delle `options`; entrambi indicano un `columnId`. La dashboard li usa entrambi:
+
+```tsx
+filters={[
+  { columnId: "user", placeholder: t("users.search"), type: "search" },
+  {
+    columnId: "status",
+    label: t("users.filters.status"),
+    options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+    type: "select",
+  },
+]}
+```
+
+I filtri agiscono sulle righe in memoria. In modalità server filtrano solo la pagina caricata, quindi le tabelle lato server non li usano.
+
+## Colonne
+
+Le colonne si trovano in un file `<entity>-columns.tsx` accanto ai widget della pagina e usano `createColumnHelper<DataTableFeatures, Row>()`. Intestazioni e celle sono piccoli componenti che leggono le proprie traduzioni:
+
+```tsx
+const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
+  const t = useTranslations("pages.admin.users.table.headers")
+
+  return t(id)
+}
+```
+
+```tsx
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor((row) => getUserStatus(row), { cell: StatusCell, header: () => <ColumnHeader id="status" />, id: "status" }),
+  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
+  columnHelper.accessor("twoFactorEnabled", { cell: BooleanCell, header: () => <ColumnHeader id="twoFactorEnabled" /> }),
+  columnHelper.accessor("timezone", {
+    cell: ({ getValue }) => <span className="text-muted-foreground">{getValue()}</span>,
+    header: () => <ColumnHeader id="timezone" />,
+  }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+  columnHelper.accessor("updatedAt", { cell: DateCell, header: () => <ColumnHeader id="updatedAt" />, sortFn: "datetime" }),
+  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: "", id: "actions" }),
+])
+```
+
+- Ogni colonna è ordinabile, a meno che non imposti `enableSorting: false`. Le funzioni di ordinamento registrate sono `alphanumeric`, `basic`, `datetime` e `text`.
+- In modalità server la funzione di query riceve lo stato di ordinamento; `getUsers` associa ogni id di colonna a un’espressione SQL.
+- Le azioni di riga sono una colonna di visualizzazione la cui cella è un componente, come `UserRowActions`.
+
+## Utilizzo
+
+| Schermata                                                                          | Modalità                                                            |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `/admin/users/all`                                                                 | Server: `getUsersPageQuery`, ordinamento, selezione                 |
+| `/admin/products`                                                                  | Server: `getProductsPageQuery`, `getCategoriesPageQuery`            |
+| `/admin`                                                                           | In memoria: prima pagina di utenti, filtri, cinque righe per pagina |
+| `/admin/users/invitations`, `/admin/users/roles`, `/admin/payments`, `/admin/blog` | In memoria: righe demo                                              |
+
+## Test
+
+`src/presentation/components/custom/__test__/data-table.component.test.tsx` copre le tabelle in memoria e `data-table-query.component.test.tsx` copre la modalità server. Eseguili con `bun run test:component`.
+
+## Guide correlate
+
+- [Aggiungere una tabella di dati](/docs/guides/add-a-data-table)
+- [TanStack Table](/docs/integrations/tanstack-table)

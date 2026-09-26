@@ -1,14 +1,39 @@
 ---
-title: Almacenamiento en caché y SSR
-description: Almacenamiento en caché y SSR — SaaSy Land
+title: "Caché y SSR"
+description: "Dónde se cachean los datos: la caché de consultas por petición, las páginas prerenderizadas, KV y D1."
 ---
 
-El QueryClient pertenece a una instancia de router y está integrado con el renderizado del servidor. Los loaders cargan los datos y los namespaces JSON; los componentes leen la misma caché. `useSuspenseQuery` No se proporcionó ningún texto para traducir. Por favor, proporcione el texto en inglés. `useSuspenseQueries`Las consultas declaran claves estables. Las mutaciones exitosas invalidan únicamente las claves de las características afectadas.
+## Caché de consultas
 
-La documentación pública, las páginas del blog y las páginas de aterrizaje se generan (pre-renderizan) durante la compilación. Se excluyen las rutas de tokens de administrador, cliente, autenticación y boletín informativo. Cloudflare KV almacena los metadatos públicos de GitHub. D1 almacena las sesiones persistentes y los contadores de límites de velocidad atómicos; KV no se utiliza para las decisiones de permisos.
+`getRouter` crea un `QueryClient` nuevo en cada petición, así que en el servidor no se filtran datos entre usuarios. Valores por defecto:
 
-## Guías relacionadas
+| Ajuste                        | Valor         |
+| ----------------------------- | ------------- |
+| `staleTime` de las consultas  | 1 minuto      |
+| `gcTime` de las consultas     | 5 minutos     |
+| `defaultStaleTime` del router | 1 minuto      |
+| Precarga                      | Por intención |
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+Los loaders llenan la caché con `queryClient.query({ ...options, staleTime: "static" })` y los componentes leen las mismas claves con `useSuspenseQuery`. `setupRouterSsrQueryIntegration` serializa la caché del servidor en el HTML y la hidrata en el navegador.
+
+- **Los mensajes de traducción** se cachean por locale y namespace con `staleTime` y `gcTime` infinitos.
+- **La consulta de sesión** (`getCurrentSessionQuery`) tiene un `staleTime` de un minuto. Los guards de ruta la vuelven a pedir en las navegaciones reales y vacían toda la caché cuando cambia el usuario con sesión iniciada.
+- **Las mutaciones** invalidan las claves de consulta de su módulo, por ejemplo `USER_QUERY_KEYS.ALL`, cuando terminan con éxito.
+
+## Prerenderizado
+
+`bun run build` prerenderiza las páginas públicas rastreando los enlaces: la landing, las páginas legales, el blog y la documentación en los nueve locales. Se excluyen las rutas bajo `/admin`, `/app`, `/auth`, `/newsletter` y `/api` (con o sin prefijo de locale), así como los enlaces con query string o hash.
+
+El Worker sirve el HTML prerenderizado desde el binding `ASSETS` antes de cargar la aplicación. Una página prerenderizada no contiene datos de usuario, así que se puede servir a cualquiera sin riesgo. Cuando un visitante tiene derecho a precios regionales, el Worker reescribe el HTML y marca la respuesta con `Cache-Control: private, no-cache`.
+
+## KV y D1
+
+- **KV (`CACHE`)** solo guarda el número de estrellas de GitHub para `src/lib/github.ts`. Un valor cacheado con más de una hora de antigüedad se devuelve al instante y se actualiza en segundo plano con `waitUntil`.
+- **D1 (`DB`)** guarda las sesiones y los contadores de límite de peticiones. Las comprobaciones de sesión de las funciones de servidor se saltan la caché de cookies de Better Auth y se memoizan durante el resto de la petición.
+- Las funciones de servidor nunca toman una decisión de permisos a partir de datos cacheados.
+
+## Páginas relacionadas
+
+- [Ciclo de vida de una petición](/docs/architecture/request-lifecycle)
+- [Cloudflare KV](/docs/integrations/cloudflare-kv)
+- [TanStack Start](/docs/integrations/tanstack-start)

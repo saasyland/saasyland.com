@@ -1,14 +1,22 @@
 ---
-title: Cloudflare KV
-description: Cloudflare KV — SaaSy Land
+title: "Cloudflare KV"
+description: "El espacio de nombres CACHE y el recuento de estrellas de GitHub en caché."
 ---
 
-`env.CACHE` almacena entradas de caché públicas y desechables. La integración con GitHub almacena los recuentos de estrellas con un TTL y utiliza `waitUntil` para la escritura en la caché. Se recupera de forma elegante si GitHub o KV no están disponibles.
+Todos los entornos vinculan un espacio de nombres de KV como `CACHE`. Su único uso es el recuento de estrellas de GitHub que se muestra en el sitio, implementado en `src/lib/github.ts`:
 
-KV eventualmente alcanza la consistencia. Las sesiones de autenticación y los límites de velocidad residen en D1. El limitador de solicitudes utiliza una operación SQL upsert atómica por clave y ventana de tiempo, por lo que las solicitudes gestionadas por instancias de Worker separadas comparten el mismo límite. No se deben utilizar los contadores de KV para la autorización o límites sensibles.
+- `getStarCount` lee la entrada `github:<owner>/<repo>:stars`.
+- Si no hay entrada, obtiene el repositorio de la API de GitHub con un tiempo de espera de tres segundos, devuelve el recuento y escribe `count` y `fetchedAt` en KV con `waitUntil`.
+- Cuando la entrada tiene más de una hora, devuelve el recuento en caché y lo actualiza en segundo plano.
+- `starCountQuery` conserva el resultado en la caché de consultas durante una hora.
 
-## Guías relacionadas.
+Las entradas no tienen caducidad en KV; `fetchedAt` determina cuándo se actualizan. La solicitud a GitHub se autentica con las credenciales de la aplicación OAuth de GitHub `AUTH_GITHUB_CLIENT_ID` y `AUTH_GITHUB_CLIENT_SECRET`.
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local.](/docs/getting-started/first-run)
-- [Prueba.](/docs/tooling/testing)
+KV tiene consistencia eventual. Las sesiones, los límites de frecuencia y todo lo que se usa para la autorización se almacenan en D1.
+
+En Vitest, `cloudflare:workers` se resuelve como `src/platform/testing/mocks/cloudflare.ts`, que proporciona un `CACHE` en memoria. El entorno de Wrangler `test` usa un espacio de nombres local en `.wrangler/test`.
+
+## Guías relacionadas
+
+- [Caché y SSR](/docs/architecture/caching-and-ssr)
+- [Entorno y bindings](/docs/tooling/environment)

@@ -1,28 +1,46 @@
 ---
-title: "TanStack Start HTTP handlers"
-description: "TanStack Start HTTP handlers — SaaSy Land"
+title: "TanStack Start"
+description: "File routes, loaders, prerendering and HTTP handlers."
 ---
 
-HTTP endpoints use native TanStack Start server handlers in `src/routes`. Better Auth owns GET and POST under `/api/auth/$`; Fumadocs search uses `/api/search`. Product operations are native server functions in feature modules.
+The application is a TanStack Start app. `src/router.tsx` creates the router with a QueryClient per request, the SSR query integration, default error and not-found components, intent preloading and the locale `rewrite`. There is no default pending component: every route sets its own skeleton (see [Loading skeletons](/docs/architecture/delivery-layer#loading-skeletons)). `src/routes.ts` exports `ROUTES`, the path constants used by links, guards and head tags.
 
-Declare handlers on `createFileRoute` with `server.handlers`. Use the supplied `request`, validate input, enforce permission checks, and return a Web `Response`. Keep webhook verification in the provider integration. Do not expose a duplicate REST endpoint for an operation that is only used by this application’s typed RPC client.
+## Routes
+
+`src/routes/` contains flat file routes: `admin.users.all.tsx` serves `/admin/users/all`, `_landing.tsx` is a pathless layout and `docs.$.tsx` is a splat route. The ID in `createFileRoute("…")` is a string literal maintained by the router generator in `src/routeTree.gen.ts`; `__test__` folders are ignored as routes.
+
+A route file only composes its page. It defines the `<Name>Page` or `<Name>Layout` component, `NAMESPACE` or `NAMESPACES`, a loader that runs metadata, message and data loading in one `Promise.all`, `head: pageHead(ROUTES.X)` and, for protected areas, a guard in `beforeLoad`. Widgets, dialogs, forms and table columns live in `src/presentation/components/custom/` and read their own translations and data. See [use-intl](/docs/integrations/use-intl) for the loader and [Better Auth](/docs/integrations/better-auth) for the guards.
+
+## Server functions
+
+Operations are native `createServerFn` functions exported from module use cases, so the application does not expose a REST endpoint for them. See [Server functions and use cases](/docs/integrations/server-functions).
+
+## HTTP handlers
+
+Only three routes declare `server.handlers` in `src/routes/api/`:
+
+| Route         | Handler                                                                                 |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `/api`        | Returns the runtime as JSON                                                             |
+| `/api/auth/$` | Better Auth, including OAuth callbacks and Polar webhooks at `/api/auth/polar/webhooks` |
+| `/api/search` | Fumadocs documentation search                                                           |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
+## Prerendering
+
+`vite.config.ts` enables prerendering with link crawling. `build:preview`, `build:production` and `build:test` prerender public pages (landing, legal pages, blog and docs) in all nine locales. The filter skips `/admin`, `/api`, `/app`, `/auth` and `/newsletter`, with or without a locale prefix, as well as links containing `?` or `#`. Skipped pages render on the Worker for each request.
+
 ## Related guides
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Request lifecycle](/docs/architecture/request-lifecycle)
+- [Caching and SSR](/docs/architecture/caching-and-ssr)
+- [Add an API route](/docs/guides/add-an-api-route)

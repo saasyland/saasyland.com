@@ -1,14 +1,54 @@
 ---
-title: Platforma i testowanie
-description: Platforma i testowanie — SaaSy Land
+title: "Platforma i testy"
+description: "Środowisko uruchomieniowe Cloudflare: punkt wejścia Workera, bindingi, środowiska, generowane typy i konfiguracja środowiska testowego."
 ---
 
-Cloudflare zapewnia środowisko przez jawne bindingi D1, KV i zasobów. Wygenerowane deklaracje znajdują się w `src/types`. Konfiguracja usług należy do `src/integrations`. Katalog platformy zawiera infrastrukturę testową: mocki bindingów, żądania testowe, most RPC i narzędzia renderowania.
+## Worker i bindingi
 
-Ustawienia wdrożenia pozostają w `wrangler.jsonc` i odpowiednim ignorowanym pliku środowiska. Dane testowe przechowuj w `.env.test` i nigdy nie zastępuj ich danymi produkcyjnymi.
+`wrangler.jsonc` ustawia `src/server.ts` jako punkt wejścia Workera. Worker otrzymuje trzy bindingi:
 
-## Powiązane przewodniki
+| Binding  | Typ                | Zastosowanie                                           |
+| -------- | ------------------ | ------------------------------------------------------ |
+| `DB`     | Baza danych D1     | Wszystkie tabele, w tym sesje i liczniki limitów żądań |
+| `CACHE`  | Przestrzeń nazw KV | Liczba gwiazdek na GitHubie przechowywana w cache      |
+| `ASSETS` | Zasoby statyczne   | Prerenderowane strony i pliki z `public`               |
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+Żądania do `/assets/*`, `/fonts/*`, `/robots.txt` i `/llms.txt` są obsługiwane z zasobów statycznych bez uruchamiania Workera. Kod serwerowy odczytuje bindingi, sekrety i `waitUntil` z `cloudflare:workers`.
+
+## Środowiska
+
+`wrangler.jsonc` definiuje cztery środowiska. `CLOUDFLARE_ENV` wybiera jedno z nich dla `vp dev` i `vp build`.
+
+| Środowisko    | Bindingi                           | Używane przez                                   |
+| ------------- | ---------------------------------- | ----------------------------------------------- |
+| `development` | Zdalne D1 i KV środowiska preview  | `bun run dev`                                   |
+| `preview`     | D1 i KV środowiska preview         | `bun run build:preview`, `deploy:preview`       |
+| `production`  | Produkcyjne D1 i KV                | `bun run build:production`, `deploy:production` |
+| `test`        | Lokalne D1 i KV w `.wrangler/test` | `bun run build:test`, Playwright                |
+
+Każde środowisko wymienia wymagane sekrety w `secrets.required`. Wartości pochodzą z odpowiadającego mu pliku `.env.<environment>`; skrypty wdrożeniowe przekazują go do Wranglera przez `--secrets-file`. Środowisko `test` używa `src/platform/testing/worker.ts` jako punktu wejścia oraz fikcyjnych wartości z `.env.test`, które są w repozytorium.
+
+## Typy
+
+- `src/types/bindings.d.ts` deklaruje `Cloudflare.Env`: bindingi i wszystkie sekrety.
+- `src/types/worker-configuration.d.ts` jest generowany przez `bun run cf-typegen`.
+- `src/types/router.d.ts` rejestruje typ routera i opcję trasy `staticData.namespaces`.
+
+## Konfiguracja środowiska testowego
+
+`src/platform/testing` zawiera tylko to, czego nie da się przypisać do jednej funkcjonalności:
+
+- `setup.ts`: matchery jest-dom, reset bindingów przed każdym testem i zamiennik `createServerFn`, który uruchamia funkcje serwerowe w tym samym procesie
+- `mocks/cloudflare.ts`: D1 oparte na SQLite w pamięci, które stosuje migracje z repozytorium, KV w pamięci oraz `waitUntil`, którego kolejkę testy mogą opróżnić
+- `mocks/providers.ts`: przechwytywanie żądań fetch do Resend i Polar w testach przeglądarkowych, łącznie z przechwyconymi e-mailami
+- `mocks/wrksz-themes.ts`: zamiennik biblioteki motywów
+- `lib/`: most RPC dla funkcji serwerowych, helpery renderowania, helpery do URL-i żądań i funkcje uruchamiające zapytania
+- `worker.ts`: punkt wejścia Workera dla testów przeglądarkowych, który przechwytuje wychodzące e-maile
+
+Sposób, w jaki korzystają z nich zestawy testów, opisuje strona [Testy i CI](/docs/architecture/testing-architecture).
+
+## Powiązane strony
+
+- [Środowisko i bindingi](/docs/reference/environment)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Wdróż wersję preview](/docs/getting-started/deploy-preview)

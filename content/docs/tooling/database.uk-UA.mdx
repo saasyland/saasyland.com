@@ -1,23 +1,46 @@
 ---
-title: D1 і Drizzle
-description: D1 і Drizzle - SaaSy Land
+title: "Міграції бази даних"
+description: "Генерування, застосування та перегляд міграцій D1."
 ---
 
-Cloudflare D1 - База даних додатків. Використання модульних схем `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` збирає їх. `drizzle.database.ts` створює адаптер Drizzle D1 від `env.DB`.
+Схеми зберігаються в модулях таблиць, а збирає їх `src/integrations/drizzle-orm/drizzle.schemas.ts`. Міграції — це SQL-файли з префіксом-міткою часу в `src/integrations/drizzle-orm/migrations/`, які комітяться разом зі зміною схеми.
 
-Дати використання SQLite цілих міток в мілісекундах. Болеанські поля використовують SQLite загальний режим болеана. Відносини, унікальні обмеження та іноземні ключі залишаються в шемалі. Зберігайте атомію роботи з відповідним протоколом SQL або пакетом D1; не введіть басейн з підключенням PostgreSQL або інтерактивну операцію.
+## Робочий процес
 
-Зареєструватися `db:generate` після зміни schemas, рецензування та впорядкування створеного SQL, і застосувати його локально. Віддалені міграції є чіткими командами середовища. База даних PostgreSQL вимагає окремого переглянуто експорт і імпорт; генерування міграції SQLite не передає існуючі дані.
+1. Змініть `src/modules/<table>/<table>.schema.ts`.
+2. Запустіть `bun run db:generate` і перегляньте згенерований SQL.
+3. Застосуйте міграцію локально й запустіть тести; Vitest застосовує кожну міграцію до своєї бази даних у пам'яті.
+4. Застосуйте її до віддаленої бази даних перед розгортанням коду, що від неї залежить.
 
 ```sh
 bun run db:generate
 bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
+bun run db:migrate:test
 ```
 
-## Схожі посібники
+## Команди
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+| Команда                               | Ціль                                                                   |
+| ------------------------------------- | ---------------------------------------------------------------------- |
+| `bun run db:generate`                 | Нова міграція на основі різниці схем (drizzle-kit)                     |
+| `bun run db:migrate:local`            | Локальна база даних середовища `development`                           |
+| `bun run db:migrate:test`             | Локальна тестова база даних у `.wrangler/test`                         |
+| `bun run db:seed:test`                | Тестові облікові записи в локальній тестовій базі даних                |
+| `bun run db:migrate:development`      | Віддалена база даних `development`, якою типово є база даних preview   |
+| `bun run db:migrate:preview`          | Віддалена база даних preview                                           |
+| `bun run db:migrate:production`       | Віддалена продакшн-база даних                                          |
+| `bun run db:studio:<environment>`     | Drizzle Studio для `development`, `preview` або `production`           |
+| `bun run db:introspect:<environment>` | Інтроспекція drizzle-kit для `development`, `preview` або `production` |
+
+Studio та інтроспекція використовують HTTP API D1 з `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` і `CLOUDFLARE_ACCESS_TOKEN` з відповідного файлу середовища. Сам застосунок завжди використовує прив'язку `DB`.
+
+Dev-сервер використовує віддалені прив'язки, тож `db:migrate:local` на нього не впливає, а `db:migrate:development` — впливає. Розгортання в CI застосовує `db:migrate:preview` або `db:migrate:production` перед `wrangler deploy`. Встановлення залежностей і збірка ніколи не мігрують віддалену базу даних.
+
+## Обліковий запис адміністратора
+
+Поза тестовою базою даних початкових даних немає. Щоб підготувати нове встановлення, зареєструйтеся, підтвердьте адресу електронної пошти, а потім задайте цьому користувачеві `role` зі значенням `admin` у Drizzle Studio.
+
+## Пов'язані посібники
+
+- [D1 і Drizzle](/docs/integrations/cloudflare-d1)
+- [Посібник із міграцій бази даних](/docs/guides/database-migrations)

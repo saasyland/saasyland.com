@@ -1,6 +1,40 @@
 ---
-title: Vite+
-description: Unified toolchain (vp) uso.
+title: "Vite+"
+description: "La toolchain vp: server di sviluppo, build, test, lint, formattazione e hook Git."
 ---
 
-Scripts delegato a `vp` per test/lint/fmt/config. Preferire script di repo su bandiere vp ad-hoc a meno che non debug.
+Vite+ (`vite-plus`, comando `vp`) riunisce Vite, Vitest, oxlint e oxfmt dietro un'unica CLI, e `vite.config.ts` li configura tutti. `package.json` sostituisce `vite` con `@voidzero-dev/vite-plus-core` tramite un override e fissa `vitest` alla versione 5.0.1. Gli script del pacchetto chiamano `vp`; al di fuori di essi usa la CLI globale di Vite+ oppure `bunx vp`.
+
+| Comando           | Usato da                                          |
+| ----------------- | ------------------------------------------------- |
+| `vp dev`          | `dev`                                             |
+| `vp build --mode` | `build:preview`, `build:production`, `build:test` |
+| `vp preview`      | `start`, `start:test`                             |
+| `vp test`         | `test` e gli script Vitest `test:*`               |
+| `vp lint`         | `lint`                                            |
+| `vp fmt`          | `format`, `format:check`                          |
+| `vp check`        | `check`, `check:fix`                              |
+| `vp staged`       | `check:pre-commit`                                |
+| `vp config`       | `prepare`, che installa gli hook Git              |
+
+## Configurazione
+
+`vite.config.ts` carica i propri plugin in modo lazy. Sotto Vitest viene caricato solo `@vitejs/plugin-react`; negli altri casi lo stack è:
+
+- `@cloudflare/vite-plugin`: esegue il Worker nell'ambiente SSR, rende persistente lo stato locale (in `.wrangler/test` per la modalità `test`) e usa binding remoti per `development`.
+- `fumadocs-mdx`: compila le collezioni della documentazione e del blog.
+- `@tailwindcss/vite`: Tailwind CSS 4.
+- `tanstackStart`: routing, code splitting e prerendering delle pagine pubbliche.
+- `@vitejs/plugin-react`.
+
+Il server di sviluppo usa la porta 3000 e non si avvia se è occupata. `resolve.tsconfigPaths` fornisce l'alias di import `~/`. Lo stesso file contiene le sezioni `fmt`, `lint`, `staged` e `test`; vedi [Lint e formattazione](/docs/tooling/lint-format) e [Test](/docs/tooling/testing).
+
+## Hook Git
+
+`bun install` esegue `prepare`, che chiama `vp config --no-agent` per installare il dispatcher degli hook per `.vite-hooks/`. `pre-commit` esegue `bun run check:pre-commit`, e `prepare-commit-msg` esegue `scripts/commit-msg.ts` (vedi [Conventional commits](/docs/tooling/conventional-commits)). `vp hooks status` indica se gli hook sono attivi in un clone.
+
+Preferisci gli script del pacchetto; chiama `vp` direttamente per esecuzioni mirate, come la formattazione o il linting di percorsi specifici.
+
+## Guide correlate
+
+- [Script del progetto](/docs/tooling/scripts)

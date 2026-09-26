@@ -1,16 +1,40 @@
 ---
-title: Ambiente e vincoli
-description: Ambiente e vincoli — SaaSy Land
+title: "Ambiente e binding"
+description: "Ambienti Wrangler, binding, secret e file di ambiente."
 ---
 
-Uso `.env.development`, `.env.preview`? `.env.production` per l'ambiente Vite e Cloudflare corrispondente. Questi file sono ignorati; `.env.example` documenta le chiavi richieste. `VITE_APP_URL` è pubblico e sostituito al tempo di costruzione. I segreti del lavoratore non hanno `VITE_` prefisso e accesso attraverso `env` da `cloudflare:workers`.
+`wrangler.jsonc` definisce quattro ambienti. `CLOUDFLARE_ENV` ne seleziona uno per il server di sviluppo e per le build, e ciascuno legge i secret dal proprio file di ambiente:
 
-Configurazione `AUTH_SECRET`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, Resend impostazioni e le impostazioni Polar per l'installazione. Non impegnate mai le credenziali reali. I documenti di collegamento appartengono all'apposito `wrangler.jsonc` ambiente; le dichiarazioni generate Worker descrivono i loro tipi.
+| Ambiente      | Selezionato da                                | Binding                            | Secret da          |
+| ------------- | --------------------------------------------- | ---------------------------------- | ------------------ |
+| `development` | `bun run dev`                                 | D1 e KV di preview remoti          | `.env.development` |
+| `preview`     | `build:preview`, `deploy:preview`             | D1 e KV di preview                 | `.env.preview`     |
+| `production`  | `build:production`, `deploy:production`       | D1 e KV di produzione              | `.env.production`  |
+| `test`        | `build:test`, `start:test`, `db:migrate:test` | D1 e KV locali in `.wrangler/test` | `.env.test`        |
 
-Solo Drizzle Studio e bisogno di introspezione `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` e `CLOUDFLARE_ACCESS_TOKEN`. Local D1 non utilizza credenziali remote. CI copie `.env.test` ai file ambientali locali e funziona con binding locali.
+`.env.development`, `.env.preview` e `.env.production` sono ignorati da Git; `.env.example` ne elenca le chiavi. `.env.test` è versionato e contiene solo valori fittizi. Gli script di deploy caricano il file corrispondente con `wrangler deploy --secrets-file`.
+
+## Secret
+
+Ogni ambiente elenca i propri secret in `secrets.required`: le chiavi di Better Auth, OAuth, Resend e Polar, più `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` e `CLOUDFLARE_ACCESS_TOKEN` per gli strumenti di Drizzle (l'ambiente `test` omette queste tre). Vedi [Variabili d'ambiente](/docs/getting-started/environment-variables) per ogni chiave.
+
+Il codice server legge i secret con `import { env } from "cloudflare:workers"`. Nulla usa una variabile `VITE_`, e nessuna di esse può contenere un secret, perché Vite le espone al browser. `scripts/verify-build.ts` fa fallire la build quando un asset client importa `cloudflare:workers`. Il dominio canonico proviene da `APP_DOMAIN` in `src/presentation/branding/index.ts`, non da una variabile d'ambiente.
+
+## Binding
+
+| Binding  | Tipo          | Utilizzo                                          |
+| -------- | ------------- | ------------------------------------------------- |
+| `DB`     | D1            | Database dell'applicazione, sessioni e rate limit |
+| `CACHE`  | KV            | Conteggio delle stelle GitHub                     |
+| `ASSETS` | Asset statici | Pagine prerenderizzate, font e file pubblici      |
+
+Lo sviluppo usa i binding remoti di Cloudflare, quindi `bun run dev` legge e scrive nel database di preview. Esegui `bun run cf-typegen` dopo aver modificato i binding per rigenerare `src/types/worker-configuration.d.ts`.
+
+## Test
+
+Vitest carica `.env.test` tramite `test.env` e risolve `cloudflare:workers` in `src/platform/testing/mocks/cloudflare.ts`, che fornisce D1 e KV in memoria. Playwright usa l'ambiente `test` e il suo entry point `src/platform/testing/worker.ts`. Nessuno dei due ha bisogno di credenziali reali.
 
 ## Guide correlate
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Riferimento dell'ambiente](/docs/reference/environment)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)

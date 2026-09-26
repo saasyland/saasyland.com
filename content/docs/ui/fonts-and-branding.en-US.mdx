@@ -1,6 +1,58 @@
 ---
 title: "Fonts & branding"
-description: "Brand assets and typography loading."
+description: "Self-hosted Geist fonts, locale-aware preloads and the brand constants."
 ---
 
-`presentation/branding` + `presentation/fonts`. Keep brand signals strong on landing; admin prioritizes density and clarity.
+## Fonts
+
+Geist and Geist Mono are self-hosted as variable WOFF2 subsets in `public/fonts`, served with a one-year immutable cache (`public/_headers`). `src/presentation/styles/fonts.css` declares an `@font-face` per unicode range (Latin, Latin Extended, Cyrillic), metric-matched fallback faces, and the `--font-geist-sans` and `--font-geist-mono` variables. `globals.css` maps them to `--font-sans`, `--font-heading` and `--font-mono`. Japanese text falls back to the system font stack.
+
+## Preloads
+
+`src/presentation/document-assets.ts` exports `DOCUMENT_STYLESHEET` (`globals.css`) and the font preloads for a locale:
+
+```ts
+export const fontPreloads = (locale: SupportedLocale) => {
+  const fonts = [GEIST_LATIN, GEIST_MONO_LATIN]
+  if (locale === "pl-PL") {
+    fonts.push(GEIST_LATIN_EXT)
+  } else if (locale === "uk-UA") {
+    fonts.push(GEIST_CYRILLIC)
+  }
+  return fonts
+}
+```
+
+The root route adds them as `link` tags, and the Worker (`src/server.ts`) sends the stylesheet and the same fonts in a `Link` preload header on every HTML response. The font file names are content hashes: when you replace a font, update both `fonts.css` and `document-assets.ts`.
+
+## Brand constants
+
+`src/presentation/branding/index.ts` is the single source of the brand:
+
+```ts
+export const APP_NAME = "SaaSy Land"
+export const APP_DOMAIN = "saasyland.com"
+
+export const APP_URL = `https://${APP_DOMAIN}`
+export const CONTACT_EMAIL = `hello@${APP_DOMAIN}`
+export const NOTIFICATIONS_EMAIL = `notifications@${APP_DOMAIN}`
+
+export const APP_FOUNDED_YEAR = 2023
+
+export const APP_GITHUB_OWNER = "saasyland"
+export const APP_GITHUB_REPO = APP_DOMAIN
+export const APP_GITHUB_URL = `https://github.com/${APP_GITHUB_OWNER}/${APP_GITHUB_REPO}`
+```
+
+They feed the Better Auth app name and 2FA issuer, the theme and locale cookie names, the allowed hosts, the footer, the docs navigation, the GitHub star count, blog structured data and the email senders and recipients.
+
+## Logo and media
+
+- `Wordmark` (`src/presentation/components/custom/wordmark.tsx`) renders the logo as inline SVG next to `APP_NAME`.
+- The favicon is `public/favicon.ico`; blog images live in `public/images/blog`.
+- Landing-page videos live in `src/presentation/assets/motion` as WebM files with WebP posters. A poster must keep the dimensions of its video.
+
+## Related guides
+
+- [Theming and branding](/docs/guides/theming-and-branding)
+- [Theme](/docs/ui/theme)

@@ -1,14 +1,39 @@
 ---
-title: Zwischenspeicherung und serverseitiges Rendering.
-description: Caching und SSR – SaaSy Land
+title: "Caching und SSR"
+description: "Wo Daten gecacht werden: der Query-Cache pro Request, vorgerenderte Seiten, KV und D1."
 ---
 
-Der QueryClient gehört zu einer Router-Instanz und ist in das serverseitige Rendering eingebunden. Loader laden Daten und die JSON-Dateien der Übersetzungsnamensräume vor; Komponenten lesen denselben Cache mit `useSuspenseQuery` oder `useSuspenseQueries`. Abfragen definieren stabile Schlüssel. Erfolgreiche Mutationen invalidieren nur die Schlüssel des betroffenen Funktionsbereichs.
+## Query-Cache
 
-Öffentliche Dokumentationen, Blogs und Landing Pages werden während des Build-Prozesses vorab gerendert. Admin-, Kunden-, Authentifizierungs- und Newsletter-Token-Routen sind ausgeschlossen. Cloudflare KV speichert öffentliche GitHub-Metadaten. D1 speichert persistente Sessions und atomare Zählmechanismen für Ratenbegrenzungen; KV wird nicht für Entscheidungen bezüglich Berechtigungen verwendet.
+`getRouter` erstellt für jeden Request einen neuen `QueryClient`, sodass auf dem Server keine Daten zwischen Nutzern durchsickern. Standardwerte:
 
-## Verwandte Anleitungen.
+| Einstellung               | Wert       |
+| ------------------------- | ---------- |
+| Query `staleTime`         | 1 Minute   |
+| Query `gcTime`            | 5 Minuten  |
+| Router `defaultStaleTime` | 1 Minute   |
+| Preloading                | Bei Intent |
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+Loader füllen den Cache mit `queryClient.query({ ...options, staleTime: "static" })`, und Komponenten lesen dieselben Keys mit `useSuspenseQuery`. `setupRouterSsrQueryIntegration` serialisiert den Server-Cache ins HTML und hydratisiert ihn im Browser.
+
+- **Übersetzungsnachrichten** werden pro Locale und Namespace mit unendlicher `staleTime` und `gcTime` gecacht.
+- **Die Session-Query** (`getCurrentSessionQuery`) hat eine `staleTime` von einer Minute. Route-Guards laden sie bei echten Navigationen neu und leeren den gesamten Cache, wenn sich der angemeldete Nutzer ändert.
+- **Mutationen** invalidieren nach erfolgreichem Abschluss die Query-Keys ihres Moduls, zum Beispiel `USER_QUERY_KEYS.ALL`.
+
+## Prerendering
+
+`bun run build` rendert die öffentlichen Seiten vor, indem es Links folgt: Landing-, Rechts-, Blog- und Doku-Seiten in allen neun Locales. Ausgenommen sind Pfade unter `/admin`, `/app`, `/auth`, `/newsletter` und `/api` (mit oder ohne Locale-Präfix) sowie Links mit Query-String oder Hash.
+
+Der Worker liefert vorgerendertes HTML aus dem `ASSETS`-Binding aus, bevor er die Anwendung lädt. Eine vorgerenderte Seite enthält keine Nutzerdaten und kann daher gefahrlos an alle ausgeliefert werden. Qualifiziert sich ein Besucher für regionale Preise, schreibt der Worker das HTML um und markiert die Antwort mit `Cache-Control: private, no-cache`.
+
+## KV und D1
+
+- **KV (`CACHE`)** speichert ausschließlich die Anzahl der GitHub-Sterne für `src/lib/github.ts`. Ein gecachter Wert, der älter als eine Stunde ist, wird sofort zurückgegeben und im Hintergrund mit `waitUntil` aktualisiert.
+- **D1 (`DB`)** speichert Sessions und Rate-Limit-Zähler. Session-Prüfungen für Server Functions umgehen den Cookie-Cache von Better Auth und werden für den Rest des Requests memoisiert.
+- Server Functions treffen nie eine Berechtigungsentscheidung auf Basis gecachter Daten.
+
+## Verwandte Seiten
+
+- [Request-Lebenszyklus](/docs/architecture/request-lifecycle)
+- [Cloudflare KV](/docs/integrations/cloudflare-kv)
+- [TanStack Start](/docs/integrations/tanstack-start)

@@ -1,8 +1,27 @@
 ---
-title: Segurança e endurecimento
-description: Recursos de segurança voltados ao produto e controles planejados.
+title: "Segurança e hardening"
+description: "Os controles de segurança que o aplicativo implementa e os que ele não implementa."
 ---
 
-Link cruzado: Arquitetura → Modelo de segurança, Guias → Lista de verificação de segurança, Características → Dois-fatores / Sessões / Personagem.
+## Implementado
 
-Planejado: assinaturas de hook, isolamento de orgs, proteção opcional de bots, trilhas de auditoria mais fortes.
+- **Sessões**: sessões do Better Auth no D1, prefixo de cookie `saasyland`, cookies seguros fora dos modos locais, hosts permitidos por modo e `cf-connecting-ip` como endereço do cliente. A sessão do cliente nunca contém o token.
+- **Contas**: verificação de e-mail obrigatória, sessões revogadas na redefinição de senha, TOTP opcional com códigos de backup, identificadores de verificação armazenados como hash e tokens OAuth criptografados.
+- **Autorização**: `requireSignedIn` e `requireAdmin` nas rotas; `authorized(permission)` nas funções de servidor com os papéis de `auth.access.ts`.
+- **Limites de taxa**: o limitador do Better Auth e o middleware `withRateLimit` compartilham a tabela `rate_limit` do D1. `RATE_LIMITS.SENSITIVE` permite 3 chamadas e `RATE_LIMITS.TOKEN` 5 chamadas a cada 60 segundos por cliente e ação.
+- **Erros**: o middleware de requisição transforma falhas em códigos `AppError` (`src/modules/_core/constants/errors.ts`), então os clientes nunca recebem mensagens brutas do servidor; os componentes as mostram com `useErrorMessage`.
+- **Webhooks e formulários**: os webhooks do Polar são verificados com `POLAR_WEBHOOK_SECRET`; as requisições da newsletter só são aceitas de hosts conhecidos e por HTTPS (`newsletterRequestOrigin`).
+
+## Não implementado
+
+- Cabeçalhos de segurança como uma Content Security Policy: `public/_headers` só define cache.
+- Um log de auditoria, inclusive para banimentos, exclusões e personificações.
+- Proteção contra bots ou CAPTCHA nos formulários públicos.
+- Uma tela de personificação ([Personificação](/docs/features/impersonation)).
+
+## Guias relacionados
+
+- [Modelo de segurança](/docs/architecture/security-model)
+- [Checklist de segurança](/docs/guides/security-checklist)
+- [Autenticação em dois fatores](/docs/features/two-factor)
+- [Sessões](/docs/features/sessions)

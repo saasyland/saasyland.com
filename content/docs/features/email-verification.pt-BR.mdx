@@ -1,10 +1,22 @@
 ---
-title: Verificação por e-mail
-description: Envie e consuma fichas de verificação de e-mail.
+title: "Verificação de e-mail"
+description: "Verificação de e-mail obrigatória com links localizados e um formulário de reenvio."
 ---
 
-## Módulo
+O Better Auth roda com `requireEmailVerification`, `sendOnSignUp` e `autoSignInAfterVerification` ativados, então uma conta nova precisa confirmar o endereço antes de conseguir fazer login.
 
-`modules/verification` — `send-verification-email`, `verify-email`.
+## Envio
 
-Modelos + Resend Encaixe através de Better Auth Ajudantes de e-mail.
+`emailVerification.sendVerificationEmail` em `auth.server.ts` é `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`). Ele monta um link para `/auth/verify-email?token=…` no idioma atual e envia o template `VerifyEmail` (veja [E-mail transacional](/docs/features/email)). Quando alguém se cadastra de novo com um endereço não verificado, `onExistingUserSignUp` envia um link novo em vez de revelar que a conta existe.
+
+## Verificação
+
+`/auth/verify-email` resolve o link em `beforeLoad`:
+
+- Com `?token=`, recarrega o documento em `/api/auth/verify-email` com um `callbackURL` igual a `/auth/verify-email?verified=true` no mesmo idioma.
+- Com `?verified=true` e sem `error`, redireciona para `/auth/callback`, que leva o usuário para `/admin` ou `/app`.
+- Caso contrário, mostra a página; com `?error=`, exibe a mensagem de link inválido.
+
+## Reenvio
+
+`VerifyEmailForm` preenche o endereço a partir de `?email=`, que o cadastro e o login definem ao redirecionar para cá. Ele chama a função de servidor `sendVerificationEmail` (`src/modules/verification/use-cases/send-verification-email.ts`), limitada por `RATE_LIMITS.SENSITIVE`.

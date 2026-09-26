@@ -1,16 +1,67 @@
 ---
-title: Tłumaczenia i języki
-description: Tłumaczenia i języki — SaaSy Land
+title: "Internacjonalizacja i języki"
+description: "Dodawaj przestrzenie nazw i klucze komunikatów we wszystkich dziewięciu językach, wczytuj je w trasach i sprawdzaj przez check:i18n."
 ---
 
-Tłumaczenia znajdują się w `messages/{locale}` dla wszystkich dziewięciu skonfigurowanych języków, w plikach namespace takich jak `pages.admin.users.json`. Konfiguracja języków, funkcje URL, ładowanie wiadomości, metadane i tłumaczenia e-maili znajdują się w `src/integrations/use-intl`.
+Komunikaty korzystają z `use-intl` i składni ICU. Każda przestrzeń nazw to jeden plik JSON na język w `messages/<locale>/<namespace>.json`, dla dziewięciu języków: `en-US` (domyślny), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` i `uk-UA`. Nazwa pliku jest przestrzenią nazw: `messages/en-US/pages.admin.users.json` to `pages.admin.users`.
 
-Angielski używa `/docs`, a polski `/pl-PL/docs`. Starsze linki `/en` i `/pl` są kanonizowane. Plik trasy deklaruje `staticData.namespaces` i ładuje te same namespace w loaderze. `TranslationsProvider` składa wiadomości aktywnych tras dla `IntlProvider`. Wspólne wiadomości ładowane są na poziomie root, a namespace e-maili pozostają na serwerze.
+## Rodzaje przestrzeni nazw
 
-Na serwerze odczytuj język przez `getCurrentLocale`, a w komponentach przez `useLocale`. URL określa język dokumentu. Funkcje serwerowe korzystają z cookie języka. Zmiana języka zachowuje ścieżkę, parametry i fragment oraz przeładowuje dokument. Po zmianie kluczy uruchom `bun run check:i18n`.
+| Przestrzeń nazw                               | Wczytywana przez                                                 |
+| --------------------------------------------- | ---------------------------------------------------------------- |
+| `common`, `components.*`, `errors*`           | `beforeLoad` trasy głównej, na każdej stronie                    |
+| `pages.*`                                     | Trasę strony, która ją deklaruje                                 |
+| Przestrzenie layoutów, np. `auth.validations` | Trasę layoutu (`src/routes/auth.tsx`, `admin.tsx`, `app.tsx`, …) |
+| `emails.*`                                    | Przypadek użycia wysyłający e-mail, wyłącznie na serwerze        |
 
-## Powiązane przewodniki
+`TranslationsProvider` otacza treść dokumentu i łączy przestrzenie główne z przestrzeniami wszystkich dopasowanych tras, dzięki czemu każdy ekran, łącznie z ekranami błędów, jest przetłumaczony.
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+## Dodaj klucz
+
+Dodaj klucz do tego samego pliku we wszystkich dziewięciu językach, z tą samą strukturą. `bun run check:i18n` kończy się błędem, gdy w którymś języku brakuje klucza lub jest klucz nadmiarowy.
+
+## Dodaj przestrzeń nazw strony
+
+1. Utwórz `messages/<locale>/pages.<area>.<page>.json` we wszystkich dziewięciu językach. Każda przestrzeń nazw strony ma `metadata.title` i `metadata.description`; `loadPageMetadata` odczytuje je na potrzeby nagłówka dokumentu.
+2. Zadeklaruj ją i wczytaj w trasie:
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: LegalPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+Trasy layoutów deklarują `const NAMESPACES = [...] as const`, wczytują je z wyprzedzeniem w loaderze i wymieniają w `staticData`. Zadeklarowana przestrzeń nazw bez pliku rzuca błąd `No messages/<locale>/<namespace>.json`.
+
+## Używaj komunikatów w komponentach
+
+- Wywołuj `useTranslations` dokładnie raz na komponent i nazywaj tłumacza `t`. i18n-ally i `check:i18n` rozwiązują każde `t("key")` względem najbliższego wcześniejszego zakresu `useTranslations`.
+- Gdy komponent potrzebuje kluczy z dwóch niepowiązanych przestrzeni nazw, ogranicz `t` do ich wspólnego rodzica albo wywołaj `useTranslations()` i używaj pełnych kluczy, jak robi to `sign-in-form.tsx`.
+- Komponenty same odczytują swoje komunikaty; rodzice nigdy nie przekazują etykiet przez propsy.
+- Tekst sformatowany używa `t.rich("key", TAGS)` z mapą znaczników zdefiniowaną jako stała na poziomie modułu, np. `LEGAL_TAGS` w `src/routes/auth.sign-up.tsx`.
+- `getCurrentLocale()` zwraca język zarówno na serwerze, jak i w przeglądarce. `useDateFormatter` i `useCurrencyFormatter` formatują dla niego daty i kwoty.
+
+## Sprawdź
+
+```sh
+bun run check:i18n
+```
+
+Polecenie sprawdza zgodność kluczy między językami, klucze statyczne względem ich zakresu `useTranslations`, formaty komunikatów ICU oraz zgodność treści dokumentacji między językami. Uruchamia je także `bun run check`.
+
+## Języki w adresach URL
+
+Strony angielskie nie mają prefiksu (`/docs`), a pozostałe języki go mają (`/pl-PL/docs`). Worker przekierowuje krótkie prefiksy, np. `/pl`, na `/pl-PL` i synchronizuje ciasteczko języka z adresem strony. Adresy funkcji serwerowych i `/api` nie zawierają języka, więc funkcje serwerowe zwracające zlokalizowaną treść przyjmują język jako dane wejściowe.

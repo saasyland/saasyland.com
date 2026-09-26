@@ -1,14 +1,29 @@
 ---
 title: "Uwierzytelnianie dwuskładnikowe"
-description: "TOTP, weryfikacja i kody zapasowe."
+description: "Uwierzytelnianie dwuskładnikowe TOTP z kodami zapasowymi, konfigurowane w ustawieniach panelu administracyjnego."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+Wtyczka `twoFactor` z Better Auth używa `APP_NAME` jako wystawcy. Jej funkcje serwerowe znajdują się w `src/modules/two-factor/use-cases`:
 
-## Module
+| Przypadek użycia   | Middleware            | Używany przez                          |
+| ------------------ | --------------------- | -------------------------------------- |
+| `enableTwoFactor`  | zalogowany, z limitem | `TwoFactorPasswordStep`                |
+| `disableTwoFactor` | zalogowany, z limitem | `TwoFactorPasswordStep`                |
+| `verifyTotp`       | z limitem             | `TwoFactorVerifyStep`, `TwoFactorForm` |
+| `verifyBackupCode` | z limitem             | `TwoFactorForm`                        |
 
-`modules/two-factor/use-cases` — enable, disable, verify TOTP, verify backup code.
+## Konfiguracja
 
-## UX
+**Ustawienia → Bezpieczeństwo** w `/admin/settings` wyświetla `TwoFactorDialog` (`src/presentation/components/custom/admin/settings`):
 
-Settings security tab + `/auth/two-factor` challenge route. Follow Better Auth 2FA plugin constraints in `auth.constraints.ts`.
+1. Krok hasła wywołuje `enableTwoFactor` i otrzymuje URI TOTP oraz kody zapasowe.
+2. Krok weryfikacji pokazuje sekret z URI (`extractTotpSecret`) do ręcznego wpisania w aplikacji uwierzytelniającej i potwierdza 6-cyfrowy kod przez `verifyTotp`.
+3. Ostatni krok wyświetla kody zapasowe.
+
+Gdy 2FA jest włączone, ten sam przycisk otwiera krok hasła z `disableTwoFactor`. Przycisk odczytuje `twoFactorEnabled` z bieżącej sesji.
+
+## Weryfikacja przy logowaniu
+
+Dla konta z 2FA Better Auth odpowiada na logowanie przekierowaniem dwuskładnikowym; `twoFactorClient` w `auth.client.ts` przenosi przeglądarkę do `/auth/two-factor` w bieżącym języku. `TwoFactorForm` przyjmuje 6-cyfrowy kod (`InputOTP`) albo, po przełączeniu, kod zapasowy i wysyła `trustDevice: true`. Po powodzeniu `usePostAuthRedirect` przechodzi do `/auth/callback`.
+
+Długości kodów są określone w `auth.constraints.ts`: `TWO_FACTOR_CODE_LENGTH` wynosi 6, a kody zapasowe mają od 8 do 12 znaków.

@@ -1,14 +1,46 @@
 ---
-title: Статус на сервери
-description: URL-адреса — SaaSy Land
+title: "Стан в URL"
+description: "Зберігайте вкладки, режими перегляду й одноразові токени у валідованих параметрах пошуку."
 ---
 
-Визначте пошукову схему маршруту з `validateSearch`, читати його з `Route.useSearch`Навігація та оновлення за допомогою навігації TanStack Router. Зберігайте закладені фільтри, вкладки, сортування та піхви в URL при необхідності. Складно-тільки стан залишається в React.
+Параметри пошуку зберігають стан, який має пережити перезавантаження чи надіслане посилання: вибрану вкладку або режим перегляду, адресу пошти, що передається між сторінками автентифікації, токен підтвердження. Усе інше залишається в стані React. `DataTable` тримає пагінацію, сортування, вибір і фільтри в стані компонента.
 
-Місцеві перезаписи URL застосовуються на рідні посилання маршрутизатора. Зареєструватися `localizePathname` для ручних сконструйованих URL-адрес, включаючи OAuth зворотний зв'язок і посилання на електронну пошту. Не препендуйте локалізацію на зовнішні посилання або API доріжки. Збереження запиту та фрагмента при переході мов.
+## Оголосіть параметри
 
-## Схожі посібники
+`validateSearch` перетворює сирий рядок запиту на типізований об'єкт. Невідомі чи некоректні значення замінюються типовим значенням замість помилки. З `src/routes/admin.blog.index.tsx`:
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+```tsx
+validateSearch: (search: SearchSchemaInput & { view?: unknown }): { view: "grid" | "table" } => ({
+  view: search.view === "table" ? "table" : "grid",
+}),
+search: { middlewares: [stripSearchParams({ view: "grid" })] },
+```
+
+`stripSearchParams` прибирає типове значення з URL, тож `/admin/blog` лишається канонічною адресою перегляду сіткою.
+
+## Читайте їх
+
+- У компоненті маршруту: `const { view } = Route.useSearch()`.
+- Із селектором компонент перерендерюється лише тоді, коли змінюється вибране значення: `Route.useSearch({ select: (search) => search.error !== "" })`.
+- У компоненті поза файлом маршруту: `getRouteApi("/auth/reset-password").useSearch()`, як у `reset-password-form.tsx`.
+
+## Змінюйте їх
+
+- Посилання: `<Link search={{ view: id }} to={ROUTES.ADMIN_BLOG}>`.
+- Компоненти React Aria з `href`, наприклад `TabsTrigger` у `src/routes/admin.products.index.tsx`, переходять через роутер, бо `AriaProvider` поєднує React Aria з TanStack Router.
+- Код: `router.navigate({ search: { email }, to: ROUTES.VERIFY_EMAIL })`.
+- Guard і loader: `throw redirect({ replace: true, search: { status: "success" }, to: ROUTES.NEWSLETTER_UNSUBSCRIBE })`.
+
+## Завантажуйте дані на їхній основі
+
+Loader, що залежить від параметра пошуку, оголошує його в `loaderDeps` і читає з `deps`. Маршрут підтвердження розсилки так використовує токен і встановлює `preload: false`, щоб наведення курсора на посилання ніколи його не витрачало:
+
+```tsx
+loaderDeps: ({ search: { token } }) => ({ token: token ?? "" }),
+```
+
+## Мови та URL
+
+- Посилання роутера (`<Link to={ROUTES.X}>`) отримують мовний префікс від `rewrite` роутера. Англійська не має префікса (`/docs`), інші мови мають (`/pl-PL/docs`).
+- Сирі URL будуйте через `localizePathname({ locale, pathname })`: `callbackURL` і `errorCallbackURL` у Better Auth, посилання в листах і вручну зібрані `<a href>`. Шляхи `/api` і зовнішні URL лишаються без змін.
+- Перемикач мови веде на той самий шлях іншою мовою з повним перезавантаженням сторінки; рядок запиту й фрагмент не переносяться.

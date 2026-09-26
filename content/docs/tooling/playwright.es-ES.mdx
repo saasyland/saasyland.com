@@ -1,26 +1,50 @@
 ---
-title: Pruebas y CI
-description: Pruebas y CI — SaaSy Land
+title: "Playwright"
+description: "Pruebas en el navegador contra el Worker de pruebas aislado."
 ---
 
-Vite+ ejecuta Vitest en tres proyectos: pruebas de nodo, pruebas de integración y pruebas de componentes jsdom. Conserva las pruebas de comportamiento existentes junto al código que están probando. `__test__`Importar APIs de prueba desde `vite-plus/test`Utiliza Playwright para las pruebas de flujo completo del navegador y las comprobaciones de renderizado.
-
-La configuración compartida proporciona mocks locales de D1 y KV. D1 ejecuta las migraciones SQL revisadas contra SQLite. El puente RPC de la función del servidor preserva la pila de middleware y validación de TanStack. Los ayudantes de renderizado de componentes ofrecen contextos reales de QueryClient y Router. Las llamadas externas de correo electrónico, OAuth y pagos se simulan en las pruebas.
-
-Ejecuta el proyecto enfocado mientras editas, y luego ejecuta la suite completa, la puerta de pruebas de cobertura, la comprobación y la compilación de previsualización. Las pruebas del navegador verifican las páginas públicas, las redirecciones de autenticación, SSR sin JavaScript y la navegación del cliente. El CI utiliza enlaces locales y no requiere una base de datos en vivo ni secretos de proveedor.
+Playwright prueba la aplicación compilada en navegadores reales. La suite se ejecuta contra el entorno de Wrangler `test`: D1 y KV locales en `.wrangler/test`, credenciales ficticias de `.env.test` y el punto de entrada de pruebas `src/platform/testing/worker.ts`, que intercepta las solicitudes a Resend y a Polar.
 
 ```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
+bun run test:e2e:install
 bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:pr
+bun run test:e2e:headed
+bun run test:e2e:ui
 ```
+
+| Script             | Ejecuta                                                     |
+| ------------------ | ----------------------------------------------------------- |
+| `test:e2e:install` | Instala Chromium y WebKit con las dependencias del sistema  |
+| `test:e2e`         | Todas las specs en Chromium y WebKit                        |
+| `test:e2e:smoke`   | `e2e/specs/smoke.spec.ts` en Chromium                       |
+| `test:e2e:pr`      | Todas las specs en Chromium, como en la CI de pull requests |
+| `test:e2e:headed`  | Todas las specs en navegadores visibles                     |
+| `test:e2e:ui`      | Modo UI de Playwright                                       |
+
+## Configuración
+
+`playwright.config.ts` define los proyectos `chromium` (Desktop Chrome) y `webkit` (Desktop Safari) y usa `PLAYWRIGHT_BASE_URL` o `http://127.0.0.1:3000`. En local, el comando del servidor web ejecuta `db:migrate:test`, `db:seed:test`, `build:test` y `start:test`, y reutiliza un servidor que ya responda en esa URL, así que detenga primero cualquier otro servidor en el puerto 3000. En CI, el flujo de trabajo prepara la compilación y Playwright solo inicia el servidor.
+
+| Ajuste     | Local                 | CI                     |
+| ---------- | --------------------- | ---------------------- |
+| Reintentos | 0                     | 2                      |
+| Workers    | 1                     | 2                      |
+| Trazas     | Se conservan si falla | En el primer reintento |
+| Vídeos     | Desactivados          | Se conservan si falla  |
+| Reporter   | Lista y HTML          | GitHub y HTML          |
+
+## Estructura
+
+- `e2e/specs/`: specs de comprobaciones smoke, página de inicio, navegación, idiomas, autenticación, espacios de trabajo, newsletter, contenido, tema y precios regionales.
+- `e2e/pages/`: page objects.
+- `e2e/fixtures/`: la fixture `test` extendida y utilidades para los correos capturados.
+- `e2e/data/accounts.ts`: las cuentas de administrador y de cliente precargadas y su contraseña.
+
+El Worker de pruebas expone `/__test/emails` para leer los correos capturados por el mock de Resend y `/__test/newsletter` para leer el estado de un suscriptor.
 
 ## Guías relacionadas
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
 - [Pruebas](/docs/tooling/testing)
+- [CI/CD](/docs/tooling/ci-cd)

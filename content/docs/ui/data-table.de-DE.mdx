@@ -1,15 +1,98 @@
 ---
-title: Datentabelle
-description: Symbolleiste, Spalten, Filter, Export, Abrufen.
+title: "DataTable"
+description: "Eine generische Tabellenkomponente: Spalten, Client- oder Serverdaten, Filter und Zeilenauswahl."
 ---
 
-## Fähigkeiten.
+`DataTable` (`src/presentation/components/custom/data-table.tsx`) ist die einzige Tabellenkomponente. Sie erstellt eine TanStack-Table-v9-Instanz mit `tableFeatures` und `useTable` (Filtern, Sortieren, Paginierung, Zeilenauswahl) und rendert sie mit den shadcn-Tabellenprimitiven.
 
-- Spaltengrößenanpassung / Fixierungshilfen
-- Werkzeugleiste: Suche, Filter, Einstellungen (Darstellung), CSV-Export, asynchrone Datenabfrage/Aktualisierung.
-- Auswahlbereich für Spaltenaktionen und Zeilenaktionen.
-- Seitennavigation
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
 
-## Testen.
+## Props
 
-Komponententests befinden sich unter `data-table/__test__`. Achten Sie auf eine vollständige Abdeckung, wenn Sie die Status der Symbolleiste ändern.
+| Prop      | Zweck                                                                                                     |
+| --------- | --------------------------------------------------------------------------------------------------------- |
+| `columns` | Spaltendefinitionen (`DataTableColumnDef`). Jede Zeile braucht eine String-`id`, die als Zeilen-ID dient. |
+| `data`    | Zeilen im Arbeitsspeicher. Wird ignoriert, wenn `options.query` gesetzt ist.                              |
+| `filters` | Filtersteuerelemente über der Tabelle.                                                                    |
+| `options` | `initialState`, `query` und `selectable`.                                                                 |
+
+## Optionen
+
+- `initialState` legt die anfängliche `pagination` (Standard: erste Seite, 10 Zeilen) und `sorting` fest.
+- `query` schaltet in den Servermodus. Es ist eine Funktion von `{ pageIndex, pageSize, sorting }`, die Query-Optionen zurückgibt, die zu `{ rows, total }` auflösen. Die Tabelle paginiert und sortiert dann manuell, lässt die vorherige Seite während des Ladens sichtbar, zeigt Skeleton-Zeilen und lässt Query-Fehler bis zur Error Boundary der Route durch.
+- `selectable` fügt eine Checkbox-Spalte hinzu; die Fußzeile zeigt die Anzahl der ausgewählten Zeilen.
+
+Eine Änderung der Sortierung springt zurück zur ersten Seite. Die Fußzeile zeigt die Zeilenanzahl, die Seitenanzeige und Schaltflächen für vorherige und nächste Seite, übersetzt aus `components.custom.data-table`.
+
+## Filter
+
+Ein Filter ist `type: "search"` mit einem `placeholder` oder `type: "select"` mit einem `label` und `options`; beide benennen eine `columnId`. Das Dashboard verwendet beide:
+
+```tsx
+filters={[
+  { columnId: "user", placeholder: t("users.search"), type: "search" },
+  {
+    columnId: "status",
+    label: t("users.filters.status"),
+    options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+    type: "select",
+  },
+]}
+```
+
+Filter arbeiten auf den Zeilen im Arbeitsspeicher. Im Servermodus filtern sie nur die geladene Seite, daher verwenden die Servertabellen sie nicht.
+
+## Spalten
+
+Spalten liegen in einer Datei `<entity>-columns.tsx` neben den Widgets der Seite und verwenden `createColumnHelper<DataTableFeatures, Row>()`. Header und Zellen sind kleine Komponenten, die ihre eigenen Übersetzungen lesen:
+
+```tsx
+const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
+  const t = useTranslations("pages.admin.users.table.headers")
+
+  return t(id)
+}
+```
+
+```tsx
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor((row) => getUserStatus(row), { cell: StatusCell, header: () => <ColumnHeader id="status" />, id: "status" }),
+  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
+  columnHelper.accessor("twoFactorEnabled", { cell: BooleanCell, header: () => <ColumnHeader id="twoFactorEnabled" /> }),
+  columnHelper.accessor("timezone", {
+    cell: ({ getValue }) => <span className="text-muted-foreground">{getValue()}</span>,
+    header: () => <ColumnHeader id="timezone" />,
+  }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+  columnHelper.accessor("updatedAt", { cell: DateCell, header: () => <ColumnHeader id="updatedAt" />, sortFn: "datetime" }),
+  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: "", id: "actions" }),
+])
+```
+
+- Jede Spalte ist sortierbar, sofern sie nicht `enableSorting: false` setzt. Die registrierten Sortierfunktionen sind `alphanumeric`, `basic`, `datetime` und `text`.
+- Im Servermodus erhält die Query-Funktion den Sortierzustand; `getUsers` ordnet jeder Spalten-ID einen SQL-Ausdruck zu.
+- Zeilenaktionen sind eine Anzeigespalte, deren Zelle eine Komponente ist, zum Beispiel `UserRowActions`.
+
+## Verwendung
+
+| Ansicht                                                                            | Modus                                                                       |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `/admin/users/all`                                                                 | Server: `getUsersPageQuery`, Sortierung, auswählbar                         |
+| `/admin/products`                                                                  | Server: `getProductsPageQuery`, `getCategoriesPageQuery`                    |
+| `/admin`                                                                           | Im Arbeitsspeicher: erste Seite der Benutzer, Filter, fünf Zeilen pro Seite |
+| `/admin/users/invitations`, `/admin/users/roles`, `/admin/payments`, `/admin/blog` | Im Arbeitsspeicher: Demo-Zeilen                                             |
+
+## Tests
+
+`src/presentation/components/custom/__test__/data-table.component.test.tsx` deckt Tabellen im Arbeitsspeicher ab und `data-table-query.component.test.tsx` den Servermodus. Führen Sie sie mit `bun run test:component` aus.
+
+## Verwandte Anleitungen
+
+- [DataTable hinzufügen](/docs/guides/add-a-data-table)
+- [TanStack Table](/docs/integrations/tanstack-table)

@@ -1,14 +1,61 @@
 ---
-title: Core 共有カーネル
-description: モジュール/_core のドメインエラーと共有カタログ。
+title: "Core 共有カーネル"
+description: "すべてのモジュールが共有する、src/modules/_core のエラー語彙、カタログ、ヘルパー。"
 ---
 
-## コンテンツ
+`src/modules/_core` は、テーブルを所有しない唯一のモジュールフォルダーです。複数のモジュールが必要とする値とヘルパーをここにまとめ、各モジュールで再定義しないようにしています。
 
-- `constants/errors.ts` — `ERROR_CODES`, `AppError`, `ActionServerError` (1つのエラー語彙)
-- `constants/` — i18nおよびプロダクトノブによって使用されるlocale (および関連した)カタログ
-- `utils/` — モジュール間で共有される純粋なヘルパー
+## 定数
 
-## なぜ存在しているのか
+| ファイル                | 内容                                                                                           |
+| ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `constants/errors.ts`   | `ERROR_CODES`、`ErrorCode` 型、`AppError` クラス                                               |
+| `constants/api.ts`      | `HTTP_STATUS`、`cf-ipcountry` と `cf-connecting-ip` のヘッダー名、ビルドモードごとの許可ホスト |
+| `constants/locale.ts`   | `LOCALES` カタログ、`LocaleCode`、`getLocaleName`、`getLocaleDirection`                        |
+| `constants/country.ts`  | `COUNTRIES` カタログと `CountryCode`                                                           |
+| `constants/currency.ts` | `CURRENCIES` カタログ、`CurrencyCode`、`DEFAULT_CURRENCY_CODE`                                 |
+| `constants/timezone.ts` | `TIMEZONES` カタログと `TimezoneCode`                                                          |
+| `constants/pricing.ts`  | 地域別価格の倍率、地域別価格のクッキー、通貨のフォーマット                                     |
 
-クロスカット **有効な値** そして、 **エラーコード** 機能ごとに再定義されるべきではありません。 App-enabled locales (サブセット) はまだライブ中 `i18n.config.ts`;より広いカタログはで生きることができます `_core`.
+ロケールカタログには、既知のすべてのロケールが含まれます。アプリケーションが実際に提供する 9 つのロケールは、`src/integrations/use-intl/i18n.config.ts` の `I18N.SUPPORTED_LOCALES` です。
+
+## ユーティリティ
+
+- `utils/pagination.ts`：`paginationSchema`（`pageIndex`、`pageSize`）、`DEFAULT_PAGINATION`、`DEFAULT_PAGE_SIZE`
+- `utils/zod-fields.ts`：`idField` や `localeField` などの再利用可能な Zod フィールド
+
+## エラー
+
+エラークラスは 1 つ、エラーコードの一覧も 1 つだけです。
+
+```ts
+export const ERROR_CODES = {
+  AUTH_API_ERROR: "AUTH_API_ERROR",
+  CONFLICT: "CONFLICT",
+  FORBIDDEN: "FORBIDDEN",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
+  NOT_FOUND: "NOT_FOUND",
+  TOO_MANY_REQUESTS: "TOO_MANY_REQUESTS",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  VALIDATION: "VALIDATION",
+} as const
+
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]
+
+export class AppError extends Error {
+  readonly code: ErrorCode
+
+  constructor(code: ErrorCode, message: string = code) {
+    super(message)
+    this.name = "AppError"
+    this.code = code
+  }
+}
+```
+
+サーバー関数は `AppError` をスローします。それ以外のエラーは `withRequest` ミドルウェアが正規化します。Better Auth の API エラーは、Better Auth のエラーキーをメッセージとする `AUTH_API_ERROR` に、Zod のエラーは `VALIDATION` になり、未知のエラーはログに記録されたうえで `INTERNAL_ERROR` になります。ブラウザでは、`src/hooks/use-error-message.ts` の `useErrorMessage()` がメッセージを `auth.errors.*` または `errors.codes.*` の翻訳に対応付けます。
+
+## 関連ページ
+
+- [サーバー関数とユースケース](/docs/architecture/modules-and-use-cases)
+- [認証とセキュリティ](/docs/architecture/security-model)

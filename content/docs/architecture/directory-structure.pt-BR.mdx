@@ -1,28 +1,76 @@
 ---
-title: Estrutura do diretório
-description: Estrutura do diretório - SaaSy Land
+title: "Estrutura de diretórios"
+description: "Cada pasta de nível superior do SaaSy Land e as regras sobre o que vai em cada lugar."
 ---
 
-Use kebab-case para arquivos e pastas. TanStack RouterO ponto e as convenções de rota sem caminho. `presentation/components/custom` Os primitivos gerados pertencem a `presentation/components/shadcn`. . Uma característica pode conter `components`, `constants`, `hooks`, e `types` Quando precisar deles.
-
 ```text
-content/                         Localized MDX
-messages/{locale}/           Translation namespaces
-src/routes/                      Flat file routes
-src/router.tsx                   Router and per-request query cache
-src/server.ts                    Cloudflare Worker entry
-src/modules/{feature}/           Schemas, constants, validation
-src/modules/{feature}/use-cases/  Server functions and query/mutation options
-src/integrations/{vendor}/       Vendor adapters and setup
-src/presentation/                Components, styles, branding, emails
-src/providers/                   Application providers
-src/hooks/                       Shared hooks
-src/lib/                         Shared utilities
-src/platform/testing/            Binding mocks and test helpers
+content/
+├── blog/                            <slug>.<locale>.mdx
+└── docs/                            <page>.<locale>.mdx and meta.<locale>.json
+messages/<locale>/<namespace>.json   One file per translation namespace
+e2e/                                 Playwright specs, page objects, fixtures
+scripts/                             Check, build and Git hook scripts
+public/                              Fonts and other static files
+src/
+├── routes/                          Flat TanStack file routes
+│   └── api/                         HTTP handlers
+├── routes.ts                        ROUTES path constants
+├── router.tsx                       Router, QueryClient, locale rewrite
+├── server.ts                        Worker entry
+├── modules/
+│   ├── _core/
+│   │   ├── constants/               errors, api, locale, country, currency, timezone, pricing
+│   │   └── utils/                   pagination, zod-fields
+│   └── <table>/
+│       ├── <table>.schema.ts
+│       ├── <table>.zod.ts
+│       ├── <table>.constants.ts
+│       ├── <table>.types.ts
+│       ├── <table>.utils.ts
+│       └── use-cases/<operation>.ts
+├── integrations/<vendor>/           <vendor>.<concern>.ts
+├── presentation/
+│   ├── components/
+│   │   ├── shadcn/                  Generated primitives
+│   │   └── custom/
+│   │       ├── footer.tsx           Shared components, flat
+│   │       ├── data-table.tsx
+│   │       ├── admin/
+│   │       │   └── users/           user-columns.tsx, reset-password-dialog.tsx
+│   │       ├── app/
+│   │       ├── auth/
+│   │       ├── blog/
+│   │       └── landing-page/
+│   │           ├── components/
+│   │           └── sections/
+│   ├── emails/                      React Email templates
+│   ├── styles/                      globals.css, docs.css, fonts.css, typeset.css
+│   ├── theme/
+│   ├── branding/
+│   ├── assets/
+│   └── document-assets.ts
+├── data/                            Data shared by several files
+├── lib/                             cn, cookie, github, rate-limit, seo, confetti
+├── hooks/                           Shared React hooks
+├── providers/                       aria, motion, theme, translations
+├── platform/testing/                Test setup, binding mocks, RPC bridge
+└── types/                           Bindings, router and generated Worker types
 ```
 
-## Guias relacionados
+## Regras de organização
+
+- **Arquivos e pastas usam kebab-case.** Os testes ficam em uma pasta irmã `__test__`.
+- **Rotas apenas compõem.** Um arquivo de rota define o componente de página ou de layout, `NAMESPACE` ou `NAMESPACES`, o loader e o `head`. Ele não contém widgets, diálogos nem definições de colunas.
+- **Módulos são tabelas do banco de dados.** Crie `src/modules/<name>` apenas para uma tabela real. Uma server function que não trabalha com uma tabela vai para `src/lib` (por exemplo, `src/lib/github.ts`) ou, se uma única rota a usa, para o arquivo dessa rota.
+- **Componentes compartilhados ficam no nível plano.** Um componente usado em várias áreas é um único arquivo diretamente em `presentation/components/custom`.
+- **Pastas de área e de página.** Componentes usados por uma única área ficam em `admin/`, `app/`, `auth/`, `blog/` ou `landing-page/`. As páginas do admin têm pasta própria, como `admin/users/` ou `admin/settings/`. A landing page se divide em `sections/` (um arquivo por seção da página) e `components/` (partes compartilhadas entre as seções).
+- **Um widget, diálogo, formulário ou conjunto de colunas por arquivo.** Não divida um componente em um wrapper e um arquivo `-content`.
+- **Sem pastas auxiliares aninhadas.** Pastas de componentes nunca contêm subpastas `components/`, `constants/`, `hooks/`, `lib/` ou `types/`, e nenhum arquivo auxiliar `.ts` fica ao lado de um componente. Uma constante usada por um único componente permanece no arquivo desse componente.
+- **Dados compartilhados vão para `src/data`.** Exemplos: os grupos da barra lateral do admin, `MARKETING_SECTION_IDS`, a navegação do app, as opções da CLI e as linhas de demonstração.
+- **Arquivos gerados não são editados à mão.** O plugin do router escreve `src/routeTree.gen.ts`, `bun run cf-typegen` escreve `src/types/worker-configuration.d.ts`, e `bun run content` e `bun run generate:cn` escrevem `.source/`.
+
+## Páginas relacionadas
 
 - [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Nomenclatura de arquivos](/docs/reference/file-naming)
+- [Convenções](/docs/reference/conventions)

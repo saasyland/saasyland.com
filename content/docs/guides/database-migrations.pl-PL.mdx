@@ -1,23 +1,45 @@
 ---
-title: D1 i Drizzle
-description: D1 i Drizzle — SaaSy Land
+title: "Migracje bazy danych"
+description: "Zmień schemat Drizzle, wygeneruj migrację SQL i zastosuj ją w każdej bazie D1."
 ---
 
-Cloudflare D1 jest bazą aplikacji. Schematy modułów używają `drizzle-orm/sqlite-core`; zbiera je `src/integrations/drizzle-orm/drizzle.schemas.ts`. Plik `drizzle.database.ts` tworzy adapter Drizzle D1 z `env.DB`.
+Bazą danych aplikacji jest Cloudflare D1 (SQLite). Schematy modułów używają `drizzle-orm/sqlite-core`, `src/integrations/drizzle-orm/drizzle.schemas.ts` je zbiera, a drizzle-kit zapisuje migracje w `src/integrations/drizzle-orm/migrations/` z prefiksem znacznika czasu.
 
-Daty używają całkowitych znaczników czasu SQLite w milisekundach. Pola logiczne korzystają z trybu integer boolean. Relacje, ograniczenia unikalności i klucze obce pozostają w schemacie. Zapewnij atomowość odpowiednim poleceniem SQL lub batchem D1; nie wprowadzaj puli połączeń PostgreSQL ani transakcji interaktywnej.
+## Przebieg
 
-Po zmianie schematów uruchom `db:generate`, sprawdź i zapisz SQL w repozytorium oraz zastosuj go lokalnie. Migracje zdalne są osobnymi poleceniami dla środowiska. Wdrożona baza PostgreSQL wymaga osobnego eksportu i importu; wygenerowanie migracji SQLite nie przenosi istniejących danych.
+1. Zmień `<table>.schema.ts`. Nową tabelę wyeksportuj także z `drizzle.schemas.ts`.
+2. Wygeneruj SQL:
 
 ```sh
 bun run db:generate
-bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
 ```
 
-## Powiązane przewodniki
+3. Przejrzyj wygenerowany plik i zatwierdź go razem ze zmianą schematu.
+4. Zastosuj go w bazie, z którą pracujesz, oraz w każdej bazie zdalnej przed wdrożeniem kodu, który od niego zależy.
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+## Polecenia
+
+| Polecenie                        | Baza danych                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------- |
+| `bun run db:migrate:test`        | Lokalna baza testowa w `.wrangler/test`, używana przez Playwright i izolowany podgląd |
+| `bun run db:migrate:local`       | Lokalna baza deweloperska; `bun run dev` nadal używa zdalnych bindingów               |
+| `bun run db:migrate:development` | Zdalna baza środowiska deweloperskiego, domyślnie współdzielona z podglądem           |
+| `bun run db:migrate:preview`     | Zdalna baza podglądu                                                                  |
+| `bun run db:migrate:production`  | Zdalna baza produkcyjna                                                               |
+
+`bun run db:studio:development`, `db:studio:preview` i `db:studio:production` otwierają Drizzle Studio, a skrypty `db:introspect:*` analizują D1 przez jego HTTP API. Oba wymagają `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` i `CLOUDFLARE_ACCESS_TOKEN` w odpowiednim pliku środowiskowym.
+
+## Konwencje schematu
+
+- Daty to `integer(..., { mode: "timestamp_ms" })` z wartością domyślną `(unixepoch() * 1000)`.
+- Wartości logiczne to `integer(..., { mode: "boolean" })`.
+- Indeksy, ograniczenia unikalności, klucze obce i relacje pozostają w pliku schematu.
+- D1 nie obsługuje interaktywnych transakcji. Operację utrzymasz atomową dzięki jednej instrukcji SQL albo `db.batch([...])`, jak robią to `getUsers` i limiter żądań.
+
+## Testy
+
+Testowy binding D1 stosuje każdy plik SQL z folderu migracji w bazie SQLite w pamięci, więc testy korzystające z D1 działają na zmigrowanym schemacie. `src/integrations/drizzle-orm/__test__/` sprawdza, czy schemat, jego indeksy i klucze obce powstają poprawnie. Zobacz [Pisanie testów](/docs/guides/writing-tests).
+
+## Istniejące dane z PostgreSQL
+
+Te migracje tworzą wyłącznie schemat SQLite. Przeniesienie danych z wcześniejszej instalacji PostgreSQL wymaga osobnego, przejrzanego eksportu i importu.

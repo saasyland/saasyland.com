@@ -1,16 +1,48 @@
 ---
-title: Risoluzione dei problemi
-description: Risoluzione dei problemi — SaaSy Land
+title: "Risoluzione dei problemi"
+description: "Errori comuni durante sviluppo, test e deploy, e come risolverli."
 ---
 
-Se le domande locali segnalano le tabelle mancanti, eseguire `bun run db:migrate:local`; uso dei test del browser `db:migrate:test` e una legatura separata D1. Se l'autenticazione fallisce, controlla l'URL dell'ambiente, `AUTH_SECRET`, le credenziali del fornitore e gli URL di callback.
+## Database
 
-Gli errori di traduzione mancanti di solito indicano un namespace omesso dal percorso o una chiave mancante in un locale. Corri! `check:i18n`. Per la documentazione 404s, verificare il nome file localizzato MDX, metadati di pagina e relativo link sorgente. Per i guasti prerender, ispezionare il primo URL difettoso nell'output di build.
+**`no such table` in `bun run dev`.** L'ambiente `development` usa il database D1 di preview remoto. Applica lì le migrazioni con `bun run db:migrate:development`. Per il database di sviluppo locale usa `bun run db:migrate:local`.
 
-Una distribuzione respinta per gli attacchi dei segnaposto ha bisogno di ID reali D1 e KV nell'ambiente di destinazione. Le operazioni di compilazione e test non creano automaticamente risorse remote.
+**`no such table` in Playwright.** I test browser usano un proprio database locale. Esegui `bun run db:migrate:test` e `bun run db:seed:test`, oppure lascia che sia Playwright ad avviare l'app, perché esegue entrambi i comandi.
 
-## Guide correlate
+**Le tabelle di Vitest non sono aggiornate.** Il mock di D1 applica all'avvio ogni file SQL in `src/integrations/drizzle-orm/migrations`. Dopo una modifica allo schema, genera una migrazione con `bun run db:generate`.
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+## Server di sviluppo
+
+**Il server di sviluppo non si avvia.** Usa la porta 3000 con `strictPort`, quindi fallisce se la porta è occupata. Termina l'altro processo.
+
+**L'accesso o OAuth non funziona.** Controlla `AUTH_SECRET` e le credenziali del client OAuth nel file di ambiente, e verifica che l'URL di callback del provider punti a `/api/auth/callback/<provider>` sull'host che stai usando. Better Auth accetta solo gli host configurati per la modalità di build: `localhost:3000` e `127.0.0.1:3000` in locale.
+
+**Nei tipi del Worker manca un binding o un secret.** Esegui `bun run cf-typegen` dopo aver modificato `wrangler.jsonc` e aggiungi la variabile a `src/types/bindings.d.ts`.
+
+**Le classi `text-*` personalizzate scompaiono durante l'unione.** `cn` dipende da tabelle generate da `src/lib/cn.config.ts`. `bun run dev`, `bun run check` e le build le rigenerano; esegui `bun run generate:cn` se manca `.source/cn-tables.ts`.
+
+## Traduzioni
+
+**`No messages/<locale>/<namespace>.json`.** Una route dichiara un namespace che non ha un file per quel locale. Crea il file in ogni locale.
+
+**Una chiave viene mostrata come il suo percorso, oppure `check:i18n` segnala una chiave mancante.** La chiave manca in un locale, oppure il componente la legge fuori dallo scope della sua chiamata a `useTranslations`. Usa un solo `useTranslations` per componente ed esegui `bun run check:i18n`.
+
+## Documentazione
+
+**Una pagina della documentazione restituisce 404.** Il file deve chiamarsi `<page>.<locale>.mdx` ed essere elencato in `pages` nel `meta.<locale>.json` della cartella. Esegui `bun run content` per rigenerare `.source`.
+
+**`check-content.ts` fallisce.** Lo script confronta ogni locale con en-US. `Changed code examples` significa che un blocco di codice differisce da quello inglese; i blocchi di codice devono essere identici. `Untranslated English paragraph` significa che un paragrafo è stato copiato senza tradurlo. `Missing <file>` significa che il file di un locale non esiste.
+
+## Test e deploy
+
+**`test:coverage` fallisce.** La copertura deve essere del 100% per righe, istruzioni, funzioni e branch. Il report in `coverage/` elenca le righe non coperte.
+
+**Il deploy si ferma a `verify-bindings.ts`.** L'ambiente di destinazione in `wrangler.jsonc` ha ancora ID D1 o KV segnaposto. Crea le risorse in Cloudflare e sostituisci gli ID.
+
+**Una build con prerendering fallisce.** L'output della build indica il primo URL che ha fallito. Apri quella pagina con `bun run dev` per vedere l'errore.
+
+## Pagine correlate
+
+- [Debug in locale](/docs/guides/local-debugging)
+- [Domande frequenti](/docs/reference/faq)
+- [Ambiente e binding](/docs/reference/environment)

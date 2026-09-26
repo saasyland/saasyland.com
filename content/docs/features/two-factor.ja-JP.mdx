@@ -1,12 +1,29 @@
 ---
-title: 2要素認証
-description: TOTPの有効化、検証、およびバックアップコード。
+title: "二要素認証"
+description: "管理画面の設定で有効化する、バックアップコード付きの TOTP 二要素認証。"
 ---
 
-## モジュール
+Better Auth の `twoFactor` プラグインは `APP_NAME` を発行者として使います。サーバー関数は `src/modules/two-factor/use-cases` にあります。
 
-`modules/two-factor/use-cases` — TOTP の有効化、無効化、検証、バックアップコードの検証
+| ユースケース       | ミドルウェア               | 利用箇所                               |
+| ------------------ | -------------------------- | -------------------------------------- |
+| `enableTwoFactor`  | サインイン必須、レート制限 | `TwoFactorPasswordStep`                |
+| `disableTwoFactor` | サインイン必須、レート制限 | `TwoFactorPasswordStep`                |
+| `verifyTotp`       | レート制限                 | `TwoFactorVerifyStep`、`TwoFactorForm` |
+| `verifyBackupCode` | レート制限                 | `TwoFactorForm`                        |
 
-## UXについて
+## 有効化
 
-設定セキュリティタブ+ `/auth/two-factor` チャレンジルート Better Auth 2FAプラグイン制約に従ってください `auth.constraints.ts`.
+`/admin/settings` の **設定 → セキュリティ** は `TwoFactorDialog`（`src/presentation/components/custom/admin/settings`）を表示します。
+
+1. パスワードの手順で `enableTwoFactor` を呼び出し、TOTP URI とバックアップコードを受け取ります。
+2. 確認の手順では、認証アプリに手入力するための URI 内のシークレット（`extractTotpSecret`）を表示し、6 桁のコードを `verifyTotp` で確認します。
+3. 最後の手順でバックアップコードを表示します。
+
+2FA が有効な場合、同じボタンは `disableTwoFactor` を使うパスワードの手順を開きます。ボタンは現在のセッションの `twoFactorEnabled` を読み取ります。
+
+## サインイン時の確認
+
+2FA が有効なアカウントでは、Better Auth がサインインに二要素リダイレクトで応答し、`auth.client.ts` の `twoFactorClient` がブラウザーを現在の言語の `/auth/two-factor` へ移動させます。`TwoFactorForm` は 6 桁のコード（`InputOTP`）、または切り替え後はバックアップコードを受け付け、`trustDevice: true` を送信します。成功すると `usePostAuthRedirect` が `/auth/callback` へ進みます。
+
+コードの長さは `auth.constraints.ts` にあり、`TWO_FACTOR_CODE_LENGTH` は 6、バックアップコードは 8〜12 文字です。

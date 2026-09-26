@@ -1,28 +1,76 @@
 ---
-title: ディレクトリ構造
-description: ディレクトリ構造 — SaaSy Land
+title: "ディレクトリ構成"
+description: "SaaSy Land のすべてのトップレベルフォルダーと、何をどこに置くかのルール。"
 ---
 
-ファイルやフォルダのkebab-caseを使用してください。 ルートファイルでは、TanStack Routerのドットとパスレスルートの慣行を使用します。 再使用可能なUIは下にあります `presentation/components/custom`; 生成されたプリミティブは下にあります `presentation/components/shadcn`. . 機能が含まれている場合があります。 `components`, `constants`, `hooks`, と `types` 必要なとき。
-
 ```text
-content/                         Localized MDX
-messages/{locale}/           Translation namespaces
-src/routes/                      Flat file routes
-src/router.tsx                   Router and per-request query cache
-src/server.ts                    Cloudflare Worker entry
-src/modules/{feature}/           Schemas, constants, validation
-src/modules/{feature}/use-cases/  Server functions and query/mutation options
-src/integrations/{vendor}/       Vendor adapters and setup
-src/presentation/                Components, styles, branding, emails
-src/providers/                   Application providers
-src/hooks/                       Shared hooks
-src/lib/                         Shared utilities
-src/platform/testing/            Binding mocks and test helpers
+content/
+├── blog/                            <slug>.<locale>.mdx
+└── docs/                            <page>.<locale>.mdx and meta.<locale>.json
+messages/<locale>/<namespace>.json   One file per translation namespace
+e2e/                                 Playwright specs, page objects, fixtures
+scripts/                             Check, build and Git hook scripts
+public/                              Fonts and other static files
+src/
+├── routes/                          Flat TanStack file routes
+│   └── api/                         HTTP handlers
+├── routes.ts                        ROUTES path constants
+├── router.tsx                       Router, QueryClient, locale rewrite
+├── server.ts                        Worker entry
+├── modules/
+│   ├── _core/
+│   │   ├── constants/               errors, api, locale, country, currency, timezone, pricing
+│   │   └── utils/                   pagination, zod-fields
+│   └── <table>/
+│       ├── <table>.schema.ts
+│       ├── <table>.zod.ts
+│       ├── <table>.constants.ts
+│       ├── <table>.types.ts
+│       ├── <table>.utils.ts
+│       └── use-cases/<operation>.ts
+├── integrations/<vendor>/           <vendor>.<concern>.ts
+├── presentation/
+│   ├── components/
+│   │   ├── shadcn/                  Generated primitives
+│   │   └── custom/
+│   │       ├── footer.tsx           Shared components, flat
+│   │       ├── data-table.tsx
+│   │       ├── admin/
+│   │       │   └── users/           user-columns.tsx, reset-password-dialog.tsx
+│   │       ├── app/
+│   │       ├── auth/
+│   │       ├── blog/
+│   │       └── landing-page/
+│   │           ├── components/
+│   │           └── sections/
+│   ├── emails/                      React Email templates
+│   ├── styles/                      globals.css, docs.css, fonts.css, typeset.css
+│   ├── theme/
+│   ├── branding/
+│   ├── assets/
+│   └── document-assets.ts
+├── data/                            Data shared by several files
+├── lib/                             cn, cookie, github, rate-limit, seo, confetti
+├── hooks/                           Shared React hooks
+├── providers/                       aria, motion, theme, translations
+├── platform/testing/                Test setup, binding mocks, RPC bridge
+└── types/                           Bindings, router and generated Worker types
 ```
 
-## 関連ガイド
+## 配置のルール
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- **ファイルとフォルダーにはケバブケースを使います。** テストは同じ階層の `__test__` フォルダーに置きます。
+- **ルートは組み立てるだけ。** ルートファイルが定義するのは、ページまたはレイアウトのコンポーネント、`NAMESPACE` または `NAMESPACES`、ローダー、`head` です。ウィジェット、ダイアログ、カラム定義は置きません。
+- **モジュールはデータベーステーブル。** `src/modules/<name>` は、実在するテーブルのためだけに作成します。テーブルを扱わないサーバー関数は `src/lib`（例：`src/lib/github.ts`）に置くか、1 つのルートだけが使う場合はそのルートファイルに置きます。
+- **共有コンポーネントはフラットに。** 複数のエリアで使うコンポーネントは、`presentation/components/custom` 直下の単一ファイルにします。
+- **エリアとページのフォルダー。** 1 つのエリアだけで使うコンポーネントは、`admin/`、`app/`、`auth/`、`blog/`、`landing-page/` のいずれかに置きます。管理画面のページには、`admin/users/` や `admin/settings/` のように専用のフォルダーを設けます。ランディングページは、`sections/`（ページのセクションごとに 1 ファイル）と `components/`（セクション間で共有する部品）に分かれます。
+- **1 ファイルにつきウィジェット、ダイアログ、フォーム、カラムセットは 1 つ。** コンポーネントをラッパーと `-content` ファイルに分割しないでください。
+- **ヘルパー用のフォルダーを入れ子にしない。** コンポーネントのフォルダーには `components/`、`constants/`、`hooks/`、`lib/`、`types/` のサブフォルダーを作らず、コンポーネントの隣に `.ts` のヘルパーファイルも置きません。1 つのコンポーネントだけが使う定数は、そのコンポーネントのファイル内に置きます。
+- **共有データは `src/data` に置く。** 例：管理画面サイドバーのグループ、`MARKETING_SECTION_IDS`、アプリのナビゲーション、CLI の選択肢、デモ用の行。
+- **生成ファイルは手で編集しない。** ルータープラグインが `src/routeTree.gen.ts` を、`bun run cf-typegen` が `src/types/worker-configuration.d.ts` を、`bun run content` と `bun run generate:cn` が `.source/` を書き出します。
+
+## 関連ページ
+
+- [アーキテクチャ](/docs/architecture)
+- [ファイル命名規則](/docs/reference/file-naming)
+- [規約](/docs/reference/conventions)

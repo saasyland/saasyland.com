@@ -1,16 +1,57 @@
 ---
-title: Tłumaczenia i języki
-description: Tłumaczenia i języki — SaaSy Land
+title: "Internacjonalizacja i języki"
+description: "Dziewięć języków, prefiksy w adresach URL, ciasteczko języka i komunikaty use-intl podzielone na przestrzenie nazw."
 ---
 
-Tłumaczenia znajdują się w `messages/{locale}` dla wszystkich dziewięciu skonfigurowanych języków, w plikach namespace takich jak `pages.admin.users.json`. Konfiguracja języków, funkcje URL, ładowanie wiadomości, metadane i tłumaczenia e-maili znajdują się w `src/integrations/use-intl`.
+## Języki
 
-Angielski używa `/docs`, a polski `/pl-PL/docs`. Starsze linki `/en` i `/pl` są kanonizowane. Plik trasy deklaruje `staticData.namespaces` i ładuje te same namespace w loaderze. `TranslationsProvider` składa wiadomości aktywnych tras dla `IntlProvider`. Wspólne wiadomości ładowane są na poziomie root, a namespace e-maili pozostają na serwerze.
+`I18N` w `src/integrations/use-intl/i18n.config.ts` definiuje `en-US` (domyślny), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` i `uk-UA`, ciasteczko `saasyland.com_locale` oraz domyślną strefę czasową `UTC`.
 
-Na serwerze odczytuj język przez `getCurrentLocale`, a w komponentach przez `useLocale`. URL określa język dokumentu. Funkcje serwerowe korzystają z cookie języka. Zmiana języka zachowuje ścieżkę, parametry i fragment oraz przeładowuje dokument. Po zmianie kluczy uruchom `bun run check:i18n`.
+## Adresy URL
+
+Język domyślny nie ma prefiksu; każdy inny język jest prefiksem ścieżki, na przykład `/docs` i `/pl-PL/docs`. W przypadku żądań dokumentów Worker (`resolveLocale` w `i18n.middleware.ts`) przekierowuje niekanoniczne ścieżki kodem 308: `/en-US/docs` staje się `/docs`, a `/pl/docs` staje się `/pl-PL/docs`. Ścieżki `/api` i `/_serverFn` nigdy nie mają prefiksu.
+
+`rewrite` routera w `src/router.tsx` usuwa prefiks z przychodzących adresów URL i dodaje go do wychodzących, więc trasy i linki używają zwykłych ścieżek: `<Link to={ROUTES.SIGN_IN}>`. Używaj `localizePathname({ locale, pathname })` tylko dla surowych adresów URL: `callbackURL` i `errorCallbackURL` w Better Auth, linków w e-mailach i ręcznie budowanych `<a href>`. `AriaProvider` lokalizuje `href` komponentów React Aria.
+
+## Ciasteczko języka
+
+Gdy język w adresie URL dokumentu różni się od ciasteczka, Worker ustawia ciasteczko w odpowiedzi. `getCurrentLocale()` działa po obu stronach: dla stron odczytuje adres URL, a dla żądań do `/api` i funkcji serwerowych ciasteczko, dzięki czemu e-maile i komunikaty z serwera używają języka strony, na której jest użytkownik.
+
+## Komunikaty
+
+Komunikaty to pliki `messages/<locale>/<namespace>.json`; nazwa pliku jest przestrzenią nazw, na przykład `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` lub `common`. Każda przestrzeń nazw strony zawiera `metadata.title` i `metadata.description`.
+
+- Główne przestrzenie nazw (`common`, `components.*`, `errors*`) są wstępnie ładowane w głównym `beforeLoad`.
+- Layout deklaruje `NAMESPACES`, strona deklaruje `NAMESPACE`. Obie trafiają do `staticData.namespaces` i są wstępnie ładowane przez loader:
+
+```ts
+loader: async ({ context }) => {
+  const locale = getCurrentLocale()
+  const [metadata] = await Promise.all([
+    loadPageMetadata({ locale, namespace: NAMESPACE }),
+    preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+  ])
+  return { locale, metadata }
+},
+```
+
+- `TranslationsProvider` otacza treść dokumentu i łączy główne przestrzenie nazw z przestrzeniami dopasowanych tras w jeden `IntlProvider`, więc ekrany błędów także są przetłumaczone.
+- E-maile ładują swoją przestrzeń nazw na serwerze przez `loadNamespace`.
+
+## Komponenty
+
+Każdy komponent wywołuje `useTranslations` tylko raz i nazywa tłumacza `t`. Komponent, który potrzebuje dwóch przestrzeni nazw, używa ich wspólnego rodzica albo `useTranslations()` z pełnymi kluczami. Liczby i daty formatuj za pomocą `useFormatter`, `useDateFormatter` i `useCurrencyFormatter`.
+
+## Zmiana języka
+
+`locale-switcher.tsx` zawiera dwa przełączniki języka. `LocaleSwitcher` w stopce stron marketingowych to menu `<details>` ze zwykłym linkiem dla każdego języka do bieżącej ścieżki w tym języku, więc działa jeszcze przed hydratacją. `LocaleSelect` w paskach bocznych dokumentacji i aplikacji klienta to pole wyboru w stylu `ThemeSwitch`, które otwiera ten sam URL. W obu przypadkach wybór języka ładuje nowy dokument, a parametry zapytania i fragment nie są zachowywane. Strony po polsku i ukraińsku wstępnie ładują też podzbiory czcionek łacińskich rozszerzonych i cyrylicy ([Czcionki i branding](/docs/ui/fonts-and-branding)).
+
+## Kontrole
+
+`bun run check:i18n` sprawdza zgodność kluczy między językami, rozwiązuje statyczne klucze w zakresie ich `useTranslations`, waliduje składnię komunikatów ICU i sprawdza zgodność treści dokumentacji i bloga.
 
 ## Powiązane przewodniki
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [Architektura i18n](/docs/architecture/i18n-architecture)
+- [Komunikaty i18n](/docs/guides/i18n-messages)
+- [use-intl](/docs/integrations/use-intl)

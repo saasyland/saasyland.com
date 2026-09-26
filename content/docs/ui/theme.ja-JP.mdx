@@ -1,6 +1,48 @@
 ---
-title: テーマ
-description: 色モードとCSS変数。
+title: "テーマ"
+description: "Cookie に保存されるライト、ダーク、システムのテーマと、それを支える CSS トークン。"
 ---
 
-テーマプロバイダー+CSS変数。 マーケティングページでパープルデフォルトクレシェを避けてください。管理者はニュートラル/システムを維持できます。
+## テーマの選択
+
+`src/presentation/theme/index.ts` の `THEME` は、テーマ `light`、`dark`、`system`（既定）と Cookie `saasyland.com_theme` を定義します。アプリは `@wrksz/themes` を使います。
+
+- ルートドキュメントの `head`（`src/routes/__root.tsx`）にある `ThemeScript` が Cookie を読み取り、最初の描画の前にテーマのクラスを設定するため、ちらつきは起きません。
+- `ThemeProvider`（`src/providers/theme-provider.tsx`）は Cookie の値（`getStoredTheme`）から始まり、変更を Cookie に保存してタブ間で同期します。
+- `ThemeProvider` が包むのは、テーマを読み取るか変更するウィジェットだけです。ルートの `Toaster` と、ドキュメントのサイドバーにある `ThemeSwitch` です。ハイドレーション後に更新されるプロバイダーはページ全体を再描画させるため、ルートの `Outlet` を包むことはありません。
+
+```tsx
+const RootComponent = () => (
+  <AriaProvider>
+    <OfflineBanner />
+    <Outlet />
+    <ThemeProvider>
+      <Toaster />
+    </ThemeProvider>
+  </AriaProvider>
+)
+```
+
+`/admin`、`/app`、`/docs` は保存されたテーマに従います。テーマの切り替えはドキュメントのサイドバーにしかありません。ランディングページ、認証、ブログのレイアウトはコンテナーに `dark` クラスを付けるため、常にダークで表示されます。
+
+## トークン
+
+`src/presentation/styles/globals.css` は、shadcn のトークンを `:root`（ライト）と `.dark` の OKLCH 変数として定義します。`background`、`foreground`、`card`、`popover`、`primary`、`secondary`、`muted`、`accent`、`destructive`、`border`、`input`、`ring`、`chart-1` から `chart-5`、`sidebar-*` の一式、`radius` です。ブランドのアクセントは `ring` で、フォーカスリング、アクティブ状態、ハイライトに使われ、`chart-1` と同じ色です。`dark:` ユーティリティはクラスに従います。
+
+```css
+@custom-variant dark (&:is(.dark *));
+```
+
+`@theme inline` は変数を Tailwind の色に対応付け、フォントファミリーとタイプスケールを定義します。`globals.css` は Fumadocs UI のスタイルもインポートしているため、ドキュメントも同じトークンを使います。
+
+## タイプスケール
+
+生のサイズ指定ではなく、名前付きのテキストユーティリティを使います。`text-display-hero`、`text-display-gate`、`text-display-blast`、`text-headline-peak`、`text-headline-support`、`text-price`、`text-title`、`text-statement`、`text-lead`、`text-body`、`text-body-sm`、`text-spec`、`text-label` です。それぞれサイズ、行の高さ、字間、見出しではウェイトを設定します。`src/lib/cn.config.ts` がこれらを登録しているため、`cn` はクラスを結合するときにこれらを保持します。`bun run generate:cn` はルックアップテーブルを再生成します。
+
+## ルートごとのスタイルシート
+
+`docs.css` には、ドキュメントとブログ記事用の本文スタイル `typeset` が入っています。これは素の CSS で、`/docs` と `/blog` のレイアウトが `?url` のスタイルシートリンクとして読み込みます。ルートのスタイルシートで Tailwind のビルドを重ねて実行してはいけません。
+
+## 関連ガイド
+
+- [テーマとブランディング](/docs/guides/theming-and-branding)

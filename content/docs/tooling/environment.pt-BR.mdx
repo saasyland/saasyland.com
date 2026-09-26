@@ -1,16 +1,40 @@
 ---
-title: Meio ambiente e ligações
-description: Ambiente e ligações... SaaSy Land
+title: "Ambiente e bindings"
+description: "Ambientes do Wrangler, bindings, secrets e arquivos de ambiente."
 ---
 
-Use `.env.development`, `.env.preview`, e `.env.production` para o Vite correspondente e Cloudflare Esses arquivos são ignorados. `.env.example` Documenta as chaves necessárias. `VITE_APP_URL` é público e substituído em tempo de construção. Os segredos dos trabalhadores não têm `VITE_` prefixo e são acessados através `env` De... `cloudflare:workers`.
+`wrangler.jsonc` define quatro ambientes. `CLOUDFLARE_ENV` seleciona um deles para o servidor de desenvolvimento e para os builds, e cada um lê os secrets do próprio arquivo de ambiente:
 
-Configure `AUTH_SECRET`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, configurações Resend e as configurações Polar para sua instalação. Nunca cometa credenciais reais. Identidades vinculantes pertencem ao apropriado. `wrangler.jsonc` Ambiente; declarações geradas de trabalhadores descrevem seus tipos.
+| Ambiente      | Selecionado por                               | Bindings                           | Secrets de         |
+| ------------- | --------------------------------------------- | ---------------------------------- | ------------------ |
+| `development` | `bun run dev`                                 | D1 e KV remotos de preview         | `.env.development` |
+| `preview`     | `build:preview`, `deploy:preview`             | D1 e KV de preview                 | `.env.preview`     |
+| `production`  | `build:production`, `deploy:production`       | D1 e KV de produção                | `.env.production`  |
+| `test`        | `build:test`, `start:test`, `db:migrate:test` | D1 e KV locais em `.wrangler/test` | `.env.test`        |
 
-Apenas. Drizzle Estúdio e necessidade de introspecção `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` e... `CLOUDFLARE_ACCESS_TOKEN`Local. D1 Não usa credenciais remotas. CI Entendido. `.env.test` para os arquivos de ambiente local e corre com ligações locais.
+`.env.development`, `.env.preview` e `.env.production` são ignorados pelo Git; `.env.example` lista suas chaves. `.env.test` é versionado e contém apenas valores fictícios. Os scripts de deploy enviam o arquivo correspondente com `wrangler deploy --secrets-file`.
+
+## Secrets
+
+Cada ambiente lista seus secrets em `secrets.required`: as chaves do Better Auth, do OAuth, do Resend e da Polar, além de `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` e `CLOUDFLARE_ACCESS_TOKEN` para as ferramentas do Drizzle (o ambiente `test` omite essas três). Veja [Variáveis de ambiente](/docs/getting-started/environment-variables) para cada chave.
+
+O código do servidor lê os secrets com `import { env } from "cloudflare:workers"`. Nada usa uma variável `VITE_`, e nenhuma delas pode conter um secret, porque o Vite as expõe ao navegador. `scripts/verify-build.ts` faz o build falhar quando um asset do cliente importa `cloudflare:workers`. O domínio canônico vem de `APP_DOMAIN` em `src/presentation/branding/index.ts`, e não de uma variável de ambiente.
+
+## Bindings
+
+| Binding  | Tipo             | Uso                                                  |
+| -------- | ---------------- | ---------------------------------------------------- |
+| `DB`     | D1               | Banco de dados da aplicação, sessões e rate limits   |
+| `CACHE`  | KV               | Contagem de estrelas do GitHub                       |
+| `ASSETS` | Assets estáticos | Páginas pré-renderizadas, fontes e arquivos públicos |
+
+O desenvolvimento usa os bindings remotos da Cloudflare, então `bun run dev` lê e grava no banco de dados de preview. Execute `bun run cf-typegen` depois de alterar os bindings para gerar novamente `src/types/worker-configuration.d.ts`.
+
+## Testes
+
+O Vitest carrega `.env.test` por meio de `test.env` e resolve `cloudflare:workers` para `src/platform/testing/mocks/cloudflare.ts`, que fornece D1 e KV em memória. O Playwright usa o ambiente `test` e sua entrada `src/platform/testing/worker.ts`. Nenhum dos dois precisa de credenciais reais.
 
 ## Guias relacionados
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Referência de ambiente](/docs/reference/environment)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)

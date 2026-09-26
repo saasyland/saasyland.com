@@ -1,23 +1,44 @@
 ---
-title: Запит життєвого циклу
-description: Запит життєвого циклу — SaaSy Land
+title: "Життєвий цикл запиту"
+description: "Кроки, які проходять запит сторінки та виклик серверної функції, від Worker до відрендереного результату."
 ---
 
-`src/server.ts` канонічність локальних URL-адрес і зберігає локальний cookie в синхронізації. `src/router.tsx` Створює свіжу QueryClient на маршрутизаторі і підключає її до SSR. Нативні файли маршруту заявляють компоненти, охоронці, навантажувачі, перевірку пошуку та метадані.
+## Запит сторінки
 
-Використання макетів та макетів клієнтів `beforeLoad` охоронці. Кожна захищена функція сервера також перевіряє її дзвоника, тому що RPC може бути викликана незалежно від сторінки. Ніколи не розмістили автентифіковану відповідь на загальний статичний кеш.
+1. **Канонікалізація локалі.** `src/server.ts` викликає `resolveLocale` для запитів документів `GET` і `HEAD` поза `/api` і `/_serverFn`. Префікс, що містить лише мову, або префікс типової локалі (`/pl/docs`, `/en-US/docs`) перенаправляється з кодом `308` на канонічну форму (`/pl-PL/docs`, `/docs`). Коли локаль в URL відрізняється від cookie локалі, cookie оновлюється у відповіді.
+2. **Спершу статичні ресурси.** Worker запитує шлях у прив'язки `ASSETS`. Попередньо відрендерені сторінки й статичні файли повертаються як є. Лише у разі `404` Worker завантажує обробник TanStack Start динамічним `import()`.
+3. **Маршрутизація.** `getRouter` створює новий роутер і `QueryClient`. `rewrite` роутера прибирає префікс локалі, тож `/pl-PL/docs` зіставляється з маршрутами `/docs`.
+4. **Кореневий `beforeLoad`** попередньо завантажує кореневі простори імен перекладів (`common`, `components.*`, `errors*`).
+5. **Guard-функції.** Функції `beforeLoad` макетів, як-от `requireAdmin`, завантажують запит сесії та перенаправляють, коли доступ заборонено.
+6. **Loader-функції** виконуються паралельно. Кожна з них попередньо завантажує свої простори імен, метадані сторінки й запити в `QueryClient` поточного запиту.
+7. **Рендеринг.** Коренева оболонка рендерить `<html lang dir>` і обгортає body в `TranslationsProvider`. Кеш запитів серіалізується в HTML, тож браузер не завантажує ті самі дані повторно.
+8. **Заголовки відповіді.** Для HTML-відповідей Worker додає заголовок `Link` для попереднього завантаження таблиці стилів і шрифтів локалі, за потреби встановлює cookie локалі та застосовує атрибути регіональних цін, коли заголовок `cf-ipcountry` дає право на знижку.
+9. **Гідратація.** Браузер гідратує сторінку із серіалізованим кешем. Подальші переходи виконують guard- і loader-функції в браузері та отримують дані через серверні функції.
+
+## Виклик серверної функції
+
+1. Браузер викликає серверну функцію, яку збірка замінила RPC-запитом до `/_serverFn/…`. Для цього шляху Worker пропускає обробку локалі, а `getCurrentLocale()` читає cookie локалі замість URL.
+2. Middleware виконуються в оголошеному порядку. `withRequest` захоплює заголовки запиту й нормалізує помилки, `withRateLimit` зараховує спробу в D1, а `authorized` завантажує сесію та перевіряє дозвіл.
+3. Валідатор розбирає вхідні дані Zod-схемою модуля.
+4. Обробник робить запит до D1 або викликає провайдера й повертає звичайні дані.
+5. Компонент отримує дані або код `AppError`. У разі успіху він інвалідує ключі запитів модуля, у разі помилки показує `useErrorMessage()(error)`.
 
 ```text
-Request → Worker locale middleware → TanStack Router
-        → beforeLoad session/permission guard
-        → loader: messages + authorized query data
-        → SSR + hydrated React presentation
-Mutation → validated server function → auth/rate limit → D1 or provider
-         → result/error → scoped query invalidation
+GET /pl-PL/admin/users/all
+  src/server.ts        resolveLocale, ASSETS lookup, TanStack Start handler
+  router rewrite       /admin/users/all
+  __root beforeLoad    root namespaces
+  /admin beforeLoad    requireAdmin
+  loaders              metadata, namespaces, queries
+  SSR                  HTML with serialized query cache
+  src/server.ts        Link header, locale cookie, regional pricing
+
+POST /_serverFn/…
+  withRequest → withRateLimit → authorized → validator → handler → data or AppError
 ```
 
-## Схожі посібники
+## Пов'язані сторінки
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+- [Маршрути та доставка](/docs/architecture/delivery-layer)
+- [Кешування та SSR](/docs/architecture/caching-and-ssr)
+- [Автентифікація та безпека](/docs/architecture/security-model)

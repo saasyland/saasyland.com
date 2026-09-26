@@ -1,16 +1,67 @@
 ---
-title: 国際化とローカライズ
-description: 国際化とローカライズ — SaaSy Land
+title: "国際化とロケール"
+description: "use-intl をベースにしたロケール、メッセージの名前空間、URL ヘルパーです。"
 ---
 
-メッセージは、 `messages/{locale}` たとえば、ドットネームスペースファイルとして9つの構成された言語として、 `pages.admin.users.json`. . ローカル設定、URLヘルパー、メッセージの読み込み、メタデータ、メールの翻訳ヘルパーは、 `src/integrations/use-intl`.
+SaaSy Land は 9 つのロケールに対応しています。`en-US`（デフォルト）、`de-DE`、`es-ES`、`fr-FR`、`it-IT`、`ja-JP`、`pl-PL`、`pt-BR`、`uk-UA` です。英語はプレフィックスなしのパス（`/docs`）を使い、その他のロケールは完全なロケールプレフィックス（`/pl-PL/docs`）を使います。`/pl/docs` のような言語エイリアスは、正規のパスへ恒久的にリダイレクトされます。
 
-英語対応 `/docs`;ポーランドの使用 `/pl-PL/docs`. . レガシー `/en` そして、 `/pl` リンクは正規化されます。 ルートファイル宣言 `staticData.namespaces` 同じ名前空間を loader にプリロードします。 `TranslationsProvider` アクティブ・ルート名空間を組み込む `IntlProvider`. . 共有メッセージは root で読み込まれます。メールのみの名前空間はサーバーに滞在します。
+## ファイル
 
-ロケールを読んでください。 `getCurrentLocale` サーバ上で `useLocale` コンポーネント。 URL は、ドキュメントのロケールを選択します。 Server-function リクエストは locale Cookie を使用します。 言語変更は、パス、クエリ、フラグメントを保ち、ドキュメントをリロードして、対応するコンテンツをロードします。 ログイン `bun run check:i18n` キーを変更した後。
+`src/integrations/use-intl/` にロケール関連のロジックがすべて集約されています。
+
+| ファイル             | 役割                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `i18n.config.ts`     | `SUPPORTED_LOCALES`、`DEFAULT_LOCALE`、`COOKIE_NAME`、`DEFAULT_TIMEZONE` を持つ `I18N`                                    |
+| `i18n.messages.ts`   | `loadNamespace`、`loadPageMetadata`、`messagesQueryOptions`、`preloadNamespaces`、`ROOT_NAMESPACES`                       |
+| `i18n.middleware.ts` | `resolveLocale`: ドキュメントリクエストに対する正規リダイレクトとロケール Cookie の同期。`src/server.ts` から使用されます |
+| `i18n.paths.ts`      | `localizePathname`、`deLocalizePathname`、`canonicalizePathname`、`localeLinks` と関連するパスヘルパー                    |
+| `i18n.utils.ts`      | `getCurrentLocale`、`localizeUrl`、`deLocalizeUrl`、`parseLocaleCookie`                                                   |
+
+## 名前空間
+
+メッセージは `messages/<locale>/<namespace>.json` に置かれ、ファイル名がそのまま名前空間になります。たとえば `pages.admin.users`、`components.custom.footer`、`emails.verify-email`、`auth.validations`、`common` です。メッセージは型生成を伴わないプレーンな JSON です。各ページの名前空間には、ページの head 用に `metadata.title` と `metadata.description` が含まれます。
+
+ルートルートは `beforeLoad` でルート名前空間（`common`、`components.*`、`errors*`）をプリロードします。ページルートは `NAMESPACE` を 1 つ宣言し、レイアウトルートは配下のサブツリー用に `NAMESPACES` を宣言します。どちらも `staticData.namespaces` に列挙し、ローダーでプリロードします。
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+`TranslationsProvider` はドキュメントの body をラップし、ルート名前空間とマッチしたすべてのルートの名前空間を 1 つの `IntlProvider` にまとめます。そのため、エラー画面や Not Found 画面も翻訳されます。メールの名前空間は、そのメールを送信するサーバー側のユースケースだけが読み込みます。
+
+## ロケールとリンク
+
+`getCurrentLocale()` はアイソモーフィックです。サーバーでは URL からロケールを読み取り、`/api` とサーバー関数のリクエストではロケール Cookie から読み取ります。ブラウザーでは URL から読み取ります。Worker は Cookie をページの URL と同期させます。
+
+ルーターの `rewrite` は、受信する URL からロケールプレフィックスを取り除き、送出する URL に付与します。そのため `<Link to={ROUTES.X}>` は常に現在のロケールにとどまります。`localizePathname({ locale, pathname })` は生の URL にだけ使ってください。対象は Better Auth のコールバック URL、メール内のリンク、手動で組み立てた `<a href>` 要素です。ロケールスイッチャーもこの種のリンクなので、言語を選ぶと同じページが新しいドキュメントとして読み込まれます。
+
+## コンポーネント
+
+コンポーネントは `useTranslations` をちょうど 1 回だけ呼び出し、翻訳関数を `t` と名付けます。i18n-ally は、別の `useTranslations` 呼び出しの後にあるすべての `t()` のスコープを切り替えてしまい、`bun run check:i18n` はスコープ内で解決できないキーがあると失敗します。関連のない 2 つの名前空間が必要なコンポーネントは、共通の親名前空間を使うか、完全なキーを指定して `useTranslations()` を使います。
+
+## チェック
+
+`bun run check:i18n` は 3 つのスクリプトを実行し、`bun run check` にも含まれています。
+
+- `scripts/check-i18n.ts`: `en-US` とのキーの一致と、静的キーのスコープ解決を検証します。
+- `scripts/check-message-formats.ts`: すべてのメッセージが ICU として解析でき、引数とリッチテキストのタグが保たれていることを検証します。
+- `scripts/check-content.ts`: ドキュメントとブログのファイル、ナビゲーション、コード例がロケール間で一致していることを検証します。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [i18n アーキテクチャ](/docs/architecture/i18n-architecture)
+- [i18n メッセージ](/docs/guides/i18n-messages)

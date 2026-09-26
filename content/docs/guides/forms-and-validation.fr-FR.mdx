@@ -1,14 +1,116 @@
 ---
-title: Formulaires et validation
-description: Formulaires et validation — SaaSy Land
+title: "Formulaires et validation"
+description: "Créez des formulaires avec TanStack Form, les champs shadcn et le schéma Zod du module que le serveur applique aussi."
 ---
 
-Utilisation `useForm` et `form.Field` de `@tanstack/react-form`C'est vrai. Conservez les schémas traduits Zod dans les fichiers de validation de la fonctionnalité et réutilisez-les à la limite du serveur. Lire l'état de soumission avec `useSelector(form.store, selector)`; rendre les champs accessibles avec les primitifs de présentation existants.
+Les formulaires suivent le modèle shadcn pour TanStack Form : `useForm` avec le schéma Zod du module, des render props `form.Field`, les composants `Field` de shadcn et une mutation pour l'envoi. La fonction serveur valide à nouveau le même schéma ; la vérification côté client sert donc uniquement au retour visuel.
 
-Les composants du champ d'auth acceptent les petits `StringField` contrat de `integrations/tanstack-form/form.fields.ts`C'est vrai. Ils préservent les étiquettes, le comportement de focus, les toggles de mot de passe et les messages d'erreur. Soumettre par l'intermédiaire des options de mutation exportées, gérer les erreurs de sécurité, et garder le bouton soumettre désactivé pendant qu'il est en attente. Consultez les formulaires d'inscription, d'inscription et de réinitialisation du mot de passe et les formulaires à deux facteurs pour obtenir des exemples complets.
+## Exemple
 
-## Guides connexes
+Version condensée de `src/presentation/components/custom/newsletter-form.tsx` (sans les styles) :
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+```tsx
+const emailSchema = newsletterSubscriberZodSchemas.subscribeToNewsletter.pick({ email: true })
+
+export const NewsletterForm = (): JSX.Element => {
+  const t = useTranslations("components.custom.newsletter-form")
+  const inputId = useId()
+  const errorMessage = useErrorMessage()
+  const queryClient = useQueryClient()
+
+  const subscribe = useMutation({
+    ...subscribeToNewsletterMutation,
+    onError: (error) => {
+      toast.error(errorMessage(error))
+    },
+    onSuccess: ({ status }) => {
+      toast.success(t(status))
+      return queryClient.invalidateQueries({ queryKey: NEWSLETTER_SUBSCRIBER_QUERY_KEYS.ALL })
+    },
+  })
+
+  const form = useForm({
+    defaultValues: { email: "" },
+    onSubmit: ({ value, formApi }) => {
+      subscribe.mutate(
+        { email: value.email, locale: getCurrentLocale() },
+        {
+          onSuccess: () => {
+            formApi.reset()
+          },
+        },
+      )
+    },
+    validators: { onChange: emailSchema, onSubmit: emailSchema },
+  })
+
+  return (
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault()
+        void form.handleSubmit()
+      }}
+    >
+      <form.Field name="email">
+        {(field) => {
+          const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+
+          return (
+            <Field data-invalid={isInvalid}>
+              <FieldLabel htmlFor={inputId}>{t("label")}</FieldLabel>
+              <Input
+                aria-describedby={`${inputId}-error`}
+                aria-invalid={isInvalid}
+                autoComplete="email"
+                id={inputId}
+                name={field.name}
+                onBlur={field.handleBlur}
+                onChange={(event) => {
+                  field.handleChange(event.target.value)
+                }}
+                placeholder={t("placeholder")}
+                type="email"
+                value={field.state.value}
+              />
+              <Button isPending={subscribe.isPending} type="submit">
+                {subscribe.isPending ? t("submitting") : t("button")}
+              </Button>
+              <div id={`${inputId}-error`}>
+                {isInvalid && (
+                  <ValidationFieldError
+                    message={fieldErrorMessage(field.state.meta.errors)}
+                    namespace="auth.validations"
+                    params={AUTH_VALIDATION_PARAMS}
+                  />
+                )}
+              </div>
+            </Field>
+          )
+        }}
+      </form.Field>
+    </form>
+  )
+}
+```
+
+## Schéma
+
+- Utilisez le schéma de `<table>.zod.ts` du module, ou de `src/integrations/better-auth/auth.zod.ts` pour les formulaires d'authentification. `.pick(...)` sélectionne les champs affichés par le formulaire ; les valeurs que l'utilisateur ne saisit pas, comme la langue, sont ajoutées dans `onSubmit`.
+- `onChange` valide pendant la saisie ; `onSubmit` valide tous les champs à l'envoi du formulaire.
+- `noValidate` désactive la validation du navigateur pour que les messages Zod soient les seules erreurs.
+
+## Erreurs
+
+- Un champ n'affiche d'erreurs qu'après avoir été touché : `field.state.meta.isTouched && !field.state.meta.isValid`. Cette valeur définit `data-invalid` sur `Field` et `aria-invalid` sur le champ de saisie.
+- Les messages Zod sont des clés de traduction, comme `emailInvalid`. `fieldErrorMessage` prend le premier, et `ValidationFieldError` affiche `<namespace>.<key>` avec l'entrée correspondante de `params`, par exemple `{ max: 64 }` pour `emailMaxLength`. Une clé inexistante se rabat sur `errors.codes.VALIDATION`.
+- Les champs d'authentification et d'e-mail utilisent `auth.validations` ; les schémas de module utilisent `<table>.validations`, comme `user.validations`. La route doit charger cet espace de noms : les layouts `_landing`, `blog`, `auth` et `admin` préchargent `auth.validations`.
+- Les erreurs serveur passent par `useErrorMessage()` dans le `onError` de la mutation.
+
+## Envoi
+
+- Envoyez via les options de mutation du cas d'usage étalées dans `useMutation`.
+- `<Button isPending={mutation.isPending} type="submit">` désactive le bouton et annonce l'état en attente pendant la requête.
+- Réinitialisez le formulaire ou naviguez dans le `onSuccess` de la mutation, et invalidez les queries du module que la mutation modifie.
+
+Autres exemples : `sign-in-form.tsx`, `sign-up-form.tsx`, `reset-password-form.tsx` et `two-factor-form.tsx` dans `src/presentation/components/custom/auth/`.

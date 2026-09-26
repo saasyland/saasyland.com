@@ -1,16 +1,59 @@
 ---
-title: Uwierzytelnianie i bezpieczeństwo
-description: Uwierzytelnianie i bezpieczeństwo — SaaSy Land
+title: "Lista kontrolna bezpieczeństwa"
+description: "Co sprawdzić przed scaleniem zmiany dotyczącej tras, funkcji serwerowych, danych lub sekretów."
 ---
 
-Autoryzacja działa na dwóch poziomach: strażnicy `beforeLoad` chronią układy panelu i aplikacji klienta, a każda chroniona funkcja serwerowa niezależnie sprawdza użytkownika. Używaj `requireAdmin` lub `requireSession` dla układów i `withAuth(permission)` dla operacji. Operacje klienta wyprowadzają własność danych z sesji.
+Przejdź przez tę listę przy każdej zmianie, która dodaje stronę, operację, endpoint lub sekret.
 
-Better Auth przechowuje sesje w D1 i obsługuje hasła, OAuth, weryfikację, reset hasła, 2FA, impersonację i unieważnianie sesji. Przy sprawdzaniu chronionej funkcji pomijany jest cache cookie. Ostatnim pluginem auth jest `tanstackStartCookies`, który przekazuje ciasteczka uwierzytelniania przez odpowiedzi funkcji serwerowych.
+## Dostęp
 
-Limity w D1 używają atomowych zapisów i nagłówka IP Cloudflare. Wrażliwe operacje publiczne mają osobne klucze limitu. Waliduj wejście schematem Zod modułu, maskuj nieoczekiwane błędy, weryfikuj podpisy webhooków płatności i trzymaj sekrety za granicą serwera. Prywatne trasy i mutacje tokenów są wykluczone z prerenderingu.
+- [ ] Prywatne strony znajdują się pod chronionym layoutem: `requireAdmin` (`/admin`) lub `requireSignedIn` (`/app`) w `beforeLoad`.
+- [ ] Każda chroniona funkcja serwerowa ma `authorized(permission)` lub `authorized()`. Strażnik trasy nie chroni wywołania RPC.
+- [ ] Operacje na własnych danych wywołującego pobierają użytkownika z `context.auth.user.id`, nigdy z danych wejściowych.
+- [ ] Nowe uprawnienia są w `APP_STATEMENTS` i przypisane tylko rolom, które ich potrzebują.
+- [ ] Testy obejmują `UNAUTHORIZED` i `FORBIDDEN`.
 
-## Powiązane przewodniki
+## Dane wejściowe
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [ ] Każda funkcja serwerowa ma `.validator`, który parsuje schemat Zod modułu.
+- [ ] Handlery API walidują parametry zapytania i treść, zanim ich użyją.
+- [ ] Cele przekierowań to wewnętrzne ścieżki zbudowane przez `localizePathname`; `callbackPathSchema` w `auth.zod.ts` przyjmuje tylko ścieżki zaczynające się od pojedynczego `/`, a rejestracja i zmiana adresu e-mail używają go dla `callbackURL`.
+
+## Nadużycia
+
+- [ ] Publiczne operacje, które wysyłają e-mail, sprawdzają kod lub zużywają token, używają `withRateLimit` z `RATE_LIMITS.SENSITIVE` lub `RATE_LIMITS.TOKEN`.
+- [ ] Limiter przechowuje liczniki w D1 dla każdej operacji i adresu IP klienta (`cf-connecting-ip`) i odrzuca żądanie, gdy jego magazyn jest niedostępny. Własne endpointy Better Auth korzystają z tego samego magazynu.
+- [ ] E-maile są wysyłane z kluczem idempotencji.
+
+## Błędy
+
+- [ ] Spodziewane błędy rzucają `AppError` z kodem z `ERROR_CODES`.
+- [ ] Nic innego nie trafia do klienta: `withRequest` zapisuje nieznane błędy w logach i zastępuje je przez `INTERNAL_ERROR`.
+- [ ] Komponenty pokazują błędy przez `useErrorMessage`, nigdy przez surowe `error.message`.
+
+## Sekrety i kod wyłącznie serwerowy
+
+- [ ] Sekrety są odczytywane z `env` w `cloudflare:workers` wyłącznie w modułach, które importują `@tanstack/react-start/server-only`.
+- [ ] Żadna prywatna wartość nie ma prefiksu `VITE_`, który udostępniłby ją przeglądarce.
+- [ ] Dane sesji wysyłane do klienta pochodzą z `getCurrentSession`, które usuwa token sesji.
+
+## Sesje i ciasteczka
+
+Te ustawienia znajdują się w `auth.server.ts`; zachowaj je przy zmianach konfiguracji:
+
+- [ ] `requireEmailVerification: true` i `revokeSessionsOnPasswordReset: true`.
+- [ ] `useSecureCookies` poza trybami lokalnymi i `baseURL.allowedHosts` ograniczone do hostów danego środowiska.
+- [ ] `encryptOAuthTokens: true` i `verification.storeIdentifier: "hashed"`.
+- [ ] Logowanie i wylogowanie czyszczą cache zapytań, a strażnicy czyszczą go przy zmianie użytkownika.
+
+## Webhooki i wynik builda
+
+- [ ] Webhooki weryfikują podpis przed obsługą treści; Polar używa `POLAR_WEBHOOK_SECRET`.
+- [ ] Strony prywatne i zużywające tokeny pozostają poza prerenderingiem: `/admin`, `/app`, `/auth`, `/newsletter` i `/api` są wyłączone.
+- [ ] Linki z tokenami obsługiwane w loaderach ustawiają `preload: false`, tak jak trasy potwierdzenia i rezygnacji z newslettera.
+
+## Powiązane poradniki
+
+- [Przepływy uwierzytelniania](/docs/guides/auth-flows)
+- [Role i uprawnienia](/docs/guides/roles-and-permissions)
+- [Funkcje serwerowe](/docs/guides/server-functions)

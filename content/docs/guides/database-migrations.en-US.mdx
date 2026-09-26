@@ -1,23 +1,45 @@
 ---
-title: "D1 and Drizzle"
-description: "D1 and Drizzle — SaaSy Land"
+title: "Database migrations"
+description: "Change a Drizzle schema, generate the SQL migration and apply it to each D1 database."
 ---
 
-Cloudflare D1 is the application database. Module schemas use `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` collects them. `drizzle.database.ts` creates the Drizzle D1 adapter from `env.DB`.
+Cloudflare D1 (SQLite) is the application database. Module schemas use `drizzle-orm/sqlite-core`, `src/integrations/drizzle-orm/drizzle.schemas.ts` collects them, and drizzle-kit writes migrations to `src/integrations/drizzle-orm/migrations/` with a timestamp prefix.
 
-Dates use SQLite integer timestamps in milliseconds. Boolean fields use SQLite integer boolean mode. Relations, unique constraints and foreign keys remain in the schema. Keep an operation atomic with an appropriate SQL statement or D1 batch; do not introduce a PostgreSQL connection pool or an interactive transaction.
+## Workflow
 
-Run `db:generate` after changing schemas, review and commit the generated SQL, and apply it locally. Remote migrations are explicit environment-specific commands. A deployed PostgreSQL database requires a separate reviewed export and import; generating SQLite migrations does not transfer existing data.
+1. Change `<table>.schema.ts`. For a new table, export it from `drizzle.schemas.ts` as well.
+2. Generate the SQL:
 
 ```sh
 bun run db:generate
-bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
 ```
 
-## Related guides
+3. Review the generated file and commit it together with the schema change.
+4. Apply it to the database you work against, and to every remote database before deploying code that depends on it.
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+## Commands
+
+| Command                          | Database                                                                             |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| `bun run db:migrate:test`        | Local test database in `.wrangler/test`, used by Playwright and the isolated preview |
+| `bun run db:migrate:local`       | Local development database; `bun run dev` still uses the remote bindings             |
+| `bun run db:migrate:development` | Remote database of the development environment, shared with preview by default       |
+| `bun run db:migrate:preview`     | Remote preview database                                                              |
+| `bun run db:migrate:production`  | Remote production database                                                           |
+
+`bun run db:studio:development`, `db:studio:preview` and `db:studio:production` open Drizzle Studio, and the `db:introspect:*` scripts introspect D1 over its HTTP API. Both need `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` and `CLOUDFLARE_ACCESS_TOKEN` in the matching environment file.
+
+## Schema conventions
+
+- Dates are `integer(..., { mode: "timestamp_ms" })` with a default of `(unixepoch() * 1000)`.
+- Booleans are `integer(..., { mode: "boolean" })`.
+- Indexes, unique constraints, foreign keys and relations stay in the schema file.
+- D1 has no interactive transactions. Keep an operation atomic with a single SQL statement or `db.batch([...])`, as `getUsers` and the rate limiter do.
+
+## Tests
+
+The test D1 binding applies every SQL file in the migrations folder to an in-memory SQLite database, so D1-backed tests run against the migrated schema. `src/integrations/drizzle-orm/__test__/` checks that the schema, its indexes and its foreign keys materialize. See [Writing tests](/docs/guides/writing-tests).
+
+## Existing PostgreSQL data
+
+These migrations create the SQLite schema only. Moving data from an earlier PostgreSQL installation needs a separate, reviewed export and import.

@@ -1,10 +1,24 @@
 ---
-title: Sessões
-description: Listar e revogar sessões para alvos de auto e administração.
+title: "Sessões"
+description: "Sessões do Better Auth no D1, com revogação em autoatendimento nas configurações administrativas."
 ---
 
-## Módulo
+As sessões ficam na tabela `session` do D1 (`src/modules/session/session.schema.ts`). `auth.session.ts` as lê com `getRequestSession`, memorizada por requisição, e expõe `getCurrentSessionQuery` para rotas e componentes. A cópia do cliente nunca inclui o token de sessão.
 
-`modules/session/use-cases` - listar sessões ativas/usuários, revogar um/muitas/outras.
+## Casos de uso
 
-Surgiu em configurações administrativas, UI de segurança e ações de administração do usuário.
+| Caso de uso                               | Middleware                          | Usado por          |
+| ----------------------------------------- | ----------------------------------- | ------------------ |
+| `getActiveSessions`                       | logado                              | `SettingsSessions` |
+| `revokeSession`                           | logado; somente as próprias sessões | `SessionRow`       |
+| `revokeOtherSessions`                     | logado                              | `SettingsSessions` |
+| `listUserSessions`                        | `session: ["list"]`                 | nenhuma tela       |
+| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`               | nenhuma tela       |
+
+`getActiveSessions` retorna as sessões não expiradas do usuário atual, das mais recentes para as mais antigas, e deixa de fora as sessões de personificação.
+
+## Interface
+
+**Configurações → Segurança** em `/admin/settings` mostra `SettingsSessions` (`src/presentation/components/custom/admin/settings/sessions.tsx`). Cada `SessionRow` mostra o dispositivo (user agent ou endereço IP), a última atividade e um selo na sessão atual, e pode revogar essa sessão. Um botão no cabeçalho revoga todas as outras sessões. Trocar a senha também atualiza a lista de sessões.
+
+As variantes administrativas para sessões de outros usuários existem apenas como funções de servidor.

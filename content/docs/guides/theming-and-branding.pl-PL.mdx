@@ -1,15 +1,36 @@
 ---
-title: "Motyw i branding"
-description: "Tokeny motywu, fonty i assety marki."
+title: "Motywy i identyfikacja wizualna"
+description: "Zmień nazwę produktu, domenę, tokeny kolorów, skalę typografii i fonty."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+## Tożsamość marki
 
-## Locations
+`src/presentation/branding/index.ts` to jedyne źródło tożsamości produktu: `APP_NAME`, `APP_DOMAIN`, `APP_URL` (wyprowadzany jako `https://${APP_DOMAIN}`), `CONTACT_EMAIL`, `NOTIFICATIONS_EMAIL`, `APP_FOUNDED_YEAR` oraz właściciel, repozytorium i adres w GitHubie. Wynikają z niego tytuły stron, kanoniczne adresy URL, nazwa aplikacji w Better Auth, wystawca uwierzytelniania dwuskładnikowego oraz nazwy ciasteczek motywu i języka.
 
-- `presentation/theme`
-- `presentation/branding`
-- `presentation/fonts`
-- Global styles under presentation styles
+Przy zmianie marki zaktualizuj też:
 
-Przełącznik motywu jest kontrolką kliencką; wartości domyślne powinny unikać migotania przy hydratacji, zgodnie z rozwiązaniami stosowanymi już w providerach.
+- `Wordmark` w `src/presentation/components/custom/wordmark.tsx`: logo SVG osadzone obok `APP_NAME`.
+- `public/favicon.ico` i obrazy w `public/images`.
+- Prefiks ciasteczek uwierzytelniania, `advanced.cookiePrefix` w `src/integrations/better-auth/auth.server.ts`, oraz dozwolone hosty dla każdego środowiska w `src/modules/_core/constants/api.ts`.
+
+Po zmianie marki zbuduj aplikację ponownie; pliki środowiskowe nie zmieniają kanonicznego adresu.
+
+## Motyw
+
+`src/presentation/theme/index.ts` definiuje `THEME`: motywy `light`, `dark` i `system`, domyślny `system` oraz ciasteczko przechowujące wybór. `ThemeScript` w nagłówku dokumentu głównego stosuje zapisany motyw przed pierwszym malowaniem, więc strony nigdy nie mrugają złym motywem. `ThemeSwitch` (`src/presentation/components/custom/theme-switch.tsx`) go zmienia. `ThemeProvider` (`src/providers/theme-provider.tsx`) otacza tylko komponenty, które korzystają z motywu, np. `<ThemeSwitch />` w `src/routes/docs.tsx` i toaster w trasie głównej. Nigdy nie otacza `Outlet` trasy, ponieważ aktualizuje się po hydratacji i ponownie renderowałby całą stronę.
+
+## Tokeny kolorów
+
+`src/presentation/styles/globals.css` to jedyny punkt wejścia Tailwinda. Definiuje tokeny shadcn (`--background`, `--foreground`, `--primary`, `--muted`, `--border`, `--ring`, `--sidebar-*`, `--chart-*` i inne) w `:root` dla trybu jasnego i w `.dark` dla trybu ciemnego oraz mapuje je na kolory Tailwinda w `@theme inline`. Zmieniaj wartości w tym miejscu; komponenty używają klas semantycznych (`bg-background`, `text-muted-foreground`, `border-border`). Wyjątkiem są akcenty statusów, np. bursztynowy i różany.
+
+`docs.css` i `typeset.css` w tym samym folderze to zwykły CSS wczytywany tylko przez layouty dokumentacji i bloga.
+
+## Skala typografii
+
+Skala typografii to zestaw tokenów `--text-*` w `globals.css`: `display-hero`, `display-gate`, `display-blast`, `headline-peak`, `headline-support`, `price`, `title`, `statement`, `lead`, `body`, `body-sm`, `label` i `spec`. Każdy token ustawia rozmiar, wysokość linii i odstępy między literami, większe także grubość, i jest używany jako klasa: `text-body`, `text-title` itd.
+
+Dodając token `text-*`, dopisz jego nazwę także do `src/lib/cn.config.ts`. `cn` z `src/lib/cn.ts` korzysta z tej konfiguracji, aby traktować własne rozmiary jako rozmiary fontu przy łączeniu klas; bez niej `cn` je usuwa. `bun run generate:cn` odbudowuje tabele klas i uruchamia się w ramach `dev`, `build` i `check`.
+
+## Fonty
+
+Geist i Geist Mono są hostowane lokalnie w `public/fonts` i zadeklarowane przez `@font-face` w `src/presentation/styles/fonts.css`, po jednym pliku na zakres Unicode. `fontPreloads` w `src/presentation/document-assets.ts` wczytuje z wyprzedzeniem łaciński Geist i Geist Mono na każdej stronie, rozszerzoną łacinę dla `pl-PL` i cyrylicę dla `uk-UA`. Aby zmienić fonty, podmień pliki i reguły `@font-face`, a następnie dostosuj listę wczytywania z wyprzedzeniem.

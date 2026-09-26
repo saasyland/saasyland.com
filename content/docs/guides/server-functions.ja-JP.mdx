@@ -1,30 +1,72 @@
 ---
-title: サーバー機能とユースケース
-description: サーバー機能とユースケース — SaaSy Land
+title: "サーバー関数"
+description: "createServerFn、ミドルウェア、バリデーション、ハンドラー、RPC 呼び出しがどのように連携するかを説明します。"
 ---
 
-特徴の操作はで住んでいます `src/modules/{feature}/use-cases/{operation}.ts`. . ネイティブのエクスポート `createServerFn` 入力スキーマ、承認、またはレートリミットミドルウェア、およびD1またはプロバイダアダプタを呼び出すハンドラ。 ミューテーションはデータを直接返し、安全を投げます `AppError`;フレームワーク固有のアクションエンベロープを返さない。
+UI が呼び出す操作は、すべて TanStack Start のサーバー関数です。アプリケーション自身の画面のために、個別の REST エンドポイントを用意することはありません。
 
-輸出入 `mutationOptions` 変異の横にある `queryOptions` 読んでいる側。 コンポーネントは TanStack Query を使用し、エラーを変換します。 `useActionError`. . 成功した突然変異は、その機能のクエリキーを無効化します。 操作が機能するべきとき顧客によって供給されるユーザー ID を信頼しないで下さい `context.auth.user.id`.
-
-利用条件 `withAuth` 保護された操作のためおよび `withRateLimit` 敏感な公共の操作のため。 バリデーションはハンドラの前に実行されます。 プロバイダのエラーと内部の詳細は、パブリックレスポンスから守ってください。
+## 構成
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
-import { mutationOptions } from "@tanstack/react-query"
-import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
-import { categoryZodSchemas } from "~/src/modules/category/category.zod"
+export const deleteCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["delete"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.deleteCategory>) => categoryZodSchemas.deleteCategory.parse(input))
+  .handler(async ({ data }) => {
+    const [row] = await db.delete(category).where(eq(category.id, data.categoryId)).returning({ id: category.id })
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+    if (row === undefined) {
+      throw new AppError(ERROR_CODES.NOT_FOUND, "category.errors.notFound")
+    }
+
+    return row
+  })
 ```
 
-既存の `createCategory` 操作は検証、許可チェック、D1 インサート、およびエクスポートされたミューテーションオプションを示します。
+1. `createServerFn({ method })`：読み取りには `GET`、書き込みには `POST` を指定します。
+2. `.middleware([...])`：関数ミドルウェアです。バリデーションの前にサーバーで実行され、`context` に値を追加できます。
+3. `.validator(fn)`：呼び出し元の入力を受け取り、パース済みの値を返します。その引数の型が、呼び出し元が渡すべき入力の型になります。`localeField` のようなスキーマを直接渡すこともできます。
+4. `.handler(({ context, data }) => ...)`：ミドルウェアのコンテキストとバリデーション済みのデータを受け取り、サーバーで実行されます。戻り値はシリアライズされて呼び出し元に返されます。
 
-## 関連ガイド
+## 呼び出しの流れ
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- サーバー上（SSR 中のルートローダーやその他のサーバーコード）では、`deleteCategory({ data })` を呼び出すと関数が直接実行されます。
+- ブラウザでは、ビルド時にハンドラーが RPC スタブに置き換えられます。呼び出しは `/_serverFn` 配下のサーバー関数エンドポイントへの HTTP リクエストになり、結果やエラーは戻ってきたときにデシリアライズされます。
+- `src/server.ts` の Worker は、`/_serverFn` と `/api` のパスについて、静的アセットの検索とロケールのリダイレクトをスキップします。
+- ミドルウェア、バリデーター、ハンドラーの順に実行されるため、セッションがない呼び出しは入力をパースする前に拒否されます。
+- `getCurrentLocale()` はリクエストの URL からロケールを読み取りますが、サーバー関数の URL にはロケールが含まれないため、そこではデフォルトのロケールを返します。ローカライズされたコンテンツを返す関数は、`src/routes/blog.index.tsx` の `getBlogPosts` のように、ロケールを入力として受け取ります。
+
+## ミドルウェア
+
+`src/integrations/better-auth/auth.middleware.ts` は次のミドルウェアを提供します。
+
+| ミドルウェア                  | 効果                                                                                                                                                                                               |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `withRequest`                 | `context.requestHeaders` を追加し、あらゆる失敗を安全な `AppError` に変換します                                                                                                                    |
+| `authorized(permission?)`     | セッションを読み込み、セッションがなければ `UNAUTHORIZED` を、権限がなければ `FORBIDDEN` をスローし、その後 `context.auth` を追加します                                                            |
+| `withRateLimit(kind, limits)` | `kind` とクライアント IP ごとの呼び出し回数を D1 で数え、上限を超えると `TOO_MANY_REQUESTS` をスローします。`RATE_LIMITS.SENSITIVE` は 60 秒あたり 3 回、`RATE_LIMITS.TOKEN` は 5 回まで許可します |
+
+`authorized` と `withRateLimit` はどちらも `withRequest` を含んでおり、`enable-two-factor.ts` のように組み合わせることもできます。
+
+```ts
+.middleware([withRateLimit("enable-two-factor", RATE_LIMITS.SENSITIVE), authorized()])
+```
+
+`authorized` は `getRequestSession` でセッションを読み取ります。これは Better Auth の Cookie キャッシュをバイパスし、1 回の検索結果をリクエスト内で再利用します。
+
+## サーバー専用のコード
+
+- ブラウザに決して渡してはならないモジュールは、`import "@tanstack/react-start/server-only"` で始めます。D1 クライアント、Better Auth サーバー、Resend クライアント、レートリミッターが該当します。サーバー関数のハンドラーはクライアントバンドルから除去されるため、サーバー関数からはこれらをインポートできます。
+- `createServerOnlyFn`、`createClientOnlyFn`、`createIsomorphicFn` は、片側でのみ実行されるヘルパーや、両側で異なる動作をするヘルパーを示します（`getRequestSession`、サインインフォームでの Better Auth クライアントの呼び出し、`getCurrentLocale`）。
+- シークレットは `cloudflare:workers` の `env` から、サーバー専用のコード内でのみ取得します。
+
+## サーバー関数の置き場所
+
+- テーブルに対する操作：`src/modules/<table>/use-cases/` のユースケースにします。[ユースケースを追加する](/docs/guides/add-a-use-case) を参照してください。
+- 1 つのルートだけで使うもの：`getBlogPosts` のように、そのルートファイル内に `createServerFn` でインラインに記述します。
+- 共有されるがテーブルに紐付かないもの：`src/lib/github.ts` の `getStarCount` のように、`src/lib` に置きます。
+
+## サーバー関数を呼び出す
+
+- コンポーネントは、エクスポートされたクエリオプションまたはミューテーションオプションを TanStack Query で使います。
+- ローダーは `context.queryClient.query(...)` でプリフェッチし、ページがキャッシュからレンダリングされるようにします。
+- テストは `executeMutation` または `executeQuery` でオプションを呼び出します。テストのセットアップでは、実際のミドルウェアとバリデーターが呼び出しの経路に残ります。[テストを書く](/docs/guides/writing-tests) を参照してください。

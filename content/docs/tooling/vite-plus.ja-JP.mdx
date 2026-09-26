@@ -1,6 +1,40 @@
 ---
-title: Vite+
-description: 統一されたツールチェーン(vp)の使用。
+title: "Vite+"
+description: "vp ツールチェーン: 開発サーバー、ビルド、テスト、リント、フォーマット、Git フックです。"
 ---
 
-スクリプトは、 `vp` test/lint/fmt/config 用 デバッグをしない限り、アドホックvpフラグを上回るプリファーレポスクリプト。
+Vite+（`vite-plus`、コマンドは `vp`）は、Vite、Vitest、oxlint、oxfmt を 1 つの CLI にまとめたもので、`vite.config.ts` でそのすべてを設定します。`package.json` は `vite` を `@voidzero-dev/vite-plus-core` で上書きし、`vitest` を 5.0.1 に固定しています。パッケージのスクリプトは `vp` を呼び出します。スクリプト以外からは、グローバルの Vite+ CLI または `bunx vp` を使います。
+
+| コマンド          | 使用元                                            |
+| ----------------- | ------------------------------------------------- |
+| `vp dev`          | `dev`                                             |
+| `vp build --mode` | `build:preview`, `build:production`, `build:test` |
+| `vp preview`      | `start`, `start:test`                             |
+| `vp test`         | `test` と `test:*` の各 Vitest スクリプト         |
+| `vp lint`         | `lint`                                            |
+| `vp fmt`          | `format`, `format:check`                          |
+| `vp check`        | `check`, `check:fix`                              |
+| `vp staged`       | `check:pre-commit`                                |
+| `vp config`       | Git フックをインストールする `prepare`            |
+
+## 設定
+
+`vite.config.ts` はプラグインを遅延読み込みします。Vitest の実行中は `@vitejs/plugin-react` だけが読み込まれ、それ以外のときは次の構成になります。
+
+- `@cloudflare/vite-plugin`: SSR 環境で Worker を実行し、ローカルの状態を永続化し（`test` モードでは `.wrangler/test` 内）、`development` ではリモートバインディングを使います。
+- `fumadocs-mdx`: ドキュメントとブログのコレクションをコンパイルします。
+- `@tailwindcss/vite`: Tailwind CSS 4。
+- `tanstackStart`: ルーティング、コード分割、公開ページのプリレンダリング。
+- `@vitejs/plugin-react`。
+
+開発サーバーはポート 3000 を使い、そのポートが使用中の場合は起動に失敗します。`resolve.tsconfigPaths` が `~/` のインポートエイリアスを提供します。同じファイルに `fmt`、`lint`、`staged`、`test` のセクションもあります。[リントとフォーマット](/docs/tooling/lint-format)と[テスト](/docs/tooling/testing)を参照してください。
+
+## Git フック
+
+`bun install` は `prepare` を実行し、`prepare` は `vp config --no-agent` を呼び出して `.vite-hooks/` 用のフックディスパッチャーをインストールします。`pre-commit` は `bun run check:pre-commit` を実行し、`prepare-commit-msg` は `scripts/commit-msg.ts` を実行します（[Conventional Commits](/docs/tooling/conventional-commits) を参照）。クローンでフックが有効かどうかは `vp hooks status` で確認できます。
+
+基本的にはパッケージのスクリプトを使ってください。特定のパスだけをフォーマットまたはリントするなど、対象を絞って実行したい場合は `vp` を直接呼び出します。
+
+## 関連ガイド
+
+- [プロジェクトのスクリプト](/docs/tooling/scripts)

@@ -1,6 +1,30 @@
 ---
-title: OAuth fornitori
-description: GitHub e Google configurazione social sign-in.
+title: "Provider OAuth"
+description: "Accesso con GitHub e Google tramite i provider social di Better Auth."
 ---
 
-Configurato in Better Auth con ID client inv/secrets. Registrare URL redirect per gli host locali, anteprime e di produzione. Vedi Caratteristiche → Autenticazione e Iniziare → variabili ambientali.
+`auth.server.ts` registra due provider con credenziali prese dall’ambiente del Worker:
+
+```ts
+socialProviders: {
+  github: { clientId: env.AUTH_GITHUB_CLIENT_ID, clientSecret: env.AUTH_GITHUB_CLIENT_SECRET },
+  google: { clientId: env.AUTH_GOOGLE_CLIENT_ID, clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET },
+},
+```
+
+## Flusso
+
+`OAuthButtons` (`src/presentation/components/custom/auth/oauth-buttons.tsx`) mostra un pulsante per provider nelle pagine di accesso e registrazione. Chiama `signIn.social` di Better Auth con un `callbackURL` localizzato (`/auth/callback`) e un `errorCallbackURL` (`/auth/sign-in`). Al ritorno dal provider, `/auth/callback` reindirizza gli amministratori su `/admin` e i clienti su `/app`. Un tentativo fallito torna alla pagina di accesso con `?error=`, che mostra il messaggio tradotto di `auth.errors`.
+
+`accountLinking` è attivo, quindi un accesso social si collega a un utente esistente con la stessa email. I token del provider sono salvati cifrati nella tabella `account`.
+
+## Configurazione del provider
+
+Registra gli URL di callback `/api/auth/callback/github` e `/api/auth/callback/google` per ogni host che usi: `localhost:3000` in locale, `preview.saasyland.com` e `saasyland.com` (vedi `appHostsForMode` in `src/modules/_core/constants/api.ts`). Inserisci ID e secret dei client nelle variabili d’ambiente indicate sopra.
+
+Le credenziali GitHub autenticano anche la richiesta del numero di stelle del repository in `src/lib/github.ts`.
+
+## Guide correlate
+
+- [Variabili d’ambiente](/docs/getting-started/environment-variables)
+- [Autenticazione](/docs/features/authentication)

@@ -1,16 +1,32 @@
 ---
-title: 顧客アプリ
-description: 署名された顧客のための保護された/app区域。
+title: "顧客アプリ"
+description: "サインイン済みユーザー向けの /app 領域: 概要、ライセンスページ、サイドバー。"
 ---
 
-## ルートグループ
+## レイアウト
 
-`src/routes/app*.tsx` そして、 `src/presentation/components/custom/app/`
+`src/routes/app.tsx` は `requireSignedIn` でこの領域を保護し、名前空間をプリロードします。
 
-## ステータス
+```tsx
+const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
 
-サインイン後のシェル。 請求ポータル、コースライブラリ、アカウントのディープリンク、およびエンタリメントゲートコンテンツで拡大します。
+export const Route = createFileRoute("/app")({
+  beforeLoad: requireSignedIn,
+  component: AppLayout,
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  staticData: { namespaces: NAMESPACES },
+})
+```
 
-## ガード
+`AppLayout` は shadcn の `SidebarProvider` の中に、`src/presentation/components/custom/app` の `AppSidebar` と `AppHeader` を表示します。サイドバーは `src/data/app.ts` の `APP_NAVIGATION` からリンクを作り、ルートコンテキスト（`getRouteApi("/app")`）からユーザーを読み取り、最後に `SignOutButton` を置きます。ヘッダーは現在のページとサイトへ戻るリンクを表示します。サインイン後、管理者は `/admin` に、それ以外のユーザーは `/app` に移動します。
 
-`src/integrations/better-auth/auth.guards.ts` + セッション; この表面から任意の変異のための使用ケースを好む。
+## ページ
+
+| ルート         | 内容                                                                                                                                                                          |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/app`         | ライセンスがなければ `CheckoutOptions`、あれば `LicenseStatusCard`（プラン、ステータス、ライセンスページへのリンク）。ドキュメントとメールサポートへのリンク。                |
+| `/app/license` | ライセンスがなければ `CheckoutOptions`、あれば `LicenseCard`（キー、インストールコマンド、カスタマーポータルへのリンク）と、Polar がキーを発行した後は `LicenseActivations`。 |
+
+どちらのローダーも `currentLicenseQuery` をプリロードし、`/app/license` は `licenseActivationsQuery` もプリロードします。購入、Webhook、ライセンスの状態は[決済とライセンス](/docs/features/payments)で説明しています。
+
+`/app` には請求履歴、アカウント設定、コースの画面はありません。

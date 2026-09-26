@@ -1,26 +1,50 @@
 ---
-title: Testando e CI
-description: Testes e CI - SaaSy Land
+title: "Playwright"
+description: "Testes no navegador contra o Worker de testes isolado."
 ---
 
-Vite+ Corre. Vitest Em três projetos: testes de nós, testes de integração e testes de componentes jsdom. `__test__`. . Importar APIs de teste de `vite-plus/test`Use. Playwright Para todos os fluxos de navegadores e cheques de renderização.
-
-A montagem compartilhada fornece material local D1 e... KV Tolices. D1 corre as migrações SQL verificadas contra SQLiteA ponte RPC do servidor preserva o verdadeiro pipeline de validação e middleware do TanStack. OAuth e chamadas de pagamento são zombadas em testes.
-
-Execute o projeto focado enquanto edita, então execute a suíte completa, o portão de cobertura, cheque e construa pré-visualização. Testes de navegador verificam páginas públicas, redirecionamentos de autenticação, SSR sem JavaScript, e navegação de clientes. CI usa ligações locais e não requer um banco de dados ao vivo ou segredos de provedores.
+O Playwright testa a aplicação compilada em navegadores reais. A suíte é executada contra o ambiente `test` do Wrangler: D1 e KV locais em `.wrangler/test`, credenciais fictícias de `.env.test` e a entrada de testes `src/platform/testing/worker.ts`, que intercepta as requisições ao Resend e à Polar.
 
 ```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
+bun run test:e2e:install
 bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:pr
+bun run test:e2e:headed
+bun run test:e2e:ui
 ```
+
+| Script             | Executa                                                      |
+| ------------------ | ------------------------------------------------------------ |
+| `test:e2e:install` | Instala o Chromium e o WebKit com as dependências do sistema |
+| `test:e2e`         | Todas as specs no Chromium e no WebKit                       |
+| `test:e2e:smoke`   | `e2e/specs/smoke.spec.ts` no Chromium                        |
+| `test:e2e:pr`      | Todas as specs no Chromium, como na CI de pull requests      |
+| `test:e2e:headed`  | Todas as specs em navegadores visíveis                       |
+| `test:e2e:ui`      | Modo UI do Playwright                                        |
+
+## Configuração
+
+`playwright.config.ts` define os projetos `chromium` (Desktop Chrome) e `webkit` (Desktop Safari) e usa `PLAYWRIGHT_BASE_URL` ou `http://127.0.0.1:3000`. Localmente, o comando do servidor web executa `db:migrate:test`, `db:seed:test`, `build:test` e `start:test`, e reutiliza um servidor que já responda nessa URL, então encerre antes outros servidores na porta 3000. Na CI, o workflow prepara o build e o Playwright apenas inicia o servidor.
+
+| Configuração     | Local              | CI                         |
+| ---------------- | ------------------ | -------------------------- |
+| Novas tentativas | 0                  | 2                          |
+| Workers          | 1                  | 2                          |
+| Traces           | Mantidos em falhas | Na primeira nova tentativa |
+| Vídeos           | Desativados        | Mantidos em falhas         |
+| Relatórios       | List e HTML        | GitHub e HTML              |
+
+## Estrutura
+
+- `e2e/specs/`: specs para smoke checks, landing page, navegação, locales, autenticação, workspaces, newsletter, conteúdo, tema e preços regionais.
+- `e2e/pages/`: page objects.
+- `e2e/fixtures/`: a fixture `test` estendida e helpers para os e-mails capturados.
+- `e2e/data/accounts.ts`: as contas de administrador e de cliente criadas pelo seed e sua senha.
+
+O Worker de testes expõe `/__test/emails` para ler os e-mails capturados pelo mock do Resend e `/__test/newsletter` para ler o estado de um inscrito.
 
 ## Guias relacionados
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Testes](/docs/tooling/testing)
+- [CI/CD](/docs/tooling/ci-cd)

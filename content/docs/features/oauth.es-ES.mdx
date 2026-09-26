@@ -1,6 +1,30 @@
 ---
-title: Proveedores de OAuth.
-description: Configuración de inicio de sesión social con GitHub y Google.
+title: "Proveedores OAuth"
+description: "Inicio de sesión con GitHub y Google mediante los proveedores sociales de Better Auth."
 ---
 
-Configurado en Better Auth con los identificadores de cliente/secretos definidos en el entorno. Registre las URL de redirección para los entornos local, de previsualización y de producción. Consulte "Funcionalidades" → "Autenticación" y "Primeros pasos" → "Variables de entorno".
+`auth.server.ts` registra dos proveedores con credenciales del entorno del Worker:
+
+```ts
+socialProviders: {
+  github: { clientId: env.AUTH_GITHUB_CLIENT_ID, clientSecret: env.AUTH_GITHUB_CLIENT_SECRET },
+  google: { clientId: env.AUTH_GOOGLE_CLIENT_ID, clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET },
+},
+```
+
+## Flujo
+
+`OAuthButtons` (`src/presentation/components/custom/auth/oauth-buttons.tsx`) muestra un botón por proveedor en el inicio de sesión y en el registro. Llama a `signIn.social` de Better Auth con un `callbackURL` localizado (`/auth/callback`) y un `errorCallbackURL` (`/auth/sign-in`). Cuando el proveedor devuelve el control, `/auth/callback` redirige a los administradores a `/admin` y a los clientes a `/app`. Un intento fallido vuelve a la página de inicio de sesión con `?error=`, que muestra el mensaje traducido de `auth.errors`.
+
+`accountLinking` está activado, de modo que un inicio de sesión social se vincula a un usuario existente con el mismo correo. Los tokens del proveedor se guardan cifrados en la tabla `account`.
+
+## Configuración del proveedor
+
+Registra las URL de retorno `/api/auth/callback/github` y `/api/auth/callback/google` para cada host que utilices: `localhost:3000` en local, `preview.saasyland.com` y `saasyland.com` (consulta `appHostsForMode` en `src/modules/_core/constants/api.ts`). Guarda los identificadores y secretos de cliente en las variables de entorno anteriores.
+
+Las credenciales de GitHub también autentican la consulta del número de estrellas del repositorio en `src/lib/github.ts`.
+
+## Guías relacionadas
+
+- [Variables de entorno](/docs/getting-started/environment-variables)
+- [Autenticación](/docs/features/authentication)

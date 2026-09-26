@@ -1,6 +1,48 @@
 ---
-title: Correo electrónico transaccional.
-description: Envío de correos de autenticación y de producto mediante Resend.
+title: "Correo transaccional"
+description: "Plantillas de React Email en src/presentation/emails, enviadas por los casos de uso a través de Resend."
 ---
 
-Consulta Integraciones → Resend y Guías → Plantillas de correo. Los flujos de autenticación local requieren correos de verificación y restablecimiento; los recibos de producto forman parte de los pagos.
+## Plantillas
+
+Las plantillas están en `src/presentation/emails`. Cada archivo contiene solo marcado y exporta su constante de espacio de nombres:
+
+| Plantilla                      | Espacio de nombres                       | La envía                                                 |
+| ------------------------------ | ---------------------------------------- | -------------------------------------------------------- |
+| `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail` (hook de Better Auth)                  |
+| `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail` (hook de Better Auth)           |
+| `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail` (hook de Better Auth) |
+| `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                                  |
+| `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`, a `CONTACT_EMAIL`       |
+
+Una plantilla recibe `locale` y `messages` y traduce con `createTranslator` de use-intl:
+
+```tsx
+const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
+```
+
+## Envío
+
+El caso de uso carga los mensajes, renderiza la plantilla y la envía (`src/modules/verification/use-cases/send-verify-email.ts`):
+
+```ts
+const locale = getCurrentLocale()
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+verifyUrl.searchParams.set("token", token)
+await sendEmail({
+  idempotencyKey: `verify-email/${token}`,
+  react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+  subject: createTranslator({ locale, messages })("subject"),
+  to: user.email,
+})
+```
+
+`sendEmail` (`src/integrations/resend/resend.utils.ts`) envía a través de Resend desde `RESEND_EMAIL_FROM`, salvo que se indique un `from` (la notificación al propietario usa `NOTIFICATIONS_EMAIL`), pasa la clave de idempotencia y lanza un error si el envío falla.
+
+Los correos de cuenta usan el idioma de la petición actual. Los correos del boletín usan el idioma enviado con el formulario; la notificación al propietario siempre está en `en-US`.
+
+## Guías relacionadas
+
+- [Plantillas de correo](/docs/guides/email-templates)
+- [Resend](/docs/integrations/resend)

@@ -1,23 +1,97 @@
 ---
-title: Маршрути та доставка
-description: Маршрути та доставка — SaaSy Land
+title: "Маршрути та доставка"
+description: "Як називаються та структуруються файли маршрутів і як налаштовано роутер."
 ---
 
-`src/server.ts` канонічність локальних URL-адрес і зберігає локальний cookie в синхронізації. `src/router.tsx` Створює свіжу QueryClient на маршрутизаторі і підключає її до SSR. Нативні файли маршруту заявляють компоненти, охоронці, навантажувачі, перевірку пошуку та метадані.
+## Файли маршрутів
 
-Використання макетів та макетів клієнтів `beforeLoad` охоронці. Кожна захищена функція сервера також перевіряє її дзвоника, тому що RPC може бути викликана незалежно від сторінки. Ніколи не розмістили автентифіковану відповідь на загальний статичний кеш.
+Маршрути — це пласкі файли в `src/routes`. Крапки стають сегментами шляху:
 
-```text
-Request → Worker locale middleware → TanStack Router
-        → beforeLoad session/permission guard
-        → loader: messages + authorized query data
-        → SSR + hydrated React presentation
-Mutation → validated server function → auth/rate limit → D1 or provider
-         → result/error → scoped query invalidation
+| Файл                  | URL                | Примітки                                    |
+| --------------------- | ------------------ | ------------------------------------------- |
+| `__root.tsx`          | усі сторінки       | Оболонка документа й кореневі простори імен |
+| `_landing.tsx`        | немає              | Макет без шляху для маркетингових сторінок  |
+| `_landing.terms.tsx`  | `/terms`           | Сторінка всередині макета лендингу          |
+| `admin.tsx`           | `/admin`           | Макет із guard-функцією `requireAdmin`      |
+| `admin.users.all.tsx` | `/admin/users/all` | Сторінка всередині макета адмін-панелі      |
+| `blog.index.tsx`      | `/blog`            | Індексна сторінка макета `blog`             |
+| `docs.$.tsx`          | `/docs/*`          | Splat-маршрут для сторінок документації     |
+| `api/auth.$.ts`       | `/api/auth/*`      | HTTP-обробник без компонента                |
+
+Ідентифікатори `createFileRoute("…")` — це рядкові літерали, які підтримує генератор роутера; він також записує `src/routeTree.gen.ts`. Файли в папках `__test__` ігноруються. Кожна URL-адреса має константу в `ROUTES` (`src/routes.ts`), а посилання використовують `<Link to={ROUTES.X}>`.
+
+## Маршрути сторінок
+
+Маршрут сторінки визначає компонент `<Name>Page`, константу `NAMESPACE` безпосередньо над `export const Route` і loader-функцію, яка завантажує метадані сторінки та простір імен в одному `Promise.all`:
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: LegalPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
 ```
 
-## Схожі посібники
+Додаткові дані потрапляють у той самий `Promise.all`, наприклад `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` в `admin.users.all.tsx`. `pageHead` із `src/lib/seo.ts` будує теги title, description, canonical, `hreflang` і Open Graph з `metadata`, яку повертає loader-функція.
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+## Маршрути макетів
+
+Маршрут макета визначає компонент `<Name>Layout`, масив `NAMESPACES` і, для захищених розділів, guard-функцію в `beforeLoad`:
+
+```tsx
+const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
+
+export const Route = createFileRoute("/app")({
+  beforeLoad: requireSignedIn,
+  component: AppLayout,
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  pendingComponent: AppPending,
+  staticData: { namespaces: NAMESPACES },
+})
+```
+
+Guard-функції `requireSignedIn`, `requireAdmin`, `redirectIfSignedIn` і `redirectAfterAuth` надходять із `src/integrations/better-auth/auth.routes.ts`.
+
+## Скелетони завантаження [#loading-skeletons]
+
+Більшість переходів завершується ще до появи будь-якого інтерфейсу очікування. Посилання попередньо завантажують свій маршрут під час наведення й дотику, публічні сторінки попередньо відрендерені, а роутер, перш ніж щось показати, чекає типове значення `pendingMs` в одну секунду. Скелетон з'являється, лише коли перехід триває довше, зазвичай під час першого відвідування зони через повільне з'єднання.
+
+Типового компонента очікування немає. Кожен маршрут макета й сторінки задає власний `pendingComponent`, і кожен скелетон відтворює сторінку, яку заміщує:
+
+- **Скелетони сторінок**, як-от `SignInPending` і `LegalPending`, розміщено у файлі скелетонів зони; вони позначають свій кореневий елемент атрибутом `aria-busy="true"`. Це файли `custom/auth/auth-pending.tsx`, файли адмін-панелі в `custom/admin/` (`admin-pending.tsx` для макета, по одному файлу на кожну групу бічної панелі та спільні блоки в `pending-blocks.tsx`), `custom/app/app-pending.tsx`, `custom/blog/blog-pending.tsx`, `custom/marketing-pending.tsx` і `custom/docs-pending.tsx`.
+- **Скелетони макетів**, як-от `AuthPending` і `MarketingPending`, рендерять каркас макета й вибирають скелетон сторінки для поточного шляху з мапи, ключі якої беруться з `ROUTES`. Тому під час переходу в зону з іншого місця показується правильна сторінка. Елементи каркаса, яким не потрібні дані, як-от `Wordmark`, `PageFrame` і маркетингова `Navigation`, рендеряться по-справжньому.
+- **Текстові заповнювачі** — це смуги `Skeleton` з типографічним токеном справжнього елемента плюс `h-lh scale-y-70`, тож кожна смуга заповнює рівно один рядковий блок (line box). Блоки мають справжні висоти й радіуси заокруглення. Списки беруть свою довжину з тих самих констант, що й UI, як-от `OAUTH_PROVIDERS` і `PASSWORD_RULES` у `src/data/auth.ts`.
+
+Коли додаєте сторінку, додайте її скелетон до файлу скелетонів зони, зареєструйте його в мапі скелетона макета та задайте як `pendingComponent` маршруту.
+
+## Інші аспекти маршрутів
+
+- **Параметри рядка запиту** розбирає `validateSearch` у маршруті, наприклад параметр `tab` для `/admin/products` або параметр `view` для `/admin/blog`.
+- **Серверні функції одного маршруту** можна визначити у файлі маршруту через `createServerFn`, як-от `getBlogPosts` у `blog.index.tsx`.
+- **HTTP-ендпоінти** лежать у `src/routes/api`. Див. [HTTP-обробники TanStack Start](/docs/architecture/api-layer).
+
+## Роутер
+
+`src/router.tsx` експортує `getRouter`, який для кожного запиту створює новий `QueryClient` і роутер. Він налаштовує:
+
+- типові компоненти помилки та «не знайдено» з `presentation/components/custom`, але без типового компонента очікування (див. [Скелетони завантаження](#loading-skeletons))
+- попереднє завантаження за наміром користувача й типовий час застарівання даних в одну хвилину
+- `rewrite`, який прибирає префікс локалі з вхідних URL-адрес і додає його назад до згенерованих посилань
+- інтеграцію запитів із SSR через `setupRouterSsrQueryIntegration`
+
+## Пов'язані сторінки
+
+- [Життєвий цикл запиту](/docs/architecture/request-lifecycle)
+- [Маршрути](/docs/reference/routes)
+- [Додавання сторінки адмін-панелі](/docs/guides/add-an-admin-page)

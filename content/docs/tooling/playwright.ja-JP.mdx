@@ -1,26 +1,50 @@
 ---
-title: テストとCI
-description: テストとCI — SaaSy Land
+title: "Playwright"
+description: "隔離されたテスト用 Worker に対するブラウザーテストです。"
 ---
 
-Vite+ は 3 つのプロジェクトで Vitest を実行します。ノードのテスト、統合テスト、jsdom コンポーネントのテスト。 既存の振る舞いのテストは、演習中のコードの横に保つ `__test__`. . インポートテスト API から `vite-plus/test`. . ブラウザのフルフローとレンダリングチェックに Playwright を使用します。
-
-共有セットアップはローカル D1 と KV のモックを供給します。 D1 は SQLite に対するチェックイン SQL のマイグレーションを実行します。 サーバ機能 RPC ブリッジは、TanStack の真のミドルウェアと検証パイプラインを維持します。 コンポーネント レンダー ヘルパーは、実際の QueryClient と Router のコンテキストを提供します。 外部メール、OAuth、支払いコールはテストでモックされます。
-
-編集中に集中したプロジェクトを実行し、完全なスイート、カバレッジゲート、チェック、プレビュービルドを実行します。 ブラウザテストでは、パブリックページ、authリダイレクト、SSRなしJavaScript、およびクライアントナビゲーションを確認します。 CIはローカルバインディングを使用し、ライブデータベースやプロバイダシークレットを必要としません。
+Playwright は、ビルドしたアプリケーションを実際のブラウザーでテストします。スイートは Wrangler の `test` 環境に対して実行されます。この環境では、`.wrangler/test` 内のローカル D1 と KV、`.env.test` のダミー認証情報、そして Resend と Polar へのリクエストを横取りするテスト用エントリー `src/platform/testing/worker.ts` を使います。
 
 ```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
+bun run test:e2e:install
 bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:pr
+bun run test:e2e:headed
+bun run test:e2e:ui
 ```
+
+| スクリプト         | 実行内容                                                               |
+| ------------------ | ---------------------------------------------------------------------- |
+| `test:e2e:install` | Chromium と WebKit をシステムの依存関係とともにインストールします      |
+| `test:e2e`         | すべてのスペックを Chromium と WebKit で実行します                     |
+| `test:e2e:smoke`   | `e2e/specs/smoke.spec.ts` を Chromium で実行します                     |
+| `test:e2e:pr`      | プルリクエストの CI と同じく、すべてのスペックを Chromium で実行します |
+| `test:e2e:headed`  | すべてのスペックを表示されるブラウザーで実行します                     |
+| `test:e2e:ui`      | Playwright の UI モード                                                |
+
+## 設定
+
+`playwright.config.ts` は `chromium`（Desktop Chrome）と `webkit`（Desktop Safari）のプロジェクトを定義し、`PLAYWRIGHT_BASE_URL` または `http://127.0.0.1:3000` を使います。ローカルでは、Web サーバーのコマンドが `db:migrate:test`、`db:seed:test`、`build:test`、`start:test` を実行します。その URL ですでに応答しているサーバーがあれば再利用するため、先にポート 3000 で動いている他のサーバーを停止してください。CI ではワークフローがビルドを準備し、Playwright はサーバーを起動するだけです。
+
+| 設定       | ローカル     | CI               |
+| ---------- | ------------ | ---------------- |
+| リトライ   | 0            | 2                |
+| ワーカー   | 1            | 2                |
+| トレース   | 失敗時に保持 | 最初のリトライ時 |
+| ビデオ     | オフ         | 失敗時に保持     |
+| レポーター | List と HTML | GitHub と HTML   |
+
+## 構成
+
+- `e2e/specs/`: スモークチェック、ランディングページ、ナビゲーション、ロケール、認証、ワークスペース、ニュースレター、コンテンツ、テーマ、地域別価格のスペック。
+- `e2e/pages/`: ページオブジェクト。
+- `e2e/fixtures/`: 拡張した `test` フィクスチャと、キャプチャしたメール用のヘルパー。
+- `e2e/data/accounts.ts`: シードされた管理者アカウントと顧客アカウント、およびそのパスワード。
+
+テスト用 Worker は、Resend のモックがキャプチャしたメールを読み取る `/__test/emails` と、購読者の状態を読み取る `/__test/newsletter` を公開します。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [テスト](/docs/tooling/testing)
+- [CI/CD](/docs/tooling/ci-cd)

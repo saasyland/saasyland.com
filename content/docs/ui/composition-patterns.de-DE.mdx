@@ -1,6 +1,101 @@
 ---
-title: Kompositionsmuster.
-description: Bevorzuge Komposition gegenüber booleschen Props; überführe den Zustand in Provider.
+title: "Kompositionsmuster"
+description: "Die Regeln für das Zusammensetzen von Routen, Seiten und Komponenten in dieser Codebasis."
 ---
 
-Folgen Sie `.agents/skills/vercel-composition-patterns`: zusammengesetzte Komponenten, generischer Kontext (`state` / `actions` / `meta`), React 19 `use()`, keine `forwardRef`.
+## Routen setzen Seiten zusammen
+
+Eine Routendatei definiert ihre Komponente `<Name>Page` oder `<Name>Layout`, `NAMESPACE` oder `NAMESPACES`, den Loader und `head`. Die Seite platziert nur Widgets; die Widgets liegen in `src/presentation/components/custom/<area>/`. Ein Layout sieht so aus (`src/routes/app.tsx`):
+
+```tsx
+const AppLayout = (): JSX.Element => (
+  <SidebarProvider className="h-svh overflow-hidden">
+    <AppSidebar />
+    <SidebarInset className="relative min-h-0 min-w-0 overflow-hidden">
+      <Background className="z-[-1]" glow={false} />
+      <AppHeader />
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-5 pb-6 md:px-6 md:pt-7 md:pb-8">
+        <div className="mx-auto w-full max-w-5xl">
+          <Outlet />
+        </div>
+      </div>
+    </SidebarInset>
+  </SidebarProvider>
+)
+```
+
+Eine Serverfunktion, die nur von einer Route verwendet wird, darf mit `createServerFn` in dieser Routendatei definiert werden, wie es `src/routes/blog.index.tsx` tut.
+
+## Ein Widget, Dialog oder Formular pro Datei
+
+Jedes Widget, jeder Dialog, jedes Formular und jeder Spaltensatz hat eine eigene Datei: `admin/users/row-actions.tsx`, `delete-user-dialog.tsx`, `reset-password-dialog.tsx`, `user-columns.tsx`. Komponentenordner sind flach: keine Unterordner `components/`, `hooks/`, `constants/` oder `types/` und keine Aufteilung in `x.tsx` plus `x-content.tsx`. Gemeinsam genutzte Komponenten liegen direkt in `custom/`.
+
+## Komponenten lesen ihre eigenen Daten
+
+Eine Komponente holt sich ihre Texte und Daten selbst, statt sie über Props zu erhalten:
+
+- Übersetzungen mit `useTranslations`;
+- Query-Daten mit `useSuspenseQuery`, die der Loader der Route bereits geladen hat;
+- Loader-Daten, Routenkontext und Suchparameter mit `getRouteApi("…")`.
+
+```tsx
+const route = getRouteApi("/blog/$")
+
+export const PostMeta = (): JSX.Element => {
+  const { post } = route.useLoaderData()
+  const t = useTranslations("pages.blog.post")
+  const format = useFormatter()
+
+  const details = [post.authorName, t("readingTime", { minutes: post.readingTimeMinutes }), post.tags.join(", ")].filter(
+    (item) => item.trim().length > 0,
+  )
+
+  return (
+    <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-border py-4 font-mono text-body-sm text-muted-foreground">
+      <span className="flex items-center gap-2.5">
+        <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
+        <time className="tabular-nums" dateTime={new Date(post.date).toISOString()}>
+          {format.dateTime(new Date(post.date), { day: "numeric", month: "long", year: "numeric" })}
+        </time>
+      </span>
+      {details.map((item) => (
+        <span className="flex items-center gap-3" key={item}>
+          <span aria-hidden className="text-border">
+            &middot;
+          </span>
+          {item}
+        </span>
+      ))}
+    </div>
+  )
+}
+```
+
+Props transportieren Identität oder Zustand, den nur die übergeordnete Komponente kennt, etwa den `user` eines Dialogs mit `isOpen` und `onOpenChange` oder eine `activationId`. Es gibt keine Text- oder Label-Props, kein Prop-Drilling und keine durchreichenden Wrapper, die nur Props umbenennen oder Children weitergeben. Eine Konstante, die nur eine Datei verwendet, bleibt in dieser Datei; Daten, die mehrere Dateien teilen, gehören nach `src/data`.
+
+## Rich Text
+
+Tag-Maps für `t.rich` sind Konstanten auf Modulebene, niemals Objekte, die während des Renderns erzeugt werden:
+
+```tsx
+const REUSE_TAGS = { accent: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong> }
+```
+
+## Bedingte Klassen
+
+Verwenden Sie `cn` aus `~/src/lib/cn` mit der Objektsyntax:
+
+```tsx
+<p className={cn("font-medium", { "text-foreground": !banned, "text-muted-foreground line-through": banned })}>{name}</p>
+```
+
+Alternativen werden mit einem Paar von `&&`-Bedingungen oder einem frühen Return gerendert statt mit einem mehrzeiligen ternären Ausdruck.
+
+## Provider
+
+Provider, die sich nach der Hydration ändern, umschließen nur die Widgets, die sie brauchen, niemals ein Routen-`Outlet`: `ThemeProvider` umschließt den `Toaster` und den `ThemeSwitch` der Dokumentation, und `MotionProvider` umschließt die Abschnitte der Landingpage und die Blogliste. `AriaProvider` umschließt das Root-Outlet und `TranslationsProvider` den Body des Dokuments, weil jede Ansicht sie benötigt.
+
+## Verwandte Anleitungen
+
+- [Präsentationsschicht](/docs/architecture/presentation-layer)
+- [Konventionen](/docs/reference/conventions)

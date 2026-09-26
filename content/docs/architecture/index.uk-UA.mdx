@@ -1,30 +1,55 @@
 ---
-title: Архітектура
-description: Архітектура — SaaSy Land
+title: "Архітектура"
+description: "Як організовано SaaSy Land: маршрути компонують сторінки, модулі володіють таблицями бази даних, інтеграції обгортають сервіси вендорів."
 ---
 
-SaaSy Land працює як один TanStack Start додаток Cloudflare Workers. координатно-розвантажувальні роботи та завантаження даних. Особливості модуля власної перевірки, авторизації та операцій. Інтеграція з зовнішніми службами. Презентація власної існуючої УІ.
+SaaSy Land — це один застосунок на TanStack Start, який працює як Cloudflare Worker. Код розділено за зонами відповідальності:
 
-Немає контейнера для ін'єкцій залежностей. Імпорт бетонного колектора на власний шар. Зберігайте спільні помічники малих і надійних помічників, які знаходяться поблизу функції.
+- **Маршрути** (`src/routes`) компонують сторінки. Файл маршруту оголошує свої простори імен перекладів, guard-функцію, loader-функцію та теги head, а потім рендерить компоненти.
+- **Модулі** (`src/modules/<table>`) існують лише для справжніх таблиць бази даних. Модуль володіє схемою Drizzle для таблиці, Zod-схемами, константами, типами та сценаріями використання, які читають або змінюють цю таблицю.
+- **Інтеграції** (`src/integrations/<vendor>`) налаштовують сторонні бібліотеки та сервіси.
+- **Представлення** (`src/presentation`) містить примітиви shadcn, компоненти застосунку, шаблони React Email, стилі, тему та брендинг.
+- **Спільний код** розміщено в `src/data` (дані, які використовують кілька файлів), `src/lib` (невеликі утиліти), `src/hooks` і `src/providers`.
 
 ```text
-content/                         Localized MDX
-messages/{locale}/           Translation namespaces
-src/routes/                      Flat file routes
-src/router.tsx                   Router and per-request query cache
-src/server.ts                    Cloudflare Worker entry
-src/modules/{feature}/           Schemas, constants, validation
-src/modules/{feature}/use-cases/  Server functions and query/mutation options
-src/integrations/{vendor}/       Vendor adapters and setup
-src/presentation/                Components, styles, branding, emails
-src/providers/                   Application providers
-src/hooks/                       Shared hooks
-src/lib/                         Shared utilities
-src/platform/testing/            Binding mocks and test helpers
+src/
+├── routes/          Flat file routes that compose pages
+├── modules/         One folder per database table, plus _core
+├── integrations/    One folder per vendor
+├── presentation/    Components, emails, styles, theme, branding
+├── data/            Data shared by several files
+├── lib/             Small shared utilities
+├── hooks/           Shared React hooks
+├── providers/       Application providers
+├── platform/        Test runtime wiring
+├── types/           Global type declarations
+├── router.tsx       Router and per-request QueryClient
+├── routes.ts        ROUTES path constants
+└── server.ts        Cloudflare Worker entry
 ```
 
-## Схожі посібники
+## Правила, що визначають код
 
-- [Архітектура](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+- Файли маршрутів лише компонують. Віджети, діалоги, форми й колонки таблиць лежать у `src/presentation/components/custom`, по одному на файл.
+- Компоненти самі читають свої переклади й дані через `useTranslations`, `useSuspenseQuery` або дані loader-функції маршруту. Маршрути не передають підписи чи дані вниз через пропси.
+- Серверна функція, яка працює з таблицею, — це сценарій використання в модулі цієї таблиці. Серверну функцію, яку використовує лише один маршрут, можна визначити у файлі маршруту. Усе інше належить до `src/lib`.
+- Немає ні контейнера впровадження залежностей, ні шару обгорток. Імпортуйте конкретну функцію з папки, яка нею володіє.
+- Константа, яку використовує один файл, залишається в цьому файлі. У `src/data` переносяться лише дані, спільні для кількох файлів.
+
+## У цьому розділі
+
+- [Структура каталогів](/docs/architecture/directory-structure): кожна папка і те, що в ній має бути.
+- [Правила залежностей](/docs/architecture/dependency-rules): дозволені імпорти та межі суто серверного коду.
+- [Серверні функції та сценарії використання](/docs/architecture/modules-and-use-cases): структура модуля та патерн сценарію використання.
+- [Спільне ядро core](/docs/architecture/core): помилки й каталоги в `src/modules/_core`.
+- [Маршрути та доставка](/docs/architecture/delivery-layer): анатомія файлу маршруту та конфігурація роутера.
+- [Представлення](/docs/architecture/presentation-layer): організація компонентів і стилізація.
+- [Зони відповідальності інтеграцій](/docs/architecture/integrations-layer): папки вендорів і те, що до них не входить.
+- [Платформа та тестування](/docs/architecture/platform-layer): прив'язки Cloudflare, середовища та тестова інфраструктура.
+- [Провайдери](/docs/architecture/providers): чотири провайдери застосунку та місця, де їх змонтовано.
+- [Життєвий цикл запиту](/docs/architecture/request-lifecycle): що відбувається між Worker і відрендереною сторінкою.
+- [Кешування та SSR](/docs/architecture/caching-and-ssr): кеш запитів, пререндеринг і KV.
+- [HTTP-обробники TanStack Start](/docs/architecture/api-layer): ендпоінти `/api`.
+- [Автентифікація та безпека](/docs/architecture/security-model): guard-функції, дозволи, обмеження частоти запитів і маскування помилок.
+- [Інтернаціоналізація та локалі](/docs/architecture/i18n-architecture): URL-адреси локалей, простори імен і завантаження перекладів.
+- [Тестування та CI](/docs/architecture/testing-architecture): тестові проєкти, покриття та CI-пайплайн.

@@ -1,18 +1,54 @@
 ---
-title: Платежі та зарахування
-description: Замовлення, повернення коштів та Stripe-орієнтований платіж (планований).
+title: "Платежі та ліцензії"
+description: "Оплата через Polar, портал клієнта й вебхуки, що видають ліцензії; екран платежів в адмінпанелі демонстраційний."
 ---
 
-## Статус на сервери
+Платежі проходять через Polar за допомогою плагіна `@polar-sh/better-auth` в `auth.server.ts`:
 
-Афіша `/admin/payments` UI використовує mock рядки сьогодні. Про нас `order` виписки в `APP_STATEMENTS` вже за ескізом читання/оновлення/відновлення.
+```ts
+polarPlugin({
+  client: polar,
+  use: [
+    checkout({
+      authenticatedUsersOnly: true,
+      products: POLAR_CHECKOUT_PRODUCTS,
+      successUrl: ROUTES.APP,
+    }),
+    portal(),
+    webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
+  ],
+}),
+```
 
-## Архітектурою
+Клієнт Polar (`src/integrations/polar/polar.config.ts`) використовує `POLAR_ACCESS_TOKEN` і `POLAR_SERVER`. `POLAR_CHECKOUT_PRODUCTS` зіставляє ідентифікатори планів `core`, `complete` і `agency` з `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` і `POLAR_PRODUCT_ID_AGENCY`.
 
-- `modules/billing` або `modules/order` використання-кейси
-- Stripe (або Polar) папка інтеграції
-- Webhooks маршрутна ручка
-- Абоненти клієнтів під `/app`
-- Карта Better Auth користувач ⁇
+## Оплата
 
-Впроваджуйте за дозволами; ніколи не підігніть секретні ключі до клієнта.
+Користувач із сесією без ліцензії бачить `CheckoutOptions` на `/app` і `/app/license`. Компонент викликає `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`), який:
+
+1. шукає регіональну знижку через `pppDiscountId` (`license.ppp.ts`): відсоток для країни з `cf-ipcountry`, зіставлений з активними автоматичними відсотковими знижками в Polar; знижка не застосовується, коли cookie `regional_pricing` має значення `off`;
+2. створює сеанс оплати Polar для плану з вимкненими кодами знижок;
+3. повертає адресу оплати, яку відкриває браузер.
+
+Після оплати користувач повертається на `/app`.
+
+## Вебхуки та ліцензії
+
+Polar надсилає події на `/api/auth/polar/webhooks`, їх перевіряють за допомогою `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) визначають користувача за `externalId` клієнта Polar:
+
+- `onOrderPaid` → `grantLicense`: створює або оновлює єдину ліцензію користувача з планом придбаного продукту; новіша покупка замінює старішу.
+- `onBenefitGrantCreated` → `attachLicenseKey`: зберігає ліцензійний ключ Polar у ліцензії.
+- `onOrderRefunded` і `onBenefitGrantRevoked` → `revokeLicense`: встановлює статус `revoked` і записує замовлення в `revoked_license_order`, щоб запізнілий вебхук не зміг знову видати ліцензію.
+
+## Екрани клієнта
+
+`/app/license` показує `LicenseCard` (план, ключ, команду встановлення та посилання на портал клієнта Polar за адресою `/api/auth/customer/portal`) і `LicenseActivations`, який показує активації ключа в Polar і видаляє вибрану через `deactivateLicense`. Див. [Застосунок клієнта](/docs/features/customer-app).
+
+## Екран адмінпанелі (демонстраційний)
+
+`/admin/payments` показує `RefundStats` і `DataTable` повернень з даними `ADMIN_PAYMENT_ROWS` з `src/data/admin.ts`; його кнопки не підключено. Оголошення дозволів `order` (`read`, `update`, `refund`) існують в `auth.access.ts`, але жоден сценарій не читає замовлень чи повернень.
+
+## Пов’язані сторінки
+
+- [Головна сторінка](/docs/features/landing-page) — регіональні ціни в розділі цін
+- [Змінні середовища](/docs/getting-started/environment-variables)

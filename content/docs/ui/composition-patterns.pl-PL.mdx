@@ -1,8 +1,101 @@
 ---
 title: "Wzorce kompozycji"
-description: "Kompozycja zamiast boolean props; stan w providerach."
+description: "Zasady składania tras, stron i komponentów w tym kodzie."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+## Trasy składają strony
 
-Follow `.agents/skills/vercel-composition-patterns`: compound components, generic context (`state` / `actions` / `meta`), React 19 `use()`, no `forwardRef`.
+Plik trasy definiuje komponent `<Name>Page` lub `<Name>Layout`, `NAMESPACE` lub `NAMESPACES`, loader i `head`. Strona jedynie rozmieszcza widżety; widżety znajdują się w `src/presentation/components/custom/<area>/`. Tak wygląda layout (`src/routes/app.tsx`):
+
+```tsx
+const AppLayout = (): JSX.Element => (
+  <SidebarProvider className="h-svh overflow-hidden">
+    <AppSidebar />
+    <SidebarInset className="relative min-h-0 min-w-0 overflow-hidden">
+      <Background className="z-[-1]" glow={false} />
+      <AppHeader />
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-5 pb-6 md:px-6 md:pt-7 md:pb-8">
+        <div className="mx-auto w-full max-w-5xl">
+          <Outlet />
+        </div>
+      </div>
+    </SidebarInset>
+  </SidebarProvider>
+)
+```
+
+Funkcję serwerową używaną tylko przez jedną trasę można zdefiniować w pliku tej trasy za pomocą `createServerFn`, tak jak robi to `src/routes/blog.index.tsx`.
+
+## Jeden widżet, okno dialogowe lub formularz na plik
+
+Każdy widżet, okno dialogowe, formularz lub zestaw kolumn ma własny plik: `admin/users/row-actions.tsx`, `delete-user-dialog.tsx`, `reset-password-dialog.tsx`, `user-columns.tsx`. Foldery komponentów są płaskie: bez podfolderów `components/`, `hooks/`, `constants/` ani `types/` i bez podziału na `x.tsx` oraz `x-content.tsx`. Komponenty współdzielone leżą bezpośrednio w `custom/`.
+
+## Komponenty same odczytują swoje dane
+
+Komponent sam pobiera teksty i dane, zamiast otrzymywać je przez właściwości:
+
+- tłumaczenia przez `useTranslations`;
+- dane zapytań przez `useSuspenseQuery`, wcześniej pobrane przez loader trasy;
+- dane loadera, kontekst trasy i parametry wyszukiwania przez `getRouteApi("…")`.
+
+```tsx
+const route = getRouteApi("/blog/$")
+
+export const PostMeta = (): JSX.Element => {
+  const { post } = route.useLoaderData()
+  const t = useTranslations("pages.blog.post")
+  const format = useFormatter()
+
+  const details = [post.authorName, t("readingTime", { minutes: post.readingTimeMinutes }), post.tags.join(", ")].filter(
+    (item) => item.trim().length > 0,
+  )
+
+  return (
+    <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-border py-4 font-mono text-body-sm text-muted-foreground">
+      <span className="flex items-center gap-2.5">
+        <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
+        <time className="tabular-nums" dateTime={new Date(post.date).toISOString()}>
+          {format.dateTime(new Date(post.date), { day: "numeric", month: "long", year: "numeric" })}
+        </time>
+      </span>
+      {details.map((item) => (
+        <span className="flex items-center gap-3" key={item}>
+          <span aria-hidden className="text-border">
+            &middot;
+          </span>
+          {item}
+        </span>
+      ))}
+    </div>
+  )
+}
+```
+
+Właściwości przenoszą tożsamość lub stan znany tylko rodzicowi, na przykład `user` okna dialogowego razem z `isOpen` i `onOpenChange` albo `activationId`. Nie ma właściwości z tekstem ani etykietami, przekazywania właściwości w dół wielu poziomów ani opakowań, które tylko zmieniają nazwy właściwości lub przekazują dzieci. Stała używana w jednym pliku zostaje w tym pliku; dane współdzielone przez wiele plików trafiają do `src/data`.
+
+## Tekst sformatowany
+
+Mapy znaczników dla `t.rich` są stałymi modułu, nigdy obiektami tworzonymi podczas renderowania:
+
+```tsx
+const REUSE_TAGS = { accent: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong> }
+```
+
+## Klasy warunkowe
+
+Używaj `cn` z `~/src/lib/cn` ze składnią obiektową:
+
+```tsx
+<p className={cn("font-medium", { "text-foreground": !banned, "text-muted-foreground line-through": banned })}>{name}</p>
+```
+
+Alternatywy renderuj za pomocą pary warunków `&&` lub wczesnego powrotu zamiast wielowierszowego operatora trójargumentowego.
+
+## Providery
+
+Providery, które zmieniają się po hydratacji, otaczają tylko potrzebujące ich widżety, nigdy `Outlet` trasy: `ThemeProvider` otacza `Toaster` i `ThemeSwitch` dokumentacji, a `MotionProvider` sekcje strony głównej i listę wpisów bloga. `AriaProvider` otacza główny outlet, a `TranslationsProvider` treść dokumentu, ponieważ potrzebuje ich każdy ekran.
+
+## Powiązane przewodniki
+
+- [Warstwa prezentacji](/docs/architecture/presentation-layer)
+- [Konwencje](/docs/reference/conventions)

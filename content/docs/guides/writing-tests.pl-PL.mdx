@@ -1,26 +1,100 @@
 ---
-title: Testy i CI
-description: Testy i CI — SaaSy Land
+title: "Pisanie testów"
+description: "Gdzie znajdują się testy, jak działają projekty Vitest i testowe bindingi, wymagane 100% pokrycia oraz Playwright."
 ---
 
-Vite+ uruchamia Vitest w trzech projektach: testy node, integracyjne i komponentowe w jsdom. Istniejące testy zachowania przechowuj obok kodu w `__test__`. API testów importuj z `vite-plus/test`. Playwright służy do pełnych scenariuszy przeglądarkowych i sprawdzania renderowania.
+Vite+ uruchamia Vitest (`vp test`) w trzech projektach. Testy znajdują się w folderze `__test__` obok kodu, który sprawdzają, i importują API z `vite-plus/test`.
 
-Wspólna konfiguracja udostępnia lokalne mocki D1 i KV. D1 wykonuje zapisane migracje SQL na SQLite. Most RPC funkcji serwerowych zachowuje prawdziwy pipeline middleware i walidacji TanStack. Narzędzia renderowania zapewniają rzeczywiste konteksty QueryClient i Router. Wywołania usług e-mail, OAuth i płatności są mockowane.
+| Projekt       | Pliki                            | Środowisko |
+| ------------- | -------------------------------- | ---------- |
+| `node`        | `__test__/*.test.ts(x)`          | Node       |
+| `integration` | `__test__/*.integration.test.ts` | Node       |
+| `component`   | `__test__/*.component.test.tsx`  | jsdom      |
 
-Podczas edycji uruchamiaj właściwy projekt testowy, a następnie całą paczkę, próg pokrycia, check i build preview. Testy przeglądarkowe sprawdzają strony publiczne, przekierowania logowania, SSR bez JavaScript i nawigację klienta. CI używa lokalnych bindingów, bez zdalnej bazy i sekretów usługodawców.
+Nazywaj test od pliku źródłowego: `category.zod.ts` testuje `__test__/category.zod.test.ts`.
+
+## Polecenia
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
 ```
 
-## Powiązane przewodniki
+Używaj `bun run test`, a nie `bun test`: tylko Vitest wczytuje projekty, środowiska i plik konfiguracyjny testów.
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+## Wymagane pokrycie
+
+`bun run test:coverage` kończy się błędem poniżej **100%** linii, instrukcji, funkcji i gałęzi kodu aplikacji w `src`. Wyłączone są testy, `src/platform/testing`, prymitywy shadcn i pliki generowane. Testuj rzeczywiste zachowanie i usuwaj gałęzie, które nigdy się nie wykonają, zamiast podmieniać obiekty globalne, żeby do nich dotrzeć. Raporty trafiają do `coverage/`.
+
+## Środowisko testów
+
+- `src/platform/testing/setup.ts` rejestruje matchery jest-dom, resetuje bindingi przed każdym testem i przepuszcza każde `createServerFn` przez `withTestRpc`, więc wywołania uruchamiają prawdziwe middleware i walidator.
+- `cloudflare:workers` wskazuje na `src/platform/testing/mocks/cloudflare.ts`. D1 to baza SQLite w pamięci z zastosowanymi wszystkimi zatwierdzonymi migracjami, KV to mapa w pamięci, a `flushWaitUntil()` czeka na zadania w tle.
+- `.env.test` dostarcza fikcyjne dane dostępowe. Wywołania e-mail, OAuth i płatności są mockowane; nic nie opuszcza komputera.
+- `renderWithRouter` z `src/platform/testing/lib/render.tsx` renderuje komponenty z prawdziwym routerem i `QueryClient`.
+
+## Przetestuj przypadek użycia
+
+Skrócona wersja `src/modules/category/use-cases/__test__/create-category.test.ts`:
+
+```ts
+import { describe, expect, it, vi } from "vite-plus/test"
+
+import { executeMutation } from "~/src/platform/testing/lib/query"
+
+import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import type { auth } from "~/src/integrations/better-auth/auth.server"
+import * as authServer from "~/src/integrations/better-auth/auth.server"
+
+import { createCategoryMutation } from "~/src/modules/category/use-cases/create-category"
+
+const getSessionMock = vi.hoisted(() => vi.fn<(typeof auth.api)["getSession"]>())
+
+vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
+
+describe("create-category", () => {
+  it("returns a domain error when the caller is not an admin", async () => {
+    vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
+    getSessionMock.mockResolvedValue(
+      createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: "01900000-0000-7000-8000-000000000001" }),
+    )
+
+    await expect(executeMutation(createCategoryMutation, { kind: "category", name: "SaaS Plans" })).rejects.toThrow("FORBIDDEN")
+  })
+})
+```
+
+Testuj każdy wynik przypadku użycia: sukces, każdy kod `AppError`, brak sesji i brak uprawnienia.
+
+## Przetestuj komponent
+
+Testy komponentów renderują z prawdziwymi komunikatami z `messages/en-US`, mockują moduł przypadku użycia, który dostarcza opcje mutacji, i sterują interfejsem przez Testing Library oraz `userEvent`. W stanach oczekiwania wstrzymaj mockowane żądanie przez `Promise.withResolvers()`, sprawdź interfejs oczekiwania, a potem rozwiąż żądanie wewnątrz `act` i sprawdź interfejs spoczynkowy. Kompletnym przykładem jest `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx`.
+
+## Testy przeglądarkowe
+
+Specyfikacje Playwright znajdują się w `e2e/specs`, obiekty stron w `e2e/pages`, a fixtures w `e2e/fixtures`. Działają na zbudowanej aplikacji testowej z lokalnymi D1 i KV w `.wrangler/test` oraz z kontami z `e2e/data/accounts.ts`. Lokalnie Playwright sam wykonuje migracje, zasila bazę danymi, buduje i uruchamia tę aplikację.
+
+```sh
+bun run test:e2e:install
+bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:ui
+```
+
+Testowy Worker zapisuje wysłane e-maile, więc specyfikacja może odczytać link weryfikacyjny z `/__test/emails?to=<address>`.
+
+## Przed wypchnięciem zmian
+
+```sh
+bun run check
+bun run test:coverage
+bun run build
+```
+
+CI uruchamia kontrole, pokrycie i testy przeglądarkowe w Chromium przy każdym pull requeście i wypchnięciu do `main`, a WebKit co tydzień oraz przy wypchnięciach do `main`.

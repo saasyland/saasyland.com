@@ -1,6 +1,48 @@
 ---
-title: Трансакційна електронна пошта
-description: Resend доставка для електронної пошти та товарів.
+title: "Транзакційні листи"
+description: "Шаблони React Email у src/presentation/emails, які надсилають сценарії використання через Resend."
 ---
 
-Переглянути інтеграцію → Resend і керівництва → шаблони електронної пошти. Повірити перевірку / скидання пошти необхідно для локального потоку; надходження товару прибувають з виплатами.
+## Шаблони
+
+Шаблони розташовані в `src/presentation/emails`. Кожен файл містить лише розмітку та експортує константу свого простору імен:
+
+| Шаблон                         | Простір імен                             | Надсилає                                             |
+| ------------------------------ | ---------------------------------------- | ---------------------------------------------------- |
+| `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail` (хук Better Auth)                  |
+| `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail` (хук Better Auth)           |
+| `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail` (хук Better Auth) |
+| `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                              |
+| `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`, на `CONTACT_EMAIL`  |
+
+Шаблон отримує `locale` і `messages` та перекладає через `createTranslator` з use-intl:
+
+```tsx
+const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
+```
+
+## Надсилання
+
+Сценарій використання завантажує повідомлення, рендерить шаблон і надсилає його (`src/modules/verification/use-cases/send-verify-email.ts`):
+
+```ts
+const locale = getCurrentLocale()
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+verifyUrl.searchParams.set("token", token)
+await sendEmail({
+  idempotencyKey: `verify-email/${token}`,
+  react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+  subject: createTranslator({ locale, messages })("subject"),
+  to: user.email,
+})
+```
+
+`sendEmail` (`src/integrations/resend/resend.utils.ts`) надсилає через Resend з адреси `RESEND_EMAIL_FROM`, якщо не вказано `from` (сповіщення власнику використовує `NOTIFICATIONS_EMAIL`), передає ключ ідемпотентності й кидає помилку в разі невдачі.
+
+Листи облікового запису використовують мову поточного запиту. Листи розсилки використовують мову, передану з формою; сповіщення власнику завжди надсилається мовою `en-US`.
+
+## Пов’язані посібники
+
+- [Шаблони листів](/docs/guides/email-templates)
+- [Resend](/docs/integrations/resend)

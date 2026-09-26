@@ -1,28 +1,76 @@
 ---
-title: Structure du répertoire
-description: Structure du répertoire — SaaSy Land
+title: "Structure des dossiers"
+description: "Chaque dossier de premier niveau de SaaSy Land et les règles qui déterminent où placer chaque chose."
 ---
 
-Utilisez kebab-case pour les fichiers et les dossiers. Les fichiers d'itinéraires utilisent TanStack Router="s dot and pathless-route conventions. L'assurance-chômage réutilisable fait partie des régimes d'assurance-emploi `presentation/components/custom`; les primitifs générés appartiennent sous `presentation/components/shadcn`C'est vrai. Une fonctionnalité peut contenir `components`, `constants`, `hooks`et `types` quand il en a besoin.
-
 ```text
-content/                         Localized MDX
-messages/{locale}/           Translation namespaces
-src/routes/                      Flat file routes
-src/router.tsx                   Router and per-request query cache
-src/server.ts                    Cloudflare Worker entry
-src/modules/{feature}/           Schemas, constants, validation
-src/modules/{feature}/use-cases/  Server functions and query/mutation options
-src/integrations/{vendor}/       Vendor adapters and setup
-src/presentation/                Components, styles, branding, emails
-src/providers/                   Application providers
-src/hooks/                       Shared hooks
-src/lib/                         Shared utilities
-src/platform/testing/            Binding mocks and test helpers
+content/
+├── blog/                            <slug>.<locale>.mdx
+└── docs/                            <page>.<locale>.mdx and meta.<locale>.json
+messages/<locale>/<namespace>.json   One file per translation namespace
+e2e/                                 Playwright specs, page objects, fixtures
+scripts/                             Check, build and Git hook scripts
+public/                              Fonts and other static files
+src/
+├── routes/                          Flat TanStack file routes
+│   └── api/                         HTTP handlers
+├── routes.ts                        ROUTES path constants
+├── router.tsx                       Router, QueryClient, locale rewrite
+├── server.ts                        Worker entry
+├── modules/
+│   ├── _core/
+│   │   ├── constants/               errors, api, locale, country, currency, timezone, pricing
+│   │   └── utils/                   pagination, zod-fields
+│   └── <table>/
+│       ├── <table>.schema.ts
+│       ├── <table>.zod.ts
+│       ├── <table>.constants.ts
+│       ├── <table>.types.ts
+│       ├── <table>.utils.ts
+│       └── use-cases/<operation>.ts
+├── integrations/<vendor>/           <vendor>.<concern>.ts
+├── presentation/
+│   ├── components/
+│   │   ├── shadcn/                  Generated primitives
+│   │   └── custom/
+│   │       ├── footer.tsx           Shared components, flat
+│   │       ├── data-table.tsx
+│   │       ├── admin/
+│   │       │   └── users/           user-columns.tsx, reset-password-dialog.tsx
+│   │       ├── app/
+│   │       ├── auth/
+│   │       ├── blog/
+│   │       └── landing-page/
+│   │           ├── components/
+│   │           └── sections/
+│   ├── emails/                      React Email templates
+│   ├── styles/                      globals.css, docs.css, fonts.css, typeset.css
+│   ├── theme/
+│   ├── branding/
+│   ├── assets/
+│   └── document-assets.ts
+├── data/                            Data shared by several files
+├── lib/                             cn, cookie, github, rate-limit, seo, confetti
+├── hooks/                           Shared React hooks
+├── providers/                       aria, motion, theme, translations
+├── platform/testing/                Test setup, binding mocks, RPC bridge
+└── types/                           Bindings, router and generated Worker types
 ```
 
-## Guides connexes
+## Règles de placement
+
+- **Les fichiers et dossiers sont en kebab-case.** Les tests se trouvent dans un dossier `__test__` voisin.
+- **Les routes ne font que composer.** Un fichier de route définit le composant de page ou de layout, `NAMESPACE` ou `NAMESPACES`, le loader et `head`. Il ne contient ni widgets, ni boîtes de dialogue, ni définitions de colonnes.
+- **Les modules sont des tables de base de données.** Ne créez `src/modules/<name>` que pour une vraie table. Une fonction serveur qui ne travaille pas sur une table va dans `src/lib` (par exemple `src/lib/github.ts`) ou, si une seule route l'utilise, dans le fichier de cette route.
+- **Les composants partagés sont à plat.** Un composant utilisé dans plusieurs zones est un fichier unique placé directement dans `presentation/components/custom`.
+- **Dossiers de zone et de page.** Les composants utilisés par une seule zone se trouvent dans `admin/`, `app/`, `auth/`, `blog/` ou `landing-page/`. Les pages d'administration ont leur propre dossier, comme `admin/users/` ou `admin/settings/`. La landing page se divise en `sections/` (un fichier par section de la page) et `components/` (les éléments que les sections partagent).
+- **Un widget, une boîte de dialogue, un formulaire ou un ensemble de colonnes par fichier.** Ne scindez pas un composant en un wrapper et un fichier `-content`.
+- **Pas de dossiers utilitaires imbriqués.** Les dossiers de composants ne contiennent jamais de sous-dossiers `components/`, `constants/`, `hooks/`, `lib/` ou `types/`, et aucun fichier utilitaire `.ts` ne se trouve à côté d'un composant. Une constante utilisée par un seul composant reste dans le fichier de ce composant.
+- **Les données partagées vont dans `src/data`.** Exemples : les groupes de la barre latérale d'administration, `MARKETING_SECTION_IDS`, la navigation de l'application, les choix de la CLI et les lignes de démonstration.
+- **Les fichiers générés ne se modifient pas à la main.** Le plugin du routeur écrit `src/routeTree.gen.ts`, `bun run cf-typegen` écrit `src/types/worker-configuration.d.ts`, et `bun run content` et `bun run generate:cn` écrivent `.source/`.
+
+## Pages associées
 
 - [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+- [Nommage des fichiers](/docs/reference/file-naming)
+- [Conventions](/docs/reference/conventions)

@@ -1,12 +1,29 @@
 ---
-title: Autenticación de dos factores
-description: Activación, verificación y códigos de respaldo de TOTP.
+title: "Autenticación en dos pasos"
+description: "Autenticación en dos pasos TOTP con códigos de respaldo, configurada en los ajustes de administración."
 ---
 
-## Módulo.
+El plugin `twoFactor` de Better Auth usa `APP_NAME` como emisor. Sus funciones de servidor están en `src/modules/two-factor/use-cases`:
 
-`modules/two-factor/use-cases` — habilitar, deshabilitar, verificar TOTP, verificar código de respaldo.
+| Caso de uso        | Middleware           | Lo usa                                 |
+| ------------------ | -------------------- | -------------------------------------- |
+| `enableTwoFactor`  | con sesión, limitada | `TwoFactorPasswordStep`                |
+| `disableTwoFactor` | con sesión, limitada | `TwoFactorPasswordStep`                |
+| `verifyTotp`       | limitada             | `TwoFactorVerifyStep`, `TwoFactorForm` |
+| `verifyBackupCode` | limitada             | `TwoFactorForm`                        |
 
-## Experiencia de usuario.
+## Configuración
 
-Configuración, pestaña de seguridad + ruta `/auth/two-factor` para el desafío. Cumplir con las restricciones del plugin Better Auth 2FA en `auth.constraints.ts`.
+**Ajustes → Seguridad** en `/admin/settings` muestra `TwoFactorDialog` (`src/presentation/components/custom/admin/settings`):
+
+1. El paso de contraseña llama a `enableTwoFactor` y recibe la URI TOTP y los códigos de respaldo.
+2. El paso de verificación muestra el secreto de la URI (`extractTotpSecret`) para introducirlo a mano en una aplicación de autenticación y confirma un código de 6 dígitos con `verifyTotp`.
+3. El último paso muestra los códigos de respaldo.
+
+Con la 2FA activada, el mismo botón abre el paso de contraseña con `disableTwoFactor`. El botón lee `twoFactorEnabled` de la sesión actual.
+
+## Desafío al iniciar sesión
+
+Para una cuenta con 2FA, Better Auth responde al inicio de sesión con una redirección de dos pasos; `twoFactorClient` en `auth.client.ts` lleva el navegador a `/auth/two-factor` en el idioma actual. `TwoFactorForm` acepta un código de 6 dígitos (`InputOTP`) o, tras cambiar de modo, un código de respaldo, y envía `trustDevice: true`. Si tiene éxito, `usePostAuthRedirect` continúa a `/auth/callback`.
+
+Las longitudes de los códigos están en `auth.constraints.ts`: `TWO_FACTOR_CODE_LENGTH` es 6 y los códigos de respaldo tienen de 8 a 12 caracteres.

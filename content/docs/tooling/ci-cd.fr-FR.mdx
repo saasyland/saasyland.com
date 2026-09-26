@@ -1,26 +1,38 @@
 ---
-title: Essais et CI
-description: Essais et CI — SaaSy Land
+title: "CI/CD"
+description: "Workflows GitHub Actions pour les vérifications, les tests dans le navigateur et les déploiements."
 ---
 
-Vite+ exécute Vitest dans trois projets : tests de nœuds, tests d'intégration et tests de composants de jsdom. Gardez les tests de comportement existants à côté du code qu'ils exercent sous `__test__`C'est vrai. Importer des API test à partir de `vite-plus/test`C'est vrai. Utilisez Playwright pour les flux complets du navigateur et les vérifications de rendu.
+Les workflows se trouvent dans `.github/workflows/`. Les workflows de l'application (`ci.yml`, `e2e-reusable.yml` et `deploy-reusable.yml`) mettent en place la chaîne d'outils avec l'action composite `.github/actions/setup` : Bun 1.4.0, Vite+ avec Node 24, un cache Bun, `bun install --frozen-lockfile --ignore-scripts` et `bun run typegen`. `remotion.yml` met plutôt en place Node et npm.
 
-La configuration partagée fournit des maquettes locales D1 et KV. D1 exécute les migrations SQL cochées contre SQLite. Le pont RPC fonction serveur préserve TanStacks véritable intergiciel et pipeline de validation. Les helpers de rendu de composants fournissent de vrais contextes QueryClient et Router. Les courriels externes, OAuth et les appels de paiement sont simulés dans les tests.
+| Workflow              | Déclencheur                                                 | Jobs                                                                                       |
+| --------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `ci.yml`              | Pull requests et pushs sur `main`                           | Vérifications et couverture, E2E Chromium, puis déploiement en préversion ou en production |
+| `e2e-full.yml`        | Pushs sur `main`, chaque lundi à 03:15 UTC, manuel          | WebKit lors d'un push ; Chromium et WebKit lors des exécutions planifiées et manuelles     |
+| `e2e-reusable.yml`    | Appelé par les workflows ci-dessus                          | Base de données de test, build de test et un projet Playwright                             |
+| `deploy-reusable.yml` | Appelé par `ci.yml`                                         | Build, migrations D1 et `wrangler deploy`                                                  |
+| `remotion.yml`        | Modifications de `remotion/` ou de ses constantes partagées | Vérifie et empaquette avec npm le projet vidéo de la page d'accueil                        |
 
-Exécutez le projet ciblé pendant l'édition, puis exécutez la suite complète, la porte de couverture, vérifiez et prévisualiser la construction. Les tests du navigateur vérifient les pages publiques, les redirections auth, SSR sans JavaScript et la navigation client. CI utilise des liaisons locales et ne nécessite pas de base de données en direct ou de secrets de fournisseur.
+## Vérifications
 
-```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
-```
+Le job `verify` de `ci.yml` exécute `bun run check` (tables des noms de classes, vérifications i18n et de contenu, formatage, lint et types) et `bun run test:coverage`, puis téléverse le rapport de couverture. Le job `e2e` exécute `db:migrate:test`, `db:seed:test` et `build:test`, installe le navigateur et lance `bunx playwright test e2e/specs --project=chromium`. Les exécutions E2E en échec téléversent le rapport Playwright.
 
-## Guides connexes
+## Déploiements
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+Les déploiements ne s'exécutent qu'une fois `verify` et `e2e` réussis :
+
+| Événement                                   | Cible        | Environnement GitHub | URL                           |
+| ------------------------------------------- | ------------ | -------------------- | ----------------------------- |
+| Pull request depuis une branche de ce dépôt | `preview`    | `Preview`            | https://preview.saasyland.com |
+| Push sur `main`                             | `production` | `Production`         | https://saasyland.com         |
+
+Les pull requests provenant de forks et de Dependabot sont validées mais pas déployées. La préversion est partagée : chaque déploiement remplace le précédent et utilise la même base de données D1 et le même espace de noms KV de préversion.
+
+`deploy-reusable.yml` vérifie la présence des secrets `CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ACCOUNT_ID`, exécute `scripts/verify-bindings.ts`, construit avec les valeurs factices de `.env.test`, supprime le fichier généré `dist/server/.dev.vars`, applique `db:migrate:<target>` et lance `bunx wrangler deploy`. Aucun fichier de secrets n'est téléversé : le Worker conserve les secrets d'exécution déjà définis dans Cloudflare. Les déploiements vers une même cible sont mis en file d'attente au lieu de s'annuler mutuellement.
+
+Dependabot met à jour les GitHub Actions chaque semaine.
+
+## Guides associés
+
+- [Playwright](/docs/tooling/playwright)
+- [Déployer une préversion](/docs/getting-started/deploy-preview)

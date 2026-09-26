@@ -1,25 +1,38 @@
 ---
-title: "Deploy to Cloudflare Workers"
-description: "Deploy to Cloudflare Workers — SaaSy Land"
+title: "Deploy a preview"
+description: "Provision Cloudflare resources and deploy the preview Worker."
 ---
 
-The Worker build is produced by Vite+, TanStack Start and `@cloudflare/vite-plugin`. `wrangler.jsonc` declares the entry, compatibility settings, assets, observability and separate development, preview and production bindings.
+The `preview` environment deploys the Worker `saasyland-preview` to `preview.saasyland.com`. By default `development` and `preview` share one D1 database and one KV namespace.
 
-Provision D1 and KV and replace the placeholder IDs for the target environment. Set its URL and provider secrets in `.env.preview` or `.env.production`. Apply migrations explicitly, then deploy. Deploy scripts validate binding IDs first; build scripts prerender public pages and verify output artifacts. Authentication and private application pages run dynamically on the Worker.
-
-Set the custom domain and OAuth callback URLs for the target environment. Installing dependencies and building never applies a remote migration.
+## Provision resources
 
 ```sh
 bunx wrangler login
-bunx wrangler d1 create saasyland_preview
+bunx wrangler d1 create saasyland_com_preview
 bunx wrangler kv namespace create CACHE --env preview
-# Update wrangler.jsonc and .env.preview first.
+```
+
+In `wrangler.jsonc`, replace `database_id`, `database_name` and the KV `id` under both `development` and `preview`. Keep the binding names `DB` and `CACHE` and the `migrations_dir`, and update the Worker names and custom domain routes for your account. For production, create separate resources and update the `production` block. Set `APP_DOMAIN` in `src/presentation/branding/index.ts`. `appHostsForMode` in `src/modules/_core/constants/api.ts` derives the allowed hosts from it: `APP_DOMAIN` in production, `preview.<APP_DOMAIN>` in preview, and `localhost:3000` or `127.0.0.1:3000` in development and test. Edit `HOSTS_BY_MODE` there only if your preview host has a different name.
+
+## Deploy
+
+Fill in `.env.preview`, then migrate and deploy:
+
+```sh
 bun run db:migrate:preview
 bun run deploy:preview
 ```
 
+`deploy:preview` runs `scripts/verify-bindings.ts preview`, which rejects placeholder IDs, then `build:preview`, which prerenders the public pages and verifies the output, and finally `wrangler deploy --secrets-file .env.preview`, which also uploads the secrets. Building and deploying never apply migrations; run `db:migrate:preview` before deploying code that needs a new schema.
+
+Register the OAuth callbacks and the Polar webhook for the preview host as listed in [Environment variables](/docs/getting-started/environment-variables).
+
+## Automatic deployments
+
+CI deploys every pull request from a branch in this repository to the shared preview, and every push to `main` to production, after checks and browser tests pass. See [CI/CD](/docs/tooling/ci-cd) for the required GitHub secrets.
+
 ## Related guides
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Database migrations](/docs/tooling/database)

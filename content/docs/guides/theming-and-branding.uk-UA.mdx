@@ -1,13 +1,36 @@
 ---
-title: Брендування та брендування
-description: Тематичні токени, шрифти та брендові активи.
+title: "Теми та брендинг"
+description: "Змініть назву продукту, домен, колірні токени, типографічну шкалу й шрифти."
 ---
 
-## Місцезнаходження
+## Ідентичність бренду
 
-- `presentation/theme`
-- `presentation/branding`
-- `presentation/fonts`
-- Глобальні стилі для презентаційних стилів
+`src/presentation/branding/index.ts` — єдине джерело ідентичності продукту: `APP_NAME`, `APP_DOMAIN`, `APP_URL` (виводиться як `https://${APP_DOMAIN}`), `CONTACT_EMAIL`, `NOTIFICATIONS_EMAIL`, `APP_FOUNDED_YEAR` а також власник, репозиторій і URL на GitHub. З нього походять заголовки сторінок, канонічні URL, назва застосунку в Better Auth, видавець двофакторної автентифікації та назви cookie теми й мови.
 
-Тематичний перемикач - це контроль клієнта; типові за замовчуванням повинні уникати згортання шаблонів флікера вже використовуються в постачальниках.
+Під час ребрендингу також оновіть:
+
+- `Wordmark` у `src/presentation/components/custom/wordmark.tsx`: вбудований SVG-логотип поруч з `APP_NAME`.
+- `public/favicon.ico` і зображення в `public/images`.
+- Префікс cookie автентифікації, `advanced.cookiePrefix` у `src/integrations/better-auth/auth.server.ts`, і дозволені хости для кожного середовища в `src/modules/_core/constants/api.ts`.
+
+Після зміни брендингу зберіть застосунок заново; файли середовища не змінюють канонічний URL.
+
+## Тема
+
+`src/presentation/theme/index.ts` визначає `THEME`: теми `light`, `dark` і `system`, типову `system` і cookie, що зберігає вибір. `ThemeScript` у заголовку кореневого документа застосовує збережену тему до першого малювання, тож сторінки ніколи не блимають неправильною темою. `ThemeSwitch` (`src/presentation/components/custom/theme-switch.tsx`) її змінює. `ThemeProvider` (`src/providers/theme-provider.tsx`) обгортає лише компоненти, що використовують тему, наприклад `<ThemeSwitch />` у `src/routes/docs.tsx` і toaster у кореневому маршруті. Він ніколи не обгортає `Outlet` маршруту, бо оновлюється після гідратації й перерендерював би всю сторінку.
+
+## Колірні токени
+
+`src/presentation/styles/globals.css` — єдина точка входу Tailwind. Він визначає токени shadcn (`--background`, `--foreground`, `--primary`, `--muted`, `--border`, `--ring`, `--sidebar-*`, `--chart-*` та інші) у `:root` для світлого режиму й у `.dark` для темного та зіставляє їх із кольорами Tailwind у `@theme inline`. Змінюйте значення саме там; компоненти використовують семантичні класи (`bg-background`, `text-muted-foreground`, `border-border`). Винятком є акценти статусів, як-от бурштиновий і рожевий.
+
+`docs.css` і `typeset.css` у тій самій теці — це звичайний CSS, який завантажують лише layout документації та блогу.
+
+## Типографічна шкала
+
+Типографічна шкала — це набір токенів `--text-*` у `globals.css`: `display-hero`, `display-gate`, `display-blast`, `headline-peak`, `headline-support`, `price`, `title`, `statement`, `lead`, `body`, `body-sm`, `label` і `spec`. Кожен токен задає розмір, висоту рядка й міжлітерний інтервал, більші — також товщину, і використовується як клас: `text-body`, `text-title` тощо.
+
+Додаючи токен `text-*`, внесіть його назву й до `src/lib/cn.config.ts`. `cn` з `src/lib/cn.ts` використовує цю конфігурацію, щоб під час об'єднання класів вважати власні розміри розмірами шрифту; без неї `cn` їх відкидає. `bun run generate:cn` перебудовує таблиці класів і запускається в межах `dev`, `build` і `check`.
+
+## Шрифти
+
+Geist і Geist Mono розміщено локально в `public/fonts` й оголошено через `@font-face` у `src/presentation/styles/fonts.css`, по одному файлу на діапазон Unicode. `fontPreloads` у `src/presentation/document-assets.ts` заздалегідь завантажує латиницю та моноширинну латиницю на кожній сторінці, розширену латиницю для `pl-PL` і кирилицю для `uk-UA`. Щоб змінити шрифти, замініть файли й правила `@font-face`, а потім оновіть список попереднього завантаження.

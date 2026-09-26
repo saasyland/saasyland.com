@@ -1,12 +1,35 @@
 ---
-title: Produkte
-description: "Produktkatalog: Anwendungsfälle und Verwaltungsinterfläche."
+title: "Produkte"
+description: "Die Produkttabelle in D1 und ihre paginierte Admin-Liste; das Erstellungsformular ist eine Demo."
 ---
 
-## Modul
+## Daten
 
-`modules/product/use-cases` — CRUD + Liste.
+`src/modules/product/product.schema.ts` definiert die Tabelle `product`: `name`, `description`, `priceCents`, `currency`, `type` (`one_time`, `subscription`, `course`), `status` (`draft`, `published`, `archived`), `billingCycle` und Zeitstempel.
 
-## Verwaltung
+Die Anwendungsfälle in `src/modules/product/use-cases` sind jeweils durch die passende `product`-Berechtigung geschützt:
 
-`/admin/products` (+ erstellen). Setzen Sie die Ersetzung von Testdaten durch Anwendungsfalldaten fort, wobei die Tabelle "Benutzer" als Referenzmodell dient.
+- `getProducts` — paginiert, mit optionalen Filtern für `type` und `status`; exportiert `getProductsPageQuery` und `getProductsQuery`.
+- `getProduct`, `createProduct`, `updateProduct`, `deleteProduct`.
+
+## Admin-Ansicht
+
+`/admin/products` hält den aktiven Tab im Suchparameter `?tab=`: `all`, `onetime`, `subscriptions`, `categories`, `collections`, `drafts` und `courses`. Die Produkt-Tabs blättern serverseitig:
+
+```tsx
+<DataTable
+  columns={productColumns}
+  key={tab}
+  options={{ query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] }) }}
+/>
+```
+
+`categories` und `collections` rendern `categoryColumns` mit `getCategoriesPageQuery` (siehe [Kategorien](/docs/features/categories)); `courses` zeigt einen leeren Zustand. Auch der Zähler im Dashboard liest `getProductsQuery`.
+
+## Demo-Teile
+
+- `/admin/products/create` rendert `ProductDetails` und `ProductSidebar` als statisches Formular; **Speichern** und **Abbrechen** sind nicht angebunden.
+- Die Schaltfläche für Zeilenaktionen (`RowActionsCell`) hat kein Menü.
+- `createProduct`, `updateProduct`, `deleteProduct` und `getProduct` werden noch von keiner Ansicht aufgerufen.
+
+Der Checkout verwendet diese Tabelle nicht: Käufliche Stufen sind Polar-Produkte (siehe [Zahlungen und Lizenzen](/docs/features/payments)).

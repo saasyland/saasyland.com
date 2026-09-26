@@ -1,14 +1,61 @@
 ---
-title: Core noyau partagé
-description: Erreurs de domaine et catalogues partagés dans les modules/_core.
+title: "Noyau partagé"
+description: "Le vocabulaire d'erreurs, les catalogues et les utilitaires de src/modules/_core que partagent tous les modules."
 ---
 
-## Table des matières
+`src/modules/_core` est le seul dossier de module qui ne possède pas de table. Il contient les valeurs et les utilitaires dont plusieurs modules ont besoin, afin qu'aucun module ne les redéfinisse.
 
-- `constants/errors.ts` — `ERROR_CODES`, `AppError`, `ActionServerError` (le vocabulaire d'erreur unique)
-- `constants/` — catalogues locaux (et connexes) utilisés par les boutons i18n et produits
-- `utils/` — aides pures partagées entre modules
+## Constantes
 
-## Pourquoi il existe
+| Fichier                 | Contenu                                                                                                          |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `constants/errors.ts`   | `ERROR_CODES`, le type `ErrorCode` et la classe `AppError`                                                       |
+| `constants/api.ts`      | `HTTP_STATUS`, les noms des en-têtes `cf-ipcountry` et `cf-connecting-ip`, les hôtes autorisés par mode de build |
+| `constants/locale.ts`   | Le catalogue `LOCALES`, `LocaleCode`, `getLocaleName` et `getLocaleDirection`                                    |
+| `constants/country.ts`  | Le catalogue `COUNTRIES` et `CountryCode`                                                                        |
+| `constants/currency.ts` | Le catalogue `CURRENCIES`, `CurrencyCode` et `DEFAULT_CURRENCY_CODE`                                             |
+| `constants/timezone.ts` | Le catalogue `TIMEZONES` et `TimezoneCode`                                                                       |
+| `constants/pricing.ts`  | Les multiplicateurs de tarification régionale, le cookie de tarification régionale et le formatage des devises   |
 
-Transverses **valeurs valables** et **codes d'erreur** ne devrait pas être redéfini par caractéristique. Des locaux (sous-set) compatibles avec l'application vivent encore dans `i18n.config.ts`; le catalogue plus large peut vivre dans `_core`.
+Le catalogue des locales recense toutes les locales connues. Les neuf locales que l'application sert réellement sont définies par `I18N.SUPPORTED_LOCALES` dans `src/integrations/use-intl/i18n.config.ts`.
+
+## Utilitaires
+
+- `utils/pagination.ts` : `paginationSchema` (`pageIndex`, `pageSize`), `DEFAULT_PAGINATION` et `DEFAULT_PAGE_SIZE`
+- `utils/zod-fields.ts` : des champs Zod réutilisables tels que `idField` et `localeField`
+
+## Erreurs
+
+Il existe une seule classe d'erreur et une seule liste de codes :
+
+```ts
+export const ERROR_CODES = {
+  AUTH_API_ERROR: "AUTH_API_ERROR",
+  CONFLICT: "CONFLICT",
+  FORBIDDEN: "FORBIDDEN",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
+  NOT_FOUND: "NOT_FOUND",
+  TOO_MANY_REQUESTS: "TOO_MANY_REQUESTS",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  VALIDATION: "VALIDATION",
+} as const
+
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]
+
+export class AppError extends Error {
+  readonly code: ErrorCode
+
+  constructor(code: ErrorCode, message: string = code) {
+    super(message)
+    this.name = "AppError"
+    this.code = code
+  }
+}
+```
+
+Les fonctions serveur lèvent des `AppError`. Le middleware `withRequest` normalise tout le reste : les erreurs de l'API Better Auth deviennent `AUTH_API_ERROR` avec la clé d'erreur Better Auth comme message, les erreurs Zod deviennent `VALIDATION`, et les erreurs inconnues sont journalisées puis deviennent `INTERNAL_ERROR`. Dans le navigateur, `useErrorMessage()` de `src/hooks/use-error-message.ts` fait correspondre le message aux traductions `auth.errors.*` ou `errors.codes.*`.
+
+## Pages associées
+
+- [Fonctions serveur et cas d'usage](/docs/architecture/modules-and-use-cases)
+- [Authentification et sécurité](/docs/architecture/security-model)

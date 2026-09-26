@@ -1,14 +1,66 @@
 ---
-title: Презентації
-description: Презентація — SaaSy Land
+title: "Представлення"
+description: "Де лежать компоненти, листи й стилі та яких правил дотримується кожен компонент."
 ---
 
-Презентаційний шар володіє існуючою типографією, плануванням, кольорами та взаємодією. Примітивні примітиви в `presentation/components/shadcn`; компоненти функції є в `presentation/components/custom`. . Зберігати деталі, гачки і константи біля їх секції.
+## Папки
 
-Маршрути забезпечують завантаження та навігацію. Компоненти, що споживають перекладені повідомлення та основні параметри запиту/переміщення. Місцеві файли шрифтів Geist подаються з `public/fonts`. . Про нас `cn` помічник в `src/lib/cn.ts` зберігає користувацьку раму типу при злиття Tailwind класи.
+- `presentation/components/shadcn`: примітиви shadcn/ui у варіанті React Aria Components
+- `presentation/components/custom`: компоненти застосунку
+- `presentation/emails`: шаблони React Email
+- `presentation/styles`: `globals.css` (єдина збірка Tailwind), `docs.css` (звичайний CSS, який завантажує лише макет `/docs`), `fonts.css` і `typeset.css`
+- `presentation/theme`: `THEME` (світла, темна, системна; назва cookie; типове значення)
+- `presentation/branding`: назва застосунку, домен, URL-адреси та репозиторій GitHub
+- `presentation/document-assets.ts`: таблиця стилів документа та попереднє завантаження шрифтів для кожної локалі
 
-## Схожі посібники
+## Організація компонентів
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+- Спільні компоненти — це пласкі файли в `custom/`, наприклад `footer.tsx`, `navigation.tsx`, `data-table.tsx` і `locale-switcher.tsx`.
+- Компоненти одного розділу лежать у папці цього розділу: `admin/`, `app/`, `auth/`, `blog/` або `landing-page/`. Сторінки адмін-панелі мають власну папку, як-от `admin/dashboard/revenue-chart.tsx` чи `admin/users/reset-password-dialog.tsx`.
+- Кожен файл містить один віджет, діалог, форму або визначення колонок. Колонки таблиці лежать у `<entity>-columns.tsx` поруч з іншими компонентами сторінки.
+- Файли маршрутів лише компонують ці компоненти. Дані, спільні для кількох файлів, лежать у `src/data`; константа, яку використовує один компонент, залишається в його файлі.
+
+## Правила компонентів
+
+- Компонент сам читає свої переклади й дані через `useTranslations`, `useSuspenseQuery` або `getRouteApi(…).useLoaderData()`. Він не приймає пропсів із текстом, підписами чи даними, які батьківський компонент міг би прочитати сам.
+- Компонент викликає `useTranslations` рівно один раз і називає функцію перекладу `t`. Для ключів із двох просторів імен він використовує їхній спільний батьківський простір імен або `useTranslations()` з повними ключами.
+- Жодних обгорток, які лише передають пропси далі, і жодного прокидання пропсів.
+- Мапи тегів для форматованого тексту — це константи рівня модуля. Умовні класи використовують об'єктний синтаксис `cn`, наприклад `cn("base", { "text-foreground": isActive })`.
+- Компоненти ніколи не імпортують клієнти бази даних чи провайдерів. Вони використовують опції запитів і мутацій, які експортують сценарії використання.
+
+```tsx
+export const SignOutButton = (): JSX.Element => {
+  const t = useTranslations("common")
+  const { isPending, mutate } = useSignOut()
+
+  return (
+    <Button
+      aria-label={isPending ? t("signingOut") : t("signOut")}
+      className="shrink-0 text-muted-foreground"
+      isDisabled={isPending}
+      onPress={() => {
+        mutate()
+      }}
+      size="icon-sm"
+      variant="ghost"
+    >
+      {isPending && <Spinner />}
+      {!isPending && <LogOut aria-hidden strokeWidth={1.5} />}
+    </Button>
+  )
+}
+```
+
+## Стилізація
+
+`cn` із `src/lib/cn.ts` об'єднує класи Tailwind за допомогою таблиць, згенерованих із `src/lib/cn.config.ts`. Цей файл реєструє власну типографічну шкалу `text-*`, тож під час об'єднання ці класи зберігаються. Файли шрифту Geist віддаються з `public/fonts`; кожна локаль попередньо завантажує латинський і моноширинний файли, польська додатково завантажує Latin Extended, а українська — кирилицю.
+
+## Листи
+
+Шаблон листа в `presentation/emails` містить лише розмітку й експортує свій простір імен, наприклад `VERIFY_EMAIL_NAMESPACE = "emails.verify-email"`. Він перекладає текст через `createTranslator` із use-intl. Сценарій використання, який надсилає лист, завантажує повідомлення й передає їх у шаблон.
+
+## Пов'язані сторінки
+
+- [Компоненти shadcn](/docs/ui/shadcn-components)
+- [Патерни композиції](/docs/ui/composition-patterns)
+- [Шаблони листів](/docs/guides/email-templates)

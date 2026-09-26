@@ -1,14 +1,54 @@
 ---
-title: Plataforma e testes
-description: Plataforma e testes - SaaSy Land
+title: "Plataforma e testes"
+description: "O runtime do Cloudflare: a entrada do Worker, os bindings, os ambientes, os tipos gerados e a configuração do runtime de testes."
 ---
 
-Cloudflare fornece o tempo de execução através de explícito D1, KV As declarações geradas vivem sob `src/types`. . A configuração específica do fornecedor pertence a `src/integrations`. . O diretório restante da plataforma mantém a infraestrutura de testes: cópias vinculantes, dispositivos de solicitação, a ponte RPC e ajudadores de renderização.
+## Worker e bindings
 
-Mantenha as configurações de implantação específicas do ambiente. `wrangler.jsonc` e o correspondente arquivo de ambiente ignorado. Mantenha as credenciais de teste dentro `.env.test` e nunca substituí-los com credenciais de produção.
+`wrangler.jsonc` define `src/server.ts` como a entrada do Worker. O Worker recebe três bindings:
 
-## Guias relacionados
+| Binding  | Tipo              | Usado para                                                           |
+| -------- | ----------------- | -------------------------------------------------------------------- |
+| `DB`     | Banco de dados D1 | Todas as tabelas, incluindo as sessões e os contadores de rate limit |
+| `CACHE`  | Namespace KV      | A contagem de estrelas do GitHub em cache                            |
+| `ASSETS` | Assets estáticos  | As páginas pré-renderizadas e os arquivos de `public`                |
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+Requisições para `/assets/*`, `/fonts/*`, `/robots.txt` e `/llms.txt` são servidas a partir dos assets estáticos sem executar o Worker. O código de servidor lê os bindings, os secrets e `waitUntil` de `cloudflare:workers`.
+
+## Ambientes
+
+`wrangler.jsonc` define quatro ambientes. `CLOUDFLARE_ENV` escolhe um deles para `vp dev` e `vp build`.
+
+| Ambiente      | Bindings                           | Usado por                                       |
+| ------------- | ---------------------------------- | ----------------------------------------------- |
+| `development` | D1 e KV de preview remotos         | `bun run dev`                                   |
+| `preview`     | D1 e KV de preview                 | `bun run build:preview`, `deploy:preview`       |
+| `production`  | D1 e KV de produção                | `bun run build:production`, `deploy:production` |
+| `test`        | D1 e KV locais em `.wrangler/test` | `bun run build:test`, Playwright                |
+
+Cada ambiente lista os secrets obrigatórios em `secrets.required`. Os valores vêm do arquivo `.env.<environment>` correspondente; os scripts de deploy o repassam ao Wrangler com `--secrets-file`. O ambiente `test` usa `src/platform/testing/worker.ts` como entrada e os valores fictícios versionados em `.env.test`.
+
+## Tipos
+
+- `src/types/bindings.d.ts` declara `Cloudflare.Env`: os bindings e todos os secrets.
+- `src/types/worker-configuration.d.ts` é gerado por `bun run cf-typegen`.
+- `src/types/router.d.ts` registra o tipo do router e a opção de rota `staticData.namespaces`.
+
+## Configuração do runtime de testes
+
+`src/platform/testing` contém apenas o que não pode pertencer a uma única funcionalidade:
+
+- `setup.ts`: os matchers do jest-dom, um reset dos bindings antes de cada teste e o substituto de `createServerFn` que executa as server functions no próprio processo
+- `mocks/cloudflare.ts`: um D1 em SQLite em memória que executa as migrações versionadas no repositório, um KV em memória e um `waitUntil` que os testes podem esvaziar
+- `mocks/providers.ts`: a interceptação de fetch para Resend e Polar nos testes de navegador, incluindo os e-mails capturados
+- `mocks/wrksz-themes.ts`: um substituto para a biblioteca de temas
+- `lib/`: a ponte RPC das server functions, helpers de renderização, helpers de URL de requisição e executores de queries
+- `worker.ts`: a entrada do Worker para os testes de navegador, que captura os e-mails enviados
+
+Veja [Testes e CI](/docs/architecture/testing-architecture) para saber como as suítes usam esses recursos.
+
+## Páginas relacionadas
+
+- [Ambiente e bindings](/docs/reference/environment)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Fazer deploy de um preview](/docs/getting-started/deploy-preview)

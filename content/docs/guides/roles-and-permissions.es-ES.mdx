@@ -1,14 +1,61 @@
 ---
-title: Roles y permisos.
-description: Roles y permisos — SaaSy Land
+title: "Roles y permisos"
+description: "Define permisos y roles en auth.access.ts y compruébalos en los guards de ruta y en las funciones de servidor."
 ---
 
-Los roles y las declaraciones se encuentran en `src/integrations/better-auth/auth.access.ts`. El rol predeterminado es "cliente". El acceso de administrador se verifica mediante `requireAdmin`; cada operación del servidor comprueba la declaración necesaria con `withAuth`.
+El control de acceso usa el plugin admin de Better Auth. Los permisos, los roles y la comprobación de permisos viven en `src/integrations/better-auth/auth.access.ts`.
 
-Mantenimiento de cambios de roles, prohibiciones, revocación de sesiones e intentos de suplantación en los casos de uso de usuarios/sesiones. Derivar al usuario actual de la sesión de la solicitud y anular los grupos de consultas afectados tras una mutación. Ocultar un botón es un comportamiento de presentación y no sustituye a la autorización.
+## Permisos y roles
 
-## Guías relacionadas.
+```ts
+const APP_STATEMENTS = {
+  admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
+  settings: ["manage"],
+} as const
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local.](/docs/getting-started/first-run)
-- [Prueba.](/docs/tooling/testing)
+export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
+
+export const ROLES = {
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
+}
+```
+
+- `defaultStatements` de Better Auth añade los recursos `user` y `session` (como `user: ["list", "set-role", "ban", "impersonate", "delete"]` y `session: ["list", "revoke"]`).
+- `admin` tiene todos los permisos; `customer`, el rol por defecto de los usuarios nuevos, no tiene ninguno.
+- `ROLE_VALUES` tipa la columna `user.role` y los esquemas de rol de `user.zod.ts`.
+
+## Dónde se comprueban los permisos
+
+| Capa                    | Comprobación                                                        |
+| ----------------------- | ------------------------------------------------------------------- |
+| Guard de ruta           | `requireAdmin` exige `admin: ["access"]` para toda el área `/admin` |
+| Función de servidor     | `authorized({ product: ["update"] })` en cada operación protegida   |
+| Solo con sesión         | `authorized()` para operaciones sobre los datos del propio usuario  |
+| En cualquier otro sitio | `hasPermission({ permission, role })` devuelve un booleano          |
+
+El guard de ruta solo decide qué páginas se renderizan. Las funciones de servidor se pueden llamar directamente por RPC, así que cada una debe comprobar su propio permiso. Ocultar un botón es presentación, no autorización.
+
+## Añade un permiso
+
+1. Añade la acción a `APP_STATEMENTS`, por ejemplo `report: ["read", "export"]`.
+2. `admin` la recibe automáticamente; asígnala a otros roles en `ROLES` si hace falta.
+3. Exígela en la función de servidor: `.middleware([authorized({ report: ["export"] })])`.
+4. Prueba tanto el caso permitido como el caso `FORBIDDEN`.
+
+## Añade un rol
+
+1. Añade el código a `ROLE_CODES` y `ROLE_VALUES`.
+2. Define sus permisos en `ROLES`.
+3. Añade la etiqueta del rol a `filters.role.options` en `messages/<locale>/pages.admin.users.json` en los nueve idiomas.
+
+El cliente de autenticación (`auth.client.ts`) recibe `ac` y `ROLES`, así que las acciones de administración del navegador usan las mismas definiciones.
+
+## Administración de usuarios y sesiones
+
+Los módulos de usuarios y sesiones envuelven la API de administración de Better Auth en casos de uso, cada uno con su propio permiso: `setUserRole`, `banUser`, `unbanUser`, `impersonateUser`, `deleteUser`, `setUserPassword`, `revokeUserSession` y otros. Las operaciones sobre los datos del propio usuario, como `revokeSession`, usan `authorized()` y filtran por `context.auth.user.id`.
+
+No hay ningún administrador precargado fuera de la base de datos de pruebas. Para crear el primer administrador, regístrate, verifica el correo y cambia el `role` de ese usuario a `admin` en D1, por ejemplo con `bun run db:studio:development`.

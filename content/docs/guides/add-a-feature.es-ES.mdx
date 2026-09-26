@@ -1,14 +1,64 @@
 ---
-title: Añadir una funcionalidad
-description: Añadir una funcionalidad – SaaSy Land
+title: "Añadir una funcionalidad"
+description: "Recorrido completo desde la tabla de la base de datos hasta una página probada, con enlaces a las guías detalladas."
 ---
 
-Cree o amplíe el esquema, la validación, las constantes y los casos de uso del módulo de propiedad. Agregue una ruta plana debajo. `src/routes` con su mecanismo de protección, parámetros de búsqueda validados, pre carga de metadatos y espacio de nombres. Colocar la interfaz de la funcionalidad. `presentation/components/custom/{feature}` con los componentes, hooks y constantes relacionados.
+Una funcionalidad suele tocar todas las capas: un módulo de tabla, sus casos de uso, una ruta, componentes de presentación, mensajes y tests. Las categorías de producto muestran el camino completo: `src/modules/category`, la pestaña de categorías en `src/routes/admin.products.index.tsx` y `src/presentation/components/custom/admin/products/category-columns.tsx`.
 
-Integre las consultas de datos independientes en el loader, renderiza desde la misma caché de QueryClient, y envíalas a través de las opciones de mutación nativas. Agrega las claves para los nueve idiomas configurados. Conserva el diseño y los elementos de accesibilidad existentes, y luego verifica el comportamiento de casos de uso, componentes y navegador al nivel apropiado.
+## 1. Modela los datos
 
-## Guías relacionadas
+Si la funcionalidad guarda datos nuevos, añade un módulo para su tabla y genera la migración.
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+- [Añadir un módulo](/docs/guides/add-a-module)
+- [Migraciones de base de datos](/docs/guides/database-migrations)
+
+## 2. Decide quién puede hacer qué
+
+Añade las nuevas acciones a `APP_STATEMENTS` en `src/integrations/better-auth/auth.access.ts` y asígnalas a los roles.
+
+- [Roles y permisos](/docs/guides/roles-and-permissions)
+
+## 3. Escribe las operaciones
+
+Añade un caso de uso por operación con su middleware, su validador, su handler y sus opciones de query o mutation.
+
+- [Añadir un caso de uso](/docs/guides/add-a-use-case)
+- [Funciones de servidor](/docs/guides/server-functions)
+
+## 4. Añade la ruta
+
+1. Añade la ruta a `ROUTES` en `src/routes.ts`.
+2. Crea un archivo de ruta plano para el área: `src/routes/admin.<feature>.tsx` bajo el layout de administración, `src/routes/app.<feature>.tsx` bajo el layout del cliente con sesión iniciada o `src/routes/_landing.<page>.tsx` para una página pública.
+3. Sigue la convención de rutas: `const NAMESPACE`, `staticData: { namespaces: [NAMESPACE] }`, `head: pageHead(ROUTES.X)`, un loader que carga metadatos, mensajes y datos en un único `Promise.all` y el esqueleto propio de la página como `pendingComponent`, registrado en el mapa del esqueleto de su layout (consulta [Esqueletos de carga](/docs/architecture/delivery-layer#esqueletos-de-carga)).
+4. El guard `beforeLoad` del layout (`requireAdmin` para `/admin`, `requireSignedIn` para `/app`) protege la página. Aun así, las funciones de servidor autorizan cada llamada por su cuenta.
+
+- [Añadir una página de administración](/docs/guides/add-an-admin-page)
+- [Estado en la URL](/docs/guides/url-state)
+
+## 5. Construye la interfaz
+
+Coloca widgets, diálogos, formularios y columnas de tabla en `src/presentation/components/custom/<area>/<feature>/`, uno por archivo. Cada componente lee sus propias traducciones y datos; la ruta solo los compone.
+
+- [Añadir una tabla de datos](/docs/guides/add-a-data-table)
+- [Formularios y validación](/docs/guides/forms-and-validation)
+
+## 6. Añade los mensajes
+
+Crea el espacio de nombres de la página, y si hace falta uno de validación, en los nueve idiomas. Los espacios de nombres de página necesitan `metadata.title` y `metadata.description`.
+
+- [Internacionalización e idiomas](/docs/guides/i18n-messages)
+- [Plantillas de correo](/docs/guides/email-templates), si la funcionalidad envía correos
+
+## 7. Prueba y verifica
+
+Cubre los casos de uso, los componentes y la ruta y, después, ejecuta todas las comprobaciones:
+
+```sh
+bun run check
+bun run test:coverage
+bun run build
+bun run test:e2e:smoke
+```
+
+- [Escribir tests](/docs/guides/writing-tests)
+- [Lista de comprobación de seguridad](/docs/guides/security-checklist)

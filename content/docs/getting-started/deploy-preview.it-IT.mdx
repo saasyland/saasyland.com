@@ -1,25 +1,38 @@
 ---
-title: Disoccupazione a Cloudflare Workers
-description: Discussione su Cloudflare Workers — SaaSy Land
+title: "Deploy di una preview"
+description: "Crea le risorse Cloudflare ed esegui il deploy del Worker di preview."
 ---
 
-La costruzione del Worker è prodotta da Vite+, TanStack Start e `@cloudflare/vite-plugin`. `wrangler.jsonc` dichiara l'ingresso, le impostazioni di compatibilità, i beni, l'osservanza e lo sviluppo separato, l'anteprima e i binding di produzione.
+L'ambiente `preview` distribuisce il Worker `saasyland-preview` su `preview.saasyland.com`. Per impostazione predefinita `development` e `preview` condividono un unico database D1 e un unico namespace KV.
 
-Disposizione D1 e KV e sostituire gli ID dei segnaposto per l'ambiente di destinazione. Impostare i suoi segreti URL e provider in `.env.preview` o `.env.production`. Applicare le migrazioni esplicitamente, quindi distribuire. Gli script di distribuzione convalidano prima gli ID vincolanti; costruiscono gli script prerender le pagine pubbliche e verificano gli artefatti di output. Le pagine di autenticazione e applicazioni private vengono eseguite dinamicamente sul Worker.
-
-Impostare il dominio personalizzato e OAuth URL di callback per l'ambiente di destinazione. Installare dipendenze e costruire non applica mai una migrazione remota.
+## Creare le risorse
 
 ```sh
 bunx wrangler login
-bunx wrangler d1 create saasyland_preview
+bunx wrangler d1 create saasyland_com_preview
 bunx wrangler kv namespace create CACHE --env preview
-# Update wrangler.jsonc and .env.preview first.
+```
+
+In `wrangler.jsonc`, sostituisci `database_id`, `database_name` e l'`id` di KV sia in `development` sia in `preview`. Mantieni i nomi dei binding `DB` e `CACHE` e il `migrations_dir`, e aggiorna i nomi dei Worker e le route dei domini personalizzati per il tuo account. Per la produzione, crea risorse separate e aggiorna il blocco `production`. Imposta `APP_DOMAIN` in `src/presentation/branding/index.ts`. `appHostsForMode` in `src/modules/_core/constants/api.ts` ne ricava gli host consentiti: `APP_DOMAIN` in produzione, `preview.<APP_DOMAIN>` in preview e `localhost:3000` o `127.0.0.1:3000` in sviluppo e test. Modifica `HOSTS_BY_MODE` nello stesso file solo se il tuo host di preview ha un nome diverso.
+
+## Deploy
+
+Compila `.env.preview`, poi esegui le migrazioni e il deploy:
+
+```sh
 bun run db:migrate:preview
 bun run deploy:preview
 ```
 
+`deploy:preview` esegue `scripts/verify-bindings.ts preview`, che rifiuta gli ID segnaposto, poi `build:preview`, che prerenderizza le pagine pubbliche e verifica l'output, e infine `wrangler deploy --secrets-file .env.preview`, che carica anche i secret. La build e il deploy non applicano mai le migrazioni; esegui `db:migrate:preview` prima di distribuire codice che richiede un nuovo schema.
+
+Registra i callback OAuth e il webhook di Polar per l'host di preview come indicato in [Variabili d'ambiente](/docs/getting-started/environment-variables).
+
+## Deploy automatici
+
+Dopo il superamento dei controlli e dei test nel browser, la CI distribuisce ogni pull request proveniente da un branch di questo repository sulla preview condivisa, e ogni push su `main` in produzione. Vedi [CI/CD](/docs/tooling/ci-cd) per i secret GitHub richiesti.
+
 ## Guide correlate
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Migrazioni del database](/docs/tooling/database)

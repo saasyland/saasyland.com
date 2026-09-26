@@ -1,30 +1,64 @@
 ---
-title: Funções do servidor e casos de uso
-description: Funções do servidor e casos de uso - SaaSy Land
+title: "Server functions e casos de uso"
+description: "Server functions nativas do TanStack Start com validação, middleware e opções de query."
 ---
 
-Operações de recurso ao vivo. `src/modules/{feature}/use-cases/{operation}.ts`. . Exportar um nativo. `createServerFn` com seu esquema de entrada, autorização ou middleware limite de taxa, e um manipulador que chama D1 ou o adaptador do provedor. Uma mutação devolve dados diretamente e joga um cofre. `AppError` Não devolve um envelope de ação específico.
-
-Exportar `mutationOptions` Ao lado de mutações e `queryOptions` Além das leituras, componentes usam TanStack Query e traduzir erros com `useActionError`. . Mutações bem-sucedidas invalidam suas chaves de busca. Nunca confie em uma identidade de usuário fornecida por um cliente quando a operação deve agir. `context.auth.user.id`.
-
-Use `withAuth` para operações protegidas e `withRateLimit` para operações públicas sensíveis. A validação é feita antes do encarregado. Mantenha os erros do provedor e os detalhes internos fora das respostas públicas.
+As operações de negócio ficam em `src/modules/<table>/use-cases/<operation>.ts`, uma operação por arquivo. Cada arquivo exporta um `createServerFn` nativo com seu middleware, validação com Zod e handler, além das opções de query ou de mutation que os componentes usam. Uma server function que não pertence a nenhuma tabela vai para `src/lib` (por exemplo, `getStarCount` em `src/lib/github.ts`), e uma usada por uma única rota pode ser definida no próprio arquivo dessa rota (`getBlogPosts` em `src/routes/blog.index.tsx`).
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
-import { mutationOptions } from "@tanstack/react-query"
-import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
-import { categoryZodSchemas } from "~/src/modules/category/category.zod"
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
 ```
 
-O existente. `createCategory` A operação demonstra validação, verificação de permissão, D1 inserir e exportar opções de mutação.
+## Regras
+
+- O middleware é executado antes da validação e do handler. Use `authorized(permission?)` para operações protegidas e `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` ou `RATE_LIMITS.TOKEN` para operações públicas sensíveis; veja [Better Auth](/docs/integrations/better-auth).
+- Valide o input com o schema Zod do módulo (`<table>.zod.ts`).
+- Retorne os dados diretamente e lance `AppError(ERROR_CODES.X)` de `src/modules/_core/constants/errors.ts` para falhas esperadas. Os demais erros chegam ao cliente como `INTERNAL_ERROR`, de modo que os detalhes do provedor permanecem no servidor.
+- As chaves de query e de mutation são tuplas readonly no `<table>.constants.ts` do módulo, e as chaves de query incluem todo input que altera o resultado.
+- Mantenha as operações atômicas com uma única instrução SQL ou `db.batch`; o D1 não tem transações interativas.
+
+## Usando um caso de uso
+
+Os componentes espalham as opções exportadas em `useQuery`, `useSuspenseQuery` ou `useMutation`, traduzem erros com `useErrorMessage()` de `src/hooks/use-error-message.ts` e invalidam as chaves de query do módulo após uma mutation bem-sucedida:
+
+```tsx
+const deleteUser = useMutation({
+  ...deleteUserMutation,
+  onError: (error) => {
+    toast.error(errorMessage(error))
+  },
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL })
+    toast.success(t("feedback.deleteSuccess"))
+  },
+})
+```
+
+Os loaders pré-carregam as mesmas opções de query no seu `Promise.all`, então a renderização no servidor e o cliente compartilham uma única entrada de cache.
 
 ## Guias relacionados
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Adicionar um caso de uso](/docs/guides/add-a-use-case)
+- [Server functions](/docs/guides/server-functions)
+- [Módulos e casos de uso](/docs/architecture/modules-and-use-cases)

@@ -1,14 +1,35 @@
 ---
-title: "Landing page"
-description: "Landing marketingowy i szkielet buildera."
+title: "Strona główna"
+description: "Strona marketingowa pod /, jej sekcje, cennik z rabatami regionalnymi, konfigurator CLI i formularz newslettera w stopce."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+## Trasa
 
-## Public
+`src/routes/_landing.index.tsx` składa siedemnaście sekcji z `src/presentation/components/custom/landing-page/sections` wewnątrz `MotionProvider`: Hero, Proof, Stack, Manifesto, CLI, Line, Quality, Rally, Manifest, Studio, Record, Cases, Compare, Pricing, FAQ, Notes i Gate. Teksty pochodzą z przestrzeni nazw `pages.landing`. Loader pobiera też trzy najnowsze wpisy z bloga (najpierw wyróżnione) dla sekcji Notes i rozgrzewa `starCountQuery`, liczbę gwiazdek GitHuba przechowywaną w KV dla sekcji Proof.
 
-`app/[locale]/(landing)` z treścią umieszczoną obok w `_lib`.
+Layout `_landing` otacza `/`, strony prawne, `/premium` i strony newslettera komponentami `Navigation`, `PageFrame` i `Footer`, zawsze w ciemnym motywie. Kotwice sekcji to `MARKETING_SECTION_IDS` w `src/data/marketing.ts` (`foundation`, `cli`, `quality`, `toolkit`, `pricing`, `faq`); linki mają postać `<Link to={ROUTES.HOME} hash={MARKETING_SECTION_IDS.PRICING}>`.
 
-## Admin
+## Cennik i ceny regionalne
 
-`/admin/landing-page` to szkielet interfejsu przyszłego kreatora wizualnego — dokumentuj planowane bloki w miarę ich implementacji.
+`PricingSection` wyświetla `TIERS` z `TIER_PRICES` i prowadzi do `/auth/sign-up`. Ceny regionalne działają bez JavaScriptu po stronie klienta, więc strona pozostaje prerenderowana:
+
+1. `Price` wyświetla kwotę raz dla każdego mnożnika regionalnego (`PPP_KEYS`) oraz przekreśloną cenę regularną.
+2. Worker (`src/server.ts`) odczytuje `cf-ipcountry`. Dla kraju z `PPP_TIERS` używa `HTMLRewriter`, aby ustawić `data-ppp` oraz zmienne `--ppp-region` i `--ppp-percent` na elemencie `html`, i oznacza odpowiedź jako `private, no-cache`.
+3. CSS w `globals.css` pokazuje pasującą cenę, dopóki pole oferty regionalnej jest zaznaczone.
+4. Odznaczenie pola zapisuje `regional_pricing=off` w ciasteczku; respektują je zarówno Worker, jak i `startCheckout`.
+
+## Konfigurator CLI
+
+`CliSection` zawiera `CliConfigurator` (`landing-page/components/cli-configurator.tsx`). Opcje, dodatki i menedżery pakietów z `src/data/cli.ts` składają polecenie `saasyland@latest init my-app` z flagami, które kopiuje `CopyButton`.
+
+## Newsletter
+
+`Footer` wyświetla `NewsletterForm` (`src/presentation/components/custom/newsletter-form.tsx`):
+
+1. `subscribeToNewsletter` (z limitem) zapisuje oczekujący wiersz `newsletter_subscriber` i wysyła `NewsletterConfirmationEmail`.
+2. `/newsletter/confirm?token=` potwierdza subskrypcję i wysyła `NewsletterNotificationEmail` na `CONTACT_EMAIL`.
+3. `/newsletter/unsubscribe?token=` wypisuje z subskrypcji.
+
+## Ekran administracyjny (demonstracyjny)
+
+`/admin/landing-page` to statyczna makieta edytora: lista sekcji, obszar podglądu i panel właściwości zbudowane ze stałych. Nie zmienia strony głównej.

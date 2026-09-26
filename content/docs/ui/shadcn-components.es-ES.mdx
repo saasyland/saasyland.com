@@ -1,6 +1,65 @@
 ---
-title: Componentes Shadcn.
-description: Inventario y notas sobre uso iniciales.
+title: "Componentes de shadcn"
+description: "Las primitivas de shadcn basadas en React Aria y las convenciones que siguen las pantallas al usarlas."
 ---
 
-Explorar `presentation/components/shadcn`. Priorizar los patrones existentes de Botón/Campo de entrada/Pestañas/Diálogo. Mantener intactos los atributos de accesibilidad de React Aria.
+Las primitivas de `src/presentation/components/shadcn/` son componentes de shadcn/ui construidos sobre React Aria Components. `input-otp`, `carousel`, `resizable`, `chart` y `sonner` envuelven otras bibliotecas; el resto sigue a React Aria. `components.json` apunta el alias `ui` a esta carpeta y `utils` a `~/src/lib/cn`. Las pantallas importan las primitivas directamente; no hay componentes envoltorio a su alrededor.
+
+## Props de React Aria
+
+| Costumbre del DOM o de Radix      | Aquí se usa                          |
+| --------------------------------- | ------------------------------------ |
+| `onClick`                         | `onPress`                            |
+| `disabled`                        | `isDisabled`                         |
+| `open` en un diálogo              | `isOpen` con `onOpenChange`          |
+| `checked`                         | `isSelected`                         |
+| `value` en pestañas               | `selectedKey` o `defaultSelectedKey` |
+| `onSelect` en un elemento de menú | `onAction`                           |
+
+`Input` conserva el evento nativo `onChange`. `Select` acepta un `fieldLabel` que muestra su etiqueta.
+
+## Convenciones
+
+- **Botones pendientes**: pasa el estado de la mutación a `Button`: `<Button isPending={mutation.isPending} type="submit">`.
+- **Enlaces**: `LinkButton`, `TabsTrigger` y `SidebarMenuButton` aceptan un `href`. `AriaProvider` los envía a través de TanStack Router y añade el prefijo de idioma. Para dar aspecto de botón a otros elementos usa `buttonVariants`.
+- **Formularios**: `Field`, `FieldGroup`, `FieldLabel`, `Input` y `ValidationFieldError` con TanStack Form, como en este campo de `ResetPasswordDialog`:
+
+```tsx
+<Field data-invalid={isInvalid}>
+  <FieldLabel htmlFor={passwordId}>{t("resetPasswordDialog.password")}</FieldLabel>
+  <Input
+    aria-invalid={isInvalid}
+    autoComplete="new-password"
+    id={passwordId}
+    name={field.name}
+    onBlur={field.handleBlur}
+    onChange={(event) => {
+      field.handleChange(event.target.value)
+    }}
+    type="password"
+    value={field.state.value}
+  />
+  {isInvalid && (
+    <ValidationFieldError
+      message={fieldErrorMessage(field.state.meta.errors)}
+      namespace="auth.validations"
+      params={AUTH_VALIDATION_PARAMS}
+    />
+  )}
+</Field>
+```
+
+- **Diálogos**: `Dialog` y `AlertDialog` se controlan con `isOpen` y `onOpenChange`; cada diálogo tiene su propio archivo, como `admin/users/delete-user-dialog.tsx`.
+- **Menús**: `DropdownMenuTrigger` envuelve el `Button` que lo activa y el `DropdownMenu`; los elementos ejecutan `onAction` y usan `variant="destructive"` para las acciones peligrosas.
+- **Avisos**: llama a `toast.success` o `toast.error` de `sonner`; la ruta raíz muestra el `Toaster` dentro de `ThemeProvider`.
+- **Anillos de foco**: estiliza los disparadores de React Aria con variantes `data-focus-visible:`, como hacen `checkbox`, `select`, `switch` y `radio-group`.
+- **Nombres de clase**: usa `cn` de `~/src/lib/cn` con la sintaxis de objeto para las clases condicionales.
+
+## Tamaño del CSS
+
+`globals.css` excluye del análisis de fuentes de Tailwind las primitivas que ninguna pantalla usa, mediante una lista `@source not`. Cuando empieces a usar una de ellas, quítala de esa lista o faltarán sus clases.
+
+## Guías relacionadas
+
+- [shadcn/ui y React Aria](/docs/integrations/shadcn)
+- [Formularios y validación](/docs/guides/forms-and-validation)

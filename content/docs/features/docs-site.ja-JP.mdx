@@ -1,16 +1,32 @@
 ---
-title: Docs サイト
-description: このドキュメントが作成され、拡張される方法
+title: "ドキュメントサイト"
+description: "Fumadocs を使って content/docs から /docs を構築する仕組み。"
 ---
 
-## コンテンツルート
+## コンテンツ
 
-`content/docs`
+- ページは 9 言語すべてについて `content/docs/<section>/<page>.<locale>.mdx` として置きます。
+- 各フォルダーの `meta.<locale>.json` がセクションのタイトル、アイコン、ページの順序を決めます。
+- `src/integrations/fumadocs/fumadocs.i18n.ts` は `dot` パーサー、既定言語かつフォールバックとしての `en-US`、`hideLocale: "always"` を使います。言語プレフィックスはアプリ自身が処理するためです。
+- `bun run content` は `fumadocs.config.ts` から `.source` を生成します。
 
-- MDX ページ: `*.{locale}.mdx` すべての9つの構成された言語(点のパーサー)のために
-- フォルダ `meta.<locale>.json` タイトル/注文/アイコン
-- `fallbackLanguage: en-US` 翻訳不足のため
+## ルート
 
-## アプリ配線
+- `/docs` レイアウト（`src/routes/docs.tsx`）: サーバー関数が現在の言語のページツリーを返し、レイアウトは Fumadocs の `DocsLayout` を、GitHub へのリンクと、サイドバー下部に同じスタイルのセレクトフィールドとして並ぶ `LocaleSelect`・`ThemeSwitch` 付きで表示します。`docs.css` を読み込み、読み込み中は `DocsPending` を表示します。
+- `/docs/` と `/docs/$` は `loadDocsPage`（`fumadocs.docs.ts`）を呼び出し、ページを解決してからレンダリング前にコンパイル済み MDX（`docsContent`）をプリロードします。
+- `/api/search` はすべての言語を対象とした Fumadocs の検索を提供します（`fumadocs.search.ts`）。
 
-`fumadocs.source.ts`, docs レイアウト, API を検索します。 ページを追加 → 更新メタ `pages` arrays → 再ビルド。
+MDX ページでは `src/presentation/components/custom/mdx.tsx` の `mdxComponents` を使えます。Fumadocs の既定コンポーネント、Fumadocs の `Accordions`・`Steps`・`Tabs`、shadcn の `Alert`・`Badge`・`Button`・カードの各パーツ・`Separator`・テーブルの各パーツが含まれます。リンクは自動的にローカライズされます。
+
+## ページの追加
+
+1. `title` と `description` を付けて `<page>.en-US.mdx` を書きます。
+2. スラッグを `meta.en-US.json` と、ほかのすべての `meta.<locale>.json` に同じ順序で追加します。
+3. コードブロックをバイト単位で同一に保ったまま、8 つの翻訳を追加します。
+4. `bun scripts/check-content.ts`（`bun run check:i18n` にも含まれます）と `bun run content` を実行します。
+
+`bun run build` はすべてのドキュメントページを全言語でプリレンダリングします。
+
+## 関連ガイド
+
+- [Fumadocs](/docs/integrations/fumadocs)

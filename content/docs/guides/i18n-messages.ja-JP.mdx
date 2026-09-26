@@ -1,16 +1,67 @@
 ---
-title: 国際化とローカライズ
-description: 国際化とローカライズ — SaaSy Land
+title: "国際化とロケール"
+description: "9 つのロケールすべてにメッセージの名前空間とキーを追加し、ルートで読み込み、check:i18n で検証します。"
 ---
 
-メッセージは、 `messages/{locale}` たとえば、ドットネームスペースファイルとして9つの構成された言語として、 `pages.admin.users.json`. . ローカル設定、URLヘルパー、メッセージの読み込み、メタデータ、メールの翻訳ヘルパーは、 `src/integrations/use-intl`.
+メッセージには ICU 構文の `use-intl` を使います。各名前空間は、ロケールごとに `messages/<locale>/<namespace>.json` という 1 つの JSON ファイルです。ロケールは `en-US`（デフォルト）、`de-DE`、`es-ES`、`fr-FR`、`it-IT`、`ja-JP`、`pl-PL`、`pt-BR`、`uk-UA` の 9 つです。ファイル名がそのまま名前空間になり、`messages/en-US/pages.admin.users.json` は `pages.admin.users` です。
 
-英語対応 `/docs`;ポーランドの使用 `/pl-PL/docs`. . レガシー `/en` そして、 `/pl` リンクは正規化されます。 ルートファイル宣言 `staticData.namespaces` 同じ名前空間を loader にプリロードします。 `TranslationsProvider` アクティブ・ルート名空間を組み込む `IntlProvider`. . 共有メッセージは root で読み込まれます。メールのみの名前空間はサーバーに滞在します。
+## 名前空間の種類
 
-ロケールを読んでください。 `getCurrentLocale` サーバ上で `useLocale` コンポーネント。 URL は、ドキュメントのロケールを選択します。 Server-function リクエストは locale Cookie を使用します。 言語変更は、パス、クエリ、フラグメントを保ち、ドキュメントをリロードして、対応するコンテンツをロードします。 ログイン `bun run check:i18n` キーを変更した後。
+| 名前空間                                      | 読み込む場所                                                             |
+| --------------------------------------------- | ------------------------------------------------------------------------ |
+| `common`、`components.*`、`errors*`           | 最上位ルートの `beforeLoad`（すべてのページ）                            |
+| `pages.*`                                     | それを宣言するページのルート                                             |
+| `auth.validations` などのレイアウトの名前空間 | レイアウトのルート（`src/routes/auth.tsx`、`admin.tsx`、`app.tsx` など） |
+| `emails.*`                                    | メールを送信するユースケース（サーバー上のみ）                           |
 
-## 関連ガイド
+`TranslationsProvider` はドキュメントの body をラップし、最上位ルートの名前空間と、マッチしたすべてのルートの名前空間をマージします。そのため、エラー画面を含むすべての画面が翻訳されます。
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+## キーを追加する
+
+9 つのロケールすべての同じファイルに、同じ構造でキーを追加します。いずれかのロケールでキーが不足していたり余分にあったりすると、`bun run check:i18n` が失敗します。
+
+## ページの名前空間を追加する
+
+1. 9 つのロケールすべてに `messages/<locale>/pages.<area>.<page>.json` を作成します。ページの名前空間にはすべて `metadata.title` と `metadata.description` があり、`loadPageMetadata` がドキュメントの head のためにそれらを読み取ります。
+2. ルートで宣言して読み込みます。
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: LegalPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+レイアウトのルートは `const NAMESPACES = [...] as const` を宣言し、ローダーでプリロードし、`staticData` に列挙します。宣言した名前空間にファイルがないと、`No messages/<locale>/<namespace>.json` がスローされます。
+
+## コンポーネントでメッセージを使う
+
+- `useTranslations` はコンポーネントごとに 1 回だけ呼び出し、翻訳関数には `t` という名前を付けます。i18n-ally と `check:i18n` は、すべての `t("key")` を直前にある `useTranslations` のスコープに照らして解決します。
+- コンポーネントが無関係な 2 つの名前空間のキーを必要とする場合は、`t` のスコープをそれらの共通の親にするか、`sign-in-form.tsx` のように `useTranslations()` を呼び出して完全なキーを使います。
+- コンポーネントは自分のメッセージを自ら読み込みます。親がラベルを props として渡すことはありません。
+- リッチテキストには `t.rich("key", TAGS)` を使い、タグのマップは `src/routes/auth.sign-up.tsx` の `LEGAL_TAGS` のように、モジュールレベルの定数として定義します。
+- `getCurrentLocale()` は、サーバーとブラウザの両方でロケールを返します。`useDateFormatter` と `useCurrencyFormatter` は、そのロケールに合わせて日付と金額をフォーマットします。
+
+## チェック
+
+```sh
+bun run check:i18n
+```
+
+このコマンドは、ロケール間のキーの一致、静的なキーとその `useTranslations` スコープとの整合性、ICU メッセージの形式、ロケール間でのドキュメントコンテンツの一致をチェックします。`bun run check` もこのコマンドを実行します。
+
+## URL 内のロケール
+
+英語のページにはプレフィックスがなく（`/docs`）、他のロケールにはプレフィックスが付きます（`/pl-PL/docs`）。Worker は `/pl` のような短いプレフィックスを `/pl-PL` にリダイレクトし、ロケールの Cookie をページの URL と同期させます。サーバー関数と `/api` の URL にはロケールが含まれないため、ローカライズされたコンテンツを返すサーバー関数はロケールを入力として受け取ります。

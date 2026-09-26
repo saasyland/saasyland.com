@@ -1,20 +1,44 @@
 ---
-title: ユーザ(admin)
-description: ライブユーザーテーブル、タブ、偽装、禁止/ルール/パスワード。
+title: "ユーザー（管理）"
+description: "/admin/users のユーザー管理: 行アクション付きの稼働中のユーザーテーブルと、デモの招待・ロールタブ。"
 ---
 
-## 路線図
+## ルート
 
-`/admin/users` TanStack Routerで検索 `tab` (`allUsers` | `invitations` | `roles` | `security`).
+`src/routes/admin.users.tsx` はリンク形式の 4 つのタブを持つレイアウトで、`/admin/users` は `/admin/users/all` へリダイレクトします。すべてのタブが `pages.admin.users` 名前空間を使います。
 
-## モジュール
+| ルート                     | 内容                                              |
+| -------------------------- | ------------------------------------------------- |
+| `/admin/users/all`         | 稼働中のユーザーテーブル                          |
+| `/admin/users/invitations` | メール検索付きのデモ行（`ADMIN_INVITATION_ROWS`） |
+| `/admin/users/roles`       | デモ行（`ADMIN_ROLE_ROWS`）                       |
+| `/admin/users/security`    | 空の状態                                          |
 
-`modules/user/use-cases` — リスト/作成/更新/削除, 禁止/禁止, ロール/パスワードの設定, 偽装, リフレッシュテーブル.
+## すべてのユーザー
 
-## ツイート
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
 
-データテーブル下 `admin/users/components/all-users-tab`. . ステータスは **デリケート** (`getUserStatus`: アクティブ/保留/禁止)、DB列ではありません。
+- `getUsersPageQuery` はサーバー関数 `getUsers`（`src/modules/user/use-cases/get-users.ts`、権限 `user: ["list"]`）を呼び出します。ページネーションと並べ替えはサーバー側で行い、名前、ロール、ステータス、メール確認、2FA、タイムゾーン、作成日時と更新日時で並べ替えられます。
+- ステータスは列ではありません。`getUserStatus`（`user.utils.ts`）が `banned` と `emailVerified` から `banned`、`pending`、`active` を導き、サーバーは同じ SQL の `case` 式で並べ替えます。
+- `userColumns` は `src/presentation/components/custom/admin/users/user-columns.tsx` にあり、日時は各ユーザーのタイムゾーンで表示されます。
 
-## URL の状態
+## 行アクション
 
-`admin/users/constants/search-params.ts` — 共有パーサ + `searchParamsCache`.
+`UserRowActions`（`row-actions.tsx`）は最後の列のメニューです。
+
+- **パスワードをリセット** は `ResetPasswordDialog` を開き、`setUserPassword` を呼び出します。
+- **利用停止** または **利用停止を解除** は `banUser` または `unbanUser` を呼び出します。
+- **削除** は `DeleteUserDialog` を開き、`deleteUser` を呼び出します。
+
+成功するたびに `USER_QUERY_KEYS.ALL` を無効化してトーストを表示し、エラーは `useErrorMessage` を通して表示します。**編集** と **プロフィールを表示** の項目、および **ユーザーを追加** ボタンにはまだ処理がありません。
+
+## 未接続
+
+`createUser`、`getUser`、`updateUser`、`setUserRole`、`impersonateUser`、`stopImpersonatingUser` は権限ミドルウェア付きで `src/modules/user/use-cases` にありますが、どの画面も呼び出していません。招待テーブルはなく、実際のロールは `auth.access.ts` の `admin` と `customer` です。
+
+## 関連ガイド
+
+- [DataTable](/docs/ui/data-table)
+- [なりすまし](/docs/features/impersonation)

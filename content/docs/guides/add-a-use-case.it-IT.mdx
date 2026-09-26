@@ -1,30 +1,106 @@
 ---
-title: Funzioni del server e casi di utilizzo
-description: Funzioni del server e casi di utilizzo — SaaSy Land
+title: "Aggiungere un caso d'uso"
+description: "Aggiungi un'operazione: una funzione server con le sue opzioni di query o mutation, l'invalidazione della cache e la gestione degli errori."
 ---
 
-Le operazioni di funzionalità vivono in `src/modules/{feature}/use-cases/{operation}.ts`. Esportare un nativo `createServerFn` con lo schema di input, l'autorizzazione o il middleware di tasso-limit, e un gestore che chiama D1 o l'adattatore del fornitore. Una mutazione restituisce i dati direttamente e getta una cassaforte `AppError`; non restituisce una busta d'azione specifica per il quadro.
+Un caso d'uso è un'operazione su una tabella. Si trova in `src/modules/<table>/use-cases/<operation>.ts` ed esporta la funzione server insieme alle opzioni usate dai componenti. [Funzioni server](/docs/guides/server-functions) spiega i mattoni di base.
 
-Esportazione `mutationOptions` accanto alle mutazioni e `queryOptions` accanto alle letture. I componenti usano TanStack Query e traducono errori con `useActionError`. Le mutazioni di successo invalidano le loro chiavi di query caratteristica. Non fidarsi mai di un ID utente fornito da un cliente quando l'operazione dovrebbe agire `context.auth.user.id`.
+## Scrivi una mutation
 
-Uso `withAuth` per operazioni protette e `withRateLimit` per le operazioni pubbliche sensibili. La validazione viene eseguita prima del gestore. Tenere gli errori del fornitore e i dettagli interni dalle risposte pubbliche.
+`src/modules/category/use-cases/create-category.ts`:
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
 import { mutationOptions } from "@tanstack/react-query"
+import { createServerFn } from "@tanstack/react-start"
+import { v7 } from "uuid"
 import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
+
+import { authorized } from "~/src/integrations/better-auth/auth.middleware"
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+
+import { CATEGORY_MUTATION_KEYS } from "~/src/modules/category/category.constants"
+import { category } from "~/src/modules/category/category.schema"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
 ```
 
-L'esistente `createCategory` operazione dimostra validazione, controlli di autorizzazione, un D1 inserimento e opzioni di mutazione esportate.
+- Le scritture usano `method: "POST"`, le letture `method: "GET"`.
+- Il middleware protegge la chiamata: `authorized(permission)` per gli utenti autenticati con un permesso, `authorized()` per qualsiasi utente autenticato, `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` per le operazioni pubbliche.
+- Il validatore analizza lo schema del modulo; l'handler riceve i `data` già validati.
+- L'handler restituisce direttamente il risultato. Le operazioni sui dati del chiamante leggono l'utente da `context.auth.user.id`, mai dall'input.
 
-## Guide correlate
+## Scrivi una query
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+Le query esportano opzioni la cui chiave contiene l'input validato, così ogni pagina o filtro ha la propria voce di cache (`src/modules/category/use-cases/get-categories.ts`):
+
+```ts
+export const getCategoriesPageQuery = (input: zod.input<typeof listCategoriesSchema> = {}) =>
+  queryOptions<Awaited<ReturnType<typeof getCategories>>>({
+    queryFn: () => getCategories({ data: input }),
+    queryKey: [...CATEGORY_QUERY_KEYS.LIST, listCategoriesSchema.parse(input)],
+  })
+
+export const getCategoriesQuery = getCategoriesPageQuery()
+```
+
+Precarica la query nel `Promise.all` del loader della route con `context.queryClient.query({ ...getCategoriesQuery, staleTime: "static" })` e leggila nel componente con `useSuspenseQuery(getCategoriesQuery)`.
+
+## Gestisci gli errori
+
+Per gli errori previsti lancia `AppError` con un codice da `src/modules/_core/constants/errors.ts`:
+
+```ts
+if (row === undefined) {
+  throw new AppError(ERROR_CODES.NOT_FOUND)
+}
+```
+
+I codici sono `AUTH_API_ERROR`, `CONFLICT`, `FORBIDDEN`, `INTERNAL_ERROR`, `NOT_FOUND`, `TOO_MANY_REQUESTS`, `UNAUTHORIZED` e `VALIDATION`. Il middleware `withRequest`, incluso in `authorized` e `withRateLimit`, inoltra solo il codice di un `AppError`, trasforma gli errori dell'API di Better Auth in `AUTH_API_ERROR` con la chiave di errore di autenticazione, trasforma gli errori Zod in `VALIDATION` e registra ogni altro errore prima di sostituirlo con `INTERNAL_ERROR`.
+
+## Usalo in un componente
+
+Espandi le opzioni esportate in `useMutation`, traduci gli errori con `useErrorMessage` e invalida le query del modulo in caso di successo (`src/presentation/components/custom/admin/users/delete-user-dialog.tsx`):
+
+```tsx
+const queryClient = useQueryClient()
+const errorMessage = useErrorMessage()
+
+const deleteUser = useMutation({
+  ...deleteUserMutation,
+  onError: (error) => {
+    toast.error(errorMessage(error))
+  },
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL })
+    toast.success(t("feedback.deleteSuccess"))
+  },
+})
+```
+
+`useErrorMessage` associa le chiavi di errore di autenticazione a `auth.errors.<key>`, i codici di errore a `errors.codes.<CODE>` e tutto ciò che è sconosciuto a `errors.codes.INTERNAL_ERROR`. Invalida solo i moduli i cui dati vengono modificati dalla mutation.
+
+## Testalo
+
+Aggiungi `use-cases/__test__/<operation>.test.ts`. `executeMutation` ed `executeQuery` di `~/src/platform/testing/lib/query` eseguono le opzioni con un vero `QueryClient`, e la configurazione dei test fa passare la funzione server attraverso il suo vero middleware e il suo vero validatore. Copri il successo, ogni codice lanciato e il controllo dei permessi. Vedi [Scrivere i test](/docs/guides/writing-tests).

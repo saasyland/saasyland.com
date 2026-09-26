@@ -1,6 +1,48 @@
 ---
-title: Тема
-description: Кольорові режими та зміни CSS.
+title: "Тема"
+description: "Світла, темна й системна теми, збережені в cookie, та токени CSS, на яких вони ґрунтуються."
 ---
 
-Текстовий провайдер + змінні CSS. Уникайте пурпурно-дефедеративних кліше на сторінках маркетингу; адміністратор може залишитися нейтральним/системою.
+## Вибір теми
+
+`THEME` у `src/presentation/theme/index.ts` визначає теми `light`, `dark` і `system` (типова) та cookie `saasyland.com_theme`. Застосунок використовує `@wrksz/themes`:
+
+- `ThemeScript` у `head` кореневого документа (`src/routes/__root.tsx`) читає cookie й встановлює клас теми до першого малювання, тож мерехтіння немає.
+- `ThemeProvider` (`src/providers/theme-provider.tsx`) стартує зі значення з cookie (`getStoredTheme`), зберігає в ньому зміни й синхронізує їх між вкладками.
+- `ThemeProvider` обгортає лише віджети, які читають або змінюють тему: кореневий `Toaster` і `ThemeSwitch` у бічній панелі документації. Він ніколи не обгортає `Outlet` маршруту, бо провайдер, що оновлюється після гідратації, перерендерив би всю сторінку.
+
+```tsx
+const RootComponent = () => (
+  <AriaProvider>
+    <OfflineBanner />
+    <Outlet />
+    <ThemeProvider>
+      <Toaster />
+    </ThemeProvider>
+  </AriaProvider>
+)
+```
+
+`/admin`, `/app` і `/docs` використовують збережену тему; єдиний перемикач теми розташовано в бічній панелі документації. Макети головної сторінки, автентифікації та блогу додають клас `dark` до свого контейнера й завжди темні.
+
+## Токени
+
+`src/presentation/styles/globals.css` визначає токени shadcn як змінні OKLCH у `:root` (світла) і `.dark`: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, від `chart-1` до `chart-5`, набір `sidebar-*` і `radius`. Акцент бренду — `ring`: він забарвлює рамки фокуса, активні стани й виділення та збігається з `chart-1`. Утиліти `dark:` залежать від класу:
+
+```css
+@custom-variant dark (&:is(.dark *));
+```
+
+`@theme inline` зіставляє змінні з кольорами Tailwind, задає родини шрифтів і визначає типографічну шкалу. `globals.css` також імпортує стилі Fumadocs UI, тож документація використовує ті самі токени.
+
+## Типографічна шкала
+
+Використовуйте іменовані текстові утиліти замість довільних розмірів: `text-display-hero`, `text-display-gate`, `text-display-blast`, `text-headline-peak`, `text-headline-support`, `text-price`, `text-title`, `text-statement`, `text-lead`, `text-body`, `text-body-sm`, `text-spec` і `text-label`. Кожна задає розмір, міжрядковий інтервал, міжлітерний інтервал, а для заголовків — і товщину. `src/lib/cn.config.ts` реєструє їх, щоб `cn` зберігав їх під час об’єднання класів; `bun run generate:cn` перебудовує таблиці пошуку.
+
+## Таблиці стилів маршрутів
+
+`docs.css` містить стилі прози `typeset` для документації та статей блогу. Це звичайний CSS, який завантажують макети `/docs` і `/blog` як посилання на таблицю стилів `?url`. Таблиці стилів маршрутів не повинні запускати друге збирання Tailwind.
+
+## Пов’язані посібники
+
+- [Теми та брендинг](/docs/guides/theming-and-branding)

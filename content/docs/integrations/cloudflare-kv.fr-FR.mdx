@@ -1,14 +1,22 @@
 ---
-title: Cloudflare KV
-description: Cloudflare KV — SaaSy Land
+title: "Cloudflare KV"
+description: "L'espace de noms CACHE et le nombre d'étoiles GitHub mis en cache."
 ---
 
-`env.CACHE` stocke public, entrées de cache jetables. L'étoile GitHub d'intégration cache compte avec un TTL et utilise `waitUntil` pour l'écriture du cache. Il revient gracieusement si GitHub ou KV n'est pas disponible.
+Chaque environnement lie un espace de noms KV sous le nom `CACHE`. Son seul usage est le nombre d'étoiles GitHub affiché sur le site, implémenté dans `src/lib/github.ts` :
 
-KV est finalement cohérent. Les sessions d'authentification et les limites de taux sont affichées dans D1. Le limiteur d'action utilise un upsert SQL atomique par clé et fenêtre de temps, de sorte que les requêtes traitées par des instances Worker séparées partagent la même limite. Ne pas utiliser de compteurs KV pour l'autorisation ou les limites sensibles.
+- `getStarCount` lit l'entrée `github:<owner>/<repo>:stars`.
+- En l'absence d'entrée, elle récupère le dépôt via l'API GitHub avec un délai d'expiration de trois secondes, renvoie le nombre et écrit `count` et `fetchedAt` dans KV avec `waitUntil`.
+- Lorsque l'entrée date de plus d'une heure, elle renvoie le nombre en cache et l'actualise en arrière-plan.
+- `starCountQuery` conserve le résultat dans le cache de requêtes pendant une heure.
 
-## Guides connexes
+Les entrées n'ont pas d'expiration KV ; c'est `fetchedAt` qui décide du moment de l'actualisation. La requête GitHub s'authentifie avec les identifiants de l'application OAuth GitHub `AUTH_GITHUB_CLIENT_ID` et `AUTH_GITHUB_CLIENT_SECRET`.
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+KV offre une cohérence à terme. Les sessions, les limites de débit et tout ce qui sert à l'autorisation résident dans D1.
+
+Dans Vitest, `cloudflare:workers` est résolu vers `src/platform/testing/mocks/cloudflare.ts`, qui fournit un `CACHE` en mémoire. L'environnement Wrangler `test` utilise un espace de noms local sous `.wrangler/test`.
+
+## Guides associés
+
+- [Cache et SSR](/docs/architecture/caching-and-ssr)
+- [Environnement et bindings](/docs/tooling/environment)

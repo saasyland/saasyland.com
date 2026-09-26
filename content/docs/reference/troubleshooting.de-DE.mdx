@@ -1,16 +1,48 @@
 ---
-title: Fehlerbehebung.
-description: Fehlerbehebung – SaaSy Land
+title: "Fehlerbehebung"
+description: "Häufige Fehler bei Entwicklung, Tests und Deployment und wie du sie behebst."
 ---
 
-Wenn lokale Abfragen fehlende Tabellen melden, führen Sie `bun run db:migrate:local` aus. Browser-Tests verwenden `db:migrate:test` und eine separate D1-Verbindung. Bei fehlgeschlagener Authentifizierung überprüfen Sie die Umgebung-URL, `AUTH_SECRET`, die Anmeldeinformationen des Anbieters und die Callback-URLs.
+## Datenbank
 
-Fehlende Übersetzungseinträge weisen in der Regel auf einen fehlenden Namespace in der Route oder auf einen fehlenden Schlüssel in einer bestimmten Lokalisierung hin. Führen Sie `check:i18n` aus. Bei Dokumentations-404-Fehlern überprüfen Sie den lokalisierten MDX-Dateinamen, die Seiteneinstellungen und relative Quellverlinkungen. Bei Problemen beim Vorab-Rendering prüfen Sie die erste fehlgeschlagene URL in der Build-Ausgabe.
+**`no such table` bei `bun run dev`.** Die Umgebung `development` nutzt die Remote-Preview-Datenbank in D1. Wende die Migrationen dort mit `bun run db:migrate:development` an. Für die lokale Entwicklungsdatenbank verwendest du `bun run db:migrate:local`.
 
-Eine abgebrochene Bereitstellung aufgrund von Platzhalter-Bindungen benötigt echte D1- und KV-IDs in der Zielumgebung. Build- und Testoperationen erstellen keine Remote-Ressourcen automatisch.
+**`no such table` in Playwright.** Browsertests nutzen eine eigene lokale Datenbank. Führe `bun run db:migrate:test` und `bun run db:seed:test` aus oder lass Playwright die App starten, das beides erledigt.
 
-## Verwandte Anleitungen.
+**Die Vitest-Tabellen sind veraltet.** Der D1-Mock wendet beim Start jede SQL-Datei in `src/integrations/drizzle-orm/migrations` an. Erzeuge nach einer Schemaänderung eine Migration mit `bun run db:generate`.
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+## Entwicklungsserver
+
+**Der Dev-Server startet nicht.** Er nutzt Port 3000 mit `strictPort` und schlägt daher fehl, wenn der Port belegt ist. Beende den anderen Prozess.
+
+**Die Anmeldung oder OAuth schlägt fehl.** Prüfe `AUTH_SECRET` und die OAuth-Client-Zugangsdaten in der Umgebungsdatei und ob die Callback-URL des Providers auf `/api/auth/callback/<provider>` auf dem Host zeigt, den du verwendest. Better Auth akzeptiert nur die Hosts, die für den Build-Modus konfiguriert sind: lokal `localhost:3000` und `127.0.0.1:3000`.
+
+**In den Worker-Typen fehlt ein Binding oder Secret.** Führe nach Änderungen an `wrangler.jsonc` den Befehl `bun run cf-typegen` aus und ergänze die Variable in `src/types/bindings.d.ts`.
+
+**Eigene `text-*`-Klassen verschwinden beim Zusammenführen.** `cn` hängt von Tabellen ab, die aus `src/lib/cn.config.ts` generiert werden. `bun run dev`, `bun run check` und die Builds erzeugen sie neu; führe `bun run generate:cn` aus, wenn `.source/cn-tables.ts` fehlt.
+
+## Übersetzungen
+
+**`No messages/<locale>/<namespace>.json`.** Eine Route deklariert einen Namespace, für den es in dieser Locale keine Datei gibt. Lege die Datei in jeder Locale an.
+
+**Ein Key wird als sein Pfad gerendert, oder `check:i18n` meldet einen fehlenden Key.** Der Key fehlt in einer Locale, oder die Komponente liest ihn außerhalb des Scopes ihres `useTranslations`-Aufrufs. Verwende nur einen `useTranslations`-Aufruf pro Komponente und führe `bun run check:i18n` aus.
+
+## Dokumentation
+
+**Eine Doku-Seite liefert 404.** Die Datei muss `<page>.<locale>.mdx` heißen und in `pages` der `meta.<locale>.json` ihres Ordners aufgeführt sein. Führe `bun run content` aus, um `.source` neu zu erzeugen.
+
+**`check-content.ts` schlägt fehl.** Das Skript vergleicht jede Locale mit en-US. `Changed code examples` bedeutet, dass ein Codeblock vom englischen abweicht; Codeblöcke müssen identisch sein. `Untranslated English paragraph` bedeutet, dass ein Absatz unübersetzt kopiert wurde. `Missing <file>` bedeutet, dass eine Locale-Datei fehlt.
+
+## Tests und Deployment
+
+**`test:coverage` schlägt fehl.** Die Testabdeckung muss für Zeilen, Anweisungen, Funktionen und Branches 100 % betragen. Der Bericht in `coverage/` listet die nicht abgedeckten Zeilen auf.
+
+**Das Deployment bricht bei `verify-bindings.ts` ab.** Die Zielumgebung in `wrangler.jsonc` enthält noch Platzhalter-IDs für D1 oder KV. Lege die Ressourcen in Cloudflare an und ersetze die IDs.
+
+**Ein Prerender-Build schlägt fehl.** Die Build-Ausgabe nennt die erste URL, die fehlgeschlagen ist. Öffne diese Seite mit `bun run dev`, um den Fehler zu sehen.
+
+## Verwandte Seiten
+
+- [Lokales Debugging](/docs/guides/local-debugging)
+- [Häufige Fragen](/docs/reference/faq)
+- [Umgebung und Bindings](/docs/reference/environment)

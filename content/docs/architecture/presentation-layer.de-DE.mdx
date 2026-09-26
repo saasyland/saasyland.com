@@ -1,14 +1,66 @@
 ---
-title: Präsentation.
-description: Präsentation — SaaSy Land
+title: "Präsentation"
+description: "Wo Komponenten, E-Mails und Styles liegen und welche Regeln jede Komponente befolgt."
 ---
 
-Die Präsentationsschicht verwaltet die bestehende Typografie, das Layout, die Farben und die Interaktionen. Gemeinsame Basiselemente befinden sich in `presentation/components/shadcn`; spezifische Komponenten sind in `presentation/components/custom`. Halten Sie komponentenbezogene Elemente, Hooks und Konstanten in der Nähe der jeweiligen Bereiche.
+## Ordner
 
-Routen bieten Kontext für das Laden und die Navigation. Komponenten nutzen übersetzte Nachrichten sowie native Optionen für Abfragen und Mutationen. Lokale Schriftdateien von "Geist" werden von `public/fonts` bereitgestellt. Der Helfer `cn` in `src/lib/cn.ts` behält die benutzerdefinierte Typenreihe bei, während er Tailwind-Klassen zusammenführt.
+- `presentation/components/shadcn`: shadcn/ui-Primitives in der Variante für React Aria Components
+- `presentation/components/custom`: Anwendungskomponenten
+- `presentation/emails`: React-Email-Templates
+- `presentation/styles`: `globals.css` (der einzige Tailwind-Build), `docs.css` (reines CSS, das nur das `/docs`-Layout lädt), `fonts.css` und `typeset.css`
+- `presentation/theme`: `THEME` (hell, dunkel, System; Cookie-Name; Standardwert)
+- `presentation/branding`: App-Name, Domain, URLs und GitHub-Repository
+- `presentation/document-assets.ts`: das Stylesheet des Dokuments und die Font-Preloads für jede Locale
 
-## Verwandte Anleitungen.
+## Komponenten organisieren
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+- Gemeinsame Komponenten sind flache Dateien in `custom/`, zum Beispiel `footer.tsx`, `navigation.tsx`, `data-table.tsx` und `locale-switcher.tsx`.
+- Komponenten für einen einzelnen Bereich liegen in einem Bereichsordner: `admin/`, `app/`, `auth/`, `blog/` oder `landing-page/`. Admin-Seiten haben einen eigenen Ordner, etwa `admin/dashboard/revenue-chart.tsx` oder `admin/users/reset-password-dialog.tsx`.
+- Jede Datei enthält ein Widget, einen Dialog, ein Formular oder eine Spaltendefinition. Tabellenspalten liegen in `<entity>-columns.tsx` neben den übrigen Komponenten der Seite.
+- Routendateien setzen diese Komponenten nur zusammen. Daten, die mehrere Dateien teilen, liegen in `src/data`; eine Konstante, die nur eine Komponente nutzt, bleibt in deren Datei.
+
+## Regeln für Komponenten
+
+- Eine Komponente liest ihre Übersetzungen und Daten selbst, mit `useTranslations`, `useSuspenseQuery` oder `getRouteApi(…).useLoaderData()`. Sie nimmt keine Text-, Label- oder Daten-Props entgegen, die eine Elternkomponente selbst hätte lesen können.
+- Eine Komponente ruft `useTranslations` genau einmal auf und nennt die Übersetzungsfunktion `t`. Für Keys aus zwei Namespaces verwendet sie deren gemeinsamen übergeordneten Namespace oder `useTranslations()` mit vollständigen Keys.
+- Es gibt keine Wrapper, die nur durchreichen, und kein Prop Drilling.
+- Tag-Maps für Rich Text sind Konstanten auf Modulebene. Bedingte Klassen verwenden die Objektsyntax von `cn`, zum Beispiel `cn("base", { "text-foreground": isActive })`.
+- Komponenten importieren nie Datenbank- oder Provider-Clients. Sie verwenden die Query- und Mutation-Optionen, die die Use Cases exportieren.
+
+```tsx
+export const SignOutButton = (): JSX.Element => {
+  const t = useTranslations("common")
+  const { isPending, mutate } = useSignOut()
+
+  return (
+    <Button
+      aria-label={isPending ? t("signingOut") : t("signOut")}
+      className="shrink-0 text-muted-foreground"
+      isDisabled={isPending}
+      onPress={() => {
+        mutate()
+      }}
+      size="icon-sm"
+      variant="ghost"
+    >
+      {isPending && <Spinner />}
+      {!isPending && <LogOut aria-hidden strokeWidth={1.5} />}
+    </Button>
+  )
+}
+```
+
+## Styling
+
+`cn` aus `src/lib/cn.ts` führt Tailwind-Klassen mithilfe von Tabellen zusammen, die aus `src/lib/cn.config.ts` generiert werden. Diese Datei registriert die eigene `text-*`-Typoskala, damit diese Klassen beim Zusammenführen erhalten bleiben. Die Schriftdateien von Geist werden aus `public/fonts` ausgeliefert; jede Locale lädt die Latin- und Mono-Dateien vor, Polnisch zusätzlich Latin Extended und Ukrainisch zusätzlich Kyrillisch.
+
+## E-Mails
+
+Ein E-Mail-Template in `presentation/emails` enthält nur Markup und exportiert seinen Namespace, zum Beispiel `VERIFY_EMAIL_NAMESPACE = "emails.verify-email"`. Es übersetzt mit `createTranslator` von use-intl. Der Use Case, der die E-Mail versendet, lädt die Nachrichten und übergibt sie an das Template.
+
+## Verwandte Seiten
+
+- [shadcn-Komponenten](/docs/ui/shadcn-components)
+- [Kompositionsmuster](/docs/ui/composition-patterns)
+- [E-Mail-Templates](/docs/guides/email-templates)

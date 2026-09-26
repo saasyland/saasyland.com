@@ -1,16 +1,48 @@
 ---
 title: "Troubleshooting"
-description: "Troubleshooting — SaaSy Land"
+description: "Common errors during development, testing and deployment, and how to fix them."
 ---
 
-If local queries report missing tables, run `bun run db:migrate:local`; browser tests use `db:migrate:test` and a separate D1 binding. If authentication fails, check the environment URL, `AUTH_SECRET`, the provider credentials and callback URLs.
+## Database
 
-Missing translation errors usually indicate a namespace omitted from the route or a key missing in one locale. Run `check:i18n`. For documentation 404s, verify the localized MDX filename, page metadata and relative source link. For prerender failures, inspect the first failing URL in the build output.
+**`no such table` in `bun run dev`.** The `development` environment uses the remote preview D1 database. Apply the migrations there with `bun run db:migrate:development`. For the local development database, use `bun run db:migrate:local`.
 
-A deploy rejected for placeholder bindings needs real D1 and KV IDs in the target environment. Build and test operations do not create remote resources automatically.
+**`no such table` in Playwright.** Browser tests use their own local database. Run `bun run db:migrate:test` and `bun run db:seed:test`, or let Playwright start the app, which runs both.
 
-## Related guides
+**Vitest tables are out of date.** The D1 mock applies every SQL file in `src/integrations/drizzle-orm/migrations` at startup. After a schema change, generate a migration with `bun run db:generate`.
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+## Development server
+
+**The dev server does not start.** It uses port 3000 with `strictPort`, so it fails when the port is busy. Stop the other process.
+
+**Sign-in or OAuth fails.** Check `AUTH_SECRET` and the OAuth client credentials in the environment file, and that the provider's callback URL points to `/api/auth/callback/<provider>` on the host you use. Better Auth only accepts the hosts configured for the build mode: `localhost:3000` and `127.0.0.1:3000` locally.
+
+**Worker types are missing a binding or secret.** Run `bun run cf-typegen` after changing `wrangler.jsonc`, and add the variable to `src/types/bindings.d.ts`.
+
+**Custom `text-*` classes disappear when merged.** `cn` depends on tables generated from `src/lib/cn.config.ts`. `bun run dev`, `bun run check` and the builds regenerate them; run `bun run generate:cn` if `.source/cn-tables.ts` is missing.
+
+## Translations
+
+**`No messages/<locale>/<namespace>.json`.** A route declares a namespace that has no file for that locale. Create the file in every locale.
+
+**A key renders as its path, or `check:i18n` reports a missing key.** The key is missing in one locale, or the component reads it outside the scope of its `useTranslations` call. Use a single `useTranslations` per component and run `bun run check:i18n`.
+
+## Documentation
+
+**A docs page returns 404.** The file must be named `<page>.<locale>.mdx` and listed in `pages` of the folder's `meta.<locale>.json`. Run `bun run content` to regenerate `.source`.
+
+**`check-content.ts` fails.** It compares every locale with en-US. `Changed code examples` means a code block differs from the English one; code blocks must be identical. `Untranslated English paragraph` means a paragraph was copied without translating it. `Missing <file>` means a locale file does not exist.
+
+## Tests and deployment
+
+**`test:coverage` fails.** Coverage must be 100% for lines, statements, functions and branches. The report in `coverage/` lists the uncovered lines.
+
+**Deploy stops at `verify-bindings.ts`.** The target environment in `wrangler.jsonc` still has placeholder D1 or KV IDs. Create the resources in Cloudflare and replace the IDs.
+
+**A prerender build fails.** The build output names the first URL that failed. Open that page with `bun run dev` to see the error.
+
+## Related pages
+
+- [Local debugging](/docs/guides/local-debugging)
+- [Frequently asked questions](/docs/reference/faq)
+- [Environment and bindings](/docs/reference/environment)

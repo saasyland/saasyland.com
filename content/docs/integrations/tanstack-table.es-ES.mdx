@@ -1,6 +1,43 @@
 ---
-title: TanStack Table
-description: Tabla sin encabezado que alimenta la tabla DataTable compartida.
+title: "TanStack Table"
+description: "TanStack Table v9 detrás de un único DataTable genérico."
 ---
 
-Envoltorio: `presentation/components/custom/data-table`. No se deben llamar a las APIs de la tabla dentro de los elementos de retorno de Suspense, bajo los Componentes de Caché.
+Todas las tablas se renderizan a través de un único `DataTable` genérico en `src/presentation/components/custom/data-table.tsx`. Este crea una instancia de TanStack Table v9 con `tableFeatures` (filtrado de columnas, ordenación, paginación y selección de filas) y `useTable`, y renderiza primitivas de tabla de shadcn, filas esqueleto durante la carga y un estado vacío localizado.
+
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
+
+## Props
+
+| Prop                   | Propósito                                                                                                                                                         |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`              | Definiciones de columnas para el tipo de fila; cada fila necesita un `id`                                                                                         |
+| `data`                 | Filas para una tabla que ordena, filtra y pagina en el cliente                                                                                                    |
+| `options.initialState` | `pagination` y `sorting` iniciales                                                                                                                                |
+| `options.query`        | Paginación y ordenación en el servidor: una función de `pageIndex`, `pageSize` y `sorting` que devuelve opciones de consulta que se resuelven en `rows` y `total` |
+| `options.selectable`   | Añade una columna de casillas de verificación para seleccionar filas                                                                                              |
+| `filters`              | Filtros de búsqueda (`type: "search"`, `columnId`, `placeholder`) o filtros de selección (`type: "select"`, `columnId`, `label`, `options`)                       |
+
+Con `options.query`, la tabla pasa a paginación y ordenación manuales, mantiene visible la página anterior mientras se carga la siguiente y vuelve a la primera página cuando cambia la ordenación.
+
+## Columnas
+
+Las columnas se definen en un archivo `<entity>-columns.tsx` junto a los widgets de la página y usan `createColumnHelper<DataTableFeatures, Row>()`. Las celdas y los encabezados son componentes pequeños que leen sus propias traducciones, por lo que la ruta no pasa ninguna etiqueta:
+
+```tsx
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+])
+```
+
+El ejemplo completo es `src/presentation/components/custom/admin/users/user-columns.tsx`, renderizado por `src/routes/admin.users.all.tsx`.
+
+## Guías relacionadas
+
+- [DataTable](/docs/ui/data-table)
+- [Añadir un DataTable](/docs/guides/add-a-data-table)

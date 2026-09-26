@@ -1,30 +1,55 @@
 ---
 title: "Architecture"
-description: "Architecture — SaaSy Land"
+description: "How SaaSy Land is organized: routes compose pages, modules own database tables, integrations wrap vendors."
 ---
 
-SaaSy Land runs as one TanStack Start application on Cloudflare Workers. Routes coordinate rendering and data loading. Feature modules own validation, authorization and operations. Integrations configure external services. Presentation owns the existing UI.
+SaaSy Land is one TanStack Start application that runs as a Cloudflare Worker. The code is split by responsibility:
 
-There is no dependency injection container. Import the concrete collaborator at its owning layer. Keep shared helpers small and keep feature-only helpers beside the feature.
+- **Routes** (`src/routes`) compose pages. A route file declares its translation namespaces, guard, loader and head tags, then renders components.
+- **Modules** (`src/modules/<table>`) exist only for real database tables. A module owns the table's Drizzle schema, Zod schemas, constants, types and the use cases that read or change it.
+- **Integrations** (`src/integrations/<vendor>`) configure third-party libraries and services.
+- **Presentation** (`src/presentation`) holds shadcn primitives, application components, React Email templates, styles, theme and branding.
+- **Shared code** lives in `src/data` (data used by several files), `src/lib` (small utilities), `src/hooks` and `src/providers`.
 
 ```text
-content/                         Localized MDX
-messages/{locale}/           Translation namespaces
-src/routes/                      Flat file routes
-src/router.tsx                   Router and per-request query cache
-src/server.ts                    Cloudflare Worker entry
-src/modules/{feature}/           Schemas, constants, validation
-src/modules/{feature}/use-cases/  Server functions and query/mutation options
-src/integrations/{vendor}/       Vendor adapters and setup
-src/presentation/                Components, styles, branding, emails
-src/providers/                   Application providers
-src/hooks/                       Shared hooks
-src/lib/                         Shared utilities
-src/platform/testing/            Binding mocks and test helpers
+src/
+├── routes/          Flat file routes that compose pages
+├── modules/         One folder per database table, plus _core
+├── integrations/    One folder per vendor
+├── presentation/    Components, emails, styles, theme, branding
+├── data/            Data shared by several files
+├── lib/             Small shared utilities
+├── hooks/           Shared React hooks
+├── providers/       Application providers
+├── platform/        Test runtime wiring
+├── types/           Global type declarations
+├── router.tsx       Router and per-request QueryClient
+├── routes.ts        ROUTES path constants
+└── server.ts        Cloudflare Worker entry
 ```
 
-## Related guides
+## Rules that shape the code
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- Route files only compose. Widgets, dialogs, forms and table columns live in `src/presentation/components/custom`, one per file.
+- Components read their own translations and data with `useTranslations`, `useSuspenseQuery` or the route's loader data. Routes do not pass labels or data down as props.
+- A server function that works on a table is a use case in that table's module. A server function used by a single route can be defined in the route file. Everything else belongs in `src/lib`.
+- There is no dependency injection container and no wrapper layer. Import the concrete function from the folder that owns it.
+- A constant used by one file stays in that file. Only data shared by several files moves to `src/data`.
+
+## In this section
+
+- [Directory structure](/docs/architecture/directory-structure): every folder and what belongs in it.
+- [Dependency rules](/docs/architecture/dependency-rules): allowed imports and server-only boundaries.
+- [Server functions and use cases](/docs/architecture/modules-and-use-cases): module layout and the use case pattern.
+- [Core shared kernel](/docs/architecture/core): errors and catalogs in `src/modules/_core`.
+- [Routes and delivery](/docs/architecture/delivery-layer): route file anatomy and router configuration.
+- [Presentation](/docs/architecture/presentation-layer): component organization and styling.
+- [Integration ownership](/docs/architecture/integrations-layer): vendor folders and what stays out of them.
+- [Platform and testing](/docs/architecture/platform-layer): Cloudflare bindings, environments and test wiring.
+- [Providers](/docs/architecture/providers): the four application providers and where they mount.
+- [Request lifecycle](/docs/architecture/request-lifecycle): what happens between the Worker and the rendered page.
+- [Caching and SSR](/docs/architecture/caching-and-ssr): query cache, prerendering and KV.
+- [TanStack Start HTTP handlers](/docs/architecture/api-layer): the `/api` endpoints.
+- [Authentication and security](/docs/architecture/security-model): guards, permissions, rate limits and error masking.
+- [Internationalization and locales](/docs/architecture/i18n-architecture): locale URLs, namespaces and translation loading.
+- [Testing and CI](/docs/architecture/testing-architecture): test projects, coverage and the CI pipeline.

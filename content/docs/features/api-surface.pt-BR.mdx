@@ -1,28 +1,37 @@
 ---
-title: TanStack Start Comutadores HTTP
-description: TanStack Start HTTP manipuladores - SaaSy Land
+title: "Handlers HTTP do TanStack Start"
+description: "As rotas de servidor em /api e como elas se relacionam com as funções de servidor."
 ---
 
-Os terminais HTTP usam nativos. TanStack Start O servidor está no servidor. `src/routes`. Better Auth É dono de GET e POST. `/api/auth/$`; Fumadocs A busca usa `/api/search`. . Operações de produto são funções de servidor nativas em módulos de recursos.
+O aplicativo expõe três rotas HTTP, declaradas com `server.handlers` em `createFileRoute` dentro de `src/routes/api`:
 
-Declare os encarregados. `createFileRoute` com `server.handlers`. . Use o fornecido. `request`, validar a entrada, forçar a verificação de permissão, e devolver uma Web `Response`. . Mantenha a verificação do webhook na integração do provedor. Não exponha um endpoint REST duplicado para uma operação que só é usada pelo cliente RPC desse aplicativo.
+| Rota          | Métodos   | Handler                                                                                                                                                   |
+| ------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api`        | GET       | Retorna `{ "runtime": "cloudflare-workers" }`.                                                                                                            |
+| `/api/auth/$` | GET, POST | Better Auth: login, callbacks OAuth, `/api/auth/verify-email` e os endpoints do plugin do Polar `/api/auth/polar/webhooks` e `/api/auth/customer/portal`. |
+| `/api/search` | GET       | Busca do Fumadocs (`fumadocs.search.ts`).                                                                                                                 |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
+## Funções de servidor em vez de REST
+
+As operações do aplicativo são funções `createServerFn` em `src/modules/<table>/use-cases` (ou dentro da única rota que as usa). O TanStack Start as chama via RPC sob `/_serverFn`, com middleware para sessões, permissões e limites de taxa. Não adicione um endpoint REST para uma operação que só este aplicativo chama; adicione uma rota HTTP apenas para chamadores externos, como webhooks, e verifique as assinaturas na integração do provedor.
+
+## Comportamento
+
+- O Worker não aplica redirecionamentos de idioma a `/api` nem a `/_serverFn`; essas requisições pegam o idioma do cookie.
+- O build não pré-renderiza `/api`.
+- Os testes dos handlers ficam em `src/routes/api/__test__/handlers.test.ts`.
+
 ## Guias relacionados
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Adicionar uma rota de API](/docs/guides/add-an-api-route)
+- [Funções de servidor](/docs/guides/server-functions)

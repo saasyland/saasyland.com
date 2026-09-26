@@ -1,10 +1,46 @@
 ---
 title: "Categories"
-description: "Category CRUD use-cases."
+description: "Categories and collections in D1, listed on the admin products screen."
 ---
 
-## Module
+## Data
 
-`modules/category/use-cases`.
+`src/modules/category/category.schema.ts` defines the `category` table: `name`, `description`, `kind` (`category` or `collection`), `visibility` (`public` or `hidden`), `icon` (`Archive`, `FolderOpen` or `Puzzle`) and timestamps.
 
-Used by product organization UI and future storefront filters.
+Use cases in `src/modules/category/use-cases`, each behind the matching `category` permission: `getCategories` (paginated, optional `kind`), `getCategory`, `createCategory`, `updateCategory` and `deleteCategory`. `createCategory` is the reference layout for a mutation use case:
+
+```ts
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
+```
+
+Validation and error messages live in the `category.validations` and `category.errors` namespaces.
+
+## Admin screen
+
+The **Categories** and **Collections** tabs of `/admin/products` render `categoryColumns` with `getCategoriesPageQuery({ kind, pageIndex, pageSize })`. Only listing is wired: no screen creates, edits or deletes categories. Products have no category relation yet, so the item count column shows a placeholder.
+
+## Related guides
+
+- [Add a use case](/docs/guides/add-a-use-case)
+- [Server functions](/docs/guides/server-functions)

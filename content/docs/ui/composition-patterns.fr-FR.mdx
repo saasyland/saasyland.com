@@ -1,6 +1,101 @@
 ---
-title: Modèles de composition
-description: Préférez la composition par rapport aux accessoires booléens; soulevez l'état vers les fournisseurs.
+title: "Modèles de composition"
+description: "Les règles de composition des routes, des pages et des composants dans ce code."
 ---
 
-Suivre `.agents/skills/vercel-composition-patterns`: composants composés, contexte générique (`state` / `actions` / `meta`), React 19 `use()`, non `forwardRef`.
+## Les routes composent les pages
+
+Un fichier de route définit son composant `<Name>Page` ou `<Name>Layout`, `NAMESPACE` ou `NAMESPACES`, le loader et `head`. La page ne fait que placer des widgets ; les widgets se trouvent dans `src/presentation/components/custom/<area>/`. Un layout ressemble à ceci (`src/routes/app.tsx`) :
+
+```tsx
+const AppLayout = (): JSX.Element => (
+  <SidebarProvider className="h-svh overflow-hidden">
+    <AppSidebar />
+    <SidebarInset className="relative min-h-0 min-w-0 overflow-hidden">
+      <Background className="z-[-1]" glow={false} />
+      <AppHeader />
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-5 pb-6 md:px-6 md:pt-7 md:pb-8">
+        <div className="mx-auto w-full max-w-5xl">
+          <Outlet />
+        </div>
+      </div>
+    </SidebarInset>
+  </SidebarProvider>
+)
+```
+
+Une fonction serveur utilisée par une seule route peut être définie dans ce fichier de route avec `createServerFn`, comme le fait `src/routes/blog.index.tsx`.
+
+## Un widget, une boîte de dialogue ou un formulaire par fichier
+
+Chaque widget, boîte de dialogue, formulaire ou jeu de colonnes a son propre fichier : `admin/users/row-actions.tsx`, `delete-user-dialog.tsx`, `reset-password-dialog.tsx`, `user-columns.tsx`. Les dossiers de composants sont à plat : pas de sous-dossiers `components/`, `hooks/`, `constants/` ou `types/`, et pas de découpage en `x.tsx` plus `x-content.tsx`. Les composants partagés se trouvent directement dans `custom/`.
+
+## Les composants lisent leurs propres données
+
+Un composant récupère lui-même ses textes et ses données au lieu de les recevoir en props :
+
+- les traductions avec `useTranslations` ;
+- les données de requête avec `useSuspenseQuery`, déjà chargées par le loader de la route ;
+- les données du loader, le contexte de route et les paramètres de recherche avec `getRouteApi("…")`.
+
+```tsx
+const route = getRouteApi("/blog/$")
+
+export const PostMeta = (): JSX.Element => {
+  const { post } = route.useLoaderData()
+  const t = useTranslations("pages.blog.post")
+  const format = useFormatter()
+
+  const details = [post.authorName, t("readingTime", { minutes: post.readingTimeMinutes }), post.tags.join(", ")].filter(
+    (item) => item.trim().length > 0,
+  )
+
+  return (
+    <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-border py-4 font-mono text-body-sm text-muted-foreground">
+      <span className="flex items-center gap-2.5">
+        <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
+        <time className="tabular-nums" dateTime={new Date(post.date).toISOString()}>
+          {format.dateTime(new Date(post.date), { day: "numeric", month: "long", year: "numeric" })}
+        </time>
+      </span>
+      {details.map((item) => (
+        <span className="flex items-center gap-3" key={item}>
+          <span aria-hidden className="text-border">
+            &middot;
+          </span>
+          {item}
+        </span>
+      ))}
+    </div>
+  )
+}
+```
+
+Les props transportent une identité ou un état que seul le parent connaît, comme le `user` d’une boîte de dialogue avec `isOpen` et `onOpenChange`, ou un `activationId`. Il n’y a ni props de texte ou de libellé, ni transmission de props en cascade, ni enveloppes qui ne font que renommer des props ou transmettre des enfants. Une constante utilisée par un seul fichier reste dans ce fichier ; les données partagées par plusieurs fichiers vont dans `src/data`.
+
+## Texte enrichi
+
+Les tables de balises pour `t.rich` sont des constantes de module, jamais des objets créés pendant le rendu :
+
+```tsx
+const REUSE_TAGS = { accent: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong> }
+```
+
+## Classes conditionnelles
+
+Utilisez `cn` de `~/src/lib/cn` avec la syntaxe objet :
+
+```tsx
+<p className={cn("font-medium", { "text-foreground": !banned, "text-muted-foreground line-through": banned })}>{name}</p>
+```
+
+Affichez les alternatives avec une paire de conditions `&&` ou un retour anticipé plutôt qu’avec un ternaire sur plusieurs lignes.
+
+## Fournisseurs
+
+Les fournisseurs qui changent après l’hydratation n’enveloppent que les widgets qui en ont besoin, jamais un `Outlet` de route : `ThemeProvider` enveloppe le `Toaster` et le `ThemeSwitch` de la documentation, et `MotionProvider` enveloppe les sections de la page d’accueil et la liste du blog. `AriaProvider` enveloppe l’outlet racine et `TranslationsProvider` le corps du document, car tous les écrans en ont besoin.
+
+## Guides associés
+
+- [Couche de présentation](/docs/architecture/presentation-layer)
+- [Conventions](/docs/reference/conventions)

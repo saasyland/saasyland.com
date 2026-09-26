@@ -1,14 +1,54 @@
 ---
-title: プラットフォームとテスト
-description: プラットフォームとテスト — SaaSy Land
+title: "プラットフォームとテスト"
+description: "Cloudflare のランタイム：Worker のエントリー、バインディング、環境、生成される型、テストランタイムの配線。"
 ---
 
-Cloudflare は、explicit D1、KV、およびアセットバインディングによるランタイムを提供します。 生成された宣言は下に住んでいます `src/types`. . ベンダー固有のセットアップは、 `src/integrations`. . 残りのプラットフォームディレクトリは、テストインフラストラクチャを保持しています。バインディングモック、リクエストフィクスチャ、RPCブリッジ、レンダリングヘルパー。
+## Worker とバインディング
 
-環境固有の展開設定を保ちましょう `wrangler.jsonc` 対応する無視環境ファイル。 テスト資格情報を保持する `.env.test` 生産資格情報に代わることはありません。
+`wrangler.jsonc` は、`src/server.ts` を Worker のエントリーとして設定します。Worker は 3 つのバインディングを受け取ります。
 
-## 関連ガイド
+| バインディング | 種類            | 用途                                                       |
+| -------------- | --------------- | ---------------------------------------------------------- |
+| `DB`           | D1 データベース | セッションとレート制限のカウンターを含む、すべてのテーブル |
+| `CACHE`        | KV 名前空間     | キャッシュされた GitHub のスター数                         |
+| `ASSETS`       | 静的アセット    | プリレンダリング済みのページと `public` のファイル         |
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+`/assets/*`、`/fonts/*`、`/robots.txt`、`/llms.txt` へのリクエストは、Worker を実行せずに静的アセットから返されます。サーバーコードは、バインディング、シークレット、`waitUntil` を `cloudflare:workers` から読み取ります。
+
+## 環境
+
+`wrangler.jsonc` は 4 つの環境を定義します。`vp dev` と `vp build` で使う環境は `CLOUDFLARE_ENV` で選択します。
+
+| 環境          | バインディング                         | 使用箇所                                        |
+| ------------- | -------------------------------------- | ----------------------------------------------- |
+| `development` | リモートのプレビュー用 D1 と KV        | `bun run dev`                                   |
+| `preview`     | プレビュー用 D1 と KV                  | `bun run build:preview`、`deploy:preview`       |
+| `production`  | 本番用 D1 と KV                        | `bun run build:production`、`deploy:production` |
+| `test`        | `.wrangler/test` 内のローカル D1 と KV | `bun run build:test`、Playwright                |
+
+各環境は、必要なシークレットを `secrets.required` に列挙します。値は対応する `.env.<environment>` ファイルから取得され、デプロイスクリプトがそのファイルを `--secrets-file` で Wrangler に渡します。`test` 環境は、エントリーとして `src/platform/testing/worker.ts` を使い、`.env.test` にコミットされたダミー値を使います。
+
+## 型
+
+- `src/types/bindings.d.ts` は、バインディングとすべてのシークレットを含む `Cloudflare.Env` を宣言します。
+- `src/types/worker-configuration.d.ts` は `bun run cf-typegen` で生成されます。
+- `src/types/router.d.ts` は、ルーターの型と `staticData.namespaces` ルートオプションを登録します。
+
+## テストランタイムの配線
+
+`src/platform/testing` には、特定の機能に属させることができないものだけを置きます。
+
+- `setup.ts`：jest-dom のマッチャー、各テスト前のバインディングのリセット、サーバー関数をプロセス内で実行するための `createServerFn` の置き換え
+- `mocks/cloudflare.ts`：チェックイン済みのマイグレーションを実行するインメモリ SQLite の D1、インメモリの KV、テストからフラッシュできる `waitUntil`
+- `mocks/providers.ts`：ブラウザテストでの Resend と Polar への fetch のインターセプト（送信メールのキャプチャを含む）
+- `mocks/wrksz-themes.ts`：テーマライブラリの代替実装
+- `lib/`：サーバー関数の RPC ブリッジ、レンダリング用ヘルパー、リクエスト URL 用ヘルパー、クエリランナー
+- `worker.ts`：ブラウザテスト用の Worker エントリー。送信メールをキャプチャします
+
+各スイートでの使われ方は、[テストと CI](/docs/architecture/testing-architecture)を参照してください。
+
+## 関連ページ
+
+- [環境とバインディング](/docs/reference/environment)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [プレビューをデプロイする](/docs/getting-started/deploy-preview)

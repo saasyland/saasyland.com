@@ -1,12 +1,22 @@
 ---
-title: "Weryfikacja e-mail"
-description: "Wysyłka i obsługa tokenów weryfikacji."
+title: "Weryfikacja e-maila"
+description: "Obowiązkowa weryfikacja adresu e-mail ze zlokalizowanymi linkami i formularzem ponownej wysyłki."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+Better Auth działa z włączonymi `requireEmailVerification`, `sendOnSignUp` i `autoSignInAfterVerification`, więc nowe konto musi potwierdzić adres, zanim będzie mogło się zalogować.
 
-## Module
+## Wysyłka
 
-`modules/verification` — `send-verification-email`, `verify-email`.
+`emailVerification.sendVerificationEmail` w `auth.server.ts` to `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`). Tworzy link do `/auth/verify-email?token=…` w bieżącym języku i wysyła szablon `VerifyEmail` (zobacz [E-maile transakcyjne](/docs/features/email)). Gdy ktoś ponownie rejestruje się na niezweryfikowany adres, `onExistingUserSignUp` wysyła nowy link, zamiast ujawniać, że konto istnieje.
 
-Templates + Resend wiring through Better Auth email helpers.
+## Weryfikacja
+
+`/auth/verify-email` obsługuje link w `beforeLoad`:
+
+- Z `?token=` przeładowuje dokument pod `/api/auth/verify-email` z `callbackURL` równym `/auth/verify-email?verified=true` w tym samym języku.
+- Z `?verified=true` i bez `error` przekierowuje do `/auth/callback`, który kieruje użytkownika do `/admin` lub `/app`.
+- W pozostałych przypadkach wyświetla stronę; z `?error=` pokazuje komunikat o nieprawidłowym linku.
+
+## Ponowna wysyłka
+
+`VerifyEmailForm` wypełnia adres na podstawie `?email=`, który rejestracja i logowanie ustawiają przy przekierowaniu na tę stronę. Wywołuje funkcję serwerową `sendVerificationEmail` (`src/modules/verification/use-cases/send-verification-email.ts`), ograniczaną przez `RATE_LIMITS.SENSITIVE`.

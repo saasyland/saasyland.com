@@ -1,16 +1,48 @@
 ---
-title: Solução de problemas.
-description: Solução de problemas... SaaSy Land
+title: "Solução de problemas"
+description: "Erros comuns durante o desenvolvimento, os testes e o deploy, e como corrigi-los."
 ---
 
-Se as consultas locais reportarem as mesas desaparecidas, corra. `bun run db:migrate:local` Os testes do navegador usam `db:migrate:test` e um separado D1 Se a autenticação falhar, verifique o URL do ambiente, `AUTH_SECRET`, as credenciais de provedor e URLs de retorno.
+## Banco de dados
 
-Erros de tradução ausentes geralmente indicam um espaço de nomes omitido da rota ou uma chave faltando em um local. Corra. `check:i18n`Para documentação 404s, verifique o local. MDX Para falhas de pré-render, inspecione a primeira URL falhando na saída de compilação.
+**`no such table` no `bun run dev`.** O ambiente `development` usa o banco D1 de preview remoto. Aplique as migrações nele com `bun run db:migrate:development`. Para o banco de desenvolvimento local, use `bun run db:migrate:local`.
 
-Uma missão rejeitada para os placeholders precisa ser real. D1 e... KV As operações de construção e teste não criam recursos remotos automaticamente.
+**`no such table` no Playwright.** Os testes de navegador usam um banco local próprio. Execute `bun run db:migrate:test` e `bun run db:seed:test`, ou deixe o Playwright iniciar o app, o que executa os dois.
 
-## Guias relacionados
+**As tabelas do Vitest estão desatualizadas.** O mock do D1 aplica todos os arquivos SQL de `src/integrations/drizzle-orm/migrations` na inicialização. Depois de alterar o schema, gere uma migração com `bun run db:generate`.
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+## Servidor de desenvolvimento
+
+**O servidor de desenvolvimento não inicia.** Ele usa a porta 3000 com `strictPort`, então falha quando a porta está ocupada. Encerre o outro processo.
+
+**O login ou o OAuth falha.** Confira `AUTH_SECRET` e as credenciais do cliente OAuth no arquivo de ambiente, e verifique se a URL de callback do provedor aponta para `/api/auth/callback/<provider>` no host que você está usando. O Better Auth aceita apenas os hosts configurados para o modo de build: `localhost:3000` e `127.0.0.1:3000` localmente.
+
+**Falta um binding ou um secret nos tipos do Worker.** Execute `bun run cf-typegen` depois de alterar `wrangler.jsonc` e adicione a variável em `src/types/bindings.d.ts`.
+
+**Classes `text-*` personalizadas somem na mesclagem.** O `cn` depende de tabelas geradas a partir de `src/lib/cn.config.ts`. `bun run dev`, `bun run check` e os builds as regeneram; execute `bun run generate:cn` se `.source/cn-tables.ts` estiver faltando.
+
+## Traduções
+
+**`No messages/<locale>/<namespace>.json`.** Uma rota declara um namespace que não tem arquivo para esse locale. Crie o arquivo em todos os locales.
+
+**Uma chave aparece renderizada como o próprio caminho, ou `check:i18n` acusa uma chave ausente.** A chave está faltando em algum locale, ou o componente a lê fora do escopo da sua chamada a `useTranslations`. Use um único `useTranslations` por componente e execute `bun run check:i18n`.
+
+## Documentação
+
+**Uma página da documentação retorna 404.** O arquivo precisa se chamar `<page>.<locale>.mdx` e estar listado em `pages` no `meta.<locale>.json` da pasta. Execute `bun run content` para regenerar `.source`.
+
+**`check-content.ts` falha.** Ele compara cada locale com o en-US. `Changed code examples` significa que um bloco de código difere do inglês; os blocos de código precisam ser idênticos. `Untranslated English paragraph` significa que um parágrafo foi copiado sem ser traduzido. `Missing <file>` significa que um arquivo de locale não existe.
+
+## Testes e deploy
+
+**`test:coverage` falha.** A cobertura precisa ser de 100% para linhas, instruções, funções e branches. O relatório em `coverage/` lista as linhas não cobertas.
+
+**O deploy para em `verify-bindings.ts`.** O ambiente de destino em `wrangler.jsonc` ainda tem IDs provisórios de D1 ou KV. Crie os recursos no Cloudflare e substitua os IDs.
+
+**Um build com pré-renderização falha.** A saída do build informa a primeira URL que falhou. Abra essa página com `bun run dev` para ver o erro.
+
+## Páginas relacionadas
+
+- [Depuração local](/docs/guides/local-debugging)
+- [Perguntas frequentes](/docs/reference/faq)
+- [Ambiente e bindings](/docs/reference/environment)

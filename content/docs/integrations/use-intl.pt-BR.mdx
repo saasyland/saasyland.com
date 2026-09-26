@@ -1,16 +1,67 @@
 ---
-title: Internacionalização e locais
-description: Internacionalização e locais... SaaSy Land
+title: "Internacionalização e locales"
+description: "Locales, namespaces de mensagens e helpers de URL construídos sobre o use-intl."
 ---
 
-Mensagens ao vivo `messages/{locale}` para todos os nove idiomas configurados como arquivos de espaço de nomes pontilhados, por exemplo `pages.admin.users.json`. . Configuração local, assistentes de URL, carregamento de mensagens, metadados e assistentes de tradução de e-mail ao vivo `src/integrations/use-intl`.
+O SaaSy Land oferece suporte a nove locales: `en-US` (padrão), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` e `uk-UA`. O inglês usa caminhos sem prefixo (`/docs`); os demais locales usam o prefixo completo do locale (`/pl-PL/docs`). Aliases de idioma como `/pl/docs` redirecionam permanentemente para o caminho canônico.
 
-Inglês usa `/docs`- O que é isso? `/pl-PL/docs`. . Legado `/en` e... `/pl` As ligações são canônicas. Arquivos de rota declaram `staticData.namespaces` e pré-carregar os mesmos espaços de nomes em seu carregador. `TranslationsProvider` montar os espaços de nomes de rota ativa em um `IntlProvider`. . Mensagens compartilhadas são carregadas no root; os espaços de nomes somente por e-mail ficam no servidor.
+## Arquivos
 
-Leia o local com `getCurrentLocale` no servidor e `useLocale` em componentes. O URL escolhe o local do documento. Pedidos de função do servidor usam o cookie local. Uma mudança de idioma mantém o caminho, consulta e fragmento e recarrega o documento para carregar o conteúdo correspondente. Corra. `bun run check:i18n` Depois de trocar as chaves.
+`src/integrations/use-intl/` concentra toda a lógica de locale:
+
+| Arquivo              | Responsabilidade                                                                                                                          |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `i18n.config.ts`     | `I18N` com `SUPPORTED_LOCALES`, `DEFAULT_LOCALE`, `COOKIE_NAME` e `DEFAULT_TIMEZONE`                                                      |
+| `i18n.messages.ts`   | `loadNamespace`, `loadPageMetadata`, `messagesQueryOptions`, `preloadNamespaces` e `ROOT_NAMESPACES`                                      |
+| `i18n.middleware.ts` | `resolveLocale`: redirecionamentos canônicos e sincronização do cookie de locale para requisições de documento, usado por `src/server.ts` |
+| `i18n.paths.ts`      | `localizePathname`, `deLocalizePathname`, `canonicalizePathname`, `localeLinks` e helpers de caminho relacionados                         |
+| `i18n.utils.ts`      | `getCurrentLocale`, `localizeUrl`, `deLocalizeUrl` e `parseLocaleCookie`                                                                  |
+
+## Namespaces
+
+As mensagens ficam em `messages/<locale>/<namespace>.json`, e o nome do arquivo é o namespace: `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` ou `common`. As mensagens são JSON simples, sem tipos gerados. Todo namespace de página contém `metadata.title` e `metadata.description` para o head da página.
+
+A rota raiz pré-carrega os namespaces raiz (`common`, `components.*` e `errors*`) em `beforeLoad`. Uma rota de página declara um `NAMESPACE`, e uma rota de layout declara `NAMESPACES` para sua subárvore; ambas os listam em `staticData.namespaces` e os pré-carregam no loader:
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+`TranslationsProvider` envolve o body do documento e mescla os namespaces raiz com os namespaces de cada rota correspondente em um único `IntlProvider`, de modo que as telas de erro e de página não encontrada também são traduzidas. Os namespaces de e-mail são carregados apenas pelo caso de uso no servidor que envia o e-mail.
+
+## Locale e links
+
+`getCurrentLocale()` é isomórfico. No servidor, ele lê o locale da URL, ou do cookie de locale em requisições para `/api` e para server functions; no navegador, ele lê a URL. O Worker mantém o cookie sincronizado com a URL da página.
+
+O `rewrite` do roteador remove o prefixo de locale das URLs de entrada e o adiciona às de saída, então `<Link to={ROUTES.X}>` sempre permanece no locale atual. Use `localizePathname({ locale, pathname })` apenas para URLs brutas: URLs de callback do Better Auth, links em e-mails e elementos `<a href>` montados manualmente. O seletor de idioma é um desses links, então escolher um idioma carrega a mesma página em um novo documento.
+
+## Componentes
+
+Um componente chama `useTranslations` exatamente uma vez e nomeia o tradutor como `t`. O i18n-ally reavalia o escopo de todo `t()` posterior a outra chamada de `useTranslations`, e `bun run check:i18n` falha em chaves que não se resolvem no seu escopo. Um componente que precisa de dois namespaces sem relação entre si usa o namespace pai comum a ambos ou `useTranslations()` com chaves completas.
+
+## Verificações
+
+`bun run check:i18n` executa três scripts, e `bun run check` o inclui:
+
+- `scripts/check-i18n.ts`: paridade de chaves com `en-US` e resolução com escopo das chaves estáticas.
+- `scripts/check-message-formats.ts`: toda mensagem é interpretada como ICU e mantém seus argumentos e tags de rich text.
+- `scripts/check-content.ts`: arquivos da documentação e do blog, navegação e exemplos de código coincidem entre os locales.
 
 ## Guias relacionados
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Arquitetura de i18n](/docs/architecture/i18n-architecture)
+- [Mensagens de i18n](/docs/guides/i18n-messages)

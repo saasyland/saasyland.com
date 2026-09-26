@@ -1,20 +1,44 @@
 ---
 title: "Users (admin)"
-description: "Live users table, tabs, impersonation, ban/role/password."
+description: "User management under /admin/users: a live users table with row actions, plus demo invitation and role tabs."
 ---
 
 ## Routes
 
-`/admin/users` with TanStack Router search `tab` (`allUsers` | `invitations` | `roles` | `security`).
+`src/routes/admin.users.tsx` is a layout with four link tabs; `/admin/users` redirects to `/admin/users/all`. All tabs use the `pages.admin.users` namespace.
 
-## Module
+| Route                      | Content                                                  |
+| -------------------------- | -------------------------------------------------------- |
+| `/admin/users/all`         | Live users table                                         |
+| `/admin/users/invitations` | Demo rows (`ADMIN_INVITATION_ROWS`) with an email search |
+| `/admin/users/roles`       | Demo rows (`ADMIN_ROLE_ROWS`)                            |
+| `/admin/users/security`    | Empty state                                              |
 
-`modules/user/use-cases` — list/create/update/delete, ban/unban, set role/password, impersonate, refresh table.
+## All users
 
-## UI
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
 
-DataTable under `admin/users/components/all-users-tab`. Status is **derived** (`getUserStatus`: active / pending / banned), not a DB enum column.
+- `getUsersPageQuery` calls the `getUsers` server function (`src/modules/user/use-cases/get-users.ts`, permission `user: ["list"]`). Pagination and sorting run on the server over name, role, status, email verification, 2FA, time zone and the created and updated dates.
+- Status is not a column. `getUserStatus` (`user.utils.ts`) derives `banned`, `pending` or `active` from `banned` and `emailVerified`, and the server sorts by the same SQL `case` expression.
+- `userColumns` lives in `src/presentation/components/custom/admin/users/user-columns.tsx`; dates render in each user's own time zone.
 
-## URL state
+## Row actions
 
-`admin/users/constants/search-params.ts` — shared parsers + `searchParamsCache`.
+`UserRowActions` (`row-actions.tsx`) is the menu in the last column:
+
+- **Reset password** opens `ResetPasswordDialog`, which calls `setUserPassword`.
+- **Ban** or **Unban** calls `banUser` or `unbanUser`.
+- **Delete** opens `DeleteUserDialog`, which calls `deleteUser`.
+
+Every success invalidates `USER_QUERY_KEYS.ALL` and shows a toast; errors go through `useErrorMessage`. The **Edit** and **View profile** items and the **Add user** button have no action yet.
+
+## Not wired
+
+`createUser`, `getUser`, `updateUser`, `setUserRole`, `impersonateUser` and `stopImpersonatingUser` exist in `src/modules/user/use-cases` with permission middleware, but no screen calls them. There is no invitation table; the real roles are `admin` and `customer` in `auth.access.ts`.
+
+## Related guides
+
+- [DataTable](/docs/ui/data-table)
+- [Impersonation](/docs/features/impersonation)

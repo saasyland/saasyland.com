@@ -1,14 +1,61 @@
 ---
-title: Funções e permissões
-description: Funções e permissões... SaaSy Land
+title: "Papéis e permissões"
+description: "Defina permissões e papéis em auth.access.ts e verifique-os nos guards de rota e nas funções de servidor."
 ---
 
-Funções e declarações vivem em `src/integrations/better-auth/auth.access.ts`. . O papel padrão é cliente. Acesso administrativo é verificado por `requireAdmin` Cada operação do servidor verifica a declaração necessária com `withAuth`.
+O controle de acesso usa o plugin admin do Better Auth. Permissões, papéis e a verificação de permissão ficam em `src/integrations/better-auth/auth.access.ts`.
 
-Mantenha mudanças de papéis, banimentos, cancelamento de sessão e personificação em casos de uso de usuários/sessões. Derivar o usuário atual da sessão de solicitação e invalidar grupos afetados após uma mutação. Esconder um botão é comportamento de apresentação e não substitui autorização.
+## Permissões e papéis
 
-## Guias relacionados
+```ts
+const APP_STATEMENTS = {
+  admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
+  settings: ["manage"],
+} as const
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
+
+export const ROLES = {
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
+}
+```
+
+- Os `defaultStatements` do Better Auth adicionam os recursos `user` e `session` (como `user: ["list", "set-role", "ban", "impersonate", "delete"]` e `session: ["list", "revoke"]`).
+- `admin` tem todas as permissões; `customer`, o papel padrão de novos usuários, não tem nenhuma.
+- `ROLE_VALUES` tipa a coluna `user.role` e os schemas de papel em `user.zod.ts`.
+
+## Onde as permissões são verificadas
+
+| Camada                  | Verificação                                                        |
+| ----------------------- | ------------------------------------------------------------------ |
+| Guard de rota           | `requireAdmin` exige `admin: ["access"]` para toda a área `/admin` |
+| Função de servidor      | `authorized({ product: ["update"] })` em toda operação protegida   |
+| Apenas logado           | `authorized()` para operações sobre os dados de quem chama         |
+| Em qualquer outro lugar | `hasPermission({ permission, role })` retorna um booleano          |
+
+O guard de rota só decide quais páginas são renderizadas. As funções de servidor podem ser chamadas diretamente por RPC, então cada uma precisa verificar sua própria permissão. Esconder um botão é apresentação, não autorização.
+
+## Adicione uma permissão
+
+1. Adicione a ação a `APP_STATEMENTS`, por exemplo `report: ["read", "export"]`.
+2. `admin` a recebe automaticamente; conceda-a a outros papéis em `ROLES` quando necessário.
+3. Exija-a na função de servidor: `.middleware([authorized({ report: ["export"] })])`.
+4. Teste tanto o caso permitido quanto o caso `FORBIDDEN`.
+
+## Adicione um papel
+
+1. Adicione o código a `ROLE_CODES` e `ROLE_VALUES`.
+2. Defina as permissões dele em `ROLES`.
+3. Adicione o rótulo do papel a `filters.role.options` em `messages/<locale>/pages.admin.users.json` nos nove idiomas.
+
+O cliente de autenticação (`auth.client.ts`) recebe `ac` e `ROLES`, então as ações de administração no navegador usam as mesmas definições.
+
+## Administração de usuários e sessões
+
+Os módulos de usuários e de sessões envolvem a API de administração do Better Auth em casos de uso, cada um com sua própria permissão: `setUserRole`, `banUser`, `unbanUser`, `impersonateUser`, `deleteUser`, `setUserPassword`, `revokeUserSession` e outros. Operações sobre os dados de quem chama, como `revokeSession`, usam `authorized()` e filtram por `context.auth.user.id`.
+
+Não há administrador pré-cadastrado fora do banco de teste. Para criar o primeiro administrador, cadastre-se, verifique o e-mail e defina o `role` desse usuário como `admin` no D1, por exemplo com `bun run db:studio:development`.

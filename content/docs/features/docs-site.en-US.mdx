@@ -1,16 +1,32 @@
 ---
 title: "Docs site"
-description: "How this documentation is built and extended."
+description: "How /docs is built from content/docs with Fumadocs."
 ---
 
-## Content root
+## Content
 
-`content/docs`
+- Pages are `content/docs/<section>/<page>.<locale>.mdx` for all nine locales.
+- `meta.<locale>.json` in each folder sets the section title, icon and page order.
+- `src/integrations/fumadocs/fumadocs.i18n.ts` uses the `dot` parser, `en-US` as default and fallback, and `hideLocale: "always"`, because the app handles the locale prefix itself.
+- `bun run content` generates `.source` from `fumadocs.config.ts`.
 
-- MDX pages: `*.{locale}.mdx` for all nine configured languages (dot parser)
-- Folder `meta.<locale>.json` for titles/order/icons
-- `fallbackLanguage: en-US` for missing translations
+## Routes
 
-## App wiring
+- `/docs` layout (`src/routes/docs.tsx`): a server function returns the page tree for the current locale; the layout renders Fumadocs `DocsLayout` with the GitHub link, and `LocaleSelect` and `ThemeSwitch` as matching select fields in the sidebar footer, loads `docs.css`, and shows `DocsPending` while loading.
+- `/docs/` and `/docs/$` call `loadDocsPage` (`fumadocs.docs.ts`), which resolves the page and preloads its compiled MDX (`docsContent`) before rendering.
+- `/api/search` serves Fumadocs search over every locale (`fumadocs.search.ts`).
 
-`fumadocs.source.ts`, docs layout, search API. Add pages → update meta `pages` arrays → rebuild.
+MDX pages can use `mdxComponents` from `src/presentation/components/custom/mdx.tsx`: the Fumadocs defaults, Fumadocs `Accordions`, `Steps` and `Tabs`, and the shadcn `Alert`, `Badge`, `Button`, card parts, `Separator` and table parts. Links are localized automatically.
+
+## Adding a page
+
+1. Write `<page>.en-US.mdx` with a `title` and `description`.
+2. Add the slug to `meta.en-US.json` and to every other `meta.<locale>.json` in the same order.
+3. Add the eight translations with byte-identical code blocks.
+4. Run `bun scripts/check-content.ts` (also part of `bun run check:i18n`) and `bun run content`.
+
+`bun run build` prerenders every docs page in every locale.
+
+## Related guides
+
+- [Fumadocs](/docs/integrations/fumadocs)

@@ -1,6 +1,43 @@
 ---
 title: "TanStack Table"
-description: "Headless table powering the shared DataTable."
+description: "TanStack Table v9 behind one generic DataTable."
 ---
 
-Wrapped by `presentation/components/custom/data-table`. Do not call table APIs inside Suspense fallbacks under Cache Components.
+Every table renders through one generic `DataTable` in `src/presentation/components/custom/data-table.tsx`. It creates a TanStack Table v9 instance with `tableFeatures` (column filtering, sorting, pagination and row selection) and `useTable`, and renders shadcn table primitives, skeleton rows while loading and a localized empty state.
+
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
+
+## Props
+
+| Prop                   | Purpose                                                                                                                                        |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`              | Column definitions for the row type; every row needs an `id`                                                                                   |
+| `data`                 | Rows for a table that sorts, filters and paginates on the client                                                                               |
+| `options.initialState` | Initial `pagination` and `sorting`                                                                                                             |
+| `options.query`        | Server-side paging and sorting: a function of `pageIndex`, `pageSize` and `sorting` that returns query options resolving to `rows` and `total` |
+| `options.selectable`   | Adds a checkbox column for row selection                                                                                                       |
+| `filters`              | Search filters (`type: "search"`, `columnId`, `placeholder`) or select filters (`type: "select"`, `columnId`, `label`, `options`)              |
+
+With `options.query` the table switches to manual pagination and sorting, keeps the previous page visible while the next one loads and returns to the first page when the sorting changes.
+
+## Columns
+
+Columns live in an `<entity>-columns.tsx` file beside the page's widgets and use `createColumnHelper<DataTableFeatures, Row>()`. Cells and headers are small components that read their own translations, so the route passes no labels:
+
+```tsx
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+])
+```
+
+The complete example is `src/presentation/components/custom/admin/users/user-columns.tsx`, rendered by `src/routes/admin.users.all.tsx`.
+
+## Related guides
+
+- [DataTable](/docs/ui/data-table)
+- [Add a DataTable](/docs/guides/add-a-data-table)

@@ -1,18 +1,61 @@
 ---
-title: コンベンション
-description: ネーミング、フォルダ、コミット、およびPRの習慣。
+title: "規約"
+description: "コードベース全体で使われている、コード、ルート、コンポーネント、翻訳、コミットの規約。"
 ---
 
-## ナンパニング
+## コード
 
-- ユースケース: `verb-noun.ts`
-- テスト: 連結される `__test__`
-- ルートの個人: `_components`, `_lib`
+- コードコメントは書きません。意味は名前と小さな関数で伝えます。
+- ルールを満たすために、lint の抑制、`@ts-expect-error`、`as` キャストを使いません。原因を修正してください。
+- 複数行にわたる三項演算子は使いません。早期リターンか小さなコンポーネントを使います。
+- 条件付きクラスには `cn` のオブジェクト構文を使います：`cn("base", { "text-foreground": isActive })`。
+- 呼び出しを転送するだけのラッパー、インターフェース、レイヤーは作りません。具体的な関数をインポートします。
+- マジックナンバーは名前付きの定数にします。例：`const SINGLE_ROW = 1`。
+- `vp fmt` はインポートをグループごとに並べ替えます。順序は、server-only、`cloudflare:workers`、React、パッケージ、決められた順序の `src` フォルダー、最後にスタイルです。
 
-## コミット
+## ルート
 
-慣習的なコミット()`feat`, `fix`, `refactor`、...) emojiの接頭辞を経由して `scripts/commit-msg.ts`.
+- ページルートは、`<Name>Page`、`export const Route` の直上に置く `NAMESPACE` 定数、`head: pageHead(ROUTES.X)`、そして `loadPageMetadata`、`preloadNamespaces`、必要なクエリを 1 つの `Promise.all` で実行するローダーを定義します。
+- レイアウトルートは、`<Name>Layout` と、`staticData` で宣言してローダーでプリロードする `NAMESPACES` 配列を定義します。
+- パスは `ROUTES` から取得します。ルーターのリンクに自分でロケールプレフィックスを付けることはありません。生の URL には `localizePathname` を使います。
+- 描画する項目の配列は、JSX 内のインラインリテラルではなく、モジュールレベルの定数にします。
 
-## プロモーション
+## コンポーネント
 
-ユーザフェーシングタイプでリード()`feat` 振る舞いが変わるとき)。 体内のリファクタを注意してください。
+- 1 ファイルにつき、ウィジェット、ダイアログ、フォーム、カラム定義のいずれか 1 つだけを置きます。
+- コンポーネントは自分の翻訳とデータを自分で読み取ります。コンポーネント自身が読み取れるテキスト、ラベル、データを props で受け取ることはありません。
+- `useTranslations` の呼び出しはコンポーネントごとにちょうど 1 回とし、翻訳関数は `t` と名付けます。
+- フォームは shadcn の TanStack Form パターンに従います。モジュールの Zod スキーマを使う `useForm`、`Field`、`FieldLabel`、`Input`、`ValidationFieldError` で構成します。
+- テーブルには汎用の `<DataTable columns data options filters />` を使い、カラムは `<entity>-columns.tsx` ファイルに定義します。
+
+## サーバーコード
+
+- ユースケースは `<verb>-<noun>.ts` と命名し、サーバー関数と、そのクエリオプションまたはミューテーションオプションをエクスポートします。
+- エラーは `AppError(ERROR_CODES.X)` としてスローし、ブラウザで `useErrorMessage()` を使って翻訳します。
+- すべての URL、クエリキー、ミューテーションキーは定数（`ROUTES`、`<TABLE>_QUERY_KEYS`、`<TABLE>_MUTATION_KEYS`）から取得します。
+
+## コミットとプルリクエスト
+
+コミットメッセージは Conventional Commits の形式 `<type>(<scope>): <description>` に従います。`prepare-commit-msg` フックが `scripts/commit-msg.ts` を実行し、未知のタイプを拒否したうえで、件名の先頭にタイプに対応する絵文字を付けます。
+
+| タイプ     | 絵文字 |
+| ---------- | ------ |
+| `feat`     | ✨     |
+| `fix`      | 🐛     |
+| `perf`     | 🚀     |
+| `refactor` | 📦     |
+| `docs`     | 📚     |
+| `test`     | 🚨     |
+| `build`    | 🛠️     |
+| `ci`       | ⚙️     |
+| `chore`    | ♻️     |
+| `style`    | 💎     |
+| `revert`   | 🗑️     |
+
+`pre-commit` フックは `bun run check:pre-commit` を実行します。プルリクエストでは CI ワークフロー（`bun run check`、`bun run test:coverage`、Playwright スイート）が実行され、その後プレビュー環境へのデプロイが行われます。
+
+## 関連ページ
+
+- [ファイル命名規則](/docs/reference/file-naming)
+- [Conventional Commits](/docs/tooling/conventional-commits)
+- [ディレクトリ構成](/docs/architecture/directory-structure)

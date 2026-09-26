@@ -1,10 +1,22 @@
 ---
 title: "Email verification"
-description: "Send and consume email verification tokens."
+description: "Required email verification with localized links and a resend form."
 ---
 
-## Module
+Better Auth runs with `requireEmailVerification`, `sendOnSignUp` and `autoSignInAfterVerification` enabled, so a new account must confirm its address before it can sign in.
 
-`modules/verification` — `send-verification-email`, `verify-email`.
+## Sending
 
-Templates + Resend wiring through Better Auth email helpers.
+`emailVerification.sendVerificationEmail` in `auth.server.ts` is `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`). It builds a link to `/auth/verify-email?token=…` in the current locale and sends the `VerifyEmail` template (see [Transactional email](/docs/features/email)). When someone signs up again with an unverified address, `onExistingUserSignUp` sends a fresh link instead of revealing that the account exists.
+
+## Verifying
+
+`/auth/verify-email` resolves the link in `beforeLoad`:
+
+- With `?token=`, it reloads the document at `/api/auth/verify-email` with a `callbackURL` of `/auth/verify-email?verified=true` in the same locale.
+- With `?verified=true` and no `error`, it redirects to `/auth/callback`, which sends the user to `/admin` or `/app`.
+- Otherwise it renders the page; with `?error=` it shows the invalid-link message.
+
+## Resending
+
+`VerifyEmailForm` prefills the address from `?email=`, which sign-up and sign-in set when they redirect here. It calls the `sendVerificationEmail` server function (`src/modules/verification/use-cases/send-verification-email.ts`), rate limited with `RATE_LIMITS.SENSITIVE`.

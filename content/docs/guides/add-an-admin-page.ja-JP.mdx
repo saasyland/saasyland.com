@@ -1,13 +1,102 @@
 ---
-title: 管理者ページを追加する
-description: ルート、サイドバー、ページシェルを登録します。
+title: "管理画面のページを追加する"
+description: "新しい管理画面ページのルート、サイドバーの項目、メッセージ、ウィジェットを登録します。"
 ---
 
-## ステップ
+管理画面のページは、`/admin` レイアウト（`src/routes/admin.tsx`）の下にあるフラットなルートファイルです。このレイアウトは `beforeLoad` で `requireAdmin` を実行し、サイドバー、パンくずリスト、コマンドパレットをレンダリングします。以下の手順では `/admin/reports` にページを追加します。完全な実例は `src/routes/admin.payments.tsx` です。
 
-1. パスを追加する `ROUTES`
-2. サイドバーのエントリを追加する `admin/constants/sidebar.ts` (+ i18nラベル)
-3. 作成する `app/[locale]/(admin)/admin/<feature>/page.tsx`
-4. コロケーション `_components` / `_lib`
-5. ユースケースでデータをゲート+サスペンス
-6. 特徴の下の文書
+## 1. パスを追加する
+
+`src/routes.ts` の `ROUTES` に定数を追加します。
+
+```ts
+ADMIN_REPORTS: "/admin/reports",
+```
+
+## 2. ルートファイルを作成する
+
+`src/routes/admin.reports.tsx` を作成します。ルートが定義するのは、ページコンポーネント、`NAMESPACE`、ローダー、`head`、`pendingComponent` だけです。ルータージェネレーターがこのファイルを `src/routeTree.gen.ts` に登録します。
+
+```tsx
+import type { JSX } from "react"
+
+import { createFileRoute } from "@tanstack/react-router"
+import { useTranslations } from "use-intl/react"
+
+import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
+
+import { pageHead } from "~/src/lib/seo"
+
+import { AdminReportsPending } from "~/src/presentation/components/custom/admin/overview-pending"
+import { ReportStats } from "~/src/presentation/components/custom/admin/reports/report-stats"
+
+import { ROUTES } from "~/src/routes"
+
+const ReportsPage = (): JSX.Element => {
+  const t = useTranslations("pages.admin.reports")
+
+  return (
+    <div className="flex w-full flex-col space-y-8">
+      <div>
+        <h1 className="text-statement font-semibold text-foreground">{t("metadata.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("metadata.description")}</p>
+      </div>
+
+      <ReportStats />
+    </div>
+  )
+}
+
+const NAMESPACE = "pages.admin.reports"
+
+export const Route = createFileRoute("/admin/reports")({
+  component: ReportsPage,
+  head: pageHead(ROUTES.ADMIN_REPORTS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: AdminReportsPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+ページに必要なクエリは、同じ `Promise.all` に入れます。例えば `src/routes/admin.users.all.tsx` では `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` を使っています。`pageHead` は、ローダーの `metadata` からタイトル、説明、正規 URL、代替ロケールへのリンクを組み立てます。`AdminReportsPending` はこのページ専用のスケルトンで、ナビゲーションに 1 秒より長くかかった場合にだけ表示されます。ページが属するサイドバーグループのファイル（`custom/admin/` 内の `overview-pending.tsx`、`offerings-pending.tsx`、`content-pending.tsx`、`administration-pending.tsx` のいずれか）に、`pending-blocks.tsx` のブロックを組み合わせて、ページのレイアウトを再現するように書きます。次に、`admin-pending.tsx` の `ADMIN_PAGES` に追加します。これで、管理エリアの外から `/admin/reports` に入ったときに、管理画面レイアウトのスケルトンがこのスケルトンを表示します。[読み込み中のスケルトン](/docs/architecture/delivery-layer#loading-skeletons) を参照してください。
+
+## 3. サイドバーの項目を追加する
+
+`ADMIN_SIDEBAR_GROUPS`（`src/data/admin.ts`）のいずれかのグループに、`lucide-react` のアイコン付きで項目を追加します。
+
+```ts
+{ icon: FileText, titleKey: "reports", url: ROUTES.ADMIN_REPORTS },
+```
+
+9 つのロケールすべての `messages/<locale>/pages.admin.sidebar.json` に `links.reports` を追加します。新しいグループには `groups.<titleKey>` も必要です。サイドバー、パンくずリスト、⌘K コマンドパレットはいずれも `ADMIN_SIDEBAR_GROUPS` を読み取るため、ページはこの 3 つすべてに表示されます。`/admin/reports/create` のような 3 番目の URL セグメントには、`pages.admin.json` の `components.breadcrumbs.actions.create` がパンくずのラベルとして表示されます。
+
+## 4. ページのメッセージを追加する
+
+9 つのロケールすべてに `messages/<locale>/pages.admin.reports.json` を作成します。ローダーがドキュメントの head のために読み取るため、`metadata` は必須です。
+
+```json
+{
+  "metadata": {
+    "title": "Reports",
+    "description": "Revenue and usage reports."
+  }
+}
+```
+
+## 5. ウィジェットを追加する
+
+ウィジェット、ダイアログ、フォーム、テーブルのカラム定義は、それぞれ `src/presentation/components/custom/admin/reports/` 配下の個別のファイルに置きます。例えば `report-stats.tsx` や `report-columns.tsx` です。ウィジェットは `useTranslations("pages.admin.reports")` を呼び出し、自分のデータを `useSuspenseQuery` で読み取ります。ページはラベルもデータも渡しません。テーブルには汎用の `DataTable` を使います。[データテーブルを追加する](/docs/guides/add-a-data-table) を参照してください。
+
+## 6. 保護とテスト
+
+- ページへのアクセスはレイアウトのガードが保護します。それでも、ページが呼び出すすべてのサーバー関数には `authorized(permission)` が必要です。[ロールと権限](/docs/guides/roles-and-permissions) を参照してください。
+- `/admin` はプリレンダリングの対象外です。
+- ルートのテストは `src/routes/__test__/` の既存のテストの隣に、ウィジェットのテストは `src/presentation/components/custom/admin/__test__/` に追加し、`bun run check:i18n` と `bun run test:coverage` を実行します。

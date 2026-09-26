@@ -1,12 +1,29 @@
 ---
-title: Двофакторна автентитація
-description: Увімкнення ТТП, перевірка та резервні копії коду.
+title: "Двофакторна автентифікація"
+description: "Двофакторна автентифікація TOTP з резервними кодами, що налаштовується в налаштуваннях адмінпанелі."
 ---
 
-## Модуль
+Плагін `twoFactor` з Better Auth використовує `APP_NAME` як видавця. Його серверні функції розташовані в `src/modules/two-factor/use-cases`:
 
-`modules/two-factor/use-cases` — увімкнути, відключити, перевірити код резервної копії.
+| Сценарій           | Middleware             | Використовує                           |
+| ------------------ | ---------------------- | -------------------------------------- |
+| `enableTwoFactor`  | з сесією, з обмеженням | `TwoFactorPasswordStep`                |
+| `disableTwoFactor` | з сесією, з обмеженням | `TwoFactorPasswordStep`                |
+| `verifyTotp`       | з обмеженням           | `TwoFactorVerifyStep`, `TwoFactorForm` |
+| `verifyBackupCode` | з обмеженням           | `TwoFactorForm`                        |
 
-## ЕКСПОРТ
+## Налаштування
 
-Налаштування вкладки безпеки + `/auth/two-factor` маршрут виклику. Дотримуйтесь Better Auth 2ФА плагіна обмеження в `auth.constraints.ts`.
+**Налаштування → Безпека** в `/admin/settings` показує `TwoFactorDialog` (`src/presentation/components/custom/admin/settings`):
+
+1. Крок пароля викликає `enableTwoFactor` і отримує URI TOTP та резервні коди.
+2. Крок перевірки показує секрет з URI (`extractTotpSecret`) для ручного введення в застосунку-автентифікаторі й підтверджує 6-значний код через `verifyTotp`.
+3. Останній крок показує резервні коди.
+
+Коли 2FA увімкнено, та сама кнопка відкриває крок пароля з `disableTwoFactor`. Кнопка читає `twoFactorEnabled` з поточної сесії.
+
+## Перевірка під час входу
+
+Для облікового запису з 2FA Better Auth відповідає на вхід двофакторним перенаправленням; `twoFactorClient` в `auth.client.ts` переводить браузер на `/auth/two-factor` поточною мовою. `TwoFactorForm` приймає 6-значний код (`InputOTP`) або, після перемикання, резервний код і надсилає `trustDevice: true`. У разі успіху `usePostAuthRedirect` переходить на `/auth/callback`.
+
+Довжини кодів задано в `auth.constraints.ts`: `TWO_FACTOR_CODE_LENGTH` дорівнює 6, а резервні коди мають від 8 до 12 символів.

@@ -1,10 +1,43 @@
 ---
-title: Статус на сервери
-description: Dashboard статистика, діаграми та останні віджети користувачів.
+title: "Панель адміністратора"
+description: "Каркас /admin і панель: робочі лічильники й таблиця користувачів, статичний графік доходу."
 ---
 
-## Маршрути
+## Каркас адмінпанелі
 
-`/admin` — компози статів сітки, діаграми, таблиці користувачів з Suspense.
+`src/routes/admin.tsx` захищає кожну сторінку адмінпанелі за допомогою `requireAdmin` і попередньо завантажує спільні простори імен. Макет показує:
 
-Додайте реальні агрегати за допомогою модулів, як ви затвердили метрики; зберігайте скелети безкоштовно на сервері.
+- `AdminSidebar`, `AdminBreadcrumbs` і `AdminCommandPalette` (відкривається ⌘K), побудовані з `ADMIN_SIDEBAR_GROUPS` у `src/data/admin.ts`: Огляд (Панель, Аналітика), Пропозиції (Продукти, Цінові моделі), Вміст (Блог, Головна сторінка) та Адміністрування (Керування користувачами, Платежі, Налаштування).
+- Віджет користувача внизу бічної панелі з посиланням на налаштування та `SignOutButton`.
+
+## Панель
+
+`/admin` (`src/routes/admin.index.tsx`) попередньо завантажує в loader `getProductsQuery` і `getUsersQuery` та складає три віджети з `src/presentation/components/custom/admin/dashboard`:
+
+- `DashboardStats` (робочий): кількість користувачів, кількість продуктів і користувачі, що очікують підтвердження пошти.
+- `RevenueChart` (демонстраційний): статичний SVG із фіксованими осями; кнопки діапазону нічого не роблять.
+- Картка користувачів (робоча): найновіші користувачі з фільтрами пошуку та статусу, п’ять рядків на сторінку.
+
+```tsx
+<DataTable
+  columns={dashboardUserColumns}
+  data={users.rows}
+  filters={[
+    { columnId: "user", placeholder: t("users.search"), type: "search" },
+    {
+      columnId: "status",
+      label: t("users.filters.status"),
+      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+      type: "select",
+    },
+  ]}
+  options={{ initialState: { pagination: PREVIEW_PAGINATION }, selectable: true }}
+/>
+```
+
+Таблиця працює в браузері з першою сторінкою `getUsersQuery` (десять користувачів). **Переглянути всіх** веде на `/admin/users`, коли користувачів більше. **Додати продукт** веде на `/admin/products/create`; **Останні 30 днів** вимкнено, а **Експорт** не підключено.
+
+## Пов’язані посібники
+
+- [Додавання сторінки адмінпанелі](/docs/guides/add-an-admin-page)
+- [DataTable](/docs/ui/data-table)

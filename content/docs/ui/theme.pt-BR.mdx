@@ -1,6 +1,48 @@
 ---
-title: Tema
-description: Modos de cor e variáveis CSS.
+title: "Tema"
+description: "Temas claro, escuro e do sistema armazenados em um cookie, e os tokens CSS por trás deles."
 ---
 
-Fornecedor de temas + variáveis CSS. Evite clichês padrão roxo em páginas de marketing, administrador pode ficar neutro/sistema.
+## Seleção do tema
+
+`THEME` em `src/presentation/theme/index.ts` define os temas `light`, `dark` e `system` (o padrão) e o cookie `saasyland.com_theme`. O aplicativo usa `@wrksz/themes`:
+
+- `ThemeScript` no `head` do documento raiz (`src/routes/__root.tsx`) lê o cookie e aplica a classe do tema antes da primeira pintura, então não há flash.
+- `ThemeProvider` (`src/providers/theme-provider.tsx`) parte do cookie (`getStoredTheme`), grava as mudanças no cookie e as sincroniza entre abas.
+- `ThemeProvider` envolve apenas os widgets que leem ou mudam o tema: o `Toaster` raiz e o `ThemeSwitch` da barra lateral da documentação. Ele nunca envolve um `Outlet` de rota, porque um provider que se atualiza depois da hidratação renderizaria a página inteira de novo.
+
+```tsx
+const RootComponent = () => (
+  <AriaProvider>
+    <OfflineBanner />
+    <Outlet />
+    <ThemeProvider>
+      <Toaster />
+    </ThemeProvider>
+  </AriaProvider>
+)
+```
+
+`/admin`, `/app` e `/docs` seguem o tema salvo; o único seletor de tema fica na barra lateral da documentação. Os layouts da landing page, da autenticação e do blog adicionam a classe `dark` ao contêiner e são sempre escuros.
+
+## Tokens
+
+`src/presentation/styles/globals.css` define os tokens do shadcn como variáveis OKLCH em `:root` (claro) e `.dark`: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, de `chart-1` a `chart-5`, o conjunto `sidebar-*` e `radius`. O destaque da marca é `ring`: ele colore os anéis de foco, os estados ativos e os realces, e coincide com `chart-1`. As utilities `dark:` seguem a classe:
+
+```css
+@custom-variant dark (&:is(.dark *));
+```
+
+`@theme inline` associa as variáveis às cores do Tailwind, define as famílias de fontes e a escala tipográfica. `globals.css` também importa os estilos do Fumadocs UI, então a documentação usa os mesmos tokens.
+
+## Escala tipográfica
+
+Use as utilities de texto nomeadas em vez de tamanhos soltos: `text-display-hero`, `text-display-gate`, `text-display-blast`, `text-headline-peak`, `text-headline-support`, `text-price`, `text-title`, `text-statement`, `text-lead`, `text-body`, `text-body-sm`, `text-spec` e `text-label`. Cada uma define tamanho, altura de linha, espaçamento entre letras e, nos títulos, o peso. `src/lib/cn.config.ts` as registra para que `cn` as mantenha ao mesclar classes; `bun run generate:cn` recria as tabelas de consulta.
+
+## Folhas de estilo por rota
+
+`docs.css` contém os estilos de prosa `typeset` para a documentação e os artigos do blog. É CSS puro, carregado pelos layouts de `/docs` e `/blog` como link de folha de estilo `?url`. As folhas de estilo de uma rota não devem rodar um segundo build do Tailwind.
+
+## Guias relacionados
+
+- [Temas e marca](/docs/guides/theming-and-branding)

@@ -1,18 +1,54 @@
 ---
-title: 支払いと請求
-description: 注文、払い戻し、およびStripe指向の請求(予定)。
+title: "決済とライセンス"
+description: "Polar の購入処理、カスタマーポータル、ライセンスを付与する Webhook。管理画面の決済ページはデモです。"
 ---
 
-## ステータス
+決済は `auth.server.ts` の `@polar-sh/better-auth` プラグインを通じて Polar で処理されます。
 
-アドミン `/admin/payments` UIは、今日のモック行を使用します。 ザ・オブ・ザ・ザ・ `order` のステートメント `APP_STATEMENTS` すでにスケッチの読み込み/更新/返金.
+```ts
+polarPlugin({
+  client: polar,
+  use: [
+    checkout({
+      authenticatedUsersOnly: true,
+      products: POLAR_CHECKOUT_PRODUCTS,
+      successUrl: ROUTES.APP,
+    }),
+    portal(),
+    webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
+  ],
+}),
+```
 
-## 計画されたアーキテクチャ
+Polar クライアント（`src/integrations/polar/polar.config.ts`）は `POLAR_ACCESS_TOKEN` と `POLAR_SERVER` を使います。`POLAR_CHECKOUT_PRODUCTS` はプランのスラッグ `core`、`complete`、`agency` を `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付けます。
 
-- `modules/billing` または `modules/order` ユースケース
-- Stripe (または Polar) 統合フォルダ
-- Webhooks ルートハンドラ
-- 顧客のインボイスの下 `/app`
-- 地図 Better Auth ユーザ ↔ 顧客 ID
+## 購入
 
-クライアントに秘密鍵を明示しません。
+ライセンスを持たないサインイン済みユーザーには、`/app` と `/app/license` に `CheckoutOptions` が表示されます。このコンポーネントは `startCheckout`（`src/modules/license/use-cases/start-checkout.ts`）を呼び出し、次の処理を行います。
+
+1. `pppDiscountId`（`license.ppp.ts`）で地域割引を探します。`cf-ipcountry` の国に対応する割引率を、Polar で有効な自動のパーセント割引と照合します。`regional_pricing` Cookie が `off` の場合は適用しません。
+2. 割引コードを無効にして、そのプランの Polar 購入セッションを作成します。
+3. 購入 URL を返し、ブラウザーがそれを開きます。
+
+支払いが完了すると `/app` に戻ります。
+
+## Webhook とライセンス
+
+Polar は `/api/auth/polar/webhooks` にイベントを送信し、`POLAR_WEBHOOK_SECRET` で検証されます。`licenseWebhookHandlers`（`src/modules/license/license.webhooks.ts`）は Polar の顧客の `externalId` でユーザーを特定します。
+
+- `onOrderPaid` → `grantLicense`: 購入した商品のプランでユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。
+- `onBenefitGrantCreated` → `attachLicenseKey`: Polar のライセンスキーをライセンスに保存します。
+- `onOrderRefunded` と `onBenefitGrantRevoked` → `revokeLicense`: ステータスを `revoked` にし、注文を `revoked_license_order` に記録して、遅れて届いた Webhook が再び付与できないようにします。
+
+## 顧客向け画面
+
+`/app/license` は `LicenseCard`（プラン、キー、インストールコマンド、`/api/auth/customer/portal` の Polar カスタマーポータルへのリンク）と `LicenseActivations` を表示します。`LicenseActivations` は Polar 上のキーのアクティベーションを一覧表示し、`deactivateLicense` で個別に解除します。[顧客アプリ](/docs/features/customer-app)を参照してください。
+
+## 管理画面（デモ）
+
+`/admin/payments` は `RefundStats` と、`src/data/admin.ts` の `ADMIN_PAYMENT_ROWS` を使う返金の `DataTable` を表示します。ボタンは未接続です。`order` の権限定義（`read`、`update`、`refund`）は `auth.access.ts` にありますが、注文や返金を読み取るユースケースはありません。
+
+## 関連ページ
+
+- 料金セクションの地域別価格については[ランディングページ](/docs/features/landing-page)
+- [環境変数](/docs/getting-started/environment-variables)

@@ -1,6 +1,43 @@
 ---
-title: リント&フォーマット
-description: Vite+ vp check/lint/fmt のワークフロー。
+title: "リントとフォーマット"
+description: "Vite+ 経由の oxlint と oxfmt、およびチェック用スクリプトです。"
 ---
 
-`bun run check` i18nを実行+ `vp check`. . 事前コミットは段階的なチェックを実行することができます — 参照 `check:pre-commit`.
+Vite+ はフォーマットに oxfmt を、リントに oxlint を使います。どちらも `vite.config.ts` の `fmt` セクションと `lint` セクションで設定します。CI が実行するゲートは `bun run check` です。
+
+```sh
+bun run check
+```
+
+このコマンドは `generate:cn`、`check:i18n`、`vp check` を実行します。`vp check` はフォーマットの確認、リントルールの実行、プロジェクトの型チェックを行います。ツールを 1 つずつ実行するには `bun run lint`、`bun run format`、`bun run format:check` を使います。
+
+## フォーマット
+
+- セミコロンなし、ダブルクォート、末尾カンマあり、2 スペースのインデント、行幅 140、改行コードは LF です。
+- インポートは固定のグループ順に並べ替えられます。サーバー専用、`cloudflare:workers`、React、外部パッケージ、次に `~/src` の各エリア（platform、providers、integrations、modules、routes、hooks、data と theme、types、lib、branding、shadcn コンポーネント、カスタムコンポーネント、styles）、最後に相対インポートです。
+- Tailwind のクラスは、`className` 内と、`cn`・`cva`・`clsx`・`tw` の呼び出し内で並べ替えられます。
+
+## リント
+
+- `correctness`、`nursery`、`pedantic`、`perf`、`style`、`suspicious` の各カテゴリーはエラーとして扱われます。
+- 型情報を使うルールと型チェックが有効です（`typeAware` と `typeCheck`）。
+- 主な制限: 1 ファイルあたり 800 行、1 関数あたり 150 行、1 関数あたり 20 ステートメント、`0` 以外のマジックナンバーの禁止、`_`・`m`・`t` を除き識別子は 2 文字以上です。
+- テスト、プレゼンテーションのコードとフック、テスト用モック、ルートファイルについては、オーバーライドで一部のルールを緩和しています。
+
+どちらのツールも、生成されたファイルと外部のファイルを無視します。対象は型宣言ファイル、`src/routeTree.gen.ts`、マイグレーション、`.source`、`dist`、`coverage`、`e2e`、`remotion`、エージェント用フォルダー、Playwright の出力です。`scripts/` は `src/` と同じようにフォーマットとリントの対象になります。
+
+リントエラーは原因を修正してください。ルールを通すために無効化コメント、`@ts-expect-error`、`as` によるキャストを追加してはいけません。
+
+## 修正
+
+pre-commit フックは `bun run check:pre-commit` を実行し、その `vp staged` ステップはステージされたファイルだけに `vp check --fix` を実行します。`bun run check:fix` はリポジトリ全体に修正を適用するため、触っていないファイルまで書き換える場合があります。コミットする前に差分を確認してください。自分の変更だけを修正するには、そのパスを `vp`（グローバルの Vite+ CLI、または `bunx vp`）に渡します。
+
+```sh
+vp fmt src/routes/admin.users.all.tsx
+vp lint --fix src/routes/admin.users.all.tsx
+```
+
+## 関連ガイド
+
+- [規約](/docs/reference/conventions)
+- [Vite+](/docs/tooling/vite-plus)

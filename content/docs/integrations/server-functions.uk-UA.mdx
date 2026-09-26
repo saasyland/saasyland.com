@@ -1,30 +1,64 @@
 ---
-title: Серверні функції та випадки використання
-description: Серверні функції та випадки використання — SaaSy Land
+title: "Серверні функції та сценарії використання"
+description: "Нативні серверні функції TanStack Start з валідацією, middleware і параметрами запитів."
 ---
 
-Функціональні операції в режимі реального часу `src/modules/{feature}/use-cases/{operation}.ts`. . Експорт рідного `createServerFn` з його вхідним schema, авторизації або номінальний посередник, і обробник, який викликає D1 або адаптера постачальника. Відшкодування повертає дані безпосередньо і кидає сейф `AppError`; він не повертає в рамковий конверт дії.
-
-Експорт `mutationOptions` бокові мутації і `queryOptions` бокові читання. Використання компонентів TanStack Query і перевести помилки з `useActionError`. . Успішні мутації недійсні свої функції ключі запиту. Ніколи не довіряйте ідентифікатор користувача, який подається замовником, коли операція повинна діяти на `context.auth.user.id`.
-
-Зареєструватися `withAuth` для захищених операцій та `withRateLimit` для чутливих публічних операцій. Дійсність проходить до обробника. Зберігайте помилки провайдера та внутрішні деталі з публічних відповідей.
+Бізнес-операції зберігаються в `src/modules/<table>/use-cases/<operation>.ts`, по одній операції на файл. Кожен файл експортує нативну `createServerFn` з її middleware, валідацією Zod і обробником, а також параметри запиту чи мутації, які використовують компоненти. Серверна функція, що не належить жодній таблиці, розміщується в `src/lib` (наприклад, `getStarCount` у `src/lib/github.ts`), а функцію, яку використовує лише один маршрут, можна визначити у файлі цього маршруту (`getBlogPosts` у `src/routes/blog.index.tsx`).
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
-import { mutationOptions } from "@tanstack/react-query"
-import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
-import { categoryZodSchemas } from "~/src/modules/category/category.zod"
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
 ```
 
-В даний час `createCategory` Операція демонструє перевірку дійсності, перевірок дозволу, вставку D1 і експортуються параметри мутації.
+## Правила
 
-## Схожі посібники
+- Middleware виконується перед валідацією та обробником. Використовуйте `authorized(permission?)` для захищених операцій і `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` або `RATE_LIMITS.TOKEN` для чутливих публічних; див. [Better Auth](/docs/integrations/better-auth).
+- Валідуйте вхідні дані схемою Zod модуля (`<table>.zod.ts`).
+- Повертайте дані напряму й викидайте `AppError(ERROR_CODES.X)` з `src/modules/_core/constants/errors.ts` для очікуваних збоїв. Інші помилки доходять до клієнта як `INTERNAL_ERROR`, тож деталі постачальника залишаються на сервері.
+- Ключі запитів і мутацій — це readonly-кортежі в `<table>.constants.ts` модуля, а ключі запитів містять кожен вхідний параметр, що впливає на результат.
+- Зберігайте атомарність операцій за допомогою одного SQL-запиту або `db.batch`; D1 не підтримує інтерактивних транзакцій.
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+## Використання сценарію
+
+Компоненти розгортають експортовані параметри в `useQuery`, `useSuspenseQuery` або `useMutation`, перекладають помилки за допомогою `useErrorMessage()` з `src/hooks/use-error-message.ts` і після успішної мутації інвалідують ключі запитів модуля:
+
+```tsx
+const deleteUser = useMutation({
+  ...deleteUserMutation,
+  onError: (error) => {
+    toast.error(errorMessage(error))
+  },
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL })
+    toast.success(t("feedback.deleteSuccess"))
+  },
+})
+```
+
+Завантажувачі попередньо завантажують ті самі параметри запитів у своєму `Promise.all`, тож серверний рендеринг і клієнт використовують один запис кешу.
+
+## Пов'язані посібники
+
+- [Додавання сценарію використання](/docs/guides/add-a-use-case)
+- [Серверні функції](/docs/guides/server-functions)
+- [Модулі та сценарії використання](/docs/architecture/modules-and-use-cases)

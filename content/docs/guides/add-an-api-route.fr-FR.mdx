@@ -1,28 +1,52 @@
 ---
-title: TanStack Start Gestionnaires HTTP
-description: TanStack Start Gestionnaires HTTP — SaaSy Land
+title: "Ajouter une route d'API"
+description: "Ajoutez un handler HTTP sous /api pour les webhooks et les autres appelants externes."
 ---
 
-Les paramètres HTTP utilisent les gestionnaires de serveur natifs TanStack Start dans `src/routes`. Better Auth possède GET et POST sous `/api/auth/$`; Fumadocs utilise la recherche `/api/search`C'est vrai. Les opérations de produit sont des fonctions de serveur natives dans les modules de fonctionnalités.
+Les routes d'API sont des handlers serveur TanStack Start dans `src/routes/api/`. Les écrans de l'application n'en ont jamais besoin : ils appellent des fonctions serveur. N'ajoutez une route d'API que pour des appelants extérieurs à l'application, comme des webhooks, des clients tiers ou des robots d'indexation.
 
-Déclarez les gestionnaires sur `createFileRoute` avec `server.handlers`C'est vrai. Utiliser le produit fourni `request`, valider l'entrée, faire appliquer les vérifications d'autorisation, et retourner un Web `Response`C'est vrai. Gardez la vérification webhook dans l'intégration du fournisseur. N'exposez pas un paramètre REST en double pour une opération qui n'est utilisée que par le client RPC dactylographié de cette application.
+## Routes existantes
+
+| Fichier                    | Chemin        | Rôle                                                                                                 |
+| -------------------------- | ------------- | ---------------------------------------------------------------------------------------------------- |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | Better Auth : connexion, callbacks OAuth, vérification d'e-mail, checkout, portail et webhooks Polar |
+| `src/routes/api/search.ts` | `/api/search` | Recherche Fumadocs pour la documentation                                                             |
+| `src/routes/api/index.ts`  | `/api`        | Vérification de l'environnement d'exécution qui renvoie `{ "runtime": "cloudflare-workers" }`        |
+
+Les webhooks Polar arrivent sur `/api/auth/polar/webhooks` ; le plugin Polar pour Better Auth vérifie leur signature avec `POLAR_WEBHOOK_SECRET` avant que `license.webhooks.ts` ne les traite.
+
+## Écrire un handler
+
+Déclarez les méthodes dans `server.handlers`. Chaque handler reçoit la `Request` web et renvoie une `Response` web :
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
-import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/auth/$")({
+import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+
+export const Route = createFileRoute("/api/search")({
   server: {
     handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
+      GET: ({ request }) => search.GET(request),
     },
   },
 })
 ```
 
-## Guides connexes
+Dans un handler :
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+- Validez la query ou le corps avec un schéma Zod et renvoyez `HTTP_STATUS.BAD_REQUEST` (de `src/modules/_core/constants/api.ts`) en cas d'échec. Ajoutez-y un statut si le handler en a besoin d'un nouveau.
+- Lisez la session avec `getRequestSession(request)` et vérifiez-la avec `hasPermission`. Le middleware de fonction, comme `authorized`, s'applique aux fonctions serveur, pas aux handlers.
+- Limitez le débit des endpoints publics avec `withinRateLimit({ key, limit, windowSeconds })` et `clientAddress(request.headers)` de `src/lib/rate-limit.ts`.
+- Vérifiez les signatures avant de faire confiance au contenu d'un webhook.
+- Renvoyez des corps d'erreur sûrs et journalisez les détails avec `console.error`.
+
+## Règles de routage
+
+- Les chemins `/api` n'ont jamais de préfixe de langue, et le Worker ignore pour eux la recherche des ressources statiques et les redirections de langue.
+- Les URL `/api` ne contiennent pas de langue : `getCurrentLocale()` y renvoie donc la langue par défaut. Une réponse localisée prend la langue dans la requête, comme `/api/search` avec son paramètre de query `locale`.
+- `/api` est exclu du prérendu.
+
+## Test
+
+Appelez le handler via les options de la route, comme le fait `src/routes/api/__test__/handlers.test.ts` avec `Route.options.server.handlers`, et simulez le fournisseur vers lequel il transmet la requête.

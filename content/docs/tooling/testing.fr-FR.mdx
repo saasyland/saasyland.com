@@ -1,26 +1,46 @@
 ---
-title: Essais et CI
-description: Essais et CI — SaaSy Land
+title: "Tests"
+description: "Projets Vitest, utilitaires de test et seuil de couverture à 100 %."
 ---
 
-Vite+ exécute Vitest dans trois projets : tests de nœuds, tests d'intégration et tests de composants de jsdom. Gardez les tests de comportement existants à côté du code qu'ils exercent sous `__test__`C'est vrai. Importer des API test à partir de `vite-plus/test`C'est vrai. Utilisez Playwright pour les flux complets du navigateur et les vérifications de rendu.
+Vite+ exécute Vitest avec la configuration de `vite.config.ts`. Les tests se trouvent dans un dossier `__test__` à côté du code qu'ils couvrent et importent leur API depuis `vite-plus/test`.
 
-La configuration partagée fournit des maquettes locales D1 et KV. D1 exécute les migrations SQL cochées contre SQLite. Le pont RPC fonction serveur préserve TanStacks véritable intergiciel et pipeline de validation. Les helpers de rendu de composants fournissent de vrais contextes QueryClient et Router. Les courriels externes, OAuth et les appels de paiement sont simulés dans les tests.
-
-Exécutez le projet ciblé pendant l'édition, puis exécutez la suite complète, la porte de couverture, vérifiez et prévisualiser la construction. Les tests du navigateur vérifient les pages publiques, les redirections auth, SSR sans JavaScript et la navigation client. CI utilise des liaisons locales et ne nécessite pas de base de données en direct ou de secrets de fournisseur.
+| Projet        | Fichiers                                                    | Environnement                     |
+| ------------- | ----------------------------------------------------------- | --------------------------------- |
+| `node`        | `*.test.ts` et `*.test.tsx`, sauf les deux types ci-dessous | Node                              |
+| `integration` | `*.integration.test.ts`                                     | Node, délais d'expiration de 20 s |
+| `component`   | `*.component.test.tsx`                                      | jsdom                             |
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
 ```
 
-## Guides connexes
+Utilisez `bun run test`, et non `bun test` : le lanceur de tests propre à Bun ignore les projets, les environnements et le fichier de configuration de Vitest.
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+## Plateforme de test
+
+`src/platform/testing/` contient le câblage partagé ; tout le reste est placé à côté de son propriétaire.
+
+- `setup.ts` enregistre les matchers jest-dom et les hooks partagés.
+- `mocks/cloudflare.ts` remplace `cloudflare:workers` : D1 est une base de données `node:sqlite` en mémoire qui applique chaque migration versionnée, et KV est une map en mémoire.
+- `lib/server-function.ts` appelle les fonctions serveur via le véritable pipeline de middleware et de validation de TanStack.
+- `lib/render.tsx` rend les composants avec un vrai QueryClient et un vrai routeur.
+- `mocks/providers.ts` intercepte les requêtes vers Resend et Polar. Seul le Worker de test Playwright (`worker.ts`) l'installe.
+
+Les appels externes d'e-mail, d'OAuth et de paiement ne quittent jamais le processus de test.
+
+## Couverture
+
+`bun run test:coverage` impose 100 % de lignes, d'instructions, de fonctions et de branches pour `src/**/*.{ts,tsx}`. Les tests, les dossiers `__test__`, les fichiers de déclaration, `src/routeTree.gen.ts`, les primitives shadcn et `src/platform/testing/` sont exclus. Les rapports sont écrits dans `coverage/` au format texte, HTML et `coverage-summary.json`. Couvrez le comportement réel et supprimez les branches qui ne peuvent jamais s'exécuter plutôt que de remplacer des globales pour les atteindre. La CI exécute le contrôle de couverture sur chaque pull request.
+
+## Guides associés
+
+- [Écrire des tests](/docs/guides/writing-tests)
+- [Architecture des tests](/docs/architecture/testing-architecture)
+- [Playwright](/docs/tooling/playwright)

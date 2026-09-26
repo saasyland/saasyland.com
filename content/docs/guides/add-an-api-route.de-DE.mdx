@@ -1,28 +1,52 @@
 ---
-title: TanStack Start HTTP-Handler.
-description: TanStack Start HTTP-Handler – SaaSy Land
+title: "API-Route hinzufügen"
+description: "Einen HTTP-Handler unter /api für Webhooks und andere externe Aufrufer hinzufügen."
 ---
 
-HTTP-Endpunkte verwenden native TanStack Start Server-Handler im Verzeichnis `src/routes`. Die Authentifizierungsfunktion (Better Auth) verwaltet die GET- und POST-Anfragen unter `/api/auth/$`. Die Fumadocs-Suche verwendet `/api/search`. Produktbezogene Funktionen sind native Serverfunktionen in den Funktionsmodulen.
+API-Routen sind Server-Handler von TanStack Start in `src/routes/api/`. Die eigenen Bildschirme der Anwendung benötigen nie eine, denn sie rufen Server-Funktionen auf. Eine API-Route nur für Aufrufer außerhalb der App hinzufügen, etwa Webhooks, Clients von Drittanbietern oder Crawler.
 
-Deklarieren Sie Handler für `createFileRoute` mit `server.handlers`. Verwenden Sie das bereitgestellte `request`, validieren Sie die Eingabe, führen Sie Berechtigungsprüfungen durch und geben Sie ein Web `Response` zurück. Behalten Sie die Webhook-Verifizierung in der Provider-Integration. Exponieren Sie keinen doppelten REST-Endpunkt für eine Funktion, die ausschließlich vom typisierten RPC-Client dieser Anwendung verwendet wird.
+## Bestehende Routen
+
+| Datei                      | Pfad          | Zweck                                                                                                    |
+| -------------------------- | ------------- | -------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | Better Auth: Anmeldung, OAuth-Callbacks, E-Mail-Verifizierung, Polar-Checkout, Kundenportal und Webhooks |
+| `src/routes/api/search.ts` | `/api/search` | Fumadocs-Suche für die Dokumentation                                                                     |
+| `src/routes/api/index.ts`  | `/api`        | Laufzeitprüfung, die `{ "runtime": "cloudflare-workers" }` zurückgibt                                    |
+
+Polar-Webhooks kommen unter `/api/auth/polar/webhooks` an; das Polar-Plugin von Better Auth prüft ihre Signatur mit `POLAR_WEBHOOK_SECRET`, bevor `license.webhooks.ts` sie verarbeitet.
+
+## Handler schreiben
+
+Die Methoden in `server.handlers` deklarieren. Jeder Handler erhält den Web-`Request` und gibt eine Web-`Response` zurück:
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
-import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/auth/$")({
+import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+
+export const Route = createFileRoute("/api/search")({
   server: {
     handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
+      GET: ({ request }) => search.GET(request),
     },
   },
 })
 ```
 
-## Verwandte Anleitungen.
+Innerhalb eines Handlers:
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+- Query-Parameter oder Body mit einem Zod-Schema validieren und bei einem Fehlschlag `HTTP_STATUS.BAD_REQUEST` (aus `src/modules/_core/constants/api.ts`) zurückgeben. Dort einen Status ergänzen, wenn der Handler einen neuen benötigt.
+- Die Session mit `getRequestSession(request)` lesen und mit `hasPermission` prüfen. Funktions-Middleware wie `authorized` gilt für Server-Funktionen, nicht für Handler.
+- Öffentliche Endpunkte mit `withinRateLimit({ key, limit, windowSeconds })` und `clientAddress(request.headers)` aus `src/lib/rate-limit.ts` begrenzen.
+- Signaturen prüfen, bevor einem Webhook-Payload vertraut wird.
+- Sichere Fehler-Bodys zurückgeben; Details mit `console.error` protokollieren.
+
+## Routing-Regeln
+
+- `/api`-Pfade erhalten nie ein Locale-Präfix, und der Worker überspringt für sie die Suche nach statischen Assets und die Locale-Weiterleitungen.
+- `/api`-URLs enthalten keine Locale, daher liefert `getCurrentLocale()` dort die Standard-Locale. Eine lokalisierte Antwort entnimmt die Locale dem Request, so wie `/api/search` über seinen Query-Parameter `locale`.
+- `/api` ist vom Prerendering ausgeschlossen.
+
+## Testen
+
+Den Handler über die Route-Optionen aufrufen, wie es `src/routes/api/__test__/handlers.test.ts` mit `Route.options.server.handlers` tut, und den Provider mocken, an den er weiterleitet.

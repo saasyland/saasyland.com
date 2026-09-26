@@ -1,16 +1,48 @@
 ---
-title: Rozwiązywanie problemów
-description: Rozwiązywanie problemów — SaaSy Land
+title: "Rozwiązywanie problemów"
+description: "Typowe błędy podczas developmentu, testowania i wdrażania oraz sposoby ich naprawy."
 ---
 
-Jeśli lokalne zapytania zgłaszają brak tabel, uruchom `bun run db:migrate:local`; testy przeglądarkowe używają `db:migrate:test` i osobnego bindingu D1. Przy problemach z logowaniem sprawdź URL środowiska, `AUTH_SECRET`, dane usługodawców i adresy callback.
+## Baza danych
 
-Brak tłumaczenia zwykle oznacza pominięty namespace trasy albo klucz w jednym języku. Uruchom `check:i18n`. Dla błędów 404 dokumentacji sprawdź językowy plik MDX, metadane i względny link źródłowy. Przy błędzie prerenderingu sprawdź pierwszy nieudany URL w logu.
+**`no such table` w `bun run dev`.** Środowisko `development` korzysta ze zdalnej bazy D1 środowiska preview. Zastosuj w niej migracje poleceniem `bun run db:migrate:development`. Dla lokalnej bazy deweloperskiej użyj `bun run db:migrate:local`.
 
-Wdrożenie odrzucone z powodu przykładowych bindingów wymaga prawdziwych ID D1 i KV. Budowanie i testy nie tworzą automatycznie zdalnych zasobów.
+**`no such table` w Playwright.** Testy przeglądarkowe używają własnej lokalnej bazy danych. Uruchom `bun run db:migrate:test` i `bun run db:seed:test` albo pozwól, by Playwright sam uruchomił aplikację, co wykona oba polecenia.
 
-## Powiązane przewodniki
+**Tabele w Vitest są nieaktualne.** Mock D1 przy starcie stosuje każdy plik SQL z `src/integrations/drizzle-orm/migrations`. Po zmianie schematu wygeneruj migrację poleceniem `bun run db:generate`.
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+## Serwer deweloperski
+
+**Serwer deweloperski się nie uruchamia.** Używa portu 3000 z opcją `strictPort`, więc kończy się błędem, gdy port jest zajęty. Zatrzymaj drugi proces.
+
+**Logowanie lub OAuth nie działa.** Sprawdź `AUTH_SECRET` i dane uwierzytelniające klienta OAuth w pliku środowiskowym oraz to, czy callback URL dostawcy wskazuje na `/api/auth/callback/<provider>` na używanym hoście. Better Auth akceptuje tylko hosty skonfigurowane dla danego trybu builda: lokalnie `localhost:3000` i `127.0.0.1:3000`.
+
+**W typach Workera brakuje bindingu lub sekretu.** Po zmianie `wrangler.jsonc` uruchom `bun run cf-typegen` i dodaj zmienną do `src/types/bindings.d.ts`.
+
+**Własne klasy `text-*` znikają po scaleniu.** `cn` zależy od tabel generowanych z `src/lib/cn.config.ts`. `bun run dev`, `bun run check` i buildy generują je ponownie; jeśli brakuje `.source/cn-tables.ts`, uruchom `bun run generate:cn`.
+
+## Tłumaczenia
+
+**`No messages/<locale>/<namespace>.json`.** Trasa deklaruje przestrzeń nazw, która nie ma pliku dla danego locale. Utwórz ten plik we wszystkich locale.
+
+**Klucz renderuje się jako ścieżka albo `check:i18n` zgłasza brakujący klucz.** Klucza brakuje w jednym z locale albo komponent odczytuje go poza zakresem swojego wywołania `useTranslations`. Używaj jednego `useTranslations` na komponent i uruchom `bun run check:i18n`.
+
+## Dokumentacja
+
+**Strona dokumentacji zwraca 404.** Plik musi mieć nazwę `<page>.<locale>.mdx` i być wymieniony w `pages` w pliku `meta.<locale>.json` danego folderu. Uruchom `bun run content`, aby ponownie wygenerować `.source`.
+
+**`check-content.ts` kończy się błędem.** Skrypt porównuje każde locale z en-US. `Changed code examples` oznacza, że blok kodu różni się od angielskiego; bloki kodu muszą być identyczne. `Untranslated English paragraph` oznacza, że akapit został skopiowany bez tłumaczenia. `Missing <file>` oznacza, że plik dla danego locale nie istnieje.
+
+## Testy i wdrożenie
+
+**`test:coverage` kończy się błędem.** Pokrycie linii, instrukcji, funkcji i gałęzi musi wynosić 100%. Raport w `coverage/` wymienia niepokryte linie.
+
+**Wdrożenie zatrzymuje się na `verify-bindings.ts`.** Docelowe środowisko w `wrangler.jsonc` nadal ma zastępcze identyfikatory D1 lub KV. Utwórz zasoby w Cloudflare i podmień identyfikatory.
+
+**Build z prerenderingiem kończy się błędem.** Wynik builda podaje pierwszy URL, dla którego wystąpił błąd. Otwórz tę stronę w `bun run dev`, aby zobaczyć błąd.
+
+## Powiązane strony
+
+- [Lokalne debugowanie](/docs/guides/local-debugging)
+- [Najczęściej zadawane pytania](/docs/reference/faq)
+- [Środowisko i bindingi](/docs/reference/environment)

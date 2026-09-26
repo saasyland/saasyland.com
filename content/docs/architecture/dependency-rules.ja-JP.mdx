@@ -1,14 +1,42 @@
 ---
-title: 依存症ルール
-description: 依存関係ルール — SaaSy Land
+title: "依存関係のルール"
+description: "どのフォルダーがどのフォルダーをインポートできるか、そしてサーバー専用コードをブラウザバンドルに含めない仕組み。"
 ---
 
-ルートのインポートプレゼンテーションやユースケース。 プレゼンテーションでは、ネイティブクエリ/マイテーションオプション、スキーマ、共有ヘルパーをインポートします。 ケースを使用して、サーバーのみの境界を介してデータベースとベンダーのアダプターをインポートします。 モジュールの定数と検証は、フォームとサーバーの機能の両方で使用可能でなければなりません。
+## インポートの方向
 
-ワーカーのバインディングやシークレットベアリングの設定をブラウザコンポーネントにインポートしないでください。 TanStack Start はスプリットします。 `createServerFn` ブラウザバンドルからハンドラを外します。 ブラウザのインポートで実行してはならない共有アダプタ `@tanstack/react-start/server-only`.
+| フォルダー                | インポートしてよいもの                                                                                                            | インポートしてはいけないもの                                 |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `src/routes`              | presentation、モジュールのクエリ／ミューテーションオプション、インテグレーション（ガード、i18n、Fumadocs）、`src/data`、`src/lib` | サーバー関数の外でのデータベースやプロバイダーのクライアント |
+| `src/presentation`        | モジュールのオプション、Zod スキーマ、定数と型、フック、`src/data`、`src/lib`、ブラウザで安全に使えるインテグレーション           | `db`、`auth.server.ts` の `auth`、Polar、Resend              |
+| `src/modules/*/use-cases` | インテグレーション（`db`、`auth`、`sendEmail`、`polar`）、`_core`、モジュールのスキーマ、メールテンプレート                       | コンポーネント                                               |
+| `src/integrations`        | `_core`、ベンダーからコールバックされるモジュールのスキーマとユースケース                                                         | コンポーネント                                               |
+| `src/server.ts`           | ロケールのヘルパー、クッキー、`_core` の定数、ドキュメントアセット                                                                | データベース、Better Auth、Polar SDK                         |
 
-## 関連ガイド
+ブラウザで安全に使えるインテグレーションには、`i18n.paths.ts`、`i18n.utils.ts`、`auth.client.ts`、`auth.access.ts`、`form.fields.ts` があります。
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+## サーバー専用の境界
+
+- **サーバー関数。** TanStack Start は、すべての `createServerFn` ハンドラーをコンパイル時にブラウザバンドルから取り除き、呼び出しを RPC リクエストに置き換えます。そのため、コンポーネントは、`db` をインポートしているファイルと同じファイルから `createCategoryMutation` をインポートできます。
+- **サーバー専用モジュール。** シークレットやバインディングを読み取るファイルは `import "@tanstack/react-start/server-only"` で始まり、これによってクライアントビルドから除外されます。例：`drizzle.database.ts`、`auth.server.ts`、`polar.config.ts`、`resend.utils.ts`、`src/lib/rate-limit.ts`、`i18n.middleware.ts`。
+- **環境ごとの関数。** `createServerOnlyFn` は、サーバーでのみ実行されるコード（`getRequestSession`）をラップします。`createIsomorphicFn` は、サーバーとブラウザで別々の実装を提供します（`getCurrentLocale`、`getCookie`）。
+- **バインディングとシークレット**は `cloudflare:workers` の `env` から取得し、サーバー専用モジュールかサーバー関数のハンドラーの中でのみ読み取ります。
+- **Worker のエントリー。** `src/server.ts` は、静的ファイルを含むすべてのリクエストで実行されます。そのため静的インポートを最小限に抑え、一致する静的アセットがない場合にだけ、TanStack Start のハンドラーを動的 `import()` で読み込みます。
+
+```ts
+import "@tanstack/react-start/server-only"
+
+import { env } from "cloudflare:workers"
+
+import { drizzle } from "drizzle-orm/d1"
+
+import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
+
+export const db = drizzle(env.DB, { schema })
+```
+
+## 関連ページ
+
+- [ディレクトリ構成](/docs/architecture/directory-structure)
+- [サーバー関数とユースケース](/docs/architecture/modules-and-use-cases)
+- [リクエストのライフサイクル](/docs/architecture/request-lifecycle)

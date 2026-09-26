@@ -1,14 +1,61 @@
 ---
-title: Core загальний ядер
-description: Похибки доменів та спільні каталоги в модулях /_core.
+title: "Спільне ядро core"
+description: "Словник помилок, каталоги й допоміжні функції в src/modules/_core, спільні для всіх модулів."
 ---
 
-## Контролери
+`src/modules/_core` — єдина папка модуля, яка не володіє таблицею. Вона містить значення та допоміжні функції, потрібні кільком модулям, щоб жоден модуль не визначав їх повторно.
 
-- `constants/errors.ts` — `ERROR_CODES`, `AppError`, `ActionServerError` (знайомитись з одним словом про помилку)
-- `constants/` — локальні (і пов'язані) каталоги, що використовуються i18n і продуктовими knobs
-- `utils/` — чисті помічники розподілені по модулях
+## Константи
 
-## Чому це існує
+| Файл                    | Вміст                                                                                                          |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `constants/errors.ts`   | `ERROR_CODES`, тип `ErrorCode` і клас `AppError`                                                               |
+| `constants/api.ts`      | `HTTP_STATUS`, назви заголовків `cf-ipcountry` і `cf-connecting-ip`, дозволені хости для кожного режиму збірки |
+| `constants/locale.ts`   | Каталог `LOCALES`, `LocaleCode`, `getLocaleName` і `getLocaleDirection`                                        |
+| `constants/country.ts`  | Каталог `COUNTRIES` і `CountryCode`                                                                            |
+| `constants/currency.ts` | Каталог `CURRENCIES`, `CurrencyCode` і `DEFAULT_CURRENCY_CODE`                                                 |
+| `constants/timezone.ts` | Каталог `TIMEZONES` і `TimezoneCode`                                                                           |
+| `constants/pricing.ts`  | Множники регіональних цін, cookie регіональних цін і форматування валют                                        |
 
-Кросівки **дійсні значення** і **Коди помилок** не варто перевизначитися з функцією. Застосувати локальні місця (підмножити) `i18n.config.ts`; більш широкий каталог може жити в `_core`.
+Каталог локалей містить усі відомі локалі. Дев'ять локалей, які застосунок справді обслуговує, задає `I18N.SUPPORTED_LOCALES` у `src/integrations/use-intl/i18n.config.ts`.
+
+## Утиліти
+
+- `utils/pagination.ts`: `paginationSchema` (`pageIndex`, `pageSize`), `DEFAULT_PAGINATION` і `DEFAULT_PAGE_SIZE`
+- `utils/zod-fields.ts`: повторно використовувані поля Zod, як-от `idField` і `localeField`
+
+## Помилки
+
+Є один клас помилок і один список кодів:
+
+```ts
+export const ERROR_CODES = {
+  AUTH_API_ERROR: "AUTH_API_ERROR",
+  CONFLICT: "CONFLICT",
+  FORBIDDEN: "FORBIDDEN",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
+  NOT_FOUND: "NOT_FOUND",
+  TOO_MANY_REQUESTS: "TOO_MANY_REQUESTS",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  VALIDATION: "VALIDATION",
+} as const
+
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]
+
+export class AppError extends Error {
+  readonly code: ErrorCode
+
+  constructor(code: ErrorCode, message: string = code) {
+    super(message)
+    this.name = "AppError"
+    this.code = code
+  }
+}
+```
+
+Серверні функції викидають `AppError`. Middleware `withRequest` нормалізує все інше: помилки API Better Auth стають `AUTH_API_ERROR` із ключем помилки Better Auth як повідомленням, помилки Zod стають `VALIDATION`, а невідомі помилки логуються й стають `INTERNAL_ERROR`. У браузері `useErrorMessage()` із `src/hooks/use-error-message.ts` зіставляє повідомлення з перекладами `auth.errors.*` або `errors.codes.*`.
+
+## Пов'язані сторінки
+
+- [Серверні функції та сценарії використання](/docs/architecture/modules-and-use-cases)
+- [Автентифікація та безпека](/docs/architecture/security-model)

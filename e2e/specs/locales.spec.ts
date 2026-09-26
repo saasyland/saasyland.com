@@ -17,12 +17,14 @@ for (const locale of locales) {
     await expect(page.locator("html")).toHaveAttribute("lang", locale)
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-    const localeSwitch = page.locator('footer [data-testid="locale-switch"]')
+    const localeSwitch = page.locator("footer details")
     await expect(localeSwitch).toHaveCount(1)
-    await localeSwitch.getByRole("button").click()
-    await expect(page.getByRole("option")).toHaveCount(locales.length)
-    await expect(page.getByRole("option", { selected: true })).toHaveCount(1)
+    await localeSwitch.locator("summary").click()
+    await expect(localeSwitch).toHaveAttribute("open", "")
+    await expect(localeSwitch.getByRole("link")).toHaveCount(locales.length)
+    await expect(localeSwitch.locator('a[aria-current="true"]')).toHaveAttribute("hreflang", locale)
     await page.keyboard.press("Escape")
+    await expect(localeSwitch).not.toHaveAttribute("open")
     for (const slug of legalPages) {
       const messages = JSON.parse(readFileSync(`messages/${locale}/pages.legal.${slug}.json`, "utf8")) as { title: string }
       await page.locator(`footer a[href="${prefix}/${slug}"]`).click()

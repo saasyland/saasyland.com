@@ -1,16 +1,32 @@
 ---
-title: Kunden-App
-description: Geschützter Bereich /App-Bereich für eingeloggte Kunden.
+title: "Kunden-App"
+description: "Der Bereich /app für angemeldete Benutzer: Übersicht, Lizenzseite und Seitenleiste."
 ---
 
-## RoutenGruppe
+## Layout
 
-`src/routes/app*.tsx` und `src/presentation/components/custom/app/`
+`src/routes/app.tsx` schützt den Bereich mit `requireSignedIn` und lädt seine Namespaces vorab:
 
-## Status
+```tsx
+const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
 
-Nach der Anmeldung. Erweiterung mit Abrechnungsportal, Kursbibliothek, direkten Verlinkungen zum Konto und Inhalten, die eine Berechtigung erfordern.
+export const Route = createFileRoute("/app")({
+  beforeLoad: requireSignedIn,
+  component: AppLayout,
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  staticData: { namespaces: NAMESPACES },
+})
+```
 
-## Wachen.
+`AppLayout` rendert `AppSidebar` und `AppHeader` aus `src/presentation/components/custom/app` innerhalb des shadcn-`SidebarProvider`. Die Seitenleiste baut ihre Links aus `APP_NAVIGATION` in `src/data/app.ts` auf, liest den Benutzer aus dem Routenkontext (`getRouteApi("/app")`) und endet mit `SignOutButton`. Der Header zeigt die aktuelle Seite und einen Link zurück zur Website. Admins landen nach der Anmeldung auf `/admin`, alle anderen auf `/app`.
 
-`src/integrations/better-auth/auth.guards.ts` + Session; bevorzugen Sie Anwendungsfälle für jegliche Änderung, die von dieser Ebene aus erfolgt.
+## Seiten
+
+| Route          | Inhalt                                                                                                                                                                            |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/app`         | Ohne Lizenz `CheckoutOptions`, sonst `LicenseStatusCard` (Stufe, Status und ein Link zur Lizenzseite); Links zur Dokumentation und zum Support per E-Mail.                        |
+| `/app/license` | Ohne Lizenz `CheckoutOptions`, sonst `LicenseCard` (Schlüssel, Installationsbefehl, Link zum Kundenportal) und, sobald Polar den Schlüssel ausgestellt hat, `LicenseActivations`. |
+
+Beide Loader laden `currentLicenseQuery` vorab; `/app/license` lädt zusätzlich `licenseActivationsQuery` vorab. Checkout, Webhooks und Lizenzzustände sind unter [Zahlungen und Lizenzen](/docs/features/payments) beschrieben.
+
+In `/app` gibt es keine Ansichten für den Rechnungsverlauf, Kontoeinstellungen oder Kurse.

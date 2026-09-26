@@ -1,13 +1,121 @@
 ---
-title: E-Mail-Vorlagen.
-description: Versand über Resend und Vorlagen mit React Email.
+title: "E-Mail-Vorlagen"
+description: "React-Email-Vorlagen mit übersetzten Messages schreiben und aus Use Cases über Resend versenden."
 ---
 
-## Wo
+Eine E-Mail besteht aus drei Teilen: einer Vorlage in `src/presentation/emails/`, einem Message-Namespace in `messages/<locale>/emails.<name>.json` und dem Use Case, der die Messages lädt, die Vorlage rendert und die E-Mail versendet. Vorlagen: `verify-email`, `reset-password-email`, `change-email-confirmation-email`, `newsletter-confirmation-email` und `newsletter-notification-email`.
 
-- Senden des Helferdienstes: `integrations/resend`
-- Vorlagen: `presentation/emails` (jeweils exportiert seinen Komponenten-Teil + `*Subject(locale)`); die Integration in `integrations/better-auth/auth.emails.ts`.
+## Vorlage
 
-## Lokale Tipps.
+Eine Vorlage enthält nur Markup und exportiert ihren Namespace. Sie übersetzt mit `createTranslator` aus `use-intl`, weil sie außerhalb des React-Kontexts rendert. `src/presentation/emails/verify-email.tsx`:
 
-Für Smoke-Tests den Onboarding-Absender von Resend verwenden; API-Schlüssel niemals committen.
+```tsx
+import type { JSX } from "react"
+
+import { Body, Button, Container, Head, Heading, Html, Preview, Section, Tailwind, Text, pixelBasedPreset } from "react-email"
+import { createTranslator } from "use-intl"
+
+import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+
+import type emailMessages from "~/messages/en-US/emails.verify-email.json"
+
+export const VERIFY_EMAIL_NAMESPACE = "emails.verify-email"
+
+const TAILWIND_CONFIG = { presets: [pixelBasedPreset] }
+
+interface VerifyEmailProps {
+  readonly locale: SupportedLocale
+  readonly messages: typeof emailMessages
+  readonly name: string
+  readonly verifyUrl: string
+}
+
+export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<VerifyEmailProps>): JSX.Element => {
+  const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
+
+  return (
+    <Html lang={locale}>
+      <Tailwind config={TAILWIND_CONFIG}>
+        <Head />
+        <Body className="font-sans">
+          <Preview>{t("preview")}</Preview>
+          <Container className="mx-auto px-5 py-10">
+            <Section>
+              <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading")}</Heading>
+              <Text className="m-0 mb-6 text-base text-neutral-600">{t("body", { name })}</Text>
+              <Button
+                href={verifyUrl}
+                className="box-border rounded-md bg-neutral-900 px-5 py-3 text-center text-base text-white no-underline"
+              >
+                {t("button")}
+              </Button>
+              <Text className="mt-6 text-sm text-neutral-500">{t("footer")}</Text>
+            </Section>
+          </Container>
+        </Body>
+      </Tailwind>
+    </Html>
+  )
+}
+```
+
+## Messages
+
+`messages/<locale>/emails.<name>.json` in allen neun Locales anlegen. Einen Schlüssel `subject` aufnehmen; der Use Case übersetzt ihn getrennt vom Inhalt.
+
+```json
+{
+  "subject": "Verify your email address",
+  "preview": "Verify your email for SaaSy Land",
+  "heading": "Verify your email",
+  "body": "Hi {name}, thanks for signing up. Confirm your email address to finish setting up your account.",
+  "button": "Verify email",
+  "footer": "If you did not create an account, you can safely ignore this email."
+}
+```
+
+E-Mail-Namespaces werden nie von Routen vorgeladen; der versendende Use Case lädt sie auf dem Server.
+
+## Versand
+
+Der Use Case erhält die Locale, lädt die Messages, baut absolute Links mit `localizePathname` und ruft `sendEmail` auf. `src/modules/verification/use-cases/send-verify-email.ts`:
+
+```ts
+export const sendVerifyEmail = async ({
+  locale,
+  token,
+  user,
+}: {
+  locale: SupportedLocale
+  token: string
+  user: { email: string; name: string }
+}): Promise<void> => {
+  const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+  const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+  verifyUrl.searchParams.set("token", token)
+
+  await sendEmail({
+    idempotencyKey: `verify-email/${token}`,
+    react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+    subject: createTranslator({ locale, messages })("subject"),
+    to: user.email,
+  })
+}
+```
+
+`sendEmail` (`src/integrations/resend/resend.utils.ts`) versendet über Resend mit dem Absender `RESEND_EMAIL_FROM`, sofern kein `from` angegeben ist, übergibt den Idempotenzschlüssel, damit ein erneuter Versuch nie doppelt sendet, und wirft einen Fehler, wenn Resend einen Fehler zurückgibt.
+
+## Wer was versendet
+
+- Better-Auth-Hooks in `src/integrations/better-auth/auth.server.ts` rufen die Use Cases auf: `sendVerifyEmail` für `emailVerification.sendVerificationEmail` und wiederholte Registrierungen nicht verifizierter Konten, `sendResetPasswordEmail` für `emailAndPassword.sendResetPassword` und `sendChangeEmailConfirmationEmail` für `user.changeEmail`.
+- Better-Auth-Requests kommen ohne Locale-Präfix bei `/api/auth` an, daher ermitteln die Hooks die Locale der E-Mail aus der `callbackURL` des Ablaufs, einem lokalisierten Seitenpfad, mit `extractLocaleFromCallbackURL` oder `extractLocaleFromPath` aus `src/integrations/use-intl/i18n.paths.ts`. Fallback ist Englisch.
+- Die Newsletter-Use-Cases versenden die Bestätigungs- und Benachrichtigungs-E-Mails des Newsletters selbst, zum Beispiel `subscribeToNewsletter`.
+
+## E-Mail hinzufügen
+
+1. Die Vorlage mit ihrem exportierten `<NAME>_NAMESPACE` in `src/presentation/emails/<name>.tsx` anlegen.
+2. `messages/<locale>/emails.<name>.json` in allen neun Locales hinzufügen.
+3. Die E-Mail aus dem Use Case versenden, dem die Aktion gehört, mit einem Idempotenzschlüssel, der aus dem auslösenden Token oder Datensatz abgeleitet ist.
+4. Die Vorlage in `src/presentation/emails/__test__/` testen und den Use Case mit gemocktem `sendEmail`.
+
+Resend-Zugangsdaten: `RESEND_API_KEY` und `RESEND_EMAIL_FROM`. Tests kontaktieren Resend nie.

@@ -1,6 +1,43 @@
 ---
-title: Überprüfen und formatieren.
-description: Vite+-Abläufe mit vp check, lint und fmt.
+title: "Linting und Formatierung"
+description: "oxlint und oxfmt über Vite+ sowie die Prüfskripte."
 ---
 
-`bun run check` führt i18n- und `vp check`-Prüfungen durch. Vor dem Commit können möglicherweise gestufte Prüfungen ausgeführt werden – siehe `check:pre-commit`.
+Vite+ führt oxfmt für die Formatierung und oxlint für das Linting aus; beide sind in den Abschnitten `fmt` und `lint` von `vite.config.ts` konfiguriert. `bun run check` ist die Prüfung, die die CI ausführt:
+
+```sh
+bun run check
+```
+
+Das Skript führt `generate:cn`, `check:i18n` und `vp check` aus; Letzteres prüft die Formatierung, wendet die Lint-Regeln an und führt die Typprüfung des Projekts durch. Verwenden Sie `bun run lint`, `bun run format` und `bun run format:check`, um jeweils nur ein Werkzeug auszuführen.
+
+## Formatierung
+
+- Keine Semikolons, doppelte Anführungszeichen, abschließende Kommas, Einrückung mit zwei Leerzeichen, eine Zeilenbreite von 140 und LF-Zeilenenden.
+- Importe werden in feste Gruppen sortiert: nur serverseitig, `cloudflare:workers`, React, externe Pakete, dann die `~/src`-Bereiche (Platform, Providers, Integrations, Modules, Routes, Hooks, Data und Theme, Types, Lib, Branding, shadcn-Komponenten, eigene Komponenten, Styles) und schließlich relative Importe.
+- Tailwind-Klassen werden in `className` sowie innerhalb von `cn`-, `cva`-, `clsx`- und `tw`-Aufrufen sortiert.
+
+## Linting
+
+- Die Kategorien `correctness`, `nursery`, `pedantic`, `perf`, `style` und `suspicious` gelten als Fehler.
+- Typbewusste Regeln und die Typprüfung sind aktiviert (`typeAware` und `typeCheck`).
+- Wichtige Grenzen: 800 Zeilen pro Datei, 150 Zeilen pro Funktion, 20 Anweisungen pro Funktion, keine magischen Zahlen außer `0` und Bezeichner mit mindestens zwei Zeichen, ausgenommen `_`, `m` und `t`.
+- Overrides lockern einige Regeln für Tests, Präsentationscode und Hooks, Test-Mocks und Routendateien.
+
+Beide Werkzeuge ignorieren generierte und externe Dateien: Deklarationsdateien, `src/routeTree.gen.ts`, Migrationen, `.source`, `dist`, `coverage`, `e2e`, `remotion`, die Agent-Ordner und die Playwright-Ausgabe. `scripts/` wird wie `src/` formatiert und gelintet.
+
+Beheben Sie die Ursache eines Lint-Fehlers. Fügen Sie keine Disable-Kommentare, kein `@ts-expect-error` und keine `as`-Casts hinzu, um eine Regel zu erfüllen.
+
+## Korrigieren
+
+Der Pre-Commit-Hook führt `bun run check:pre-commit` aus; dessen Schritt `vp staged` führt `vp check --fix` nur auf den gestagten Dateien aus. `bun run check:fix` wendet Korrekturen im gesamten Repository an und kann Dateien umschreiben, die Sie nicht angefasst haben; prüfen Sie daher den Diff vor dem Commit. Um nur Ihre eigenen Änderungen zu korrigieren, übergeben Sie deren Pfade an `vp` (die globale Vite+ CLI oder `bunx vp`):
+
+```sh
+vp fmt src/routes/admin.users.all.tsx
+vp lint --fix src/routes/admin.users.all.tsx
+```
+
+## Verwandte Anleitungen
+
+- [Konventionen](/docs/reference/conventions)
+- [Vite+](/docs/tooling/vite-plus)

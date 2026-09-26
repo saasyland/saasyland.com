@@ -1,12 +1,35 @@
 ---
-title: Startseite
-description: Marketing-Landingpage-Erstellung und ein Administrations-Tool zur Gestaltung.
+title: "Landingpage"
+description: "Die Marketingseite unter /, ihre Abschnitte, Preise mit regionalen Rabatten, der CLI-Konfigurator und das Newsletter-Formular im Footer."
 ---
 
-## Öffentlich
+## Route
 
-`app/[locale]/(landing)` mit gemeinsam lokalisiertem `_lib` Inhalt.
+`src/routes/_landing.index.tsx` setzt innerhalb von `MotionProvider` siebzehn Abschnitte aus `src/presentation/components/custom/landing-page/sections` zusammen: Hero, Proof, Stack, Manifesto, CLI, Line, Quality, Rally, Manifest, Studio, Record, Cases, Compare, Pricing, FAQ, Notes und Gate. Die Texte stammen aus dem Namespace `pages.landing`. Der Loader holt außerdem die drei neuesten Blogbeiträge (hervorgehobene zuerst) für den Abschnitt Notes und wärmt `starCountQuery` vor, die in KV zwischengespeicherte Anzahl der GitHub-Sterne für den Abschnitt Proof.
 
-## Verwaltung
+Das Layout `_landing` umschließt `/`, die rechtlichen Seiten, `/premium` und die Newsletter-Seiten mit `Navigation`, `PageFrame` und `Footer`, immer im dunklen Theme. Die Abschnittsanker sind `MARKETING_SECTION_IDS` in `src/data/marketing.ts` (`foundation`, `cli`, `quality`, `toolkit`, `pricing`, `faq`); Links verwenden `<Link to={ROUTES.HOME} hash={MARKETING_SECTION_IDS.PRICING}>`.
 
-`/admin/landing-page` Benutzeroberfläche für den zukünftigen visuellen Editor – dokumentieren Sie die Blöcke, während Sie sie implementieren.
+## Preise und regionale Preise
+
+`PricingSection` rendert die `TIERS` mit `TIER_PRICES` und verlinkt auf `/auth/sign-up`. Regionale Preise funktionieren ohne clientseitiges JavaScript, sodass die Seite vorab gerendert bleibt:
+
+1. `Price` rendert den Betrag einmal pro regionalem Multiplikator (`PPP_KEYS`) plus den durchgestrichenen regulären Preis.
+2. Der Worker (`src/server.ts`) liest `cf-ipcountry`. Für ein Land in `PPP_TIERS` setzt er mit `HTMLRewriter` das Attribut `data-ppp` sowie die Variablen `--ppp-region` und `--ppp-percent` auf dem `html`-Element und markiert die Antwort als `private, no-cache`.
+3. CSS in `globals.css` zeigt den passenden Preis an, solange die Checkbox für das regionale Angebot aktiviert ist.
+4. Das Deaktivieren speichert `regional_pricing=off` in einem Cookie; sowohl der Worker als auch `startCheckout` berücksichtigen es.
+
+## CLI-Konfigurator
+
+`CliSection` enthält `CliConfigurator` (`landing-page/components/cli-configurator.tsx`). Aus Optionen, Extras und Paketmanagern in `src/data/cli.ts` entsteht ein Befehl `saasyland@latest init my-app` mit Flags, den `CopyButton` kopiert.
+
+## Newsletter
+
+`Footer` rendert `NewsletterForm` (`src/presentation/components/custom/newsletter-form.tsx`):
+
+1. `subscribeToNewsletter` (mit Rate-Limit) speichert eine ausstehende Zeile in `newsletter_subscriber` und sendet `NewsletterConfirmationEmail`.
+2. `/newsletter/confirm?token=` bestätigt das Abonnement und sendet `NewsletterNotificationEmail` an `CONTACT_EMAIL`.
+3. `/newsletter/unsubscribe?token=` meldet vom Newsletter ab.
+
+## Admin-Ansicht (Demo)
+
+`/admin/landing-page` ist ein statisches Mock-up eines Builders: eine Abschnittsliste, eine Arbeitsfläche und ein Eigenschaftenbereich, aufgebaut aus Konstanten. Die Landingpage wird dadurch nicht verändert.

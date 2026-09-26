@@ -1,16 +1,59 @@
 ---
-title: Authentifizierung und Sicherheit.
-description: Authentifizierung und Sicherheit — SaaSy Land
+title: "Sicherheits-Checkliste"
+description: "Was vor dem Mergen einer Änderung an Routen, Server-Funktionen, Daten oder Secrets zu prüfen ist."
 ---
 
-Die Autorisierung wird zweimal durchgesetzt: Die `beforeLoad`-Routen schützen sowohl das Admin- als auch das Kunden-Layout, und jede geschützte Serverfunktion überprüft den Aufrufer unabhängig. Verwenden Sie `requireAdmin` oder `requireSession` für Layouts und `withAuth(permission)` für Operationen. Kundenoperationen leiten die Eigentumsrechte aus der Sitzung ab.
+Die Liste bei jeder Änderung durchgehen, die eine Seite, eine Operation, einen Endpunkt oder ein Secret hinzufügt.
 
-Better Auth speichert Sitzungen in D1 und verwaltet Anmeldeinformationen, OAuth, Verifizierung, Passwortzurücksetzung, Zwei-Faktor-Authentifizierung, Identitätsübernahme und Widerruf. Die Cookie-Zwischenspeicherung wird umgangen, wenn eine geschützte Serverfunktion überprüft wird. Das finale Authentifizierungs-Plugin ist `tanstackStartCookies`, welches Authentifizierungs-Cookies über Serverfunktionsantworten weiterleitet.
+## Zugriff
 
-D1-Ratenbegrenzungen verwenden atomare Schreibvorgänge und den Cloudflare-Client-IP-Header. Sensible öffentliche Operationen verwenden separate Limit-Schlüssel. Eingaben werden mit dem Zod-Schema validiert, unerwartete Fehler werden ausgeblendet, die Signatur von Zahlungs-Webhooks wird überprüft und alle Zugangsdaten werden innerhalb von serverseitigen Bereichen verwahrt. Private Routen und Token-Änderungen werden nicht vorab gerendert.
+- [ ] Private Seiten liegen unter einem geschützten Layout: `requireAdmin` (`/admin`) oder `requireSignedIn` (`/app`) in `beforeLoad`.
+- [ ] Jede geschützte Server-Funktion hat `authorized(permission)` oder `authorized()`. Der Route-Guard schützt den RPC-Aufruf nicht.
+- [ ] Operationen auf den eigenen Daten des Aufrufers nehmen den Benutzer aus `context.auth.user.id`, niemals aus der Eingabe.
+- [ ] Neue Berechtigungen stehen in `APP_STATEMENTS` und sind nur den Rollen zugewiesen, die sie benötigen.
+- [ ] Tests decken `UNAUTHORIZED` und `FORBIDDEN` ab.
 
-## Verwandte Anleitungen.
+## Eingaben
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+- [ ] Jede Server-Funktion hat einen `.validator`, der das Zod-Schema des Moduls parst.
+- [ ] API-Handler validieren Query-Parameter und Body, bevor sie sie verwenden.
+- [ ] Weiterleitungsziele sind interne Pfade, die mit `localizePathname` gebaut werden; `callbackPathSchema` in `auth.zod.ts` akzeptiert nur Pfade, die mit einem einzelnen `/` beginnen, und Registrierung sowie E-Mail-Änderung verwenden es für `callbackURL`.
+
+## Missbrauch
+
+- [ ] Öffentliche Operationen, die E-Mails versenden, einen Code prüfen oder ein Token verbrauchen, verwenden `withRateLimit` mit `RATE_LIMITS.SENSITIVE` oder `RATE_LIMITS.TOKEN`.
+- [ ] Der Rate-Limiter speichert Zähler in D1 pro Operation und Client-IP (`cf-connecting-ip`) und lehnt die Anfrage ab, wenn sein Speicher nicht verfügbar ist. Die eigenen Endpunkte von Better Auth nutzen denselben Speicher.
+- [ ] E-Mails werden mit einem Idempotenzschlüssel versendet.
+
+## Fehler
+
+- [ ] Erwartete Fehler werfen `AppError` mit einem Code aus `ERROR_CODES`.
+- [ ] Nichts anderes erreicht den Client: `withRequest` protokolliert unbekannte Fehler und ersetzt sie durch `INTERNAL_ERROR`.
+- [ ] Komponenten zeigen Fehler über `useErrorMessage` an, niemals als rohes `error.message`.
+
+## Secrets und reiner Servercode
+
+- [ ] Secrets werden aus `env` in `cloudflare:workers` gelesen, und zwar nur in Modulen, die `@tanstack/react-start/server-only` importieren.
+- [ ] Kein privater Wert hat ein `VITE_`-Präfix, das ihn dem Browser preisgeben würde.
+- [ ] Session-Daten, die an den Client gehen, stammen aus `getCurrentSession`, das das Session-Token entfernt.
+
+## Sessions und Cookies
+
+Diese Einstellungen stehen in `auth.server.ts`; bei Änderungen an der Konfiguration beibehalten:
+
+- [ ] `requireEmailVerification: true` und `revokeSessionsOnPasswordReset: true`.
+- [ ] `useSecureCookies` außerhalb der lokalen Modi und `baseURL.allowedHosts` auf die Hosts der jeweiligen Umgebung beschränkt.
+- [ ] `encryptOAuthTokens: true` und `verification.storeIdentifier: "hashed"`.
+- [ ] An- und Abmeldung leeren den Query-Cache, und die Guards leeren ihn, wenn sich der Benutzer ändert.
+
+## Webhooks und Ausgabe
+
+- [ ] Webhooks prüfen ihre Signatur, bevor sie den Payload verarbeiten; Polar verwendet `POLAR_WEBHOOK_SECRET`.
+- [ ] Private und tokenverbrauchende Seiten bleiben vom Prerendering ausgeschlossen: `/admin`, `/app`, `/auth`, `/newsletter` und `/api` sind ausgenommen.
+- [ ] Routen, deren Loader ein Token aus einem Link verbrauchen, setzen `preload: false`, wie die Routen zur Newsletter-Bestätigung und -Abmeldung.
+
+## Verwandte Anleitungen
+
+- [Authentifizierungsabläufe](/docs/guides/auth-flows)
+- [Rollen und Berechtigungen](/docs/guides/roles-and-permissions)
+- [Server-Funktionen](/docs/guides/server-functions)

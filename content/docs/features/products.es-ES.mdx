@@ -1,12 +1,35 @@
 ---
-title: Productos
-description: "Catálogo de productos: casos de uso y interfaz de administración."
+title: "Productos"
+description: "La tabla de productos en D1 y su listado paginado en administración; el formulario de creación es de demostración."
 ---
 
-## Módulo.
+## Datos
 
-`modules/product/use-cases`: operaciones CRUD y listado.
+`src/modules/product/product.schema.ts` define la tabla `product`: `name`, `description`, `priceCents`, `currency`, `type` (`one_time`, `subscription`, `course`), `status` (`draft`, `published`, `archived`), `billingCycle` y marcas de tiempo.
 
-## Administrador
+Casos de uso en `src/modules/product/use-cases`, cada uno protegido por el permiso `product` correspondiente:
 
-`/admin/products` (incluida la creación). Sigue sustituyendo los datos simulados por datos de casos de uso, tomando la tabla de usuarios como patrón de referencia.
+- `getProducts` — paginado, con filtros opcionales `type` y `status`; exporta `getProductsPageQuery` y `getProductsQuery`.
+- `getProduct`, `createProduct`, `updateProduct`, `deleteProduct`.
+
+## Pantalla de administración
+
+`/admin/products` guarda la pestaña en el parámetro de búsqueda `?tab=`: `all`, `onetime`, `subscriptions`, `categories`, `collections`, `drafts` y `courses`. Las pestañas de productos paginan en el servidor:
+
+```tsx
+<DataTable
+  columns={productColumns}
+  key={tab}
+  options={{ query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] }) }}
+/>
+```
+
+`categories` y `collections` muestran `categoryColumns` con `getCategoriesPageQuery` (consulta [Categorías](/docs/features/categories)); `courses` muestra un estado vacío. El contador del panel también lee `getProductsQuery`.
+
+## Partes de demostración
+
+- `/admin/products/create` muestra `ProductDetails` y `ProductSidebar` como un formulario estático; **Guardar** y **Cancelar** no están conectados.
+- El botón de acciones de fila (`RowActionsCell`) no tiene menú.
+- Ninguna pantalla llama todavía a `createProduct`, `updateProduct`, `deleteProduct` ni `getProduct`.
+
+El pago no usa esta tabla: los niveles que se pueden comprar son productos de Polar (consulta [Pagos y licencias](/docs/features/payments)).

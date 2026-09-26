@@ -1,12 +1,35 @@
 ---
-title: Земельна сторінка
-description: Маркетинг посадковий склад і оболонка адміністратора.
+title: "Головна сторінка"
+description: "Маркетингова сторінка за адресою /, її розділи, ціни з регіональними знижками, конфігуратор CLI та форма розсилки у футері."
 ---
 
-## Публічна
+## Маршрут
 
-`app/[locale]/(landing)` затишна `_lib` зміст.
+`src/routes/_landing.index.tsx` складає сімнадцять розділів із `src/presentation/components/custom/landing-page/sections` усередині `MotionProvider`: Hero, Proof, Stack, Manifesto, CLI, Line, Quality, Rally, Manifest, Studio, Record, Cases, Compare, Pricing, FAQ, Notes і Gate. Тексти беруться з простору імен `pages.landing`. Loader також отримує три найновіші дописи блогу (спочатку виділені) для розділу Notes і прогріває `starCountQuery` — кількість зірок GitHub, кешовану в KV, для розділу Proof.
 
-## Афіша
+Макет `_landing` обгортає `/`, юридичні сторінки, `/premium` і сторінки розсилки компонентами `Navigation`, `PageFrame` і `Footer`, завжди в темній темі. Якорі розділів — це `MARKETING_SECTION_IDS` у `src/data/marketing.ts` (`foundation`, `cli`, `quality`, `toolkit`, `pricing`, `faq`); посилання мають вигляд `<Link to={ROUTES.HOME} hash={MARKETING_SECTION_IDS.PRICING}>`.
 
-`/admin/landing-page` Оболонка UI для майбутнього візуального конструктора — документ, призначених блоками, як ви їх реалізуєте.
+## Ціни та регіональні ціни
+
+`PricingSection` показує `TIERS` з `TIER_PRICES` і веде на `/auth/sign-up`. Регіональні ціни працюють без JavaScript на клієнті, тож сторінка залишається попередньо відрендереною:
+
+1. `Price` показує суму один раз для кожного регіонального множника (`PPP_KEYS`) плюс перекреслену звичайну ціну.
+2. Worker (`src/server.ts`) читає `cf-ipcountry`. Для країни з `PPP_TIERS` він через `HTMLRewriter` встановлює `data-ppp` і змінні `--ppp-region` та `--ppp-percent` на елементі `html` і позначає відповідь як `private, no-cache`.
+3. CSS у `globals.css` показує відповідну ціну, поки прапорець регіональної пропозиції позначено.
+4. Зняття прапорця записує `regional_pricing=off` у cookie; його враховують і Worker, і `startCheckout`.
+
+## Конфігуратор CLI
+
+`CliSection` містить `CliConfigurator` (`landing-page/components/cli-configurator.tsx`). Варіанти, доповнення та менеджери пакетів із `src/data/cli.ts` складають команду `saasyland@latest init my-app` з прапорцями, яку копіює `CopyButton`.
+
+## Розсилка
+
+`Footer` показує `NewsletterForm` (`src/presentation/components/custom/newsletter-form.tsx`):
+
+1. `subscribeToNewsletter` (з обмеженням) зберігає очікувальний рядок `newsletter_subscriber` і надсилає `NewsletterConfirmationEmail`.
+2. `/newsletter/confirm?token=` підтверджує підписку й надсилає `NewsletterNotificationEmail` на `CONTACT_EMAIL`.
+3. `/newsletter/unsubscribe?token=` скасовує підписку.
+
+## Екран адмінпанелі (демонстраційний)
+
+`/admin/landing-page` — статичний макет редактора: список розділів, полотно й панель властивостей, побудовані з констант. Він не змінює головну сторінку.

@@ -1,16 +1,67 @@
 ---
-title: Internacionalización y localidades
-description: Internacionalización y localidades — SaaSy Land
+title: "Internacionalización e idiomas"
+description: "Añade espacios de nombres y claves de mensajes en los nueve idiomas, cárgalos en las rutas y verifícalos con check:i18n."
 ---
 
-Los mensajes residen en `messages/{locale}` Para los nueve idiomas configurados como archivos de espacio de nombres delimitados, por ejemplo `pages.admin.users.json`La configuración de la localización, los helpers de URL, la carga de mensajes, los helpers de metadatos y la traducción de correos electrónicos residen en… `src/integrations/use-intl`.
+Los mensajes usan `use-intl` con sintaxis ICU. Cada espacio de nombres es un archivo JSON por idioma en `messages/<locale>/<namespace>.json`, para los nueve idiomas `en-US` (por defecto), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` y `uk-UA`. El nombre del archivo es el espacio de nombres: `messages/en-US/pages.admin.users.json` es `pages.admin.users`.
 
-Utilizamos `/docs`; Utiliza los recursos de Polonia. `/pl-PL/docs`Legado `/en` y `/pl` Los enlaces están canonizados. Los archivos de ruta declaran `staticData.namespaces` y precargar los mismos espacios de nombres en su loader. `TranslationsProvider` reusable component, allowing developers to easily ship new features and updates using SaaSy Land Core. To ensure quality, we’ve implemented a test gate that requires all new code to pass through the \`/assets/tests/validate-template.xml\` file path. This file utilizes ICU placeholders to dynamically generate test cases. When deploying, use the \`--deploy-bundle\` command flag to initiate the deployment process. For edge computing scenarios, we recommend using `IntlProvider`Los mensajes compartidos se cargan en la raíz; los espacios de nombres solo para correo electrónico permanecen en el servidor.
+## Tipos de espacios de nombres
 
-Lee el entorno con `getCurrentLocale` en el servidor y `useLocale` En los componentes. La URL selecciona la localización del documento. Las peticiones a la función del servidor utilizan la cookie de localización. Un cambio de idioma mantiene la ruta, la consulta y el fragmento y recarga el documento para cargar el contenido correspondiente. Ejecutar `bun run check:i18n` Después de modificar las claves.
+| Espacio de nombres                          | Lo carga                                                             |
+| ------------------------------------------- | -------------------------------------------------------------------- |
+| `common`, `components.*`, `errors*`         | El `beforeLoad` de la ruta raíz, en todas las páginas                |
+| `pages.*`                                   | La ruta de página que lo declara                                     |
+| Espacios de layout, como `auth.validations` | La ruta de layout (`src/routes/auth.tsx`, `admin.tsx`, `app.tsx`, …) |
+| `emails.*`                                  | El caso de uso que envía el correo, solo en el servidor              |
 
-## Guías relacionadas
+`TranslationsProvider` envuelve el cuerpo del documento y combina los espacios de nombres raíz con los de todas las rutas coincidentes, así que todas las pantallas, incluidas las de error, están traducidas.
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+## Añade una clave
+
+Añade la clave al mismo archivo en los nueve idiomas con la misma estructura. `bun run check:i18n` falla cuando a un idioma le falta una clave o le sobra alguna.
+
+## Añade un espacio de nombres de página
+
+1. Crea `messages/<locale>/pages.<area>.<page>.json` en los nueve idiomas. Todos los espacios de nombres de página tienen `metadata.title` y `metadata.description`; `loadPageMetadata` los lee para la cabecera del documento.
+2. Decláralo y cárgalo en la ruta:
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: LegalPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+Las rutas de layout declaran `const NAMESPACES = [...] as const`, los precargan en el loader y los enumeran en `staticData`. Un espacio de nombres declarado sin archivo lanza `No messages/<locale>/<namespace>.json`.
+
+## Usa los mensajes en los componentes
+
+- Llama a `useTranslations` exactamente una vez por componente y llama `t` al traductor. i18n-ally y `check:i18n` resuelven cada `t("key")` según el ámbito de `useTranslations` anterior más cercano.
+- Cuando un componente necesita claves de dos espacios de nombres sin relación, limita `t` a su padre común o llama a `useTranslations()` y usa claves completas, como hace `sign-in-form.tsx`.
+- Los componentes leen sus propios mensajes; los padres nunca pasan etiquetas como props.
+- El texto enriquecido usa `t.rich("key", TAGS)` con el mapa de etiquetas definido como constante a nivel de módulo, como `LEGAL_TAGS` en `src/routes/auth.sign-up.tsx`.
+- `getCurrentLocale()` devuelve el idioma en el servidor y en el navegador. `useDateFormatter` y `useCurrencyFormatter` formatean fechas e importes para ese idioma.
+
+## Comprueba
+
+```sh
+bun run check:i18n
+```
+
+El comando comprueba la paridad de claves entre idiomas, las claves estáticas frente a su ámbito de `useTranslations`, los formatos de mensajes ICU y la paridad del contenido de la documentación entre idiomas. `bun run check` también lo ejecuta.
+
+## Idiomas en las URL
+
+Las páginas en inglés no tienen prefijo (`/docs`); los demás idiomas usan uno (`/pl-PL/docs`). El Worker redirige prefijos cortos como `/pl` a `/pl-PL` y mantiene la cookie de idioma sincronizada con la URL de la página. Las URL de las funciones de servidor y de `/api` no llevan idioma, así que las funciones de servidor que devuelven contenido localizado reciben el idioma como entrada.

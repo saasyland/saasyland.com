@@ -1,23 +1,46 @@
 ---
-title: D1 y Drizzle
-description: D1 y Drizzle – SaaSy Land
+title: "Migraciones de base de datos"
+description: "Generar, aplicar e inspeccionar migraciones de D1."
 ---
 
-Cloudflare D1 es la base de datos de la aplicación. Los esquemas de módulos utilizan `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` recolecta los. `drizzle.database.ts` genera el adaptador Drizzle D1 `env.DB`.
+Los esquemas se encuentran en los módulos de las tablas y los reúne `src/integrations/drizzle-orm/drizzle.schemas.ts`. Las migraciones son archivos SQL con prefijo de marca de tiempo en `src/integrations/drizzle-orm/migrations/`, que se incluyen en el mismo commit que el cambio de esquema.
 
-Las fechas utilizan marcas de tiempo enteras de SQLite en milisegundos. Los campos booleanos utilizan el modo entero booleano de SQLite. Las relaciones, las restricciones únicas y las claves foráneas se mantienen en el esquema. Realizar la operación de forma atómica con una sentencia SQL o un lote D1; no introducir una piscina de conexiones PostgreSQL ni una transacción interactiva.
+## Flujo de trabajo
 
-Ejecutar `db:generate` Tras modificar los esquemas, revise y confirme el SQL generado, y aplícalo localmente. Las migraciones remotas son comandos específicos para cada entorno. Una base de datos PostgreSQL desplegada requiere una exportación y importación separadas y revisadas; generar migraciones SQLite no transfiere los datos existentes.
+1. Modifique `src/modules/<table>/<table>.schema.ts`.
+2. Ejecute `bun run db:generate` y revise el SQL generado.
+3. Aplíquelo en local y ejecute las pruebas; Vitest aplica todas las migraciones a su base de datos en memoria.
+4. Aplíquelo a una base de datos remota antes de desplegar código que dependa de él.
 
 ```sh
 bun run db:generate
 bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
+bun run db:migrate:test
 ```
+
+## Comandos
+
+| Comando                               | Destino                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------- |
+| `bun run db:generate`                 | Nueva migración a partir de la diferencia del esquema (drizzle-kit)                   |
+| `bun run db:migrate:local`            | Base de datos local del entorno `development`                                         |
+| `bun run db:migrate:test`             | Base de datos de pruebas local en `.wrangler/test`                                    |
+| `bun run db:seed:test`                | Cuentas de prueba en la base de datos de pruebas local                                |
+| `bun run db:migrate:development`      | Base de datos remota de `development`, que por defecto es la base de datos de preview |
+| `bun run db:migrate:preview`          | Base de datos remota de preview                                                       |
+| `bun run db:migrate:production`       | Base de datos remota de producción                                                    |
+| `bun run db:studio:<environment>`     | Drizzle Studio para `development`, `preview` o `production`                           |
+| `bun run db:introspect:<environment>` | Introspección de drizzle-kit para `development`, `preview` o `production`             |
+
+Studio y la introspección usan la API HTTP de D1 con `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` y `CLOUDFLARE_ACCESS_TOKEN` del archivo de entorno correspondiente. La aplicación en sí siempre usa el binding `DB`.
+
+El servidor de desarrollo usa bindings remotos, por lo que `db:migrate:local` no le afecta; `db:migrate:development`, sí. El despliegue de CI aplica `db:migrate:preview` o `db:migrate:production` antes de `wrangler deploy`. Ni la instalación de dependencias ni la compilación migran nunca una base de datos remota.
+
+## Cuenta de administrador
+
+No existe ningún seed fuera de la base de datos de pruebas. Para poner en marcha una instalación, regístrese, verifique la dirección de correo electrónico y, a continuación, establezca el `role` de ese usuario en `admin` en Drizzle Studio.
 
 ## Guías relacionadas
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+- [D1 y Drizzle](/docs/integrations/cloudflare-d1)
+- [Guía de migraciones de base de datos](/docs/guides/database-migrations)

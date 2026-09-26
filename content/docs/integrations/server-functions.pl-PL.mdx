@@ -1,30 +1,64 @@
 ---
 title: "Funkcje serwerowe i przypadki użycia"
-description: "Funkcje serwerowe i przypadki użycia — SaaSy Land"
+description: "Natywne funkcje serwerowe TanStack Start z walidacją, middleware i opcjami zapytań."
 ---
 
-Operacje funkcji znajdują się w `src/modules/{feature}/use-cases/{operation}.ts`. Eksportuj natywne `createServerFn` ze schematem wejścia, middleware autoryzacji lub limitów oraz handlerem wywołującym D1 albo adapter usługodawcy. Mutacja zwraca bezpośrednio dane i rzuca bezpieczny `AppError`; nie zwraca dodatkowej struktury odpowiedzi akcji frameworka.
-
-Obok mutacji eksportuj `mutationOptions`, a obok odczytów `queryOptions`. Komponenty korzystają z TanStack Query i tłumaczą błędy przez `useActionError`. Udane mutacje odświeżają klucze zapytań swojej funkcji. Nie ufaj ID przesłanemu przez klienta, gdy operacja powinna działać na `context.auth.user.id`.
-
-Chronione operacje używają `withAuth`, a wrażliwe operacje publiczne `withRateLimit`. Walidacja odbywa się przed handlerem. Błędy usługodawców i wewnętrzne szczegóły nie powinny trafiać do publicznych odpowiedzi.
+Operacje biznesowe znajdują się w `src/modules/<table>/use-cases/<operation>.ts`, po jednej operacji na plik. Każdy plik eksportuje natywną `createServerFn` z middleware, walidacją Zod i handlerem, a także opcje zapytania lub mutacji, z których korzystają komponenty. Funkcja serwerowa, która nie należy do żadnej tabeli, trafia do `src/lib` (na przykład `getStarCount` w `src/lib/github.ts`), a funkcję używaną przez jedną trasę można zdefiniować w pliku tej trasy (`getBlogPosts` w `src/routes/blog.index.tsx`).
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
-import { mutationOptions } from "@tanstack/react-query"
-import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
-import { categoryZodSchemas } from "~/src/modules/category/category.zod"
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
 ```
 
-Istniejąca operacja `createCategory` pokazuje walidację, kontrolę uprawnień, zapis do D1 oraz eksportowane opcje mutacji.
+## Zasady
+
+- Middleware działa przed walidacją i handlerem. Używaj `authorized(permission?)` dla chronionych operacji oraz `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` lub `RATE_LIMITS.TOKEN` dla wrażliwych operacji publicznych; zobacz [Better Auth](/docs/integrations/better-auth).
+- Waliduj dane wejściowe schematem Zod modułu (`<table>.zod.ts`).
+- Zwracaj dane bezpośrednio, a dla spodziewanych błędów rzucaj `AppError(ERROR_CODES.X)` z `src/modules/_core/constants/errors.ts`. Pozostałe błędy docierają do klienta jako `INTERNAL_ERROR`, dzięki czemu szczegóły dostawców pozostają na serwerze.
+- Klucze zapytań i mutacji to krotki tylko do odczytu w pliku `<table>.constants.ts` modułu, a klucze zapytań zawierają każdy parametr wejściowy, który wpływa na wynik.
+- Zachowuj atomowość operacji za pomocą pojedynczej instrukcji SQL lub `db.batch`; D1 nie obsługuje interaktywnych transakcji.
+
+## Korzystanie z przypadku użycia
+
+Komponenty rozwijają eksportowane opcje w `useQuery`, `useSuspenseQuery` lub `useMutation`, tłumaczą błędy za pomocą `useErrorMessage()` z `src/hooks/use-error-message.ts` i po udanej mutacji unieważniają klucze zapytań modułu:
+
+```tsx
+const deleteUser = useMutation({
+  ...deleteUserMutation,
+  onError: (error) => {
+    toast.error(errorMessage(error))
+  },
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL })
+    toast.success(t("feedback.deleteSuccess"))
+  },
+})
+```
+
+Loadery wstępnie ładują te same opcje zapytań w swoim `Promise.all`, więc renderowanie po stronie serwera i klient współdzielą jeden wpis w cache.
 
 ## Powiązane przewodniki
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [Dodawanie przypadku użycia](/docs/guides/add-a-use-case)
+- [Funkcje serwerowe](/docs/guides/server-functions)
+- [Moduły i przypadki użycia](/docs/architecture/modules-and-use-cases)

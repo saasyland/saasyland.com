@@ -1,10 +1,24 @@
 ---
-title: Sitzungen.
-description: Auflisten und widerrufen von Sitzungen für Benutzer und Administratoren.
+title: "Sitzungen"
+description: "Better-Auth-Sitzungen in D1, mit selbst verwaltetem Widerruf in den Admin-Einstellungen."
 ---
 
-## Modul
+Sitzungen liegen in der D1-Tabelle `session` (`src/modules/session/session.schema.ts`). `auth.session.ts` liest sie mit `getRequestSession`, pro Anfrage memoisiert, und stellt Routen und Komponenten `getCurrentSessionQuery` bereit. Die clientseitige Kopie enthält nie das Sitzungstoken.
 
-`modules/session/use-cases` — Auflistung aktiver/Benutzer-Sitzungen, Widerruf einer/vieler/anderer Sitzungen.
+## Anwendungsfälle
 
-Erscheint in den Sicherheitseinstellungen der Benutzeroberfläche und bei Benutzerverwaltungsfunktionen.
+| Anwendungsfall                            | Middleware                       | Verwendet von                |
+| ----------------------------------------- | -------------------------------- | ---------------------------- |
+| `getActiveSessions`                       | angemeldet                       | `SettingsSessions`           |
+| `revokeSession`                           | angemeldet; nur eigene Sitzungen | `SessionRow`                 |
+| `revokeOtherSessions`                     | angemeldet                       | `SettingsSessions`           |
+| `listUserSessions`                        | `session: ["list"]`              | von keiner Ansicht verwendet |
+| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`            | von keiner Ansicht verwendet |
+
+`getActiveSessions` liefert die nicht abgelaufenen Sitzungen des aktuellen Benutzers, die neuesten zuerst, und lässt Impersonation-Sitzungen weg.
+
+## Benutzeroberfläche
+
+**Einstellungen → Sicherheit** in `/admin/settings` rendert `SettingsSessions` (`src/presentation/components/custom/admin/settings/sessions.tsx`). Jede `SessionRow` zeigt das Gerät (User-Agent oder IP-Adresse), die letzte Aktivität und ein Badge bei der aktuellen Sitzung und kann diese Sitzung widerrufen. Eine Schaltfläche im Header widerruft alle anderen Sitzungen. Eine Passwortänderung aktualisiert ebenfalls die Sitzungsliste.
+
+Die Admin-Varianten für Sitzungen anderer Benutzer existieren nur als Serverfunktionen.

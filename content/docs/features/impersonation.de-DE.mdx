@@ -1,15 +1,24 @@
 ---
-title: Nachahmung.
-description: Benutzerimpersonation (Better Auth Admin-Plugin).
+title: "Impersonation"
+description: "Impersonation über das Admin-Plugin von Better Auth: Die Serverfunktionen existieren, aber noch keine Ansicht nutzt sie."
 ---
 
-## Status
+Das Better-Auth-Plugin `admin` stellt Impersonation bereit, und `src/modules/user/use-cases` kapselt sie:
 
-Über die administrativen Aktionen bzw. Nutzungsszenarien der Benutzer zugänglich gemacht, wobei Berechtigungsprüfungen durchgeführt werden.
+```ts
+export const impersonateUser = createServerFn({ method: "POST" })
+  .middleware([authorized({ user: ["impersonate"] })])
+  .validator((input: zod.input<typeof userZodSchemas.impersonateUser>) => userZodSchemas.impersonateUser.parse(input))
+  .handler(({ context, data }) => auth.api.impersonateUser({ body: data, headers: context.requestHeaders }))
+```
 
-## Regeln.
+`stopImpersonatingUser` benötigt nur eine angemeldete Sitzung. Beide Dateien exportieren Mutation-Optionen (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-- Nur für Administratoren.
-- Deutliche Benachrichtigung in der Benutzeroberfläche, wenn eine Benutzerimpersonierung stattfindet.
-- Bevorzugen Sie die Protokollierung von Aktivitäten, wenn Sie die Betriebsabläufe absichern.
-- Ermöglichen Sie keine Erhöhung der Berechtigungen außerhalb der vorgesehenen Support-Prozesse.
+## Aktueller Stand
+
+- Keine Ansicht ruft diese Funktionen auf: Das Menü der Zeilenaktionen in der Benutzertabelle hat keinen Eintrag für Impersonation, und es gibt kein Banner, um die Impersonation zu beenden.
+- Better Auth kennzeichnet Impersonation-Sitzungen mit `impersonatedBy`; `getActiveSessions` lässt sie in der Sitzungsliste der Einstellungen weg.
+- Die Route Guards leeren den Query-Cache, wenn sich der Benutzer der Sitzung ändert, sodass die nächste Navigation nach Beginn der Impersonation die Daten des anderen Benutzers lädt.
+- Es gibt kein Audit-Log für Impersonation.
+
+Um die Funktion hinzuzufügen, ergänzen Sie einen Menüeintrag in `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) und in den Layouts eine sichtbare Möglichkeit, die Impersonation zu beenden.

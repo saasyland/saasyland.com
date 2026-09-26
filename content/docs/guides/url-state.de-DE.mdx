@@ -1,14 +1,46 @@
 ---
-title: Zustand der URL.
-description: Zustandsinformation der URL – SaaSy Land
+title: "URL-Zustand"
+description: "Tabs, Ansichten und Einmal-Tokens in validierten Suchparametern halten."
 ---
 
-Definieren Sie das Suchschema einer Route mit `validateSearch`, lesen Sie es mit `Route.useSearch` und aktualisieren Sie es über die Navigation des TanStack Routers. Bewahren Sie dabei, falls zutreffend, bookmarkfähige Filter, Tabs, Sortierung und Paginierung in der URL. Der Zustand, der nur von Komponenten verwendet wird, bleibt in React.
+Suchparameter halten Zustand, der ein Neuladen oder einen geteilten Link überstehen soll: den ausgewählten Tab oder die Ansicht, eine zwischen Auth-Seiten übergebene E-Mail-Adresse, ein Verifizierungstoken. Alles andere bleibt im React-State. `DataTable` hält Paginierung, Sortierung, Auswahl und Filter im Komponenten-State.
 
-Locale-URL-Umschreibungen werden für native Router-Links verwendet. Verwenden Sie `localizePathname` für manuell erstellte URLs, einschließlich OAuth-Callbacks und E-Mail-Links. Fügen Sie keine Locale-Bezeichnung zu externen Links oder API-Pfaden hinzu. Behalten Sie die Query-Parameter und den Fragment-Teil bei, wenn Sie die Sprache wechseln.
+## Parameter deklarieren
 
-## Verwandte Anleitungen.
+`validateSearch` wandelt die rohe Query in ein typisiertes Objekt um. Unbekannte oder ungültige Werte fallen auf einen Standardwert zurück, statt einen Fehler zu werfen. Aus `src/routes/admin.blog.index.tsx`:
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+```tsx
+validateSearch: (search: SearchSchemaInput & { view?: unknown }): { view: "grid" | "table" } => ({
+  view: search.view === "table" ? "table" : "grid",
+}),
+search: { middlewares: [stripSearchParams({ view: "grid" })] },
+```
+
+`stripSearchParams` entfernt den Standardwert aus der URL, sodass `/admin/blog` die kanonische Adresse der Rasteransicht bleibt.
+
+## Parameter lesen
+
+- In der Route-Komponente: `const { view } = Route.useSearch()`.
+- Mit einem Selektor rendert die Komponente nur neu, wenn sich der ausgewählte Wert ändert: `Route.useSearch({ select: (search) => search.error !== "" })`.
+- In einer Komponente außerhalb der Route-Datei: `getRouteApi("/auth/reset-password").useSearch()`, wie in `reset-password-form.tsx`.
+
+## Parameter ändern
+
+- Links: `<Link search={{ view: id }} to={ROUTES.ADMIN_BLOG}>`.
+- React-Aria-Komponenten mit einem `href`, etwa `TabsTrigger` in `src/routes/admin.products.index.tsx`, navigieren über den Router, weil `AriaProvider` React Aria mit TanStack Router verbindet.
+- Code: `router.navigate({ search: { email }, to: ROUTES.VERIFY_EMAIL })`.
+- Guards und Loader: `throw redirect({ replace: true, search: { status: "success" }, to: ROUTES.NEWSLETTER_UNSUBSCRIBE })`.
+
+## Daten daraus laden
+
+Ein Loader, der von einem Suchparameter abhängt, deklariert ihn in `loaderDeps` und liest ihn aus `deps`. Die Route zur Newsletter-Bestätigung verbraucht auf diese Weise ein Token und setzt `preload: false`, damit das bloße Überfahren eines Links mit der Maus das Token nie verbraucht:
+
+```tsx
+loaderDeps: ({ search: { token } }) => ({ token: token ?? "" }),
+```
+
+## Locales und URLs
+
+- Router-Links (`<Link to={ROUTES.X}>`) erhalten das Locale-Präfix über das `rewrite` des Routers. Englisch hat kein Präfix (`/docs`), andere Locales haben eines (`/pl-PL/docs`).
+- Rohe URLs mit `localizePathname({ locale, pathname })` bauen: `callbackURL` und `errorCallbackURL` von Better Auth, Links in E-Mails und manuell gebaute `<a href>`. `/api`-Pfade und externe URLs bleiben dabei unverändert.
+- Der Locale-Umschalter verlinkt mit einem vollständigen Seitenladen auf denselben Pfad in der anderen Locale; Query und Hash werden nicht übernommen.

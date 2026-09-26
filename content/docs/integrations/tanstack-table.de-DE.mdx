@@ -1,6 +1,43 @@
 ---
-title: TanStack Table
-description: Kopflose Tabelle, die die gemeinsame DataTable versorgt.
+title: "TanStack Table"
+description: "TanStack Table v9 hinter einer generischen DataTable."
 ---
 
-Umhüllt von `presentation/components/custom/data-table`. Vermeiden Sie den Aufruf von Tabellen-APIs innerhalb von Suspense-Fallback-Komponenten.
+Jede Tabelle wird über eine generische `DataTable` in `src/presentation/components/custom/data-table.tsx` gerendert. Sie erstellt eine TanStack Table v9-Instanz mit `tableFeatures` (Spaltenfilter, Sortierung, Paginierung und Zeilenauswahl) und `useTable` und rendert shadcn-Tabellenprimitive, Skeleton-Zeilen während des Ladens und einen lokalisierten leeren Zustand.
+
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
+
+## Props
+
+| Prop                   | Zweck                                                                                                                                                                |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`              | Spaltendefinitionen für den Zeilentyp; jede Zeile benötigt eine `id`                                                                                                 |
+| `data`                 | Zeilen für eine Tabelle, die auf dem Client sortiert, filtert und paginiert                                                                                          |
+| `options.initialState` | Anfangswerte für `pagination` und `sorting`                                                                                                                          |
+| `options.query`        | Serverseitige Paginierung und Sortierung: eine Funktion von `pageIndex`, `pageSize` und `sorting`, die Query-Optionen zurückgibt, die zu `rows` und `total` auflösen |
+| `options.selectable`   | Fügt eine Checkbox-Spalte für die Zeilenauswahl hinzu                                                                                                                |
+| `filters`              | Suchfilter (`type: "search"`, `columnId`, `placeholder`) oder Auswahlfilter (`type: "select"`, `columnId`, `label`, `options`)                                       |
+
+Mit `options.query` wechselt die Tabelle zu manueller Paginierung und Sortierung, lässt die vorherige Seite sichtbar, während die nächste lädt, und kehrt zur ersten Seite zurück, wenn sich die Sortierung ändert.
+
+## Spalten
+
+Spalten liegen in einer `<entity>-columns.tsx`-Datei neben den Widgets der Seite und verwenden `createColumnHelper<DataTableFeatures, Row>()`. Zellen und Kopfzeilen sind kleine Komponenten, die ihre eigenen Übersetzungen lesen, sodass die Route keine Beschriftungen übergibt:
+
+```tsx
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+])
+```
+
+Das vollständige Beispiel ist `src/presentation/components/custom/admin/users/user-columns.tsx`, gerendert von `src/routes/admin.users.all.tsx`.
+
+## Verwandte Anleitungen
+
+- [DataTable](/docs/ui/data-table)
+- [Eine DataTable hinzufügen](/docs/guides/add-a-data-table)

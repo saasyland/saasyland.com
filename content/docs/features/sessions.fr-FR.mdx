@@ -1,10 +1,24 @@
 ---
-title: Séances
-description: Lister et révoquer les sessions pour les objectifs d'auto-administration.
+title: "Sessions"
+description: "Sessions Better Auth dans D1, avec révocation en libre-service dans les paramètres d’administration."
 ---
 
-## Module
+Les sessions sont stockées dans la table `session` de D1 (`src/modules/session/session.schema.ts`). `auth.session.ts` les lit avec `getRequestSession`, mémorisée par requête, et expose `getCurrentSessionQuery` aux routes et aux composants. La copie côté client ne contient jamais le jeton de session.
 
-`modules/session/use-cases` — lister les sessions actives/utilisateurs, révoquer l'une/beaucoup d'autres.
+## Cas d’usage
 
-Surface dans les paramètres d'administration sécurité UI et les actions d'administration utilisateur.
+| Cas d’usage                               | Middleware                                 | Utilisé par        |
+| ----------------------------------------- | ------------------------------------------ | ------------------ |
+| `getActiveSessions`                       | connecté                                   | `SettingsSessions` |
+| `revokeSession`                           | connecté ; ses propres sessions uniquement | `SessionRow`       |
+| `revokeOtherSessions`                     | connecté                                   | `SettingsSessions` |
+| `listUserSessions`                        | `session: ["list"]`                        | aucun écran        |
+| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`                      | aucun écran        |
+
+`getActiveSessions` renvoie les sessions non expirées de l’utilisateur courant, de la plus récente à la plus ancienne, et exclut les sessions d’usurpation.
+
+## Interface
+
+**Paramètres → Sécurité** dans `/admin/settings` affiche `SettingsSessions` (`src/presentation/components/custom/admin/settings/sessions.tsx`). Chaque `SessionRow` montre l’appareil (agent utilisateur ou adresse IP), la dernière activité et un badge sur la session courante, et peut révoquer cette session. Un bouton d’en-tête révoque toutes les autres sessions. Changer le mot de passe actualise aussi la liste des sessions.
+
+Les variantes d’administration pour les sessions des autres utilisateurs existent uniquement sous forme de fonctions serveur.

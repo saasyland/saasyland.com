@@ -1,15 +1,24 @@
 ---
-title: Personagem
-description: Imitação do administrador dos usuários (Better Auth Plug-in de administração).
+title: "Personificação"
+description: "Personificação administrativa do Better Auth: as funções de servidor existem, mas nenhuma tela as usa ainda."
 ---
 
-## Status
+O plugin `admin` do Better Auth oferece personificação, e `src/modules/user/use-cases` a encapsula:
 
-Exposto através de ações de administração de usuários/casos de uso com verificação de permissão.
+```ts
+export const impersonateUser = createServerFn({ method: "POST" })
+  .middleware([authorized({ user: ["impersonate"] })])
+  .validator((input: zod.input<typeof userZodSchemas.impersonateUser>) => userZodSchemas.impersonateUser.parse(input))
+  .handler(({ context, data }) => auth.api.impersonateUser({ body: data, headers: context.requestHeaders }))
+```
 
-## Regras
+`stopImpersonatingUser` exige apenas uma sessão logada. Os dois arquivos exportam opções de mutação (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-- Só para administração.
-- Indicação clara de IU ao se passar por
-- Preferir registro de auditoria quando endurecer as operações.
-- Nunca permita uma escalada de privilégios além dos fluxos de trabalho de suporte.
+## Situação atual
+
+- Nenhuma tela chama essas funções: o menu de ações das linhas de usuários não tem item de personificação e não existe um aviso para encerrá-la.
+- O Better Auth marca as sessões de personificação com `impersonatedBy`; `getActiveSessions` as exclui da lista de sessões das configurações.
+- As guardas de rota limpam o cache de consultas quando o usuário da sessão muda, então a próxima navegação após personificar carrega os dados do outro usuário.
+- Não existe log de auditoria de personificações.
+
+Para adicioná-la, coloque um item de menu em `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) e uma forma visível de encerrar a personificação nos layouts.

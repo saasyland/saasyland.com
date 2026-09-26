@@ -1,28 +1,46 @@
 ---
-title: TanStack Start HTTP-Handler.
-description: TanStack Start HTTP-Handler – SaaSy Land
+title: "TanStack Start"
+description: "Dateirouten, Loader, Prerendering und HTTP-Handler."
 ---
 
-HTTP-Endpunkte verwenden native TanStack Start Server-Handler im Verzeichnis `src/routes`. Die Authentifizierungsfunktion (Better Auth) verwaltet die GET- und POST-Anfragen unter `/api/auth/$`. Die Fumadocs-Suche verwendet `/api/search`. Produktbezogene Funktionen sind native Serverfunktionen in den Funktionsmodulen.
+Die Anwendung ist eine TanStack Start-App. `src/router.tsx` erstellt den Router mit einem QueryClient pro Request, der SSR-Query-Integration, Standardkomponenten für Fehler und Not-found, Preloading bei Interaktionsabsicht und dem Sprach-`rewrite`. Es gibt keine Standardkomponente für Ladezustände: Jede Route legt ihr eigenes Skeleton fest (siehe [Lade-Skeletons](/docs/architecture/delivery-layer#lade-skeletons)). `src/routes.ts` exportiert `ROUTES`, die Pfadkonstanten, die Links, Guards und Head-Tags verwenden.
 
-Deklarieren Sie Handler für `createFileRoute` mit `server.handlers`. Verwenden Sie das bereitgestellte `request`, validieren Sie die Eingabe, führen Sie Berechtigungsprüfungen durch und geben Sie ein Web `Response` zurück. Behalten Sie die Webhook-Verifizierung in der Provider-Integration. Exponieren Sie keinen doppelten REST-Endpunkt für eine Funktion, die ausschließlich vom typisierten RPC-Client dieser Anwendung verwendet wird.
+## Routen
+
+`src/routes/` enthält flache Dateirouten: `admin.users.all.tsx` bedient `/admin/users/all`, `_landing.tsx` ist ein pfadloses Layout und `docs.$.tsx` eine Splat-Route. Die ID in `createFileRoute("…")` ist ein String-Literal, das der Routengenerator in `src/routeTree.gen.ts` pflegt; `__test__`-Ordner werden nicht als Routen behandelt.
+
+Eine Routendatei setzt nur ihre Seite zusammen. Sie definiert die Komponente `<Name>Page` oder `<Name>Layout`, `NAMESPACE` oder `NAMESPACES`, einen Loader, der Metadaten, Nachrichten und Daten in einem `Promise.all` lädt, `head: pageHead(ROUTES.X)` und für geschützte Bereiche einen Guard in `beforeLoad`. Widgets, Dialoge, Formulare und Tabellenspalten liegen in `src/presentation/components/custom/` und lesen ihre eigenen Übersetzungen und Daten. Den Loader beschreibt [use-intl](/docs/integrations/use-intl), die Guards [Better Auth](/docs/integrations/better-auth).
+
+## Serverfunktionen
+
+Operationen sind native `createServerFn`-Funktionen, die aus den Anwendungsfällen der Module exportiert werden, daher stellt die Anwendung für sie keinen REST-Endpunkt bereit. Siehe [Serverfunktionen und Anwendungsfälle](/docs/integrations/server-functions).
+
+## HTTP-Handler
+
+Nur drei Routen in `src/routes/api/` deklarieren `server.handlers`:
+
+| Route         | Handler                                                                                         |
+| ------------- | ----------------------------------------------------------------------------------------------- |
+| `/api`        | Gibt die Laufzeitumgebung als JSON zurück                                                       |
+| `/api/auth/$` | Better Auth, einschließlich OAuth-Callbacks und Polar-Webhooks unter `/api/auth/polar/webhooks` |
+| `/api/search` | Fumadocs-Dokumentationssuche                                                                    |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
-## Verwandte Anleitungen.
+## Prerendering
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+`vite.config.ts` aktiviert Prerendering mit Link-Crawling. `build:preview`, `build:production` und `build:test` rendern öffentliche Seiten (Landingpage, Rechtstexte, Blog und Docs) in allen neun Sprachen vorab. Der Filter überspringt `/admin`, `/api`, `/app`, `/auth` und `/newsletter`, mit oder ohne Sprachpräfix, sowie Links, die `?` oder `#` enthalten. Übersprungene Seiten rendert der Worker bei jedem Request.
+
+## Verwandte Anleitungen
+
+- [Request-Lebenszyklus](/docs/architecture/request-lifecycle)
+- [Caching und SSR](/docs/architecture/caching-and-ssr)
+- [Eine API-Route hinzufügen](/docs/guides/add-an-api-route)

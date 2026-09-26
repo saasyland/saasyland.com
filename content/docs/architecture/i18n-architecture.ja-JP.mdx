@@ -1,16 +1,54 @@
 ---
-title: 国際化とローカライズ
-description: 国際化とローカライズ — SaaSy Land
+title: "国際化とロケール"
+description: "URL でのロケールの表し方、翻訳の名前空間の読み込み方、コンポーネントでの使い方。"
 ---
 
-メッセージは、 `messages/{locale}` たとえば、ドットネームスペースファイルとして9つの構成された言語として、 `pages.admin.users.json`. . ローカル設定、URLヘルパー、メッセージの読み込み、メタデータ、メールの翻訳ヘルパーは、 `src/integrations/use-intl`.
+## ロケールと URL
 
-英語対応 `/docs`;ポーランドの使用 `/pl-PL/docs`. . レガシー `/en` そして、 `/pl` リンクは正規化されます。 ルートファイル宣言 `staticData.namespaces` 同じ名前空間を loader にプリロードします。 `TranslationsProvider` アクティブ・ルート名空間を組み込む `IntlProvider`. . 共有メッセージは root で読み込まれます。メールのみの名前空間はサーバーに滞在します。
+SaaSy Land は、en-US（デフォルト）、de-DE、es-ES、fr-FR、it-IT、ja-JP、pl-PL、pt-BR、uk-UA の 9 つのロケールを提供します。デフォルトロケールにはプレフィックスがなく（`/docs`）、それ以外のロケールは完全なタグを使います（`/pl-PL/docs`）。Worker は、`/pl/docs` や `/en-US/docs` のような言語コードのみのプレフィックスやデフォルトロケールのプレフィックスを、正規の URL にリダイレクトします。
 
-ロケールを読んでください。 `getCurrentLocale` サーバ上で `useLocale` コンポーネント。 URL は、ドキュメントのロケールを選択します。 Server-function リクエストは locale Cookie を使用します。 言語変更は、パス、クエリ、フラグメントを保ち、ドキュメントをリロードして、対応するコンテンツをロードします。 ログイン `bun run check:i18n` キーを変更した後。
+`getCurrentLocale()` はアイソモーフィックです。サーバーでは URL を読み取り、`/api` とサーバー関数のリクエストではロケールクッキーを読み取ります。ブラウザでは URL を読み取ります。Worker はクッキーをページの URL と同期させます。ローカライズされたコンテンツを返すサーバー関数は、クッキーに頼らず、ロケールを入力として受け取ります。
 
-## 関連ガイド
+## メッセージ
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+翻訳は `messages/<locale>/<namespace>.json` に置かれます。ファイル名がそのまま名前空間になります。例：`pages.admin.users`、`components.custom.footer`、`emails.verify-email`、`auth.validations`、`common`。ドット区切りの名前空間は 1 つのメッセージツリーにマージされるため、`useTranslations("pages.admin.users")` は `pages.admin.users.json` を読み取ります。すべてのページ名前空間には、head タグ用の `metadata.title` と `metadata.description` があります。メッセージは、生成された型を持たないプレーンな JSON です。
+
+## 読み込み
+
+- **root 名前空間**（`common`、`components.*`、`errors*`）は、root の `beforeLoad` でプリロードされます。
+- **ページルート**は `const NAMESPACE = "pages.x"` を宣言し、ローダーでプリロードして、`staticData.namespaces` に列挙します。
+- **レイアウトルート**は `const NAMESPACES = [...] as const` を宣言し、同じ処理を行います。
+- **`TranslationsProvider`** は、root シェル内でドキュメントの body をラップします。root 名前空間と、マッチしたルートの `staticData.namespaces` を組み合わせて `IntlProvider` に渡すため、エラー画面を含むすべての画面が翻訳されます。
+- **メール**は、それを送信するユースケースの中で、`loadNamespace` を使ってサーバー上で名前空間を読み込みます。
+
+## `src/integrations/use-intl`
+
+| ファイル             | エクスポート                                                                                        |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| `i18n.config.ts`     | `I18N`：`SUPPORTED_LOCALES`、`DEFAULT_LOCALE`、`COOKIE_NAME`、`DEFAULT_TIMEZONE`                    |
+| `i18n.messages.ts`   | `loadNamespace`、`loadPageMetadata`、`messagesQueryOptions`、`preloadNamespaces`、`ROOT_NAMESPACES` |
+| `i18n.middleware.ts` | `resolveLocale`（Worker がリダイレクトとクッキーに使用）                                            |
+| `i18n.paths.ts`      | `localizePathname`、`deLocalizePathname`、`canonicalizePathname`、`localeLinks`                     |
+| `i18n.utils.ts`      | `getCurrentLocale`、`localizeUrl`、`deLocalizeUrl`、`parseLocaleCookie`                             |
+
+## リンク
+
+ルーターのリンクでは、ロケールを扱う必要はありません。`<Link to={ROUTES.SIGN_IN}>` には、ルーターの `rewrite` によってプレフィックスが付きます。`localizePathname` を使うのは、ルーターを経由しない生の URL だけです。たとえば、Better Auth の `callbackURL` の値、メール内のリンク、手動で組み立てた `<a href>` 要素がこれにあたります。
+
+```ts
+const callbackURL = localizePathname({ locale: getCurrentLocale(), pathname: `${ROUTES.VERIFY_EMAIL}?verified=true` })
+```
+
+ロケールスイッチャーは、各ロケールの同じパスへのプレーンなリンクを描画します。そのため、言語を切り替えると新しいドキュメントが読み込まれます。
+
+## コンポーネントでの翻訳
+
+コンポーネントは `useTranslations` をちょうど 1 回だけ呼び出し、翻訳関数を `t` と名付けます。i18n-ally は、後から `useTranslations` が呼ばれると、それ以降のすべての `t()` 呼び出しのスコープを付け替えます。また、`bun run check:i18n` は、スコープ内で解決できないキーがあると失敗します。関連のない 2 つの名前空間が必要なコンポーネントは、それらに共通する親の名前空間を使うか、完全なキーを指定して `useTranslations()` を使います。
+
+`bun run check:i18n` は 3 つのスクリプトを実行します。`check-i18n.ts`（ロケール間のキーの一致とスコープ付きキーの解決）、`check-message-formats.ts`（ICU メッセージの構文）、`check-content.ts`（ロケール間でのドキュメントとブログの一致）です。
+
+## 関連ページ
+
+- [use-intl](/docs/integrations/use-intl)
+- [翻訳メッセージ](/docs/guides/i18n-messages)
+- [国際化](/docs/features/internationalization)

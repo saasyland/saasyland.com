@@ -1,16 +1,67 @@
 ---
-title: Інтернаціоналізація та локалізації
-description: Інтернаціоналізація та локалізації — SaaSy Land
+title: "Інтернаціоналізація та локалі"
+description: "Локалі, простори імен повідомлень і помічники URL на основі use-intl."
 ---
 
-Повідомлень, які живуть в `messages/{locale}` для всіх дев'яти налаштованих мов як пунктуальні файли імен, наприклад, `pages.admin.users.json`. . Конфігурація локальних даних, адресні помічники, завантаження повідомлень, метаданих та поштових перекладачів, які живуть у `src/integrations/use-intl`.
+SaaSy Land підтримує дев'ять локалей: `en-US` (типова), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` і `uk-UA`. Англійська використовує шляхи без префікса (`/docs`), інші локалі — повний префікс локалі (`/pl-PL/docs`). Мовні псевдоніми на кшталт `/pl/docs` назавжди перенаправляють на канонічний шлях.
 
-Англійська мова `/docs`; Польське використання `/pl-PL/docs`. . Поза «69» `/en` і `/pl` посилання канонічні. Файли маршруту оголошують `staticData.namespaces` і перезавантажити однакові робочі місця в їх навантажувачі. `TranslationsProvider` збірних просторів для активного маршруту `IntlProvider`. . На сервері навантажуються повідомлення електронної пошти, що знаходяться на сервері.
+## Файли
 
-Прочитати місцевість `getCurrentLocale` на сервері і `useLocale` в складових. URL-адреса обирає документ, що локалізується. Серверно-функціональні запити використовують локальний cookie. Зміна мови зберігає шлях, запит і фрагмент і перезавантажує документ для завантаження відповідного вмісту. Зареєструватися `bun run check:i18n` після зміни ключів.
+`src/integrations/use-intl/` містить усю логіку локалей:
 
-## Схожі посібники
+| Файл                 | Відповідальність                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `i18n.config.ts`     | `I18N` із `SUPPORTED_LOCALES`, `DEFAULT_LOCALE`, `COOKIE_NAME` і `DEFAULT_TIMEZONE`                                                  |
+| `i18n.messages.ts`   | `loadNamespace`, `loadPageMetadata`, `messagesQueryOptions`, `preloadNamespaces` і `ROOT_NAMESPACES`                                 |
+| `i18n.middleware.ts` | `resolveLocale`: канонічні перенаправлення та синхронізація cookie локалі для запитів документів, використовується в `src/server.ts` |
+| `i18n.paths.ts`      | `localizePathname`, `deLocalizePathname`, `canonicalizePathname`, `localeLinks` і пов'язані помічники шляхів                         |
+| `i18n.utils.ts`      | `getCurrentLocale`, `localizeUrl`, `deLocalizeUrl` і `parseLocaleCookie`                                                             |
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+## Простори імен
+
+Повідомлення зберігаються в `messages/<locale>/<namespace>.json`, а назва файлу і є простором імен: `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` або `common`. Повідомлення — це звичайний JSON без згенерованих типів. Кожен простір імен сторінки містить `metadata.title` і `metadata.description` для заголовка сторінки.
+
+Кореневий маршрут попередньо завантажує кореневі простори імен (`common`, `components.*` і `errors*`) у `beforeLoad`. Маршрут сторінки оголошує один `NAMESPACE`, маршрут макета оголошує `NAMESPACES` для свого піддерева; обидва перелічують їх у `staticData.namespaces` і попередньо завантажують у завантажувачі (loader):
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+`TranslationsProvider` обгортає тіло документа й об'єднує кореневі простори імен із просторами імен кожного збігу маршруту в один `IntlProvider`, тож екрани помилок і «сторінку не знайдено» теж перекладено. Простори імен листів завантажує лише серверний сценарій використання, який надсилає лист.
+
+## Локаль і посилання
+
+`getCurrentLocale()` ізоморфна. На сервері вона зчитує локаль з URL, а для запитів до `/api` і серверних функцій — із cookie локалі; у браузері вона зчитує URL. Worker синхронізує cookie з URL сторінки.
+
+`rewrite` роутера видаляє префікс локалі з вхідних URL і додає його до вихідних, тож `<Link to={ROUTES.X}>` завжди залишається в поточній локалі. Використовуйте `localizePathname({ locale, pathname })` лише для сирих URL: callback-URL Better Auth, посилань у листах і вручну створених елементів `<a href>`. Перемикач мови — саме таке посилання, тож вибір мови завантажує ту саму сторінку в новому документі.
+
+## Компоненти
+
+Компонент викликає `useTranslations` рівно один раз і називає функцію перекладу `t`. i18n-ally змінює область видимості кожного наступного `t()` після іншого виклику `useTranslations`, а `bun run check:i18n` завершується помилкою на ключах, які не розв'язуються у своїй області видимості. Компонент, якому потрібні два непов'язані простори імен, використовує їхній спільний батьківський простір імен або `useTranslations()` з повними ключами.
+
+## Перевірки
+
+`bun run check:i18n` запускає три скрипти, а `bun run check` включає його:
+
+- `scripts/check-i18n.ts`: відповідність ключів до `en-US` і розв'язання статичних ключів в їхній області видимості.
+- `scripts/check-message-formats.ts`: кожне повідомлення розбирається як ICU і зберігає свої аргументи та теги форматованого тексту.
+- `scripts/check-content.ts`: файли документації та блогу, навігація й приклади коду збігаються в усіх локалях.
+
+## Пов'язані посібники
+
+- [Архітектура i18n](/docs/architecture/i18n-architecture)
+- [Повідомлення i18n](/docs/guides/i18n-messages)

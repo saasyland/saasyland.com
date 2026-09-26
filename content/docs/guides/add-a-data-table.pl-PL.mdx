@@ -1,21 +1,89 @@
 ---
-title: "Dodaj DataTable"
-description: "Wspólny zestaw TanStack DataTable na ekranach admina."
+title: "Dodawanie tabeli danych"
+description: "Zdefiniuj kolumny i wyrenderuj je uniwersalnym DataTable z danymi po stronie klienta lub serwera."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+Każda tabela renderuje się przez jeden komponent: `DataTable` w `src/presentation/components/custom/data-table.tsx`. Opiera się na TanStack Table v9 (`tableFeatures` i `useTable`) oraz prymitywach tabeli shadcn i zapewnia sortowanie, paginację, zaznaczanie wierszy, filtry, szkielety ładowania i stan pusty. Tabela potrzebuje tylko pliku kolumn i jednego wywołania `<DataTable columns data options filters />`.
 
-## Kit location
+## 1. Zdefiniuj kolumny
 
-`src/presentation/components/custom/data-table`
+Utwórz `<entity>-columns.tsx` obok pozostałych widżetów strony. Komórki i nagłówki to małe komponenty, które same odczytują swoje tłumaczenia. Skrócona wersja `src/presentation/components/custom/admin/users/user-columns.tsx`:
 
-## Feature pattern (users)
+```tsx
+const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
+  const t = useTranslations("pages.admin.users.table.headers")
 
-- `columns.tsx` / `cells.tsx` / `filters.tsx` / `actions.tsx` / `options.tsx`
-- Mapuj wiersze bazy → wiersze tabeli w `_lib` lub narzędziach modułu
-- Odświeżenie paska narzędzi → unieważnij odpowiedni klucz TanStack Query
-- Nie wciągaj środowiska uruchomieniowego tabeli do fallbacków Suspense
+  return t(id)
+}
 
-## Options
+const BooleanCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, boolean>): JSX.Element => {
+  const t = useTranslations("pages.admin.users.table.booleans")
 
-Pasek narzędzi (wyszukiwanie, filtry, eksport CSV, pobieranie, ustawienia), paginację, zaznaczanie i gęstość konfigurujesz przez `options` — zobacz UI → DataTable.
+  return <span className="text-muted-foreground">{getValue() ? t("yes") : t("no")}</span>
+}
+
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: "", id: "actions" }),
+])
+```
+
+- Wiersze muszą mieć tekstowe `id`; staje się ono identyfikatorem wiersza przy zaznaczaniu.
+- `DataTableFeatures` to wspólny zestaw funkcji tabeli. Dostępne funkcje sortowania to `alphanumeric`, `basic`, `datetime` i `text`.
+- Akcje wiersza to kolumna wyświetlania, której komórka jest osobnym komponentem (`UserRowActions` w `row-actions.tsx`).
+
+## 2. Renderowanie z danymi po stronie klienta
+
+Przekaż wiersze w `data`. Sortowanie, paginacja i filtry działają w przeglądarce. Z `src/routes/admin.index.tsx`:
+
+```tsx
+<DataTable
+  columns={dashboardUserColumns}
+  data={users.rows}
+  filters={[
+    { columnId: "user", placeholder: t("users.search"), type: "search" },
+    {
+      columnId: "status",
+      label: t("users.filters.status"),
+      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+      type: "select",
+    },
+  ]}
+  options={{ initialState: { pagination: PREVIEW_PAGINATION }, selectable: true }}
+/>
+```
+
+- `filters` przyjmuje `{ type: "search", columnId, placeholder }` oraz `{ type: "select", columnId, label, options }`. Lista wyboru dodaje opcję „wszystkie” z etykietą `label`.
+- `options.initialState` ustawia początkowe `pagination` i `sorting`; domyślny rozmiar strony to 10.
+- `options.selectable` dodaje kolumnę pól wyboru i pokazuje liczbę zaznaczonych wierszy.
+
+## 3. Renderowanie ze stronicowaniem po stronie serwera
+
+Przekaż `options.query`: funkcję `{ pageIndex, pageSize, sorting }`, która zwraca opcje zapytania rozwiązywane do `{ rows, total }`. Tabela stronicuje i sortuje wtedy na serwerze, pokazuje poprzednią stronę, dopóki ładuje się następna, i wyświetla szkielety wierszy przy pierwszym ładowaniu. Z `src/routes/admin.users.all.tsx`:
+
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
+
+`getUsersPageQuery` umieszcza sparsowane dane wejściowe w kluczu zapytania, a `getUsers` sprawdza `sorting` względem identyfikatorów kolumn, które można sortować:
+
+```ts
+export const getUsersPageQuery = (input: zod.input<typeof listUsersSchema> = {}) =>
+  queryOptions<Awaited<ReturnType<typeof getUsers>>>({
+    queryFn: () => getUsers({ data: input }),
+    queryKey: [...USER_QUERY_KEYS.LIST, listUsersSchema.parse(input)],
+  })
+```
+
+Pierwszą stronę wczytaj z wyprzedzeniem w loaderze trasy przez `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })`. Aby przekazać dodatkowe filtry, opakuj zapytanie: `src/routes/admin.products.index.tsx` używa `query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] })`. Kolumnowe `filters` działają w przeglądarce na wierszach, które tabela ma w pamięci, więc używaj ich razem z `data`.
+
+## 4. Komunikaty
+
+Stan pusty oraz etykiety paginacji i zaznaczania pochodzą z `components.custom.data-table`, które wczytuje każda strona. Nagłówki kolumn i teksty komórek należą do przestrzeni nazw strony, np. `pages.admin.users.table.headers`.
+
+Gdy mutacja zmienia wiersze, unieważnij klucze zapytań modułu; tabela pobierze bieżącą stronę ponownie. Zobacz [Dodawanie przypadku użycia](/docs/guides/add-a-use-case).

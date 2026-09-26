@@ -1,23 +1,97 @@
 ---
-title: ルート・配送
-description: ルートと配送 — SaaSy Land
+title: "ルートと配信"
+description: "ルートファイルの命名と構成、およびルーターの設定方法。"
 ---
 
-`src/server.ts` locale URL を正規化し、 locale Cookie を同期させる。 `src/router.tsx` ルーターごとに新しいQueryClient を作成し、SSR に接続します。 ネイティブルートファイルは、コンポーネント、ガード、ローダー、検索検証、メタデータを宣言します。
+## ルートファイル
 
-管理者および顧客のレイアウトの使用 `beforeLoad` ガード。 保護されたサーバー関数は、RPCがページを独立して呼び出すことができるため、呼び出し者もチェックします。 共有静的なキャッシュに認証されたレスポンスを置きません。
+ルートは `src/routes` 内のフラットなファイルです。ドットはパスセグメントになります。
 
-```text
-Request → Worker locale middleware → TanStack Router
-        → beforeLoad session/permission guard
-        → loader: messages + authorized query data
-        → SSR + hydrated React presentation
-Mutation → validated server function → auth/rate limit → D1 or provider
-         → result/error → scoped query invalidation
+| ファイル              | URL                | 備考                                       |
+| --------------------- | ------------------ | ------------------------------------------ |
+| `__root.tsx`          | すべてのページ     | ドキュメントシェルと root 名前空間         |
+| `_landing.tsx`        | なし               | マーケティングページ用のパスなしレイアウト |
+| `_landing.terms.tsx`  | `/terms`           | ランディングレイアウト内のページ           |
+| `admin.tsx`           | `/admin`           | `requireAdmin` ガード付きのレイアウト      |
+| `admin.users.all.tsx` | `/admin/users/all` | 管理画面レイアウト内のページ               |
+| `blog.index.tsx`      | `/blog`            | `blog` レイアウトのインデックスページ      |
+| `docs.$.tsx`          | `/docs/*`          | ドキュメントページ用のスプラットルート     |
+| `api/auth.$.ts`       | `/api/auth/*`      | HTTP ハンドラー（コンポーネントなし）      |
+
+`createFileRoute("…")` の ID は、ルータージェネレーターが管理する文字列リテラルです。ジェネレーターは `src/routeTree.gen.ts` も書き出します。`__test__` フォルダー内のファイルは無視されます。すべての URL には `ROUTES`（`src/routes.ts`）に定数があり、リンクには `<Link to={ROUTES.X}>` を使います。
+
+## ページルート
+
+ページルートは、`<Name>Page` コンポーネント、`export const Route` の直上に置く `NAMESPACE` 定数、そしてページのメタデータと名前空間を 1 つの `Promise.all` で読み込むローダーを定義します。
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: LegalPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
 ```
 
-## 関連ガイド
+追加のデータも同じ `Promise.all` に入れます。たとえば `admin.users.all.tsx` では `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` を追加しています。`src/lib/seo.ts` の `pageHead` は、ローダーの `metadata` からタイトル、説明、canonical、`hreflang`、Open Graph の各タグを生成します。
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+## レイアウトルート
+
+レイアウトルートは、`<Name>Layout` コンポーネント、`NAMESPACES` 配列、そして保護されたエリアでは `beforeLoad` 内のガードを定義します。
+
+```tsx
+const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
+
+export const Route = createFileRoute("/app")({
+  beforeLoad: requireSignedIn,
+  component: AppLayout,
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  pendingComponent: AppPending,
+  staticData: { namespaces: NAMESPACES },
+})
+```
+
+ガードの `requireSignedIn`、`requireAdmin`、`redirectIfSignedIn`、`redirectAfterAuth` は `src/integrations/better-auth/auth.routes.ts` で提供されています。
+
+## 読み込み中のスケルトン [#loading-skeletons]
+
+ほとんどのナビゲーションは、ペンディング UI が表示される前に完了します。リンクはホバー時とタッチ時にルートをプリロードし、公開ページはプリレンダリング済みです。さらにルーターは、何かを表示する前にデフォルトの `pendingMs` である 1 秒間待機します。スケルトンが表示されるのはナビゲーションがそれより長くかかった場合だけで、典型的には低速な回線でエリアを初めて訪れたときです。
+
+デフォルトのペンディングコンポーネントはありません。すべてのレイアウトルートとページルートが独自の `pendingComponent` を設定し、各スケルトンは自分が代わりに表示されるページの見た目をそのまま再現します。
+
+- **ページスケルトン**（`SignInPending` や `LegalPending` など）は、エリアのペンディングファイルに置かれ、最上位の要素に `aria-busy="true"` を付けます。対象のファイルは `custom/auth/auth-pending.tsx`、`custom/admin/` 内の管理画面用ファイル（レイアウト用の `admin-pending.tsx`、サイドバーグループごとに 1 つずつのファイル、共有ブロックをまとめた `pending-blocks.tsx`）、`custom/app/app-pending.tsx`、`custom/blog/blog-pending.tsx`、`custom/marketing-pending.tsx`、`custom/docs-pending.tsx` です。
+- **レイアウトスケルトン**（`AuthPending` や `MarketingPending` など）は、レイアウトの外枠を描画し、`ROUTES` をキーとするマップから現在のパスに対応するページスケルトンを選びます。そのため、別の場所からエリアに入ったときも正しいページが表示されます。`Wordmark`、`PageFrame`、マーケティングの `Navigation` など、データを必要としない外枠の要素は本物がそのまま描画されます。
+- **テキストのプレースホルダー**は、実際の要素のタイプトークンに `h-lh scale-y-70` を加えた `Skeleton` バーです。これにより、各バーがちょうど 1 つのラインボックスを埋めます。ボックスには実際の高さと角丸の半径を使います。リストの長さは、`src/data/auth.ts` の `OAUTH_PROVIDERS` や `PASSWORD_RULES` など、UI と同じ定数から取ります。
+
+ページを追加するときは、そのスケルトンをエリアのペンディングファイルに追加し、レイアウトスケルトンのマップに登録して、ルートの `pendingComponent` に設定します。
+
+## ルートに関するその他の事項
+
+- **検索パラメーター**は、ルート内の `validateSearch` でパースします。例として、`/admin/products` の `tab` パラメーターや `/admin/blog` の `view` パラメーターがあります。
+- **単一ルート用のサーバー関数**は、`blog.index.tsx` の `getBlogPosts` のように、ルートファイル内で `createServerFn` を使って定義できます。
+- **HTTP エンドポイント**は `src/routes/api` に置きます。詳しくは [TanStack Start の HTTP ハンドラー](/docs/architecture/api-layer)を参照してください。
+
+## ルーター
+
+`src/router.tsx` がエクスポートする `getRouter` は、リクエストごとに新しい `QueryClient` とルーターを作成し、次の設定を行います。
+
+- `presentation/components/custom` のデフォルトのエラーと not-found の各コンポーネント。デフォルトのペンディングコンポーネントは設定しません（[読み込み中のスケルトン](#loading-skeletons)を参照）
+- インテント時のプリロードと、1 分のデフォルト stale time
+- 受信した URL からロケールプレフィックスを取り除き、生成するリンクには付け直す `rewrite`
+- `setupRouterSsrQueryIntegration` による SSR クエリ統合
+
+## 関連ページ
+
+- [リクエストのライフサイクル](/docs/architecture/request-lifecycle)
+- [ルート](/docs/reference/routes)
+- [管理画面ページを追加する](/docs/guides/add-an-admin-page)

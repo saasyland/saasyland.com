@@ -1,26 +1,59 @@
 ---
-title: Pruebas y CI
-description: Pruebas y CI — SaaSy Land
+title: "Pruebas y CI"
+description: "Los proyectos de Vitest, el umbral de cobertura del 100 %, la suite de Playwright y el pipeline de CI."
 ---
 
-Vite+ ejecuta Vitest en tres proyectos: pruebas de nodo, pruebas de integración y pruebas de componentes jsdom. Conserva las pruebas de comportamiento existentes junto al código que están probando. `__test__`Importar APIs de prueba desde `vite-plus/test`Utiliza Playwright para las pruebas de flujo completo del navegador y las comprobaciones de renderizado.
+## Proyectos de Vitest
 
-La configuración compartida proporciona mocks locales de D1 y KV. D1 ejecuta las migraciones SQL revisadas contra SQLite. El puente RPC de la función del servidor preserva la pila de middleware y validación de TanStack. Los ayudantes de renderizado de componentes ofrecen contextos reales de QueryClient y Router. Las llamadas externas de correo electrónico, OAuth y pagos se simulan en las pruebas.
+`vp test` ejecuta Vitest a través de Vite+ con tres proyectos definidos en `vite.config.ts`. Las pruebas viven en una carpeta `__test__` junto al código que cubren e importan las APIs de pruebas desde `vite-plus/test`.
 
-Ejecuta el proyecto enfocado mientras editas, y luego ejecuta la suite completa, la puerta de pruebas de cobertura, la comprobación y la compilación de previsualización. Las pruebas del navegador verifican las páginas públicas, las redirecciones de autenticación, SSR sin JavaScript y la navegación del cliente. El CI utiliza enlaces locales y no requiere una base de datos en vivo ni secretos de proveedor.
+| Proyecto      | Entorno | Patrón de archivo       |
+| ------------- | ------- | ----------------------- |
+| `node`        | Node    | `*.test.ts`             |
+| `integration` | Node    | `*.integration.test.ts` |
+| `component`   | jsdom   | `*.component.test.tsx`  |
+
+Ninguna prueba contacta con una cuenta real de Cloudflare ni con un proveedor real:
+
+- D1 es una base de datos SQLite en memoria que ejecuta las migraciones del repositorio, y KV es un mapa en memoria. KV y los contadores de límite de peticiones se reinician antes de cada prueba.
+- `createServerFn` se sustituye para que una función de servidor se ejecute en el mismo proceso pasando por su middleware y su validador reales.
+- Las pruebas de componentes renderizan con un `QueryClient` y un router reales.
+- Las peticiones de correo, OAuth y pagos están mockeadas.
+
+## Cobertura
+
+`bun run test:coverage` exige un 100 % de líneas, sentencias, funciones y ramas en todo `src`. Se excluyen las primitivas de shadcn, `src/platform/testing`, los archivos generados y las declaraciones de tipos. Cubre el comportamiento real y elimina las ramas que nunca pueden ejecutarse, en lugar de simular globales para llegar a ellas.
+
+## Pruebas de navegador
+
+Las specs de Playwright viven en `e2e/specs`, con los page objects en `e2e/pages` y los fixtures en `e2e/fixtures`. Se ejecutan contra un build similar al de producción que usa el entorno `test` de Wrangler: D1 y KV locales en `.wrangler/test`, secretos ficticios de `.env.test` y un Worker de pruebas que captura los correos salientes para que una spec pueda seguir un enlace de verificación real. En local, Playwright aplica las migraciones, carga los datos iniciales, hace el build y arranca la aplicación por sí mismo. La suite se ejecuta en Chromium y WebKit.
+
+## Scripts
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
 bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:pr
 ```
 
-## Guías relacionadas
+## CI
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
+`.github/workflows/ci.yml` se ejecuta en las pull requests y en los push a `main`:
+
+1. `bun run check`: formato, lint, comprobación de tipos y `check:i18n`
+2. `bun run test:coverage`
+3. Un build de pruebas y la suite de Playwright en Chromium
+4. Un despliegue de preview para las pull requests, o un despliegue a producción para `main`
+
+## Páginas relacionadas
+
 - [Pruebas](/docs/tooling/testing)
+- [Playwright](/docs/tooling/playwright)
+- [Escribir pruebas](/docs/guides/writing-tests)

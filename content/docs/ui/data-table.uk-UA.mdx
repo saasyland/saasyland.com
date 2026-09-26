@@ -1,15 +1,98 @@
 ---
-title: ДаніТабні
-description: Панель інструментів, стовпці, фільтри, експорт, fetch.
+title: "DataTable"
+description: "Один універсальний компонент таблиці: стовпці, дані на клієнті або сервері, фільтри та вибір рядків."
 ---
 
-## Обов'язки
+`DataTable` (`src/presentation/components/custom/data-table.tsx`) — єдиний компонент таблиці. Він створює екземпляр TanStack Table v9 через `tableFeatures` і `useTable` (фільтрування, сортування, пагінація, вибір рядків) і рендерить його примітивами таблиці shadcn.
 
-- Колонки sizing / пінополіскувачі
-- Панель інструментів: пошук, фільтри слота, настройки (зниження), експорт CSV, async fetch/refetch
-- Підбір стовпа + ряд дій слот
-- Пагінація
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
 
-## Тестування
+## Властивості
 
-Тести компонентів під `data-table/__test__`. . Зберігати покриття при зміні резервних станів панелі інструментів.
+| Властивість | Призначення                                                                                                          |
+| ----------- | -------------------------------------------------------------------------------------------------------------------- |
+| `columns`   | Визначення стовпців (`DataTableColumnDef`). Кожному рядку потрібен рядковий `id`, який слугує ідентифікатором рядка. |
+| `data`      | Рядки в пам’яті. Ігнорується, коли задано `options.query`.                                                           |
+| `filters`   | Елементи фільтрування над таблицею.                                                                                  |
+| `options`   | `initialState`, `query` і `selectable`.                                                                              |
+
+## Параметри
+
+- `initialState` задає початкову `pagination` (типово перша сторінка, 10 рядків) і `sorting`.
+- `query` вмикає серверний режим. Це функція від `{ pageIndex, pageSize, sorting }`, що повертає параметри запиту, які розв’язуються в `{ rows, total }`. Тоді таблиця пагінує й сортує вручну, залишає видимою попередню сторінку під час завантаження, показує рядки-заглушки й передає помилки запиту до межі помилок маршруту.
+- `selectable` додає стовпець прапорців; футер показує кількість вибраних рядків.
+
+Зміна сортування повертає на першу сторінку. Футер показує кількість рядків, індикатор сторінки та кнопки «назад» і «далі», перекладені з `components.custom.data-table`.
+
+## Фільтри
+
+Фільтр — це `type: "search"` з `placeholder` або `type: "select"` з `label` і `options`; обидва вказують `columnId`. Панель використовує обидва:
+
+```tsx
+filters={[
+  { columnId: "user", placeholder: t("users.search"), type: "search" },
+  {
+    columnId: "status",
+    label: t("users.filters.status"),
+    options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+    type: "select",
+  },
+]}
+```
+
+Фільтри працюють із рядками в пам’яті. У серверному режимі вони фільтрують лише завантажену сторінку, тому серверні таблиці їх не використовують.
+
+## Стовпці
+
+Стовпці розташовані у файлі `<entity>-columns.tsx` поруч із віджетами сторінки й використовують `createColumnHelper<DataTableFeatures, Row>()`. Заголовки й клітинки — невеликі компоненти, які самі читають свої переклади:
+
+```tsx
+const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
+  const t = useTranslations("pages.admin.users.table.headers")
+
+  return t(id)
+}
+```
+
+```tsx
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor((row) => getUserStatus(row), { cell: StatusCell, header: () => <ColumnHeader id="status" />, id: "status" }),
+  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
+  columnHelper.accessor("twoFactorEnabled", { cell: BooleanCell, header: () => <ColumnHeader id="twoFactorEnabled" /> }),
+  columnHelper.accessor("timezone", {
+    cell: ({ getValue }) => <span className="text-muted-foreground">{getValue()}</span>,
+    header: () => <ColumnHeader id="timezone" />,
+  }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+  columnHelper.accessor("updatedAt", { cell: DateCell, header: () => <ColumnHeader id="updatedAt" />, sortFn: "datetime" }),
+  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: "", id: "actions" }),
+])
+```
+
+- Кожен стовпець можна сортувати, якщо він не задає `enableSorting: false`. Зареєстровані функції сортування: `alphanumeric`, `basic`, `datetime` і `text`.
+- У серверному режимі функція запиту отримує стан сортування; `getUsers` зіставляє кожен ідентифікатор стовпця з виразом SQL.
+- Дії над рядком — це стовпець відображення, клітинкою якого є компонент, наприклад `UserRowActions`.
+
+## Використання
+
+| Екран                                                                              | Режим                                                                     |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `/admin/users/all`                                                                 | Сервер: `getUsersPageQuery`, сортування, вибір                            |
+| `/admin/products`                                                                  | Сервер: `getProductsPageQuery`, `getCategoriesPageQuery`                  |
+| `/admin`                                                                           | У пам’яті: перша сторінка користувачів, фільтри, п’ять рядків на сторінку |
+| `/admin/users/invitations`, `/admin/users/roles`, `/admin/payments`, `/admin/blog` | У пам’яті: демонстраційні рядки                                           |
+
+## Тести
+
+`src/presentation/components/custom/__test__/data-table.component.test.tsx` охоплює таблиці в пам’яті, а `data-table-query.component.test.tsx` — серверний режим. Запускайте їх командою `bun run test:component`.
+
+## Пов’язані посібники
+
+- [Додавання таблиці даних](/docs/guides/add-a-data-table)
+- [TanStack Table](/docs/integrations/tanstack-table)

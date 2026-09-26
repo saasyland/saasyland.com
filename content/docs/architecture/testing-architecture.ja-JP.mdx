@@ -1,26 +1,59 @@
 ---
-title: テストとCI
-description: テストとCI — SaaSy Land
+title: "テストと CI"
+description: "Vitest のプロジェクト、100% カバレッジのゲート、Playwright のスイート、CI パイプライン。"
 ---
 
-Vite+ は 3 つのプロジェクトで Vitest を実行します。ノードのテスト、統合テスト、jsdom コンポーネントのテスト。 既存の振る舞いのテストは、演習中のコードの横に保つ `__test__`. . インポートテスト API から `vite-plus/test`. . ブラウザのフルフローとレンダリングチェックに Playwright を使用します。
+## Vitest のプロジェクト
 
-共有セットアップはローカル D1 と KV のモックを供給します。 D1 は SQLite に対するチェックイン SQL のマイグレーションを実行します。 サーバ機能 RPC ブリッジは、TanStack の真のミドルウェアと検証パイプラインを維持します。 コンポーネント レンダー ヘルパーは、実際の QueryClient と Router のコンテキストを提供します。 外部メール、OAuth、支払いコールはテストでモックされます。
+`vp test` は Vite+ を通じて Vitest を実行し、`vite.config.ts` で定義された 3 つのプロジェクトを使います。テストは対象コードの隣にある `__test__` フォルダーに置き、テスト用の API は `vite-plus/test` からインポートします。
 
-編集中に集中したプロジェクトを実行し、完全なスイート、カバレッジゲート、チェック、プレビュービルドを実行します。 ブラウザテストでは、パブリックページ、authリダイレクト、SSRなしJavaScript、およびクライアントナビゲーションを確認します。 CIはローカルバインディングを使用し、ライブデータベースやプロバイダシークレットを必要としません。
+| プロジェクト  | 環境  | ファイルパターン        |
+| ------------- | ----- | ----------------------- |
+| `node`        | Node  | `*.test.ts`             |
+| `integration` | Node  | `*.integration.test.ts` |
+| `component`   | jsdom | `*.component.test.tsx`  |
+
+実際の Cloudflare アカウントやプロバイダーに接続するテストはありません。
+
+- D1 は、チェックイン済みのマイグレーションを実行するインメモリの SQLite データベースで、KV はインメモリのマップです。KV とレート制限のカウンターは、各テストの前にリセットされます。
+- `createServerFn` が置き換えられているため、サーバー関数は本物のミドルウェアとバリデーターを通って、プロセス内で実行されます。
+- コンポーネントテストは、本物の `QueryClient` とルーターを使ってレンダリングします。
+- メール、OAuth、決済のリクエストはモックされます。
+
+## カバレッジ
+
+`bun run test:coverage` は、`src` 全体で行、ステートメント、関数、分岐のカバレッジを 100% にすることを必須とします。shadcn のプリミティブ、`src/platform/testing`、生成ファイル、型宣言は対象外です。実際の振る舞いをカバーしてください。決して実行されない分岐は、グローバルをスタブして到達させるのではなく、削除します。
+
+## ブラウザテスト
+
+Playwright のスペックは `e2e/specs` に、ページオブジェクトは `e2e/pages` に、フィクスチャは `e2e/fixtures` に置きます。スペックは、`test` Wrangler 環境を使う本番相当のビルドに対して実行されます。この環境では、`.wrangler/test` 内のローカル D1 と KV、`.env.test` のダミーシークレット、そして送信メールをキャプチャするテスト用 Worker を使います。そのため、スペックは実際の認証リンクをたどることができます。ローカルでは、Playwright がマイグレーション、シード投入、ビルド、アプリの起動を自動で行います。スイートは Chromium と WebKit で実行されます。
+
+## スクリプト
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
 bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:pr
 ```
 
-## 関連ガイド
+## CI
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+`.github/workflows/ci.yml` は、プルリクエストと `main` への push で実行されます。
+
+1. `bun run check`：フォーマット、lint、型チェック、`check:i18n`
+2. `bun run test:coverage`
+3. テストビルドと、Chromium での Playwright スイート
+4. プルリクエストではプレビュー環境へのデプロイ、`main` では本番環境へのデプロイ
+
+## 関連ページ
+
+- [テスト](/docs/tooling/testing)
+- [Playwright](/docs/tooling/playwright)
+- [テストを書く](/docs/guides/writing-tests)

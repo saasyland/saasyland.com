@@ -1,23 +1,45 @@
 ---
-title: D1とDrizzle
-description: D1 と Drizzle — SaaSy Land
+title: "データベースマイグレーション"
+description: "Drizzle スキーマを変更し、SQL マイグレーションを生成して、各 D1 データベースに適用します。"
 ---
 
-Cloudflare D1 はアプリケーションデータベースです。 モジュールスキーマの使用 `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` それらを収集します。 `drizzle.database.ts` Drizzle D1 アダプターを作成します。 `env.DB`.
+アプリケーションのデータベースは Cloudflare D1（SQLite）です。モジュールのスキーマは `drizzle-orm/sqlite-core` を使い、`src/integrations/drizzle-orm/drizzle.schemas.ts` がそれらを集約します。drizzle-kit は、タイムスタンプのプレフィックスを付けてマイグレーションを `src/integrations/drizzle-orm/migrations/` に書き出します。
 
-日付は、ミリ秒でSQLite整数タイムスタンプを使用します。 Boolean フィールドは SQLite integer boolean モードを使用します。 関係、固有の制約、外部キーはスキーマに残ります。 適切なSQLステートメントまたはD1のバッチで操作原子を保持します。 PostgreSQL接続プールまたはインタラクティブなトランザクションは導入しません。
+## ワークフロー
 
-ログイン `db:generate` スキーマを変更した後、生成されたSQLを見直してコミットし、ローカルで適用します。 リモートマイグレーションは、明示的な環境固有のコマンドです。 デプロイされた PostgreSQL データベースには、別のレビューされたエクスポートとインポートが必要です。 SQLite のマイグレーションを生成すると、既存のデータを転送しません。
+1. `<table>.schema.ts` を変更します。新しいテーブルの場合は、`drizzle.schemas.ts` からもエクスポートします。
+2. SQL を生成します。
 
 ```sh
 bun run db:generate
-bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
 ```
 
-## 関連ガイド
+3. 生成されたファイルを確認し、スキーマの変更と一緒にコミットします。
+4. 作業中のデータベースに適用します。また、それに依存するコードをデプロイする前に、すべてのリモートデータベースにも適用します。
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+## コマンド
+
+| コマンド                         | データベース                                                                             |
+| -------------------------------- | ---------------------------------------------------------------------------------------- |
+| `bun run db:migrate:test`        | `.wrangler/test` にあるローカルのテスト用データベース。Playwright と分離プレビューで使用 |
+| `bun run db:migrate:local`       | ローカルの開発用データベース。`bun run dev` は引き続きリモートのバインディングを使用     |
+| `bun run db:migrate:development` | 開発環境のリモートデータベース。デフォルトではプレビューと共有                           |
+| `bun run db:migrate:preview`     | リモートのプレビュー用データベース                                                       |
+| `bun run db:migrate:production`  | リモートの本番データベース                                                               |
+
+`bun run db:studio:development`、`db:studio:preview`、`db:studio:production` は Drizzle Studio を開き、`db:introspect:*` スクリプトは HTTP API 経由で D1 をイントロスペクトします。どちらも、対応する環境ファイルに `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_DATABASE_ID`、`CLOUDFLARE_ACCESS_TOKEN` が必要です。
+
+## スキーマの規約
+
+- 日付は `integer(..., { mode: "timestamp_ms" })` で、デフォルト値は `(unixepoch() * 1000)` です。
+- 真偽値は `integer(..., { mode: "boolean" })` です。
+- インデックス、ユニーク制約、外部キー、リレーションは、スキーマファイルに置きます。
+- D1 には対話型のトランザクションがありません。`getUsers` やレートリミッターのように、単一の SQL 文または `db.batch([...])` で操作をアトミックに保ちます。
+
+## テスト
+
+テスト用の D1 バインディングは、マイグレーションフォルダー内のすべての SQL ファイルをインメモリの SQLite データベースに適用するため、D1 を使うテストはマイグレーション済みのスキーマに対して実行されます。`src/integrations/drizzle-orm/__test__/` は、スキーマ、インデックス、外部キーが実際に作成されることをチェックします。[テストを書く](/docs/guides/writing-tests) を参照してください。
+
+## 既存の PostgreSQL のデータ
+
+これらのマイグレーションが作成するのは SQLite のスキーマだけです。以前の PostgreSQL 環境からデータを移行するには、別途レビューを経たエクスポートとインポートが必要です。

@@ -1,26 +1,38 @@
 ---
-title: Testando e CI
-description: Testes e CI - SaaSy Land
+title: "CI/CD"
+description: "Workflows do GitHub Actions para verificações, testes no navegador e deploys."
 ---
 
-Vite+ Corre. Vitest Em três projetos: testes de nós, testes de integração e testes de componentes jsdom. `__test__`. . Importar APIs de teste de `vite-plus/test`Use. Playwright Para todos os fluxos de navegadores e cheques de renderização.
+Os workflows ficam em `.github/workflows/`. Os workflows da aplicação (`ci.yml`, `e2e-reusable.yml` e `deploy-reusable.yml`) preparam a toolchain com a action composta `.github/actions/setup`: Bun 1.4.0, Vite+ com Node 24, um cache do Bun, `bun install --frozen-lockfile --ignore-scripts` e `bun run typegen`. Já o `remotion.yml` prepara Node e npm.
 
-A montagem compartilhada fornece material local D1 e... KV Tolices. D1 corre as migrações SQL verificadas contra SQLiteA ponte RPC do servidor preserva o verdadeiro pipeline de validação e middleware do TanStack. OAuth e chamadas de pagamento são zombadas em testes.
+| Workflow              | Gatilho                                                                  | Jobs                                                                                  |
+| --------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `ci.yml`              | Pull requests e pushes para `main`                                       | Verificações e cobertura, E2E no Chromium e, depois, deploy de preview ou de produção |
+| `e2e-full.yml`        | Pushes para `main`, semanalmente às segundas-feiras às 03:15 UTC, manual | WebKit no push; Chromium e WebKit nas execuções agendadas e manuais                   |
+| `e2e-reusable.yml`    | Chamado pelos workflows acima                                            | Banco de dados de testes, build de testes e um projeto do Playwright                  |
+| `deploy-reusable.yml` | Chamado por `ci.yml`                                                     | Build, migrações do D1 e `wrangler deploy`                                            |
+| `remotion.yml`        | Alterações em `remotion/` ou nas suas constantes compartilhadas          | Verifica e empacota com npm o projeto do vídeo da landing page                        |
 
-Execute o projeto focado enquanto edita, então execute a suíte completa, o portão de cobertura, cheque e construa pré-visualização. Testes de navegador verificam páginas públicas, redirecionamentos de autenticação, SSR sem JavaScript, e navegação de clientes. CI usa ligações locais e não requer um banco de dados ao vivo ou segredos de provedores.
+## Verificações
 
-```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
-```
+O job `verify` em `ci.yml` executa `bun run check` (tabelas de nomes de classes, verificações de i18n e de conteúdo, formatação, lint e tipos) e `bun run test:coverage` e, em seguida, envia o relatório de cobertura. O job `e2e` executa `db:migrate:test`, `db:seed:test` e `build:test`, instala o navegador e executa `bunx playwright test e2e/specs --project=chromium`. Execuções de E2E com falha enviam o relatório do Playwright.
+
+## Deploys
+
+Os deploys só são executados depois que `verify` e `e2e` passam:
+
+| Evento                                       | Destino      | Ambiente do GitHub | URL                           |
+| -------------------------------------------- | ------------ | ------------------ | ----------------------------- |
+| Pull request de uma branch deste repositório | `preview`    | `Preview`          | https://preview.saasyland.com |
+| Push para `main`                             | `production` | `Production`       | https://saasyland.com         |
+
+Pull requests de forks e do Dependabot são validados, mas não recebem deploy. O preview é compartilhado: cada deploy substitui o anterior e usa o mesmo banco de dados D1 e o mesmo namespace KV de preview.
+
+`deploy-reusable.yml` verifica a existência dos secrets `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`, executa `scripts/verify-bindings.ts`, faz o build com os valores fictícios de `.env.test`, remove o `dist/server/.dev.vars` gerado, aplica `db:migrate:<target>` e executa `bunx wrangler deploy`. Nenhum arquivo de secrets é enviado: o Worker mantém os secrets de runtime já configurados na Cloudflare. Deploys para o mesmo destino entram em fila em vez de cancelarem uns aos outros.
+
+O Dependabot atualiza as GitHub Actions semanalmente.
 
 ## Guias relacionados
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Playwright](/docs/tooling/playwright)
+- [Deploy de um preview](/docs/getting-started/deploy-preview)

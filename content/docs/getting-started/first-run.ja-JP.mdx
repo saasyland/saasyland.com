@@ -1,23 +1,47 @@
 ---
-title: ローカル開発
-description: ローカル開発 — SaaSy Land
+title: "初回起動"
+description: "隔離されたテストプレビュー、または Cloudflare に接続した開発サーバーを起動します。"
 ---
 
-Bun 1.4 および Node 24 または newer をインストールし、依存関係をインストールします。 コピー `.env.example` とりあえず `.env.development` 長いランダムな設定 `AUTH_SECRET`, 公共 `VITE_APP_URL`, あなたが運動する任意の外部の統合.
+## 隔離されたテストプレビュー
 
-ローカル開発は Cloudflare のローカル D1 と KV のバインディングを使用します。 開始前にチェックイン SQLite のマイグレーションを適用します。 開発コマンドは Fumadocs コンテンツを生成し、 Vite+ を Cloudflare プラグインで実行します。 現地の州生活 `.wrangler/`.
-
-OAuth、電子メールおよび請求はプロバイダの資格情報を必要とします;開発するときテストの資格情報およびPolarのサンドボックスを使用します。 テストは、実際のメッセージを送信するか、顧客を充電するのではなく、コミットされたダミー値とモックを使用します。
+テストプレビューは、アプリケーションを `test` 環境向けにビルドします。`.wrangler/test` 内のローカル D1 と KV、`.env.test` のダミー認証情報、シードされたアカウントを使い、Resend と Polar へのリクエストは横取りされます。アカウントは必要ありません。
 
 ```sh
-bun install
+bun run db:migrate:test
+bun run db:seed:test
+bun run build:test
+bun run start:test
+```
+
+http://127.0.0.1:3000 を開き、シードされたアカウントのいずれかでサインインします。どちらのアカウントも、`e2e/data/accounts.ts` にあるパスワード `WorkerTestPassword123!` を使います。
+
+| ロール | メールアドレス                    | ワークスペース |
+| ------ | --------------------------------- | -------------- |
+| 管理者 | `admin@saasyland.example.test`    | `/admin`       |
+| 顧客   | `customer@saasyland.example.test` | `/app`         |
+
+プレビューはビルド済みの成果物を配信するため、ソースの変更を反映するには再ビルドしてください。
+
+## Cloudflare を使った開発
+
+`bun run dev` は、ホットリロード付きの開発サーバーを http://localhost:3000 で起動します。`DB` と `CACHE` のバインディングはリモートのプレビュー用リソースに接続するため、開発中の書き込みはプレビュー用データベースに反映されます。
+
+```sh
+bunx wrangler login
 cp .env.example .env.development
 bun run db:migrate:development
 bun run dev
 ```
 
+1. Wrangler で Cloudflare にサインインします。
+2. [環境変数](/docs/getting-started/environment-variables)の説明に従って `.env.development` に値を記入し、`POLAR_SERVER=sandbox` を設定します。
+3. 自分の Cloudflare アカウントで D1 データベースと KV 名前空間を作成し、`wrangler.jsonc` の `development` と `preview` の ID を置き換えます。コミットされている ID は既存のデプロイのものです。[プレビューをデプロイする](/docs/getting-started/deploy-preview)を参照してください。
+4. マイグレーションを適用し、サーバーを起動します。
+
+アカウントはサインインする前にメールアドレスを認証する必要があるため、メールによるサインアップには動作する Resend の設定が必要です。開発用の管理者シードはありません。サインアップしてアドレスを認証し、`bun run db:studio:development` で自分のユーザーの `role` を `admin` に設定してください。
+
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [ローカルでのデバッグ](/docs/guides/local-debugging)
+- [トラブルシューティング](/docs/reference/troubleshooting)

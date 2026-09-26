@@ -1,28 +1,37 @@
 ---
-title: TanStack Start Comutadores HTTP
-description: TanStack Start HTTP manipuladores - SaaSy Land
+title: "Handlers HTTP do TanStack Start"
+description: "Os endpoints HTTP em /api e quando criar um deles em vez de uma server function."
 ---
 
-Os terminais HTTP usam nativos. TanStack Start O servidor está no servidor. `src/routes`. Better Auth É dono de GET e POST. `/api/auth/$`; Fumadocs A busca usa `/api/search`. . Operações de produto são funções de servidor nativas em módulos de recursos.
+As operações da própria aplicação são server functions. Handlers HTTP existem apenas quando algo fora do cliente RPC da aplicação chama uma URL: o cliente de navegador do Better Auth, os provedores OAuth, os webhooks do Polar e a caixa de busca da documentação.
 
-Declare os encarregados. `createFileRoute` com `server.handlers`. . Use o fornecido. `request`, validar a entrada, forçar a verificação de permissão, e devolver uma Web `Response`. . Mantenha a verificação do webhook na integração do provedor. Não exponha um endpoint REST duplicado para uma operação que só é usada pelo cliente RPC desse aplicativo.
+| Arquivo                    | Caminho       | Métodos   | Responsável por                                                                                                                                     |
+| -------------------------- | ------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/index.ts`  | `/api`        | GET       | Uma resposta de status em JSON `{ runtime: "cloudflare-workers" }`                                                                                  |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | GET, POST | Todos os endpoints do Better Auth, incluindo os callbacks OAuth, a verificação de e-mail, o portal do cliente do Polar e `/api/auth/polar/webhooks` |
+| `src/routes/api/search.ts` | `/api/search` | GET       | A busca do Fumadocs na documentação                                                                                                                 |
+
+Um handler é declarado com `server.handlers` em `createFileRoute`. Ele recebe o `Request` da Web e retorna uma `Response`:
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
-## Guias relacionados
+## Regras
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- Não adicione um endpoint REST para uma operação que só esta aplicação chama. Escreva um caso de uso com `createServerFn`; ele ganha entrada tipada, middleware e query options.
+- Um handler valida a própria entrada e verifica as permissões por conta própria. O middleware das server functions (`authorized`, `withRateLimit`) não roda para handlers.
+- Mantenha a verificação específica de cada fornecedor na integração. As assinaturas dos webhooks do Polar são verificadas pelo plugin do Polar dentro do Better Auth, não por um handler próprio.
+- Caminhos em `/api` nunca são localizados, nunca são pré-renderizados e ficam de fora do tratamento de locale do Worker.
+
+## Páginas relacionadas
+
+- [Adicionar uma rota de API](/docs/guides/add-an-api-route)
+- [Server functions e casos de uso](/docs/architecture/modules-and-use-cases)
+- [Superfície da API](/docs/features/api-surface)

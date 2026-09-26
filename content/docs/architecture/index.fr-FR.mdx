@@ -1,30 +1,55 @@
 ---
-title: Architecture
-description: Architecture — SaaSy Land
+title: "Architecture"
+description: "Organisation de SaaSy Land : les routes composent les pages, les modules possèdent les tables de la base de données, les intégrations encapsulent les fournisseurs."
 ---
 
-SaaSy Land fonctionne comme une application TanStack Start sur Cloudflare Workers. Les itinéraires coordonnent le rendu et le chargement des données. Les modules de caractéristiques possèdent la validation, l'autorisation et les opérations. Les intégrations configurent les services externes. La présentation est propriétaire de l'interface utilisateur existante.
+SaaSy Land est une seule application TanStack Start qui s'exécute comme un Cloudflare Worker. Le code est découpé par responsabilité :
 
-Il n'y a pas de récipient d'injection de dépendance. Importer le collaborateur en béton à sa couche propriétaire. Gardez les aides partagées petites et gardez les aides uniquement à côté de la fonctionnalité.
+- Les **routes** (`src/routes`) composent les pages. Un fichier de route déclare ses namespaces de traduction, son guard, son loader et ses balises head, puis rend des composants.
+- Les **modules** (`src/modules/<table>`) n'existent que pour de vraies tables de la base de données. Un module possède le schéma Drizzle de la table, ses schémas Zod, ses constantes, ses types et les cas d'usage qui la lisent ou la modifient.
+- Les **intégrations** (`src/integrations/<vendor>`) configurent les bibliothèques et services tiers.
+- La **présentation** (`src/presentation`) regroupe les primitives shadcn, les composants de l'application, les modèles React Email, les styles, le thème et l'identité visuelle.
+- Le **code partagé** se trouve dans `src/data` (données utilisées par plusieurs fichiers), `src/lib` (petits utilitaires), `src/hooks` et `src/providers`.
 
 ```text
-content/                         Localized MDX
-messages/{locale}/           Translation namespaces
-src/routes/                      Flat file routes
-src/router.tsx                   Router and per-request query cache
-src/server.ts                    Cloudflare Worker entry
-src/modules/{feature}/           Schemas, constants, validation
-src/modules/{feature}/use-cases/  Server functions and query/mutation options
-src/integrations/{vendor}/       Vendor adapters and setup
-src/presentation/                Components, styles, branding, emails
-src/providers/                   Application providers
-src/hooks/                       Shared hooks
-src/lib/                         Shared utilities
-src/platform/testing/            Binding mocks and test helpers
+src/
+├── routes/          Flat file routes that compose pages
+├── modules/         One folder per database table, plus _core
+├── integrations/    One folder per vendor
+├── presentation/    Components, emails, styles, theme, branding
+├── data/            Data shared by several files
+├── lib/             Small shared utilities
+├── hooks/           Shared React hooks
+├── providers/       Application providers
+├── platform/        Test runtime wiring
+├── types/           Global type declarations
+├── router.tsx       Router and per-request QueryClient
+├── routes.ts        ROUTES path constants
+└── server.ts        Cloudflare Worker entry
 ```
 
-## Guides connexes
+## Règles qui façonnent le code
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+- Les fichiers de route ne font que composer. Les widgets, boîtes de dialogue, formulaires et colonnes de tableau se trouvent dans `src/presentation/components/custom`, un par fichier.
+- Les composants lisent eux-mêmes leurs traductions et leurs données avec `useTranslations`, `useSuspenseQuery` ou les données du loader de la route. Les routes ne leur transmettent ni libellés ni données sous forme de props.
+- Une fonction serveur qui travaille sur une table est un cas d'usage dans le module de cette table. Une fonction serveur utilisée par une seule route peut être définie dans le fichier de route. Tout le reste va dans `src/lib`.
+- Il n'y a ni conteneur d'injection de dépendances ni couche de wrappers. Importez la fonction concrète depuis le dossier qui la possède.
+- Une constante utilisée par un seul fichier reste dans ce fichier. Seules les données partagées par plusieurs fichiers vont dans `src/data`.
+
+## Dans cette section
+
+- [Structure des dossiers](/docs/architecture/directory-structure) : chaque dossier et ce qu'il doit contenir.
+- [Règles de dépendance](/docs/architecture/dependency-rules) : imports autorisés et frontières du code exclusivement serveur.
+- [Fonctions serveur et cas d'usage](/docs/architecture/modules-and-use-cases) : organisation d'un module et modèle des cas d'usage.
+- [Noyau partagé](/docs/architecture/core) : erreurs et catalogues dans `src/modules/_core`.
+- [Routes et livraison](/docs/architecture/delivery-layer) : anatomie d'un fichier de route et configuration du routeur.
+- [Présentation](/docs/architecture/presentation-layer) : organisation et style des composants.
+- [Périmètre des intégrations](/docs/architecture/integrations-layer) : dossiers par fournisseur et ce qui n'y a pas sa place.
+- [Plateforme et tests](/docs/architecture/platform-layer) : bindings Cloudflare, environnements et câblage des tests.
+- [Providers](/docs/architecture/providers) : les quatre providers de l'application et l'endroit où ils sont montés.
+- [Cycle de vie d'une requête](/docs/architecture/request-lifecycle) : ce qui se passe entre le Worker et la page rendue.
+- [Cache et SSR](/docs/architecture/caching-and-ssr) : cache de queries, prérendu et KV.
+- [Handlers HTTP de TanStack Start](/docs/architecture/api-layer) : les endpoints `/api`.
+- [Authentification et sécurité](/docs/architecture/security-model) : guards, permissions, limitation de débit et masquage des erreurs.
+- [Internationalisation et locales](/docs/architecture/i18n-architecture) : URL localisées, namespaces et chargement des traductions.
+- [Tests et CI](/docs/architecture/testing-architecture) : projets de test, couverture et pipeline CI.

@@ -1,8 +1,48 @@
 ---
-title: "E-mail transakcyjny"
-description: "Dostawa Resend dla maili auth i produktu."
+title: "E-maile transakcyjne"
+description: "Szablony React Email w src/presentation/emails wysyłane przez przypadki użycia za pośrednictwem Resend."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+## Szablony
 
-Zobacz Integracje → Resend oraz Przewodniki → Szablony e-maili. Wiadomości weryfikacyjne i resetujące hasło są wymagane w lokalnych przepływach uwierzytelniania; potwierdzenia zakupu pojawią się wraz z płatnościami.
+Szablony znajdują się w `src/presentation/emails`. Każdy plik zawiera wyłącznie znaczniki i eksportuje stałą ze swoją przestrzenią nazw:
+
+| Szablon                        | Przestrzeń nazw                          | Wysyła go                                             |
+| ------------------------------ | ---------------------------------------- | ----------------------------------------------------- |
+| `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail` (hook Better Auth)                  |
+| `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail` (hook Better Auth)           |
+| `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail` (hook Better Auth) |
+| `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                               |
+| `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`, na `CONTACT_EMAIL`   |
+
+Szablon otrzymuje `locale` i `messages` i tłumaczy za pomocą `createTranslator` z use-intl:
+
+```tsx
+const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
+```
+
+## Wysyłka
+
+Przypadek użycia ładuje komunikaty, renderuje szablon i go wysyła (`src/modules/verification/use-cases/send-verify-email.ts`):
+
+```ts
+const locale = getCurrentLocale()
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+verifyUrl.searchParams.set("token", token)
+await sendEmail({
+  idempotencyKey: `verify-email/${token}`,
+  react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+  subject: createTranslator({ locale, messages })("subject"),
+  to: user.email,
+})
+```
+
+`sendEmail` (`src/integrations/resend/resend.utils.ts`) wysyła przez Resend z adresu `RESEND_EMAIL_FROM`, chyba że podano `from` (powiadomienie dla właściciela używa `NOTIFICATIONS_EMAIL`), przekazuje klucz idempotencji i zgłasza błąd, gdy wysyłka się nie powiedzie.
+
+E-maile dotyczące konta używają języka bieżącego żądania. E-maile newslettera używają języka przesłanego z formularzem; powiadomienie dla właściciela jest zawsze w `en-US`.
+
+## Powiązane przewodniki
+
+- [Szablony e-maili](/docs/guides/email-templates)
+- [Resend](/docs/integrations/resend)

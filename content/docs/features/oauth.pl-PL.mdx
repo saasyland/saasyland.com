@@ -1,8 +1,30 @@
 ---
 title: "Dostawcy OAuth"
-description: "Konfiguracja logowania GitHub i Google."
+description: "Logowanie przez GitHub i Google za pomocą dostawców społecznościowych Better Auth."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+`auth.server.ts` rejestruje dwóch dostawców z danymi uwierzytelniającymi ze środowiska Workera:
 
-Konfigurowane w Better Auth przy użyciu identyfikatorów i sekretów klienta ze zmiennych środowiskowych. Zarejestruj adresy przekierowań dla hosta lokalnego, podglądowego i produkcyjnego. Zobacz Funkcje → Uwierzytelnianie oraz Pierwsze kroki → Zmienne środowiskowe.
+```ts
+socialProviders: {
+  github: { clientId: env.AUTH_GITHUB_CLIENT_ID, clientSecret: env.AUTH_GITHUB_CLIENT_SECRET },
+  google: { clientId: env.AUTH_GOOGLE_CLIENT_ID, clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET },
+},
+```
+
+## Przebieg
+
+`OAuthButtons` (`src/presentation/components/custom/auth/oauth-buttons.tsx`) wyświetla po jednym przycisku dla każdego dostawcy na stronach logowania i rejestracji. Wywołuje `signIn.social` z Better Auth ze zlokalizowanym `callbackURL` (`/auth/callback`) i `errorCallbackURL` (`/auth/sign-in`). Po powrocie od dostawcy `/auth/callback` przekierowuje administratorów do `/admin`, a klientów do `/app`. Nieudana próba wraca na stronę logowania z `?error=`, która wyświetla przetłumaczony komunikat z `auth.errors`.
+
+`accountLinking` jest włączone, więc logowanie społecznościowe łączy się z istniejącym użytkownikiem o tym samym adresie e-mail. Tokeny dostawcy są przechowywane w postaci zaszyfrowanej w tabeli `account`.
+
+## Konfiguracja dostawcy
+
+Zarejestruj adresy zwrotne `/api/auth/callback/github` i `/api/auth/callback/google` dla każdego używanego hosta: `localhost:3000` lokalnie, `preview.saasyland.com` i `saasyland.com` (zobacz `appHostsForMode` w `src/modules/_core/constants/api.ts`). Identyfikatory i sekrety klientów umieść w powyższych zmiennych środowiskowych.
+
+Dane uwierzytelniające GitHuba służą też do pobierania liczby gwiazdek repozytorium w `src/lib/github.ts`.
+
+## Powiązane przewodniki
+
+- [Zmienne środowiskowe](/docs/getting-started/environment-variables)
+- [Uwierzytelnianie](/docs/features/authentication)

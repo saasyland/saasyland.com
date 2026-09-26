@@ -1,28 +1,46 @@
 ---
-title: Handlery HTTP TanStack Start
-description: Handlery HTTP TanStack Start — SaaSy Land
+title: "TanStack Start"
+description: "Trasy plikowe, loadery, prerendering i handlery HTTP."
 ---
 
-Endpointy HTTP korzystają z natywnych handlerów TanStack Start w `src/routes`. Better Auth obsługuje GET i POST pod `/api/auth/$`, a wyszukiwanie Fumadocs używa `/api/search`. Operacje produktu są natywnymi funkcjami serwerowymi w modułach.
+Aplikacja jest zbudowana na TanStack Start. `src/router.tsx` tworzy router z osobnym QueryClient dla każdego żądania, integracją zapytań z SSR, domyślnymi komponentami błędu i „nie znaleziono”, wstępnym ładowaniem przy intencji oraz `rewrite` dla języka. Nie ma domyślnego komponentu oczekiwania: każda trasa ustawia własny szkielet (zobacz [Szkielety ładowania](/docs/architecture/delivery-layer#loading-skeletons)). `src/routes.ts` eksportuje `ROUTES`, czyli stałe ścieżek używane przez linki, strażników i tagi w sekcji head.
 
-Deklaruj handlery w `createFileRoute` przez `server.handlers`. Używaj przekazanego `request`, waliduj dane, sprawdzaj uprawnienia i zwracaj Web `Response`. Weryfikacja webhooka należy do integracji usługodawcy. Nie twórz dodatkowego endpointu REST dla operacji używanej wyłącznie przez typowanego klienta RPC tej aplikacji.
+## Trasy
+
+`src/routes/` zawiera płaskie trasy plikowe: `admin.users.all.tsx` obsługuje `/admin/users/all`, `_landing.tsx` to układ bez własnej ścieżki, a `docs.$.tsx` to trasa typu splat. ID w `createFileRoute("…")` to literał tekstowy utrzymywany przez generator routera w `src/routeTree.gen.ts`; foldery `__test__` nie są traktowane jako trasy.
+
+Plik trasy wyłącznie komponuje swoją stronę. Definiuje komponent `<Name>Page` lub `<Name>Layout`, `NAMESPACE` lub `NAMESPACES`, loader, który ładuje metadane, komunikaty i dane w jednym `Promise.all`, `head: pageHead(ROUTES.X)` oraz, w przypadku chronionych obszarów, strażnika w `beforeLoad`. Widżety, okna dialogowe, formularze i kolumny tabel znajdują się w `src/presentation/components/custom/` i same odczytują swoje tłumaczenia oraz dane. Loader opisuje strona [use-intl](/docs/integrations/use-intl), a strażników strona [Better Auth](/docs/integrations/better-auth).
+
+## Funkcje serwerowe
+
+Operacje to natywne funkcje `createServerFn` eksportowane z przypadków użycia modułów, więc aplikacja nie udostępnia dla nich endpointów REST. Zobacz [Funkcje serwerowe i przypadki użycia](/docs/integrations/server-functions).
+
+## Handlery HTTP
+
+Tylko trzy trasy w `src/routes/api/` deklarują `server.handlers`:
+
+| Trasa         | Handler                                                                                 |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `/api`        | Zwraca informacje o środowisku uruchomieniowym w formacie JSON                          |
+| `/api/auth/$` | Better Auth, w tym adresy zwrotne OAuth i webhooki Polar pod `/api/auth/polar/webhooks` |
+| `/api/search` | Wyszukiwanie w dokumentacji Fumadocs                                                    |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
+## Prerendering
+
+`vite.config.ts` włącza prerendering z przeszukiwaniem linków. `build:preview`, `build:production` i `build:test` prerenderują strony publiczne (stronę główną, strony prawne, blog i dokumentację) we wszystkich dziewięciu językach. Filtr pomija `/admin`, `/api`, `/app`, `/auth` i `/newsletter`, z prefiksem języka lub bez niego, a także linki zawierające `?` lub `#`. Pominięte strony są renderowane przez Workera przy każdym żądaniu.
+
 ## Powiązane przewodniki
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [Cykl życia żądania](/docs/architecture/request-lifecycle)
+- [Cache i SSR](/docs/architecture/caching-and-ssr)
+- [Dodawanie trasy API](/docs/guides/add-an-api-route)

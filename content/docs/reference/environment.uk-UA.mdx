@@ -1,16 +1,54 @@
 ---
-title: Навколишнє середовище та обов'язки
-description: Навколишнє середовище та обов’язки — SaaSy Land
+title: "Середовище та прив'язки"
+description: "Файли середовища, секрети й прив'язки Cloudflare для кожного середовища Wrangler."
 ---
 
-Зареєструватися `.env.development`, `.env.preview`й `.env.production` для відповідного середовища Vite і Cloudflare. Ці файли ігноруються; `.env.example` документи, необхідні ключі. `VITE_APP_URL` є громадським і заміненим на час будівництва. Секрети працівника не мають `VITE_` Префікс і доступ до них через `env` з `cloudflare:workers`.
+## Файли середовища
 
-Настроювання `AUTH_SECRET`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`Налаштування Resend та налаштування Polar для вашої установки. Ніколи не керуйте реальними обліковими записами. В'язка IDs належить до відповідного `wrangler.jsonc` середовище; сформовані робочі декларації описують їх види.
+| Файл               | У репозиторії | Хто використовує                                                                           |
+| ------------------ | ------------- | ------------------------------------------------------------------------------------------ |
+| `.env.example`     | Так           | Перелічує всі змінні з порожніми значеннями                                                |
+| `.env.development` | Ні            | `bun run dev`, `db:studio:development`, `db:introspect:development`                        |
+| `.env.preview`     | Ні            | `deploy:preview` (`--secrets-file`), `db:studio:preview`, `db:introspect:preview`          |
+| `.env.production`  | Ні            | `deploy:production` (`--secrets-file`), `db:studio:production`, `db:introspect:production` |
+| `.env.test`        | Так           | Vitest і середовище Wrangler `test`; лише фіктивні значення                                |
 
-Тільки Drizzle Студії та інтроспектування `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` і `CLOUDFLARE_ACCESS_TOKEN`. . Місцева D1 не використовує віддалені облікові дані. CI копії `.env.test` до локальних файлів середовища і працює з місцевими зв'язками.
+## Змінні
 
-## Схожі посібники
+| Змінна                      | Хто використовує                                                                |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| `AUTH_SECRET`               | Підписування, шифрування й токени підтвердження електронної пошти в Better Auth |
+| `AUTH_GITHUB_CLIENT_ID`     | GitHub OAuth; також автентифікує запит кількості зірок на GitHub                |
+| `AUTH_GITHUB_CLIENT_SECRET` | GitHub OAuth; також автентифікує запит кількості зірок на GitHub                |
+| `AUTH_GOOGLE_CLIENT_ID`     | Google OAuth                                                                    |
+| `AUTH_GOOGLE_CLIENT_SECRET` | Google OAuth                                                                    |
+| `RESEND_API_KEY`            | Клієнт Resend                                                                   |
+| `RESEND_EMAIL_FROM`         | Типовий відправник для `sendEmail`                                              |
+| `POLAR_ACCESS_TOKEN`        | Клієнт Polar SDK                                                                |
+| `POLAR_SERVER`              | `sandbox` або `production`                                                      |
+| `POLAR_WEBHOOK_SECRET`      | Перевірка підписів вебхуків Polar                                               |
+| `POLAR_ORGANIZATION_ID`     | Деактивація ліцензійних ключів Polar і пошук знижок                             |
+| `POLAR_PRODUCT_ID_CORE`     | Продукт для оформлення покупки тарифу Core                                      |
+| `POLAR_PRODUCT_ID_COMPLETE` | Продукт для оформлення покупки тарифу Complete                                  |
+| `POLAR_PRODUCT_ID_AGENCY`   | Продукт для оформлення покупки тарифу Agency                                    |
+| `CLOUDFLARE_ACCOUNT_ID`     | HTTP-драйвер D1 для Drizzle Kit                                                 |
+| `CLOUDFLARE_DATABASE_ID`    | HTTP-драйвер D1 для Drizzle Kit                                                 |
+| `CLOUDFLARE_ACCESS_TOKEN`   | HTTP-драйвер D1 для Drizzle Kit                                                 |
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+Кожне середовище в `wrangler.jsonc` перелічує потрібні йому змінні в `secrets.required`; середовище `test` не містить трьох змінних Cloudflare. Код Worker читає їх з `env` у `cloudflare:workers`, а типи для них задає `src/types/bindings.d.ts`. Змінних `VITE_` немає: публічна URL-адреса та домен — це константи в `src/presentation/branding`.
+
+## Прив'язки
+
+| Прив'язка | Тип              | `development`                   | `preview` | `production` | `test`                    |
+| --------- | ---------------- | ------------------------------- | --------- | ------------ | ------------------------- |
+| `DB`      | D1               | Віддалена база preview          | Preview   | Production   | Локальна `saasyland_test` |
+| `CACHE`   | KV               | Віддалений простір імен preview | Preview   | Production   | Локальний                 |
+| `ASSETS`  | Статичні ресурси | Так                             | Так       | Так          | Так                       |
+
+Скрипти розгортання preview і production спершу запускають `scripts/verify-bindings.ts`, який завершується помилкою, доки середовище ще має заглушкові ідентифікатори D1 або KV.
+
+## Пов'язані сторінки
+
+- [Змінні середовища](/docs/getting-started/environment-variables)
+- [Платформа та тестування](/docs/architecture/platform-layer)
+- [Розгортання preview-версії](/docs/getting-started/deploy-preview)

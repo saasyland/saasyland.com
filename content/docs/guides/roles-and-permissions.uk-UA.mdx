@@ -1,14 +1,61 @@
 ---
-title: Ролі та дозволи
-description: Ролі та дозволи — SaaSy Land
+title: "Ролі та дозволи"
+description: "Визначайте дозволи й ролі в auth.access.ts і перевіряйте їх у guard маршрутів і серверних функціях."
 ---
 
-Ролики і виписки, які живуть в `src/integrations/better-auth/auth.access.ts`. . Роль за замовчуванням є клієнтом. Доступ до адміністратора перевіряється `requireAdmin`; кожна операція сервера перевіряє необхідну заяву з `withAuth`.
+Контроль доступу використовує плагін admin Better Auth. Дозволи, ролі й перевірка дозволів розміщені в `src/integrations/better-auth/auth.access.ts`.
 
-Зберігайте зміни ролі, заборони, відкликання сеансу та знеособлення у випадках використання користувача/session. Визначте поточний користувач з сеансу запиту та недійсними постраждалих груп запитів після мутації. Поведінка презентації та не замінює авторизації.
+## Дозволи та ролі
 
-## Схожі посібники
+```ts
+const APP_STATEMENTS = {
+  admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
+  settings: ["manage"],
+} as const
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
+
+export const ROLES = {
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
+}
+```
+
+- `defaultStatements` з Better Auth додають ресурси `user` і `session` (наприклад, `user: ["list", "set-role", "ban", "impersonate", "delete"]` і `session: ["list", "revoke"]`).
+- `admin` має всі дозволи; `customer`, типова роль нових користувачів, не має жодного.
+- `ROLE_VALUES` типізує колонку `user.role` і схеми ролей у `user.zod.ts`.
+
+## Де перевіряються дозволи
+
+| Шар                       | Перевірка                                                          |
+| ------------------------- | ------------------------------------------------------------------ |
+| Guard маршруту            | `requireAdmin` вимагає `admin: ["access"]` для всієї зони `/admin` |
+| Серверна функція          | `authorized({ product: ["update"] })` у кожній захищеній операції  |
+| Лише для тих, хто увійшов | `authorized()` для операцій із власними даними того, хто викликає  |
+| Будь-де ще                | `hasPermission({ permission, role })` повертає булеве значення     |
+
+Guard маршруту лише визначає, які сторінки рендеряться. Серверні функції можна викликати напряму через RPC, тож кожна має сама перевіряти свій дозвіл. Приховати кнопку — це питання представлення, а не авторизації.
+
+## Додайте дозвіл
+
+1. Додайте дію до `APP_STATEMENTS`, наприклад `report: ["read", "export"]`.
+2. `admin` отримує її автоматично; іншим ролям надайте її в `ROLES` за потреби.
+3. Вимагайте її в серверній функції: `.middleware([authorized({ report: ["export"] })])`.
+4. Протестуйте і дозволений випадок, і випадок `FORBIDDEN`.
+
+## Додайте роль
+
+1. Додайте код до `ROLE_CODES` і `ROLE_VALUES`.
+2. Визначте її дозволи в `ROLES`.
+3. Додайте мітку ролі до `filters.role.options` у `messages/<locale>/pages.admin.users.json` для всіх дев'яти мов.
+
+Клієнт автентифікації (`auth.client.ts`) отримує `ac` і `ROLES`, тож адміністративні дії в браузері використовують ті самі визначення.
+
+## Керування користувачами та сесіями
+
+Модулі користувачів і сесій обгортають адміністративний API Better Auth у сценарії використання, кожен із власним дозволом: `setUserRole`, `banUser`, `unbanUser`, `impersonateUser`, `deleteUser`, `setUserPassword`, `revokeUserSession` та інші. Операції з власними даними того, хто викликає, наприклад `revokeSession`, використовують `authorized()` і фільтрують за `context.auth.user.id`.
+
+Поза тестовою базою немає жодного заздалегідь створеного адміністратора. Щоб створити першого адміністратора, зареєструйтеся, підтвердьте пошту й встановіть `role` цього користувача на `admin` у D1, наприклад через `bun run db:studio:development`.

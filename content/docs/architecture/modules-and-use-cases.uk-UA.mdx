@@ -1,30 +1,92 @@
 ---
-title: Серверні функції та випадки використання
-description: Серверні функції та випадки використання — SaaSy Land
+title: "Серверні функції та сценарії використання"
+description: "Як модуль володіє однією таблицею бази даних і надає її операції як сценарії використання."
 ---
 
-Функціональні операції в режимі реального часу `src/modules/{feature}/use-cases/{operation}.ts`. . Експорт рідного `createServerFn` з його вхідним schema, авторизації або номінальний посередник, і обробник, який викликає D1 або адаптера постачальника. Відшкодування повертає дані безпосередньо і кидає сейф `AppError`; він не повертає в рамковий конверт дії.
+## Модулі
 
-Експорт `mutationOptions` бокові мутації і `queryOptions` бокові читання. Використання компонентів TanStack Query і перевести помилки з `useActionError`. . Успішні мутації недійсні свої функції ключі запиту. Ніколи не довіряйте ідентифікатор користувача, який подається замовником, коли операція повинна діяти на `context.auth.user.id`.
+Модуль у `src/modules/<table>` існує лише для справжньої таблиці бази даних. Він містить:
 
-Зареєструватися `withAuth` для захищених операцій та `withRateLimit` для чутливих публічних операцій. Дійсність проходить до обробника. Зберігайте помилки провайдера та внутрішні деталі з публічних відповідей.
+- `<table>.schema.ts`: таблиця Drizzle, яку реекспортує `src/integrations/drizzle-orm/drizzle.schemas.ts`
+- `<table>.zod.ts`: схеми вхідних даних, які використовують і форми, і серверні функції
+- `<table>.constants.ts`: ключі запитів і мутацій, переліки
+- `<table>.types.ts` і `<table>.utils.ts`: якщо вони потрібні таблиці
+- `use-cases/<operation>.ts`: одна операція на файл
+
+Поточні модулі: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user і verification. Спільні константи та допоміжні функції лежать у [`_core`](/docs/architecture/core). Серверна функція, яка не працює з таблицею, належить до `src/lib` або до єдиного маршруту, що її використовує.
+
+## Сценарії використання
+
+Більшість сценаріїв використання — це серверні функції, які викликаються з браузера. Кожен файл експортує `createServerFn` і відповідні опції запиту чи мутації:
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
 import { mutationOptions } from "@tanstack/react-query"
+import { createServerFn } from "@tanstack/react-start"
+import { v7 } from "uuid"
 import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
+
+import { authorized } from "~/src/integrations/better-auth/auth.middleware"
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+
+import { CATEGORY_MUTATION_KEYS } from "~/src/modules/category/category.constants"
+import { category } from "~/src/modules/category/category.schema"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
 ```
 
-В даний час `createCategory` Операція демонструє перевірку дійсності, перевірок дозволу, вставку D1 і експортуються параметри мутації.
+- **Middleware** надходять із `src/integrations/better-auth/auth.middleware.ts`. `authorized()` вимагає сесію, `authorized({ category: ["create"] })` додатково перевіряє дозвіл, а `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` обмежує публічні операції.
+- **Валідація** розбирає вхідні дані Zod-схемою модуля ще до запуску обробника.
+- **Належність даних** визначається сесією. Операції з власними даними того, хто викликає, фільтрують за `context.auth.user.id` і ніколи не довіряють ідентифікатору користувача з вхідних даних.
+- **Помилки** викидаються як `new AppError(ERROR_CODES.X)`. Будь-яка інша помилка логується й доходить до клієнта як `INTERNAL_ERROR`.
+- **Читання** натомість експортують `queryOptions`, наприклад `getCategoriesPageQuery(input)`, який повертає `{ rows, total }` для таблиці даних.
 
-## Схожі посібники
+Деякі сценарії використання — це звичайні асинхронні функції, які виконуються лише на сервері й не мають RPC-ендпоінта, як-от `send-verify-email.ts` або `grant-license.ts`. Їх викликають хуки Better Auth та обробники вебхуків Polar.
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+## Виклик сценарію використання з компонента
+
+Компоненти розгортають експортовані опції в `useMutation`, перекладають помилки через `useErrorMessage()` і після успіху інвалідують ключі запитів модуля:
+
+```tsx
+const t = useTranslations("pages.admin.users.actions")
+const queryClient = useQueryClient()
+const errorMessage = useErrorMessage()
+
+const deleteUser = useMutation({
+  ...deleteUserMutation,
+  onError: (error) => {
+    toast.error(errorMessage(error))
+  },
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL })
+    toast.success(t("feedback.deleteSuccess"))
+  },
+})
+```
+
+## Пов'язані сторінки
+
+- [Каталог модулів](/docs/reference/modules)
+- [Матриця дозволів](/docs/reference/permissions)
+- [Додавання сценарію використання](/docs/guides/add-a-use-case)

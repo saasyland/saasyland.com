@@ -1,28 +1,52 @@
 ---
-title: TanStack Start HTTP обробники
-description: TanStack Start HTTP обробники - SaaSy Land
+title: "Додавання маршруту API"
+description: "Додайте HTTP-обробник під /api для вебхуків та інших зовнішніх клієнтів."
 ---
 
-HTTP endpoints використовувати рідні TanStack Start обробники сервера в `src/routes`. Better Auth власники GET і POST під `/api/auth/$`; Fumadocs пошук використовує `/api/search`. . Робота з серверами є локальними функціями.
+Маршрути API — це серверні обробники TanStack Start у `src/routes/api/`. Екранам застосунку вони ніколи не потрібні: ті викликають серверні функції. Додавайте маршрут API лише для клієнтів поза застосунком, як-от вебхуки, сторонні клієнти чи пошукові роботи.
 
-Декларатори на ручках `createFileRoute` з `server.handlers`. . Використовуйте поставку `request`, валідувати вхід, виконувати перевірки дозволу, і повернути Веб-сайт `Response`. . Зберігати перевірку вебхока в інтеграції провайдера. Не піддавати дублікати REST кінцевої точки для операції, яка використовується тільки цим користувачем RPC клієнту.
+## Наявні маршрути
+
+| Файл                       | Шлях          | Призначення                                                                            |
+| -------------------------- | ------------- | -------------------------------------------------------------------------------------- |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | Better Auth: вхід, callback OAuth, підтвердження пошти, оплата, портал і вебхуки Polar |
+| `src/routes/api/search.ts` | `/api/search` | Пошук Fumadocs для документації                                                        |
+| `src/routes/api/index.ts`  | `/api`        | Перевірка середовища виконання, що повертає `{ "runtime": "cloudflare-workers" }`      |
+
+Вебхуки Polar надходять на `/api/auth/polar/webhooks`; плагін Polar для Better Auth перевіряє їхній підпис через `POLAR_WEBHOOK_SECRET`, перш ніж їх обробить `license.webhooks.ts`.
+
+## Напишіть обробник
+
+Оголосіть методи в `server.handlers`. Кожен обробник отримує вебовий `Request` і повертає вебовий `Response`:
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
-import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/auth/$")({
+import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+
+export const Route = createFileRoute("/api/search")({
   server: {
     handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
+      GET: ({ request }) => search.GET(request),
     },
   },
 })
 ```
 
-## Схожі посібники
+Усередині обробника:
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+- Валідуйте параметри запиту чи тіло схемою Zod і повертайте `HTTP_STATUS.BAD_REQUEST` (з `src/modules/_core/constants/api.ts`), якщо валідація не пройшла. Якщо обробнику потрібен новий статус, додайте його туди.
+- Читайте сесію через `getRequestSession(request)` і перевіряйте її через `hasPermission`. Middleware функцій, як-от `authorized`, стосується серверних функцій, а не обробників.
+- Обмежуйте кількість запитів до публічних ендпоінтів через `withinRateLimit({ key, limit, windowSeconds })` і `clientAddress(request.headers)` з `src/lib/rate-limit.ts`.
+- Перевіряйте підписи, перш ніж довіряти вмісту вебхука.
+- Повертайте безпечні тіла помилок, а подробиці записуйте через `console.error`.
+
+## Правила маршрутизації
+
+- Шляхи `/api` ніколи не отримують мовного префікса, а Worker пропускає для них пошук статичних файлів і мовні перенаправлення.
+- URL `/api` не містять мови, тож `getCurrentLocale()` повертає там типову мову. Локалізована відповідь бере мову із запиту, як це робить `/api/search` з параметром запиту `locale`.
+- `/api` виключено з попереднього рендерингу.
+
+## Тест
+
+Викликайте обробник через параметри маршруту, як це робить `src/routes/api/__test__/handlers.test.ts` з `Route.options.server.handlers`, і мокайте провайдера, якому він передає запит.

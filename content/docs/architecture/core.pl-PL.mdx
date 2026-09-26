@@ -1,16 +1,61 @@
 ---
-title: "Wspólne jądro (_core)"
-description: "Błędy domenowe i wspólne katalogi w modules/_core."
+title: "Współdzielone jądro Core"
+description: "Słownik błędów, katalogi i helpery w src/modules/_core, z których korzystają wszystkie moduły."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+`src/modules/_core` to jedyny folder modułu, który nie ma własnej tabeli. Zawiera wartości i helpery potrzebne kilku modułom, dzięki czemu żaden moduł nie definiuje ich od nowa.
 
-## Contents
+## Stałe
 
-- `constants/errors.ts` — `ERROR_CODES`, `AppError`, `ActionServerError` (jedyny słownik błędów)
-- `constants/` — katalogi języków (i pokrewne) używane przez i18n oraz przełączniki produktowe
-- `utils/` — czyste helpery współdzielone przez moduły
+| Plik                    | Zawartość                                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `constants/errors.ts`   | `ERROR_CODES`, typ `ErrorCode` i klasa `AppError`                                                            |
+| `constants/api.ts`      | `HTTP_STATUS`, nazwy nagłówków `cf-ipcountry` i `cf-connecting-ip`, dozwolone hosty dla każdego trybu builda |
+| `constants/locale.ts`   | Katalog `LOCALES`, `LocaleCode`, `getLocaleName` i `getLocaleDirection`                                      |
+| `constants/country.ts`  | Katalog `COUNTRIES` i `CountryCode`                                                                          |
+| `constants/currency.ts` | Katalog `CURRENCIES`, `CurrencyCode` i `DEFAULT_CURRENCY_CODE`                                               |
+| `constants/timezone.ts` | Katalog `TIMEZONES` i `TimezoneCode`                                                                         |
+| `constants/pricing.ts`  | Mnożniki cen regionalnych, cookie cen regionalnych i formatowanie walut                                      |
 
-## Why it exists
+Katalog locale zawiera wszystkie znane locale. Dziewięć locale, które aplikacja faktycznie obsługuje, definiuje `I18N.SUPPORTED_LOCALES` w `src/integrations/use-intl/i18n.config.ts`.
 
-Przekrojowych **dopuszczalnych wartości** i **kodów błędów** nie definiuj od nowa w każdej funkcji. Języki włączone w aplikacji (podzbiór) nadal opisuje `i18n.config.ts`; szerszy katalog może mieszkać w `_core`.
+## Narzędzia
+
+- `utils/pagination.ts`: `paginationSchema` (`pageIndex`, `pageSize`), `DEFAULT_PAGINATION` i `DEFAULT_PAGE_SIZE`
+- `utils/zod-fields.ts`: pola Zod wielokrotnego użytku, takie jak `idField` i `localeField`
+
+## Błędy
+
+Istnieje jedna klasa błędu i jedna lista kodów:
+
+```ts
+export const ERROR_CODES = {
+  AUTH_API_ERROR: "AUTH_API_ERROR",
+  CONFLICT: "CONFLICT",
+  FORBIDDEN: "FORBIDDEN",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
+  NOT_FOUND: "NOT_FOUND",
+  TOO_MANY_REQUESTS: "TOO_MANY_REQUESTS",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  VALIDATION: "VALIDATION",
+} as const
+
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]
+
+export class AppError extends Error {
+  readonly code: ErrorCode
+
+  constructor(code: ErrorCode, message: string = code) {
+    super(message)
+    this.name = "AppError"
+    this.code = code
+  }
+}
+```
+
+Funkcje serwerowe rzucają `AppError`. Middleware `withRequest` normalizuje wszystkie pozostałe błędy: błędy API Better Auth stają się `AUTH_API_ERROR` z kluczem błędu Better Auth jako komunikatem, błędy Zod stają się `VALIDATION`, a nieznane błędy są logowane i zamieniane na `INTERNAL_ERROR`. W przeglądarce `useErrorMessage()` z `src/hooks/use-error-message.ts` mapuje komunikat na tłumaczenia `auth.errors.*` lub `errors.codes.*`.
+
+## Powiązane strony
+
+- [Funkcje serwerowe i przypadki użycia](/docs/architecture/modules-and-use-cases)
+- [Uwierzytelnianie i bezpieczeństwo](/docs/architecture/security-model)

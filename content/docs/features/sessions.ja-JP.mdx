@@ -1,10 +1,24 @@
 ---
-title: セッション
-description: 自己および管理者のターゲットのためのリストおよび見直しられた会合。
+title: "セッション"
+description: "D1 に保存される Better Auth のセッションと、管理画面の設定でのセルフサービスの失効。"
 ---
 
-## モジュール
+セッションは D1 の `session` テーブル（`src/modules/session/session.schema.ts`）に保存されます。`auth.session.ts` はリクエスト単位でメモ化される `getRequestSession` で読み取り、ルートとコンポーネントに `getCurrentSessionQuery` を提供します。クライアント側のコピーにセッショントークンが含まれることはありません。
 
-`modules/session/use-cases` — アクティブ/ユーザー セッションを一覧表示し、 1/many/others を再起動します。
+## ユースケース
 
-管理者設定のセキュリティ UI とユーザー管理の操作で Surfaced。
+| ユースケース                              | ミドルウェア                         | 利用箇所           |
+| ----------------------------------------- | ------------------------------------ | ------------------ |
+| `getActiveSessions`                       | サインイン必須                       | `SettingsSessions` |
+| `revokeSession`                           | サインイン必須、自分のセッションのみ | `SessionRow`       |
+| `revokeOtherSessions`                     | サインイン必須                       | `SettingsSessions` |
+| `listUserSessions`                        | `session: ["list"]`                  | 画面からは未使用   |
+| `revokeUserSession`、`revokeUserSessions` | `session: ["revoke"]`                | 画面からは未使用   |
+
+`getActiveSessions` は現在のユーザーの有効期限内のセッションを新しい順に返し、なりすましセッションは除外します。
+
+## UI
+
+`/admin/settings` の **設定 → セキュリティ** は `SettingsSessions`（`src/presentation/components/custom/admin/settings/sessions.tsx`）を表示します。各 `SessionRow` はデバイス（ユーザーエージェントまたは IP アドレス）、最終アクティビティ、現在のセッションを示すバッジを表示し、そのセッションを失効できます。ヘッダーのボタンで他のすべてのセッションを失効できます。パスワードを変更したときもセッション一覧が更新されます。
+
+他のユーザーのセッションを扱う管理者向けの処理は、サーバー関数としてのみ存在します。

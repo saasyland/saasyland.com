@@ -1,10 +1,46 @@
 ---
-title: Catégories
-description: Cas d'utilisation de la catégorie CRUD.
+title: "Catégories"
+description: "Catégories et collections dans D1, listées sur l’écran des produits de l’administration."
 ---
 
-## Module
+## Données
 
-`modules/category/use-cases`.
+`src/modules/category/category.schema.ts` définit la table `category` : `name`, `description`, `kind` (`category` ou `collection`), `visibility` (`public` ou `hidden`), `icon` (`Archive`, `FolderOpen` ou `Puzzle`) et les horodatages.
 
-Utilisé par l'organisation de produits UI et futurs filtres en vitrine.
+Cas d’usage dans `src/modules/category/use-cases`, chacun protégé par la permission `category` correspondante : `getCategories` (paginé, `kind` facultatif), `getCategory`, `createCategory`, `updateCategory` et `deleteCategory`. `createCategory` est la structure de référence d’un cas d’usage de mutation :
+
+```ts
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
+```
+
+Les messages de validation et d’erreur se trouvent dans les espaces de noms `category.validations` et `category.errors`.
+
+## Écran d’administration
+
+Les onglets **Catégories** et **Collections** de `/admin/products` affichent `categoryColumns` avec `getCategoriesPageQuery({ kind, pageIndex, pageSize })`. Seule la liste est branchée : aucun écran ne crée, ne modifie ni ne supprime de catégorie. Les produits n’ont pas encore de relation avec les catégories, la colonne du nombre d’éléments affiche donc une valeur provisoire.
+
+## Guides associés
+
+- [Ajouter un cas d’usage](/docs/guides/add-a-use-case)
+- [Fonctions serveur](/docs/guides/server-functions)

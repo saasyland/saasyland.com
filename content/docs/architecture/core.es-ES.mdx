@@ -1,14 +1,61 @@
 ---
-title: Núcleo compartido
-description: Errores de dominio y catálogos compartidos en módulos/_core.
+title: "Núcleo compartido"
+description: "El vocabulario de errores, los catálogos y las utilidades de src/modules/_core que comparten todos los módulos."
 ---
 
-## Contenido
+`src/modules/_core` es la única carpeta de módulo que no es dueña de ninguna tabla. Reúne valores y utilidades que necesitan varios módulos, para que ninguno tenga que volver a definirlos.
 
-- `constants/errors.ts` — `ERROR_CODES`, `AppError`, `ActionServerError` (el conjunto de términos relacionados con los errores)
-- `constants/` — catálogos de localización (y relacionados) utilizados por i18n y las configuraciones específicas de los productos.
-- `utils/` — funciones auxiliares puras, compartidas entre los distintos módulos.
+## Constantes
 
-## ¿Por qué existe?
+| Archivo                 | Contenido                                                                                                                    |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `constants/errors.ts`   | `ERROR_CODES`, el tipo `ErrorCode` y la clase `AppError`                                                                     |
+| `constants/api.ts`      | `HTTP_STATUS`, los nombres de las cabeceras `cf-ipcountry` y `cf-connecting-ip` y los hosts permitidos en cada modo de build |
+| `constants/locale.ts`   | El catálogo `LOCALES`, `LocaleCode`, `getLocaleName` y `getLocaleDirection`                                                  |
+| `constants/country.ts`  | El catálogo `COUNTRIES` y `CountryCode`                                                                                      |
+| `constants/currency.ts` | El catálogo `CURRENCIES`, `CurrencyCode` y `DEFAULT_CURRENCY_CODE`                                                           |
+| `constants/timezone.ts` | El catálogo `TIMEZONES` y `TimezoneCode`                                                                                     |
+| `constants/pricing.ts`  | Los multiplicadores de precios regionales, la cookie de precios regionales y el formato de moneda                            |
 
-Los **valores válidos** y los **códigos de error** transversales no deben ser redefinidos para cada función. Las ubicaciones (un subconjunto) que utilizan la aplicación siguen estando en `i18n.config.ts`; el catálogo más amplio puede ubicarse en `_core`.
+El catálogo de locales recoge todos los locales conocidos. Los nueve locales que la aplicación sirve realmente son `I18N.SUPPORTED_LOCALES`, en `src/integrations/use-intl/i18n.config.ts`.
+
+## Utilidades
+
+- `utils/pagination.ts`: `paginationSchema` (`pageIndex`, `pageSize`), `DEFAULT_PAGINATION` y `DEFAULT_PAGE_SIZE`
+- `utils/zod-fields.ts`: campos Zod reutilizables como `idField` y `localeField`
+
+## Errores
+
+Hay una sola clase de error y una sola lista de códigos:
+
+```ts
+export const ERROR_CODES = {
+  AUTH_API_ERROR: "AUTH_API_ERROR",
+  CONFLICT: "CONFLICT",
+  FORBIDDEN: "FORBIDDEN",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
+  NOT_FOUND: "NOT_FOUND",
+  TOO_MANY_REQUESTS: "TOO_MANY_REQUESTS",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  VALIDATION: "VALIDATION",
+} as const
+
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]
+
+export class AppError extends Error {
+  readonly code: ErrorCode
+
+  constructor(code: ErrorCode, message: string = code) {
+    super(message)
+    this.name = "AppError"
+    this.code = code
+  }
+}
+```
+
+Las funciones de servidor lanzan `AppError`. El middleware `withRequest` normaliza todo lo demás: los errores de la API de Better Auth se convierten en `AUTH_API_ERROR` con la clave de error de Better Auth como mensaje, los errores de Zod en `VALIDATION`, y los errores desconocidos se registran en el log y se convierten en `INTERNAL_ERROR`. En el navegador, `useErrorMessage()` de `src/hooks/use-error-message.ts` asocia el mensaje a las traducciones `auth.errors.*` o `errors.codes.*`.
+
+## Páginas relacionadas
+
+- [Funciones de servidor y casos de uso](/docs/architecture/modules-and-use-cases)
+- [Autenticación y seguridad](/docs/architecture/security-model)

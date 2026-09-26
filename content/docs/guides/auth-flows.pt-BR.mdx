@@ -1,16 +1,62 @@
 ---
-title: Autenticação e segurança
-description: Autenticação e segurança... SaaSy Land
+title: "Fluxos de autenticação"
+description: "Como funcionam login, cadastro com verificação de e-mail, redefinição de senha, autenticação em dois fatores, OAuth e logout."
 ---
 
-Autorização é aplicada duas vezes: rota `beforeLoad` Os guardas protegem os layouts do administrador e do cliente, e cada função de servidor protegida verifica o chamador de forma independente. Use `requireAdmin` ou `requireSession` para layouts e `withAuth(permission)` para as operações. As operações do cliente derivam da propriedade da sessão.
+O Better Auth (`src/integrations/better-auth/auth.server.ts`) armazena usuários, sessões e tokens de verificação no D1 e atende seus endpoints em `/api/auth`. As páginas de autenticação ficam sob o layout `/auth`; seus formulários estão em `src/presentation/components/custom/auth/`.
 
-Better Auth Armazena sessões em D1 e lida com credenciais, OAuth, verificação, redefinição de senha, autenticação de dois fatores, personificação e revogação. `tanstackStartCookies`, que encaminha cookies de autenticação através de respostas de função de servidor.
+## Guards de rota
 
-D1 Os limites de velocidade usam a escrita atômica e o Cloudflare Operações públicas sensíveis têm chaves de limite separadas. Validar entradas com o módulo Zod Esquema, máscaras de falhas inesperadas, verificação de assinaturas de pagamento webhook, e manter todas as credenciais atrás dos limites apenas do servidor.
+`src/integrations/better-auth/auth.routes.ts` exporta os guards usados em `beforeLoad`:
+
+| Guard                | Usado em                         | Efeito                                                             |
+| -------------------- | -------------------------------- | ------------------------------------------------------------------ |
+| `requireSignedIn`    | Layout `/app`                    | Redireciona para `/auth/sign-in` sem sessão                        |
+| `requireAdmin`       | Layout `/admin`                  | Também redireciona para `/app` sem a permissão `admin: ["access"]` |
+| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Envia o usuário logado para `/admin` ou `/app`                     |
+| `redirectAfterAuth`  | `/auth/callback`                 | Envia a nova sessão para `/admin` ou `/app` conforme o papel       |
+
+`requireSignedIn` e `requireAdmin` verificam a sessão de novo a cada navegação, `redirectIfSignedIn` usa a sessão em cache e todo guard limpa o cache de queries quando o usuário logado muda.
+
+## Login
+
+1. `SignInForm` chama `signIn.email` do cliente do Better Auth.
+2. Uma conta não verificada recebe o erro `EMAIL_NOT_VERIFIED` e é enviada para `/auth/verify-email` com o endereço de e-mail.
+3. Uma conta com autenticação em dois fatores recebe `twoFactorRedirect`; o plugin do cliente então abre `/auth/two-factor` no idioma atual.
+4. Em caso de sucesso, `usePostAuthRedirect` limpa os caches de queries e do router e navega para `/auth/callback`, que redireciona conforme o papel.
+
+Os erros que o Better Auth informa por redirecionamento chegam como `?error=` em `/auth/sign-in` e são exibidos a partir de `auth.errors`.
+
+## Cadastro e verificação de e-mail
+
+1. `SignUpForm` valida `signUpWithPasswordSchema` e chama `signUpWithPasswordMutation`, uma função de servidor com limite de requisições que chama `auth.api.signUpEmail`.
+2. O Better Auth cria o usuário e chama `sendVerifyEmail`, que envia um link para `/auth/verify-email?token=…` no idioma da página em que o cadastro começou. Cadastrar-se de novo com um endereço não verificado envia um link novo.
+3. O formulário navega para `/auth/verify-email?email=…`, onde `VerifyEmailForm` pode reenviar o link com `sendVerificationEmailMutation`, que também tem limite de requisições.
+4. Ao abrir o link, o `beforeLoad` da rota entrega o token a `/api/auth/verify-email`. O Better Auth o verifica, faz o login do usuário e volta para `/auth/verify-email?verified=true`, que redireciona para `/auth/callback`. Um link inválido ou expirado volta com `error`, e a página oferece um novo.
+
+O login fica bloqueado até o e-mail ser verificado (`requireEmailVerification: true`).
+
+## Redefinição de senha
+
+1. `/auth/forgot-password`: `ForgotPasswordForm` chama `requestPasswordResetMutation` com `redirectTo` apontando para `/auth/reset-password` localizado.
+2. O Better Auth chama `sendResetPasswordEmail`. O link do e-mail passa pelo Better Auth, que redireciona para `/auth/reset-password?token=…`, ou com `error` quando o token é inválido ou expirou.
+3. `ResetPasswordForm` envia a nova senha com `resetPasswordMutation`. O Better Auth revoga todas as sessões existentes (`revokeSessionsOnPasswordReset: true`) e o formulário navega para o login.
+
+## Autenticação em dois fatores
+
+- Ativação (configurações de administração, Segurança): `TwoFactorDialog` pede a senha (`enableTwoFactorMutation`), mostra o segredo TOTP para adicionar a um app autenticador, confirma um código (`verifyTotpMutation`) e depois mostra os códigos de backup. `disableTwoFactorMutation` a desativa.
+- Login: `/auth/two-factor` aceita um código do app (`verifyTotpMutation`) ou um código de backup (`verifyBackupCodeMutation`), ambos com limite de requisições, com a opção de confiar no dispositivo. Em caso de sucesso, `usePostAuthRedirect` é executado.
+
+## OAuth
+
+`OAuthButtons` chama `authClient.signIn.social` para Google ou GitHub com `callbackURL` apontando para `/auth/callback` localizado e `errorCallbackURL` para `/auth/sign-in` localizado. Os provedores são configurados em `socialProviders`; registre neles `https://<host>/api/auth/callback/google` e `https://<host>/api/auth/callback/github`. Contas com o mesmo e-mail são vinculadas automaticamente, e os tokens dos provedores são armazenados criptografados.
+
+## Logout
+
+`useSignOut` chama `signOutUserMutation`, limpa o cache de queries, navega para `/auth/sign-in` e limpa o cache do router.
 
 ## Guias relacionados
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Checklist de segurança](/docs/guides/security-checklist)
+- [Papéis e permissões](/docs/guides/roles-and-permissions)
+- [Templates de e-mail](/docs/guides/email-templates)

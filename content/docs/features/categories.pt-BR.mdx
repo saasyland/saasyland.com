@@ -1,10 +1,46 @@
 ---
-title: Categorias
-description: Casos de uso da categoria CRUD.
+title: "Categorias"
+description: "Categorias e coleções no D1, listadas na tela de produtos da administração."
 ---
 
-## Módulo
+## Dados
 
-`modules/category/use-cases`.
+`src/modules/category/category.schema.ts` define a tabela `category`: `name`, `description`, `kind` (`category` ou `collection`), `visibility` (`public` ou `hidden`), `icon` (`Archive`, `FolderOpen` ou `Puzzle`) e timestamps.
 
-Usado pela organização de produtos UI e futuros filtros de loja.
+Casos de uso em `src/modules/category/use-cases`, cada um protegido pela permissão `category` correspondente: `getCategories` (paginado, `kind` opcional), `getCategory`, `createCategory`, `updateCategory` e `deleteCategory`. `createCategory` é a estrutura de referência para um caso de uso de mutação:
+
+```ts
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
+```
+
+As mensagens de validação e de erro ficam nos namespaces `category.validations` e `category.errors`.
+
+## Tela administrativa
+
+As abas **Categorias** e **Coleções** de `/admin/products` mostram `categoryColumns` com `getCategoriesPageQuery({ kind, pageIndex, pageSize })`. Somente a listagem está conectada: nenhuma tela cria, edita ou exclui categorias. Os produtos ainda não têm relação com categorias, por isso a coluna de contagem de itens mostra um valor provisório.
+
+## Guias relacionados
+
+- [Adicionar um caso de uso](/docs/guides/add-a-use-case)
+- [Funções de servidor](/docs/guides/server-functions)

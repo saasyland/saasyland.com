@@ -1,6 +1,101 @@
 ---
 title: "Composition patterns"
-description: "Prefer composition over boolean props; lift state into providers."
+description: "The rules for composing routes, pages and components in this codebase."
 ---
 
-Use compound components and focused providers to share state. Keep reusable UI in `src/presentation/components`, place feature-specific parts beside their parent component, and pass refs as props with React 19. Keep view logic separate from feature use cases in `src/modules`.
+## Routes compose pages
+
+A route file defines its `<Name>Page` or `<Name>Layout` component, `NAMESPACE` or `NAMESPACES`, the loader and `head`. The page only places widgets; the widgets live in `src/presentation/components/custom/<area>/`. A layout looks like this (`src/routes/app.tsx`):
+
+```tsx
+const AppLayout = (): JSX.Element => (
+  <SidebarProvider className="h-svh overflow-hidden">
+    <AppSidebar />
+    <SidebarInset className="relative min-h-0 min-w-0 overflow-hidden">
+      <Background className="z-[-1]" glow={false} />
+      <AppHeader />
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-5 pb-6 md:px-6 md:pt-7 md:pb-8">
+        <div className="mx-auto w-full max-w-5xl">
+          <Outlet />
+        </div>
+      </div>
+    </SidebarInset>
+  </SidebarProvider>
+)
+```
+
+A server function used by one route only may be defined in that route file with `createServerFn`, as `src/routes/blog.index.tsx` does.
+
+## One widget, dialog or form per file
+
+Each widget, dialog, form or column set has its own file: `admin/users/row-actions.tsx`, `delete-user-dialog.tsx`, `reset-password-dialog.tsx`, `user-columns.tsx`. Component folders are flat: no `components/`, `hooks/`, `constants/` or `types/` subfolders, and no split into `x.tsx` plus `x-content.tsx`. Shared components sit directly in `custom/`.
+
+## Components read their own data
+
+A component gets its text and data itself instead of through props:
+
+- translations with `useTranslations`;
+- query data with `useSuspenseQuery`, already fetched by the route loader;
+- loader data, route context and search params with `getRouteApi("…")`.
+
+```tsx
+const route = getRouteApi("/blog/$")
+
+export const PostMeta = (): JSX.Element => {
+  const { post } = route.useLoaderData()
+  const t = useTranslations("pages.blog.post")
+  const format = useFormatter()
+
+  const details = [post.authorName, t("readingTime", { minutes: post.readingTimeMinutes }), post.tags.join(", ")].filter(
+    (item) => item.trim().length > 0,
+  )
+
+  return (
+    <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-border py-4 font-mono text-body-sm text-muted-foreground">
+      <span className="flex items-center gap-2.5">
+        <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
+        <time className="tabular-nums" dateTime={new Date(post.date).toISOString()}>
+          {format.dateTime(new Date(post.date), { day: "numeric", month: "long", year: "numeric" })}
+        </time>
+      </span>
+      {details.map((item) => (
+        <span className="flex items-center gap-3" key={item}>
+          <span aria-hidden className="text-border">
+            &middot;
+          </span>
+          {item}
+        </span>
+      ))}
+    </div>
+  )
+}
+```
+
+Props carry identity or state that only the parent knows, such as the `user` of a dialog with `isOpen` and `onOpenChange`, or an `activationId`. There are no text or label props, no prop drilling and no pass-through wrappers that only rename props or forward children. A constant used by one file stays in that file; data shared by several files goes to `src/data`.
+
+## Rich text
+
+Tag maps for `t.rich` are module-level constants, never objects created during render:
+
+```tsx
+const REUSE_TAGS = { accent: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong> }
+```
+
+## Conditional classes
+
+Use `cn` from `~/src/lib/cn` with the object syntax:
+
+```tsx
+<p className={cn("font-medium", { "text-foreground": !banned, "text-muted-foreground line-through": banned })}>{name}</p>
+```
+
+Render alternatives with a pair of `&&` conditions or an early return instead of a multi-line ternary.
+
+## Providers
+
+Providers that change after hydration wrap only the widgets that need them, never a route `Outlet`: `ThemeProvider` wraps the `Toaster` and the docs `ThemeSwitch`, and `MotionProvider` wraps the landing sections and the blog list. `AriaProvider` wraps the root outlet and `TranslationsProvider` wraps the document body, because every screen needs them.
+
+## Related guides
+
+- [Presentation layer](/docs/architecture/presentation-layer)
+- [Conventions](/docs/reference/conventions)

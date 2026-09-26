@@ -1,26 +1,38 @@
 ---
-title: テストとCI
-description: テストとCI — SaaSy Land
+title: "CI/CD"
+description: "チェック、ブラウザーテスト、デプロイのための GitHub Actions ワークフローです。"
 ---
 
-Vite+ は 3 つのプロジェクトで Vitest を実行します。ノードのテスト、統合テスト、jsdom コンポーネントのテスト。 既存の振る舞いのテストは、演習中のコードの横に保つ `__test__`. . インポートテスト API から `vite-plus/test`. . ブラウザのフルフローとレンダリングチェックに Playwright を使用します。
+ワークフローは `.github/workflows/` にあります。アプリケーションのワークフロー（`ci.yml`、`e2e-reusable.yml`、`deploy-reusable.yml`）は、コンポジットアクション `.github/actions/setup` でツールチェーンをセットアップします。内容は Bun 1.4.0、Node 24 を使う Vite+、Bun のキャッシュ、`bun install --frozen-lockfile --ignore-scripts`、`bun run typegen` です。`remotion.yml` は代わりに Node と npm をセットアップします。
 
-共有セットアップはローカル D1 と KV のモックを供給します。 D1 は SQLite に対するチェックイン SQL のマイグレーションを実行します。 サーバ機能 RPC ブリッジは、TanStack の真のミドルウェアと検証パイプラインを維持します。 コンポーネント レンダー ヘルパーは、実際の QueryClient と Router のコンテキストを提供します。 外部メール、OAuth、支払いコールはテストでモックされます。
+| ワークフロー          | トリガー                                          | ジョブ                                                                        |
+| --------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ci.yml`              | プルリクエストと `main` へのプッシュ              | チェックとカバレッジ、Chromium の E2E、その後プレビューまたは本番へのデプロイ |
+| `e2e-full.yml`        | `main` へのプッシュ、毎週月曜 03:15 UTC、手動実行 | プッシュ時は WebKit、スケジュール実行と手動実行では Chromium と WebKit        |
+| `e2e-reusable.yml`    | 上記のワークフローから呼び出し                    | テスト用データベース、テスト用ビルド、1 つの Playwright プロジェクト          |
+| `deploy-reusable.yml` | `ci.yml` から呼び出し                             | ビルド、D1 マイグレーション、`wrangler deploy`                                |
+| `remotion.yml`        | `remotion/` またはその共通定数の変更              | ランディングページの動画プロジェクトを npm でチェックしてバンドル             |
 
-編集中に集中したプロジェクトを実行し、完全なスイート、カバレッジゲート、チェック、プレビュービルドを実行します。 ブラウザテストでは、パブリックページ、authリダイレクト、SSRなしJavaScript、およびクライアントナビゲーションを確認します。 CIはローカルバインディングを使用し、ライブデータベースやプロバイダシークレットを必要としません。
+## チェック
 
-```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
-```
+`ci.yml` の `verify` ジョブは、`bun run check`（クラス名テーブル、i18n とコンテンツのチェック、フォーマット、リント、型チェック）と `bun run test:coverage` を実行し、カバレッジレポートをアップロードします。`e2e` ジョブは `db:migrate:test`、`db:seed:test`、`build:test` を実行し、ブラウザーをインストールして `bunx playwright test e2e/specs --project=chromium` を実行します。E2E が失敗した場合は Playwright のレポートをアップロードします。
+
+## デプロイ
+
+デプロイは `verify` と `e2e` が成功した後にのみ実行されます。
+
+| イベント                                       | デプロイ先   | GitHub の環境 | URL                           |
+| ---------------------------------------------- | ------------ | ------------- | ----------------------------- |
+| このリポジトリ内のブランチからのプルリクエスト | `preview`    | `Preview`     | https://preview.saasyland.com |
+| `main` へのプッシュ                            | `production` | `Production`  | https://saasyland.com         |
+
+フォークと Dependabot からのプルリクエストは検証されますが、デプロイはされません。プレビューは共有されており、各デプロイは前回のデプロイを置き換え、同じプレビュー用の D1 データベースと KV 名前空間を使います。
+
+`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用して `bunx wrangler deploy` を実行します。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入ります。
+
+Dependabot は GitHub Actions を毎週更新します。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [Playwright](/docs/tooling/playwright)
+- [プレビューをデプロイする](/docs/getting-started/deploy-preview)

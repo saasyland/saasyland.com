@@ -1,6 +1,58 @@
 ---
-title: Polices & Branding
-description: Les actifs de marque et le chargement typographique.
+title: "Polices et identité visuelle"
+description: "Polices Geist auto-hébergées, préchargements selon la langue et constantes de marque."
 ---
 
-`presentation/branding` + `presentation/fonts`C'est vrai. Garder les signaux de marque forts à l'atterrissage; l'administrateur priorise la densité et la clarté.
+## Polices
+
+Geist et Geist Mono sont auto-hébergées dans `public/fonts` sous forme de sous-ensembles WOFF2 variables, servis avec un cache immuable d’un an (`public/_headers`). `src/presentation/styles/fonts.css` déclare un `@font-face` par plage Unicode (latin, latin étendu, cyrillique), des polices de repli aux métriques ajustées et les variables `--font-geist-sans` et `--font-geist-mono`. `globals.css` les associe à `--font-sans`, `--font-heading` et `--font-mono`. Le texte japonais utilise les polices du système.
+
+## Préchargements
+
+`src/presentation/document-assets.ts` exporte `DOCUMENT_STYLESHEET` (`globals.css`) et les préchargements de polices pour une langue :
+
+```ts
+export const fontPreloads = (locale: SupportedLocale) => {
+  const fonts = [GEIST_LATIN, GEIST_MONO_LATIN]
+  if (locale === "pl-PL") {
+    fonts.push(GEIST_LATIN_EXT)
+  } else if (locale === "uk-UA") {
+    fonts.push(GEIST_CYRILLIC)
+  }
+  return fonts
+}
+```
+
+La route racine les ajoute sous forme de balises `link`, et le Worker (`src/server.ts`) envoie la feuille de style et les mêmes polices dans un en-tête de préchargement `Link` sur chaque réponse HTML. Les noms des fichiers de police sont des empreintes de leur contenu : si vous remplacez une police, mettez à jour `fonts.css` et `document-assets.ts`.
+
+## Constantes de marque
+
+`src/presentation/branding/index.ts` est la source unique de la marque :
+
+```ts
+export const APP_NAME = "SaaSy Land"
+export const APP_DOMAIN = "saasyland.com"
+
+export const APP_URL = `https://${APP_DOMAIN}`
+export const CONTACT_EMAIL = `hello@${APP_DOMAIN}`
+export const NOTIFICATIONS_EMAIL = `notifications@${APP_DOMAIN}`
+
+export const APP_FOUNDED_YEAR = 2023
+
+export const APP_GITHUB_OWNER = "saasyland"
+export const APP_GITHUB_REPO = APP_DOMAIN
+export const APP_GITHUB_URL = `https://github.com/${APP_GITHUB_OWNER}/${APP_GITHUB_REPO}`
+```
+
+Elles alimentent le nom de l’application dans Better Auth et l’émetteur 2FA, les noms des cookies de thème et de langue, les hôtes autorisés, le pied de page, la navigation de la documentation, le nombre d’étoiles GitHub, les données structurées du blog ainsi que les expéditeurs et destinataires des e-mails.
+
+## Logo et médias
+
+- `Wordmark` (`src/presentation/components/custom/wordmark.tsx`) affiche le logo en SVG intégré à côté de `APP_NAME`.
+- Le favicon est `public/favicon.ico` ; les images du blog se trouvent dans `public/images/blog`.
+- Les vidéos de la page d’accueil se trouvent dans `src/presentation/assets/motion` sous forme de fichiers WebM avec des affiches WebP. Une affiche doit conserver les dimensions de sa vidéo.
+
+## Guides associés
+
+- [Thèmes et identité visuelle](/docs/guides/theming-and-branding)
+- [Thème](/docs/ui/theme)

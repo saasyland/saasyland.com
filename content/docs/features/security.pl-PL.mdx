@@ -1,10 +1,27 @@
 ---
-title: "Bezpieczeństwo i hartowanie"
-description: "Funkcje bezpieczeństwa i planowane kontrole."
+title: "Bezpieczeństwo i utwardzanie"
+description: "Zabezpieczenia, które aplikacja implementuje, i te, których nie implementuje."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+## Zaimplementowane
 
-Cross-link: Architecture → Security model, Guides → Security checklist, Features → Two-factor / Sessions / Impersonation.
+- **Sesje**: sesje Better Auth w D1, prefiks ciasteczek `saasyland`, bezpieczne ciasteczka poza trybami lokalnymi, dozwolone hosty dla każdego trybu i `cf-connecting-ip` jako adres klienta. Sesja po stronie klienta nigdy nie zawiera tokenu.
+- **Konta**: obowiązkowa weryfikacja e-maila, unieważnianie sesji po zresetowaniu hasła, opcjonalne TOTP z kodami zapasowymi, identyfikatory weryfikacji przechowywane jako skróty i szyfrowane tokeny OAuth.
+- **Autoryzacja**: `requireSignedIn` i `requireAdmin` na trasach; `authorized(permission)` w funkcjach serwerowych z rolami z `auth.access.ts`.
+- **Limity żądań**: limiter Better Auth i middleware `withRateLimit` współdzielą tabelę `rate_limit` w D1. `RATE_LIMITS.SENSITIVE` pozwala na 3 wywołania, a `RATE_LIMITS.TOKEN` na 5 wywołań w ciągu 60 sekund na klienta i akcję.
+- **Błędy**: middleware żądań zamienia niepowodzenia na kody `AppError` (`src/modules/_core/constants/errors.ts`), więc klienci nigdy nie dostają surowych komunikatów serwera; komponenty wyświetlają je przez `useErrorMessage`.
+- **Webhooki i formularze**: webhooki Polar są weryfikowane za pomocą `POLAR_WEBHOOK_SECRET`; żądania newslettera są przyjmowane tylko ze znanych hostów i przez HTTPS (`newsletterRequestOrigin`).
 
-Planned: webhook signatures, org isolation, optional bot protection, stronger audit trails.
+## Niezaimplementowane
+
+- Nagłówki bezpieczeństwa, takie jak Content Security Policy: `public/_headers` ustawia tylko cache.
+- Dziennik audytu, także dla blokad, usunięć i podszywania się.
+- Ochrona przed botami lub CAPTCHA w publicznych formularzach.
+- Ekran podszywania się ([Podszywanie się](/docs/features/impersonation)).
+
+## Powiązane przewodniki
+
+- [Model bezpieczeństwa](/docs/architecture/security-model)
+- [Lista kontrolna bezpieczeństwa](/docs/guides/security-checklist)
+- [Uwierzytelnianie dwuskładnikowe](/docs/features/two-factor)
+- [Sesje](/docs/features/sessions)

@@ -1,16 +1,57 @@
 ---
-title: Інтернаціоналізація та локалізації
-description: Інтернаціоналізація та локалізації — SaaSy Land
+title: "Інтернаціоналізація та мови"
+description: "Дев’ять мов, префікси в URL, cookie мови та повідомлення use-intl, поділені на простори імен."
 ---
 
-Повідомлень, які живуть в `messages/{locale}` для всіх дев'яти налаштованих мов як пунктуальні файли імен, наприклад, `pages.admin.users.json`. . Конфігурація локальних даних, адресні помічники, завантаження повідомлень, метаданих та поштових перекладачів, які живуть у `src/integrations/use-intl`.
+## Мови
 
-Англійська мова `/docs`; Польське використання `/pl-PL/docs`. . Поза «69» `/en` і `/pl` посилання канонічні. Файли маршруту оголошують `staticData.namespaces` і перезавантажити однакові робочі місця в їх навантажувачі. `TranslationsProvider` збірних просторів для активного маршруту `IntlProvider`. . На сервері навантажуються повідомлення електронної пошти, що знаходяться на сервері.
+`I18N` у `src/integrations/use-intl/i18n.config.ts` визначає `en-US` (типова), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` і `uk-UA`, cookie `saasyland.com_locale` і типовий часовий пояс `UTC`.
 
-Прочитати місцевість `getCurrentLocale` на сервері і `useLocale` в складових. URL-адреса обирає документ, що локалізується. Серверно-функціональні запити використовують локальний cookie. Зміна мови зберігає шлях, запит і фрагмент і перезавантажує документ для завантаження відповідного вмісту. Зареєструватися `bun run check:i18n` після зміни ключів.
+## URL
 
-## Схожі посібники
+Типова мова не має префікса; кожна інша мова — це префікс шляху, наприклад `/docs` і `/pl-PL/docs`. Для запитів документів Worker (`resolveLocale` в `i18n.middleware.ts`) перенаправляє неканонічні шляхи з кодом 308: `/en-US/docs` стає `/docs`, а `/pl/docs` стає `/pl-PL/docs`. Шляхи `/api` і `/_serverFn` ніколи не мають префікса.
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+`rewrite` маршрутизатора в `src/router.tsx` прибирає префікс із вхідних URL і додає його до вихідних, тож маршрути й посилання використовують звичайні шляхи: `<Link to={ROUTES.SIGN_IN}>`. Використовуйте `localizePathname({ locale, pathname })` лише для «сирих» URL: `callbackURL` і `errorCallbackURL` у Better Auth, посилань у листах і вручну зібраних `<a href>`. `AriaProvider` локалізує `href` компонентів React Aria.
+
+## Cookie мови
+
+Коли мова в URL документа відрізняється від cookie, Worker встановлює cookie у відповіді. `getCurrentLocale()` працює з обох боків: для сторінок читає URL, а для запитів до `/api` і серверних функцій — cookie, тож листи й серверні повідомлення використовують мову сторінки, на якій перебуває користувач.
+
+## Повідомлення
+
+Повідомлення — це файли `messages/<locale>/<namespace>.json`; назва файлу є простором імен, наприклад `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` або `common`. Кожен простір імен сторінки містить `metadata.title` і `metadata.description`.
+
+- Кореневі простори імен (`common`, `components.*`, `errors*`) попередньо завантажуються в кореневому `beforeLoad`.
+- Макет оголошує `NAMESPACES`, сторінка — `NAMESPACE`. Обидва потрапляють до `staticData.namespaces` і попередньо завантажуються loader:
+
+```ts
+loader: async ({ context }) => {
+  const locale = getCurrentLocale()
+  const [metadata] = await Promise.all([
+    loadPageMetadata({ locale, namespace: NAMESPACE }),
+    preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+  ])
+  return { locale, metadata }
+},
+```
+
+- `TranslationsProvider` обгортає тіло документа й об’єднує кореневі простори імен із просторами імен відповідних маршрутів в один `IntlProvider`, тому екрани помилок теж перекладено.
+- Листи завантажують свій простір імен на сервері через `loadNamespace`.
+
+## Компоненти
+
+Кожен компонент викликає `useTranslations` лише один раз і називає перекладач `t`. Компонент, якому потрібні два простори імен, використовує їхнього спільного батька або `useTranslations()` з повними ключами. Числа й дати форматуйте через `useFormatter`, `useDateFormatter` і `useCurrencyFormatter`.
+
+## Зміна мови
+
+`locale-switcher.tsx` містить два елементи керування мовою. `LocaleSwitcher` у футері маркетингових сторінок — це меню `<details>` зі звичайним посиланням для кожної мови на поточний шлях цією мовою, тож воно працює ще до гідратації. `LocaleSelect` у бічних панелях документації та застосунку клієнта — це поле вибору в стилі `ThemeSwitch`, яке відкриває ту саму URL-адресу. В обох випадках вибір мови завантажує новий документ, а рядок запиту й фрагмент не зберігаються. Сторінки польською та українською також попередньо завантажують підмножини шрифтів розширеної латиниці та кирилиці ([Шрифти та брендинг](/docs/ui/fonts-and-branding)).
+
+## Перевірки
+
+`bun run check:i18n` перевіряє відповідність ключів між мовами, розв’язує статичні ключі в області видимості їхнього `useTranslations`, перевіряє синтаксис повідомлень ICU та відповідність вмісту документації й блогу.
+
+## Пов’язані посібники
+
+- [Архітектура i18n](/docs/architecture/i18n-architecture)
+- [Повідомлення i18n](/docs/guides/i18n-messages)
+- [use-intl](/docs/integrations/use-intl)

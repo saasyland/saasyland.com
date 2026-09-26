@@ -1,23 +1,53 @@
 ---
-title: D1 e Drizzle
-description: D1 e Drizzle — SaaSy Land
+title: "D1 e Drizzle"
+description: "Il database D1, gli schemi Drizzle e le scritture atomiche."
 ---
 
-Cloudflare D1 è il database delle applicazioni. Uso degli schemi del modulo `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` Li raccoglie. `drizzle.database.ts` crea l'adattatore Drizzle D1 da `env.DB`.
+Cloudflare D1 (SQLite) è il database dell'applicazione, collegato come `DB`. `src/integrations/drizzle-orm/` lo collega a Drizzle:
 
-Le date usano i timestamp interi di SQLite in millisecondi. I campi booleani usano SQLite integer modalità booleana. Le relazioni, i vincoli unici e le chiavi straniere rimangono nello schema. Mantenere un'operazione atomica con un'adeguata dichiarazione SQL o D1 batch; non introdurre un PostgreSQL pool di connessione o una transazione interattiva.
+| File                  | Scopo                                                                                                 |
+| --------------------- | ----------------------------------------------------------------------------------------------------- |
+| `drizzle.database.ts` | `db` solo lato server, creato con `drizzle(env.DB, { schema })`                                       |
+| `drizzle.schemas.ts`  | Riesporta lo schema di ogni tabella e le sue relazioni                                                |
+| `drizzle.config.ts`   | drizzle-kit: dialetto SQLite, driver `d1-http`, migrazioni con prefisso di timestamp in `migrations/` |
 
-Corri! `db:generate` dopo aver cambiato schemi, rivedere e commettere SQL generato, e applicarlo localmente. Le migrazioni remote sono comandi specifici per l'ambiente. Un database distribuito PostgreSQL richiede un'esportazione e un'importazione separate; generare le migrazioni SQLite non trasferisce i dati esistenti.
+## Tabelle
 
-```sh
-bun run db:generate
-bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
+Ogni tabella ha un proprio modulo in `src/modules/<table>/` con `<table>.schema.ts` (`drizzle-orm/sqlite-core`), `.zod.ts`, `.constants.ts`, `.types.ts`, `.utils.ts` e `use-cases/`. I moduli sono `account`, `category`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user` e `verification`. Il codice che non possiede una tabella non ha un modulo.
+
+Gli schemi seguono le stesse convenzioni:
+
+- Gli ID sono stringhe UUID v7.
+- Le date sono colonne `integer` in modalità `timestamp_ms`, con valore predefinito `unixepoch() * 1000`.
+- I booleani sono colonne `integer` in modalità `boolean`.
+- Relazioni, indici, vincoli di unicità e chiavi esterne vengono dichiarati nello schema.
+
+## Scritture atomiche
+
+D1 non supporta transazioni interattive. Mantieni un'operazione atomica con una singola istruzione, come un upsert con `onConflictDoUpdate`, oppure raggruppa le istruzioni con `db.batch`. I casi d'uso delle liste paginate recuperano una pagina e il suo totale in un unico batch (`src/modules/category/use-cases/get-categories.ts`):
+
+```ts
+const filter = data.kind === undefined ? undefined : eq(category.kind, data.kind)
+const [rows, totals] = await db.batch([
+  db
+    .select()
+    .from(category)
+    .where(filter)
+    .orderBy(desc(category.createdAt), desc(category.id))
+    .limit(data.pageSize)
+    .offset(data.pageIndex * data.pageSize),
+  db.select({ total: count() }).from(category).where(filter),
+])
+return { rows, total: totals.reduce((sum, row) => sum + row.total, 0) }
 ```
+
+Il rate limiter in `src/lib/rate-limit.ts` combina pulizia, un upsert atomico e una lettura in un unico batch, così le istanze del Worker condividono gli stessi limiti.
+
+## Migrazioni
+
+Le migrazioni sono file SQL in `src/integrations/drizzle-orm/migrations/`, generati con `bun run db:generate` e applicati con Wrangler. Vitest le esegue su un database SQLite in memoria. Vedi [Migrazioni del database](/docs/tooling/database) per i comandi.
 
 ## Guide correlate
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Aggiungere un modulo](/docs/guides/add-a-module)
+- [Migrazioni del database](/docs/guides/database-migrations)

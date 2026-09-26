@@ -1,14 +1,61 @@
 ---
-title: Core kernel compartilhado
-description: Erros de domínio e catálogos compartilhados em módulos/_core.
+title: "Núcleo compartilhado"
+description: "O vocabulário de erros, os catálogos e os helpers em src/modules/_core compartilhados por todos os módulos."
 ---
 
-## Conteúdo
+`src/modules/_core` é a única pasta de módulo que não é dona de uma tabela. Ela reúne valores e helpers de que vários módulos precisam, para que nenhum módulo tenha de redefini-los.
 
-- `constants/errors.ts` — `ERROR_CODES`, `AppError`, `ActionServerError` (O vocabulário de um erro)
-- `constants/` — catálogos locais (e relacionados) usados por i18n e botões de produto
-- `utils/` - puros ajudantes compartilhados entre os módulos
+## Constantes
 
-## Por que existe?
+| Arquivo                 | Conteúdo                                                                                                        |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `constants/errors.ts`   | `ERROR_CODES`, o tipo `ErrorCode` e a classe `AppError`                                                         |
+| `constants/api.ts`      | `HTTP_STATUS`, os nomes dos headers `cf-ipcountry` e `cf-connecting-ip` e os hosts permitidos por modo de build |
+| `constants/locale.ts`   | O catálogo `LOCALES`, `LocaleCode`, `getLocaleName` e `getLocaleDirection`                                      |
+| `constants/country.ts`  | O catálogo `COUNTRIES` e `CountryCode`                                                                          |
+| `constants/currency.ts` | O catálogo `CURRENCIES`, `CurrencyCode` e `DEFAULT_CURRENCY_CODE`                                               |
+| `constants/timezone.ts` | O catálogo `TIMEZONES` e `TimezoneCode`                                                                         |
+| `constants/pricing.ts`  | Os multiplicadores de preços regionais, o cookie de preços regionais e a formatação de moeda                    |
 
-Corte transversal. **valores válidos** e... **Códigos de erro** Não deve ser redefinido por recurso. Locais habilitados para aplicativos (subset) ainda vivem em `i18n.config.ts`; o catálogo mais amplo pode viver em `_core`.
+O catálogo de locales lista todos os locales conhecidos. Os nove locales que a aplicação de fato atende estão em `I18N.SUPPORTED_LOCALES`, no arquivo `src/integrations/use-intl/i18n.config.ts`.
+
+## Utilitários
+
+- `utils/pagination.ts`: `paginationSchema` (`pageIndex`, `pageSize`), `DEFAULT_PAGINATION` e `DEFAULT_PAGE_SIZE`
+- `utils/zod-fields.ts`: campos Zod reutilizáveis, como `idField` e `localeField`
+
+## Erros
+
+Existe uma única classe de erro e uma única lista de códigos:
+
+```ts
+export const ERROR_CODES = {
+  AUTH_API_ERROR: "AUTH_API_ERROR",
+  CONFLICT: "CONFLICT",
+  FORBIDDEN: "FORBIDDEN",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
+  NOT_FOUND: "NOT_FOUND",
+  TOO_MANY_REQUESTS: "TOO_MANY_REQUESTS",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  VALIDATION: "VALIDATION",
+} as const
+
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]
+
+export class AppError extends Error {
+  readonly code: ErrorCode
+
+  constructor(code: ErrorCode, message: string = code) {
+    super(message)
+    this.name = "AppError"
+    this.code = code
+  }
+}
+```
+
+Server functions lançam `AppError`. O middleware `withRequest` normaliza todo o resto: erros da API do Better Auth viram `AUTH_API_ERROR`, com a chave de erro do Better Auth como mensagem; erros do Zod viram `VALIDATION`; e erros desconhecidos são registrados em log e viram `INTERNAL_ERROR`. No navegador, `useErrorMessage()`, de `src/hooks/use-error-message.ts`, mapeia a mensagem para as traduções `auth.errors.*` ou `errors.codes.*`.
+
+## Páginas relacionadas
+
+- [Server functions e casos de uso](/docs/architecture/modules-and-use-cases)
+- [Autenticação e segurança](/docs/architecture/security-model)

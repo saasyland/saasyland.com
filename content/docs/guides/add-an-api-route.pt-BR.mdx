@@ -1,28 +1,52 @@
 ---
-title: TanStack Start Comutadores HTTP
-description: TanStack Start HTTP manipuladores - SaaSy Land
+title: "Adicionar uma rota de API"
+description: "Adicione um handler HTTP em /api para webhooks e outros chamadores externos."
 ---
 
-Os terminais HTTP usam nativos. TanStack Start O servidor está no servidor. `src/routes`. Better Auth É dono de GET e POST. `/api/auth/$`; Fumadocs A busca usa `/api/search`. . Operações de produto são funções de servidor nativas em módulos de recursos.
+Rotas de API são handlers de servidor do TanStack Start em `src/routes/api/`. As telas da aplicação nunca precisam delas: elas chamam funções de servidor. Adicione uma rota de API apenas para chamadores fora da aplicação, como webhooks, clientes de terceiros ou crawlers.
 
-Declare os encarregados. `createFileRoute` com `server.handlers`. . Use o fornecido. `request`, validar a entrada, forçar a verificação de permissão, e devolver uma Web `Response`. . Mantenha a verificação do webhook na integração do provedor. Não exponha um endpoint REST duplicado para uma operação que só é usada pelo cliente RPC desse aplicativo.
+## Rotas existentes
+
+| Arquivo                    | Caminho       | Finalidade                                                                                          |
+| -------------------------- | ------------- | --------------------------------------------------------------------------------------------------- |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | Better Auth: login, callbacks de OAuth, verificação de e-mail, checkout, portal e webhooks do Polar |
+| `src/routes/api/search.ts` | `/api/search` | Busca do Fumadocs para a documentação                                                               |
+| `src/routes/api/index.ts`  | `/api`        | Verificação do runtime que retorna `{ "runtime": "cloudflare-workers" }`                            |
+
+Os webhooks do Polar chegam em `/api/auth/polar/webhooks`; o plugin do Polar para o Better Auth verifica a assinatura deles com `POLAR_WEBHOOK_SECRET` antes que `license.webhooks.ts` os processe.
+
+## Escreva um handler
+
+Declare os métodos em `server.handlers`. Cada handler recebe a `Request` web e retorna uma `Response` web:
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
-import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/auth/$")({
+import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+
+export const Route = createFileRoute("/api/search")({
   server: {
     handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
+      GET: ({ request }) => search.GET(request),
     },
   },
 })
 ```
 
-## Guias relacionados
+Dentro de um handler:
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- Valide a query ou o corpo com um schema Zod e retorne `HTTP_STATUS.BAD_REQUEST` (de `src/modules/_core/constants/api.ts`) quando a validação falhar. Se o handler precisar de um status novo, adicione-o ali.
+- Leia a sessão com `getRequestSession(request)` e verifique-a com `hasPermission`. Middlewares de função, como `authorized`, valem para funções de servidor, não para handlers.
+- Limite as requisições dos endpoints públicos com `withinRateLimit({ key, limit, windowSeconds })` e `clientAddress(request.headers)` de `src/lib/rate-limit.ts`.
+- Verifique assinaturas antes de confiar no conteúdo de um webhook.
+- Retorne corpos de erro seguros e registre os detalhes com `console.error`.
+
+## Regras de roteamento
+
+- Caminhos `/api` nunca recebem prefixo de idioma, e o Worker pula para eles a busca de arquivos estáticos e os redirecionamentos de idioma.
+- URLs de `/api` não trazem idioma, então `getCurrentLocale()` retorna ali o idioma padrão. Uma resposta localizada pega o idioma da requisição, como `/api/search` faz com o parâmetro de query `locale`.
+- `/api` fica fora da pré-renderização.
+
+## Teste
+
+Chame o handler pelas opções da rota, como `src/routes/api/__test__/handlers.test.ts` faz com `Route.options.server.handlers`, e simule o provedor para o qual ele encaminha a requisição.

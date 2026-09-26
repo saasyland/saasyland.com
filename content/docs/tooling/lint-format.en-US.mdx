@@ -1,6 +1,43 @@
 ---
-title: "Lint & format"
-description: "Vite+ vp check/lint/fmt workflows."
+title: "Lint and format"
+description: "oxlint and oxfmt through Vite+, and the check scripts."
 ---
 
-`bun run check` runs i18n + `vp check`. Pre-commit may run staged checks — see `check:pre-commit`.
+Vite+ runs oxfmt for formatting and oxlint for linting, both configured in the `fmt` and `lint` sections of `vite.config.ts`. `bun run check` is the gate that CI runs:
+
+```sh
+bun run check
+```
+
+It runs `generate:cn`, `check:i18n` and `vp check`, which checks formatting, runs the lint rules and type-checks the project. Use `bun run lint`, `bun run format` and `bun run format:check` for one tool at a time.
+
+## Formatting
+
+- No semicolons, double quotes, trailing commas, two-space indentation, a print width of 140 and LF line endings.
+- Imports are sorted into fixed groups: server-only, `cloudflare:workers`, React, external packages, then the `~/src` areas (platform, providers, integrations, modules, routes, hooks, data and theme, types, lib, branding, shadcn components, custom components, styles), then relative imports.
+- Tailwind classes are sorted in `className` and inside `cn`, `cva`, `clsx` and `tw` calls.
+
+## Linting
+
+- The `correctness`, `nursery`, `pedantic`, `perf`, `style` and `suspicious` categories are errors.
+- Type-aware rules and type checking are enabled (`typeAware` and `typeCheck`).
+- Notable limits: 800 lines per file, 150 lines per function, 20 statements per function, no magic numbers other than `0`, and identifiers of at least two characters except `_`, `m` and `t`.
+- Overrides relax a few rules for tests, presentation code and hooks, test mocks and route files.
+
+Both tools ignore generated and external files: declaration files, `src/routeTree.gen.ts`, migrations, `.source`, `dist`, `coverage`, `e2e`, `remotion`, the agent folders and Playwright output. `scripts/` is formatted and linted like `src/`.
+
+Fix the cause of a lint error. Do not add disable comments, `@ts-expect-error` or `as` casts to satisfy a rule.
+
+## Fixing
+
+The pre-commit hook runs `bun run check:pre-commit`; its `vp staged` step runs `vp check --fix` on the staged files only. `bun run check:fix` applies fixes across the whole repository and can rewrite files you did not touch, so review its diff before committing. To fix only your own changes, pass their paths to `vp` (the global Vite+ CLI, or `bunx vp`):
+
+```sh
+vp fmt src/routes/admin.users.all.tsx
+vp lint --fix src/routes/admin.users.all.tsx
+```
+
+## Related guides
+
+- [Conventions](/docs/reference/conventions)
+- [Vite+](/docs/tooling/vite-plus)

@@ -1,14 +1,45 @@
 ---
-title: Fournisseurs
-description: Fournisseurs — SaaSy Land
+title: "Providers"
+description: "Les quatre providers de l'application dans src/providers, l'endroit où chacun est monté et pourquoi."
 ---
 
-`src/routes/__root.tsx` possède le document et la composition des fournisseurs à l'échelle de l'application. Le routeur crée un QueryClient et connecte son cache à SSR. Le fournisseur de traduction charge les espaces de noms de route actifs dans `IntlProvider`C'est vrai. Thème, mouvement, React Aria routage, tooltips, notifications et l'indicateur hors ligne conservent le comportement de présentation existant.
+`src/providers` contient quatre providers. Chacun est monté au plus près de ses consommateurs.
 
-Fumadocs utilise son fournisseur TanStack et l'adaptateur de liaison Router natif. Les fournisseurs partagés font partie de la catégorie `src/providers`; les contextes page-seulement restent à côté de leur fonctionnalité.
+| Provider               | Enveloppe                                                                                | Monté dans                                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `TranslationsProvider` | `IntlProvider` de use-intl avec les namespaces racine et ceux des routes correspondantes | Le shell racine, autour du body du document                                                            |
+| `AriaProvider`         | `I18nProvider` et `RouterProvider` de React Aria                                         | Le composant racine, autour de chaque route                                                            |
+| `ThemeProvider`        | Le provider de `@wrksz/themes`, stocké dans un cookie                                    | Autour du `Toaster` dans la racine et du sélecteur de thème dans la barre latérale de la documentation |
+| `MotionProvider`       | `LazyMotion` (strict) et `MotionConfig` de Motion avec `reducedMotion="user"`            | La landing page, l'index du blog et les boutons de partage du blog                                     |
 
-## Guides connexes
+## Composition de la racine
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+`src/routes/__root.tsx` rend le document dans `shellComponent` et l'application dans `component` :
+
+```tsx
+const RootComponent = () => (
+  <AriaProvider>
+    <OfflineBanner />
+    <Outlet />
+    <ThemeProvider>
+      <Toaster />
+    </ThemeProvider>
+  </AriaProvider>
+)
+```
+
+- **TranslationsProvider** se trouve dans le `<body>` du shell, si bien que chaque écran est traduit, y compris les composants par défaut d'erreur et de page introuvable ainsi que les squelettes des routes. Il lit les namespaces racine ainsi que les `staticData.namespaces` de chaque route correspondante, les charge avec `useSuspenseQueries` et construit un seul arbre de messages.
+- **AriaProvider** transmet la locale courante à React Aria et relie les liens React Aria à TanStack Router. Son `useHref` localise les chemins, si bien qu'un `href` sur un composant React Aria reçoit le préfixe de locale.
+- **ThemeProvider** n'enveloppe pas l'outlet des routes. Un provider qui se met à jour après l'hydratation provoquerait un nouveau rendu de chaque page ; il n'enveloppe donc que les composants qui en ont besoin. Le thème initial est appliqué avant l'hydratation par `ThemeScript`, dans le head du document.
+- **MotionProvider** charge le bundle de fonctionnalités `domMax` à la demande et n'est monté que là où des animations s'exécutent.
+
+## Ce qui n'est pas un composant provider
+
+- **QueryClient.** `src/router.tsx` le crée pour chaque requête, le place dans le contexte du routeur et le connecte avec `setupRouterSsrQueryIntegration`.
+- **Fumadocs.** Le layout `/docs` monte le `RootProvider` de Fumadocs en désactivant sa propre gestion du thème.
+
+## Pages associées
+
+- [Cache et SSR](/docs/architecture/caching-and-ssr)
+- [Internationalisation et locales](/docs/architecture/i18n-architecture)
+- [Thème](/docs/ui/theme)

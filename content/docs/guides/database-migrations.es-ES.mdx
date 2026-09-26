@@ -1,23 +1,45 @@
 ---
-title: D1 y Drizzle
-description: D1 y Drizzle – SaaSy Land
+title: "Migraciones de base de datos"
+description: "Cambia un esquema de Drizzle, genera la migración SQL y aplícala a cada base de datos D1."
 ---
 
-Cloudflare D1 es la base de datos de la aplicación. Los esquemas de módulos utilizan `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` recolecta los. `drizzle.database.ts` genera el adaptador Drizzle D1 `env.DB`.
+Cloudflare D1 (SQLite) es la base de datos de la aplicación. Los esquemas de los módulos usan `drizzle-orm/sqlite-core`, `src/integrations/drizzle-orm/drizzle.schemas.ts` los reúne y drizzle-kit escribe las migraciones en `src/integrations/drizzle-orm/migrations/` con un prefijo de marca de tiempo.
 
-Las fechas utilizan marcas de tiempo enteras de SQLite en milisegundos. Los campos booleanos utilizan el modo entero booleano de SQLite. Las relaciones, las restricciones únicas y las claves foráneas se mantienen en el esquema. Realizar la operación de forma atómica con una sentencia SQL o un lote D1; no introducir una piscina de conexiones PostgreSQL ni una transacción interactiva.
+## Flujo de trabajo
 
-Ejecutar `db:generate` Tras modificar los esquemas, revise y confirme el SQL generado, y aplícalo localmente. Las migraciones remotas son comandos específicos para cada entorno. Una base de datos PostgreSQL desplegada requiere una exportación y importación separadas y revisadas; generar migraciones SQLite no transfiere los datos existentes.
+1. Cambia `<table>.schema.ts`. Si es una tabla nueva, expórtala también desde `drizzle.schemas.ts`.
+2. Genera el SQL:
 
 ```sh
 bun run db:generate
-bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
 ```
 
-## Guías relacionadas
+3. Revisa el archivo generado y haz commit junto con el cambio de esquema.
+4. Aplícalo a la base de datos con la que trabajas y a todas las bases de datos remotas antes de desplegar código que dependa de él.
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+## Comandos
+
+| Comando                          | Base de datos                                                                                      |
+| -------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `bun run db:migrate:test`        | Base de datos local de pruebas en `.wrangler/test`, usada por Playwright y la vista previa aislada |
+| `bun run db:migrate:local`       | Base de datos local de desarrollo; `bun run dev` sigue usando los bindings remotos                 |
+| `bun run db:migrate:development` | Base de datos remota del entorno de desarrollo, compartida por defecto con la vista previa         |
+| `bun run db:migrate:preview`     | Base de datos remota de la vista previa                                                            |
+| `bun run db:migrate:production`  | Base de datos remota de producción                                                                 |
+
+`bun run db:studio:development`, `db:studio:preview` y `db:studio:production` abren Drizzle Studio, y los scripts `db:introspect:*` inspeccionan D1 a través de su API HTTP. Ambos necesitan `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` y `CLOUDFLARE_ACCESS_TOKEN` en el archivo de entorno correspondiente.
+
+## Convenciones del esquema
+
+- Las fechas son `integer(..., { mode: "timestamp_ms" })` con el valor por defecto `(unixepoch() * 1000)`.
+- Los booleanos son `integer(..., { mode: "boolean" })`.
+- Los índices, las restricciones de unicidad, las claves foráneas y las relaciones se quedan en el archivo del esquema.
+- D1 no tiene transacciones interactivas. Mantén una operación atómica con una sola sentencia SQL o con `db.batch([...])`, como hacen `getUsers` y el limitador de peticiones.
+
+## Tests
+
+El binding D1 de pruebas aplica cada archivo SQL de la carpeta de migraciones a una base de datos SQLite en memoria, así que los tests que usan D1 se ejecutan contra el esquema migrado. `src/integrations/drizzle-orm/__test__/` comprueba que el esquema, sus índices y sus claves foráneas se materializan. Consulta [Escribir tests](/docs/guides/writing-tests).
+
+## Datos existentes de PostgreSQL
+
+Estas migraciones solo crean el esquema de SQLite. Mover datos desde una instalación anterior de PostgreSQL requiere una exportación e importación aparte y revisadas.

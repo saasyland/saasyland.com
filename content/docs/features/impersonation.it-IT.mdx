@@ -1,15 +1,24 @@
 ---
-title: Impersonazione
-description: Impersonazione di Admin degli utenti (Better Auth plugin di amministrazione).
+title: "Impersonificazione"
+description: "Impersonificazione da amministratore con Better Auth: le funzioni server esistono, ma nessuna schermata le usa ancora."
 ---
 
-## Stato
+Il plugin `admin` di Better Auth fornisce l’impersonificazione, e `src/modules/user/use-cases` la incapsula:
 
-Esposta tramite le azioni di amministratore degli utenti / casi di utilizzo con i controlli di autorizzazione.
+```ts
+export const impersonateUser = createServerFn({ method: "POST" })
+  .middleware([authorized({ user: ["impersonate"] })])
+  .validator((input: zod.input<typeof userZodSchemas.impersonateUser>) => userZodSchemas.impersonateUser.parse(input))
+  .handler(({ context, data }) => auth.api.impersonateUser({ body: data, headers: context.requestHeaders }))
+```
 
-## Regole
+`stopImpersonatingUser` richiede solo una sessione autenticata. Entrambi i file esportano le opzioni di mutazione (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-- Admin-solo
-- Cancella indicazione dell'interfaccia utente quando si impersona
-- Preferisci la registrazione dell'audit quando indurisci le operazioni
-- Non permettere mai l'escalation del privilegio oltre i flussi di lavoro di supporto previsti
+## Stato attuale
+
+- Nessuna schermata chiama queste funzioni: il menu delle azioni di riga degli utenti non ha una voce per impersonificare e non esiste un banner per interrompere l’impersonificazione.
+- Better Auth contrassegna le sessioni di impersonificazione con `impersonatedBy`; `getActiveSessions` le esclude dall’elenco delle sessioni nelle impostazioni.
+- Le guardie di rotta svuotano la cache delle query quando cambia l’utente della sessione, quindi la navigazione successiva all’impersonificazione carica i dati dell’altro utente.
+- Non esiste un registro di audit delle impersonificazioni.
+
+Per aggiungerla, inserisci una voce di menu in `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) e un modo visibile per interrompere l’impersonificazione nei layout.

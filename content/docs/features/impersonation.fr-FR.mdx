@@ -1,15 +1,24 @@
 ---
-title: Impersonnation
-description: Administration de l'image des utilisateurs (Better Auth plugin d'administration).
+title: "Usurpation d’identité"
+description: "Usurpation d’identité par l’administrateur avec Better Auth : les fonctions serveur existent, aucun écran ne les utilise encore."
 ---
 
-## Statut
+Le plugin `admin` de Better Auth fournit l’usurpation d’identité, et `src/modules/user/use-cases` l’encapsule :
 
-Exposition via les actions d'administration des utilisateurs / cas d'utilisation avec des vérifications d'autorisation.
+```ts
+export const impersonateUser = createServerFn({ method: "POST" })
+  .middleware([authorized({ user: ["impersonate"] })])
+  .validator((input: zod.input<typeof userZodSchemas.impersonateUser>) => userZodSchemas.impersonateUser.parse(input))
+  .handler(({ context, data }) => auth.api.impersonateUser({ body: data, headers: context.requestHeaders }))
+```
 
-## Règles
+`stopImpersonatingUser` exige seulement une session connectée. Les deux fichiers exportent des options de mutation (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-- Admin seulement
-- Effacer l'indication de l'assurance-chômage lors de l'utilisation de l'image de marque
-- Préférez l'enregistrement d'audit lorsque vous durcissez les opérations
-- Ne jamais permettre l'escalade des privilèges au-delà des flux de travail prévus
+## État actuel
+
+- Aucun écran n’appelle ces fonctions : le menu d’actions des lignes d’utilisateurs n’a pas d’entrée d’usurpation et il n’existe pas de bandeau pour y mettre fin.
+- Better Auth marque les sessions d’usurpation avec `impersonatedBy` ; `getActiveSessions` les exclut de la liste des sessions des paramètres.
+- Les gardes de route vident le cache des requêtes lorsque l’utilisateur de la session change : la navigation suivante après l’usurpation charge donc les données de l’autre utilisateur.
+- Il n’existe pas de journal d’audit des usurpations.
+
+Pour l’ajouter, placez une entrée de menu dans `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) et un moyen visible d’arrêter l’usurpation dans les layouts.

@@ -1,12 +1,35 @@
 ---
-title: ランディングページ
-description: マーケティングのランディング組成と管理者ビルダーシェル。
+title: "ランディングページ"
+description: "/ のマーケティングページ、各セクション、地域割引付きの料金、CLI コンフィギュレーター、フッターのニュースレターフォーム。"
 ---
 
-## 公開
+## ルート
 
-`app/[locale]/(landing)` 協力して `_lib` コンテンツ。
+`src/routes/_landing.index.tsx` は `MotionProvider` の中で、`src/presentation/components/custom/landing-page/sections` の 17 セクションを組み合わせます。Hero、Proof、Stack、Manifesto、CLI、Line、Quality、Rally、Manifest、Studio、Record、Cases、Compare、Pricing、FAQ、Notes、Gate です。文言は `pages.landing` 名前空間から取得します。ローダーは Notes セクション用に最新のブログ記事 3 件（おすすめ記事を優先）も取得し、Proof セクション用に KV にキャッシュされた GitHub のスター数 `starCountQuery` を事前に読み込みます。
 
-## アドミン
+`_landing` レイアウトは `/`、法務ページ、`/premium`、ニュースレターのページを `Navigation`、`PageFrame`、`Footer` で囲み、常にダークテーマで表示します。セクションのアンカーは `src/data/marketing.ts` の `MARKETING_SECTION_IDS`（`foundation`、`cli`、`quality`、`toolkit`、`pricing`、`faq`）で、リンクは `<Link to={ROUTES.HOME} hash={MARKETING_SECTION_IDS.PRICING}>` の形で書きます。
 
-`/admin/landing-page` 将来のビジュアルビルダーのためのUIシェル — ドキュメントはブロックを実装するように意図しました。
+## 料金と地域別価格
+
+`PricingSection` は `TIER_PRICES` とともに `TIERS` を表示し、`/auth/sign-up` へリンクします。地域別価格はクライアント側の JavaScript なしで動くため、ページはプリレンダリングされたままです。
+
+1. `Price` は地域の倍率（`PPP_KEYS`）ごとに金額を 1 回ずつ表示し、通常価格を取り消し線付きで表示します。
+2. Worker（`src/server.ts`）は `cf-ipcountry` を読み取ります。`PPP_TIERS` に含まれる国であれば、`HTMLRewriter` で `html` 要素に `data-ppp` と変数 `--ppp-region`、`--ppp-percent` を設定し、レスポンスを `private, no-cache` にします。
+3. 地域割引のチェックボックスがオンの間、`globals.css` の CSS が該当する価格を表示します。
+4. チェックを外すと Cookie に `regional_pricing=off` が保存され、Worker と `startCheckout` の両方がこれに従います。
+
+## CLI コンフィギュレーター
+
+`CliSection` は `CliConfigurator`（`landing-page/components/cli-configurator.tsx`）を含みます。`src/data/cli.ts` の選択肢、追加機能、パッケージマネージャーからフラグ付きの `saasyland@latest init my-app` コマンドを組み立て、`CopyButton` でコピーできます。
+
+## ニュースレター
+
+`Footer` は `NewsletterForm`（`src/presentation/components/custom/newsletter-form.tsx`）を表示します。
+
+1. `subscribeToNewsletter`（レート制限あり）が保留中の `newsletter_subscriber` 行を保存し、`NewsletterConfirmationEmail` を送信します。
+2. `/newsletter/confirm?token=` が購読を確定し、`CONTACT_EMAIL` へ `NewsletterNotificationEmail` を送信します。
+3. `/newsletter/unsubscribe?token=` が購読を解除します。
+
+## 管理画面（デモ）
+
+`/admin/landing-page` は、定数から作ったセクション一覧、キャンバス、プロパティパネルからなる静的なエディターのモックです。ランディングページは変更しません。

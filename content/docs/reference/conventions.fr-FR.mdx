@@ -1,18 +1,61 @@
 ---
-title: Conventions
-description: Nom, dossiers, commits et habitudes de relations publiques.
+title: "Conventions"
+description: "Conventions de code, de routes, de composants, de traductions et de commits appliquées dans toute la base de code."
 ---
 
-## Désignation
+## Code
 
-- Cas d'utilisation: `verb-noun.ts`
-- Essais: colocalisés `__test__`
-- Routes privées: `_components`, `_lib`
+- Pas de commentaires dans le code. Les noms et les petites fonctions portent le sens.
+- Pas de désactivation de règles de lint, ni de `@ts-expect-error` ou de casts `as` pour satisfaire une règle. Corrigez la cause.
+- Pas de ternaires sur plusieurs lignes. Utilisez un retour anticipé ou un petit composant.
+- Les classes conditionnelles utilisent la syntaxe objet de `cn` : `cn("base", { "text-foreground": isActive })`.
+- Pas de wrappers, d'interfaces ni de couches qui ne font que relayer des appels. Importez la fonction concrète.
+- Les nombres magiques deviennent des constantes nommées, par exemple `const SINGLE_ROW = 1`.
+- `vp fmt` trie les imports par groupes : server-only, `cloudflare:workers`, React, paquets, puis les dossiers de `src` dans un ordre fixe, et enfin les styles.
 
-## Marchandises
+## Routes
 
-Les commits conventionnels (`feat`, `fix`, `refactor`, ...) avec préfixe emoji via `scripts/commit-msg.ts`.
+- Les routes de page définissent `<Name>Page`, une constante `NAMESPACE` juste au-dessus de `export const Route`, `head: pageHead(ROUTES.X)` et un loader qui exécute `loadPageMetadata`, `preloadNamespaces` et les éventuelles queries dans un seul `Promise.all`.
+- Les routes de layout définissent `<Name>Layout` et un tableau `NAMESPACES` déclaré dans `staticData` et préchargé par le loader.
+- Les chemins proviennent de `ROUTES`. Les liens du routeur n'ajoutent jamais eux-mêmes le préfixe de locale ; les URL brutes utilisent `localizePathname`.
+- Les tableaux d'éléments à afficher sont des constantes au niveau du module, et non des littéraux écrits directement dans le JSX.
 
-## PR
+## Composants
 
-Plomb avec type orienté vers l'utilisateur (`feat` lorsque le comportement change). Remarquez les refacteurs dans le corps.
+- Un widget, une boîte de dialogue, un formulaire ou une définition de colonnes par fichier.
+- Les composants lisent eux-mêmes leurs traductions et leurs données. Pas de props de texte, de libellé ou de données que le composant pourrait lire lui-même.
+- Exactement un appel à `useTranslations` par composant, avec le traducteur nommé `t`.
+- Les formulaires suivent le modèle TanStack Form de shadcn : `useForm` avec le schéma Zod du module, `Field`, `FieldLabel`, `Input` et `ValidationFieldError`.
+- Les tableaux utilisent le composant générique `<DataTable columns data options filters />`, avec les colonnes dans un fichier `<entity>-columns.tsx`.
+
+## Code serveur
+
+- Les cas d'usage sont nommés `<verb>-<noun>.ts` et exportent la fonction serveur avec ses options de query ou de mutation.
+- Les erreurs sont levées sous la forme `AppError(ERROR_CODES.X)` et traduites dans le navigateur avec `useErrorMessage()`.
+- Chaque URL, clé de query et clé de mutation provient d'une constante (`ROUTES`, `<TABLE>_QUERY_KEYS`, `<TABLE>_MUTATION_KEYS`).
+
+## Commits et pull requests
+
+Les messages de commit suivent Conventional Commits : `<type>(<scope>): <description>`. Le hook `prepare-commit-msg` exécute `scripts/commit-msg.ts`, qui rejette les types inconnus et préfixe le sujet avec l'émoji du type :
+
+| Type       | Émoji |
+| ---------- | ----- |
+| `feat`     | ✨    |
+| `fix`      | 🐛    |
+| `perf`     | 🚀    |
+| `refactor` | 📦    |
+| `docs`     | 📚    |
+| `test`     | 🚨    |
+| `build`    | 🛠️    |
+| `ci`       | ⚙️    |
+| `chore`    | ♻️    |
+| `style`    | 💎    |
+| `revert`   | 🗑️    |
+
+Le hook `pre-commit` exécute `bun run check:pre-commit`. Les pull requests déclenchent le workflow CI : `bun run check`, `bun run test:coverage` et la suite Playwright, suivis d'un déploiement de preview.
+
+## Pages associées
+
+- [Nommage des fichiers](/docs/reference/file-naming)
+- [Conventional Commits](/docs/tooling/conventional-commits)
+- [Structure des dossiers](/docs/architecture/directory-structure)

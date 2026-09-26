@@ -1,30 +1,55 @@
 ---
-title: Architektura
-description: Architektura — SaaSy Land
+title: "Architektura"
+description: "Jak zorganizowany jest SaaSy Land: trasy komponują strony, moduły są właścicielami tabel bazy danych, a integracje opakowują usługi dostawców."
 ---
 
-SaaSy Land działa jako jedna aplikacja TanStack Start na Cloudflare Workers. Trasy koordynują renderowanie i ładowanie danych. Moduły funkcji odpowiadają za walidację, autoryzację i operacje. Integracje konfigurują usługi zewnętrzne. Warstwa prezentacji zawiera dotychczasowy interfejs.
+SaaSy Land to jedna aplikacja TanStack Start działająca jako Cloudflare Worker. Kod jest podzielony według odpowiedzialności:
 
-Nie używamy kontenera dependency injection. Importuj konkretną zależność z warstwy, która za nią odpowiada. Wspólne narzędzia powinny być małe, a pomocniczy kod funkcji powinien pozostać przy tej funkcji.
+- **Trasy** (`src/routes`) komponują strony. Plik trasy deklaruje swoje przestrzenie nazw tłumaczeń, guard, loader i tagi head, a następnie renderuje komponenty.
+- **Moduły** (`src/modules/<table>`) istnieją wyłącznie dla rzeczywistych tabel bazy danych. Do modułu należą schemat Drizzle tabeli, schematy Zod, stałe, typy oraz przypadki użycia, które ją odczytują lub modyfikują.
+- **Integracje** (`src/integrations/<vendor>`) konfigurują zewnętrzne biblioteki i usługi.
+- **Warstwa prezentacji** (`src/presentation`) zawiera prymitywy shadcn, komponenty aplikacji, szablony React Email, style, motyw i branding.
+- **Kod współdzielony** znajduje się w `src/data` (dane używane przez kilka plików), `src/lib` (małe narzędzia), `src/hooks` i `src/providers`.
 
 ```text
-content/                         Localized MDX
-messages/{locale}/           Translation namespaces
-src/routes/                      Flat file routes
-src/router.tsx                   Router and per-request query cache
-src/server.ts                    Cloudflare Worker entry
-src/modules/{feature}/           Schemas, constants, validation
-src/modules/{feature}/use-cases/  Server functions and query/mutation options
-src/integrations/{vendor}/       Vendor adapters and setup
-src/presentation/                Components, styles, branding, emails
-src/providers/                   Application providers
-src/hooks/                       Shared hooks
-src/lib/                         Shared utilities
-src/platform/testing/            Binding mocks and test helpers
+src/
+├── routes/          Flat file routes that compose pages
+├── modules/         One folder per database table, plus _core
+├── integrations/    One folder per vendor
+├── presentation/    Components, emails, styles, theme, branding
+├── data/            Data shared by several files
+├── lib/             Small shared utilities
+├── hooks/           Shared React hooks
+├── providers/       Application providers
+├── platform/        Test runtime wiring
+├── types/           Global type declarations
+├── router.tsx       Router and per-request QueryClient
+├── routes.ts        ROUTES path constants
+└── server.ts        Cloudflare Worker entry
 ```
 
-## Powiązane przewodniki
+## Zasady kształtujące kod
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- Pliki tras tylko komponują. Widżety, dialogi, formularze i kolumny tabel znajdują się w `src/presentation/components/custom`, po jednym na plik.
+- Komponenty same odczytują swoje tłumaczenia i dane przez `useTranslations`, `useSuspenseQuery` lub dane loadera trasy. Trasy nie przekazują etykiet ani danych w dół przez propsy.
+- Funkcja serwerowa operująca na tabeli jest przypadkiem użycia w module tej tabeli. Funkcję serwerową używaną przez jedną trasę można zdefiniować w pliku tej trasy. Wszystko inne należy do `src/lib`.
+- Nie ma kontenera wstrzykiwania zależności ani warstwy wrapperów. Importuj konkretną funkcję z folderu, do którego należy.
+- Stała używana przez jeden plik pozostaje w tym pliku. Do `src/data` trafiają tylko dane współdzielone przez kilka plików.
+
+## W tej sekcji
+
+- [Struktura katalogów](/docs/architecture/directory-structure): wszystkie foldery i to, co do nich należy.
+- [Reguły zależności](/docs/architecture/dependency-rules): dozwolone importy i granice kodu serwerowego.
+- [Funkcje serwerowe i przypadki użycia](/docs/architecture/modules-and-use-cases): układ modułu i wzorzec przypadku użycia.
+- [Współdzielone jądro Core](/docs/architecture/core): błędy i katalogi w `src/modules/_core`.
+- [Trasy i warstwa dostarczania](/docs/architecture/delivery-layer): budowa pliku trasy i konfiguracja routera.
+- [Warstwa prezentacji](/docs/architecture/presentation-layer): organizacja komponentów i stylowanie.
+- [Zakres odpowiedzialności integracji](/docs/architecture/integrations-layer): foldery dostawców i to, co do nich nie należy.
+- [Platforma i testy](/docs/architecture/platform-layer): bindingi Cloudflare, środowiska i konfiguracja środowiska testowego.
+- [Providery](/docs/architecture/providers): cztery providery aplikacji i miejsca, w których są montowane.
+- [Cykl życia żądania](/docs/architecture/request-lifecycle): co dzieje się między Workerem a wyrenderowaną stroną.
+- [Cache i SSR](/docs/architecture/caching-and-ssr): cache zapytań, prerendering i KV.
+- [Handlery HTTP w TanStack Start](/docs/architecture/api-layer): endpointy `/api`.
+- [Uwierzytelnianie i bezpieczeństwo](/docs/architecture/security-model): guardy, uprawnienia, limity żądań i maskowanie błędów.
+- [Internacjonalizacja i wersje językowe](/docs/architecture/i18n-architecture): URL-e z locale, przestrzenie nazw i ładowanie tłumaczeń.
+- [Testy i CI](/docs/architecture/testing-architecture): projekty testowe, pokrycie kodu i pipeline CI.

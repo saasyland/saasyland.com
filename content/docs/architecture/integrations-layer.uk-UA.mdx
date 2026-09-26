@@ -1,14 +1,48 @@
 ---
-title: Інтеграція
-description: Властивості інтеграції — SaaSy Land
+title: "Зони відповідальності інтеграцій"
+description: "Папки вендорів у src/integrations, що налаштовує кожна з них і що до них не входить."
 ---
 
-Кожна зовнішня бібліотека або провайдер володіє каталогом `src/integrations`Better Auth, Drizzle, Fumadocs, use-intl, Polar, Resend і GitHub. Налаштування файлів ініціалізації клієнтів. Розширені адаптери нормалізують результати провайдера та зберігають облікові дані за межі сервера.
+Кожна стороння бібліотека чи сервіс, які потребують налаштування, володіють однією папкою в `src/integrations`. Файли називаються `<prefix>.<concern>.ts`, де префікс — коротка назва вендора.
 
-Бізнес-рішення залишаються в функціональних модулях. Наприклад, Polar webhook обробники оновлення ліцензійних записів через випадки використання модуля; сама інтеграція налаштовує SDK і перевіряє вхідні вебоки.
+| Папка           | Файли                                                                                                                                        | Відповідальність                                                                                      |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `better-auth`   | `auth.server`, `auth.client`, `auth.access`, `auth.middleware`, `auth.routes`, `auth.session`, `auth.errors`, `auth.zod`, `auth.constraints` | Конфігурація автентифікації, ролі, middleware серверних функцій, guard-функції маршрутів, запит сесії |
+| `drizzle-orm`   | `drizzle.config`, `drizzle.database`, `drizzle.schemas`, `migrations/`                                                                       | Клієнт D1, реєстр схем і SQL-міграції                                                                 |
+| `fumadocs`      | `fumadocs.config`, `fumadocs.source`, `fumadocs.docs`, `fumadocs.search`, `fumadocs.i18n`                                                    | MDX-колекції для документації та блогу, завантаження сторінок і пошук                                 |
+| `motion`        | `motion.features`, `motion.tokens`                                                                                                           | Ліниво завантажуваний бандл можливостей Motion і спільні переходи                                     |
+| `polar`         | `polar.config`, `polar.constants`                                                                                                            | Клієнт Polar SDK та ідентифікатори продуктів, які пропонуються під час оформлення покупки             |
+| `resend`        | `resend.config`, `resend.utils`                                                                                                              | Клієнт Resend і `sendEmail`                                                                           |
+| `tanstack-form` | `form.fields`                                                                                                                                | Типи полів і `fieldErrorMessage` для TanStack Form                                                    |
+| `use-intl`      | `i18n.config`, `i18n.messages`, `i18n.middleware`, `i18n.paths`, `i18n.utils`                                                                | Локалі, завантаження повідомлень, URL-адреси локалей і cookie                                         |
 
-## Схожі посібники
+## Що не є інтеграцією
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+- Кількість зірок на GitHub — це серверна функція в `src/lib/github.ts`, кешована в KV.
+- Обмеження частоти запитів — це `src/lib/rate-limit.ts` на основі таблиці `rate_limit`.
+- Прив'язкам Cloudflare не потрібен адаптер. Серверний код читає їх з `env` у `cloudflare:workers`.
+
+## Бізнес-логіка залишається в модулях
+
+Інтеграція налаштовує вендора. Рішення щодо даних застосунку належать модулю, який володіє таблицею:
+
+- Плагін Polar в `auth.server.ts` перевіряє підписи вебхуків за допомогою `POLAR_WEBHOOK_SECRET` і передає події в `licenseWebhookHandlers` у `src/modules/license/license.webhooks.ts`, які викликають сценарії використання ліцензій.
+- Email-хуки Better Auth викликають `sendVerifyEmail`, `sendResetPasswordEmail` і `sendChangeEmailConfirmationEmail` з модулів verification та account.
+- Сценарій використання надсилає лист так: завантажує простір імен шаблону, рендерить шаблон і викликає `sendEmail`:
+
+```ts
+const locale = getCurrentLocale()
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+await sendEmail({
+  idempotencyKey: `verify-email/${token}`,
+  react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+  subject: createTranslator({ locale, messages })("subject"),
+  to: user.email,
+})
+```
+
+## Пов'язані сторінки
+
+- [Інтеграції](/docs/integrations)
+- [Better Auth](/docs/integrations/better-auth)
+- [Правила залежностей](/docs/architecture/dependency-rules)

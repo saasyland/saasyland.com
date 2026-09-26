@@ -1,10 +1,43 @@
 ---
-title: Disegno di amministrazione
-description: Stat di Dashboard, grafici e widget degli utenti recenti.
+title: "Dashboard di amministrazione"
+description: "La struttura di /admin e la dashboard: contatori e tabella utenti reali, grafico dei ricavi statico."
 ---
 
-## Itinerario
+## Struttura di amministrazione
 
-`/admin` — compone la griglia delle statistiche, il grafico, la tabella degli utenti con Suspense.
+`src/routes/admin.tsx` protegge ogni pagina di amministrazione con `requireAdmin` e precarica i namespace condivisi. Il layout mostra:
 
-Preferire aggregazioni reali tramite moduli come si induriscono metriche; mantenere scheletri liberi di importazione solo server.
+- `AdminSidebar`, `AdminBreadcrumbs` e `AdminCommandPalette` (si apre con ⌘K), tutti costruiti da `ADMIN_SIDEBAR_GROUPS` in `src/data/admin.ts`: Panoramica (Dashboard, Analytics), Offerta (Prodotti, Modelli di prezzo), Contenuti (Blog, Landing page) e Amministrazione (Gestione utenti, Pagamenti, Impostazioni).
+- Il widget utente in fondo alla barra laterale, con un link alle impostazioni e `SignOutButton`.
+
+## Dashboard
+
+`/admin` (`src/routes/admin.index.tsx`) precarica `getProductsQuery` e `getUsersQuery` nel suo loader e compone tre widget da `src/presentation/components/custom/admin/dashboard`:
+
+- `DashboardStats` (reale): il numero di utenti, il numero di prodotti e gli utenti in attesa di verificare l’email.
+- `RevenueChart` (demo): un SVG statico con assi fissi; i pulsanti dell’intervallo non fanno nulla.
+- Una scheda utenti (reale): gli utenti più recenti con filtri di ricerca e di stato, cinque righe per pagina.
+
+```tsx
+<DataTable
+  columns={dashboardUserColumns}
+  data={users.rows}
+  filters={[
+    { columnId: "user", placeholder: t("users.search"), type: "search" },
+    {
+      columnId: "status",
+      label: t("users.filters.status"),
+      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+      type: "select",
+    },
+  ]}
+  options={{ initialState: { pagination: PREVIEW_PAGINATION }, selectable: true }}
+/>
+```
+
+La tabella lavora nel browser sulla prima pagina di `getUsersQuery` (dieci utenti). **Vedi tutti** porta a `/admin/users` quando ci sono altri utenti. **Aggiungi prodotto** porta a `/admin/products/create`; **Ultimi 30 giorni** è disattivato ed **Esporta** non è collegato.
+
+## Guide correlate
+
+- [Aggiungere una pagina di amministrazione](/docs/guides/add-an-admin-page)
+- [DataTable](/docs/ui/data-table)

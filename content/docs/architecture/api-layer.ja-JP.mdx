@@ -1,28 +1,37 @@
 ---
-title: TanStack Start HTTP ハンドラ
-description: TanStack Start HTTP ハンドラ — SaaSy Land
+title: "TanStack Start の HTTP ハンドラー"
+description: "/api 配下の HTTP エンドポイントと、サーバー関数ではなくエンドポイントを追加すべき場面。"
 ---
 
-HTTP エンドポイントでは、ネイティブ TanStack Start サーバー ハンドラを使用できます。 `src/routes`. Better Auth は GET と POST を所有しています。 `/api/auth/$`; Fumadocs 検索使用 `/api/search`. . 製品操作は、機能モジュールのネイティブサーバー機能です。
+アプリケーション自身の処理はサーバー関数で実装します。HTTP ハンドラーを置くのは、アプリケーションの RPC クライアント以外のものが URL を呼び出す場合だけです。具体的には、Better Auth のブラウザクライアント、OAuth プロバイダー、Polar の Webhook、ドキュメントの検索ボックスです。
 
-ハンドルを宣言する `createFileRoute` と、 `server.handlers`. . 供給される使用して下さい `request`, 入力を検証, 権限チェックを強制し、Web を返す `Response`. . プロバイダーの統合で Webhook 検証を保ちましょう。 このアプリケーションの型 RPC クライアントでのみ使用される動作については、重複 REST エンドポイントを公開しないでください。
+| ファイル                   | パス          | メソッド  | 処理内容                                                                                                                           |
+| -------------------------- | ------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/index.ts`  | `/api`        | GET       | JSON のステータスレスポンス `{ runtime: "cloudflare-workers" }`                                                                    |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | GET, POST | OAuth コールバック、メール認証、Polar のカスタマーポータル、`/api/auth/polar/webhooks` を含む Better Auth のすべてのエンドポイント |
+| `src/routes/api/search.ts` | `/api/search` | GET       | ドキュメントを対象とした Fumadocs の検索                                                                                           |
+
+ハンドラーは `createFileRoute` の `server.handlers` で宣言します。Web API の `Request` を受け取り、`Response` を返します。
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
-## 関連ガイド
+## ルール
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- このアプリケーションからしか呼ばれない処理のために REST エンドポイントを追加しないでください。代わりに `createServerFn` でユースケースを書きます。そうすれば、型付きの入力、ミドルウェア、クエリオプションを利用できます。
+- ハンドラーは入力の検証と権限のチェックを自分で行います。サーバー関数のミドルウェア（`authorized`、`withRateLimit`）はハンドラーでは実行されません。
+- ベンダー固有の検証はインテグレーション内に置きます。Polar の Webhook 署名は、独自のハンドラーではなく、Better Auth 内の Polar プラグインが検証します。
+- `/api` のパスはローカライズもプリレンダリングもされず、Worker のロケール処理もスキップします。
+
+## 関連ページ
+
+- [API ルートを追加する](/docs/guides/add-an-api-route)
+- [サーバー関数とユースケース](/docs/architecture/modules-and-use-cases)
+- [API サーフェス](/docs/features/api-surface)

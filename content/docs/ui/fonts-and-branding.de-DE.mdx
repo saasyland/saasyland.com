@@ -1,6 +1,58 @@
 ---
-title: Schriftarten und Branding.
-description: Markenelemente und Schriftarten werden geladen.
+title: "Schriften & Branding"
+description: "Selbst gehostete Geist-Schriften, Locale-abhängige Preloads und die Markenkonstanten."
 ---
 
-`presentation/branding` + `presentation/fonts`. Achten Sie auf eine starke Markenpräsenz auf der Startseite; die Verwaltung priorisiert Dichte und Übersichtlichkeit.
+## Schriften
+
+Geist und Geist Mono werden als variable WOFF2-Subsets in `public/fonts` selbst gehostet und mit einem einjährigen, unveränderlichen Cache ausgeliefert (`public/_headers`). `src/presentation/styles/fonts.css` deklariert ein `@font-face` pro Unicode-Bereich (Latin, Latin Extended, Cyrillic), metrisch angepasste Fallback-Schriften sowie die Variablen `--font-geist-sans` und `--font-geist-mono`. `globals.css` ordnet sie `--font-sans`, `--font-heading` und `--font-mono` zu. Japanischer Text fällt auf den System-Font-Stack zurück.
+
+## Preloads
+
+`src/presentation/document-assets.ts` exportiert `DOCUMENT_STYLESHEET` (`globals.css`) und die Schrift-Preloads für eine Locale:
+
+```ts
+export const fontPreloads = (locale: SupportedLocale) => {
+  const fonts = [GEIST_LATIN, GEIST_MONO_LATIN]
+  if (locale === "pl-PL") {
+    fonts.push(GEIST_LATIN_EXT)
+  } else if (locale === "uk-UA") {
+    fonts.push(GEIST_CYRILLIC)
+  }
+  return fonts
+}
+```
+
+Die Root-Route fügt sie als `link`-Tags hinzu, und der Worker (`src/server.ts`) sendet das Stylesheet und dieselben Schriften bei jeder HTML-Antwort in einem `Link`-Preload-Header. Die Dateinamen der Schriften sind Inhalts-Hashes: Wenn Sie eine Schrift ersetzen, aktualisieren Sie sowohl `fonts.css` als auch `document-assets.ts`.
+
+## Markenkonstanten
+
+`src/presentation/branding/index.ts` ist die einzige Quelle der Marke:
+
+```ts
+export const APP_NAME = "SaaSy Land"
+export const APP_DOMAIN = "saasyland.com"
+
+export const APP_URL = `https://${APP_DOMAIN}`
+export const CONTACT_EMAIL = `hello@${APP_DOMAIN}`
+export const NOTIFICATIONS_EMAIL = `notifications@${APP_DOMAIN}`
+
+export const APP_FOUNDED_YEAR = 2023
+
+export const APP_GITHUB_OWNER = "saasyland"
+export const APP_GITHUB_REPO = APP_DOMAIN
+export const APP_GITHUB_URL = `https://github.com/${APP_GITHUB_OWNER}/${APP_GITHUB_REPO}`
+```
+
+Sie speisen den App-Namen und den 2FA-Aussteller in Better Auth, die Cookie-Namen für Theme und Locale, die erlaubten Hosts, den Footer, die Navigation der Dokumentation, die Anzahl der GitHub-Sterne, die strukturierten Daten des Blogs sowie Absender und Empfänger der E-Mails.
+
+## Logo und Medien
+
+- `Wordmark` (`src/presentation/components/custom/wordmark.tsx`) rendert das Logo als Inline-SVG neben `APP_NAME`.
+- Das Favicon ist `public/favicon.ico`; Blogbilder liegen in `public/images/blog`.
+- Die Videos der Landingpage liegen in `src/presentation/assets/motion` als WebM-Dateien mit WebP-Postern. Ein Poster muss die Abmessungen seines Videos beibehalten.
+
+## Verwandte Anleitungen
+
+- [Theming und Branding](/docs/guides/theming-and-branding)
+- [Theme](/docs/ui/theme)

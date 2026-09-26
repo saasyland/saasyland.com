@@ -1,10 +1,22 @@
 ---
-title: E-Mail-Verifizierung.
-description: Senden und empfangen von E-Mail-Verifikationscodes.
+title: "E-Mail-Bestätigung"
+description: "Verpflichtende E-Mail-Bestätigung mit lokalisierten Links und einem Formular zum erneuten Senden."
 ---
 
-## Modul
+Better Auth läuft mit aktiviertem `requireEmailVerification`, `sendOnSignUp` und `autoSignInAfterVerification`, sodass ein neues Konto seine Adresse bestätigen muss, bevor eine Anmeldung möglich ist.
 
-`modules/verification` — `send-verification-email`, `verify-email`.
+## Versand
 
-Vorlagen und Resend-Anbindung über die E-Mail-Hilfsfunktionen von Better Auth.
+`emailVerification.sendVerificationEmail` in `auth.server.ts` ist `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`). Es erstellt einen Link zu `/auth/verify-email?token=…` in der aktuellen Locale und sendet die Vorlage `VerifyEmail` (siehe [Transaktions-E-Mails](/docs/features/email)). Registriert sich jemand erneut mit einer unbestätigten Adresse, sendet `onExistingUserSignUp` einen neuen Link, statt zu verraten, dass das Konto existiert.
+
+## Bestätigung
+
+`/auth/verify-email` löst den Link in `beforeLoad` auf:
+
+- Mit `?token=` lädt die Route das Dokument unter `/api/auth/verify-email` neu, mit einer `callbackURL` von `/auth/verify-email?verified=true` in derselben Locale.
+- Mit `?verified=true` und ohne `error` leitet sie zu `/auth/callback` weiter, das den Benutzer zu `/admin` oder `/app` schickt.
+- Andernfalls rendert sie die Seite; mit `?error=` zeigt sie die Meldung für einen ungültigen Link.
+
+## Erneut senden
+
+`VerifyEmailForm` füllt die Adresse aus `?email=` vor, das Registrierung und Anmeldung bei der Weiterleitung hierher setzen. Das Formular ruft die Serverfunktion `sendVerificationEmail` (`src/modules/verification/use-cases/send-verification-email.ts`) auf, die mit `RATE_LIMITS.SENSITIVE` begrenzt ist.

@@ -1,30 +1,136 @@
 ---
-title: Серверні функції та випадки використання
-description: Серверні функції та випадки використання — SaaSy Land
+title: "Додавання модуля"
+description: "Додайте таблицю бази даних зі схемою Drizzle, схемами Zod, константами, типами та сценаріями використання."
 ---
 
-Функціональні операції в режимі реального часу `src/modules/{feature}/use-cases/{operation}.ts`. . Експорт рідного `createServerFn` з його вхідним schema, авторизації або номінальний посередник, і обробник, який викликає D1 або адаптера постачальника. Відшкодування повертає дані безпосередньо і кидає сейф `AppError`; він не повертає в рамковий конверт дії.
+Модуль — це одна таблиця бази даних. `src/modules/<table>/` існує лише для справжніх таблиць; серверні функції, що не належать жодній таблиці, розміщуються в `src/lib` або в маршруті, який їх використовує. Найменший повний приклад — `src/modules/category`.
 
-Експорт `mutationOptions` бокові мутації і `queryOptions` бокові читання. Використання компонентів TanStack Query і перевести помилки з `useActionError`. . Успішні мутації недійсні свої функції ключі запиту. Ніколи не довіряйте ідентифікатор користувача, який подається замовником, коли операція повинна діяти на `context.auth.user.id`.
+## Файли
 
-Зареєструватися `withAuth` для захищених операцій та `withRateLimit` для чутливих публічних операцій. Дійсність проходить до обробника. Зберігайте помилки провайдера та внутрішні деталі з публічних відповідей.
+| Файл                       | Вміст                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `<table>.schema.ts`        | Таблиця Drizzle, індекси, зв'язки та списки значень перелічень                                   |
+| `<table>.zod.ts`           | Одна схема вхідних даних на операцію та схеми `drizzle-zod`, експортовані як `<table>ZodSchemas` |
+| `<table>.constants.ts`     | Кортежі ключів запитів і мутацій та ліміти модуля                                                |
+| `<table>.types.ts`         | Типи рядків, виведені з таблиці                                                                  |
+| `<table>.utils.ts`         | Необов'язкові чисті допоміжні функції                                                            |
+| `use-cases/<operation>.ts` | Одна серверна функція на файл разом із параметрами запиту чи мутації                             |
+| `__test__/`                | Тести, названі за вихідним файлом, наприклад `category.schema.test.ts` і `category.zod.test.ts`  |
+
+## 1. Визначте таблицю
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
-import { mutationOptions } from "@tanstack/react-query"
-import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
-import { categoryZodSchemas } from "~/src/modules/category/category.zod"
+import { sql } from "drizzle-orm"
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const CATEGORY_KINDS = ["category", "collection"] as const
+
+export const category = sqliteTable(
+  "category",
+  {
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    id: text("id").primaryKey(),
+    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default("category"),
+    name: text("name", { length: 255 }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("category_createdAt_idx").on(table.createdAt)],
+)
 ```
 
-В даний час `createCategory` Операція демонструє перевірку дійсності, перевірок дозволу, вставку D1 і експортуються параметри мутації.
+- Назви колонок пишуться в snake_case, властивості — у camelCase.
+- Ідентифікатори — це первинні ключі типу `text`, які сценарій вставлення заповнює через `v7()` з `uuid`.
+- Дати — це `integer(..., { mode: "timestamp_ms" })`, булеві значення — `integer(..., { mode: "boolean" })`.
+- Зовнішні ключі використовують `.references(() => user.id, { onDelete: "cascade" })`, а `relations(...)` оголошує з'єднання (див. `session.schema.ts`).
 
-## Схожі посібники
+## 2. Зареєструйте схему
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+Експортуйте таблицю, а також її зв'язки, якщо вони є, з `src/integrations/drizzle-orm/drizzle.schemas.ts`:
+
+```ts
+export { category } from "~/src/modules/category/category.schema"
+```
+
+Цей файл використовують клієнт D1 (`drizzle(env.DB, { schema })`), адаптер Drizzle у Better Auth і drizzle-kit. Таблиця, якої тут немає, не отримає міграції.
+
+## 3. Згенеруйте міграцію
+
+```sh
+bun run db:generate
+bun run db:migrate:local
+```
+
+Перегляньте згенерований SQL у `src/integrations/drizzle-orm/migrations/` і закомітьте його разом зі схемою. Віддалені середовища описано в посібнику [Міграції бази даних](/docs/guides/database-migrations).
+
+## 4. Додайте схеми Zod
+
+Кожна операція має власну схему вхідних даних. Повідомлення валідації — це ключі перекладу, які розв'язуються в просторі імен `<table>.validations`.
+
+```ts
+import { createSchemaFactory } from "drizzle-zod"
+import zod from "zod/v4"
+
+import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
+import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
+
+const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
+
+export const CATEGORY_NAME_MAX_LENGTH = 255
+
+const createCategory = zod.object({
+  kind: zod.enum(CATEGORY_KINDS),
+  name: zod.string().min(MIN_FIELD_LENGTH, { message: "nameRequired" }).max(CATEGORY_NAME_MAX_LENGTH, { message: "nameMaxLength" }),
+})
+
+const deleteCategory = zod.object({ categoryId: idField })
+
+export const categoryZodSchemas = {
+  createCategory,
+  deleteCategory,
+  insert: createInsertSchema(category),
+  select: createSelectSchema(category),
+  update: createUpdateSchema(category),
+}
+```
+
+Додайте `messages/<locale>/<table>.validations.json` для всіх дев'яти мов з усіма ключами, які використовують схеми.
+
+## 5. Додайте константи й типи
+
+```ts
+export const CATEGORY_QUERY_KEYS = {
+  ALL: ["category"],
+  LIST: ["category", "getCategories"],
+} as const
+
+export const CATEGORY_MUTATION_KEYS = {
+  CREATE: ["category", "createCategory"],
+  DELETE: ["category", "deleteCategory"],
+  UPDATE: ["category", "updateCategory"],
+} as const
+```
+
+```ts
+import type { category } from "~/src/modules/category/category.schema"
+
+export interface Category {
+  select: typeof category.$inferSelect
+  insert: typeof category.$inferInsert
+}
+```
+
+Кожен ключ починається з назви модуля, тож інвалідація `ALL` оновлює всі запити модуля.
+
+## 6. Додайте дозволи та сценарії використання
+
+- Додайте дії таблиці до `APP_STATEMENTS` у `src/integrations/better-auth/auth.access.ts`, якщо операціям потрібні дозволи. Див. [Ролі та дозволи](/docs/guides/roles-and-permissions).
+- Додайте по одному файлу на операцію в `use-cases/`. Див. [Додавання сценарію використання](/docs/guides/add-a-use-case).
+
+## 7. Протестуйте
+
+Додайте `__test__/<table>.schema.test.ts`, `<table>.zod.test.ts` і `<table>.types.test.ts` поруч із модулем та `use-cases/__test__/<operation>.test.ts` для кожної операції. Обов'язкове покриття — 100%; див. [Написання тестів](/docs/guides/writing-tests).

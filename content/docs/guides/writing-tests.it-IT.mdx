@@ -1,26 +1,100 @@
 ---
-title: Test e CI
-description: Test e CI — SaaSy Land
+title: "Scrivere i test"
+description: "Dove si trovano i test, come funzionano i progetti Vitest e i binding di test, la soglia di copertura del 100% e Playwright."
 ---
 
-Vite+ funziona Vitest in tre progetti: test di nodo, test di integrazione e test componenti jsdom. Tenere i test di comportamento esistenti accanto al codice che esercitano sotto `__test__`. Importare API di test da `vite-plus/test`. Utilizzare Playwright per flussi di browser completi e controlli di rendering.
+Vite+ esegue Vitest (`vp test`) in tre progetti. I test si trovano in una cartella `__test__` accanto al codice che coprono e importano le API da `vite-plus/test`.
 
-La configurazione condivisa fornisce servizi locali D1 e KV Mocks. D1 gestisce le migrazioni SQL verificate contro SQLite. Il ponte RPC server-funzione preserva il vero middleware e pipeline di validazione di TanStack. Gli helper di rendering dei componenti forniscono reali contesti QueryClient e Router. OAuth e le chiamate di pagamento sono mocked in test.
+| Progetto      | File                             | Ambiente |
+| ------------- | -------------------------------- | -------- |
+| `node`        | `__test__/*.test.ts(x)`          | Node     |
+| `integration` | `__test__/*.integration.test.ts` | Node     |
+| `component`   | `__test__/*.component.test.tsx`  | jsdom    |
 
-Eseguire il progetto focalizzato durante la modifica, quindi eseguire la suite completa, cancello di copertura, controllare e visualizzare l'anteprima costruire. I test del browser verificano le pagine pubbliche, i reindirizzamenti auth, la SSR senza JavaScript e la navigazione del cliente. CI utilizza i binding locali e non richiede un database o un segreto del fornitore dal vivo.
+Dai a ogni test il nome del suo file sorgente: `category.zod.ts` è coperto da `__test__/category.zod.test.ts`.
+
+## Comandi
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
 ```
 
-## Guide correlate
+Usa `bun run test` e non `bun test`: solo Vitest carica i progetti, gli ambienti e il file di configurazione.
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+## Soglia di copertura
+
+`bun run test:coverage` fallisce sotto il **100%** di righe, istruzioni, funzioni e rami del codice applicativo in `src`. Sono esclusi i test, `src/platform/testing`, le primitive shadcn e i file generati. Copri il comportamento reale ed elimina i rami che non possono mai essere eseguiti invece di sostituire variabili globali per raggiungerli. I report vengono scritti in `coverage/`.
+
+## Ambiente di test
+
+- `src/platform/testing/setup.ts` registra i matcher di jest-dom, reimposta i binding prima di ogni test e fa passare ogni `createServerFn` attraverso `withTestRpc`, così le chiamate eseguono il vero middleware e il vero validatore.
+- `cloudflare:workers` punta a `src/platform/testing/mocks/cloudflare.ts`. D1 è un database SQLite in memoria con tutte le migrazioni del repository applicate, KV è una mappa in memoria e `flushWaitUntil()` attende le attività in background.
+- `.env.test` fornisce credenziali fittizie. Le chiamate di email, OAuth e pagamento sono simulate; nulla lascia la macchina.
+- `renderWithRouter` di `src/platform/testing/lib/render.tsx` mostra i componenti con un vero router e un vero `QueryClient`.
+
+## Testa un caso d'uso
+
+Versione ridotta di `src/modules/category/use-cases/__test__/create-category.test.ts`:
+
+```ts
+import { describe, expect, it, vi } from "vite-plus/test"
+
+import { executeMutation } from "~/src/platform/testing/lib/query"
+
+import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import type { auth } from "~/src/integrations/better-auth/auth.server"
+import * as authServer from "~/src/integrations/better-auth/auth.server"
+
+import { createCategoryMutation } from "~/src/modules/category/use-cases/create-category"
+
+const getSessionMock = vi.hoisted(() => vi.fn<(typeof auth.api)["getSession"]>())
+
+vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
+
+describe("create-category", () => {
+  it("returns a domain error when the caller is not an admin", async () => {
+    vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
+    getSessionMock.mockResolvedValue(
+      createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: "01900000-0000-7000-8000-000000000001" }),
+    )
+
+    await expect(executeMutation(createCategoryMutation, { kind: "category", name: "SaaS Plans" })).rejects.toThrow("FORBIDDEN")
+  })
+})
+```
+
+Testa ogni esito di un caso d'uso: successo, ogni codice di `AppError`, sessione mancante e permesso mancante.
+
+## Testa un componente
+
+I test dei componenti usano i messaggi reali di `messages/en-US`, simulano il modulo del caso d'uso che fornisce le opzioni di mutation e pilotano l'interfaccia con Testing Library e `userEvent`. Per gli stati di attesa, tieni aperta la richiesta simulata con `Promise.withResolvers()`, verifica l'interfaccia in attesa, poi risolvila dentro `act` e verifica l'interfaccia a riposo. `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx` è un esempio completo.
+
+## Test nel browser
+
+Le specifiche Playwright si trovano in `e2e/specs`, con i page object in `e2e/pages` e le fixture in `e2e/fixtures`. Vengono eseguite sull'applicazione di test compilata, con D1 e KV locali in `.wrangler/test` e gli account di prova di `e2e/data/accounts.ts`. In locale, Playwright esegue da solo migrazione, popolamento, build e avvio di questa applicazione.
+
+```sh
+bun run test:e2e:install
+bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:ui
+```
+
+Il Worker di test registra le email inviate, così una specifica può leggere il link di verifica da `/__test/emails?to=<address>`.
+
+## Prima del push
+
+```sh
+bun run check
+bun run test:coverage
+bun run build
+```
+
+La CI esegue i controlli, la copertura e la suite browser su Chromium a ogni pull request e a ogni push su `main`, e WebKit ogni settimana e a ogni push su `main`.

@@ -1,30 +1,92 @@
 ---
-title: Fonctions du serveur et cas d'utilisation
-description: Fonctions du serveur et cas d'utilisation — SaaSy Land
+title: "Fonctions serveur et cas d'usage"
+description: "Comment un module possède une table de la base de données et expose ses opérations sous forme de cas d'usage."
 ---
 
-Fonctionnalités en cours `src/modules/{feature}/use-cases/{operation}.ts`C'est vrai. Exporter un natif `createServerFn` avec son schéma d'entrée, son autorisation ou son intergiciel de limite tarifaire, et un gestionnaire qui appelle D1 ou l'adaptateur fournisseur. Une mutation retourne les données directement et lance un coffre-fort `AppError`; il ne renvoie pas une enveloppe d'action spécifique au cadre.
+## Modules
 
-Exportations `mutationOptions` à côté des mutations et `queryOptions` à côté de lire. Les composants utilisent TanStack Query et traduisent les erreurs avec `useActionError`C'est vrai. Les mutations réussies invalident leurs touches de requête de fonctionnalités. Ne jamais faire confiance à un identifiant utilisateur fourni par un client lorsque l'opération doit agir sur `context.auth.user.id`.
+Un module dans `src/modules/<table>` n'existe que pour une vraie table de la base de données. Il contient :
 
-Utilisation `withAuth` pour les opérations protégées et `withRateLimit` pour les opérations publiques sensibles. La validation s'effectue avant le gestionnaire. Tenir les erreurs du fournisseur et les détails internes hors des réponses du public.
+- `<table>.schema.ts` : la table Drizzle, réexportée par `src/integrations/drizzle-orm/drizzle.schemas.ts`
+- `<table>.zod.ts` : les schémas d'entrée, utilisés à la fois par les formulaires et par les fonctions serveur
+- `<table>.constants.ts` : les clés de query et de mutation, les enums
+- `<table>.types.ts` et `<table>.utils.ts` : lorsque la table en a besoin
+- `use-cases/<operation>.ts` : une opération par fichier
+
+Modules actuels : account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user et verification. Les constantes et utilitaires partagés se trouvent dans [`_core`](/docs/architecture/core). Une fonction serveur qui ne travaille pas sur une table va dans `src/lib` ou dans l'unique route qui l'utilise.
+
+## Cas d'usage
+
+La plupart des cas d'usage sont des fonctions serveur appelées depuis le navigateur. Chaque fichier exporte le `createServerFn` ainsi que ses options de query ou de mutation :
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
 import { mutationOptions } from "@tanstack/react-query"
+import { createServerFn } from "@tanstack/react-start"
+import { v7 } from "uuid"
 import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
+
+import { authorized } from "~/src/integrations/better-auth/auth.middleware"
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+
+import { CATEGORY_MUTATION_KEYS } from "~/src/modules/category/category.constants"
+import { category } from "~/src/modules/category/category.schema"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
 ```
 
-L'actuel `createCategory` l'opération démontre la validation, les vérifications d'autorisation, un D1 insérer et exporter des options de mutation.
+- **Les middlewares** proviennent de `src/integrations/better-auth/auth.middleware.ts`. `authorized()` exige une session, `authorized({ category: ["create"] })` vérifie en plus une permission, et `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` limite le débit des opérations publiques.
+- **La validation** analyse l'entrée avec le schéma Zod du module avant l'exécution du handler.
+- **La propriété des données** découle de la session. Les opérations sur les données de l'appelant filtrent par `context.auth.user.id` et ne font jamais confiance à un identifiant utilisateur fourni en entrée.
+- **Les erreurs** sont levées avec `new AppError(ERROR_CODES.X)`. Toute autre erreur est journalisée et parvient au client sous la forme `INTERNAL_ERROR`.
+- **Les lectures** exportent plutôt des `queryOptions`, par exemple `getCategoriesPageQuery(input)`, qui résout `{ rows, total }` pour le tableau de données.
 
-## Guides connexes
+Certains cas d'usage sont de simples fonctions asynchrones qui ne s'exécutent que sur le serveur et n'ont pas d'endpoint RPC, comme `send-verify-email.ts` ou `grant-license.ts`. Ce sont les hooks Better Auth et les handlers de webhooks Polar qui les appellent.
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+## Appeler un cas d'usage depuis un composant
+
+Les composants décomposent les options exportées dans `useMutation`, traduisent les erreurs avec `useErrorMessage()` et invalident les clés de query du module en cas de succès :
+
+```tsx
+const t = useTranslations("pages.admin.users.actions")
+const queryClient = useQueryClient()
+const errorMessage = useErrorMessage()
+
+const deleteUser = useMutation({
+  ...deleteUserMutation,
+  onError: (error) => {
+    toast.error(errorMessage(error))
+  },
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL })
+    toast.success(t("feedback.deleteSuccess"))
+  },
+})
+```
+
+## Pages associées
+
+- [Catalogue des modules](/docs/reference/modules)
+- [Matrice des permissions](/docs/reference/permissions)
+- [Ajouter un cas d'usage](/docs/guides/add-a-use-case)

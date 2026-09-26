@@ -143,17 +143,17 @@ The development, preview, and production environments currently declare **all of
 
 ### Domains and branding
 
-The public URL is configured in source: [`src/presentation/branding/constants.ts`](src/presentation/branding/constants.ts) defines `APP_DOMAIN`, and [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) derives `APP_URL` as `https://${APP_DOMAIN}`. **`VITE_APP_URL` is not read by the application.**
+The public URL is configured in source: [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) defines `APP_DOMAIN` and derives `APP_URL` as `https://${APP_DOMAIN}`, together with the contact addresses and GitHub URL. **`VITE_APP_URL` is not read by the application.**
 
 When adapting the application to your own domain, update these locations together:
 
 | Location                                                                                                                                 | What to configure                                                                                               |
 | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| [`src/presentation/branding/constants.ts`](src/presentation/branding/constants.ts)                                                       | Application name, canonical domain, contact addresses, and GitHub identity.                                     |
-| [`src/integrations/better-auth/auth.server.ts`](src/integrations/better-auth/auth.server.ts)                                             | `APP_HOSTS`, the allowed authentication hosts, including your preview and Workers hostnames.                    |
+| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts)                                                               | Application name, canonical domain, contact addresses, and GitHub identity.                                     |
+| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts)                                                               | `appHostsForMode`, the allowed authentication hosts per mode, derived from `APP_DOMAIN`.                        |
 | [`src/modules/newsletter-subscriber/newsletter-subscriber.server.ts`](src/modules/newsletter-subscriber/newsletter-subscriber.server.ts) | The allowed Workers hostname suffix for newsletter request origins. Custom-domain checks derive from `APP_URL`. |
 | [`wrangler.jsonc`](wrangler.jsonc)                                                                                                       | Worker names, custom-domain routes, D1 databases, and KV namespaces for each environment.                       |
-| [`src/data/marketing-pricing.ts`](src/data/marketing-pricing.ts)                                                                         | Displayed packages and prices; keep these aligned with the configured Polar products.                           |
+| [`src/data/marketing.ts`](src/data/marketing.ts)                                                                                         | Displayed tiers and prices (`TIERS`, `TIER_PRICES`); keep them aligned with the configured Polar products.      |
 | [`src/presentation/styles/`](src/presentation/styles)                                                                                    | Theme, typography, fonts, and shared style definitions.                                                         |
 
 Changing an environment file alone does not change the canonical URL. Rebuild after changing branding or deployment configuration.
@@ -183,23 +183,26 @@ src/
   routes.ts                      Shared route constants
   router.tsx                     Per-request QueryClient and SSR integration
   server.ts                      Cloudflare Worker entry and locale middleware
-  integrations/{vendor}/         Vendor configuration and adapters
-  modules/{feature}/             Schemas, validation, constants, and use-cases/*.ts
+  integrations/{vendor}/         Vendor configuration and adapters ({vendor}.{concern}.ts)
+  modules/{table}/               One folder per database table: schema, zod, constants, types, use-cases/*.ts
+  modules/_core/                 Shared error codes, catalogues, and helpers
   presentation/
     assets/motion/               Published landing-page videos and posters
     branding/                    Application identity and canonical URL
-    components/shadcn/           UI primitives
-    components/custom/           Feature and shared components
-    emails/                      Email templates
+    components/shadcn/           UI primitives (React Aria)
+    components/custom/           Shared components, plus app/, auth/, blog/, admin/{page}/, landing-page/
+    emails/                      Email templates (markup and message namespace only)
     styles/                      Theme, typography, and local font declarations
   providers/                     Application-wide React providers
-  data/                          Marketing configuration and admin demo data
+  data/                          Data shared by several files: navigation, marketing, admin demo rows
   hooks/                         Shared React hooks
-  lib/                           Shared utilities
+  lib/                           Shared utilities (cn, cookies, SEO, GitHub stars, rate limits)
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers
 ```
 
-Routes coordinate loading and rendering. Business operations live in feature modules and export native TanStack `createServerFn` functions with query or mutation options. Components consume those options; database and provider clients stay behind server boundaries.
+Routes coordinate loading and rendering. Business operations live in table modules and export native TanStack `createServerFn` functions with query or mutation options. Components consume those options; database and provider clients stay behind server boundaries.
+
+A route file only composes its page: it defines the `<Name>Page` or `<Name>Layout` component, `const NAMESPACE` (page routes) or `const NAMESPACES` (layout routes), a loader that runs metadata, message and data loading in one `Promise.all`, and `head: pageHead(ROUTES.X)`. Widgets, dialogs, forms, and table columns live in their own files under `presentation/components/custom`, one per file, and read their own translations and data instead of receiving labels as props. Forms follow the shadcn TanStack Form pattern with the module's Zod schema; tables use the generic `DataTable` with columns defined in an `{entity}-columns.tsx` file. Email templates contain markup only; the use case that sends an email loads its messages and renders the template.
 
 Validate inputs at the server boundary and authorize protected functions themselves, in addition to page guards. Query and mutation keys are readonly tuples owned by the feature's `*.constants.ts`; include inputs that change the result in the query key. Reuse exported options for cache access, and invalidate only the data a mutation changes. Application documentation lives in [`content/docs/`](content/docs), including the [architecture guides](content/docs/architecture).
 
@@ -227,7 +230,7 @@ Use `bun run test` to invoke the configured Vite+ test runner. Running `bun test
 | `bun run typegen`                                                           | Generate Worker declarations, class-name tables, and Fumadocs content/types.           |
 | `bun run check`                                                             | Generate class-name tables; check localization/content, formatting, lint, and types.   |
 | `bun run check:fix`                                                         | Run checks and apply supported formatting/lint fixes.                                  |
-| `bun run check:i18n`                                                        | Validate message parity, ICU formats, localized content, and code samples.             |
+| `bun run check:i18n`                                                        | Validate message parity, scoped translation keys, ICU formats, and localized content.  |
 | `bun run test`                                                              | Run node, integration, and component test projects.                                    |
 | `bun run test:unit` / `bun run test:integration` / `bun run test:component` | Run one test project.                                                                  |
 | `bun run test:watch` / `bun run test:changed`                               | Watch tests or run tests affected by changes.                                          |
@@ -360,12 +363,15 @@ Public pages are prerendered to `dist/client`; protected, authentication, newsle
 
 The supported locales are `en-US`, `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR`, and `uk-UA`, defined in [`i18n.config.ts`](src/integrations/use-intl/i18n.config.ts).
 
-English uses unprefixed paths. Other languages use the full locale, such as `/de-DE/docs` or `/pl-PL/blog`; short aliases redirect to canonical paths. Locale switching preserves the current path, query, and fragment. A locale cookie carries the active language into server-function requests.
+English uses unprefixed paths. Other languages use the full locale, such as `/de-DE/docs` or `/pl-PL/blog`; short aliases redirect to canonical paths. Switching language opens the current path in the chosen language; the query string and fragment are not carried over. The locale always comes from the URL path, so server functions that need it receive it as input, because their `/_serverFn` URLs carry no locale prefix.
 
 - Store UI messages in `messages/{locale}/`, using the same keys, ICU arguments, and rich-text tags across locales and each language's plural categories.
 - Store documentation and blog content as `slug.{locale}.mdx` under `content/docs` and `content/blog`; localized navigation uses `meta.{locale}.json`.
 - Translate frontmatter, visible component attributes, FAQ entries, and body text. Preserve slugs, MDX component names, code examples, and link destinations.
-- Declare route message namespaces for preloading through TanStack Query. Keep email catalogues in the server-only email registry.
+- Every page route owns one namespace (`const NAMESPACE = "pages.x"`, with `metadata.title` and `metadata.description` for its head); layout routes preload the namespaces their subtree shares. Root namespaces (`common`, `components.*`, `errors*`) load for every page, and the translations provider wraps the whole document so error screens are translated too.
+- Use one `useTranslations` per component and name the translator `t`. A later `useTranslations` call re-scopes every following `t()` for i18n-ally, and `bun run check:i18n` fails on keys that do not resolve in their scope.
+- Link with `<Link to={ROUTES.X}>`; the router adds the locale prefix. Use `localizePathname` only for raw URLs such as authentication callbacks and email links.
+- Email messages live in `emails.*` namespaces and are loaded by the sending use case, never by browser code.
 - Run `bun run check:i18n` after changes. Builds additionally verify localized home and legal-page output.
 
 Fumadocs generates `.source/`; edit the source MDX and catalogues instead of generated output. The public legal routes are `/privacy`, `/terms`, `/refunds`, and `/licence`. Review their content when adapting the application to a different business.

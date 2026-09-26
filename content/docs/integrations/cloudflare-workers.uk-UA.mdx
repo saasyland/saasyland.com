@@ -1,25 +1,33 @@
 ---
-title: Розгортання до Cloudflare Workers
-description: Розгортання до Cloudflare Workers - SaaSy Land
+title: "Cloudflare Workers"
+description: "Точка входу Worker, middleware локалі, прив'язки та розгортання."
 ---
 
-Vite+, TanStack Start і TanStack Start `@cloudflare/vite-plugin`. `wrangler.jsonc` оголошує запис, налаштування сумісності, активи, спостережливість та окремий розвиток, перегляд та обов’язки продукції.
+Застосунок працює як один Cloudflare Worker. Його збирає `@cloudflare/vite-plugin`, а `CLOUDFLARE_ENV` вибирає середовище Wrangler. `wrangler.jsonc` задає `main` як `./src/server.ts`, вмикає `nodejs_compat` і спостережуваність, а статичні файли віддає через прив'язку `ASSETS`. Worker виконується першим для кожного шляху, крім `/assets/*`, `/fonts/*`, `/robots.txt` і `/llms.txt`.
 
-Надання D1 і KV і замініть ідентифікатори держателя для цільового середовища. Налаштуйте свої секрети URL та провайдера `.env.preview` або `.env.production`. . Застосувати міграцію прямо, потім розгортати. Розгортання сценаріїв, які вводяться в обов'язкові ідентифікатори першими; створення сценаріїв, що передаються публічним сторінкам і перевірку вихідних артефактів. Ауттентифікація та приватні сторінки додатків динамічно працюють на Worker.
+| Середовище    | Worker                  | D1 і KV                             | Домен                   |
+| ------------- | ----------------------- | ----------------------------------- | ----------------------- |
+| `development` | `saasyland-development` | Віддалені ресурси preview           | `localhost:3000`        |
+| `preview`     | `saasyland-preview`     | Ресурси preview                     | `preview.saasyland.com` |
+| `production`  | `saasyland`             | Продакшн-ресурси                    | `saasyland.com`         |
+| `test`        | `saasyland-test`        | Локальні ресурси в `.wrangler/test` | `127.0.0.1:3000`        |
 
-Встановити користувальницький домен і OAuth URL-адреси зворотного зв'язку для цільового середовища. Встановлення залежностей і будівлі ніколи не відноситься до дистанційної міграції.
+Кожне середовище прив'язує D1 як `DB` і KV як `CACHE` та перелічує свої обов'язкові секрети. Середовище `test` використовує `src/platform/testing/worker.ts` як точку входу; воно перехоплює запити до Resend і Polar та відкриває ендпоінти лише для тестів Playwright.
 
-```sh
-bunx wrangler login
-bunx wrangler d1 create saasyland_preview
-bunx wrangler kv namespace create CACHE --env preview
-# Update wrangler.jsonc and .env.preview first.
-bun run db:migrate:preview
-bun run deploy:preview
-```
+## Обробка запиту
 
-## Схожі посібники
+`src/server.ts` обробляє кожен запит:
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+1. `resolveLocale` з `i18n.middleware.ts` перевіряє запити документів `GET` і `HEAD` поза `/api` і `/_serverFn`. Він перенаправляє мовні псевдоніми та неканонічні шляхи локалей зі статусом 308 і повідомляє, коли cookie локалі відрізняється від локалі в URL.
+2. Запити `GET` і `HEAD` поза `/api` і `/_serverFn` спершу обслуговуються з `ASSETS`, що охоплює попередньо відрендерені сторінки. У разі 404 запит передається обробнику TanStack Start.
+3. Коли cookie локалі потребує оновлення, Worker додає його до відповіді. HTML-відповіді також отримують заголовки `Link` для попереднього завантаження таблиці стилів і шрифтів локалі.
+4. HTML-відповіді отримують регіональні ціни: коли країна з `cf-ipcountry` має право на знижку за паритетом купівельної спроможності, `HTMLRewriter` додає атрибути знижки до `<html>`, а відповідь стає `private, no-cache`.
+
+## Розгортання
+
+`bun run deploy:preview` і `bun run deploy:production` запускають `scripts/verify-bindings.ts`, який відхиляє ідентифікатори-заглушки D1 і KV, потім відповідну збірку та `wrangler deploy --secrets-file .env.<environment>`. Збірки попередньо рендерять публічні сторінки й запускають `scripts/verify-build.ts` і `scripts/optimize-prerendered-html.ts`. Міграції виконуються окремими командами; див. [Розгортання preview](/docs/getting-started/deploy-preview) і [CI/CD](/docs/tooling/ci-cd).
+
+## Пов'язані посібники
+
+- [Середовища та прив'язки](/docs/tooling/environment)
+- [Шар платформи](/docs/architecture/platform-layer)

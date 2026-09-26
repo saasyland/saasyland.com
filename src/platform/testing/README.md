@@ -39,29 +39,30 @@ Everything else is colocated with its owner.
 ## Commands
 
 ```bash
-bun run test                 # full Vite+ suite (vp test run)
-bun run test:watch           # vp test watch
-bun run test:unit            # --project node
-bun run test:component       # --project component
-bun run test:integration     # --project integration
-bun run test:e2e:smoke       # Playwright smoke
+bun run test
+bun run test:watch
+bun run test:unit
+bun run test:component
+bun run test:integration
+bun run test:coverage
+bun run test:e2e:smoke
 ```
 
-Use `bun run test`, not `bun test` (see `scripts/bun-test-guard/`).
+Use `bun run test`, not `bun test`: Vitest owns the projects, environments and setup files. `bun run test:coverage` enforces 100% statements, branches, functions, and lines. Cover real behaviour with tests and delete branches that can never run instead of stubbing globals to reach them. Pending states hold the mocked request open with `Promise.withResolvers()`, assert the pending UI, then resolve inside `act` and assert the idle UI.
 
 ## Ownership
 
-Routes in `src/routes/` compose pages and preload queries. Feature views live in `src/presentation/components/custom/{feature}/`, with components, sections, constants, hooks and types beside their owner. Shared marketing and demo records live in `src/data/`; executable utilities live in `src/lib/` or a feature's `lib/` folder.
+Routes in `src/routes/` compose pages and preload queries. Widgets, dialogs, forms, and table columns live one per file in `src/presentation/components/custom/` (shared components at the top level, area and page folders such as `admin/users/` below it); their tests live in the nearest `__test__/` folder or in `src/routes/__test__/` when they exercise a whole route. Data shared by several files lives in `src/data/`; executable utilities live in `src/lib/`.
 
-Use cases live in `src/modules/{feature}/use-cases/`. They validate inputs and enforce their own authorization through native TanStack Start middleware. Vendor setup and adapters live in `src/integrations/{vendor}/`. Presentation components consume query/mutation options and never import database or provider clients directly.
+Use cases live in `src/modules/{table}/use-cases/`. They validate inputs and enforce their own authorization through native TanStack Start middleware. Vendor setup and adapters live in `src/integrations/{vendor}/`. Presentation components consume query/mutation options and never import database or provider clients directly.
 
 ## Auth integration harness
 
 `src/integrations/better-auth/__test__/fixtures/auth.test-instance.ts` wraps Better Auth’s `getTestInstance` (Vitest-only). Do not import `better-auth/test` outside Vitest—it registers `afterAll` hooks at module load.
 
-Session fixtures for action/use-case tests: `__test__/fixtures/auth.session.fixture.ts`.
+Session fixtures for use-case tests: `__test__/fixtures/auth.session.fixture.ts`.
 
-`auth.signup.integration.test.ts` exercises the production signup server function, Better Auth configuration, database adapter, email templates, and Resend SDK. It captures outbound HTTP requests to check that verification delivery finishes before fresh or repeated signup returns.
+`auth.signup.integration.test.ts` exercises the production signup server function, Better Auth configuration, database adapter, email templates, and Resend SDK. Better Auth hands verification delivery to `waitUntil`, so the test awaits `flushWaitUntil()` from `mocks/cloudflare.ts` and then checks the captured outbound HTTP requests for fresh and repeated signups.
 
 Browser tests use `worker.ts` and `mocks/providers.ts` with isolated local bindings. The test Worker exposes captured email payloads at `/__test/emails?to=...`, allowing Playwright to follow the actual verification link. This endpoint and provider interception belong only to the test entry; deployed builds use `src/server.ts`.
 

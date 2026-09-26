@@ -1,23 +1,53 @@
 ---
 title: "D1 and Drizzle"
-description: "D1 and Drizzle — SaaSy Land"
+description: "The D1 database, Drizzle schemas and atomic writes."
 ---
 
-Cloudflare D1 is the application database. Module schemas use `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` collects them. `drizzle.database.ts` creates the Drizzle D1 adapter from `env.DB`.
+Cloudflare D1 (SQLite) is the application database, bound as `DB`. `src/integrations/drizzle-orm/` connects it to Drizzle:
 
-Dates use SQLite integer timestamps in milliseconds. Boolean fields use SQLite integer boolean mode. Relations, unique constraints and foreign keys remain in the schema. Keep an operation atomic with an appropriate SQL statement or D1 batch; do not introduce a PostgreSQL connection pool or an interactive transaction.
+| File                  | Purpose                                                                                       |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| `drizzle.database.ts` | Server-only `db`, created with `drizzle(env.DB, { schema })`                                  |
+| `drizzle.schemas.ts`  | Re-exports every table schema and its relations                                               |
+| `drizzle.config.ts`   | drizzle-kit: SQLite dialect, `d1-http` driver, timestamp-prefixed migrations in `migrations/` |
 
-Run `db:generate` after changing schemas, review and commit the generated SQL, and apply it locally. Remote migrations are explicit environment-specific commands. A deployed PostgreSQL database requires a separate reviewed export and import; generating SQLite migrations does not transfer existing data.
+## Tables
 
-```sh
-bun run db:generate
-bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
+Each table has its own module in `src/modules/<table>/` with `<table>.schema.ts` (`drizzle-orm/sqlite-core`), `.zod.ts`, `.constants.ts`, `.types.ts`, `.utils.ts` and `use-cases/`. The modules are `account`, `category`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user` and `verification`. Code that does not own a table does not get a module.
+
+Schemas follow the same conventions:
+
+- IDs are UUID v7 strings.
+- Dates are `integer` columns in `timestamp_ms` mode, defaulting to `unixepoch() * 1000`.
+- Booleans are `integer` columns in `boolean` mode.
+- Relations, indexes, unique constraints and foreign keys are declared in the schema.
+
+## Atomic writes
+
+D1 has no interactive transactions. Keep an operation atomic with a single statement, such as an upsert with `onConflictDoUpdate`, or group statements with `db.batch`. The paged list use cases fetch a page and its total in one batch (`src/modules/category/use-cases/get-categories.ts`):
+
+```ts
+const filter = data.kind === undefined ? undefined : eq(category.kind, data.kind)
+const [rows, totals] = await db.batch([
+  db
+    .select()
+    .from(category)
+    .where(filter)
+    .orderBy(desc(category.createdAt), desc(category.id))
+    .limit(data.pageSize)
+    .offset(data.pageIndex * data.pageSize),
+  db.select({ total: count() }).from(category).where(filter),
+])
+return { rows, total: totals.reduce((sum, row) => sum + row.total, 0) }
 ```
+
+The rate limiter in `src/lib/rate-limit.ts` combines cleanup, an atomic upsert and a read in one batch, so Worker instances share the same limits.
+
+## Migrations
+
+Migrations are SQL files in `src/integrations/drizzle-orm/migrations/`, generated with `bun run db:generate` and applied with Wrangler. Vitest runs them against an in-memory SQLite database. See [Database migrations](/docs/tooling/database) for the commands.
 
 ## Related guides
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Add a module](/docs/guides/add-a-module)
+- [Database migrations](/docs/guides/database-migrations)

@@ -1,12 +1,29 @@
 ---
 title: "Two-factor authentication"
-description: "TOTP enablement, verification, and backup codes."
+description: "TOTP two-factor authentication with backup codes, set up in admin settings."
 ---
 
-## Module
+The Better Auth `twoFactor` plugin runs with `APP_NAME` as the issuer. Its server functions live in `src/modules/two-factor/use-cases`:
 
-`modules/two-factor/use-cases` — enable, disable, verify TOTP, verify backup code.
+| Use case           | Middleware              | Used by                                |
+| ------------------ | ----------------------- | -------------------------------------- |
+| `enableTwoFactor`  | signed in, rate limited | `TwoFactorPasswordStep`                |
+| `disableTwoFactor` | signed in, rate limited | `TwoFactorPasswordStep`                |
+| `verifyTotp`       | rate limited            | `TwoFactorVerifyStep`, `TwoFactorForm` |
+| `verifyBackupCode` | rate limited            | `TwoFactorForm`                        |
 
-## UX
+## Setup
 
-Settings security tab + `/auth/two-factor` challenge route. Follow Better Auth 2FA plugin constraints in `auth.constraints.ts`.
+**Settings → Security** in `/admin/settings` renders `TwoFactorDialog` (`src/presentation/components/custom/admin/settings`):
+
+1. The password step calls `enableTwoFactor` and receives the TOTP URI and backup codes.
+2. The verify step shows the secret from the URI (`extractTotpSecret`) for manual entry in an authenticator app and confirms a 6-digit code with `verifyTotp`.
+3. The last step shows the backup codes.
+
+When 2FA is on, the same button opens the password step with `disableTwoFactor`. The button reads `twoFactorEnabled` from the current session.
+
+## Sign-in challenge
+
+For an account with 2FA, Better Auth answers the sign-in with a two-factor redirect; `twoFactorClient` in `auth.client.ts` sends the browser to `/auth/two-factor` in the current locale. `TwoFactorForm` accepts a 6-digit code (`InputOTP`) or, after switching, a backup code, and sends `trustDevice: true`. On success `usePostAuthRedirect` continues to `/auth/callback`.
+
+Code lengths are in `auth.constraints.ts`: `TWO_FACTOR_CODE_LENGTH` is 6, backup codes are 8 to 12 characters.

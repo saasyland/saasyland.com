@@ -1,30 +1,55 @@
 ---
-title: Architektur
-description: Architektur — SaaSy Land
+title: "Architektur"
+description: "So ist SaaSy Land aufgebaut: Routen setzen Seiten zusammen, Module besitzen Datenbanktabellen, Integrationen kapseln Anbieter."
 ---
 
-SaaSy Land läuft als eine TanStack Start-Anwendung auf Cloudflare Workers. Routen koordinieren das Rendern und das Laden von Daten. Funktionsmodule sind für die Validierung, die Autorisierung und die Operationen zuständig. Integrationen konfigurieren externe Dienste. Die Präsentationsschicht verwaltet die bestehende Benutzeroberfläche.
+SaaSy Land ist eine einzige TanStack-Start-Anwendung, die als Cloudflare Worker läuft. Der Code ist nach Zuständigkeiten aufgeteilt:
 
-Es gibt keinen Dependency-Injection-Container. Importieren Sie die konkrete Komponente in der Ebene, in der sie benötigt wird. Halten Sie gemeinsam genutzte Hilfsfunktionen klein und platzieren Sie funktionsspezifische Hilfsfunktionen direkt neben der jeweiligen Funktion.
+- **Routen** (`src/routes`) setzen Seiten zusammen. Eine Routendatei deklariert ihre Übersetzungs-Namespaces, ihren Guard, ihren Loader und ihre Head-Tags und rendert anschließend Komponenten.
+- **Module** (`src/modules/<table>`) gibt es nur für echte Datenbanktabellen. Ein Modul besitzt das Drizzle-Schema der Tabelle, ihre Zod-Schemas, Konstanten und Typen sowie die Use Cases, die die Tabelle lesen oder ändern.
+- **Integrationen** (`src/integrations/<vendor>`) konfigurieren Bibliotheken und Dienste von Drittanbietern.
+- **Präsentation** (`src/presentation`) enthält die shadcn-Primitives, Anwendungskomponenten, React-Email-Templates, Styles, Theme und Branding.
+- **Gemeinsamer Code** liegt in `src/data` (Daten, die mehrere Dateien nutzen), `src/lib` (kleine Hilfsfunktionen), `src/hooks` und `src/providers`.
 
 ```text
-content/                         Localized MDX
-messages/{locale}/           Translation namespaces
-src/routes/                      Flat file routes
-src/router.tsx                   Router and per-request query cache
-src/server.ts                    Cloudflare Worker entry
-src/modules/{feature}/           Schemas, constants, validation
-src/modules/{feature}/use-cases/  Server functions and query/mutation options
-src/integrations/{vendor}/       Vendor adapters and setup
-src/presentation/                Components, styles, branding, emails
-src/providers/                   Application providers
-src/hooks/                       Shared hooks
-src/lib/                         Shared utilities
-src/platform/testing/            Binding mocks and test helpers
+src/
+├── routes/          Flat file routes that compose pages
+├── modules/         One folder per database table, plus _core
+├── integrations/    One folder per vendor
+├── presentation/    Components, emails, styles, theme, branding
+├── data/            Data shared by several files
+├── lib/             Small shared utilities
+├── hooks/           Shared React hooks
+├── providers/       Application providers
+├── platform/        Test runtime wiring
+├── types/           Global type declarations
+├── router.tsx       Router and per-request QueryClient
+├── routes.ts        ROUTES path constants
+└── server.ts        Cloudflare Worker entry
 ```
 
-## Verwandte Anleitungen.
+## Regeln, die den Code prägen
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+- Routendateien setzen nur zusammen. Widgets, Dialoge, Formulare und Tabellenspalten liegen in `src/presentation/components/custom`, jeweils eines pro Datei.
+- Komponenten lesen ihre Übersetzungen und Daten selbst, mit `useTranslations`, `useSuspenseQuery` oder den Loader-Daten der Route. Routen reichen weder Beschriftungen noch Daten als Props nach unten durch.
+- Eine Server Function, die mit einer Tabelle arbeitet, ist ein Use Case im Modul dieser Tabelle. Eine Server Function, die nur eine einzige Route nutzt, darf in der Routendatei definiert werden. Alles andere gehört nach `src/lib`.
+- Es gibt keinen Dependency-Injection-Container und keine Wrapper-Schicht. Importiere die konkrete Funktion aus dem Ordner, dem sie gehört.
+- Eine Konstante, die nur eine Datei nutzt, bleibt in dieser Datei. Nur Daten, die mehrere Dateien teilen, wandern nach `src/data`.
+
+## In diesem Abschnitt
+
+- [Verzeichnisstruktur](/docs/architecture/directory-structure): jeder Ordner und was hineingehört.
+- [Abhängigkeitsregeln](/docs/architecture/dependency-rules): erlaubte Importe und Grenzen für Server-only-Code.
+- [Server Functions und Use Cases](/docs/architecture/modules-and-use-cases): Aufbau eines Moduls und das Use-Case-Muster.
+- [Gemeinsamer Kern](/docs/architecture/core): Fehler und Kataloge in `src/modules/_core`.
+- [Routen und Auslieferung](/docs/architecture/delivery-layer): Aufbau einer Routendatei und Konfiguration des Routers.
+- [Präsentation](/docs/architecture/presentation-layer): Organisation der Komponenten und Styling.
+- [Zuständigkeiten der Integrationen](/docs/architecture/integrations-layer): Anbieterordner und was nicht hineingehört.
+- [Plattform und Tests](/docs/architecture/platform-layer): Cloudflare-Bindings, Umgebungen und die Verdrahtung der Tests.
+- [Provider](/docs/architecture/providers): die vier Anwendungs-Provider und wo sie eingehängt werden.
+- [Request-Lebenszyklus](/docs/architecture/request-lifecycle): was zwischen dem Worker und der gerenderten Seite passiert.
+- [Caching und SSR](/docs/architecture/caching-and-ssr): Query-Cache, Prerendering und KV.
+- [HTTP-Handler in TanStack Start](/docs/architecture/api-layer): die `/api`-Endpunkte.
+- [Authentifizierung und Sicherheit](/docs/architecture/security-model): Guards, Berechtigungen, Rate Limits und das Maskieren von Fehlern.
+- [Internationalisierung und Locales](/docs/architecture/i18n-architecture): Locale-URLs, Namespaces und das Laden von Übersetzungen.
+- [Tests und CI](/docs/architecture/testing-architecture): Testprojekte, Testabdeckung und die CI-Pipeline.

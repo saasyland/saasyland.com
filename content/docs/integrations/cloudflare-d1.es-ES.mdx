@@ -1,23 +1,53 @@
 ---
-title: D1 y Drizzle
-description: D1 y Drizzle – SaaSy Land
+title: "D1 y Drizzle"
+description: "La base de datos D1, los esquemas de Drizzle y las escrituras atómicas."
 ---
 
-Cloudflare D1 es la base de datos de la aplicación. Los esquemas de módulos utilizan `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` recolecta los. `drizzle.database.ts` genera el adaptador Drizzle D1 `env.DB`.
+Cloudflare D1 (SQLite) es la base de datos de la aplicación, vinculada como `DB`. `src/integrations/drizzle-orm/` la conecta con Drizzle:
 
-Las fechas utilizan marcas de tiempo enteras de SQLite en milisegundos. Los campos booleanos utilizan el modo entero booleano de SQLite. Las relaciones, las restricciones únicas y las claves foráneas se mantienen en el esquema. Realizar la operación de forma atómica con una sentencia SQL o un lote D1; no introducir una piscina de conexiones PostgreSQL ni una transacción interactiva.
+| Archivo               | Propósito                                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `drizzle.database.ts` | `db` exclusivo del servidor, creado con `drizzle(env.DB, { schema })`                                       |
+| `drizzle.schemas.ts`  | Reexporta el esquema de cada tabla y sus relaciones                                                         |
+| `drizzle.config.ts`   | drizzle-kit: dialecto SQLite, driver `d1-http`, migraciones con prefijo de marca de tiempo en `migrations/` |
 
-Ejecutar `db:generate` Tras modificar los esquemas, revise y confirme el SQL generado, y aplícalo localmente. Las migraciones remotas son comandos específicos para cada entorno. Una base de datos PostgreSQL desplegada requiere una exportación y importación separadas y revisadas; generar migraciones SQLite no transfiere los datos existentes.
+## Tablas
 
-```sh
-bun run db:generate
-bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
+Cada tabla tiene su propio módulo en `src/modules/<table>/` con `<table>.schema.ts` (`drizzle-orm/sqlite-core`), `.zod.ts`, `.constants.ts`, `.types.ts`, `.utils.ts` y `use-cases/`. Los módulos son `account`, `category`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user` y `verification`. El código que no es propietario de una tabla no tiene módulo.
+
+Los esquemas siguen las mismas convenciones:
+
+- Los ID son cadenas UUID v7.
+- Las fechas son columnas `integer` en modo `timestamp_ms`, con `unixepoch() * 1000` como valor predeterminado.
+- Los booleanos son columnas `integer` en modo `boolean`.
+- Las relaciones, los índices, las restricciones de unicidad y las claves foráneas se declaran en el esquema.
+
+## Escrituras atómicas
+
+D1 no tiene transacciones interactivas. Mantenga una operación atómica con una única sentencia, como un upsert con `onConflictDoUpdate`, o agrupe sentencias con `db.batch`. Los casos de uso de listas paginadas obtienen una página y su total en un único batch (`src/modules/category/use-cases/get-categories.ts`):
+
+```ts
+const filter = data.kind === undefined ? undefined : eq(category.kind, data.kind)
+const [rows, totals] = await db.batch([
+  db
+    .select()
+    .from(category)
+    .where(filter)
+    .orderBy(desc(category.createdAt), desc(category.id))
+    .limit(data.pageSize)
+    .offset(data.pageIndex * data.pageSize),
+  db.select({ total: count() }).from(category).where(filter),
+])
+return { rows, total: totals.reduce((sum, row) => sum + row.total, 0) }
 ```
+
+El limitador de frecuencia de `src/lib/rate-limit.ts` combina la limpieza, un upsert atómico y una lectura en un único batch, de modo que las instancias del Worker comparten los mismos límites.
+
+## Migraciones
+
+Las migraciones son archivos SQL en `src/integrations/drizzle-orm/migrations/`, generados con `bun run db:generate` y aplicados con Wrangler. Vitest las ejecuta contra una base de datos SQLite en memoria. Consulte [Migraciones de base de datos](/docs/tooling/database) para ver los comandos.
 
 ## Guías relacionadas
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+- [Añadir un módulo](/docs/guides/add-a-module)
+- [Migraciones de base de datos](/docs/guides/database-migrations)

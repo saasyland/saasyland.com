@@ -1,16 +1,57 @@
 ---
-title: Internacionalización y localidades
-description: Internacionalización y localidades — SaaSy Land
+title: "Internacionalización e idiomas"
+description: "Nueve idiomas, prefijos de URL, la cookie de idioma y mensajes de use-intl organizados por espacios de nombres."
 ---
 
-Los mensajes residen en `messages/{locale}` Para los nueve idiomas configurados como archivos de espacio de nombres delimitados, por ejemplo `pages.admin.users.json`La configuración de la localización, los helpers de URL, la carga de mensajes, los helpers de metadatos y la traducción de correos electrónicos residen en… `src/integrations/use-intl`.
+## Idiomas
 
-Utilizamos `/docs`; Utiliza los recursos de Polonia. `/pl-PL/docs`Legado `/en` y `/pl` Los enlaces están canonizados. Los archivos de ruta declaran `staticData.namespaces` y precargar los mismos espacios de nombres en su loader. `TranslationsProvider` reusable component, allowing developers to easily ship new features and updates using SaaSy Land Core. To ensure quality, we’ve implemented a test gate that requires all new code to pass through the \`/assets/tests/validate-template.xml\` file path. This file utilizes ICU placeholders to dynamically generate test cases. When deploying, use the \`--deploy-bundle\` command flag to initiate the deployment process. For edge computing scenarios, we recommend using `IntlProvider`Los mensajes compartidos se cargan en la raíz; los espacios de nombres solo para correo electrónico permanecen en el servidor.
+`I18N` en `src/integrations/use-intl/i18n.config.ts` define `en-US` (predeterminado), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` y `uk-UA`, la cookie `saasyland.com_locale` y la zona horaria predeterminada `UTC`.
 
-Lee el entorno con `getCurrentLocale` en el servidor y `useLocale` En los componentes. La URL selecciona la localización del documento. Las peticiones a la función del servidor utilizan la cookie de localización. Un cambio de idioma mantiene la ruta, la consulta y el fragmento y recarga el documento para cargar el contenido correspondiente. Ejecutar `bun run check:i18n` Después de modificar las claves.
+## URL
+
+El idioma predeterminado no lleva prefijo; cualquier otro idioma es un prefijo de ruta, por ejemplo `/docs` y `/pl-PL/docs`. Para las peticiones de documento, el Worker (`resolveLocale` en `i18n.middleware.ts`) redirige las rutas no canónicas con un 308: `/en-US/docs` pasa a `/docs` y `/pl/docs` pasa a `/pl-PL/docs`. Las rutas `/api` y `/_serverFn` nunca llevan prefijo.
+
+El `rewrite` del router en `src/router.tsx` quita el prefijo de las URL entrantes y lo añade a las salientes, así que las rutas y los enlaces usan rutas sin prefijo: `<Link to={ROUTES.SIGN_IN}>`. Usa `localizePathname({ locale, pathname })` solo para URL en bruto: `callbackURL` y `errorCallbackURL` de Better Auth, enlaces en correos y `<a href>` construidos a mano. `AriaProvider` localiza el `href` de los componentes de React Aria.
+
+## Cookie de idioma
+
+Cuando el idioma de la URL de un documento no coincide con la cookie, el Worker establece la cookie en la respuesta. `getCurrentLocale()` funciona en ambos lados: lee la URL para las páginas y la cookie para las peticiones a `/api` y a funciones de servidor, de modo que los correos y los mensajes del servidor usan el idioma de la página en la que está el usuario.
+
+## Mensajes
+
+Los mensajes son `messages/<locale>/<namespace>.json`; el nombre del archivo es el espacio de nombres, por ejemplo `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` o `common`. Cada espacio de nombres de página tiene `metadata.title` y `metadata.description`.
+
+- Los espacios de nombres raíz (`common`, `components.*`, `errors*`) se precargan en el `beforeLoad` raíz.
+- Un layout declara `NAMESPACES` y una página declara `NAMESPACE`. Ambos van a `staticData.namespaces` y el loader los precarga:
+
+```ts
+loader: async ({ context }) => {
+  const locale = getCurrentLocale()
+  const [metadata] = await Promise.all([
+    loadPageMetadata({ locale, namespace: NAMESPACE }),
+    preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+  ])
+  return { locale, metadata }
+},
+```
+
+- `TranslationsProvider` envuelve el cuerpo del documento y une los espacios de nombres raíz con los de las rutas coincidentes en un único `IntlProvider`, así que las pantallas de error también se traducen.
+- Los correos cargan su espacio de nombres en el servidor con `loadNamespace`.
+
+## Componentes
+
+Cada componente llama una sola vez a `useTranslations` y llama `t` al traductor. Un componente que necesita dos espacios de nombres usa su padre común o `useTranslations()` con claves completas. Formatea números y fechas con `useFormatter`, `useDateFormatter` y `useCurrencyFormatter`.
+
+## Cambiar de idioma
+
+`locale-switcher.tsx` tiene dos controles de idioma. `LocaleSwitcher`, en el pie de página de marketing, es un menú `<details>` con un enlace normal por idioma a la ruta actual en ese idioma, así que funciona antes de la hidratación. `LocaleSelect`, en las barras laterales de la documentación y de la aplicación de cliente, es un campo de selección con el mismo estilo que `ThemeSwitch` que abre la misma URL. En ambos casos, elegir un idioma carga un documento nuevo, y la cadena de consulta y el fragmento no se conservan. Las páginas en polaco y ucraniano también precargan los subconjuntos de fuentes latino extendido y cirílico ([Fuentes y marca](/docs/ui/fonts-and-branding)).
+
+## Comprobaciones
+
+`bun run check:i18n` comprueba la paridad de claves entre idiomas, resuelve las claves estáticas dentro del ámbito de su `useTranslations`, valida la sintaxis de los mensajes ICU y comprueba la paridad del contenido de la documentación y del blog.
 
 ## Guías relacionadas
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+- [Arquitectura de i18n](/docs/architecture/i18n-architecture)
+- [Mensajes de i18n](/docs/guides/i18n-messages)
+- [use-intl](/docs/integrations/use-intl)

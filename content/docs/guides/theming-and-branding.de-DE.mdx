@@ -1,13 +1,36 @@
 ---
-title: Gestaltung und Markenbildung.
-description: Themenelemente, Schriftarten und Markenressourcen.
+title: "Theming und Branding"
+description: "Produktname, Domain, Farb-Tokens, Typografie-Skala und Schriften ändern."
 ---
 
-## Standorte.
+## Markenidentität
 
-- `presentation/theme`
-- `presentation/branding`
-- `presentation/fonts`
-- Globale Stile unter Präsentationsstilen.
+`src/presentation/branding/index.ts` ist die einzige Quelle für die Produktidentität: `APP_NAME`, `APP_DOMAIN`, `APP_URL` (abgeleitet als `https://${APP_DOMAIN}`), `CONTACT_EMAIL`, `NOTIFICATIONS_EMAIL`, `APP_FOUNDED_YEAR` sowie GitHub-Owner, -Repository und -URL. Seitentitel, kanonische URLs, der App-Name in Better Auth, der Issuer für die Zwei-Faktor-Authentifizierung sowie die Cookie-Namen für Theme und Locale leiten sich davon ab.
 
-Das Umschalten des Designs wird vom Client gesteuert; die Standardeinstellungen sollten vermeiden, bereits in den jeweiligen Anbietern verwendeten Darstellungsfehler.
+Beim Rebranding außerdem aktualisieren:
+
+- `Wordmark` in `src/presentation/components/custom/wordmark.tsx`: das Inline-SVG-Logo neben `APP_NAME`.
+- `public/favicon.ico` und die Bilder in `public/images`.
+- Das Auth-Cookie-Präfix `advanced.cookiePrefix` in `src/integrations/better-auth/auth.server.ts` und die erlaubten Hosts pro Umgebung in `src/modules/_core/constants/api.ts`.
+
+Nach Änderungen am Branding neu bauen; Umgebungsdateien ändern die kanonische URL nicht.
+
+## Theme
+
+`src/presentation/theme/index.ts` definiert `THEME`: die Themes `light`, `dark` und `system`, den Standardwert `system` und das Cookie, das die Auswahl speichert. `ThemeScript` im Head des Root-Dokuments wendet das gespeicherte Theme vor dem ersten Paint an, sodass Seiten nie kurz im falschen Theme aufblitzen. `ThemeSwitch` (`src/presentation/components/custom/theme-switch.tsx`) ändert es. `ThemeProvider` (`src/providers/theme-provider.tsx`) umschließt nur die Komponenten, die das Theme verwenden, etwa `<ThemeSwitch />` in `src/routes/docs.tsx` und den Toaster in der Root-Route. Er umschließt nie ein Route-`Outlet`, weil er sich nach der Hydration aktualisiert und sonst die gesamte Seite neu rendern würde.
+
+## Farb-Tokens
+
+`src/presentation/styles/globals.css` ist der einzige Tailwind-Einstiegspunkt. Die Datei definiert die shadcn-Tokens (`--background`, `--foreground`, `--primary`, `--muted`, `--border`, `--ring`, `--sidebar-*`, `--chart-*` und weitere) in `:root` für den Light Mode und in `.dark` für den Dark Mode und bildet sie in `@theme inline` auf Tailwind-Farben ab. Die Werte dort ändern; Komponenten verwenden die semantischen Klassen (`bg-background`, `text-muted-foreground`, `border-border`). Statusakzente wie Amber und Rose sind die Ausnahme.
+
+`docs.css` und `typeset.css` im selben Ordner sind reines CSS, das nur von den Layouts für Docs und Blog geladen wird.
+
+## Typografie-Skala
+
+Die Typografie-Skala ist eine Reihe von `--text-*`-Tokens in `globals.css`: `display-hero`, `display-gate`, `display-blast`, `headline-peak`, `headline-support`, `price`, `title`, `statement`, `lead`, `body`, `body-sm`, `label` und `spec`. Jedes Token legt Größe, Zeilenhöhe und Buchstabenabstand fest, die größeren auch das Schriftgewicht, und wird als Klasse verwendet: `text-body`, `text-title` und so weiter.
+
+Beim Hinzufügen eines `text-*`-Tokens seinen Namen auch in `src/lib/cn.config.ts` eintragen. `cn` aus `src/lib/cn.ts` nutzt diese Konfiguration, um eigene Größen beim Zusammenführen von Klassen als Schriftgrößen zu behandeln; ohne sie verwirft `cn` diese Klassen. `bun run generate:cn` erzeugt die Klassentabellen neu und läuft als Teil von `dev`, `build` und `check`.
+
+## Schriften
+
+Geist und Geist Mono werden selbst in `public/fonts` gehostet und mit `@font-face` in `src/presentation/styles/fonts.css` deklariert, eine Datei pro Unicode-Bereich. `fontPreloads` in `src/presentation/document-assets.ts` lädt Latin und Latin Mono auf jeder Seite vor, Latin Extended für `pl-PL` und Kyrillisch für `uk-UA`. Um die Schriften zu ändern, die Dateien und `@font-face`-Regeln ersetzen und die Preload-Liste entsprechend anpassen.

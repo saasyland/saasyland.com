@@ -1,20 +1,44 @@
 ---
-title: Utilisateurs (admin)
-description: Table des utilisateurs en direct, onglets, imitation, ban/role/mot de passe.
+title: "Utilisateurs (admin)"
+description: "Gestion des utilisateurs sous /admin/users : un vrai tableau des utilisateurs avec actions par ligne, plus des onglets d’invitations et de rôles de démo."
 ---
 
-## Itinéraires
+## Routes
 
-`/admin/users` avec la recherche TanStack Router `tab` (`allUsers` | `invitations` | `roles` | `security`).
+`src/routes/admin.users.tsx` est un layout avec quatre onglets sous forme de liens ; `/admin/users` redirige vers `/admin/users/all`. Tous les onglets utilisent l’espace de noms `pages.admin.users`.
 
-## Module
+| Route                      | Contenu                                                            |
+| -------------------------- | ------------------------------------------------------------------ |
+| `/admin/users/all`         | Vrai tableau des utilisateurs                                      |
+| `/admin/users/invitations` | Lignes de démo (`ADMIN_INVITATION_ROWS`) avec recherche par e-mail |
+| `/admin/users/roles`       | Lignes de démo (`ADMIN_ROLE_ROWS`)                                 |
+| `/admin/users/security`    | État vide                                                          |
 
-`modules/user/use-cases` — list/create/update/delete, ban/unban, set role/password, personnalite, table de rafraîchissement.
+## Tous les utilisateurs
 
-## Prestations de chômage
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
 
-Tableau des données `admin/users/components/all-users-tab`C'est vrai. L'état est **dérivés** (`getUserStatus`: actif / en attente / interdit), pas une colonne DB enum.
+- `getUsersPageQuery` appelle la fonction serveur `getUsers` (`src/modules/user/use-cases/get-users.ts`, permission `user: ["list"]`). La pagination et le tri s’exécutent côté serveur sur le nom, le rôle, le statut, la vérification de l’e-mail, la 2FA, le fuseau horaire et les dates de création et de mise à jour.
+- Le statut n’est pas une colonne. `getUserStatus` (`user.utils.ts`) déduit `banned`, `pending` ou `active` de `banned` et `emailVerified`, et le serveur trie avec la même expression SQL `case`.
+- `userColumns` se trouve dans `src/presentation/components/custom/admin/users/user-columns.tsx` ; les dates s’affichent dans le fuseau horaire propre à chaque utilisateur.
 
-## État de l' URL
+## Actions par ligne
 
-`admin/users/constants/search-params.ts` — analyseurs partagés + `searchParamsCache`.
+`UserRowActions` (`row-actions.tsx`) est le menu de la dernière colonne :
+
+- **Réinitialiser le mot de passe** ouvre `ResetPasswordDialog`, qui appelle `setUserPassword`.
+- **Bannir** ou **Débannir** appelle `banUser` ou `unbanUser`.
+- **Supprimer** ouvre `DeleteUserDialog`, qui appelle `deleteUser`.
+
+Chaque succès invalide `USER_QUERY_KEYS.ALL` et affiche une notification ; les erreurs passent par `useErrorMessage`. Les entrées **Modifier** et **Voir le profil** ainsi que le bouton **Ajouter un utilisateur** n’ont encore aucune action.
+
+## Non branché
+
+`createUser`, `getUser`, `updateUser`, `setUserRole`, `impersonateUser` et `stopImpersonatingUser` existent dans `src/modules/user/use-cases` avec leur middleware de permissions, mais aucun écran ne les appelle. Il n’existe pas de table d’invitations ; les vrais rôles sont `admin` et `customer` dans `auth.access.ts`.
+
+## Guides associés
+
+- [DataTable](/docs/ui/data-table)
+- [Usurpation d’identité](/docs/features/impersonation)

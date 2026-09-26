@@ -1,12 +1,24 @@
 ---
 title: "Sesje"
-description: "Lista i unieważnianie sesji."
+description: "Sesje Better Auth w D1 z samodzielnym unieważnianiem w ustawieniach panelu administracyjnego."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+Sesje są przechowywane w tabeli `session` w D1 (`src/modules/session/session.schema.ts`). `auth.session.ts` odczytuje je przez `getRequestSession`, zapamiętywane w obrębie żądania, i udostępnia `getCurrentSessionQuery` trasom oraz komponentom. Kopia po stronie klienta nigdy nie zawiera tokenu sesji.
 
-## Module
+## Przypadki użycia
 
-`modules/session/use-cases` — list active/user sessions, revoke one/many/others.
+| Przypadek użycia                          | Middleware                     | Używany przez      |
+| ----------------------------------------- | ------------------------------ | ------------------ |
+| `getActiveSessions`                       | zalogowany                     | `SettingsSessions` |
+| `revokeSession`                           | zalogowany; tylko własne sesje | `SessionRow`       |
+| `revokeOtherSessions`                     | zalogowany                     | `SettingsSessions` |
+| `listUserSessions`                        | `session: ["list"]`            | żaden ekran        |
+| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`          | żaden ekran        |
 
-Udostępniane w zakładce bezpieczeństwa w ustawieniach administratora oraz w akcjach administracyjnych użytkownika.
+`getActiveSessions` zwraca niewygasłe sesje bieżącego użytkownika, od najnowszej, i pomija sesje podszywania się.
+
+## Interfejs
+
+**Ustawienia → Bezpieczeństwo** w `/admin/settings` wyświetla `SettingsSessions` (`src/presentation/components/custom/admin/settings/sessions.tsx`). Każdy `SessionRow` pokazuje urządzenie (user agent lub adres IP), ostatnią aktywność i oznaczenie bieżącej sesji oraz pozwala ją unieważnić. Przycisk w nagłówku unieważnia wszystkie pozostałe sesje. Zmiana hasła również odświeża listę sesji.
+
+Warianty administracyjne dla sesji innych użytkowników istnieją wyłącznie jako funkcje serwerowe.

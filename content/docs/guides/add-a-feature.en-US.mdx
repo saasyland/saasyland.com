@@ -1,14 +1,64 @@
 ---
 title: "Add a feature"
-description: "Add a feature — SaaSy Land"
+description: "End-to-end walkthrough from database table to tested page, linking the detailed guides."
 ---
 
-Create or extend the owning module’s schema, validation, constants and use cases. Add a flat route under `src/routes` with its permission guard, validated search parameters, metadata and namespace preload. Place feature UI under `presentation/components/custom/{feature}` with nearby components, hooks and constants.
+A feature usually touches every layer: a table module, its use cases, a route, presentation components, messages and tests. The product categories show the complete path: `src/modules/category`, the categories tab in `src/routes/admin.products.index.tsx` and `src/presentation/components/custom/admin/products/category-columns.tsx`.
 
-Preload independent data queries together in the loader, render from the same QueryClient cache, and submit through native mutation options. Add keys for all nine configured languages together. Retain the existing layout and accessible primitives, then verify the use case, component and browser behavior at the appropriate level.
+## 1. Model the data
 
-## Related guides
+If the feature stores new data, add a module for its table and generate the migration.
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Add a module](/docs/guides/add-a-module)
+- [Database migrations](/docs/guides/database-migrations)
+
+## 2. Decide who may do what
+
+Add the new actions to `APP_STATEMENTS` in `src/integrations/better-auth/auth.access.ts` and grant them to roles.
+
+- [Roles and permissions](/docs/guides/roles-and-permissions)
+
+## 3. Write the operations
+
+Add one use case per operation with its middleware, validator, handler and query or mutation options.
+
+- [Add a use case](/docs/guides/add-a-use-case)
+- [Server functions](/docs/guides/server-functions)
+
+## 4. Add the route
+
+1. Add the path to `ROUTES` in `src/routes.ts`.
+2. Create a flat route file for the area: `src/routes/admin.<feature>.tsx` under the admin layout, `src/routes/app.<feature>.tsx` under the signed-in customer layout, or `src/routes/_landing.<page>.tsx` for a public page.
+3. Follow the route convention: `const NAMESPACE`, `staticData: { namespaces: [NAMESPACE] }`, `head: pageHead(ROUTES.X)`, a loader that loads metadata, messages and data in one `Promise.all`, and the page's own skeleton as `pendingComponent`, registered in the map of its layout skeleton (see [Loading skeletons](/docs/architecture/delivery-layer#loading-skeletons)).
+4. The layout's `beforeLoad` guard (`requireAdmin` for `/admin`, `requireSignedIn` for `/app`) protects the page. The server functions still authorize every call themselves.
+
+- [Add an admin page](/docs/guides/add-an-admin-page)
+- [URL state](/docs/guides/url-state)
+
+## 5. Build the UI
+
+Put widgets, dialogs, forms and table columns in `src/presentation/components/custom/<area>/<feature>/`, one per file. Each component reads its own translations and data; the route only composes them.
+
+- [Add a data table](/docs/guides/add-a-data-table)
+- [Forms and validation](/docs/guides/forms-and-validation)
+
+## 6. Add messages
+
+Create the page namespace, and any validation namespace, in all nine locales. Page namespaces need `metadata.title` and `metadata.description`.
+
+- [Internationalization and locales](/docs/guides/i18n-messages)
+- [Email templates](/docs/guides/email-templates), if the feature sends email
+
+## 7. Test and verify
+
+Cover the use cases, components and route, then run the full gates:
+
+```sh
+bun run check
+bun run test:coverage
+bun run build
+bun run test:e2e:smoke
+```
+
+- [Writing tests](/docs/guides/writing-tests)
+- [Security checklist](/docs/guides/security-checklist)

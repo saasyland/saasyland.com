@@ -1,6 +1,40 @@
 ---
-title: Resend
-description: 取引メール配信。
+title: "Resend"
+description: "Resend と React Email テンプレートによるトランザクションメールです。"
 ---
 
-API キー + アドレスから env. `sendEmail` サインイン `resend.utils.ts` 共有ヘルパーです。テンプレートは `presentation/emails`.
+`src/integrations/resend/resend.config.ts` は `RESEND_API_KEY` から Resend クライアントを作成します。`resend.utils.ts` は、メールを送信する唯一の関数である `sendEmail` をエクスポートします。`from` のデフォルトは `RESEND_EMAIL_FROM` です。必須の冪等性キーにより、再試行されたリクエストを Resend が二重に送信することはありません。Resend のエラーは例外としてスローされます。どちらのファイルもサーバー専用です。
+
+## テンプレートとユースケース
+
+`src/presentation/emails/` にあるテンプレートは、マークアップだけを持つ React Email コンポーネントです。各テンプレートは `*_NAMESPACE` 定数をエクスポートし、`locale` と `messages` をプロパティとして受け取り、use-intl の `createTranslator` で翻訳します。メールを送信するユースケースがメッセージを読み込み、テンプレートを描画して `sendEmail` を呼び出します。
+
+```ts
+const locale = getCurrentLocale()
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+await sendEmail({
+  idempotencyKey: `verify-email/${token}`,
+  react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+  subject: createTranslator({ locale, messages })("subject"),
+  to: user.email,
+})
+```
+
+| テンプレート                          | 名前空間                                 | 送信元                                                                       |
+| ------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
+| `verify-email.tsx`                    | `emails.verify-email`                    | `modules/verification/use-cases/send-verify-email.ts`                        |
+| `reset-password-email.tsx`            | `emails.reset-password-email`            | `modules/verification/use-cases/send-reset-password-email.ts`                |
+| `change-email-confirmation-email.tsx` | `emails.change-email-confirmation-email` | `modules/account/use-cases/send-change-email-confirmation-email.ts`          |
+| `newsletter-confirmation-email.tsx`   | `emails.newsletter-confirmation-email`   | `modules/newsletter-subscriber/use-cases/subscribe-to-newsletter.ts`         |
+| `newsletter-notification-email.tsx`   | `emails.newsletter-notification-email`   | `modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription.ts` |
+
+最初の 3 つのユースケースは、Better Auth が `auth.server.ts` のフックから呼び出します。ニュースレターの通知は、購読が確認された後にサイトのオーナーへ英語で送信されます。メール内のリンクは `localizePathname` で組み立てられるため、受信者のロケールで開きます。
+
+## テスト
+
+Vitest はプロバイダーの呼び出しをモックします。Playwright のテスト用 Worker では、Resend API へのリクエストは送信されずにキャプチャされ、`/__test/emails?to=<address>` でキャプチャされたメールを取得できます。
+
+## 関連ガイド
+
+- [メールテンプレート](/docs/guides/email-templates)
+- [メール](/docs/features/email)

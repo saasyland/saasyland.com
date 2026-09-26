@@ -1,16 +1,40 @@
 ---
-title: 環境と結合
-description: 環境とバインディング — SaaSy Land
+title: "環境とバインディング"
+description: "Wrangler の環境、バインディング、シークレット、環境ファイルです。"
 ---
 
-利用条件 `.env.development`, `.env.preview`, と `.env.production` 対応するViteとCloudflare環境の場合。 これらのファイルは無視されます。 `.env.example` 必要なキーを文書化します。 `VITE_APP_URL` 公開され、ビルド時に置換されます。 労働者の秘密は持っていません `VITE_` 接頭辞とアクセス `env` から から `cloudflare:workers`.
+`wrangler.jsonc` は 4 つの環境を定義しています。開発サーバーとビルドでは `CLOUDFLARE_ENV` で環境を選択し、各環境はそれぞれの環境ファイルからシークレットを読み込みます。
 
-設定 `AUTH_SECRET`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, Resend 設定と Polar 設定をインストールします。 実際の資格情報をコミットしないでください。 ビンディング ID は、適切な `wrangler.jsonc` 環境; 生成されたワーカー宣言は、そのタイプを記述します。
+| 環境          | 選択元                                        | バインディング                         | シークレットの読み込み元 |
+| ------------- | --------------------------------------------- | -------------------------------------- | ------------------------ |
+| `development` | `bun run dev`                                 | リモートのプレビュー用 D1 と KV        | `.env.development`       |
+| `preview`     | `build:preview`, `deploy:preview`             | プレビュー用 D1 と KV                  | `.env.preview`           |
+| `production`  | `build:production`, `deploy:production`       | 本番用 D1 と KV                        | `.env.production`        |
+| `test`        | `build:test`, `start:test`, `db:migrate:test` | `.wrangler/test` 内のローカル D1 と KV | `.env.test`              |
 
-Drizzle スタジオおよびイントロスペクションの必要性だけ `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` そして、 `CLOUDFLARE_ACCESS_TOKEN`. . ローカル D1 はリモートの資格情報を使用しません。 CI コピー `.env.test` ローカル環境ファイルに移動し、ローカルバインディングで実行します。
+`.env.development`、`.env.preview`、`.env.production` は Git の管理対象外で、`.env.example` にそれらのキーが列挙されています。`.env.test` はコミットされており、ダミーの値だけを含みます。デプロイスクリプトは、対応するファイルを `wrangler deploy --secrets-file` でアップロードします。
+
+## シークレット
+
+各環境は `secrets.required` にシークレットを列挙します。Better Auth、OAuth、Resend、Polar のキーに加え、Drizzle のツール用に `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_DATABASE_ID`、`CLOUDFLARE_ACCESS_TOKEN` があります（`test` 環境ではこの 3 つを省略します）。各キーについては[環境変数](/docs/getting-started/environment-variables)を参照してください。
+
+サーバーのコードは `import { env } from "cloudflare:workers"` でシークレットを読み込みます。Vite は `VITE_` 変数をブラウザーに公開するため、`VITE_` 変数はどこでも使っておらず、シークレットを入れることも禁止です。クライアントのアセットが `cloudflare:workers` をインポートしている場合、`scripts/verify-build.ts` がビルドを失敗させます。正規のドメインは環境変数ではなく、`src/presentation/branding/index.ts` の `APP_DOMAIN` から取得します。
+
+## バインディング
+
+| バインディング | 種類         | 用途                                                   |
+| -------------- | ------------ | ------------------------------------------------------ |
+| `DB`           | D1           | アプリケーションのデータベース、セッション、レート制限 |
+| `CACHE`        | KV           | GitHub のスター数                                      |
+| `ASSETS`       | 静的アセット | プリレンダリングされたページ、フォント、公開ファイル   |
+
+開発環境では Cloudflare のリモートバインディングを使うため、`bun run dev` はプレビュー用データベースを読み書きします。バインディングを変更した後は `bun run cf-typegen` を実行し、`src/types/worker-configuration.d.ts` を再生成してください。
+
+## テスト
+
+Vitest は `test.env` を通じて `.env.test` を読み込み、`cloudflare:workers` を `src/platform/testing/mocks/cloudflare.ts` に解決します。これによりインメモリの D1 と KV が提供されます。Playwright は `test` 環境と、そのエントリーである `src/platform/testing/worker.ts` を使います。どちらも本物の認証情報を必要としません。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [環境リファレンス](/docs/reference/environment)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)

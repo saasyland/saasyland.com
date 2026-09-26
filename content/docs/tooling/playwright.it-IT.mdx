@@ -1,26 +1,50 @@
 ---
-title: Test e CI
-description: Test e CI — SaaSy Land
+title: "Playwright"
+description: "Test nel browser sul Worker di test isolato."
 ---
 
-Vite+ funziona Vitest in tre progetti: test di nodo, test di integrazione e test componenti jsdom. Tenere i test di comportamento esistenti accanto al codice che esercitano sotto `__test__`. Importare API di test da `vite-plus/test`. Utilizzare Playwright per flussi di browser completi e controlli di rendering.
-
-La configurazione condivisa fornisce servizi locali D1 e KV Mocks. D1 gestisce le migrazioni SQL verificate contro SQLite. Il ponte RPC server-funzione preserva il vero middleware e pipeline di validazione di TanStack. Gli helper di rendering dei componenti forniscono reali contesti QueryClient e Router. OAuth e le chiamate di pagamento sono mocked in test.
-
-Eseguire il progetto focalizzato durante la modifica, quindi eseguire la suite completa, cancello di copertura, controllare e visualizzare l'anteprima costruire. I test del browser verificano le pagine pubbliche, i reindirizzamenti auth, la SSR senza JavaScript e la navigazione del cliente. CI utilizza i binding locali e non richiede un database o un segreto del fornitore dal vivo.
+Playwright testa l'applicazione compilata in browser reali. La suite viene eseguita sull'ambiente Wrangler `test`: D1 e KV locali in `.wrangler/test`, credenziali fittizie da `.env.test` e l'entry point di test `src/platform/testing/worker.ts`, che intercetta le richieste a Resend e Polar.
 
 ```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
+bun run test:e2e:install
 bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:pr
+bun run test:e2e:headed
+bun run test:e2e:ui
 ```
+
+| Script             | Esegue                                                      |
+| ------------------ | ----------------------------------------------------------- |
+| `test:e2e:install` | Installa Chromium e WebKit con le dipendenze di sistema     |
+| `test:e2e`         | Tutte le spec in Chromium e WebKit                          |
+| `test:e2e:smoke`   | `e2e/specs/smoke.spec.ts` in Chromium                       |
+| `test:e2e:pr`      | Tutte le spec in Chromium, come nella CI delle pull request |
+| `test:e2e:headed`  | Tutte le spec in browser visibili                           |
+| `test:e2e:ui`      | Modalità UI di Playwright                                   |
+
+## Configurazione
+
+`playwright.config.ts` definisce i progetti `chromium` (Desktop Chrome) e `webkit` (Desktop Safari) e usa `PLAYWRIGHT_BASE_URL` oppure `http://127.0.0.1:3000`. In locale il comando del web server esegue `db:migrate:test`, `db:seed:test`, `build:test` e `start:test`, e riutilizza un server che risponde già a quell'URL, quindi ferma prima gli altri server sulla porta 3000. In CI il workflow prepara la build e Playwright si limita ad avviare il server.
+
+| Impostazione | Locale                       | CI                           |
+| ------------ | ---------------------------- | ---------------------------- |
+| Retry        | 0                            | 2                            |
+| Worker       | 1                            | 2                            |
+| Trace        | Conservate in caso di errore | Al primo retry               |
+| Video        | Disattivati                  | Conservati in caso di errore |
+| Reporter     | List e HTML                  | GitHub e HTML                |
+
+## Struttura
+
+- `e2e/specs/`: spec per smoke test, landing page, navigazione, locale, autenticazione, aree di lavoro, newsletter, contenuti, tema e prezzi regionali.
+- `e2e/pages/`: page object.
+- `e2e/fixtures/`: la fixture `test` estesa e gli helper per le email intercettate.
+- `e2e/data/accounts.ts`: gli account admin e cliente creati dal seed e la loro password.
+
+Il Worker di test espone `/__test/emails` per leggere le email intercettate dal mock di Resend e `/__test/newsletter` per leggere lo stato di un iscritto.
 
 ## Guide correlate
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Test](/docs/tooling/testing)
+- [CI/CD](/docs/tooling/ci-cd)

@@ -1,19 +1,89 @@
 ---
-title: "Add a DataTable"
-description: "Use the shared TanStack DataTable kit in admin screens."
+title: "Add a data table"
+description: "Define columns and render them with the generic DataTable, with client-side or server-side data."
 ---
 
-## Kit location
+Every table renders through one component, `DataTable` in `src/presentation/components/custom/data-table.tsx`. It is built on TanStack Table v9 (`tableFeatures` and `useTable`) and the shadcn table primitives, and it provides sorting, pagination, row selection, filters, loading skeletons and the empty state. A table needs only a columns file and one `<DataTable columns data options filters />` call.
 
-`src/presentation/components/custom/data-table`
+## 1. Define the columns
 
-## Feature pattern (users)
+Create `<entity>-columns.tsx` beside the page's other widgets. Cells and headers are small components that read their own translations. Condensed from `src/presentation/components/custom/admin/users/user-columns.tsx`:
 
-- `columns.tsx` / `cells.tsx` / `filters.tsx` / `actions.tsx` / `options.tsx`
-- Map DB rows → table rows in `_lib` or module utils
-- Toolbar refresh → invalidate the relevant TanStack Query key
-- Keep Suspense fallbacks free of the table runtime
+```tsx
+const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
+  const t = useTranslations("pages.admin.users.table.headers")
 
-## Options
+  return t(id)
+}
 
-Configure toolbar (search, filters, export CSV, fetch, settings), pagination, selection, and density via `options` — see UI → DataTable.
+const BooleanCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, boolean>): JSX.Element => {
+  const t = useTranslations("pages.admin.users.table.booleans")
+
+  return <span className="text-muted-foreground">{getValue() ? t("yes") : t("no")}</span>
+}
+
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: "", id: "actions" }),
+])
+```
+
+- Rows must have a string `id`; it becomes the row id for selection.
+- `DataTableFeatures` is the shared feature set. Sort functions are `alphanumeric`, `basic`, `datetime` and `text`.
+- Row actions are a display column whose cell is its own component (`UserRowActions` in `row-actions.tsx`).
+
+## 2. Render with client-side data
+
+Pass rows in `data`. Sorting, pagination and filters run in the browser. From `src/routes/admin.index.tsx`:
+
+```tsx
+<DataTable
+  columns={dashboardUserColumns}
+  data={users.rows}
+  filters={[
+    { columnId: "user", placeholder: t("users.search"), type: "search" },
+    {
+      columnId: "status",
+      label: t("users.filters.status"),
+      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+      type: "select",
+    },
+  ]}
+  options={{ initialState: { pagination: PREVIEW_PAGINATION }, selectable: true }}
+/>
+```
+
+- `filters` accepts `{ type: "search", columnId, placeholder }` and `{ type: "select", columnId, label, options }`. The select adds an "all" option labelled with `label`.
+- `options.initialState` sets the initial `pagination` and `sorting`; the default page size is 10.
+- `options.selectable` adds a checkbox column and shows the selected count.
+
+## 3. Render with server-side paging
+
+Pass `options.query`: a function of `{ pageIndex, pageSize, sorting }` that returns query options resolving to `{ rows, total }`. The table then pages and sorts on the server, keeps the previous page visible while the next one loads and shows skeleton rows on the first load. From `src/routes/admin.users.all.tsx`:
+
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
+
+`getUsersPageQuery` puts the parsed input into the query key, and `getUsers` validates `sorting` against the sortable column ids:
+
+```ts
+export const getUsersPageQuery = (input: zod.input<typeof listUsersSchema> = {}) =>
+  queryOptions<Awaited<ReturnType<typeof getUsers>>>({
+    queryFn: () => getUsers({ data: input }),
+    queryKey: [...USER_QUERY_KEYS.LIST, listUsersSchema.parse(input)],
+  })
+```
+
+Prefetch the first page in the route loader with `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })`. To pass extra filters, wrap the query: `src/routes/admin.products.index.tsx` uses `query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] })`. Column `filters` run in the browser on the rows the table holds, so use them with `data`.
+
+## 4. Messages
+
+The empty state, pagination and selection labels come from `components.custom.data-table`, which every page loads. Column headers and cell text belong to the page namespace, such as `pages.admin.users.table.headers`.
+
+After a mutation changes the rows, invalidate the module's query keys; the table refetches the current page. See [Add a use case](/docs/guides/add-a-use-case).

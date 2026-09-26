@@ -1,16 +1,59 @@
 ---
-title: Autenticação e segurança
-description: Autenticação e segurança... SaaSy Land
+title: "Checklist de segurança"
+description: "O que verificar antes de fazer merge de uma mudança que envolve rotas, funções de servidor, dados ou segredos."
 ---
 
-Autorização é aplicada duas vezes: rota `beforeLoad` Os guardas protegem os layouts do administrador e do cliente, e cada função de servidor protegida verifica o chamador de forma independente. Use `requireAdmin` ou `requireSession` para layouts e `withAuth(permission)` para as operações. As operações do cliente derivam da propriedade da sessão.
+Percorra a lista em toda mudança que adicione uma página, uma operação, um endpoint ou um segredo.
 
-Better Auth Armazena sessões em D1 e lida com credenciais, OAuth, verificação, redefinição de senha, autenticação de dois fatores, personificação e revogação. `tanstackStartCookies`, que encaminha cookies de autenticação através de respostas de função de servidor.
+## Acesso
 
-D1 Os limites de velocidade usam a escrita atômica e o Cloudflare Operações públicas sensíveis têm chaves de limite separadas. Validar entradas com o módulo Zod Esquema, máscaras de falhas inesperadas, verificação de assinaturas de pagamento webhook, e manter todas as credenciais atrás dos limites apenas do servidor.
+- [ ] Páginas privadas ficam sob um layout protegido: `requireAdmin` (`/admin`) ou `requireSignedIn` (`/app`) em `beforeLoad`.
+- [ ] Toda função de servidor protegida tem `authorized(permission)` ou `authorized()`. O guard de rota não protege a chamada RPC.
+- [ ] Operações sobre os dados de quem chama pegam o usuário de `context.auth.user.id`, nunca da entrada.
+- [ ] Novas permissões estão em `APP_STATEMENTS` e são concedidas apenas aos papéis que precisam delas.
+- [ ] Os testes cobrem `UNAUTHORIZED` e `FORBIDDEN`.
+
+## Entrada
+
+- [ ] Toda função de servidor tem um `.validator` que analisa o schema Zod do módulo.
+- [ ] Handlers de API validam a query e o corpo antes de usá-los.
+- [ ] Destinos de redirecionamento são caminhos internos montados com `localizePathname`; `callbackPathSchema` em `auth.zod.ts` só aceita caminhos que começam com uma única `/`, e o cadastro e a troca de e-mail o usam para `callbackURL`.
+
+## Abuso
+
+- [ ] Operações públicas que enviam e-mail, verificam um código ou consomem um token usam `withRateLimit` com `RATE_LIMITS.SENSITIVE` ou `RATE_LIMITS.TOKEN`.
+- [ ] O limitador guarda os contadores no D1 por operação e IP do cliente (`cf-connecting-ip`) e rejeita a requisição quando o armazenamento está indisponível. Os endpoints próprios do Better Auth usam o mesmo armazenamento.
+- [ ] Os e-mails são enviados com uma chave de idempotência.
+
+## Erros
+
+- [ ] Falhas esperadas lançam `AppError` com um código de `ERROR_CODES`.
+- [ ] Nada mais chega ao cliente: `withRequest` registra erros desconhecidos e os substitui por `INTERNAL_ERROR`.
+- [ ] Os componentes mostram erros com `useErrorMessage`, nunca com o `error.message` bruto.
+
+## Segredos e código exclusivo do servidor
+
+- [ ] Os segredos são lidos de `env` em `cloudflare:workers`, apenas em módulos que importam `@tanstack/react-start/server-only`.
+- [ ] Nenhum valor privado tem o prefixo `VITE_`, que o exporia ao navegador.
+- [ ] Os dados de sessão enviados ao cliente vêm de `getCurrentSession`, que remove o token de sessão.
+
+## Sessões e cookies
+
+Estas configurações ficam em `auth.server.ts`; mantenha-as ao alterar a configuração:
+
+- [ ] `requireEmailVerification: true` e `revokeSessionsOnPasswordReset: true`.
+- [ ] `useSecureCookies` fora dos modos locais e `baseURL.allowedHosts` limitado aos hosts do ambiente.
+- [ ] `encryptOAuthTokens: true` e `verification.storeIdentifier: "hashed"`.
+- [ ] Login e logout limpam o cache de queries, e os guards o limpam quando o usuário muda.
+
+## Webhooks e saída
+
+- [ ] Os webhooks verificam a assinatura antes de processar o conteúdo; o Polar usa `POLAR_WEBHOOK_SECRET`.
+- [ ] Páginas privadas e que consomem tokens ficam fora da pré-renderização: `/admin`, `/app`, `/auth`, `/newsletter` e `/api` são excluídos.
+- [ ] Links com token tratados em loaders definem `preload: false`, como as rotas de confirmação e de cancelamento da newsletter.
 
 ## Guias relacionados
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Fluxos de autenticação](/docs/guides/auth-flows)
+- [Papéis e permissões](/docs/guides/roles-and-permissions)
+- [Funções de servidor](/docs/guides/server-functions)

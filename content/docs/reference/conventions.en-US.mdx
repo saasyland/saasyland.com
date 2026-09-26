@@ -1,18 +1,61 @@
 ---
 title: "Conventions"
-description: "Naming, folders, commits, and PR habits."
+description: "Code, route, component, translation and commit conventions used across the codebase."
 ---
 
-## Naming
+## Code
 
-- Use-cases: `verb-noun.ts`
-- Tests: colocated `__test__`
-- Route privates: `_components`, `_lib`
+- No code comments. Names and small functions carry the meaning.
+- No lint suppressions, `@ts-expect-error` or `as` casts to satisfy a rule. Fix the cause.
+- No multi-line ternaries. Use an early return or a small component.
+- Conditional classes use `cn` object syntax: `cn("base", { "text-foreground": isActive })`.
+- No wrappers, interfaces or layers that only forward calls. Import the concrete function.
+- Magic numbers become named constants, for example `const SINGLE_ROW = 1`.
+- `vp fmt` sorts imports into groups: server-only, `cloudflare:workers`, React, packages, then `src` folders in a fixed order, then styles.
 
-## Commits
+## Routes
 
-Conventional commits (`feat`, `fix`, `refactor`, …) with emoji prefix via `scripts/commit-msg.ts`.
+- Page routes define `<Name>Page`, a `NAMESPACE` constant directly above `export const Route`, `head: pageHead(ROUTES.X)` and a loader that runs `loadPageMetadata`, `preloadNamespaces` and any queries in one `Promise.all`.
+- Layout routes define `<Name>Layout` and a `NAMESPACES` array declared in `staticData` and preloaded by the loader.
+- Paths come from `ROUTES`. Router links never add the locale prefix themselves; raw URLs use `localizePathname`.
+- Arrays of items to render are module-level constants, not inline literals in JSX.
 
-## PRs
+## Components
 
-Lead with user-facing type (`feat` when behavior changes). Note refactors in the body.
+- One widget, dialog, form or column definition per file.
+- Components read their own translations and data. No text, label or data props that the component could read itself.
+- Exactly one `useTranslations` call per component, with the translator named `t`.
+- Forms follow the shadcn TanStack Form pattern: `useForm` with the module's Zod schema, `Field`, `FieldLabel`, `Input` and `ValidationFieldError`.
+- Tables use the generic `<DataTable columns data options filters />` with columns in an `<entity>-columns.tsx` file.
+
+## Server code
+
+- Use cases are named `<verb>-<noun>.ts` and export the server function with its query or mutation options.
+- Errors are thrown as `AppError(ERROR_CODES.X)` and translated in the browser with `useErrorMessage()`.
+- Every URL, query key and mutation key comes from a constant (`ROUTES`, `<TABLE>_QUERY_KEYS`, `<TABLE>_MUTATION_KEYS`).
+
+## Commits and pull requests
+
+Commit messages follow Conventional Commits: `<type>(<scope>): <description>`. The `prepare-commit-msg` hook runs `scripts/commit-msg.ts`, which rejects unknown types and prefixes the subject with the type's emoji:
+
+| Type       | Emoji |
+| ---------- | ----- |
+| `feat`     | ✨    |
+| `fix`      | 🐛    |
+| `perf`     | 🚀    |
+| `refactor` | 📦    |
+| `docs`     | 📚    |
+| `test`     | 🚨    |
+| `build`    | 🛠️    |
+| `ci`       | ⚙️    |
+| `chore`    | ♻️    |
+| `style`    | 💎    |
+| `revert`   | 🗑️    |
+
+The `pre-commit` hook runs `bun run check:pre-commit`. Pull requests run the CI workflow: `bun run check`, `bun run test:coverage` and the Playwright suite, followed by a preview deployment.
+
+## Related pages
+
+- [File naming](/docs/reference/file-naming)
+- [Conventional commits](/docs/tooling/conventional-commits)
+- [Directory structure](/docs/architecture/directory-structure)

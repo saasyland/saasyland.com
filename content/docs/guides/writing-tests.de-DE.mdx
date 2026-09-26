@@ -1,26 +1,100 @@
 ---
-title: Testen und Continuous Integration.
-description: Testen und CI — SaaSy Land
+title: "Tests schreiben"
+description: "Wo Tests liegen, wie die Vitest-Projekte und Test-Bindings funktionieren, das 100-%-Coverage-Gate und Playwright."
 ---
 
-Vite+ führt Vitest in drei Projekten aus: Node-Tests, Integrationstests und jsdom-Komponententests. Behalten Sie die bestehenden Verhaltenstests neben dem zugehörigen Code im Ordner `__test__`. Importieren Sie die Test-APIs aus `vite-plus/test`. Verwenden Sie Playwright für vollständige Browserabläufe und Rendering-Prüfungen.
+Vite+ führt Vitest (`vp test`) in drei Projekten aus. Tests liegen in einem `__test__`-Ordner neben dem Code, den sie abdecken, und importieren ihre APIs aus `vite-plus/test`.
 
-Die gemeinsame Konfiguration stellt lokale D1- und KV-Mocks bereit. D1 führt die eingeprägten SQL-Migrationen gegen SQLite aus. Die Server-Funktions-RPC-Schnittstelle behält die echten Middleware- und Validierungs-Pipelines von TanStack bei. Komponenten-Rendering-Hilfsfunktionen stellen echte QueryClient- und Router-Kontexte bereit. Externe E-Mail-, OAuth- und Zahlungsaufrufe werden in den Tests simuliert.
+| Projekt       | Dateien                          | Umgebung |
+| ------------- | -------------------------------- | -------- |
+| `node`        | `__test__/*.test.ts(x)`          | Node     |
+| `integration` | `__test__/*.integration.test.ts` | Node     |
+| `component`   | `__test__/*.component.test.tsx`  | jsdom    |
 
-Führen Sie das fokussierte Projekt parallel zur Bearbeitung aus, anschließend das vollständige Paket, die Abdeckungsprüfung, die Überprüfung und den Vorschau-Build. Die Browser-Tests überprüfen öffentliche Seiten, Authentifizierungs-Weiterleitungen, SSR ohne JavaScript und die Client-Navigation. Die Continuous Integration (CI) verwendet lokale Bindungen und benötigt weder eine aktive Datenbank noch Provider-Geheimnisse.
+Einen Test nach seiner Quelldatei benennen: `category.zod.ts` wird durch `__test__/category.zod.test.ts` abgedeckt.
+
+## Befehle
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
 ```
 
-## Verwandte Anleitungen.
+`bun run test` verwenden, nicht `bun test`: Nur Vitest lädt die Projekte, Umgebungen und die Setup-Datei.
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+## Coverage-Gate
+
+`bun run test:coverage` schlägt fehl, wenn Zeilen, Anweisungen, Funktionen oder Verzweigungen des Anwendungscodes unter `src` unter **100 %** liegen. Tests, `src/platform/testing`, die shadcn-Primitives und generierte Dateien sind ausgenommen. Echtes Verhalten abdecken und Verzweigungen, die nie ausgeführt werden können, löschen, statt Globals zu stubben, um sie zu erreichen. Berichte werden nach `coverage/` geschrieben.
+
+## Test-Laufzeitumgebung
+
+- `src/platform/testing/setup.ts` registriert die jest-dom-Matcher, setzt die Bindings vor jedem Test zurück und leitet jedes `createServerFn` durch `withTestRpc`, sodass Aufrufe die echte Middleware und den echten Validator durchlaufen.
+- `cloudflare:workers` wird zu `src/platform/testing/mocks/cloudflare.ts` aufgelöst. D1 ist eine In-Memory-SQLite-Datenbank, auf die alle eingecheckten Migrationen angewendet sind, KV ist eine In-Memory-Map, und `flushWaitUntil()` wartet auf Hintergrundaufgaben.
+- `.env.test` liefert Dummy-Zugangsdaten. E-Mail-, OAuth- und Zahlungsaufrufe sind gemockt; nichts verlässt den Rechner.
+- `renderWithRouter` in `src/platform/testing/lib/render.tsx` rendert Komponenten mit einem echten Router und `QueryClient`.
+
+## Use Case testen
+
+Gekürzt aus `src/modules/category/use-cases/__test__/create-category.test.ts`:
+
+```ts
+import { describe, expect, it, vi } from "vite-plus/test"
+
+import { executeMutation } from "~/src/platform/testing/lib/query"
+
+import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import type { auth } from "~/src/integrations/better-auth/auth.server"
+import * as authServer from "~/src/integrations/better-auth/auth.server"
+
+import { createCategoryMutation } from "~/src/modules/category/use-cases/create-category"
+
+const getSessionMock = vi.hoisted(() => vi.fn<(typeof auth.api)["getSession"]>())
+
+vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
+
+describe("create-category", () => {
+  it("returns a domain error when the caller is not an admin", async () => {
+    vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
+    getSessionMock.mockResolvedValue(
+      createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: "01900000-0000-7000-8000-000000000001" }),
+    )
+
+    await expect(executeMutation(createCategoryMutation, { kind: "category", name: "SaaS Plans" })).rejects.toThrow("FORBIDDEN")
+  })
+})
+```
+
+Jedes Ergebnis eines Use Case testen: Erfolg, jeden `AppError`-Code, fehlende Session und fehlende Berechtigung.
+
+## Komponente testen
+
+Komponententests rendern mit echten Messages aus `messages/en-US`, mocken das Use-Case-Modul, das die Mutation-Optionen bereitstellt, und steuern die UI mit Testing Library und `userEvent`. Für Ladezustände den gemockten Request mit `Promise.withResolvers()` offen halten, die Lade-UI prüfen, dann innerhalb von `act` auflösen und die UI im Ruhezustand prüfen. `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx` ist ein vollständiges Beispiel.
+
+## Browser-Tests
+
+Playwright-Specs liegen in `e2e/specs`, Page Objects in `e2e/pages` und Fixtures in `e2e/fixtures`. Sie laufen gegen die gebaute Testanwendung mit lokalem D1 und KV in `.wrangler/test` und den vorbefüllten Konten aus `e2e/data/accounts.ts`. Lokal migriert, befüllt, baut und startet Playwright diese Anwendung selbst.
+
+```sh
+bun run test:e2e:install
+bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:ui
+```
+
+Der Test-Worker zeichnet versendete E-Mails auf, sodass eine Spec den Verifizierungslink aus `/__test/emails?to=<address>` lesen kann.
+
+## Vor dem Push
+
+```sh
+bun run check
+bun run test:coverage
+bun run build
+```
+
+Die CI führt Checks, Coverage und die Chromium-Browser-Suite bei jedem Pull Request und jedem Push auf `main` aus, WebKit wöchentlich und bei Pushes auf `main`.

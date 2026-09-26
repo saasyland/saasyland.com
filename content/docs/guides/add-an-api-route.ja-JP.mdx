@@ -1,28 +1,52 @@
 ---
-title: TanStack Start HTTP ハンドラ
-description: TanStack Start HTTP ハンドラ — SaaSy Land
+title: "API ルートを追加する"
+description: "Webhook やその他の外部の呼び出し元のために、/api 配下に HTTP ハンドラーを追加します。"
 ---
 
-HTTP エンドポイントでは、ネイティブ TanStack Start サーバー ハンドラを使用できます。 `src/routes`. Better Auth は GET と POST を所有しています。 `/api/auth/$`; Fumadocs 検索使用 `/api/search`. . 製品操作は、機能モジュールのネイティブサーバー機能です。
+API ルートは、`src/routes/api/` にある TanStack Start のサーバーハンドラーです。アプリケーション自身の画面はサーバー関数を呼び出すため、API ルートを必要としません。API ルートは、Webhook、サードパーティのクライアント、クローラーなど、アプリ外部の呼び出し元のためだけに追加します。
 
-ハンドルを宣言する `createFileRoute` と、 `server.handlers`. . 供給される使用して下さい `request`, 入力を検証, 権限チェックを強制し、Web を返す `Response`. . プロバイダーの統合で Webhook 検証を保ちましょう。 このアプリケーションの型 RPC クライアントでのみ使用される動作については、重複 REST エンドポイントを公開しないでください。
+## 既存のルート
+
+| ファイル                   | パス          | 用途                                                                                                 |
+| -------------------------- | ------------- | ---------------------------------------------------------------------------------------------------- |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | Better Auth：サインイン、OAuth のコールバック、メール認証、Polar のチェックアウト、ポータル、Webhook |
+| `src/routes/api/search.ts` | `/api/search` | ドキュメント用の Fumadocs 検索                                                                       |
+| `src/routes/api/index.ts`  | `/api`        | `{ "runtime": "cloudflare-workers" }` を返すランタイムチェック                                       |
+
+Polar の Webhook は `/api/auth/polar/webhooks` に届きます。Better Auth の Polar プラグインが `POLAR_WEBHOOK_SECRET` で署名を検証してから、`license.webhooks.ts` が処理します。
+
+## ハンドラーを書く
+
+`server.handlers` にメソッドを宣言します。各ハンドラーは Web の `Request` を受け取り、Web の `Response` を返します。
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
-import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/auth/$")({
+import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+
+export const Route = createFileRoute("/api/search")({
   server: {
     handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
+      GET: ({ request }) => search.GET(request),
     },
   },
 })
 ```
 
-## 関連ガイド
+ハンドラー内では、次の点を守ります。
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- クエリやボディを Zod スキーマで検証し、失敗した場合は `HTTP_STATUS.BAD_REQUEST`（`src/modules/_core/constants/api.ts` から）を返します。ハンドラーに新しいステータスが必要な場合は、そこに追加します。
+- `getRequestSession(request)` でセッションを読み取り、`hasPermission` でチェックします。`authorized` のような関数ミドルウェアはサーバー関数に適用されるもので、ハンドラーには適用されません。
+- 公開エンドポイントには、`src/lib/rate-limit.ts` の `withinRateLimit({ key, limit, windowSeconds })` と `clientAddress(request.headers)` でレート制限をかけます。
+- Webhook のペイロードを信頼する前に、署名を検証します。
+- 安全なエラーボディを返し、詳細は `console.error` でログに記録します。
+
+## ルーティングのルール
+
+- `/api` のパスにはロケールのプレフィックスが付きません。また、Worker はこれらのパスについて、静的アセットの検索とロケールのリダイレクトをスキップします。
+- `/api` の URL にはロケールが含まれないため、`getCurrentLocale()` はそこでデフォルトのロケールを返します。ローカライズされたレスポンスは、`/api/search` がクエリパラメーター `locale` で行うように、リクエストからロケールを取得します。
+- `/api` はプリレンダリングの対象外です。
+
+## テスト
+
+`src/routes/api/__test__/handlers.test.ts` が `Route.options.server.handlers` で行っているように、ルートのオプションを通じてハンドラーを呼び出し、転送先のプロバイダーをモックします。

@@ -1,18 +1,61 @@
 ---
-title: Convenzioni
-description: Denominazione, cartelle, commit e abitudini di PR.
+title: "Convenzioni"
+description: "Convenzioni per codice, route, componenti, traduzioni e commit adottate in tutta la codebase."
 ---
 
-## Denominazione
+## Codice
 
-- Moduli d'uso: `verb-noun.ts`
-- Test: colocated `__test__`
-- Percorso privato: `_components`, `_lib`
+- Nessun commento nel codice. Il significato lo trasmettono i nomi e le funzioni piccole.
+- Nessuna soppressione del lint, nessun `@ts-expect-error` o cast `as` per soddisfare una regola. Risolvi la causa.
+- Nessun ternario su più righe. Usa un return anticipato o un piccolo componente.
+- Le classi condizionali usano la sintassi a oggetto di `cn`: `cn("base", { "text-foreground": isActive })`.
+- Nessun wrapper, interfaccia o livello che si limiti a inoltrare chiamate. Importa la funzione concreta.
+- I numeri magici diventano costanti con un nome, ad esempio `const SINGLE_ROW = 1`.
+- `vp fmt` ordina gli import in gruppi: server-only, `cloudflare:workers`, React, pacchetti, poi le cartelle di `src` in un ordine fisso e infine gli stili.
 
-## Impegni
+## Route
 
-Impegni convenzionali (`feat`, `fix`, `refactor`, ...) con prefisso emoji via `scripts/commit-msg.ts`.
+- Le route di pagina definiscono `<Name>Page`, una costante `NAMESPACE` subito sopra `export const Route`, `head: pageHead(ROUTES.X)` e un loader che esegue `loadPageMetadata`, `preloadNamespaces` ed eventuali query in un unico `Promise.all`.
+- Le route di layout definiscono `<Name>Layout` e un array `NAMESPACES` dichiarato in `staticData` e precaricato dal loader.
+- I percorsi provengono da `ROUTES`. I link del router non aggiungono mai da soli il prefisso del locale; gli URL grezzi usano `localizePathname`.
+- Gli array di elementi da renderizzare sono costanti a livello di modulo, non letterali inline nel JSX.
 
-## PR
+## Componenti
 
-Piombo con tipo di interfaccia utente (`feat` quando il comportamento cambia). Osserva i refattori nel corpo.
+- Un widget, dialog, form o definizione di colonne per file.
+- I componenti leggono da sé le proprie traduzioni e i propri dati. Nessuna prop di testo, etichetta o dati che il componente potrebbe leggere da solo.
+- Esattamente una chiamata a `useTranslations` per componente, con il traduttore chiamato `t`.
+- I form seguono il pattern shadcn per TanStack Form: `useForm` con lo schema Zod del modulo, `Field`, `FieldLabel`, `Input` e `ValidationFieldError`.
+- Le tabelle usano il componente generico `<DataTable columns data options filters />`, con le colonne in un file `<entity>-columns.tsx`.
+
+## Codice server
+
+- I casi d'uso si chiamano `<verb>-<noun>.ts` ed esportano la server function insieme alle relative opzioni di query o di mutazione.
+- Gli errori vengono lanciati come `AppError(ERROR_CODES.X)` e tradotti nel browser con `useErrorMessage()`.
+- Ogni URL, chiave di query e chiave di mutazione proviene da una costante (`ROUTES`, `<TABLE>_QUERY_KEYS`, `<TABLE>_MUTATION_KEYS`).
+
+## Commit e pull request
+
+I messaggi di commit seguono Conventional Commits: `<type>(<scope>): <description>`. L'hook `prepare-commit-msg` esegue `scripts/commit-msg.ts`, che rifiuta i tipi sconosciuti e antepone all'oggetto del commit l'emoji del tipo:
+
+| Tipo       | Emoji |
+| ---------- | ----- |
+| `feat`     | ✨    |
+| `fix`      | 🐛    |
+| `perf`     | 🚀    |
+| `refactor` | 📦    |
+| `docs`     | 📚    |
+| `test`     | 🚨    |
+| `build`    | 🛠️    |
+| `ci`       | ⚙️    |
+| `chore`    | ♻️    |
+| `style`    | 💎    |
+| `revert`   | 🗑️    |
+
+L'hook `pre-commit` esegue `bun run check:pre-commit`. Le pull request eseguono il workflow CI: `bun run check`, `bun run test:coverage` e la suite Playwright, seguiti da un deploy di preview.
+
+## Pagine correlate
+
+- [Nomi dei file](/docs/reference/file-naming)
+- [Conventional Commits](/docs/tooling/conventional-commits)
+- [Struttura delle directory](/docs/architecture/directory-structure)

@@ -1,23 +1,44 @@
 ---
-title: 要求のライフサイクル
-description: ライフサイクルのリクエスト — SaaSy Land
+title: "リクエストのライフサイクル"
+description: "ページのリクエストとサーバー関数の呼び出しが、Worker から結果の描画に至るまでにたどるステップ。"
 ---
 
-`src/server.ts` locale URL を正規化し、 locale Cookie を同期させる。 `src/router.tsx` ルーターごとに新しいQueryClient を作成し、SSR に接続します。 ネイティブルートファイルは、コンポーネント、ガード、ローダー、検索検証、メタデータを宣言します。
+## ページのリクエスト
 
-管理者および顧客のレイアウトの使用 `beforeLoad` ガード。 保護されたサーバー関数は、RPCがページを独立して呼び出すことができるため、呼び出し者もチェックします。 共有静的なキャッシュに認証されたレスポンスを置きません。
+1. **ロケールの正規化。** `src/server.ts` は、`/api` と `/_serverFn` 以外への `GET` と `HEAD` のドキュメントリクエストに対して `resolveLocale` を呼び出します。言語コードのみ、またはデフォルトロケールのプレフィックス（`/pl/docs`、`/en-US/docs`）は、`308` で正規の形式（`/pl-PL/docs`、`/docs`）にリダイレクトされます。URL のロケールがロケールクッキーと異なる場合は、レスポンスでクッキーを更新します。
+2. **静的アセットを優先。** Worker は、そのパスを `ASSETS` バインディングに問い合わせます。プリレンダリング済みのページと静的ファイルは、そのまま返されます。`404` だった場合にのみ、TanStack Start のハンドラーを動的 `import()` で読み込みます。
+3. **ルーティング。** `getRouter` が新しいルーターと `QueryClient` を作成します。ルーターの `rewrite` がロケールプレフィックスを取り除くため、`/pl-PL/docs` は `/docs` のルートにマッチします。
+4. **root の `beforeLoad`。** root の翻訳名前空間（`common`、`components.*`、`errors*`）をプリロードします。
+5. **ガード。** `requireAdmin` などのレイアウトの `beforeLoad` 関数がセッションクエリを読み込み、アクセスが許可されていない場合はリダイレクトします。
+6. **ローダー**は並列に実行されます。各ローダーは、名前空間、ページのメタデータ、クエリを、そのリクエストの `QueryClient` にプリロードします。
+7. **レンダリング。** root シェルが `<html lang dir>` を描画し、body を `TranslationsProvider` でラップします。クエリキャッシュは HTML にシリアライズされるため、ブラウザが同じデータを再取得することはありません。
+8. **レスポンスヘッダー。** HTML レスポンスに対して、Worker はスタイルシートとロケールのフォント用の `Link` プリロードヘッダーを追加し、必要に応じてロケールクッキーを設定します。さらに、`cf-ipcountry` ヘッダーが割引の対象となる場合は、地域別価格の属性を適用します。
+9. **ハイドレーション。** ブラウザは、シリアライズされたキャッシュを使ってハイドレートします。以降のナビゲーションでは、ガードとローダーがブラウザで実行され、データはサーバー関数を通じて取得されます。
+
+## サーバー関数の呼び出し
+
+1. ブラウザがサーバー関数を呼び出します。この呼び出しは、ビルド時に `/_serverFn/…` への RPC リクエストに置き換えられています。Worker はこのパスではロケール処理をスキップし、`getCurrentLocale()` は URL ではなくロケールクッキーを読み取ります。
+2. ミドルウェアが宣言された順に実行されます。`withRequest` はリクエストヘッダーを取得してエラーを正規化し、`withRateLimit` は D1 で試行回数をカウントし、`authorized` はセッションを読み込んで権限をチェックします。
+3. バリデーターが、モジュールの Zod スキーマで入力をパースします。
+4. ハンドラーが D1 にクエリを発行するかプロバイダーを呼び出し、プレーンなデータを返します。
+5. コンポーネントは、データまたは `AppError` のコードを受け取ります。成功時はモジュールのクエリキーを無効化し、失敗時は `useErrorMessage()(error)` を表示します。
 
 ```text
-Request → Worker locale middleware → TanStack Router
-        → beforeLoad session/permission guard
-        → loader: messages + authorized query data
-        → SSR + hydrated React presentation
-Mutation → validated server function → auth/rate limit → D1 or provider
-         → result/error → scoped query invalidation
+GET /pl-PL/admin/users/all
+  src/server.ts        resolveLocale, ASSETS lookup, TanStack Start handler
+  router rewrite       /admin/users/all
+  __root beforeLoad    root namespaces
+  /admin beforeLoad    requireAdmin
+  loaders              metadata, namespaces, queries
+  SSR                  HTML with serialized query cache
+  src/server.ts        Link header, locale cookie, regional pricing
+
+POST /_serverFn/…
+  withRequest → withRateLimit → authorized → validator → handler → data or AppError
 ```
 
-## 関連ガイド
+## 関連ページ
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [ルートと配信](/docs/architecture/delivery-layer)
+- [キャッシュと SSR](/docs/architecture/caching-and-ssr)
+- [認証とセキュリティ](/docs/architecture/security-model)

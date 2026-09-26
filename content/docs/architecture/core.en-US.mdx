@@ -1,14 +1,61 @@
 ---
 title: "Core shared kernel"
-description: "Domain errors and shared catalogs in modules/_core."
+description: "The error vocabulary, catalogs and helpers in src/modules/_core that every module shares."
 ---
 
-## Contents
+`src/modules/_core` is the only module folder that does not own a table. It holds values and helpers that several modules need, so no module redefines them.
 
-- `constants/errors.ts` — `ERROR_CODES`, `AppError`, `ActionServerError` (the one error vocabulary)
-- `constants/` — locale (and related) catalogs used by i18n and product knobs
-- `utils/` — pure helpers shared across modules
+## Constants
 
-## Why it exists
+| File                    | Contents                                                                                            |
+| ----------------------- | --------------------------------------------------------------------------------------------------- |
+| `constants/errors.ts`   | `ERROR_CODES`, the `ErrorCode` type and the `AppError` class                                        |
+| `constants/api.ts`      | `HTTP_STATUS`, the `cf-ipcountry` and `cf-connecting-ip` header names, allowed hosts per build mode |
+| `constants/locale.ts`   | The `LOCALES` catalog, `LocaleCode`, `getLocaleName` and `getLocaleDirection`                       |
+| `constants/country.ts`  | The `COUNTRIES` catalog and `CountryCode`                                                           |
+| `constants/currency.ts` | The `CURRENCIES` catalog, `CurrencyCode` and `DEFAULT_CURRENCY_CODE`                                |
+| `constants/timezone.ts` | The `TIMEZONES` catalog and `TimezoneCode`                                                          |
+| `constants/pricing.ts`  | Regional pricing multipliers, the regional pricing cookie and currency formatting                   |
 
-Cross-cutting **valid values** and **error codes** should not be redefined per feature. App-enabled locales (subset) still live in `i18n.config.ts`; the broader catalog can live in `_core`.
+The locale catalog lists every known locale. The nine locales the application actually serves are `I18N.SUPPORTED_LOCALES` in `src/integrations/use-intl/i18n.config.ts`.
+
+## Utilities
+
+- `utils/pagination.ts`: `paginationSchema` (`pageIndex`, `pageSize`), `DEFAULT_PAGINATION` and `DEFAULT_PAGE_SIZE`
+- `utils/zod-fields.ts`: reusable Zod fields such as `idField` and `localeField`
+
+## Errors
+
+There is one error class and one list of codes:
+
+```ts
+export const ERROR_CODES = {
+  AUTH_API_ERROR: "AUTH_API_ERROR",
+  CONFLICT: "CONFLICT",
+  FORBIDDEN: "FORBIDDEN",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
+  NOT_FOUND: "NOT_FOUND",
+  TOO_MANY_REQUESTS: "TOO_MANY_REQUESTS",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  VALIDATION: "VALIDATION",
+} as const
+
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]
+
+export class AppError extends Error {
+  readonly code: ErrorCode
+
+  constructor(code: ErrorCode, message: string = code) {
+    super(message)
+    this.name = "AppError"
+    this.code = code
+  }
+}
+```
+
+Server functions throw `AppError`. The `withRequest` middleware normalizes everything else: Better Auth API errors become `AUTH_API_ERROR` with the Better Auth error key as the message, Zod errors become `VALIDATION`, and unknown errors are logged and become `INTERNAL_ERROR`. In the browser, `useErrorMessage()` from `src/hooks/use-error-message.ts` maps the message to `auth.errors.*` or `errors.codes.*` translations.
+
+## Related pages
+
+- [Server functions and use cases](/docs/architecture/modules-and-use-cases)
+- [Authentication and security](/docs/architecture/security-model)

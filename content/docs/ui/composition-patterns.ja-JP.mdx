@@ -1,6 +1,101 @@
 ---
-title: 構成パターン
-description: boolean props の構成を好みます; プロバイダーに状態を持ち上げて下さい。
+title: "コンポジションパターン"
+description: "このコードベースでルート、ページ、コンポーネントを組み合わせるためのルール。"
 ---
 
-フォローする `.agents/skills/vercel-composition-patterns`: コンパウンドコンポーネント、汎用コンテクスト(コンパウンドコンポーネント)`state` / `actions` / `meta`)、React 19 `use()`, いいえ `forwardRef`.
+## ルートがページを組み立てる
+
+ルートファイルは `<Name>Page` または `<Name>Layout` コンポーネント、`NAMESPACE` または `NAMESPACES`、ローダー、`head` を定義します。ページはウィジェットを配置するだけで、ウィジェットは `src/presentation/components/custom/<area>/` にあります。レイアウトは次のようになります（`src/routes/app.tsx`）。
+
+```tsx
+const AppLayout = (): JSX.Element => (
+  <SidebarProvider className="h-svh overflow-hidden">
+    <AppSidebar />
+    <SidebarInset className="relative min-h-0 min-w-0 overflow-hidden">
+      <Background className="z-[-1]" glow={false} />
+      <AppHeader />
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-5 pb-6 md:px-6 md:pt-7 md:pb-8">
+        <div className="mx-auto w-full max-w-5xl">
+          <Outlet />
+        </div>
+      </div>
+    </SidebarInset>
+  </SidebarProvider>
+)
+```
+
+1 つのルートだけが使うサーバー関数は、`src/routes/blog.index.tsx` のように、そのルートファイル内で `createServerFn` を使って定義できます。
+
+## 1 ファイルに 1 つのウィジェット、ダイアログ、フォーム
+
+ウィジェット、ダイアログ、フォーム、列定義はそれぞれ専用のファイルに置きます。`admin/users/row-actions.tsx`、`delete-user-dialog.tsx`、`reset-password-dialog.tsx`、`user-columns.tsx` などです。コンポーネントのフォルダーはフラットで、`components/`、`hooks/`、`constants/`、`types/` のサブフォルダーは作らず、`x.tsx` と `x-content.tsx` に分割することもしません。共有コンポーネントは `custom/` の直下に置きます。
+
+## コンポーネントは自分でデータを読み込む
+
+コンポーネントは、テキストやデータを props で受け取るのではなく、自分で取得します。
+
+- 翻訳は `useTranslations` で取得します。
+- クエリのデータは、ルートのローダーが取得済みのものを `useSuspenseQuery` で読みます。
+- ローダーのデータ、ルートコンテキスト、検索パラメーターは `getRouteApi("…")` で読みます。
+
+```tsx
+const route = getRouteApi("/blog/$")
+
+export const PostMeta = (): JSX.Element => {
+  const { post } = route.useLoaderData()
+  const t = useTranslations("pages.blog.post")
+  const format = useFormatter()
+
+  const details = [post.authorName, t("readingTime", { minutes: post.readingTimeMinutes }), post.tags.join(", ")].filter(
+    (item) => item.trim().length > 0,
+  )
+
+  return (
+    <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-border py-4 font-mono text-body-sm text-muted-foreground">
+      <span className="flex items-center gap-2.5">
+        <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
+        <time className="tabular-nums" dateTime={new Date(post.date).toISOString()}>
+          {format.dateTime(new Date(post.date), { day: "numeric", month: "long", year: "numeric" })}
+        </time>
+      </span>
+      {details.map((item) => (
+        <span className="flex items-center gap-3" key={item}>
+          <span aria-hidden className="text-border">
+            &middot;
+          </span>
+          {item}
+        </span>
+      ))}
+    </div>
+  )
+}
+```
+
+props が運ぶのは、ダイアログの `user` と `isOpen`・`onOpenChange` や `activationId` のように、親だけが知っている識別情報や状態です。テキストやラベルの props、props のバケツリレー、props の名前を変えたり子要素を渡したりするだけのラッパーはありません。1 つのファイルだけで使う定数はそのファイルに置き、複数のファイルで共有するデータは `src/data` に置きます。
+
+## リッチテキスト
+
+`t.rich` 用のタグマップはモジュールレベルの定数にし、描画中にオブジェクトを作りません。
+
+```tsx
+const REUSE_TAGS = { accent: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong> }
+```
+
+## 条件付きクラス
+
+`~/src/lib/cn` の `cn` をオブジェクト構文で使います。
+
+```tsx
+<p className={cn("font-medium", { "text-foreground": !banned, "text-muted-foreground line-through": banned })}>{name}</p>
+```
+
+分岐を描画するときは、複数行の三項演算子ではなく、`&&` の組か早期リターンを使います。
+
+## プロバイダー
+
+ハイドレーション後に変化するプロバイダーは、それを必要とするウィジェットだけを包み、ルートの `Outlet` は包みません。`ThemeProvider` は `Toaster` とドキュメントの `ThemeSwitch` を、`MotionProvider` はランディングページのセクションとブログの一覧を包みます。`AriaProvider` はルートの outlet を、`TranslationsProvider` はドキュメントの body を包みます。どの画面にも必要なためです。
+
+## 関連ガイド
+
+- [プレゼンテーション層](/docs/architecture/presentation-layer)
+- [規約](/docs/reference/conventions)

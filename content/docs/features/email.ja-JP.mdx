@@ -1,6 +1,48 @@
 ---
-title: 取引メール
-description: authおよびプロダクト郵便のための Resend 配達。
+title: "トランザクションメール"
+description: "src/presentation/emails の React Email テンプレート。ユースケースが Resend 経由で送信します。"
 ---
 
-インテグレーション → Resend とガイド → メールテンプレートを参照してください。 Auth 認証/リセットメールは、ローカルのauth フローに必要です。製品のレシートには支払いが付属しています。
+## テンプレート
+
+テンプレートは `src/presentation/emails` にあります。各ファイルはマークアップだけを含み、名前空間の定数をエクスポートします。
+
+| テンプレート                   | 名前空間                                 | 送信元                                                     |
+| ------------------------------ | ---------------------------------------- | ---------------------------------------------------------- |
+| `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail`（Better Auth のフック）                  |
+| `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail`（Better Auth のフック）           |
+| `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail`（Better Auth のフック） |
+| `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                                    |
+| `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`、宛先は `CONTACT_EMAIL`    |
+
+テンプレートは `locale` と `messages` を受け取り、use-intl の `createTranslator` で翻訳します。
+
+```tsx
+const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
+```
+
+## 送信
+
+ユースケースがメッセージを読み込み、テンプレートをレンダリングして送信します（`src/modules/verification/use-cases/send-verify-email.ts`）。
+
+```ts
+const locale = getCurrentLocale()
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+verifyUrl.searchParams.set("token", token)
+await sendEmail({
+  idempotencyKey: `verify-email/${token}`,
+  react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+  subject: createTranslator({ locale, messages })("subject"),
+  to: user.email,
+})
+```
+
+`sendEmail`（`src/integrations/resend/resend.utils.ts`）は、`from` が指定されない限り `RESEND_EMAIL_FROM` から Resend 経由で送信し（オーナーへの通知は `NOTIFICATIONS_EMAIL` を使います）、冪等性キーを渡し、失敗時はエラーを投げます。
+
+アカウント関連のメールは現在のリクエストの言語を使います。ニュースレターのメールはフォームと一緒に送られた言語を使い、オーナーへの通知は常に `en-US` です。
+
+## 関連ガイド
+
+- [メールテンプレート](/docs/guides/email-templates)
+- [Resend](/docs/integrations/resend)

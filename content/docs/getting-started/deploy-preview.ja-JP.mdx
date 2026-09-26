@@ -1,25 +1,38 @@
 ---
-title: Cloudflare Workers へのデプロイ
-description: Cloudflare Workers — SaaSy Land へのデプロイ
+title: "プレビューをデプロイする"
+description: "Cloudflare のリソースを用意し、プレビュー用 Worker をデプロイします。"
 ---
 
-ワーカービルドは Vite+, TanStack Start で生成され、 `@cloudflare/vite-plugin`. `wrangler.jsonc` エントリー、互換性設定、アセット、観察性および別々の開発、プレビューおよび生産の結合を宣言します。
+`preview` 環境は、Worker `saasyland-preview` を `preview.saasyland.com` にデプロイします。デフォルトでは、`development` と `preview` が 1 つの D1 データベースと 1 つの KV 名前空間を共有します。
 
-D1 と KV を指定して、プレースホルダー ID をターゲット環境に置き換えます。 URL とプロバイダーの秘密を設定 `.env.preview` または `.env.production`. . 明示的にマイグレーションを適用し、デプロイします。 スクリプトをデプロイすると、結合 ID を最初に検証します。スクリプトのプレレンダーの公開ページを作成し、出力アーティファクトを確認します。 認証とプライベートなアプリケーションページは、ワーカー上で動的に実行されます。
-
-ターゲット環境のカスタムドメインとOAuthコールバックURLを設定します。 依存関係のインストールと建物は、リモートの移行を適用しません。
+## リソースを用意する
 
 ```sh
 bunx wrangler login
-bunx wrangler d1 create saasyland_preview
+bunx wrangler d1 create saasyland_com_preview
 bunx wrangler kv namespace create CACHE --env preview
-# Update wrangler.jsonc and .env.preview first.
+```
+
+`wrangler.jsonc` で、`development` と `preview` の両方にある `database_id`、`database_name`、KV の `id` を置き換えます。バインディング名の `DB` と `CACHE`、および `migrations_dir` はそのままにし、Worker 名とカスタムドメインのルートを自分のアカウントに合わせて更新します。本番用には別のリソースを作成し、`production` ブロックを更新してください。`src/presentation/branding/index.ts` で `APP_DOMAIN` を設定します。`src/modules/_core/constants/api.ts` の `appHostsForMode` は、この値から許可するホストを導き出します。本番では `APP_DOMAIN`、プレビューでは `preview.<APP_DOMAIN>`、開発とテストでは `localhost:3000` または `127.0.0.1:3000` です。同じファイルの `HOSTS_BY_MODE` を編集するのは、プレビューのホスト名が異なる場合だけです。
+
+## デプロイする
+
+`.env.preview` に値を記入してから、マイグレーションとデプロイを行います。
+
+```sh
 bun run db:migrate:preview
 bun run deploy:preview
 ```
 
+`deploy:preview` は、まずプレースホルダーの ID を拒否する `scripts/verify-bindings.ts preview` を実行します。次に、公開ページをプリレンダリングして出力を検証する `build:preview` を実行し、最後にシークレットもアップロードする `wrangler deploy --secrets-file .env.preview` を実行します。ビルドとデプロイでマイグレーションが適用されることはありません。新しいスキーマを必要とするコードをデプロイする前に、`db:migrate:preview` を実行してください。
+
+[環境変数](/docs/getting-started/environment-variables)に記載されているとおり、プレビューのホスト用に OAuth のコールバックと Polar の Webhook を登録します。
+
+## 自動デプロイ
+
+チェックとブラウザーテストが成功すると、CI はこのリポジトリ内のブランチからのプルリクエストを共有プレビューに、`main` へのプッシュを本番にそれぞれデプロイします。必要な GitHub のシークレットについては [CI/CD](/docs/tooling/ci-cd) を参照してください。
+
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [データベースのマイグレーション](/docs/tooling/database)

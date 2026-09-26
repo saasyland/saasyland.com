@@ -1,16 +1,51 @@
 ---
 title: "Authentication and security"
-description: "Authentication and security — SaaSy Land"
+description: "Better Auth sessions, route guards, server-function middleware and roles."
 ---
 
-Authorization is enforced twice: route `beforeLoad` guards protect the admin and customer layouts, and each protected server function checks the caller independently. Use `requireAdmin` or `requireSession` for layouts and `withAuth(permission)` for operations. Customer operations derive ownership from the session.
+Better Auth stores users, accounts, sessions and verification tokens in D1 through the Drizzle adapter. It provides email and password sign-up with required email verification, GitHub and Google sign-in, password reset, email change, TOTP two-factor authentication, admin user management and Polar checkout. Its HTTP API is served by `src/routes/api/auth.$.ts`.
 
-Better Auth stores sessions in D1 and handles credentials, OAuth, verification, password reset, two-factor authentication, impersonation and revocation. Cookie caching is bypassed when checking a protected server function. The final auth plugin is `tanstackStartCookies`, which forwards authentication cookies through server-function responses.
+## Files
 
-D1 rate limits use atomic writes and the Cloudflare client IP header. Sensitive public operations have separate limit keys. Validate inputs with the module Zod schema, mask unexpected failures, verify payment webhook signatures, and keep all credentials behind server-only boundaries. Private routes and token mutations are excluded from prerendering.
+| File                                                   | Responsibility                                                                                                                                        |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.server.ts`                                       | The `betterAuth` instance: providers, `admin`, `twoFactor`, Polar and `tanstackStartCookies` plugins, allowed hosts, D1 rate limiting and email hooks |
+| `auth.client.ts`                                       | `authClient` and its methods (`signIn`, `signUp`, `signOut`, `useSession`, `twoFactor` and others)                                                    |
+| `auth.routes.ts`                                       | Route guards for `beforeLoad`                                                                                                                         |
+| `auth.middleware.ts`                                   | Server-function middleware: `withRequest`, `authorized`, `withRateLimit` and `RATE_LIMITS`                                                            |
+| `auth.access.ts`                                       | Roles, permission statements and `hasPermission`                                                                                                      |
+| `auth.session.ts`                                      | `getRequestSession`, the `getCurrentSession` server function and `getCurrentSessionQuery`                                                             |
+| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | Error keys, form schemas and password limits                                                                                                          |
+
+## Route guards
+
+| Guard                | Used by                          | Behaviour                                                                       |
+| -------------------- | -------------------------------- | ------------------------------------------------------------------------------- |
+| `requireSignedIn`    | `/app`                           | Redirects to sign-in without a session and returns the session                  |
+| `requireAdmin`       | `/admin`                         | Also requires the `admin: ["access"]` permission, otherwise redirects to `/app` |
+| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Sends a signed-in user to `/admin` or `/app`, depending on the role             |
+| `redirectAfterAuth`  | `/auth/callback`                 | Requires a session, then redirects to the workspace for the role                |
+
+The guards load the session through the query cache and clear the cache when the signed-in user changes.
+
+## Server functions
+
+Page guards only protect navigation, so every protected server function checks the caller again with middleware from `auth.middleware.ts`:
+
+- `authorized(permission?)` requires a session, optionally checks a permission, and adds the session to the context as `context.auth`. Operations on the caller's own data use `context.auth.user.id`, never a user ID from the input.
+- `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` (3 requests per 60 seconds) or `RATE_LIMITS.TOKEN` (5 per 60 seconds) limits a public operation per client IP from `cf-connecting-ip`.
+- `withRequest`, which both include, maps errors to `AppError` codes: Better Auth errors become `AUTH_API_ERROR` with their error key, Zod errors become `VALIDATION`, and unexpected errors are logged and returned as `INTERNAL_ERROR`.
+
+## Roles and permissions
+
+`auth.access.ts` defines two roles: `admin` and `customer` (the default for new accounts). Application statements cover `admin`, `category`, `order`, `product` and `settings`; the admin role also receives Better Auth's admin statements. `hasPermission({ permission, role })` is shared by guards, middleware and the UI.
+
+## Email and rate limits
+
+The email hooks in `auth.server.ts` call use cases: `sendVerifyEmail`, `sendResetPasswordEmail` and `sendChangeEmailConfirmationEmail`. Better Auth's own rate limiter stores its counters in the D1 `rate_limit` table through `authRateLimitStorage` from `src/lib/rate-limit.ts`, which uses atomic upserts and rejects requests when its storage is unavailable. `getRequestSession` bypasses the cookie cache, so authorization always reads the session from D1.
 
 ## Related guides
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Auth flows](/docs/guides/auth-flows)
+- [Roles and permissions](/docs/guides/roles-and-permissions)
+- [Security model](/docs/architecture/security-model)

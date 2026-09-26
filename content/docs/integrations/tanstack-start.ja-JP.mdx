@@ -1,28 +1,46 @@
 ---
-title: TanStack Start HTTP ハンドラ
-description: TanStack Start HTTP ハンドラ — SaaSy Land
+title: "TanStack Start"
+description: "ファイルルート、ローダー、プリレンダリング、HTTP ハンドラーです。"
 ---
 
-HTTP エンドポイントでは、ネイティブ TanStack Start サーバー ハンドラを使用できます。 `src/routes`. Better Auth は GET と POST を所有しています。 `/api/auth/$`; Fumadocs 検索使用 `/api/search`. . 製品操作は、機能モジュールのネイティブサーバー機能です。
+このアプリケーションは TanStack Start アプリです。`src/router.tsx` はルーターを作成し、リクエストごとの QueryClient、SSR のクエリ統合、デフォルトのエラー・Not Found の各コンポーネント、インテントによるプリロード、ロケールの `rewrite` を設定します。デフォルトのペンディングコンポーネントはなく、各ルートが独自のスケルトンを設定します（[読み込み中のスケルトン](/docs/architecture/delivery-layer#loading-skeletons)を参照）。`src/routes.ts` は `ROUTES` をエクスポートします。これはリンク、ガード、head タグで使われるパス定数です。
 
-ハンドルを宣言する `createFileRoute` と、 `server.handlers`. . 供給される使用して下さい `request`, 入力を検証, 権限チェックを強制し、Web を返す `Response`. . プロバイダーの統合で Webhook 検証を保ちましょう。 このアプリケーションの型 RPC クライアントでのみ使用される動作については、重複 REST エンドポイントを公開しないでください。
+## ルート
+
+`src/routes/` にはフラットなファイルルートがあります。`admin.users.all.tsx` は `/admin/users/all` を提供し、`_landing.tsx` はパスを持たないレイアウト、`docs.$.tsx` はスプラットルートです。`createFileRoute("…")` の ID は文字列リテラルで、`src/routeTree.gen.ts` のルータージェネレーターが管理します。`__test__` フォルダーはルートとして扱われません。
+
+ルートファイルはページを組み立てるだけです。定義するのは `<Name>Page` または `<Name>Layout` コンポーネント、`NAMESPACE` または `NAMESPACES`、メタデータ・メッセージ・データの読み込みを 1 つの `Promise.all` で実行するローダー、`head: pageHead(ROUTES.X)`、そして保護されたエリアでは `beforeLoad` のガードです。ウィジェット、ダイアログ、フォーム、テーブルのカラムは `src/presentation/components/custom/` に置き、それぞれが自身の翻訳とデータを読み込みます。ローダーについては [use-intl](/docs/integrations/use-intl) を、ガードについては [Better Auth](/docs/integrations/better-auth) を参照してください。
+
+## サーバー関数
+
+操作はモジュールのユースケースからエクスポートされるネイティブな `createServerFn` 関数です。そのため、アプリケーションはこれらの操作用に REST エンドポイントを公開しません。詳しくは[サーバー関数とユースケース](/docs/integrations/server-functions)を参照してください。
+
+## HTTP ハンドラー
+
+`src/routes/api/` で `server.handlers` を宣言しているルートは 3 つだけです。
+
+| ルート        | ハンドラー                                                                                |
+| ------------- | ----------------------------------------------------------------------------------------- |
+| `/api`        | ランタイム情報を JSON で返します                                                          |
+| `/api/auth/$` | Better Auth。OAuth コールバックと、`/api/auth/polar/webhooks` の Polar Webhook を含みます |
+| `/api/search` | Fumadocs のドキュメント検索                                                               |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
+## プリレンダリング
+
+`vite.config.ts` はリンクのクロールを伴うプリレンダリングを有効にします。`build:preview`、`build:production`、`build:test` は、公開ページ（ランディング、法的ページ、ブログ、ドキュメント）を 9 つのロケールすべてでプリレンダリングします。フィルターは、ロケールプレフィックスの有無にかかわらず `/admin`、`/api`、`/app`、`/auth`、`/newsletter` を除外し、`?` や `#` を含むリンクも除外します。除外されたページは、リクエストごとに Worker 上でレンダリングされます。
+
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [リクエストのライフサイクル](/docs/architecture/request-lifecycle)
+- [キャッシュと SSR](/docs/architecture/caching-and-ssr)
+- [API ルートを追加する](/docs/guides/add-an-api-route)

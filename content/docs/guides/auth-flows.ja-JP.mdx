@@ -1,16 +1,62 @@
 ---
-title: 認証とセキュリティ
-description: 認証とセキュリティ — SaaSy Land
+title: "認証フロー"
+description: "サインイン、メール認証を伴うサインアップ、パスワードリセット、二要素認証、OAuth、サインアウトの仕組みを説明します。"
 ---
 
-認証は2回実施されます: ルート `beforeLoad` ガードは管理者および顧客のレイアウトを保護し、各保護されたサーバー機能は発信者を独自に点検します。 利用条件 `requireAdmin` または `requireSession` レイアウトのためおよび `withAuth(permission)` 業務用。 セッションから顧客操作の派手な所有権。
+Better Auth（`src/integrations/better-auth/auth.server.ts`）は、ユーザー、セッション、検証トークンを D1 に保存し、そのエンドポイントを `/api/auth` 配下で提供します。認証ページは `/auth` レイアウトの下にあり、そのフォームは `src/presentation/components/custom/auth/` にあります。
 
-Better Auth は D1 でセッションを保存し、資格情報、OAuth、認証、パスワードリセット、2 要素認証、偽装および再発を処理します。 保護されたサーバー機能をチェックするとき、クッキーキャッシュはバイパスされます。 最終的なauthプラグインは `tanstackStartCookies`認証クッキーをサーバー機能の応答で転送する。
+## ルートガード
 
-D1 レート制限は、原子書き込みと Cloudflare クライアント IP ヘッダを使用します。 敏感な公共操作は別の限界のキーを備えています。 モジュールZodスキーマで入力を検証し、予期しない失敗をマスクし、支払いのWebhookシグネチャを検証して、サーバーのみの境界の背後にあるすべての資格情報を保持します。 プライベートなルートとトークンのミューテーションは、プレンダーから除外されます。
+`src/integrations/better-auth/auth.routes.ts` は、`beforeLoad` で使うガードをエクスポートします。
+
+| ガード               | 使用箇所                         | 効果                                                                   |
+| -------------------- | -------------------------------- | ---------------------------------------------------------------------- |
+| `requireSignedIn`    | `/app` レイアウト                | セッションがなければ `/auth/sign-in` にリダイレクトします              |
+| `requireAdmin`       | `/admin` レイアウト              | さらに、`admin: ["access"]` 権限がなければ `/app` にリダイレクトします |
+| `redirectIfSignedIn` | `/auth/sign-in`、`/auth/sign-up` | サインイン済みのユーザーを `/admin` または `/app` に送ります           |
+| `redirectAfterAuth`  | `/auth/callback`                 | 新しいセッションを、ロールに応じて `/admin` または `/app` に送ります   |
+
+`requireSignedIn` と `requireAdmin` はナビゲーションのたびにセッションを再確認し、`redirectIfSignedIn` はキャッシュ済みのセッションを使います。どのガードも、サインイン中のユーザーが変わるとクエリキャッシュをクリアします。
+
+## サインイン
+
+1. `SignInForm` が、Better Auth クライアントの `signIn.email` を呼び出します。
+2. 未認証のアカウントには `EMAIL_NOT_VERIFIED` エラーが返され、そのメールアドレスとともに `/auth/verify-email` に送られます。
+3. 二要素認証が有効なアカウントは `twoFactorRedirect` を受け取り、クライアントプラグインが現在のロケールで `/auth/two-factor` を開きます。
+4. 成功すると、`usePostAuthRedirect` がクエリとルーターのキャッシュをクリアして `/auth/callback` に遷移し、そこからロールに応じてリダイレクトされます。
+
+Better Auth がリダイレクトで報告するエラーは、`/auth/sign-in` の `?error=` として届き、`auth.errors` のメッセージで表示されます。
+
+## サインアップとメール認証
+
+1. `SignUpForm` は `signUpWithPasswordSchema` で検証し、`signUpWithPasswordMutation` を呼び出します。これは `auth.api.signUpEmail` を呼び出す、レート制限付きのサーバー関数です。
+2. Better Auth がユーザーを作成して `sendVerifyEmail` を呼び出し、サインアップを開始したページのロケールで `/auth/verify-email?token=…` へのリンクをメールで送信します。未認証のアドレスで再度サインアップすると、新しいリンクが送信されます。
+3. フォームは `/auth/verify-email?email=…` に遷移します。そこでは `VerifyEmailForm` が、レート制限付きの `sendVerificationEmailMutation` を通じてリンクを再送信できます。
+4. リンクを開くと、ルートの `beforeLoad` がトークンを `/api/auth/verify-email` に渡します。Better Auth はトークンを検証してユーザーをサインインさせ、`/auth/verify-email?verified=true` に戻します。そこから `/auth/callback` にリダイレクトされます。リンクが無効または期限切れの場合は `error` 付きで戻り、ページは新しいリンクの送信を提案します。
+
+メールアドレスが認証されるまで、サインインはブロックされます（`requireEmailVerification: true`）。
+
+## パスワードリセット
+
+1. `/auth/forgot-password`：`ForgotPasswordForm` が、`redirectTo` にローカライズされた `/auth/reset-password` を設定して `requestPasswordResetMutation` を呼び出します。
+2. Better Auth が `sendResetPasswordEmail` を呼び出します。メールで送られたリンクは Better Auth を経由して `/auth/reset-password?token=…` にリダイレクトされます。トークンが無効または期限切れの場合は、`error` 付きでリダイレクトされます。
+3. `ResetPasswordForm` が `resetPasswordMutation` を通じて新しいパスワードを送信します。Better Auth は既存のすべてのセッションを無効化し（`revokeSessionsOnPasswordReset: true`）、フォームはサインインページに遷移します。
+
+## 二要素認証
+
+- 有効化（管理画面の設定の「セキュリティ」）：`TwoFactorDialog` がパスワードを求め（`enableTwoFactorMutation`）、認証アプリに追加する TOTP シークレットを表示し、コードを 1 つ確認して（`verifyTotpMutation`）から、バックアップコードを表示します。`disableTwoFactorMutation` で無効化できます。
+- サインイン時：`/auth/two-factor` は、認証アプリのコード（`verifyTotpMutation`）またはバックアップコード（`verifyBackupCodeMutation`）を受け付けます。どちらもレート制限付きで、デバイスを信頼するオプションもあります。成功すると `usePostAuthRedirect` が実行されます。
+
+## OAuth
+
+`OAuthButtons` は、Google または GitHub に対して `authClient.signIn.social` を呼び出します。`callbackURL` にはローカライズされた `/auth/callback` を、`errorCallbackURL` にはローカライズされた `/auth/sign-in` を設定します。プロバイダーは `socialProviders` で設定し、各プロバイダーに `https://<host>/api/auth/callback/google` と `https://<host>/api/auth/callback/github` を登録します。同じメールアドレスのアカウントは自動的にリンクされ、プロバイダーのトークンは暗号化して保存されます。
+
+## サインアウト
+
+`useSignOut` は `signOutUserMutation` を呼び出し、クエリキャッシュをクリアし、`/auth/sign-in` に遷移してから、ルーターのキャッシュをクリアします。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [セキュリティチェックリスト](/docs/guides/security-checklist)
+- [ロールと権限](/docs/guides/roles-and-permissions)
+- [メールテンプレート](/docs/guides/email-templates)

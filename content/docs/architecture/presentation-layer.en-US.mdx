@@ -1,14 +1,66 @@
 ---
 title: "Presentation"
-description: "Presentation — SaaSy Land"
+description: "Where components, emails and styles live, and the rules every component follows."
 ---
 
-The presentation layer owns the existing typography, layout, colors and interactions. Shared primitives are in `presentation/components/shadcn`; feature components are in `presentation/components/custom`. Keep section-only components, hooks and constants near their section.
+## Folders
 
-Routes provide loading and navigation context. Components consume translated messages and native query/mutation options. Local Geist font files are served from `public/fonts`. The `cn` helper in `src/lib/cn.ts` preserves the custom type ramp while merging Tailwind classes.
+- `presentation/components/shadcn`: shadcn/ui primitives in the React Aria Components variant
+- `presentation/components/custom`: application components
+- `presentation/emails`: React Email templates
+- `presentation/styles`: `globals.css` (the single Tailwind build), `docs.css` (plain CSS loaded only by the `/docs` layout), `fonts.css` and `typeset.css`
+- `presentation/theme`: `THEME` (light, dark, system; cookie name; default)
+- `presentation/branding`: app name, domain, URLs and GitHub repository
+- `presentation/document-assets.ts`: the document stylesheet and the font preloads for each locale
 
-## Related guides
+## Organizing components
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- Shared components are flat files in `custom/`, for example `footer.tsx`, `navigation.tsx`, `data-table.tsx` and `locale-switcher.tsx`.
+- Components for one area live in an area folder: `admin/`, `app/`, `auth/`, `blog/` or `landing-page/`. Admin pages have their own folder, such as `admin/dashboard/revenue-chart.tsx` or `admin/users/reset-password-dialog.tsx`.
+- Each file holds one widget, dialog, form or column definition. Table columns live in `<entity>-columns.tsx` next to the page's other components.
+- Route files only compose these components. Data shared by several files lives in `src/data`; a constant used by one component stays in its file.
+
+## Component rules
+
+- A component reads its own translations and data with `useTranslations`, `useSuspenseQuery` or `getRouteApi(…).useLoaderData()`. It does not take text, label or data props that a parent could have read itself.
+- A component calls `useTranslations` exactly once and names the translator `t`. For keys from two namespaces, it uses their common parent namespace or `useTranslations()` with full keys.
+- There are no pass-through wrappers and no prop drilling.
+- Rich-text tag maps are module-level constants. Conditional classes use the `cn` object syntax, for example `cn("base", { "text-foreground": isActive })`.
+- Components never import database or provider clients. They use the query and mutation options exported by the use cases.
+
+```tsx
+export const SignOutButton = (): JSX.Element => {
+  const t = useTranslations("common")
+  const { isPending, mutate } = useSignOut()
+
+  return (
+    <Button
+      aria-label={isPending ? t("signingOut") : t("signOut")}
+      className="shrink-0 text-muted-foreground"
+      isDisabled={isPending}
+      onPress={() => {
+        mutate()
+      }}
+      size="icon-sm"
+      variant="ghost"
+    >
+      {isPending && <Spinner />}
+      {!isPending && <LogOut aria-hidden strokeWidth={1.5} />}
+    </Button>
+  )
+}
+```
+
+## Styling
+
+`cn` from `src/lib/cn.ts` merges Tailwind classes with tables generated from `src/lib/cn.config.ts`, which registers the custom `text-*` type scale so merging keeps those classes. Geist font files are served from `public/fonts`; every locale preloads the Latin and mono files, Polish adds Latin Extended and Ukrainian adds Cyrillic.
+
+## Emails
+
+An email template in `presentation/emails` contains only markup and exports its namespace, for example `VERIFY_EMAIL_NAMESPACE = "emails.verify-email"`. It translates with use-intl's `createTranslator`. The use case that sends the email loads the messages and passes them in.
+
+## Related pages
+
+- [shadcn components](/docs/ui/shadcn-components)
+- [Composition patterns](/docs/ui/composition-patterns)
+- [Email templates](/docs/guides/email-templates)

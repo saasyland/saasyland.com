@@ -1,14 +1,22 @@
 ---
-title: Cloudflare KV
-description: Cloudflare KV — SaaSy Land Cloudflare} {0_}} {}}}} {1 {}} {{{}}} }}}} = Cloudflare = SaaSy Land}}
+title: "Cloudflare KV"
+description: "CACHE 名前空間と、キャッシュされた GitHub のスター数です。"
 ---
 
-`env.CACHE` パブリック、使い捨てのキャッシュエントリを保存します。 GitHub インテグレーションは、スターカウントをTTLでキャッシュし、使用する `waitUntil` キャッシュの書き込みのために。 GitHub や KV が利用できなくなった場合は、上品に落ちます。
+どの環境も KV 名前空間を `CACHE` としてバインドします。唯一の用途は、サイトに表示する GitHub のスター数で、`src/lib/github.ts` に実装されています。
 
-KV は、最終的に一貫した状態です。 認証セッションとレートの制限は D1 で動作します。 アクションリミッタは、キーとタイムウィンドウごとに1つの原子SQL upsertを使用します。そのため、別々のワーカーインスタンスによって処理されたリクエストは同じ制限を共有します。 許可または機密制限のためにKVカウンターを使用しないでください。
+- `getStarCount` は `github:<owner>/<repo>:stars` エントリーを読み取ります。
+- エントリーがない場合は、3 秒のタイムアウトで GitHub API からリポジトリを取得してスター数を返し、`waitUntil` で `count` と `fetchedAt` を KV に書き込みます。
+- エントリーが 1 時間より古い場合は、キャッシュされたスター数を返し、バックグラウンドで更新します。
+- `starCountQuery` は結果を 1 時間クエリキャッシュに保持します。
+
+エントリーには KV の有効期限を設定しておらず、更新のタイミングは `fetchedAt` で判断します。GitHub へのリクエストは、GitHub OAuth アプリの認証情報 `AUTH_GITHUB_CLIENT_ID` と `AUTH_GITHUB_CLIENT_SECRET` で認証されます。
+
+KV は結果整合性のストアです。セッション、レート制限、認可に使うものはすべて D1 に保存されます。
+
+Vitest では、`cloudflare:workers` が `src/platform/testing/mocks/cloudflare.ts` に解決され、インメモリの `CACHE` が提供されます。Wrangler の `test` 環境は `.wrangler/test` 配下のローカル名前空間を使います。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [キャッシュと SSR](/docs/architecture/caching-and-ssr)
+- [環境とバインディング](/docs/tooling/environment)

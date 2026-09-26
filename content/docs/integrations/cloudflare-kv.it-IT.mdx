@@ -1,14 +1,22 @@
 ---
-title: Cloudflare KV
-description: Cloudflare KV - SaaSy Land
+title: "Cloudflare KV"
+description: "Il namespace CACHE e il conteggio delle stelle GitHub in cache."
 ---
 
-`env.CACHE` memorizza le voci della cache pubbliche e usa e getta. L'integrazione GitHub cache stella conta con un TTL e utilizza `waitUntil` per la cache scrivere. Si cade con grazia se GitHub o KV non è disponibile.
+Ogni ambiente collega un namespace KV come `CACHE`. Il suo unico utilizzo è il conteggio delle stelle GitHub mostrato sul sito, implementato in `src/lib/github.ts`:
 
-KV è alla fine coerente. Le sessioni di autenticazione e i limiti di tasso vivono in D1. Il limitatore di azione utilizza un SQL upsert atomico per chiave e finestra temporale, quindi le richieste gestite da istanze Worker separate condividono lo stesso limite. Non utilizzare KV contatori per l'autorizzazione o limiti sensibili.
+- `getStarCount` legge la voce `github:<owner>/<repo>:stars`.
+- Se la voce non esiste, recupera il repository dall'API di GitHub con un timeout di tre secondi, restituisce il conteggio e scrive `count` e `fetchedAt` in KV con `waitUntil`.
+- Quando la voce ha più di un'ora, restituisce il conteggio in cache e lo aggiorna in background.
+- `starCountQuery` mantiene il risultato nella cache delle query per un'ora.
+
+Le voci non hanno una scadenza KV; è `fetchedAt` a decidere quando aggiornarle. La richiesta a GitHub si autentica con le credenziali dell'app OAuth di GitHub `AUTH_GITHUB_CLIENT_ID` e `AUTH_GITHUB_CLIENT_SECRET`.
+
+KV è eventualmente consistente. Le sessioni, i rate limit e tutto ciò che serve per l'autorizzazione si trovano in D1.
+
+In Vitest, `cloudflare:workers` si risolve in `src/platform/testing/mocks/cloudflare.ts`, che fornisce una `CACHE` in memoria. L'ambiente Wrangler `test` usa un namespace locale in `.wrangler/test`.
 
 ## Guide correlate
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Caching e SSR](/docs/architecture/caching-and-ssr)
+- [Ambiente e binding](/docs/tooling/environment)

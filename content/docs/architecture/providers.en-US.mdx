@@ -1,14 +1,45 @@
 ---
 title: "Providers"
-description: "Providers — SaaSy Land"
+description: "The four application providers in src/providers, where each one is mounted and why."
 ---
 
-`src/routes/__root.tsx` owns the document and application-wide provider composition. The router creates a QueryClient and connects its cache to SSR. The translation provider loads the active route namespaces into `IntlProvider`. Theme, motion, React Aria routing, tooltips, notifications and the offline indicator retain the existing presentation behavior.
+`src/providers` contains four providers. Each is mounted as close to its consumers as possible.
 
-Fumadocs uses its TanStack provider and the native Router link adapter. Shared providers belong under `src/providers`; page-only contexts stay beside their feature.
+| Provider               | Wraps                                                                       | Mounted in                                                                |
+| ---------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `TranslationsProvider` | use-intl `IntlProvider` with the root and matched route namespaces          | The root shell, around the document body                                  |
+| `AriaProvider`         | React Aria `I18nProvider` and `RouterProvider`                              | The root component, around every route                                    |
+| `ThemeProvider`        | The `@wrksz/themes` provider, stored in a cookie                            | Around the `Toaster` in the root and the theme switch in the docs sidebar |
+| `MotionProvider`       | Motion `LazyMotion` (strict) and `MotionConfig` with `reducedMotion="user"` | The landing page, the blog index and the blog share buttons               |
 
-## Related guides
+## Root composition
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+`src/routes/__root.tsx` renders the document in `shellComponent` and the application in `component`:
+
+```tsx
+const RootComponent = () => (
+  <AriaProvider>
+    <OfflineBanner />
+    <Outlet />
+    <ThemeProvider>
+      <Toaster />
+    </ThemeProvider>
+  </AriaProvider>
+)
+```
+
+- **TranslationsProvider** sits in the shell's `<body>`, so every screen is translated, including the default error and not-found components and the route skeletons. It reads the namespaces from the root namespaces plus each matched route's `staticData.namespaces`, loads them with `useSuspenseQueries` and builds one message tree.
+- **AriaProvider** passes the current locale to React Aria and connects React Aria links to TanStack Router. Its `useHref` localizes paths, so an `href` on a React Aria component gets the locale prefix.
+- **ThemeProvider** does not wrap the route outlet. A provider that updates after hydration would re-render every page, so it wraps only the components that need it. The initial theme is applied before hydration by `ThemeScript` in the document head.
+- **MotionProvider** loads the `domMax` feature bundle on demand and is mounted only where animations run.
+
+## Not a provider component
+
+- **QueryClient.** `src/router.tsx` creates it per request, puts it in the router context and connects it with `setupRouterSsrQueryIntegration`.
+- **Fumadocs.** The `/docs` layout mounts Fumadocs' `RootProvider` with its own theme handling disabled.
+
+## Related pages
+
+- [Caching and SSR](/docs/architecture/caching-and-ssr)
+- [Internationalization and locales](/docs/architecture/i18n-architecture)
+- [Theme](/docs/ui/theme)

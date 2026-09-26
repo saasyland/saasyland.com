@@ -1,20 +1,44 @@
 ---
-title: Користувачі (адміністрування)
-description: Живі таблиці користувачів, вкладки, імпераментація, заборона / обхідний слово.
+title: "Користувачі (адмін)"
+description: "Керування користувачами в /admin/users: робоча таблиця користувачів із діями над рядками та демонстраційні вкладки запрошень і ролей."
 ---
 
 ## Маршрути
 
-`/admin/users` з TanStack Router пошук `tab` (`allUsers` | `invitations` | `roles` | `security`).
+`src/routes/admin.users.tsx` — це макет із чотирма вкладками-посиланнями; `/admin/users` перенаправляє на `/admin/users/all`. Усі вкладки використовують простір імен `pages.admin.users`.
 
-## Модуль
+| Маршрут                    | Вміст                                                              |
+| -------------------------- | ------------------------------------------------------------------ |
+| `/admin/users/all`         | Робоча таблиця користувачів                                        |
+| `/admin/users/invitations` | Демонстраційні рядки (`ADMIN_INVITATION_ROWS`) з пошуком за поштою |
+| `/admin/users/roles`       | Демонстраційні рядки (`ADMIN_ROLE_ROWS`)                           |
+| `/admin/users/security`    | Порожній стан                                                      |
 
-`modules/user/use-cases` — список/create/update/delete, ban/unban, встановити роль/password, знеособлення, освіження таблиці.
+## Усі користувачі
 
-## УІ
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
 
-Вимкнено дані `admin/users/components/all-users-tab`. . Статус на сервери **Одержаний** (`getUserStatus`: активний / прикінчення / заборонений, не стовпець DB.
+- `getUsersPageQuery` викликає серверну функцію `getUsers` (`src/modules/user/use-cases/get-users.ts`, дозвіл `user: ["list"]`). Пагінація й сортування виконуються на сервері за ім’ям, роллю, статусом, підтвердженням пошти, 2FA, часовим поясом і датами створення та оновлення.
+- Статус не є стовпцем. `getUserStatus` (`user.utils.ts`) визначає `banned`, `pending` або `active` на основі `banned` і `emailVerified`, а сервер сортує за тим самим SQL-виразом `case`.
+- `userColumns` розташовано в `src/presentation/components/custom/admin/users/user-columns.tsx`; дати показуються в часовому поясі кожного користувача.
 
-## Статус на сервери
+## Дії над рядками
 
-`admin/users/constants/search-params.ts` — загальний парсер + `searchParamsCache`.
+`UserRowActions` (`row-actions.tsx`) — меню в останньому стовпці:
+
+- **Скинути пароль** відкриває `ResetPasswordDialog`, який викликає `setUserPassword`.
+- **Заблокувати** або **Розблокувати** викликає `banUser` або `unbanUser`.
+- **Видалити** відкриває `DeleteUserDialog`, який викликає `deleteUser`.
+
+Кожна успішна дія інвалідує `USER_QUERY_KEYS.ALL` і показує сповіщення; помилки проходять через `useErrorMessage`. Пункти **Редагувати** та **Переглянути профіль** і кнопка **Додати користувача** поки що нічого не роблять.
+
+## Не підключено
+
+`createUser`, `getUser`, `updateUser`, `setUserRole`, `impersonateUser` і `stopImpersonatingUser` існують у `src/modules/user/use-cases` з middleware дозволів, але жоден екран їх не викликає. Таблиці запрошень немає; реальні ролі — `admin` і `customer` в `auth.access.ts`.
+
+## Пов’язані посібники
+
+- [DataTable](/docs/ui/data-table)
+- [Вхід від імені користувача](/docs/features/impersonation)

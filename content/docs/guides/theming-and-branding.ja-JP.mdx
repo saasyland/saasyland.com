@@ -1,13 +1,36 @@
 ---
-title: ザミング&ブランディング
-description: テーマトークン、フォント、ブランドアセット。
+title: "テーマとブランディング"
+description: "製品名、ドメイン、カラートークン、タイプスケール、フォントを変更します。"
 ---
 
-## 所在地案内
+## ブランドアイデンティティ
 
-- `presentation/theme`
-- `presentation/branding`
-- `presentation/fonts`
-- プレゼンテーションスタイルに基づくグローバルスタイル
+`src/presentation/branding/index.ts` は、製品のアイデンティティに関する唯一の情報源です。`APP_NAME`、`APP_DOMAIN`、`APP_URL`（`https://${APP_DOMAIN}` として導出）、`CONTACT_EMAIL`、`NOTIFICATIONS_EMAIL`、`APP_FOUNDED_YEAR`、そして GitHub のオーナー、リポジトリ、URL が含まれます。ページタイトル、正規 URL、Better Auth のアプリ名、二要素認証の発行者名、テーマとロケールの Cookie 名は、ここから導出されます。
 
-テーマスイッチは、クライアント制御です。 デフォルトは、プロバイダで既に使用されている水和フリッカーパターンを避けるべきです。
+リブランディングする際は、次のものも更新します。
+
+- `src/presentation/components/custom/wordmark.tsx` の `Wordmark`：`APP_NAME` の隣に表示されるインライン SVG のロゴ。
+- `public/favicon.ico` と、`public/images` 内の画像。
+- 認証 Cookie のプレフィックス（`src/integrations/better-auth/auth.server.ts` の `advanced.cookiePrefix`）と、`src/modules/_core/constants/api.ts` にある環境ごとの許可ホスト。
+
+ブランディングを変更したら再ビルドします。環境ファイルを変更しても、正規 URL は変わりません。
+
+## テーマ
+
+`src/presentation/theme/index.ts` は `THEME` を定義します。内容は、テーマ `light`、`dark`、`system`、デフォルトの `system`、そして選択を保存する Cookie です。ルートドキュメントの head にある `ThemeScript` が最初の描画の前に保存済みのテーマを適用するため、ページで誤ったテーマが一瞬表示されることはありません。テーマは `ThemeSwitch`（`src/presentation/components/custom/theme-switch.tsx`）で切り替えます。`ThemeProvider`（`src/providers/theme-provider.tsx`）は、`src/routes/docs.tsx` の `<ThemeSwitch />` や最上位ルートのトースターなど、テーマを使うコンポーネントだけをラップします。ハイドレーション後に更新されてページ全体を再レンダリングしてしまうため、ルートの `Outlet` をラップすることはありません。
+
+## カラートークン
+
+`src/presentation/styles/globals.css` は、唯一の Tailwind のエントリーポイントです。shadcn のトークン（`--background`、`--foreground`、`--primary`、`--muted`、`--border`、`--ring`、`--sidebar-*`、`--chart-*` など）を、ライトモード用に `:root` で、ダークモード用に `.dark` で定義し、`@theme inline` で Tailwind のカラーに対応付けます。値はここで変更します。コンポーネントはセマンティックなクラス（`bg-background`、`text-muted-foreground`、`border-border`）を使います。amber や rose のようなステータスを示すアクセントカラーは例外です。
+
+同じフォルダーにある `docs.css` と `typeset.css` はプレーンな CSS で、ドキュメントとブログのレイアウトでのみ読み込まれます。
+
+## タイプスケール
+
+タイプスケールは、`globals.css` にある一連の `--text-*` トークンです：`display-hero`、`display-gate`、`display-blast`、`headline-peak`、`headline-support`、`price`、`title`、`statement`、`lead`、`body`、`body-sm`、`label`、`spec`。各トークンはサイズ、行の高さ、文字間隔を設定し、大きいものはウェイトも設定します。`text-body`、`text-title` のように、クラスとして使います。
+
+`text-*` トークンを追加したら、その名前を `src/lib/cn.config.ts` にも追加します。`src/lib/cn.ts` の `cn` は、クラスをマージする際にこの設定を使って、カスタムのサイズをフォントサイズとして扱います。これがないと、`cn` はそれらのクラスを削除してしまいます。`bun run generate:cn` はクラスのテーブルを再生成し、`dev`、`build`、`check` の一部として実行されます。
+
+## フォント
+
+Geist と Geist Mono は `public/fonts` にセルフホストされ、`src/presentation/styles/fonts.css` で `@font-face` によって宣言されています（Unicode の範囲ごとに 1 ファイル）。`src/presentation/document-assets.ts` の `fontPreloads` は、すべてのページで Latin と Latin Mono を、`pl-PL` では Latin Extended を、`uk-UA` では Cyrillic をプリロードします。フォントを変更するには、ファイルと `@font-face` のルールを置き換え、それに合わせてプリロードのリストを更新します。

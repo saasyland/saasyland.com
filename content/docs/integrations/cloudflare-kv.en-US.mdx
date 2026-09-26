@@ -1,14 +1,22 @@
 ---
 title: "Cloudflare KV"
-description: "Cloudflare KV — SaaSy Land"
+description: "The CACHE namespace and the cached GitHub star count."
 ---
 
-`env.CACHE` stores public, disposable cache entries. The GitHub integration caches star counts with a TTL and uses `waitUntil` for the cache write. It falls back gracefully if GitHub or KV is unavailable.
+Every environment binds a KV namespace as `CACHE`. Its only use is the GitHub star count shown on the site, implemented in `src/lib/github.ts`:
 
-KV is eventually consistent. Authentication sessions and rate limits live in D1. The action limiter uses one atomic SQL upsert per key and time window, so requests handled by separate Worker instances share the same limit. Do not use KV counters for authorization or sensitive limits.
+- `getStarCount` reads the `github:<owner>/<repo>:stars` entry.
+- Without an entry, it fetches the repository from the GitHub API with a three-second timeout, returns the count and writes `count` and `fetchedAt` to KV with `waitUntil`.
+- When the entry is older than one hour, it returns the cached count and refreshes it in the background.
+- `starCountQuery` keeps the result in the query cache for one hour.
+
+Entries have no KV expiration; `fetchedAt` decides when to refresh. The GitHub request authenticates with the GitHub OAuth app credentials `AUTH_GITHUB_CLIENT_ID` and `AUTH_GITHUB_CLIENT_SECRET`.
+
+KV is eventually consistent. Sessions, rate limits and everything used for authorization live in D1.
+
+In Vitest, `cloudflare:workers` resolves to `src/platform/testing/mocks/cloudflare.ts`, which provides an in-memory `CACHE`. The `test` Wrangler environment uses a local namespace under `.wrangler/test`.
 
 ## Related guides
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Caching and SSR](/docs/architecture/caching-and-ssr)
+- [Environment and bindings](/docs/tooling/environment)

@@ -1,24 +1,78 @@
 ---
-title: プロジェクトスクリプト
-description: プロジェクトスクリプト — SaaSy Land
+title: "プロジェクトのスクリプト"
+description: "package.json のすべてのスクリプトと、その実行内容です。"
 ---
 
-スクリプトで `package.json` 開発、フォーマット、整形、タイプ、Vitest およびビルドに Vite+ を使用します。 `content` MDXコレクションを生成します。 `cf-typegen` ワーカーバインディングタイプを生成します。 `db:generate` SQLマイグレーションを作成します。 `db:migrate:local` ローカル D1 に適用します。 リモートマイグレーションとデプロイコマンドは、環境に明示的に名前を付けます。
+スクリプトはリポジトリのルートで `bun run <script>` として実行します。
 
-`build:preview` そして、 `build:production` Worker、prerenderの公開ページを作成し、デプロイメントアーファクトを確認します。 `clean` 生成された出力とローカルバインディング状態を削除します。そのため、最初に保存したいローカルデータをエクスポートします。
+## 開発とビルド
 
-```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
-```
+| スクリプト          | 実行内容                                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev`               | `generate:cn`、`content`、そして `development` 環境の `vp dev` を http://localhost:3000 で実行                                              |
+| `build`             | `build:preview` と同じ                                                                                                                      |
+| `build:preview`     | `dist` のクリーン、`generate:cn`、`content`、`preview` 向けの `vp build`、`scripts/verify-build.ts`、`scripts/optimize-prerendered-html.ts` |
+| `build:production`  | `production` 向けに同じ手順を実行                                                                                                           |
+| `build:test`        | `test` 環境向けに同じ手順を実行                                                                                                             |
+| `start`             | 最新のビルドを `vp preview` で http://127.0.0.1:3000 に配信                                                                                 |
+| `start:test`        | テスト用ビルドの `vp preview`                                                                                                               |
+| `deploy:preview`    | `scripts/verify-bindings.ts preview`、`build:preview`、`wrangler deploy --secrets-file .env.preview`                                        |
+| `deploy:production` | `scripts/verify-bindings.ts production`、`build:production`、`wrangler deploy --secrets-file .env.production`                               |
+
+`verify-build.ts` は次の点を確認します。デプロイ設定、ローカライズされたホームページと法的ページのドキュメント言語・正規リンク・代替リンク、フォント、保護されたページとロケールエイリアスがプリレンダリングされていないこと、そしてクライアントのアセットが `cloudflare:workers` をインポートしていないことです。`optimize-prerendered-html.ts` は、プリレンダリングされたページから依存関係の `modulepreload` ヒントを取り除き、エントリーのヒントは低優先度のまま残します。
+
+## チェック
+
+| スクリプト         | 実行内容                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| `check`            | `generate:cn`、`check:i18n`、`vp check`（フォーマット、リント、型）                     |
+| `check:fix`        | 同じ内容を `vp check --fix` で実行                                                      |
+| `check:i18n`       | `scripts/check-i18n.ts`、`scripts/check-message-formats.ts`、`scripts/check-content.ts` |
+| `check:pre-commit` | `generate:cn`、`check:i18n`、`vp staged`。pre-commit フックから実行されます             |
+| `lint`             | `vp lint`                                                                               |
+| `format`           | `vp fmt`                                                                                |
+| `format:check`     | `vp fmt --check`                                                                        |
+
+## テスト
+
+| スクリプト                                                                                        | 実行内容                                                              |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `test`                                                                                            | すべての Vitest プロジェクトに対する `vp test run`                    |
+| `test:unit`, `test:integration`, `test:component`                                                 | 1 つの Vitest プロジェクト（`node`、`integration`、`component`）      |
+| `test:changed`                                                                                    | 変更されたファイルの影響を受けるテスト                                |
+| `test:watch`                                                                                      | ウォッチモードの Vitest                                               |
+| `test:coverage`                                                                                   | カバレッジのゲート付きで全プロジェクト                                |
+| `test:all`                                                                                        | `test` の後に `test:e2e:smoke`                                        |
+| `test:e2e`, `test:e2e:smoke`, `test:e2e:pr`, `test:e2e:headed`, `test:e2e:ui`, `test:e2e:install` | Playwright。[Playwright](/docs/tooling/playwright) を参照してください |
+
+## データベース
+
+| スクリプト                                                                       | 実行内容                                                   |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `db:generate`                                                                    | drizzle-kit によるマイグレーションの生成                   |
+| `db:migrate:local`, `db:migrate:test`                                            | ローカルのデータベースに対する Wrangler のマイグレーション |
+| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | リモートのデータベースに対する Wrangler のマイグレーション |
+| `db:seed:test`                                                                   | `scripts/seed-test.ts`: テストアカウント                   |
+| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                             |
+| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | drizzle-kit のイントロスペクション                         |
+
+## 生成とメンテナンス
+
+| スクリプト       | 実行内容                                                                                                 |
+| ---------------- | -------------------------------------------------------------------------------------------------------- |
+| `content`        | `fumadocs-mdx`: `content/` から `.source/` を生成します                                                  |
+| `generate:cn`    | `src/lib/cn.config.ts` から `.source/cn-tables.ts` にクラスマージ用のテーブルを生成します                |
+| `cf-typegen`     | `development` 向けの `wrangler types`: `src/types/worker-configuration.d.ts` を再生成します              |
+| `typegen`        | `cf-typegen`、`generate:cn`、`content`                                                                   |
+| `skills:sync`    | `scripts/sync-skills.ts`: `skills-lock.json` からエージェントスキルを復元します                          |
+| `clean`          | `.source`、`.tanstack`、`.wrangler`、`dist`、`coverage`、Playwright の出力、`*.tsbuildinfo` を削除します |
+| `clean:deep`     | `clean` に加えて `node_modules`                                                                          |
+| `clean:hardcore` | `clean:deep` に加えて `bun.lock` と `skills-lock.json`                                                   |
+| `prepare`        | インストール時に実行: `vp config --no-agent`（Git フック）、`generate:cn`、`content`                     |
+
+`clean` はローカルの開発用およびテスト用データベースを含む `.wrangler` を削除します。残しておきたいローカルデータがあれば、先にエクスポートしてください。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [日常的に使うスクリプト](/docs/getting-started/project-scripts)
+- [データベースのマイグレーション](/docs/tooling/database)

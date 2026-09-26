@@ -1,10 +1,46 @@
 ---
-title: カテゴリ
-description: カテゴリー CRUDユースケース.
+title: "カテゴリー"
+description: "D1 のカテゴリーとコレクション。管理画面の商品ページに一覧表示されます。"
 ---
 
-## モジュール
+## データ
 
-`modules/category/use-cases`.
+`src/modules/category/category.schema.ts` は `category` テーブルを定義します。列は `name`、`description`、`kind`（`category` または `collection`）、`visibility`（`public` または `hidden`）、`icon`（`Archive`、`FolderOpen`、`Puzzle`）、タイムスタンプです。
 
-製品構成 UI および将来のストアフロント フィルターによって使用される。
+`src/modules/category/use-cases` のユースケースは、それぞれ対応する `category` 権限で保護されています。`getCategories`（ページ分割、`kind` は任意）、`getCategory`、`createCategory`、`updateCategory`、`deleteCategory` です。`createCategory` は更新系ユースケースの基準となる構成です。
+
+```ts
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
+```
+
+検証メッセージとエラーメッセージは `category.validations` と `category.errors` 名前空間にあります。
+
+## 管理画面
+
+`/admin/products` の **カテゴリー** と **コレクション** タブは、`getCategoriesPageQuery({ kind, pageIndex, pageSize })` とともに `categoryColumns` を表示します。接続されているのは一覧だけで、カテゴリーを作成、編集、削除する画面はありません。商品にはまだカテゴリーとの関連がないため、項目数の列には仮の値が表示されます。
+
+## 関連ガイド
+
+- [ユースケースを追加する](/docs/guides/add-a-use-case)
+- [サーバー関数](/docs/guides/server-functions)

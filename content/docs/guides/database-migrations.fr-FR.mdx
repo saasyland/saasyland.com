@@ -1,23 +1,45 @@
 ---
-title: D1 et Drizzle
-description: D1 et Drizzle — SaaSy Land
+title: "Migrations de base de données"
+description: "Modifiez un schéma Drizzle, générez la migration SQL et appliquez-la à chaque base D1."
 ---
 
-Cloudflare D1 est la base de données de l'application. Utilisation des schémas de modules `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` les collectionne. `drizzle.database.ts` crée l'adaptateur Drizzle D1 depuis `env.DB`.
+Cloudflare D1 (SQLite) est la base de données de l'application. Les schémas des modules utilisent `drizzle-orm/sqlite-core`, `src/integrations/drizzle-orm/drizzle.schemas.ts` les rassemble et drizzle-kit écrit les migrations dans `src/integrations/drizzle-orm/migrations/` avec un préfixe d'horodatage.
 
-Les dates utilisent SQLite entier timestamps en millisecondes. Les champs booléens utilisent le mode booléen entier SQLite. Les relations, les contraintes uniques et les clés étrangères restent dans le schéma. Conservez une opération atomique avec une instruction SQL appropriée ou un lot D1 ; n'introduisez pas un pool de connexion PostgreSQL ou une transaction interactive.
+## Déroulement
 
-Courir `db:generate` après avoir modifié les schémas, revoyez et validez le SQL généré, et appliquez-le localement. Les migrations à distance sont des commandes explicites spécifiques à l'environnement. Une base de données PostgreSQL déployée nécessite une exportation et une importation distinctes; générer des migrations SQLite ne transfère pas les données existantes.
+1. Modifiez `<table>.schema.ts`. Pour une nouvelle table, exportez-la aussi depuis `drizzle.schemas.ts`.
+2. Générez le SQL :
 
 ```sh
 bun run db:generate
-bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
 ```
 
-## Guides connexes
+3. Relisez le fichier généré et commitez-le avec la modification du schéma.
+4. Appliquez-le à la base avec laquelle vous travaillez, puis à chaque base distante avant de déployer du code qui en dépend.
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+## Commandes
+
+| Commande                         | Base de données                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| `bun run db:migrate:test`        | Base de test locale dans `.wrangler/test`, utilisée par Playwright et l'aperçu isolé |
+| `bun run db:migrate:local`       | Base de développement locale ; `bun run dev` utilise toujours les bindings distants  |
+| `bun run db:migrate:development` | Base distante de l'environnement de développement, partagée par défaut avec l'aperçu |
+| `bun run db:migrate:preview`     | Base distante de l'aperçu                                                            |
+| `bun run db:migrate:production`  | Base distante de production                                                          |
+
+`bun run db:studio:development`, `db:studio:preview` et `db:studio:production` ouvrent Drizzle Studio, et les scripts `db:introspect:*` inspectent D1 via son API HTTP. Les deux exigent `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` et `CLOUDFLARE_ACCESS_TOKEN` dans le fichier d'environnement correspondant.
+
+## Conventions de schéma
+
+- Les dates sont des `integer(..., { mode: "timestamp_ms" })` avec la valeur par défaut `(unixepoch() * 1000)`.
+- Les booléens sont des `integer(..., { mode: "boolean" })`.
+- Les index, contraintes d'unicité, clés étrangères et relations restent dans le fichier de schéma.
+- D1 n'a pas de transactions interactives. Gardez une opération atomique avec une seule instruction SQL ou `db.batch([...])`, comme le font `getUsers` et le limiteur de requêtes.
+
+## Tests
+
+Le binding D1 de test applique chaque fichier SQL du dossier des migrations à une base SQLite en mémoire : les tests qui utilisent D1 s'exécutent donc contre le schéma migré. `src/integrations/drizzle-orm/__test__/` vérifie que le schéma, ses index et ses clés étrangères se matérialisent. Voir [Écrire des tests](/docs/guides/writing-tests).
+
+## Données PostgreSQL existantes
+
+Ces migrations créent uniquement le schéma SQLite. Transférer les données d'une ancienne installation PostgreSQL exige un export et un import distincts et relus.

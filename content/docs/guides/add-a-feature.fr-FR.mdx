@@ -1,14 +1,64 @@
 ---
-title: Ajouter une fonctionnalité
-description: Ajouter une fonction — SaaSy Land
+title: "Ajouter une fonctionnalité"
+description: "Parcours complet de la table en base de données à une page testée, avec des liens vers les guides détaillés."
 ---
 
-Créer ou étendre le schéma, la validation, les constantes et les cas d'utilisation du module propriétaire. Ajouter un itinéraire plat sous `src/routes` avec sa permission garde, paramètres de recherche validés, métadonnées et namespace préload. Placer la fonction UI sous `presentation/components/custom/{feature}` avec composants, crochets et constantes à proximité.
+Une fonctionnalité touche généralement toutes les couches : un module de table, ses cas d'usage, une route, des composants de présentation, des messages et des tests. Les catégories de produits montrent le parcours complet : `src/modules/category`, l'onglet des catégories dans `src/routes/admin.products.index.tsx` et `src/presentation/components/custom/admin/products/category-columns.tsx`.
 
-Précharger les requêtes de données indépendantes ensemble dans le chargeur, rendre à partir du même cache QueryClient, et soumettre par les options de mutation native. Ajoutez les touches pour les neuf langues configurées ensemble. Conserver la mise en page existante et les primitives accessibles, puis vérifier le cas d'utilisation, le composant et le comportement du navigateur au niveau approprié.
+## 1. Modéliser les données
 
-## Guides connexes
+Si la fonctionnalité enregistre de nouvelles données, ajoutez un module pour sa table et générez la migration.
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+- [Ajouter un module](/docs/guides/add-a-module)
+- [Migrations de base de données](/docs/guides/database-migrations)
+
+## 2. Décider qui peut faire quoi
+
+Ajoutez les nouvelles actions à `APP_STATEMENTS` dans `src/integrations/better-auth/auth.access.ts` et attribuez-les aux rôles.
+
+- [Rôles et permissions](/docs/guides/roles-and-permissions)
+
+## 3. Écrire les opérations
+
+Ajoutez un cas d'usage par opération, avec son middleware, son validateur, son handler et ses options de query ou de mutation.
+
+- [Ajouter un cas d'usage](/docs/guides/add-a-use-case)
+- [Fonctions serveur](/docs/guides/server-functions)
+
+## 4. Ajouter la route
+
+1. Ajoutez le chemin à `ROUTES` dans `src/routes.ts`.
+2. Créez un fichier de route plat pour la zone concernée : `src/routes/admin.<feature>.tsx` sous le layout d'administration, `src/routes/app.<feature>.tsx` sous le layout du client connecté ou `src/routes/_landing.<page>.tsx` pour une page publique.
+3. Respectez la convention des routes : `const NAMESPACE`, `staticData: { namespaces: [NAMESPACE] }`, `head: pageHead(ROUTES.X)`, un loader qui charge métadonnées, messages et données dans un seul `Promise.all`, et le squelette propre à la page comme `pendingComponent`, enregistré dans la table du squelette de son layout (voir [Squelettes de chargement](/docs/architecture/delivery-layer#squelettes-de-chargement)).
+4. Le garde `beforeLoad` du layout (`requireAdmin` pour `/admin`, `requireSignedIn` pour `/app`) protège la page. Les fonctions serveur autorisent malgré tout chaque appel elles-mêmes.
+
+- [Ajouter une page d'administration](/docs/guides/add-an-admin-page)
+- [État dans l'URL](/docs/guides/url-state)
+
+## 5. Construire l'interface
+
+Placez les widgets, boîtes de dialogue, formulaires et colonnes de tableau dans `src/presentation/components/custom/<area>/<feature>/`, un par fichier. Chaque composant lit ses propres traductions et données ; la route se contente de les assembler.
+
+- [Ajouter un tableau de données](/docs/guides/add-a-data-table)
+- [Formulaires et validation](/docs/guides/forms-and-validation)
+
+## 6. Ajouter les messages
+
+Créez l'espace de noms de la page, et au besoin un espace de noms de validation, dans les neuf langues. Les espaces de noms de page exigent `metadata.title` et `metadata.description`.
+
+- [Internationalisation et langues](/docs/guides/i18n-messages)
+- [Modèles d'e-mails](/docs/guides/email-templates), si la fonctionnalité envoie des e-mails
+
+## 7. Tester et vérifier
+
+Couvrez les cas d'usage, les composants et la route, puis lancez tous les contrôles :
+
+```sh
+bun run check
+bun run test:coverage
+bun run build
+bun run test:e2e:smoke
+```
+
+- [Écrire des tests](/docs/guides/writing-tests)
+- [Liste de contrôle de sécurité](/docs/guides/security-checklist)

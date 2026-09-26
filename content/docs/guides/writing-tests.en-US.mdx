@@ -1,26 +1,100 @@
 ---
-title: "Testing and CI"
-description: "Testing and CI — SaaSy Land"
+title: "Writing tests"
+description: "Where tests live, how the Vitest projects and test bindings work, the 100% coverage gate and Playwright."
 ---
 
-Vite+ runs Vitest in three projects: node tests, integration tests and jsdom component tests. Keep existing behavior tests beside the code they exercise under `__test__`. Import test APIs from `vite-plus/test`. Use Playwright for full browser flows and rendering checks.
+Vite+ runs Vitest (`vp test`) in three projects. Tests live in a `__test__` folder beside the code they cover and import their APIs from `vite-plus/test`.
 
-The shared setup supplies local D1 and KV mocks. D1 runs the checked-in SQL migrations against SQLite. The server-function RPC bridge preserves TanStack’s real middleware and validation pipeline. Component render helpers provide real QueryClient and Router contexts. External email, OAuth and payment calls are mocked in tests.
+| Project       | Files                            | Environment |
+| ------------- | -------------------------------- | ----------- |
+| `node`        | `__test__/*.test.ts(x)`          | Node        |
+| `integration` | `__test__/*.integration.test.ts` | Node        |
+| `component`   | `__test__/*.component.test.tsx`  | jsdom       |
 
-Run the focused project while editing, then run the complete suite, coverage gate, check and preview build. Browser tests verify public pages, auth redirects, SSR without JavaScript, and client navigation. CI uses local bindings and does not require a live database or provider secrets.
+Name a test after its source file: `category.zod.ts` is covered by `__test__/category.zod.test.ts`.
+
+## Commands
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
 ```
 
-## Related guides
+Use `bun run test`, not `bun test`: only Vitest loads the projects, environments and setup file.
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+## Coverage gate
+
+`bun run test:coverage` fails below **100%** lines, statements, functions and branches for application code under `src`. Tests, `src/platform/testing`, the shadcn primitives and generated files are excluded. Cover real behavior, and delete branches that can never run instead of stubbing globals to reach them. Reports are written to `coverage/`.
+
+## Test runtime
+
+- `src/platform/testing/setup.ts` registers the jest-dom matchers, resets the bindings before each test and routes every `createServerFn` through `withTestRpc`, so calls run the real middleware and validator.
+- `cloudflare:workers` resolves to `src/platform/testing/mocks/cloudflare.ts`. D1 is an in-memory SQLite database with every checked-in migration applied, KV is an in-memory map, and `flushWaitUntil()` awaits background tasks.
+- `.env.test` supplies dummy credentials. Email, OAuth and payment calls are mocked; nothing leaves the machine.
+- `renderWithRouter` in `src/platform/testing/lib/render.tsx` renders components with a real router and `QueryClient`.
+
+## Test a use case
+
+Condensed from `src/modules/category/use-cases/__test__/create-category.test.ts`:
+
+```ts
+import { describe, expect, it, vi } from "vite-plus/test"
+
+import { executeMutation } from "~/src/platform/testing/lib/query"
+
+import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import type { auth } from "~/src/integrations/better-auth/auth.server"
+import * as authServer from "~/src/integrations/better-auth/auth.server"
+
+import { createCategoryMutation } from "~/src/modules/category/use-cases/create-category"
+
+const getSessionMock = vi.hoisted(() => vi.fn<(typeof auth.api)["getSession"]>())
+
+vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
+
+describe("create-category", () => {
+  it("returns a domain error when the caller is not an admin", async () => {
+    vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
+    getSessionMock.mockResolvedValue(
+      createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: "01900000-0000-7000-8000-000000000001" }),
+    )
+
+    await expect(executeMutation(createCategoryMutation, { kind: "category", name: "SaaS Plans" })).rejects.toThrow("FORBIDDEN")
+  })
+})
+```
+
+Test every outcome of a use case: success, each `AppError` code, missing session and missing permission.
+
+## Test a component
+
+Component tests render with real messages from `messages/en-US`, mock the use-case module that provides the mutation options and drive the UI with Testing Library and `userEvent`. For pending states, hold the mocked request open with `Promise.withResolvers()`, assert the pending UI, then resolve inside `act` and assert the idle UI. `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx` is a complete example.
+
+## Browser tests
+
+Playwright specs live in `e2e/specs`, with page objects in `e2e/pages` and fixtures in `e2e/fixtures`. They run against the built test application with local D1 and KV in `.wrangler/test` and the seeded accounts from `e2e/data/accounts.ts`. Locally, Playwright migrates, seeds, builds and starts that application itself.
+
+```sh
+bun run test:e2e:install
+bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:ui
+```
+
+The test Worker records sent emails, so a spec can read the verification link from `/__test/emails?to=<address>`.
+
+## Before you push
+
+```sh
+bun run check
+bun run test:coverage
+bun run build
+```
+
+CI runs checks, coverage and the Chromium browser suite on every pull request and push to `main`, and WebKit weekly and on pushes to `main`.

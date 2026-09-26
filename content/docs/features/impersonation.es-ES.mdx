@@ -1,15 +1,24 @@
 ---
-title: Impersonación.
-description: Impersonación de usuarios por parte de administradores (plugin de administración de Better Auth).
+title: "Suplantación"
+description: "Suplantación de administración de Better Auth: las funciones de servidor existen, pero ninguna pantalla las usa todavía."
 ---
 
-## Estado
+El plugin `admin` de Better Auth ofrece la suplantación, y `src/modules/user/use-cases` la envuelve:
 
-Expuesto a través de las acciones y casos de uso de los usuarios, con comprobaciones de permisos.
+```ts
+export const impersonateUser = createServerFn({ method: "POST" })
+  .middleware([authorized({ user: ["impersonate"] })])
+  .validator((input: zod.input<typeof userZodSchemas.impersonateUser>) => userZodSchemas.impersonateUser.parse(input))
+  .handler(({ context, data }) => auth.api.impersonateUser({ body: data, headers: context.requestHeaders }))
+```
 
-## Normas.
+`stopImpersonatingUser` solo necesita una sesión iniciada. Ambos archivos exportan opciones de mutación (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-- Solo para administradores.
-- Clara indicación en la interfaz de usuario cuando se está asumiendo la identidad de otro usuario.
-- Prefiera el registro de auditorías al fortalecer las operaciones.
-- Nunca permita la elevación de privilegios fuera de los flujos de trabajo de soporte previstos.
+## Estado actual
+
+- Ninguna pantalla llama a estas funciones: el menú de acciones de fila de usuarios no tiene opción de suplantar y no existe un aviso para dejar de suplantar.
+- Better Auth marca las sesiones de suplantación con `impersonatedBy`; `getActiveSessions` las excluye de la lista de sesiones de los ajustes.
+- Las guardas de ruta vacían la caché de consultas cuando cambia el usuario de la sesión, así que la siguiente navegación después de suplantar carga los datos del otro usuario.
+- No existe un registro de auditoría de la suplantación.
+
+Para añadirla, pon una opción de menú en `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) y una forma visible de dejar de suplantar en los layouts.

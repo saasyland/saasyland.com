@@ -1,26 +1,50 @@
 ---
-title: Testy i CI
-description: Testy i CI — SaaSy Land
+title: "Playwright"
+description: "Testy przeglądarkowe na izolowanym testowym Workerze."
 ---
 
-Vite+ uruchamia Vitest w trzech projektach: testy node, integracyjne i komponentowe w jsdom. Istniejące testy zachowania przechowuj obok kodu w `__test__`. API testów importuj z `vite-plus/test`. Playwright służy do pełnych scenariuszy przeglądarkowych i sprawdzania renderowania.
-
-Wspólna konfiguracja udostępnia lokalne mocki D1 i KV. D1 wykonuje zapisane migracje SQL na SQLite. Most RPC funkcji serwerowych zachowuje prawdziwy pipeline middleware i walidacji TanStack. Narzędzia renderowania zapewniają rzeczywiste konteksty QueryClient i Router. Wywołania usług e-mail, OAuth i płatności są mockowane.
-
-Podczas edycji uruchamiaj właściwy projekt testowy, a następnie całą paczkę, próg pokrycia, check i build preview. Testy przeglądarkowe sprawdzają strony publiczne, przekierowania logowania, SSR bez JavaScript i nawigację klienta. CI używa lokalnych bindingów, bez zdalnej bazy i sekretów usługodawców.
+Playwright testuje zbudowaną aplikację w prawdziwych przeglądarkach. Zestaw testów działa w środowisku Wranglera `test`: lokalne D1 i KV w `.wrangler/test`, fikcyjne dane uwierzytelniające z `.env.test` i testowy punkt wejścia `src/platform/testing/worker.ts`, który przechwytuje żądania do Resend i Polar.
 
 ```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
+bun run test:e2e:install
 bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:pr
+bun run test:e2e:headed
+bun run test:e2e:ui
 ```
+
+| Skrypt             | Uruchamia                                                          |
+| ------------------ | ------------------------------------------------------------------ |
+| `test:e2e:install` | Instaluje Chromium i WebKit wraz z zależnościami systemowymi       |
+| `test:e2e`         | Wszystkie specyfikacje w Chromium i WebKit                         |
+| `test:e2e:smoke`   | `e2e/specs/smoke.spec.ts` w Chromium                               |
+| `test:e2e:pr`      | Wszystkie specyfikacje w Chromium, tak jak w CI dla pull requestów |
+| `test:e2e:headed`  | Wszystkie specyfikacje w widocznych przeglądarkach                 |
+| `test:e2e:ui`      | Tryb UI Playwright                                                 |
+
+## Konfiguracja
+
+`playwright.config.ts` definiuje projekty `chromium` (Desktop Chrome) i `webkit` (Desktop Safari) i używa `PLAYWRIGHT_BASE_URL` lub `http://127.0.0.1:3000`. Lokalnie polecenie serwera WWW uruchamia `db:migrate:test`, `db:seed:test`, `build:test` i `start:test` oraz ponownie wykorzystuje serwer, który już odpowiada pod tym adresem, więc najpierw zatrzymaj inne serwery na porcie 3000. W CI build przygotowuje workflow, a Playwright jedynie uruchamia serwer.
+
+| Ustawienie     | Lokalnie                 | CI                        |
+| -------------- | ------------------------ | ------------------------- |
+| Ponowienia     | 0                        | 2                         |
+| Workery        | 1                        | 2                         |
+| Ślady (traces) | Zachowywane przy błędzie | Przy pierwszym ponowieniu |
+| Nagrania wideo | Wyłączone                | Zachowywane przy błędzie  |
+| Reporter       | Lista i HTML             | GitHub i HTML             |
+
+## Struktura
+
+- `e2e/specs/`: specyfikacje testów smoke, strony głównej, nawigacji, języków, uwierzytelniania, obszarów roboczych, newslettera, treści, motywu i cen regionalnych.
+- `e2e/pages/`: obiekty stron (page objects).
+- `e2e/fixtures/`: rozszerzony fixture `test` i funkcje pomocnicze do obsługi przechwyconych e-maili.
+- `e2e/data/accounts.ts`: wstępnie utworzone konta administratora i klienta oraz ich hasło.
+
+Testowy Worker udostępnia `/__test/emails` do odczytu e-maili przechwyconych przez mock Resend oraz `/__test/newsletter` do odczytu stanu subskrybenta.
 
 ## Powiązane przewodniki
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
 - [Testy](/docs/tooling/testing)
+- [CI/CD](/docs/tooling/ci-cd)

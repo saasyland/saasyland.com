@@ -1,20 +1,44 @@
 ---
-title: Benutzer (Administrator/en)
-description: Aktuelle Benutzerliste, Registerkarten, Rollenspiel, Sperren/Rollen/Passwörter.
+title: "Benutzer (Admin)"
+description: "Benutzerverwaltung unter /admin/users: eine funktionsfähige Benutzertabelle mit Zeilenaktionen sowie Demo-Tabs für Einladungen und Rollen."
 ---
 
-## Routen.
+## Routen
 
-`/admin/users` mit TanStack Router Suche nach `tab` (`allUsers` | `invitations` | `roles` | `security`).
+`src/routes/admin.users.tsx` ist ein Layout mit vier Link-Tabs; `/admin/users` leitet zu `/admin/users/all` weiter. Alle Tabs verwenden den Namespace `pages.admin.users`.
 
-## Modul
+| Route                      | Inhalt                                                 |
+| -------------------------- | ------------------------------------------------------ |
+| `/admin/users/all`         | Funktionsfähige Benutzertabelle                        |
+| `/admin/users/invitations` | Demo-Zeilen (`ADMIN_INVITATION_ROWS`) mit E-Mail-Suche |
+| `/admin/users/roles`       | Demo-Zeilen (`ADMIN_ROLE_ROWS`)                        |
+| `/admin/users/security`    | Leerer Zustand                                         |
 
-`modules/user/use-cases` — Auflisten/Erstellen/Aktualisieren/Löschen, sperren/entsperren, Rolle/Passwort festlegen, Benutzer imitieren, Tabelle aktualisieren.
+## Alle Benutzer
 
-## Benutzeroberfläche.
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
 
-DataTable unter `admin/users/components/all-users-tab`. Der Status wird **abgeleitet** (`getUserStatus`: aktiv / ausstehend / gesperrt) und ist keine Spalte in der Datenbank, sondern ein berechneter Wert.
+- `getUsersPageQuery` ruft die Serverfunktion `getUsers` auf (`src/modules/user/use-cases/get-users.ts`, Berechtigung `user: ["list"]`). Paginierung und Sortierung laufen auf dem Server, nach Name, Rolle, Status, E-Mail-Bestätigung, 2FA, Zeitzone sowie Erstellungs- und Änderungsdatum.
+- Der Status ist keine Spalte. `getUserStatus` (`user.utils.ts`) leitet `banned`, `pending` oder `active` aus `banned` und `emailVerified` ab, und der Server sortiert nach demselben SQL-`case`-Ausdruck.
+- `userColumns` liegt in `src/presentation/components/custom/admin/users/user-columns.tsx`; Datumsangaben werden in der eigenen Zeitzone des jeweiligen Benutzers dargestellt.
 
-## Zustand der URL.
+## Zeilenaktionen
 
-`admin/users/constants/search-params.ts` — gemeinsame Parser + `searchParamsCache`.
+`UserRowActions` (`row-actions.tsx`) ist das Menü in der letzten Spalte:
+
+- **Passwort zurücksetzen** öffnet `ResetPasswordDialog`, das `setUserPassword` aufruft.
+- **Sperren** oder **Entsperren** ruft `banUser` bzw. `unbanUser` auf.
+- **Löschen** öffnet `DeleteUserDialog`, das `deleteUser` aufruft.
+
+Jeder Erfolg invalidiert `USER_QUERY_KEYS.ALL` und zeigt einen Toast; Fehler laufen über `useErrorMessage`. Die Einträge **Bearbeiten** und **Profil anzeigen** sowie die Schaltfläche **Benutzer hinzufügen** haben noch keine Aktion.
+
+## Nicht angebunden
+
+`createUser`, `getUser`, `updateUser`, `setUserRole`, `impersonateUser` und `stopImpersonatingUser` existieren in `src/modules/user/use-cases` mit Berechtigungs-Middleware, aber keine Ansicht ruft sie auf. Es gibt keine Einladungstabelle; die tatsächlichen Rollen sind `admin` und `customer` in `auth.access.ts`.
+
+## Verwandte Anleitungen
+
+- [DataTable](/docs/ui/data-table)
+- [Impersonation](/docs/features/impersonation)

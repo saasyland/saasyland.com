@@ -1,23 +1,97 @@
 ---
-title: Trasy i obsługa żądań
-description: Trasy i obsługa żądań — SaaSy Land
+title: "Trasy i warstwa dostarczania"
+description: "Jak nazywa się i buduje pliki tras oraz jak skonfigurowany jest router."
 ---
 
-`src/server.ts` kanonizuje adresy językowe i synchronizuje cookie języka. `src/router.tsx` tworzy osobny QueryClient dla routera i łączy go z SSR. Natywne pliki tras deklarują komponenty, strażników, loadery, walidację parametrów i metadane.
+## Pliki tras
 
-Układy panelu i aplikacji klienta używają strażników `beforeLoad`. Każda chroniona funkcja serwerowa również sprawdza użytkownika, ponieważ RPC można wywołać niezależnie od strony. Odpowiedzi uwierzytelnionych nie umieszczaj we wspólnej pamięci statycznej.
+Trasy to płaskie pliki w `src/routes`. Kropki stają się segmentami ścieżki:
 
-```text
-Request → Worker locale middleware → TanStack Router
-        → beforeLoad session/permission guard
-        → loader: messages + authorized query data
-        → SSR + hydrated React presentation
-Mutation → validated server function → auth/rate limit → D1 or provider
-         → result/error → scoped query invalidation
+| Plik                  | URL                | Uwagi                                       |
+| --------------------- | ------------------ | ------------------------------------------- |
+| `__root.tsx`          | wszystkie strony   | Shell dokumentu i główne przestrzenie nazw  |
+| `_landing.tsx`        | brak               | Layout bez ścieżki dla stron marketingowych |
+| `_landing.terms.tsx`  | `/terms`           | Strona w layoucie landingu                  |
+| `admin.tsx`           | `/admin`           | Layout z guardem `requireAdmin`             |
+| `admin.users.all.tsx` | `/admin/users/all` | Strona w layoucie panelu administracyjnego  |
+| `blog.index.tsx`      | `/blog`            | Strona indeksowa layoutu `blog`             |
+| `docs.$.tsx`          | `/docs/*`          | Trasa splat dla stron dokumentacji          |
+| `api/auth.$.ts`       | `/api/auth/*`      | Handler HTTP bez komponentu                 |
+
+Identyfikatory w `createFileRoute("…")` to literały tekstowe utrzymywane przez generator routera, który zapisuje też `src/routeTree.gen.ts`. Pliki w folderach `__test__` są ignorowane. Każdy URL ma stałą w `ROUTES` (`src/routes.ts`), a linki używają `<Link to={ROUTES.X}>`.
+
+## Trasy stron
+
+Trasa strony definiuje komponent `<Name>Page`, stałą `NAMESPACE` bezpośrednio nad `export const Route` oraz loader, który ładuje metadane strony i przestrzeń nazw w jednym `Promise.all`:
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: LegalPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
 ```
 
-## Powiązane przewodniki
+Dodatkowe dane trafiają do tego samego `Promise.all`, na przykład `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` w `admin.users.all.tsx`. `pageHead` z `src/lib/seo.ts` buduje na podstawie `metadata` z loadera tagi tytułu, opisu, adresu kanonicznego, `hreflang` i Open Graph.
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+## Trasy layoutów
+
+Trasa layoutu definiuje komponent `<Name>Layout`, tablicę `NAMESPACES`, a w przypadku obszarów chronionych także guard w `beforeLoad`:
+
+```tsx
+const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
+
+export const Route = createFileRoute("/app")({
+  beforeLoad: requireSignedIn,
+  component: AppLayout,
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  pendingComponent: AppPending,
+  staticData: { namespaces: NAMESPACES },
+})
+```
+
+Guardy `requireSignedIn`, `requireAdmin`, `redirectIfSignedIn` i `redirectAfterAuth` pochodzą z `src/integrations/better-auth/auth.routes.ts`.
+
+## Szkielety ładowania [#loading-skeletons]
+
+Większość nawigacji kończy się, zanim pojawi się jakikolwiek interfejs oczekiwania. Linki wstępnie ładują swoją trasę po najechaniu kursorem i dotknięciu, strony publiczne są prerenderowane, a router odczekuje domyślny czas `pendingMs` wynoszący jedną sekundę, zanim cokolwiek pokaże. Szkielet pojawia się tylko wtedy, gdy nawigacja trwa dłużej, zwykle przy pierwszej wizycie w danym obszarze przy wolnym połączeniu.
+
+Nie ma domyślnego komponentu stanu oczekiwania. Każda trasa layoutu i strony ustawia własny `pendingComponent`, a każdy szkielet odwzorowuje stronę, którą zastępuje:
+
+- **Szkielety stron**, takie jak `SignInPending` i `LegalPending`, znajdują się w pliku szkieletów danego obszaru i oznaczają swój element główny atrybutem `aria-busy="true"`. Są to pliki `custom/auth/auth-pending.tsx`, pliki panelu administracyjnego w `custom/admin/` (`admin-pending.tsx` dla layoutu, po jednym pliku na każdą grupę paska bocznego i wspólne bloki w `pending-blocks.tsx`), `custom/app/app-pending.tsx`, `custom/blog/blog-pending.tsx`, `custom/marketing-pending.tsx` i `custom/docs-pending.tsx`.
+- **Szkielety layoutów**, takie jak `AuthPending` i `MarketingPending`, renderują ramę layoutu i wybierają szkielet strony dla bieżącej ścieżki z mapy, której kluczami są stałe z `ROUTES`. Dzięki temu po wejściu do obszaru z innego miejsca widać właściwą stronę. Elementy ramy, które nie potrzebują danych, takie jak `Wordmark`, `PageFrame` i marketingowa `Navigation`, renderują się naprawdę.
+- **Placeholdery tekstu** to paski `Skeleton` z tokenem typograficznym prawdziwego elementu oraz `h-lh scale-y-70`, dzięki czemu każdy pasek wypełnia dokładnie jedną linię tekstu (line box). Bloki mają prawdziwe wysokości i promienie zaokrągleń. Listy biorą swoją długość z tych samych stałych co UI, np. `OAUTH_PROVIDERS` i `PASSWORD_RULES` w `src/data/auth.ts`.
+
+Gdy dodajesz stronę, dodaj jej szkielet do pliku szkieletów obszaru, zarejestruj go w mapie szkieletu layoutu i ustaw jako `pendingComponent` trasy.
+
+## Inne aspekty tras
+
+- **Parametry wyszukiwania** są parsowane przez `validateSearch` w trasie, na przykład parametr `tab` w `/admin/products` lub parametr `view` w `/admin/blog`.
+- **Funkcje serwerowe używane przez jedną trasę** można zdefiniować w pliku trasy za pomocą `createServerFn`, tak jak `getBlogPosts` w `blog.index.tsx`.
+- **Endpointy HTTP** znajdują się w `src/routes/api`. Zobacz [Handlery HTTP w TanStack Start](/docs/architecture/api-layer).
+
+## Router
+
+`src/router.tsx` eksportuje `getRouter`, który dla każdego żądania tworzy nowy `QueryClient` i router. Konfiguruje:
+
+- domyślne komponenty błędu i nieznalezionej strony z `presentation/components/custom`, bez domyślnego komponentu stanu oczekiwania (zobacz [Szkielety ładowania](#loading-skeletons))
+- wstępne ładowanie przy intencji i domyślny czas świeżości danych wynoszący jedną minutę
+- `rewrite`, który usuwa prefiks locale z przychodzących URL-i i dodaje go z powrotem do generowanych linków
+- integrację zapytań z SSR przez `setupRouterSsrQueryIntegration`
+
+## Powiązane strony
+
+- [Cykl życia żądania](/docs/architecture/request-lifecycle)
+- [Trasy](/docs/reference/routes)
+- [Dodaj stronę panelu administracyjnego](/docs/guides/add-an-admin-page)

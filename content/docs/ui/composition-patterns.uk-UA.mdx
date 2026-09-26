@@ -1,6 +1,101 @@
 ---
-title: Композиція шаблонів
-description: Приблизний склад над boolean пропсами; підйомний стан у постачальників.
+title: "Шаблони композиції"
+description: "Правила складання маршрутів, сторінок і компонентів у цьому коді."
 ---
 
-Зареєструватися `.agents/skills/vercel-composition-patterns`: компоненти з'єднання, загальний контекст`state` / `actions` / `meta`), React 19 `use()`, без `forwardRef`.
+## Маршрути складають сторінки
+
+Файл маршруту визначає компонент `<Name>Page` або `<Name>Layout`, `NAMESPACE` або `NAMESPACES`, loader і `head`. Сторінка лише розміщує віджети; віджети розташовані в `src/presentation/components/custom/<area>/`. Так виглядає макет (`src/routes/app.tsx`):
+
+```tsx
+const AppLayout = (): JSX.Element => (
+  <SidebarProvider className="h-svh overflow-hidden">
+    <AppSidebar />
+    <SidebarInset className="relative min-h-0 min-w-0 overflow-hidden">
+      <Background className="z-[-1]" glow={false} />
+      <AppHeader />
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-5 pb-6 md:px-6 md:pt-7 md:pb-8">
+        <div className="mx-auto w-full max-w-5xl">
+          <Outlet />
+        </div>
+      </div>
+    </SidebarInset>
+  </SidebarProvider>
+)
+```
+
+Серверну функцію, яку використовує лише один маршрут, можна визначити в його файлі через `createServerFn`, як це робить `src/routes/blog.index.tsx`.
+
+## Один віджет, діалог або форма на файл
+
+Кожен віджет, діалог, форма чи набір стовпців має власний файл: `admin/users/row-actions.tsx`, `delete-user-dialog.tsx`, `reset-password-dialog.tsx`, `user-columns.tsx`. Теки компонентів пласкі: без вкладених тек `components/`, `hooks/`, `constants/` чи `types/` і без поділу на `x.tsx` та `x-content.tsx`. Спільні компоненти лежать безпосередньо в `custom/`.
+
+## Компоненти самі читають свої дані
+
+Компонент сам отримує тексти й дані, а не приймає їх через властивості:
+
+- переклади — через `useTranslations`;
+- дані запитів — через `useSuspenseQuery`, уже завантажені loader маршруту;
+- дані loader, контекст маршруту й параметри пошуку — через `getRouteApi("…")`.
+
+```tsx
+const route = getRouteApi("/blog/$")
+
+export const PostMeta = (): JSX.Element => {
+  const { post } = route.useLoaderData()
+  const t = useTranslations("pages.blog.post")
+  const format = useFormatter()
+
+  const details = [post.authorName, t("readingTime", { minutes: post.readingTimeMinutes }), post.tags.join(", ")].filter(
+    (item) => item.trim().length > 0,
+  )
+
+  return (
+    <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-border py-4 font-mono text-body-sm text-muted-foreground">
+      <span className="flex items-center gap-2.5">
+        <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
+        <time className="tabular-nums" dateTime={new Date(post.date).toISOString()}>
+          {format.dateTime(new Date(post.date), { day: "numeric", month: "long", year: "numeric" })}
+        </time>
+      </span>
+      {details.map((item) => (
+        <span className="flex items-center gap-3" key={item}>
+          <span aria-hidden className="text-border">
+            &middot;
+          </span>
+          {item}
+        </span>
+      ))}
+    </div>
+  )
+}
+```
+
+Властивості передають ідентичність або стан, відомий лише батьківському компоненту, наприклад `user` діалогу разом з `isOpen` і `onOpenChange` або `activationId`. Немає властивостей із текстом чи мітками, передавання властивостей крізь кілька рівнів і обгорток, які лише перейменовують властивості або передають дочірні елементи. Константа, яку використовує один файл, залишається в ньому; дані, спільні для кількох файлів, потрапляють до `src/data`.
+
+## Форматований текст
+
+Мапи тегів для `t.rich` — це константи модуля, а не об’єкти, створені під час рендерингу:
+
+```tsx
+const REUSE_TAGS = { accent: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong> }
+```
+
+## Умовні класи
+
+Використовуйте `cn` з `~/src/lib/cn` з об’єктним синтаксисом:
+
+```tsx
+<p className={cn("font-medium", { "text-foreground": !banned, "text-muted-foreground line-through": banned })}>{name}</p>
+```
+
+Альтернативи рендерте парою умов `&&` або раннім поверненням замість багаторядкового тернарного оператора.
+
+## Провайдери
+
+Провайдери, що змінюються після гідратації, обгортають лише віджети, яким вони потрібні, і ніколи — `Outlet` маршруту: `ThemeProvider` обгортає `Toaster` і `ThemeSwitch` документації, а `MotionProvider` — розділи головної сторінки та список дописів блогу. `AriaProvider` обгортає кореневий outlet, а `TranslationsProvider` — тіло документа, бо вони потрібні кожному екрану.
+
+## Пов’язані посібники
+
+- [Шар представлення](/docs/architecture/presentation-layer)
+- [Угоди](/docs/reference/conventions)

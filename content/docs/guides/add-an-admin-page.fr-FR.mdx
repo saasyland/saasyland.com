@@ -1,13 +1,102 @@
 ---
-title: Ajouter une page d'administration
-description: Enregistrez les itinéraires, la barre latérale et le shell de page.
+title: "Ajouter une page d'administration"
+description: "Enregistrez la route, l'entrée de barre latérale, les messages et les widgets d'une nouvelle page d'administration."
 ---
 
-## Étapes
+Les pages d'administration sont des fichiers de route plats sous le layout `/admin` (`src/routes/admin.tsx`), qui exécute `requireAdmin` dans `beforeLoad` et affiche la barre latérale, le fil d'Ariane et la palette de commandes. Les étapes ci-dessous ajoutent une page sur `/admin/reports` ; `src/routes/admin.payments.tsx` est un exemple réel complet.
 
-1. Ajouter le chemin à `ROUTES`
-2. Ajouter une entrée dans la barre latérale `admin/constants/sidebar.ts` (+ étiquettes i18n)
-3. Créer `app/[locale]/(admin)/admin/<feature>/page.tsx`
-4. Colocate `_components` / `_lib`
-5. Données Gate avec cas d'utilisation + Suspense
-6. Document sous Caractéristiques
+## 1. Ajouter le chemin
+
+Ajoutez la constante à `ROUTES` dans `src/routes.ts` :
+
+```ts
+ADMIN_REPORTS: "/admin/reports",
+```
+
+## 2. Créer le fichier de route
+
+Créez `src/routes/admin.reports.tsx`. La route ne définit que le composant de page, `NAMESPACE`, le loader, `head` et `pendingComponent` ; le générateur du routeur enregistre le fichier dans `src/routeTree.gen.ts`.
+
+```tsx
+import type { JSX } from "react"
+
+import { createFileRoute } from "@tanstack/react-router"
+import { useTranslations } from "use-intl/react"
+
+import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
+
+import { pageHead } from "~/src/lib/seo"
+
+import { AdminReportsPending } from "~/src/presentation/components/custom/admin/overview-pending"
+import { ReportStats } from "~/src/presentation/components/custom/admin/reports/report-stats"
+
+import { ROUTES } from "~/src/routes"
+
+const ReportsPage = (): JSX.Element => {
+  const t = useTranslations("pages.admin.reports")
+
+  return (
+    <div className="flex w-full flex-col space-y-8">
+      <div>
+        <h1 className="text-statement font-semibold text-foreground">{t("metadata.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("metadata.description")}</p>
+      </div>
+
+      <ReportStats />
+    </div>
+  )
+}
+
+const NAMESPACE = "pages.admin.reports"
+
+export const Route = createFileRoute("/admin/reports")({
+  component: ReportsPage,
+  head: pageHead(ROUTES.ADMIN_REPORTS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: AdminReportsPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+Les queries nécessaires à la page vont dans le même `Promise.all`, par exemple `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` dans `src/routes/admin.users.all.tsx`. `pageHead` construit le titre, la description, l'URL canonique et les liens vers les autres langues à partir de `metadata` du loader. `AdminReportsPending` est le squelette propre à la page, affiché uniquement lorsqu'une navigation dure plus d'une seconde. Écrivez-le dans le fichier du groupe de barre latérale de la page (`overview-pending.tsx`, `offerings-pending.tsx`, `content-pending.tsx` ou `administration-pending.tsx` dans `custom/admin/`) à partir des blocs de `pending-blocks.tsx`, afin qu'il reproduise la structure de la page. Ajoutez-le ensuite à `ADMIN_PAGES` dans `admin-pending.tsx`, pour que le squelette du layout d'administration l'affiche lorsque quelqu'un arrive sur `/admin/reports` depuis l'extérieur de la zone d'administration. Voir [Squelettes de chargement](/docs/architecture/delivery-layer#squelettes-de-chargement).
+
+## 3. Ajouter l'entrée de barre latérale
+
+Ajoutez un élément à un groupe de `ADMIN_SIDEBAR_GROUPS` (`src/data/admin.ts`) avec une icône `lucide-react` :
+
+```ts
+{ icon: FileText, titleKey: "reports", url: ROUTES.ADMIN_REPORTS },
+```
+
+Ajoutez `links.reports` à `messages/<locale>/pages.admin.sidebar.json` dans les neuf langues. Un nouveau groupe nécessite aussi `groups.<titleKey>`. La barre latérale, le fil d'Ariane et la palette de commandes ⌘K lisent tous `ADMIN_SIDEBAR_GROUPS` : la page apparaît donc aux trois endroits. Un troisième segment d'URL, comme `/admin/reports/create`, affiche dans le fil d'Ariane le libellé `components.breadcrumbs.actions.create` de `pages.admin.json`.
+
+## 4. Ajouter les messages de la page
+
+Créez `messages/<locale>/pages.admin.reports.json` dans les neuf langues. `metadata` est obligatoire, car le loader le lit pour l'en-tête du document :
+
+```json
+{
+  "metadata": {
+    "title": "Reports",
+    "description": "Revenue and usage reports."
+  }
+}
+```
+
+## 5. Ajouter les widgets
+
+Placez chaque widget, boîte de dialogue, formulaire et jeu de colonnes de tableau dans son propre fichier sous `src/presentation/components/custom/admin/reports/`, par exemple `report-stats.tsx` ou `report-columns.tsx`. Les widgets appellent `useTranslations("pages.admin.reports")` et lisent leurs propres données avec `useSuspenseQuery` ; la page ne leur transmet ni libellés ni données. Les tableaux utilisent le `DataTable` générique ; voir [Ajouter un tableau de données](/docs/guides/add-a-data-table).
+
+## 6. Protéger et tester
+
+- Le garde du layout contrôle l'accès à la page. Chaque fonction serveur appelée par la page a quand même besoin de `authorized(permission)` ; voir [Rôles et permissions](/docs/guides/roles-and-permissions).
+- `/admin` est exclu du prérendu.
+- Ajoutez des tests de route à côté de ceux existants dans `src/routes/__test__/` et des tests de widgets dans `src/presentation/components/custom/admin/__test__/`, puis lancez `bun run check:i18n` et `bun run test:coverage`.

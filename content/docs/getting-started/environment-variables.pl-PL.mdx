@@ -1,16 +1,45 @@
 ---
-title: Środowisko i bindingi
-description: Środowisko i bindingi — SaaSy Land
+title: "Zmienne środowiskowe"
+description: "Klucze z .env.example i miejsca, z których odczytuje je każde środowisko."
 ---
 
-Korzystaj z `.env.development`, `.env.preview` i `.env.production` dla odpowiedniego środowiska Vite i Cloudflare. Pliki są ignorowane; `.env.example` opisuje wymagane klucze. `VITE_APP_URL` jest publiczny i podstawiany podczas budowania. Sekrety Workera nie mają prefiksu `VITE_`; odczytuje się je przez `env` z `cloudflare:workers`.
+Skopiuj szablon dla środowiska, w którym pracujesz. `.env.development`, `.env.preview` i `.env.production` są ignorowane przez Git; `.env.test` jest zapisany w repozytorium z fikcyjnymi wartościami dla testów i izolowanego podglądu.
 
-Ustaw `AUTH_SECRET`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, konfigurację Resend oraz Polar. Nie zapisuj prawdziwych danych w repozytorium. Identyfikatory bindingów należą do odpowiedniego środowiska w `wrangler.jsonc`; wygenerowane deklaracje Workera określają ich typy.
+```sh
+cp .env.example .env.development
+openssl rand -base64 48
+```
 
-Wymagane nazwy sekretów są zadeklarowane dla każdego środowiska w `wrangler.jsonc`: obejmują uwierzytelnianie, Resend, Polar oraz dane Cloudflare używane przez narzędzia Drizzle. Serwer deweloperski łączy się z bindingami preview. Testy przeglądarkowe używają osobnej lokalnej konfiguracji w `src/platform/testing/wrangler.jsonc` i przykładowych wartości z `.env.test`; nie potrzebują zdalnych danych dostępowych.
+Użyj wygenerowanej wartości jako `AUTH_SECRET`, z osobnym sekretem dla każdego wdrożonego środowiska.
+
+| Zmienne                                                                         | Przeznaczenie                                                                          |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `AUTH_SECRET`                                                                   | Sekret Better Auth do podpisywania i szyfrowania                                       |
+| `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`                            | Aplikacja GitHub OAuth; uwierzytelnia też żądanie liczby gwiazdek na GitHubie          |
+| `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`                            | Aplikacja Google OAuth                                                                 |
+| `RESEND_API_KEY`, `RESEND_EMAIL_FROM`                                           | Klucz API Resend i domyślny adres nadawcy                                              |
+| `POLAR_SERVER`                                                                  | `sandbox` w trybie deweloperskim, `production` dla prawdziwych płatności               |
+| `POLAR_ACCESS_TOKEN`, `POLAR_ORGANIZATION_ID`                                   | Dostęp do API Polar oraz organizacja dla zniżek i kluczy licencyjnych                  |
+| `POLAR_WEBHOOK_SECRET`                                                          | Weryfikuje webhooki Polar pod `/api/auth/polar/webhooks`                               |
+| `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE`, `POLAR_PRODUCT_ID_AGENCY` | Produkty Polar dla trzech planów dostępnych przy zakupie                               |
+| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID`, `CLOUDFLARE_ACCESS_TOKEN`    | Dostęp do API HTTP D1 dla Drizzle Studio i introspekcji; aplikacja używa bindingu `DB` |
+
+Środowiska `development`, `preview` i `production` w `wrangler.jsonc` wymagają wszystkich powyższych kluczy. Kod serwerowy odczytuje je przez `import { env } from "cloudflare:workers"`. Żaden z nich nie ma prefiksu `VITE_`, ponieważ Vite udostępnia takie wartości przeglądarce.
+
+## Wartości w kodzie
+
+Niektóre ustawienia są częścią kodu, a nie zmiennymi środowiskowymi:
+
+- `src/presentation/branding/index.ts`: nazwa aplikacji, `APP_DOMAIN` (kanoniczny URL to `https://` z dołączoną tą domeną), adresy kontaktowe i repozytorium GitHub.
+- `src/modules/_core/constants/api.ts`: hosty akceptowane przez Better Auth w każdym trybie (`appHostsForMode`).
+- `wrangler.jsonc`: nazwy Workerów, domeny niestandardowe oraz identyfikatory D1 i KV.
+
+## Adresy zwrotne dostawców
+
+- GitHub i Google: `https://<host>/api/auth/callback/github` i `https://<host>/api/auth/callback/google`.
+- Webhooki Polar: `https://<host>/api/auth/polar/webhooks`, podpisywane za pomocą `POLAR_WEBHOOK_SECRET`.
 
 ## Powiązane przewodniki
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [Środowisko i bindingi](/docs/tooling/environment)
+- [Środowisko — informacje referencyjne](/docs/reference/environment)

@@ -1,28 +1,76 @@
 ---
-title: Struktura katalogów
-description: Struktura katalogów — SaaSy Land
+title: "Struktura katalogów"
+description: "Wszystkie foldery najwyższego poziomu w SaaSy Land i zasady określające, co gdzie umieszczać."
 ---
 
-Pliki i katalogi nazywaj w kebab-case. Pliki tras korzystają z konwencji kropek i tras bez segmentu URL w TanStack Router. Wspólny interfejs umieszczaj w `presentation/components/custom`, a komponenty bazowe w `presentation/components/shadcn`. Funkcja może mieć katalogi `components`, `constants`, `hooks` i `types`, jeśli są potrzebne.
-
 ```text
-content/                         Localized MDX
-messages/{locale}/           Translation namespaces
-src/routes/                      Flat file routes
-src/router.tsx                   Router and per-request query cache
-src/server.ts                    Cloudflare Worker entry
-src/modules/{feature}/           Schemas, constants, validation
-src/modules/{feature}/use-cases/  Server functions and query/mutation options
-src/integrations/{vendor}/       Vendor adapters and setup
-src/presentation/                Components, styles, branding, emails
-src/providers/                   Application providers
-src/hooks/                       Shared hooks
-src/lib/                         Shared utilities
-src/platform/testing/            Binding mocks and test helpers
+content/
+├── blog/                            <slug>.<locale>.mdx
+└── docs/                            <page>.<locale>.mdx and meta.<locale>.json
+messages/<locale>/<namespace>.json   One file per translation namespace
+e2e/                                 Playwright specs, page objects, fixtures
+scripts/                             Check, build and Git hook scripts
+public/                              Fonts and other static files
+src/
+├── routes/                          Flat TanStack file routes
+│   └── api/                         HTTP handlers
+├── routes.ts                        ROUTES path constants
+├── router.tsx                       Router, QueryClient, locale rewrite
+├── server.ts                        Worker entry
+├── modules/
+│   ├── _core/
+│   │   ├── constants/               errors, api, locale, country, currency, timezone, pricing
+│   │   └── utils/                   pagination, zod-fields
+│   └── <table>/
+│       ├── <table>.schema.ts
+│       ├── <table>.zod.ts
+│       ├── <table>.constants.ts
+│       ├── <table>.types.ts
+│       ├── <table>.utils.ts
+│       └── use-cases/<operation>.ts
+├── integrations/<vendor>/           <vendor>.<concern>.ts
+├── presentation/
+│   ├── components/
+│   │   ├── shadcn/                  Generated primitives
+│   │   └── custom/
+│   │       ├── footer.tsx           Shared components, flat
+│   │       ├── data-table.tsx
+│   │       ├── admin/
+│   │       │   └── users/           user-columns.tsx, reset-password-dialog.tsx
+│   │       ├── app/
+│   │       ├── auth/
+│   │       ├── blog/
+│   │       └── landing-page/
+│   │           ├── components/
+│   │           └── sections/
+│   ├── emails/                      React Email templates
+│   ├── styles/                      globals.css, docs.css, fonts.css, typeset.css
+│   ├── theme/
+│   ├── branding/
+│   ├── assets/
+│   └── document-assets.ts
+├── data/                            Data shared by several files
+├── lib/                             cn, cookie, github, rate-limit, seo, confetti
+├── hooks/                           Shared React hooks
+├── providers/                       aria, motion, theme, translations
+├── platform/testing/                Test setup, binding mocks, RPC bridge
+└── types/                           Bindings, router and generated Worker types
 ```
 
-## Powiązane przewodniki
+## Zasady rozmieszczania
+
+- **Pliki i foldery używają kebab-case.** Testy znajdują się w sąsiednim folderze `__test__`.
+- **Trasy tylko komponują.** Plik trasy definiuje komponent strony lub layoutu, `NAMESPACE` lub `NAMESPACES`, loader i `head`. Nie zawiera widżetów, dialogów ani definicji kolumn.
+- **Moduły to tabele bazy danych.** Folder `src/modules/<name>` twórz tylko dla rzeczywistej tabeli. Funkcja serwerowa, która nie operuje na tabeli, trafia do `src/lib` (na przykład `src/lib/github.ts`) albo, jeśli używa jej jedna trasa, do pliku tej trasy.
+- **Współdzielone komponenty są płaskie.** Komponent używany w kilku obszarach to pojedynczy plik bezpośrednio w `presentation/components/custom`.
+- **Foldery obszarów i stron.** Komponenty używane przez jeden obszar znajdują się w `admin/`, `app/`, `auth/`, `blog/` lub `landing-page/`. Strony panelu administracyjnego mają własne foldery, np. `admin/users/` lub `admin/settings/`. Landing dzieli się na `sections/` (jeden plik na sekcję strony) i `components/` (elementy współdzielone przez sekcje).
+- **Jeden widżet, dialog, formularz lub zestaw kolumn na plik.** Nie dziel komponentu na wrapper i plik `-content`.
+- **Bez zagnieżdżonych folderów pomocniczych.** Foldery komponentów nigdy nie zawierają podfolderów `components/`, `constants/`, `hooks/`, `lib/` ani `types/`, a obok komponentu nie ma żadnego pomocniczego pliku `.ts`. Stała używana przez jeden komponent pozostaje w pliku tego komponentu.
+- **Współdzielone dane trafiają do `src/data`.** Przykłady: grupy paska bocznego panelu administracyjnego, `MARKETING_SECTION_IDS`, nawigacja aplikacji, opcje wyboru w CLI i wiersze demonstracyjne.
+- **Plików generowanych nie edytuje się ręcznie.** Plugin routera zapisuje `src/routeTree.gen.ts`, `bun run cf-typegen` zapisuje `src/types/worker-configuration.d.ts`, a `bun run content` i `bun run generate:cn` zapisują `.source/`.
+
+## Powiązane strony
 
 - [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [Nazewnictwo plików](/docs/reference/file-naming)
+- [Konwencje](/docs/reference/conventions)

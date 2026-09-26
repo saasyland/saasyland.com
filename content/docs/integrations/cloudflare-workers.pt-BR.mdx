@@ -1,25 +1,33 @@
 ---
-title: Preparar para Cloudflare Workers
-description: Preparar para Cloudflare Workers - SaaSy Land
+title: "Cloudflare Workers"
+description: "Entrada do Worker, middleware de locale, bindings e deploy."
 ---
 
-A construção do trabalhador é produzida por Vite+, TanStack Start e... `@cloudflare/vite-plugin`. `wrangler.jsonc` declara a entrada, configurações de compatibilidade, ativos, observabilidade e desenvolvimento separado, pré-visualização e ligações de produção.
+A aplicação é executada como um único Cloudflare Worker. `@cloudflare/vite-plugin` faz o build, e `CLOUDFLARE_ENV` seleciona o ambiente do Wrangler. `wrangler.jsonc` define `main` como `./src/server.ts`, habilita `nodejs_compat` e a observabilidade, e serve os arquivos estáticos pelo binding `ASSETS`. O Worker é executado primeiro em todos os caminhos, exceto `/assets/*`, `/fonts/*`, `/robots.txt` e `/llms.txt`.
 
-Providência D1 e... KV Defina a URL e os segredos do provedor. `.env.preview` ou `.env.production`. . Aplique as migrações explicitamente, e depois implante. Coloque scripts para validar IDs de ligação primeiro, construa scripts pré-render páginas públicas e verifique artefatos de saída. Autenticação e páginas de aplicação privadas são executadas dinamicamente no Worker.
+| Ambiente      | Worker                  | D1 e KV                             | Domínio                 |
+| ------------- | ----------------------- | ----------------------------------- | ----------------------- |
+| `development` | `saasyland-development` | Recursos remotos de preview         | `localhost:3000`        |
+| `preview`     | `saasyland-preview`     | Recursos de preview                 | `preview.saasyland.com` |
+| `production`  | `saasyland`             | Recursos de produção                | `saasyland.com`         |
+| `test`        | `saasyland-test`        | Recursos locais em `.wrangler/test` | `127.0.0.1:3000`        |
 
-Defina o domínio personalizado e OAuth Instalar dependências e construir nunca aplica uma migração remota.
+Todo ambiente vincula o D1 como `DB` e o KV como `CACHE` e lista os secrets obrigatórios. O ambiente `test` usa `src/platform/testing/worker.ts` como entrada; ele intercepta as requisições ao Resend e à Polar e expõe endpoints exclusivos de teste para o Playwright.
 
-```sh
-bunx wrangler login
-bunx wrangler d1 create saasyland_preview
-bunx wrangler kv namespace create CACHE --env preview
-# Update wrangler.jsonc and .env.preview first.
-bun run db:migrate:preview
-bun run deploy:preview
-```
+## Fluxo da requisição
+
+`src/server.ts` trata todas as requisições:
+
+1. `resolveLocale`, de `i18n.middleware.ts`, inspeciona requisições de documento `GET` e `HEAD` fora de `/api` e `/_serverFn`. Ele redireciona aliases de idioma e caminhos de locale não canônicos com status 308 e informa quando o cookie de locale difere do locale da URL.
+2. Requisições `GET` e `HEAD` fora de `/api` e `/_serverFn` são servidas primeiro a partir de `ASSETS`, o que cobre as páginas pré-renderizadas. Um 404 é repassado ao handler do TanStack Start.
+3. Quando o cookie de locale precisa ser atualizado, o Worker o anexa à resposta. As respostas HTML também recebem headers `Link` de preload para a folha de estilos e as fontes do locale.
+4. As respostas HTML recebem preços regionais: quando o país de `cf-ipcountry` se qualifica para um desconto por paridade de poder de compra, um `HTMLRewriter` adiciona os atributos de desconto a `<html>` e a resposta passa a ser `private, no-cache`.
+
+## Deploy
+
+`bun run deploy:preview` e `bun run deploy:production` executam `scripts/verify-bindings.ts`, que rejeita IDs de D1 e KV de placeholder, e em seguida o build correspondente e `wrangler deploy --secrets-file .env.<environment>`. Os builds pré-renderizam as páginas públicas e executam `scripts/verify-build.ts` e `scripts/optimize-prerendered-html.ts`. As migrações são comandos separados; veja [Deploy de um preview](/docs/getting-started/deploy-preview) e [CI/CD](/docs/tooling/ci-cd).
 
 ## Guias relacionados
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Ambiente e bindings](/docs/tooling/environment)
+- [Camada de plataforma](/docs/architecture/platform-layer)

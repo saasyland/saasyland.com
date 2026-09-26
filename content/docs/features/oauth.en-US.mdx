@@ -1,6 +1,30 @@
 ---
 title: "OAuth providers"
-description: "GitHub and Google social sign-in configuration."
+description: "GitHub and Google sign-in through Better Auth social providers."
 ---
 
-Configured in Better Auth with env client IDs/secrets. Register redirect URLs for local, preview, and production hosts. See Features → Authentication and Getting started → Environment variables.
+`auth.server.ts` registers two providers with credentials from the Worker environment:
+
+```ts
+socialProviders: {
+  github: { clientId: env.AUTH_GITHUB_CLIENT_ID, clientSecret: env.AUTH_GITHUB_CLIENT_SECRET },
+  google: { clientId: env.AUTH_GOOGLE_CLIENT_ID, clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET },
+},
+```
+
+## Flow
+
+`OAuthButtons` (`src/presentation/components/custom/auth/oauth-buttons.tsx`) renders one button per provider on sign-in and sign-up. It calls Better Auth `signIn.social` with a localized `callbackURL` (`/auth/callback`) and `errorCallbackURL` (`/auth/sign-in`). After the provider returns, `/auth/callback` redirects admins to `/admin` and customers to `/app`. A failed attempt returns to the sign-in page with `?error=`, which shows the translated `auth.errors` message.
+
+`accountLinking` is enabled, so a social sign-in attaches to an existing user with the same email. Provider tokens are stored encrypted in the `account` table.
+
+## Provider setup
+
+Register the callback URLs `/api/auth/callback/github` and `/api/auth/callback/google` for every host you run: `localhost:3000` locally, `preview.saasyland.com` and `saasyland.com` (see `appHostsForMode` in `src/modules/_core/constants/api.ts`). Put the client IDs and secrets in the environment variables above.
+
+The GitHub credentials also authenticate the repository star count request in `src/lib/github.ts`.
+
+## Related guides
+
+- [Environment variables](/docs/getting-started/environment-variables)
+- [Authentication](/docs/features/authentication)

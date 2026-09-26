@@ -1,28 +1,37 @@
 ---
-title: TanStack Start Manigliere HTTP
-description: TanStack Start handlers HTTP — SaaSy Land
+title: "Handler HTTP di TanStack Start"
+description: "Le rotte server sotto /api e il loro rapporto con le funzioni server."
 ---
 
-Gli endpoint HTTP usano i gestori di server nativi TanStack Start in `src/routes`. Better Auth possiede GET e POST sotto `/api/auth/$`; Fumadocs usi di ricerca `/api/search`. Le operazioni del prodotto sono funzioni server native nei moduli di funzionalità.
+L’app espone tre rotte HTTP, dichiarate con `server.handlers` su `createFileRoute` in `src/routes/api`:
 
-Decidere i manici su `createFileRoute` con `server.handlers`. Utilizzare i dati forniti `request`, convalidare l'ingresso, eseguire i controlli di autorizzazione e restituire un Web `Response`. Mantenere la verifica webhook nell'integrazione del fornitore. Non esporre un endpoint REST duplicato per un'operazione che viene utilizzata solo dal client RPC tipo di questa applicazione.
+| Rotta         | Metodi    | Handler                                                                                                                                                        |
+| ------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api`        | GET       | Restituisce `{ "runtime": "cloudflare-workers" }`.                                                                                                             |
+| `/api/auth/$` | GET, POST | Better Auth: accesso, callback OAuth, `/api/auth/verify-email`, oltre agli endpoint del plugin Polar `/api/auth/polar/webhooks` e `/api/auth/customer/portal`. |
+| `/api/search` | GET       | Ricerca di Fumadocs (`fumadocs.search.ts`).                                                                                                                    |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
+## Funzioni server invece di REST
+
+Le operazioni dell’app sono funzioni `createServerFn` in `src/modules/<table>/use-cases` (oppure direttamente nell’unica rotta che le usa). TanStack Start le chiama via RPC sotto `/_serverFn`, con middleware per sessioni, permessi e limiti di richieste. Non aggiungere un endpoint REST per un’operazione che solo questa app chiama; aggiungi una rotta HTTP solo per chiamanti esterni come i webhook, e verificane le firme nell’integrazione del provider.
+
+## Comportamento
+
+- Il Worker non applica i reindirizzamenti della lingua a `/api` e `/_serverFn`; queste richieste prendono la lingua dal cookie.
+- La build non prerenderizza `/api`.
+- I test degli handler si trovano in `src/routes/api/__test__/handlers.test.ts`.
+
 ## Guide correlate
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Aggiungere una rotta API](/docs/guides/add-an-api-route)
+- [Funzioni server](/docs/guides/server-functions)

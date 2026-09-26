@@ -1,30 +1,55 @@
 ---
-title: アーキテクチャ
-description: アーキテクチャ — SaaSy Land
+title: "アーキテクチャ"
+description: "SaaSy Land の構成：ルートがページを組み立て、モジュールがデータベーステーブルを所有し、インテグレーションがベンダーをラップします。"
 ---
 
-SaaSy Land は Cloudflare Workers の 1 つの TanStack Start アプリケーションとして実行されます。 ルートは、レンダリングとデータの読み込みを調整します。 特徴 モジュール自身の検証、承認および操作。 インテグレーションは外部サービスを設定します。 プレゼンテーションは既存のUIを所有しています。
+SaaSy Land は、Cloudflare Worker として動作する 1 つの TanStack Start アプリケーションです。コードは責務ごとに分かれています。
 
-依存性注射容器はありません。 独自のレイヤーでコンクリートのコラボレーターをインポートします。 共有ヘルパーを小さく保ち、機能のみのヘルパーを機能の横に保ちます。
+- **ルート**（`src/routes`）はページを組み立てます。ルートファイルは翻訳の名前空間、ガード、ローダー、head タグを宣言し、そのうえでコンポーネントを描画します。
+- **モジュール**（`src/modules/<table>`）は、実在するデータベーステーブルのためだけに存在します。モジュールは、テーブルの Drizzle スキーマ、Zod スキーマ、定数、型、そしてテーブルを読み取り・変更するユースケースを所有します。
+- **インテグレーション**（`src/integrations/<vendor>`）は、サードパーティのライブラリやサービスを設定します。
+- **プレゼンテーション**（`src/presentation`）には、shadcn のプリミティブ、アプリケーションのコンポーネント、React Email のテンプレート、スタイル、テーマ、ブランディングが入ります。
+- **共有コード**は、`src/data`（複数のファイルで使うデータ）、`src/lib`（小さなユーティリティ）、`src/hooks`、`src/providers` に置きます。
 
 ```text
-content/                         Localized MDX
-messages/{locale}/           Translation namespaces
-src/routes/                      Flat file routes
-src/router.tsx                   Router and per-request query cache
-src/server.ts                    Cloudflare Worker entry
-src/modules/{feature}/           Schemas, constants, validation
-src/modules/{feature}/use-cases/  Server functions and query/mutation options
-src/integrations/{vendor}/       Vendor adapters and setup
-src/presentation/                Components, styles, branding, emails
-src/providers/                   Application providers
-src/hooks/                       Shared hooks
-src/lib/                         Shared utilities
-src/platform/testing/            Binding mocks and test helpers
+src/
+├── routes/          Flat file routes that compose pages
+├── modules/         One folder per database table, plus _core
+├── integrations/    One folder per vendor
+├── presentation/    Components, emails, styles, theme, branding
+├── data/            Data shared by several files
+├── lib/             Small shared utilities
+├── hooks/           Shared React hooks
+├── providers/       Application providers
+├── platform/        Test runtime wiring
+├── types/           Global type declarations
+├── router.tsx       Router and per-request QueryClient
+├── routes.ts        ROUTES path constants
+└── server.ts        Cloudflare Worker entry
 ```
 
-## 関連ガイド
+## コードを形づくるルール
 
-- [アーキテクチャ](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- ルートファイルは組み立てるだけです。ウィジェット、ダイアログ、フォーム、テーブルのカラムは、`src/presentation/components/custom` に 1 ファイルずつ置きます。
+- コンポーネントは、`useTranslations`、`useSuspenseQuery`、またはルートのローダーデータを使って、自分の翻訳とデータを読み取ります。ルートがラベルやデータを props として渡すことはありません。
+- テーブルを扱うサーバー関数は、そのテーブルのモジュール内のユースケースにします。1 つのルートだけが使うサーバー関数は、そのルートファイルに定義できます。それ以外はすべて `src/lib` に置きます。
+- 依存性注入コンテナーもラッパー層もありません。具体的な関数を、それを所有するフォルダーから直接インポートします。
+- 1 つのファイルだけが使う定数は、そのファイルに置いたままにします。複数のファイルで共有するデータだけを `src/data` に移します。
+
+## このセクションの内容
+
+- [ディレクトリ構成](/docs/architecture/directory-structure)：すべてのフォルダーと、そこに置くもの。
+- [依存関係のルール](/docs/architecture/dependency-rules)：許可されるインポートと、サーバー専用の境界。
+- [サーバー関数とユースケース](/docs/architecture/modules-and-use-cases)：モジュールの構成とユースケースのパターン。
+- [Core 共有カーネル](/docs/architecture/core)：`src/modules/_core` のエラーとカタログ。
+- [ルートと配信](/docs/architecture/delivery-layer)：ルートファイルの構造とルーターの設定。
+- [プレゼンテーション](/docs/architecture/presentation-layer)：コンポーネントの構成とスタイリング。
+- [インテグレーションの責務](/docs/architecture/integrations-layer)：ベンダーごとのフォルダーと、そこに含めないもの。
+- [プラットフォームとテスト](/docs/architecture/platform-layer)：Cloudflare のバインディング、環境、テストの配線。
+- [プロバイダー](/docs/architecture/providers)：4 つのアプリケーションプロバイダーと、そのマウント位置。
+- [リクエストのライフサイクル](/docs/architecture/request-lifecycle)：Worker からページが描画されるまでに起きること。
+- [キャッシュと SSR](/docs/architecture/caching-and-ssr)：クエリキャッシュ、プリレンダリング、KV。
+- [TanStack Start の HTTP ハンドラー](/docs/architecture/api-layer)：`/api` エンドポイント。
+- [認証とセキュリティ](/docs/architecture/security-model)：ガード、権限、レート制限、エラーのマスキング。
+- [国際化とロケール](/docs/architecture/i18n-architecture)：ロケール付きの URL、名前空間、翻訳の読み込み。
+- [テストと CI](/docs/architecture/testing-architecture)：テストプロジェクト、カバレッジ、CI パイプライン。

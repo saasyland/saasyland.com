@@ -1,26 +1,59 @@
 ---
 title: "Testing and CI"
-description: "Testing and CI — SaaSy Land"
+description: "The Vitest projects, the 100% coverage gate, the Playwright suite and the CI pipeline."
 ---
 
-Vite+ runs Vitest in three projects: node tests, integration tests and jsdom component tests. Keep existing behavior tests beside the code they exercise under `__test__`. Import test APIs from `vite-plus/test`. Use Playwright for full browser flows and rendering checks.
+## Vitest projects
 
-The shared setup supplies local D1 and KV mocks. D1 runs the checked-in SQL migrations against SQLite. The server-function RPC bridge preserves TanStack’s real middleware and validation pipeline. Component render helpers provide real QueryClient and Router contexts. External email, OAuth and payment calls are mocked in tests.
+`vp test` runs Vitest through Vite+ with three projects defined in `vite.config.ts`. Tests live in a `__test__` folder next to the code they cover and import test APIs from `vite-plus/test`.
 
-Run the focused project while editing, then run the complete suite, coverage gate, check and preview build. Browser tests verify public pages, auth redirects, SSR without JavaScript, and client navigation. CI uses local bindings and does not require a live database or provider secrets.
+| Project       | Environment | File pattern            |
+| ------------- | ----------- | ----------------------- |
+| `node`        | Node        | `*.test.ts`             |
+| `integration` | Node        | `*.integration.test.ts` |
+| `component`   | jsdom       | `*.component.test.tsx`  |
+
+No test contacts a real Cloudflare account or provider:
+
+- D1 is an in-memory SQLite database that runs the checked-in migrations, and KV is an in-memory map. KV and the rate-limit counters reset before each test.
+- `createServerFn` is replaced so a server function runs in-process through its real middleware and validator.
+- Component tests render with a real `QueryClient` and router.
+- Email, OAuth and payment requests are mocked.
+
+## Coverage
+
+`bun run test:coverage` enforces 100% for lines, statements, functions and branches across `src`. The shadcn primitives, `src/platform/testing`, generated files and type declarations are excluded. Cover real behavior, and delete branches that can never run instead of stubbing globals to reach them.
+
+## Browser tests
+
+Playwright specs live in `e2e/specs`, with page objects in `e2e/pages` and fixtures in `e2e/fixtures`. They run against a production-like build that uses the `test` Wrangler environment: local D1 and KV in `.wrangler/test`, dummy secrets from `.env.test`, and a test Worker that captures outgoing email so a spec can follow a real verification link. Locally, Playwright migrates, seeds, builds and starts the app itself. The suite runs in Chromium and WebKit.
+
+## Scripts
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
 bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:pr
 ```
 
-## Related guides
+## CI
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
+`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`:
+
+1. `bun run check`: formatting, lint, type checks and `check:i18n`
+2. `bun run test:coverage`
+3. A test build and the Playwright suite in Chromium
+4. A preview deployment for pull requests, or a production deployment for `main`
+
+## Related pages
+
 - [Testing](/docs/tooling/testing)
+- [Playwright](/docs/tooling/playwright)
+- [Writing tests](/docs/guides/writing-tests)

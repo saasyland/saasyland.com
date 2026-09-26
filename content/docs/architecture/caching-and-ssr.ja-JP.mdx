@@ -1,14 +1,39 @@
 ---
-title: キャッシュとSSR
-description: キャッシュとSSR — SaaSy Land
+title: "キャッシュと SSR"
+description: "データをキャッシュする場所：リクエストごとのクエリキャッシュ、プリレンダリング済みのページ、KV、D1。"
 ---
 
-QueryClient はルータインスタンスに属し、サーバーレンダリングと統合されています。 ローダーは、データと名前空間 JSON をプリロードします。コンポーネントは、同じキャッシュを同じキャッシュで読み込みます。 `useSuspenseQuery` または `useSuspenseQueries`. . Queries は安定したキーを宣言します。 成功した突然変異は、影響を受ける機能キーだけを無効化します。
+## クエリキャッシュ
 
-公開文書、ブログ、ランディングページはビルド時に優先されます。 管理者、顧客、auth、ニュースレターのトークンのルートは除外されます。 Cloudflare KV は公開 GitHub メタデータをキャッシュします。 D1 は永続的なセッションとアトミックレートリミットのカウンターを格納します。 KV は許可の決定には使用されません。
+`getRouter` はリクエストごとに新しい `QueryClient` を作成するため、サーバー上でユーザー間にデータが漏れることはありません。デフォルト値は次のとおりです。
 
-## 関連ガイド
+| 設定                          | 値           |
+| ----------------------------- | ------------ |
+| クエリの `staleTime`          | 1 分         |
+| クエリの `gcTime`             | 5 分         |
+| ルーターの `defaultStaleTime` | 1 分         |
+| プリロード                    | インテント時 |
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+ローダーは `queryClient.query({ ...options, staleTime: "static" })` でキャッシュを埋め、コンポーネントは `useSuspenseQuery` で同じキーを読み取ります。`setupRouterSsrQueryIntegration` はサーバーのキャッシュを HTML にシリアライズし、ブラウザでハイドレートします。
+
+- **翻訳メッセージ**は、ロケールと名前空間ごとに、`staleTime` と `gcTime` を無限に設定してキャッシュされます。
+- **セッションクエリ**（`getCurrentSessionQuery`）の `staleTime` は 1 分です。ルートガードは実際のナビゲーション時にこれを再取得し、サインイン中のユーザーが変わるとキャッシュ全体をクリアします。
+- **ミューテーション**は成功後、そのモジュールのクエリキー（例：`USER_QUERY_KEYS.ALL`）を無効化します。
+
+## プリレンダリング
+
+`bun run build` はリンクをクロールして公開ページをプリレンダリングします。対象は、9 つすべてのロケールのランディング、法務、ブログ、ドキュメントの各ページです。`/admin`、`/app`、`/auth`、`/newsletter`、`/api` 配下のパス（ロケールプレフィックスの有無を問わない）と、クエリ文字列やハッシュを含むリンクは除外されます。
+
+Worker は、アプリケーションを読み込む前に、`ASSETS` バインディングからプリレンダリング済みの HTML を返します。プリレンダリングされたページにはユーザーデータが含まれないため、誰に返しても安全です。訪問者が地域別価格の対象になる場合、Worker は HTML を書き換え、レスポンスに `Cache-Control: private, no-cache` を設定します。
+
+## KV と D1
+
+- **KV（`CACHE`）** に保存するのは、`src/lib/github.ts` 用の GitHub スター数だけです。1 時間より古いキャッシュ値はそのまま即座に返され、`waitUntil` によってバックグラウンドで更新されます。
+- **D1（`DB`）** にはセッションとレート制限のカウンターを保存します。サーバー関数のセッションチェックは Better Auth のクッキーキャッシュを経由せず、結果はリクエストの残りの処理の間メモ化されます。
+- サーバー関数が、キャッシュされたデータをもとに権限を判断することはありません。
+
+## 関連ページ
+
+- [リクエストのライフサイクル](/docs/architecture/request-lifecycle)
+- [Cloudflare KV](/docs/integrations/cloudflare-kv)
+- [TanStack Start](/docs/integrations/tanstack-start)

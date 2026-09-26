@@ -1,26 +1,50 @@
 ---
-title: Testen und Continuous Integration.
-description: Testen und CI — SaaSy Land
+title: "Playwright"
+description: "Browsertests gegen den isolierten Test-Worker."
 ---
 
-Vite+ führt Vitest in drei Projekten aus: Node-Tests, Integrationstests und jsdom-Komponententests. Behalten Sie die bestehenden Verhaltenstests neben dem zugehörigen Code im Ordner `__test__`. Importieren Sie die Test-APIs aus `vite-plus/test`. Verwenden Sie Playwright für vollständige Browserabläufe und Rendering-Prüfungen.
-
-Die gemeinsame Konfiguration stellt lokale D1- und KV-Mocks bereit. D1 führt die eingeprägten SQL-Migrationen gegen SQLite aus. Die Server-Funktions-RPC-Schnittstelle behält die echten Middleware- und Validierungs-Pipelines von TanStack bei. Komponenten-Rendering-Hilfsfunktionen stellen echte QueryClient- und Router-Kontexte bereit. Externe E-Mail-, OAuth- und Zahlungsaufrufe werden in den Tests simuliert.
-
-Führen Sie das fokussierte Projekt parallel zur Bearbeitung aus, anschließend das vollständige Paket, die Abdeckungsprüfung, die Überprüfung und den Vorschau-Build. Die Browser-Tests überprüfen öffentliche Seiten, Authentifizierungs-Weiterleitungen, SSR ohne JavaScript und die Client-Navigation. Die Continuous Integration (CI) verwendet lokale Bindungen und benötigt weder eine aktive Datenbank noch Provider-Geheimnisse.
+Playwright testet die gebaute Anwendung in echten Browsern. Die Suite läuft gegen die Wrangler-Umgebung `test`: lokale D1 und KV in `.wrangler/test`, Platzhalter-Zugangsdaten aus `.env.test` und der Test-Einstiegspunkt `src/platform/testing/worker.ts`, der Anfragen an Resend und Polar abfängt.
 
 ```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
+bun run test:e2e:install
 bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:pr
+bun run test:e2e:headed
+bun run test:e2e:ui
 ```
 
-## Verwandte Anleitungen.
+| Skript             | Führt aus                                                |
+| ------------------ | -------------------------------------------------------- |
+| `test:e2e:install` | Installiert Chromium und WebKit mit Systemabhängigkeiten |
+| `test:e2e`         | Alle Specs in Chromium und WebKit                        |
+| `test:e2e:smoke`   | `e2e/specs/smoke.spec.ts` in Chromium                    |
+| `test:e2e:pr`      | Alle Specs in Chromium, wie in der CI für Pull Requests  |
+| `test:e2e:headed`  | Alle Specs in sichtbaren Browsern                        |
+| `test:e2e:ui`      | UI-Modus von Playwright                                  |
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+## Konfiguration
+
+`playwright.config.ts` definiert die Projekte `chromium` (Desktop Chrome) und `webkit` (Desktop Safari) und verwendet `PLAYWRIGHT_BASE_URL` oder `http://127.0.0.1:3000`. Lokal führt der Webserver-Befehl `db:migrate:test`, `db:seed:test`, `build:test` und `start:test` aus und verwendet einen Server wieder, der unter dieser URL bereits antwortet; beenden Sie daher zuerst andere Server auf Port 3000. In der CI bereitet der Workflow den Build vor, und Playwright startet nur den Server.
+
+| Einstellung    | Lokal                   | CI                               |
+| -------------- | ----------------------- | -------------------------------- |
+| Wiederholungen | 0                       | 2                                |
+| Worker         | 1                       | 2                                |
+| Traces         | Bei Fehlschlag behalten | Beim ersten Wiederholungsversuch |
+| Videos         | Aus                     | Bei Fehlschlag behalten          |
+| Reporter       | Liste und HTML          | GitHub und HTML                  |
+
+## Aufbau
+
+- `e2e/specs/`: Specs für Smoke-Checks, Landingpage, Navigation, Sprachen, Authentifizierung, Arbeitsbereiche, Newsletter, Inhalte, Theme und regionale Preise.
+- `e2e/pages/`: Page Objects.
+- `e2e/fixtures/`: die erweiterte `test`-Fixture und Hilfsfunktionen für abgefangene E-Mails.
+- `e2e/data/accounts.ts`: die per Seed angelegten Admin- und Kundenkonten und ihr Passwort.
+
+Der Test-Worker stellt `/__test/emails` bereit, um die vom Resend-Mock abgefangenen E-Mails zu lesen, und `/__test/newsletter`, um den Status eines Abonnenten abzufragen.
+
+## Verwandte Anleitungen
+
+- [Testen](/docs/tooling/testing)
+- [CI/CD](/docs/tooling/ci-cd)

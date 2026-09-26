@@ -1,14 +1,64 @@
 ---
-title: 機能を追加
-description: 機能を追加 — SaaSy Land
+title: "機能を追加する"
+description: "データベーステーブルからテスト済みのページまでを、詳細なガイドをつなぎながらたどるエンドツーエンドのウォークスルーです。"
 ---
 
-独自のモジュールのスキーマ、バリデーション、定数、使用例を作成または拡張します。 下のフラットなルートを追加します。 `src/routes` パーミッションガード、検証済みの検索パラメータ、メタデータ、ネームスペースのプリロード。 機能 UI を配置します。 `presentation/components/custom/{feature}` 近くのコンポーネント、ホックおよび定数を使って。
+機能は通常、すべてのレイヤーに関わります。テーブルのモジュール、そのユースケース、ルート、プレゼンテーションのコンポーネント、メッセージ、テストです。商品カテゴリーの実装が、この一連の流れをすべて示しています。`src/modules/category`、`src/routes/admin.products.index.tsx` のカテゴリータブ、`src/presentation/components/custom/admin/products/category-columns.tsx` を参照してください。
 
-独立したデータクエリを loader で読み込み、同じ QueryClient キャッシュからレンダーし、ネイティブのミューテーションオプションで送信します。 すべての9つの構成された言語のキーを一緒に加えて下さい。 既存のレイアウトとアクセス可能なプリミティブを保持し、使用例、コンポーネント、ブラウザの動作を適切なレベルで確認します。
+## 1. データをモデル化する
 
-## 関連ガイド
+機能が新しいデータを保存する場合は、そのテーブルのモジュールを追加し、マイグレーションを生成します。
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [モジュールを追加する](/docs/guides/add-a-module)
+- [データベースマイグレーション](/docs/guides/database-migrations)
+
+## 2. 誰が何をできるかを決める
+
+`src/integrations/better-auth/auth.access.ts` の `APP_STATEMENTS` に新しいアクションを追加し、ロールに付与します。
+
+- [ロールと権限](/docs/guides/roles-and-permissions)
+
+## 3. 操作を実装する
+
+操作ごとに 1 つのユースケースを追加し、そのミドルウェア、バリデーター、ハンドラー、クエリオプションまたはミューテーションオプションを定義します。
+
+- [ユースケースを追加する](/docs/guides/add-a-use-case)
+- [サーバー関数](/docs/guides/server-functions)
+
+## 4. ルートを追加する
+
+1. `src/routes.ts` の `ROUTES` にパスを追加します。
+2. 領域に応じたフラットなルートファイルを作成します。管理画面のレイアウトの下なら `src/routes/admin.<feature>.tsx`、サインイン済みの顧客向けレイアウトの下なら `src/routes/app.<feature>.tsx`、公開ページなら `src/routes/_landing.<page>.tsx` です。
+3. ルートの規約に従います。`const NAMESPACE`、`staticData: { namespaces: [NAMESPACE] }`、`head: pageHead(ROUTES.X)`、メタデータ、メッセージ、データを 1 つの `Promise.all` で読み込むローダー、そしてページ専用のスケルトンを `pendingComponent` として用意し、所属するレイアウトスケルトンのマップに登録します（[読み込み中のスケルトン](/docs/architecture/delivery-layer#loading-skeletons)を参照）。
+4. レイアウトの `beforeLoad` ガード（`/admin` では `requireAdmin`、`/app` では `requireSignedIn`）がページを保護します。それでも、サーバー関数はすべての呼び出しを自ら認可します。
+
+- [管理画面のページを追加する](/docs/guides/add-an-admin-page)
+- [URL の状態](/docs/guides/url-state)
+
+## 5. UI を構築する
+
+ウィジェット、ダイアログ、フォーム、テーブルのカラムは、`src/presentation/components/custom/<area>/<feature>/` に 1 ファイルに 1 つずつ置きます。各コンポーネントは自分の翻訳とデータを自ら読み込み、ルートはそれらを組み合わせるだけです。
+
+- [データテーブルを追加する](/docs/guides/add-a-data-table)
+- [フォームとバリデーション](/docs/guides/forms-and-validation)
+
+## 6. メッセージを追加する
+
+ページの名前空間と、必要であればバリデーション用の名前空間を、9 つのロケールすべてに作成します。ページの名前空間には `metadata.title` と `metadata.description` が必要です。
+
+- [国際化とロケール](/docs/guides/i18n-messages)
+- [メールテンプレート](/docs/guides/email-templates)（機能がメールを送信する場合）
+
+## 7. テストと検証
+
+ユースケース、コンポーネント、ルートをテストでカバーしてから、すべてのゲートを実行します。
+
+```sh
+bun run check
+bun run test:coverage
+bun run build
+bun run test:e2e:smoke
+```
+
+- [テストを書く](/docs/guides/writing-tests)
+- [セキュリティチェックリスト](/docs/guides/security-checklist)

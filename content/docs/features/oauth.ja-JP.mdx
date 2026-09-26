@@ -1,6 +1,30 @@
 ---
-title: OAuth プロバイダー
-description: GitHub と Google のソーシャルサインイン構成。
+title: "OAuth プロバイダー"
+description: "Better Auth のソーシャルプロバイダーによる GitHub と Google でのサインイン。"
 ---
 
-クライアント ID/secrets で Better Auth で構成します。 ローカル、プレビュー、およびプロダクションホストの URL をリダイレクトします。 機能 → 認証と開始 → 環境変数の取得を参照してください。
+`auth.server.ts` は Worker の環境変数の認証情報で 2 つのプロバイダーを登録します。
+
+```ts
+socialProviders: {
+  github: { clientId: env.AUTH_GITHUB_CLIENT_ID, clientSecret: env.AUTH_GITHUB_CLIENT_SECRET },
+  google: { clientId: env.AUTH_GOOGLE_CLIENT_ID, clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET },
+},
+```
+
+## フロー
+
+`OAuthButtons`（`src/presentation/components/custom/auth/oauth-buttons.tsx`）は、サインインと登録の画面にプロバイダーごとのボタンを表示します。ローカライズされた `callbackURL`（`/auth/callback`）と `errorCallbackURL`（`/auth/sign-in`）を指定して Better Auth の `signIn.social` を呼び出します。プロバイダーから戻ると、`/auth/callback` が管理者を `/admin` へ、顧客を `/app` へリダイレクトします。失敗した場合は `?error=` 付きでサインイン画面に戻り、翻訳済みの `auth.errors` メッセージが表示されます。
+
+`accountLinking` が有効なため、ソーシャルサインインは同じメールアドレスを持つ既存ユーザーに連携されます。プロバイダーのトークンは `account` テーブルに暗号化して保存されます。
+
+## プロバイダーの設定
+
+使用するすべてのホストについて、コールバック URL `/api/auth/callback/github` と `/api/auth/callback/google` を登録します。ローカルでは `localhost:3000`、ほかに `preview.saasyland.com` と `saasyland.com` です（`src/modules/_core/constants/api.ts` の `appHostsForMode` を参照）。クライアント ID とシークレットは上記の環境変数に設定します。
+
+GitHub の認証情報は、`src/lib/github.ts` でリポジトリのスター数を取得するリクエストの認証にも使われます。
+
+## 関連ガイド
+
+- [環境変数](/docs/getting-started/environment-variables)
+- [認証](/docs/features/authentication)

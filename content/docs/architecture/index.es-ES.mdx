@@ -1,30 +1,55 @@
 ---
-title: Arquitectura
-description: Arquitectura — SaaSy Land
+title: "Arquitectura"
+description: "Cómo se organiza SaaSy Land: las rutas componen páginas, los módulos son dueños de las tablas de la base de datos y las integraciones envuelven a los proveedores."
 ---
 
-SaaSy Land se ejecuta como una aplicación TanStack Start en Cloudflare Workers. Las rutas gestionan el renderizado y la carga de datos. Los módulos de funcionalidades controlan la validación, la autorización y las operaciones. Las integraciones configuran los servicios externos. La interfaz de usuario (UI) existente es gestionada por la presentación.
+SaaSy Land es una única aplicación TanStack Start que se ejecuta como un Cloudflare Worker. El código se divide por responsabilidades:
 
-No se utiliza un contenedor de inyección de dependencias. Importe directamente el componente concreto en la capa donde se utiliza. Mantenga las funciones compartidas lo más pequeñas posible y ubique las funciones específicas de una funcionalidad junto a dicha funcionalidad.
+- Las **rutas** (`src/routes`) componen páginas. Un archivo de ruta declara sus namespaces de traducción, su guard, su loader y sus etiquetas del head, y después renderiza componentes.
+- Los **módulos** (`src/modules/<table>`) existen solo para tablas reales de la base de datos. Un módulo contiene el esquema Drizzle de su tabla, los esquemas Zod, las constantes, los tipos y los casos de uso que la leen o la modifican.
+- Las **integraciones** (`src/integrations/<vendor>`) configuran librerías y servicios de terceros.
+- La **presentación** (`src/presentation`) reúne las primitivas de shadcn, los componentes de la aplicación, las plantillas de React Email, los estilos, el tema y la marca.
+- El **código compartido** vive en `src/data` (datos que usan varios archivos), `src/lib` (utilidades pequeñas), `src/hooks` y `src/providers`.
 
 ```text
-content/                         Localized MDX
-messages/{locale}/           Translation namespaces
-src/routes/                      Flat file routes
-src/router.tsx                   Router and per-request query cache
-src/server.ts                    Cloudflare Worker entry
-src/modules/{feature}/           Schemas, constants, validation
-src/modules/{feature}/use-cases/  Server functions and query/mutation options
-src/integrations/{vendor}/       Vendor adapters and setup
-src/presentation/                Components, styles, branding, emails
-src/providers/                   Application providers
-src/hooks/                       Shared hooks
-src/lib/                         Shared utilities
-src/platform/testing/            Binding mocks and test helpers
+src/
+├── routes/          Flat file routes that compose pages
+├── modules/         One folder per database table, plus _core
+├── integrations/    One folder per vendor
+├── presentation/    Components, emails, styles, theme, branding
+├── data/            Data shared by several files
+├── lib/             Small shared utilities
+├── hooks/           Shared React hooks
+├── providers/       Application providers
+├── platform/        Test runtime wiring
+├── types/           Global type declarations
+├── router.tsx       Router and per-request QueryClient
+├── routes.ts        ROUTES path constants
+└── server.ts        Cloudflare Worker entry
 ```
 
-## Guías relacionadas.
+## Reglas que dan forma al código
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local.](/docs/getting-started/first-run)
-- [Prueba.](/docs/tooling/testing)
+- Los archivos de ruta solo componen. Los widgets, diálogos, formularios y columnas de tabla viven en `src/presentation/components/custom`, uno por archivo.
+- Los componentes leen sus propias traducciones y datos con `useTranslations`, `useSuspenseQuery` o los datos del loader de la ruta. Las rutas no pasan etiquetas ni datos hacia abajo como props.
+- Una función de servidor que trabaja sobre una tabla es un caso de uso del módulo de esa tabla. Una función de servidor que usa una sola ruta puede definirse en el propio archivo de ruta. Todo lo demás va en `src/lib`.
+- No hay contenedor de inyección de dependencias ni capa de wrappers. Importa la función concreta desde la carpeta a la que pertenece.
+- Una constante que usa un solo archivo se queda en ese archivo. Solo los datos que comparten varios archivos pasan a `src/data`.
+
+## En esta sección
+
+- [Estructura de directorios](/docs/architecture/directory-structure): cada carpeta y lo que va en ella.
+- [Reglas de dependencias](/docs/architecture/dependency-rules): importaciones permitidas y límites del código solo de servidor.
+- [Funciones de servidor y casos de uso](/docs/architecture/modules-and-use-cases): estructura de un módulo y el patrón de caso de uso.
+- [Núcleo compartido](/docs/architecture/core): errores y catálogos en `src/modules/_core`.
+- [Rutas y entrega](/docs/architecture/delivery-layer): anatomía de un archivo de ruta y configuración del router.
+- [Presentación](/docs/architecture/presentation-layer): organización de los componentes y estilos.
+- [Alcance de las integraciones](/docs/architecture/integrations-layer): carpetas por proveedor y lo que queda fuera de ellas.
+- [Plataforma y pruebas](/docs/architecture/platform-layer): bindings de Cloudflare, entornos e infraestructura de pruebas.
+- [Providers](/docs/architecture/providers): los cuatro providers de la aplicación y dónde se montan.
+- [Ciclo de vida de una petición](/docs/architecture/request-lifecycle): lo que ocurre entre el Worker y la página renderizada.
+- [Caché y SSR](/docs/architecture/caching-and-ssr): caché de consultas, prerenderizado y KV.
+- [Handlers HTTP de TanStack Start](/docs/architecture/api-layer): los endpoints de `/api`.
+- [Autenticación y seguridad](/docs/architecture/security-model): guards, permisos, límites de peticiones y ocultación de errores.
+- [Internacionalización y locales](/docs/architecture/i18n-architecture): URL con locale, namespaces y carga de traducciones.
+- [Pruebas y CI](/docs/architecture/testing-architecture): proyectos de pruebas, cobertura y el pipeline de CI.

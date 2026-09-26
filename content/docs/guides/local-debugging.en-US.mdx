@@ -1,23 +1,58 @@
 ---
-title: "Local development"
-description: "Local development — SaaSy Land"
+title: "Local debugging"
+description: "Choose a local environment, read server errors, inspect data and debug tests."
 ---
 
-Install Bun 1.4 and Node 24 or newer, then install dependencies. Copy `.env.example` to `.env.development` and configure a long random `AUTH_SECRET`, the public `VITE_APP_URL`, and any external integrations you will exercise.
+## Pick an environment
 
-The development server uses the preview D1 and KV resources through Cloudflare’s remote bindings. Sign in with Wrangler and apply the checked-in SQLite migrations to development before starting. The development command generates Fumadocs content and runs Vite+ with the Cloudflare plugin. Browser tests use separate local storage under `.wrangler/test`.
-
-OAuth, email and billing require provider credentials; use test credentials and Polar sandbox when developing. Tests use committed dummy values and mocks instead of sending real messages or charging a customer.
+| Environment      | Commands                                                      | Data                                                 | Providers                       |
+| ---------------- | ------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------- |
+| Isolated preview | `db:migrate:test`, `db:seed:test`, `build:test`, `start:test` | Local D1 and KV in `.wrangler/test`, seeded accounts | Intercepted; no accounts needed |
+| Development      | `db:migrate:development`, `dev`                               | Remote preview D1 and KV                             | Real, from `.env.development`   |
 
 ```sh
-bun install
+bun run db:migrate:test
+bun run db:seed:test
+bun run build:test
+bun run start:test
+```
+
+The isolated preview serves a build at `http://127.0.0.1:3000`; rebuild it to see source changes. Sign in as `admin@saasyland.example.test` or `customer@saasyland.example.test` with the password from `e2e/data/accounts.ts`. Emails are captured instead of sent: open `/__test/emails?to=<address>` to read them, including verification links.
+
+```sh
+bunx wrangler login
 cp .env.example .env.development
 bun run db:migrate:development
 bun run dev
 ```
 
+The development server runs at `http://localhost:3000` with hot reload. Its `DB` and `CACHE` bindings are the remote preview resources, so writes and migrations affect the shared preview database. Use `POLAR_SERVER=sandbox`.
+
+## Read server errors
+
+- A failing server function logs `Server function failed` with the original error in the terminal running `bun run dev`, or in Workers Logs for deployed environments. The browser only receives the error code.
+- `Rate-limit storage unavailable` means D1 was unreachable during a rate-limit check; the request was rejected.
+- `No messages/<locale>/<namespace>.json` means a route declares a namespace that has no file for that locale.
+
+## Inspect data
+
+- Drizzle Studio: `bun run db:studio:development` (also `:preview` and `:production`). It needs the `CLOUDFLARE_*` variables in the matching environment file.
+- Local test database: `bunx wrangler d1 execute DB --env test --local --persist-to .wrangler/test --command "SELECT email, role FROM user"`.
+
+## Fix generated files
+
+- Types for Worker bindings, class-name tables or docs content are stale: `bun run typegen`.
+- Translations do not resolve: `bun run check:i18n` lists missing keys per locale and keys that do not resolve in their `useTranslations` scope.
+- `bun run clean` removes build output, caches and `.wrangler`, including the local test database; run `db:migrate:test` and `db:seed:test` again afterwards.
+
+## Debug tests
+
+- Run one project or only affected tests: `bun run test:unit`, `bun run test:component`, `bun run test:changed`, `bun run test:watch`.
+- Playwright: `bun run test:e2e:headed` shows the browser and `bun run test:e2e:ui` opens the UI mode. Local runs keep traces of failed tests and open the HTML report on failure.
+- Stop other servers on port 3000 before `bun run test:e2e`, or set `PLAYWRIGHT_BASE_URL`.
+
 ## Related guides
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Writing tests](/docs/guides/writing-tests)
+- [Database migrations](/docs/guides/database-migrations)
+- [First run](/docs/getting-started/first-run)

@@ -1,14 +1,45 @@
 ---
-title: プロバイダー
-description: プロバイダー — SaaSy Land
+title: "プロバイダー"
+description: "src/providers にある 4 つのアプリケーションプロバイダーと、それぞれのマウント位置およびその理由。"
 ---
 
-`src/routes/__root.tsx` ドキュメントとアプリケーション全体プロバイダの構成を所有しています。 ルータは QueryClient を作成し、キャッシュを SSR に接続します。 翻訳プロバイダは、アクティブなルート名空間を読み込みます。 `IntlProvider`. . テーマ、モーション、React Ariaルーティング、ツールチップ、通知、オフラインインジケータは、既存のプレゼンテーションの動作を保持します。
+`src/providers` には 4 つのプロバイダーがあります。各プロバイダーは、それを利用するコンポーネントにできるだけ近い位置にマウントします。
 
-Fumadocs は、TanStack プロバイダーとネイティブ ルーター リンク アダプターを使用します。 共有プロバイダーは、 `src/providers`; ページのみのコンテキストは、その機能の横にとどまります。
+| プロバイダー           | ラップするもの                                                                       | マウント位置                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| `TranslationsProvider` | root とマッチしたルートの名前空間を渡した、use-intl の `IntlProvider`                | root シェル内で、ドキュメントの body を囲む                        |
+| `AriaProvider`         | React Aria の `I18nProvider` と `RouterProvider`                                     | root コンポーネント内で、すべてのルートを囲む                      |
+| `ThemeProvider`        | クッキーに保存する `@wrksz/themes` のプロバイダー                                    | root の `Toaster` と、ドキュメントサイドバーのテーマ切り替えを囲む |
+| `MotionProvider`       | Motion の `LazyMotion`（strict）と、`reducedMotion="user"` を指定した `MotionConfig` | ランディングページ、ブログのインデックス、ブログの共有ボタン       |
 
-## 関連ガイド
+## root の構成
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+`src/routes/__root.tsx` は、`shellComponent` でドキュメントを、`component` でアプリケーションを描画します。
+
+```tsx
+const RootComponent = () => (
+  <AriaProvider>
+    <OfflineBanner />
+    <Outlet />
+    <ThemeProvider>
+      <Toaster />
+    </ThemeProvider>
+  </AriaProvider>
+)
+```
+
+- **TranslationsProvider** はシェルの `<body>` 内にあるため、デフォルトのエラーと not-found の各コンポーネントやルートのスケルトンを含め、すべての画面が翻訳されます。root 名前空間と、マッチした各ルートの `staticData.namespaces` から名前空間を集め、`useSuspenseQueries` で読み込んで 1 つのメッセージツリーを構築します。
+- **AriaProvider** は、現在のロケールを React Aria に渡し、React Aria のリンクを TanStack Router に接続します。`useHref` がパスをローカライズするため、React Aria コンポーネントの `href` にはロケールプレフィックスが付きます。
+- **ThemeProvider** はルートのアウトレットをラップしません。ハイドレーション後に更新されるプロバイダーはすべてのページを再レンダリングしてしまうため、必要なコンポーネントだけをラップします。初期テーマは、ドキュメントの head にある `ThemeScript` がハイドレーションの前に適用します。
+- **MotionProvider** は `domMax` の機能バンドルをオンデマンドで読み込み、アニメーションを実行する場所にだけマウントされます。
+
+## プロバイダーコンポーネントではないもの
+
+- **QueryClient。** `src/router.tsx` がリクエストごとに作成し、ルーターのコンテキストに入れて、`setupRouterSsrQueryIntegration` で接続します。
+- **Fumadocs。** `/docs` レイアウトは、Fumadocs 独自のテーマ処理を無効にした状態で、Fumadocs の `RootProvider` をマウントします。
+
+## 関連ページ
+
+- [キャッシュと SSR](/docs/architecture/caching-and-ssr)
+- [国際化とロケール](/docs/architecture/i18n-architecture)
+- [テーマ](/docs/ui/theme)

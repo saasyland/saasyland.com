@@ -1,24 +1,78 @@
 ---
-title: Сценарії проекту
-description: Сценарії проекту — SaaSy Land
+title: "Скрипти проєкту"
+description: "Усі скрипти package.json і те, що вони запускають."
 ---
 
-Скрипки в `package.json` Використовуйте Vite+ для розробки, форматування, розфарбовування, типи, Vitest та збірки. `content` генерує колекції MDX; `cf-typegen` генерує ручні типи робітників. `db:generate` створення міграції SQL; `db:migrate:local` застосовується до місцевих D1. Віддалена міграція і розгортання команд, які називають їх середовищем явно.
+Запускайте скрипти з кореня репозиторію командою `bun run <script>`.
 
-`build:preview` і `build:production` побудувати працівника, пререндерних публічних сторінок і перевірити розгортання артефактів. `clean` видаліть генерований вихідний та місцевий обов'язковий стан, щоб експортувати будь-які локальні дані, які ви хочете зберегти спочатку.
+## Розробка та збірка
 
-```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
-```
+| Скрипт              | Що запускає                                                                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev`               | `generate:cn`, `content` і `vp dev` у середовищі `development` за адресою http://localhost:3000                                         |
+| `build`             | Те саме, що `build:preview`                                                                                                             |
+| `build:preview`     | Очищення `dist`, `generate:cn`, `content`, `vp build` для `preview`, `scripts/verify-build.ts` і `scripts/optimize-prerendered-html.ts` |
+| `build:production`  | Ті самі кроки для `production`                                                                                                          |
+| `build:test`        | Ті самі кроки для середовища `test`                                                                                                     |
+| `start`             | `vp preview` останньої збірки за адресою http://127.0.0.1:3000                                                                          |
+| `start:test`        | `vp preview` тестової збірки                                                                                                            |
+| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `build:preview` і `wrangler deploy --secrets-file .env.preview`                                   |
+| `deploy:production` | `scripts/verify-bindings.ts production`, `build:production` і `wrangler deploy --secrets-file .env.production`                          |
 
-## Схожі посібники
+`verify-build.ts` перевіряє конфігурацію розгортання, мову документа, канонічні та альтернативні посилання локалізованих головної і юридичних сторінок, шрифти, те, що захищені сторінки й псевдоніми локалей не були попередньо відрендерені, а також те, що жоден клієнтський ресурс не імпортує `cloudflare:workers`. `optimize-prerendered-html.ts` видаляє підказки `modulepreload` для залежностей з попередньо відрендерених сторінок і залишає підказку для точки входу з низьким пріоритетом.
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+## Перевірки
+
+| Скрипт             | Що запускає                                                                              |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| `check`            | `generate:cn`, `check:i18n` і `vp check` (форматування, лінтинг і типи)                  |
+| `check:fix`        | Те саме з `vp check --fix`                                                               |
+| `check:i18n`       | `scripts/check-i18n.ts`, `scripts/check-message-formats.ts` і `scripts/check-content.ts` |
+| `check:pre-commit` | `generate:cn`, `check:i18n` і `vp staged`; запускається хуком pre-commit                 |
+| `lint`             | `vp lint`                                                                                |
+| `format`           | `vp fmt`                                                                                 |
+| `format:check`     | `vp fmt --check`                                                                         |
+
+## Тести
+
+| Скрипт                                                                                            | Що запускає                                             |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `test`                                                                                            | `vp test run` для всіх проєктів Vitest                  |
+| `test:unit`, `test:integration`, `test:component`                                                 | Один проєкт Vitest (`node`, `integration`, `component`) |
+| `test:changed`                                                                                    | Тести, яких стосуються змінені файли                    |
+| `test:watch`                                                                                      | Vitest у режимі спостереження                           |
+| `test:coverage`                                                                                   | Усі проєкти з перевіркою покриття                       |
+| `test:all`                                                                                        | `test`, потім `test:e2e:smoke`                          |
+| `test:e2e`, `test:e2e:smoke`, `test:e2e:pr`, `test:e2e:headed`, `test:e2e:ui`, `test:e2e:install` | Playwright; див. [Playwright](/docs/tooling/playwright) |
+
+## База даних
+
+| Скрипт                                                                           | Що запускає                                     |
+| -------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `db:generate`                                                                    | Генерування міграцій drizzle-kit                |
+| `db:migrate:local`, `db:migrate:test`                                            | Міграції Wrangler для локальної бази даних      |
+| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Міграції Wrangler для віддаленої бази даних     |
+| `db:seed:test`                                                                   | `scripts/seed-test.ts`: тестові облікові записи |
+| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                  |
+| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Інтроспекція drizzle-kit                        |
+
+## Генерування та обслуговування
+
+| Скрипт           | Що запускає                                                                                              |
+| ---------------- | -------------------------------------------------------------------------------------------------------- |
+| `content`        | `fumadocs-mdx`: генерує `.source/` з `content/`                                                          |
+| `generate:cn`    | Будує таблиці злиття класів у `.source/cn-tables.ts` з `src/lib/cn.config.ts`                            |
+| `cf-typegen`     | `wrangler types` для `development`: перегенеровує `src/types/worker-configuration.d.ts`                  |
+| `typegen`        | `cf-typegen`, `generate:cn` і `content`                                                                  |
+| `skills:sync`    | `scripts/sync-skills.ts`: відновлює навички агентів з `skills-lock.json`                                 |
+| `clean`          | Видаляє `.source`, `.tanstack`, `.wrangler`, `dist`, `coverage`, результати Playwright і `*.tsbuildinfo` |
+| `clean:deep`     | `clean` і `node_modules`                                                                                 |
+| `clean:hardcore` | `clean:deep`, `bun.lock` і `skills-lock.json`                                                            |
+| `prepare`        | Запускається під час встановлення: `vp config --no-agent` (Git-хуки), `generate:cn` і `content`          |
+
+`clean` видаляє `.wrangler`, зокрема локальні бази даних для розробки й тестів, тож спершу експортуйте локальні дані, які хочете зберегти.
+
+## Пов'язані посібники
+
+- [Щоденні скрипти](/docs/getting-started/project-scripts)
+- [Міграції бази даних](/docs/tooling/database)

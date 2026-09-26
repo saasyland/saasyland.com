@@ -1,13 +1,102 @@
 ---
-title: Додати сторінку адміністратора
-description: Зареєструвати маршрути, бічні панелі та оболонка сторінки.
+title: "Додавання сторінки адмін-панелі"
+description: "Зареєструйте маршрут, пункт бічної панелі, повідомлення й віджети нової сторінки адмін-панелі."
 ---
 
-## Кроки
+Сторінки адмін-панелі — це пласкі файли маршрутів під layout `/admin` (`src/routes/admin.tsx`), який виконує `requireAdmin` у `beforeLoad` і рендерить бічну панель, хлібні крихти та палітру команд. Наведені нижче кроки додають сторінку за адресою `/admin/reports`; повний реальний приклад — `src/routes/admin.payments.tsx`.
 
-1. Додати шлях до `ROUTES`
-2. Додавання входу в бічну панель `admin/constants/sidebar.ts` (+ етикетки i18n)
-3. Спілкування `app/[locale]/(admin)/admin/<feature>/page.tsx`
-4. Колокація `_components` / `_lib`
-5. Дані шлюзу з використанням-cases + Suspense
-6. Документ за функціями
+## 1. Додайте шлях
+
+Додайте константу до `ROUTES` у `src/routes.ts`:
+
+```ts
+ADMIN_REPORTS: "/admin/reports",
+```
+
+## 2. Створіть файл маршруту
+
+Створіть `src/routes/admin.reports.tsx`. Маршрут визначає лише компонент сторінки, `NAMESPACE`, loader, `head` і `pendingComponent`; генератор роутера реєструє файл у `src/routeTree.gen.ts`.
+
+```tsx
+import type { JSX } from "react"
+
+import { createFileRoute } from "@tanstack/react-router"
+import { useTranslations } from "use-intl/react"
+
+import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
+
+import { pageHead } from "~/src/lib/seo"
+
+import { AdminReportsPending } from "~/src/presentation/components/custom/admin/overview-pending"
+import { ReportStats } from "~/src/presentation/components/custom/admin/reports/report-stats"
+
+import { ROUTES } from "~/src/routes"
+
+const ReportsPage = (): JSX.Element => {
+  const t = useTranslations("pages.admin.reports")
+
+  return (
+    <div className="flex w-full flex-col space-y-8">
+      <div>
+        <h1 className="text-statement font-semibold text-foreground">{t("metadata.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("metadata.description")}</p>
+      </div>
+
+      <ReportStats />
+    </div>
+  )
+}
+
+const NAMESPACE = "pages.admin.reports"
+
+export const Route = createFileRoute("/admin/reports")({
+  component: ReportsPage,
+  head: pageHead(ROUTES.ADMIN_REPORTS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: AdminReportsPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+Запити, потрібні сторінці, додаються до того самого `Promise.all`, наприклад `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` у `src/routes/admin.users.all.tsx`. `pageHead` будує заголовок, опис, канонічний URL і посилання на інші мовні версії з `metadata` loader. `AdminReportsPending` — це власний скелетон сторінки, який показується лише тоді, коли перехід триває понад секунду. Напишіть його у файлі групи бічної панелі, до якої належить сторінка (`overview-pending.tsx`, `offerings-pending.tsx`, `content-pending.tsx` або `administration-pending.tsx` у `custom/admin/`), з блоків із `pending-blocks.tsx`, щоб він відтворював структуру сторінки. Потім додайте його до `ADMIN_PAGES` в `admin-pending.tsx`, щоб скелетон layout адмін-панелі показував його, коли хтось заходить на `/admin/reports` ззовні адмін-панелі. Див. [Скелетони завантаження](/docs/architecture/delivery-layer#loading-skeletons).
+
+## 3. Додайте пункт бічної панелі
+
+Додайте елемент до групи в `ADMIN_SIDEBAR_GROUPS` (`src/data/admin.ts`) з іконкою з `lucide-react`:
+
+```ts
+{ icon: FileText, titleKey: "reports", url: ROUTES.ADMIN_REPORTS },
+```
+
+Додайте `links.reports` до `messages/<locale>/pages.admin.sidebar.json` для всіх дев'яти мов. Нова група також потребує `groups.<titleKey>`. Бічна панель, хлібні крихти й палітра команд ⌘K читають `ADMIN_SIDEBAR_GROUPS`, тож сторінка з'являється в усіх трьох місцях. Третій сегмент URL, наприклад `/admin/reports/create`, показує в хлібних крихтах мітку `components.breadcrumbs.actions.create` з `pages.admin.json`.
+
+## 4. Додайте повідомлення сторінки
+
+Створіть `messages/<locale>/pages.admin.reports.json` для всіх дев'яти мов. `metadata` обов'язковий, бо loader читає його для заголовка документа:
+
+```json
+{
+  "metadata": {
+    "title": "Reports",
+    "description": "Revenue and usage reports."
+  }
+}
+```
+
+## 5. Додайте віджети
+
+Розмістіть кожен віджет, діалог, форму й набір колонок таблиці в окремому файлі в `src/presentation/components/custom/admin/reports/`, наприклад `report-stats.tsx` або `report-columns.tsx`. Віджети викликають `useTranslations("pages.admin.reports")` і самі читають свої дані через `useSuspenseQuery`; сторінка не передає їм ні міток, ні даних. Таблиці використовують універсальний `DataTable`; див. [Додавання таблиці даних](/docs/guides/add-a-data-table).
+
+## 6. Захистіть і протестуйте
+
+- Guard layout контролює доступ до сторінки. Кожна серверна функція, яку викликає сторінка, однаково потребує `authorized(permission)`; див. [Ролі та дозволи](/docs/guides/roles-and-permissions).
+- `/admin` виключено з попереднього рендерингу.
+- Додайте тести маршруту поруч з наявними в `src/routes/__test__/` і тести віджетів у `src/presentation/components/custom/admin/__test__/`, а потім запустіть `bun run check:i18n` і `bun run test:coverage`.

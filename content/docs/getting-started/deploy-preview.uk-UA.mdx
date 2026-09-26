@@ -1,25 +1,38 @@
 ---
-title: Розгортання до Cloudflare Workers
-description: Розгортання до Cloudflare Workers - SaaSy Land
+title: "Розгортання preview"
+description: "Створення ресурсів Cloudflare і розгортання Worker для preview."
 ---
 
-Vite+, TanStack Start і TanStack Start `@cloudflare/vite-plugin`. `wrangler.jsonc` оголошує запис, налаштування сумісності, активи, спостережливість та окремий розвиток, перегляд та обов’язки продукції.
+Середовище `preview` розгортає Worker `saasyland-preview` на `preview.saasyland.com`. Типово `development` і `preview` спільно використовують одну базу даних D1 і один простір імен KV.
 
-Надання D1 і KV і замініть ідентифікатори держателя для цільового середовища. Налаштуйте свої секрети URL та провайдера `.env.preview` або `.env.production`. . Застосувати міграцію прямо, потім розгортати. Розгортання сценаріїв, які вводяться в обов'язкові ідентифікатори першими; створення сценаріїв, що передаються публічним сторінкам і перевірку вихідних артефактів. Ауттентифікація та приватні сторінки додатків динамічно працюють на Worker.
-
-Встановити користувальницький домен і OAuth URL-адреси зворотного зв'язку для цільового середовища. Встановлення залежностей і будівлі ніколи не відноситься до дистанційної міграції.
+## Створення ресурсів
 
 ```sh
 bunx wrangler login
-bunx wrangler d1 create saasyland_preview
+bunx wrangler d1 create saasyland_com_preview
 bunx wrangler kv namespace create CACHE --env preview
-# Update wrangler.jsonc and .env.preview first.
+```
+
+У `wrangler.jsonc` замініть `database_id`, `database_name` і `id` для KV в обох блоках, `development` і `preview`. Залиште назви прив'язок `DB` і `CACHE` та `migrations_dir`, а назви Worker і маршрути власних доменів оновіть для свого облікового запису. Для продакшну створіть окремі ресурси й оновіть блок `production`. Задайте `APP_DOMAIN` у `src/presentation/branding/index.ts`. `appHostsForMode` у `src/modules/_core/constants/api.ts` виводить із нього дозволені хости: `APP_DOMAIN` у продакшні, `preview.<APP_DOMAIN>` у preview та `localhost:3000` або `127.0.0.1:3000` у режимах розробки й тестування. Редагуйте `HOSTS_BY_MODE` у тому самому файлі, лише якщо ваш preview-хост має іншу назву.
+
+## Розгортання
+
+Заповніть `.env.preview`, а потім виконайте міграції та розгортання:
+
+```sh
 bun run db:migrate:preview
 bun run deploy:preview
 ```
 
-## Схожі посібники
+`deploy:preview` запускає `scripts/verify-bindings.ts preview`, який відхиляє ідентифікатори-заглушки, потім `build:preview`, який попередньо рендерить публічні сторінки та перевіряє результат, і нарешті `wrangler deploy --secrets-file .env.preview`, який також завантажує секрети. Збірка та розгортання ніколи не застосовують міграцій; запускайте `db:migrate:preview` перед розгортанням коду, якому потрібна нова схема.
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+Зареєструйте callback-адреси OAuth і вебхук Polar для хоста preview, як описано в розділі [Змінні середовища](/docs/getting-started/environment-variables).
+
+## Автоматичні розгортання
+
+Після успішних перевірок і браузерних тестів CI розгортає кожен pull request з гілки цього репозиторію у спільний preview, а кожен push у `main` — у продакшн. Потрібні секрети GitHub описано в розділі [CI/CD](/docs/tooling/ci-cd).
+
+## Пов'язані посібники
+
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Міграції бази даних](/docs/tooling/database)

@@ -1,16 +1,45 @@
 ---
-title: Umgebung und Abhängigkeiten.
-description: Umgebung und Konfigurationen — SaaSy Land
+title: "Umgebungsvariablen"
+description: "Die Schlüssel in .env.example und wo jede Umgebung sie liest."
 ---
 
-Verwenden Sie `.env.development`, `.env.preview` und `.env.production` für die entsprechenden Vite- und Cloudflare-Umgebungen. Diese Dateien werden ignoriert; `.env.example` dokumentiert die benötigten Schlüssel. `VITE_APP_URL` ist öffentlich und wird während des Build-Prozesses ersetzt. Worker-Geheimnisse haben kein `VITE_`-Präfix und werden über `env` von `cloudflare:workers` aufgerufen.
+Kopieren Sie die Vorlage für die Umgebung, in der Sie arbeiten. `.env.development`, `.env.preview` und `.env.production` werden von Git ignoriert; `.env.test` ist mit Platzhalterwerten für Tests und die isolierte Preview eingecheckt.
 
-Konfiguriere `AUTH_SECRET`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET` sowie die Einstellungen für Resend und Polar für deine Installation. Committe niemals echte Zugangsdaten. Binding-IDs gehören in die passende Umgebung in `wrangler.jsonc`; generierte Worker-Deklarationen beschreiben ihre Typen.
+```sh
+cp .env.example .env.development
+openssl rand -base64 48
+```
 
-Die erforderlichen Geheimnisnamen werden für jede Umgebung in `wrangler.jsonc` deklariert, einschließlich der Authentifizierungsdaten, der Resend-Daten, der Polar-Daten sowie der Cloudflare-Anmeldeinformationen, die von den Drizzle-Tools verwendet werden. Die Entwicklungsumgebung verbindet sich mit den Preview-Bindings. Die Browser-Tests verwenden ihre eigene lokale Konfiguration in `src/platform/testing/wrangler.jsonc` und verwenden Dummy-Werte aus `.env.test`; sie benötigen keine externen Anmeldeinformationen.
+Verwenden Sie den erzeugten Wert als `AUTH_SECRET`, mit einem eigenen Secret für jede deployte Umgebung.
 
-## Verwandte Anleitungen.
+| Variablen                                                                       | Zweck                                                                                                      |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `AUTH_SECRET`                                                                   | Secret von Better Auth für Signierung und Verschlüsselung                                                  |
+| `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`                            | GitHub-OAuth-App; authentifiziert auch die Anfrage für die Anzahl der GitHub-Sterne                        |
+| `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`                            | Google-OAuth-App                                                                                           |
+| `RESEND_API_KEY`, `RESEND_EMAIL_FROM`                                           | Resend-API-Schlüssel und die Standard-Absenderadresse                                                      |
+| `POLAR_SERVER`                                                                  | `sandbox` für die Entwicklung, `production` für echte Zahlungen                                            |
+| `POLAR_ACCESS_TOKEN`, `POLAR_ORGANIZATION_ID`                                   | Zugriff auf die Polar-API und die Organisation für Rabatte und Lizenzschlüssel                             |
+| `POLAR_WEBHOOK_SECRET`                                                          | Verifiziert Polar-Webhooks unter `/api/auth/polar/webhooks`                                                |
+| `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE`, `POLAR_PRODUCT_ID_AGENCY` | Polar-Produkte für die drei Checkout-Stufen                                                                |
+| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID`, `CLOUDFLARE_ACCESS_TOKEN`    | Zugriff auf die D1-HTTP-API für Drizzle Studio und Introspektion; die Anwendung verwendet das `DB`-Binding |
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+Die Umgebungen `development`, `preview` und `production` in `wrangler.jsonc` verlangen jeden der obigen Schlüssel. Servercode liest sie mit `import { env } from "cloudflare:workers"`. Keiner hat ein `VITE_`-Präfix, weil Vite solche Werte im Browser verfügbar macht.
+
+## Werte im Code
+
+Einige Einstellungen sind Code und keine Umgebungsvariablen:
+
+- `src/presentation/branding/index.ts`: der Name der Anwendung, `APP_DOMAIN` (die kanonische URL ist `https://` plus diese Domain), Kontaktadressen und das GitHub-Repository.
+- `src/modules/_core/constants/api.ts`: die Hosts, die Better Auth in jedem Modus akzeptiert (`appHostsForMode`).
+- `wrangler.jsonc`: Worker-Namen, eigene Domains sowie die IDs für D1 und KV.
+
+## Callbacks der Anbieter
+
+- GitHub und Google: `https://<host>/api/auth/callback/github` und `https://<host>/api/auth/callback/google`.
+- Polar-Webhooks: `https://<host>/api/auth/polar/webhooks`, signiert mit `POLAR_WEBHOOK_SECRET`.
+
+## Verwandte Anleitungen
+
+- [Umgebung und Bindings](/docs/tooling/environment)
+- [Referenz der Umgebung](/docs/reference/environment)

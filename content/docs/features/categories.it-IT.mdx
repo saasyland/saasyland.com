@@ -1,10 +1,46 @@
 ---
-title: Categorie
-description: Categoria CRUD use-cases.
+title: "Categorie"
+description: "Categorie e collezioni in D1, elencate nella schermata prodotti dell’amministrazione."
 ---
 
-## Modulo
+## Dati
 
-`modules/category/use-cases`.
+`src/modules/category/category.schema.ts` definisce la tabella `category`: `name`, `description`, `kind` (`category` o `collection`), `visibility` (`public` o `hidden`), `icon` (`Archive`, `FolderOpen` o `Puzzle`) e i timestamp.
 
-Utilizzato dall'organizzazione del prodotto UI e dai futuri filtri storefront.
+Casi d’uso in `src/modules/category/use-cases`, ognuno protetto dal permesso `category` corrispondente: `getCategories` (paginato, `kind` opzionale), `getCategory`, `createCategory`, `updateCategory` e `deleteCategory`. `createCategory` è la struttura di riferimento per un caso d’uso di mutazione:
+
+```ts
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["create"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .handler(({ data }) =>
+    db
+      .insert(category)
+      .values({
+        description: data.description ?? "",
+        icon: data.icon ?? "FolderOpen",
+        id: v7(),
+        kind: data.kind,
+        name: data.name,
+        visibility: data.visibility ?? "public",
+      })
+      .returning()
+      .get(),
+  )
+
+export const createCategoryMutation = mutationOptions({
+  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+})
+```
+
+I messaggi di validazione e di errore si trovano nei namespace `category.validations` e `category.errors`.
+
+## Schermata di amministrazione
+
+Le schede **Categorie** e **Collezioni** di `/admin/products` mostrano `categoryColumns` con `getCategoriesPageQuery({ kind, pageIndex, pageSize })`. È collegato solo l’elenco: nessuna schermata crea, modifica o elimina categorie. I prodotti non hanno ancora una relazione con le categorie, quindi la colonna del numero di elementi mostra un valore segnaposto.
+
+## Guide correlate
+
+- [Aggiungere un caso d’uso](/docs/guides/add-a-use-case)
+- [Funzioni server](/docs/guides/server-functions)

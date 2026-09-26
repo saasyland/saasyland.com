@@ -1,8 +1,66 @@
 ---
-title: パーミッションマトリクス
-description: 役割と権限ステートメントが生きている場所。
+title: "権限マトリクス"
+description: "ロール、権限ステートメント、それらをチェックするサーバー関数。"
 ---
 
-真実の源: `integrations/better-auth/auth.access.ts`.
+ロールと権限は、Better Auth のアクセス制御を使って `src/integrations/better-auth/auth.access.ts` で定義されています。同じ定義が、サーバー（`authorized`、ルートガード）と Better Auth のクライアントの両方で使われます。
 
-ドキュメント新規 `APP_STATEMENTS` あなたがそれらを追加するときに、ここにリソースとアクション. ガイド付きペア → 役割と権限.
+## ロール
+
+| ロール | コード     | 権限                                                                                                                |
+| ------ | ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| 管理者 | `admin`    | 以下のすべてのアプリケーションステートメントに加え、`user` と `session` に対する Better Auth の管理者ステートメント |
+| 顧客   | `customer` | なし。顧客は、セッションだけを必要とするサーバー関数を呼び出せます。                                                |
+
+新規ユーザーには `customer`（`DEFAULT_ROLE_CODE`）が割り当てられます。
+
+## ステートメント
+
+アプリケーションのステートメント（`APP_STATEMENTS`）：
+
+| リソース   | アクション                                      |
+| ---------- | ----------------------------------------------- |
+| `admin`    | `access`                                        |
+| `category` | `create`、`read`、`update`、`delete`            |
+| `order`    | `read`、`update`、`refund`                      |
+| `product`  | `create`、`read`、`update`、`delete`、`publish` |
+| `settings` | `manage`                                        |
+
+管理者に付与される Better Auth のステートメント：
+
+| リソース  | アクション                                                                                                 |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| `user`    | `create`、`list`、`set-role`、`ban`、`impersonate`、`delete`、`set-password`、`set-email`、`get`、`update` |
+| `session` | `list`、`revoke`、`delete`                                                                                 |
+
+## 権限がチェックされる場所
+
+| 権限                       | チェックする場所                                                                                                                 |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `admin: ["access"]`        | `/admin` レイアウトの `requireAdmin` と、サインイン後のリダイレクト                                                              |
+| `category` のアクション    | カテゴリのユースケース：`read`、`create`、`update`、`delete`                                                                     |
+| `product` のアクション     | 商品のユースケース：`read`、`create`、`update`、`delete`                                                                         |
+| `user` のアクション        | ユーザーのユースケース（それぞれ 1 つのアクション）。`ban` は `ban-user` と `unban-user` の両方に対応                            |
+| `session` のアクション     | `list-user-sessions`（`list`）、`revoke-user-session` と `revoke-user-sessions`（`revoke`）                                      |
+| セッションのみ（権限なし） | アカウント、ライセンス、二要素認証、ニュースレターの設定、自分のセッションに関するユースケース、および `stop-impersonating-user` |
+
+`order`、`product: ["publish"]`、`settings` は宣言されていますが、まだどのサーバー関数でもチェックされていません。
+
+## 権限をチェックする
+
+サーバー関数では、`authorized({ category: ["read"] })` のようにミドルウェアを使います。それ以外のコードでは、管理者ガードと同じように `hasPermission` を呼び出します。
+
+```ts
+export const requireAdmin = async (context: AuthRouteContext) => {
+  const result = await requireSignedIn(context)
+  if (!hasPermission({ permission: { admin: ["access"] }, role: result.session.user.role })) {
+    throw redirect({ replace: true, to: ROUTES.APP })
+  }
+  return result
+}
+```
+
+## 関連ページ
+
+- [ロールと権限](/docs/guides/roles-and-permissions)
+- [認証とセキュリティ](/docs/architecture/security-model)

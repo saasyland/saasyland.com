@@ -1,23 +1,97 @@
 ---
 title: "Routes and delivery"
-description: "Routes and delivery — SaaSy Land"
+description: "How route files are named and structured, and how the router is configured."
 ---
 
-`src/server.ts` canonicalizes locale URLs and keeps the locale cookie in sync. `src/router.tsx` creates a fresh QueryClient per router and connects it to SSR. Native route files declare components, guards, loaders, search validation, and metadata.
+## Route files
 
-Admin and customer layouts use `beforeLoad` guards. Every protected server function also checks its caller, because an RPC can be called independently of a page. Never place an authenticated response in a shared static cache.
+Routes are flat files in `src/routes`. Dots become path segments:
 
-```text
-Request → Worker locale middleware → TanStack Router
-        → beforeLoad session/permission guard
-        → loader: messages + authorized query data
-        → SSR + hydrated React presentation
-Mutation → validated server function → auth/rate limit → D1 or provider
-         → result/error → scoped query invalidation
+| File                  | URL                | Notes                                |
+| --------------------- | ------------------ | ------------------------------------ |
+| `__root.tsx`          | all pages          | Document shell and root namespaces   |
+| `_landing.tsx`        | none               | Pathless layout for marketing pages  |
+| `_landing.terms.tsx`  | `/terms`           | Page inside the landing layout       |
+| `admin.tsx`           | `/admin`           | Layout with the `requireAdmin` guard |
+| `admin.users.all.tsx` | `/admin/users/all` | Page inside the admin layout         |
+| `blog.index.tsx`      | `/blog`            | Index page of the `blog` layout      |
+| `docs.$.tsx`          | `/docs/*`          | Splat route for documentation pages  |
+| `api/auth.$.ts`       | `/api/auth/*`      | HTTP handler, no component           |
+
+The `createFileRoute("…")` IDs are string literals maintained by the router generator, which also writes `src/routeTree.gen.ts`. Files in `__test__` folders are ignored. Every URL has a constant in `ROUTES` (`src/routes.ts`), and links use `<Link to={ROUTES.X}>`.
+
+## Page routes
+
+A page route defines a `<Name>Page` component, a `NAMESPACE` constant directly above `export const Route`, and a loader that loads the page metadata and namespace in one `Promise.all`:
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: LegalPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
 ```
 
-## Related guides
+Extra data goes into the same `Promise.all`, for example `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` in `admin.users.all.tsx`. `pageHead` from `src/lib/seo.ts` builds the title, description, canonical, `hreflang` and Open Graph tags from the loader's `metadata`.
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+## Layout routes
+
+A layout route defines a `<Name>Layout` component, a `NAMESPACES` array and, for protected areas, a guard in `beforeLoad`:
+
+```tsx
+const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
+
+export const Route = createFileRoute("/app")({
+  beforeLoad: requireSignedIn,
+  component: AppLayout,
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  pendingComponent: AppPending,
+  staticData: { namespaces: NAMESPACES },
+})
+```
+
+The guards `requireSignedIn`, `requireAdmin`, `redirectIfSignedIn` and `redirectAfterAuth` come from `src/integrations/better-auth/auth.routes.ts`.
+
+## Loading skeletons
+
+Most navigations finish before any pending UI appears. Links preload their route on hover and touch, public pages are prerendered, and the router waits for its default `pendingMs` of one second before it shows anything. A skeleton appears only when a navigation takes longer, typically on the first visit to an area over a slow connection.
+
+There is no default pending component. Every layout and page route sets its own `pendingComponent`, and every skeleton mirrors the page it stands in for:
+
+- **Page skeletons** such as `SignInPending` and `LegalPending` live in the area's pending file and mark their root with `aria-busy="true"`. The files are `custom/auth/auth-pending.tsx`, the admin files in `custom/admin/` (`admin-pending.tsx` for the layout, one file per sidebar group and shared blocks in `pending-blocks.tsx`), `custom/app/app-pending.tsx`, `custom/blog/blog-pending.tsx`, `custom/marketing-pending.tsx` and `custom/docs-pending.tsx`.
+- **Layout skeletons** such as `AuthPending` and `MarketingPending` render the layout's chrome and choose the page skeleton for the current path from a map keyed by `ROUTES`. Entering an area from elsewhere therefore shows the right page. Chrome that needs no data, such as `Wordmark`, `PageFrame` and the marketing `Navigation`, renders for real.
+- **Text placeholders** are `Skeleton` bars with the real element's type token plus `h-lh scale-y-70`, so each bar fills exactly one line box. Boxes use the real heights and radii. Lists take their length from the same constants as the UI, such as `OAUTH_PROVIDERS` and `PASSWORD_RULES` in `src/data/auth.ts`.
+
+When you add a page, add its skeleton to the area's pending file, register it in the layout skeleton's map and set it as the route's `pendingComponent`.
+
+## Other route concerns
+
+- **Search params** are parsed by `validateSearch` in the route, for example the `tab` parameter of `/admin/products` or the `view` parameter of `/admin/blog`.
+- **Single-route server functions** may be defined in the route file with `createServerFn`, as `getBlogPosts` is in `blog.index.tsx`.
+- **HTTP endpoints** live in `src/routes/api`. See [TanStack Start HTTP handlers](/docs/architecture/api-layer).
+
+## Router
+
+`src/router.tsx` exports `getRouter`, which creates a new `QueryClient` and router for every request. It sets:
+
+- default error and not-found components from `presentation/components/custom`, and no default pending component (see [Loading skeletons](#loading-skeletons))
+- preloading on intent and a one-minute default stale time
+- a `rewrite` that removes the locale prefix from incoming URLs and adds it back to generated links
+- SSR query integration through `setupRouterSsrQueryIntegration`
+
+## Related pages
+
+- [Request lifecycle](/docs/architecture/request-lifecycle)
+- [Routes](/docs/reference/routes)
+- [Add an admin page](/docs/guides/add-an-admin-page)

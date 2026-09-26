@@ -1,23 +1,47 @@
 ---
-title: Środowisko lokalne
-description: Praca lokalna — SaaSy Land
+title: "Pierwsze uruchomienie"
+description: "Uruchomienie izolowanego podglądu testowego lub serwera deweloperskiego z Cloudflare."
 ---
 
-Zainstaluj Bun 1.4 i Node 24 lub nowszy, a następnie zależności projektu. Skopiuj `.env.example` do `.env.development` i ustaw długi, losowy `AUTH_SECRET`, publiczny `VITE_APP_URL` oraz integracje, których będziesz używać.
+## Izolowany podgląd testowy
 
-Serwer deweloperski korzysta z zasobów D1 i KV środowiska preview przez zdalne bindingi Cloudflare. Zaloguj się przez Wrangler i przed uruchomieniem zastosuj zapisane migracje SQLite w środowisku development. Polecenie deweloperskie generuje treść Fumadocs i uruchamia Vite+ z pluginem Cloudflare. Testy przeglądarkowe używają osobnego lokalnego magazynu w `.wrangler/test`.
-
-OAuth, e-maile i płatności wymagają danych usługodawców; podczas pracy używaj danych testowych i środowiska sandbox Polar. Testy korzystają z przykładowych wartości i mocków, zamiast wysyłać wiadomości lub obciążać klienta.
+Podgląd testowy buduje aplikację dla środowiska `test`: lokalne D1 i KV w `.wrangler/test`, fikcyjne dane uwierzytelniające z `.env.test`, wstępnie utworzone konta oraz przechwytywane żądania do Resend i Polar. Nie wymaga żadnych kont.
 
 ```sh
-bun install
+bun run db:migrate:test
+bun run db:seed:test
+bun run build:test
+bun run start:test
+```
+
+Otwórz http://127.0.0.1:3000 i zaloguj się na jedno z przygotowanych kont. Oba używają hasła `WorkerTestPassword123!` z `e2e/data/accounts.ts`.
+
+| Rola          | E-mail                            | Obszar roboczy |
+| ------------- | --------------------------------- | -------------- |
+| Administrator | `admin@saasyland.example.test`    | `/admin`       |
+| Klient        | `customer@saasyland.example.test` | `/app`         |
+
+Podgląd serwuje gotowy build, więc aby zobaczyć zmiany w kodzie źródłowym, zbuduj go ponownie.
+
+## Tryb deweloperski z Cloudflare
+
+`bun run dev` uruchamia serwer deweloperski z hot reloadem pod adresem http://localhost:3000. Jego bindingi `DB` i `CACHE` łączą się ze zdalnymi zasobami preview, więc zapisy wykonywane w trybie deweloperskim trafiają do bazy danych preview.
+
+```sh
+bunx wrangler login
 cp .env.example .env.development
 bun run db:migrate:development
 bun run dev
 ```
 
+1. Zaloguj się do Cloudflare za pomocą Wranglera.
+2. Uzupełnij `.env.development` zgodnie z opisem w [Zmiennych środowiskowych](/docs/getting-started/environment-variables), ustawiając `POLAR_SERVER=sandbox`.
+3. Na własnym koncie Cloudflare utwórz bazę D1 i przestrzeń nazw KV, a następnie zastąp identyfikatory `development` i `preview` w `wrangler.jsonc`; identyfikatory zapisane w repozytorium należą do istniejącego wdrożenia. Zobacz [Wdrożenie podglądu](/docs/getting-started/deploy-preview).
+4. Zastosuj migracje i uruchom serwer.
+
+Rejestracja e-mailem wymaga działającej konfiguracji Resend, ponieważ konta muszą zweryfikować adres e-mail przed zalogowaniem. Nie ma deweloperskiego konta administratora tworzonego automatycznie: zarejestruj się, zweryfikuj adres, a następnie ustaw `role` swojego użytkownika na `admin` za pomocą `bun run db:studio:development`.
+
 ## Powiązane przewodniki
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [Lokalne debugowanie](/docs/guides/local-debugging)
+- [Rozwiązywanie problemów](/docs/reference/troubleshooting)

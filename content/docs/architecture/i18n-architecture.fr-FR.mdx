@@ -1,16 +1,54 @@
 ---
-title: L'internationalisation et les lieux
-description: Internationalisation et localisations — SaaSy Land
+title: "Internationalisation et locales"
+description: "Comment les locales apparaissent dans les URL, comment les namespaces de traduction sont chargés et comment les composants les utilisent."
 ---
 
-Les messages vivent dans `messages/{locale}` pour les neuf langues configurées comme des fichiers d'espace de noms pointillés, par exemple `pages.admin.users.json`C'est vrai. Configuration locale, helpers d'URL, chargement de messages, métadonnées et helper de traduction d'email vivent dans `src/integrations/use-intl`.
+## Locales et URL
 
-Utilisations en anglais `/docs`; Utilisations polonaises `/pl-PL/docs`C'est vrai. Héritage `/en` et `/pl` les liens sont canonicisés. Les fichiers d'itinéraire déclarent `staticData.namespaces` et préchargez les mêmes espaces de noms dans leur chargeur. `TranslationsProvider` assemble les espaces de noms de route actifs dans un `IntlProvider`C'est vrai. Les messages partagés sont chargés à la racine ; les espaces de noms uniquement par courriel restent sur le serveur.
+SaaSy Land sert neuf locales : en-US (par défaut), de-DE, es-ES, fr-FR, it-IT, ja-JP, pl-PL, pt-BR et uk-UA. La locale par défaut n'a pas de préfixe (`/docs`) ; toutes les autres utilisent leur code complet (`/pl-PL/docs`). Le Worker redirige vers l'URL canonique les préfixes limités à la langue et ceux de la locale par défaut, comme `/pl/docs` ou `/en-US/docs`.
 
-Lire le local avec `getCurrentLocale` sur le serveur et `useLocale` dans les composants. L'URL choisit la locale du document. Les requêtes de fonction serveur utilisent le cookie local. Un changement de langue maintient le chemin, la requête et le fragment et recharge le document pour charger le contenu correspondant. Courir `bun run check:i18n` après avoir changé les clés.
+`getCurrentLocale()` est isomorphe. Côté serveur, elle lit l'URL, ou le cookie de locale pour les requêtes `/api` et les appels de fonctions serveur. Dans le navigateur, elle lit l'URL. Le Worker maintient le cookie synchronisé avec l'URL de la page. Les fonctions serveur qui renvoient du contenu localisé reçoivent la locale en entrée au lieu de dépendre du cookie.
 
-## Guides connexes
+## Messages
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+Les traductions se trouvent dans `messages/<locale>/<namespace>.json`. Le nom du fichier est le namespace, par exemple `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` ou `common`. Les namespaces à points sont fusionnés en un seul arbre de messages, si bien que `useTranslations("pages.admin.users")` lit `pages.admin.users.json`. Chaque namespace de page contient `metadata.title` et `metadata.description` pour les balises head. Les messages sont du JSON simple, sans types générés.
+
+## Chargement
+
+- **Les namespaces racine** (`common`, `components.*`, `errors*`) sont préchargés dans le `beforeLoad` racine.
+- **Les routes de page** déclarent `const NAMESPACE = "pages.x"`, le préchargent dans le loader et l'inscrivent dans `staticData.namespaces`.
+- **Les routes de layout** déclarent `const NAMESPACES = [...] as const` et procèdent de la même façon.
+- **`TranslationsProvider`** enveloppe le body du document dans le shell racine. Il combine les namespaces racine avec les `staticData.namespaces` des routes correspondantes et transmet le résultat à `IntlProvider`, de sorte que chaque écran, y compris les écrans d'erreur, est traduit.
+- **Les e-mails** chargent leur namespace côté serveur avec `loadNamespace`, dans le cas d'usage qui les envoie.
+
+## `src/integrations/use-intl`
+
+| Fichier              | Exports                                                                                             |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| `i18n.config.ts`     | `I18N` : `SUPPORTED_LOCALES`, `DEFAULT_LOCALE`, `COOKIE_NAME`, `DEFAULT_TIMEZONE`                   |
+| `i18n.messages.ts`   | `loadNamespace`, `loadPageMetadata`, `messagesQueryOptions`, `preloadNamespaces`, `ROOT_NAMESPACES` |
+| `i18n.middleware.ts` | `resolveLocale`, utilisé par le Worker pour les redirections et le cookie                           |
+| `i18n.paths.ts`      | `localizePathname`, `deLocalizePathname`, `canonicalizePathname`, `localeLinks`                     |
+| `i18n.utils.ts`      | `getCurrentLocale`, `localizeUrl`, `deLocalizeUrl`, `parseLocaleCookie`                             |
+
+## Liens
+
+Les liens du routeur n'ont pas à gérer la locale : `<Link to={ROUTES.SIGN_IN}>` reçoit le préfixe grâce au `rewrite` du routeur. `localizePathname` ne sert qu'aux URL brutes qui contournent le routeur, comme les valeurs `callbackURL` de Better Auth, les liens dans les e-mails et les éléments `<a href>` construits à la main :
+
+```ts
+const callbackURL = localizePathname({ locale: getCurrentLocale(), pathname: `${ROUTES.VERIFY_EMAIL}?verified=true` })
+```
+
+Le sélecteur de langue affiche un simple lien vers le même chemin dans chaque locale : changer de langue charge donc un nouveau document.
+
+## Traductions dans les composants
+
+Un composant appelle `useTranslations` exactement une fois et nomme le traducteur `t`. i18n-ally réattribue la portée de chaque appel `t()` après un appel ultérieur à `useTranslations`, et `bun run check:i18n` échoue sur les clés qui ne se résolvent pas dans leur portée. Un composant qui a besoin de deux namespaces sans rapport entre eux utilise leur parent commun ou `useTranslations()` avec des clés complètes.
+
+`bun run check:i18n` exécute trois scripts : `check-i18n.ts` (parité des clés entre les locales et résolution des clés dans leur portée), `check-message-formats.ts` (syntaxe des messages ICU) et `check-content.ts` (parité de la documentation et du blog entre les locales).
+
+## Pages associées
+
+- [use-intl](/docs/integrations/use-intl)
+- [Messages de traduction](/docs/guides/i18n-messages)
+- [Internationalisation](/docs/features/internationalization)

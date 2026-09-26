@@ -1,19 +1,61 @@
 ---
-title: Autenticazione
-description: Better Auth configurazione, credenziali e OAuth.
+title: "Autenticazione"
+description: "Better Auth con email e password, GitHub e Google, sessioni in D1 e guardie di rotta."
 ---
 
-## Proprietario
+## Configurazione
 
-`integrations/better-auth` — `auth.server.ts`, `auth.client.ts`, validazioni, errori, guardie.
+`src/integrations/better-auth/auth.server.ts` crea l’istanza di Better Auth:
 
-## Capacità
+- Adapter Drizzle su D1, ID UUID v7, prefisso dei cookie `saasyland`, cookie sicuri fuori dalle modalità `development` e `test`, e host consentiti per modalità tramite `appHostsForMode`.
+- Email e password con verifica obbligatoria dell’email, password da 8 a 1024 caratteri (`auth.constraints.ts`) e revoca delle sessioni alla reimpostazione della password.
+- Provider social GitHub e Google con collegamento degli account e token OAuth cifrati.
+- Plugin: `admin` con i ruoli di `auth.access.ts`, `twoFactor`, Polar (`checkout`, `portal`, `webhooks`) e `tanstackStartCookies`.
+- Rate limiting salvato nella tabella `rate_limit` di D1; `/get-session`, `/sign-out` e il webhook di Polar ne sono esclusi.
+- Un campo utente aggiuntivo `timezone` e il cambio email con un’email di conferma.
 
-- Email/password
-- GitHub + Google OAuth
-- Cookie di sessione tramite Better Auth
-- Protezione forzata del proxy per `/admin` e `/app`
+`src/routes/api/auth.$.ts` passa ogni GET e POST sotto `/api/auth` a `auth.handler`.
 
-## Esame
+## Schermate
 
-Aggiungere i social provider in configurazione server auth; mantenere i segreti in env; aggiornare i documenti + `.env.example`.
+Il layout `/auth` precarica i namespace `auth.*` e mostra il pannello di accesso accanto al modulo.
+
+| Rotta                                           | Componenti                                | Comportamento                                                                                                                                      |
+| ----------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/auth/sign-in`                                 | `OAuthButtons`, `SignInForm`              | Accede con `signIn.email` di Better Auth. Un’email non verificata porta a `/auth/verify-email`; un account con 2FA prosegue su `/auth/two-factor`. |
+| `/auth/sign-up`                                 | `OAuthButtons`, `SignUpForm`              | Chiama la funzione server `signUpWithPassword`, poi passa a `/auth/verify-email`.                                                                  |
+| `/auth/callback`                                | nessuno                                   | `redirectAfterAuth` manda gli amministratori su `/admin` e tutti gli altri su `/app`.                                                              |
+| `/auth/verify-email`                            | `VerifyEmailForm`                         | Vedi [Verifica dell’email](/docs/features/email-verification).                                                                                     |
+| `/auth/forgot-password`, `/auth/reset-password` | `ForgotPasswordForm`, `ResetPasswordForm` | Vedi [Reimpostazione della password](/docs/features/password-reset).                                                                               |
+| `/auth/two-factor`                              | `TwoFactorForm`                           | Vedi [Autenticazione a due fattori](/docs/features/two-factor).                                                                                    |
+
+Dopo un accesso riuscito, `usePostAuthRedirect` svuota le cache delle query e del router e naviga verso `/auth/callback`. Gli errori di Better Auth restituiti come `?error=` su `/auth/sign-in` mostrano il messaggio corrispondente di `auth.errors`.
+
+## Guardie di rotta
+
+`src/integrations/better-auth/auth.routes.ts` esporta le guardie usate in `beforeLoad`:
+
+- `requireSignedIn` protegge `/app` e reindirizza a `/auth/sign-in`.
+- `requireAdmin` protegge `/admin`; un utente autenticato senza il permesso `admin: ["access"]` va su `/app`.
+- `redirectIfSignedIn` tiene gli utenti autenticati lontani da accesso e registrazione.
+- `redirectAfterAuth` gestisce `/auth/callback`.
+
+Le guardie leggono la sessione tramite `getCurrentSessionQuery` e svuotano la cache delle query quando cambia l’utente autenticato.
+
+## Funzioni server
+
+Le funzioni server usano il middleware di `auth.middleware.ts`: `authorized()` richiede una sessione, `authorized({ user: ["list"] })` controlla anche un permesso e `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` limita le chiamate per IP del client.
+
+```ts
+export const signOutUser = createServerFn({ method: "POST" })
+  .middleware([authorized()])
+  .handler(({ context }) => auth.api.signOut({ headers: context.requestHeaders }))
+```
+
+Esistono due ruoli, `admin` e `customer` (quello predefinito per i nuovi utenti).
+
+## Guide correlate
+
+- [Flussi di autenticazione](/docs/guides/auth-flows)
+- [Ruoli e permessi](/docs/guides/roles-and-permissions)
+- [Better Auth](/docs/integrations/better-auth)

@@ -1,10 +1,43 @@
 ---
-title: Tableau de bord Admin
-description: Statistiques de tableau de bord, graphiques, et des widgets utilisateurs récents.
+title: "Tableau de bord d’administration"
+description: "La structure de /admin et le tableau de bord : compteurs et tableau des utilisateurs réels, graphique des revenus statique."
 ---
 
-## Itinéraire
+## Structure d’administration
 
-`/admin` — compose la grille des statistiques, le tableau, le tableau des utilisateurs avec Suspense.
+`src/routes/admin.tsx` protège toutes les pages d’administration avec `requireAdmin` et précharge les espaces de noms communs. Le layout affiche :
 
-Préférez les agrégations réelles via des modules que vous durcissez les métriques; gardez les squelettes exempts d'importations uniquement pour les serveurs.
+- `AdminSidebar`, `AdminBreadcrumbs` et `AdminCommandPalette` (ouverte avec ⌘K), tous construits à partir de `ADMIN_SIDEBAR_GROUPS` dans `src/data/admin.ts` : Vue d’ensemble (Tableau de bord, Analytique), Offres (Produits, Modèles de tarification), Contenu (Blog, Page d’accueil) et Administration (Gestion des utilisateurs, Paiements, Paramètres).
+- Le widget utilisateur en bas de la barre latérale, avec un lien vers les paramètres et `SignOutButton`.
+
+## Tableau de bord
+
+`/admin` (`src/routes/admin.index.tsx`) précharge `getProductsQuery` et `getUsersQuery` dans son loader et compose trois widgets de `src/presentation/components/custom/admin/dashboard` :
+
+- `DashboardStats` (réel) : le nombre d’utilisateurs, le nombre de produits et les utilisateurs en attente de vérification de leur e-mail.
+- `RevenueChart` (démo) : un SVG statique aux axes fixes ; les boutons de période ne font rien.
+- Une carte des utilisateurs (réelle) : les utilisateurs les plus récents avec filtres de recherche et de statut, cinq lignes par page.
+
+```tsx
+<DataTable
+  columns={dashboardUserColumns}
+  data={users.rows}
+  filters={[
+    { columnId: "user", placeholder: t("users.search"), type: "search" },
+    {
+      columnId: "status",
+      label: t("users.filters.status"),
+      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+      type: "select",
+    },
+  ]}
+  options={{ initialState: { pagination: PREVIEW_PAGINATION }, selectable: true }}
+/>
+```
+
+Le tableau travaille dans le navigateur sur la première page de `getUsersQuery` (dix utilisateurs). **Tout voir** renvoie vers `/admin/users` lorsqu’il y a davantage d’utilisateurs. **Ajouter un produit** renvoie vers `/admin/products/create` ; **30 derniers jours** est désactivé et **Exporter** n’est pas branché.
+
+## Guides associés
+
+- [Ajouter une page d’administration](/docs/guides/add-an-admin-page)
+- [DataTable](/docs/ui/data-table)

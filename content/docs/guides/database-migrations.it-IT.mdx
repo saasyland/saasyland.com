@@ -1,23 +1,45 @@
 ---
-title: D1 e Drizzle
-description: D1 e Drizzle — SaaSy Land
+title: "Migrazioni del database"
+description: "Modifica uno schema Drizzle, genera la migrazione SQL e applicala a ogni database D1."
 ---
 
-Cloudflare D1 è il database delle applicazioni. Uso degli schemi del modulo `drizzle-orm/sqlite-core`; `src/integrations/drizzle-orm/drizzle.schemas.ts` Li raccoglie. `drizzle.database.ts` crea l'adattatore Drizzle D1 da `env.DB`.
+Cloudflare D1 (SQLite) è il database dell'applicazione. Gli schemi dei moduli usano `drizzle-orm/sqlite-core`, `src/integrations/drizzle-orm/drizzle.schemas.ts` li raccoglie e drizzle-kit scrive le migrazioni in `src/integrations/drizzle-orm/migrations/` con un prefisso di timestamp.
 
-Le date usano i timestamp interi di SQLite in millisecondi. I campi booleani usano SQLite integer modalità booleana. Le relazioni, i vincoli unici e le chiavi straniere rimangono nello schema. Mantenere un'operazione atomica con un'adeguata dichiarazione SQL o D1 batch; non introdurre un PostgreSQL pool di connessione o una transazione interattiva.
+## Flusso di lavoro
 
-Corri! `db:generate` dopo aver cambiato schemi, rivedere e commettere SQL generato, e applicarlo localmente. Le migrazioni remote sono comandi specifici per l'ambiente. Un database distribuito PostgreSQL richiede un'esportazione e un'importazione separate; generare le migrazioni SQLite non trasferisce i dati esistenti.
+1. Modifica `<table>.schema.ts`. Per una nuova tabella, esportala anche da `drizzle.schemas.ts`.
+2. Genera l'SQL:
 
 ```sh
 bun run db:generate
-bun run db:migrate:local
-# After configuring real preview bindings:
-bun run db:migrate:preview
 ```
 
-## Guide correlate
+3. Rivedi il file generato ed esegui il commit insieme alla modifica dello schema.
+4. Applicalo al database con cui lavori e a ogni database remoto prima di distribuire codice che ne dipende.
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+## Comandi
+
+| Comando                          | Database                                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `bun run db:migrate:test`        | Database di test locale in `.wrangler/test`, usato da Playwright e dall'anteprima isolata         |
+| `bun run db:migrate:local`       | Database di sviluppo locale; `bun run dev` usa comunque i binding remoti                          |
+| `bun run db:migrate:development` | Database remoto dell'ambiente di sviluppo, condiviso per impostazione predefinita con l'anteprima |
+| `bun run db:migrate:preview`     | Database remoto dell'anteprima                                                                    |
+| `bun run db:migrate:production`  | Database remoto di produzione                                                                     |
+
+`bun run db:studio:development`, `db:studio:preview` e `db:studio:production` aprono Drizzle Studio, mentre gli script `db:introspect:*` ispezionano D1 tramite la sua API HTTP. Entrambi richiedono `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` e `CLOUDFLARE_ACCESS_TOKEN` nel file di ambiente corrispondente.
+
+## Convenzioni dello schema
+
+- Le date sono `integer(..., { mode: "timestamp_ms" })` con valore predefinito `(unixepoch() * 1000)`.
+- I booleani sono `integer(..., { mode: "boolean" })`.
+- Indici, vincoli di unicità, chiavi esterne e relazioni restano nel file dello schema.
+- D1 non ha transazioni interattive. Mantieni un'operazione atomica con una singola istruzione SQL o con `db.batch([...])`, come fanno `getUsers` e il limitatore di richieste.
+
+## Test
+
+Il binding D1 di test applica ogni file SQL della cartella delle migrazioni a un database SQLite in memoria, quindi i test che usano D1 vengono eseguiti sullo schema migrato. `src/integrations/drizzle-orm/__test__/` verifica che lo schema, i suoi indici e le sue chiavi esterne vengano creati correttamente. Vedi [Scrivere i test](/docs/guides/writing-tests).
+
+## Dati PostgreSQL esistenti
+
+Queste migrazioni creano solo lo schema SQLite. Spostare i dati da una precedente installazione PostgreSQL richiede un'esportazione e un'importazione separate e revisionate.

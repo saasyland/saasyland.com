@@ -1,6 +1,48 @@
 ---
-title: Courriel transactionnel
-description: Resend livraison pour l'auth et le courrier produit.
+title: "E-mails transactionnels"
+description: "Modèles React Email dans src/presentation/emails, envoyés par les cas d’usage via Resend."
 ---
 
-Voir Intégrations → Resend et Guides → Modèles d'email. La vérification / réinitialisation du courrier est nécessaire pour les flux d'auth locaux; les reçus de produits sont accompagnés de paiements.
+## Modèles
+
+Les modèles se trouvent dans `src/presentation/emails`. Chaque fichier ne contient que du balisage et exporte sa constante d’espace de noms :
+
+| Modèle                         | Espace de noms                           | Envoyé par                                            |
+| ------------------------------ | ---------------------------------------- | ----------------------------------------------------- |
+| `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail` (hook Better Auth)                  |
+| `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail` (hook Better Auth)           |
+| `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail` (hook Better Auth) |
+| `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                               |
+| `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`, vers `CONTACT_EMAIL` |
+
+Un modèle reçoit `locale` et `messages` et traduit avec `createTranslator` de use-intl :
+
+```tsx
+const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
+```
+
+## Envoi
+
+Le cas d’usage charge les messages, rend le modèle et l’envoie (`src/modules/verification/use-cases/send-verify-email.ts`) :
+
+```ts
+const locale = getCurrentLocale()
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+verifyUrl.searchParams.set("token", token)
+await sendEmail({
+  idempotencyKey: `verify-email/${token}`,
+  react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+  subject: createTranslator({ locale, messages })("subject"),
+  to: user.email,
+})
+```
+
+`sendEmail` (`src/integrations/resend/resend.utils.ts`) envoie via Resend depuis `RESEND_EMAIL_FROM`, sauf si un `from` est fourni (la notification au propriétaire utilise `NOTIFICATIONS_EMAIL`), transmet la clé d’idempotence et lève une erreur en cas d’échec.
+
+Les e-mails de compte utilisent la langue de la requête courante. Les e-mails de newsletter utilisent la langue envoyée avec le formulaire ; la notification au propriétaire est toujours en `en-US`.
+
+## Guides associés
+
+- [Modèles d’e-mail](/docs/guides/email-templates)
+- [Resend](/docs/integrations/resend)

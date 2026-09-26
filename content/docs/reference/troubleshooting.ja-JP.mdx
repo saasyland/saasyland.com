@@ -1,16 +1,48 @@
 ---
-title: トラブルシューティング
-description: トラブルシューティング — SaaSy Land
+title: "トラブルシューティング"
+description: "開発、テスト、デプロイ時によくあるエラーとその対処法。"
 ---
 
-ローカルクエリが不足しているテーブルを報告する場合、実行 `bun run db:migrate:local`; ブラウザのテストの使用 `db:migrate:test` 別の D1 の結合。 認証が失敗した場合は、環境 URL を確認してください。 `AUTH_SECRET`プロバイダーの認証情報とコールバックURL。
+## データベース
 
-翻訳エラーを見逃すと、通常、ルートから省略された名前空間や、1つのロケールで欠落しているキーが表示されます。 ログイン `check:i18n`. . ドキュメント 404s の場合、ローカライズされた MDX ファイル名、ページメタデータ、および相対ソースリンクを確認します。 プレンダーの失敗については、ビルド出力で最初の失敗URLを調べます。
+**`bun run dev` で `no such table` が発生する。** `development` 環境は、リモートのプレビュー用 D1 データベースを使います。`bun run db:migrate:development` で、そのデータベースにマイグレーションを適用してください。ローカルの開発用データベースには `bun run db:migrate:local` を使います。
 
-プレースホルダーのバインディングには、ターゲット環境で D1 と KV ID が使われます。 ビルドとテストの操作は、リモートリソースを自動的に作成しません。
+**Playwright で `no such table` が発生する。** ブラウザテストは専用のローカルデータベースを使います。`bun run db:migrate:test` と `bun run db:seed:test` を実行するか、Playwright にアプリを起動させてください。後者の場合は両方が自動で実行されます。
 
-## 関連ガイド
+**Vitest のテーブルが古い。** D1 のモックは、起動時に `src/integrations/drizzle-orm/migrations` 内のすべての SQL ファイルを適用します。スキーマを変更したら、`bun run db:generate` でマイグレーションを生成してください。
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+## 開発サーバー
+
+**開発サーバーが起動しない。** 開発サーバーは `strictPort` を指定してポート 3000 を使うため、ポートが使用中だと起動に失敗します。そのポートを使っている他のプロセスを停止してください。
+
+**サインインや OAuth が失敗する。** 環境ファイルの `AUTH_SECRET` と OAuth クライアントの認証情報を確認してください。また、プロバイダーのコールバック URL が、使用しているホストの `/api/auth/callback/<provider>` を指していることも確認します。Better Auth は、ビルドモードごとに設定されたホストだけを受け付けます。ローカルでは `localhost:3000` と `127.0.0.1:3000` です。
+
+**Worker の型にバインディングやシークレットが含まれていない。** `wrangler.jsonc` を変更した後に `bun run cf-typegen` を実行し、変数を `src/types/bindings.d.ts` に追加してください。
+
+**カスタムの `text-*` クラスがマージ時に消える。** `cn` は、`src/lib/cn.config.ts` から生成されたテーブルに依存しています。このテーブルは `bun run dev`、`bun run check`、各ビルドで再生成されます。`.source/cn-tables.ts` が存在しない場合は、`bun run generate:cn` を実行してください。
+
+## 翻訳
+
+**`No messages/<locale>/<namespace>.json` と表示される。** ルートが、そのロケールにファイルが存在しない名前空間を宣言しています。すべてのロケールでファイルを作成してください。
+
+**キーがパスのまま表示される、または `check:i18n` がキーの欠落を報告する。** そのキーがいずれかのロケールで欠けているか、コンポーネントが `useTranslations` 呼び出しのスコープ外でキーを読み取っています。コンポーネントごとに `useTranslations` を 1 回だけ使い、`bun run check:i18n` を実行してください。
+
+## ドキュメント
+
+**ドキュメントページが 404 を返す。** ファイル名を `<page>.<locale>.mdx` にし、フォルダーの `meta.<locale>.json` の `pages` に列挙する必要があります。`bun run content` を実行して `.source` を再生成してください。
+
+**`check-content.ts` が失敗する。** このスクリプトは、すべてのロケールを en-US と比較します。`Changed code examples` は、コードブロックが英語版と異なることを意味します。コードブロックは同一でなければなりません。`Untranslated English paragraph` は、段落が翻訳されずにコピーされたことを意味します。`Missing <file>` は、ロケールのファイルが存在しないことを意味します。
+
+## テストとデプロイ
+
+**`test:coverage` が失敗する。** カバレッジは、行、ステートメント、関数、分岐のすべてで 100% である必要があります。カバーされていない行は、`coverage/` のレポートで確認できます。
+
+**デプロイが `verify-bindings.ts` で止まる。** `wrangler.jsonc` の対象環境に、D1 や KV のプレースホルダー ID が残っています。Cloudflare でリソースを作成し、ID を置き換えてください。
+
+**プリレンダリングのビルドが失敗する。** ビルドの出力に、最初に失敗した URL が表示されます。`bun run dev` でそのページを開き、エラーを確認してください。
+
+## 関連ページ
+
+- [ローカルでのデバッグ](/docs/guides/local-debugging)
+- [よくある質問](/docs/reference/faq)
+- [環境とバインディング](/docs/reference/environment)

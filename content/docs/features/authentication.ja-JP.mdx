@@ -1,19 +1,61 @@
 ---
-title: 認証
-description: Better Auth 設定、認証、OAuth 。
+title: "認証"
+description: "メールとパスワード、GitHub と Google、D1 のセッション、ルートガードを備えた Better Auth。"
 ---
 
-## オーナーシップ
+## 設定
 
-`integrations/better-auth` — `auth.server.ts`, `auth.client.ts`, 検証, エラー, ガード.
+`src/integrations/better-auth/auth.server.ts` が Better Auth のインスタンスを作成します。
 
-## 能力・能力
+- D1 上の Drizzle アダプター、UUID v7 の ID、Cookie プレフィックス `saasyland`、`development` と `test` 以外のモードでのセキュア Cookie、`appHostsForMode` によるモード別の許可ホスト。
+- メール確認が必須のメールとパスワード認証、8〜1024 文字のパスワード（`auth.constraints.ts`）、パスワードリセット時のセッション失効。
+- アカウント連携と暗号化された OAuth トークンを備えた GitHub と Google のソーシャルプロバイダー。
+- プラグイン: `auth.access.ts` のロールを使う `admin`、`twoFactor`、Polar（`checkout`、`portal`、`webhooks`）、`tanstackStartCookies`。
+- D1 の `rate_limit` テーブルに保存されるレート制限。`/get-session`、`/sign-out`、Polar の Webhook は対象外です。
+- 追加のユーザーフィールド `timezone` と、確認メール付きのメールアドレス変更。
 
-- メール/パスワード
-- GitHub + Google OAuth GitHub\} \{0\_\}\}\} Google\} \{2 GitHub \{0\>\}\}\}\}
-- セッションクッキー(Better Auth)
-- プロキシ強化保護 `/admin` そして、 `/app`
+`src/routes/api/auth.$.ts` は `/api/auth` 配下のすべての GET と POST を `auth.handler` に渡します。
 
-## 拡張する
+## 画面
 
-auth サーバ config でソーシャル プロバイダーを追加します。 env でシークレットをキープします。docs を更新します。 + `.env.example`.
+`/auth` レイアウトは `auth.*` 名前空間をプリロードし、フォームの横に案内パネルを表示します。
+
+| ルート                                          | コンポーネント                            | 動作                                                                                                                                                 |
+| ----------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/auth/sign-in`                                 | `OAuthButtons`、`SignInForm`              | Better Auth の `signIn.email` でサインインします。未確認のメールは `/auth/verify-email` へ、2FA が有効なアカウントは `/auth/two-factor` へ進みます。 |
+| `/auth/sign-up`                                 | `OAuthButtons`、`SignUpForm`              | サーバー関数 `signUpWithPassword` を呼び出し、`/auth/verify-email` へ移動します。                                                                    |
+| `/auth/callback`                                | なし                                      | `redirectAfterAuth` が管理者を `/admin` へ、それ以外を `/app` へ送ります。                                                                           |
+| `/auth/verify-email`                            | `VerifyEmailForm`                         | [メール確認](/docs/features/email-verification)を参照。                                                                                              |
+| `/auth/forgot-password`、`/auth/reset-password` | `ForgotPasswordForm`、`ResetPasswordForm` | [パスワードリセット](/docs/features/password-reset)を参照。                                                                                          |
+| `/auth/two-factor`                              | `TwoFactorForm`                           | [二要素認証](/docs/features/two-factor)を参照。                                                                                                      |
+
+サインインに成功すると、`usePostAuthRedirect` がクエリキャッシュとルーターキャッシュをクリアして `/auth/callback` へ移動します。`/auth/sign-in` に `?error=` として返された Better Auth のエラーは、対応する `auth.errors` のメッセージで表示されます。
+
+## ルートガード
+
+`src/integrations/better-auth/auth.routes.ts` は `beforeLoad` で使うガードをエクスポートします。
+
+- `requireSignedIn` は `/app` を保護し、`/auth/sign-in` へリダイレクトします。
+- `requireAdmin` は `/admin` を保護します。`admin: ["access"]` 権限のないサインイン済みユーザーは `/app` へ移動します。
+- `redirectIfSignedIn` はサインイン済みユーザーをサインインと登録の画面から遠ざけます。
+- `redirectAfterAuth` は `/auth/callback` を処理します。
+
+ガードは `getCurrentSessionQuery` でセッションを読み取り、サインイン中のユーザーが変わるとクエリキャッシュをクリアします。
+
+## サーバー関数
+
+サーバー関数は `auth.middleware.ts` のミドルウェアを使います。`authorized()` はセッションを要求し、`authorized({ user: ["list"] })` はさらに権限を確認し、`withRateLimit(kind, RATE_LIMITS.SENSITIVE)` はクライアント IP ごとに呼び出し回数を制限します。
+
+```ts
+export const signOutUser = createServerFn({ method: "POST" })
+  .middleware([authorized()])
+  .handler(({ context }) => auth.api.signOut({ headers: context.requestHeaders }))
+```
+
+ロールは `admin` と `customer`（新規ユーザーの既定）の 2 つです。
+
+## 関連ガイド
+
+- [認証フロー](/docs/guides/auth-flows)
+- [ロールと権限](/docs/guides/roles-and-permissions)
+- [Better Auth](/docs/integrations/better-auth)

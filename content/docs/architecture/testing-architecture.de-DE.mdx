@@ -1,26 +1,59 @@
 ---
-title: Testen und Continuous Integration.
-description: Testen und CI — SaaSy Land
+title: "Tests und CI"
+description: "Die Vitest-Projekte, die 100-%-Schwelle für die Testabdeckung, die Playwright-Suite und die CI-Pipeline."
 ---
 
-Vite+ führt Vitest in drei Projekten aus: Node-Tests, Integrationstests und jsdom-Komponententests. Behalten Sie die bestehenden Verhaltenstests neben dem zugehörigen Code im Ordner `__test__`. Importieren Sie die Test-APIs aus `vite-plus/test`. Verwenden Sie Playwright für vollständige Browserabläufe und Rendering-Prüfungen.
+## Vitest-Projekte
 
-Die gemeinsame Konfiguration stellt lokale D1- und KV-Mocks bereit. D1 führt die eingeprägten SQL-Migrationen gegen SQLite aus. Die Server-Funktions-RPC-Schnittstelle behält die echten Middleware- und Validierungs-Pipelines von TanStack bei. Komponenten-Rendering-Hilfsfunktionen stellen echte QueryClient- und Router-Kontexte bereit. Externe E-Mail-, OAuth- und Zahlungsaufrufe werden in den Tests simuliert.
+`vp test` führt Vitest über Vite+ mit drei Projekten aus, die in `vite.config.ts` definiert sind. Tests liegen in einem `__test__`-Ordner neben dem Code, den sie abdecken, und importieren die Test-APIs aus `vite-plus/test`.
 
-Führen Sie das fokussierte Projekt parallel zur Bearbeitung aus, anschließend das vollständige Paket, die Abdeckungsprüfung, die Überprüfung und den Vorschau-Build. Die Browser-Tests überprüfen öffentliche Seiten, Authentifizierungs-Weiterleitungen, SSR ohne JavaScript und die Client-Navigation. Die Continuous Integration (CI) verwendet lokale Bindungen und benötigt weder eine aktive Datenbank noch Provider-Geheimnisse.
+| Projekt       | Umgebung | Dateimuster             |
+| ------------- | -------- | ----------------------- |
+| `node`        | Node     | `*.test.ts`             |
+| `integration` | Node     | `*.integration.test.ts` |
+| `component`   | jsdom    | `*.component.test.tsx`  |
+
+Kein Test kontaktiert ein echtes Cloudflare-Konto oder einen echten Anbieter:
+
+- D1 ist eine SQLite-Datenbank im Arbeitsspeicher, die die eingecheckten Migrationen ausführt, und KV ist eine Map im Arbeitsspeicher. KV und die Rate-Limit-Zähler werden vor jedem Test zurückgesetzt.
+- `createServerFn` wird ersetzt, sodass eine Server Function im selben Prozess durch ihre echte Middleware und ihren echten Validator läuft.
+- Komponententests rendern mit einem echten `QueryClient` und einem echten Router.
+- Requests für E-Mail, OAuth und Zahlungen werden gemockt.
+
+## Testabdeckung
+
+`bun run test:coverage` erzwingt 100 % für Zeilen, Anweisungen, Funktionen und Branches in ganz `src`. Ausgenommen sind die shadcn-Primitives, `src/platform/testing`, generierte Dateien und Typdeklarationen. Decke echtes Verhalten ab und lösche Branches, die nie ausgeführt werden können, statt Globals zu stubben, um sie zu erreichen.
+
+## Browsertests
+
+Playwright-Specs liegen in `e2e/specs`, die Page Objects in `e2e/pages` und die Fixtures in `e2e/fixtures`. Sie laufen gegen einen produktionsnahen Build, der die Wrangler-Umgebung `test` nutzt: lokale D1 und lokaler KV in `.wrangler/test`, Dummy-Secrets aus `.env.test` und ein Test-Worker, der ausgehende E-Mails mitschneidet, damit eine Spec einem echten Verifizierungslink folgen kann. Lokal migriert, befüllt, baut und startet Playwright die App selbst. Die Suite läuft in Chromium und WebKit.
+
+## Skripte
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
 bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:pr
 ```
 
-## Verwandte Anleitungen.
+## CI
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+`.github/workflows/ci.yml` läuft bei Pull Requests und bei Pushes auf `main`:
+
+1. `bun run check`: Formatierung, Lint, Typprüfungen und `check:i18n`
+2. `bun run test:coverage`
+3. Ein Test-Build und die Playwright-Suite in Chromium
+4. Ein Preview-Deployment für Pull Requests bzw. ein Produktions-Deployment für `main`
+
+## Verwandte Seiten
+
+- [Tests](/docs/tooling/testing)
+- [Playwright](/docs/tooling/playwright)
+- [Tests schreiben](/docs/guides/writing-tests)

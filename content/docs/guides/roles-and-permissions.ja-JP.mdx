@@ -1,14 +1,61 @@
 ---
-title: 役割と権限
-description: 役割と権限 — SaaSy Land
+title: "ロールと権限"
+description: "auth.access.ts でステートメントとロールを定義し、ルートガードとサーバー関数でチェックします。"
 ---
 
-役割とステートメントは、 `src/integrations/better-auth/auth.access.ts`. . デフォルトのロールは顧客です。 管理者アクセスの確認 `requireAdmin`; 各サーバー操作は必須の記述をと点検します `withAuth`.
+アクセス制御には Better Auth の admin プラグインを使います。ステートメント、ロール、権限チェックは `src/integrations/better-auth/auth.access.ts` にあります。
 
-ユーザー/セッションユースケースでロール変更、禁止、セッションの取消、偽装を保ちましょう。 リクエストセッションから現在のユーザーを導き出し、ミューテーション後に影響を受けるクエリグループを無効化します。 ボタンを隠すことは、プレゼンテーションの動作であり、権限を置換しません。
+## ステートメントとロール
 
-## 関連ガイド
+```ts
+const APP_STATEMENTS = {
+  admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
+  settings: ["manage"],
+} as const
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
+
+export const ROLES = {
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
+}
+```
+
+- Better Auth の `defaultStatements` は、`user` と `session` のリソースを追加します（`user: ["list", "set-role", "ban", "impersonate", "delete"]` や `session: ["list", "revoke"]` など）。
+- `admin` はすべてのステートメントを持ちます。新規ユーザーのデフォルトロールである `customer` は、何も持ちません。
+- `ROLE_VALUES` は、`user.role` カラムと `user.zod.ts` のロールのスキーマに型を与えます。
+
+## 権限をチェックする場所
+
+| レイヤー           | チェック                                                                  |
+| ------------------ | ------------------------------------------------------------------------- |
+| ルートガード       | `requireAdmin` が `/admin` 領域全体で `admin: ["access"]` を要求します    |
+| サーバー関数       | 保護されたすべての操作で `authorized({ product: ["update"] })` を使います |
+| サインイン済みのみ | 呼び出し元自身のデータに対する操作には `authorized()` を使います          |
+| その他の場所       | `hasPermission({ permission, role })` が真偽値を返します                  |
+
+ルートガードが決めるのは、どのページをレンダリングするかだけです。サーバー関数は RPC で直接呼び出せるため、それぞれが自分で権限をチェックする必要があります。ボタンを非表示にするのは表示上の処理であり、認可ではありません。
+
+## 権限を追加する
+
+1. `APP_STATEMENTS` にアクションを追加します。例えば `report: ["read", "export"]` です。
+2. `admin` には自動的に付与されます。他のロールには、必要に応じて `ROLES` で付与します。
+3. サーバー関数でその権限を要求します：`.middleware([authorized({ report: ["export"] })])`。
+4. 許可されるケースと `FORBIDDEN` のケースの両方をテストします。
+
+## ロールを追加する
+
+1. `ROLE_CODES` と `ROLE_VALUES` にコードを追加します。
+2. `ROLES` で、そのロールのステートメントを定義します。
+3. 9 つのロケールすべての `messages/<locale>/pages.admin.users.json` にある `filters.role.options` に、ロールのラベルを追加します。
+
+認証クライアント（`auth.client.ts`）は `ac` と `ROLES` を受け取るため、ブラウザでの管理操作も同じ定義を使います。
+
+## ユーザーとセッションの管理
+
+user モジュールと session モジュールは、Better Auth の admin API をユースケースでラップしており、それぞれに固有の権限があります：`setUserRole`、`banUser`、`unbanUser`、`impersonateUser`、`deleteUser`、`setUserPassword`、`revokeUserSession` など。`revokeSession` のように呼び出し元自身のデータに対する操作は、`authorized()` を使い、`context.auth.user.id` で絞り込みます。
+
+テスト用データベース以外に、管理者のシードはありません。最初の管理者を作成するには、サインアップしてメールアドレスを認証し、D1 でそのユーザーの `role` を `admin` に設定します。例えば `bun run db:studio:development` を使えます。

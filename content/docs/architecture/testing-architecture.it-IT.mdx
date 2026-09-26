@@ -1,26 +1,59 @@
 ---
-title: Test e CI
-description: Test e CI — SaaSy Land
+title: "Test e CI"
+description: "I progetti Vitest, la soglia di copertura al 100%, la suite Playwright e la pipeline CI."
 ---
 
-Vite+ funziona Vitest in tre progetti: test di nodo, test di integrazione e test componenti jsdom. Tenere i test di comportamento esistenti accanto al codice che esercitano sotto `__test__`. Importare API di test da `vite-plus/test`. Utilizzare Playwright per flussi di browser completi e controlli di rendering.
+## Progetti Vitest
 
-La configurazione condivisa fornisce servizi locali D1 e KV Mocks. D1 gestisce le migrazioni SQL verificate contro SQLite. Il ponte RPC server-funzione preserva il vero middleware e pipeline di validazione di TanStack. Gli helper di rendering dei componenti forniscono reali contesti QueryClient e Router. OAuth e le chiamate di pagamento sono mocked in test.
+`vp test` esegue Vitest tramite Vite+ con tre progetti definiti in `vite.config.ts`. I test si trovano in una cartella `__test__` accanto al codice che coprono e importano le API di test da `vite-plus/test`.
 
-Eseguire il progetto focalizzato durante la modifica, quindi eseguire la suite completa, cancello di copertura, controllare e visualizzare l'anteprima costruire. I test del browser verificano le pagine pubbliche, i reindirizzamenti auth, la SSR senza JavaScript e la navigazione del cliente. CI utilizza i binding locali e non richiede un database o un segreto del fornitore dal vivo.
+| Progetto      | Ambiente | Pattern dei file        |
+| ------------- | -------- | ----------------------- |
+| `node`        | Node     | `*.test.ts`             |
+| `integration` | Node     | `*.integration.test.ts` |
+| `component`   | jsdom    | `*.component.test.tsx`  |
+
+Nessun test contatta un account Cloudflare o un provider reale:
+
+- D1 è un database SQLite in memoria che esegue le migrazioni versionate, e KV è una mappa in memoria. KV e i contatori del rate limit vengono azzerati prima di ogni test.
+- `createServerFn` viene sostituita, così una server function viene eseguita nello stesso processo passando per il suo middleware e il suo validator reali.
+- I test dei componenti eseguono il rendering con un `QueryClient` e un router reali.
+- Le richieste di email, OAuth e pagamento sono sostituite da mock.
+
+## Copertura
+
+`bun run test:coverage` impone il 100% per righe, istruzioni, funzioni e branch in tutto `src`. Sono esclusi le primitive shadcn, `src/platform/testing`, i file generati e le dichiarazioni di tipo. Copri il comportamento reale ed elimina i branch che non possono mai essere eseguiti, invece di sostituire variabili globali con stub per raggiungerli.
+
+## Test browser
+
+Le spec Playwright si trovano in `e2e/specs`, con i page object in `e2e/pages` e le fixture in `e2e/fixtures`. Vengono eseguite su una build simile a quella di produzione che usa l'ambiente Wrangler `test`: D1 e KV locali in `.wrangler/test`, secret fittizi da `.env.test` e un Worker di test che cattura le email in uscita, così una spec può seguire un vero link di verifica. In locale Playwright esegue da sé migrazioni, seed, build e avvio dell'app. La suite viene eseguita in Chromium e WebKit.
+
+## Script
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
 bun run test:e2e
+bun run test:e2e:smoke
+bun run test:e2e:pr
 ```
 
-## Guide correlate
+## CI
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+`.github/workflows/ci.yml` viene eseguito sulle pull request e sui push su `main`:
+
+1. `bun run check`: formattazione, lint, controllo dei tipi e `check:i18n`
+2. `bun run test:coverage`
+3. Una build di test e la suite Playwright in Chromium
+4. Un deploy di preview per le pull request, oppure un deploy di produzione per `main`
+
+## Pagine correlate
+
+- [Test](/docs/tooling/testing)
+- [Playwright](/docs/tooling/playwright)
+- [Scrivere i test](/docs/guides/writing-tests)

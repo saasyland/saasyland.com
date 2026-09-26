@@ -1,13 +1,36 @@
 ---
-title: "Theming & branding"
-description: "Theme tokens, fonts, and brand assets."
+title: "Theming and branding"
+description: "Change the product name, domain, color tokens, type scale and fonts."
 ---
 
-## Locations
+## Brand identity
 
-- `presentation/theme`
-- `presentation/branding`
-- `presentation/fonts`
-- Global styles under presentation styles
+`src/presentation/branding/index.ts` is the single source for the product identity: `APP_NAME`, `APP_DOMAIN`, `APP_URL` (derived as `https://${APP_DOMAIN}`), `CONTACT_EMAIL`, `NOTIFICATIONS_EMAIL`, `APP_FOUNDED_YEAR` and the GitHub owner, repository and URL. Page titles, canonical URLs, the Better Auth app name, the two-factor issuer and the theme and locale cookie names derive from it.
 
-Theme switch is a client control; defaults should avoid hydration flicker patterns already used in the providers.
+When you rebrand, also update:
+
+- `Wordmark` in `src/presentation/components/custom/wordmark.tsx`: the inline SVG logo next to `APP_NAME`.
+- `public/favicon.ico` and the images in `public/images`.
+- The auth cookie prefix, `advanced.cookiePrefix` in `src/integrations/better-auth/auth.server.ts`, and the allowed hosts per environment in `src/modules/_core/constants/api.ts`.
+
+Rebuild after changing branding; environment files do not change the canonical URL.
+
+## Theme
+
+`src/presentation/theme/index.ts` defines `THEME`: the themes `light`, `dark` and `system`, the default `system` and the cookie that stores the choice. `ThemeScript` in the root document head applies the stored theme before the first paint, so pages never flash the wrong theme. `ThemeSwitch` (`src/presentation/components/custom/theme-switch.tsx`) changes it. `ThemeProvider` (`src/providers/theme-provider.tsx`) wraps only the components that use the theme, such as `<ThemeSwitch />` in `src/routes/docs.tsx` and the toaster in the root route. It never wraps a route `Outlet`, because it updates after hydration and would re-render the whole page.
+
+## Color tokens
+
+`src/presentation/styles/globals.css` is the only Tailwind entry point. It defines the shadcn tokens (`--background`, `--foreground`, `--primary`, `--muted`, `--border`, `--ring`, `--sidebar-*`, `--chart-*` and more) in `:root` for light mode and in `.dark` for dark mode, and maps them to Tailwind colors in `@theme inline`. Change the values there; components use the semantic classes (`bg-background`, `text-muted-foreground`, `border-border`). Status accents such as amber and rose are the exception.
+
+`docs.css` and `typeset.css` in the same folder are plain CSS loaded only by the docs and blog layouts.
+
+## Type scale
+
+The type scale is a set of `--text-*` tokens in `globals.css`: `display-hero`, `display-gate`, `display-blast`, `headline-peak`, `headline-support`, `price`, `title`, `statement`, `lead`, `body`, `body-sm`, `label` and `spec`. Each token sets the size, line height and letter spacing, the larger ones also the weight, and is used as a class: `text-body`, `text-title` and so on.
+
+When you add a `text-*` token, add its name to `src/lib/cn.config.ts` as well. `cn` from `src/lib/cn.ts` uses this config to treat custom sizes as font sizes when merging classes; without it, `cn` drops them. `bun run generate:cn` rebuilds the class tables and runs as part of `dev`, `build` and `check`.
+
+## Fonts
+
+Geist and Geist Mono are self-hosted in `public/fonts` and declared with `@font-face` in `src/presentation/styles/fonts.css`, one file per unicode range. `fontPreloads` in `src/presentation/document-assets.ts` preloads Latin and Latin Mono on every page, Latin Extended for `pl-PL` and Cyrillic for `uk-UA`. To change fonts, replace the files and `@font-face` rules and update the preload list to match.

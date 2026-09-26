@@ -1,16 +1,57 @@
 ---
-title: Internationalisierung und Ländereinstellungen.
-description: Internationalisierung und Ländereinstellungen — SaaSy Land
+title: "Internationalisierung und Locales"
+description: "Neun Locales, URL-Präfixe, das Locale-Cookie und use-intl-Meldungen in Namespaces."
 ---
 
-Nachrichten werden in `messages/{locale}` für alle neun konfigurierten Sprachen als Dateien mit Punktnotation gespeichert, beispielsweise `pages.admin.users.json`. Die Konfiguration der Sprachen, URL-Hilfsfunktionen, das Laden von Nachrichten, Metadaten und Hilfsfunktionen für die Übersetzung von E-Mails befinden sich in `src/integrations/use-intl`.
+## Locales
 
-Englisch verwendet `/docs`; Polnisch verwendet `/pl-PL/docs`. Veraltete `/en` und `/pl` Links werden zu den kanonischen Weiterleitungen umgeleitet. Die Routendateien deklarieren `staticData.namespaces` und laden dieselben Namespaces im Loader vor. Der `TranslationsProvider` kombiniert die aktiven Route-Namespaces zu einem `IntlProvider`. Gemeinsame Meldungen werden im Root-Verzeichnis geladen; Namespaces, die ausschließlich für E-Mails verwendet werden, verbleiben auf dem Server.
+`I18N` in `src/integrations/use-intl/i18n.config.ts` definiert `en-US` (Standard), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` und `uk-UA`, das Cookie `saasyland.com_locale` und die Standardzeitzone `UTC`.
 
-Lesen Sie die Locale serverseitig mit `getCurrentLocale` und clientseitig in Komponenten mit `useLocale`. Die URL bestimmt die Locale des Dokuments. Server-seitige Funktionsaufrufe verwenden das Locale-Cookie. Eine Sprachauswahl behält den Pfad, die Query-Parameter und den Fragment und lädt das Dokument neu, um den entsprechenden Inhalt zu laden. Führen Sie `bun run check:i18n` aus, nachdem Sie Schlüssel geändert haben.
+## URLs
 
-## Verwandte Anleitungen.
+Die Standard-Locale hat kein Präfix; jede andere Locale ist ein Pfadpräfix, zum Beispiel `/docs` und `/pl-PL/docs`. Bei Dokumentanfragen leitet der Worker (`resolveLocale` in `i18n.middleware.ts`) nicht kanonische Pfade mit einem 308 weiter: Aus `/en-US/docs` wird `/docs` und aus `/pl/docs` wird `/pl-PL/docs`. Pfade unter `/api` und `/_serverFn` tragen nie ein Präfix.
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+Das Router-`rewrite` in `src/router.tsx` entfernt das Präfix aus eingehenden URLs und fügt es ausgehenden hinzu, sodass Routen und Links einfache Pfade verwenden: `<Link to={ROUTES.SIGN_IN}>`. Verwenden Sie `localizePathname({ locale, pathname })` nur für rohe URLs: `callbackURL` und `errorCallbackURL` von Better Auth, Links in E-Mails und von Hand gebaute `<a href>`. `AriaProvider` lokalisiert das `href` von React-Aria-Komponenten.
+
+## Locale-Cookie
+
+Weicht die Locale in einer Dokument-URL vom Cookie ab, setzt der Worker das Cookie in der Antwort. `getCurrentLocale()` funktioniert auf beiden Seiten: Für Seiten liest die Funktion die URL, für `/api`- und Serverfunktions-Anfragen das Cookie, sodass E-Mails und serverseitige Meldungen die Sprache der Seite verwenden, auf der sich der Benutzer befindet.
+
+## Meldungen
+
+Meldungen liegen in `messages/<locale>/<namespace>.json`; der Dateiname ist der Namespace, zum Beispiel `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` oder `common`. Jeder Seiten-Namespace enthält `metadata.title` und `metadata.description`.
+
+- Die Root-Namespaces (`common`, `components.*`, `errors*`) werden im Root-`beforeLoad` vorab geladen.
+- Ein Layout deklariert `NAMESPACES`, eine Seite `NAMESPACE`. Beide landen in `staticData.namespaces` und werden vom Loader vorab geladen:
+
+```ts
+loader: async ({ context }) => {
+  const locale = getCurrentLocale()
+  const [metadata] = await Promise.all([
+    loadPageMetadata({ locale, namespace: NAMESPACE }),
+    preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+  ])
+  return { locale, metadata }
+},
+```
+
+- `TranslationsProvider` umschließt den Body des Dokuments und führt die Root-Namespaces mit den Namespaces der passenden Routen in einem `IntlProvider` zusammen, sodass auch Fehleransichten übersetzt sind.
+- E-Mails laden ihren Namespace auf dem Server mit `loadNamespace`.
+
+## Komponenten
+
+Jede Komponente ruft `useTranslations` einmal auf und nennt den Übersetzer `t`. Eine Komponente, die zwei Namespaces benötigt, verwendet deren gemeinsamen übergeordneten Namespace oder `useTranslations()` mit vollständigen Schlüsseln. Zahlen und Datumsangaben werden mit `useFormatter`, `useDateFormatter` und `useCurrencyFormatter` formatiert.
+
+## Sprache wechseln
+
+`locale-switcher.tsx` enthält zwei Sprachauswahlen. `LocaleSwitcher` im Marketing-Footer ist ein `<details>`-Menü mit einem einfachen Link pro Locale auf den aktuellen Pfad in dieser Locale und funktioniert daher schon vor der Hydration. `LocaleSelect` in den Seitenleisten der Dokumentation und der Kunden-App ist ein Auswahlfeld im Stil von `ThemeSwitch`, das dieselbe URL öffnet. In beiden Fällen lädt die Wahl einer Sprache ein neues Dokument, und Query-String und Hash werden nicht übernommen. Polnische und ukrainische Seiten laden zusätzlich die Schrift-Subsets Latin Extended und Cyrillic vorab ([Schriften und Branding](/docs/ui/fonts-and-branding)).
+
+## Prüfungen
+
+`bun run check:i18n` prüft die Schlüsselparität zwischen den Locales, löst statische Schlüssel in ihrem `useTranslations`-Scope auf, validiert die ICU-Syntax der Meldungen und prüft die Parität der Dokumentations- und Blog-Inhalte.
+
+## Verwandte Anleitungen
+
+- [i18n-Architektur](/docs/architecture/i18n-architecture)
+- [i18n-Meldungen](/docs/guides/i18n-messages)
+- [use-intl](/docs/integrations/use-intl)

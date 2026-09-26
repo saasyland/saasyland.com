@@ -1,23 +1,44 @@
 ---
 title: "Request lifecycle"
-description: "Request lifecycle — SaaSy Land"
+description: "The steps a page request and a server function call go through, from the Worker to the rendered result."
 ---
 
-`src/server.ts` canonicalizes locale URLs and keeps the locale cookie in sync. `src/router.tsx` creates a fresh QueryClient per router and connects it to SSR. Native route files declare components, guards, loaders, search validation, and metadata.
+## Page request
 
-Admin and customer layouts use `beforeLoad` guards. Every protected server function also checks its caller, because an RPC can be called independently of a page. Never place an authenticated response in a shared static cache.
+1. **Locale canonicalization.** `src/server.ts` calls `resolveLocale` for `GET` and `HEAD` document requests outside `/api` and `/_serverFn`. A language-only or default-locale prefix (`/pl/docs`, `/en-US/docs`) is redirected with `308` to its canonical form (`/pl-PL/docs`, `/docs`). When the URL locale differs from the locale cookie, the cookie is updated on the response.
+2. **Static assets first.** The Worker asks the `ASSETS` binding for the path. Prerendered pages and static files are returned as they are. Only on a `404` does it load the TanStack Start handler with a dynamic `import()`.
+3. **Routing.** `getRouter` creates a new router and `QueryClient`. The router's `rewrite` removes the locale prefix, so `/pl-PL/docs` matches the `/docs` routes.
+4. **Root `beforeLoad`** preloads the root translation namespaces (`common`, `components.*`, `errors*`).
+5. **Guards.** Layout `beforeLoad` functions such as `requireAdmin` load the session query and redirect when access is not allowed.
+6. **Loaders** run in parallel. Each preloads its namespaces, page metadata and queries into the request's `QueryClient`.
+7. **Rendering.** The root shell renders `<html lang dir>` and wraps the body in `TranslationsProvider`. The query cache is serialized into the HTML so the browser does not fetch the same data again.
+8. **Response headers.** For HTML responses the Worker adds a `Link` preload header for the stylesheet and locale fonts, sets the locale cookie if needed, and applies regional pricing attributes when the `cf-ipcountry` header qualifies for a discount.
+9. **Hydration.** The browser hydrates with the serialized cache. Later navigations run guards and loaders in the browser and fetch data through server functions.
+
+## Server function call
+
+1. The browser calls the server function, which the build replaced with an RPC request to `/_serverFn/…`. The Worker skips locale handling for this path, and `getCurrentLocale()` reads the locale cookie instead of the URL.
+2. Middleware runs in the declared order. `withRequest` captures the request headers and normalizes errors, `withRateLimit` counts the attempt in D1, and `authorized` loads the session and checks the permission.
+3. The validator parses the input with the module's Zod schema.
+4. The handler queries D1 or calls a provider and returns plain data.
+5. The component receives the data or an `AppError` code. On success it invalidates the module's query keys; on failure it shows `useErrorMessage()(error)`.
 
 ```text
-Request → Worker locale middleware → TanStack Router
-        → beforeLoad session/permission guard
-        → loader: messages + authorized query data
-        → SSR + hydrated React presentation
-Mutation → validated server function → auth/rate limit → D1 or provider
-         → result/error → scoped query invalidation
+GET /pl-PL/admin/users/all
+  src/server.ts        resolveLocale, ASSETS lookup, TanStack Start handler
+  router rewrite       /admin/users/all
+  __root beforeLoad    root namespaces
+  /admin beforeLoad    requireAdmin
+  loaders              metadata, namespaces, queries
+  SSR                  HTML with serialized query cache
+  src/server.ts        Link header, locale cookie, regional pricing
+
+POST /_serverFn/…
+  withRequest → withRateLimit → authorized → validator → handler → data or AppError
 ```
 
-## Related guides
+## Related pages
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Routes and delivery](/docs/architecture/delivery-layer)
+- [Caching and SSR](/docs/architecture/caching-and-ssr)
+- [Authentication and security](/docs/architecture/security-model)

@@ -1,16 +1,54 @@
 ---
 title: "Environment and bindings"
-description: "Environment and bindings — SaaSy Land"
+description: "Environment files, secrets and Cloudflare bindings for each Wrangler environment."
 ---
 
-Use `.env.development`, `.env.preview`, and `.env.production` for the corresponding Vite and Cloudflare environment. These files are ignored; `.env.example` documents the required keys. `VITE_APP_URL` is public and replaced at build time. Worker secrets have no `VITE_` prefix and are accessed through `env` from `cloudflare:workers`.
+## Environment files
 
-Configure `AUTH_SECRET`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, Resend settings and the Polar settings for your installation. Never commit real credentials. Binding IDs belong in the appropriate `wrangler.jsonc` environment; generated Worker declarations describe their types.
+| File               | Committed | Used by                                                                                    |
+| ------------------ | --------- | ------------------------------------------------------------------------------------------ |
+| `.env.example`     | Yes       | Lists every variable with an empty value                                                   |
+| `.env.development` | No        | `bun run dev`, `db:studio:development`, `db:introspect:development`                        |
+| `.env.preview`     | No        | `deploy:preview` (`--secrets-file`), `db:studio:preview`, `db:introspect:preview`          |
+| `.env.production`  | No        | `deploy:production` (`--secrets-file`), `db:studio:production`, `db:introspect:production` |
+| `.env.test`        | Yes       | Vitest and the `test` Wrangler environment; dummy values only                              |
 
-Required secret names are declared for each environment in `wrangler.jsonc`, including authentication, Resend, Polar, and the Cloudflare credentials used by Drizzle tooling. Development connects to the preview bindings. Browser tests use their own local configuration in `src/platform/testing/wrangler.jsonc` and dummy values from `.env.test`; they do not need remote credentials.
+## Variables
 
-## Related guides
+| Variable                    | Used by                                                        |
+| --------------------------- | -------------------------------------------------------------- |
+| `AUTH_SECRET`               | Better Auth signing, encryption and email verification tokens  |
+| `AUTH_GITHUB_CLIENT_ID`     | GitHub OAuth; also authenticates the GitHub star count request |
+| `AUTH_GITHUB_CLIENT_SECRET` | GitHub OAuth; also authenticates the GitHub star count request |
+| `AUTH_GOOGLE_CLIENT_ID`     | Google OAuth                                                   |
+| `AUTH_GOOGLE_CLIENT_SECRET` | Google OAuth                                                   |
+| `RESEND_API_KEY`            | The Resend client                                              |
+| `RESEND_EMAIL_FROM`         | The default sender for `sendEmail`                             |
+| `POLAR_ACCESS_TOKEN`        | The Polar SDK client                                           |
+| `POLAR_SERVER`              | `sandbox` or `production`                                      |
+| `POLAR_WEBHOOK_SECRET`      | Polar webhook signature verification                           |
+| `POLAR_ORGANIZATION_ID`     | Polar license key deactivation and discount lookup             |
+| `POLAR_PRODUCT_ID_CORE`     | Checkout product for the Core tier                             |
+| `POLAR_PRODUCT_ID_COMPLETE` | Checkout product for the Complete tier                         |
+| `POLAR_PRODUCT_ID_AGENCY`   | Checkout product for the Agency tier                           |
+| `CLOUDFLARE_ACCOUNT_ID`     | Drizzle Kit's D1 HTTP driver                                   |
+| `CLOUDFLARE_DATABASE_ID`    | Drizzle Kit's D1 HTTP driver                                   |
+| `CLOUDFLARE_ACCESS_TOKEN`   | Drizzle Kit's D1 HTTP driver                                   |
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+Every environment in `wrangler.jsonc` lists the variables it needs under `secrets.required`; the `test` environment omits the three Cloudflare variables. Worker code reads them from `env` in `cloudflare:workers`, typed by `src/types/bindings.d.ts`. There are no `VITE_` variables: the public URL and domain are constants in `src/presentation/branding`.
+
+## Bindings
+
+| Binding  | Type          | `development`             | `preview` | `production` | `test`                 |
+| -------- | ------------- | ------------------------- | --------- | ------------ | ---------------------- |
+| `DB`     | D1            | Preview database, remote  | Preview   | Production   | Local `saasyland_test` |
+| `CACHE`  | KV            | Preview namespace, remote | Preview   | Production   | Local                  |
+| `ASSETS` | Static assets | Yes                       | Yes       | Yes          | Yes                    |
+
+Preview and production deploy scripts run `scripts/verify-bindings.ts` first, which fails while an environment still has placeholder D1 or KV IDs.
+
+## Related pages
+
+- [Environment variables](/docs/getting-started/environment-variables)
+- [Platform and testing](/docs/architecture/platform-layer)
+- [Deploy a preview](/docs/getting-started/deploy-preview)

@@ -1,26 +1,46 @@
 ---
-title: Testando e CI
-description: Testes e CI - SaaSy Land
+title: "Testes"
+description: "Projetos do Vitest, helpers de teste e a exigência de 100% de cobertura."
 ---
 
-Vite+ Corre. Vitest Em três projetos: testes de nós, testes de integração e testes de componentes jsdom. `__test__`. . Importar APIs de teste de `vite-plus/test`Use. Playwright Para todos os fluxos de navegadores e cheques de renderização.
+O Vite+ executa o Vitest com a configuração de `vite.config.ts`. Os testes ficam em uma pasta `__test__` ao lado do código que cobrem e importam sua API de `vite-plus/test`.
 
-A montagem compartilhada fornece material local D1 e... KV Tolices. D1 corre as migrações SQL verificadas contra SQLiteA ponte RPC do servidor preserva o verdadeiro pipeline de validação e middleware do TanStack. OAuth e chamadas de pagamento são zombadas em testes.
-
-Execute o projeto focado enquanto edita, então execute a suíte completa, o portão de cobertura, cheque e construa pré-visualização. Testes de navegador verificam páginas públicas, redirecionamentos de autenticação, SSR sem JavaScript, e navegação de clientes. CI usa ligações locais e não requer um banco de dados ao vivo ou segredos de provedores.
+| Projeto       | Arquivos                                                | Ambiente                      |
+| ------------- | ------------------------------------------------------- | ----------------------------- |
+| `node`        | `*.test.ts` e `*.test.tsx`, exceto os dois tipos abaixo | Node                          |
+| `integration` | `*.integration.test.ts`                                 | Node, timeouts de 20 segundos |
+| `component`   | `*.component.test.tsx`                                  | jsdom                         |
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
 ```
+
+Use `bun run test`, e não `bun test`: o executor de testes próprio do Bun ignora os projetos, os ambientes e o arquivo de setup do Vitest.
+
+## Plataforma de testes
+
+`src/platform/testing/` reúne a infraestrutura compartilhada; todo o resto fica junto de quem o usa.
+
+- `setup.ts` registra os matchers do jest-dom e hooks compartilhados.
+- `mocks/cloudflare.ts` substitui `cloudflare:workers`: o D1 é um banco de dados `node:sqlite` em memória que aplica todas as migrações versionadas, e o KV é um map em memória.
+- `lib/server-function.ts` chama server functions pelo pipeline real de middleware e validação do TanStack.
+- `lib/render.tsx` renderiza componentes com um QueryClient e um roteador reais.
+- `mocks/providers.ts` intercepta as requisições ao Resend e à Polar. Só o Worker de testes do Playwright (`worker.ts`) o instala.
+
+Chamadas externas de e-mail, OAuth e pagamento nunca saem do processo de testes.
+
+## Cobertura
+
+`bun run test:coverage` exige 100% de linhas, instruções, funções e branches em `src/**/*.{ts,tsx}`. Ficam de fora os testes, as pastas `__test__`, os arquivos de declaração, `src/routeTree.gen.ts`, os primitivos do shadcn e `src/platform/testing/`. Os relatórios são gravados em `coverage/` como texto, HTML e `coverage-summary.json`. Cubra comportamento real e remova branches que nunca podem ser executados, em vez de fazer stub de globais para alcançá-los. A CI executa a verificação de cobertura em todo pull request.
 
 ## Guias relacionados
 
-- [Arquitetura](/docs/architecture)
-- [Desenvolvimento local](/docs/getting-started/first-run)
-- [Testando.](/docs/tooling/testing)
+- [Escrevendo testes](/docs/guides/writing-tests)
+- [Arquitetura de testes](/docs/architecture/testing-architecture)
+- [Playwright](/docs/tooling/playwright)

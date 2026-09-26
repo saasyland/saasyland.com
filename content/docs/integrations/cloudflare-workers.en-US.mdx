@@ -1,25 +1,33 @@
 ---
-title: "Deploy to Cloudflare Workers"
-description: "Deploy to Cloudflare Workers — SaaSy Land"
+title: "Cloudflare Workers"
+description: "Worker entry, locale middleware, bindings and deployment."
 ---
 
-The Worker build is produced by Vite+, TanStack Start and `@cloudflare/vite-plugin`. `wrangler.jsonc` declares the entry, compatibility settings, assets, observability and separate development, preview and production bindings.
+The application runs as one Cloudflare Worker. `@cloudflare/vite-plugin` builds it, and `CLOUDFLARE_ENV` selects the Wrangler environment. `wrangler.jsonc` sets `main` to `./src/server.ts`, enables `nodejs_compat` and observability, and serves static files through the `ASSETS` binding. The Worker runs first for every path except `/assets/*`, `/fonts/*`, `/robots.txt` and `/llms.txt`.
 
-Provision D1 and KV and replace the placeholder IDs for the target environment. Set its URL and provider secrets in `.env.preview` or `.env.production`. Apply migrations explicitly, then deploy. Deploy scripts validate binding IDs first; build scripts prerender public pages and verify output artifacts. Authentication and private application pages run dynamically on the Worker.
+| Environment   | Worker                  | D1 and KV                           | Domain                  |
+| ------------- | ----------------------- | ----------------------------------- | ----------------------- |
+| `development` | `saasyland-development` | Remote preview resources            | `localhost:3000`        |
+| `preview`     | `saasyland-preview`     | Preview resources                   | `preview.saasyland.com` |
+| `production`  | `saasyland`             | Production resources                | `saasyland.com`         |
+| `test`        | `saasyland-test`        | Local resources in `.wrangler/test` | `127.0.0.1:3000`        |
 
-Set the custom domain and OAuth callback URLs for the target environment. Installing dependencies and building never applies a remote migration.
+Every environment binds D1 as `DB` and KV as `CACHE` and lists its required secrets. The `test` environment uses `src/platform/testing/worker.ts` as its entry; it intercepts Resend and Polar requests and exposes test-only endpoints for Playwright.
 
-```sh
-bunx wrangler login
-bunx wrangler d1 create saasyland_preview
-bunx wrangler kv namespace create CACHE --env preview
-# Update wrangler.jsonc and .env.preview first.
-bun run db:migrate:preview
-bun run deploy:preview
-```
+## Request flow
+
+`src/server.ts` handles every request:
+
+1. `resolveLocale` from `i18n.middleware.ts` inspects `GET` and `HEAD` document requests outside `/api` and `/_serverFn`. It redirects language aliases and non-canonical locale paths with status 308 and reports when the locale cookie differs from the URL locale.
+2. `GET` and `HEAD` requests outside `/api` and `/_serverFn` are served from `ASSETS` first, which covers prerendered pages. A 404 falls through to the TanStack Start handler.
+3. When the locale cookie needs an update, the Worker appends it to the response. HTML responses also receive `Link` preload headers for the stylesheet and the locale's fonts.
+4. HTML responses get regional pricing: when the `cf-ipcountry` country qualifies for a purchasing-power discount, an `HTMLRewriter` adds the discount attributes to `<html>` and the response becomes `private, no-cache`.
+
+## Deployment
+
+`bun run deploy:preview` and `bun run deploy:production` run `scripts/verify-bindings.ts`, which rejects placeholder D1 and KV IDs, then the matching build and `wrangler deploy --secrets-file .env.<environment>`. Builds prerender public pages and run `scripts/verify-build.ts` and `scripts/optimize-prerendered-html.ts`. Migrations are separate commands; see [Deploy a preview](/docs/getting-started/deploy-preview) and [CI/CD](/docs/tooling/ci-cd).
 
 ## Related guides
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Environment and bindings](/docs/tooling/environment)
+- [Platform layer](/docs/architecture/platform-layer)

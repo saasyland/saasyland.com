@@ -1,30 +1,72 @@
 ---
-title: Funzioni del server e casi di utilizzo
-description: Funzioni del server e casi di utilizzo — SaaSy Land
+title: "Funzioni server"
+description: "Come lavorano insieme createServerFn, il middleware, la validazione, l'handler e la chiamata RPC."
 ---
 
-Le operazioni di funzionalità vivono in `src/modules/{feature}/use-cases/{operation}.ts`. Esportare un nativo `createServerFn` con lo schema di input, l'autorizzazione o il middleware di tasso-limit, e un gestore che chiama D1 o l'adattatore del fornitore. Una mutazione restituisce i dati direttamente e getta una cassaforte `AppError`; non restituisce una busta d'azione specifica per il quadro.
+Ogni operazione chiamata dall'interfaccia è una funzione server di TanStack Start. Le schermate dell'applicazione non hanno endpoint REST separati.
 
-Esportazione `mutationOptions` accanto alle mutazioni e `queryOptions` accanto alle letture. I componenti usano TanStack Query e traducono errori con `useActionError`. Le mutazioni di successo invalidano le loro chiavi di query caratteristica. Non fidarsi mai di un ID utente fornito da un cliente quando l'operazione dovrebbe agire `context.auth.user.id`.
-
-Uso `withAuth` per operazioni protette e `withRateLimit` per le operazioni pubbliche sensibili. La validazione viene eseguita prima del gestore. Tenere gli errori del fornitore e i dettagli interni dalle risposte pubbliche.
+## Anatomia
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
-import { mutationOptions } from "@tanstack/react-query"
-import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
-import { categoryZodSchemas } from "~/src/modules/category/category.zod"
+export const deleteCategory = createServerFn({ method: "POST" })
+  .middleware([authorized({ category: ["delete"] })])
+  .validator((input: zod.input<typeof categoryZodSchemas.deleteCategory>) => categoryZodSchemas.deleteCategory.parse(input))
+  .handler(async ({ data }) => {
+    const [row] = await db.delete(category).where(eq(category.id, data.categoryId)).returning({ id: category.id })
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+    if (row === undefined) {
+      throw new AppError(ERROR_CODES.NOT_FOUND, "category.errors.notFound")
+    }
+
+    return row
+  })
 ```
 
-L'esistente `createCategory` operazione dimostra validazione, controlli di autorizzazione, un D1 inserimento e opzioni di mutazione esportate.
+1. `createServerFn({ method })`: `GET` per le letture, `POST` per le scritture.
+2. `.middleware([...])`: middleware di funzione eseguito sul server prima della validazione, che può estendere `context`.
+3. `.validator(fn)`: riceve l'input del chiamante e restituisce il valore validato. Il tipo del suo parametro è il tipo di input che il chiamante deve passare. Si può anche passare direttamente uno schema come `localeField`.
+4. `.handler(({ context, data }) => ...)`: viene eseguito sul server con il contesto del middleware e i dati validati. Il valore restituito viene serializzato e rimandato al chiamante.
 
-## Guide correlate
+## Il percorso di una chiamata
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- Sul server (loader delle route durante l'SSR, altro codice server), chiamare `deleteCategory({ data })` esegue direttamente la funzione.
+- Nel browser, la build sostituisce l'handler con uno stub RPC. La chiamata diventa una richiesta HTTP all'endpoint delle funzioni server sotto `/_serverFn` e il risultato o l'errore viene deserializzato al ritorno.
+- Il Worker in `src/server.ts` salta la ricerca delle risorse statiche e i reindirizzamenti di lingua per i percorsi `/_serverFn` e `/api`.
+- Prima viene eseguito il middleware, poi il validatore e infine l'handler, quindi una sessione mancante viene rifiutata prima che l'input venga analizzato.
+- `getCurrentLocale()` legge la lingua dall'URL della richiesta e l'URL di una funzione server non la contiene, quindi lì restituisce la lingua predefinita. Le funzioni che restituiscono contenuti localizzati ricevono la lingua come input, come `getBlogPosts` in `src/routes/blog.index.tsx`.
+
+## Middleware
+
+`src/integrations/better-auth/auth.middleware.ts` fornisce:
+
+| Middleware                    | Effetto                                                                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `withRequest`                 | Aggiunge `context.requestHeaders` e converte qualsiasi errore in un `AppError` sicuro                                                                                                |
+| `authorized(permission?)`     | Carica la sessione, lancia `UNAUTHORIZED` se manca e `FORBIDDEN` se manca il permesso, poi aggiunge `context.auth`                                                                   |
+| `withRateLimit(kind, limits)` | Conta le chiamate per `kind` e IP del client in D1 e lancia `TOO_MANY_REQUESTS` oltre il limite; `RATE_LIMITS.SENSITIVE` consente 3 chiamate e `RATE_LIMITS.TOKEN` 5 ogni 60 secondi |
+
+`authorized` e `withRateLimit` includono entrambi `withRequest` e si possono combinare, come in `enable-two-factor.ts`:
+
+```ts
+.middleware([withRateLimit("enable-two-factor", RATE_LIMITS.SENSITIVE), authorized()])
+```
+
+`authorized` legge la sessione con `getRequestSession`, che salta la cache dei cookie di Better Auth e riusa una sola ricerca per richiesta.
+
+## Codice solo server
+
+- I moduli che non devono mai arrivare al browser iniziano con `import "@tanstack/react-start/server-only"`: il client D1, il server Better Auth, il client Resend e il limitatore di richieste. Le funzioni server possono importarli perché i loro handler vengono rimossi dal bundle client.
+- `createServerOnlyFn`, `createClientOnlyFn` e `createIsomorphicFn` contrassegnano le funzioni di supporto eseguite da un solo lato, o in modo diverso su ciascun lato (`getRequestSession`, le chiamate al client Better Auth nel modulo di accesso, `getCurrentLocale`).
+- I segreti provengono da `env` in `cloudflare:workers` e si leggono solo nel codice solo server.
+
+## Dove mettere una funzione server
+
+- Un'operazione su una tabella: un caso d'uso in `src/modules/<table>/use-cases/`. Vedi [Aggiungere un caso d'uso](/docs/guides/add-a-use-case).
+- Usata da una sola route: direttamente in quel file di route con `createServerFn`, come `getBlogPosts`.
+- Condivisa ma non legata a una tabella: `src/lib`, come `getStarCount` in `src/lib/github.ts`.
+
+## Chiamare una funzione server
+
+- I componenti usano le opzioni di query o mutation esportate con TanStack Query.
+- I loader precaricano con `context.queryClient.query(...)` in modo che la pagina venga resa dalla cache.
+- I test chiamano le opzioni con `executeMutation` o `executeQuery`; la configurazione dei test mantiene nella chiamata il vero middleware e il vero validatore. Vedi [Scrivere i test](/docs/guides/writing-tests).

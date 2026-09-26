@@ -1,15 +1,98 @@
 ---
-title: データテーブル
-description: ツールバー、列、フィルタ、エクスポート、フェッチ。
+title: "DataTable"
+description: "汎用テーブルコンポーネントは 1 つだけ: 列、クライアントまたはサーバーのデータ、フィルター、行選択。"
 ---
 
-## 能力・能力
+`DataTable`（`src/presentation/components/custom/data-table.tsx`）は唯一のテーブルコンポーネントです。`tableFeatures` と `useTable` で TanStack Table v9 のインスタンス（フィルター、並べ替え、ページネーション、行選択）を作り、shadcn のテーブルプリミティブで描画します。
 
-- コラムのサイジング/ピン留めのヘルパー
-- ツールバー:検索、フィルタスロット、設定(密度)、CSVのエクスポート、非同期フェッチ/レフェッチ
-- 選択列 + 行アクションスロット
-- ページネーション
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
 
-## 試験結果
+## Props
 
-コンポーネントテスト `data-table/__test__`. . ツールバーの保留状態を変更するときにカバレッジを保持します。
+| Prop      | 役割                                                                               |
+| --------- | ---------------------------------------------------------------------------------- |
+| `columns` | 列定義（`DataTableColumnDef`）。各行には行 ID として使う文字列の `id` が必要です。 |
+| `data`    | メモリ上の行。`options.query` を指定した場合は無視されます。                       |
+| `filters` | テーブル上部のフィルターコントロール。                                             |
+| `options` | `initialState`、`query`、`selectable`。                                            |
+
+## オプション
+
+- `initialState` は初期の `pagination`（既定は 1 ページ目、10 行）と `sorting` を設定します。
+- `query` はサーバーモードに切り替えます。`{ pageIndex, pageSize, sorting }` を受け取り、`{ rows, total }` を返すクエリオプションを返す関数です。テーブルは手動でページ分割と並べ替えを行い、読み込み中は前のページを表示したままにし、スケルトン行を表示し、クエリのエラーをルートのエラーバウンダリへ渡します。
+- `selectable` はチェックボックスの列を追加し、フッターに選択数を表示します。
+
+並べ替えを変更すると 1 ページ目に戻ります。フッターには行数、ページ表示、前へ・次へボタンが表示され、`components.custom.data-table` から翻訳されます。
+
+## フィルター
+
+フィルターは `placeholder` を持つ `type: "search"` か、`label` と `options` を持つ `type: "select"` で、どちらも `columnId` を指定します。ダッシュボードは両方を使っています。
+
+```tsx
+filters={[
+  { columnId: "user", placeholder: t("users.search"), type: "search" },
+  {
+    columnId: "status",
+    label: t("users.filters.status"),
+    options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+    type: "select",
+  },
+]}
+```
+
+フィルターはメモリ上の行に対して動作します。サーバーモードでは読み込んだページしか絞り込まないため、サーバー側のテーブルでは使っていません。
+
+## 列
+
+列はページのウィジェットの隣にある `<entity>-columns.tsx` ファイルに置き、`createColumnHelper<DataTableFeatures, Row>()` を使います。ヘッダーとセルは、自分で翻訳を読み込む小さなコンポーネントです。
+
+```tsx
+const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
+  const t = useTranslations("pages.admin.users.table.headers")
+
+  return t(id)
+}
+```
+
+```tsx
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor((row) => getUserStatus(row), { cell: StatusCell, header: () => <ColumnHeader id="status" />, id: "status" }),
+  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
+  columnHelper.accessor("twoFactorEnabled", { cell: BooleanCell, header: () => <ColumnHeader id="twoFactorEnabled" /> }),
+  columnHelper.accessor("timezone", {
+    cell: ({ getValue }) => <span className="text-muted-foreground">{getValue()}</span>,
+    header: () => <ColumnHeader id="timezone" />,
+  }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+  columnHelper.accessor("updatedAt", { cell: DateCell, header: () => <ColumnHeader id="updatedAt" />, sortFn: "datetime" }),
+  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: "", id: "actions" }),
+])
+```
+
+- `enableSorting: false` を指定しない限り、すべての列を並べ替えられます。登録されている並べ替え関数は `alphanumeric`、`basic`、`datetime`、`text` です。
+- サーバーモードでは、クエリ関数が並べ替えの状態を受け取ります。`getUsers` は列 ID ごとに SQL 式を対応付けています。
+- 行アクションは、セルがコンポーネント（`UserRowActions` など）である表示列です。
+
+## 使用箇所
+
+| 画面                                                                               | モード                                                     |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `/admin/users/all`                                                                 | サーバー: `getUsersPageQuery`、並べ替え、選択              |
+| `/admin/products`                                                                  | サーバー: `getProductsPageQuery`、`getCategoriesPageQuery` |
+| `/admin`                                                                           | メモリ: ユーザーの 1 ページ目、フィルター、1 ページ 5 行   |
+| `/admin/users/invitations`、`/admin/users/roles`、`/admin/payments`、`/admin/blog` | メモリ: デモ行                                             |
+
+## テスト
+
+`src/presentation/components/custom/__test__/data-table.component.test.tsx` がメモリ上のテーブルを、`data-table-query.component.test.tsx` がサーバーモードをテストします。`bun run test:component` で実行します。
+
+## 関連ガイド
+
+- [データテーブルを追加する](/docs/guides/add-a-data-table)
+- [TanStack Table](/docs/integrations/tanstack-table)

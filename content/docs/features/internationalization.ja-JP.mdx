@@ -1,16 +1,57 @@
 ---
-title: 国際化とローカライズ
-description: 国際化とローカライズ — SaaSy Land
+title: "国際化とロケール"
+description: "9 つの言語、URL プレフィックス、言語 Cookie、名前空間ごとの use-intl メッセージ。"
 ---
 
-メッセージは、 `messages/{locale}` たとえば、ドットネームスペースファイルとして9つの構成された言語として、 `pages.admin.users.json`. . ローカル設定、URLヘルパー、メッセージの読み込み、メタデータ、メールの翻訳ヘルパーは、 `src/integrations/use-intl`.
+## 言語
 
-英語対応 `/docs`;ポーランドの使用 `/pl-PL/docs`. . レガシー `/en` そして、 `/pl` リンクは正規化されます。 ルートファイル宣言 `staticData.namespaces` 同じ名前空間を loader にプリロードします。 `TranslationsProvider` アクティブ・ルート名空間を組み込む `IntlProvider`. . 共有メッセージは root で読み込まれます。メールのみの名前空間はサーバーに滞在します。
+`src/integrations/use-intl/i18n.config.ts` の `I18N` は、`en-US`（既定）、`de-DE`、`es-ES`、`fr-FR`、`it-IT`、`ja-JP`、`pl-PL`、`pt-BR`、`uk-UA`、Cookie `saasyland.com_locale`、既定のタイムゾーン `UTC` を定義します。
 
-ロケールを読んでください。 `getCurrentLocale` サーバ上で `useLocale` コンポーネント。 URL は、ドキュメントのロケールを選択します。 Server-function リクエストは locale Cookie を使用します。 言語変更は、パス、クエリ、フラグメントを保ち、ドキュメントをリロードして、対応するコンテンツをロードします。 ログイン `bun run check:i18n` キーを変更した後。
+## URL
+
+既定言語にはプレフィックスがなく、それ以外の言語はパスのプレフィックスになります。たとえば `/docs` と `/pl-PL/docs` です。ドキュメントへのリクエストでは、Worker（`i18n.middleware.ts` の `resolveLocale`）が正規でないパスを 308 でリダイレクトします。`/en-US/docs` は `/docs` に、`/pl/docs` は `/pl-PL/docs` になります。`/api` と `/_serverFn` のパスにはプレフィックスが付きません。
+
+`src/router.tsx` のルーター `rewrite` は、受信した URL からプレフィックスを取り除き、送出する URL に付け加えます。そのためルートとリンクはプレフィックスなしのパスを使います（例: `<Link to={ROUTES.SIGN_IN}>`）。`localizePathname({ locale, pathname })` は、Better Auth の `callbackURL` と `errorCallbackURL`、メール内のリンク、手で組み立てる `<a href>` といった生の URL にだけ使います。`AriaProvider` は React Aria コンポーネントの `href` をローカライズします。
+
+## 言語 Cookie
+
+ドキュメントの URL の言語が Cookie と異なる場合、Worker はレスポンスで Cookie を設定します。`getCurrentLocale()` はサーバーとブラウザーの両方で動き、ページでは URL を、`/api` とサーバー関数へのリクエストでは Cookie を読み取ります。そのため、メールやサーバー側のメッセージはユーザーが見ているページの言語になります。
+
+## メッセージ
+
+メッセージは `messages/<locale>/<namespace>.json` で、ファイル名が名前空間です。例: `pages.admin.users`、`components.custom.footer`、`emails.verify-email`、`auth.validations`、`common`。ページの名前空間にはすべて `metadata.title` と `metadata.description` があります。
+
+- ルート名前空間（`common`、`components.*`、`errors*`）はルートの `beforeLoad` でプリロードされます。
+- レイアウトは `NAMESPACES` を、ページは `NAMESPACE` を宣言します。どちらも `staticData.namespaces` に入り、ローダーがプリロードします。
+
+```ts
+loader: async ({ context }) => {
+  const locale = getCurrentLocale()
+  const [metadata] = await Promise.all([
+    loadPageMetadata({ locale, namespace: NAMESPACE }),
+    preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+  ])
+  return { locale, metadata }
+},
+```
+
+- `TranslationsProvider` はドキュメントの body を包み、ルート名前空間と一致したルートの名前空間を 1 つの `IntlProvider` にまとめます。そのためエラー画面も翻訳されます。
+- メールはサーバー側で `loadNamespace` を使って名前空間を読み込みます。
+
+## コンポーネント
+
+各コンポーネントは `useTranslations` を 1 回だけ呼び出し、翻訳関数を `t` と名付けます。2 つの名前空間が必要なコンポーネントは、共通の親名前空間か、完全なキーを使う `useTranslations()` を使います。数値と日付は `useFormatter`、`useDateFormatter`、`useCurrencyFormatter` で書式設定します。
+
+## 言語の切り替え
+
+`locale-switcher.tsx` には 2 つの言語切り替えコントロールがあります。マーケティングページのフッターにある `LocaleSwitcher` は `<details>` メニューで、各言語について現在のパスへの通常のリンクを表示するため、ハイドレーション前から動作します。ドキュメントと顧客アプリのサイドバーにある `LocaleSelect` は `ThemeSwitch` と同じスタイルのセレクトフィールドで、同じ URL を開きます。どちらの場合も、言語を選ぶと新しいドキュメントが読み込まれ、クエリ文字列とフラグメントは引き継がれません。ポーランド語とウクライナ語のページでは、ラテン拡張とキリル文字のフォントサブセットもプリロードされます（[フォントとブランディング](/docs/ui/fonts-and-branding)）。
+
+## チェック
+
+`bun run check:i18n` は、言語間のキーの一致、`useTranslations` のスコープ内での静的キーの解決、ICU メッセージ構文の検証、ドキュメントとブログのコンテンツの一致を確認します。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [i18n アーキテクチャ](/docs/architecture/i18n-architecture)
+- [i18n メッセージ](/docs/guides/i18n-messages)
+- [use-intl](/docs/integrations/use-intl)

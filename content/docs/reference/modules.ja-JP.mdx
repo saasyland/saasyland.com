@@ -1,17 +1,39 @@
 ---
-title: モジュールカタログ
-description: src/modules ドメインおよび所有権の在庫。
+title: "モジュールカタログ"
+description: "src/modules のすべてのモジュールと、それぞれが所有するテーブルおよびユースケース。"
 ---
 
-| モジュール     | オーナーズ                                                         |
-| -------------- | ------------------------------------------------------------------ |
-| `_core`        | エラー、locale/currency/タイムゾーンのカタログ、共有ユーティリティ |
-| `account`      | プロフィール / メール / パスワード / サインアウト                  |
-| `user`         | 管理者ユーザー管理 + 偽装ヘルパー                                  |
-| `session`      | リスト/リデュークセッション                                        |
-| `two-factor`   | TOTPが有効/検証/無効化                                             |
-| `verification` | メール認証 + パスワードリセットオーケストレーション                |
-| `product`      | 製品カタログのユースケース                                         |
-| `category`     | カテゴリー ユースケース                                            |
+モジュールは、実在するデータベーステーブルのためだけに存在します。各テーブルは `src/integrations/drizzle-orm/drizzle.schemas.ts` に登録されます。
 
-新しいドメインフォルダーを導入する際に行を追加します。
+| モジュール              | テーブル                           | ユースケース                                                                                                                                                                        |
+| ----------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `account`               | `account`                          | `sign-up-with-password`、`sign-out-user`、`update-user`、`change-email`、`change-password`、`send-change-email-confirmation-email`                                                  |
+| `category`              | `category`                         | `get-categories`、`get-category`、`create-category`、`update-category`、`delete-category`                                                                                           |
+| `license`               | `license`、`revoked_license_order` | `get-current-license`、`get-license`、`start-checkout`、`deactivate-license`、`grant-license`、`revoke-license`、`attach-license-key`                                               |
+| `newsletter-subscriber` | `newsletter_subscriber`            | `subscribe-to-newsletter`、`confirm-newsletter-subscription`、`unsubscribe-from-newsletter`、`get-newsletter-subscription`、`set-newsletter-subscription`                           |
+| `product`               | `product`                          | `get-products`、`get-product`、`create-product`、`update-product`、`delete-product`                                                                                                 |
+| `rate-limit`            | `rate_limit`                       | なし。`src/lib/rate-limit.ts` から使用                                                                                                                                              |
+| `session`               | `session`                          | `get-active-sessions`、`revoke-session`、`revoke-other-sessions`、`list-user-sessions`、`revoke-user-session`、`revoke-user-sessions`                                               |
+| `two-factor`            | `two_factor`                       | `enable-two-factor`、`disable-two-factor`、`verify-totp`、`verify-backup-code`                                                                                                      |
+| `user`                  | `user`                             | `get-users`、`get-user`、`create-user`、`update-user`、`delete-user`、`ban-user`、`unban-user`、`set-user-role`、`set-user-password`、`impersonate-user`、`stop-impersonating-user` |
+| `verification`          | `verification`                     | `send-verification-email`、`send-verify-email`、`request-password-reset`、`reset-password`、`send-reset-password-email`                                                             |
+
+`_core` はテーブルを所有しません。[Core 共有カーネル](/docs/architecture/core)で説明している、共有のエラーコード、カタログ、ヘルパーを保持します。
+
+## 標準セット以外のファイル
+
+ほとんどのモジュールには、`<table>.schema.ts`、`.zod.ts`、`.constants.ts`、`.types.ts`、`.utils.ts`、`use-cases/` しかありません。いくつかのモジュールには、追加のファイルがあります。
+
+- `license/license.webhooks.ts`：Better Auth に渡される Polar の Webhook ハンドラー
+- `license/license.ppp.ts`：チェックアウト用の地域別価格の割引
+- `newsletter-subscriber/newsletter-subscriber.server.ts`：ニュースレターのリンクに対するリクエストのオリジンチェック
+
+## サーバー側で実行されるプレーンなユースケース
+
+次のユースケースは、RPC エンドポイントを持たない async 関数です。Better Auth のフック、Polar の Webhook ハンドラー、または他のユースケースから呼び出されます。対象は `send-verify-email`、`send-reset-password-email`、`send-change-email-confirmation-email`、`grant-license`、`revoke-license`、`attach-license-key`、`get-license` です。
+
+## 関連ページ
+
+- [サーバー関数とユースケース](/docs/architecture/modules-and-use-cases)
+- [モジュールを追加する](/docs/guides/add-a-module)
+- [権限マトリクス](/docs/reference/permissions)

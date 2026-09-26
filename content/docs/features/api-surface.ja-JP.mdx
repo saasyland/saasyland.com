@@ -1,28 +1,37 @@
 ---
-title: TanStack Start HTTP ハンドラ
-description: TanStack Start HTTP ハンドラ — SaaSy Land
+title: "TanStack Start の HTTP ハンドラー"
+description: "/api 配下のサーバールートと、サーバー関数との関係。"
 ---
 
-HTTP エンドポイントでは、ネイティブ TanStack Start サーバー ハンドラを使用できます。 `src/routes`. Better Auth は GET と POST を所有しています。 `/api/auth/$`; Fumadocs 検索使用 `/api/search`. . 製品操作は、機能モジュールのネイティブサーバー機能です。
+アプリは 3 つの HTTP ルートを公開しており、`src/routes/api` で `createFileRoute` の `server.handlers` を使って宣言しています。
 
-ハンドルを宣言する `createFileRoute` と、 `server.handlers`. . 供給される使用して下さい `request`, 入力を検証, 権限チェックを強制し、Web を返す `Response`. . プロバイダーの統合で Webhook 検証を保ちましょう。 このアプリケーションの型 RPC クライアントでのみ使用される動作については、重複 REST エンドポイントを公開しないでください。
+| ルート        | メソッド  | ハンドラー                                                                                                                                                          |
+| ------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api`        | GET       | `{ "runtime": "cloudflare-workers" }` を返します。                                                                                                                  |
+| `/api/auth/$` | GET、POST | Better Auth: サインイン、OAuth コールバック、`/api/auth/verify-email`、Polar プラグインのエンドポイント `/api/auth/polar/webhooks` と `/api/auth/customer/portal`。 |
+| `/api/search` | GET       | Fumadocs の検索（`fumadocs.search.ts`）。                                                                                                                           |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
+## REST の代わりにサーバー関数
+
+アプリの操作は `src/modules/<table>/use-cases`（またはそれを使う唯一のルート内）にある `createServerFn` 関数です。TanStack Start はセッション、権限、レート制限のミドルウェアを通して、`/_serverFn` 配下の RPC でこれらを呼び出します。このアプリだけが呼び出す操作に REST エンドポイントを追加しないでください。HTTP ルートは Webhook のような外部の呼び出し元のためだけに追加し、署名はプロバイダーの統合で検証します。
+
+## 動作
+
+- Worker は `/api` と `/_serverFn` に言語のリダイレクトを適用せず、これらのリクエストは Cookie から言語を取得します。
+- ビルドは `/api` をプリレンダリングしません。
+- ハンドラーのテストは `src/routes/api/__test__/handlers.test.ts` にあります。
+
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [API ルートを追加する](/docs/guides/add-an-api-route)
+- [サーバー関数](/docs/guides/server-functions)

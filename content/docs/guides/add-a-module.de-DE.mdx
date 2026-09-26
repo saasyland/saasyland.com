@@ -1,30 +1,136 @@
 ---
-title: Serverfunktionen und Anwendungsfälle.
-description: Serverfunktionen und Anwendungsfälle – SaaSy Land
+title: "Modul hinzufügen"
+description: "Eine Datenbanktabelle mit Drizzle-Schema, Zod-Schemas, Konstanten, Typen und Use Cases hinzufügen."
 ---
 
-Funktionen werden im Verzeichnis `src/modules/{feature}/use-cases/{operation}.ts` gespeichert. Exportieren Sie eine native `createServerFn` mit ihrem Eingabedefinitionschema, Autorisierungs- oder Ratenbegrenzung (Rate-Limit)-Middleware sowie eine Handler-Funktion, die entweder D1 oder den Provider-Adapter aufruft. Eine Mutation gibt Daten direkt zurück und wirft einen sicheren `AppError`; sie gibt kein framework-spezifisches Action-Envelope zurück.
+Ein Modul entspricht genau einer Datenbanktabelle. `src/modules/<table>/` existiert nur für echte Tabellen; Server-Funktionen, die keine eigene Tabelle besitzen, liegen in `src/lib` oder in der Route, die sie verwendet. `src/modules/category` ist das kleinste vollständige Beispiel.
 
-Exportieren Sie `mutationOptions` neben den Mutationen und `queryOptions` neben den Leseoperationen. Komponenten verwenden TanStack Query und übersetzen Fehler mit `useActionError`. Erfolgreiche Mutationen invalidieren die zugehörigen Feature-Query-Schlüssel. Verlassen Sie sich niemals auf eine Benutzer-ID, die von einem Kunden bereitgestellt wird, wenn die Operation auf `context.auth.user.id` angewendet werden soll.
+## Dateien
 
-Verwenden Sie `withAuth` für geschützte Operationen und `withRateLimit` für sensible, öffentliche Operationen. Die Validierung läuft vor der Ausführung des Handlers ab. Halten Sie Provider-Fehler und interne Details aus öffentlichen Antworten heraus.
+| Datei                      | Inhalt                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`        | Drizzle-Tabelle, Indizes, Relationen und Listen der Enum-Werte                                  |
+| `<table>.zod.ts`           | Ein Eingabeschema pro Operation sowie `drizzle-zod`-Schemas, exportiert als `<table>ZodSchemas` |
+| `<table>.constants.ts`     | Tupel der Query- und Mutation-Keys sowie Grenzwerte des Moduls                                  |
+| `<table>.types.ts`         | Aus der Tabelle abgeleitete Zeilentypen                                                         |
+| `<table>.utils.ts`         | Optionale reine Hilfsfunktionen                                                                 |
+| `use-cases/<operation>.ts` | Eine Server-Funktion pro Datei mit ihren Query- oder Mutation-Optionen                          |
+| `__test__/`                | Tests, benannt nach der Quelldatei, etwa `category.schema.test.ts` und `category.zod.test.ts`   |
+
+## 1. Tabelle definieren
 
 ```ts
-import { createServerFn } from "@tanstack/react-start"
-import { mutationOptions } from "@tanstack/react-query"
-import type * as zod from "zod"
-import { withAuth } from "~/src/integrations/better-auth/auth.middleware"
-import { categoryZodSchemas } from "~/src/modules/category/category.zod"
+import { sql } from "drizzle-orm"
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
-// Follow the complete implementation in modules/category/use-cases/create-category.ts.
-const schema = categoryZodSchemas.createCategory
-const validate = (input: zod.input<typeof schema>) => schema.parse(input)
+export const CATEGORY_KINDS = ["category", "collection"] as const
+
+export const category = sqliteTable(
+  "category",
+  {
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(unixepoch() * 1000)`)
+      .notNull(),
+    id: text("id").primaryKey(),
+    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default("category"),
+    name: text("name", { length: 255 }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .default(sql`(unixepoch() * 1000)`)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("category_createdAt_idx").on(table.createdAt)],
+)
 ```
 
-Die bestehende Operation `createCategory` demonstriert die Validierung, die Überprüfung von Berechtigungen, einen D1-Eintrag sowie exportierte Mutationsoptionen.
+- Spaltennamen sind snake_case, Eigenschaften camelCase.
+- IDs sind `text`-Primärschlüssel, die im Insert-Use-Case mit `v7()` aus `uuid` befüllt werden.
+- Datumswerte sind `integer(..., { mode: "timestamp_ms" })`, boolesche Werte `integer(..., { mode: "boolean" })`.
+- Fremdschlüssel verwenden `.references(() => user.id, { onDelete: "cascade" })`, und `relations(...)` deklariert Joins (siehe `session.schema.ts`).
 
-## Verwandte Anleitungen.
+## 2. Schema registrieren
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+Die Tabelle und, falls vorhanden, ihre Relationen aus `src/integrations/drizzle-orm/drizzle.schemas.ts` exportieren:
+
+```ts
+export { category } from "~/src/modules/category/category.schema"
+```
+
+Diese Datei speist den D1-Client (`drizzle(env.DB, { schema })`), den Drizzle-Adapter von Better Auth und drizzle-kit. Eine Tabelle, die hier fehlt, erhält keine Migration.
+
+## 3. Migration generieren
+
+```sh
+bun run db:generate
+bun run db:migrate:local
+```
+
+Das generierte SQL in `src/integrations/drizzle-orm/migrations/` prüfen und zusammen mit dem Schema committen. [Datenbankmigrationen](/docs/guides/database-migrations) behandelt die Remote-Umgebungen.
+
+## 4. Zod-Schemas hinzufügen
+
+Jede Operation erhält ein eigenes Eingabeschema. Validierungsmeldungen sind Übersetzungsschlüssel, die im Namespace `<table>.validations` aufgelöst werden.
+
+```ts
+import { createSchemaFactory } from "drizzle-zod"
+import zod from "zod/v4"
+
+import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
+import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
+
+const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
+
+export const CATEGORY_NAME_MAX_LENGTH = 255
+
+const createCategory = zod.object({
+  kind: zod.enum(CATEGORY_KINDS),
+  name: zod.string().min(MIN_FIELD_LENGTH, { message: "nameRequired" }).max(CATEGORY_NAME_MAX_LENGTH, { message: "nameMaxLength" }),
+})
+
+const deleteCategory = zod.object({ categoryId: idField })
+
+export const categoryZodSchemas = {
+  createCategory,
+  deleteCategory,
+  insert: createInsertSchema(category),
+  select: createSelectSchema(category),
+  update: createUpdateSchema(category),
+}
+```
+
+`messages/<locale>/<table>.validations.json` für alle neun Locales mit jedem Schlüssel anlegen, den die Schemas verwenden.
+
+## 5. Konstanten und Typen hinzufügen
+
+```ts
+export const CATEGORY_QUERY_KEYS = {
+  ALL: ["category"],
+  LIST: ["category", "getCategories"],
+} as const
+
+export const CATEGORY_MUTATION_KEYS = {
+  CREATE: ["category", "createCategory"],
+  DELETE: ["category", "deleteCategory"],
+  UPDATE: ["category", "updateCategory"],
+} as const
+```
+
+```ts
+import type { category } from "~/src/modules/category/category.schema"
+
+export interface Category {
+  select: typeof category.$inferSelect
+  insert: typeof category.$inferInsert
+}
+```
+
+Jeder Key beginnt mit dem Modulnamen, sodass das Invalidieren von `ALL` jede Query des Moduls aktualisiert.
+
+## 6. Berechtigungen und Use Cases hinzufügen
+
+- Die Aktionen der Tabelle zu `APP_STATEMENTS` in `src/integrations/better-auth/auth.access.ts` hinzufügen, wenn die Operationen Berechtigungen benötigen. Siehe [Rollen und Berechtigungen](/docs/guides/roles-and-permissions).
+- Eine Datei pro Operation unter `use-cases/` anlegen. Siehe [Use Case hinzufügen](/docs/guides/add-a-use-case).
+
+## 7. Testen
+
+`__test__/<table>.schema.test.ts`, `<table>.zod.test.ts` und `<table>.types.test.ts` neben dem Modul sowie `use-cases/__test__/<operation>.test.ts` für jede Operation anlegen. Das Coverage-Gate liegt bei 100 %; siehe [Tests schreiben](/docs/guides/writing-tests).

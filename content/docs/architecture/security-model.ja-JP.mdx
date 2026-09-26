@@ -1,16 +1,49 @@
 ---
-title: 認証とセキュリティ
-description: 認証とセキュリティ — SaaSy Land
+title: "認証とセキュリティ"
+description: "ルートとサーバー関数でアクセス制御を適用する方法と、セッション、レート制限、エラーを保護する方法。"
 ---
 
-認証は2回実施されます: ルート `beforeLoad` ガードは管理者および顧客のレイアウトを保護し、各保護されたサーバー機能は発信者を独自に点検します。 利用条件 `requireAdmin` または `requireSession` レイアウトのためおよび `withAuth(permission)` 業務用。 セッションから顧客操作の派手な所有権。
+## 2 層のアクセス制御
 
-Better Auth は D1 でセッションを保存し、資格情報、OAuth、認証、パスワードリセット、2 要素認証、偽装および再発を処理します。 保護されたサーバー機能をチェックするとき、クッキーキャッシュはバイパスされます。 最終的なauthプラグインは `tanstackStartCookies`認証クッキーをサーバー機能の応答で転送する。
+`src/integrations/better-auth/auth.routes.ts` の**ルートガード**は `beforeLoad` で実行され、リダイレクトを行います。
 
-D1 レート制限は、原子書き込みと Cloudflare クライアント IP ヘッダを使用します。 敏感な公共操作は別の限界のキーを備えています。 モジュールZodスキーマで入力を検証し、予期しない失敗をマスクし、支払いのWebhookシグネチャを検証して、サーバーのみの境界の背後にあるすべての資格情報を保持します。 プライベートなルートとトークンのミューテーションは、プレンダーから除外されます。
+| ガード               | 使用箇所                         | 動作                                                                    |
+| -------------------- | -------------------------------- | ----------------------------------------------------------------------- |
+| `requireSignedIn`    | `/app` レイアウト                | セッションがなければサインインページにリダイレクト                      |
+| `requireAdmin`       | `/admin` レイアウト              | さらに `admin: ["access"]` 権限を要求し、なければ `/app` にリダイレクト |
+| `redirectIfSignedIn` | サインインとサインアップのページ | サインイン済みのユーザーを自分のワークスペースに送る                    |
+| `redirectAfterAuth`  | `/auth/callback`                 | 認証後にユーザーを `/admin` または `/app` に送る                        |
 
-## 関連ガイド
+ガードが決めるのは、ユーザーに何を表示するかだけです。どのサーバー関数もページを経由せずに呼び出せるため、データは `auth.middleware.ts` の**サーバー関数ミドルウェア**が保護します。
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- `authorized()` はリクエストのセッションを読み込み、セッションがなければ `UNAUTHORIZED` をスローします。
+- `authorized({ user: ["ban"] })` はさらに `auth.access.ts` に定義されたロールの権限をチェックし、権限がなければ `FORBIDDEN` をスローします。
+- ハンドラーは、セッションを `context.auth` として受け取ります。呼び出し元自身のデータに対する操作では、入力に含まれるユーザー ID ではなく、必ず `context.auth.user.id` を使います。
+
+## セッション
+
+- Better Auth はセッションを D1 に保存し、`saasyland` というクッキープレフィックスを使います。development と test 以外のビルドでは、セキュアクッキーを使います。
+- `getRequestSession` はクッキーキャッシュを経由せず、リクエストの残りの処理の間、セッションをメモ化します。
+- ブラウザに送るセッションからは、トークンが取り除かれます。
+- `tanstackStartCookies` は Better Auth の最後のプラグインです。そのため、サーバー関数の実行中に設定されたクッキーがレスポンスに反映されます。
+- 許可するホストはビルドモードごとに固定されています。本番では `saasyland.com`、プレビューでは `preview.saasyland.com`、ローカルでは `localhost:3000` と `127.0.0.1:3000` です。
+
+Better Auth は、メール認証（サインイン前に必須）、パスワードリセット（既存のセッションを無効化）、GitHub と Google による OAuth（トークンは保存時に暗号化）、二要素認証、管理者によるなりすまし（impersonation）も処理します。検証用の識別子はハッシュ化して保存されます。
+
+## レート制限
+
+`withRateLimit(kind, limit)` は、操作とクライアント IP（`cf-connecting-ip`）ごとの試行回数を、単一のアトミックな D1 バッチで `rate_limit` テーブルにカウントします。`RATE_LIMITS.SENSITIVE` は 1 分あたり 3 回、`RATE_LIMITS.TOKEN` は 5 回まで許可します。カウンターのストレージで障害が発生した場合、リクエストは拒否されます。Better Auth 独自のレートリミッターも、`auth:` というキープレフィックスを付けて同じテーブルを使います。セッションの読み取り、サインアウト、Polar の Webhook は制限の対象外です。
+
+## エラーと入力
+
+- 入力を受け取るサーバー関数は、ハンドラーの実行前に Zod スキーマで入力をパースします。
+- `withRequest` は予期しないエラーを `INTERNAL_ERROR` に変換し、元のエラーをサーバー側でログに記録します。そのため、内部の詳細がクライアントに届くことはありません。
+- Polar の Webhook は、ライセンスを変更する前に `POLAR_WEBHOOK_SECRET` で検証されます。
+- シークレットは、サーバー専用モジュールの中でのみ `cloudflare:workers` から読み取ります。
+- 非公開エリア（`/admin`、`/app`、`/auth`、`/newsletter`）がプリレンダリングされることはありません。
+
+## 関連ページ
+
+- [権限マトリクス](/docs/reference/permissions)
+- [ロールと権限](/docs/guides/roles-and-permissions)
+- [セキュリティチェックリスト](/docs/guides/security-checklist)

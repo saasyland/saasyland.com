@@ -1,23 +1,47 @@
 ---
-title: Développement local
-description: Développement local — SaaSy Land
+title: "Premier lancement"
+description: "Lancer la préversion de test isolée ou le serveur de développement avec Cloudflare."
 ---
 
-Installer Bun 1.4 et Noeud 24 ou plus récent, puis installer les dépendances. Copier `.env.example` à `.env.development` et configurer un long aléatoire `AUTH_SECRET`, le public `VITE_APP_URL`, et toutes les intégrations externes que vous exercerez.
+## Préversion de test isolée
 
-Le développement local utilise des liaisons CloudflareS locales D1 et KV. Appliquer les migrations checked-in SQLite avant de commencer. La commande de développement génère du contenu Fumadocs et exécute Vite+ avec le plugin Cloudflare. L'État local vit sous `.wrangler/`.
-
-OAuth, les courriels et la facturation exigent des identifiants du fournisseur; utilisez les identifiants de test et Polar sandbox lors du développement. Les tests utilisent des valeurs fictives et des maquettes engagées au lieu d'envoyer des messages réels ou de charger un client.
+La préversion de test construit l'application pour l'environnement `test` : D1 et KV locaux dans `.wrangler/test`, identifiants factices issus de `.env.test`, comptes créés par le seed et requêtes vers Resend et Polar interceptées. Elle ne nécessite aucun compte.
 
 ```sh
-bun install
+bun run db:migrate:test
+bun run db:seed:test
+bun run build:test
+bun run start:test
+```
+
+Ouvrez http://127.0.0.1:3000 et connectez-vous avec l'un des comptes créés par le seed. Les deux utilisent le mot de passe `WorkerTestPassword123!` défini dans `e2e/data/accounts.ts`.
+
+| Rôle           | E-mail                            | Espace de travail |
+| -------------- | --------------------------------- | ----------------- |
+| Administrateur | `admin@saasyland.example.test`    | `/admin`          |
+| Client         | `customer@saasyland.example.test` | `/app`            |
+
+La préversion sert un build : reconstruisez-la pour voir les modifications du code source.
+
+## Développement avec Cloudflare
+
+`bun run dev` démarre le serveur de développement avec rechargement à chaud sur http://localhost:3000. Ses bindings `DB` et `CACHE` se connectent aux ressources de préversion distantes : les écritures faites en développement vont donc dans la base de données de préversion.
+
+```sh
+bunx wrangler login
 cp .env.example .env.development
 bun run db:migrate:development
 bun run dev
 ```
 
-## Guides connexes
+1. Connectez-vous à Cloudflare avec Wrangler.
+2. Remplissez `.env.development` comme décrit dans [Variables d'environnement](/docs/getting-started/environment-variables), avec `POLAR_SERVER=sandbox`.
+3. Avec votre propre compte Cloudflare, créez la base de données D1 et l'espace de noms KV, puis remplacez les identifiants de `development` et `preview` dans `wrangler.jsonc` ; les identifiants versionnés appartiennent au déploiement existant. Voir [Déployer une préversion](/docs/getting-started/deploy-preview).
+4. Appliquez les migrations et démarrez le serveur.
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+L'inscription par e-mail nécessite une configuration Resend fonctionnelle, car les comptes doivent vérifier leur adresse e-mail avant de se connecter. Il n'existe pas de seed administrateur pour le développement : inscrivez-vous, vérifiez l'adresse, puis définissez le `role` de votre utilisateur sur `admin` avec `bun run db:studio:development`.
+
+## Guides associés
+
+- [Débogage en local](/docs/guides/local-debugging)
+- [Dépannage](/docs/reference/troubleshooting)

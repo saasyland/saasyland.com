@@ -1,14 +1,45 @@
 ---
-title: Fornitori
-description: Fornitori — SaaSy Land
+title: "Provider"
+description: "I quattro provider dell'applicazione in src/providers, dove viene montato ciascuno e perché."
 ---
 
-`src/routes/__root.tsx` possiede la composizione del fornitore del documento e dell'applicazione. Il router crea un QueryClient e collega la sua cache alla SSR. Il fornitore di traduzione carica gli spazi di nome del percorso attivo in `IntlProvider`. Tema, movimento, React Aria routing, tooltips, notifiche e l'indicatore offline mantengono il comportamento di presentazione esistente.
+`src/providers` contiene quattro provider. Ognuno è montato il più vicino possibile ai componenti che lo usano.
 
-Fumadocs utilizza il suo fornitore TanStack e l'adattatore di collegamento Router nativo. I fornitori condivisi appartengono a `src/providers`; i contesti di sola pagina rimangono accanto alla loro caratteristica.
+| Provider               | Avvolge                                                                               | Montato in                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `TranslationsProvider` | `IntlProvider` di use-intl con i namespace radice e quelli delle route corrispondenti | La shell radice, attorno al body del documento                                               |
+| `AriaProvider`         | `I18nProvider` e `RouterProvider` di React Aria                                       | Il componente radice, attorno a ogni route                                                   |
+| `ThemeProvider`        | Il provider di `@wrksz/themes`, salvato in un cookie                                  | Attorno al `Toaster` nella radice e al selettore del tema nella sidebar della documentazione |
+| `MotionProvider`       | `LazyMotion` (strict) e `MotionConfig` di Motion con `reducedMotion="user"`           | La landing page, l'indice del blog e i pulsanti di condivisione del blog                     |
 
-## Guide correlate
+## Composizione della radice
 
-- [Architettura](/docs/architecture)
-- [Sviluppo locale](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+`src/routes/__root.tsx` renderizza il documento in `shellComponent` e l'applicazione in `component`:
+
+```tsx
+const RootComponent = () => (
+  <AriaProvider>
+    <OfflineBanner />
+    <Outlet />
+    <ThemeProvider>
+      <Toaster />
+    </ThemeProvider>
+  </AriaProvider>
+)
+```
+
+- **TranslationsProvider** si trova nel `<body>` della shell, quindi ogni schermata è tradotta, compresi i componenti predefiniti di errore e not-found e gli scheletri delle route. Legge i namespace radice più gli `staticData.namespaces` di ogni route corrispondente, li carica con `useSuspenseQueries` e costruisce un unico albero di messaggi.
+- **AriaProvider** passa il locale corrente a React Aria e collega i link di React Aria a TanStack Router. Il suo `useHref` localizza i percorsi, così un `href` su un componente React Aria riceve il prefisso del locale.
+- **ThemeProvider** non avvolge l'outlet delle route. Un provider che si aggiorna dopo l'idratazione renderizzerebbe di nuovo ogni pagina, quindi avvolge solo i componenti che ne hanno bisogno. Il tema iniziale viene applicato prima dell'idratazione da `ThemeScript` nell'head del documento.
+- **MotionProvider** carica su richiesta il bundle di funzionalità `domMax` ed è montato solo dove vengono eseguite animazioni.
+
+## Cosa non è un componente provider
+
+- **QueryClient.** `src/router.tsx` lo crea per ogni richiesta, lo inserisce nel contesto del router e lo collega con `setupRouterSsrQueryIntegration`.
+- **Fumadocs.** Il layout `/docs` monta il `RootProvider` di Fumadocs con la sua gestione del tema disattivata.
+
+## Pagine correlate
+
+- [Caching e SSR](/docs/architecture/caching-and-ssr)
+- [Internazionalizzazione e locale](/docs/architecture/i18n-architecture)
+- [Tema](/docs/ui/theme)

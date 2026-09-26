@@ -1,23 +1,44 @@
 ---
-title: Anforderungslebenszyklus.
-description: Anforderungslebenszyklus — SaaSy Land
+title: "Request-Lebenszyklus"
+description: "Die Schritte, die ein Seiten-Request und ein Server-Function-Aufruf durchlaufen, vom Worker bis zum gerenderten Ergebnis."
 ---
 
-`src/server.ts` vereinheitlicht sprachabhängige URLs und hält das Sprach-Cookie aktuell. `src/router.tsx` erstellt für jeden Router einen neuen QueryClient und bindet ihn an SSR an. Die nativen Routendateien definieren Komponenten, Zugriffskontrollen, Loader, die Validierung von Suchparametern und Metadaten.
+## Seiten-Request
 
-Administratoren- und Kundenlayouts verwenden `beforeLoad`-Sicherheitsmechanismen. Jede geschützte Serverfunktion überprüft außerdem ihren Aufrufer, da ein RPC unabhängig von einer Seite aufgerufen werden kann. Vermeiden Sie es, authentifizierte Antworten in einem gemeinsam genutzten, statischen Cache zu speichern.
+1. **Kanonisierung der Locale.** `src/server.ts` ruft `resolveLocale` für `GET`- und `HEAD`-Dokument-Requests außerhalb von `/api` und `/_serverFn` auf. Ein reines Sprachpräfix oder ein Präfix der Standard-Locale (`/pl/docs`, `/en-US/docs`) wird mit `308` auf seine kanonische Form (`/pl-PL/docs`, `/docs`) umgeleitet. Weicht die Locale der URL vom Locale-Cookie ab, wird das Cookie in der Antwort aktualisiert.
+2. **Statische Assets zuerst.** Der Worker fragt das Binding `ASSETS` nach dem Pfad. Vorgerenderte Seiten und statische Dateien werden unverändert zurückgegeben. Erst bei einem `404` lädt er den TanStack-Start-Handler per dynamischem `import()`.
+3. **Routing.** `getRouter` erstellt einen neuen Router und einen neuen `QueryClient`. Das `rewrite` des Routers entfernt das Locale-Präfix, sodass `/pl-PL/docs` auf die `/docs`-Routen passt.
+4. **Root-`beforeLoad`** lädt die Root-Übersetzungs-Namespaces vor (`common`, `components.*`, `errors*`).
+5. **Guards.** `beforeLoad`-Funktionen von Layouts wie `requireAdmin` laden die Session-Query und leiten um, wenn der Zugriff nicht erlaubt ist.
+6. **Loader** laufen parallel. Jeder lädt seine Namespaces, Seitenmetadaten und Queries in den `QueryClient` des Requests vor.
+7. **Rendering.** Die Root-Shell rendert `<html lang dir>` und umschließt den Body mit `TranslationsProvider`. Der Query-Cache wird ins HTML serialisiert, damit der Browser dieselben Daten nicht erneut abruft.
+8. **Response-Header.** Bei HTML-Antworten fügt der Worker einen `Link`-Preload-Header für das Stylesheet und die Schriften der Locale hinzu, setzt bei Bedarf das Locale-Cookie und wendet die Attribute für regionale Preise an, wenn der Header `cf-ipcountry` für einen Rabatt qualifiziert.
+9. **Hydration.** Der Browser hydratisiert mit dem serialisierten Cache. Spätere Navigationen führen Guards und Loader im Browser aus und holen Daten über Server Functions.
+
+## Aufruf einer Server Function
+
+1. Der Browser ruft die Server Function auf, die der Build durch einen RPC-Request an `/_serverFn/…` ersetzt hat. Der Worker überspringt für diesen Pfad die Locale-Verarbeitung, und `getCurrentLocale()` liest das Locale-Cookie statt der URL.
+2. Die Middleware läuft in der deklarierten Reihenfolge. `withRequest` erfasst die Request-Header und normalisiert Fehler, `withRateLimit` zählt den Versuch in D1, und `authorized` lädt die Session und prüft die Berechtigung.
+3. Der Validator parst die Eingabe mit dem Zod-Schema des Moduls.
+4. Der Handler fragt D1 ab oder ruft einen Provider auf und gibt einfache Daten zurück.
+5. Die Komponente erhält die Daten oder einen `AppError`-Code. Bei Erfolg invalidiert sie die Query-Keys des Moduls; bei einem Fehler zeigt sie `useErrorMessage()(error)` an.
 
 ```text
-Request → Worker locale middleware → TanStack Router
-        → beforeLoad session/permission guard
-        → loader: messages + authorized query data
-        → SSR + hydrated React presentation
-Mutation → validated server function → auth/rate limit → D1 or provider
-         → result/error → scoped query invalidation
+GET /pl-PL/admin/users/all
+  src/server.ts        resolveLocale, ASSETS lookup, TanStack Start handler
+  router rewrite       /admin/users/all
+  __root beforeLoad    root namespaces
+  /admin beforeLoad    requireAdmin
+  loaders              metadata, namespaces, queries
+  SSR                  HTML with serialized query cache
+  src/server.ts        Link header, locale cookie, regional pricing
+
+POST /_serverFn/…
+  withRequest → withRateLimit → authorized → validator → handler → data or AppError
 ```
 
-## Verwandte Anleitungen.
+## Verwandte Seiten
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+- [Routen und Auslieferung](/docs/architecture/delivery-layer)
+- [Caching und SSR](/docs/architecture/caching-and-ssr)
+- [Authentifizierung und Sicherheit](/docs/architecture/security-model)

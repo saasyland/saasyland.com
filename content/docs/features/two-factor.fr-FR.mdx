@@ -1,12 +1,29 @@
 ---
-title: Authentification à deux facteurs
-description: Codes d'activation, de vérification et de sauvegarde de TOTP.
+title: "Authentification à deux facteurs"
+description: "Authentification à deux facteurs TOTP avec codes de secours, configurée dans les paramètres d’administration."
 ---
 
-## Module
+Le plugin `twoFactor` de Better Auth utilise `APP_NAME` comme émetteur. Ses fonctions serveur se trouvent dans `src/modules/two-factor/use-cases` :
 
-`modules/two-factor/use-cases` — activer, désactiver, vérifier TOTP, vérifier le code de sauvegarde.
+| Cas d’usage        | Middleware       | Utilisé par                            |
+| ------------------ | ---------------- | -------------------------------------- |
+| `enableTwoFactor`  | connecté, limité | `TwoFactorPasswordStep`                |
+| `disableTwoFactor` | connecté, limité | `TwoFactorPasswordStep`                |
+| `verifyTotp`       | limité           | `TwoFactorVerifyStep`, `TwoFactorForm` |
+| `verifyBackupCode` | limité           | `TwoFactorForm`                        |
 
-## UX
+## Configuration
 
-Configuration de l'onglet de sécurité + `/auth/two-factor` défier l'itinéraire. Suivez les contraintes du plugin Better Auth 2FA dans `auth.constraints.ts`.
+**Paramètres → Sécurité** dans `/admin/settings` affiche `TwoFactorDialog` (`src/presentation/components/custom/admin/settings`) :
+
+1. L’étape du mot de passe appelle `enableTwoFactor` et reçoit l’URI TOTP et les codes de secours.
+2. L’étape de vérification affiche le secret extrait de l’URI (`extractTotpSecret`) pour une saisie manuelle dans une application d’authentification et confirme un code à 6 chiffres avec `verifyTotp`.
+3. La dernière étape affiche les codes de secours.
+
+Lorsque la 2FA est active, le même bouton ouvre l’étape du mot de passe avec `disableTwoFactor`. Le bouton lit `twoFactorEnabled` dans la session courante.
+
+## Vérification à la connexion
+
+Pour un compte avec 2FA, Better Auth répond à la connexion par une redirection à deux facteurs ; `twoFactorClient` dans `auth.client.ts` envoie le navigateur vers `/auth/two-factor` dans la langue courante. `TwoFactorForm` accepte un code à 6 chiffres (`InputOTP`) ou, après basculement, un code de secours, et envoie `trustDevice: true`. En cas de succès, `usePostAuthRedirect` continue vers `/auth/callback`.
+
+Les longueurs des codes se trouvent dans `auth.constraints.ts` : `TWO_FACTOR_CODE_LENGTH` vaut 6 et les codes de secours comptent de 8 à 12 caractères.

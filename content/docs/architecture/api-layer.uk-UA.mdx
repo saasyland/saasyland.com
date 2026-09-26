@@ -1,28 +1,37 @@
 ---
-title: TanStack Start HTTP обробники
-description: TanStack Start HTTP обробники - SaaSy Land
+title: "HTTP-обробники TanStack Start"
+description: "HTTP-ендпоінти в /api і коли варто додати такий ендпоінт замість серверної функції."
 ---
 
-HTTP endpoints використовувати рідні TanStack Start обробники сервера в `src/routes`. Better Auth власники GET і POST під `/api/auth/$`; Fumadocs пошук використовує `/api/search`. . Робота з серверами є локальними функціями.
+Власні операції застосунку — це серверні функції. HTTP-обробники існують лише там, де URL викликає щось поза RPC-клієнтом застосунку: браузерний клієнт Better Auth, OAuth-провайдери, вебхуки Polar і поле пошуку документації.
 
-Декларатори на ручках `createFileRoute` з `server.handlers`. . Використовуйте поставку `request`, валідувати вхід, виконувати перевірки дозволу, і повернути Веб-сайт `Response`. . Зберігати перевірку вебхока в інтеграції провайдера. Не піддавати дублікати REST кінцевої точки для операції, яка використовується тільки цим користувачем RPC клієнту.
+| Файл                       | Шлях          | Методи    | Що обробляє                                                                                                                              |
+| -------------------------- | ------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/index.ts`  | `/api`        | GET       | JSON-відповідь зі статусом `{ runtime: "cloudflare-workers" }`                                                                           |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | GET, POST | Усі ендпоінти Better Auth, зокрема OAuth-колбеки, підтвердження електронної пошти, клієнтський портал Polar і `/api/auth/polar/webhooks` |
+| `src/routes/api/search.ts` | `/api/search` | GET       | Пошук Fumadocs по документації                                                                                                           |
+
+Обробник оголошується через `server.handlers` у `createFileRoute`. Він отримує Web `Request` і повертає `Response`:
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
-## Схожі посібники
+## Правила
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+- Не додавайте REST-ендпоінт для операції, яку викликає лише цей застосунок. Натомість напишіть сценарій використання з `createServerFn`: він отримує типізовані вхідні дані, middleware та опції запиту.
+- Обробник сам валідує вхідні дані й перевіряє дозволи. Middleware серверних функцій (`authorized`, `withRateLimit`) для обробників не виконуються.
+- Перевірку, специфічну для вендора, тримайте в інтеграції. Підписи вебхуків Polar перевіряє плагін Polar усередині Better Auth, а не власний обробник.
+- Шляхи `/api` ніколи не локалізуються, ніколи не проходять пререндеринг і оминають обробку локалі у Worker.
+
+## Пов'язані сторінки
+
+- [Додавання API-маршруту](/docs/guides/add-an-api-route)
+- [Серверні функції та сценарії використання](/docs/architecture/modules-and-use-cases)
+- [Поверхня API](/docs/features/api-surface)

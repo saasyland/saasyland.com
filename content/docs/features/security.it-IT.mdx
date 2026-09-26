@@ -1,8 +1,27 @@
 ---
-title: Sicurezza e indurimento
-description: Caratteristiche di sicurezza orientate al prodotto e controlli pianificati.
+title: "Sicurezza e hardening"
+description: "I controlli di sicurezza implementati dall’app e quelli che non implementa."
 ---
 
-Cross-link: Architettura → Modello di sicurezza, Guide → Elenco di controllo di sicurezza, Caratteristiche → Due fattori / Sessioni / Impersonazione.
+## Implementato
 
-Pianificato: firma webhook, org isolamento, protezione bot opzionale, più forti percorsi di audit.
+- **Sessioni**: sessioni Better Auth in D1, prefisso dei cookie `saasyland`, cookie sicuri fuori dalle modalità locali, host consentiti per modalità e `cf-connecting-ip` come indirizzo del client. La sessione lato client non contiene mai il token.
+- **Account**: verifica obbligatoria dell’email, sessioni revocate alla reimpostazione della password, TOTP opzionale con codici di backup, identificativi di verifica salvati come hash e token OAuth cifrati.
+- **Autorizzazione**: `requireSignedIn` e `requireAdmin` sulle rotte; `authorized(permission)` sulle funzioni server con i ruoli di `auth.access.ts`.
+- **Limiti di richieste**: il limitatore di Better Auth e il middleware `withRateLimit` condividono la tabella `rate_limit` di D1. `RATE_LIMITS.SENSITIVE` consente 3 chiamate e `RATE_LIMITS.TOKEN` 5 chiamate ogni 60 secondi per client e azione.
+- **Errori**: il middleware delle richieste trasforma gli errori in codici `AppError` (`src/modules/_core/constants/errors.ts`), quindi i client non ricevono mai messaggi grezzi del server; i componenti li mostrano con `useErrorMessage`.
+- **Webhook e moduli**: i webhook di Polar sono verificati con `POLAR_WEBHOOK_SECRET`; le richieste della newsletter sono accettate solo da host noti e via HTTPS (`newsletterRequestOrigin`).
+
+## Non implementato
+
+- Header di sicurezza come una Content Security Policy: `public/_headers` imposta solo la cache.
+- Un registro di audit, anche per ban, eliminazioni e impersonificazioni.
+- Protezione dai bot o CAPTCHA sui moduli pubblici.
+- Una schermata di impersonificazione ([Impersonificazione](/docs/features/impersonation)).
+
+## Guide correlate
+
+- [Modello di sicurezza](/docs/architecture/security-model)
+- [Checklist di sicurezza](/docs/guides/security-checklist)
+- [Autenticazione a due fattori](/docs/features/two-factor)
+- [Sessioni](/docs/features/sessions)

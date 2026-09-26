@@ -1,14 +1,45 @@
 ---
-title: Proveedores
-description: Proveedores — SaaSy Land
+title: "Providers"
+description: "Los cuatro providers de la aplicación en src/providers, dónde se monta cada uno y por qué."
 ---
 
-`src/routes/__root.tsx` controla el documento y la composición del proveedor a nivel de aplicación. El router crea un QueryClient y conecta su caché a SSR. El proveedor de traducción carga los namespaces de la ruta activa en… `IntlProvider`El tema, la animación, la enrutamiento de React Aria, los tooltips, las notificaciones y el indicador offline conservan el comportamiento de presentación existente.
+`src/providers` contiene cuatro providers. Cada uno se monta lo más cerca posible de sus consumidores.
 
-Fumadocs utiliza su proveedor TanStack y el adaptador de enlace nativo de Router. Los proveedores compartidos se encuentran bajo… `src/providers`; los contextos solo de página permanecen junto a su funcionalidad.
+| Provider               | Envuelve                                                                           | Se monta en                                                                                       |
+| ---------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `TranslationsProvider` | `IntlProvider` de use-intl con los namespaces raíz y los de las rutas coincidentes | El shell raíz, alrededor del body del documento                                                   |
+| `AriaProvider`         | `I18nProvider` y `RouterProvider` de React Aria                                    | El componente raíz, alrededor de todas las rutas                                                  |
+| `ThemeProvider`        | El provider de `@wrksz/themes`, con el tema guardado en una cookie                 | Alrededor del `Toaster` en la raíz y del selector de tema en la barra lateral de la documentación |
+| `MotionProvider`       | `LazyMotion` (strict) y `MotionConfig` de Motion con `reducedMotion="user"`        | La landing page, el índice del blog y los botones para compartir del blog                         |
 
-## Guías relacionadas
+## Composición de la raíz
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+`src/routes/__root.tsx` renderiza el documento en `shellComponent` y la aplicación en `component`:
+
+```tsx
+const RootComponent = () => (
+  <AriaProvider>
+    <OfflineBanner />
+    <Outlet />
+    <ThemeProvider>
+      <Toaster />
+    </ThemeProvider>
+  </AriaProvider>
+)
+```
+
+- **TranslationsProvider** está en el `<body>` del shell, así que todas las pantallas están traducidas, incluidos los componentes por defecto de error y de página no encontrada y los esqueletos de las rutas. Toma los namespaces raíz más los `staticData.namespaces` de cada ruta coincidente, los carga con `useSuspenseQueries` y construye un único árbol de mensajes.
+- **AriaProvider** pasa el locale actual a React Aria y conecta los enlaces de React Aria con TanStack Router. Su `useHref` localiza las rutas, así que un `href` en un componente de React Aria recibe el prefijo de locale.
+- **ThemeProvider** no envuelve el outlet de las rutas. Un provider que se actualiza después de la hidratación volvería a renderizar todas las páginas, así que solo envuelve los componentes que lo necesitan. `ThemeScript`, en el head del documento, aplica el tema inicial antes de la hidratación.
+- **MotionProvider** carga bajo demanda el bundle de funcionalidades `domMax` y solo se monta donde hay animaciones.
+
+## Lo que no es un componente provider
+
+- **QueryClient.** `src/router.tsx` lo crea en cada petición, lo coloca en el contexto del router y lo conecta con `setupRouterSsrQueryIntegration`.
+- **Fumadocs.** El layout de `/docs` monta el `RootProvider` de Fumadocs con su propia gestión del tema desactivada.
+
+## Páginas relacionadas
+
+- [Caché y SSR](/docs/architecture/caching-and-ssr)
+- [Internacionalización y locales](/docs/architecture/i18n-architecture)
+- [Tema](/docs/ui/theme)

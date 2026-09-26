@@ -1,13 +1,121 @@
 ---
-title: メールテンプレート
-description: Resend デリバリーと React メールテンプレート。
+title: "メールテンプレート"
+description: "翻訳済みのメッセージを使う React Email テンプレートを書き、ユースケースから Resend 経由で送信します。"
 ---
 
-## どこまでも
+メールは 3 つの部分で構成されます。`src/presentation/emails/` にあるテンプレート、`messages/<locale>/emails.<name>.json` にあるメッセージの名前空間、そしてメッセージを読み込み、テンプレートをレンダリングして送信するユースケースです。テンプレートは `verify-email`、`reset-password-email`、`change-email-confirmation-email`、`newsletter-confirmation-email`、`newsletter-notification-email` です。
 
-- ヘルパーを送信して下さい: `integrations/resend`
-- テンプレート: `presentation/emails` (各コンポーネントのエクスポート + `*Subject(locale)`; の配線 `integrations/better-auth/auth.emails.ts`)
+## テンプレート
 
-## ローカルのヒント
+テンプレートはマークアップだけを含み、自分の名前空間をエクスポートします。React のコンテキストの外でレンダリングされるため、`use-intl` の `createTranslator` で翻訳します。`src/presentation/emails/verify-email.tsx`：
 
-Resend はスモークテスト用の送信機をオンボーディングします。API キーをコミットしません。
+```tsx
+import type { JSX } from "react"
+
+import { Body, Button, Container, Head, Heading, Html, Preview, Section, Tailwind, Text, pixelBasedPreset } from "react-email"
+import { createTranslator } from "use-intl"
+
+import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+
+import type emailMessages from "~/messages/en-US/emails.verify-email.json"
+
+export const VERIFY_EMAIL_NAMESPACE = "emails.verify-email"
+
+const TAILWIND_CONFIG = { presets: [pixelBasedPreset] }
+
+interface VerifyEmailProps {
+  readonly locale: SupportedLocale
+  readonly messages: typeof emailMessages
+  readonly name: string
+  readonly verifyUrl: string
+}
+
+export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<VerifyEmailProps>): JSX.Element => {
+  const t = createTranslator({ locale, messages: { emails: { "verify-email": messages } }, namespace: "emails.verify-email" })
+
+  return (
+    <Html lang={locale}>
+      <Tailwind config={TAILWIND_CONFIG}>
+        <Head />
+        <Body className="font-sans">
+          <Preview>{t("preview")}</Preview>
+          <Container className="mx-auto px-5 py-10">
+            <Section>
+              <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading")}</Heading>
+              <Text className="m-0 mb-6 text-base text-neutral-600">{t("body", { name })}</Text>
+              <Button
+                href={verifyUrl}
+                className="box-border rounded-md bg-neutral-900 px-5 py-3 text-center text-base text-white no-underline"
+              >
+                {t("button")}
+              </Button>
+              <Text className="mt-6 text-sm text-neutral-500">{t("footer")}</Text>
+            </Section>
+          </Container>
+        </Body>
+      </Tailwind>
+    </Html>
+  )
+}
+```
+
+## メッセージ
+
+9 つのロケールすべてに `messages/<locale>/emails.<name>.json` を作成します。`subject` キーを含めてください。ユースケースは、これを本文とは別に翻訳します。
+
+```json
+{
+  "subject": "Verify your email address",
+  "preview": "Verify your email for SaaSy Land",
+  "heading": "Verify your email",
+  "body": "Hi {name}, thanks for signing up. Confirm your email address to finish setting up your account.",
+  "button": "Verify email",
+  "footer": "If you did not create an account, you can safely ignore this email."
+}
+```
+
+メールの名前空間がルートでプリロードされることはありません。送信するユースケースがサーバー上で読み込みます。
+
+## 送信
+
+ユースケースはロケールを受け取り、メッセージを読み込み、`localizePathname` で絶対リンクを組み立て、`sendEmail` を呼び出します。`src/modules/verification/use-cases/send-verify-email.ts`：
+
+```ts
+export const sendVerifyEmail = async ({
+  locale,
+  token,
+  user,
+}: {
+  locale: SupportedLocale
+  token: string
+  user: { email: string; name: string }
+}): Promise<void> => {
+  const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+  const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+  verifyUrl.searchParams.set("token", token)
+
+  await sendEmail({
+    idempotencyKey: `verify-email/${token}`,
+    react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+    subject: createTranslator({ locale, messages })("subject"),
+    to: user.email,
+  })
+}
+```
+
+`sendEmail`（`src/integrations/resend/resend.utils.ts`）は、`from` が指定されていなければ `RESEND_EMAIL_FROM` を送信元として Resend 経由で送信します。べき等性キーを渡すため、リトライしても二重に送信されることはありません。Resend がエラーを返した場合は例外をスローします。
+
+## 誰が何を送るか
+
+- `src/integrations/better-auth/auth.server.ts` の Better Auth のフックがユースケースを呼び出します。`emailVerification.sendVerificationEmail` と、未認証アカウントでの再度のサインアップには `sendVerifyEmail`、`emailAndPassword.sendResetPassword` には `sendResetPasswordEmail`、`user.changeEmail` には `sendChangeEmailConfirmationEmail` を使います。
+- Better Auth へのリクエストはロケールのプレフィックスなしで `/api/auth` に届くため、フックはフローの `callbackURL`（ローカライズされたページのパス）から、`src/integrations/use-intl/i18n.paths.ts` の `extractLocaleFromCallbackURL` または `extractLocaleFromPath` を使ってメールのロケールを決めます。フォールバックは英語です。
+- ニュースレターのユースケースは、ニュースレターの確認メールと通知メールを自ら送信します。例えば `subscribeToNewsletter` です。
+
+## メールを追加する
+
+1. エクスポートした `<NAME>_NAMESPACE` とともに、テンプレートを `src/presentation/emails/<name>.tsx` に追加します。
+2. 9 つのロケールすべてに `messages/<locale>/emails.<name>.json` を追加します。
+3. そのアクションを担うユースケースから、きっかけとなったトークンやレコードから導出したべき等性キーを付けて送信します。
+4. テンプレートは `src/presentation/emails/__test__/` でテストし、ユースケースは `sendEmail` をモックしてテストします。
+
+Resend の認証情報は `RESEND_API_KEY` と `RESEND_EMAIL_FROM` です。テストが Resend に接続することはありません。

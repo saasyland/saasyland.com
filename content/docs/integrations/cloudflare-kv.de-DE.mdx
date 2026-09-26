@@ -1,14 +1,22 @@
 ---
-title: Cloudflare KV
-description: Cloudflare KV — SaaSy Land
+title: "Cloudflare KV"
+description: "Der CACHE-Namespace und die zwischengespeicherte Anzahl der GitHub-Sterne."
 ---
 
-`env.CACHE` speichert öffentliche, temporäre Cache-Einträge. Die GitHub-Integration speichert die Anzahl der Sterne mit einer TTL und verwendet `waitUntil` für das Schreiben in den Cache. Sie greift bei Ausfall von GitHub oder KV auf alternative Lösungen zurück.
+Jede Umgebung bindet einen KV-Namespace als `CACHE`. Er dient ausschließlich der auf der Website angezeigten Anzahl der GitHub-Sterne, implementiert in `src/lib/github.ts`:
 
-KV ist letztendlich konsistent. Authentifizierungs-Sessions und Ratenbegrenzungen werden in D1 gespeichert. Der Aktionsbegrenzer verwendet für jeden Schlüssel und Zeitfenster jeweils einen atomaren SQL-Upsert-Vorgang, sodass Anfragen, die von verschiedenen Worker-Instanzen bearbeitet werden, dieselbe Begrenzung einhalten. Verwenden Sie KV-Zähler nicht für die Autorisierung oder für sensible Begrenzungen.
+- `getStarCount` liest den Eintrag `github:<owner>/<repo>:stars`.
+- Ohne Eintrag ruft die Funktion das Repository mit einem Timeout von drei Sekunden über die GitHub-API ab, gibt die Anzahl zurück und schreibt `count` und `fetchedAt` mit `waitUntil` in KV.
+- Ist der Eintrag älter als eine Stunde, gibt sie die zwischengespeicherte Anzahl zurück und aktualisiert sie im Hintergrund.
+- `starCountQuery` hält das Ergebnis eine Stunde lang im Query-Cache.
 
-## Verwandte Anleitungen.
+Einträge haben kein KV-Ablaufdatum; `fetchedAt` entscheidet, wann aktualisiert wird. Die GitHub-Anfrage authentifiziert sich mit den Zugangsdaten der GitHub-OAuth-App, `AUTH_GITHUB_CLIENT_ID` und `AUTH_GITHUB_CLIENT_SECRET`.
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+KV ist nur letztendlich konsistent. Sitzungen, Ratenbegrenzungen und alles, was der Autorisierung dient, liegen in D1.
+
+In Vitest wird `cloudflare:workers` zu `src/platform/testing/mocks/cloudflare.ts` aufgelöst, das einen `CACHE` im Arbeitsspeicher bereitstellt. Die Wrangler-Umgebung `test` verwendet einen lokalen Namespace unter `.wrangler/test`.
+
+## Verwandte Anleitungen
+
+- [Caching und SSR](/docs/architecture/caching-and-ssr)
+- [Umgebung und Bindings](/docs/tooling/environment)

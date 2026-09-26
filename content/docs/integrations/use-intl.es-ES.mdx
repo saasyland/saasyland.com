@@ -1,16 +1,67 @@
 ---
-title: Internacionalización y localidades
-description: Internacionalización y localidades — SaaSy Land
+title: "Internacionalización e idiomas"
+description: "Idiomas, espacios de nombres de mensajes y utilidades de URL basados en use-intl."
 ---
 
-Los mensajes residen en `messages/{locale}` Para los nueve idiomas configurados como archivos de espacio de nombres delimitados, por ejemplo `pages.admin.users.json`La configuración de la localización, los helpers de URL, la carga de mensajes, los helpers de metadatos y la traducción de correos electrónicos residen en… `src/integrations/use-intl`.
+SaaSy Land admite nueve idiomas: `en-US` (predeterminado), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` y `uk-UA`. El inglés usa rutas sin prefijo (`/docs`); los demás idiomas usan el prefijo de idioma completo (`/pl-PL/docs`). Los alias de idioma como `/pl/docs` redirigen de forma permanente a la ruta canónica.
 
-Utilizamos `/docs`; Utiliza los recursos de Polonia. `/pl-PL/docs`Legado `/en` y `/pl` Los enlaces están canonizados. Los archivos de ruta declaran `staticData.namespaces` y precargar los mismos espacios de nombres en su loader. `TranslationsProvider` reusable component, allowing developers to easily ship new features and updates using SaaSy Land Core. To ensure quality, we’ve implemented a test gate that requires all new code to pass through the \`/assets/tests/validate-template.xml\` file path. This file utilizes ICU placeholders to dynamically generate test cases. When deploying, use the \`--deploy-bundle\` command flag to initiate the deployment process. For edge computing scenarios, we recommend using `IntlProvider`Los mensajes compartidos se cargan en la raíz; los espacios de nombres solo para correo electrónico permanecen en el servidor.
+## Archivos
 
-Lee el entorno con `getCurrentLocale` en el servidor y `useLocale` En los componentes. La URL selecciona la localización del documento. Las peticiones a la función del servidor utilizan la cookie de localización. Un cambio de idioma mantiene la ruta, la consulta y el fragmento y recarga el documento para cargar el contenido correspondiente. Ejecutar `bun run check:i18n` Después de modificar las claves.
+`src/integrations/use-intl/` contiene toda la lógica de idiomas:
+
+| Archivo              | Responsabilidad                                                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `i18n.config.ts`     | `I18N` con `SUPPORTED_LOCALES`, `DEFAULT_LOCALE`, `COOKIE_NAME` y `DEFAULT_TIMEZONE`                                                      |
+| `i18n.messages.ts`   | `loadNamespace`, `loadPageMetadata`, `messagesQueryOptions`, `preloadNamespaces` y `ROOT_NAMESPACES`                                      |
+| `i18n.middleware.ts` | `resolveLocale`: redirecciones canónicas y sincronización de la cookie de idioma en las solicitudes de documentos; lo usa `src/server.ts` |
+| `i18n.paths.ts`      | `localizePathname`, `deLocalizePathname`, `canonicalizePathname`, `localeLinks` y utilidades de rutas relacionadas                        |
+| `i18n.utils.ts`      | `getCurrentLocale`, `localizeUrl`, `deLocalizeUrl` y `parseLocaleCookie`                                                                  |
+
+## Espacios de nombres
+
+Los mensajes se encuentran en `messages/<locale>/<namespace>.json`, y el nombre del archivo es el espacio de nombres: `pages.admin.users`, `components.custom.footer`, `emails.verify-email`, `auth.validations` o `common`. Los mensajes son JSON plano sin tipos generados. Cada espacio de nombres de página contiene `metadata.title` y `metadata.description` para el encabezado de la página.
+
+La ruta raíz precarga los espacios de nombres raíz (`common`, `components.*` y `errors*`) en `beforeLoad`. Una ruta de página declara un `NAMESPACE` y una ruta de layout declara `NAMESPACES` para su subárbol; ambas los enumeran en `staticData.namespaces` y los precargan en el loader:
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+`TranslationsProvider` envuelve el cuerpo del documento y combina los espacios de nombres raíz con los de cada ruta coincidente en un único `IntlProvider`, de modo que las pantallas de error y de página no encontrada también se traducen. Los espacios de nombres de correo electrónico solo los carga el caso de uso del servidor que envía el correo.
+
+## Idioma y enlaces
+
+`getCurrentLocale()` es isomórfico. En el servidor lee el idioma de la URL, o de la cookie de idioma en las solicitudes a `/api` y a funciones de servidor; en el navegador lee la URL. El Worker mantiene la cookie sincronizada con la URL de la página.
+
+El `rewrite` del router elimina el prefijo de idioma de las URL entrantes y lo añade a las salientes, de modo que `<Link to={ROUTES.X}>` siempre permanece en el idioma actual. Use `localizePathname({ locale, pathname })` solo para URL sin procesar: URL de callback de Better Auth, enlaces de correo electrónico y elementos `<a href>` construidos a mano. El selector de idioma es uno de esos enlaces, por lo que elegir un idioma carga la misma página en un documento nuevo.
+
+## Componentes
+
+Un componente llama a `useTranslations` exactamente una vez y llama `t` a la función de traducción. i18n-ally vuelve a delimitar el ámbito de cada `t()` posterior tras otra llamada a `useTranslations`, y `bun run check:i18n` falla con las claves que no se resuelven en su ámbito. Un componente que necesita dos espacios de nombres no relacionados usa su espacio de nombres padre común o `useTranslations()` con claves completas.
+
+## Comprobaciones
+
+`bun run check:i18n` ejecuta tres scripts, y `bun run check` lo incluye:
+
+- `scripts/check-i18n.ts`: paridad de claves con `en-US` y resolución por ámbito de las claves estáticas.
+- `scripts/check-message-formats.ts`: cada mensaje se analiza como ICU y conserva sus argumentos y etiquetas de texto enriquecido.
+- `scripts/check-content.ts`: los archivos de documentación y blog, la navegación y los ejemplos de código coinciden entre idiomas.
 
 ## Guías relacionadas
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+- [Arquitectura de i18n](/docs/architecture/i18n-architecture)
+- [Mensajes de i18n](/docs/guides/i18n-messages)

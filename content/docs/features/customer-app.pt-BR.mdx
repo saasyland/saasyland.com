@@ -1,16 +1,32 @@
 ---
-title: Aplicativo de cliente
-description: Área protegida para clientes inscritos.
+title: "Aplicativo do cliente"
+description: "A área /app para usuários logados: visão geral, página de licença e barra lateral."
 ---
 
-## Grupo de rota.
+## Layout
 
-`src/routes/app*.tsx` e... `src/presentation/components/custom/app/`
+`src/routes/app.tsx` protege a área com `requireSignedIn` e pré-carrega seus namespaces:
 
-## Status
+```tsx
+const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
 
-Shell após a entrada. Expanda com o portal de faturamento, biblioteca de cursos, links profundos de contas e conteúdo fechado.
+export const Route = createFileRoute("/app")({
+  beforeLoad: requireSignedIn,
+  component: AppLayout,
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  staticData: { namespaces: NAMESPACES },
+})
+```
 
-## Guardas.
+`AppLayout` mostra `AppSidebar` e `AppHeader` de `src/presentation/components/custom/app` dentro do `SidebarProvider` do shadcn. A barra lateral monta os links a partir de `APP_NAVIGATION` em `src/data/app.ts`, lê o usuário do contexto da rota (`getRouteApi("/app")`) e termina com `SignOutButton`. O cabeçalho mostra a página atual e um link de volta ao site. Após o login, administradores chegam a `/admin` e todos os demais a `/app`.
 
-`src/integrations/better-auth/auth.guards.ts` + sessão; prefira casos de uso para qualquer mutação desta superfície.
+## Páginas
+
+| Rota           | Conteúdo                                                                                                                                                                              |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/app`         | `CheckoutOptions` sem licença; caso contrário, `LicenseStatusCard` (plano, status e link para a página de licença); links para a documentação e para o suporte por e-mail.            |
+| `/app/license` | `CheckoutOptions` sem licença; caso contrário, `LicenseCard` (chave, comando de instalação, link para o portal do cliente) e, quando o Polar já emitiu a chave, `LicenseActivations`. |
+
+Os dois loaders pré-carregam `currentLicenseQuery`; `/app/license` também pré-carrega `licenseActivationsQuery`. Checkout, webhooks e estados da licença estão descritos em [Pagamentos e licenças](/docs/features/payments).
+
+Não há histórico de cobrança, configurações de conta nem telas de cursos em `/app`.

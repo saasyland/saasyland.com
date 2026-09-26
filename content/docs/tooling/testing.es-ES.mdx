@@ -1,26 +1,46 @@
 ---
-title: Pruebas y CI
-description: Pruebas y CI — SaaSy Land
+title: "Pruebas"
+description: "Proyectos de Vitest, utilidades de prueba y el umbral de cobertura del 100 %."
 ---
 
-Vite+ ejecuta Vitest en tres proyectos: pruebas de nodo, pruebas de integración y pruebas de componentes jsdom. Conserva las pruebas de comportamiento existentes junto al código que están probando. `__test__`Importar APIs de prueba desde `vite-plus/test`Utiliza Playwright para las pruebas de flujo completo del navegador y las comprobaciones de renderizado.
+Vite+ ejecuta Vitest con la configuración de `vite.config.ts`. Las pruebas se encuentran en una carpeta `__test__` junto al código que cubren e importan su API desde `vite-plus/test`.
 
-La configuración compartida proporciona mocks locales de D1 y KV. D1 ejecuta las migraciones SQL revisadas contra SQLite. El puente RPC de la función del servidor preserva la pila de middleware y validación de TanStack. Los ayudantes de renderizado de componentes ofrecen contextos reales de QueryClient y Router. Las llamadas externas de correo electrónico, OAuth y pagos se simulan en las pruebas.
-
-Ejecuta el proyecto enfocado mientras editas, y luego ejecuta la suite completa, la puerta de pruebas de cobertura, la comprobación y la compilación de previsualización. Las pruebas del navegador verifican las páginas públicas, las redirecciones de autenticación, SSR sin JavaScript y la navegación del cliente. El CI utiliza enlaces locales y no requiere una base de datos en vivo ni secretos de proveedor.
+| Proyecto      | Archivos                                                     | Entorno                                |
+| ------------- | ------------------------------------------------------------ | -------------------------------------- |
+| `node`        | `*.test.ts` y `*.test.tsx`, excepto los dos tipos siguientes | Node                                   |
+| `integration` | `*.integration.test.ts`                                      | Node, tiempos de espera de 20 segundos |
+| `component`   | `*.component.test.tsx`                                       | jsdom                                  |
 
 ```sh
+bun run test
 bun run test:unit
 bun run test:integration
 bun run test:component
+bun run test:watch
+bun run test:changed
 bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
 ```
+
+Use `bun run test`, no `bun test`: el ejecutor de pruebas propio de Bun ignora los proyectos, los entornos y el archivo de configuración inicial de Vitest.
+
+## Plataforma de pruebas
+
+`src/platform/testing/` contiene la infraestructura compartida; todo lo demás se ubica junto a su propietario.
+
+- `setup.ts` registra los matchers de jest-dom y los hooks compartidos.
+- `mocks/cloudflare.ts` sustituye a `cloudflare:workers`: D1 es una base de datos `node:sqlite` en memoria que aplica todas las migraciones del repositorio, y KV es un mapa en memoria.
+- `lib/server-function.ts` llama a las funciones de servidor a través del pipeline real de middleware y validación de TanStack.
+- `lib/render.tsx` renderiza componentes con un QueryClient y un router reales.
+- `mocks/providers.ts` intercepta las solicitudes a Resend y a Polar. Solo lo instala el Worker de pruebas de Playwright (`worker.ts`).
+
+Las llamadas externas de correo electrónico, OAuth y pagos nunca salen del proceso de pruebas.
+
+## Cobertura
+
+`bun run test:coverage` exige un 100 % de líneas, sentencias, funciones y ramas para `src/**/*.{ts,tsx}`. Quedan excluidos las pruebas, las carpetas `__test__`, los archivos de declaración, `src/routeTree.gen.ts`, las primitivas de shadcn y `src/platform/testing/`. Los informes se escriben en `coverage/` como texto, HTML y `coverage-summary.json`. Cubra el comportamiento real y elimine las ramas que nunca pueden ejecutarse en lugar de sustituir globales para alcanzarlas. CI ejecuta el umbral de cobertura en cada pull request.
 
 ## Guías relacionadas
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+- [Escribir pruebas](/docs/guides/writing-tests)
+- [Arquitectura de pruebas](/docs/architecture/testing-architecture)
+- [Playwright](/docs/tooling/playwright)

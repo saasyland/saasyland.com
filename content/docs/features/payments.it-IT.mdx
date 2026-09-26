@@ -1,18 +1,54 @@
 ---
-title: Pagamenti e fatturazione
-description: Ordini, rimborsi, e Stripe-oriented fatturazione (pianificata).
+title: "Pagamenti e licenze"
+description: "Checkout Polar, portale clienti e webhook che assegnano le licenze; la schermata pagamenti dell’amministrazione è una demo."
 ---
 
-## Stato
+I pagamenti passano da Polar tramite il plugin `@polar-sh/better-auth` in `auth.server.ts`:
 
-Amministrazioni `/admin/payments` L'UI usa le file mock oggi. The `order` dichiarazioni `APP_STATEMENTS` già schizzo letto/aggiornamento/rimborso.
+```ts
+polarPlugin({
+  client: polar,
+  use: [
+    checkout({
+      authenticatedUsersOnly: true,
+      products: POLAR_CHECKOUT_PRODUCTS,
+      successUrl: ROUTES.APP,
+    }),
+    portal(),
+    webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
+  ],
+}),
+```
 
-## Architettura pianificata
+Il client Polar (`src/integrations/polar/polar.config.ts`) usa `POLAR_ACCESS_TOKEN` e `POLAR_SERVER`. `POLAR_CHECKOUT_PRODUCTS` associa gli identificativi dei piani `core`, `complete` e `agency` a `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` e `POLAR_PRODUCT_ID_AGENCY`.
 
-- `modules/billing` o `modules/order` Casi d'uso
-- Stripe (o Polar) cartella di integrazione
-- Gestore di rotta Webhooks
-- Fatture del cliente sotto `/app`
-- Mappa Better Auth utente ↔ cliente id
+## Checkout
 
-Implementare dietro le autorizzazioni; mai esporre le chiavi segrete al cliente.
+Un utente autenticato senza licenza vede `CheckoutOptions` su `/app` e `/app/license`. Il componente chiama `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`), che:
+
+1. cerca uno sconto regionale con `pppDiscountId` (`license.ppp.ts`): la percentuale del paese indicato da `cf-ipcountry`, confrontata con gli sconti percentuali automatici attivi in Polar, e la ignora quando il cookie `regional_pricing` vale `off`;
+2. crea un checkout Polar per il piano con i codici sconto disattivati;
+3. restituisce l’URL del checkout, che il browser apre.
+
+Un checkout pagato torna su `/app`.
+
+## Webhook e licenze
+
+Polar invia gli eventi a `/api/auth/polar/webhooks`, verificati con `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) individuano l’utente tramite l’`externalId` del cliente Polar:
+
+- `onOrderPaid` → `grantLicense`: crea o aggiorna l’unica licenza dell’utente con il piano del prodotto acquistato; un acquisto più recente sostituisce quello precedente.
+- `onBenefitGrantCreated` → `attachLicenseKey`: salva la chiave di licenza Polar sulla licenza.
+- `onOrderRefunded` e `onBenefitGrantRevoked` → `revokeLicense`: imposta lo stato su `revoked` e registra l’ordine in `revoked_license_order`, così un webhook in ritardo non può riassegnarla.
+
+## Schermate per i clienti
+
+`/app/license` mostra `LicenseCard` (piano, chiave, comando di installazione e link al portale clienti Polar su `/api/auth/customer/portal`) e `LicenseActivations`, che elenca le attivazioni della chiave in Polar e ne rimuove una con `deactivateLicense`. Vedi [App cliente](/docs/features/customer-app).
+
+## Schermata di amministrazione (demo)
+
+`/admin/payments` mostra `RefundStats` e un `DataTable` dei rimborsi su `ADMIN_PAYMENT_ROWS` di `src/data/admin.ts`; i suoi pulsanti non sono collegati. Le dichiarazioni di permesso `order` (`read`, `update`, `refund`) esistono in `auth.access.ts`, ma nessun caso d’uso legge ordini o rimborsi.
+
+## Pagine correlate
+
+- [Landing page](/docs/features/landing-page) per i prezzi regionali nella sezione prezzi
+- [Variabili d’ambiente](/docs/getting-started/environment-variables)

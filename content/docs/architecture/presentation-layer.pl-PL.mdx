@@ -1,14 +1,66 @@
 ---
-title: Prezentacja
-description: Prezentacja — SaaSy Land
+title: "Warstwa prezentacji"
+description: "Gdzie znajdują się komponenty, e-maile i style oraz jakie zasady obowiązują każdy komponent."
 ---
 
-Warstwa prezentacji odpowiada za dotychczasową typografię, układ, kolory i interakcje. Wspólne komponenty bazowe znajdują się w `presentation/components/shadcn`, a komponenty funkcji w `presentation/components/custom`. Elementy, hooki i stałe pojedynczej sekcji trzymaj blisko niej.
+## Foldery
 
-Trasy zapewniają kontekst ładowania i nawigacji. Komponenty korzystają z tłumaczeń oraz natywnych opcji zapytań i mutacji. Lokalne fonty Geist są serwowane z `public/fonts`. Funkcja `cn` w `src/lib/cn.ts` zachowuje własną skalę typograficzną podczas łączenia klas Tailwind.
+- `presentation/components/shadcn`: prymitywy shadcn/ui w wariancie React Aria Components
+- `presentation/components/custom`: komponenty aplikacji
+- `presentation/emails`: szablony React Email
+- `presentation/styles`: `globals.css` (jedyny build Tailwinda), `docs.css` (czysty CSS ładowany tylko przez layout `/docs`), `fonts.css` i `typeset.css`
+- `presentation/theme`: `THEME` (jasny, ciemny, systemowy; nazwa cookie; wartość domyślna)
+- `presentation/branding`: nazwa aplikacji, domena, adresy URL i repozytorium GitHub
+- `presentation/document-assets.ts`: arkusz stylów dokumentu i preloady fontów dla każdego locale
 
-## Powiązane przewodniki
+## Organizacja komponentów
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- Współdzielone komponenty to płaskie pliki w `custom/`, na przykład `footer.tsx`, `navigation.tsx`, `data-table.tsx` i `locale-switcher.tsx`.
+- Komponenty jednego obszaru znajdują się w folderze tego obszaru: `admin/`, `app/`, `auth/`, `blog/` lub `landing-page/`. Strony panelu administracyjnego mają własne foldery, np. `admin/dashboard/revenue-chart.tsx` lub `admin/users/reset-password-dialog.tsx`.
+- Każdy plik zawiera jeden widżet, dialog, formularz lub definicję kolumn. Kolumny tabel znajdują się w `<entity>-columns.tsx` obok pozostałych komponentów strony.
+- Pliki tras jedynie komponują te komponenty. Dane współdzielone przez kilka plików znajdują się w `src/data`; stała używana przez jeden komponent pozostaje w jego pliku.
+
+## Zasady dla komponentów
+
+- Komponent sam odczytuje swoje tłumaczenia i dane przez `useTranslations`, `useSuspenseQuery` lub `getRouteApi(…).useLoaderData()`. Nie przyjmuje propsów z tekstem, etykietami ani danymi, które rodzic mógłby odczytać samodzielnie.
+- Komponent wywołuje `useTranslations` dokładnie raz i nazywa funkcję tłumaczącą `t`. W przypadku kluczy z dwóch przestrzeni nazw używa ich wspólnej przestrzeni nadrzędnej albo `useTranslations()` z pełnymi kluczami.
+- Nie ma wrapperów, które jedynie przekazują dalej, ani prop drillingu.
+- Mapy tagów rich text są stałymi na poziomie modułu. Klasy warunkowe używają składni obiektowej `cn`, na przykład `cn("base", { "text-foreground": isActive })`.
+- Komponenty nigdy nie importują klientów bazy danych ani dostawców. Korzystają z opcji zapytań i mutacji eksportowanych przez przypadki użycia.
+
+```tsx
+export const SignOutButton = (): JSX.Element => {
+  const t = useTranslations("common")
+  const { isPending, mutate } = useSignOut()
+
+  return (
+    <Button
+      aria-label={isPending ? t("signingOut") : t("signOut")}
+      className="shrink-0 text-muted-foreground"
+      isDisabled={isPending}
+      onPress={() => {
+        mutate()
+      }}
+      size="icon-sm"
+      variant="ghost"
+    >
+      {isPending && <Spinner />}
+      {!isPending && <LogOut aria-hidden strokeWidth={1.5} />}
+    </Button>
+  )
+}
+```
+
+## Stylowanie
+
+`cn` z `src/lib/cn.ts` scala klasy Tailwinda przy użyciu tabel generowanych z `src/lib/cn.config.ts`, który rejestruje własną skalę typograficzną `text-*`, dzięki czemu scalanie zachowuje te klasy. Pliki fontu Geist są serwowane z `public/fonts`; każde locale wstępnie ładuje pliki Latin i mono, polskie dodaje Latin Extended, a ukraińskie cyrylicę.
+
+## E-maile
+
+Szablon e-maila w `presentation/emails` zawiera wyłącznie markup i eksportuje swoją przestrzeń nazw, na przykład `VERIFY_EMAIL_NAMESPACE = "emails.verify-email"`. Tłumaczy treść za pomocą `createTranslator` z use-intl. Przypadek użycia, który wysyła e-mail, ładuje komunikaty i przekazuje je do szablonu.
+
+## Powiązane strony
+
+- [Komponenty shadcn](/docs/ui/shadcn-components)
+- [Wzorce kompozycji](/docs/ui/composition-patterns)
+- [Szablony e-maili](/docs/guides/email-templates)

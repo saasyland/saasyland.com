@@ -1,16 +1,54 @@
 ---
-title: Environnement et liaisons
-description: Environnement et liaisons — SaaSy Land
+title: "Environnement et bindings"
+description: "Fichiers d'environnement, secrets et bindings Cloudflare pour chaque environnement Wrangler."
 ---
 
-Utilisation `.env.development`, `.env.preview`et `.env.production` pour l'environnement Vite et Cloudflare correspondant. Ces fichiers sont ignorés; `.env.example` documente les clés requises. `VITE_APP_URL` est public et remplacé au moment de la construction. Les secrets des travailleurs n'ont pas `VITE_` préfixe et sont accessibles par `env` de `cloudflare:workers`.
+## Fichiers d'environnement
 
-Configurer `AUTH_SECRET`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, Resend paramètres et Polar paramètres pour votre installation. N'engagez jamais de vraies lettres de créances. Les identifiants de liaison font partie du code approprié. `wrangler.jsonc` environnement; les déclarations des travailleurs générées décrivent leurs types.
+| Fichier            | Versionné | Utilisé par                                                                                |
+| ------------------ | --------- | ------------------------------------------------------------------------------------------ |
+| `.env.example`     | Oui       | Liste chaque variable avec une valeur vide                                                 |
+| `.env.development` | Non       | `bun run dev`, `db:studio:development`, `db:introspect:development`                        |
+| `.env.preview`     | Non       | `deploy:preview` (`--secrets-file`), `db:studio:preview`, `db:introspect:preview`          |
+| `.env.production`  | Non       | `deploy:production` (`--secrets-file`), `db:studio:production`, `db:introspect:production` |
+| `.env.test`        | Oui       | Vitest et l'environnement Wrangler `test` ; valeurs factices uniquement                    |
 
-Seulement Drizzle besoin de Studio et d'introspection `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` et `CLOUDFLARE_ACCESS_TOKEN`. Local D1 n'utilise pas d'identifiants à distance. CI exemplaires `.env.test` aux fichiers d'environnement locaux et fonctionne avec des liaisons locales.
+## Variables
 
-## Guides connexes
+| Variable                    | Utilisée par                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| `AUTH_SECRET`               | La signature, le chiffrement et les jetons de vérification d'e-mail de Better Auth |
+| `AUTH_GITHUB_CLIENT_ID`     | OAuth GitHub ; authentifie aussi la requête du nombre d'étoiles GitHub             |
+| `AUTH_GITHUB_CLIENT_SECRET` | OAuth GitHub ; authentifie aussi la requête du nombre d'étoiles GitHub             |
+| `AUTH_GOOGLE_CLIENT_ID`     | OAuth Google                                                                       |
+| `AUTH_GOOGLE_CLIENT_SECRET` | OAuth Google                                                                       |
+| `RESEND_API_KEY`            | Le client Resend                                                                   |
+| `RESEND_EMAIL_FROM`         | L'expéditeur par défaut de `sendEmail`                                             |
+| `POLAR_ACCESS_TOKEN`        | Le client du SDK Polar                                                             |
+| `POLAR_SERVER`              | `sandbox` ou `production`                                                          |
+| `POLAR_WEBHOOK_SECRET`      | La vérification de la signature des webhooks Polar                                 |
+| `POLAR_ORGANIZATION_ID`     | La désactivation des clés de licence Polar et la recherche des réductions          |
+| `POLAR_PRODUCT_ID_CORE`     | Le produit proposé au paiement pour l'offre Core                                   |
+| `POLAR_PRODUCT_ID_COMPLETE` | Le produit proposé au paiement pour l'offre Complete                               |
+| `POLAR_PRODUCT_ID_AGENCY`   | Le produit proposé au paiement pour l'offre Agency                                 |
+| `CLOUDFLARE_ACCOUNT_ID`     | Le driver HTTP D1 de Drizzle Kit                                                   |
+| `CLOUDFLARE_DATABASE_ID`    | Le driver HTTP D1 de Drizzle Kit                                                   |
+| `CLOUDFLARE_ACCESS_TOKEN`   | Le driver HTTP D1 de Drizzle Kit                                                   |
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+Chaque environnement de `wrangler.jsonc` liste les variables dont il a besoin sous `secrets.required` ; l'environnement `test` omet les trois variables Cloudflare. Le code du Worker les lit depuis `env` dans `cloudflare:workers`, avec les types fournis par `src/types/bindings.d.ts`. Il n'existe aucune variable `VITE_` : l'URL publique et le domaine sont des constantes dans `src/presentation/branding`.
+
+## Bindings
+
+| Binding  | Type                 | `development`                 | `preview` | `production` | `test`                 |
+| -------- | -------------------- | ----------------------------- | --------- | ------------ | ---------------------- |
+| `DB`     | D1                   | Base de preview, distante     | Preview   | Production   | `saasyland_test` local |
+| `CACHE`  | KV                   | Namespace de preview, distant | Preview   | Production   | Local                  |
+| `ASSETS` | Ressources statiques | Oui                           | Oui       | Oui          | Oui                    |
+
+Les scripts de déploiement de preview et de production exécutent d'abord `scripts/verify-bindings.ts`, qui échoue tant qu'un environnement contient encore des identifiants D1 ou KV provisoires.
+
+## Pages associées
+
+- [Variables d'environnement](/docs/getting-started/environment-variables)
+- [Plateforme et tests](/docs/architecture/platform-layer)
+- [Déployer une preview](/docs/getting-started/deploy-preview)

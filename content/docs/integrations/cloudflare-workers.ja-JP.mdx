@@ -1,25 +1,33 @@
 ---
-title: Cloudflare Workers へのデプロイ
-description: Cloudflare Workers — SaaSy Land へのデプロイ
+title: "Cloudflare Workers"
+description: "Worker のエントリー、ロケールミドルウェア、バインディング、デプロイです。"
 ---
 
-ワーカービルドは Vite+, TanStack Start で生成され、 `@cloudflare/vite-plugin`. `wrangler.jsonc` エントリー、互換性設定、アセット、観察性および別々の開発、プレビューおよび生産の結合を宣言します。
+アプリケーションは 1 つの Cloudflare Worker として動作します。`@cloudflare/vite-plugin` がビルドを行い、`CLOUDFLARE_ENV` で Wrangler の環境を選択します。`wrangler.jsonc` は `main` を `./src/server.ts` に設定し、`nodejs_compat` とオブザーバビリティを有効にし、静的ファイルを `ASSETS` バインディング経由で配信します。`/assets/*`、`/fonts/*`、`/robots.txt`、`/llms.txt` を除くすべてのパスで、最初に Worker が実行されます。
 
-D1 と KV を指定して、プレースホルダー ID をターゲット環境に置き換えます。 URL とプロバイダーの秘密を設定 `.env.preview` または `.env.production`. . 明示的にマイグレーションを適用し、デプロイします。 スクリプトをデプロイすると、結合 ID を最初に検証します。スクリプトのプレレンダーの公開ページを作成し、出力アーティファクトを確認します。 認証とプライベートなアプリケーションページは、ワーカー上で動的に実行されます。
+| 環境          | Worker                  | D1 と KV                              | ドメイン                |
+| ------------- | ----------------------- | ------------------------------------- | ----------------------- |
+| `development` | `saasyland-development` | リモートのプレビュー用リソース        | `localhost:3000`        |
+| `preview`     | `saasyland-preview`     | プレビュー用リソース                  | `preview.saasyland.com` |
+| `production`  | `saasyland`             | 本番用リソース                        | `saasyland.com`         |
+| `test`        | `saasyland-test`        | `.wrangler/test` 内のローカルリソース | `127.0.0.1:3000`        |
 
-ターゲット環境のカスタムドメインとOAuthコールバックURLを設定します。 依存関係のインストールと建物は、リモートの移行を適用しません。
+どの環境も D1 を `DB`、KV を `CACHE` としてバインドし、必要なシークレットを列挙します。`test` 環境は `src/platform/testing/worker.ts` をエントリーとして使います。このエントリーは Resend と Polar へのリクエストを横取りし、Playwright 用のテスト専用エンドポイントを公開します。
 
-```sh
-bunx wrangler login
-bunx wrangler d1 create saasyland_preview
-bunx wrangler kv namespace create CACHE --env preview
-# Update wrangler.jsonc and .env.preview first.
-bun run db:migrate:preview
-bun run deploy:preview
-```
+## リクエストの流れ
+
+`src/server.ts` がすべてのリクエストを処理します。
+
+1. `i18n.middleware.ts` の `resolveLocale` が、`/api` と `/_serverFn` 以外への `GET` と `HEAD` のドキュメントリクエストを検査します。言語エイリアスと正規でないロケールパスをステータス 308 でリダイレクトし、ロケール Cookie が URL のロケールと異なる場合はそれを通知します。
+2. `/api` と `/_serverFn` 以外への `GET` と `HEAD` のリクエストは、まず `ASSETS` から配信されます。プリレンダリングされたページもここに含まれます。404 の場合は TanStack Start のハンドラーに処理が移ります。
+3. ロケール Cookie の更新が必要な場合、Worker はそれをレスポンスに追加します。HTML レスポンスには、スタイルシートとそのロケールのフォントに対する `Link` プリロードヘッダーも付与されます。
+4. HTML レスポンスには地域別の価格が適用されます。`cf-ipcountry` の国が購買力に基づく割引の対象である場合、`HTMLRewriter` が `<html>` に割引の属性を追加し、レスポンスは `private, no-cache` になります。
+
+## デプロイ
+
+`bun run deploy:preview` と `bun run deploy:production` は、まずプレースホルダーのままの D1 と KV の ID を拒否する `scripts/verify-bindings.ts` を実行し、続いて対応するビルドと `wrangler deploy --secrets-file .env.<environment>` を実行します。ビルドは公開ページをプリレンダリングし、`scripts/verify-build.ts` と `scripts/optimize-prerendered-html.ts` を実行します。マイグレーションは別のコマンドです。[プレビューをデプロイする](/docs/getting-started/deploy-preview)と [CI/CD](/docs/tooling/ci-cd) を参照してください。
 
 ## 関連ガイド
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- [環境とバインディング](/docs/tooling/environment)
+- [プラットフォーム層](/docs/architecture/platform-layer)

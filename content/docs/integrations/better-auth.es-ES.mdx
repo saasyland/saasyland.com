@@ -1,16 +1,51 @@
 ---
-title: Autenticación y seguridad
-description: Autenticación y seguridad — SaaSy Land
+title: "Autenticación y seguridad"
+description: "Sesiones de Better Auth, guardas de ruta, middleware de funciones de servidor y roles."
 ---
 
-La autorización se aplica dos veces: ruta. `beforeLoad` Los controles protegen los diseños de administrador y cliente, y cada función del servidor protegida verifica al invocador de forma independiente. `requireAdmin` No se proporcionó ningún texto para traducir. Por favor, proporcione el texto en inglés. `requireSession` Para los diseños y `withAuth(permission)` Para las operaciones del cliente. Las operaciones del cliente obtienen la propiedad a partir de la sesión.
+Better Auth almacena usuarios, cuentas, sesiones y tokens de verificación en D1 mediante el adaptador de Drizzle. Ofrece registro con correo electrónico y contraseña con verificación obligatoria del correo, inicio de sesión con GitHub y Google, restablecimiento de contraseña, cambio de correo electrónico, autenticación en dos pasos TOTP, gestión de usuarios para administradores y checkout de Polar. Su API HTTP la sirve `src/routes/api/auth.$.ts`.
 
-Better Auth almacena las sesiones en D1 y gestiona los credenciales, OAuth, verificación, restablecimiento de contraseña, autenticación de dos factores y revocación. Se omite el almacenamiento en caché de cookies al verificar una función del servidor protegida. El plugin de autenticación final es… `tanstackStartCookies`, que transmite las cookies de autenticación a través de las respuestas de las funciones del servidor.
+## Archivos
 
-D1 los límites de tarifas usan escrituras atómicas y el encabezado IP del cliente Cloudflare. Las operaciones públicas sensibles tienen claves límite separadas. Validar entradas con el módulo Zod esquema, máscara de fallos inesperados, verificar las firmas de pago webhook, y mantener todas las credenciales detrás de los límites solo servidor. Las rutas privadas y las mutaciones de token están excluidas de la prerenderización.
+| Archivo                                                | Responsabilidad                                                                                                                                                                         |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.server.ts`                                       | La instancia de `betterAuth`: proveedores, plugins `admin`, `twoFactor`, Polar y `tanstackStartCookies`, hosts permitidos, limitación de frecuencia en D1 y hooks de correo electrónico |
+| `auth.client.ts`                                       | `authClient` y sus métodos (`signIn`, `signUp`, `signOut`, `useSession`, `twoFactor` y otros)                                                                                           |
+| `auth.routes.ts`                                       | Guardas de ruta para `beforeLoad`                                                                                                                                                       |
+| `auth.middleware.ts`                                   | Middleware de funciones de servidor: `withRequest`, `authorized`, `withRateLimit` y `RATE_LIMITS`                                                                                       |
+| `auth.access.ts`                                       | Roles, declaraciones de permisos y `hasPermission`                                                                                                                                      |
+| `auth.session.ts`                                      | `getRequestSession`, la función de servidor `getCurrentSession` y `getCurrentSessionQuery`                                                                                              |
+| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | Claves de error, esquemas de formulario y límites de contraseña                                                                                                                         |
+
+## Guardas de ruta
+
+| Guarda               | Usada por                        | Comportamiento                                                                    |
+| -------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
+| `requireSignedIn`    | `/app`                           | Redirige al inicio de sesión si no hay sesión y devuelve la sesión                |
+| `requireAdmin`       | `/admin`                         | Además exige el permiso `admin: ["access"]`; en caso contrario, redirige a `/app` |
+| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Envía a un usuario con sesión iniciada a `/admin` o a `/app`, según su rol        |
+| `redirectAfterAuth`  | `/auth/callback`                 | Exige una sesión y después redirige al espacio de trabajo correspondiente al rol  |
+
+Las guardas cargan la sesión a través de la caché de consultas y la vacían cuando cambia el usuario con sesión iniciada.
+
+## Funciones de servidor
+
+Las guardas de página solo protegen la navegación, por lo que cada función de servidor protegida vuelve a comprobar al llamante con el middleware de `auth.middleware.ts`:
+
+- `authorized(permission?)` exige una sesión, comprueba opcionalmente un permiso y añade la sesión al contexto como `context.auth`. Las operaciones sobre los datos propios del llamante usan `context.auth.user.id`, nunca un ID de usuario procedente de la entrada.
+- `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` (3 solicitudes cada 60 segundos) o `RATE_LIMITS.TOKEN` (5 cada 60 segundos) limita una operación pública por IP de cliente, tomada de `cf-connecting-ip`.
+- `withRequest`, incluido en ambos, asigna los errores a códigos de `AppError`: los errores de Better Auth pasan a ser `AUTH_API_ERROR` con su clave de error, los errores de Zod pasan a ser `VALIDATION` y los errores inesperados se registran y se devuelven como `INTERNAL_ERROR`.
+
+## Roles y permisos
+
+`auth.access.ts` define dos roles: `admin` y `customer` (el predeterminado para las cuentas nuevas). Las declaraciones de la aplicación abarcan `admin`, `category`, `order`, `product` y `settings`; el rol de administrador recibe además las declaraciones de administración de Better Auth. `hasPermission({ permission, role })` lo comparten las guardas, el middleware y la UI.
+
+## Correo electrónico y límites de frecuencia
+
+Los hooks de correo electrónico de `auth.server.ts` llaman a casos de uso: `sendVerifyEmail`, `sendResetPasswordEmail` y `sendChangeEmailConfirmationEmail`. El limitador de frecuencia propio de Better Auth almacena sus contadores en la tabla `rate_limit` de D1 mediante `authRateLimitStorage` de `src/lib/rate-limit.ts`, que usa upserts atómicos y rechaza las solicitudes cuando su almacenamiento no está disponible. `getRequestSession` omite la caché de cookies, de modo que la autorización siempre lee la sesión desde D1.
 
 ## Guías relacionadas
 
-- [Arquitectura](/docs/architecture)
-- [Desarrollo local](/docs/getting-started/first-run)
-- [Pruebas](/docs/tooling/testing)
+- [Flujos de autenticación](/docs/guides/auth-flows)
+- [Roles y permisos](/docs/guides/roles-and-permissions)
+- [Modelo de seguridad](/docs/architecture/security-model)

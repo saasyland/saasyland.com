@@ -1,19 +1,89 @@
 ---
-title: Adicione uma tabela de dados.
-description: Use o conjunto de dados TanStack compartilhado em telas de administração.
+title: "Adicionar uma tabela de dados"
+description: "Defina colunas e renderize-as com o DataTable genérico, com dados no cliente ou no servidor."
 ---
 
-## Localização do kit
+Toda tabela é renderizada por um único componente, `DataTable` em `src/presentation/components/custom/data-table.tsx`. Ele é construído sobre o TanStack Table v9 (`tableFeatures` e `useTable`) e as primitivas de tabela do shadcn, e oferece ordenação, paginação, seleção de linhas, filtros, esqueletos de carregamento e estado vazio. Uma tabela precisa apenas de um arquivo de colunas e de uma chamada a `<DataTable columns data options filters />`.
 
-`src/presentation/components/custom/data-table`
+## 1. Defina as colunas
 
-## Padrão de recursos (usuários)
+Crie `<entity>-columns.tsx` ao lado dos outros widgets da página. Células e cabeçalhos são pequenos componentes que leem suas próprias traduções. Versão resumida de `src/presentation/components/custom/admin/users/user-columns.tsx`:
 
-- `columns.tsx` / `cells.tsx` / `filters.tsx` / `actions.tsx` / `options.tsx`
-- Mapa DB linhas → tabela linhas em `_lib` Ou módulo utils.
-- Barra de atualização → invalidar a chave relevante TanStack Query
-- Mantenha o suspense livre do tempo da mesa.
+```tsx
+const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
+  const t = useTranslations("pages.admin.users.table.headers")
 
-## Opções
+  return t(id)
+}
 
-Configurar barra de ferramentas (pesquisa, filtros, exportar CSV, buscar, configurações), paginação, seleção e densidade via `options` - Veja UI → Tabela de dados.
+const BooleanCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, boolean>): JSX.Element => {
+  const t = useTranslations("pages.admin.users.table.booleans")
+
+  return <span className="text-muted-foreground">{getValue() ? t("yes") : t("no")}</span>
+}
+
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: "", id: "actions" }),
+])
+```
+
+- As linhas precisam de um `id` do tipo string, que vira o identificador da linha na seleção.
+- `DataTableFeatures` é o conjunto de recursos compartilhado. As funções de ordenação são `alphanumeric`, `basic`, `datetime` e `text`.
+- As ações de linha são uma coluna de exibição cuja célula é um componente próprio (`UserRowActions` em `row-actions.tsx`).
+
+## 2. Renderize com dados no cliente
+
+Passe as linhas em `data`. Ordenação, paginação e filtros rodam no navegador. De `src/routes/admin.index.tsx`:
+
+```tsx
+<DataTable
+  columns={dashboardUserColumns}
+  data={users.rows}
+  filters={[
+    { columnId: "user", placeholder: t("users.search"), type: "search" },
+    {
+      columnId: "status",
+      label: t("users.filters.status"),
+      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+      type: "select",
+    },
+  ]}
+  options={{ initialState: { pagination: PREVIEW_PAGINATION }, selectable: true }}
+/>
+```
+
+- `filters` aceita `{ type: "search", columnId, placeholder }` e `{ type: "select", columnId, label, options }`. O seletor adiciona uma opção "todos" com o rótulo `label`.
+- `options.initialState` define a `pagination` e o `sorting` iniciais; o tamanho de página padrão é 10.
+- `options.selectable` adiciona uma coluna de caixas de seleção e mostra a contagem de linhas selecionadas.
+
+## 3. Renderize com paginação no servidor
+
+Passe `options.query`: uma função de `{ pageIndex, pageSize, sorting }` que retorna opções de query resolvidas em `{ rows, total }`. A tabela passa então a paginar e ordenar no servidor, mantém a página anterior visível enquanto a próxima carrega e mostra linhas esqueleto no primeiro carregamento. De `src/routes/admin.users.all.tsx`:
+
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
+
+`getUsersPageQuery` coloca a entrada validada na chave da query, e `getUsers` valida `sorting` com base nos identificadores das colunas ordenáveis:
+
+```ts
+export const getUsersPageQuery = (input: zod.input<typeof listUsersSchema> = {}) =>
+  queryOptions<Awaited<ReturnType<typeof getUsers>>>({
+    queryFn: () => getUsers({ data: input }),
+    queryKey: [...USER_QUERY_KEYS.LIST, listUsersSchema.parse(input)],
+  })
+```
+
+Pré-carregue a primeira página no loader da rota com `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })`. Para passar filtros extras, envolva a query: `src/routes/admin.products.index.tsx` usa `query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] })`. Os `filters` de coluna rodam no navegador sobre as linhas que a tabela tem, então use-os com `data`.
+
+## 4. Mensagens
+
+O estado vazio e os rótulos de paginação e seleção vêm de `components.custom.data-table`, que toda página carrega. Os cabeçalhos das colunas e os textos das células pertencem ao namespace da página, como `pages.admin.users.table.headers`.
+
+Quando uma mutation altera as linhas, invalide as chaves de query do módulo; a tabela busca a página atual novamente. Veja [Adicionar um caso de uso](/docs/guides/add-a-use-case).

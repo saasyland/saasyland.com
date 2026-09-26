@@ -1,28 +1,52 @@
 ---
-title: "TanStack Start HTTP handlers"
-description: "TanStack Start HTTP handlers — SaaSy Land"
+title: "Add an API route"
+description: "Add an HTTP handler under /api for webhooks and other external callers."
 ---
 
-HTTP endpoints use native TanStack Start server handlers in `src/routes`. Better Auth owns GET and POST under `/api/auth/$`; Fumadocs search uses `/api/search`. Product operations are native server functions in feature modules.
+API routes are TanStack Start server handlers in `src/routes/api/`. The application's own screens never need one: they call server functions. Add an API route only for callers outside the app, such as webhooks, third-party clients or crawlers.
 
-Declare handlers on `createFileRoute` with `server.handlers`. Use the supplied `request`, validate input, enforce permission checks, and return a Web `Response`. Keep webhook verification in the provider integration. Do not expose a duplicate REST endpoint for an operation that is only used by this application’s typed RPC client.
+## Existing routes
+
+| File                       | Path          | Purpose                                                                                        |
+| -------------------------- | ------------- | ---------------------------------------------------------------------------------------------- |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | Better Auth: sign-in, OAuth callbacks, email verification, Polar checkout, portal and webhooks |
+| `src/routes/api/search.ts` | `/api/search` | Fumadocs search for the docs                                                                   |
+| `src/routes/api/index.ts`  | `/api`        | Runtime check that returns `{ "runtime": "cloudflare-workers" }`                               |
+
+Polar webhooks arrive at `/api/auth/polar/webhooks`; the Better Auth Polar plugin verifies their signature with `POLAR_WEBHOOK_SECRET` before `license.webhooks.ts` handles them.
+
+## Write a handler
+
+Declare the methods in `server.handlers`. Each handler receives the Web `Request` and returns a Web `Response`:
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
-import { auth } from "~/src/integrations/better-auth/auth.server"
 
-export const Route = createFileRoute("/api/auth/$")({
+import { search } from "~/src/integrations/fumadocs/fumadocs.search"
+
+export const Route = createFileRoute("/api/search")({
   server: {
     handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
+      GET: ({ request }) => search.GET(request),
     },
   },
 })
 ```
 
-## Related guides
+Inside a handler:
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- Validate the query or body with a Zod schema and return `HTTP_STATUS.BAD_REQUEST` (from `src/modules/_core/constants/api.ts`) when it fails. Add a status there if the handler needs a new one.
+- Read the session with `getRequestSession(request)` and check it with `hasPermission`. Function middleware such as `authorized` applies to server functions, not to handlers.
+- Rate-limit public endpoints with `withinRateLimit({ key, limit, windowSeconds })` and `clientAddress(request.headers)` from `src/lib/rate-limit.ts`.
+- Verify signatures before trusting a webhook payload.
+- Return safe error bodies; log details with `console.error`.
+
+## Routing rules
+
+- `/api` paths never get a locale prefix, and the Worker skips the static-asset lookup and locale redirects for them.
+- `/api` URLs carry no locale, so `getCurrentLocale()` returns the default locale there. A localized response takes the locale from the request, as `/api/search` does with its `locale` query parameter.
+- `/api` is excluded from prerendering.
+
+## Test
+
+Call the handler through the route options, as `src/routes/api/__test__/handlers.test.ts` does with `Route.options.server.handlers`, and mock the provider it forwards to.

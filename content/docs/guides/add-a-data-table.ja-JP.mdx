@@ -1,19 +1,89 @@
 ---
-title: DataTable を追加
-description: 管理者画面で共有されたTanStack DataTableキットを使用します。
+title: "データテーブルを追加する"
+description: "カラムを定義し、クライアントサイドまたはサーバーサイドのデータを汎用の DataTable でレンダリングします。"
 ---
 
-## キットの場所
+すべてのテーブルは、`src/presentation/components/custom/data-table.tsx` にある 1 つのコンポーネント `DataTable` を通してレンダリングされます。TanStack Table v9（`tableFeatures` と `useTable`）と shadcn のテーブルプリミティブの上に構築されており、ソート、ページネーション、行の選択、フィルター、読み込み中のスケルトン、空の状態を提供します。テーブルに必要なのは、カラムのファイルと、1 回の `<DataTable columns data options filters />` 呼び出しだけです。
 
-`src/presentation/components/custom/data-table`
+## 1. カラムを定義する
 
-## 特徴パターン(ユーザ)
+ページの他のウィジェットの隣に `<entity>-columns.tsx` を作成します。セルとヘッダーは、自分の翻訳を自ら読み込む小さなコンポーネントです。`src/presentation/components/custom/admin/users/user-columns.tsx` から抜粋したものです。
 
-- `columns.tsx` / `cells.tsx` / `filters.tsx` / `actions.tsx` / `options.tsx`
-- 地図DB行 → テーブル行 `_lib` またはモジュールのユーティリティ
-- ツールバーのリフレッシュ → 関連するTanStack Queryキーを無効にします
-- サスペンスフォールバックをテーブルランタイムの自由に保ちましょう
+```tsx
+const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
+  const t = useTranslations("pages.admin.users.table.headers")
 
-## オプション
+  return t(id)
+}
 
-ツールバーの構成(検索、フィルタ、CSVのエクスポート、フェッチ、設定)、パジネーション、選択、および密度を経由して `options` — UI → DataTable を参照してください。
+const BooleanCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, boolean>): JSX.Element => {
+  const t = useTranslations("pages.admin.users.table.booleans")
+
+  return <span className="text-muted-foreground">{getValue() ? t("yes") : t("no")}</span>
+}
+
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: "", id: "actions" }),
+])
+```
+
+- 行には文字列の `id` が必要です。これが選択に使う行 ID になります。
+- `DataTableFeatures` は共有の機能セットです。ソート関数は `alphanumeric`、`basic`、`datetime`、`text` です。
+- 行アクションは表示用のカラムで、そのセルは独立したコンポーネントです（`row-actions.tsx` の `UserRowActions`）。
+
+## 2. クライアントサイドのデータでレンダリングする
+
+行を `data` に渡します。ソート、ページネーション、フィルターはブラウザで実行されます。`src/routes/admin.index.tsx` の例です。
+
+```tsx
+<DataTable
+  columns={dashboardUserColumns}
+  data={users.rows}
+  filters={[
+    { columnId: "user", placeholder: t("users.search"), type: "search" },
+    {
+      columnId: "status",
+      label: t("users.filters.status"),
+      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+      type: "select",
+    },
+  ]}
+  options={{ initialState: { pagination: PREVIEW_PAGINATION }, selectable: true }}
+/>
+```
+
+- `filters` は `{ type: "search", columnId, placeholder }` と `{ type: "select", columnId, label, options }` を受け付けます。select には、`label` をラベルとする「すべて」の選択肢が追加されます。
+- `options.initialState` は `pagination` と `sorting` の初期値を設定します。デフォルトのページサイズは 10 です。
+- `options.selectable` はチェックボックスのカラムを追加し、選択数を表示します。
+
+## 3. サーバーサイドのページングでレンダリングする
+
+`options.query` を渡します。これは `{ pageIndex, pageSize, sorting }` を受け取り、`{ rows, total }` に解決されるクエリオプションを返す関数です。すると、テーブルはサーバー側でページングとソートを行い、次のページを読み込む間は前のページを表示し続け、初回の読み込み時にはスケルトン行を表示します。`src/routes/admin.users.all.tsx` の例です。
+
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
+
+`getUsersPageQuery` はパース済みの入力をクエリキーに含め、`getUsers` は `sorting` をソート可能なカラム ID に照らして検証します。
+
+```ts
+export const getUsersPageQuery = (input: zod.input<typeof listUsersSchema> = {}) =>
+  queryOptions<Awaited<ReturnType<typeof getUsers>>>({
+    queryFn: () => getUsers({ data: input }),
+    queryKey: [...USER_QUERY_KEYS.LIST, listUsersSchema.parse(input)],
+  })
+```
+
+ルートのローダーで `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` を使い、最初のページをプリフェッチします。追加のフィルターを渡すには、クエリをラップします。`src/routes/admin.products.index.tsx` では `query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] })` を使っています。カラムの `filters` は、テーブルが保持している行に対してブラウザで実行されるため、`data` と組み合わせて使います。
+
+## 4. メッセージ
+
+空の状態、ページネーション、選択のラベルは、すべてのページで読み込まれる `components.custom.data-table` から取得されます。カラムのヘッダーとセルのテキストは、`pages.admin.users.table.headers` のように、ページの名前空間に属します。
+
+ミューテーションによって行が変わったら、モジュールのクエリキーを無効化します。テーブルは現在のページを再取得します。[ユースケースを追加する](/docs/guides/add-a-use-case) を参照してください。

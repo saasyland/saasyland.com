@@ -1,8 +1,43 @@
 ---
 title: "Lint i formatowanie"
-description: "Workflow vp check/lint/fmt."
+description: "oxlint i oxfmt uruchamiane przez Vite+ oraz skrypty kontrolne."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+Vite+ uruchamia oxfmt do formatowania i oxlint do lintowania; oba narzędzia są skonfigurowane w sekcjach `fmt` i `lint` pliku `vite.config.ts`. `bun run check` to bramka jakości, którą uruchamia CI:
 
-`bun run check` runs i18n + `vp check`. Pre-commit may run staged checks — see `check:pre-commit`.
+```sh
+bun run check
+```
+
+Uruchamia on `generate:cn`, `check:i18n` i `vp check`, który sprawdza formatowanie, stosuje reguły lintera i sprawdza typy w projekcie. Aby uruchomić tylko jedno narzędzie, użyj `bun run lint`, `bun run format` lub `bun run format:check`.
+
+## Formatowanie
+
+- Bez średników, podwójne cudzysłowy, przecinki końcowe, wcięcia dwiema spacjami, szerokość wiersza 140 i końce linii LF.
+- Importy są sortowane w stałe grupy: tylko serwerowe, `cloudflare:workers`, React, pakiety zewnętrzne, następnie obszary `~/src` (platforma, providery, integracje, moduły, trasy, hooki, dane i motyw, typy, lib, branding, komponenty shadcn, komponenty własne, style), a na końcu importy względne.
+- Klasy Tailwind są sortowane w `className` oraz w wywołaniach `cn`, `cva`, `clsx` i `tw`.
+
+## Lintowanie
+
+- Kategorie `correctness`, `nursery`, `pedantic`, `perf`, `style` i `suspicious` są zgłaszane jako błędy.
+- Włączone są reguły uwzględniające typy oraz sprawdzanie typów (`typeAware` i `typeCheck`).
+- Najważniejsze limity: 800 linii na plik, 150 linii na funkcję, 20 instrukcji na funkcję, brak magicznych liczb poza `0` oraz identyfikatory o długości co najmniej dwóch znaków z wyjątkiem `_`, `m` i `t`.
+- Nadpisania łagodzą kilka reguł dla testów, kodu warstwy prezentacji i hooków, mocków testowych oraz plików tras.
+
+Oba narzędzia ignorują pliki generowane i zewnętrzne: pliki deklaracji, `src/routeTree.gen.ts`, migracje, `.source`, `dist`, `coverage`, `e2e`, `remotion`, foldery agentów i wyniki Playwright. `scripts/` jest formatowany i lintowany tak samo jak `src/`.
+
+Usuwaj przyczynę błędu lintera. Nie dodawaj komentarzy wyłączających reguły, `@ts-expect-error` ani rzutowań `as` tylko po to, by spełnić regułę.
+
+## Naprawianie
+
+Hook pre-commit uruchamia `bun run check:pre-commit`; jego krok `vp staged` uruchamia `vp check --fix` wyłącznie na plikach dodanych do stagingu. `bun run check:fix` stosuje poprawki w całym repozytorium i może przepisać pliki spoza Twoich zmian, więc przed commitem przejrzyj jego diff. Aby poprawić tylko własne zmiany, przekaż ich ścieżki do `vp` (globalnego CLI Vite+ lub `bunx vp`):
+
+```sh
+vp fmt src/routes/admin.users.all.tsx
+vp lint --fix src/routes/admin.users.all.tsx
+```
+
+## Powiązane przewodniki
+
+- [Konwencje](/docs/reference/conventions)
+- [Vite+](/docs/tooling/vite-plus)

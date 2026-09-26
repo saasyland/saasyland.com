@@ -1,6 +1,48 @@
 ---
 title: "Theme"
-description: "Color modes and CSS variables."
+description: "Light, dark and system themes stored in a cookie, and the CSS tokens behind them."
 ---
 
-Theme provider + CSS variables. Avoid purple-default clichés on marketing pages; admin can stay neutral/system.
+## Theme selection
+
+`THEME` in `src/presentation/theme/index.ts` defines the themes `light`, `dark` and `system` (the default) and the cookie `saasyland.com_theme`. The app uses `@wrksz/themes`:
+
+- `ThemeScript` in the `head` of the root document (`src/routes/__root.tsx`) reads the cookie and sets the theme class before the first paint, so there is no flash.
+- `ThemeProvider` (`src/providers/theme-provider.tsx`) starts from the cookie (`getStoredTheme`), stores changes in the cookie and syncs them across tabs.
+- `ThemeProvider` wraps only the widgets that read or change the theme: the root `Toaster` and the `ThemeSwitch` in the docs sidebar. It never wraps a route `Outlet`, because a provider that updates after hydration would re-render the whole page.
+
+```tsx
+const RootComponent = () => (
+  <AriaProvider>
+    <OfflineBanner />
+    <Outlet />
+    <ThemeProvider>
+      <Toaster />
+    </ThemeProvider>
+  </AriaProvider>
+)
+```
+
+`/admin`, `/app` and `/docs` follow the stored theme; the only theme switch is in the docs sidebar. The landing, auth and blog layouts add the `dark` class to their wrapper and always render dark.
+
+## Tokens
+
+`src/presentation/styles/globals.css` defines the shadcn tokens as OKLCH variables in `:root` (light) and `.dark`: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, `chart-1` to `chart-5`, the `sidebar-*` set and `radius`. The brand accent is `ring`: it colours focus rings, active states and highlights, and matches `chart-1`. `dark:` utilities follow the class:
+
+```css
+@custom-variant dark (&:is(.dark *));
+```
+
+`@theme inline` maps the variables to Tailwind colours, sets the font families and defines the type scale. `globals.css` also imports the Fumadocs UI styles, so the docs use the same tokens.
+
+## Type scale
+
+Use the named text utilities instead of raw sizes: `text-display-hero`, `text-display-gate`, `text-display-blast`, `text-headline-peak`, `text-headline-support`, `text-price`, `text-title`, `text-statement`, `text-lead`, `text-body`, `text-body-sm`, `text-spec` and `text-label`. Each sets size, line height, letter spacing and, for headings, weight. `src/lib/cn.config.ts` registers them so `cn` keeps them when merging classes; `bun run generate:cn` rebuilds the lookup tables.
+
+## Route stylesheets
+
+`docs.css` holds the `typeset` prose styles for docs and blog articles. It is plain CSS, loaded by the `/docs` and `/blog` layouts as a `?url` stylesheet link. Route stylesheets must not run a second Tailwind build.
+
+## Related guides
+
+- [Theming and branding](/docs/guides/theming-and-branding)

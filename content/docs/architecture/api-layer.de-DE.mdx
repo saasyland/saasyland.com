@@ -1,28 +1,37 @@
 ---
-title: TanStack Start HTTP-Handler.
-description: TanStack Start HTTP-Handler – SaaSy Land
+title: "HTTP-Handler in TanStack Start"
+description: "Die HTTP-Endpunkte unter /api und wann du einen davon statt einer Server Function anlegst."
 ---
 
-HTTP-Endpunkte verwenden native TanStack Start Server-Handler im Verzeichnis `src/routes`. Die Authentifizierungsfunktion (Better Auth) verwaltet die GET- und POST-Anfragen unter `/api/auth/$`. Die Fumadocs-Suche verwendet `/api/search`. Produktbezogene Funktionen sind native Serverfunktionen in den Funktionsmodulen.
+Die eigenen Operationen der Anwendung sind Server Functions. HTTP-Handler gibt es nur dort, wo etwas außerhalb des RPC-Clients der Anwendung eine URL aufruft: der Browser-Client von Better Auth, OAuth-Provider, Polar-Webhooks und das Suchfeld der Dokumentation.
 
-Deklarieren Sie Handler für `createFileRoute` mit `server.handlers`. Verwenden Sie das bereitgestellte `request`, validieren Sie die Eingabe, führen Sie Berechtigungsprüfungen durch und geben Sie ein Web `Response` zurück. Behalten Sie die Webhook-Verifizierung in der Provider-Integration. Exponieren Sie keinen doppelten REST-Endpunkt für eine Funktion, die ausschließlich vom typisierten RPC-Client dieser Anwendung verwendet wird.
+| Datei                      | Pfad          | Methoden  | Verarbeitet                                                                                                                              |
+| -------------------------- | ------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/index.ts`  | `/api`        | GET       | Eine JSON-Statusantwort `{ runtime: "cloudflare-workers" }`                                                                              |
+| `src/routes/api/auth.$.ts` | `/api/auth/*` | GET, POST | Alle Better-Auth-Endpunkte, einschließlich OAuth-Callbacks, E-Mail-Verifizierung, des Polar-Kundenportals und `/api/auth/polar/webhooks` |
+| `src/routes/api/search.ts` | `/api/search` | GET       | Fumadocs-Suche über die Dokumentation                                                                                                    |
+
+Ein Handler wird mit `server.handlers` in `createFileRoute` deklariert. Er erhält den Web-`Request` und gibt eine `Response` zurück:
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
+
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 export const Route = createFileRoute("/api/auth/$")({
-  server: {
-    handlers: {
-      GET: ({ request }) => auth.handler(request),
-      POST: ({ request }) => auth.handler(request),
-    },
-  },
+  server: { handlers: { GET: ({ request }) => auth.handler(request), POST: ({ request }) => auth.handler(request) } },
 })
 ```
 
-## Verwandte Anleitungen.
+## Regeln
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+- Lege keinen REST-Endpunkt für eine Operation an, die nur diese Anwendung aufruft. Schreibe stattdessen einen Use Case mit `createServerFn`; er bekommt typisierte Eingaben, Middleware und Query-Optionen.
+- Ein Handler validiert seine Eingaben und prüft Berechtigungen selbst. Die Middleware der Server Functions (`authorized`, `withRateLimit`) läuft für Handler nicht.
+- Anbieterspezifische Prüfungen bleiben in der Integration. Die Signaturen von Polar-Webhooks prüft das Polar-Plugin in Better Auth, kein eigener Handler.
+- `/api`-Pfade werden nie lokalisiert, nie vorgerendert und umgehen die Locale-Verarbeitung des Workers.
+
+## Verwandte Seiten
+
+- [API-Route hinzufügen](/docs/guides/add-an-api-route)
+- [Server Functions und Use Cases](/docs/architecture/modules-and-use-cases)
+- [API-Oberfläche](/docs/features/api-surface)

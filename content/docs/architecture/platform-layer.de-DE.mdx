@@ -1,14 +1,54 @@
 ---
-title: Plattform und Testverfahren.
-description: Plattform und Testumgebung — SaaSy Land
+title: "Plattform und Tests"
+description: "Die Cloudflare-Laufzeitumgebung: Worker-Einstiegspunkt, Bindings, Umgebungen, generierte Typen und die Verdrahtung der Testlaufzeit."
 ---
 
-Cloudflare stellt die Laufzeitumgebung über explizite Bindungen für D1, KV und Assets bereit. Die generierten Deklarationen finden sich unter `src/types`. Die vendor-spezifische Konfiguration gehört in `src/integrations`. Der restliche Plattformordner enthält die Testinfrastruktur: Binding-Mocks, Request-Fixtures, die RPC-Bridge und Render-Helfer.
+## Worker und Bindings
 
-Bewahren Sie die für bestimmte Umgebungen spezifischen Bereitstellungseinstellungen in `wrangler.jsonc` und der zugehörigen ignorierten Umgebungskonfigurationsdatei. Bewahren Sie die Testzugangsdaten in `.env.test` auf und ersetzen Sie diese niemals durch Produktionszugangsdaten.
+`wrangler.jsonc` legt `src/server.ts` als Einstiegspunkt des Workers fest. Der Worker erhält drei Bindings:
 
-## Verwandte Anleitungen.
+| Binding  | Typ              | Verwendet für                                                 |
+| -------- | ---------------- | ------------------------------------------------------------- |
+| `DB`     | D1-Datenbank     | Alle Tabellen, einschließlich Sessions und Rate-Limit-Zählern |
+| `CACHE`  | KV-Namespace     | Die gecachte Anzahl der GitHub-Sterne                         |
+| `ASSETS` | Statische Assets | Vorgerenderte Seiten und Dateien aus `public`                 |
 
-- [Architektur](/docs/architecture)
-- [Regionale Entwicklung.](/docs/getting-started/first-run)
-- [Testen.](/docs/tooling/testing)
+Requests an `/assets/*`, `/fonts/*`, `/robots.txt` und `/llms.txt` werden aus den statischen Assets bedient, ohne dass der Worker läuft. Servercode liest Bindings, Secrets und `waitUntil` aus `cloudflare:workers`.
+
+## Umgebungen
+
+`wrangler.jsonc` definiert vier Umgebungen. `CLOUDFLARE_ENV` wählt eine davon für `vp dev` und `vp build` aus.
+
+| Umgebung      | Bindings                                     | Verwendet von                                   |
+| ------------- | -------------------------------------------- | ----------------------------------------------- |
+| `development` | Remote-Preview-D1 und -KV                    | `bun run dev`                                   |
+| `preview`     | Preview-D1 und -KV                           | `bun run build:preview`, `deploy:preview`       |
+| `production`  | Produktions-D1 und -KV                       | `bun run build:production`, `deploy:production` |
+| `test`        | Lokale D1 und lokaler KV in `.wrangler/test` | `bun run build:test`, Playwright                |
+
+Jede Umgebung listet ihre benötigten Secrets unter `secrets.required` auf. Die Werte stammen aus der passenden Datei `.env.<environment>`; die Deploy-Skripte übergeben sie mit `--secrets-file` an Wrangler. Die Umgebung `test` verwendet `src/platform/testing/worker.ts` als Einstiegspunkt und die eingecheckten Dummy-Werte aus `.env.test`.
+
+## Typen
+
+- `src/types/bindings.d.ts` deklariert `Cloudflare.Env`: die Bindings und jedes Secret.
+- `src/types/worker-configuration.d.ts` wird von `bun run cf-typegen` generiert.
+- `src/types/router.d.ts` registriert den Router-Typ und die Routenoption `staticData.namespaces`.
+
+## Verdrahtung der Testlaufzeit
+
+`src/platform/testing` enthält nur, was zu keinem einzelnen Feature gehören kann:
+
+- `setup.ts`: jest-dom-Matcher, ein Zurücksetzen der Bindings vor jedem Test und der Ersatz für `createServerFn`, der Server Functions im selben Prozess ausführt
+- `mocks/cloudflare.ts`: eine D1 auf Basis von SQLite im Arbeitsspeicher, die die eingecheckten Migrationen ausführt, ein KV im Arbeitsspeicher und ein `waitUntil`, das Tests flushen können
+- `mocks/providers.ts`: Abfangen von fetch-Aufrufen an Resend und Polar in Browsertests, einschließlich mitgeschnittener E-Mails
+- `mocks/wrksz-themes.ts`: ein Ersatz für die Theme-Bibliothek
+- `lib/`: die RPC-Brücke für Server Functions, Render-Helfer, Helfer für Request-URLs und Query-Runner
+- `worker.ts`: der Worker-Einstiegspunkt für Browsertests, der ausgehende E-Mails mitschneidet
+
+Wie die Testsuiten diese Bausteine nutzen, beschreibt [Tests und CI](/docs/architecture/testing-architecture).
+
+## Verwandte Seiten
+
+- [Umgebung und Bindings](/docs/reference/environment)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Preview deployen](/docs/getting-started/deploy-preview)

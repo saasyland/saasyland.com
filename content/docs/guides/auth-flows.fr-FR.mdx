@@ -1,16 +1,62 @@
 ---
-title: Authentification et sécurité
-description: Authentification et sécurité — SaaSy Land
+title: "Parcours d'authentification"
+description: "Fonctionnement de la connexion, de l'inscription avec vérification de l'e-mail, de la réinitialisation du mot de passe, de la double authentification, d'OAuth et de la déconnexion."
 ---
 
-L'autorisation est appliquée deux fois : itinéraire `beforeLoad` protège l'administrateur et le client, et chaque fonction de serveur protégé vérifie l'appelant indépendamment. Utilisation `requireAdmin` ou `requireSession` pour la mise en page et `withAuth(permission)` pour les opérations. Les opérations du client sont la propriété de la session.
+Better Auth (`src/integrations/better-auth/auth.server.ts`) stocke les utilisateurs, les sessions et les jetons de vérification dans D1 et sert ses endpoints sous `/api/auth`. Les pages d'authentification se trouvent sous le layout `/auth` ; leurs formulaires sont dans `src/presentation/components/custom/auth/`.
 
-Better Auth stocke les sessions dans D1 et gère les identifiants, OAuth, vérification, réinitialisation du mot de passe, authentification à deux facteurs, imitation et révocation. La mise en cache des cookies est contournée lors de la vérification d'une fonction de serveur protégée. Le dernier plugin d'authentification est `tanstackStartCookies`, qui transmet les cookies d'authentification par des réponses serveur-fonction.
+## Gardes de route
 
-Les limites de taux D1 utilisent les écritures atomiques et l'en-tête IP du client Cloudflare. Les opérations publiques sensibles ont des clés limites distinctes. Valider les entrées avec le schéma du module Zod, masquer les défaillances inattendues, vérifier les signatures de paiement webhook, et garder toutes les identifiants derrière les limites du serveur seulement. Les voies privées et les mutations de jeton sont exclues du prérendement.
+`src/integrations/better-auth/auth.routes.ts` exporte les gardes utilisés dans `beforeLoad` :
 
-## Guides connexes
+| Garde                | Utilisé sur                      | Effet                                                               |
+| -------------------- | -------------------------------- | ------------------------------------------------------------------- |
+| `requireSignedIn`    | Layout `/app`                    | Redirige vers `/auth/sign-in` sans session                          |
+| `requireAdmin`       | Layout `/admin`                  | Redirige en plus vers `/app` sans la permission `admin: ["access"]` |
+| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Envoie un utilisateur connecté vers `/admin` ou `/app`              |
+| `redirectAfterAuth`  | `/auth/callback`                 | Envoie la nouvelle session vers `/admin` ou `/app` selon le rôle    |
 
-- [Architecture](/docs/architecture)
-- [Développement local](/docs/getting-started/first-run)
-- [Essais](/docs/tooling/testing)
+`requireSignedIn` et `requireAdmin` revérifient la session à chaque navigation, `redirectIfSignedIn` utilise la session en cache, et chaque garde vide le cache des queries lorsque l'utilisateur connecté change.
+
+## Connexion
+
+1. `SignInForm` appelle `signIn.email` du client Better Auth.
+2. Un compte non vérifié reçoit l'erreur `EMAIL_NOT_VERIFIED` et est envoyé vers `/auth/verify-email` avec son adresse e-mail.
+3. Un compte avec double authentification reçoit `twoFactorRedirect` ; le plugin client ouvre alors `/auth/two-factor` dans la langue courante.
+4. En cas de succès, `usePostAuthRedirect` vide les caches des queries et du routeur, puis navigue vers `/auth/callback`, qui redirige selon le rôle.
+
+Les erreurs que Better Auth signale par redirection arrivent sous la forme `?error=` sur `/auth/sign-in` et sont affichées depuis `auth.errors`.
+
+## Inscription et vérification de l'e-mail
+
+1. `SignUpForm` valide `signUpWithPasswordSchema` et appelle `signUpWithPasswordMutation`, une fonction serveur limitée en débit qui appelle `auth.api.signUpEmail`.
+2. Better Auth crée l'utilisateur et appelle `sendVerifyEmail`, qui envoie un lien vers `/auth/verify-email?token=…` dans la langue de la page où l'inscription a commencé. Une nouvelle inscription avec une adresse non vérifiée envoie un nouveau lien.
+3. Le formulaire navigue vers `/auth/verify-email?email=…`, où `VerifyEmailForm` peut renvoyer le lien via `sendVerificationEmailMutation`, lui aussi limité en débit.
+4. À l'ouverture du lien, le `beforeLoad` de la route transmet le jeton à `/api/auth/verify-email`. Better Auth le vérifie, connecte l'utilisateur et revient sur `/auth/verify-email?verified=true`, qui redirige vers `/auth/callback`. Un lien invalide ou expiré revient avec `error` et la page en propose un nouveau.
+
+La connexion reste bloquée tant que l'e-mail n'est pas vérifié (`requireEmailVerification: true`).
+
+## Réinitialisation du mot de passe
+
+1. `/auth/forgot-password` : `ForgotPasswordForm` appelle `requestPasswordResetMutation` avec `redirectTo` pointant vers `/auth/reset-password` localisé.
+2. Better Auth appelle `sendResetPasswordEmail`. Le lien envoyé passe par Better Auth, qui redirige vers `/auth/reset-password?token=…`, ou avec `error` si le jeton est invalide ou expiré.
+3. `ResetPasswordForm` envoie le nouveau mot de passe via `resetPasswordMutation`. Better Auth révoque toutes les sessions existantes (`revokeSessionsOnPasswordReset: true`) et le formulaire navigue vers la connexion.
+
+## Double authentification
+
+- Activation (paramètres d'administration, Sécurité) : `TwoFactorDialog` demande le mot de passe (`enableTwoFactorMutation`), affiche le secret TOTP à ajouter dans une application d'authentification, confirme un code (`verifyTotpMutation`), puis affiche les codes de secours. `disableTwoFactorMutation` la désactive.
+- Connexion : `/auth/two-factor` accepte un code d'application (`verifyTotpMutation`) ou un code de secours (`verifyBackupCodeMutation`), tous deux limités en débit, avec une option pour faire confiance à l'appareil. En cas de succès, `usePostAuthRedirect` s'exécute.
+
+## OAuth
+
+`OAuthButtons` appelle `authClient.signIn.social` pour Google ou GitHub avec `callbackURL` pointant vers `/auth/callback` localisé et `errorCallbackURL` vers `/auth/sign-in` localisé. Les fournisseurs sont configurés dans `socialProviders` ; enregistrez chez eux `https://<host>/api/auth/callback/google` et `https://<host>/api/auth/callback/github`. Les comptes ayant le même e-mail sont liés automatiquement et les jetons des fournisseurs sont stockés chiffrés.
+
+## Déconnexion
+
+`useSignOut` appelle `signOutUserMutation`, vide le cache des queries, navigue vers `/auth/sign-in` et vide le cache du routeur.
+
+## Guides associés
+
+- [Liste de contrôle de sécurité](/docs/guides/security-checklist)
+- [Rôles et permissions](/docs/guides/roles-and-permissions)
+- [Modèles d'e-mails](/docs/guides/email-templates)

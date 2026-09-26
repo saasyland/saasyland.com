@@ -1,16 +1,32 @@
 ---
-title: Site dos médicos.
-description: Como esta documentação é construída e estendida.
+title: "Site de documentação"
+description: "Como /docs é construído a partir de content/docs com o Fumadocs."
 ---
 
-## Raiz de conteúdo
+## Conteúdo
 
-`content/docs`
+- As páginas são arquivos `content/docs/<section>/<page>.<locale>.mdx` para os nove idiomas.
+- `meta.<locale>.json` em cada pasta define o título da seção, o ícone e a ordem das páginas.
+- `src/integrations/fumadocs/fumadocs.i18n.ts` usa o parser `dot`, `en-US` como idioma padrão e de fallback, e `hideLocale: "always"`, porque o aplicativo cuida do prefixo de idioma por conta própria.
+- `bun run content` gera `.source` a partir de `fumadocs.config.ts`.
 
-- MDX Páginas: `*.{locale}.mdx` para todos os nove idiomas configurados (dot parser)
-- Pasta `meta.<locale>.json` Para títulos/ordem/icons
-- `fallbackLanguage: en-US` para traduções desaparecidas
+## Rotas
 
-## Fiação de aplicativos.
+- Layout `/docs` (`src/routes/docs.tsx`): uma função de servidor retorna a árvore de páginas do idioma atual; o layout mostra o `DocsLayout` do Fumadocs com o link do GitHub e, no rodapé da barra lateral, `LocaleSelect` e `ThemeSwitch` como campos de seleção no mesmo estilo, carrega `docs.css` e mostra `DocsPending` durante o carregamento.
+- `/docs/` e `/docs/$` chamam `loadDocsPage` (`fumadocs.docs.ts`), que resolve a página e pré-carrega seu MDX compilado (`docsContent`) antes de renderizar.
+- `/api/search` oferece a busca do Fumadocs em todos os idiomas (`fumadocs.search.ts`).
 
-`fumadocs.source.ts`, layout do Docs, busca API Adicionar páginas → atualizar meta `pages` Arrays → reconstruir.
+As páginas MDX podem usar `mdxComponents` de `src/presentation/components/custom/mdx.tsx`: os componentes padrão do Fumadocs, `Accordions`, `Steps` e `Tabs` do Fumadocs, e `Alert`, `Badge`, `Button`, as partes de card, `Separator` e as partes de tabela do shadcn. Os links são localizados automaticamente.
+
+## Adicionar uma página
+
+1. Escreva `<page>.en-US.mdx` com `title` e `description`.
+2. Adicione o slug a `meta.en-US.json` e a cada outro `meta.<locale>.json` na mesma ordem.
+3. Adicione as oito traduções com blocos de código idênticos byte a byte.
+4. Rode `bun scripts/check-content.ts` (também faz parte de `bun run check:i18n`) e `bun run content`.
+
+`bun run build` pré-renderiza todas as páginas da documentação em todos os idiomas.
+
+## Guias relacionados
+
+- [Fumadocs](/docs/integrations/fumadocs)

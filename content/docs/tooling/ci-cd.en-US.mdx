@@ -1,26 +1,38 @@
 ---
-title: "Testing and CI"
-description: "Testing and CI — SaaSy Land"
+title: "CI/CD"
+description: "GitHub Actions workflows for checks, browser tests and deployments."
 ---
 
-Vite+ runs Vitest in three projects: node tests, integration tests and jsdom component tests. Keep existing behavior tests beside the code they exercise under `__test__`. Import test APIs from `vite-plus/test`. Use Playwright for full browser flows and rendering checks.
+Workflows live in `.github/workflows/`. The application workflows (`ci.yml`, `e2e-reusable.yml` and `deploy-reusable.yml`) set up the toolchain with the composite action `.github/actions/setup`: Bun 1.4.0, Vite+ with Node 24, a Bun cache, `bun install --frozen-lockfile --ignore-scripts` and `bun run typegen`. `remotion.yml` sets up Node and npm instead.
 
-The shared setup supplies local D1 and KV mocks. D1 runs the checked-in SQL migrations against SQLite. The server-function RPC bridge preserves TanStack’s real middleware and validation pipeline. Component render helpers provide real QueryClient and Router contexts. External email, OAuth and payment calls are mocked in tests.
+| Workflow              | Trigger                                                 | Jobs                                                                 |
+| --------------------- | ------------------------------------------------------- | -------------------------------------------------------------------- |
+| `ci.yml`              | Pull requests and pushes to `main`                      | Checks and coverage, Chromium E2E, then preview or production deploy |
+| `e2e-full.yml`        | Pushes to `main`, weekly on Monday at 03:15 UTC, manual | WebKit on push; Chromium and WebKit on schedule and manual runs      |
+| `e2e-reusable.yml`    | Called by the workflows above                           | Test database, test build and one Playwright project                 |
+| `deploy-reusable.yml` | Called by `ci.yml`                                      | Build, D1 migrations and `wrangler deploy`                           |
+| `remotion.yml`        | Changes to `remotion/` or its shared constants          | Checks and bundles the landing page video project with npm           |
 
-Run the focused project while editing, then run the complete suite, coverage gate, check and preview build. Browser tests verify public pages, auth redirects, SSR without JavaScript, and client navigation. CI uses local bindings and does not require a live database or provider secrets.
+## Checks
 
-```sh
-bun run test:unit
-bun run test:integration
-bun run test:component
-bun run test:coverage
-bun run check
-bun run build:preview
-bun run test:e2e
-```
+The `verify` job in `ci.yml` runs `bun run check` (class-name tables, i18n and content checks, formatting, lint and types) and `bun run test:coverage`, then uploads the coverage report. The `e2e` job runs `db:migrate:test`, `db:seed:test` and `build:test`, installs the browser and runs `bunx playwright test e2e/specs --project=chromium`. Failed E2E runs upload the Playwright report.
+
+## Deployments
+
+Deployments run only after `verify` and `e2e` pass:
+
+| Event                                         | Target       | GitHub environment | URL                           |
+| --------------------------------------------- | ------------ | ------------------ | ----------------------------- |
+| Pull request from a branch in this repository | `preview`    | `Preview`          | https://preview.saasyland.com |
+| Push to `main`                                | `production` | `Production`       | https://saasyland.com         |
+
+Pull requests from forks and Dependabot are validated but not deployed. The preview is shared: each deployment replaces the previous one and uses the same preview D1 database and KV namespace.
+
+`deploy-reusable.yml` checks for the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, runs `scripts/verify-bindings.ts`, builds with the dummy values from `.env.test`, removes the generated `dist/server/.dev.vars`, applies `db:migrate:<target>` and runs `bunx wrangler deploy`. No secrets file is uploaded: the Worker keeps the runtime secrets already set in Cloudflare. Deployments to the same target queue instead of cancelling each other.
+
+Dependabot updates the GitHub Actions weekly.
 
 ## Related guides
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+- [Playwright](/docs/tooling/playwright)
+- [Deploy a preview](/docs/getting-started/deploy-preview)

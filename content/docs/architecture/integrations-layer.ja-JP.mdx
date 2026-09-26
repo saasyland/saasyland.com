@@ -1,14 +1,48 @@
 ---
-title: 統合所有権
-description: 統合所有権 — SaaSy Land
+title: "インテグレーションの責務"
+description: "src/integrations 配下のベンダーフォルダー、それぞれが設定する内容、そこに含めないもの。"
 ---
 
-各外部ライブラリまたはプロバイダは、ディレクトリを下に所有します。 `src/integrations`: Better Auth, Drizzle, Fumadocs, use-intl, Polar, Resend, GitHub. 設定ファイルはクライアントを初期化します。 共有アダプターはプロバイダの結果を正規化し、サーバー境界の背後にある資格情報を保持します。
+セットアップが必要なサードパーティのライブラリやサービスは、それぞれ `src/integrations` 配下に 1 つのフォルダーを持ちます。ファイル名は `<prefix>.<concern>.ts` の形式で、プレフィックスにはベンダーの短縮名を使います。
 
-ビジネスの決定は、機能モジュールに残ります。 例えば、Polar Webhook ハンドラは、モジュールのユースケースでライセンスレコードを更新します。インテグレーション自体は、SDK を構成し、Webhooks の受信を検証します。
+| フォルダー      | ファイル                                                                                                                                     | 責務                                                                           |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `better-auth`   | `auth.server`、`auth.client`、`auth.access`、`auth.middleware`、`auth.routes`、`auth.session`、`auth.errors`、`auth.zod`、`auth.constraints` | 認証の設定、ロール、サーバー関数のミドルウェア、ルートガード、セッションクエリ |
+| `drizzle-orm`   | `drizzle.config`、`drizzle.database`、`drizzle.schemas`、`migrations/`                                                                       | D1 クライアント、スキーマのレジストリ、SQL マイグレーション                    |
+| `fumadocs`      | `fumadocs.config`、`fumadocs.source`、`fumadocs.docs`、`fumadocs.search`、`fumadocs.i18n`                                                    | ドキュメントとブログの MDX コレクション、ページの読み込み、検索                |
+| `motion`        | `motion.features`、`motion.tokens`                                                                                                           | 遅延読み込みされる Motion の機能バンドルと、共有のトランジション               |
+| `polar`         | `polar.config`、`polar.constants`                                                                                                            | Polar SDK クライアントと、チェックアウトで提供する商品の ID                    |
+| `resend`        | `resend.config`、`resend.utils`                                                                                                              | Resend クライアントと `sendEmail`                                              |
+| `tanstack-form` | `form.fields`                                                                                                                                | TanStack Form 用のフィールド型と `fieldErrorMessage`                           |
+| `use-intl`      | `i18n.config`、`i18n.messages`、`i18n.middleware`、`i18n.paths`、`i18n.utils`                                                                | ロケール、メッセージの読み込み、ロケール付きの URL、クッキー                   |
 
-## 関連ガイド
+## インテグレーションではないもの
 
-- [建築設計](/docs/architecture)
-- [ローカル開発](/docs/getting-started/first-run)
-- [試験結果](/docs/tooling/testing)
+- GitHub のスター数は、`src/lib/github.ts` のサーバー関数で取得し、KV にキャッシュします。
+- レート制限は `src/lib/rate-limit.ts` が担い、`rate_limit` テーブルに保存します。
+- Cloudflare のバインディングにアダプターは不要です。サーバーコードは `cloudflare:workers` の `env` からバインディングを読み取ります。
+
+## ビジネスロジックはモジュールに置く
+
+インテグレーションは、ベンダーを設定するためのものです。アプリケーションのデータに関する判断は、そのテーブルを所有するモジュールが担います。
+
+- `auth.server.ts` 内の Polar プラグインは、`POLAR_WEBHOOK_SECRET` で Webhook の署名を検証し、イベントを `src/modules/license/license.webhooks.ts` の `licenseWebhookHandlers` に渡します。このハンドラーがライセンスのユースケースを呼び出します。
+- Better Auth のメールフックは、verification モジュールと account モジュールの `sendVerifyEmail`、`sendResetPasswordEmail`、`sendChangeEmailConfirmationEmail` を呼び出します。
+- ユースケースは、テンプレートの名前空間を読み込み、テンプレートをレンダリングしてから `sendEmail` を呼び出すことで、メールを送信します。
+
+```ts
+const locale = getCurrentLocale()
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+await sendEmail({
+  idempotencyKey: `verify-email/${token}`,
+  react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
+  subject: createTranslator({ locale, messages })("subject"),
+  to: user.email,
+})
+```
+
+## 関連ページ
+
+- [インテグレーション](/docs/integrations)
+- [Better Auth](/docs/integrations/better-auth)
+- [依存関係のルール](/docs/architecture/dependency-rules)

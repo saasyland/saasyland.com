@@ -1,16 +1,40 @@
 ---
-title: Środowisko i bindingi
-description: Środowisko i bindingi — SaaSy Land
+title: "Środowisko i bindingi"
+description: "Środowiska Wranglera, bindingi, sekrety i pliki środowiskowe."
 ---
 
-Korzystaj z `.env.development`, `.env.preview` i `.env.production` dla odpowiedniego środowiska Vite i Cloudflare. Pliki są ignorowane; `.env.example` opisuje wymagane klucze. `VITE_APP_URL` jest publiczny i podstawiany podczas budowania. Sekrety Workera nie mają prefiksu `VITE_`; odczytuje się je przez `env` z `cloudflare:workers`.
+`wrangler.jsonc` definiuje cztery środowiska. `CLOUDFLARE_ENV` wybiera jedno z nich dla serwera deweloperskiego i buildów, a każde odczytuje sekrety z własnego pliku środowiskowego:
 
-Ustaw `AUTH_SECRET`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, konfigurację Resend oraz Polar. Nie zapisuj prawdziwych danych w repozytorium. Identyfikatory bindingów należą do odpowiedniego środowiska w `wrangler.jsonc`; wygenerowane deklaracje Workera określają ich typy.
+| Środowisko    | Wybierane przez                               | Bindingi                           | Sekrety z          |
+| ------------- | --------------------------------------------- | ---------------------------------- | ------------------ |
+| `development` | `bun run dev`                                 | Zdalne D1 i KV środowiska preview  | `.env.development` |
+| `preview`     | `build:preview`, `deploy:preview`             | D1 i KV środowiska preview         | `.env.preview`     |
+| `production`  | `build:production`, `deploy:production`       | Produkcyjne D1 i KV                | `.env.production`  |
+| `test`        | `build:test`, `start:test`, `db:migrate:test` | Lokalne D1 i KV w `.wrangler/test` | `.env.test`        |
 
-Wymagane nazwy sekretów są zadeklarowane dla każdego środowiska w `wrangler.jsonc`: obejmują uwierzytelnianie, Resend, Polar oraz dane Cloudflare używane przez narzędzia Drizzle. Serwer deweloperski łączy się z bindingami preview. Testy przeglądarkowe używają osobnej lokalnej konfiguracji w `src/platform/testing/wrangler.jsonc` i przykładowych wartości z `.env.test`; nie potrzebują zdalnych danych dostępowych.
+`.env.development`, `.env.preview` i `.env.production` są ignorowane przez Git; `.env.example` wymienia ich klucze. `.env.test` jest zapisany w repozytorium i zawiera wyłącznie fikcyjne wartości. Skrypty wdrożeniowe przesyłają odpowiedni plik za pomocą `wrangler deploy --secrets-file`.
+
+## Sekrety
+
+Każde środowisko wymienia swoje sekrety w `secrets.required`: klucze Better Auth, OAuth, Resend i Polar oraz `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` i `CLOUDFLARE_ACCESS_TOKEN` dla narzędzi Drizzle (środowisko `test` pomija te trzy). Każdy klucz opisuje strona [Zmienne środowiskowe](/docs/getting-started/environment-variables).
+
+Kod serwerowy odczytuje sekrety przez `import { env } from "cloudflare:workers"`. Kod nie używa żadnych zmiennych `VITE_` i żadna z nich nie może przechowywać sekretu, ponieważ Vite udostępnia je przeglądarce. `scripts/verify-build.ts` przerywa build, gdy zasób klienta importuje `cloudflare:workers`. Domena kanoniczna pochodzi z `APP_DOMAIN` w `src/presentation/branding/index.ts`, a nie ze zmiennej środowiskowej.
+
+## Bindingi
+
+| Binding  | Typ              | Zastosowanie                                      |
+| -------- | ---------------- | ------------------------------------------------- |
+| `DB`     | D1               | Baza danych aplikacji, sesje i limity żądań       |
+| `CACHE`  | KV               | Liczba gwiazdek na GitHubie                       |
+| `ASSETS` | Zasoby statyczne | Prerenderowane strony, czcionki i pliki publiczne |
+
+Tryb deweloperski używa zdalnych bindingów Cloudflare, więc `bun run dev` odczytuje i zapisuje bazę danych preview. Po zmianie bindingów uruchom `bun run cf-typegen`, aby ponownie wygenerować `src/types/worker-configuration.d.ts`.
+
+## Testy
+
+Vitest ładuje `.env.test` przez `test.env` i kieruje `cloudflare:workers` do `src/platform/testing/mocks/cloudflare.ts`, który zapewnia D1 i KV w pamięci. Playwright używa środowiska `test` i jego punktu wejścia `src/platform/testing/worker.ts`. Żadne z nich nie potrzebuje prawdziwych danych uwierzytelniających.
 
 ## Powiązane przewodniki
 
-- [Architektura](/docs/architecture)
-- [Środowisko lokalne](/docs/getting-started/first-run)
-- [Testy](/docs/tooling/testing)
+- [Środowisko — informacje referencyjne](/docs/reference/environment)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)

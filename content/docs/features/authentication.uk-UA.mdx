@@ -1,19 +1,61 @@
 ---
-title: аутентифікація
-description: Better Auth налаштування, облікові дані та OAuth.
+title: "Автентифікація"
+description: "Better Auth з електронною поштою й паролем, GitHub і Google, сесіями в D1 та охоронцями маршрутів."
 ---
 
-## Закупівля
+## Конфігурація
 
-`integrations/better-auth` — `auth.server.ts`, `auth.client.ts`, валідації, помилки, опіки.
+`src/integrations/better-auth/auth.server.ts` створює екземпляр Better Auth:
 
-## Обов'язки
+- Адаптер Drizzle для D1, ідентифікатори UUID v7, префікс cookie `saasyland`, захищені cookie поза режимами `development` і `test` та дозволені хости для кожного режиму з `appHostsForMode`.
+- Електронна пошта й пароль з обов’язковим підтвердженням адреси, паролі від 8 до 1024 символів (`auth.constraints.ts`) і відкликання сесій після скидання пароля.
+- Соціальні провайдери GitHub і Google зі зв’язуванням облікових записів і зашифрованими токенами OAuth.
+- Плагіни: `admin` з ролями з `auth.access.ts`, `twoFactor`, Polar (`checkout`, `portal`, `webhooks`) і `tanstackStartCookies`.
+- Обмеження частоти запитів зберігається в таблиці `rate_limit` у D1; `/get-session`, `/sign-out` і вебхук Polar виключено.
+- Додаткове поле користувача `timezone` і зміна адреси пошти з листом-підтвердженням.
 
-- Електронна пошта: info@password3.com
-- GitHub Google OAuth \{2 OAuth
-- Сесія печиво через Better Auth
-- Проксі-підсилений захист для `/admin` і `/app`
+`src/routes/api/auth.$.ts` передає кожен запит GET і POST під `/api/auth` до `auth.handler`.
 
-## Продовжити
+## Екрани
 
-Додавання соціальних провайдерів в налаштуваннях сервера автів; зберігати секрети в env; оновлення docs + `.env.example`.
+Макет `/auth` попередньо завантажує простори імен `auth.*` і показує вітальну панель поруч із формою.
+
+| Маршрут                                         | Компоненти                                | Поведінка                                                                                                                                                    |
+| ----------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/auth/sign-in`                                 | `OAuthButtons`, `SignInForm`              | Виконує вхід через `signIn.email` з Better Auth. Непідтверджена пошта веде на `/auth/verify-email`; обліковий запис із 2FA переходить на `/auth/two-factor`. |
+| `/auth/sign-up`                                 | `OAuthButtons`, `SignUpForm`              | Викликає серверну функцію `signUpWithPassword`, потім переходить на `/auth/verify-email`.                                                                    |
+| `/auth/callback`                                | немає                                     | `redirectAfterAuth` спрямовує адміністраторів на `/admin`, а решту на `/app`.                                                                                |
+| `/auth/verify-email`                            | `VerifyEmailForm`                         | Див. [Підтвердження електронної пошти](/docs/features/email-verification).                                                                                   |
+| `/auth/forgot-password`, `/auth/reset-password` | `ForgotPasswordForm`, `ResetPasswordForm` | Див. [Скидання пароля](/docs/features/password-reset).                                                                                                       |
+| `/auth/two-factor`                              | `TwoFactorForm`                           | Див. [Двофакторна автентифікація](/docs/features/two-factor).                                                                                                |
+
+Після успішного входу `usePostAuthRedirect` очищує кеш запитів і маршрутизатора та переходить на `/auth/callback`. Помилки Better Auth, повернені як `?error=` на `/auth/sign-in`, показують відповідне повідомлення з `auth.errors`.
+
+## Охоронці маршрутів
+
+`src/integrations/better-auth/auth.routes.ts` експортує охоронців, які використовуються в `beforeLoad`:
+
+- `requireSignedIn` захищає `/app` і перенаправляє на `/auth/sign-in`.
+- `requireAdmin` захищає `/admin`; користувач без дозволу `admin: ["access"]` потрапляє на `/app`.
+- `redirectIfSignedIn` не пускає користувачів, які вже увійшли, на сторінки входу й реєстрації.
+- `redirectAfterAuth` обслуговує `/auth/callback`.
+
+Охоронці читають сесію через `getCurrentSessionQuery` і очищують кеш запитів, коли змінюється користувач сесії.
+
+## Серверні функції
+
+Серверні функції використовують middleware з `auth.middleware.ts`: `authorized()` вимагає сесію, `authorized({ user: ["list"] })` додатково перевіряє дозвіл, а `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` обмежує кількість викликів з однієї IP-адреси клієнта.
+
+```ts
+export const signOutUser = createServerFn({ method: "POST" })
+  .middleware([authorized()])
+  .handler(({ context }) => auth.api.signOut({ headers: context.requestHeaders }))
+```
+
+Є дві ролі: `admin` і `customer` (типова для нових користувачів).
+
+## Пов’язані посібники
+
+- [Потоки автентифікації](/docs/guides/auth-flows)
+- [Ролі та дозволи](/docs/guides/roles-and-permissions)
+- [Better Auth](/docs/integrations/better-auth)

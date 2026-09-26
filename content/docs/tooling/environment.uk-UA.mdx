@@ -1,16 +1,40 @@
 ---
-title: Навколишнє середовище та обов'язки
-description: Навколишнє середовище та обов’язки — SaaSy Land
+title: "Середовища та прив'язки"
+description: "Середовища Wrangler, прив'язки, секрети та файли середовища."
 ---
 
-Зареєструватися `.env.development`, `.env.preview`й `.env.production` для відповідного середовища Vite і Cloudflare. Ці файли ігноруються; `.env.example` документи, необхідні ключі. `VITE_APP_URL` є громадським і заміненим на час будівництва. Секрети працівника не мають `VITE_` Префікс і доступ до них через `env` з `cloudflare:workers`.
+`wrangler.jsonc` визначає чотири середовища. `CLOUDFLARE_ENV` вибирає одне з них для dev-сервера та збірок, і кожне зчитує секрети з власного файлу середовища:
 
-Настроювання `AUTH_SECRET`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`Налаштування Resend та налаштування Polar для вашої установки. Ніколи не керуйте реальними обліковими записами. В'язка IDs належить до відповідного `wrangler.jsonc` середовище; сформовані робочі декларації описують їх види.
+| Середовище    | Вибирається через                             | Прив'язки                           | Секрети з          |
+| ------------- | --------------------------------------------- | ----------------------------------- | ------------------ |
+| `development` | `bun run dev`                                 | Віддалені D1 і KV preview           | `.env.development` |
+| `preview`     | `build:preview`, `deploy:preview`             | D1 і KV preview                     | `.env.preview`     |
+| `production`  | `build:production`, `deploy:production`       | Продакшн D1 і KV                    | `.env.production`  |
+| `test`        | `build:test`, `start:test`, `db:migrate:test` | Локальні D1 і KV у `.wrangler/test` | `.env.test`        |
 
-Тільки Drizzle Студії та інтроспектування `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` і `CLOUDFLARE_ACCESS_TOKEN`. . Місцева D1 не використовує віддалені облікові дані. CI копії `.env.test` до локальних файлів середовища і працює з місцевими зв'язками.
+`.env.development`, `.env.preview` і `.env.production` ігноруються Git; `.env.example` перелічує їхні ключі. `.env.test` закомічено, і він містить лише фіктивні значення. Скрипти розгортання завантажують відповідний файл через `wrangler deploy --secrets-file`.
 
-## Схожі посібники
+## Секрети
 
-- [Архітектор](/docs/architecture)
-- [Місцевий розвиток](/docs/getting-started/first-run)
-- [Тестування](/docs/tooling/testing)
+Кожне середовище перелічує свої секрети в `secrets.required`: ключі Better Auth, OAuth, Resend і Polar, а також `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` і `CLOUDFLARE_ACCESS_TOKEN` для інструментів Drizzle (середовище `test` ці три не містить). Опис кожного ключа див. у розділі [Змінні середовища](/docs/getting-started/environment-variables).
+
+Серверний код зчитує секрети через `import { env } from "cloudflare:workers"`. Жоден код не використовує змінних `VITE_`, і жодна з них не може містити секрет, бо Vite відкриває їх браузеру. `scripts/verify-build.ts` зупиняє збірку, коли клієнтський ресурс імпортує `cloudflare:workers`. Канонічний домен береться з `APP_DOMAIN` у `src/presentation/branding/index.ts`, а не зі змінної середовища.
+
+## Прив'язки
+
+| Прив'язка | Тип              | Використання                                               |
+| --------- | ---------------- | ---------------------------------------------------------- |
+| `DB`      | D1               | База даних застосунку, сесії та ліміти частоти запитів     |
+| `CACHE`   | KV               | Кількість зірок на GitHub                                  |
+| `ASSETS`  | Статичні ресурси | Попередньо відрендерені сторінки, шрифти та публічні файли |
+
+Під час розробки використовуються віддалені прив'язки Cloudflare, тож `bun run dev` читає та записує базу даних preview. Після зміни прив'язок запустіть `bun run cf-typegen`, щоб перегенерувати `src/types/worker-configuration.d.ts`.
+
+## Тести
+
+Vitest завантажує `.env.test` через `test.env` і розв'язує `cloudflare:workers` у `src/platform/testing/mocks/cloudflare.ts`, який надає D1 і KV у пам'яті. Playwright використовує середовище `test` і його точку входу `src/platform/testing/worker.ts`. Жодному з них не потрібні справжні облікові дані.
+
+## Пов'язані посібники
+
+- [Довідник із середовища](/docs/reference/environment)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)

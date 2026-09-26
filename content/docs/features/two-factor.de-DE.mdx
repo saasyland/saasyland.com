@@ -1,12 +1,29 @@
 ---
-title: Zwei-Faktor-Authentifizierung
-description: TOTP-Aktivierung, -Verifizierung und -Wiederherstellungscodes.
+title: "Zwei-Faktor-Authentifizierung"
+description: "Zwei-Faktor-Authentifizierung per TOTP mit Backup-Codes, eingerichtet in den Admin-Einstellungen."
 ---
 
-## Modul
+Das Better-Auth-Plugin `twoFactor` läuft mit `APP_NAME` als Aussteller. Seine Serverfunktionen liegen in `src/modules/two-factor/use-cases`:
 
-`modules/two-factor/use-cases` — Aktivieren, Deaktivieren, TOTP verifizieren, Backup-Code verifizieren.
+| Anwendungsfall     | Middleware             | Verwendet von                          |
+| ------------------ | ---------------------- | -------------------------------------- |
+| `enableTwoFactor`  | angemeldet, Rate-Limit | `TwoFactorPasswordStep`                |
+| `disableTwoFactor` | angemeldet, Rate-Limit | `TwoFactorPasswordStep`                |
+| `verifyTotp`       | Rate-Limit             | `TwoFactorVerifyStep`, `TwoFactorForm` |
+| `verifyBackupCode` | Rate-Limit             | `TwoFactorForm`                        |
 
-## Benutzererfahrung.
+## Einrichtung
 
-Einstellungen, Reiter "Sicherheit" + `/auth/two-factor`-Route für die Herausforderung. Beachten Sie die Einschränkungen des Better Auth 2FA-Plugins in `auth.constraints.ts`.
+**Einstellungen → Sicherheit** in `/admin/settings` rendert `TwoFactorDialog` (`src/presentation/components/custom/admin/settings`):
+
+1. Der Passwortschritt ruft `enableTwoFactor` auf und erhält die TOTP-URI und die Backup-Codes.
+2. Der Bestätigungsschritt zeigt das Secret aus der URI (`extractTotpSecret`) zur manuellen Eingabe in einer Authenticator-App und bestätigt einen 6-stelligen Code mit `verifyTotp`.
+3. Der letzte Schritt zeigt die Backup-Codes.
+
+Ist 2FA aktiv, öffnet dieselbe Schaltfläche den Passwortschritt mit `disableTwoFactor`. Die Schaltfläche liest `twoFactorEnabled` aus der aktuellen Sitzung.
+
+## Abfrage bei der Anmeldung
+
+Bei einem Konto mit 2FA beantwortet Better Auth die Anmeldung mit einer Zwei-Faktor-Weiterleitung; `twoFactorClient` in `auth.client.ts` schickt den Browser zu `/auth/two-factor` in der aktuellen Locale. `TwoFactorForm` akzeptiert einen 6-stelligen Code (`InputOTP`) oder nach dem Umschalten einen Backup-Code und sendet `trustDevice: true`. Bei Erfolg fährt `usePostAuthRedirect` mit `/auth/callback` fort.
+
+Die Codelängen stehen in `auth.constraints.ts`: `TWO_FACTOR_CODE_LENGTH` ist 6, Backup-Codes haben 8 bis 12 Zeichen.

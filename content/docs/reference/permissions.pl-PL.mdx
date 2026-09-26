@@ -1,10 +1,66 @@
 ---
 title: "Macierz uprawnień"
-description: "Gdzie żyją role i statements uprawnień."
+description: "Role, deklaracje uprawnień i funkcje serwerowe, które je sprawdzają."
 ---
 
-> Pełna treść jest utrzymywana po angielsku i może być uzupełniana sukcesywnie. Poniżej znajduje się lokalna wersja / mapa tej strony.
+Role i uprawnienia są zdefiniowane w `src/integrations/better-auth/auth.access.ts` za pomocą mechanizmu kontroli dostępu Better Auth. Z tych samych definicji korzysta serwer (`authorized`, guardy tras) i klient Better Auth.
 
-Source of truth: `integrations/better-auth/auth.access.ts`.
+## Role
 
-Dodając nowe zasoby i akcje w `APP_STATEMENTS`, opisuj je tutaj. Czytaj razem z Przewodniki → Role i uprawnienia.
+| Rola          | Kod        | Uprawnienia                                                                                                |
+| ------------- | ---------- | ---------------------------------------------------------------------------------------------------------- |
+| Administrator | `admin`    | Wszystkie poniższe deklaracje aplikacji oraz administracyjne deklaracje Better Auth dla `user` i `session` |
+| Klient        | `customer` | Brak. Klienci mogą wywoływać funkcje serwerowe, które wymagają jedynie sesji.                              |
+
+Nowi użytkownicy otrzymują rolę `customer` (`DEFAULT_ROLE_CODE`).
+
+## Deklaracje
+
+Deklaracje aplikacji (`APP_STATEMENTS`):
+
+| Zasób      | Akcje                                           |
+| ---------- | ----------------------------------------------- |
+| `admin`    | `access`                                        |
+| `category` | `create`, `read`, `update`, `delete`            |
+| `order`    | `read`, `update`, `refund`                      |
+| `product`  | `create`, `read`, `update`, `delete`, `publish` |
+| `settings` | `manage`                                        |
+
+Deklaracje Better Auth przyznane administratorom:
+
+| Zasób     | Akcje                                                                                                      |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| `user`    | `create`, `list`, `set-role`, `ban`, `impersonate`, `delete`, `set-password`, `set-email`, `get`, `update` |
+| `session` | `list`, `revoke`, `delete`                                                                                 |
+
+## Gdzie sprawdzane są uprawnienia
+
+| Uprawnienie            | Sprawdzane przez                                                                                                                             |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin: ["access"]`    | `requireAdmin` w layoucie `/admin` oraz przekierowanie po zalogowaniu                                                                        |
+| Akcje `category`       | Przypadki użycia kategorii: `read`, `create`, `update`, `delete`                                                                             |
+| Akcje `product`        | Przypadki użycia produktów: `read`, `create`, `update`, `delete`                                                                             |
+| Akcje `user`           | Przypadki użycia użytkowników, każdy z jedną akcją; `ban` obejmuje zarówno `ban-user`, jak i `unban-user`                                    |
+| Akcje `session`        | `list-user-sessions` (`list`), `revoke-user-session` i `revoke-user-sessions` (`revoke`)                                                     |
+| Sesja, bez uprawnienia | Przypadki użycia konta, licencji, uwierzytelniania dwuskładnikowego, preferencji newslettera i własnych sesji oraz `stop-impersonating-user` |
+
+`order`, `product: ["publish"]` i `settings` są zadeklarowane, ale nie sprawdza ich jeszcze żadna funkcja serwerowa.
+
+## Sprawdzanie uprawnienia
+
+Funkcje serwerowe korzystają z middleware, na przykład `authorized({ category: ["read"] })`. Pozostały kod wywołuje `hasPermission`, tak jak guard panelu administracyjnego:
+
+```ts
+export const requireAdmin = async (context: AuthRouteContext) => {
+  const result = await requireSignedIn(context)
+  if (!hasPermission({ permission: { admin: ["access"] }, role: result.session.user.role })) {
+    throw redirect({ replace: true, to: ROUTES.APP })
+  }
+  return result
+}
+```
+
+## Powiązane strony
+
+- [Role i uprawnienia](/docs/guides/roles-and-permissions)
+- [Uwierzytelnianie i bezpieczeństwo](/docs/architecture/security-model)

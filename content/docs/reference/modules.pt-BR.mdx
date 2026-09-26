@@ -1,17 +1,39 @@
 ---
-title: Catálogo de módulos
-description: Inventário de domínios src/módulos e propriedade.
+title: "Catálogo de módulos"
+description: "Todos os módulos em src/modules, as tabelas de que cada um é dono e seus casos de uso."
 ---
 
-| Módulo         | Possuem                                                           |
-| -------------- | ----------------------------------------------------------------- |
-| `_core`        | Erros, catálogos locais/moedas/tempos, usos compartilhados.       |
-| `account`      | Perfil / e-mail / senha / assinatura                              |
-| `user`         | Administração de gestão de usuários + ajudantes de personificação |
-| `session`      | Listar / revogar sessões                                          |
-| `two-factor`   | TOTP habilitar / verificar / desativar                            |
-| `verification` | E-mail verificar + senha repor orquestração                       |
-| `product`      | Casos de uso de catálogo de produtos                              |
-| `category`     | Casos de uso de categoria                                         |
+Um módulo existe apenas para uma tabela real do banco de dados. Cada tabela é registrada em `src/integrations/drizzle-orm/drizzle.schemas.ts`.
 
-Adicione uma linha quando você introduzir uma nova pasta de domínio.
+| Módulo                  | Tabelas                            | Casos de uso                                                                                                                                                                        |
+| ----------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `account`               | `account`                          | `sign-up-with-password`, `sign-out-user`, `update-user`, `change-email`, `change-password`, `send-change-email-confirmation-email`                                                  |
+| `category`              | `category`                         | `get-categories`, `get-category`, `create-category`, `update-category`, `delete-category`                                                                                           |
+| `license`               | `license`, `revoked_license_order` | `get-current-license`, `get-license`, `start-checkout`, `deactivate-license`, `grant-license`, `revoke-license`, `attach-license-key`                                               |
+| `newsletter-subscriber` | `newsletter_subscriber`            | `subscribe-to-newsletter`, `confirm-newsletter-subscription`, `unsubscribe-from-newsletter`, `get-newsletter-subscription`, `set-newsletter-subscription`                           |
+| `product`               | `product`                          | `get-products`, `get-product`, `create-product`, `update-product`, `delete-product`                                                                                                 |
+| `rate-limit`            | `rate_limit`                       | nenhum; usado por `src/lib/rate-limit.ts`                                                                                                                                           |
+| `session`               | `session`                          | `get-active-sessions`, `revoke-session`, `revoke-other-sessions`, `list-user-sessions`, `revoke-user-session`, `revoke-user-sessions`                                               |
+| `two-factor`            | `two_factor`                       | `enable-two-factor`, `disable-two-factor`, `verify-totp`, `verify-backup-code`                                                                                                      |
+| `user`                  | `user`                             | `get-users`, `get-user`, `create-user`, `update-user`, `delete-user`, `ban-user`, `unban-user`, `set-user-role`, `set-user-password`, `impersonate-user`, `stop-impersonating-user` |
+| `verification`          | `verification`                     | `send-verification-email`, `send-verify-email`, `request-password-reset`, `reset-password`, `send-reset-password-email`                                                             |
+
+`_core` não é dono de nenhuma tabela. Ele reúne os códigos de erro, os catálogos e os helpers compartilhados descritos em [Núcleo compartilhado](/docs/architecture/core).
+
+## Arquivos além do conjunto padrão
+
+A maioria dos módulos contém apenas `<table>.schema.ts`, `.zod.ts`, `.constants.ts`, `.types.ts`, `.utils.ts` e `use-cases/`. Alguns têm arquivos a mais:
+
+- `license/license.webhooks.ts`: os handlers de webhooks do Polar passados ao Better Auth
+- `license/license.ppp.ts`: os descontos de preços regionais para o checkout
+- `newsletter-subscriber/newsletter-subscriber.server.ts`: a verificação da origem da requisição para os links da newsletter
+
+## Casos de uso comuns do lado do servidor
+
+Estes casos de uso são funções assíncronas sem endpoint RPC. Quem os chama são os hooks do Better Auth, os handlers de webhooks do Polar ou outros casos de uso: `send-verify-email`, `send-reset-password-email`, `send-change-email-confirmation-email`, `grant-license`, `revoke-license`, `attach-license-key` e `get-license`.
+
+## Páginas relacionadas
+
+- [Server functions e casos de uso](/docs/architecture/modules-and-use-cases)
+- [Adicionar um módulo](/docs/guides/add-a-module)
+- [Matriz de permissões](/docs/reference/permissions)

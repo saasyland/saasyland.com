@@ -1,16 +1,67 @@
 ---
 title: "Internationalization and locales"
-description: "Internationalization and locales — SaaSy Land"
+description: "Add message namespaces and keys in all nine locales, load them in routes and verify them with check:i18n."
 ---
 
-Messages live in `messages/{locale}` for all nine configured languages as dotted namespace files, for example `pages.admin.users.json`. Locale configuration, URL helpers, message loading, metadata and email translation helpers live in `src/integrations/use-intl`.
+Messages use `use-intl` with ICU syntax. Each namespace is one JSON file per locale in `messages/<locale>/<namespace>.json`, for the nine locales `en-US` (default), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` and `uk-UA`. The file name is the namespace: `messages/en-US/pages.admin.users.json` is `pages.admin.users`.
 
-English uses `/docs`; Polish uses `/pl-PL/docs`. Legacy `/en` and `/pl` links are canonicalized. Route files declare `staticData.namespaces` and preload the same namespaces in their loader. `TranslationsProvider` assembles the active route namespaces into an `IntlProvider`. Shared messages are loaded at the root; email-only namespaces stay on the server.
+## Namespace types
 
-Read the locale with `getCurrentLocale` on the server and `useLocale` in components. The URL chooses the document locale. Server-function requests use the locale cookie. A language change keeps the path, query and fragment and reloads the document to load the corresponding content. Run `bun run check:i18n` after changing keys.
+| Namespace                                     | Loaded by                                                           |
+| --------------------------------------------- | ------------------------------------------------------------------- |
+| `common`, `components.*`, `errors*`           | The root route's `beforeLoad`, on every page                        |
+| `pages.*`                                     | The page route that declares it                                     |
+| Layout namespaces, such as `auth.validations` | The layout route (`src/routes/auth.tsx`, `admin.tsx`, `app.tsx`, …) |
+| `emails.*`                                    | The use case that sends the email, on the server only               |
 
-## Related guides
+`TranslationsProvider` wraps the document body and merges the root namespaces with the namespaces of every matched route, so every screen, including error screens, is translated.
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+## Add a key
+
+Add the key to the same file in all nine locales with the same structure. `bun run check:i18n` fails when a locale has a missing or extra key.
+
+## Add a page namespace
+
+1. Create `messages/<locale>/pages.<area>.<page>.json` in all nine locales. Every page namespace has `metadata.title` and `metadata.description`; `loadPageMetadata` reads them for the document head.
+2. Declare and load it in the route:
+
+```tsx
+const NAMESPACE = "pages.legal.terms"
+
+export const Route = createFileRoute("/_landing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: LegalPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+Layout routes declare `const NAMESPACES = [...] as const`, preload them in the loader and list them in `staticData`. A declared namespace without a file throws `No messages/<locale>/<namespace>.json`.
+
+## Use messages in components
+
+- Call `useTranslations` exactly once per component and name the translator `t`. i18n-ally and `check:i18n` resolve every `t("key")` against the nearest preceding `useTranslations` scope.
+- When a component needs keys from two unrelated namespaces, scope `t` to their common parent or call `useTranslations()` and use full keys, as `sign-in-form.tsx` does.
+- Components read their own messages; parents never pass labels as props.
+- Rich text uses `t.rich("key", TAGS)` with the tag map defined as a module-level constant, like `LEGAL_TAGS` in `src/routes/auth.sign-up.tsx`.
+- `getCurrentLocale()` returns the locale on the server and in the browser. `useDateFormatter` and `useCurrencyFormatter` format dates and amounts for it.
+
+## Check
+
+```sh
+bun run check:i18n
+```
+
+The command checks key parity across locales, static keys against their `useTranslations` scope, ICU message formats and docs content parity across locales. `bun run check` runs it too.
+
+## Locales in URLs
+
+English pages have no prefix (`/docs`); the other locales use one (`/pl-PL/docs`). The Worker redirects short prefixes such as `/pl` to `/pl-PL` and keeps the locale cookie in sync with the page URL. Server-function and `/api` URLs carry no locale, so server functions that return localized content take the locale as input.

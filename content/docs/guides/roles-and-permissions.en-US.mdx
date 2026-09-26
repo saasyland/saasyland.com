@@ -1,14 +1,61 @@
 ---
 title: "Roles and permissions"
-description: "Roles and permissions — SaaSy Land"
+description: "Define statements and roles in auth.access.ts and check them in route guards and server functions."
 ---
 
-Roles and statements live in `src/integrations/better-auth/auth.access.ts`. The default role is customer. Admin access is checked by `requireAdmin`; each server operation checks the required statement with `withAuth`.
+Access control uses the Better Auth admin plugin. Statements, roles and the permission check live in `src/integrations/better-auth/auth.access.ts`.
 
-Keep role changes, bans, session revocation and impersonation in user/session use cases. Derive the current user from the request session and invalidate affected query groups after a mutation. Hiding a button is presentation behavior and does not replace authorization.
+## Statements and roles
 
-## Related guides
+```ts
+const APP_STATEMENTS = {
+  admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
+  settings: ["manage"],
+} as const
 
-- [Architecture](/docs/architecture)
-- [Local development](/docs/getting-started/first-run)
-- [Testing](/docs/tooling/testing)
+export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
+
+export const ROLES = {
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
+}
+```
+
+- `defaultStatements` from Better Auth add the `user` and `session` resources (such as `user: ["list", "set-role", "ban", "impersonate", "delete"]` and `session: ["list", "revoke"]`).
+- `admin` has every statement; `customer`, the default role for new users, has none.
+- `ROLE_VALUES` types the `user.role` column and the role schemas in `user.zod.ts`.
+
+## Where permissions are checked
+
+| Layer           | Check                                                                   |
+| --------------- | ----------------------------------------------------------------------- |
+| Route guard     | `requireAdmin` requires `admin: ["access"]` for the whole `/admin` area |
+| Server function | `authorized({ product: ["update"] })` on every protected operation      |
+| Signed-in only  | `authorized()` for operations on the caller's own data                  |
+| Anywhere else   | `hasPermission({ permission, role })` returns a boolean                 |
+
+The route guard only decides which pages render. Server functions are callable directly over RPC, so each one must check its own permission. Hiding a button is presentation, not authorization.
+
+## Add a permission
+
+1. Add the action to `APP_STATEMENTS`, for example `report: ["read", "export"]`.
+2. `admin` receives it automatically; grant it to other roles in `ROLES` as needed.
+3. Require it in the server function: `.middleware([authorized({ report: ["export"] })])`.
+4. Test both the allowed and the `FORBIDDEN` case.
+
+## Add a role
+
+1. Add the code to `ROLE_CODES` and `ROLE_VALUES`.
+2. Define its statements in `ROLES`.
+3. Add the role label to `filters.role.options` in `messages/<locale>/pages.admin.users.json` for all nine locales.
+
+The auth client (`auth.client.ts`) receives `ac` and `ROLES`, so admin actions in the browser use the same definitions.
+
+## User and session administration
+
+The user and session modules wrap the Better Auth admin API in use cases, each with its own permission: `setUserRole`, `banUser`, `unbanUser`, `impersonateUser`, `deleteUser`, `setUserPassword`, `revokeUserSession` and more. Operations on the caller's own data, such as `revokeSession`, use `authorized()` and filter by `context.auth.user.id`.
+
+There is no admin seed outside the test database. To create the first admin, sign up, verify the email and set that user's `role` to `admin` in D1, for example with `bun run db:studio:development`.

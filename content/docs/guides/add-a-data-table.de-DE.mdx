@@ -1,19 +1,89 @@
 ---
-title: Fügen Sie eine DataTable hinzu.
-description: Nutzen Sie das gemeinsame TanStack DataTable-Toolkit in den Verwaltungsbereichen.
+title: "Datentabelle hinzufügen"
+description: "Spalten definieren und mit der generischen DataTable rendern, mit clientseitigen oder serverseitigen Daten."
 ---
 
-## Gerätestellplatz.
+Jede Tabelle wird über eine einzige Komponente gerendert: `DataTable` in `src/presentation/components/custom/data-table.tsx`. Sie basiert auf TanStack Table v9 (`tableFeatures` und `useTable`) und den shadcn-Tabellen-Primitives und bietet Sortierung, Paginierung, Zeilenauswahl, Filter, Lade-Skeletons und den Leerzustand. Eine Tabelle benötigt nur eine Spaltendatei und einen Aufruf `<DataTable columns data options filters />`.
 
-`src/presentation/components/custom/data-table`
+## 1. Spalten definieren
 
-## Funktionsmuster (Benutzer)
+`<entity>-columns.tsx` neben den anderen Widgets der Seite anlegen. Zellen und Header sind kleine Komponenten, die ihre eigenen Übersetzungen lesen. Gekürzt aus `src/presentation/components/custom/admin/users/user-columns.tsx`:
 
-- `columns.tsx` / `cells.tsx` / `filters.tsx` / `actions.tsx` / `options.tsx`
-- Datenbankzeilen → Tabellenzeilen in `_lib` oder Modul-Utilities
-- Aktualisierung der Symbolleiste → Ungültig machen des relevanten TanStack Query-Schlüssels.
-- Halten Sie Fallback-Mechanismen außerhalb der Laufzeitumgebung der Tabelle.
+```tsx
+const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
+  const t = useTranslations("pages.admin.users.table.headers")
 
-## Optionen.
+  return t(id)
+}
 
-Konfigurieren Sie die Symbolleiste (Suche, Filter, Export nach CSV, Abrufen, Einstellungen), die Paginierung, die Auswahl und die Dichte über `options` – siehe UI → DataTable.
+const BooleanCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, boolean>): JSX.Element => {
+  const t = useTranslations("pages.admin.users.table.booleans")
+
+  return <span className="text-muted-foreground">{getValue() ? t("yes") : t("no")}</span>
+}
+
+const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()
+
+export const userColumns = columnHelper.columns([
+  columnHelper.accessor("name", { cell: UserCell, header: () => <ColumnHeader id="user" />, id: "user" }),
+  columnHelper.accessor("role", { cell: RoleCell, header: () => <ColumnHeader id="role" /> }),
+  columnHelper.accessor("emailVerified", { cell: BooleanCell, header: () => <ColumnHeader id="emailVerified" /> }),
+  columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
+  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: "", id: "actions" }),
+])
+```
+
+- Zeilen müssen eine `id` vom Typ String haben; sie wird zur Zeilen-ID für die Auswahl.
+- `DataTableFeatures` ist das gemeinsame Feature-Set. Die Sortierfunktionen sind `alphanumeric`, `basic`, `datetime` und `text`.
+- Zeilenaktionen sind eine Anzeigespalte, deren Zelle eine eigene Komponente ist (`UserRowActions` in `row-actions.tsx`).
+
+## 2. Mit clientseitigen Daten rendern
+
+Die Zeilen in `data` übergeben. Sortierung, Paginierung und Filter laufen im Browser. Aus `src/routes/admin.index.tsx`:
+
+```tsx
+<DataTable
+  columns={dashboardUserColumns}
+  data={users.rows}
+  filters={[
+    { columnId: "user", placeholder: t("users.search"), type: "search" },
+    {
+      columnId: "status",
+      label: t("users.filters.status"),
+      options: USER_STATUSES.map((status) => ({ label: t(`users.table.status.${status}`), value: status })),
+      type: "select",
+    },
+  ]}
+  options={{ initialState: { pagination: PREVIEW_PAGINATION }, selectable: true }}
+/>
+```
+
+- `filters` akzeptiert `{ type: "search", columnId, placeholder }` und `{ type: "select", columnId, label, options }`. Die Auswahl ergänzt eine Option „alle“, die mit `label` beschriftet ist.
+- `options.initialState` setzt die anfängliche `pagination` und `sorting`; die Standard-Seitengröße ist 10.
+- `options.selectable` fügt eine Checkbox-Spalte hinzu und zeigt die Anzahl der ausgewählten Zeilen an.
+
+## 3. Mit serverseitiger Paginierung rendern
+
+`options.query` übergeben: eine Funktion von `{ pageIndex, pageSize, sorting }`, die Query-Optionen zurückgibt, die zu `{ rows, total }` auflösen. Die Tabelle paginiert und sortiert dann auf dem Server, lässt die vorherige Seite sichtbar, während die nächste lädt, und zeigt beim ersten Laden Skeleton-Zeilen. Aus `src/routes/admin.users.all.tsx`:
+
+```tsx
+<DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
+```
+
+`getUsersPageQuery` legt die geparste Eingabe in den Query-Key, und `getUsers` validiert `sorting` gegen die IDs der sortierbaren Spalten:
+
+```ts
+export const getUsersPageQuery = (input: zod.input<typeof listUsersSchema> = {}) =>
+  queryOptions<Awaited<ReturnType<typeof getUsers>>>({
+    queryFn: () => getUsers({ data: input }),
+    queryKey: [...USER_QUERY_KEYS.LIST, listUsersSchema.parse(input)],
+  })
+```
+
+Die erste Seite im Route-Loader mit `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` vorab laden. Für zusätzliche Filter die Query umschließen: `src/routes/admin.products.index.tsx` verwendet `query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] })`. Spalten-`filters` laufen im Browser auf den Zeilen, die die Tabelle hält, und gehören daher zu `data`.
+
+## 4. Messages
+
+Leerzustand, Paginierung und Auswahlbeschriftungen stammen aus `components.custom.data-table`, das jede Seite lädt. Spaltenüberschriften und Zelltexte gehören in den Seiten-Namespace, etwa `pages.admin.users.table.headers`.
+
+Nachdem eine Mutation die Zeilen geändert hat, die Query-Keys des Moduls invalidieren; die Tabelle lädt die aktuelle Seite neu. Siehe [Use Case hinzufügen](/docs/guides/add-a-use-case).

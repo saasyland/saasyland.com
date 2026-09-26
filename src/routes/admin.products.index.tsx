@@ -1,127 +1,113 @@
-import { type JSX, Suspense, useState } from "react"
+import type { JSX } from "react"
 
-import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { Link, type SearchSchemaInput, createFileRoute, stripSearchParams } from "@tanstack/react-router"
+import { PlusCircle } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
+import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { getCategoriesPageQuery, getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
 import { getProductsPageQuery, getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 
-import { ProductsPageTabs } from "~/src/presentation/components/custom/admin/products/components/products-page-tabs"
-import { resolveProductTab } from "~/src/presentation/components/custom/admin/products/constants/product-tabs"
+import { ADMIN_PRODUCT_TABS } from "~/src/data/admin"
 
-const PRODUCTS_CATALOG_FALLBACK = (
-  <div className="w-full space-y-6">
-    <div className="h-9 w-full max-w-md animate-pulse rounded-md border-b border-border bg-muted/20" />
-    <div className="h-64 animate-pulse rounded-lg border border-border bg-muted/30" />
-  </div>
-)
+import { pageHead } from "~/src/lib/seo"
+
+import { Button } from "~/src/presentation/components/shadcn/button"
+import { Card } from "~/src/presentation/components/shadcn/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
+
+import { AdminProductsPending } from "~/src/presentation/components/custom/admin/offerings-pending"
+import { categoryColumns } from "~/src/presentation/components/custom/admin/products/category-columns"
+import { productColumns } from "~/src/presentation/components/custom/admin/products/product-columns"
+import { DataTable } from "~/src/presentation/components/custom/data-table"
+
+import { ROUTES } from "~/src/routes"
+
+const FILTERS = {
+  all: {},
+  drafts: { status: "draft" },
+  onetime: { type: "one_time" },
+  subscriptions: { type: "subscription" },
+} as const
+
+type ProductTab = (typeof ADMIN_PRODUCT_TABS)[number]
 
 const ProductsPage = (): JSX.Element => {
-  const searchParams = Route.useSearch()
+  const { tab } = Route.useSearch()
   const t = useTranslations("pages.admin.products")
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <div className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
-        </div>
+      <div>
+        <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
 
-      <Suspense fallback={PRODUCTS_CATALOG_FALLBACK}>
-        <ProductsCatalog key={searchParams["tab"] ?? "all"} searchParams={searchParams} />
-      </Suspense>
+      <Tabs selectedKey={tab} className="w-full">
+        <div className="flex flex-col gap-4 border-b border-border sm:flex-row sm:items-center sm:justify-between">
+          <TabsList variant="line" className="no-scrollbar flex-1 justify-start gap-6 overflow-x-auto">
+            {ADMIN_PRODUCT_TABS.map((id) => (
+              <TabsTrigger className="flex-none px-0 text-sm" href={`${ROUTES.ADMIN_PRODUCTS}?tab=${id}`} id={id} key={id}>
+                {t(`tabs.${id}`)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <Link to={ROUTES.ADMIN_PRODUCTS_CREATE} className="shrink-0 pb-3 sm:pb-0">
+            <Button size="sm" className="h-9 w-full gap-2 sm:w-auto">
+              <PlusCircle className="size-4" />
+              {t("actions.create")}
+            </Button>
+          </Link>
+        </div>
+
+        <TabsContent id={tab} className="mt-6 space-y-4 outline-none">
+          {tab !== "categories" && tab !== "collections" && tab !== "courses" && (
+            <DataTable
+              columns={productColumns}
+              key={tab}
+              options={{ query: ({ pageIndex, pageSize }) => getProductsPageQuery({ pageIndex, pageSize, ...FILTERS[tab] }) }}
+            />
+          )}
+          {(tab === "categories" || tab === "collections") && (
+            <DataTable
+              columns={categoryColumns}
+              key={tab}
+              options={{
+                query: ({ pageIndex, pageSize }) =>
+                  getCategoriesPageQuery({ kind: tab === "collections" ? "collection" : "category", pageIndex, pageSize }),
+              }}
+            />
+          )}
+          {tab === "courses" && (
+            <Card className="flex h-32 items-center justify-center text-sm text-muted-foreground">{t("courses.empty.title")}</Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
 
-type ProductsTranslator = Awaited<ReturnType<typeof useTranslations<"pages.admin.products">>>
-
-const catalogLabels = (
-  t: ProductsTranslator,
-): Record<"all" | "categories" | "collections" | "courses" | "drafts" | "onetime" | "subscriptions", string> => ({
-  all: t("tabs.all"),
-  categories: t("tabs.categories"),
-  collections: t("tabs.collections"),
-  courses: t("tabs.courses"),
-  drafts: t("tabs.drafts"),
-  onetime: t("tabs.onetime"),
-  subscriptions: t("tabs.subscriptions"),
-})
-
-const ProductsCatalog = ({ searchParams }: { searchParams: Record<string, string | undefined> }): JSX.Element => {
-  const t = useTranslations("pages.admin.products")
-  const params = searchParams
-  const [pageIndex, setPageIndex] = useState(0)
-  const activeTab = resolveProductTab(params["tab"])
-  const products = useSuspenseQuery(
-    getProductsPageQuery({
-      pageIndex,
-      ...(activeTab === "onetime" ? { type: "one_time" } : {}),
-      ...(activeTab === "subscriptions" ? { type: "subscription" } : {}),
-      ...(activeTab === "drafts" ? { status: "draft" } : {}),
-    }),
-  ).data
-  const categories = useSuspenseQuery(
-    getCategoriesPageQuery({ pageIndex, kind: activeTab === "collections" ? "collection" : "category" }),
-  ).data
-  const total = activeTab === "categories" || activeTab === "collections" ? categories.total : products.total
-
-  return (
-    <ProductsPageTabs
-      activeTab={activeTab}
-      categories={categories.rows}
-      labels={catalogLabels(t)}
-      products={products.rows}
-      pagination={{ onPageChange: setPageIndex, pageIndex, pageSize: DEFAULT_PAGE_SIZE, total }}
-    />
-  )
-}
+const NAMESPACE = "pages.admin.products"
 
 export const Route = createFileRoute("/admin/products/")({
   component: ProductsPage,
-  head: routeHead,
+  head: pageHead(ROUTES.ADMIN_PRODUCTS),
+  validateSearch: (search: SearchSchemaInput & { tab?: unknown }): { tab: ProductTab } => ({
+    tab: ADMIN_PRODUCT_TABS.find((tab) => tab === search.tab) ?? "all",
+  }),
   loader: async ({ context }) => {
+    const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
-      loadRouteMessages({
-        metadataNamespace: "pages.admin.products",
-        namespaces: [
-          "auth.errors",
-          "auth.validations",
-          "category.errors",
-          "category.validations",
-          "pages.admin",
-          "pages.admin.products",
-          "pages.admin.products.create",
-          "pages.admin.sidebar",
-          "user.validations",
-        ],
-        pathname: "/admin/products",
-        queryClient: context.queryClient,
-      }),
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query({ ...getCategoriesQuery, staleTime: "static" }),
       context.queryClient.query({ ...getProductsQuery, staleTime: "static" }),
     ])
-    return metadata
+    return { locale, metadata }
   },
-  staticData: {
-    namespaces: [
-      "auth.errors",
-      "auth.validations",
-      "category.errors",
-      "category.validations",
-      "pages.admin",
-      "pages.admin.products",
-      "pages.admin.products.create",
-      "pages.admin.sidebar",
-      "user.validations",
-    ],
-  },
-  validateSearch: (search: Record<string, unknown>): Record<string, string | undefined> =>
-    Object.fromEntries(Object.entries(search).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
+  search: { middlewares: [stripSearchParams({ tab: "all" })] },
+  pendingComponent: AdminProductsPending,
+  staticData: { namespaces: [NAMESPACE] },
 })

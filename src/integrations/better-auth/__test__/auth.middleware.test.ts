@@ -10,6 +10,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { getCurrentSession } from "~/src/integrations/better-auth/auth.session"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { getCategory } from "~/src/modules/category/use-cases/get-category"
 import { getProduct } from "~/src/modules/product/use-cases/get-product"
@@ -133,7 +134,7 @@ describe("authorization middleware", () => {
 })
 describe("rate limiting middleware", () => {
   it("uses Cloudflare's client IP and a separate action key", async () => {
-    vi.mocked(getRequest).mockReturnValue(new Request("http://localhost/", { headers: { "CF-Connecting-IP": "203.0.113.1" } }))
+    vi.mocked(getRequest).mockReturnValue(new Request("http://localhost/", { headers: { [IP_ADDRESS_HEADER]: "203.0.113.1" } }))
     const action = createServerFn()
       .middleware([withRateLimit("test", RATE_LIMITS.SENSITIVE)])
       .handler(() => "done")
@@ -147,6 +148,19 @@ describe("rate limiting middleware", () => {
     for (let count = 0; count < RATE_LIMITS.SENSITIVE.max; count++) {
       await action()
     }
+    await expect(action()).rejects.toThrow("TOO_MANY_REQUESTS")
+  })
+  it("counts every address in one IPv6 /64 against the same limit", async () => {
+    const action = createServerFn()
+      .middleware([withRateLimit("test", RATE_LIMITS.SENSITIVE)])
+      .handler(() => "done")
+    for (let count = 1; count <= RATE_LIMITS.SENSITIVE.max; count++) {
+      vi.mocked(getRequest).mockReturnValue(
+        new Request("http://localhost/", { headers: { [IP_ADDRESS_HEADER]: `2001:db8:1:2::${count}` } }),
+      )
+      await action()
+    }
+    vi.mocked(getRequest).mockReturnValue(new Request("http://localhost/", { headers: { [IP_ADDRESS_HEADER]: "2001:db8:1:2:ffff::1" } }))
     await expect(action()).rejects.toThrow("TOO_MANY_REQUESTS")
   })
   it("rejects requests when its storage is unavailable", async () => {

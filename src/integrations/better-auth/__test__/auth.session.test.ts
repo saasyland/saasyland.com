@@ -16,8 +16,17 @@ describe("current session query", () => {
     const session = createAuthSessionFixture()
     const getSession = vi.spyOn(auth.api, "getSession").mockResolvedValue(session)
 
-    await expect(executeQuery(getCurrentSessionQuery)).resolves.toEqual(session)
+    const { token: _token, ...clientSession } = session.session
+
+    await expect(executeQuery(getCurrentSessionQuery)).resolves.toStrictEqual({ session: clientSession, user: session.user })
     expect(getSession).toHaveBeenCalledExactlyOnceWith({ headers: request.headers, query: { disableCookieCache: true } })
+  })
+
+  it("returns null for a signed-out visitor", async () => {
+    vi.mocked(getRequest).mockReturnValue(new Request("http://localhost/app"))
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(null)
+
+    await expect(executeQuery(getCurrentSessionQuery)).resolves.toBeNull()
   })
 })
 

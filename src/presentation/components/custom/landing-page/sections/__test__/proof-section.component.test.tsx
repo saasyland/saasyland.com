@@ -3,7 +3,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import { IntlProvider } from "use-intl"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { starCountQuery } from "~/src/integrations/github/github.queries"
+import { starCountQuery } from "~/src/lib/github"
 
 import { ProofSection } from "~/src/presentation/components/custom/landing-page/sections/proof-section"
 
@@ -12,7 +12,7 @@ import english from "~/messages/en-US/pages.landing.json"
 
 const fetchStarsMock = vi.hoisted(() => vi.fn<() => Promise<number>>())
 
-vi.mock(import("~/src/integrations/github/github.queries"), async (importOriginal) => {
+vi.mock(import("~/src/lib/github"), async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual, starCountQuery: { ...actual.starCountQuery, queryFn: fetchStarsMock } }
 })

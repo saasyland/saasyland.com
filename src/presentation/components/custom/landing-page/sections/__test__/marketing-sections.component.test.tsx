@@ -59,8 +59,55 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  document.cookie = "regional_pricing=; max-age=0"
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+})
+
+describe("regional pricing", () => {
+  it("shows the comparison and closing prices with the struck-through regular price", () => {
+    const { container } = renderSection(
+      <>
+        <CompareSection />
+        <GateSection />
+      </>,
+    )
+
+    expect(screen.getByText("once, then nobody does", { exact: false }).querySelector("s.pv-regional")).toHaveTextContent(
+      "Regular price $249",
+    )
+    expect(container.querySelector("#gate s.pv-regional")).toHaveTextContent("Regular price $249")
+  })
+
+  it("pairs every regional price with the struck-through regular price", () => {
+    const { container } = renderSection(<PricingSection />)
+    const regular = [...container.querySelectorAll("s.pv-regional")].map((element) => element.textContent)
+
+    expect(regular).toEqual(["Regular price $249", "Regular price $399", "Regular price $899", "Regular price $249"])
+    for (const price of ["$199.20", "$174.30", "$149.40", "$124.50", "$279.30", "$629.30"]) {
+      expect(screen.getAllByText(price).length).toBeGreaterThan(0)
+    }
+    expect(container.querySelectorAll(".pv-regional.basis-full")).toHaveLength(3)
+  })
+
+  it("applies regional pricing by default and remembers when the buyer turns it off", async () => {
+    const user = userEvent.setup()
+    renderSection(<PricingSection />)
+    const offer = screen.getByRole("checkbox", { name: /off with regional pricing/u })
+
+    expect(offer).toBeChecked()
+    await user.click(offer)
+    expect(offer).not.toBeChecked()
+    expect(document.cookie).toContain("regional_pricing=off")
+    await user.click(offer)
+    expect(document.cookie).not.toContain("regional_pricing=off")
+  })
+  it("starts unchecked for a buyer who already turned regional pricing off", () => {
+    document.cookie = "regional_pricing=off"
+    renderSection(<PricingSection />)
+
+    expect(screen.getByRole("checkbox", { name: /off with regional pricing/u })).not.toBeChecked()
+  })
 })
 
 describe("marketing content and purchase links", () => {
@@ -98,7 +145,6 @@ describe("marketing content and purchase links", () => {
       "href",
       "mailto:hello@saasyland.com?subject=Architecture%20call",
     )
-    expect(screen.getByText(english.pricing.pppActive)).toBeInTheDocument()
   })
 
   it("exposes every FAQ answer through its question and keeps the contact link available", async () => {
@@ -179,15 +225,14 @@ describe("marketing content and purchase links", () => {
       throw new Error("Foundation card is missing")
     }
     fireEvent.mouseEnter(card)
-    expect(card).toHaveClass("z-10")
-    expect(screen.getByText(english.line.stations.auth.body)).toHaveClass("text-foreground")
+    expect(card).toHaveClass("group", "z-10")
+    expect(screen.getByText(english.line.stations.auth.body)).toHaveClass("text-muted-foreground", "group-hover:text-foreground")
     const grid = container.querySelector(".grid.gap-px")
     if (!grid) {
       throw new Error("Foundation grid is missing")
     }
     fireEvent.mouseLeave(grid)
     expect(card).not.toHaveClass("z-10")
-    expect(screen.getByText(english.line.stations.auth.body)).toHaveClass("text-muted-foreground")
   })
 
   it("gives each closing call to action its intended destination", () => {

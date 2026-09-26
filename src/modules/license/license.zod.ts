@@ -1,12 +1,12 @@
 import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
-import { license, licenseTierEnum } from "~/src/modules/license/license.schema"
+import { LICENSE_TIERS, license } from "~/src/modules/license/license.schema"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
 
 const startCheckout = zod.object({
-  tier: zod.enum(licenseTierEnum.enumValues),
+  tier: zod.enum(LICENSE_TIERS),
 })
 
 const deactivateLicense = zod.object({

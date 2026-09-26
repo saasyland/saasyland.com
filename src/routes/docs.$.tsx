@@ -1,21 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { docsLoader, loadDocsPage } from "~/src/integrations/fumadocs/fumadocs.docs"
-import { routeHead } from "~/src/integrations/use-intl/i18n.metadata"
-import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
+import { docsHead, loadDocsPage } from "~/src/integrations/fumadocs/fumadocs.docs"
 
-const DocumentationPage = () => {
-  const page = Route.useLoaderData()
-  return docsLoader.useContent(page.path, { path: page.path })
-}
+import { docsContent } from "~/src/presentation/components/custom/docs-content"
+
+const DocumentationPage = () => docsContent.useContent(Route.useLoaderData().path)
 
 export const Route = createFileRoute("/docs/$")({
   component: DocumentationPage,
+  head: docsHead,
+  loader: ({ params }) => loadDocsPage(params._splat),
   pendingMs: Number.POSITIVE_INFINITY,
   wrapInSuspense: false,
-  head: routeHead,
-  loader: async ({ params }) => {
-    const page = await loadDocsPage(params._splat)
-    return { ...page, metadata: { description: page.description, locale: getCurrentLocale(), pathname: page.pathname, title: page.title } }
-  },
 })

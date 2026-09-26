@@ -4,10 +4,10 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { user } from "~/src/modules/user/user.schema"
 
-export const licenseTierEnum = { enumValues: [LICENSE_TIER.CORE, LICENSE_TIER.COMPLETE, LICENSE_TIER.AGENCY] } as const
-export const licenseStatusEnum = { enumValues: [LICENSE_STATUS.ACTIVE, LICENSE_STATUS.REVOKED] } as const
+export const LICENSE_TIERS = [LICENSE_TIER.CORE, LICENSE_TIER.COMPLETE, LICENSE_TIER.AGENCY] as const
+export const LICENSE_STATUSES = [LICENSE_STATUS.ACTIVE, LICENSE_STATUS.REVOKED] as const
 
-export type LicenseTier = (typeof licenseTierEnum.enumValues)[number]
+export type LicenseTier = (typeof LICENSE_TIERS)[number]
 
 export const POLAR_ID_MAX_LENGTH = 64
 export const LICENSE_KEY_MAX_LENGTH = 128
@@ -26,8 +26,8 @@ export const license = sqliteTable(
     purchaseCreatedAt: integer("purchase_created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(sql`0`),
-    status: text("status", { enum: licenseStatusEnum.enumValues }).notNull().default(LICENSE_STATUS.ACTIVE),
-    tier: text("tier", { enum: licenseTierEnum.enumValues }).notNull(),
+    status: text("status", { enum: LICENSE_STATUSES }).notNull().default(LICENSE_STATUS.ACTIVE),
+    tier: text("tier", { enum: LICENSE_TIERS }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(
@@ -44,7 +44,6 @@ export const license = sqliteTable(
   (table) => [index("license_status_tier_idx").on(table.status, table.tier)],
 )
 
-// Retain terminal order revocations even if their webhook precedes order.paid.
 export const revokedLicenseOrder = sqliteTable("revoked_license_order", {
   polarOrderId: text("polar_order_id", { length: POLAR_ID_MAX_LENGTH }).primaryKey(),
   userId: text("user_id")

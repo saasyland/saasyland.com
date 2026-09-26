@@ -1,14 +1,4 @@
-export interface DummyPost {
-  author: { initials: string; name: string }
-  category: string
-  date: string
-  description: string
-  id: string
-  readTime: number | undefined
-  status: "published" | "draft" | "scheduled"
-  title: string
-  views: string | undefined
-}
+import { Bold, Code, Eye, Heading, ImageIcon, Italic, LayoutGrid, LinkIcon, List, Quote, Underline, Users } from "lucide-react"
 
 export const DEMO_BLOG_STATS = {
   draftsPending: 12,
@@ -85,5 +75,43 @@ export const DUMMY_POSTS = [
     readTime: 5,
     status: "published",
     views: 22_100,
+  },
+] as const
+
+export const ADMIN_BLOG_TRENDING_STATS = [
+  { icon: Eye, key: "totalViews" },
+  { icon: Users, key: "subscribers" },
+] as const
+
+export const ADMIN_BLOG_FILTERS = ["all", "published", "drafts", "scheduled"] as const
+
+export const ADMIN_BLOG_VIEWS = [
+  { icon: LayoutGrid, id: "grid", labelKey: "labels.gridView" },
+  { icon: List, id: "table", labelKey: "labels.tableView" },
+] as const
+
+export const ADMIN_BLOG_TOOLBAR_GROUPS = [
+  {
+    id: "text",
+    tools: [
+      { icon: Bold, id: "bold" },
+      { icon: Italic, id: "italic" },
+      { icon: Underline, id: "underline" },
+    ],
+  },
+  {
+    id: "blocks",
+    tools: [
+      { icon: Heading, id: "heading" },
+      { icon: Quote, id: "quote" },
+      { icon: Code, id: "code" },
+    ],
+  },
+  {
+    id: "media",
+    tools: [
+      { icon: LinkIcon, id: "link" },
+      { icon: ImageIcon, id: "image" },
+    ],
   },
 ] as const

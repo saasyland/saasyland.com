@@ -3,24 +3,13 @@ import type { JSX } from "react"
 import { Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
-import { HighlightItem } from "~/src/presentation/components/custom/highlight/highlight-item"
+import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
 const RECORD_ITEMS = ["coverage", "gate", "suites", "locales", "auth", "author"] as const
 
 const LEDGER_DELAY_MS = 100
-
-const RecordRow = ({ claim, evidence, id }: Readonly<{ claim: string; evidence: string; id: string }>): JSX.Element => (
-  <HighlightItem contentClassName="grid gap-x-10 px-4 py-5 md:grid-cols-[1fr_1.5fr] md:items-baseline" id={id}>
-    <dt className="flex items-baseline gap-2.5 text-body-sm font-medium text-foreground">
-      <Check aria-hidden className="size-3.5 shrink-0 translate-y-0.5 text-ring" strokeWidth={2.25} />
-      {claim}
-    </dt>
-    <dd className="mt-1.5 ml-6 font-mono text-spec wrap-break-word text-muted-foreground md:mt-0 md:ml-0">{evidence}</dd>
-  </HighlightItem>
-)
 
 export const RecordSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.record")
@@ -40,8 +29,16 @@ export const RecordSection = (): JSX.Element => {
           </div>
 
           <HighlightGroup className="-mx-4 divide-y divide-border" element="dl" name="record-highlight">
-            {RECORD_ITEMS.map((item) => (
-              <RecordRow claim={t(`items.${item}.claim`)} evidence={t(`items.${item}.evidence`)} id={item} key={item} />
+            {RECORD_ITEMS.map((id) => (
+              <HighlightItem contentClassName="grid gap-x-10 px-4 py-5 md:grid-cols-[1fr_1.5fr] md:items-baseline" id={id} key={id}>
+                <dt className="flex items-baseline gap-2.5 text-body-sm font-medium text-foreground">
+                  <Check aria-hidden className="size-3.5 shrink-0 translate-y-0.5 text-ring" strokeWidth={2.25} />
+                  {t(`items.${id}.claim`)}
+                </dt>
+                <dd className="mt-1.5 ml-6 font-mono text-spec wrap-break-word text-muted-foreground md:mt-0 md:ml-0">
+                  {t(`items.${id}.evidence`)}
+                </dd>
+              </HighlightItem>
             ))}
           </HighlightGroup>
 

@@ -1,24 +1,24 @@
 import { type QueryClient, queryOptions } from "@tanstack/react-query"
 import type { AbstractIntlMessages } from "use-intl"
 
-import type { LocaleCode } from "~/src/modules/_core/constants/locale"
+import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 type MessageTree = Record<string, AbstractIntlMessages>
 
 export type NamespaceEntry = readonly [namespace: string, messages: AbstractIntlMessages]
 
-const MESSAGES_QUERY_KEYS = { ALL: ["i18n-messages"] } as const
+interface PageMetadata {
+  description: string
+  title: string
+}
 
-const JSON_EXTENSION_LENGTH = ".json".length
-const SLASH_LENGTH = 1
-const NAMESPACE_LEAF_COUNT = 1
+const MESSAGES_QUERY_KEY = "i18n-messages"
+const NAMESPACE_SEPARATOR = "."
 
-const messageModules = import.meta.glob<AbstractIntlMessages>(
-  ["../../../messages/*/*.json", "!../../../messages/*/emails.json", "!../../../messages/*/emails.*.json"],
-  { import: "default" },
-)
+const messageModules = import.meta.glob<AbstractIntlMessages>("../../../messages/*/*.json", { import: "default" })
+const metadataModules = import.meta.glob<PageMetadata>("../../../messages/*/*.json", { import: "metadata" })
 
-const toNamespace = (path: string): string => path.slice(path.lastIndexOf("/") + SLASH_LENGTH, -JSON_EXTENSION_LENGTH)
+export const toNamespace = (path: string): string => path.replaceAll(/^.*\/|\.json$/gu, "")
 
 const rootMessagePaths = Object.keys(
   import.meta.glob(["../../../messages/*/common.json", "../../../messages/*/components.*.json", "../../../messages/*/errors*.json"]),
@@ -26,13 +26,27 @@ const rootMessagePaths = Object.keys(
 
 export const ROOT_NAMESPACES = [...new Set(rootMessagePaths.map((path) => toNamespace(path)))]
 
-const modulePath = ({ locale, namespace }: { locale: LocaleCode; namespace: string }): string =>
+const modulePath = ({ locale, namespace }: { locale: SupportedLocale; namespace: string }): string =>
   `../../../messages/${locale}/${namespace}.json`
 
-const missingNamespace = ({ locale, namespace }: { locale: LocaleCode; namespace: string }): Error =>
+const missingNamespace = ({ locale, namespace }: { locale: SupportedLocale; namespace: string }): Error =>
   new Error(`No messages/${locale}/${namespace}.json — every declared namespace needs a file per supported locale.`)
 
-export const loadNamespace = ({ locale, namespace }: { locale: LocaleCode; namespace: string }): Promise<AbstractIntlMessages> => {
+export const loadPageMetadata = ({ locale, namespace }: { locale: SupportedLocale; namespace: string }): Promise<PageMetadata> => {
+  const load = metadataModules[modulePath({ locale, namespace })]
+
+  if (load === undefined) {
+    throw missingNamespace({ locale, namespace })
+  }
+
+  return load()
+}
+
+export function loadNamespace<TMessages extends AbstractIntlMessages>(args: {
+  locale: SupportedLocale
+  namespace: string
+}): Promise<TMessages>
+export function loadNamespace({ locale, namespace }: { locale: SupportedLocale; namespace: string }): Promise<AbstractIntlMessages> {
   const load = messageModules[modulePath({ locale, namespace })]
 
   if (load === undefined) {
@@ -45,12 +59,13 @@ export const loadNamespace = ({ locale, namespace }: { locale: LocaleCode; names
 const isMessageTree = (value: AbstractIntlMessages | string | undefined): value is MessageTree => typeof value === "object"
 
 const insertNamespace = ({ messages, namespace, tree }: { messages: AbstractIntlMessages; namespace: string; tree: MessageTree }): void => {
-  const segments = namespace.split(".").slice(0, -NAMESPACE_LEAF_COUNT)
-  const leaf = namespace.slice(namespace.lastIndexOf(".") + ".".length)
+  const separator = namespace.lastIndexOf(NAMESPACE_SEPARATOR)
+  const leaf = namespace.slice(separator + NAMESPACE_SEPARATOR.length)
+  const parents = namespace.slice(0, Math.max(separator, 0)).split(NAMESPACE_SEPARATOR).filter(Boolean)
 
   let node = tree
 
-  for (const segment of segments) {
+  for (const segment of parents) {
     const existing = node[segment]
     const child = isMessageTree(existing) ? { ...existing } : {}
 
@@ -58,7 +73,8 @@ const insertNamespace = ({ messages, namespace, tree }: { messages: AbstractIntl
     node = child
   }
 
-  node[leaf] = { ...node[leaf], ...messages }
+  const existing = node[leaf]
+  node[leaf] = isMessageTree(existing) ? { ...existing, ...messages } : messages
 }
 
 export const buildMessageTree = (entries: readonly NamespaceEntry[]): AbstractIntlMessages => {
@@ -71,11 +87,12 @@ export const buildMessageTree = (entries: readonly NamespaceEntry[]): AbstractIn
   return tree
 }
 
-export const messagesQueryOptions = ({ locale, namespace }: { locale: LocaleCode; namespace: string }) =>
+export const messagesQueryOptions = ({ locale, namespace }: { locale: SupportedLocale; namespace: string }) =>
   queryOptions({
     gcTime: Infinity,
     queryFn: () => loadNamespace({ locale, namespace }),
-    queryKey: [...MESSAGES_QUERY_KEYS.ALL, locale, namespace],
+    queryKey: [MESSAGES_QUERY_KEY, locale, namespace],
+    select: (messages): NamespaceEntry => [namespace, messages],
     staleTime: Infinity,
   })
 
@@ -84,7 +101,7 @@ export const preloadNamespaces = async ({
   namespaces,
   queryClient,
 }: {
-  locale: LocaleCode
+  locale: SupportedLocale
   namespaces: readonly string[]
   queryClient: QueryClient
 }): Promise<void> => {

@@ -3,7 +3,10 @@ import { renderToString } from "react-dom/server"
 
 import { useQueryClient } from "@tanstack/react-query"
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router"
+import { IntlProvider } from "use-intl/react"
 import { afterEach, expect, it, vi } from "vite-plus/test"
+
+import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { getRouter } from "~/src/router"
 
@@ -46,14 +49,18 @@ it("rewrites locale paths through the native router configuration", () => {
   expect(output?.({ url: new URL("http://localhost/docs") })).toEqual(new URL("http://localhost/docs"))
 })
 
-it("renders a root loading failure during SSR without translation providers or private details", async () => {
+it("renders a translated root loading failure during SSR without private details", async () => {
   beforeLoad.mockImplementation(() => {
     throw new Error("private server failure")
   })
   const router = getRouter()
   router.update({ context: router.options.context, history: createMemoryHistory({ initialEntries: ["/"] }) })
   await router.load()
-  const html = renderToString(<RouterProvider router={router} />)
+  const html = renderToString(
+    <IntlProvider locale="en-US" messages={getTestMessages("en-US")}>
+      <RouterProvider router={router} />
+    </IntlProvider>,
+  )
   expect(html).toContain("Something went wrong")
   expect(html).toContain("Reload")
   expect(html).not.toContain("private server failure")

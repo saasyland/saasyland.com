@@ -55,13 +55,15 @@ export const CopyButton = ({ copiedLabel, copyLabel, value }: CopyButtonProps): 
     }
   }, [hasCopied])
 
-  const copy = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(value)
-      setHasCopied(true)
-    } catch {
-      // The command remains selectable when clipboard access is denied.
-    }
+  const copy = (): void => {
+    navigator.clipboard.writeText(value).then(
+      () => {
+        setHasCopied(true)
+      },
+      () => {
+        setHasCopied(false)
+      },
+    )
   }
 
   return (
@@ -69,7 +71,7 @@ export const CopyButton = ({ copiedLabel, copyLabel, value }: CopyButtonProps): 
       aria-label={hasCopied ? copiedLabel : copyLabel}
       className="inline-flex h-7 shrink-0 cursor-pointer items-center justify-center rounded-md px-1.5 text-muted-foreground transition-colors duration-200 ease-exp hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       layout
-      onClick={() => void copy()}
+      onClick={copy}
       transition={PRESS}
       type="button"
       whileTap={TAP}

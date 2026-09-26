@@ -5,11 +5,12 @@ import { Outlet, createFileRoute } from "@tanstack/react-router"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { Footer } from "~/src/presentation/components/custom/footer/footer"
-import { Navigation } from "~/src/presentation/components/custom/navigation/navigation"
+import { Footer } from "~/src/presentation/components/custom/footer"
+import { MarketingPending } from "~/src/presentation/components/custom/marketing-pending"
+import { Navigation } from "~/src/presentation/components/custom/navigation"
 import { PageFrame } from "~/src/presentation/components/custom/page-frame"
 
-const LandingPageLayout = (): JSX.Element => (
+const LandingLayout = (): JSX.Element => (
   <div className="dark relative isolate min-h-svh bg-background text-foreground">
     <PageFrame />
     <Navigation />
@@ -20,15 +21,11 @@ const LandingPageLayout = (): JSX.Element => (
   </div>
 )
 
+const NAMESPACES = ["auth.validations"] as const
+
 export const Route = createFileRoute("/_landing")({
-  component: LandingPageLayout,
-  loader: ({ context }) =>
-    preloadNamespaces({
-      locale: getCurrentLocale(),
-      namespaces: ["auth.validations", "pages.landing", "pages.newsletter", "product.errors", "product.validations", "user.validations"],
-      queryClient: context.queryClient,
-    }),
-  staticData: {
-    namespaces: ["auth.validations", "pages.landing", "pages.newsletter", "product.errors", "product.validations", "user.validations"],
-  },
+  component: LandingLayout,
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  pendingComponent: MarketingPending,
+  staticData: { namespaces: NAMESPACES },
 })

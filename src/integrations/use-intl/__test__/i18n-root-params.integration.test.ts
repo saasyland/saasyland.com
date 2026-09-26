@@ -16,8 +16,8 @@ describe("locale resolution without route parameters", () => {
     vi.mocked(getRequest).mockReturnValue(request("/zz-ZZ/docs"))
     expect(getCurrentLocale()).toBe("en-US")
   })
-  it("uses the cookie for server function requests", () => {
+  it("ignores the locale cookie for server function requests, which carry no page", () => {
     vi.mocked(getRequest).mockReturnValue(request("/_serverFn/example", `${I18N.COOKIE_NAME}=pl-PL`))
-    expect(getCurrentLocale()).toBe("pl-PL")
+    expect(getCurrentLocale()).toBe(I18N.DEFAULT_LOCALE)
   })
 })

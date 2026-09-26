@@ -28,13 +28,13 @@ afterEach(() => vi.restoreAllMocks())
 it("loads only the authenticated customer's license", async () => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(session)
   const get = vi.spyOn(licenses, "getLicense").mockResolvedValue(ownedLicense)
-  expect(await executeQuery(currentLicenseQuery)).toEqual(ownedLicense)
+  expect(await executeQuery(currentLicenseQuery)).toEqual({ license: ownedLicense })
   expect(get).toHaveBeenCalledWith(session.user.id)
 })
 it("returns a defined empty result for an account without a license", async () => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(session)
   vi.spyOn(licenses, "getLicense").mockResolvedValue(undefined)
-  expect(await executeQuery(currentLicenseQuery)).toBeNull()
+  expect(await executeQuery(currentLicenseQuery)).toEqual({ license: undefined })
   expect(await executeQuery(licenseActivationsQuery)).toEqual({ activations: [], limitActivations: 0 })
 })
 it("does not call Polar before a license key is attached", async () => {

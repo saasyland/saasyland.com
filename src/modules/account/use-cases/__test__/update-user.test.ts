@@ -11,7 +11,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
-import { settingsUpdateUserMutation } from "~/src/modules/account/use-cases/update-user"
+import { updateUserMutation } from "~/src/modules/account/use-cases/update-user"
 
 const HEADERS = new Headers()
 const USER_ID = "01900000-0000-7000-8000-000000000001"
@@ -37,7 +37,7 @@ describe("update-user", () => {
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
     updateUserMock.mockResolvedValue({ status: true })
 
-    await expect(executeMutation(settingsUpdateUserMutation, { name: "Ada" })).resolves.toMatchObject({ status: true })
+    await expect(executeMutation(updateUserMutation, { name: "Ada" })).resolves.toMatchObject({ status: true })
   })
 
   it("returns a domain error when the caller is not signed in", async () => {
@@ -46,6 +46,6 @@ describe("update-user", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(executeMutation(settingsUpdateUserMutation, { name: "Ada" })).rejects.toThrow("UNAUTHORIZED")
+    await expect(executeMutation(updateUserMutation, { name: "Ada" })).rejects.toThrow("UNAUTHORIZED")
   })
 })

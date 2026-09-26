@@ -1,9 +1,9 @@
-import { type JSX, type ReactNode } from "react"
-/** @vitest-environment jsdom */
+import { type ReactNode } from "react"
 
 import { BetterFetchError, type ErrorContext, type SuccessContext } from "@better-fetch/fetch"
-import type * as StartServerModule from "@tanstack/react-start/server"
-import { screen, waitFor } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
+import { act, render as renderView, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type * as Sonner from "sonner"
 import type { ExternalToast } from "sonner"
@@ -19,21 +19,28 @@ import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.sess
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
-import type * as SignOutUseCase from "~/src/modules/account/use-cases/sign-out-user"
+import type * as SignUpUseCase from "~/src/modules/account/use-cases/sign-up-with-password"
 import type * as RequestPasswordResetUseCase from "~/src/modules/verification/use-cases/request-password-reset"
 import type * as ResetPasswordUseCase from "~/src/modules/verification/use-cases/reset-password"
 import { VERIFICATION_MUTATION_KEYS } from "~/src/modules/verification/verification.constants"
 
-import { Button } from "~/src/presentation/components/shadcn/button"
-import { DropdownMenu, DropdownMenuTrigger } from "~/src/presentation/components/shadcn/dropdown-menu"
+import { Route as ResetPasswordRoute } from "~/src/routes/auth.reset-password"
 
-import { SignOutButton } from "~/src/presentation/components/custom/admin/components/sign-out-button"
-import { OAuthButton } from "~/src/presentation/components/custom/auth/components/oauth-button"
-import { ForgotPasswordForm } from "~/src/presentation/components/custom/auth/forgot-password/components/forgot-password-form"
-import { ResetPasswordForm } from "~/src/presentation/components/custom/auth/reset-password/components/reset-password-form"
-import { SignInWithPasswordForm } from "~/src/presentation/components/custom/auth/sign-in/components/sign-in-with-password-form"
-import { SignUpWithPasswordForm } from "~/src/presentation/components/custom/auth/sign-up/components/sign-up-with-password-form"
+import { ForgotPasswordForm } from "~/src/presentation/components/custom/auth/forgot-password-form"
+import { OAuthButtons } from "~/src/presentation/components/custom/auth/oauth-buttons"
+import { SignInForm } from "~/src/presentation/components/custom/auth/sign-in-form"
+import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-form"
 
+import authErrorsMessages from "~/messages/en-US/auth.errors.json"
+import authFormMessages from "~/messages/en-US/auth.form.json"
+import authOauthMessages from "~/messages/en-US/auth.oauth.json"
+import authValidationMessages from "~/messages/en-US/auth.validations.json"
+import errorsMessages from "~/messages/en-US/errors.json"
+import pagesAuthForgotPasswordMessages from "~/messages/en-US/pages.auth.forgot-password.json"
+import pagesAuthResetPasswordMessages from "~/messages/en-US/pages.auth.reset-password.json"
+import pagesAuthSignInMessages from "~/messages/en-US/pages.auth.sign-in.json"
+import pagesAuthSignUpMessages from "~/messages/en-US/pages.auth.sign-up.json"
+import type { RouterContext } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
 type SonnerTitle = (() => ReactNode) | ReactNode
@@ -49,8 +56,7 @@ const enMessages = getTestMessages("en-US")
 const router = createTestRouter()
 const pushMock = vi.spyOn(router, "navigate").mockResolvedValue()
 const signInEmailMock = vi.hoisted(() => vi.fn<typeof AuthClient.signIn.email>())
-const signUpEmailMock = vi.hoisted(() => vi.fn<typeof AuthClient.signUp.email>())
-const settingsSignOutUserMock = vi.hoisted(() => vi.fn<NonNullable<typeof SignOutUseCase.settingsSignOutUserMutation.mutationFn>>())
+const signUpMock = vi.hoisted(() => vi.fn<NonNullable<typeof SignUpUseCase.signUpWithPasswordMutation.mutationFn>>())
 const requestPasswordResetMock = vi.hoisted(() =>
   vi.fn<NonNullable<typeof RequestPasswordResetUseCase.requestPasswordResetMutation.mutationFn>>(),
 )
@@ -86,6 +92,39 @@ const renderWithAuthMessages = (ui: ReactNode): ReturnType<typeof render> =>
     { router },
   )
 
+const renderResetPasswordPage = async () => {
+  vi.spyOn(globalThis, "scrollTo").mockImplementation(() => {})
+  const root = createRootRouteWithContext<RouterContext>()()
+  Object.assign(ResetPasswordRoute.options, { getParentRoute: () => root, id: ROUTES.RESET_PASSWORD, path: ROUTES.RESET_PASSWORD })
+  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } })
+  const resetRouter = createRouter({
+    context: { queryClient },
+    history: createMemoryHistory({ initialEntries: [`${ROUTES.RESET_PASSWORD}?token=${RESET_TOKEN}`] }),
+    routeTree: root.addChildren([ResetPasswordRoute]),
+  })
+  renderView(
+    <QueryClientProvider client={queryClient}>
+      <IntlProvider locale="en-US" messages={enMessages}>
+        <RouterProvider router={resetRouter} />
+      </IntlProvider>
+    </QueryClientProvider>,
+  )
+  await act(() => resetRouter.load())
+  const navigate = vi.spyOn(resetRouter, "navigate").mockResolvedValue()
+  await screen.findByTestId("reset-password-form-submit-button")
+  return { navigate }
+}
+
+const expectPending = (button: HTMLElement): void => {
+  expect(button).toHaveAttribute("aria-disabled", "true")
+  expect(button.querySelector(".animate-spin")).toBeInTheDocument()
+}
+
+const expectIdle = (button: HTMLElement): void => {
+  expect(button).not.toHaveAttribute("aria-disabled")
+  expect(button.querySelector(".animate-spin")).not.toBeInTheDocument()
+}
+
 const getPasswordInput = (id: string): HTMLInputElement => {
   const input = document.querySelector<HTMLInputElement>(`#${id}`)
   if (!input) {
@@ -95,7 +134,7 @@ const getPasswordInput = (id: string): HTMLInputElement => {
   return input
 }
 
-const setupSignInWithPasswordFormMocks = (): void => {
+const setupSignInFormMocks = (): void => {
   pushMock.mockClear()
   signInEmailMock.mockClear()
   toastSuccessMock.mockClear()
@@ -107,17 +146,14 @@ const setupSignInWithPasswordFormMocks = (): void => {
   })
 }
 
-const HEADERS = new Headers()
-
-const setupSignUpWithPasswordFormMocks = (): void => {
+const setupSignUpFormMocks = (): void => {
   pushMock.mockClear()
-  signUpEmailMock.mockClear()
+  signUpMock.mockReset()
   triggerConfettiMock.mockClear()
   toastSuccessMock.mockClear()
+  toastErrorMock.mockClear()
 
-  signUpEmailMock.mockImplementation(async ({ fetchOptions }) => {
-    await invokeFetchOnSuccess(fetchOptions)
-  })
+  signUpMock.mockResolvedValue({ token: null, user: createAuthSessionFixture().user })
 }
 
 const setupForgotPasswordFormMocks = (): void => {
@@ -129,52 +165,22 @@ const setupForgotPasswordFormMocks = (): void => {
 }
 
 const setupResetPasswordFormMocks = (): void => {
-  pushMock.mockClear()
   resetPasswordMock.mockClear()
   toastSuccessMock.mockClear()
+  toastErrorMock.mockClear()
 
   resetPasswordMock.mockResolvedValue({ status: true })
 }
 
-const setupOAuthButtonMocks = (): void => {
+const setupOAuthButtonsMocks = (): void => {
   signInSocialMock.mockClear()
   toastSuccessMock.mockClear()
+  toastErrorMock.mockClear()
 
   signInSocialMock.mockImplementation(async ({ fetchOptions }) => {
     await invokeFetchOnSuccess(fetchOptions)
   })
 }
-
-const setupSignOutButtonMocks = (): void => {
-  pushMock.mockClear()
-  settingsSignOutUserMock.mockClear()
-  toastSuccessMock.mockClear()
-
-  settingsSignOutUserMock.mockResolvedValue({ redirect: undefined, success: true, url: undefined })
-}
-
-const GitHubIconMock = (): JSX.Element => <span aria-hidden="true" />
-
-vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
-
-vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerModule> => ({
-  getRequest: vi.fn(() => new Request("http://127.0.0.1:3000/", { headers: HEADERS })),
-}))
-
-// @ts-expect-error Vitest module mock factory is not inferred for module export.
-vi.mock(import("~/src/integrations/resend/resend.config"), () => ({
-  resend: {},
-}))
-
-// @ts-expect-error Vitest module mock factory is not inferred for module export.
-vi.mock(import("~/src/integrations/better-auth/auth.server"), () => ({
-  TRUSTED_IP_HEADERS: ["CF-Connecting-IP", "x-forwarded-for"],
-  auth: {
-    api: {
-      signUpEmail: signUpEmailMock,
-    },
-  },
-}))
 
 vi.mock(import("~/src/lib/confetti"), () => ({
   triggerConfetti: triggerConfettiMock,
@@ -189,8 +195,8 @@ vi.mock(import("sonner"), async (importOriginal): Promise<Partial<typeof Sonner>
   return actual
 })
 
-vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
-  settingsSignOutUserMutation: { mutationFn: settingsSignOutUserMock, mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_OUT },
+vi.mock(import("~/src/modules/account/use-cases/sign-up-with-password"), () => ({
+  signUpWithPasswordMutation: { mutationFn: signUpMock, mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_UP_WITH_PASSWORD },
 }))
 
 vi.mock(import("~/src/modules/verification/use-cases/request-password-reset"), () => ({
@@ -217,70 +223,68 @@ vi.mock(import("~/src/integrations/better-auth/auth.client"), async (importOrigi
       ...actual.signIn,
       email: signInEmailMock,
     },
-    signUp: {
-      ...actual.signUp,
-      email: signUpEmailMock,
-    },
   }
 })
 
-describe("sign in with password form component", () => {
+describe("sign in form", () => {
   it("lets the user reveal and hide their password without changing it", async () => {
-    setupSignInWithPasswordFormMocks()
+    setupSignInFormMocks()
     const user = userEvent.setup()
-    renderWithAuthMessages(<SignInWithPasswordForm />)
+    renderWithAuthMessages(<SignInForm />)
     const input = getPasswordInput("sign-in-password")
     await user.type(input, TEST_PASSWORD)
-    await user.click(screen.getByRole("button", { name: enMessages.auth.form.showPassword }))
+    await user.click(screen.getByRole("button", { name: authFormMessages.showPassword }))
     expect(input).toHaveAttribute("type", "text")
     expect(input).toHaveValue(TEST_PASSWORD)
-    await user.click(screen.getByRole("button", { name: enMessages.auth.form.hidePassword }))
+    await user.click(screen.getByRole("button", { name: authFormMessages.hidePassword }))
     expect(input).toHaveAttribute("type", "password")
     expect(signInEmailMock).not.toHaveBeenCalled()
   })
 
   it.each(["EMAIL_NOT_VERIFIED", "INVALID_EMAIL_OR_PASSWORD"] as const)("handles %s without entering the workspace", async (code) => {
-    setupSignInWithPasswordFormMocks()
+    setupSignInFormMocks()
     signInEmailMock.mockResolvedValueOnce({
       data: null,
       error: { code, message: "Sign in rejected", status: 403, statusText: "Forbidden" },
     })
     const user = userEvent.setup()
-    renderWithAuthMessages(<SignInWithPasswordForm />)
+    renderWithAuthMessages(<SignInForm />)
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
     await waitFor(() => {
-      expect(toastErrorMock).toHaveBeenCalledWith(enMessages.auth.errors[AUTH_ERRORS[code]])
+      expect(toastErrorMock).toHaveBeenCalledWith(authErrorsMessages[AUTH_ERRORS[code]])
     })
     expect(toastSuccessMock).not.toHaveBeenCalled()
     if (code === "EMAIL_NOT_VERIFIED") {
-      expect(pushMock).toHaveBeenCalledWith({ to: `${ROUTES.VERIFY_EMAIL}?email=${encodeURIComponent(TEST_EMAIL)}` })
+      await waitFor(() => {
+        expect(pushMock).toHaveBeenCalledWith({ search: { email: TEST_EMAIL }, to: ROUTES.VERIFY_EMAIL })
+      })
     } else {
       expect(pushMock).not.toHaveBeenCalled()
     }
   })
 
   it("reports network failures and lets the customer retry", async () => {
-    setupSignInWithPasswordFormMocks()
+    setupSignInFormMocks()
     signInEmailMock.mockRejectedValueOnce(new Error("Network unavailable"))
     const user = userEvent.setup()
-    renderWithAuthMessages(<SignInWithPasswordForm />)
+    renderWithAuthMessages(<SignInForm />)
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
     await waitFor(() => {
-      expect(toastErrorMock).toHaveBeenCalledWith(enMessages.errors.action.INTERNAL_ERROR)
+      expect(toastErrorMock).toHaveBeenCalledWith(errorsMessages.codes.INTERNAL_ERROR)
     })
-    expect(screen.getByTestId("sign-in-form-submit-button")).toBeEnabled()
+    expect(screen.getByTestId("sign-in-form-submit-button")).not.toHaveAttribute("aria-disabled")
     expect(pushMock).not.toHaveBeenCalled()
   })
 
   it("waits for the two-factor challenge instead of announcing a completed sign-in", async () => {
-    setupSignInWithPasswordFormMocks()
+    setupSignInFormMocks()
     signInEmailMock.mockResolvedValueOnce({ data: { twoFactorRedirect: true }, error: null })
     const user = userEvent.setup()
-    renderWithAuthMessages(<SignInWithPasswordForm />)
+    renderWithAuthMessages(<SignInForm />)
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
@@ -290,65 +294,107 @@ describe("sign in with password form component", () => {
     expect(toastSuccessMock).not.toHaveBeenCalled()
     expect(pushMock).not.toHaveBeenCalled()
   })
+
   it("blocks submit when email is invalid", async () => {
-    expect.hasAssertions()
-    setupSignInWithPasswordFormMocks()
+    setupSignInFormMocks()
     const user = userEvent.setup()
-    renderWithAuthMessages(<SignInWithPasswordForm />)
+    renderWithAuthMessages(<SignInForm />)
 
     await user.type(screen.getByLabelText(/email/iu), "not-an-email")
     await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
 
+    expect(screen.getByLabelText(/email/iu)).toHaveAttribute("aria-invalid", "true")
     expect(signInEmailMock).not.toHaveBeenCalled()
   })
 
-  it("signs in and delegates to the guarded auth callback", async () => {
-    expect.hasAssertions()
-    setupSignInWithPasswordFormMocks()
+  it("explains a missing password and clears the error once one is entered", async () => {
+    setupSignInFormMocks()
     const user = userEvent.setup()
-    renderWithAuthMessages(<SignInWithPasswordForm />)
+    renderWithAuthMessages(<SignInForm />)
+    const password = getPasswordInput("sign-in-password")
+
+    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await user.click(screen.getByTestId("sign-in-form-submit-button"))
+
+    expect(password).toHaveAttribute("aria-invalid", "true")
+    expect(password).toHaveAccessibleDescription(authValidationMessages.passwordRequired)
+    expect(screen.getByLabelText(/email/iu)).toHaveAttribute("aria-invalid", "false")
+    expect(signInEmailMock).not.toHaveBeenCalled()
+
+    await user.type(password, TEST_PASSWORD)
+
+    expect(password).toHaveAttribute("aria-invalid", "false")
+    expect(password).not.toHaveAttribute("aria-describedby")
+    expect(screen.queryByText(authValidationMessages.passwordRequired)).not.toBeInTheDocument()
+  })
+
+  it("shows progress and ignores repeat submits until sign-in finishes", async () => {
+    setupSignInFormMocks()
+    const pending = Promise.withResolvers<Awaited<ReturnType<typeof signInEmailMock>>>()
+    signInEmailMock.mockReturnValueOnce(pending.promise)
+    const user = userEvent.setup()
+    renderWithAuthMessages(<SignInForm />)
+    const submit = screen.getByTestId("sign-in-form-submit-button")
+
+    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
+    await user.click(submit)
+
+    expect(submit).toHaveTextContent(pagesAuthSignInMessages.form.submitting)
+    expectPending(submit)
+    await user.click(submit)
+    expect(signInEmailMock).toHaveBeenCalledOnce()
+
+    await act(async () => {
+      pending.resolve({ data: { twoFactorRedirect: true }, error: null })
+      await pending.promise
+    })
+    await waitFor(() => {
+      expect(submit).toHaveTextContent(pagesAuthSignInMessages.form.submit)
+    })
+    expectIdle(submit)
+  })
+
+  it("signs in and delegates to the guarded auth callback", async () => {
+    setupSignInFormMocks()
+    const user = userEvent.setup()
+    renderWithAuthMessages(<SignInForm />)
 
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
 
     await waitFor(() => {
-      expect(signInEmailMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          email: TEST_EMAIL,
-          password: TEST_PASSWORD,
-        }),
-      )
+      expect(pushMock).toHaveBeenCalledWith({ replace: true, to: ROUTES.AUTH_CALLBACK })
     })
-    expect(pushMock).toHaveBeenCalledWith({ replace: true, to: ROUTES.AUTH_CALLBACK })
-    expect(toastSuccessMock).toHaveBeenCalledWith(enMessages.pages.auth["sign-in"].form.success)
+    expect(signInEmailMock).toHaveBeenCalledWith(expect.objectContaining({ email: TEST_EMAIL, password: TEST_PASSWORD }))
+    expect(toastSuccessMock).toHaveBeenCalledWith(pagesAuthSignInMessages.form.success)
   })
 })
 
-describe("sign up with password form component", () => {
+describe("sign up form", () => {
   it("does not show the verification page or celebrate when account creation fails", async () => {
-    setupSignUpWithPasswordFormMocks()
-    toastErrorMock.mockClear()
-    signUpEmailMock.mockRejectedValueOnce(new Error("Sign up unavailable"))
+    setupSignUpFormMocks()
+    signUpMock.mockRejectedValueOnce(new Error("Sign up unavailable"))
     const user = userEvent.setup()
-    renderWithAuthMessages(<SignUpWithPasswordForm />)
+    renderWithAuthMessages(<SignUpForm />)
     await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.type(getPasswordInput("sign-up-password"), TEST_PASSWORD)
     await user.type(getPasswordInput("sign-up-confirmPassword"), TEST_PASSWORD)
     await user.click(screen.getByRole("button", { name: "Continue" }))
     await waitFor(() => {
-      expect(toastErrorMock).toHaveBeenCalledWith(enMessages.errors.action.INTERNAL_ERROR)
+      expect(toastErrorMock).toHaveBeenCalledWith(errorsMessages.codes.INTERNAL_ERROR)
     })
     expect(triggerConfettiMock).not.toHaveBeenCalled()
     expect(pushMock).not.toHaveBeenCalled()
   })
+
   it("blocks submit when passwords do not match", async () => {
-    expect.hasAssertions()
-    setupSignUpWithPasswordFormMocks()
+    setupSignUpFormMocks()
     const user = userEvent.setup()
-    renderWithAuthMessages(<SignUpWithPasswordForm />)
+    renderWithAuthMessages(<SignUpForm />)
 
     await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
@@ -362,14 +408,45 @@ describe("sign up with password form component", () => {
     expect(screen.getByText("Passwords match").parentElement).toHaveTextContent("Requirement not met")
     await user.click(screen.getByRole("button", { name: "Continue" }))
 
-    expect(signUpEmailMock).not.toHaveBeenCalled()
+    expect(getPasswordInput("sign-up-confirmPassword")).toHaveAttribute("aria-invalid", "true")
+    expect(signUpMock).not.toHaveBeenCalled()
+  })
+
+  it("shows progress and ignores repeat submits until the account is created", async () => {
+    setupSignUpFormMocks()
+    const pending = Promise.withResolvers<Awaited<ReturnType<typeof signUpMock>>>()
+    signUpMock.mockReturnValueOnce(pending.promise)
+    const user = userEvent.setup()
+    renderWithAuthMessages(<SignUpForm />)
+    const submit = screen.getByRole("button", { name: pagesAuthSignUpMessages.form.submit })
+
+    await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
+    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await user.type(getPasswordInput("sign-up-password"), TEST_PASSWORD)
+    await user.type(getPasswordInput("sign-up-confirmPassword"), TEST_PASSWORD)
+    await user.click(submit)
+
+    expect(submit).toHaveTextContent(pagesAuthSignUpMessages.form.submitting)
+    expectPending(submit)
+    await user.click(submit)
+    expect(signUpMock).toHaveBeenCalledOnce()
+    expect(triggerConfettiMock).not.toHaveBeenCalled()
+
+    await act(async () => {
+      pending.resolve({ token: null, user: createAuthSessionFixture().user })
+      await pending.promise
+    })
+    await waitFor(() => {
+      expect(submit).toHaveTextContent(pagesAuthSignUpMessages.form.submit)
+    })
+    expectIdle(submit)
+    expect(triggerConfettiMock).toHaveBeenCalledOnce()
   })
 
   it("signs up, celebrates, and redirects", async () => {
-    expect.hasAssertions()
-    setupSignUpWithPasswordFormMocks()
+    setupSignUpFormMocks()
     const user = userEvent.setup()
-    renderWithAuthMessages(<SignUpWithPasswordForm />)
+    renderWithAuthMessages(<SignUpForm />)
 
     await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
@@ -377,27 +454,18 @@ describe("sign up with password form component", () => {
     await user.type(getPasswordInput("sign-up-confirmPassword"), TEST_PASSWORD)
     await user.click(screen.getByRole("button", { name: "Continue" }))
 
-    const expectedBody: unknown = expect.objectContaining({
-      email: TEST_EMAIL,
-      name: TEST_NAME,
-      password: TEST_PASSWORD,
-    })
-
     await waitFor(() => {
-      expect(signUpEmailMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          body: expectedBody,
-        }),
-      )
+      expect(triggerConfettiMock).toHaveBeenCalledWith()
     })
-    expect(triggerConfettiMock).toHaveBeenCalledWith()
-    const destination = pushMock.mock.calls.at(-1)?.[0]
-    expect(destination?.to).toBe(ROUTES.VERIFY_EMAIL)
-    expect(destination?.search).toStrictEqual({ email: TEST_EMAIL })
+    expect(signUpMock).toHaveBeenCalledWith(
+      expect.objectContaining({ email: TEST_EMAIL, name: TEST_NAME, password: TEST_PASSWORD }),
+      expect.anything(),
+    )
+    expect(pushMock).toHaveBeenLastCalledWith({ search: { email: TEST_EMAIL }, to: ROUTES.VERIFY_EMAIL })
   })
 })
 
-describe("forgot password form component", () => {
+describe("forgot password form", () => {
   it("allows retry after a failed request and disables the form only after success", async () => {
     setupForgotPasswordFormMocks()
     requestPasswordResetMock.mockRejectedValueOnce(new Error("Email delivery failed"))
@@ -424,7 +492,6 @@ describe("forgot password form component", () => {
   })
 
   it("requests a password reset email", async () => {
-    expect.hasAssertions()
     setupForgotPasswordFormMocks()
     const user = userEvent.setup()
     const { queryClient } = renderWithAuthMessages(<ForgotPasswordForm />)
@@ -434,75 +501,126 @@ describe("forgot password form component", () => {
     await user.click(screen.getByTestId("forgot-password-form-submit-button"))
 
     await waitFor(() => {
-      expect(requestPasswordResetMock.mock.calls[0]?.[0]).toEqual(
-        expect.objectContaining({
-          email: TEST_EMAIL,
-        }),
-      )
+      expect(toastSuccessMock).toHaveBeenCalledWith(pagesAuthForgotPasswordMessages.form.success)
     })
-    const resetRequest = requestPasswordResetMock.mock.calls.at(0)?.[0]
-    expect(resetRequest?.redirectTo).toContain(ROUTES.RESET_PASSWORD)
-    expect(toastSuccessMock).toHaveBeenCalledWith(enMessages.pages.auth["forgot-password"].form.success)
+    expect(requestPasswordResetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ email: TEST_EMAIL, redirectTo: ROUTES.RESET_PASSWORD }),
+      expect.anything(),
+    )
     expect(screen.getByTestId("forgot-password-form-submit-button")).toBeDisabled()
     expect(queryClient.getQueryState(getCurrentSessionQuery.queryKey)?.isInvalidated).toBe(false)
   })
+
+  it("shows progress and ignores repeat submits until the reset email is requested", async () => {
+    setupForgotPasswordFormMocks()
+    const pending = Promise.withResolvers<Awaited<ReturnType<typeof requestPasswordResetMock>>>()
+    requestPasswordResetMock.mockReturnValueOnce(pending.promise)
+    const user = userEvent.setup()
+    renderWithAuthMessages(<ForgotPasswordForm />)
+    const submit = screen.getByTestId("forgot-password-form-submit-button")
+
+    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await user.click(submit)
+
+    expect(submit).toHaveTextContent(pagesAuthForgotPasswordMessages.form.submitting)
+    expectPending(submit)
+    await user.click(submit)
+    expect(requestPasswordResetMock).toHaveBeenCalledOnce()
+    expect(toastSuccessMock).not.toHaveBeenCalled()
+
+    await act(async () => {
+      pending.resolve({ message: "ok", status: true })
+      await pending.promise
+    })
+    await waitFor(() => {
+      expect(submit).toHaveTextContent(pagesAuthForgotPasswordMessages.form.submit)
+    })
+    expect(submit.querySelector(".animate-spin")).not.toBeInTheDocument()
+    expect(submit).toBeDisabled()
+    expect(toastSuccessMock).toHaveBeenCalledWith(pagesAuthForgotPasswordMessages.form.success)
+  })
 })
 
-describe("reset password form component", () => {
+describe("reset password form", () => {
   it("keeps the reset form available when the token is rejected", async () => {
     setupResetPasswordFormMocks()
-    toastErrorMock.mockClear()
     resetPasswordMock.mockRejectedValueOnce(new Error("Reset link expired"))
     const user = userEvent.setup()
-    renderWithAuthMessages(<ResetPasswordForm token={RESET_TOKEN} />)
+    const { navigate } = await renderResetPasswordPage()
     await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
     await user.type(getPasswordInput("reset-password-confirmPassword"), TEST_PASSWORD)
     await user.click(screen.getByTestId("reset-password-form-submit-button"))
     await waitFor(() => {
-      expect(toastErrorMock).toHaveBeenCalledWith(enMessages.errors.action.INTERNAL_ERROR)
+      expect(toastErrorMock).toHaveBeenCalledWith(errorsMessages.codes.INTERNAL_ERROR)
     })
-    expect(screen.getByTestId("reset-password-form-submit-button")).toBeEnabled()
-    expect(pushMock).not.toHaveBeenCalled()
+    expect(screen.getByTestId("reset-password-form-submit-button")).not.toHaveAttribute("aria-disabled")
+    expect(navigate).not.toHaveBeenCalled()
   })
+
   it("blocks submit when passwords do not match", async () => {
-    expect.hasAssertions()
     setupResetPasswordFormMocks()
     const user = userEvent.setup()
-    renderWithAuthMessages(<ResetPasswordForm token={RESET_TOKEN} />)
+    await renderResetPasswordPage()
 
     await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
     await user.type(getPasswordInput("reset-password-confirmPassword"), "Different1!")
     await user.click(screen.getByTestId("reset-password-form-submit-button"))
 
+    expect(getPasswordInput("reset-password-confirmPassword")).toHaveAttribute("aria-invalid", "true")
     expect(resetPasswordMock).not.toHaveBeenCalled()
   })
 
+  it("shows progress and ignores repeat submits until the new password is saved", async () => {
+    setupResetPasswordFormMocks()
+    const pending = Promise.withResolvers<Awaited<ReturnType<typeof resetPasswordMock>>>()
+    resetPasswordMock.mockReturnValueOnce(pending.promise)
+    const user = userEvent.setup()
+    const { navigate } = await renderResetPasswordPage()
+    const submit = screen.getByTestId("reset-password-form-submit-button")
+
+    await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
+    await user.type(getPasswordInput("reset-password-confirmPassword"), TEST_PASSWORD)
+    await user.click(submit)
+
+    expect(submit).toHaveTextContent(pagesAuthResetPasswordMessages.form.submitting)
+    expectPending(submit)
+    await user.click(submit)
+    expect(resetPasswordMock).toHaveBeenCalledOnce()
+    expect(navigate).not.toHaveBeenCalled()
+
+    await act(async () => {
+      pending.resolve({ status: true })
+      await pending.promise
+    })
+    await waitFor(() => {
+      expect(submit).toHaveTextContent(pagesAuthResetPasswordMessages.form.submit)
+    })
+    expectIdle(submit)
+    expect(navigate).toHaveBeenCalledWith({ to: ROUTES.SIGN_IN })
+  })
+
   it("submits the new password with the reset token", async () => {
-    expect.hasAssertions()
     setupResetPasswordFormMocks()
     const user = userEvent.setup()
-    renderWithAuthMessages(<ResetPasswordForm token={RESET_TOKEN} />)
+    const { navigate } = await renderResetPasswordPage()
 
     await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
     await user.type(getPasswordInput("reset-password-confirmPassword"), TEST_PASSWORD)
     await user.click(screen.getByTestId("reset-password-form-submit-button"))
 
     await waitFor(() => {
-      expect(resetPasswordMock.mock.calls[0]?.[0]).toEqual(
-        expect.objectContaining({
-          password: TEST_PASSWORD,
-          token: RESET_TOKEN,
-        }),
-      )
+      expect(navigate).toHaveBeenCalledWith({ to: ROUTES.SIGN_IN })
     })
-    expect(pushMock).toHaveBeenCalledWith({ to: ROUTES.SIGN_IN })
+    expect(resetPasswordMock).toHaveBeenCalledWith(
+      { confirmPassword: TEST_PASSWORD, password: TEST_PASSWORD, token: RESET_TOKEN },
+      expect.anything(),
+    )
   })
 })
 
-describe("o auth button component", () => {
+describe("o auth buttons", () => {
   it("shows the provider error when OAuth cannot start", async () => {
-    setupOAuthButtonMocks()
-    toastErrorMock.mockClear()
+    setupOAuthButtonsMocks()
     signInSocialMock.mockImplementationOnce(async ({ fetchOptions }) => {
       const context: ErrorContext = {
         ...createAuthSuccessContext(),
@@ -511,62 +629,33 @@ describe("o auth button component", () => {
       await fetchOptions?.onError?.(context)
     })
     const user = userEvent.setup()
-    renderWithAuthMessages(<OAuthButton provider="github" Icon={GitHubIconMock} />)
-    await user.click(screen.getByRole("button", { name: /sign in with github/iu }))
+    renderWithAuthMessages(<OAuthButtons />)
+    await user.click(screen.getByRole("button", { name: authOauthMessages.github }))
     await waitFor(() => {
-      expect(toastErrorMock).toHaveBeenCalledWith(enMessages.auth.errors.invalidEmailOrPassword)
+      expect(toastErrorMock).toHaveBeenCalledWith(authErrorsMessages.invalidEmailOrPassword)
     })
     expect(toastSuccessMock).not.toHaveBeenCalled()
   })
+
   it("uses a neutral continue label when creating an account", () => {
-    setupOAuthButtonMocks()
-    renderWithAuthMessages(<OAuthButton intent="sign-up" provider="github" Icon={GitHubIconMock} />)
+    setupOAuthButtonsMocks()
+    renderWithAuthMessages(<OAuthButtons intent="sign-up" />)
 
     expect(screen.getByRole("button", { name: "Continue with GitHub" })).toBeVisible()
-    expect(screen.queryByRole("button", { name: "Sign in with GitHub" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeVisible()
+    expect(screen.queryByRole("button", { name: authOauthMessages.github })).not.toBeInTheDocument()
   })
 
   it("starts GitHub OAuth sign-in", async () => {
-    expect.hasAssertions()
-    setupOAuthButtonMocks()
+    setupOAuthButtonsMocks()
     const user = userEvent.setup()
-    renderWithAuthMessages(<OAuthButton provider="github" Icon={GitHubIconMock} />)
+    renderWithAuthMessages(<OAuthButtons />)
 
-    await user.click(screen.getByRole("button", { name: /sign in with github/iu }))
+    await user.click(screen.getByRole("button", { name: authOauthMessages.github }))
 
     await waitFor(() => {
-      expect(signInSocialMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          callbackURL: ROUTES.AUTH_CALLBACK,
-          provider: "github",
-        }),
-      )
+      expect(toastSuccessMock).toHaveBeenCalledWith(authOauthMessages.success)
     })
-    expect(toastSuccessMock).toHaveBeenCalledWith(enMessages.auth.oauth.success)
-  })
-})
-
-describe("sign out button component", () => {
-  it("signs out and returns to sign-in", async () => {
-    expect.hasAssertions()
-    setupSignOutButtonMocks()
-    const user = userEvent.setup()
-
-    renderWithAuthMessages(
-      <DropdownMenuTrigger defaultOpen>
-        <Button>Account</Button>
-        <DropdownMenu>
-          <SignOutButton />
-        </DropdownMenu>
-      </DropdownMenuTrigger>,
-    )
-
-    await user.click(screen.getByRole("menuitem", { name: /sign out/iu }))
-
-    await waitFor(() => {
-      expect(settingsSignOutUserMock).toHaveBeenCalled()
-    })
-    expect(pushMock).toHaveBeenCalledWith({ replace: true, to: ROUTES.SIGN_IN })
-    expect(toastSuccessMock).toHaveBeenCalledWith(enMessages.pages.admin.components.signOutButton.success)
+    expect(signInSocialMock).toHaveBeenCalledWith(expect.objectContaining({ callbackURL: ROUTES.AUTH_CALLBACK, provider: "github" }))
   })
 })

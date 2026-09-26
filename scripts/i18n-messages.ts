@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import type { AbstractIntlMessages } from "use-intl"
 
@@ -7,21 +7,12 @@ type MessageTree = Record<string, unknown>
 const MESSAGES_DIR = join(import.meta.dirname, "../messages")
 const LAST_SEGMENT_OFFSET = 1
 
-function isPlainObject(value: unknown): value is MessageTree {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-}
+const isPlainObject = (value: unknown): value is MessageTree => value !== null && typeof value === "object" && !Array.isArray(value)
 
-function isIntlMessages(value: MessageTree): value is AbstractIntlMessages {
-  return Object.values(value).every((entry) => {
-    if (typeof entry === "string") {
-      return true
-    }
+const isIntlMessages = (value: MessageTree): value is AbstractIntlMessages =>
+  Object.values(value).every((entry) => typeof entry === "string" || (isPlainObject(entry) && isIntlMessages(entry)))
 
-    return isPlainObject(entry) && isIntlMessages(entry)
-  })
-}
-
-function parseMessageTree(parsed: unknown, sourceLabel: string): MessageTree {
+const parseMessageTree = (parsed: unknown, sourceLabel: string): MessageTree => {
   if (!isPlainObject(parsed)) {
     throw new Error(`Invalid message file: ${sourceLabel}`)
   }
@@ -29,7 +20,7 @@ function parseMessageTree(parsed: unknown, sourceLabel: string): MessageTree {
   return parsed
 }
 
-function deepMergeMessages(target: MessageTree, source: MessageTree): MessageTree {
+const deepMergeMessages = (target: MessageTree, source: MessageTree): MessageTree => {
   const merged: MessageTree = { ...target }
 
   for (const [key, value] of Object.entries(source)) {
@@ -40,7 +31,7 @@ function deepMergeMessages(target: MessageTree, source: MessageTree): MessageTre
   return merged
 }
 
-function insertMessageFile(tree: MessageTree, filename: string, content: MessageTree): void {
+const insertMessageFile = (tree: MessageTree, filename: string, content: MessageTree): void => {
   const segments = filename
     .replace(/\.json$/u, "")
     .split(".")
@@ -64,11 +55,11 @@ function insertMessageFile(tree: MessageTree, filename: string, content: Message
   }
 }
 
-export function loadLocaleMessages(locale: string): AbstractIntlMessages {
+export const loadLocaleMessages = (locale: string): AbstractIntlMessages => {
   const localeDir = join(MESSAGES_DIR, locale)
   const files = readdirSync(localeDir)
     .filter((file) => file.endsWith(".json"))
-    .toSorted((a, b) => a.localeCompare(b))
+    .toSorted((left, right) => left.localeCompare(right))
 
   const messages: MessageTree = {}
 

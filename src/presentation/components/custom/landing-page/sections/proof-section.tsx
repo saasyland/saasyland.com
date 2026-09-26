@@ -4,12 +4,11 @@ import reactPackage from "react/package.json"
 import { useQuery } from "@tanstack/react-query"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { starCountQuery } from "~/src/integrations/github/github.queries"
+import { starCountQuery } from "~/src/lib/github"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
-import { HighlightItem } from "~/src/presentation/components/custom/highlight/highlight-item"
+import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 
 const FACT_KEYS = ["coverage", "tests", "locales", "components", "mau", "stars", "upkeep", "types", "tables", "admin"] as const
 

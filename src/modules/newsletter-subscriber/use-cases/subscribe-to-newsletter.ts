@@ -1,13 +1,17 @@
+import { createElement } from "react"
+
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
 import { eq } from "drizzle-orm"
+import { createTranslator } from "use-intl"
 import { v7 } from "uuid"
 import type * as zod from "zod"
 
 import { RATE_LIMITS, withRateLimit } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
+import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
 import {
   NEWSLETTER_SUBSCRIBER_MUTATION_KEYS,
@@ -18,10 +22,8 @@ import { newsletterRequestOrigin } from "~/src/modules/newsletter-subscriber/new
 import { confirmationExpiry, confirmationUrl, createToken } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.utils"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 
-import {
-  NewsletterConfirmationEmail as newsletterConfirmationEmail,
-  newsletterConfirmationSubject,
-} from "~/src/presentation/emails/newsletter-confirmation.email-template"
+import type confirmationMessages from "~/messages/en-US/emails.newsletter-confirmation-email.json"
+import { NEWSLETTER_CONFIRMATION_NAMESPACE, NewsletterConfirmationEmail } from "~/src/presentation/emails/newsletter-confirmation-email"
 
 const SINGLE_ROW = 1
 
@@ -62,10 +64,16 @@ export const subscribeToNewsletter = createServerFn({ method: "POST" })
         target: newsletterSubscriber.email,
       })
 
+    const messages = await loadNamespace<typeof confirmationMessages>({ locale, namespace: NEWSLETTER_CONFIRMATION_NAMESPACE })
+
     await sendEmail({
       idempotencyKey: `newsletter-confirmation/${confirmationToken}`,
-      react: newsletterConfirmationEmail({ confirmUrl: confirmationUrl({ locale, origin, token: confirmationToken }), locale }),
-      subject: newsletterConfirmationSubject(locale),
+      react: createElement(NewsletterConfirmationEmail, {
+        confirmUrl: confirmationUrl({ locale, origin, token: confirmationToken }),
+        locale,
+        messages,
+      }),
+      subject: createTranslator({ locale, messages })("subject"),
       to: address,
     })
 

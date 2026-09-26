@@ -4,6 +4,9 @@ import { Link } from "@tanstack/react-router"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import { MARKETING_SECTION_IDS, TIER_PRICES } from "~/src/data/marketing"
+
+import { Price } from "~/src/presentation/components/custom/landing-page/components/price"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
 import { ROUTES } from "~/src/routes"
@@ -30,7 +33,7 @@ export const GateSection = (): JSX.Element => {
         <Reveal className="mt-10 flex flex-wrap items-center justify-center gap-x-3 gap-y-4" delay={DETAIL_DELAY_MS}>
           <a
             className="inline-flex h-11 items-center rounded-lg bg-primary px-5 text-body-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-exp hover:bg-primary/88 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px"
-            href={ROUTES.HOME_PRICING_SECTION}
+            href={`#${MARKETING_SECTION_IDS.PRICING}`}
           >
             {t("ctaPrimary")}
           </a>
@@ -49,7 +52,9 @@ export const GateSection = (): JSX.Element => {
 
         <Reveal className="mt-12 w-full" delay={TERMS_DELAY_MS} variant="quiet">
           <p className="flex items-baseline justify-center gap-2.5">
-            <span className="text-price text-foreground tabular-nums">{t("price")}</span>
+            <span className="text-price text-foreground tabular-nums">
+              <Price amount={TIER_PRICES.core} />
+            </span>
             <span className="font-mono text-spec text-muted-foreground">{t("terms")}</span>
           </p>
 

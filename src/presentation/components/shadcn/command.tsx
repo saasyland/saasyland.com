@@ -126,17 +126,12 @@ const CommandGroup = <TValue extends object>({
   items,
   ...props
 }: MenuSectionProps<TValue> & {
-  heading?: string
+  heading: string
 }) => (
-  <MenuSection
-    className={cn(
-      "overflow-hidden p-1 text-foreground **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground",
-      className,
-    )}
-    data-slot="command-group"
-    {...props}
-  >
-    {heading !== undefined && heading !== "" ? <Header cmdk-group-heading="">{heading}</Header> : undefined}
+  <MenuSection className={cn("overflow-hidden p-1 text-foreground", className)} data-slot="command-group" {...props}>
+    <Header className="px-2 py-1.5 text-xs font-medium text-muted-foreground" data-slot="command-group-heading">
+      {heading}
+    </Header>
     <Collection {...(items === undefined ? {} : { items })}>{children}</Collection>
   </MenuSection>
 )

@@ -1,12 +1,18 @@
 import type { JSX } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
+import { createServerFn } from "@tanstack/react-start"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
-import { blogPostsQuery } from "~/src/integrations/fumadocs/fumadocs.blog"
-import { starCountQuery } from "~/src/integrations/github/github.queries"
-import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
+import { getPublishedBlogPosts } from "~/src/integrations/fumadocs/fumadocs.source"
+import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
+
+import { localeField } from "~/src/modules/_core/utils/zod-fields"
+
+import { starCountQuery } from "~/src/lib/github"
+import { pageHead } from "~/src/lib/seo"
 
 import { CasesSection } from "~/src/presentation/components/custom/landing-page/sections/cases-section"
 import { CliSection } from "~/src/presentation/components/custom/landing-page/sections/cli-section"
@@ -25,6 +31,18 @@ import { RallySection } from "~/src/presentation/components/custom/landing-page/
 import { RecordSection } from "~/src/presentation/components/custom/landing-page/sections/record-section"
 import { StackSection } from "~/src/presentation/components/custom/landing-page/sections/stack-section"
 import { StudioSection } from "~/src/presentation/components/custom/landing-page/sections/studio-section"
+import { HomePending } from "~/src/presentation/components/custom/marketing-pending"
+
+import { ROUTES } from "~/src/routes"
+
+const NOTE_COUNT = 3
+
+const getLatestBlogPosts = createServerFn({ method: "GET" })
+  .validator(localeField)
+  .handler(({ data: locale }) => {
+    const posts = getPublishedBlogPosts(locale)
+    return [...posts.filter((post) => post.featured), ...posts.filter((post) => !post.featured)].slice(0, NOTE_COUNT)
+  })
 
 const LandingPage = (): JSX.Element => (
   <MotionProvider>
@@ -48,47 +66,21 @@ const LandingPage = (): JSX.Element => (
   </MotionProvider>
 )
 
+const NAMESPACE = "pages.landing"
+
 export const Route = createFileRoute("/_landing/")({
   component: LandingPage,
-  head: routeHead,
+  head: pageHead(ROUTES.HOME),
   loader: async ({ context }) => {
-    const [metadata] = await Promise.all([
-      loadRouteMessages({
-        metadataNamespace: "pages.landing",
-        namespaces: [
-          "auth.errors",
-          "auth.form",
-          "auth.gate",
-          "auth.layout",
-          "auth.oauth",
-          "auth.validations",
-          "locales",
-          "pages.blog",
-          "pages.landing",
-          "product.errors",
-          "product.validations",
-        ],
-        pathname: "/",
-        queryClient: context.queryClient,
-      }),
-      context.queryClient.query(blogPostsQuery()),
+    const locale = getCurrentLocale()
+    const [metadata, posts] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      getLatestBlogPosts({ data: locale }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query(starCountQuery).catch(() => {}),
     ])
-    return metadata
+    return { locale, metadata, posts }
   },
-  staticData: {
-    namespaces: [
-      "auth.errors",
-      "auth.form",
-      "auth.gate",
-      "auth.layout",
-      "auth.oauth",
-      "auth.validations",
-      "locales",
-      "pages.blog",
-      "pages.landing",
-      "product.errors",
-      "product.validations",
-    ],
-  },
+  pendingComponent: HomePending,
+  staticData: { namespaces: [NAMESPACE] },
 })

@@ -1,4 +1,3 @@
-// Generate runtime binding types with `bun run cf-typegen`.
 declare namespace Cloudflare {
   interface Env {
     DB: D1Database

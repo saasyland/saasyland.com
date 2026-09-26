@@ -21,16 +21,17 @@ export const getPppMultiplier = (countryCode: string | undefined): number =>
 export const getPppPercentOff = (countryCode: string | undefined): number =>
   Math.round((FULL_PRICE_MULTIPLIER - getPppMultiplier(countryCode)) * PPP_PERCENT)
 
-const CHARM_STEP = 10
-const CHARM_ENDING = 9
-
-const toCharmPrice = (amount: number): number =>
-  Math.round((amount + CHARM_STEP - CHARM_ENDING) / CHARM_STEP) * CHARM_STEP - CHARM_STEP + CHARM_ENDING
+const CENTS_PER_DOLLAR = 100
 
 export const applyPpp = ({ amount, multiplier }: { amount: number; multiplier: number }): number =>
-  multiplier === FULL_PRICE_MULTIPLIER ? amount : toCharmPrice(amount * multiplier)
+  Math.round(amount * multiplier * CENTS_PER_DOLLAR) / CENTS_PER_DOLLAR
 
-export const CURRENCY_FORMAT = { currency: "USD", maximumFractionDigits: 0, style: "currency" } as const
+export const CURRENCY_FORMAT = {
+  currency: "USD",
+  minimumFractionDigits: 2,
+  style: "currency",
+  trailingZeroDisplay: "stripIfInteger",
+} as const
 
 export const PPP_ATTRIBUTE = "data-ppp"
 
@@ -40,3 +41,7 @@ export const PPP_KEYS: readonly number[] = [
 ]
 
 export const pppMultiplierKey = (countryCode: string | undefined): number => Math.round(getPppMultiplier(countryCode) * PPP_PERCENT)
+
+export const PPP_COOKIE = "regional_pricing"
+
+export const PPP_DECLINED = "off"

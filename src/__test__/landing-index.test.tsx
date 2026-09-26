@@ -5,8 +5,7 @@ import { createMemoryHistory } from "@tanstack/react-router"
 import { IntlProvider } from "use-intl"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { starCountQuery } from "~/src/integrations/github/github.queries"
-import { loadRouteMessages } from "~/src/integrations/use-intl/i18n.metadata"
+import { starCountQuery } from "~/src/lib/github"
 
 import { ProofSection } from "~/src/presentation/components/custom/landing-page/sections/proof-section"
 
@@ -15,19 +14,9 @@ import { getRouter } from "~/src/router"
 
 const fetchStarsMock = vi.hoisted(() => vi.fn<() => Promise<number>>())
 
-vi.mock(import("~/src/integrations/github/github.queries"), async (importOriginal) => {
+vi.mock(import("~/src/lib/github"), async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual, starCountQuery: { ...actual.starCountQuery, queryFn: fetchStarsMock } }
-})
-
-vi.mock(import("~/src/integrations/use-intl/i18n.metadata"), async (importOriginal) => {
-  const actual = await importOriginal()
-  return {
-    ...actual,
-    loadRouteMessages: vi.fn(() =>
-      Promise.resolve({ metadata: { description: "Landing page", locale: "en-US" as const, pathname: "/", title: "Home" } }),
-    ),
-  }
 })
 
 vi.mock("collections/server", () => ({
@@ -47,7 +36,6 @@ const createLandingRouter = () => {
 
 afterEach(() => {
   fetchStarsMock.mockReset()
-  vi.mocked(loadRouteMessages).mockClear()
 })
 
 describe("landing page star count during server rendering", () => {
@@ -62,7 +50,6 @@ describe("landing page star count during server rendering", () => {
 
     await vi.waitFor(() => {
       expect(fetchStarsMock).toHaveBeenCalledOnce()
-      expect(loadRouteMessages).toHaveBeenCalledOnce()
     })
     expect(loaded).not.toHaveBeenCalled()
     response.resolve(54_321)
@@ -92,7 +79,9 @@ describe("landing page star count during server rendering", () => {
     expect(fetchStarsMock).toHaveBeenCalledOnce()
     expect(router.state.matches.at(-1)?.status).toBe("success")
     expect(router.state.matches.at(-1)?.loaderData).toEqual({
-      metadata: { description: "Landing page", locale: "en-US", pathname: "/", title: "Home" },
+      locale: "en-US",
+      metadata: english.metadata,
+      posts: [],
     })
     expect(queryClient.getQueryData(starCountQuery.queryKey)).toBeUndefined()
   })

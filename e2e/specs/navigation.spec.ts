@@ -39,7 +39,6 @@ test.describe("server rendering and client navigation", () => {
       test.skip(browserName !== "chromium", "CPU throttling uses the Chrome DevTools Protocol")
       const errors: string[] = []
       page.on("pageerror", (error) => errors.push(error.message))
-      // A slow CPU keeps the docs page as server HTML when the sidebar link is clicked.
       const devtools = await page.context().newCDPSession(page)
       await devtools.send("Emulation.setCPUThrottlingRate", { rate: 6 })
       await page.goto(`${prefix}/docs/getting-started`)

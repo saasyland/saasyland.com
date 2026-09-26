@@ -1,3 +1,3 @@
-import type { auth } from "~/src/integrations/better-auth/auth.server"
+import type { Session } from "~/src/modules/session/session.types"
 
-export type AuthActiveSession = Awaited<ReturnType<typeof auth.api.listSessions>>[number]
+export type AuthActiveSession = Pick<Session["select"], "createdAt" | "expiresAt" | "id" | "ipAddress" | "updatedAt" | "userAgent">

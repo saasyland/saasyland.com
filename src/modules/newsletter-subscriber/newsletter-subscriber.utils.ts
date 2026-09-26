@@ -1,4 +1,4 @@
-import type { Locale } from "~/src/integrations/use-intl/i18n.config"
+import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { CONFIRMATION_WINDOW_IN_HOURS, NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
@@ -19,7 +19,7 @@ export const createToken = (): string => {
 export const confirmationExpiry = (): Date => new Date(Date.now() + CONFIRMATION_WINDOW_IN_HOURS * MILLISECONDS_PER_HOUR)
 
 interface NewsletterTokenUrlOptions {
-  readonly locale: Locale
+  readonly locale: SupportedLocale
   readonly origin: string
   readonly token: string
 }

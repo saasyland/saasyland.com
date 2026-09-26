@@ -1,19 +1,16 @@
 import zod from "zod/v4"
 
 import { emailSchema } from "~/src/integrations/better-auth/auth.zod"
-import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { NEWSLETTER_TOKEN_LENGTH, newsletterSourceEnum } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
-import { NEWSLETTER_SUBSCRIBER_VALIDATION_MESSAGE } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.validations"
+import { localeField } from "~/src/modules/_core/utils/zod-fields"
+import { NEWSLETTER_SOURCES, NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 
-const localeField = zod.enum(I18N.SUPPORTED_LOCALES)
-
-const tokenField = zod.string().length(NEWSLETTER_TOKEN_LENGTH, { message: NEWSLETTER_SUBSCRIBER_VALIDATION_MESSAGE.tokenInvalid })
+const tokenField = zod.string().length(NEWSLETTER_TOKEN_LENGTH, { message: "tokenInvalid" })
 
 const subscribeToNewsletter = zod.object({
   email: emailSchema,
   locale: localeField,
-  source: zod.enum(newsletterSourceEnum.enumValues).optional(),
+  source: zod.enum(NEWSLETTER_SOURCES).optional(),
 })
 
 const unsubscribeFromNewsletter = zod.object({

@@ -75,3 +75,12 @@ export const LOCALE_DIRECTIONS: ReadonlyMap<string, TextDirection> = new Map(LOC
 
 export const isLocaleCode = (value: string): value is LocaleCode => LOCALE_CODES.has(value)
 export const getLocaleDirection = (locale: string): TextDirection => LOCALE_DIRECTIONS.get(locale) ?? "ltr"
+
+const FIRST_LETTER = 0
+const AFTER_FIRST_LETTER = 1
+
+export const getLocaleName = (locale: LocaleCode): string => {
+  const name = new Intl.DisplayNames([locale], { type: "language" }).of(new Intl.Locale(locale).language) ?? locale
+
+  return name.charAt(FIRST_LETTER).toLocaleUpperCase(locale) + name.slice(AFTER_FIRST_LETTER)
+}

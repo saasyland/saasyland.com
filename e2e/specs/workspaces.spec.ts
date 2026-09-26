@@ -6,7 +6,7 @@ for (const account of TEST_ACCOUNTS) {
   test(`${account.role} can sign in and load the permitted workspace`, async ({ appPage, authPage, page }, testInfo) => {
     const errors: string[] = []
     page.on("pageerror", (error) => errors.push(error.message))
-    await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8::${crypto.randomUUID().slice(0, 4)}` })
+    await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
     await authPage.gotoSignIn()
     await authPage.emailField().fill(account.email)
     await authPage.passwordField().fill(TEST_PASSWORD)
@@ -110,7 +110,7 @@ test("customer can use the mobile app sidebar and signing out protects both app 
   const customer = TEST_ACCOUNTS[1]
   const errors: string[] = []
   page.on("pageerror", (error) => errors.push(error.message))
-  await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8::${crypto.randomUUID().slice(0, 4)}` })
+  await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
   await page.setViewportSize({ height: 844, width: 390 })
   await authPage.gotoSignIn()
   await authPage.emailField().fill(customer.email)

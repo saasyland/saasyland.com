@@ -8,7 +8,7 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
-import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.config"
+import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import * as ppp from "~/src/modules/license/license.ppp"

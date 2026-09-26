@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react"
-/** @vitest-environment jsdom */
 import { describe, expect, it } from "vite-plus/test"
 
 import { ThemeProvider } from "~/src/providers/theme-provider"

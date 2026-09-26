@@ -3,47 +3,17 @@ import type { JSX } from "react"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
-import { HighlightItem } from "~/src/presentation/components/custom/highlight/highlight-item"
-import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
+import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
 
-import { ROUTES } from "~/src/routes"
+import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
+import { PRICE_TAGS } from "~/src/presentation/components/custom/landing-page/components/price"
+import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
 const OPTIONS = ["free", "weekend", "heavyweights"] as const
 
 const DIMENSIONS = ["model", "coverage", "designer", "mau", "course", "license"] as const
 
 const TABLE_DELAY_MS = 100
-
-interface CompareRowProps {
-  readonly id: string
-  readonly label: string
-  readonly market: string
-  readonly marketLabel: string
-  readonly ours: string
-  readonly oursLabel: string
-}
-
-const CompareRow = ({ id, label, market, marketLabel, ours, oursLabel }: CompareRowProps): JSX.Element => (
-  <HighlightItem contentClassName="grid gap-y-2 px-4 py-5 md:grid-cols-[1.1fr_1fr_1fr] md:items-baseline md:gap-x-0 md:py-0" id={id}>
-    <dt className="text-body-sm font-medium text-foreground md:py-4 md:pr-6">{label}</dt>
-    <dd className="text-body-sm text-pretty text-muted-foreground md:py-4 md:pr-6">
-      <span className="mr-2 font-mono text-label text-muted-foreground/70 uppercase md:hidden">{marketLabel}</span>
-      {market}
-    </dd>
-    <dd className="text-body-sm text-pretty text-foreground md:bg-card md:px-5 md:py-4">
-      <span className="mr-2 font-mono text-label text-muted-foreground uppercase md:hidden">{oursLabel}</span>
-      {ours}
-    </dd>
-  </HighlightItem>
-)
-
-const CompareOption = ({ body, id, title }: Readonly<{ body: string; id: string; title: string }>): JSX.Element => (
-  <HighlightItem contentClassName="grid gap-x-10 px-4 py-6 md:grid-cols-[15rem_1fr] md:items-baseline" id={id}>
-    <dt className="text-title text-foreground">{title}</dt>
-    <dd className="mt-2 max-w-[62ch] text-body text-pretty text-muted-foreground md:mt-0">{body}</dd>
-  </HighlightItem>
-)
 
 export const CompareSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.compare")
@@ -58,8 +28,11 @@ export const CompareSection = (): JSX.Element => {
 
         <Reveal className="mt-14 md:mt-20" delay={TABLE_DELAY_MS}>
           <HighlightGroup className="-mx-4 divide-y divide-border border-y border-border" element="dl" name="compare-options-highlight">
-            {OPTIONS.map((option) => (
-              <CompareOption body={t(`options.${option}.body`)} id={option} key={option} title={t(`options.${option}.title`)} />
+            {OPTIONS.map((id) => (
+              <HighlightItem contentClassName="grid gap-x-10 px-4 py-6 md:grid-cols-[15rem_1fr] md:items-baseline" id={id} key={id}>
+                <dt className="text-title text-foreground">{t(`options.${id}.title`)}</dt>
+                <dd className="mt-2 max-w-[62ch] text-body text-pretty text-muted-foreground md:mt-0">{t(`options.${id}.body`)}</dd>
+              </HighlightItem>
             ))}
           </HighlightGroup>
 
@@ -71,16 +44,22 @@ export const CompareSection = (): JSX.Element => {
             </div>
 
             <HighlightGroup className="-mx-4 divide-y divide-border" element="dl" name="compare-rows-highlight">
-              {DIMENSIONS.map((dimension) => (
-                <CompareRow
-                  id={dimension}
-                  key={dimension}
-                  label={t(`dimensions.${dimension}.label`)}
-                  market={t(`dimensions.${dimension}.market`)}
-                  marketLabel={t("columns.market")}
-                  ours={t(`dimensions.${dimension}.ours`)}
-                  oursLabel={t("columns.saasyland")}
-                />
+              {DIMENSIONS.map((id) => (
+                <HighlightItem
+                  contentClassName="grid gap-y-2 px-4 py-5 md:grid-cols-[1.1fr_1fr_1fr] md:items-baseline md:gap-x-0 md:py-0"
+                  id={id}
+                  key={id}
+                >
+                  <dt className="text-body-sm font-medium text-foreground md:py-4 md:pr-6">{t(`dimensions.${id}.label`)}</dt>
+                  <dd className="text-body-sm text-pretty text-muted-foreground md:py-4 md:pr-6">
+                    <span className="mr-2 font-mono text-label text-muted-foreground/70 uppercase md:hidden">{t("columns.market")}</span>
+                    {t(`dimensions.${id}.market`)}
+                  </dd>
+                  <dd className="text-body-sm text-pretty text-foreground md:bg-card md:px-5 md:py-4">
+                    <span className="mr-2 font-mono text-label text-muted-foreground uppercase md:hidden">{t("columns.saasyland")}</span>
+                    {t.rich(`dimensions.${id}.ours`, PRICE_TAGS)}
+                  </dd>
+                </HighlightItem>
               ))}
             </HighlightGroup>
           </div>
@@ -95,7 +74,7 @@ export const CompareSection = (): JSX.Element => {
 
           <a
             className="group mt-12 inline-flex items-center gap-2 rounded-sm text-body-sm font-medium text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-            href={ROUTES.HOME_PRICING_SECTION}
+            href={`#${MARKETING_SECTION_IDS.PRICING}`}
           >
             {t("cta")}
             <ArrowRight

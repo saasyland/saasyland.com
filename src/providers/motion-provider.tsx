@@ -11,7 +11,6 @@ interface MotionProviderProps {
   readonly children: ReactNode
 }
 
-// Mount inside route components, never around a route <Outlet />: the features' arrival would force that route to hydrate early.
 export const MotionProvider = ({ children }: MotionProviderProps): JSX.Element => (
   <LazyMotion features={loadFeatures} strict>
     <MotionConfig reducedMotion="user">{children}</MotionConfig>

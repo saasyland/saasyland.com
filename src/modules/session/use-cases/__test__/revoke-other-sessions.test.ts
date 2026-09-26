@@ -11,7 +11,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
-import { settingsRevokeOtherSessionsMutation } from "~/src/modules/session/use-cases/revoke-other-sessions"
+import { revokeOtherSessionsMutation } from "~/src/modules/session/use-cases/revoke-other-sessions"
 
 const HEADERS = new Headers()
 const USER_ID = "01900000-0000-7000-8000-000000000001"
@@ -37,7 +37,7 @@ describe("revoke-other-sessions", () => {
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
     revokeOtherSessionsMock.mockResolvedValue({ status: true })
 
-    await expect(executeMutation(settingsRevokeOtherSessionsMutation, undefined)).resolves.toMatchObject({ status: true })
+    await expect(executeMutation(revokeOtherSessionsMutation, undefined)).resolves.toMatchObject({ status: true })
   })
 
   it("returns a domain error when the caller is signed out", async () => {
@@ -46,6 +46,6 @@ describe("revoke-other-sessions", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(executeMutation(settingsRevokeOtherSessionsMutation, undefined)).rejects.toThrow("UNAUTHORIZED")
+    await expect(executeMutation(revokeOtherSessionsMutation, undefined)).rejects.toThrow("UNAUTHORIZED")
   })
 })

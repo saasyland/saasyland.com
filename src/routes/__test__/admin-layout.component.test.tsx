@@ -11,9 +11,14 @@ import { Route as UsersRoute } from "~/src/routes/admin.users"
 
 import { SidebarProvider } from "~/src/presentation/components/shadcn/sidebar"
 
-import { adminMessages, adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
-import { AdminBreadcrumbs } from "~/src/presentation/components/custom/admin/components/admin-breadcrumbs"
-import { UserWidget } from "~/src/presentation/components/custom/admin/components/user-widget"
+import { adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { AdminBreadcrumbs } from "~/src/presentation/components/custom/admin/admin-breadcrumbs"
+import { UserWidget } from "~/src/presentation/components/custom/admin/user-widget"
+
+import pagesAdminMessages from "~/messages/en-US/pages.admin.json"
+import pagesAdminSettingsMessages from "~/messages/en-US/pages.admin.settings.json"
+import pagesAdminSidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
+import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 
 vi.mock(import("~/src/hooks/use-mobile"), () => ({ useIsMobile: () => false }))
 vi.mock("@tanstack/react-router", async (importOriginal) => ({ ...(await importOriginal<typeof RouterModule>()), Outlet: () => null }))
@@ -27,10 +32,10 @@ describe("admin navigation", () => {
       throw new Error("Missing admin layout")
     }
     renderAdmin(<Page />, { path })
-    expect(screen.getAllByRole("link", { name: adminMessages.pages.admin.sidebar.links.dashboard }).length).toBeGreaterThan(0)
-    expect(screen.getByRole("navigation", { name: adminMessages.pages.admin.components.breadcrumbs.home })).toBeVisible()
+    expect(screen.getAllByRole("link", { name: pagesAdminSidebarMessages.links.dashboard }).length).toBeGreaterThan(0)
+    expect(screen.getByRole("navigation", { name: pagesAdminMessages.components.breadcrumbs.home })).toBeVisible()
     if (path.endsWith("create")) {
-      expect(screen.getByText("create")).toBeVisible()
+      expect(screen.getByText(pagesAdminMessages.components.breadcrumbs.actions.create)).toBeVisible()
     }
   })
 
@@ -45,7 +50,7 @@ describe("admin navigation", () => {
       throw new Error("Missing users layout")
     }
     renderAdmin(<Page />, { path })
-    expect(screen.getByRole("heading", { name: adminMessages.pages.admin.users.title })).toBeVisible()
+    expect(screen.getByRole("heading", { name: pagesAdminUsersMessages.title })).toBeVisible()
     expect(screen.getAllByRole("tab").map((link) => link.getAttribute("href"))).toContain("/admin/users/invitations")
   })
 
@@ -57,7 +62,7 @@ describe("admin navigation", () => {
     )
     const navigate = vi.spyOn(result.router, "navigate").mockResolvedValue()
     await userEvent.click(screen.getByRole("button", { name: /Test User/u }))
-    await userEvent.click(screen.getByRole("menuitem", { name: adminMessages.pages.admin.components.userWidget.settings }))
+    await userEvent.click(screen.getByRole("menuitem", { name: pagesAdminMessages.components.userWidget.settings }))
     expect(navigate).toHaveBeenCalledWith({ to: "/admin/settings" })
   })
 
@@ -95,10 +100,10 @@ describe("general workspace settings", () => {
       throw new Error("Missing settings page")
     }
     renderAdmin(<Page />, { queryClient })
-    await userEvent.click(screen.getByRole("tab", { name: adminMessages.pages.admin.settings.tabs.security }))
-    expect(screen.getByRole("button", { name: adminMessages.pages.admin.settings.security.twoFactor.enable })).toBeVisible()
-    expect(screen.getByRole("heading", { name: adminMessages.pages.admin.settings.security.sessions.title })).toBeVisible()
-    expect(screen.getByLabelText(adminMessages.pages.admin.settings.security.password.current)).toHaveValue("")
+    await userEvent.click(screen.getByRole("tab", { name: pagesAdminSettingsMessages.tabs.security }))
+    expect(screen.getByRole("button", { name: pagesAdminSettingsMessages.security.twoFactor.enable })).toBeVisible()
+    expect(screen.getByRole("heading", { name: pagesAdminSettingsMessages.security.sessions.title })).toBeVisible()
+    expect(screen.getByLabelText(pagesAdminSettingsMessages.security.password.current)).toHaveValue("")
   })
 
   it("shows workspace fields and allows announcement preferences to change", async () => {

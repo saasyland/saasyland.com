@@ -1,13 +1,22 @@
 import { resolve } from "node:path"
 import { type PluginOption, type UserConfig, defineConfig, lazyPlugins, loadEnv } from "vite-plus"
 
-import { I18N } from "./src/integrations/use-intl/i18n.config.ts"
-import { canonicalizePathname, deLocalizePathname, localizePathname } from "./src/integrations/use-intl/i18n.paths.ts"
 import { ROUTES } from "./src/routes.ts"
 
 const projectRoot = import.meta.dirname
 
-const UNLISTED_ROUTES = [ROUTES.ADMIN, ROUTES.APP, ROUTES.AUTH, ROUTES.NEWSLETTER, ROUTES.API]
+const UNLISTED_ROUTES = [ROUTES.ADMIN, ROUTES.API, ROUTES.APP, ROUTES.AUTH, ROUTES.NEWSLETTER]
+const LOCALE_PREFIX = /^\/[a-z]{2}-[A-Z]{2}(?=\/|$)/u
+
+const shouldPrerender = ({ path }: { path: string }): boolean => {
+  if (path.includes("?") || path.includes("#")) {
+    return false
+  }
+
+  const pathname = path.replace(LOCALE_PREFIX, "")
+
+  return !UNLISTED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+}
 
 const ignorePatterns = [
   "**/*.d.ts",
@@ -15,7 +24,6 @@ const ignorePatterns = [
   ".agents",
   "remotion",
   ".claude",
-  ".output",
   ".source",
   ".tanstack",
   ".vscode",
@@ -23,12 +31,10 @@ const ignorePatterns = [
   "blob-report",
   "coverage",
   "dist",
-  "dist-ssr",
   "e2e",
   "node_modules",
   "playwright-report",
   "playwright/.cache",
-  "scripts",
   "src/integrations/**/*.d.json.ts",
   "src/integrations/**/migrations/**",
   "src/routeTree.gen.ts",
@@ -156,7 +162,7 @@ const tooling = {
       stylesheet: "./src/presentation/styles/globals.css",
     },
     tabWidth: 2,
-    trailwingComma: "all",
+    trailingComma: "all",
     useTabs: false,
   },
   lint: {
@@ -254,20 +260,11 @@ export default defineConfig(({ mode }) => ({
         fumadocsMdx({ configPath: "./src/integrations/fumadocs/fumadocs.config.ts" }),
         tailwindcss(),
         tanstackStart({
-          pages: I18N.SUPPORTED_LOCALES.map((locale) => ({ path: localizePathname({ locale, pathname: "/" }) })),
           prerender: {
             autoStaticPathsDiscovery: true,
             crawlLinks: true,
             enabled: true,
-            filter: (page) => {
-              const { pathname, search, hash } = new URL(page.path, "http://localhost")
-              return (
-                search.length === 0 &&
-                hash.length === 0 &&
-                canonicalizePathname(pathname) === pathname &&
-                !UNLISTED_ROUTES.some((route) => deLocalizePathname(pathname).startsWith(route))
-              )
-            },
+            filter: shouldPrerender,
           },
           router: {
             codeSplittingOptions: { defaultBehavior: [["component"], ["loader"], ["errorComponent"], ["notFoundComponent"]] },

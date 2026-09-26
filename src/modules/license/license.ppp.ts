@@ -7,7 +7,9 @@ import type { Discount } from "@polar-sh/sdk/models/components/discount.js"
 import { polar } from "~/src/integrations/polar/polar.config"
 
 import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
-import { getPppPercentOff } from "~/src/modules/_core/constants/pricing"
+import { PPP_COOKIE, PPP_DECLINED, getPppPercentOff } from "~/src/modules/_core/constants/pricing"
+
+import { readCookie } from "~/src/lib/cookie"
 
 const BASIS_POINTS_PER_PERCENT = 100
 const DISCOUNT_PAGE_SIZE = 100
@@ -44,7 +46,7 @@ const loadDiscounts = async (): Promise<readonly PercentageDiscount[]> => {
 export const pppDiscountId = async (headers: Headers, productId: string): Promise<string | undefined> => {
   const percentOff = getPppPercentOff(headers.get(COUNTRY_HEADER) ?? undefined)
 
-  if (percentOff === 0) {
+  if (percentOff === 0 || readCookie({ header: headers.get("Cookie"), name: PPP_COOKIE }) === PPP_DECLINED) {
     return undefined
   }
 

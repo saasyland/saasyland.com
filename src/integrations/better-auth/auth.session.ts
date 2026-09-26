@@ -8,7 +8,6 @@ import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 
 const SESSION_STALE_TIME_MS = 60_000
 
-// Share the pending lookup within one HTTP request; never cache across requests.
 const requestSessions = new WeakMap<Request, ReturnType<typeof auth.api.getSession>>()
 
 export const getRequestSession = createServerOnlyFn((request: Request) => {
@@ -21,7 +20,14 @@ export const getRequestSession = createServerOnlyFn((request: Request) => {
   return session
 })
 
-export const getCurrentSession = createServerFn({ method: "GET" }).handler(() => getRequestSession(getRequest()))
+type RequestSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>
+
+const toClientSession = ({ session: { token: _token, ...session }, user }: RequestSession) => ({ session, user })
+
+export const getCurrentSession = createServerFn({ method: "GET" }).handler(async () => {
+  const session = await getRequestSession(getRequest())
+  return session && toClientSession(session)
+})
 
 export const getCurrentSessionQuery = queryOptions({
   queryFn: () => getCurrentSession(),

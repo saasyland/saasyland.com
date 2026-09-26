@@ -61,8 +61,7 @@ vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerMo
   getRequest: vi.fn(() => new Request("http://127.0.0.1:3000/", { headers: HEADERS })),
 }))
 
-// @ts-expect-error Vitest module mock factory is not inferred for the Drizzle db client export.
-vi.mock(import("~/src/integrations/drizzle-orm/drizzle.database"), () => ({
+vi.mock("~/src/integrations/drizzle-orm/drizzle.database", () => ({
   db: { select: dbMocks.selectMock },
 }))
 

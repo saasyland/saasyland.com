@@ -2,14 +2,16 @@ import { relations, sql } from "drizzle-orm"
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { DEFAULT_ROLE_CODE, ROLE_VALUES } from "~/src/integrations/better-auth/auth.access"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { DEFAULT_TIMEZONE_CODE, TIMEZONE_CODES } from "~/src/modules/_core/constants/timezone"
+import { TIMEZONES } from "~/src/modules/_core/constants/timezone"
 import { account } from "~/src/modules/account/account.schema"
 import { session } from "~/src/modules/session/session.schema"
 import { twoFactor } from "~/src/modules/two-factor/two-factor.schema"
 
-export const userRoleEnum = { enumValues: ROLE_VALUES } as const
-export const userTimezoneEnum = { enumValues: TIMEZONE_CODES } as const
+const AFTER_FIRST_TIMEZONE = 1
+
+export const TIMEZONE_CODES = [TIMEZONES[0].iana, ...TIMEZONES.slice(AFTER_FIRST_TIMEZONE).map((timezone) => timezone.iana)] as const
 
 export const user = sqliteTable(
   "user",
@@ -25,8 +27,8 @@ export const user = sqliteTable(
     id: text("id").primaryKey(),
     image: text("image", { length: 2048 }),
     name: text("name", { length: 32 }).notNull(),
-    role: text("role", { enum: userRoleEnum.enumValues }).default(DEFAULT_ROLE_CODE).notNull(),
-    timezone: text("timezone", { enum: userTimezoneEnum.enumValues }).default(DEFAULT_TIMEZONE_CODE).notNull(),
+    role: text("role", { enum: ROLE_VALUES }).default(DEFAULT_ROLE_CODE).notNull(),
+    timezone: text("timezone", { enum: TIMEZONE_CODES }).default(I18N.DEFAULT_TIMEZONE).notNull(),
     twoFactorEnabled: integer("two_factor_enabled", { mode: "boolean" }).default(false).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .default(sql`(unixepoch() * 1000)`)

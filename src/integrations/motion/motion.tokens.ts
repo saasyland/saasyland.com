@@ -1,6 +1,5 @@
 import type { Transition } from "motion/react"
 
-// Keep Motion's curve aligned with --ease-exp in globals.css.
 const EASE_EXP_X1 = 0.16
 const EASE_EXP_Y1 = 1
 const EASE_EXP_X2 = 0.3

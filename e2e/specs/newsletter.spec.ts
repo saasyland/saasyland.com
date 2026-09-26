@@ -1,7 +1,7 @@
 import type { APIRequestContext } from "@playwright/test"
 import * as zod from "zod"
 
-import { CONTACT_EMAIL } from "../../src/presentation/branding/constants"
+import { CONTACT_EMAIL } from "../../src/presentation/branding"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 

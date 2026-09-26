@@ -5,7 +5,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
 
 describe("drizzle database", () => {
-  it("initializes drizzle with neon", () => {
+  it("initializes drizzle with the D1 binding", () => {
     expect.hasAssertions()
     expect(db).toBeDefined()
     expect(db.query).toBeDefined()

@@ -3,11 +3,11 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
 
-export const productStatusEnum = { enumValues: ["draft", "published", "archived"] } as const
-export const productTypeEnum = { enumValues: ["one_time", "subscription", "course"] } as const
+export const PRODUCT_STATUSES = ["draft", "published", "archived"] as const
+export const PRODUCT_TYPES = ["one_time", "subscription", "course"] as const
 
-export type ProductStatus = (typeof productStatusEnum.enumValues)[number]
-export type ProductType = (typeof productTypeEnum.enumValues)[number]
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number]
+export type ProductType = (typeof PRODUCT_TYPES)[number]
 
 export const product = sqliteTable(
   "product",
@@ -21,8 +21,8 @@ export const product = sqliteTable(
     id: text("id").primaryKey(),
     name: text("name", { length: 255 }).notNull(),
     priceCents: integer("price_cents").notNull().default(0),
-    status: text("status", { enum: productStatusEnum.enumValues }).notNull().default("draft"),
-    type: text("type", { enum: productTypeEnum.enumValues }).notNull().default("one_time"),
+    status: text("status", { enum: PRODUCT_STATUSES }).notNull().default("draft"),
+    type: text("type", { enum: PRODUCT_TYPES }).notNull().default("one_time"),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .default(sql`(unixepoch() * 1000)`)
       .$onUpdate(

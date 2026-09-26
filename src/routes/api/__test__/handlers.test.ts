@@ -1,8 +1,7 @@
-import { env } from "cloudflare:workers"
-
-import { describe, expect, it, vi } from "vite-plus/test"
+import { assert, describe, expect, it, vi } from "vite-plus/test"
 
 import { Route as AuthRoute } from "~/src/routes/api/auth.$"
+import { Route as ApiRoute } from "~/src/routes/api/index"
 import { Route as SearchRoute } from "~/src/routes/api/search"
 
 const { authHandler, searchHandler } = vi.hoisted(() => ({
@@ -11,9 +10,7 @@ const { authHandler, searchHandler } = vi.hoisted(() => ({
 }))
 
 vi.mock("~/src/integrations/better-auth/auth.server", () => ({ auth: { handler: authHandler } }))
-vi.mock("~/src/integrations/fumadocs/fumadocs.search", () => ({ fumadocsSearch: { GET: searchHandler } }))
-
-const context = { env, passThroughOnException: vi.fn<() => void>(), waitUntil: vi.fn<(promise: Promise<unknown>) => void>() }
+vi.mock("~/src/integrations/fumadocs/fumadocs.search", () => ({ search: { GET: searchHandler } }))
 
 describe("API route forwarding", () => {
   it.each(["GET", "POST"] as const)("forwards auth %s requests and preserves the provider response", async (method) => {
@@ -29,7 +26,7 @@ describe("API route forwarding", () => {
       throw new TypeError("Missing auth method")
     }
     const result = await handler({
-      context,
+      context: undefined,
       next: () => {
         throw new Error("Auth must return its own response")
       },
@@ -51,7 +48,7 @@ describe("API route forwarding", () => {
     }
     expect(
       await handlers.GET({
-        context,
+        context: undefined,
         next: () => {
           throw new Error("Search must return its own response")
         },
@@ -62,4 +59,19 @@ describe("API route forwarding", () => {
     ).toBe(response)
     expect(searchHandler).toHaveBeenCalledExactlyOnceWith(request)
   })
+})
+
+it("reports the Worker runtime through the API root", async () => {
+  const handlers = ApiRoute.options.server?.handlers
+  assert(typeof handlers === "object" && handlers.GET)
+  const response = await handlers.GET({
+    context: undefined,
+    next: vi.fn(),
+    params: {},
+    pathname: "/api",
+    request: new Request("https://saasyland.com/api/"),
+  })
+  assert(response instanceof Response)
+  expect(response.status).toBe(200)
+  await expect(response.json()).resolves.toEqual({ runtime: "cloudflare-workers" })
 })

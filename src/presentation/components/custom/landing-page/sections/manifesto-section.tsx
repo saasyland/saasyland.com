@@ -3,10 +3,10 @@ import type { JSX } from "react"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+
 import { Accent } from "~/src/presentation/components/custom/landing-page/components/accent"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
-
-import { ROUTES } from "~/src/routes"
 
 const LINE_STEP_MS = 120
 const SECOND_LINE_DELAY_MS = 240
@@ -27,7 +27,7 @@ export const ManifestoSection = (): JSX.Element => {
           <div className="mt-12 flex">
             <a
               className="group inline-flex items-center gap-4 text-display-gate text-foreground focus-visible:outline-2 focus-visible:outline-offset-6 focus-visible:outline-ring"
-              href={ROUTES.HOME_PRICING_SECTION}
+              href={`#${MARKETING_SECTION_IDS.PRICING}`}
             >
               <Accent id="manifesto">{t("p3")}</Accent>
               <ArrowRight

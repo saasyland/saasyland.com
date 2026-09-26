@@ -101,6 +101,14 @@ describe("regional checkout discounts", () => {
     expect(listDiscountsMock).not.toHaveBeenCalled()
   })
 
+  it("charges the full price when the buyer turned regional pricing off", async () => {
+    const { pppDiscountId } = await import("~/src/modules/license/license.ppp")
+    const headers = new Headers({ [COUNTRY_HEADER]: "PL", cookie: "session=kept; regional_pricing=off" })
+
+    await expect(pppDiscountId(headers, env.POLAR_PRODUCT_ID_CORE)).resolves.toBeUndefined()
+    expect(listDiscountsMock).not.toHaveBeenCalled()
+  })
+
   it("finds automatic percentage discounts across pages while excluding coupon codes and fixed amounts", async () => {
     const fixed: Discount = { ...DISCOUNT_FIELDS, amount: 3000, amounts: { usd: 3000 }, currency: "usd", id: "fixed", type: "fixed" }
     listDiscountsMock.mockResolvedValue(

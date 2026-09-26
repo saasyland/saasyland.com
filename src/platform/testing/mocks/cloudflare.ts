@@ -34,11 +34,12 @@ const prepare = (query: string, values: SQLInputValue[] = []) => ({
 })
 
 const cache = new Map<string, string>()
+const pendingTasks = new Set<Promise<unknown>>()
 export const resetTestBindings = (): void => {
   cache.clear()
+  pendingTasks.clear()
   database.exec("DELETE FROM rate_limit")
 }
-// The harness supplies only the bindings exercised by local tests.
 export const env = {
   ...process.env,
   ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
@@ -75,5 +76,13 @@ export const env = {
 }
 
 export const waitUntil = (promise: Promise<unknown>): void => {
-  void promise
+  pendingTasks.add(promise)
+  const settle = () => pendingTasks.delete(promise)
+  void promise.then(settle, settle)
+}
+
+export const flushWaitUntil = async (): Promise<void> => {
+  while (pendingTasks.size > 0) {
+    await Promise.allSettled(pendingTasks)
+  }
 }

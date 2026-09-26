@@ -13,8 +13,8 @@ import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 export const createCategory = createServerFn({ method: "POST" })
   .middleware([authorized({ category: ["create"] })])
   .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
-  .handler(async ({ data }) => {
-    const [row] = await db
+  .handler(({ data }) =>
+    db
       .insert(category)
       .values({
         description: data.description ?? "",
@@ -25,9 +25,8 @@ export const createCategory = createServerFn({ method: "POST" })
         visibility: data.visibility ?? "public",
       })
       .returning()
-
-    return row!
-  })
+      .get(),
+  )
 
 export const createCategoryMutation = mutationOptions({
   mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),

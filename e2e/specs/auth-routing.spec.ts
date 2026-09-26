@@ -41,7 +41,7 @@ for (const account of TEST_ACCOUNTS) {
     page.on("pageerror", (error) => errors.push(error.message))
     const signedIn = await page.request.post("/api/auth/sign-in/email", {
       data: { email: account.email, password: TEST_PASSWORD },
-      headers: { "CF-Connecting-IP": `2001:db8::${crypto.randomUUID().slice(0, 4)}`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
     })
     expect(signedIn.ok()).toBe(true)
     const workspace = account.role === "admin" ? "/admin" : "/app"
@@ -71,7 +71,7 @@ test("client navigation rechecks an ended session despite cached workspace data"
   const customer = TEST_ACCOUNTS[1]
   const signedIn = await page.request.post("/api/auth/sign-in/email", {
     data: { email: customer.email, password: TEST_PASSWORD },
-    headers: { "CF-Connecting-IP": `2001:db8::${crypto.randomUUID().slice(0, 4)}`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+    headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
   })
   expect(signedIn.ok()).toBe(true)
   await page.goto("/app", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })

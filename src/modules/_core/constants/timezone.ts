@@ -206,9 +206,3 @@ export const TIMEZONES = [
 ] as const satisfies readonly IsoTimeZone[]
 
 export type TimezoneCode = (typeof TIMEZONES)[number]["iana"]
-
-const AFTER_FIRST_TIMEZONE = 1
-
-export const TIMEZONE_CODES = [TIMEZONES[0].iana, ...TIMEZONES.slice(AFTER_FIRST_TIMEZONE).map((timezone) => timezone.iana)] as const
-
-export { DEFAULT_TIMEZONE_CODE } from "~/src/modules/_core/constants/timezone.default"

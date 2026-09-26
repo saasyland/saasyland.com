@@ -1,29 +1,42 @@
 import "@tanstack/react-start/server-only"
 
-import { inArray, lte, sql } from "drizzle-orm"
+import type { BetterAuthOptions, BetterAuthRateLimitStorage } from "better-auth"
+import { getIP } from "better-auth/api"
+import { eq, inArray, lte, sql } from "drizzle-orm"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
 const SINGLE_REQUEST = 1
 const MS_PER_SECOND = 1000
 const CLEANUP_BATCH_SIZE = 100
+const AUTH_KEY_PREFIX = "auth:"
+const UNKNOWN_CLIENT = "unknown"
+const NO_WAIT_SECONDS = 0
 
-export const withinRateLimit = async ({
-  key,
-  limit,
-  windowSeconds,
-}: {
-  key: string
-  limit: number
-  windowSeconds: number
-}): Promise<boolean> => {
+const IP_OPTIONS: BetterAuthOptions = { advanced: { ipAddress: { ipAddressHeaders: [IP_ADDRESS_HEADER] } } }
+
+interface RateLimitInput {
+  readonly key: string
+  readonly limit: number
+  readonly windowSeconds: number
+}
+
+interface RateLimitDecision {
+  readonly allowed: boolean
+  readonly retryAfter: number
+}
+
+export const clientAddress = (headers: Headers): string => getIP(headers, IP_OPTIONS) ?? UNKNOWN_CLIENT
+
+export const consumeRateLimit = async ({ key, limit, windowSeconds }: RateLimitInput): Promise<RateLimitDecision> => {
   try {
     const now = new Date()
     const expiresAt = new Date(now.getTime() + windowSeconds * MS_PER_SECOND)
     const expired = db.select({ key: rateLimit.key }).from(rateLimit).where(lte(rateLimit.expiresAt, now)).limit(CLEANUP_BATCH_SIZE)
-    const [, admitted] = await db.batch([
+    const [, admitted, counters] = await db.batch([
       db.delete(rateLimit).where(inArray(rateLimit.key, expired)),
       db
         .insert(rateLimit)
@@ -37,11 +50,22 @@ export const withinRateLimit = async ({
           target: rateLimit.key,
         })
         .returning({ key: rateLimit.key }),
+      db.select({ resetsAt: rateLimit.expiresAt }).from(rateLimit).where(eq(rateLimit.key, key)),
     ])
+    const secondsUntilReset = counters.map(({ resetsAt }) => Math.ceil((resetsAt.getTime() - now.getTime()) / MS_PER_SECOND))
 
-    return admitted.length === SINGLE_REQUEST
+    return { allowed: admitted.length === SINGLE_REQUEST, retryAfter: Math.max(NO_WAIT_SECONDS, ...secondsUntilReset) }
   } catch (error) {
     console.error("Rate-limit storage unavailable", error)
-    return false
+    return { allowed: false, retryAfter: windowSeconds }
   }
+}
+
+export const withinRateLimit = async (input: RateLimitInput): Promise<boolean> => {
+  const { allowed } = await consumeRateLimit(input)
+  return allowed
+}
+
+export const authRateLimitStorage: BetterAuthRateLimitStorage = {
+  consume: (key, { max, window }) => consumeRateLimit({ key: `${AUTH_KEY_PREFIX}${key}`, limit: max, windowSeconds: window }),
 }

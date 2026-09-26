@@ -2,7 +2,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { getTableConfig } from "drizzle-orm/sqlite-core"
 import { describe, expect, it } from "vite-plus/test"
 
-import { license, licenseRelations, licenseStatusEnum, licenseTierEnum, revokedLicenseOrder } from "~/src/modules/license/license.schema"
+import { LICENSE_STATUSES, LICENSE_TIERS, license, licenseRelations, revokedLicenseOrder } from "~/src/modules/license/license.schema"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { user } from "~/src/modules/user/user.schema"
 
@@ -21,8 +21,8 @@ describe("license schema", () => {
 
   it("defines enums and updatedAt onUpdate", () => {
     expect.hasAssertions()
-    expect(licenseTierEnum.enumValues).toStrictEqual(["core", "complete", "agency"])
-    expect(licenseStatusEnum.enumValues).toStrictEqual(["active", "revoked"])
+    expect(LICENSE_TIERS).toStrictEqual(["core", "complete", "agency"])
+    expect(LICENSE_STATUSES).toStrictEqual(["active", "revoked"])
     const onUpdate = license.updatedAt.onUpdateFn
     expect(onUpdate).toBeDefined()
     expect(onUpdate?.()).toBeInstanceOf(Date)

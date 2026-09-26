@@ -8,10 +8,10 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { CATEGORY_QUERY_KEYS } from "~/src/modules/category/category.constants"
-import { category, categoryKindEnum } from "~/src/modules/category/category.schema"
+import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
 
 export const listCategoriesSchema = paginationSchema.extend({
-  kind: zod.enum(categoryKindEnum.enumValues).optional(),
+  kind: zod.enum(CATEGORY_KINDS).optional(),
 })
 
 export const getCategories = createServerFn({ method: "GET" })
@@ -33,7 +33,7 @@ export const getCategories = createServerFn({ method: "GET" })
   })
 
 export const getCategoriesPageQuery = (input: zod.input<typeof listCategoriesSchema> = {}) =>
-  queryOptions({
+  queryOptions<Awaited<ReturnType<typeof getCategories>>>({
     queryFn: () => getCategories({ data: input }),
     queryKey: [...CATEGORY_QUERY_KEYS.LIST, listCategoriesSchema.parse(input)],
   })

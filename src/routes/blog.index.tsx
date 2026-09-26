@@ -1,40 +1,34 @@
 import type { JSX } from "react"
 
-import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { createServerFn } from "@tanstack/react-start"
 import { useTranslations } from "use-intl/react"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
-import { blogPostsQuery } from "~/src/integrations/fumadocs/fumadocs.blog"
-import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
+import { getPublishedBlogPosts } from "~/src/integrations/fumadocs/fumadocs.source"
+import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { isPublished, sortPostsByDateDesc } from "~/src/lib/blog"
+import { localeField } from "~/src/modules/_core/utils/zod-fields"
 
-import { PostLedger, PostRow } from "~/src/presentation/components/custom/blog/components/post-ledger"
+import { pageHead } from "~/src/lib/seo"
 
-const PostList = (): JSX.Element => {
-  const locale = getCurrentLocale()
-  const t = useTranslations("pages.blog")
+import { BlogIndexPending } from "~/src/presentation/components/custom/blog/blog-pending"
+import { PostRow } from "~/src/presentation/components/custom/blog/post-row"
+import { HighlightGroup } from "~/src/presentation/components/custom/highlight"
 
-  const posts = sortPostsByDateDesc(useSuspenseQuery(blogPostsQuery(locale)).data.filter((page) => isPublished(page.data)))
+import { ROUTES } from "~/src/routes"
 
-  if (posts.length === 0) {
-    return <p className="border-y border-border py-10 text-body text-muted-foreground">{t("index.empty")}</p>
-  }
-
-  return (
-    <PostLedger>
-      {posts.map((post) => (
-        <PostRow key={post.url} post={post} />
-      ))}
-    </PostLedger>
-  )
-}
+const getBlogPosts = createServerFn({ method: "GET" })
+  .validator(localeField)
+  .handler(({ data: locale }) => getPublishedBlogPosts(locale))
 
 const BlogIndexPage = (): JSX.Element => {
+  const { posts } = Route.useLoaderData()
   const t = useTranslations("pages.blog")
+
+  const POSTS_EXIST = posts.length > 0
 
   return (
     <section className="relative">
@@ -43,29 +37,37 @@ const BlogIndexPage = (): JSX.Element => {
         <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("index.description")}</p>
 
         <div className="mt-14 md:mt-20">
-          <MotionProvider>
-            <PostList />
-          </MotionProvider>
+          {!POSTS_EXIST && <p className="border-y border-border py-10 text-body text-muted-foreground">{t("index.empty")}</p>}
+
+          {POSTS_EXIST && (
+            <MotionProvider>
+              <HighlightGroup className="-mx-4 divide-y divide-border border-y border-border md:-mx-6" name="blog-highlight">
+                {posts.map((post) => (
+                  <PostRow key={post.url} post={post} />
+                ))}
+              </HighlightGroup>
+            </MotionProvider>
+          )}
         </div>
       </div>
     </section>
   )
 }
 
+const NAMESPACE = "pages.blog"
+
 export const Route = createFileRoute("/blog/")({
   component: BlogIndexPage,
-  head: routeHead,
+  head: pageHead(ROUTES.BLOG),
   loader: async ({ context }) => {
-    const [metadata] = await Promise.all([
-      loadRouteMessages({
-        metadataNamespace: "pages.blog",
-        namespaces: ["pages.blog", "pages.landing"],
-        pathname: "/blog",
-        queryClient: context.queryClient,
-      }),
-      context.queryClient.query(blogPostsQuery()),
+    const locale = getCurrentLocale()
+    const [metadata, posts] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      getBlogPosts({ data: locale }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
     ])
-    return metadata
+    return { locale, metadata, posts }
   },
-  staticData: { namespaces: ["pages.blog", "pages.landing"] },
+  pendingComponent: BlogIndexPending,
+  staticData: { namespaces: [NAMESPACE] },
 })

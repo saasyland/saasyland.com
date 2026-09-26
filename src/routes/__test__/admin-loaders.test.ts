@@ -3,14 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
-import { loadRouteMessages } from "~/src/integrations/use-intl/i18n.metadata"
 
 import { getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
 import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
-import { Route as ProductsRoute } from "~/src/routes/admin.products.index"
 import { Route as UsersIndexRoute } from "~/src/routes/admin.users.index"
 
 import { getRouter } from "~/src/router"
@@ -43,15 +41,6 @@ vi.mock(import("~/src/modules/user/use-cases/get-users"), async (importOriginal)
 vi.mock(import("~/src/modules/session/use-cases/get-active-sessions"), async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual, getActiveSessionsQuery: { ...actual.getActiveSessionsQuery, queryFn: vi.fn(() => Promise.resolve([])) } }
-})
-vi.mock(import("~/src/integrations/use-intl/i18n.metadata"), async (importOriginal) => {
-  const actual = await importOriginal()
-  return {
-    ...actual,
-    loadRouteMessages: vi.fn<typeof actual.loadRouteMessages>(({ pathname }) =>
-      Promise.resolve({ metadata: { description: "Admin workspace", locale: "en-US" as const, pathname, title: "Admin" } }),
-    ),
-  }
 })
 vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
 
@@ -86,9 +75,8 @@ describe("admin route loaders", () => {
     const router = await loadAdmin(path)
     expect(router.state.matches.at(-1)?.status).toBe("success")
     expect(getCurrentSessionQuery.queryFn).toHaveBeenCalledOnce()
-    expect(loadRouteMessages).toHaveBeenCalledWith(
-      expect.objectContaining({ pathname: path, queryClient: router.options.context.queryClient }),
-    )
+    expect(router.state.matches.at(-1)?.loaderData).toHaveProperty("locale", "en-US")
+    expect(router.state.matches.at(-1)?.loaderData).toHaveProperty("metadata.title")
   })
 
   it.each([
@@ -113,12 +101,15 @@ describe("admin route loaders", () => {
     expect(beforeLoad.mock.results[0]?.value).toHaveProperty("options.to", "/admin/users/all")
   })
 
-  it("accepts only string values in validated product searches", () => {
-    const validate = ProductsRoute.options.validateSearch
-    if (typeof validate !== "function") {
-      throw new TypeError("Missing search validator")
-    }
-    expect(validate({ view: "table", tab: "categories", invalid: 12, object: { bad: true } })).toEqual({ view: "table", tab: "categories" })
+  it.each([
+    ["categories", "categories"],
+    ["drafts", "drafts"],
+    [undefined, "all"],
+    ["invalid", "all"],
+    [["all"], "all"],
+  ])("validates the requested product tab: %s", (tab, expected) => {
+    const router = getRouter()
+    expect(router.matchRoutes("/admin/products", { tab }).at(-1)?.search).toMatchObject({ tab: expected })
   })
 
   it.each([

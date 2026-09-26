@@ -1,67 +1,49 @@
-import { type JSX, type ReactNode } from "react"
+import type { JSX } from "react"
 
-import { Link, createFileRoute } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
+import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { AuthPageShell } from "~/src/presentation/components/custom/auth/components/auth-page-shell"
-import { ForgotPasswordForm } from "~/src/presentation/components/custom/auth/forgot-password/components/forgot-password-form"
+import { pageHead } from "~/src/lib/seo"
+
+import { AUTH_LINK_TAGS } from "~/src/presentation/components/custom/auth/auth-link-tags"
+import { ForgotPasswordPending } from "~/src/presentation/components/custom/auth/auth-pending"
+import { ForgotPasswordForm } from "~/src/presentation/components/custom/auth/forgot-password-form"
 
 import { ROUTES } from "~/src/routes"
-
-const CROSS_LINK_CLASS =
-  "font-medium text-foreground underline-offset-4 transition-colors duration-200 ease-exp hover:text-muted-foreground"
-
-const renderSignInLink = (chunks: ReactNode) => (
-  <Link className={CROSS_LINK_CLASS} to={ROUTES.SIGN_IN}>
-    {chunks}
-  </Link>
-)
 
 const ForgotPasswordPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.forgot-password")
 
   return (
-    <AuthPageShell
-      description={t("form.description")}
-      footer={t.rich("form.rememberPassword", { signin: renderSignInLink })}
-      title={t("form.title")}
-    >
-      <ForgotPasswordForm />
-    </AuthPageShell>
+    <>
+      <h1 className="text-headline-support text-balance text-foreground">{t("form.title")}</h1>
+      <p className="mt-3 text-body text-pretty text-muted-foreground">{t("form.description")}</p>
+
+      <div className="mt-10 flex flex-col gap-6">
+        <ForgotPasswordForm />
+      </div>
+
+      <p className="mt-10 text-body-sm text-muted-foreground">{t.rich("form.rememberPassword", AUTH_LINK_TAGS)}</p>
+    </>
   )
 }
 
+const NAMESPACE = "pages.auth.forgot-password"
+
 export const Route = createFileRoute("/auth/forgot-password")({
   component: ForgotPasswordPage,
-  head: routeHead,
-  loader: ({ context }) =>
-    loadRouteMessages({
-      metadataNamespace: "pages.auth.forgot-password",
-      namespaces: [
-        "auth.errors",
-        "auth.form",
-        "auth.gate",
-        "auth.layout",
-        "auth.oauth",
-        "auth.validations",
-        "pages.auth.forgot-password",
-        "verification.validations",
-      ],
-      pathname: "/auth/forgot-password",
-      queryClient: context.queryClient,
-    }),
-  staticData: {
-    namespaces: [
-      "auth.errors",
-      "auth.form",
-      "auth.gate",
-      "auth.layout",
-      "auth.oauth",
-      "auth.validations",
-      "pages.auth.forgot-password",
-      "verification.validations",
-    ],
+  head: pageHead(ROUTES.FORGOT_PASSWORD),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
   },
+  pendingComponent: ForgotPasswordPending,
+  staticData: { namespaces: [NAMESPACE] },
 })

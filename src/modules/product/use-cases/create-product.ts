@@ -14,8 +14,8 @@ import { productZodSchemas } from "~/src/modules/product/product.zod"
 export const createProduct = createServerFn({ method: "POST" })
   .middleware([authorized({ product: ["create"] })])
   .validator((input: zod.input<typeof productZodSchemas.createProduct>) => productZodSchemas.createProduct.parse(input))
-  .handler(async ({ data }) => {
-    const [row] = await db
+  .handler(({ data }) =>
+    db
       .insert(product)
       .values({
         billingCycle: data.billingCycle,
@@ -28,9 +28,8 @@ export const createProduct = createServerFn({ method: "POST" })
         type: data.type,
       })
       .returning()
-
-    return row!
-  })
+      .get(),
+  )
 
 export const createProductMutation = mutationOptions({
   mutationFn: (data: Parameters<typeof createProduct>[0]["data"]) => createProduct({ data }),

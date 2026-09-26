@@ -29,8 +29,9 @@ export const ROLES = {
 
 export type Permission = RoleAuthorizeRequest<typeof ac.statements>
 
-const isRole = (value: string | null | undefined): value is Role =>
-  typeof value === "string" && (ROLE_VALUES as readonly string[]).includes(value)
+const ROLE_SET = new Set<string>(ROLE_VALUES)
+
+export const isRole = (value: string | null | undefined): value is Role => typeof value === "string" && ROLE_SET.has(value)
 
 export const hasPermission = ({
   permission,

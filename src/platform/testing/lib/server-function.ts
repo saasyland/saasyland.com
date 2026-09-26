@@ -1,11 +1,9 @@
-import type { createServerFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
 import { runWithStartContext } from "@tanstack/start-storage-context"
 
-type Builder = ReturnType<typeof createServerFn>
-interface ServerExecution {
-  __executeServer: (options: unknown) => Promise<unknown>
-}
+type ServerFunction = ((options: unknown) => Promise<unknown>) & { __executeServer: (options: unknown) => Promise<unknown> }
+
+const BUILDER_METHODS = new Set<string | symbol>(["inputValidator", "middleware", "validator"])
 
 const context = () => ({
   contextAfterGlobalMiddlewares: {},
@@ -18,8 +16,14 @@ const context = () => ({
   startOptions: {},
 })
 
-export const withTestRpc = (builder: Builder): Builder =>
-  new Proxy(builder, {
+const isServerFunction = (value: unknown): value is ServerFunction =>
+  typeof value === "function" && "__executeServer" in value && typeof value.__executeServer === "function"
+
+export const withTestRpc = (builder: unknown): unknown => {
+  if (typeof builder !== "function") {
+    return builder
+  }
+  return new Proxy(builder, {
     get(target, property, receiver) {
       const value: unknown = Reflect.get(target, property, receiver)
       if (typeof value !== "function") {
@@ -27,18 +31,22 @@ export const withTestRpc = (builder: Builder): Builder =>
       }
       if (property === "handler") {
         return (handler: unknown) => {
-          const rpc = (options: unknown) => runWithStartContext(context(), () => serverFunction.__executeServer(options))
-          // TanStack adds this callable RPC method to the builder result at compilation.
-          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-          const serverFunction = Reflect.apply(value, target, [rpc, handler]) as ServerExecution & ((options: unknown) => Promise<unknown>)
+          const compiled: { serverFunction?: ServerFunction } = {}
+          const serverFunction: unknown = Reflect.apply(value, target, [
+            (options: unknown) => runWithStartContext(context(), () => compiled.serverFunction?.__executeServer(options)),
+            handler,
+          ])
+          if (!isServerFunction(serverFunction)) {
+            throw new TypeError("createServerFn().handler() did not return a server function")
+          }
+          compiled.serverFunction = serverFunction
           return Object.assign((options: unknown) => runWithStartContext(context(), () => serverFunction(options)), serverFunction)
         }
       }
-      if (property === "validator" || property === "inputValidator" || property === "middleware") {
-        // Builder methods preserve the original generic builder contract.
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        return (...args: unknown[]) => withTestRpc(Reflect.apply(value, target, args) as Builder)
+      if (BUILDER_METHODS.has(property)) {
+        return (...args: unknown[]) => withTestRpc(Reflect.apply(value, target, args))
       }
       return value
     },
   })
+}

@@ -6,15 +6,11 @@ import { deLocalizeUrl, localizeUrl } from "~/src/integrations/use-intl/i18n.uti
 
 import { DefaultError } from "~/src/presentation/components/custom/default-error"
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
-import { DefaultPending } from "~/src/presentation/components/custom/default-pending"
 
 import { routeTree } from "~/src/routeTree.gen"
 
 const ONE_MIN_IN_MS = 60_000
 const FIVE_MINS_IN_MS = 300_000
-
-const PENDING_SHOW_DELAY_MS = 200
-const PENDING_MIN_DISPLAY_MS = 300
 
 export interface RouterContext {
   queryClient: QueryClient
@@ -34,9 +30,6 @@ export const getRouter = () => {
     context: { queryClient },
     defaultErrorComponent: DefaultError,
     defaultNotFoundComponent: DefaultNotFound,
-    defaultPendingComponent: DefaultPending,
-    defaultPendingMinMs: PENDING_MIN_DISPLAY_MS,
-    defaultPendingMs: PENDING_SHOW_DELAY_MS,
     defaultPreload: "intent",
     defaultPreloadDelay: 100,
     defaultPreloadIntentProximity: 0,

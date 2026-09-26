@@ -1,95 +1,78 @@
-import { type JSX, type ReactNode } from "react"
+import type { JSX, ReactNode } from "react"
 
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { redirectIfSignedIn } from "~/src/integrations/better-auth/auth.routes"
-import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
+import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { AuthPageShell } from "~/src/presentation/components/custom/auth/components/auth-page-shell"
-import { AuthSeparator } from "~/src/presentation/components/custom/auth/components/auth-separator"
-import { OAuthButtons } from "~/src/presentation/components/custom/auth/components/oauth-buttons"
-import { SignUpWithPasswordForm } from "~/src/presentation/components/custom/auth/sign-up/components/sign-up-with-password-form"
+import { pageHead } from "~/src/lib/seo"
+
+import { AUTH_LINK_TAGS } from "~/src/presentation/components/custom/auth/auth-link-tags"
+import { SignUpPending } from "~/src/presentation/components/custom/auth/auth-pending"
+import { OAuthButtons } from "~/src/presentation/components/custom/auth/oauth-buttons"
+import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-form"
 
 import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const CROSS_LINK_CLASS =
-  "font-medium text-foreground underline-offset-4 transition-colors duration-200 ease-exp hover:text-muted-foreground"
-
 const LEGAL_LINK_CLASS = "text-foreground underline underline-offset-4 transition-colors duration-200 ease-exp hover:text-muted-foreground"
 
-const renderSignInLink = (chunks: ReactNode) => (
-  <Link className={CROSS_LINK_CLASS} to={ROUTES.SIGN_IN}>
-    {chunks}
-  </Link>
-)
-
-const renderTermsLink = (chunks: ReactNode) => (
-  <Link className={LEGAL_LINK_CLASS} to={ROUTES.TERMS}>
-    {chunks}
-  </Link>
-)
-
-const renderPrivacyLink = (chunks: ReactNode) => (
-  <Link className={LEGAL_LINK_CLASS} to={ROUTES.PRIVACY}>
-    {chunks}
-  </Link>
-)
+const LEGAL_TAGS = {
+  privacy: (chunks: ReactNode) => (
+    <Link className={LEGAL_LINK_CLASS} to={ROUTES.PRIVACY}>
+      {chunks}
+    </Link>
+  ),
+  terms: (chunks: ReactNode) => (
+    <Link className={LEGAL_LINK_CLASS} to={ROUTES.TERMS}>
+      {chunks}
+    </Link>
+  ),
+}
 
 const SignUpPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.sign-up")
 
   return (
-    <AuthPageShell
-      description={t("form.description", { name: APP_NAME })}
-      footer={t.rich("form.hasAccount", { signin: renderSignInLink })}
-      title={t("form.title")}
-    >
-      <OAuthButtons intent="sign-up" />
-      <AuthSeparator label={t("form.or")} />
-      <SignUpWithPasswordForm />
+    <>
+      <h1 className="text-headline-support text-balance text-foreground">{t("form.title")}</h1>
+      <p className="mt-3 text-body text-pretty text-muted-foreground">{t("form.description", { name: APP_NAME })}</p>
 
-      <p className="text-body-sm text-pretty text-muted-foreground">
-        {t.rich("form.termsAndPrivacy", { privacy: renderPrivacyLink, terms: renderTermsLink })}
-      </p>
-    </AuthPageShell>
+      <div className="mt-10 flex flex-col gap-6">
+        <OAuthButtons intent="sign-up" />
+        <div className="flex items-center gap-4">
+          <span aria-hidden className="h-px flex-1 bg-border" />
+          <span className="text-body-sm text-muted-foreground">{t("form.or")}</span>
+          <span aria-hidden className="h-px flex-1 bg-border" />
+        </div>
+        <SignUpForm />
+        <p className="text-body-sm text-pretty text-muted-foreground">{t.rich("form.termsAndPrivacy", LEGAL_TAGS)}</p>
+      </div>
+
+      <p className="mt-10 text-body-sm text-muted-foreground">{t.rich("form.hasAccount", AUTH_LINK_TAGS)}</p>
+    </>
   )
 }
 
+const NAMESPACE = "pages.auth.sign-up"
+
 export const Route = createFileRoute("/auth/sign-up")({
-  beforeLoad: redirectIfSignedIn,
-  component: SignUpPage,
-  head: routeHead,
-  loader: ({ context }) =>
-    loadRouteMessages({
-      metadataNamespace: "pages.auth.sign-up",
-      namespaces: [
-        "auth.errors",
-        "auth.form",
-        "auth.gate",
-        "auth.layout",
-        "auth.oauth",
-        "auth.validations",
-        "pages.auth.sign-up",
-        "verification.validations",
-      ],
-      pathname: "/auth/sign-up",
-      queryClient: context.queryClient,
-    }),
-  staticData: {
-    namespaces: [
-      "auth.errors",
-      "auth.form",
-      "auth.gate",
-      "auth.layout",
-      "auth.oauth",
-      "auth.validations",
-      "pages.auth.sign-up",
-      "verification.validations",
-    ],
-  },
   validateSearch: (search: Record<string, unknown>): { tier?: string | undefined } => ({
     tier: typeof search["tier"] === "string" ? search["tier"] : undefined,
   }),
+  beforeLoad: redirectIfSignedIn,
+  component: SignUpPage,
+  head: pageHead(ROUTES.SIGN_UP),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: SignUpPending,
+  staticData: { namespaces: [NAMESPACE] },
 })

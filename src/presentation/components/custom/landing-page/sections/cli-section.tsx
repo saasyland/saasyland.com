@@ -2,57 +2,12 @@ import type { JSX, ReactNode } from "react"
 
 import { useTranslations } from "use-intl/react"
 
-import { CLI_CHOICES, CLI_EXTRAS, CLI_GROUPS } from "~/src/data/cli"
+import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
 
-import {
-  CliChoiceOption,
-  CliChoiceRow,
-  CliConfigurator,
-  CliExtraOption,
-  CliGroupHeading,
-} from "~/src/presentation/components/custom/landing-page/components/cli-configurator"
+import { CliConfigurator } from "~/src/presentation/components/custom/landing-page/components/cli-configurator"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
 const FRAME_DELAY_MS = 100
-
-const EXTRAS_GROUP = "extras"
-
-const CliGroup = ({ group }: Readonly<{ group: (typeof CLI_GROUPS)[number] }>): JSX.Element => {
-  const t = useTranslations("pages.landing.cli")
-
-  return (
-    <>
-      <CliGroupHeading label={t(`groups.${group}`)} />
-      <dl className="divide-y divide-border">
-        {CLI_CHOICES.filter((choice) => choice.group === group).map((choice) => (
-          <CliChoiceRow choiceId={choice.id} key={choice.id} label={t(`choices.${choice.id}.label`)}>
-            {choice.options.map((option) => (
-              <CliChoiceOption
-                choiceId={choice.id}
-                key={option.id}
-                label={t(option.labelKey)}
-                optionId={option.id}
-                unavailableReason={"unavailableWhen" in option ? t(option.unavailableKey) : undefined}
-              />
-            ))}
-          </CliChoiceRow>
-        ))}
-        {group === EXTRAS_GROUP && (
-          <CliChoiceRow choiceId={group} label={t("choices.extras.label")}>
-            {CLI_EXTRAS.map((extra) => (
-              <CliExtraOption
-                extraId={extra.id}
-                key={extra.id}
-                label={t(`choices.extras.options.${extra.id}`)}
-                unavailableReason={"unavailableWhen" in extra ? t(`choices.extras.unavailable.${extra.id}`) : undefined}
-              />
-            ))}
-          </CliChoiceRow>
-        )}
-      </dl>
-    </>
-  )
-}
 
 const REUSE_TAGS = { accent: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong> }
 
@@ -60,7 +15,7 @@ export const CliSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.cli")
 
   return (
-    <section className="relative border-t border-border" id="cli">
+    <section className="relative border-t border-border" id={MARKETING_SECTION_IDS.CLI}>
       <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32">
         <Reveal variant="heading">
           <h2 className="max-w-[18ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
@@ -68,21 +23,7 @@ export const CliSection = (): JSX.Element => {
         </Reveal>
 
         <Reveal className="mt-14 md:mt-20" delay={FRAME_DELAY_MS}>
-          <CliConfigurator
-            commandLabel={t("commandLabel")}
-            copiedLabel={t("copied")}
-            copyLabel={t("copy")}
-            footnote={t("choicesLabel")}
-            greenLabel={t("run.green")}
-            moduleLabel={t("run.modules")}
-            nextLabel={t("nextLabel")}
-            outputLabel={t("run.label")}
-            runnerLabel={t("runner")}
-          >
-            {CLI_GROUPS.map((group) => (
-              <CliGroup group={group} key={group} />
-            ))}
-          </CliConfigurator>
+          <CliConfigurator />
         </Reveal>
 
         <Reveal className="mt-14 md:mt-16" delay={FRAME_DELAY_MS} variant="quiet">

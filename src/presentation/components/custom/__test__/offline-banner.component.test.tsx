@@ -1,5 +1,4 @@
 import type { JSX, ReactNode } from "react"
-/** @vitest-environment jsdom */
 
 import { act, render, screen } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"

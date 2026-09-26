@@ -23,7 +23,6 @@ export class BasePage {
   private async waitForHydration(): Promise<void> {
     await this.page.waitForFunction(
       () => {
-        // Start clears this bootstrap state once hydration and the response stream have finished.
         const hydration: unknown = Reflect.get(window, "$_TSR")
         if (typeof hydration === "object" && hydration !== null && (!("hydrated" in hydration) || hydration.hydrated !== true)) {
           return false

@@ -1,58 +1,79 @@
-import type { JSX } from "react"
+import { type JSX, type ReactNode, isValidElement } from "react"
 
-import { Link, createFileRoute } from "@tanstack/react-router"
+import { Link, createFileRoute, notFound } from "@tanstack/react-router"
+import { createServerFn } from "@tanstack/react-start"
 import { InlineTOC } from "fumadocs-ui/components/inline-toc"
-import { useFormatter, useTranslations } from "use-intl/react"
+import { useTranslations } from "use-intl/react"
+import zod from "zod/v4"
 
-import { MotionProvider } from "~/src/providers/motion-provider"
-
-import { getBlogPost } from "~/src/integrations/fumadocs/fumadocs.blog"
-import { blogLoader } from "~/src/integrations/fumadocs/fumadocs.blog.loader"
-import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
+import { type BlogPostSummary, blogSource, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
+import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { buildPostStructuredDataHtml, summaryFromFrontmatter } from "~/src/lib/blog"
+import { localeField } from "~/src/modules/_core/utils/zod-fields"
 
-import { PostCta } from "~/src/presentation/components/custom/blog/components/post-cta"
-import { PostShare } from "~/src/presentation/components/custom/blog/components/post-share"
-import { PostToc, PostTocItem } from "~/src/presentation/components/custom/blog/components/post-toc"
+import { buildBlogPostStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
+
+import { blogContent } from "~/src/presentation/components/custom/blog-content"
+import { BlogPostPending } from "~/src/presentation/components/custom/blog/blog-pending"
+import { PostCta } from "~/src/presentation/components/custom/blog/post-cta"
+import { PostMeta } from "~/src/presentation/components/custom/blog/post-meta"
+import { PostShare } from "~/src/presentation/components/custom/blog/post-share"
+import { PostToc } from "~/src/presentation/components/custom/blog/post-toc"
 
 import { APP_URL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const hasNonEmptyString = (value: string | undefined): value is string => typeof value === "string" && value.trim().length > 0
+const tocItemTitle = (title: ReactNode): string => {
+  if (typeof title === "string" || typeof title === "number" || typeof title === "bigint") {
+    return String(title)
+  }
+
+  if (isValidElement<{ children?: ReactNode }>(title)) {
+    return tocItemTitle(title.props.children)
+  }
+
+  if (typeof title === "object" && title !== null && Symbol.iterator in title) {
+    return Array.from(title, tocItemTitle).join("")
+  }
+
+  return ""
+}
+
+const getBlogPost = createServerFn({ method: "GET" })
+  .validator(zod.object({ locale: localeField, slug: zod.string() }))
+  .handler(({ data: { locale, slug } }) => {
+    const page = blogSource.getPage(slug.split("/"), locale)
+    if (!page || !page.data.published) {
+      throw notFound()
+    }
+    return {
+      ...toBlogPostSummary(page, locale),
+      authorName: page.data.authorName,
+      faq: page.data.faq,
+      image: page.data.image,
+      path: page.path,
+      toc: page.data.toc.map((item) => ({ depth: item.depth, title: tocItemTitle(item.title), url: item.url })),
+      updated: page.data.updated,
+    }
+  })
 
 const BlogPostPage = (): JSX.Element => {
-  const page = Route.useLoaderData().post
-  const { data } = page
-  const content = blogLoader.useContent(page.path)
+  const { post } = Route.useLoaderData()
+  const content = blogContent.useContent(post.path)
+  const t = useTranslations("pages.blog.post")
 
-  const t = useTranslations("pages.blog")
-
-  const summary = summaryFromFrontmatter(data)
-
-  const format = useFormatter()
-  const published = format.dateTime(new Date(data.date), { day: "numeric", month: "long", year: "numeric" })
-
-  const minutes = data.readingTimeMinutes
-  const canonical = new URL(page.url, APP_URL).toString()
-
-  const metaTail = [
-    hasNonEmptyString(data.authorName) ? data.authorName : undefined,
-    minutes === undefined ? undefined : t("post.readingTime", { minutes }),
-    data.tags !== undefined && data.tags.length > 0 ? data.tags.join(", ") : undefined,
-  ].filter((item) => hasNonEmptyString(item))
-
-  const structuredDataHtml = buildPostStructuredDataHtml({
-    authorName: data.authorName,
+  const structuredDataHtml = buildBlogPostStructuredDataHtml({
+    authorName: post.authorName,
     baseUrl: APP_URL,
-    date: data.date,
-    description: summary,
-    faq: data.faq,
-    image: data.image,
-    title: data.title,
-    updated: data.updated,
-    url: page.url,
+    date: post.date,
+    description: post.summary,
+    faq: post.faq,
+    image: post.image,
+    title: post.title,
+    updated: post.updated,
+    url: post.url,
   })
 
   return (
@@ -64,91 +85,67 @@ const BlogPostPage = (): JSX.Element => {
           to={ROUTES.BLOG}
         >
           <span aria-hidden>&larr;</span>
-          {t("post.backToBlog")}
+          {t("backToBlog")}
         </Link>
 
-        <h1 className="mt-8 max-w-[24ch] text-display-gate text-balance text-foreground">{data.title}</h1>
-        {summary !== undefined && summary.length > 0 && (
-          <p className="mt-6 max-w-[46ch] text-statement text-pretty text-muted-foreground">{summary}</p>
+        <h1 className="mt-8 max-w-[24ch] text-display-gate text-balance text-foreground">{post.title}</h1>
+        {post.summary !== undefined && post.summary.length > 0 && (
+          <p className="mt-6 max-w-[46ch] text-statement text-pretty text-muted-foreground">{post.summary}</p>
         )}
 
-        <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-border py-4 font-mono text-body-sm text-muted-foreground">
-          <span className="flex items-center gap-2.5">
-            <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
-            <time className="tabular-nums" dateTime={new Date(data.date).toISOString()}>
-              {published}
-            </time>
-          </span>
-          {metaTail.map((item) => (
-            <span className="flex items-center gap-3" key={item}>
-              <span aria-hidden className="text-border">
-                &middot;
-              </span>
-              {item}
-            </span>
-          ))}
-        </div>
+        <PostMeta />
 
-        {data.image !== undefined && data.image.length > 0 && (
+        {post.image !== undefined && post.image.length > 0 && (
           <div className="relative mt-10 aspect-[2.4/1] w-full overflow-hidden rounded-xl border border-border bg-card">
             <img
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
-              loading="eager"
               fetchPriority="high"
+              loading="eager"
               sizes="(max-width: 48rem) 100vw, 64rem"
-              src={data.image}
+              src={post.image}
             />
           </div>
         )}
         <div className="mt-14 grid gap-x-16 lg:grid-cols-[minmax(0,72ch)_1fr]">
           <div className="min-w-0">
             <div className="mb-10 lg:hidden">
-              <InlineTOC items={page.toc} />
+              <InlineTOC items={post.toc} />
             </div>
             <div className="typeset typeset-article">{content}</div>
             <PostCta />
             <div className="mt-16 border-t border-border pt-8">
-              <MotionProvider>
-                <PostShare title={data.title} url={canonical} />
-              </MotionProvider>
+              <PostShare />
             </div>
           </div>
-
-          <PostToc label={t("post.contents")}>
-            {page.toc.map((item) => (
-              <PostTocItem depth={item.depth} href={item.url} key={item.url}>
-                {item.title}
-              </PostTocItem>
-            ))}
-          </PostToc>
+          <PostToc />
         </div>
       </div>
     </article>
   )
 }
 
+const NAMESPACE = "pages.blog"
+
 export const Route = createFileRoute("/blog/$")({
   component: BlogPostPage,
-  head: routeHead,
+  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; post: BlogPostSummary } | undefined }) =>
+    buildPageHead({
+      description: loaderData?.post.summary,
+      locale: loaderData?.locale,
+      pathname: loaderData?.post.url ?? ROUTES.BLOG,
+      title: loaderData?.post.title,
+      type: "article",
+    }),
   loader: async ({ context, params }) => {
-    await loadRouteMessages({
-      metadataNamespace: undefined,
-      namespaces: ["pages.blog", "pages.landing"],
-      pathname: "/blog",
-      queryClient: context.queryClient,
-    })
-    const post = await getBlogPost({ data: params._splat ?? "" })
-    await blogLoader.preload(post.path)
-    return {
-      metadata: {
-        description: summaryFromFrontmatter(post.data) ?? "",
-        locale: getCurrentLocale(),
-        pathname: post.url,
-        title: post.data.title,
-      },
-      post,
-    }
+    const locale = getCurrentLocale()
+    const [post] = await Promise.all([
+      getBlogPost({ data: { locale, slug: params._splat ?? "" } }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+    ])
+    await blogContent.preload(post.path)
+    return { locale, post }
   },
-  staticData: { namespaces: ["pages.blog", "pages.landing"] },
+  pendingComponent: BlogPostPending,
+  staticData: { namespaces: [NAMESPACE] },
 })

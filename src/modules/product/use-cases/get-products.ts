@@ -8,11 +8,11 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { PRODUCT_QUERY_KEYS } from "~/src/modules/product/product.constants"
-import { product, productStatusEnum, productTypeEnum } from "~/src/modules/product/product.schema"
+import { PRODUCT_STATUSES, PRODUCT_TYPES, product } from "~/src/modules/product/product.schema"
 
 export const listProductsSchema = paginationSchema.extend({
-  status: zod.enum(productStatusEnum.enumValues).optional(),
-  type: zod.enum(productTypeEnum.enumValues).optional(),
+  status: zod.enum(PRODUCT_STATUSES).optional(),
+  type: zod.enum(PRODUCT_TYPES).optional(),
 })
 
 export const getProducts = createServerFn({ method: "GET" })
@@ -37,7 +37,7 @@ export const getProducts = createServerFn({ method: "GET" })
   })
 
 export const getProductsPageQuery = (input: zod.input<typeof listProductsSchema> = {}) =>
-  queryOptions({
+  queryOptions<Awaited<ReturnType<typeof getProducts>>>({
     queryFn: () => getProducts({ data: input }),
     queryKey: [...PRODUCT_QUERY_KEYS.LIST, listProductsSchema.parse(input)],
   })

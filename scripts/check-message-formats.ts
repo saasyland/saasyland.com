@@ -1,52 +1,102 @@
-import { type MessageFormatElement, parse } from "@formatjs/icu-messageformat-parser"
-import { readdirSync, readFileSync } from "node:fs"
+import {
+  type MessageFormatElement,
+  isLiteralElement,
+  isPluralElement,
+  isPoundElement,
+  isSelectElement,
+  isTagElement,
+  parse,
+} from "@formatjs/icu-messageformat-parser"
+import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
+import process from "node:process"
 
-import { I18N } from "../src/integrations/use-intl/i18n.config"
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-const root = join(import.meta.dirname, "../messages")
-const problems: string[] = []
-const flatten = (node: Record<string, unknown>, prefix = ""): [string, string][] =>
-  Object.entries(node).flatMap(([key, value]) => {
-    const path = prefix ? `${prefix}.${key}` : key
-    return typeof value === "string" ? [[path, value]] : flatten(value as Record<string, unknown>, path)
-  })
+const FAILURE_EXIT_CODE = 1
+const MIN_UNTRANSLATED_WORDS = 5
+
+const MESSAGES_DIR = join(import.meta.dirname, "../messages")
+const TRANSLATION_INSTRUCTIONS_PATTERN = /please provide the (?:english |source )?text|I am ready when you are|here is the translation/iu
+const TRANSLATION_MARKER_PATTERN = /ZXQ\d+QXZ|<ph\d+|▁|\{"translation":/u
+
+const flatten = (node: unknown, prefix = ""): [string, string][] =>
+  typeof node === "string"
+    ? [[prefix, node]]
+    : Object.entries(node ?? {}).flatMap(([key, value]) => flatten(value, prefix ? `${prefix}.${key}` : key))
+
+const readMessages = (locale: string, file: string): [string, string][] => {
+  const path = join(MESSAGES_DIR, locale, file)
+
+  return flatten(JSON.parse(readFileSync(path, "utf8")))
+}
+
 const argumentsOf = (nodes: MessageFormatElement[], result = new Set<string>()): string[] => {
   for (const node of nodes) {
-    if (node.type !== 0 && node.type !== 7) result.add(`${node.type}:${node.value}`)
-    if (node.type === 5 || node.type === 6) {
-      for (const option of Object.values(node.options)) argumentsOf(option.value, result)
+    if (!isLiteralElement(node) && !isPoundElement(node)) {
+      result.add(`${node.type}:${node.value}`)
     }
-    if (node.type === 8) argumentsOf(node.children, result)
-  }
-  return [...result].toSorted()
-}
-for (const file of readdirSync(join(root, I18N.DEFAULT_LOCALE)).filter((name) => name.endsWith(".json"))) {
-  const source = new Map(flatten(JSON.parse(readFileSync(join(root, I18N.DEFAULT_LOCALE, file), "utf8")) as Record<string, unknown>))
-  for (const locale of I18N.SUPPORTED_LOCALES) {
-    const messages = flatten(JSON.parse(readFileSync(join(root, locale, file), "utf8")) as Record<string, unknown>)
-    for (const [key, value] of messages) {
-      try {
-        const original = source.get(key) ?? ""
-        const expected = argumentsOf(parse(original))
-        const actual = argumentsOf(parse(value))
-        if (JSON.stringify(expected) !== JSON.stringify(actual)) problems.push(`${locale}/${file}:${key}: changed ICU arguments or tags`)
-        if (value.includes("```") && !original.includes("```")) problems.push(`${locale}/${file}:${key}: unexpected Markdown code fence`)
-        if (locale !== I18N.DEFAULT_LOCALE && value === original && (value.match(/\p{L}+/gu)?.length ?? 0) >= 5) {
-          problems.push(`${locale}/${file}:${key}: untranslated English text`)
-        }
-        if (/please provide the (?:english |source )?text|I am ready when you are|here is the translation/iu.test(value)) {
-          problems.push(`${locale}/${file}:${key}: translation instructions in visible copy`)
-        }
-        if (/ZXQ\d+QXZ|<ph\d+|▁|\{"translation":/u.test(value)) problems.push(`${locale}/${file}:${key}: unresolved translation marker`)
-      } catch (error) {
-        problems.push(`${locale}/${file}:${key}: ${String(error)}`)
+
+    if (isSelectElement(node) || isPluralElement(node)) {
+      for (const option of Object.values(node.options)) {
+        argumentsOf(option.value, result)
       }
     }
+
+    if (isTagElement(node)) {
+      argumentsOf(node.children, result)
+    }
+  }
+
+  return [...result].toSorted()
+}
+
+const messageProblems = ({ locale, original, value }: { locale: SupportedLocale; original: string; value: string }): string[] => {
+  const problems: string[] = []
+
+  try {
+    if (JSON.stringify(argumentsOf(parse(original))) !== JSON.stringify(argumentsOf(parse(value)))) {
+      problems.push("changed ICU arguments or tags")
+    }
+  } catch (error) {
+    return [String(error)]
+  }
+
+  if (value.includes("```") && !original.includes("```")) {
+    problems.push("unexpected Markdown code fence")
+  }
+
+  if (locale !== I18N.DEFAULT_LOCALE && value === original && (value.match(/\p{L}+/gu)?.length ?? 0) >= MIN_UNTRANSLATED_WORDS) {
+    problems.push("untranslated English text")
+  }
+
+  if (TRANSLATION_INSTRUCTIONS_PATTERN.test(value)) {
+    problems.push("translation instructions in visible copy")
+  }
+
+  if (TRANSLATION_MARKER_PATTERN.test(value)) {
+    problems.push("unresolved translation marker")
+  }
+
+  return problems
+}
+
+const problems: string[] = []
+
+for (const file of readdirSync(join(MESSAGES_DIR, I18N.DEFAULT_LOCALE)).filter((name) => name.endsWith(".json"))) {
+  const source = new Map(readMessages(I18N.DEFAULT_LOCALE, file))
+
+  for (const locale of I18N.SUPPORTED_LOCALES) {
+    for (const [key, value] of readMessages(locale, file)) {
+      const found = messageProblems({ locale, original: source.get(key) ?? "", value })
+      problems.push(...found.map((problem) => `${locale}/${file}:${key}: ${problem}`))
+    }
   }
 }
+
 if (problems.length > 0) {
   console.error(problems.join("\n"))
-  process.exit(1)
+  process.exit(FAILURE_EXIT_CODE)
 }
+
 console.log("✅ Every translated message parses and preserves its ICU arguments and rich-text tags.")

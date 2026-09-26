@@ -1,6 +1,6 @@
-import { I18N, type SupportedLocale } from "./i18n.config.ts"
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-const IGNORED_PATHS_REGEX = /^\/(?:api|rpc|_serverFn)(?:\/|$)/u
+const IGNORED_PATHS_REGEX = /^\/(?:api|_serverFn)(?:\/|$)/u
 const LOCALE_SEGMENT_REGEX = /^\/(?<locale>[a-zA-Z-]+)(?:\/|$)/u
 
 const SLASH_LENGTH = 1
@@ -39,6 +39,15 @@ export const extractLocaleFromPath = (pathname: string): SupportedLocale | undef
   }
 
   return undefined
+}
+
+// Auth email links carry the page their flow started on as `callbackURL`, which comes from client input and may not parse.
+export const extractLocaleFromCallbackURL = (url: string): SupportedLocale | undefined => {
+  const link = new URL(url)
+  const callbackURL = link.searchParams.get("callbackURL")
+  const pathname = callbackURL === null ? undefined : URL.parse(callbackURL, link)?.pathname
+
+  return pathname === undefined ? undefined : extractLocaleFromPath(pathname)
 }
 
 export const deLocalizePathname = (pathname: string): string => {

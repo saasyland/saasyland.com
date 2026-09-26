@@ -4,11 +4,11 @@ import { applyPpp, getPppMultiplier, getPppPercentOff, pppMultiplierKey } from "
 
 describe("regional pricing", () => {
   it.each([
-    { country: "PT", multiplier: 0.8, percentOff: 20, price: 239 },
-    { country: "pl", multiplier: 0.7, percentOff: 30, price: 209 },
-    { country: "IN", multiplier: 0.6, percentOff: 40, price: 179 },
-    { country: "UA", multiplier: 0.5, percentOff: 50, price: 149 },
-  ])("formats the $299 price for $country consistently with its discount tier", ({ country, multiplier, percentOff, price }) => {
+    { country: "PT", multiplier: 0.8, percentOff: 20, price: 239.2 },
+    { country: "pl", multiplier: 0.7, percentOff: 30, price: 209.3 },
+    { country: "IN", multiplier: 0.6, percentOff: 40, price: 179.4 },
+    { country: "UA", multiplier: 0.5, percentOff: 50, price: 149.5 },
+  ])("charges exactly the discount percentage on the $299 price for $country", ({ country, multiplier, percentOff, price }) => {
     expect(getPppMultiplier(country)).toBe(multiplier)
     expect(getPppPercentOff(country)).toBe(percentOff)
     expect(pppMultiplierKey(country)).toBe(100 - percentOff)

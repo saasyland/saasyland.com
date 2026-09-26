@@ -44,7 +44,6 @@ export const grantLicense = async ({
   userId,
 }: Readonly<GrantLicenseInput>): Promise<void> => {
   await backfillPurchaseDate(userId)
-  // Replays of the same order preserve its key and revocation status.
   await db.run(sql`
     insert into ${license} (id, polar_customer_id, polar_order_id, purchase_created_at, tier, user_id)
     select ${v7()}, ${polarCustomerId}, ${polarOrderId}, ${purchaseCreatedAt.getTime()}, ${tier}, ${userId}

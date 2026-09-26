@@ -26,8 +26,8 @@ describe("load locale messages from dir component", () => {
   it("loads and nests namespace files for the default locale", () => {
     expect.hasAssertions()
     const messages = getTestMessages(I18N.DEFAULT_LOCALE)
-    expect(messages.pages.landing.hero.ctaPrimary).toBeTypeOf("string")
-    expect(messages.auth.form.placeholders.email).toBeTypeOf("string")
+    expect(messages).toHaveProperty(["pages", "landing", "hero", "ctaPrimary"], expect.any(String))
+    expect(messages).toHaveProperty(["auth", "form", "placeholders", "email"], expect.any(String))
   })
 
   it("returns equivalent messages for repeated loads", () => {

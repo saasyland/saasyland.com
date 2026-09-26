@@ -1,10 +1,10 @@
 import { hashPassword } from "better-auth/crypto"
 import { spawnSync } from "node:child_process"
-import { mkdtemp, writeFile, rm } from "node:fs/promises"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-import { TEST_ACCOUNTS, TEST_PASSWORD } from "../e2e/data/accounts"
+import { TEST_ACCOUNTS, TEST_PASSWORD } from "~/e2e/data/accounts"
 
 const literal = (value: string): string => `'${value.replaceAll("'", "''")}'`
 const password = await hashPassword(TEST_PASSWORD)
@@ -17,10 +17,14 @@ const directory = await mkdtemp(join(tmpdir(), "saasyland-test-seed-"))
 try {
   const file = join(directory, "seed.sql")
   await writeFile(file, statements.join("\n"))
-  const result = spawnSync("bun", ["x", "wrangler", "d1", "execute", "DB", "--env", "test", "--local", "--persist-to", ".wrangler/test", "--file", file], {
-    stdio: "inherit",
-  })
-  if (result.status !== 0) throw new Error("Could not seed the local test database")
+  const result = spawnSync(
+    "bun",
+    ["x", "wrangler", "d1", "execute", "DB", "--env", "test", "--local", "--persist-to", ".wrangler/test", "--file", file],
+    { stdio: "inherit" },
+  )
+  if (result.status !== 0) {
+    throw new Error("Could not seed the local test database")
+  }
 } finally {
   await rm(directory, { recursive: true })
 }

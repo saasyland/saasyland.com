@@ -91,8 +91,6 @@ const LOOPS = {
   },
 }
 
-export type ConceptLoopName = keyof typeof LOOPS
-
 const NO_OFFSET = 0
 const VISIBLE_FRACTION = 0.25
 
@@ -106,7 +104,7 @@ const play = (video: HTMLVideoElement, offsetSeconds: number): void => {
 interface ConceptLoopProps {
   readonly className?: string
   readonly label?: string
-  readonly name: ConceptLoopName
+  readonly name: keyof typeof LOOPS
   readonly offsetSeconds?: number
   readonly preloadMedia?: string
   readonly sizes: string

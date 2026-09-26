@@ -2,8 +2,7 @@ import type { JSX } from "react"
 
 import { useTranslations } from "use-intl/react"
 
-import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
-import { HighlightItem } from "~/src/presentation/components/custom/highlight/highlight-item"
+import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
 const MANIFEST_ITEMS = ["auth", "data", "billing", "email", "admin", "ui", "i18n", "content", "tests", "tooling"] as const

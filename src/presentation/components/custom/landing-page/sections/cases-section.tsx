@@ -3,22 +3,25 @@ import type { JSX } from "react"
 import { ArrowRight, ArrowUpRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { HighlightGroup } from "~/src/presentation/components/custom/highlight/highlight-group"
-import { HighlightItem } from "~/src/presentation/components/custom/highlight/highlight-item"
+import { cn } from "~/src/lib/cn"
+
+import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
+
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
 
 const GRID_DELAY_MS = 100
 
-const FEATURE_HREF = "mailto:hello@saasyland.com?subject=Built%20on%20SaaSy%20Land"
+const FEATURE_HREF = `mailto:${CONTACT_EMAIL}?subject=Built%20on%20SaaSy%20Land`
 
 const CASES = [
   { href: "https://reactprojects.com", id: "reactprojects", isLive: true },
   { href: undefined, id: "marte", isLive: false },
 ] as const
 
-const CaseName = ({ href, name }: Readonly<{ href: string | undefined; name: string }>): JSX.Element | string => {
+const CaseName = ({ children, href }: Readonly<{ children: string; href: string | undefined }>): JSX.Element | string => {
   if (href === undefined) {
-    return name
+    return children
   }
 
   return (
@@ -28,7 +31,7 @@ const CaseName = ({ href, name }: Readonly<{ href: string | undefined; name: str
       rel="noreferrer"
       target="_blank"
     >
-      {name}
+      {children}
       <ArrowUpRight
         aria-hidden
         className="size-4 text-muted-foreground transition-transform duration-200 ease-exp group-hover:-translate-y-0.5"
@@ -37,44 +40,6 @@ const CaseName = ({ href, name }: Readonly<{ href: string | undefined; name: str
     </a>
   )
 }
-
-interface CaseProps {
-  readonly body: string
-  readonly href: string | undefined
-  readonly isLive: boolean
-  readonly kind: string
-  readonly modules: string
-  readonly modulesLabel: string
-  readonly name: string
-  readonly status: string
-}
-
-const CaseCard = ({ body, href, isLive, kind, modules, modulesLabel, name, status }: CaseProps): JSX.Element => (
-  <HighlightItem className="group bg-background" contentClassName="flex h-full flex-col px-6 py-8 md:px-8 md:py-10" id={name}>
-    <p className="flex items-center gap-2.5 font-mono text-label text-muted-foreground uppercase">
-      <span
-        aria-hidden
-        className={isLive ? "size-1.25 shrink-0 rounded-xs bg-ring" : "size-1.25 shrink-0 rounded-xs bg-muted-foreground/40"}
-      />
-      {status}
-      <span aria-hidden className="text-border">
-        ·
-      </span>
-      {kind}
-    </p>
-
-    <h3 className="mt-5 text-title text-foreground">
-      <CaseName href={href} name={name} />
-    </h3>
-
-    <p className="mt-3 max-w-[54ch] text-body-sm text-pretty text-muted-foreground">{body}</p>
-
-    <div className="mt-auto pt-8">
-      <p className="font-mono text-label text-muted-foreground/70 uppercase">{modulesLabel}</p>
-      <p className="mt-2 font-mono text-spec text-pretty text-muted-foreground">{modules}</p>
-    </div>
-  </HighlightItem>
-)
 
 export const CasesSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.cases")
@@ -89,18 +54,36 @@ export const CasesSection = (): JSX.Element => {
 
         <Reveal className="mt-14 md:mt-20" delay={GRID_DELAY_MS}>
           <HighlightGroup className="grid gap-px border-y border-border bg-border md:grid-cols-2" name="cases-highlight">
-            {CASES.map((entry) => (
-              <CaseCard
-                body={t(`items.${entry.id}.body`)}
-                href={entry.href}
-                isLive={entry.isLive}
-                key={entry.id}
-                kind={t(`items.${entry.id}.kind`)}
-                modules={t(`items.${entry.id}.modules`)}
-                modulesLabel={t("modulesLabel")}
-                name={t(`items.${entry.id}.name`)}
-                status={entry.isLive ? t("statusLive") : t("statusSoon")}
-              />
+            {CASES.map(({ href, id, isLive }) => (
+              <HighlightItem
+                className="group bg-background"
+                contentClassName="flex h-full flex-col px-6 py-8 md:px-8 md:py-10"
+                id={id}
+                key={id}
+              >
+                <p className="flex items-center gap-2.5 font-mono text-label text-muted-foreground uppercase">
+                  <span
+                    aria-hidden
+                    className={cn("size-1.25 shrink-0 rounded-xs", { "bg-muted-foreground/40": !isLive, "bg-ring": isLive })}
+                  />
+                  {isLive ? t("statusLive") : t("statusSoon")}
+                  <span aria-hidden className="text-border">
+                    ·
+                  </span>
+                  {t(`items.${id}.kind`)}
+                </p>
+
+                <h3 className="mt-5 text-title text-foreground">
+                  <CaseName href={href}>{t(`items.${id}.name`)}</CaseName>
+                </h3>
+
+                <p className="mt-3 max-w-[54ch] text-body-sm text-pretty text-muted-foreground">{t(`items.${id}.body`)}</p>
+
+                <div className="mt-auto pt-8">
+                  <p className="font-mono text-label text-muted-foreground/70 uppercase">{t("modulesLabel")}</p>
+                  <p className="mt-2 font-mono text-spec text-pretty text-muted-foreground">{t(`items.${id}.modules`)}</p>
+                </div>
+              </HighlightItem>
             ))}
           </HighlightGroup>
 

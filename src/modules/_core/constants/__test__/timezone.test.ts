@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { DEFAULT_TIMEZONE_CODE, TIMEZONES, TIMEZONE_CODES } from "~/src/modules/_core/constants/timezone"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+
+import { TIMEZONES } from "~/src/modules/_core/constants/timezone"
+import { TIMEZONE_CODES } from "~/src/modules/user/user.schema"
 
 describe("timezone catalog", () => {
   it("derives one code per catalog entry, with no duplicates", () => {
@@ -11,8 +14,8 @@ describe("timezone catalog", () => {
 
   it("contains the default timezone", () => {
     expect.hasAssertions()
-    expect(TIMEZONE_CODES).toContain(DEFAULT_TIMEZONE_CODE)
-    expect(DEFAULT_TIMEZONE_CODE).toBe("UTC")
+    expect(TIMEZONE_CODES).toContain(I18N.DEFAULT_TIMEZONE)
+    expect(I18N.DEFAULT_TIMEZONE).toBe("UTC")
   })
 
   it("keeps IANA area/location formatting for every zone except UTC", () => {

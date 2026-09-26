@@ -6,11 +6,11 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 
-export const settingsSignOutUser = createServerFn({ method: "POST" })
+export const signOutUser = createServerFn({ method: "POST" })
   .middleware([authorized()])
   .handler(({ context }) => auth.api.signOut({ headers: context.requestHeaders }))
 
-export const settingsSignOutUserMutation = mutationOptions({
-  mutationFn: () => settingsSignOutUser(),
+export const signOutUserMutation = mutationOptions({
+  mutationFn: () => signOutUser(),
   mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_OUT,
 })

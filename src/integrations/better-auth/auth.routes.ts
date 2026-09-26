@@ -11,9 +11,9 @@ interface AuthRouteContext {
   preload?: boolean
 }
 
-const loadRouteSession = async ({ context: { queryClient }, preload = false }: AuthRouteContext) => {
+const loadRouteSession = async ({ context: { queryClient }, preload = false }: AuthRouteContext, { recheck }: { recheck: boolean }) => {
   const previousSession = queryClient.getQueryData(getCurrentSessionQuery.queryKey)
-  const session = await queryClient.query({ ...getCurrentSessionQuery, ...(preload ? {} : { staleTime: 0 }) })
+  const session = await queryClient.query({ ...getCurrentSessionQuery, ...(recheck && !preload ? { staleTime: 0 } : {}) })
   if (previousSession?.user.id !== session?.user.id) {
     queryClient.clear()
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, session)
@@ -26,14 +26,14 @@ const redirectToWorkspace = (role: string | null | undefined): never => {
 }
 
 export const redirectIfSignedIn = async (context: AuthRouteContext): Promise<void> => {
-  const session = await loadRouteSession(context)
+  const session = await loadRouteSession(context, { recheck: false })
   if (session) {
     redirectToWorkspace(session.user.role)
   }
 }
 
 export const requireSignedIn = async (context: AuthRouteContext) => {
-  const session = await loadRouteSession(context)
+  const session = await loadRouteSession(context, { recheck: true })
   if (!session) {
     throw redirect({ replace: true, to: ROUTES.SIGN_IN })
   }

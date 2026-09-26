@@ -5,10 +5,9 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import {
   EMAIL_MAX_LENGTH,
+  NEWSLETTER_SOURCES,
+  NEWSLETTER_STATUSES,
   NEWSLETTER_TOKEN_LENGTH,
-  newsletterLocaleEnum,
-  newsletterSourceEnum,
-  newsletterStatusEnum,
 } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 
 export const newsletterSubscriber = sqliteTable(
@@ -21,9 +20,9 @@ export const newsletterSubscriber = sqliteTable(
       .notNull(),
     email: text("email", { length: EMAIL_MAX_LENGTH }).notNull().unique(),
     id: text("id").primaryKey(),
-    locale: text("locale", { enum: newsletterLocaleEnum.enumValues }).notNull().default(I18N.DEFAULT_LOCALE),
-    source: text("source", { enum: newsletterSourceEnum.enumValues }).notNull().default("footer"),
-    status: text("status", { enum: newsletterStatusEnum.enumValues }).notNull().default("pending"),
+    locale: text("locale", { enum: I18N.SUPPORTED_LOCALES }).notNull().default(I18N.DEFAULT_LOCALE),
+    source: text("source", { enum: NEWSLETTER_SOURCES }).notNull().default("footer"),
+    status: text("status", { enum: NEWSLETTER_STATUSES }).notNull().default("pending"),
     subscribedAt: integer("subscribed_at", { mode: "timestamp_ms" }),
     unsubscribeToken: text("unsubscribe_token", { length: NEWSLETTER_TOKEN_LENGTH }).notNull().unique(),
     unsubscribedAt: integer("unsubscribed_at", { mode: "timestamp_ms" }),

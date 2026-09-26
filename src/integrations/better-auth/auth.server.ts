@@ -1,78 +1,104 @@
 import "@tanstack/react-start/server-only"
 
-import { env } from "cloudflare:workers"
+import { env, waitUntil } from "cloudflare:workers"
 
 import { checkout, polar as polarPlugin, portal, webhooks } from "@polar-sh/better-auth"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { createEmailVerificationToken } from "better-auth/api"
 import { admin } from "better-auth/plugins/admin"
-import { multiSession } from "better-auth/plugins/multi-session"
 import { twoFactor } from "better-auth/plugins/two-factor"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
-import { v7 } from "uuid"
+import { v7 as uuidv7 } from "uuid"
+import zod from "zod/v4"
 
 import { DEFAULT_ROLE_CODE, ROLES, ROLE_CODES, ac } from "~/src/integrations/better-auth/auth.access"
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
-import { authEmailHandlers } from "~/src/integrations/better-auth/auth.emails"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
-import { POLAR_PRODUCT_IDS, polar } from "~/src/integrations/polar/polar.config"
+import { polar } from "~/src/integrations/polar/polar.config"
+import { POLAR_CHECKOUT_PRODUCTS } from "~/src/integrations/polar/polar.constants"
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+import { extractLocaleFromCallbackURL, extractLocaleFromPath } from "~/src/integrations/use-intl/i18n.paths"
 
+import { IP_ADDRESS_HEADER, appHostsForMode, isLocalMode } from "~/src/modules/_core/constants/api"
+import { sendChangeEmailConfirmationEmail } from "~/src/modules/account/use-cases/send-change-email-confirmation-email"
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
+import { TIMEZONE_CODES } from "~/src/modules/user/user.schema"
+import { sendResetPasswordEmail } from "~/src/modules/verification/use-cases/send-reset-password-email"
+import { sendVerifyEmail } from "~/src/modules/verification/use-cases/send-verify-email"
+
+import { authRateLimitStorage } from "~/src/lib/rate-limit"
 
 import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const APP_HOSTS = ["localhost:3000", "127.0.0.1:3000", "saasyland.com", "*.saasyland.com", "*.pjborowiecki.workers.dev"]
+const FORM_CONTENT_TYPE = "application/x-www-form-urlencoded"
 
-const COOKIE_CACHE_MAX_AGE_IN_SECONDS = 300
-const MAX_CONCURRENT_SESSIONS = 10
+const signUpCallbackSchema = zod.object({ callbackURL: zod.string() })
 
-const TRUSTED_AUTH_PROVIDERS = ["github", "google"]
-export const TRUSTED_IP_HEADERS = ["CF-Connecting-IP", "x-forwarded-for"] as const
+// Better Auth hands over a copy of the sign-up request, sent as JSON or a form, whose `callbackURL` names the sign-up page.
+const readSignUpLocale = async (request: Request | undefined): Promise<SupportedLocale | undefined> => {
+  if (!request?.body) {
+    return undefined
+  }
+  const body: unknown =
+    request.headers.get("content-type")?.toLowerCase().includes(FORM_CONTENT_TYPE) === true
+      ? Object.fromEntries(await request.formData())
+      : await request.json()
+  const signUp = signUpCallbackSchema.safeParse(body)
+  const pathname = signUp.success ? URL.parse(signUp.data.callbackURL, request.url)?.pathname : undefined
 
-const CHECKOUT_PRODUCTS = Object.entries(POLAR_PRODUCT_IDS).map(([slug, productId]) => ({ productId, slug }))
+  return pathname === undefined ? undefined : extractLocaleFromPath(pathname)
+}
 
 export const auth = betterAuth({
   account: {
-    accountLinking: { enabled: true, trustedProviders: TRUSTED_AUTH_PROVIDERS },
+    accountLinking: { enabled: true },
     encryptOAuthTokens: true,
   },
   advanced: {
-    database: { generateId: () => v7(), joins: true },
-    ipAddress: { ipAddressHeaders: [...TRUSTED_IP_HEADERS] },
+    backgroundTasks: { handler: waitUntil },
+    cookiePrefix: "saasyland",
+    database: { generateId: () => uuidv7(), joins: true },
+    ipAddress: { ipAddressHeaders: [IP_ADDRESS_HEADER] },
+    useSecureCookies: !isLocalMode(import.meta.env.MODE),
   },
   appName: APP_NAME,
-  baseURL: { allowedHosts: APP_HOSTS },
+  baseURL: { allowedHosts: appHostsForMode(import.meta.env.MODE) },
   database: drizzleAdapter(db, { provider: "sqlite", schema }),
   emailAndPassword: {
     enabled: true,
     maxPasswordLength: PASSWORD_MAX_LENGTH,
     minPasswordLength: PASSWORD_MIN_LENGTH,
-    onExistingUserSignUp: authEmailHandlers.sendExistingUserVerificationEmail,
+    onExistingUserSignUp: async ({ user }, request) => {
+      if (!user.emailVerified) {
+        await sendVerifyEmail({
+          locale: (await readSignUpLocale(request)) ?? I18N.DEFAULT_LOCALE,
+          token: await createEmailVerificationToken(env.AUTH_SECRET, user.email),
+          user,
+        })
+      }
+    },
     requireEmailVerification: true,
     revokeSessionsOnPasswordReset: true,
-    sendResetPassword: authEmailHandlers.sendResetPasswordEmail,
+    sendResetPassword: sendResetPasswordEmail,
   },
   emailVerification: {
     autoSignInAfterVerification: true,
     sendOnSignUp: true,
-    sendVerificationEmail: authEmailHandlers.sendVerificationEmail,
+    sendVerificationEmail: ({ token, url, user }) =>
+      sendVerifyEmail({ locale: extractLocaleFromCallbackURL(url) ?? I18N.DEFAULT_LOCALE, token, user }),
   },
+  onAPIError: { errorURL: ROUTES.SIGN_IN },
   plugins: [
-    admin({
-      ac,
-      adminRoles: [ROLE_CODES.ADMIN],
-      defaultRole: DEFAULT_ROLE_CODE,
-      roles: ROLES,
-    }),
-    multiSession({ maximumSessions: MAX_CONCURRENT_SESSIONS }),
+    admin({ ac, adminRoles: [ROLE_CODES.ADMIN], defaultRole: DEFAULT_ROLE_CODE, roles: ROLES }),
     polarPlugin({
       client: polar,
       use: [
         checkout({
           authenticatedUsersOnly: true,
-          products: CHECKOUT_PRODUCTS,
+          products: POLAR_CHECKOUT_PRODUCTS,
           successUrl: ROUTES.APP,
         }),
         portal(),
@@ -82,24 +108,34 @@ export const auth = betterAuth({
     twoFactor({ issuer: APP_NAME }),
     tanstackStartCookies(),
   ],
-  secret: env.AUTH_SECRET,
-  session: {
-    cookieCache: { enabled: true, maxAge: COOKIE_CACHE_MAX_AGE_IN_SECONDS, version: "2" },
-    storeSessionInDatabase: true,
+  rateLimit: {
+    customRules: {
+      [ROUTES.API_AUTH.GET_SESSION]: false,
+      [ROUTES.API_AUTH.POLAR_WEBHOOKS]: false,
+      [ROUTES.API_AUTH.SIGN_OUT]: false,
+    },
+    customStorage: authRateLimitStorage,
+    enabled: true,
   },
+  secret: env.AUTH_SECRET,
   socialProviders: {
     github: { clientId: env.AUTH_GITHUB_CLIENT_ID, clientSecret: env.AUTH_GITHUB_CLIENT_SECRET },
     google: { clientId: env.AUTH_GOOGLE_CLIENT_ID, clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET },
   },
-  telemetry: { enabled: false },
   user: {
     additionalFields: {
-      timezone: { input: true, required: false, type: "string" },
+      timezone: {
+        defaultValue: I18N.DEFAULT_TIMEZONE,
+        input: true,
+        required: false,
+        type: [...TIMEZONE_CODES],
+        validator: { input: zod.enum(TIMEZONE_CODES) },
+      },
     },
     changeEmail: {
       enabled: true,
-      sendChangeEmailConfirmation: authEmailHandlers.sendChangeEmailConfirmationEmail,
+      sendChangeEmailConfirmation: sendChangeEmailConfirmationEmail,
     },
   },
-  verification: { storeIdentifier: "hashed", storeInDatabase: true },
+  verification: { storeIdentifier: "hashed" },
 })

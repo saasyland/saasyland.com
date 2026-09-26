@@ -1,3 +1,4 @@
+import { getRequest } from "@tanstack/react-start/server"
 import type * as BetterAuthClientPluginsModule from "better-auth/client/plugins"
 import type * as BetterAuthReactModule from "better-auth/react"
 import type { createAuthClient } from "better-auth/react"
@@ -84,10 +85,11 @@ describe("better auth client", () => {
     expect(location.href).toBe(ROUTES.TWO_FACTOR)
   })
 
-  it("uses the locale prefix when pathname matches the locale root", () => {
+  it("keeps the current locale when redirecting to two-factor verification", () => {
     expect.hasAssertions()
     const onTwoFactorRedirect = readTwoFactorRedirect()
-    const location = { href: "", pathname: "/pl" }
+    const location = { href: "", pathname: "/pl-PL/auth/sign-in" }
+    vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/pl-PL/auth/sign-in"))
 
     vi.stubGlobal("location", location)
     onTwoFactorRedirect?.()

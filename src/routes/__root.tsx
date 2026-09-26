@@ -3,14 +3,19 @@ import type { ReactNode } from "react"
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router"
 import { ThemeScript } from "@wrksz/themes/script"
 
-import { AppRouterProvider } from "~/src/providers/app-router-provider"
+import { AriaProvider } from "~/src/providers/aria-provider"
 import { ThemeProvider } from "~/src/providers/theme-provider"
 import { TranslationsProvider } from "~/src/providers/translations-provider"
 
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { ROOT_NAMESPACES, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { getLocaleDirection } from "~/src/modules/_core/constants/locale"
+
 import { THEME } from "~/src/presentation/theme"
+
+import { toOpenGraphLocale } from "~/src/lib/seo"
 
 import { Toaster } from "~/src/presentation/components/shadcn/sonner"
 
@@ -20,36 +25,41 @@ import { DOCUMENT_STYLESHEET, fontPreloads } from "~/src/presentation/document-a
 import type { RouterContext } from "~/src/router"
 
 const RootComponent = () => (
-  <TranslationsProvider>
-    <AppRouterProvider>
-      <OfflineBanner />
-      <Outlet />
-      <ThemeProvider>
-        <Toaster />
-      </ThemeProvider>
-    </AppRouterProvider>
-  </TranslationsProvider>
+  <AriaProvider>
+    <OfflineBanner />
+    <Outlet />
+    <ThemeProvider>
+      <Toaster />
+    </ThemeProvider>
+  </AriaProvider>
 )
 
-const RootDocument = ({ children }: Readonly<{ children: ReactNode }>) => (
-  <html
-    lang={getCurrentLocale()}
-    dir="ltr"
-    className="h-full bg-background text-foreground antialiased"
-    data-scroll-behavior="smooth"
-    suppressHydrationWarning
-  >
-    <head>
-      <meta charSet="utf-8" />
-      <ThemeScript defaultTheme={THEME.DEFAULT_THEME} storage="localStorage" storageKey={THEME.STORAGE_KEY} />
-      <HeadContent />
-    </head>
-    <body className="flex min-h-full flex-col" suppressHydrationWarning>
-      {children}
-      <Scripts />
-    </body>
-  </html>
-)
+const RootDocument = ({ children }: Readonly<{ children: ReactNode }>) => {
+  const locale = getCurrentLocale()
+
+  return (
+    <html
+      lang={locale}
+      dir={getLocaleDirection(locale)}
+      className="h-full bg-background text-foreground antialiased"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
+      <head>
+        <meta charSet="utf-8" />
+        <ThemeScript defaultTheme={THEME.DEFAULT_THEME} storage="cookie" storageKey={THEME.COOKIE_NAME} />
+        <HeadContent />
+        {I18N.SUPPORTED_LOCALES.filter((supported) => supported !== locale).map((alternate) => (
+          <meta content={toOpenGraphLocale(alternate)} key={alternate} property="og:locale:alternate" />
+        ))}
+      </head>
+      <body className="flex min-h-full flex-col" suppressHydrationWarning>
+        <TranslationsProvider>{children}</TranslationsProvider>
+        <Scripts />
+      </body>
+    </html>
+  )
+}
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: ({ context }) =>

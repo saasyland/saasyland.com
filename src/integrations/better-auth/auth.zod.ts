@@ -8,43 +8,41 @@ import {
   PASSWORD_SPECIAL_CHAR_PATTERN,
   PASSWORD_UPPERCASE_PATTERN,
 } from "~/src/integrations/better-auth/auth.constraints"
-import { AUTH_VALIDATION_MESSAGE } from "~/src/integrations/better-auth/auth.validations"
 
 import { MIN_FIELD_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 
 const INTERNAL_PATH_PATTERN = /^\/(?!\/)/u
 
-export const emailSchema = zod.email({ message: AUTH_VALIDATION_MESSAGE.emailInvalid }).max(EMAIL_MAX_LENGTH, {
-  message: AUTH_VALIDATION_MESSAGE.emailMaxLength,
+export const callbackPathSchema = zod.string().regex(INTERNAL_PATH_PATTERN)
+
+export const emailSchema = zod.email({ message: "emailInvalid" }).max(EMAIL_MAX_LENGTH, {
+  message: "emailMaxLength",
 })
 
-export const nameSchema = zod
-  .string()
-  .min(MIN_FIELD_LENGTH, { message: AUTH_VALIDATION_MESSAGE.nameRequired })
-  .max(NAME_MAX_LENGTH, { message: AUTH_VALIDATION_MESSAGE.nameMaxLength })
+export const nameSchema = zod.string().min(MIN_FIELD_LENGTH, { message: "nameRequired" }).max(NAME_MAX_LENGTH, { message: "nameMaxLength" })
 
-export const signInPasswordSchema = zod.string().min(MIN_FIELD_LENGTH, { message: AUTH_VALIDATION_MESSAGE.passwordRequired })
+export const signInPasswordSchema = zod.string().min(MIN_FIELD_LENGTH, { message: "passwordRequired" })
 
 export const strictPasswordSchema = zod
   .string()
-  .min(MIN_FIELD_LENGTH, { message: AUTH_VALIDATION_MESSAGE.passwordRequired })
-  .min(PASSWORD_MIN_LENGTH, { message: AUTH_VALIDATION_MESSAGE.passwordMinLength })
-  .max(PASSWORD_MAX_LENGTH, { message: AUTH_VALIDATION_MESSAGE.passwordMaxLength })
+  .min(MIN_FIELD_LENGTH, { message: "passwordRequired" })
+  .min(PASSWORD_MIN_LENGTH, { message: "passwordMinLength" })
+  .max(PASSWORD_MAX_LENGTH, { message: "passwordMaxLength" })
   .refine((value) => PASSWORD_UPPERCASE_PATTERN.test(value), {
-    message: AUTH_VALIDATION_MESSAGE.passwordUppercase,
+    message: "passwordUppercase",
   })
   .refine((value) => PASSWORD_SPECIAL_CHAR_PATTERN.test(value), {
-    message: AUTH_VALIDATION_MESSAGE.passwordSpecialCharacter,
+    message: "passwordSpecialCharacter",
   })
 
 export const withMatchingPasswords = <TValue extends zod.ZodType<{ confirmPassword: string; password: string }>>(schema: TValue) =>
   schema.refine((data) => data.password === data.confirmPassword, {
-    message: AUTH_VALIDATION_MESSAGE.passwordsMustMatch,
+    message: "passwordsMustMatch",
     path: ["confirmPassword"],
   })
 
 const passwordConfirmationSchema = zod.object({
-  confirmPassword: zod.string().min(MIN_FIELD_LENGTH, { message: AUTH_VALIDATION_MESSAGE.confirmPasswordRequired }),
+  confirmPassword: zod.string().min(MIN_FIELD_LENGTH, { message: "confirmPasswordRequired" }),
   password: strictPasswordSchema,
 })
 
@@ -54,7 +52,7 @@ const emailFormSchema = zod.object({
 
 export const signUpWithPasswordSchema = withMatchingPasswords(
   passwordConfirmationSchema.extend({
-    callbackURL: zod.string().regex(INTERNAL_PATH_PATTERN).optional(),
+    callbackURL: callbackPathSchema.optional(),
     email: emailSchema,
     name: nameSchema,
   }),

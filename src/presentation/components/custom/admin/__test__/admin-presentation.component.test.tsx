@@ -1,48 +1,67 @@
 import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
-import { act, render, renderHook, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
+import { Route as AnalyticsRoute } from "~/src/routes/admin.analytics"
 import { Route as DashboardRoute } from "~/src/routes/admin.index"
 import { Route as UsersRoute } from "~/src/routes/admin.users.all"
 
 import { ADMIN_ANALYTICS_REGION_ROWS } from "~/src/data/admin"
 
 import { adminMessages, adminQueryClient, adminUser, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
-import { useDemoAnalytics } from "~/src/presentation/components/custom/admin/analytics/hooks/use-demo-analytics"
-import { DashboardUsersTableRow } from "~/src/presentation/components/custom/admin/dashboard/components/dashboard-users-table-row"
-import { DefaultPending } from "~/src/presentation/components/custom/default-pending"
+import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/overview-pending"
 
 afterEach(() => vi.restoreAllMocks())
 
 describe("admin data display fallbacks", () => {
   it("keeps unfamiliar region codes visible when Intl has no display name", () => {
     vi.spyOn(Intl.DisplayNames.prototype, "of").mockReturnValue(undefined)
-    const { result } = renderHook(useDemoAnalytics, {
-      wrapper: ({ children }) => (
-        <IntlProvider locale="en-US" messages={adminMessages}>
-          {children}
-        </IntlProvider>
-      ),
-    })
-    expect(result.current.regions.map((region) => region.name)).toEqual(ADMIN_ANALYTICS_REGION_ROWS.map((region) => region.code))
+    const Page = AnalyticsRoute.options.component
+    if (!Page) {
+      throw new Error("Missing analytics page")
+    }
+    renderAdmin(<Page />)
+    for (const region of ADMIN_ANALYTICS_REGION_ROWS) {
+      expect(screen.getByText(new RegExp(`${region.flag} ${region.code}$`, "u"))).toBeVisible()
+    }
   })
 
-  it("shows a dashboard user's identity when no initials are supplied", () => {
-    renderAdmin(
-      <table>
-        <tbody>
-          <DashboardUsersTableRow
-            row={{ email: "ada@example.com", id: "ada", lastActive: "2025-01-01", name: "Ada", role: "customer", status: "active" }}
-          />
-        </tbody>
-      </table>,
-    )
-    expect(screen.getByRole("row")).toHaveTextContent("Ada")
-    expect(screen.getByRole("row")).toHaveTextContent("ada@example.com")
+  it("sizes the analytics bars and region meters from their measurements", () => {
+    const Page = AnalyticsRoute.options.component
+    if (!Page) {
+      throw new Error("Missing analytics page")
+    }
+    const { container } = renderAdmin(<Page />)
+    expect(container.querySelector('[style="height: 45%;"]')).toBeInTheDocument()
+    expect(container.querySelector('[style="height: 15%;"]')).toBeInTheDocument()
+    const [firstRegion] = ADMIN_ANALYTICS_REGION_ROWS
+    expect(container.querySelector(`[style="width: ${firstRegion.percentage}%;"]`)).toBeInTheDocument()
+  })
+
+  it("shows a dashboard user's identity, avatar and last activity date", () => {
+    const queryClient = adminQueryClient()
+    queryClient.setQueryData(getUsersQuery.queryKey, {
+      pendingVerification: 0,
+      rows: [adminUser(), adminUser({ id: "grace", image: "https://example.com/grace.png", name: "Grace Hopper" })],
+      total: 2,
+    })
+    const Page = DashboardRoute.options.component
+    if (!Page) {
+      throw new Error("Missing dashboard page")
+    }
+    renderAdmin(<Page />, { queryClient })
+    const [, adaRow] = within(screen.getByRole("table")).getAllByRole("row")
+    if (!adaRow) {
+      throw new Error("Missing dashboard row")
+    }
+    expect(adaRow).toHaveTextContent("Ada Lovelace")
+    expect(adaRow).toHaveTextContent("ada@example.com")
+    expect(adaRow).toHaveTextContent("Jan 1, 2025")
+    expect(adaRow).toHaveTextContent("AL")
   })
 
   it("displays an unrecognized role without inventing a translated label", () => {
@@ -79,9 +98,9 @@ describe("admin data display fallbacks", () => {
       getParentRoute: () => root,
       loader: () => queryClient.query(getUsersQuery),
       path: "/admin",
+      pendingComponent: AdminDashboardPending,
     })
     const router = createRouter({
-      defaultPendingComponent: DefaultPending,
       defaultPendingMinMs: 0,
       defaultPendingMs: 0,
       history: createMemoryHistory({ initialEntries: ["/admin"] }),

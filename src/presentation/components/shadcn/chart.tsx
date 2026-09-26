@@ -366,7 +366,6 @@ const ChartLegendContent = ({
   nameKey?: string | undefined
   payload?: RechartsPrimitive.DefaultLegendContentProps["payload"]
   position?: string | undefined
-  /** Still injected by Recharts when `Legend` uses the legacy prop. */
   verticalAlign?: "bottom" | "middle" | "top" | undefined
 }) => {
   const { config } = useChart()

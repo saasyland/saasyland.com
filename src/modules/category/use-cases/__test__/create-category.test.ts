@@ -33,7 +33,8 @@ const dbMocks = vi.hoisted(() => {
     visibility: "public" as const,
   }
 
-  const returning = vi.fn<() => Promise<(typeof dbRow)[]>>().mockResolvedValue([dbRow])
+  const get = vi.fn<() => Promise<typeof dbRow>>().mockResolvedValue(dbRow)
+  const returning = vi.fn<() => { get: typeof get }>().mockReturnValue({ get })
   const values = vi.fn<() => { returning: typeof returning }>().mockReturnValue({ returning })
   const insertMock = vi.fn<() => { values: typeof values }>().mockReturnValue({ values })
 
@@ -46,8 +47,7 @@ vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerMo
   getRequest: vi.fn(() => new Request("http://127.0.0.1:3000/", { headers: HEADERS })),
 }))
 
-// @ts-expect-error Vitest module mock factory is not inferred for the Drizzle db client export.
-vi.mock(import("~/src/integrations/drizzle-orm/drizzle.database"), () => ({
+vi.mock("~/src/integrations/drizzle-orm/drizzle.database", () => ({
   db: { insert: dbMocks.insertMock },
 }))
 

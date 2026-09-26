@@ -3,92 +3,80 @@ import type { JSX } from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
+import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 
-import { Tabs, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
+import { ADMIN_SETTINGS_TABS } from "~/src/data/admin"
 
-import { SettingsGeneralTab } from "~/src/presentation/components/custom/admin/settings/components/settings-general-tab"
-import { SettingsSecurityTab } from "~/src/presentation/components/custom/admin/settings/components/settings-security-tab"
+import { pageHead } from "~/src/lib/seo"
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
+
+import { AdminSettingsPending } from "~/src/presentation/components/custom/admin/administration-pending"
+import { DangerZoneCard } from "~/src/presentation/components/custom/admin/settings/danger-zone-card"
+import { SettingsPasswordForm } from "~/src/presentation/components/custom/admin/settings/password-form"
+import { PreferencesCard } from "~/src/presentation/components/custom/admin/settings/preferences-card"
+import { ProfileCard } from "~/src/presentation/components/custom/admin/settings/profile-card"
+import { SettingsSessions } from "~/src/presentation/components/custom/admin/settings/sessions"
+import { SettingsTwoFactor } from "~/src/presentation/components/custom/admin/settings/two-factor"
+
+import { ROUTES } from "~/src/routes"
 
 const SettingsPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.settings")
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
-        </div>
+      <div>
+        <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
 
       <Tabs defaultSelectedKey="general" className="w-full">
         <div className="border-b border-border">
           <TabsList variant="line" className="no-scrollbar w-full justify-start gap-6 overflow-x-auto">
-            <TabsTrigger id="general" className="flex-none px-0 text-sm">
-              {t("tabs.general")}
-            </TabsTrigger>
-            <TabsTrigger id="security" className="flex-none px-0 text-sm">
-              {t("tabs.security")}
-            </TabsTrigger>
-            <TabsTrigger id="team" className="flex-none px-0 text-sm">
-              {t("tabs.team")}
-            </TabsTrigger>
-            <TabsTrigger id="billing" className="flex-none px-0 text-sm">
-              {t("tabs.billing")}
-            </TabsTrigger>
-            <TabsTrigger id="integrations" className="flex-none px-0 text-sm">
-              {t("tabs.integrations")}
-            </TabsTrigger>
-            <TabsTrigger id="api" className="flex-none px-0 text-sm">
-              {t("tabs.api")}
-            </TabsTrigger>
+            {ADMIN_SETTINGS_TABS.map((tab) => (
+              <TabsTrigger className="flex-none px-0 text-sm" id={tab} key={tab}>
+                {t(`tabs.${tab}`)}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </div>
 
-        <SettingsGeneralTab />
-        <SettingsSecurityTab />
+        <TabsContent id="general" className="mt-8 space-y-6 outline-none">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <ProfileCard />
+            <PreferencesCard />
+          </div>
+          <DangerZoneCard />
+        </TabsContent>
+
+        <TabsContent id="security" className="mt-8 space-y-6 outline-none">
+          <SettingsPasswordForm />
+          <SettingsTwoFactor />
+          <SettingsSessions />
+        </TabsContent>
       </Tabs>
     </div>
   )
 }
 
+const NAMESPACE = "pages.admin.settings"
+
 export const Route = createFileRoute("/admin/settings")({
   component: SettingsPage,
-  head: routeHead,
+  head: pageHead(ROUTES.ADMIN_SETTINGS),
   loader: async ({ context }) => {
+    const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
-      loadRouteMessages({
-        metadataNamespace: "pages.admin.settings",
-        namespaces: [
-          "auth.errors",
-          "auth.validations",
-          "locales",
-          "pages.admin",
-          "pages.admin.settings",
-          "pages.admin.sidebar",
-          "timezones",
-          "user.validations",
-        ],
-        pathname: "/admin/settings",
-        queryClient: context.queryClient,
-      }),
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query({ ...getActiveSessionsQuery, staleTime: "static" }),
     ])
-    return metadata
+    return { locale, metadata }
   },
-  staticData: {
-    namespaces: [
-      "auth.errors",
-      "auth.validations",
-      "locales",
-      "pages.admin",
-      "pages.admin.settings",
-      "pages.admin.sidebar",
-      "timezones",
-      "user.validations",
-    ],
-  },
+  pendingComponent: AdminSettingsPending,
+  staticData: { namespaces: [NAMESPACE] },
 })

@@ -5,9 +5,9 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { DUMMY_POSTS } from "~/src/data/admin-blog"
 import { CLI_CHOICES } from "~/src/data/cli"
-import { LEGAL_LINKS, PRODUCT_LINKS } from "~/src/data/marketing-footer"
-import { NAV_SECTIONS } from "~/src/data/marketing-navigation"
-import { TIERS } from "~/src/data/marketing-pricing"
+import { TIERS } from "~/src/data/marketing"
+
+import pagesAdminBlogMessages from "~/messages/en-US/pages.admin.blog.json"
 
 it("keeps scaffold choices and option identifiers unambiguous", () => {
   expect(new Set(CLI_CHOICES.map((choice) => choice.id)).size).toBe(CLI_CHOICES.length)
@@ -18,24 +18,18 @@ it("keeps scaffold choices and option identifiers unambiguous", () => {
     }
   }
 })
-it("provides translated navigation and pricing content in every supported locale", () => {
+it("provides translated pricing tiers in every supported locale", () => {
   for (const locale of I18N.SUPPORTED_LOCALES) {
     const messages = getTestMessages(locale)
-    for (const section of NAV_SECTIONS) {
-      expect(messages.components.navigation.items[section].length).toBeGreaterThan(0)
-    }
     for (const tier of TIERS) {
-      expect(messages.pages.landing.pricing.tiers[tier].name.length).toBeGreaterThan(0)
+      expect(messages).toHaveProperty(["pages", "landing", "pricing", "tiers", tier, "name"], expect.stringMatching(/\S/u))
     }
-  }
-  for (const link of [...LEGAL_LINKS, ...PRODUCT_LINKS]) {
-    expect(link.href).toMatch(/^\/(?!\/)/u)
   }
 })
 it("keeps demo blog records uniquely addressable", () => {
   expect(new Set(DUMMY_POSTS.map((post) => post.id)).size).toBe(DUMMY_POSTS.length)
   for (const post of DUMMY_POSTS) {
-    expect(getTestMessages("en-US").pages.admin.blog.demo.posts[post.id].title.length).toBeGreaterThan(0)
+    expect(pagesAdminBlogMessages.demo.posts[post.id].title.length).toBeGreaterThan(0)
     expect(["published", "draft", "scheduled"]).toContain(post.status)
   }
 })

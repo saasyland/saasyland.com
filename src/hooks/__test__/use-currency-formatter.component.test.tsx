@@ -1,5 +1,4 @@
 import { type ReactNode } from "react"
-/** @vitest-environment jsdom */
 
 import { renderHook } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"

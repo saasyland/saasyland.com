@@ -12,7 +12,7 @@ const authContext = await createAuthTestInstance()
 const SINGLE_SESSION_COUNT = 1
 const MULTIPLE_SESSIONS_THRESHOLD = 1
 
-describe("auth multi-session", () => {
+describe("auth sessions", () => {
   it("lists active sessions for a signed-in user", async () => {
     expect.hasAssertions()
     const user = createTestUserPayload()

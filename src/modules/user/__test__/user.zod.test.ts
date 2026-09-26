@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { USER_VALIDATION_MESSAGE } from "~/src/modules/user/user.validations"
 import { userZodSchemas } from "~/src/modules/user/user.zod"
 
 const USER_ID = "00000000-0000-7000-8000-000000000001"
@@ -34,9 +33,7 @@ describe("user zod schemas", () => {
   it("rejects update payloads with no mutable fields", () => {
     expect.hasAssertions()
     expect(
-      userZodSchemas.updateUser
-        .safeParse({ userId: USER_ID })
-        .error?.issues.some((issue) => issue.message === USER_VALIDATION_MESSAGE.atLeastOneFieldRequired),
+      userZodSchemas.updateUser.safeParse({ userId: USER_ID }).error?.issues.some((issue) => issue.message === "atLeastOneFieldRequired"),
     ).toBe(true)
   })
 

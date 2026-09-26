@@ -4,10 +4,8 @@ import zod from "zod/v4"
 import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.access"
 import { emailSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
 
-import { TIMEZONE_CODES } from "~/src/modules/_core/constants/timezone"
 import { idField } from "~/src/modules/_core/utils/zod-fields"
-import { user } from "~/src/modules/user/user.schema"
-import { USER_VALIDATION_MESSAGE } from "~/src/modules/user/user.validations"
+import { TIMEZONE_CODES, user } from "~/src/modules/user/user.schema"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
 
@@ -61,7 +59,7 @@ const updateUser = zod
     userId: idField,
   })
   .refine(({ userId: _userId, ...fields }) => Object.values(fields).some((val) => val !== undefined), {
-    message: USER_VALIDATION_MESSAGE.atLeastOneFieldRequired,
+    message: "atLeastOneFieldRequired",
   })
 
 const insert = createInsertSchema(user)

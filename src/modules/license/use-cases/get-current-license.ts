@@ -7,13 +7,9 @@ import { polar } from "~/src/integrations/polar/polar.config"
 import { LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 
-// TanStack Query requires a defined result; null represents an absent license.
-// oxlint-disable-next-line unicorn/no-null
-const NO_LICENSE = null
-
 export const getCurrentLicense = createServerFn({ method: "GET" })
   .middleware([authorized()])
-  .handler(async ({ context }) => (await getLicense(context.auth.user.id)) ?? NO_LICENSE)
+  .handler(async ({ context }) => ({ license: await getLicense(context.auth.user.id) }))
 
 export const currentLicenseQuery = queryOptions({ queryFn: () => getCurrentLicense(), queryKey: LICENSE_QUERY_KEYS.CURRENT })
 

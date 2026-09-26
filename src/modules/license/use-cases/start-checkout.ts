@@ -4,7 +4,7 @@ import type * as zod from "zod"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { auth } from "~/src/integrations/better-auth/auth.server"
-import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.config"
+import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { LICENSE_MUTATION_KEYS } from "~/src/modules/license/license.constants"
 import { pppDiscountId } from "~/src/modules/license/license.ppp"

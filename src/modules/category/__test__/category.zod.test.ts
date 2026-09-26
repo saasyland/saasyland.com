@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { CATEGORY_VALIDATION_MESSAGE } from "~/src/modules/category/category.validations"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
 describe("category zod schemas", () => {
@@ -26,16 +25,14 @@ describe("category zod schemas", () => {
         .safeParse({
           categoryId: "01900000-0000-7000-8000-000000000002",
         })
-        .error?.issues.some((issue) => issue.message === CATEGORY_VALIDATION_MESSAGE.atLeastOneFieldRequired),
+        .error?.issues.some((issue) => issue.message === "atLeastOneFieldRequired"),
     ).toBe(true)
   })
 
   it("preserves field constraints when updating only part of a category", () => {
     const categoryId = "01900000-0000-7000-8000-000000000002"
     expect(categoryZodSchemas.updateCategory.safeParse({ categoryId, name: "Renamed" }).success).toBe(true)
-    expect(categoryZodSchemas.updateCategory.safeParse({ categoryId, name: "" }).error?.issues[0]?.message).toBe(
-      CATEGORY_VALIDATION_MESSAGE.nameRequired,
-    )
+    expect(categoryZodSchemas.updateCategory.safeParse({ categoryId, name: "" }).error?.issues[0]?.message).toBe("nameRequired")
     expect(categoryZodSchemas.updateCategory.safeParse({ categoryId, kind: "unknown" }).success).toBe(false)
     expect(categoryZodSchemas.updateCategory.safeParse({ categoryId, description: "" }).success).toBe(true)
     expect(categoryZodSchemas.updateCategory.safeParse({ categoryId, description: undefined }).success).toBe(false)

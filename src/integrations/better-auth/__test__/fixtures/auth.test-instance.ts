@@ -1,10 +1,12 @@
-import { adminClient, multiSessionClient, twoFactorClient } from "better-auth/client/plugins"
-import { admin, multiSession, twoFactor } from "better-auth/plugins"
+import { adminClient, twoFactorClient } from "better-auth/client/plugins"
+import { admin, twoFactor } from "better-auth/plugins"
 import { getTestInstance } from "better-auth/test"
 
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 
 import { DEFAULT_ROLE_CODE, ROLES, ROLE_CODES, ac } from "~/src/integrations/better-auth/auth.access"
+
+import { authRateLimitStorage } from "~/src/lib/rate-limit"
 
 import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
@@ -243,7 +245,7 @@ export const createAuthTestInstance = (options?: CreateAuthTestInstanceOptions) 
 
   return getTestInstance(
     {
-      account: { accountLinking: { enabled: true, trustedProviders: ["github", "google"] } },
+      account: { accountLinking: { enabled: true } },
       appName: APP_NAME,
       baseURL: AUTH_TEST_BASE_URL,
       emailAndPassword: {
@@ -269,7 +271,6 @@ export const createAuthTestInstance = (options?: CreateAuthTestInstanceOptions) 
           defaultRole: DEFAULT_ROLE_CODE,
           roles: ROLES,
         }),
-        multiSession({ maximumSessions: MAX_CONCURRENT_SESSIONS }),
         twoFactor({ issuer: APP_NAME }),
       ],
       rateLimit: {
@@ -293,12 +294,12 @@ export const createAuthTestInstance = (options?: CreateAuthTestInstanceOptions) 
               },
             })
           : undefined,
+        customStorage: authRateLimitStorage,
         enabled: rateLimitEnabled,
         max: options?.rateLimitMax ?? DEFAULT_RATE_LIMIT_MAX,
         window: options?.rateLimitWindow ?? DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
       },
       secret: AUTH_TEST_SECRET,
-      session: { storeSessionInDatabase: true },
       socialProviders: {
         github: { clientId: "test-github-id", clientSecret: "test-github-secret" },
         google: { clientId: "test-google-id", clientSecret: "test-google-secret" },
@@ -316,12 +317,10 @@ export const createAuthTestInstance = (options?: CreateAuthTestInstanceOptions) 
     },
     {
       clientOptions: {
-        plugins: [adminClient({ ac, roles: ROLES }), multiSessionClient(), twoFactorClient()],
+        plugins: [adminClient({ ac, roles: ROLES }), twoFactorClient()],
       },
       disableTestUser: true,
       testWith: "sqlite",
     },
   ).then((instance) => ({ ...instance, emailCapture }))
 }
-
-const MAX_CONCURRENT_SESSIONS = 10

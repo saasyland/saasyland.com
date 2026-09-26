@@ -33,7 +33,7 @@ for (const preference of PREFERENCES) {
     const account = TEST_ACCOUNTS[0]
     const signedIn = await page.request.post("/api/auth/sign-in/email", {
       data: { email: account.email, password: TEST_PASSWORD },
-      headers: { "CF-Connecting-IP": `2001:db8::${crypto.randomUUID().slice(0, 4)}`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
     })
     expect(signedIn.ok()).toBe(true)
     for (const path of ["/app", "/admin"]) {

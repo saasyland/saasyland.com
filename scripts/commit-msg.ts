@@ -1,4 +1,8 @@
 import { readFileSync, writeFileSync } from "node:fs"
+import process from "node:process"
+
+const FAILURE_EXIT_CODE = 1
+const HOOK_ARGUMENTS_START = 2
 
 const COMMIT_EMOJIS: Readonly<Record<string, string>> = {
   build: "🛠️",
@@ -14,86 +18,65 @@ const COMMIT_EMOJIS: Readonly<Record<string, string>> = {
   test: "🚨",
 }
 
-const CONVENTIONAL_PATTERN = /^([a-z]+)(?:\([^)]*\))?!?:\s/
+const ALLOWED_TYPES = Object.keys(COMMIT_EMOJIS).join(", ")
+
+const CONVENTIONAL_PATTERN = /^(?<type>[a-z]+)(?:\([^)]*\))?!?:\s/u
 const EMOJI_PRESENTATION = /^\p{Emoji_Presentation}/u
-const GIT_GENERATED_SUBJECT = /^(?:Merge |Revert "|fixup! |squash! )/
+const GIT_GENERATED_SUBJECT = /^(?:Merge |Revert "|fixup! |squash! )/u
+const TRAILING_NEWLINE = /\n?$/u
 
 const SKIP_SOURCES = new Set(["squash", "merge", "template"])
 
-function getFirstNonCommentLine(raw: string): string | undefined {
-  for (const line of raw.split("\n")) {
-    const trimmed = line.trim()
-    if (trimmed.length === 0 || trimmed.startsWith("#")) {
-      continue
-    }
+const isSubjectLine = (line: string): boolean => line.trim().length > 0 && !line.trim().startsWith("#")
 
-    return trimmed
-  }
+const fail = (lines: readonly string[]): never => {
+  process.stderr.write(`\n❌  ${lines.join("\n   ")}\n\n`)
 
-  return undefined
+  return process.exit(FAILURE_EXIT_CODE)
 }
 
-function run(): void {
-  const msgFile = process.argv[2]
-  const source = process.argv[3]
+const resolveEmoji = (subject: string): string => {
+  const type = CONVENTIONAL_PATTERN.exec(subject)?.groups?.["type"]
 
-  if (msgFile === undefined) {
+  if (type === undefined) {
+    return fail([
+      "Commit message does not follow conventional format.",
+      "Expected: <type>(<scope>): <description>",
+      `Allowed types: ${ALLOWED_TYPES}`,
+    ])
+  }
+
+  return COMMIT_EMOJIS[type] ?? fail([`Unknown commit type: "${type}"`, `Allowed types: ${ALLOWED_TYPES}`])
+}
+
+const run = (): void => {
+  const [messageFile, source] = process.argv.slice(HOOK_ARGUMENTS_START)
+
+  if (messageFile === undefined || (source !== undefined && SKIP_SOURCES.has(source))) {
     return
   }
 
-  if (source !== undefined && SKIP_SOURCES.has(source)) {
+  const lines = readFileSync(messageFile, "utf8").split("\n")
+  const subjectIndex = lines.findIndex((line) => isSubjectLine(line))
+  const subjectLine = lines[subjectIndex]
+
+  if (subjectLine === undefined) {
     return
   }
 
-  const raw = readFileSync(msgFile, "utf-8")
-  const subject = getFirstNonCommentLine(raw)
+  const subject = subjectLine.trim()
 
-  if (subject === undefined || subject.length === 0 || EMOJI_PRESENTATION.test(subject)) {
+  if (EMOJI_PRESENTATION.test(subject) || GIT_GENERATED_SUBJECT.test(subject)) {
     return
   }
 
-  const match = CONVENTIONAL_PATTERN.exec(subject)
+  const emoji = resolveEmoji(subject)
 
-  if (match === null) {
-    if (GIT_GENERATED_SUBJECT.test(subject)) {
-      return
-    }
-
-    const allowed = Object.keys(COMMIT_EMOJIS).join(", ")
-    process.stderr.write("\n❌  Commit message does not follow conventional format.\n")
-    process.stderr.write("   Expected: <type>(<scope>): <description>\n")
-    process.stderr.write(`   Allowed types: ${allowed}\n\n`)
-    process.exit(1)
-  }
-
-  const type = match[1]
-  const emoji = type === undefined ? undefined : COMMIT_EMOJIS[type]
-
-  if (emoji === undefined) {
-    const allowed = Object.keys(COMMIT_EMOJIS).join(", ")
-    process.stderr.write(`\n❌  Unknown commit type: "${type ?? "unknown"}"\n`)
-    process.stderr.write(`   Allowed types: ${allowed}\n\n`)
-    process.exit(1)
-  }
-
-  const lines = raw.split("\n")
-  let updated = false
-
-  const nextLines = lines.map((line) => {
-    if (updated || line.trim().length === 0 || line.trim().startsWith("#")) {
-      return line
-    }
-
-    updated = true
-    return `${emoji} ${line.trimEnd()}`
-  })
-
-  writeFileSync(msgFile, `${nextLines.join("\n").replace(/\n?$/, "\n")}`)
+  writeFileSync(messageFile, lines.with(subjectIndex, `${emoji} ${subjectLine.trimEnd()}`).join("\n").replace(TRAILING_NEWLINE, "\n"))
 }
 
 try {
   run()
 } catch (error) {
-  process.stderr.write(`\n❌  Failed to process commit message: ${String(error)}\n\n`)
-  process.exit(1)
+  fail([`Failed to process commit message: ${String(error)}`])
 }

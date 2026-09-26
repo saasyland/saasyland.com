@@ -1,19 +1,22 @@
+import { createElement } from "react"
+
 import { createServerFn } from "@tanstack/react-start"
 import { and, eq, gt, sql } from "drizzle-orm"
+import { createTranslator } from "use-intl"
 import type * as zod from "zod"
 
 import { RATE_LIMITS, withRateLimit } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 
+import type notificationMessages from "~/messages/en-US/emails.newsletter-notification-email.json"
 import { CONTACT_EMAIL, NOTIFICATIONS_EMAIL } from "~/src/presentation/branding"
-import {
-  NewsletterNotificationEmail as newsletterNotificationEmail,
-  newsletterNotificationSubject,
-} from "~/src/presentation/emails/newsletter-notification.email-template"
+import { NEWSLETTER_NOTIFICATION_NAMESPACE, NewsletterNotificationEmail } from "~/src/presentation/emails/newsletter-notification-email"
 
 export const confirmNewsletterSubscription = createServerFn({ method: "POST" })
   .middleware([withRateLimit("confirm-newsletter-subscription", RATE_LIMITS.TOKEN)])
@@ -40,11 +43,16 @@ export const confirmNewsletterSubscription = createServerFn({ method: "POST" })
     }
 
     try {
+      const messages = await loadNamespace<typeof notificationMessages>({
+        locale: I18N.DEFAULT_LOCALE,
+        namespace: NEWSLETTER_NOTIFICATION_NAMESPACE,
+      })
+
       await sendEmail({
         from: NOTIFICATIONS_EMAIL,
         idempotencyKey: `newsletter-notification/${token}`,
-        react: newsletterNotificationEmail({ email: confirmed.email, locale: confirmed.locale }),
-        subject: newsletterNotificationSubject(),
+        react: createElement(NewsletterNotificationEmail, { email: confirmed.email, locale: confirmed.locale, messages }),
+        subject: createTranslator({ locale: I18N.DEFAULT_LOCALE, messages })("subject"),
         to: CONTACT_EMAIL,
       })
     } catch (error) {

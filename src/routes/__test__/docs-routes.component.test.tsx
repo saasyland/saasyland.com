@@ -7,27 +7,35 @@ import type { DocsLayout } from "fumadocs-ui/layouts/docs"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
+import { selectTriggerNamed } from "~/src/platform/testing/lib/select-trigger-name"
+
 import type * as docsIntegration from "~/src/integrations/fumadocs/fumadocs.docs"
-import { docsLoader, getDocsTree, loadDocsPage } from "~/src/integrations/fumadocs/fumadocs.docs"
+import { loadDocsPage } from "~/src/integrations/fumadocs/fumadocs.docs"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { Route as DocsRoute } from "~/src/routes/docs"
 import { Route as DocsPageRoute } from "~/src/routes/docs.$"
 import { Route as DocsIndexRoute } from "~/src/routes/docs.index"
 
+import { docsContent } from "~/src/presentation/components/custom/docs-content"
+
+import localeSwitcherMessages from "~/messages/en-US/components.custom.locale-switcher.json"
 import { APP_NAME } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
 
-vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
-vi.mock("~/src/integrations/fumadocs/fumadocs.docs", async (original) => {
-  const actual = await original<typeof docsIntegration>()
-  return {
-    ...actual,
-    docsLoader: { ...actual.docsLoader, useContent: vi.fn(() => <p>Documentation content</p>) },
-    getDocsTree: vi.fn(),
-    loadDocsPage: vi.fn(),
-  }
-})
+const { getPageTree, serializePageTree } = vi.hoisted(() => ({
+  getPageTree: vi.fn(() => ({ children: [], name: "Documentation" })),
+  serializePageTree: vi.fn<() => Promise<{ $fumadocs_loader: "page-tree"; data: { children: never[]; name: string } }>>(),
+}))
+
+vi.mock("~/src/integrations/fumadocs/fumadocs.source", () => ({ source: { getPageTree, serializePageTree } }))
+vi.mock("~/src/integrations/fumadocs/fumadocs.docs", async (original) => ({
+  ...(await original<typeof docsIntegration>()),
+  loadDocsPage: vi.fn(),
+}))
+vi.mock("~/src/presentation/components/custom/docs-content", () => ({
+  docsContent: { useContent: vi.fn(() => <p>Documentation content</p>) },
+}))
 vi.mock(import("fumadocs-ui/layouts/docs"), async (original) => ({
   ...(await original()),
   DocsLayout: ({ children, nav, sidebar, links, themeSwitch }: ComponentProps<typeof DocsLayout>) => (
@@ -44,10 +52,11 @@ vi.mock(import("fumadocs-ui/layouts/docs"), async (original) => ({
 }))
 
 beforeEach(() => {
-  vi.mocked(getDocsTree).mockResolvedValue({ tree: { $fumadocs_loader: "page-tree", data: { children: [], name: "Documentation" } } })
+  serializePageTree.mockResolvedValue({ $fumadocs_loader: "page-tree", data: { children: [], name: "Documentation" } })
   vi.mocked(loadDocsPage).mockImplementation((slug = "") =>
     Promise.resolve({
       description: "Documentation description",
+      locale: "en-US" as const,
       path: `${slug || "index"}.mdx`,
       pathname: slug ? `/docs/${slug}` : "/docs",
       title: slug || "Introduction",
@@ -100,23 +109,26 @@ it.each([
     "href",
     "https://github.com/saasyland/saasyland.com",
   )
-  expect(screen.getByRole("button", { name: /English/u })).toBeVisible()
+  expect(screen.getByRole("button", { name: selectTriggerNamed(localeSwitcherMessages.label) })).toHaveTextContent("English")
   expect(screen.getByTestId("builtin-theme-switch")).toHaveTextContent("false")
-  expect(docsLoader.useContent).toHaveBeenCalledWith(path, { path })
+  expect(docsContent.useContent).toHaveBeenCalledWith(path)
   if (slug === undefined) {
     expect(loadDocsPage).toHaveBeenCalledWith()
   } else {
     expect(loadDocsPage).toHaveBeenCalledWith(slug)
   }
   expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
-    metadata: { description: "Documentation description", locale: "en-US", pathname: href, title },
+    description: "Documentation description",
+    locale: "en-US",
+    pathname: href,
+    title,
   })
   expect(router.state.matches.some((match) => match.links?.some((link) => link?.rel === "stylesheet") === true)).toBe(true)
   queryClient.clear()
 })
 
 it("shows the docs-shaped skeleton while the documentation layout loads", async () => {
-  vi.mocked(getDocsTree).mockReturnValue(new Promise(() => {}))
+  serializePageTree.mockReturnValue(new Promise(() => {}))
   const queryClient = new QueryClient()
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
   Object.assign(DocsRoute.options, { getParentRoute: () => root, id: "/docs", path: "/docs" })
@@ -135,5 +147,6 @@ it("shows the docs-shaped skeleton while the documentation layout loads", async 
   await waitFor(() => {
     expect(container.querySelector('[aria-busy="true"]')).toBeInTheDocument()
   })
+  expect(getPageTree).toHaveBeenCalledWith("en-US")
   expect(screen.queryByText("Documentation content")).not.toBeInTheDocument()
 })

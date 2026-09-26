@@ -5,12 +5,11 @@ import { ZodError } from "zod"
 
 import { type Permission, hasPermission } from "~/src/integrations/better-auth/auth.access"
 import { authErrorKey } from "~/src/integrations/better-auth/auth.errors"
-import { TRUSTED_IP_HEADERS } from "~/src/integrations/better-auth/auth.server"
 import { getRequestSession } from "~/src/integrations/better-auth/auth.session"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 
-import { withinRateLimit } from "~/src/lib/rate-limit"
+import { clientAddress, withinRateLimit } from "~/src/lib/rate-limit"
 
 const RATE_LIMIT_WINDOW_SECONDS = 60
 
@@ -55,8 +54,7 @@ export const withRateLimit = (kind: string, { max, window }: { readonly max: num
   createMiddleware({ type: "function" })
     .middleware([withRequest])
     .server(async ({ context, next }) => {
-      const ip = context.requestHeaders.get(TRUSTED_IP_HEADERS[0]) ?? "unknown"
-      if (!(await withinRateLimit({ key: `${kind}:${ip}`, limit: max, windowSeconds: window }))) {
+      if (!(await withinRateLimit({ key: `${kind}:${clientAddress(context.requestHeaders)}`, limit: max, windowSeconds: window }))) {
         throw new AppError(ERROR_CODES.TOO_MANY_REQUESTS)
       }
       return next()

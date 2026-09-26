@@ -1,6 +1,6 @@
 import type { ComponentType } from "react"
 
-import { fireEvent, screen } from "@testing-library/react"
+import { fireEvent, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -16,7 +16,19 @@ import { Route as InvitationsRoute } from "~/src/routes/admin.users.invitations"
 import { Route as RolesRoute } from "~/src/routes/admin.users.roles"
 import { Route as SecurityRoute } from "~/src/routes/admin.users.security"
 
-import { adminMessages, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { ADMIN_INVITATION_ROWS } from "~/src/data/admin"
+
+import { renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+
+import pagesAdminAnalyticsMessages from "~/messages/en-US/pages.admin.analytics.json"
+import pagesAdminBlogCreateMessages from "~/messages/en-US/pages.admin.blog.create.json"
+import pagesAdminBlogMessages from "~/messages/en-US/pages.admin.blog.json"
+import pagesAdminCoursesCreateMessages from "~/messages/en-US/pages.admin.courses.create.json"
+import pagesAdminLandingPageMessages from "~/messages/en-US/pages.admin.landing-page.json"
+import pagesAdminPaymentsMessages from "~/messages/en-US/pages.admin.payments.json"
+import pagesAdminPricingModelsMessages from "~/messages/en-US/pages.admin.pricing-models.json"
+import pagesAdminProductsCreateMessages from "~/messages/en-US/pages.admin.products.create.json"
+import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 
 const renderPage = (Page: ComponentType | undefined) => {
   if (!Page) {
@@ -25,17 +37,19 @@ const renderPage = (Page: ComponentType | undefined) => {
   return renderAdmin(<Page />)
 }
 
+const firstBodyRow = () => within(screen.getAllByRole("row")[1]!)
+
 afterEach(() => vi.restoreAllMocks())
 
 describe("admin content and reporting pages", () => {
   it.each([
-    [AnalyticsRoute, adminMessages.pages.admin.analytics.title],
-    [BlogCreateRoute, adminMessages.pages.admin.blog.create.title],
-    [CourseCreateRoute, adminMessages.pages.admin.courses.create.title],
-    [LandingRoute, adminMessages.pages.admin["landing-page"].title],
-    [PaymentsRoute, adminMessages.pages.admin.payments.title],
-    [PricingRoute, adminMessages.pages.admin["pricing-models"].title],
-    [ProductCreateRoute, adminMessages.pages.admin.products.create.title],
+    [AnalyticsRoute, pagesAdminAnalyticsMessages.title],
+    [BlogCreateRoute, pagesAdminBlogCreateMessages.metadata.title],
+    [CourseCreateRoute, pagesAdminCoursesCreateMessages.metadata.title],
+    [LandingRoute, pagesAdminLandingPageMessages.metadata.title],
+    [PaymentsRoute, pagesAdminPaymentsMessages.title],
+    [PricingRoute, pagesAdminPricingModelsMessages.metadata.title],
+    [ProductCreateRoute, pagesAdminProductsCreateMessages.metadata.title],
   ] as const)("renders its translated title and controls: %s", (route, title) => {
     renderPage(route.options.component)
     expect(screen.getByRole("heading", { name: title })).toBeVisible()
@@ -45,31 +59,48 @@ describe("admin content and reporting pages", () => {
   it.each(["grid", "table"] as const)("presents blog posts in the requested %s view", (view) => {
     vi.spyOn(BlogRoute, "useSearch").mockReturnValue({ view })
     renderPage(BlogRoute.options.component)
-    expect(screen.getByRole("heading", { name: adminMessages.pages.admin.blog.title })).toBeVisible()
-    expect(screen.getByRole("link", { name: adminMessages.pages.admin.blog.actions.writePost })).toHaveAttribute(
-      "href",
-      "/admin/blog/create",
-    )
+    expect(screen.getByRole("heading", { name: pagesAdminBlogMessages.metadata.title })).toBeVisible()
+    expect(screen.getByRole("link", { name: pagesAdminBlogMessages.actions.writePost })).toHaveAttribute("href", "/admin/blog/create")
     if (view === "table") {
       expect(screen.getByRole("table")).toBeVisible()
     } else {
-      expect(screen.getByRole("button", { name: adminMessages.pages.admin.blog.actions.loadMore })).toBeVisible()
+      expect(screen.getByRole("button", { name: pagesAdminBlogMessages.actions.loadMore })).toBeVisible()
     }
+  })
+
+  it("sorts the blog post table by author name", async () => {
+    vi.spyOn(BlogRoute, "useSearch").mockReturnValue({ view: "table" })
+    renderPage(BlogRoute.options.component)
+    const author = screen.getByRole("columnheader", { name: pagesAdminBlogMessages.table.author })
+
+    expect(firstBodyRow().getByText("Marta Kowalczyk")).toBeVisible()
+    expect(firstBodyRow().getByText("MK")).toBeInTheDocument()
+
+    await userEvent.click(within(author).getByRole("button"))
+    expect(author).toHaveAttribute("aria-sort", "ascending")
+    expect(firstBodyRow().getByText("Dele Okonkwo")).toBeVisible()
+
+    await userEvent.click(within(author).getByRole("button"))
+    expect(author).toHaveAttribute("aria-sort", "descending")
+    expect(firstBodyRow().getByText("Rafael Santos")).toBeVisible()
+    expect(firstBodyRow().getByText("RS")).toBeInTheDocument()
   })
 
   it("shows the refund details when the refunds tab is selected", async () => {
     renderPage(PaymentsRoute.options.component)
-    await userEvent.click(screen.getByRole("tab", { name: adminMessages.pages.admin.payments.tabs.refunds }))
+    await userEvent.click(screen.getByRole("tab", { name: pagesAdminPaymentsMessages.tabs.refunds }))
     expect(screen.getByRole("table")).toBeVisible()
     expect(screen.getAllByRole("row").length).toBeGreaterThan(1)
   })
 
   it("shows invitation recipients and accepts a search term", () => {
     renderPage(InvitationsRoute.options.component)
-    const search = screen.getByRole("textbox", { name: adminMessages.pages.admin.users.invitations.search.placeholder })
-    fireEvent.change(search, { target: { value: "ada@example.com" } })
-    expect(search).toHaveValue("ada@example.com")
-    expect(screen.getAllByRole("row").length).toBeGreaterThan(1)
+    expect(screen.getAllByRole("row")).toHaveLength(ADMIN_INVITATION_ROWS.length + 1)
+    const search = screen.getByRole("textbox", { name: pagesAdminUsersMessages.invitations.search.placeholder })
+    fireEvent.change(search, { target: { value: "alex.chen" } })
+    expect(search).toHaveValue("alex.chen")
+    expect(screen.getAllByRole("row")).toHaveLength(2)
+    expect(screen.getByText("alex.chen@example.com")).toBeVisible()
   })
 
   it("lists roles and their permissions", () => {

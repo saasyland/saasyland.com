@@ -2,16 +2,15 @@ import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
-import { category, categoryIconEnum, categoryKindEnum, categoryVisibilityEnum } from "~/src/modules/category/category.schema"
-import { CATEGORY_VALIDATION_MESSAGE } from "~/src/modules/category/category.validations"
+import { CATEGORY_ICONS, CATEGORY_KINDS, CATEGORY_VISIBILITIES, category } from "~/src/modules/category/category.schema"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
 
-const CATEGORY_NAME_MAX_LENGTH = 255
+export const CATEGORY_NAME_MAX_LENGTH = 255
 
-const categoryIconSchema = zod.enum(categoryIconEnum.enumValues)
-const categoryKindSchema = zod.enum(categoryKindEnum.enumValues)
-const categoryVisibilitySchema = zod.enum(categoryVisibilityEnum.enumValues)
+const categoryIconSchema = zod.enum(CATEGORY_ICONS)
+const categoryKindSchema = zod.enum(CATEGORY_KINDS)
+const categoryVisibilitySchema = zod.enum(CATEGORY_VISIBILITIES)
 
 const categoryIdInput = zod.object({
   categoryId: idField,
@@ -21,10 +20,7 @@ const createCategory = zod.object({
   description: zod.string().optional(),
   icon: categoryIconSchema.optional(),
   kind: categoryKindSchema,
-  name: zod
-    .string()
-    .min(MIN_FIELD_LENGTH, { message: CATEGORY_VALIDATION_MESSAGE.nameRequired })
-    .max(CATEGORY_NAME_MAX_LENGTH, { message: CATEGORY_VALIDATION_MESSAGE.nameMaxLength }),
+  name: zod.string().min(MIN_FIELD_LENGTH, { message: "nameRequired" }).max(CATEGORY_NAME_MAX_LENGTH, { message: "nameMaxLength" }),
   visibility: categoryVisibilitySchema.optional(),
 })
 
@@ -38,7 +34,7 @@ const updateCategory = createCategory
     categoryId: idField,
   })
   .refine(({ categoryId: _categoryId, ...fields }) => Object.values(fields).some((value) => value !== undefined), {
-    message: CATEGORY_VALIDATION_MESSAGE.atLeastOneFieldRequired,
+    message: "atLeastOneFieldRequired",
   })
 
 const insert = createInsertSchema(category)

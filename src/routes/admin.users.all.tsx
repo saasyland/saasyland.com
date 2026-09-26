@@ -1,49 +1,55 @@
 import type { JSX } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
+import { UserPlus } from "lucide-react"
+import { useTranslations } from "use-intl/react"
 
-import { loadRouteMessages, routeHead } from "~/src/integrations/use-intl/i18n.metadata"
+import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { getUsersPageQuery, getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
-import { AddUserButton } from "~/src/presentation/components/custom/admin/users/all/components/actions"
-import { useAllUsersColumns } from "~/src/presentation/components/custom/admin/users/all/components/columns"
-import { DataTable } from "~/src/presentation/components/custom/data-table/data-table"
+import { pageHead } from "~/src/lib/seo"
 
-const AllUsersPage = (): JSX.Element => {
-  const columns = useAllUsersColumns()
+import { Button } from "~/src/presentation/components/shadcn/button"
+
+import { AdminUsersAllPending } from "~/src/presentation/components/custom/admin/administration-pending"
+import { userColumns } from "~/src/presentation/components/custom/admin/users/user-columns"
+import { DataTable } from "~/src/presentation/components/custom/data-table"
+
+import { ROUTES } from "~/src/routes"
+
+const UsersAllPage = (): JSX.Element => {
+  const t = useTranslations("pages.admin.users")
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-4">
       <div className="flex justify-end">
-        <AddUserButton />
+        <Button size="sm" className="h-10 gap-2 whitespace-nowrap">
+          <UserPlus className="size-4" />
+          {t("actions.addUser")}
+        </Button>
       </div>
 
-      <DataTable
-        columns={columns}
-        query={getUsersPageQuery}
-        options={{ initialState: { columnPinning: { end: ["actions"], start: ["select"] } } }}
-      />
+      <DataTable columns={userColumns} options={{ query: getUsersPageQuery, selectable: true }} />
     </div>
   )
 }
 
+const NAMESPACE = "pages.admin.users"
+
 export const Route = createFileRoute("/admin/users/all")({
-  component: AllUsersPage,
-  head: routeHead,
+  component: UsersAllPage,
+  head: pageHead(ROUTES.ADMIN_USERS_ALL),
   loader: async ({ context }) => {
+    const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
-      loadRouteMessages({
-        metadataNamespace: "pages.admin.users",
-        namespaces: ["auth.errors", "auth.validations", "pages.admin", "pages.admin.sidebar", "pages.admin.users", "user.validations"],
-        pathname: "/admin/users/all",
-        queryClient: context.queryClient,
-      }),
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query({ ...getUsersQuery, staleTime: "static" }),
     ])
-    return metadata
+    return { locale, metadata }
   },
-  staticData: {
-    namespaces: ["auth.errors", "auth.validations", "pages.admin", "pages.admin.sidebar", "pages.admin.users", "user.validations"],
-  },
+  pendingComponent: AdminUsersAllPending,
+  staticData: { namespaces: [NAMESPACE] },
 })

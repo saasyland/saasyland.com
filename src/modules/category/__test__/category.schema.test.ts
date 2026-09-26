@@ -1,7 +1,7 @@
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { describe, expect, it } from "vite-plus/test"
 
-import { category, categoryIconEnum, categoryKindEnum, categoryVisibilityEnum } from "~/src/modules/category/category.schema"
+import { CATEGORY_ICONS, CATEGORY_KINDS, CATEGORY_VISIBILITIES, category } from "~/src/modules/category/category.schema"
 
 describe("category schema", () => {
   it("materializes through drizzle adapter", () => {
@@ -19,9 +19,9 @@ describe("category schema", () => {
 
   it("defines enums and updatedAt onUpdate", () => {
     expect.hasAssertions()
-    expect(categoryIconEnum.enumValues).toStrictEqual(["Archive", "FolderOpen", "Puzzle"])
-    expect(categoryKindEnum.enumValues).toStrictEqual(["category", "collection"])
-    expect(categoryVisibilityEnum.enumValues).toStrictEqual(["public", "hidden"])
+    expect(CATEGORY_ICONS).toStrictEqual(["Archive", "FolderOpen", "Puzzle"])
+    expect(CATEGORY_KINDS).toStrictEqual(["category", "collection"])
+    expect(CATEGORY_VISIBILITIES).toStrictEqual(["public", "hidden"])
     const onUpdate = category.updatedAt.onUpdateFn
     expect(onUpdate).toBeDefined()
     expect(onUpdate?.()).toBeInstanceOf(Date)

@@ -3,11 +3,10 @@ import zod from "zod/v4"
 
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
 import { session } from "~/src/modules/session/session.schema"
-import { SESSION_VALIDATION_MESSAGE } from "~/src/modules/session/session.validations"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
 
-const tokenField = zod.string().min(MIN_FIELD_LENGTH, { message: SESSION_VALIDATION_MESSAGE.tokenRequired })
+const tokenField = zod.string().min(MIN_FIELD_LENGTH, { message: "tokenRequired" })
 
 const userIdInput = zod.object({
   userId: idField,
@@ -16,7 +15,7 @@ const userIdInput = zod.object({
 const listUserSessions = userIdInput
 
 const revokeSession = zod.object({
-  token: tokenField,
+  sessionId: idField,
 })
 
 const revokeUserSession = zod.object({

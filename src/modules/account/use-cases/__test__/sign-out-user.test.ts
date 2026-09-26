@@ -8,7 +8,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
-import { settingsSignOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
+import { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
 
 const HEADERS = new Headers()
 const USER_ID = "01900000-0000-7000-8000-000000000001"
@@ -34,6 +34,6 @@ describe("sign-out-user", () => {
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
     signOutMock.mockResolvedValue({ redirect: undefined, success: true, url: undefined })
 
-    await expect(executeMutation(settingsSignOutUserMutation, undefined)).resolves.toMatchObject({ success: true })
+    await expect(executeMutation(signOutUserMutation, undefined)).resolves.toMatchObject({ success: true })
   })
 })

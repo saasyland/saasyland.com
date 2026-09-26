@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { executeMutation } from "~/src/platform/testing/lib/query"
 
+import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
@@ -26,8 +27,8 @@ describe("signUpWithPassword use case", () => {
   it("calls auth.api.signUpEmail with the valid input", async () => {
     expect.hasAssertions()
     signUpEmailMock.mockReset()
-    // @ts-expect-error Mocking Better Auth API signUpEmail function
-    signUpEmailMock.mockResolvedValue({ token: "test-token", user: { email: "newuser@example.com", id: "u-1" } })
+    const { user } = createAuthSessionFixture({ userId: "u-1" })
+    signUpEmailMock.mockResolvedValue({ token: "test-token", user: { ...user, email: "newuser@example.com" } })
     vi.spyOn(authServer.auth.api, "signUpEmail").mockImplementation(signUpEmailMock)
 
     const payload = {

@@ -1,13 +1,15 @@
-import type { JSX, ReactNode } from "react"
+import { type JSX, type ReactNode, useState } from "react"
 
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import { PACKAGE_MANAGERS, SCAFFOLD_TARGET } from "~/src/data/cli"
+import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+
+import { CopyButton } from "~/src/presentation/components/custom/copy-button"
 import { Accent } from "~/src/presentation/components/custom/landing-page/components/accent"
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
-import { InstallCommand } from "~/src/presentation/components/custom/landing-page/components/install-command"
-
-import { ROUTES } from "~/src/routes"
+import { RunnerTabs } from "~/src/presentation/components/custom/landing-page/components/runner-tabs"
 
 const HERO_TAGS = {
   accent: (chunks: ReactNode) => <Accent id="hero">{chunks}</Accent>,
@@ -16,6 +18,28 @@ const HERO_TAGS = {
 
 const HERO_IMAGE_SIZES =
   "(min-width: 80rem) calc(80rem - 5rem - 2px), (min-width: 48rem) calc(100vw - 5rem - 2px), (min-width: 40rem) calc((100vw - 3rem - 2px) * 1.35), calc((100vw - 3rem - 2px) * 1.9)"
+
+const InstallCommand = (): JSX.Element => {
+  const t = useTranslations("pages.landing.hero")
+  const [runner, setRunner] = useState<(typeof PACKAGE_MANAGERS)[number]>(PACKAGE_MANAGERS[0])
+
+  const command = `${runner.exec} ${SCAFFOLD_TARGET}`
+
+  return (
+    <div>
+      <RunnerTabs className="bg-background/40 px-2 py-1.5" onSelect={setRunner} taken={runner.id} />
+      <div className="flex items-center justify-between gap-4 border-b border-border bg-background/40 py-2 pr-2 pl-4">
+        <code className="truncate font-mono text-spec text-muted-foreground">
+          <span aria-hidden className="mr-2 text-muted-foreground/50 select-none">
+            $
+          </span>
+          {command}
+        </code>
+        <CopyButton copiedLabel={t("surface.copied")} copyLabel={t("surface.copy")} value={command} />
+      </div>
+    </div>
+  )
+}
 
 export const HeroSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.hero")
@@ -35,13 +59,13 @@ export const HeroSection = (): JSX.Element => {
         <div className="mt-9 flex flex-wrap items-center gap-x-3 gap-y-4 sm:[--rise-delay:200ms] sm:motion-safe:animate-rise">
           <a
             className="inline-flex h-11 items-center rounded-lg bg-primary px-5 text-body-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-exp hover:bg-primary/88 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px"
-            href={ROUTES.HOME_PRICING_SECTION}
+            href={`#${MARKETING_SECTION_IDS.PRICING}`}
           >
             {t("ctaPrimary")}
           </a>
           <a
             className="group inline-flex h-11 items-center gap-1.5 rounded-lg border border-border bg-card/60 px-5 text-body-sm font-medium text-foreground transition-[background-color,border-color,transform] duration-200 ease-exp hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px"
-            href={ROUTES.HOME_FOUNDATION_SECTION}
+            href={`#${MARKETING_SECTION_IDS.FOUNDATION}`}
           >
             {t("ctaSecondary")}
             <ArrowRight
@@ -53,7 +77,7 @@ export const HeroSection = (): JSX.Element => {
         </div>
 
         <div className="mt-16 overflow-hidden rounded-xl border border-border bg-card sm:[--rise-delay:300ms] sm:[--rise-distance:1rem] sm:[--rise-duration:1000ms] sm:motion-safe:animate-rise md:mt-20">
-          <InstallCommand copiedLabel={t("surface.copied")} copyLabel={t("surface.copy")} runnerLabel={t("surface.runner")} />
+          <InstallCommand />
           <ConceptLoop
             className="w-[190%] max-w-none border-t border-border sm:w-[135%] md:w-full"
             label={t("surface.imageAlt")}

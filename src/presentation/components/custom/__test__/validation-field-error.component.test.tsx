@@ -1,11 +1,12 @@
 import { render, screen } from "@testing-library/react"
-/** @vitest-environment jsdom */
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
+
+import errorsMessages from "~/messages/en-US/errors.json"
 
 const MIN_LENGTH_PARAMS = { passwordMinLength: { min: 8 } }
 
@@ -40,8 +41,16 @@ describe("validationFieldError", () => {
 
   it("passes interpolation params through for the key that declares them", () => {
     expect.hasAssertions()
-    renderWithMessages(<ValidationFieldError message="passwordMinLength" namespace="auth.validations" paramsByKey={MIN_LENGTH_PARAMS} />)
+    renderWithMessages(<ValidationFieldError message="passwordMinLength" namespace="auth.validations" params={MIN_LENGTH_PARAMS} />)
 
     expect(screen.getByText(/8/u)).toBeInTheDocument()
+  })
+
+  it("falls back to the generic validation message when the namespace has no translation for the error", () => {
+    expect.hasAssertions()
+    renderWithMessages(<ValidationFieldError id="email-error" message="notATranslatedCode" namespace="auth.validations" />)
+
+    expect(screen.getByText(errorsMessages.codes.VALIDATION)).toHaveAttribute("id", "email-error")
+    expect(screen.queryByText(/notATranslatedCode/u)).not.toBeInTheDocument()
   })
 })

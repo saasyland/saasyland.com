@@ -11,10 +11,11 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
-import { settingsChangeEmailMutation } from "~/src/modules/account/use-cases/change-email"
+import { changeEmailMutation } from "~/src/modules/account/use-cases/change-email"
 
 const HEADERS = new Headers()
 const USER_ID = "01900000-0000-7000-8000-000000000001"
+const CHANGE_EMAIL = { callbackURL: "/pl-PL/app", newEmail: "ada@example.com" }
 
 type AuthApi = typeof auth.api
 
@@ -28,7 +29,7 @@ vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerMo
 }))
 
 describe("change-email", () => {
-  it("changes the signed-in admin email", async () => {
+  it("changes the signed-in admin email and returns them to the page they started on", async () => {
     expect.hasAssertions()
     getSessionMock.mockReset()
     changeEmailMock.mockReset()
@@ -37,7 +38,8 @@ describe("change-email", () => {
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
     changeEmailMock.mockResolvedValue({ status: true })
 
-    await expect(executeMutation(settingsChangeEmailMutation, { newEmail: "ada@example.com" })).resolves.toMatchObject({ status: true })
+    await expect(executeMutation(changeEmailMutation, CHANGE_EMAIL)).resolves.toMatchObject({ status: true })
+    expect(changeEmailMock).toHaveBeenCalledWith({ body: CHANGE_EMAIL, headers: HEADERS })
   })
 
   it("returns a domain error when the caller is signed out", async () => {
@@ -46,6 +48,6 @@ describe("change-email", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(executeMutation(settingsChangeEmailMutation, { newEmail: "ada@example.com" })).rejects.toThrow("UNAUTHORIZED")
+    await expect(executeMutation(changeEmailMutation, CHANGE_EMAIL)).rejects.toThrow("UNAUTHORIZED")
   })
 })

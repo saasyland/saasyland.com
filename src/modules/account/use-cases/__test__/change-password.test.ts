@@ -12,7 +12,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
-import { settingsChangePasswordMutation } from "~/src/modules/account/use-cases/change-password"
+import { changePasswordMutation } from "~/src/modules/account/use-cases/change-password"
 
 const HEADERS = new Headers()
 const USER_ID = "01900000-0000-7000-8000-000000000001"
@@ -43,7 +43,7 @@ describe("change-password", () => {
     changePasswordMock.mockResolvedValue(changeResult)
 
     await expect(
-      executeMutation(settingsChangePasswordMutation, { currentPassword: "OldSecret1!", newPassword: "Secret1!" }),
+      executeMutation(changePasswordMutation, { currentPassword: "OldSecret1!", newPassword: "Secret1!" }),
     ).resolves.toMatchObject(changeResult)
   })
 
@@ -53,8 +53,8 @@ describe("change-password", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(
-      executeMutation(settingsChangePasswordMutation, { currentPassword: "OldSecret1!", newPassword: "Secret1!" }),
-    ).rejects.toThrow("UNAUTHORIZED")
+    await expect(executeMutation(changePasswordMutation, { currentPassword: "OldSecret1!", newPassword: "Secret1!" })).rejects.toThrow(
+      "UNAUTHORIZED",
+    )
   })
 })

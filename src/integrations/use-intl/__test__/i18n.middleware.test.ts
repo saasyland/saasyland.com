@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
-import { handleLocaleMiddleware } from "~/src/integrations/use-intl/i18n.middleware"
+import { resolveLocale } from "~/src/integrations/use-intl/i18n.middleware"
 
 const polishCookie = `${I18N.COOKIE_NAME}=pl-PL`
 
-describe("locale middleware request boundary", () => {
+describe("locale resolution request boundary", () => {
   it.each([
     ["/@id/virtual:tanstack-start-dev-client-entry", "script"],
     ["/src/presentation/styles/globals.css", "style"],
@@ -19,7 +19,7 @@ describe("locale middleware request boundary", () => {
       headers: { accept: "*/*", cookie: polishCookie, "sec-fetch-dest": destination },
     })
 
-    expect(handleLocaleMiddleware(request)).toEqual({})
+    expect(resolveLocale(request)).toEqual({})
   })
 
   it.each(["empty", "worker", "unknown", "Document", ""])(
@@ -29,7 +29,7 @@ describe("locale middleware request boundary", () => {
         headers: { accept: "text/html", cookie: polishCookie, "sec-fetch-dest": destination },
       })
 
-      expect(handleLocaleMiddleware(request)).toEqual({})
+      expect(resolveLocale(request)).toEqual({})
     },
   )
 
@@ -38,7 +38,7 @@ describe("locale middleware request boundary", () => {
       headers: { cookie: polishCookie, "sec-fetch-dest": destination },
     })
 
-    expect(handleLocaleMiddleware(request)).toEqual({ setCookie: { name: I18N.COOKIE_NAME, value: I18N.DEFAULT_LOCALE } })
+    expect(resolveLocale(request)).toEqual({ setCookie: { name: I18N.COOKIE_NAME, value: I18N.DEFAULT_LOCALE } })
   })
 
   it.each(["text/html", "application/xhtml+xml", "application/json, text/html; q=0.9", "TEXT/HTML; charset=utf-8"])(
@@ -46,7 +46,7 @@ describe("locale middleware request boundary", () => {
     (accept) => {
       const request = new Request("https://saasyland.com/pl-PL/docs", { headers: { accept } })
 
-      expect(handleLocaleMiddleware(request)).toEqual({ setCookie: { name: I18N.COOKIE_NAME, value: "pl-PL" } })
+      expect(resolveLocale(request)).toEqual({ setCookie: { name: I18N.COOKIE_NAME, value: "pl-PL" } })
     },
   )
 
@@ -57,37 +57,37 @@ describe("locale middleware request boundary", () => {
         headers: { accept, cookie: polishCookie },
       })
 
-      expect(handleLocaleMiddleware(request)).toEqual({})
+      expect(resolveLocale(request)).toEqual({})
     },
   )
 
   it.each(["GET", "HEAD"])("preserves headerless %s document requests and canonical redirects", (method) => {
-    const response = handleLocaleMiddleware(new Request("https://saasyland.com/pl/docs?query=one", { method }))
+    const response = resolveLocale(new Request("https://saasyland.com/pl/docs?query=one", { method }))
 
     expect(response.redirect?.status).toBe(308)
     expect(response.redirect?.headers.get("location")).toBe("https://saasyland.com/pl-PL/docs?query=one")
-    expect(handleLocaleMiddleware(new Request("https://saasyland.com/pl-PL/docs", { method }))).toEqual({
+    expect(resolveLocale(new Request("https://saasyland.com/pl-PL/docs", { method }))).toEqual({
       setCookie: { name: I18N.COOKIE_NAME, value: "pl-PL" },
     })
   })
 
-  it.each(["POST", "PUT", "DELETE"])("does not treat %s actions as locale navigations", (method) => {
+  it.each(["POST", "PUT", "DELETE"])("does not treat %s requests as locale navigations", (method) => {
     const request = new Request("https://saasyland.com/pl/docs", {
       headers: { accept: "text/html", cookie: polishCookie, "sec-fetch-dest": "document" },
       method,
     })
 
-    expect(handleLocaleMiddleware(request)).toEqual({})
+    expect(resolveLocale(request)).toEqual({})
   })
 
-  it.each(["/api/auth/get-session", "/rpc/messages", "/_serverFn/messages"])(
+  it.each(["/api/auth/get-session", "/_serverFn/messages"])(
     "keeps locale cookies unchanged for %s even with document headers",
     (pathname) => {
       const request = new Request(`https://saasyland.com${pathname}`, {
         headers: { accept: "text/html", cookie: polishCookie, "sec-fetch-dest": "document" },
       })
 
-      expect(handleLocaleMiddleware(request)).toEqual({})
+      expect(resolveLocale(request)).toEqual({})
     },
   )
 
@@ -96,6 +96,6 @@ describe("locale middleware request boundary", () => {
       headers: { accept: "text/html", cookie: polishCookie, "sec-fetch-dest": "document" },
     })
 
-    expect(handleLocaleMiddleware(request)).toEqual({})
+    expect(resolveLocale(request)).toEqual({})
   })
 })

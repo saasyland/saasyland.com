@@ -1,17 +1,15 @@
-import { useEffect } from "react"
+import { type JSX, useEffect } from "react"
 
 import { useQueryErrorResetBoundary } from "@tanstack/react-query"
 import { type ErrorComponentProps, useRouter } from "@tanstack/react-router"
-
-import { getGlobalErrorMessages } from "~/src/integrations/use-intl/i18n.errors"
-import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
+import { useTranslations } from "use-intl/react"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 
-export const DefaultError = ({ error }: ErrorComponentProps) => {
+export const DefaultError = ({ error }: ErrorComponentProps): JSX.Element => {
+  const t = useTranslations("errors.global")
   const router = useRouter()
   const queryErrorResetBoundary = useQueryErrorResetBoundary()
-  const messages = getGlobalErrorMessages(getCurrentLocale())
 
   useEffect(() => {
     console.error(error)
@@ -19,18 +17,18 @@ export const DefaultError = ({ error }: ErrorComponentProps) => {
   }, [error, queryErrorResetBoundary])
 
   return (
-    <main role="alert" className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-24 text-center">
+    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-24 text-center" role="alert">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-medium tracking-tight text-foreground">{messages.title}</h1>
-        <p className="max-w-prose text-sm text-muted-foreground">{messages.description}</p>
+        <h1 className="text-3xl font-medium tracking-tight text-foreground">{t("title")}</h1>
+        <p className="max-w-prose text-sm text-muted-foreground">{t("description")}</p>
       </div>
       <Button
-        variant="outline"
         onPress={() => {
           void router.invalidate()
         }}
+        variant="outline"
       >
-        {messages.retry}
+        {t("retry")}
       </Button>
     </main>
   )

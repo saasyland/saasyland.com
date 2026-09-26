@@ -1,11 +1,12 @@
 import type { JSX } from "react"
 
-import type { Key } from "@react-types/shared"
 import { useHydrated } from "@tanstack/react-router"
 import { useTheme } from "@wrksz/themes/client"
 import { useTranslations } from "use-intl/react"
 
-import { THEME } from "~/src/presentation/theme"
+import { isThemeSelection } from "~/src/providers/theme-provider"
+
+import { THEME, type ThemeSelection } from "~/src/presentation/theme"
 
 import {
   Select,
@@ -17,11 +18,6 @@ import {
   SelectValue,
 } from "~/src/presentation/components/shadcn/select"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
-
-type ThemeValue = (typeof THEME.THEMES)[number]
-
-export const isThemeValue = (value: Key | null): value is ThemeValue =>
-  typeof value === "string" && (THEME.THEMES as readonly string[]).includes(value)
 
 export const ThemeSwitch = (): JSX.Element => {
   const t = useTranslations("components.custom.theme-switch")
@@ -36,7 +32,7 @@ export const ThemeSwitch = (): JSX.Element => {
     dark: t("dark"),
     light: t("light"),
     system: t("system"),
-  } satisfies Record<ThemeValue, string>
+  } satisfies Record<ThemeSelection, string>
 
   const selectedLabel = theme === undefined ? undefined : themeLabels[theme]
 
@@ -47,7 +43,7 @@ export const ThemeSwitch = (): JSX.Element => {
       fieldLabelClassName="sr-only"
       placeholder={t("placeholder")}
       onChange={(value) => {
-        if (isThemeValue(value)) {
+        if (isThemeSelection(value)) {
           setTheme(value)
         }
       }}

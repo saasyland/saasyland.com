@@ -3,10 +3,12 @@ import { Link, Outlet, RouterProvider, createMemoryHistory, createRootRoute, cre
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { IntlProvider } from "use-intl/react"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
+import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+
 import { DefaultError } from "~/src/presentation/components/custom/default-error"
-import { DefaultPending } from "~/src/presentation/components/custom/default-pending"
 
 const renderFailure = (failure: "root" | "loader" | "render") => {
   const error = new Error("private database details")
@@ -39,16 +41,17 @@ const renderFailure = (failure: "root" | "loader" | "render") => {
   const other = createRoute({ component: () => <p>Other content</p>, getParentRoute: () => root, path: "/privacy" })
   const router = createRouter({
     defaultErrorComponent: DefaultError,
-    defaultPendingComponent: DefaultPending,
-    defaultPendingMinMs: 0,
-    defaultPendingMs: 0,
     history: createMemoryHistory({ initialEntries: ["/"] }),
     routeTree: root.addChildren([index, other]),
   })
   setupRouterSsrQueryIntegration({ queryClient, router })
   const log = vi.spyOn(console, "error").mockImplementation(() => {})
   vi.spyOn(console, "warn").mockImplementation(() => {})
-  render(<RouterProvider router={router} />)
+  render(
+    <IntlProvider locale="en-US" messages={getTestMessages("en-US")}>
+      <RouterProvider router={router} />
+    </IntlProvider>,
+  )
   return { error, load, log }
 }
 

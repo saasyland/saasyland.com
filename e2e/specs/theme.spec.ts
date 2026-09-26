@@ -1,3 +1,4 @@
+import { THEME } from "../../src/presentation/theme"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
@@ -15,12 +16,10 @@ for (const preference of PREFERENCES) {
     page,
   }) => {
     await page.emulateMedia({ colorScheme: preference.system })
-    await page.addInitScript((stored) => {
-      if (stored === null) {
-        localStorage.removeItem("SaaSy Land-theme")
-      } else {
-        localStorage.setItem("SaaSy Land-theme", stored)
-      }
+    if (preference.stored !== null) {
+      await page.context().addCookies([{ name: THEME.COOKIE_NAME, url: baseURL ?? "http://127.0.0.1:3000", value: preference.stored }])
+    }
+    await page.addInitScript(() => {
       const observer = new MutationObserver(() => {
         if (document.body) {
           document.body.dataset["themeBeforeBody"] = document.documentElement.style.colorScheme
@@ -28,7 +27,7 @@ for (const preference of PREFERENCES) {
         }
       })
       observer.observe(document, { childList: true, subtree: true })
-    }, preference.stored)
+    })
     await page.route("**/*", (route) => (route.request().resourceType() === "script" ? route.abort() : route.continue()))
     const account = TEST_ACCOUNTS[0]
     const signedIn = await page.request.post("/api/auth/sign-in/email", {
@@ -47,16 +46,14 @@ for (const preference of PREFERENCES) {
   })
 }
 
-test("documentation theme selector changes and persists the selected theme", async ({ appPage, page }) => {
-  await page.addInitScript(() => {
-    if (!localStorage.getItem("SaaSy Land-theme")) localStorage.setItem("SaaSy Land-theme", "dark")
-  })
+test("documentation theme selector changes and persists the selected theme", async ({ appPage, baseURL, page }) => {
+  await page.context().addCookies([{ name: THEME.COOKIE_NAME, url: baseURL ?? "http://127.0.0.1:3000", value: "dark" }])
   await page.goto("/docs/getting-started")
   await appPage.waitForAppReady()
   await page.getByRole("button", { name: /Dark/u }).click()
   await page.getByRole("option", { name: "Light", exact: true }).click()
   await expect(page.locator("html")).toHaveClass(/\blight\b/u)
-  expect(await page.evaluate(() => localStorage.getItem("SaaSy Land-theme"))).toBe("light")
+  await expect.poll(async () => (await page.context().cookies()).find(({ name }) => name === THEME.COOKIE_NAME)?.value).toBe("light")
   await page.reload()
   await appPage.waitForAppReady()
   await expect(page.getByRole("button", { name: /Light/u })).toBeVisible()

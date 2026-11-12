@@ -3,6 +3,8 @@ import type { JSX } from "react"
 import { Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
@@ -19,7 +21,7 @@ export const RecordSection = (): JSX.Element => {
       <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32">
         <Reveal variant="heading">
           <h2 className="max-w-[16ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
-          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("lead")}</p>
+          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("lead", REPOSITORY_FACTS)}</p>
         </Reveal>
 
         <Reveal className="mt-14 md:mt-20" delay={LEDGER_DELAY_MS}>
@@ -33,10 +35,10 @@ export const RecordSection = (): JSX.Element => {
               <HighlightItem contentClassName="grid gap-x-10 px-4 py-5 md:grid-cols-[1fr_1.5fr] md:items-baseline" id={id} key={id}>
                 <dt className="flex items-baseline gap-2.5 text-body-sm font-medium text-foreground">
                   <Check aria-hidden className="size-3.5 shrink-0 translate-y-0.5 text-ring" strokeWidth={2.25} />
-                  {t(`items.${id}.claim`)}
+                  {t(`items.${id}.claim`, REPOSITORY_FACTS)}
                 </dt>
                 <dd className="mt-1.5 ml-6 font-mono text-spec wrap-break-word text-muted-foreground md:mt-0 md:ml-0">
-                  {t(`items.${id}.evidence`)}
+                  {t(`items.${id}.evidence`, REPOSITORY_FACTS)}
                 </dd>
               </HighlightItem>
             ))}

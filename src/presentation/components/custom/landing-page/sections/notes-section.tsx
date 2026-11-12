@@ -4,6 +4,8 @@ import { Link, getRouteApi } from "@tanstack/react-router"
 import { ArrowRight } from "lucide-react"
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
@@ -25,7 +27,7 @@ export const NotesSection = (): JSX.Element => {
       <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32">
         <Reveal variant="heading">
           <h2 className="max-w-[18ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
-          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("description")}</p>
+          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("description", REPOSITORY_FACTS)}</p>
         </Reveal>
 
         <Reveal className="mt-14 md:mt-20" delay={GRID_DELAY_MS}>

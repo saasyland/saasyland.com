@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/src/presentation/components/shadcn/accordion"
 
@@ -52,7 +53,7 @@ export const FaqSection = (): JSX.Element => {
                   </span>
                 </AccordionTrigger>
                 <AccordionContent className="max-w-[68ch] pr-8 pb-6 text-body text-pretty text-muted-foreground">
-                  {t(`items.${id}.answer`)}
+                  {t(`items.${id}.answer`, REPOSITORY_FACTS)}
                 </AccordionContent>
               </AccordionItem>
             ))}

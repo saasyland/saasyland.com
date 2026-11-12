@@ -10,7 +10,7 @@ import { user } from "~/src/modules/user/user.schema"
 
 const USER_ID = "license-event-owner"
 const order = (id: string, createdAt: string, productId = env.POLAR_PRODUCT_ID_CORE) => ({
-  data: { createdAt: new Date(createdAt), customer: { externalId: USER_ID }, customerId: "cus_1", id, productId },
+  data: { created_at: createdAt, customer: { external_id: USER_ID }, customer_id: "cus_1", id, product_id: productId },
 })
 const original = order("original", "2026-09-23T10:00:00Z")
 const upgrade = order("upgrade", "2026-09-24T10:00:00Z", env.POLAR_PRODUCT_ID_COMPLETE)
@@ -25,7 +25,7 @@ describe("license event identity and ordering", () => {
     await licenseWebhookHandlers.onOrderPaid(original)
     await licenseWebhookHandlers.onOrderRefunded(order("unrelated", "2026-09-24T10:00:00Z", "unrelated-product"))
     await licenseWebhookHandlers.onBenefitGrantRevoked({
-      data: { customer: { externalId: USER_ID }, id: "unrelated", orderId: "unrelated", properties: {} },
+      data: { customer: { external_id: USER_ID }, id: "unrelated", order_id: "unrelated", properties: {} },
     })
 
     expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "original", status: "active" })

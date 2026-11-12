@@ -1,10 +1,10 @@
 import { type JSX, useMemo } from "react"
 
+import { DocsLayout } from "@fumadocs/base-ui/layouts/docs"
+import { RootProvider } from "@fumadocs/base-ui/provider/tanstack"
 import { Outlet, createFileRoute } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { useFumadocsLoader } from "fumadocs-core/source/client"
-import { DocsLayout } from "fumadocs-ui/layouts/docs"
-import { RootProvider } from "fumadocs-ui/provider/tanstack"
 
 import { ThemeProvider } from "~/src/providers/theme-provider"
 

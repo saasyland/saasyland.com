@@ -2,7 +2,7 @@ import "@tanstack/react-start/server-only"
 
 import { env } from "cloudflare:workers"
 
-import type { Discount } from "@polar-sh/sdk/models/components/discount.js"
+import type { models } from "@polar-sh/sdk/2026-10"
 
 import { polar } from "~/src/integrations/polar/polar.config"
 
@@ -18,9 +18,9 @@ const SECONDS_PER_MINUTE = 60
 const MILLISECONDS_PER_SECOND = 1000
 const DISCOUNT_CACHE_MS = DISCOUNT_CACHE_MINUTES * SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND
 
-type PercentageDiscount = Extract<Discount, { basisPoints: number }>
+type PercentageDiscount = Extract<models.Discount, { basis_points: number }>
 
-const isAutomaticPercentage = (discount: Discount): discount is PercentageDiscount =>
+const isAutomaticPercentage = (discount: models.Discount): discount is PercentageDiscount =>
   discount.type === "percentage" && discount.code === null
 
 const cache: { discounts?: Promise<readonly PercentageDiscount[]>; expiresAt: number } = { expiresAt: 0 }
@@ -29,10 +29,10 @@ const loadDiscounts = async (): Promise<readonly PercentageDiscount[]> => {
   const found: PercentageDiscount[] = []
 
   try {
-    const pages = await polar.discounts.list({ limit: DISCOUNT_PAGE_SIZE, organizationId: env.POLAR_ORGANIZATION_ID })
-
-    for await (const page of pages) {
-      found.push(...page.result.items.filter(isAutomaticPercentage))
+    for await (const discount of polar.discounts.iterList({ limit: DISCOUNT_PAGE_SIZE, organization_id: env.POLAR_ORGANIZATION_ID })) {
+      if (isAutomaticPercentage(discount)) {
+        found.push(discount)
+      }
     }
   } catch {
     cache.expiresAt = 0
@@ -59,10 +59,10 @@ export const pppDiscountId = async (headers: Headers, productId: string): Promis
 
   return discounts.findLast(
     (discount) =>
-      discount.basisPoints === percentOff * BASIS_POINTS_PER_PERCENT &&
-      (discount.startsAt === null || discount.startsAt.getTime() <= now) &&
-      (discount.endsAt === null || discount.endsAt.getTime() > now) &&
-      (discount.maxRedemptions === null || discount.redemptionsCount < discount.maxRedemptions) &&
+      discount.basis_points === percentOff * BASIS_POINTS_PER_PERCENT &&
+      (discount.starts_at === null || Date.parse(discount.starts_at) <= now) &&
+      (discount.ends_at === null || Date.parse(discount.ends_at) > now) &&
+      (discount.max_redemptions === null || discount.redemptions_count < discount.max_redemptions) &&
       (discount.products.length === 0 || discount.products.some((product) => product.id === productId)),
   )?.id
 }

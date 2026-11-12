@@ -52,7 +52,7 @@ describe("start-checkout", () => {
 
     expect(discount).toHaveBeenCalledExactlyOnceWith(HEADERS, POLAR_PRODUCT_IDS.agency)
     expect(checkoutMock).toHaveBeenCalledWith({
-      body: { allowDiscountCodes: false, discountId: "regional-discount-30", slug: "agency" },
+      body: { allow_discount_codes: false, discount_id: "regional-discount-30", slug: "agency" },
       headers: HEADERS,
     })
   })
@@ -63,7 +63,7 @@ describe("start-checkout", () => {
 
     await expect(executeMutation(startCheckoutMutation, { tier: "complete" })).resolves.toMatchObject({ url: CHECKOUT_URL })
 
-    expect(checkoutMock).toHaveBeenCalledWith({ body: { allowDiscountCodes: false, slug: "complete" }, headers: HEADERS })
+    expect(checkoutMock).toHaveBeenCalledWith({ body: { allow_discount_codes: false, slug: "complete" }, headers: HEADERS })
   })
 
   it("refuses a tier this app does not sell", () => {

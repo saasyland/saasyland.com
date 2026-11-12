@@ -38,7 +38,7 @@ interface PaginationLinkProps extends Omit<ComponentProps<typeof LinkButton>, "v
 
 const PaginationLink = ({ className, isActive, size = "icon", ...props }: PaginationLinkProps) => (
   <LinkButton
-    aria-current={isActive === true ? "page" : undefined}
+    {...(isActive === true && { "aria-current": "page" })}
     className={cn(className)}
     data-active={isActive}
     data-slot="pagination-link"

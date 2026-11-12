@@ -31,7 +31,7 @@ const deliveries: zod.infer<typeof EMAIL_SCHEMA>[] = []
 const request = (url: string, { cookie = OTHER_TAB_COOKIE, ...init }: RequestInit & { cookie?: string } = {}) =>
   new Request(url, {
     ...init,
-    headers: { "content-type": "application/json", cookie, host: HOST, [IP_ADDRESS_HEADER]: "203.0.113.10", origin: ORIGIN },
+    headers: { [IP_ADDRESS_HEADER]: "203.0.113.10", "content-type": "application/json", cookie, host: HOST, origin: ORIGIN },
   })
 
 const createUser = async ({ emailVerified }: { emailVerified: boolean }): Promise<string> => {

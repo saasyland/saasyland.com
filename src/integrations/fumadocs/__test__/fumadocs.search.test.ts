@@ -71,7 +71,7 @@ describe("docs search index", () => {
   ])("finds the $locale page by its content under its locale-scoped id", async ({ locale, title }) => {
     expect(await search.search("dependencies", { locale })).toMatchObject([
       { content: title, id: `${locale}:/docs/getting-started`, type: "page", url: "/docs/getting-started" },
-      { content: "Clone the starter and install <mark>dependencies</mark>.", type: "text", url: "/docs/getting-started#install" },
+      { content: "Clone the starter and install dependencies.", type: "text", url: "/docs/getting-started#install" },
     ])
   })
 })

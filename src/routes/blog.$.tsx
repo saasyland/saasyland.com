@@ -1,8 +1,8 @@
 import { type JSX, type ReactNode, isValidElement } from "react"
 
+import { InlineTOC } from "@fumadocs/base-ui/components/inline-toc"
 import { Link, createFileRoute, notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
-import { InlineTOC } from "fumadocs-ui/components/inline-toc"
 import { useTranslations } from "use-intl/react"
 import zod from "zod/v4"
 

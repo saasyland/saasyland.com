@@ -19,10 +19,7 @@ export const getProducts = createServerFn({ method: "GET" })
   .middleware([authorized({ product: ["read"] })])
   .validator((input: zod.input<typeof listProductsSchema>) => listProductsSchema.parse(input))
   .handler(async ({ data }) => {
-    const filter = and(
-      data.type === undefined ? undefined : eq(product.type, data.type),
-      data.status === undefined ? undefined : eq(product.status, data.status),
-    )
+    const filter = and(data.type && eq(product.type, data.type), data.status && eq(product.status, data.status))
     const [rows, totals] = await db.batch([
       db
         .select()

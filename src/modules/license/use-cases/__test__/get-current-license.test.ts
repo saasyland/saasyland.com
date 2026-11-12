@@ -47,9 +47,9 @@ it("does not call Polar before a license key is attached", async () => {
 it("fetches activations for the owned Polar license", async () => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(session)
   vi.spyOn(licenses, "getLicense").mockResolvedValue(ownedLicense)
-  const fetch = vi.spyOn(polar.licenseKeys, "get").mockResolvedValue({ ...POLAR_LICENSE_KEY, limitActivations: 3 })
+  const fetch = vi.spyOn(polar.licenseKeys, "get").mockResolvedValue({ ...POLAR_LICENSE_KEY, limit_activations: 3 })
   expect(await executeQuery(licenseActivationsQuery)).toEqual({ activations: [], limitActivations: 3 })
-  expect(fetch).toHaveBeenCalledWith({ id: "polar-license" })
+  expect(fetch).toHaveBeenCalledWith("polar-license")
 })
 it("rejects a signed-out caller before querying a license", async () => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(null)

@@ -1,5 +1,5 @@
+import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "@fumadocs/base-ui/layouts/docs/page"
 import browserCollections from "collections/browser"
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/layouts/docs/page"
 
 import { mdxComponents } from "~/src/presentation/components/custom/mdx"
 

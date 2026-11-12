@@ -50,6 +50,17 @@ bun run test:e2e:smoke
 
 Use `bun run test`, not `bun test`: Vitest owns the projects, environments and setup files. `bun run test:coverage` enforces 100% statements, branches, functions, and lines. Cover real behaviour with tests and delete branches that can never run instead of stubbing globals to reach them. Pending states hold the mocked request open with `Promise.withResolvers()`, assert the pending UI, then resolve inside `act` and assert the idle UI.
 
+## Server and client sides
+
+TanStack Start picks the side from the environment: a server function runs where `window` is absent and is a client stub where it exists. The Vitest projects follow the same line.
+
+| Under test                                         | Project               | How                                                                                                |
+| -------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------- |
+| Server functions, use cases, route loaders, `head` | `node`, `integration` | Call the use case, or load the path through `getRouter()` and assert `router.state.matches`        |
+| Pages and components                               | `component`           | Give the route its loader data, or mock the `queryFn` / `mutationFn` of the options the page reads |
+
+`lib/server-function.ts` stands in for the Start compiler. On the server side it runs the function inside a Start request context; in the `component` project a server function rejects with a message saying so, because jsdom is the browser and the browser never executes server code. `src/routes/__test__/marketing-loaders.test.ts` and `marketing-routes.component.test.tsx` show the two halves of one route side by side.
+
 ## Ownership
 
 Routes in `src/routes/` compose pages and preload queries. Widgets, dialogs, forms, and table columns live one per file in `src/presentation/components/custom/` (shared components at the top level, area and page folders such as `admin/users/` below it); their tests live in the nearest `__test__/` folder or in `src/routes/__test__/` when they exercise a whole route. Data shared by several files lives in `src/data/`; executable utilities live in `src/lib/`.

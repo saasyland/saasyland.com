@@ -26,7 +26,7 @@ export const deactivateLicense = createServerFn({ method: "POST" })
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
-    await polar.licenseKeys.deactivate({ activationId, key: row.key, organizationId: env.POLAR_ORGANIZATION_ID })
+    await polar.licenseKeys.deactivate({ activation_id: activationId, key: row.key, organization_id: env.POLAR_ORGANIZATION_ID })
 
     return { deactivated: true }
   })

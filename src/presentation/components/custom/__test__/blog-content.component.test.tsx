@@ -10,7 +10,12 @@ import { blogContent } from "~/src/presentation/components/custom/blog-content"
 vi.mock("collections/browser", async () => {
   const { createClientLoader } = await import("fumadocs-mdx/runtime/browser")
   const { createElement } = await import("react")
-  const document = { default: () => createElement("p", null, "Compiled MDX body"), frontmatter: { title: "Post" }, toc: [] }
+  const document = {
+    default: () => createElement("p", null, "Compiled MDX body"),
+    frontmatter: { title: "Post" },
+    structuredData: { contents: [], headings: [] },
+    toc: [],
+  }
   const entries = { "post.mdx": () => Promise.resolve(document) }
   return {
     default: {

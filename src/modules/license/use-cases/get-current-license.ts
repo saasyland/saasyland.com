@@ -20,7 +20,7 @@ export const getCurrentLicenseActivations = createServerFn({ method: "GET" })
     if (typeof license?.polarLicenseKeyId !== "string" || license.polarLicenseKeyId.length === 0) {
       return { activations: [], limitActivations: 0 }
     }
-    const { activations, limitActivations } = await polar.licenseKeys.get({ id: license.polarLicenseKeyId })
+    const { activations, limit_activations: limitActivations } = await polar.licenseKeys.get(license.polarLicenseKeyId)
     return { activations, limitActivations }
   })
 

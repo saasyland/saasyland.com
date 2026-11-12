@@ -20,8 +20,8 @@ export const attachLicenseKey = async ({ polarLicenseKeyId, polarOrderId, userId
     throw new Error("The license purchase has not been recorded yet")
   }
   if (current.polarOrderId !== polarOrderId) {
-    const order = await polar.orders.get({ id: polarOrderId })
-    if (order.createdAt > current.purchaseCreatedAt) {
+    const order = await polar.orders.get(polarOrderId)
+    if (new Date(order.created_at) > current.purchaseCreatedAt) {
       throw new Error("The license purchase has not been recorded yet")
     }
     return
@@ -29,7 +29,7 @@ export const attachLicenseKey = async ({ polarLicenseKeyId, polarOrderId, userId
   if (current.status !== "active") {
     return
   }
-  const { key } = await polar.licenseKeys.get({ id: polarLicenseKeyId })
+  const { key } = await polar.licenseKeys.get(polarLicenseKeyId)
 
   await db
     .update(license)

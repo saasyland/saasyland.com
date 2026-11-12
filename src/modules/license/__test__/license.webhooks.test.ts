@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers"
 
+import type { models } from "@polar-sh/sdk/2026-10"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
@@ -29,11 +30,19 @@ vi.mock(import("~/src/modules/license/use-cases/grant-license"), () => ({ grantL
 vi.mock(import("~/src/modules/license/use-cases/revoke-license"), () => ({ revokeLicense: useCaseMocks.revokeLicense }))
 
 const orderPayload = (productId: string | null = JSON_NULL, externalId?: string) => ({
-  data: { createdAt: new Date("2026-09-24T10:00:00Z"), customer: { externalId }, customerId: "cus_1", id: "ord_1", productId },
+  data: {
+    created_at: "2026-09-24T10:00:00.000Z",
+    customer: { external_id: externalId },
+    customer_id: "cus_1",
+    id: "ord_1",
+    product_id: productId,
+  },
 })
 
-const grantPayload = (licenseKeyId?: string, externalId?: string) => ({
-  data: { customer: { externalId }, id: "grant_1", orderId: "ord_1", properties: { licenseKeyId } },
+const LICENSE_KEY_GRANT = { license_key_id: "lk_1" }
+
+const grantPayload = (properties: models.BenefitGrantWebhook["properties"], externalId?: string) => ({
+  data: { customer: { external_id: externalId }, id: "grant_1", order_id: "ord_1", properties },
 })
 
 const resetUseCases = (): void => {
@@ -84,7 +93,7 @@ describe("license webhooks", () => {
     expect.hasAssertions()
     resetUseCases()
 
-    await licenseWebhookHandlers.onBenefitGrantCreated(grantPayload("lk_1", USER_ID))
+    await licenseWebhookHandlers.onBenefitGrantCreated(grantPayload(LICENSE_KEY_GRANT, USER_ID))
 
     expect(useCaseMocks.attachLicenseKey).toHaveBeenCalledWith({ polarLicenseKeyId: "lk_1", polarOrderId: "ord_1", userId: USER_ID })
   })
@@ -93,7 +102,7 @@ describe("license webhooks", () => {
     expect.hasAssertions()
     resetUseCases()
 
-    await licenseWebhookHandlers.onBenefitGrantCreated(grantPayload(undefined, USER_ID))
+    await licenseWebhookHandlers.onBenefitGrantCreated(grantPayload({}, USER_ID))
 
     expect(useCaseMocks.attachLicenseKey).not.toHaveBeenCalled()
   })
@@ -103,7 +112,7 @@ describe("license webhooks", () => {
     resetUseCases()
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
 
-    await licenseWebhookHandlers.onBenefitGrantCreated(grantPayload("lk_1"))
+    await licenseWebhookHandlers.onBenefitGrantCreated(grantPayload(LICENSE_KEY_GRANT))
 
     expect(useCaseMocks.attachLicenseKey).not.toHaveBeenCalled()
     consoleError.mockRestore()
@@ -115,7 +124,7 @@ describe("license webhooks", () => {
     const REVOCATIONS = 2
 
     await licenseWebhookHandlers.onOrderRefunded(orderPayload(env.POLAR_PRODUCT_ID_CORE, USER_ID))
-    await licenseWebhookHandlers.onBenefitGrantRevoked(grantPayload("lk_1", USER_ID))
+    await licenseWebhookHandlers.onBenefitGrantRevoked(grantPayload(LICENSE_KEY_GRANT, USER_ID))
 
     expect(useCaseMocks.revokeLicense).toHaveBeenCalledTimes(REVOCATIONS)
     expect(useCaseMocks.revokeLicense).toHaveBeenCalledWith({ polarOrderId: "ord_1", userId: USER_ID })
@@ -126,7 +135,7 @@ describe("license webhooks", () => {
     resetUseCases()
 
     await licenseWebhookHandlers.onOrderRefunded(orderPayload())
-    await licenseWebhookHandlers.onBenefitGrantRevoked(grantPayload())
+    await licenseWebhookHandlers.onBenefitGrantRevoked(grantPayload({}))
 
     expect(useCaseMocks.revokeLicense).not.toHaveBeenCalled()
   })

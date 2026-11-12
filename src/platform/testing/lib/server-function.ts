@@ -3,7 +3,10 @@ import { runWithStartContext } from "@tanstack/start-storage-context"
 
 type ServerFunction = ((options: unknown) => Promise<unknown>) & { __executeServer: (options: unknown) => Promise<unknown> }
 
-const BUILDER_METHODS = new Set<string | symbol>(["inputValidator", "middleware", "validator"])
+const BUILDER_METHODS = new Set<string | symbol>(["middleware", "validator"])
+
+const CLIENT_CALL_MESSAGE =
+  "Server functions do not run in component tests. Mock the loader, query or mutation that calls this one and cover the server function in a node test."
 
 const context = () => ({
   contextAfterGlobalMiddlewares: {},
@@ -37,7 +40,7 @@ export const withTestRpc = (builder: unknown): unknown => {
             handler,
           ])
           if (!isServerFunction(serverFunction)) {
-            throw new TypeError("createServerFn().handler() did not return a server function")
+            return Object.assign(() => Promise.reject(new Error(CLIENT_CALL_MESSAGE)), serverFunction)
           }
           compiled.serverFunction = serverFunction
           return Object.assign((options: unknown) => runWithStartContext(context(), () => serverFunction(options)), serverFunction)

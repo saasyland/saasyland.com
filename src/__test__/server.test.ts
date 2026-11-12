@@ -44,6 +44,53 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
+const SECURITY_HEADERS = {
+  "content-security-policy": "base-uri 'self'; frame-ancestors 'none'; object-src 'none'",
+  "cross-origin-opener-policy": "same-origin",
+  "permissions-policy": "browsing-topics=(), camera=(), geolocation=(), microphone=()",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+}
+
+it.each([
+  { kind: "page", url: "http://localhost/" },
+  { kind: "API", url: "http://localhost/api/auth/session" },
+  { kind: "locale redirect", url: "http://localhost/pl/docs" },
+])("sends the security headers with a $kind response", async ({ url }) => {
+  const response = await worker.fetch(new Request(url), env)
+
+  expect(Object.fromEntries(Object.keys(SECURITY_HEADERS).map((name) => [name, response.headers.get(name)]))).toStrictEqual(
+    SECURITY_HEADERS,
+  )
+})
+
+it("keeps a stricter policy that the response already sets", async () => {
+  fetchHandler.mockResolvedValueOnce(new Response("rendered", { headers: { "Content-Security-Policy": "default-src 'self'" } }))
+
+  const response = await worker.fetch(new Request("http://localhost/"), env)
+
+  expect(response.headers.get("content-security-policy")).toBe("default-src 'self'")
+  expect(response.headers.get("x-frame-options")).toBe("DENY")
+})
+
+it("asks browsers to keep using HTTPS only on HTTPS responses", async () => {
+  const secure = await worker.fetch(new Request("https://saasyland.com/"), env)
+  const local = await worker.fetch(new Request("http://localhost/"), env)
+
+  expect(secure.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains")
+  expect(local.headers.get("strict-transport-security")).toBeNull()
+})
+
+it("gives static files served without the Worker the same protection headers", () => {
+  const rules = readFileSync("public/_headers", "utf8")
+
+  expect(rules).toContain(`  Content-Security-Policy: ${SECURITY_HEADERS["content-security-policy"]}`)
+  expect(rules).toContain(`  Referrer-Policy: ${SECURITY_HEADERS["referrer-policy"]}`)
+  expect(rules).toContain(`  X-Content-Type-Options: ${SECURITY_HEADERS["x-content-type-options"]}`)
+  expect(rules).toContain(`  X-Frame-Options: ${SECURITY_HEADERS["x-frame-options"]}`)
+})
+
 it("canonicalizes locale aliases before rendering", async () => {
   const response = await worker.fetch(new Request("http://localhost/pl/docs?search=one"), env)
   expect(response.status).toBe(308)
@@ -160,7 +207,8 @@ it.each(["/api/example", "/_serverFn/example"])("does not attach document preloa
 
   const response = await worker.fetch(new Request(`https://localhost${pathname}`), env)
 
-  expect(response).toBe(html)
+  expect(response.status).toBe(200)
+  expect(await response.text()).toBe("<html>API response</html>")
   expect(response.headers.get("link")).toBeNull()
 })
 
@@ -170,7 +218,8 @@ it.each([404, 500])("does not attach document preloads to rendered HTML errors w
 
   const response = await worker.fetch(new Request("https://localhost/missing"), env)
 
-  expect(response).toBe(html)
+  expect(response.status).toBe(status)
+  expect(await response.text()).toBe("<html>Error</html>")
   expect(response.headers.get("link")).toBeNull()
 })
 
@@ -272,7 +321,9 @@ it.each([
 
   const response = await worker.fetch(new Request("http://localhost/images/hero.png", { headers: { "cf-ipcountry": "PL" } }), env)
 
-  expect(response).toBe(asset)
+  expect(response.status).toBe(status)
+  expect(response.headers.get("content-type")).toBe(contentType ?? null)
+  expect(await response.text()).toBe(status === 304 ? "" : "asset")
   expect(transformAsset).not.toHaveBeenCalled()
 })
 

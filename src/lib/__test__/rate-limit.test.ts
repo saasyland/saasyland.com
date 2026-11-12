@@ -6,7 +6,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
-import { sha256Hex } from "~/src/lib/hash"
+import { sha256Hex } from "~/src/lib/hex"
 import { authRateLimitStorage, clientAddress, withinRateLimit, withinRecipientRateLimit } from "~/src/lib/rate-limit"
 
 import { ROUTES } from "~/src/routes"

@@ -5,7 +5,7 @@ import { getRequest } from "@tanstack/react-start/server"
 import { createHash } from "node:crypto"
 import { render } from "react-email"
 import type { Resend } from "resend"
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { executeMutation } from "~/src/platform/testing/lib/query"
@@ -31,6 +31,10 @@ const resendSendMock = vi.hoisted(() => vi.fn<Resend["emails"]["send"]>())
 
 beforeEach(async () => {
   await db.delete(newsletterSubscriber)
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
 })
 const readSubscriber = async () => {
   const rows = await db.select().from(newsletterSubscriber).limit(1)
@@ -156,27 +160,29 @@ describe("subscribe-to-newsletter", () => {
     expect(resendSendMock).not.toHaveBeenCalled()
   })
 
-  it.each(["http://localhost:3000", "https://preview.saasyland.com", "https://saasyland.com"])(
-    "renders the confirmation link for the actual signup deployment: %s",
-    async (origin) => {
-      mockSuccessfulSend()
-      vi.mocked(getRequest).mockReturnValue(
-        new Request(`${origin}/_serverFn/subscribe`, {
-          headers: { origin: "https://untrusted.example", "x-forwarded-host": "untrusted.example" },
-        }),
-      )
+  it.each([
+    { mode: "test", origin: "http://localhost:3000" },
+    { mode: "preview", origin: "https://preview.saasyland.com" },
+    { mode: "production", origin: "https://saasyland.com" },
+  ])("renders the confirmation link for the $mode deployment the sign-up came through: $origin", async ({ mode, origin }) => {
+    vi.stubEnv("MODE", mode)
+    mockSuccessfulSend()
+    vi.mocked(getRequest).mockReturnValue(
+      new Request(`${origin}/_serverFn/subscribe`, {
+        headers: { origin: "https://untrusted.example", "x-forwarded-host": "untrusted.example" },
+      }),
+    )
 
-      await executeMutation(subscribeToNewsletterMutation, { email: SUBSCRIBER, locale: "pl-PL" })
+    await executeMutation(subscribeToNewsletterMutation, { email: SUBSCRIBER, locale: "pl-PL" })
 
-      const row = await readSubscriber()
-      const payload = resendSendMock.mock.calls[0]?.[0]
-      expect(payload?.react).toBeDefined()
-      const html = await render(payload!.react)
-      expect(html).toContain(`href="${origin}/pl-PL/newsletter/confirm?token=${row!.confirmationToken}"`)
-      expect(html).toContain('lang="pl-PL"')
-      expect(html).not.toContain("untrusted.example")
-    },
-  )
+    const row = await readSubscriber()
+    const payload = resendSendMock.mock.calls[0]?.[0]
+    expect(payload?.react).toBeDefined()
+    const html = await render(payload!.react)
+    expect(html).toContain(`href="${origin}/pl-PL/newsletter/confirm?token=${row!.confirmationToken}"`)
+    expect(html).toContain('lang="pl-PL"')
+    expect(html).not.toContain("untrusted.example")
+  })
 
   it("rejects an untrusted deployment before storing a subscriber or sending email", async () => {
     mockSuccessfulSend()

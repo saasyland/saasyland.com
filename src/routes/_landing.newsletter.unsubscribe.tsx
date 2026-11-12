@@ -1,21 +1,34 @@
 import type { JSX } from "react"
 
-import { Link, type SearchSchemaInput, createFileRoute, redirect } from "@tanstack/react-router"
+import { useMutation } from "@tanstack/react-query"
+import { Link, type SearchSchemaInput, createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
-import { unsubscribeFromNewsletter } from "~/src/modules/newsletter-subscriber/use-cases/unsubscribe-from-newsletter"
+import { NEWSLETTER_TOKEN_LENGTH, UNSUBSCRIBE_STATUS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { unsubscribeFromNewsletterMutation } from "~/src/modules/newsletter-subscriber/use-cases/unsubscribe-from-newsletter"
+
+import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { pageHead } from "~/src/lib/seo"
+
+import { Button } from "~/src/presentation/components/shadcn/button"
+import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
 import { NewsletterPending } from "~/src/presentation/components/custom/marketing-pending"
 
 import { ROUTES } from "~/src/routes"
 
-const NewsletterUnsubscribePage = ({ status }: { readonly status: "error" | "success" }): JSX.Element => {
+type UnsubscribeStatus = (typeof UNSUBSCRIBE_STATUS)[keyof typeof UNSUBSCRIBE_STATUS]
+
+const NAMESPACE = "pages.newsletter.unsubscribe"
+const UNSUBSCRIBE_STATUSES = new Set<unknown>(Object.values(UNSUBSCRIBE_STATUS))
+
+const isUnsubscribeStatus = (value: unknown): value is UnsubscribeStatus => UNSUBSCRIBE_STATUSES.has(value)
+
+const NewsletterUnsubscribeResult = ({ status }: { readonly status: UnsubscribeStatus }): JSX.Element => {
   const t = useTranslations("pages.newsletter.unsubscribe")
 
   return (
@@ -35,33 +48,66 @@ const NewsletterUnsubscribePage = ({ status }: { readonly status: "error" | "suc
   )
 }
 
-const NAMESPACE = "pages.newsletter.unsubscribe"
+const NewsletterUnsubscribePrompt = ({ token }: { readonly token: string }): JSX.Element => {
+  const t = useTranslations("pages.newsletter.unsubscribe")
+  const errorMessage = useErrorMessage()
+  const navigate = Route.useNavigate()
+  const unsubscribe = useMutation({
+    ...unsubscribeFromNewsletterMutation,
+    onSuccess: async () => {
+      await navigate({ replace: true, search: { status: UNSUBSCRIBE_STATUS.SUCCESS } })
+    },
+  })
+
+  return (
+    <section className="relative">
+      <div className="mx-auto flex w-full max-w-2xl flex-col items-center px-6 py-32 text-center md:py-40">
+        <h1 className="text-headline-peak text-balance text-foreground">{t("prompt.title")}</h1>
+        <p className="mt-5 text-lead text-pretty text-muted-foreground">{t("prompt.body")}</p>
+        <Button
+          className="mt-10 h-12 gap-2 px-6 text-body-sm font-semibold"
+          isPending={unsubscribe.isPending}
+          onPress={() => {
+            unsubscribe.mutate({ token })
+          }}
+        >
+          {unsubscribe.isPending && <Spinner />}
+          {t("prompt.action")}
+        </Button>
+        <p className="mt-4 min-h-5 text-body-sm text-pretty text-destructive" role="alert">
+          {unsubscribe.isError && errorMessage(unsubscribe.error)}
+        </p>
+      </div>
+    </section>
+  )
+}
+
+const NewsletterUnsubscribePage = (): JSX.Element => {
+  const { status, token } = Route.useSearch()
+
+  if (token?.length === NEWSLETTER_TOKEN_LENGTH) {
+    return <NewsletterUnsubscribePrompt token={token} />
+  }
+
+  return <NewsletterUnsubscribeResult status={status ?? UNSUBSCRIBE_STATUS.ERROR} />
+}
 
 export const Route = createFileRoute("/_landing/newsletter/unsubscribe")({
   validateSearch: (search: Record<string, unknown> & SearchSchemaInput) => ({
-    status: search["status"] === "success" ? ("success" as const) : ("error" as const),
+    status: isUnsubscribeStatus(search["status"]) ? search["status"] : undefined,
     token: typeof search["token"] === "string" ? search["token"] : undefined,
   }),
-  loaderDeps: ({ search: { token } }) => ({ token: token ?? "" }),
-  component: () => <NewsletterUnsubscribePage status={Route.useSearch().status} />,
-  errorComponent: () => <NewsletterUnsubscribePage status="error" />,
+  component: NewsletterUnsubscribePage,
+  errorComponent: () => <NewsletterUnsubscribeResult status={UNSUBSCRIBE_STATUS.ERROR} />,
   head: pageHead(ROUTES.NEWSLETTER_UNSUBSCRIBE),
-  loader: async ({ context, deps: { token } }) => {
+  loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
     ])
-    if (token) {
-      if (token.length !== NEWSLETTER_TOKEN_LENGTH) {
-        throw redirect({ replace: true, search: { status: "error" }, to: ROUTES.NEWSLETTER_UNSUBSCRIBE })
-      }
-      await unsubscribeFromNewsletter({ data: { token } })
-      throw redirect({ replace: true, search: { status: "success" }, to: ROUTES.NEWSLETTER_UNSUBSCRIBE })
-    }
     return { locale, metadata }
   },
   pendingComponent: NewsletterPending,
-  preload: false,
   staticData: { namespaces: [NAMESPACE] },
 })

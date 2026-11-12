@@ -6,17 +6,7 @@ import type * as applicationModuleType from "~/src/server"
 
 installProviderMocks()
 
-const loadTestApplication = async (): Promise<typeof applicationModuleType> => {
-  const { auth } = await import("~/src/integrations/better-auth/auth.server")
-  auth.options.baseURL.allowedHosts.push("localhost:3020", "127.0.0.1:3020")
-  const { options } = await auth.$context
-  if (typeof options.baseURL === "object") {
-    options.baseURL.allowedHosts = auth.options.baseURL.allowedHosts
-  }
-  return import("~/src/server")
-}
-
-let applicationModule: ReturnType<typeof loadTestApplication> | null = null
+let applicationModule: Promise<typeof applicationModuleType> | null = null
 
 export default {
   async fetch(request, env) {
@@ -41,7 +31,7 @@ export default {
       return Response.json(subscriber)
     }
 
-    applicationModule ??= loadTestApplication()
+    applicationModule ??= import("~/src/server")
     const { default: application } = await applicationModule
     return application.fetch(request, env)
   },

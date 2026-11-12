@@ -66,7 +66,7 @@ describe("Cloudflare auth configuration", () => {
     expect(authCookies.sessionToken.name).toBe("saasyland.session_token")
   })
   it("trusts only the local hosts in test mode", () => {
-    expect(auth.options.baseURL.allowedHosts).toEqual(["localhost:3000", "127.0.0.1:3000"])
+    expect(auth.options.baseURL.allowedHosts).toEqual(["localhost:3000", "127.0.0.1:3000", "localhost:3020", "127.0.0.1:3020"])
     expect(auth.options.baseURL.allowedHosts.some((host) => host.includes("*") || host.includes("workers.dev"))).toBe(false)
   })
   it("sends API errors to the sign-in page", () => {

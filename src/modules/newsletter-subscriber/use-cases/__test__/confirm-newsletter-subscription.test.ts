@@ -4,9 +4,13 @@ import type { Resend } from "resend"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
+import { executeMutation } from "~/src/platform/testing/lib/query"
 
 import { NEWSLETTER_STATUS, NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
-import { confirmNewsletterSubscription } from "~/src/modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription"
+import {
+  confirmNewsletterSubscription,
+  confirmNewsletterSubscriptionMutation,
+} from "~/src/modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription"
 
 import { CONTACT_EMAIL, NOTIFICATIONS_EMAIL } from "~/src/presentation/branding"
 
@@ -58,7 +62,7 @@ describe("confirm-newsletter-subscription", () => {
     expect.hasAssertions()
     mockMatchingToken()
 
-    await expect(confirmNewsletterSubscription({ data: { token: TOKEN } })).resolves.toMatchObject({ confirmed: true })
+    await expect(executeMutation(confirmNewsletterSubscriptionMutation, { token: TOKEN })).resolves.toMatchObject({ confirmed: true })
 
     expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: NEWSLETTER_STATUS.SUBSCRIBED }))
     expect(resendSendMock).toHaveBeenCalledWith(expect.objectContaining({ from: NOTIFICATIONS_EMAIL, to: CONTACT_EMAIL }), {

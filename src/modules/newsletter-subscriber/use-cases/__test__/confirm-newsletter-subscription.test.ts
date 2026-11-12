@@ -1,4 +1,5 @@
 import type * as StartServerModule from "@tanstack/react-start/server"
+import { createHash } from "node:crypto"
 import type { Resend } from "resend"
 import { describe, expect, it, vi } from "vite-plus/test"
 
@@ -8,6 +9,8 @@ import { NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/new
 import { confirmNewsletterSubscription } from "~/src/modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription"
 
 import { CONTACT_EMAIL, NOTIFICATIONS_EMAIL } from "~/src/presentation/branding"
+
+const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex")
 
 const HEADERS = new Headers()
 
@@ -59,7 +62,7 @@ describe("confirm-newsletter-subscription", () => {
 
     expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: "subscribed" }))
     expect(resendSendMock).toHaveBeenCalledWith(expect.objectContaining({ from: NOTIFICATIONS_EMAIL, to: CONTACT_EMAIL }), {
-      idempotencyKey: `newsletter-notification/${TOKEN}`,
+      idempotencyKey: `newsletter-notification/${sha256(TOKEN)}`,
     })
   })
 

@@ -23,7 +23,7 @@ export const sendResetPasswordEmail = async ({
   const messages = await loadNamespace<typeof resetPasswordMessages>({ locale, namespace: RESET_PASSWORD_NAMESPACE })
 
   await sendEmail({
-    idempotencyKey: `reset-password/${token}`,
+    idempotency: { purpose: "reset-password", token },
     react: createElement(ResetPasswordEmail, { locale, messages, name: user.name, resetPasswordUrl: url }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,

@@ -67,7 +67,7 @@ export const subscribeToNewsletter = createServerFn({ method: "POST" })
     const messages = await loadNamespace<typeof confirmationMessages>({ locale, namespace: NEWSLETTER_CONFIRMATION_NAMESPACE })
 
     await sendEmail({
-      idempotencyKey: `newsletter-confirmation/${confirmationToken}`,
+      idempotency: { purpose: "newsletter-confirmation", token: confirmationToken },
       react: createElement(NewsletterConfirmationEmail, {
         confirmUrl: confirmationUrl({ locale, origin, token: confirmationToken }),
         locale,

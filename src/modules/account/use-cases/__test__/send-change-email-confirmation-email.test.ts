@@ -1,8 +1,10 @@
 import { env } from "cloudflare:workers"
 
 import { getRequest } from "@tanstack/react-start/server"
+import { createHash } from "node:crypto"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import * as zod from "zod"
+
+import { clearSentEmails, getSentEmails, respondAsResend } from "~/src/platform/testing/mocks/providers"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
@@ -17,18 +19,11 @@ const confirmUrl = (callbackURL: string) => `${ORIGIN}/api/auth/verify-email?${n
 const NEW_EMAIL = "ada.new@example.test"
 const USER = { email: "ada@example.test", name: "Ada Lovelace" }
 
-const EMAIL_SCHEMA = zod.object({ from: zod.string(), html: zod.string(), subject: zod.string(), to: zod.string() })
-const deliveries: { body: zod.infer<typeof EMAIL_SCHEMA>; idempotencyKey: string | null }[] = []
+const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex")
 
 beforeEach(() => {
-  deliveries.length = 0
-  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-    const request = new Request(input, init)
-    expect(request.url).toBe("https://api.resend.com/emails")
-    expect(request.method).toBe("POST")
-    deliveries.push({ body: EMAIL_SCHEMA.parse(await request.json()), idempotencyKey: request.headers.get("idempotency-key") })
-    return Response.json({ id: crypto.randomUUID() })
-  })
+  clearSentEmails()
+  vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => respondAsResend(new Request(input, init)))
 })
 
 afterEach(() => {
@@ -50,10 +45,11 @@ describe("change email confirmation delivery", () => {
 
       await sendChangeEmailConfirmationEmail({ newEmail: NEW_EMAIL, token: "change-token", url, user: USER })
 
+      const deliveries = getSentEmails(USER.email)
       expect(deliveries).toHaveLength(1)
-      expect(deliveries[0]?.idempotencyKey).toBe("change-email-confirmation/change-token")
-      expect(deliveries[0]?.body).toMatchObject({ from: env.RESEND_EMAIL_FROM, subject: messages.subject, to: USER.email })
-      const html = deliveries[0]?.body.html
+      expect(deliveries[0]?.idempotencyKey).toBe(`change-email-confirmation/${sha256("change-token")}`)
+      expect(deliveries[0]).toMatchObject({ from: env.RESEND_EMAIL_FROM, subject: messages.subject, to: [USER.email] })
+      const html = deliveries[0]?.html
       expect(html).toContain(`lang="${locale}"`)
       expect(html).toContain(`href="${url.replaceAll("&", "&amp;")}"`)
       expect(html).toContain(messages.heading)

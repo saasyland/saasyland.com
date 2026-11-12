@@ -28,7 +28,7 @@ export const sendChangeEmailConfirmationEmail = async ({
   const messages = await loadNamespace<typeof changeEmailMessages>({ locale, namespace: CHANGE_EMAIL_CONFIRMATION_NAMESPACE })
 
   await sendEmail({
-    idempotencyKey: `change-email-confirmation/${token}`,
+    idempotency: { purpose: "change-email-confirmation", token },
     react: createElement(ChangeEmailConfirmationEmail, { confirmUrl: url, locale, messages, name: user.name, newEmail }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,

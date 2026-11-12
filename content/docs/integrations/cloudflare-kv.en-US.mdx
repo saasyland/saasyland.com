@@ -1,9 +1,13 @@
 ---
 title: "Cloudflare KV"
-description: "The CACHE namespace and the cached GitHub star count."
+description: "The CACHE namespace: the GitHub star count and the regional checkout discounts."
 ---
 
-Every environment binds a KV namespace as `CACHE`. Its only use is the GitHub star count shown on the site, implemented in `src/lib/github.ts`:
+Every environment binds a KV namespace as `CACHE`. It holds two entries.
+
+## GitHub star count
+
+The star count shown on the site, implemented in `src/lib/github.ts`:
 
 - `getStarCount` reads the `github:<owner>/<repo>:stars` entry.
 - Without an entry, it fetches the repository from the GitHub API with a three-second timeout, returns the count and writes `count` and `fetchedAt` to KV with `waitUntil`.
@@ -11,6 +15,12 @@ Every environment binds a KV namespace as `CACHE`. Its only use is the GitHub st
 - `starCountQuery` keeps the result in the query cache for one hour.
 
 Entries have no KV expiration; `fetchedAt` decides when to refresh. The GitHub request authenticates with the GitHub OAuth app credentials `AUTH_GITHUB_CLIENT_ID` and `AUTH_GITHUB_CLIENT_SECRET`.
+
+## Regional checkout discounts
+
+`pppDiscountId` (`src/modules/license/license.ppp.ts`) reads the `polar:regional-discounts` entry: the automatic percentage discounts from Polar, reduced to the fields checkout needs, with `fetchedAt`. An entry younger than five minutes is used as it is. Otherwise, or when the entry is malformed, the discounts are listed from Polar again, and a complete list is written back with `waitUntil`. A listing that fails is logged and not stored; that checkout continues with the discounts found so far, and the next one lists again. Nothing is kept in Worker memory between requests.
+
+## Consistency and tests
 
 KV is eventually consistent. Sessions, rate limits and everything used for authorization live in D1.
 

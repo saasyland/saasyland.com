@@ -4,10 +4,12 @@ import type { models } from "@polar-sh/sdk/2026-10"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
+import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
 
 import type { polar } from "~/src/integrations/polar/polar.config"
 
 import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
+import { pppDiscountId } from "~/src/modules/license/license.ppp"
 
 const iterDiscountsMock = vi.hoisted(() => vi.fn<typeof polar.discounts.iterList>())
 
@@ -69,24 +71,29 @@ const discountProduct = (id: string): models.Discount["products"][number] => ({
 })
 
 const findDiscount = async (country?: string, productId = env.POLAR_PRODUCT_ID_CORE): Promise<string | undefined> => {
-  const { pppDiscountId } = await import("~/src/modules/license/license.ppp")
   const headers = new Headers()
   if (country !== undefined) {
     headers.set(COUNTRY_HEADER, country)
   }
-  return pppDiscountId(headers, productId)
+  const discountId = await pppDiscountId(headers, productId)
+  await flushWaitUntil()
+  return discountId
 }
+
+const FIVE_MINUTES_MS = 300_000
+const LISTING_FAILED = "[ppp] Polar discounts could not be listed; checkout continues with the discounts found so far"
 
 const NOW = Date.parse("2026-09-09T12:00:00Z")
 
 beforeEach(() => {
-  vi.resetModules()
   iterDiscountsMock.mockReset()
   vi.spyOn(Date, "now").mockReturnValue(NOW)
+  vi.spyOn(console, "error").mockImplementation(() => {})
 })
 
 afterEach(() => {
   vi.mocked(Date.now).mockRestore()
+  vi.mocked(console.error).mockRestore()
 })
 
 describe("regional checkout discounts", () => {
@@ -97,7 +104,6 @@ describe("regional checkout discounts", () => {
   })
 
   it("charges the full price when the buyer turned regional pricing off", async () => {
-    const { pppDiscountId } = await import("~/src/modules/license/license.ppp")
     const headers = new Headers({ [COUNTRY_HEADER]: "PL", cookie: "session=kept; regional_pricing=off" })
 
     await expect(pppDiscountId(headers, env.POLAR_PRODUCT_ID_CORE)).resolves.toBeUndefined()
@@ -124,28 +130,35 @@ describe("regional checkout discounts", () => {
     expect(iterDiscountsMock).toHaveBeenCalledExactlyOnceWith({ limit: 100, organization_id: env.POLAR_ORGANIZATION_ID })
   })
 
-  it("shares one provider lookup across concurrent requests and reuses the result", async () => {
-    const response = Promise.withResolvers<models.Discount[]>()
-    iterDiscountsMock.mockImplementation(() => discountPages(response.promise))
-    const polish = findDiscount("PL")
-    const ukrainian = findDiscount("UA")
-    await vi.waitFor(() => {
-      expect(iterDiscountsMock).toHaveBeenCalledTimes(1)
-    })
+  it("stores the list in KV, so later checkouts on any isolate reuse it", async () => {
+    iterDiscountsMock.mockImplementation(() =>
+      discountPages([percentageDiscount("regional-30", 3000), percentageDiscount("regional-50", 5000)]),
+    )
 
-    response.resolve([percentageDiscount("regional-30", 3000), percentageDiscount("regional-50", 5000)])
+    await expect(findDiscount("PL")).resolves.toBe("regional-30")
+    await expect(findDiscount("UA")).resolves.toBe("regional-50")
 
-    await expect(Promise.all([polish, ukrainian])).resolves.toEqual(["regional-30", "regional-50"])
+    expect(iterDiscountsMock).toHaveBeenCalledTimes(1)
+    await expect(env.CACHE.get("polar:regional-discounts", "json")).resolves.toMatchObject({ fetchedAt: NOW })
+  })
+
+  it("lists again when the stored entry is not one it wrote", async () => {
+    await env.CACHE.put("polar:regional-discounts", JSON.stringify({ discounts: "corrupt", fetchedAt: NOW }))
+    iterDiscountsMock.mockImplementation(() => discountPages([percentageDiscount("regional-30", 3000)]))
+
     await expect(findDiscount("PL")).resolves.toBe("regional-30")
     expect(iterDiscountsMock).toHaveBeenCalledTimes(1)
   })
 
-  it("allows checkout without a discount when the provider cannot list discounts", async () => {
-    iterDiscountsMock.mockImplementation(() => discountPages(Promise.reject(new Error("Provider unavailable"))))
+  it("allows checkout without a discount and logs why when the provider cannot list discounts", async () => {
+    const error = new Error("Provider unavailable")
+    iterDiscountsMock.mockImplementation(() => discountPages(Promise.reject(error)))
 
     await expect(findDiscount("PL")).resolves.toBeUndefined()
 
     expect(iterDiscountsMock).toHaveBeenCalledTimes(1)
+    expect(console.error).toHaveBeenCalledWith(LISTING_FAILED, error)
+    await expect(env.CACHE.get("polar:regional-discounts")).resolves.toBeNull()
   })
 
   it("retries a failed lookup on the next checkout and caches the recovered discounts", async () => {
@@ -238,21 +251,16 @@ describe("regional discount eligibility", () => {
 })
 
 describe("regional discount cache refresh", () => {
-  it("shares a refresh after five minutes and drops removed discounts", async () => {
+  it("lists again after five minutes and never offers a discount that was removed", async () => {
     iterDiscountsMock.mockImplementationOnce(() => discountPages([percentageDiscount("removed", 3000)]))
     await expect(findDiscount("PL")).resolves.toBe("removed")
 
-    const refresh = Promise.withResolvers<models.Discount[]>()
-    iterDiscountsMock.mockImplementation(() => discountPages(refresh.promise))
-    vi.mocked(Date.now).mockReturnValue(NOW + 5 * 60 * 1000)
-    const polish = findDiscount("PL")
-    const ukrainian = findDiscount("UA")
-    await vi.waitFor(() => {
-      expect(iterDiscountsMock).toHaveBeenCalledTimes(2)
-    })
-    refresh.resolve([percentageDiscount("new", 5000)])
+    iterDiscountsMock.mockImplementation(() => discountPages([percentageDiscount("new", 5000)]))
+    vi.mocked(Date.now).mockReturnValue(NOW + FIVE_MINUTES_MS - 1)
+    await expect(findDiscount("PL")).resolves.toBe("removed")
+    vi.mocked(Date.now).mockReturnValue(NOW + FIVE_MINUTES_MS)
 
-    await expect(Promise.all([polish, ukrainian])).resolves.toEqual([undefined, "new"])
+    await expect(findDiscount("PL")).resolves.toBeUndefined()
     await expect(findDiscount("UA")).resolves.toBe("new")
     expect(iterDiscountsMock).toHaveBeenCalledTimes(2)
   })
@@ -264,7 +272,7 @@ describe("regional discount cache refresh", () => {
       .mockImplementation(() => discountPages([percentageDiscount("recovered", 3000)]))
 
     await expect(findDiscount("PL")).resolves.toBe("old")
-    vi.mocked(Date.now).mockReturnValue(NOW + 5 * 60 * 1000)
+    vi.mocked(Date.now).mockReturnValue(NOW + FIVE_MINUTES_MS)
     await expect(findDiscount("PL")).resolves.toBeUndefined()
     await expect(findDiscount("PL")).resolves.toBe("recovered")
     expect(iterDiscountsMock).toHaveBeenCalledTimes(3)

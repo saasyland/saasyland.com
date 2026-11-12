@@ -85,9 +85,14 @@ export const ADMIN_BLOG_TRENDING_STATS = [
 
 export const ADMIN_BLOG_FILTERS = ["all", "published", "drafts", "scheduled"] as const
 
+export const ADMIN_BLOG_VIEW = {
+  GRID: "grid",
+  TABLE: "table",
+} as const
+
 export const ADMIN_BLOG_VIEWS = [
-  { icon: LayoutGrid, id: "grid", labelKey: "labels.gridView" },
-  { icon: List, id: "table", labelKey: "labels.tableView" },
+  { icon: LayoutGrid, id: ADMIN_BLOG_VIEW.GRID, labelKey: "labels.gridView" },
+  { icon: List, id: ADMIN_BLOG_VIEW.TABLE, labelKey: "labels.tableView" },
 ] as const
 
 export const ADMIN_BLOG_TOOLBAR_GROUPS = [

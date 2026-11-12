@@ -7,13 +7,13 @@ Parametry wyszukiwania przechowują stan, który ma przetrwać przeładowanie lu
 
 ## Zadeklaruj parametry
 
-`validateSearch` zamienia surowe parametry zapytania w typowany obiekt. Nieznane lub niepoprawne wartości przyjmują wartość domyślną zamiast rzucać błąd. Z `src/routes/admin.blog.index.tsx`:
+`validateSearch` przyjmuje obiekt zod, więc parametry wyszukiwania trasy są typowane i walidowane w jednym miejscu. Pola pochodzą z `src/lib/search-params.ts`: `searchText()` i `searchFlag()` mają wartość `undefined`, gdy wartości brak, jest pusta lub błędna, więc brakujące wartości nigdy nie trafiają do URL-a; `searchChoice(choices, fallback)` wraca do jednej z opcji. Błędna wartość nigdy nie prowadzi do strony błędu. Z `src/routes/admin.blog.index.tsx`:
 
 ```tsx
-validateSearch: (search: SearchSchemaInput & { view?: unknown }): { view: "grid" | "table" } => ({
-  view: search.view === "table" ? "table" : "grid",
+validateSearch: zod.object({
+  view: searchChoice([ADMIN_BLOG_VIEW.GRID, ADMIN_BLOG_VIEW.TABLE], ADMIN_BLOG_VIEW.GRID),
 }),
-search: { middlewares: [stripSearchParams({ view: "grid" })] },
+search: { middlewares: [stripSearchParams({ view: ADMIN_BLOG_VIEW.GRID })] },
 ```
 
 `stripSearchParams` usuwa wartość domyślną z adresu, więc `/admin/blog` pozostaje kanonicznym adresem widoku siatki.
@@ -21,7 +21,7 @@ search: { middlewares: [stripSearchParams({ view: "grid" })] },
 ## Odczytaj je
 
 - W komponencie trasy: `const { view } = Route.useSearch()`.
-- Z selektorem komponent renderuje się ponownie tylko wtedy, gdy zmieni się wybrana wartość: `Route.useSearch({ select: (search) => search.error !== "" })`.
+- Z selektorem komponent renderuje się ponownie tylko wtedy, gdy zmieni się wybrana wartość: `Route.useSearch({ select: (search) => search.error !== undefined })`.
 - W komponencie poza plikiem trasy: `getRouteApi("/auth/reset-password").useSearch()`, jak w `reset-password-form.tsx`.
 
 ## Zmień je

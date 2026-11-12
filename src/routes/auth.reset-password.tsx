@@ -2,11 +2,13 @@ import type { JSX } from "react"
 
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
+import * as zod from "zod"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { cn } from "~/src/lib/cn"
+import { searchText } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
 import { buttonVariants } from "~/src/presentation/components/shadcn/button"
@@ -19,7 +21,7 @@ import { ROUTES } from "~/src/routes"
 const ResetPasswordPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.reset-password")
   const { error, token } = Route.useSearch()
-  const hasValidLink = error === "" && token !== ""
+  const resetToken = error === undefined ? token : undefined
 
   return (
     <>
@@ -27,8 +29,8 @@ const ResetPasswordPage = (): JSX.Element => {
       <p className="mt-3 text-body text-pretty text-muted-foreground">{t("form.description")}</p>
 
       <div className="mt-10 flex flex-col gap-6">
-        {hasValidLink && <ResetPasswordForm />}
-        {!hasValidLink && (
+        {resetToken !== undefined && <ResetPasswordForm token={resetToken} />}
+        {resetToken === undefined && (
           <>
             <p className="text-body text-pretty text-destructive">{t("form.invalidToken")}</p>
             <Link
@@ -47,9 +49,9 @@ const ResetPasswordPage = (): JSX.Element => {
 const NAMESPACE = "pages.auth.reset-password"
 
 export const Route = createFileRoute("/auth/reset-password")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    error: typeof search["error"] === "string" ? search["error"] : "",
-    token: typeof search["token"] === "string" ? search["token"] : "",
+  validateSearch: zod.object({
+    error: searchText(),
+    token: searchText(),
   }),
   component: ResetPasswordPage,
   head: pageHead(ROUTES.RESET_PASSWORD),

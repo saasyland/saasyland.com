@@ -7,13 +7,13 @@ description: "Зберігайте вкладки, режими перегляд
 
 ## Оголосіть параметри
 
-`validateSearch` перетворює сирий рядок запиту на типізований об'єкт. Невідомі чи некоректні значення замінюються типовим значенням замість помилки. З `src/routes/admin.blog.index.tsx`:
+`validateSearch` отримує об'єкт zod, тож параметри пошуку маршруту типізуються й перевіряються в одному місці. Поля беруться з `src/lib/search-params.ts`: `searchText()` і `searchFlag()` дорівнюють `undefined`, коли значення немає, воно порожнє чи некоректне, тож відсутні значення ніколи не потрапляють в URL; `searchChoice(choices, fallback)` повертається до одного з варіантів. Некоректне значення ніколи не веде до сторінки помилки. З `src/routes/admin.blog.index.tsx`:
 
 ```tsx
-validateSearch: (search: SearchSchemaInput & { view?: unknown }): { view: "grid" | "table" } => ({
-  view: search.view === "table" ? "table" : "grid",
+validateSearch: zod.object({
+  view: searchChoice([ADMIN_BLOG_VIEW.GRID, ADMIN_BLOG_VIEW.TABLE], ADMIN_BLOG_VIEW.GRID),
 }),
-search: { middlewares: [stripSearchParams({ view: "grid" })] },
+search: { middlewares: [stripSearchParams({ view: ADMIN_BLOG_VIEW.GRID })] },
 ```
 
 `stripSearchParams` прибирає типове значення з URL, тож `/admin/blog` лишається канонічною адресою перегляду сіткою.
@@ -21,7 +21,7 @@ search: { middlewares: [stripSearchParams({ view: "grid" })] },
 ## Читайте їх
 
 - У компоненті маршруту: `const { view } = Route.useSearch()`.
-- Із селектором компонент перерендерюється лише тоді, коли змінюється вибране значення: `Route.useSearch({ select: (search) => search.error !== "" })`.
+- Із селектором компонент перерендерюється лише тоді, коли змінюється вибране значення: `Route.useSearch({ select: (search) => search.error !== undefined })`.
 - У компоненті поза файлом маршруту: `getRouteApi("/auth/reset-password").useSearch()`, як у `reset-password-form.tsx`.
 
 ## Змінюйте їх

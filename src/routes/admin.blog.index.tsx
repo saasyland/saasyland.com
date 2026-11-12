@@ -1,15 +1,17 @@
 import type { JSX } from "react"
 
-import { Link, type SearchSchemaInput, createFileRoute, stripSearchParams } from "@tanstack/react-router"
+import { Link, createFileRoute, stripSearchParams } from "@tanstack/react-router"
 import { FileEdit, FolderOpen, Search } from "lucide-react"
 import { useTranslations } from "use-intl/react"
+import * as zod from "zod"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { ADMIN_BLOG_FILTERS, ADMIN_BLOG_VIEWS, DUMMY_POSTS } from "~/src/data/admin-blog"
+import { ADMIN_BLOG_FILTERS, ADMIN_BLOG_VIEW, ADMIN_BLOG_VIEWS, DUMMY_POSTS } from "~/src/data/admin-blog"
 
 import { cn } from "~/src/lib/cn"
+import { searchChoice } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
@@ -86,8 +88,8 @@ const BlogPage = (): JSX.Element => {
             </Link>
           </div>
 
-          {view === "grid" && <BlogPostsGrid />}
-          {view === "table" && <DataTable columns={postColumns} data={DUMMY_POSTS} options={{ selectable: true }} />}
+          {view === ADMIN_BLOG_VIEW.GRID && <BlogPostsGrid />}
+          {view === ADMIN_BLOG_VIEW.TABLE && <DataTable columns={postColumns} data={DUMMY_POSTS} options={{ selectable: true }} />}
         </TabsContent>
       </Tabs>
     </div>
@@ -99,8 +101,8 @@ const NAMESPACE = "pages.admin.blog"
 export const Route = createFileRoute("/admin/blog/")({
   component: BlogPage,
   head: pageHead(ROUTES.ADMIN_BLOG),
-  validateSearch: (search: SearchSchemaInput & { view?: unknown }): { view: "grid" | "table" } => ({
-    view: search.view === "table" ? "table" : "grid",
+  validateSearch: zod.object({
+    view: searchChoice([ADMIN_BLOG_VIEW.GRID, ADMIN_BLOG_VIEW.TABLE], ADMIN_BLOG_VIEW.GRID),
   }),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
@@ -110,7 +112,7 @@ export const Route = createFileRoute("/admin/blog/")({
     ])
     return { locale, metadata }
   },
-  search: { middlewares: [stripSearchParams({ view: "grid" })] },
+  search: { middlewares: [stripSearchParams({ view: ADMIN_BLOG_VIEW.GRID })] },
   pendingComponent: AdminBlogPending,
   staticData: { namespaces: [NAMESPACE] },
 })

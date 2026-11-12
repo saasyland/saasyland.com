@@ -12,7 +12,7 @@ Ein Modul entspricht genau einer Datenbanktabelle. `src/modules/<table>/` existi
 | `<table>.schema.ts`        | Drizzle-Tabelle, Indizes, Relationen und Listen der Enum-Werte                                  |
 | `<table>.zod.ts`           | Ein Eingabeschema pro Operation sowie `drizzle-zod`-Schemas, exportiert als `<table>ZodSchemas` |
 | `<table>.constants.ts`     | Tupel der Query- und Mutation-Keys sowie Grenzwerte des Moduls                                  |
-| `<table>.types.ts`         | Aus der Tabelle abgeleitete Zeilentypen                                                         |
+| `<table>.types.ts`         | Ein Interface mit den Zeilentypen und dem Eingabetyp jeder Operation                            |
 | `<table>.utils.ts`         | Optionale reine Hilfsfunktionen                                                                 |
 | `use-cases/<operation>.ts` | Eine Server-Funktion pro Datei mit ihren Query- oder Mutation-Optionen                          |
 | `__test__/`                | Tests, benannt nach der Quelldatei, etwa `category.schema.test.ts` und `category.zod.test.ts`   |
@@ -116,15 +116,25 @@ export const CATEGORY_MUTATION_KEYS = {
 ```
 
 ```ts
+import type * as zod from "zod"
+
 import type { category } from "~/src/modules/category/category.schema"
+import type { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
 export interface Category {
   select: typeof category.$inferSelect
   insert: typeof category.$inferInsert
+  createCategory: zod.input<typeof categoryZodSchemas.createCategory>
+  deleteCategory: zod.input<typeof categoryZodSchemas.deleteCategory>
+  getCategories: zod.input<typeof categoryZodSchemas.getCategories>
+  getCategory: zod.input<typeof categoryZodSchemas.getCategory>
+  updateCategory: zod.input<typeof categoryZodSchemas.updateCategory>
 }
 ```
 
 Jeder Key beginnt mit dem Modulnamen, sodass das Invalidieren von `ALL` jede Query des Moduls aktualisiert.
+
+`Category` hat einen Schlüssel pro Operationsschema. Eine Serverfunktion typisiert die Eingabe ihres Validators als `Category["createCategory"]`, und ihre Mutation- oder Query-Optionen verwenden denselben Typ. Fügen Sie den Schlüssel hinzu, sobald Sie ein Schema hinzufügen.
 
 ## 6. Berechtigungen und Use Cases hinzufügen
 

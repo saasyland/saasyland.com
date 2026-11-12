@@ -1,16 +1,16 @@
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import type * as zod from "zod"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { USER_MUTATION_KEYS } from "~/src/modules/user/user.constants"
+import type { User } from "~/src/modules/user/user.types"
 import { userZodSchemas } from "~/src/modules/user/user.zod"
 
 export const updateUser = createServerFn({ method: "POST" })
   .middleware([authorized({ user: ["update"] })])
-  .validator((input: zod.input<typeof userZodSchemas.updateUser>) => userZodSchemas.updateUser.parse(input))
+  .validator((input: User["updateUser"]) => userZodSchemas.updateUser.parse(input))
   .handler(({ context, data: input }) => {
     const { userId, ...data } = input
 
@@ -21,6 +21,6 @@ export const updateUser = createServerFn({ method: "POST" })
   })
 
 export const updateUserMutation = mutationOptions({
-  mutationFn: (data: Parameters<typeof updateUser>[0]["data"]) => updateUser({ data }),
+  mutationFn: (data: User["updateUser"]) => updateUser({ data }),
   mutationKey: USER_MUTATION_KEYS.UPDATE,
 })

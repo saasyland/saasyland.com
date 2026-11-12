@@ -12,7 +12,7 @@ Un module correspond à une table de la base de données. `src/modules/<table>/`
 | `<table>.schema.ts`        | Table Drizzle, index, relations et listes de valeurs énumérées                                    |
 | `<table>.zod.ts`           | Un schéma d'entrée par opération et les schémas `drizzle-zod`, exportés sous `<table>ZodSchemas`  |
 | `<table>.constants.ts`     | Tuples de clés de queries et de mutations, limites du module                                      |
-| `<table>.types.ts`         | Types de ligne inférés depuis la table                                                            |
+| `<table>.types.ts`         | Une interface avec les types de ligne et le type d’entrée de chaque opération                     |
 | `<table>.utils.ts`         | Fonctions utilitaires pures facultatives                                                          |
 | `use-cases/<operation>.ts` | Une fonction serveur par fichier avec ses options de query ou de mutation                         |
 | `__test__/`                | Tests nommés d'après le fichier source, comme `category.schema.test.ts` et `category.zod.test.ts` |
@@ -116,15 +116,25 @@ export const CATEGORY_MUTATION_KEYS = {
 ```
 
 ```ts
+import type * as zod from "zod"
+
 import type { category } from "~/src/modules/category/category.schema"
+import type { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
 export interface Category {
   select: typeof category.$inferSelect
   insert: typeof category.$inferInsert
+  createCategory: zod.input<typeof categoryZodSchemas.createCategory>
+  deleteCategory: zod.input<typeof categoryZodSchemas.deleteCategory>
+  getCategories: zod.input<typeof categoryZodSchemas.getCategories>
+  getCategory: zod.input<typeof categoryZodSchemas.getCategory>
+  updateCategory: zod.input<typeof categoryZodSchemas.updateCategory>
 }
 ```
 
 Chaque clé commence par le nom du module ; invalider `ALL` rafraîchit donc toutes les queries du module.
+
+`Category` possède une clé par schéma d’opération. Une fonction serveur type l’entrée de son validateur avec `Category["createCategory"]`, et ses options de mutation ou de query réutilisent ce type. Ajoutez la clé dès que vous ajoutez un schéma.
 
 ## 6. Ajouter les permissions et les cas d'usage
 

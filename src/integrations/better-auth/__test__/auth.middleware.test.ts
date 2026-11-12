@@ -174,9 +174,13 @@ describe("rate limiting middleware", () => {
 })
 
 describe("RPC input boundaries", () => {
-  it.each([getUser, getProduct, getCategory])("rejects invalid record identifiers before storage access", async (readRecord) => {
+  it.each([
+    { name: "getUser", readRecord: () => getUser({ data: { userId: "" } }) },
+    { name: "getProduct", readRecord: () => getProduct({ data: { productId: "" } }) },
+    { name: "getCategory", readRecord: () => getCategory({ data: { categoryId: "" } }) },
+  ])("$name rejects an invalid record identifier before storage access", async ({ readRecord }) => {
     vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "admin" }))
-    await expect(readRecord({ data: "" })).rejects.toMatchObject({ code: "VALIDATION" })
+    await expect(readRecord()).rejects.toMatchObject({ code: "VALIDATION" })
   })
   it("returns a localized validation code for invalid page sizes", async () => {
     vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "admin" }))

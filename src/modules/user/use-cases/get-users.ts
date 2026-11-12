@@ -1,16 +1,15 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { asc, count, desc, sql } from "drizzle-orm"
-import zod from "zod/v4"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { USER_QUERY_KEYS } from "~/src/modules/user/user.constants"
 import { user } from "~/src/modules/user/user.schema"
+import type { User } from "~/src/modules/user/user.types"
+import { userZodSchemas } from "~/src/modules/user/user.zod"
 
-const MAX_SORT_COLUMNS = 8
 const sortColumns = {
   createdAt: user.createdAt,
   emailVerified: user.emailVerified,
@@ -22,15 +21,9 @@ const sortColumns = {
   user: user.name,
 }
 
-const userSortSchema = zod.object({
-  desc: zod.boolean(),
-  id: zod.string().pipe(zod.enum(["user", "role", "status", "emailVerified", "twoFactorEnabled", "timezone", "createdAt", "updatedAt"])),
-})
-export const listUsersSchema = paginationSchema.extend({ sorting: zod.array(userSortSchema).max(MAX_SORT_COLUMNS).default([]) })
-
 export const getUsers = createServerFn({ method: "GET" })
   .middleware([authorized({ user: ["list"] })])
-  .validator((input: zod.input<typeof listUsersSchema>) => listUsersSchema.parse(input))
+  .validator((input: User["getUsers"]) => userZodSchemas.getUsers.parse(input))
   .handler(async ({ data }) => {
     const [rows, totals] = await db.batch([
       db
@@ -53,10 +46,10 @@ export const getUsers = createServerFn({ method: "GET" })
     }
   })
 
-export const getUsersPageQuery = (input: zod.input<typeof listUsersSchema> = {}) =>
+export const getUsersPageQuery = (input: User["getUsers"] = {}) =>
   queryOptions<Awaited<ReturnType<typeof getUsers>>>({
     queryFn: () => getUsers({ data: input }),
-    queryKey: [...USER_QUERY_KEYS.LIST, listUsersSchema.parse(input)],
+    queryKey: [...USER_QUERY_KEYS.LIST, userZodSchemas.getUsers.parse(input)],
   })
 
 export const getUsersQuery = getUsersPageQuery()

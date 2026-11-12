@@ -72,7 +72,7 @@ describe("get-product", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
 
-    await expect(getProduct({ data: PRODUCT_ID })).resolves.toStrictEqual(dbMocks.dbRow)
+    await expect(getProduct({ data: { productId: PRODUCT_ID } })).resolves.toStrictEqual(dbMocks.dbRow)
 
     expect(dbMocks.selectMock).toHaveBeenCalledTimes(SINGLE_CALL)
     expect(getSessionMock).toHaveBeenCalledTimes(SINGLE_CALL)
@@ -85,7 +85,7 @@ describe("get-product", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
 
-    await expect(getProduct({ data: PRODUCT_ID })).rejects.toMatchObject({ code: "NOT_FOUND" })
+    await expect(getProduct({ data: { productId: PRODUCT_ID } })).rejects.toMatchObject({ code: "NOT_FOUND" })
   })
 
   it("rejects when the caller is not an admin", async () => {
@@ -94,7 +94,7 @@ describe("get-product", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
 
-    await expect(getProduct({ data: PRODUCT_ID })).rejects.toMatchObject({ code: "FORBIDDEN" })
+    await expect(getProduct({ data: { productId: PRODUCT_ID } })).rejects.toMatchObject({ code: "FORBIDDEN" })
   })
 
   it("rejects when the caller is signed out", async () => {
@@ -103,6 +103,6 @@ describe("get-product", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(getProduct({ data: PRODUCT_ID })).rejects.toMatchObject({ code: "UNAUTHORIZED" })
+    await expect(getProduct({ data: { productId: PRODUCT_ID } })).rejects.toMatchObject({ code: "UNAUTHORIZED" })
   })
 })

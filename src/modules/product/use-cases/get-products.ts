@@ -1,23 +1,18 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { and, count, desc, eq } from "drizzle-orm"
-import zod from "zod/v4"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { PRODUCT_QUERY_KEYS } from "~/src/modules/product/product.constants"
-import { PRODUCT_STATUSES, PRODUCT_TYPES, product } from "~/src/modules/product/product.schema"
-
-export const listProductsSchema = paginationSchema.extend({
-  status: zod.enum(PRODUCT_STATUSES).optional(),
-  type: zod.enum(PRODUCT_TYPES).optional(),
-})
+import { product } from "~/src/modules/product/product.schema"
+import type { Product } from "~/src/modules/product/product.types"
+import { productZodSchemas } from "~/src/modules/product/product.zod"
 
 export const getProducts = createServerFn({ method: "GET" })
   .middleware([authorized({ product: ["read"] })])
-  .validator((input: zod.input<typeof listProductsSchema>) => listProductsSchema.parse(input))
+  .validator((input: Product["getProducts"]) => productZodSchemas.getProducts.parse(input))
   .handler(async ({ data }) => {
     const filter = and(data.type && eq(product.type, data.type), data.status && eq(product.status, data.status))
     const [rows, totals] = await db.batch([
@@ -33,10 +28,10 @@ export const getProducts = createServerFn({ method: "GET" })
     return { rows, total: totals.reduce((sum, row) => sum + row.total, 0) }
   })
 
-export const getProductsPageQuery = (input: zod.input<typeof listProductsSchema> = {}) =>
+export const getProductsPageQuery = (input: Product["getProducts"] = {}) =>
   queryOptions<Awaited<ReturnType<typeof getProducts>>>({
     queryFn: () => getProducts({ data: input }),
-    queryKey: [...PRODUCT_QUERY_KEYS.LIST, listProductsSchema.parse(input)],
+    queryKey: [...PRODUCT_QUERY_KEYS.LIST, productZodSchemas.getProducts.parse(input)],
   })
 
 export const getProductsQuery = getProductsPageQuery()

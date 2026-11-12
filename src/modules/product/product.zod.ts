@@ -2,6 +2,7 @@ import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { CURRENCY_CODES } from "~/src/modules/_core/constants/currency"
+import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
 import { PRODUCT_STATUSES, PRODUCT_TYPES, product } from "~/src/modules/product/product.schema"
 
@@ -33,6 +34,11 @@ const deleteProduct = productIdInput
 
 const getProduct = productIdInput
 
+const getProducts = paginationSchema.extend({
+  status: productStatusSchema.optional(),
+  type: productTypeSchema.optional(),
+})
+
 const updateProduct = createProduct
   .partial()
   .extend({
@@ -51,6 +57,7 @@ export const productZodSchemas = {
   createProduct,
   deleteProduct,
   getProduct,
+  getProducts,
   insert,
   select,
   update,

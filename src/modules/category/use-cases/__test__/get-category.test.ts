@@ -65,7 +65,7 @@ describe("get-category", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
 
-    await expect(getCategory({ data: CATEGORY_ID })).resolves.toStrictEqual(dbMocks.dbRow)
+    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).resolves.toStrictEqual(dbMocks.dbRow)
 
     expect(dbMocks.selectMock).toHaveBeenCalledTimes(SINGLE_CALL)
     expect(getSessionMock).toHaveBeenCalledTimes(SINGLE_CALL)
@@ -78,7 +78,7 @@ describe("get-category", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
 
-    await expect(getCategory({ data: CATEGORY_ID })).rejects.toMatchObject({ code: "NOT_FOUND" })
+    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: "NOT_FOUND" })
   })
 
   it("rejects when the caller is not an admin", async () => {
@@ -87,7 +87,7 @@ describe("get-category", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
 
-    await expect(getCategory({ data: CATEGORY_ID })).rejects.toMatchObject({ code: "FORBIDDEN" })
+    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: "FORBIDDEN" })
   })
 
   it("rejects when the caller is signed out", async () => {
@@ -96,6 +96,6 @@ describe("get-category", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(getCategory({ data: CATEGORY_ID })).rejects.toMatchObject({ code: "UNAUTHORIZED" })
+    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: "UNAUTHORIZED" })
   })
 })

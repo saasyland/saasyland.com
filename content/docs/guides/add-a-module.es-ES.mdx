@@ -12,7 +12,7 @@ Un módulo es una tabla de la base de datos. `src/modules/<table>/` existe solo 
 | `<table>.schema.ts`        | Tabla Drizzle, índices, relaciones y listas de valores enumerados                                        |
 | `<table>.zod.ts`           | Un esquema de entrada por operación y los esquemas de `drizzle-zod`, exportados como `<table>ZodSchemas` |
 | `<table>.constants.ts`     | Tuplas de claves de queries y mutations y límites del módulo                                             |
-| `<table>.types.ts`         | Tipos de fila inferidos de la tabla                                                                      |
+| `<table>.types.ts`         | Una interfaz con los tipos de fila y el tipo de entrada de cada operación                                |
 | `<table>.utils.ts`         | Funciones auxiliares puras opcionales                                                                    |
 | `use-cases/<operation>.ts` | Una función de servidor por archivo con sus opciones de query o mutation                                 |
 | `__test__/`                | Tests nombrados según el archivo fuente, como `category.schema.test.ts` y `category.zod.test.ts`         |
@@ -116,15 +116,25 @@ export const CATEGORY_MUTATION_KEYS = {
 ```
 
 ```ts
+import type * as zod from "zod"
+
 import type { category } from "~/src/modules/category/category.schema"
+import type { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
 export interface Category {
   select: typeof category.$inferSelect
   insert: typeof category.$inferInsert
+  createCategory: zod.input<typeof categoryZodSchemas.createCategory>
+  deleteCategory: zod.input<typeof categoryZodSchemas.deleteCategory>
+  getCategories: zod.input<typeof categoryZodSchemas.getCategories>
+  getCategory: zod.input<typeof categoryZodSchemas.getCategory>
+  updateCategory: zod.input<typeof categoryZodSchemas.updateCategory>
 }
 ```
 
 Todas las claves empiezan por el nombre del módulo, así que invalidar `ALL` refresca todas las queries del módulo.
+
+`Category` tiene una clave por cada esquema de operación. Una función de servidor tipa la entrada de su validador como `Category["createCategory"]`, y sus opciones de mutation o query reutilizan ese tipo. Añade la clave cada vez que añadas un esquema.
 
 ## 6. Añade permisos y casos de uso
 

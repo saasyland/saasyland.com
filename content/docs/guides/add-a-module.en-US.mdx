@@ -12,7 +12,7 @@ A module is one database table. `src/modules/<table>/` exists only for real tabl
 | `<table>.schema.ts`        | Drizzle table, indexes, relations and enum value lists                                          |
 | `<table>.zod.ts`           | One input schema per operation plus `drizzle-zod` schemas, exported as `<table>ZodSchemas`      |
 | `<table>.constants.ts`     | Query and mutation key tuples and module limits                                                 |
-| `<table>.types.ts`         | Row types inferred from the table                                                               |
+| `<table>.types.ts`         | One interface with the row types and the input type of every operation                          |
 | `<table>.utils.ts`         | Optional pure helpers                                                                           |
 | `use-cases/<operation>.ts` | One server function per file with its query or mutation options                                 |
 | `__test__/`                | Tests named after the source file, such as `category.schema.test.ts` and `category.zod.test.ts` |
@@ -116,15 +116,25 @@ export const CATEGORY_MUTATION_KEYS = {
 ```
 
 ```ts
+import type * as zod from "zod"
+
 import type { category } from "~/src/modules/category/category.schema"
+import type { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
 export interface Category {
   select: typeof category.$inferSelect
   insert: typeof category.$inferInsert
+  createCategory: zod.input<typeof categoryZodSchemas.createCategory>
+  deleteCategory: zod.input<typeof categoryZodSchemas.deleteCategory>
+  getCategories: zod.input<typeof categoryZodSchemas.getCategories>
+  getCategory: zod.input<typeof categoryZodSchemas.getCategory>
+  updateCategory: zod.input<typeof categoryZodSchemas.updateCategory>
 }
 ```
 
 Every key starts with the module name, so invalidating `ALL` refreshes every query of the module.
+
+`Category` has one key per operation schema. A server function types its validator input as `Category["createCategory"]`, and its mutation or query options reuse that type. Add the key whenever you add a schema.
 
 ## 6. Add permissions and use cases
 

@@ -1,6 +1,7 @@
 import type { ComponentProps, JSX } from "react"
 
 import { Accordion, Accordions } from "@fumadocs/base-ui/components/accordion"
+import { Card } from "@fumadocs/base-ui/components/card"
 import { Step, Steps } from "@fumadocs/base-ui/components/steps"
 import { Tab, Tabs } from "@fumadocs/base-ui/components/tabs"
 import defaultMdxComponents from "@fumadocs/base-ui/mdx"
@@ -22,6 +23,8 @@ import {
 import { Separator } from "~/src/presentation/components/shadcn/separator"
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
+import { RepositoryCount } from "~/src/presentation/components/custom/repository-count"
+
 const INTERNAL_PREFIX = "/"
 
 const MdxLink = ({ href, ...props }: ComponentProps<"a">): JSX.Element => {
@@ -30,6 +33,16 @@ const MdxLink = ({ href, ...props }: ComponentProps<"a">): JSX.Element => {
   }
 
   return <a href={href} {...props} />
+}
+
+const MdxCard = (props: ComponentProps<typeof Card>): JSX.Element => {
+  const { href } = props
+
+  if (href?.startsWith(INTERNAL_PREFIX) === true) {
+    return <Card {...props} href={localizePathname({ locale: getCurrentLocale(), pathname: href })} />
+  }
+
+  return <Card {...props} />
 }
 
 export const mdxComponents = {
@@ -41,11 +54,13 @@ export const mdxComponents = {
   AlertTitle,
   Badge,
   Button,
+  Card: MdxCard,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
+  RepositoryCount,
   Separator,
   ShadcnCard,
   Step,

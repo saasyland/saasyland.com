@@ -7,10 +7,9 @@ description: "E-mail transacional com Resend e templates do React Email."
 
 ## Templates e casos de uso
 
-Os templates em `src/presentation/emails/` são componentes do React Email que contêm apenas markup. Cada um exporta uma constante `*_NAMESPACE`, recebe `locale` e `messages` como props e traduz com `createTranslator` do use-intl. O caso de uso que envia um e-mail carrega as mensagens, renderiza o template e chama `sendEmail`:
+Os templates em `src/presentation/emails/` são componentes do React Email que contêm apenas markup. Cada um exporta uma constante `*_NAMESPACE`, recebe `locale` e `messages` como props e traduz com `createTranslator` do use-intl. O caso de uso que envia um e-mail recebe o locale de quem o chama (o e-mail de verificação o lê da URL de callback), carrega as mensagens, renderiza o template e chama `sendEmail`:
 
 ```ts
-const locale = getCurrentLocale()
 const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 await sendEmail({
   idempotency: { purpose: "verify-email", token },
@@ -28,7 +27,9 @@ await sendEmail({
 | `newsletter-confirmation-email.tsx`   | `emails.newsletter-confirmation-email`   | `modules/newsletter-subscriber/use-cases/subscribe-to-newsletter.ts`         |
 | `newsletter-notification-email.tsx`   | `emails.newsletter-notification-email`   | `modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription.ts` |
 
-O Better Auth chama os três primeiros casos de uso a partir dos seus hooks em `auth.server.ts`. A notificação da newsletter vai para o dono do site, em inglês, depois que uma inscrição é confirmada. Os links dentro dos e-mails são montados com `localizePathname`, então abrem no locale do destinatário.
+O Better Auth chama os três primeiros casos de uso a partir dos seus hooks em `auth.server.ts`. A notificação da newsletter vai para o dono do site, em inglês, depois que uma inscrição é confirmada. Os links dentro dos e-mails são montados com `localizePathname`, então abrem no locale do e-mail.
+
+Os casos de uso de verificação, de redefinição de senha e de confirmação da newsletter chamam primeiro `withinRecipientRateLimit`, de `src/lib/rate-limit.ts`: no máximo três e-mails de cada tipo por endereço por hora, com a chave em um hash SHA-256 do endereço. Acima do limite, eles descartam o e-mail sem lançar erro.
 
 ## Testes
 

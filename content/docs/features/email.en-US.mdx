@@ -23,9 +23,13 @@ const t = createTranslator({ locale, messages: { emails: { "verify-email": messa
 
 ## Sending
 
-The use case takes the locale and the `redirect` from the callback URL Better Auth passes along, loads the messages, renders the template and sends it (`src/modules/verification/use-cases/send-verify-email.ts`):
+The use case takes the locale and the `redirect` from the callback URL Better Auth passes along, checks the per-recipient limit, loads the messages, renders the template and sends it (`src/modules/verification/use-cases/send-verify-email.ts`):
 
 ```ts
+if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+  console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+  return
+}
 const callback = new URL(callbackURL, getRequest().url)
 const locale = extractLocaleFromPath(callback.pathname) ?? I18N.DEFAULT_LOCALE
 const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
@@ -43,7 +47,9 @@ await sendEmail({
 
 `sendEmail` (`src/integrations/resend/resend.utils.ts`) sends through Resend from `RESEND_EMAIL_FROM` unless a `from` is given (the owner notification uses `NOTIFICATIONS_EMAIL`), passes the idempotency key and throws on failure.
 
-Account emails use the locale of the current request. Newsletter emails use the locale submitted with the form; the owner notification is always in `en-US`.
+Account emails use the locale of the page where the flow started, read from the `callbackURL` in the email link; for a repeated sign-up it comes from the `callbackURL` of the sign-up request. Newsletter emails use the locale submitted with the form; the owner notification is always in `en-US`.
+
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) allows at most three verification, three password reset and three newsletter confirmation emails per address per hour, counted in the `rate_limit` table under a SHA-256 hash of the address. Over the limit the email is skipped and the request still gets its normal answer. The change-email confirmation and the owner notification are not limited.
 
 ## Related guides
 

@@ -14,7 +14,7 @@ description: "Як модуль володіє однією таблицею б�
 - `<table>.utils.ts`: якщо вони потрібні таблиці
 - `use-cases/<operation>.ts`: одна операція на файл
 
-Поточні модулі: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user і verification. Спільні константи та допоміжні функції лежать у [`_core`](/docs/architecture/core). Серверна функція, яка не працює з таблицею, належить до `src/lib` або до єдиного маршруту, що її використовує.
+Поточні модулі: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user і verification. `license` володіє двома таблицями, `license` і `revoked_license_order`. Спільні константи та допоміжні функції лежать у [`_core`](/docs/architecture/core). Серверна функція, яка не працює з таблицею, належить до `src/lib` або до єдиного маршруту, що її використовує.
 
 ## Сценарії використання
 
@@ -60,7 +60,7 @@ export const createCategoryMutation = mutationOptions({
 - **Middleware** надходять із `src/integrations/better-auth/auth.middleware.ts`. `authorized()` вимагає сесію, `authorized({ category: ["create"] })` додатково перевіряє дозвіл, а `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` обмежує публічні операції.
 - **Валідація** розбирає вхідні дані Zod-схемою модуля ще до запуску обробника.
 - **Належність даних** визначається сесією. Операції з власними даними того, хто викликає, фільтрують за `context.auth.user.id` і ніколи не довіряють ідентифікатору користувача з вхідних даних.
-- **Помилки** викидаються як `new AppError(ERROR_CODES.X)`. Будь-яка інша помилка логується й доходить до клієнта як `INTERNAL_ERROR`.
+- **Помилки** викидаються як `new AppError(ERROR_CODES.X)`. `withRequest` перетворює помилку API Better Auth на `AUTH_API_ERROR` з ключем повідомлення помилки, а помилку Zod — на `VALIDATION`; будь-яка інша помилка логується й доходить до клієнта як `INTERNAL_ERROR`.
 - **Читання** натомість експортують `queryOptions`, наприклад `getCategoriesPageQuery(input)`, який повертає `{ rows, total }` для таблиці даних.
 
 Деякі сценарії використання — це звичайні асинхронні функції, які виконуються лише на сервері й не мають RPC-ендпоінта, як-от `send-verify-email.ts` або `grant-license.ts`. Їх викликають хуки Better Auth та обробники вебхуків Polar.

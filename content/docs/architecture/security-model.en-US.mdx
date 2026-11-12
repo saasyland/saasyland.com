@@ -26,7 +26,7 @@ Guards only decide what the user sees. **Server function middleware** in `auth.m
 - `getRequestSession` bypasses the cookie cache and memoizes the session for the rest of the request.
 - The session sent to the browser has its token removed.
 - `tanstackStartCookies` is the last Better Auth plugin, so cookies set during a server function reach the response.
-- Allowed hosts are fixed per build mode: `saasyland.com` in production, `preview.saasyland.com` in preview, `localhost:3000` and `127.0.0.1:3000` locally.
+- Allowed hosts are fixed per build mode: `saasyland.com` in production, `preview.saasyland.com` in preview, `localhost:3000` and `127.0.0.1:3000` in development, and in test also `localhost:3020` and `127.0.0.1:3020`.
 
 Better Auth also handles email verification (required before sign-in), password reset (which revokes existing sessions), OAuth with GitHub and Google (tokens encrypted at rest), two-factor authentication and admin impersonation. Verification identifiers are stored hashed.
 
@@ -34,12 +34,19 @@ Better Auth also handles email verification (required before sign-in), password 
 
 `withRateLimit(kind, limit)` counts attempts per operation and client IP (`cf-connecting-ip`) in the `rate_limit` table with a single atomic D1 batch. `RATE_LIMITS.SENSITIVE` allows 3 attempts per minute and `RATE_LIMITS.TOKEN` allows 5. If the counter storage fails, the request is refused. Better Auth's own rate limiter uses the same table with an `auth:` key prefix; session reads, sign-out and Polar webhooks are exempt.
 
+Emails a visitor can trigger have a second limit. `withinRecipientRateLimit` allows three verification, three password reset and three newsletter confirmation emails per address per hour, keyed on a SHA-256 hash of the address, and skips the email silently beyond that.
+
+## Response headers
+
+`src/server.ts` adds `SECURITY_HEADERS` (a Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` and `X-Frame-Options`) to every response the Worker returns, plus `Strict-Transport-Security` over HTTPS, and keeps any of them the response already sets. Files served without the Worker get the subset in `public/_headers`. See [Security and hardening](/docs/features/security).
+
 ## Errors and input
 
 - Server functions that take input parse it with a Zod schema before the handler runs.
+- Better Auth's own endpoints follow the same rules as the forms: `enforceInputPolicy` in `auth.hooks.ts` runs before every endpoint that accepts a password, name, email or image and answers `400` with `VALIDATION_ERROR` when the body fails its schema.
 - `withRequest` turns unexpected errors into `INTERNAL_ERROR` and logs the original on the server, so internal details never reach the client.
 - Polar webhooks are verified with `POLAR_WEBHOOK_SECRET` before any license changes.
-- Secrets are read from `cloudflare:workers` only in server-only modules.
+- Secrets are read from `cloudflare:workers` only by server code: server-only modules, server function handlers and helpers that only they import. `scripts/verify-build.ts` fails the build when a client asset imports `cloudflare:workers`.
 - Private areas (`/admin`, `/app`, `/auth`, `/newsletter`) are never prerendered.
 
 ## Related pages

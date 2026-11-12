@@ -7,10 +7,9 @@ description: "E-mails transactionnels avec Resend et des modèles React Email."
 
 ## Modèles et cas d'usage
 
-Les modèles de `src/presentation/emails/` sont des composants React Email qui ne contiennent que du balisage. Chacun exporte une constante `*_NAMESPACE`, reçoit `locale` et `messages` en props et traduit avec `createTranslator` de use-intl. Le cas d'usage qui envoie un e-mail charge les messages, rend le modèle et appelle `sendEmail` :
+Les modèles de `src/presentation/emails/` sont des composants React Email qui ne contiennent que du balisage. Chacun exporte une constante `*_NAMESPACE`, reçoit `locale` et `messages` en props et traduit avec `createTranslator` de use-intl. Le cas d'usage qui envoie un e-mail reçoit la langue de son appelant (l'e-mail de vérification la lit dans l'URL de callback), charge les messages, rend le modèle et appelle `sendEmail` :
 
 ```ts
-const locale = getCurrentLocale()
 const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 await sendEmail({
   idempotency: { purpose: "verify-email", token },
@@ -28,7 +27,9 @@ await sendEmail({
 | `newsletter-confirmation-email.tsx`   | `emails.newsletter-confirmation-email`   | `modules/newsletter-subscriber/use-cases/subscribe-to-newsletter.ts`         |
 | `newsletter-notification-email.tsx`   | `emails.newsletter-notification-email`   | `modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription.ts` |
 
-Better Auth appelle les trois premiers cas d'usage depuis ses hooks dans `auth.server.ts`. La notification de newsletter est envoyée en anglais au propriétaire du site une fois un abonnement confirmé. Les liens contenus dans les e-mails sont construits avec `localizePathname` et s'ouvrent donc dans la langue du destinataire.
+Better Auth appelle les trois premiers cas d'usage depuis ses hooks dans `auth.server.ts`. La notification de newsletter est envoyée en anglais au propriétaire du site une fois un abonnement confirmé. Les liens contenus dans les e-mails sont construits avec `localizePathname` et s'ouvrent donc dans la langue de l'e-mail.
+
+Les cas d'usage de vérification, de réinitialisation du mot de passe et de confirmation de newsletter appellent d'abord `withinRecipientRateLimit` de `src/lib/rate-limit.ts` : au plus trois e-mails de chaque type par adresse et par heure, avec pour clé un hachage SHA-256 de l'adresse. Au-delà de la limite, ils ignorent l'e-mail sans erreur.
 
 ## Tests
 

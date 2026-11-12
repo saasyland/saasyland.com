@@ -23,9 +23,13 @@ const t = createTranslator({ locale, messages: { emails: { "verify-email": messa
 
 ## Wysyłka
 
-Przypadek użycia odczytuje język i `redirect` z adresu zwrotnego przekazanego przez Better Auth, ładuje komunikaty, renderuje szablon i go wysyła (`src/modules/verification/use-cases/send-verify-email.ts`):
+Przypadek użycia odczytuje język i `redirect` z adresu zwrotnego przekazanego przez Better Auth, sprawdza limit na odbiorcę, ładuje komunikaty, renderuje szablon i go wysyła (`src/modules/verification/use-cases/send-verify-email.ts`):
 
 ```ts
+if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+  console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+  return
+}
 const callback = new URL(callbackURL, getRequest().url)
 const locale = extractLocaleFromPath(callback.pathname) ?? I18N.DEFAULT_LOCALE
 const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
@@ -43,7 +47,9 @@ await sendEmail({
 
 `sendEmail` (`src/integrations/resend/resend.utils.ts`) wysyła przez Resend z adresu `RESEND_EMAIL_FROM`, chyba że podano `from` (powiadomienie dla właściciela używa `NOTIFICATIONS_EMAIL`), przekazuje klucz idempotencji i zgłasza błąd, gdy wysyłka się nie powiedzie.
 
-E-maile dotyczące konta używają języka bieżącego żądania. E-maile newslettera używają języka przesłanego z formularzem; powiadomienie dla właściciela jest zawsze w `en-US`.
+E-maile dotyczące konta używają języka strony, na której rozpoczął się przepływ, odczytanego z `callbackURL` w linku e-maila; przy ponownej rejestracji pochodzi on z `callbackURL` żądania rejestracji. E-maile newslettera używają języka przesłanego z formularzem; powiadomienie dla właściciela jest zawsze w `en-US`.
+
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) pozwala na najwyżej trzy e-maile weryfikacyjne, trzy e-maile resetu hasła i trzy e-maile potwierdzające subskrypcję newslettera na adres na godzinę, liczone w tabeli `rate_limit` pod skrótem SHA-256 adresu. Powyżej limitu e-mail jest pomijany, a żądanie i tak dostaje zwykłą odpowiedź. Potwierdzenie zmiany adresu e-mail i powiadomienie dla właściciela nie są ograniczone.
 
 ## Powiązane przewodniki
 

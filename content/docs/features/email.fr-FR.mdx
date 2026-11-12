@@ -23,9 +23,13 @@ const t = createTranslator({ locale, messages: { emails: { "verify-email": messa
 
 ## Envoi
 
-Le cas d’usage tire la langue et le `redirect` de l’URL de callback que transmet Better Auth, charge les messages, rend le modèle et l’envoie (`src/modules/verification/use-cases/send-verify-email.ts`) :
+Le cas d’usage tire la langue et le `redirect` de l’URL de callback que transmet Better Auth, vérifie la limite par destinataire, charge les messages, rend le modèle et l’envoie (`src/modules/verification/use-cases/send-verify-email.ts`) :
 
 ```ts
+if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+  console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+  return
+}
 const callback = new URL(callbackURL, getRequest().url)
 const locale = extractLocaleFromPath(callback.pathname) ?? I18N.DEFAULT_LOCALE
 const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
@@ -43,7 +47,9 @@ await sendEmail({
 
 `sendEmail` (`src/integrations/resend/resend.utils.ts`) envoie via Resend depuis `RESEND_EMAIL_FROM`, sauf si un `from` est fourni (la notification au propriétaire utilise `NOTIFICATIONS_EMAIL`), transmet la clé d’idempotence et lève une erreur en cas d’échec.
 
-Les e-mails de compte utilisent la langue de la requête courante. Les e-mails de newsletter utilisent la langue envoyée avec le formulaire ; la notification au propriétaire est toujours en `en-US`.
+Les e-mails de compte utilisent la langue de la page où le parcours a commencé, lue dans le `callbackURL` du lien de l’e-mail ; pour une inscription répétée, elle provient du `callbackURL` de la requête d’inscription. Les e-mails de newsletter utilisent la langue envoyée avec le formulaire ; la notification au propriétaire est toujours en `en-US`.
+
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) autorise au plus trois e-mails de vérification, trois de réinitialisation du mot de passe et trois de confirmation de newsletter par adresse et par heure, comptés dans la table `rate_limit` sous un hachage SHA-256 de l’adresse. Au-delà de la limite, l’e-mail est ignoré et la requête reçoit quand même sa réponse habituelle. La confirmation de changement d’e-mail et la notification au propriétaire ne sont pas limitées.
 
 ## Guides associés
 

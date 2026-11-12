@@ -7,14 +7,14 @@ Better Auth runs with `requireEmailVerification`, `sendOnSignUp` and `autoSignIn
 
 ## Sending
 
-`emailVerification.sendVerificationEmail` in `auth.server.ts` is `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`). It builds a link to `/auth/verify-email?token=…` in the current locale and sends the `VerifyEmail` template (see [Transactional email](/docs/features/email)). When someone signs up again with an unverified address, `onExistingUserSignUp` sends a fresh link instead of revealing that the account exists.
+`emailVerification.sendVerificationEmail` in `auth.server.ts` is `sendVerifyEmail` (`src/modules/verification/use-cases/send-verify-email.ts`). It builds a link to `/auth/verify-email` on this site with the locale and the `redirect` of the flow's `callbackURL`, plus the `token`, and sends the `VerifyEmail` template (see [Transactional email](/docs/features/email)). It sends at most three verification emails per address per hour (`withinRecipientRateLimit`); further requests send nothing and get the normal response. When someone signs up again with an unverified address, `onExistingUserSignUp` sends a fresh link instead of revealing that the account exists.
 
 ## Verifying
 
 `/auth/verify-email` resolves the link in `beforeLoad`:
 
-- With `?token=`, it reloads the document at `/api/auth/verify-email` with a `callbackURL` of `/auth/verify-email?verified=true` in the same locale.
-- With `?verified=true` and no `error`, it redirects to `/auth/callback`, which sends the user to `/admin` or `/app`.
+- With `?token=`, it reloads the document at `/api/auth/verify-email` with a `callbackURL` of `/auth/verify-email?verified=true` in the same locale, keeping `redirect`.
+- With `?verified=true` and no `error`, it redirects to `/auth/callback` with `redirect`, which sends the user there, or to `/admin` or `/app`.
 - Otherwise it renders the page; with `?error=` it shows the invalid-link message.
 
 ## Resending

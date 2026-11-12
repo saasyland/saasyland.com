@@ -23,9 +23,13 @@ const t = createTranslator({ locale, messages: { emails: { "verify-email": messa
 
 ## Invio
 
-Il caso d’uso ricava la lingua e il `redirect` dall’URL di callback che Better Auth gli passa, carica i messaggi, esegue il rendering del template e lo invia (`src/modules/verification/use-cases/send-verify-email.ts`):
+Il caso d’uso ricava la lingua e il `redirect` dall’URL di callback che Better Auth gli passa, controlla il limite per destinatario, carica i messaggi, esegue il rendering del template e lo invia (`src/modules/verification/use-cases/send-verify-email.ts`):
 
 ```ts
+if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+  console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+  return
+}
 const callback = new URL(callbackURL, getRequest().url)
 const locale = extractLocaleFromPath(callback.pathname) ?? I18N.DEFAULT_LOCALE
 const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
@@ -43,7 +47,9 @@ await sendEmail({
 
 `sendEmail` (`src/integrations/resend/resend.utils.ts`) invia tramite Resend da `RESEND_EMAIL_FROM`, a meno che non venga indicato un `from` (la notifica al proprietario usa `NOTIFICATIONS_EMAIL`), passa la chiave di idempotenza e lancia un errore in caso di fallimento.
 
-Le email dell’account usano la lingua della richiesta corrente. Le email della newsletter usano la lingua inviata con il modulo; la notifica al proprietario è sempre in `en-US`.
+Le email dell’account usano la lingua della pagina in cui è iniziato il flusso, letta dal `callbackURL` nel link dell’email; per una registrazione ripetuta proviene dal `callbackURL` della richiesta di registrazione. Le email della newsletter usano la lingua inviata con il modulo; la notifica al proprietario è sempre in `en-US`.
+
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) consente al massimo tre email di verifica, tre di reimpostazione della password e tre di conferma della newsletter per indirizzo all’ora, conteggiate nella tabella `rate_limit` sotto un hash SHA-256 dell’indirizzo. Oltre il limite l’email viene saltata e la richiesta riceve comunque la sua risposta normale. La conferma del cambio di email e la notifica al proprietario non sono limitate.
 
 ## Guide correlate
 

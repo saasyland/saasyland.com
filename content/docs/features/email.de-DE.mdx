@@ -23,9 +23,13 @@ const t = createTranslator({ locale, messages: { emails: { "verify-email": messa
 
 ## Versand
 
-Der Anwendungsfall übernimmt die Locale und den `redirect` aus der Callback-URL, die Better Auth weiterreicht, lädt die Meldungen, rendert die Vorlage und versendet sie (`src/modules/verification/use-cases/send-verify-email.ts`):
+Der Anwendungsfall übernimmt die Locale und den `redirect` aus der Callback-URL, die Better Auth weiterreicht, prüft das Limit pro Empfänger, lädt die Meldungen, rendert die Vorlage und versendet sie (`src/modules/verification/use-cases/send-verify-email.ts`):
 
 ```ts
+if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+  console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+  return
+}
 const callback = new URL(callbackURL, getRequest().url)
 const locale = extractLocaleFromPath(callback.pathname) ?? I18N.DEFAULT_LOCALE
 const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
@@ -43,7 +47,9 @@ await sendEmail({
 
 `sendEmail` (`src/integrations/resend/resend.utils.ts`) versendet über Resend von `RESEND_EMAIL_FROM`, sofern kein `from` angegeben ist (die Benachrichtigung an den Betreiber verwendet `NOTIFICATIONS_EMAIL`), übergibt den Idempotenzschlüssel und wirft bei einem Fehler eine Ausnahme.
 
-Konto-E-Mails verwenden die Locale der aktuellen Anfrage. Newsletter-E-Mails verwenden die mit dem Formular übermittelte Locale; die Benachrichtigung an den Betreiber ist immer in `en-US`.
+Konto-E-Mails verwenden die Locale der Seite, auf der der Ablauf begonnen hat, gelesen aus der `callbackURL` im E-Mail-Link; bei einer wiederholten Registrierung stammt sie aus der `callbackURL` der Registrierungsanfrage. Newsletter-E-Mails verwenden die mit dem Formular übermittelte Locale; die Benachrichtigung an den Betreiber ist immer in `en-US`.
+
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) erlaubt höchstens drei Verifizierungs-, drei Passwort-Reset- und drei Newsletter-Bestätigungs-E-Mails pro Adresse und Stunde, gezählt in der Tabelle `rate_limit` unter einem SHA-256-Hash der Adresse. Über dem Limit wird die E-Mail übersprungen, und die Anfrage erhält trotzdem ihre normale Antwort. Die Bestätigung der E-Mail-Änderung und die Benachrichtigung an den Betreiber sind nicht begrenzt.
 
 ## Verwandte Anleitungen
 

@@ -78,7 +78,7 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
 
 ## 送信
 
-ユースケースは受け取ったコールバック URL からロケールを取り出し、メッセージを読み込み、`localizePathname` で絶対リンクを組み立て、`sendEmail` を呼び出します。`src/modules/verification/use-cases/send-verify-email.ts`：
+ユースケースは受け取ったコールバック URL からロケールを取り出し、受信者ごとの上限を確認し、メッセージを読み込み、`localizePathname` で絶対リンクを組み立て、`sendEmail` を呼び出します。`src/modules/verification/use-cases/send-verify-email.ts`：
 
 ```ts
 export const sendVerifyEmail = async ({
@@ -90,6 +90,11 @@ export const sendVerifyEmail = async ({
   token: string
   user: { email: string; name: string }
 }): Promise<void> => {
+  if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+    console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+    return
+  }
+
   const callback = new URL(callbackURL, getRequest().url)
   const locale = extractLocaleFromPath(callback.pathname) ?? I18N.DEFAULT_LOCALE
   const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
@@ -114,6 +119,7 @@ export const sendVerifyEmail = async ({
 - `src/integrations/better-auth/auth.server.ts` の Better Auth のフックがユースケースを呼び出します。`emailVerification.sendVerificationEmail` と、未認証アカウントでの再度のサインアップには `sendVerifyEmail`、`emailAndPassword.sendResetPassword` には `sendResetPasswordEmail`、`user.changeEmail` には `sendChangeEmailConfirmationEmail` を使います。
 - Better Auth へのリクエストはロケールのプレフィックスなしで `/api/auth` に届くため、フックはフローの `callbackURL`（ローカライズされたページのパス）から、`src/integrations/use-intl/i18n.paths.ts` の `extractLocaleFromCallbackURL` または `extractLocaleFromPath` を使ってメールのロケールを決めます。フォールバックは英語です。
 - ニュースレターのユースケースは、ニュースレターの確認メールと通知メールを自ら送信します。例えば `subscribeToNewsletter` です。
+- `sendVerifyEmail`、`sendResetPasswordEmail`、`subscribeToNewsletter` は、送信前に `withinRecipientRateLimit`（`src/lib/rate-limit.ts`）を呼び出します。アドレスの SHA-256 ハッシュをキーとして、1 種類のメールにつきアドレスごとに 1 時間あたり最大 3 通までです。上限を超えると警告をログに記録し、何も送信しません。アカウントなしで訪問者が送信をトリガーできるメールには、同じチェックを追加してください。
 
 ## メールを追加する
 

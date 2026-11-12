@@ -23,9 +23,13 @@ const t = createTranslator({ locale, messages: { emails: { "verify-email": messa
 
 ## Envío
 
-El caso de uso toma el idioma y el `redirect` de la URL de callback que le pasa Better Auth, carga los mensajes, renderiza la plantilla y la envía (`src/modules/verification/use-cases/send-verify-email.ts`):
+El caso de uso toma el idioma y el `redirect` de la URL de callback que le pasa Better Auth, comprueba el límite por destinatario, carga los mensajes, renderiza la plantilla y la envía (`src/modules/verification/use-cases/send-verify-email.ts`):
 
 ```ts
+if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+  console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+  return
+}
 const callback = new URL(callbackURL, getRequest().url)
 const locale = extractLocaleFromPath(callback.pathname) ?? I18N.DEFAULT_LOCALE
 const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
@@ -43,7 +47,9 @@ await sendEmail({
 
 `sendEmail` (`src/integrations/resend/resend.utils.ts`) envía a través de Resend desde `RESEND_EMAIL_FROM`, salvo que se indique un `from` (la notificación al propietario usa `NOTIFICATIONS_EMAIL`), pasa la clave de idempotencia y lanza un error si el envío falla.
 
-Los correos de cuenta usan el idioma de la petición actual. Los correos del boletín usan el idioma enviado con el formulario; la notificación al propietario siempre está en `en-US`.
+Los correos de cuenta usan el idioma de la página donde empezó el flujo, que se lee del `callbackURL` del enlace del correo; en un registro repetido sale del `callbackURL` de la petición de registro. Los correos del boletín usan el idioma enviado con el formulario; la notificación al propietario siempre está en `en-US`.
+
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) permite como máximo tres correos de verificación, tres de restablecimiento de contraseña y tres de confirmación del boletín por dirección y hora, contados en la tabla `rate_limit` con un hash SHA-256 de la dirección. Por encima del límite el correo se omite y la petición sigue recibiendo su respuesta normal. La confirmación del cambio de correo y la notificación al propietario no tienen límite.
 
 ## Guías relacionadas
 

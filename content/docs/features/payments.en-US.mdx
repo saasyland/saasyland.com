@@ -34,11 +34,11 @@ A paid checkout returns to `/app`.
 
 ## Webhooks and licences
 
-Polar posts to `/api/auth/polar/webhooks`, verified with `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) match the user through the Polar customer `external_id`:
+Polar posts to `/api/auth/polar/webhooks`, verified with `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) match the user through the Polar customer `external_id`. An event for a customer with no account here is logged when it needed one and acknowledged, so Polar does not retry it:
 
 - `onOrderPaid` → `grantLicense`: upserts the user's single licence with the tier of the purchased product; a newer purchase replaces an older one.
-- `onBenefitGrantCreated` → `attachLicenseKey`: stores the Polar licence key on the licence.
-- `onOrderRefunded` and `onBenefitGrantRevoked` → `revokeLicense`: sets the status to `revoked` and records the order in `revoked_license_order`, so a late webhook cannot grant it again.
+- `onBenefitGrantCreated` → `attachLicenseKey`: stores the Polar licence key on the licence. While the paid order is not recorded yet it fails, so Polar retries it; a key for a refunded order or for a product that is not a licence is acknowledged.
+- `onOrderRefunded` (only once the order is fully refunded; a partial refund keeps the licence) and `onBenefitGrantRevoked` → `revokeLicense`: sets the status to `revoked` and records the order in `revoked_license_order`, so a late webhook cannot grant it again.
 
 ## Customer screens
 

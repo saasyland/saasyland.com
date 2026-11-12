@@ -33,8 +33,8 @@ describe("admin mock data", () => {
 
 describe("admin status colors", () => {
   it("maps the meaningful states onto badge and dot tokens", () => {
-    expect(ADMIN_STATUS_BADGE_CLASSES.emerald).toContain("text-ring")
-    expect(ADMIN_STATUS_BADGE_CLASSES.rose).toContain("text-destructive")
+    expect(ADMIN_STATUS_BADGE_CLASSES.emerald).toContain("dark:text-ring")
+    expect(ADMIN_STATUS_BADGE_CLASSES.rose).toContain("bg-destructive/10")
     expect(ADMIN_STATUS_BADGE_CLASSES.neutral).toContain("text-muted-foreground")
     expect(ADMIN_STATUS_BADGE_CLASSES.amber).toContain("amber")
     expect(ADMIN_STATUS_DOT_CLASSES.emerald).toBe("bg-ring")

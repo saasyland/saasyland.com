@@ -52,7 +52,7 @@ export const CompareSection = (): JSX.Element => {
                 >
                   <dt className="text-body-sm font-medium text-foreground md:py-4 md:pr-6">{t(`dimensions.${id}.label`)}</dt>
                   <dd className="text-body-sm text-pretty text-muted-foreground md:py-4 md:pr-6">
-                    <span className="mr-2 font-mono text-label text-muted-foreground/70 uppercase md:hidden">{t("columns.market")}</span>
+                    <span className="mr-2 font-mono text-label text-muted-foreground uppercase md:hidden">{t("columns.market")}</span>
                     {t(`dimensions.${id}.market`)}
                   </dd>
                   <dd className="text-body-sm text-pretty text-foreground md:bg-card md:px-5 md:py-4">

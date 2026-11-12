@@ -1,4 +1,4 @@
-import type { ComponentProps, JSX } from "react"
+import type { ComponentProps, JSX, ReactNode } from "react"
 
 import { useRouterState } from "@tanstack/react-router"
 import { CheckIcon, ChevronDownIcon } from "lucide-react"
@@ -30,6 +30,10 @@ const MENU_CLASS = "absolute end-0 bottom-full z-50 mb-3 min-w-40 border border-
 const ITEM_CLASS =
   "flex items-center justify-between gap-4 px-2 py-1.5 text-[0.9375rem] whitespace-nowrap text-muted-foreground transition-colors duration-200 hover:bg-foreground/5 hover:text-foreground aria-[current]:text-foreground"
 
+const TRIGGER_TAGS = {
+  hidden: (chunks: ReactNode) => <span className="sr-only">{chunks}</span>,
+}
+
 const LocaleSwitcher = ({ className, ...props }: ComponentProps<"details">): JSX.Element => {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const currentLocale = getCurrentLocale()
@@ -48,7 +52,6 @@ const LocaleSwitcher = ({ className, ...props }: ComponentProps<"details">): JSX
       }}
     >
       <summary
-        aria-label={t("label")}
         className={SUMMARY_CLASS}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
@@ -56,7 +59,7 @@ const LocaleSwitcher = ({ className, ...props }: ComponentProps<"details">): JSX
           }
         }}
       >
-        {getLocaleName(currentLocale)}
+        {t.rich("trigger", { ...TRIGGER_TAGS, language: getLocaleName(currentLocale) })}
         <ChevronDownIcon aria-hidden className="size-3.5 opacity-70 transition-transform duration-300 group-open:rotate-180" />
       </summary>
 

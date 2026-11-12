@@ -41,15 +41,21 @@ export const PostEditor = (): JSX.Element => {
             <div className="flex items-center gap-1" key={group.id}>
               {groupIndex > 0 && <div className="mx-1 h-5 w-px bg-border/40" />}
               {group.tools.map(({ icon: Icon, id }) => (
-                <Button className="size-8 text-muted-foreground hover:text-foreground" key={id} size="icon" variant="ghost">
-                  <Icon className="size-4" />
+                <Button
+                  aria-label={t(`tools.${id}`)}
+                  className="size-8 text-muted-foreground hover:text-foreground"
+                  key={id}
+                  size="icon"
+                  variant="ghost"
+                >
+                  <Icon aria-hidden className="size-4" />
                 </Button>
               ))}
             </div>
           ))}
           <div className="flex-1" />
           <Button variant="ghost" className="h-8 gap-2 text-muted-foreground hover:text-foreground">
-            <Maximize2 className="size-4" />
+            <Maximize2 aria-hidden className="size-4" />
             <span className="text-sm">{t("fullscreen")}</span>
           </Button>
         </div>

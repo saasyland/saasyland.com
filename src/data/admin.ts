@@ -62,10 +62,10 @@ export type AdminSidebarItem = (typeof ADMIN_SIDEBAR_GROUPS)[number]["items"][nu
 export type AdminStatusColor = "amber" | "emerald" | "neutral" | "rose"
 
 export const ADMIN_STATUS_BADGE_CLASSES: Record<AdminStatusColor, string> = {
-  amber: "border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  emerald: "border-ring/30 bg-ring/10 text-ring",
+  amber: "border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-400",
+  emerald: "border-ring/30 bg-ring/10 text-cyan-800 dark:text-ring",
   neutral: "border-border bg-muted text-muted-foreground",
-  rose: "border-destructive/25 bg-destructive/10 text-destructive",
+  rose: "border-destructive/25 bg-destructive/10 text-red-700 dark:text-red-300",
 }
 
 export const ADMIN_STATUS_DOT_CLASSES: Record<AdminStatusColor, string> = {

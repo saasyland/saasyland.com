@@ -117,18 +117,17 @@ export const SignInForm = (): JSX.Element => {
 
             return (
               <Field data-invalid={isInvalid}>
-                <FieldLabel
-                  className="flex w-full items-center justify-between gap-4 text-body-sm text-foreground"
-                  htmlFor="sign-in-password"
-                >
-                  <span>{t("pages.auth.sign-in.form.password")}</span>
+                <div className="flex items-center justify-between gap-4">
+                  <FieldLabel className="text-body-sm text-foreground" htmlFor="sign-in-password">
+                    {t("pages.auth.sign-in.form.password")}
+                  </FieldLabel>
                   <Link
-                    className="-my-3 inline-flex h-11 items-center font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground"
+                    className="-my-3 inline-flex h-11 items-center text-body-sm text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground"
                     to={ROUTES.FORGOT_PASSWORD}
                   >
                     {t("pages.auth.sign-in.form.forgotPassword")}
                   </Link>
-                </FieldLabel>
+                </div>
                 <PasswordInput
                   aria-describedby="sign-in-password-error"
                   aria-invalid={isInvalid}

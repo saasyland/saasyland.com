@@ -17,7 +17,7 @@ import { cn } from "~/src/lib/cn"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 
 import { UserRowActions } from "~/src/presentation/components/custom/admin/users/row-actions"
-import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type AdminUser = User["select"]
 
@@ -112,5 +112,5 @@ export const userColumns = columnHelper.columns([
   }),
   columnHelper.accessor("createdAt", { cell: DateCell, header: () => <ColumnHeader id="createdAt" />, sortFn: "datetime" }),
   columnHelper.accessor("updatedAt", { cell: DateCell, header: () => <ColumnHeader id="updatedAt" />, sortFn: "datetime" }),
-  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: "", id: "actions" }),
+  columnHelper.display({ cell: UserRowActions, enableSorting: false, header: DataTableActionsHeader, id: "actions" }),
 ])

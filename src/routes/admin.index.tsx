@@ -1,7 +1,7 @@
 import type { JSX } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Link, createFileRoute } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { Calendar, Download, PlusCircle } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
@@ -16,7 +16,7 @@ import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 
 import { pageHead } from "~/src/lib/seo"
 
-import { Button } from "~/src/presentation/components/shadcn/button"
+import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Card } from "~/src/presentation/components/shadcn/card"
 
 import { RevenueChart } from "~/src/presentation/components/custom/admin/dashboard/revenue-chart"
@@ -43,12 +43,10 @@ const DashboardPage = (): JSX.Element => {
             <Calendar className="size-4 text-muted-foreground" />
             {t("actions.last30Days")}
           </Button>
-          <Link to={ROUTES.ADMIN_PRODUCTS_CREATE}>
-            <Button className="h-9 gap-2 shadow-sm">
-              <PlusCircle className="size-4" />
-              {t("actions.addProduct")}
-            </Button>
-          </Link>
+          <LinkButton className="h-9 gap-2 shadow-sm" href={ROUTES.ADMIN_PRODUCTS_CREATE}>
+            <PlusCircle aria-hidden className="size-4" />
+            {t("actions.addProduct")}
+          </LinkButton>
         </div>
       </div>
 
@@ -85,11 +83,9 @@ const DashboardPage = (): JSX.Element => {
 
         <div className="flex justify-end">
           {users.total > ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize && (
-            <Link to={ROUTES.ADMIN_USERS}>
-              <Button className="h-7 px-2.5" size="sm" variant="outline">
-                {t("users.table.pagination.viewAll")}
-              </Button>
-            </Link>
+            <LinkButton className="h-7 px-2.5" href={ROUTES.ADMIN_USERS} size="sm" variant="outline">
+              {t("users.table.pagination.viewAll")}
+            </LinkButton>
           )}
           {users.total <= ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize && (
             <Button className="h-7 px-2.5" isDisabled size="sm" variant="outline">

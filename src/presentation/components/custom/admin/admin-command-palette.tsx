@@ -46,7 +46,7 @@ export const AdminCommandPalette = (): JSX.Element => {
         type="button"
       >
         <Search aria-hidden className="size-3.5" strokeWidth={1.75} />
-        <span className="hidden sm:inline">{t("components.header.searchPlaceholder")}</span>
+        <span className="sr-only sm:not-sr-only">{t("components.header.searchPlaceholder")}</span>
         <KbdGroup className="ml-6 hidden sm:inline-flex">
           <Kbd>⌘</Kbd>
           <Kbd>K</Kbd>

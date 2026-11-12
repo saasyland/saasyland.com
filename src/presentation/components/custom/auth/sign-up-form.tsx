@@ -10,12 +10,11 @@ import { useTranslations } from "use-intl/react"
 import { AUTH_VALIDATION_PARAMS } from "~/src/integrations/better-auth/auth.constraints"
 import { signUpWithPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
 import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
-import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
-import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { signUpWithPasswordMutation } from "~/src/modules/account/use-cases/sign-up-with-password"
 import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 
+import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { triggerConfetti } from "~/src/lib/confetti"
@@ -36,6 +35,8 @@ export const SignUpForm = (): JSX.Element => {
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
 
+  const { hrefWithRedirect, redirect } = useAuthRedirect()
+
   const signUp = useMutation({
     ...signUpWithPasswordMutation,
     onError: (error) => {
@@ -43,7 +44,7 @@ export const SignUpForm = (): JSX.Element => {
     },
     onSuccess: async (_, { email }) => {
       await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEYS.ALL })
-      await router.navigate({ search: { email }, to: ROUTES.VERIFY_EMAIL })
+      await router.navigate({ search: { email, redirect }, to: ROUTES.VERIFY_EMAIL })
       triggerConfetti()
       toast.success(t("pages.auth.sign-up.form.successCheckEmail"))
     },
@@ -52,7 +53,7 @@ export const SignUpForm = (): JSX.Element => {
   const form = useForm({
     defaultValues: { confirmPassword: "", email: "", name: "", password: "" },
     onSubmit: ({ value }) => {
-      signUp.mutate({ ...value, callbackURL: localizePathname({ locale: getCurrentLocale(), pathname: ROUTES.APP }) })
+      signUp.mutate({ ...value, callbackURL: hrefWithRedirect(ROUTES.AUTH_CALLBACK) })
     },
     validators: { onChange: signUpWithPasswordSchema, onSubmit: signUpWithPasswordSchema },
   })

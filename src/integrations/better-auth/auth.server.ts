@@ -19,8 +19,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
 import { polarCore } from "~/src/integrations/polar/polar.config"
 import { POLAR_CHECKOUT_PRODUCTS } from "~/src/integrations/polar/polar.constants"
-import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
-import { extractLocaleFromCallbackURL, extractLocaleFromPath } from "~/src/integrations/use-intl/i18n.paths"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { IP_ADDRESS_HEADER, appHostsForMode, isLocalMode } from "~/src/modules/_core/constants/api"
 import { sendChangeEmailConfirmationEmail } from "~/src/modules/account/use-cases/send-change-email-confirmation-email"
@@ -38,20 +37,20 @@ const FORM_CONTENT_TYPE = "application/x-www-form-urlencoded"
 
 const signUpCallbackSchema = zod.object({ callbackURL: zod.string() })
 
-// Better Auth hands over a copy of the sign-up request, sent as JSON or a form, whose `callbackURL` names the sign-up page.
-const readSignUpLocale = async (request: Request | undefined): Promise<SupportedLocale | undefined> => {
+const readSignUpCallbackURL = async (request: Request | undefined): Promise<string> => {
   if (!request?.body) {
-    return undefined
+    return ROUTES.AUTH_CALLBACK
   }
   const body: unknown =
     request.headers.get("content-type")?.toLowerCase().includes(FORM_CONTENT_TYPE) === true
       ? Object.fromEntries(await request.formData())
       : await request.json()
-  const signUp = signUpCallbackSchema.safeParse(body)
-  const pathname = signUp.success ? URL.parse(signUp.data.callbackURL, request.url)?.pathname : undefined
 
-  return pathname === undefined ? undefined : extractLocaleFromPath(pathname)
+  return signUpCallbackSchema.safeParse(body).data?.callbackURL ?? ROUTES.AUTH_CALLBACK
 }
+
+const readVerificationCallbackURL = (verificationLink: string): string =>
+  new URL(verificationLink).searchParams.get("callbackURL") ?? ROUTES.AUTH_CALLBACK
 
 export const auth = betterAuth({
   account: {
@@ -75,7 +74,7 @@ export const auth = betterAuth({
     onExistingUserSignUp: async ({ user }, request) => {
       if (!user.emailVerified) {
         await sendVerifyEmail({
-          locale: (await readSignUpLocale(request)) ?? I18N.DEFAULT_LOCALE,
+          callbackURL: await readSignUpCallbackURL(request),
           token: await createEmailVerificationToken(env.AUTH_SECRET, user.email),
           user,
         })
@@ -88,8 +87,7 @@ export const auth = betterAuth({
   emailVerification: {
     autoSignInAfterVerification: true,
     sendOnSignUp: true,
-    sendVerificationEmail: ({ token, url, user }) =>
-      sendVerifyEmail({ locale: extractLocaleFromCallbackURL(url) ?? I18N.DEFAULT_LOCALE, token, user }),
+    sendVerificationEmail: ({ token, url, user }) => sendVerifyEmail({ callbackURL: readVerificationCallbackURL(url), token, user }),
   },
   hooks: { before: enforceInputPolicy },
   onAPIError: { errorURL: ROUTES.SIGN_IN },

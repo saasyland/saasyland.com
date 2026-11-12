@@ -2,10 +2,9 @@ import type { JSX } from "react"
 
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
-import * as zod from "zod"
 
+import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
-import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { cn } from "~/src/lib/cn"
@@ -39,23 +38,23 @@ const VerifyEmailPage = (): JSX.Element => {
 const NAMESPACE = "pages.auth.verify-email"
 
 export const Route = createFileRoute("/auth/verify-email")({
-  validateSearch: zod.object({
+  validateSearch: authSearchSchema.extend({
     email: searchText(),
     error: searchText(),
     token: searchText(),
     verified: searchFlag(),
   }),
-  beforeLoad: ({ preload, search }) => {
+  beforeLoad: ({ buildLocation, preload, search }) => {
     if (preload) {
       return
     }
     if (search.token !== undefined) {
-      const callbackURL = localizePathname({ locale: getCurrentLocale(), pathname: `${ROUTES.VERIFY_EMAIL}?verified=true` })
+      const { publicHref: callbackURL } = buildLocation({ search: { redirect: search.redirect, verified: true }, to: ROUTES.VERIFY_EMAIL })
       const query = new URLSearchParams({ callbackURL, token: search.token })
       throw redirect({ href: `${ROUTES.API_AUTH_VERIFY_EMAIL}?${query}`, reloadDocument: true, replace: true })
     }
     if (search.verified === true && search.error === undefined) {
-      throw redirect({ replace: true, to: ROUTES.AUTH_CALLBACK })
+      throw redirect({ replace: true, search: { redirect: search.redirect }, to: ROUTES.AUTH_CALLBACK })
     }
   },
   component: VerifyEmailPage,

@@ -8,8 +8,8 @@ import { useTranslations } from "use-intl/react"
 
 import { authClient } from "~/src/integrations/better-auth/auth.client"
 import { authErrorKey } from "~/src/integrations/better-auth/auth.errors"
-import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
-import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
+
+import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
 
@@ -26,13 +26,13 @@ const signInSocial = createClientOnlyFn((data: Parameters<typeof authClient.sign
 export const OAuthButtons = ({ intent = "sign-in" }: Readonly<{ intent?: "sign-in" | "sign-up" }>): JSX.Element => {
   const t = useTranslations("auth")
 
-  const signInWithProvider = useMutation({
-    mutationFn: (provider: (typeof OAUTH_PROVIDERS)[number]["id"]) => {
-      const locale = getCurrentLocale()
+  const { hrefWithRedirect } = useAuthRedirect()
 
-      return signInSocial({
-        callbackURL: localizePathname({ locale, pathname: ROUTES.AUTH_CALLBACK }),
-        errorCallbackURL: localizePathname({ locale, pathname: ROUTES.SIGN_IN }),
+  const signInWithProvider = useMutation({
+    mutationFn: (provider: (typeof OAUTH_PROVIDERS)[number]["id"]) =>
+      signInSocial({
+        callbackURL: hrefWithRedirect(ROUTES.AUTH_CALLBACK),
+        errorCallbackURL: hrefWithRedirect(ROUTES.SIGN_IN),
         fetchOptions: {
           onError: (context) => {
             toast.error(t(`errors.${authErrorKey(context.error)}`))
@@ -42,8 +42,7 @@ export const OAuthButtons = ({ intent = "sign-in" }: Readonly<{ intent?: "sign-i
           },
         },
         provider,
-      })
-    },
+      }),
   })
 
   return (

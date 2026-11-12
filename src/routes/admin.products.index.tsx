@@ -1,6 +1,6 @@
 import type { JSX } from "react"
 
-import { Link, createFileRoute, stripSearchParams } from "@tanstack/react-router"
+import { createFileRoute, stripSearchParams } from "@tanstack/react-router"
 import { PlusCircle } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 import * as zod from "zod"
@@ -16,7 +16,7 @@ import { ADMIN_PRODUCT_TABS } from "~/src/data/admin"
 import { searchChoice } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
-import { Button } from "~/src/presentation/components/shadcn/button"
+import { LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Card } from "~/src/presentation/components/shadcn/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
@@ -58,12 +58,12 @@ const ProductsPage = (): JSX.Element => {
               </TabsTrigger>
             ))}
           </TabsList>
-          <Link to={ROUTES.ADMIN_PRODUCTS_CREATE} className="shrink-0 pb-3 sm:pb-0">
-            <Button size="sm" className="h-9 w-full gap-2 sm:w-auto">
-              <PlusCircle className="size-4" />
+          <div className="shrink-0 pb-3 sm:pb-0">
+            <LinkButton className="h-9 w-full gap-2 sm:w-auto" href={ROUTES.ADMIN_PRODUCTS_CREATE} size="sm">
+              <PlusCircle aria-hidden className="size-4" />
               {t("actions.create")}
-            </Button>
-          </Link>
+            </LinkButton>
+          </div>
         </div>
 
         <TabsContent id={tab} className="mt-6 space-y-4 outline-none">

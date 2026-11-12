@@ -14,7 +14,7 @@ import { cn } from "~/src/lib/cn"
 import { searchChoice } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
-import { Button } from "~/src/presentation/components/shadcn/button"
+import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Input } from "~/src/presentation/components/shadcn/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
@@ -80,12 +80,10 @@ const BlogPage = (): JSX.Element => {
               <Input aria-label={t("filters.search")} placeholder={t("filters.search")} className="h-10 w-full pl-10" />
             </div>
 
-            <Link to={ROUTES.ADMIN_BLOG_CREATE} className="shrink-0">
-              <Button size="sm" className="h-10 w-full gap-2 sm:w-auto">
-                <FileEdit className="size-4" />
-                {t("actions.writePost")}
-              </Button>
-            </Link>
+            <LinkButton className="h-10 w-full shrink-0 gap-2 sm:w-auto" href={ROUTES.ADMIN_BLOG_CREATE} size="sm">
+              <FileEdit aria-hidden className="size-4" />
+              {t("actions.writePost")}
+            </LinkButton>
           </div>
 
           {view === ADMIN_BLOG_VIEW.GRID && <BlogPostsGrid />}

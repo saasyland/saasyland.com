@@ -25,7 +25,7 @@ const renderSwitcher = (path = "/") => {
     </IntlProvider>,
     { router: createTestRouter(path) },
   )
-  const trigger = screen.getByLabelText(localeSwitcherMessages.label)
+  const trigger = screen.getByText(getLocaleName(I18N.DEFAULT_LOCALE), { selector: "summary" })
 
   return { menu: screen.getByRole("group"), trigger, user: userEvent.setup() }
 }
@@ -34,7 +34,7 @@ describe("locale switcher", () => {
   it("links every supported language to the current page and marks the active language", () => {
     const { menu, trigger } = renderSwitcher("/pricing")
 
-    expect(trigger).toHaveTextContent(getLocaleName(I18N.DEFAULT_LOCALE))
+    expect(trigger).toHaveTextContent(`${localeSwitcherMessages.label}: ${getLocaleName(I18N.DEFAULT_LOCALE)}`)
     expect(menu).not.toHaveAttribute("open")
     for (const locale of I18N.SUPPORTED_LOCALES) {
       const link = within(menu).getByRole("link", { name: getLocaleName(locale) })

@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { emailSchema, signInWithPasswordSchema, signUpWithPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
+import {
+  callbackPathSchema,
+  emailSchema,
+  signInWithPasswordSchema,
+  signUpWithPasswordSchema,
+} from "~/src/integrations/better-auth/auth.zod"
+
+describe("callback path schema", () => {
+  it.each(["/app", "/pl-PL/app?tier=pro", "/auth/callback?redirect=%2Fapp"])("accepts the internal path %s", (path) => {
+    expect(callbackPathSchema.safeParse(path).success).toBe(true)
+  })
+
+  it.each(["//evil.example", String.raw`/\evil.example`, "https://evil.example/app", "app", ""])(
+    "rejects %s, which could leave the site",
+    (path) => {
+      expect(callbackPathSchema.safeParse(path).success).toBe(false)
+    },
+  )
+})
 
 describe("email schema component", () => {
   it("accepts valid email", () => {

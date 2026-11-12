@@ -54,7 +54,7 @@ The admin blog editor does not publish the MDX blog, and the course and page-edi
 | UI                               | Tailwind CSS 4, shadcn-styled components with React Aria and Base UI, Motion, and locally served fonts |
 | Localization and content         | `use-intl`, ICU messages, Fumadocs, and MDX                                                            |
 | External services                | Resend for email; Polar for checkout, billing, and licence keys                                        |
-| Verification                     | Vite+/Vitest, Testing Library, jsdom, and Playwright                                                   |
+| Verification                     | Vite+/Vitest, Testing Library, jsdom, and Playwright with axe-core accessibility scans                 |
 
 [`package.json`](package.json) and [`bun.lock`](bun.lock) define the application toolchain. The separate [Remotion project](remotion/README.md) uses its own npm lockfile.
 
@@ -212,7 +212,7 @@ Authentication entry points are in [`src/integrations/better-auth/`](src/integra
 | `auth.server.ts`     | Better Auth, providers, plugins, and allowed hosts.                                             |
 | `auth.access.ts`     | Roles, permissions, and permission checks.                                                      |
 | `auth.hooks.ts`      | Input policy run before Better Auth's own endpoints: the password, name, email and image rules. |
-| `auth.routes.ts`     | Sign-in/admin guards and role-based redirects.                                                  |
+| `auth.routes.ts`     | Sign-in/admin guards, the return path after sign-in, and role-based redirects.                  |
 | `auth.middleware.ts` | Server-function authorization, error handling, and rate limiting.                               |
 | `auth.session.ts`    | Request-scoped session lookup and UI query options.                                             |
 
@@ -263,6 +263,8 @@ bun run test:e2e
 ```
 
 Locally, Playwright migrates and seeds the test database, builds the test application, and starts its preview server unless an existing server already answers at the configured URL. Stop other servers on port 3000 before running the suite so it uses the intended test application. `PLAYWRIGHT_BASE_URL` overrides the default `http://127.0.0.1:3000`.
+
+[`e2e/specs/accessibility.spec.ts`](e2e/specs/accessibility.spec.ts) runs axe-core with the WCAG 2.0, 2.1 and 2.2 A and AA rules and axe's best practices on the public pages, a blog post, and both workspaces in the light and dark themes, and fails on any violation.
 
 `build:test` selects `env.test` in the root `wrangler.jsonc` using `CLOUDFLARE_ENV=test`. It uses the test Worker entry, local bindings, `.env.test`, and `.wrangler/test`; no separate test Wrangler file or `E2E=true` flag is needed. In CI, migrations, seeding, and building run explicitly before Playwright starts the server.
 
@@ -371,7 +373,7 @@ English uses unprefixed paths. Other languages use the full locale, such as `/de
 - Translate frontmatter, visible component attributes, FAQ entries, and body text. Preserve slugs, MDX component names, code examples, and link destinations.
 - Every page route owns one namespace (`const NAMESPACE = "pages.x"`, with `metadata.title` and `metadata.description` for its head); layout routes preload the namespaces their subtree shares. Root namespaces (`common`, `components.*`, `errors*`) load for every page, and the translations provider wraps the whole document so error screens are translated too.
 - Use one `useTranslations` per component and name the translator `t`. A later `useTranslations` call re-scopes every following `t()` for i18n-ally, and `bun run check:i18n` fails on keys that do not resolve in their scope.
-- Link with `<Link to={ROUTES.X}>`; the router adds the locale prefix. Use `localizePathname` only for raw URLs such as authentication callbacks and email links.
+- Link with `<Link to={ROUTES.X}>`; the router adds the locale prefix. For a raw URL in the current locale, such as an authentication callback, use `router.buildLocation(...).publicHref`; for a URL in a given locale, such as an email link, use `localizePathname`.
 - Email messages live in `emails.*` namespaces and are loaded by the sending use case, never by browser code.
 - Run `bun run check:i18n` after changes. Builds additionally verify localized home and legal-page output.
 

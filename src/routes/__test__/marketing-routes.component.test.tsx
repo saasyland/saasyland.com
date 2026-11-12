@@ -203,7 +203,7 @@ describe("public route content", () => {
     await renderRoute("/")
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("300+ hour head start")
     expect(screen.getByText("456", { selector: "dd" })).toBeVisible()
-    expect(screen.getAllByRole("tab", { name: "bun" })).toHaveLength(2)
+    expect(screen.getAllByRole("radio", { name: "bun" })).toHaveLength(2)
     expect(screen.getByRole("contentinfo")).toBeVisible()
     expect(screen.getByRole("navigation", { name: componentsNavigationMessages.ariaLabel })).toBeVisible()
   })

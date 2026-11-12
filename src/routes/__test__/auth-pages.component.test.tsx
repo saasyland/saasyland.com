@@ -221,8 +221,9 @@ describe("authentication routes", () => {
   })
 
   it.each([
-    { expected: { tier: "agency" }, path: `${ROUTES.SIGN_UP}?tier=agency` },
-    { expected: {}, path: `${ROUTES.SIGN_UP}?tier=123` },
+    { expected: { redirect: "/pl-PL/app/license" }, path: `${ROUTES.SIGN_UP}?redirect=%2Fpl-PL%2Fapp%2Flicense` },
+    { expected: {}, path: `${ROUTES.SIGN_UP}?redirect=%2F%2Fevil.example` },
+    { expected: {}, path: `${ROUTES.SIGN_UP}?redirect=https%3A%2F%2Fevil.example%2Fapp` },
     { expected: { token: "valid" }, path: `${ROUTES.RESET_PASSWORD}?token=valid&error=false` },
     { expected: {}, path: `${ROUTES.RESET_PASSWORD}?token=` },
     { expected: {}, path: `${ROUTES.SIGN_IN}?error=%5B%5D` },

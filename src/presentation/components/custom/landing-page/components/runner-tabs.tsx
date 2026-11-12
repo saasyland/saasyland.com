@@ -6,6 +6,8 @@ import { PACKAGE_MANAGERS } from "~/src/data/cli"
 
 import { cn } from "~/src/lib/cn"
 
+import { ToggleGroup, ToggleGroupItem } from "~/src/presentation/components/shadcn/toggle-group"
+
 interface RunnerTabsProps {
   readonly className: string
   readonly onSelect: (runner: (typeof PACKAGE_MANAGERS)[number]) => void
@@ -16,27 +18,29 @@ export const RunnerTabs = ({ className, onSelect, taken }: RunnerTabsProps): JSX
   const t = useTranslations("pages.landing.cli")
 
   return (
-    <div aria-label={t("runner")} className={cn("flex items-center gap-1 border-b border-border", className)} role="tablist">
-      {PACKAGE_MANAGERS.map((runner) => (
-        <button
-          aria-selected={runner.id === taken}
-          className={cn(
-            "cursor-pointer rounded-md px-2.5 py-1 font-mono text-spec transition-colors duration-200 ease-exp focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-            {
-              "bg-muted text-foreground": runner.id === taken,
-              "text-muted-foreground hover:text-foreground": runner.id !== taken,
-            },
-          )}
-          key={runner.id}
-          onClick={() => {
+    <ToggleGroup
+      aria-label={t("runner")}
+      className={cn("w-full gap-1 rounded-none border-b border-border", className)}
+      disallowEmptySelection
+      onSelectionChange={(keys) => {
+        for (const runner of PACKAGE_MANAGERS) {
+          if (keys.has(runner.id)) {
             onSelect(runner)
-          }}
-          role="tab"
-          type="button"
+          }
+        }
+      }}
+      selectedKeys={[taken]}
+      selectionMode="single"
+    >
+      {PACKAGE_MANAGERS.map((runner) => (
+        <ToggleGroupItem
+          className="h-auto min-w-0 cursor-pointer rounded-md py-1 font-mono text-spec font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:bg-transparent hover:text-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-ring data-selected:bg-muted data-selected:text-foreground"
+          id={runner.id}
+          key={runner.id}
         >
           {runner.id}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   )
 }

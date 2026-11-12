@@ -106,7 +106,7 @@ const ChoiceRow = ({ children, choiceId }: Readonly<{ children: ReactNode; choic
 }
 
 const PaneLabel = ({ children }: Readonly<{ children: string }>): JSX.Element => (
-  <span className="font-mono text-label text-muted-foreground/70 uppercase">{children}</span>
+  <span className="font-mono text-label text-muted-foreground uppercase">{children}</span>
 )
 
 const CommandBlock = ({ lines }: Readonly<{ lines: readonly string[] }>): JSX.Element => {
@@ -206,7 +206,7 @@ const NextSteps = ({ dev }: Readonly<{ dev: string }>): JSX.Element => {
           </span>
           {dev}
         </span>
-        <span className="mt-2 block text-muted-foreground/60">
+        <span className="mt-2 block text-muted-foreground">
           <span aria-hidden className="mr-2 select-none">
             →
           </span>
@@ -250,7 +250,7 @@ export const CliConfigurator = (): JSX.Element => {
         <div className="divide-y divide-border">
           {CLI_GROUPS.map((group) => (
             <Fragment key={group}>
-              <div className="bg-muted/25 px-5 py-2 font-mono text-label text-muted-foreground/70 uppercase md:px-7">
+              <div className="bg-muted/25 px-5 py-2 font-mono text-label text-muted-foreground uppercase md:px-7">
                 {t(`groups.${group}`)}
               </div>
               <dl className="divide-y divide-border">

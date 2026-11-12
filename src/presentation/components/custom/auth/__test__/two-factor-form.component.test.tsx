@@ -104,7 +104,7 @@ describe("two-factor verification", () => {
         await request.promise
       })
       await waitFor(() => {
-        expect(navigate).toHaveBeenCalledWith({ replace: true, to: ROUTES.AUTH_CALLBACK })
+        expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ replace: true, to: ROUTES.AUTH_CALLBACK }))
       })
       expect(queryClient.getQueryData(["private-session"])).toBeUndefined()
       expect(clearCache).toHaveBeenCalledOnce()

@@ -13,7 +13,7 @@ test("CLI keeps valid choices, command output and clipboard contents in sync", a
   await expect(command).toContainText("--provider d1")
   await expect(cli.getByRole("button", { name: "Cloudflare D1", exact: true })).toHaveAttribute("aria-pressed", "true")
 
-  await cli.getByRole("tab", { name: "npm", exact: true }).click()
+  await cli.getByRole("radio", { name: "npm", exact: true }).click()
   await expect(command).toContainText("npx saasyland@latest")
   await cli.getByRole("button", { name: "Vercel", exact: true }).click()
   await expect(cli.getByRole("button", { name: "SQLite", exact: true })).toBeDisabled()
@@ -45,9 +45,9 @@ test("CLI keeps valid choices, command output and clipboard contents in sync", a
 test("hero install command follows the selected package manager", async ({ landingPage, page }) => {
   await landingPage.goto()
   const hero = page.locator("#floor")
-  await hero.getByRole("tab", { name: "pnpm", exact: true }).click()
+  await hero.getByRole("radio", { name: "pnpm", exact: true }).click()
   await expect(hero.locator("code")).toContainText("pnpm dlx saasyland@latest")
-  await expect(hero.getByRole("tab", { name: "pnpm", exact: true })).toHaveAttribute("aria-selected", "true")
+  await expect(hero.getByRole("radio", { name: "pnpm", exact: true })).toBeChecked()
 })
 
 test("foundation shares its hover highlight and clears it when leaving", async ({ landingPage, page }) => {

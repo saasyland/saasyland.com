@@ -23,16 +23,20 @@ const t = createTranslator({ locale, messages: { emails: { "verify-email": messa
 
 ## Надсилання
 
-Сценарій використання отримує мову від свого викликача, перевіряє ліміт на одержувача, завантажує повідомлення, рендерить шаблон і надсилає його (`src/modules/verification/use-cases/send-verify-email.ts`):
+Сценарій використання бере мову й `redirect` з callback-URL, який передає Better Auth, перевіряє ліміт на одержувача, завантажує повідомлення, рендерить шаблон і надсилає його (`src/modules/verification/use-cases/send-verify-email.ts`):
 
 ```ts
 if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
   console.warn("[email] verification email not sent: the recipient reached the hourly limit")
   return
 }
-const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+const callback = new URL(callbackURL, getRequest().url)
+const locale = extractLocaleFromPath(callback.pathname) ?? I18N.DEFAULT_LOCALE
 const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+verifyUrl.search = callback.search
 verifyUrl.searchParams.set("token", token)
+
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 await sendEmail({
   idempotency: { purpose: "verify-email", token },
   react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),

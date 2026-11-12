@@ -9,30 +9,30 @@ Better Auth（`src/integrations/better-auth/auth.server.ts`）は、ユーザー
 
 `src/integrations/better-auth/auth.routes.ts` は、`beforeLoad` で使うガードをエクスポートします。
 
-| ガード               | 使用箇所                         | 効果                                                                   |
-| -------------------- | -------------------------------- | ---------------------------------------------------------------------- |
-| `requireSignedIn`    | `/app` レイアウト                | セッションがなければ `/auth/sign-in` にリダイレクトします              |
-| `requireAdmin`       | `/admin` レイアウト              | さらに、`admin: ["access"]` 権限がなければ `/app` にリダイレクトします |
-| `redirectIfSignedIn` | `/auth/sign-in`、`/auth/sign-up` | サインイン済みのユーザーを `/admin` または `/app` に送ります           |
-| `redirectAfterAuth`  | `/auth/callback`                 | 新しいセッションを、ロールに応じて `/admin` または `/app` に送ります   |
+| ガード               | 使用箇所                         | 効果                                                                                  |
+| -------------------- | -------------------------------- | ------------------------------------------------------------------------------------- |
+| `requireSignedIn`    | `/app` レイアウト                | セッションがなければ、ページを `redirect` として `/auth/sign-in` にリダイレクトします |
+| `requireAdmin`       | `/admin` レイアウト              | さらに、`admin: ["access"]` 権限がなければ `/app` にリダイレクトします                |
+| `redirectIfSignedIn` | `/auth/sign-in`、`/auth/sign-up` | サインイン済みのユーザーを `redirect`、または `/admin` か `/app` に送ります           |
+| `redirectAfterAuth`  | `/auth/callback`                 | 新しいセッションを `redirect`、またはロールに応じて `/admin` か `/app` に送ります     |
 
 `requireSignedIn` と `requireAdmin` はナビゲーションのたびにセッションを再確認し、`redirectIfSignedIn` はキャッシュ済みのセッションを使います。どのガードも、サインイン中のユーザーが変わるとクエリキャッシュをクリアします。
 
 ## サインイン
 
 1. `SignInForm` が、Better Auth クライアントの `signIn.email` を呼び出します。
-2. 未認証のアカウントには `EMAIL_NOT_VERIFIED` エラーが返され、そのメールアドレスとともに `/auth/verify-email` に送られます。
-3. 二要素認証が有効なアカウントは `twoFactorRedirect` を受け取り、クライアントプラグインが現在のロケールで `/auth/two-factor` を開きます。
-4. 成功すると、`usePostAuthRedirect` がクエリとルーターのキャッシュをクリアして `/auth/callback` に遷移し、そこからロールに応じてリダイレクトされます。
+2. 未認証のアカウントには `EMAIL_NOT_VERIFIED` エラーが返され、そのメールアドレスと `redirect` とともに `/auth/verify-email` に送られます。
+3. 二要素認証が有効なアカウントは `twoFactorRedirect` を受け取り、`SignInForm` が `redirect` を保持したまま `/auth/two-factor` を開きます。
+4. 成功すると、`useAuthRedirect` の `finishSignIn` がクエリとルーターのキャッシュをクリアして `/auth/callback` に遷移し、そこから `redirect`、またはロールに応じたワークスペースへ進みます。
 
 Better Auth がリダイレクトで報告するエラーは、`/auth/sign-in` の `?error=` として届き、`auth.errors` のメッセージで表示されます。
 
 ## サインアップとメール認証
 
 1. `SignUpForm` は `signUpWithPasswordSchema` で検証し、`signUpWithPasswordMutation` を呼び出します。これは `auth.api.signUpEmail` を呼び出す、レート制限付きのサーバー関数です。
-2. Better Auth がユーザーを作成して `sendVerifyEmail` を呼び出し、サインアップを開始したページのロケールで `/auth/verify-email?token=…` へのリンクをメールで送信します。未認証のアドレスで再度サインアップすると、新しいリンクが送信されます。1 つのアドレスに送られる認証メールは 1 時間あたり最大 3 通で、それ以降のリクエストでは何も送信されません。
+2. Better Auth がユーザーを作成し、フォームの `callbackURL`（`redirect` 付きのローカライズされた `/auth/callback`）を渡して `sendVerifyEmail` を呼び出します。メールのリンク先は、このサイトの `/auth/verify-email` で、コールバックのロケールとその `redirect`、さらに `token` が付きます。未認証のアドレスで再度サインアップすると、新しいリンクが送信されます。1 つのアドレスに送られる認証メールは 1 時間あたり最大 3 通で、それ以降のリクエストでは何も送信されません。
 3. フォームは `/auth/verify-email?email=…` に遷移します。そこでは `VerifyEmailForm` が、レート制限付きの `sendVerificationEmailMutation` を通じてリンクを再送信できます。
-4. リンクを開くと、ルートの `beforeLoad` がトークンを `/api/auth/verify-email` に渡します。Better Auth はトークンを検証してユーザーをサインインさせ、`/auth/verify-email?verified=true` に戻します。そこから `/auth/callback` にリダイレクトされます。リンクが無効または期限切れの場合は `error` 付きで戻り、ページは新しいリンクの送信を提案します。
+4. リンクを開くと、ルートの `beforeLoad` がトークンを `/api/auth/verify-email` に渡します。Better Auth はトークンを検証してユーザーをサインインさせ、`/auth/verify-email?verified=true` に戻します。そこから `redirect` を保持したまま `/auth/callback` にリダイレクトされます。リンクが無効または期限切れの場合は `error` 付きで戻り、ページは新しいリンクの送信を提案します。
 
 メールアドレスが認証されるまで、サインインはブロックされます（`requireEmailVerification: true`）。
 
@@ -45,11 +45,27 @@ Better Auth がリダイレクトで報告するエラーは、`/auth/sign-in` �
 ## 二要素認証
 
 - 有効化（管理画面の設定の「セキュリティ」）：`TwoFactorDialog` がパスワードを求め（`enableTwoFactorMutation`）、認証アプリに追加する TOTP シークレットを表示し、コードを 1 つ確認して（`verifyTotpMutation`）から、バックアップコードを表示します。`disableTwoFactorMutation` で無効化できます。
-- サインイン時：`/auth/two-factor` は、認証アプリのコード（`verifyTotpMutation`）またはバックアップコード（`verifyBackupCodeMutation`）を受け付けます。どちらもレート制限付きで、デバイスを信頼するオプションもあります。成功すると `usePostAuthRedirect` が実行されます。
+- サインイン時：`/auth/two-factor` は、認証アプリのコード（`verifyTotpMutation`）またはバックアップコード（`verifyBackupCodeMutation`）を受け付けます。どちらもレート制限付きで、デバイスを信頼するオプションもあります。成功すると `finishSignIn` が実行されます。
 
 ## OAuth
 
-`OAuthButtons` は、Google または GitHub に対して `authClient.signIn.social` を呼び出します。`callbackURL` にはローカライズされた `/auth/callback` を、`errorCallbackURL` にはローカライズされた `/auth/sign-in` を設定します。プロバイダーは `socialProviders` で設定し、各プロバイダーに `https://<host>/api/auth/callback/google` と `https://<host>/api/auth/callback/github` を登録します。同じメールアドレスのアカウントは自動的にリンクされ、プロバイダーのトークンは暗号化して保存されます。
+`OAuthButtons` は、Google または GitHub に対して `authClient.signIn.social` を呼び出します。`callbackURL` にはローカライズされた `/auth/callback` を、`errorCallbackURL` にはローカライズされた `/auth/sign-in` を設定し、どちらも `redirect` を保持します。プロバイダーは `socialProviders` で設定し、各プロバイダーに `https://<host>/api/auth/callback/google` と `https://<host>/api/auth/callback/github` を登録します。同じメールアドレスのアカウントは自動的にリンクされ、プロバイダーのトークンは暗号化して保存されます。
+
+## 戻り先 [#return-path]
+
+サインアウトした状態で保護されたページを開いた訪問者は、サインイン後にそのページへ戻るべきです。そのため、すべての認証ページは `redirect` 検索パラメーターを受け付けます。これは `auth.zod.ts` の `authSearchSchema` として一度だけ宣言されています。値は内部パス（`callbackPathSchema`）でなければならず、それ以外は破棄されます。
+
+- `requireSignedIn` は、開いたページを付けて訪問者を `/auth/sign-in?redirect=` に送ります。
+- 認証ページは、サインインとサインアップの間のリンク、`/auth/two-factor` と `/auth/verify-email` への遷移、OAuth のコールバック、確認メールで `redirect` を保持します。
+- `/auth/callback` は `redirect` へ進み、それがなければロールに応じたワークスペースへ進みます。サインイン済みの訪問者がサインインやサインアップを開いた場合も同じです。
+
+認証コンポーネントは、`src/hooks/use-auth-redirect.ts` の `useAuthRedirect` からこれを取得します。
+
+| メンバー                 | 用途                                                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `redirect`               | サインイン後に移動するページ。リンクや認証ページ間のナビゲーションに使います                                                                                 |
+| `hrefWithRedirect(page)` | `redirect` を保持した、`/auth/callback` または `/auth/sign-in` へのローカライズされた URL。Better Auth に `callbackURL` と `errorCallbackURL` として渡します |
+| `finishSignIn()`         | サインインまたは二要素認証の確認の後、クエリとルーターのキャッシュをクリアして `/auth/callback` へ進みます                                                   |
 
 ## サインアウト
 

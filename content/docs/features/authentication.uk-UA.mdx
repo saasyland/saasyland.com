@@ -25,23 +25,23 @@ description: "Better Auth з електронною поштою й пароле
 | ----------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `/auth/sign-in`                                 | `OAuthButtons`, `SignInForm`              | Виконує вхід через `signIn.email` з Better Auth. Непідтверджена пошта веде на `/auth/verify-email`; обліковий запис із 2FA переходить на `/auth/two-factor`. |
 | `/auth/sign-up`                                 | `OAuthButtons`, `SignUpForm`              | Викликає серверну функцію `signUpWithPassword`, потім переходить на `/auth/verify-email`.                                                                    |
-| `/auth/callback`                                | немає                                     | `redirectAfterAuth` спрямовує адміністраторів на `/admin`, а решту на `/app`.                                                                                |
+| `/auth/callback`                                | немає                                     | `redirectAfterAuth` спрямовує відвідувача на `redirect`; якщо його немає, адміністраторів — на `/admin`, а решту — на `/app`.                                |
 | `/auth/verify-email`                            | `VerifyEmailForm`                         | Див. [Підтвердження електронної пошти](/docs/features/email-verification).                                                                                   |
 | `/auth/forgot-password`, `/auth/reset-password` | `ForgotPasswordForm`, `ResetPasswordForm` | Див. [Скидання пароля](/docs/features/password-reset).                                                                                                       |
 | `/auth/two-factor`                              | `TwoFactorForm`                           | Див. [Двофакторна автентифікація](/docs/features/two-factor).                                                                                                |
 
-Після успішного входу `usePostAuthRedirect` очищує кеш запитів і маршрутизатора та переходить на `/auth/callback`. Помилки Better Auth, повернені як `?error=` на `/auth/sign-in`, показують відповідне повідомлення з `auth.errors`.
+Після успішного входу `finishSignIn` з `useAuthRedirect` очищує кеш запитів і маршрутизатора та переходить на `/auth/callback`, зберігаючи `redirect`. Помилки Better Auth, повернені як `?error=` на `/auth/sign-in`, показують відповідне повідомлення з `auth.errors`.
 
 ## Охоронці маршрутів
 
 `src/integrations/better-auth/auth.routes.ts` експортує охоронців, які використовуються в `beforeLoad`:
 
-- `requireSignedIn` захищає `/app` і перенаправляє на `/auth/sign-in`.
+- `requireSignedIn` захищає `/app` і перенаправляє на `/auth/sign-in`, передаючи сторінку як `redirect`.
 - `requireAdmin` захищає `/admin`; користувач без дозволу `admin: ["access"]` потрапляє на `/app`.
-- `redirectIfSignedIn` не пускає користувачів, які вже увійшли, на сторінки входу й реєстрації.
+- `redirectIfSignedIn` спрямовує користувачів, які вже увійшли, зі сторінок входу й реєстрації на `redirect` або до їхнього робочого простору.
 - `redirectAfterAuth` обслуговує `/auth/callback`.
 
-Охоронці читають сесію через `getCurrentSessionQuery` і очищують кеш запитів, коли змінюється користувач сесії.
+Охоронці читають сесію через `getCurrentSessionQuery` і очищують кеш запитів, коли змінюється користувач сесії. Сторінка [Сценарії автентифікації](/docs/guides/auth-flows#return-path) описує, як `redirect` проходить через вхід, реєстрацію, OAuth і двофакторну перевірку.
 
 ## Серверні функції
 

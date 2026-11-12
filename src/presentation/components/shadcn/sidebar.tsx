@@ -174,7 +174,7 @@ const Sidebar = ({
   side = "left",
   variant = "sidebar",
   ...props
-}: ComponentProps<"div"> & {
+}: ComponentProps<"aside"> & {
   collapsible?: "icon" | "none" | "offcanvas"
   side?: "left" | "right"
   variant?: "floating" | "inset" | "sidebar"
@@ -184,13 +184,13 @@ const Sidebar = ({
 
   if (collapsible === "none") {
     return (
-      <div
+      <aside
         className={cn("flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground", className)}
         data-slot="sidebar"
         {...props}
       >
         {children}
-      </div>
+      </aside>
     )
   }
 
@@ -233,7 +233,7 @@ const Sidebar = ({
         )}
         data-slot="sidebar-gap"
       />
-      <div
+      <aside
         className={cn(
           "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:-left-(--sidebar-width) data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:-right-(--sidebar-width) md:flex",
           variant === "floating" || variant === "inset"
@@ -252,7 +252,7 @@ const Sidebar = ({
         >
           {children}
         </div>
-      </div>
+      </aside>
     </div>
   )
 }

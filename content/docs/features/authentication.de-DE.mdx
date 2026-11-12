@@ -25,23 +25,23 @@ Das Layout `/auth` lädt die Namespaces `auth.*` vorab und rendert das Gate-Pane
 | ----------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `/auth/sign-in`                                 | `OAuthButtons`, `SignInForm`              | Meldet mit Better Auth `signIn.email` an. Eine unbestätigte E-Mail führt zu `/auth/verify-email`; ein Konto mit 2FA geht weiter zu `/auth/two-factor`. |
 | `/auth/sign-up`                                 | `OAuthButtons`, `SignUpForm`              | Ruft die Serverfunktion `signUpWithPassword` auf und wechselt dann zu `/auth/verify-email`.                                                            |
-| `/auth/callback`                                | keine                                     | `redirectAfterAuth` leitet Admins zu `/admin` und alle anderen zu `/app` weiter.                                                                       |
+| `/auth/callback`                                | keine                                     | `redirectAfterAuth` leitet den Besucher zu `redirect` weiter, sonst Admins zu `/admin` und alle anderen zu `/app`.                                     |
 | `/auth/verify-email`                            | `VerifyEmailForm`                         | Siehe [E-Mail-Bestätigung](/docs/features/email-verification).                                                                                         |
 | `/auth/forgot-password`, `/auth/reset-password` | `ForgotPasswordForm`, `ResetPasswordForm` | Siehe [Passwort zurücksetzen](/docs/features/password-reset).                                                                                          |
 | `/auth/two-factor`                              | `TwoFactorForm`                           | Siehe [Zwei-Faktor-Authentifizierung](/docs/features/two-factor).                                                                                      |
 
-Nach einer erfolgreichen Anmeldung leert `usePostAuthRedirect` den Query- und den Router-Cache und navigiert zu `/auth/callback`. Better-Auth-Fehler, die als `?error=` an `/auth/sign-in` zurückgegeben werden, rendern die passende Meldung aus `auth.errors`.
+Nach einer erfolgreichen Anmeldung leert `finishSignIn` aus `useAuthRedirect` den Query- und den Router-Cache und navigiert zu `/auth/callback`, wobei `redirect` erhalten bleibt. Better-Auth-Fehler, die als `?error=` an `/auth/sign-in` zurückgegeben werden, rendern die passende Meldung aus `auth.errors`.
 
 ## Route Guards
 
 `src/integrations/better-auth/auth.routes.ts` exportiert die in `beforeLoad` verwendeten Guards:
 
-- `requireSignedIn` schützt `/app` und leitet zu `/auth/sign-in` weiter.
+- `requireSignedIn` schützt `/app` und leitet zu `/auth/sign-in` weiter, mit der Seite als `redirect`.
 - `requireAdmin` schützt `/admin`; ein angemeldeter Benutzer ohne die Berechtigung `admin: ["access"]` landet auf `/app`.
-- `redirectIfSignedIn` hält angemeldete Benutzer von Anmeldung und Registrierung fern.
+- `redirectIfSignedIn` schickt angemeldete Benutzer von Anmeldung und Registrierung zu `redirect` oder in ihren Arbeitsbereich.
 - `redirectAfterAuth` steuert `/auth/callback`.
 
-Die Guards lesen die Sitzung über `getCurrentSessionQuery` und leeren den Query-Cache, wenn sich der angemeldete Benutzer ändert.
+Die Guards lesen die Sitzung über `getCurrentSessionQuery` und leeren den Query-Cache, wenn sich der angemeldete Benutzer ändert. [Authentifizierungsabläufe](/docs/guides/auth-flows#return-path) beschreibt, wie `redirect` durch Anmeldung, Registrierung, OAuth und Zwei-Faktor-Verifizierung weitergereicht wird.
 
 ## Serverfunktionen
 

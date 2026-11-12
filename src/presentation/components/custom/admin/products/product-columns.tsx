@@ -13,7 +13,7 @@ import { cn } from "~/src/lib/cn"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 
 import { RowActionsCell } from "~/src/presentation/components/custom/admin/row-actions-cell"
-import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 const PRODUCT_STATUS_COLORS: Record<ProductStatus, AdminStatusColor> = {
   archived: "rose",
@@ -87,5 +87,5 @@ export const productColumns = columnHelper.columns([
     header: () => <ProductHeader id="metrics" />,
     id: "metrics",
   }),
-  columnHelper.display({ cell: RowActionsCell, header: "", id: "actions" }),
+  columnHelper.display({ cell: RowActionsCell, header: DataTableActionsHeader, id: "actions" }),
 ])

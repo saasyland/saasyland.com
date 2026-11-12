@@ -127,19 +127,19 @@ describe("marketing content and purchase links", () => {
       ["pnpm", "pnpm dlx"],
       ["yarn", "yarn dlx"],
     ] as const) {
-      await user.click(screen.getByRole("tab", { name: runner }))
-      expect(screen.getByRole("tab", { name: runner })).toHaveAttribute("aria-selected", "true")
+      await user.click(screen.getByRole("radio", { name: runner }))
+      expect(screen.getByRole("radio", { name: runner })).toBeChecked()
       expect(screen.getByText(`${command} saasyland@latest init my-app`)).toBeVisible()
     }
     await user.click(screen.getByRole("button", { name: english.hero.surface.copy }))
     expect(await navigator.clipboard.readText()).toBe("yarn dlx saasyland@latest init my-app")
   })
 
-  it("keeps each paid tier attached to its signup link and marks only the featured tier", () => {
+  it("links each paid tier to sign-up and marks only the featured tier", () => {
     renderSection(<PricingSection />)
-    for (const [id, tier] of Object.entries(english.pricing.tiers)) {
+    for (const tier of Object.values(english.pricing.tiers)) {
       expect(screen.getByRole("heading", { name: tier.name })).toBeVisible()
-      expect(screen.getByRole("link", { name: tier.cta })).toHaveAttribute("href", `/auth/sign-up?tier=${id}`)
+      expect(screen.getByRole("link", { name: tier.cta })).toHaveAttribute("href", "/auth/sign-up")
       for (const feature of Object.values(tier.features)) {
         expect(screen.getAllByText(feature).length).toBeGreaterThan(0)
       }
@@ -301,7 +301,7 @@ describe("CLI configuration", () => {
     renderSection(<CliSection />)
     const { choices } = english.cli
     await user.click(screen.getByRole("button", { name: choices.extras.options["page-builder"] }))
-    await user.click(screen.getByRole("tab", { name: "pnpm" }))
+    await user.click(screen.getByRole("radio", { name: "pnpm" }))
     await user.click(screen.getByRole("button", { name: english.cli.copy }))
     const command = await navigator.clipboard.readText()
     expect(command).toContain("pnpm dlx saasyland@latest init my-app")

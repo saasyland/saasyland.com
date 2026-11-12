@@ -3,6 +3,8 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import { IntlProvider } from "use-intl"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
 import { starCountQuery } from "~/src/lib/github"
 
 import { ProofSection } from "~/src/presentation/components/custom/landing-page/sections/proof-section"
@@ -35,6 +37,26 @@ afterEach(() => {
 })
 
 describe("landing page proof statistics", () => {
+  it.each([
+    { locale: "en-US", number: new Intl.NumberFormat("en-US") },
+    { locale: "de-DE", number: new Intl.NumberFormat("de-DE") },
+  ] as const)("shows the counts measured from the repository in $locale", ({ locale, number }) => {
+    fetchStarsMock.mockResolvedValue(1)
+
+    renderProof(locale)
+
+    for (const count of [
+      REPOSITORY_FACTS.testFiles,
+      REPOSITORY_FACTS.uiComponents,
+      REPOSITORY_FACTS.adminSections,
+      REPOSITORY_FACTS.currencies,
+    ]) {
+      expect(screen.getByText(number.format(count), { selector: "dd" })).toBeVisible()
+    }
+    expect(screen.getByText(`React ${String(REPOSITORY_FACTS.reactMajor)}`, { selector: "dd" })).toBeVisible()
+    expect(screen.getByText(`TanStack v${String(REPOSITORY_FACTS.tanstackTableMajor)}`, { selector: "dd" })).toBeVisible()
+  })
+
   it.each([
     { formatted: "54,321", locale: "en-US" },
     { formatted: "54.321", locale: "de-DE" },

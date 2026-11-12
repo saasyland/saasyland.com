@@ -2,6 +2,8 @@ import type { JSX } from "react"
 
 import { useTranslations } from "use-intl/react"
 
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
@@ -31,7 +33,7 @@ export const ManifestSection = (): JSX.Element => {
               >
                 <dt className="text-title text-foreground">{t(`items.${item}.label`)}</dt>
                 <dd className="mt-2 max-w-[62ch] text-body text-pretty text-muted-foreground transition-colors duration-400 ease-exp group-hover:text-foreground md:mt-0">
-                  {t(`items.${item}.body`)}
+                  {t(`items.${item}.body`, REPOSITORY_FACTS)}
                 </dd>
               </HighlightItem>
             ))}

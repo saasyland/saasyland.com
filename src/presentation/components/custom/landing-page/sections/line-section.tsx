@@ -3,6 +3,7 @@ import type { JSX } from "react"
 import { useTranslations } from "use-intl/react"
 
 import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
@@ -38,13 +39,13 @@ export const LineSection = (): JSX.Element => {
           >
             {STATIONS.map(({ id, loop, offsetSeconds }) => (
               <HighlightItem className="group bg-background" contentClassName="flex h-full flex-col p-7 md:p-10" id={id} key={id}>
-                <h3 className="text-headline-support text-balance text-foreground">{t(`stations.${id}.title`)}</h3>
+                <h3 className="text-headline-support text-balance text-foreground">{t(`stations.${id}.title`, REPOSITORY_FACTS)}</h3>
                 <p className="mt-4 max-w-[44ch] text-body text-pretty text-muted-foreground transition-colors duration-400 ease-exp group-hover:text-foreground">
-                  {t(`stations.${id}.body`)}
+                  {t(`stations.${id}.body`, REPOSITORY_FACTS)}
                 </p>
                 <p className="mt-auto flex items-center gap-2.5 pt-8">
                   <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
-                  <span className="font-mono text-spec text-foreground">{t(`stations.${id}.spec`)}</span>
+                  <span className="font-mono text-spec text-foreground">{t(`stations.${id}.spec`, REPOSITORY_FACTS)}</span>
                 </p>
                 <ConceptLoop className="mt-7 max-sm:hidden md:mt-9" name={loop} offsetSeconds={offsetSeconds} sizes={STATION_IMAGE_SIZES} />
               </HighlightItem>

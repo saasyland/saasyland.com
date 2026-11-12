@@ -3,6 +3,7 @@ import type { JSX, ReactNode } from "react"
 import { useTranslations } from "use-intl/react"
 
 import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { CliConfigurator } from "~/src/presentation/components/custom/landing-page/components/cli-configurator"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
@@ -19,7 +20,7 @@ export const CliSection = (): JSX.Element => {
       <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32">
         <Reveal variant="heading">
           <h2 className="max-w-[18ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
-          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("lead")}</p>
+          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("lead", REPOSITORY_FACTS)}</p>
         </Reveal>
 
         <Reveal className="mt-14 md:mt-20" delay={FRAME_DELAY_MS}>

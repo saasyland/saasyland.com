@@ -1,9 +1,13 @@
 ---
 title: "Cloudflare KV"
-description: "L'espace de noms CACHE et le nombre d'étoiles GitHub mis en cache."
+description: "L'espace de noms CACHE : le nombre d'étoiles GitHub et les remises régionales du paiement."
 ---
 
-Chaque environnement lie un espace de noms KV sous le nom `CACHE`. Son seul usage est le nombre d'étoiles GitHub affiché sur le site, implémenté dans `src/lib/github.ts` :
+Chaque environnement lie un espace de noms KV sous le nom `CACHE`. Il contient deux entrées.
+
+## Nombre d'étoiles GitHub
+
+Le nombre d'étoiles affiché sur le site, implémenté dans `src/lib/github.ts` :
 
 - `getStarCount` lit l'entrée `github:<owner>/<repo>:stars`.
 - En l'absence d'entrée, elle récupère le dépôt via l'API GitHub avec un délai d'expiration de trois secondes, renvoie le nombre et écrit `count` et `fetchedAt` dans KV avec `waitUntil`.
@@ -11,6 +15,12 @@ Chaque environnement lie un espace de noms KV sous le nom `CACHE`. Son seul usag
 - `starCountQuery` conserve le résultat dans le cache de requêtes pendant une heure.
 
 Les entrées n'ont pas d'expiration KV ; c'est `fetchedAt` qui décide du moment de l'actualisation. La requête GitHub s'authentifie avec les identifiants de l'application OAuth GitHub `AUTH_GITHUB_CLIENT_ID` et `AUTH_GITHUB_CLIENT_SECRET`.
+
+## Remises régionales du paiement
+
+`pppDiscountId` (`src/modules/license/license.ppp.ts`) lit l’entrée `polar:regional-discounts` : les remises automatiques en pourcentage de Polar, réduites aux champs utiles au paiement, avec `fetchedAt`. Une entrée de moins de cinq minutes est utilisée telle quelle. Sinon, ou si l’entrée est mal formée, les remises sont de nouveau listées depuis Polar et une liste complète est écrite avec `waitUntil`. Un listage qui échoue est journalisé et non stocké ; ce paiement continue avec les remises trouvées jusque-là et le suivant liste à nouveau. Rien n’est gardé dans la mémoire du Worker entre les requêtes.
+
+## Cohérence et tests
 
 KV offre une cohérence à terme. Les sessions, les limites de débit et tout ce qui sert à l'autorisation résident dans D1.
 

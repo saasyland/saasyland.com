@@ -1,9 +1,13 @@
 ---
 title: "Cloudflare KV"
-description: "Il namespace CACHE e il conteggio delle stelle GitHub in cache."
+description: "Il namespace CACHE: il conteggio delle stelle GitHub e gli sconti regionali del checkout."
 ---
 
-Ogni ambiente collega un namespace KV come `CACHE`. Il suo unico utilizzo è il conteggio delle stelle GitHub mostrato sul sito, implementato in `src/lib/github.ts`:
+Ogni ambiente collega un namespace KV come `CACHE`. Contiene due voci.
+
+## Conteggio delle stelle GitHub
+
+Il conteggio delle stelle mostrato sul sito, implementato in `src/lib/github.ts`:
 
 - `getStarCount` legge la voce `github:<owner>/<repo>:stars`.
 - Se la voce non esiste, recupera il repository dall'API di GitHub con un timeout di tre secondi, restituisce il conteggio e scrive `count` e `fetchedAt` in KV con `waitUntil`.
@@ -11,6 +15,12 @@ Ogni ambiente collega un namespace KV come `CACHE`. Il suo unico utilizzo è il 
 - `starCountQuery` mantiene il risultato nella cache delle query per un'ora.
 
 Le voci non hanno una scadenza KV; è `fetchedAt` a decidere quando aggiornarle. La richiesta a GitHub si autentica con le credenziali dell'app OAuth di GitHub `AUTH_GITHUB_CLIENT_ID` e `AUTH_GITHUB_CLIENT_SECRET`.
+
+## Sconti regionali del checkout
+
+`pppDiscountId` (`src/modules/license/license.ppp.ts`) legge la voce `polar:regional-discounts`: gli sconti percentuali automatici di Polar, ridotti ai campi che servono al checkout, con `fetchedAt`. Una voce di meno di cinque minuti viene usata così com’è. Altrimenti, o se la voce è malformata, gli sconti vengono elencati di nuovo da Polar e una lista completa viene scritta con `waitUntil`. Un elenco che fallisce viene registrato nei log e non salvato; quel checkout prosegue con gli sconti trovati fin lì e il successivo li elenca di nuovo. Tra una richiesta e l’altra non resta nulla nella memoria del Worker.
+
+## Coerenza e test
 
 KV è eventualmente consistente. Le sessioni, i rate limit e tutto ciò che serve per l'autorizzazione si trovano in D1.
 

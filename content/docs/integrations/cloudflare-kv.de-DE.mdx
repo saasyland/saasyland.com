@@ -1,9 +1,13 @@
 ---
 title: "Cloudflare KV"
-description: "Der CACHE-Namespace und die zwischengespeicherte Anzahl der GitHub-Sterne."
+description: "Der CACHE-Namespace: die Anzahl der GitHub-Sterne und die regionalen Checkout-Rabatte."
 ---
 
-Jede Umgebung bindet einen KV-Namespace als `CACHE`. Er dient ausschließlich der auf der Website angezeigten Anzahl der GitHub-Sterne, implementiert in `src/lib/github.ts`:
+Jede Umgebung bindet einen KV-Namespace als `CACHE`. Er enthält zwei Einträge.
+
+## Anzahl der GitHub-Sterne
+
+Die auf der Website angezeigte Anzahl der GitHub-Sterne, implementiert in `src/lib/github.ts`:
 
 - `getStarCount` liest den Eintrag `github:<owner>/<repo>:stars`.
 - Ohne Eintrag ruft die Funktion das Repository mit einem Timeout von drei Sekunden über die GitHub-API ab, gibt die Anzahl zurück und schreibt `count` und `fetchedAt` mit `waitUntil` in KV.
@@ -11,6 +15,12 @@ Jede Umgebung bindet einen KV-Namespace als `CACHE`. Er dient ausschließlich de
 - `starCountQuery` hält das Ergebnis eine Stunde lang im Query-Cache.
 
 Einträge haben kein KV-Ablaufdatum; `fetchedAt` entscheidet, wann aktualisiert wird. Die GitHub-Anfrage authentifiziert sich mit den Zugangsdaten der GitHub-OAuth-App, `AUTH_GITHUB_CLIENT_ID` und `AUTH_GITHUB_CLIENT_SECRET`.
+
+## Regionale Checkout-Rabatte
+
+`pppDiscountId` (`src/modules/license/license.ppp.ts`) liest den Eintrag `polar:regional-discounts`: die automatischen Prozentrabatte aus Polar, reduziert auf die Felder, die der Checkout braucht, mit `fetchedAt`. Ein Eintrag, der jünger als fünf Minuten ist, wird so verwendet. Andernfalls oder bei einem fehlerhaften Eintrag werden die Rabatte erneut von Polar abgerufen, und eine vollständige Liste wird mit `waitUntil` zurückgeschrieben. Ein fehlgeschlagener Abruf wird protokolliert und nicht gespeichert; dieser Checkout läuft mit den bis dahin gefundenen Rabatten weiter, und der nächste ruft erneut ab. Zwischen Anfragen bleibt nichts im Speicher des Workers.
+
+## Konsistenz und Tests
 
 KV ist nur letztendlich konsistent. Sitzungen, Ratenbegrenzungen und alles, was der Autorisierung dient, liegen in D1.
 

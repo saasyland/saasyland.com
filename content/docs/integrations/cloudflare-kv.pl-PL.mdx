@@ -1,9 +1,13 @@
 ---
 title: "Cloudflare KV"
-description: "Przestrzeń nazw CACHE i buforowana liczba gwiazdek na GitHubie."
+description: "Przestrzeń nazw CACHE: liczba gwiazdek na GitHubie i rabaty regionalne w checkoucie."
 ---
 
-Każde środowisko wiąże przestrzeń nazw KV jako `CACHE`. Służy ona wyłącznie do przechowywania liczby gwiazdek na GitHubie wyświetlanej w serwisie, zaimplementowanej w `src/lib/github.ts`:
+Każde środowisko wiąże przestrzeń nazw KV jako `CACHE`. Przechowuje ona dwa wpisy.
+
+## Liczba gwiazdek na GitHubie
+
+Liczba gwiazdek wyświetlana w serwisie, zaimplementowana w `src/lib/github.ts`:
 
 - `getStarCount` odczytuje wpis `github:<owner>/<repo>:stars`.
 - Gdy wpisu nie ma, pobiera dane repozytorium z API GitHuba z trzysekundowym limitem czasu, zwraca liczbę gwiazdek i zapisuje `count` oraz `fetchedAt` w KV za pomocą `waitUntil`.
@@ -11,6 +15,12 @@ Każde środowisko wiąże przestrzeń nazw KV jako `CACHE`. Służy ona wyłąc
 - `starCountQuery` przechowuje wynik w cache zapytań przez godzinę.
 
 Wpisy nie mają ustawionego czasu wygaśnięcia w KV; o odświeżeniu decyduje `fetchedAt`. Żądanie do GitHuba uwierzytelnia się danymi aplikacji GitHub OAuth `AUTH_GITHUB_CLIENT_ID` i `AUTH_GITHUB_CLIENT_SECRET`.
+
+## Rabaty regionalne w checkoucie
+
+`pppDiscountId` (`src/modules/license/license.ppp.ts`) odczytuje wpis `polar:regional-discounts`: automatyczne rabaty procentowe z Polar, ograniczone do pól potrzebnych w checkoucie, wraz z `fetchedAt`. Wpis młodszy niż pięć minut jest używany bez zmian. W przeciwnym razie, albo gdy wpis jest uszkodzony, rabaty są ponownie pobierane z Polar, a pełna lista jest zapisywana przez `waitUntil`. Nieudane pobranie jest logowane i nie jest zapisywane; ten checkout korzysta z rabatów znalezionych do tej pory, a następny pobiera je ponownie. Między żądaniami nic nie zostaje w pamięci Workera.
+
+## Spójność i testy
 
 KV zapewnia jedynie spójność ostateczną. Sesje, limity żądań i wszystko, co służy autoryzacji, znajduje się w D1.
 

@@ -66,7 +66,7 @@ describe("reset password email delivery", () => {
       await sendResetPasswordEmail({ token, url: resetUrl("/auth/reset-password"), user: USER })
     }
 
-    expect(deliveries).toHaveLength(3)
+    expect(getSentEmails(USER.email)).toHaveLength(3)
     expect(consoleWarn).toHaveBeenCalledWith("[email] password reset email not sent: the recipient reached the hourly limit")
   })
 })

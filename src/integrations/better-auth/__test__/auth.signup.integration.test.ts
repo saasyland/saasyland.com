@@ -253,7 +253,7 @@ describe("verification email limits", () => {
       expect(result.user.email).toBe(email)
     }
 
-    expect(deliveries).toHaveLength(3)
+    expect(getSentEmails(email)).toHaveLength(3)
     expect(consoleWarn).toHaveBeenCalledWith("[email] verification email not sent: the recipient reached the hourly limit")
   })
 })

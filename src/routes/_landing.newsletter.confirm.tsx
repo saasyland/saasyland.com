@@ -1,17 +1,20 @@
 import type { JSX } from "react"
 
 import { useMutation } from "@tanstack/react-query"
-import { Link, type SearchSchemaInput, createFileRoute } from "@tanstack/react-router"
+import { Link, createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
+import * as zod from "zod"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { CONFIRMATION_STATUS, NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { CONFIRMATION_STATUS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 import { confirmNewsletterSubscriptionMutation } from "~/src/modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
+import { searchChoice, searchParam } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
@@ -25,9 +28,6 @@ type ConfirmationStatus = (typeof CONFIRMATION_STATUS)[keyof typeof CONFIRMATION
 
 const NAMESPACE = "pages.newsletter.confirm"
 const LOAD_ERROR = "error"
-const CONFIRMATION_STATUSES = new Set<unknown>(Object.values(CONFIRMATION_STATUS))
-
-const isConfirmationStatus = (value: unknown): value is ConfirmationStatus => CONFIRMATION_STATUSES.has(value)
 
 const NewsletterConfirmResult = ({ status }: { readonly status: ConfirmationStatus | typeof LOAD_ERROR }): JSX.Element => {
   const t = useTranslations("pages.newsletter.confirm")
@@ -86,17 +86,17 @@ const NewsletterConfirmPrompt = ({ token }: { readonly token: string }): JSX.Ele
 const NewsletterConfirmPage = (): JSX.Element => {
   const { status, token } = Route.useSearch()
 
-  if (token?.length === NEWSLETTER_TOKEN_LENGTH) {
+  if (token !== undefined) {
     return <NewsletterConfirmPrompt token={token} />
   }
 
-  return <NewsletterConfirmResult status={status ?? CONFIRMATION_STATUS.EXPIRED} />
+  return <NewsletterConfirmResult status={status} />
 }
 
 export const Route = createFileRoute("/_landing/newsletter/confirm")({
-  validateSearch: (search: Record<string, unknown> & SearchSchemaInput) => ({
-    status: isConfirmationStatus(search["status"]) ? search["status"] : undefined,
-    token: typeof search["token"] === "string" ? search["token"] : undefined,
+  validateSearch: zod.object({
+    status: searchChoice([CONFIRMATION_STATUS.CONFIRMED, CONFIRMATION_STATUS.EXPIRED], CONFIRMATION_STATUS.EXPIRED),
+    token: searchParam(newsletterSubscriberZodSchemas.confirmNewsletterSubscription.shape.token),
   }),
   component: NewsletterConfirmPage,
   errorComponent: () => <NewsletterConfirmResult status={LOAD_ERROR} />,

@@ -24,6 +24,8 @@ import type { NewsletterSubscriber } from "~/src/modules/newsletter-subscriber/n
 import { confirmationExpiry, confirmationUrl, createToken } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.utils"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 
+import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
+
 import type confirmationMessages from "~/messages/en-US/emails.newsletter-confirmation-email.json"
 import { NEWSLETTER_CONFIRMATION_NAMESPACE, NewsletterConfirmationEmail } from "~/src/presentation/emails/newsletter-confirmation-email"
 
@@ -44,6 +46,11 @@ export const subscribeToNewsletter = createServerFn({ method: "POST" })
 
     if (existing?.status === NEWSLETTER_STATUS.SUBSCRIBED) {
       return { status: SUBSCRIPTION_RESULT.ALREADY_SUBSCRIBED }
+    }
+
+    if (!(await withinRecipientRateLimit({ kind: "newsletter-confirmation", recipient: address }))) {
+      console.warn("[newsletter] confirmation email not sent: the recipient reached the hourly limit")
+      return { status: SUBSCRIPTION_RESULT.CONFIRMATION_SENT }
     }
 
     const confirmationToken = createToken()

@@ -12,6 +12,7 @@ import { executeMutation } from "~/src/platform/testing/lib/query"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { NEWSLETTER_STATUS, SUBSCRIPTION_RESULT } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
@@ -193,5 +194,24 @@ describe("subscribe-to-newsletter", () => {
     )
     expect(await readSubscriber()).toBeUndefined()
     expect(resendSendMock).not.toHaveBeenCalled()
+  })
+})
+
+describe("subscribe-to-newsletter recipient limit", () => {
+  it("sends at most three confirmations to one address per hour, from any number of clients, and answers the same", async () => {
+    expect.hasAssertions()
+    mockSuccessfulSend()
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const results = []
+
+    for (const client of ["203.0.113.1", "203.0.113.2", "203.0.113.3", "203.0.113.4"]) {
+      vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/", { headers: { [IP_ADDRESS_HEADER]: client } }))
+      results.push(await executeMutation(subscribeToNewsletterMutation, { email: SUBSCRIBER, locale: "en-US" }))
+    }
+
+    expect(resendSendMock).toHaveBeenCalledTimes(3)
+    expect(results).toStrictEqual(Array.from({ length: 4 }, () => ({ status: SUBSCRIPTION_RESULT.CONFIRMATION_SENT })))
+    expect(consoleWarn).toHaveBeenCalledWith("[newsletter] confirmation email not sent: the recipient reached the hourly limit")
+    consoleWarn.mockRestore()
   })
 })

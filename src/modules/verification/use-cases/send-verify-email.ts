@@ -8,6 +8,8 @@ import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
+
 import type verifyEmailMessages from "~/messages/en-US/emails.verify-email.json"
 import { VERIFY_EMAIL_NAMESPACE, VerifyEmail } from "~/src/presentation/emails/verify-email"
 import { ROUTES } from "~/src/routes"
@@ -21,6 +23,11 @@ export const sendVerifyEmail = async ({
   token: string
   user: { email: string; name: string }
 }): Promise<void> => {
+  if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+    console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+    return
+  }
+
   const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
   const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
   verifyUrl.searchParams.set("token", token)

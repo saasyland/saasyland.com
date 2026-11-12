@@ -57,4 +57,16 @@ describe("reset password email delivery", () => {
       expect(html).not.toContain("{name}")
     },
   )
+
+  it("sends at most three reset emails to one address per hour", async () => {
+    vi.mocked(getRequest).mockReturnValue(new Request(`${ORIGIN}/_serverFn/request-password-reset`))
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+    for (const token of ["token-1", "token-2", "token-3", "token-4"]) {
+      await sendResetPasswordEmail({ token, url: resetUrl("/auth/reset-password"), user: USER })
+    }
+
+    expect(deliveries).toHaveLength(3)
+    expect(consoleWarn).toHaveBeenCalledWith("[email] password reset email not sent: the recipient reached the hourly limit")
+  })
 })

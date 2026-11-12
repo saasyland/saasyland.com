@@ -86,6 +86,7 @@ export const SettingsPasswordForm = (): JSX.Element => {
                         {t(labelKey)}
                       </FieldLabel>
                       <Input
+                        aria-describedby={`${field.name}-error`}
                         aria-invalid={isInvalid}
                         autoComplete={autoComplete}
                         id={field.name}
@@ -99,6 +100,7 @@ export const SettingsPasswordForm = (): JSX.Element => {
                       />
                       {isInvalid && (
                         <ValidationFieldError
+                          id={`${field.name}-error`}
                           message={fieldErrorMessage(field.state.meta.errors)}
                           namespace="auth.validations"
                           params={AUTH_VALIDATION_PARAMS}

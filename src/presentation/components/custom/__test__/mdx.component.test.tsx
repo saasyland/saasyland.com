@@ -8,7 +8,7 @@ beforeEach(() => {
   vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/pl-PL/docs"))
 })
 
-const { a: Anchor, pre: Pre } = mdxComponents
+const { a: Anchor, Card, pre: Pre } = mdxComponents
 
 describe("MDX components", () => {
   it.each([
@@ -19,6 +19,14 @@ describe("MDX components", () => {
   ])("links %s to %s in the current locale", (href, expected) => {
     render(<Anchor href={href}>Link</Anchor>)
     expect(screen.getByRole("link", { name: "Link" })).toHaveAttribute("href", expected)
+  })
+
+  it.each([
+    ["/blog/first-post", "/pl-PL/blog/first-post"],
+    ["https://example.com", "https://example.com"],
+  ])("links a card to %s as %s in the current locale", (href, expected) => {
+    render(<Card href={href} title="Related post" />)
+    expect(screen.getByRole("link", { name: /Related post/u })).toHaveAttribute("href", expected)
   })
 
   it("renders fenced code through the code block component", () => {

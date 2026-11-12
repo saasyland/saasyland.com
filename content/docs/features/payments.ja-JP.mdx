@@ -34,11 +34,11 @@ Polar クライアント（`src/integrations/polar/polar.config.ts`）は `POLAR
 
 ## Webhook とライセンス
 
-Polar は `/api/auth/polar/webhooks` にイベントを送信し、`POLAR_WEBHOOK_SECRET` で検証されます。`licenseWebhookHandlers`（`src/modules/license/license.webhooks.ts`）は Polar の顧客の `external_id` でユーザーを特定します。
+Polar は `/api/auth/polar/webhooks` にイベントを送信し、`POLAR_WEBHOOK_SECRET` で検証されます。`licenseWebhookHandlers`（`src/modules/license/license.webhooks.ts`）は Polar の顧客の `external_id` でユーザーを特定します。このアプリにアカウントがない顧客のイベントは、アカウントが必要な場合はログに記録したうえで受領し、Polar が再送しないようにします。
 
 - `onOrderPaid` → `grantLicense`: 購入した商品のプランでユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。
-- `onBenefitGrantCreated` → `attachLicenseKey`: Polar のライセンスキーをライセンスに保存します。
-- `onOrderRefunded` と `onBenefitGrantRevoked` → `revokeLicense`: ステータスを `revoked` にし、注文を `revoked_license_order` に記録して、遅れて届いた Webhook が再び付与できないようにします。
+- `onBenefitGrantCreated` → `attachLicenseKey`: Polar のライセンスキーをライセンスに保存します。支払い済みの注文がまだ記録されていない間は失敗させ、Polar に再送させます。返金済みの注文やライセンスではない商品のキーは受領します。
+- `onOrderRefunded`（注文が全額返金された場合のみ。一部返金ではライセンスを維持します）と `onBenefitGrantRevoked` → `revokeLicense`: ステータスを `revoked` にし、注文を `revoked_license_order` に記録して、遅れて届いた Webhook が再び付与できないようにします。
 
 ## 顧客向け画面
 

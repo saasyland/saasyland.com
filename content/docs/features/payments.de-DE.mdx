@@ -34,11 +34,11 @@ Ein bezahlter Checkout kehrt zu `/app` zurück.
 
 ## Webhooks und Lizenzen
 
-Polar sendet an `/api/auth/polar/webhooks`, verifiziert mit `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) ordnen den Benutzer über die `external_id` des Polar-Kunden zu:
+Polar sendet an `/api/auth/polar/webhooks`, verifiziert mit `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) ordnen den Benutzer über die `external_id` des Polar-Kunden zu. Ein Ereignis für einen Kunden ohne Konto in dieser App wird protokolliert, wenn es eines gebraucht hätte, und bestätigt, damit Polar es nicht erneut sendet:
 
 - `onOrderPaid` → `grantLicense`: legt die einzige Lizenz des Benutzers mit der Stufe des gekauften Produkts an oder aktualisiert sie; ein neuerer Kauf ersetzt einen älteren.
-- `onBenefitGrantCreated` → `attachLicenseKey`: speichert den Polar-Lizenzschlüssel in der Lizenz.
-- `onOrderRefunded` und `onBenefitGrantRevoked` → `revokeLicense`: setzt den Status auf `revoked` und erfasst die Bestellung in `revoked_license_order`, sodass ein verspäteter Webhook sie nicht erneut vergeben kann.
+- `onBenefitGrantCreated` → `attachLicenseKey`: speichert den Polar-Lizenzschlüssel in der Lizenz. Solange die bezahlte Bestellung noch nicht erfasst ist, schlägt es fehl, damit Polar es erneut sendet; ein Schlüssel für eine erstattete Bestellung oder für ein Produkt ohne Lizenz wird bestätigt.
+- `onOrderRefunded` (erst wenn die Bestellung vollständig erstattet ist; eine Teilerstattung behält die Lizenz) und `onBenefitGrantRevoked` → `revokeLicense`: setzt den Status auf `revoked` und erfasst die Bestellung in `revoked_license_order`, sodass ein verspäteter Webhook sie nicht erneut vergeben kann.
 
 ## Kundenansichten
 

@@ -3,6 +3,7 @@ import type { models } from "@polar-sh/sdk/2026-10"
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 
 import { POLAR_LICENSE_KEY } from "~/src/integrations/polar/__test__/fixtures/license-key"
+import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
 export const POLAR_ORDER: models.Order = {
   applied_balance_amount: 0,
@@ -36,7 +37,7 @@ export const POLAR_ORDER: models.Order = {
   refundable_tax_amount: 0,
   refunded_amount: 0,
   refunded_tax_amount: 0,
-  status: "paid",
+  status: POLAR_ORDER_STATUS.PAID,
   subscription: JSON_NULL,
   subscription_id: JSON_NULL,
   subtotal_amount: 24_900,

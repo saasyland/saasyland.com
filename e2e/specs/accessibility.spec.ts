@@ -28,7 +28,23 @@ const WORKSPACE_PAGES = {
   customer: ["/app", "/app/license"],
 } as const
 
+const revealWholePage = async (page: Page): Promise<void> => {
+  await page.evaluate(async () => {
+    const nextFrame = async (): Promise<void> => {
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+    for (let top = 0; top < document.documentElement.scrollHeight; top += window.innerHeight / 2) {
+      window.scrollTo({ behavior: "instant", top })
+      await nextFrame()
+    }
+    window.scrollTo({ behavior: "instant", top: document.documentElement.scrollHeight })
+    await nextFrame()
+  })
+}
+
 const accessibilityViolations = async (page: Page): Promise<string[]> => {
+  await revealWholePage(page)
   await page.evaluate(async () => {
     const timedAnimations = document
       .getAnimations()
@@ -47,12 +63,15 @@ const visit = async (page: Page, path: string): Promise<void> => {
   await new BasePage(page).waitForAppReady()
 }
 
-for (const path of PUBLIC_PAGES) {
-  test(`${path} meets WCAG 2.2 AA`, async ({ page }) => {
-    await visit(page, path)
+for (const colorScheme of COLOR_SCHEMES) {
+  for (const path of PUBLIC_PAGES) {
+    test(`${path} meets WCAG 2.2 AA in the ${colorScheme} theme`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme })
+      await visit(page, path)
 
-    expect(await accessibilityViolations(page)).toEqual([])
-  })
+      expect(await accessibilityViolations(page)).toEqual([])
+    })
+  }
 }
 
 test("a blog post meets WCAG 2.2 AA", async ({ page }) => {

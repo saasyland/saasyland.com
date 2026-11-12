@@ -58,7 +58,7 @@ export const GateSection = (): JSX.Element => {
             <span className="font-mono text-spec text-muted-foreground">{t("terms")}</span>
           </p>
 
-          <ul className="mt-4 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 font-mono text-label text-muted-foreground/70 uppercase">
+          <ul className="mt-4 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 font-mono text-label text-muted-foreground uppercase">
             {BADGES.map((badge) => (
               <li
                 className="flex items-center gap-2.5 before:text-muted-foreground/30 before:content-['·'] first:before:hidden"

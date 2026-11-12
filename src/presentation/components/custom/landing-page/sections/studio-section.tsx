@@ -35,7 +35,7 @@ const LessonRow = ({ index, lesson, track }: LessonRowProps): JSX.Element => {
 
   return (
     <li className="flex items-baseline gap-4 border-b border-border py-3.5 last:border-b-0">
-      <span aria-hidden className="font-mono text-spec text-muted-foreground/60 tabular-nums">
+      <span aria-hidden className="font-mono text-spec text-muted-foreground tabular-nums">
         {String(index + LESSON_NUMBER_BASE).padStart(LESSON_NUMBER_PAD, "0")}
       </span>
       <span

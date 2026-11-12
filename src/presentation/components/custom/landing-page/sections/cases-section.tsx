@@ -80,7 +80,7 @@ export const CasesSection = (): JSX.Element => {
                 <p className="mt-3 max-w-[54ch] text-body-sm text-pretty text-muted-foreground">{t(`items.${id}.body`)}</p>
 
                 <div className="mt-auto pt-8">
-                  <p className="font-mono text-label text-muted-foreground/70 uppercase">{t("modulesLabel")}</p>
+                  <p className="font-mono text-label text-muted-foreground uppercase">{t("modulesLabel")}</p>
                   <p className="mt-2 font-mono text-spec text-pretty text-muted-foreground">{t(`items.${id}.modules`)}</p>
                 </div>
               </HighlightItem>

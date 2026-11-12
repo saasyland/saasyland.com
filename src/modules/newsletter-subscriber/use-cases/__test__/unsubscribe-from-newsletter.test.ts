@@ -1,7 +1,7 @@
 import type * as StartServerModule from "@tanstack/react-start/server"
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { NEWSLETTER_STATUS, NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { unsubscribeFromNewsletter } from "~/src/modules/newsletter-subscriber/use-cases/unsubscribe-from-newsletter"
 
 const HEADERS = new Headers()
@@ -35,7 +35,7 @@ describe("unsubscribe-from-newsletter", () => {
     await expect(unsubscribeFromNewsletter({ data: { token: TOKEN } })).resolves.toMatchObject({ unsubscribed: true })
 
     expect(dbMocks.updateMock).toHaveBeenCalledTimes(SINGLE_CALL)
-    expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: "unsubscribed" }))
+    expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: NEWSLETTER_STATUS.UNSUBSCRIBED }))
   })
 
   it("reports success for a token that matches nothing", async () => {

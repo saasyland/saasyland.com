@@ -9,6 +9,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { NEWSLETTER_SOURCE, NEWSLETTER_STATUS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { setNewsletterSubscriptionMutation } from "~/src/modules/newsletter-subscriber/use-cases/set-newsletter-subscription"
 
 const HEADERS = new Headers()
@@ -60,7 +61,7 @@ describe("set-newsletter-subscription", () => {
     })
 
     expect(dbMocks.insertMock).toHaveBeenCalledTimes(SINGLE_CALL)
-    expect(dbMocks.values).toHaveBeenCalledWith(expect.objectContaining({ source: "app" }))
+    expect(dbMocks.values).toHaveBeenCalledWith(expect.objectContaining({ source: NEWSLETTER_SOURCE.APP }))
   })
 
   it("takes the session address off the list", async () => {
@@ -73,7 +74,7 @@ describe("set-newsletter-subscription", () => {
 
     expect(dbMocks.updateMock).toHaveBeenCalledTimes(SINGLE_CALL)
     expect(dbMocks.insertMock).not.toHaveBeenCalled()
-    expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: "unsubscribed" }))
+    expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: NEWSLETTER_STATUS.UNSUBSCRIBED }))
   })
 
   it("refuses a caller with no session", async () => {

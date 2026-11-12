@@ -4,9 +4,21 @@ export const EMAIL_MAX_LENGTH = 255
 
 export const NEWSLETTER_TOKEN_LENGTH = 64
 
-export const NEWSLETTER_SOURCES = ["footer", "blog", "app"] as const
+export const NEWSLETTER_SOURCE = {
+  APP: "app",
+  BLOG: "blog",
+  FOOTER: "footer",
+} as const
 
-export const NEWSLETTER_STATUSES = ["subscribed", "unsubscribed", "pending"] as const
+export const NEWSLETTER_SOURCES = [NEWSLETTER_SOURCE.FOOTER, NEWSLETTER_SOURCE.BLOG, NEWSLETTER_SOURCE.APP] as const
+
+export const NEWSLETTER_STATUS = {
+  PENDING: "pending",
+  SUBSCRIBED: "subscribed",
+  UNSUBSCRIBED: "unsubscribed",
+} as const
+
+export const NEWSLETTER_STATUSES = [NEWSLETTER_STATUS.SUBSCRIBED, NEWSLETTER_STATUS.UNSUBSCRIBED, NEWSLETTER_STATUS.PENDING] as const
 
 export const SUBSCRIPTION_RESULT = {
   ALREADY_SUBSCRIBED: "alreadySubscribed",

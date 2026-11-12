@@ -3,7 +3,6 @@ import { createElement } from "react"
 import { createServerFn } from "@tanstack/react-start"
 import { and, eq, gt, sql } from "drizzle-orm"
 import { createTranslator } from "use-intl"
-import type * as zod from "zod"
 
 import { RATE_LIMITS, withRateLimit } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
@@ -11,7 +10,9 @@ import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
+import { NEWSLETTER_STATUS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
+import type { NewsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.types"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 
 import type notificationMessages from "~/messages/en-US/emails.newsletter-notification-email.json"
@@ -20,7 +21,7 @@ import { NEWSLETTER_NOTIFICATION_NAMESPACE, NewsletterNotificationEmail } from "
 
 export const confirmNewsletterSubscription = createServerFn({ method: "POST" })
   .middleware([withRateLimit("confirm-newsletter-subscription", RATE_LIMITS.TOKEN)])
-  .validator((input: zod.input<typeof newsletterSubscriberZodSchemas.confirmNewsletterSubscription>) =>
+  .validator((input: NewsletterSubscriber["confirmNewsletterSubscription"]) =>
     newsletterSubscriberZodSchemas.confirmNewsletterSubscription.parse(input),
   )
   .handler(async ({ data: { token } }) => {
@@ -31,7 +32,7 @@ export const confirmNewsletterSubscription = createServerFn({ method: "POST" })
       .set({
         confirmationExpiresAt: sql`null`,
         confirmationToken: sql`null`,
-        status: "subscribed",
+        status: NEWSLETTER_STATUS.SUBSCRIBED,
         subscribedAt: now,
         unsubscribedAt: sql`null`,
       })

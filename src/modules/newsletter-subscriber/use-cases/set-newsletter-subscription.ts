@@ -2,19 +2,23 @@ import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { eq, sql } from "drizzle-orm"
 import { v7 } from "uuid"
-import type * as zod from "zod"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { NEWSLETTER_SUBSCRIBER_MUTATION_KEYS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import {
+  NEWSLETTER_SOURCE,
+  NEWSLETTER_STATUS,
+  NEWSLETTER_SUBSCRIBER_MUTATION_KEYS,
+} from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
+import type { NewsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.types"
 import { createToken } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.utils"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 
 export const setNewsletterSubscription = createServerFn({ method: "POST" })
   .middleware([authorized()])
-  .validator((input: zod.input<typeof newsletterSubscriberZodSchemas.setNewsletterSubscription>) =>
+  .validator((input: NewsletterSubscriber["setNewsletterSubscription"]) =>
     newsletterSubscriberZodSchemas.setNewsletterSubscription.parse(input),
   )
   .handler(async ({ context, data: { isSubscribed, locale } }) => {
@@ -23,7 +27,7 @@ export const setNewsletterSubscription = createServerFn({ method: "POST" })
     if (!isSubscribed) {
       await db
         .update(newsletterSubscriber)
-        .set({ status: "unsubscribed", unsubscribedAt: new Date() })
+        .set({ status: NEWSLETTER_STATUS.UNSUBSCRIBED, unsubscribedAt: new Date() })
         .where(eq(newsletterSubscriber.email, address))
 
       return { isSubscribed: false }
@@ -35,8 +39,8 @@ export const setNewsletterSubscription = createServerFn({ method: "POST" })
         email: address,
         id: v7(),
         locale,
-        source: "app",
-        status: "subscribed",
+        source: NEWSLETTER_SOURCE.APP,
+        status: NEWSLETTER_STATUS.SUBSCRIBED,
         subscribedAt: new Date(),
         unsubscribeToken: createToken(),
       })
@@ -45,7 +49,7 @@ export const setNewsletterSubscription = createServerFn({ method: "POST" })
           confirmationExpiresAt: sql`null`,
           confirmationToken: sql`null`,
           locale,
-          status: "subscribed",
+          status: NEWSLETTER_STATUS.SUBSCRIBED,
           subscribedAt: new Date(),
           unsubscribedAt: sql`null`,
         },
@@ -56,6 +60,6 @@ export const setNewsletterSubscription = createServerFn({ method: "POST" })
   })
 
 export const setNewsletterSubscriptionMutation = mutationOptions({
-  mutationFn: (data: Parameters<typeof setNewsletterSubscription>[0]["data"]) => setNewsletterSubscription({ data }),
+  mutationFn: (data: NewsletterSubscriber["setNewsletterSubscription"]) => setNewsletterSubscription({ data }),
   mutationKey: NEWSLETTER_SUBSCRIBER_MUTATION_KEYS.SET_SUBSCRIPTION,
 })

@@ -9,12 +9,11 @@ import { useTranslations } from "use-intl/react"
 
 import { AUTH_VALIDATION_PARAMS } from "~/src/integrations/better-auth/auth.constraints"
 import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
-import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
-import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { sendVerificationEmailMutation } from "~/src/modules/verification/use-cases/send-verification-email"
 import { verificationZodSchemas } from "~/src/modules/verification/verification.zod"
 
+import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { cn } from "~/src/lib/cn"
@@ -36,6 +35,8 @@ export const VerifyEmailForm = (): JSX.Element => {
   const errorMessage = useErrorMessage()
   const signUpEmail = routeApi.useSearch({ select: (search) => search.email?.trim() ?? "" })
 
+  const { hrefWithRedirect } = useAuthRedirect()
+
   const resend = useMutation({
     ...sendVerificationEmailMutation,
     onError: (error) => {
@@ -52,7 +53,7 @@ export const VerifyEmailForm = (): JSX.Element => {
       if (resend.isPending) {
         return
       }
-      resend.mutate({ callbackURL: localizePathname({ locale: getCurrentLocale(), pathname: ROUTES.AUTH_CALLBACK }), email: value.email })
+      resend.mutate({ callbackURL: hrefWithRedirect(ROUTES.AUTH_CALLBACK), email: value.email })
     },
     validators: { onChange: emailSchema, onSubmit: emailSchema },
   })

@@ -14,7 +14,7 @@ import { AUTH_ERRORS, authErrorKey } from "~/src/integrations/better-auth/auth.e
 import { signInWithPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
 import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
 
-import { usePostAuthRedirect } from "~/src/hooks/use-post-auth-redirect"
+import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Field, FieldGroup, FieldLabel } from "~/src/presentation/components/shadcn/field"
@@ -30,7 +30,8 @@ const signInEmail = createClientOnlyFn((data: Parameters<typeof signIn.email>[0]
 export const SignInForm = (): JSX.Element => {
   const t = useTranslations()
   const router = useRouter()
-  const redirectAfterAuth = usePostAuthRedirect()
+
+  const { finishSignIn, redirect } = useAuthRedirect()
 
   const signInRequest = useMutation({
     mutationFn: signInEmail,
@@ -42,15 +43,16 @@ export const SignInForm = (): JSX.Element => {
         const errorKey = authErrorKey(error)
         toast.error(t(`auth.errors.${errorKey}`))
         if (errorKey === AUTH_ERRORS.EMAIL_NOT_VERIFIED) {
-          await router.navigate({ search: { email }, to: ROUTES.VERIFY_EMAIL })
+          await router.navigate({ search: { email, redirect }, to: ROUTES.VERIFY_EMAIL })
         }
         return
       }
       if ("twoFactorRedirect" in data && data.twoFactorRedirect === true) {
+        await router.navigate({ search: { redirect }, to: ROUTES.TWO_FACTOR })
         return
       }
       toast.success(t("pages.auth.sign-in.form.success"))
-      await redirectAfterAuth()
+      await finishSignIn()
     },
   })
 

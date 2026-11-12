@@ -1,7 +1,8 @@
-import { redirect } from "@tanstack/react-router"
+import { type ParsedLocation, redirect } from "@tanstack/react-router"
 
 import { hasPermission } from "~/src/integrations/better-auth/auth.access"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
+import type { AuthSearch } from "~/src/integrations/better-auth/auth.zod"
 
 import type { RouterContext } from "~/src/router"
 import { ROUTES } from "~/src/routes"
@@ -9,6 +10,14 @@ import { ROUTES } from "~/src/routes"
 interface AuthRouteContext {
   context: RouterContext
   preload?: boolean
+}
+
+interface ProtectedRouteContext extends AuthRouteContext {
+  location: Pick<ParsedLocation, "publicHref">
+}
+
+interface AuthPageContext extends AuthRouteContext {
+  search: AuthSearch
 }
 
 const loadRouteSession = async ({ context: { queryClient }, preload = false }: AuthRouteContext, { recheck }: { recheck: boolean }) => {
@@ -21,34 +30,47 @@ const loadRouteSession = async ({ context: { queryClient }, preload = false }: A
   return session
 }
 
-const redirectToWorkspace = (role: string | null | undefined): never => {
-  throw redirect({ replace: true, to: hasPermission({ permission: { admin: ["access"] }, role }) ? ROUTES.ADMIN : ROUTES.APP })
+const isAdmin = (role: string | null | undefined): boolean => hasPermission({ permission: { admin: ["access"] }, role })
+
+const signInFirst = (search: AuthSearch): never => {
+  throw redirect({ replace: true, search, to: ROUTES.SIGN_IN })
 }
 
-export const redirectIfSignedIn = async (context: AuthRouteContext): Promise<void> => {
-  const session = await loadRouteSession(context, { recheck: false })
-  if (session) {
-    redirectToWorkspace(session.user.role)
+const goToRedirectOrWorkspace = (search: AuthSearch, role: string | null | undefined): never => {
+  if (search.redirect !== undefined) {
+    throw redirect({ href: search.redirect, replace: true })
   }
+  throw redirect({ replace: true, to: isAdmin(role) ? ROUTES.ADMIN : ROUTES.APP })
 }
 
-export const requireSignedIn = async (context: AuthRouteContext) => {
+const requireSession = async (context: AuthRouteContext, search: AuthSearch) => {
   const session = await loadRouteSession(context, { recheck: true })
   if (!session) {
-    throw redirect({ replace: true, to: ROUTES.SIGN_IN })
+    return signInFirst(search)
   }
-  return { session }
+  return session
 }
 
-export const requireAdmin = async (context: AuthRouteContext) => {
+export const redirectIfSignedIn = async (context: AuthPageContext): Promise<void> => {
+  const session = await loadRouteSession(context, { recheck: false })
+  if (session) {
+    goToRedirectOrWorkspace(context.search, session.user.role)
+  }
+}
+
+export const requireSignedIn = async (context: ProtectedRouteContext) => ({
+  session: await requireSession(context, { redirect: context.location.publicHref }),
+})
+
+export const requireAdmin = async (context: ProtectedRouteContext) => {
   const result = await requireSignedIn(context)
-  if (!hasPermission({ permission: { admin: ["access"] }, role: result.session.user.role })) {
+  if (!isAdmin(result.session.user.role)) {
     throw redirect({ replace: true, to: ROUTES.APP })
   }
   return result
 }
 
-export const redirectAfterAuth = async (context: AuthRouteContext): Promise<never> => {
-  const { session } = await requireSignedIn(context)
-  return redirectToWorkspace(session.user.role)
+export const redirectAfterAuth = async (context: AuthPageContext): Promise<never> => {
+  const session = await requireSession(context, context.search)
+  return goToRedirectOrWorkspace(context.search, session.user.role)
 }

@@ -12,9 +12,17 @@ import {
 
 import { MIN_FIELD_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 
-const INTERNAL_PATH_PATTERN = /^\/(?!\/)/u
+import { searchParam } from "~/src/lib/search-params"
+
+const INTERNAL_PATH_PATTERN = /^\/(?![/\\])/u
 
 export const callbackPathSchema = zod.string().regex(INTERNAL_PATH_PATTERN)
+
+export const authSearchSchema = zod.object({
+  redirect: searchParam(callbackPathSchema),
+})
+
+export type AuthSearch = zod.infer<typeof authSearchSchema>
 
 export const emailSchema = zod.email({ message: "emailInvalid" }).max(EMAIL_MAX_LENGTH, {
   message: "emailMaxLength",

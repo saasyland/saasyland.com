@@ -25,23 +25,23 @@ description: "メールとパスワード、GitHub と Google、D1 のセッシ�
 | ----------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/auth/sign-in`                                 | `OAuthButtons`、`SignInForm`              | Better Auth の `signIn.email` でサインインします。未確認のメールは `/auth/verify-email` へ、2FA が有効なアカウントは `/auth/two-factor` へ進みます。 |
 | `/auth/sign-up`                                 | `OAuthButtons`、`SignUpForm`              | サーバー関数 `signUpWithPassword` を呼び出し、`/auth/verify-email` へ移動します。                                                                    |
-| `/auth/callback`                                | なし                                      | `redirectAfterAuth` が管理者を `/admin` へ、それ以外を `/app` へ送ります。                                                                           |
+| `/auth/callback`                                | なし                                      | `redirectAfterAuth` が訪問者を `redirect` へ、それがなければ管理者を `/admin` へ、それ以外を `/app` へ送ります。                                     |
 | `/auth/verify-email`                            | `VerifyEmailForm`                         | [メール確認](/docs/features/email-verification)を参照。                                                                                              |
 | `/auth/forgot-password`、`/auth/reset-password` | `ForgotPasswordForm`、`ResetPasswordForm` | [パスワードリセット](/docs/features/password-reset)を参照。                                                                                          |
 | `/auth/two-factor`                              | `TwoFactorForm`                           | [二要素認証](/docs/features/two-factor)を参照。                                                                                                      |
 
-サインインに成功すると、`usePostAuthRedirect` がクエリキャッシュとルーターキャッシュをクリアして `/auth/callback` へ移動します。`/auth/sign-in` に `?error=` として返された Better Auth のエラーは、対応する `auth.errors` のメッセージで表示されます。
+サインインに成功すると、`useAuthRedirect` の `finishSignIn` がクエリキャッシュとルーターキャッシュをクリアし、`redirect` を保持したまま `/auth/callback` へ移動します。`/auth/sign-in` に `?error=` として返された Better Auth のエラーは、対応する `auth.errors` のメッセージで表示されます。
 
 ## ルートガード
 
 `src/integrations/better-auth/auth.routes.ts` は `beforeLoad` で使うガードをエクスポートします。
 
-- `requireSignedIn` は `/app` を保護し、`/auth/sign-in` へリダイレクトします。
+- `requireSignedIn` は `/app` を保護し、ページを `redirect` として `/auth/sign-in` へリダイレクトします。
 - `requireAdmin` は `/admin` を保護します。`admin: ["access"]` 権限のないサインイン済みユーザーは `/app` へ移動します。
-- `redirectIfSignedIn` はサインイン済みユーザーをサインインと登録の画面から遠ざけます。
+- `redirectIfSignedIn` は、サインインと登録の画面を開いたサインイン済みユーザーを `redirect` または自分のワークスペースへ送ります。
 - `redirectAfterAuth` は `/auth/callback` を処理します。
 
-ガードは `getCurrentSessionQuery` でセッションを読み取り、サインイン中のユーザーが変わるとクエリキャッシュをクリアします。
+ガードは `getCurrentSessionQuery` でセッションを読み取り、サインイン中のユーザーが変わるとクエリキャッシュをクリアします。`redirect` がサインイン、登録、OAuth、二要素認証の確認の間でどのように引き継がれるかは、[認証フロー](/docs/guides/auth-flows#return-path) で説明しています。
 
 ## サーバー関数
 

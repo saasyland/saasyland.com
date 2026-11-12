@@ -25,23 +25,23 @@ O layout `/auth` pré-carrega os namespaces `auth.*` e mostra o painel de acesso
 | ----------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/auth/sign-in`                                 | `OAuthButtons`, `SignInForm`              | Faz login com `signIn.email` do Better Auth. Um e-mail não verificado leva a `/auth/verify-email`; uma conta com 2FA continua em `/auth/two-factor`. |
 | `/auth/sign-up`                                 | `OAuthButtons`, `SignUpForm`              | Chama a função de servidor `signUpWithPassword` e depois vai para `/auth/verify-email`.                                                              |
-| `/auth/callback`                                | nenhum                                    | `redirectAfterAuth` envia administradores para `/admin` e todos os demais para `/app`.                                                               |
+| `/auth/callback`                                | nenhum                                    | `redirectAfterAuth` envia o visitante para `redirect` ou, sem ele, administradores para `/admin` e todos os demais para `/app`.                      |
 | `/auth/verify-email`                            | `VerifyEmailForm`                         | Veja [Verificação de e-mail](/docs/features/email-verification).                                                                                     |
 | `/auth/forgot-password`, `/auth/reset-password` | `ForgotPasswordForm`, `ResetPasswordForm` | Veja [Redefinição de senha](/docs/features/password-reset).                                                                                          |
 | `/auth/two-factor`                              | `TwoFactorForm`                           | Veja [Autenticação em dois fatores](/docs/features/two-factor).                                                                                      |
 
-Após um login bem-sucedido, `usePostAuthRedirect` limpa os caches de consultas e do roteador e navega para `/auth/callback`. Erros do Better Auth retornados como `?error=` em `/auth/sign-in` mostram a mensagem correspondente de `auth.errors`.
+Após um login bem-sucedido, `finishSignIn` de `useAuthRedirect` limpa os caches de consultas e do roteador e navega para `/auth/callback`, mantendo `redirect`. Erros do Better Auth retornados como `?error=` em `/auth/sign-in` mostram a mensagem correspondente de `auth.errors`.
 
 ## Guardas de rota
 
 `src/integrations/better-auth/auth.routes.ts` exporta as guardas usadas em `beforeLoad`:
 
-- `requireSignedIn` protege `/app` e redireciona para `/auth/sign-in`.
+- `requireSignedIn` protege `/app` e redireciona para `/auth/sign-in`, com a página como `redirect`.
 - `requireAdmin` protege `/admin`; um usuário logado sem a permissão `admin: ["access"]` vai para `/app`.
-- `redirectIfSignedIn` mantém usuários logados longe do login e do cadastro.
+- `redirectIfSignedIn` envia usuários logados que abrem o login ou o cadastro para `redirect` ou para a área de trabalho deles.
 - `redirectAfterAuth` faz `/auth/callback` funcionar.
 
-As guardas leem a sessão por meio de `getCurrentSessionQuery` e limpam o cache de consultas quando o usuário logado muda.
+As guardas leem a sessão por meio de `getCurrentSessionQuery` e limpam o cache de consultas quando o usuário logado muda. [Fluxos de autenticação](/docs/guides/auth-flows#return-path) descreve como `redirect` passa pelo login, pelo cadastro, pelo OAuth e pela verificação em dois fatores.
 
 ## Funções de servidor
 

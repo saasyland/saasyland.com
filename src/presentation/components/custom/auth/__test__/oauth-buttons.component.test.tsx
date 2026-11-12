@@ -1,4 +1,5 @@
 import { BetterFetchError, type ErrorContext } from "@better-fetch/fetch"
+import { getRequest } from "@tanstack/react-start/server"
 import { act, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
@@ -26,11 +27,6 @@ vi.mock(import("~/src/integrations/better-auth/auth.client"), async (importOrigi
   }
 })
 
-vi.mock(import("~/src/integrations/use-intl/i18n.utils"), async (importOriginal) => ({
-  ...(await importOriginal()),
-  getCurrentLocale: () => "pl-PL",
-}))
-
 const createErrorContext = (error: BetterFetchError): ErrorContext => ({
   error,
   request: {
@@ -53,6 +49,7 @@ const clickSignIn = async (): Promise<void> => {
 }
 
 beforeEach(() => {
+  vi.mocked(getRequest).mockReturnValue(new Request(createTestRequestUrl(`/pl-PL${ROUTES.SIGN_IN}`)))
   signInSocialMock.mockReset().mockResolvedValue({ data: { redirect: true, url: "https://github.com/login/oauth" }, error: null })
   vi.spyOn(toast, "error").mockImplementation(() => 0)
 })

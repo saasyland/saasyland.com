@@ -9,30 +9,30 @@ Better Auth (`src/integrations/better-auth/auth.server.ts`) stores users, sessio
 
 `src/integrations/better-auth/auth.routes.ts` exports the guards used in `beforeLoad`:
 
-| Guard                | Used on                          | Effect                                                              |
-| -------------------- | -------------------------------- | ------------------------------------------------------------------- |
-| `requireSignedIn`    | `/app` layout                    | Redirects to `/auth/sign-in` without a session                      |
-| `requireAdmin`       | `/admin` layout                  | Also redirects to `/app` without the `admin: ["access"]` permission |
-| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Sends a signed-in user to `/admin` or `/app`                        |
-| `redirectAfterAuth`  | `/auth/callback`                 | Sends the new session to `/admin` or `/app` by role                 |
+| Guard                | Used on                          | Effect                                                                      |
+| -------------------- | -------------------------------- | --------------------------------------------------------------------------- |
+| `requireSignedIn`    | `/app` layout                    | Redirects to `/auth/sign-in` without a session, with the page as `redirect` |
+| `requireAdmin`       | `/admin` layout                  | Also redirects to `/app` without the `admin: ["access"]` permission         |
+| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Sends a signed-in user to `redirect`, or to `/admin` or `/app`              |
+| `redirectAfterAuth`  | `/auth/callback`                 | Sends the new session to `redirect`, or to `/admin` or `/app` by role       |
 
 `requireSignedIn` and `requireAdmin` recheck the session on every navigation, `redirectIfSignedIn` uses the cached session, and every guard clears the query cache when the signed-in user changes.
 
 ## Sign-in
 
 1. `SignInForm` calls the Better Auth client's `signIn.email`.
-2. An unverified account gets the `EMAIL_NOT_VERIFIED` error and is sent to `/auth/verify-email` with its email address.
-3. An account with two-factor authentication receives `twoFactorRedirect`; the client plugin then opens `/auth/two-factor` in the current locale.
-4. On success, `usePostAuthRedirect` clears the query and router caches and navigates to `/auth/callback`, which redirects by role.
+2. An unverified account gets the `EMAIL_NOT_VERIFIED` error and is sent to `/auth/verify-email` with its email address and `redirect`.
+3. An account with two-factor authentication receives `twoFactorRedirect`; `SignInForm` opens `/auth/two-factor`, keeping `redirect`.
+4. On success, `finishSignIn` from `useAuthRedirect` clears the query and router caches and navigates to `/auth/callback`, which continues to `redirect` or to the workspace for the role.
 
 Errors that Better Auth reports by redirect arrive as `?error=` on `/auth/sign-in` and are shown from `auth.errors`.
 
 ## Sign-up and email verification
 
 1. `SignUpForm` validates `signUpWithPasswordSchema` and calls `signUpWithPasswordMutation`, a rate-limited server function that calls `auth.api.signUpEmail`.
-2. Better Auth creates the user and calls `sendVerifyEmail`, which emails a link to `/auth/verify-email?token=…` in the locale of the page where the sign-up started. Signing up again with an unverified address sends a fresh link.
+2. Better Auth creates the user and calls `sendVerifyEmail` with the form's `callbackURL`, the localized `/auth/callback` with `redirect`. The email links to `/auth/verify-email` on this site, in the callback's locale and with its `redirect`, plus the `token`. Signing up again with an unverified address sends a fresh link.
 3. The form navigates to `/auth/verify-email?email=…`, where `VerifyEmailForm` can resend the link through the rate-limited `sendVerificationEmailMutation`.
-4. Opening the link: the route's `beforeLoad` hands the token to `/api/auth/verify-email`. Better Auth verifies it, signs the user in and returns to `/auth/verify-email?verified=true`, which redirects to `/auth/callback`. An invalid or expired link returns with `error` and the page offers a new one.
+4. Opening the link: the route's `beforeLoad` hands the token to `/api/auth/verify-email`. Better Auth verifies it, signs the user in and returns to `/auth/verify-email?verified=true`, which redirects to `/auth/callback`, keeping `redirect`. An invalid or expired link returns with `error` and the page offers a new one.
 
 Sign-in is blocked until the email is verified (`requireEmailVerification: true`).
 
@@ -45,11 +45,27 @@ Sign-in is blocked until the email is verified (`requireEmailVerification: true`
 ## Two-factor authentication
 
 - Enabling (admin settings, Security): `TwoFactorDialog` asks for the password (`enableTwoFactorMutation`), shows the TOTP secret to add to an authenticator app, confirms one code (`verifyTotpMutation`) and then shows the backup codes. `disableTwoFactorMutation` turns it off.
-- Signing in: `/auth/two-factor` accepts an authenticator code (`verifyTotpMutation`) or a backup code (`verifyBackupCodeMutation`), both rate-limited, with an option to trust the device. Success runs `usePostAuthRedirect`.
+- Signing in: `/auth/two-factor` accepts an authenticator code (`verifyTotpMutation`) or a backup code (`verifyBackupCodeMutation`), both rate-limited, with an option to trust the device. Success runs `finishSignIn`.
 
 ## OAuth
 
-`OAuthButtons` calls `authClient.signIn.social` for Google or GitHub with `callbackURL` set to the localized `/auth/callback` and `errorCallbackURL` to the localized `/auth/sign-in`. The providers are configured in `socialProviders`; register `https://<host>/api/auth/callback/google` and `https://<host>/api/auth/callback/github` with them. Accounts with the same email link automatically, and provider tokens are stored encrypted.
+`OAuthButtons` calls `authClient.signIn.social` for Google or GitHub with `callbackURL` set to the localized `/auth/callback` and `errorCallbackURL` to the localized `/auth/sign-in`, both keeping `redirect`. The providers are configured in `socialProviders`; register `https://<host>/api/auth/callback/google` and `https://<host>/api/auth/callback/github` with them. Accounts with the same email link automatically, and provider tokens are stored encrypted.
+
+## Return path
+
+A visitor who opens a protected page while signed out should end up on that page after signing in. Every auth page accepts a `redirect` search parameter for this, declared once as `authSearchSchema` in `auth.zod.ts`. It must be an internal path (`callbackPathSchema`); anything else is dropped.
+
+- `requireSignedIn` sends the visitor to `/auth/sign-in?redirect=` with the page they opened.
+- The auth pages keep `redirect` on the links between sign-in and sign-up, on the way to `/auth/two-factor` and `/auth/verify-email`, in the OAuth callbacks and in the verification email.
+- `/auth/callback` continues to `redirect`, or to the workspace for the role when there is none. A signed-in visitor who opens sign-in or sign-up goes the same way.
+
+The auth components get it from `useAuthRedirect` in `src/hooks/use-auth-redirect.ts`:
+
+| Member                   | Use                                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `redirect`               | The page to land on after signing in, for links and navigation between auth pages                                                           |
+| `hrefWithRedirect(page)` | A localized URL to `/auth/callback` or `/auth/sign-in` that keeps `redirect`, passed to Better Auth as `callbackURL` and `errorCallbackURL` |
+| `finishSignIn()`         | Clears the query and router caches and continues to `/auth/callback` after sign-in or two-factor verification                               |
 
 ## Sign-out
 

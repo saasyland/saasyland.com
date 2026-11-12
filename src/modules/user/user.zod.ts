@@ -2,7 +2,7 @@ import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.access"
-import { emailSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
+import { emailSchema, imageUrlSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField } from "~/src/modules/_core/utils/zod-fields"
@@ -10,7 +10,6 @@ import { TIMEZONE_CODES, user } from "~/src/modules/user/user.schema"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
 
-const USER_IMAGE_MAX_LENGTH = 2048
 const MAX_BAN_REASON_LENGTH = 255
 const MAX_SORT_COLUMNS = 8
 
@@ -62,7 +61,7 @@ const unbanUser = userIdInput
 
 const updateUser = zod
   .object({
-    image: zod.string().max(USER_IMAGE_MAX_LENGTH).nullable().optional(),
+    image: imageUrlSchema.nullable().optional(),
     name: nameSchema.optional(),
     timezone: zod.enum(TIMEZONE_CODES).optional(),
     userId: idField,

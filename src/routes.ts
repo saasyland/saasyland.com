@@ -17,6 +17,9 @@ export const ROUTES = {
   ADMIN_USERS_SECURITY: "/admin/users/security",
   API: "/api",
   API_AUTH: {
+    ADMIN_CREATE_USER: "/admin/create-user",
+    ADMIN_SET_USER_PASSWORD: "/admin/set-user-password",
+    ADMIN_UPDATE_USER: "/admin/update-user",
     CALLBACK: "/callback",
     CHANGE_EMAIL: "/change-email",
     CHANGE_PASSWORD: "/change-password",

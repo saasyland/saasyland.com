@@ -2,6 +2,7 @@ import zod from "zod/v4"
 
 import {
   EMAIL_MAX_LENGTH,
+  IMAGE_URL_MAX_LENGTH,
   NAME_MAX_LENGTH,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
@@ -18,6 +19,8 @@ export const callbackPathSchema = zod.string().regex(INTERNAL_PATH_PATTERN)
 export const emailSchema = zod.email({ message: "emailInvalid" }).max(EMAIL_MAX_LENGTH, {
   message: "emailMaxLength",
 })
+
+export const imageUrlSchema = zod.string().max(IMAGE_URL_MAX_LENGTH)
 
 export const nameSchema = zod.string().min(MIN_FIELD_LENGTH, { message: "nameRequired" }).max(NAME_MAX_LENGTH, { message: "nameMaxLength" })
 

@@ -1,7 +1,6 @@
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { eq } from "drizzle-orm"
-import type * as zod from "zod"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
@@ -9,11 +8,12 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { PRODUCT_MUTATION_KEYS } from "~/src/modules/product/product.constants"
 import { product } from "~/src/modules/product/product.schema"
+import type { Product } from "~/src/modules/product/product.types"
 import { productZodSchemas } from "~/src/modules/product/product.zod"
 
 export const updateProduct = createServerFn({ method: "POST" })
   .middleware([authorized({ product: ["update"] })])
-  .validator((input: zod.input<typeof productZodSchemas.updateProduct>) => productZodSchemas.updateProduct.parse(input))
+  .validator((input: Product["updateProduct"]) => productZodSchemas.updateProduct.parse(input))
   .handler(async ({ data }) => {
     const { productId, ...fields } = data
 
@@ -27,6 +27,6 @@ export const updateProduct = createServerFn({ method: "POST" })
   })
 
 export const updateProductMutation = mutationOptions({
-  mutationFn: (data: Parameters<typeof updateProduct>[0]["data"]) => updateProduct({ data }),
+  mutationFn: (data: Product["updateProduct"]) => updateProduct({ data }),
   mutationKey: PRODUCT_MUTATION_KEYS.UPDATE,
 })

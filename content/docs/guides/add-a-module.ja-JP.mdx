@@ -12,7 +12,7 @@ description: "Drizzle スキーマ、Zod スキーマ、定数、型、ユース
 | `<table>.schema.ts`        | Drizzle のテーブル、インデックス、リレーション、enum の値のリスト                                |
 | `<table>.zod.ts`           | 操作ごとに 1 つの入力スキーマと `drizzle-zod` のスキーマ。`<table>ZodSchemas` としてエクスポート |
 | `<table>.constants.ts`     | クエリキーとミューテーションキーのタプル、モジュールの上限値                                     |
-| `<table>.types.ts`         | テーブルから推論される行の型                                                                     |
+| `<table>.types.ts`         | 行の型と各操作の入力型をまとめた 1 つのインターフェース                                          |
 | `<table>.utils.ts`         | 任意の純粋なヘルパー                                                                             |
 | `use-cases/<operation>.ts` | 1 ファイルにつき 1 つのサーバー関数と、そのクエリオプションまたはミューテーションオプション      |
 | `__test__/`                | ソースファイル名に合わせたテスト。例：`category.schema.test.ts`、`category.zod.test.ts`          |
@@ -116,15 +116,25 @@ export const CATEGORY_MUTATION_KEYS = {
 ```
 
 ```ts
+import type * as zod from "zod"
+
 import type { category } from "~/src/modules/category/category.schema"
+import type { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
 export interface Category {
   select: typeof category.$inferSelect
   insert: typeof category.$inferInsert
+  createCategory: zod.input<typeof categoryZodSchemas.createCategory>
+  deleteCategory: zod.input<typeof categoryZodSchemas.deleteCategory>
+  getCategories: zod.input<typeof categoryZodSchemas.getCategories>
+  getCategory: zod.input<typeof categoryZodSchemas.getCategory>
+  updateCategory: zod.input<typeof categoryZodSchemas.updateCategory>
 }
 ```
 
 すべてのキーはモジュール名で始まるため、`ALL` を無効化するとモジュールのすべてのクエリが再取得されます。
+
+`Category` は操作のスキーマごとにキーを 1 つ持ちます。サーバー関数はバリデーターの入力を `Category["createCategory"]` で型付けし、mutation や query のオプションも同じ型を使います。スキーマを追加したら、キーも追加してください。
 
 ## 6. 権限とユースケースを追加する
 

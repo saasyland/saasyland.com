@@ -1,6 +1,7 @@
 import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
+import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
 import { CATEGORY_ICONS, CATEGORY_KINDS, CATEGORY_VISIBILITIES, category } from "~/src/modules/category/category.schema"
 
@@ -26,6 +27,10 @@ const createCategory = zod.object({
 
 const deleteCategory = categoryIdInput
 
+const getCategories = paginationSchema.extend({
+  kind: categoryKindSchema.optional(),
+})
+
 const getCategory = categoryIdInput
 
 const updateCategory = createCategory
@@ -44,6 +49,7 @@ const update = createUpdateSchema(category)
 export const categoryZodSchemas = {
   createCategory,
   deleteCategory,
+  getCategories,
   getCategory,
   insert,
   select,

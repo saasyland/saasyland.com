@@ -10,7 +10,8 @@ description: "モジュールが 1 つのデータベーステーブルを所有
 - `<table>.schema.ts`：Drizzle のテーブル。`src/integrations/drizzle-orm/drizzle.schemas.ts` から再エクスポートされます
 - `<table>.zod.ts`：入力スキーマ。フォームとサーバー関数の両方で使います
 - `<table>.constants.ts`：クエリキー、ミューテーションキー、enum
-- `<table>.types.ts` と `<table>.utils.ts`：テーブルが必要とする場合のみ
+- `<table>.types.ts`：モジュール名のインターフェースで、行の型と各操作の入力型（`Category["createCategory"]` など）を持ちます
+- `<table>.utils.ts`：テーブルが必要とする場合のみ
 - `use-cases/<operation>.ts`：1 ファイルにつき 1 つの操作
 
 現在のモジュールは、account、category、license、newsletter-subscriber、product、rate-limit、session、two-factor、user、verification です。共有の定数とヘルパーは [`_core`](/docs/architecture/core) にあります。テーブルを扱わないサーバー関数は、`src/lib` か、それを使う唯一のルートに置きます。
@@ -23,18 +24,18 @@ description: "モジュールが 1 つのデータベーステーブルを所有
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { v7 } from "uuid"
-import type * as zod from "zod"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { CATEGORY_MUTATION_KEYS } from "~/src/modules/category/category.constants"
 import { category } from "~/src/modules/category/category.schema"
+import type { Category } from "~/src/modules/category/category.types"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
 export const createCategory = createServerFn({ method: "POST" })
   .middleware([authorized({ category: ["create"] })])
-  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .validator((input: Category["createCategory"]) => categoryZodSchemas.createCategory.parse(input))
   .handler(({ data }) =>
     db
       .insert(category)
@@ -51,7 +52,7 @@ export const createCategory = createServerFn({ method: "POST" })
   )
 
 export const createCategoryMutation = mutationOptions({
-  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationFn: (data: Category["createCategory"]) => createCategory({ data }),
   mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
 })
 ```

@@ -10,7 +10,8 @@ A module under `src/modules/<table>` exists only for a real database table. It c
 - `<table>.schema.ts`: the Drizzle table, re-exported by `src/integrations/drizzle-orm/drizzle.schemas.ts`
 - `<table>.zod.ts`: input schemas, used by both forms and server functions
 - `<table>.constants.ts`: query and mutation keys, enums
-- `<table>.types.ts` and `<table>.utils.ts`: when the table needs them
+- `<table>.types.ts`: one interface named after the module with the row types and the input type of every operation, such as `Category["createCategory"]`
+- `<table>.utils.ts`: when the table needs them
 - `use-cases/<operation>.ts`: one operation per file
 
 Current modules: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user and verification. Shared constants and helpers live in [`_core`](/docs/architecture/core). A server function that does not work on a table belongs in `src/lib` or in the one route that uses it.
@@ -23,18 +24,18 @@ Most use cases are server functions called from the browser. Each file exports t
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { v7 } from "uuid"
-import type * as zod from "zod"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { CATEGORY_MUTATION_KEYS } from "~/src/modules/category/category.constants"
 import { category } from "~/src/modules/category/category.schema"
+import type { Category } from "~/src/modules/category/category.types"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
 export const createCategory = createServerFn({ method: "POST" })
   .middleware([authorized({ category: ["create"] })])
-  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .validator((input: Category["createCategory"]) => categoryZodSchemas.createCategory.parse(input))
   .handler(({ data }) =>
     db
       .insert(category)
@@ -51,7 +52,7 @@ export const createCategory = createServerFn({ method: "POST" })
   )
 
 export const createCategoryMutation = mutationOptions({
-  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationFn: (data: Category["createCategory"]) => createCategory({ data }),
   mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
 })
 ```

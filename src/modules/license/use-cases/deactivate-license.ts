@@ -3,7 +3,6 @@ import { env } from "cloudflare:workers"
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { eq } from "drizzle-orm"
-import type * as zod from "zod"
 
 import { RATE_LIMITS, authorized, withRateLimit } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
@@ -12,13 +11,14 @@ import { polar } from "~/src/integrations/polar/polar.config"
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { LICENSE_MUTATION_KEYS } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
+import type { License } from "~/src/modules/license/license.types"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 
 const SINGLE_ROW = 1
 
 export const deactivateLicense = createServerFn({ method: "POST" })
   .middleware([authorized(), withRateLimit("deactivate-license", RATE_LIMITS.SENSITIVE)])
-  .validator((input: zod.input<typeof licenseZodSchemas.deactivateLicense>) => licenseZodSchemas.deactivateLicense.parse(input))
+  .validator((input: License["deactivateLicense"]) => licenseZodSchemas.deactivateLicense.parse(input))
   .handler(async ({ context, data: { activationId } }) => {
     const [row] = await db.select({ key: license.key }).from(license).where(eq(license.userId, context.auth.user.id)).limit(SINGLE_ROW)
 
@@ -32,6 +32,6 @@ export const deactivateLicense = createServerFn({ method: "POST" })
   })
 
 export const deactivateLicenseMutation = mutationOptions({
-  mutationFn: (data: Parameters<typeof deactivateLicense>[0]["data"]) => deactivateLicense({ data }),
+  mutationFn: (data: License["deactivateLicense"]) => deactivateLicense({ data }),
   mutationKey: LICENSE_MUTATION_KEYS.DEACTIVATE,
 })

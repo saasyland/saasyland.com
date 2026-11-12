@@ -38,7 +38,7 @@ describe("get-user", () => {
     const userResult = createAuthUserMutationResult({ userId: TARGET_USER_ID }).user
     getUserMock.mockResolvedValue(userResult)
 
-    await expect(getUser({ data: TARGET_USER_ID })).resolves.toMatchObject(userResult)
+    await expect(getUser({ data: { userId: TARGET_USER_ID } })).resolves.toMatchObject(userResult)
     expect(getUserMock).toHaveBeenCalledWith({
       headers: HEADERS,
       query: { id: TARGET_USER_ID },
@@ -51,7 +51,7 @@ describe("get-user", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: ADMIN_USER_ID }))
 
-    await expect(getUser({ data: TARGET_USER_ID })).rejects.toMatchObject({ code: "FORBIDDEN" })
+    await expect(getUser({ data: { userId: TARGET_USER_ID } })).rejects.toMatchObject({ code: "FORBIDDEN" })
   })
 
   it("rejects when the caller is signed out", async () => {
@@ -60,6 +60,6 @@ describe("get-user", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(getUser({ data: TARGET_USER_ID })).rejects.toMatchObject({ code: "UNAUTHORIZED" })
+    await expect(getUser({ data: { userId: TARGET_USER_ID } })).rejects.toMatchObject({ code: "UNAUTHORIZED" })
   })
 })

@@ -1,18 +1,18 @@
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { v7 } from "uuid"
-import type * as zod from "zod"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { CATEGORY_MUTATION_KEYS } from "~/src/modules/category/category.constants"
 import { category } from "~/src/modules/category/category.schema"
+import type { Category } from "~/src/modules/category/category.types"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
 export const createCategory = createServerFn({ method: "POST" })
   .middleware([authorized({ category: ["create"] })])
-  .validator((input: zod.input<typeof categoryZodSchemas.createCategory>) => categoryZodSchemas.createCategory.parse(input))
+  .validator((input: Category["createCategory"]) => categoryZodSchemas.createCategory.parse(input))
   .handler(({ data }) =>
     db
       .insert(category)
@@ -29,6 +29,6 @@ export const createCategory = createServerFn({ method: "POST" })
   )
 
 export const createCategoryMutation = mutationOptions({
-  mutationFn: (data: Parameters<typeof createCategory>[0]["data"]) => createCategory({ data }),
+  mutationFn: (data: Category["createCategory"]) => createCategory({ data }),
   mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
 })

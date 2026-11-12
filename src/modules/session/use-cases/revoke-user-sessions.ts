@@ -1,19 +1,19 @@
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import type * as zod from "zod"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { SESSION_MUTATION_KEYS } from "~/src/modules/session/session.constants"
+import type { Session } from "~/src/modules/session/session.types"
 import { sessionZodSchemas } from "~/src/modules/session/session.zod"
 
 export const revokeUserSessions = createServerFn({ method: "POST" })
   .middleware([authorized({ session: ["revoke"] })])
-  .validator((input: zod.input<typeof sessionZodSchemas.revokeUserSessions>) => sessionZodSchemas.revokeUserSessions.parse(input))
+  .validator((input: Session["revokeUserSessions"]) => sessionZodSchemas.revokeUserSessions.parse(input))
   .handler(({ context, data }) => auth.api.revokeUserSessions({ body: data, headers: context.requestHeaders }))
 
 export const revokeUserSessionsMutation = mutationOptions({
-  mutationFn: (data: Parameters<typeof revokeUserSessions>[0]["data"]) => revokeUserSessions({ data }),
+  mutationFn: (data: Session["revokeUserSessions"]) => revokeUserSessions({ data }),
   mutationKey: SESSION_MUTATION_KEYS.REVOKE_USER_SESSIONS,
 })

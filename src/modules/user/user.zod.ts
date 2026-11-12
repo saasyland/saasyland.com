@@ -4,6 +4,7 @@ import zod from "zod/v4"
 import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.access"
 import { emailSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
 
+import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField } from "~/src/modules/_core/utils/zod-fields"
 import { TIMEZONE_CODES, user } from "~/src/modules/user/user.schema"
 
@@ -11,6 +12,7 @@ const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSch
 
 const USER_IMAGE_MAX_LENGTH = 2048
 const MAX_BAN_REASON_LENGTH = 255
+const MAX_SORT_COLUMNS = 8
 
 const userIdInput = zod.object({
   userId: idField,
@@ -32,6 +34,13 @@ const createUser = zod.object({
 const deleteUser = userIdInput
 
 const getUser = userIdInput
+
+const userSortSchema = zod.object({
+  desc: zod.boolean(),
+  id: zod.string().pipe(zod.enum(["user", "role", "status", "emailVerified", "twoFactorEnabled", "timezone", "createdAt", "updatedAt"])),
+})
+
+const getUsers = paginationSchema.extend({ sorting: zod.array(userSortSchema).max(MAX_SORT_COLUMNS).default([]) })
 
 const impersonateUser = userIdInput
 
@@ -71,6 +80,7 @@ export const userZodSchemas = {
   createUser,
   deleteUser,
   getUser,
+  getUsers,
   impersonateUser,
   insert,
   select,

@@ -1,16 +1,16 @@
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import type * as zod from "zod"
 
 import { RATE_LIMITS, withRateLimit } from "~/src/integrations/better-auth/auth.middleware"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { TWO_FACTOR_MUTATION_KEYS } from "~/src/modules/two-factor/two-factor.constants"
+import type { TwoFactor } from "~/src/modules/two-factor/two-factor.types"
 import { twoFactorZodSchemas } from "~/src/modules/two-factor/two-factor.zod"
 
 export const verifyTotp = createServerFn({ method: "POST" })
   .middleware([withRateLimit("verify-totp", RATE_LIMITS.SENSITIVE)])
-  .validator((input: zod.input<typeof twoFactorZodSchemas.verifyTotp>) => twoFactorZodSchemas.verifyTotp.parse(input))
+  .validator((input: TwoFactor["verifyTotp"]) => twoFactorZodSchemas.verifyTotp.parse(input))
   .handler(({ context, data }) =>
     auth.api.verifyTOTP({
       body: data,
@@ -19,6 +19,6 @@ export const verifyTotp = createServerFn({ method: "POST" })
   )
 
 export const verifyTotpMutation = mutationOptions({
-  mutationFn: (data: Parameters<typeof verifyTotp>[0]["data"]) => verifyTotp({ data }),
+  mutationFn: (data: TwoFactor["verifyTotp"]) => verifyTotp({ data }),
   mutationKey: TWO_FACTOR_MUTATION_KEYS.VERIFY_TOTP,
 })

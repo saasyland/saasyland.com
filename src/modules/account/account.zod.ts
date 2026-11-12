@@ -6,6 +6,7 @@ import {
   emailSchema,
   nameSchema,
   signInPasswordSchema,
+  signUpWithPasswordSchema,
   strictPasswordSchema,
 } from "~/src/integrations/better-auth/auth.zod"
 
@@ -50,6 +51,7 @@ export const accountZodSchemas = {
   changePasswordForm,
   insert,
   select,
+  signUpWithPassword: signUpWithPasswordSchema,
   update,
   updateUser,
 }

@@ -12,12 +12,12 @@ description: "I passaggi di una richiesta di pagina e di una chiamata a una serv
 5. **Guard.** Le funzioni `beforeLoad` dei layout, come `requireAdmin`, caricano la query della sessione e reindirizzano quando l'accesso non è consentito.
 6. **I loader** vengono eseguiti in parallelo. Ciascuno precarica i propri namespace, i metadati della pagina e le query nel `QueryClient` della richiesta.
 7. **Rendering.** La shell radice renderizza `<html lang dir>` e avvolge il body in `TranslationsProvider`. La cache delle query viene serializzata nell'HTML, così il browser non recupera di nuovo gli stessi dati.
-8. **Header della risposta.** Per le risposte HTML il Worker aggiunge un header `Link` di preload per il foglio di stile e i font del locale, imposta il cookie del locale se necessario e applica gli attributi dei prezzi regionali quando l'header `cf-ipcountry` dà diritto a uno sconto.
+8. **Header della risposta.** Per le risposte HTML il Worker aggiunge un header `Link` di preload per il foglio di stile e i font del locale, imposta il cookie del locale se necessario e applica gli attributi dei prezzi regionali quando l'header `cf-ipcountry` dà diritto a uno sconto. Ogni risposta restituita dal Worker riceve poi gli header di sicurezza (`SECURITY_HEADERS` in `src/server.ts`, più `Strict-Transport-Security` su HTTPS), a meno che non li imposti già.
 9. **Idratazione.** Il browser esegue l'idratazione con la cache serializzata. Le navigazioni successive eseguono guard e loader nel browser e recuperano i dati tramite server function.
 
 ## Chiamata a una server function
 
-1. Il browser chiama la server function, che la build ha sostituito con una richiesta RPC a `/_serverFn/…`. Il Worker salta la gestione del locale per questo percorso e `getCurrentLocale()` legge il cookie del locale invece dell'URL.
+1. Il browser chiama la server function, che la build ha sostituito con una richiesta RPC a `/_serverFn/…`. Il Worker salta la gestione del locale per questo percorso. L'URL non ha un prefisso di locale, quindi `getCurrentLocale()` restituisce `en-US` sul server; una server function che ha bisogno del locale lo riceve come input.
 2. I middleware vengono eseguiti nell'ordine dichiarato. `withRequest` acquisisce gli header della richiesta e normalizza gli errori, `withRateLimit` conta il tentativo in D1 e `authorized` carica la sessione e controlla il permesso.
 3. Il validator analizza l'input con lo schema Zod del modulo.
 4. L'handler interroga D1 o chiama un provider e restituisce dati semplici.
@@ -31,7 +31,7 @@ GET /pl-PL/admin/users/all
   /admin beforeLoad    requireAdmin
   loaders              metadata, namespaces, queries
   SSR                  HTML with serialized query cache
-  src/server.ts        Link header, locale cookie, regional pricing
+  src/server.ts        Link header, locale cookie, regional pricing, security headers
 
 POST /_serverFn/…
   withRequest → withRateLimit → authorized → validator → handler → data or AppError

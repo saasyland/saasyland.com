@@ -78,7 +78,7 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
 
 ## Надсилання
 
-Сценарій використання отримує мову, завантажує повідомлення, будує абсолютні посилання через `localizePathname` і викликає `sendEmail`. `src/modules/verification/use-cases/send-verify-email.ts`:
+Сценарій використання отримує мову, перевіряє ліміт на одержувача, завантажує повідомлення, будує абсолютні посилання через `localizePathname` і викликає `sendEmail`. `src/modules/verification/use-cases/send-verify-email.ts`:
 
 ```ts
 export const sendVerifyEmail = async ({
@@ -90,6 +90,11 @@ export const sendVerifyEmail = async ({
   token: string
   user: { email: string; name: string }
 }): Promise<void> => {
+  if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+    console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+    return
+  }
+
   const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
   const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
   verifyUrl.searchParams.set("token", token)
@@ -110,6 +115,7 @@ export const sendVerifyEmail = async ({
 - Hooks Better Auth у `src/integrations/better-auth/auth.server.ts` викликають сценарії використання: `sendVerifyEmail` для `emailVerification.sendVerificationEmail` і повторних реєстрацій непідтверджених облікових записів, `sendResetPasswordEmail` для `emailAndPassword.sendResetPassword` і `sendChangeEmailConfirmationEmail` для `user.changeEmail`.
 - Запити Better Auth надходять на `/api/auth` без мовного префікса, тож hooks визначають мову листа з `callbackURL` сценарію, тобто локалізованого шляху сторінки, через `extractLocaleFromCallbackURL` або `extractLocaleFromPath` з `src/integrations/use-intl/i18n.paths.ts`. Резервною мовою є англійська.
 - Сценарії використання розсилки самі надсилають листи підтвердження й сповіщення, наприклад `subscribeToNewsletter`.
+- `sendVerifyEmail`, `sendResetPasswordEmail` і `subscribeToNewsletter` перед надсиланням викликають `withinRecipientRateLimit` (`src/lib/rate-limit.ts`): щонайбільше три листи одного типу на адресу за годину, з ключем за хешем SHA-256 адреси. Понад ліміт вони записують попередження в лог і нічого не надсилають. Додайте таку саму перевірку до будь-якого листа, який відвідувач може викликати без облікового запису.
 
 ## Додайте лист
 

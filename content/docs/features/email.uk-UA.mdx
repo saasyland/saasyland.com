@@ -23,10 +23,13 @@ const t = createTranslator({ locale, messages: { emails: { "verify-email": messa
 
 ## Надсилання
 
-Сценарій використання завантажує повідомлення, рендерить шаблон і надсилає його (`src/modules/verification/use-cases/send-verify-email.ts`):
+Сценарій використання отримує мову від свого викликача, перевіряє ліміт на одержувача, завантажує повідомлення, рендерить шаблон і надсилає його (`src/modules/verification/use-cases/send-verify-email.ts`):
 
 ```ts
-const locale = getCurrentLocale()
+if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+  console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+  return
+}
 const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
 verifyUrl.searchParams.set("token", token)
@@ -40,7 +43,9 @@ await sendEmail({
 
 `sendEmail` (`src/integrations/resend/resend.utils.ts`) надсилає через Resend з адреси `RESEND_EMAIL_FROM`, якщо не вказано `from` (сповіщення власнику використовує `NOTIFICATIONS_EMAIL`), передає ключ ідемпотентності й кидає помилку в разі невдачі.
 
-Листи облікового запису використовують мову поточного запиту. Листи розсилки використовують мову, передану з формою; сповіщення власнику завжди надсилається мовою `en-US`.
+Листи облікового запису використовують мову сторінки, на якій почався сценарій, прочитану з `callbackURL` у посиланні листа; для повторної реєстрації вона береться з `callbackURL` запиту реєстрації. Листи розсилки використовують мову, передану з формою; сповіщення власнику завжди надсилається мовою `en-US`.
+
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) дозволяє щонайбільше три листи підтвердження адреси, три листи скидання пароля й три листи підтвердження розсилки на адресу за годину, з підрахунком у таблиці `rate_limit` за хешем SHA-256 адреси. Понад ліміт лист пропускається, а запит усе одно отримує звичайну відповідь. Підтвердження зміни пошти й сповіщення власнику не обмежено.
 
 ## Пов’язані посібники
 

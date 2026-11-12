@@ -12,12 +12,12 @@ description: "Les étapes que suivent une requête de page et un appel de foncti
 5. **Guards.** Les fonctions `beforeLoad` des layouts, comme `requireAdmin`, chargent la query de session et redirigent lorsque l'accès n'est pas autorisé.
 6. **Les loaders** s'exécutent en parallèle. Chacun précharge ses namespaces, les métadonnées de la page et ses queries dans le `QueryClient` de la requête.
 7. **Rendu.** Le shell racine rend `<html lang dir>` et enveloppe le body dans `TranslationsProvider`. Le cache de queries est sérialisé dans le HTML afin que le navigateur ne récupère pas à nouveau les mêmes données.
-8. **En-têtes de réponse.** Pour les réponses HTML, le Worker ajoute un en-tête `Link` de préchargement pour la feuille de style et les polices de la locale, définit le cookie de locale si nécessaire et applique les attributs de tarification régionale lorsque l'en-tête `cf-ipcountry` donne droit à une réduction.
+8. **En-têtes de réponse.** Pour les réponses HTML, le Worker ajoute un en-tête `Link` de préchargement pour la feuille de style et les polices de la locale, définit le cookie de locale si nécessaire et applique les attributs de tarification régionale lorsque l'en-tête `cf-ipcountry` donne droit à une réduction. Chaque réponse renvoyée par le Worker reçoit ensuite les en-têtes de sécurité (`SECURITY_HEADERS` dans `src/server.ts`, plus `Strict-Transport-Security` en HTTPS), sauf si elle les définit déjà.
 9. **Hydratation.** Le navigateur hydrate la page avec le cache sérialisé. Les navigations suivantes exécutent les guards et les loaders dans le navigateur et récupèrent les données via des fonctions serveur.
 
 ## Appel de fonction serveur
 
-1. Le navigateur appelle la fonction serveur, que le build a remplacée par une requête RPC vers `/_serverFn/…`. Le Worker ignore la gestion des locales pour ce chemin, et `getCurrentLocale()` lit le cookie de locale au lieu de l'URL.
+1. Le navigateur appelle la fonction serveur, que le build a remplacée par une requête RPC vers `/_serverFn/…`. Le Worker ignore la gestion des locales pour ce chemin. L'URL n'a pas de préfixe de locale, donc `getCurrentLocale()` renvoie `en-US` côté serveur ; une fonction serveur qui a besoin de la locale la reçoit en entrée.
 2. Les middlewares s'exécutent dans l'ordre déclaré. `withRequest` capture les en-têtes de la requête et normalise les erreurs, `withRateLimit` comptabilise la tentative dans D1, et `authorized` charge la session et vérifie la permission.
 3. Le validateur analyse l'entrée avec le schéma Zod du module.
 4. Le handler interroge D1 ou appelle un fournisseur, puis renvoie des données simples.
@@ -31,7 +31,7 @@ GET /pl-PL/admin/users/all
   /admin beforeLoad    requireAdmin
   loaders              metadata, namespaces, queries
   SSR                  HTML with serialized query cache
-  src/server.ts        Link header, locale cookie, regional pricing
+  src/server.ts        Link header, locale cookie, regional pricing, security headers
 
 POST /_serverFn/…
   withRequest → withRateLimit → authorized → validator → handler → data or AppError

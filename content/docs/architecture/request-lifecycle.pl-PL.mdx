@@ -12,12 +12,12 @@ description: "Etapy, przez które przechodzi żądanie strony i wywołanie funkc
 5. **Guardy.** Funkcje `beforeLoad` layoutów, takie jak `requireAdmin`, ładują zapytanie o sesję i przekierowują, gdy dostęp jest niedozwolony.
 6. **Loadery** działają równolegle. Każdy wstępnie ładuje swoje przestrzenie nazw, metadane strony i zapytania do `QueryClient` danego żądania.
 7. **Renderowanie.** Główny shell renderuje `<html lang dir>` i opakowuje body w `TranslationsProvider`. Cache zapytań jest serializowany do HTML, więc przeglądarka nie pobiera tych samych danych ponownie.
-8. **Nagłówki odpowiedzi.** Dla odpowiedzi HTML Worker dodaje nagłówek `Link` z preloadem arkusza stylów i fontów dla locale, w razie potrzeby ustawia cookie z locale i stosuje atrybuty cen regionalnych, gdy nagłówek `cf-ipcountry` kwalifikuje się do zniżki.
+8. **Nagłówki odpowiedzi.** Dla odpowiedzi HTML Worker dodaje nagłówek `Link` z preloadem arkusza stylów i fontów dla locale, w razie potrzeby ustawia cookie z locale i stosuje atrybuty cen regionalnych, gdy nagłówek `cf-ipcountry` kwalifikuje się do zniżki. Następnie każda odpowiedź zwracana przez Workera dostaje nagłówki bezpieczeństwa (`SECURITY_HEADERS` w `src/server.ts` oraz `Strict-Transport-Security` przez HTTPS), o ile sama ich już nie ustawia.
 9. **Hydratacja.** Przeglądarka hydratuje stronę z zserializowanym cache. Kolejne nawigacje uruchamiają guardy i loadery w przeglądarce i pobierają dane przez funkcje serwerowe.
 
 ## Wywołanie funkcji serwerowej
 
-1. Przeglądarka wywołuje funkcję serwerową, którą build zastąpił żądaniem RPC do `/_serverFn/…`. Worker pomija obsługę locale dla tej ścieżki, a `getCurrentLocale()` odczytuje locale z cookie zamiast z URL-a.
+1. Przeglądarka wywołuje funkcję serwerową, którą build zastąpił żądaniem RPC do `/_serverFn/…`. Worker pomija obsługę locale dla tej ścieżki. URL nie ma prefiksu locale, więc `getCurrentLocale()` zwraca na serwerze `en-US`; funkcja serwerowa, która potrzebuje locale, przyjmuje je jako dane wejściowe.
 2. Middleware działa w zadeklarowanej kolejności. `withRequest` przechwytuje nagłówki żądania i normalizuje błędy, `withRateLimit` zlicza próbę w D1, a `authorized` ładuje sesję i sprawdza uprawnienie.
 3. Walidator parsuje dane wejściowe schematem Zod modułu.
 4. Handler wykonuje zapytanie do D1 lub wywołuje dostawcę i zwraca zwykłe dane.
@@ -31,7 +31,7 @@ GET /pl-PL/admin/users/all
   /admin beforeLoad    requireAdmin
   loaders              metadata, namespaces, queries
   SSR                  HTML with serialized query cache
-  src/server.ts        Link header, locale cookie, regional pricing
+  src/server.ts        Link header, locale cookie, regional pricing, security headers
 
 POST /_serverFn/…
   withRequest → withRateLimit → authorized → validator → handler → data or AppError

@@ -7,10 +7,9 @@ description: "Resend と React Email テンプレートによるトランザク�
 
 ## テンプレートとユースケース
 
-`src/presentation/emails/` にあるテンプレートは、マークアップだけを持つ React Email コンポーネントです。各テンプレートは `*_NAMESPACE` 定数をエクスポートし、`locale` と `messages` をプロパティとして受け取り、use-intl の `createTranslator` で翻訳します。メールを送信するユースケースがメッセージを読み込み、テンプレートを描画して `sendEmail` を呼び出します。
+`src/presentation/emails/` にあるテンプレートは、マークアップだけを持つ React Email コンポーネントです。各テンプレートは `*_NAMESPACE` 定数をエクスポートし、`locale` と `messages` をプロパティとして受け取り、use-intl の `createTranslator` で翻訳します。メールを送信するユースケースは呼び出し元からロケールを受け取り、メッセージを読み込み、テンプレートを描画して `sendEmail` を呼び出します。
 
 ```ts
-const locale = getCurrentLocale()
 const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 await sendEmail({
   idempotency: { purpose: "verify-email", token },
@@ -28,7 +27,9 @@ await sendEmail({
 | `newsletter-confirmation-email.tsx`   | `emails.newsletter-confirmation-email`   | `modules/newsletter-subscriber/use-cases/subscribe-to-newsletter.ts`         |
 | `newsletter-notification-email.tsx`   | `emails.newsletter-notification-email`   | `modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription.ts` |
 
-最初の 3 つのユースケースは、Better Auth が `auth.server.ts` のフックから呼び出します。ニュースレターの通知は、購読が確認された後にサイトのオーナーへ英語で送信されます。メール内のリンクは `localizePathname` で組み立てられるため、受信者のロケールで開きます。
+最初の 3 つのユースケースは、Better Auth が `auth.server.ts` のフックから呼び出します。ニュースレターの通知は、購読が確認された後にサイトのオーナーへ英語で送信されます。メール内のリンクは `localizePathname` で組み立てられるため、メールのロケールで開きます。
+
+確認メール、パスワードリセット、ニュースレターの確認の各ユースケースは、最初に `src/lib/rate-limit.ts` の `withinRecipientRateLimit` を呼び出します。アドレスの SHA-256 ハッシュをキーとして、各種類のメールはアドレスごとに 1 時間あたり最大 3 通までです。上限を超えると、エラーを出さずにメールをスキップします。
 
 ## テスト
 

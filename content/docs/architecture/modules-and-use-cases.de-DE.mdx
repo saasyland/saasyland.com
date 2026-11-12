@@ -14,7 +14,7 @@ Ein Modul unter `src/modules/<table>` gibt es nur für eine echte Datenbanktabel
 - `<table>.utils.ts`: sofern die Tabelle sie braucht
 - `use-cases/<operation>.ts`: eine Operation pro Datei
 
-Aktuelle Module: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user und verification. Gemeinsame Konstanten und Hilfsfunktionen liegen in [`_core`](/docs/architecture/core). Eine Server Function, die nicht mit einer Tabelle arbeitet, gehört nach `src/lib` oder in die eine Route, die sie nutzt.
+Aktuelle Module: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user und verification. `license` besitzt zwei Tabellen, `license` und `revoked_license_order`. Gemeinsame Konstanten und Hilfsfunktionen liegen in [`_core`](/docs/architecture/core). Eine Server Function, die nicht mit einer Tabelle arbeitet, gehört nach `src/lib` oder in die eine Route, die sie nutzt.
 
 ## Use Cases
 
@@ -60,7 +60,7 @@ export const createCategoryMutation = mutationOptions({
 - **Middleware** stammt aus `src/integrations/better-auth/auth.middleware.ts`. `authorized()` verlangt eine Session, `authorized({ category: ["create"] })` prüft zusätzlich eine Berechtigung, und `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` begrenzt öffentliche Operationen.
 - **Validierung** parst die Eingabe mit dem Zod-Schema des Moduls, bevor der Handler läuft.
 - **Eigentümerschaft** ergibt sich aus der Session. Operationen auf den eigenen Daten des Aufrufers filtern nach `context.auth.user.id` und vertrauen nie einer Nutzer-ID aus der Eingabe.
-- **Fehler** werden als `new AppError(ERROR_CODES.X)` geworfen. Jeder andere Fehler wird geloggt und erreicht den Client als `INTERNAL_ERROR`.
+- **Fehler** werden als `new AppError(ERROR_CODES.X)` geworfen. `withRequest` macht aus einem API-Fehler von Better Auth `AUTH_API_ERROR` mit dem Message-Key des Fehlers und aus einem Zod-Fehler `VALIDATION`; jeder andere Fehler wird geloggt und erreicht den Client als `INTERNAL_ERROR`.
 - **Lesezugriffe** exportieren stattdessen `queryOptions`, zum Beispiel `getCategoriesPageQuery(input)`, das für die Datentabelle `{ rows, total }` liefert.
 
 Einige Use Cases sind einfache asynchrone Funktionen, die nur auf dem Server laufen und keinen RPC-Endpunkt haben, etwa `send-verify-email.ts` oder `grant-license.ts`. Better-Auth-Hooks und Polar-Webhook-Handler rufen sie auf.

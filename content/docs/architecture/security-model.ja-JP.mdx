@@ -26,7 +26,7 @@ description: "ルートとサーバー関数でアクセス制御を適用する
 - `getRequestSession` はクッキーキャッシュを経由せず、リクエストの残りの処理の間、セッションをメモ化します。
 - ブラウザに送るセッションからは、トークンが取り除かれます。
 - `tanstackStartCookies` は Better Auth の最後のプラグインです。そのため、サーバー関数の実行中に設定されたクッキーがレスポンスに反映されます。
-- 許可するホストはビルドモードごとに固定されています。本番では `saasyland.com`、プレビューでは `preview.saasyland.com`、ローカルでは `localhost:3000` と `127.0.0.1:3000` です。
+- 許可するホストはビルドモードごとに固定されています。本番では `saasyland.com`、プレビューでは `preview.saasyland.com`、development では `localhost:3000` と `127.0.0.1:3000`、test ではさらに `localhost:3020` と `127.0.0.1:3020` です。
 
 Better Auth は、メール認証（サインイン前に必須）、パスワードリセット（既存のセッションを無効化）、GitHub と Google による OAuth（トークンは保存時に暗号化）、二要素認証、管理者によるなりすまし（impersonation）も処理します。検証用の識別子はハッシュ化して保存されます。
 
@@ -34,12 +34,19 @@ Better Auth は、メール認証（サインイン前に必須）、パスワ�
 
 `withRateLimit(kind, limit)` は、操作とクライアント IP（`cf-connecting-ip`）ごとの試行回数を、単一のアトミックな D1 バッチで `rate_limit` テーブルにカウントします。`RATE_LIMITS.SENSITIVE` は 1 分あたり 3 回、`RATE_LIMITS.TOKEN` は 5 回まで許可します。カウンターのストレージで障害が発生した場合、リクエストは拒否されます。Better Auth 独自のレートリミッターも、`auth:` というキープレフィックスを付けて同じテーブルを使います。セッションの読み取り、サインアウト、Polar の Webhook は制限の対象外です。
 
+訪問者が送信をトリガーできるメールには、2 つ目の制限があります。`withinRecipientRateLimit` は、メールアドレスの SHA-256 ハッシュをキーとして、アドレスごとに 1 時間あたり確認メール 3 通、パスワードリセットメール 3 通、ニュースレターの確認メール 3 通まで許可し、それを超えるとメールを黙ってスキップします。
+
+## レスポンスヘッダー
+
+`src/server.ts` は、Worker が返すすべてのレスポンスに `SECURITY_HEADERS`（Content Security Policy、`Cross-Origin-Opener-Policy`、`Permissions-Policy`、`Referrer-Policy`、`X-Content-Type-Options`、`X-Frame-Options`）を追加し、HTTPS では `Strict-Transport-Security` も加えます。レスポンスがすでに設定しているヘッダーはそのまま残します。Worker を経由せずに配信されるファイルには、`public/_headers` のサブセットが付きます。[セキュリティと堅牢化](/docs/features/security)を参照してください。
+
 ## エラーと入力
 
 - 入力を受け取るサーバー関数は、ハンドラーの実行前に Zod スキーマで入力をパースします。
+- Better Auth 独自のエンドポイントも、フォームと同じルールに従います。`auth.hooks.ts` の `enforceInputPolicy` は、パスワード、名前、メールアドレス、画像を受け付けるすべてのエンドポイントの前に実行され、ボディがスキーマに合わない場合は `VALIDATION_ERROR` を付けて `400` を返します。
 - `withRequest` は予期しないエラーを `INTERNAL_ERROR` に変換し、元のエラーをサーバー側でログに記録します。そのため、内部の詳細がクライアントに届くことはありません。
 - Polar の Webhook は、ライセンスを変更する前に `POLAR_WEBHOOK_SECRET` で検証されます。
-- シークレットは、サーバー専用モジュールの中でのみ `cloudflare:workers` から読み取ります。
+- シークレットは、サーバーコード、つまりサーバー専用モジュール、サーバー関数のハンドラー、およびそれらだけがインポートするヘルパーでのみ `cloudflare:workers` から読み取ります。クライアントアセットが `cloudflare:workers` をインポートしている場合、`scripts/verify-build.ts` がビルドを失敗させます。
 - 非公開エリア（`/admin`、`/app`、`/auth`、`/newsletter`）がプリレンダリングされることはありません。
 
 ## 関連ページ

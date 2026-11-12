@@ -14,7 +14,7 @@ description: "モジュールが 1 つのデータベーステーブルを所有
 - `<table>.utils.ts`：テーブルが必要とする場合のみ
 - `use-cases/<operation>.ts`：1 ファイルにつき 1 つの操作
 
-現在のモジュールは、account、category、license、newsletter-subscriber、product、rate-limit、session、two-factor、user、verification です。共有の定数とヘルパーは [`_core`](/docs/architecture/core) にあります。テーブルを扱わないサーバー関数は、`src/lib` か、それを使う唯一のルートに置きます。
+現在のモジュールは、account、category、license、newsletter-subscriber、product、rate-limit、session、two-factor、user、verification です。`license` は `license` と `revoked_license_order` の 2 つのテーブルを持ちます。共有の定数とヘルパーは [`_core`](/docs/architecture/core) にあります。テーブルを扱わないサーバー関数は、`src/lib` か、それを使う唯一のルートに置きます。
 
 ## ユースケース
 
@@ -60,7 +60,7 @@ export const createCategoryMutation = mutationOptions({
 - **ミドルウェア**は `src/integrations/better-auth/auth.middleware.ts` で提供されています。`authorized()` はセッションを必須とし、`authorized({ category: ["create"] })` はさらに権限もチェックします。`withRateLimit(kind, RATE_LIMITS.SENSITIVE)` は公開された操作の実行回数を制限します。
 - **バリデーション**では、ハンドラーの実行前に、モジュールの Zod スキーマで入力をパースします。
 - **所有権**はセッションから判断します。呼び出し元自身のデータに対する操作は `context.auth.user.id` で絞り込み、入力に含まれるユーザー ID を信用することはありません。
-- **エラー**は `new AppError(ERROR_CODES.X)` としてスローします。それ以外のエラーはログに記録され、クライアントには `INTERNAL_ERROR` として届きます。
+- **エラー**は `new AppError(ERROR_CODES.X)` としてスローします。`withRequest` は Better Auth の API エラーをそのエラーのメッセージキー付きの `AUTH_API_ERROR` に、Zod のエラーを `VALIDATION` に変換します。それ以外のエラーはログに記録され、クライアントには `INTERNAL_ERROR` として届きます。
 - **読み取り**では、代わりに `queryOptions` をエクスポートします。たとえば `getCategoriesPageQuery(input)` は、データテーブル用に `{ rows, total }` を返します。
 
 一部のユースケースは、サーバー上でのみ実行され RPC エンドポイントを持たない、通常の async 関数です。`send-verify-email.ts` や `grant-license.ts` などがこれにあたり、Better Auth のフックや Polar の Webhook ハンドラーから呼び出されます。

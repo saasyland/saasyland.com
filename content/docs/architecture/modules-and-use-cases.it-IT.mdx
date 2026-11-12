@@ -14,7 +14,7 @@ Un modulo in `src/modules/<table>` esiste solo per una tabella reale del databas
 - `<table>.utils.ts`: quando la tabella ne ha bisogno
 - `use-cases/<operation>.ts`: un'operazione per file
 
-Moduli attuali: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user e verification. Le costanti e gli helper condivisi si trovano in [`_core`](/docs/architecture/core). Una server function che non lavora su una tabella va in `src/lib` o nell'unica route che la usa.
+Moduli attuali: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user e verification. `license` possiede due tabelle, `license` e `revoked_license_order`. Le costanti e gli helper condivisi si trovano in [`_core`](/docs/architecture/core). Una server function che non lavora su una tabella va in `src/lib` o nell'unica route che la usa.
 
 ## Casi d'uso
 
@@ -60,7 +60,7 @@ export const createCategoryMutation = mutationOptions({
 - **Il middleware** proviene da `src/integrations/better-auth/auth.middleware.ts`. `authorized()` richiede una sessione, `authorized({ category: ["create"] })` controlla anche un permesso e `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` limita le operazioni pubbliche.
 - **La validazione** analizza l'input con lo schema Zod del modulo prima che venga eseguito l'handler.
 - **La proprietà dei dati** deriva dalla sessione. Le operazioni sui dati del chiamante filtrano per `context.auth.user.id` e non si fidano mai di un ID utente preso dall'input.
-- **Gli errori** vengono lanciati come `new AppError(ERROR_CODES.X)`. Qualsiasi altro errore viene registrato nei log e arriva al client come `INTERNAL_ERROR`.
+- **Gli errori** vengono lanciati come `new AppError(ERROR_CODES.X)`. `withRequest` trasforma un errore dell'API di Better Auth in `AUTH_API_ERROR` con la chiave del messaggio dell'errore e un errore Zod in `VALIDATION`; qualsiasi altro errore viene registrato nei log e arriva al client come `INTERNAL_ERROR`.
 - **Le letture** esportano invece `queryOptions`, ad esempio `getCategoriesPageQuery(input)`, che restituisce `{ rows, total }` per la tabella dati.
 
 Alcuni casi d'uso sono semplici funzioni async che vengono eseguite solo sul server e non hanno un endpoint RPC, come `send-verify-email.ts` o `grant-license.ts`. Li chiamano gli hook di Better Auth e gli handler dei webhook di Polar.

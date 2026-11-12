@@ -13,7 +13,7 @@ Cloudflare D1（SQLite）はアプリケーションのデータベースで、`
 
 ## テーブル
 
-各テーブルは `src/modules/<table>/` に専用のモジュールを持ち、`<table>.schema.ts`（`drizzle-orm/sqlite-core`）、`.zod.ts`、`.constants.ts`、`.types.ts`、`.utils.ts`、`use-cases/` で構成されます。モジュールは `account`、`category`、`license`、`newsletter-subscriber`、`product`、`rate-limit`、`session`、`two-factor`、`user`、`verification` です。テーブルを所有しないコードにはモジュールを作りません。
+各テーブルは `src/modules/<table>/` のモジュールに属し、モジュールは `<table>.schema.ts`（`drizzle-orm/sqlite-core`）に加えて、テーブルに操作がある場合は `.zod.ts`、`.constants.ts`、`.types.ts`、`use-cases/` を、ヘルパーが必要な場合は `.utils.ts` を持ちます。モジュールは `account`、`category`、`license`、`newsletter-subscriber`、`product`、`rate-limit`、`session`、`two-factor`、`user`、`verification` です。`rate-limit` はスキーマだけを持ち、`license` は `revoked_license_order` も所有します。テーブルを所有しないコードにはモジュールを作りません。
 
 スキーマは共通の規約に従います。
 
@@ -27,7 +27,7 @@ Cloudflare D1（SQLite）はアプリケーションのデータベースで、`
 D1 にはインタラクティブなトランザクションがありません。`onConflictDoUpdate` を使ったアップサートのような 1 つの文で操作をアトミックに保つか、`db.batch` で複数の文をまとめてください。ページング付きの一覧を返すユースケースは、1 回のバッチでページとその合計件数を取得します（`src/modules/category/use-cases/get-categories.ts`）。
 
 ```ts
-const filter = data.kind === undefined ? undefined : eq(category.kind, data.kind)
+const filter = data.kind && eq(category.kind, data.kind)
 const [rows, totals] = await db.batch([
   db
     .select()

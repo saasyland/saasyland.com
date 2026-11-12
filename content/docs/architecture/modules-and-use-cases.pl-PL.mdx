@@ -14,7 +14,7 @@ Moduł w `src/modules/<table>` istnieje tylko dla rzeczywistej tabeli bazy danyc
 - `<table>.utils.ts`: jeśli tabela ich potrzebuje
 - `use-cases/<operation>.ts`: jedną operację na plik
 
-Obecne moduły: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user i verification. Współdzielone stałe i helpery znajdują się w [`_core`](/docs/architecture/core). Funkcja serwerowa, która nie operuje na tabeli, należy do `src/lib` lub do jedynej trasy, która jej używa.
+Obecne moduły: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user i verification. `license` jest właścicielem dwóch tabel: `license` i `revoked_license_order`. Współdzielone stałe i helpery znajdują się w [`_core`](/docs/architecture/core). Funkcja serwerowa, która nie operuje na tabeli, należy do `src/lib` lub do jedynej trasy, która jej używa.
 
 ## Przypadki użycia
 
@@ -60,7 +60,7 @@ export const createCategoryMutation = mutationOptions({
 - **Middleware** pochodzi z `src/integrations/better-auth/auth.middleware.ts`. `authorized()` wymaga sesji, `authorized({ category: ["create"] })` dodatkowo sprawdza uprawnienie, a `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` ogranicza liczbę wywołań operacji publicznych.
 - **Walidacja** parsuje dane wejściowe schematem Zod modułu, zanim uruchomi się handler.
 - **Własność danych** wynika z sesji. Operacje na danych wywołującego filtrują po `context.auth.user.id` i nigdy nie ufają identyfikatorowi użytkownika z danych wejściowych.
-- **Błędy** są rzucane jako `new AppError(ERROR_CODES.X)`. Każdy inny błąd jest logowany i trafia do klienta jako `INTERNAL_ERROR`.
+- **Błędy** są rzucane jako `new AppError(ERROR_CODES.X)`. `withRequest` zamienia błąd API Better Auth na `AUTH_API_ERROR` z kluczem komunikatu tego błędu, a błąd Zod na `VALIDATION`; każdy inny błąd jest logowany i trafia do klienta jako `INTERNAL_ERROR`.
 - **Odczyty** eksportują zamiast tego `queryOptions`, na przykład `getCategoriesPageQuery(input)`, które zwraca `{ rows, total }` dla tabeli danych.
 
 Niektóre przypadki użycia to zwykłe funkcje asynchroniczne, które działają tylko na serwerze i nie mają endpointu RPC, np. `send-verify-email.ts` lub `grant-license.ts`. Wywołują je hooki Better Auth i handlery webhooków Polar.

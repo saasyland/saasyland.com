@@ -78,7 +78,7 @@ Przestrzenie nazw e-maili nigdy nie są wczytywane przez trasy; wczytuje je na s
 
 ## Wysyłka
 
-Przypadek użycia otrzymuje język, wczytuje komunikaty, buduje bezwzględne linki przez `localizePathname` i wywołuje `sendEmail`. `src/modules/verification/use-cases/send-verify-email.ts`:
+Przypadek użycia otrzymuje język, sprawdza limit na odbiorcę, wczytuje komunikaty, buduje bezwzględne linki przez `localizePathname` i wywołuje `sendEmail`. `src/modules/verification/use-cases/send-verify-email.ts`:
 
 ```ts
 export const sendVerifyEmail = async ({
@@ -90,6 +90,11 @@ export const sendVerifyEmail = async ({
   token: string
   user: { email: string; name: string }
 }): Promise<void> => {
+  if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+    console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+    return
+  }
+
   const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
   const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
   verifyUrl.searchParams.set("token", token)
@@ -110,6 +115,7 @@ export const sendVerifyEmail = async ({
 - Hooki Better Auth w `src/integrations/better-auth/auth.server.ts` wywołują przypadki użycia: `sendVerifyEmail` dla `emailVerification.sendVerificationEmail` i ponownych rejestracji niezweryfikowanych kont, `sendResetPasswordEmail` dla `emailAndPassword.sendResetPassword` oraz `sendChangeEmailConfirmationEmail` dla `user.changeEmail`.
 - Żądania Better Auth trafiają na `/api/auth` bez prefiksu języka, więc hooki ustalają język e-maila na podstawie `callbackURL` przepływu, czyli zlokalizowanej ścieżki strony, za pomocą `extractLocaleFromCallbackURL` lub `extractLocaleFromPath` z `src/integrations/use-intl/i18n.paths.ts`. Językiem zapasowym jest angielski.
 - Przypadki użycia newslettera same wysyłają e-maile z potwierdzeniem i powiadomieniem, np. `subscribeToNewsletter`.
+- `sendVerifyEmail`, `sendResetPasswordEmail` i `subscribeToNewsletter` przed wysyłką wywołują `withinRecipientRateLimit` (`src/lib/rate-limit.ts`): najwyżej trzy e-maile danego rodzaju na adres na godzinę, z kluczem w postaci skrótu SHA-256 adresu. Powyżej limitu logują ostrzeżenie i niczego nie wysyłają. Dodaj to samo sprawdzenie do każdego e-maila, którego wysłanie odwiedzający może wywołać bez konta.
 
 ## Dodaj e-mail
 

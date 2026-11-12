@@ -23,10 +23,13 @@ const t = createTranslator({ locale, messages: { emails: { "verify-email": messa
 
 ## Envio
 
-O caso de uso carrega as mensagens, renderiza o template e o envia (`src/modules/verification/use-cases/send-verify-email.ts`):
+O caso de uso recebe o idioma de quem o chama, verifica o limite por destinatário, carrega as mensagens, renderiza o template e o envia (`src/modules/verification/use-cases/send-verify-email.ts`):
 
 ```ts
-const locale = getCurrentLocale()
+if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+  console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+  return
+}
 const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
 verifyUrl.searchParams.set("token", token)
@@ -40,7 +43,9 @@ await sendEmail({
 
 `sendEmail` (`src/integrations/resend/resend.utils.ts`) envia pelo Resend a partir de `RESEND_EMAIL_FROM`, a menos que um `from` seja informado (a notificação ao proprietário usa `NOTIFICATIONS_EMAIL`), repassa a chave de idempotência e lança um erro em caso de falha.
 
-Os e-mails de conta usam o idioma da requisição atual. Os e-mails da newsletter usam o idioma enviado com o formulário; a notificação ao proprietário é sempre em `en-US`.
+Os e-mails de conta usam o idioma da página em que o fluxo começou, lido do `callbackURL` no link do e-mail; em um cadastro repetido, ele vem do `callbackURL` da requisição de cadastro. Os e-mails da newsletter usam o idioma enviado com o formulário; a notificação ao proprietário é sempre em `en-US`.
+
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) permite no máximo três e-mails de verificação, três de redefinição de senha e três de confirmação da newsletter por endereço por hora, contados na tabela `rate_limit` sob um hash SHA-256 do endereço. Acima do limite, o e-mail é descartado e a requisição ainda recebe a resposta normal. A confirmação de troca de e-mail e a notificação ao proprietário não têm limite.
 
 ## Guias relacionados
 

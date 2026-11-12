@@ -23,10 +23,13 @@ const t = createTranslator({ locale, messages: { emails: { "verify-email": messa
 
 ## 送信
 
-ユースケースがメッセージを読み込み、テンプレートをレンダリングして送信します（`src/modules/verification/use-cases/send-verify-email.ts`）。
+ユースケースは呼び出し元から言語を受け取り、受信者ごとの上限を確認し、メッセージを読み込み、テンプレートをレンダリングして送信します（`src/modules/verification/use-cases/send-verify-email.ts`）。
 
 ```ts
-const locale = getCurrentLocale()
+if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+  console.warn("[email] verification email not sent: the recipient reached the hourly limit")
+  return
+}
 const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
 verifyUrl.searchParams.set("token", token)
@@ -40,7 +43,9 @@ await sendEmail({
 
 `sendEmail`（`src/integrations/resend/resend.utils.ts`）は、`from` が指定されない限り `RESEND_EMAIL_FROM` から Resend 経由で送信し（オーナーへの通知は `NOTIFICATIONS_EMAIL` を使います）、冪等性キーを渡し、失敗時はエラーを投げます。
 
-アカウント関連のメールは現在のリクエストの言語を使います。ニュースレターのメールはフォームと一緒に送られた言語を使い、オーナーへの通知は常に `en-US` です。
+アカウント関連のメールは、フローを開始したページの言語を使います。この言語はメールのリンクに含まれる `callbackURL` から読み取ります。再登録の場合は、登録リクエストの `callbackURL` から取得します。ニュースレターのメールはフォームと一緒に送られた言語を使い、オーナーへの通知は常に `en-US` です。
+
+`withinRecipientRateLimit`（`src/lib/rate-limit.ts`）は、アドレスごとに 1 時間あたり確認メール 3 通、パスワードリセットメール 3 通、ニュースレターの確認メール 3 通までを許可し、アドレスの SHA-256 ハッシュをキーとして `rate_limit` テーブルでカウントします。上限を超えるとメールはスキップされますが、リクエストには通常どおりの応答が返ります。メールアドレス変更の確認メールとオーナーへの通知には上限はありません。
 
 ## 関連ガイド
 

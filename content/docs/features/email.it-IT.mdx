@@ -23,13 +23,16 @@ const t = createTranslator({ locale, messages: { emails: { "verify-email": messa
 
 ## Invio
 
-Il caso d’uso carica i messaggi, esegue il rendering del template e lo invia (`src/modules/verification/use-cases/send-verify-email.ts`):
+Il caso d’uso ricava la lingua e il `redirect` dall’URL di callback che Better Auth gli passa, carica i messaggi, esegue il rendering del template e lo invia (`src/modules/verification/use-cases/send-verify-email.ts`):
 
 ```ts
-const locale = getCurrentLocale()
-const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+const callback = new URL(callbackURL, getRequest().url)
+const locale = extractLocaleFromPath(callback.pathname) ?? I18N.DEFAULT_LOCALE
 const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+verifyUrl.search = callback.search
 verifyUrl.searchParams.set("token", token)
+
+const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 await sendEmail({
   idempotency: { purpose: "verify-email", token },
   react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),

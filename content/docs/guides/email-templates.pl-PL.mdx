@@ -78,21 +78,25 @@ Przestrzenie nazw e-maili nigdy nie są wczytywane przez trasy; wczytuje je na s
 
 ## Wysyłka
 
-Przypadek użycia otrzymuje język, wczytuje komunikaty, buduje bezwzględne linki przez `localizePathname` i wywołuje `sendEmail`. `src/modules/verification/use-cases/send-verify-email.ts`:
+Przypadek użycia odczytuje język z otrzymanego adresu zwrotnego, wczytuje komunikaty, buduje bezwzględne linki przez `localizePathname` i wywołuje `sendEmail`. `src/modules/verification/use-cases/send-verify-email.ts`:
 
 ```ts
 export const sendVerifyEmail = async ({
-  locale,
+  callbackURL,
   token,
   user,
 }: {
-  locale: SupportedLocale
+  callbackURL: string
   token: string
   user: { email: string; name: string }
 }): Promise<void> => {
-  const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+  const callback = new URL(callbackURL, getRequest().url)
+  const locale = extractLocaleFromPath(callback.pathname) ?? I18N.DEFAULT_LOCALE
   const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+  verifyUrl.search = callback.search
   verifyUrl.searchParams.set("token", token)
+
+  const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 
   await sendEmail({
     idempotency: { purpose: "verify-email", token },

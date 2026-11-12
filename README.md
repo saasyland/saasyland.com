@@ -208,13 +208,13 @@ Validate inputs at the server boundary and authorize protected functions themsel
 
 Authentication entry points are in [`src/integrations/better-auth/`](src/integrations/better-auth):
 
-| File                 | Responsibility                                                    |
-| -------------------- | ----------------------------------------------------------------- |
-| `auth.server.ts`     | Better Auth, providers, plugins, and allowed hosts.               |
-| `auth.access.ts`     | Roles, permissions, and permission checks.                        |
-| `auth.routes.ts`     | Sign-in/admin guards and role-based redirects.                    |
-| `auth.middleware.ts` | Server-function authorization, error handling, and rate limiting. |
-| `auth.session.ts`    | Request-scoped session lookup and UI query options.               |
+| File                 | Responsibility                                                                 |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `auth.server.ts`     | Better Auth, providers, plugins, and allowed hosts.                            |
+| `auth.access.ts`     | Roles, permissions, and permission checks.                                     |
+| `auth.routes.ts`     | Sign-in/admin guards, the return path after sign-in, and role-based redirects. |
+| `auth.middleware.ts` | Server-function authorization, error handling, and rate limiting.              |
+| `auth.session.ts`    | Request-scoped session lookup and UI query options.                            |
 
 Authorization shares a fresh session lookup within one HTTP request; a new request checks session storage again. Route navigation rechecks sessions. Sign-in and sign-out clear private caches; route guards also clear cached data when the authenticated user changes. Rate limiting uses atomic D1 operations and rejects requests when its storage is unavailable. Expired counters are removed in bounded batches during rate-limit checks; there is no scheduled cleanup Worker.
 
@@ -370,7 +370,7 @@ English uses unprefixed paths. Other languages use the full locale, such as `/de
 - Translate frontmatter, visible component attributes, FAQ entries, and body text. Preserve slugs, MDX component names, code examples, and link destinations.
 - Every page route owns one namespace (`const NAMESPACE = "pages.x"`, with `metadata.title` and `metadata.description` for its head); layout routes preload the namespaces their subtree shares. Root namespaces (`common`, `components.*`, `errors*`) load for every page, and the translations provider wraps the whole document so error screens are translated too.
 - Use one `useTranslations` per component and name the translator `t`. A later `useTranslations` call re-scopes every following `t()` for i18n-ally, and `bun run check:i18n` fails on keys that do not resolve in their scope.
-- Link with `<Link to={ROUTES.X}>`; the router adds the locale prefix. Use `localizePathname` only for raw URLs such as authentication callbacks and email links.
+- Link with `<Link to={ROUTES.X}>`; the router adds the locale prefix. For a raw URL in the current locale, such as an authentication callback, use `router.buildLocation(...).publicHref`; for a URL in a given locale, such as an email link, use `localizePathname`.
 - Email messages live in `emails.*` namespaces and are loaded by the sending use case, never by browser code.
 - Run `bun run check:i18n` after changes. Builds additionally verify localized home and legal-page output.
 

@@ -4,6 +4,7 @@ import { ArrowRight, Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
@@ -61,7 +62,7 @@ export const QualitySection = (): JSX.Element => {
         <Reveal variant="heading">
           <h2 className="max-w-[14ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
           <p className="mt-5 max-w-xl text-statement text-pretty text-foreground">{t("lead")}</p>
-          <p className="mt-5 max-w-xl text-body text-pretty text-muted-foreground">{t("body")}</p>
+          <p className="mt-5 max-w-xl text-body text-pretty text-muted-foreground">{t("body", REPOSITORY_FACTS)}</p>
           <p className="mt-4 max-w-xl text-body text-pretty text-muted-foreground">{t("consequence")}</p>
 
           <ul className="mt-8 space-y-2.5 border-t border-border pt-8">

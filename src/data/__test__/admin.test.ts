@@ -8,6 +8,9 @@ import {
   ADMIN_STATUS_DOT_CLASSES,
   USER_STATUS_COLORS,
 } from "~/src/data/admin"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 
 describe("admin mock data", () => {
   it("exports role and analytics fixtures", () => {
@@ -19,6 +22,12 @@ describe("admin mock data", () => {
   it("keeps every sidebar destination unique", () => {
     const urls = ADMIN_SIDEBAR_GROUPS.flatMap((group) => group.items.map((item) => item.url))
     expect(new Set(urls).size).toBe(urls.length)
+  })
+
+  it("labels exactly the sidebar sections, so the landing page counts them from the labels", () => {
+    const sections = ADMIN_SIDEBAR_GROUPS.flatMap((group) => group.items.map((item) => item.titleKey))
+    expect(Object.keys(sidebarMessages.links).toSorted()).toEqual(sections.toSorted())
+    expect(REPOSITORY_FACTS.adminSections).toBe(sections.length)
   })
 })
 

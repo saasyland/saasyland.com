@@ -2,7 +2,7 @@ import type { ReactElement } from "react"
 
 import { cleanup, fireEvent, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { IntlProvider } from "use-intl"
+import { IntlProvider, createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
@@ -10,6 +10,8 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 import { MotionProvider } from "~/src/providers/motion-provider"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { CasesSection } from "~/src/presentation/components/custom/landing-page/sections/cases-section"
 import { CliSection } from "~/src/presentation/components/custom/landing-page/sections/cli-section"
@@ -28,6 +30,8 @@ import { StackSection } from "~/src/presentation/components/custom/landing-page/
 import { StudioSection } from "~/src/presentation/components/custom/landing-page/sections/studio-section"
 
 import english from "~/messages/en-US/pages.landing.json"
+
+const withFacts = (message: string): string => createTranslator({ locale: "en-US", messages: { message } })("message", REPOSITORY_FACTS)
 
 const renderSection = (ui: ReactElement) =>
   renderWithRouter(
@@ -73,9 +77,9 @@ describe("regional pricing", () => {
       </>,
     )
 
-    expect(screen.getByText("once, then nobody does", { exact: false }).querySelector("s.pv-regional")).toHaveTextContent(
-      "Regular price $249",
-    )
+    expect(
+      screen.getByText("once, with no subscription or per-user fees", { exact: false }).querySelector("s.pv-regional"),
+    ).toHaveTextContent("Regular price $249")
     expect(container.querySelector("#gate s.pv-regional")).toHaveTextContent("Regular price $249")
   })
 
@@ -156,7 +160,7 @@ describe("marketing content and purchase links", () => {
         await user.click(trigger)
       }
       expect(trigger).toHaveAttribute("aria-expanded", "true")
-      expect(screen.getByText(item.answer)).toBeVisible()
+      expect(screen.getByText(withFacts(item.answer))).toBeVisible()
     }
     expect(screen.getByRole("link", { name: english.faq.contact })).toHaveAttribute("href", "mailto:hello@saasyland.com")
   })
@@ -182,11 +186,11 @@ describe("marketing content and purchase links", () => {
     )
     for (const item of Object.values(english.manifest.items)) {
       expect(screen.getByText(item.label, { selector: "dt" })).toBeVisible()
-      expect(screen.getByText(item.body)).toBeVisible()
+      expect(screen.getByText(withFacts(item.body))).toBeVisible()
     }
     for (const item of Object.values(english.record.items)) {
-      expect(screen.getByText(item.claim, { selector: "dt" })).toBeVisible()
-      expect(screen.getByText(item.evidence)).toBeVisible()
+      expect(screen.getByText(withFacts(item.claim), { selector: "dt" })).toBeVisible()
+      expect(screen.getByText(withFacts(item.evidence))).toBeVisible()
     }
     expect(screen.getByText("bun run test:coverage")).toBeInTheDocument()
     expect(screen.getByText(/% Branch\s+100/u)).toBeInTheDocument()

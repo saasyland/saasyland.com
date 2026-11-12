@@ -2,13 +2,12 @@ import type { JSX, ReactNode } from "react"
 
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
-import * as zod from "zod"
 
 import { redirectIfSignedIn } from "~/src/integrations/better-auth/auth.routes"
+import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { searchText } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
 import { AUTH_LINK_TAGS } from "~/src/presentation/components/custom/auth/auth-link-tags"
@@ -61,9 +60,7 @@ const SignUpPage = (): JSX.Element => {
 const NAMESPACE = "pages.auth.sign-up"
 
 export const Route = createFileRoute("/auth/sign-up")({
-  validateSearch: zod.object({
-    tier: searchText(),
-  }),
+  validateSearch: authSearchSchema,
   beforeLoad: redirectIfSignedIn,
   component: SignUpPage,
   head: pageHead(ROUTES.SIGN_UP),

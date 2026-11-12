@@ -78,15 +78,15 @@ export const VerifyEmail = ({ messages, locale, name, verifyUrl }: Readonly<Veri
 
 ## Надсилання
 
-Сценарій використання отримує мову, перевіряє ліміт на одержувача, завантажує повідомлення, будує абсолютні посилання через `localizePathname` і викликає `sendEmail`. `src/modules/verification/use-cases/send-verify-email.ts`:
+Сценарій використання бере мову з отриманого callback-URL, перевіряє ліміт на одержувача, завантажує повідомлення, будує абсолютні посилання через `localizePathname` і викликає `sendEmail`. `src/modules/verification/use-cases/send-verify-email.ts`:
 
 ```ts
 export const sendVerifyEmail = async ({
-  locale,
+  callbackURL,
   token,
   user,
 }: {
-  locale: SupportedLocale
+  callbackURL: string
   token: string
   user: { email: string; name: string }
 }): Promise<void> => {
@@ -95,9 +95,13 @@ export const sendVerifyEmail = async ({
     return
   }
 
-  const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
+  const callback = new URL(callbackURL, getRequest().url)
+  const locale = extractLocaleFromPath(callback.pathname) ?? I18N.DEFAULT_LOCALE
   const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+  verifyUrl.search = callback.search
   verifyUrl.searchParams.set("token", token)
+
+  const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 
   await sendEmail({
     idempotency: { purpose: "verify-email", token },

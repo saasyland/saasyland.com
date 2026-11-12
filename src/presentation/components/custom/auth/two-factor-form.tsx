@@ -14,8 +14,8 @@ import { twoFactorZodSchemas } from "~/src/modules/two-factor/two-factor.zod"
 import { verifyBackupCodeMutation } from "~/src/modules/two-factor/use-cases/verify-backup-code"
 import { verifyTotpMutation } from "~/src/modules/two-factor/use-cases/verify-totp"
 
+import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
-import { usePostAuthRedirect } from "~/src/hooks/use-post-auth-redirect"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Field, FieldLabel } from "~/src/presentation/components/shadcn/field"
@@ -32,7 +32,8 @@ const backupCodeSchema = twoFactorZodSchemas.verifyBackupCode.required({ trustDe
 const TotpForm = (): JSX.Element => {
   const t = useTranslations("pages.auth.two-factor.form")
   const errorMessage = useErrorMessage()
-  const redirectAfterAuth = usePostAuthRedirect()
+
+  const { finishSignIn } = useAuthRedirect()
 
   const verifyTotp = useMutation({
     ...verifyTotpMutation,
@@ -41,7 +42,7 @@ const TotpForm = (): JSX.Element => {
     },
     onSuccess: async () => {
       toast.success(t("success"))
-      await redirectAfterAuth()
+      await finishSignIn()
     },
   })
 
@@ -116,7 +117,8 @@ const TotpForm = (): JSX.Element => {
 const BackupCodeForm = (): JSX.Element => {
   const t = useTranslations("pages.auth.two-factor.form")
   const errorMessage = useErrorMessage()
-  const redirectAfterAuth = usePostAuthRedirect()
+
+  const { finishSignIn } = useAuthRedirect()
 
   const verifyBackupCode = useMutation({
     ...verifyBackupCodeMutation,
@@ -125,7 +127,7 @@ const BackupCodeForm = (): JSX.Element => {
     },
     onSuccess: async () => {
       toast.success(t("success"))
-      await redirectAfterAuth()
+      await finishSignIn()
     },
   })
 

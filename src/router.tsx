@@ -2,7 +2,7 @@ import { QueryClient } from "@tanstack/react-query"
 import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 
-import { deLocalizeUrl, localizeUrl } from "~/src/integrations/use-intl/i18n.utils"
+import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
 import { DefaultError } from "~/src/presentation/components/custom/default-error"
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
@@ -36,10 +36,7 @@ export const getRouter = () => {
     defaultPreloadStaleTime: 0,
     defaultStaleTime: ONE_MIN_IN_MS,
     defaultStructuralSharing: true,
-    rewrite: {
-      input: ({ url }) => deLocalizeUrl(url),
-      output: ({ url }) => localizeUrl(url),
-    },
+    rewrite: LOCALE_REWRITE,
     routeTree,
     scrollRestoration: true,
     scrollRestorationBehavior: "instant",

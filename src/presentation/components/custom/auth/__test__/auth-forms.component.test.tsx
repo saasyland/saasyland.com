@@ -280,7 +280,7 @@ describe("sign in form", () => {
     expect(pushMock).not.toHaveBeenCalled()
   })
 
-  it("waits for the two-factor challenge instead of announcing a completed sign-in", async () => {
+  it("takes the visitor to the two-factor challenge instead of announcing a completed sign-in", async () => {
     setupSignInFormMocks()
     signInEmailMock.mockResolvedValueOnce({ data: { twoFactorRedirect: true }, error: null })
     const user = userEvent.setup()
@@ -289,10 +289,9 @@ describe("sign in form", () => {
     await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
     await waitFor(() => {
-      expect(signInEmailMock).toHaveBeenCalledOnce()
+      expect(pushMock).toHaveBeenCalledWith(expect.objectContaining({ to: ROUTES.TWO_FACTOR }))
     })
     expect(toastSuccessMock).not.toHaveBeenCalled()
-    expect(pushMock).not.toHaveBeenCalled()
   })
 
   it("blocks submit when email is invalid", async () => {
@@ -366,7 +365,7 @@ describe("sign in form", () => {
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith({ replace: true, to: ROUTES.AUTH_CALLBACK })
+      expect(pushMock).toHaveBeenCalledWith(expect.objectContaining({ replace: true, to: ROUTES.AUTH_CALLBACK }))
     })
     expect(signInEmailMock).toHaveBeenCalledWith(expect.objectContaining({ email: TEST_EMAIL, password: TEST_PASSWORD }))
     expect(toastSuccessMock).toHaveBeenCalledWith(pagesAuthSignInMessages.form.success)

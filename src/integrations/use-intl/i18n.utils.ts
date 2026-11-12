@@ -1,3 +1,4 @@
+import type { LocationRewrite } from "@tanstack/react-router"
 import { createIsomorphicFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
 
@@ -31,3 +32,8 @@ export const localizeUrl = (url: URL): URL =>
   withPathname({ pathname: localizePathname({ locale: getCurrentLocale(), pathname: url.pathname }), url })
 
 export const deLocalizeUrl = (url: URL): URL => withPathname({ pathname: deLocalizePathname(url.pathname), url })
+
+export const LOCALE_REWRITE: LocationRewrite = {
+  input: ({ url }) => deLocalizeUrl(url),
+  output: ({ url }) => localizeUrl(url),
+}

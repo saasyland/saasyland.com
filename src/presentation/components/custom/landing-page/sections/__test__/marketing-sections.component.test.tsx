@@ -135,11 +135,11 @@ describe("marketing content and purchase links", () => {
     expect(await navigator.clipboard.readText()).toBe("yarn dlx saasyland@latest init my-app")
   })
 
-  it("keeps each paid tier attached to its signup link and marks only the featured tier", () => {
+  it("links each paid tier to sign-up and marks only the featured tier", () => {
     renderSection(<PricingSection />)
-    for (const [id, tier] of Object.entries(english.pricing.tiers)) {
+    for (const tier of Object.values(english.pricing.tiers)) {
       expect(screen.getByRole("heading", { name: tier.name })).toBeVisible()
-      expect(screen.getByRole("link", { name: tier.cta })).toHaveAttribute("href", `/auth/sign-up?tier=${id}`)
+      expect(screen.getByRole("link", { name: tier.cta })).toHaveAttribute("href", "/auth/sign-up")
       for (const feature of Object.values(tier.features)) {
         expect(screen.getAllByText(feature).length).toBeGreaterThan(0)
       }

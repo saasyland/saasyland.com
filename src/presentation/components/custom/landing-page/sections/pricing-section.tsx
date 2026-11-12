@@ -88,7 +88,6 @@ const TierColumn = ({ tier }: Readonly<{ tier: (typeof TIERS)[number] }>): JSX.E
               },
             )}
             to={ROUTES.SIGN_UP}
-            search={{ tier }}
           >
             {t(`tiers.${tier}.cta`)}
           </Link>

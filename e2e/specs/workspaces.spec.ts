@@ -152,7 +152,7 @@ test("customer can use the mobile app sidebar and signing out protects both app 
   await expect(authPage.signInSubmitButton()).toBeEnabled()
   for (const path of ["/app", "/app/license"]) {
     await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-    await expect(page).toHaveURL(/\/auth\/sign-in$/u)
+    await expect(page).toHaveURL(`/auth/sign-in?redirect=${encodeURIComponent(path)}`)
     await appPage.waitForAppReady()
     await expect(authPage.signInSubmitButton()).toBeEnabled()
   }

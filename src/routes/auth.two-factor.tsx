@@ -3,6 +3,7 @@ import type { JSX } from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
+import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -31,6 +32,7 @@ const TwoFactorPage = (): JSX.Element => {
 const NAMESPACE = "pages.auth.two-factor"
 
 export const Route = createFileRoute("/auth/two-factor")({
+  validateSearch: authSearchSchema,
   component: TwoFactorPage,
   head: pageHead(ROUTES.TWO_FACTOR),
   loader: async ({ context }) => {

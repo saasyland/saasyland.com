@@ -240,6 +240,29 @@ describe("verification email idempotency", () => {
   })
 })
 
+describe("verification email link", () => {
+  it("keeps the sign-up's redirect and locale, and always points at this site's verification page", async () => {
+    const body = { ...createSignUp(), callbackURL: "/pl-PL/auth/callback?redirect=%2Fpl-PL%2Fapp%2Flicense" }
+
+    await signUp(body)
+
+    expect(getSentEmails(body.email)[0]?.html).toContain(`${ORIGIN}/pl-PL/auth/verify-email?redirect=%2Fpl-PL%2Fapp%2Flicense&amp;token=`)
+  })
+
+  it("links to the verification page in the default locale when Better Auth's link names no callback", async () => {
+    const email = `signup-${crypto.randomUUID()}@example.test`
+    vi.mocked(getRequest).mockReturnValue(new Request(`${ORIGIN}${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_UP_EMAIL}`))
+
+    await auth.options.emailVerification.sendVerificationEmail({
+      token: "verification-token",
+      url: `${ORIGIN}${ROUTES.API_AUTH_VERIFY_EMAIL}?token=verification-token`,
+      user: { createdAt: new Date(), email, emailVerified: false, id: "user-id", name: "Ada Lovelace", updatedAt: new Date() },
+    })
+
+    expect(getSentEmails(email)[0]?.html).toContain(`href="${ORIGIN}${ROUTES.VERIFY_EMAIL}?token=verification-token"`)
+  })
+})
+
 describe("verification email limits", () => {
   it("sends at most three verification emails to one address per hour, however often it signs up", async () => {
     const { email, name, password } = createSignUp()

@@ -1,5 +1,6 @@
 import { createElement } from "react"
 
+import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { and, eq, gt, sql } from "drizzle-orm"
 import { createTranslator } from "use-intl"
@@ -10,7 +11,7 @@ import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
-import { NEWSLETTER_STATUS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { NEWSLETTER_STATUS, NEWSLETTER_SUBSCRIBER_MUTATION_KEYS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
 import type { NewsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.types"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
@@ -62,3 +63,8 @@ export const confirmNewsletterSubscription = createServerFn({ method: "POST" })
 
     return { confirmed: true }
   })
+
+export const confirmNewsletterSubscriptionMutation = mutationOptions({
+  mutationFn: (data: NewsletterSubscriber["confirmNewsletterSubscription"]) => confirmNewsletterSubscription({ data }),
+  mutationKey: NEWSLETTER_SUBSCRIBER_MUTATION_KEYS.CONFIRM,
+})

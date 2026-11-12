@@ -11,8 +11,12 @@ describe("deployment hosts by build mode", () => {
     expect(appHostsForMode("preview")).toEqual(["preview.saasyland.com"])
   })
 
-  it.each(["development", "test", "unknown"])("falls back to the loopback hosts in %s mode", (mode) => {
+  it.each(["development", "unknown"])("falls back to the loopback hosts in %s mode", (mode) => {
     expect(appHostsForMode(mode)).toEqual(["localhost:3000", "127.0.0.1:3000"])
+  })
+
+  it("also trusts the second test server port in test mode, for a browser suite run beside a dev server", () => {
+    expect(appHostsForMode("test")).toEqual(["localhost:3000", "127.0.0.1:3000", "localhost:3020", "127.0.0.1:3020"])
   })
 
   it("returns a fresh list each time so callers can extend it", () => {

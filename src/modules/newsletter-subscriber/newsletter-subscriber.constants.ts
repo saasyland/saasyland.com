@@ -20,6 +20,16 @@ export const NEWSLETTER_STATUS = {
 
 export const NEWSLETTER_STATUSES = [NEWSLETTER_STATUS.SUBSCRIBED, NEWSLETTER_STATUS.UNSUBSCRIBED, NEWSLETTER_STATUS.PENDING] as const
 
+export const CONFIRMATION_STATUS = {
+  CONFIRMED: "confirmed",
+  EXPIRED: "expired",
+} as const
+
+export const UNSUBSCRIBE_STATUS = {
+  ERROR: "error",
+  SUCCESS: "success",
+} as const
+
 export const SUBSCRIPTION_RESULT = {
   ALREADY_SUBSCRIBED: "alreadySubscribed",
   CONFIRMATION_SENT: "confirmationSent",
@@ -31,6 +41,8 @@ export const NEWSLETTER_SUBSCRIBER_QUERY_KEYS = {
 } as const
 
 export const NEWSLETTER_SUBSCRIBER_MUTATION_KEYS = {
+  CONFIRM: ["newsletter-subscriber", "confirmNewsletterSubscription"],
   SET_SUBSCRIPTION: ["newsletter-subscriber", "setNewsletterSubscription"],
   SUBSCRIBE: ["newsletter-subscriber", "subscribeToNewsletter"],
+  UNSUBSCRIBE: ["newsletter-subscriber", "unsubscribeFromNewsletter"],
 } as const

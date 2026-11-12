@@ -1,13 +1,14 @@
 import type { APIRequestContext } from "@playwright/test"
 import * as zod from "zod"
 
+import { NEWSLETTER_STATUS, NEWSLETTER_STATUSES } from "../../src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const emailsSchema = zod.array(zod.object({ html: zod.string(), subject: zod.string() }))
 const subscriberSchema = zod.object({
-  status: zod.enum(["pending", "subscribed", "unsubscribed"]),
+  status: zod.enum(NEWSLETTER_STATUSES),
   unsubscribeToken: zod.string().length(64),
   unsubscribedAt: zod.number().nullable(),
 })
@@ -46,16 +47,18 @@ test("localized newsletter signup, confirmation and unsubscribe survive hydratio
   const confirmationUrl = new URL(link.replaceAll("&amp;", "&"))
   expect(confirmationUrl.origin).toBe(new URL(page.url()).origin)
   expect(confirmationUrl.pathname).toBe("/pl-PL/newsletter/confirm")
-  expect((await readSubscriber(request, email)).status).toBe("pending")
+  expect((await readSubscriber(request, email)).status).toBe(NEWSLETTER_STATUS.PENDING)
 
   const response = await page.goto(confirmationUrl.toString(), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-  expect(await response?.text()).toContain("Jesteś z nami.")
+  expect(await response?.text()).toContain("Jeszcze jedno kliknięcie.")
   await appPage.waitForAppReady()
+  expect((await readSubscriber(request, email)).status).toBe(NEWSLETTER_STATUS.PENDING)
+  await page.getByRole("button", { exact: true, name: "Potwierdź zapis" }).click()
   await expect(page.getByRole("heading", { exact: true, level: 1, name: "Jesteś z nami." })).toBeVisible()
   await expect(page).toHaveURL(
     (url) => url.pathname === "/pl-PL/newsletter/confirm" && url.searchParams.get("status") === "confirmed" && !url.searchParams.get("token"),
   )
-  expect((await readSubscriber(request, email)).status).toBe("subscribed")
+  expect((await readSubscriber(request, email)).status).toBe(NEWSLETTER_STATUS.SUBSCRIBED)
   const notifications = () => readEmails(request, CONTACT_EMAIL).then((emails) => emails.filter((message) => message.html.includes(email)))
   await expect.poll(async () => (await notifications()).length).toBe(1)
 
@@ -65,22 +68,26 @@ test("localized newsletter signup, confirmation and unsubscribe survive hydratio
   expect(await notifications()).toHaveLength(1)
 
   await page.goto(confirmationUrl.toString(), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await page.getByRole("button", { exact: true, name: "Potwierdź zapis" }).click()
   await expect(page.getByRole("heading", { exact: true, level: 1, name: "Ten link jest już zużyty." })).toBeVisible()
-  expect((await readSubscriber(request, email)).status).toBe("subscribed")
+  expect((await readSubscriber(request, email)).status).toBe(NEWSLETTER_STATUS.SUBSCRIBED)
   expect(await notifications()).toHaveLength(1)
 
   const subscribed = await readSubscriber(request, email)
   const unsubscribeUrl = new URL("/pl-PL/newsletter/unsubscribe", confirmationUrl.origin)
   unsubscribeUrl.searchParams.set("token", subscribed.unsubscribeToken)
   const unsubscribeResponse = await page.goto(unsubscribeUrl.toString(), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-  expect(await unsubscribeResponse?.text()).toContain("Jesteś wypisany.")
+  expect(await unsubscribeResponse?.text()).toContain("Wypisać się z dziennika budowy?")
   await appPage.waitForAppReady()
+  expect((await readSubscriber(request, email)).status).toBe(NEWSLETTER_STATUS.SUBSCRIBED)
+  await page.getByRole("button", { exact: true, name: "Wypisz się" }).click()
   await expect(page.getByRole("heading", { exact: true, level: 1, name: "Jesteś wypisany." })).toBeVisible()
   await expect(page).toHaveURL(
     (url) => url.pathname === "/pl-PL/newsletter/unsubscribe" && url.searchParams.get("status") === "success" && !url.searchParams.get("token"),
   )
   const unsubscribed = await readSubscriber(request, email)
-  expect(unsubscribed.status).toBe("unsubscribed")
+  expect(unsubscribed.status).toBe(NEWSLETTER_STATUS.UNSUBSCRIBED)
   expect(unsubscribed.unsubscribedAt).not.toBeNull()
 
   await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })

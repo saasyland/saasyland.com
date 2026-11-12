@@ -6,7 +6,8 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
-import { authRateLimitStorage, clientAddress, withinRateLimit } from "~/src/lib/rate-limit"
+import { sha256Hex } from "~/src/lib/hash"
+import { authRateLimitStorage, clientAddress, withinRateLimit, withinRecipientRateLimit } from "~/src/lib/rate-limit"
 
 import { ROUTES } from "~/src/routes"
 
@@ -58,6 +59,48 @@ describe("atomic rate limits", () => {
     vi.spyOn(console, "error").mockImplementation(() => {})
 
     expect(await withinRateLimit(input)).toBe(false)
+  })
+})
+
+describe("recipient email limits", () => {
+  const RECIPIENT_EMAILS_PER_HOUR = 3
+  const HOUR_MS = 3_600_000
+  const recipient = { kind: "verify-email", recipient: "Ada@Example.test" }
+
+  it("allows three emails of a kind to an address per hour, whatever the address's case or padding", async () => {
+    const results = []
+    for (const address of ["Ada@Example.test", "ada@example.test", " ada@example.test ", "ADA@EXAMPLE.TEST"]) {
+      results.push(await withinRecipientRateLimit({ ...recipient, recipient: address }))
+    }
+
+    expect(results).toStrictEqual([...Array.from({ length: RECIPIENT_EMAILS_PER_HOUR }, () => true), false])
+  })
+
+  it("counts each kind of email and each address separately", async () => {
+    for (let attempt = 0; attempt < RECIPIENT_EMAILS_PER_HOUR; attempt++) {
+      await withinRecipientRateLimit(recipient)
+    }
+
+    expect(await withinRecipientRateLimit({ ...recipient, kind: "reset-password" })).toBe(true)
+    expect(await withinRecipientRateLimit({ ...recipient, recipient: "grace@example.test" })).toBe(true)
+  })
+
+  it("allows the address again after an hour", async () => {
+    vi.useFakeTimers({ now: new Date("2026-11-12T10:00:00.000Z") })
+    for (let attempt = 0; attempt <= RECIPIENT_EMAILS_PER_HOUR; attempt++) {
+      await withinRecipientRateLimit(recipient)
+    }
+
+    vi.setSystemTime(Date.now() + HOUR_MS)
+
+    expect(await withinRecipientRateLimit(recipient)).toBe(true)
+  })
+
+  it("stores the address only as a hash", async () => {
+    await withinRecipientRateLimit(recipient)
+
+    const keys = await db.select({ key: rateLimit.key }).from(rateLimit)
+    expect(keys.map(({ key }) => key)).toStrictEqual([`recipient:verify-email:${await sha256Hex("ada@example.test")}`])
   })
 })
 

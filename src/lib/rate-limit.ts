@@ -9,10 +9,15 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
+import { sha256Hex } from "~/src/lib/hash"
+
 const SINGLE_REQUEST = 1
 const MS_PER_SECOND = 1000
 const CLEANUP_BATCH_SIZE = 100
 const AUTH_KEY_PREFIX = "auth:"
+const RECIPIENT_KEY_PREFIX = "recipient:"
+const RECIPIENT_EMAILS_PER_HOUR = 3
+const SECONDS_PER_HOUR = 3600
 const UNKNOWN_CLIENT = "unknown"
 const NO_WAIT_SECONDS = 0
 
@@ -65,6 +70,13 @@ export const withinRateLimit = async (input: RateLimitInput): Promise<boolean> =
   const { allowed } = await consumeRateLimit(input)
   return allowed
 }
+
+export const withinRecipientRateLimit = async ({ kind, recipient }: Readonly<{ kind: string; recipient: string }>): Promise<boolean> =>
+  withinRateLimit({
+    key: `${RECIPIENT_KEY_PREFIX}${kind}:${await sha256Hex(recipient.trim().toLowerCase())}`,
+    limit: RECIPIENT_EMAILS_PER_HOUR,
+    windowSeconds: SECONDS_PER_HOUR,
+  })
 
 export const authRateLimitStorage: BetterAuthRateLimitStorage = {
   consume: (key, { max, window }) => consumeRateLimit({ key: `${AUTH_KEY_PREFIX}${key}`, limit: max, windowSeconds: window }),

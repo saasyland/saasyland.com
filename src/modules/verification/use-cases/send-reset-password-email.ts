@@ -7,6 +7,8 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 import { extractLocaleFromCallbackURL } from "~/src/integrations/use-intl/i18n.paths"
 
+import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
+
 import type resetPasswordMessages from "~/messages/en-US/emails.reset-password-email.json"
 import { RESET_PASSWORD_NAMESPACE, ResetPasswordEmail } from "~/src/presentation/emails/reset-password-email"
 
@@ -19,6 +21,11 @@ export const sendResetPasswordEmail = async ({
   url: string
   user: { email: string; name: string }
 }): Promise<void> => {
+  if (!(await withinRecipientRateLimit({ kind: "reset-password", recipient: user.email }))) {
+    console.warn("[email] password reset email not sent: the recipient reached the hourly limit")
+    return
+  }
+
   const locale = extractLocaleFromCallbackURL(url) ?? I18N.DEFAULT_LOCALE
   const messages = await loadNamespace<typeof resetPasswordMessages>({ locale, namespace: RESET_PASSWORD_NAMESPACE })
 

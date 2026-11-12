@@ -239,3 +239,21 @@ describe("verification email idempotency", () => {
     expect(verified[0]?.emailVerified).toBe(true)
   })
 })
+
+describe("verification email limits", () => {
+  it("sends at most three verification emails to one address per hour, however often it signs up", async () => {
+    const { email, name, password } = createSignUp()
+    const request = new Request(`${ORIGIN}/_serverFn/sign-up`, { headers: { host: "127.0.0.1:3000" } })
+    vi.mocked(getRequest).mockReturnValue(request)
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const result = await auth.api.signUpEmail({ body: { email, name, password }, headers: request.headers })
+      await flushWaitUntil()
+      expect(result.user.email).toBe(email)
+    }
+
+    expect(getSentEmails(email)).toHaveLength(3)
+    expect(consoleWarn).toHaveBeenCalledWith("[email] verification email not sent: the recipient reached the hourly limit")
+  })
+})

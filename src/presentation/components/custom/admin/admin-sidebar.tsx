@@ -46,38 +46,44 @@ export const AdminSidebar = (): JSX.Element => {
         </Link>
       </SidebarHeader>
 
-      <SidebarContent className="custom-scrollbar gap-5 px-2 pt-4">
-        {ADMIN_SIDEBAR_GROUPS.map((group) => (
-          <SidebarGroup className="p-0" key={group.titleKey}>
-            <div className="mb-1.5 px-2 font-mono text-label text-muted-foreground uppercase">{t(`groups.${group.titleKey}`)}</div>
-            <SidebarMenu className="gap-0.5">
-              {group.items.map((item) => {
-                const isActive = isActiveUrl(pathname, item.url)
+      <SidebarContent className="custom-scrollbar px-2 pt-4">
+        <nav aria-label={t("navigationLabel")} className="flex flex-col gap-5">
+          {ADMIN_SIDEBAR_GROUPS.map((group) => (
+            <SidebarGroup className="p-0" key={group.titleKey}>
+              <div className="mb-1.5 px-2 font-mono text-label text-muted-foreground uppercase" id={`admin-sidebar-${group.titleKey}`}>
+                {t(`groups.${group.titleKey}`)}
+              </div>
+              <SidebarMenu aria-labelledby={`admin-sidebar-${group.titleKey}`} className="gap-0.5">
+                {group.items.map((item) => {
+                  const isActive = isActiveUrl(pathname, item.url)
 
-                return (
-                  <SidebarMenuItem key={item.titleKey}>
-                    <SidebarMenuButton
-                      className="h-8 gap-2.5 rounded-md px-2 text-[0.8125rem] transition-colors duration-200 ease-exp data-active:font-medium"
-                      href={item.url}
-                      isActive={isActive}
-                    >
-                      <item.icon
-                        className={cn("size-4 transition-colors duration-200 ease-exp", {
-                          "text-muted-foreground": !isActive,
-                          "text-ring": isActive,
-                        })}
-                        strokeWidth={1.5}
-                      />
-                      <span className={cn({ "text-foreground": isActive, "text-sidebar-foreground/80": !isActive })}>
-                        {t(`links.${item.titleKey}`)}
-                      </span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
-          </SidebarGroup>
-        ))}
+                  return (
+                    <SidebarMenuItem key={item.titleKey}>
+                      <SidebarMenuButton
+                        {...(isActive && { "aria-current": "page" })}
+                        className="h-8 gap-2.5 rounded-md px-2 text-[0.8125rem] transition-colors duration-200 ease-exp data-active:font-medium"
+                        href={item.url}
+                        isActive={isActive}
+                      >
+                        <item.icon
+                          aria-hidden
+                          className={cn("size-4 transition-colors duration-200 ease-exp", {
+                            "text-muted-foreground": !isActive,
+                            "text-ring": isActive,
+                          })}
+                          strokeWidth={1.5}
+                        />
+                        <span className={cn({ "text-foreground": isActive, "text-sidebar-foreground/80": !isActive })}>
+                          {t(`links.${item.titleKey}`)}
+                        </span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroup>
+          ))}
+        </nav>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-2">

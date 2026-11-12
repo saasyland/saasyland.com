@@ -27,11 +27,11 @@ export const BlogPostsGrid = (): JSX.Element => {
               <StatusBadge status={post.status} />
               <Button
                 aria-label={t("labels.moreOptions")}
-                className="-mt-1 -mr-1 size-7 text-muted-foreground opacity-0 transition-opacity duration-200 ease-exp group-hover:opacity-100 hover:text-foreground"
+                className="-mt-1 -mr-1 size-7 text-muted-foreground opacity-0 transition-opacity duration-200 ease-exp group-focus-within:opacity-100 group-hover:opacity-100 hover:text-foreground focus-visible:opacity-100"
                 size="icon"
                 variant="ghost"
               >
-                <MoreHorizontal className="size-4" strokeWidth={1.75} />
+                <MoreHorizontal aria-hidden className="size-4" strokeWidth={1.75} />
               </Button>
             </div>
 

@@ -76,7 +76,7 @@ export const SessionRow = ({ isCurrent, session }: { readonly isCurrent: boolean
       {!isCurrent && (
         <Button
           aria-label={t("settings.security.sessions.revoke")}
-          className="h-8 px-3 text-xs font-medium text-destructive transition-opacity hover:bg-destructive/10 hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
+          className="h-8 px-3 text-xs font-medium text-destructive transition-opacity hover:bg-destructive/10 hover:text-destructive sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
           isDisabled={revokeSession.isPending}
           onPress={() => {
             revokeSession.mutate({ sessionId: session.id })

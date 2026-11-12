@@ -41,7 +41,7 @@ const AuthLayout = (): JSX.Element => {
         </Link>
       </header>
 
-      <div className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-background p-12 lg:flex xl:p-16">
+      <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-background p-12 lg:flex xl:p-16">
         <div aria-hidden className="field-grid pointer-events-none absolute inset-0" />
 
         <p className="relative max-w-md text-display-gate text-balance text-foreground">
@@ -56,7 +56,7 @@ const AuthLayout = (): JSX.Element => {
             </li>
           ))}
         </ul>
-      </div>
+      </aside>
 
       <main className="relative flex flex-col items-center justify-center px-6 py-28 md:px-10 lg:py-32">
         <div className="flex w-full max-w-105 flex-col">

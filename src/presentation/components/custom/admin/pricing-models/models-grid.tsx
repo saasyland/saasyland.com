@@ -79,13 +79,13 @@ export const PricingModelsGrid = (): JSX.Element => {
                   {!model.isActive && <Archive className="size-4" />}
                   {!model.isActive && t("labels.inactive")}
                 </div>
-                <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="flex items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
                   <Button aria-label={t("labels.editModel")} className="size-8 text-muted-foreground" size="icon" variant="ghost">
-                    <Pencil className="size-4" />
+                    <Pencil aria-hidden className="size-4" />
                   </Button>
                   {model.isActive && (
                     <Button aria-label={t("labels.moreOptions")} className="size-8 text-muted-foreground" size="icon" variant="ghost">
-                      <MoreHorizontal className="size-4" />
+                      <MoreHorizontal aria-hidden className="size-4" />
                     </Button>
                   )}
                   {!model.isActive && (
@@ -95,7 +95,7 @@ export const PricingModelsGrid = (): JSX.Element => {
                       size="icon"
                       variant="ghost"
                     >
-                      <Trash2 className="size-4" />
+                      <Trash2 aria-hidden className="size-4" />
                     </Button>
                   )}
                 </div>

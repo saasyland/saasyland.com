@@ -96,7 +96,7 @@ export const QualitySection = (): JSX.Element => {
 
             <ConceptLoop className="motion-reduce:hidden max-sm:hidden" name="coverage-run" sizes={TERMINAL_IMAGE_SIZES} />
 
-            <pre className="custom-scrollbar sr-only overflow-x-auto p-5 font-mono text-spec leading-[1.9] motion-reduce:not-sr-only max-sm:not-sr-only md:p-7">
+            <pre className="sr-only p-5 font-mono text-spec leading-[1.9] break-words whitespace-pre-wrap motion-reduce:not-sr-only max-sm:not-sr-only md:p-7">
               {TERMINAL_LINES.map((line) => (
                 <TerminalRow key={line.text || line.kind} line={line} />
               ))}

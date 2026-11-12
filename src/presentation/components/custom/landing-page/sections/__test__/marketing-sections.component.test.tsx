@@ -127,8 +127,8 @@ describe("marketing content and purchase links", () => {
       ["pnpm", "pnpm dlx"],
       ["yarn", "yarn dlx"],
     ] as const) {
-      await user.click(screen.getByRole("tab", { name: runner }))
-      expect(screen.getByRole("tab", { name: runner })).toHaveAttribute("aria-selected", "true")
+      await user.click(screen.getByRole("radio", { name: runner }))
+      expect(screen.getByRole("radio", { name: runner })).toBeChecked()
       expect(screen.getByText(`${command} saasyland@latest init my-app`)).toBeVisible()
     }
     await user.click(screen.getByRole("button", { name: english.hero.surface.copy }))
@@ -301,7 +301,7 @@ describe("CLI configuration", () => {
     renderSection(<CliSection />)
     const { choices } = english.cli
     await user.click(screen.getByRole("button", { name: choices.extras.options["page-builder"] }))
-    await user.click(screen.getByRole("tab", { name: "pnpm" }))
+    await user.click(screen.getByRole("radio", { name: "pnpm" }))
     await user.click(screen.getByRole("button", { name: english.cli.copy }))
     const command = await navigator.clipboard.readText()
     expect(command).toContain("pnpm dlx saasyland@latest init my-app")

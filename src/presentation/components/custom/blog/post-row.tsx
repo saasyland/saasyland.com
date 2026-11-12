@@ -21,7 +21,7 @@ export const PostRow = ({ post }: Readonly<{ post: BlogPostSummary }>): JSX.Elem
     >
       <div className="font-mono text-spec text-muted-foreground tabular-nums">
         <p>{format.dateTime(new Date(post.date), { day: "numeric", month: "short", year: "numeric" })}</p>
-        <p className="mt-1 text-muted-foreground/60">{t("post.readingTime", { minutes: post.readingTimeMinutes })}</p>
+        <p className="mt-1 text-muted-foreground">{t("post.readingTime", { minutes: post.readingTimeMinutes })}</p>
       </div>
       <div className="min-w-0">
         <h2 className="text-title text-balance text-foreground">
@@ -37,7 +37,7 @@ export const PostRow = ({ post }: Readonly<{ post: BlogPostSummary }>): JSX.Elem
             {post.summary}
           </p>
         )}
-        {tags.length > 0 && <p className="mt-4 font-mono text-label text-muted-foreground/70 uppercase">{tags}</p>}
+        {tags.length > 0 && <p className="mt-4 font-mono text-label text-muted-foreground uppercase">{tags}</p>}
       </div>
     </HighlightItem>
   )

@@ -233,6 +233,12 @@ const DataTablePagination = <TData extends { id: string }>({
   )
 }
 
+export const DataTableActionsHeader = (): JSX.Element => {
+  const t = useTranslations("components.custom.data-table")
+
+  return <span className="sr-only">{t("actions")}</span>
+}
+
 export const DataTable = <TData extends { id: string }>({
   columns,
   data = EMPTY_DATA,

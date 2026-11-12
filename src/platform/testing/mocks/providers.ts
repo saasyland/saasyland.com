@@ -1,5 +1,7 @@
 import * as zod from "zod"
 
+import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
+
 const customers = new Map<string, Record<string, unknown>>()
 const nativeFetch = globalThis.fetch
 const recipientsSchema = zod.array(zod.string())
@@ -9,6 +11,9 @@ const resendEmailSchema = zod.object({
   subject: zod.string(),
   to: zod.union([zod.string(), recipientsSchema]),
 })
+
+const RESEND_EMAILS_URL = "https://api.resend.com/emails"
+const RESEND_IDEMPOTENCY_KEY_MAX_LENGTH = 256
 
 interface CapturedEmail extends Omit<zod.infer<typeof resendEmailSchema>, "to"> {
   readonly id: string
@@ -20,15 +25,24 @@ const sentEmails: CapturedEmail[] = []
 
 export const getSentEmails = (recipient: string): CapturedEmail[] => sentEmails.filter(({ to }) => to.includes(recipient))
 
-const captureEmail = async (request: Request): Promise<Response> => {
+export const clearSentEmails = (): void => {
+  sentEmails.length = 0
+}
+
+const resendError = (statusCode: number, name: string, message: string): Response =>
+  Response.json({ message, name, statusCode }, { status: statusCode })
+
+export const respondAsResend = async (request: Request): Promise<Response> => {
+  if (request.method !== "POST" || request.url !== RESEND_EMAILS_URL) {
+    return resendError(HTTP_STATUS.NOT_FOUND, "not_found", `The Resend fake does not serve ${request.method} ${request.url}`)
+  }
+  const idempotencyKey = request.headers.get("Idempotency-Key")
+  if (idempotencyKey !== null && (idempotencyKey.length === 0 || idempotencyKey.length > RESEND_IDEMPOTENCY_KEY_MAX_LENGTH)) {
+    return resendError(HTTP_STATUS.BAD_REQUEST, "invalid_idempotency_key", "Key must be between 1 and 256 characters.")
+  }
   const payload = resendEmailSchema.parse(await request.json())
   const id = crypto.randomUUID()
-  sentEmails.push({
-    ...payload,
-    id,
-    idempotencyKey: request.headers.get("Idempotency-Key"),
-    to: typeof payload.to === "string" ? [payload.to] : payload.to,
-  })
+  sentEmails.push({ ...payload, id, idempotencyKey, to: typeof payload.to === "string" ? [payload.to] : payload.to })
   return Response.json({ id })
 }
 
@@ -38,7 +52,7 @@ export const installProviderMocks = (): void => {
       const request = new Request(input, init)
       const url = new URL(request.url)
       if (url.hostname === "api.resend.com") {
-        return captureEmail(request)
+        return respondAsResend(request)
       }
       if (url.hostname === "sandbox-api.polar.sh" && url.pathname.startsWith("/v1/customers")) {
         const id = url.pathname.split("/").findLast(Boolean)

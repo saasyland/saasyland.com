@@ -50,7 +50,7 @@ export const confirmNewsletterSubscription = createServerFn({ method: "POST" })
 
       await sendEmail({
         from: NOTIFICATIONS_EMAIL,
-        idempotencyKey: `newsletter-notification/${token}`,
+        idempotency: { purpose: "newsletter-notification", token },
         react: createElement(NewsletterNotificationEmail, { email: confirmed.email, locale: confirmed.locale, messages }),
         subject: createTranslator({ locale: I18N.DEFAULT_LOCALE, messages })("subject"),
         to: CONTACT_EMAIL,

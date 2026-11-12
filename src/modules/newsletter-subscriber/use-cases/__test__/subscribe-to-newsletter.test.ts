@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers"
 
 import type * as StartServerModule from "@tanstack/react-start/server"
 import { getRequest } from "@tanstack/react-start/server"
+import { createHash } from "node:crypto"
 import { render } from "react-email"
 import type { Resend } from "resend"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
@@ -16,6 +17,8 @@ import { SUBSCRIPTION_RESULT } from "~/src/modules/newsletter-subscriber/newslet
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 import { subscribeToNewsletterMutation } from "~/src/modules/newsletter-subscriber/use-cases/subscribe-to-newsletter"
+
+const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex")
 
 const HEADERS = new Headers()
 
@@ -66,7 +69,7 @@ describe("subscribe-to-newsletter", () => {
     expect(row).toHaveProperty("email", ADDRESS)
     expect(payload).toHaveProperty("to", ADDRESS)
     expect(payload).toHaveProperty("from", env.RESEND_EMAIL_FROM)
-    expect(options).toStrictEqual({ idempotencyKey: `newsletter-confirmation/${row!.confirmationToken}` })
+    expect(options).toStrictEqual({ idempotencyKey: `newsletter-confirmation/${sha256(row!.confirmationToken!)}` })
   })
 
   it("tells nobody but the address itself that it was entered", async () => {

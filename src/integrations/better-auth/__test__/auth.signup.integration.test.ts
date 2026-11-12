@@ -2,12 +2,14 @@ import { env } from "cloudflare:workers"
 
 import { getRequest } from "@tanstack/react-start/server"
 import { eq } from "drizzle-orm"
+import { createHash } from "node:crypto"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import * as zod from "zod"
 
 import { executeMutation } from "~/src/platform/testing/lib/query"
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
+import { clearSentEmails, getSentEmails, respondAsResend } from "~/src/platform/testing/mocks/providers"
 
+import { EMAIL_MAX_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
@@ -19,9 +21,10 @@ import { user } from "~/src/modules/user/user.schema"
 import { ROUTES } from "~/src/routes"
 
 const ORIGIN = "http://127.0.0.1:3000"
-const EMAIL_SCHEMA = zod.object({ from: zod.string(), html: zod.string(), subject: zod.string(), to: zod.string() })
-const deliveries: { body: zod.infer<typeof EMAIL_SCHEMA>; idempotencyKey: string | null }[] = []
+const RESEND_LIMIT = 256
 let failDelivery = false
+
+const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex")
 
 const createSignUp = () => ({
   callbackURL: "/pl-PL/app",
@@ -49,28 +52,26 @@ const signUp = async (body: ReturnType<typeof createSignUp>, cookie = `${I18N.CO
   return result
 }
 
-const verifyDeliveredEmail = async () => {
-  const verificationLink = deliveries[0]?.body.html.match(/href="(?<url>[^"]+\/auth\/verify-email\?token=[^"]+)"/u)?.groups?.["url"]
+const deliveredVerificationToken = (email: string): string => {
+  const verificationLink = getSentEmails(email)[0]?.html.match(/href="(?<url>[^"]+\/auth\/verify-email\?token=[^"]+)"/u)?.groups?.["url"]
   expect(verificationLink).toBeDefined()
-  const verificationUrl = new URL(verificationLink!)
-  const token = verificationUrl.searchParams.get("token")
+  const token = new URL(verificationLink!).searchParams.get("token")
   expect(token).toBeTruthy()
-  await auth.api.verifyEmail({ headers: getRequest().headers, query: { token: token! } })
+  return token!
+}
+
+const verifyDeliveredEmail = async (email: string) => {
+  await auth.api.verifyEmail({ headers: getRequest().headers, query: { token: deliveredVerificationToken(email) } })
 }
 
 beforeEach(() => {
-  deliveries.length = 0
+  clearSentEmails()
   failDelivery = false
-  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-    const request = new Request(input, init)
-    expect(request.url).toBe("https://api.resend.com/emails")
-    expect(request.method).toBe("POST")
-    const body = EMAIL_SCHEMA.parse(await request.json())
+  vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
     if (failDelivery) {
-      return Response.json({ message: "Provider temporarily unavailable", name: "application_error" }, { status: 503 })
+      return Promise.resolve(Response.json({ message: "Provider temporarily unavailable", name: "application_error" }, { status: 503 }))
     }
-    deliveries.push({ body, idempotencyKey: request.headers.get("idempotency-key") })
-    return Response.json({ id: crypto.randomUUID() })
+    return respondAsResend(new Request(input, init))
   })
 })
 
@@ -86,17 +87,18 @@ describe("production signup verification delivery", () => {
 
     expect(result.token).toBeNull()
     expect(result.user).toMatchObject({ email: body.email, emailVerified: false })
+    const deliveries = getSentEmails(body.email)
     expect(deliveries).toHaveLength(1)
-    expect(deliveries[0]?.body).toMatchObject({
+    expect(deliveries[0]).toMatchObject({
       from: env.RESEND_EMAIL_FROM,
       subject: "Potwierdź adres e-mail",
-      to: body.email,
+      to: [body.email],
     })
-    expect(deliveries[0]?.body.html).toContain(`${ORIGIN}/pl-PL/auth/verify-email?token=`)
-    expect(deliveries[0]?.idempotencyKey).toMatch(/^verify-email\//u)
-    expect(deliveries[0]?.body.html).toContain('lang="pl-PL"')
+    expect(deliveries[0]?.html).toContain(`${ORIGIN}/pl-PL/auth/verify-email?token=`)
+    expect(deliveries[0]?.idempotencyKey).toBe(`verify-email/${sha256(deliveredVerificationToken(body.email))}`)
+    expect(deliveries[0]?.html).toContain('lang="pl-PL"')
 
-    await verifyDeliveredEmail()
+    await verifyDeliveredEmail(body.email)
     const verified = await db.select().from(user).where(eq(user.id, result.user.id))
     expect(verified[0]?.emailVerified).toBe(true)
   })
@@ -110,16 +112,16 @@ describe("production signup verification delivery", () => {
     async ({ callbackURL, cookie, path }) => {
       const body = { ...createSignUp(), callbackURL }
       const first = await signUp(body, `${I18N.COOKIE_NAME}=${cookie}`)
-      deliveries.length = 0
+      clearSentEmails()
 
       const repeated = await signUp(body, `${I18N.COOKIE_NAME}=${cookie}`)
 
       expect(repeated.token).toBeNull()
       expect(repeated.user.email).toBe(body.email)
       expect(repeated.user.id).not.toBe(first.user.id)
+      const deliveries = getSentEmails(body.email)
       expect(deliveries).toHaveLength(1)
-      expect(deliveries[0]?.body.to).toBe(body.email)
-      expect(deliveries[0]?.body.html).toContain(`${ORIGIN}${path}/auth/verify-email?token=`)
+      expect(deliveries[0]?.html).toContain(`${ORIGIN}${path}/auth/verify-email?token=`)
       const accounts = await db.select().from(user).where(eq(user.email, body.email))
       expect(accounts).toHaveLength(1)
       expect(accounts[0]?.id).toBe(first.user.id)
@@ -153,12 +155,13 @@ describe("production signup verification delivery", () => {
         await flushWaitUntil()
       }
       await signUpDirectly()
-      deliveries.length = 0
+      clearSentEmails()
 
       await signUpDirectly()
 
+      const deliveries = getSentEmails(email)
       expect(deliveries).toHaveLength(1)
-      expect(deliveries[0]?.body.html).toContain(`${ORIGIN}${path}/auth/verify-email?token=`)
+      expect(deliveries[0]?.html).toContain(`${ORIGIN}${path}/auth/verify-email?token=`)
     },
   )
 
@@ -168,13 +171,14 @@ describe("production signup verification delivery", () => {
     vi.mocked(getRequest).mockReturnValue(request)
     await auth.api.signUpEmail({ body: { email, name, password }, headers: request.headers })
     await flushWaitUntil()
-    deliveries.length = 0
+    clearSentEmails()
 
     await auth.api.signUpEmail({ body: { email, name, password }, headers: request.headers })
     await flushWaitUntil()
 
+    const deliveries = getSentEmails(email)
     expect(deliveries).toHaveLength(1)
-    expect(deliveries[0]?.body.html).toContain(`${ORIGIN}/auth/verify-email?token=`)
+    expect(deliveries[0]?.html).toContain(`${ORIGIN}/auth/verify-email?token=`)
   })
 
   it("recovers a failed initial email delivery when signup is retried and lets the customer verify and sign in", async () => {
@@ -184,7 +188,7 @@ describe("production signup verification delivery", () => {
 
     const first = await signUp(body)
 
-    expect(deliveries).toHaveLength(0)
+    expect(getSentEmails(body.email)).toHaveLength(0)
     expect(first.user.emailVerified).toBe(false)
     expect(consoleError.mock.calls.flat().some((value) => String(value).includes("Failed to run background task:"))).toBe(true)
     const accounts = await db.select().from(user).where(eq(user.email, body.email))
@@ -195,9 +199,8 @@ describe("production signup verification delivery", () => {
     const repeated = await signUp(body)
 
     expect(repeated.user.id).not.toBe(first.user.id)
-    expect(deliveries).toHaveLength(1)
-    expect(deliveries[0]?.body.to).toBe(body.email)
-    await verifyDeliveredEmail()
+    expect(getSentEmails(body.email)).toHaveLength(1)
+    await verifyDeliveredEmail(body.email)
     const session = await auth.api.signInEmail({
       body: { email: body.email, password: body.password },
       headers: getRequest().headers,
@@ -210,13 +213,29 @@ describe("production signup verification delivery", () => {
     const body = createSignUp()
     const first = await signUp(body)
     await db.update(user).set({ emailVerified: true }).where(eq(user.id, first.user.id))
-    deliveries.length = 0
+    clearSentEmails()
 
     const repeated = await signUp(body)
 
     expect(repeated.token).toBeNull()
     expect(repeated.user.email).toBe(body.email)
     expect(repeated.user.id).not.toBe(first.user.id)
-    expect(deliveries).toHaveLength(0)
+    expect(getSentEmails(body.email)).toHaveLength(0)
+  })
+})
+
+describe("verification email idempotency", () => {
+  it("delivers verification to the longest address the sign-up form accepts, within Resend's idempotency key limit", async () => {
+    const domain = "@example.test"
+    const body = { ...createSignUp(), email: `${"a".repeat(EMAIL_MAX_LENGTH - domain.length)}${domain}` }
+
+    await signUp(body)
+
+    const deliveries = getSentEmails(body.email)
+    expect(deliveries).toHaveLength(1)
+    expect(deliveries[0]?.idempotencyKey?.length).toBeLessThanOrEqual(RESEND_LIMIT)
+    await verifyDeliveredEmail(body.email)
+    const verified = await db.select().from(user).where(eq(user.email, body.email))
+    expect(verified[0]?.emailVerified).toBe(true)
   })
 })

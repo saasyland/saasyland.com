@@ -26,7 +26,7 @@ export const sendVerifyEmail = async ({
   verifyUrl.searchParams.set("token", token)
 
   await sendEmail({
-    idempotencyKey: `verify-email/${token}`,
+    idempotency: { purpose: "verify-email", token },
     react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,

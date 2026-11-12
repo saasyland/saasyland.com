@@ -21,7 +21,7 @@ const COMMIT_EMOJIS: Readonly<Record<string, string>> = {
 const ALLOWED_TYPES = Object.keys(COMMIT_EMOJIS).join(", ")
 
 const CONVENTIONAL_PATTERN = /^(?<type>[a-z]+)(?:\([^)]*\))?!?:\s/u
-const EMOJI_PRESENTATION = /^\p{Emoji_Presentation}/u
+const LEADING_EMOJI = /^\p{Extended_Pictographic}/u
 const GIT_GENERATED_SUBJECT = /^(?:Merge |Revert "|fixup! |squash! )/u
 const TRAILING_NEWLINE = /\n?$/u
 
@@ -66,7 +66,7 @@ const run = (): void => {
 
   const subject = subjectLine.trim()
 
-  if (EMOJI_PRESENTATION.test(subject) || GIT_GENERATED_SUBJECT.test(subject)) {
+  if (LEADING_EMOJI.test(subject) || GIT_GENERATED_SUBJECT.test(subject)) {
     return
   }
 

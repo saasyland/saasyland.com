@@ -3,18 +3,13 @@ import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { CONFIRMATION_WINDOW_IN_HOURS, NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 
+import { randomHex } from "~/src/lib/hex"
+
 import { ROUTES } from "~/src/routes"
 
-const HEX_CHARS_PER_BYTE = 2
-const HEX_RADIX = 16
 const MILLISECONDS_PER_HOUR = 3_600_000
 
-const HEX_BYTES = NEWSLETTER_TOKEN_LENGTH / HEX_CHARS_PER_BYTE
-
-export const createToken = (): string => {
-  const bytes = crypto.getRandomValues(new Uint8Array(HEX_BYTES))
-  return [...bytes].map((byte) => byte.toString(HEX_RADIX).padStart(HEX_CHARS_PER_BYTE, "0")).join("")
-}
+export const createToken = (): string => randomHex(NEWSLETTER_TOKEN_LENGTH)
 
 export const confirmationExpiry = (): Date => new Date(Date.now() + CONFIRMATION_WINDOW_IN_HOURS * MILLISECONDS_PER_HOUR)
 

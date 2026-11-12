@@ -7,6 +7,7 @@ import { useTranslations } from "use-intl/react"
 import { PPP_COOKIE, PPP_DECLINED } from "~/src/modules/_core/constants/pricing"
 
 import { MARKETING_SECTION_IDS, TIERS, TIER_PRICES } from "~/src/data/marketing"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { cn } from "~/src/lib/cn"
 import { readCookie, serializeCookie } from "~/src/lib/cookie"
@@ -147,7 +148,7 @@ export const PricingSection = (): JSX.Element => {
 
           <p className="mt-8 flex max-w-3xl items-start gap-3">
             <Check aria-hidden className="mt-0.5 size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
-            <span className="text-body-sm text-pretty text-muted-foreground">{t("assurance")}</span>
+            <span className="text-body-sm text-pretty text-muted-foreground">{t("assurance", REPOSITORY_FACTS)}</span>
           </p>
         </Reveal>
 
@@ -177,7 +178,7 @@ export const PricingSection = (): JSX.Element => {
         <Reveal className="mt-20 border-t border-border pt-14 md:mt-28 md:pt-16" delay={GRID_DELAY_MS}>
           <div className="grid gap-x-16 gap-y-6 md:grid-cols-[1fr_1fr] md:items-start">
             <p className="text-display-blast text-balance text-foreground">{t("ledger.lead")}</p>
-            <p className="text-body text-pretty text-muted-foreground">{t.rich("ledger.body", PRICE_TAGS)}</p>
+            <p className="text-body text-pretty text-muted-foreground">{t.rich("ledger.body", { ...PRICE_TAGS, ...REPOSITORY_FACTS })}</p>
           </div>
         </Reveal>
       </div>

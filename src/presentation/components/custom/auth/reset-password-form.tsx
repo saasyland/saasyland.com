@@ -73,7 +73,7 @@ export const ResetPasswordForm = ({ token }: { readonly token: string }): JSX.El
                     {t(name)}
                   </FieldLabel>
                   <PasswordInput
-                    aria-describedby={isInvalid ? `reset-password-${name}-error` : undefined}
+                    aria-describedby={`reset-password-${name}-error`}
                     aria-invalid={isInvalid}
                     autoComplete="new-password"
                     id={`reset-password-${name}`}

@@ -75,6 +75,7 @@ export const TwoFactorVerifyStep = ({
               <Field data-invalid={isInvalid}>
                 <FieldLabel htmlFor={codeId}>{t("verificationCode")}</FieldLabel>
                 <InputOTP
+                  aria-describedby={`${codeId}-error`}
                   aria-invalid={isInvalid}
                   id={codeId}
                   maxLength={TWO_FACTOR_CODE_LENGTH}
@@ -91,6 +92,7 @@ export const TwoFactorVerifyStep = ({
                 </InputOTP>
                 {isInvalid && (
                   <ValidationFieldError
+                    id={`${codeId}-error`}
                     message={fieldErrorMessage(field.state.meta.errors)}
                     namespace="auth.validations"
                     params={AUTH_VALIDATION_PARAMS}

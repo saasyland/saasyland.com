@@ -7,10 +7,9 @@ description: "Транзакційні листи з Resend і шаблонам�
 
 ## Шаблони та сценарії використання
 
-Шаблони в `src/presentation/emails/` — це компоненти React Email, що містять лише розмітку. Кожен експортує константу `*_NAMESPACE`, отримує `locale` і `messages` як пропси та перекладає за допомогою `createTranslator` з use-intl. Сценарій використання, який надсилає лист, завантажує повідомлення, рендерить шаблон і викликає `sendEmail`:
+Шаблони в `src/presentation/emails/` — це компоненти React Email, що містять лише розмітку. Кожен експортує константу `*_NAMESPACE`, отримує `locale` і `messages` як пропси та перекладає за допомогою `createTranslator` з use-intl. Сценарій використання, який надсилає лист, отримує локаль від свого викликача, завантажує повідомлення, рендерить шаблон і викликає `sendEmail`:
 
 ```ts
-const locale = getCurrentLocale()
 const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 await sendEmail({
   idempotency: { purpose: "verify-email", token },
@@ -28,7 +27,9 @@ await sendEmail({
 | `newsletter-confirmation-email.tsx`   | `emails.newsletter-confirmation-email`   | `modules/newsletter-subscriber/use-cases/subscribe-to-newsletter.ts`         |
 | `newsletter-notification-email.tsx`   | `emails.newsletter-notification-email`   | `modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription.ts` |
 
-Better Auth викликає перші три сценарії використання зі своїх хуків в `auth.server.ts`. Сповіщення про розсилку надходить власникові сайту англійською після підтвердження підписки. Посилання в листах будуються за допомогою `localizePathname`, тож вони відкриваються в локалі одержувача.
+Better Auth викликає перші три сценарії використання зі своїх хуків в `auth.server.ts`. Сповіщення про розсилку надходить власникові сайту англійською після підтвердження підписки. Посилання в листах будуються за допомогою `localizePathname`, тож вони відкриваються в локалі листа.
+
+Сценарії використання для підтвердження адреси, скидання пароля й підтвердження розсилки спершу викликають `withinRecipientRateLimit` з `src/lib/rate-limit.ts`: щонайбільше три листи кожного типу на адресу за годину, з ключем за хешем SHA-256 адреси. Понад ліміт вони пропускають лист без помилки.
 
 ## Тестування
 

@@ -9,7 +9,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
-import { sha256Hex } from "~/src/lib/hash"
+import { sha256Hex } from "~/src/lib/hex"
 
 const SINGLE_REQUEST = 1
 const MS_PER_SECOND = 1000

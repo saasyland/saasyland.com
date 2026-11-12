@@ -6,8 +6,7 @@ import type { JSX } from "react"
 
 import { resend } from "~/src/integrations/resend/resend.config"
 
-const HEX_RADIX = 16
-const HEX_DIGITS_PER_BYTE = 2
+import { sha256Hex } from "~/src/lib/hex"
 
 interface EmailIdempotency {
   readonly purpose: string
@@ -20,12 +19,6 @@ interface SendEmailOptions {
   readonly react: JSX.Element
   readonly subject: string
   readonly to: string
-}
-
-const sha256Hex = async (value: string): Promise<string> => {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))
-
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(HEX_RADIX).padStart(HEX_DIGITS_PER_BYTE, "0")).join("")
 }
 
 const idempotencyKey = async ({ purpose, token }: EmailIdempotency): Promise<string> => `${purpose}/${await sha256Hex(token)}`

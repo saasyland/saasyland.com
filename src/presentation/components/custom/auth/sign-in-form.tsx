@@ -83,7 +83,7 @@ export const SignInForm = (): JSX.Element => {
                   {t("pages.auth.sign-in.form.email")}
                 </FieldLabel>
                 <Input
-                  aria-describedby={isInvalid ? "sign-in-email-error" : undefined}
+                  aria-describedby="sign-in-email-error"
                   aria-invalid={isInvalid}
                   autoComplete="email"
                   className="h-11 px-3 text-foreground transition-[border-color,box-shadow] duration-200 ease-exp"
@@ -128,7 +128,7 @@ export const SignInForm = (): JSX.Element => {
                   </Link>
                 </FieldLabel>
                 <PasswordInput
-                  aria-describedby={isInvalid ? "sign-in-password-error" : undefined}
+                  aria-describedby="sign-in-password-error"
                   aria-invalid={isInvalid}
                   autoComplete="current-password"
                   id="sign-in-password"

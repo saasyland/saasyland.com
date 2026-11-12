@@ -7,10 +7,9 @@ description: "E-maile transakcyjne z Resend i szablonami React Email."
 
 ## Szablony i przypadki użycia
 
-Szablony w `src/presentation/emails/` to komponenty React Email zawierające wyłącznie znaczniki. Każdy eksportuje stałą `*_NAMESPACE`, otrzymuje `locale` i `messages` jako propsy i tłumaczy za pomocą `createTranslator` z use-intl. Przypadek użycia, który wysyła e-mail, ładuje komunikaty, renderuje szablon i wywołuje `sendEmail`:
+Szablony w `src/presentation/emails/` to komponenty React Email zawierające wyłącznie znaczniki. Każdy eksportuje stałą `*_NAMESPACE`, otrzymuje `locale` i `messages` jako propsy i tłumaczy za pomocą `createTranslator` z use-intl. Przypadek użycia, który wysyła e-mail, otrzymuje język od wywołującego, ładuje komunikaty, renderuje szablon i wywołuje `sendEmail`:
 
 ```ts
-const locale = getCurrentLocale()
 const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 await sendEmail({
   idempotency: { purpose: "verify-email", token },
@@ -28,7 +27,9 @@ await sendEmail({
 | `newsletter-confirmation-email.tsx`   | `emails.newsletter-confirmation-email`   | `modules/newsletter-subscriber/use-cases/subscribe-to-newsletter.ts`         |
 | `newsletter-notification-email.tsx`   | `emails.newsletter-notification-email`   | `modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription.ts` |
 
-Better Auth wywołuje pierwsze trzy przypadki użycia ze swoich hooków w `auth.server.ts`. Po potwierdzeniu subskrypcji powiadomienie o newsletterze trafia do właściciela serwisu w języku angielskim. Linki w e-mailach są budowane za pomocą `localizePathname`, więc otwierają się w języku odbiorcy.
+Better Auth wywołuje pierwsze trzy przypadki użycia ze swoich hooków w `auth.server.ts`. Po potwierdzeniu subskrypcji powiadomienie o newsletterze trafia do właściciela serwisu w języku angielskim. Linki w e-mailach są budowane za pomocą `localizePathname`, więc otwierają się w języku e-maila.
+
+Przypadki użycia weryfikacji, resetu hasła i potwierdzenia newslettera najpierw wywołują `withinRecipientRateLimit` z `src/lib/rate-limit.ts`: najwyżej trzy e-maile każdego rodzaju na adres na godzinę, z kluczem w postaci skrótu SHA-256 adresu. Powyżej limitu pomijają e-mail bez zgłaszania błędu.
 
 ## Testy
 

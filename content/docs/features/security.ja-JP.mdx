@@ -8,10 +8,11 @@ description: "アプリが実装しているセキュリティ対策と、実装
 - **セッション**: D1 に保存される Better Auth のセッション、Cookie プレフィックス `saasyland`、ローカル以外のモードでのセキュア Cookie、モード別の許可ホスト、クライアントアドレスとしての `cf-connecting-ip`。クライアント側のセッションにトークンは含まれません。
 - **アカウント**: 必須のメール確認、パスワードリセット時のセッション失効、バックアップコード付きの任意の TOTP、ハッシュ化して保存される確認用識別子、暗号化された OAuth トークン。
 - **認可**: ルートでは `requireSignedIn` と `requireAdmin`、サーバー関数では `auth.access.ts` のロールを使う `authorized(permission)`。
-- **レート制限**: Better Auth のリミッターと `withRateLimit` ミドルウェアが D1 の `rate_limit` テーブルを共有します。`RATE_LIMITS.SENSITIVE` はクライアントとアクションごとに 60 秒あたり 3 回、`RATE_LIMITS.TOKEN` は 5 回まで許可します。
+- **レート制限**: Better Auth のリミッターと `withRateLimit` ミドルウェアが D1 の `rate_limit` テーブルを共有します。`RATE_LIMITS.SENSITIVE` はクライアントとアクションごとに 60 秒あたり 3 回、`RATE_LIMITS.TOKEN` は 5 回まで許可します。確認メール、パスワードリセットメール、ニュースレターの確認メールも、種類ごとにアドレスあたり 1 時間に 3 通までに制限されます（`withinRecipientRateLimit`、アドレスの SHA-256 ハッシュがキー）。上限を超えるとメールは黙ってスキップされます。
 - **エラー**: リクエストミドルウェアが失敗を `AppError` のコード（`src/modules/_core/constants/errors.ts`）に変換するため、クライアントがサーバーの生のメッセージを受け取ることはありません。コンポーネントは `useErrorMessage` で表示します。
-- **Webhook とフォーム**: Polar の Webhook は `POLAR_WEBHOOK_SECRET` で検証されます。ニュースレターのリクエストは既知のホストから HTTPS で送られたものだけを受け付けます（`newsletterRequestOrigin`）。
-- **ヘッダー**: すべてのレスポンスに `X-Content-Type-Options: nosniff`、`Referrer-Policy: strict-origin-when-cross-origin`、`X-Frame-Options: DENY`、`Cross-Origin-Opener-Policy: same-origin`、カメラ・マイク・位置情報・topics を無効にする `Permissions-Policy`、フレームへの埋め込み・`<base>` の変更・プラグインを禁止する Content Security Policy を付けます。HTTPS のレスポンスには `Strict-Transport-Security` も加えます。Worker が `src/server.ts` で設定し（レスポンスに独自の値がある場合はそれを優先）、`public/_headers` が静的ファイルに同じヘッダーを付けます。
+- **Webhook とフォーム**: Polar の Webhook は `POLAR_WEBHOOK_SECRET` で検証されます。ニュースレターの購読（`subscribeToNewsletter`）は、`appHostsForMode` が返すビルドモードのホスト上で、HTTPS 経由、または development と test では HTTP 経由で送られたものだけを受け付けます（`newsletterRequestOrigin`）。
+- **Better Auth の入力**: `auth.hooks.ts` の `enforceInputPolicy` が、パスワード、名前、メールアドレス、画像を受け付けるすべての Better Auth エンドポイントにフォームのスキーマを適用します。そのため、`/api/auth` へ直接送られたリクエストにも同じルールが適用されます。ルールに反するリクエストには `VALIDATION_ERROR` を付けた `400` が返ります。
+- **ヘッダー**: Worker からのすべてのレスポンスに `X-Content-Type-Options: nosniff`、`Referrer-Policy: strict-origin-when-cross-origin`、`X-Frame-Options: DENY`、`Cross-Origin-Opener-Policy: same-origin`、カメラ・マイク・位置情報・topics を無効にする `Permissions-Policy`、フレームへの埋め込み・`<base>` の変更・プラグインを禁止する Content Security Policy を付けます。HTTPS のレスポンスには `Strict-Transport-Security` も加えます。Worker が `src/server.ts` で設定します（レスポンスに独自の値がある場合はそれを優先）。Worker を経由せずに配信されるファイル（`/assets/*`、`/fonts/*`、`/robots.txt`、`/llms.txt`）には、`public/_headers` のヘッダーだけが付きます。つまり Content Security Policy、`Referrer-Policy`、`Strict-Transport-Security`、`X-Content-Type-Options`、`X-Frame-Options` で、`Cross-Origin-Opener-Policy` と `Permissions-Policy` は付きません。
 
 ## 未実装
 

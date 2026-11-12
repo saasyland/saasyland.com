@@ -90,7 +90,7 @@ describe("settings password change", () => {
     fillPasswords("DifferentPassword1!")
     fireEvent.click(screen.getByRole("button", { name: labels.update }))
     await waitFor(() => {
-      expect(screen.getByText(authValidationsMessages.passwordsMustMatch)).toBeInTheDocument()
+      expect(screen.getByLabelText(labels.confirm)).toHaveAccessibleDescription(authValidationsMessages.passwordsMustMatch)
     })
     expect(changePassword).not.toHaveBeenCalled()
   })

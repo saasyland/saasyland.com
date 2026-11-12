@@ -73,7 +73,7 @@ const TotpForm = (): JSX.Element => {
                 {t("code")}
               </FieldLabel>
               <InputOTP
-                aria-describedby={isInvalid ? "two-factor-code-error" : undefined}
+                aria-describedby="two-factor-code-error"
                 aria-invalid={isInvalid}
                 id="two-factor-code"
                 maxLength={TWO_FACTOR_CODE_LENGTH}
@@ -157,7 +157,7 @@ const BackupCodeForm = (): JSX.Element => {
                 {t("backupCode")}
               </FieldLabel>
               <Input
-                aria-describedby={isInvalid ? "two-factor-backup-code-error" : undefined}
+                aria-describedby="two-factor-backup-code-error"
                 aria-invalid={isInvalid}
                 autoComplete="one-time-code"
                 className="h-11 px-3 font-mono tracking-wider text-foreground transition-[border-color,box-shadow] duration-200 ease-exp"

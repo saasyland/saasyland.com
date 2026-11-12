@@ -1,8 +1,11 @@
 import * as zod from "zod"
 
-export const searchText = (): zod.ZodCatch<zod.ZodOptional<zod.ZodString>> => zod.string().nonempty().optional().catch(undefined)
+export const searchParam = <Schema extends zod.ZodType>(schema: Schema): zod.ZodCatch<zod.ZodOptional<Schema>> =>
+  schema.optional().catch(undefined)
 
-export const searchFlag = (): zod.ZodCatch<zod.ZodOptional<zod.ZodBoolean>> => zod.boolean().optional().catch(undefined)
+export const searchText = (): zod.ZodCatch<zod.ZodOptional<zod.ZodString>> => searchParam(zod.string().nonempty())
+
+export const searchFlag = (): zod.ZodCatch<zod.ZodOptional<zod.ZodBoolean>> => searchParam(zod.boolean())
 
 export const searchChoice = <const Choice extends string>(
   choices: readonly [Choice, ...Choice[]],

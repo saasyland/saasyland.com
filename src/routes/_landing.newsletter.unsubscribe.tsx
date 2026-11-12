@@ -1,17 +1,20 @@
 import type { JSX } from "react"
 
 import { useMutation } from "@tanstack/react-query"
-import { Link, type SearchSchemaInput, createFileRoute } from "@tanstack/react-router"
+import { Link, createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
+import * as zod from "zod"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { NEWSLETTER_TOKEN_LENGTH, UNSUBSCRIBE_STATUS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { UNSUBSCRIBE_STATUS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 import { unsubscribeFromNewsletterMutation } from "~/src/modules/newsletter-subscriber/use-cases/unsubscribe-from-newsletter"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
+import { searchChoice, searchParam } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
@@ -24,9 +27,6 @@ import { ROUTES } from "~/src/routes"
 type UnsubscribeStatus = (typeof UNSUBSCRIBE_STATUS)[keyof typeof UNSUBSCRIBE_STATUS]
 
 const NAMESPACE = "pages.newsletter.unsubscribe"
-const UNSUBSCRIBE_STATUSES = new Set<unknown>(Object.values(UNSUBSCRIBE_STATUS))
-
-const isUnsubscribeStatus = (value: unknown): value is UnsubscribeStatus => UNSUBSCRIBE_STATUSES.has(value)
 
 const NewsletterUnsubscribeResult = ({ status }: { readonly status: UnsubscribeStatus }): JSX.Element => {
   const t = useTranslations("pages.newsletter.unsubscribe")
@@ -85,17 +85,17 @@ const NewsletterUnsubscribePrompt = ({ token }: { readonly token: string }): JSX
 const NewsletterUnsubscribePage = (): JSX.Element => {
   const { status, token } = Route.useSearch()
 
-  if (token?.length === NEWSLETTER_TOKEN_LENGTH) {
+  if (token !== undefined) {
     return <NewsletterUnsubscribePrompt token={token} />
   }
 
-  return <NewsletterUnsubscribeResult status={status ?? UNSUBSCRIBE_STATUS.ERROR} />
+  return <NewsletterUnsubscribeResult status={status} />
 }
 
 export const Route = createFileRoute("/_landing/newsletter/unsubscribe")({
-  validateSearch: (search: Record<string, unknown> & SearchSchemaInput) => ({
-    status: isUnsubscribeStatus(search["status"]) ? search["status"] : undefined,
-    token: typeof search["token"] === "string" ? search["token"] : undefined,
+  validateSearch: zod.object({
+    status: searchChoice([UNSUBSCRIBE_STATUS.ERROR, UNSUBSCRIBE_STATUS.SUCCESS], UNSUBSCRIBE_STATUS.ERROR),
+    token: searchParam(newsletterSubscriberZodSchemas.unsubscribeFromNewsletter.shape.token),
   }),
   component: NewsletterUnsubscribePage,
   errorComponent: () => <NewsletterUnsubscribeResult status={UNSUBSCRIBE_STATUS.ERROR} />,

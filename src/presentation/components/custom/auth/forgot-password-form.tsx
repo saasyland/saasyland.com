@@ -70,7 +70,7 @@ export const ForgotPasswordForm = (): JSX.Element => {
                   {t("pages.auth.forgot-password.form.email")}
                 </FieldLabel>
                 <Input
-                  aria-describedby={isInvalid ? "forgot-password-email-error" : undefined}
+                  aria-describedby="forgot-password-email-error"
                   aria-invalid={isInvalid}
                   autoComplete="email"
                   className="h-11 px-3 text-foreground transition-[border-color,box-shadow] duration-200 ease-exp"

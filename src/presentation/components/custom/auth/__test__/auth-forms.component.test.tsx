@@ -325,7 +325,7 @@ describe("sign in form", () => {
     await user.type(password, TEST_PASSWORD)
 
     expect(password).toHaveAttribute("aria-invalid", "false")
-    expect(password).not.toHaveAttribute("aria-describedby")
+    expect(password).toHaveAccessibleDescription("")
     expect(screen.queryByText(authValidationMessages.passwordRequired)).not.toBeInTheDocument()
   })
 

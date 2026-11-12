@@ -1,9 +1,13 @@
 ---
 title: "Cloudflare KV"
-description: "El espacio de nombres CACHE y el recuento de estrellas de GitHub en caché."
+description: "El espacio de nombres CACHE: el recuento de estrellas de GitHub y los descuentos regionales del checkout."
 ---
 
-Todos los entornos vinculan un espacio de nombres de KV como `CACHE`. Su único uso es el recuento de estrellas de GitHub que se muestra en el sitio, implementado en `src/lib/github.ts`:
+Todos los entornos vinculan un espacio de nombres de KV como `CACHE`. Contiene dos entradas.
+
+## Recuento de estrellas de GitHub
+
+El recuento de estrellas que se muestra en el sitio, implementado en `src/lib/github.ts`:
 
 - `getStarCount` lee la entrada `github:<owner>/<repo>:stars`.
 - Si no hay entrada, obtiene el repositorio de la API de GitHub con un tiempo de espera de tres segundos, devuelve el recuento y escribe `count` y `fetchedAt` en KV con `waitUntil`.
@@ -11,6 +15,12 @@ Todos los entornos vinculan un espacio de nombres de KV como `CACHE`. Su único 
 - `starCountQuery` conserva el resultado en la caché de consultas durante una hora.
 
 Las entradas no tienen caducidad en KV; `fetchedAt` determina cuándo se actualizan. La solicitud a GitHub se autentica con las credenciales de la aplicación OAuth de GitHub `AUTH_GITHUB_CLIENT_ID` y `AUTH_GITHUB_CLIENT_SECRET`.
+
+## Descuentos regionales del checkout
+
+`pppDiscountId` (`src/modules/license/license.ppp.ts`) lee la entrada `polar:regional-discounts`: los descuentos porcentuales automáticos de Polar, reducidos a los campos que necesita el checkout, con `fetchedAt`. Una entrada de menos de cinco minutos se usa tal cual. Si no, o si la entrada está mal formada, los descuentos se vuelven a listar en Polar y una lista completa se escribe con `waitUntil`. Un listado que falla se registra en el log y no se guarda; ese checkout sigue con los descuentos encontrados hasta entonces y el siguiente vuelve a listar. No se guarda nada en la memoria del Worker entre solicitudes.
+
+## Consistencia y pruebas
 
 KV tiene consistencia eventual. Las sesiones, los límites de frecuencia y todo lo que se usa para la autorización se almacenan en D1.
 

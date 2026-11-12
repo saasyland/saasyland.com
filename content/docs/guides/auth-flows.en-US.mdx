@@ -30,7 +30,7 @@ Errors that Better Auth reports by redirect arrive as `?error=` on `/auth/sign-i
 ## Sign-up and email verification
 
 1. `SignUpForm` validates `signUpWithPasswordSchema` and calls `signUpWithPasswordMutation`, a rate-limited server function that calls `auth.api.signUpEmail`.
-2. Better Auth creates the user and calls `sendVerifyEmail`, which emails a link to `/auth/verify-email?token=…` in the locale of the page where the sign-up started. Signing up again with an unverified address sends a fresh link.
+2. Better Auth creates the user and calls `sendVerifyEmail`, which emails a link to `/auth/verify-email?token=…` in the locale of the page where the sign-up started. Signing up again with an unverified address sends a fresh link. At most three verification emails go to one address per hour; further requests send nothing.
 3. The form navigates to `/auth/verify-email?email=…`, where `VerifyEmailForm` can resend the link through the rate-limited `sendVerificationEmailMutation`.
 4. Opening the link: the route's `beforeLoad` hands the token to `/api/auth/verify-email`. Better Auth verifies it, signs the user in and returns to `/auth/verify-email?verified=true`, which redirects to `/auth/callback`. An invalid or expired link returns with `error` and the page offers a new one.
 
@@ -39,7 +39,7 @@ Sign-in is blocked until the email is verified (`requireEmailVerification: true`
 ## Password reset
 
 1. `/auth/forgot-password`: `ForgotPasswordForm` calls `requestPasswordResetMutation` with `redirectTo` set to the localized `/auth/reset-password`.
-2. Better Auth calls `sendResetPasswordEmail`. The emailed link passes through Better Auth, which redirects to `/auth/reset-password?token=…`, or with `error` when the token is invalid or expired.
+2. Better Auth calls `sendResetPasswordEmail`, which sends at most three reset emails to one address per hour. The emailed link passes through Better Auth, which redirects to `/auth/reset-password?token=…`, or with `error` when the token is invalid or expired.
 3. `ResetPasswordForm` submits the new password through `resetPasswordMutation`. Better Auth revokes every existing session (`revokeSessionsOnPasswordReset: true`) and the form navigates to sign-in.
 
 ## Two-factor authentication

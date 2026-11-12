@@ -27,17 +27,17 @@ The landing page in September 2026. [View the full page](.github/assets/landing-
 
 The application includes both connected workflows and UI demonstrations. A rendered admin screen does not necessarily have a persistent backend workflow.
 
-| Area                        | Current implementation                                                                                                                                                                                                                                                                                                        |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public website              | Landing page, pricing presentation, localized legal pages, responsive layouts, theme support, and reduced-motion presentations. Public pages are prerendered during builds, and every count on the landing page is measured from the repository at build time ([`scripts/repository-facts.ts`](scripts/repository-facts.ts)). |
-| Documentation and blog      | Localized MDX content, navigation, and documentation search through Fumadocs. Published content is maintained in Git.                                                                                                                                                                                                         |
-| Authentication              | Email/password registration with required email verification, GitHub and Google sign-in, password recovery, TOTP with backup codes, and session management.                                                                                                                                                                   |
-| Customer workspace          | Protected `/app` area and `/app/license` for the customer's licence key, machine activations, and activation deactivation.                                                                                                                                                                                                    |
-| Billing                     | Authenticated Polar checkout for the Core, Complete, and Agency tiers, with webhook handling for purchases, refunds, and licence-key benefits. Requires configured provider products and credentials.                                                                                                                         |
-| Newsletter                  | Subscription, confirmation, unsubscribe, and subscription-preference server functions with localized email delivery.                                                                                                                                                                                                          |
-| Admin users and security    | Database-backed user listing, password reset, ban/unban, and deletion. The settings security tab connects password changes, TOTP, and session revocation.                                                                                                                                                                     |
-| Products and categories     | D1 schemas, permission-checked CRUD use cases, and database-backed lists. Product creation/publishing controls are not fully connected.                                                                                                                                                                                       |
-| Demo and unfinished screens | Analytics, payment administration, blog administration, invitations, and role-management views include demo data. General settings, course creation, and the landing-page editor include unconnected controls. `/premium` is a placeholder.                                                                                   |
+| Area                        | Current implementation                                                                                                                                                                                                                                                                                                             |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public website              | Landing page, pricing presentation, localized legal pages, responsive layouts, theme support, and reduced-motion presentations. Public pages are prerendered during builds, and every count on the landing page is measured from the repository at build time ([`scripts/repository-facts.ts`](scripts/repository-facts.ts)).      |
+| Documentation and blog      | Localized MDX content, navigation, and documentation search through Fumadocs. Published content is maintained in Git.                                                                                                                                                                                                              |
+| Authentication              | Email/password registration with required email verification, GitHub and Google sign-in, password recovery, TOTP with backup codes, and session management. Better Auth's own endpoints enforce the same password, name, email and image rules as the forms, and verification and password-reset emails are limited per recipient. |
+| Customer workspace          | Protected `/app` area and `/app/license` for the customer's licence key, machine activations, and activation deactivation.                                                                                                                                                                                                         |
+| Billing                     | Authenticated Polar checkout for the Core, Complete, and Agency tiers with regional (PPP) discounts, and webhook handling for purchases, full refunds (a partial refund keeps the licence), and licence-key benefits. Requires configured provider products and credentials.                                                       |
+| Newsletter                  | Double opt-in subscription with localized email delivery, limited per recipient. The confirmation and unsubscribe links open a page that acts only when the visitor presses its button. Subscription preferences are managed from the workspace.                                                                                   |
+| Admin users and security    | Database-backed user listing, password reset, ban/unban, and deletion. The settings security tab connects password changes, TOTP, and session revocation.                                                                                                                                                                          |
+| Products and categories     | D1 schemas, permission-checked CRUD use cases, and database-backed lists. Product creation/publishing controls are not fully connected.                                                                                                                                                                                            |
+| Demo and unfinished screens | Analytics, payment administration, pricing models, blog administration, invitations, and role-management views, and the dashboard revenue chart, show demo data. General settings, course creation, and the landing-page editor include unconnected controls. `/premium` is a placeholder.                                         |
 
 The admin blog editor does not publish the MDX blog, and the course and page-editor screens do not yet constitute complete authoring systems. User creation/edit/profile controls also remain incomplete. The built-in application roles are `admin` and `customer`; new accounts receive `customer`.
 
@@ -62,8 +62,8 @@ The admin blog editor does not publish the MDX blog, and the course and page-edi
 
 ### Prerequisites
 
-- **Bun 1.4.0**, matching `packageManager` and CI.
-- **Node.js 24.11 or newer within the 24.x release line**, matching the locked Vite+ engine requirement and the Node 24 CI configuration. Node is also needed by the SQLite test harness.
+- **Bun 1.4.4**, matching `packageManager`; CI reads the version from it.
+- **Node.js 26.13.1 or newer**, the version in [`.nvmrc`](.nvmrc): `nvm use` and CI read it, and `engines` in `package.json` requires it. 26.13.1 is the November 2026 security release of the Node 26 LTS line. Node is also needed by the SQLite test harness.
 - A Cloudflare account and provider credentials for development against real services. The isolated preview and automated tests below do not require those accounts.
 
 From the repository root:
@@ -147,14 +147,13 @@ The public URL is configured in source: [`src/presentation/branding/index.ts`](s
 
 When adapting the application to your own domain, update these locations together:
 
-| Location                                                                                                                                 | What to configure                                                                                               |
-| ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts)                                                               | Application name, canonical domain, contact addresses, and GitHub identity.                                     |
-| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts)                                                               | `appHostsForMode`, the allowed authentication hosts per mode, derived from `APP_DOMAIN`.                        |
-| [`src/modules/newsletter-subscriber/newsletter-subscriber.server.ts`](src/modules/newsletter-subscriber/newsletter-subscriber.server.ts) | The allowed Workers hostname suffix for newsletter request origins. Custom-domain checks derive from `APP_URL`. |
-| [`wrangler.jsonc`](wrangler.jsonc)                                                                                                       | Worker names, custom-domain routes, D1 databases, and KV namespaces for each environment.                       |
-| [`src/data/marketing.ts`](src/data/marketing.ts)                                                                                         | Displayed tiers and prices (`TIERS`, `TIER_PRICES`); keep them aligned with the configured Polar products.      |
-| [`src/presentation/styles/`](src/presentation/styles)                                                                                    | Theme, typography, fonts, and shared style definitions.                                                         |
+| Location                                                                   | What to configure                                                                                                    |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, contact addresses, and GitHub identity.                                          |
+| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `appHostsForMode`, the hosts allowed per mode for authentication and newsletter requests, derived from `APP_DOMAIN`. |
+| [`wrangler.jsonc`](wrangler.jsonc)                                         | Worker names, custom-domain routes, D1 databases, and KV namespaces for each environment.                            |
+| [`src/data/marketing.ts`](src/data/marketing.ts)                           | Displayed tiers and prices (`TIERS`, `TIER_PRICES`); keep them aligned with the configured Polar products.           |
+| [`src/presentation/styles/`](src/presentation/styles)                      | Theme, typography, fonts, and shared style definitions.                                                              |
 
 Changing an environment file alone does not change the canonical URL. Rebuild after changing branding or deployment configuration.
 
@@ -163,7 +162,7 @@ Changing an environment file alone does not change the canonical URL. Rebuild af
 - Configure GitHub and Google callback URLs at `https://<your-host>/api/auth/callback/github` and `https://<your-host>/api/auth/callback/google`. Use the appropriate development or deployed origin.
 - Configure Resend credentials and the sender address before testing verification, password recovery, or newsletter delivery. Templates live in [`src/presentation/emails/`](src/presentation/emails).
 - Create the Polar products matching the three tier variables. Attach a licence-key benefit to each paid product and set its activation limit to match the advertised package.
-- Configure Polar webhooks at `https://<your-host>/api/auth/polar/webhooks` with the matching webhook secret. The [handlers](src/modules/license/license.webhooks.ts) process paid/refunded orders and licence-benefit creation/revocation.
+- Configure Polar webhooks at `https://<your-host>/api/auth/polar/webhooks` with the matching webhook secret. The [handlers](src/modules/license/license.webhooks.ts) process paid orders, full refunds (a partial refund keeps the licence), and licence-benefit creation and revocation.
 - Regional checkout discounts require eligible percentage discounts without a discount code configured in Polar. The [discount lookup](src/modules/license/license.ppp.ts) uses the request country and the configured organization; synchronize provider discounts with the [pricing rules](src/modules/_core/constants/pricing.ts).
 
 The website associates purchases and issued keys with authenticated customers and exposes activation management. CLI installation and activation enforcement belong to the separately maintained CLI.
@@ -182,21 +181,21 @@ src/
   routes/                        TanStack file routes, loaders, guards, and HTTP handlers
   routes.ts                      Shared route constants
   router.tsx                     Per-request QueryClient and SSR integration
-  server.ts                      Cloudflare Worker entry and locale middleware
-  integrations/{vendor}/         Vendor configuration and adapters ({vendor}.{concern}.ts)
+  server.ts                      Cloudflare Worker entry, locale middleware, and security headers
+  integrations/{vendor}/         Vendor configuration and adapters ({prefix}.{concern}.ts, e.g. auth.server.ts)
   modules/{table}/               One folder per database table: schema, zod, constants, types, use-cases/*.ts
   modules/_core/                 Shared error codes, catalogues, and helpers
   presentation/
     assets/motion/               Published landing-page videos and posters
     branding/                    Application identity and canonical URL
-    components/shadcn/           UI primitives (React Aria)
+    components/shadcn/           UI primitives (React Aria; Base UI for the drawer and toggle)
     components/custom/           Shared components, plus app/, auth/, blog/, admin/{page}/, landing-page/
     emails/                      Email templates (markup and message namespace only)
     styles/                      Theme, typography, and local font declarations
   providers/                     Application-wide React providers
   data/                          Data shared by several files: navigation, marketing, admin demo rows
   hooks/                         Shared React hooks
-  lib/                           Shared utilities (cn, cookies, SEO, GitHub stars, rate limits)
+  lib/                           Shared utilities (cn, cookies, hashing, rate limits, route search params, SEO, GitHub stars)
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers
 ```
 
@@ -208,17 +207,20 @@ Validate inputs at the server boundary and authorize protected functions themsel
 
 Authentication entry points are in [`src/integrations/better-auth/`](src/integrations/better-auth):
 
-| File                 | Responsibility                                                    |
-| -------------------- | ----------------------------------------------------------------- |
-| `auth.server.ts`     | Better Auth, providers, plugins, and allowed hosts.               |
-| `auth.access.ts`     | Roles, permissions, and permission checks.                        |
-| `auth.routes.ts`     | Sign-in/admin guards and role-based redirects.                    |
-| `auth.middleware.ts` | Server-function authorization, error handling, and rate limiting. |
-| `auth.session.ts`    | Request-scoped session lookup and UI query options.               |
+| File                 | Responsibility                                                                                  |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `auth.server.ts`     | Better Auth, providers, plugins, and allowed hosts.                                             |
+| `auth.access.ts`     | Roles, permissions, and permission checks.                                                      |
+| `auth.hooks.ts`      | Input policy run before Better Auth's own endpoints: the password, name, email and image rules. |
+| `auth.routes.ts`     | Sign-in/admin guards and role-based redirects.                                                  |
+| `auth.middleware.ts` | Server-function authorization, error handling, and rate limiting.                               |
+| `auth.session.ts`    | Request-scoped session lookup and UI query options.                                             |
 
-Authorization shares a fresh session lookup within one HTTP request; a new request checks session storage again. Route navigation rechecks sessions. Sign-in and sign-out clear private caches; route guards also clear cached data when the authenticated user changes. Rate limiting uses atomic D1 operations and rejects requests when its storage is unavailable. Expired counters are removed in bounded batches during rate-limit checks; there is no scheduled cleanup Worker.
+Authorization shares a fresh session lookup within one HTTP request; a new request checks session storage again. Route navigation rechecks sessions. Sign-in and sign-out clear private caches; route guards also clear cached data when the authenticated user changes. Rate limiting uses atomic D1 operations and rejects requests when its storage is unavailable. Expired counters are removed in bounded batches during rate-limit checks; there is no scheduled cleanup Worker. Verification, password-reset and newsletter emails are also limited to three per hour for each address, keyed by a SHA-256 of the address; an email over the limit is skipped without an error.
 
-Email-verification links enter `/auth/verify-email` and redirect to Better Auth's native endpoint. Newsletter confirmation and unsubscribe operations run in route loaders with preloading disabled. Successful processing replaces the token URL with a result notice; failed requests retain the token for retry.
+Email-verification links enter `/auth/verify-email` and redirect to Better Auth's native endpoint. Newsletter confirmation and unsubscribe links open a page that only loads its messages; the action runs when the visitor presses the button, so link scanners cannot confirm or unsubscribe. Success replaces the token URL with a result notice; a failure shows an error and keeps the token for retry.
+
+[`src/server.ts`](src/server.ts) adds baseline security headers to every Worker response: a Content Security Policy limiting `base-uri`, `frame-ancestors` and `object-src`, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options`, `X-Frame-Options: DENY`, and HSTS on HTTPS responses. Static files that bypass the Worker get the subset that applies to them from [`public/_headers`](public/_headers).
 
 ## Commands and verification
 
@@ -237,6 +239,7 @@ Use `bun run test` to invoke the configured Vite+ test runner. Running `bun test
 | `bun run test:coverage`                                                     | Run tests with the configured coverage gate and reports.                               |
 | `bun run test:e2e:install`                                                  | Install Chromium/WebKit and their Playwright dependencies.                             |
 | `bun run test:e2e`                                                          | Run the browser suite in Chromium and WebKit.                                          |
+| `bun run test:e2e:pr`                                                       | Run the browser suite in Chromium, as pull request CI does.                            |
 | `bun run test:e2e:smoke`                                                    | Run the Chromium smoke suite.                                                          |
 | `bun run test:all`                                                          | Run the Vite+ tests followed by Chromium smoke tests.                                  |
 | `bun run build` / `bun run build:preview`                                   | Build the preview Worker, prerender public pages, and verify/optimize output.          |
@@ -305,8 +308,6 @@ Review and commit SQL files under `src/integrations/drizzle-orm/migrations/` wit
 
 `db:studio:development`, `db:studio:preview`, and `db:studio:production` open Drizzle Studio using the corresponding environment file. The matching `db:introspect:*` scripts introspect D1 through its HTTP API. Set the three `CLOUDFLARE_*` credentials to the target account/database for these tools.
 
-Existing data from a PostgreSQL installation needs a separate export and import into the SQLite/D1 schema; these migrations do not transfer it.
-
 ### Automatic GitHub deployments
 
 The CI workflow deploys only after formatting, lint, types, localization, coverage, and Chromium E2E pass:
@@ -331,9 +332,9 @@ The existing Workers must already have all runtime secrets required by `wrangler
 
 Deployment jobs build and verify artifacts, apply the target D1 migrations, then deploy the tested revision. Workflow runs and deployments queue rather than cancel one another, with a separate deployment queue per environment. Schema changes must remain compatible with the currently running application because migrations run before the new Worker is deployed. WebKit's additional main-branch suite runs independently of the production deployment gate.
 
-GitHub creates deployment records from the job's `environment` declaration and shows the job's real result. A successful Cloudflare deployment supersedes the old Vercel result for that environment; historical Vercel failures remain in deployment history. See [GitHub's deployment tracking documentation](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments).
+GitHub creates deployment records from the job's `environment` declaration and shows the job's real result. See [GitHub's deployment tracking documentation](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments).
 
-When switching to this workflow, disconnect any remaining Vercel Git integration for this repository and disable duplicate automatic deploy triggers in Cloudflare Workers Builds. Use one deployment owner so a push does not deploy twice or bypass the CI gate. Production environment branch rules can restrict deployment to `main`; preview rules must allow PR merge refs. Required environment reviewers, if configured, pause deployment until approval.
+Keep this workflow the only deployment owner: disable automatic deploy triggers in Cloudflare Workers Builds so a push does not deploy twice or bypass the CI gate. Worker source maps are not uploaded (`upload_source_maps: false` in `wrangler.jsonc`), because they pushed the upload past Cloudflare's size limit. Production environment branch rules can restrict deployment to `main`; preview rules must allow PR merge refs. Required environment reviewers, if configured, pause deployment until approval.
 
 ### Manual preview and production deployment
 
@@ -378,7 +379,7 @@ Fumadocs generates `.source/`; edit the source MDX and catalogues instead of gen
 
 ## Performance
 
-PageSpeed Insights results for `https://saasyland.com/`, measured on 25 September 2026 with Lighthouse 13.5.0.
+PageSpeed Insights results for `https://saasyland.com/`, measured on 25 September 2026 with Lighthouse 13.5.0. They are a snapshot from that date, before the November 2026 dependency and security-header changes.
 
 **Mobile** (emulated Moto G Power, Slow 4G throttling)
 
@@ -430,10 +431,10 @@ Before opening a pull request, run the checks relevant to your change. The appli
 bun run check
 bun run test:coverage
 bun run test:e2e:install
-bun run test:e2e:smoke
+bun run test:e2e:pr
 ```
 
-The smoke command builds the local test application when starting its own server. Run the full browser suite for changes affecting multiple routes, authentication, or browser behavior. Use the isolated test build for provider-independent checks, and validate real provider integrations separately when changing their configuration.
+`test:e2e:pr` builds the local test application when it starts its own server and runs every spec in Chromium, as pull request CI does. Run `bun run test:e2e` as well for changes that may behave differently in WebKit. Use the isolated test build for provider-independent checks, and validate real provider integrations separately when changing their configuration.
 
 Optional agent guidance can be restored with `bun run skills:sync`. It rebuilds `.agents/skills` from `skills-lock.json`, groups skills by vendor, and links them into `.claude/skills`. The command replaces those local skill directories; keep custom guidance elsewhere.
 

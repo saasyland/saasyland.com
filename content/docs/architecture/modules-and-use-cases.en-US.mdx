@@ -14,7 +14,7 @@ A module under `src/modules/<table>` exists only for a real database table. It c
 - `<table>.utils.ts`: when the table needs them
 - `use-cases/<operation>.ts`: one operation per file
 
-Current modules: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user and verification. Shared constants and helpers live in [`_core`](/docs/architecture/core). A server function that does not work on a table belongs in `src/lib` or in the one route that uses it.
+Current modules: account, category, license, newsletter-subscriber, product, rate-limit, session, two-factor, user and verification. `license` owns two tables, `license` and `revoked_license_order`. Shared constants and helpers live in [`_core`](/docs/architecture/core). A server function that does not work on a table belongs in `src/lib` or in the one route that uses it.
 
 ## Use cases
 
@@ -60,7 +60,7 @@ export const createCategoryMutation = mutationOptions({
 - **Middleware** comes from `src/integrations/better-auth/auth.middleware.ts`. `authorized()` requires a session, `authorized({ category: ["create"] })` also checks a permission, and `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` limits public operations.
 - **Validation** parses the input with the module's Zod schema before the handler runs.
 - **Ownership** comes from the session. Operations on the caller's own data filter by `context.auth.user.id` and never trust a user ID from the input.
-- **Errors** are thrown as `new AppError(ERROR_CODES.X)`. Any other error is logged and reaches the client as `INTERNAL_ERROR`.
+- **Errors** are thrown as `new AppError(ERROR_CODES.X)`. `withRequest` turns a Better Auth API error into `AUTH_API_ERROR` with the error's message key and a Zod error into `VALIDATION`; any other error is logged and reaches the client as `INTERNAL_ERROR`.
 - **Reads** export `queryOptions` instead, for example `getCategoriesPageQuery(input)`, which resolves `{ rows, total }` for the data table.
 
 Some use cases are plain async functions that run only on the server and have no RPC endpoint, such as `send-verify-email.ts` or `grant-license.ts`. Better Auth hooks and Polar webhook handlers call them.

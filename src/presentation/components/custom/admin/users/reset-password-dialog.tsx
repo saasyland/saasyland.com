@@ -82,6 +82,7 @@ export const ResetPasswordDialog = ({ isOpen, onOpenChange, user }: ResetPasswor
                 <Field data-invalid={isInvalid}>
                   <FieldLabel htmlFor={passwordId}>{t("resetPasswordDialog.password")}</FieldLabel>
                   <Input
+                    aria-describedby={`${passwordId}-error`}
                     aria-invalid={isInvalid}
                     autoComplete="new-password"
                     id={passwordId}
@@ -95,6 +96,7 @@ export const ResetPasswordDialog = ({ isOpen, onOpenChange, user }: ResetPasswor
                   />
                   {isInvalid && (
                     <ValidationFieldError
+                      id={`${passwordId}-error`}
                       message={fieldErrorMessage(field.state.meta.errors)}
                       namespace="auth.validations"
                       params={AUTH_VALIDATION_PARAMS}

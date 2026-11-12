@@ -12,12 +12,12 @@ description: "ページのリクエストとサーバー関数の呼び出しが
 5. **ガード。** `requireAdmin` などのレイアウトの `beforeLoad` 関数がセッションクエリを読み込み、アクセスが許可されていない場合はリダイレクトします。
 6. **ローダー**は並列に実行されます。各ローダーは、名前空間、ページのメタデータ、クエリを、そのリクエストの `QueryClient` にプリロードします。
 7. **レンダリング。** root シェルが `<html lang dir>` を描画し、body を `TranslationsProvider` でラップします。クエリキャッシュは HTML にシリアライズされるため、ブラウザが同じデータを再取得することはありません。
-8. **レスポンスヘッダー。** HTML レスポンスに対して、Worker はスタイルシートとロケールのフォント用の `Link` プリロードヘッダーを追加し、必要に応じてロケールクッキーを設定します。さらに、`cf-ipcountry` ヘッダーが割引の対象となる場合は、地域別価格の属性を適用します。
+8. **レスポンスヘッダー。** HTML レスポンスに対して、Worker はスタイルシートとロケールのフォント用の `Link` プリロードヘッダーを追加し、必要に応じてロケールクッキーを設定します。さらに、`cf-ipcountry` ヘッダーが割引の対象となる場合は、地域別価格の属性を適用します。その後、Worker が返すすべてのレスポンスに、まだ設定されていない限りセキュリティヘッダー（`src/server.ts` の `SECURITY_HEADERS`、および HTTPS では `Strict-Transport-Security`）が付きます。
 9. **ハイドレーション。** ブラウザは、シリアライズされたキャッシュを使ってハイドレートします。以降のナビゲーションでは、ガードとローダーがブラウザで実行され、データはサーバー関数を通じて取得されます。
 
 ## サーバー関数の呼び出し
 
-1. ブラウザがサーバー関数を呼び出します。この呼び出しは、ビルド時に `/_serverFn/…` への RPC リクエストに置き換えられています。Worker はこのパスではロケール処理をスキップし、`getCurrentLocale()` は URL ではなくロケールクッキーを読み取ります。
+1. ブラウザがサーバー関数を呼び出します。この呼び出しは、ビルド時に `/_serverFn/…` への RPC リクエストに置き換えられています。Worker はこのパスではロケール処理をスキップします。URL にロケールのプレフィックスがないため、`getCurrentLocale()` はサーバーで `en-US` を返します。ロケールを必要とするサーバー関数は、ロケールを入力として受け取ります。
 2. ミドルウェアが宣言された順に実行されます。`withRequest` はリクエストヘッダーを取得してエラーを正規化し、`withRateLimit` は D1 で試行回数をカウントし、`authorized` はセッションを読み込んで権限をチェックします。
 3. バリデーターが、モジュールの Zod スキーマで入力をパースします。
 4. ハンドラーが D1 にクエリを発行するかプロバイダーを呼び出し、プレーンなデータを返します。
@@ -31,7 +31,7 @@ GET /pl-PL/admin/users/all
   /admin beforeLoad    requireAdmin
   loaders              metadata, namespaces, queries
   SSR                  HTML with serialized query cache
-  src/server.ts        Link header, locale cookie, regional pricing
+  src/server.ts        Link header, locale cookie, regional pricing, security headers
 
 POST /_serverFn/…
   withRequest → withRateLimit → authorized → validator → handler → data or AppError

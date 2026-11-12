@@ -90,6 +90,7 @@ export const TwoFactorPasswordStep = ({
               <Field data-invalid={isInvalid}>
                 <FieldLabel htmlFor={passwordId}>{t("password")}</FieldLabel>
                 <Input
+                  aria-describedby={`${passwordId}-error`}
                   aria-invalid={isInvalid}
                   autoComplete="current-password"
                   id={passwordId}
@@ -103,6 +104,7 @@ export const TwoFactorPasswordStep = ({
                 />
                 {isInvalid && (
                   <ValidationFieldError
+                    id={`${passwordId}-error`}
                     message={fieldErrorMessage(field.state.meta.errors)}
                     namespace="auth.validations"
                     params={AUTH_VALIDATION_PARAMS}

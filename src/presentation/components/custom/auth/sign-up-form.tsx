@@ -79,7 +79,7 @@ export const SignUpForm = (): JSX.Element => {
                     {t(`pages.auth.sign-up.form.${name}`)}
                   </FieldLabel>
                   <Input
-                    aria-describedby={isInvalid ? `sign-up-${name}-error` : undefined}
+                    aria-describedby={`sign-up-${name}-error`}
                     aria-invalid={isInvalid}
                     autoComplete={name}
                     className="h-11 px-3 text-foreground transition-[border-color,box-shadow] duration-200 ease-exp"
@@ -117,7 +117,7 @@ export const SignUpForm = (): JSX.Element => {
                     {t(`pages.auth.sign-up.form.${name}`)}
                   </FieldLabel>
                   <PasswordInput
-                    aria-describedby={isInvalid ? `sign-up-${name}-error` : undefined}
+                    aria-describedby={`sign-up-${name}-error`}
                     aria-invalid={isInvalid}
                     autoComplete="new-password"
                     id={`sign-up-${name}`}

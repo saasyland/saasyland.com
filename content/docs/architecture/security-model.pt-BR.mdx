@@ -26,7 +26,7 @@ Os guards só decidem o que o usuário vê. Quem protege os dados é o **middlew
 - `getRequestSession` ignora o cache de cookie e memoiza a sessão pelo restante da requisição.
 - A sessão enviada ao navegador não inclui o token.
 - `tanstackStartCookies` é o último plugin do Better Auth, para que os cookies definidos durante uma server function cheguem à resposta.
-- Os hosts permitidos são fixos por modo de build: `saasyland.com` em produção, `preview.saasyland.com` em preview, `localhost:3000` e `127.0.0.1:3000` localmente.
+- Os hosts permitidos são fixos por modo de build: `saasyland.com` em produção, `preview.saasyland.com` em preview, `localhost:3000` e `127.0.0.1:3000` em desenvolvimento e, em teste, também `localhost:3020` e `127.0.0.1:3020`.
 
 O Better Auth também cuida da verificação de e-mail (obrigatória antes do login), da redefinição de senha (que revoga as sessões existentes), do OAuth com GitHub e Google (com os tokens criptografados em repouso), da autenticação de dois fatores e da personificação de usuários pelo admin. Os identificadores de verificação são armazenados como hash.
 
@@ -34,12 +34,19 @@ O Better Auth também cuida da verificação de e-mail (obrigatória antes do lo
 
 `withRateLimit(kind, limit)` conta as tentativas por operação e por IP do cliente (`cf-connecting-ip`) na tabela `rate_limit`, com um único batch atômico do D1. `RATE_LIMITS.SENSITIVE` permite 3 tentativas por minuto e `RATE_LIMITS.TOKEN` permite 5. Se o armazenamento dos contadores falhar, a requisição é recusada. O rate limiter do próprio Better Auth usa a mesma tabela com o prefixo de chave `auth:`; leituras de sessão, logout e webhooks do Polar ficam isentos.
 
+Os e-mails que um visitante pode disparar têm um segundo limite. `withinRecipientRateLimit` permite três e-mails de verificação, três de redefinição de senha e três de confirmação da newsletter por endereço por hora, com a chave em um hash SHA-256 do endereço, e descarta o e-mail silenciosamente além disso.
+
+## Headers da resposta
+
+`src/server.ts` adiciona `SECURITY_HEADERS` (uma Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` e `X-Frame-Options`) a toda resposta que o Worker retorna, mais `Strict-Transport-Security` sobre HTTPS, e mantém qualquer um deles que a resposta já defina. Os arquivos servidos sem o Worker recebem o subconjunto de `public/_headers`. Veja [Segurança e hardening](/docs/features/security).
+
 ## Erros e entrada
 
 - Server functions que recebem entrada a analisam com um schema Zod antes de o handler rodar.
+- Os endpoints do próprio Better Auth seguem as mesmas regras dos formulários: `enforceInputPolicy` em `auth.hooks.ts` roda antes de todo endpoint que aceita uma senha, um nome, um e-mail ou uma imagem e responde `400` com `VALIDATION_ERROR` quando o body não passa no schema.
 - `withRequest` transforma erros inesperados em `INTERNAL_ERROR` e registra o erro original no servidor, para que detalhes internos nunca cheguem ao cliente.
 - Os webhooks do Polar são verificados com `POLAR_WEBHOOK_SECRET` antes de qualquer alteração de licença.
-- Os secrets são lidos de `cloudflare:workers` apenas em módulos exclusivos do servidor.
+- Os secrets são lidos de `cloudflare:workers` apenas por código de servidor: módulos exclusivos do servidor, handlers de server functions e helpers que só eles importam. `scripts/verify-build.ts` faz o build falhar quando um asset do cliente importa `cloudflare:workers`.
 - As áreas privadas (`/admin`, `/app`, `/auth`, `/newsletter`) nunca são pré-renderizadas.
 
 ## Páginas relacionadas

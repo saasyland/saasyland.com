@@ -1,12 +1,12 @@
 import type { JSX } from "react"
 
-import { Toggle as TogglePrimitive } from "@base-ui/react/toggle"
 import { type VariantProps, cva } from "class-variance-authority"
+import { type ToggleButtonProps, ToggleButton as TogglePrimitive } from "react-aria-components"
 
 import { cn } from "~/src/lib/cn"
 
 const toggleVariants = cva(
-  "group/toggle inline-flex items-center justify-center gap-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all outline-none hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-pressed:bg-muted data-[state=on]:bg-muted dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/toggle inline-flex items-center justify-center gap-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all outline-none hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-pressed:bg-muted data-[state=on]:bg-muted dark:aria-invalid:ring-destructive/40 data-selected:bg-muted [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     defaultVariants: {
       size: "default",
@@ -31,7 +31,7 @@ const Toggle = ({
   size = "default",
   variant = "default",
   ...props
-}: TogglePrimitive.Props & VariantProps<typeof toggleVariants>): JSX.Element => (
+}: ToggleButtonProps & VariantProps<typeof toggleVariants>): JSX.Element => (
   <TogglePrimitive className={cn(toggleVariants({ className, size, variant }))} data-slot="toggle" {...props} />
 )
 

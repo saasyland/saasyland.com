@@ -54,7 +54,7 @@ The admin blog editor does not publish the MDX blog, and the course and page-edi
 | UI                               | Tailwind CSS 4, shadcn-styled components with React Aria and Base UI, Motion, and locally served fonts |
 | Localization and content         | `use-intl`, ICU messages, Fumadocs, and MDX                                                            |
 | External services                | Resend for email; Polar for checkout, billing, and licence keys                                        |
-| Verification                     | Vite+/Vitest, Testing Library, jsdom, and Playwright                                                   |
+| Verification                     | Vite+/Vitest, Testing Library, jsdom, and Playwright with axe-core accessibility scans                 |
 
 [`package.json`](package.json) and [`bun.lock`](bun.lock) define the application toolchain. The separate [Remotion project](remotion/README.md) uses its own npm lockfile.
 
@@ -263,6 +263,8 @@ bun run test:e2e
 ```
 
 Locally, Playwright migrates and seeds the test database, builds the test application, and starts its preview server unless an existing server already answers at the configured URL. Stop other servers on port 3000 before running the suite so it uses the intended test application. `PLAYWRIGHT_BASE_URL` overrides the default `http://127.0.0.1:3000`.
+
+[`e2e/specs/accessibility.spec.ts`](e2e/specs/accessibility.spec.ts) runs axe-core with the WCAG 2.0, 2.1 and 2.2 A and AA rules and axe's best practices on the public pages, a blog post, and both workspaces in the light and dark themes, and fails on any violation.
 
 `build:test` selects `env.test` in the root `wrangler.jsonc` using `CLOUDFLARE_ENV=test`. It uses the test Worker entry, local bindings, `.env.test`, and `.wrangler/test`; no separate test Wrangler file or `E2E=true` flag is needed. In CI, migrations, seeding, and building run explicitly before Playwright starts the server.
 

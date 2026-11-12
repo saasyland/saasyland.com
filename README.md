@@ -63,7 +63,7 @@ The admin blog editor does not publish the MDX blog, and the course and page-edi
 ### Prerequisites
 
 - **Bun 1.4.4**, matching `packageManager`; CI reads the version from it.
-- **Node.js 24.11 or newer**, as in CI. Vite+ also accepts Node 22.18+ and 26+. Node is also needed by the SQLite test harness.
+- **Node.js 26.13.1 or newer**, the version in [`.nvmrc`](.nvmrc): `nvm use` and CI read it, and `engines` in `package.json` requires it. 26.13.1 is the November 2026 security release of the Node 26 LTS line. Node is also needed by the SQLite test harness.
 - A Cloudflare account and provider credentials for development against real services. The isolated preview and automated tests below do not require those accounts.
 
 From the repository root:

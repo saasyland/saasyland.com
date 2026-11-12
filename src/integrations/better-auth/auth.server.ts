@@ -14,6 +14,7 @@ import zod from "zod/v4"
 
 import { DEFAULT_ROLE_CODE, ROLES, ROLE_CODES, ac } from "~/src/integrations/better-auth/auth.access"
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
+import { enforceInputPolicy } from "~/src/integrations/better-auth/auth.hooks"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
 import { polarCore } from "~/src/integrations/polar/polar.config"
@@ -90,6 +91,7 @@ export const auth = betterAuth({
     sendVerificationEmail: ({ token, url, user }) =>
       sendVerifyEmail({ locale: extractLocaleFromCallbackURL(url) ?? I18N.DEFAULT_LOCALE, token, user }),
   },
+  hooks: { before: enforceInputPolicy },
   onAPIError: { errorURL: ROUTES.SIGN_IN },
   plugins: [
     admin({ ac, adminRoles: [ROLE_CODES.ADMIN], defaultRole: DEFAULT_ROLE_CODE, roles: ROLES }),

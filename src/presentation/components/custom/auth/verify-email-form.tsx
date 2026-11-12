@@ -34,7 +34,7 @@ const emailSchema = verificationZodSchemas.sendVerificationEmail.pick({ email: t
 export const VerifyEmailForm = (): JSX.Element => {
   const t = useTranslations("pages.auth.verify-email")
   const errorMessage = useErrorMessage()
-  const signUpEmail = routeApi.useSearch({ select: (search) => search.email.trim() })
+  const signUpEmail = routeApi.useSearch({ select: (search) => search.email?.trim() ?? "" })
 
   const resend = useMutation({
     ...sendVerificationEmailMutation,

@@ -1,13 +1,15 @@
 import type { JSX } from "react"
 
-import { type SearchSchemaInput, createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
+import * as zod from "zod"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { cn } from "~/src/lib/cn"
+import { searchFlag, searchText } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
 import { VerifyEmailPending } from "~/src/presentation/components/custom/auth/auth-pending"
@@ -17,7 +19,7 @@ import { ROUTES } from "~/src/routes"
 
 const VerifyEmailPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.verify-email")
-  const isInvalidLink = Route.useSearch({ select: (search) => search.error !== "" })
+  const isInvalidLink = Route.useSearch({ select: (search) => search.error !== undefined })
 
   return (
     <>
@@ -37,22 +39,22 @@ const VerifyEmailPage = (): JSX.Element => {
 const NAMESPACE = "pages.auth.verify-email"
 
 export const Route = createFileRoute("/auth/verify-email")({
-  validateSearch: (search: Record<string, unknown> & SearchSchemaInput) => ({
-    email: typeof search["email"] === "string" ? search["email"] : "",
-    error: typeof search["error"] === "string" ? search["error"] : "",
-    token: typeof search["token"] === "string" ? search["token"] : "",
-    verified: search["verified"] === true || search["verified"] === "true",
+  validateSearch: zod.object({
+    email: searchText(),
+    error: searchText(),
+    token: searchText(),
+    verified: searchFlag(),
   }),
   beforeLoad: ({ preload, search }) => {
     if (preload) {
       return
     }
-    if (search.token) {
+    if (search.token !== undefined) {
       const callbackURL = localizePathname({ locale: getCurrentLocale(), pathname: `${ROUTES.VERIFY_EMAIL}?verified=true` })
       const query = new URLSearchParams({ callbackURL, token: search.token })
       throw redirect({ href: `${ROUTES.API_AUTH_VERIFY_EMAIL}?${query}`, reloadDocument: true, replace: true })
     }
-    if (search.verified && !search.error) {
+    if (search.verified === true && search.error === undefined) {
       throw redirect({ replace: true, to: ROUTES.AUTH_CALLBACK })
     }
   },

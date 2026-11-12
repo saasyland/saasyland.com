@@ -7,13 +7,13 @@ Los parámetros de búsqueda guardan el estado que debe sobrevivir a una recarga
 
 ## Declara los parámetros
 
-`validateSearch` convierte la query en bruto en un objeto tipado. Los valores desconocidos o no válidos vuelven a un valor por defecto en lugar de lanzar un error. De `src/routes/admin.blog.index.tsx`:
+`validateSearch` recibe un objeto de zod, así que los parámetros de búsqueda de la ruta se tipan y validan en un solo lugar. Sus campos vienen de `src/lib/search-params.ts`: `searchText()` y `searchFlag()` son `undefined` cuando el valor falta, está vacío o mal formado, así que los valores ausentes nunca aparecen en la URL; `searchChoice(choices, fallback)` vuelve a una opción. Un valor mal formado nunca lleva a una página de error. De `src/routes/admin.blog.index.tsx`:
 
 ```tsx
-validateSearch: (search: SearchSchemaInput & { view?: unknown }): { view: "grid" | "table" } => ({
-  view: search.view === "table" ? "table" : "grid",
+validateSearch: zod.object({
+  view: searchChoice([ADMIN_BLOG_VIEW.GRID, ADMIN_BLOG_VIEW.TABLE], ADMIN_BLOG_VIEW.GRID),
 }),
-search: { middlewares: [stripSearchParams({ view: "grid" })] },
+search: { middlewares: [stripSearchParams({ view: ADMIN_BLOG_VIEW.GRID })] },
 ```
 
 `stripSearchParams` elimina el valor por defecto de la URL, así que `/admin/blog` sigue siendo la dirección canónica de la vista de cuadrícula.
@@ -21,7 +21,7 @@ search: { middlewares: [stripSearchParams({ view: "grid" })] },
 ## Léelos
 
 - En el componente de la ruta: `const { view } = Route.useSearch()`.
-- Con un selector, el componente solo se vuelve a renderizar cuando cambia el valor seleccionado: `Route.useSearch({ select: (search) => search.error !== "" })`.
+- Con un selector, el componente solo se vuelve a renderizar cuando cambia el valor seleccionado: `Route.useSearch({ select: (search) => search.error !== undefined })`.
 - En un componente fuera del archivo de ruta: `getRouteApi("/auth/reset-password").useSearch()`, como en `reset-password-form.tsx`.
 
 ## Cámbialos

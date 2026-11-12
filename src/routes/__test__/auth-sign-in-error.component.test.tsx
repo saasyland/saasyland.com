@@ -46,6 +46,7 @@ const renderSignIn = async (search: string, title = pagesAuthSignInMessages.form
   )
   await act(() => router.load())
   expect(await screen.findByRole("heading", { level: 1, name: title })).toBeVisible()
+  return router
 }
 
 beforeEach(() => {
@@ -103,14 +104,13 @@ describe("sign-in redirect errors", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(plAuthErrorsMessages.signInCancelled)
   })
 
-  it("accepts only a string error from the URL", () => {
-    const validate = SignInRoute.options.validateSearch
-    if (typeof validate !== "function") {
-      throw new TypeError("The sign-in route must validate its URL search values")
-    }
+  it.each([
+    { expected: { error: "state_mismatch", tier: "agency" }, search: "?error=state_mismatch&tier=agency" },
+    { expected: {}, search: "?error=%5B%22access_denied%22%5D" },
+    { expected: {}, search: "" },
+  ])("keeps only a string error from the URL and leaves other params alone: $search", async ({ expected, search }) => {
+    const router = await renderSignIn(search)
 
-    expect(validate({ error: "state_mismatch", tier: "agency" })).toEqual({ error: "state_mismatch" })
-    expect(validate({ error: ["access_denied"] })).toEqual({ error: undefined })
-    expect(validate({})).toEqual({ error: undefined })
+    expect(router.state.matches.at(-1)?.search).toStrictEqual(expected)
   })
 })

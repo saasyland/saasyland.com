@@ -220,21 +220,25 @@ describe("authentication routes", () => {
     expect(screen.queryByText(pagesAuthResetPasswordMessages.form.invalidToken)).not.toBeInTheDocument()
   })
 
-  it("validates untrusted search values before rendering auth pages", async () => {
-    const signup = SignUpRoute.options.validateSearch
-    const reset = ResetPasswordRoute.options.validateSearch
-    if (typeof signup !== "function" || typeof reset !== "function") {
-      throw new TypeError("Auth routes must validate their URL search values")
-    }
-    expect(signup({ tier: "agency" })).toEqual({ tier: "agency" })
-    expect(signup({ tier: 123 })).toEqual({ tier: undefined })
-    expect(reset({ token: "valid", error: false })).toEqual({ error: "", token: "valid" })
+  it.each([
+    { expected: { tier: "agency" }, path: `${ROUTES.SIGN_UP}?tier=agency` },
+    { expected: {}, path: `${ROUTES.SIGN_UP}?tier=123` },
+    { expected: { token: "valid" }, path: `${ROUTES.RESET_PASSWORD}?token=valid&error=false` },
+    { expected: {}, path: `${ROUTES.RESET_PASSWORD}?token=` },
+    { expected: {}, path: `${ROUTES.SIGN_IN}?error=%5B%5D` },
+  ])("replaces a missing or malformed search value with its fallback: $path", async ({ expected, path }) => {
+    const { router } = createAuthRouter(path)
+    await router.load()
+    expect(router.state.matches.at(-1)?.search).toEqual(expected)
+  })
+
+  it("validates untrusted search values before rendering the verification page", async () => {
     const untrusted = createAuthRouter(`${ROUTES.VERIFY_EMAIL}?email=4&error=false&token=%7B%7D&verified=false`).router
     await untrusted.load()
-    expect(untrusted.state.matches.at(-1)?.search).toEqual({ email: "", error: "", token: "", verified: false })
+    expect(untrusted.state.matches.at(-1)?.search).toEqual({ verified: false })
     const trusted = createAuthRouter(`${ROUTES.VERIFY_EMAIL}?email=person%40example.com&error=expired&verified=true`).router
     await trusted.load()
-    expect(trusted.state.matches.at(-1)?.search).toEqual({ email: "person@example.com", error: "expired", token: "", verified: true })
+    expect(trusted.state.matches.at(-1)?.search).toEqual({ email: "person@example.com", error: "expired", verified: true })
   })
 
   it("does not consume a verification token when the link is prefetched", async () => {

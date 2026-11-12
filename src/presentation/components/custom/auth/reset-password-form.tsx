@@ -2,7 +2,7 @@ import type { JSX } from "react"
 
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { getRouteApi, useRouter } from "@tanstack/react-router"
+import { useRouter } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
@@ -25,14 +25,11 @@ import { ValidationFieldError } from "~/src/presentation/components/custom/valid
 
 import { ROUTES } from "~/src/routes"
 
-const routeApi = getRouteApi("/auth/reset-password")
-
-export const ResetPasswordForm = (): JSX.Element => {
+export const ResetPasswordForm = ({ token }: { readonly token: string }): JSX.Element => {
   const t = useTranslations("pages.auth.reset-password.form")
   const router = useRouter()
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
-  const { token } = routeApi.useSearch()
 
   const resetPassword = useMutation({
     ...resetPasswordMutation,

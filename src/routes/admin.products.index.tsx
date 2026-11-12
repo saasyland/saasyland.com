@@ -1,8 +1,9 @@
 import type { JSX } from "react"
 
-import { Link, type SearchSchemaInput, createFileRoute, stripSearchParams } from "@tanstack/react-router"
+import { Link, createFileRoute, stripSearchParams } from "@tanstack/react-router"
 import { PlusCircle } from "lucide-react"
 import { useTranslations } from "use-intl/react"
+import * as zod from "zod"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
@@ -12,6 +13,7 @@ import { getProductsPageQuery, getProductsQuery } from "~/src/modules/product/us
 
 import { ADMIN_PRODUCT_TABS } from "~/src/data/admin"
 
+import { searchChoice } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
@@ -33,6 +35,8 @@ const FILTERS = {
 } as const
 
 type ProductTab = (typeof ADMIN_PRODUCT_TABS)[number]
+
+const DEFAULT_TAB: ProductTab = "all"
 
 const ProductsPage = (): JSX.Element => {
   const { tab } = Route.useSearch()
@@ -94,8 +98,8 @@ const NAMESPACE = "pages.admin.products"
 export const Route = createFileRoute("/admin/products/")({
   component: ProductsPage,
   head: pageHead(ROUTES.ADMIN_PRODUCTS),
-  validateSearch: (search: SearchSchemaInput & { tab?: unknown }): { tab: ProductTab } => ({
-    tab: ADMIN_PRODUCT_TABS.find((tab) => tab === search.tab) ?? "all",
+  validateSearch: zod.object({
+    tab: searchChoice(ADMIN_PRODUCT_TABS, DEFAULT_TAB),
   }),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
@@ -107,7 +111,7 @@ export const Route = createFileRoute("/admin/products/")({
     ])
     return { locale, metadata }
   },
-  search: { middlewares: [stripSearchParams({ tab: "all" })] },
+  search: { middlewares: [stripSearchParams({ tab: DEFAULT_TAB })] },
   pendingComponent: AdminProductsPending,
   staticData: { namespaces: [NAMESPACE] },
 })

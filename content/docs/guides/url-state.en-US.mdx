@@ -7,13 +7,13 @@ Search parameters hold state that should survive a reload or a shared link: the 
 
 ## Declare the parameters
 
-`validateSearch` turns the raw query into a typed object. Unknown or invalid values fall back to a default instead of throwing. From `src/routes/admin.blog.index.tsx`:
+`validateSearch` takes a zod object, so the route's search parameters are typed and validated in one place. Its fields come from `src/lib/search-params.ts`: `searchText()` and `searchFlag()` are `undefined` when the value is missing, empty or malformed, so absent values never appear in the URL; `searchChoice(choices, fallback)` falls back to a choice. A malformed value never leads to an error page. From `src/routes/admin.blog.index.tsx`:
 
 ```tsx
-validateSearch: (search: SearchSchemaInput & { view?: unknown }): { view: "grid" | "table" } => ({
-  view: search.view === "table" ? "table" : "grid",
+validateSearch: zod.object({
+  view: searchChoice([ADMIN_BLOG_VIEW.GRID, ADMIN_BLOG_VIEW.TABLE], ADMIN_BLOG_VIEW.GRID),
 }),
-search: { middlewares: [stripSearchParams({ view: "grid" })] },
+search: { middlewares: [stripSearchParams({ view: ADMIN_BLOG_VIEW.GRID })] },
 ```
 
 `stripSearchParams` removes the default value from the URL, so `/admin/blog` stays the canonical address of the grid view.
@@ -21,7 +21,7 @@ search: { middlewares: [stripSearchParams({ view: "grid" })] },
 ## Read them
 
 - In the route component: `const { view } = Route.useSearch()`.
-- With a selector, the component re-renders only when the selected value changes: `Route.useSearch({ select: (search) => search.error !== "" })`.
+- With a selector, the component re-renders only when the selected value changes: `Route.useSearch({ select: (search) => search.error !== undefined })`.
 - In a component outside the route file: `getRouteApi("/auth/reset-password").useSearch()`, as in `reset-password-form.tsx`.
 
 ## Change them

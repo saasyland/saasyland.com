@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm"
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { NEWSLETTER_SUBSCRIBER_QUERY_KEYS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { NEWSLETTER_STATUS, NEWSLETTER_SUBSCRIBER_QUERY_KEYS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
 
 const SINGLE_ROW = 1
@@ -21,7 +21,7 @@ export const getNewsletterSubscription = createServerFn({ method: "GET" })
       .where(eq(newsletterSubscriber.email, address))
       .limit(SINGLE_ROW)
 
-    return { isSubscribed: row?.status === "subscribed" }
+    return { isSubscribed: row?.status === NEWSLETTER_STATUS.SUBSCRIBED }
   })
 
 export const getNewsletterSubscriptionQuery = queryOptions({

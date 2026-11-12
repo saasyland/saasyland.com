@@ -9,6 +9,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { NEWSLETTER_STATUS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { getNewsletterSubscriptionQuery } from "~/src/modules/newsletter-subscriber/use-cases/get-newsletter-subscription"
 
 const HEADERS = new Headers()
@@ -48,7 +49,7 @@ describe("get-newsletter-subscription", () => {
   it("reports subscribed when the session address is on the list", async () => {
     expect.hasAssertions()
     signedIn()
-    dbMocks.limit.mockResolvedValue([{ status: "subscribed" }])
+    dbMocks.limit.mockResolvedValue([{ status: NEWSLETTER_STATUS.SUBSCRIBED }])
 
     await expect(executeQuery(getNewsletterSubscriptionQuery)).resolves.toMatchObject({ isSubscribed: true })
   })
@@ -56,7 +57,7 @@ describe("get-newsletter-subscription", () => {
   it("reports unsubscribed when the row was opted out", async () => {
     expect.hasAssertions()
     signedIn()
-    dbMocks.limit.mockResolvedValue([{ status: "unsubscribed" }])
+    dbMocks.limit.mockResolvedValue([{ status: NEWSLETTER_STATUS.UNSUBSCRIBED }])
 
     await expect(executeQuery(getNewsletterSubscriptionQuery)).resolves.toMatchObject({ isSubscribed: false })
   })

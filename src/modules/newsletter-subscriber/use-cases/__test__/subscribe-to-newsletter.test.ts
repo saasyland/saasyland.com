@@ -13,7 +13,7 @@ import { executeMutation } from "~/src/platform/testing/lib/query"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { SUBSCRIPTION_RESULT } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { NEWSLETTER_STATUS, SUBSCRIPTION_RESULT } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 import { subscribeToNewsletterMutation } from "~/src/modules/newsletter-subscriber/use-cases/subscribe-to-newsletter"
@@ -100,13 +100,13 @@ describe("subscribe-to-newsletter", () => {
     mockSuccessfulSend()
     await db
       .insert(newsletterSubscriber)
-      .values({ email: ADDRESS, id: "existing", status: "subscribed", unsubscribeToken: "existing-token" })
+      .values({ email: ADDRESS, id: "existing", status: NEWSLETTER_STATUS.SUBSCRIBED, unsubscribeToken: "existing-token" })
 
     await expect(executeMutation(subscribeToNewsletterMutation, { email: SUBSCRIBER, locale: "en-US" })).resolves.toMatchObject({
       status: SUBSCRIPTION_RESULT.ALREADY_SUBSCRIBED,
     })
 
-    expect(await readSubscriber()).toMatchObject({ status: "subscribed" })
+    expect(await readSubscriber()).toMatchObject({ status: NEWSLETTER_STATUS.SUBSCRIBED })
     expect(resendSendMock).not.toHaveBeenCalled()
   })
 
@@ -115,7 +115,7 @@ describe("subscribe-to-newsletter", () => {
     mockSuccessfulSend()
     await db
       .insert(newsletterSubscriber)
-      .values({ email: ADDRESS, id: "existing", status: "unsubscribed", unsubscribeToken: "existing-token" })
+      .values({ email: ADDRESS, id: "existing", status: NEWSLETTER_STATUS.UNSUBSCRIBED, unsubscribeToken: "existing-token" })
 
     await expect(executeMutation(subscribeToNewsletterMutation, { email: SUBSCRIBER, locale: "en-US" })).resolves.toMatchObject({
       status: SUBSCRIPTION_RESULT.CONFIRMATION_SENT,

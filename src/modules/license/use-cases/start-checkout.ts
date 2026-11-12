@@ -16,7 +16,7 @@ export const startCheckout = createServerFn({ method: "POST" })
   .handler(async ({ context, data: { tier } }) => {
     const discountId = await pppDiscountId(context.requestHeaders, POLAR_PRODUCT_IDS[tier])
     const { url } = await auth.api.checkout({
-      body: { allowDiscountCodes: false, slug: tier, ...(discountId === undefined ? {} : { discountId }) },
+      body: { allow_discount_codes: false, slug: tier, ...(discountId === undefined ? {} : { discount_id: discountId }) },
       headers: context.requestHeaders,
     })
 

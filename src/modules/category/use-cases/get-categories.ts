@@ -18,7 +18,7 @@ export const getCategories = createServerFn({ method: "GET" })
   .middleware([authorized({ category: ["read"] })])
   .validator((input: zod.input<typeof listCategoriesSchema>) => listCategoriesSchema.parse(input))
   .handler(async ({ data }) => {
-    const filter = data.kind === undefined ? undefined : eq(category.kind, data.kind)
+    const filter = data.kind && eq(category.kind, data.kind)
     const [rows, totals] = await db.batch([
       db
         .select()

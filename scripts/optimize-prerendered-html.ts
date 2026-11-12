@@ -3,7 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 const CLIENT_DIR = "dist/client"
-const PRELOAD_PATTERN = /<link rel="modulepreload" href="(?<hint>\/assets\/[^"]+)"(?: fetchpriority="low")?\/>/gu
+const PRELOAD_PATTERN = /<link rel="modulepreload" href="(?<hint>\/assets\/[^"]+)"(?: fetchpriority="low")?\/>/giu
 const MODULE_SCRIPT_PATTERN = /<script\b(?=[^>]*\btype="module")(?=[^>]*\bsrc="(?<entry>\/assets\/[^"]+)")[^>]*>/gu
 
 const pages = [...new Glob("**/index.html").scanSync(CLIENT_DIR)].toSorted()

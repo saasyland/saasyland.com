@@ -31,7 +31,7 @@ describe("deactivate-license", () => {
   it("frees the slot using the caller's own key", async () => {
     await expect(executeMutation(deactivateLicenseMutation, { activationId: ACTIVATION_ID })).resolves.toMatchObject({ deactivated: true })
     const deactivate = vi.spyOn(polar.licenseKeys, "deactivate")
-    expect(deactivate).toHaveBeenCalledWith({ activationId: ACTIVATION_ID, key: KEY, organizationId: env.POLAR_ORGANIZATION_ID })
+    expect(deactivate).toHaveBeenCalledWith({ activation_id: ACTIVATION_ID, key: KEY, organization_id: env.POLAR_ORGANIZATION_ID })
   })
 
   it("refuses a caller whose license has no key yet", async () => {

@@ -4,7 +4,7 @@ import { act, cleanup, render, screen } from "@testing-library/react"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { blogSource } from "~/src/integrations/fumadocs/fumadocs.source"
+import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { Route as LandingRoute } from "~/src/routes/_landing"
@@ -20,76 +20,83 @@ import { Route as BlogIndexRoute } from "~/src/routes/blog.index"
 
 import { starCountQuery } from "~/src/lib/github"
 
-import { blogContent } from "~/src/presentation/components/custom/blog-content"
-
 import componentsNavigationMessages from "~/messages/en-US/components.custom.navigation.json"
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
+import pagesLandingMessages from "~/messages/en-US/pages.landing.json"
 import pagesLegalLicenceMessages from "~/messages/en-US/pages.legal.licence.json"
 import pagesLegalPrivacyMessages from "~/messages/en-US/pages.legal.privacy.json"
 import pagesLegalRefundsMessages from "~/messages/en-US/pages.legal.refunds.json"
 import pagesLegalTermsMessages from "~/messages/en-US/pages.legal.terms.json"
 import pagesPremiumMessages from "~/messages/en-US/pages.premium.json"
-import { APP_NAME, APP_URL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
-import { ROUTES } from "~/src/routes"
+
+type BlogPost = (typeof BlogPostRoute.types.loaderData)["post"]
 
 const messages = getTestMessages("en-US")
-const originalBlogLoader = BlogPostRoute.options.loader
 
-vi.mock("collections/server", async () => {
-  const { createElement } = await import("react")
-  const prose = { contents: [{ content: "word ".repeat(1100), heading: undefined }], headings: [] }
-  const post = (slug: string, data: Record<string, unknown>) => ({
-    authorName: "Ada",
-    date: "2026-09-01",
-    description: "Article summary",
-    info: { fullPath: `/content/blog/${slug}.en-US.mdx`, path: `${slug}.en-US.mdx` },
-    published: true,
-    structuredData: prose,
-    tags: ["React"],
-    toc: [],
-    ...data,
-  })
-  return {
-    blog: [
-      post("older", { date: "2026-09-01", title: "Older" }),
-      post("recent", { date: "2026-09-02", title: "Recent" }),
-      post("draft", { date: "2026-09-09", published: false, title: "Draft" }),
-      post("featured", { date: "2025-01-01", featured: true, title: "Featured" }),
-      post("complete", {
-        date: "2025-06-01",
-        faq: [{ answer: "Because.", question: "Why?" }],
-        image: "/article.webp",
-        title: "Complete guide",
-        toc: [
-          { depth: 2, title: "Introduction", url: "#intro" },
-          { depth: 3, title: ["Step ", 1, createElement("strong", null, " — ", createElement("em", null, "Deploy"))], url: "#deploy" },
-          { depth: 3, title: [null, "Ship ", false, ["it ", createElement("code", null, "today")], createElement("br")], url: "#ship" },
-        ],
-      }),
-      post("minimal", { authorName: " ", date: "2024-01-01", description: undefined, tags: [], title: "Minimal" }),
-    ],
-    docs: { toFumadocsSource: () => ({ files: [] }) },
-  }
+const summary = (title: string, slug: string): BlogPostSummary => ({
+  date: "2026-09-01",
+  featured: false,
+  readingTimeMinutes: 5,
+  summary: "Article summary",
+  tags: ["React"],
+  title,
+  url: `/blog/${slug}`,
 })
+
+const NOTES = [summary("Featured", "featured"), summary("Recent", "recent"), summary("Older", "older")]
+
+const COMPLETE: BlogPost = {
+  ...summary("Complete guide", "complete"),
+  authorName: "Ada",
+  faq: [{ answer: "Because.", question: "Why?" }],
+  image: "/article.webp",
+  path: "complete.en-US.mdx",
+  toc: [
+    { depth: 2, title: "Introduction", url: "#intro" },
+    { depth: 3, title: "Step 1 — Deploy", url: "#deploy" },
+    { depth: 3, title: "Ship it today", url: "#ship" },
+  ],
+  updated: undefined,
+}
+
+const MINIMAL: BlogPost = {
+  ...COMPLETE,
+  authorName: " ",
+  faq: undefined,
+  image: undefined,
+  path: "minimal.en-US.mdx",
+  summary: undefined,
+  tags: [],
+  title: "Minimal",
+  toc: [],
+  url: "/blog/minimal",
+}
+
+vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
 vi.mock(import("~/src/integrations/use-intl/i18n.messages"), async (original) => ({
   ...(await original()),
   preloadNamespaces: vi.fn(() => Promise.resolve()),
 }))
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
-  blogContent: { preload: vi.fn(() => Promise.resolve()), useContent: vi.fn(() => <p>Article content</p>) },
+  blogContent: { useContent: vi.fn(() => <p>Article content</p>) },
 }))
 
 const routers: ReturnType<typeof createMarketingRouter>[] = []
 
-const createMarketingRouter = (path: string) => {
+const createMarketingRouter = ({ path, post, posts }: { path: string; post: BlogPost; posts: BlogPostSummary[] }) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(starCountQuery.queryKey, 456)
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
   Object.assign(LandingRoute.options, { getParentRoute: () => root, id: "_landing" })
   Object.assign(BlogRoute.options, { getParentRoute: () => root, id: "/blog", path: "/blog" })
+  Object.assign(HomeRoute.options, {
+    getParentRoute: () => LandingRoute,
+    id: "/",
+    loader: (): typeof HomeRoute.types.loaderData => ({ locale: "en-US", metadata: pagesLandingMessages.metadata, posts }),
+    path: "/",
+  })
   for (const [route, pathName] of [
-    [HomeRoute, "/"],
     [LicenceRoute, "/licence"],
     [PremiumRoute, "/premium"],
     [PrivacyRoute, "/privacy"],
@@ -98,8 +105,18 @@ const createMarketingRouter = (path: string) => {
   ] as const) {
     Object.assign(route.options, { getParentRoute: () => LandingRoute, id: pathName, path: pathName })
   }
-  Object.assign(BlogIndexRoute.options, { getParentRoute: () => BlogRoute, id: "/", path: "/" })
-  Object.assign(BlogPostRoute.options, { getParentRoute: () => BlogRoute, id: "/$", path: "/$" })
+  Object.assign(BlogIndexRoute.options, {
+    getParentRoute: () => BlogRoute,
+    id: "/",
+    loader: (): typeof BlogIndexRoute.types.loaderData => ({ locale: "en-US", metadata: pagesBlogMessages.metadata, posts }),
+    path: "/",
+  })
+  Object.assign(BlogPostRoute.options, {
+    getParentRoute: () => BlogRoute,
+    id: "/$",
+    loader: (): typeof BlogPostRoute.types.loaderData => ({ locale: "en-US", post }),
+    path: "/$",
+  })
   return createRouter({
     context: { queryClient },
     defaultPendingMinMs: 0,
@@ -111,8 +128,8 @@ const createMarketingRouter = (path: string) => {
   })
 }
 
-const renderRoute = async (path: string) => {
-  const router = createMarketingRouter(path)
+const renderRoute = async (path: string, { post = COMPLETE, posts = NOTES }: { post?: BlogPost; posts?: BlogPostSummary[] } = {}) => {
+  const router = createMarketingRouter({ path, post, posts })
   routers.push(router)
   render(
     <QueryClientProvider client={router.options.context.queryClient}>
@@ -150,9 +167,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  if (originalBlogLoader) {
-    BlogPostRoute.options.loader = originalBlogLoader
-  }
   cleanup()
   for (const router of routers) {
     router.options.context.queryClient.clear()
@@ -194,39 +208,34 @@ describe("public route content", () => {
     expect(screen.getByRole("navigation", { name: componentsNavigationMessages.ariaLabel })).toBeVisible()
   })
 
-  it("shows featured notes first, then the newest posts, without drafts", async () => {
+  it("lists the latest notes in the order the server selected them, with their reading time", async () => {
     await renderRoute("/")
-    const notes = screen
-      .getAllByRole("heading", { level: 3 })
-      .filter((heading) => ["Featured", "Recent", "Older", "Complete guide"].includes(heading.textContent))
+    const titles = new Set(NOTES.map((note) => note.title))
+    const notes = screen.getAllByRole("heading", { level: 3 }).filter((heading) => titles.has(heading.textContent))
     expect(notes.map((heading) => heading.textContent)).toEqual(["Featured", "Recent", "Older"])
-    expect(screen.queryByRole("link", { name: "Draft" })).not.toBeInTheDocument()
     expect(screen.getAllByText(/5 min read/u).length).toBeGreaterThan(0)
   })
 
   it("renders the empty blog state with its stylesheet", async () => {
-    vi.spyOn(blogSource, "getPages").mockReturnValueOnce([])
-    const router = await renderRoute("/blog")
+    const router = await renderRoute("/blog", { posts: [] })
     expect(screen.getByRole("heading", { name: pagesBlogMessages.index.title })).toBeVisible()
     expect(screen.getByText(pagesBlogMessages.index.empty)).toBeVisible()
     expect(router.state.matches.some((match) => match.links?.some((link) => link?.rel === "stylesheet") === true)).toBe(true)
   })
 
-  it("orders published blog posts by date and hides drafts", async () => {
+  it("lists blog posts in the order the server returned them", async () => {
     await renderRoute("/blog")
-    const titles = new Set(["Recent", "Older", "Complete guide", "Featured", "Minimal", "Draft"])
+    const titles = new Set(NOTES.map((note) => note.title))
     expect(
       screen
         .getAllByRole("heading", { level: 2 })
         .map((heading) => heading.textContent)
         .filter((title) => titles.has(title)),
-    ).toEqual(["Recent", "Older", "Complete guide", "Featured", "Minimal"])
-    expect(screen.queryByRole("link", { name: "Draft" })).not.toBeInTheDocument()
+    ).toEqual(["Featured", "Recent", "Older"])
   })
 
-  it("preloads article content and renders metadata, hero image, structured data and table of contents", async () => {
-    const router = await renderRoute("/blog/complete")
-    expect(blogContent.preload).toHaveBeenCalledWith("complete.en-US.mdx")
+  it("renders an article with its metadata, hero image, structured data and table of contents", async () => {
+    await renderRoute("/blog/complete")
     expect(screen.getByRole("heading", { name: "Complete guide" })).toBeVisible()
     expect(screen.getByText("Article content")).toBeVisible()
     expect(screen.getByText("Article summary")).toBeVisible()
@@ -236,41 +245,12 @@ describe("public route content", () => {
     expect(screen.getAllByRole("link", { name: "Ship it today" }).every((link) => link.getAttribute("href") === "#ship")).toBe(true)
     expect(document.querySelector('img[src="/article.webp"]')).toHaveAttribute("fetchpriority", "high")
     expect(document.querySelector('script[type="application/ld+json"]')).toHaveTextContent("FAQPage")
-    expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
-      post: { summary: "Article summary", title: "Complete guide", url: "/blog/complete" },
-    })
   })
 
   it("renders a minimal article without empty summary, author, image or tags", async () => {
-    const router = await renderRoute("/blog/minimal")
+    await renderRoute("/blog/minimal", { post: MINIMAL })
     expect(screen.getByRole("heading", { name: "Minimal" })).toBeVisible()
     expect(screen.queryByText("Article summary")).not.toBeInTheDocument()
     expect(document.querySelector('img[src=""]')).not.toBeInTheDocument()
-    expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ post: { summary: undefined } })
   })
-
-  it("keeps the blog index as the canonical page of a missing article", async () => {
-    const router = await renderRoute("/blog/missing")
-    const article = router.state.matches.find((match) => match.routeId === BlogPostRoute.id)
-    expect(article?.meta).toContainEqual({ content: `${APP_URL}${ROUTES.BLOG}`, property: "og:url" })
-    expect(article?.meta).toContainEqual({ title: APP_NAME })
-  })
-
-  it.each<{ _splat?: string }>([{ _splat: "draft" }, { _splat: "missing" }, { _splat: "" }, {}])(
-    "treats params %j as a missing article",
-    async (params) => {
-      const { loader } = BlogPostRoute.options
-      if (typeof loader !== "function") {
-        throw new TypeError("Blog posts must have a loader")
-      }
-      const capture = vi.fn(loader)
-      BlogPostRoute.options.loader = capture
-      await renderRoute("/blog/complete")
-      const input = capture.mock.calls[0]?.[0]
-      if (!input) {
-        throw new Error("Blog loader was not called")
-      }
-      await expect(loader({ ...input, params })).rejects.toMatchObject({ isNotFound: true })
-    },
-  )
 })

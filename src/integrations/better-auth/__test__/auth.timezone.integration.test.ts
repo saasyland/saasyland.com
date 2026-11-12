@@ -22,7 +22,7 @@ const postAuth = (path: string, body: Record<string, unknown>, cookie = ""): Pro
   auth.handler(
     new Request(createTestRequestUrl(`${ROUTES.API_AUTH_BASE}${path}`), {
       body: JSON.stringify(body),
-      headers: { "content-type": "application/json", cookie, [IP_ADDRESS_HEADER]: "203.0.113.10", origin: TEST_APP_URL },
+      headers: { [IP_ADDRESS_HEADER]: "203.0.113.10", "content-type": "application/json", cookie, origin: TEST_APP_URL },
       method: "POST",
     }),
   )

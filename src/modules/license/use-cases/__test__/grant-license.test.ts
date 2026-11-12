@@ -13,7 +13,7 @@ const USER_ID = "grant-owner"
 const purchase = {
   polarCustomerId: "cus_1",
   polarOrderId: "ord_1",
-  purchaseCreatedAt: POLAR_ORDER.createdAt,
+  purchaseCreatedAt: new Date(POLAR_ORDER.created_at),
   tier: "complete",
   userId: USER_ID,
 } as const
@@ -42,7 +42,11 @@ describe("grant-license", () => {
     await db.insert(license).values({ id: "legacy", polarCustomerId: "cus_1", polarOrderId: "ord_1", tier: "complete", userId: USER_ID })
     const fetchOrder = vi.spyOn(polar.orders, "get").mockResolvedValue(POLAR_ORDER)
     await grantLicense({ ...purchase, polarOrderId: "older", purchaseCreatedAt: new Date("2026-09-23T10:00:00Z"), tier: "core" })
-    expect(fetchOrder).toHaveBeenCalledWith({ id: "ord_1" })
-    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "ord_1", purchaseCreatedAt: POLAR_ORDER.createdAt, tier: "complete" })
+    expect(fetchOrder).toHaveBeenCalledWith("ord_1")
+    expect(await getLicense(USER_ID)).toMatchObject({
+      polarOrderId: "ord_1",
+      purchaseCreatedAt: new Date(POLAR_ORDER.created_at),
+      tier: "complete",
+    })
   })
 })

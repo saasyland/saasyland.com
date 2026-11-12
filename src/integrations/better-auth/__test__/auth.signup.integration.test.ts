@@ -141,9 +141,9 @@ describe("production signup verification delivery", () => {
         const request = new Request(`${ORIGIN}${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_UP_EMAIL}`, {
           body,
           headers: {
+            [IP_ADDRESS_HEADER]: "203.0.113.10",
             "content-type": contentType,
             cookie: `${I18N.COOKIE_NAME}=de-DE`,
-            [IP_ADDRESS_HEADER]: "203.0.113.10",
             origin: ORIGIN,
           },
           method: "POST",

@@ -7,6 +7,7 @@ const projectRoot = import.meta.dirname
 
 const UNLISTED_ROUTES = [ROUTES.ADMIN, ROUTES.API, ROUTES.APP, ROUTES.AUTH, ROUTES.NEWSLETTER]
 const LOCALE_PREFIX = /^\/[a-z]{2}-[A-Z]{2}(?=\/|$)/u
+const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 
 const shouldPrerender = ({ path }: { path: string }): boolean => {
   if (path.includes("?") || path.includes("#")) {
@@ -237,6 +238,7 @@ const tooling = {
 
 export default defineConfig(({ mode }) => ({
   ...tooling,
+  build: { rolldownOptions: { external: UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS } },
   plugins:
     lazyPlugins(async (): Promise<PluginOption[]> => {
       const { cloudflare } = await import("@cloudflare/vite-plugin")
@@ -274,12 +276,11 @@ export default defineConfig(({ mode }) => ({
         viteReact(),
       ]
     }) ?? [],
-  resolve: { noExternal: ["fumadocs-core", "fumadocs-ui"], tsconfigPaths: true },
+  resolve: { noExternal: ["fumadocs-core", "@fumadocs/base-ui"], tsconfigPaths: true },
   server: { port: 3000, strictPort: true, watch: { ignored: ["**/coverage/**"] } },
   staged: { "*": "vp check --fix" },
   test: {
     alias: [
-      { find: "vitest", replacement: resolve(projectRoot, "node_modules/vite-plus/dist/test/index.js") },
       { find: "cloudflare:workers", replacement: resolve(projectRoot, "src/platform/testing/mocks/cloudflare.ts") },
       {
         find: /^@wrksz\/themes(?:\/client(?:\/extended-provider)?)?$/u,

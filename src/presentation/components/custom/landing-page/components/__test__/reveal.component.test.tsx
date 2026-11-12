@@ -115,7 +115,7 @@ describe("reveal", () => {
       `[--rise-distance:${distance}]`,
       "mt-14",
     )
-    expect(element).toHaveStyle({ animationDelay: "160ms", animationFillMode: "backwards" })
+    expect(element).toHaveStyle({ animationDelay: "0.16s", animationFillMode: "backwards" })
     expect(unobserve).toHaveBeenCalledExactlyOnceWith(element)
 
     intersect(element, { isIntersecting: false, top: 1000 })
@@ -187,7 +187,7 @@ describe("reveal lifecycle", () => {
     expect(screen.getByText("Updated content")).toBe(element)
     expect(element).toHaveAttribute("data-reveal", "hidden")
     expect(element).toHaveClass("mt-14", "[--rise-duration:700ms]")
-    expect(element).toHaveStyle({ animationDelay: "160ms" })
+    expect(element).toHaveStyle({ animationDelay: "0.16s" })
     expect(observe).toHaveBeenCalledOnce()
     expect(unobserve).not.toHaveBeenCalled()
 

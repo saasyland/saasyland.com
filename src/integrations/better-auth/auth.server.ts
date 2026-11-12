@@ -16,7 +16,7 @@ import { DEFAULT_ROLE_CODE, ROLES, ROLE_CODES, ac } from "~/src/integrations/bet
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
-import { polar } from "~/src/integrations/polar/polar.config"
+import { polarCore } from "~/src/integrations/polar/polar.config"
 import { POLAR_CHECKOUT_PRODUCTS } from "~/src/integrations/polar/polar.constants"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { extractLocaleFromCallbackURL, extractLocaleFromPath } from "~/src/integrations/use-intl/i18n.paths"
@@ -94,7 +94,7 @@ export const auth = betterAuth({
   plugins: [
     admin({ ac, adminRoles: [ROLE_CODES.ADMIN], defaultRole: DEFAULT_ROLE_CODE, roles: ROLES }),
     polarPlugin({
-      client: polar,
+      client: polarCore,
       use: [
         checkout({
           authenticatedUsersOnly: true,

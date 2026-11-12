@@ -208,12 +208,12 @@ describe("license page", () => {
       queryClient.setQueryData(licenseActivationsQuery.queryKey, {
         activations: [
           {
-            createdAt: new Date("2026-09-08T10:00:00Z"),
+            created_at: "2026-09-08T10:00:00.000Z",
             id: "activation-1",
             label: "Development laptop",
-            licenseKeyId: "polar-license-1",
+            license_key_id: "polar-license-1",
             meta: {},
-            modifiedAt: JSON_NULL,
+            modified_at: JSON_NULL,
           },
         ],
         limitActivations: 2,
@@ -249,12 +249,12 @@ describe("license page", () => {
       queryClient.setQueryData(licenseActivationsQuery.queryKey, {
         activations: [
           {
-            createdAt: new Date("2026-09-08T10:00:00Z"),
+            created_at: "2026-09-08T10:00:00.000Z",
             id: "activation-2",
             label: "Workstation",
-            licenseKeyId: "polar-license-1",
+            license_key_id: "polar-license-1",
             meta: {},
-            modifiedAt: JSON_NULL,
+            modified_at: JSON_NULL,
           },
         ],
         limitActivations: JSON_NULL,

@@ -1,9 +1,9 @@
 import type { ComponentProps } from "react"
 
+import type { DocsLayout } from "@fumadocs/base-ui/layouts/docs"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
-import type { DocsLayout } from "fumadocs-ui/layouts/docs"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
@@ -23,12 +23,11 @@ import localeSwitcherMessages from "~/messages/en-US/components.custom.locale-sw
 import { APP_NAME } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
 
-const { getPageTree, serializePageTree } = vi.hoisted(() => ({
-  getPageTree: vi.fn(() => ({ children: [], name: "Documentation" })),
-  serializePageTree: vi.fn<() => Promise<{ $fumadocs_loader: "page-tree"; data: { children: never[]; name: string } }>>(),
-}))
+const LAYOUT_DATA: typeof DocsRoute.types.loaderData = {
+  tree: { $fumadocs_loader: "page-tree", data: { children: [], name: "Documentation" } },
+}
 
-vi.mock("~/src/integrations/fumadocs/fumadocs.source", () => ({ source: { getPageTree, serializePageTree } }))
+vi.mock("~/src/integrations/fumadocs/fumadocs.source", () => ({ source: {} }))
 vi.mock("~/src/integrations/fumadocs/fumadocs.docs", async (original) => ({
   ...(await original<typeof docsIntegration>()),
   loadDocsPage: vi.fn(),
@@ -36,7 +35,7 @@ vi.mock("~/src/integrations/fumadocs/fumadocs.docs", async (original) => ({
 vi.mock("~/src/presentation/components/custom/docs-content", () => ({
   docsContent: { useContent: vi.fn(() => <p>Documentation content</p>) },
 }))
-vi.mock(import("fumadocs-ui/layouts/docs"), async (original) => ({
+vi.mock(import("@fumadocs/base-ui/layouts/docs"), async (original) => ({
   ...(await original()),
   DocsLayout: ({ children, nav, sidebar, links, themeSwitch }: ComponentProps<typeof DocsLayout>) => (
     <div>
@@ -52,7 +51,6 @@ vi.mock(import("fumadocs-ui/layouts/docs"), async (original) => ({
 }))
 
 beforeEach(() => {
-  serializePageTree.mockResolvedValue({ $fumadocs_loader: "page-tree", data: { children: [], name: "Documentation" } })
   vi.mocked(loadDocsPage).mockImplementation((slug = "") =>
     Promise.resolve({
       description: "Documentation description",
@@ -87,7 +85,7 @@ it.each([
 ])("loads documentation and its metadata at $href", async ({ href, slug, path, title }) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
-  Object.assign(DocsRoute.options, { getParentRoute: () => root, id: "/docs", path: "/docs" })
+  Object.assign(DocsRoute.options, { getParentRoute: () => root, id: "/docs", loader: () => LAYOUT_DATA, path: "/docs" })
   Object.assign(DocsIndexRoute.options, { getParentRoute: () => DocsRoute, id: "/", path: "/" })
   Object.assign(DocsPageRoute.options, { getParentRoute: () => DocsRoute, id: "/$", path: "/$" })
   const router = createRouter({
@@ -128,10 +126,9 @@ it.each([
 })
 
 it("shows the docs-shaped skeleton while the documentation layout loads", async () => {
-  serializePageTree.mockReturnValue(new Promise(() => {}))
   const queryClient = new QueryClient()
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
-  Object.assign(DocsRoute.options, { getParentRoute: () => root, id: "/docs", path: "/docs" })
+  Object.assign(DocsRoute.options, { getParentRoute: () => root, id: "/docs", loader: () => new Promise(() => {}), path: "/docs" })
   Object.assign(DocsIndexRoute.options, { getParentRoute: () => DocsRoute, id: "/", path: "/" })
   const router = createRouter({
     context: { queryClient },
@@ -147,6 +144,5 @@ it("shows the docs-shaped skeleton while the documentation layout loads", async 
   await waitFor(() => {
     expect(container.querySelector('[aria-busy="true"]')).toBeInTheDocument()
   })
-  expect(getPageTree).toHaveBeenCalledWith("en-US")
   expect(screen.queryByText("Documentation content")).not.toBeInTheDocument()
 })

@@ -61,7 +61,7 @@ export const AppSidebar = (): JSX.Element => {
                 return (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
-                      aria-current={isActive ? "page" : undefined}
+                      {...(isActive && { "aria-current": "page" })}
                       className="h-9 gap-2.5 rounded-md px-2 text-body-sm data-active:font-medium"
                       href={item.url}
                       isActive={isActive}

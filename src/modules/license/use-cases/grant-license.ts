@@ -15,10 +15,10 @@ const backfillPurchaseDate = async (userId: string): Promise<void> => {
   if (current?.purchaseCreatedAt.getTime() !== 0 || current.polarOrderId === null) {
     return
   }
-  const order = await polar.orders.get({ id: current.polarOrderId })
+  const order = await polar.orders.get(current.polarOrderId)
   await db
     .update(license)
-    .set({ purchaseCreatedAt: order.createdAt })
+    .set({ purchaseCreatedAt: new Date(order.created_at) })
     .where(
       and(
         eq(license.userId, userId),

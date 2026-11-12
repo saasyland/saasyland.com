@@ -16,7 +16,7 @@ const input = { polarLicenseKeyId: "lk_1", polarOrderId: "ord_1", userId: USER_I
 const purchase = {
   polarCustomerId: "cus_1",
   polarOrderId: "ord_1",
-  purchaseCreatedAt: POLAR_ORDER.createdAt,
+  purchaseCreatedAt: new Date(POLAR_ORDER.created_at),
   tier: "core",
   userId: USER_ID,
 } as const
@@ -37,14 +37,14 @@ describe("attach-license-key", () => {
 
   it("waits for a newer order instead of attaching its key to the old purchase", async () => {
     await grantLicense(purchase)
-    vi.spyOn(polar.orders, "get").mockResolvedValue({ ...POLAR_ORDER, createdAt: new Date("2026-09-25T10:00:00Z"), id: "newer" })
+    vi.spyOn(polar.orders, "get").mockResolvedValue({ ...POLAR_ORDER, created_at: "2026-09-25T10:00:00.000Z", id: "newer" })
     await expect(attachLicenseKey({ ...input, polarOrderId: "newer" })).rejects.toThrow("The license purchase has not been recorded yet")
     expect(await getLicense(USER_ID)).toMatchObject({ key: null, polarOrderId: "ord_1" })
   })
 
   it("ignores older grants and grants for a revoked purchase", async () => {
     await grantLicense(purchase)
-    vi.spyOn(polar.orders, "get").mockResolvedValue({ ...POLAR_ORDER, createdAt: new Date("2026-09-23T10:00:00Z"), id: "older" })
+    vi.spyOn(polar.orders, "get").mockResolvedValue({ ...POLAR_ORDER, created_at: "2026-09-23T10:00:00.000Z", id: "older" })
     await attachLicenseKey({ ...input, polarOrderId: "older" })
     await revokeLicense({ polarOrderId: "ord_1", userId: USER_ID })
     await attachLicenseKey(input)

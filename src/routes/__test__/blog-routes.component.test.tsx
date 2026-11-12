@@ -6,9 +6,9 @@ import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { type BlogPostSummary, getPublishedBlogPosts } from "~/src/integrations/fumadocs/fumadocs.source"
+import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
-import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizeUrl, localizeUrl } from "~/src/integrations/use-intl/i18n.utils"
 
 import { Route as BlogRoute } from "~/src/routes/blog"
@@ -20,63 +20,82 @@ import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
 
+type BlogPost = (typeof BlogPostRoute.types.loaderData)["post"]
+
 const SHARED_TITLE = "React & SaaS / launch"
 
-const { blog } = vi.hoisted(() => {
-  const base = {
-    authorName: "Ada",
-    date: "2026-09-01",
-    published: true,
-    structuredData: { contents: [{ content: "word ".repeat(10), heading: undefined }], headings: [] },
-    tags: [],
-    toc: [],
-  }
-  return {
-    blog: [
-      {
-        ...base,
-        description: "Article summary",
-        info: { fullPath: "/content/blog/guide.en-US.mdx", path: "guide.en-US.mdx" },
-        structuredData: { contents: [{ content: "word ".repeat(1100), heading: undefined }], headings: [] },
-        tags: ["React", "SaaS"],
-        title: "React & SaaS / launch",
-        toc: [
-          { depth: 2, title: "Start", url: "#start" },
-          { depth: 3, title: "Detail", url: "#detail" },
-        ],
-      },
-      {
-        ...base,
-        date: "2024-01-01",
-        info: { fullPath: "/content/blog/minimal.en-US.mdx", path: "minimal.en-US.mdx" },
-        title: "Minimal",
-      },
-      {
-        ...base,
-        info: { fullPath: "/content/blog/guide.pl-PL.mdx", path: "guide.pl-PL.mdx" },
-        title: "Przewodnik",
-      },
-    ],
-  }
-})
+const GUIDE: BlogPost = {
+  authorName: "Ada",
+  date: "2026-09-01",
+  faq: undefined,
+  featured: false,
+  image: undefined,
+  path: "guide.en-US.mdx",
+  readingTimeMinutes: 5,
+  summary: "Article summary",
+  tags: ["React", "SaaS"],
+  title: SHARED_TITLE,
+  toc: [
+    { depth: 2, title: "Start", url: "#start" },
+    { depth: 3, title: "Detail", url: "#detail" },
+  ],
+  updated: undefined,
+  url: "/blog/guide",
+}
 
-vi.mock("collections/server", () => ({ blog, docs: { toFumadocsSource: () => ({ files: [] }) } }))
-vi.mock(import("~/src/integrations/fumadocs/fumadocs.source"), async (original) => {
-  const actual = await original()
-  return { ...actual, getPublishedBlogPosts: vi.fn(actual.getPublishedBlogPosts) }
-})
+const POLISH_GUIDE: BlogPost = {
+  ...GUIDE,
+  path: "guide.pl-PL.mdx",
+  summary: undefined,
+  tags: [],
+  title: "Przewodnik",
+  toc: [],
+  url: "/pl-PL/blog/guide",
+}
+
+const MINIMAL: BlogPostSummary = {
+  date: "2024-01-01",
+  featured: false,
+  readingTimeMinutes: 1,
+  summary: undefined,
+  tags: [],
+  title: "Minimal",
+  url: "/blog/minimal",
+}
+
+vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
-  blogContent: { preload: vi.fn(() => Promise.resolve()), useContent: vi.fn(() => <p>Article content</p>) },
+  blogContent: { useContent: vi.fn(() => <p>Article content</p>) },
 }))
 
 const routers: ReturnType<typeof createBlogRouter>[] = []
 
-const createBlogRouter = (path: string) => {
+const createBlogRouter = ({
+  locale,
+  path,
+  post,
+  posts,
+}: {
+  locale: SupportedLocale
+  path: string
+  post: BlogPost
+  posts: BlogPostSummary[]
+}) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
   Object.assign(BlogRoute.options, { getParentRoute: () => root, id: "/blog", path: "/blog" })
-  Object.assign(BlogIndexRoute.options, { getParentRoute: () => BlogRoute, id: "/", path: "/" })
-  Object.assign(BlogPostRoute.options, { getParentRoute: () => BlogRoute, id: "/$", path: "/$" })
+  Object.assign(BlogIndexRoute.options, {
+    getParentRoute: () => BlogRoute,
+    id: "/",
+    loader: (): typeof BlogIndexRoute.types.loaderData => ({ locale, metadata: pagesBlogMessages.metadata, posts }),
+    path: "/",
+  })
+  Object.assign(BlogPostRoute.options, {
+    getParentRoute: () => BlogRoute,
+    id: "/$",
+    loader: (): typeof BlogPostRoute.types.loaderData => ({ locale, post }),
+    path: "/$",
+  })
   return createRouter({
     context: { queryClient },
     defaultPendingMinMs: 0,
@@ -86,9 +105,19 @@ const createBlogRouter = (path: string) => {
   })
 }
 
-const renderBlog = async ({ locale, path }: { locale: SupportedLocale; path: string }) => {
+const renderBlog = async ({
+  locale,
+  path,
+  post = GUIDE,
+  posts = [],
+}: {
+  locale: SupportedLocale
+  path: string
+  post?: BlogPost
+  posts?: BlogPostSummary[]
+}) => {
   vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000${path}`))
-  const router = createBlogRouter(path)
+  const router = createBlogRouter({ locale, path, post, posts })
   routers.push(router)
   render(
     <QueryClientProvider client={router.options.context.queryClient}>
@@ -134,32 +163,13 @@ afterEach(() => {
 
 describe("blog routes", () => {
   it("keeps the blog navigation current and localizes the pricing and docs links", async () => {
-    await renderBlog({ locale: "pl-PL", path: "/pl-PL/blog/guide" })
+    await renderBlog({ locale: "pl-PL", path: "/pl-PL/blog/guide", post: POLISH_GUIDE })
     const nav = within(screen.getByRole("navigation", { name: plPagesBlogMessages.metadata.title }))
     expect(nav.getByRole("link", { name: plPagesBlogMessages.nav.blog })).toHaveAttribute("aria-current", "page")
     expect(nav.getByRole("link", { name: plPagesBlogMessages.nav.docs })).toHaveAttribute("href", "/pl-PL/docs")
     expect(nav.getByRole("link", { name: plPagesBlogMessages.nav.getStarted })).toHaveAttribute("href", "/pl-PL#pricing")
     expect(screen.getByRole("link", { name: plPagesBlogMessages.post.cta.primary })).toHaveAttribute("href", "/pl-PL#pricing")
     expect(screen.getByRole("link", { name: plPagesBlogMessages.post.cta.secondary })).toHaveAttribute("href", "/pl-PL/docs")
-  })
-
-  it("loads the post in the page's locale when the server function request carries another locale's cookie", async () => {
-    const { loader } = BlogPostRoute.options
-    if (typeof loader !== "function") {
-      throw new TypeError("Blog posts must have a loader")
-    }
-    const capture = vi.fn(loader)
-    BlogPostRoute.options.loader = capture
-    await renderBlog({ locale: "pl-PL", path: "/pl-PL/blog/guide" })
-    BlogPostRoute.options.loader = loader
-    const input = capture.mock.calls[0]?.[0]
-    if (!input) {
-      throw new Error("Blog loader was not called")
-    }
-    vi.mocked(getRequest)
-      .mockReturnValueOnce(new Request("http://127.0.0.1:3000/pl-PL/blog/guide"))
-      .mockReturnValue(new Request("http://127.0.0.1:3000/_serverFn/blog-post", { headers: { cookie: `${I18N.COOKIE_NAME}=en-US` } }))
-    await expect(loader(input)).resolves.toMatchObject({ locale: "pl-PL", post: { title: "Przewodnik" } })
   })
 
   it("encodes sharing targets and copies the canonical URL", async () => {
@@ -185,7 +195,7 @@ describe("blog routes", () => {
   })
 
   it("renders summaries, tags and reading times without empty placeholders", async () => {
-    await renderBlog({ locale: "en-US", path: "/blog" })
+    await renderBlog({ locale: "en-US", path: "/blog", posts: [GUIDE, MINIMAL] })
     const ledger = within(section(screen.getByRole("heading", { level: 1, name: pagesBlogMessages.index.title }), "section"))
     expect(ledger.getByText("Article summary")).toBeVisible()
     expect(ledger.getByText("React · SaaS")).toBeVisible()
@@ -207,10 +217,9 @@ describe("blog routes", () => {
       title: "Server-provided reading time",
       url: `/${locale}/blog/post`,
     }
-    vi.mocked(getPublishedBlogPosts).mockReturnValueOnce([post])
     const browserWords = new Intl.Segmenter(locale, { granularity: "word" }).segment("one")
     const segment = vi.spyOn(Intl.Segmenter.prototype, "segment").mockReturnValue(browserWords)
-    await renderBlog({ locale, path: `/${locale}/blog` })
+    await renderBlog({ locale, path: `/${locale}/blog`, posts: [post] })
     expect(screen.getByText(label)).toBeVisible()
     expect(segment).not.toHaveBeenCalled()
   })

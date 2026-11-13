@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { z as zod } from "zod"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { RATE_LIMITS, authorized, withRateLimit, withRequest } from "~/src/integrations/better-auth/auth.middleware"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { getCurrentSession } from "~/src/integrations/better-auth/auth.session"
@@ -37,7 +38,7 @@ describe("server function request middleware", () => {
       .handler(() => {
         throw new AppError(ERROR_CODES.FORBIDDEN, "details")
       })
-    await expect(action()).rejects.toMatchObject({ code: ERROR_CODES.FORBIDDEN, message: "FORBIDDEN" })
+    await expect(action()).rejects.toMatchObject({ code: ERROR_CODES.FORBIDDEN, message: ERROR_CODES.FORBIDDEN })
   })
   it("maps Better Auth errors to their translation key", async () => {
     const action = createServerFn()
@@ -54,7 +55,7 @@ describe("server function request middleware", () => {
       .handler(() => {
         throw new Error("private database details")
       })
-    await expect(action()).rejects.toThrow("INTERNAL_ERROR")
+    await expect(action()).rejects.toThrow(ERROR_CODES.INTERNAL_ERROR)
   })
   it("masks asynchronous failures and logs the original error only on the server", async () => {
     const error = new Error("private database details")
@@ -63,7 +64,7 @@ describe("server function request middleware", () => {
       .middleware([withRequest])
       .handler(() => Promise.reject(error))
 
-    await expect(action()).rejects.toMatchObject({ code: ERROR_CODES.INTERNAL_ERROR, message: "INTERNAL_ERROR" })
+    await expect(action()).rejects.toMatchObject({ code: ERROR_CODES.INTERNAL_ERROR, message: ERROR_CODES.INTERNAL_ERROR })
     expect(log).toHaveBeenCalledExactlyOnceWith("Server function failed", error)
   })
   it("preserves request headers through the middleware", async () => {
@@ -82,14 +83,14 @@ describe("server function request middleware", () => {
       .middleware([withRequest])
       .validator((input: zod.input<typeof schema>) => schema.parse(input))
       .handler(handler)
-    await expect(action({ data: { email: "invalid" } })).rejects.toThrow("VALIDATION")
+    await expect(action({ data: { email: "invalid" } })).rejects.toThrow(ERROR_CODES.VALIDATION)
     expect(handler).not.toHaveBeenCalled()
   })
 })
 describe("authorization middleware", () => {
   it("shares one session read across the route and multiple permission checks in the same request", async () => {
     vi.mocked(getRequest).mockReturnValue(new Request("http://localhost/admin"))
-    const session = createAuthSessionFixture({ role: "admin" })
+    const session = createAuthSessionFixture({ role: ROLE_CODES.ADMIN })
     const getSession = vi.spyOn(auth.api, "getSession").mockResolvedValue(session)
     await getCurrentSession()
     const action = createServerFn()
@@ -105,18 +106,18 @@ describe("authorization middleware", () => {
       createServerFn()
         .middleware([authorized()])
         .handler(() => "secret")(),
-    ).rejects.toThrow("UNAUTHORIZED")
+    ).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   })
   it("rejects roles without permission", async () => {
-    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "customer" }))
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER }))
     await expect(
       createServerFn()
         .middleware([authorized({ user: ["list"] })])
         .handler(() => "secret")(),
-    ).rejects.toThrow("FORBIDDEN")
+    ).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
   it("provides the authenticated session to permitted handlers", async () => {
-    const session = createAuthSessionFixture({ role: "admin" })
+    const session = createAuthSessionFixture({ role: ROLE_CODES.ADMIN })
     vi.spyOn(auth.api, "getSession").mockResolvedValue(session)
     const action = createServerFn()
       .middleware([authorized({ user: ["list"] })])
@@ -124,7 +125,7 @@ describe("authorization middleware", () => {
     await expect(action()).resolves.toBe(session.user.id)
   })
   it("only requires a session when permission is omitted", async () => {
-    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "customer" }))
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER }))
     await expect(
       createServerFn()
         .middleware([authorized()])
@@ -148,7 +149,7 @@ describe("rate limiting middleware", () => {
     for (let count = 0; count < RATE_LIMITS.SENSITIVE.max; count++) {
       await action()
     }
-    await expect(action()).rejects.toThrow("TOO_MANY_REQUESTS")
+    await expect(action()).rejects.toThrow(ERROR_CODES.TOO_MANY_REQUESTS)
   })
   it("counts every address in one IPv6 /64 against the same limit", async () => {
     const action = createServerFn()
@@ -161,7 +162,7 @@ describe("rate limiting middleware", () => {
       await action()
     }
     vi.mocked(getRequest).mockReturnValue(new Request("http://localhost/", { headers: { [IP_ADDRESS_HEADER]: "2001:db8:1:2:ffff::1" } }))
-    await expect(action()).rejects.toThrow("TOO_MANY_REQUESTS")
+    await expect(action()).rejects.toThrow(ERROR_CODES.TOO_MANY_REQUESTS)
   })
   it("rejects requests when its storage is unavailable", async () => {
     vi.spyOn(db, "batch").mockRejectedValueOnce(new Error("offline"))
@@ -169,7 +170,7 @@ describe("rate limiting middleware", () => {
     const action = createServerFn()
       .middleware([withRateLimit("test", RATE_LIMITS.SENSITIVE)])
       .handler(() => "done")
-    await expect(action()).rejects.toThrow("TOO_MANY_REQUESTS")
+    await expect(action()).rejects.toThrow(ERROR_CODES.TOO_MANY_REQUESTS)
   })
 })
 
@@ -179,11 +180,11 @@ describe("RPC input boundaries", () => {
     { name: "getProduct", readRecord: () => getProduct({ data: { productId: "" } }) },
     { name: "getCategory", readRecord: () => getCategory({ data: { categoryId: "" } }) },
   ])("$name rejects an invalid record identifier before storage access", async ({ readRecord }) => {
-    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "admin" }))
-    await expect(readRecord()).rejects.toMatchObject({ code: "VALIDATION" })
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))
+    await expect(readRecord()).rejects.toMatchObject({ code: ERROR_CODES.VALIDATION })
   })
   it("returns a localized validation code for invalid page sizes", async () => {
-    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "admin" }))
-    await expect(getUsers({ data: { pageSize: 101 } })).rejects.toMatchObject({ code: "VALIDATION" })
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))
+    await expect(getUsers({ data: { pageSize: 101 } })).rejects.toMatchObject({ code: ERROR_CODES.VALIDATION })
   })
 })

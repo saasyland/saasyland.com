@@ -21,6 +21,7 @@ const PUBLIC_PAGES = [
   "/terms",
   "/refunds",
   "/licence",
+  "/affiliates",
   "/auth/sign-in",
   "/auth/sign-up",
   "/auth/forgot-password",

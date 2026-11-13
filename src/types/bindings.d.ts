@@ -4,6 +4,7 @@ declare namespace Cloudflare {
     CACHE: KVNamespace
     MEDIA: R2Bucket
     ASSETS: Fetcher
+    AFFONSO_PROGRAM_ID?: string
     AUTH_SECRET: string
     AUTH_GITHUB_CLIENT_ID: string
     AUTH_GITHUB_CLIENT_SECRET: string

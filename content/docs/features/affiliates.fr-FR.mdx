@@ -1,0 +1,48 @@
+---
+title: "Programme d’affiliation"
+description: "Liens de recommandation suivis par Affonso, crédités sur la commande Polar, avec des conditions publiques sur /affiliates."
+---
+
+Les affiliés touchent une commission sur les ventes qu’ils apportent. SaaSy Land ne compte pas les recommandations lui-même : [Affonso](https://affonso.io) enregistre les clics, reçoit les commandes et les remboursements de Polar, calcule les commissions et paie les affiliés. Aucun chiffre ne reste ainsi entre les mains du vendeur, et c’est ce qui rend le programme crédible aux yeux des affiliés.
+
+## Le parcours d’une recommandation
+
+1. Un affilié partage n’importe quelle page avec un paramètre de recommandation, par exemple `/?via=jane`. Les paramètres lus par Affonso sont listés dans `AFFONSO.REFERRAL_PARAMS` (`src/integrations/affonso/affonso.constants.ts`) : `affonso`, `atp`, `aff`, `via` et `ref`.
+2. `AffiliateReferral` (`src/presentation/components/custom/affiliate-referral.tsx`), rendu une seule fois dans la route racine, vérifie l’URL après l’hydratation. Ce n’est que lorsque l’un de ces paramètres est présent qu’il demande au serveur l’identifiant du programme (`getAffonsoProgramId`, `src/integrations/affonso/affonso.program.ts`) et rend le script d’Affonso avec `data-cookie_duration` réglé sur `AFFILIATE_TERMS.COOKIE_DAYS`. Les visites sans paramètre de recommandation ne chargent aucun script tiers.
+3. Le script enregistre le clic auprès d’Affonso et stocke l’identifiant du clic dans le cookie propriétaire `affonso_referral`.
+4. Lorsque le visiteur lance un paiement, `startCheckout` passe `affonsoReferralMetadata(headers)` (`src/integrations/affonso/affonso.referral.ts`) comme `metadata` du paiement. Cette fonction lit le cookie, n’accepte que des lettres, des chiffres, `_` et `-`, jusqu’à 128 caractères, et renvoie `{ affonso_referral: <click ID> }`, ou un objet vide en l’absence de recommandation valide.
+5. Polar copie les métadonnées du paiement sur la commande et envoie `order.created` et `order.refunded` à Affonso, qui crédite ou annule la commission.
+
+Le tarif régional s’applique toujours aux acheteurs recommandés : la recommandation circule dans les métadonnées, pas sous forme de remise, et n’entre donc jamais en concurrence avec la remise régionale pour l’unique emplacement de remise de Polar.
+
+## Configuration
+
+Le suivi reste désactivé tant que le Worker n’a pas `AFFONSO_PROGRAM_ID`. Cette valeur est publique (elle apparaît dans la balise script) ; c’est donc une simple variable et non un secret. Ne la définissez que pour l’environnement qui reçoit de vrais paiements :
+
+```jsonc
+"production": {
+  "vars": {
+    "AFFONSO_PROGRAM_ID": "<program ID from Affonso>",
+  },
+}
+```
+
+Ensuite, une seule fois :
+
+1. Créez le programme dans Affonso et connectez Polar avec un jeton d’accès d’organisation sans expiration. Le guide Polar d’Affonso liste les scopes nécessaires.
+2. Dans Polar, ajoutez le point de terminaison de webhook qu’Affonso affiche, au format **Raw**, avec les événements `order.created`, `order.refunded` et `subscription.canceled`.
+3. Dans les paramètres du programme, reprenez les valeurs de la page publique des conditions : la commission, la durée du cookie, la période de rétention et le seuil de versement proviennent de `AFFILIATE_TERMS` (`src/data/affiliates.ts`), si bien que la page et le script concordent toujours.
+4. Testez en ouvrant `/?atp=test`, en vérifiant que le cookie `affonso_referral` est défini et en confirmant que le paiement Polar porte `affonso_referral` dans ses métadonnées.
+
+## Page des conditions
+
+`/affiliates` (`src/routes/_landing.affiliates.tsx`, messages dans `pages.legal.affiliates`) publie les conditions dans chaque locale et est accessible depuis le pied de page. Chaque nombre y est interpolé depuis `AFFILIATE_TERMS` ; le seuil de versement est formaté en devise selon la locale du visiteur. La politique de confidentialité décrit le cookie de recommandation, ce que reçoit Affonso et la base légale.
+
+## Tests
+
+- `affonso.referral.test.ts` : un cookie valide devient des métadonnées ; une valeur absente, mal formée ou trop longue est ignorée.
+- `start-checkout.test.ts` : la recommandation atteint le corps du paiement Polar à côté de la remise régionale.
+- `affiliate-referral.component.test.tsx` : le script n’est rendu qu’avec un paramètre de recommandation et un identifiant de programme configuré.
+- `legal-routes.component.test.tsx` : la page des conditions s’affiche entièrement dans les neuf locales.
+- `e2e/specs/affiliates.spec.ts` : une visite normale ne charge aucun script ; une visite avec `?via=` le charge avec l'ID de programme de l'environnement de test et conserve le cookie de parrainage (le script est remplacé avec `page.route`) ; la page des conditions s'affiche.
+- `e2e/specs/accessibility.spec.ts` : axe analyse `/affiliates` en mode clair et en mode sombre.

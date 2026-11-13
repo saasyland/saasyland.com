@@ -39,6 +39,7 @@ describe("marketing footer", () => {
         "/#faq",
         "/docs",
         "/blog",
+        "/affiliates",
         "/auth/sign-in",
         "/privacy",
         "/terms",

@@ -7,37 +7,47 @@ Um módulo é uma tabela do banco de dados. `src/modules/<table>/` existe apenas
 
 ## Arquivos
 
-| Arquivo                    | Conteúdo                                                                                             |
-| -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `<table>.schema.ts`        | Tabela Drizzle, índices, relações e listas de valores enumerados                                     |
-| `<table>.zod.ts`           | Um schema de entrada por operação e os schemas de `drizzle-zod`, exportados como `<table>ZodSchemas` |
-| `<table>.constants.ts`     | Tuplas de chaves de queries e mutations e limites do módulo                                          |
-| `<table>.types.ts`         | Uma interface com os tipos de linha e o tipo de entrada de cada operação                             |
-| `<table>.utils.ts`         | Funções auxiliares puras opcionais                                                                   |
-| `use-cases/<operation>.ts` | Uma função de servidor por arquivo com suas opções de query ou mutation                              |
-| `__test__/`                | Testes nomeados pelo arquivo de origem, como `category.schema.test.ts` e `category.zod.test.ts`      |
+| Arquivo                    | Conteúdo                                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`        | Tabela Drizzle, índices, relações e as tuplas de valores enumerados montadas a partir das constantes              |
+| `<table>.zod.ts`           | Um schema de entrada por operação e os schemas de `drizzle-zod`, exportados como `<table>ZodSchemas`              |
+| `<table>.constants.ts`     | Valores de domínio nomeados como `CATEGORY_KIND`, limites de colunas e as tuplas de chaves de queries e mutations |
+| `<table>.types.ts`         | Uma interface com os tipos de linha e o tipo de entrada de cada operação                                          |
+| `<table>.utils.ts`         | Funções auxiliares puras opcionais                                                                                |
+| `use-cases/<operation>.ts` | Uma função de servidor por arquivo com suas opções de query ou mutation                                           |
+| `__test__/`                | Testes nomeados pelo arquivo de origem, como `category.schema.test.ts` e `category.zod.test.ts`                   |
 
 ## 1. Defina a tabela
 
-```ts
-import { sql } from "drizzle-orm"
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
+Dê nome aos valores da tabela uma única vez em `category.constants.ts`. O esquema, os esquemas Zod, os casos de uso, os componentes, os testes e os dados e2e os importam de lá em vez de repetir uma string como `"collection"`:
 
-export const CATEGORY_KINDS = ["category", "collection"] as const
+```ts
+export const CATEGORY_NAME_MAX_LENGTH = 255
+
+export const CATEGORY_KIND = {
+  CATEGORY: "category",
+  COLLECTION: "collection",
+} as const
+```
+
+Monte a tabela a partir desses nomes:
+
+```ts
+import { index, sqliteTable, text } from "drizzle-orm/sqlite-core"
+
+import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
+
+import { CATEGORY_KIND, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
+
+export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
 
 export const category = sqliteTable(
   "category",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
-    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default("category"),
-    name: text("name", { length: 255 }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default(CATEGORY_KIND.CATEGORY),
+    name: text("name", { length: CATEGORY_NAME_MAX_LENGTH }).notNull(),
+    ...timestamps(),
   },
   (table) => [index("category_createdAt_idx").on(table.createdAt)],
 )
@@ -45,7 +55,8 @@ export const category = sqliteTable(
 
 - Nomes de coluna usam snake_case; propriedades usam camelCase.
 - IDs são chaves primárias `text` preenchidas com `v7()` de `uuid` no caso de uso de inserção.
-- Datas são `integer(..., { mode: "timestamp_ms" })`; booleanos são `integer(..., { mode: "boolean" })`.
+- `...timestamps()` de `src/integrations/drizzle-orm/drizzle.columns.ts` adiciona `createdAt` e `updatedAt`: timestamps em milissegundos cujo padrão é o momento da inserção; `updatedAt` é renovado a cada atualização. As demais datas são `integer(..., { mode: "timestamp_ms" })`; booleanos são `integer(..., { mode: "boolean" })`.
+- Uma coluna enumerada recebe a tupla montada a partir do objeto de constantes, e seu padrão é uma constante como `CATEGORY_KIND.CATEGORY`, nunca um literal de string.
 - Chaves estrangeiras usam `.references(() => user.id, { onDelete: "cascade" })`, e `relations(...)` declara os joins (veja `session.schema.ts`).
 
 ## 2. Registre o schema
@@ -76,11 +87,10 @@ import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
+import { CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
 import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
-
-export const CATEGORY_NAME_MAX_LENGTH = 255
 
 const createCategory = zod.object({
   kind: zod.enum(CATEGORY_KINDS),

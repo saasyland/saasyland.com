@@ -7,37 +7,47 @@ Un module correspond à une table de la base de données. `src/modules/<table>/`
 
 ## Fichiers
 
-| Fichier                    | Contenu                                                                                           |
-| -------------------------- | ------------------------------------------------------------------------------------------------- |
-| `<table>.schema.ts`        | Table Drizzle, index, relations et listes de valeurs énumérées                                    |
-| `<table>.zod.ts`           | Un schéma d'entrée par opération et les schémas `drizzle-zod`, exportés sous `<table>ZodSchemas`  |
-| `<table>.constants.ts`     | Tuples de clés de queries et de mutations, limites du module                                      |
-| `<table>.types.ts`         | Une interface avec les types de ligne et le type d’entrée de chaque opération                     |
-| `<table>.utils.ts`         | Fonctions utilitaires pures facultatives                                                          |
-| `use-cases/<operation>.ts` | Une fonction serveur par fichier avec ses options de query ou de mutation                         |
-| `__test__/`                | Tests nommés d'après le fichier source, comme `category.schema.test.ts` et `category.zod.test.ts` |
+| Fichier                    | Contenu                                                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`        | Table Drizzle, index, relations et tuples de valeurs énumérées construits à partir des constantes               |
+| `<table>.zod.ts`           | Un schéma d'entrée par opération et les schémas `drizzle-zod`, exportés sous `<table>ZodSchemas`                |
+| `<table>.constants.ts`     | Valeurs métier nommées comme `CATEGORY_KIND`, limites des colonnes et tuples de clés de queries et de mutations |
+| `<table>.types.ts`         | Une interface avec les types de ligne et le type d’entrée de chaque opération                                   |
+| `<table>.utils.ts`         | Fonctions utilitaires pures facultatives                                                                        |
+| `use-cases/<operation>.ts` | Une fonction serveur par fichier avec ses options de query ou de mutation                                       |
+| `__test__/`                | Tests nommés d'après le fichier source, comme `category.schema.test.ts` et `category.zod.test.ts`               |
 
 ## 1. Définir la table
 
-```ts
-import { sql } from "drizzle-orm"
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
+Nommez les valeurs de la table une seule fois dans `category.constants.ts`. Le schéma, les schémas Zod, les cas d'usage, les composants, les tests et les données e2e les importent depuis ce fichier au lieu de répéter une chaîne comme `"collection"` :
 
-export const CATEGORY_KINDS = ["category", "collection"] as const
+```ts
+export const CATEGORY_NAME_MAX_LENGTH = 255
+
+export const CATEGORY_KIND = {
+  CATEGORY: "category",
+  COLLECTION: "collection",
+} as const
+```
+
+Construisez la table à partir de ces noms :
+
+```ts
+import { index, sqliteTable, text } from "drizzle-orm/sqlite-core"
+
+import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
+
+import { CATEGORY_KIND, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
+
+export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
 
 export const category = sqliteTable(
   "category",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
-    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default("category"),
-    name: text("name", { length: 255 }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default(CATEGORY_KIND.CATEGORY),
+    name: text("name", { length: CATEGORY_NAME_MAX_LENGTH }).notNull(),
+    ...timestamps(),
   },
   (table) => [index("category_createdAt_idx").on(table.createdAt)],
 )
@@ -45,7 +55,8 @@ export const category = sqliteTable(
 
 - Les noms de colonnes sont en snake_case, les propriétés en camelCase.
 - Les identifiants sont des clés primaires `text` remplies avec `v7()` de `uuid` dans le cas d'usage d'insertion.
-- Les dates sont des `integer(..., { mode: "timestamp_ms" })` ; les booléens des `integer(..., { mode: "boolean" })`.
+- `...timestamps()` de `src/integrations/drizzle-orm/drizzle.columns.ts` ajoute `createdAt` et `updatedAt` : des horodatages en millisecondes qui valent par défaut l'heure de l'insertion ; `updatedAt` est réhorodaté à chaque mise à jour. Les autres dates sont des `integer(..., { mode: "timestamp_ms" })` ; les booléens des `integer(..., { mode: "boolean" })`.
+- Une colonne énumérée reçoit le tuple construit à partir de l'objet de constantes, et sa valeur par défaut est une constante comme `CATEGORY_KIND.CATEGORY`, jamais une chaîne littérale.
 - Les clés étrangères utilisent `.references(() => user.id, { onDelete: "cascade" })`, et `relations(...)` déclare les jointures (voir `session.schema.ts`).
 
 ## 2. Enregistrer le schéma
@@ -76,11 +87,10 @@ import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
+import { CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
 import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
-
-export const CATEGORY_NAME_MAX_LENGTH = 255
 
 const createCategory = zod.object({
   kind: zod.enum(CATEGORY_KINDS),

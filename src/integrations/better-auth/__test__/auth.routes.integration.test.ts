@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES, type Role } from "~/src/integrations/better-auth/auth.access"
 import { redirectAfterAuth, redirectIfSignedIn, requireAdmin, requireSignedIn } from "~/src/integrations/better-auth/auth.routes"
 import { type getCurrentSession, getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import type { AuthSearch } from "~/src/integrations/better-auth/auth.zod"
@@ -20,7 +21,7 @@ const authPageContext = (search: AuthSearch = {}) => ({ ...routeContext(), searc
 beforeEach(() => {
   getSession.mockReset()
 })
-const session = (role: "admin" | "customer") => getSession.mockResolvedValue(createAuthSessionFixture({ role }))
+const session = (role: Role) => getSession.mockResolvedValue(createAuthSessionFixture({ role }))
 const signedOut = () => getSession.mockResolvedValue(null)
 
 describe("route authorization and locale handling", () => {
@@ -29,11 +30,11 @@ describe("route authorization and locale handling", () => {
     await expect(redirectAfterAuth(authPageContext())).rejects.toHaveProperty("options.to", "/auth/sign-in")
   })
   it("redirects an admin callback to the admin area", async () => {
-    session("admin")
+    session(ROLE_CODES.ADMIN)
     await expect(redirectAfterAuth(authPageContext())).rejects.toHaveProperty("options.to", "/admin")
   })
   it("redirects a customer callback to the app area", async () => {
-    session("customer")
+    session(ROLE_CODES.CUSTOMER)
     await expect(redirectAfterAuth(authPageContext())).rejects.toHaveProperty("options.to", "/app")
   })
   it("protects app routes", async () => {
@@ -45,11 +46,11 @@ describe("route authorization and locale handling", () => {
     await expect(requireAdmin(protectedPageContext())).rejects.toHaveProperty("options.to", "/auth/sign-in")
   })
   it("redirects customers out of the admin area", async () => {
-    session("customer")
+    session(ROLE_CODES.CUSTOMER)
     await expect(requireAdmin(protectedPageContext())).rejects.toHaveProperty("options.to", "/app")
   })
   it("allows admins and supplies the route session", async () => {
-    session("admin")
+    session(ROLE_CODES.ADMIN)
     await expect(requireAdmin(protectedPageContext())).resolves.toHaveProperty("session.user.role", "admin")
   })
   it("allows signed-out visitors on guest routes", async () => {
@@ -57,15 +58,15 @@ describe("route authorization and locale handling", () => {
     await expect(redirectIfSignedIn(authPageContext())).resolves.toBeUndefined()
   })
   it.each([
-    ["admin", "/admin"],
-    ["customer", "/app"],
+    [ROLE_CODES.ADMIN, "/admin"],
+    [ROLE_CODES.CUSTOMER, "/app"],
   ] as const)("redirects signed-in %s away from guest routes", async (role, to) => {
     session(role)
     await expect(redirectIfSignedIn(authPageContext())).rejects.toHaveProperty("options", expect.objectContaining({ replace: true, to }))
   })
   it("rechecks a cached admin session and rejects it after revocation", async () => {
     const context = protectedPageContext()
-    session("admin")
+    session(ROLE_CODES.ADMIN)
     await requireAdmin(context)
     context.context.queryClient.setQueryData(LICENSE_QUERY_KEYS.CURRENT, { key: "previous-license" })
     signedOut()
@@ -76,7 +77,7 @@ describe("route authorization and locale handling", () => {
   })
   it("clears the previous account's cached data when the session changes to another account", async () => {
     const context = protectedPageContext()
-    session("customer")
+    session(ROLE_CODES.CUSTOMER)
     await requireSignedIn(context)
     context.context.queryClient.setQueryData(LICENSE_QUERY_KEYS.CURRENT, { key: "previous-license" })
     const nextSession = createAuthSessionFixture({ userId: "another-customer" })
@@ -87,9 +88,9 @@ describe("route authorization and locale handling", () => {
   })
   it("rechecks roles instead of trusting a cached admin role", async () => {
     const context = protectedPageContext()
-    session("admin")
+    session(ROLE_CODES.ADMIN)
     await requireAdmin(context)
-    session("customer")
+    session(ROLE_CODES.CUSTOMER)
     await expect(requireAdmin(context)).rejects.toHaveProperty("options.to", "/app")
   })
   it("shares an in-flight session check and caches it for page consumers", async () => {
@@ -105,7 +106,7 @@ describe("route authorization and locale handling", () => {
   })
   it("reuses the session for link preloads but rechecks before actual navigation", async () => {
     const context = protectedPageContext()
-    session("admin")
+    session(ROLE_CODES.ADMIN)
     await requireAdmin(context)
     await requireAdmin({ ...context, preload: true })
     await requireAdmin({ ...context, preload: true })
@@ -141,14 +142,14 @@ describe("return path through authentication", () => {
     )
   })
   it("returns a signed-in visitor from a guest page to the return path instead of the workspace", async () => {
-    session("customer")
+    session(ROLE_CODES.CUSTOMER)
     await expect(redirectIfSignedIn(authPageContext({ redirect: "/pl-PL/app/license" }))).rejects.toHaveProperty(
       "options",
       expect.objectContaining({ href: "/pl-PL/app/license", replace: true }),
     )
   })
   it("continues a callback to the return path", async () => {
-    session("admin")
+    session(ROLE_CODES.ADMIN)
     await expect(redirectAfterAuth(authPageContext({ redirect: "/admin/users/all" }))).rejects.toHaveProperty(
       "options",
       expect.objectContaining({ href: "/admin/users/all", replace: true }),

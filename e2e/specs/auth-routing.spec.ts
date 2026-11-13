@@ -1,3 +1,4 @@
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
@@ -44,7 +45,7 @@ for (const account of TEST_ACCOUNTS) {
       headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
     })
     expect(signedIn.ok()).toBe(true)
-    const workspace = account.role === "admin" ? "/admin" : "/app"
+    const workspace = account.role === ROLE_CODES.ADMIN ? "/admin" : "/app"
     for (const prefix of ["", "/pl-PL"]) {
       for (const route of ["/auth/sign-in", "/auth/sign-up"]) {
         const response = await page.goto(`${prefix}${route}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })

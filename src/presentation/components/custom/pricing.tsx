@@ -42,7 +42,7 @@ export const Price = ({ amount }: Readonly<{ amount: number }>): JSX.Element => 
   )
 }
 
-export const PRICE_TAGS = { price: () => <Price amount={TIER_PRICES.core} /> }
+export const PRICE_TAGS = { price: () => <Price amount={TIER_PRICES[LICENSE_TIER.CORE]} /> }
 
 const storeRegionalChoice = (event: ChangeEvent<HTMLInputElement>): void => {
   document.cookie = serializeCookie({

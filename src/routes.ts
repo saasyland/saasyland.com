@@ -17,6 +17,7 @@ export const ROUTES = {
   ADMIN_USERS_ROLES: "/admin/users/roles",
   ADMIN_USERS_SECURITY: "/admin/users/security",
   ADMIN_VIDEOS: "/admin/videos",
+  AFFILIATES: "/affiliates",
   API: "/api",
   API_AUTH: {
     ADMIN_CREATE_USER: "/admin/create-user",

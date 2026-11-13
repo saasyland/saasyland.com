@@ -90,7 +90,7 @@ export const sendVerifyEmail = async ({
   token: string
   user: { email: string; name: string }
 }): Promise<void> => {
-  if (!(await withinRecipientRateLimit({ kind: "verify-email", recipient: user.email }))) {
+  if (!(await withinRecipientRateLimit({ kind: EMAIL_PURPOSE.VERIFY_EMAIL, recipient: user.email }))) {
     console.warn("[email] verification email not sent: the recipient reached the hourly limit")
     return
   }
@@ -104,7 +104,7 @@ export const sendVerifyEmail = async ({
   const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: "verify-email", token },
+    idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token },
     react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,
@@ -125,7 +125,7 @@ export const sendVerifyEmail = async ({
 
 1. Añade la plantilla en `src/presentation/emails/<name>.tsx` con su `<NAME>_NAMESPACE` exportado.
 2. Añade `messages/<locale>/emails.<name>.json` en los nueve idiomas.
-3. Envíalo desde el caso de uso al que pertenece la acción, pasando `idempotency: { purpose, token }` con el token o el id del registro que lo desencadena.
+3. Da nombre a su propósito en `EMAIL_PURPOSE` (`src/integrations/resend/resend.constants.ts`) y envíalo desde el caso de uso al que pertenece la acción, pasando `idempotency: { purpose, token }` con el token o el id del registro que lo desencadena.
 4. Prueba la plantilla en `src/presentation/emails/__test__/` y el caso de uso con `sendEmail` simulado.
 
 Credenciales de Resend: `RESEND_API_KEY` y `RESEND_EMAIL_FROM`. Los tests nunca contactan con Resend.

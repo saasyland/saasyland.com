@@ -13,13 +13,13 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 
 import { ROUTES } from "~/src/routes"
 
-const licenseStatus = (license: License["select"]): "active" | "pending" | "revoked" => {
+const licenseStatus = (license: License["select"]): License["select"]["status"] | "pending" => {
   if (license.status === LICENSE_STATUS.REVOKED) {
-    return "revoked"
+    return LICENSE_STATUS.REVOKED
   }
 
   if (typeof license.key === "string" && license.key.length > 0) {
-    return "active"
+    return LICENSE_STATUS.ACTIVE
   }
 
   return "pending"

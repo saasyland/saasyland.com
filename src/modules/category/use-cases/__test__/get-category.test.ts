@@ -9,6 +9,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { getCategory } from "~/src/modules/category/use-cases/get-category"
 
 const HEADERS = new Headers()
@@ -20,17 +21,18 @@ type AuthApi = typeof auth.api
 
 const getSessionMock = vi.hoisted(() => vi.fn<AuthApi["getSession"]>())
 
-const dbMocks = vi.hoisted(() => {
+const dbMocks = await vi.hoisted(async () => {
+  const { CATEGORY_ICON, CATEGORY_KIND, CATEGORY_VISIBILITY } = await import("~/src/modules/category/category.constants")
   const updatedAt = new Date("2026-07-24T12:00:00.000Z")
   const dbRow = {
     createdAt: updatedAt,
     description: "Core subscription tiers",
-    icon: "FolderOpen" as const,
+    icon: CATEGORY_ICON.FOLDER_OPEN,
     id: "01900000-0000-7000-8000-000000000002",
-    kind: "category" as const,
+    kind: CATEGORY_KIND.CATEGORY,
     name: "SaaS Plans",
     updatedAt,
-    visibility: "public" as const,
+    visibility: CATEGORY_VISIBILITY.PUBLIC,
   }
 
   const limit = vi.fn<() => Promise<(typeof dbRow)[]>>().mockResolvedValue([dbRow])
@@ -78,7 +80,7 @@ describe("get-category", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
 
-    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: "NOT_FOUND" })
+    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: ERROR_CODES.NOT_FOUND })
   })
 
   it("rejects when the caller is not an admin", async () => {
@@ -87,7 +89,7 @@ describe("get-category", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
 
-    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: "FORBIDDEN" })
+    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: ERROR_CODES.FORBIDDEN })
   })
 
   it("rejects when the caller is signed out", async () => {
@@ -96,6 +98,6 @@ describe("get-category", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: "UNAUTHORIZED" })
+    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: ERROR_CODES.UNAUTHORIZED })
   })
 })

@@ -3,6 +3,8 @@ import type { JSX } from "react"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
+
 import type { ADMIN_PAYMENT_ROWS } from "~/src/data/admin"
 
 import { cn } from "~/src/lib/cn"
@@ -24,7 +26,9 @@ const AmountCell = ({ row }: CellContext<DataTableFeatures, Payment, number>): J
 
   return (
     <div className="flex flex-col">
-      <span className="text-sm font-medium">{format.number(row.original.amount, { currency: "USD", style: "currency" })}</span>
+      <span className="text-sm font-medium">
+        {format.number(row.original.amount, { currency: DEFAULT_CURRENCY_CODE, style: "currency" })}
+      </span>
       <span className="text-xs text-muted-foreground">{t(`${row.original.id}.type`)}</span>
     </div>
   )

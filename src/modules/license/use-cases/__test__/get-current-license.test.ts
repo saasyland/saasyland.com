@@ -3,14 +3,17 @@ import { afterEach, expect, it, vi } from "vite-plus/test"
 import { executeQuery } from "~/src/platform/testing/lib/query"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { POLAR_LICENSE_KEY } from "~/src/integrations/polar/__test__/fixtures/license-key"
 import { polar } from "~/src/integrations/polar/polar.config"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery, licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license"
 import * as licenses from "~/src/modules/license/use-cases/get-license"
 
-const session = createAuthSessionFixture({ role: "customer" })
+const session = createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER })
 const ownedLicense = {
   createdAt: new Date(),
   id: "owned",
@@ -19,8 +22,8 @@ const ownedLicense = {
   polarLicenseKeyId: "polar-license",
   polarOrderId: null,
   purchaseCreatedAt: new Date(0),
-  status: "active",
-  tier: "core",
+  status: LICENSE_STATUS.ACTIVE,
+  tier: LICENSE_TIER.CORE,
   updatedAt: new Date(),
   userId: session.user.id,
 } satisfies NonNullable<Awaited<ReturnType<typeof licenses.getLicense>>>
@@ -54,6 +57,6 @@ it("fetches activations for the owned Polar license", async () => {
 it("rejects a signed-out caller before querying a license", async () => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(null)
   const get = vi.spyOn(licenses, "getLicense")
-  await expect(executeQuery(currentLicenseQuery)).rejects.toThrow("UNAUTHORIZED")
+  await expect(executeQuery(currentLicenseQuery)).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   expect(get).not.toHaveBeenCalled()
 })

@@ -12,6 +12,8 @@ import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import { product } from "~/src/modules/product/product.schema"
 import { getProductsPageQuery, getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 
@@ -36,8 +38,8 @@ beforeEach(async () => {
       createdAt: new Date("2026-09-24T12:00:00Z"),
       id: `row-${String(index).padStart(2, "0")}`,
       name: `Member ${String(index).padStart(2, "0")}`,
-      status: index < 4 ? "draft" : "published",
-      type: index % 2 === 0 ? "one_time" : "subscription",
+      status: index < 4 ? PRODUCT_STATUS.DRAFT : PRODUCT_STATUS.PUBLISHED,
+      type: index % 2 === 0 ? PRODUCT_TYPE.ONE_TIME : PRODUCT_TYPE.SUBSCRIPTION,
     })),
   )
   vi.spyOn(authServer.auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
@@ -75,7 +77,7 @@ describe("list-products", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
 
-    await expect(executeQuery(getProductsQuery)).rejects.toMatchObject({ code: "FORBIDDEN" })
+    await expect(executeQuery(getProductsQuery)).rejects.toMatchObject({ code: ERROR_CODES.FORBIDDEN })
   })
 
   it("rejects when the caller is signed out", async () => {
@@ -84,7 +86,7 @@ describe("list-products", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(executeQuery(getProductsQuery)).rejects.toMatchObject({ code: "UNAUTHORIZED" })
+    await expect(executeQuery(getProductsQuery)).rejects.toMatchObject({ code: ERROR_CODES.UNAUTHORIZED })
   })
 
   it("returns the remaining page and keeps the database total", async () => {
@@ -100,7 +102,9 @@ describe("list-products", () => {
   })
 
   it("filters before paging and counts only matching products", async () => {
-    const result = await executeQuery(getProductsPageQuery({ pageIndex: 1, pageSize: 1, status: "draft", type: "subscription" }))
+    const result = await executeQuery(
+      getProductsPageQuery({ pageIndex: 1, pageSize: 1, status: PRODUCT_STATUS.DRAFT, type: PRODUCT_TYPE.SUBSCRIPTION }),
+    )
     expect(result.rows.map((row) => row.id)).toEqual(["row-01"])
     expect(result.total).toBe(2)
   })

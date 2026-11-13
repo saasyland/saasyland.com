@@ -96,6 +96,7 @@ export const PremiumPending = (): JSX.Element => (
 )
 
 const MARKETING_PAGES = new Map<string, () => JSX.Element>([
+  [ROUTES.AFFILIATES, LegalPending],
   [ROUTES.HOME, HomePending],
   [ROUTES.LICENCE, LegalPending],
   [ROUTES.NEWSLETTER_CONFIRM, NewsletterPending],

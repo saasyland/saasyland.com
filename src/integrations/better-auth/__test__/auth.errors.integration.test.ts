@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { AUTH_TEST_BASE_URL, createAuthTestInstance } from "~/src/integrations/better-auth/__test__/fixtures/auth.test-instance"
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { authErrorKey, authErrorKeyFromSearch } from "~/src/integrations/better-auth/auth.errors"
 
 import { ROUTES } from "~/src/routes"
 
-const PROVIDER = "github"
 const AUTH_URL = `${AUTH_TEST_BASE_URL}${ROUTES.API_AUTH_BASE}`
-const PROVIDER_CALLBACK_URL = `${AUTH_URL}${ROUTES.API_AUTH.CALLBACK}/${PROVIDER}`
+const PROVIDER_CALLBACK_URL = `${AUTH_URL}${ROUTES.API_AUTH.CALLBACK}/${AUTH_PROVIDER.GITHUB}`
 
 const authContext = await createAuthTestInstance({ rateLimitEnabled: true, rateLimitMax: 1 })
 
@@ -44,7 +44,7 @@ describe("Better Auth responses mapped to user-facing errors", () => {
 
   it("sends a provider cancellation back to the per-flow error page with a mappable code", async () => {
     const started = await authContext.auth.api.signInSocial({
-      body: { callbackURL: ROUTES.AUTH_CALLBACK, errorCallbackURL: ROUTES.SIGN_IN, provider: PROVIDER },
+      body: { callbackURL: ROUTES.AUTH_CALLBACK, errorCallbackURL: ROUTES.SIGN_IN, provider: AUTH_PROVIDER.GITHUB },
       headers: new Headers({ origin: AUTH_TEST_BASE_URL }),
       returnHeaders: true,
     })

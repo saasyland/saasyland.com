@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
@@ -65,7 +66,7 @@ describe("atomic rate limits", () => {
 describe("recipient email limits", () => {
   const RECIPIENT_EMAILS_PER_HOUR = 3
   const HOUR_MS = 3_600_000
-  const recipient = { kind: "verify-email", recipient: "Ada@Example.test" }
+  const recipient = { kind: EMAIL_PURPOSE.VERIFY_EMAIL, recipient: "Ada@Example.test" }
 
   it("allows three emails of a kind to an address per hour, whatever the address's case or padding", async () => {
     const results = []
@@ -81,7 +82,7 @@ describe("recipient email limits", () => {
       await withinRecipientRateLimit(recipient)
     }
 
-    expect(await withinRecipientRateLimit({ ...recipient, kind: "reset-password" })).toBe(true)
+    expect(await withinRecipientRateLimit({ ...recipient, kind: EMAIL_PURPOSE.RESET_PASSWORD })).toBe(true)
     expect(await withinRecipientRateLimit({ ...recipient, recipient: "grace@example.test" })).toBe(true)
   })
 

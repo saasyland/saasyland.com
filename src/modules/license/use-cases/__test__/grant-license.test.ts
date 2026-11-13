@@ -4,6 +4,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER } from "~/src/integrations/polar/__test__/fixtures/order"
 import { polar } from "~/src/integrations/polar/polar.config"
 
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 import { grantLicense } from "~/src/modules/license/use-cases/grant-license"
@@ -14,7 +15,7 @@ const purchase = {
   polarCustomerId: "cus_1",
   polarOrderId: "ord_1",
   purchaseCreatedAt: new Date(POLAR_ORDER.created_at),
-  tier: "complete",
+  tier: LICENSE_TIER.COMPLETE,
   userId: USER_ID,
 } as const
 
@@ -29,24 +30,26 @@ describe("grant-license", () => {
     await grantLicense(purchase)
     await db.update(license).set({ key: "license-key", polarLicenseKeyId: "lk_1" })
     await grantLicense(purchase)
-    expect(await getLicense(USER_ID)).toMatchObject({ key: "license-key", polarLicenseKeyId: "lk_1", tier: "complete" })
+    expect(await getLicense(USER_ID)).toMatchObject({ key: "license-key", polarLicenseKeyId: "lk_1", tier: LICENSE_TIER.COMPLETE })
   })
 
   it("replaces a legacy license without an order", async () => {
-    await db.insert(license).values({ id: "legacy", polarCustomerId: "cus_1", tier: "core", userId: USER_ID })
+    await db.insert(license).values({ id: "legacy", polarCustomerId: "cus_1", tier: LICENSE_TIER.CORE, userId: USER_ID })
     await grantLicense(purchase)
-    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "ord_1", tier: "complete" })
+    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "ord_1", tier: LICENSE_TIER.COMPLETE })
   })
 
   it("fetches the true purchase date for migrated licenses before comparing an older event", async () => {
-    await db.insert(license).values({ id: "legacy", polarCustomerId: "cus_1", polarOrderId: "ord_1", tier: "complete", userId: USER_ID })
+    await db
+      .insert(license)
+      .values({ id: "legacy", polarCustomerId: "cus_1", polarOrderId: "ord_1", tier: LICENSE_TIER.COMPLETE, userId: USER_ID })
     const fetchOrder = vi.spyOn(polar.orders, "get").mockResolvedValue(POLAR_ORDER)
-    await grantLicense({ ...purchase, polarOrderId: "older", purchaseCreatedAt: new Date("2026-09-23T10:00:00Z"), tier: "core" })
+    await grantLicense({ ...purchase, polarOrderId: "older", purchaseCreatedAt: new Date("2026-09-23T10:00:00Z"), tier: LICENSE_TIER.CORE })
     expect(fetchOrder).toHaveBeenCalledWith("ord_1")
     expect(await getLicense(USER_ID)).toMatchObject({
       polarOrderId: "ord_1",
       purchaseCreatedAt: new Date(POLAR_ORDER.created_at),
-      tier: "complete",
+      tier: LICENSE_TIER.COMPLETE,
     })
   })
 })

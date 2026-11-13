@@ -3,7 +3,7 @@ import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext
 import { getRequest } from "@tanstack/react-start/server"
 import { act, cleanup, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { IntlProvider } from "use-intl"
+import { IntlProvider, createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
@@ -14,6 +14,8 @@ import { deLocalizeUrl, localizeUrl } from "~/src/integrations/use-intl/i18n.uti
 import { Route as BlogRoute } from "~/src/routes/blog"
 import { Route as BlogPostRoute } from "~/src/routes/blog.$"
 import { Route as BlogIndexRoute } from "~/src/routes/blog.index"
+
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
@@ -170,6 +172,8 @@ describe("blog routes", () => {
     expect(nav.getByRole("link", { name: plPagesBlogMessages.nav.getStarted })).toHaveAttribute("href", "/pl-PL#pricing")
     expect(screen.getByRole("link", { name: plPagesBlogMessages.post.cta.primary })).toHaveAttribute("href", "/pl-PL#pricing")
     expect(screen.getByRole("link", { name: plPagesBlogMessages.post.cta.secondary })).toHaveAttribute("href", "/pl-PL/docs")
+    const ctaBody = createTranslator({ locale: "pl-PL", messages: plPagesBlogMessages.post.cta })("body", REPOSITORY_FACTS)
+    expect(screen.getByText(ctaBody)).toBeVisible()
   })
 
   it("encodes sharing targets and copies the canonical URL", async () => {

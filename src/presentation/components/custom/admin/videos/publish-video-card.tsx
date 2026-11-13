@@ -10,7 +10,7 @@ const STEP_NUMBER_BASE = 1
 
 const PUBLISH_STEPS = [
   { command: "brew install ffmpeg", id: "ffmpeg" },
-  { command: "R2_ACCESS_KEY_ID=… R2_SECRET_ACCESS_KEY=…", id: "keys" },
+  { command: "bunx wrangler login", id: "login" },
   { command: 'bun run video:publish:production recording.mp4 --title "Lesson 01"', id: "publish" },
 ] as const
 

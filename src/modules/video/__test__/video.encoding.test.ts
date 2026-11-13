@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  POSTER_VARIANTS,
   type SourceVideo,
   encodeArguments,
   parseProbe,
   planRenditions,
   planStoryboard,
-  posterArguments,
+  posterFrameArguments,
   probeArguments,
   storyboardArguments,
   storyboardTrack,
@@ -106,22 +107,28 @@ describe("encodeArguments", () => {
   })
 })
 
-describe("posterArguments", () => {
-  it("takes a frame a tenth of the way in at two widths", () => {
-    const [large, small] = posterArguments({ image: undefined, input: "in.mp4", output: "/out", source: FULL_HD })
-
-    expect(valueAfter(large ?? [], "-ss")).toBe("75.4")
-    expect(large?.at(-1)).toBe("/out/poster.webp")
-    expect(valueAfter(large ?? [], "-vf")).toBe("scale=w='min(1920,iw)':h=-2:flags=lanczos")
-    expect(small?.at(-1)).toBe("/out/poster-960.webp")
-    expect(valueAfter(small ?? [], "-vf")).toBe("scale=w='min(960,iw)':h=-2:flags=lanczos")
+describe("posters", () => {
+  it("extracts a full-size frame a tenth of the way in", () => {
+    expect(posterFrameArguments({ frame: "/work/poster.png", input: "in.mp4", source: FULL_HD })).toStrictEqual([
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-y",
+      "-ss",
+      "75.4",
+      "-i",
+      "in.mp4",
+      "-frames:v",
+      "1",
+      "/work/poster.png",
+    ])
   })
 
-  it("uses a supplied image instead of a frame", () => {
-    const [large] = posterArguments({ image: "cover.jpg", input: "in.mp4", output: "/out", source: FULL_HD })
-
-    expect(large).not.toContain("-ss")
-    expect(valueAfter(large ?? [], "-i")).toBe("cover.jpg")
+  it("publishes the poster at the widths the player offers", () => {
+    expect(POSTER_VARIANTS).toStrictEqual([
+      { file: "poster.webp", width: 1920 },
+      { file: "poster-960.webp", width: 960 },
+    ])
   })
 })
 
@@ -148,11 +155,11 @@ describe("storyboard", () => {
     expect(planStoryboard(PORTRAIT)).toMatchObject({ tileHeight: 240, tileWidth: 136 })
   })
 
-  it("tiles the frames into one WebP", () => {
-    const args = storyboardArguments({ input: "in.mp4", output: "/out", storyboard: planStoryboard(TALL_SCREEN) })
+  it("tiles the frames into one sprite", () => {
+    const args = storyboardArguments({ input: "in.mp4", sprite: "/work/storyboard.png", storyboard: planStoryboard(TALL_SCREEN) })
 
     expect(valueAfter(args, "-vf")).toBe("fps=1/2,scale=240:150,tile=5x1")
-    expect(args.at(-1)).toBe("/out/storyboard.webp")
+    expect(args.at(-1)).toBe("/work/storyboard.png")
   })
 
   it("points each cue at its tile and ends on the video's last frame", () => {

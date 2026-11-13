@@ -24,14 +24,12 @@ const AUDIO_CHANNELS = "2"
 const AUDIO_RENDITION = "audio"
 
 const POSTER_WIDTH = 1920
-const POSTER_QUALITY = "80"
 const POSTER_POSITION = 0.1
 
 const STORYBOARD_TILE_BOX = 240
 const STORYBOARD_COLUMNS = 10
 const STORYBOARD_MAX_FRAMES = 600
 const STORYBOARD_MIN_INTERVAL_SECONDS = 2
-const STORYBOARD_QUALITY = "70"
 const MIN_STORYBOARD_FRAMES = 1
 
 const VTT_TIME_PAD = 2
@@ -201,52 +199,34 @@ export const encodeArguments = ({
   `${output}/%v/index.m3u8`,
 ]
 
-const webpArguments = ({ output, quality, width }: { readonly output: string; readonly quality: string; readonly width: number }) => [
-  "-vf",
-  `scale=w='min(${String(width)},iw)':h=-2:flags=lanczos`,
+export const POSTER_VARIANTS = [
+  { file: VIDEO_FILES.POSTER, width: POSTER_WIDTH },
+  { file: VIDEO_FILES.POSTER_SMALL, width: POSTER_SMALL_WIDTH },
+] as const
+
+export const IMAGE_QUALITY = { POSTER: 80, STORYBOARD: 70 } as const
+
+export const posterFrameArguments = ({
+  frame,
+  input,
+  source,
+}: {
+  readonly frame: string
+  readonly input: string
+  readonly source: SourceVideo
+}): string[] => [
+  "-hide_banner",
+  "-loglevel",
+  "error",
+  "-y",
+  "-ss",
+  String((source.durationMs * POSTER_POSITION) / MILLISECONDS_PER_SECOND),
+  "-i",
+  input,
   "-frames:v",
   "1",
-  "-c:v",
-  "libwebp",
-  "-quality",
-  quality,
-  output,
+  frame,
 ]
-
-const posterFrame = ({
-  image,
-  input,
-  source,
-}: {
-  readonly image: string | undefined
-  readonly input: string
-  readonly source: SourceVideo
-}) => {
-  if (image !== undefined) {
-    return ["-i", image]
-  }
-
-  return ["-ss", String((source.durationMs * POSTER_POSITION) / MILLISECONDS_PER_SECOND), "-i", input]
-}
-
-export const posterArguments = ({
-  image,
-  input,
-  output,
-  source,
-}: {
-  readonly image: string | undefined
-  readonly input: string
-  readonly output: string
-  readonly source: SourceVideo
-}): string[][] => {
-  const base = ["-hide_banner", "-loglevel", "error", "-y", ...posterFrame({ image, input, source })]
-
-  return [
-    [...base, ...webpArguments({ output: `${output}/${VIDEO_FILES.POSTER}`, quality: POSTER_QUALITY, width: POSTER_WIDTH })],
-    [...base, ...webpArguments({ output: `${output}/${VIDEO_FILES.POSTER_SMALL}`, quality: POSTER_QUALITY, width: POSTER_SMALL_WIDTH })],
-  ]
-}
 
 export const planStoryboard = (source: SourceVideo): Storyboard => {
   const seconds = source.durationMs / MILLISECONDS_PER_SECOND
@@ -262,11 +242,11 @@ export const planStoryboard = (source: SourceVideo): Storyboard => {
 
 export const storyboardArguments = ({
   input,
-  output,
+  sprite,
   storyboard,
 }: {
   readonly input: string
-  readonly output: string
+  readonly sprite: string
   readonly storyboard: Storyboard
 }): string[] => [
   "-hide_banner",
@@ -279,11 +259,7 @@ export const storyboardArguments = ({
   `fps=1/${String(storyboard.intervalSeconds)},scale=${String(storyboard.tileWidth)}:${String(storyboard.tileHeight)},tile=${String(storyboard.columns)}x${String(storyboard.rows)}`,
   "-frames:v",
   "1",
-  "-c:v",
-  "libwebp",
-  "-quality",
-  STORYBOARD_QUALITY,
-  `${output}/${VIDEO_FILES.STORYBOARD_IMAGE}`,
+  sprite,
 ]
 
 const vttTimestamp = (seconds: number): string => {

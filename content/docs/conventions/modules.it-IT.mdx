@@ -11,16 +11,16 @@ I moduli sono `account`, `category`, `chapter`, `course`, `lesson`, `lesson-prog
 
 `src/modules/course` è il riferimento. Un modulo contiene questi file, tutti con il nome della tabella:
 
-| File                         | Contiene                                                                                  |
-| ---------------------------- | ----------------------------------------------------------------------------------------- |
-| `<table>.schema.ts`          | La tabella Drizzle, i suoi indici e le relazioni, e le tuple enum usate dalle sue colonne |
-| `<table>.constants.ts`       | Oggetti dei valori di dominio, chiavi di query, chiavi di mutation e limiti del modulo    |
-| `<table>.zod.ts`             | Uno schema di input per operazione, esportati come un unico oggetto `<table>ZodSchemas`   |
-| `<table>.types.ts`           | Un'interfaccia con il nome del modulo                                                     |
-| `<table>.utils.ts`           | Helper puri sicuri nel browser, quando la tabella ne ha bisogno                           |
-| `<table>.<concern>.ts`       | Un ulteriore aspetto della tabella, come `lesson.access.ts` o `video.delivery.ts`         |
-| `use-cases/<verb>-<noun>.ts` | Un'operazione, con il nome della sua server function                                      |
-| `__test__/`                  | Test e fixture per i file precedenti                                                      |
+| File                         | Contiene                                                                                      |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`          | La tabella Drizzle, i suoi indici e le relazioni, e le tuple enum usate dalle sue colonne     |
+| `<table>.constants.ts`       | Oggetti dei valori di dominio, chiavi di query, chiavi di mutation e limiti del modulo        |
+| `<table>.zod.ts`             | Uno schema di input per operazione, esportati come un unico oggetto `<table>ZodSchemas`       |
+| `<table>.types.ts`           | Un'interfaccia con il nome del modulo                                                         |
+| `<table>.utils.ts`           | Helper per la tabella, puri e sicuri nel browser a meno che non leggano l'ambiente del Worker |
+| `<table>.<concern>.ts`       | Un ulteriore aspetto della tabella, come `lesson.access.ts` o `video.delivery.ts`             |
+| `use-cases/<verb>-<noun>.ts` | Un'operazione, con il nome della sua server function                                          |
+| `__test__/`                  | Test e fixture per i file precedenti                                                          |
 
 ## Schema
 
@@ -31,9 +31,6 @@ export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as
 export const course = sqliteTable(
   "course",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
     position: integer("position").notNull().default(0),
@@ -41,16 +38,14 @@ export const course = sqliteTable(
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
     title: text("title", { mode: "json" }).$type<LocalizedText>().notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    ...timestamps(),
   },
   (table) => [index("course_status_position_idx").on(table.status, table.position)],
 )
 ```
 
-- Le colonne sono in camelCase in TypeScript e in snake_case in SQL. Le chiavi sono ordinate, come richiede il linter.
+- Le colonne sono in camelCase in TypeScript e in snake_case in SQL. Le chiavi sono ordinate, come richiede il linter, con `...timestamps()` come ultima voce.
+- `createdAt` e `updatedAt` provengono da `timestamps()` in `src/integrations/drizzle-orm/drizzle.columns.ts`: millisecondi, riempiti da SQLite all'inserimento, con `updatedAt` aggiornato a ogni modifica. Non scriverli mai a mano. `lesson_progress` ha bisogno solo del secondo, quindi usa `updatedAt: timestamps().updatedAt`.
 - Le chiavi primarie sono testuali. Un caso d'uso che inserisce una riga riempie la chiave con un UUID v7 (`v7()` da `uuid`).
 - Le colonne enum ricevono una tupla costruita dall'oggetto costante del modulo, mai un elenco di letterali.
 - Il testo che un visitatore legge in più lingue è una colonna JSON `LocalizedText`, validata da `localizedTextSchema` e letta con `localize(text, locale)` da `src/modules/_core/utils/localized-text.ts`.
@@ -66,12 +61,18 @@ export const COURSE_STATUS = {
 
 export const COURSE_STALE_MS = 60_000
 
+export const COURSE_SHOWCASE = {
+  COURSES: 2,
+  LESSONS: 6,
+} as const
+
 export const COURSE_QUERY_KEYS = {
   ALL: ["course"],
   CATALOGUE: ["course", "catalogue"],
   DETAIL: ["course", "detail"],
   EDITOR: ["course", "getCourseEditor"],
   LIST: ["course", "getCourses"],
+  SHOWCASE: ["course", "showcase"],
 } as const
 
 export const COURSE_MUTATION_KEYS = {
@@ -84,6 +85,7 @@ export const COURSE_MUTATION_KEYS = {
 
 - Ogni chiave di query inizia con il prefisso `ALL` del modulo, quindi un solo `invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })` aggiorna tutto ciò che il modulo fornisce. Vedi [Recupero dei dati e caching](/docs/conventions/data-fetching).
 - Le chiavi di mutation sono il nome del modulo e il nome della server function.
+- Le lunghezze delle colonne e degli input ricevono un nome qui e sono condivise dallo schema e dallo schema Zod, come `PRODUCT_NAME_MAX_LENGTH` in `product.constants.ts`.
 - `<MODULE>_VALIDATION_PARAMS` contiene i numeri che i messaggi di validazione interpolano, come `{ slugTooLong: { max: SLUG_MAX_LENGTH } }`.
 
 ## Schemi Zod
@@ -118,6 +120,10 @@ const getCourse = zod.object({
 
 const getCourseEditor = courseIdInput
 
+const getCourseShowcase = zod.object({
+  locale: localeField,
+})
+
 const getCourses = paginationSchema
 
 const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
@@ -133,6 +139,7 @@ export const courseZodSchemas = {
   getCatalogue,
   getCourse,
   getCourseEditor,
+  getCourseShowcase,
   getCourses,
   insert,
   moveCourse,
@@ -184,11 +191,11 @@ Quando una tabella ha bisogno di logica che non è né un caso d'uso né un help
 | `video/video.delivery.ts`                               | L'handler del Worker per le richieste `/media/` firmate                       |
 | `video/video.playback.ts`, `video/video.files.ts`       | Firma degli URL di riproduzione; chiavi degli oggetti e content type          |
 
-Un file che non deve mai finire nel bundle del browser inizia con `import "@tanstack/react-start/server-only"`, come fanno `lesson.viewer.ts`, `license.webhooks.ts` e `newsletter-subscriber.server.ts`. I file puri come `lesson.access.ts` e `course.utils.ts` non importano nulla di lato server, quindi componenti e test possono usarli.
+Un file che non deve mai finire nel bundle del browser inizia con `import "@tanstack/react-start/server-only"`, come fanno `lesson.viewer.ts`, `license.webhooks.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` e `license.utils.ts` (che legge gli ID dei prodotti Polar dall'ambiente del Worker). I file puri come `lesson.access.ts` e `course.utils.ts` non importano nulla di lato server, quindi componenti e test possono usarli.
 
 ## Aggiungere un modulo
 
-Segui passo per passo [Aggiungere un modulo](/docs/guides/add-a-module), partendo da una copia della forma del modulo dei corsi invece che da un modulo più vecchio: `category` e `product` sono precedenti ad alcune delle regole di questa pagina.
+Segui passo per passo [Aggiungere un modulo](/docs/guides/add-a-module), partendo da una copia della forma del modulo dei corsi.
 
 ## Pagine correlate
 

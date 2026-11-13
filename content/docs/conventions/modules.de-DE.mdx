@@ -11,16 +11,16 @@ Die Module sind `account`, `category`, `chapter`, `course`, `lesson`, `lesson-pr
 
 `src/modules/course` ist die Referenz. Ein Modul enthält diese Dateien, alle nach der Tabelle benannt:
 
-| Datei                        | Enthält                                                                                        |
-| ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| `<table>.schema.ts`          | Die Drizzle-Tabelle, ihre Indizes und Relationen sowie die Enum-Tupel, die ihre Spalten nutzen |
-| `<table>.constants.ts`       | Objekte mit Domänenwerten, Query-Keys, Mutation-Keys und Grenzwerte des Moduls                 |
-| `<table>.zod.ts`             | Ein Eingabeschema pro Operation, exportiert als ein Objekt `<table>ZodSchemas`                 |
-| `<table>.types.ts`           | Ein Interface, das nach dem Modul benannt ist                                                  |
-| `<table>.utils.ts`           | Reine Hilfsfunktionen, die im Browser sicher sind, sofern die Tabelle sie braucht              |
-| `<table>.<concern>.ts`       | Ein weiterer Aspekt der Tabelle, etwa `lesson.access.ts` oder `video.delivery.ts`              |
-| `use-cases/<verb>-<noun>.ts` | Eine Operation, benannt nach ihrer Server Function                                             |
-| `__test__/`                  | Tests und Fixtures für die Dateien oben                                                        |
+| Datei                        | Enthält                                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`          | Die Drizzle-Tabelle, ihre Indizes und Relationen sowie die Enum-Tupel, die ihre Spalten nutzen          |
+| `<table>.constants.ts`       | Objekte mit Domänenwerten, Query-Keys, Mutation-Keys und Grenzwerte des Moduls                          |
+| `<table>.zod.ts`             | Ein Eingabeschema pro Operation, exportiert als ein Objekt `<table>ZodSchemas`                          |
+| `<table>.types.ts`           | Ein Interface, das nach dem Modul benannt ist                                                           |
+| `<table>.utils.ts`           | Hilfsfunktionen für die Tabelle, rein und im Browser sicher, sofern sie nicht die Worker-Umgebung lesen |
+| `<table>.<concern>.ts`       | Ein weiterer Aspekt der Tabelle, etwa `lesson.access.ts` oder `video.delivery.ts`                       |
+| `use-cases/<verb>-<noun>.ts` | Eine Operation, benannt nach ihrer Server Function                                                      |
+| `__test__/`                  | Tests und Fixtures für die Dateien oben                                                                 |
 
 ## Schema
 
@@ -31,9 +31,6 @@ export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as
 export const course = sqliteTable(
   "course",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
     position: integer("position").notNull().default(0),
@@ -41,16 +38,14 @@ export const course = sqliteTable(
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
     title: text("title", { mode: "json" }).$type<LocalizedText>().notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    ...timestamps(),
   },
   (table) => [index("course_status_position_idx").on(table.status, table.position)],
 )
 ```
 
-- Spalten sind in TypeScript camelCase und in SQL snake_case. Schlüssel sind sortiert, wie es der Linter verlangt.
+- Spalten sind in TypeScript camelCase und in SQL snake_case. Schlüssel sind sortiert, wie es der Linter verlangt, mit `...timestamps()` als letztem Eintrag.
+- `createdAt` und `updatedAt` stammen aus `timestamps()` in `src/integrations/drizzle-orm/drizzle.columns.ts`: Millisekunden, beim Einfügen von SQLite gefüllt, wobei `updatedAt` bei jedem Update aktualisiert wird. Schreiben Sie sie nie von Hand. `lesson_progress` braucht nur die zweite Spalte und übernimmt deshalb `updatedAt: timestamps().updatedAt`.
 - Primärschlüssel sind Text. Ein Use Case, der eine Zeile einfügt, füllt den Schlüssel mit einer UUID v7 (`v7()` aus `uuid`).
 - Enum-Spalten erhalten ein Tupel, das aus dem Konstantenobjekt des Moduls gebildet wird, niemals eine Liste von Literalen.
 - Text, den Besucher in mehreren Sprachen lesen, ist eine JSON-Spalte vom Typ `LocalizedText`, validiert durch `localizedTextSchema` und gelesen mit `localize(text, locale)` aus `src/modules/_core/utils/localized-text.ts`.
@@ -66,12 +61,18 @@ export const COURSE_STATUS = {
 
 export const COURSE_STALE_MS = 60_000
 
+export const COURSE_SHOWCASE = {
+  COURSES: 2,
+  LESSONS: 6,
+} as const
+
 export const COURSE_QUERY_KEYS = {
   ALL: ["course"],
   CATALOGUE: ["course", "catalogue"],
   DETAIL: ["course", "detail"],
   EDITOR: ["course", "getCourseEditor"],
   LIST: ["course", "getCourses"],
+  SHOWCASE: ["course", "showcase"],
 } as const
 
 export const COURSE_MUTATION_KEYS = {
@@ -84,6 +85,7 @@ export const COURSE_MUTATION_KEYS = {
 
 - Jeder Query-Key beginnt mit dem Präfix `ALL` des Moduls, sodass ein einziges `invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })` alles aktualisiert, was das Modul liefert. Siehe [Datenabruf und Caching](/docs/conventions/data-fetching).
 - Mutation-Keys bestehen aus dem Modulnamen und dem Namen der Server Function.
+- Spalten- und Eingabelängen werden hier benannt und vom Schema und vom Zod-Schema gemeinsam genutzt, etwa `PRODUCT_NAME_MAX_LENGTH` in `product.constants.ts`.
 - `<MODULE>_VALIDATION_PARAMS` enthält die Zahlen, die Validierungsmeldungen interpolieren, etwa `{ slugTooLong: { max: SLUG_MAX_LENGTH } }`.
 
 ## Zod-Schemas
@@ -118,6 +120,10 @@ const getCourse = zod.object({
 
 const getCourseEditor = courseIdInput
 
+const getCourseShowcase = zod.object({
+  locale: localeField,
+})
+
 const getCourses = paginationSchema
 
 const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
@@ -133,6 +139,7 @@ export const courseZodSchemas = {
   getCatalogue,
   getCourse,
   getCourseEditor,
+  getCourseShowcase,
   getCourses,
   insert,
   moveCourse,
@@ -184,11 +191,11 @@ Braucht eine Tabelle Logik, die weder ein Use Case noch eine reine Hilfsfunktion
 | `video/video.delivery.ts`                               | Der Worker-Handler für signierte `/media/`-Anfragen                      |
 | `video/video.playback.ts`, `video/video.files.ts`       | Signieren von Wiedergabe-URLs; Objektschlüssel und Content-Types         |
 
-Eine Datei, die niemals ins Browser-Bundle gelangen darf, beginnt mit `import "@tanstack/react-start/server-only"`, wie `lesson.viewer.ts`, `license.webhooks.ts` und `newsletter-subscriber.server.ts`. Reine Dateien wie `lesson.access.ts` und `course.utils.ts` importieren nichts Serverseitiges, sodass Komponenten und Tests sie verwenden können.
+Eine Datei, die niemals ins Browser-Bundle gelangen darf, beginnt mit `import "@tanstack/react-start/server-only"`, wie `lesson.viewer.ts`, `license.webhooks.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` und `license.utils.ts` (das die Polar-Produkt-IDs aus der Worker-Umgebung liest). Reine Dateien wie `lesson.access.ts` und `course.utils.ts` importieren nichts Serverseitiges, sodass Komponenten und Tests sie verwenden können.
 
 ## Ein Modul hinzufügen
 
-Folgen Sie [Modul hinzufügen](/docs/guides/add-a-module) Schritt für Schritt und gehen Sie dabei von einer Kopie der Form des Kursmoduls aus, nicht von einem älteren Modul: `category` und `product` sind älter als einige Regeln auf dieser Seite.
+Folgen Sie [Modul hinzufügen](/docs/guides/add-a-module) Schritt für Schritt und gehen Sie dabei von einer Kopie der Form des Kursmoduls aus.
 
 ## Verwandte Seiten
 

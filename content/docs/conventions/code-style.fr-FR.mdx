@@ -9,21 +9,22 @@ description: "Ce qu'imposent le formateur, le linter et le compilateur, et les r
 
 oxlint traite les catégories `correctness`, `nursery`, `pedantic`, `perf`, `style` et `suspicious` comme des erreurs, avec les règles tenant compte des types et la vérification des types activées. Les limites qui façonnent le plus le code :
 
-| Règle                    | Réglage                                                                         | Effet                                                                         |
-| ------------------------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `max-lines`              | 800                                                                             | Découpez un fichier par responsabilité avant qu'il ne grossisse               |
-| `max-lines-per-function` | 150                                                                             | Les composants et les handlers restent petits                                 |
-| `max-statements`         | 20                                                                              | Extrayez des fonctions utilitaires nommées plutôt que d'écrire de longs corps |
-| `no-magic-numbers`       | seul `0` est autorisé, ainsi que les index de tableau et les valeurs par défaut | Tout autre nombre est une constante nommée                                    |
-| `id-length`              | au moins deux caractères, sauf `_`, `m` et `t`                                  | Les identifiants sont des mots ; `t` est le traducteur                        |
-| `one-var`                | `never`                                                                         | Une déclaration par instruction                                               |
-| `unicorn/no-null`        | activée hors des tests                                                          | Les valeurs absentes sont `undefined`                                         |
+| Règle                        | Réglage                                                                         | Effet                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `max-lines`                  | 800                                                                             | Découpez un fichier par responsabilité avant qu'il ne grossisse               |
+| `max-lines-per-function`     | 150                                                                             | Les composants et les handlers restent petits                                 |
+| `max-statements`             | 20                                                                              | Extrayez des fonctions utilitaires nommées plutôt que d'écrire de longs corps |
+| `no-magic-numbers`           | seul `0` est autorisé, ainsi que les index de tableau et les valeurs par défaut | Tout autre nombre est une constante nommée                                    |
+| `id-length`                  | au moins deux caractères, sauf `_`, `m` et `t`                                  | Les identifiants sont des mots ; `t` est le traducteur                        |
+| `one-var`                    | `never`                                                                         | Une déclaration par instruction                                               |
+| `unicorn/no-null`            | activée hors des tests                                                          | Les valeurs absentes sont `undefined`                                         |
+| `typescript/no-explicit-any` | `error`                                                                         | Aucune valeur n'est typée `any`                                               |
 
 Les surcharges sont étroites et limitées à certains fichiers : les tests assouplissent `no-magic-numbers`, `no-await-in-loop` et `unicorn/no-null` ; `src/presentation` et `src/hooks` assouplissent `typescript/consistent-return` ; les mocks de test assouplissent `require-await` ; `src/routes` désactive `sort-keys`, car les options de route suivent leur propre ordre (voir [Fichiers de route](/docs/conventions/routes)).
 
 `tsconfig.json` ajoute les options strictes qui changent la façon d'écrire le code : `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` et `noUnusedParameters`. Une lecture indexée peut valoir `undefined`, une propriété optionnelle ne peut pas recevoir `undefined` explicitement, et une signature d'index se lit sous la forme `record["key"]`.
 
-Le formateur écrit sans points-virgules, avec des guillemets doubles, des virgules finales et une largeur de 140. Il trie aussi les imports en groupes fixes et les classes Tailwind dans `className` et dans les appels à `cn` : n'ordonnez donc jamais ni les uns ni les autres à la main. Voir [Lint et formatage](/docs/tooling/lint-format) pour les commandes.
+Le formateur écrit sans points-virgules, avec des guillemets doubles, des virgules finales et une largeur de 140. Il trie aussi les imports en groupes fixes, les classes Tailwind dans `className` et dans les appels à `cn`, et les scripts de `package.json` par nom (`sortPackageJson: { sortScripts: true }`) : n'ordonnez donc jamais aucun d'eux à la main, car `vp check` échoue dès que l'un d'eux n'est pas dans l'ordre. Voir [Lint et formatage](/docs/tooling/lint-format) pour les commandes.
 
 ## Pas de commentaires
 
@@ -35,7 +36,7 @@ const LAST_INDEX_OFFSET = 1
 const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 ```
 
-Les deux premières viennent de `get-course-editor.ts` et de `course-columns.tsx`, la troisième de `vite.config.ts` : chacune aurait sinon besoin d'un commentaire. Les fichiers générés (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) en sont exemptés, et les annotations `/* @__PURE__ */` de quelques schémas Drizzle sont des instructions pour le bundler, pas des commentaires. Avant de committer, cherchez `//`, `/*` et `{/*` dans votre diff.
+Les deux premières viennent de `get-course-editor.ts` et de `course-columns.tsx`, la troisième de `vite.config.ts` : chacune aurait sinon besoin d'un commentaire. Les fichiers générés (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) en sont exemptés. Avant de committer, cherchez `//`, `/*` et `{/*` dans votre diff.
 
 ## Pas d'échappatoires
 
@@ -96,7 +97,8 @@ export const COURSE_STATUS = {
 
 Le tuple dont une colonne ou un schéma d'enum a besoin est construit à partir de l'objet, et non retapé : `course.schema.ts` déclare `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, qui alimente à la fois `text("status", { enum: COURSE_STATUSES })` et `zod.enum(COURSE_STATUSES)`.
 
-- Les constantes d'un module se trouvent dans son `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`) ; les valeurs d'un fournisseur se trouvent dans le `*.constants.ts` de l'intégration (`POLAR_ORDER_STATUS` dans `polar.constants.ts`).
+- Les constantes d'un module se trouvent dans son `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`) ; les valeurs d'un fournisseur se trouvent dans le `*.constants.ts` de l'intégration (`POLAR_ORDER_STATUS` dans `polar.constants.ts`, `AUTH_PROVIDER` dans `auth.constants.ts`, `EMAIL_PURPOSE` dans `resend.constants.ts`).
+- Les longueurs des colonnes et des entrées sont nommées une seule fois, dans les constantes du module, et lues à la fois par le schéma Drizzle et par le schéma Zod : `PRODUCT_NAME_MAX_LENGTH` dans `product.constants.ts`.
 - Un concept a une seule table de correspondance, dans une seule casse : `ERROR_CODES` pour les erreurs serveur, `AUTH_ERRORS` pour les clés d'erreur de Better Auth, `ROLE_CODES` pour les rôles.
 - Une constante utilisée par un seul fichier reste dans ce fichier, sous les imports. Une constante utilisée par plusieurs fichiers va dans son module, dans `src/data` (voir [Fichiers et nommage](/docs/conventions/files-and-naming)) ou dans `src/modules/_core/constants`. Ne donnez jamais à une constante un fichier pour elle seule.
 - Les noms de champs d'API typés comme `license_key_id` sont des propriétés, pas des valeurs, et restent des accès de propriété.

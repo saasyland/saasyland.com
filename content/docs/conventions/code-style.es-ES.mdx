@@ -9,21 +9,22 @@ description: "Lo que imponen el formateador, el linter y el compilador, y las re
 
 oxlint trata como errores las categorías `correctness`, `nursery`, `pedantic`, `perf`, `style` y `suspicious`, con las reglas con información de tipos y la comprobación de tipos activadas. Los límites que más condicionan el código:
 
-| Regla                    | Valor                                                                 | Efecto                                                        |
-| ------------------------ | --------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `max-lines`              | 800                                                                   | Divide un archivo por responsabilidades antes de que crezca   |
-| `max-lines-per-function` | 150                                                                   | Los componentes y los handlers se mantienen pequeños          |
-| `max-statements`         | 20                                                                    | Extrae helpers con nombre en lugar de escribir cuerpos largos |
-| `no-magic-numbers`       | solo se permite `0`, además de índices de array y valores por defecto | Cualquier otro número es una constante con nombre             |
-| `id-length`              | al menos dos caracteres, salvo `_`, `m` y `t`                         | Los identificadores son palabras; `t` es el traductor         |
-| `one-var`                | `never`                                                               | Una declaración por sentencia                                 |
-| `unicorn/no-null`        | activada fuera de las pruebas                                         | Los valores ausentes son `undefined`                          |
+| Regla                        | Valor                                                                 | Efecto                                                        |
+| ---------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `max-lines`                  | 800                                                                   | Divide un archivo por responsabilidades antes de que crezca   |
+| `max-lines-per-function`     | 150                                                                   | Los componentes y los handlers se mantienen pequeños          |
+| `max-statements`             | 20                                                                    | Extrae helpers con nombre en lugar de escribir cuerpos largos |
+| `no-magic-numbers`           | solo se permite `0`, además de índices de array y valores por defecto | Cualquier otro número es una constante con nombre             |
+| `id-length`                  | al menos dos caracteres, salvo `_`, `m` y `t`                         | Los identificadores son palabras; `t` es el traductor         |
+| `one-var`                    | `never`                                                               | Una declaración por sentencia                                 |
+| `unicorn/no-null`            | activada fuera de las pruebas                                         | Los valores ausentes son `undefined`                          |
+| `typescript/no-explicit-any` | `error`                                                               | Ningún valor tiene el tipo `any`                              |
 
 Las sobrescrituras son acotadas y se limitan a ciertos archivos: las pruebas relajan `no-magic-numbers`, `no-await-in-loop` y `unicorn/no-null`; `src/presentation` y `src/hooks` relajan `typescript/consistent-return`; los mocks de prueba relajan `require-await`; `src/routes` desactiva `sort-keys`, porque las opciones de ruta siguen su propio orden (consulta [Archivos de ruta](/docs/conventions/routes)).
 
 `tsconfig.json` añade los flags estrictos que cambian la forma de escribir el código: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` y `noUnusedParameters`. Una lectura por índice puede ser `undefined`, a una propiedad opcional no se le puede asignar `undefined` de forma explícita y una firma de índice se lee como `record["key"]`.
 
-El formateador escribe sin punto y coma, con comillas dobles, comas finales y un ancho de 140. También ordena las importaciones en grupos fijos y las clases de Tailwind en `className` y en las llamadas a `cn`, así que nunca ordenes ninguna de las dos a mano. Consulta [Lint y formato](/docs/tooling/lint-format) para ver los comandos.
+El formateador escribe sin punto y coma, con comillas dobles, comas finales y un ancho de 140. También ordena las importaciones en grupos fijos, las clases de Tailwind en `className` y en las llamadas a `cn`, y los scripts de `package.json` por nombre (`sortPackageJson: { sortScripts: true }`), así que nunca ordenes ninguno de ellos a mano: `vp check` falla cuando alguno está desordenado. Consulta [Lint y formato](/docs/tooling/lint-format) para ver los comandos.
 
 ## Sin comentarios
 
@@ -35,7 +36,7 @@ const LAST_INDEX_OFFSET = 1
 const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 ```
 
-Las dos primeras vienen de `get-course-editor.ts` y `course-columns.tsx`, y la tercera de `vite.config.ts`: de lo contrario, cada una necesitaría un comentario. Los archivos generados (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) están exentos, y las anotaciones `/* @__PURE__ */` de algunos esquemas de Drizzle son instrucciones para el bundler, no comentarios. Antes de hacer commit, busca en tu diff `//`, `/*` y `{/*`.
+Las dos primeras vienen de `get-course-editor.ts` y `course-columns.tsx`, y la tercera de `vite.config.ts`: de lo contrario, cada una necesitaría un comentario. Los archivos generados (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) están exentos. Antes de hacer commit, busca en tu diff `//`, `/*` y `{/*`.
 
 ## Sin vías de escape
 
@@ -96,7 +97,8 @@ export const COURSE_STATUS = {
 
 La tupla que necesita una columna o un esquema enum se construye a partir del objeto, no se vuelve a escribir: `course.schema.ts` declara `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, que alimenta tanto `text("status", { enum: COURSE_STATUSES })` como `zod.enum(COURSE_STATUSES)`.
 
-- Las constantes de un módulo viven en su `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); los valores de un proveedor viven en el `*.constants.ts` de la integración (`POLAR_ORDER_STATUS` en `polar.constants.ts`).
+- Las constantes de un módulo viven en su `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); los valores de un proveedor viven en el `*.constants.ts` de la integración (`POLAR_ORDER_STATUS` en `polar.constants.ts`, `AUTH_PROVIDER` en `auth.constants.ts`, `EMAIL_PURPOSE` en `resend.constants.ts`).
+- Las longitudes de las columnas y de las entradas se nombran una sola vez, en las constantes del módulo, y las leen tanto el esquema de Drizzle como el esquema Zod: `PRODUCT_NAME_MAX_LENGTH` en `product.constants.ts`.
 - Cada concepto tiene un único mapa, con una sola convención de mayúsculas: `ERROR_CODES` para los errores del servidor, `AUTH_ERRORS` para las claves de error de Better Auth, `ROLE_CODES` para los roles.
 - Una constante que usa un solo archivo se queda en ese archivo, debajo de las importaciones. Una constante que usan varios archivos va a su módulo, a `src/data` (consulta [Archivos y nomenclatura](/docs/conventions/files-and-naming)) o a `src/modules/_core/constants`. Nunca des a una constante un archivo propio.
 - Los nombres de campo de una API tipada, como `license_key_id`, son propiedades, no valores, y se siguen leyendo como acceso a propiedades.

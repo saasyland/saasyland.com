@@ -17,7 +17,7 @@ Wzorcem jest `src/modules/course`. Moduł zawiera następujące pliki, wszystkie
 | `<table>.constants.ts`       | Obiekty wartości domenowych, klucze zapytań, klucze mutacji i limity modułu                   |
 | `<table>.zod.ts`             | Po jednym schemacie wejścia na operację, eksportowanych jako jeden obiekt `<table>ZodSchemas` |
 | `<table>.types.ts`           | Jeden interfejs nazwany jak moduł                                                             |
-| `<table>.utils.ts`           | Czyste helpery bezpieczne w przeglądarce, jeśli tabela ich potrzebuje                         |
+| `<table>.utils.ts`           | Helpery tabeli, czyste i bezpieczne w przeglądarce, chyba że odczytują środowisko Workera     |
 | `<table>.<concern>.ts`       | Jedno dodatkowe zagadnienie tabeli, np. `lesson.access.ts` lub `video.delivery.ts`            |
 | `use-cases/<verb>-<noun>.ts` | Jedną operację, nazwaną od jej funkcji serwerowej                                             |
 | `__test__/`                  | Testy i fixtury dla powyższych plików                                                         |
@@ -31,9 +31,6 @@ export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as
 export const course = sqliteTable(
   "course",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
     position: integer("position").notNull().default(0),
@@ -41,16 +38,14 @@ export const course = sqliteTable(
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
     title: text("title", { mode: "json" }).$type<LocalizedText>().notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    ...timestamps(),
   },
   (table) => [index("course_status_position_idx").on(table.status, table.position)],
 )
 ```
 
-- Kolumny są w camelCase w TypeScript i w snake_case w SQL. Klucze są posortowane, jak wymaga linter.
+- Kolumny są w camelCase w TypeScript i w snake_case w SQL. Klucze są posortowane, jak wymaga linter, a `...timestamps()` jest ostatnim wpisem.
+- `createdAt` i `updatedAt` pochodzą z `timestamps()` w `src/integrations/drizzle-orm/drizzle.columns.ts`: są w milisekundach, wypełnia je SQLite przy wstawianiu wiersza, a `updatedAt` odświeża się przy każdej aktualizacji. Nigdy nie pisz ich ręcznie. `lesson_progress` potrzebuje tylko drugiej z nich, więc przyjmuje `updatedAt: timestamps().updatedAt`.
 - Klucze główne są tekstowe. Przypadek użycia, który wstawia wiersz, wypełnia klucz identyfikatorem UUID v7 (`v7()` z `uuid`).
 - Kolumny enum przyjmują krotkę zbudowaną z obiektu stałych modułu, nigdy listę literałów.
 - Tekst, który odwiedzający czyta w kilku językach, jest kolumną JSON `LocalizedText`, walidowaną przez `localizedTextSchema` i odczytywaną za pomocą `localize(text, locale)` z `src/modules/_core/utils/localized-text.ts`.
@@ -66,12 +61,18 @@ export const COURSE_STATUS = {
 
 export const COURSE_STALE_MS = 60_000
 
+export const COURSE_SHOWCASE = {
+  COURSES: 2,
+  LESSONS: 6,
+} as const
+
 export const COURSE_QUERY_KEYS = {
   ALL: ["course"],
   CATALOGUE: ["course", "catalogue"],
   DETAIL: ["course", "detail"],
   EDITOR: ["course", "getCourseEditor"],
   LIST: ["course", "getCourses"],
+  SHOWCASE: ["course", "showcase"],
 } as const
 
 export const COURSE_MUTATION_KEYS = {
@@ -84,6 +85,7 @@ export const COURSE_MUTATION_KEYS = {
 
 - Każdy klucz zapytania zaczyna się od prefiksu `ALL` modułu, więc jedno `invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })` odświeża wszystko, co moduł udostępnia. Zobacz [Pobieranie danych i cache](/docs/conventions/data-fetching).
 - Klucze mutacji składają się z nazwy modułu i nazwy funkcji serwerowej.
+- Długości kolumn i danych wejściowych są nazywane tutaj i współdzielone przez schemat oraz schemat Zod, np. `PRODUCT_NAME_MAX_LENGTH` w `product.constants.ts`.
 - `<MODULE>_VALIDATION_PARAMS` przechowuje liczby, które interpolują komunikaty walidacji, np. `{ slugTooLong: { max: SLUG_MAX_LENGTH } }`.
 
 ## Schematy Zod
@@ -118,6 +120,10 @@ const getCourse = zod.object({
 
 const getCourseEditor = courseIdInput
 
+const getCourseShowcase = zod.object({
+  locale: localeField,
+})
+
 const getCourses = paginationSchema
 
 const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
@@ -133,6 +139,7 @@ export const courseZodSchemas = {
   getCatalogue,
   getCourse,
   getCourseEditor,
+  getCourseShowcase,
   getCourses,
   insert,
   moveCourse,
@@ -184,11 +191,11 @@ Gdy tabela potrzebuje logiki, która nie jest ani przypadkiem użycia, ani czyst
 | `video/video.delivery.ts`                               | Handler Workera dla podpisanych żądań `/media/`                         |
 | `video/video.playback.ts`, `video/video.files.ts`       | Podpisywanie adresów URL odtwarzania; klucze obiektów i typy zawartości |
 
-Plik, który nigdy nie może trafić do pakietu przeglądarki, zaczyna się od `import "@tanstack/react-start/server-only"`, tak jak `lesson.viewer.ts`, `license.webhooks.ts` i `newsletter-subscriber.server.ts`. Czyste pliki, takie jak `lesson.access.ts` i `course.utils.ts`, nie importują niczego serwerowego, więc mogą z nich korzystać komponenty i testy.
+Plik, który nigdy nie może trafić do pakietu przeglądarki, zaczyna się od `import "@tanstack/react-start/server-only"`, tak jak `lesson.viewer.ts`, `license.webhooks.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` i `license.utils.ts` (który odczytuje identyfikatory produktów Polar ze środowiska Workera). Czyste pliki, takie jak `lesson.access.ts` i `course.utils.ts`, nie importują niczego serwerowego, więc mogą z nich korzystać komponenty i testy.
 
 ## Dodawanie modułu
 
-Postępuj krok po kroku według przewodnika [Dodawanie modułu](/docs/guides/add-a-module), zaczynając od kopii kształtu modułu kursów, a nie starszego modułu: `category` i `product` powstały, zanim wprowadzono część reguł z tej strony.
+Postępuj krok po kroku według przewodnika [Dodawanie modułu](/docs/guides/add-a-module), zaczynając od kopii kształtu modułu kursów.
 
 ## Powiązane strony
 

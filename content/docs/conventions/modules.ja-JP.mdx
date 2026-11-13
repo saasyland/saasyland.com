@@ -17,7 +17,7 @@ description: "モジュールは 1 つのデータベーステーブルです。
 | `<table>.constants.ts`       | ドメインの値オブジェクト、クエリキー、ミューテーションキー、モジュールの上限値               |
 | `<table>.zod.ts`             | 操作ごとに 1 つの入力スキーマ。1 つの `<table>ZodSchemas` オブジェクトとしてエクスポートする |
 | `<table>.types.ts`           | モジュール名を冠した 1 つのインターフェース                                                  |
-| `<table>.utils.ts`           | ブラウザーでも安全な純粋なヘルパー。テーブルが必要とする場合のみ                             |
+| `<table>.utils.ts`           | テーブルのヘルパー。Worker の環境を読み取るものを除き、純粋でブラウザーでも安全              |
 | `<table>.<concern>.ts`       | テーブルのその他の関心事 1 つ。`lesson.access.ts` や `video.delivery.ts` など                |
 | `use-cases/<verb>-<noun>.ts` | 1 つの操作。そのサーバー関数にちなんで命名する                                               |
 | `__test__/`                  | 上記のファイルのテストとフィクスチャ                                                         |
@@ -31,9 +31,6 @@ export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as
 export const course = sqliteTable(
   "course",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
     position: integer("position").notNull().default(0),
@@ -41,16 +38,14 @@ export const course = sqliteTable(
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
     title: text("title", { mode: "json" }).$type<LocalizedText>().notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    ...timestamps(),
   },
   (table) => [index("course_status_position_idx").on(table.status, table.position)],
 )
 ```
 
-- カラムは TypeScript ではキャメルケース、SQL ではスネークケースです。リンターの要求どおり、キーは並べ替えます。
+- カラムは TypeScript ではキャメルケース、SQL ではスネークケースです。リンターの要求どおり、キーは並べ替え、`...timestamps()` を最後のエントリーにします。
+- `createdAt` と `updatedAt` は `src/integrations/drizzle-orm/drizzle.columns.ts` の `timestamps()` から取得します。ミリ秒単位で、挿入時に SQLite が値を設定し、`updatedAt` は更新のたびに打ち直されます。これらを手書きしてはいけません。`lesson_progress` は後者だけが必要なので、`updatedAt: timestamps().updatedAt` を使います。
 - 主キーはテキストです。行を挿入するユースケースは、キーに UUID v7（`uuid` の `v7()`）を設定します。
 - enum カラムには、リテラルを並べたリストではなく、モジュールの定数オブジェクトから組み立てたタプルを渡します。
 - 訪問者が複数の言語で読むテキストは `LocalizedText` の JSON カラムにし、`localizedTextSchema` で検証して、`src/modules/_core/utils/localized-text.ts` の `localize(text, locale)` で読み取ります。
@@ -66,12 +61,18 @@ export const COURSE_STATUS = {
 
 export const COURSE_STALE_MS = 60_000
 
+export const COURSE_SHOWCASE = {
+  COURSES: 2,
+  LESSONS: 6,
+} as const
+
 export const COURSE_QUERY_KEYS = {
   ALL: ["course"],
   CATALOGUE: ["course", "catalogue"],
   DETAIL: ["course", "detail"],
   EDITOR: ["course", "getCourseEditor"],
   LIST: ["course", "getCourses"],
+  SHOWCASE: ["course", "showcase"],
 } as const
 
 export const COURSE_MUTATION_KEYS = {
@@ -84,6 +85,7 @@ export const COURSE_MUTATION_KEYS = {
 
 - すべてのクエリキーはモジュールの `ALL` プレフィックスで始まるため、`invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })` を 1 回呼ぶだけで、そのモジュールが提供するものがすべて更新されます。[データの取得とキャッシュ](/docs/conventions/data-fetching)を参照してください。
 - ミューテーションキーは、モジュール名とサーバー関数名で構成します。
+- カラムと入力の長さはここで名前を付け、`product.constants.ts` の `PRODUCT_NAME_MAX_LENGTH` のように、スキーマと Zod スキーマで共有します。
 - `<MODULE>_VALIDATION_PARAMS` は、`{ slugTooLong: { max: SLUG_MAX_LENGTH } }` のように、バリデーションメッセージに埋め込む数値を保持します。
 
 ## Zod スキーマ
@@ -118,6 +120,10 @@ const getCourse = zod.object({
 
 const getCourseEditor = courseIdInput
 
+const getCourseShowcase = zod.object({
+  locale: localeField,
+})
+
 const getCourses = paginationSchema
 
 const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
@@ -133,6 +139,7 @@ export const courseZodSchemas = {
   getCatalogue,
   getCourse,
   getCourseEditor,
+  getCourseShowcase,
   getCourses,
   insert,
   moveCourse,
@@ -184,11 +191,11 @@ export interface Lesson {
 | `video/video.delivery.ts`                               | 署名付きの `/media/` リクエスト用の Worker ハンドラー            |
 | `video/video.playback.ts`、`video/video.files.ts`       | 再生 URL の署名、オブジェクトキーとコンテンツタイプ              |
 
-ブラウザーのバンドルに決して含まれてはいけないファイルは、`lesson.viewer.ts`、`license.webhooks.ts`、`newsletter-subscriber.server.ts` のように `import "@tanstack/react-start/server-only"` で始めます。`lesson.access.ts` や `course.utils.ts` のような純粋なファイルはサーバー側のものを何もインポートしないため、コンポーネントやテストから使えます。
+ブラウザーのバンドルに決して含まれてはいけないファイルは、`lesson.viewer.ts`、`license.webhooks.ts`、`newsletter-subscriber.server.ts`、`video.delivery.ts`、`license.utils.ts`（Worker の環境から Polar の商品の ID を読み取る）のように `import "@tanstack/react-start/server-only"` で始めます。`lesson.access.ts` や `course.utils.ts` のような純粋なファイルはサーバー側のものを何もインポートしないため、コンポーネントやテストから使えます。
 
 ## モジュールを追加する
 
-[モジュールを追加する](/docs/guides/add-a-module)の手順に沿って進めてください。その際、古いモジュールではなく、コースモジュールの形をコピーして始めます。`category` と `product` は、このページのいくつかのルールができる前に作られたものです。
+[モジュールを追加する](/docs/guides/add-a-module)の手順に沿って進めてください。その際、コースモジュールの形をコピーして始めます。
 
 ## 関連ページ
 

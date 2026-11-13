@@ -17,7 +17,7 @@ Los módulos son `account`, `category`, `chapter`, `course`, `lesson`, `lesson-p
 | `<table>.constants.ts`       | Objetos de valores del dominio, claves de consulta, claves de mutación y límites del módulo |
 | `<table>.zod.ts`             | Un esquema de entrada por operación, exportados en un único objeto `<table>ZodSchemas`      |
 | `<table>.types.ts`           | Una interfaz con el nombre del módulo                                                       |
-| `<table>.utils.ts`           | Helpers puros que se pueden usar sin riesgo en el navegador, cuando la tabla los necesita   |
+| `<table>.utils.ts`           | Helpers de la tabla, puros y seguros en el navegador salvo que lean el entorno del Worker   |
 | `<table>.<concern>.ts`       | Una responsabilidad adicional de la tabla, como `lesson.access.ts` o `video.delivery.ts`    |
 | `use-cases/<verb>-<noun>.ts` | Una operación, con el nombre de su función de servidor                                      |
 | `__test__/`                  | Pruebas y fixtures de los archivos anteriores                                               |
@@ -31,9 +31,6 @@ export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as
 export const course = sqliteTable(
   "course",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
     position: integer("position").notNull().default(0),
@@ -41,16 +38,14 @@ export const course = sqliteTable(
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
     title: text("title", { mode: "json" }).$type<LocalizedText>().notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    ...timestamps(),
   },
   (table) => [index("course_status_position_idx").on(table.status, table.position)],
 )
 ```
 
-- Las columnas van en camelCase en TypeScript y en snake_case en SQL. Las claves están ordenadas, como exige el linter.
+- Las columnas van en camelCase en TypeScript y en snake_case en SQL. Las claves están ordenadas, como exige el linter, con `...timestamps()` como último elemento.
+- `createdAt` y `updatedAt` vienen de `timestamps()` en `src/integrations/drizzle-orm/drizzle.columns.ts`: son milisegundos, SQLite los rellena al insertar y `updatedAt` se renueva en cada actualización. Nunca los escribas a mano. `lesson_progress` solo necesita el segundo, así que toma `updatedAt: timestamps().updatedAt`.
 - Las claves primarias son de texto. Un caso de uso que inserta una fila rellena la clave con un UUID v7 (`v7()` de `uuid`).
 - Las columnas enum reciben una tupla construida a partir del objeto de constantes del módulo, nunca una lista de literales.
 - El texto que un visitante lee en varios idiomas es una columna JSON `LocalizedText`, validada por `localizedTextSchema` y leída con `localize(text, locale)` de `src/modules/_core/utils/localized-text.ts`.
@@ -66,12 +61,18 @@ export const COURSE_STATUS = {
 
 export const COURSE_STALE_MS = 60_000
 
+export const COURSE_SHOWCASE = {
+  COURSES: 2,
+  LESSONS: 6,
+} as const
+
 export const COURSE_QUERY_KEYS = {
   ALL: ["course"],
   CATALOGUE: ["course", "catalogue"],
   DETAIL: ["course", "detail"],
   EDITOR: ["course", "getCourseEditor"],
   LIST: ["course", "getCourses"],
+  SHOWCASE: ["course", "showcase"],
 } as const
 
 export const COURSE_MUTATION_KEYS = {
@@ -84,6 +85,7 @@ export const COURSE_MUTATION_KEYS = {
 
 - Cada clave de consulta empieza por el prefijo `ALL` del módulo, así que un solo `invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })` refresca todo lo que sirve el módulo. Consulta [Obtención de datos y caché](/docs/conventions/data-fetching).
 - Las claves de mutación son el nombre del módulo y el nombre de la función de servidor.
+- Las longitudes de las columnas y de las entradas se nombran aquí y las comparten el esquema y el esquema Zod, como `PRODUCT_NAME_MAX_LENGTH` en `product.constants.ts`.
 - `<MODULE>_VALIDATION_PARAMS` contiene los números que interpolan los mensajes de validación, como `{ slugTooLong: { max: SLUG_MAX_LENGTH } }`.
 
 ## Esquemas Zod
@@ -118,6 +120,10 @@ const getCourse = zod.object({
 
 const getCourseEditor = courseIdInput
 
+const getCourseShowcase = zod.object({
+  locale: localeField,
+})
+
 const getCourses = paginationSchema
 
 const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
@@ -133,6 +139,7 @@ export const courseZodSchemas = {
   getCatalogue,
   getCourse,
   getCourseEditor,
+  getCourseShowcase,
   getCourses,
   insert,
   moveCourse,
@@ -184,11 +191,11 @@ Cuando una tabla necesita lógica que no es ni un caso de uso ni un helper puro,
 | `video/video.delivery.ts`                               | El handler del Worker para las peticiones firmadas a `/media/`            |
 | `video/video.playback.ts`, `video/video.files.ts`       | Firma de las URL de reproducción; claves de objeto y tipos de contenido   |
 
-Un archivo que nunca debe llegar al bundle del navegador empieza por `import "@tanstack/react-start/server-only"`, como hacen `lesson.viewer.ts`, `license.webhooks.ts` y `newsletter-subscriber.server.ts`. Los archivos puros como `lesson.access.ts` y `course.utils.ts` no importan nada del lado del servidor, así que los componentes y las pruebas pueden usarlos.
+Un archivo que nunca debe llegar al bundle del navegador empieza por `import "@tanstack/react-start/server-only"`, como hacen `lesson.viewer.ts`, `license.webhooks.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` y `license.utils.ts` (que lee los IDs de producto de Polar del entorno del Worker). Los archivos puros como `lesson.access.ts` y `course.utils.ts` no importan nada del lado del servidor, así que los componentes y las pruebas pueden usarlos.
 
 ## Añadir un módulo
 
-Sigue [Añadir un módulo](/docs/guides/add-a-module) paso a paso, partiendo de una copia de la forma del módulo de cursos y no de un módulo más antiguo: `category` y `product` son anteriores a algunas de las reglas de esta página.
+Sigue [Añadir un módulo](/docs/guides/add-a-module) paso a paso, partiendo de una copia de la forma del módulo de cursos.
 
 ## Páginas relacionadas
 

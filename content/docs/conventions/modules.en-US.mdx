@@ -11,16 +11,16 @@ The modules are `account`, `category`, `chapter`, `course`, `lesson`, `lesson-pr
 
 `src/modules/course` is the reference. A module contains these files, all named after the table:
 
-| File                         | Contains                                                                            |
-| ---------------------------- | ----------------------------------------------------------------------------------- |
-| `<table>.schema.ts`          | The Drizzle table, its indexes and relations, and the enum tuples its columns use   |
-| `<table>.constants.ts`       | Domain value objects, query keys, mutation keys and module limits                   |
-| `<table>.zod.ts`             | One input schema per operation, exported as one `<table>ZodSchemas` object          |
-| `<table>.types.ts`           | One interface named after the module                                                |
-| `<table>.utils.ts`           | Pure helpers that are safe in the browser, when the table needs them                |
-| `<table>.<concern>.ts`       | One further concern of the table, such as `lesson.access.ts` or `video.delivery.ts` |
-| `use-cases/<verb>-<noun>.ts` | One operation, named after its server function                                      |
-| `__test__/`                  | Tests and fixtures for the files above                                              |
+| File                         | Contains                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------ |
+| `<table>.schema.ts`          | The Drizzle table, its indexes and relations, and the enum tuples its columns use    |
+| `<table>.constants.ts`       | Domain value objects, query keys, mutation keys and module limits                    |
+| `<table>.zod.ts`             | One input schema per operation, exported as one `<table>ZodSchemas` object           |
+| `<table>.types.ts`           | One interface named after the module                                                 |
+| `<table>.utils.ts`           | Helpers for the table, pure and browser-safe unless they read the Worker environment |
+| `<table>.<concern>.ts`       | One further concern of the table, such as `lesson.access.ts` or `video.delivery.ts`  |
+| `use-cases/<verb>-<noun>.ts` | One operation, named after its server function                                       |
+| `__test__/`                  | Tests and fixtures for the files above                                               |
 
 ## Schema
 
@@ -31,9 +31,6 @@ export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as
 export const course = sqliteTable(
   "course",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
     position: integer("position").notNull().default(0),
@@ -41,16 +38,14 @@ export const course = sqliteTable(
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
     title: text("title", { mode: "json" }).$type<LocalizedText>().notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    ...timestamps(),
   },
   (table) => [index("course_status_position_idx").on(table.status, table.position)],
 )
 ```
 
-- Columns are camelCase in TypeScript and snake_case in SQL. Keys are sorted, as the linter requires.
+- Columns are camelCase in TypeScript and snake_case in SQL. Keys are sorted, as the linter requires, with `...timestamps()` as the last entry.
+- `createdAt` and `updatedAt` come from `timestamps()` in `src/integrations/drizzle-orm/drizzle.columns.ts`: milliseconds, filled by SQLite on insert, with `updatedAt` refreshed on every update. Never write them by hand. `lesson_progress` needs only the second, so it takes `updatedAt: timestamps().updatedAt`.
 - Primary keys are text. A use case that inserts a row fills the key with a UUID v7 (`v7()` from `uuid`).
 - Enum columns take a tuple built from the module's constant object, never a list of literals.
 - Text a visitor reads in several languages is a `LocalizedText` JSON column, validated by `localizedTextSchema` and read with `localize(text, locale)` from `src/modules/_core/utils/localized-text.ts`.
@@ -66,12 +61,18 @@ export const COURSE_STATUS = {
 
 export const COURSE_STALE_MS = 60_000
 
+export const COURSE_SHOWCASE = {
+  COURSES: 2,
+  LESSONS: 6,
+} as const
+
 export const COURSE_QUERY_KEYS = {
   ALL: ["course"],
   CATALOGUE: ["course", "catalogue"],
   DETAIL: ["course", "detail"],
   EDITOR: ["course", "getCourseEditor"],
   LIST: ["course", "getCourses"],
+  SHOWCASE: ["course", "showcase"],
 } as const
 
 export const COURSE_MUTATION_KEYS = {
@@ -84,6 +85,7 @@ export const COURSE_MUTATION_KEYS = {
 
 - Every query key starts with the module's `ALL` prefix, so one `invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })` refreshes everything the module serves. See [Data fetching and caching](/docs/conventions/data-fetching).
 - Mutation keys are the module name and the server function name.
+- Column and input lengths are named here and shared by the schema and the Zod schema, such as `PRODUCT_NAME_MAX_LENGTH` in `product.constants.ts`.
 - `<MODULE>_VALIDATION_PARAMS` holds the numbers that validation messages interpolate, such as `{ slugTooLong: { max: SLUG_MAX_LENGTH } }`.
 
 ## Zod schemas
@@ -118,6 +120,10 @@ const getCourse = zod.object({
 
 const getCourseEditor = courseIdInput
 
+const getCourseShowcase = zod.object({
+  locale: localeField,
+})
+
 const getCourses = paginationSchema
 
 const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
@@ -133,6 +139,7 @@ export const courseZodSchemas = {
   getCatalogue,
   getCourse,
   getCourseEditor,
+  getCourseShowcase,
   getCourses,
   insert,
   moveCourse,
@@ -184,11 +191,11 @@ When a table needs logic that is neither a use case nor a pure helper, it gets o
 | `video/video.delivery.ts`                               | The Worker handler for signed `/media/` requests              |
 | `video/video.playback.ts`, `video/video.files.ts`       | Signing playback URLs; object keys and content types          |
 
-A file that must never reach the browser bundle starts with `import "@tanstack/react-start/server-only"`, as `lesson.viewer.ts`, `license.webhooks.ts` and `newsletter-subscriber.server.ts` do. Pure files such as `lesson.access.ts` and `course.utils.ts` import nothing server-side, so components and tests can use them.
+A file that must never reach the browser bundle starts with `import "@tanstack/react-start/server-only"`, as `lesson.viewer.ts`, `license.webhooks.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` and `license.utils.ts` (which reads the Polar product IDs from the Worker environment) do. Pure files such as `lesson.access.ts` and `course.utils.ts` import nothing server-side, so components and tests can use them.
 
 ## Adding a module
 
-Follow [Add a module](/docs/guides/add-a-module) step by step, starting from a copy of the course module's shape rather than an older module: `category` and `product` predate some of the rules on this page.
+Follow [Add a module](/docs/guides/add-a-module) step by step, starting from a copy of the course module's shape.
 
 ## Related pages
 

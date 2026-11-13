@@ -9,21 +9,22 @@ description: "What the formatter, linter and compiler enforce, and the rules the
 
 oxlint runs the `correctness`, `nursery`, `pedantic`, `perf`, `style` and `suspicious` categories as errors, with type-aware rules and type checking switched on. The limits that shape code most:
 
-| Rule                     | Setting                                                 | Effect                                         |
-| ------------------------ | ------------------------------------------------------- | ---------------------------------------------- |
-| `max-lines`              | 800                                                     | Split a file by responsibility before it grows |
-| `max-lines-per-function` | 150                                                     | Components and handlers stay small             |
-| `max-statements`         | 20                                                      | Extract named helpers instead of long bodies   |
-| `no-magic-numbers`       | only `0` allowed, plus array indexes and default values | Every other number is a named constant         |
-| `id-length`              | at least two characters, except `_`, `m` and `t`        | Identifiers are words; `t` is the translator   |
-| `one-var`                | `never`                                                 | One declaration per statement                  |
-| `unicorn/no-null`        | on outside tests                                        | Absent values are `undefined`                  |
+| Rule                         | Setting                                                 | Effect                                         |
+| ---------------------------- | ------------------------------------------------------- | ---------------------------------------------- |
+| `max-lines`                  | 800                                                     | Split a file by responsibility before it grows |
+| `max-lines-per-function`     | 150                                                     | Components and handlers stay small             |
+| `max-statements`             | 20                                                      | Extract named helpers instead of long bodies   |
+| `no-magic-numbers`           | only `0` allowed, plus array indexes and default values | Every other number is a named constant         |
+| `id-length`                  | at least two characters, except `_`, `m` and `t`        | Identifiers are words; `t` is the translator   |
+| `one-var`                    | `never`                                                 | One declaration per statement                  |
+| `unicorn/no-null`            | on outside tests                                        | Absent values are `undefined`                  |
+| `typescript/no-explicit-any` | `error`                                                 | No value is typed `any`                        |
 
 The overrides are narrow and file-scoped: tests relax `no-magic-numbers`, `no-await-in-loop` and `unicorn/no-null`; `src/presentation` and `src/hooks` relax `typescript/consistent-return`; test mocks relax `require-await`; `src/routes` turns off `sort-keys`, because route options follow their own order (see [Route files](/docs/conventions/routes)).
 
 `tsconfig.json` adds the strict flags that change how code is written: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` and `noUnusedParameters`. An indexed read is possibly `undefined`, an optional property cannot be set to `undefined` explicitly, and an index signature is read as `record["key"]`.
 
-The formatter prints without semicolons, with double quotes, trailing commas and a width of 140. It also sorts imports into fixed groups and Tailwind classes in `className` and `cn` calls, so never order either by hand. See [Lint and format](/docs/tooling/lint-format) for the commands.
+The formatter prints without semicolons, with double quotes, trailing commas and a width of 140. It also sorts imports into fixed groups, Tailwind classes in `className` and `cn` calls, and the `package.json` scripts by name (`sortPackageJson: { sortScripts: true }`), so never order any of them by hand: `vp check` fails when one is out of order. See [Lint and format](/docs/tooling/lint-format) for the commands.
 
 ## No comments
 
@@ -35,7 +36,7 @@ const LAST_INDEX_OFFSET = 1
 const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 ```
 
-The first two come from `get-course-editor.ts` and `course-columns.tsx`, the third from `vite.config.ts`: each would otherwise need a comment. Generated files (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) are exempt, and the `/* @__PURE__ */` annotations in a few Drizzle schemas are instructions for the bundler, not comments. Before you commit, search your diff for `//`, `/*` and `{/*`.
+The first two come from `get-course-editor.ts` and `course-columns.tsx`, the third from `vite.config.ts`: each would otherwise need a comment. Generated files (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) are exempt. Before you commit, search your diff for `//`, `/*` and `{/*`.
 
 ## No escape hatches
 
@@ -96,7 +97,8 @@ export const COURSE_STATUS = {
 
 The tuple a column or an enum schema needs is built from the object, not retyped: `course.schema.ts` declares `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, which feeds both `text("status", { enum: COURSE_STATUSES })` and `zod.enum(COURSE_STATUSES)`.
 
-- A module's constants live in its `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); a provider's values live in the integration's `*.constants.ts` (`POLAR_ORDER_STATUS` in `polar.constants.ts`).
+- A module's constants live in its `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); a provider's values live in the integration's `*.constants.ts` (`POLAR_ORDER_STATUS` in `polar.constants.ts`, `AUTH_PROVIDER` in `auth.constants.ts`, `EMAIL_PURPOSE` in `resend.constants.ts`).
+- Column and input lengths are named once, in the module's constants, and read by both the Drizzle schema and the Zod schema: `PRODUCT_NAME_MAX_LENGTH` in `product.constants.ts`.
 - One concept has one map in one casing: `ERROR_CODES` for server errors, `AUTH_ERRORS` for Better Auth error keys, `ROLE_CODES` for roles.
 - A constant used by one file stays in that file, below the imports. A constant used by several files goes to its module, to `src/data` (see [Files and naming](/docs/conventions/files-and-naming)) or to `src/modules/_core/constants`. Never give one constant a file of its own.
 - Typed API field names such as `license_key_id` are properties, not values, and stay as property access.

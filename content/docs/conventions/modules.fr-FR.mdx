@@ -11,16 +11,16 @@ Les modules sont `account`, `category`, `chapter`, `course`, `lesson`, `lesson-p
 
 `src/modules/course` sert de référence. Un module contient ces fichiers, tous nommés d'après la table :
 
-| Fichier                      | Contenu                                                                                            |
-| ---------------------------- | -------------------------------------------------------------------------------------------------- |
-| `<table>.schema.ts`          | La table Drizzle, ses index et ses relations, et les tuples d'enum qu'utilisent ses colonnes       |
-| `<table>.constants.ts`       | Les objets de valeurs du domaine, les clés de query, les clés de mutation et les limites du module |
-| `<table>.zod.ts`             | Un schéma d'entrée par opération, tous exportés dans un seul objet `<table>ZodSchemas`             |
-| `<table>.types.ts`           | Une interface au nom du module                                                                     |
-| `<table>.utils.ts`           | Des utilitaires purs, utilisables sans risque dans le navigateur, lorsque la table en a besoin     |
-| `<table>.<concern>.ts`       | Une préoccupation supplémentaire de la table, comme `lesson.access.ts` ou `video.delivery.ts`      |
-| `use-cases/<verb>-<noun>.ts` | Une opération, nommée d'après sa fonction serveur                                                  |
-| `__test__/`                  | Les tests et les fixtures des fichiers ci-dessus                                                   |
+| Fichier                      | Contenu                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `<table>.schema.ts`          | La table Drizzle, ses index et ses relations, et les tuples d'enum qu'utilisent ses colonnes                                   |
+| `<table>.constants.ts`       | Les objets de valeurs du domaine, les clés de query, les clés de mutation et les limites du module                             |
+| `<table>.zod.ts`             | Un schéma d'entrée par opération, tous exportés dans un seul objet `<table>ZodSchemas`                                         |
+| `<table>.types.ts`           | Une interface au nom du module                                                                                                 |
+| `<table>.utils.ts`           | Des utilitaires pour la table, purs et utilisables sans risque dans le navigateur, sauf s'ils lisent l'environnement du Worker |
+| `<table>.<concern>.ts`       | Une préoccupation supplémentaire de la table, comme `lesson.access.ts` ou `video.delivery.ts`                                  |
+| `use-cases/<verb>-<noun>.ts` | Une opération, nommée d'après sa fonction serveur                                                                              |
+| `__test__/`                  | Les tests et les fixtures des fichiers ci-dessus                                                                               |
 
 ## Schéma
 
@@ -31,9 +31,6 @@ export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as
 export const course = sqliteTable(
   "course",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
     position: integer("position").notNull().default(0),
@@ -41,16 +38,14 @@ export const course = sqliteTable(
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
     title: text("title", { mode: "json" }).$type<LocalizedText>().notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    ...timestamps(),
   },
   (table) => [index("course_status_position_idx").on(table.status, table.position)],
 )
 ```
 
-- Les colonnes sont en camelCase en TypeScript et en snake_case en SQL. Les clés sont triées, comme l'exige le linter.
+- Les colonnes sont en camelCase en TypeScript et en snake_case en SQL. Les clés sont triées, comme l'exige le linter, avec `...timestamps()` en dernière entrée.
+- `createdAt` et `updatedAt` proviennent de `timestamps()` dans `src/integrations/drizzle-orm/drizzle.columns.ts` : des millisecondes, renseignées par SQLite à l'insertion, `updatedAt` étant actualisée à chaque mise à jour. Ne les écrivez jamais à la main. `lesson_progress` n'a besoin que de la seconde et prend donc `updatedAt: timestamps().updatedAt`.
 - Les clés primaires sont de type texte. Un cas d'usage qui insère une ligne remplit la clé avec un UUID v7 (`v7()` de `uuid`).
 - Les colonnes d'enum prennent un tuple construit à partir de l'objet de constantes du module, jamais une liste de littéraux.
 - Un texte qu'un visiteur lit en plusieurs langues est une colonne JSON `LocalizedText`, validée par `localizedTextSchema` et lue avec `localize(text, locale)` de `src/modules/_core/utils/localized-text.ts`.
@@ -66,12 +61,18 @@ export const COURSE_STATUS = {
 
 export const COURSE_STALE_MS = 60_000
 
+export const COURSE_SHOWCASE = {
+  COURSES: 2,
+  LESSONS: 6,
+} as const
+
 export const COURSE_QUERY_KEYS = {
   ALL: ["course"],
   CATALOGUE: ["course", "catalogue"],
   DETAIL: ["course", "detail"],
   EDITOR: ["course", "getCourseEditor"],
   LIST: ["course", "getCourses"],
+  SHOWCASE: ["course", "showcase"],
 } as const
 
 export const COURSE_MUTATION_KEYS = {
@@ -84,6 +85,7 @@ export const COURSE_MUTATION_KEYS = {
 
 - Chaque clé de query commence par le préfixe `ALL` du module, si bien qu'un seul `invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })` rafraîchit tout ce que sert le module. Voir [Récupération des données et cache](/docs/conventions/data-fetching).
 - Les clés de mutation sont formées du nom du module et du nom de la fonction serveur.
+- Les longueurs des colonnes et des entrées sont nommées ici et partagées par le schéma et par le schéma Zod, comme `PRODUCT_NAME_MAX_LENGTH` dans `product.constants.ts`.
 - `<MODULE>_VALIDATION_PARAMS` contient les nombres qu'interpolent les messages de validation, comme `{ slugTooLong: { max: SLUG_MAX_LENGTH } }`.
 
 ## Schémas Zod
@@ -118,6 +120,10 @@ const getCourse = zod.object({
 
 const getCourseEditor = courseIdInput
 
+const getCourseShowcase = zod.object({
+  locale: localeField,
+})
+
 const getCourses = paginationSchema
 
 const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
@@ -133,6 +139,7 @@ export const courseZodSchemas = {
   getCatalogue,
   getCourse,
   getCourseEditor,
+  getCourseShowcase,
   getCourses,
   insert,
   moveCourse,
@@ -184,11 +191,11 @@ Lorsqu'une table a besoin d'une logique qui n'est ni un cas d'usage ni un utilit
 | `video/video.delivery.ts`                               | Le handler du Worker pour les requêtes `/media/` signées                    |
 | `video/video.playback.ts`, `video/video.files.ts`       | La signature des URL de lecture ; les clés d'objet et les types de contenu  |
 
-Un fichier qui ne doit jamais atteindre le bundle du navigateur commence par `import "@tanstack/react-start/server-only"`, comme le font `lesson.viewer.ts`, `license.webhooks.ts` et `newsletter-subscriber.server.ts`. Les fichiers purs comme `lesson.access.ts` et `course.utils.ts` n'importent rien de propre au serveur : les composants et les tests peuvent donc les utiliser.
+Un fichier qui ne doit jamais atteindre le bundle du navigateur commence par `import "@tanstack/react-start/server-only"`, comme le font `lesson.viewer.ts`, `license.webhooks.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` et `license.utils.ts` (qui lit les identifiants des produits Polar dans l'environnement du Worker). Les fichiers purs comme `lesson.access.ts` et `course.utils.ts` n'importent rien de propre au serveur : les composants et les tests peuvent donc les utiliser.
 
 ## Ajouter un module
 
-Suivez pas à pas [Ajouter un module](/docs/guides/add-a-module), en partant d'une copie de la forme du module des cours plutôt que d'un module plus ancien : `category` et `product` sont antérieurs à certaines règles de cette page.
+Suivez pas à pas [Ajouter un module](/docs/guides/add-a-module), en partant d'une copie de la forme du module des cours.
 
 ## Pages associées
 

@@ -35,8 +35,25 @@ const prepare = (query: string, values: SQLInputValue[] = []) => ({
 
 const cache = new Map<string, string>()
 const pendingTasks = new Set<Promise<unknown>>()
+
+interface StoredMediaObject {
+  readonly body: Uint8Array<ArrayBuffer>
+  readonly etag: string
+}
+
+interface MediaRange {
+  readonly length: number
+  readonly offset: number
+}
+
+const MEDIA_LIST_LIMIT = 1000
+const media = new Map<string, StoredMediaObject>()
+
+const mediaMetadata = (key: string, stored: StoredMediaObject) => ({ httpEtag: `"${stored.etag}"`, key, size: stored.body.byteLength })
+
 export const resetTestBindings = (): void => {
   cache.clear()
+  media.clear()
   pendingTasks.clear()
   database.exec("DELETE FROM rate_limit")
 }
@@ -72,6 +89,35 @@ export const env = {
       }
     },
     prepare,
+  },
+  MEDIA: {
+    delete: async (keys: string | string[]) => {
+      for (const key of [keys].flat()) {
+        media.delete(key)
+      }
+    },
+    get: async (key: string, options?: { range?: MediaRange }) => {
+      const stored = media.get(key)
+      if (stored === undefined) {
+        return null
+      }
+      const range = options?.range
+      const body = range === undefined ? stored.body : stored.body.slice(range.offset, range.offset + range.length)
+      return { ...mediaMetadata(key, stored), body: new Blob([body]).stream() }
+    },
+    head: async (key: string) => {
+      const stored = media.get(key)
+      return stored === undefined ? null : mediaMetadata(key, stored)
+    },
+    list: async ({ cursor, limit = MEDIA_LIST_LIMIT, prefix = "" }: { cursor?: string; limit?: number; prefix?: string } = {}) => {
+      const keys = [...media.keys()].filter((key) => key.startsWith(prefix) && (cursor === undefined || key > cursor)).toSorted()
+      const page = keys.slice(0, limit)
+      const truncated = keys.length > limit
+      return { objects: page.map((key) => ({ key })), truncated, ...(truncated ? { cursor: page.at(-1) } : {}) }
+    },
+    put: async (key: string, value: string) => {
+      media.set(key, { body: new TextEncoder().encode(value), etag: `${key}:${String(value.length)}` })
+    },
   },
 }
 

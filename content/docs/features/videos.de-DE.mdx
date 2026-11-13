@@ -1,0 +1,54 @@
+---
+title: "Videos"
+description: "Aufnahmen, auf Ihrem Rechner in adaptives HLS kodiert, in Ihrem eigenen R2-Bucket gespeichert und über signierte, ablaufende Links gestreamt."
+---
+
+Videos werden in Ihrem eigenen R2-Bucket gespeichert und von Ihrem eigenen Worker gestreamt. Dazwischen sitzt keine Videoplattform: Cloudflare berechnet keine Egress-Gebühren für R2, daher bezahlen Sie Speicher und Requests, nicht angesehene Minuten.
+
+## Was existiert
+
+- **Bibliothek**: `/admin/videos` (`src/routes/admin.videos.tsx`) listet jedes veröffentlichte Video mit Länge, Quellauflösung, gespeicherter Größe, Untertitelsprachen und Veröffentlichungsdatum auf, das neueste zuerst. **Ansehen** spielt das Video in einem Dialog ab; **Löschen** fragt nach einer Bestätigung und entfernt dann die Zeile und jede Datei unter dem Präfix des Videos in R2.
+- **Veröffentlichung**: `bun run video:publish:production <file> --title "…"` kodiert eine Aufnahme mit FFmpeg, lädt sie nach R2 hoch und registriert sie in der Tabelle `video`; erst dadurch erscheint sie in der Bibliothek.
+- **Auslieferung**: `/media/<expiry>.<signature>/<videoId>/<file>` liefert die Dateien an den Player aus (siehe [Cloudflare R2](/docs/integrations/cloudflare-r2)).
+- **Player**: `VideoPlayer` (`src/presentation/components/custom/video-player.tsx`) nutzt Video.js 10 mit eigener HLS-Engine. Er bietet Bedienelemente für Qualität, Geschwindigkeit, Untertitel, Bild-im-Bild und Vollbild, Vorschaubilder beim Spulen aus dem Storyboard und Beschriftungen in der Sprache der Seite.
+
+Kurse, Kapitel und Lektionen gehören noch nicht zu dieser Funktion; siehe [Kurse](/docs/features/courses).
+
+## Inhalt eines veröffentlichten Videos
+
+Der Encoder plant die Ausgabe anhand der Quelle:
+
+| Datei                               | Inhalt                                                                                                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `master.m3u8`                       | HLS-Multivariant-Playlist, die jede Rendition mit Auflösung, Codecs und Spitzenbandbreite aufführt.                                                                             |
+| `<height>p/`                        | Eine H.264-Rendition pro Stufe: die Höhe der Quelle (bis 1440p), darunter 1080p, 720p und 360p. Jede hat `index.m3u8`, `init_<n>.mp4` und sechs Sekunden lange `.m4s`-Segmente. |
+| `audio/`                            | Eine AAC-Spur (128 kb/s, 48 kHz Stereo), die sich alle Renditions teilen, sodass der Ton nur einmal gespeichert wird. Stumme Aufnahmen haben keine.                             |
+| `poster.webp`, `poster-960.webp`    | Ein Frame nach einem Zehntel der Laufzeit oder das mit `--poster` übergebene Bild, 1920 und 960 Pixel breit. Der Player wählt eines per `srcset`.                               |
+| `storyboard.webp`, `storyboard.vtt` | Vorschaubilder für das Spulen: eine Kachel alle zwei Sekunden oder seltener, höchstens 600 Kacheln, mit einer WebVTT-Spur, die auf jede Kachel verweist.                        |
+| `captions/<locale>.vtt`             | Die mit `--captions` übergebenen Untertiteldateien, eine pro Locale.                                                                                                            |
+
+Segmente sind CMAF (fragmentiertes MP4) mit einem Keyframe alle zwei Sekunden, sodass alle Renditions an denselben Stellen wechseln. Die Bitraten folgen einer konstanten Qualität (CRF 21) mit einer Obergrenze proportional zur Bildgröße, sodass eine weitgehend statische Bildschirmaufnahme weit weniger Platz belegt, als die Obergrenze erlauben würde.
+
+## Eine Aufnahme veröffentlichen
+
+1. Installieren Sie FFmpeg, das `ffprobe` enthält: unter macOS `brew install ffmpeg`. Setzen Sie `FFMPEG` und `FFPROBE`, um andere Binärdateien zu verwenden.
+2. Melden Sie sich mit `bunx wrangler login` bei Cloudflare an. Das Skript führt Wrangler mit dieser Anmeldung aus, wie die Skripte `db:migrate:*`, und liest keine `.env`-Datei.
+3. Führen Sie das Skript für die Umgebung aus:
+
+```bash
+bun run video:publish:production lesson-01.mp4 --title "Lesson 01" --poster cover.jpg --captions en-US=lesson-01.en.vtt --captions pl-PL=lesson-01.pl.vtt
+```
+
+`--poster` und `--captions` sind optional. Verwenden Sie `video:publish:preview` für die Preview-Umgebung.
+
+`scripts/publish-video.ts` liest den Bucket-Namen aus dem `MEDIA`-Binding der Umgebung in `wrangler.jsonc`, kodiert in ein temporäres Verzeichnis, lädt die Dateien mit `wrangler r2 bulk put --remote` hoch, jeweils 20 gleichzeitig und nach Inhaltstyp gruppiert, und fügt die `video`-Zeile mit `wrangler d1 execute DB --env <environment> --remote` ein. Schlägt das fehl, löscht es die hochgeladenen Objekte mit `wrangler r2 object delete` wieder. Die Planung (Renditions, FFmpeg-Argumente, Storyboard, Dateinamen) liegt in `src/modules/video/video.encoding.ts` und `video.files.ts`, die auch der Worker verwendet.
+
+## Kosten
+
+Mit R2-Standard-Speicher zu 0,015 $ pro GB und Monat und ohne Egress-Gebühren kostet eine Bibliothek mit 50 Stunden Bildschirmaufnahmen bei rund 1,2 GB pro Stunde über alle Renditions weniger als 1 $ Speicher im Monat, egal wie oft sie angesehen wird. Jeder Segment-Request führt den Worker einmal aus und liest R2 höchstens einmal pro Edge-Standort, weil ausgelieferte Dateien im Workers-Cache bleiben. Aktuelle Preise finden Sie auf den Preisseiten von [R2](https://developers.cloudflare.com/r2/pricing/) und [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
+
+## Verwandte Seiten
+
+- [Cloudflare R2](/docs/integrations/cloudflare-r2)
+- [Kurse](/docs/features/courses)
+- [Admin-Dashboard](/docs/features/admin-dashboard)

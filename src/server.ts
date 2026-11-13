@@ -11,6 +11,7 @@ import {
   getPppPercentOff,
   pppMultiplierKey,
 } from "~/src/modules/_core/constants/pricing"
+import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
 
 import { readCookie, serializeCookie } from "~/src/lib/cookie"
 
@@ -89,6 +90,11 @@ const withSecurityHeaders = (response: Response, protocol: string): Response => 
   return secured
 }
 
+const serveSignedMedia = async (request: Request): Promise<Response> => {
+  const { serveMedia } = await import("~/src/modules/video/video.delivery")
+  return serveMedia(request)
+}
+
 const respond = async (request: Request, env: Cloudflare.Env): Promise<Response> => {
   const { redirect, setCookie } = resolveLocale(request)
 
@@ -127,6 +133,8 @@ const respond = async (request: Request, env: Cloudflare.Env): Promise<Response>
 
 export default {
   async fetch(request: Request, env: Cloudflare.Env): Promise<Response> {
-    return withSecurityHeaders(await respond(request, env), new URL(request.url).protocol)
+    const { pathname, protocol } = new URL(request.url)
+    const response = pathname.startsWith(`${MEDIA_PATH_PREFIX}/`) ? await serveSignedMedia(request) : await respond(request, env)
+    return withSecurityHeaders(response, protocol)
   },
 } satisfies ExportedHandler<Cloudflare.Env>

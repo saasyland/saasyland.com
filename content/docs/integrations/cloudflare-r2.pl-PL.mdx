@@ -1,0 +1,45 @@
+---
+title: "Cloudflare R2"
+description: "Bucket MEDIA: prywatne przechowywanie wideo, które Worker serwuje przez podpisane, wygasające ścieżki i cache brzegowy."
+---
+
+Każde środowisko wiąże bucket R2 jako `MEDIA` w `wrangler.jsonc`: `saasyland` na produkcji, `saasyland-preview` dla preview i lokalnego trybu deweloperskiego oraz lokalny bucket `saasyland-test` dla builda testowego. Buckety są prywatne: publiczny dostęp i adres URL `r2.dev` pozostają wyłączone, a każdy odczyt przechodzi przez Workera.
+
+## Układ obiektów
+
+Pliki każdego filmu znajdują się pod `videos/<videoId>/`, gdzie `videoId` to id wiersza `video`. Klucze budują `videoObjectKey` i `videoDirectory` w `src/modules/video/video.files.ts`, a `mediaContentType` wymienia jedyne nazwy plików, które wolno przesłać lub serwować, wraz z ich typami mediów. Wszystko inne jest odrzucane.
+
+## Podpisane dostarczanie
+
+Odtwarzacz nigdy nie widzi klucza obiektu w buckecie. Funkcja serwerowa wywołuje `createPlayback` (`src/modules/video/video.playback.ts`), który zwraca ścieżki w postaci:
+
+```text
+/media/<expiry>.<signature>/<videoId>/master.m3u8
+```
+
+- `expiry` to czas uniksowy zapisany w systemie o podstawie 36, co najmniej sześć godzin naprzód i zaokrąglony w górę do pełnej godziny, więc linki wydane w tej samej godzinie są identyczne i przeglądarka może je dalej trzymać w cache.
+- `signature` to HMAC-SHA-256 z `<videoId>.<expiry>` z kluczem wyprowadzonym z `AUTH_SECRET` przez HKDF, więc nie jest potrzebny dodatkowy sekret, a klucz nie służy do niczego innego.
+- Playlisty odwołują się do wariantów, segmentów i napisów przez ścieżki względne, więc jeden podpisany prefiks obejmuje cały strumień.
+
+`src/server.ts` przekazuje każde żądanie `/media/` do `serveMedia` (`src/modules/video/video.delivery.ts`) przed middleware języka i TanStack Start oraz dodaje standardowe nagłówki bezpieczeństwa. `serveMedia`:
+
+- przyjmuje tylko `GET` i `HEAD` (w przeciwnym razie `405`);
+- zwraca `404` dla ścieżki, która nie jest wymienionym plikiem multimedialnym, i `403` dla wygasłego lub błędnego podpisu;
+- odpowiada na żądania `Range` kodem `206` z `Content-Range`, a kodem `416` na zakres wykraczający poza plik;
+- gdy to możliwe, serwuje całe pliki z cache Workers. Pliki są tam zapisywane pod `/media/_/<videoId>/<file>`, bez podpisu, więc wszyscy widzowie współdzielą jedną kopię w cache na każdą lokalizację brzegową. Odpowiedzi dla przeglądarki mają `private, max-age=86400, immutable`.
+
+Podpisane ścieżki działają jak linki na okaziciela, dopóki nie wygasną: każdy, kto ma taki link, może odtworzyć ten film. Sprawdzenie, kto może oglądać, odbywa się w chwili wydania ścieżki.
+
+## Przesyłanie plików
+
+Worker nie przyjmuje przesyłanych plików. `scripts/publish-video.ts` zapisuje do bucketu poleceniem `wrangler r2 bulk put --remote`, korzystając z Twojego logowania `bunx wrangler login`; zobacz [Wideo](/docs/features/videos). Usunięcie filmu w panelu administracyjnym listuje prefiks i usuwa obiekty strona po stronie przez binding.
+
+## Testy
+
+W Vitest `cloudflare:workers` wskazuje na `src/platform/testing/mocks/cloudflare.ts`, który zapewnia bucket `MEDIA` w pamięci z metodami `get` (także z zakresami), `head`, `put`, `delete` i stronicowanym `list`. `src/platform/testing/mocks/cache.ts` zastępuje cache Workers zaślepką. Build testowy używa lokalnego bucketu `saasyland-test` w `.wrangler/test`.
+
+## Powiązane strony
+
+- [Wideo](/docs/features/videos)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Model bezpieczeństwa](/docs/architecture/security-model)

@@ -3,7 +3,7 @@ title: "Deploy di una preview"
 description: "Crea le risorse Cloudflare ed esegui il deploy del Worker di preview."
 ---
 
-L'ambiente `preview` distribuisce il Worker `saasyland-preview` su `preview.saasyland.com`. Per impostazione predefinita `development` e `preview` condividono un unico database D1 e un unico namespace KV.
+L'ambiente `preview` distribuisce il Worker `saasyland-preview` su `preview.saasyland.com`. Per impostazione predefinita `development` e `preview` condividono un unico database D1, un unico namespace KV e un unico bucket R2.
 
 ## Creare le risorse
 
@@ -11,9 +11,10 @@ L'ambiente `preview` distribuisce il Worker `saasyland-preview` su `preview.saas
 bunx wrangler login
 bunx wrangler d1 create saasyland_com_preview
 bunx wrangler kv namespace create CACHE --env preview
+bunx wrangler r2 bucket create saasyland-preview
 ```
 
-In `wrangler.jsonc`, sostituisci `database_id`, `database_name` e l'`id` di KV sia in `development` sia in `preview`. Mantieni i nomi dei binding `DB` e `CACHE` e il `migrations_dir`, e aggiorna i nomi dei Worker e le route dei domini personalizzati per il tuo account. Per la produzione, crea risorse separate e aggiorna il blocco `production`. Imposta `APP_DOMAIN` in `src/presentation/branding/index.ts`. `appHostsForMode` in `src/modules/_core/constants/api.ts` ne ricava gli host consentiti: `APP_DOMAIN` in produzione, `preview.<APP_DOMAIN>` in preview, `localhost:3000` o `127.0.0.1:3000` in sviluppo, e questi più `localhost:3020` e `127.0.0.1:3020` in test. Modifica `HOSTS_BY_MODE` nello stesso file solo se il tuo host di preview ha un nome diverso.
+In `wrangler.jsonc`, sostituisci `database_id`, `database_name`, l'`id` di KV e il `bucket_name` di `MEDIA` sia in `development` sia in `preview`. Mantieni i nomi dei binding `DB`, `CACHE` e `MEDIA` e il `migrations_dir`, e aggiorna i nomi dei Worker e le route dei domini personalizzati per il tuo account. Per la produzione, crea risorse separate, compreso il bucket `saasyland`, e aggiorna il blocco `production`. Imposta `APP_DOMAIN` in `src/presentation/branding/index.ts`. `appHostsForMode` in `src/modules/_core/constants/api.ts` ne ricava gli host consentiti: `APP_DOMAIN` in produzione, `preview.<APP_DOMAIN>` in preview, `localhost:3000` o `127.0.0.1:3000` in sviluppo, e questi più `localhost:3020` e `127.0.0.1:3020` in test. Modifica `HOSTS_BY_MODE` nello stesso file solo se il tuo host di preview ha un nome diverso.
 
 ## Deploy
 
@@ -24,7 +25,7 @@ bun run db:migrate:preview
 bun run deploy:preview
 ```
 
-`deploy:preview` esegue `scripts/verify-bindings.ts preview`, che rifiuta gli ID segnaposto, poi `build:preview`, che prerenderizza le pagine pubbliche e verifica l'output, e infine `wrangler deploy --secrets-file .env.preview`, che carica anche i secret. La build e il deploy non applicano mai le migrazioni; esegui `db:migrate:preview` prima di distribuire codice che richiede un nuovo schema.
+`deploy:preview` esegue `scripts/verify-bindings.ts preview`, che rifiuta gli ID segnaposto, poi `build:preview`, che prerenderizza le pagine pubbliche e verifica l'output, e infine `wrangler deploy --secrets-file .env.preview`, che carica anche i secret. La build e il deploy non applicano mai le migrazioni; esegui `db:migrate:preview` prima di distribuire codice che richiede un nuovo schema. `verify-bindings.ts` non controlla il bucket R2, che è collegato per nome: il deploy fallisce finché il bucket non esiste.
 
 Registra i callback OAuth e il webhook di Polar per l'host di preview come indicato in [Variabili d'ambiente](/docs/getting-started/environment-variables).
 

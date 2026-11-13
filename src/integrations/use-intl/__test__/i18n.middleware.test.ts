@@ -80,7 +80,7 @@ describe("locale resolution request boundary", () => {
     expect(resolveLocale(request)).toEqual({})
   })
 
-  it.each(["/api/auth/get-session", "/_serverFn/messages"])(
+  it.each(["/api/auth/get-session", "/_serverFn/messages", "/media/abc.def/0195a2b4-6c8d-7e9f-8a0b-1c2d3e4f5a6b/master.m3u8"])(
     "keeps locale cookies unchanged for %s even with document headers",
     (pathname) => {
       const request = new Request(`https://saasyland.com${pathname}`, {

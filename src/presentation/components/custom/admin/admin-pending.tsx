@@ -17,6 +17,7 @@ import {
   AdminBlogCreatePending,
   AdminBlogPending,
   AdminLandingPagePending,
+  AdminVideosPending,
 } from "~/src/presentation/components/custom/admin/content-pending"
 import {
   AdminCourseCreatePending,
@@ -48,6 +49,7 @@ const ADMIN_PAGES = new Map<string, () => JSX.Element>([
   [ROUTES.ADMIN_USERS_INVITATIONS, AdminUsersPending],
   [ROUTES.ADMIN_USERS_ROLES, AdminUsersPending],
   [ROUTES.ADMIN_USERS_SECURITY, AdminUsersPending],
+  [ROUTES.ADMIN_VIDEOS, AdminVideosPending],
 ])
 
 const ADMIN_SIDEBAR_URLS = new Set<string>(ADMIN_SIDEBAR_GROUPS.flatMap((group) => group.items.map((item) => item.url)))

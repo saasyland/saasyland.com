@@ -5,12 +5,13 @@ description: "Le runtime Cloudflare : point d'entrée du Worker, bindings, envir
 
 ## Worker et bindings
 
-`wrangler.jsonc` définit `src/server.ts` comme point d'entrée du Worker. Le Worker reçoit trois bindings :
+`wrangler.jsonc` définit `src/server.ts` comme point d'entrée du Worker. Le Worker reçoit quatre bindings :
 
 | Binding  | Type                 | Utilisé pour                                                                      |
 | -------- | -------------------- | --------------------------------------------------------------------------------- |
 | `DB`     | Base de données D1   | Toutes les tables, y compris les sessions et les compteurs de limitation de débit |
 | `CACHE`  | Namespace KV         | Le nombre d'étoiles GitHub mis en cache                                           |
+| `MEDIA`  | Bucket R2            | Les fichiers vidéo, servis par `serveMedia` sous `/media/`                        |
 | `ASSETS` | Ressources statiques | Les pages prérendues et les fichiers de `public`                                  |
 
 Les requêtes vers `/assets/*`, `/fonts/*`, `/robots.txt` et `/llms.txt` sont servies depuis les ressources statiques sans exécuter le Worker. Le code serveur lit les bindings, les secrets et `waitUntil` depuis `cloudflare:workers`. `src/server.ts` ajoute les en-têtes de sécurité à chaque réponse qu'il renvoie ; les fichiers servis sans le Worker reçoivent le sous-ensemble défini dans `public/_headers` ([Sécurité et durcissement](/docs/features/security)).
@@ -19,12 +20,12 @@ Les requêtes vers `/assets/*`, `/fonts/*`, `/robots.txt` et `/llms.txt` sont se
 
 `wrangler.jsonc` définit quatre environnements. `CLOUDFLARE_ENV` en sélectionne un pour `vp dev` et `vp build`.
 
-| Environnement | Bindings                              | Utilisé par                                     |
-| ------------- | ------------------------------------- | ----------------------------------------------- |
-| `development` | D1 et KV de preview distants          | `bun run dev`                                   |
-| `preview`     | D1 et KV de preview                   | `bun run build:preview`, `deploy:preview`       |
-| `production`  | D1 et KV de production                | `bun run build:production`, `deploy:production` |
-| `test`        | D1 et KV locaux dans `.wrangler/test` | `bun run build:test`, Playwright                |
+| Environnement | Bindings                                  | Utilisé par                                     |
+| ------------- | ----------------------------------------- | ----------------------------------------------- |
+| `development` | D1, KV et R2 de preview distants          | `bun run dev`                                   |
+| `preview`     | D1, KV et R2 de preview                   | `bun run build:preview`, `deploy:preview`       |
+| `production`  | D1, KV et R2 de production                | `bun run build:production`, `deploy:production` |
+| `test`        | D1, KV et R2 locaux dans `.wrangler/test` | `bun run build:test`, Playwright                |
 
 Chaque environnement liste ses secrets obligatoires sous `secrets.required`. Les valeurs proviennent du fichier `.env.<environment>` correspondant ; les scripts de déploiement le transmettent à Wrangler avec `--secrets-file`. L'environnement `test` utilise `src/platform/testing/worker.ts` comme point d'entrée et les valeurs factices versionnées dans `.env.test`.
 
@@ -39,7 +40,8 @@ Chaque environnement liste ses secrets obligatoires sous `secrets.required`. Les
 `src/platform/testing` ne contient que ce qui ne peut pas appartenir à une seule fonctionnalité :
 
 - `setup.ts` : les matchers jest-dom, une réinitialisation des bindings avant chaque test et le remplacement de `createServerFn` qui exécute les fonctions serveur dans le processus
-- `mocks/cloudflare.ts` : un D1 SQLite en mémoire qui exécute les migrations versionnées, un KV en mémoire et un `waitUntil` que les tests peuvent vider
+- `mocks/cloudflare.ts` : un D1 SQLite en mémoire qui exécute les migrations versionnées, un KV en mémoire, un bucket `MEDIA` en mémoire et un `waitUntil` que les tests peuvent vider
+- `mocks/cache.ts` : `createEdgeCache`, un substitut du cache des Workers pour les tests de diffusion des médias
 - `mocks/providers.ts` : l'interception des appels fetch vers Resend et Polar dans les tests navigateur, y compris la capture des e-mails
 - `mocks/wrksz-themes.ts` : un remplaçant de la bibliothèque de thèmes
 - `lib/` : le pont RPC des fonctions serveur, des utilitaires de rendu, des utilitaires d'URL de requête et des exécuteurs de queries

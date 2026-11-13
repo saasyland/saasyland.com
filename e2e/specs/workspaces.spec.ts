@@ -57,6 +57,7 @@ for (const account of TEST_ACCOUNTS) {
             "/admin/payments",
             "/admin/pricing-models",
             "/admin/landing-page",
+            "/admin/videos",
             "/admin/settings",
           ]
         : ["/app/license", "/pl-PL/app"]

@@ -1,6 +1,6 @@
 ---
 title: "Kurse"
-description: "Ein öffentlicher Katalog von Kursen, deren Lektionen kostenlos sind, ein Konto oder eine Lizenz voraussetzen, mit einem Player, der den Fortschritt speichert. Eine Kursverwaltung im Admin gibt es noch nicht."
+description: "Ein öffentlicher Katalog von Kursen, deren Lektionen kostenlos sind, ein Konto oder eine Lizenz voraussetzen, ein Player, der den Fortschritt speichert, und Admin-Ansichten, in denen Kurse, Kapitel und Lektionen geschrieben werden."
 ---
 
 Kurse, Tutorials und Projekte liegen in D1 und werden unter `/courses` angesehen. Jede Lektion spielt ein Video aus der Bibliothek von [Videos](/docs/features/videos) ab, und ihre Zugriffsstufe entscheidet, wer sie ansehen darf.
@@ -16,7 +16,7 @@ Jede Tabelle hat ihr eigenes Modul in `src/modules` und wird von der Migration `
 | `lesson`          | `course_id`, `chapter_id`, `slug` (eindeutig innerhalb des Kurses), `access` (`preview`, `account`, `paid`), `status`, `position`, `title`, `summary`, `video_id` |
 | `lesson_progress` | `user_id` und `lesson_id` (der Primärschlüssel), `position_ms`, `completed_at`                                                                                    |
 
-- `title` und `summary` enthalten JSON mit Locales als Schlüsseln, etwa `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` in `src/modules/_core/utils/localized-text.ts`). `localize()` liefert die Locale des Besuchers und fällt auf `en-US` zurück; füllen Sie `en-US` deshalb immer aus.
+- `title` und `summary` enthalten JSON mit Locales als Schlüsseln, etwa `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` in `src/modules/_core/utils/localized-text.ts`). `localize()` liefert die Locale des Besuchers und fällt auf `en-US` zurück; füllen Sie `en-US` deshalb immer aus. Der Admin verlangt es; Zeilen, die direkt in D1 eingefügt werden, werden nicht geprüft.
 - Neue Zeilen sind `draft`, neue Lektionen sind `paid`. Nur Kurse und Lektionen mit `published` werden aufgelistet oder ausgeliefert; jeder andere Slug zeigt die Seite „Nicht gefunden“.
 - Kurse sind nach `position` sortiert, Kapitel nach `position` innerhalb ihres Kurses und Lektionen nach `position` innerhalb ihres Kapitels. Lektionen werden über den ganzen Kurs durchnummeriert.
 - `video_id` verweist auf die Tabelle `video` und wird `NULL`, wenn das Video gelöscht wird. Das Löschen eines Kurses oder Kapitels löscht seine Lektionen, das Löschen einer Lektion oder eines Benutzers dessen Fortschritt.
@@ -50,24 +50,73 @@ Für angemeldete Betrachter startet der Player an der gespeicherten `position_ms
 
 ## Lektionen und Videos
 
-Eine Lektion speichert keine eigenen Videodateien. Veröffentlichen Sie die Aufnahme mit `bun run video:publish:<environment>` (siehe [Videos](/docs/features/videos)); das Skript gibt die ID des Videos aus, die in die Spalte `video_id` der Lektion gehört. Mehrere Lektionen können dasselbe Video nutzen. Die Dauern im Katalog und im Lehrplan stammen aus `video.duration_ms`.
+Eine Lektion speichert keine eigenen Videodateien. Veröffentlichen Sie die Aufnahme mit `bun run video:publish:<environment>` (siehe [Videos](/docs/features/videos)) und wählen Sie sie dann im Admin im Feld **Video** der Lektion aus, das `video_id` setzt. Mehrere Lektionen können dasselbe Video nutzen. Die Dauern im Katalog und im Lehrplan stammen aus `video.duration_ms`.
 
-## Kurse anlegen
+## Kurse verwalten
 
-Eine Kursverwaltung im Admin gibt es noch nicht. `/admin/courses/create` ist weiterhin eine Demoansicht, deren **Speichern** und **Abbrechen** nichts tun, `/admin/products?tab=courses` zeigt einen leeren Zustand, und keine Admin-Ansicht listet Kurse auf. Bis es sie gibt, legen Sie die Zeilen selbst in D1 an, zum Beispiel in Drizzle Studio mit `bun run db:studio:<environment>` oder mit `bunx wrangler d1 execute DB --env <environment> --remote --file <file>`. IDs haben keinen Standardwert; jede eindeutige Zeichenkette funktioniert.
+**Inhalt → Kurse** in der Admin-Seitenleiste öffnet die Kursansichten. Ihr Layout, `admin.courses.tsx`, lädt die Namespaces `course.validations` und `pages.admin.courses` vor, und wie jede Seite unter `/admin` verlangen sie `admin: ["access"]`. Die Komponenten liegen in `src/presentation/components/custom/admin/courses/`.
 
-```sql
-INSERT INTO course (id, slug, kind, status, title, summary)
-VALUES ('course-1', 'the-walkthrough', 'course', 'published', '{"en-US":"The walkthrough"}', '{"en-US":"How the code works, subsystem by subsystem."}');
+- `/admin/courses` (`admin.courses.index.tsx`) listet jeden Kurs, Entwürfe eingeschlossen, in der Reihenfolge von `position` auf: den Titel mit seinem Pfad `/courses/<slug>`, den Typ, den Status, die Anzahl der Lektionen und das Datum der letzten Änderung. Jede Zeile hat Pfeile, die den Kurs nach oben oder unten verschieben, einen Bearbeiten-Link und eine Löschen-Schaltfläche. **Neuer Kurs** öffnet das Formular.
+- `/admin/courses/create` (`admin.courses.create.tsx`) zeigt ein leeres Kursformular. **Kurs erstellen** speichert den Kurs und öffnet seinen Editor.
+- `/admin/courses/<courseId>` (`admin.courses.$courseId.tsx`) zeigt das Kursformular mit **Details speichern**, den **Lehrplan** und **Kurs ansehen**, das `/courses/<slug>` in einem neuen Tab öffnet. **Kurs ansehen** erscheint erst, wenn der Kurs veröffentlicht ist, weil Entwürfe nicht öffentlich ausgeliefert werden.
 
-INSERT INTO chapter (id, course_id, position, title)
-VALUES ('chapter-1', 'course-1', 0, '{"en-US":"Foundations"}');
+Ein neuer Kurs wird hinter den anderen eingereiht. Die Pfeile in der Liste legen die Reihenfolge des öffentlichen Katalogs fest (`moveCourse`).
 
-INSERT INTO lesson (id, course_id, chapter_id, slug, access, status, position, title, summary, video_id)
-VALUES ('lesson-1', 'course-1', 'chapter-1', 'module-boundaries', 'preview', 'published', 0, '{"en-US":"Module boundaries"}', '{"en-US":"Why every feature starts at the module boundary."}', '<videoId>');
-```
+### Kursdetails
 
-`scripts/seed-test.ts` legt einen solchen Kurs mit einem Kapitel und vier Lektionen für die Browsertests in `e2e/specs/courses.spec.ts` an.
+Das Kursformular (`course-form.tsx`) hat diese Felder:
+
+- **Titel** und **Zusammenfassung**, mit einem Tab pro Locale. Der Tab `en-US` ist Pflicht; eine leer gelassene Locale fällt auf Englisch zurück.
+- **URL-Slug**: Kleinbuchstaben, Ziffern und einzelne Bindestriche, höchstens 96 Zeichen, eindeutig über alle Kurse.
+- **Typ**: **Kurs**, **Tutorial** oder **Projekt**.
+- **Status**: **Entwurf**, der Standard, oder **Veröffentlicht**. Nur veröffentlichte Kurse erscheinen unter `/courses`.
+
+### Lehrplan
+
+Der Lehrplan-Editor (`curriculum-editor.tsx`) zeigt die Kapitel in ihrer Reihenfolge, jedes mit seinen Lektionen.
+
+- **Kapitel hinzufügen** öffnet `chapter-dialog.tsx`, der einen **Kapiteltitel** pro Locale abfragt. Jedes Kapitel hat Schaltflächen, um es nach oben oder unten zu verschieben, seinen Titel zu bearbeiten und es zu löschen.
+- **Lektion hinzufügen** unter den Lektionen eines Kapitels öffnet `lesson-dialog.tsx`. Derselbe Dialog bearbeitet eine Lektion.
+- Jede Lektion zeigt ihren Slug, ihr Video und dessen Länge oder **Kein Video**, ihre Zugriffsstufe und ihren Status, mit Schaltflächen, um sie innerhalb ihres Kapitels nach oben oder unten zu verschieben, sie zu bearbeiten und sie zu löschen. Eine Lektion kann nicht in ein anderes Kapitel wechseln.
+
+Der Lektionsdialog hat diese Felder:
+
+- **Lektionstitel** und **Zusammenfassung**, mit einem Tab pro Locale; `en-US` ist Pflicht.
+- **URL-Slug**, eindeutig innerhalb des Kurses.
+- **Wer zusehen kann**: **Alle (kostenlose Vorschau)** (`preview`), **Angemeldete Besucher** (`account`) oder **Lizenzen Complete und Agency** (`paid`, der Standard).
+- **Status**: **Entwurf**, der Standard, oder **Veröffentlicht**.
+- **Video**: die 100 zuletzt veröffentlichten Videos der Bibliothek mit ihrer Länge. **Noch kein Video** lässt die Lektion ohne Video oder löst das Video, das sie hat.
+
+### Löschen
+
+Jedes Löschen fragt zuerst nach einer Bestätigung.
+
+- Das Löschen eines Kurses entfernt seine Kapitel, seine Lektionen und den Fortschritt aller Benutzer darin.
+- Das Löschen eines Kapitels entfernt seine Lektionen und deren Fortschritt.
+- Das Löschen einer Lektion entfernt ihren Fortschritt.
+
+Das erledigen die Fremdschlüssel mit `ON DELETE CASCADE`. Videos werden nie mit einem Kurs, einem Kapitel oder einer Lektion gelöscht: Sie bleiben in der Bibliothek.
+
+### Serverfunktionen
+
+| Modul     | Use Cases                                                        | Berechtigung         |
+| --------- | ---------------------------------------------------------------- | -------------------- |
+| `course`  | `getCourses`, `getCourseEditor`                                  | `course: ["read"]`   |
+| `course`  | `createCourse`                                                   | `course: ["create"]` |
+| `course`  | `updateCourse`, `moveCourse`                                     | `course: ["update"]` |
+| `course`  | `deleteCourse`                                                   | `course: ["delete"]` |
+| `chapter` | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter` | `course: ["update"]` |
+| `lesson`  | `createLesson`, `updateLesson`, `deleteLesson`, `moveLesson`     | `course: ["update"]` |
+
+- Die Videoliste des Lektionsdialogs kommt von `getVideos`, das `video: ["read"]` verlangt.
+- Ein bereits vergebener Slug wird mit `CONFLICT` beantwortet: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) wandelt den Unique-Constraint-Fehler von D1 in einen `AppError` um. Eine ID, zu der es keine Zeile gibt, wird mit `NOT_FOUND` beantwortet.
+- Ein neuer Kurs, ein neues Kapitel oder eine neue Lektion erhält die höchste `position` unter den Geschwistern plus eins (`nextPosition`). Ein Verschieben tauscht die Zeile mit ihrer Nachbarin und nummeriert die Geschwister ab 1 neu (`reorder`), in einem einzigen `db.batch`. Beide Funktionen liegen in `src/modules/_core/utils/ordering.ts`, die Richtungen sind `MOVE_DIRECTION` in `src/modules/_core/constants/ordering.ts`.
+- Jeder Schreibvorgang validiert Titel und Zusammenfassungen mit `localizedTextSchema`: `en-US` ist Pflicht, und jeder Text hat höchstens 2.000 Zeichen. Ein Slug hat höchstens 96 Zeichen. Die Formularmeldungen sind `defaultLocaleRequired`, `textTooLong`, `slugInvalid` und `slugTooLong` in `course.validations`, und `COURSE_VALIDATION_PARAMS` (`course.constants.ts`) liefert ihre Grenzen.
+- `courseEditorQuery` behält `staleTime: COURSE_STALE_MS` wie die öffentlichen Kursabfragen, und jede Änderung invalidiert die `course`-Abfragen, sodass die Liste und der Editor neu laden.
+
+## Tests
+
+`scripts/seed-test.ts` legt einen veröffentlichten Kurs mit einem Kapitel und vier Lektionen für die Browsertests in `e2e/specs/courses.spec.ts` an. In `e2e/specs/course-admin.spec.ts` erstellt ein Admin einen Kurs, ein Kapitel und eine kostenlose Lektion mit dem geseedeten Video, ein Besucher in einer anderen Browserseite sieht sich die Lektion an, und der Admin löscht den Kurs.
 
 ## Verwandte Seiten
 

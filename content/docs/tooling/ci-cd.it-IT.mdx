@@ -10,7 +10,7 @@ I workflow si trovano in `.github/workflows/`. I workflow dell'applicazione (`ci
 | `ci.yml`              | Pull request e push su `main`                                    | Controlli e copertura, E2E su Chromium, poi deploy di preview o di produzione |
 | `e2e-full.yml`        | Push su `main`, ogni settimana il lunedì alle 03:15 UTC, manuale | WebKit al push; Chromium e WebKit nelle esecuzioni pianificate e manuali      |
 | `e2e-reusable.yml`    | Richiamato dai workflow precedenti                               | Database di test, build di test e un progetto Playwright                      |
-| `deploy-reusable.yml` | Richiamato da `ci.yml`                                           | Build, migrazioni D1, `wrangler deploy` e un controllo del sito online        |
+| `deploy-reusable.yml` | Richiamato da `ci.yml`                                           | Build, migrazioni D1 e `wrangler deploy`                                      |
 | `remotion.yml`        | Modifiche a `remotion/` o alle sue costanti condivise            | Controlla e crea il bundle del progetto video della landing page con npm      |
 
 ## Controlli
@@ -28,7 +28,7 @@ I deploy vengono eseguiti solo dopo il successo di `verify` ed `e2e`:
 
 Le pull request provenienti da fork e da Dependabot vengono validate ma non distribuite. La preview è condivisa: ogni deploy sostituisce il precedente e usa lo stesso database D1, lo stesso namespace KV e lo stesso bucket R2 di preview.
 
-`deploy-reusable.yml` verifica la presenza dei secret `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`, esegue `scripts/verify-bindings.ts`, compila con i valori fittizi di `.env.test`, rimuove il file generato `dist/server/.dev.vars`, applica `db:migrate:<target>`, esegue `vp exec wrangler deploy --config dist/server/wrangler.json` e poi `scripts/verify-deployment.ts`, che fa fallire il job se il sito online non risponde. Non viene caricato alcun file di secret: il Worker mantiene i secret di runtime già impostati in Cloudflare. I deploy verso la stessa destinazione si mettono in coda invece di annullarsi a vicenda.
+`deploy-reusable.yml` verifica la presenza dei secret `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`, esegue `scripts/verify-bindings.ts`, compila con i valori fittizi di `.env.test`, rimuove il file generato `dist/server/.dev.vars`, applica `db:migrate:<target>` ed esegue `vp exec wrangler deploy --config dist/server/wrangler.json`. Non esegue `scripts/verify-deployment.ts`, il controllo del sito online degli script `deploy:<target>`, perché la protezione dai bot di Cloudflare risponde 403 alle richieste dei runner di CI. Non viene caricato alcun file di secret: il Worker mantiene i secret di runtime già impostati in Cloudflare. I deploy verso la stessa destinazione si mettono in coda invece di annullarsi a vicenda.
 
 Dependabot aggiorna le GitHub Actions ogni settimana.
 

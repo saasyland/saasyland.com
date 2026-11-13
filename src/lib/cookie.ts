@@ -1,6 +1,3 @@
-import { createIsomorphicFn } from "@tanstack/react-start"
-import { getRequest } from "@tanstack/react-start/server"
-
 type SameSite = "Lax" | "None" | "Strict"
 
 export interface CookieOptions {
@@ -59,7 +56,3 @@ export const serializeCookie = ({ name, options = {}, value }: { name: string; o
 
   return attributes.join(ATTRIBUTE_DELIMITER)
 }
-
-export const getCookie = createIsomorphicFn()
-  .server((name: string) => readCookie({ header: getRequest().headers.get("cookie"), name }))
-  .client((name: string) => readCookie({ header: globalThis.document.cookie, name }))

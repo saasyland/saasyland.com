@@ -249,6 +249,7 @@ export default defineConfig(({ mode }) => ({
       const { fumadocsMdx } = await import("fumadocs-mdx/vite")
       const { default: tailwindcss } = await import("@tailwindcss/vite")
       const { default: viteReact } = await import("@vitejs/plugin-react")
+      const { deployedWorker } = await import("./scripts/deployed-worker.ts")
       const { repositoryFacts } = await import("./scripts/repository-facts.ts")
 
       if (process.env["VITEST"] === "true") {
@@ -278,6 +279,7 @@ export default defineConfig(({ mode }) => ({
           },
         }),
         viteReact(),
+        deployedWorker(),
       ]
     }) ?? [],
   resolve: { noExternal: ["fumadocs-core", "@fumadocs/base-ui"], tsconfigPaths: true },

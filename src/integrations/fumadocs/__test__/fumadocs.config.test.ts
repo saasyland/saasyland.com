@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { blog, docs } from "~/src/integrations/fumadocs/fumadocs.config"
+import config, { blog, docs } from "~/src/integrations/fumadocs/fumadocs.config"
+
+import { rehypeOmitRenderedContent } from "~/scripts/deployed-worker"
 
 describe("content schema", () => {
   it("loads the documentation and blog from their content directories", () => {
@@ -17,5 +19,15 @@ describe("content schema", () => {
     expect(schema.safeParse({ authorName: "Author", date: "2026-09-01", faq: [{ question: "Why?" }], title: "Release" }).success).toBe(
       false,
     )
+  })
+})
+
+describe("MDX options", () => {
+  it("runs the deployed Worker plugin after the default rehype plugins", () => {
+    const { mdxOptions } = config
+    if (typeof mdxOptions !== "object" || typeof mdxOptions.rehypePlugins !== "function") {
+      throw new TypeError("Missing rehype plugins")
+    }
+    expect(mdxOptions.rehypePlugins([])).toEqual([rehypeOmitRenderedContent])
   })
 })

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { createCookieHeader } from "~/src/platform/testing/lib/test-request"
+
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
-import { resolveLocale } from "~/src/integrations/use-intl/i18n.middleware"
+import { parseLocaleCookie, resolveLocale } from "~/src/integrations/use-intl/i18n.middleware"
 
 const polishCookie = `${I18N.COOKIE_NAME}=pl-PL`
 
@@ -98,4 +100,17 @@ describe("locale resolution request boundary", () => {
 
     expect(resolveLocale(request)).toEqual({})
   })
+})
+
+describe("locale cookie", () => {
+  it("reads a supported locale from the locale cookie", () => {
+    expect(parseLocaleCookie(createCookieHeader(I18N.COOKIE_NAME, "pl-PL"))).toBe("pl-PL")
+  })
+
+  it.each([undefined, createCookieHeader(I18N.COOKIE_NAME, "invalid"), createCookieHeader("other", "pl-PL")])(
+    "ignores a missing or unsupported locale cookie: %j",
+    (cookie) => {
+      expect(parseLocaleCookie(cookie)).toBeUndefined()
+    },
+  )
 })

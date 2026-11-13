@@ -3,25 +3,13 @@ import { createIsomorphicFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
 
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
-import { deLocalizePathname, extractLocaleFromPath, isSupportedLocale, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
-
-import { readCookie } from "~/src/lib/cookie"
+import { deLocalizePathname, extractLocaleFromPath, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 const withPathname = ({ pathname, url }: { pathname: string; url: URL }): URL => {
   const rewritten = new URL(url)
   rewritten.pathname = pathname
 
   return rewritten
-}
-
-export const parseLocaleCookie = (cookieHeader: string | null | undefined): SupportedLocale | undefined => {
-  const stored = readCookie({ header: cookieHeader, name: I18N.COOKIE_NAME })
-
-  if (stored !== undefined && isSupportedLocale(stored)) {
-    return stored
-  }
-
-  return undefined
 }
 
 export const getCurrentLocale = createIsomorphicFn()

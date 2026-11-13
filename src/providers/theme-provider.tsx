@@ -1,17 +1,23 @@
 import type { JSX, ReactNode } from "react"
 
+import { createIsomorphicFn } from "@tanstack/react-start"
+import { getRequest } from "@tanstack/react-start/server"
 import { ClientThemeProvider as WrkszThemeProvider } from "@wrksz/themes/client/extended-provider"
 
 import { THEME, type ThemeSelection } from "~/src/presentation/theme"
 
-import { getCookie } from "~/src/lib/cookie"
+import { readCookie } from "~/src/lib/cookie"
 
 const THEME_VALUES: readonly string[] = THEME.THEMES
 
 export const isThemeSelection = (value: unknown): value is ThemeSelection => typeof value === "string" && THEME_VALUES.includes(value)
 
+const readThemeCookie = createIsomorphicFn()
+  .server(() => readCookie({ header: getRequest().headers.get("cookie"), name: THEME.COOKIE_NAME }))
+  .client(() => readCookie({ header: globalThis.document.cookie, name: THEME.COOKIE_NAME }))
+
 export const getStoredTheme = (): ThemeSelection => {
-  const stored = getCookie(THEME.COOKIE_NAME)
+  const stored = readThemeCookie()
 
   return isThemeSelection(stored) ? stored : THEME.DEFAULT_THEME
 }

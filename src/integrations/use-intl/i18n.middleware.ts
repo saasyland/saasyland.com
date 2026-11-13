@@ -1,10 +1,11 @@
 import "@tanstack/react-start/server-only"
 
-import { I18N } from "~/src/integrations/use-intl/i18n.config"
-import { canonicalizePathname, extractLocaleFromPath, shouldIgnorePath } from "~/src/integrations/use-intl/i18n.paths"
-import { parseLocaleCookie } from "~/src/integrations/use-intl/i18n.utils"
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+import { canonicalizePathname, extractLocaleFromPath, isSupportedLocale, shouldIgnorePath } from "~/src/integrations/use-intl/i18n.paths"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
+
+import { readCookie } from "~/src/lib/cookie"
 
 const HTML_ACCEPT_PATTERN = /(?:^|,)\s*(?:text\/html|application\/xhtml\+xml)(?:\s*;|,|$)/iu
 const DOCUMENT_DESTINATIONS = new Set(["document", "frame", "iframe"])
@@ -16,6 +17,16 @@ const isDocumentRequest = (request: Request): boolean => {
   }
   const accept = request.headers.get("accept")
   return accept === null || HTML_ACCEPT_PATTERN.test(accept)
+}
+
+export const parseLocaleCookie = (cookieHeader: string | null | undefined): SupportedLocale | undefined => {
+  const stored = readCookie({ header: cookieHeader, name: I18N.COOKIE_NAME })
+
+  if (stored !== undefined && isSupportedLocale(stored)) {
+    return stored
+  }
+
+  return undefined
 }
 
 export const resolveLocale = (request: Request): { redirect?: Response; setCookie?: { name: string; value: string } } => {

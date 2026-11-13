@@ -365,7 +365,7 @@ bun run deploy:production
 
 Each deployment script verifies the bindings, builds the selected environment, checks the generated artifacts, and optimizes prerendered HTML. It then writes the secrets that `wrangler.jsonc` declares for that environment from the environment file to `.wrangler/secrets.<environment>.json`, failing if any is empty, applies the environment's D1 migrations, deploys `dist/server/wrangler.json` (the configuration the Cloudflare Vite plugin generates) with that secrets file, and requests the home page, the course catalogue, `robots.txt`, `/api`, and `/api/auth/get-session` from the live site, retrying twice. Builds alone do not apply remote migrations or deploy resources.
 
-Public pages are prerendered to `dist/client`; protected, authentication, newsletter-action, course, and API routes are excluded from prerendering. The build verifier checks the Worker deployment configuration, localized home/legal pages and SEO links, fonts, client JavaScript, and selected route exclusions. The application still requires a Worker for server-rendered routes, authentication, APIs, video delivery, and locale handling.
+Public pages are prerendered to `dist/client`; protected, authentication, newsletter-action, course, and API routes are excluded from prerendering. After prerendering, [`scripts/deployed-worker.ts`](scripts/deployed-worker.ts) builds the Worker that is deployed again, without the rendered MDX of docs and blog pages and without the landing and legal page translations, which only prerendered pages use. The build verifier checks the Worker deployment configuration, localized home/legal pages and SEO links, that every docs page and published blog post was prerendered, fonts, client JavaScript, and selected route exclusions. The application still requires a Worker for server-rendered routes, authentication, APIs, video delivery, and locale handling.
 
 ## Localization and content
 
@@ -411,7 +411,8 @@ The following decisions produce these results. Review them before changing the r
 - Public pages are prerendered. [`optimize-prerendered-html.ts`](scripts/optimize-prerendered-html.ts) removes dependency `modulepreload` hints and keeps each page's entry hint at low priority, so the stylesheet and fonts load first.
 - Providers whose value changes after hydration, such as the [theme](src/providers/theme-provider.tsx) and [Motion](src/providers/motion-provider.tsx) providers, wrap only their consumers and never a route `<Outlet />`. A change above a route's Suspense boundary forces that route to hydrate synchronously in one long task, or to render on the client and shift the layout.
 - `robots.txt` and `llms.txt` are static files that bypass the Worker through `run_worker_first` in [`wrangler.jsonc`](wrangler.jsonc). Lighthouse fails the SEO and Agentic Browsing audits for these files when the requests time out.
-- [`src/server.ts`](src/server.ts) serves prerendered pages from static assets and imports the TanStack Start handler only for other requests, so page requests do not load the full server bundle.
+- [`src/server.ts`](src/server.ts) serves prerendered pages from static assets and imports the TanStack Start handler only for other requests, so page requests do not load the full server bundle. Its static imports stay free of TanStack Start and provider SDKs, because a cold Worker evaluates them before it can answer.
+- The deployed Worker leaves out what only prerendering needs: [`scripts/deployed-worker.ts`](scripts/deployed-worker.ts) rebuilds it after prerendering without rendered MDX and without the landing and legal page translations, which keeps the upload well below Cloudflare's Worker size limit.
 
 ## Landing page videos
 

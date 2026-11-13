@@ -22,9 +22,10 @@ const signIn = async (page: Page, authPage: AuthPage, account: (typeof TEST_ACCO
 }
 
 test.describe("video library", () => {
-  test("an administrator previews a published video through a signed, expiring path", async ({ authPage, page }) => {
+  test("an administrator previews a published video through a signed, expiring path", async ({ appPage, authPage, page }) => {
     await signIn(page, authPage, admin)
     await page.goto("/admin/videos", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
 
     const row = page.getByRole("row").filter({ hasText: TEST_VIDEO.title })
     await expect(row).toContainText("0:02")

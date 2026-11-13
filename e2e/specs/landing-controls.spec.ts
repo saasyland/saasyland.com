@@ -1,4 +1,12 @@
+import type { Page } from "@playwright/test"
+
 import { expect, test } from "../fixtures/test"
+
+const scrollY = async (page: Page): Promise<number> => page.evaluate(() => window.scrollY)
+
+const scrollScreens = async (page: Page, screens: number): Promise<void> => {
+  await page.evaluate((count) => window.scrollTo({ behavior: "instant", top: window.innerHeight * count }), screens)
+}
 
 test("CLI keeps valid choices, command output and clipboard contents in sync", async ({ appPage, page }) => {
   await page.addInitScript(() => {
@@ -73,4 +81,51 @@ test("mobile menu closes with Escape and after choosing a section", async ({ lan
   await page.locator("#landing-mobile-menu").getByRole("link", { name: "Foundation", exact: true }).click()
   await expect(page.locator("#landing-mobile-menu")).not.toBeVisible()
   await expect(page).toHaveURL(/#foundation$/u)
+})
+
+test("back to top appears past the first screen and returns smoothly to the page heading", async ({ landingPage, page }) => {
+  await landingPage.goto()
+  const backToTop = page.getByRole("button", { name: "Back to top", exact: true })
+  await expect(backToTop).toBeHidden()
+
+  await scrollScreens(page, 0.5)
+  await expect(backToTop).toBeHidden()
+  await scrollScreens(page, 3)
+  await expect(backToTop).toBeVisible()
+
+  await backToTop.click()
+  expect(await scrollY(page)).toBeGreaterThan(0)
+  await expect.poll(async () => scrollY(page)).toBe(0)
+  await expect(landingPage.heroHeading()).toBeFocused()
+  await expect(landingPage.heroHeading()).toHaveCSS("outline-style", "none")
+  await expect(backToTop).toBeHidden()
+})
+
+test("back to top jumps straight to the top for reduced motion", async ({ landingPage, page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await landingPage.goto()
+  await scrollScreens(page, 3)
+  const backToTop = page.getByRole("button", { name: "Back to top", exact: true })
+
+  await backToTop.click()
+  expect(await scrollY(page)).toBe(0)
+})
+
+test("the logo on the landing page scrolls back to the top and drops the section hash", async ({ landingPage, page }) => {
+  await landingPage.goto()
+  const logo = landingPage.navigation().getByRole("link", { name: "SaaSy Land", exact: true })
+
+  await scrollScreens(page, 3)
+  await logo.click()
+  await expect.poll(async () => scrollY(page)).toBe(0)
+  await expect(page).toHaveURL("/")
+
+  await landingPage.navigation().getByRole("link", { name: "Pricing", exact: true }).click()
+  await expect(page).toHaveURL(/#pricing$/u)
+  await expect.poll(async () => scrollY(page)).toBeGreaterThan(0)
+  const entries = await page.evaluate(() => history.length)
+  await logo.click()
+  await expect.poll(async () => scrollY(page)).toBe(0)
+  await expect(page).toHaveURL("/")
+  expect(await page.evaluate(() => history.length)).toBe(entries)
 })

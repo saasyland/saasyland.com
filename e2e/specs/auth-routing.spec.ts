@@ -1,3 +1,4 @@
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
@@ -44,7 +45,7 @@ for (const account of TEST_ACCOUNTS) {
       headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
     })
     expect(signedIn.ok()).toBe(true)
-    const workspace = account.role === "admin" ? "/admin" : "/app"
+    const workspace = account.role === ROLE_CODES.ADMIN ? "/admin" : "/app"
     for (const prefix of ["", "/pl-PL"]) {
       for (const route of ["/auth/sign-in", "/auth/sign-up"]) {
         const response = await page.goto(`${prefix}${route}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -56,13 +57,16 @@ for (const account of TEST_ACCOUNTS) {
         await expect(page.getByRole("heading").first()).toBeVisible()
       }
     }
-    for (const path of ["/auth/sign-in", "/auth/sign-up"]) {
-      await landingPage.goto()
-      await page.locator(`a[href^="${path}"]`).first().click()
-      await expect(page).toHaveURL(new RegExp(`${workspace}/?$`, "u"))
-      await appPage.waitForAppReady()
-      await expect(page.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
-    }
+    await landingPage.goto()
+    await page.locator('a[href^="/auth/sign-in"]').first().click()
+    await expect(page).toHaveURL(new RegExp(`${workspace}/?$`, "u"))
+    await appPage.waitForAppReady()
+    await expect(page.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
+    await landingPage.goto()
+    await page.locator("#pricing").getByRole("link", { name: "Get Core", exact: true }).click()
+    await expect(page).toHaveURL("/app?tier=core")
+    await appPage.waitForAppReady()
+    await expect(page.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
     expect(errors).toEqual([])
   })
 }

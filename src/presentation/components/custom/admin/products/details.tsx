@@ -2,6 +2,8 @@ import type { JSX } from "react"
 
 import { useTranslations } from "use-intl/react"
 
+import { PRODUCT_TYPE } from "~/src/modules/product/product.constants"
+
 import { Card } from "~/src/presentation/components/shadcn/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "~/src/presentation/components/shadcn/field"
 import { Input } from "~/src/presentation/components/shadcn/input"
@@ -41,10 +43,10 @@ export const ProductDetails = (): JSX.Element => {
         <FieldGroup className="sm:flex-row sm:items-start">
           <Field className="w-fit">
             <FieldTitle>{t("pricing.model.label")}</FieldTitle>
-            <Tabs aria-label={t("pricing.model.label")} className="w-fit" defaultSelectedKey="subscription">
+            <Tabs aria-label={t("pricing.model.label")} className="w-fit" defaultSelectedKey={PRODUCT_TYPE.SUBSCRIPTION}>
               <TabsList className="w-fit">
-                <TabsTrigger id="subscription">{t("pricing.model.subscription")}</TabsTrigger>
-                <TabsTrigger id="onetime">{t("pricing.model.oneTime")}</TabsTrigger>
+                <TabsTrigger id={PRODUCT_TYPE.SUBSCRIPTION}>{t("pricing.model.subscription")}</TabsTrigger>
+                <TabsTrigger id={PRODUCT_TYPE.ONE_TIME}>{t("pricing.model.oneTime")}</TabsTrigger>
               </TabsList>
             </Tabs>
           </Field>

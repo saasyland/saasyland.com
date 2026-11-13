@@ -2,13 +2,14 @@ import { Composition } from "remotion"
 
 import { AppTour } from "./compositions/app-tour"
 import { CostCurve } from "./compositions/cost-curve"
+import { CourseTour } from "./compositions/course-tour"
 import { CoverageRun } from "./compositions/coverage-run"
 import { LocaleFormat } from "./compositions/locale-format"
 import { MergeGate } from "./compositions/merge-gate"
 import { PageDesigner } from "./compositions/page-designer"
 import { RecordAudit } from "./compositions/record-audit"
 import { ScaffoldCli } from "./compositions/scaffold-cli"
-import { BAND, BAND_DURATION, FPS, SURFACE, SURFACE_DURATION, TERMINAL, TERMINAL_DURATION } from "./theme"
+import { BAND, BAND_DURATION, FPS, SURFACE, SURFACE_DURATION, TERMINAL, TERMINAL_DURATION, WIDE, WIDE_DURATION } from "./theme"
 
 export const RemotionRoot = () => (
   <>
@@ -54,6 +55,14 @@ export const RemotionRoot = () => (
       height={TERMINAL.height}
       id="coverage-run"
       width={TERMINAL.width}
+    />
+    <Composition
+      component={CourseTour}
+      durationInFrames={WIDE_DURATION}
+      fps={FPS}
+      height={WIDE.height}
+      id="course-tour"
+      width={WIDE.width}
     />
   </>
 )

@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
 import { authClient } from "~/src/integrations/better-auth/auth.client"
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { authErrorKey } from "~/src/integrations/better-auth/auth.errors"
 
 import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
@@ -19,7 +20,7 @@ import { Github, Google } from "~/src/presentation/components/custom/icons"
 
 import { ROUTES } from "~/src/routes"
 
-const ICONS = { github: Github, google: Google } as const
+const ICONS = { [AUTH_PROVIDER.GITHUB]: Github, [AUTH_PROVIDER.GOOGLE]: Google } as const
 
 const signInSocial = createClientOnlyFn((data: Parameters<typeof authClient.signIn.social>[0]) => authClient.signIn.social(data))
 

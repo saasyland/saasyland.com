@@ -17,6 +17,7 @@ export const ROUTES = {
   ADMIN_USERS_ROLES: "/admin/users/roles",
   ADMIN_USERS_SECURITY: "/admin/users/security",
   ADMIN_VIDEOS: "/admin/videos",
+  AFFILIATES: "/affiliates",
   API: "/api",
   API_AUTH: {
     ADMIN_CREATE_USER: "/admin/create-user",
@@ -25,6 +26,7 @@ export const ROUTES = {
     CALLBACK: "/callback",
     CHANGE_EMAIL: "/change-email",
     CHANGE_PASSWORD: "/change-password",
+    CHECKOUT: "/checkout",
     GET_SESSION: "/get-session",
     POLAR_WEBHOOKS: "/polar/webhooks",
     REQUEST_PASSWORD_RESET: "/request-password-reset",

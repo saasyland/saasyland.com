@@ -2,6 +2,7 @@ import { createMemoryHistory } from "@tanstack/react-router"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 
 import { getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
@@ -19,7 +20,7 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
     ...actual,
     getCurrentSessionQuery: {
       ...actual.getCurrentSessionQuery,
-      queryFn: vi.fn(() => Promise.resolve(createAuthSessionFixture({ role: "admin" }))),
+      queryFn: vi.fn(() => Promise.resolve(createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))),
     },
   }
 })

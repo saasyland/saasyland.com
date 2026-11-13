@@ -4,7 +4,7 @@ import type { Plugin } from "vite-plus"
 
 const DEPLOYED_WORKER_BUILD = "DEPLOYED_WORKER_BUILD"
 
-const PRERENDERED_ONLY_MESSAGES = ["pages.landing", "pages.legal.*", "pages.premium"].map((namespace) => `**/messages/*/${namespace}.json`)
+const PRERENDERED_ONLY_MESSAGES = ["pages.landing", "pages.legal.*"].map((namespace) => `**/messages/*/${namespace}.json`)
 
 const isDeployedWorkerBuild = (): boolean => process.env[DEPLOYED_WORKER_BUILD] === "true"
 

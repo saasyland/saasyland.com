@@ -148,6 +148,7 @@ const CATALOGUE: Course["catalogue"] = [
     id: "course",
     kind: COURSE_KIND.COURSE,
     lessons: 4,
+    paid: 2,
     previews: 1,
     slug: COURSE_SLUG,
     summary: "How it works.",
@@ -158,6 +159,7 @@ const CATALOGUE: Course["catalogue"] = [
     id: "tutorial",
     kind: COURSE_KIND.TUTORIAL,
     lessons: 0,
+    paid: 0,
     previews: 0,
     slug: "one-off",
     summary: "A short one.",
@@ -305,7 +307,7 @@ describe("course page", () => {
   it("sends a signed-in customer to their licence page to unlock lessons", async () => {
     await renderCourses({ data: CUSTOMER_PAGE, path: "/courses/the-walkthrough" })
 
-    expect(screen.getByRole("link", { name: messages.course.unlock.cta })).toHaveAttribute("href", "/app/license")
+    expect(screen.getByRole("link", { name: messages.course.unlock.cta })).toHaveAttribute("href", "/app/license?tier=complete")
   })
 
   it("offers no start link when every lesson is locked", async () => {
@@ -385,7 +387,7 @@ describe("lesson page", () => {
       path: "sessions",
     },
     { cta: messages.lesson.locked.paid.cta, data: GUEST_PAGE, href: "/#pricing", path: "billing" },
-    { cta: messages.lesson.locked.paid.cta, data: CUSTOMER_PAGE, href: "/app/license", path: "billing" },
+    { cta: messages.lesson.locked.paid.cta, data: CUSTOMER_PAGE, href: "/app/license?tier=complete", path: "billing" },
   ])("locks $path and links to $href", async ({ cta, data, href, path }) => {
     await renderCourses({ data, path: `/courses/the-walkthrough/${path}` })
 

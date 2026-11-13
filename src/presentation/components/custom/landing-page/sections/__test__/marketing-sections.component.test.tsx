@@ -29,7 +29,9 @@ import { RecordSection } from "~/src/presentation/components/custom/landing-page
 import { StackSection } from "~/src/presentation/components/custom/landing-page/sections/stack-section"
 import { StudioSection } from "~/src/presentation/components/custom/landing-page/sections/studio-section"
 
+import pricing from "~/messages/en-US/components.custom.pricing.json"
 import english from "~/messages/en-US/pages.landing.json"
+import { ROUTES } from "~/src/routes"
 
 const withFacts = (message: string): string => createTranslator({ locale: "en-US", messages: { message } })("message", REPOSITORY_FACTS)
 
@@ -135,16 +137,19 @@ describe("marketing content and purchase links", () => {
     expect(await navigator.clipboard.readText()).toBe("yarn dlx saasyland@latest init my-app")
   })
 
-  it("links each paid tier to sign-up and marks only the featured tier", () => {
+  it("sends each tier to sign-up with a return path that keeps the chosen tier, and marks only the featured tier", () => {
     renderSection(<PricingSection />)
-    for (const tier of Object.values(english.pricing.tiers)) {
+    for (const [id, tier] of Object.entries(pricing.tiers)) {
       expect(screen.getByRole("heading", { name: tier.name })).toBeVisible()
-      expect(screen.getByRole("link", { name: tier.cta })).toHaveAttribute("href", "/auth/sign-up")
+      expect(screen.getByRole("link", { name: tier.cta })).toHaveAttribute(
+        "href",
+        `${ROUTES.SIGN_UP}?redirect=${encodeURIComponent(`${ROUTES.APP}?tier=${id}`)}`,
+      )
       for (const feature of Object.values(tier.features)) {
         expect(screen.getAllByText(feature).length).toBeGreaterThan(0)
       }
     }
-    expect(screen.getAllByText(english.pricing.mostPopular)).toHaveLength(1)
+    expect(screen.getAllByText(pricing.mostPopular)).toHaveLength(1)
     expect(screen.getByRole("link", { name: english.pricing.consulting.cta })).toHaveAttribute(
       "href",
       "mailto:hello@saasyland.com?subject=Architecture%20call",
@@ -208,17 +213,12 @@ describe("marketing content and purchase links", () => {
     expect(screen.getByRole("link", { name: english.compare.cta })).toHaveAttribute("href", "#pricing")
   })
 
-  it("shows both course tracks and their preview and locked lessons", () => {
+  it("pairs the page designer with the course showcase", () => {
     renderSection(<StudioSection />)
     expect(screen.getByRole("heading", { name: english.studio.builder.title })).toBeVisible()
     expect(screen.getByLabelText(english.studio.builder.imageAlt)).toHaveAttribute("preload", "none")
-    for (const track of Object.values(english.studio.masterclass.tracks)) {
-      expect(screen.getByText(track.label)).toBeVisible()
-      for (const lesson of Object.values(track.lessons)) {
-        expect(screen.getByText(lesson)).toBeVisible()
-      }
-    }
-    expect(screen.getAllByTitle(english.studio.masterclass.lockedLabel)).toHaveLength(11)
+    expect(screen.getByRole("heading", { name: english.studio.masterclass.title })).toBeVisible()
+    expect(screen.getByRole("link", { name: english.studio.masterclass.browse })).toHaveAttribute("href", "/courses")
   })
 
   it("highlights only the hovered foundation card and resets the highlight on exit", () => {

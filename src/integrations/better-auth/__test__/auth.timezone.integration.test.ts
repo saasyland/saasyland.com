@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { TEST_APP_URL, createTestRequestUrl } from "~/src/platform/testing/lib/test-request"
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
 
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
@@ -34,7 +35,7 @@ const createSignedInUser = async (): Promise<{ cookie: string; userId: string }>
   await context.internalAdapter.linkAccount({
     accountId: created.id,
     password: await context.password.hash(PASSWORD),
-    providerId: "credential",
+    providerId: AUTH_PROVIDER.CREDENTIAL,
     userId: created.id,
   })
   const response = await postAuth(ROUTES.API_AUTH.SIGN_IN_EMAIL, { email, password: PASSWORD })

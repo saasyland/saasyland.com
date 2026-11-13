@@ -7,13 +7,16 @@ import { z } from "zod/v4"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { readWranglerEnvironment } from "./wrangler-config.ts"
 import { ROUTES } from "~/src/routes"
 
+const SCRIPT_ARGUMENTS_START = 2
 const CLIENT_DIR = "dist/client"
 const ASSETS_DIR = join(CLIENT_DIR, "assets")
 const DEPLOY_CONFIG_PATH = ".wrangler/deploy/config.json"
+const WORKER_CONFIG_PATH = "dist/server/wrangler.json"
 
-const LOCALIZED_PAGES = [ROUTES.HOME, ROUTES.PRIVACY, ROUTES.TERMS, ROUTES.REFUNDS, ROUTES.LICENCE]
+const LOCALIZED_PAGES = [ROUTES.HOME, ROUTES.PRIVACY, ROUTES.TERMS, ROUTES.REFUNDS, ROUTES.LICENCE, ROUTES.AFFILIATES]
 const UNPRERENDERED_PAGES = [
   ...I18N.SUPPORTED_LOCALES.map((locale) => `/${locale.split("-")[0]}`),
   `/${I18N.DEFAULT_LOCALE}`,
@@ -33,7 +36,9 @@ const CONTENT_ROUTES = [
 const CONTENT_PAGE = /^(?<slug>.*?)(?:(?:^|\/)index)?\.(?<locale>[a-zA-Z-]+)\.mdx$/u
 const FRONTMATTER = /^---\r?\n(?<yaml>[\s\S]*?)\r?\n---/u
 
+const environmentSchema = z.enum(["preview", "production", "test"])
 const deploymentSchema = z.object({ configPath: z.string() })
+const workerConfigSchema = z.object({ name: z.string() })
 const contentPageSchema = z.object({ locale: z.enum(I18N.SUPPORTED_LOCALES), slug: z.string() })
 const frontmatterSchema = z.object({ yaml: z.string() })
 const publicationSchema = z.object({ published: z.boolean().default(true) })
@@ -44,8 +49,20 @@ const isPublished = (file: string): boolean => {
   return publicationSchema.parse(YAML.parse(yaml)).published
 }
 
+const environment = environmentSchema.parse(process.argv[SCRIPT_ARGUMENTS_START])
 const deployment = deploymentSchema.parse(JSON.parse(readFileSync(DEPLOY_CONFIG_PATH, "utf8")))
-accessSync(resolve(dirname(DEPLOY_CONFIG_PATH), deployment.configPath))
+
+if (resolve(dirname(DEPLOY_CONFIG_PATH), deployment.configPath) !== resolve(WORKER_CONFIG_PATH)) {
+  throw new Error(`The Worker deployment config does not point to ${WORKER_CONFIG_PATH}`)
+}
+
+const worker = workerConfigSchema.parse(JSON.parse(readFileSync(WORKER_CONFIG_PATH, "utf8")))
+const target = await readWranglerEnvironment(environment)
+
+if (worker.name !== target.name) {
+  throw new Error(`The Worker build is ${worker.name}, not the ${environment} Worker`)
+}
+
 accessSync(join(CLIENT_DIR, "index.html"))
 
 for (const locale of I18N.SUPPORTED_LOCALES) {
@@ -108,4 +125,6 @@ for (const file of clientScripts) {
   }
 }
 
-process.stdout.write("Verified Worker deployment config, prerendered locales and content pages, fonts, and client assets.\n")
+process.stdout.write(
+  `Verified the ${environment} Worker deployment config, prerendered locales and content pages, fonts, and client assets.\n`,
+)

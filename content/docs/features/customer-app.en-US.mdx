@@ -5,12 +5,13 @@ description: "The signed-in /app area: overview, licence page and sidebar."
 
 ## Layout
 
-`src/routes/app.tsx` guards the area with `requireSignedIn` and preloads its namespaces:
+`src/routes/app.tsx` validates the search params of every page in the area, guards it with `requireSignedIn` and preloads its namespaces:
 
 ```tsx
 const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
 
 export const Route = createFileRoute("/app")({
+  validateSearch: appSearchSchema,
   beforeLoad: requireSignedIn,
   component: AppLayout,
   loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
@@ -23,11 +24,24 @@ export const Route = createFileRoute("/app")({
 
 ## Pages
 
-| Route          | Content                                                                                                                                                             |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/app`         | `CheckoutOptions` without a licence, otherwise `LicenseStatusCard` (tier, status and a link to the licence page); links to the docs and to support by email.        |
-| `/app/license` | `CheckoutOptions` without a licence, otherwise `LicenseCard` (key, install command, customer portal link) and, once Polar has issued the key, `LicenseActivations`. |
+| Route          | Content                                                                                                                                                                                      |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/app`         | `LicenseOffer` without an active licence, otherwise `LicenseStatusCard` (tier, status and a link to the licence page); links to the docs and to support by email.                            |
+| `/app/license` | `LicenseOffer` without an active licence, otherwise `LicenseCard` (key, install command, customer portal link, how to change tier) and, once Polar has issued the key, `LicenseActivations`. |
 
-Both loaders preload `currentLicenseQuery`; `/app/license` also preloads `licenseActivationsQuery`. Checkout, webhooks and licence states are described in [Payments and licences](/docs/features/payments).
+`LicenseOffer` (`src/presentation/components/custom/app/license-offer.tsx`) reuses the landing page's `PricingTiers` with a `CheckoutButton` for each tier, adds the purchase terms (`CheckoutAgreement`) and ends with `CourseUnlocks`: the published courses that have paid lessons, with the number of locked lessons in each, counted from D1 by `getCatalogue`. The block is left out while no course has a paid lesson. A refunded licence keeps its card and gets the offer next to it.
+
+`appSearchSchema` (`src/data/app.ts`) accepts two optional params, both ignored when invalid:
+
+| Param        | Value                  | Effect                                                                                                                                         |
+| ------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tier`       | a `LICENSE_TIER` value | `ChosenTier` above the offer: the tier, its price and a **Continue to checkout** button.                                                       |
+| `checkoutId` | a UUID from Polar      | `CheckoutActivation` instead of the offer until the licence is active, then a thank-you. See [Payments and licences](/docs/features/payments). |
+
+Both loaders preload `currentLicenseQuery` and the course catalogue; `/app/license` also preloads `licenseActivationsQuery`. Checkout, webhooks and licence states are described in [Payments and licences](/docs/features/payments).
+
+## Skeletons
+
+`AppOverviewPending` and `AppLicensePending` (`app-pending.tsx`) mirror the state the page will show: they read the search params with `appSearchSchema` and the cached licence and catalogue from the query client, and draw the activation panel, the chosen tier, the tier grid with one row per course with paid lessons, or the licence cards.
 
 There are no billing history, account settings or course screens in `/app`.

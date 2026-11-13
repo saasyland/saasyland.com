@@ -8,6 +8,7 @@ import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.sourc
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { Route as LandingRoute } from "~/src/routes/_landing"
+import { Route as AffiliatesRoute } from "~/src/routes/_landing.affiliates"
 import { Route as HomeRoute } from "~/src/routes/_landing.index"
 import { Route as LicenceRoute } from "~/src/routes/_landing.licence"
 import { Route as PremiumRoute } from "~/src/routes/_landing.premium"
@@ -18,21 +19,40 @@ import { Route as BlogRoute } from "~/src/routes/blog"
 import { Route as BlogPostRoute } from "~/src/routes/blog.$"
 import { Route as BlogIndexRoute } from "~/src/routes/blog.index"
 
+import { AFFILIATE_TERMS } from "~/src/data/affiliates"
+
 import { starCountQuery } from "~/src/lib/github"
 
 import componentsNavigationMessages from "~/messages/en-US/components.custom.navigation.json"
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import pagesLandingMessages from "~/messages/en-US/pages.landing.json"
+import pagesLegalAffiliatesMessages from "~/messages/en-US/pages.legal.affiliates.json"
 import pagesLegalLicenceMessages from "~/messages/en-US/pages.legal.licence.json"
 import pagesLegalPrivacyMessages from "~/messages/en-US/pages.legal.privacy.json"
 import pagesLegalRefundsMessages from "~/messages/en-US/pages.legal.refunds.json"
 import pagesLegalTermsMessages from "~/messages/en-US/pages.legal.terms.json"
 import pagesPremiumMessages from "~/messages/en-US/pages.premium.json"
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
 
 type BlogPost = (typeof BlogPostRoute.types.loaderData)["post"]
 
 const messages = getTestMessages("en-US")
+
+const TERMS_VALUES: Record<string, number | string> = {
+  commission: AFFILIATE_TERMS.COMMISSION_PERCENT,
+  cookieDays: AFFILIATE_TERMS.COOKIE_DAYS,
+  email: CONTACT_EMAIL,
+  holdDays: AFFILIATE_TERMS.HOLD_DAYS,
+  minimumPayout: new Intl.NumberFormat("en-US", {
+    currency: AFFILIATE_TERMS.PAYOUT_CURRENCY,
+    maximumFractionDigits: 0,
+    style: "currency",
+  }).format(AFFILIATE_TERMS.MINIMUM_PAYOUT),
+}
+
+const rendered = (text: string): string =>
+  text.replaceAll(/\{(?<name>\w+)\}/gu, (_placeholder, name: string) => String(TERMS_VALUES[name])).replaceAll(/\s+/gu, " ")
 
 const summary = (title: string, slug: string): BlogPostSummary => ({
   date: "2026-09-01",
@@ -97,6 +117,7 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
     path: "/",
   })
   for (const [route, pathName] of [
+    [AffiliatesRoute, "/affiliates"],
     [LicenceRoute, "/licence"],
     [PremiumRoute, "/premium"],
     [PrivacyRoute, "/privacy"],
@@ -122,7 +143,7 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
     routeTree: root.addChildren([
-      LandingRoute.addChildren([HomeRoute, LicenceRoute, PremiumRoute, PrivacyRoute, RefundsRoute, TermsRoute]),
+      LandingRoute.addChildren([AffiliatesRoute, HomeRoute, LicenceRoute, PremiumRoute, PrivacyRoute, RefundsRoute, TermsRoute]),
       BlogRoute.addChildren([BlogIndexRoute, BlogPostRoute]),
     ]),
   })
@@ -181,13 +202,14 @@ describe("public route content", () => {
     { copy: pagesLegalTermsMessages, document: "terms" },
     { copy: pagesLegalRefundsMessages, document: "refunds" },
     { copy: pagesLegalLicenceMessages, document: "licence" },
+    { copy: pagesLegalAffiliatesMessages, document: "affiliates" },
   ])("loads and renders the complete $document document", async ({ copy, document }) => {
     const router = await renderRoute(`/${document}`)
     expect(screen.getByRole("heading", { name: copy.title })).toBeVisible()
     const sections: Record<string, { title: string; body: string }> = copy.sections
     for (const section of Object.values(sections)) {
       expect(screen.getByRole("heading", { name: section.title })).toBeVisible()
-      expect(screen.getByText(section.body.replaceAll(/\s+/gu, " "))).toBeVisible()
+      expect(screen.getByText(rendered(section.body))).toBeVisible()
     }
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ locale: "en-US", metadata: copy.metadata })
     expect(router.state.matches.at(-1)?.status).toBe("success")

@@ -1,0 +1,48 @@
+---
+title: "Program partnerski"
+description: "Linki polecające śledzone przez Affonso, przypisywane w zamówieniu Polar, z publicznymi warunkami pod /affiliates."
+---
+
+Partnerzy zarabiają prowizję od sprzedaży, którą przyprowadzą. SaaSy Land nie liczy poleceń samodzielnie: [Affonso](https://affonso.io) rejestruje kliknięcia, otrzymuje zamówienia i zwroty z Polar, nalicza prowizję i wypłaca ją partnerom. Dzięki temu żadna liczba nie jest w rękach sprzedawcy i właśnie to sprawia, że program jest wiarygodny dla partnerów.
+
+## Droga polecenia
+
+1. Partner udostępnia dowolną stronę z parametrem polecenia, na przykład `/?via=jane`. Parametry, które odczytuje Affonso, są wymienione w `AFFONSO.REFERRAL_PARAMS` (`src/integrations/affonso/affonso.constants.ts`): `affonso`, `atp`, `aff`, `via` i `ref`.
+2. `AffiliateReferral` (`src/presentation/components/custom/affiliate-referral.tsx`), renderowany raz w trasie głównej, sprawdza adres URL po hydratacji. Tylko gdy jest obecny jeden z tych parametrów, pyta serwer o ID programu (`getAffonsoProgramId`, `src/integrations/affonso/affonso.program.ts`) i renderuje skrypt Affonso z `data-cookie_duration` ustawionym na `AFFILIATE_TERMS.COOKIE_DAYS`. Wizyty bez parametru polecenia nie ładują żadnego skryptu zewnętrznego.
+3. Skrypt rejestruje kliknięcie w Affonso i zapisuje ID kliknięcia we własnym ciasteczku serwisu `affonso_referral`.
+4. Gdy odwiedzający rozpoczyna płatność, `startCheckout` przekazuje `affonsoReferralMetadata(headers)` (`src/integrations/affonso/affonso.referral.ts`) jako `metadata` sesji płatności. Funkcja odczytuje ciasteczko, akceptuje tylko litery, cyfry, `_` i `-` do 128 znaków i zwraca `{ affonso_referral: <click ID> }` albo pusty obiekt, gdy nie ma prawidłowego polecenia.
+5. Polar kopiuje metadane sesji płatności do zamówienia i wysyła `order.created` oraz `order.refunded` do Affonso, które nalicza lub cofa prowizję.
+
+Cena regionalna nadal obowiązuje kupujących z polecenia: polecenie trafia do metadanych, a nie jest rabatem, więc nigdy nie konkuruje z rabatem regionalnym o jedyne miejsce na rabat w Polar.
+
+## Konfiguracja
+
+Śledzenie jest wyłączone, dopóki Worker nie ma `AFFONSO_PROGRAM_ID`. Ta wartość jest publiczna (widać ją w tagu skryptu), więc jest zwykłą zmienną, a nie sekretem. Ustaw ją tylko w środowisku, które przyjmuje prawdziwe płatności:
+
+```jsonc
+"production": {
+  "vars": {
+    "AFFONSO_PROGRAM_ID": "<program ID from Affonso>",
+  },
+}
+```
+
+Następnie, jednorazowo:
+
+1. Utwórz program w Affonso i połącz Polar za pomocą tokenu dostępu organizacji bez daty wygaśnięcia. Przewodnik Affonso dotyczący Polar wymienia potrzebne zakresy uprawnień.
+2. W Polar dodaj endpoint webhooka, który pokazuje Affonso, w formacie **Raw** i ze zdarzeniami `order.created`, `order.refunded` i `subscription.canceled`.
+3. W ustawieniach programu użyj wartości z publicznej strony warunków: prowizja, czas ważności ciasteczka, okres wstrzymania i minimalna wypłata pochodzą z `AFFILIATE_TERMS` (`src/data/affiliates.ts`), więc strona i skrypt zawsze są ze sobą zgodne.
+4. Przetestuj całość: otwórz `/?atp=test`, sprawdź, czy ciasteczko `affonso_referral` zostało ustawione, i potwierdź, że sesja płatności Polar ma `affonso_referral` w metadanych.
+
+## Strona warunków
+
+`/affiliates` (`src/routes/_landing.affiliates.tsx`, komunikaty w `pages.legal.affiliates`) publikuje warunki we wszystkich językach i ma link w stopce. Każda liczba na niej jest interpolowana z `AFFILIATE_TERMS`; minimalna wypłata jest formatowana jako kwota w walucie zgodnie z językiem odwiedzającego. Polityka prywatności opisuje ciasteczko polecenia, dane, które otrzymuje Affonso, i podstawę prawną.
+
+## Testy
+
+- `affonso.referral.test.ts`: prawidłowe ciasteczko staje się metadanymi; brakująca, błędna lub zbyt długa wartość jest ignorowana.
+- `start-checkout.test.ts`: polecenie trafia do treści żądania sesji płatności Polar obok rabatu regionalnego.
+- `affiliate-referral.component.test.tsx`: skrypt jest renderowany tylko z parametrem polecenia i skonfigurowanym ID programu.
+- `legal-routes.component.test.tsx`: strona warunków renderuje się w całości we wszystkich dziewięciu językach.
+- `e2e/specs/affiliates.spec.ts`: zwykła wizyta nie ładuje żadnego skryptu; wizyta z `?via=` ładuje go z identyfikatorem programu środowiska testowego i zachowuje plik cookie polecenia (skrypt jest podmieniany przez `page.route`); strona z warunkami się wyświetla.
+- `e2e/specs/accessibility.spec.ts`: axe skanuje `/affiliates` w trybie jasnym i ciemnym.

@@ -22,15 +22,15 @@ Loaders fill the cache with `queryClient.query({ ...options, staleTime: "static"
 
 ## Prerendering
 
-`bun run build` prerenders the public pages by crawling links: landing, legal, blog and docs pages in all nine locales. Paths under `/admin`, `/app`, `/auth`, `/courses`, `/newsletter` and `/api` (with or without a locale prefix) and links with a query string or hash are excluded. The course pages are excluded because they show each viewer's locks and progress.
+`bun run build` prerenders the public pages by crawling links: landing, legal, blog and docs pages in all nine locales. Paths under `/admin`, `/app`, `/auth`, `/courses`, `/newsletter` and `/api` (with or without a locale prefix) and links with a query string or hash are excluded. The course pages are excluded because they show each viewer's locks and progress. The browser fills the landing page's course block from `getCourseShowcase` when it scrolls near, so the prerendered landing page stays the same for everyone (see [Courses](/docs/features/courses)).
 
 The Worker serves prerendered HTML from the `ASSETS` binding before it loads the application. A prerendered page contains no user data, so it is safe to serve to everyone. When a visitor qualifies for regional pricing, the Worker rewrites the HTML and marks the response `Cache-Control: private, no-cache`.
 
-Prerendering runs on a Worker build that contains every page. The deployed Worker is rebuilt afterwards without the rendered MDX of the docs and blog and without the translations that only the landing, legal and premium pages use. The docs and blog server functions and `/api/search` still read each page's frontmatter, headings and search text, so client navigations and search work as before. See [Cloudflare Workers](/docs/integrations/cloudflare-workers).
+Prerendering runs on a Worker build that contains every page. The deployed Worker is rebuilt afterwards without the rendered MDX of the docs and blog and without the translations that only the landing and legal pages use. The docs and blog server functions and `/api/search` still read each page's frontmatter, headings and search text, so client navigations and search work as before. See [Cloudflare Workers](/docs/integrations/cloudflare-workers).
 
 ## KV and D1
 
-- **KV (`CACHE`)** stores only the GitHub star count for `src/lib/github.ts`. A cached value older than one hour is returned immediately and refreshed in the background with `waitUntil`.
+- **KV (`CACHE`)** stores the GitHub star count for `src/lib/github.ts` and the regional checkout discounts for `src/modules/license/license.ppp.ts`. A star count older than one hour is returned immediately and refreshed in the background with `waitUntil`; discounts older than five minutes are listed from Polar again.
 - **D1 (`DB`)** stores sessions and rate-limit counters. Session checks for server functions bypass Better Auth's cookie cache and are memoized for the rest of the request.
 - **The Workers cache** keeps the video files that `serveMedia` reads from R2 under `/media/_/<videoId>/<file>`, without the signature, so the viewers at one edge location share a single cached copy. See [Cloudflare R2](/docs/integrations/cloudflare-r2).
 - Server functions never make a permission decision from cached data.

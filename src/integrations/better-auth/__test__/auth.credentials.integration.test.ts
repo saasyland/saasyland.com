@@ -9,6 +9,7 @@ import {
   readSignUpRole,
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.test-instance"
 import { DEFAULT_ROLE_CODE } from "~/src/integrations/better-auth/auth.access"
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 
 const authContext = await createAuthTestInstance()
 
@@ -129,7 +130,7 @@ describe("auth social providers", () => {
     const response = await authContext.auth.api.signInSocial({
       body: {
         callbackURL: `${AUTH_TEST_BASE_URL}/auth/callback`,
-        provider: "github",
+        provider: AUTH_PROVIDER.GITHUB,
       },
     })
 
@@ -142,7 +143,7 @@ describe("auth social providers", () => {
     const response = await authContext.auth.api.signInSocial({
       body: {
         callbackURL: `${AUTH_TEST_BASE_URL}/auth/callback`,
-        provider: "google",
+        provider: AUTH_PROVIDER.GOOGLE,
       },
     })
 

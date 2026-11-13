@@ -16,7 +16,22 @@ description: "Mudanças relevantes ao longo do tempo."
 - Os novos casos de uso de curso, capítulo e aula verificam a declaração de permissões `course`, respondem `CONFLICT` a um slug que já está em uso (`rethrowAsConflict`), dão a uma linha nova a próxima `position` (`nextPosition`) e renumeram os irmãos a partir de 1 numa movimentação (`reorder`). Excluir um curso ou um capítulo exclui as aulas e o progresso delas; os vídeos continuam na biblioteca.
 - Títulos e resumos escritos na administração precisam ter texto em inglês (`localizedTextSchema`), com as mensagens no novo namespace `course.validations`.
 - Removidas: a tela de demonstração de cursos em `/admin/courses/create` e a aba vazia **Cursos** de `/admin/products`.
-- O Worker do deploy é recompilado depois da pré-renderização sem o MDX renderizado das páginas da documentação e do blog e sem as traduções que só a landing, as páginas legais e a página premium usam, o que reduz o upload de 45,5 MiB para 21,5 MiB. `scripts/verify-build.ts` verifica se todas as páginas da documentação e todos os posts publicados do blog foram pré-renderizados. Veja [Cloudflare Workers](/docs/integrations/cloudflare-workers).
+- Funil de checkout: um plano escolhido na landing page sobrevive ao cadastro (`redirect=/app?tier=<tier>`), e `/app` e `/app/license` o mostram com um **Ir para o pagamento** de um só clique. Veja [Pagamentos e licenças](/docs/features/payments).
+- `/app` e `/app/license` mostram às contas sem licença os cards de planos da landing page com preços regionais, e as aulas dos cursos que uma licença Complete ou Agency desbloqueia, contadas no D1. Veja [Aplicativo do cliente](/docs/features/customer-app).
+- Depois de pagar, o comprador volta para `/app?checkoutId=<id>` no próprio idioma e acompanha a ativação da licença; se o Polar não confirmar o pagamento em até um minuto, a página avisa e informa o e-mail do suporte e a referência do checkout.
+- `startCheckout` recusa uma conta que já tem uma licença ativa (`LICENSE_ALREADY_ACTIVE`), e o `/api/auth/checkout` do plugin do Polar está desativado via HTTP, então todo checkout passa por essa verificação.
+- O `--ring` do tema claro está mais escuro (`oklch(0.55 0.106 208)`), para que os rótulos pequenos em verde-azulado atinjam a razão de contraste de 4,5:1.
+- Programa de afiliados: links com um parâmetro de indicação carregam o script do Affonso apenas naquela visita, e o checkout repassa o cookie `affonso_referral` ao Polar como metadados do pedido. O rastreamento é ativado com a variável do Worker `AFFONSO_PROGRAM_ID`. `/affiliates` publica os termos a partir de `AFFILIATE_TERMS`, e a política de privacidade descreve o cookie de indicação. Veja [Programa de afiliados](/docs/features/affiliates).
+- Depois do login, os visitantes voltam à página que o pediu, por meio de um parâmetro de busca `redirect` que aceita apenas caminhos deste site.
+- `e2e/specs/accessibility.spec.ts` executa o axe-core com as regras A e AA das WCAG 2.0, 2.1 e 2.2 nas páginas públicas, em um post do blog, nas páginas de cursos e nas duas áreas de trabalho, nos temas claro e escuro.
+- Cada número da página inicial e do blog é medido no repositório no build do site (`virtual:repository-facts`, `<RepositoryCount>`), agora incluindo os componentes de UI, as seções do admin e os idiomas.
+- `typescript/no-explicit-any` é um erro de lint, e `license.utils.ts` e `video.delivery.ts` estão marcados como exclusivos do servidor.
+- Corrigidos de acordo com o código: o aviso de privacidade (os cookies que o site define e por quanto tempo duram os registros de limitação de requisições), os textos da página inicial e do blog, o README e esta documentação.
+- Deploys: `deploy:preview` e `deploy:production` gravam em `.wrangler/secrets.<environment>.json` apenas os secrets que o `wrangler.jsonc` declara, lidos do arquivo de ambiente, aplicam as migrações do D1 do ambiente, fazem o deploy de `dist/server/wrangler.json` com esses secrets e verificam o site no ar com `scripts/verify-deployment.ts`. A CI não executa essa verificação, porque a proteção contra bots da Cloudflare responde 403 às requisições dos runners de CI. Veja [Scripts do projeto](/docs/tooling/scripts).
+- `verify-bindings.ts` também exige o bucket `MEDIA` e recusa um ambiente de produção que compartilhe com o preview o banco de dados D1, o namespace KV ou o bucket R2. `verify-build.ts` recebe o ambiente e verifica se a configuração do Worker gerada no build aponta para ele.
+- Novos scripts: `db:reset:test` recria o banco de dados de teste local e é o que o Playwright e a CI executam, e `db:migrations:<environment>` lista as migrações que um banco remoto ainda não aplicou. Os scripts executam o Wrangler e o `drizzle-kit generate` via `vp exec`, e os scripts do `package.json` estão ordenados por nome.
+- O `wrangler.jsonc` lista os ambientes na ordem desenvolvimento, preview, teste e produção, cada um com os bindings na ordem D1, R2 e KV e os secrets ordenados por nome.
+- O Worker do deploy é recompilado depois da pré-renderização sem o MDX renderizado das páginas da documentação e do blog e sem as traduções que só a landing e as páginas legais usam, o que reduz o upload de 46,4 MiB para 21,9 MiB. `scripts/verify-build.ts` verifica se todas as páginas da documentação e todos os posts publicados do blog foram pré-renderizados. Veja [Cloudflare Workers](/docs/integrations/cloudflare-workers).
 - A entrada do Worker não carrega mais o runtime de servidor do TanStack Start na inicialização: `parseLocaleCookie` agora fica em `i18n.middleware.ts`, e `ThemeProvider` lê o próprio cookie.
 
 ## 2026-11-12
@@ -30,6 +45,8 @@ description: "Mudanças relevantes ao longo do tempo."
 - Os search params das rotas são schemas Zod montados com `searchText`, `searchFlag` e `searchChoice` de `src/lib/search-params.ts`.
 - O `<module>.types.ts` de cada módulo exporta uma única interface, e as server functions tipam a entrada como `Module["operation"]`; os status e as origens da newsletter são constantes nomeadas.
 - Corrigido: os deploys não enviam mais os source maps do Worker (`upload_source_maps: false`), que deixavam o upload grande demais.
+- É necessário o Node 26.13.1 ou mais recente; o `.nvmrc` define a versão para o `nvm use` e a CI.
+- Corrigido: os descontos regionais do checkout ficam em cache no KV em vez de na memória do Worker, então uma requisição cancelada não consegue mais travar os checkouts seguintes.
 - Dependências atualizadas: `@polar-sh/sdk` 1.x, `@polar-sh/better-auth` 2.x, Vite+ 1.6.0, Vitest 5.1.0 e `fumadocs-mdx` 15.6.1.
 
 ## 2026-09-26
@@ -47,8 +64,8 @@ description: "Mudanças relevantes ao longo do tempo."
 ## Anteriormente
 
 - Camada de casos de uso modular em `src/modules`
-- DataTable de usuários do admin com dados reais + abas com nuqs
-- Práticas de Suspense compatíveis com Cache Components
+- DataTable de usuários do admin com dados reais
+- Migração do Next.js para o TanStack Start no Cloudflare Workers (2026-09-06)
 - Mapa abrangente da documentação (este site)
 - Toolchain Vite+ e verificações rigorosas de cobertura
 

@@ -32,6 +32,7 @@ Ogni tabella ha il proprio modulo in `src/modules` ed è creata dalla migrazione
 I ruoli con `course: ["read"]`, che gli amministratori hanno, possono guardare ogni lezione. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) decide per uno spettatore che `resolveViewer` (`lesson.viewer.ts`) costruisce dalla sessione, dal ruolo e da `getLicense`. Ogni funzione server che serve contenuti dei corsi applica questo controllo, non solo le pagine:
 
 - `getCatalogue` (pubblica) restituisce i corsi pubblicati con il numero di lezioni, la durata totale dei video e il numero di anteprime gratuite.
+- `getCourseShowcase` (pubblica) restituisce, per la landing page, i primi due corsi pubblicati (`COURSE_SHOWCASE`) con il numero di lezioni, la durata totale dei video, il numero di anteprime gratuite e le prime sei lezioni pubblicate, oltre alla prima anteprima gratuita che ha un video. Indica il livello di accesso di ogni lezione, non i blocchi dello spettatore.
 - `getCourse` (pubblica) restituisce un corso pubblicato con i suoi capitoli e le lezioni pubblicate nel locale del visitatore, ciascuna con `locked`, `completed` e `positionMs` per lo spettatore.
 - `getLessonPlayback` (pubblica) restituisce percorsi di riproduzione firmati da `createPlayback`. Risponde `UNAUTHORIZED` a un ospite e `FORBIDDEN` a un utente che ha effettuato l’accesso ma non può guardare la lezione, e `NOT_FOUND` per una lezione non pubblicata o senza video.
 - `saveLessonProgress` richiede una sessione e controlla lo stesso accesso prima di scrivere.
@@ -41,8 +42,18 @@ I ruoli con `course: ["read"]`, che gli amministratori hanno, possono guardare o
 Il layout `/courses` (`courses.tsx`) ha una propria navigazione, e i suoi testi sono nel namespace `pages.courses`. Le pagine leggono D1 per ogni spettatore, quindi non vengono prerenderizzate: `ROUTES.COURSES` è in `UNLISTED_ROUTES` di `vite.config.ts`.
 
 - `/courses`: una scheda per ogni corso pubblicato con tipo, numero di lezioni, minuti e lezioni gratuite.
-- `/courses/<course>`: il riepilogo, una barra di avanzamento per gli spettatori che hanno effettuato l’accesso, un link **Inizia il corso** o **Continua con …** alla prossima lezione da guardare e il programma per capitolo con i badge **Anteprima gratuita**, le durate e le icone di lucchetto e di lezione completata. Quando una lezione è bloccata, il pannello **Ogni lezione è inclusa in Complete** rimanda alla sezione dei prezzi o, per uno spettatore che ha effettuato l’accesso, a `/app/license`.
+- `/courses/<course>`: il riepilogo, una barra di avanzamento per gli spettatori che hanno effettuato l’accesso, un link **Inizia il corso** o **Continua con …** alla prossima lezione da guardare e il programma per capitolo con i badge **Anteprima gratuita**, le durate e le icone di lucchetto e di lezione completata. Quando una lezione è bloccata, il pannello **Ogni lezione è inclusa in Complete** rimanda alla sezione dei prezzi o, per uno spettatore che ha effettuato l’accesso, a `/app/license?tier=complete`, dove il piano Complete è già selezionato.
 - `/courses/<course>/<lesson>`: il player, oppure un pannello di blocco con **Accedi per guardare**, che dopo l’accesso riporta alla lezione tramite `redirect`, oppure **Ottieni Complete**. Una lezione senza video avvisa che la registrazione arriverà presto. Sotto compaiono il livello di accesso, **Segna come completata** per gli spettatori che hanno effettuato l’accesso e i link alla lezione precedente e alla successiva; sugli schermi larghi i contenuti del corso restano a fianco.
+
+## Nella landing page
+
+Il blocco dei corsi nella sezione **Strumenti** della landing page (`course-showcase.tsx` in `src/presentation/components/custom/landing-page/components/`) mostra ciò che c’è in D1, quindi non elenca mai un corso o una lezione che non esiste:
+
+- La landing page è prerenderizzata, quindi il suo HTML contiene il titolo del blocco, il tour delle pagine del corso e dei segnaposto. Quando il blocco arriva a meno di un’altezza di schermo dall’area visibile, il browser chiama una volta `getCourseShowcase` tramite `courseShowcaseQuery` e lo completa. I visitatori che non scorrono fin lì non inviano alcuna richiesta.
+- Ogni corso mostra il tipo, il numero di lezioni, i minuti e le lezioni gratuite, poi le prime lezioni con il loro livello di accesso. Ogni corso e ogni lezione portano alla propria pagina, e un corso con più lezioni termina con un link a tutte.
+- **Guarda una lezione gratuita** apre la prima anteprima gratuita che ha un video. Se non ce n’è nessuna, il link non compare.
+- Se nessun corso è pubblicato, il blocco lo dice; se la richiesta non riesce, rimanda al catalogo dei corsi. **Vedi tutti i corsi** porta sempre a `/courses`.
+- Il tour delle pagine del corso è il video della composizione `course-tour` del progetto `remotion/`. È un file statico in `src/presentation/assets/motion/` con poster AVIF e WebP e, quando lo si preme, si riproduce sul posto con i controlli del browser. Non usa la libreria video.
 
 ## Progressi
 
@@ -116,7 +127,7 @@ Le chiavi esterne lo fanno con `ON DELETE CASCADE`. I video non vengono mai elim
 
 ## Test
 
-`scripts/seed-test.ts` crea un corso pubblicato con un capitolo e quattro lezioni per i test nel browser di `e2e/specs/courses.spec.ts`. In `e2e/specs/course-admin.spec.ts`, un amministratore crea un corso, un capitolo e una lezione gratuita con il video di test, un visitatore in un’altra pagina del browser guarda la lezione e l’amministratore elimina il corso.
+`scripts/seed-test.ts` crea un corso pubblicato con un capitolo e quattro lezioni per i test nel browser di `e2e/specs/courses.spec.ts`. In `e2e/specs/course-admin.spec.ts`, un amministratore crea un corso, un capitolo e una lezione gratuita con il video di test, un visitatore in un’altra pagina del browser guarda la lezione e l’amministratore elimina il corso. `e2e/specs/landing.spec.ts` verifica che la landing page colleghi il corso di test e le sue lezioni, apra la lezione gratuita e riproduca il tour delle pagine del corso.
 
 ## Pagine correlate
 

@@ -3,23 +3,34 @@ title: "Skrypty projektu"
 description: "Wszystkie skrypty z package.json i to, co uruchamiają."
 ---
 
-Uruchamiaj skrypty z katalogu głównego repozytorium poleceniem `bun run <script>`.
+Uruchamiaj skrypty z katalogu głównego repozytorium poleceniem `bun run <script>`. Skrypty wywołujące Wranglera oraz `db:generate`, który wywołuje drizzle-kit, uruchamiają te narzędzia przez `vp exec`, który bierze plik binarny z `node_modules/.bin`, więc zawsze używają wersji przypiętych w `bun.lock`.
 
 ## Rozwój i budowanie
 
-| Skrypt              | Uruchamia                                                                                                                                  |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `dev`               | `generate:cn`, `content` i `vp dev` w środowisku `development` pod adresem http://localhost:3000                                           |
-| `build`             | To samo co `build:preview`                                                                                                                 |
-| `build:preview`     | Czyszczenie `dist`, `generate:cn`, `content`, `vp build` dla `preview`, `scripts/verify-build.ts` i `scripts/optimize-prerendered-html.ts` |
-| `build:production`  | Te same kroki dla `production`                                                                                                             |
-| `build:test`        | Te same kroki dla środowiska `test`                                                                                                        |
-| `start`             | `vp preview` ostatniego buildu pod adresem http://127.0.0.1:3000                                                                           |
-| `start:test`        | `vp preview` buildu testowego                                                                                                              |
-| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `build:preview` i `wrangler deploy --secrets-file .env.preview`                                      |
-| `deploy:production` | `scripts/verify-bindings.ts production`, `build:production` i `wrangler deploy --secrets-file .env.production`                             |
+| Skrypt             | Uruchamia                                                                                                                                          |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev`              | `generate:cn`, `content` i `vp dev` w środowisku `development` pod adresem http://localhost:3000                                                   |
+| `build`            | To samo co `build:preview`                                                                                                                         |
+| `build:preview`    | Czyszczenie `dist`, `generate:cn`, `content`, `vp build` dla `preview`, `scripts/verify-build.ts preview` i `scripts/optimize-prerendered-html.ts` |
+| `build:production` | Te same kroki dla `production`                                                                                                                     |
+| `build:test`       | Te same kroki dla środowiska `test`                                                                                                                |
+| `start`            | `vp preview` ostatniego buildu pod adresem http://127.0.0.1:3000                                                                                   |
+| `start:test`       | `vp preview` buildu testowego                                                                                                                      |
 
-`verify-build.ts` sprawdza konfigurację wdrożenia, język dokumentu, linki kanoniczne i alternatywne zlokalizowanej strony głównej oraz stron prawnych, czcionki, to, że chronione strony i aliasy języków nie zostały prerenderowane, to, że wszystkie strony dokumentacji i opublikowane wpisy na blogu zostały prerenderowane, a także to, że żaden zasób klienta nie importuje `cloudflare:workers`. `optimize-prerendered-html.ts` usuwa z prerenderowanych stron wskazówki `modulepreload` dla zależności i pozostawia wskazówkę punktu wejścia z niskim priorytetem.
+`verify-build.ts` sprawdza, czy `.wrangler/deploy/config.json` wskazuje na `dist/server/wrangler.json` i czy ten plik wdraża Workera, którego nazwę `wrangler.jsonc` podaje dla danego środowiska, a następnie język dokumentu, linki kanoniczne i alternatywne zlokalizowanej strony głównej oraz stron prawnych, czcionki, to, że chronione strony i aliasy języków nie zostały prerenderowane, to, że wszystkie strony dokumentacji i opublikowane wpisy na blogu zostały prerenderowane, a także to, że żaden zasób klienta nie importuje `cloudflare:workers`. `optimize-prerendered-html.ts` usuwa z prerenderowanych stron wskazówki `modulepreload` dla zależności i pozostawia wskazówkę punktu wejścia z niskim priorytetem.
+
+## Wdrożenie
+
+| Skrypt              | Uruchamia                                                                                                                                                                                                              |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` pliku `dist/server/wrangler.json` i `scripts/verify-deployment.ts preview` |
+| `deploy:production` | Te same kroki dla `production`                                                                                                                                                                                         |
+
+- `verify-bindings.ts` kończy się błędem, gdy środowisko nie ma bindingu `DB`, `CACHE` lub `MEDIA` albo nadal ma zastępczy identyfikator D1 lub KV, a także wtedy, gdy produkcja współdzieli z preview swoją bazę danych, przestrzeń nazw lub bucket.
+- `prepare-deploy-secrets.ts` odczytuje z `.env.<environment>` klucze wymienione w `secrets.required` danego środowiska, kończy się błędem, gdy któregoś z nich brakuje lub jest pusty, i zapisuje tylko te klucze do `.wrangler/secrets.<environment>.json`. Pozostałe zmienne z pliku nie są przesyłane.
+- Migracje uruchamiają się po buildzie i przed wdrożeniem, więc nieudany build nigdy nie narusza bazy danych, a nowy Worker nigdy nie startuje na starszym schemacie.
+- Wdrożenie uruchamia `env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.<environment>.json`. Zbudowana konfiguracja jest już skierowana na jedno środowisko; `CLOUDFLARE_ENV` pozostawione w powłoce sprawiłoby, że Wrangler szukałby sekcji środowiska, której ten plik nie ma.
+- `verify-deployment.ts` wysyła żądania do `/`, `/courses`, `/robots.txt`, `/api` i `/api/auth/get-session` w domenie danego środowiska i kończy się błędem, jeśli któraś z tych ścieżek nie odpowie kodem `200` z oczekiwanym typem zawartości. Ścieżkę, która zwraca błąd, odpytuje trzy razy w odstępach pięciu sekund i niczego nie zmienia. `bun scripts/verify-deployment.ts <preview|production>` samodzielnie sprawdza działającą witrynę.
 
 ## Kontrole
 
@@ -47,14 +58,16 @@ Uruchamiaj skrypty z katalogu głównego repozytorium poleceniem `bun run <scrip
 
 ## Baza danych
 
-| Skrypt                                                                           | Uruchamia                                   |
-| -------------------------------------------------------------------------------- | ------------------------------------------- |
-| `db:generate`                                                                    | Generowanie migracji przez drizzle-kit      |
-| `db:migrate:local`, `db:migrate:test`                                            | Migracje Wranglera na lokalnej bazie danych |
-| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Migracje Wranglera na zdalnej bazie danych  |
-| `db:seed:test`                                                                   | `scripts/seed-test.ts`: konta testowe       |
-| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                              |
-| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Introspekcja drizzle-kit                    |
+| Skrypt                                                                           | Uruchamia                                                            |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `db:generate`                                                                    | Generowanie migracji przez drizzle-kit                               |
+| `db:migrate:local`, `db:migrate:test`                                            | Migracje Wranglera na lokalnej bazie danych                          |
+| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Migracje Wranglera na zdalnej bazie danych                           |
+| `db:migrations:development`, `db:migrations:preview`, `db:migrations:production` | Migracje, których zdalna baza danych jeszcze nie zastosowała         |
+| `db:seed:test`                                                                   | `scripts/seed-test.ts`: konta testowe, film i kurs                   |
+| `db:reset:test`                                                                  | Usuwa `.wrangler/test`, następnie `db:migrate:test` i `db:seed:test` |
+| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                                       |
+| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Introspekcja drizzle-kit                                             |
 
 ## Wideo
 
@@ -76,7 +89,7 @@ Uruchamiaj skrypty z katalogu głównego repozytorium poleceniem `bun run <scrip
 | `clean:hardcore` | `clean:deep`, `bun.lock` i `skills-lock.json`                                                      |
 | `prepare`        | Uruchamiany przy instalacji: `vp config --no-agent` (hooki Git), `generate:cn` i `content`         |
 
-`clean` usuwa `.wrangler`, w tym lokalne bazy danych deweloperską i testową, więc najpierw wyeksportuj lokalne dane, które chcesz zachować.
+`clean` usuwa `.wrangler`, w tym lokalne bazy danych deweloperską i testową oraz pliki sekretów zapisane przez skrypty wdrożeniowe, więc najpierw wyeksportuj lokalne dane, które chcesz zachować.
 
 ## Powiązane przewodniki
 

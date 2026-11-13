@@ -32,6 +32,7 @@ Each table has its own module in `src/modules`, created by the migration `202611
 Roles with `course: ["read"]`, which admins have, can watch every lesson. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) makes the decision for a viewer that `resolveViewer` (`lesson.viewer.ts`) builds from the session, the role and `getLicense`. Every server function that serves course content applies it, not only the pages:
 
 - `getCatalogue` (public) returns the published courses with their lesson count, total video length and number of free previews.
+- `getCourseShowcase` (public) returns, for the landing page, the first two published courses (`COURSE_SHOWCASE`) with their lesson count, total video length, number of free previews and first six published lessons, and the first free preview that has a video. It reports each lesson's access level, not the viewer's locks.
 - `getCourse` (public) returns a published course with its chapters and published lessons in the visitor's locale, each with `locked`, `completed` and `positionMs` for the viewer.
 - `getLessonPlayback` (public) returns signed playback paths from `createPlayback`. It answers `UNAUTHORIZED` to a guest and `FORBIDDEN` to a signed-in user who may not watch the lesson, and `NOT_FOUND` for an unpublished lesson or one without a video.
 - `saveLessonProgress` requires a session and checks the same access before it writes.
@@ -41,8 +42,18 @@ Roles with `course: ["read"]`, which admins have, can watch every lesson. `hasLe
 The `/courses` layout (`courses.tsx`) has its own navigation, and its labels are in the `pages.courses` namespace. The pages read D1 for each viewer, so they are not prerendered: `ROUTES.COURSES` is in `UNLISTED_ROUTES` in `vite.config.ts`.
 
 - `/courses`: one card per published course with its kind, lesson count, minutes and free lessons.
-- `/courses/<course>`: the summary, a progress bar for signed-in viewers, a **Start the course** or **Continue with …** link to the next lesson to watch, and the curriculum by chapter with **Free preview** badges, durations, and lock and completed icons. When a lesson is locked, the **Every lesson comes with Complete** panel links to the pricing section, or to `/app/license` for a signed-in viewer.
+- `/courses/<course>`: the summary, a progress bar for signed-in viewers, a **Start the course** or **Continue with …** link to the next lesson to watch, and the curriculum by chapter with **Free preview** badges, durations, and lock and completed icons. When a lesson is locked, the **Every lesson comes with Complete** panel links to the pricing section, or to `/app/license?tier=complete` for a signed-in viewer, where Complete is already chosen.
 - `/courses/<course>/<lesson>`: the player, or a locked panel with **Sign in to watch**, which returns to the lesson after sign-in through `redirect`, or **Get Complete**. A lesson without a video says that its recording is on its way. Below it are the access level, **Mark as complete** for signed-in viewers and links to the previous and next lessons; the course contents stay beside it on wide screens.
+
+## On the landing page
+
+The course block in the landing page's **Toolkit** section (`course-showcase.tsx` in `src/presentation/components/custom/landing-page/components/`) shows what D1 holds, so it never lists a course or lesson that does not exist:
+
+- The landing page is prerendered, so its HTML contains the block's heading, the course tour and placeholders. When the block comes within one screen height of the viewport, the browser calls `getCourseShowcase` once through `courseShowcaseQuery` and fills it in. Visitors who never scroll that far send no request.
+- Each course shows its kind, lesson count, minutes and free lessons, then its first lessons with their access level. Every course and lesson links to its page, and a course with more lessons ends with a link to all of them.
+- **Watch a free lesson** opens the first free preview that has a video. Without one, the link is left out.
+- With no published course, the block says so; if the request fails, it points to the course catalogue. **Browse all courses** links to `/courses` in every case.
+- The course tour is the video of the `course-tour` composition in the `remotion/` project. It is a static file in `src/presentation/assets/motion/` with AVIF and WebP posters, and plays in place with the browser's controls when pressed. It does not use the video library.
 
 ## Progress
 
@@ -116,7 +127,7 @@ The foreign keys do this with `ON DELETE CASCADE`. Videos are never deleted with
 
 ## Tests
 
-`scripts/seed-test.ts` seeds a published course with one chapter and four lessons for the browser tests in `e2e/specs/courses.spec.ts`. In `e2e/specs/course-admin.spec.ts`, an admin creates a course, a chapter and a free lesson with the seeded video, a visitor in another browser page watches the lesson, and the admin deletes the course.
+`scripts/seed-test.ts` seeds a published course with one chapter and four lessons for the browser tests in `e2e/specs/courses.spec.ts`. In `e2e/specs/course-admin.spec.ts`, an admin creates a course, a chapter and a free lesson with the seeded video, a visitor in another browser page watches the lesson, and the admin deletes the course. `e2e/specs/landing.spec.ts` checks that the landing page links the seeded course and its lessons, opens the free lesson and plays the course tour.
 
 ## Related pages
 

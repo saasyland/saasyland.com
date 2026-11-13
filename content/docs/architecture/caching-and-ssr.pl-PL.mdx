@@ -22,15 +22,15 @@ Loadery wypełniają cache przez `queryClient.query({ ...options, staleTime: "st
 
 ## Prerendering
 
-`bun run build` prerenderuje strony publiczne, przechodząc po linkach: landing, strony prawne, blog i dokumentację we wszystkich dziewięciu wersjach językowych. Pomijane są ścieżki pod `/admin`, `/app`, `/auth`, `/courses`, `/newsletter` i `/api` (z prefiksem locale lub bez niego) oraz linki z query stringiem lub hashem. Strony kursów są pomijane, bo pokazują blokady i postępy każdego widza.
+`bun run build` prerenderuje strony publiczne, przechodząc po linkach: landing, strony prawne, blog i dokumentację we wszystkich dziewięciu wersjach językowych. Pomijane są ścieżki pod `/admin`, `/app`, `/auth`, `/courses`, `/newsletter` i `/api` (z prefiksem locale lub bez niego) oraz linki z query stringiem lub hashem. Strony kursów są pomijane, bo pokazują blokady i postępy każdego widza. Blok kursów na stronie głównej przeglądarka uzupełnia danymi z `getCourseShowcase`, gdy zbliża się on do widocznego obszaru, więc prerenderowana strona główna jest taka sama dla wszystkich (zobacz [Kursy](/docs/features/courses)).
 
 Worker serwuje prerenderowany HTML z bindingu `ASSETS`, zanim załaduje aplikację. Prerenderowana strona nie zawiera danych użytkownika, więc można ją bezpiecznie serwować wszystkim. Gdy odwiedzającemu przysługują ceny regionalne, Worker przepisuje HTML i oznacza odpowiedź jako `Cache-Control: private, no-cache`.
 
-Prerendering działa na buildzie Workera, który zawiera wszystkie strony. Wdrażany Worker jest potem budowany od nowa bez wyrenderowanego MDX dokumentacji i bloga oraz bez tłumaczeń, których używają tylko landing, strony prawne i strona premium. Funkcje serwerowe dokumentacji i bloga oraz `/api/search` nadal czytają frontmatter, nagłówki i tekst do wyszukiwania każdej strony, więc nawigacje po stronie klienta i wyszukiwanie działają tak jak wcześniej. Zobacz [Cloudflare Workers](/docs/integrations/cloudflare-workers).
+Prerendering działa na buildzie Workera, który zawiera wszystkie strony. Wdrażany Worker jest potem budowany od nowa bez wyrenderowanego MDX dokumentacji i bloga oraz bez tłumaczeń, których używają tylko landing i strony prawne. Funkcje serwerowe dokumentacji i bloga oraz `/api/search` nadal czytają frontmatter, nagłówki i tekst do wyszukiwania każdej strony, więc nawigacje po stronie klienta i wyszukiwanie działają tak jak wcześniej. Zobacz [Cloudflare Workers](/docs/integrations/cloudflare-workers).
 
 ## KV i D1
 
-- **KV (`CACHE`)** przechowuje wyłącznie liczbę gwiazdek na GitHubie dla `src/lib/github.ts`. Wartość z cache starsza niż godzina jest zwracana od razu i odświeżana w tle przez `waitUntil`.
+- **KV (`CACHE`)** przechowuje liczbę gwiazdek na GitHubie dla `src/lib/github.ts` i rabaty regionalne w checkoucie dla `src/modules/license/license.ppp.ts`. Liczba gwiazdek starsza niż godzina jest zwracana od razu i odświeżana w tle przez `waitUntil`; rabaty starsze niż pięć minut są ponownie pobierane z Polar.
 - **D1 (`DB`)** przechowuje sesje i liczniki limitów żądań. Sprawdzanie sesji w funkcjach serwerowych omija cookie cache Better Auth, a wynik jest memoizowany do końca żądania.
 - **Cache Workers** przechowuje pliki wideo, które `serveMedia` odczytuje z R2, pod `/media/_/<videoId>/<file>`, bez podpisu, dzięki czemu widzowie w jednej lokalizacji brzegowej współdzielą jedną kopię w cache. Zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2).
 - Funkcje serwerowe nigdy nie podejmują decyzji o uprawnieniach na podstawie danych z cache.

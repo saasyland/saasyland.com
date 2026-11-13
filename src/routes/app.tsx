@@ -6,6 +6,8 @@ import { requireSignedIn } from "~/src/integrations/better-auth/auth.routes"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { appSearchSchema } from "~/src/data/app"
+
 import { SidebarInset, SidebarProvider } from "~/src/presentation/components/shadcn/sidebar"
 
 import { AppPending } from "~/src/presentation/components/custom/app/app-pending"
@@ -31,6 +33,7 @@ const AppLayout = (): JSX.Element => (
 const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
 
 export const Route = createFileRoute("/app")({
+  validateSearch: appSearchSchema,
   beforeLoad: requireSignedIn,
   component: AppLayout,
   loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),

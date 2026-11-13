@@ -12,6 +12,7 @@ import { clearSentEmails, getSentEmails, respondAsResend } from "~/src/platform/
 import { EMAIL_MAX_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
@@ -95,7 +96,7 @@ describe("production signup verification delivery", () => {
       to: [body.email],
     })
     expect(deliveries[0]?.html).toContain(`${ORIGIN}/pl-PL/auth/verify-email?token=`)
-    expect(deliveries[0]?.idempotencyKey).toBe(`verify-email/${sha256(deliveredVerificationToken(body.email))}`)
+    expect(deliveries[0]?.idempotencyKey).toBe(`${EMAIL_PURPOSE.VERIFY_EMAIL}/${sha256(deliveredVerificationToken(body.email))}`)
     expect(deliveries[0]?.html).toContain('lang="pl-PL"')
 
     await verifyDeliveredEmail(body.email)

@@ -37,6 +37,10 @@ export const BAND_DURATION = 8 * FPS
 
 export const TERMINAL_DURATION = 11 * FPS
 
+export const WIDE = { height: 900, width: 1600 } as const
+
+export const WIDE_DURATION = 22 * FPS
+
 export const SEAM = 0.4 * FPS
 
 export const TYPE = {

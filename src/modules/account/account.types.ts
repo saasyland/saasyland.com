@@ -8,6 +8,7 @@ export interface Account {
   insert: typeof account.$inferInsert
   changeEmail: zod.input<typeof accountZodSchemas.changeEmail>
   changePassword: zod.input<typeof accountZodSchemas.changePassword>
+  changePasswordForm: zod.input<typeof accountZodSchemas.changePasswordForm>
   signUpWithPassword: zod.input<typeof accountZodSchemas.signUpWithPassword>
   updateUser: zod.input<typeof accountZodSchemas.updateUser>
 }

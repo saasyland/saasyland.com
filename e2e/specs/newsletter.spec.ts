@@ -1,7 +1,7 @@
 import type { APIRequestContext } from "@playwright/test"
 import * as zod from "zod"
 
-import { NEWSLETTER_STATUS, NEWSLETTER_STATUSES } from "../../src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { CONFIRMATION_STATUS, NEWSLETTER_STATUS, NEWSLETTER_STATUSES } from "../../src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
@@ -56,7 +56,7 @@ test("localized newsletter signup, confirmation and unsubscribe survive hydratio
   await page.getByRole("button", { exact: true, name: "Potwierdź zapis" }).click()
   await expect(page.getByRole("heading", { exact: true, level: 1, name: "Jesteś z nami." })).toBeVisible()
   await expect(page).toHaveURL(
-    (url) => url.pathname === "/pl-PL/newsletter/confirm" && url.searchParams.get("status") === "confirmed" && !url.searchParams.get("token"),
+    (url) => url.pathname === "/pl-PL/newsletter/confirm" && url.searchParams.get("status") === CONFIRMATION_STATUS.CONFIRMED && !url.searchParams.get("token"),
   )
   expect((await readSubscriber(request, email)).status).toBe(NEWSLETTER_STATUS.SUBSCRIBED)
   const notifications = () => readEmails(request, CONTACT_EMAIL).then((emails) => emails.filter((message) => message.html.includes(email)))

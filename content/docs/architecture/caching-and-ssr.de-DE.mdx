@@ -22,15 +22,15 @@ Loader füllen den Cache mit `queryClient.query({ ...options, staleTime: "static
 
 ## Prerendering
 
-`bun run build` rendert die öffentlichen Seiten vor, indem es Links folgt: Landing-, Rechts-, Blog- und Doku-Seiten in allen neun Locales. Ausgenommen sind Pfade unter `/admin`, `/app`, `/auth`, `/courses`, `/newsletter` und `/api` (mit oder ohne Locale-Präfix) sowie Links mit Query-String oder Hash. Die Kursseiten sind ausgenommen, weil sie für jeden Betrachter Sperren und Fortschritt zeigen.
+`bun run build` rendert die öffentlichen Seiten vor, indem es Links folgt: Landing-, Rechts-, Blog- und Doku-Seiten in allen neun Locales. Ausgenommen sind Pfade unter `/admin`, `/app`, `/auth`, `/courses`, `/newsletter` und `/api` (mit oder ohne Locale-Präfix) sowie Links mit Query-String oder Hash. Die Kursseiten sind ausgenommen, weil sie für jeden Betrachter Sperren und Fortschritt zeigen. Den Kursblock der Landingpage füllt der Browser aus `getCourseShowcase`, sobald er in die Nähe des sichtbaren Bereichs kommt; die vorgerenderte Landingpage bleibt daher für alle gleich (siehe [Kurse](/docs/features/courses)).
 
 Der Worker liefert vorgerendertes HTML aus dem `ASSETS`-Binding aus, bevor er die Anwendung lädt. Eine vorgerenderte Seite enthält keine Nutzerdaten und kann daher gefahrlos an alle ausgeliefert werden. Qualifiziert sich ein Besucher für regionale Preise, schreibt der Worker das HTML um und markiert die Antwort mit `Cache-Control: private, no-cache`.
 
-Das Prerendering läuft auf einem Worker-Build, der alle Seiten enthält. Der deployte Worker wird danach ohne das gerenderte MDX von Doku und Blog und ohne die Übersetzungen neu gebaut, die nur die Landing-, Rechts- und Premium-Seiten nutzen. Die Serverfunktionen von Doku und Blog sowie `/api/search` lesen weiterhin Frontmatter, Überschriften und Suchtext jeder Seite, daher funktionieren clientseitige Navigationen und die Suche wie bisher. Siehe [Cloudflare Workers](/docs/integrations/cloudflare-workers).
+Das Prerendering läuft auf einem Worker-Build, der alle Seiten enthält. Der deployte Worker wird danach ohne das gerenderte MDX von Doku und Blog und ohne die Übersetzungen neu gebaut, die nur die Landing- und Rechtsseiten nutzen. Die Serverfunktionen von Doku und Blog sowie `/api/search` lesen weiterhin Frontmatter, Überschriften und Suchtext jeder Seite, daher funktionieren clientseitige Navigationen und die Suche wie bisher. Siehe [Cloudflare Workers](/docs/integrations/cloudflare-workers).
 
 ## KV und D1
 
-- **KV (`CACHE`)** speichert ausschließlich die Anzahl der GitHub-Sterne für `src/lib/github.ts`. Ein gecachter Wert, der älter als eine Stunde ist, wird sofort zurückgegeben und im Hintergrund mit `waitUntil` aktualisiert.
+- **KV (`CACHE`)** speichert die Anzahl der GitHub-Sterne für `src/lib/github.ts` und die regionalen Checkout-Rabatte für `src/modules/license/license.ppp.ts`. Eine Sternezahl, die älter als eine Stunde ist, wird sofort zurückgegeben und im Hintergrund mit `waitUntil` aktualisiert; Rabatte, die älter als fünf Minuten sind, werden erneut bei Polar abgefragt.
 - **D1 (`DB`)** speichert Sessions und Rate-Limit-Zähler. Session-Prüfungen für Server Functions umgehen den Cookie-Cache von Better Auth und werden für den Rest des Requests memoisiert.
 - **Der Workers-Cache** hält die Videodateien, die `serveMedia` aus R2 liest, unter `/media/_/<videoId>/<file>` ohne die Signatur vor, sodass sich die Zuschauer an einem Edge-Standort eine einzige gecachte Kopie teilen. Siehe [Cloudflare R2](/docs/integrations/cloudflare-r2).
 - Server Functions treffen nie eine Berechtigungsentscheidung auf Basis gecachter Daten.

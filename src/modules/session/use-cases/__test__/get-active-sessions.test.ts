@@ -6,6 +6,7 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { session } from "~/src/modules/session/session.schema"
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 import { user } from "~/src/modules/user/user.schema"
@@ -68,6 +69,6 @@ describe("get-active-sessions", () => {
   it("rejects when the caller is signed out", async () => {
     vi.spyOn(auth.api, "getSession").mockResolvedValue(null)
 
-    await expect(executeQuery(getActiveSessionsQuery)).rejects.toMatchObject({ code: "UNAUTHORIZED" })
+    await expect(executeQuery(getActiveSessionsQuery)).rejects.toMatchObject({ code: ERROR_CODES.UNAUTHORIZED })
   })
 })

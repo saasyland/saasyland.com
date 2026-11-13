@@ -22,15 +22,15 @@ Os loaders preenchem o cache com `queryClient.query({ ...options, staleTime: "st
 
 ## Pré-renderização
 
-`bun run build` pré-renderiza as páginas públicas seguindo os links: a landing, as páginas legais, o blog e a documentação nos nove locales. Ficam de fora os caminhos em `/admin`, `/app`, `/auth`, `/courses`, `/newsletter` e `/api` (com ou sem prefixo de locale) e os links com query string ou hash. As páginas de cursos ficam de fora porque mostram os bloqueios e o progresso de cada espectador.
+`bun run build` pré-renderiza as páginas públicas seguindo os links: a landing, as páginas legais, o blog e a documentação nos nove locales. Ficam de fora os caminhos em `/admin`, `/app`, `/auth`, `/courses`, `/newsletter` e `/api` (com ou sem prefixo de locale) e os links com query string ou hash. As páginas de cursos ficam de fora porque mostram os bloqueios e o progresso de cada espectador. O navegador preenche o bloco de cursos da landing page com `getCourseShowcase` quando ele se aproxima da área visível, então a landing page pré-renderizada continua igual para todos (veja [Cursos](/docs/features/courses)).
 
 O Worker serve o HTML pré-renderizado a partir do binding `ASSETS` antes de carregar a aplicação. Uma página pré-renderizada não contém dados de usuário, então é seguro servi-la para todos. Quando um visitante se qualifica para preços regionais, o Worker reescreve o HTML e marca a resposta com `Cache-Control: private, no-cache`.
 
-A pré-renderização roda em um build do Worker que contém todas as páginas. Depois, o Worker do deploy é recompilado sem o MDX renderizado da documentação e do blog e sem as traduções que só a landing, as páginas legais e a página premium usam. As funções de servidor da documentação e do blog e `/api/search` continuam lendo o frontmatter, os títulos e o texto de busca de cada página, então as navegações no cliente e a busca funcionam como antes. Veja [Cloudflare Workers](/docs/integrations/cloudflare-workers).
+A pré-renderização roda em um build do Worker que contém todas as páginas. Depois, o Worker do deploy é recompilado sem o MDX renderizado da documentação e do blog e sem as traduções que só a landing e as páginas legais usam. As funções de servidor da documentação e do blog e `/api/search` continuam lendo o frontmatter, os títulos e o texto de busca de cada página, então as navegações no cliente e a busca funcionam como antes. Veja [Cloudflare Workers](/docs/integrations/cloudflare-workers).
 
 ## KV e D1
 
-- **KV (`CACHE`)** armazena apenas a contagem de estrelas do GitHub usada por `src/lib/github.ts`. Um valor em cache com mais de uma hora é retornado imediatamente e atualizado em segundo plano com `waitUntil`.
+- **KV (`CACHE`)** armazena a contagem de estrelas do GitHub usada por `src/lib/github.ts` e os descontos regionais do checkout usados por `src/modules/license/license.ppp.ts`. Uma contagem de estrelas com mais de uma hora é retornada imediatamente e atualizada em segundo plano com `waitUntil`; descontos com mais de cinco minutos são listados de novo na Polar.
 - **D1 (`DB`)** armazena as sessões e os contadores de rate limit. As verificações de sessão das server functions ignoram o cache de cookie do Better Auth e ficam memoizadas pelo restante da requisição.
 - **O cache do Workers** guarda os arquivos de vídeo que `serveMedia` lê do R2 em `/media/_/<videoId>/<file>`, sem a assinatura, para que os espectadores em um mesmo local de borda compartilhem uma única cópia em cache. Veja [Cloudflare R2](/docs/integrations/cloudflare-r2).
 - Server functions nunca tomam uma decisão de permissão com base em dados em cache.

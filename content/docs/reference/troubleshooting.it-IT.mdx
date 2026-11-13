@@ -7,7 +7,7 @@ description: "Errori comuni durante sviluppo, test e deploy, e come risolverli."
 
 **`no such table` in `bun run dev`.** L'ambiente `development` usa il database D1 di preview remoto. Applica lì le migrazioni con `bun run db:migrate:development`. `bun run db:migrate:local` migra solo un database locale che `bun run dev` non usa.
 
-**`no such table` in Playwright.** I test browser usano un proprio database locale. Esegui `bun run db:migrate:test` e `bun run db:seed:test`, oppure lascia che sia Playwright ad avviare l'app, perché esegue entrambi i comandi.
+**`no such table` in Playwright.** I test browser usano un proprio database locale. Esegui `bun run db:reset:test`, oppure lascia che sia Playwright ad avviare l'app, perché esegue questo comando.
 
 **Le tabelle di Vitest non sono aggiornate.** Il mock di D1 applica all'avvio ogni file SQL in `src/integrations/drizzle-orm/migrations`. Dopo una modifica allo schema, genera una migrazione con `bun run db:generate`.
 
@@ -37,7 +37,11 @@ description: "Errori comuni durante sviluppo, test e deploy, e come risolverli."
 
 **`test:coverage` fallisce.** La copertura deve essere del 100% per righe, istruzioni, funzioni e branch. Il report in `coverage/` elenca le righe non coperte.
 
-**Il deploy si ferma a `verify-bindings.ts`.** L'ambiente di destinazione in `wrangler.jsonc` ha ancora ID D1 o KV segnaposto. Crea le risorse in Cloudflare e sostituisci gli ID.
+**Il deploy si ferma a `verify-bindings.ts`.** L'ambiente di destinazione in `wrangler.jsonc` non ha un binding `DB`, `CACHE` o `MEDIA`, ha ancora ID D1 o KV segnaposto oppure, per la produzione, condivide una risorsa con la preview. Crea le risorse in Cloudflare e sostituisci gli ID.
+
+**Il deploy si ferma a `prepare-deploy-secrets.ts`.** Una chiave elencata in `secrets.required` dell'ambiente manca o è vuota in `.env.<environment>`. L'errore indica le chiavi.
+
+**Il deploy si ferma a `verify-deployment.ts`.** Il Worker è stato distribuito, ma un percorso controllato non ha risposto `200` con il tipo di contenuto previsto. L'errore elenca ogni URL e la relativa risposta; aprilo e leggi i log del Worker in Cloudflare. `bun scripts/verify-deployment.ts <preview|production>` ripete il controllo.
 
 **Una build con prerendering fallisce.** L'output della build indica il primo URL che ha fallito. Apri quella pagina con `bun run dev` per vedere l'errore.
 

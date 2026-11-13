@@ -1,4 +1,4 @@
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
 
 export const TEST_PASSWORD = "WorkerTestPassword123!"
 export const TEST_ACCOUNTS = [

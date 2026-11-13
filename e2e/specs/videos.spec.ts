@@ -1,7 +1,6 @@
 import type { Page } from "@playwright/test"
 
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
-
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/test"

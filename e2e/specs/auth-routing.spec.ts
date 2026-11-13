@@ -1,5 +1,4 @@
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
-
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"

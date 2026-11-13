@@ -11,6 +11,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { revokeOtherSessionsMutation } from "~/src/modules/session/use-cases/revoke-other-sessions"
 
 const HEADERS = new Headers()
@@ -46,6 +47,6 @@ describe("revoke-other-sessions", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(executeMutation(revokeOtherSessionsMutation, undefined)).rejects.toThrow("UNAUTHORIZED")
+    await expect(executeMutation(revokeOtherSessionsMutation, undefined)).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   })
 })

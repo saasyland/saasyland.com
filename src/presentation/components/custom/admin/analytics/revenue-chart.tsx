@@ -2,6 +2,8 @@ import type { JSX } from "react"
 
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
+
 import { ADMIN_ANALYTICS_REVENUE_BARS, ADMIN_ANALYTICS_Y_AXIS_VALUES, type AdminAnalyticsRevenueBar } from "~/src/data/admin"
 
 import { cn } from "~/src/lib/cn"
@@ -11,7 +13,8 @@ import { Card } from "~/src/presentation/components/shadcn/card"
 export const AnalyticsRevenueChart = (): JSX.Element => {
   const t = useTranslations("pages.admin.analytics.chart")
   const format = useFormatter()
-  const currency = (amount: number): string => format.number(amount, { currency: "USD", maximumFractionDigits: 0, style: "currency" })
+  const currency = (amount: number): string =>
+    format.number(amount, { currency: DEFAULT_CURRENCY_CODE, maximumFractionDigits: 0, style: "currency" })
   const barLabel = (bar: AdminAnalyticsRevenueBar): string | undefined => {
     if (bar.amount === undefined) {
       return undefined

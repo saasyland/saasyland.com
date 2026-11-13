@@ -4,7 +4,7 @@ import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { Calendar, Eye } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import type { DUMMY_POSTS } from "~/src/data/admin-blog"
+import { ADMIN_BLOG_POST_STATUS, type DUMMY_POSTS } from "~/src/data/admin-blog"
 
 import { AuthorInitials } from "~/src/presentation/components/custom/admin/blog/author-initials"
 import { PostDate } from "~/src/presentation/components/custom/admin/blog/post-date"
@@ -68,7 +68,7 @@ export const postColumns = columnHelper.columns([
   columnHelper.accessor("date", {
     cell: ({ row }) => (
       <div className="flex items-center gap-1.5 text-muted-foreground">
-        {row.original.status === "scheduled" && <Calendar className="size-3.5" />}
+        {row.original.status === ADMIN_BLOG_POST_STATUS.SCHEDULED && <Calendar className="size-3.5" />}
         <PostDate post={row.original} />
       </div>
     ),

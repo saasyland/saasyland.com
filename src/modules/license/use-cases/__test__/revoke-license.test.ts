@@ -2,6 +2,7 @@ import { beforeEach, expect, it } from "vite-plus/test"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 import { grantLicense } from "~/src/modules/license/use-cases/grant-license"
 import { revokeLicense } from "~/src/modules/license/use-cases/revoke-license"
@@ -14,10 +15,16 @@ beforeEach(async () => {
 })
 
 it("revokes only the matching order and leaves a durable record on duplicate delivery", async () => {
-  await grantLicense({ polarCustomerId: "cus_1", polarOrderId: "ord_1", purchaseCreatedAt: new Date(), tier: "core", userId: USER_ID })
+  await grantLicense({
+    polarCustomerId: "cus_1",
+    polarOrderId: "ord_1",
+    purchaseCreatedAt: new Date(),
+    tier: LICENSE_TIER.CORE,
+    userId: USER_ID,
+  })
   await revokeLicense({ polarOrderId: "unrelated", userId: USER_ID })
-  expect(await getLicense(USER_ID)).toMatchObject({ status: "active" })
+  expect(await getLicense(USER_ID)).toMatchObject({ status: LICENSE_STATUS.ACTIVE })
   await revokeLicense({ polarOrderId: "ord_1", userId: USER_ID })
   await revokeLicense({ polarOrderId: "ord_1", userId: USER_ID })
-  expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "ord_1", status: "revoked" })
+  expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "ord_1", status: LICENSE_STATUS.REVOKED })
 })

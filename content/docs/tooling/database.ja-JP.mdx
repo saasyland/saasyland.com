@@ -10,7 +10,7 @@ description: "D1 マイグレーションの生成、適用、確認です。"
 1. `src/modules/<table>/<table>.schema.ts` を変更します。
 2. `bun run db:generate` を実行し、生成された SQL を確認します。
 3. ローカルに適用してテストを実行します。Vitest はすべてのマイグレーションをインメモリのデータベースに適用します。
-4. そのマイグレーションに依存するコードをデプロイする前に、リモートのデータベースに適用します。
+4. デプロイします。新しい Worker が稼働を始める前に、デプロイスクリプトと CI がプレビューまたは本番のデータベースにマイグレーションを適用します。開発用データベースには自分で適用してください。
 
 ```sh
 bun run db:generate
@@ -26,15 +26,17 @@ bun run db:migrate:test
 | `bun run db:migrate:local`            | `development` 環境のローカルデータベース                                                                       |
 | `bun run db:migrate:test`             | `.wrangler/test` 内のローカルのテスト用データベース                                                            |
 | `bun run db:seed:test`                | ローカルのテスト用データベースと R2 バケットに、テストアカウント、テスト動画、4 つのレッスンを持つコースを投入 |
+| `bun run db:reset:test`               | `.wrangler/test` を削除してから、`db:migrate:test` と `db:seed:test` を実行                                    |
 | `bun run db:migrate:development`      | `development` のリモートデータベース。デフォルトではプレビュー用データベースです                               |
 | `bun run db:migrate:preview`          | リモートのプレビュー用データベース                                                                             |
 | `bun run db:migrate:production`       | リモートの本番用データベース                                                                                   |
+| `bun run db:migrations:<environment>` | `development`、`preview`、`production` にまだ適用されていないマイグレーション。何も変更しません                |
 | `bun run db:studio:<environment>`     | `development`、`preview`、`production` 用の Drizzle Studio                                                     |
 | `bun run db:introspect:<environment>` | `development`、`preview`、`production` に対する drizzle-kit のイントロスペクション                             |
 
 Studio とイントロスペクションは D1 HTTP API を使い、対応する環境ファイルの `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_DATABASE_ID`、`CLOUDFLARE_ACCESS_TOKEN` で接続します。アプリケーション自体は常に `DB` バインディングを使います。
 
-開発サーバーはリモートバインディングを使うため、`db:migrate:local` は開発サーバーに影響しません。影響するのは `db:migrate:development` です。CI のデプロイでは、`wrangler deploy` の前に `db:migrate:preview` または `db:migrate:production` を適用します。依存関係のインストールやビルドで、リモートのデータベースがマイグレーションされることはありません。
+開発サーバーはリモートバインディングを使うため、`db:migrate:local` は開発サーバーに影響しません。影響するのは `db:migrate:development` です。`deploy:preview`、`deploy:production`、CI のデプロイでは、`wrangler deploy` の前に `db:migrate:preview` または `db:migrate:production` を適用します。依存関係のインストールやビルドで、リモートのデータベースがマイグレーションされることはありません。
 
 ## 管理者アカウント
 

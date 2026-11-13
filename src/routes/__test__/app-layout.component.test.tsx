@@ -38,6 +38,7 @@ type SignOutResult = Awaited<ReturnType<NonNullable<typeof signOutUserMutation.m
 const sessionRequest = vi.hoisted(() => vi.fn())
 const currentLicense = vi.hoisted(() => vi.fn())
 const activations = vi.hoisted(() => vi.fn())
+const catalogue = vi.hoisted(() => vi.fn())
 const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
 const SIGN_OUT_SUCCESS = { redirect: undefined, success: true, url: undefined } satisfies SignOutResult
 const { account, navigation } = pagesAppMessages
@@ -53,6 +54,10 @@ vi.mock(import("~/src/modules/license/use-cases/get-current-license"), async (im
     currentLicenseQuery: { ...actual.currentLicenseQuery, queryFn: currentLicense },
     licenseActivationsQuery: { ...actual.licenseActivationsQuery, queryFn: activations },
   }
+})
+vi.mock(import("~/src/modules/course/use-cases/get-catalogue"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, catalogueQuery: (input) => ({ ...actual.catalogueQuery(input), queryFn: catalogue }) }
 })
 vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
   signOutUserMutation: { mutationFn: signOutMock, mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_OUT },
@@ -94,6 +99,7 @@ beforeEach(() => {
   sessionRequest.mockReset().mockResolvedValue(createAuthSessionFixture())
   currentLicense.mockReset().mockResolvedValue({ license: undefined })
   activations.mockReset().mockResolvedValue({ activations: [], limitActivations: 2 })
+  catalogue.mockReset().mockResolvedValue([])
   signOutMock.mockReset().mockResolvedValue(SIGN_OUT_SUCCESS)
   vi.spyOn(toast, "success").mockReturnValue(0)
   vi.spyOn(toast, "error").mockReturnValue(0)

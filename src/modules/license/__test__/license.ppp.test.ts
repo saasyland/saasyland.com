@@ -238,13 +238,13 @@ describe("regional discount eligibility", () => {
   it("resolves discounts for each requested product without mixing tiers", async () => {
     iterDiscountsMock.mockImplementation(() =>
       discountPages([
-        { ...percentageDiscount("core", 3000), products: [discountProduct(env.POLAR_PRODUCT_ID_CORE)] },
-        { ...percentageDiscount("agency", 3000), products: [discountProduct(env.POLAR_PRODUCT_ID_AGENCY)] },
+        { ...percentageDiscount("core-regional", 3000), products: [discountProduct(env.POLAR_PRODUCT_ID_CORE)] },
+        { ...percentageDiscount("agency-regional", 3000), products: [discountProduct(env.POLAR_PRODUCT_ID_AGENCY)] },
       ]),
     )
 
-    await expect(findDiscount("PL", env.POLAR_PRODUCT_ID_CORE)).resolves.toBe("core")
-    await expect(findDiscount("PL", env.POLAR_PRODUCT_ID_AGENCY)).resolves.toBe("agency")
+    await expect(findDiscount("PL", env.POLAR_PRODUCT_ID_CORE)).resolves.toBe("core-regional")
+    await expect(findDiscount("PL", env.POLAR_PRODUCT_ID_AGENCY)).resolves.toBe("agency-regional")
     await expect(findDiscount("PL", env.POLAR_PRODUCT_ID_COMPLETE)).resolves.toBeUndefined()
     expect(iterDiscountsMock).toHaveBeenCalledTimes(1)
   })

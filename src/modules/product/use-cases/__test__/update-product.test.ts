@@ -8,6 +8,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { updateProductMutation } from "~/src/modules/product/use-cases/update-product"
 
 const HEADERS = new Headers()
@@ -19,7 +20,9 @@ type AuthApi = typeof auth.api
 
 const getSessionMock = vi.hoisted(() => vi.fn<AuthApi["getSession"]>())
 
-const dbMocks = vi.hoisted(() => {
+const dbMocks = await vi.hoisted(async () => {
+  const { DEFAULT_CURRENCY_CODE } = await import("~/src/modules/_core/constants/currency")
+  const { PRODUCT_STATUS, PRODUCT_TYPE } = await import("~/src/modules/product/product.constants")
   const nullableJsonValue: unknown = JSON.parse("null")
   if (nullableJsonValue !== null) {
     throw new Error("Expected JSON null")
@@ -29,13 +32,13 @@ const dbMocks = vi.hoisted(() => {
   const dbRow = {
     billingCycle: nullableJsonValue,
     createdAt: updatedAt,
-    currency: "USD",
+    currency: DEFAULT_CURRENCY_CODE,
     description: "Starter plan",
     id: "01900000-0000-7000-8000-000000000002",
     name: "Updated Starter",
     priceCents: 9900,
-    status: "published" as const,
-    type: "subscription" as const,
+    status: PRODUCT_STATUS.PUBLISHED,
+    type: PRODUCT_TYPE.SUBSCRIPTION,
     updatedAt,
   }
 
@@ -94,7 +97,7 @@ describe("update-product", () => {
         name: "Missing",
         productId: PRODUCT_ID,
       }),
-    ).rejects.toThrow("NOT_FOUND")
+    ).rejects.toThrow(ERROR_CODES.NOT_FOUND)
   })
 
   it("returns a domain error when the caller is not an admin", async () => {
@@ -108,6 +111,6 @@ describe("update-product", () => {
         name: "Updated Starter",
         productId: PRODUCT_ID,
       }),
-    ).rejects.toThrow("FORBIDDEN")
+    ).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })

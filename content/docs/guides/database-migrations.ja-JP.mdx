@@ -15,23 +15,24 @@ bun run db:generate
 ```
 
 3. 生成されたファイルを確認し、スキーマの変更と一緒にコミットします。
-4. 作業中のデータベースに適用します。また、それに依存するコードをデプロイする前に、すべてのリモートデータベースにも適用します。
+4. 作業中のデータベースに適用します。`deploy:preview`、`deploy:production`、CI は、デプロイの前にプレビューまたは本番のデータベースに適用します。
 
 ## コマンド
 
 | コマンド                         | データベース                                                                             |
 | -------------------------------- | ---------------------------------------------------------------------------------------- |
 | `bun run db:migrate:test`        | `.wrangler/test` にあるローカルのテスト用データベース。Playwright と分離プレビューで使用 |
+| `bun run db:reset:test`          | `.wrangler/test` を削除後、ローカルのテスト用データベースを再度マイグレーションしシード  |
 | `bun run db:migrate:local`       | ローカルの開発用データベース。`bun run dev` は引き続きリモートのバインディングを使用     |
 | `bun run db:migrate:development` | 開発環境のリモートデータベース。デフォルトではプレビューと共有                           |
 | `bun run db:migrate:preview`     | リモートのプレビュー用データベース                                                       |
 | `bun run db:migrate:production`  | リモートの本番データベース                                                               |
 
-`bun run db:studio:development`、`db:studio:preview`、`db:studio:production` は Drizzle Studio を開き、`db:introspect:*` スクリプトは HTTP API 経由で D1 をイントロスペクトします。どちらも、対応する環境ファイルに `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_DATABASE_ID`、`CLOUDFLARE_ACCESS_TOKEN` が必要です。
+`bun run db:migrations:development`、`db:migrations:preview`、`db:migrations:production` は、リモートデータベースにまだ適用されていないマイグレーションを一覧表示します。`bun run db:studio:development`、`db:studio:preview`、`db:studio:production` は Drizzle Studio を開き、`db:introspect:*` スクリプトは HTTP API 経由で D1 をイントロスペクトします。どちらも、対応する環境ファイルに `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_DATABASE_ID`、`CLOUDFLARE_ACCESS_TOKEN` が必要です。
 
 ## スキーマの規約
 
-- 日付は `integer(..., { mode: "timestamp_ms" })` で、デフォルト値は `(unixepoch() * 1000)` です。
+- 日付は `integer(..., { mode: "timestamp_ms" })` で、デフォルト値は `(unixepoch() * 1000)` です。テーブルの `createdAt` と `updatedAt` は `src/integrations/drizzle-orm/drizzle.columns.ts` の `...timestamps()` で追加します。
 - 真偽値は `integer(..., { mode: "boolean" })` です。
 - インデックス、ユニーク制約、外部キー、リレーションは、スキーマファイルに置きます。
 - D1 には対話型のトランザクションがありません。`getUsers` やレートリミッターのように、単一の SQL 文または `db.batch([...])` で操作をアトミックに保ちます。

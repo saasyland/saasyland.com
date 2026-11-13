@@ -7,37 +7,47 @@ description: "Drizzle スキーマ、Zod スキーマ、定数、型、ユース
 
 ## ファイル
 
-| ファイル                   | 内容                                                                                             |
-| -------------------------- | ------------------------------------------------------------------------------------------------ |
-| `<table>.schema.ts`        | Drizzle のテーブル、インデックス、リレーション、enum の値のリスト                                |
-| `<table>.zod.ts`           | 操作ごとに 1 つの入力スキーマと `drizzle-zod` のスキーマ。`<table>ZodSchemas` としてエクスポート |
-| `<table>.constants.ts`     | クエリキーとミューテーションキーのタプル、モジュールの上限値                                     |
-| `<table>.types.ts`         | 行の型と各操作の入力型をまとめた 1 つのインターフェース                                          |
-| `<table>.utils.ts`         | 任意の純粋なヘルパー                                                                             |
-| `use-cases/<operation>.ts` | 1 ファイルにつき 1 つのサーバー関数と、そのクエリオプションまたはミューテーションオプション      |
-| `__test__/`                | ソースファイル名に合わせたテスト。例：`category.schema.test.ts`、`category.zod.test.ts`          |
+| ファイル                   | 内容                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `<table>.schema.ts`        | Drizzle のテーブル、インデックス、リレーション、定数から組み立てた enum のタプル                       |
+| `<table>.zod.ts`           | 操作ごとに 1 つの入力スキーマと `drizzle-zod` のスキーマ。`<table>ZodSchemas` としてエクスポート       |
+| `<table>.constants.ts`     | `CATEGORY_KIND` のような名前付きのドメイン値、カラムの上限値、クエリキーとミューテーションキーのタプル |
+| `<table>.types.ts`         | 行の型と各操作の入力型をまとめた 1 つのインターフェース                                                |
+| `<table>.utils.ts`         | 任意の純粋なヘルパー                                                                                   |
+| `use-cases/<operation>.ts` | 1 ファイルにつき 1 つのサーバー関数と、そのクエリオプションまたはミューテーションオプション            |
+| `__test__/`                | ソースファイル名に合わせたテスト。例：`category.schema.test.ts`、`category.zod.test.ts`                |
 
 ## 1. テーブルを定義する
 
-```ts
-import { sql } from "drizzle-orm"
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
+テーブルの値には `category.constants.ts` で一度だけ名前を付けます。スキーマ、Zod スキーマ、ユースケース、コンポーネント、テスト、e2e のデータはここからインポートし、`"collection"` のような文字列を繰り返し書きません。
 
-export const CATEGORY_KINDS = ["category", "collection"] as const
+```ts
+export const CATEGORY_NAME_MAX_LENGTH = 255
+
+export const CATEGORY_KIND = {
+  CATEGORY: "category",
+  COLLECTION: "collection",
+} as const
+```
+
+その名前を使ってテーブルを組み立てます。
+
+```ts
+import { index, sqliteTable, text } from "drizzle-orm/sqlite-core"
+
+import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
+
+import { CATEGORY_KIND, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
+
+export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
 
 export const category = sqliteTable(
   "category",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
-    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default("category"),
-    name: text("name", { length: 255 }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default(CATEGORY_KIND.CATEGORY),
+    name: text("name", { length: CATEGORY_NAME_MAX_LENGTH }).notNull(),
+    ...timestamps(),
   },
   (table) => [index("category_createdAt_idx").on(table.createdAt)],
 )
@@ -45,7 +55,8 @@ export const category = sqliteTable(
 
 - カラム名は snake_case、プロパティは camelCase にします。
 - ID は `text` の主キーで、挿入を行うユースケースで `uuid` の `v7()` を使って値を設定します。
-- 日付は `integer(..., { mode: "timestamp_ms" })`、真偽値は `integer(..., { mode: "boolean" })` です。
+- `src/integrations/drizzle-orm/drizzle.columns.ts` の `...timestamps()` が `createdAt` と `updatedAt` を追加します。どちらも挿入時刻を既定値とするミリ秒のタイムスタンプで、`updatedAt` は更新のたびに打ち直されます。その他の日付は `integer(..., { mode: "timestamp_ms" })`、真偽値は `integer(..., { mode: "boolean" })` です。
+- enum のカラムには定数オブジェクトから組み立てたタプルを渡し、既定値には文字列リテラルではなく `CATEGORY_KIND.CATEGORY` のような定数を使います。
 - 外部キーには `.references(() => user.id, { onDelete: "cascade" })` を使い、結合は `relations(...)` で宣言します（`session.schema.ts` を参照）。
 
 ## 2. スキーマを登録する
@@ -76,11 +87,10 @@ import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
+import { CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
 import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
-
-export const CATEGORY_NAME_MAX_LENGTH = 255
 
 const createCategory = zod.object({
   kind: zod.enum(CATEGORY_KINDS),

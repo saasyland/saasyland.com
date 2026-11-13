@@ -7,7 +7,7 @@ description: "Common errors during development, testing and deployment, and how 
 
 **`no such table` in `bun run dev`.** The `development` environment uses the remote preview D1 database. Apply the migrations there with `bun run db:migrate:development`. `bun run db:migrate:local` only migrates a local database that `bun run dev` does not use.
 
-**`no such table` in Playwright.** Browser tests use their own local database. Run `bun run db:migrate:test` and `bun run db:seed:test`, or let Playwright start the app, which runs both.
+**`no such table` in Playwright.** Browser tests use their own local database. Run `bun run db:reset:test`, or let Playwright start the app, which runs it.
 
 **Vitest tables are out of date.** The D1 mock applies every SQL file in `src/integrations/drizzle-orm/migrations` at startup. After a schema change, generate a migration with `bun run db:generate`.
 
@@ -37,7 +37,11 @@ description: "Common errors during development, testing and deployment, and how 
 
 **`test:coverage` fails.** Coverage must be 100% for lines, statements, functions and branches. The report in `coverage/` lists the uncovered lines.
 
-**Deploy stops at `verify-bindings.ts`.** The target environment in `wrangler.jsonc` still has placeholder D1 or KV IDs. Create the resources in Cloudflare and replace the IDs.
+**Deploy stops at `verify-bindings.ts`.** The target environment in `wrangler.jsonc` lacks a `DB`, `CACHE` or `MEDIA` binding, still has placeholder D1 or KV IDs, or, for production, shares a resource with preview. Create the resources in Cloudflare and replace the IDs.
+
+**Deploy stops at `prepare-deploy-secrets.ts`.** A key listed in the environment's `secrets.required` is missing or empty in `.env.<environment>`. The error names the keys.
+
+**Deploy stops at `verify-deployment.ts`.** The Worker is deployed but a checked path did not answer `200` with the expected content type. The error lists each URL and its answer; open it and read the Worker's logs in Cloudflare. `bun scripts/verify-deployment.ts <preview|production>` runs the check again.
 
 **A prerender build fails.** The build output names the first URL that failed. Open that page with `bun run dev` to see the error.
 

@@ -8,6 +8,7 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { session } from "~/src/modules/session/session.schema"
 import { revokeSessionMutation } from "~/src/modules/session/use-cases/revoke-session"
 import { user } from "~/src/modules/user/user.schema"
@@ -50,12 +51,12 @@ describe("revoke-session", () => {
   })
 
   it("rejects an empty session id", async () => {
-    await expect(executeMutation(revokeSessionMutation, { sessionId: "" })).rejects.toMatchObject({ code: "VALIDATION" })
+    await expect(executeMutation(revokeSessionMutation, { sessionId: "" })).rejects.toMatchObject({ code: ERROR_CODES.VALIDATION })
   })
 
   it("returns a domain error when the caller is signed out", async () => {
     vi.mocked(auth.api.getSession).mockResolvedValue(null)
 
-    await expect(executeMutation(revokeSessionMutation, { sessionId: "own-session" })).rejects.toThrow("UNAUTHORIZED")
+    await expect(executeMutation(revokeSessionMutation, { sessionId: "own-session" })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   })
 })

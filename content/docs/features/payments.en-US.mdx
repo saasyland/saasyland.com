@@ -9,28 +9,44 @@ Payments run through Polar with the `@polar-sh/better-auth` plugin in `auth.serv
 polarPlugin({
   client: polarCore,
   use: [
-    checkout({
-      authenticatedUsersOnly: true,
-      products: POLAR_CHECKOUT_PRODUCTS,
-      successUrl: ROUTES.APP,
-    }),
+    checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
     portal(),
     webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
   ],
 }),
 ```
 
+The plugin's own `POST /api/auth/checkout` is listed in Better Auth's `disabledPaths` (`ROUTES.API_AUTH.CHECKOUT`), so it answers 404 over HTTP. Every checkout starts in the `startCheckout` server function, which calls `auth.api.checkout` on the server after its own checks.
+
 `src/integrations/polar/polar.config.ts` creates `polarCore` from `POLAR_ACCESS_TOKEN` and `POLAR_SERVER`, which the plugin uses, and `polar`, the discounts, licence keys and orders services built on it. `POLAR_ORGANIZATION_ID` scopes the discount lookup and licence key deactivation. `POLAR_CHECKOUT_PRODUCTS` maps the tier slugs `core`, `complete` and `agency` to `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` and `POLAR_PRODUCT_ID_AGENCY`.
 
 ## Checkout
 
-A signed-in user without a licence sees `CheckoutOptions` on `/app` and `/app/license`. It calls `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`), which:
+A signed-in user without an active licence sees `LicenseOffer` on `/app` and `/app/license`: the tier cards of the landing page (`PricingTiers`, see [Landing page](/docs/features/landing-page)) with a `CheckoutButton` for each tier, the regional pricing checkbox, the purchase terms and the course lessons the purchase unlocks. `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`) takes `{ locale, tier }` and:
 
-1. looks up a regional discount with `pppDiscountId` (`license.ppp.ts`): the percentage for the `cf-ipcountry` country, matched against active automatic percentage discounts in Polar, skipped when the `regional_pricing` cookie is `off`;
-2. creates a Polar checkout for the tier with discount codes disabled;
-3. returns the checkout URL, which the browser opens.
+1. refuses with `AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)` when the account already has an `active` licence. The button shows `errors.codes.LICENSE_ALREADY_ACTIVE` and refreshes the licence, so a page left open since the purchase switches to the licence;
+2. looks up a regional discount with `pppDiscountId` (`license.ppp.ts`): the percentage for the `cf-ipcountry` country, matched against active automatic percentage discounts in Polar, skipped when the `regional_pricing` cookie is `off`;
+3. creates a Polar checkout for the tier with discount codes disabled, the affiliate referral in `metadata` when the visitor came through an affiliate link (see [Affiliate programme](/docs/features/affiliates)), and the success URL `/app?checkoutId={CHECKOUT_ID}` in the buyer's language (`localizePathname`). Polar replaces `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) with the checkout ID;
+4. returns the checkout URL, which the browser opens.
 
-A paid checkout returns to `/app`.
+A refunded (`revoked`) licence does not block a new purchase.
+
+### Upgrades
+
+An account has one licence, and a newer paid order replaces the tier of the older one (`grantLicense`). The Polar products have no upgrade prices, so a self-service upgrade would charge the full price of the higher tier on top of the first purchase, and buying a lower tier would downgrade the licence. Checkout is therefore refused while a licence is active, and `LicenseCard` tells owners to email support to change tier. Create upgrade products or discounts in Polar before allowing a second checkout.
+
+### A tier chosen before sign-up
+
+Each tier button on the landing page links to `/auth/sign-up?redirect=/app?tier=<tier>`. The return path survives sign-up, email verification and sign-in (`useAuthRedirect`), and a visitor who is already signed in goes straight to it. The `/app` layout validates `tier` against `LICENSE_TIER` with `appSearchSchema` (`src/data/app.ts`, built with `searchParam`), and both `/app` and `/app/license` show `ChosenTier` above the tier cards: the tier, its price with the regional discount and a **Continue to checkout** button. A locked course lesson links to `/app/license?tier=complete`.
+
+### After payment
+
+Polar returns the buyer to `/app?checkoutId=<id>`, usually before the `order.paid` webhook has granted the licence. While `checkoutId` is present and the licence is not active, the page hides the tier cards and shows `CheckoutActivation`, which refetches `currentLicenseQuery` every 2 seconds (`ACTIVATION_POLL_MS`):
+
+- once the licence is active, it thanks the buyer and the licence appears below;
+- after 60 seconds (`ACTIVATION_TIMEOUT_MS`) without a licence, it stops polling and says that Polar has not confirmed the payment yet, with the support email, the checkout ID as a reference and a **Check again** button.
+
+A `checkoutId` that is not a UUID is ignored.
 
 ## Webhooks and licences
 
@@ -42,7 +58,7 @@ Polar posts to `/api/auth/polar/webhooks`, verified with `POLAR_WEBHOOK_SECRET`.
 
 ## Customer screens
 
-`/app/license` shows `LicenseCard` (tier, key, install command and a link to the Polar customer portal at `/api/auth/customer/portal`) and `LicenseActivations`, which lists key activations from Polar and removes one with `deactivateLicense`. See [Customer app](/docs/features/customer-app).
+`/app/license` shows `LicenseCard` (tier, key, install command, a link to the Polar customer portal at `/api/auth/customer/portal` and the support email for a change of tier) and `LicenseActivations`, which lists key activations from Polar and removes one with `deactivateLicense`. See [Customer app](/docs/features/customer-app).
 
 ## Admin screen (demo)
 
@@ -50,5 +66,6 @@ Polar posts to `/api/auth/polar/webhooks`, verified with `POLAR_WEBHOOK_SECRET`.
 
 ## Related pages
 
-- [Landing page](/docs/features/landing-page) for regional prices on the pricing section
+- [Landing page](/docs/features/landing-page) for the tier cards and regional prices
+- [Customer app](/docs/features/customer-app) for the screens around checkout
 - [Environment variables](/docs/getting-started/environment-variables)

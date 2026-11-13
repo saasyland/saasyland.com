@@ -28,7 +28,7 @@ import { mediaContentType, videoObjectKey } from "~/src/modules/video/video.file
 import { video } from "~/src/modules/video/video.schema"
 import { videoZodSchemas } from "~/src/modules/video/video.zod"
 
-import { readJsonc } from "./jsonc.ts"
+import { readWranglerEnvironment } from "./wrangler-config.ts"
 
 const SCRIPT_ARGUMENTS_START = 2
 const BYTES_PER_MEGABYTE = 1_048_576
@@ -50,10 +50,6 @@ const toolsSchema = z.object({
   FFMPEG: z.string().min(MIN_FIELD_LENGTH).default("ffmpeg"),
   FFPROBE: z.string().min(MIN_FIELD_LENGTH).default("ffprobe"),
 })
-
-const bucketSchema = z.object({ binding: z.string(), bucket_name: z.string() })
-const environmentBindingsSchema = z.object({ r2_buckets: z.array(bucketSchema).default([]) }).loose()
-const wranglerSchema = z.object({ env: z.record(z.string(), environmentBindingsSchema) })
 
 const captionSchema = z.string().transform((value, context) => {
   const separator = value.indexOf(LOCALE_SEPARATOR)
@@ -87,8 +83,8 @@ const tools = toolsSchema.parse(process.env)
 const captions = z.array(captionSchema).parse(values.captions ?? [])
 
 const findBucket = async (): Promise<string> => {
-  const { env } = wranglerSchema.parse(await readJsonc("wrangler.jsonc"))
-  const bucket = env[environment]?.r2_buckets.find(({ binding }) => binding === MEDIA_BINDING)
+  const { r2_buckets: buckets } = await readWranglerEnvironment(environment)
+  const bucket = buckets.find(({ binding }) => binding === MEDIA_BINDING)
   if (bucket === undefined) {
     throw new Error(`wrangler.jsonc has no ${MEDIA_BINDING} R2 binding for ${environment}`)
   }
@@ -102,7 +98,7 @@ const run = async ([program = "", ...args]: readonly string[]): Promise<void> =>
   }
 }
 
-const wrangler = (args: readonly string[]): Promise<void> => run(["bun", "x", "wrangler", ...args])
+const wrangler = (args: readonly string[]): Promise<void> => run(["vp", "exec", "wrangler", ...args])
 
 const probe = async (videoPath: string): Promise<SourceVideo> => {
   const child = spawn([tools.FFPROBE, ...probeArguments(videoPath)], { stderr: "inherit", stdout: "pipe" })

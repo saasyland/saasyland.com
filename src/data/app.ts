@@ -1,6 +1,9 @@
 import { Home, KeyRound } from "lucide-react"
+import * as zod from "zod"
 
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+
+import { searchParam } from "~/src/lib/search-params"
 
 import { ROUTES } from "~/src/routes"
 
@@ -9,4 +12,7 @@ export const APP_NAVIGATION = [
   { icon: KeyRound, label: "license", url: ROUTES.APP_LICENSE },
 ] as const
 
-export const APP_LICENSE_TIERS = [LICENSE_TIER.CORE, LICENSE_TIER.COMPLETE, LICENSE_TIER.AGENCY] as const
+export const appSearchSchema = zod.object({
+  checkoutId: searchParam(zod.uuid()),
+  tier: searchParam(zod.enum(LICENSE_TIER)),
+})

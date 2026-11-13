@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { COURSE_KIND } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseLessons, locateLesson, nextLessonToWatch } from "~/src/modules/course/course.utils"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
@@ -30,7 +31,7 @@ describe("course utils", () => {
     expect(
       courseLessons({
         ...page,
-        course: { id: "c", kind: "course", slug: "c", summary: "", title: "" },
+        course: { id: "c", kind: COURSE_KIND.COURSE, slug: "c", summary: "", title: "" },
         viewer: { licensed: false, signedIn: false },
       }).map(({ slug }) => slug),
     ).toStrictEqual(["a", "b", "c"])

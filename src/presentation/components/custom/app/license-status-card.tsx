@@ -13,20 +13,22 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 
 import { ROUTES } from "~/src/routes"
 
-const licenseStatus = (license: License["select"]): "active" | "pending" | "revoked" => {
+const licenseStatus = (license: License["select"]): License["select"]["status"] | "pending" => {
   if (license.status === LICENSE_STATUS.REVOKED) {
-    return "revoked"
+    return LICENSE_STATUS.REVOKED
   }
 
   if (typeof license.key === "string" && license.key.length > 0) {
-    return "active"
+    return LICENSE_STATUS.ACTIVE
   }
 
   return "pending"
 }
 
 export const LicenseStatusCard = (): JSX.Element | undefined => {
+  const tTier = useTranslations("components.custom.pricing")
   const t = useTranslations("pages")
+
   const { license } = useSuspenseQuery(currentLicenseQuery).data
 
   if (license === undefined) {
@@ -47,7 +49,7 @@ export const LicenseStatusCard = (): JSX.Element | undefined => {
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center justify-between gap-4">
-        <p className="text-lg font-semibold text-foreground">{t(`license.tier.${license.tier}`)}</p>
+        <p className="text-lg font-semibold text-foreground">{tTier(`tiers.${license.tier}.name`)}</p>
         <LinkButton href={ROUTES.APP_LICENSE} size="sm" variant="outline">
           {t("app.license")}
         </LinkButton>

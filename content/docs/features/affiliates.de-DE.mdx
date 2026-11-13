@@ -1,0 +1,48 @@
+---
+title: "Partnerprogramm"
+description: "Von Affonso erfasste Empfehlungslinks, gutgeschrieben über die Polar-Bestellung, mit öffentlichen Bedingungen unter /affiliates."
+---
+
+Partner erhalten Provision auf die Verkäufe, die sie vermitteln. SaaSy Land zählt Empfehlungen nicht selbst: [Affonso](https://affonso.io) erfasst Klicks, erhält Bestellungen und Erstattungen von Polar, berechnet die Provision und zahlt die Partner aus. So liegt keine Zahl in der Hand des Verkäufers, und genau das macht das Programm für Partner glaubwürdig.
+
+## Der Weg einer Empfehlung
+
+1. Ein Partner teilt eine beliebige Seite mit einem Empfehlungsparameter, zum Beispiel `/?via=jane`. Die Parameter, die Affonso ausliest, stehen in `AFFONSO.REFERRAL_PARAMS` (`src/integrations/affonso/affonso.constants.ts`): `affonso`, `atp`, `aff`, `via` und `ref`.
+2. `AffiliateReferral` (`src/presentation/components/custom/affiliate-referral.tsx`), einmal in der Root-Route gerendert, prüft die URL nach der Hydration. Nur wenn einer dieser Parameter vorhanden ist, fragt die Komponente den Server nach der Programm-ID (`getAffonsoProgramId`, `src/integrations/affonso/affonso.program.ts`) und rendert das Skript von Affonso mit `data-cookie_duration` auf `AFFILIATE_TERMS.COOKIE_DAYS`. Besuche ohne Empfehlungsparameter laden kein Drittanbieter-Skript.
+3. Das Skript meldet den Klick an Affonso und speichert die Klick-ID im First-Party-Cookie `affonso_referral`.
+4. Wenn der Besucher einen Checkout startet, übergibt `startCheckout` das Ergebnis von `affonsoReferralMetadata(headers)` (`src/integrations/affonso/affonso.referral.ts`) als `metadata` des Checkouts. Die Funktion liest das Cookie, akzeptiert nur Buchstaben, Ziffern, `_` und `-` bis zu 128 Zeichen und gibt `{ affonso_referral: <click ID> }` zurück oder ein leeres Objekt, wenn keine gültige Empfehlung vorliegt.
+5. Polar übernimmt die Checkout-Metadaten in die Bestellung und sendet `order.created` und `order.refunded` an Affonso, das die Provision gutschreibt oder zurückbucht.
+
+Regionale Preise gelten auch für empfohlene Käufer: Die Empfehlung reist in den Metadaten und nicht als Rabatt, deshalb konkurriert sie nie mit dem regionalen Rabatt um den einzigen Rabattplatz von Polar.
+
+## Konfiguration
+
+Das Tracking bleibt aus, bis der Worker `AFFONSO_PROGRAM_ID` hat. Der Wert ist öffentlich (er steht im Script-Tag), deshalb ist er eine einfache Variable und kein Secret. Setzen Sie ihn nur für die Umgebung, die echte Zahlungen annimmt:
+
+```jsonc
+"production": {
+  "vars": {
+    "AFFONSO_PROGRAM_ID": "<program ID from Affonso>",
+  },
+}
+```
+
+Danach einmalig:
+
+1. Legen Sie das Programm in Affonso an und verbinden Sie Polar mit einem Organisations-Zugriffstoken ohne Ablaufdatum. Der Polar-Leitfaden von Affonso nennt die benötigten Scopes.
+2. Fügen Sie in Polar den Webhook-Endpunkt hinzu, den Affonso anzeigt, mit dem Format **Raw** und den Ereignissen `order.created`, `order.refunded` und `subscription.canceled`.
+3. Verwenden Sie in den Programmeinstellungen die Werte der öffentlichen Bedingungsseite: Provision, Cookie-Laufzeit, Wartezeit und Mindestauszahlung stammen aus `AFFILIATE_TERMS` (`src/data/affiliates.ts`), sodass Seite und Skript immer übereinstimmen.
+4. Testen Sie die Einrichtung, indem Sie `/?atp=test` öffnen, prüfen, dass das Cookie `affonso_referral` gesetzt ist, und bestätigen, dass der Polar-Checkout `affonso_referral` in seinen Metadaten enthält.
+
+## Bedingungsseite
+
+`/affiliates` (`src/routes/_landing.affiliates.tsx`, Meldungen in `pages.legal.affiliates`) veröffentlicht die Bedingungen in jeder Locale und ist im Footer verlinkt. Jede Zahl darauf wird aus `AFFILIATE_TERMS` interpoliert; die Mindestauszahlung wird als Währungsbetrag für die Locale des Besuchers formatiert. Die Datenschutzerklärung beschreibt das Empfehlungscookie, was Affonso erhält und die Rechtsgrundlage.
+
+## Tests
+
+- `affonso.referral.test.ts`: Ein gültiges Cookie wird zu Metadaten; ein fehlender, fehlerhafter oder zu langer Wert wird ignoriert.
+- `start-checkout.test.ts`: Die Empfehlung erreicht den Body des Polar-Checkouts neben dem regionalen Rabatt.
+- `affiliate-referral.component.test.tsx`: Das Skript wird nur mit einem Empfehlungsparameter und einer konfigurierten Programm-ID gerendert.
+- `legal-routes.component.test.tsx`: Die Bedingungsseite wird in allen neun Locales vollständig gerendert.
+- `e2e/specs/affiliates.spec.ts`: Ein normaler Besuch lädt kein Skript; ein Besuch mit `?via=` lädt es mit der Programm-ID der Testumgebung und behält das Empfehlungs-Cookie (das Skript wird mit `page.route` ersetzt); die Bedingungsseite wird dargestellt.
+- `e2e/specs/accessibility.spec.ts`: `/affiliates` wird im hellen und im dunklen Modus von axe geprüft.

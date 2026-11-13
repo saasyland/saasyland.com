@@ -1,19 +1,19 @@
 import type { JSX, ReactNode } from "react"
 
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
-import { LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
+
+import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
+import type { LicenseTier } from "~/src/modules/license/license.schema"
 import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
-import { APP_LICENSE_TIERS } from "~/src/data/app"
-
 import { Button } from "~/src/presentation/components/shadcn/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
 import { ROUTES } from "~/src/routes"
@@ -38,14 +38,24 @@ const AGREEMENT_TAGS = {
   ),
 }
 
-export const CheckoutOptions = (): JSX.Element => {
+interface CheckoutButtonProps {
+  readonly children: ReactNode
+  readonly featured: boolean
+  readonly tier: LicenseTier
+}
+
+export const CheckoutButton = ({ children, featured, tier }: CheckoutButtonProps): JSX.Element => {
   const t = useTranslations("pages.license.buy")
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
+  const isStarting = useIsMutating({ mutationKey: LICENSE_MUTATION_KEYS.START_CHECKOUT }) > 0
 
   const { isPending, mutate } = useMutation({
     ...startCheckoutMutation,
-    onError: (error) => toast.error(errorMessage(error)),
+    onError: async (error) => {
+      toast.error(errorMessage(error))
+      await queryClient.invalidateQueries({ queryKey: LICENSE_QUERY_KEYS.ALL })
+    },
     onSuccess: async ({ url }) => {
       await queryClient.invalidateQueries({ queryKey: LICENSE_QUERY_KEYS.ALL })
       globalThis.location.href = url
@@ -53,31 +63,22 @@ export const CheckoutOptions = (): JSX.Element => {
   })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h2>{t("title")}</h2>
-        </CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-wrap gap-3">
-          {APP_LICENSE_TIERS.map((tier) => (
-            <Button
-              isDisabled={isPending}
-              key={tier}
-              onPress={() => {
-                mutate({ tier })
-              }}
-              variant="outline"
-            >
-              {isPending && <Spinner />}
-              {isPending ? t("pending") : t(tier)}
-            </Button>
-          ))}
-        </div>
-        <p className="text-xs leading-relaxed text-muted-foreground">{t.rich("agreement", AGREEMENT_TAGS)}</p>
-      </CardContent>
-    </Card>
+    <Button
+      className="h-11 w-full px-5 text-body-sm font-semibold"
+      isDisabled={isStarting}
+      onPress={() => {
+        mutate({ locale: getCurrentLocale(), tier })
+      }}
+      variant={featured ? "default" : "outline"}
+    >
+      {isPending && <Spinner />}
+      {isPending ? t("pending") : children}
+    </Button>
   )
+}
+
+export const CheckoutAgreement = (): JSX.Element => {
+  const t = useTranslations("pages.license.buy")
+
+  return <p className="text-xs leading-relaxed text-pretty text-muted-foreground">{t.rich("agreement", AGREEMENT_TAGS)}</p>
 }

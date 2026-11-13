@@ -3,23 +3,34 @@ title: "Скрипти проєкту"
 description: "Усі скрипти package.json і те, що вони запускають."
 ---
 
-Запускайте скрипти з кореня репозиторію командою `bun run <script>`.
+Запускайте скрипти з кореня репозиторію командою `bun run <script>`. Скрипти, які викликають Wrangler, а також `db:generate`, що викликає drizzle-kit, запускають їх через `vp exec`, який бере виконуваний файл із `node_modules/.bin`, тож вони завжди використовують версії, зафіксовані в `bun.lock`.
 
 ## Розробка та збірка
 
-| Скрипт              | Що запускає                                                                                                                             |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev`               | `generate:cn`, `content` і `vp dev` у середовищі `development` за адресою http://localhost:3000                                         |
-| `build`             | Те саме, що `build:preview`                                                                                                             |
-| `build:preview`     | Очищення `dist`, `generate:cn`, `content`, `vp build` для `preview`, `scripts/verify-build.ts` і `scripts/optimize-prerendered-html.ts` |
-| `build:production`  | Ті самі кроки для `production`                                                                                                          |
-| `build:test`        | Ті самі кроки для середовища `test`                                                                                                     |
-| `start`             | `vp preview` останньої збірки за адресою http://127.0.0.1:3000                                                                          |
-| `start:test`        | `vp preview` тестової збірки                                                                                                            |
-| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `build:preview` і `wrangler deploy --secrets-file .env.preview`                                   |
-| `deploy:production` | `scripts/verify-bindings.ts production`, `build:production` і `wrangler deploy --secrets-file .env.production`                          |
+| Скрипт             | Що запускає                                                                                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev`              | `generate:cn`, `content` і `vp dev` у середовищі `development` за адресою http://localhost:3000                                                 |
+| `build`            | Те саме, що `build:preview`                                                                                                                     |
+| `build:preview`    | Очищення `dist`, `generate:cn`, `content`, `vp build` для `preview`, `scripts/verify-build.ts preview` і `scripts/optimize-prerendered-html.ts` |
+| `build:production` | Ті самі кроки для `production`                                                                                                                  |
+| `build:test`       | Ті самі кроки для середовища `test`                                                                                                             |
+| `start`            | `vp preview` останньої збірки за адресою http://127.0.0.1:3000                                                                                  |
+| `start:test`       | `vp preview` тестової збірки                                                                                                                    |
 
-`verify-build.ts` перевіряє конфігурацію розгортання, мову документа, канонічні та альтернативні посилання локалізованих головної і юридичних сторінок, шрифти, те, що захищені сторінки й псевдоніми локалей не були попередньо відрендерені, а також те, що жоден клієнтський ресурс не імпортує `cloudflare:workers`. `optimize-prerendered-html.ts` видаляє підказки `modulepreload` для залежностей з попередньо відрендерених сторінок і залишає підказку для точки входу з низьким пріоритетом.
+`verify-build.ts` перевіряє, що `.wrangler/deploy/config.json` вказує на `dist/server/wrangler.json` і що цей файл розгортає Worker, який `wrangler.jsonc` називає для цього середовища, а потім мову документа, канонічні та альтернативні посилання локалізованих головної і юридичних сторінок, шрифти, те, що захищені сторінки й псевдоніми локалей не були попередньо відрендерені, а також те, що жоден клієнтський ресурс не імпортує `cloudflare:workers`. `optimize-prerendered-html.ts` видаляє підказки `modulepreload` для залежностей з попередньо відрендерених сторінок і залишає підказку для точки входу з низьким пріоритетом.
+
+## Розгортання
+
+| Скрипт              | Що запускає                                                                                                                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` для `dist/server/wrangler.json` і `scripts/verify-deployment.ts preview` |
+| `deploy:production` | Ті самі кроки для `production`                                                                                                                                                                                       |
+
+- `verify-bindings.ts` завершується помилкою, коли середовище не має прив'язки `DB`, `CACHE` або `MEDIA` чи досі має ідентифікатор-заглушку D1 або KV, а також коли production використовує ту саму базу даних, простір імен або бакет, що й preview.
+- `prepare-deploy-secrets.ts` зчитує з `.env.<environment>` ключі, перелічені в `secrets.required` середовища, завершується помилкою, коли якийсь із них відсутній або порожній, і записує лише ці ключі в `.wrangler/secrets.<environment>.json`. Інші змінні з файлу не завантажуються.
+- Міграції виконуються після збірки й перед розгортанням, тож невдала збірка ніколи не зачіпає базу даних, а новий Worker ніколи не запускається на старішій схемі.
+- Розгортання запускає `env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.<environment>.json`. Зібрана конфігурація вже націлена на одне середовище; `CLOUDFLARE_ENV`, що залишився в оболонці, змусив би Wrangler шукати розділ середовища, якого в цьому файлі немає.
+- `verify-deployment.ts` надсилає запити до `/`, `/courses`, `/robots.txt`, `/api` і `/api/auth/get-session` на домені середовища й завершується помилкою, якщо котрийсь із них не відповідає `200` з очікуваним типом вмісту. Шлях, що не пройшов перевірку, він запитує тричі з інтервалом у п'ять секунд і нічого не змінює. `bun scripts/verify-deployment.ts <preview|production>` окремо перевіряє розгорнутий сайт.
 
 ## Перевірки
 
@@ -47,14 +58,16 @@ description: "Усі скрипти package.json і те, що вони запу
 
 ## База даних
 
-| Скрипт                                                                           | Що запускає                                     |
-| -------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `db:generate`                                                                    | Генерування міграцій drizzle-kit                |
-| `db:migrate:local`, `db:migrate:test`                                            | Міграції Wrangler для локальної бази даних      |
-| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Міграції Wrangler для віддаленої бази даних     |
-| `db:seed:test`                                                                   | `scripts/seed-test.ts`: тестові облікові записи |
-| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                  |
-| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Інтроспекція drizzle-kit                        |
+| Скрипт                                                                           | Що запускає                                                          |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `db:generate`                                                                    | Генерування міграцій drizzle-kit                                     |
+| `db:migrate:local`, `db:migrate:test`                                            | Міграції Wrangler для локальної бази даних                           |
+| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Міграції Wrangler для віддаленої бази даних                          |
+| `db:migrations:development`, `db:migrations:preview`, `db:migrations:production` | Міграції, які віддалена база даних ще не застосувала                 |
+| `db:seed:test`                                                                   | `scripts/seed-test.ts`: тестові облікові записи, відео й курс        |
+| `db:reset:test`                                                                  | Видалення `.wrangler/test`, потім `db:migrate:test` і `db:seed:test` |
+| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                                       |
+| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Інтроспекція drizzle-kit                                             |
 
 ## Відео
 
@@ -76,7 +89,7 @@ description: "Усі скрипти package.json і те, що вони запу
 | `clean:hardcore` | `clean:deep`, `bun.lock` і `skills-lock.json`                                                            |
 | `prepare`        | Запускається під час встановлення: `vp config --no-agent` (Git-хуки), `generate:cn` і `content`          |
 
-`clean` видаляє `.wrangler`, зокрема локальні бази даних для розробки й тестів, тож спершу експортуйте локальні дані, які хочете зберегти.
+`clean` видаляє `.wrangler`, зокрема локальні бази даних для розробки й тестів і файли секретів, записані скриптами розгортання, тож спершу експортуйте локальні дані, які хочете зберегти.
 
 ## Пов'язані посібники
 

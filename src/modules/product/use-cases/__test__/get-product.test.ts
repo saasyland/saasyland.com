@@ -9,6 +9,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { getProduct } from "~/src/modules/product/use-cases/get-product"
 
 const HEADERS = new Headers()
@@ -20,7 +21,9 @@ type AuthApi = typeof auth.api
 
 const getSessionMock = vi.hoisted(() => vi.fn<AuthApi["getSession"]>())
 
-const dbMocks = vi.hoisted(() => {
+const dbMocks = await vi.hoisted(async () => {
+  const { DEFAULT_CURRENCY_CODE } = await import("~/src/modules/_core/constants/currency")
+  const { PRODUCT_STATUS, PRODUCT_TYPE } = await import("~/src/modules/product/product.constants")
   const nullableJsonValue: unknown = JSON.parse("null")
   if (nullableJsonValue !== null) {
     throw new Error("Expected JSON null")
@@ -30,13 +33,13 @@ const dbMocks = vi.hoisted(() => {
   const dbRow = {
     billingCycle: nullableJsonValue,
     createdAt: updatedAt,
-    currency: "USD",
+    currency: DEFAULT_CURRENCY_CODE,
     description: "Starter plan",
     id: "01900000-0000-7000-8000-000000000002",
     name: "Starter",
     priceCents: 9900,
-    status: "published" as const,
-    type: "subscription" as const,
+    status: PRODUCT_STATUS.PUBLISHED,
+    type: PRODUCT_TYPE.SUBSCRIPTION,
     updatedAt,
   }
 
@@ -85,7 +88,7 @@ describe("get-product", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
 
-    await expect(getProduct({ data: { productId: PRODUCT_ID } })).rejects.toMatchObject({ code: "NOT_FOUND" })
+    await expect(getProduct({ data: { productId: PRODUCT_ID } })).rejects.toMatchObject({ code: ERROR_CODES.NOT_FOUND })
   })
 
   it("rejects when the caller is not an admin", async () => {
@@ -94,7 +97,7 @@ describe("get-product", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
 
-    await expect(getProduct({ data: { productId: PRODUCT_ID } })).rejects.toMatchObject({ code: "FORBIDDEN" })
+    await expect(getProduct({ data: { productId: PRODUCT_ID } })).rejects.toMatchObject({ code: ERROR_CODES.FORBIDDEN })
   })
 
   it("rejects when the caller is signed out", async () => {
@@ -103,6 +106,6 @@ describe("get-product", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(getProduct({ data: { productId: PRODUCT_ID } })).rejects.toMatchObject({ code: "UNAUTHORIZED" })
+    await expect(getProduct({ data: { productId: PRODUCT_ID } })).rejects.toMatchObject({ code: ERROR_CODES.UNAUTHORIZED })
   })
 })

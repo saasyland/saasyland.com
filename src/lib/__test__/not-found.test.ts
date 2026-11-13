@@ -21,7 +21,7 @@ describe("rethrowAsNotFound", () => {
     expect(isNotFound(error)).toBe(true)
   })
 
-  it.each([new AppError(ERROR_CODES.FORBIDDEN), "NOT_FOUND"])("rethrows anything else unchanged", (error) => {
+  it.each([new AppError(ERROR_CODES.FORBIDDEN), ERROR_CODES.NOT_FOUND])("rethrows anything else unchanged", (error) => {
     expect(thrown(error)).toBe(error)
   })
 })

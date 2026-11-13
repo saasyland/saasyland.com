@@ -2,6 +2,8 @@ import type { JSX } from "react"
 
 import { useTranslations } from "use-intl/react"
 
+import { ADMIN_BLOG_POST_STATUS } from "~/src/data/admin-blog"
+
 import { Card } from "~/src/presentation/components/shadcn/card"
 import { Field, FieldGroup, FieldLabel } from "~/src/presentation/components/shadcn/field"
 import { Input } from "~/src/presentation/components/shadcn/input"
@@ -29,14 +31,14 @@ export const PostSettings = (): JSX.Element => {
         <h3 className="mb-4 text-sm font-medium text-foreground">{t("publishing")}</h3>
         <FieldGroup className="gap-4">
           <Field>
-            <Select defaultValue="draft" fieldLabel={t("status")} fieldLabelClassName={SETTINGS_LABEL_CLASSNAME}>
+            <Select defaultValue={ADMIN_BLOG_POST_STATUS.DRAFT} fieldLabel={t("status")} fieldLabelClassName={SETTINGS_LABEL_CLASSNAME}>
               <SelectTrigger className="w-full bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem id="draft">{t("statusDraft")}</SelectItem>
-                <SelectItem id="published">{t("statusPublished")}</SelectItem>
-                <SelectItem id="scheduled">{t("statusScheduled")}</SelectItem>
+                <SelectItem id={ADMIN_BLOG_POST_STATUS.DRAFT}>{t("statusDraft")}</SelectItem>
+                <SelectItem id={ADMIN_BLOG_POST_STATUS.PUBLISHED}>{t("statusPublished")}</SelectItem>
+                <SelectItem id={ADMIN_BLOG_POST_STATUS.SCHEDULED}>{t("statusScheduled")}</SelectItem>
               </SelectContent>
             </Select>
           </Field>

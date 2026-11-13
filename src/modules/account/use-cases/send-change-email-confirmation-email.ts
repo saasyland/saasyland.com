@@ -2,6 +2,7 @@ import { createElement } from "react"
 
 import { createTranslator } from "use-intl"
 
+import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
@@ -28,7 +29,7 @@ export const sendChangeEmailConfirmationEmail = async ({
   const messages = await loadNamespace<typeof changeEmailMessages>({ locale, namespace: CHANGE_EMAIL_CONFIRMATION_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: "change-email-confirmation", token },
+    idempotency: { purpose: EMAIL_PURPOSE.CHANGE_EMAIL_CONFIRMATION, token },
     react: createElement(ChangeEmailConfirmationEmail, { confirmUrl: url, locale, messages, name: user.name, newEmail }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,

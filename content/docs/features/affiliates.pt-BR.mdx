@@ -1,0 +1,48 @@
+---
+title: "Programa de afiliados"
+description: "Links de indicação rastreados pelo Affonso, creditados no pedido do Polar, com termos públicos em /affiliates."
+---
+
+Os afiliados ganham comissão sobre as vendas que indicam. O SaaSy Land não conta as indicações por conta própria: o [Affonso](https://affonso.io) registra os cliques, recebe pedidos e reembolsos do Polar, calcula a comissão e paga os afiliados. Assim nenhum número fica nas mãos do vendedor, e é isso que torna o programa confiável para os afiliados.
+
+## O caminho de uma indicação
+
+1. Um afiliado compartilha qualquer página com um parâmetro de indicação, por exemplo `/?via=jane`. Os parâmetros que o Affonso lê estão listados em `AFFONSO.REFERRAL_PARAMS` (`src/integrations/affonso/affonso.constants.ts`): `affonso`, `atp`, `aff`, `via` e `ref`.
+2. `AffiliateReferral` (`src/presentation/components/custom/affiliate-referral.tsx`), renderizado uma vez na rota raiz, verifica a URL depois da hidratação. Só quando um desses parâmetros está presente ele pede ao servidor o ID do programa (`getAffonsoProgramId`, `src/integrations/affonso/affonso.program.ts`) e renderiza o script do Affonso com `data-cookie_duration` definido como `AFFILIATE_TERMS.COOKIE_DAYS`. Visitas sem parâmetro de indicação não carregam nenhum script de terceiros.
+3. O script registra o clique no Affonso e guarda o ID do clique no cookie primário `affonso_referral`.
+4. Quando o visitante inicia um checkout, `startCheckout` passa `affonsoReferralMetadata(headers)` (`src/integrations/affonso/affonso.referral.ts`) como `metadata` do checkout. A função lê o cookie, aceita apenas letras, dígitos, `_` e `-` com até 128 caracteres e retorna `{ affonso_referral: <click ID> }`, ou um objeto vazio quando não há indicação válida.
+5. O Polar copia os metadados do checkout para o pedido e envia `order.created` e `order.refunded` ao Affonso, que credita ou estorna a comissão.
+
+O preço regional continua valendo para compradores indicados: a indicação viaja nos metadados, não como desconto, então nunca disputa com o desconto regional o único espaço de desconto do Polar.
+
+## Configuração
+
+O rastreamento fica desligado até o Worker ter `AFFONSO_PROGRAM_ID`. O valor é público (aparece na tag do script), então é uma variável comum, não um secret. Defina-o apenas no ambiente que recebe pagamentos reais:
+
+```jsonc
+"production": {
+  "vars": {
+    "AFFONSO_PROGRAM_ID": "<program ID from Affonso>",
+  },
+}
+```
+
+Depois, uma única vez:
+
+1. Crie o programa no Affonso e conecte o Polar com um token de acesso da organização sem expiração. O guia do Affonso para o Polar lista os escopos necessários.
+2. No Polar, adicione o endpoint de webhook que o Affonso mostra, com formato **Raw** e os eventos `order.created`, `order.refunded` e `subscription.canceled`.
+3. Nas configurações do programa, use os valores da página pública de termos: comissão, duração do cookie, período de retenção e pagamento mínimo vêm de `AFFILIATE_TERMS` (`src/data/affiliates.ts`), então a página e o script sempre concordam.
+4. Teste abrindo `/?atp=test`, verificando se o cookie `affonso_referral` foi definido e confirmando que o checkout do Polar leva `affonso_referral` nos metadados.
+
+## Página de termos
+
+`/affiliates` (`src/routes/_landing.affiliates.tsx`, mensagens em `pages.legal.affiliates`) publica os termos em todos os idiomas e tem link no rodapé. Todos os números são interpolados de `AFFILIATE_TERMS`; o pagamento mínimo é formatado como moeda conforme o locale do visitante. A política de privacidade descreve o cookie de indicação, o que o Affonso recebe e a base legal.
+
+## Testes
+
+- `affonso.referral.test.ts`: um cookie válido vira metadados; um valor ausente, malformado ou longo demais é ignorado.
+- `start-checkout.test.ts`: a indicação chega ao corpo do checkout do Polar junto com o desconto regional.
+- `affiliate-referral.component.test.tsx`: o script só é renderizado com um parâmetro de indicação e um ID de programa configurado.
+- `legal-routes.component.test.tsx`: a página de termos é renderizada por completo nos nove idiomas.
+- `e2e/specs/affiliates.spec.ts`: uma visita normal não carrega nenhum script; uma visita com `?via=` o carrega com o ID de programa do ambiente de teste e mantém o cookie de indicação (o script é substituído com `page.route`); a página de termos é exibida.
+- `e2e/specs/accessibility.spec.ts`: o axe verifica `/affiliates` nos modos claro e escuro.

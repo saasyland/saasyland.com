@@ -6,6 +6,7 @@ import {
   requireSessionUserId,
   signUpVerifyAndSignIn,
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.test-instance"
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 
 const authContext = await createAuthTestInstance()
 
@@ -65,7 +66,7 @@ describe("auth account linking", () => {
 
     const accounts = await authContext.auth.api.listUserAccounts({ headers })
 
-    expect(accounts.some((account) => account.providerId === "credential")).toBe(true)
+    expect(accounts.some((account) => account.providerId === AUTH_PROVIDER.CREDENTIAL)).toBe(true)
   })
 
   it("requires a session before listing linked accounts", async () => {

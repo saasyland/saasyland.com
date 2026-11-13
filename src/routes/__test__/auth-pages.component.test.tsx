@@ -18,6 +18,7 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { TranslationsProvider } from "~/src/providers/translations-provider"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { ROOT_NAMESPACES, messagesQueryOptions, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 
@@ -182,10 +183,10 @@ describe("authentication routes", () => {
   })
 
   it.each([
-    [ROUTES.SIGN_IN, "customer", "Customer workspace"],
-    [ROUTES.SIGN_UP, "admin", "Admin workspace"],
-    [ROUTES.AUTH_CALLBACK, "customer", "Customer workspace"],
-    [ROUTES.AUTH_CALLBACK, "admin", "Admin workspace"],
+    [ROUTES.SIGN_IN, ROLE_CODES.CUSTOMER, "Customer workspace"],
+    [ROUTES.SIGN_UP, ROLE_CODES.ADMIN, "Admin workspace"],
+    [ROUTES.AUTH_CALLBACK, ROLE_CODES.CUSTOMER, "Customer workspace"],
+    [ROUTES.AUTH_CALLBACK, ROLE_CODES.ADMIN, "Admin workspace"],
   ])("redirects a signed-in %s visitor with role %s to their workspace", async (path, role, heading) => {
     sessionRequest.mockResolvedValue(createAuthSessionFixture({ role }))
     await renderAuth(path)

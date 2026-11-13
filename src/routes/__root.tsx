@@ -19,6 +19,7 @@ import { toOpenGraphLocale } from "~/src/lib/seo"
 
 import { Toaster } from "~/src/presentation/components/shadcn/sonner"
 
+import { AffiliateReferral } from "~/src/presentation/components/custom/affiliate-referral"
 import { OfflineBanner } from "~/src/presentation/components/custom/offline-banner"
 
 import { DOCUMENT_STYLESHEET, fontPreloads } from "~/src/presentation/document-assets"
@@ -27,6 +28,7 @@ import type { RouterContext } from "~/src/router"
 const RootComponent = () => (
   <AriaProvider>
     <OfflineBanner />
+    <AffiliateReferral />
     <Outlet />
     <ThemeProvider>
       <Toaster />

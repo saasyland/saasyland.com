@@ -8,6 +8,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { createProductMutation } from "~/src/modules/product/use-cases/create-product"
 
 const HEADERS = new Headers()
@@ -20,7 +21,9 @@ type AuthApi = typeof auth.api
 
 const getSessionMock = vi.hoisted(() => vi.fn<AuthApi["getSession"]>())
 
-const dbMocks = vi.hoisted(() => {
+const dbMocks = await vi.hoisted(async () => {
+  const { DEFAULT_CURRENCY_CODE } = await import("~/src/modules/_core/constants/currency")
+  const { PRODUCT_STATUS, PRODUCT_TYPE } = await import("~/src/modules/product/product.constants")
   const nullableJsonValue: unknown = JSON.parse("null")
   if (nullableJsonValue !== null) {
     throw new Error("Expected JSON null")
@@ -30,13 +33,13 @@ const dbMocks = vi.hoisted(() => {
   const dbRow = {
     billingCycle: nullableJsonValue,
     createdAt: updatedAt,
-    currency: "USD",
+    currency: DEFAULT_CURRENCY_CODE,
     description: "",
     id: CREATED_ID,
     name: "Pro",
     priceCents: 19_900,
-    status: "draft" as const,
-    type: "subscription" as const,
+    status: PRODUCT_STATUS.DRAFT,
+    type: PRODUCT_TYPE.SUBSCRIPTION,
     updatedAt,
   }
 
@@ -69,7 +72,7 @@ describe("create-product", () => {
       executeMutation(createProductMutation, {
         name: "Pro",
         priceCents: 19_900,
-        type: "subscription",
+        type: dbMocks.dbRow.type,
       }),
     ).resolves.toMatchObject(dbMocks.dbRow)
 
@@ -87,8 +90,8 @@ describe("create-product", () => {
       executeMutation(createProductMutation, {
         name: "Pro",
         priceCents: 19_900,
-        type: "subscription",
+        type: dbMocks.dbRow.type,
       }),
-    ).rejects.toThrow("FORBIDDEN")
+    ).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })

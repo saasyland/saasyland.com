@@ -1,0 +1,48 @@
+---
+title: "アフィリエイトプログラム"
+description: "Affonso が計測し、Polar の注文で成果を計上する紹介リンク。規約は /affiliates で公開します。"
+---
+
+アフィリエイトは、紹介した売上に応じて報酬を受け取ります。SaaSy Land は紹介数を自前では集計しません。[Affonso](https://affonso.io) がクリックを記録し、Polar から注文と返金を受け取り、報酬を計算してアフィリエイトに支払います。どの数字も販売者の手を離れているため、アフィリエイトにとって信頼できるプログラムになります。
+
+## 紹介が計上されるまでの流れ
+
+1. アフィリエイトは、紹介パラメーター付きで任意のページを共有します（例: `/?via=jane`）。Affonso が読み取るパラメーターは `AFFONSO.REFERRAL_PARAMS`（`src/integrations/affonso/affonso.constants.ts`）に定義されており、`affonso`、`atp`、`aff`、`via`、`ref` です。
+2. ルートルートで一度だけレンダリングされる `AffiliateReferral`（`src/presentation/components/custom/affiliate-referral.tsx`）が、ハイドレーション後に URL を確認します。これらのパラメーターのいずれかがある場合に限り、サーバーにプログラム ID を問い合わせ（`getAffonsoProgramId`、`src/integrations/affonso/affonso.program.ts`）、`data-cookie_duration` を `AFFILIATE_TERMS.COOKIE_DAYS` に設定した Affonso のスクリプトをレンダリングします。紹介パラメーターのない訪問では、サードパーティのスクリプトを一切読み込みません。
+3. スクリプトは Affonso にクリックを記録し、クリック ID をファーストパーティの `affonso_referral` Cookie に保存します。
+4. 訪問者が購入を開始すると、`startCheckout` は `affonsoReferralMetadata(headers)`（`src/integrations/affonso/affonso.referral.ts`）を購入セッションの `metadata` として渡します。この関数は Cookie を読み取り、英字、数字、`_`、`-` からなる 128 文字以内の値だけを受け入れて `{ affonso_referral: <click ID> }` を返します。有効な紹介がない場合は空のオブジェクトを返します。
+5. Polar は購入セッションのメタデータを注文にコピーし、`order.created` と `order.refunded` を Affonso に送信します。Affonso はそれに応じて報酬を計上または取り消します。
+
+紹介経由の購入者にも地域価格は引き続き適用されます。紹介情報は割引としてではなくメタデータとして渡されるため、Polar で 1 つしか使えない割引枠を地域割引と奪い合うことはありません。
+
+## 設定
+
+Worker に `AFFONSO_PROGRAM_ID` が設定されるまで、トラッキングは無効です。この値は公開情報（script タグに含まれます）なので、シークレットではなく通常の変数として扱います。実際の支払いを受け付ける環境にのみ設定してください。
+
+```jsonc
+"production": {
+  "vars": {
+    "AFFONSO_PROGRAM_ID": "<program ID from Affonso>",
+  },
+}
+```
+
+その後、一度だけ次の作業を行います。
+
+1. Affonso でプログラムを作成し、有効期限のない組織アクセストークンで Polar を接続します。必要なスコープは Affonso の Polar ガイドに記載されています。
+2. Polar で、Affonso に表示される Webhook エンドポイントを追加します。形式は **Raw**、イベントは `order.created`、`order.refunded`、`subscription.canceled` です。
+3. プログラムの設定には、公開している規約ページの値を使います。報酬率、Cookie の有効期間、保留期間、最低支払額は `AFFILIATE_TERMS`（`src/data/affiliates.ts`）から取得されるため、ページとスクリプトの値は常に一致します。
+4. `/?atp=test` を開き、`affonso_referral` Cookie が設定されていること、Polar の購入セッションのメタデータに `affonso_referral` が含まれていることを確認してテストします。
+
+## 規約ページ
+
+`/affiliates`（`src/routes/_landing.affiliates.tsx`、メッセージは `pages.legal.affiliates`）は、すべてのロケールで規約を公開し、フッターからリンクされています。ページ上の数字はすべて `AFFILIATE_TERMS` から差し込まれ、最低支払額は訪問者のロケールに合わせた通貨形式で表示されます。プライバシーポリシーでは、紹介 Cookie、Affonso が受け取る情報、法的根拠を説明しています。
+
+## テスト
+
+- `affonso.referral.test.ts`: 有効な Cookie はメタデータになり、欠落した値、不正な形式の値、長すぎる値は無視されます。
+- `start-checkout.test.ts`: 紹介情報が地域割引とともに Polar の購入セッションのリクエスト本文に含まれます。
+- `affiliate-referral.component.test.tsx`: スクリプトは、紹介パラメーターがあり、プログラム ID が設定されている場合にのみレンダリングされます。
+- `legal-routes.component.test.tsx`: 規約ページが 9 つのロケールすべてで完全にレンダリングされます。
+- `e2e/specs/affiliates.spec.ts`：通常の訪問ではスクリプトを読み込まず、`?via=` 付きの訪問ではテスト環境のプログラム ID でスクリプトを読み込み、紹介 Cookie を保持します（スクリプトは `page.route` で差し替えます）。規約ページが表示されることも確認します。
+- `e2e/specs/accessibility.spec.ts`: `/affiliates` をライトモードとダークモードで axe によりスキャンします。

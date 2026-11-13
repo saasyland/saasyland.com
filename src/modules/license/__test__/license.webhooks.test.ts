@@ -8,6 +8,7 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 import type { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
 import type { grantLicense } from "~/src/modules/license/use-cases/grant-license"
@@ -73,7 +74,7 @@ describe("license webhooks", () => {
       polarCustomerId: "cus_1",
       polarOrderId: "ord_1",
       purchaseCreatedAt: new Date("2026-09-24T10:00:00Z"),
-      tier: "complete",
+      tier: LICENSE_TIER.COMPLETE,
       userId: USER_ID,
     })
   })

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import type { deleteVideoMutation } from "~/src/modules/video/use-cases/delete-video"
 import { videoPlaybackQuery } from "~/src/modules/video/use-cases/get-video-playback"
 import { getVideosQuery } from "~/src/modules/video/use-cases/get-videos"
@@ -144,7 +145,7 @@ describe("admin videos", () => {
   })
 
   it("explains a failed deletion", async () => {
-    remove.mockRejectedValueOnce(new Error("NOT_FOUND"))
+    remove.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
     const { user } = renderVideos()
 
     await user.click(screen.getByRole("button", { name: `Delete ${LESSON.title}` }))

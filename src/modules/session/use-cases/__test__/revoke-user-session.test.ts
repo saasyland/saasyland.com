@@ -8,6 +8,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { revokeUserSessionMutation } from "~/src/modules/session/use-cases/revoke-user-session"
 
 const HEADERS = new Headers()
@@ -49,6 +50,6 @@ describe("revoke-user-session", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: ADMIN_USER_ID }))
 
-    await expect(executeMutation(revokeUserSessionMutation, { sessionToken: SESSION_TOKEN })).rejects.toThrow("FORBIDDEN")
+    await expect(executeMutation(revokeUserSessionMutation, { sessionToken: SESSION_TOKEN })).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })

@@ -2,6 +2,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { getTableConfig } from "drizzle-orm/sqlite-core"
 import { describe, expect, it } from "vite-plus/test"
 
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { LICENSE_STATUSES, LICENSE_TIERS, license, licenseRelations, revokedLicenseOrder } from "~/src/modules/license/license.schema"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { user } from "~/src/modules/user/user.schema"
@@ -30,7 +31,7 @@ describe("license schema", () => {
 
   it("accepts a tier the checkout can start", () => {
     expect.hasAssertions()
-    expect(licenseZodSchemas.startCheckout.safeParse({ tier: "complete" }).success).toBe(true)
+    expect(licenseZodSchemas.startCheckout.safeParse({ tier: LICENSE_TIER.COMPLETE }).success).toBe(true)
     expect(licenseZodSchemas.startCheckout.safeParse({ tier: "enterprise" }).success).toBe(false)
   })
 })

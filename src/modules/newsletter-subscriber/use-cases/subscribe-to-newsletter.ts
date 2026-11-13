@@ -9,6 +9,7 @@ import { v7 } from "uuid"
 
 import { RATE_LIMITS, withRateLimit } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
@@ -48,7 +49,7 @@ export const subscribeToNewsletter = createServerFn({ method: "POST" })
       return { status: SUBSCRIPTION_RESULT.ALREADY_SUBSCRIBED }
     }
 
-    if (!(await withinRecipientRateLimit({ kind: "newsletter-confirmation", recipient: address }))) {
+    if (!(await withinRecipientRateLimit({ kind: EMAIL_PURPOSE.NEWSLETTER_CONFIRMATION, recipient: address }))) {
       console.warn("[newsletter] confirmation email not sent: the recipient reached the hourly limit")
       return { status: SUBSCRIPTION_RESULT.CONFIRMATION_SENT }
     }
@@ -74,7 +75,7 @@ export const subscribeToNewsletter = createServerFn({ method: "POST" })
     const messages = await loadNamespace<typeof confirmationMessages>({ locale, namespace: NEWSLETTER_CONFIRMATION_NAMESPACE })
 
     await sendEmail({
-      idempotency: { purpose: "newsletter-confirmation", token: confirmationToken },
+      idempotency: { purpose: EMAIL_PURPOSE.NEWSLETTER_CONFIRMATION, token: confirmationToken },
       react: createElement(NewsletterConfirmationEmail, {
         confirmUrl: confirmationUrl({ locale, origin, token: confirmationToken }),
         locale,

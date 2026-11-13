@@ -9,6 +9,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { NEWSLETTER_STATUS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { getNewsletterSubscriptionQuery } from "~/src/modules/newsletter-subscriber/use-cases/get-newsletter-subscription"
 
@@ -76,6 +77,6 @@ describe("get-newsletter-subscription", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(JSON_NULL)
 
-    await expect(executeQuery(getNewsletterSubscriptionQuery)).rejects.toThrow("UNAUTHORIZED")
+    await expect(executeQuery(getNewsletterSubscriptionQuery)).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   })
 })

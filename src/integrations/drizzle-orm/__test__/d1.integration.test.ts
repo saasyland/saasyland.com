@@ -15,6 +15,8 @@ import {
   verification,
 } from "~/src/integrations/drizzle-orm/drizzle.schemas"
 
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+
 it("round-trips default dates and booleans through the migrated D1 schema", async () => {
   const before = Math.floor(Date.now() / 1000) * 1000
   const userId = "schema-user"
@@ -32,7 +34,7 @@ it("round-trips default dates and booleans through the migrated D1 schema", asyn
       .returning(),
     db.insert(category).values({ id: "schema-category", name: "Category" }).returning(),
     db.insert(product).values({ id: "schema-product", name: "Product" }).returning(),
-    db.insert(license).values({ id: "schema-license", polarCustomerId: "polar-customer", tier: "core", userId }).returning(),
+    db.insert(license).values({ id: "schema-license", polarCustomerId: "polar-customer", tier: LICENSE_TIER.CORE, userId }).returning(),
     db
       .insert(newsletterSubscriber)
       .values({ email: "schema@example.test", id: "schema-subscriber", unsubscribeToken: "token" })

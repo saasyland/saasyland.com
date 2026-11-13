@@ -8,6 +8,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { POLAR_LICENSE_KEY } from "~/src/integrations/polar/__test__/fixtures/license-key"
 import { polar } from "~/src/integrations/polar/polar.config"
 
+import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery, licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license"
 import * as licenses from "~/src/modules/license/use-cases/get-license"
 
@@ -20,8 +21,8 @@ const ownedLicense = {
   polarLicenseKeyId: "polar-license",
   polarOrderId: null,
   purchaseCreatedAt: new Date(0),
-  status: "active",
-  tier: "core",
+  status: LICENSE_STATUS.ACTIVE,
+  tier: LICENSE_TIER.CORE,
   updatedAt: new Date(),
   userId: session.user.id,
 } satisfies NonNullable<Awaited<ReturnType<typeof licenses.getLicense>>>

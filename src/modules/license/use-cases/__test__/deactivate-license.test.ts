@@ -11,6 +11,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { polar } from "~/src/integrations/polar/polar.config"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
 import { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"
 import { user } from "~/src/modules/user/user.schema"
@@ -22,7 +23,7 @@ const KEY = "SAASY-1111"
 beforeEach(async () => {
   await db.delete(user)
   await db.insert(user).values({ email: "deactivate@example.test", id: USER_ID, name: "Buyer" })
-  await db.insert(license).values({ id: "owned", key: KEY, polarCustomerId: "cus_1", tier: "core", userId: USER_ID })
+  await db.insert(license).values({ id: "owned", key: KEY, polarCustomerId: "cus_1", tier: LICENSE_TIER.CORE, userId: USER_ID })
   vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
   vi.spyOn(polar.licenseKeys, "deactivate").mockResolvedValue()
 })

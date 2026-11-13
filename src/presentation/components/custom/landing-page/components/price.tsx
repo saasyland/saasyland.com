@@ -3,6 +3,7 @@ import type { JSX } from "react"
 import { useFormatter, useTranslations } from "use-intl/react"
 
 import { CURRENCY_FORMAT, PPP_KEYS, PPP_PERCENT, applyPpp } from "~/src/modules/_core/constants/pricing"
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 
@@ -25,4 +26,4 @@ export const Price = ({ amount }: Readonly<{ amount: number }>): JSX.Element => 
   )
 }
 
-export const PRICE_TAGS = { price: () => <Price amount={TIER_PRICES.core} /> }
+export const PRICE_TAGS = { price: () => <Price amount={TIER_PRICES[LICENSE_TIER.CORE]} /> }

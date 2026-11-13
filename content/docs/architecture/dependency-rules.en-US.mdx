@@ -11,7 +11,7 @@ description: "Which folders may import which, and how server-only code stays out
 | `src/presentation`        | module options, Zod schemas, constants and types, hooks, `src/data`, `src/lib`, browser-safe integrations | `db`, `auth` from `auth.server.ts`, Polar, Resend      |
 | `src/modules/*/use-cases` | integrations (`db`, `auth`, `sendEmail`, `polar`), `_core`, module schemas, email templates               | components                                             |
 | `src/integrations`        | `_core`, module schemas and use cases that the vendor calls back into                                     | components                                             |
-| `src/server.ts`           | locale helpers, cookies, `_core` constants, document assets                                               | the database, Better Auth or the Polar SDK             |
+| `src/server.ts`           | locale helpers, cookies, `_core` constants, `MEDIA_PATH_PREFIX`, document assets                          | the database, Better Auth or the Polar SDK             |
 
 Browser-safe integrations include `i18n.paths.ts`, `i18n.utils.ts`, `auth.client.ts`, `auth.access.ts` and `form.fields.ts`.
 
@@ -21,7 +21,7 @@ Browser-safe integrations include `i18n.paths.ts`, `i18n.utils.ts`, `auth.client
 - **Server-only modules.** Files that read secrets or bindings start with `import "@tanstack/react-start/server-only"`, which keeps them out of the client build. Examples: `drizzle.database.ts`, `auth.server.ts`, `polar.config.ts`, `resend.utils.ts`, `src/lib/rate-limit.ts` and `i18n.middleware.ts`.
 - **Environment-specific functions.** `createServerOnlyFn` wraps code that only runs on the server (`getRequestSession`). `createIsomorphicFn` provides separate server and browser implementations (`getCurrentLocale`, `getCookie`).
 - **Bindings and secrets** come from `env` in `cloudflare:workers` and are read only by server code: server-only modules, server function handlers and helpers that only they import. `scripts/verify-build.ts` fails the build when a client asset imports `cloudflare:workers`.
-- **Worker entry.** `src/server.ts` runs on every request except `/assets/*`, `/fonts/*`, `/robots.txt` and `/llms.txt`, which `run_worker_first` in `wrangler.jsonc` serves straight from static assets. It keeps its static imports small and loads the TanStack Start handler with a dynamic `import()` only when no static asset matches.
+- **Worker entry.** `src/server.ts` runs on every request except `/assets/*`, `/fonts/*`, `/robots.txt` and `/llms.txt`, which `run_worker_first` in `wrangler.jsonc` serves straight from static assets. It keeps its static imports small: it loads `serveMedia` with a dynamic `import()` only for `/media/` paths, and the TanStack Start handler only when no static asset matches.
 
 ```ts
 import "@tanstack/react-start/server-only"

@@ -5,12 +5,13 @@ description: "Środowisko uruchomieniowe Cloudflare: punkt wejścia Workera, bin
 
 ## Worker i bindingi
 
-`wrangler.jsonc` ustawia `src/server.ts` jako punkt wejścia Workera. Worker otrzymuje trzy bindingi:
+`wrangler.jsonc` ustawia `src/server.ts` jako punkt wejścia Workera. Worker otrzymuje cztery bindingi:
 
 | Binding  | Typ                | Zastosowanie                                           |
 | -------- | ------------------ | ------------------------------------------------------ |
 | `DB`     | Baza danych D1     | Wszystkie tabele, w tym sesje i liczniki limitów żądań |
 | `CACHE`  | Przestrzeń nazw KV | Liczba gwiazdek na GitHubie przechowywana w cache      |
+| `MEDIA`  | Bucket R2          | Pliki wideo serwowane przez `serveMedia` pod `/media/` |
 | `ASSETS` | Zasoby statyczne   | Prerenderowane strony i pliki z `public`               |
 
 Żądania do `/assets/*`, `/fonts/*`, `/robots.txt` i `/llms.txt` są obsługiwane z zasobów statycznych bez uruchamiania Workera. Kod serwerowy odczytuje bindingi, sekrety i `waitUntil` z `cloudflare:workers`. `src/server.ts` dodaje nagłówki bezpieczeństwa do każdej zwracanej odpowiedzi; pliki serwowane bez Workera dostają ich podzbiór z `public/_headers` ([Bezpieczeństwo i utwardzanie](/docs/features/security)).
@@ -19,12 +20,12 @@ description: "Środowisko uruchomieniowe Cloudflare: punkt wejścia Workera, bin
 
 `wrangler.jsonc` definiuje cztery środowiska. `CLOUDFLARE_ENV` wybiera jedno z nich dla `vp dev` i `vp build`.
 
-| Środowisko    | Bindingi                           | Używane przez                                   |
-| ------------- | ---------------------------------- | ----------------------------------------------- |
-| `development` | Zdalne D1 i KV środowiska preview  | `bun run dev`                                   |
-| `preview`     | D1 i KV środowiska preview         | `bun run build:preview`, `deploy:preview`       |
-| `production`  | Produkcyjne D1 i KV                | `bun run build:production`, `deploy:production` |
-| `test`        | Lokalne D1 i KV w `.wrangler/test` | `bun run build:test`, Playwright                |
+| Środowisko    | Bindingi                               | Używane przez                                   |
+| ------------- | -------------------------------------- | ----------------------------------------------- |
+| `development` | Zdalne D1, KV i R2 środowiska preview  | `bun run dev`                                   |
+| `preview`     | D1, KV i R2 środowiska preview         | `bun run build:preview`, `deploy:preview`       |
+| `production`  | Produkcyjne D1, KV i R2                | `bun run build:production`, `deploy:production` |
+| `test`        | Lokalne D1, KV i R2 w `.wrangler/test` | `bun run build:test`, Playwright                |
 
 Każde środowisko wymienia wymagane sekrety w `secrets.required`. Wartości pochodzą z odpowiadającego mu pliku `.env.<environment>`; skrypty wdrożeniowe przekazują go do Wranglera przez `--secrets-file`. Środowisko `test` używa `src/platform/testing/worker.ts` jako punktu wejścia oraz fikcyjnych wartości z `.env.test`, które są w repozytorium.
 
@@ -39,7 +40,8 @@ Każde środowisko wymienia wymagane sekrety w `secrets.required`. Wartości poc
 `src/platform/testing` zawiera tylko to, czego nie da się przypisać do jednej funkcjonalności:
 
 - `setup.ts`: matchery jest-dom, reset bindingów przed każdym testem i zamiennik `createServerFn`, który uruchamia funkcje serwerowe w tym samym procesie
-- `mocks/cloudflare.ts`: D1 oparte na SQLite w pamięci, które stosuje migracje z repozytorium, KV w pamięci oraz `waitUntil`, którego kolejkę testy mogą opróżnić
+- `mocks/cloudflare.ts`: D1 oparte na SQLite w pamięci, które stosuje migracje z repozytorium, KV w pamięci, bucket `MEDIA` w pamięci oraz `waitUntil`, którego kolejkę testy mogą opróżnić
+- `mocks/cache.ts`: `createEdgeCache`, zaślepka cache Workers dla testów dostarczania mediów
 - `mocks/providers.ts`: przechwytywanie żądań fetch do Resend i Polar w testach przeglądarkowych, łącznie z przechwyconymi e-mailami
 - `mocks/wrksz-themes.ts`: zamiennik biblioteki motywów
 - `lib/`: most RPC dla funkcji serwerowych, helpery renderowania, helpery do URL-i żądań i funkcje uruchamiające zapytania

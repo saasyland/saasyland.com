@@ -1,0 +1,45 @@
+---
+title: "Cloudflare R2"
+description: "MEDIA バケット：Worker が期限付きの署名済みパスとエッジキャッシュを通じて配信する、非公開の動画ストレージです。"
+---
+
+どの環境も、`wrangler.jsonc` で R2 バケットを `MEDIA` としてバインドします。本番では `saasyland`、プレビューとローカル開発では `saasyland-preview`、テストビルドではローカルの `saasyland-test` バケットです。バケットは非公開です。パブリックアクセスと `r2.dev` の URL は無効のままで、すべての読み取りは Worker を経由します。
+
+## オブジェクトの配置
+
+各動画のファイルは `videos/<videoId>/` 配下に置かれます。`videoId` は `video` の行の ID です。キーは `src/modules/video/video.files.ts` の `videoObjectKey` と `videoDirectory` が組み立てます。`mediaContentType` は、アップロードまたは配信できるファイル名だけを、そのメディアタイプとともに列挙します。それ以外のファイルは拒否されます。
+
+## 署名済みの配信
+
+プレーヤーがバケットのキーを目にすることはありません。サーバー関数が `createPlayback`（`src/modules/video/video.playback.ts`）を呼び出し、この関数が次の形式のパスを返します。
+
+```text
+/media/<expiry>.<signature>/<videoId>/master.m3u8
+```
+
+- `expiry` は 36 進数の Unix 時刻です。少なくとも 6 時間先の時刻を 1 時間単位に切り上げるため、同じ 1 時間のうちに発行されたリンクは同一になり、ブラウザーでキャッシュできる状態が保たれます。
+- `signature` は、`AUTH_SECRET` から HKDF で導出した鍵による `<videoId>.<expiry>` の HMAC-SHA-256 です。そのため追加のシークレットは不要で、この鍵はほかの用途には使われません。
+- プレイリストはレンディション、セグメント、字幕を相対パスで参照するため、署名済みの 1 つのプレフィックスでストリーム全体をカバーできます。
+
+`src/server.ts` は、すべての `/media/` リクエストを、ロケールミドルウェアと TanStack Start より前に `serveMedia`（`src/modules/video/video.delivery.ts`）へ渡し、通常のセキュリティヘッダーを付けます。`serveMedia` の動作は次のとおりです。
+
+- `GET` と `HEAD` だけを受け付けます（それ以外は `405`）。
+- 一覧にあるメディアファイル以外のパスには `404` を、期限切れまたは不正な署名には `403` を返します。
+- `Range` リクエストには `206` と `Content-Range` で応答し、ファイルの範囲外を指定された場合は `416` を返します。
+- 可能な場合は、ファイル全体を Workers のキャッシュから配信します。キャッシュには署名を除いた `/media/_/<videoId>/<file>` の下にファイルを保存するため、すべての視聴者がエッジロケーションごとに 1 つのキャッシュ済みコピーを共有します。ブラウザーへのレスポンスは `private, max-age=86400, immutable` です。
+
+署名済みパスは、期限が切れるまでベアラーリンクとして機能します。パスを持っていれば誰でもその動画を再生できます。誰が視聴できるかのチェックは、パスを発行する時点で行われます。
+
+## アップロード
+
+Worker はアップロードを受け付けません。`scripts/publish-video.ts` が、`bunx wrangler login` でのログインを使い、`wrangler r2 bulk put --remote` でバケットに書き込みます。[動画](/docs/features/videos)を参照してください。管理画面から動画を削除すると、バインディングを通じてプレフィックス配下を一覧し、オブジェクトをページ単位で削除します。
+
+## テスト
+
+Vitest では、`cloudflare:workers` が `src/platform/testing/mocks/cloudflare.ts` に解決され、`get`（範囲指定を含む）、`head`、`put`、`delete`、ページ単位の `list` を備えたインメモリの `MEDIA` バケットが提供されます。`src/platform/testing/mocks/cache.ts` は Workers のキャッシュをスタブします。テストビルドは `.wrangler/test` 配下のローカルの `saasyland-test` バケットを使います。
+
+## 関連ページ
+
+- [動画](/docs/features/videos)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [認証とセキュリティ](/docs/architecture/security-model)

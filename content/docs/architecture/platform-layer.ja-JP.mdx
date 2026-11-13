@@ -5,12 +5,13 @@ description: "Cloudflare のランタイム：Worker のエントリー、バイ
 
 ## Worker とバインディング
 
-`wrangler.jsonc` は、`src/server.ts` を Worker のエントリーとして設定します。Worker は 3 つのバインディングを受け取ります。
+`wrangler.jsonc` は、`src/server.ts` を Worker のエントリーとして設定します。Worker は 4 つのバインディングを受け取ります。
 
 | バインディング | 種類            | 用途                                                       |
 | -------------- | --------------- | ---------------------------------------------------------- |
 | `DB`           | D1 データベース | セッションとレート制限のカウンターを含む、すべてのテーブル |
 | `CACHE`        | KV 名前空間     | キャッシュされた GitHub のスター数                         |
+| `MEDIA`        | R2 バケット     | 動画ファイル。`serveMedia` が `/media/` 配下で配信         |
 | `ASSETS`       | 静的アセット    | プリレンダリング済みのページと `public` のファイル         |
 
 `/assets/*`、`/fonts/*`、`/robots.txt`、`/llms.txt` へのリクエストは、Worker を実行せずに静的アセットから返されます。サーバーコードは、バインディング、シークレット、`waitUntil` を `cloudflare:workers` から読み取ります。`src/server.ts` は、返すすべてのレスポンスにセキュリティヘッダーを追加します。Worker を経由せずに配信されるファイルには、`public/_headers` のサブセットが付きます（[セキュリティと堅牢化](/docs/features/security)）。
@@ -19,12 +20,12 @@ description: "Cloudflare のランタイム：Worker のエントリー、バイ
 
 `wrangler.jsonc` は 4 つの環境を定義します。`vp dev` と `vp build` で使う環境は `CLOUDFLARE_ENV` で選択します。
 
-| 環境          | バインディング                         | 使用箇所                                        |
-| ------------- | -------------------------------------- | ----------------------------------------------- |
-| `development` | リモートのプレビュー用 D1 と KV        | `bun run dev`                                   |
-| `preview`     | プレビュー用 D1 と KV                  | `bun run build:preview`、`deploy:preview`       |
-| `production`  | 本番用 D1 と KV                        | `bun run build:production`、`deploy:production` |
-| `test`        | `.wrangler/test` 内のローカル D1 と KV | `bun run build:test`、Playwright                |
+| 環境          | バインディング                           | 使用箇所                                        |
+| ------------- | ---------------------------------------- | ----------------------------------------------- |
+| `development` | リモートのプレビュー用 D1、KV、R2        | `bun run dev`                                   |
+| `preview`     | プレビュー用 D1、KV、R2                  | `bun run build:preview`、`deploy:preview`       |
+| `production`  | 本番用 D1、KV、R2                        | `bun run build:production`、`deploy:production` |
+| `test`        | `.wrangler/test` 内のローカル D1、KV、R2 | `bun run build:test`、Playwright                |
 
 各環境は、必要なシークレットを `secrets.required` に列挙します。値は対応する `.env.<environment>` ファイルから取得され、デプロイスクリプトがそのファイルを `--secrets-file` で Wrangler に渡します。`test` 環境は、エントリーとして `src/platform/testing/worker.ts` を使い、`.env.test` にコミットされたダミー値を使います。
 
@@ -39,7 +40,8 @@ description: "Cloudflare のランタイム：Worker のエントリー、バイ
 `src/platform/testing` には、特定の機能に属させることができないものだけを置きます。
 
 - `setup.ts`：jest-dom のマッチャー、各テスト前のバインディングのリセット、サーバー関数をプロセス内で実行するための `createServerFn` の置き換え
-- `mocks/cloudflare.ts`：チェックイン済みのマイグレーションを実行するインメモリ SQLite の D1、インメモリの KV、テストからフラッシュできる `waitUntil`
+- `mocks/cloudflare.ts`：チェックイン済みのマイグレーションを実行するインメモリ SQLite の D1、インメモリの KV、インメモリの `MEDIA` バケット、テストからフラッシュできる `waitUntil`
+- `mocks/cache.ts`：`createEdgeCache`。メディア配信のテストで使う Workers のキャッシュのスタブ
 - `mocks/providers.ts`：ブラウザテストでの Resend と Polar への fetch のインターセプト（送信メールのキャプチャを含む）
 - `mocks/wrksz-themes.ts`：テーマライブラリの代替実装
 - `lib/`：サーバー関数の RPC ブリッジ、レンダリング用ヘルパー、リクエスト URL 用ヘルパー、クエリランナー

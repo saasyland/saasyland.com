@@ -1,0 +1,45 @@
+---
+title: "Cloudflare R2"
+description: "The MEDIA bucket: private video storage, served by the Worker through signed, expiring paths and the edge cache."
+---
+
+Every environment binds an R2 bucket as `MEDIA` in `wrangler.jsonc`: `saasyland` in production, `saasyland-preview` for preview and local development, and a local `saasyland-test` bucket for the test build. The buckets are private: public access and the `r2.dev` URL stay off, and every read goes through the Worker.
+
+## Object layout
+
+Each video's files sit under `videos/<videoId>/`, where `videoId` is the `video` row's id. `videoObjectKey` and `videoDirectory` in `src/modules/video/video.files.ts` build the keys, and `mediaContentType` lists the only file names that may be uploaded or served, with their media types. Anything else is refused.
+
+## Signed delivery
+
+The player never sees a bucket key. A server function calls `createPlayback` (`src/modules/video/video.playback.ts`), which returns paths of the form:
+
+```text
+/media/<expiry>.<signature>/<videoId>/master.m3u8
+```
+
+- `expiry` is a Unix time in base 36, at least six hours ahead and rounded up to the hour, so links issued within the same hour are identical and stay cacheable in the browser.
+- `signature` is an HMAC-SHA-256 of `<videoId>.<expiry>` with a key derived from `AUTH_SECRET` by HKDF, so no extra secret is needed and the key is used for nothing else.
+- Playlists refer to renditions, segments and captions by relative paths, so one signed prefix covers the whole stream.
+
+`src/server.ts` sends every `/media/` request to `serveMedia` (`src/modules/video/video.delivery.ts`) before the locale middleware and TanStack Start, and adds the usual security headers. `serveMedia`:
+
+- accepts only `GET` and `HEAD` (`405` otherwise);
+- returns `404` for a path that is not a listed media file and `403` for an expired or wrong signature;
+- answers `Range` requests with `206` and `Content-Range`, and `416` for a range outside the file;
+- serves whole files from the Workers cache when it can. Files are stored there under `/media/_/<videoId>/<file>`, without the signature, so every viewer shares one cached copy per edge location. Responses to the browser are `private, max-age=86400, immutable`.
+
+Signed paths work as bearer links until they expire: anyone holding one can play that video. Checking who may watch happens when the path is issued.
+
+## Uploads
+
+The Worker does not accept uploads. `scripts/publish-video.ts` writes to the bucket with `wrangler r2 bulk put --remote`, using your `bunx wrangler login`; see [Videos](/docs/features/videos). Deleting a video from the admin lists the prefix and deletes the objects page by page through the binding.
+
+## Tests
+
+In Vitest, `cloudflare:workers` resolves to `src/platform/testing/mocks/cloudflare.ts`, which provides an in-memory `MEDIA` bucket with `get` (including ranges), `head`, `put`, `delete` and paged `list`. `src/platform/testing/mocks/cache.ts` stubs the Workers cache. The test build uses the local `saasyland-test` bucket under `.wrangler/test`.
+
+## Related pages
+
+- [Videos](/docs/features/videos)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Security model](/docs/architecture/security-model)

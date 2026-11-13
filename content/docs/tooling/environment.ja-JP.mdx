@@ -5,12 +5,12 @@ description: "Wrangler の環境、バインディング、シークレット、
 
 `wrangler.jsonc` は 4 つの環境を定義しています。開発サーバーとビルドでは `CLOUDFLARE_ENV` で環境を選択し、各環境はそれぞれの環境ファイルからシークレットを読み込みます。
 
-| 環境          | 選択元                                        | バインディング                         | シークレットの読み込み元 |
-| ------------- | --------------------------------------------- | -------------------------------------- | ------------------------ |
-| `development` | `bun run dev`                                 | リモートのプレビュー用 D1 と KV        | `.env.development`       |
-| `preview`     | `build:preview`, `deploy:preview`             | プレビュー用 D1 と KV                  | `.env.preview`           |
-| `production`  | `build:production`, `deploy:production`       | 本番用 D1 と KV                        | `.env.production`        |
-| `test`        | `build:test`, `start:test`, `db:migrate:test` | `.wrangler/test` 内のローカル D1 と KV | `.env.test`              |
+| 環境          | 選択元                                        | バインディング                           | シークレットの読み込み元 |
+| ------------- | --------------------------------------------- | ---------------------------------------- | ------------------------ |
+| `development` | `bun run dev`                                 | リモートのプレビュー用 D1、KV、R2        | `.env.development`       |
+| `preview`     | `build:preview`, `deploy:preview`             | プレビュー用 D1、KV、R2                  | `.env.preview`           |
+| `production`  | `build:production`, `deploy:production`       | 本番用 D1、KV、R2                        | `.env.production`        |
+| `test`        | `build:test`, `start:test`, `db:migrate:test` | `.wrangler/test` 内のローカル D1、KV、R2 | `.env.test`              |
 
 `.env.development`、`.env.preview`、`.env.production` は Git の管理対象外で、`.env.example` にそれらのキーが列挙されています。`.env.test` はコミットされており、ダミーの値だけを含みます。デプロイスクリプトは、対応するファイルを `wrangler deploy --secrets-file` でアップロードします。
 
@@ -26,13 +26,14 @@ description: "Wrangler の環境、バインディング、シークレット、
 | -------------- | ------------ | ------------------------------------------------------ |
 | `DB`           | D1           | アプリケーションのデータベース、セッション、レート制限 |
 | `CACHE`        | KV           | GitHub のスター数                                      |
+| `MEDIA`        | R2           | 動画ファイル。`/media/` を通じて配信                   |
 | `ASSETS`       | 静的アセット | プリレンダリングされたページ、フォント、公開ファイル   |
 
 開発環境では Cloudflare のリモートバインディングを使うため、`bun run dev` はプレビュー用データベースを読み書きします。バインディングを変更した後は `bun run cf-typegen` を実行し、`src/types/worker-configuration.d.ts` を再生成してください。
 
 ## テスト
 
-Vitest は `test.env` を通じて `.env.test` を読み込み、`cloudflare:workers` を `src/platform/testing/mocks/cloudflare.ts` に解決します。これによりインメモリの D1 と KV が提供されます。Playwright は `test` 環境と、そのエントリーである `src/platform/testing/worker.ts` を使います。どちらも本物の認証情報を必要としません。
+Vitest は `test.env` を通じて `.env.test` を読み込み、`cloudflare:workers` を `src/platform/testing/mocks/cloudflare.ts` に解決します。これによりインメモリの D1、KV、`MEDIA` バケットが提供されます。`src/platform/testing/mocks/cache.ts` は Workers のキャッシュをスタブします。Playwright は `test` 環境と、そのエントリーである `src/platform/testing/worker.ts` を使います。どちらも本物の認証情報を必要としません。
 
 ## 関連ガイド
 

@@ -7,6 +7,7 @@ import { POLAR_LICENSE_KEY } from "~/src/integrations/polar/__test__/fixtures/li
 import { POLAR_ORDER } from "~/src/integrations/polar/__test__/fixtures/order"
 import { polar } from "~/src/integrations/polar/polar.config"
 
+import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 import { grantLicense } from "~/src/modules/license/use-cases/grant-license"
@@ -19,7 +20,7 @@ const purchase = {
   polarCustomerId: "cus_1",
   polarOrderId: "ord_1",
   purchaseCreatedAt: new Date(POLAR_ORDER.created_at),
-  tier: "core",
+  tier: LICENSE_TIER.CORE,
   userId: USER_ID,
 } as const
 beforeEach(async () => {
@@ -63,7 +64,7 @@ describe("attach-license-key", () => {
     await attachLicenseKey(input)
     const fetchKey = vi.spyOn(polar.licenseKeys, "get")
     expect(fetchKey).not.toHaveBeenCalled()
-    expect(await getLicense(USER_ID)).toMatchObject({ key: null, status: "revoked" })
+    expect(await getLicense(USER_ID)).toMatchObject({ key: null, status: LICENSE_STATUS.REVOKED })
   })
 
   it("acknowledges the key of a purchase refunded before it was recorded, without asking Polar for the order", async () => {

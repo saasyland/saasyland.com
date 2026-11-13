@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
+import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 import { user } from "~/src/modules/user/user.schema"
@@ -44,7 +45,7 @@ describe("license event identity and ordering", () => {
       data: { customer: { external_id: USER_ID }, id: "unrelated", order_id: "unrelated", properties: {} },
     })
 
-    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "original", status: "active" })
+    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "original", status: LICENSE_STATUS.ACTIVE })
   })
 
   it("does not revoke an upgrade when the original order is refunded", async () => {
@@ -52,7 +53,7 @@ describe("license event identity and ordering", () => {
     await licenseWebhookHandlers.onOrderPaid(upgrade)
     await licenseWebhookHandlers.onOrderRefunded(refund(original))
 
-    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "upgrade", status: "active", tier: "complete" })
+    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "upgrade", status: LICENSE_STATUS.ACTIVE, tier: LICENSE_TIER.COMPLETE })
   })
 
   it("does not reactivate a refunded purchase when its paid event is retried", async () => {
@@ -60,7 +61,7 @@ describe("license event identity and ordering", () => {
     await licenseWebhookHandlers.onOrderRefunded(refund(original))
     await licenseWebhookHandlers.onOrderPaid(original)
 
-    expect(await getLicense(USER_ID)).toMatchObject({ status: "revoked" })
+    expect(await getLicense(USER_ID)).toMatchObject({ status: LICENSE_STATUS.REVOKED })
   })
 
   it("remembers a refund delivered before the paid event", async () => {
@@ -75,14 +76,14 @@ describe("license event identity and ordering", () => {
     await licenseWebhookHandlers.onOrderPaid(upgrade)
     await licenseWebhookHandlers.onOrderPaid(original)
 
-    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "upgrade", tier: "complete" })
+    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "upgrade", tier: LICENSE_TIER.COMPLETE })
   })
 
   it("keeps the license active when its order is only partially refunded", async () => {
     await licenseWebhookHandlers.onOrderPaid(original)
     await licenseWebhookHandlers.onOrderRefunded(refund(original, POLAR_ORDER_STATUS.PARTIALLY_REFUNDED))
 
-    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "original", status: "active" })
+    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "original", status: LICENSE_STATUS.ACTIVE })
   })
 
   it("revokes the license once a partially refunded order is refunded in full", async () => {
@@ -90,7 +91,7 @@ describe("license event identity and ordering", () => {
     await licenseWebhookHandlers.onOrderRefunded(refund(original, POLAR_ORDER_STATUS.PARTIALLY_REFUNDED))
     await licenseWebhookHandlers.onOrderRefunded(refund(original))
 
-    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "original", status: "revoked" })
+    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "original", status: LICENSE_STATUS.REVOKED })
   })
 
   it("acknowledges the key of a purchase refunded before it was recorded instead of asking for retries", async () => {

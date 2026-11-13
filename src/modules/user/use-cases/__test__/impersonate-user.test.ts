@@ -11,6 +11,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { impersonateUserMutation } from "~/src/modules/user/use-cases/impersonate-user"
 
 const HEADERS = new Headers()
@@ -63,6 +64,6 @@ describe("impersonate-user", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: ADMIN_USER_ID }))
 
-    await expect(executeMutation(impersonateUserMutation, { userId: TARGET_USER_ID })).rejects.toThrow("FORBIDDEN")
+    await expect(executeMutation(impersonateUserMutation, { userId: TARGET_USER_ID })).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })

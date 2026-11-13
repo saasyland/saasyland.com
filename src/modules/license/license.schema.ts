@@ -1,6 +1,8 @@
 import { relations, sql } from "drizzle-orm"
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
+import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
+
 import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { user } from "~/src/modules/user/user.schema"
 
@@ -15,9 +17,6 @@ export const LICENSE_KEY_MAX_LENGTH = 128
 export const license = sqliteTable(
   "license",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
     key: text("key", { length: LICENSE_KEY_MAX_LENGTH }).unique(),
     polarCustomerId: text("polar_customer_id", { length: POLAR_ID_MAX_LENGTH }).notNull(),
@@ -28,18 +27,11 @@ export const license = sqliteTable(
       .default(sql`0`),
     status: text("status", { enum: LICENSE_STATUSES }).notNull().default(LICENSE_STATUS.ACTIVE),
     tier: text("tier", { enum: LICENSE_TIERS }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(
-        () =>
-          /* @__PURE__ */
-          new Date(),
-      )
-      .notNull(),
     userId: text("user_id")
       .notNull()
       .unique()
       .references(() => user.id, { onDelete: "cascade" }),
+    ...timestamps(),
   },
   (table) => [index("license_status_tier_idx").on(table.status, table.tier)],
 )

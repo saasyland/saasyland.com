@@ -3,7 +3,7 @@ import { expect, it } from "vite-plus/test"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { DUMMY_POSTS } from "~/src/data/admin-blog"
+import { ADMIN_BLOG_POST_STATUS, DUMMY_POSTS } from "~/src/data/admin-blog"
 import { CLI_CHOICES } from "~/src/data/cli"
 import { TIERS } from "~/src/data/marketing"
 
@@ -30,6 +30,6 @@ it("keeps demo blog records uniquely addressable", () => {
   expect(new Set(DUMMY_POSTS.map((post) => post.id)).size).toBe(DUMMY_POSTS.length)
   for (const post of DUMMY_POSTS) {
     expect(pagesAdminBlogMessages.demo.posts[post.id].title.length).toBeGreaterThan(0)
-    expect(["published", "draft", "scheduled"]).toContain(post.status)
+    expect(Object.values(ADMIN_BLOG_POST_STATUS)).toContain(post.status)
   }
 })

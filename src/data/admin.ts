@@ -19,6 +19,7 @@ import {
   Wallet,
 } from "lucide-react"
 
+import { USER_STATUS } from "~/src/modules/user/user.constants"
 import type { UserStatus } from "~/src/modules/user/user.utils"
 
 import { ROUTES } from "~/src/routes"
@@ -76,9 +77,9 @@ export const ADMIN_STATUS_DOT_CLASSES: Record<AdminStatusColor, string> = {
 }
 
 export const USER_STATUS_COLORS: Record<UserStatus, AdminStatusColor> = {
-  active: "emerald",
-  banned: "rose",
-  pending: "amber",
+  [USER_STATUS.ACTIVE]: "emerald",
+  [USER_STATUS.BANNED]: "rose",
+  [USER_STATUS.PENDING]: "amber",
 }
 
 export const ADMIN_ANALYTICS_REGION_ROWS = [

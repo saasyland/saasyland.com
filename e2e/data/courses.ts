@@ -1,9 +1,11 @@
+import { COURSE_KIND } from "../../src/modules/course/course.constants"
+import { LESSON_ACCESS } from "../../src/modules/lesson/lesson.constants"
 import { TEST_VIDEO } from "./videos"
 
 export const TEST_COURSE = {
   chapter: { id: "0195a2b4-6c8d-7e9f-8a0b-00000000c0a1", title: { "en-US": "Foundations", "pl-PL": "Podstawy" } },
   id: "0195a2b4-6c8d-7e9f-8a0b-00000000c0c0",
-  kind: "course",
+  kind: COURSE_KIND.COURSE,
   slug: "the-walkthrough",
   summary: { "en-US": "How the code you receive works, subsystem by subsystem.", "pl-PL": "Jak działa kod, który otrzymujesz, moduł po module." },
   title: { "en-US": "The walkthrough", "pl-PL": "Przewodnik po kodzie" },
@@ -11,7 +13,7 @@ export const TEST_COURSE = {
 
 export const TEST_LESSONS = [
   {
-    access: "preview",
+    access: LESSON_ACCESS.PREVIEW,
     id: "0195a2b4-6c8d-7e9f-8a0b-00000000c001",
     slug: "module-boundaries",
     summary: { "en-US": "Why every feature starts at the module boundary." },
@@ -19,7 +21,7 @@ export const TEST_LESSONS = [
     videoId: TEST_VIDEO.id,
   },
   {
-    access: "account",
+    access: LESSON_ACCESS.ACCOUNT,
     id: "0195a2b4-6c8d-7e9f-8a0b-00000000c002",
     slug: "auth-and-sessions",
     summary: { "en-US": "Sessions, cookies and the edge cases." },
@@ -27,7 +29,7 @@ export const TEST_LESSONS = [
     videoId: TEST_VIDEO.id,
   },
   {
-    access: "paid",
+    access: LESSON_ACCESS.PAID,
     id: "0195a2b4-6c8d-7e9f-8a0b-00000000c003",
     slug: "billing-and-webhooks",
     summary: { "en-US": "The webhook that must not charge twice." },
@@ -35,7 +37,7 @@ export const TEST_LESSONS = [
     videoId: TEST_VIDEO.id,
   },
   {
-    access: "paid",
+    access: LESSON_ACCESS.PAID,
     id: "0195a2b4-6c8d-7e9f-8a0b-00000000c004",
     slug: "coverage-gate",
     summary: { "en-US": "Test strategy and the coverage gate." },

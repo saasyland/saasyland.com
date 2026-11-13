@@ -11,6 +11,7 @@ import * as authServer from "~/src/integrations/better-auth/auth.server"
 import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import * as ppp from "~/src/modules/license/license.ppp"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
@@ -48,11 +49,11 @@ describe("start-checkout", () => {
     signedIn()
     const discount = vi.spyOn(ppp, "pppDiscountId").mockResolvedValue("regional-discount-30")
 
-    await expect(executeMutation(startCheckoutMutation, { tier: "agency" })).resolves.toEqual({ url: CHECKOUT_URL })
+    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.AGENCY })).resolves.toEqual({ url: CHECKOUT_URL })
 
-    expect(discount).toHaveBeenCalledExactlyOnceWith(HEADERS, POLAR_PRODUCT_IDS.agency)
+    expect(discount).toHaveBeenCalledExactlyOnceWith(HEADERS, POLAR_PRODUCT_IDS[LICENSE_TIER.AGENCY])
     expect(checkoutMock).toHaveBeenCalledWith({
-      body: { allow_discount_codes: false, discount_id: "regional-discount-30", slug: "agency" },
+      body: { allow_discount_codes: false, discount_id: "regional-discount-30", slug: LICENSE_TIER.AGENCY },
       headers: HEADERS,
     })
   })
@@ -61,9 +62,9 @@ describe("start-checkout", () => {
     expect.hasAssertions()
     signedIn()
 
-    await expect(executeMutation(startCheckoutMutation, { tier: "complete" })).resolves.toMatchObject({ url: CHECKOUT_URL })
+    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.COMPLETE })).resolves.toMatchObject({ url: CHECKOUT_URL })
 
-    expect(checkoutMock).toHaveBeenCalledWith({ body: { allow_discount_codes: false, slug: "complete" }, headers: HEADERS })
+    expect(checkoutMock).toHaveBeenCalledWith({ body: { allow_discount_codes: false, slug: LICENSE_TIER.COMPLETE }, headers: HEADERS })
   })
 
   it("refuses a tier this app does not sell", () => {
@@ -79,6 +80,6 @@ describe("start-checkout", () => {
     signedIn()
     getSessionMock.mockResolvedValue(JSON_NULL)
 
-    await expect(executeMutation(startCheckoutMutation, { tier: "core" })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
+    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.CORE })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   })
 })

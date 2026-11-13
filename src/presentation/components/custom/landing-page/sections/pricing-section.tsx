@@ -5,6 +5,7 @@ import { Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import { PPP_COOKIE, PPP_DECLINED } from "~/src/modules/_core/constants/pricing"
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
 import { MARKETING_SECTION_IDS, TIERS, TIER_PRICES } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -23,7 +24,7 @@ const GRID_DELAY_MS = 100
 
 const FEATURE_IDS = ["f1", "f2", "f3", "f4", "f5", "f6"] as const
 
-const FEATURED_TIER = "complete"
+const FEATURED_TIER = LICENSE_TIER.COMPLETE
 
 const CONSULTING_HREF = `mailto:${CONTACT_EMAIL}?subject=Architecture%20call`
 

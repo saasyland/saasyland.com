@@ -9,6 +9,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { USERS, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
+import { LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 
 import { getRouter } from "~/src/router"
@@ -83,7 +84,7 @@ describe("course route loaders", () => {
     const router = await load(path)
 
     expect(router.state.matches.at(-1)?.status).toBe("success")
-    expect(router.options.context.queryClient.getQueryCache().findAll({ queryKey: ["lesson"] })).toStrictEqual([])
+    expect(router.options.context.queryClient.getQueryCache().findAll({ queryKey: LESSON_QUERY_KEYS.ALL })).toStrictEqual([])
   })
 
   it.each(["/courses/missing", "/courses/unreleased", "/courses/the-walkthrough/missing"])("answers %s with not found", async (path) => {

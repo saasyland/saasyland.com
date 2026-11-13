@@ -9,9 +9,9 @@ Moduł to jedna tabela bazy danych. `src/modules/<table>/` istnieje wyłącznie 
 
 | Plik                       | Zawartość                                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `<table>.schema.ts`        | Tabela Drizzle, indeksy, relacje i listy wartości wyliczeniowych                                           |
+| `<table>.schema.ts`        | Tabela Drizzle, indeksy, relacje i krotki wartości wyliczeniowych zbudowane ze stałych                     |
 | `<table>.zod.ts`           | Po jednym schemacie wejścia na operację oraz schematy `drizzle-zod`, eksportowane jako `<table>ZodSchemas` |
-| `<table>.constants.ts`     | Krotki kluczy zapytań i mutacji oraz limity modułu                                                         |
+| `<table>.constants.ts`     | Nazwane wartości domenowe, takie jak `CATEGORY_KIND`, limity kolumn oraz krotki kluczy zapytań i mutacji   |
 | `<table>.types.ts`         | Jeden interfejs z typami wierszy i typem wejścia każdej operacji                                           |
 | `<table>.utils.ts`         | Opcjonalne czyste funkcje pomocnicze                                                                       |
 | `use-cases/<operation>.ts` | Jedna funkcja serwerowa na plik wraz z opcjami zapytania lub mutacji                                       |
@@ -19,25 +19,35 @@ Moduł to jedna tabela bazy danych. `src/modules/<table>/` istnieje wyłącznie 
 
 ## 1. Zdefiniuj tabelę
 
-```ts
-import { sql } from "drizzle-orm"
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
+Nazwij wartości tabeli raz, w `category.constants.ts`. Schemat, schematy Zod, przypadki użycia, komponenty, testy i dane e2e importują je stamtąd, zamiast powtarzać napis taki jak `"collection"`:
 
-export const CATEGORY_KINDS = ["category", "collection"] as const
+```ts
+export const CATEGORY_NAME_MAX_LENGTH = 255
+
+export const CATEGORY_KIND = {
+  CATEGORY: "category",
+  COLLECTION: "collection",
+} as const
+```
+
+Zbuduj tabelę z tych nazw:
+
+```ts
+import { index, sqliteTable, text } from "drizzle-orm/sqlite-core"
+
+import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
+
+import { CATEGORY_KIND, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
+
+export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
 
 export const category = sqliteTable(
   "category",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
-    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default("category"),
-    name: text("name", { length: 255 }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default(CATEGORY_KIND.CATEGORY),
+    name: text("name", { length: CATEGORY_NAME_MAX_LENGTH }).notNull(),
+    ...timestamps(),
   },
   (table) => [index("category_createdAt_idx").on(table.createdAt)],
 )
@@ -45,7 +55,8 @@ export const category = sqliteTable(
 
 - Nazwy kolumn zapisujemy w snake_case, a właściwości w camelCase.
 - Identyfikatory to klucze główne typu `text`, wypełniane przez `v7()` z pakietu `uuid` w przypadku użycia, który wstawia wiersz.
-- Daty to `integer(..., { mode: "timestamp_ms" })`, a wartości logiczne to `integer(..., { mode: "boolean" })`.
+- `...timestamps()` z `src/integrations/drizzle-orm/drizzle.columns.ts` dodaje `createdAt` i `updatedAt`: znaczniki czasu w milisekundach, domyślnie ustawiane na chwilę wstawienia; `updatedAt` jest odświeżany przy każdej aktualizacji. Pozostałe daty to `integer(..., { mode: "timestamp_ms" })`, a wartości logiczne to `integer(..., { mode: "boolean" })`.
+- Kolumna wyliczeniowa dostaje krotkę zbudowaną z obiektu stałych, a jej wartością domyślną jest stała, np. `CATEGORY_KIND.CATEGORY`, nigdy literał tekstowy.
 - Klucze obce używają `.references(() => user.id, { onDelete: "cascade" })`, a `relations(...)` deklaruje złączenia (zobacz `session.schema.ts`).
 
 ## 2. Zarejestruj schemat
@@ -76,11 +87,10 @@ import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
+import { CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
 import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
-
-export const CATEGORY_NAME_MAX_LENGTH = 255
 
 const createCategory = zod.object({
   kind: zod.enum(CATEGORY_KINDS),

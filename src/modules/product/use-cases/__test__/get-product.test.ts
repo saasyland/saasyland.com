@@ -20,7 +20,9 @@ type AuthApi = typeof auth.api
 
 const getSessionMock = vi.hoisted(() => vi.fn<AuthApi["getSession"]>())
 
-const dbMocks = vi.hoisted(() => {
+const dbMocks = await vi.hoisted(async () => {
+  const { DEFAULT_CURRENCY_CODE } = await import("~/src/modules/_core/constants/currency")
+  const { PRODUCT_STATUS, PRODUCT_TYPE } = await import("~/src/modules/product/product.constants")
   const nullableJsonValue: unknown = JSON.parse("null")
   if (nullableJsonValue !== null) {
     throw new Error("Expected JSON null")
@@ -30,13 +32,13 @@ const dbMocks = vi.hoisted(() => {
   const dbRow = {
     billingCycle: nullableJsonValue,
     createdAt: updatedAt,
-    currency: "USD",
+    currency: DEFAULT_CURRENCY_CODE,
     description: "Starter plan",
     id: "01900000-0000-7000-8000-000000000002",
     name: "Starter",
     priceCents: 9900,
-    status: "published" as const,
-    type: "subscription" as const,
+    status: PRODUCT_STATUS.PUBLISHED,
+    type: PRODUCT_TYPE.SUBSCRIPTION,
     updatedAt,
   }
 

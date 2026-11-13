@@ -9,8 +9,10 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
 import type { Category } from "~/src/modules/category/category.types"
 import { getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
+import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import type { Product } from "~/src/modules/product/product.types"
 import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
@@ -40,13 +42,13 @@ export const adminUser = (overrides: Partial<User["select"]> = {}): User["select
 export const adminProduct = (overrides: Partial<Product["select"]> = {}): Product["select"] => ({
   billingCycle: null,
   createdAt: fixtureDate,
-  currency: "USD",
+  currency: DEFAULT_CURRENCY_CODE,
   description: "A professional starter",
   id: "starter",
   name: "Starter Kit",
   priceCents: 4900,
-  status: "published",
-  type: "one_time",
+  status: PRODUCT_STATUS.PUBLISHED,
+  type: PRODUCT_TYPE.ONE_TIME,
   updatedAt: fixtureDate,
   ...overrides,
 })

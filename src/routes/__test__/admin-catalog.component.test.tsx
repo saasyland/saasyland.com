@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getCategoriesPageQuery } from "~/src/modules/category/use-cases/get-categories"
+import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import { getProductsPageQuery } from "~/src/modules/product/use-cases/get-products"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
@@ -23,9 +24,21 @@ import pagesAdminProductsMessages from "~/messages/en-US/pages.admin.products.js
 
 const products = [
   adminProduct(),
-  adminProduct({ id: "monthly", name: "Monthly subscription", type: "subscription", billingCycle: "month", status: "draft" }),
-  adminProduct({ id: "yearly", name: "Yearly subscription", type: "subscription", billingCycle: "", status: "archived" }),
-  adminProduct({ id: "course", name: "React course", type: "course" }),
+  adminProduct({
+    id: "monthly",
+    name: "Monthly subscription",
+    type: PRODUCT_TYPE.SUBSCRIPTION,
+    billingCycle: "month",
+    status: PRODUCT_STATUS.DRAFT,
+  }),
+  adminProduct({
+    id: "yearly",
+    name: "Yearly subscription",
+    type: PRODUCT_TYPE.SUBSCRIPTION,
+    billingCycle: "",
+    status: PRODUCT_STATUS.ARCHIVED,
+  }),
+  adminProduct({ id: "course", name: "React course", type: PRODUCT_TYPE.COURSE }),
 ]
 const categories = [
   adminCategory(),
@@ -93,9 +106,9 @@ describe("admin catalog", () => {
     vi.spyOn(ProductsRoute, "useSearch").mockReturnValue({ tab })
     const queryClient = adminQueryClient()
     const productInput = {
-      ...(tab === "subscriptions" ? { type: "subscription" as const } : {}),
-      ...(tab === "onetime" ? { type: "one_time" as const } : {}),
-      ...(tab === "drafts" ? { status: "draft" as const } : {}),
+      ...(tab === "subscriptions" ? { type: PRODUCT_TYPE.SUBSCRIPTION } : {}),
+      ...(tab === "onetime" ? { type: PRODUCT_TYPE.ONE_TIME } : {}),
+      ...(tab === "drafts" ? { status: PRODUCT_STATUS.DRAFT } : {}),
     }
     const visibleProducts = products.filter(
       (row) => (!productInput.type || row.type === productInput.type) && (!productInput.status || row.status === productInput.status),

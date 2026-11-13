@@ -5,6 +5,7 @@ import type { courseZodSchemas } from "~/src/modules/course/course.zod"
 import type { getCatalogue } from "~/src/modules/course/use-cases/get-catalogue"
 import type { getCourse } from "~/src/modules/course/use-cases/get-course"
 import type { getCourseEditor } from "~/src/modules/course/use-cases/get-course-editor"
+import type { getCourseShowcase } from "~/src/modules/course/use-cases/get-course-showcase"
 import type { getCourses } from "~/src/modules/course/use-cases/get-courses"
 
 type CoursePage = Awaited<ReturnType<typeof getCourse>>
@@ -15,6 +16,7 @@ export interface Course {
   catalogue: Awaited<ReturnType<typeof getCatalogue>>
   page: CoursePage
   pageLesson: CoursePage["chapters"][number]["lessons"][number]
+  showcase: Awaited<ReturnType<typeof getCourseShowcase>>
   editor: Awaited<ReturnType<typeof getCourseEditor>>
   listRow: Awaited<ReturnType<typeof getCourses>>["rows"][number]
   createCourse: zod.input<typeof courseZodSchemas.createCourse>
@@ -22,6 +24,7 @@ export interface Course {
   getCatalogue: zod.input<typeof courseZodSchemas.getCatalogue>
   getCourse: zod.input<typeof courseZodSchemas.getCourse>
   getCourseEditor: zod.input<typeof courseZodSchemas.getCourseEditor>
+  getCourseShowcase: zod.input<typeof courseZodSchemas.getCourseShowcase>
   getCourses: zod.input<typeof courseZodSchemas.getCourses>
   moveCourse: zod.input<typeof courseZodSchemas.moveCourse>
   updateCourse: zod.input<typeof courseZodSchemas.updateCourse>

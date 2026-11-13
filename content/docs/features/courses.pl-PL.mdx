@@ -32,6 +32,7 @@ Każda tabela ma własny moduł w `src/modules` i jest tworzona przez migrację 
 Role z uprawnieniem `course: ["read"]`, które mają administratorzy, mogą oglądać każdą lekcję. O dostępie decyduje `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) dla widza, którego `resolveViewer` (`lesson.viewer.ts`) buduje z sesji, roli i `getLicense`. Tę kontrolę stosuje każda funkcja serwerowa, która serwuje treści kursów, a nie tylko strony:
 
 - `getCatalogue` (publiczna) zwraca opublikowane kursy z liczbą lekcji, łącznym czasem filmów i liczbą darmowych podglądów.
+- `getCourseShowcase` (publiczna) zwraca na potrzeby strony głównej dwa pierwsze opublikowane kursy (`COURSE_SHOWCASE`) z liczbą lekcji, łącznym czasem filmów, liczbą darmowych podglądów i sześcioma pierwszymi opublikowanymi lekcjami, a także pierwszy darmowy podgląd, który ma film. Podaje poziom dostępu każdej lekcji, a nie blokady widza.
 - `getCourse` (publiczna) zwraca opublikowany kurs z rozdziałami i opublikowanymi lekcjami w locale odwiedzającego, każdą z `locked`, `completed` i `positionMs` dla widza.
 - `getLessonPlayback` (publiczna) zwraca podpisane ścieżki odtwarzania z `createPlayback`. Gościowi bez dostępu odpowiada `UNAUTHORIZED`, a zalogowanemu użytkownikowi bez dostępu `FORBIDDEN`; dla nieopublikowanej lekcji lub lekcji bez filmu zwraca `NOT_FOUND`.
 - `saveLessonProgress` wymaga sesji i przed zapisem sprawdza ten sam dostęp.
@@ -43,6 +44,16 @@ Layout `/courses` (`courses.tsx`) ma własną nawigację, a jego teksty są w pr
 - `/courses`: jedna karta na każdy opublikowany kurs z jego rodzajem, liczbą lekcji, minutami i darmowymi lekcjami.
 - `/courses/<course>`: opis, pasek postępu dla zalogowanych widzów, link **Zacznij kurs** albo **Kontynuuj: …** do następnej lekcji do obejrzenia oraz program według rozdziałów z oznaczeniami **Darmowy podgląd**, czasem trwania i ikonami kłódki i ukończenia. Gdy któraś lekcja jest zablokowana, panel **Każda lekcja jest w pakiecie Komplet** prowadzi do sekcji cennika, a zalogowanego widza do `/app/license?tier=complete`, gdzie plan Komplet jest już wybrany.
 - `/courses/<course>/<lesson>`: odtwarzacz albo panel blokady z przyciskiem **Zaloguj się i oglądaj**, który po zalogowaniu wraca do lekcji dzięki `redirect`, albo **Wybierz Komplet**. Lekcja bez filmu informuje, że nagranie pojawi się wkrótce. Pod spodem są poziom dostępu, **Oznacz jako ukończoną** dla zalogowanych widzów i linki do poprzedniej i następnej lekcji; na szerokich ekranach spis treści kursu pozostaje obok.
+
+## Na stronie głównej
+
+Blok kursów w sekcji **Narzędzia** strony głównej (`course-showcase.tsx` w `src/presentation/components/custom/landing-page/components/`) pokazuje to, co jest w D1, więc nigdy nie wymienia kursu ani lekcji, które nie istnieją:
+
+- Strona główna jest prerenderowana, więc jej HTML zawiera nagłówek bloku, przegląd stron kursu i elementy zastępcze. Gdy blok znajdzie się bliżej niż jeden ekran od widocznego obszaru, przeglądarka raz wywołuje `getCourseShowcase` przez `courseShowcaseQuery` i uzupełnia blok. Odwiedzający, którzy nie przewiną tak daleko, nie wysyłają żadnego żądania.
+- Każdy kurs pokazuje rodzaj, liczbę lekcji, minuty i darmowe lekcje, a potem pierwsze lekcje z ich poziomem dostępu. Każdy kurs i każda lekcja prowadzą do swojej strony, a kurs z większą liczbą lekcji kończy się linkiem do wszystkich.
+- **Obejrzyj darmową lekcję** otwiera pierwszy darmowy podgląd, który ma film. Bez takiej lekcji link się nie pojawia.
+- Gdy żaden kurs nie jest opublikowany, blok o tym informuje; jeśli żądanie się nie powiedzie, odsyła do katalogu kursów. **Przeglądaj wszystkie kursy** zawsze prowadzi do `/courses`.
+- Przegląd stron kursu to film z kompozycji `course-tour` w projekcie `remotion/`. Jest statycznym plikiem w `src/presentation/assets/motion/` z plakatami AVIF i WebP i po naciśnięciu odtwarza się na miejscu z kontrolkami przeglądarki. Nie korzysta z biblioteki filmów.
 
 ## Postępy
 
@@ -116,7 +127,7 @@ Robią to klucze obce z `ON DELETE CASCADE`. Filmy nigdy nie są usuwane razem z
 
 ## Testy
 
-`scripts/seed-test.ts` tworzy opublikowany kurs z jednym rozdziałem i czterema lekcjami na potrzeby testów przeglądarkowych w `e2e/specs/courses.spec.ts`. W `e2e/specs/course-admin.spec.ts` administrator tworzy kurs, rozdział i darmową lekcję z testowym filmem, odwiedzający w innej karcie przeglądarki ogląda lekcję, a administrator usuwa kurs.
+`scripts/seed-test.ts` tworzy opublikowany kurs z jednym rozdziałem i czterema lekcjami na potrzeby testów przeglądarkowych w `e2e/specs/courses.spec.ts`. W `e2e/specs/course-admin.spec.ts` administrator tworzy kurs, rozdział i darmową lekcję z testowym filmem, odwiedzający w innej karcie przeglądarki ogląda lekcję, a administrator usuwa kurs. `e2e/specs/landing.spec.ts` sprawdza, że strona główna linkuje do testowego kursu i jego lekcji, otwiera darmową lekcję i odtwarza przegląd stron kursu.
 
 ## Powiązane strony
 

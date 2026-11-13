@@ -32,6 +32,7 @@ Chaque table a son propre module dans `src/modules` et est créée par la migrat
 Les rôles qui ont `course: ["read"]`, comme les administrateurs, peuvent regarder toutes les leçons. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) tranche pour un spectateur que `resolveViewer` (`lesson.viewer.ts`) construit à partir de la session, du rôle et de `getLicense`. Chaque fonction serveur qui sert du contenu de cours applique cette vérification, pas seulement les pages :
 
 - `getCatalogue` (publique) renvoie les cours publiés avec leur nombre de leçons, la durée totale des vidéos et le nombre d’aperçus gratuits.
+- `getCourseShowcase` (publique) renvoie, pour la page d’accueil, les deux premiers cours publiés (`COURSE_SHOWCASE`) avec leur nombre de leçons, la durée totale des vidéos, le nombre d’aperçus gratuits et leurs six premières leçons publiées, ainsi que le premier aperçu gratuit qui a une vidéo. Elle indique le niveau d’accès de chaque leçon, pas les verrous du spectateur.
 - `getCourse` (publique) renvoie un cours publié avec ses chapitres et ses leçons publiées dans la locale du visiteur, chacune avec `locked`, `completed` et `positionMs` pour le spectateur.
 - `getLessonPlayback` (publique) renvoie des chemins de lecture signés par `createPlayback`. Elle répond `UNAUTHORIZED` à un invité et `FORBIDDEN` à un utilisateur connecté qui n’a pas accès à la leçon, et `NOT_FOUND` pour une leçon non publiée ou sans vidéo.
 - `saveLessonProgress` exige une session et vérifie le même accès avant d’écrire.
@@ -43,6 +44,16 @@ Le layout `/courses` (`courses.tsx`) a sa propre navigation, et ses libellés so
 - `/courses` : une carte par cours publié, avec son type, son nombre de leçons, ses minutes et ses leçons gratuites.
 - `/courses/<course>` : le résumé, une barre de progression pour les spectateurs connectés, un lien **Commencer le cours** ou **Continuer avec …** vers la prochaine leçon à regarder et le programme par chapitre, avec des badges **Aperçu gratuit**, les durées et des icônes de cadenas et de leçon terminée. Quand une leçon est verrouillée, le panneau **Chaque leçon est incluse avec Complete** renvoie vers la section des tarifs ou, pour un spectateur connecté, vers `/app/license?tier=complete`, où l’offre Complete est déjà choisie.
 - `/courses/<course>/<lesson>` : le lecteur, ou un panneau de verrouillage avec **Se connecter pour regarder**, qui ramène à la leçon après la connexion grâce à `redirect`, ou **Obtenir Complete**. Une leçon sans vidéo indique que son enregistrement arrive bientôt. En dessous figurent le niveau d’accès, **Marquer comme terminée** pour les spectateurs connectés et des liens vers la leçon précédente et la suivante ; le contenu du cours reste à côté sur les grands écrans.
+
+## Sur la page d’accueil
+
+Le bloc des cours de la section **Boîte à outils** de la page d’accueil (`course-showcase.tsx` dans `src/presentation/components/custom/landing-page/components/`) affiche ce que contient D1 ; il ne liste donc jamais un cours ou une leçon qui n’existe pas :
+
+- La page d’accueil est prérendue : son HTML contient le titre du bloc, la visite des pages de cours et des espaces réservés. Quand le bloc arrive à moins d’une hauteur d’écran de la zone visible, le navigateur appelle une fois `getCourseShowcase` via `courseShowcaseQuery` et le remplit. Les visiteurs qui ne font pas défiler jusque-là n’envoient aucune requête.
+- Chaque cours affiche son type, son nombre de leçons, ses minutes et ses leçons gratuites, puis ses premières leçons avec leur niveau d’accès. Chaque cours et chaque leçon mènent à leur page, et un cours qui compte plus de leçons se termine par un lien vers toutes.
+- **Regarder une leçon gratuite** ouvre le premier aperçu gratuit qui a une vidéo. S’il n’y en a pas, le lien n’apparaît pas.
+- Sans cours publié, le bloc l’indique ; si la requête échoue, il renvoie au catalogue des cours. **Voir tous les cours** mène à `/courses` dans tous les cas.
+- La visite des pages de cours est la vidéo de la composition `course-tour` du projet `remotion/`. C’est un fichier statique de `src/presentation/assets/motion/` avec des affiches AVIF et WebP, lu sur place avec les commandes du navigateur quand on appuie dessus. Elle n’utilise pas la bibliothèque de vidéos.
 
 ## Progression
 
@@ -116,7 +127,7 @@ Les clés étrangères s’en chargent avec `ON DELETE CASCADE`. Les vidéos ne 
 
 ## Tests
 
-`scripts/seed-test.ts` crée un cours publié avec un chapitre et quatre leçons pour les tests de navigateur de `e2e/specs/courses.spec.ts`. Dans `e2e/specs/course-admin.spec.ts`, un administrateur crée un cours, un chapitre et une leçon gratuite avec la vidéo de test, un visiteur dans une autre page du navigateur regarde la leçon, puis l’administrateur supprime le cours.
+`scripts/seed-test.ts` crée un cours publié avec un chapitre et quatre leçons pour les tests de navigateur de `e2e/specs/courses.spec.ts`. Dans `e2e/specs/course-admin.spec.ts`, un administrateur crée un cours, un chapitre et une leçon gratuite avec la vidéo de test, un visiteur dans une autre page du navigateur regarde la leçon, puis l’administrateur supprime le cours. `e2e/specs/landing.spec.ts` vérifie que la page d’accueil renvoie vers le cours de test et ses leçons, ouvre la leçon gratuite et lit la visite des pages de cours.
 
 ## Pages associées
 

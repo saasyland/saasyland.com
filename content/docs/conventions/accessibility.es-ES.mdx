@@ -3,7 +3,7 @@ title: "Accesibilidad"
 description: "Todas las páginas cumplen WCAG 2.2 AA en ambos temas, lo que comprueba axe en la suite del navegador, además de las reglas de teclado y de lectores de pantalla que axe no puede ver."
 ---
 
-Todas las páginas públicas, una entrada del blog y todas las páginas de los espacios de trabajo de administración y de cliente cumplen el nivel AA de WCAG 2.2 con el tema claro y con el oscuro. Es un requisito para publicar, no un objetivo: `e2e/specs/accessibility.spec.ts` las analiza en cada pull request y falla ante cualquier infracción.
+Todas las páginas públicas, todas las páginas de la documentación y entradas del blog, y todas las páginas de los espacios de trabajo de administración y de cliente cumplen el nivel AA de WCAG 2.2 con el tema claro y con el oscuro. Es un requisito para publicar, no un objetivo: `e2e/specs/accessibility.spec.ts` las analiza en cada pull request y falla ante cualquier infracción.
 
 ## El análisis
 
@@ -15,7 +15,9 @@ const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best
 export const COLOR_SCHEMES = ["light", "dark"] as const
 ```
 
-Antes de analizar, `accessibilityViolations` recorre toda la página con scroll, para que las secciones que aparecen al desplazarse sean visibles, y espera a que terminen las animaciones finitas, para que el contraste se mida sobre la página ya estable. Una página nueva se añade a `PUBLIC_PAGES` o a `WORKSPACE_PAGES` de `accessibility.spec.ts` en el mismo cambio que añade la ruta. Ejecuta la spec con el resto de la suite:
+Antes de analizar, `accessibilityViolations` recorre toda la página con scroll, para que las secciones que aparecen al desplazarse sean visibles, y espera a que terminen las animaciones finitas, para que el contraste se mida sobre la página ya estable. Una página nueva se añade a `PUBLIC_PAGES` o a `WORKSPACE_PAGES` de `accessibility.spec.ts` en el mismo cambio que añade la ruta, y cada página debe cargarse con un estado de éxito antes de analizarla, para que una página renombrada haga fallar la prueba en lugar de que se analice la página 404.
+
+Las páginas de la documentación y las entradas del blog comparten sus layouts y los componentes MDX de `mdx.tsx`, así que la spec no las analiza todas, sino un conjunto de páginas que, juntas, renderizan todos los elementos que usan: la portada de la documentación (callouts, tarjetas, pestañas, pasos, acordeones y los componentes de shadcn), todas las páginas de Convenciones, una página de cada una de las demás secciones de la documentación, incluidas la lista de comprobación de seguridad (listas de tareas) y `/docs/reference/routes` (tablas largas), y una entrada del blog. Una página que usa un elemento MDX que ninguna de ellas renderiza se añade a la lista. Ejecuta la spec con el resto de la suite:
 
 ```sh
 bun run test:e2e:pr
@@ -25,9 +27,9 @@ bun run test:e2e:pr
 
 axe comprueba el marcado, no el significado ni el recorrido con el teclado. Estas reglas cubren el resto y se vigilan en la revisión:
 
-- **Landmarks y nombres.** Cada espacio de trabajo tiene una navegación etiquetada (`<nav aria-label={t("navigationLabel")}>` en `admin-sidebar.tsx`), y las barras laterales, el panel lateral de autenticación y la tabla de contenidos de la documentación son landmarks.
+- **Landmarks y nombres.** Cada espacio de trabajo tiene una navegación etiquetada (`<nav aria-label={t("navigationLabel")}>` en `admin-sidebar.tsx`), y las barras laterales, el panel lateral de autenticación y la tabla de contenidos de la documentación son landmarks. Un bloque de código solo es un landmark cuando tiene un título, que le da nombre; su área de desplazamiento es enfocable en cualquier caso, para que se pueda desplazar con el teclado.
 - **Semántica real.** Las pestañas tienen paneles de pestaña; un conjunto de opciones que no cambia de panel es un grupo de alternancia, no una lista de pestañas. Un enlace con aspecto de botón es un `LinkButton`, nunca un enlace que envuelve un botón.
-- **Etiquetas en todos los controles.** Los inputs tienen un `FieldLabel`; una etiqueta oculta visualmente usa `className="sr-only"`, como hace el campo de la newsletter. Los botones que solo tienen un icono llevan un `aria-label` que nombra su objetivo, como `t("actions.delete", { title })`, y el texto visible de un control forma parte de su nombre accesible.
+- **Etiquetas en todos los controles.** Los inputs tienen un `FieldLabel`; una etiqueta oculta visualmente usa `className="sr-only"`, como hace el campo de la newsletter. Los botones que solo tienen un icono llevan un `aria-label` que nombra su objetivo, como `t("actions.delete", { title })`, y el texto visible de un control forma parte de su nombre accesible. La casilla de una lista de tareas en MDX toma su nombre del texto de su elemento (`li` en `mdx.tsx`).
 - **Errores anunciados con el campo.** Cada input establece `aria-describedby` con el ID de su error, y `aria-invalid` mientras no es válido; el elemento de error solo existe mientras hay un error. Consulta [Formularios y tablas](/docs/conventions/forms-and-tables).
 - **El contenido decorativo se oculta.** Los iconos junto a un texto llevan `aria-hidden`, igual que los puntos puramente visuales, los separadores y los vídeos en bucle sin etiqueta.
 - **Encabezados en orden.** Cada página tiene un único `h1`; el título de una tarjeta que inicia una sección renderiza un `h2` dentro de `CardTitle`, como hace `course-form.tsx`.
@@ -39,6 +41,7 @@ axe comprueba el marcado, no el significado ni el recorrido con el teclado. Esta
 ## Contraste y movimiento
 
 - El texto usa los tokens de color del tema. `text-muted-foreground` supera 4,5:1 en ambos temas; las variantes más claras, como `text-muted-foreground/60`, son solo para chips desactivados, iconos decorativos y separadores.
+- Los bloques de código usan los temas GitHub Light y GitHub Dark de Shiki, y `fumadocs.config.ts` sustituye los dos colores de token que quedaban por debajo de 4,5:1 sobre el fondo del bloque de código: el naranja `#e36209` de GitHub Light pasa a `#c55300` y el gris de los comentarios `#6a737d` de GitHub Dark pasa a `#78828c`.
 - El movimiento respeta la configuración del lector: `MotionConfig reducedMotion="user"` en `MotionProvider`, variantes `motion-reduce:` en las transiciones, `scroll-behavior: auto` con `prefers-reduced-motion`, y los vídeos de la página de inicio no se reproducen automáticamente para los lectores que piden movimiento reducido (`concept-loop.tsx`).
 
 ## Páginas relacionadas

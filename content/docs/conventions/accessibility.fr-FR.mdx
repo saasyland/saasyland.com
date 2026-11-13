@@ -3,7 +3,7 @@ title: "Accessibilité"
 description: "Chaque page respecte WCAG 2.2 AA dans les deux thèmes, ce que vérifie axe dans la suite de tests du navigateur, plus les règles de clavier et de lecteur d'écran qu'axe ne peut pas voir."
 ---
 
-Chaque page publique, un article de blog et chaque page des espaces d'administration et client respectent le niveau AA de WCAG 2.2 dans le thème clair comme dans le thème sombre. C'est une exigence de publication, pas un objectif : `e2e/specs/accessibility.spec.ts` les analyse sur chaque pull request et échoue à la moindre violation.
+Chaque page publique, chaque page de la documentation, chaque article de blog et chaque page des espaces d'administration et client respectent le niveau AA de WCAG 2.2 dans le thème clair comme dans le thème sombre. C'est une exigence de publication, pas un objectif : `e2e/specs/accessibility.spec.ts` les analyse sur chaque pull request et échoue à la moindre violation.
 
 ## L'analyse
 
@@ -15,7 +15,9 @@ const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best
 export const COLOR_SCHEMES = ["light", "dark"] as const
 ```
 
-Avant l'analyse, `accessibilityViolations` fait défiler toute la page, pour que les sections qui apparaissent en fondu au défilement soient visibles, et attend la fin des animations finies, pour que le contraste soit mesuré sur la page stabilisée. Une nouvelle page est ajoutée à `PUBLIC_PAGES` ou à `WORKSPACE_PAGES` dans `accessibility.spec.ts`, dans la même modification que celle qui ajoute la route. Exécutez la spec avec le reste de la suite :
+Avant l'analyse, `accessibilityViolations` fait défiler toute la page, pour que les sections qui apparaissent en fondu au défilement soient visibles, et attend la fin des animations finies, pour que le contraste soit mesuré sur la page stabilisée. Une nouvelle page est ajoutée à `PUBLIC_PAGES` ou à `WORKSPACE_PAGES` dans `accessibility.spec.ts`, dans la même modification que celle qui ajoute la route, et chaque page doit se charger avec un statut de succès avant d'être analysée, pour qu'une page renommée fasse échouer le test au lieu de faire analyser la page 404.
+
+Les pages de la documentation et les articles du blog partagent leurs mises en page et les composants MDX de `mdx.tsx` ; la spec ne les analyse donc pas tous, mais un ensemble de pages qui affichent ensemble tous les éléments utilisés : l'accueil de la documentation (callouts, cartes, onglets, étapes, accordéons et composants shadcn), chaque page de Conventions, une page de chacune des autres sections de la documentation, dont la liste de contrôle de sécurité (listes de tâches) et `/docs/reference/routes` (longs tableaux), et un article du blog. Une page qui utilise un élément MDX qu'aucune d'elles n'affiche rejoint la liste. Exécutez la spec avec le reste de la suite :
 
 ```sh
 bun run test:e2e:pr
@@ -25,9 +27,9 @@ bun run test:e2e:pr
 
 axe vérifie le balisage, pas le sens ni le parcours au clavier. Ces règles couvrent le reste et sont contrôlées en revue :
 
-- **Points de repère et noms.** Chaque espace de travail a une navigation étiquetée (`<nav aria-label={t("navigationLabel")}>` dans `admin-sidebar.tsx`), et les barres latérales, le panneau latéral d'authentification et la table des matières de la documentation sont des points de repère.
+- **Points de repère et noms.** Chaque espace de travail a une navigation étiquetée (`<nav aria-label={t("navigationLabel")}>` dans `admin-sidebar.tsx`), et les barres latérales, le panneau latéral d'authentification et la table des matières de la documentation sont des points de repère. Un bloc de code n'est un point de repère que s'il a un titre, qui le nomme ; sa zone de défilement reste focalisable dans tous les cas, pour qu'on puisse la faire défiler au clavier.
 - **Une vraie sémantique.** Les onglets ont des panneaux d'onglet ; un ensemble d'options qui ne change pas de panneau est un groupe de boutons bascule, pas une liste d'onglets. Un lien qui ressemble à un bouton est un `LinkButton`, jamais un lien qui enveloppe un bouton.
-- **Des libellés sur chaque contrôle.** Les champs de saisie ont un `FieldLabel` ; un libellé visuellement masqué utilise `className="sr-only"`, comme le champ de la newsletter. Les boutons composés d'une seule icône portent un `aria-label` qui nomme leur cible, comme `t("actions.delete", { title })`, et le texte visible d'un contrôle fait partie de son nom accessible.
+- **Des libellés sur chaque contrôle.** Les champs de saisie ont un `FieldLabel` ; un libellé visuellement masqué utilise `className="sr-only"`, comme le champ de la newsletter. Les boutons composés d'une seule icône portent un `aria-label` qui nomme leur cible, comme `t("actions.delete", { title })`, et le texte visible d'un contrôle fait partie de son nom accessible. La case à cocher d'une liste de tâches en MDX tire son nom du texte de son élément (`li` dans `mdx.tsx`).
 - **Les erreurs annoncées avec le champ.** Chaque champ de saisie définit `aria-describedby` sur l'identifiant de son erreur et `aria-invalid` tant qu'il est invalide ; l'élément d'erreur n'existe que lorsqu'il y a une erreur. Voir [Formulaires et tableaux](/docs/conventions/forms-and-tables).
 - **Le contenu décoratif est masqué.** Les icônes placées à côté d'un texte reçoivent `aria-hidden`, tout comme les points purement visuels, les séparateurs et les vidéos en boucle sans libellé.
 - **Des titres dans l'ordre.** Chaque page a un seul `h1` ; un titre de carte qui ouvre une section affiche un `h2` dans `CardTitle`, comme le fait `course-form.tsx`.
@@ -39,6 +41,7 @@ axe vérifie le balisage, pas le sens ni le parcours au clavier. Ces règles cou
 ## Contraste et animations
 
 - Le texte utilise les jetons de couleur du thème. `text-muted-foreground` atteint 4,5:1 dans les deux thèmes ; les variantes plus claires comme `text-muted-foreground/60` sont réservées aux puces désactivées, aux icônes décoratives et aux séparateurs.
+- Les blocs de code utilisent les thèmes GitHub Light et GitHub Dark de Shiki, et `fumadocs.config.ts` remplace les deux couleurs de jeton qui restaient sous 4,5:1 sur le fond du bloc de code : l'orange `#e36209` de GitHub Light devient `#c55300`, et le gris des commentaires `#6a737d` de GitHub Dark devient `#78828c`.
 - Les animations respectent les réglages du lecteur : `MotionConfig reducedMotion="user"` dans `MotionProvider`, des variantes `motion-reduce:` sur les transitions, `scroll-behavior: auto` sous `prefers-reduced-motion`, et les vidéos de la page d'accueil ne se lancent pas automatiquement pour les lecteurs qui demandent des animations réduites (`concept-loop.tsx`).
 
 ## Pages associées

@@ -3,7 +3,7 @@ title: "Barrierefreiheit"
 description: "Jede Seite erfüllt WCAG 2.2 AA in beiden Themes, geprüft von axe in der Browser-Suite, dazu die Regeln für Tastatur und Screenreader, die axe nicht sehen kann."
 ---
 
-Jede öffentliche Seite, ein Blogbeitrag und jede Seite des Admin- und des Kundenbereichs erfüllen WCAG 2.2 Stufe AA im hellen und im dunklen Theme. Das ist eine Voraussetzung für jedes Release, kein Ziel: `e2e/specs/accessibility.spec.ts` scannt sie bei jedem Pull Request und schlägt bei jedem Verstoß fehl.
+Jede öffentliche Seite, jede Seite der Dokumentation, jeder Blogbeitrag und jede Seite des Admin- und des Kundenbereichs erfüllen WCAG 2.2 Stufe AA im hellen und im dunklen Theme. Das ist eine Voraussetzung für jedes Release, kein Ziel: `e2e/specs/accessibility.spec.ts` scannt sie bei jedem Pull Request und schlägt bei jedem Verstoß fehl.
 
 ## Der Scan
 
@@ -15,7 +15,9 @@ const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best
 export const COLOR_SCHEMES = ["light", "dark"] as const
 ```
 
-Vor dem Scan scrollt `accessibilityViolations` durch die ganze Seite, damit Abschnitte, die beim Scrollen eingeblendet werden, sichtbar sind, und wartet, bis endliche Animationen beendet sind, damit der Kontrast auf der fertig aufgebauten Seite gemessen wird. Eine neue Seite wird in derselben Änderung, die die Route hinzufügt, in `PUBLIC_PAGES` oder `WORKSPACE_PAGES` in `accessibility.spec.ts` aufgenommen. Führen Sie die Spec mit dem Rest der Suite aus:
+Vor dem Scan scrollt `accessibilityViolations` durch die ganze Seite, damit Abschnitte, die beim Scrollen eingeblendet werden, sichtbar sind, und wartet, bis endliche Animationen beendet sind, damit der Kontrast auf der fertig aufgebauten Seite gemessen wird. Eine neue Seite wird in derselben Änderung, die die Route hinzufügt, in `PUBLIC_PAGES` oder `WORKSPACE_PAGES` in `accessibility.spec.ts` aufgenommen, und jede Seite muss mit einem Erfolgsstatus laden, bevor sie gescannt wird, damit eine umbenannte Seite den Test scheitern lässt, statt dass die 404-Seite gescannt wird.
+
+Seiten der Dokumentation und Blogbeiträge teilen sich ihre Layouts und die MDX-Komponenten aus `mdx.tsx`. Die Spec scannt deshalb nicht alle, sondern Seiten, die zusammen jedes verwendete Element rendern: die Startseite der Dokumentation (Callouts, Karten, Tabs, Schritte, Akkordeons und die shadcn-Komponenten), jede Seite des Abschnitts Konventionen, je eine Seite aus jedem anderen Abschnitt der Dokumentation, darunter die Sicherheits-Checkliste (Aufgabenlisten) und `/docs/reference/routes` (lange Tabellen), sowie einen Blogbeitrag. Eine Seite mit einem MDX-Element, das keine dieser Seiten rendert, kommt auf die Liste. Führen Sie die Spec mit dem Rest der Suite aus:
 
 ```sh
 bun run test:e2e:pr
@@ -25,9 +27,9 @@ bun run test:e2e:pr
 
 axe prüft Markup, nicht Bedeutung oder Tastaturabläufe. Diese Regeln decken den Rest ab und werden im Review durchgesetzt:
 
-- **Landmarks und Namen.** Jeder Bereich hat eine beschriftete Navigation (`<nav aria-label={t("navigationLabel")}>` in `admin-sidebar.tsx`), und Seitenleisten, das seitliche Auth-Panel und das Inhaltsverzeichnis der Dokumentation sind Landmarks.
+- **Landmarks und Namen.** Jeder Bereich hat eine beschriftete Navigation (`<nav aria-label={t("navigationLabel")}>` in `admin-sidebar.tsx`), und Seitenleisten, das seitliche Auth-Panel und das Inhaltsverzeichnis der Dokumentation sind Landmarks. Ein Codeblock ist nur dann eine Landmark, wenn er einen Titel hat, der ihn benennt; sein Scrollbereich ist in jedem Fall fokussierbar, damit er sich per Tastatur scrollen lässt.
 - **Echte Semantik.** Tabs haben Tab-Panels; eine Gruppe von Optionen, die keine Panels wechselt, ist eine Toggle-Gruppe, keine Tablist. Ein Link, der wie ein Button aussieht, ist ein `LinkButton`, niemals ein Link um einen Button herum.
-- **Labels an jedem Steuerelement.** Eingabefelder haben ein `FieldLabel`; ein visuell verborgenes Label verwendet `className="sr-only"`, wie das Newsletter-Feld. Buttons, die nur aus einem Icon bestehen, tragen ein `aria-label`, das ihr Ziel benennt, etwa `t("actions.delete", { title })`, und der sichtbare Text eines Steuerelements ist Teil seines zugänglichen Namens.
+- **Labels an jedem Steuerelement.** Eingabefelder haben ein `FieldLabel`; ein visuell verborgenes Label verwendet `className="sr-only"`, wie das Newsletter-Feld. Buttons, die nur aus einem Icon bestehen, tragen ein `aria-label`, das ihr Ziel benennt, etwa `t("actions.delete", { title })`, und der sichtbare Text eines Steuerelements ist Teil seines zugänglichen Namens. Eine Checkbox in einer MDX-Aufgabenliste wird über den Text ihres Eintrags benannt (`li` in `mdx.tsx`).
 - **Fehler werden mit dem Feld angesagt.** Jedes Eingabefeld setzt `aria-describedby` auf die ID seines Fehlers und `aria-invalid`, solange es ungültig ist; das Fehlerelement existiert nur, solange es einen Fehler gibt. Siehe [Formulare und Tabellen](/docs/conventions/forms-and-tables).
 - **Dekorative Inhalte sind verborgen.** Icons neben Text erhalten `aria-hidden`, ebenso rein visuelle Punkte, Trennzeichen und Videos in Endlosschleife ohne Beschriftung.
 - **Überschriften in Reihenfolge.** Jede Seite hat genau ein `h1`; ein Kartentitel, der einen Abschnitt beginnt, rendert ein `h2` in `CardTitle`, wie in `course-form.tsx`.
@@ -39,6 +41,7 @@ axe prüft Markup, nicht Bedeutung oder Tastaturabläufe. Diese Regeln decken de
 ## Kontrast und Bewegung
 
 - Text verwendet die Farb-Tokens des Themes. `text-muted-foreground` erreicht in beiden Themes 4,5:1; hellere Varianten wie `text-muted-foreground/60` sind nur für deaktivierte Chips, dekorative Icons und Trennzeichen gedacht.
+- Codeblöcke verwenden die Shiki-Themes GitHub Light und GitHub Dark. `fumadocs.config.ts` ersetzt die beiden Token-Farben, die auf dem Hintergrund des Codeblocks unter 4,5:1 lagen: Das Orange `#e36209` von GitHub Light wird zu `#c55300`, das Kommentargrau `#6a737d` von GitHub Dark zu `#78828c`.
 - Bewegung respektiert die Einstellungen des Lesers: `MotionConfig reducedMotion="user"` in `MotionProvider`, `motion-reduce:`-Varianten bei Übergängen, `scroll-behavior: auto` unter `prefers-reduced-motion`, und die Videos der Landingpage starten für Leser, die reduzierte Bewegung wünschen, nicht automatisch (`concept-loop.tsx`).
 
 ## Verwandte Seiten

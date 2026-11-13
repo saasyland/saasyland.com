@@ -3,7 +3,7 @@ title: "Dostępność"
 description: "Każda strona spełnia WCAG 2.2 AA w obu motywach, co sprawdza axe w zestawie testów przeglądarkowych, a do tego obowiązują reguły dotyczące klawiatury i czytników ekranu, których axe nie widzi."
 ---
 
-Każda strona publiczna, wpis na blogu oraz każda strona obszarów roboczych administratora i klienta spełniają WCAG 2.2 na poziomie AA w jasnym i ciemnym motywie. To wymóg wydania, a nie cel: `e2e/specs/accessibility.spec.ts` skanuje je przy każdym pull requeście i kończy się błędem przy każdym naruszeniu.
+Każda strona publiczna, każda strona dokumentacji, każdy wpis na blogu oraz każda strona obszarów roboczych administratora i klienta spełniają WCAG 2.2 na poziomie AA w jasnym i ciemnym motywie. To wymóg wydania, a nie cel: `e2e/specs/accessibility.spec.ts` skanuje je przy każdym pull requeście i kończy się błędem przy każdym naruszeniu.
 
 ## Skan
 
@@ -15,7 +15,9 @@ const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best
 export const COLOR_SCHEMES = ["light", "dark"] as const
 ```
 
-Przed skanem `accessibilityViolations` przewija całą stronę, aby widoczne były sekcje pojawiające się przy przewijaniu, i czeka na zakończenie skończonych animacji, aby kontrast był mierzony na ustabilizowanej stronie. Nową stronę dodaje się do `PUBLIC_PAGES` lub `WORKSPACE_PAGES` w `accessibility.spec.ts` w tej samej zmianie, która dodaje trasę. Uruchamiaj tę specyfikację razem z resztą zestawu testów:
+Przed skanem `accessibilityViolations` przewija całą stronę, aby widoczne były sekcje pojawiające się przy przewijaniu, i czeka na zakończenie skończonych animacji, aby kontrast był mierzony na ustabilizowanej stronie. Nową stronę dodaje się do `PUBLIC_PAGES` lub `WORKSPACE_PAGES` w `accessibility.spec.ts` w tej samej zmianie, która dodaje trasę, a każda strona musi się wczytać ze statusem powodzenia przed skanem, więc strona o zmienionej nazwie kończy test niepowodzeniem, zamiast skanować stronę 404.
+
+Strony dokumentacji i wpisy na blogu współdzielą układy i komponenty MDX z `mdx.tsx`, dlatego specyfikacja nie skanuje wszystkich, tylko zestaw stron, które razem renderują każdy używany element: stronę główną dokumentacji (callouty, karty, zakładki, kroki, akordeony i komponenty shadcn), każdą stronę sekcji Konwencje, po jednej stronie z każdej pozostałej sekcji dokumentacji, w tym listę kontrolną bezpieczeństwa (listy zadań) i `/docs/reference/routes` (długie tabele), oraz jeden wpis na blogu. Strona, która używa elementu MDX nierenderowanego przez żadną z nich, trafia na listę. Uruchamiaj tę specyfikację razem z resztą zestawu testów:
 
 ```sh
 bun run test:e2e:pr
@@ -25,9 +27,9 @@ bun run test:e2e:pr
 
 axe sprawdza znaczniki, a nie znaczenie ani przepływ klawiatury. Resztę obejmują poniższe reguły, których pilnuje przegląd kodu:
 
-- **Punkty orientacyjne i nazwy.** Każdy obszar roboczy ma opisaną nawigację (`<nav aria-label={t("navigationLabel")}>` w `admin-sidebar.tsx`), a paski boczne, panel boczny uwierzytelniania i spis treści dokumentacji są punktami orientacyjnymi.
+- **Punkty orientacyjne i nazwy.** Każdy obszar roboczy ma opisaną nawigację (`<nav aria-label={t("navigationLabel")}>` w `admin-sidebar.tsx`), a paski boczne, panel boczny uwierzytelniania i spis treści dokumentacji są punktami orientacyjnymi. Blok kodu jest punktem orientacyjnym tylko wtedy, gdy ma tytuł, który go nazywa; jego obszar przewijania w każdym przypadku może otrzymać fokus, więc da się go przewijać klawiaturą.
 - **Prawdziwa semantyka.** Zakładki mają panele zakładek; zestaw opcji, który nie przełącza paneli, jest grupą przełączników, a nie listą zakładek. Link, który wygląda jak przycisk, to `LinkButton`, nigdy link owinięty wokół przycisku.
-- **Etykiety przy każdej kontrolce.** Pola wejściowe mają `FieldLabel`; etykieta ukryta wizualnie używa `className="sr-only"`, tak jak pole newslettera. Przyciski złożone wyłącznie z ikony mają `aria-label`, który nazywa ich cel, np. `t("actions.delete", { title })`, a widoczny tekst kontrolki jest częścią jej dostępnej nazwy.
+- **Etykiety przy każdej kontrolce.** Pola wejściowe mają `FieldLabel`; etykieta ukryta wizualnie używa `className="sr-only"`, tak jak pole newslettera. Przyciski złożone wyłącznie z ikony mają `aria-label`, który nazywa ich cel, np. `t("actions.delete", { title })`, a widoczny tekst kontrolki jest częścią jej dostępnej nazwy. Pole wyboru listy zadań w MDX otrzymuje nazwę z tekstu swojego elementu (`li` w `mdx.tsx`).
 - **Błędy ogłaszane razem z polem.** Każde pole wejściowe ustawia `aria-describedby` na ID swojego błędu oraz `aria-invalid`, gdy jest nieprawidłowe; element błędu istnieje tylko wtedy, gdy występuje błąd. Zobacz [Formularze i tabele](/docs/conventions/forms-and-tables).
 - **Treść dekoracyjna jest ukryta.** Ikony obok tekstu dostają `aria-hidden`, podobnie jak czysto wizualne kropki, separatory i zapętlone filmy bez etykiety.
 - **Nagłówki po kolei.** Każda strona ma jeden `h1`; tytuł karty, który rozpoczyna sekcję, renderuje `h2` wewnątrz `CardTitle`, tak jak w `course-form.tsx`.
@@ -39,6 +41,7 @@ axe sprawdza znaczniki, a nie znaczenie ani przepływ klawiatury. Resztę obejmu
 ## Kontrast i ruch
 
 - Tekst używa tokenów kolorów motywu. `text-muted-foreground` spełnia współczynnik 4.5:1 w obu motywach; jaśniejsze warianty, takie jak `text-muted-foreground/60`, są przeznaczone wyłącznie dla wyłączonych chipów, ikon dekoracyjnych i separatorów.
+- Bloki kodu używają motywów GitHub Light i GitHub Dark z Shiki, a `fumadocs.config.ts` zastępuje dwa kolory tokenów, które na tle bloku kodu nie osiągały 4.5:1: pomarańczowy `#e36209` z GitHub Light zmienia się w `#c55300`, a szary kolor komentarzy `#6a737d` z GitHub Dark w `#78828c`.
 - Ruch respektuje ustawienia czytelnika: `MotionConfig reducedMotion="user"` w `MotionProvider`, warianty `motion-reduce:` w przejściach, `scroll-behavior: auto` przy `prefers-reduced-motion`, a filmy na stronie głównej nie odtwarzają się automatycznie u czytelników, którzy proszą o ograniczenie ruchu (`concept-loop.tsx`).
 
 ## Powiązane strony

@@ -3,7 +3,7 @@ title: "Accessibilità"
 description: "Ogni pagina soddisfa WCAG 2.2 AA in entrambi i temi, con verifica di axe nella suite nel browser, più le regole su tastiera e screen reader che axe non può vedere."
 ---
 
-Ogni pagina pubblica, un articolo del blog e ogni pagina delle aree di lavoro di amministrazione e dei clienti soddisfano WCAG 2.2 livello AA nel tema chiaro e in quello scuro. È un requisito di rilascio, non un obiettivo: `e2e/specs/accessibility.spec.ts` le analizza a ogni pull request e fallisce per qualsiasi violazione.
+Ogni pagina pubblica, ogni pagina della documentazione, ogni articolo del blog e ogni pagina delle aree di lavoro di amministrazione e dei clienti soddisfano WCAG 2.2 livello AA nel tema chiaro e in quello scuro. È un requisito di rilascio, non un obiettivo: `e2e/specs/accessibility.spec.ts` le analizza a ogni pull request e fallisce per qualsiasi violazione.
 
 ## La scansione
 
@@ -15,7 +15,9 @@ const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best
 export const COLOR_SCHEMES = ["light", "dark"] as const
 ```
 
-Prima della scansione, `accessibilityViolations` scorre l'intera pagina, così le sezioni che compaiono in dissolvenza durante lo scorrimento sono visibili, e attende la fine delle animazioni finite, così il contrasto viene misurato sulla pagina stabilizzata. Una nuova pagina viene aggiunta a `PUBLIC_PAGES` o `WORKSPACE_PAGES` in `accessibility.spec.ts` nella stessa modifica che aggiunge la route. Esegui la spec con il resto della suite:
+Prima della scansione, `accessibilityViolations` scorre l'intera pagina, così le sezioni che compaiono in dissolvenza durante lo scorrimento sono visibili, e attende la fine delle animazioni finite, così il contrasto viene misurato sulla pagina stabilizzata. Una nuova pagina viene aggiunta a `PUBLIC_PAGES` o `WORKSPACE_PAGES` in `accessibility.spec.ts` nella stessa modifica che aggiunge la route, e ogni pagina deve caricarsi con uno stato di successo prima della scansione, così una pagina rinominata fa fallire il test invece di far analizzare la pagina 404.
+
+Le pagine della documentazione e gli articoli del blog condividono i layout e i componenti MDX di `mdx.tsx`, quindi la spec non li analizza tutti, ma un insieme di pagine che insieme rendono ogni elemento usato: la home della documentazione (callout, card, tab, passaggi, accordion e i componenti shadcn), ogni pagina di Convenzioni, una pagina di ciascuna delle altre sezioni della documentazione, tra cui la checklist di sicurezza (liste di attività) e `/docs/reference/routes` (tabelle lunghe), e un articolo del blog. Una pagina che usa un elemento MDX che nessuna di queste rende entra nell'elenco. Esegui la spec con il resto della suite:
 
 ```sh
 bun run test:e2e:pr
@@ -25,9 +27,9 @@ bun run test:e2e:pr
 
 axe verifica il markup, non il significato o il flusso della tastiera. Queste regole coprono il resto e vengono fatte rispettare in revisione:
 
-- **Landmark e nomi.** Ogni area di lavoro ha una navigazione con etichetta (`<nav aria-label={t("navigationLabel")}>` in `admin-sidebar.tsx`), e le barre laterali, il pannello laterale dell'autenticazione e l'indice della documentazione sono landmark.
+- **Landmark e nomi.** Ogni area di lavoro ha una navigazione con etichetta (`<nav aria-label={t("navigationLabel")}>` in `admin-sidebar.tsx`), e le barre laterali, il pannello laterale dell'autenticazione e l'indice della documentazione sono landmark. Un blocco di codice è un landmark solo quando ha un titolo, che gli dà il nome; la sua area di scorrimento è comunque focalizzabile, così si può scorrere con la tastiera.
 - **Semantica reale.** Le schede hanno pannelli di scheda; un insieme di opzioni che non cambia pannello è un gruppo di toggle, non una tablist. Un link che sembra un pulsante è un `LinkButton`, mai un link che avvolge un pulsante.
-- **Etichette su ogni controllo.** Gli input hanno un `FieldLabel`; un'etichetta nascosta visivamente usa `className="sr-only"`, come fa il campo della newsletter. I pulsanti con sola icona hanno un `aria-label` che nomina il loro obiettivo, come `t("actions.delete", { title })`, e il testo visibile di un controllo fa parte del suo nome accessibile.
+- **Etichette su ogni controllo.** Gli input hanno un `FieldLabel`; un'etichetta nascosta visivamente usa `className="sr-only"`, come fa il campo della newsletter. I pulsanti con sola icona hanno un `aria-label` che nomina il loro obiettivo, come `t("actions.delete", { title })`, e il testo visibile di un controllo fa parte del suo nome accessibile. La casella di una lista di attività in MDX prende il nome dal testo della sua voce (`li` in `mdx.tsx`).
 - **Errori annunciati insieme al campo.** Ogni input imposta `aria-describedby` sull'ID del proprio errore e `aria-invalid` finché non è valido; l'elemento di errore esiste solo finché c'è un errore. Vedi [Form e tabelle](/docs/conventions/forms-and-tables).
 - **Il contenuto decorativo è nascosto.** Le icone accanto al testo ricevono `aria-hidden`, così come i punti puramente visivi, i separatori e i video in loop senza etichetta.
 - **Titoli in ordine.** Ogni pagina ha un solo `h1`; il titolo di una card che apre una sezione rende un `h2` dentro `CardTitle`, come fa `course-form.tsx`.
@@ -39,6 +41,7 @@ axe verifica il markup, non il significato o il flusso della tastiera. Queste re
 ## Contrasto e animazioni
 
 - Il testo usa i token di colore del tema. `text-muted-foreground` supera 4,5:1 in entrambi i temi; le varianti più chiare come `text-muted-foreground/60` sono riservate a chip disattivati, icone decorative e separatori.
+- I blocchi di codice usano i temi GitHub Light e GitHub Dark di Shiki, e `fumadocs.config.ts` sostituisce i due colori dei token che restavano sotto 4,5:1 sullo sfondo del blocco di codice: l'arancione `#e36209` di GitHub Light diventa `#c55300` e il grigio dei commenti `#6a737d` di GitHub Dark diventa `#78828c`.
 - Le animazioni rispettano le impostazioni del lettore: `MotionConfig reducedMotion="user"` in `MotionProvider`, varianti `motion-reduce:` sulle transizioni, `scroll-behavior: auto` con `prefers-reduced-motion`, e i video della landing page non partono automaticamente per i lettori che chiedono animazioni ridotte (`concept-loop.tsx`).
 
 ## Pagine correlate

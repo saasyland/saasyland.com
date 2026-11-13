@@ -3,7 +3,7 @@ title: "Acessibilidade"
 description: "Toda página atende à WCAG 2.2 AA nos dois temas, verificada pelo axe na suíte de navegador, além das regras de teclado e de leitor de tela que o axe não consegue enxergar."
 ---
 
-Toda página pública, um post do blog e todas as páginas dos workspaces de administração e do cliente atendem à WCAG 2.2 nível AA no tema claro e no escuro. Isso é um requisito de lançamento, não uma meta: `e2e/specs/accessibility.spec.ts` as varre em todo pull request e falha em qualquer violação.
+Toda página pública, toda página da documentação, todo post do blog e todas as páginas dos workspaces de administração e do cliente atendem à WCAG 2.2 nível AA no tema claro e no escuro. Isso é um requisito de lançamento, não uma meta: `e2e/specs/accessibility.spec.ts` as varre em todo pull request e falha em qualquer violação.
 
 ## A varredura
 
@@ -15,7 +15,9 @@ const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best
 export const COLOR_SCHEMES = ["light", "dark"] as const
 ```
 
-Antes da varredura, `accessibilityViolations` rola a página inteira, para que as seções que aparecem com fade ao rolar fiquem visíveis, e espera as animações finitas terminarem, para que o contraste seja medido na página já estável. Uma página nova é adicionada a `PUBLIC_PAGES` ou `WORKSPACE_PAGES` em `accessibility.spec.ts` na mesma alteração que adiciona a rota. Execute a spec com o restante da suíte:
+Antes da varredura, `accessibilityViolations` rola a página inteira, para que as seções que aparecem com fade ao rolar fiquem visíveis, e espera as animações finitas terminarem, para que o contraste seja medido na página já estável. Uma página nova é adicionada a `PUBLIC_PAGES` ou `WORKSPACE_PAGES` em `accessibility.spec.ts` na mesma alteração que adiciona a rota, e cada página precisa carregar com um status de sucesso antes da varredura, para que uma página renomeada faça o teste falhar em vez de varrer a página 404.
+
+As páginas da documentação e os posts do blog compartilham os layouts e os componentes MDX de `mdx.tsx`, então a spec não varre todos eles, e sim um conjunto de páginas que, juntas, renderizam todos os elementos usados: a página inicial da documentação (callouts, cards, abas, etapas, acordeões e os componentes do shadcn), todas as páginas de Convenções, uma página de cada uma das outras seções da documentação, incluindo o checklist de segurança (listas de tarefas) e `/docs/reference/routes` (tabelas longas), e um post do blog. Uma página que usa um elemento MDX que nenhuma delas renderiza entra na lista. Execute a spec com o restante da suíte:
 
 ```sh
 bun run test:e2e:pr
@@ -25,9 +27,9 @@ bun run test:e2e:pr
 
 O axe verifica a marcação, não o significado nem o fluxo pelo teclado. Estas regras cobrem o resto e são cobradas na revisão:
 
-- **Landmarks e nomes.** Cada workspace tem uma navegação com rótulo (`<nav aria-label={t("navigationLabel")}>` em `admin-sidebar.tsx`), e as barras laterais, o painel lateral de autenticação e o sumário da documentação são landmarks.
+- **Landmarks e nomes.** Cada workspace tem uma navegação com rótulo (`<nav aria-label={t("navigationLabel")}>` em `admin-sidebar.tsx`), e as barras laterais, o painel lateral de autenticação e o sumário da documentação são landmarks. Um bloco de código só é um landmark quando tem um título, que o nomeia; a área de rolagem dele é focável em qualquer caso, para que o teclado possa rolá-la.
 - **Semântica real.** As abas têm painéis de abas; um conjunto de opções que não alterna painéis é um grupo de alternância, não uma lista de abas. Um link com aparência de botão é um `LinkButton`, nunca um link envolvendo um botão.
-- **Rótulos em todo controle.** Os inputs têm um `FieldLabel`; um rótulo visualmente oculto usa `className="sr-only"`, como faz o campo da newsletter. Botões só com ícone levam um `aria-label` que nomeia o seu alvo, como `t("actions.delete", { title })`, e o texto visível de um controle faz parte do seu nome acessível.
+- **Rótulos em todo controle.** Os inputs têm um `FieldLabel`; um rótulo visualmente oculto usa `className="sr-only"`, como faz o campo da newsletter. Botões só com ícone levam um `aria-label` que nomeia o seu alvo, como `t("actions.delete", { title })`, e o texto visível de um controle faz parte do seu nome acessível. A caixa de seleção de uma lista de tarefas em MDX recebe o nome do texto do seu item (`li` em `mdx.tsx`).
 - **Erros anunciados com o campo.** Todo input define `aria-describedby` com o ID do seu erro e `aria-invalid` enquanto é inválido; o elemento de erro só existe enquanto há um erro. Veja [Formulários e tabelas](/docs/conventions/forms-and-tables).
 - **Conteúdo decorativo fica oculto.** Ícones ao lado de texto recebem `aria-hidden`, assim como pontos, separadores puramente visuais e vídeos em loop sem rótulo.
 - **Títulos em ordem.** Cada página tem um único `h1`; um título de card que inicia uma seção renderiza um `h2` dentro de `CardTitle`, como faz `course-form.tsx`.
@@ -39,6 +41,7 @@ O axe verifica a marcação, não o significado nem o fluxo pelo teclado. Estas 
 ## Contraste e movimento
 
 - O texto usa os tokens de cor do tema. `text-muted-foreground` atinge o contraste de 4,5:1 nos dois temas; variantes mais claras como `text-muted-foreground/60` são apenas para chips desativados, ícones decorativos e separadores.
+- Os blocos de código usam os temas GitHub Light e GitHub Dark do Shiki, e `fumadocs.config.ts` substitui as duas cores de token que ficavam abaixo de 4,5:1 sobre o fundo do bloco de código: o laranja `#e36209` do GitHub Light passa a `#c55300` e o cinza dos comentários `#6a737d` do GitHub Dark passa a `#78828c`.
 - O movimento respeita as configurações do leitor: `MotionConfig reducedMotion="user"` em `MotionProvider`, variantes `motion-reduce:` nas transições, `scroll-behavior: auto` sob `prefers-reduced-motion`, e os vídeos da landing page não são reproduzidos automaticamente para quem pede movimento reduzido (`concept-loop.tsx`).
 
 ## Páginas relacionadas

@@ -5,12 +5,13 @@ description: "Obszar /app dla zalogowanych użytkowników: przegląd, strona lic
 
 ## Layout
 
-`src/routes/app.tsx` chroni obszar za pomocą `requireSignedIn` i wstępnie ładuje jego przestrzenie nazw:
+`src/routes/app.tsx` waliduje parametry wyszukiwania każdej strony w obszarze, chroni go za pomocą `requireSignedIn` i wstępnie ładuje jego przestrzenie nazw:
 
 ```tsx
 const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
 
 export const Route = createFileRoute("/app")({
+  validateSearch: appSearchSchema,
   beforeLoad: requireSignedIn,
   component: AppLayout,
   loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
@@ -23,11 +24,24 @@ export const Route = createFileRoute("/app")({
 
 ## Strony
 
-| Trasa          | Zawartość                                                                                                                                                                 |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/app`         | `CheckoutOptions` bez licencji, w przeciwnym razie `LicenseStatusCard` (plan, status i link do strony licencji); linki do dokumentacji i do pomocy przez e-mail.          |
-| `/app/license` | `CheckoutOptions` bez licencji, w przeciwnym razie `LicenseCard` (klucz, polecenie instalacji, link do portalu klienta) oraz, gdy Polar wyda klucz, `LicenseActivations`. |
+| Trasa          | Zawartość                                                                                                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/app`         | `LicenseOffer` bez aktywnej licencji, w przeciwnym razie `LicenseStatusCard` (plan, status i link do strony licencji); linki do dokumentacji i do pomocy przez e-mail.                                        |
+| `/app/license` | `LicenseOffer` bez aktywnej licencji, w przeciwnym razie `LicenseCard` (klucz, polecenie instalacji, link do portalu klienta, informacja, jak zmienić plan) oraz, gdy Polar wyda klucz, `LicenseActivations`. |
 
-Oba loadery wstępnie ładują `currentLicenseQuery`; `/app/license` ładuje też `licenseActivationsQuery`. Płatności, webhooki i stany licencji opisuje strona [Płatności i licencje](/docs/features/payments).
+`LicenseOffer` (`src/presentation/components/custom/app/license-offer.tsx`) wykorzystuje `PricingTiers` ze strony głównej z przyciskiem `CheckoutButton` dla każdego planu, dodaje warunki zakupu (`CheckoutAgreement`) i kończy się blokiem `CourseUnlocks`: listą opublikowanych kursów z płatnymi lekcjami wraz z liczbą zablokowanych lekcji w każdym z nich, liczoną z D1 przez `getCatalogue`. Blok jest pomijany, dopóki żaden kurs nie ma płatnej lekcji. Licencja, za którą zwrócono pieniądze, zachowuje swoją kartę, a obok niej pojawia się oferta.
+
+`appSearchSchema` (`src/data/app.ts`) przyjmuje dwa opcjonalne parametry, oba ignorowane, gdy są nieprawidłowe:
+
+| Parametr     | Wartość                  | Efekt                                                                                                                                                 |
+| ------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tier`       | wartość z `LICENSE_TIER` | `ChosenTier` nad ofertą: plan, jego cena i przycisk **Przejdź do płatności**.                                                                         |
+| `checkoutId` | UUID z Polar             | `CheckoutActivation` zamiast oferty, dopóki licencja nie jest aktywna, a potem podziękowanie. Zobacz [Płatności i licencje](/docs/features/payments). |
+
+Oba loadery wstępnie ładują `currentLicenseQuery` i katalog kursów; `/app/license` ładuje też `licenseActivationsQuery`. Płatności, webhooki i stany licencji opisuje strona [Płatności i licencje](/docs/features/payments).
+
+## Szkielety
+
+`AppOverviewPending` i `AppLicensePending` (`app-pending.tsx`) odwzorowują stan, który pokaże strona: odczytują parametry wyszukiwania przez `appSearchSchema` oraz licencję i katalog z pamięci podręcznej klienta zapytań, a następnie rysują panel aktywacji, wybrany plan, siatkę planów z jednym wierszem na każdy kurs z płatnymi lekcjami albo karty licencji.
 
 W `/app` nie ma historii rozliczeń, ustawień konta ani ekranów kursów.

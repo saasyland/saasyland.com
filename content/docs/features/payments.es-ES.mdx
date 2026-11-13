@@ -9,28 +9,44 @@ Los pagos pasan por Polar con el plugin `@polar-sh/better-auth` en `auth.server.
 polarPlugin({
   client: polarCore,
   use: [
-    checkout({
-      authenticatedUsersOnly: true,
-      products: POLAR_CHECKOUT_PRODUCTS,
-      successUrl: ROUTES.APP,
-    }),
+    checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
     portal(),
     webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
   ],
 }),
 ```
 
+El propio `POST /api/auth/checkout` del plugin figura en los `disabledPaths` de Better Auth (`ROUTES.API_AUTH.CHECKOUT`), así que responde 404 por HTTP. Todo pago empieza en la función de servidor `startCheckout`, que llama a `auth.api.checkout` en el servidor tras sus propias comprobaciones.
+
 `src/integrations/polar/polar.config.ts` crea `polarCore` a partir de `POLAR_ACCESS_TOKEN` y `POLAR_SERVER`, que es el que usa el plugin, y `polar`, los servicios de descuentos, claves de licencia y pedidos construidos sobre él. `POLAR_ORGANIZATION_ID` acota a la organización la búsqueda de descuentos y la desactivación de claves de licencia. `POLAR_CHECKOUT_PRODUCTS` asocia los identificadores de nivel `core`, `complete` y `agency` a `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` y `POLAR_PRODUCT_ID_AGENCY`.
 
 ## Pago
 
-Un usuario con sesión y sin licencia ve `CheckoutOptions` en `/app` y `/app/license`. Llama a `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`), que:
+Un usuario con sesión y sin una licencia activa ve `LicenseOffer` en `/app` y `/app/license`: las tarjetas de niveles de la página de inicio (`PricingTiers`, consulta [Página de inicio](/docs/features/landing-page)) con un `CheckoutButton` para cada nivel, la casilla de precios regionales, las condiciones de compra y las lecciones de los cursos que desbloquea la compra. `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`) recibe `{ locale, tier }` y:
 
-1. busca un descuento regional con `pppDiscountId` (`license.ppp.ts`): el porcentaje del país de `cf-ipcountry`, comparado con los descuentos porcentuales automáticos activos en Polar, y lo omite cuando la cookie `regional_pricing` vale `off`;
-2. crea un pago de Polar para el nivel con los códigos de descuento desactivados, con el referido de afiliado en `metadata` cuando el visitante llegó a través de un enlace de afiliado (consulta [Programa de afiliados](/docs/features/affiliates));
-3. devuelve la URL de pago, que abre el navegador.
+1. rechaza la petición con `AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)` cuando la cuenta ya tiene una licencia `active`. El botón muestra `errors.codes.LICENSE_ALREADY_ACTIVE` y vuelve a cargar la licencia, de modo que una página que se quedó abierta desde la compra pasa a mostrar la licencia;
+2. busca un descuento regional con `pppDiscountId` (`license.ppp.ts`): el porcentaje del país de `cf-ipcountry`, comparado con los descuentos porcentuales automáticos activos en Polar, y lo omite cuando la cookie `regional_pricing` vale `off`;
+3. crea un pago de Polar para el nivel con los códigos de descuento desactivados, el referido de afiliado en `metadata` cuando el visitante llegó a través de un enlace de afiliado (consulta [Programa de afiliados](/docs/features/affiliates)) y la URL de éxito `/app?checkoutId={CHECKOUT_ID}` en el idioma del comprador (`localizePathname`). Polar sustituye `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) por el ID del pago;
+4. devuelve la URL de pago, que abre el navegador.
 
-Un pago completado vuelve a `/app`.
+Una licencia reembolsada (`revoked`) no impide una nueva compra.
+
+### Subir de nivel
+
+Una cuenta tiene una sola licencia, y un pedido pagado más reciente sustituye el nivel del anterior (`grantLicense`). Los productos de Polar no tienen precios de mejora, así que una mejora hecha por el propio cliente le cobraría el precio completo del nivel superior además de la primera compra, y comprar un nivel inferior bajaría el nivel de la licencia. Por eso el pago se rechaza mientras haya una licencia activa, y `LicenseCard` indica a los titulares que escriban al soporte para cambiar de nivel. Crea en Polar productos o descuentos de mejora antes de permitir un segundo pago.
+
+### Un nivel elegido antes del registro
+
+Cada botón de nivel de la página de inicio enlaza a `/auth/sign-up?redirect=/app?tier=<tier>`. La ruta de vuelta se conserva durante el registro, la verificación del correo y el inicio de sesión (`useAuthRedirect`), y un visitante que ya tiene la sesión iniciada va directamente a ella. El layout `/app` valida `tier` con `LICENSE_TIER` mediante `appSearchSchema` (`src/data/app.ts`, construido con `searchParam`), y tanto `/app` como `/app/license` muestran `ChosenTier` encima de las tarjetas de niveles: el nivel, su precio con el descuento regional y un botón **Continuar al pago**. Una lección bloqueada de un curso enlaza a `/app/license?tier=complete`.
+
+### Después del pago
+
+Polar devuelve al comprador a `/app?checkoutId=<id>`, normalmente antes de que el webhook `order.paid` haya concedido la licencia. Mientras `checkoutId` está presente y la licencia no está activa, la página oculta las tarjetas de niveles y muestra `CheckoutActivation`, que vuelve a consultar `currentLicenseQuery` cada 2 segundos (`ACTIVATION_POLL_MS`):
+
+- cuando la licencia está activa, da las gracias al comprador y la licencia aparece debajo;
+- tras 60 segundos (`ACTIVATION_TIMEOUT_MS`) sin licencia, deja de consultar e indica que Polar aún no ha confirmado el pago, con el correo de soporte, el ID del pago como referencia y un botón **Comprobar de nuevo**.
+
+Un `checkoutId` que no es un UUID se ignora.
 
 ## Webhooks y licencias
 
@@ -42,7 +58,7 @@ Polar envía los eventos a `/api/auth/polar/webhooks`, verificados con `POLAR_WE
 
 ## Pantallas de cliente
 
-`/app/license` muestra `LicenseCard` (nivel, clave, comando de instalación y un enlace al portal de cliente de Polar en `/api/auth/customer/portal`) y `LicenseActivations`, que lista las activaciones de la clave en Polar y elimina una con `deactivateLicense`. Consulta [Aplicación de cliente](/docs/features/customer-app).
+`/app/license` muestra `LicenseCard` (nivel, clave, comando de instalación, un enlace al portal de cliente de Polar en `/api/auth/customer/portal` y el correo de soporte para cambiar de nivel) y `LicenseActivations`, que lista las activaciones de la clave en Polar y elimina una con `deactivateLicense`. Consulta [Aplicación de cliente](/docs/features/customer-app).
 
 ## Pantalla de administración (demostración)
 
@@ -50,5 +66,6 @@ Polar envía los eventos a `/api/auth/polar/webhooks`, verificados con `POLAR_WE
 
 ## Páginas relacionadas
 
-- [Página de inicio](/docs/features/landing-page) para los precios regionales de la sección de precios
+- [Página de inicio](/docs/features/landing-page) para las tarjetas de niveles y los precios regionales
+- [Aplicación de cliente](/docs/features/customer-app) para las pantallas en torno al pago
 - [Variables de entorno](/docs/getting-started/environment-variables)

@@ -6,6 +6,7 @@ import { useTranslations } from "use-intl/react"
 
 import type { Course } from "~/src/modules/course/course.types"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
 import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
 
@@ -33,7 +34,7 @@ export const UnlockLink = ({ access, signedIn }: LockedLessonProps): JSX.Element
 
   if (signedIn) {
     return (
-      <Link className={CTA_CLASSNAME} to={ROUTES.APP_LICENSE}>
+      <Link className={CTA_CLASSNAME} search={{ tier: LICENSE_TIER.COMPLETE }} to={ROUTES.APP_LICENSE}>
         {t("paid.cta")}
       </Link>
     )

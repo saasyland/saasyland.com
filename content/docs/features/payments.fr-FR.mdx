@@ -9,28 +9,44 @@ Les paiements passent par Polar avec le plugin `@polar-sh/better-auth` dans `aut
 polarPlugin({
   client: polarCore,
   use: [
-    checkout({
-      authenticatedUsersOnly: true,
-      products: POLAR_CHECKOUT_PRODUCTS,
-      successUrl: ROUTES.APP,
-    }),
+    checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
     portal(),
     webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
   ],
 }),
 ```
 
+Le `POST /api/auth/checkout` propre au plugin figure dans les `disabledPaths` de Better Auth (`ROUTES.API_AUTH.CHECKOUT`), il répond donc 404 en HTTP. Chaque paiement commence dans la fonction serveur `startCheckout`, qui appelle `auth.api.checkout` côté serveur après ses propres vérifications.
+
 `src/integrations/polar/polar.config.ts` crée `polarCore` à partir de `POLAR_ACCESS_TOKEN` et `POLAR_SERVER`, que le plugin utilise, ainsi que `polar`, les services de remises, de clés de licence et de commandes construits dessus. `POLAR_ORGANIZATION_ID` restreint la recherche des remises et la désactivation des clés de licence. `POLAR_CHECKOUT_PRODUCTS` associe les identifiants d’offre `core`, `complete` et `agency` à `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` et `POLAR_PRODUCT_ID_AGENCY`.
 
 ## Paiement
 
-Un utilisateur connecté sans licence voit `CheckoutOptions` sur `/app` et `/app/license`. Il appelle `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`), qui :
+Un utilisateur connecté sans licence active voit `LicenseOffer` sur `/app` et `/app/license` : les cartes d’offres de la page d’accueil (`PricingTiers`, voir [Page d’accueil](/docs/features/landing-page)) avec un `CheckoutButton` pour chaque offre, la case des tarifs régionaux, les conditions d’achat et les leçons de cours que l’achat débloque. `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`) reçoit `{ locale, tier }` et :
 
-1. cherche une remise régionale avec `pppDiscountId` (`license.ppp.ts`) : le pourcentage du pays `cf-ipcountry`, comparé aux remises automatiques en pourcentage actives dans Polar, ignoré lorsque le cookie `regional_pricing` vaut `off` ;
-2. crée un paiement Polar pour l’offre avec les codes de réduction désactivés, en transmettant la recommandation d’affiliation dans `metadata` lorsque le visiteur est arrivé par un lien d’affiliation (voir [Programme d’affiliation](/docs/features/affiliates)) ;
-3. renvoie l’URL de paiement, que le navigateur ouvre.
+1. refuse avec `AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)` quand le compte a déjà une licence `active`. Le bouton affiche `errors.codes.LICENSE_ALREADY_ACTIVE` et actualise la licence, de sorte qu’une page restée ouverte depuis l’achat bascule sur la licence ;
+2. cherche une remise régionale avec `pppDiscountId` (`license.ppp.ts`) : le pourcentage du pays `cf-ipcountry`, comparé aux remises automatiques en pourcentage actives dans Polar, ignoré lorsque le cookie `regional_pricing` vaut `off` ;
+3. crée un paiement Polar pour l’offre avec les codes de réduction désactivés, la recommandation d’affiliation dans `metadata` lorsque le visiteur est arrivé par un lien d’affiliation (voir [Programme d’affiliation](/docs/features/affiliates)) et l’URL de succès `/app?checkoutId={CHECKOUT_ID}` dans la langue de l’acheteur (`localizePathname`). Polar remplace `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) par l’identifiant du paiement ;
+4. renvoie l’URL de paiement, que le navigateur ouvre.
 
-Un paiement réussi revient sur `/app`.
+Une licence remboursée (`revoked`) n’empêche pas un nouvel achat.
+
+### Mises à niveau
+
+Un compte a une seule licence, et une commande payée plus récente remplace l’offre de la précédente (`grantLicense`). Les produits Polar n’ont pas de prix de mise à niveau : une mise à niveau en libre-service facturerait le prix complet de l’offre supérieure en plus du premier achat, et acheter une offre inférieure rétrograderait la licence. Le paiement est donc refusé tant qu’une licence est active, et `LicenseCard` invite les titulaires à écrire à l’assistance pour changer d’offre. Créez des produits ou des remises de mise à niveau dans Polar avant d’autoriser un second paiement.
+
+### Une offre choisie avant l’inscription
+
+Chaque bouton d’offre de la page d’accueil renvoie vers `/auth/sign-up?redirect=/app?tier=<tier>`. Le chemin de retour est conservé pendant l’inscription, la vérification de l’e-mail et la connexion (`useAuthRedirect`), et un visiteur déjà connecté y va directement. Le layout `/app` valide `tier` par rapport à `LICENSE_TIER` avec `appSearchSchema` (`src/data/app.ts`, construit avec `searchParam`), et `/app` comme `/app/license` affichent `ChosenTier` au-dessus des cartes d’offres : l’offre, son prix avec la remise régionale et un bouton **Passer au paiement**. Une leçon de cours verrouillée renvoie vers `/app/license?tier=complete`.
+
+### Après le paiement
+
+Polar renvoie l’acheteur vers `/app?checkoutId=<id>`, généralement avant que le webhook `order.paid` ait accordé la licence. Tant que `checkoutId` est présent et que la licence n’est pas active, la page masque les cartes d’offres et affiche `CheckoutActivation`, qui recharge `currentLicenseQuery` toutes les 2 secondes (`ACTIVATION_POLL_MS`) :
+
+- une fois la licence active, il remercie l’acheteur et la licence apparaît en dessous ;
+- après 60 secondes (`ACTIVATION_TIMEOUT_MS`) sans licence, il arrête de vérifier et indique que Polar n’a pas encore confirmé le paiement, avec l’e-mail de l’assistance, l’identifiant du paiement comme référence et un bouton **Vérifier de nouveau**.
+
+Un `checkoutId` qui n’est pas un UUID est ignoré.
 
 ## Webhooks et licences
 
@@ -42,7 +58,7 @@ Polar envoie ses événements à `/api/auth/polar/webhooks`, vérifiés avec `PO
 
 ## Écrans client
 
-`/app/license` affiche `LicenseCard` (offre, clé, commande d’installation et lien vers le portail client Polar à `/api/auth/customer/portal`) et `LicenseActivations`, qui liste les activations de la clé dans Polar et en supprime une avec `deactivateLicense`. Voir [Application client](/docs/features/customer-app).
+`/app/license` affiche `LicenseCard` (offre, clé, commande d’installation, lien vers le portail client Polar à `/api/auth/customer/portal` et e-mail de l’assistance pour changer d’offre) et `LicenseActivations`, qui liste les activations de la clé dans Polar et en supprime une avec `deactivateLicense`. Voir [Application client](/docs/features/customer-app).
 
 ## Écran d’administration (démo)
 
@@ -50,5 +66,6 @@ Polar envoie ses événements à `/api/auth/polar/webhooks`, vérifiés avec `PO
 
 ## Pages associées
 
-- [Page d’accueil](/docs/features/landing-page) pour les prix régionaux de la section tarifs
+- [Page d’accueil](/docs/features/landing-page) pour les cartes d’offres et les prix régionaux
+- [Application client](/docs/features/customer-app) pour les écrans autour du paiement
 - [Variables d’environnement](/docs/getting-started/environment-variables)

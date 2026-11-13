@@ -31,7 +31,7 @@ describe("license schema", () => {
 
   it("accepts a tier the checkout can start", () => {
     expect.hasAssertions()
-    expect(licenseZodSchemas.startCheckout.safeParse({ tier: LICENSE_TIER.COMPLETE }).success).toBe(true)
-    expect(licenseZodSchemas.startCheckout.safeParse({ tier: "enterprise" }).success).toBe(false)
+    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", tier: LICENSE_TIER.COMPLETE }).success).toBe(true)
+    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", tier: "enterprise" }).success).toBe(false)
   })
 })

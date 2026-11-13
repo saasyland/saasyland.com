@@ -68,6 +68,7 @@ export const auth = betterAuth({
   appName: APP_NAME,
   baseURL: { allowedHosts: appHostsForMode(import.meta.env.MODE) },
   database: drizzleAdapter(db, { provider: "sqlite", schema }),
+  disabledPaths: [ROUTES.API_AUTH.CHECKOUT],
   emailAndPassword: {
     enabled: true,
     maxPasswordLength: PASSWORD_MAX_LENGTH,
@@ -97,11 +98,7 @@ export const auth = betterAuth({
     polarPlugin({
       client: polarCore,
       use: [
-        checkout({
-          authenticatedUsersOnly: true,
-          products: POLAR_CHECKOUT_PRODUCTS,
-          successUrl: ROUTES.APP,
-        }),
+        checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
         portal(),
         webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
       ],

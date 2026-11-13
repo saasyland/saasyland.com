@@ -11,8 +11,11 @@ import * as authServer from "~/src/integrations/better-auth/auth.server"
 import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import * as ppp from "~/src/modules/license/license.ppp"
+import type { License } from "~/src/modules/license/license.types"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
+import * as licenses from "~/src/modules/license/use-cases/get-license"
 import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
 
 const HEADERS = new Headers()
@@ -30,13 +33,28 @@ vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerMo
   getRequest: vi.fn(() => new Request("http://127.0.0.1:3000/", { headers: HEADERS })),
 }))
 
-const signedIn = (): void => {
+const ownedLicense = (status: License["select"]["status"]): License["select"] => ({
+  createdAt: new Date("2026-09-24T10:00:00Z"),
+  id: "owned",
+  key: "key",
+  polarCustomerId: "customer",
+  polarLicenseKeyId: "polar-license",
+  polarOrderId: "order",
+  purchaseCreatedAt: new Date("2026-09-24T10:00:00Z"),
+  status,
+  tier: LICENSE_TIER.CORE,
+  updatedAt: new Date("2026-09-24T10:00:00Z"),
+  userId: USER_ID,
+})
+
+const signedIn = (license?: License["select"]) => {
   getSessionMock.mockReset()
   checkoutMock.mockReset()
   vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
   vi.spyOn(authServer.auth.api, "checkout").mockImplementation(checkoutMock)
   getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
   checkoutMock.mockResolvedValue({ redirect: true, url: CHECKOUT_URL })
+  return vi.spyOn(licenses, "getLicense").mockResolvedValue(license)
 }
 
 afterEach(() => {
@@ -48,22 +66,47 @@ describe("start-checkout", () => {
     signedIn()
     const discount = vi.spyOn(ppp, "pppDiscountId").mockResolvedValue("regional-discount-30")
 
-    await expect(executeMutation(startCheckoutMutation, { tier: "agency" })).resolves.toEqual({ url: CHECKOUT_URL })
+    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.AGENCY })).resolves.toEqual({
+      url: CHECKOUT_URL,
+    })
 
     expect(discount).toHaveBeenCalledExactlyOnceWith(HEADERS, POLAR_PRODUCT_IDS.agency)
     expect(checkoutMock).toHaveBeenCalledWith({
-      body: { allow_discount_codes: false, discount_id: "regional-discount-30", slug: "agency" },
+      body: { allow_discount_codes: false, discount_id: "regional-discount-30", slug: LICENSE_TIER.AGENCY },
       headers: HEADERS,
     })
   })
 
   it("opens a hosted checkout for the requested tier", async () => {
     expect.hasAssertions()
-    signedIn()
+    const lookup = signedIn()
 
-    await expect(executeMutation(startCheckoutMutation, { tier: "complete" })).resolves.toMatchObject({ url: CHECKOUT_URL })
+    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.COMPLETE })).resolves.toMatchObject({ url: CHECKOUT_URL })
 
-    expect(checkoutMock).toHaveBeenCalledWith({ body: { allow_discount_codes: false, slug: "complete" }, headers: HEADERS })
+    expect(lookup).toHaveBeenCalledExactlyOnceWith(USER_ID)
+    expect(checkoutMock).toHaveBeenCalledWith({ body: { allow_discount_codes: false, slug: LICENSE_TIER.COMPLETE }, headers: HEADERS })
+  })
+
+  it("refuses a second checkout while the account holds an active license", async () => {
+    expect.hasAssertions()
+    signedIn(ownedLicense(LICENSE_STATUS.ACTIVE))
+    const discount = vi.spyOn(ppp, "pppDiscountId")
+
+    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.AGENCY })).rejects.toThrow(ERROR_CODES.LICENSE_ALREADY_ACTIVE)
+
+    expect(discount).not.toHaveBeenCalled()
+    expect(checkoutMock).not.toHaveBeenCalled()
+  })
+
+  it("lets an account whose license was refunded buy again", async () => {
+    expect.hasAssertions()
+    signedIn(ownedLicense(LICENSE_STATUS.REVOKED))
+
+    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.CORE })).resolves.toEqual({
+      url: CHECKOUT_URL,
+    })
+
+    expect(checkoutMock).toHaveBeenCalledOnce()
   })
 
   it("refuses a tier this app does not sell", () => {
@@ -79,6 +122,6 @@ describe("start-checkout", () => {
     signedIn()
     getSessionMock.mockResolvedValue(JSON_NULL)
 
-    await expect(executeMutation(startCheckoutMutation, { tier: "core" })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
+    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.CORE })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   })
 })

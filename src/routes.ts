@@ -25,6 +25,7 @@ export const ROUTES = {
     CALLBACK: "/callback",
     CHANGE_EMAIL: "/change-email",
     CHANGE_PASSWORD: "/change-password",
+    CHECKOUT: "/checkout",
     GET_SESSION: "/get-session",
     POLAR_WEBHOOKS: "/polar/webhooks",
     REQUEST_PASSWORD_RESET: "/request-password-reset",

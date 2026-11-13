@@ -67,6 +67,7 @@ export const auth = betterAuth({
   appName: APP_NAME,
   baseURL: { allowedHosts: appHostsForMode(import.meta.env.MODE) },
   database: drizzleAdapter(db, { provider: "sqlite", schema }),
+  disabledPaths: [ROUTES.API_AUTH.CHECKOUT],
   emailAndPassword: {
     enabled: true,
     maxPasswordLength: PASSWORD_MAX_LENGTH,

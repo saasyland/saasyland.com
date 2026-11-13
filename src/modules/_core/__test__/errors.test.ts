@@ -26,6 +26,7 @@ describe("app error", () => {
       "CONFLICT",
       "FORBIDDEN",
       "INTERNAL_ERROR",
+      "LICENSE_ALREADY_ACTIVE",
       "NOT_FOUND",
       "TOO_MANY_REQUESTS",
       "UNAUTHORIZED",

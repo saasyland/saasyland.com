@@ -60,6 +60,14 @@ beforeEach(() => {
       title: slug || "Introduction",
     }),
   )
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      observe = vi.fn()
+      unobserve = vi.fn()
+      disconnect = vi.fn()
+    },
+  )
   vi.stubGlobal("scrollTo", vi.fn())
   vi.stubGlobal(
     "matchMedia",

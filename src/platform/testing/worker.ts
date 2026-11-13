@@ -1,15 +1,23 @@
-import { getSentEmails, installProviderMocks } from "~/src/platform/testing/mocks/providers"
+import type * as providersModuleType from "~/src/platform/testing/mocks/providers"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
 import type * as applicationModuleType from "~/src/server"
 
-installProviderMocks()
-
+let providersModule: Promise<typeof providersModuleType> | null = null
 let applicationModule: Promise<typeof applicationModuleType> | null = null
+
+const installProviders = async (): Promise<typeof providersModuleType> => {
+  const providers = await import("~/src/platform/testing/mocks/providers")
+  providers.installProviderMocks()
+  return providers
+}
 
 export default {
   async fetch(request, env) {
+    providersModule ??= installProviders()
+    const { getSentEmails } = await providersModule
+
     const url = new URL(request.url)
     if (url.pathname === "/__test/emails" && request.method === "GET") {
       const recipient = url.searchParams.get("to")

@@ -1,5 +1,5 @@
-import { Transpiler } from "bun"
-import { accessSync, existsSync, readFileSync, readdirSync } from "node:fs"
+import { Transpiler, YAML } from "bun"
+import { accessSync, existsSync, globSync, readFileSync, readdirSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import process from "node:process"
 import { z } from "zod/v4"
@@ -26,7 +26,23 @@ const SEO_LINKS = localeLinks({ origin: "", pathname: ROUTES.HOME })
 const CANONICAL_LINKS = SEO_LINKS.filter(({ rel }) => rel === "canonical").length
 const ALTERNATE_LINKS = SEO_LINKS.filter(({ rel }) => rel === "alternate").length
 
+const CONTENT_ROUTES = [
+  { directory: "content/docs", route: ROUTES.DOCS },
+  { directory: "content/blog", route: ROUTES.BLOG },
+]
+const CONTENT_PAGE = /^(?<slug>.*?)(?:(?:^|\/)index)?\.(?<locale>[a-zA-Z-]+)\.mdx$/u
+const FRONTMATTER = /^---\r?\n(?<yaml>[\s\S]*?)\r?\n---/u
+
 const deploymentSchema = z.object({ configPath: z.string() })
+const contentPageSchema = z.object({ locale: z.enum(I18N.SUPPORTED_LOCALES), slug: z.string() })
+const frontmatterSchema = z.object({ yaml: z.string() })
+const publicationSchema = z.object({ published: z.boolean().default(true) })
+
+const isPublished = (file: string): boolean => {
+  const { yaml } = frontmatterSchema.parse(FRONTMATTER.exec(readFileSync(file, "utf8"))?.groups)
+
+  return publicationSchema.parse(YAML.parse(yaml)).published
+}
 
 const deployment = deploymentSchema.parse(JSON.parse(readFileSync(DEPLOY_CONFIG_PATH, "utf8")))
 accessSync(resolve(dirname(DEPLOY_CONFIG_PATH), deployment.configPath))
@@ -65,6 +81,17 @@ for (const page of UNPRERENDERED_PAGES) {
   }
 }
 
+for (const { directory, route } of CONTENT_ROUTES) {
+  for (const file of globSync("**/*.mdx", { cwd: directory })) {
+    const { locale, slug } = contentPageSchema.parse(CONTENT_PAGE.exec(file)?.groups)
+    const pathname = localizePathname({ locale, pathname: [route, slug].filter(Boolean).join("/") })
+
+    if (isPublished(join(directory, file)) && !existsSync(join(CLIENT_DIR, pathname, "index.html"))) {
+      throw new Error(`Content page was not prerendered, and the deployed Worker cannot render it: ${pathname}`)
+    }
+  }
+}
+
 const clientScripts = readdirSync(ASSETS_DIR).filter((name) => name.endsWith(".js"))
 
 if (clientScripts.length === 0) {
@@ -81,4 +108,4 @@ for (const file of clientScripts) {
   }
 }
 
-process.stdout.write("Verified Worker deployment config, prerendered locales, fonts, and client assets.\n")
+process.stdout.write("Verified Worker deployment config, prerendered locales and content pages, fonts, and client assets.\n")

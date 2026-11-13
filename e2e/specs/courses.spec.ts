@@ -15,7 +15,7 @@ const useOwnRateLimit = async (page: Page): Promise<void> => {
   await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
 }
 
-const signIn = async (page: Page, authPage: AuthPage, email: string): Promise<void> => {
+const signIn = async (authPage: AuthPage, email: string): Promise<void> => {
   await authPage.emailField().fill(email)
   await authPage.passwordField().fill(TEST_PASSWORD)
   await authPage.signInSubmitButton().click()
@@ -45,14 +45,14 @@ test.describe("courses", () => {
     await page.getByRole("link", { name: "Sign in to watch" }).click()
 
     const playlist = signedPlaylist(page)
-    await signIn(page, authPage, customer.email)
+    await signIn(authPage, customer.email)
     await expect(page).toHaveURL(lessonPath(account.slug))
     expect((await playlist).status()).toBe(200)
   })
 
   test("a customer without Complete is offered it on a paid lesson", async ({ authPage, page }) => {
     await authPage.gotoSignIn()
-    await signIn(page, authPage, customer.email)
+    await signIn(authPage, customer.email)
     await expect(page).toHaveURL("/app")
 
     await page.goto(lessonPath(paid.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -63,7 +63,7 @@ test.describe("courses", () => {
 
   test("an administrator can watch every lesson", async ({ authPage, page }) => {
     await authPage.gotoSignIn()
-    await signIn(page, authPage, admin.email)
+    await signIn(authPage, admin.email)
     await expect(page).toHaveURL("/admin")
 
     const playlist = signedPlaylist(page)

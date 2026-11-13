@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { USER_STATUS } from "~/src/modules/user/user.constants"
+
 import {
   ADMIN_ANALYTICS_REGION_ROWS,
   ADMIN_ROLE_ROWS,
@@ -44,6 +46,6 @@ describe("admin status colors", () => {
   })
 
   it("gives amber only to users waiting on verification", () => {
-    expect(USER_STATUS_COLORS).toEqual({ active: "emerald", banned: "rose", pending: "amber" })
+    expect(USER_STATUS_COLORS).toEqual({ [USER_STATUS.ACTIVE]: "emerald", [USER_STATUS.BANNED]: "rose", [USER_STATUS.PENDING]: "amber" })
   })
 })

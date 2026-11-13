@@ -1,3 +1,9 @@
+export const USER_STATUS = {
+  ACTIVE: "active",
+  BANNED: "banned",
+  PENDING: "pending",
+} as const
+
 export const USER_QUERY_KEYS = {
   ALL: ["user"],
   LIST: ["user", "getUsers"],

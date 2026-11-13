@@ -26,6 +26,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { RepositoryCount } from "~/src/presentation/components/custom/repository-count"
 
 const INTERNAL_PREFIX = "/"
+const TASK_LIST_ITEM = "task-list-item"
 
 const MdxLink = ({ href, ...props }: ComponentProps<"a">): JSX.Element => {
   if (href?.startsWith(INTERNAL_PREFIX) === true) {
@@ -43,6 +44,18 @@ const MdxCard = (props: ComponentProps<typeof Card>): JSX.Element => {
   }
 
   return <Card {...props} />
+}
+
+const MdxListItem = ({ children, ...props }: ComponentProps<"li">): JSX.Element => {
+  if (props.className === TASK_LIST_ITEM) {
+    return (
+      <li {...props}>
+        <label>{children}</label>
+      </li>
+    )
+  }
+
+  return <li {...props}>{children}</li>
 }
 
 export const mdxComponents = {
@@ -75,4 +88,5 @@ export const mdxComponents = {
   TableRow,
   Tabs,
   a: MdxLink,
+  li: MdxListItem,
 }

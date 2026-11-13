@@ -12,8 +12,32 @@ const PUBLIC_PAGES = [
   "/",
   "/pl-PL",
   "/docs",
+  "/docs/architecture/delivery-layer",
+  "/docs/conventions",
+  "/docs/conventions/accessibility",
+  "/docs/conventions/code-style",
+  "/docs/conventions/components",
+  "/docs/conventions/data-fetching",
+  "/docs/conventions/dependencies",
+  "/docs/conventions/files-and-naming",
+  "/docs/conventions/forms-and-tables",
+  "/docs/conventions/git-workflow",
+  "/docs/conventions/modules",
+  "/docs/conventions/performance",
+  "/docs/conventions/routes",
+  "/docs/conventions/server-functions",
+  "/docs/conventions/testing",
+  "/docs/conventions/translations",
+  "/docs/features/email",
   "/docs/getting-started/prerequisites",
+  "/docs/guides/security-checklist",
+  "/docs/integrations/tanstack-table",
+  "/docs/project/changelog",
+  "/docs/reference/routes",
+  "/docs/tooling/playwright",
+  "/docs/ui/data-table",
   "/blog",
+  "/blog/ai-coding-agents-repository-readiness",
   "/courses",
   "/courses/the-walkthrough",
   "/courses/the-walkthrough/billing-and-webhooks",
@@ -42,7 +66,8 @@ const WORKSPACE_PAGES = {
 } as const
 
 const visit = async (page: Page, path: string): Promise<void> => {
-  await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  const response = await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  expect(response?.ok()).toBe(true)
   await new BasePage(page).waitForAppReady()
 }
 
@@ -56,16 +81,6 @@ for (const colorScheme of COLOR_SCHEMES) {
     })
   }
 }
-
-test("a blog post meets WCAG 2.2 AA", async ({ page }) => {
-  await visit(page, "/blog")
-  const firstPost = page.getByRole("main").getByRole("link").filter({ hasText: /\S/u }).first()
-  await firstPost.click()
-  await expect(page).toHaveURL(/\/blog\/.+/u)
-  await new BasePage(page).waitForAppReady()
-
-  expect(await accessibilityViolations(page)).toEqual([])
-})
 
 for (const account of TEST_ACCOUNTS) {
   for (const colorScheme of COLOR_SCHEMES) {

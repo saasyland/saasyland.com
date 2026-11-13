@@ -8,7 +8,7 @@ beforeEach(() => {
   vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/pl-PL/docs"))
 })
 
-const { a: Anchor, Card, pre: Pre } = mdxComponents
+const { a: Anchor, Card, li: ListItem, pre: Pre } = mdxComponents
 
 describe("MDX components", () => {
   it.each([
@@ -36,5 +36,40 @@ describe("MDX components", () => {
       </Pre>,
     )
     expect(screen.getByText("const ready = true").closest("pre")).toBeInTheDocument()
+  })
+
+  it("keeps an untitled code block out of the landmarks and names a titled one by its caption", () => {
+    render(
+      <>
+        <Pre>
+          <code>bun install</code>
+        </Pre>
+        <Pre title="vite.config.ts">
+          <code>export default config</code>
+        </Pre>
+      </>,
+    )
+    expect(screen.getAllByRole("region")).toStrictEqual([screen.getByRole("region", { name: "vite.config.ts" })])
+    expect(screen.getByRole("region", { name: "vite.config.ts" })).toHaveTextContent("export default config")
+  })
+
+  it("names a task list checkbox by the text of its item", () => {
+    render(
+      <ul>
+        <ListItem className="task-list-item">
+          <input disabled type="checkbox" /> Tests cover UNAUTHORIZED
+        </ListItem>
+      </ul>,
+    )
+    expect(screen.getByRole("checkbox", { name: "Tests cover UNAUTHORIZED" })).toBeDisabled()
+  })
+
+  it("renders other list items as they are", () => {
+    render(
+      <ul>
+        <ListItem>Plain item</ListItem>
+      </ul>,
+    )
+    expect(screen.getByText("Plain item")).toBe(screen.getByRole("listitem"))
   })
 })

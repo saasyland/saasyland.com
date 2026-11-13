@@ -269,7 +269,7 @@ bun run test:e2e
 
 Locally, Playwright recreates the test database with `db:reset:test`, builds the test application, and starts its preview server unless an existing server already answers at the configured URL. Stop other servers on port 3000 before running the suite so it uses the intended test application. `PLAYWRIGHT_BASE_URL` overrides the default `http://127.0.0.1:3000`.
 
-[`e2e/specs/accessibility.spec.ts`](e2e/specs/accessibility.spec.ts) runs axe-core with the WCAG 2.0, 2.1 and 2.2 A and AA rules and axe's best practices on the public pages, a blog post, the course pages, and both workspaces in the light and dark themes, and fails on any violation.
+[`e2e/specs/accessibility.spec.ts`](e2e/specs/accessibility.spec.ts) runs axe-core with the WCAG 2.0, 2.1 and 2.2 A and AA rules and axe's best practices on the public pages, the course pages, the docs home, every Conventions page and one page from each other docs section, a blog post, and both workspaces in the light and dark themes, and fails on any violation.
 
 `build:test` selects `env.test` in the root `wrangler.jsonc` using `CLOUDFLARE_ENV=test`. It uses the test Worker entry, local bindings, `.env.test`, and `.wrangler/test`; no separate test Wrangler file or `E2E=true` flag is needed. In CI, `db:reset:test` and `build:test` run explicitly before Playwright starts the server.
 

@@ -8,6 +8,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { POLAR_LICENSE_KEY } from "~/src/integrations/polar/__test__/fixtures/license-key"
 import { polar } from "~/src/integrations/polar/polar.config"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery, licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license"
 import * as licenses from "~/src/modules/license/use-cases/get-license"
@@ -56,6 +57,6 @@ it("fetches activations for the owned Polar license", async () => {
 it("rejects a signed-out caller before querying a license", async () => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(null)
   const get = vi.spyOn(licenses, "getLicense")
-  await expect(executeQuery(currentLicenseQuery)).rejects.toThrow("UNAUTHORIZED")
+  await expect(executeQuery(currentLicenseQuery)).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   expect(get).not.toHaveBeenCalled()
 })

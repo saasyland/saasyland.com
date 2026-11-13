@@ -9,6 +9,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { getCategory } from "~/src/modules/category/use-cases/get-category"
 
 const HEADERS = new Headers()
@@ -79,7 +80,7 @@ describe("get-category", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
 
-    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: "NOT_FOUND" })
+    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: ERROR_CODES.NOT_FOUND })
   })
 
   it("rejects when the caller is not an admin", async () => {
@@ -88,7 +89,7 @@ describe("get-category", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
 
-    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: "FORBIDDEN" })
+    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: ERROR_CODES.FORBIDDEN })
   })
 
   it("rejects when the caller is signed out", async () => {
@@ -97,6 +98,6 @@ describe("get-category", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: "UNAUTHORIZED" })
+    await expect(getCategory({ data: { categoryId: CATEGORY_ID } })).rejects.toMatchObject({ code: ERROR_CODES.UNAUTHORIZED })
   })
 })

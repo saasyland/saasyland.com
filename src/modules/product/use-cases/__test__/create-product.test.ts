@@ -8,6 +8,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { createProductMutation } from "~/src/modules/product/use-cases/create-product"
 
 const HEADERS = new Headers()
@@ -91,6 +92,6 @@ describe("create-product", () => {
         priceCents: 19_900,
         type: dbMocks.dbRow.type,
       }),
-    ).rejects.toThrow("FORBIDDEN")
+    ).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })

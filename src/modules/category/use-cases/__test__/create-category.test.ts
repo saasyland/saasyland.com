@@ -8,6 +8,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { createCategoryMutation } from "~/src/modules/category/use-cases/create-category"
 
 const HEADERS = new Headers()
@@ -81,6 +82,6 @@ describe("create-category", () => {
         kind: dbMocks.dbRow.kind,
         name: "SaaS Plans",
       }),
-    ).rejects.toThrow("FORBIDDEN")
+    ).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })

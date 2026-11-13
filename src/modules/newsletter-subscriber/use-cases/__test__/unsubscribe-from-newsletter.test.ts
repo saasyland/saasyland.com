@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { executeMutation } from "~/src/platform/testing/lib/query"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { NEWSLETTER_STATUS, NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import {
   unsubscribeFromNewsletter,
@@ -56,7 +57,7 @@ describe("unsubscribe-from-newsletter", () => {
     expect.hasAssertions()
     dbMocks.updateMock.mockClear()
 
-    await expect(unsubscribeFromNewsletter({ data: { token: "short" } })).rejects.toThrow("VALIDATION")
+    await expect(unsubscribeFromNewsletter({ data: { token: "short" } })).rejects.toThrow(ERROR_CODES.VALIDATION)
     expect(dbMocks.updateMock).not.toHaveBeenCalled()
   })
 })

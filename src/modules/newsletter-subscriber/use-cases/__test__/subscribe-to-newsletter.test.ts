@@ -148,7 +148,9 @@ describe("subscribe-to-newsletter", () => {
     expect.hasAssertions()
     mockSuccessfulSend()
 
-    await expect(executeMutation(subscribeToNewsletterMutation, { email: "not-an-email", locale: "en-US" })).rejects.toThrow("VALIDATION")
+    await expect(executeMutation(subscribeToNewsletterMutation, { email: "not-an-email", locale: "en-US" })).rejects.toThrow(
+      ERROR_CODES.VALIDATION,
+    )
     expect(resendSendMock).not.toHaveBeenCalled()
   })
 

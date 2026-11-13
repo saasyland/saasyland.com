@@ -8,6 +8,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { updateProductMutation } from "~/src/modules/product/use-cases/update-product"
 
 const HEADERS = new Headers()
@@ -96,7 +97,7 @@ describe("update-product", () => {
         name: "Missing",
         productId: PRODUCT_ID,
       }),
-    ).rejects.toThrow("NOT_FOUND")
+    ).rejects.toThrow(ERROR_CODES.NOT_FOUND)
   })
 
   it("returns a domain error when the caller is not an admin", async () => {
@@ -110,6 +111,6 @@ describe("update-product", () => {
         name: "Updated Starter",
         productId: PRODUCT_ID,
       }),
-    ).rejects.toThrow("FORBIDDEN")
+    ).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })

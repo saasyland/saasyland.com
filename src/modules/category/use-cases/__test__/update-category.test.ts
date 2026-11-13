@@ -8,6 +8,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { updateCategoryMutation } from "~/src/modules/category/use-cases/update-category"
 
 const HEADERS = new Headers()
@@ -88,7 +89,7 @@ describe("update-category", () => {
         categoryId: CATEGORY_ID,
         name: "Missing",
       }),
-    ).rejects.toThrow("NOT_FOUND")
+    ).rejects.toThrow(ERROR_CODES.NOT_FOUND)
   })
 
   it("returns a domain error when the caller is not an admin", async () => {
@@ -102,6 +103,6 @@ describe("update-category", () => {
         categoryId: CATEGORY_ID,
         name: "Updated SaaS Plans",
       }),
-    ).rejects.toThrow("FORBIDDEN")
+    ).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })

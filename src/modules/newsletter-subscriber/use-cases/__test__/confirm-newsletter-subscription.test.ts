@@ -8,6 +8,7 @@ import { executeMutation } from "~/src/platform/testing/lib/query"
 
 import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { NEWSLETTER_STATUS, NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import {
   confirmNewsletterSubscription,
@@ -114,7 +115,7 @@ describe("confirm-newsletter-subscription", () => {
     expect.hasAssertions()
     mockMatchingToken()
 
-    await expect(confirmNewsletterSubscription({ data: { token: "short" } })).rejects.toThrow("VALIDATION")
+    await expect(confirmNewsletterSubscription({ data: { token: "short" } })).rejects.toThrow(ERROR_CODES.VALIDATION)
     expect(dbMocks.updateMock).not.toHaveBeenCalled()
   })
 })

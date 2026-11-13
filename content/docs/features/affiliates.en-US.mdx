@@ -1,0 +1,48 @@
+---
+title: "Affiliate programme"
+description: "Referral links tracked by Affonso, credited on the Polar order, with public terms on /affiliates."
+---
+
+Affiliates earn commission on the sales they refer. SaaSy Land does not count referrals itself: [Affonso](https://affonso.io) records clicks, receives orders and refunds from Polar, calculates commission and pays affiliates. That keeps every number out of the seller's hands, which is what makes the programme credible to affiliates.
+
+## How a referral travels
+
+1. An affiliate shares any page with a referral parameter, for example `/?via=jane`. The parameters Affonso reads are listed in `AFFONSO.REFERRAL_PARAMS` (`src/integrations/affonso/affonso.constants.ts`): `affonso`, `atp`, `aff`, `via` and `ref`.
+2. `AffiliateReferral` (`src/presentation/components/custom/affiliate-referral.tsx`), rendered once in the root route, checks the URL after hydration. Only when one of those parameters is present does it ask the server for the program ID (`getAffonsoProgramId`, `src/integrations/affonso/affonso.program.ts`) and render Affonso's script with `data-cookie_duration` set to `AFFILIATE_TERMS.COOKIE_DAYS`. Visits without a referral parameter load no third-party script.
+3. The script records the click with Affonso and stores the click ID in the first-party `affonso_referral` cookie.
+4. When the visitor starts a checkout, `startCheckout` passes `affonsoReferralMetadata(headers)` (`src/integrations/affonso/affonso.referral.ts`) as the checkout `metadata`. It reads the cookie, accepts only letters, digits, `_` and `-` up to 128 characters, and returns `{ affonso_referral: <click ID> }`, or an empty object when there is no valid referral.
+5. Polar copies the checkout metadata onto the order and sends `order.created` and `order.refunded` to Affonso, which credits or reverses the commission.
+
+Regional pricing still applies to referred buyers: the referral travels in metadata, not as a discount, so it never competes with the regional discount for Polar's single discount slot.
+
+## Configuration
+
+Tracking is off until the Worker has `AFFONSO_PROGRAM_ID`. It is public (it appears in the script tag), so it is a plain variable rather than a secret. Set it only for the environment that takes real payments:
+
+```jsonc
+"production": {
+  "vars": {
+    "AFFONSO_PROGRAM_ID": "<program ID from Affonso>",
+  },
+}
+```
+
+Then, once:
+
+1. Create the programme in Affonso and connect Polar with an organisation access token without expiry. Affonso's Polar guide lists the scopes it needs.
+2. In Polar, add the webhook endpoint Affonso shows, with format **Raw** and the events `order.created`, `order.refunded` and `subscription.canceled`.
+3. In the programme settings, use the values on the public terms page: commission, cookie duration, hold period and minimum payout come from `AFFILIATE_TERMS` (`src/data/affiliates.ts`), so the page and the script always agree with each other.
+4. Test it by opening `/?atp=test`, checking that the `affonso_referral` cookie is set, and confirming that the Polar checkout carries `affonso_referral` in its metadata.
+
+## Terms page
+
+`/affiliates` (`src/routes/_landing.affiliates.tsx`, messages in `pages.legal.affiliates`) publishes the terms in every locale and is linked from the footer. Every number on it is interpolated from `AFFILIATE_TERMS`; the minimum payout is formatted as currency for the visitor's locale. The privacy policy describes the referral cookie, what Affonso receives and the legal basis.
+
+## Tests
+
+- `affonso.referral.test.ts`: a valid cookie becomes metadata; a missing, malformed or oversized value is ignored.
+- `start-checkout.test.ts`: the referral reaches the Polar checkout body next to the regional discount.
+- `affiliate-referral.component.test.tsx`: the script renders only with a referral parameter and a configured program ID.
+- `legal-routes.component.test.tsx`: the terms page renders completely in all nine locales.
+- `e2e/specs/affiliates.spec.ts`: a normal visit loads no script; a visit with `?via=` loads it with the test environment's program ID and keeps the referral cookie (the script is stubbed with `page.route`); the terms page renders.
+- `e2e/specs/accessibility.spec.ts`: `/affiliates` is scanned by axe in light and dark mode.

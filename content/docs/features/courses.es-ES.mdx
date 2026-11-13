@@ -32,6 +32,7 @@ Cada tabla tiene su propio módulo en `src/modules` y la crea la migración `202
 Los roles con `course: ["read"]`, que tienen los administradores, pueden ver todas las lecciones. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) decide para un espectador que `resolveViewer` (`lesson.viewer.ts`) construye a partir de la sesión, el rol y `getLicense`. Toda función de servidor que sirve contenido de los cursos aplica esta comprobación, no solo las páginas:
 
 - `getCatalogue` (pública) devuelve los cursos publicados con su número de lecciones, la duración total de vídeo y el número de vistas previas gratuitas.
+- `getCourseShowcase` (pública) devuelve, para la página de inicio, los dos primeros cursos publicados (`COURSE_SHOWCASE`) con su número de lecciones, la duración total de vídeo, el número de vistas previas gratuitas y sus seis primeras lecciones publicadas, además de la primera vista previa gratuita que tiene vídeo. Indica el nivel de acceso de cada lección, no los bloqueos del espectador.
 - `getCourse` (pública) devuelve un curso publicado con sus capítulos y lecciones publicadas en el locale del visitante, cada una con `locked`, `completed` y `positionMs` para el espectador.
 - `getLessonPlayback` (pública) devuelve rutas de reproducción firmadas de `createPlayback`. Responde `UNAUTHORIZED` a un invitado y `FORBIDDEN` a un usuario con sesión que no puede ver la lección, y `NOT_FOUND` para una lección no publicada o sin vídeo.
 - `saveLessonProgress` exige una sesión y comprueba el mismo acceso antes de escribir.
@@ -43,6 +44,16 @@ El layout `/courses` (`courses.tsx`) tiene su propia navegación, y sus textos e
 - `/courses`: una tarjeta por curso publicado con su tipo, número de lecciones, minutos y lecciones gratuitas.
 - `/courses/<course>`: el resumen, una barra de progreso para los espectadores con sesión, un enlace **Empezar el curso** o **Continuar con …** a la siguiente lección por ver y el temario por capítulos con insignias de **Vista previa gratuita**, duraciones e iconos de candado y de completada. Cuando hay una lección bloqueada, el panel **Todas las lecciones se incluyen con Complete** enlaza a la sección de precios o, para un espectador con sesión, a `/app/license`.
 - `/courses/<course>/<lesson>`: el reproductor, o un panel de bloqueo con **Iniciar sesión para ver**, que vuelve a la lección tras iniciar sesión mediante `redirect`, u **Obtener Complete**. Una lección sin vídeo indica que su grabación llegará pronto. Debajo aparecen el nivel de acceso, **Marcar como completada** para los espectadores con sesión y enlaces a la lección anterior y a la siguiente; el contenido del curso permanece al lado en pantallas anchas.
+
+## En la página de inicio
+
+El bloque de cursos de la sección **Conjunto de herramientas** de la página de inicio (`course-showcase.tsx` en `src/presentation/components/custom/landing-page/components/`) muestra lo que hay en D1, así que nunca lista un curso o una lección que no exista:
+
+- La página de inicio está prerenderizada, así que su HTML contiene el encabezado del bloque, el recorrido por las páginas del curso y marcadores de posición. Cuando el bloque queda a menos de una pantalla del área visible, el navegador llama una vez a `getCourseShowcase` mediante `courseShowcaseQuery` y lo completa. Los visitantes que no se desplazan hasta ahí no envían ninguna petición.
+- Cada curso muestra su tipo, número de lecciones, minutos y lecciones gratuitas, y después sus primeras lecciones con su nivel de acceso. Cada curso y cada lección enlazan a su página, y un curso con más lecciones termina con un enlace a todas.
+- **Ver una lección gratuita** abre la primera vista previa gratuita que tiene vídeo. Si no hay ninguna, el enlace no aparece.
+- Si no hay cursos publicados, el bloque lo indica; si la petición falla, remite al catálogo de cursos. **Ver todos los cursos** enlaza siempre a `/courses`.
+- El recorrido por las páginas del curso es el vídeo de la composición `course-tour` del proyecto `remotion/`. Es un archivo estático en `src/presentation/assets/motion/` con pósteres AVIF y WebP, y al pulsarlo se reproduce en su sitio con los controles del navegador. No usa la biblioteca de vídeos.
 
 ## Progreso
 
@@ -116,7 +127,7 @@ Las claves foráneas lo hacen con `ON DELETE CASCADE`. Los vídeos nunca se elim
 
 ## Pruebas
 
-`scripts/seed-test.ts` crea un curso publicado con un capítulo y cuatro lecciones para las pruebas de navegador de `e2e/specs/courses.spec.ts`. En `e2e/specs/course-admin.spec.ts`, un administrador crea un curso, un capítulo y una lección gratuita con el vídeo sembrado, un visitante en otra página del navegador ve la lección y el administrador elimina el curso.
+`scripts/seed-test.ts` crea un curso publicado con un capítulo y cuatro lecciones para las pruebas de navegador de `e2e/specs/courses.spec.ts`. En `e2e/specs/course-admin.spec.ts`, un administrador crea un curso, un capítulo y una lección gratuita con el vídeo sembrado, un visitante en otra página del navegador ve la lección y el administrador elimina el curso. `e2e/specs/landing.spec.ts` comprueba que la página de inicio enlaza el curso sembrado y sus lecciones, abre la lección gratuita y reproduce el recorrido por las páginas del curso.
 
 ## Páginas relacionadas
 

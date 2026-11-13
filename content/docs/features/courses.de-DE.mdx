@@ -32,6 +32,7 @@ Jede Tabelle hat ihr eigenes Modul in `src/modules` und wird von der Migration `
 Rollen mit `course: ["read"]`, die Admins haben, dürfen jede Lektion ansehen. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) entscheidet für einen Betrachter, den `resolveViewer` (`lesson.viewer.ts`) aus Sitzung, Rolle und `getLicense` zusammenstellt. Jede Serverfunktion, die Kursinhalte ausliefert, wendet diese Prüfung an, nicht nur die Seiten:
 
 - `getCatalogue` (öffentlich) liefert die veröffentlichten Kurse mit Anzahl der Lektionen, gesamter Videolänge und Anzahl der kostenlosen Vorschauen.
+- `getCourseShowcase` (öffentlich) liefert für die Landingpage die ersten zwei veröffentlichten Kurse (`COURSE_SHOWCASE`) mit Anzahl der Lektionen, gesamter Videolänge, Anzahl der kostenlosen Vorschauen und ihren ersten sechs veröffentlichten Lektionen sowie die erste kostenlose Vorschau mit Video. Sie nennt die Zugriffsstufe jeder Lektion, nicht die Sperren des Betrachters.
 - `getCourse` (öffentlich) liefert einen veröffentlichten Kurs mit seinen Kapiteln und veröffentlichten Lektionen in der Locale des Besuchers, jede mit `locked`, `completed` und `positionMs` für den Betrachter.
 - `getLessonPlayback` (öffentlich) liefert signierte Wiedergabepfade von `createPlayback`. Es antwortet einem Gast mit `UNAUTHORIZED` und einem angemeldeten Benutzer, der die Lektion nicht ansehen darf, mit `FORBIDDEN`, sowie mit `NOT_FOUND` für eine unveröffentlichte Lektion oder eine ohne Video.
 - `saveLessonProgress` verlangt eine Sitzung und prüft denselben Zugriff, bevor es schreibt.
@@ -43,6 +44,16 @@ Das Layout `/courses` (`courses.tsx`) hat eine eigene Navigation, seine Texte li
 - `/courses`: eine Karte pro veröffentlichtem Kurs mit Art, Anzahl der Lektionen, Minuten und kostenlosen Lektionen.
 - `/courses/<course>`: die Zusammenfassung, ein Fortschrittsbalken für angemeldete Betrachter, ein Link **Kurs starten** oder **Weiter mit …** zur nächsten anzusehenden Lektion und der Lehrplan nach Kapiteln mit **Kostenlose Vorschau**-Badges, Dauern sowie Schloss- und Erledigt-Symbolen. Ist eine Lektion gesperrt, verlinkt das Panel **Jede Lektion ist in Complete enthalten** auf den Preisabschnitt oder, für angemeldete Betrachter, auf `/app/license`.
 - `/courses/<course>/<lesson>`: der Player oder ein Sperrpanel mit **Anmelden und ansehen**, das nach der Anmeldung über `redirect` zur Lektion zurückführt, oder **Complete holen**. Eine Lektion ohne Video meldet, dass ihre Aufzeichnung in Kürze folgt. Darunter stehen die Zugriffsstufe, **Als abgeschlossen markieren** für angemeldete Betrachter und Links zur vorherigen und nächsten Lektion; der Kursinhalt bleibt auf breiten Bildschirmen daneben stehen.
+
+## Auf der Landingpage
+
+Der Kursblock im Abschnitt **Werkzeugkasten** der Landingpage (`course-showcase.tsx` in `src/presentation/components/custom/landing-page/components/`) zeigt, was in D1 steht, und listet daher nie einen Kurs oder eine Lektion, die es nicht gibt:
+
+- Die Landingpage ist vorgerendert, ihr HTML enthält also die Überschrift des Blocks, die Tour durch die Kursseiten und Platzhalter. Sobald der Block weniger als eine Bildschirmhöhe vom sichtbaren Bereich entfernt ist, ruft der Browser einmal `getCourseShowcase` über `courseShowcaseQuery` auf und füllt ihn. Besucher, die nicht so weit scrollen, senden keine Anfrage.
+- Jeder Kurs zeigt Art, Anzahl der Lektionen, Minuten und kostenlose Lektionen und danach seine ersten Lektionen mit ihrer Zugriffsstufe. Jeder Kurs und jede Lektion verlinkt auf ihre Seite, und ein Kurs mit weiteren Lektionen endet mit einem Link zu allen.
+- **Kostenlose Lektion ansehen** öffnet die erste kostenlose Vorschau mit Video. Gibt es keine, fehlt der Link.
+- Ist kein Kurs veröffentlicht, sagt der Block das; schlägt die Anfrage fehl, verweist er auf den Kurskatalog. **Alle Kurse ansehen** führt in jedem Fall zu `/courses`.
+- Die Tour durch die Kursseiten ist das Video der Komposition `course-tour` im Projekt `remotion/`. Es liegt als statische Datei mit AVIF- und WebP-Postern in `src/presentation/assets/motion/` und wird auf Knopfdruck an Ort und Stelle mit den Bedienelementen des Browsers abgespielt. Es nutzt die Videobibliothek nicht.
 
 ## Fortschritt
 
@@ -116,7 +127,7 @@ Das erledigen die Fremdschlüssel mit `ON DELETE CASCADE`. Videos werden nie mit
 
 ## Tests
 
-`scripts/seed-test.ts` legt einen veröffentlichten Kurs mit einem Kapitel und vier Lektionen für die Browsertests in `e2e/specs/courses.spec.ts` an. In `e2e/specs/course-admin.spec.ts` erstellt ein Admin einen Kurs, ein Kapitel und eine kostenlose Lektion mit dem geseedeten Video, ein Besucher in einer anderen Browserseite sieht sich die Lektion an, und der Admin löscht den Kurs.
+`scripts/seed-test.ts` legt einen veröffentlichten Kurs mit einem Kapitel und vier Lektionen für die Browsertests in `e2e/specs/courses.spec.ts` an. In `e2e/specs/course-admin.spec.ts` erstellt ein Admin einen Kurs, ein Kapitel und eine kostenlose Lektion mit dem geseedeten Video, ein Besucher in einer anderen Browserseite sieht sich die Lektion an, und der Admin löscht den Kurs. `e2e/specs/landing.spec.ts` prüft, dass die Landingpage auf den geseedeten Kurs und seine Lektionen verlinkt, die kostenlose Lektion öffnet und die Tour durch die Kursseiten abspielt.
 
 ## Verwandte Seiten
 

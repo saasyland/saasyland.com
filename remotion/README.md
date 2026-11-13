@@ -6,7 +6,7 @@ Keep this source, its configuration and `package-lock.json` in Git. Keep the pub
 
 The separate package keeps the renderer, browser types and Remotion-specific lint rules outside the Cloudflare application. It uses npm's lockfile independently of the app's Bun lockfile. CI checks and bundles this source when it or the shared locale configuration changes.
 
-Composition IDs match their source filenames and the names passed to `ConceptLoop`.
+Composition IDs match their source filenames and the names passed to `ConceptLoop`, except `course-tour`, which `CourseShowcase` plays on request in the landing page's course block.
 
 | Composition     | Video dimensions | Duration | Poster frame |
 | --------------- | ---------------- | -------- | ------------ |
@@ -18,6 +18,7 @@ Composition IDs match their source filenames and the names passed to `ConceptLoo
 | `coverage-run`  | 1200 × 520       | 11 s     | 570          |
 | `page-designer` | 1600 × 1000      | 10 s     | 0            |
 | `record-audit`  | 1200 × 440       | 8 s      | 60           |
+| `course-tour`   | 1600 × 900       | 22 s     | 0            |
 
 ## Editing
 
@@ -34,7 +35,7 @@ Keep the colors in `src/theme.ts` aligned with the app's dark palette in `../src
 
 `locale-format` and `record-audit` read the website's supported locales from its i18n configuration. Keep displayed paths and commands accurate. Test status illustrations omit changing suite counts; check actual results with `bun run test:coverage` at the repository root.
 
-Use frame-based animation. `app-tour` and `page-designer` start and finish on the same frame and use frame 0 as their poster. Other compositions fade to their background at both ends through `Plate`. The app keeps the poster visible for reduced motion and unsupported video formats.
+Use frame-based animation. `app-tour`, `page-designer` and `course-tour` start and finish on the same frame and use frame 0 as their poster. `course-tour` opens and closes on `public/author.jpg`, the author's portrait. Other compositions fade to their background at both ends through `Plate`. The app keeps the poster visible for reduced motion and unsupported video formats.
 
 ## Rendering
 
@@ -55,5 +56,19 @@ cwebp -q 82 -m 6 -sharp_yuv -resize 800 0 out/app-tour.png -o ../src/presentatio
 ```
 
 Keep the full-size poster for high-density displays. `ConceptLoop` supplies the candidates through native `srcset`; the browser chooses according to the rendered width and pixel density. A media-constrained preload gives the hero image high priority on desktop. Images load lazily elsewhere. The image remains visible for reduced motion or failed playback and is hidden once the video starts playing.
+
+`course-tour` plays with the browser's controls when a visitor presses it, so it differs from the loops: render it without an audio track, add an H.264 MP4 for browsers without WebM, and give it AVIF posters next to the WebP ones, all at 1600 and 800 pixels wide. Render it from this directory, then create the AVIF posters with the application's `sharp` from the repository root:
+
+```sh
+npx remotion render course-tour out/course-tour.webm --codec=vp9 --crf=36 --muted
+npx remotion render course-tour out/course-tour.mp4 --codec=h264 --crf=24 --muted
+npx remotion still course-tour out/course-tour.png --frame=0
+cwebp -q 90 out/course-tour.png -o ../src/presentation/assets/motion/course-tour.webp
+cwebp -q 82 -m 6 -sharp_yuv -resize 800 0 out/course-tour.png -o ../src/presentation/assets/motion/course-tour-800.webp
+cd ..
+bun -e 'import sharp from "sharp"; const avif = { chromaSubsampling: "4:4:4", effort: 9, quality: 62 }; const png = "remotion/out/course-tour.png"; await sharp(png).avif(avif).toFile("src/presentation/assets/motion/course-tour.avif"); await sharp(png).resize({ width: 800 }).avif(avif).toFile("src/presentation/assets/motion/course-tour-800.avif")'
+```
+
+Copy `out/course-tour.webm` and `out/course-tour.mp4` into `../src/presentation/assets/motion/` too.
 
 Regenerate the video, full-size poster and responsive posters after changing any visible content. Verify product loops at frame 0 and their final frame before replacing existing assets.

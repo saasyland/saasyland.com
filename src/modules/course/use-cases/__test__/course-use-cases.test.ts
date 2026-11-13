@@ -8,8 +8,10 @@ import {
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { auth } from "~/src/integrations/better-auth/auth.server"
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { chapter } from "~/src/modules/chapter/chapter.schema"
 import { IDS, LESSON_IDS, USERS, recordProgress, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
 import { COURSE_KIND } from "~/src/modules/course/course.constants"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
@@ -150,11 +152,14 @@ describe("getCourse", () => {
     await expect(executeQuery(courseQuery({ locale: "en-US", slug }))).rejects.toThrow(ERROR_CODES.NOT_FOUND)
   })
 
-  it("lists a course without chapters", async () => {
+  it("lists a course without chapters and a chapter without published lessons", async () => {
     signOut()
 
-    const page = await executeQuery(courseQuery({ locale: "en-US", slug: "one-off" }))
+    const empty = await executeQuery(courseQuery({ locale: "en-US", slug: "one-off" }))
+    await db.insert(chapter).values({ courseId: IDS.TUTORIAL, id: "01960000-0000-7000-8000-00000000c199", title: { "en-US": "Soon" } })
+    const upcoming = await executeQuery(courseQuery({ locale: "en-US", slug: "one-off" }))
 
-    expect(page.chapters).toStrictEqual([])
+    expect(empty.chapters).toStrictEqual([])
+    expect(upcoming.chapters).toStrictEqual([{ id: "01960000-0000-7000-8000-00000000c199", lessons: [], title: "Soon" }])
   })
 })

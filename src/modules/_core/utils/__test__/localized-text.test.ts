@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { localize, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
+import { LOCALIZED_TEXT_MAX_LENGTH, localize, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 
 describe("localized text", () => {
   it("uses the translation and falls back to English when it is missing or empty", () => {
@@ -17,7 +17,13 @@ describe("localized text", () => {
       "en-US": "Lesson",
       "pl-PL": "Lekcja",
     })
-    expect(localizedTextSchema.safeParse({ "pl-PL": "Lekcja" }).error?.issues[0]?.message).toBe("defaultLocaleRequired")
+    expect(localizedTextSchema.safeParse({ "pl-PL": "Lekcja" }).error?.issues[0]).toMatchObject({
+      message: "defaultLocaleRequired",
+      path: ["en-US"],
+    })
+    expect(localizedTextSchema.safeParse({ "en-US": "x".repeat(LOCALIZED_TEXT_MAX_LENGTH + 1) }).error?.issues[0]?.message).toBe(
+      "textTooLong",
+    )
     expect(localizedTextSchema.safeParse({ "en-US": "  " }).success).toBe(false)
     expect(localizedTextSchema.safeParse({ "en-GB": "Lesson", "en-US": "Lesson" }).success).toBe(false)
   })

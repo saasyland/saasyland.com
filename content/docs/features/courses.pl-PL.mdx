@@ -1,6 +1,6 @@
 ---
 title: "Kursy"
-description: "Publiczny katalog kursów, których lekcje są darmowe, wymagają konta albo licencji, z odtwarzaczem zapisującym postępy. Panelu do tworzenia kursów w administracji jeszcze nie ma."
+description: "Publiczny katalog kursów, których lekcje są darmowe, wymagają konta albo licencji, odtwarzacz zapisujący postępy oraz ekrany administracji do pisania kursów, rozdziałów i lekcji."
 ---
 
 Kursy, samouczki i projekty są przechowywane w D1 i oglądane pod `/courses`. Każda lekcja odtwarza film z biblioteki funkcji [Wideo](/docs/features/videos), a jej poziom dostępu decyduje, kto może ją obejrzeć.
@@ -16,7 +16,7 @@ Każda tabela ma własny moduł w `src/modules` i jest tworzona przez migrację 
 | `lesson`          | `course_id`, `chapter_id`, `slug` (unikalny w obrębie kursu), `access` (`preview`, `account`, `paid`), `status`, `position`, `title`, `summary`, `video_id` |
 | `lesson_progress` | `user_id` i `lesson_id` (klucz główny), `position_ms`, `completed_at`                                                                                       |
 
-- `title` i `summary` przechowują JSON z locale jako kluczami, na przykład `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` w `src/modules/_core/utils/localized-text.ts`). `localize()` zwraca tekst w locale odwiedzającego, a gdy go brakuje, wraca do `en-US`, więc zawsze uzupełniaj `en-US`.
+- `title` i `summary` przechowują JSON z locale jako kluczami, na przykład `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` w `src/modules/_core/utils/localized-text.ts`). `localize()` zwraca tekst w locale odwiedzającego, a gdy go brakuje, wraca do `en-US`, więc zawsze uzupełniaj `en-US`. Administracja tego wymaga; wiersze wstawione bezpośrednio do D1 nie są sprawdzane.
 - Nowe wiersze mają status `draft`, a nowe lekcje dostęp `paid`. Wyświetlane i serwowane są tylko kursy i lekcje `published`; każdy inny slug pokazuje stronę „nie znaleziono”.
 - Kursy są sortowane według `position`, rozdziały według `position` w obrębie kursu, a lekcje według `position` w obrębie rozdziału. Lekcje są numerowane w całym kursie.
 - `video_id` wskazuje na tabelę `video` i zmienia się na `NULL`, gdy film zostanie usunięty. Usunięcie kursu lub rozdziału usuwa jego lekcje, a usunięcie lekcji lub użytkownika usuwa związane z nimi postępy.
@@ -50,24 +50,73 @@ Dla zalogowanego widza odtwarzacz zaczyna od zapisanej `position_ms`, a `useLess
 
 ## Lekcje i filmy
 
-Lekcja nie przechowuje własnych plików wideo. Opublikuj nagranie przez `bun run video:publish:<environment>` (zobacz [Wideo](/docs/features/videos)); skrypt wypisuje id filmu, które trafia do kolumny `video_id` lekcji. Kilka lekcji może korzystać z tego samego filmu. Czas trwania w katalogu i w programie pochodzi z `video.duration_ms`.
+Lekcja nie przechowuje własnych plików wideo. Opublikuj nagranie przez `bun run video:publish:<environment>` (zobacz [Wideo](/docs/features/videos)), a potem wybierz je w polu **Wideo** lekcji w administracji, które ustawia `video_id`. Kilka lekcji może korzystać z tego samego filmu. Czas trwania w katalogu i w programie pochodzi z `video.duration_ms`.
 
-## Tworzenie kursów
+## Zarządzanie kursami
 
-Tworzenia kursów w panelu administracyjnym jeszcze nie ma. `/admin/courses/create` to nadal ekran demonstracyjny, którego **Zapisz** i **Anuluj** nic nie robią, `/admin/products?tab=courses` pokazuje pusty stan, a żaden ekran administracji nie wyświetla kursów. Do tego czasu wstawiaj wiersze do D1 samodzielnie, na przykład w Drizzle Studio przez `bun run db:studio:<environment>` albo przez `bunx wrangler d1 execute DB --env <environment> --remote --file <file>`. Identyfikatory nie mają wartości domyślnej; wystarczy dowolny unikalny ciąg znaków.
+**Treść → Kursy** w pasku bocznym administracji otwiera ekrany kursów. Ich layout, `admin.courses.tsx`, wczytuje z wyprzedzeniem przestrzenie nazw `course.validations` i `pages.admin.courses`, a jak każda strona pod `/admin` wymagają `admin: ["access"]`. Komponenty są w `src/presentation/components/custom/admin/courses/`.
 
-```sql
-INSERT INTO course (id, slug, kind, status, title, summary)
-VALUES ('course-1', 'the-walkthrough', 'course', 'published', '{"en-US":"The walkthrough"}', '{"en-US":"How the code works, subsystem by subsystem."}');
+- `/admin/courses` (`admin.courses.index.tsx`) wyświetla wszystkie kursy, łącznie ze szkicami, w kolejności `position`: tytuł ze ścieżką `/courses/<slug>`, rodzaj, status, liczbę lekcji i datę ostatniej zmiany. Każdy wiersz ma strzałki przesuwające kurs w górę lub w dół, link do edycji i przycisk usuwania. **Nowy kurs** otwiera formularz.
+- `/admin/courses/create` (`admin.courses.create.tsx`) pokazuje pusty formularz kursu. **Utwórz kurs** zapisuje kurs i otwiera jego edytor.
+- `/admin/courses/<courseId>` (`admin.courses.$courseId.tsx`) pokazuje formularz kursu z przyciskiem **Zapisz szczegóły**, **Program** oraz **Zobacz kurs**, który otwiera `/courses/<slug>` w nowej karcie. **Zobacz kurs** pojawia się dopiero po opublikowaniu kursu, bo szkice nie są publicznie dostępne.
 
-INSERT INTO chapter (id, course_id, position, title)
-VALUES ('chapter-1', 'course-1', 0, '{"en-US":"Foundations"}');
+Nowy kurs jest dodawany po pozostałych. Strzałki na liście ustalają kolejność publicznego katalogu (`moveCourse`).
 
-INSERT INTO lesson (id, course_id, chapter_id, slug, access, status, position, title, summary, video_id)
-VALUES ('lesson-1', 'course-1', 'chapter-1', 'module-boundaries', 'preview', 'published', 0, '{"en-US":"Module boundaries"}', '{"en-US":"Why every feature starts at the module boundary."}', '<videoId>');
-```
+### Szczegóły kursu
 
-`scripts/seed-test.ts` tworzy taki kurs, z jednym rozdziałem i czterema lekcjami, na potrzeby testów przeglądarkowych w `e2e/specs/courses.spec.ts`.
+Formularz kursu (`course-form.tsx`) ma następujące pola:
+
+- **Tytuł** i **Opis**, z jedną kartą na każde locale. Karta `en-US` jest wymagana; puste locale wraca do tekstu angielskiego.
+- **Slug w adresie URL**: małe litery, cyfry i pojedyncze myślniki, najwyżej 96 znaków, unikalny wśród kursów.
+- **Rodzaj**: **Kurs**, **Tutorial** albo **Projekt**.
+- **Status**: **Szkic**, domyślnie, albo **Opublikowany**. Pod `/courses` pojawiają się tylko opublikowane kursy.
+
+### Program
+
+Edytor programu (`curriculum-editor.tsx`) pokazuje rozdziały po kolei, każdy z jego lekcjami.
+
+- **Dodaj rozdział** otwiera `chapter-dialog.tsx`, który prosi o **Tytuł rozdziału** w każdym locale. Każdy rozdział ma przyciski do przesunięcia go w górę lub w dół, edycji tytułu i usunięcia.
+- **Dodaj lekcję**, pod lekcjami rozdziału, otwiera `lesson-dialog.tsx`. To samo okno służy do edycji lekcji.
+- Każda lekcja pokazuje swój slug, film z czasem trwania albo **Bez wideo**, poziom dostępu i status, z przyciskami do przesunięcia jej w górę lub w dół w obrębie rozdziału, edycji i usunięcia. Lekcji nie można przenieść do innego rozdziału.
+
+Okno lekcji ma następujące pola:
+
+- **Tytuł lekcji** i **Opis**, z jedną kartą na każde locale; `en-US` jest wymagane.
+- **Slug w adresie URL**, unikalny w obrębie kursu.
+- **Kto może oglądać**: **Wszyscy (darmowy podgląd)** (`preview`), **Zalogowani odwiedzający** (`account`) albo **Licencje Komplet i Agencja** (`paid`, domyślnie).
+- **Status**: **Szkic**, domyślnie, albo **Opublikowany**.
+- **Wideo**: 100 ostatnio opublikowanych filmów z biblioteki z ich czasem trwania. **Jeszcze bez wideo** zostawia lekcję bez filmu albo odłącza ten, który ma.
+
+### Usuwanie
+
+Każde usunięcie najpierw prosi o potwierdzenie.
+
+- Usunięcie kursu usuwa jego rozdziały, lekcje i postępy wszystkich użytkowników w nich.
+- Usunięcie rozdziału usuwa jego lekcje i związane z nimi postępy.
+- Usunięcie lekcji usuwa jej postępy.
+
+Robią to klucze obce z `ON DELETE CASCADE`. Filmy nigdy nie są usuwane razem z kursem, rozdziałem ani lekcją: zostają w bibliotece.
+
+### Funkcje serwerowe
+
+| Moduł     | Przypadki użycia                                                 | Uprawnienie          |
+| --------- | ---------------------------------------------------------------- | -------------------- |
+| `course`  | `getCourses`, `getCourseEditor`                                  | `course: ["read"]`   |
+| `course`  | `createCourse`                                                   | `course: ["create"]` |
+| `course`  | `updateCourse`, `moveCourse`                                     | `course: ["update"]` |
+| `course`  | `deleteCourse`                                                   | `course: ["delete"]` |
+| `chapter` | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter` | `course: ["update"]` |
+| `lesson`  | `createLesson`, `updateLesson`, `deleteLesson`, `moveLesson`     | `course: ["update"]` |
+
+- Lista filmów w oknie lekcji pochodzi z `getVideos`, które wymaga `video: ["read"]`.
+- Zajęty już slug daje odpowiedź `CONFLICT`: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) zamienia błąd ograniczenia unikalności z D1 na `AppError`. Identyfikator, który nie pasuje do żadnego wiersza, daje odpowiedź `NOT_FOUND`.
+- Nowy kurs, rozdział lub lekcja dostaje najwyższą `position` wśród rodzeństwa plus jeden (`nextPosition`). Przesunięcie zamienia wiersz z sąsiadem i numeruje rodzeństwo od nowa od 1 (`reorder`) w jednym `db.batch`. Obie funkcje są w `src/modules/_core/utils/ordering.ts`, a kierunki to `MOVE_DIRECTION` w `src/modules/_core/constants/ordering.ts`.
+- Każdy zapis waliduje tytuły i opisy przez `localizedTextSchema`: `en-US` jest wymagane, a każdy tekst ma najwyżej 2000 znaków. Slug ma najwyżej 96 znaków. Komunikaty formularzy to `defaultLocaleRequired`, `textTooLong`, `slugInvalid` i `slugTooLong` w `course.validations`, a ich limity podaje `COURSE_VALIDATION_PARAMS` (`course.constants.ts`).
+- `courseEditorQuery` zachowuje `staleTime: COURSE_STALE_MS`, tak jak publiczne zapytania kursów, a każda zmiana unieważnia zapytania `course`, więc lista i edytor pobierają dane ponownie.
+
+## Testy
+
+`scripts/seed-test.ts` tworzy opublikowany kurs z jednym rozdziałem i czterema lekcjami na potrzeby testów przeglądarkowych w `e2e/specs/courses.spec.ts`. W `e2e/specs/course-admin.spec.ts` administrator tworzy kurs, rozdział i darmową lekcję z testowym filmem, odwiedzający w innej karcie przeglądarki ogląda lekcję, a administrator usuwa kurs.
 
 ## Powiązane strony
 

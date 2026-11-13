@@ -1,6 +1,6 @@
 ---
 title: "コース"
-description: "無料、アカウントが必要、ライセンスが必要のいずれかのレッスンで構成されるコースの公開カタログと、進捗を保存するプレーヤー。管理画面でのコース作成はまだありません。"
+description: "無料、アカウントが必要、ライセンスが必要のいずれかのレッスンで構成されるコースの公開カタログ、進捗を保存するプレーヤー、コース、チャプター、レッスンを作成する管理画面。"
 ---
 
 コース、チュートリアル、プロジェクトは D1 に保存され、`/courses` で視聴します。各レッスンは[動画](/docs/features/videos)のライブラリにある動画を再生し、レッスンのアクセスレベルによって誰が視聴できるかが決まります。
@@ -16,7 +16,7 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 | `lesson`          | `course_id`、`chapter_id`、`slug`（コース内で一意）、`access`（`preview`、`account`、`paid`）、`status`、`position`、`title`、`summary`、`video_id` |
 | `lesson_progress` | `user_id` と `lesson_id`（主キー）、`position_ms`、`completed_at`                                                                                   |
 
-- `title` と `summary` は、`{"en-US": "Billing", "pl-PL": "Płatności"}` のようにロケールをキーとする JSON を保持します（`src/modules/_core/utils/localized-text.ts` の `LocalizedText`）。`localize()` は訪問者のロケールの値を返し、ない場合は `en-US` にフォールバックするため、`en-US` は必ず入力してください。
+- `title` と `summary` は、`{"en-US": "Billing", "pl-PL": "Płatności"}` のようにロケールをキーとする JSON を保持します（`src/modules/_core/utils/localized-text.ts` の `LocalizedText`）。`localize()` は訪問者のロケールの値を返し、ない場合は `en-US` にフォールバックするため、`en-US` は必ず入力してください。管理画面では入力が必須ですが、D1 に直接挿入した行はチェックされません。
 - 新しい行は `draft`、新しいレッスンは `paid` になります。一覧表示や配信の対象になるのは `published` のコースとレッスンだけで、それ以外のスラッグでは Not Found ページが表示されます。
 - コースは `position` 順、チャプターはコース内の `position` 順、レッスンはチャプター内の `position` 順に並びます。レッスン番号はコース全体を通して振られます。
 - `video_id` は `video` テーブルを参照し、動画が削除されると `NULL` になります。コースやチャプターを削除するとそのレッスンが削除され、レッスンやユーザーを削除するとその進捗が削除されます。
@@ -50,24 +50,73 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 
 ## レッスンと動画
 
-レッスンは自身の動画ファイルを持ちません。録画は `bun run video:publish:<environment>` で公開し（[動画](/docs/features/videos)を参照）、スクリプトが表示する動画の ID をレッスンの `video_id` に設定します。複数のレッスンで同じ動画を使えます。カタログとカリキュラムの再生時間は `video.duration_ms` から取得します。
+レッスンは自身の動画ファイルを持ちません。録画は `bun run video:publish:<environment>` で公開し（[動画](/docs/features/videos)を参照）、管理画面のレッスンの **動画** フィールドで選択すると `video_id` が設定されます。複数のレッスンで同じ動画を使えます。カタログとカリキュラムの再生時間は `video.duration_ms` から取得します。
 
-## コースを作成する
+## コースを管理する
 
-管理画面でのコース作成機能はまだありません。`/admin/courses/create` は依然としてデモ画面で、**保存** と **キャンセル** は何もしません。`/admin/products?tab=courses` は空の状態を表示し、コースを一覧表示する管理画面もありません。それまでは、D1 に直接行を挿入してください。たとえば `bun run db:studio:<environment>` で開く Drizzle Studio や、`bunx wrangler d1 execute DB --env <environment> --remote --file <file>` を使います。ID には既定値がないため、一意な文字列を指定してください。
+管理画面のサイドバーの **コンテンツ → コース** からコースの画面を開きます。そのレイアウト `admin.courses.tsx` は `course.validations` と `pages.admin.courses` の名前空間をプリロードし、`/admin` 配下のすべてのページと同じく `admin: ["access"]` を必要とします。コンポーネントは `src/presentation/components/custom/admin/courses/` にあります。
 
-```sql
-INSERT INTO course (id, slug, kind, status, title, summary)
-VALUES ('course-1', 'the-walkthrough', 'course', 'published', '{"en-US":"The walkthrough"}', '{"en-US":"How the code works, subsystem by subsystem."}');
+- `/admin/courses`（`admin.courses.index.tsx`）は、下書きを含むすべてのコースを `position` 順に一覧表示します。表示するのは、タイトルと `/courses/<slug>` のパス、種類、状態、レッスン数、最終更新日です。各行には、コースを上下に移動する矢印、編集リンク、削除ボタンがあります。**新しいコース** でフォームを開きます。
+- `/admin/courses/create`（`admin.courses.create.tsx`）は空のコースフォームを表示します。**コースを作成** でコースを保存し、そのエディターを開きます。
+- `/admin/courses/<courseId>`（`admin.courses.$courseId.tsx`）は、**詳細を保存** を備えたコースフォーム、**カリキュラム**、**コースを表示** を表示します。**コースを表示** は `/courses/<slug>` を新しいタブで開きます。下書きは公開されないため、**コースを表示** はコースを公開してから表示されます。
 
-INSERT INTO chapter (id, course_id, position, title)
-VALUES ('chapter-1', 'course-1', 0, '{"en-US":"Foundations"}');
+新しいコースはほかのコースの後ろに追加されます。一覧の矢印で公開カタログの並び順を決めます（`moveCourse`）。
 
-INSERT INTO lesson (id, course_id, chapter_id, slug, access, status, position, title, summary, video_id)
-VALUES ('lesson-1', 'course-1', 'chapter-1', 'module-boundaries', 'preview', 'published', 0, '{"en-US":"Module boundaries"}', '{"en-US":"Why every feature starts at the module boundary."}', '<videoId>');
-```
+### コースの詳細
 
-`scripts/seed-test.ts` は、`e2e/specs/courses.spec.ts` のブラウザテスト用に、1 つのチャプターと 4 つのレッスンを持つこのようなコースを投入します。
+コースフォーム（`course-form.tsx`）には次のフィールドがあります。
+
+- **タイトル** と **概要**。ロケールごとにタブがあります。`en-US` のタブは必須で、空のままのロケールは英語にフォールバックします。
+- **URLスラッグ**: 小文字、数字、単独のハイフンのみ、最大 96 文字で、コース全体で一意です。
+- **種類**: **コース**、**チュートリアル**、**プロジェクト** のいずれか。
+- **状態**: 既定の **下書き** または **公開**。`/courses` に表示されるのは公開済みのコースだけです。
+
+### カリキュラム
+
+カリキュラムエディター（`curriculum-editor.tsx`）は、チャプターを順に表示し、それぞれのレッスンを並べます。
+
+- **章を追加** は `chapter-dialog.tsx` を開き、ロケールごとに **章のタイトル** を入力します。各チャプターには、上下に移動する、タイトルを編集する、削除するためのボタンがあります。
+- チャプターのレッスンの下にある **レッスンを追加** は `lesson-dialog.tsx` を開きます。レッスンの編集にも同じダイアログを使います。
+- 各レッスンには、スラッグ、動画と再生時間（ない場合は **動画なし**）、アクセスレベル、状態が表示され、チャプター内で上下に移動する、編集する、削除するためのボタンがあります。レッスンを別のチャプターに移動することはできません。
+
+レッスンのダイアログには次のフィールドがあります。
+
+- **レッスンのタイトル** と **概要**。ロケールごとにタブがあり、`en-US` は必須です。
+- **URLスラッグ**。コース内で一意です。
+- **視聴できる人**: **誰でも（無料プレビュー）**（`preview`）、**サインイン済みの訪問者**（`account`）、または既定の **CompleteとAgencyのライセンス**（`paid`）。
+- **状態**: 既定の **下書き** または **公開**。
+- **動画**: ライブラリで最近公開された 100 本の動画と、その再生時間。**動画はまだありません** を選ぶと、レッスンに動画を設定しないか、設定済みの動画を外します。
+
+### 削除
+
+削除はどれも、実行前に確認を求めます。
+
+- コースを削除すると、そのチャプター、レッスン、およびそれらに対する全ユーザーの進捗が削除されます。
+- チャプターを削除すると、そのレッスンとその進捗が削除されます。
+- レッスンを削除すると、その進捗が削除されます。
+
+これは外部キーの `ON DELETE CASCADE` によって行われます。コース、チャプター、レッスンと一緒に動画が削除されることはなく、動画はライブラリに残ります。
+
+### サーバー関数
+
+| モジュール | ユースケース                                                     | 権限                 |
+| ---------- | ---------------------------------------------------------------- | -------------------- |
+| `course`   | `getCourses`, `getCourseEditor`                                  | `course: ["read"]`   |
+| `course`   | `createCourse`                                                   | `course: ["create"]` |
+| `course`   | `updateCourse`, `moveCourse`                                     | `course: ["update"]` |
+| `course`   | `deleteCourse`                                                   | `course: ["delete"]` |
+| `chapter`  | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter` | `course: ["update"]` |
+| `lesson`   | `createLesson`, `updateLesson`, `deleteLesson`, `moveLesson`     | `course: ["update"]` |
+
+- レッスンのダイアログの動画一覧は `getVideos` から取得し、これには `video: ["read"]` が必要です。
+- すでに使われているスラッグには `CONFLICT` を返します。`rethrowAsConflict`（`src/integrations/drizzle-orm/drizzle.errors.ts`）が D1 の一意制約エラーを `AppError` に変換します。どの行にも一致しない ID には `NOT_FOUND` を返します。
+- 新しいコース、チャプター、レッスンは、同じ階層の行の中で最大の `position` に 1 を足した値を取ります（`nextPosition`）。移動では行を隣の行と入れ替え、同じ階層の行を 1 から番号付けし直します（`reorder`）。これは 1 回の `db.batch` で行います。どちらの関数も `src/modules/_core/utils/ordering.ts` にあり、方向は `src/modules/_core/constants/ordering.ts` の `MOVE_DIRECTION` です。
+- すべての書き込みで、タイトルと概要を `localizedTextSchema` で検証します。`en-US` は必須で、各テキストは最大 2,000 文字です。スラッグは最大 96 文字です。フォームのメッセージは `course.validations` の `defaultLocaleRequired`、`textTooLong`、`slugInvalid`、`slugTooLong` で、上限値は `COURSE_VALIDATION_PARAMS`（`course.constants.ts`）が渡します。
+- `courseEditorQuery` は公開側のコースのクエリと同じく `staleTime: COURSE_STALE_MS` を保ち、変更のたびに `course` のクエリが無効化されるため、一覧とエディターが再取得されます。
+
+## テスト
+
+`scripts/seed-test.ts` は、`e2e/specs/courses.spec.ts` のブラウザテスト用に、1 つのチャプターと 4 つのレッスンを持つ公開済みのコースを投入します。`e2e/specs/course-admin.spec.ts` では、管理者がコース、チャプター、シード済みの動画を使う無料レッスンを作成し、別のブラウザページの訪問者がそのレッスンを視聴し、最後に管理者がコースを削除します。
 
 ## 関連ページ
 

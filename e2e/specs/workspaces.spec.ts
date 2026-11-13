@@ -1,4 +1,5 @@
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
+import { TEST_COURSE } from "../data/courses"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -50,7 +51,9 @@ for (const account of TEST_ACCOUNTS) {
             "/admin/users/security",
             "/admin/products",
             "/admin/products/create",
+            "/admin/courses",
             "/admin/courses/create",
+            `/admin/courses/${TEST_COURSE.id}`,
             "/admin/blog",
             "/admin/blog/create",
             "/admin/analytics",
@@ -89,6 +92,7 @@ for (const account of TEST_ACCOUNTS) {
       }
       if (path === "/admin/products/create") await expect(page.getByRole("heading", { level: 1 })).toHaveText("Create Product")
       if (path === "/admin/blog/create") await expect(page.getByRole("heading", { level: 1 })).toHaveText("Write Post")
+      if (path === "/admin/courses/create") await expect(page.getByRole("heading", { level: 1 })).toHaveText("New course")
     }
     if (account.role === "customer") {
       const navigation = page.getByRole("navigation", { name: "Nawigacja aplikacji", exact: true })

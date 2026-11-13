@@ -1,6 +1,6 @@
 ---
 title: "Cursos"
-description: "Um catálogo público de cursos cujas aulas são gratuitas, exigem uma conta ou exigem uma licença, com um player que salva o progresso. Ainda não há criação de cursos na administração."
+description: "Um catálogo público de cursos cujas aulas são gratuitas, exigem uma conta ou exigem uma licença, um player que salva o progresso e telas de administração para escrever cursos, capítulos e aulas."
 ---
 
 Cursos, tutoriais e projetos ficam no D1 e são assistidos em `/courses`. Cada aula reproduz um vídeo da biblioteca de [Vídeos](/docs/features/videos), e o nível de acesso dela decide quem pode assisti-la.
@@ -16,7 +16,7 @@ Cada tabela tem o próprio módulo em `src/modules` e é criada pela migração 
 | `lesson`          | `course_id`, `chapter_id`, `slug` (único dentro do curso), `access` (`preview`, `account`, `paid`), `status`, `position`, `title`, `summary`, `video_id` |
 | `lesson_progress` | `user_id` e `lesson_id` (a chave primária), `position_ms`, `completed_at`                                                                                |
 
-- `title` e `summary` guardam JSON com os locales como chaves, por exemplo `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` em `src/modules/_core/utils/localized-text.ts`). `localize()` devolve o locale do visitante e recorre a `en-US` quando ele falta, então preencha sempre `en-US`.
+- `title` e `summary` guardam JSON com os locales como chaves, por exemplo `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` em `src/modules/_core/utils/localized-text.ts`). `localize()` devolve o locale do visitante e recorre a `en-US` quando ele falta, então preencha sempre `en-US`. A administração exige esse texto; linhas inseridas diretamente no D1 não são verificadas.
 - Linhas novas são `draft`, e aulas novas são `paid`. Só cursos e aulas `published` são listados ou servidos; qualquer outro slug mostra a página de não encontrado.
 - Os cursos são ordenados por `position`, os capítulos por `position` dentro do curso e as aulas por `position` dentro do capítulo. As aulas são numeradas ao longo do curso inteiro.
 - `video_id` aponta para a tabela `video` e passa a `NULL` quando o vídeo é excluído. Excluir um curso ou um capítulo exclui as aulas dele, e excluir uma aula ou um usuário exclui o progresso correspondente.
@@ -50,24 +50,73 @@ Para um espectador logado, o player começa na `position_ms` salva e `useLessonP
 
 ## Aulas e vídeos
 
-Uma aula não armazena arquivos de vídeo próprios. Publique a gravação com `bun run video:publish:<environment>` (veja [Vídeos](/docs/features/videos)); o script exibe o id do vídeo, que vai na coluna `video_id` da aula. Várias aulas podem usar o mesmo vídeo. As durações do catálogo e do conteúdo programático vêm de `video.duration_ms`.
+Uma aula não armazena arquivos de vídeo próprios. Publique a gravação com `bun run video:publish:<environment>` (veja [Vídeos](/docs/features/videos)) e depois escolha-a no campo **Vídeo** da aula na administração, que preenche `video_id`. Várias aulas podem usar o mesmo vídeo. As durações do catálogo e do conteúdo programático vêm de `video.duration_ms`.
 
-## Criar cursos
+## Gerenciar cursos
 
-A criação de cursos na administração ainda não existe. `/admin/courses/create` continua sendo uma tela de demonstração em que **Salvar** e **Cancelar** não fazem nada, `/admin/products?tab=courses` mostra um estado vazio e nenhuma tela de administração lista os cursos. Até lá, insira as linhas no D1 você mesmo, por exemplo no Drizzle Studio com `bun run db:studio:<environment>` ou com `bunx wrangler d1 execute DB --env <environment> --remote --file <file>`. Os ids não têm valor padrão; qualquer string única serve.
+**Conteúdo → Cursos** na barra lateral da administração abre as telas de cursos. O layout delas, `admin.courses.tsx`, pré-carrega os namespaces `course.validations` e `pages.admin.courses` e, como toda página em `/admin`, elas exigem `admin: ["access"]`. Os componentes ficam em `src/presentation/components/custom/admin/courses/`.
 
-```sql
-INSERT INTO course (id, slug, kind, status, title, summary)
-VALUES ('course-1', 'the-walkthrough', 'course', 'published', '{"en-US":"The walkthrough"}', '{"en-US":"How the code works, subsystem by subsystem."}');
+- `/admin/courses` (`admin.courses.index.tsx`) lista todos os cursos, rascunhos incluídos, na ordem de `position`: o título com o caminho `/courses/<slug>`, o tipo, o status, o número de aulas e a data da última alteração. Cada linha tem setas que sobem ou descem o curso, um link de edição e um botão de exclusão. **Novo curso** abre o formulário.
+- `/admin/courses/create` (`admin.courses.create.tsx`) mostra um formulário de curso vazio. **Criar curso** salva o curso e abre o editor dele.
+- `/admin/courses/<courseId>` (`admin.courses.$courseId.tsx`) mostra o formulário do curso com **Salvar detalhes**, a **Grade** e **Ver curso**, que abre `/courses/<slug>` em uma nova aba. **Ver curso** só aparece depois que o curso é publicado, porque rascunhos não são servidos publicamente.
 
-INSERT INTO chapter (id, course_id, position, title)
-VALUES ('chapter-1', 'course-1', 0, '{"en-US":"Foundations"}');
+Um curso novo é adicionado depois dos outros. As setas da lista definem a ordem do catálogo público (`moveCourse`).
 
-INSERT INTO lesson (id, course_id, chapter_id, slug, access, status, position, title, summary, video_id)
-VALUES ('lesson-1', 'course-1', 'chapter-1', 'module-boundaries', 'preview', 'published', 0, '{"en-US":"Module boundaries"}', '{"en-US":"Why every feature starts at the module boundary."}', '<videoId>');
-```
+### Detalhes do curso
 
-`scripts/seed-test.ts` cria um curso assim, com um capítulo e quatro aulas, para os testes de navegador em `e2e/specs/courses.spec.ts`.
+O formulário do curso (`course-form.tsx`) tem estes campos:
+
+- **Título** e **Resumo**, com uma aba por locale. A aba `en-US` é obrigatória; um locale deixado vazio recorre ao inglês.
+- **Slug da URL**: letras minúsculas, dígitos e hifens simples, no máximo 96 caracteres, único entre os cursos.
+- **Tipo**: **Curso**, **Tutorial** ou **Projeto**.
+- **Status**: **Rascunho**, o padrão, ou **Publicado**. Só cursos publicados aparecem em `/courses`.
+
+### Conteúdo programático
+
+O editor do conteúdo programático (`curriculum-editor.tsx`) mostra os capítulos em ordem, cada um com as suas aulas.
+
+- **Adicionar capítulo** abre `chapter-dialog.tsx`, que pede um **Título do capítulo** por locale. Cada capítulo tem botões para movê-lo para cima ou para baixo, editar o título e excluí-lo.
+- **Adicionar aula**, abaixo das aulas de um capítulo, abre `lesson-dialog.tsx`. O mesmo diálogo edita uma aula.
+- Cada aula mostra o slug, o vídeo e a duração ou **Sem vídeo**, o nível de acesso e o status, com botões para movê-la para cima ou para baixo dentro do capítulo, editá-la e excluí-la. Uma aula não pode ir para outro capítulo.
+
+O diálogo da aula tem estes campos:
+
+- **Título da aula** e **Resumo**, com uma aba por locale; `en-US` é obrigatório.
+- **Slug da URL**, único dentro do curso.
+- **Quem pode assistir**: **Todos (prévia gratuita)** (`preview`), **Visitantes conectados** (`account`) ou **Licenças Complete e Agency** (`paid`, o padrão).
+- **Status**: **Rascunho**, o padrão, ou **Publicado**.
+- **Vídeo**: os 100 vídeos publicados mais recentes da biblioteca, com a duração. **Ainda sem vídeo** deixa a aula sem vídeo ou remove o que ela tem.
+
+### Excluir
+
+Toda exclusão pede confirmação antes.
+
+- Excluir um curso remove os capítulos, as aulas e o progresso de todos nelas.
+- Excluir um capítulo remove as aulas dele e o progresso delas.
+- Excluir uma aula remove o progresso dela.
+
+As chaves estrangeiras fazem isso com `ON DELETE CASCADE`. Os vídeos nunca são excluídos com um curso, um capítulo ou uma aula: eles continuam na biblioteca.
+
+### Funções de servidor
+
+| Módulo    | Casos de uso                                                     | Permissão            |
+| --------- | ---------------------------------------------------------------- | -------------------- |
+| `course`  | `getCourses`, `getCourseEditor`                                  | `course: ["read"]`   |
+| `course`  | `createCourse`                                                   | `course: ["create"]` |
+| `course`  | `updateCourse`, `moveCourse`                                     | `course: ["update"]` |
+| `course`  | `deleteCourse`                                                   | `course: ["delete"]` |
+| `chapter` | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter` | `course: ["update"]` |
+| `lesson`  | `createLesson`, `updateLesson`, `deleteLesson`, `moveLesson`     | `course: ["update"]` |
+
+- A lista de vídeos do diálogo da aula vem de `getVideos`, que exige `video: ["read"]`.
+- Um slug que já está em uso responde `CONFLICT`: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) transforma o erro de restrição única do D1 em um `AppError`. Um id que não corresponde a nenhuma linha responde `NOT_FOUND`.
+- Um curso, capítulo ou aula novo recebe a maior `position` entre os irmãos mais um (`nextPosition`). Uma movimentação troca a linha de lugar com a vizinha e renumera os irmãos a partir de 1 (`reorder`) em um único `db.batch`. As duas funções ficam em `src/modules/_core/utils/ordering.ts`, e as direções são `MOVE_DIRECTION` em `src/modules/_core/constants/ordering.ts`.
+- Toda escrita valida títulos e resumos com `localizedTextSchema`: `en-US` é obrigatório e cada texto tem no máximo 2.000 caracteres. Um slug tem no máximo 96 caracteres. As mensagens do formulário são `defaultLocaleRequired`, `textTooLong`, `slugInvalid` e `slugTooLong` em `course.validations`, e `COURSE_VALIDATION_PARAMS` (`course.constants.ts`) fornece os limites delas.
+- `courseEditorQuery` mantém `staleTime: COURSE_STALE_MS` como as consultas públicas de cursos, e toda alteração invalida as consultas de `course`, então a lista e o editor são buscados de novo.
+
+## Testes
+
+`scripts/seed-test.ts` cria um curso publicado com um capítulo e quatro aulas para os testes de navegador em `e2e/specs/courses.spec.ts`. Em `e2e/specs/course-admin.spec.ts`, um administrador cria um curso, um capítulo e uma aula gratuita com o vídeo semeado, um visitante em outra página do navegador assiste à aula e o administrador exclui o curso.
 
 ## Páginas relacionadas
 

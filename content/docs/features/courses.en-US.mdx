@@ -1,6 +1,6 @@
 ---
 title: "Courses"
-description: "A public catalogue of courses whose lessons are free, need an account or need a licence, with a player that saves progress. There is no admin authoring yet."
+description: "A public catalogue of courses whose lessons are free, need an account or need a licence, a player that saves progress, and admin screens to write courses, chapters and lessons."
 ---
 
 Courses, tutorials and projects live in D1 and are watched under `/courses`. Each lesson plays a video from the [Videos](/docs/features/videos) library, and its access level decides who may watch it.
@@ -16,7 +16,7 @@ Each table has its own module in `src/modules`, created by the migration `202611
 | `lesson`          | `course_id`, `chapter_id`, `slug` (unique within its course), `access` (`preview`, `account`, `paid`), `status`, `position`, `title`, `summary`, `video_id` |
 | `lesson_progress` | `user_id` and `lesson_id` (the primary key), `position_ms`, `completed_at`                                                                                  |
 
-- `title` and `summary` hold JSON keyed by locale, such as `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` in `src/modules/_core/utils/localized-text.ts`). `localize()` returns the visitor's locale and falls back to `en-US`, so always fill in `en-US`.
+- `title` and `summary` hold JSON keyed by locale, such as `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` in `src/modules/_core/utils/localized-text.ts`). `localize()` returns the visitor's locale and falls back to `en-US`, so always fill in `en-US`. The admin requires it; rows inserted straight into D1 are not checked.
 - New rows are `draft`, and new lessons are `paid`. Only `published` courses and lessons are listed or served; any other slug shows the not-found page.
 - Courses are ordered by `position`, chapters by `position` within their course and lessons by `position` within their chapter. Lessons are numbered across the whole course.
 - `video_id` refers to the `video` table and becomes `NULL` when the video is deleted. Deleting a course or a chapter deletes its lessons, and deleting a lesson or a user deletes their progress.
@@ -50,24 +50,73 @@ For a signed-in viewer, the player starts at the saved `position_ms` and `useLes
 
 ## Lessons and videos
 
-A lesson stores no video files of its own. Publish the recording with `bun run video:publish:<environment>` (see [Videos](/docs/features/videos)); the script prints the video's id, which goes in the lesson's `video_id`. Several lessons can use the same video. Durations on the catalogue and in the curriculum come from `video.duration_ms`.
+A lesson stores no video files of its own. Publish the recording with `bun run video:publish:<environment>` (see [Videos](/docs/features/videos)), then choose it in the lesson's **Video** field in the admin, which sets `video_id`. Several lessons can use the same video. Durations on the catalogue and in the curriculum come from `video.duration_ms`.
 
-## Creating courses
+## Managing courses
 
-Course authoring in the admin is not built yet. `/admin/courses/create` is still a demo screen whose **Save** and **Cancel** do nothing, `/admin/products?tab=courses` shows an empty state, and no admin screen lists courses. Until it exists, insert the rows in D1 yourself, for example in Drizzle Studio with `bun run db:studio:<environment>`, or with `bunx wrangler d1 execute DB --env <environment> --remote --file <file>`. Ids have no default; any unique string works.
+**Content → Courses** in the admin sidebar opens the course screens. Their layout, `admin.courses.tsx`, preloads the `course.validations` and `pages.admin.courses` namespaces, and like every page under `/admin` they require `admin: ["access"]`. The components are in `src/presentation/components/custom/admin/courses/`.
 
-```sql
-INSERT INTO course (id, slug, kind, status, title, summary)
-VALUES ('course-1', 'the-walkthrough', 'course', 'published', '{"en-US":"The walkthrough"}', '{"en-US":"How the code works, subsystem by subsystem."}');
+- `/admin/courses` (`admin.courses.index.tsx`) lists every course, drafts included, in `position` order: the title with its `/courses/<slug>` path, the type, the status, the number of lessons and the date of the last change. Each row has arrows that move the course up or down, an edit link and a delete button. **New course** opens the form.
+- `/admin/courses/create` (`admin.courses.create.tsx`) shows an empty course form. **Create course** saves the course and opens its editor.
+- `/admin/courses/<courseId>` (`admin.courses.$courseId.tsx`) shows the course form with **Save details**, the **Curriculum** and **View course**, which opens `/courses/<slug>` in a new tab. **View course** appears only once the course is published, because drafts are not served publicly.
 
-INSERT INTO chapter (id, course_id, position, title)
-VALUES ('chapter-1', 'course-1', 0, '{"en-US":"Foundations"}');
+A new course is added after the others. The arrows in the list set the order of the public catalogue (`moveCourse`).
 
-INSERT INTO lesson (id, course_id, chapter_id, slug, access, status, position, title, summary, video_id)
-VALUES ('lesson-1', 'course-1', 'chapter-1', 'module-boundaries', 'preview', 'published', 0, '{"en-US":"Module boundaries"}', '{"en-US":"Why every feature starts at the module boundary."}', '<videoId>');
-```
+### Course details
 
-`scripts/seed-test.ts` seeds a course like this, with one chapter and four lessons, for the browser tests in `e2e/specs/courses.spec.ts`.
+The course form (`course-form.tsx`) has these fields:
+
+- **Title** and **Summary**, with one tab per locale. The `en-US` tab is required; a locale left empty falls back to English.
+- **URL slug**: lowercase letters, digits and single hyphens, at most 96 characters, unique across courses.
+- **Type**: **Course**, **Tutorial** or **Project**.
+- **Status**: **Draft**, the default, or **Published**. Only published courses appear under `/courses`.
+
+### Curriculum
+
+The curriculum editor (`curriculum-editor.tsx`) shows the chapters in order, each with its lessons.
+
+- **Add chapter** opens `chapter-dialog.tsx`, which asks for a **Chapter title** per locale. Each chapter has buttons to move it up or down, edit its title and delete it.
+- **Add lesson**, below a chapter's lessons, opens `lesson-dialog.tsx`. The same dialog edits a lesson.
+- Each lesson shows its slug, its video and length or **No video**, its access level and its status, with buttons to move it up or down within its chapter, edit it and delete it. A lesson cannot move to another chapter.
+
+The lesson dialog has these fields:
+
+- **Lesson title** and **Summary**, with one tab per locale; `en-US` is required.
+- **URL slug**, unique within the course.
+- **Who can watch**: **Everyone (free preview)** (`preview`), **Signed-in visitors** (`account`) or **Complete and Agency licences** (`paid`, the default).
+- **Status**: **Draft**, the default, or **Published**.
+- **Video**: the 100 most recently published videos in the library, with their length. **No video yet** leaves the lesson without a video, or detaches the one it has.
+
+### Deleting
+
+Every delete asks for confirmation first.
+
+- Deleting a course removes its chapters, its lessons and everyone's progress in them.
+- Deleting a chapter removes its lessons and their progress.
+- Deleting a lesson removes its progress.
+
+The foreign keys do this with `ON DELETE CASCADE`. Videos are never deleted with a course, a chapter or a lesson: they stay in the library.
+
+### Server functions
+
+| Module    | Use cases                                                        | Permission           |
+| --------- | ---------------------------------------------------------------- | -------------------- |
+| `course`  | `getCourses`, `getCourseEditor`                                  | `course: ["read"]`   |
+| `course`  | `createCourse`                                                   | `course: ["create"]` |
+| `course`  | `updateCourse`, `moveCourse`                                     | `course: ["update"]` |
+| `course`  | `deleteCourse`                                                   | `course: ["delete"]` |
+| `chapter` | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter` | `course: ["update"]` |
+| `lesson`  | `createLesson`, `updateLesson`, `deleteLesson`, `moveLesson`     | `course: ["update"]` |
+
+- The video list of the lesson dialog comes from `getVideos`, which requires `video: ["read"]`.
+- A slug that is already taken answers `CONFLICT`: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) turns D1's unique-constraint error into an `AppError`. An id that matches no row answers `NOT_FOUND`.
+- A new course, chapter or lesson takes the highest `position` among its siblings plus one (`nextPosition`). A move swaps the row with its neighbour and renumbers the siblings from 1 (`reorder`) in one `db.batch`. Both functions are in `src/modules/_core/utils/ordering.ts`, and the directions are `MOVE_DIRECTION` in `src/modules/_core/constants/ordering.ts`.
+- Every write validates titles and summaries with `localizedTextSchema`: `en-US` is required and each text has at most 2,000 characters. A slug has at most 96 characters. The form messages are `defaultLocaleRequired`, `textTooLong`, `slugInvalid` and `slugTooLong` in `course.validations`, and `COURSE_VALIDATION_PARAMS` (`course.constants.ts`) supplies their limits.
+- `courseEditorQuery` keeps `staleTime: COURSE_STALE_MS` like the public course queries, and every change invalidates the `course` queries, so the list and the editor refetch.
+
+## Tests
+
+`scripts/seed-test.ts` seeds a published course with one chapter and four lessons for the browser tests in `e2e/specs/courses.spec.ts`. In `e2e/specs/course-admin.spec.ts`, an admin creates a course, a chapter and a free lesson with the seeded video, a visitor in another browser page watches the lesson, and the admin deletes the course.
 
 ## Related pages
 

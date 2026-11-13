@@ -1,8 +1,8 @@
 export interface StringField {
   readonly name: string
   readonly state: {
-    readonly value: string
-    readonly meta: { readonly errors: readonly unknown[]; readonly isTouched?: boolean }
+    readonly value: string | undefined
+    readonly meta: { readonly errors: readonly unknown[]; readonly isTouched: boolean; readonly isValid: boolean }
   }
   handleBlur: () => void
   handleChange: (value: string) => void

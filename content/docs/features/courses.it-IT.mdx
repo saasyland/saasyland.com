@@ -1,6 +1,6 @@
 ---
 title: "Corsi"
-description: "Un catalogo pubblico di corsi le cui lezioni sono gratuite, richiedono un account o richiedono una licenza, con un player che salva i progressi. La gestione dei corsi nell’amministrazione non esiste ancora."
+description: "Un catalogo pubblico di corsi le cui lezioni sono gratuite, richiedono un account o richiedono una licenza, un player che salva i progressi e le schermate di amministrazione per scrivere corsi, capitoli e lezioni."
 ---
 
 Corsi, tutorial e progetti vivono in D1 e si guardano sotto `/courses`. Ogni lezione riproduce un video della libreria di [Video](/docs/features/videos), e il suo livello di accesso decide chi può guardarla.
@@ -16,7 +16,7 @@ Ogni tabella ha il proprio modulo in `src/modules` ed è creata dalla migrazione
 | `lesson`          | `course_id`, `chapter_id`, `slug` (univoco nel suo corso), `access` (`preview`, `account`, `paid`), `status`, `position`, `title`, `summary`, `video_id` |
 | `lesson_progress` | `user_id` e `lesson_id` (la chiave primaria), `position_ms`, `completed_at`                                                                              |
 
-- `title` e `summary` contengono JSON con i locale come chiavi, per esempio `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` in `src/modules/_core/utils/localized-text.ts`). `localize()` restituisce il locale del visitatore e ripiega su `en-US`, quindi compila sempre `en-US`.
+- `title` e `summary` contengono JSON con i locale come chiavi, per esempio `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` in `src/modules/_core/utils/localized-text.ts`). `localize()` restituisce il locale del visitatore e ripiega su `en-US`, quindi compila sempre `en-US`. L’amministrazione lo richiede; le righe inserite direttamente in D1 non vengono controllate.
 - Le nuove righe sono `draft` e le nuove lezioni sono `paid`. Vengono elencati o serviti solo i corsi e le lezioni `published`; qualsiasi altro slug mostra la pagina non trovata.
 - I corsi sono ordinati per `position`, i capitoli per `position` all’interno del loro corso e le lezioni per `position` all’interno del loro capitolo. Le lezioni sono numerate lungo tutto il corso.
 - `video_id` punta alla tabella `video` e diventa `NULL` quando il video viene eliminato. Eliminare un corso o un capitolo elimina le sue lezioni, ed eliminare una lezione o un utente elimina i relativi progressi.
@@ -50,24 +50,73 @@ Per uno spettatore che ha effettuato l’accesso, il player parte dalla `positio
 
 ## Lezioni e video
 
-Una lezione non conserva file video propri. Pubblica la registrazione con `bun run video:publish:<environment>` (vedi [Video](/docs/features/videos)); lo script stampa l’id del video, che va nella colonna `video_id` della lezione. Più lezioni possono usare lo stesso video. Le durate nel catalogo e nel programma provengono da `video.duration_ms`.
+Una lezione non conserva file video propri. Pubblica la registrazione con `bun run video:publish:<environment>` (vedi [Video](/docs/features/videos)), poi sceglila nel campo **Video** della lezione nell’amministrazione, che imposta `video_id`. Più lezioni possono usare lo stesso video. Le durate nel catalogo e nel programma provengono da `video.duration_ms`.
 
-## Creare corsi
+## Gestire i corsi
 
-La gestione dei corsi nell’amministrazione non esiste ancora. `/admin/courses/create` è ancora una schermata dimostrativa i cui pulsanti **Salva** e **Annulla** non fanno nulla, `/admin/products?tab=courses` mostra uno stato vuoto e nessuna schermata di amministrazione elenca i corsi. Nel frattempo inserisci tu le righe in D1, per esempio in Drizzle Studio con `bun run db:studio:<environment>` oppure con `bunx wrangler d1 execute DB --env <environment> --remote --file <file>`. Gli id non hanno un valore predefinito; va bene qualsiasi stringa univoca.
+**Contenuto → Corsi** nella barra laterale dell’amministrazione apre le schermate dei corsi. Il loro layout, `admin.courses.tsx`, precarica i namespace `course.validations` e `pages.admin.courses` e, come ogni pagina sotto `/admin`, richiedono `admin: ["access"]`. I componenti sono in `src/presentation/components/custom/admin/courses/`.
 
-```sql
-INSERT INTO course (id, slug, kind, status, title, summary)
-VALUES ('course-1', 'the-walkthrough', 'course', 'published', '{"en-US":"The walkthrough"}', '{"en-US":"How the code works, subsystem by subsystem."}');
+- `/admin/courses` (`admin.courses.index.tsx`) elenca tutti i corsi, bozze comprese, in ordine di `position`: il titolo con il suo percorso `/courses/<slug>`, il tipo, lo stato, il numero di lezioni e la data dell’ultima modifica. Ogni riga ha frecce che spostano il corso in su o in giù, un link di modifica e un pulsante di eliminazione. **Nuovo corso** apre il modulo.
+- `/admin/courses/create` (`admin.courses.create.tsx`) mostra un modulo del corso vuoto. **Crea corso** salva il corso e apre il suo editor.
+- `/admin/courses/<courseId>` (`admin.courses.$courseId.tsx`) mostra il modulo del corso con **Salva dettagli**, il **Programma** e **Vedi corso**, che apre `/courses/<slug>` in una nuova scheda. **Vedi corso** compare solo quando il corso è pubblicato, perché le bozze non vengono servite pubblicamente.
 
-INSERT INTO chapter (id, course_id, position, title)
-VALUES ('chapter-1', 'course-1', 0, '{"en-US":"Foundations"}');
+Un nuovo corso viene aggiunto dopo gli altri. Le frecce nell’elenco stabiliscono l’ordine del catalogo pubblico (`moveCourse`).
 
-INSERT INTO lesson (id, course_id, chapter_id, slug, access, status, position, title, summary, video_id)
-VALUES ('lesson-1', 'course-1', 'chapter-1', 'module-boundaries', 'preview', 'published', 0, '{"en-US":"Module boundaries"}', '{"en-US":"Why every feature starts at the module boundary."}', '<videoId>');
-```
+### Dettagli del corso
 
-`scripts/seed-test.ts` crea un corso di questo tipo, con un capitolo e quattro lezioni, per i test nel browser di `e2e/specs/courses.spec.ts`.
+Il modulo del corso (`course-form.tsx`) ha questi campi:
+
+- **Titolo** e **Riepilogo**, con una scheda per locale. La scheda `en-US` è obbligatoria; un locale lasciato vuoto ripiega sull’inglese.
+- **Slug dell’URL**: lettere minuscole, cifre e trattini singoli, al massimo 96 caratteri, univoco tra i corsi.
+- **Tipo**: **Corso**, **Tutorial** o **Progetto**.
+- **Stato**: **Bozza**, il valore predefinito, o **Pubblicato**. Solo i corsi pubblicati compaiono sotto `/courses`.
+
+### Programma
+
+L’editor del programma (`curriculum-editor.tsx`) mostra i capitoli in ordine, ciascuno con le sue lezioni.
+
+- **Aggiungi capitolo** apre `chapter-dialog.tsx`, che chiede un **Titolo del capitolo** per locale. Ogni capitolo ha pulsanti per spostarlo su o giù, modificarne il titolo ed eliminarlo.
+- **Aggiungi lezione**, sotto le lezioni di un capitolo, apre `lesson-dialog.tsx`. La stessa finestra di dialogo modifica una lezione.
+- Ogni lezione mostra il suo slug, il suo video con la durata oppure **Nessun video**, il suo livello di accesso e il suo stato, con pulsanti per spostarla su o giù all’interno del suo capitolo, modificarla ed eliminarla. Una lezione non può passare a un altro capitolo.
+
+La finestra di dialogo della lezione ha questi campi:
+
+- **Titolo della lezione** e **Riepilogo**, con una scheda per locale; `en-US` è obbligatorio.
+- **Slug dell’URL**, univoco all’interno del corso.
+- **Chi può guardarla**: **Tutti (anteprima gratuita)** (`preview`), **Visitatori con accesso** (`account`) o **Licenze Complete e Agency** (`paid`, il valore predefinito).
+- **Stato**: **Bozza**, il valore predefinito, o **Pubblicato**.
+- **Video**: i 100 video pubblicati più di recente nella libreria, con la loro durata. **Ancora nessun video** lascia la lezione senza video, oppure scollega quello che ha.
+
+### Eliminare
+
+Ogni eliminazione chiede prima una conferma.
+
+- Eliminare un corso rimuove i suoi capitoli, le sue lezioni e i progressi di tutti in esse.
+- Eliminare un capitolo rimuove le sue lezioni e i relativi progressi.
+- Eliminare una lezione rimuove i suoi progressi.
+
+Le chiavi esterne lo fanno con `ON DELETE CASCADE`. I video non vengono mai eliminati insieme a un corso, a un capitolo o a una lezione: restano nella libreria.
+
+### Funzioni server
+
+| Modulo    | Casi d’uso                                                       | Permesso             |
+| --------- | ---------------------------------------------------------------- | -------------------- |
+| `course`  | `getCourses`, `getCourseEditor`                                  | `course: ["read"]`   |
+| `course`  | `createCourse`                                                   | `course: ["create"]` |
+| `course`  | `updateCourse`, `moveCourse`                                     | `course: ["update"]` |
+| `course`  | `deleteCourse`                                                   | `course: ["delete"]` |
+| `chapter` | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter` | `course: ["update"]` |
+| `lesson`  | `createLesson`, `updateLesson`, `deleteLesson`, `moveLesson`     | `course: ["update"]` |
+
+- L’elenco dei video della finestra di dialogo della lezione proviene da `getVideos`, che richiede `video: ["read"]`.
+- Uno slug già in uso risponde `CONFLICT`: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) trasforma l’errore di vincolo di unicità di D1 in un `AppError`. Un id che non corrisponde a nessuna riga risponde `NOT_FOUND`.
+- Un nuovo corso, capitolo o lezione prende la `position` più alta tra i suoi fratelli più uno (`nextPosition`). Uno spostamento scambia la riga con la sua vicina e rinumera i fratelli a partire da 1 (`reorder`) in un solo `db.batch`. Entrambe le funzioni sono in `src/modules/_core/utils/ordering.ts`, e le direzioni sono `MOVE_DIRECTION` in `src/modules/_core/constants/ordering.ts`.
+- Ogni scrittura convalida titoli e riepiloghi con `localizedTextSchema`: `en-US` è obbligatorio e ogni testo ha al massimo 2.000 caratteri. Uno slug ha al massimo 96 caratteri. I messaggi del modulo sono `defaultLocaleRequired`, `textTooLong`, `slugInvalid` e `slugTooLong` in `course.validations`, e `COURSE_VALIDATION_PARAMS` (`course.constants.ts`) fornisce i loro limiti.
+- `courseEditorQuery` mantiene `staleTime: COURSE_STALE_MS` come le query pubbliche dei corsi, e ogni modifica invalida le query `course`, quindi l’elenco e l’editor vengono ricaricati.
+
+## Test
+
+`scripts/seed-test.ts` crea un corso pubblicato con un capitolo e quattro lezioni per i test nel browser di `e2e/specs/courses.spec.ts`. In `e2e/specs/course-admin.spec.ts`, un amministratore crea un corso, un capitolo e una lezione gratuita con il video di test, un visitatore in un’altra pagina del browser guarda la lezione e l’amministratore elimina il corso.
 
 ## Pagine correlate
 

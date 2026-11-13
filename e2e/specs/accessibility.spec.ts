@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright"
 import type { Page } from "@playwright/test"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
+import { TEST_COURSE } from "../data/courses"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 
@@ -27,7 +28,16 @@ const PUBLIC_PAGES = [
 ]
 
 const WORKSPACE_PAGES = {
-  admin: ["/admin", "/admin/users/all", "/admin/products", "/admin/videos", "/admin/settings"],
+  admin: [
+    "/admin",
+    "/admin/users/all",
+    "/admin/products",
+    "/admin/courses",
+    "/admin/courses/create",
+    `/admin/courses/${TEST_COURSE.id}`,
+    "/admin/videos",
+    "/admin/settings",
+  ],
   customer: ["/app", "/app/license"],
 } as const
 

@@ -16,11 +16,12 @@ import {
 import {
   AdminBlogCreatePending,
   AdminBlogPending,
+  AdminCourseCreatePending,
+  AdminCoursesPending,
   AdminLandingPagePending,
   AdminVideosPending,
 } from "~/src/presentation/components/custom/admin/content-pending"
 import {
-  AdminCourseCreatePending,
   AdminPricingModelsPending,
   AdminProductCreatePending,
   AdminProductsPending,
@@ -37,6 +38,7 @@ const ADMIN_PAGES = new Map<string, () => JSX.Element>([
   [ROUTES.ADMIN_ANALYTICS, AdminAnalyticsPending],
   [ROUTES.ADMIN_BLOG, AdminBlogPending],
   [ROUTES.ADMIN_BLOG_CREATE, AdminBlogCreatePending],
+  [ROUTES.ADMIN_COURSES, AdminCoursesPending],
   [ROUTES.ADMIN_COURSES_CREATE, AdminCourseCreatePending],
   [ROUTES.ADMIN_LANDING_PAGE, AdminLandingPagePending],
   [ROUTES.ADMIN_PAYMENTS, AdminPaymentsPending],

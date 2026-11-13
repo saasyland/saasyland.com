@@ -3,6 +3,7 @@ export const ROUTES = {
   ADMIN_ANALYTICS: "/admin/analytics",
   ADMIN_BLOG: "/admin/blog",
   ADMIN_BLOG_CREATE: "/admin/blog/create",
+  ADMIN_COURSES: "/admin/courses",
   ADMIN_COURSES_CREATE: "/admin/courses/create",
   ADMIN_LANDING_PAGE: "/admin/landing-page",
   ADMIN_PAYMENTS: "/admin/payments",

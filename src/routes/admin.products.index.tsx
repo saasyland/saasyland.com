@@ -17,7 +17,6 @@ import { searchChoice } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
-import { Card } from "~/src/presentation/components/shadcn/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
 import { AdminProductsPending } from "~/src/presentation/components/custom/admin/offerings-pending"
@@ -67,7 +66,7 @@ const ProductsPage = (): JSX.Element => {
         </div>
 
         <TabsContent id={tab} className="mt-6 space-y-4 outline-none">
-          {tab !== "categories" && tab !== "collections" && tab !== "courses" && (
+          {tab !== "categories" && tab !== "collections" && (
             <DataTable
               columns={productColumns}
               key={tab}
@@ -83,9 +82,6 @@ const ProductsPage = (): JSX.Element => {
                   getCategoriesPageQuery({ kind: tab === "collections" ? "collection" : "category", pageIndex, pageSize }),
               }}
             />
-          )}
-          {tab === "courses" && (
-            <Card className="flex h-32 items-center justify-center text-sm text-muted-foreground">{t("courses.empty.title")}</Card>
           )}
         </TabsContent>
       </Tabs>

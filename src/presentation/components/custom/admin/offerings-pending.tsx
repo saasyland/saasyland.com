@@ -1,12 +1,6 @@
 import type { JSX } from "react"
 
-import {
-  ADMIN_COURSE_CURRICULUM_SECTIONS,
-  ADMIN_COURSE_STATUS_TOGGLES,
-  ADMIN_PRICING_MODELS,
-  ADMIN_PRICING_STATS,
-  ADMIN_PRODUCT_TABS,
-} from "~/src/data/admin"
+import { ADMIN_PRICING_MODELS, ADMIN_PRICING_STATS, ADMIN_PRODUCT_TABS } from "~/src/data/admin"
 
 import { Card, CardContent } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
@@ -128,20 +122,6 @@ const ProductGeneralSectionPending = (): JSX.Element => (
   </Card>
 )
 
-const CourseGeneralSectionPending = (): JSX.Element => (
-  <Card className="p-5 sm:p-6">
-    <Skeleton className="mb-5 h-lh w-40 scale-y-70 text-base" />
-    <div className="flex w-full flex-col gap-5">
-      <FieldPending />
-      <div className="flex w-full flex-col gap-2">
-        <Skeleton className="h-lh w-24 scale-y-70 text-sm leading-snug" />
-        <Skeleton className="h-16 w-full rounded-lg" />
-        <Skeleton className="h-lh w-64 max-w-full scale-y-70 text-xs" />
-      </div>
-    </div>
-  </Card>
-)
-
 const FieldSeparatorPending = (): JSX.Element => (
   <div className="relative -my-2 h-5">
     <div className="absolute inset-x-0 top-1/2 h-px bg-border" />
@@ -164,25 +144,6 @@ const ProductPricingSectionPending = (): JSX.Element => (
       <div className="flex w-fit flex-col gap-2">
         <Skeleton className="h-lh w-24 scale-y-70 text-sm" />
         <Skeleton className="h-8 w-44 rounded-lg" />
-      </div>
-      <div className="flex flex-1 flex-col gap-2">
-        <Skeleton className="h-lh w-12 scale-y-70 text-sm leading-snug" />
-        <Skeleton className="h-8 w-full rounded-lg" />
-      </div>
-      <div className="flex-1">
-        <SelectFieldPending />
-      </div>
-    </div>
-  </Card>
-)
-
-const CoursePricingSectionPending = (): JSX.Element => (
-  <Card className="p-5 sm:p-6">
-    <Skeleton className="mb-5 h-lh w-36 scale-y-70 text-base" />
-    <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-start">
-      <div className="flex w-fit flex-col gap-2">
-        <Skeleton className="h-lh w-24 scale-y-70 text-sm" />
-        <Skeleton className="h-8 w-60 rounded-lg" />
       </div>
       <div className="flex flex-1 flex-col gap-2">
         <Skeleton className="h-lh w-12 scale-y-70 text-sm leading-snug" />
@@ -229,85 +190,6 @@ export const AdminProductCreatePending = (): JSX.Element => (
             <FieldSeparatorPending />
             <ToggleFieldPending />
           </div>
-        </Card>
-        <OrganizationSectionPending />
-      </div>
-    </div>
-  </div>
-)
-
-export const AdminCourseCreatePending = (): JSX.Element => (
-  <div aria-busy="true" className="flex w-full flex-col space-y-8">
-    <CreatePageHeaderPending />
-    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3 lg:gap-8">
-      <div className="space-y-6 lg:col-span-2">
-        <CourseGeneralSectionPending />
-        <Card className="p-5 sm:p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <Skeleton className="h-lh w-24 scale-y-70 text-base" />
-              <div className="mt-1 flex flex-col text-xs">
-                <Skeleton className="h-lh w-64 max-w-full scale-y-70" />
-                <Skeleton className="h-lh w-1/4 scale-y-70 sm:hidden" />
-              </div>
-            </div>
-            <div className="flex h-8 items-center px-3 text-sm">
-              <Skeleton className="h-lh w-18 scale-y-70" />
-            </div>
-          </div>
-          {ADMIN_COURSE_CURRICULUM_SECTIONS.map((section) => (
-            <div className="mb-6" key={section.id}>
-              <div className="mb-3 flex items-center">
-                <div className="p-1">
-                  <IconPending />
-                </div>
-                <div className="ml-1 flex flex-1 items-center gap-2">
-                  <div className="flex size-7 items-center justify-center">
-                    <IconPending />
-                  </div>
-                  <Skeleton className="h-lh w-44 scale-y-70 text-sm" />
-                </div>
-              </div>
-              {section.lessons.length > 0 && (
-                <div className="space-y-2 pl-8">
-                  {section.lessons.map((lesson) => (
-                    <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3" key={lesson.id}>
-                      <div className="size-4" />
-                      <div className="-ml-2 flex flex-1 flex-col text-sm">
-                        <Skeleton className="h-lh w-48 max-w-full scale-y-70" />
-                        <Skeleton className="h-lh w-1/3 scale-y-70 sm:hidden" />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <IconPending />
-                        <IconPending />
-                      </div>
-                      <div className="ml-2 size-7" />
-                    </div>
-                  ))}
-                  <Skeleton className="mt-2 h-8 w-full rounded-lg" />
-                </div>
-              )}
-            </div>
-          ))}
-          <Skeleton className="mt-4 h-8 w-full rounded-lg" />
-        </Card>
-        <CoursePricingSectionPending />
-      </div>
-      <div className="space-y-6 lg:col-span-1">
-        <Card className="p-5 sm:p-6">
-          <Skeleton className="mb-4 h-lh w-16 scale-y-70 text-base" />
-          <div className="flex w-full flex-col gap-4">
-            {ADMIN_COURSE_STATUS_TOGGLES.map((toggle, index) => (
-              <div className="flex flex-col gap-4" key={toggle.id}>
-                {index > 0 && <FieldSeparatorPending />}
-                <ToggleFieldPending />
-              </div>
-            ))}
-          </div>
-        </Card>
-        <Card className="p-5 sm:p-6">
-          <Skeleton className="mb-5 h-lh w-40 scale-y-70 text-base" />
-          <UploadZonePending />
         </Card>
         <OrganizationSectionPending />
       </div>

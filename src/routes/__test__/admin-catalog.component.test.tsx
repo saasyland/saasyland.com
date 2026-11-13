@@ -89,7 +89,6 @@ describe("admin catalog", () => {
     ["subscriptions", "Monthly subscription"],
     ["categories", "Private category"],
     ["collections", "Starter collection"],
-    ["courses", pagesAdminProductsMessages.courses.empty.title],
   ] as const)("renders the requested %s product panel", async (tab, expected) => {
     vi.spyOn(ProductsRoute, "useSearch").mockReturnValue({ tab })
     const queryClient = adminQueryClient()

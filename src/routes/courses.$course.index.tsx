@@ -129,7 +129,7 @@ export const Route = createFileRoute("/courses/$course/")({
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [data] = await Promise.all([
-      context.queryClient.query({ ...courseQuery({ locale, slug: params.course }), staleTime: "static" }).catch(rethrowAsNotFound),
+      context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
     ])
     return { locale, pathname: `${ROUTES.COURSES}/${data.course.slug}`, summary: data.course.summary, title: data.course.title }

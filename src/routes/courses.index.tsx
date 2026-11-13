@@ -56,7 +56,7 @@ export const Route = createFileRoute("/courses/")({
     const [metadata] = await Promise.all([
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
-      context.queryClient.query({ ...catalogueQuery({ locale }), staleTime: "static" }),
+      context.queryClient.query(catalogueQuery({ locale })),
     ])
     return { locale, metadata }
   },

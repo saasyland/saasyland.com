@@ -6,7 +6,7 @@ import { withRequest } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { localize } from "~/src/modules/_core/utils/localized-text"
-import { COURSE_QUERY_KEYS, COURSE_STATUS } from "~/src/modules/course/course.constants"
+import { COURSE_QUERY_KEYS, COURSE_STALE_MS, COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
@@ -52,4 +52,5 @@ export const catalogueQuery = (input: Course["getCatalogue"]) =>
   queryOptions({
     queryFn: () => getCatalogue({ data: input }),
     queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
+    staleTime: COURSE_STALE_MS,
   })

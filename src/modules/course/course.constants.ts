@@ -9,6 +9,8 @@ export const COURSE_STATUS = {
   PUBLISHED: "published",
 } as const
 
+export const COURSE_STALE_MS = 60_000
+
 export const COURSE_QUERY_KEYS = {
   ALL: ["course"],
   CATALOGUE: ["course", "catalogue"],

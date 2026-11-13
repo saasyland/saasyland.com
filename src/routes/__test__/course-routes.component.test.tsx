@@ -37,15 +37,30 @@ import type { RouterContext } from "~/src/router"
 
 type PlayerProps = ComponentProps<typeof VideoPlayer>
 
-const player = vi.hoisted(() => ({ props: undefined as PlayerProps | undefined }))
+const player = vi.hoisted(() => new Map<"props", PlayerProps>())
+const coursePages = vi.hoisted(() => new Map<"current", Course["page"]>())
 const save = vi.hoisted(() => vi.fn<NonNullable<typeof saveLessonProgressMutation.mutationFn>>())
 
 vi.mock(import("~/src/presentation/components/custom/video-player"), () => ({
   VideoPlayer: (props: PlayerProps) => {
-    player.props = props
+    player.set("props", props)
     return <div data-start={props.startAt} data-testid="video-player" />
   },
 }))
+
+vi.mock(import("~/src/modules/course/use-cases/get-course"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    courseQuery: (input: Course["getCourse"]) => ({
+      ...actual.courseQuery(input),
+      queryFn: () => {
+        const page = coursePages.get("current")
+        return page === undefined ? Promise.reject(new Error("No course page")) : Promise.resolve(page)
+      },
+    }),
+  }
+})
 
 vi.mock(import("~/src/modules/lesson-progress/use-cases/save-lesson-progress"), () => ({
   saveLessonProgressMutation: { mutationFn: save, mutationKey: LESSON_PROGRESS_MUTATION_KEYS.SAVE },
@@ -119,6 +134,14 @@ const CUSTOMER_PAGE = page({
   viewer: { licensed: false, signedIn: true },
 })
 
+const completeLesson = (source: Course["page"], slug: string): Course["page"] => ({
+  ...source,
+  chapters: source.chapters.map((chapter) => ({
+    ...chapter,
+    lessons: chapter.lessons.map((entry) => ({ ...entry, completed: entry.completed || entry.slug === slug })),
+  })),
+})
+
 const CATALOGUE: Course["catalogue"] = [
   {
     durationMs: 375_000,
@@ -158,6 +181,7 @@ const createCourseRouter = ({
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
   queryClient.setQueryData(catalogueQuery({ locale }).queryKey, catalogue)
   queryClient.setQueryData(courseQuery({ locale, slug: COURSE_SLUG }).queryKey, data)
+  coursePages.set("current", data)
   for (const { slug } of data.chapters.flatMap((chapter) => chapter.lessons)) {
     queryClient.setQueryData(lessonPlaybackQuery({ courseSlug: COURSE_SLUG, lessonSlug: slug }).queryKey, PLAYBACK)
   }
@@ -210,7 +234,8 @@ const renderCourses = async ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  player.props = undefined
+  player.clear()
+  coursePages.clear()
   save.mockImplementation(({ completed, lessonId }) => Promise.resolve({ completed, lessonId }))
 })
 
@@ -296,12 +321,12 @@ describe("lesson page", () => {
     await renderCourses({ path: "/courses/the-walkthrough/boundaries" })
 
     expect(await screen.findByTestId("video-player")).toHaveAttribute("data-start", "0")
-    expect(player.props?.playback).toStrictEqual(PLAYBACK)
+    expect(player.get("props")?.playback).toStrictEqual(PLAYBACK)
     expect(screen.getByRole("heading", { level: 1, name: "Boundaries" })).toBeVisible()
     expect(screen.getByText(messages.access.preview, { selector: "p" })).toBeVisible()
     expect(screen.queryByRole("button", { name: messages.lesson.markComplete })).toBeNull()
-    player.props?.onProgress?.(30)
-    player.props?.onEnded?.()
+    player.get("props")?.onProgress?.(30)
+    player.get("props")?.onEnded?.()
     expect(save).not.toHaveBeenCalled()
 
     const neighbours = within(screen.getByRole("navigation", { name: messages.lesson.contents }))
@@ -314,19 +339,21 @@ describe("lesson page", () => {
     const invalidate = vi.spyOn(router.options.context.queryClient, "invalidateQueries")
 
     expect(await screen.findByTestId("video-player")).toHaveAttribute("data-start", "42.5")
-    player.props?.onProgress?.(50.4)
-    player.props?.onProgress?.(55)
+    player.get("props")?.onProgress?.(50.4)
+    player.get("props")?.onProgress?.(55)
     await waitFor(() => {
       expect(save).toHaveBeenCalledOnce()
     })
     expect(save.mock.calls[0]?.[0]).toStrictEqual({ completed: false, lessonId: "lesson-sessions", positionMs: 50_400 })
     expect(invalidate).not.toHaveBeenCalled()
 
-    player.props?.onEnded?.()
+    coursePages.set("current", completeLesson(LEARNER_PAGE, "sessions"))
+    player.get("props")?.onEnded?.()
     await waitFor(() => {
       expect(invalidate).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.DETAIL })
     })
     expect(save.mock.calls[1]?.[0]).toStrictEqual({ completed: true, lessonId: "lesson-sessions", positionMs: 0 })
+    expect(await screen.findByText(messages.lesson.completed, { selector: "p" })).toBeVisible()
   })
 
   it("marks a lesson without a recording complete from the button", async () => {

@@ -173,7 +173,7 @@ export const Route = createFileRoute("/courses/$course/$lesson")({
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [data] = await Promise.all([
-      context.queryClient.query({ ...courseQuery({ locale, slug: params.course }), staleTime: "static" }).catch(rethrowAsNotFound),
+      context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
     ])
     const { lesson } = locateLesson(courseLessons(data), params.lesson)

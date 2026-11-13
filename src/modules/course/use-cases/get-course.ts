@@ -8,7 +8,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { localize } from "~/src/modules/_core/utils/localized-text"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
-import { COURSE_QUERY_KEYS, COURSE_STATUS } from "~/src/modules/course/course.constants"
+import { COURSE_QUERY_KEYS, COURSE_STALE_MS, COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
@@ -108,4 +108,5 @@ export const courseQuery = (input: Course["getCourse"]) =>
   queryOptions({
     queryFn: () => getCourse({ data: input }),
     queryKey: [...COURSE_QUERY_KEYS.DETAIL, input.locale, input.slug],
+    staleTime: COURSE_STALE_MS,
   })

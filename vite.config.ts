@@ -221,6 +221,7 @@ const tooling = {
       "no-underscore-dangle": ["error", { allow: ["_splat", "__executeServer"] }],
       "one-var": ["error", "never"],
       "sort-imports": ["error", { ignoreDeclarationSort: true }],
+      "typescript/no-explicit-any": "error",
       "typescript/only-throw-error": [
         "error",
         {

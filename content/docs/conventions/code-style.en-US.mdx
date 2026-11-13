@@ -1,0 +1,129 @@
+---
+title: "Code style"
+description: "What the formatter, linter and compiler enforce, and the rules they cannot check: no comments, no escape hatches, one-line ternaries and named constants."
+---
+
+`bun run check` runs `vp check`, which formats with oxfmt, lints with oxlint and type-checks with TypeScript in one pass, with the configuration in `vite.config.ts` and `tsconfig.json`. CI runs the same command. Nothing here is a matter of taste: if the tools accept code that breaks a rule on this page, review rejects it.
+
+## What the tools enforce
+
+oxlint runs the `correctness`, `nursery`, `pedantic`, `perf`, `style` and `suspicious` categories as errors, with type-aware rules and type checking switched on. The limits that shape code most:
+
+| Rule                         | Setting                                                 | Effect                                         |
+| ---------------------------- | ------------------------------------------------------- | ---------------------------------------------- |
+| `max-lines`                  | 800                                                     | Split a file by responsibility before it grows |
+| `max-lines-per-function`     | 150                                                     | Components and handlers stay small             |
+| `max-statements`             | 20                                                      | Extract named helpers instead of long bodies   |
+| `no-magic-numbers`           | only `0` allowed, plus array indexes and default values | Every other number is a named constant         |
+| `id-length`                  | at least two characters, except `_`, `m` and `t`        | Identifiers are words; `t` is the translator   |
+| `one-var`                    | `never`                                                 | One declaration per statement                  |
+| `unicorn/no-null`            | on outside tests                                        | Absent values are `undefined`                  |
+| `typescript/no-explicit-any` | `error`                                                 | No value is typed `any`                        |
+
+The overrides are narrow and file-scoped: tests relax `no-magic-numbers`, `no-await-in-loop` and `unicorn/no-null`; `src/presentation` and `src/hooks` relax `typescript/consistent-return`; test mocks relax `require-await`; `src/routes` turns off `sort-keys`, because route options follow their own order (see [Route files](/docs/conventions/routes)).
+
+`tsconfig.json` adds the strict flags that change how code is written: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` and `noUnusedParameters`. An indexed read is possibly `undefined`, an optional property cannot be set to `undefined` explicitly, and an index signature is read as `record["key"]`.
+
+The formatter prints without semicolons, with double quotes, trailing commas and a width of 140. It also sorts imports into fixed groups, Tailwind classes in `className` and `cn` calls, and the `package.json` scripts by name (`sortPackageJson: { sortScripts: true }`), so never order any of them by hand: `vp check` fails when one is out of order. See [Lint and format](/docs/tooling/lint-format) for the commands.
+
+## No comments
+
+Write no comments: not in TypeScript, TSX, tests, scripts, configuration or CSS, and not even to explain a non-obvious constraint. A name carries the meaning instead, and the reasoning goes into the commit message, the pull request or these docs.
+
+```ts
+const SINGLE_ROW_LIMIT = 1
+const LAST_INDEX_OFFSET = 1
+const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
+```
+
+The first two come from `get-course-editor.ts` and `course-columns.tsx`, the third from `vite.config.ts`: each would otherwise need a comment. Generated files (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) are exempt. Before you commit, search your diff for `//`, `/*` and `{/*`.
+
+## No escape hatches
+
+Never write `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-ignore`, `@ts-nocheck`, an `as` cast or `any` to make a rule pass. A rule that fires is pointing at a design problem; change the design.
+
+- **Validate instead of asserting.** Data from storage, the network or a request is parsed with Zod: `src/lib/github.ts` reads the cached star count with `cachedStarCountSchema.safeParse(await env.CACHE.get(CACHE_KEY, "json")).data`, which is a number or `undefined`, never a guess.
+- **Narrow with a type guard.** `isRole` in `src/integrations/better-auth/auth.access.ts` and `isErrorCode` in `src/hooks/use-error-message.ts` turn a `string` into a union with a real check.
+- **Check, do not convert.** `as const` and `satisfies` are allowed because they never change a type: `POLAR_ORDER_STATUS` ends in `as const satisfies Record<string, models.OrderStatus>`, so a misspelled Polar status fails to compile.
+- **Restructure when a library contract fights you.** Wrap a value in an object, split a function, or read from a typed source rather than casting.
+
+## Null and undefined
+
+`null` literals are banned outside tests; an absent value is `undefined`. Never bridge an API that returns `null` with `?? undefined`. Validate the input first, so the call cannot fail, or use a parser that already returns `undefined`. Search params are the common case, and `searchParam(schema)` in `src/lib/search-params.ts` returns `undefined` for a missing or malformed value:
+
+```ts
+export const authSearchSchema = zod.object({
+  redirect: searchParam(callbackPathSchema),
+})
+```
+
+## Ternaries and early returns
+
+A ternary fits on one line, such as `{t(course === undefined ? "create" : "save")}` in `course-form.tsx`. Anything longer, and every choice between two pieces of JSX, becomes an early return, a pair of `&&` conditions or a small component. `src/routes/auth.reset-password.tsx` renders its two states with two conditions:
+
+```tsx
+{resetToken !== undefined && <ResetPasswordForm token={resetToken} />}
+{resetToken === undefined && (
+  <>
+    <p className="text-body text-pretty text-destructive">{t("form.invalidToken")}</p>
+```
+
+Functions return early for the special cases and keep the main path unindented, as `hasLessonAccess` in `src/modules/lesson/lesson.access.ts` does:
+
+```ts
+export const hasLessonAccess = (access: Lesson["select"]["access"], viewer: Viewer): boolean => {
+  if (access === LESSON_ACCESS.PREVIEW || viewer.isStaff) {
+    return true
+  }
+
+  if (access === LESSON_ACCESS.ACCOUNT) {
+    return viewer.userId !== undefined
+  }
+
+  return viewer.licensed
+}
+```
+
+## Named constants
+
+Numbers other than `0` are named (`COURSE_STALE_MS = 60_000`, `SAVE_INTERVAL_MS = 15_000`). Values that belong to the domain, such as statuses, kinds, access levels, tiers, roles and provider event values, are declared once as an `as const` object and referenced by name everywhere, including tests and fixtures:
+
+```ts
+export const COURSE_STATUS = {
+  DRAFT: "draft",
+  PUBLISHED: "published",
+} as const
+```
+
+The tuple a column or an enum schema needs is built from the object, not retyped: `course.schema.ts` declares `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, which feeds both `text("status", { enum: COURSE_STATUSES })` and `zod.enum(COURSE_STATUSES)`.
+
+- A module's constants live in its `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); a provider's values live in the integration's `*.constants.ts` (`POLAR_ORDER_STATUS` in `polar.constants.ts`, `AUTH_PROVIDER` in `auth.constants.ts`, `EMAIL_PURPOSE` in `resend.constants.ts`).
+- Column and input lengths are named once, in the module's constants, and read by both the Drizzle schema and the Zod schema: `PRODUCT_NAME_MAX_LENGTH` in `product.constants.ts`.
+- One concept has one map in one casing: `ERROR_CODES` for server errors, `AUTH_ERRORS` for Better Auth error keys, `ROLE_CODES` for roles.
+- A constant used by one file stays in that file, below the imports. A constant used by several files goes to its module, to `src/data` (see [Files and naming](/docs/conventions/files-and-naming)) or to `src/modules/_core/constants`. Never give one constant a file of its own.
+- Typed API field names such as `license_key_id` are properties, not values, and stay as property access.
+
+## Hooks in components
+
+Single-value hook calls come first, then a blank line, then each destructured hook result, so the values a component pulls apart read as their own group. `src/presentation/components/custom/auth/sign-in-form.tsx`:
+
+```tsx
+const t = useTranslations()
+const router = useRouter()
+
+const { finishSignIn, redirect } = useAuthRedirect()
+```
+
+A component calls `useTranslations` once and names the result `t`; see [Translations and content](/docs/conventions/translations) for why.
+
+## Names and imports
+
+- Files and folders are kebab-case; components are PascalCase; constants are SCREAMING_SNAKE_CASE; functions start with a verb (`resolveViewer`, `rethrowAsConflict`); booleans read as questions (`isPending`, `hasLessonAccess`).
+- Imports use the `~/src/...` alias and come from the file that defines the symbol. There are no barrel files that re-export a folder; the one re-export file is `src/integrations/drizzle-orm/drizzle.schemas.ts`, because Drizzle needs every table in one schema object.
+- Index arithmetic gets a name too: `index + NEXT` in `course.utils.ts`, never `slice(i + 1, -5)`.
+
+## Related pages
+
+- [Lint and format](/docs/tooling/lint-format)
+- [Components and styling](/docs/conventions/components)
+- [Files and naming](/docs/conventions/files-and-naming)

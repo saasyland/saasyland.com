@@ -1,0 +1,48 @@
+---
+title: "Accessibilité"
+description: "Chaque page respecte WCAG 2.2 AA dans les deux thèmes, ce que vérifie axe dans la suite de tests du navigateur, plus les règles de clavier et de lecteur d'écran qu'axe ne peut pas voir."
+---
+
+Chaque page publique, un article de blog et chaque page des espaces d'administration et client respectent le niveau AA de WCAG 2.2 dans le thème clair comme dans le thème sombre. C'est une exigence de publication, pas un objectif : `e2e/specs/accessibility.spec.ts` les analyse sur chaque pull request et échoue à la moindre violation.
+
+## L'analyse
+
+La spec exécute axe-core via `@axe-core/playwright` avec les règles A et AA de WCAG 2.0, 2.1 et 2.2 et les bonnes pratiques d'axe, au moyen des utilitaires de `e2e/fixtures/accessibility.ts`, qu'utilise aussi `checkout-funnel.spec.ts` :
+
+```ts
+const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]
+
+export const COLOR_SCHEMES = ["light", "dark"] as const
+```
+
+Avant l'analyse, `accessibilityViolations` fait défiler toute la page, pour que les sections qui apparaissent en fondu au défilement soient visibles, et attend la fin des animations finies, pour que le contraste soit mesuré sur la page stabilisée. Une nouvelle page est ajoutée à `PUBLIC_PAGES` ou à `WORKSPACE_PAGES` dans `accessibility.spec.ts`, dans la même modification que celle qui ajoute la route. Exécutez la spec avec le reste de la suite :
+
+```sh
+bun run test:e2e:pr
+```
+
+## Ce qu'axe ne peut pas vérifier
+
+axe vérifie le balisage, pas le sens ni le parcours au clavier. Ces règles couvrent le reste et sont contrôlées en revue :
+
+- **Points de repère et noms.** Chaque espace de travail a une navigation étiquetée (`<nav aria-label={t("navigationLabel")}>` dans `admin-sidebar.tsx`), et les barres latérales, le panneau latéral d'authentification et la table des matières de la documentation sont des points de repère.
+- **Une vraie sémantique.** Les onglets ont des panneaux d'onglet ; un ensemble d'options qui ne change pas de panneau est un groupe de boutons bascule, pas une liste d'onglets. Un lien qui ressemble à un bouton est un `LinkButton`, jamais un lien qui enveloppe un bouton.
+- **Des libellés sur chaque contrôle.** Les champs de saisie ont un `FieldLabel` ; un libellé visuellement masqué utilise `className="sr-only"`, comme le champ de la newsletter. Les boutons composés d'une seule icône portent un `aria-label` qui nomme leur cible, comme `t("actions.delete", { title })`, et le texte visible d'un contrôle fait partie de son nom accessible.
+- **Les erreurs annoncées avec le champ.** Chaque champ de saisie définit `aria-describedby` sur l'identifiant de son erreur et `aria-invalid` tant qu'il est invalide ; l'élément d'erreur n'existe que lorsqu'il y a une erreur. Voir [Formulaires et tableaux](/docs/conventions/forms-and-tables).
+- **Le contenu décoratif est masqué.** Les icônes placées à côté d'un texte reçoivent `aria-hidden`, tout comme les points purement visuels, les séparateurs et les vidéos en boucle sans libellé.
+- **Des titres dans l'ordre.** Chaque page a un seul `h1` ; un titre de carte qui ouvre une section affiche un `h2` dans `CardTitle`, comme le fait `course-form.tsx`.
+- **Le clavier d'abord.** Tout ce qui est accessible à la souris l'est au clavier, y compris les actions qui apparaissent au survol, lesquelles apparaissent aussi au focus. Les anneaux de focus utilisent `data-focus-visible:` sur les composants React Aria ; voir [Composants et styles](/docs/conventions/components).
+- **États d'occupation.** Les squelettes définissent `aria-busy="true"` sur leur racine, et les boutons en attente utilisent l'état `isPending` du `Button` de shadcn.
+- **Les colonnes ont un nom.** La colonne d'actions d'un tableau utilise `DataTableActionsHeader`, un en-tête réservé aux lecteurs d'écran.
+- **La langue est déclarée.** `<html lang>` suit la locale de la route, et un champ de saisie destiné à un texte dans une autre langue définit `lang={locale}`, comme le font les champs localisés des cours.
+
+## Contraste et animations
+
+- Le texte utilise les jetons de couleur du thème. `text-muted-foreground` atteint 4,5:1 dans les deux thèmes ; les variantes plus claires comme `text-muted-foreground/60` sont réservées aux puces désactivées, aux icônes décoratives et aux séparateurs.
+- Les animations respectent les réglages du lecteur : `MotionConfig reducedMotion="user"` dans `MotionProvider`, des variantes `motion-reduce:` sur les transitions, `scroll-behavior: auto` sous `prefers-reduced-motion`, et les vidéos de la page d'accueil ne se lancent pas automatiquement pour les lecteurs qui demandent des animations réduites (`concept-loop.tsx`).
+
+## Pages associées
+
+- [Playwright](/docs/tooling/playwright)
+- [Composants et styles](/docs/conventions/components)
+- [Formulaires et tableaux](/docs/conventions/forms-and-tables)

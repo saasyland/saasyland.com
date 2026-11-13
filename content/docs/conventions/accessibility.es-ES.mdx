@@ -1,0 +1,48 @@
+---
+title: "Accesibilidad"
+description: "Todas las páginas cumplen WCAG 2.2 AA en ambos temas, lo que comprueba axe en la suite del navegador, además de las reglas de teclado y de lectores de pantalla que axe no puede ver."
+---
+
+Todas las páginas públicas, una entrada del blog y todas las páginas de los espacios de trabajo de administración y de cliente cumplen el nivel AA de WCAG 2.2 con el tema claro y con el oscuro. Es un requisito para publicar, no un objetivo: `e2e/specs/accessibility.spec.ts` las analiza en cada pull request y falla ante cualquier infracción.
+
+## El análisis
+
+La spec ejecuta axe-core mediante `@axe-core/playwright` con las reglas A y AA de WCAG 2.0, 2.1 y 2.2 y las buenas prácticas de axe, a través de los helpers de `e2e/fixtures/accessibility.ts`, que también usa `checkout-funnel.spec.ts`:
+
+```ts
+const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]
+
+export const COLOR_SCHEMES = ["light", "dark"] as const
+```
+
+Antes de analizar, `accessibilityViolations` recorre toda la página con scroll, para que las secciones que aparecen al desplazarse sean visibles, y espera a que terminen las animaciones finitas, para que el contraste se mida sobre la página ya estable. Una página nueva se añade a `PUBLIC_PAGES` o a `WORKSPACE_PAGES` de `accessibility.spec.ts` en el mismo cambio que añade la ruta. Ejecuta la spec con el resto de la suite:
+
+```sh
+bun run test:e2e:pr
+```
+
+## Lo que axe no puede comprobar
+
+axe comprueba el marcado, no el significado ni el recorrido con el teclado. Estas reglas cubren el resto y se vigilan en la revisión:
+
+- **Landmarks y nombres.** Cada espacio de trabajo tiene una navegación etiquetada (`<nav aria-label={t("navigationLabel")}>` en `admin-sidebar.tsx`), y las barras laterales, el panel lateral de autenticación y la tabla de contenidos de la documentación son landmarks.
+- **Semántica real.** Las pestañas tienen paneles de pestaña; un conjunto de opciones que no cambia de panel es un grupo de alternancia, no una lista de pestañas. Un enlace con aspecto de botón es un `LinkButton`, nunca un enlace que envuelve un botón.
+- **Etiquetas en todos los controles.** Los inputs tienen un `FieldLabel`; una etiqueta oculta visualmente usa `className="sr-only"`, como hace el campo de la newsletter. Los botones que solo tienen un icono llevan un `aria-label` que nombra su objetivo, como `t("actions.delete", { title })`, y el texto visible de un control forma parte de su nombre accesible.
+- **Errores anunciados con el campo.** Cada input establece `aria-describedby` con el ID de su error, y `aria-invalid` mientras no es válido; el elemento de error solo existe mientras hay un error. Consulta [Formularios y tablas](/docs/conventions/forms-and-tables).
+- **El contenido decorativo se oculta.** Los iconos junto a un texto llevan `aria-hidden`, igual que los puntos puramente visuales, los separadores y los vídeos en bucle sin etiqueta.
+- **Encabezados en orden.** Cada página tiene un único `h1`; el título de una tarjeta que inicia una sección renderiza un `h2` dentro de `CardTitle`, como hace `course-form.tsx`.
+- **Primero el teclado.** Todo lo que se alcanza con el ratón se alcanza con el teclado, incluidas las acciones que aparecen al pasar el cursor, que también aparecen al recibir el foco. Los anillos de foco usan `data-focus-visible:` en los componentes de React Aria; consulta [Componentes y estilos](/docs/conventions/components).
+- **Estados de ocupado.** Los esqueletos establecen `aria-busy="true"` en su raíz, y los botones pendientes usan el estado `isPending` del `Button` de shadcn.
+- **Las columnas tienen nombre.** La columna de acciones de una tabla usa `DataTableActionsHeader`, una cabecera que solo ven los lectores de pantalla.
+- **El idioma está declarado.** `<html lang>` sigue el idioma de la ruta, y un input para texto en otro idioma establece `lang={locale}`, como hacen los campos localizados del curso.
+
+## Contraste y movimiento
+
+- El texto usa los tokens de color del tema. `text-muted-foreground` supera 4,5:1 en ambos temas; las variantes más claras, como `text-muted-foreground/60`, son solo para chips desactivados, iconos decorativos y separadores.
+- El movimiento respeta la configuración del lector: `MotionConfig reducedMotion="user"` en `MotionProvider`, variantes `motion-reduce:` en las transiciones, `scroll-behavior: auto` con `prefers-reduced-motion`, y los vídeos de la página de inicio no se reproducen automáticamente para los lectores que piden movimiento reducido (`concept-loop.tsx`).
+
+## Páginas relacionadas
+
+- [Playwright](/docs/tooling/playwright)
+- [Componentes y estilos](/docs/conventions/components)
+- [Formularios y tablas](/docs/conventions/forms-and-tables)

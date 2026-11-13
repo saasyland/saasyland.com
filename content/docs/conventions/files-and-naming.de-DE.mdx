@@ -1,0 +1,119 @@
+---
+title: "Dateien und Benennung"
+description: "Wo jede Art von Code liegt, wie Dateien und Ordner benannt werden und welche Ordnerstrukturen nicht erlaubt sind."
+---
+
+Jede Datei und jeder Ordner ist kebab-case. Namen werden zusammengesetzt statt verschachtelt: Das Suffix sagt, wofür eine Datei da ist, sodass `src/modules/course/course.constants.ts` neben `course.schema.ts` liegt statt in einem Ordner `constants/`. Ausnahmen sind `src/routes`, wo Punkte Pfade trennen, und generierte Dateien wie `src/routeTree.gen.ts`.
+
+## Wohin Code gehört
+
+Entscheiden Sie anhand dessen, was neuer Code tut, wo er hingehört, und zwar in dieser Reihenfolge:
+
+| Der Code                                                                      | Liegt in                                                | Beispiel                                                                                          |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Besitzt eine Datenbanktabelle                                                 | `src/modules/<table>/`                                  | `src/modules/course/`                                                                             |
+| Ist eine Server Function, die keine Tabelle liest (eine externe API, Inhalte) | `src/lib/<topic>.ts` oder die eine Route, die sie nutzt | `src/lib/github.ts`, `src/routes/blog.index.tsx`                                                  |
+| Konfiguriert oder adaptiert eine Bibliothek oder einen Dienst eines Anbieters | `src/integrations/<vendor>/`                            | `src/integrations/polar/polar.config.ts`                                                          |
+| Rendert UI                                                                    | `src/presentation/components/custom/`                   | `custom/admin/courses/course-form.tsx`                                                            |
+| Ist ein React-Hook, den mehrere Komponenten nutzen                            | `src/hooks/use-<name>.ts`                               | `src/hooks/use-error-message.ts`                                                                  |
+| Ist ein anwendungsweiter Provider                                             | `src/providers/<name>-provider.tsx`                     | `src/providers/theme-provider.tsx`                                                                |
+| Sind Daten oder Konstanten, die mehrere Dateien lesen                         | `src/data/<topic>.ts`                                   | `MARKETING_SECTION_IDS` in `src/data/marketing.ts`, `AFFILIATE_TERMS` in `src/data/affiliates.ts` |
+| Ist ein kleines Hilfsmittel ohne besseren Besitzer                            | `src/lib/<name>.ts`                                     | `src/lib/search-params.ts`, `src/lib/cn.ts`                                                       |
+| Ist ein Fehlercode, Katalog oder Helfer, den Module gemeinsam nutzen          | `src/modules/_core/`                                    | `src/modules/_core/constants/errors.ts`                                                           |
+| Verdrahtet die Testlaufzeit                                                   | `src/platform/testing/`                                 | `src/platform/testing/mocks/cloudflare.ts`                                                        |
+
+Konstanten und Helfer, die nur eine Datei verwendet, bleiben in dieser Datei. Erst wenn eine zweite Datei sie braucht, ziehen sie um.
+
+## Komponentenordner
+
+`src/presentation/components/custom` enthält nur `.tsx`-Komponenten, in flachen Ordnern:
+
+- Eine Komponente, die mehrere Bereiche nutzen, liegt auf oberster Ebene: `custom/data-table.tsx`, `custom/newsletter-form.tsx` und `custom/pricing.tsx`, das die Stufenkarten sowohl der Landingpage als auch von `/app/license` rendert.
+- Eine Komponente eines einzigen Bereichs liegt im Ordner dieses Bereichs: `custom/courses/curriculum.tsx`, `custom/auth/sign-in-form.tsx`.
+- Eine Admin-Seite mit mehreren Widgets bekommt einen Ordner für diese Seite: `custom/admin/courses/course-form.tsx`, `custom/admin/users/delete-user-dialog.tsx`.
+- `custom/landing-page/` behält zwei Ordner, `components/` und `sections/`.
+
+Ein Widget, ein Dialog, ein Formular oder ein Spaltensatz pro Datei. Tabellenspalten heißen `<entity>-columns.tsx` (`course-columns.tsx`); Skeletons sind in `<area>-pending.tsx` gruppiert (`content-pending.tsx`, `courses-pending.tsx`).
+
+Nicht erlaubt:
+
+- Unterordner `components/`, `constants/`, `hooks/`, `lib/` oder `types/` innerhalb eines Komponentenordners.
+- Eine `.ts`-Datei neben `.tsx`-Komponenten. Motion-Tokens liegen in `src/integrations/motion/motion.tokens.ts`, Feld-Helfer in `src/integrations/tanstack-form/form.fields.ts`.
+- Eine Komponente in `x.tsx` und `x-content.tsx` aufzuteilen, um die Hälfte davon lazy zu laden, oder eine Fassade wie einen `toast`-Helfer über einer Anbieter-API. Importieren Sie den Anbieter direkt.
+
+`src/presentation/components/shadcn/` enthält die shadcn-Primitive (siehe [Komponenten und Styling](/docs/conventions/components)), `src/presentation/emails/` die React Email-Vorlagen, `src/presentation/styles/` die Stylesheets und `src/presentation/branding` sowie `src/presentation/theme` die Konstanten für Markenidentität und Theme.
+
+## Integrationen
+
+Ein Anbieterordner ist nach dem Paket oder Dienst benannt, und seine Dateien nach dem Kurznamen des Anbieters und dem Aspekt: `<prefix>.<concern>.ts`.
+
+| Suffix          | Enthält                                                       | Beispiel                                                                                                                  |
+| --------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `.config.ts`    | Den konfigurierten Client                                     | `polar/polar.config.ts`, `resend/resend.config.ts`                                                                        |
+| `.constants.ts` | Werte, die aus der Umgebung oder vom Anbieter abgeleitet sind | `polar/polar.constants.ts`, `better-auth/auth.constants.ts`, `resend/resend.constants.ts`, `affonso/affonso.constants.ts` |
+| `.server.ts`    | Einrichtung, die nur auf dem Server läuft                     | `better-auth/auth.server.ts`                                                                                              |
+| `.<concern>.ts` | Einen einzelnen Aspekt der Integration                        | `better-auth/auth.middleware.ts`, `use-intl/i18n.messages.ts`, `drizzle-orm/drizzle.columns.ts`                           |
+
+Das Präfix ist der Kurzname und nicht der Ordnername, weshalb `better-auth` die Dateien `auth.*` enthält, `use-intl` die Dateien `i18n.*` und `tanstack-form` die Dateien `form.*`.
+
+## Module
+
+Ein Modulordner ist nach seiner Tabelle benannt, und jede Datei wiederholt diesen Namen. Die vollständige Liste der Dateiarten und was jede enthalten darf, steht unter [Module](/docs/conventions/modules).
+
+| Muster                       | Beispiel                                             |
+| ---------------------------- | ---------------------------------------------------- |
+| `<table>.schema.ts`          | `course/course.schema.ts`                            |
+| `<table>.zod.ts`             | `course/course.zod.ts`                               |
+| `<table>.constants.ts`       | `course/course.constants.ts`                         |
+| `<table>.types.ts`           | `course/course.types.ts`                             |
+| `<table>.utils.ts`           | `course/course.utils.ts`                             |
+| `<table>.<concern>.ts`       | `lesson/lesson.access.ts`, `video/video.delivery.ts` |
+| `use-cases/<verb>-<noun>.ts` | `course/use-cases/move-course.ts`                    |
+
+## Routen
+
+`src/routes` verwendet die flachen Dateirouten von TanStack Start, sodass sich ein Dateiname wie seine URL liest.
+
+| Muster                    | Bedeutung                            | Beispiel                         |
+| ------------------------- | ------------------------------------ | -------------------------------- |
+| `<segment>.<segment>.tsx` | Verschachtelter Pfad                 | `admin.courses.create.tsx`       |
+| `<path>.tsx`              | Layout für alles unterhalb des Pfads | `admin.courses.tsx`              |
+| `<path>.index.tsx`        | Die Seite unter dem Pfad selbst      | `admin.courses.index.tsx`        |
+| `_<name>.tsx`             | Pfadloses Layout                     | `_landing.tsx`                   |
+| `$<param>`                | Dynamisches Segment                  | `admin.courses.$courseId.tsx`    |
+| `$.tsx`                   | Splat-Route                          | `docs.$.tsx`                     |
+| `__root.tsx`              | Root-Route                           | `__root.tsx`                     |
+| `api/<name>.ts`           | HTTP-Handler                         | `api/auth.$.ts`, `api/search.ts` |
+
+Routendateien enthalten kein Locale-Segment; der Router fügt das Locale-Präfix hinzu und entfernt es wieder.
+
+## Tests
+
+Tests liegen in einem Ordner `__test__` neben dem Code, den sie abdecken, und das Suffix wählt das Vitest-Projekt:
+
+| Muster                                | Projekt       |
+| ------------------------------------- | ------------- |
+| `__test__/<file>.test.ts`             | `node`        |
+| `__test__/<file>.integration.test.ts` | `integration` |
+| `__test__/<file>.component.test.tsx`  | `component`   |
+
+Ein Test ist nach der Datei benannt, die er abdeckt, optional mit einem Thema: `course.schema.test.ts`, `rate-limit.client-address.test.ts`. Tests für Use Cases sind nach Modul und Zielgruppe gruppiert: `use-cases/__test__/course-use-cases.test.ts` und `course-admin-use-cases.test.ts`. Fixtures liegen in `__test__/fixtures/` neben ihrem Besitzer (`src/modules/course/__test__/fixtures/catalogue.ts`). Routentests liegen in `src/routes/__test__/` und sind nach Bereich benannt: `admin-course-routes.component.test.tsx`, `course-loaders.test.ts`.
+
+Browsertests liegen im Stammverzeichnis des Repositorys: Specs in `e2e/specs/<flow>.spec.ts`, Page Objects in `e2e/pages/<name>-page.ts`, Seed-Daten in `e2e/data/` und Playwright-Fixtures in `e2e/fixtures/`.
+
+## Inhalte, Nachrichten und die Datenbank
+
+| Muster                                                           | Bedeutung                                                                    |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `messages/<locale>/<namespace>.json`                             | Ein Übersetzungs-Namespace: `pages.admin.courses.json`                       |
+| `content/docs/<path>/<page>.<locale>.mdx`                        | Eine Dokumentationsseite in einer Locale                                     |
+| `content/docs/<path>/meta.<locale>.json`                         | Navigationsreihenfolge und Titel dieses Ordners                              |
+| `content/blog/<slug>.<locale>.mdx`                               | Ein Blogbeitrag in einer Locale                                              |
+| `src/integrations/drizzle-orm/migrations/<timestamp>_<name>.sql` | Eine Migration, erzeugt von `bun run db:generate`                            |
+| `scripts/<name>.ts`                                              | Ein Repository-Skript, das mit Bun läuft: `check-content.ts`, `seed-test.ts` |
+
+## Verwandte Seiten
+
+- [Verzeichnisstruktur](/docs/architecture/directory-structure)
+- [Module](/docs/conventions/modules)
+- [Routendateien](/docs/conventions/routes)

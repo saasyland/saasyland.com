@@ -1,0 +1,204 @@
+---
+title: "モジュール"
+description: "モジュールは 1 つのデータベーステーブルです。スキーマ、定数、Zod スキーマ、型のインターフェース、ユースケース、そしてテーブルが必要とする少数の関心事ファイルで構成されます。"
+---
+
+`src/modules/<table>/` は、実在するデータベーステーブルのためだけに存在します。このフォルダーは Drizzle のスキーマを映したものなので、フォルダーを作ることは、テーブルが存在すると宣言することになります。独自のテーブルを持たない機能のためのコードは別の場所に置きます。GitHub やドキュメントのコレクションを読むサーバー関数は `src/lib/<topic>.ts` か、それを使う唯一のルートに置き、ベンダーのセットアップは `src/integrations/<vendor>` に置きます。
+
+モジュールは `account`、`category`、`chapter`、`course`、`lesson`、`lesson-progress`、`license`、`newsletter-subscriber`、`product`、`rate-limit`、`session`、`two-factor`、`user`、`verification`、`video` です。`license` は `license` と `revoked_license_order` の 2 つのテーブルを所有します。`_core` はモジュールではなく、すべてのモジュールが共有するエラーコード、カタログ、Zod のフィールドを保持します。
+
+## 構成
+
+`src/modules/course` がリファレンスです。モジュールには次のファイルが含まれ、すべてテーブル名にちなんで命名します。
+
+| ファイル                     | 内容                                                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`          | Drizzle のテーブル、そのインデックスとリレーション、カラムが使う enum のタプル               |
+| `<table>.constants.ts`       | ドメインの値オブジェクト、クエリキー、ミューテーションキー、モジュールの上限値               |
+| `<table>.zod.ts`             | 操作ごとに 1 つの入力スキーマ。1 つの `<table>ZodSchemas` オブジェクトとしてエクスポートする |
+| `<table>.types.ts`           | モジュール名を冠した 1 つのインターフェース                                                  |
+| `<table>.utils.ts`           | テーブルのヘルパー。Worker の環境を読み取るものを除き、純粋でブラウザーでも安全              |
+| `<table>.<concern>.ts`       | テーブルのその他の関心事 1 つ。`lesson.access.ts` や `video.delivery.ts` など                |
+| `use-cases/<verb>-<noun>.ts` | 1 つの操作。そのサーバー関数にちなんで命名する                                               |
+| `__test__/`                  | 上記のファイルのテストとフィクスチャ                                                         |
+
+## スキーマ
+
+```ts
+export const COURSE_KINDS = [COURSE_KIND.COURSE, COURSE_KIND.TUTORIAL, COURSE_KIND.PROJECT] as const
+export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
+
+export const course = sqliteTable(
+  "course",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
+    position: integer("position").notNull().default(0),
+    slug: text("slug", { length: SLUG_MAX_LENGTH }).notNull().unique(),
+    status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
+    summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
+    title: text("title", { mode: "json" }).$type<LocalizedText>().notNull(),
+    ...timestamps(),
+  },
+  (table) => [index("course_status_position_idx").on(table.status, table.position)],
+)
+```
+
+- カラムは TypeScript ではキャメルケース、SQL ではスネークケースです。リンターの要求どおり、キーは並べ替え、`...timestamps()` を最後のエントリーにします。
+- `createdAt` と `updatedAt` は `src/integrations/drizzle-orm/drizzle.columns.ts` の `timestamps()` から取得します。ミリ秒単位で、挿入時に SQLite が値を設定し、`updatedAt` は更新のたびに打ち直されます。これらを手書きしてはいけません。`lesson_progress` は後者だけが必要なので、`updatedAt: timestamps().updatedAt` を使います。
+- 主キーはテキストです。行を挿入するユースケースは、キーに UUID v7（`uuid` の `v7()`）を設定します。
+- enum カラムには、リテラルを並べたリストではなく、モジュールの定数オブジェクトから組み立てたタプルを渡します。
+- 訪問者が複数の言語で読むテキストは `LocalizedText` の JSON カラムにし、`localizedTextSchema` で検証して、`src/modules/_core/utils/localized-text.ts` の `localize(text, locale)` で読み取ります。
+- 新しいテーブルは `src/integrations/drizzle-orm/drizzle.schemas.ts` から再エクスポートし、そのマイグレーションは `bun run db:generate` で生成します。[データベースマイグレーション](/docs/guides/database-migrations)を参照してください。
+
+## 定数
+
+```ts
+export const COURSE_STATUS = {
+  DRAFT: "draft",
+  PUBLISHED: "published",
+} as const
+
+export const COURSE_STALE_MS = 60_000
+
+export const COURSE_SHOWCASE = {
+  COURSES: 2,
+  LESSONS: 6,
+} as const
+
+export const COURSE_QUERY_KEYS = {
+  ALL: ["course"],
+  CATALOGUE: ["course", "catalogue"],
+  DETAIL: ["course", "detail"],
+  EDITOR: ["course", "getCourseEditor"],
+  LIST: ["course", "getCourses"],
+  SHOWCASE: ["course", "showcase"],
+} as const
+
+export const COURSE_MUTATION_KEYS = {
+  CREATE: ["course", "createCourse"],
+  DELETE: ["course", "deleteCourse"],
+  MOVE: ["course", "moveCourse"],
+  UPDATE: ["course", "updateCourse"],
+} as const
+```
+
+- すべてのクエリキーはモジュールの `ALL` プレフィックスで始まるため、`invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })` を 1 回呼ぶだけで、そのモジュールが提供するものがすべて更新されます。[データの取得とキャッシュ](/docs/conventions/data-fetching)を参照してください。
+- ミューテーションキーは、モジュール名とサーバー関数名で構成します。
+- カラムと入力の長さはここで名前を付け、`product.constants.ts` の `PRODUCT_NAME_MAX_LENGTH` のように、スキーマと Zod スキーマで共有します。
+- `<MODULE>_VALIDATION_PARAMS` は、`{ slugTooLong: { max: SLUG_MAX_LENGTH } }` のように、バリデーションメッセージに埋め込む数値を保持します。
+
+## Zod スキーマ
+
+```ts
+const { createInsertSchema, createSelectSchema } = createSchemaFactory({ zodInstance: zod })
+
+const courseIdInput = zod.object({
+  courseId: idField,
+})
+
+const courseFields = zod.object({
+  kind: zod.enum(COURSE_KINDS),
+  slug: slugField,
+  status: zod.enum(COURSE_STATUSES),
+  summary: localizedTextSchema,
+  title: localizedTextSchema,
+})
+
+const createCourse = courseFields
+
+const deleteCourse = courseIdInput
+
+const getCatalogue = zod.object({
+  locale: localeField,
+})
+
+const getCourse = zod.object({
+  locale: localeField,
+  slug: slugField,
+})
+
+const getCourseEditor = courseIdInput
+
+const getCourseShowcase = zod.object({
+  locale: localeField,
+})
+
+const getCourses = paginationSchema
+
+const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
+
+const updateCourse = courseFields.extend(courseIdInput.shape)
+
+const insert = createInsertSchema(course)
+const select = createSelectSchema(course)
+
+export const courseZodSchemas = {
+  createCourse,
+  deleteCourse,
+  getCatalogue,
+  getCourse,
+  getCourseEditor,
+  getCourseShowcase,
+  getCourses,
+  insert,
+  moveCourse,
+  select,
+  updateCourse,
+}
+```
+
+- `<table>.zod.ts` は `zod from "zod/v4"` をインポートし、操作名をキーとする 1 つのオブジェクトをエクスポートします。このオブジェクトには `drizzle-zod` による `insert` と `select` も含めます。
+- フィールドは `src/modules/_core/utils/zod-fields.ts` のもの（`idField`、`localeField`、`slugField`）と、同じファイル内で共有する断片から取り、スキーマごとに宣言し直すことはしません。
+- ページ分割された一覧は `paginationSchema` を再利用します。1 件のレコードに対する操作は、素の文字列ではなく `{ courseId }` のようなオブジェクトを受け取ります。
+- エラーメッセージは翻訳キー（`{ message: "slugInvalid" }`）で、モジュールの `<table>.validations` 名前空間から描画されます。[フォームとテーブル](/docs/conventions/forms-and-tables)を参照してください。
+
+## モジュールのインターフェース
+
+`<table>.types.ts` は、モジュール名を冠したインターフェースをちょうど 1 つエクスポートします。そのキーは Zod のオブジェクトと対応しています。
+
+```ts
+export interface Lesson {
+  select: typeof lesson.$inferSelect
+  insert: typeof lesson.$inferInsert
+  createLesson: zod.input<typeof lessonZodSchemas.createLesson>
+  deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
+  getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
+  moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
+  updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
+}
+```
+
+サーバー関数、ミューテーションオプション、フォームは、入力を `Lesson["createLesson"]` として型付けします。`<table>.zod.ts` にスキーマを追加したら、同じ変更でここにもそのキーを追加します。`Parameters<typeof fn>[0]` で入力型を導出したり、ローカルな型エイリアスや 2 つ目の `LessonInput` インターフェースを宣言したりしてはいけません。読み取りが返すデータの形をコンポーネントが必要とする場合も、このインターフェースがサーバー関数から導出して名前を付けます。`Course["listRow"]` は `Awaited<ReturnType<typeof getCourses>>["rows"][number]` です。
+
+## ユースケース
+
+`use-cases/` の各ファイルは 1 つの操作を持ち、そのサーバー関数の名前をケバブケースにして命名します。`get-course-editor.ts` は `getCourseEditor` と `courseEditorQuery` を、`update-course.ts` は `updateCourse` と `updateCourseMutation` をエクスポートします。パターン、ミドルウェア、エラーについては[サーバー関数とエラー](/docs/conventions/server-functions)を参照してください。
+
+ブラウザーからではなく Better Auth のフックや Polar の Webhook から呼び出され、サーバー上でのみ実行されるユースケースは、`import "@tanstack/react-start/server-only"` で始まるファイル内の通常の `async` 関数です。`license/use-cases/grant-license.ts` がその例です。
+
+## 関心事ファイル
+
+ユースケースでも純粋なヘルパーでもないロジックがテーブルに必要な場合は、関心事ごとに 1 つのファイルを作り、`<table>.<concern>.ts` と命名します。
+
+| ファイル                                                | 関心事                                                           |
+| ------------------------------------------------------- | ---------------------------------------------------------------- |
+| `lesson/lesson.access.ts`                               | 誰がレッスンを視聴できるか。純粋な関数で、サーバーとテストで使う |
+| `lesson/lesson.viewer.ts`                               | サインイン中の視聴者とそのライセンスをサーバー上で解決する       |
+| `license/license.webhooks.ts`                           | Polar の Webhook ハンドラー。`auth.server.ts` が登録する         |
+| `license/license.ppp.ts`                                | チェックアウト用の地域別価格の割引                               |
+| `newsletter-subscriber/newsletter-subscriber.server.ts` | サーバー専用のリクエストチェック                                 |
+| `video/video.delivery.ts`                               | 署名付きの `/media/` リクエスト用の Worker ハンドラー            |
+| `video/video.playback.ts`、`video/video.files.ts`       | 再生 URL の署名、オブジェクトキーとコンテンツタイプ              |
+
+ブラウザーのバンドルに決して含まれてはいけないファイルは、`lesson.viewer.ts`、`license.webhooks.ts`、`newsletter-subscriber.server.ts`、`video.delivery.ts`、`license.utils.ts`（Worker の環境から Polar の商品の ID を読み取る）のように `import "@tanstack/react-start/server-only"` で始めます。`lesson.access.ts` や `course.utils.ts` のような純粋なファイルはサーバー側のものを何もインポートしないため、コンポーネントやテストから使えます。
+
+## モジュールを追加する
+
+[モジュールを追加する](/docs/guides/add-a-module)の手順に沿って進めてください。その際、コースモジュールの形をコピーして始めます。
+
+## 関連ページ
+
+- [サーバー関数とエラー](/docs/conventions/server-functions)
+- [モジュールカタログ](/docs/reference/modules)
+- [Core 共有カーネル](/docs/architecture/core)

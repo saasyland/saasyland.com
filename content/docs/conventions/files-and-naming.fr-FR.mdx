@@ -1,0 +1,119 @@
+---
+title: "Fichiers et nommage"
+description: "Où se trouve chaque type de code, comment les fichiers et les dossiers sont nommés, et les organisations de dossiers qui ne sont pas autorisées."
+---
+
+Chaque fichier et chaque dossier est en kebab-case. Les noms sont composés plutôt qu'imbriqués : le suffixe indique à quoi sert un fichier, si bien que `src/modules/course/course.constants.ts` se trouve à côté de `course.schema.ts` et non dans un dossier `constants/`. Les exceptions sont `src/routes`, où les points séparent les segments de chemin, et les fichiers générés comme `src/routeTree.gen.ts`.
+
+## Où placer le code
+
+Choisissez l'emplacement d'un nouveau code selon ce qu'il fait, dans cet ordre :
+
+| Le code                                                                        | Se trouve dans                                        | Exemple                                                                                               |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Possède une table de la base de données                                        | `src/modules/<table>/`                                | `src/modules/course/`                                                                                 |
+| Est une fonction serveur qui ne lit aucune table (une API externe, du contenu) | `src/lib/<topic>.ts`, ou l'unique route qui l'utilise | `src/lib/github.ts`, `src/routes/blog.index.tsx`                                                      |
+| Configure ou adapte une bibliothèque ou un service tiers                       | `src/integrations/<vendor>/`                          | `src/integrations/polar/polar.config.ts`                                                              |
+| Rend l'interface                                                               | `src/presentation/components/custom/`                 | `custom/admin/courses/course-form.tsx`                                                                |
+| Est un hook React utilisé par plusieurs composants                             | `src/hooks/use-<name>.ts`                             | `src/hooks/use-error-message.ts`                                                                      |
+| Est un fournisseur valable pour toute l'application                            | `src/providers/<name>-provider.tsx`                   | `src/providers/theme-provider.tsx`                                                                    |
+| Est une donnée ou une constante lue par plusieurs fichiers                     | `src/data/<topic>.ts`                                 | `MARKETING_SECTION_IDS` dans `src/data/marketing.ts`, `AFFILIATE_TERMS` dans `src/data/affiliates.ts` |
+| Est un petit utilitaire sans meilleur propriétaire                             | `src/lib/<name>.ts`                                   | `src/lib/search-params.ts`, `src/lib/cn.ts`                                                           |
+| Est un code d'erreur, un catalogue ou un utilitaire partagé par les modules    | `src/modules/_core/`                                  | `src/modules/_core/constants/errors.ts`                                                               |
+| Câble l'environnement d'exécution des tests                                    | `src/platform/testing/`                               | `src/platform/testing/mocks/cloudflare.ts`                                                            |
+
+Une constante ou un utilitaire utilisé par un seul fichier reste dans ce fichier. Il n'en sort que lorsqu'un deuxième fichier en a besoin.
+
+## Dossiers de composants
+
+`src/presentation/components/custom` ne contient que des composants `.tsx`, dans des dossiers à plat :
+
+- Un composant partagé entre plusieurs zones se trouve à la racine : `custom/data-table.tsx`, `custom/newsletter-form.tsx` et `custom/pricing.tsx`, qui rend les cartes d'offres de la page d'accueil comme de `/app/license`.
+- Un composant propre à une zone se trouve dans le dossier de cette zone : `custom/courses/curriculum.tsx`, `custom/auth/sign-in-form.tsx`.
+- Une page d'administration comportant plusieurs widgets reçoit un dossier pour cette page : `custom/admin/courses/course-form.tsx`, `custom/admin/users/delete-user-dialog.tsx`.
+- `custom/landing-page/` conserve deux dossiers, `components/` et `sections/`.
+
+Un widget, une boîte de dialogue, un formulaire ou un jeu de colonnes par fichier. Les colonnes de tableau sont dans `<entity>-columns.tsx` (`course-columns.tsx`) ; les squelettes sont regroupés dans `<area>-pending.tsx` (`content-pending.tsx`, `courses-pending.tsx`).
+
+Non autorisé :
+
+- Des sous-dossiers `components/`, `constants/`, `hooks/`, `lib/` ou `types/` dans un dossier de composants.
+- Un fichier `.ts` à côté de composants `.tsx`. Les jetons d'animation se trouvent dans `src/integrations/motion/motion.tokens.ts`, les utilitaires de champs dans `src/integrations/tanstack-form/form.fields.ts`.
+- Découper un composant en `x.tsx` et `x-content.tsx` pour en charger la moitié à la demande, ou créer une façade comme un utilitaire `toast` par-dessus l'API d'un fournisseur. Importez directement le fournisseur.
+
+`src/presentation/components/shadcn/` contient les primitives shadcn (voir [Composants et styles](/docs/conventions/components)), `src/presentation/emails/` les modèles React Email, `src/presentation/styles/` les feuilles de style, et `src/presentation/branding` et `src/presentation/theme` les constantes d'identité visuelle et de thème.
+
+## Intégrations
+
+Un dossier de fournisseur porte le nom du paquet ou du service, et ses fichiers sont nommés d'après le nom court du fournisseur et la préoccupation : `<prefix>.<concern>.ts`.
+
+| Suffixe         | Contient                                                  | Exemple                                                                                                                   |
+| --------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `.config.ts`    | Le client configuré                                       | `polar/polar.config.ts`, `resend/resend.config.ts`                                                                        |
+| `.constants.ts` | Les valeurs dérivées de l'environnement ou du fournisseur | `polar/polar.constants.ts`, `better-auth/auth.constants.ts`, `resend/resend.constants.ts`, `affonso/affonso.constants.ts` |
+| `.server.ts`    | La configuration exclusivement serveur                    | `better-auth/auth.server.ts`                                                                                              |
+| `.<concern>.ts` | Une préoccupation de l'intégration                        | `better-auth/auth.middleware.ts`, `use-intl/i18n.messages.ts`, `drizzle-orm/drizzle.columns.ts`                           |
+
+Le préfixe est le nom court plutôt que le nom du dossier : c'est pourquoi `better-auth` contient des fichiers `auth.*`, `use-intl` des fichiers `i18n.*` et `tanstack-form` des fichiers `form.*`.
+
+## Modules
+
+Un dossier de module porte le nom de sa table, et chaque fichier répète ce nom. La liste complète des types de fichiers et de ce que chacun peut contenir se trouve dans [Modules](/docs/conventions/modules).
+
+| Modèle                       | Exemple                                              |
+| ---------------------------- | ---------------------------------------------------- |
+| `<table>.schema.ts`          | `course/course.schema.ts`                            |
+| `<table>.zod.ts`             | `course/course.zod.ts`                               |
+| `<table>.constants.ts`       | `course/course.constants.ts`                         |
+| `<table>.types.ts`           | `course/course.types.ts`                             |
+| `<table>.utils.ts`           | `course/course.utils.ts`                             |
+| `<table>.<concern>.ts`       | `lesson/lesson.access.ts`, `video/video.delivery.ts` |
+| `use-cases/<verb>-<noun>.ts` | `course/use-cases/move-course.ts`                    |
+
+## Routes
+
+`src/routes` utilise les routes de fichiers à plat de TanStack Start : un nom de fichier se lit donc comme son URL.
+
+| Modèle                    | Signification                                  | Exemple                          |
+| ------------------------- | ---------------------------------------------- | -------------------------------- |
+| `<segment>.<segment>.tsx` | Chemin imbriqué                                | `admin.courses.create.tsx`       |
+| `<path>.tsx`              | Layout de tout ce qui se trouve sous le chemin | `admin.courses.tsx`              |
+| `<path>.index.tsx`        | La page du chemin lui-même                     | `admin.courses.index.tsx`        |
+| `_<name>.tsx`             | Layout sans chemin                             | `_landing.tsx`                   |
+| `$<param>`                | Segment dynamique                              | `admin.courses.$courseId.tsx`    |
+| `$.tsx`                   | Route splat                                    | `docs.$.tsx`                     |
+| `__root.tsx`              | Route racine                                   | `__root.tsx`                     |
+| `api/<name>.ts`           | Handler HTTP                                   | `api/auth.$.ts`, `api/search.ts` |
+
+Les fichiers de route ne comportent aucun segment de locale ; le routeur ajoute et retire le préfixe de locale.
+
+## Tests
+
+Les tests se trouvent dans un dossier `__test__` à côté du code qu'ils couvrent, et le suffixe choisit le projet Vitest :
+
+| Modèle                                | Projet        |
+| ------------------------------------- | ------------- |
+| `__test__/<file>.test.ts`             | `node`        |
+| `__test__/<file>.integration.test.ts` | `integration` |
+| `__test__/<file>.component.test.tsx`  | `component`   |
+
+Un test porte le nom du fichier qu'il couvre, éventuellement suivi d'un sujet : `course.schema.test.ts`, `rate-limit.client-address.test.ts`. Les tests de cas d'usage sont regroupés par module et par public : `use-cases/__test__/course-use-cases.test.ts` et `course-admin-use-cases.test.ts`. Les fixtures se trouvent dans `__test__/fixtures/` à côté de leur propriétaire (`src/modules/course/__test__/fixtures/catalogue.ts`). Les tests de route se trouvent dans `src/routes/__test__/`, nommés par zone : `admin-course-routes.component.test.tsx`, `course-loaders.test.ts`.
+
+Les tests dans le navigateur se trouvent à la racine du dépôt : les specs dans `e2e/specs/<flow>.spec.ts`, les page objects dans `e2e/pages/<name>-page.ts`, les données initiales dans `e2e/data/` et les fixtures Playwright dans `e2e/fixtures/`.
+
+## Contenu, messages et base de données
+
+| Modèle                                                           | Signification                                                            |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `messages/<locale>/<namespace>.json`                             | Un espace de noms de traduction : `pages.admin.courses.json`             |
+| `content/docs/<path>/<page>.<locale>.mdx`                        | Une page de documentation dans une locale                                |
+| `content/docs/<path>/meta.<locale>.json`                         | L'ordre de navigation et le titre de ce dossier                          |
+| `content/blog/<slug>.<locale>.mdx`                               | Un article de blog dans une locale                                       |
+| `src/integrations/drizzle-orm/migrations/<timestamp>_<name>.sql` | Une migration, générée par `bun run db:generate`                         |
+| `scripts/<name>.ts`                                              | Un script du dépôt exécuté avec Bun : `check-content.ts`, `seed-test.ts` |
+
+## Pages associées
+
+- [Structure des dossiers](/docs/architecture/directory-structure)
+- [Modules](/docs/conventions/modules)
+- [Fichiers de route](/docs/conventions/routes)

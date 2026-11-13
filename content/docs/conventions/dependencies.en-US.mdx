@@ -1,0 +1,62 @@
+---
+title: "Dependencies"
+description: "Stay on the latest versions, adapt code to documented usage, carry upstream bugs as Bun patches with an upstream fix, keep the package.json shape Vite+ writes, and verify every upgrade with a build."
+---
+
+The repository runs on the latest release of every dependency. An upgrade that breaks something is fixed forward, in the code or upstream, never by going back.
+
+## Toolchain versions
+
+- Bun is the package manager and script runner. `packageManager` in `package.json` (`bun@1.4.4`) is the one place its version is set; CI reads it from there. `bun.lock` is committed.
+- Node comes from `.nvmrc` (`26.13.1`), and `engines.node` requires at least that version.
+- `remotion/` is the one exception, with its own npm toolchain, installed only when editing the landing videos.
+
+## Upgrading
+
+1. Read the changelog and the migration guide of the new version, preferably the copy shipped in `node_modules/<package>`.
+2. Change the code to match the documented usage of the new version.
+3. Verify in this order, and report nothing as done before the last step passes:
+
+```sh
+bun run check
+bun run test:coverage
+bun run build:test
+bun run test:e2e:pr
+```
+
+`check` and the tests run without the Cloudflare and TanStack Start build, so they can pass while the build is broken. That happened twice in one upgrade: a new `@polar-sh/sdk` could not be bundled, and a TanStack Start release changed the `modulepreload` markup that `optimize-prerendered-html.ts` rewrites. Both surfaced only in `build:test`. After a build, `find dist/server -name '*.map'` must print nothing; `upload_source_maps: false` in `wrangler.jsonc` exists because the Worker with its source maps is larger than Cloudflare accepts for an upload (see [Cloudflare Workers](/docs/integrations/cloudflare-workers)).
+
+Never pin a package back to an older release to avoid a breaking change, and never add code to the application that works around a library bug.
+
+## When the bug is upstream
+
+When the application already follows the documented usage and the new version is wrong, keep the new version and carry the fix:
+
+1. Prove the bug with a minimal reproduction outside this repository.
+2. Write the smallest change that fixes it in the package, mirroring the fix you will propose upstream, and save it with `bun patch`. The patch lands in `patches/<package>@<version>.patch` and in `patchedDependencies`, and the package is pinned to that exact version so the patch keeps applying.
+3. Report the bug upstream and open a pull request with the fix, following that project's contribution rules.
+4. Delete the patch as soon as a release contains the fix. Before keeping or documenting a patch, check with `npm view <package> version` whether that release is already out.
+
+The current patch is `patches/@videojs%2Futils@10.3.0.patch`, which fixes storyboard thumbnail URLs in the video player; `@videojs/react` is pinned to 10.3.0 with it. A patch to `fumadocs-mdx` 15.6.0 was carried the same way and removed when 15.6.1 shipped the upstream fix.
+
+## The Vite+ entries in package.json
+
+```json
+"vite": "npm:@voidzero-dev/vite-plus-core@1.6.0",
+"vite-plus": "1.6.0",
+"vitest": "5.1.0"
+```
+
+These lines, and the same `vite` alias and `vitest` version under `overrides`, are exactly what Vite+'s own migrator writes: `vite-plus` is pinned to an exact version, Bun needs the core as a direct `vite` dependency, and `vitest` is listed because `@vitest/coverage-v8` and the test types need it. Upgrade them together with `vp migrate`, never with `bun update`. To find out whether one of them can go, copy the project, run `vp migrate` on the copy and diff the result; do not decide by reasoning about it.
+
+`build.rolldownOptions.external` in `vite.config.ts` lists optional peer dependencies of `@polar-sh/sdk` that are not installed and are tree-shaken out of the Worker; see [Vite+](/docs/tooling/vite-plus). Remove the list when Polar fixes its packaging.
+
+## Adding a dependency
+
+Check first whether a package already in `package.json` does the job, so each concern keeps one library. Add a runtime dependency with `bun add`, a tool with `bun add --dev`, and use the vendor's agent skill from `skills-lock.json` when there is one (see [Agent skills](/docs/tooling/agent-skills)).
+
+## Related pages
+
+- [Vite+](/docs/tooling/vite-plus)
+- [Project scripts](/docs/tooling/scripts)
+- [CI/CD](/docs/tooling/ci-cd)

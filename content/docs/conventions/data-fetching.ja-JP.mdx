@@ -1,0 +1,104 @@
+---
+title: "データの取得とキャッシュ"
+description: "サーバー関数の隣に置くクエリオプションとミューテーションオプション、すべての入力を含むクエリキー、データの鮮度のルール、表示中のデータを再取得しないローダー、そして無効化。"
+---
+
+データは TanStack Query を通して画面に届きます。ユースケースはサーバー関数の隣でそのオプションをエクスポートし、ルートのローダー、コンポーネント、テストはすべて同じオプションを使います。そのため、これらは構造上 1 つのキャッシュエントリを共有します。
+
+## クエリオプション
+
+```ts
+export const courseEditorQuery = (input: Course["getCourseEditor"]) =>
+  queryOptions({
+    queryFn: () => getCourseEditor({ data: input }),
+    queryKey: [...COURSE_QUERY_KEYS.EDITOR, input.courseId],
+    staleTime: COURSE_STALE_MS,
+  })
+```
+
+| 読み取りの種類                       | エクスポートするもの                                                    | 例                                               |
+| ------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------ |
+| 入力を受け取る                       | オプションを返す関数。`<noun>Query` と命名する                          | `courseEditorQuery(input)`、`courseQuery(input)` |
+| 入力を受け取らない                   | `<noun>Query` という名前の定数                                          | `currentLicenseQuery`                            |
+| `DataTable` 用のページ分割された一覧 | `get<Things>PageQuery(input)` と、最初のページを返す `get<Things>Query` | `getCoursesPageQuery`、`getCoursesQuery`         |
+
+## クエリキー
+
+キーは `<table>.constants.ts` にあるモジュールのプレフィックスで始まり、次に操作、その後に結果を変えるすべての入力が続きます。
+
+```ts
+queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale]
+queryKey: [...COURSE_QUERY_KEYS.DETAIL, input.locale, input.slug]
+queryKey: [...COURSE_QUERY_KEYS.LIST, courseZodSchemas.getCourses.parse(input)]
+```
+
+一覧のキーにはパース済みの入力を格納するため、`getCoursesPageQuery()` と `getCoursesPageQuery({ pageIndex: 0, pageSize: 10 })` は同じエントリになります。サーバーが結果をローカライズする場合は、必ずロケールをキーに含めます。コンポーネントの中でキーを直接書いてはいけません。キーはオプションから読み取るか、無効化する場合は `<MODULE>_QUERY_KEYS` オブジェクトから読み取ります。
+
+## データの鮮度
+
+`src/router.tsx` の `getRouter()` は、リクエストごとに次のデフォルト値で `QueryClient` を 1 つ作成し、ルーターも同じ 1 分を使います。
+
+```ts
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      gcTime: FIVE_MINS_IN_MS,
+      staleTime: ONE_MIN_IN_MS,
+    },
+  },
+})
+```
+
+別の鮮度が必要なクエリは、その理由がわかる名前付きの定数で `staleTime` を設定します。`PLAYBACK_STALE_MS`（1 時間。署名付き再生 URL の有効期間内に収まる長さ）、GitHub のスター数には `REFRESH_AFTER_MS`、デプロイ時にしか変わらない翻訳メッセージには `Infinity` を使います。モジュールレベルで `QueryClient` を作成してはいけません。サーバー上では、あるユーザーのデータが次のリクエストと共有されてしまいます。
+
+## ローダーはプリフェッチし、コンポーネントは読み取る
+
+ページのローダーは、[ルートファイル](/docs/conventions/routes)で説明している 1 つの `Promise.all` の中で、コンポーネントが読み取るクエリをプリフェッチします。`src/routes/app.license.tsx` の例です。
+
+```ts
+context.queryClient.query({ ...currentLicenseQuery, staleTime: "static" })
+```
+
+`staleTime: "static"` を指定すると、ローダーはキャッシュ済みのデータがあれば再取得せずにそれを返します。その後、コンポーネントが同じオプションを読み取り、クエリ自身の `staleTime` を適用します。
+
+```tsx
+const { license } = useSuspenseQuery(currentLicenseQuery).data
+```
+
+そのため、データがすでにキャッシュされているページへの遷移はすぐに描画され、古くなったデータはナビゲーションを止めることなくバックグラウンドで更新されます。
+
+ただし、`"static"` の読み取りは無効化も無視します。ミューテーションがデータを無効化した後でもキャッシュ済みのデータを返し、新しいデータはコンポーネントが再取得したときに初めて届きます。そのため、訪問者が直前に行った操作より古いデータを決して表示してはいけないページや、タイトルや 404 の応答のためにローダー自身がデータを必要とする場合は、代わりにクエリ自身の `staleTime` のままでクエリを await します。コースのページと管理画面のコースエディターはこの方法を取っています。レッスンを完了したりエディターで保存したりした後は、次の画面に更新後のカリキュラムを表示しなければならないためです。
+
+```ts
+context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound)
+```
+
+- ローダーがプリフェッチしたデータには `useSuspenseQuery` を使い、`useQuery` は `proof-section.tsx` のスター数のように、ページをブロックせずに後から届いてもよいデータにだけ使います。
+- `useEffect` の中でデータを取得したり、クエリの結果を props で下に渡したりしないでください。各コンポーネントが必要なオプションを自分で呼び出します。
+- `DataTable` は、ページの状態からオプションを作る関数を `options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }}` の形で受け取り、クエリを自分で実行します。
+
+## ミューテーションと無効化
+
+コンポーネントはミューテーションオプションを `useMutation` に展開し、自分のコールバックだけを追加します。書き込みが成功したら、モジュールのプレフィックスを無効化してからフィードバックを表示します。
+
+```tsx
+const update = useMutation({
+  ...updateCourseMutation,
+  onError,
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })
+    toast.success(t("saved"))
+  },
+})
+```
+
+- 変更されたデータを表示するすべての画面をカバーする、最も狭いプレフィックスを無効化します。チャプターとレッスンのミューテーションは `COURSE_QUERY_KEYS.ALL` を無効化します。コースエディターと公開のコースページの両方がそれらを表示するためです。`useLessonProgress` は、レッスンが完了したときにだけ、`COURSE_QUERY_KEYS.DETAIL` のみを無効化します。
+- ページを離れたりダイアログを閉じたりする前に無効化を await し、次の画面が新しいデータで描画されるようにします。
+- エラーは `useErrorMessage()` で処理します。[サーバー関数とエラー](/docs/conventions/server-functions)を参照してください。
+- 結果を偽装するためにキャッシュを手作業で更新してはいけません。唯一の例外はセッションです。`auth.routes.ts` の `loadRouteSession` は、サインイン中のユーザーが変わるとキャッシュ全体を消去するため、サインアウトやアカウントの切り替えの後に非公開のデータが残ることはありません。
+
+## 関連ページ
+
+- [キャッシュと SSR](/docs/architecture/caching-and-ssr)
+- [ルートファイル](/docs/conventions/routes)
+- [サーバー関数とエラー](/docs/conventions/server-functions)

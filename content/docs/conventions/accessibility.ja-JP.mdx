@@ -1,0 +1,48 @@
+---
+title: "アクセシビリティ"
+description: "すべてのページが両方のテーマで WCAG 2.2 AA を満たし、ブラウザーのスイートで axe によってチェックされること。そして axe では検出できない、キーボードとスクリーンリーダーのためのルール。"
+---
+
+すべての公開ページ、ブログ記事 1 件、そして管理画面と顧客ワークスペースのすべてのページは、ライトテーマとダークテーマの両方で WCAG 2.2 レベル AA を満たします。これは目標ではなくリリースの要件です。`e2e/specs/accessibility.spec.ts` がすべてのプルリクエストでこれらをスキャンし、違反が 1 つでもあれば失敗します。
+
+## スキャン
+
+このスペックは `@axe-core/playwright` を通して axe-core を実行し、WCAG 2.0、2.1、2.2 の A と AA のルール、そして axe のベストプラクティスを適用します。使うのは `e2e/fixtures/accessibility.ts` のヘルパーで、`checkout-funnel.spec.ts` も同じヘルパーを使っています。
+
+```ts
+const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]
+
+export const COLOR_SCHEMES = ["light", "dark"] as const
+```
+
+`accessibilityViolations` はスキャンの前にページ全体をスクロールして、スクロールでフェードインするセクションを表示させ、有限のアニメーションが終わるのを待って、落ち着いた状態のページでコントラストを計測します。新しいページは、ルートを追加するのと同じ変更で、`accessibility.spec.ts` の `PUBLIC_PAGES` または `WORKSPACE_PAGES` に追加します。このスペックはほかのスイートと一緒に実行してください。
+
+```sh
+bun run test:e2e:pr
+```
+
+## axe ではチェックできないこと
+
+axe がチェックするのはマークアップであり、意味やキーボード操作の流れはチェックしません。残りは次のルールでカバーし、レビューで守ります。
+
+- **ランドマークと名前。** 各ワークスペースにはラベル付きのナビゲーションがあり（`admin-sidebar.tsx` の `<nav aria-label={t("navigationLabel")}>`）、サイドバー、認証画面のサイドパネル、ドキュメントの目次はランドマークです。
+- **本物のセマンティクス。** タブにはタブパネルがあります。パネルを切り替えない選択肢の集まりは、タブリストではなくトグルグループです。ボタンのように見えるリンクは `LinkButton` にし、ボタンをリンクで包むことはしません。
+- **すべてのコントロールにラベルを付ける。** 入力には `FieldLabel` を付けます。視覚的に隠すラベルには、ニュースレターのフィールドのように `className="sr-only"` を使います。アイコンだけのボタンには、`t("actions.delete", { title })` のように対象を示す `aria-label` を付け、コントロールの表示テキストはアクセシブルな名前の一部にします。
+- **エラーはフィールドと一緒に読み上げる。** すべての入力は `aria-describedby` に自身のエラーの ID を設定し、無効な間は `aria-invalid` を設定します。エラー要素はエラーがある間だけ存在します。[フォームとテーブル](/docs/conventions/forms-and-tables)を参照してください。
+- **装飾的なコンテンツは隠す。** テキストの横のアイコンには `aria-hidden` を付けます。純粋に視覚的なドット、区切り線、ラベルのないループ動画も同様です。
+- **見出しは順序どおりに。** 各ページの `h1` は 1 つです。セクションの始まりとなるカードのタイトルは、`course-form.tsx` のように `CardTitle` の中に `h2` を描画します。
+- **キーボードを優先する。** マウスで到達できるものはすべてキーボードでも到達できるようにします。ホバー時に現れるアクションも含まれ、それらはフォーカス時にも現れます。React Aria のコンポーネントのフォーカスリングには `data-focus-visible:` を使います。[コンポーネントとスタイリング](/docs/conventions/components)を参照してください。
+- **処理中の状態。** スケルトンは最上位の要素に `aria-busy="true"` を設定し、処理中のボタンには shadcn の `Button` の `isPending` 状態を使います。
+- **カラムには名前を付ける。** テーブルのアクションのカラムには、スクリーンリーダー専用のヘッダーである `DataTableActionsHeader` を使います。
+- **言語を宣言する。** `<html lang>` はルートのロケールに従います。別の言語のテキストを入力するフィールドは、コースのローカライズされたフィールドのように `lang={locale}` を設定します。
+
+## コントラストとモーション
+
+- テキストにはテーマの色のトークンを使います。`text-muted-foreground` は両方のテーマで 4.5:1 を満たします。`text-muted-foreground/60` のようなより薄いバリエーションは、無効なチップ、装飾的なアイコン、区切り線にだけ使います。
+- モーションは読者の設定を尊重します。`MotionProvider` の `MotionConfig reducedMotion="user"`、トランジションの `motion-reduce:` バリアント、`prefers-reduced-motion` のときの `scroll-behavior: auto` があり、ランディングページの動画は、モーションを減らすよう求める読者には自動再生されません（`concept-loop.tsx`）。
+
+## 関連ページ
+
+- [Playwright](/docs/tooling/playwright)
+- [コンポーネントとスタイリング](/docs/conventions/components)
+- [フォームとテーブル](/docs/conventions/forms-and-tables)

@@ -1,0 +1,127 @@
+---
+title: "Formularze i tabele"
+description: "Każdy formularz stosuje przewodnik shadcn dla TanStack Form ze schematem Zod modułu i polami shadcn; każda tabela to jeden generyczny DataTable z plikiem kolumn."
+---
+
+Formularze i tabele to dwa miejsca, w których ręcznie pisane warianty mnożą się najszybciej. Każde z nich buduje się w jeden sposób, zaczerpnięty z przewodników samych dostawców, a nie wymyślony tutaj.
+
+## Formularze
+
+Każdy formularz stosuje [przewodnik shadcn dla TanStack Form](https://ui.shadcn.com/docs/forms/tanstack-form): `useForm` z `@tanstack/react-form`, schemat Zod modułu jako walidator oraz `Field`, `FieldLabel`, `Input`, `Textarea` lub `Select` z shadcn. `src/presentation/components/custom/admin/courses/course-form.tsx`:
+
+```tsx
+const form = useForm({
+  defaultValues: course ?? NEW_COURSE,
+  onSubmit: ({ value }) => {
+    const fields = { kind: value.kind, slug: value.slug, status: value.status, summary: value.summary, title: value.title }
+    if (course === undefined) {
+      create.mutate(fields)
+      return
+    }
+    update.mutate({ ...fields, courseId: course.id })
+  },
+  validators: { onChange: courseZodSchemas.createCourse, onSubmit: courseZodSchemas.createCourse },
+})
+
+return (
+  <form
+    noValidate
+    onSubmit={(event) => {
+      event.preventDefault()
+      void form.handleSubmit()
+    }}
+  >
+```
+
+- **Schemat formularza to schemat serwera.** Walidatorem jest ten sam `courseZodSchemas.createCourse`, którym parsuje dane funkcja serwerowa, lub jego `.pick(...)`, tak jak w `chapter-dialog.tsx` z `chapterZodSchemas.updateChapter.pick({ title: true })`. Nigdy nie pisz drugiego schematu tylko dla formularza.
+- **Waliduj przy zmianie i przy wysyłce.** Ustawione są oba walidatory: przy samym `onSubmit` poprawione pole pozostaje czerwone aż do następnej wysyłki.
+- **`noValidate` i `preventDefault`.** Wbudowana walidacja przeglądarki jest wyłączona, więc każdy komunikat pochodzi ze schematu i jest przetłumaczony.
+- **Wartości domyślne są typowane przez interfejs modułu**, jako `NEW_COURSE: Course["createCourse"]`.
+- **Wysyłaj przez mutację.** `onSubmit` wywołuje `mutate` z opcji mutacji, a przycisk wysyłki pokazuje stan oczekiwania: `<Button isPending={create.isPending || update.isPending} type="submit">`.
+
+### Pola
+
+Każde pole to `Field` z shadcn, oznaczane jako nieprawidłowe dopiero wtedy, gdy odwiedzający go dotknie. Z `course-fields.tsx`:
+
+```tsx
+<Field data-invalid={isInvalidField(field)}>
+  <FieldLabel htmlFor={id}>{label}</FieldLabel>
+  <Input
+    aria-describedby={`${id}-error`}
+    aria-invalid={isInvalidField(field)}
+    className={cn({ "font-mono": isCode })}
+    id={id}
+    lang={lang}
+    name={field.name}
+    onBlur={field.handleBlur}
+    onChange={(event) => {
+      field.handleChange(event.target.value)
+    }}
+    value={field.state.value ?? ""}
+  />
+  <FieldMessage field={field} id={id} />
+</Field>
+```
+
+- `isInvalid` to `field.state.meta.isTouched && !field.state.meta.isValid`.
+- Pole wejściowe zawsze kieruje `aria-describedby` na ID swojego błędu. Element błędu renderuje się tylko wtedy, gdy pole jest nieprawidłowe, a odwołanie do nieistniejącego elementu niczego nie opisuje.
+- Błędy renderuje `ValidationFieldError` z `custom/validation-field-error.tsx`. Komunikaty Zod są kluczami tłumaczeń, więc wyszukuje je w przestrzeni nazw `<table>.validations` modułu i interpoluje liczby z `<MODULE>_VALIDATION_PARAMS`:
+
+```tsx
+<ValidationFieldError
+  id={`${id}-error`}
+  message={fieldErrorMessage(field.state.meta.errors)}
+  namespace="course.validations"
+  params={COURSE_VALIDATION_PARAMS}
+/>
+```
+
+- Żadnych ręcznie pisanych elementów `<input>`, `<label>` ani `<button>` i żadnego komponentu opakowującego jedno pole dla jednego formularza. Komponent pola współdzielony przez kilka formularzy jednego obszaru znajduje się w jednym pliku, tak jak `CourseTextField`, `CourseTextAreaField` i `CourseOptionField` dla formularzy kursu, rozdziału i lekcji.
+- Błędy serwera pokazuje `toast.error(errorMessage(error))`, a sukces przetłumaczony `toast.success`.
+
+Najmniejszym kompletnym przykładem jest `src/presentation/components/custom/newsletter-form.tsx`; [przewodnik po formularzach](/docs/guides/forms-and-validation) pokazuje krok po kroku, jak go zbudować.
+
+## Tabele
+
+Każda tabela to generyczny `DataTable` z `src/presentation/components/custom/data-table.tsx`, używany bezpośrednio na stronie:
+
+```tsx
+<DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
+```
+
+Jego właściwości to cały interfejs:
+
+| Właściwość | Zawartość                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| `columns`  | Zestaw kolumn z `<entity>-columns.tsx`                                                                              |
+| `data`     | Wiersze już obecne w pamięci, dla tabeli stronicowanej po stronie klienta                                           |
+| `options`  | `query` (ze stanu strony tworzy opcje zapytania, do stronicowania po stronie serwera), `selectable`, `initialState` |
+| `filters`  | Kontrolki wyszukiwania i wyboru powiązane z ID kolumn                                                               |
+
+`DataTable` jest wzorowany na [tabeli danych React Aria z shadcn](https://ui.shadcn.com/docs/components/aria/data-table): `tableFeatures` i `useTable` z TanStack Table v9, renderowane prymitywami tabeli shadcn. Stronicowanie, sortowanie, filtrowanie, zaznaczanie, wiersze ładowania i pasek paginacji znajdują się w jego wnętrzu. Nie pisz osobnego komponentu tabeli, nagłówka, wiersza ani paginacji dla jednej strony i nie dodawaj opcji, której żadna strona jeszcze nie używa.
+
+### Kolumny
+
+Zestaw kolumn znajduje się w `custom/<area>/<entity>-columns.tsx` i jest budowany przez `createColumnHelper<DataTableFeatures, Row>()`, gdzie typ wiersza pochodzi z interfejsu modułu (`Course["listRow"]`):
+
+```tsx
+export const courseColumns = columnHelper.columns([
+  columnHelper.accessor("title", { cell: TitleCell, enableSorting: false, header: () => <CourseHeader id="course" /> }),
+  columnHelper.accessor("kind", { cell: KindCell, enableSorting: false, header: () => <CourseHeader id="kind" /> }),
+  columnHelper.accessor("status", { cell: StatusCell, enableSorting: false, header: () => <CourseHeader id="status" /> }),
+  columnHelper.accessor("lessons", { cell: LessonsCell, enableSorting: false, header: () => <CourseHeader id="lessons" /> }),
+  columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CourseHeader id="updated" /> }),
+  columnHelper.display({ cell: ActionsCell, header: DataTableActionsHeader, id: "actions" }),
+])
+```
+
+- Każda komórka to mały komponent w tym samym pliku, który sam odczytuje swoje tłumaczenia (`KindCell`, `StatusCell`), a w przypadku akcji także własne mutacje (`ActionsCell`).
+- Etykiety nagłówków pochodzą z komponentu nagłówka, który odczytuje przestrzeń nazw strony, nigdy z tekstów w definicji kolumny.
+- Kolumna akcji używa `DataTableActionsHeader`, który podaje czytnikom ekranu nazwę kolumny.
+- Akcje złożone wyłącznie z ikony mają `aria-label`, który nazywa wiersz: `t("actions.edit", { title })`.
+
+## Powiązane strony
+
+- [Formularze i walidacja](/docs/guides/forms-and-validation)
+- [Dodawanie tabeli danych](/docs/guides/add-a-data-table)
+- [DataTable](/docs/ui/data-table)

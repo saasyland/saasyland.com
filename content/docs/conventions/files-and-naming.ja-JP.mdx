@@ -1,0 +1,119 @@
+---
+title: "ファイルと命名"
+description: "コードの種類ごとの置き場所、ファイルとフォルダーの命名方法、そして許可されないフォルダー構成。"
+---
+
+すべてのファイルとフォルダーはケバブケースです。名前は入れ子ではなく複合で表します。サフィックスがファイルの用途を示すため、`src/modules/course/course.constants.ts` は `constants/` フォルダーの中ではなく `course.schema.ts` の隣に置かれます。例外は、ドットがパスの区切りになる `src/routes` と、`src/routeTree.gen.ts` のような生成されたファイルです。
+
+## コードの置き場所
+
+新しいコードの置き場所は、そのコードが何をするかによって、次の順に判断します。
+
+| コードの内容                                           | 置き場所                                           | 例                                                                                                |
+| ------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| データベーステーブルを所有する                         | `src/modules/<table>/`                             | `src/modules/course/`                                                                             |
+| テーブルを読まないサーバー関数（外部 API、コンテンツ） | `src/lib/<topic>.ts`、またはそれを使う唯一のルート | `src/lib/github.ts`、`src/routes/blog.index.tsx`                                                  |
+| ベンダーのライブラリやサービスを設定、適合させる       | `src/integrations/<vendor>/`                       | `src/integrations/polar/polar.config.ts`                                                          |
+| UI を描画する                                          | `src/presentation/components/custom/`              | `custom/admin/courses/course-form.tsx`                                                            |
+| 複数のコンポーネントで使う React フック                | `src/hooks/use-<name>.ts`                          | `src/hooks/use-error-message.ts`                                                                  |
+| アプリケーション全体のプロバイダー                     | `src/providers/<name>-provider.tsx`                | `src/providers/theme-provider.tsx`                                                                |
+| 複数のファイルが読むデータや定数                       | `src/data/<topic>.ts`                              | `src/data/marketing.ts` の `MARKETING_SECTION_IDS`、`src/data/affiliates.ts` の `AFFILIATE_TERMS` |
+| ほかに適切な所有者がない小さなユーティリティ           | `src/lib/<name>.ts`                                | `src/lib/search-params.ts`、`src/lib/cn.ts`                                                       |
+| モジュール間で共有するエラーコード、カタログ、ヘルパー | `src/modules/_core/`                               | `src/modules/_core/constants/errors.ts`                                                           |
+| テストのランタイムを組み立てる                         | `src/platform/testing/`                            | `src/platform/testing/mocks/cloudflare.ts`                                                        |
+
+1 つのファイルだけで使う定数やヘルパーは、そのファイルに置きます。外に出すのは、2 つ目のファイルが必要としたときだけです。
+
+## コンポーネントのフォルダー
+
+`src/presentation/components/custom` には `.tsx` のコンポーネントだけを、フラットなフォルダーに置きます。
+
+- 複数のエリアで共有するコンポーネントは最上位に置きます（`custom/data-table.tsx`、`custom/newsletter-form.tsx`、そしてランディングページと `/app/license` の両方でティアのカードを描画する `custom/pricing.tsx`）。
+- 1 つのエリアのコンポーネントは、そのエリアのフォルダーに置きます（`custom/courses/curriculum.tsx`、`custom/auth/sign-in-form.tsx`）。
+- 複数のウィジェットを持つ管理画面のページには、そのページ用のフォルダーを作ります（`custom/admin/courses/course-form.tsx`、`custom/admin/users/delete-user-dialog.tsx`）。
+- `custom/landing-page/` には、`components/` と `sections/` の 2 つのフォルダーがあります。
+
+1 ファイルに置くのは、ウィジェット、ダイアログ、フォーム、カラムセットのいずれか 1 つだけです。テーブルのカラムは `<entity>-columns.tsx`（`course-columns.tsx`）とし、スケルトンは `<area>-pending.tsx`（`content-pending.tsx`、`courses-pending.tsx`）にまとめます。
+
+次のものは許可されません。
+
+- コンポーネントのフォルダー内の `components/`、`constants/`、`hooks/`、`lib/`、`types/` サブフォルダー。
+- `.tsx` コンポーネントの隣に置く `.ts` ファイル。モーションのトークンは `src/integrations/motion/motion.tokens.ts` に、フィールドのヘルパーは `src/integrations/tanstack-form/form.fields.ts` にあります。
+- 半分を遅延読み込みするためにコンポーネントを `x.tsx` と `x-content.tsx` に分割すること、またはベンダーの API にかぶせる `toast` ヘルパーのようなファサード。ベンダーを直接インポートしてください。
+
+`src/presentation/components/shadcn/` には shadcn のプリミティブ（[コンポーネントとスタイリング](/docs/conventions/components)を参照）、`src/presentation/emails/` には React Email のテンプレート、`src/presentation/styles/` にはスタイルシート、`src/presentation/branding` と `src/presentation/theme` にはブランドとテーマの定数を置きます。
+
+## 連携
+
+ベンダーのフォルダーはパッケージ名またはサービス名にちなんで命名し、その中のファイルはベンダーの短い名前と関心事を組み合わせて `<prefix>.<concern>.ts` と命名します。
+
+| サフィックス    | 内容                                   | 例                                                                                                                        |
+| --------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `.config.ts`    | 設定済みのクライアント                 | `polar/polar.config.ts`、`resend/resend.config.ts`                                                                        |
+| `.constants.ts` | 環境またはプロバイダーから導出される値 | `polar/polar.constants.ts`、`better-auth/auth.constants.ts`、`resend/resend.constants.ts`、`affonso/affonso.constants.ts` |
+| `.server.ts`    | サーバー専用のセットアップ             | `better-auth/auth.server.ts`                                                                                              |
+| `.<concern>.ts` | 連携の 1 つの関心事                    | `better-auth/auth.middleware.ts`、`use-intl/i18n.messages.ts`、`drizzle-orm/drizzle.columns.ts`                           |
+
+プレフィックスはフォルダー名ではなく短い名前です。そのため、`better-auth` には `auth.*` ファイルが、`use-intl` には `i18n.*` が、`tanstack-form` には `form.*` が入っています。
+
+## モジュール
+
+モジュールのフォルダーはテーブル名にちなんで命名し、すべてのファイル名でその名前を繰り返します。ファイルの種類と、それぞれに含めてよいものの完全な一覧は[モジュール](/docs/conventions/modules)にあります。
+
+| パターン                     | 例                                                   |
+| ---------------------------- | ---------------------------------------------------- |
+| `<table>.schema.ts`          | `course/course.schema.ts`                            |
+| `<table>.zod.ts`             | `course/course.zod.ts`                               |
+| `<table>.constants.ts`       | `course/course.constants.ts`                         |
+| `<table>.types.ts`           | `course/course.types.ts`                             |
+| `<table>.utils.ts`           | `course/course.utils.ts`                             |
+| `<table>.<concern>.ts`       | `lesson/lesson.access.ts`、`video/video.delivery.ts` |
+| `use-cases/<verb>-<noun>.ts` | `course/use-cases/move-course.ts`                    |
+
+## ルート
+
+`src/routes` は TanStack Start のフラットなファイルルートを使うため、ファイル名がそのまま URL として読めます。
+
+| パターン                  | 意味                           | 例                               |
+| ------------------------- | ------------------------------ | -------------------------------- |
+| `<segment>.<segment>.tsx` | ネストしたパス                 | `admin.courses.create.tsx`       |
+| `<path>.tsx`              | そのパス以下すべてのレイアウト | `admin.courses.tsx`              |
+| `<path>.index.tsx`        | そのパス自体のページ           | `admin.courses.index.tsx`        |
+| `_<name>.tsx`             | パスなしレイアウト             | `_landing.tsx`                   |
+| `$<param>`                | 動的セグメント                 | `admin.courses.$courseId.tsx`    |
+| `$.tsx`                   | スプラットルート               | `docs.$.tsx`                     |
+| `__root.tsx`              | root ルート                    | `__root.tsx`                     |
+| `api/<name>.ts`           | HTTP ハンドラー                | `api/auth.$.ts`、`api/search.ts` |
+
+ルートファイルにロケールのセグメントは含めません。ロケールプレフィックスの付け外しはルーターが行います。
+
+## テスト
+
+テストは対象のコードの隣にある `__test__` フォルダーに置き、サフィックスによって Vitest のプロジェクトが決まります。
+
+| パターン                              | プロジェクト  |
+| ------------------------------------- | ------------- |
+| `__test__/<file>.test.ts`             | `node`        |
+| `__test__/<file>.integration.test.ts` | `integration` |
+| `__test__/<file>.component.test.tsx`  | `component`   |
+
+テストには対象のファイルにちなんだ名前を付け、必要に応じてトピックを加えます（`course.schema.test.ts`、`rate-limit.client-address.test.ts`）。ユースケースのテストは、モジュールと対象ユーザーごとにまとめます（`use-cases/__test__/course-use-cases.test.ts` と `course-admin-use-cases.test.ts`）。フィクスチャは、その所有者の隣の `__test__/fixtures/` に置きます（`src/modules/course/__test__/fixtures/catalogue.ts`）。ルートのテストは `src/routes/__test__/` に置き、エリアごとに命名します（`admin-course-routes.component.test.tsx`、`course-loaders.test.ts`）。
+
+ブラウザーテストはリポジトリのルートにあります。スペックは `e2e/specs/<flow>.spec.ts` に、ページオブジェクトは `e2e/pages/<name>-page.ts` に、シードデータは `e2e/data/` に、Playwright のフィクスチャは `e2e/fixtures/` に置きます。
+
+## コンテンツ、メッセージ、データベース
+
+| パターン                                                         | 意味                                                                           |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `messages/<locale>/<namespace>.json`                             | 1 つの翻訳の名前空間（例：`pages.admin.courses.json`）                         |
+| `content/docs/<path>/<page>.<locale>.mdx`                        | 1 つのロケールの 1 つのドキュメントページ                                      |
+| `content/docs/<path>/meta.<locale>.json`                         | そのフォルダーのナビゲーションの順序とタイトル                                 |
+| `content/blog/<slug>.<locale>.mdx`                               | 1 つのロケールの 1 つのブログ記事                                              |
+| `src/integrations/drizzle-orm/migrations/<timestamp>_<name>.sql` | `bun run db:generate` で生成される 1 つのマイグレーション                      |
+| `scripts/<name>.ts`                                              | Bun で実行するリポジトリのスクリプト（例：`check-content.ts`、`seed-test.ts`） |
+
+## 関連ページ
+
+- [ディレクトリ構成](/docs/architecture/directory-structure)
+- [モジュール](/docs/conventions/modules)
+- [ルートファイル](/docs/conventions/routes)

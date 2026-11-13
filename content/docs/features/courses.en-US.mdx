@@ -1,19 +1,77 @@
 ---
 title: "Courses"
-description: "Demo only: a static course editor and a course product type, with no course data."
+description: "A public catalogue of courses whose lessons are free, need an account or need a licence, with a player that saves progress. There is no admin authoring yet."
 ---
 
-What exists:
+Courses, tutorials and projects live in D1 and are watched under `/courses`. Each lesson plays a video from the [Videos](/docs/features/videos) library, and its access level decides who may watch it.
 
-- `/admin/courses/create` (`src/routes/admin.courses.create.tsx`) renders `CourseDetails`, `CourseSidebar` and a curriculum (`admin/courses/curriculum.tsx`) built from `ADMIN_COURSE_CURRICULUM_SECTIONS` in `src/data/admin.ts`. No route links to it, and **Save** and **Cancel** are not wired.
-- `/admin/products?tab=courses` shows an empty state.
-- The product `type` column accepts `course`.
-- Lesson videos can already be published and streamed with [Videos](/docs/features/videos), but nothing links a video to a course.
+## Data model
 
-What does not exist: a course, lesson or enrolment table, a course module, and any learner screen in `/app`. A course feature needs its own tables and module under `src/modules`.
+Each table has its own module in `src/modules`, created by the migration `20261113004409_salty_slipstream.sql`:
 
-## Related guides
+| Table             | Columns                                                                                                                                                     |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `course`          | `slug` (unique), `kind` (`course`, `tutorial`, `project`), `status` (`draft`, `published`), `position`, `title`, `summary`                                  |
+| `chapter`         | `course_id`, `position`, `title`                                                                                                                            |
+| `lesson`          | `course_id`, `chapter_id`, `slug` (unique within its course), `access` (`preview`, `account`, `paid`), `status`, `position`, `title`, `summary`, `video_id` |
+| `lesson_progress` | `user_id` and `lesson_id` (the primary key), `position_ms`, `completed_at`                                                                                  |
 
-- [Add a module](/docs/guides/add-a-module)
-- [Products](/docs/features/products)
+- `title` and `summary` hold JSON keyed by locale, such as `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` in `src/modules/_core/utils/localized-text.ts`). `localize()` returns the visitor's locale and falls back to `en-US`, so always fill in `en-US`.
+- New rows are `draft`, and new lessons are `paid`. Only `published` courses and lessons are listed or served; any other slug shows the not-found page.
+- Courses are ordered by `position`, chapters by `position` within their course and lessons by `position` within their chapter. Lessons are numbered across the whole course.
+- `video_id` refers to the `video` table and becomes `NULL` when the video is deleted. Deleting a course or a chapter deletes its lessons, and deleting a lesson or a user deletes their progress.
+
+## Access levels
+
+| `access`  | Who can watch                                                                           |
+| --------- | --------------------------------------------------------------------------------------- |
+| `preview` | Everyone, signed in or not                                                              |
+| `account` | Any signed-in user                                                                      |
+| `paid`    | A user with an `active` licence of tier `complete` or `agency` (`COURSE_LICENCE_TIERS`) |
+
+Roles with `course: ["read"]`, which admins have, can watch every lesson. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) makes the decision for a viewer that `resolveViewer` (`lesson.viewer.ts`) builds from the session, the role and `getLicense`. Every server function that serves course content applies it, not only the pages:
+
+- `getCatalogue` (public) returns the published courses with their lesson count, total video length and number of free previews.
+- `getCourse` (public) returns a published course with its chapters and published lessons in the visitor's locale, each with `locked`, `completed` and `positionMs` for the viewer.
+- `getLessonPlayback` (public) returns signed playback paths from `createPlayback`. It answers `UNAUTHORIZED` to a guest and `FORBIDDEN` to a signed-in user who may not watch the lesson, and `NOT_FOUND` for an unpublished lesson or one without a video.
+- `saveLessonProgress` requires a session and checks the same access before it writes.
+
+## Pages
+
+The `/courses` layout (`courses.tsx`) has its own navigation, and its labels are in the `pages.courses` namespace. The pages read D1 for each viewer, so they are not prerendered: `ROUTES.COURSES` is in `UNLISTED_ROUTES` in `vite.config.ts`.
+
+- `/courses`: one card per published course with its kind, lesson count, minutes and free lessons.
+- `/courses/<course>`: the summary, a progress bar for signed-in viewers, a **Start the course** or **Continue with …** link to the next lesson to watch, and the curriculum by chapter with **Free preview** badges, durations, and lock and completed icons. When a lesson is locked, the **Every lesson comes with Complete** panel links to the pricing section, or to `/app/license` for a signed-in viewer.
+- `/courses/<course>/<lesson>`: the player, or a locked panel with **Sign in to watch**, which returns to the lesson after sign-in through `redirect`, or **Get Complete**. A lesson without a video says that its recording is on its way. Below it are the access level, **Mark as complete** for signed-in viewers and links to the previous and next lessons; the course contents stay beside it on wide screens.
+
+## Progress
+
+For a signed-in viewer, the player starts at the saved `position_ms` and `useLessonProgress` (`src/hooks/use-lesson-progress.ts`) saves the position at most every 15 seconds while it plays, through the `startAt` and `onProgress` props of `VideoPlayer`. When the video ends (`onEnded`) or the viewer presses **Mark as complete**, `completed_at` is set, the saved position returns to the start and the course page refreshes its progress. `completed_at` is kept once set. Guests can watch free previews, but nothing is saved.
+
+## Lessons and videos
+
+A lesson stores no video files of its own. Publish the recording with `bun run video:publish:<environment>` (see [Videos](/docs/features/videos)); the script prints the video's id, which goes in the lesson's `video_id`. Several lessons can use the same video. Durations on the catalogue and in the curriculum come from `video.duration_ms`.
+
+## Creating courses
+
+Course authoring in the admin is not built yet. `/admin/courses/create` is still a demo screen whose **Save** and **Cancel** do nothing, `/admin/products?tab=courses` shows an empty state, and no admin screen lists courses. Until it exists, insert the rows in D1 yourself, for example in Drizzle Studio with `bun run db:studio:<environment>`, or with `bunx wrangler d1 execute DB --env <environment> --remote --file <file>`. Ids have no default; any unique string works.
+
+```sql
+INSERT INTO course (id, slug, kind, status, title, summary)
+VALUES ('course-1', 'the-walkthrough', 'course', 'published', '{"en-US":"The walkthrough"}', '{"en-US":"How the code works, subsystem by subsystem."}');
+
+INSERT INTO chapter (id, course_id, position, title)
+VALUES ('chapter-1', 'course-1', 0, '{"en-US":"Foundations"}');
+
+INSERT INTO lesson (id, course_id, chapter_id, slug, access, status, position, title, summary, video_id)
+VALUES ('lesson-1', 'course-1', 'chapter-1', 'module-boundaries', 'preview', 'published', 0, '{"en-US":"Module boundaries"}', '{"en-US":"Why every feature starts at the module boundary."}', '<videoId>');
+```
+
+`scripts/seed-test.ts` seeds a course like this, with one chapter and four lessons, for the browser tests in `e2e/specs/courses.spec.ts`.
+
+## Related pages
+
 - [Videos](/docs/features/videos)
+- [Content access](/docs/features/content-access)
+- [Payments and licences](/docs/features/payments)
+- [Database migrations](/docs/tooling/database)

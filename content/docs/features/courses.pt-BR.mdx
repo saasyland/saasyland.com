@@ -1,19 +1,77 @@
 ---
 title: "Cursos"
-description: "Apenas demonstração: um editor de cursos estático e um tipo de produto curso, sem dados de cursos."
+description: "Um catálogo público de cursos cujas aulas são gratuitas, exigem uma conta ou exigem uma licença, com um player que salva o progresso. Ainda não há criação de cursos na administração."
 ---
 
-O que existe:
+Cursos, tutoriais e projetos ficam no D1 e são assistidos em `/courses`. Cada aula reproduz um vídeo da biblioteca de [Vídeos](/docs/features/videos), e o nível de acesso dela decide quem pode assisti-la.
 
-- `/admin/courses/create` (`src/routes/admin.courses.create.tsx`) mostra `CourseDetails`, `CourseSidebar` e uma grade curricular (`admin/courses/curriculum.tsx`) montada a partir de `ADMIN_COURSE_CURRICULUM_SECTIONS` em `src/data/admin.ts`. Nenhuma rota aponta para ela, e **Salvar** e **Cancelar** não estão conectados.
-- `/admin/products?tab=courses` mostra um estado vazio.
-- A coluna `type` dos produtos aceita `course`.
-- Os vídeos das aulas já podem ser publicados e transmitidos com [Vídeos](/docs/features/videos), mas nada liga um vídeo a um curso.
+## Modelo de dados
 
-O que não existe: tabelas de cursos, aulas ou matrículas, um módulo de cursos e qualquer tela para alunos em `/app`. Uma funcionalidade de cursos precisa de tabelas e de um módulo próprios em `src/modules`.
+Cada tabela tem o próprio módulo em `src/modules` e é criada pela migração `20261113004409_salty_slipstream.sql`:
 
-## Guias relacionados
+| Tabela            | Colunas                                                                                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `course`          | `slug` (único), `kind` (`course`, `tutorial`, `project`), `status` (`draft`, `published`), `position`, `title`, `summary`                                |
+| `chapter`         | `course_id`, `position`, `title`                                                                                                                         |
+| `lesson`          | `course_id`, `chapter_id`, `slug` (único dentro do curso), `access` (`preview`, `account`, `paid`), `status`, `position`, `title`, `summary`, `video_id` |
+| `lesson_progress` | `user_id` e `lesson_id` (a chave primária), `position_ms`, `completed_at`                                                                                |
 
-- [Adicionar um módulo](/docs/guides/add-a-module)
-- [Produtos](/docs/features/products)
+- `title` e `summary` guardam JSON com os locales como chaves, por exemplo `{"en-US": "Billing", "pl-PL": "Płatności"}` (`LocalizedText` em `src/modules/_core/utils/localized-text.ts`). `localize()` devolve o locale do visitante e recorre a `en-US` quando ele falta, então preencha sempre `en-US`.
+- Linhas novas são `draft`, e aulas novas são `paid`. Só cursos e aulas `published` são listados ou servidos; qualquer outro slug mostra a página de não encontrado.
+- Os cursos são ordenados por `position`, os capítulos por `position` dentro do curso e as aulas por `position` dentro do capítulo. As aulas são numeradas ao longo do curso inteiro.
+- `video_id` aponta para a tabela `video` e passa a `NULL` quando o vídeo é excluído. Excluir um curso ou um capítulo exclui as aulas dele, e excluir uma aula ou um usuário exclui o progresso correspondente.
+
+## Níveis de acesso
+
+| `access`  | Quem pode assistir                                                                           |
+| --------- | -------------------------------------------------------------------------------------------- |
+| `preview` | Todos, com ou sem login                                                                      |
+| `account` | Qualquer usuário que tenha entrado                                                           |
+| `paid`    | Um usuário com uma licença `active` do nível `complete` ou `agency` (`COURSE_LICENCE_TIERS`) |
+
+Papéis com `course: ["read"]`, que os admins têm, podem assistir a todas as aulas. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) decide para um espectador que `resolveViewer` (`lesson.viewer.ts`) monta a partir da sessão, do papel e de `getLicense`. Toda função de servidor que serve conteúdo dos cursos aplica essa verificação, não apenas as páginas:
+
+- `getCatalogue` (pública) devolve os cursos publicados com o número de aulas, a duração total dos vídeos e o número de prévias gratuitas.
+- `getCourse` (pública) devolve um curso publicado com os capítulos e as aulas publicadas no locale do visitante, cada uma com `locked`, `completed` e `positionMs` para o espectador.
+- `getLessonPlayback` (pública) devolve caminhos de reprodução assinados por `createPlayback`. Responde `UNAUTHORIZED` a um visitante sem login e `FORBIDDEN` a um usuário logado que não pode assistir à aula, e `NOT_FOUND` para uma aula não publicada ou sem vídeo.
+- `saveLessonProgress` exige uma sessão e verifica o mesmo acesso antes de gravar.
+
+## Páginas
+
+O layout `/courses` (`courses.tsx`) tem navegação própria, e os textos dele ficam no namespace `pages.courses`. As páginas leem o D1 para cada espectador, por isso não são pré-renderizadas: `ROUTES.COURSES` está em `UNLISTED_ROUTES` no `vite.config.ts`.
+
+- `/courses`: um card por curso publicado, com o tipo, o número de aulas, os minutos e as aulas gratuitas.
+- `/courses/<course>`: o resumo, uma barra de progresso para espectadores logados, um link **Começar o curso** ou **Continuar com …** para a próxima aula a assistir e o conteúdo programático por capítulo, com selos de **Prévia gratuita**, durações e ícones de cadeado e de concluída. Quando há uma aula bloqueada, o painel **Todas as aulas vêm com o Complete** leva à seção de preços ou, para um espectador logado, a `/app/license`.
+- `/courses/<course>/<lesson>`: o player, ou um painel de bloqueio com **Entrar para assistir**, que volta à aula depois do login por meio de `redirect`, ou **Obter o Complete**. Uma aula sem vídeo avisa que a gravação chegará em breve. Abaixo ficam o nível de acesso, **Marcar como concluída** para espectadores logados e links para a aula anterior e a próxima; em telas largas, o conteúdo do curso continua ao lado.
+
+## Progresso
+
+Para um espectador logado, o player começa na `position_ms` salva e `useLessonProgress` (`src/hooks/use-lesson-progress.ts`) salva a posição no máximo a cada 15 segundos durante a reprodução, por meio das props `startAt` e `onProgress` do `VideoPlayer`. Quando o vídeo termina (`onEnded`) ou o espectador pressiona **Marcar como concluída**, `completed_at` é definido, a posição salva volta ao início e a página do curso atualiza o progresso. Depois de definido, `completed_at` é mantido. Visitantes sem login podem assistir às prévias gratuitas, mas nada é salvo.
+
+## Aulas e vídeos
+
+Uma aula não armazena arquivos de vídeo próprios. Publique a gravação com `bun run video:publish:<environment>` (veja [Vídeos](/docs/features/videos)); o script exibe o id do vídeo, que vai na coluna `video_id` da aula. Várias aulas podem usar o mesmo vídeo. As durações do catálogo e do conteúdo programático vêm de `video.duration_ms`.
+
+## Criar cursos
+
+A criação de cursos na administração ainda não existe. `/admin/courses/create` continua sendo uma tela de demonstração em que **Salvar** e **Cancelar** não fazem nada, `/admin/products?tab=courses` mostra um estado vazio e nenhuma tela de administração lista os cursos. Até lá, insira as linhas no D1 você mesmo, por exemplo no Drizzle Studio com `bun run db:studio:<environment>` ou com `bunx wrangler d1 execute DB --env <environment> --remote --file <file>`. Os ids não têm valor padrão; qualquer string única serve.
+
+```sql
+INSERT INTO course (id, slug, kind, status, title, summary)
+VALUES ('course-1', 'the-walkthrough', 'course', 'published', '{"en-US":"The walkthrough"}', '{"en-US":"How the code works, subsystem by subsystem."}');
+
+INSERT INTO chapter (id, course_id, position, title)
+VALUES ('chapter-1', 'course-1', 0, '{"en-US":"Foundations"}');
+
+INSERT INTO lesson (id, course_id, chapter_id, slug, access, status, position, title, summary, video_id)
+VALUES ('lesson-1', 'course-1', 'chapter-1', 'module-boundaries', 'preview', 'published', 0, '{"en-US":"Module boundaries"}', '{"en-US":"Why every feature starts at the module boundary."}', '<videoId>');
+```
+
+`scripts/seed-test.ts` cria um curso assim, com um capítulo e quatro aulas, para os testes de navegador em `e2e/specs/courses.spec.ts`.
+
+## Páginas relacionadas
+
 - [Vídeos](/docs/features/videos)
+- [Acesso a conteúdo](/docs/features/content-access)
+- [Pagamentos e licenças](/docs/features/payments)
+- [Migrações de banco de dados](/docs/tooling/database)

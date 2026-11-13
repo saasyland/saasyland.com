@@ -5,28 +5,29 @@ description: "Worker entry, locale middleware, bindings and deployment."
 
 The application runs as one Cloudflare Worker. `@cloudflare/vite-plugin` builds it, and `CLOUDFLARE_ENV` selects the Wrangler environment. `wrangler.jsonc` sets `main` to `./src/server.ts`, enables `nodejs_compat` and observability, and serves static files through the `ASSETS` binding. The Worker runs first for every path except `/assets/*`, `/fonts/*`, `/robots.txt` and `/llms.txt`. Source maps are not uploaded (`upload_source_maps` is `false`), because the Worker and its source maps together exceed the size Cloudflare accepts in one upload.
 
-| Environment   | Worker                  | D1 and KV                           | Domain                  |
+| Environment   | Worker                  | D1, KV and R2                       | Domain                  |
 | ------------- | ----------------------- | ----------------------------------- | ----------------------- |
 | `development` | `saasyland-development` | Remote preview resources            | `localhost:3000`        |
 | `preview`     | `saasyland-preview`     | Preview resources                   | `preview.saasyland.com` |
 | `production`  | `saasyland`             | Production resources                | `saasyland.com`         |
 | `test`        | `saasyland-test`        | Local resources in `.wrangler/test` | `127.0.0.1:3000`        |
 
-Every environment binds D1 as `DB` and KV as `CACHE` and lists its required secrets. The `test` environment uses `src/platform/testing/worker.ts` as its entry; it intercepts Resend and Polar requests and exposes test-only endpoints for Playwright.
+Every environment binds D1 as `DB`, KV as `CACHE` and R2 as `MEDIA`, and lists its required secrets. The `test` environment uses `src/platform/testing/worker.ts` as its entry; it intercepts Resend and Polar requests and exposes test-only endpoints for Playwright.
 
 ## Request flow
 
 `src/server.ts` handles every request:
 
-1. `resolveLocale` from `i18n.middleware.ts` inspects `GET` and `HEAD` document requests outside `/api` and `/_serverFn`. It redirects language aliases and non-canonical locale paths with status 308 and reports when the locale cookie differs from the URL locale.
-2. `GET` and `HEAD` requests outside `/api` and `/_serverFn` are served from `ASSETS` first, which covers prerendered pages. A 404 falls through to the TanStack Start handler.
-3. When the locale cookie needs an update, the Worker appends it to the response. HTML responses also receive `Link` preload headers for the stylesheet and the locale's fonts.
-4. HTML responses get regional pricing: when the `cf-ipcountry` country qualifies for a purchasing-power discount, an `HTMLRewriter` adds the discount attributes to `<html>` and the response becomes `private, no-cache`.
-5. Every response, including redirects and API calls, gets the security headers from [Security and hardening](/docs/features/security). Files that skip the Worker get the smaller set in `public/_headers`.
+1. A path under `/media/` goes to `serveMedia`, which serves signed video files from the Workers cache or R2 (see [Cloudflare R2](/docs/integrations/cloudflare-r2)). Of the steps below, only the security headers apply to it.
+2. `resolveLocale` from `i18n.middleware.ts` inspects `GET` and `HEAD` document requests outside `/api` and `/_serverFn`. It redirects language aliases and non-canonical locale paths with status 308 and reports when the locale cookie differs from the URL locale.
+3. `GET` and `HEAD` requests outside `/api` and `/_serverFn` are served from `ASSETS` first, which covers prerendered pages. A 404 falls through to the TanStack Start handler.
+4. When the locale cookie needs an update, the Worker appends it to the response. HTML responses also receive `Link` preload headers for the stylesheet and the locale's fonts.
+5. HTML responses get regional pricing: when the `cf-ipcountry` country qualifies for a purchasing-power discount, an `HTMLRewriter` adds the discount attributes to `<html>` and the response becomes `private, no-cache`.
+6. Every response, including redirects, API calls and media files, gets the security headers from [Security and hardening](/docs/features/security). Files that skip the Worker get the smaller set in `public/_headers`.
 
 ## Deployment
 
-`bun run deploy:preview` and `bun run deploy:production` run `scripts/verify-bindings.ts`, which rejects placeholder D1 and KV IDs, then the matching build and `wrangler deploy --secrets-file .env.<environment>`. Builds prerender public pages and run `scripts/verify-build.ts` and `scripts/optimize-prerendered-html.ts`. Migrations are separate commands; see [Deploy a preview](/docs/getting-started/deploy-preview) and [CI/CD](/docs/tooling/ci-cd).
+`bun run deploy:preview` and `bun run deploy:production` run `scripts/verify-bindings.ts`, which rejects placeholder D1 and KV IDs, then the matching build and `wrangler deploy --secrets-file .env.<environment>`. The `MEDIA` buckets are bound by name and must exist before the first deploy; create them with `wrangler r2 bucket create`. Builds prerender public pages and run `scripts/verify-build.ts` and `scripts/optimize-prerendered-html.ts`. Migrations are separate commands; see [Deploy a preview](/docs/getting-started/deploy-preview) and [CI/CD](/docs/tooling/ci-cd).
 
 ## Related guides
 

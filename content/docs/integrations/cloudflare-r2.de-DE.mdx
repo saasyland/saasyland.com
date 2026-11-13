@@ -1,0 +1,45 @@
+---
+title: "Cloudflare R2"
+description: "Der MEDIA-Bucket: privater Videospeicher, den der Worker über signierte, ablaufende Pfade und den Edge-Cache ausliefert."
+---
+
+Jede Umgebung bindet in `wrangler.jsonc` einen R2-Bucket als `MEDIA`: `saasyland` in Produktion, `saasyland-preview` für Preview und lokale Entwicklung sowie einen lokalen Bucket `saasyland-test` für den Test-Build. Die Buckets sind privat: Öffentlicher Zugriff und die `r2.dev`-URL bleiben deaktiviert, und jeder Lesezugriff läuft über den Worker.
+
+## Objektstruktur
+
+Die Dateien jedes Videos liegen unter `videos/<videoId>/`, wobei `videoId` die ID der `video`-Zeile ist. `videoObjectKey` und `videoDirectory` in `src/modules/video/video.files.ts` bauen die Schlüssel, und `mediaContentType` listet die einzigen Dateinamen, die hochgeladen oder ausgeliefert werden dürfen, mit ihren Medientypen auf. Alles andere wird abgelehnt.
+
+## Signierte Auslieferung
+
+Der Player sieht nie einen Bucket-Schlüssel. Eine Server Function ruft `createPlayback` (`src/modules/video/video.playback.ts`) auf, das Pfade dieser Form zurückgibt:
+
+```text
+/media/<expiry>.<signature>/<videoId>/master.m3u8
+```
+
+- `expiry` ist eine Unix-Zeit zur Basis 36, mindestens sechs Stunden in der Zukunft und auf die volle Stunde aufgerundet, sodass innerhalb derselben Stunde ausgestellte Links identisch sind und im Browser cachebar bleiben.
+- `signature` ist ein HMAC-SHA-256 von `<videoId>.<expiry>` mit einem Schlüssel, der per HKDF aus `AUTH_SECRET` abgeleitet wird; so ist kein zusätzliches Secret nötig, und der Schlüssel dient keinem anderen Zweck.
+- Playlists verweisen über relative Pfade auf Renditions, Segmente und Untertitel, sodass ein signiertes Präfix den gesamten Stream abdeckt.
+
+`src/server.ts` leitet jeden `/media/`-Request noch vor der Locale-Middleware und TanStack Start an `serveMedia` (`src/modules/video/video.delivery.ts`) weiter und fügt die üblichen Sicherheits-Header hinzu. `serveMedia`:
+
+- akzeptiert nur `GET` und `HEAD` (sonst `405`);
+- gibt `404` für einen Pfad zurück, der keine aufgeführte Mediendatei ist, und `403` für eine abgelaufene oder falsche Signatur;
+- beantwortet `Range`-Requests mit `206` und `Content-Range` und mit `416` für einen Bereich außerhalb der Datei;
+- liefert ganze Dateien nach Möglichkeit aus dem Workers-Cache aus. Dort liegen sie ohne die Signatur unter `/media/_/<videoId>/<file>`, sodass sich alle Zuschauer pro Edge-Standort eine gecachte Kopie teilen. Antworten an den Browser sind `private, max-age=86400, immutable`.
+
+Signierte Pfade funktionieren bis zu ihrem Ablauf wie Bearer-Links: Wer einen davon hat, kann dieses Video abspielen. Wer zuschauen darf, wird geprüft, wenn der Pfad ausgestellt wird.
+
+## Uploads
+
+Der Worker nimmt keine Uploads an. `scripts/publish-video.ts` schreibt mit `wrangler r2 bulk put --remote` und Ihrer Anmeldung per `bunx wrangler login` in den Bucket; siehe [Videos](/docs/features/videos). Wird ein Video im Admin-Bereich gelöscht, wird das Präfix aufgelistet und die Objekte werden seitenweise über das Binding gelöscht.
+
+## Tests
+
+In Vitest wird `cloudflare:workers` zu `src/platform/testing/mocks/cloudflare.ts` aufgelöst, das einen `MEDIA`-Bucket im Arbeitsspeicher mit `get` (einschließlich Byte-Bereichen), `head`, `put`, `delete` und seitenweisem `list` bereitstellt. `src/platform/testing/mocks/cache.ts` ersetzt den Workers-Cache durch einen Stub. Der Test-Build verwendet den lokalen Bucket `saasyland-test` unter `.wrangler/test`.
+
+## Verwandte Seiten
+
+- [Videos](/docs/features/videos)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Authentifizierung und Sicherheit](/docs/architecture/security-model)

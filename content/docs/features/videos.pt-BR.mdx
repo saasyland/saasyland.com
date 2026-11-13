@@ -1,0 +1,54 @@
+---
+title: "Vídeos"
+description: "Gravações codificadas em HLS adaptativo na sua máquina, armazenadas no seu próprio bucket do R2 e transmitidas por links assinados que expiram."
+---
+
+Os vídeos ficam armazenados no seu próprio bucket do R2 e são transmitidos pelo seu próprio Worker. Nenhuma plataforma de vídeo fica no meio do caminho: a Cloudflare não cobra pela saída de dados (egress) do R2, então a conta é de armazenamento e requisições, não de minutos assistidos.
+
+## O que existe
+
+- **Biblioteca**: `/admin/videos` (`src/routes/admin.videos.tsx`) lista todos os vídeos publicados com a duração, o tamanho da origem, o tamanho armazenado, os idiomas das legendas e a data de publicação, dos mais recentes para os mais antigos. **Assistir** reproduz o vídeo em um diálogo; **Excluir** pede confirmação e depois remove a linha e todos os arquivos sob o prefixo do vídeo no R2.
+- **Publicação**: `bun run video:publish:production <file> --title "…"` codifica uma gravação com o FFmpeg, a envia para o R2 e a registra na tabela `video`, o que a faz aparecer na biblioteca.
+- **Entrega**: `/media/<expiry>.<signature>/<videoId>/<file>` serve os arquivos para o player (veja [Cloudflare R2](/docs/integrations/cloudflare-r2)).
+- **Player**: `VideoPlayer` (`src/presentation/components/custom/video-player.tsx`) usa o Video.js 10 com o seu próprio mecanismo de HLS. Ele mostra controles de qualidade, velocidade, legendas, picture-in-picture e tela cheia, prévias ao buscar a partir do storyboard e rótulos no idioma da página.
+
+Cursos, capítulos e aulas ainda não fazem parte desta funcionalidade; veja [Cursos](/docs/features/courses).
+
+## O que um vídeo publicado contém
+
+O codificador planeja a saída a partir da origem:
+
+| Arquivo                             | Conteúdo                                                                                                                                                                         |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `master.m3u8`                       | Playlist multivariante do HLS que lista todas as variantes com a resolução, os codecs e a largura de banda de pico de cada uma.                                                  |
+| `<height>p/`                        | Uma variante H.264 por degrau: a altura da origem (até 1440p) e, abaixo dela, 1080p, 720p e 360p. Cada uma tem `index.m3u8`, `init_<n>.mp4` e segmentos `.m4s` de seis segundos. |
+| `audio/`                            | Uma faixa AAC (128 kb/s, 48 kHz, estéreo) compartilhada por todas as variantes, de modo que o áudio é armazenado uma única vez. Gravações sem som não têm nenhuma.               |
+| `poster.webp`, `poster-960.webp`    | Um quadro a um décimo do vídeo, ou a imagem passada com `--poster`, com 1920 e 960 pixels de largura. O player escolhe um deles com `srcset`.                                    |
+| `storyboard.webp`, `storyboard.vtt` | Miniaturas para as prévias ao buscar: um bloco a cada dois segundos ou mais, no máximo 600 blocos, com uma faixa WebVTT que aponta para cada bloco.                              |
+| `captions/<locale>.vtt`             | Os arquivos de legenda passados com `--captions`, um por locale.                                                                                                                 |
+
+Os segmentos são CMAF (MP4 fragmentado) com um quadro-chave a cada dois segundos, então todas as variantes trocam nos mesmos pontos. As taxas de bits são de qualidade constante (CRF 21), com um teto proporcional ao tamanho da imagem, então uma gravação de tela quase estática ocupa muito menos espaço do que o teto.
+
+## Publicar uma gravação
+
+1. Instale o FFmpeg, que inclui o `ffprobe`: `brew install ffmpeg` no macOS. Defina `FFMPEG` e `FFPROBE` para usar outros binários.
+2. Faça login na Cloudflare com `bunx wrangler login`. O script executa o Wrangler com esse login, como os scripts `db:migrate:*`, e não lê nenhum arquivo `.env`.
+3. Execute o script do ambiente:
+
+```bash
+bun run video:publish:production lesson-01.mp4 --title "Lesson 01" --poster cover.jpg --captions en-US=lesson-01.en.vtt --captions pl-PL=lesson-01.pl.vtt
+```
+
+`--poster` e `--captions` são opcionais. Use `video:publish:preview` para o ambiente de preview.
+
+`scripts/publish-video.ts` lê o nome do bucket do binding `MEDIA` do ambiente em `wrangler.jsonc`, codifica em um diretório temporário, envia os arquivos com `wrangler r2 bulk put --remote`, 20 por vez e agrupados por tipo de conteúdo, e insere a linha de `video` com `wrangler d1 execute DB --env <environment> --remote`. Se isso falhar, ele apaga os objetos enviados com `wrangler r2 object delete`. O planejamento (variantes, argumentos do FFmpeg, storyboard, nomes de arquivo) fica em `src/modules/video/video.encoding.ts` e `video.files.ts`, que o Worker também usa.
+
+## Custo
+
+Com o armazenamento R2 Standard a US$ 0,015 por GB-mês e sem cobrança de saída de dados, uma biblioteca de 50 horas de gravações de tela, a cerca de 1,2 GB por hora somando todas as variantes, custa menos de US$ 1 por mês para armazenar, não importa quantas vezes seja assistida. Cada requisição de segmento executa o Worker uma vez e lê o R2 no máximo uma vez por local de borda, porque os arquivos servidos ficam guardados no cache do Workers. Confira os preços atuais nas páginas de preços do [R2](https://developers.cloudflare.com/r2/pricing/) e do [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
+
+## Páginas relacionadas
+
+- [Cloudflare R2](/docs/integrations/cloudflare-r2)
+- [Cursos](/docs/features/courses)
+- [Painel administrativo](/docs/features/admin-dashboard)

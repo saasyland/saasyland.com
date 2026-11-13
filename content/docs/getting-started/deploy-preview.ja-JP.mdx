@@ -3,7 +3,7 @@ title: "プレビューをデプロイする"
 description: "Cloudflare のリソースを用意し、プレビュー用 Worker をデプロイします。"
 ---
 
-`preview` 環境は、Worker `saasyland-preview` を `preview.saasyland.com` にデプロイします。デフォルトでは、`development` と `preview` が 1 つの D1 データベースと 1 つの KV 名前空間を共有します。
+`preview` 環境は、Worker `saasyland-preview` を `preview.saasyland.com` にデプロイします。デフォルトでは、`development` と `preview` が 1 つの D1 データベース、1 つの KV 名前空間、1 つの R2 バケットを共有します。
 
 ## リソースを用意する
 
@@ -11,9 +11,10 @@ description: "Cloudflare のリソースを用意し、プレビュー用 Worker
 bunx wrangler login
 bunx wrangler d1 create saasyland_com_preview
 bunx wrangler kv namespace create CACHE --env preview
+bunx wrangler r2 bucket create saasyland-preview
 ```
 
-`wrangler.jsonc` で、`development` と `preview` の両方にある `database_id`、`database_name`、KV の `id` を置き換えます。バインディング名の `DB` と `CACHE`、および `migrations_dir` はそのままにし、Worker 名とカスタムドメインのルートを自分のアカウントに合わせて更新します。本番用には別のリソースを作成し、`production` ブロックを更新してください。`src/presentation/branding/index.ts` で `APP_DOMAIN` を設定します。`src/modules/_core/constants/api.ts` の `appHostsForMode` は、この値から許可するホストを導き出します。本番では `APP_DOMAIN`、プレビューでは `preview.<APP_DOMAIN>`、開発では `localhost:3000` または `127.0.0.1:3000`、テストではそれらに加えて `localhost:3020` と `127.0.0.1:3020` です。同じファイルの `HOSTS_BY_MODE` を編集するのは、プレビューのホスト名が異なる場合だけです。
+`wrangler.jsonc` で、`development` と `preview` の両方にある `database_id`、`database_name`、KV の `id`、`MEDIA` の `bucket_name` を置き換えます。バインディング名の `DB`、`CACHE`、`MEDIA`、および `migrations_dir` はそのままにし、Worker 名とカスタムドメインのルートを自分のアカウントに合わせて更新します。本番用には `saasyland` バケットを含む別のリソースを作成し、`production` ブロックを更新してください。`src/presentation/branding/index.ts` で `APP_DOMAIN` を設定します。`src/modules/_core/constants/api.ts` の `appHostsForMode` は、この値から許可するホストを導き出します。本番では `APP_DOMAIN`、プレビューでは `preview.<APP_DOMAIN>`、開発では `localhost:3000` または `127.0.0.1:3000`、テストではそれらに加えて `localhost:3020` と `127.0.0.1:3020` です。同じファイルの `HOSTS_BY_MODE` を編集するのは、プレビューのホスト名が異なる場合だけです。
 
 ## デプロイする
 
@@ -24,7 +25,7 @@ bun run db:migrate:preview
 bun run deploy:preview
 ```
 
-`deploy:preview` は、まずプレースホルダーの ID を拒否する `scripts/verify-bindings.ts preview` を実行します。次に、公開ページをプリレンダリングして出力を検証する `build:preview` を実行し、最後にシークレットもアップロードする `wrangler deploy --secrets-file .env.preview` を実行します。ビルドとデプロイでマイグレーションが適用されることはありません。新しいスキーマを必要とするコードをデプロイする前に、`db:migrate:preview` を実行してください。
+`deploy:preview` は、まずプレースホルダーの ID を拒否する `scripts/verify-bindings.ts preview` を実行します。次に、公開ページをプリレンダリングして出力を検証する `build:preview` を実行し、最後にシークレットもアップロードする `wrangler deploy --secrets-file .env.preview` を実行します。ビルドとデプロイでマイグレーションが適用されることはありません。新しいスキーマを必要とするコードをデプロイする前に、`db:migrate:preview` を実行してください。`verify-bindings.ts` は、名前でバインドされる R2 バケットをチェックしません。バケットが存在するまで、デプロイは失敗します。
 
 [環境変数](/docs/getting-started/environment-variables)に記載されているとおり、プレビューのホスト用に OAuth のコールバックと Polar の Webhook を登録します。
 

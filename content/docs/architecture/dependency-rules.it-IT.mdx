@@ -11,7 +11,7 @@ description: "Quali cartelle possono importare quali altre e come il codice solo
 | `src/presentation`        | opzioni dei moduli, schemi Zod, costanti e tipi, hook, `src/data`, `src/lib`, integrazioni sicure per il browser       | `db`, `auth` da `auth.server.ts`, Polar, Resend                       |
 | `src/modules/*/use-cases` | integrazioni (`db`, `auth`, `sendEmail`, `polar`), `_core`, schemi dei moduli, template email                          | componenti                                                            |
 | `src/integrations`        | `_core`, schemi dei moduli e casi d'uso che il fornitore richiama                                                      | componenti                                                            |
-| `src/server.ts`           | helper per i locale, cookie, costanti di `_core`, asset del documento                                                  | il database, Better Auth o l'SDK di Polar                             |
+| `src/server.ts`           | helper per i locale, cookie, costanti di `_core`, `MEDIA_PATH_PREFIX`, asset del documento                             | il database, Better Auth o l'SDK di Polar                             |
 
 Tra le integrazioni sicure per il browser ci sono `i18n.paths.ts`, `i18n.utils.ts`, `auth.client.ts`, `auth.access.ts` e `form.fields.ts`.
 
@@ -21,7 +21,7 @@ Tra le integrazioni sicure per il browser ci sono `i18n.paths.ts`, `i18n.utils.t
 - **Moduli solo server.** I file che leggono secret o binding iniziano con `import "@tanstack/react-start/server-only"`, che li tiene fuori dalla build client. Esempi: `drizzle.database.ts`, `auth.server.ts`, `polar.config.ts`, `resend.utils.ts`, `src/lib/rate-limit.ts` e `i18n.middleware.ts`.
 - **Funzioni specifiche per ambiente.** `createServerOnlyFn` incapsula codice che viene eseguito solo sul server (`getRequestSession`). `createIsomorphicFn` fornisce implementazioni separate per server e browser (`getCurrentLocale`, `getCookie`).
 - **Binding e secret** provengono da `env` in `cloudflare:workers` e vengono letti solo dal codice server: moduli solo server, handler di server function e helper importati solo da questi. `scripts/verify-build.ts` fa fallire la build quando un asset client importa `cloudflare:workers`.
-- **Entry point del Worker.** `src/server.ts` viene eseguito a ogni richiesta tranne `/assets/*`, `/fonts/*`, `/robots.txt` e `/llms.txt`, che `run_worker_first` in `wrangler.jsonc` serve direttamente dagli asset statici. Mantiene ridotti i propri import statici e carica l'handler di TanStack Start con un `import()` dinamico solo quando nessun asset statico corrisponde.
+- **Entry point del Worker.** `src/server.ts` viene eseguito a ogni richiesta tranne `/assets/*`, `/fonts/*`, `/robots.txt` e `/llms.txt`, che `run_worker_first` in `wrangler.jsonc` serve direttamente dagli asset statici. Mantiene ridotti i propri import statici: carica `serveMedia` con un `import()` dinamico solo per i percorsi `/media/`, e l'handler di TanStack Start solo quando nessun asset statico corrisponde.
 
 ```ts
 import "@tanstack/react-start/server-only"

@@ -1,0 +1,54 @@
+---
+title: "Vídeos"
+description: "Grabaciones codificadas en HLS adaptativo en tu equipo, almacenadas en tu propio bucket de R2 y emitidas mediante enlaces firmados que caducan."
+---
+
+Los vídeos se almacenan en tu propio bucket de R2 y los emite tu propio Worker. No hay ninguna plataforma de vídeo de por medio: Cloudflare no cobra por la salida de datos de R2, así que la factura es de almacenamiento y peticiones, no de minutos vistos.
+
+## Lo que existe
+
+- **Biblioteca**: `/admin/videos` (`src/routes/admin.videos.tsx`) enumera todos los vídeos publicados con su duración, el tamaño de origen, el tamaño almacenado, los idiomas de los subtítulos y la fecha de publicación, del más reciente al más antiguo. **Ver** reproduce el vídeo en un diálogo; **Eliminar** pide confirmación y después borra la fila y todos los archivos que hay bajo el prefijo del vídeo en R2.
+- **Publicación**: `bun run video:publish:production <file> --title "…"` codifica una grabación con FFmpeg, la sube a R2 y la registra en la tabla `video`, que es lo que hace que aparezca en la biblioteca.
+- **Entrega**: `/media/<expiry>.<signature>/<videoId>/<file>` sirve los archivos al reproductor (consulta [Cloudflare R2](/docs/integrations/cloudflare-r2)).
+- **Reproductor**: `VideoPlayer` (`src/presentation/components/custom/video-player.tsx`) usa Video.js 10 con su propio motor HLS. Muestra controles de calidad, velocidad, subtítulos, picture-in-picture y pantalla completa, vistas previas al buscar a partir del storyboard y etiquetas en el idioma de la página.
+
+Los cursos, los capítulos y las lecciones todavía no forman parte de esta funcionalidad; consulta [Cursos](/docs/features/courses).
+
+## Qué contiene un vídeo publicado
+
+El codificador planifica la salida a partir del archivo de origen:
+
+| Archivo                             | Contenido                                                                                                                                                                              |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `master.m3u8`                       | Playlist multivariante de HLS que enumera todas las variantes con su resolución, sus códecs y su ancho de banda máximo.                                                                |
+| `<height>p/`                        | Una variante H.264 por escalón: la altura del origen (hasta 1440p) y, por debajo, 1080p, 720p y 360p. Cada una tiene `index.m3u8`, `init_<n>.mp4` y segmentos `.m4s` de seis segundos. |
+| `audio/`                            | Una pista AAC (128 kb/s, 48 kHz, estéreo) que comparten todas las variantes, de modo que el audio se almacena una sola vez. Las grabaciones sin sonido no tienen ninguna.              |
+| `poster.webp`, `poster-960.webp`    | Un fotograma situado a una décima parte del vídeo, o la imagen que se pasa con `--poster`, a 1920 y 960 píxeles de ancho. El reproductor elige uno con `srcset`.                       |
+| `storyboard.webp`, `storyboard.vtt` | Miniaturas para las vistas previas al buscar: una cada dos segundos o más, hasta un máximo de 600, con una pista WebVTT que apunta a cada una.                                         |
+| `captions/<locale>.vtt`             | Los archivos de subtítulos que se pasan con `--captions`, uno por idioma.                                                                                                              |
+
+Los segmentos son CMAF (MP4 fragmentado) con un fotograma clave cada dos segundos, así que todas las variantes cambian en los mismos puntos. Las tasas de bits son de calidad constante (CRF 21) con un límite proporcional al tamaño de la imagen, de modo que una grabación de pantalla mayormente estática ocupa mucho menos espacio que ese límite.
+
+## Publicar una grabación
+
+1. Instala FFmpeg, que incluye `ffprobe`: `brew install ffmpeg` en macOS. Define `FFMPEG` y `FFPROBE` para usar otros binarios.
+2. Inicia sesión en Cloudflare con `bunx wrangler login`. El script ejecuta Wrangler con esa sesión, como los scripts `db:migrate:*`, y no lee ningún archivo `.env`.
+3. Ejecuta el script del entorno:
+
+```bash
+bun run video:publish:production lesson-01.mp4 --title "Lesson 01" --poster cover.jpg --captions en-US=lesson-01.en.vtt --captions pl-PL=lesson-01.pl.vtt
+```
+
+`--poster` y `--captions` son opcionales. Usa `video:publish:preview` para el entorno de preview.
+
+`scripts/publish-video.ts` lee el nombre del bucket del binding `MEDIA` del entorno en `wrangler.jsonc`, codifica en un directorio temporal, sube los archivos con `wrangler r2 bulk put --remote`, de 20 en 20 y agrupados por tipo de contenido, e inserta la fila de `video` con `wrangler d1 execute DB --env <environment> --remote`. Si eso falla, elimina los objetos subidos con `wrangler r2 object delete`. La planificación (variantes, argumentos de FFmpeg, storyboard, nombres de archivo) vive en `src/modules/video/video.encoding.ts` y `video.files.ts`, que también usa el Worker.
+
+## Coste
+
+Con el almacenamiento R2 Standard a 0,015 $ por GB al mes y sin cargo por la salida de datos, una biblioteca de 50 horas de grabaciones de pantalla, a unos 1,2 GB por hora sumando todas las variantes, cuesta menos de 1 $ al mes de almacenamiento, por muchas veces que se vea. Cada petición de un segmento ejecuta el Worker una vez y lee R2 como máximo una vez por ubicación del edge, porque los archivos servidos se guardan en la caché de Workers. Consulta los precios actuales en las páginas de precios de [R2](https://developers.cloudflare.com/r2/pricing/) y de [Workers](https://developers.cloudflare.com/workers/platform/pricing/).
+
+## Páginas relacionadas
+
+- [Cloudflare R2](/docs/integrations/cloudflare-r2)
+- [Cursos](/docs/features/courses)
+- [Panel de administración](/docs/features/admin-dashboard)

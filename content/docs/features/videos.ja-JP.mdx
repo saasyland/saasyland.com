@@ -1,0 +1,54 @@
+---
+title: "動画"
+description: "手元のマシンでアダプティブ HLS にエンコードし、自分の R2 バケットに保存して、期限付きの署名済みリンクで配信する録画です。"
+---
+
+動画は自分の R2 バケットに保存され、自分の Worker から配信されます。間に動画プラットフォームは入りません。Cloudflare は R2 からのエグレス（下り転送）に料金を請求しないため、費用は視聴時間ではなく、ストレージとリクエストの分だけです。
+
+## 存在するもの
+
+- **ライブラリ**: `/admin/videos`（`src/routes/admin.videos.tsx`）は、公開済みのすべての動画を、長さ、ソースの解像度、保存容量、字幕の言語、公開日とともに新しい順に一覧表示します。**プレビュー** はダイアログで動画を再生します。**削除** は確認を求めたうえで、行と、R2 にあるその動画のプレフィックス配下のすべてのファイルを削除します。
+- **公開**: `bun run video:publish:production <file> --title "…"` は、FFmpeg で録画をエンコードして R2 にアップロードし、`video` テーブルに登録します。この登録によって、動画がライブラリに表示されます。
+- **配信**: `/media/<expiry>.<signature>/<videoId>/<file>` がプレーヤーにファイルを配信します（[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照）。
+- **プレーヤー**: `VideoPlayer`（`src/presentation/components/custom/video-player.tsx`）は、独自の HLS エンジンを備えた Video.js 10 を使います。画質、再生速度、字幕、ピクチャー・イン・ピクチャー、全画面表示のコントロールと、ストーリーボードによるシークプレビューを表示し、ラベルはページの言語で表示します。
+
+コース、チャプター、レッスンは、まだこの機能に含まれていません。[コース](/docs/features/courses)を参照してください。
+
+## 公開された動画の中身
+
+エンコーダーは、ソースに応じて出力の内容を決めます。
+
+| ファイル                            | 内容                                                                                                                                                                                     |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `master.m3u8`                       | すべてのレンディションを、解像度、コーデック、ピーク帯域幅とともに列挙する HLS のマルチバリアントプレイリスト。                                                                          |
+| `<height>p/`                        | 段階ごとに 1 つの H.264 レンディション。ソースの高さ（最大 1440p）と、それを下回る 1080p、720p、360p です。それぞれに `index.m3u8`、`init_<n>.mp4`、6 秒の `.m4s` セグメントがあります。 |
+| `audio/`                            | すべてのレンディションで共有する 1 つの AAC トラック（128 kb/s、48 kHz ステレオ）。そのため音声は 1 回だけ保存されます。無音の録画にはありません。                                       |
+| `poster.webp`、`poster-960.webp`    | 全体の 10 分の 1 の位置のフレーム、または `--poster` で渡した画像を、幅 1920 ピクセルと 960 ピクセルで出力したもの。プレーヤーは `srcset` でどちらかを選びます。                         |
+| `storyboard.webp`、`storyboard.vtt` | シークプレビュー用のサムネイル。2 秒以上の間隔で 1 タイル、最大 600 タイルで、各タイルを指す WebVTT トラックが付きます。                                                                 |
+| `captions/<locale>.vtt`             | `--captions` で渡した字幕ファイル。ロケールごとに 1 つです。                                                                                                                             |
+
+セグメントは CMAF（フラグメント化 MP4）で、2 秒ごとにキーフレームがあるため、すべてのレンディションが同じ位置で切り替わります。ビットレートは品質一定（CRF 21）で、画面サイズに比例した上限があります。そのため、ほとんど動きのない画面録画は、上限よりもはるかに少ない容量で済みます。
+
+## 録画を公開する
+
+1. `ffprobe` を含む FFmpeg をインストールします。macOS では `brew install ffmpeg` です。別のバイナリを使う場合は `FFMPEG` と `FFPROBE` を設定します。
+2. `bunx wrangler login` で Cloudflare にサインインします。スクリプトは `db:migrate:*` スクリプトと同じように、このログインで Wrangler を実行し、`.env` ファイルは読み込みません。
+3. 環境に対応するスクリプトを実行します。
+
+```bash
+bun run video:publish:production lesson-01.mp4 --title "Lesson 01" --poster cover.jpg --captions en-US=lesson-01.en.vtt --captions pl-PL=lesson-01.pl.vtt
+```
+
+`--poster` と `--captions` は省略できます。プレビュー環境には `video:publish:preview` を使います。
+
+`scripts/publish-video.ts` は、`wrangler.jsonc` にある環境の `MEDIA` バインディングからバケット名を読み取り、一時ディレクトリにエンコードし、`wrangler r2 bulk put --remote` でファイルをコンテンツタイプごとにまとめて 20 個ずつアップロードしてから、`wrangler d1 execute DB --env <environment> --remote` で `video` の行を挿入します。これに失敗した場合は、アップロードしたオブジェクトを `wrangler r2 object delete` で削除します。エンコードの計画（レンディション、FFmpeg の引数、ストーリーボード、ファイル名）は `src/modules/video/video.encoding.ts` と `video.files.ts` にあり、Worker もこれらを使います。
+
+## 費用
+
+R2 Standard ストレージは 1 GB・月あたり $0.015 で、エグレス料金はかかりません。そのため、全レンディションの合計で 1 時間あたり約 1.2 GB になる画面録画を 50 時間分そろえたライブラリでも、どれだけ視聴されても保存費用は月 $1 未満です。配信したファイルは Workers のキャッシュに保持されるため、セグメントへのリクエストごとに Worker は 1 回実行され、R2 の読み取りはエッジロケーションごとに多くても 1 回です。最新の料金は [R2](https://developers.cloudflare.com/r2/pricing/) と [Workers](https://developers.cloudflare.com/workers/platform/pricing/) の料金ページで確認してください。
+
+## 関連ページ
+
+- [Cloudflare R2](/docs/integrations/cloudflare-r2)
+- [コース](/docs/features/courses)
+- [管理ダッシュボード](/docs/features/admin-dashboard)

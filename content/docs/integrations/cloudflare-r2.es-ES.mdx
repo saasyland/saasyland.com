@@ -1,0 +1,45 @@
+---
+title: "Cloudflare R2"
+description: "El bucket MEDIA: almacenamiento privado de vídeo que el Worker sirve mediante rutas firmadas que caducan y la caché del edge."
+---
+
+Todos los entornos vinculan un bucket de R2 como `MEDIA` en `wrangler.jsonc`: `saasyland` en producción, `saasyland-preview` para preview y el desarrollo local, y un bucket local `saasyland-test` para la compilación de pruebas. Los buckets son privados: el acceso público y la URL `r2.dev` permanecen desactivados, y todas las lecturas pasan por el Worker.
+
+## Estructura de los objetos
+
+Los archivos de cada vídeo están bajo `videos/<videoId>/`, donde `videoId` es el id de la fila de `video`. `videoObjectKey` y `videoDirectory` de `src/modules/video/video.files.ts` construyen las claves, y `mediaContentType` enumera los únicos nombres de archivo que se pueden subir o servir, con sus tipos de medio. Todo lo demás se rechaza.
+
+## Entrega firmada
+
+El reproductor nunca ve una clave del bucket. Una función de servidor llama a `createPlayback` (`src/modules/video/video.playback.ts`), que devuelve rutas con esta forma:
+
+```text
+/media/<expiry>.<signature>/<videoId>/master.m3u8
+```
+
+- `expiry` es una hora Unix en base 36, al menos seis horas en el futuro y redondeada al alza a la hora en punto, de modo que los enlaces emitidos dentro de la misma hora son idénticos y el navegador puede seguir cacheándolos.
+- `signature` es un HMAC-SHA-256 de `<videoId>.<expiry>` con una clave derivada de `AUTH_SECRET` mediante HKDF, así que no hace falta ningún secreto adicional y la clave no se usa para nada más.
+- Las playlists se refieren a las variantes, los segmentos y los subtítulos mediante rutas relativas, así que un único prefijo firmado cubre todo el stream.
+
+`src/server.ts` envía cada solicitud a `/media/` a `serveMedia` (`src/modules/video/video.delivery.ts`) antes del middleware de idioma y de TanStack Start, y añade las cabeceras de seguridad habituales. `serveMedia`:
+
+- solo acepta `GET` y `HEAD` (`405` en cualquier otro caso);
+- devuelve `404` para una ruta que no es un archivo multimedia de la lista y `403` para una firma caducada o incorrecta;
+- responde a las solicitudes `Range` con `206` y `Content-Range`, y con `416` a un rango fuera del archivo;
+- sirve los archivos completos desde la caché de Workers cuando puede. Los archivos se guardan allí bajo `/media/_/<videoId>/<file>`, sin la firma, de modo que todos los espectadores comparten una única copia en caché por ubicación del edge. Las respuestas al navegador son `private, max-age=86400, immutable`.
+
+Las rutas firmadas funcionan como enlaces al portador hasta que caducan: cualquiera que tenga una puede reproducir ese vídeo. La comprobación de quién puede verlo se hace cuando se emite la ruta.
+
+## Subidas
+
+El Worker no acepta subidas. `scripts/publish-video.ts` escribe en el bucket con `wrangler r2 bulk put --remote`, usando su sesión de `bunx wrangler login`; consulte [Vídeos](/docs/features/videos). Al eliminar un vídeo desde la administración, se lista el prefijo y se borran los objetos página a página a través del binding.
+
+## Pruebas
+
+En Vitest, `cloudflare:workers` se resuelve como `src/platform/testing/mocks/cloudflare.ts`, que proporciona un bucket `MEDIA` en memoria con `get` (incluidos los rangos), `head`, `put`, `delete` y `list` paginado. `src/platform/testing/mocks/cache.ts` simula la caché de Workers. La compilación de pruebas usa el bucket local `saasyland-test` en `.wrangler/test`.
+
+## Páginas relacionadas
+
+- [Vídeos](/docs/features/videos)
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Modelo de seguridad](/docs/architecture/security-model)

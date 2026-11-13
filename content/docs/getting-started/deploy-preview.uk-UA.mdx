@@ -3,7 +3,7 @@ title: "Розгортання preview"
 description: "Створення ресурсів Cloudflare і розгортання Worker для preview."
 ---
 
-Середовище `preview` розгортає Worker `saasyland-preview` на `preview.saasyland.com`. Типово `development` і `preview` спільно використовують одну базу даних D1 і один простір імен KV.
+Середовище `preview` розгортає Worker `saasyland-preview` на `preview.saasyland.com`. Типово `development` і `preview` спільно використовують одну базу даних D1, один простір імен KV і один бакет R2.
 
 ## Створення ресурсів
 
@@ -11,9 +11,10 @@ description: "Створення ресурсів Cloudflare і розгорта
 bunx wrangler login
 bunx wrangler d1 create saasyland_com_preview
 bunx wrangler kv namespace create CACHE --env preview
+bunx wrangler r2 bucket create saasyland-preview
 ```
 
-У `wrangler.jsonc` замініть `database_id`, `database_name` і `id` для KV в обох блоках, `development` і `preview`. Залиште назви прив'язок `DB` і `CACHE` та `migrations_dir`, а назви Worker і маршрути власних доменів оновіть для свого облікового запису. Для продакшну створіть окремі ресурси й оновіть блок `production`. Задайте `APP_DOMAIN` у `src/presentation/branding/index.ts`. `appHostsForMode` у `src/modules/_core/constants/api.ts` виводить із нього дозволені хости: `APP_DOMAIN` у продакшні, `preview.<APP_DOMAIN>` у preview, `localhost:3000` або `127.0.0.1:3000` у режимі розробки, а в режимі тестування ще й `localhost:3020` і `127.0.0.1:3020`. Редагуйте `HOSTS_BY_MODE` у тому самому файлі, лише якщо ваш preview-хост має іншу назву.
+У `wrangler.jsonc` замініть `database_id`, `database_name`, `id` для KV і `bucket_name` для `MEDIA` в обох блоках, `development` і `preview`. Залиште назви прив'язок `DB`, `CACHE` і `MEDIA` та `migrations_dir`, а назви Worker і маршрути власних доменів оновіть для свого облікового запису. Для продакшну створіть окремі ресурси, зокрема бакет `saasyland`, і оновіть блок `production`. Задайте `APP_DOMAIN` у `src/presentation/branding/index.ts`. `appHostsForMode` у `src/modules/_core/constants/api.ts` виводить із нього дозволені хости: `APP_DOMAIN` у продакшні, `preview.<APP_DOMAIN>` у preview, `localhost:3000` або `127.0.0.1:3000` у режимі розробки, а в режимі тестування ще й `localhost:3020` і `127.0.0.1:3020`. Редагуйте `HOSTS_BY_MODE` у тому самому файлі, лише якщо ваш preview-хост має іншу назву.
 
 ## Розгортання
 
@@ -24,7 +25,7 @@ bun run db:migrate:preview
 bun run deploy:preview
 ```
 
-`deploy:preview` запускає `scripts/verify-bindings.ts preview`, який відхиляє ідентифікатори-заглушки, потім `build:preview`, який попередньо рендерить публічні сторінки та перевіряє результат, і нарешті `wrangler deploy --secrets-file .env.preview`, який також завантажує секрети. Збірка та розгортання ніколи не застосовують міграцій; запускайте `db:migrate:preview` перед розгортанням коду, якому потрібна нова схема.
+`deploy:preview` запускає `scripts/verify-bindings.ts preview`, який відхиляє ідентифікатори-заглушки, потім `build:preview`, який попередньо рендерить публічні сторінки та перевіряє результат, і нарешті `wrangler deploy --secrets-file .env.preview`, який також завантажує секрети. Збірка та розгортання ніколи не застосовують міграцій; запускайте `db:migrate:preview` перед розгортанням коду, якому потрібна нова схема. `verify-bindings.ts` не перевіряє бакет R2, прив'язаний за назвою: розгортання завершується помилкою, доки бакет не створено.
 
 Зареєструйте callback-адреси OAuth і вебхук Polar для хоста preview, як описано в розділі [Змінні середовища](/docs/getting-started/environment-variables).
 

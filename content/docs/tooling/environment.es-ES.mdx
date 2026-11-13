@@ -5,12 +5,12 @@ description: "Entornos de Wrangler, bindings, secretos y archivos de entorno."
 
 `wrangler.jsonc` define cuatro entornos. `CLOUDFLARE_ENV` selecciona uno para el servidor de desarrollo y las compilaciones, y cada uno lee los secretos de su propio archivo de entorno:
 
-| Entorno       | Seleccionado por                              | Bindings                            | Secretos de        |
-| ------------- | --------------------------------------------- | ----------------------------------- | ------------------ |
-| `development` | `bun run dev`                                 | D1 y KV remotos de preview          | `.env.development` |
-| `preview`     | `build:preview`, `deploy:preview`             | D1 y KV de preview                  | `.env.preview`     |
-| `production`  | `build:production`, `deploy:production`       | D1 y KV de producción               | `.env.production`  |
-| `test`        | `build:test`, `start:test`, `db:migrate:test` | D1 y KV locales en `.wrangler/test` | `.env.test`        |
+| Entorno       | Seleccionado por                              | Bindings                                | Secretos de        |
+| ------------- | --------------------------------------------- | --------------------------------------- | ------------------ |
+| `development` | `bun run dev`                                 | D1, KV y R2 remotos de preview          | `.env.development` |
+| `preview`     | `build:preview`, `deploy:preview`             | D1, KV y R2 de preview                  | `.env.preview`     |
+| `production`  | `build:production`, `deploy:production`       | D1, KV y R2 de producción               | `.env.production`  |
+| `test`        | `build:test`, `start:test`, `db:migrate:test` | D1, KV y R2 locales en `.wrangler/test` | `.env.test`        |
 
 Git ignora `.env.development`, `.env.preview` y `.env.production`; `.env.example` enumera sus claves. `.env.test` está incluido en el repositorio y solo contiene valores ficticios. Los scripts de despliegue suben el archivo correspondiente con `wrangler deploy --secrets-file`.
 
@@ -26,13 +26,14 @@ El código del servidor lee los secretos con `import { env } from "cloudflare:wo
 | -------- | ------------------ | ---------------------------------------------------------------- |
 | `DB`     | D1                 | Base de datos de la aplicación, sesiones y límites de frecuencia |
 | `CACHE`  | KV                 | Recuento de estrellas de GitHub                                  |
+| `MEDIA`  | R2                 | Archivos de vídeo, servidos a través de `/media/`                |
 | `ASSETS` | Recursos estáticos | Páginas prerenderizadas, fuentes y archivos públicos             |
 
 El desarrollo usa los bindings remotos de Cloudflare, por lo que `bun run dev` lee y escribe en la base de datos de preview. Ejecute `bun run cf-typegen` después de cambiar los bindings para regenerar `src/types/worker-configuration.d.ts`.
 
 ## Pruebas
 
-Vitest carga `.env.test` mediante `test.env` y resuelve `cloudflare:workers` como `src/platform/testing/mocks/cloudflare.ts`, que proporciona D1 y KV en memoria. Playwright usa el entorno `test` y su punto de entrada `src/platform/testing/worker.ts`. Ninguno de los dos necesita credenciales reales.
+Vitest carga `.env.test` mediante `test.env` y resuelve `cloudflare:workers` como `src/platform/testing/mocks/cloudflare.ts`, que proporciona D1, KV y un bucket `MEDIA` en memoria; `src/platform/testing/mocks/cache.ts` simula la caché de Workers. Playwright usa el entorno `test` y su punto de entrada `src/platform/testing/worker.ts`. Ninguno de los dos necesita credenciales reales.
 
 ## Guías relacionadas
 

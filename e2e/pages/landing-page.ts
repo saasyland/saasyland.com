@@ -23,4 +23,8 @@ export class LandingPage extends BasePage {
   navigation(): Locator {
     return this.page.getByRole("banner")
   }
+
+  courseShowcase(): Locator {
+    return this.page.locator("#toolkit article").filter({ has: this.page.getByRole("heading", { level: 3, name: "Watch it get built, end to end." }) })
+  }
 }

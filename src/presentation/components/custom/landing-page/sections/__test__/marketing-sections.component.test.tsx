@@ -208,17 +208,12 @@ describe("marketing content and purchase links", () => {
     expect(screen.getByRole("link", { name: english.compare.cta })).toHaveAttribute("href", "#pricing")
   })
 
-  it("shows both course tracks and their preview and locked lessons", () => {
+  it("pairs the page designer with the course showcase", () => {
     renderSection(<StudioSection />)
     expect(screen.getByRole("heading", { name: english.studio.builder.title })).toBeVisible()
     expect(screen.getByLabelText(english.studio.builder.imageAlt)).toHaveAttribute("preload", "none")
-    for (const track of Object.values(english.studio.masterclass.tracks)) {
-      expect(screen.getByText(track.label)).toBeVisible()
-      for (const lesson of Object.values(track.lessons)) {
-        expect(screen.getByText(lesson)).toBeVisible()
-      }
-    }
-    expect(screen.getAllByTitle(english.studio.masterclass.lockedLabel)).toHaveLength(11)
+    expect(screen.getByRole("heading", { name: english.studio.masterclass.title })).toBeVisible()
+    expect(screen.getByRole("link", { name: english.studio.masterclass.browse })).toHaveAttribute("href", "/courses")
   })
 
   it("highlights only the hovered foundation card and resets the highlight on exit", () => {

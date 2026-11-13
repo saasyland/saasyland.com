@@ -1,3 +1,5 @@
+import "@tanstack/react-start/server-only"
+
 import { env, waitUntil } from "cloudflare:workers"
 
 import zod from "zod/v4"

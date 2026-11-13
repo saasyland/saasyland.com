@@ -157,6 +157,7 @@ const tooling = {
       newlinesBetween: true,
       sortSideEffects: true,
     },
+    sortPackageJson: { sortScripts: true },
     sortTailwindcss: {
       attributes: ["className", "classList"],
       functions: ["clsx", "cn", "cva", "tw"],
@@ -221,6 +222,7 @@ const tooling = {
       "no-underscore-dangle": ["error", { allow: ["_splat", "__executeServer"] }],
       "one-var": ["error", "never"],
       "sort-imports": ["error", { ignoreDeclarationSort: true }],
+      "typescript/no-explicit-any": "error",
       "typescript/only-throw-error": [
         "error",
         {

@@ -34,7 +34,7 @@ The application includes both connected workflows and UI demonstrations. A rende
 | Authentication              | Email/password registration with required email verification, GitHub and Google sign-in, password recovery, TOTP with backup codes, and session management. Better Auth's own endpoints enforce the same password, name, email and image rules as the forms, and verification and password-reset emails are limited per recipient.                                                                                                                                                                                                                                               |
 | Customer workspace          | Protected `/app` area and `/app/license`. Accounts without a licence see the landing page's tier cards with regional prices and the course lessons a purchase unlocks (counted from D1), and start checkout in one press; a tier picked on the landing page carries through sign-up. After payment the workspace waits for the licence to activate. Licence owners see their key, machine activations, and activation deactivation.                                                                                                                                              |
 | Billing                     | Authenticated Polar checkout for the Core, Complete, and Agency tiers with regional (PPP) discounts, returning the buyer to the workspace in their language, and webhook handling for purchases, full refunds (a partial refund keeps the licence), and licence-key benefits. One licence per account: checkout is refused while a licence is active, and Polar's checkout endpoint is reachable only through that server-side check. Requires configured provider products and credentials.                                                                                     |
-| Newsletter                  | Double opt-in subscription with localized email delivery, limited per recipient. The confirmation and unsubscribe links open a page that acts only when the visitor presses its button. Subscription preferences are managed from the workspace.                                                                                                                                                                                                                                                                                                                                 |
+| Newsletter                  | Double opt-in subscription with localized email delivery, limited per recipient. The confirmation and unsubscribe links open a page that acts only when the visitor presses its button. Server functions read and change a signed-in user's subscription, but no workspace screen uses them yet.                                                                                                                                                                                                                                                                                 |
 | Admin users and security    | Database-backed user listing, password reset, ban/unban, and deletion. The settings security tab connects password changes, TOTP, and session revocation.                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | Products and categories     | D1 schemas, permission-checked CRUD use cases, and database-backed lists. Product creation/publishing controls are not fully connected.                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Courses                     | A public catalogue at `/courses` with course and lesson pages backed by D1 (`course`, `chapter`, `lesson`, and `lesson_progress`). Each lesson is a free preview, free with an account, or paid (an active Complete or Agency licence); the server functions enforce access, and admins can watch every lesson. The player resumes where the viewer stopped and saves progress. Admins create and edit courses, chapters, and lessons at `/admin/courses`, where each lesson picks its video from the library. See the [Courses guide](content/docs/features/courses.en-US.mdx). |
@@ -83,8 +83,7 @@ The install lifecycle configures Vite+ and generates the class-name tables and F
 Use the committed test environment to explore the application with local D1/KV/R2 storage, test accounts, a sample course at `/courses`, and intercepted provider requests:
 
 ```sh
-bun run db:migrate:test
-bun run db:seed:test
+bun run db:reset:test
 bun run build:test
 bun run start:test
 ```
@@ -129,7 +128,7 @@ There is no development admin seed. To bootstrap an installation, create and ver
 
 Use `.env.development`, `.env.preview`, and `.env.production` for their corresponding environments. These files are ignored by Git; [`.env.example`](.env.example) lists the configuration keys. `.env.test` contains committed dummy values for isolated tests.
 
-Server integrations read secrets through `env` from `cloudflare:workers`. Do not give private credentials a `VITE_` prefix, which makes values available to browser code. Deployment scripts upload the matching environment file with Wrangler's `--secrets-file` option.
+Server integrations read secrets through `env` from `cloudflare:workers`. Do not give private credentials a `VITE_` prefix, which makes values available to browser code. Deployment scripts upload only the keys that `secrets.required` in [`wrangler.jsonc`](wrangler.jsonc) declares, read from the matching environment file.
 
 | Variables                                                                       | Purpose                                                                                                                                                                                |
 | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -193,14 +192,14 @@ src/
   presentation/
     assets/motion/               Published landing-page videos and posters
     branding/                    Application identity and canonical URL
-    components/shadcn/           UI primitives (React Aria; Base UI for the drawer and toggle)
+    components/shadcn/           UI primitives (React Aria; Base UI for the drawer)
     components/custom/           Shared components, plus app/, auth/, blog/, courses/, admin/{page}/, landing-page/
     emails/                      Email templates (markup and message namespace only)
     styles/                      Theme, typography, and local font declarations
   providers/                     Application-wide React providers
   data/                          Data shared by several files: navigation, marketing, admin demo rows
   hooks/                         Shared React hooks
-  lib/                           Shared utilities (cn, cookies, durations, hashing, rate limits, route search params, SEO, GitHub stars, not-found errors)
+  lib/                           Shared utilities (cn, confetti, cookies, durations, hex hashes and tokens, rate limits, route search params, select options, SEO, GitHub stars, not-found errors)
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers
 ```
 
@@ -221,7 +220,7 @@ Authentication entry points are in [`src/integrations/better-auth/`](src/integra
 | `auth.middleware.ts` | Server-function authorization, error handling, and rate limiting.                               |
 | `auth.session.ts`    | Request-scoped session lookup and UI query options.                                             |
 
-Authorization shares a fresh session lookup within one HTTP request; a new request checks session storage again. Route navigation rechecks sessions. Sign-in and sign-out clear private caches; route guards also clear cached data when the authenticated user changes. Rate limiting uses atomic D1 operations and rejects requests when its storage is unavailable. Expired counters are removed in bounded batches during rate-limit checks; there is no scheduled cleanup Worker. Verification, password-reset and newsletter emails are also limited to three per hour for each address, keyed by a SHA-256 of the address; an email over the limit is skipped without an error.
+Authorization shares a fresh session lookup within one HTTP request; a new request checks session storage again. Route navigation rechecks sessions. Sign-in and sign-out clear private caches; route guards also clear cached data when the authenticated user changes. Rate limiting uses atomic D1 operations and rejects requests when its storage is unavailable. Expired counters are removed in bounded batches during rate-limit checks; there is no scheduled cleanup Worker. Verification, password-reset and newsletter confirmation emails are also limited to three of each kind per hour for each address, keyed by a SHA-256 of the address; an email over the limit is skipped without an error.
 
 Email-verification links enter `/auth/verify-email` and redirect to Better Auth's native endpoint. Newsletter confirmation and unsubscribe links open a page that only loads its messages; the action runs when the visitor presses the button, so link scanners cannot confirm or unsubscribe. Success replaces the token URL with a result notice; a failure shows an error and keeps the token for retry.
 
@@ -268,11 +267,11 @@ bun run test:e2e:install
 bun run test:e2e
 ```
 
-Locally, Playwright migrates and seeds the test database, builds the test application, and starts its preview server unless an existing server already answers at the configured URL. Stop other servers on port 3000 before running the suite so it uses the intended test application. `PLAYWRIGHT_BASE_URL` overrides the default `http://127.0.0.1:3000`.
+Locally, Playwright recreates the test database with `db:reset:test`, builds the test application, and starts its preview server unless an existing server already answers at the configured URL. Stop other servers on port 3000 before running the suite so it uses the intended test application. `PLAYWRIGHT_BASE_URL` overrides the default `http://127.0.0.1:3000`.
 
 [`e2e/specs/accessibility.spec.ts`](e2e/specs/accessibility.spec.ts) runs axe-core with the WCAG 2.0, 2.1 and 2.2 A and AA rules and axe's best practices on the public pages, a blog post, the course pages, and both workspaces in the light and dark themes, and fails on any violation.
 
-`build:test` selects `env.test` in the root `wrangler.jsonc` using `CLOUDFLARE_ENV=test`. It uses the test Worker entry, local bindings, `.env.test`, and `.wrangler/test`; no separate test Wrangler file or `E2E=true` flag is needed. In CI, migrations, seeding, and building run explicitly before Playwright starts the server.
+`build:test` selects `env.test` in the root `wrangler.jsonc` using `CLOUDFLARE_ENV=test`. It uses the test Worker entry, local bindings, `.env.test`, and `.wrangler/test`; no separate test Wrangler file or `E2E=true` flag is needed. In CI, `db:reset:test` and `build:test` run explicitly before Playwright starts the server.
 
 - [Main CI](.github/workflows/ci.yml) runs checks, coverage, and Chromium E2E on pull requests and pushes to `main`. Successful eligible runs then deploy to Cloudflare.
 - [Full E2E](.github/workflows/e2e-full.yml) adds WebKit on pushes to `main` and runs Chromium and WebKit weekly and on manual dispatch.
@@ -295,7 +294,7 @@ bunx wrangler r2 bucket create saasyland-preview
 
 Replace `database_id`, `database_name`, the KV namespace `id`, and the `MEDIA` `bucket_name` under both `development` and `preview` in `wrangler.jsonc`. Keep the binding names `DB`, `CACHE`, and `MEDIA`, and preserve `migrations_dir`. These two environments share resources by default. Update Worker names and custom-domain routes for your account.
 
-Create separate production resources with `saasyland_com_production`, `bunx wrangler kv namespace create CACHE --env production`, and `bunx wrangler r2 bucket create saasyland`, then update the `production` bindings. The deployment guard rejects placeholder IDs; it does not verify that the existing IDs belong to your account or that the R2 buckets exist, and a deploy fails while a bound bucket is missing.
+Create separate production resources with `saasyland_com_production`, `bunx wrangler kv namespace create CACHE --env production`, and `bunx wrangler r2 bucket create saasyland`, then update the `production` bindings. The deployment guard rejects missing bindings, placeholder IDs, and a production environment that shares its database, namespace, or bucket with preview; it does not verify that the existing IDs belong to your account or that the R2 buckets exist, and a deploy fails while a bound bucket is missing.
 
 ### Migrations
 
@@ -305,17 +304,18 @@ Module schemas are collected by [`drizzle.schemas.ts`](src/integrations/drizzle-
 bun run db:generate
 ```
 
-Review and commit SQL files under `src/integrations/drizzle-orm/migrations/` with their schema changes. Apply migrations before deploying code that depends on them.
+Review and commit SQL files under `src/integrations/drizzle-orm/migrations/` with their schema changes. The deployment scripts and CI apply the target's migrations before deploying; apply them to the development and local databases yourself.
 
 | Command                          | Database affected                                                                      |
 | -------------------------------- | -------------------------------------------------------------------------------------- |
 | `bun run db:migrate:test`        | Local test database in `.wrangler/test`.                                               |
+| `bun run db:reset:test`          | Deletes `.wrangler/test`, then migrates and seeds the local test database.             |
 | `bun run db:migrate:local`       | Local development database; the regular development server still uses remote bindings. |
 | `bun run db:migrate:development` | Remote database configured for development, shared with preview by default.            |
 | `bun run db:migrate:preview`     | Remote preview database.                                                               |
 | `bun run db:migrate:production`  | Remote production database.                                                            |
 
-`db:studio:development`, `db:studio:preview`, and `db:studio:production` open Drizzle Studio using the corresponding environment file. The matching `db:introspect:*` scripts introspect D1 through its HTTP API. Set the three `CLOUDFLARE_*` credentials to the target account/database for these tools.
+`db:migrations:development`, `db:migrations:preview`, and `db:migrations:production` list the migrations each remote database has not applied yet, without changing anything. `db:studio:development`, `db:studio:preview`, and `db:studio:production` open Drizzle Studio using the corresponding environment file. The matching `db:introspect:*` scripts introspect D1 through its HTTP API. Set the three `CLOUDFLARE_*` credentials to the target account/database for these tools.
 
 ### Automatic GitHub deployments
 
@@ -339,7 +339,7 @@ These are deployment credentials. `CLOUDFLARE_API_TOKEN` is separate from the `C
 
 The existing Workers must already have all runtime secrets required by `wrangler.jsonc`. CI builds with committed dummy credentials from `.env.test` because prerendering initializes provider clients, while still selecting the real preview/production configuration and Worker entry. It removes the generated local `.dev.vars` file before deployment. No real provider credentials are needed in GitHub, and no secrets file is uploaded: Wrangler inherits the selected Worker's existing secrets. A new Worker still needs the initial provisioning described in the manual deployment section.
 
-Deployment jobs build and verify artifacts, apply the target D1 migrations, then deploy the tested revision. Workflow runs and deployments queue rather than cancel one another, with a separate deployment queue per environment. Schema changes must remain compatible with the currently running application because migrations run before the new Worker is deployed. WebKit's additional main-branch suite runs independently of the production deployment gate.
+Deployment jobs build and verify artifacts, apply the target D1 migrations, then deploy the tested revision. They do not run the live site check (`scripts/verify-deployment.ts`) that the manual deployment scripts run, because Cloudflare's bot protection answers 403 to requests from CI runners. Workflow runs and deployments queue rather than cancel one another, with a separate deployment queue per environment. Schema changes must remain compatible with the currently running application because migrations run before the new Worker is deployed. WebKit's additional main-branch suite runs independently of the production deployment gate.
 
 GitHub creates deployment records from the job's `environment` declaration and shows the job's real result. See [GitHub's deployment tracking documentation](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments).
 
@@ -352,7 +352,6 @@ After provisioning resources and configuring domains and secrets:
 ```sh
 cp .env.example .env.preview
 # Fill in preview secrets and sandbox provider settings before continuing.
-bun run db:migrate:preview
 bun run deploy:preview
 ```
 
@@ -361,11 +360,10 @@ For production:
 ```sh
 cp .env.example .env.production
 # Fill in production secrets and live provider settings before continuing.
-bun run db:migrate:production
 bun run deploy:production
 ```
 
-Each deployment script verifies binding IDs, builds the selected environment, checks the generated artifacts, optimizes prerendered HTML, and deploys through Wrangler using the corresponding secrets file. The Cloudflare Vite plugin generates the deployment configuration consumed by Wrangler. Builds alone do not apply remote migrations or deploy resources.
+Each deployment script verifies the bindings, builds the selected environment, checks the generated artifacts, and optimizes prerendered HTML. It then writes the secrets that `wrangler.jsonc` declares for that environment from the environment file to `.wrangler/secrets.<environment>.json`, failing if any is empty, applies the environment's D1 migrations, deploys `dist/server/wrangler.json` (the configuration the Cloudflare Vite plugin generates) with that secrets file, and requests the home page, the course catalogue, `robots.txt`, `/api`, and `/api/auth/get-session` from the live site, retrying twice. Builds alone do not apply remote migrations or deploy resources.
 
 Public pages are prerendered to `dist/client`; protected, authentication, newsletter-action, course, and API routes are excluded from prerendering. The build verifier checks the Worker deployment configuration, localized home/legal pages and SEO links, fonts, client JavaScript, and selected route exclusions. The application still requires a Worker for server-rendered routes, authentication, APIs, video delivery, and locale handling.
 

@@ -22,6 +22,15 @@ description: "これまでの主な変更点です。"
 - `startCheckout` はすでに有効なライセンスを持つアカウントを拒否し（`LICENSE_ALREADY_ACTIVE`）、Polar プラグインの `/api/auth/checkout` は HTTP では無効になっているため、すべての購入がこのチェックを通ります。
 - ライトテーマの `--ring` を濃くしたため（`oklch(0.55 0.106 208)`）、小さなティール色のラベルもコントラスト比 4.5:1 を満たします。
 - アフィリエイトプログラム: 紹介パラメーター付きのリンクはその訪問に限り Affonso のスクリプトを読み込み、購入時に `affonso_referral` Cookie を注文のメタデータとして Polar に渡します。トラッキングは Worker 変数 `AFFONSO_PROGRAM_ID` で有効になります。`/affiliates` は `AFFILIATE_TERMS` の値で規約を公開し、プライバシーポリシーは紹介 Cookie について説明します。[アフィリエイトプログラム](/docs/features/affiliates)を参照してください。
+- サインイン後は、サインインを求めたページに戻ります。`redirect` 検索パラメーターは、このサイト内のパスだけを受け付けます。
+- `e2e/specs/accessibility.spec.ts` は、WCAG 2.0、2.1、2.2 の A と AA のルールで axe-core を実行し、公開ページ、ブログ記事、コースのページ、両方のワークスペースをライトテーマとダークテーマで検査します。
+- ランディングページとブログの数字はすべて、サイトのビルド時にリポジトリで計測されます（`virtual:repository-facts`、`<RepositoryCount>`）。UI コンポーネント、管理画面のセクション、ロケールの数も対象になりました。
+- `typescript/no-explicit-any` を lint エラーにし、`license.utils.ts` と `video.delivery.ts` をサーバー専用にしました。
+- コードと照らし合わせて修正: プライバシー通知（サイトが設定する Cookie と、レート制限の記録が残る期間）、ランディングページとブログの文章、README、このドキュメント。
+- デプロイ: `deploy:preview` と `deploy:production` は、`wrangler.jsonc` が宣言するシークレットだけを環境ファイルから `.wrangler/secrets.<environment>.json` に書き出し、その環境の D1 マイグレーションを適用し、それらのシークレットとともに `dist/server/wrangler.json` をデプロイして、`scripts/verify-deployment.ts` で稼働中のサイトを確認します。CI はこの確認を行いません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。[プロジェクトのスクリプト](/docs/tooling/scripts)を参照してください。
+- `verify-bindings.ts` は `MEDIA` バケットも必須とし、D1 データベース、KV 名前空間、R2 バケットのいずれかをプレビューと共有している本番環境を拒否します。`verify-build.ts` は環境を受け取り、ビルドされた Worker の設定がその環境を対象にしていることを確認します。
+- 新しいスクリプト: `db:reset:test` はローカルのテスト用データベースを作り直すもので、Playwright と CI はこれを実行します。`db:migrations:<environment>` は、リモートデータベースにまだ適用されていないマイグレーションを一覧表示します。スクリプトは Wrangler と `drizzle-kit generate` を `vp exec` 経由で実行し、`package.json` のスクリプトは名前順に並んでいます。
+- `wrangler.jsonc` は環境を開発、プレビュー、テスト、本番の順に並べ、各環境には D1、R2、KV のバインディングをこの順で、シークレットを名前順で記述しています。
 
 ## 2026-11-12
 
@@ -34,6 +43,8 @@ description: "これまでの主な変更点です。"
 - ルートの検索パラメーターは、`src/lib/search-params.ts` の `searchText`、`searchFlag`、`searchChoice` で組み立てた Zod スキーマになりました。
 - 各モジュールの `<module>.types.ts` は 1 つのインターフェースをエクスポートし、サーバー関数は入力を `Module["operation"]` として型付けするようになりました。ニュースレターのステータスとソースは名前付きの定数になりました。
 - 修正: デプロイで Worker のソースマップをアップロードしなくなりました（`upload_source_maps: false`）。ソースマップのせいでアップロードが大きくなりすぎていました。
+- Node 26.13.1 以降が必要です。`nvm use` と CI は `.nvmrc` のバージョンを使います。
+- 修正: チェックアウトの地域割引を Worker のメモリではなく KV にキャッシュするようにしました。キャンセルされたリクエストが、その後のチェックアウトを止めることはなくなりました。
 - 依存関係を更新しました: `@polar-sh/sdk` 1.x、`@polar-sh/better-auth` 2.x、Vite+ 1.6.0、Vitest 5.1.0、`fumadocs-mdx` 15.6.1。
 
 ## 2026-09-26
@@ -51,8 +62,8 @@ description: "これまでの主な変更点です。"
 ## それ以前
 
 - `src/modules` 配下のモジュール化されたユースケース層
-- 実データを使う管理者向けユーザー DataTable と nuqs によるタブ
-- Cache Components を意識した Suspense のプラクティス
+- 実データを使う管理者向けユーザー DataTable
+- Next.js から Cloudflare Workers 上の TanStack Start へ移行（2026-09-06）
 - 包括的なドキュメントマップ（このサイト）
 - Vite+ ツールチェーンと厳格なカバレッジのゲート
 

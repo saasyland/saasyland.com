@@ -18,14 +18,13 @@ Ersetzen Sie in `wrangler.jsonc` sowohl unter `development` als auch unter `prev
 
 ## Deployen
 
-Füllen Sie `.env.preview` aus, migrieren und deployen Sie dann:
+Füllen Sie `.env.preview` aus und deployen Sie dann:
 
 ```sh
-bun run db:migrate:preview
 bun run deploy:preview
 ```
 
-`deploy:preview` führt `scripts/verify-bindings.ts preview` aus, das Platzhalter-IDs ablehnt, dann `build:preview`, das die öffentlichen Seiten vorab rendert und die Ausgabe prüft, und schließlich `wrangler deploy --secrets-file .env.preview`, das auch die Secrets hochlädt. Build und Deployment wenden nie Migrationen an; führen Sie `db:migrate:preview` aus, bevor Sie Code deployen, der ein neues Schema benötigt. `verify-bindings.ts` prüft den R2-Bucket nicht, weil er über seinen Namen gebunden ist: Das Deployment schlägt fehl, solange er nicht existiert.
+`deploy:preview` führt `scripts/verify-bindings.ts preview` aus, das fehlende Bindings und Platzhalter-IDs ablehnt, dann `build:preview`, das die öffentlichen Seiten vorab rendert und die Ausgabe prüft. Anschließend schreibt `scripts/prepare-deploy-secrets.ts preview` die Secrets, die `wrangler.jsonc` für `preview` deklariert, aus `.env.preview` nach `.wrangler/secrets.preview.json` und schlägt fehl, wenn eines davon leer ist. `db:migrate:preview` wendet die neuen Migrationen an, bevor `wrangler deploy` die Datei `dist/server/wrangler.json` mit diesen Secrets hochlädt, und `scripts/verify-deployment.ts preview` prüft zum Schluss, ob https://preview.saasyland.com antwortet. `verify-bindings.ts` prüft nicht, ob der R2-Bucket existiert, weil er über seinen Namen gebunden ist: Das Deployment schlägt fehl, solange er nicht existiert. `bun run db:migrations:preview` listet die Migrationen auf, die die Preview-Datenbank noch nicht angewendet hat.
 
 Registrieren Sie die OAuth-Callbacks und den Polar-Webhook für den Preview-Host, wie unter [Umgebungsvariablen](/docs/getting-started/environment-variables) aufgeführt.
 

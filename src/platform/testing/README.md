@@ -83,11 +83,10 @@ Browser tests use `worker.ts` and `mocks/providers.ts` with isolated local bindi
 
 Playwright runs the built application through `vp preview`. At build time, the standard `CLOUDFLARE_ENV=test` setting selects `env.test` in the root `wrangler.jsonc`: the test Worker entry point, local D1/KV bindings, and secrets from `.env.test`. Cloudflare carries that configuration and those local secrets into the preview build automatically. Preview uses `--mode test` to select isolated local storage; it does not reselect the already-built Cloudflare environment. No custom `E2E` flag, dotenv parser, or shell sourcing is needed.
 
-Local D1 migrations, seeding, and the preview server all use `.wrangler/test`. Remote bindings are enabled only for `CLOUDFLARE_ENV=development`.
+Local D1 migrations, seeding, and the preview server all use `.wrangler/test`; `db:reset:test` deletes it, then migrates and seeds it again. Remote bindings are enabled only for `CLOUDFLARE_ENV=development`.
 
 ```sh
-bun run db:migrate:test
-bun run db:seed:test
+bun run db:reset:test
 bun run build:test
 bun run start:test
 ```

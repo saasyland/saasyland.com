@@ -11,6 +11,7 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
@@ -74,7 +75,7 @@ describe("subscribe-to-newsletter", () => {
     expect(row).toHaveProperty("email", ADDRESS)
     expect(payload).toHaveProperty("to", ADDRESS)
     expect(payload).toHaveProperty("from", env.RESEND_EMAIL_FROM)
-    expect(options).toStrictEqual({ idempotencyKey: `newsletter-confirmation/${sha256(row!.confirmationToken!)}` })
+    expect(options).toStrictEqual({ idempotencyKey: `${EMAIL_PURPOSE.NEWSLETTER_CONFIRMATION}/${sha256(row!.confirmationToken!)}` })
   })
 
   it("tells nobody but the address itself that it was entered", async () => {

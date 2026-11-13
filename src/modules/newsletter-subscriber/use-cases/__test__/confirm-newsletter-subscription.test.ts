@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from "vite-plus/test"
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 
+import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
+
 import { NEWSLETTER_STATUS, NEWSLETTER_TOKEN_LENGTH } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import {
   confirmNewsletterSubscription,
@@ -66,7 +68,7 @@ describe("confirm-newsletter-subscription", () => {
 
     expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: NEWSLETTER_STATUS.SUBSCRIBED }))
     expect(resendSendMock).toHaveBeenCalledWith(expect.objectContaining({ from: NOTIFICATIONS_EMAIL, to: CONTACT_EMAIL }), {
-      idempotencyKey: `newsletter-notification/${sha256(TOKEN)}`,
+      idempotencyKey: `${EMAIL_PURPOSE.NEWSLETTER_NOTIFICATION}/${sha256(TOKEN)}`,
     })
   })
 

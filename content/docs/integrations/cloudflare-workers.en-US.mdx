@@ -29,6 +29,8 @@ Every environment binds D1 as `DB`, KV as `CACHE` and R2 as `MEDIA`, and lists i
 
 `bun run deploy:preview` and `bun run deploy:production` run `scripts/verify-bindings.ts`, which rejects placeholder D1 and KV IDs, then the matching build and `wrangler deploy --secrets-file .env.<environment>`. The `MEDIA` buckets are bound by name and must exist before the first deploy; create them with `wrangler r2 bucket create`. Builds prerender public pages and run `scripts/verify-build.ts` and `scripts/optimize-prerendered-html.ts`. Migrations are separate commands; see [Deploy a preview](/docs/getting-started/deploy-preview) and [CI/CD](/docs/tooling/ci-cd).
 
+Each build compiles the Worker twice. The first Worker contains every page and prerenders the public ones. After prerendering, `scripts/deployed-worker.ts` rebuilds the Worker that is deployed without what only prerendering needs: docs and blog pages keep their frontmatter, headings and search text but not their rendered MDX, and the translations that only the landing, legal and premium pages use are left out. Prerendered pages are served from `ASSETS`, and client navigations render MDX from the browser chunks, so the deployed Worker never renders it. `scripts/verify-build.ts` fails the build when a docs page or a published blog post was not prerendered.
+
 ## Related guides
 
 - [Environment and bindings](/docs/tooling/environment)

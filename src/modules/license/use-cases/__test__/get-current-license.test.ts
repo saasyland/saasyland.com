@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from "vite-plus/test"
 import { executeQuery } from "~/src/platform/testing/lib/query"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { POLAR_LICENSE_KEY } from "~/src/integrations/polar/__test__/fixtures/license-key"
 import { polar } from "~/src/integrations/polar/polar.config"
@@ -10,7 +11,7 @@ import { polar } from "~/src/integrations/polar/polar.config"
 import { currentLicenseQuery, licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license"
 import * as licenses from "~/src/modules/license/use-cases/get-license"
 
-const session = createAuthSessionFixture({ role: "customer" })
+const session = createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER })
 const ownedLicense = {
   createdAt: new Date(),
   id: "owned",

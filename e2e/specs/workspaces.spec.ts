@@ -1,3 +1,5 @@
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_COURSE } from "../data/courses"
 import { expect, test } from "../fixtures/test"
@@ -12,13 +14,13 @@ for (const account of TEST_ACCOUNTS) {
     await authPage.emailField().fill(account.email)
     await authPage.passwordField().fill(TEST_PASSWORD)
     await authPage.signInSubmitButton().click()
-    const workspace = account.role === "admin" ? "/admin" : "/app"
+    const workspace = account.role === ROLE_CODES.ADMIN ? "/admin" : "/app"
     await expect(page).toHaveURL(new RegExp(`${workspace}/?$`, "u"))
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading").first()).toBeVisible()
     await expect(authPage.signInSubmitButton()).toHaveCount(0)
 
-    if (account.role === "customer") {
+    if (account.role === ROLE_CODES.CUSTOMER) {
       await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible()
       const navigation = page.getByRole("navigation", { name: "App navigation", exact: true })
       await expect(navigation.getByRole("link", { name: "Overview", exact: true })).toHaveAttribute("aria-current", "page")
@@ -43,7 +45,7 @@ for (const account of TEST_ACCOUNTS) {
     }
 
     const paths =
-      account.role === "admin"
+      account.role === ROLE_CODES.ADMIN
         ? [
             "/admin/users/all",
             "/admin/users/invitations",
@@ -94,7 +96,7 @@ for (const account of TEST_ACCOUNTS) {
       if (path === "/admin/blog/create") await expect(page.getByRole("heading", { level: 1 })).toHaveText("Write Post")
       if (path === "/admin/courses/create") await expect(page.getByRole("heading", { level: 1 })).toHaveText("New course")
     }
-    if (account.role === "customer") {
+    if (account.role === ROLE_CODES.CUSTOMER) {
       const navigation = page.getByRole("navigation", { name: "Nawigacja aplikacji", exact: true })
       await expect(navigation.getByRole("link", { name: "Przegląd", exact: true })).toHaveAttribute("aria-current", "page")
       await navigation.getByRole("link", { name: "Licencja", exact: true }).click()

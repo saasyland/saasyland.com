@@ -6,6 +6,7 @@ import { IntlProvider } from "use-intl/react"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
@@ -33,7 +34,7 @@ export const adminUser = (overrides: Partial<User["select"]> = {}): User["select
   id: "ada",
   image: null,
   name: "Ada Lovelace",
-  role: "customer",
+  role: ROLE_CODES.CUSTOMER,
   timezone: "Europe/Warsaw",
   twoFactorEnabled: false,
   updatedAt: fixtureDate,
@@ -68,7 +69,7 @@ export const adminCategory = (overrides: Partial<Category["select"]> = {}): Cate
 
 export const adminQueryClient = () => {
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false, staleTime: Infinity } } })
-  queryClient.setQueryData(getCurrentSessionQuery.queryKey, createAuthSessionFixture({ role: "admin" }))
+  queryClient.setQueryData(getCurrentSessionQuery.queryKey, createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))
   queryClient.setQueryData(getProductsQuery.queryKey, { rows: [adminProduct()], total: 1 })
   queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 0, rows: [adminUser()], total: 1 })
   queryClient.setQueryData(getCategoriesQuery.queryKey, { rows: [adminCategory()], total: 1 })

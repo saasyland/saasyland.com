@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { polar } from "~/src/integrations/polar/polar.config"
@@ -22,7 +23,7 @@ beforeEach(async () => {
   await db.delete(user)
   await db.insert(user).values({ email: "deactivate@example.test", id: USER_ID, name: "Buyer" })
   await db.insert(license).values({ id: "owned", key: KEY, polarCustomerId: "cus_1", tier: "core", userId: USER_ID })
-  vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "customer", userId: USER_ID }))
+  vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
   vi.spyOn(polar.licenseKeys, "deactivate").mockResolvedValue()
 })
 afterEach(() => vi.restoreAllMocks())

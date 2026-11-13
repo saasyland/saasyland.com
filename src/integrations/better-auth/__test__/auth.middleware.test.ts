@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { z as zod } from "zod"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { RATE_LIMITS, authorized, withRateLimit, withRequest } from "~/src/integrations/better-auth/auth.middleware"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { getCurrentSession } from "~/src/integrations/better-auth/auth.session"
@@ -89,7 +90,7 @@ describe("server function request middleware", () => {
 describe("authorization middleware", () => {
   it("shares one session read across the route and multiple permission checks in the same request", async () => {
     vi.mocked(getRequest).mockReturnValue(new Request("http://localhost/admin"))
-    const session = createAuthSessionFixture({ role: "admin" })
+    const session = createAuthSessionFixture({ role: ROLE_CODES.ADMIN })
     const getSession = vi.spyOn(auth.api, "getSession").mockResolvedValue(session)
     await getCurrentSession()
     const action = createServerFn()
@@ -108,7 +109,7 @@ describe("authorization middleware", () => {
     ).rejects.toThrow("UNAUTHORIZED")
   })
   it("rejects roles without permission", async () => {
-    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "customer" }))
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER }))
     await expect(
       createServerFn()
         .middleware([authorized({ user: ["list"] })])
@@ -116,7 +117,7 @@ describe("authorization middleware", () => {
     ).rejects.toThrow("FORBIDDEN")
   })
   it("provides the authenticated session to permitted handlers", async () => {
-    const session = createAuthSessionFixture({ role: "admin" })
+    const session = createAuthSessionFixture({ role: ROLE_CODES.ADMIN })
     vi.spyOn(auth.api, "getSession").mockResolvedValue(session)
     const action = createServerFn()
       .middleware([authorized({ user: ["list"] })])
@@ -124,7 +125,7 @@ describe("authorization middleware", () => {
     await expect(action()).resolves.toBe(session.user.id)
   })
   it("only requires a session when permission is omitted", async () => {
-    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "customer" }))
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER }))
     await expect(
       createServerFn()
         .middleware([authorized()])
@@ -179,11 +180,11 @@ describe("RPC input boundaries", () => {
     { name: "getProduct", readRecord: () => getProduct({ data: { productId: "" } }) },
     { name: "getCategory", readRecord: () => getCategory({ data: { categoryId: "" } }) },
   ])("$name rejects an invalid record identifier before storage access", async ({ readRecord }) => {
-    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "admin" }))
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))
     await expect(readRecord()).rejects.toMatchObject({ code: "VALIDATION" })
   })
   it("returns a localized validation code for invalid page sizes", async () => {
-    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: "admin" }))
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))
     await expect(getUsers({ data: { pageSize: 101 } })).rejects.toMatchObject({ code: "VALIDATION" })
   })
 })

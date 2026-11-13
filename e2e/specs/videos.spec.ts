@@ -1,5 +1,7 @@
 import type { Page } from "@playwright/test"
 
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/test"
@@ -17,7 +19,7 @@ const signIn = async (page: Page, authPage: AuthPage, account: (typeof TEST_ACCO
   await authPage.emailField().fill(account.email)
   await authPage.passwordField().fill(TEST_PASSWORD)
   await authPage.signInSubmitButton().click()
-  await expect(page).toHaveURL(account.role === "admin" ? /\/admin\/?$/u : /\/app\/?$/u)
+  await expect(page).toHaveURL(account.role === ROLE_CODES.ADMIN ? /\/admin\/?$/u : /\/app\/?$/u)
 }
 
 test.describe("video library", () => {

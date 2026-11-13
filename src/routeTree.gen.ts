@@ -28,6 +28,7 @@ import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminPricingModelsRouteImport } from './routes/admin.pricing-models'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminVideosRouteImport } from './routes/admin.videos'
 import { Route as ApiIndexRouteImport } from './routes/api/index'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as AppIndexRouteImport } from './routes/app.index'
@@ -149,6 +150,11 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminVideosRoute = AdminVideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
   getParentRoute: () => AdminRoute,
 } as any)
 const ApiIndexRoute = ApiIndexRouteImport.update({
@@ -312,6 +318,7 @@ export interface FileRoutesByFullPath {
   '/admin/pricing-models': typeof AdminPricingModelsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRouteWithChildren
+  '/admin/videos': typeof AdminVideosRoute
   '/api/search': typeof ApiSearchRoute
   '/app/license': typeof AppLicenseRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -354,6 +361,7 @@ export interface FileRoutesByTo {
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/pricing-models': typeof AdminPricingModelsRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/videos': typeof AdminVideosRoute
   '/api/search': typeof ApiSearchRoute
   '/app/license': typeof AppLicenseRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -404,6 +412,7 @@ export interface FileRoutesById {
   '/admin/pricing-models': typeof AdminPricingModelsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRouteWithChildren
+  '/admin/videos': typeof AdminVideosRoute
   '/api/search': typeof ApiSearchRoute
   '/app/license': typeof AppLicenseRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -455,6 +464,7 @@ export interface FileRouteTypes {
     | '/admin/pricing-models'
     | '/admin/settings'
     | '/admin/users'
+    | '/admin/videos'
     | '/api/search'
     | '/app/license'
     | '/auth/callback'
@@ -497,6 +507,7 @@ export interface FileRouteTypes {
     | '/admin/payments'
     | '/admin/pricing-models'
     | '/admin/settings'
+    | '/admin/videos'
     | '/api/search'
     | '/app/license'
     | '/auth/callback'
@@ -546,6 +557,7 @@ export interface FileRouteTypes {
     | '/admin/pricing-models'
     | '/admin/settings'
     | '/admin/users'
+    | '/admin/videos'
     | '/api/search'
     | '/app/license'
     | '/auth/callback'
@@ -723,6 +735,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/admin/users'
       preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/videos': {
+      id: '/admin/videos'
+      path: '/videos'
+      fullPath: '/admin/videos'
+      preLoaderRoute: typeof AdminVideosRouteImport
       parentRoute: typeof AdminRoute
     }
     '/api/': {
@@ -976,6 +995,7 @@ interface AdminRouteChildren {
   AdminPricingModelsRoute: typeof AdminPricingModelsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminUsersRoute: typeof AdminUsersRouteWithChildren
+  AdminVideosRoute: typeof AdminVideosRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminBlogCreateRoute: typeof AdminBlogCreateRoute
   AdminCoursesCreateRoute: typeof AdminCoursesCreateRoute
@@ -991,6 +1011,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminPricingModelsRoute: AdminPricingModelsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminUsersRoute: AdminUsersRouteWithChildren,
+  AdminVideosRoute: AdminVideosRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminBlogCreateRoute: AdminBlogCreateRoute,
   AdminCoursesCreateRoute: AdminCoursesCreateRoute,

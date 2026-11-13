@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDollarSign,
+  Clapperboard,
   CreditCard,
   FileBadge2,
   FileText,
@@ -43,6 +44,7 @@ export const ADMIN_SIDEBAR_GROUPS = [
   {
     items: [
       { icon: BookOpen, titleKey: "blog", url: ROUTES.ADMIN_BLOG },
+      { icon: Clapperboard, titleKey: "videos", url: ROUTES.ADMIN_VIDEOS },
       { icon: MonitorSmartphone, titleKey: "landingPage", url: ROUTES.ADMIN_LANDING_PAGE },
     ],
     titleKey: "content",

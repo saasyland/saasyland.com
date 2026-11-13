@@ -42,6 +42,10 @@ vi.mock(import("~/src/modules/session/use-cases/get-active-sessions"), async (im
   const actual = await importOriginal()
   return { ...actual, getActiveSessionsQuery: { ...actual.getActiveSessionsQuery, queryFn: vi.fn(() => Promise.resolve([])) } }
 })
+vi.mock(import("~/src/modules/video/use-cases/get-videos"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, getVideosQuery: { ...actual.getVideosQuery, queryFn: vi.fn(() => Promise.resolve({ rows: [], total: 0 })) } }
+})
 vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
 
 const loadAdmin = async (path: string) => {
@@ -71,6 +75,7 @@ describe("admin route loaders", () => {
     "/admin/users/invitations",
     "/admin/users/roles",
     "/admin/users/security",
+    "/admin/videos",
   ])("loads localized metadata for an authorized administrator at %s", async (path) => {
     const router = await loadAdmin(path)
     expect(router.state.matches.at(-1)?.status).toBe("success")

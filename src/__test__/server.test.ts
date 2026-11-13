@@ -4,6 +4,8 @@ import { parse } from "jsonc-parser"
 import { readFileSync } from "node:fs"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
+import { createEdgeCache } from "~/src/platform/testing/mocks/cache"
+
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { DOCUMENT_STYLESHEET } from "~/src/presentation/document-assets"
@@ -330,4 +332,20 @@ it.each([
 it("delegates request observability to Cloudflare", () => {
   const config: unknown = parse(readFileSync("wrangler.jsonc", "utf8"))
   expect(config).toHaveProperty("observability.enabled", true)
+})
+
+it("streams signed media without the locale middleware or TanStack Start", async () => {
+  createEdgeCache()
+  const { createPlayback } = await import("~/src/modules/video/video.playback")
+  const videoId = "0195a2b4-6c8d-7e9f-8a0b-1c2d3e4f5a6b"
+  await env.MEDIA.put(`videos/${videoId}/master.m3u8`, "#EXTM3U\n")
+  const { src } = await createPlayback({ now: Date.now(), secret: env.AUTH_SECRET, video: { captionLocales: [], id: videoId } })
+
+  const response = await worker.fetch(new Request(`https://localhost${src}`, { headers: { cookie: `${I18N.COOKIE_NAME}=pl-PL` } }), env)
+
+  expect(response.status).toBe(200)
+  expect(await response.text()).toBe("#EXTM3U\n")
+  expect(response.headers.get("set-cookie")).toBeNull()
+  expect(response.headers.get("x-content-type-options")).toBe("nosniff")
+  expect(fetchHandler).not.toHaveBeenCalled()
 })

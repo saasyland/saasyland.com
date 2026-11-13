@@ -24,7 +24,7 @@ const PUBLIC_PAGES = [
 ]
 
 const WORKSPACE_PAGES = {
-  admin: ["/admin", "/admin/users/all", "/admin/products", "/admin/settings"],
+  admin: ["/admin", "/admin/users/all", "/admin/products", "/admin/videos", "/admin/settings"],
   customer: ["/app", "/app/license"],
 } as const
 

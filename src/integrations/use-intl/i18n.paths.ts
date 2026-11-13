@@ -1,6 +1,6 @@
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-const IGNORED_PATHS_REGEX = /^\/(?:api|_serverFn)(?:\/|$)/u
+const IGNORED_PATHS_REGEX = /^\/(?:api|_serverFn|media)(?:\/|$)/u
 const LOCALE_SEGMENT_REGEX = /^\/(?<locale>[a-zA-Z-]+)(?:\/|$)/u
 
 const SLASH_LENGTH = 1

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { randomHex, sha256Hex } from "~/src/lib/hex"
+import { fromHex, randomHex, sha256Hex, toHex } from "~/src/lib/hex"
 
 const SAMPLE_SIZE = 50
 
@@ -20,5 +20,18 @@ describe("randomHex", () => {
 
   it("returns a different value on every call", () => {
     expect(new Set(Array.from({ length: SAMPLE_SIZE }, () => randomHex(32))).size).toBe(SAMPLE_SIZE)
+  })
+})
+
+describe("toHex and fromHex", () => {
+  it("round-trips bytes through lowercase hex", () => {
+    const bytes = Uint8Array.of(0, 1, 15, 16, 127, 128, 255)
+
+    expect(toHex(bytes)).toBe("00010f107f80ff")
+    expect([...fromHex("00010f107f80ff")]).toStrictEqual([...bytes])
+  })
+
+  it("ignores a trailing half byte", () => {
+    expect(toHex(fromHex("abc"))).toBe("ab")
   })
 })

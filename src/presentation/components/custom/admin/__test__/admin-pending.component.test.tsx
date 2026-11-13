@@ -19,6 +19,7 @@ import {
   AdminBlogCreatePending,
   AdminBlogPending,
   AdminLandingPagePending,
+  AdminVideosPending,
 } from "~/src/presentation/components/custom/admin/content-pending"
 import {
   AdminCourseCreatePending,
@@ -53,6 +54,7 @@ describe("admin skeletons", () => {
     ["/admin/blog", AdminPending, AdminBlogPending],
     ["/admin/blog/create", AdminPending, AdminBlogCreatePending],
     ["/admin/landing-page", AdminPending, AdminLandingPagePending],
+    ["/admin/videos", AdminPending, AdminVideosPending],
     ["/admin/payments", AdminPending, AdminPaymentsPending],
     ["/de-DE/admin/settings", AdminPending, AdminSettingsPending],
     ["/admin/users", AdminPending, AdminUsersAllPending],

@@ -4,6 +4,8 @@ import { mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, relative } from "node:path"
 
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
+
 import { mediaContentType, videoObjectKey } from "~/src/modules/video/video.files"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "~/e2e/data/accounts"
@@ -45,7 +47,7 @@ const statements = [
   ...TEST_ACCOUNTS.flatMap(({ email, id, name, role }) => [
     `DELETE FROM session WHERE user_id = ${literal(id)};`,
     `INSERT INTO user (id, email, name, role, email_verified) VALUES (${literal(id)}, ${literal(email)}, ${literal(name)}, ${literal(role)}, 1) ON CONFLICT(id) DO UPDATE SET email_verified = 1, role = excluded.role;`,
-    `INSERT INTO account (id, account_id, provider_id, user_id, password) VALUES (${literal(`${id}-credential`)}, ${literal(id)}, 'credential', ${literal(id)}, ${literal(password)}) ON CONFLICT(id) DO UPDATE SET password = excluded.password;`,
+    `INSERT INTO account (id, account_id, provider_id, user_id, password) VALUES (${literal(`${id}-credential`)}, ${literal(id)}, ${literal(AUTH_PROVIDER.CREDENTIAL)}, ${literal(id)}, ${literal(password)}) ON CONFLICT(id) DO UPDATE SET password = excluded.password;`,
   ]),
   `INSERT INTO video (id, title, duration_ms, width, height, size_bytes, caption_locales) VALUES (${literal(TEST_VIDEO.id)}, ${literal(TEST_VIDEO.title)}, ${String(TEST_VIDEO.durationMs)}, ${String(TEST_VIDEO.width)}, ${String(TEST_VIDEO.height)}, ${String(sizeBytes)}, '[]') ON CONFLICT(id) DO UPDATE SET title = excluded.title, size_bytes = excluded.size_bytes;`,
   `INSERT INTO course (id, slug, kind, status, title, summary) VALUES (${literal(TEST_COURSE.id)}, ${literal(TEST_COURSE.slug)}, ${literal(TEST_COURSE.kind)}, 'published', ${json(TEST_COURSE.title)}, ${json(TEST_COURSE.summary)}) ON CONFLICT(id) DO UPDATE SET title = excluded.title, summary = excluded.summary, status = excluded.status;`,

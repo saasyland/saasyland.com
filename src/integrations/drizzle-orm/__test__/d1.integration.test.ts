@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm"
 import { expect, it } from "vite-plus/test"
 
 import { DEFAULT_ROLE_CODE } from "~/src/integrations/better-auth/auth.access"
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import {
   account,
@@ -25,7 +26,7 @@ it("round-trips default dates and booleans through the migrated D1 schema", asyn
   expect(owner?.role).toBe(DEFAULT_ROLE_CODE)
   const expiry = new Date(Date.now() + 60_000)
   const results = await Promise.all([
-    db.insert(account).values({ accountId: "credential", id: "schema-account", providerId: "credential", userId }).returning(),
+    db.insert(account).values({ accountId: userId, id: "schema-account", providerId: AUTH_PROVIDER.CREDENTIAL, userId }).returning(),
     db.insert(session).values({ expiresAt: expiry, id: "schema-session", token: "schema-token", userId }).returning(),
     db.insert(twoFactor).values({ backupCodes: "[]", id: "schema-two-factor", secret: "secret", userId }).returning(),
     db

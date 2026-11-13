@@ -5,6 +5,7 @@ import { getTestInstance } from "better-auth/test"
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 
 import { DEFAULT_ROLE_CODE, ROLES, ROLE_CODES, ac } from "~/src/integrations/better-auth/auth.access"
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 
 import { authRateLimitStorage } from "~/src/lib/rate-limit"
 
@@ -301,8 +302,8 @@ export const createAuthTestInstance = (options?: CreateAuthTestInstanceOptions) 
       },
       secret: AUTH_TEST_SECRET,
       socialProviders: {
-        github: { clientId: "test-github-id", clientSecret: "test-github-secret" },
-        google: { clientId: "test-google-id", clientSecret: "test-google-secret" },
+        [AUTH_PROVIDER.GITHUB]: { clientId: "test-github-id", clientSecret: "test-github-secret" },
+        [AUTH_PROVIDER.GOOGLE]: { clientId: "test-google-id", clientSecret: "test-google-secret" },
       },
       trustedOrigins: [AUTH_TEST_BASE_URL],
       user: {

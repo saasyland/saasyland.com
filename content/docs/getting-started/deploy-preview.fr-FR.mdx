@@ -18,14 +18,13 @@ Dans `wrangler.jsonc`, remplacez `database_id`, `database_name`, l'`id` KV et le
 
 ## Déployer
 
-Remplissez `.env.preview`, puis migrez et déployez :
+Remplissez `.env.preview`, puis déployez :
 
 ```sh
-bun run db:migrate:preview
 bun run deploy:preview
 ```
 
-`deploy:preview` exécute `scripts/verify-bindings.ts preview`, qui rejette les identifiants fictifs, puis `build:preview`, qui prérend les pages publiques et vérifie le résultat, et enfin `wrangler deploy --secrets-file .env.preview`, qui téléverse aussi les secrets. Le build et le déploiement n'appliquent jamais de migrations ; exécutez `db:migrate:preview` avant de déployer du code qui nécessite un nouveau schéma. `verify-bindings.ts` ne vérifie pas le bucket R2, qui est lié par son nom : le déploiement échoue tant qu'il n'existe pas.
+`deploy:preview` exécute `scripts/verify-bindings.ts preview`, qui rejette les bindings manquants et les identifiants fictifs, puis `build:preview`, qui prérend les pages publiques et vérifie le résultat. `scripts/prepare-deploy-secrets.ts preview` écrit ensuite dans `.wrangler/secrets.preview.json` les secrets que `wrangler.jsonc` déclare pour `preview`, lus depuis `.env.preview`, et échoue si l'un d'eux est vide. `db:migrate:preview` applique les nouvelles migrations avant que `wrangler deploy` ne téléverse `dist/server/wrangler.json` avec ces secrets, et `scripts/verify-deployment.ts preview` vérifie enfin que https://preview.saasyland.com répond. `verify-bindings.ts` ne vérifie pas que le bucket R2 existe, car il est lié par son nom : le déploiement échoue tant qu'il n'existe pas. `bun run db:migrations:preview` liste les migrations que la base de données de préversion n'a pas encore appliquées.
 
 Enregistrez les callbacks OAuth et le webhook Polar pour l'hôte de préversion, comme indiqué dans [Variables d'environnement](/docs/getting-started/environment-variables).
 

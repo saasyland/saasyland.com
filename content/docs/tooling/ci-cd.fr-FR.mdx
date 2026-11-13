@@ -10,12 +10,12 @@ Les workflows se trouvent dans `.github/workflows/`. Les workflows de l'applicat
 | `ci.yml`              | Pull requests et pushs sur `main`                           | Vérifications et couverture, E2E Chromium, puis déploiement en préversion ou en production |
 | `e2e-full.yml`        | Pushs sur `main`, chaque lundi à 03:15 UTC, manuel          | WebKit lors d'un push ; Chromium et WebKit lors des exécutions planifiées et manuelles     |
 | `e2e-reusable.yml`    | Appelé par les workflows ci-dessus                          | Base de données de test, build de test et un projet Playwright                             |
-| `deploy-reusable.yml` | Appelé par `ci.yml`                                         | Build, migrations D1 et `wrangler deploy`                                                  |
+| `deploy-reusable.yml` | Appelé par `ci.yml`                                         | Build, migrations D1, `wrangler deploy` et une vérification du site en ligne               |
 | `remotion.yml`        | Modifications de `remotion/` ou de ses constantes partagées | Vérifie et empaquette avec npm le projet vidéo de la page d'accueil                        |
 
 ## Vérifications
 
-Le job `verify` de `ci.yml` exécute `bun run check` (tables des noms de classes, vérifications i18n et de contenu, formatage, lint et types) et `bun run test:coverage`, puis téléverse le rapport de couverture. Le job `e2e` exécute `db:migrate:test`, `db:seed:test` et `build:test`, installe le navigateur et lance `bunx playwright test e2e/specs --project=chromium`. Les exécutions E2E en échec téléversent le rapport Playwright.
+Le job `verify` de `ci.yml` exécute `bun run check` (tables des noms de classes, vérifications i18n et de contenu, formatage, lint et types) et `bun run test:coverage`, puis téléverse le rapport de couverture. Le job `e2e` exécute `db:reset:test` et `build:test`, installe le navigateur et lance `bunx playwright test e2e/specs --project=chromium`. Les exécutions E2E en échec téléversent le rapport Playwright.
 
 ## Déploiements
 
@@ -28,7 +28,7 @@ Les déploiements ne s'exécutent qu'une fois `verify` et `e2e` réussis :
 
 Les pull requests provenant de forks et de Dependabot sont validées mais pas déployées. La préversion est partagée : chaque déploiement remplace le précédent et utilise la même base de données D1, le même espace de noms KV et le même bucket R2 de préversion.
 
-`deploy-reusable.yml` vérifie la présence des secrets `CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ACCOUNT_ID`, exécute `scripts/verify-bindings.ts`, construit avec les valeurs factices de `.env.test`, supprime le fichier généré `dist/server/.dev.vars`, applique `db:migrate:<target>` et lance `bunx wrangler deploy`. Aucun fichier de secrets n'est téléversé : le Worker conserve les secrets d'exécution déjà définis dans Cloudflare. Les déploiements vers une même cible sont mis en file d'attente au lieu de s'annuler mutuellement.
+`deploy-reusable.yml` vérifie la présence des secrets `CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ACCOUNT_ID`, exécute `scripts/verify-bindings.ts`, construit avec les valeurs factices de `.env.test`, supprime le fichier généré `dist/server/.dev.vars`, applique `db:migrate:<target>`, lance `vp exec wrangler deploy --config dist/server/wrangler.json` puis `scripts/verify-deployment.ts`, qui fait échouer le job si le site en ligne ne répond pas. Aucun fichier de secrets n'est téléversé : le Worker conserve les secrets d'exécution déjà définis dans Cloudflare. Les déploiements vers une même cible sont mis en file d'attente au lieu de s'annuler mutuellement.
 
 Dependabot met à jour les GitHub Actions chaque semaine.
 

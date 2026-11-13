@@ -10,12 +10,12 @@ Workflowy znajdują się w `.github/workflows/`. Workflowy aplikacji (`ci.yml`, 
 | `ci.yml`              | Pull requesty i pushe do `main`                                 | Kontrole i pokrycie, E2E w Chromium, następnie wdrożenie preview lub produkcyjne   |
 | `e2e-full.yml`        | Pushe do `main`, co tydzień w poniedziałek o 03:15 UTC, ręcznie | WebKit przy pushu; Chromium i WebKit przy uruchomieniach z harmonogramu i ręcznych |
 | `e2e-reusable.yml`    | Wywoływany przez powyższe workflowy                             | Testowa baza danych, testowy build i jeden projekt Playwright                      |
-| `deploy-reusable.yml` | Wywoływany przez `ci.yml`                                       | Build, migracje D1 i `wrangler deploy`                                             |
+| `deploy-reusable.yml` | Wywoływany przez `ci.yml`                                       | Build, migracje D1, `wrangler deploy` i sprawdzenie działającej witryny            |
 | `remotion.yml`        | Zmiany w `remotion/` lub w jego wspólnych stałych               | Sprawdza i pakuje projekt wideo strony głównej za pomocą npm                       |
 
 ## Kontrole
 
-Zadanie `verify` w `ci.yml` uruchamia `bun run check` (tablice nazw klas, kontrole i18n i treści, formatowanie, lint i typy) oraz `bun run test:coverage`, a następnie przesyła raport pokrycia. Zadanie `e2e` uruchamia `db:migrate:test`, `db:seed:test` i `build:test`, instaluje przeglądarkę i uruchamia `bunx playwright test e2e/specs --project=chromium`. Nieudane przebiegi E2E przesyłają raport Playwright.
+Zadanie `verify` w `ci.yml` uruchamia `bun run check` (tablice nazw klas, kontrole i18n i treści, formatowanie, lint i typy) oraz `bun run test:coverage`, a następnie przesyła raport pokrycia. Zadanie `e2e` uruchamia `db:reset:test` i `build:test`, instaluje przeglądarkę i uruchamia `bunx playwright test e2e/specs --project=chromium`. Nieudane przebiegi E2E przesyłają raport Playwright.
 
 ## Wdrożenia
 
@@ -28,7 +28,7 @@ Wdrożenia uruchamiają się dopiero po pomyślnym zakończeniu `verify` i `e2e`
 
 Pull requesty z forków i od Dependabota są walidowane, ale nie są wdrażane. Środowisko preview jest współdzielone: każde wdrożenie zastępuje poprzednie i używa tej samej bazy D1, przestrzeni nazw KV i bucketu R2 środowiska preview.
 
-`deploy-reusable.yml` sprawdza obecność sekretów `CLOUDFLARE_API_TOKEN` i `CLOUDFLARE_ACCOUNT_ID`, uruchamia `scripts/verify-bindings.ts`, buduje aplikację z fikcyjnymi wartościami z `.env.test`, usuwa wygenerowany `dist/server/.dev.vars`, stosuje `db:migrate:<target>` i uruchamia `bunx wrangler deploy`. Żaden plik sekretów nie jest przesyłany: Worker zachowuje sekrety środowiska uruchomieniowego ustawione już w Cloudflare. Wdrożenia do tego samego celu czekają w kolejce, zamiast wzajemnie się anulować.
+`deploy-reusable.yml` sprawdza obecność sekretów `CLOUDFLARE_API_TOKEN` i `CLOUDFLARE_ACCOUNT_ID`, uruchamia `scripts/verify-bindings.ts`, buduje aplikację z fikcyjnymi wartościami z `.env.test`, usuwa wygenerowany `dist/server/.dev.vars`, stosuje `db:migrate:<target>`, uruchamia `vp exec wrangler deploy --config dist/server/wrangler.json`, a potem `scripts/verify-deployment.ts`, który oznacza zadanie jako nieudane, jeśli działająca witryna nie odpowiada. Żaden plik sekretów nie jest przesyłany: Worker zachowuje sekrety środowiska uruchomieniowego ustawione już w Cloudflare. Wdrożenia do tego samego celu czekają w kolejce, zamiast wzajemnie się anulować.
 
 Dependabot co tydzień aktualizuje akcje GitHub Actions.
 

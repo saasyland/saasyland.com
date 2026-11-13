@@ -10,12 +10,12 @@ Workflow-файли розміщено в `.github/workflows/`. Workflow-фай�
 | `ci.yml`              | Pull request і push у `main`                           | Перевірки й покриття, E2E у Chromium, потім розгортання preview або production |
 | `e2e-full.yml`        | Push у `main`, щотижня в понеділок о 03:15 UTC, вручну | WebKit при push; Chromium і WebKit за розкладом і при ручному запуску          |
 | `e2e-reusable.yml`    | Викликається наведеними вище workflow                  | Тестова база даних, тестова збірка та один проєкт Playwright                   |
-| `deploy-reusable.yml` | Викликається з `ci.yml`                                | Збірка, міграції D1 і `wrangler deploy`                                        |
+| `deploy-reusable.yml` | Викликається з `ci.yml`                                | Збірка, міграції D1, `wrangler deploy` і перевірка розгорнутого сайту          |
 | `remotion.yml`        | Зміни в `remotion/` або його спільних константах       | Перевіряє та пакує проєкт відео для лендингу за допомогою npm                  |
 
 ## Перевірки
 
-Завдання `verify` у `ci.yml` запускає `bun run check` (таблиці імен класів, перевірки i18n і контенту, форматування, лінтинг і типи) та `bun run test:coverage`, а потім завантажує звіт про покриття. Завдання `e2e` запускає `db:migrate:test`, `db:seed:test` і `build:test`, встановлює браузер і запускає `bunx playwright test e2e/specs --project=chromium`. Невдалі запуски E2E завантажують звіт Playwright.
+Завдання `verify` у `ci.yml` запускає `bun run check` (таблиці імен класів, перевірки i18n і контенту, форматування, лінтинг і типи) та `bun run test:coverage`, а потім завантажує звіт про покриття. Завдання `e2e` запускає `db:reset:test` і `build:test`, встановлює браузер і запускає `bunx playwright test e2e/specs --project=chromium`. Невдалі запуски E2E завантажують звіт Playwright.
 
 ## Розгортання
 
@@ -28,7 +28,7 @@ Workflow-файли розміщено в `.github/workflows/`. Workflow-фай�
 
 Pull request із форків і від Dependabot перевіряються, але не розгортаються. Preview спільний: кожне розгортання замінює попереднє й використовує ту саму базу даних D1, простір імен KV і бакет R2 для preview.
 
-`deploy-reusable.yml` перевіряє наявність секретів `CLOUDFLARE_API_TOKEN` і `CLOUDFLARE_ACCOUNT_ID`, запускає `scripts/verify-bindings.ts`, виконує збірку з фіктивними значеннями з `.env.test`, видаляє згенерований `dist/server/.dev.vars`, застосовує `db:migrate:<target>` і запускає `bunx wrangler deploy`. Файл секретів не завантажується: Worker зберігає секрети середовища виконання, уже задані в Cloudflare. Розгортання в ту саму ціль стають у чергу, а не скасовують одне одного.
+`deploy-reusable.yml` перевіряє наявність секретів `CLOUDFLARE_API_TOKEN` і `CLOUDFLARE_ACCOUNT_ID`, запускає `scripts/verify-bindings.ts`, виконує збірку з фіктивними значеннями з `.env.test`, видаляє згенерований `dist/server/.dev.vars`, застосовує `db:migrate:<target>`, запускає `vp exec wrangler deploy --config dist/server/wrangler.json`, а потім `scripts/verify-deployment.ts`, який завершує завдання помилкою, якщо розгорнутий сайт не відповідає. Файл секретів не завантажується: Worker зберігає секрети середовища виконання, уже задані в Cloudflare. Розгортання в ту саму ціль стають у чергу, а не скасовують одне одного.
 
 Dependabot щотижня оновлює GitHub Actions.
 

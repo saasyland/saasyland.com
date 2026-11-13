@@ -15,23 +15,24 @@ bun run db:generate
 ```
 
 3. Revise o arquivo gerado e faça o commit junto com a mudança do schema.
-4. Aplique-o no banco com que você trabalha e em cada banco remoto antes de publicar código que dependa dele.
+4. Aplique-o no banco com que você trabalha. `deploy:preview`, `deploy:production` e a CI o aplicam no banco da prévia ou de produção antes do deploy.
 
 ## Comandos
 
 | Comando                          | Banco de dados                                                                        |
 | -------------------------------- | ------------------------------------------------------------------------------------- |
 | `bun run db:migrate:test`        | Banco de teste local em `.wrangler/test`, usado pelo Playwright e pela prévia isolada |
+| `bun run db:reset:test`          | Apaga `.wrangler/test` e depois refaz as migrações e o seed do banco de teste local   |
 | `bun run db:migrate:local`       | Banco de desenvolvimento local; `bun run dev` continua usando os bindings remotos     |
 | `bun run db:migrate:development` | Banco remoto do ambiente de desenvolvimento, compartilhado por padrão com a prévia    |
 | `bun run db:migrate:preview`     | Banco remoto da prévia                                                                |
 | `bun run db:migrate:production`  | Banco remoto de produção                                                              |
 
-`bun run db:studio:development`, `db:studio:preview` e `db:studio:production` abrem o Drizzle Studio, e os scripts `db:introspect:*` inspecionam o D1 pela API HTTP dele. Ambos precisam de `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` e `CLOUDFLARE_ACCESS_TOKEN` no arquivo de ambiente correspondente.
+`bun run db:migrations:development`, `db:migrations:preview` e `db:migrations:production` listam as migrações que um banco remoto ainda não aplicou. `bun run db:studio:development`, `db:studio:preview` e `db:studio:production` abrem o Drizzle Studio, e os scripts `db:introspect:*` inspecionam o D1 pela API HTTP dele. Ambos precisam de `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` e `CLOUDFLARE_ACCESS_TOKEN` no arquivo de ambiente correspondente.
 
 ## Convenções do schema
 
-- Datas são `integer(..., { mode: "timestamp_ms" })` com o padrão `(unixepoch() * 1000)`.
+- Datas são `integer(..., { mode: "timestamp_ms" })` com o padrão `(unixepoch() * 1000)`. As tabelas recebem `createdAt` e `updatedAt` de `...timestamps()` em `src/integrations/drizzle-orm/drizzle.columns.ts`.
 - Booleanos são `integer(..., { mode: "boolean" })`.
 - Índices, restrições de unicidade, chaves estrangeiras e relações ficam no arquivo do schema.
 - O D1 não tem transações interativas. Mantenha uma operação atômica com uma única instrução SQL ou com `db.batch([...])`, como fazem `getUsers` e o limitador de requisições.

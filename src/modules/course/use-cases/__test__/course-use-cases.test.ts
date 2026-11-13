@@ -39,7 +39,7 @@ afterEach(() => {
 })
 
 describe("getCatalogue", () => {
-  it("lists published courses in order with their size and free lessons", async () => {
+  it("lists published courses in order with their size, free lessons and paid lessons", async () => {
     signOut()
 
     const courses = await executeQuery(catalogueQuery({ locale: "en-US" }))
@@ -50,6 +50,7 @@ describe("getCatalogue", () => {
         id: IDS.COURSE,
         kind: COURSE_KIND.COURSE,
         lessons: 4,
+        paid: 2,
         previews: 1,
         slug: "the-walkthrough",
         summary: "How it works.",
@@ -60,6 +61,7 @@ describe("getCatalogue", () => {
         id: IDS.TUTORIAL,
         kind: COURSE_KIND.TUTORIAL,
         lessons: 0,
+        paid: 0,
         previews: 0,
         slug: "one-off",
         summary: "A short one.",

@@ -13,6 +13,7 @@ import { v7 as uuidv7 } from "uuid"
 import zod from "zod/v4"
 
 import { DEFAULT_ROLE_CODE, ROLES, ROLE_CODES, ac } from "~/src/integrations/better-auth/auth.access"
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { enforceInputPolicy } from "~/src/integrations/better-auth/auth.hooks"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
@@ -67,6 +68,7 @@ export const auth = betterAuth({
   appName: APP_NAME,
   baseURL: { allowedHosts: appHostsForMode(import.meta.env.MODE) },
   database: drizzleAdapter(db, { provider: "sqlite", schema }),
+  disabledPaths: [ROUTES.API_AUTH.CHECKOUT],
   emailAndPassword: {
     enabled: true,
     maxPasswordLength: PASSWORD_MAX_LENGTH,
@@ -96,11 +98,7 @@ export const auth = betterAuth({
     polarPlugin({
       client: polarCore,
       use: [
-        checkout({
-          authenticatedUsersOnly: true,
-          products: POLAR_CHECKOUT_PRODUCTS,
-          successUrl: ROUTES.APP,
-        }),
+        checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
         portal(),
         webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
       ],
@@ -119,8 +117,8 @@ export const auth = betterAuth({
   },
   secret: env.AUTH_SECRET,
   socialProviders: {
-    github: { clientId: env.AUTH_GITHUB_CLIENT_ID, clientSecret: env.AUTH_GITHUB_CLIENT_SECRET },
-    google: { clientId: env.AUTH_GOOGLE_CLIENT_ID, clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET },
+    [AUTH_PROVIDER.GITHUB]: { clientId: env.AUTH_GITHUB_CLIENT_ID, clientSecret: env.AUTH_GITHUB_CLIENT_SECRET },
+    [AUTH_PROVIDER.GOOGLE]: { clientId: env.AUTH_GOOGLE_CLIENT_ID, clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET },
   },
   user: {
     additionalFields: {

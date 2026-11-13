@@ -15,7 +15,7 @@ Os workflows ficam em `.github/workflows/`. Os workflows da aplicação (`ci.yml
 
 ## Verificações
 
-O job `verify` em `ci.yml` executa `bun run check` (tabelas de nomes de classes, verificações de i18n e de conteúdo, formatação, lint e tipos) e `bun run test:coverage` e, em seguida, envia o relatório de cobertura. O job `e2e` executa `db:migrate:test`, `db:seed:test` e `build:test`, instala o navegador e executa `bunx playwright test e2e/specs --project=chromium`. Execuções de E2E com falha enviam o relatório do Playwright.
+O job `verify` em `ci.yml` executa `bun run check` (tabelas de nomes de classes, verificações de i18n e de conteúdo, formatação, lint e tipos) e `bun run test:coverage` e, em seguida, envia o relatório de cobertura. O job `e2e` executa `db:reset:test` e `build:test`, instala o navegador e executa `bunx playwright test e2e/specs --project=chromium`. Execuções de E2E com falha enviam o relatório do Playwright.
 
 ## Deploys
 
@@ -28,7 +28,7 @@ Os deploys só são executados depois que `verify` e `e2e` passam:
 
 Pull requests de forks e do Dependabot são validados, mas não recebem deploy. O preview é compartilhado: cada deploy substitui o anterior e usa o mesmo banco de dados D1, o mesmo namespace KV e o mesmo bucket R2 de preview.
 
-`deploy-reusable.yml` verifica a existência dos secrets `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`, executa `scripts/verify-bindings.ts`, faz o build com os valores fictícios de `.env.test`, remove o `dist/server/.dev.vars` gerado, aplica `db:migrate:<target>` e executa `bunx wrangler deploy`. Nenhum arquivo de secrets é enviado: o Worker mantém os secrets de runtime já configurados na Cloudflare. Deploys para o mesmo destino entram em fila em vez de cancelarem uns aos outros.
+`deploy-reusable.yml` verifica a existência dos secrets `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`, executa `scripts/verify-bindings.ts`, faz o build com os valores fictícios de `.env.test`, remove o `dist/server/.dev.vars` gerado, aplica `db:migrate:<target>` e executa `vp exec wrangler deploy --config dist/server/wrangler.json`. Não executa `scripts/verify-deployment.ts`, a verificação do site no ar dos scripts `deploy:<target>`, porque a proteção contra bots da Cloudflare responde 403 às requisições dos runners de CI. Nenhum arquivo de secrets é enviado: o Worker mantém os secrets de runtime já configurados na Cloudflare. Deploys para o mesmo destino entram em fila em vez de cancelarem uns aos outros.
 
 O Dependabot atualiza as GitHub Actions semanalmente.
 

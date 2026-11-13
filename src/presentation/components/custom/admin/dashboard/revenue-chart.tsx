@@ -2,6 +2,8 @@ import type { JSX } from "react"
 
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
+
 import { ADMIN_DASHBOARD_CHART_FILTERS, ADMIN_DASHBOARD_CHART_MONTHS, ADMIN_DASHBOARD_CHART_TICKS } from "~/src/data/admin"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
@@ -38,7 +40,7 @@ export const RevenueChart = (): JSX.Element => {
         <div className="absolute top-0 bottom-6 left-0 flex flex-col justify-between font-mono text-[0.6875rem] text-muted-foreground tabular-nums">
           {ADMIN_DASHBOARD_CHART_TICKS.map((tick) => (
             <span key={tick}>
-              {format.number(tick, { currency: "USD", maximumFractionDigits: 0, notation: "compact", style: "currency" })}
+              {format.number(tick, { currency: DEFAULT_CURRENCY_CODE, maximumFractionDigits: 0, notation: "compact", style: "currency" })}
             </span>
           ))}
         </div>

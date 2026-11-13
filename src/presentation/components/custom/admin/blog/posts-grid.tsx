@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { Calendar, Eye, MoreHorizontal } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { DUMMY_POSTS } from "~/src/data/admin-blog"
+import { ADMIN_BLOG_POST_STATUS, DUMMY_POSTS } from "~/src/data/admin-blog"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 
@@ -55,10 +55,10 @@ export const BlogPostsGrid = (): JSX.Element => {
                 <span className="text-xs text-muted-foreground">{post.author.name}</span>
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                {post.status === "scheduled" && <Calendar className="size-3" />}
-                {post.status === "scheduled" && <span>{t("meta.publishesTomorrow")}</span>}
-                {post.status === "draft" && <span>{t("meta.lastEdited", { time: t("demo.dates.draft") })}</span>}
-                {post.status === "published" && <PostDate post={post} />}
+                {post.status === ADMIN_BLOG_POST_STATUS.SCHEDULED && <Calendar className="size-3" />}
+                {post.status === ADMIN_BLOG_POST_STATUS.SCHEDULED && <span>{t("meta.publishesTomorrow")}</span>}
+                {post.status === ADMIN_BLOG_POST_STATUS.DRAFT && <span>{t("meta.lastEdited", { time: t("demo.dates.draft") })}</span>}
+                {post.status === ADMIN_BLOG_POST_STATUS.PUBLISHED && <PostDate post={post} />}
                 {post.readTime !== undefined && <span className="size-1 rounded-full bg-border" />}
                 {post.readTime !== undefined && <span>{t("meta.readTime", { minutes: post.readTime })}</span>}
               </div>

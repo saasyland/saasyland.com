@@ -4,10 +4,12 @@ import { Link } from "@tanstack/react-router"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+
 import { MARKETING_SECTION_IDS, TIER_PRICES } from "~/src/data/marketing"
 
-import { Price } from "~/src/presentation/components/custom/landing-page/components/price"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
+import { Price } from "~/src/presentation/components/custom/pricing"
 
 import { ROUTES } from "~/src/routes"
 
@@ -53,7 +55,7 @@ export const GateSection = (): JSX.Element => {
         <Reveal className="mt-12 w-full" delay={TERMS_DELAY_MS} variant="quiet">
           <p className="flex items-baseline justify-center gap-2.5">
             <span className="text-price text-foreground tabular-nums">
-              <Price amount={TIER_PRICES.core} />
+              <Price amount={TIER_PRICES[LICENSE_TIER.CORE]} />
             </span>
             <span className="font-mono text-spec text-muted-foreground">{t("terms")}</span>
           </p>

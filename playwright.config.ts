@@ -32,7 +32,7 @@ export default defineConfig({
     video: isCI ? "retain-on-failure" : "off",
   },
   webServer: {
-    command: isCI ? startCommand : `bun run db:migrate:test && bun run db:seed:test && bun run build:test && ${startCommand}`,
+    command: isCI ? startCommand : `bun run db:reset:test && bun run build:test && ${startCommand}`,
     reuseExistingServer: !isCI,
     timeout: 600_000,
     url: appUrl,

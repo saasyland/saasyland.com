@@ -12,6 +12,7 @@ import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { getUsersPageQuery, getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 import { user } from "~/src/modules/user/user.schema"
 
@@ -75,7 +76,7 @@ describe("list-users", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
 
-    await expect(executeQuery(getUsersQuery)).rejects.toMatchObject({ code: "FORBIDDEN" })
+    await expect(executeQuery(getUsersQuery)).rejects.toMatchObject({ code: ERROR_CODES.FORBIDDEN })
   })
 
   it("rejects when the caller is signed out", async () => {
@@ -84,7 +85,7 @@ describe("list-users", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(executeQuery(getUsersQuery)).rejects.toMatchObject({ code: "UNAUTHORIZED" })
+    await expect(executeQuery(getUsersQuery)).rejects.toMatchObject({ code: ERROR_CODES.UNAUTHORIZED })
   })
 
   it("returns the remaining page and keeps the database total", async () => {

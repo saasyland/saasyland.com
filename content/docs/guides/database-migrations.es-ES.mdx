@@ -15,23 +15,24 @@ bun run db:generate
 ```
 
 3. Revisa el archivo generado y haz commit junto con el cambio de esquema.
-4. Aplícalo a la base de datos con la que trabajas y a todas las bases de datos remotas antes de desplegar código que dependa de él.
+4. Aplícalo a la base de datos con la que trabajas. `deploy:preview`, `deploy:production` y la CI lo aplican a la base de datos de la vista previa o de producción antes de desplegar.
 
 ## Comandos
 
 | Comando                          | Base de datos                                                                                      |
 | -------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `bun run db:migrate:test`        | Base de datos local de pruebas en `.wrangler/test`, usada por Playwright y la vista previa aislada |
+| `bun run db:reset:test`          | Elimina `.wrangler/test` y después vuelve a migrar y a sembrar la base de datos local de pruebas   |
 | `bun run db:migrate:local`       | Base de datos local de desarrollo; `bun run dev` sigue usando los bindings remotos                 |
 | `bun run db:migrate:development` | Base de datos remota del entorno de desarrollo, compartida por defecto con la vista previa         |
 | `bun run db:migrate:preview`     | Base de datos remota de la vista previa                                                            |
 | `bun run db:migrate:production`  | Base de datos remota de producción                                                                 |
 
-`bun run db:studio:development`, `db:studio:preview` y `db:studio:production` abren Drizzle Studio, y los scripts `db:introspect:*` inspeccionan D1 a través de su API HTTP. Ambos necesitan `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` y `CLOUDFLARE_ACCESS_TOKEN` en el archivo de entorno correspondiente.
+`bun run db:migrations:development`, `db:migrations:preview` y `db:migrations:production` enumeran las migraciones que una base de datos remota aún no ha aplicado. `bun run db:studio:development`, `db:studio:preview` y `db:studio:production` abren Drizzle Studio, y los scripts `db:introspect:*` inspeccionan D1 a través de su API HTTP. Ambos necesitan `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID` y `CLOUDFLARE_ACCESS_TOKEN` en el archivo de entorno correspondiente.
 
 ## Convenciones del esquema
 
-- Las fechas son `integer(..., { mode: "timestamp_ms" })` con el valor por defecto `(unixepoch() * 1000)`.
+- Las fechas son `integer(..., { mode: "timestamp_ms" })` con el valor por defecto `(unixepoch() * 1000)`. Las tablas obtienen `createdAt` y `updatedAt` con `...timestamps()` de `src/integrations/drizzle-orm/drizzle.columns.ts`.
 - Los booleanos son `integer(..., { mode: "boolean" })`.
 - Los índices, las restricciones de unicidad, las claves foráneas y las relaciones se quedan en el archivo del esquema.
 - D1 no tiene transacciones interactivas. Mantén una operación atómica con una sola sentencia SQL o con `db.batch([...])`, como hacen `getUsers` y el limitador de peticiones.

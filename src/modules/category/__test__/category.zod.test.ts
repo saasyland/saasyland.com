@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { CATEGORY_KIND } from "~/src/modules/category/category.constants"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
 describe("category zod schemas", () => {
@@ -12,7 +13,7 @@ describe("category zod schemas", () => {
     expect.hasAssertions()
     expect(
       categoryZodSchemas.createCategory.safeParse({
-        kind: "category",
+        kind: CATEGORY_KIND.CATEGORY,
         name: "SaaS Plans",
       }).success,
     ).toBe(true)

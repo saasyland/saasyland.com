@@ -58,7 +58,7 @@ test.describe("courses", () => {
     await page.goto(lessonPath(paid.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
     await expect(page.getByRole("heading", { name: "This lesson comes with Complete" })).toBeVisible()
-    await expect(page.getByRole("link", { name: "Get Complete" })).toHaveAttribute("href", "/app/license")
+    await expect(page.getByRole("link", { name: "Get Complete" })).toHaveAttribute("href", "/app/license?tier=complete")
   })
 
   test("an administrator can watch every lesson", async ({ authPage, page }) => {

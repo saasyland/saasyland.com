@@ -12,6 +12,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { changePasswordMutation } from "~/src/modules/account/use-cases/change-password"
 
 const HEADERS = new Headers()
@@ -54,7 +55,7 @@ describe("change-password", () => {
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
     await expect(executeMutation(changePasswordMutation, { currentPassword: "OldSecret1!", newPassword: "Secret1!" })).rejects.toThrow(
-      "UNAUTHORIZED",
+      ERROR_CODES.UNAUTHORIZED,
     )
   })
 })

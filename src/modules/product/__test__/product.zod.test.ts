@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import { productZodSchemas } from "~/src/modules/product/product.zod"
 
 describe("product zod schemas", () => {
@@ -14,7 +15,7 @@ describe("product zod schemas", () => {
       productZodSchemas.createProduct.safeParse({
         name: "Starter",
         priceCents: 9900,
-        type: "subscription",
+        type: PRODUCT_TYPE.SUBSCRIPTION,
       }).success,
     ).toBe(true)
   })

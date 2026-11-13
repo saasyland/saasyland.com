@@ -18,14 +18,13 @@ En `wrangler.jsonc`, sustituya `database_id`, `database_name`, el `id` de KV y e
 
 ## Desplegar
 
-Rellene `.env.preview` y, a continuación, migre y despliegue:
+Rellene `.env.preview` y, a continuación, despliegue:
 
 ```sh
-bun run db:migrate:preview
 bun run deploy:preview
 ```
 
-`deploy:preview` ejecuta `scripts/verify-bindings.ts preview`, que rechaza los ID de marcador de posición; después `build:preview`, que prerenderiza las páginas públicas y verifica el resultado, y por último `wrangler deploy --secrets-file .env.preview`, que además sube los secretos. La compilación y el despliegue nunca aplican migraciones; ejecute `db:migrate:preview` antes de desplegar código que necesite un esquema nuevo. `verify-bindings.ts` no comprueba el bucket de R2, que se vincula por nombre: el despliegue falla hasta que el bucket existe.
+`deploy:preview` ejecuta `scripts/verify-bindings.ts preview`, que rechaza los bindings que faltan y los ID de marcador de posición, y después `build:preview`, que prerenderiza las páginas públicas y verifica el resultado. A continuación, `scripts/prepare-deploy-secrets.ts preview` escribe en `.wrangler/secrets.preview.json` los secretos que `wrangler.jsonc` declara para `preview`, tomados de `.env.preview`, y falla si alguno está vacío. `db:migrate:preview` aplica las migraciones nuevas antes de que `wrangler deploy` suba `dist/server/wrangler.json` con esos secretos, y por último `scripts/verify-deployment.ts preview` comprueba que https://preview.saasyland.com responde. `verify-bindings.ts` no comprueba que el bucket de R2 exista, porque se vincula por nombre: el despliegue falla hasta que el bucket existe. `bun run db:migrations:preview` enumera las migraciones que la base de datos de preview aún no ha aplicado.
 
 Registre los callbacks de OAuth y el webhook de Polar para el host de preview tal como se indica en [Variables de entorno](/docs/getting-started/environment-variables).
 

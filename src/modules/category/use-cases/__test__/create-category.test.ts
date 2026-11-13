@@ -8,6 +8,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { createCategoryMutation } from "~/src/modules/category/use-cases/create-category"
 
 const HEADERS = new Headers()
@@ -20,17 +21,18 @@ type AuthApi = typeof auth.api
 
 const getSessionMock = vi.hoisted(() => vi.fn<AuthApi["getSession"]>())
 
-const dbMocks = vi.hoisted(() => {
+const dbMocks = await vi.hoisted(async () => {
+  const { CATEGORY_ICON, CATEGORY_KIND, CATEGORY_VISIBILITY } = await import("~/src/modules/category/category.constants")
   const updatedAt = new Date("2026-07-24T12:00:00.000Z")
   const dbRow = {
     createdAt: updatedAt,
     description: "",
-    icon: "FolderOpen" as const,
+    icon: CATEGORY_ICON.FOLDER_OPEN,
     id: CREATED_ID,
-    kind: "category" as const,
+    kind: CATEGORY_KIND.CATEGORY,
     name: "SaaS Plans",
     updatedAt,
-    visibility: "public" as const,
+    visibility: CATEGORY_VISIBILITY.PUBLIC,
   }
 
   const get = vi.fn<() => Promise<typeof dbRow>>().mockResolvedValue(dbRow)
@@ -60,7 +62,7 @@ describe("create-category", () => {
 
     await expect(
       executeMutation(createCategoryMutation, {
-        kind: "category",
+        kind: dbMocks.dbRow.kind,
         name: "SaaS Plans",
       }),
     ).resolves.toMatchObject(dbMocks.dbRow)
@@ -77,9 +79,9 @@ describe("create-category", () => {
 
     await expect(
       executeMutation(createCategoryMutation, {
-        kind: "category",
+        kind: dbMocks.dbRow.kind,
         name: "SaaS Plans",
       }),
-    ).rejects.toThrow("FORBIDDEN")
+    ).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })

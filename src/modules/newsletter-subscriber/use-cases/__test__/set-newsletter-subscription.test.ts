@@ -9,6 +9,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { NEWSLETTER_SOURCE, NEWSLETTER_STATUS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { setNewsletterSubscriptionMutation } from "~/src/modules/newsletter-subscriber/use-cases/set-newsletter-subscription"
 
@@ -84,7 +85,7 @@ describe("set-newsletter-subscription", () => {
     getSessionMock.mockResolvedValue(JSON_NULL)
 
     await expect(executeMutation(setNewsletterSubscriptionMutation, { isSubscribed: true, locale: "en-US" })).rejects.toThrow(
-      "UNAUTHORIZED",
+      ERROR_CODES.UNAUTHORIZED,
     )
   })
 })

@@ -15,7 +15,7 @@ description: "チェック、ブラウザーテスト、デプロイのための
 
 ## チェック
 
-`ci.yml` の `verify` ジョブは、`bun run check`（クラス名テーブル、i18n とコンテンツのチェック、フォーマット、リント、型チェック）と `bun run test:coverage` を実行し、カバレッジレポートをアップロードします。`e2e` ジョブは `db:migrate:test`、`db:seed:test`、`build:test` を実行し、ブラウザーをインストールして `bunx playwright test e2e/specs --project=chromium` を実行します。E2E が失敗した場合は Playwright のレポートをアップロードします。
+`ci.yml` の `verify` ジョブは、`bun run check`（クラス名テーブル、i18n とコンテンツのチェック、フォーマット、リント、型チェック）と `bun run test:coverage` を実行し、カバレッジレポートをアップロードします。`e2e` ジョブは `db:reset:test` と `build:test` を実行し、ブラウザーをインストールして `bunx playwright test e2e/specs --project=chromium` を実行します。E2E が失敗した場合は Playwright のレポートをアップロードします。
 
 ## デプロイ
 
@@ -28,7 +28,7 @@ description: "チェック、ブラウザーテスト、デプロイのための
 
 フォークと Dependabot からのプルリクエストは検証されますが、デプロイはされません。プレビューは共有されており、各デプロイは前回のデプロイを置き換え、同じプレビュー用の D1 データベース、KV 名前空間、R2 バケットを使います。
 
-`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用して `bunx wrangler deploy` を実行します。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入ります。
+`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入ります。
 
 Dependabot は GitHub Actions を毎週更新します。
 

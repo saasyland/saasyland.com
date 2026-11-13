@@ -11,6 +11,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { createUserMutation } from "~/src/modules/user/use-cases/create-user"
 
 const HEADERS = new Headers()
@@ -67,6 +68,6 @@ describe("create-user", () => {
         email: "new@example.com",
         name: "New User",
       }),
-    ).rejects.toThrow("FORBIDDEN")
+    ).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })

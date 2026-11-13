@@ -1,123 +1,44 @@
-import type { ChangeEvent, JSX } from "react"
+import type { JSX } from "react"
 
-import { Link, useHydrated } from "@tanstack/react-router"
+import { Link, useRouter } from "@tanstack/react-router"
 import { Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { PPP_COOKIE, PPP_DECLINED } from "~/src/modules/_core/constants/pricing"
-
-import { MARKETING_SECTION_IDS, TIERS, TIER_PRICES } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { cn } from "~/src/lib/cn"
-import { readCookie, serializeCookie } from "~/src/lib/cookie"
 
-import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
-import { PRICE_TAGS, Price } from "~/src/presentation/components/custom/landing-page/components/price"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
+import { PRICE_TAGS, PricingTiers, type TierAction } from "~/src/presentation/components/custom/pricing"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const GRID_DELAY_MS = 100
 
-const FEATURE_IDS = ["f1", "f2", "f3", "f4", "f5", "f6"] as const
-
-const FEATURED_TIER = "complete"
-
 const CONSULTING_HREF = `mailto:${CONTACT_EMAIL}?subject=Architecture%20call`
 
-const REGIONAL_TAGS = { percent: () => <span className="ppp-percent" />, region: () => <span className="ppp-region" /> }
+const TierSignUpLink: TierAction = ({ featured, tier }) => {
+  const t = useTranslations("components.custom.pricing")
+  const router = useRouter()
 
-const storeRegionalChoice = (event: ChangeEvent<HTMLInputElement>): void => {
-  document.cookie = serializeCookie({
-    name: PPP_COOKIE,
-    options: { secure: globalThis.location.protocol === "https:" },
-    value: event.currentTarget.checked ? "" : PPP_DECLINED,
-  })
-}
-
-const TierColumn = ({ tier }: Readonly<{ tier: (typeof TIERS)[number] }>): JSX.Element => {
-  const t = useTranslations("pages.landing.pricing")
-  const isFeatured = tier === FEATURED_TIER
+  const { publicHref: redirect } = router.buildLocation({ search: { tier }, to: ROUTES.APP })
 
   return (
-    <HighlightItem
-      className={cn("border-border not-last:border-b md:not-last:border-r md:not-last:border-b-0", {
-        "bg-background": !isFeatured,
-        "bg-card": isFeatured,
-      })}
-      contentClassName="flex h-full flex-col"
-      id={tier}
+    <Link
+      className={cn(
+        "inline-flex h-11 w-full items-center justify-center rounded-lg px-5 text-body-sm font-semibold transition-[background-color,border-color,transform] duration-200 ease-exp focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px",
+        {
+          "bg-primary text-primary-foreground hover:bg-primary/88": featured,
+          "border border-border text-foreground hover:bg-muted": !featured,
+        },
+      )}
+      search={{ redirect }}
+      to={ROUTES.SIGN_UP}
     >
-      <div className={cn("flex h-10 items-center border-b border-border px-7 md:px-8", { "border-t-2 border-t-ring": isFeatured })}>
-        {isFeatured && <span className="font-mono text-spec tracking-[0.1em] text-ring uppercase">{t("mostPopular")}</span>}
-      </div>
-
-      <div className="flex flex-1 flex-col p-7 md:p-8">
-        <h3 className="text-title text-foreground">{t(`tiers.${tier}.name`)}</h3>
-        <p className="mt-1.5 text-body-sm text-pretty text-muted-foreground md:min-h-12">{t(`tiers.${tier}.whoFor`)}</p>
-
-        <p className="mt-7 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="text-price text-foreground tabular-nums">
-            <Price amount={TIER_PRICES[tier]} />
-          </span>
-          <span className="font-mono text-spec text-muted-foreground">{t(`tiers.${tier}.period`)}</span>
-          <span className="pv pv-regional basis-full font-mono text-label text-ring uppercase">
-            {t.rich("regional.save", REGIONAL_TAGS)}
-          </span>
-        </p>
-        <p className="mt-3 text-body-sm text-pretty text-muted-foreground md:min-h-12">{t(`tiers.${tier}.tagline`)}</p>
-
-        <ul className="mt-7 space-y-3 border-t border-border pt-7">
-          {FEATURE_IDS.map((feature) => (
-            <li className="flex items-start gap-3" key={feature}>
-              <Check aria-hidden className="mt-0.5 size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
-              <span className="text-body-sm text-pretty text-muted-foreground">{t(`tiers.${tier}.features.${feature}`)}</span>
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-auto pt-10 md:pt-12">
-          <Link
-            className={cn(
-              "inline-flex h-11 w-full items-center justify-center rounded-lg px-5 text-body-sm font-semibold transition-[background-color,border-color,transform] duration-200 ease-exp focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px",
-              {
-                "bg-primary text-primary-foreground hover:bg-primary/88": isFeatured,
-                "border border-border text-foreground hover:bg-muted": !isFeatured,
-              },
-            )}
-            to={ROUTES.SIGN_UP}
-          >
-            {t(`tiers.${tier}.cta`)}
-          </Link>
-        </div>
-      </div>
-    </HighlightItem>
-  )
-}
-
-const RegionalPricing = (): JSX.Element => {
-  const t = useTranslations("pages.landing.pricing")
-  const declined = useHydrated() && readCookie({ header: document.cookie, name: PPP_COOKIE }) === PPP_DECLINED
-
-  return (
-    <label className="ppp-offer mt-6 cursor-pointer items-start gap-3 rounded-xl border border-ring/35 bg-ring/6 px-5 py-4">
-      <span className="relative mt-0.75 flex size-4 shrink-0">
-        <input
-          className="peer size-4 cursor-pointer appearance-none rounded-[4px] border border-input bg-background transition-colors checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          defaultChecked={!declined}
-          onChange={storeRegionalChoice}
-          type="checkbox"
-        />
-        <Check
-          aria-hidden
-          className="pointer-events-none absolute inset-0 m-auto size-3.5 text-primary-foreground opacity-0 peer-checked:opacity-100"
-          strokeWidth={3}
-        />
-      </span>
-      <span className="text-body-sm text-pretty text-foreground">{t.rich("regional.offer", REGIONAL_TAGS)}</span>
-    </label>
+      {t(`tiers.${tier}.cta`)}
+    </Link>
   )
 }
 
@@ -137,13 +58,7 @@ export const PricingSection = (): JSX.Element => {
         </Reveal>
 
         <Reveal className="mt-14 md:mt-20" delay={GRID_DELAY_MS}>
-          <HighlightGroup className="grid overflow-hidden rounded-xl border border-border md:grid-cols-3" name="pricing-highlight">
-            {TIERS.map((tier) => (
-              <TierColumn key={tier} tier={tier} />
-            ))}
-          </HighlightGroup>
-
-          <RegionalPricing />
+          <PricingTiers Action={TierSignUpLink} />
 
           <p className="mt-8 flex max-w-3xl items-start gap-3">
             <Check aria-hidden className="mt-0.5 size-3.5 shrink-0 text-ring" strokeWidth={2.25} />

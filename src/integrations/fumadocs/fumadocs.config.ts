@@ -29,4 +29,14 @@ export const blog = defineCollections({
   type: "doc",
 })
 
-export default defineConfig()
+export default defineConfig({
+  mdxOptions: {
+    rehypeCodeOptions: {
+      colorReplacements: {
+        "github-dark": { "#6a737d": "#78828c" },
+        "github-light": { "#e36209": "#c55300" },
+      },
+      themes: { dark: "github-dark", light: "github-light" },
+    },
+  },
+})

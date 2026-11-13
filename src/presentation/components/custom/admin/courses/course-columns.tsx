@@ -12,6 +12,7 @@ import { localize } from "~/src/modules/_core/utils/localized-text"
 import { COURSE_QUERY_KEYS, COURSE_STATUS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
+import { moveCourseMutation } from "~/src/modules/course/use-cases/move-course"
 
 import { useDateFormatter } from "~/src/hooks/use-date-formatter"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
@@ -33,9 +34,12 @@ import {
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
 
+import { MoveButtons } from "~/src/presentation/components/custom/admin/courses/move-buttons"
 import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 import { ROUTES } from "~/src/routes"
+
+const LAST_INDEX_OFFSET = 1
 
 type CourseRow = Course["listRow"]
 
@@ -87,15 +91,25 @@ const UpdatedCell = ({ getValue }: CellContext<DataTableFeatures, CourseRow, Dat
   return <span className="text-sm text-muted-foreground">{formatDate({ value: getValue() })}</span>
 }
 
-const ActionsCell = ({ row }: CellContext<DataTableFeatures, CourseRow>): JSX.Element => {
+const ActionsCell = ({ row, table }: CellContext<DataTableFeatures, CourseRow>): JSX.Element => {
   const t = useTranslations("pages.admin.courses")
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
   const title = localize(row.original.title, getCurrentLocale())
+  const { pageIndex, pageSize } = table.store.state.pagination
+  const index = pageIndex * pageSize + row.index
 
+  const onError = (error: Error): void => {
+    toast.error(errorMessage(error))
+  }
+  const move = useMutation({
+    ...moveCourseMutation,
+    onError,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL }),
+  })
   const { isPending, mutate } = useMutation({
     ...deleteCourseMutation,
-    onError: (error) => toast.error(errorMessage(error)),
+    onError,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })
       toast.success(t("delete.success", { title }))
@@ -104,6 +118,14 @@ const ActionsCell = ({ row }: CellContext<DataTableFeatures, CourseRow>): JSX.El
 
   return (
     <div className="flex justify-end gap-1">
+      <MoveButtons
+        isFirst={index === 0}
+        isLast={index === table.getRowCount() - LAST_INDEX_OFFSET}
+        name={title}
+        onMove={(direction) => {
+          move.mutate({ courseId: row.original.id, direction })
+        }}
+      />
       <LinkButton
         aria-label={t("actions.edit", { title })}
         className="size-8 text-muted-foreground"

@@ -1,6 +1,7 @@
 import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
+import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
 import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
@@ -37,6 +38,8 @@ const getCourseEditor = courseIdInput
 
 const getCourses = paginationSchema
 
+const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
+
 const updateCourse = courseFields.extend(courseIdInput.shape)
 
 const insert = createInsertSchema(course)
@@ -50,6 +53,7 @@ export const courseZodSchemas = {
   getCourseEditor,
   getCourses,
   insert,
+  moveCourse,
   select,
   updateCourse,
 }

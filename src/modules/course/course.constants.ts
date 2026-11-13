@@ -25,6 +25,7 @@ export const COURSE_QUERY_KEYS = {
 export const COURSE_MUTATION_KEYS = {
   CREATE: ["course", "createCourse"],
   DELETE: ["course", "deleteCourse"],
+  MOVE: ["course", "moveCourse"],
   UPDATE: ["course", "updateCourse"],
 } as const
 

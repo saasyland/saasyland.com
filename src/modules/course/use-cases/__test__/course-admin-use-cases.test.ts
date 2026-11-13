@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { asc, eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { executeMutation, executeQuery } from "~/src/platform/testing/lib/query"
@@ -9,6 +9,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { MOVE_DIRECTION } from "~/src/modules/_core/constants/ordering"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
 import { IDS, LESSON_IDS, USERS, recordProgress, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
 import { COURSE_KIND, COURSE_STATUS } from "~/src/modules/course/course.constants"
@@ -17,6 +18,7 @@ import { createCourseMutation } from "~/src/modules/course/use-cases/create-cour
 import { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
 import { courseEditorQuery } from "~/src/modules/course/use-cases/get-course-editor"
 import { getCoursesPageQuery } from "~/src/modules/course/use-cases/get-courses"
+import { moveCourseMutation } from "~/src/modules/course/use-cases/move-course"
 import { updateCourseMutation } from "~/src/modules/course/use-cases/update-course"
 import { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
@@ -30,6 +32,11 @@ const NEW_COURSE = {
   status: COURSE_STATUS.DRAFT,
   summary: { "en-US": "From zero." },
   title: { "en-US": "Build a SaaS", "pl-PL": "Zbuduj SaaS" },
+}
+
+const courseOrder = async (): Promise<string[]> => {
+  const rows = await db.select({ id: course.id }).from(course).orderBy(asc(course.position), asc(course.id))
+  return rows.map(({ id }) => id)
 }
 
 const signInAs = (role: string): void => {
@@ -192,5 +199,39 @@ describe("deleteCourse", () => {
     signInAs(ROLE_CODES.CUSTOMER)
 
     await expect(executeMutation(deleteCourseMutation, { courseId: IDS.COURSE })).rejects.toThrow(ERROR_CODES.FORBIDDEN)
+  })
+})
+
+describe("moveCourse", () => {
+  it("swaps the course with its neighbour in the catalogue order", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    await executeMutation(moveCourseMutation, { courseId: IDS.TUTORIAL, direction: MOVE_DIRECTION.UP })
+
+    await expect(courseOrder()).resolves.toStrictEqual([IDS.DRAFT_COURSE, IDS.TUTORIAL, IDS.COURSE])
+  })
+
+  it("leaves the order alone at either end", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    await executeMutation(moveCourseMutation, { courseId: IDS.DRAFT_COURSE, direction: MOVE_DIRECTION.UP })
+
+    await expect(courseOrder()).resolves.toStrictEqual([IDS.DRAFT_COURSE, IDS.COURSE, IDS.TUTORIAL])
+  })
+
+  it("rejects a missing course", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    await expect(executeMutation(moveCourseMutation, { courseId: MISSING_ID, direction: MOVE_DIRECTION.DOWN })).rejects.toThrow(
+      ERROR_CODES.NOT_FOUND,
+    )
+  })
+
+  it("is for staff only", async () => {
+    signInAs(ROLE_CODES.CUSTOMER)
+
+    await expect(executeMutation(moveCourseMutation, { courseId: IDS.COURSE, direction: MOVE_DIRECTION.UP })).rejects.toThrow(
+      ERROR_CODES.FORBIDDEN,
+    )
   })
 })

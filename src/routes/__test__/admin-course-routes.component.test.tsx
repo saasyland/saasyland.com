@@ -22,6 +22,7 @@ import type { createCourseMutation } from "~/src/modules/course/use-cases/create
 import type { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
 import { courseEditorQuery } from "~/src/modules/course/use-cases/get-course-editor"
 import { getCoursesQuery } from "~/src/modules/course/use-cases/get-courses"
+import type { moveCourseMutation } from "~/src/modules/course/use-cases/move-course"
 import type { updateCourseMutation } from "~/src/modules/course/use-cases/update-course"
 import { LESSON_ACCESS, LESSON_MUTATION_KEYS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import type { createLessonMutation } from "~/src/modules/lesson/use-cases/create-lesson"
@@ -49,6 +50,7 @@ const mutations = vi.hoisted(() => ({
   deleteCourse: vi.fn<NonNullable<typeof deleteCourseMutation.mutationFn>>(),
   deleteLesson: vi.fn<NonNullable<typeof deleteLessonMutation.mutationFn>>(),
   moveChapter: vi.fn<NonNullable<typeof moveChapterMutation.mutationFn>>(),
+  moveCourse: vi.fn<NonNullable<typeof moveCourseMutation.mutationFn>>(),
   moveLesson: vi.fn<NonNullable<typeof moveLessonMutation.mutationFn>>(),
   updateChapter: vi.fn<NonNullable<typeof updateChapterMutation.mutationFn>>(),
   updateCourse: vi.fn<NonNullable<typeof updateCourseMutation.mutationFn>>(),
@@ -63,6 +65,9 @@ vi.mock(import("~/src/modules/course/use-cases/update-course"), () => ({
 }))
 vi.mock(import("~/src/modules/course/use-cases/delete-course"), () => ({
   deleteCourseMutation: { mutationFn: mutations.deleteCourse, mutationKey: COURSE_MUTATION_KEYS.DELETE },
+}))
+vi.mock(import("~/src/modules/course/use-cases/move-course"), () => ({
+  moveCourseMutation: { mutationFn: mutations.moveCourse, mutationKey: COURSE_MUTATION_KEYS.MOVE },
 }))
 vi.mock(import("~/src/modules/chapter/use-cases/create-chapter"), () => ({
   createChapterMutation: { mutationFn: mutations.createChapter, mutationKey: CHAPTER_MUTATION_KEYS.CREATE },
@@ -266,6 +271,7 @@ beforeEach(() => {
   mutations.updateChapter.mockResolvedValue({ id: "chapter-one" })
   mutations.deleteChapter.mockResolvedValue({ id: "chapter-one" })
   mutations.moveChapter.mockResolvedValue({ chapterId: "chapter-one" })
+  mutations.moveCourse.mockResolvedValue({ courseId: COURSE_ID })
   mutations.createLesson.mockResolvedValue({ id: "lesson-new" })
   mutations.updateLesson.mockResolvedValue({ id: "lesson-sessions" })
   mutations.deleteLesson.mockResolvedValue({ id: "lesson-sessions" })
@@ -309,6 +315,19 @@ describe("admin course list", () => {
       expect(toast.success).toHaveBeenCalledWith("“The walkthrough” was deleted")
     })
     expect(mutations.deleteCourse).toHaveBeenCalledWith({ courseId: COURSE_ID }, expect.anything())
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.ALL })
+  })
+
+  it("reorders the catalogue", async () => {
+    const { invalidateQueries, user } = await renderAdminCourses("/admin/courses")
+
+    expect(screen.getByRole("button", { name: "Move The walkthrough up" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Move One-off tutorial down" })).toBeDisabled()
+    await user.click(screen.getByRole("button", { name: "Move The walkthrough down" }))
+
+    await waitFor(() => {
+      expect(mutations.moveCourse).toHaveBeenCalledWith({ courseId: COURSE_ID, direction: MOVE_DIRECTION.DOWN }, expect.anything())
+    })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.ALL })
   })
 
@@ -435,6 +454,13 @@ describe("admin course editor", () => {
       expect.anything(),
     )
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.ALL })
+  })
+
+  it("links to the public page only once the course is published", async () => {
+    await renderAdminCourses(`/admin/courses/${COURSE_ID}`, { ...EDITOR, course: { ...COURSE, status: COURSE_STATUS.DRAFT } })
+
+    expect(screen.getByRole("heading", { level: 1, name: "The walkthrough" })).toBeVisible()
+    expect(screen.queryByRole("link", { name: labels.editor.view })).toBeNull()
   })
 
   it("explains a failed save", async () => {

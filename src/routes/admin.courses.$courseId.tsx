@@ -9,6 +9,7 @@ import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { localize } from "~/src/modules/_core/utils/localized-text"
+import { COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { courseEditorQuery } from "~/src/modules/course/use-cases/get-course-editor"
 
 import { rethrowAsNotFound } from "~/src/lib/not-found"
@@ -35,10 +36,12 @@ const CourseEditorPage = (): JSX.Element => {
           <h1 className="text-statement font-semibold text-foreground">{localize(data.course.title, getCurrentLocale())}</h1>
           <p className="text-sm text-muted-foreground">{t("description")}</p>
         </div>
-        <LinkButton className="h-9 gap-2" href={`${ROUTES.COURSES}/${data.course.slug}`} size="sm" target="_blank" variant="outline">
-          <ExternalLink aria-hidden className="size-4" />
-          {t("view")}
-        </LinkButton>
+        {data.course.status === COURSE_STATUS.PUBLISHED && (
+          <LinkButton className="h-9 gap-2" href={`${ROUTES.COURSES}/${data.course.slug}`} size="sm" target="_blank" variant="outline">
+            <ExternalLink aria-hidden className="size-4" />
+            {t("view")}
+          </LinkButton>
+        )}
       </div>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,28rem)_1fr]">
         <CourseForm course={data.course} key={data.course.updatedAt.getTime()} />

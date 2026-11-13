@@ -23,5 +23,6 @@ export interface Course {
   getCourse: zod.input<typeof courseZodSchemas.getCourse>
   getCourseEditor: zod.input<typeof courseZodSchemas.getCourseEditor>
   getCourses: zod.input<typeof courseZodSchemas.getCourses>
+  moveCourse: zod.input<typeof courseZodSchemas.moveCourse>
   updateCourse: zod.input<typeof courseZodSchemas.updateCourse>
 }

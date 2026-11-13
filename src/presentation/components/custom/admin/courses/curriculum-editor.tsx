@@ -1,13 +1,12 @@
 import type { JSX } from "react"
 
 import { type UseMutationOptions, useMutation, useQueryClient } from "@tanstack/react-query"
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { MOVE_DIRECTION, type MoveDirection } from "~/src/modules/_core/constants/ordering"
 import { localize } from "~/src/modules/_core/utils/localized-text"
 import { deleteChapterMutation } from "~/src/modules/chapter/use-cases/delete-chapter"
 import { moveChapterMutation } from "~/src/modules/chapter/use-cases/move-chapter"
@@ -40,6 +39,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/com
 
 import { ChapterDialog } from "~/src/presentation/components/custom/admin/courses/chapter-dialog"
 import { LessonDialog } from "~/src/presentation/components/custom/admin/courses/lesson-dialog"
+import { MoveButtons } from "~/src/presentation/components/custom/admin/courses/move-buttons"
 
 const ICON_BUTTON_CLASSNAME = "size-8 text-muted-foreground"
 const LESSON_NUMBER_BASE = 1
@@ -86,46 +86,6 @@ const ConfirmDelete = ({ body, label, onConfirm, title }: ConfirmDeleteProps): J
         </AlertDialogFooter>
       </AlertDialog>
     </AlertDialogTrigger>
-  )
-}
-
-interface MoveButtonsProps {
-  readonly isFirst: boolean
-  readonly isLast: boolean
-  readonly name: string
-  readonly onMove: (direction: MoveDirection) => void
-}
-
-const MoveButtons = ({ isFirst, isLast, name, onMove }: MoveButtonsProps): JSX.Element => {
-  const t = useTranslations("pages.admin.courses.curriculum")
-
-  return (
-    <>
-      <Button
-        aria-label={t("moveUp", { name })}
-        className={ICON_BUTTON_CLASSNAME}
-        isDisabled={isFirst}
-        onPress={() => {
-          onMove(MOVE_DIRECTION.UP)
-        }}
-        size="icon"
-        variant="ghost"
-      >
-        <ArrowUp aria-hidden className="size-4" />
-      </Button>
-      <Button
-        aria-label={t("moveDown", { name })}
-        className={ICON_BUTTON_CLASSNAME}
-        isDisabled={isLast}
-        onPress={() => {
-          onMove(MOVE_DIRECTION.DOWN)
-        }}
-        size="icon"
-        variant="ghost"
-      >
-        <ArrowDown aria-hidden className="size-4" />
-      </Button>
-    </>
   )
 }
 

@@ -2,6 +2,7 @@ import { waitUntil } from "cloudflare:workers"
 
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
@@ -43,7 +44,7 @@ describe("Cloudflare auth configuration", () => {
     expect(auth.options.emailAndPassword.revokeSessionsOnPasswordReset).toBe(true)
   })
   it("retains both OAuth providers and encrypted tokens", () => {
-    expect(Object.keys(auth.options.socialProviders)).toEqual(["github", "google"])
+    expect(Object.keys(auth.options.socialProviders)).toEqual([AUTH_PROVIDER.GITHUB, AUTH_PROVIDER.GOOGLE])
     expect(auth.options.account.encryptOAuthTokens).toBe(true)
   })
   it("links accounts only through provider-verified emails", () => {

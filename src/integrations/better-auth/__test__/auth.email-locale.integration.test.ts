@@ -6,6 +6,7 @@ import * as zod from "zod"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
 
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
@@ -41,7 +42,7 @@ const createUser = async ({ emailVerified }: { emailVerified: boolean }): Promis
   await context.internalAdapter.linkAccount({
     accountId: created.id,
     password: await context.password.hash(PASSWORD),
-    providerId: "credential",
+    providerId: AUTH_PROVIDER.CREDENTIAL,
     userId: created.id,
   })
   return email

@@ -10,6 +10,7 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 import { createTestRequestUrl } from "~/src/platform/testing/lib/test-request"
 
 import type * as AuthClient from "~/src/integrations/better-auth/auth.client"
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 
 import { OAuthButtons } from "~/src/presentation/components/custom/auth/oauth-buttons"
 
@@ -63,7 +64,7 @@ describe("OAuth buttons", () => {
         expect.objectContaining({
           callbackURL: `/pl-PL${ROUTES.AUTH_CALLBACK}`,
           errorCallbackURL: `/pl-PL${ROUTES.SIGN_IN}`,
-          provider: "github",
+          provider: AUTH_PROVIDER.GITHUB,
         }),
       )
     })

@@ -12,6 +12,8 @@ import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { CATEGORY_KIND } from "~/src/modules/category/category.constants"
 import { category } from "~/src/modules/category/category.schema"
 import { getCategoriesPageQuery, getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
 
@@ -35,7 +37,7 @@ beforeEach(async () => {
     Array.from({ length: 12 }, (_, index): typeof category.$inferInsert => ({
       createdAt: new Date("2026-09-24T12:00:00Z"),
       id: `row-${String(index).padStart(2, "0")}`,
-      kind: index % 2 === 0 ? "category" : "collection",
+      kind: index % 2 === 0 ? CATEGORY_KIND.CATEGORY : CATEGORY_KIND.COLLECTION,
       name: `Member ${String(index).padStart(2, "0")}`,
     })),
   )
@@ -74,7 +76,7 @@ describe("list-categories", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
 
-    await expect(executeQuery(getCategoriesQuery)).rejects.toMatchObject({ code: "FORBIDDEN" })
+    await expect(executeQuery(getCategoriesQuery)).rejects.toMatchObject({ code: ERROR_CODES.FORBIDDEN })
   })
 
   it("rejects when the caller is signed out", async () => {
@@ -83,7 +85,7 @@ describe("list-categories", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(executeQuery(getCategoriesQuery)).rejects.toMatchObject({ code: "UNAUTHORIZED" })
+    await expect(executeQuery(getCategoriesQuery)).rejects.toMatchObject({ code: ERROR_CODES.UNAUTHORIZED })
   })
 
   it("returns the remaining page and keeps the database total", async () => {
@@ -99,7 +101,7 @@ describe("list-categories", () => {
   })
 
   it("filters categories before paging and counts only matching records", async () => {
-    const result = await executeQuery(getCategoriesPageQuery({ kind: "collection", pageIndex: 1, pageSize: 2 }))
+    const result = await executeQuery(getCategoriesPageQuery({ kind: CATEGORY_KIND.COLLECTION, pageIndex: 1, pageSize: 2 }))
     expect(result.rows.map((row) => row.id)).toEqual(["row-07", "row-05"])
     expect(result.total).toBe(6)
   })

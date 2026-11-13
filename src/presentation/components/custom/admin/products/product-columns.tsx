@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useTranslations } from "use-intl/react"
 
-import type { ProductStatus } from "~/src/modules/product/product.schema"
+import { PRODUCT_STATUS } from "~/src/modules/product/product.constants"
 import type { Product } from "~/src/modules/product/product.types"
 
 import { ADMIN_STATUS_BADGE_CLASSES, ADMIN_STATUS_DOT_CLASSES, type AdminStatusColor } from "~/src/data/admin"
@@ -15,10 +15,10 @@ import { Badge } from "~/src/presentation/components/shadcn/badge"
 import { RowActionsCell } from "~/src/presentation/components/custom/admin/row-actions-cell"
 import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
-const PRODUCT_STATUS_COLORS: Record<ProductStatus, AdminStatusColor> = {
-  archived: "rose",
-  draft: "amber",
-  published: "emerald",
+const PRODUCT_STATUS_COLORS: Record<ProductRow["status"], AdminStatusColor> = {
+  [PRODUCT_STATUS.ARCHIVED]: "rose",
+  [PRODUCT_STATUS.DRAFT]: "amber",
+  [PRODUCT_STATUS.PUBLISHED]: "emerald",
 }
 
 const METRICS_PLACEHOLDER = "—"
@@ -48,7 +48,7 @@ const TypeCell = ({ getValue }: CellContext<DataTableFeatures, ProductRow, Produ
   )
 }
 
-const StatusCell = ({ getValue }: CellContext<DataTableFeatures, ProductRow, ProductStatus>): JSX.Element => {
+const StatusCell = ({ getValue }: CellContext<DataTableFeatures, ProductRow, ProductRow["status"]>): JSX.Element => {
   const t = useTranslations("pages.admin.products.table.statusLabels")
   const color = PRODUCT_STATUS_COLORS[getValue()]
 

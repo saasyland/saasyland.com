@@ -8,6 +8,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { deleteCategoryMutation } from "~/src/modules/category/use-cases/delete-category"
 
 const HEADERS = new Headers()
@@ -63,7 +64,7 @@ describe("delete-category", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: USER_ID }))
 
-    await expect(executeMutation(deleteCategoryMutation, { categoryId: CATEGORY_ID })).rejects.toThrow("NOT_FOUND")
+    await expect(executeMutation(deleteCategoryMutation, { categoryId: CATEGORY_ID })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
   })
 
   it("returns a domain error when the caller is not an admin", async () => {
@@ -72,6 +73,6 @@ describe("delete-category", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
 
-    await expect(executeMutation(deleteCategoryMutation, { categoryId: CATEGORY_ID })).rejects.toThrow("FORBIDDEN")
+    await expect(executeMutation(deleteCategoryMutation, { categoryId: CATEGORY_ID })).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 })

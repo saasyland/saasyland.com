@@ -11,6 +11,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { enableTwoFactorMutation } from "~/src/modules/two-factor/use-cases/enable-two-factor"
 
 const HEADERS = new Headers()
@@ -50,6 +51,6 @@ describe("enable-two-factor", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(executeMutation(enableTwoFactorMutation, { password: "Secret1!" })).rejects.toThrow("UNAUTHORIZED")
+    await expect(executeMutation(enableTwoFactorMutation, { password: "Secret1!" })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   })
 })

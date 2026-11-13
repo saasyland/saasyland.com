@@ -11,6 +11,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { updateUserMutation } from "~/src/modules/account/use-cases/update-user"
 
 const HEADERS = new Headers()
@@ -46,6 +47,6 @@ describe("update-user", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
 
-    await expect(executeMutation(updateUserMutation, { name: "Ada" })).rejects.toThrow("UNAUTHORIZED")
+    await expect(executeMutation(updateUserMutation, { name: "Ada" })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   })
 })

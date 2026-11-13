@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { clearSentEmails, getSentEmails, respondAsResend } from "~/src/platform/testing/mocks/providers"
 
+import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { sendChangeEmailConfirmationEmail } from "~/src/modules/account/use-cases/send-change-email-confirmation-email"
@@ -47,7 +48,7 @@ describe("change email confirmation delivery", () => {
 
       const deliveries = getSentEmails(USER.email)
       expect(deliveries).toHaveLength(1)
-      expect(deliveries[0]?.idempotencyKey).toBe(`change-email-confirmation/${sha256("change-token")}`)
+      expect(deliveries[0]?.idempotencyKey).toBe(`${EMAIL_PURPOSE.CHANGE_EMAIL_CONFIRMATION}/${sha256("change-token")}`)
       expect(deliveries[0]).toMatchObject({ from: env.RESEND_EMAIL_FROM, subject: messages.subject, to: [USER.email] })
       const html = deliveries[0]?.html
       expect(html).toContain(`lang="${locale}"`)

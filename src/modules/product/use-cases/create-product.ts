@@ -6,7 +6,7 @@ import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
-import { PRODUCT_MUTATION_KEYS } from "~/src/modules/product/product.constants"
+import { PRODUCT_MUTATION_KEYS, PRODUCT_STATUS } from "~/src/modules/product/product.constants"
 import { product } from "~/src/modules/product/product.schema"
 import type { Product } from "~/src/modules/product/product.types"
 import { productZodSchemas } from "~/src/modules/product/product.zod"
@@ -24,7 +24,7 @@ export const createProduct = createServerFn({ method: "POST" })
         id: v7(),
         name: data.name,
         priceCents: data.priceCents,
-        status: data.status ?? "draft",
+        status: data.status ?? PRODUCT_STATUS.DRAFT,
         type: data.type,
       })
       .returning()

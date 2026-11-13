@@ -8,15 +8,15 @@ describe("app error", () => {
     const error = new AppError(ERROR_CODES.NOT_FOUND, "category.errors.notFound")
     expect(error).toBeInstanceOf(AppError)
     expect(error).toBeInstanceOf(Error)
-    expect(error.code).toBe("NOT_FOUND")
+    expect(error.code).toBe(ERROR_CODES.NOT_FOUND)
     expect(error.message).toBe("category.errors.notFound")
     expect(error.name).toBe("AppError")
   })
 
   it("defaults the message to the code", () => {
     expect.hasAssertions()
-    expect(new AppError(ERROR_CODES.UNAUTHORIZED).message).toBe("UNAUTHORIZED")
-    expect(new AppError(ERROR_CODES.FORBIDDEN).message).toBe("FORBIDDEN")
+    expect(new AppError(ERROR_CODES.UNAUTHORIZED).message).toBe(ERROR_CODES.UNAUTHORIZED)
+    expect(new AppError(ERROR_CODES.FORBIDDEN).message).toBe(ERROR_CODES.FORBIDDEN)
   })
 
   it("exposes one catalog of error codes", () => {

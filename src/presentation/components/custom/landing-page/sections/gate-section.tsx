@@ -6,8 +6,8 @@ import { useTranslations } from "use-intl/react"
 
 import { MARKETING_SECTION_IDS, TIER_PRICES } from "~/src/data/marketing"
 
-import { Price } from "~/src/presentation/components/custom/landing-page/components/price"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
+import { Price } from "~/src/presentation/components/custom/pricing"
 
 import { ROUTES } from "~/src/routes"
 

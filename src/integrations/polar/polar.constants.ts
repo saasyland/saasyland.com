@@ -10,6 +10,8 @@ export const POLAR_PRODUCT_IDS = {
   core: env.POLAR_PRODUCT_ID_CORE,
 } as const
 
+export const POLAR_CHECKOUT_ID_PLACEHOLDER = "{CHECKOUT_ID}"
+
 export const POLAR_ORDER_STATUS = {
   PAID: "paid",
   PARTIALLY_REFUNDED: "partially_refunded",

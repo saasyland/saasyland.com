@@ -36,7 +36,7 @@ export const expectVerificationEmail = async (
   expect(email.subject).toBe("Verify your email address")
   expect(email.to).toEqual([recipient])
   expect(email.html).toContain('lang="en-US"')
-  const verificationLink = email.html.match(/href="([^"]*\/auth\/verify-email\?token=[^"]+)"/u)?.[1]
+  const verificationLink = email.html.match(/href="([^"]*\/auth\/verify-email\?[^"]*token=[^"]+)"/u)?.[1]
   if (!verificationLink) throw new Error("The verification email has no account verification link")
 
   const verificationUrl = new URL(verificationLink.replaceAll("&amp;", "&"))

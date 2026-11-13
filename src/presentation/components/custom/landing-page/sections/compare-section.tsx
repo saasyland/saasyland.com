@@ -6,8 +6,8 @@ import { useTranslations } from "use-intl/react"
 import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
-import { PRICE_TAGS } from "~/src/presentation/components/custom/landing-page/components/price"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
+import { PRICE_TAGS } from "~/src/presentation/components/custom/pricing"
 
 const OPTIONS = ["free", "weekend", "heavyweights"] as const
 

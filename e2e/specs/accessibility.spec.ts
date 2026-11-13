@@ -1,13 +1,12 @@
-import AxeBuilder from "@axe-core/playwright"
 import type { Page } from "@playwright/test"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_COURSE } from "../data/courses"
+import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 
-const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]
-const COLOR_SCHEMES = ["light", "dark"] as const
+const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
 
 const PUBLIC_PAGES = [
   "/",
@@ -38,38 +37,8 @@ const WORKSPACE_PAGES = {
     "/admin/videos",
     "/admin/settings",
   ],
-  customer: ["/app", "/app/license"],
+  customer: ["/app", "/app/license", "/app?tier=complete", "/app/license?tier=core", `/app?checkoutId=${CHECKOUT_ID}`],
 } as const
-
-const revealWholePage = async (page: Page): Promise<void> => {
-  await page.evaluate(async () => {
-    const nextFrame = async (): Promise<void> => {
-      await new Promise((resolve) => requestAnimationFrame(resolve))
-      await new Promise((resolve) => requestAnimationFrame(resolve))
-    }
-    for (let top = 0; top < document.documentElement.scrollHeight; top += window.innerHeight / 2) {
-      window.scrollTo({ behavior: "instant", top })
-      await nextFrame()
-    }
-    window.scrollTo({ behavior: "instant", top: document.documentElement.scrollHeight })
-    await nextFrame()
-  })
-}
-
-const accessibilityViolations = async (page: Page): Promise<string[]> => {
-  await revealWholePage(page)
-  await page.evaluate(async () => {
-    const timedAnimations = document
-      .getAnimations()
-      .filter((animation) => animation.timeline === document.timeline && animation.effect?.getComputedTiming().iterations !== Infinity)
-    await Promise.allSettled(timedAnimations.map(async (animation) => animation.finished))
-  })
-  const { violations } = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
-
-  return violations.map(
-    ({ help, id, impact, nodes }) => `${id} (${impact ?? "unknown"}): ${help} at ${nodes.map(({ target }) => target.join(" ")).join(", ")}`,
-  )
-}
 
 const visit = async (page: Page, path: string): Promise<void> => {
   await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })

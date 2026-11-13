@@ -97,11 +97,7 @@ export const auth = betterAuth({
     polarPlugin({
       client: polarCore,
       use: [
-        checkout({
-          authenticatedUsersOnly: true,
-          products: POLAR_CHECKOUT_PRODUCTS,
-          successUrl: ROUTES.APP,
-        }),
+        checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
         portal(),
         webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
       ],

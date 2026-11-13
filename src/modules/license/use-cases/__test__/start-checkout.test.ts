@@ -8,7 +8,7 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
-import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
+import { POLAR_CHECKOUT_ID_PLACEHOLDER, POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
@@ -21,6 +21,7 @@ import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-che
 const HEADERS = new Headers()
 const USER_ID = "01900000-0000-7000-8000-000000000009"
 const CHECKOUT_URL = "https://sandbox.polar.sh/checkout/abc"
+const SUCCESS_PATH = `/app?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}`
 
 type AuthApi = typeof auth.api
 
@@ -66,25 +67,30 @@ describe("start-checkout", () => {
     signedIn()
     const discount = vi.spyOn(ppp, "pppDiscountId").mockResolvedValue("regional-discount-30")
 
-    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.AGENCY })).resolves.toEqual({
+    await expect(executeMutation(startCheckoutMutation, { locale: "en-US", tier: LICENSE_TIER.AGENCY })).resolves.toEqual({
       url: CHECKOUT_URL,
     })
 
     expect(discount).toHaveBeenCalledExactlyOnceWith(HEADERS, POLAR_PRODUCT_IDS.agency)
     expect(checkoutMock).toHaveBeenCalledWith({
-      body: { allow_discount_codes: false, discount_id: "regional-discount-30", slug: LICENSE_TIER.AGENCY },
+      body: { allow_discount_codes: false, discount_id: "regional-discount-30", slug: LICENSE_TIER.AGENCY, success_url: SUCCESS_PATH },
       headers: HEADERS,
     })
   })
 
-  it("opens a hosted checkout for the requested tier", async () => {
+  it("returns the buyer to the app in the language they bought in, with the checkout id", async () => {
     expect.hasAssertions()
     const lookup = signedIn()
 
-    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.COMPLETE })).resolves.toMatchObject({ url: CHECKOUT_URL })
+    await expect(executeMutation(startCheckoutMutation, { locale: "pl-PL", tier: LICENSE_TIER.COMPLETE })).resolves.toMatchObject({
+      url: CHECKOUT_URL,
+    })
 
     expect(lookup).toHaveBeenCalledExactlyOnceWith(USER_ID)
-    expect(checkoutMock).toHaveBeenCalledWith({ body: { allow_discount_codes: false, slug: LICENSE_TIER.COMPLETE }, headers: HEADERS })
+    expect(checkoutMock).toHaveBeenCalledWith({
+      body: { allow_discount_codes: false, slug: LICENSE_TIER.COMPLETE, success_url: `/pl-PL${SUCCESS_PATH}` },
+      headers: HEADERS,
+    })
   })
 
   it("refuses a second checkout while the account holds an active license", async () => {
@@ -92,7 +98,9 @@ describe("start-checkout", () => {
     signedIn(ownedLicense(LICENSE_STATUS.ACTIVE))
     const discount = vi.spyOn(ppp, "pppDiscountId")
 
-    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.AGENCY })).rejects.toThrow(ERROR_CODES.LICENSE_ALREADY_ACTIVE)
+    await expect(executeMutation(startCheckoutMutation, { locale: "en-US", tier: LICENSE_TIER.AGENCY })).rejects.toThrow(
+      ERROR_CODES.LICENSE_ALREADY_ACTIVE,
+    )
 
     expect(discount).not.toHaveBeenCalled()
     expect(checkoutMock).not.toHaveBeenCalled()
@@ -102,18 +110,19 @@ describe("start-checkout", () => {
     expect.hasAssertions()
     signedIn(ownedLicense(LICENSE_STATUS.REVOKED))
 
-    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.CORE })).resolves.toEqual({
+    await expect(executeMutation(startCheckoutMutation, { locale: "en-US", tier: LICENSE_TIER.CORE })).resolves.toEqual({
       url: CHECKOUT_URL,
     })
 
     expect(checkoutMock).toHaveBeenCalledOnce()
   })
 
-  it("refuses a tier this app does not sell", () => {
+  it("refuses a tier this app does not sell and a language it does not speak", () => {
     expect.hasAssertions()
     signedIn()
 
-    expect(licenseZodSchemas.startCheckout.safeParse({ tier: "enterprise" }).success).toBe(false)
+    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", tier: "enterprise" }).success).toBe(false)
+    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "xx-XX", tier: LICENSE_TIER.CORE }).success).toBe(false)
     expect(checkoutMock).not.toHaveBeenCalled()
   })
 
@@ -122,6 +131,8 @@ describe("start-checkout", () => {
     signedIn()
     getSessionMock.mockResolvedValue(JSON_NULL)
 
-    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.CORE })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
+    await expect(executeMutation(startCheckoutMutation, { locale: "en-US", tier: LICENSE_TIER.CORE })).rejects.toThrow(
+      ERROR_CODES.UNAUTHORIZED,
+    )
   })
 })

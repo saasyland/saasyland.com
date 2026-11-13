@@ -10,9 +10,22 @@ import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current
 import { buttonVariants } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const INSTALL_COMMAND = "npx saasyland@latest init"
+
+const CHANGE_TIER_TAGS = {
+  email: CONTACT_EMAIL,
+  mail: (chunks: ReactNode) => (
+    <a
+      className="underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      href={`mailto:${CONTACT_EMAIL}`}
+    >
+      {chunks}
+    </a>
+  ),
+}
 
 const AGREEMENT_TAGS = {
   licence: (chunks: ReactNode) => (
@@ -26,7 +39,9 @@ const AGREEMENT_TAGS = {
 }
 
 export const LicenseCard = (): JSX.Element | undefined => {
+  const tTier = useTranslations("components.custom.pricing")
   const t = useTranslations("pages.license")
+
   const { license } = useSuspenseQuery(currentLicenseQuery).data
 
   if (license === undefined) {
@@ -37,7 +52,7 @@ export const LicenseCard = (): JSX.Element | undefined => {
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2>{t(`tier.${license.tier}`)}</h2>
+          <h2>{tTier(`tiers.${license.tier}.name`)}</h2>
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -53,10 +68,11 @@ export const LicenseCard = (): JSX.Element | undefined => {
           {INSTALL_COMMAND}
         </code>
         <p className="text-xs leading-relaxed text-muted-foreground">{t.rich("agreement", AGREEMENT_TAGS)}</p>
-        <div>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           <a className={buttonVariants({ size: "sm", variant: "outline" })} href={ROUTES.API_AUTH_CUSTOMER_PORTAL}>
             {t("manage")}
           </a>
+          <p className="text-xs text-muted-foreground">{t.rich("changeTier", CHANGE_TIER_TAGS)}</p>
         </div>
       </CardContent>
     </Card>

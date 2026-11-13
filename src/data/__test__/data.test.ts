@@ -22,7 +22,7 @@ it("provides translated pricing tiers in every supported locale", () => {
   for (const locale of I18N.SUPPORTED_LOCALES) {
     const messages = getTestMessages(locale)
     for (const tier of TIERS) {
-      expect(messages).toHaveProperty(["pages", "landing", "pricing", "tiers", tier, "name"], expect.stringMatching(/\S/u))
+      expect(messages).toHaveProperty(["components", "custom", "pricing", "tiers", tier, "name"], expect.stringMatching(/\S/u))
     }
   }
 })

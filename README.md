@@ -206,7 +206,7 @@ Routes coordinate loading and rendering. Business operations live in table modul
 
 A route file only composes its page: it defines the `<Name>Page` or `<Name>Layout` component, `const NAMESPACE` (page routes) or `const NAMESPACES` (layout routes), a loader that runs metadata, message and data loading in one `Promise.all`, and `head: pageHead(ROUTES.X)`. Widgets, dialogs, forms, and table columns live in their own files under `presentation/components/custom`, one per file, and read their own translations and data instead of receiving labels as props. Forms follow the shadcn TanStack Form pattern with the module's Zod schema; tables use the generic `DataTable` with columns defined in an `{entity}-columns.tsx` file. Email templates contain markup only; the use case that sends an email loads its messages and renders the template.
 
-Validate inputs at the server boundary and authorize protected functions themselves, in addition to page guards. Query and mutation keys are readonly tuples owned by the feature's `*.constants.ts`; include inputs that change the result in the query key. Reuse exported options for cache access, and invalidate only the data a mutation changes. Application documentation lives in [`content/docs/`](content/docs), including the [architecture guides](content/docs/architecture).
+Validate inputs at the server boundary and authorize protected functions themselves, in addition to page guards. Query and mutation keys are readonly tuples owned by the feature's `*.constants.ts`; include inputs that change the result in the query key. Domain values such as statuses, kinds, tiers, roles and provider IDs are named once in a constant object (`PRODUCT_STATUS`, `LICENSE_TIER`, `AUTH_PROVIDER`) in the owning module's or integration's `*.constants.ts`, and code, tests and e2e data import it instead of repeating the string. Reuse exported options for cache access, and invalidate only the data a mutation changes. Application documentation lives in [`content/docs/`](content/docs), including the [architecture guides](content/docs/architecture).
 
 Authentication entry points are in [`src/integrations/better-auth/`](src/integrations/better-auth):
 
@@ -297,7 +297,7 @@ Create separate production resources with `saasyland_com_production`, `bunx wran
 
 ### Migrations
 
-Module schemas are collected by [`drizzle.schemas.ts`](src/integrations/drizzle-orm/drizzle.schemas.ts). Generate migrations with:
+Module schemas are collected by [`drizzle.schemas.ts`](src/integrations/drizzle-orm/drizzle.schemas.ts), and every table with `createdAt` and `updatedAt` spreads them from `timestamps()` in [`drizzle.columns.ts`](src/integrations/drizzle-orm/drizzle.columns.ts). Generate migrations with:
 
 ```sh
 bun run db:generate

@@ -7,37 +7,47 @@ description: "Додайте таблицю бази даних зі схемо�
 
 ## Файли
 
-| Файл                       | Вміст                                                                                            |
-| -------------------------- | ------------------------------------------------------------------------------------------------ |
-| `<table>.schema.ts`        | Таблиця Drizzle, індекси, зв'язки та списки значень перелічень                                   |
-| `<table>.zod.ts`           | Одна схема вхідних даних на операцію та схеми `drizzle-zod`, експортовані як `<table>ZodSchemas` |
-| `<table>.constants.ts`     | Кортежі ключів запитів і мутацій та ліміти модуля                                                |
-| `<table>.types.ts`         | Один інтерфейс із типами рядків і типом вхідних даних кожної операції                            |
-| `<table>.utils.ts`         | Необов'язкові чисті допоміжні функції                                                            |
-| `use-cases/<operation>.ts` | Одна серверна функція на файл разом із параметрами запиту чи мутації                             |
-| `__test__/`                | Тести, названі за вихідним файлом, наприклад `category.schema.test.ts` і `category.zod.test.ts`  |
+| Файл                       | Вміст                                                                                                |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`        | Таблиця Drizzle, індекси, зв'язки та кортежі значень перелічень, зібрані з констант                  |
+| `<table>.zod.ts`           | Одна схема вхідних даних на операцію та схеми `drizzle-zod`, експортовані як `<table>ZodSchemas`     |
+| `<table>.constants.ts`     | Іменовані доменні значення, як-от `CATEGORY_KIND`, ліміти колонок і кортежі ключів запитів і мутацій |
+| `<table>.types.ts`         | Один інтерфейс із типами рядків і типом вхідних даних кожної операції                                |
+| `<table>.utils.ts`         | Необов'язкові чисті допоміжні функції                                                                |
+| `use-cases/<operation>.ts` | Одна серверна функція на файл разом із параметрами запиту чи мутації                                 |
+| `__test__/`                | Тести, названі за вихідним файлом, наприклад `category.schema.test.ts` і `category.zod.test.ts`      |
 
 ## 1. Визначте таблицю
 
-```ts
-import { sql } from "drizzle-orm"
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
+Назвіть значення таблиці один раз у `category.constants.ts`. Схема, схеми Zod, сценарії використання, компоненти, тести й дані e2e імпортують їх звідти, а не повторюють рядок на кшталт `"collection"`:
 
-export const CATEGORY_KINDS = ["category", "collection"] as const
+```ts
+export const CATEGORY_NAME_MAX_LENGTH = 255
+
+export const CATEGORY_KIND = {
+  CATEGORY: "category",
+  COLLECTION: "collection",
+} as const
+```
+
+Побудуйте таблицю з цих назв:
+
+```ts
+import { index, sqliteTable, text } from "drizzle-orm/sqlite-core"
+
+import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
+
+import { CATEGORY_KIND, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
+
+export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
 
 export const category = sqliteTable(
   "category",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
-    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default("category"),
-    name: text("name", { length: 255 }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default(CATEGORY_KIND.CATEGORY),
+    name: text("name", { length: CATEGORY_NAME_MAX_LENGTH }).notNull(),
+    ...timestamps(),
   },
   (table) => [index("category_createdAt_idx").on(table.createdAt)],
 )
@@ -45,7 +55,8 @@ export const category = sqliteTable(
 
 - Назви колонок пишуться в snake_case, властивості — у camelCase.
 - Ідентифікатори — це первинні ключі типу `text`, які сценарій вставлення заповнює через `v7()` з `uuid`.
-- Дати — це `integer(..., { mode: "timestamp_ms" })`, булеві значення — `integer(..., { mode: "boolean" })`.
+- `...timestamps()` з `src/integrations/drizzle-orm/drizzle.columns.ts` додає `createdAt` і `updatedAt`: мітки часу в мілісекундах, які за замовчуванням дорівнюють моменту вставлення; `updatedAt` оновлюється під час кожного оновлення. Інші дати — це `integer(..., { mode: "timestamp_ms" })`, булеві значення — `integer(..., { mode: "boolean" })`.
+- Колонка-перелічення отримує кортеж, зібраний з об'єкта констант, а її значенням за замовчуванням є константа на кшталт `CATEGORY_KIND.CATEGORY`, ніколи не рядковий літерал.
 - Зовнішні ключі використовують `.references(() => user.id, { onDelete: "cascade" })`, а `relations(...)` оголошує з'єднання (див. `session.schema.ts`).
 
 ## 2. Зареєструйте схему
@@ -76,11 +87,10 @@ import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
+import { CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
 import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
-
-export const CATEGORY_NAME_MAX_LENGTH = 255
 
 const createCategory = zod.object({
   kind: zod.enum(CATEGORY_KINDS),

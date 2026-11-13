@@ -236,6 +236,14 @@ const renderCourses = async ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      observe = vi.fn()
+      unobserve = vi.fn()
+      disconnect = vi.fn()
+    },
+  )
   player.clear()
   coursePages.clear()
   save.mockImplementation(({ completed, lessonId }) => Promise.resolve({ completed, lessonId }))
@@ -248,6 +256,7 @@ afterEach(() => {
   }
   routers.length = 0
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe("course catalogue", () => {

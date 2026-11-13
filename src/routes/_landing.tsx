@@ -5,6 +5,7 @@ import { Outlet, createFileRoute } from "@tanstack/react-router"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { BackToTop } from "~/src/presentation/components/custom/back-to-top"
 import { Footer } from "~/src/presentation/components/custom/footer"
 import { MarketingPending } from "~/src/presentation/components/custom/marketing-pending"
 import { Navigation } from "~/src/presentation/components/custom/navigation"
@@ -18,6 +19,7 @@ const LandingLayout = (): JSX.Element => (
       <Outlet />
     </main>
     <Footer />
+    <BackToTop />
   </div>
 )
 

@@ -10,10 +10,11 @@ import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
 
 import { cn } from "~/src/lib/cn"
 
+import { BackToTop } from "~/src/presentation/components/custom/back-to-top"
 import { BlogPending } from "~/src/presentation/components/custom/blog/blog-pending"
 import { Footer } from "~/src/presentation/components/custom/footer"
+import { HomeLink } from "~/src/presentation/components/custom/home-link"
 import { PageFrame } from "~/src/presentation/components/custom/page-frame"
-import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
 import docsCss from "~/src/presentation/styles/docs.css?url"
 
@@ -33,9 +34,7 @@ const BlogLayout = (): JSX.Element => {
           aria-label={t("metadata.title")}
           className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-6 px-6 md:px-10"
         >
-          <Link className="rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring" to={ROUTES.HOME}>
-            <Wordmark />
-          </Link>
+          <HomeLink />
 
           <div className="flex items-center gap-5 lg:gap-7">
             <Link className={cn(NAV_LINK_CLASSNAME, "text-muted-foreground")} to={ROUTES.DOCS}>
@@ -58,6 +57,7 @@ const BlogLayout = (): JSX.Element => {
         <Outlet />
       </main>
       <Footer />
+      <BackToTop />
     </div>
   )
 }

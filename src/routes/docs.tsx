@@ -13,6 +13,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
 
+import { BackToTop } from "~/src/presentation/components/custom/back-to-top"
 import { DocsPending } from "~/src/presentation/components/custom/docs-pending"
 import { Github } from "~/src/presentation/components/custom/icons"
 import { LocaleSelect } from "~/src/presentation/components/custom/locale-switcher"
@@ -72,6 +73,7 @@ const DocumentationLayout = (): JSX.Element => {
       <DocsLayout links={LINKS} nav={NAV} sidebar={SIDEBAR} slots={SLOTS} themeSwitch={THEME_SWITCH} tree={tree}>
         <Outlet />
       </DocsLayout>
+      <BackToTop />
     </RootProvider>
   )
 }

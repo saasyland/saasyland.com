@@ -20,6 +20,7 @@ import { createPlayback } from "~/src/modules/video/video.playback"
 import { video } from "~/src/modules/video/video.schema"
 
 const SINGLE_ROW_LIMIT = 1
+const PLAYBACK_STALE_MS = 3_600_000
 
 export const getLessonPlayback = createServerFn({ method: "GET" })
   .middleware([withRequest])
@@ -56,4 +57,5 @@ export const lessonPlaybackQuery = (input: Lesson["getLessonPlayback"]) =>
   queryOptions({
     queryFn: () => getLessonPlayback({ data: input }),
     queryKey: [...LESSON_QUERY_KEYS.PLAYBACK, input.courseSlug, input.lessonSlug],
+    staleTime: PLAYBACK_STALE_MS,
   })

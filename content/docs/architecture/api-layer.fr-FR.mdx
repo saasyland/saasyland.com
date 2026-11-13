@@ -11,6 +11,8 @@ Les opérations propres à l'application sont des fonctions serveur. Les handler
 | `src/routes/api/auth.$.ts` | `/api/auth/*` | GET, POST | Tous les endpoints Better Auth, y compris les callbacks OAuth, la vérification d'e-mail, le portail client Polar et `/api/auth/polar/webhooks` |
 | `src/routes/api/search.ts` | `/api/search` | GET       | La recherche Fumadocs dans la documentation                                                                                                    |
 
+Le Worker répond aussi lui-même à `/media/<expiry>.<signature>/<videoId>/<file>`. Ce n'est pas une route : `src/server.ts` envoie ces requêtes à `serveMedia` (`src/modules/video/video.delivery.ts`) avant le middleware de langue et TanStack Start, et `serveMedia` vérifie la signature puis sert le fichier vidéo depuis le cache des Workers ou le bucket `MEDIA`. Voir [Cloudflare R2](/docs/integrations/cloudflare-r2).
+
 Un handler se déclare avec `server.handlers` dans `createFileRoute`. Il reçoit la `Request` Web et renvoie une `Response` :
 
 ```ts
@@ -28,7 +30,7 @@ export const Route = createFileRoute("/api/auth/$")({
 - N'ajoutez pas d'endpoint REST pour une opération que seule cette application appelle. Écrivez plutôt un cas d'usage avec `createServerFn` : il bénéficie d'une entrée typée, des middlewares et des options de query.
 - Un handler valide lui-même son entrée et vérifie lui-même les permissions. Les middlewares des fonctions serveur (`authorized`, `withRateLimit`) ne s'exécutent pas pour les handlers.
 - Laissez la vérification propre à un fournisseur dans son intégration. Les signatures des webhooks Polar sont vérifiées par le plugin Polar dans Better Auth, et non par un handler personnalisé.
-- Les chemins `/api` ne sont jamais localisés ni prérendus, et le Worker ne leur applique pas sa gestion des locales.
+- Les chemins `/api` et `/media` ne sont jamais localisés ni prérendus, et le Worker ne leur applique pas sa gestion des locales.
 
 ## Pages associées
 

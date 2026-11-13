@@ -9,8 +9,8 @@ export const LOCALIZED_TEXT_MAX_LENGTH = 2000
 export type LocalizedText = Partial<Record<SupportedLocale, string>>
 
 export const localizedTextSchema = zod
-  .partialRecord(localeField, zod.string().trim().max(LOCALIZED_TEXT_MAX_LENGTH))
-  .refine((text) => (text[I18N.DEFAULT_LOCALE] ?? "").length > 0, { message: "defaultLocaleRequired" })
+  .partialRecord(localeField, zod.string().trim().max(LOCALIZED_TEXT_MAX_LENGTH, { message: "textTooLong" }))
+  .refine((text) => (text[I18N.DEFAULT_LOCALE] ?? "").length > 0, { message: "defaultLocaleRequired", path: [I18N.DEFAULT_LOCALE] })
 
 export const localize = (text: LocalizedText, locale: SupportedLocale): string => {
   const translation = text[locale]

@@ -12,5 +12,5 @@ export const SLUG_MAX_LENGTH = 96
 
 export const slugField = zod
   .string()
-  .max(SLUG_MAX_LENGTH)
-  .regex(/^[\da-z]+(?:-[\da-z]+)*$/u)
+  .max(SLUG_MAX_LENGTH, { message: "slugTooLong" })
+  .regex(/^[\da-z]+(?:-[\da-z]+)*$/u, { message: "slugInvalid" })

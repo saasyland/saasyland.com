@@ -18,11 +18,14 @@ import {
 import {
   AdminBlogCreatePending,
   AdminBlogPending,
+  AdminCourseCreatePending,
+  AdminCourseEditorPending,
+  AdminCourseSectionPending,
+  AdminCoursesPending,
   AdminLandingPagePending,
   AdminVideosPending,
 } from "~/src/presentation/components/custom/admin/content-pending"
 import {
-  AdminCourseCreatePending,
   AdminPricingModelsPending,
   AdminProductCreatePending,
   AdminProductsPending,
@@ -49,6 +52,7 @@ describe("admin skeletons", () => {
     ["/admin/analytics", AdminPending, AdminAnalyticsPending],
     ["/admin/products", AdminPending, AdminProductsPending],
     ["/admin/products/create", AdminPending, AdminProductCreatePending],
+    ["/admin/courses", AdminPending, AdminCoursesPending],
     ["/admin/courses/create", AdminPending, AdminCourseCreatePending],
     ["/admin/pricing-models", AdminPending, AdminPricingModelsPending],
     ["/admin/blog", AdminPending, AdminBlogPending],
@@ -66,6 +70,9 @@ describe("admin skeletons", () => {
     ["/ja-JP/admin/users/invitations", AdminUsersPending, AdminUsersInvitationsPending],
     ["/admin/users/roles", AdminUsersPending, AdminUsersRolesPending],
     ["/admin/users/security", AdminUsersPending, AdminUsersSecurityPending],
+    ["/admin/courses", AdminCourseSectionPending, AdminCoursesPending],
+    ["/pl-PL/admin/courses/create", AdminCourseSectionPending, AdminCourseCreatePending],
+    ["/admin/courses/01960000-0000-7000-8000-00000000c001", AdminCourseSectionPending, AdminCourseEditorPending],
   ])("renders the skeleton of the page at %s", (path, Layout, Page) => {
     const page = markupOf(<Page />)
     const { container } = renderWithRouter(<Layout />, { router: createTestRouter(path) })
@@ -89,7 +96,8 @@ describe("admin skeletons", () => {
     ["/admin/analytics", 1],
     ["/admin/products/create", 2],
     ["/pl-PL/admin/users/roles", 2],
-    ["/admin/courses/create", 0],
+    ["/admin/courses/create", 2],
+    ["/admin/unknown/create", 0],
   ])("draws the breadcrumb trail of %s", (path, dividers) => {
     const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter(path) })
 

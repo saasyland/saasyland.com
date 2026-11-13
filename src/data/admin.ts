@@ -3,13 +3,10 @@ import {
   ArrowUpRight,
   BarChart,
   BookOpen,
-  ChevronDown,
-  ChevronRight,
   CircleDollarSign,
   Clapperboard,
   CreditCard,
-  FileBadge2,
-  FileText,
+  GraduationCap,
   Home,
   MonitorSmartphone,
   Package,
@@ -44,6 +41,7 @@ export const ADMIN_SIDEBAR_GROUPS = [
   {
     items: [
       { icon: BookOpen, titleKey: "blog", url: ROUTES.ADMIN_BLOG },
+      { icon: GraduationCap, titleKey: "courses", url: ROUTES.ADMIN_COURSES },
       { icon: Clapperboard, titleKey: "videos", url: ROUTES.ADMIN_VIDEOS },
       { icon: MonitorSmartphone, titleKey: "landingPage", url: ROUTES.ADMIN_LANDING_PAGE },
     ],
@@ -224,24 +222,7 @@ export const ADMIN_ANALYTICS_Y_AXIS_VALUES = Array.from(
   (_unused, index) => AXIS_MAX - index * AXIS_STEP,
 )
 
-export const ADMIN_PRODUCT_TABS = ["all", "onetime", "subscriptions", "categories", "collections", "drafts", "courses"] as const
-
-export const ADMIN_COURSE_CURRICULUM_SECTIONS = [
-  {
-    icon: ChevronDown,
-    id: "gettingStartedSection",
-    lessons: [
-      { icon: FileText, id: "welcomeLesson" },
-      { icon: FileBadge2, id: "setupLesson" },
-    ],
-  },
-  { icon: ChevronRight, id: "coreConceptsSection", lessons: [] },
-] as const
-
-export const ADMIN_COURSE_STATUS_TOGGLES = [
-  { defaultSelected: true, id: "publish" },
-  { defaultSelected: false, id: "certificate" },
-] as const
+export const ADMIN_PRODUCT_TABS = ["all", "onetime", "subscriptions", "categories", "collections", "drafts"] as const
 
 export const ADMIN_PRICING_STATS = [
   { icon: Wallet, id: "monthlyRecurring", value: "$12,450" },

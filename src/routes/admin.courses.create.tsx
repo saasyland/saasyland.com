@@ -1,7 +1,6 @@
 import type { JSX } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
-import { CheckCircle } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
@@ -9,36 +8,21 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { pageHead } from "~/src/lib/seo"
 
-import { Button } from "~/src/presentation/components/shadcn/button"
-
-import { CourseDetails } from "~/src/presentation/components/custom/admin/courses/details"
-import { CourseSidebar } from "~/src/presentation/components/custom/admin/courses/sidebar"
-import { AdminCourseCreatePending } from "~/src/presentation/components/custom/admin/offerings-pending"
+import { AdminCourseCreatePending } from "~/src/presentation/components/custom/admin/content-pending"
+import { CourseForm } from "~/src/presentation/components/custom/admin/courses/course-form"
 
 import { ROUTES } from "~/src/routes"
 
-const CoursesCreatePage = (): JSX.Element => {
+const CourseCreatePage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses.create")
 
   return (
-    <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-statement font-semibold text-foreground">{t("metadata.title")}</h1>
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" className="px-3">
-            {t("actions.cancel")}
-          </Button>
-          <Button className="gap-2 px-4">
-            <CheckCircle className="size-4" />
-            {t("actions.save")}
-          </Button>
-        </div>
+    <div className="flex w-full max-w-3xl animate-in flex-col space-y-8 duration-500 fade-in-50">
+      <div>
+        <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
-
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3 lg:gap-8">
-        <CourseDetails />
-        <CourseSidebar />
-      </div>
+      <CourseForm />
     </div>
   )
 }
@@ -46,7 +30,7 @@ const CoursesCreatePage = (): JSX.Element => {
 const NAMESPACE = "pages.admin.courses.create"
 
 export const Route = createFileRoute("/admin/courses/create")({
-  component: CoursesCreatePage,
+  component: CourseCreatePage,
   head: pageHead(ROUTES.ADMIN_COURSES_CREATE),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()

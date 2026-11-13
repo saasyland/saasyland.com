@@ -206,7 +206,7 @@ Routes coordinate loading and rendering. Business operations live in table modul
 
 A route file only composes its page: it defines the `<Name>Page` or `<Name>Layout` component, `const NAMESPACE` (page routes) or `const NAMESPACES` (layout routes), a loader that runs metadata, message and data loading in one `Promise.all`, and `head: pageHead(ROUTES.X)`. Widgets, dialogs, forms, and table columns live in their own files under `presentation/components/custom`, one per file, and read their own translations and data instead of receiving labels as props. Forms follow the shadcn TanStack Form pattern with the module's Zod schema; tables use the generic `DataTable` with columns defined in an `{entity}-columns.tsx` file. Email templates contain markup only; the use case that sends an email loads its messages and renders the template.
 
-Validate inputs at the server boundary and authorize protected functions themselves, in addition to page guards. Query and mutation keys are readonly tuples owned by the feature's `*.constants.ts`; include inputs that change the result in the query key. Reuse exported options for cache access, and invalidate only the data a mutation changes. Application documentation lives in [`content/docs/`](content/docs), including the [architecture guides](content/docs/architecture).
+Validate inputs at the server boundary and authorize protected functions themselves, in addition to page guards. Query and mutation keys are readonly tuples owned by the feature's `*.constants.ts`; include inputs that change the result in the query key. Reuse exported options for cache access, and invalidate only the data a mutation changes. Application documentation lives in [`content/docs/`](content/docs), including the [architecture guides](content/docs/architecture) and the [conventions](content/docs/conventions/index.en-US.mdx), the coding standard every change follows. Coding agents start from [`AGENTS.md`](AGENTS.md).
 
 Authentication entry points are in [`src/integrations/better-auth/`](src/integrations/better-auth):
 
@@ -430,13 +430,14 @@ Normal application builds serve the checked-in assets without installing Remotio
 
 ## Contributing
 
-Follow the [architecture guides](content/docs/architecture) and use the existing [theme and typography definitions](src/presentation/styles). Keep tests beside their owner, and update localized content and documentation under `content/docs/` when changing user-facing behavior.
+Follow the [conventions](content/docs/conventions/index.en-US.mdx) and the [architecture guides](content/docs/architecture), and use the existing [theme and typography definitions](src/presentation/styles). Keep tests beside their owner, and update localized content and documentation under `content/docs/` when changing user-facing behavior.
 
 Before opening a pull request, run the checks relevant to your change. The application verification sequence is:
 
 ```sh
 bun run check
 bun run test:coverage
+bun run build:test
 bun run test:e2e:install
 bun run test:e2e:pr
 ```

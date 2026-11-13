@@ -1,7 +1,8 @@
-import { relations, sql } from "drizzle-orm"
+import { relations } from "drizzle-orm"
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { DEFAULT_ROLE_CODE, ROLE_VALUES } from "~/src/integrations/better-auth/auth.access"
+import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { TIMEZONES } from "~/src/modules/_core/constants/timezone"
@@ -19,9 +20,6 @@ export const user = sqliteTable(
     banExpires: integer("ban_expires", { mode: "timestamp_ms" }),
     banReason: text("ban_reason", { length: 255 }),
     banned: integer("banned", { mode: "boolean" }).default(false).notNull(),
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     email: text("email", { length: 64 }).notNull().unique(),
     emailVerified: integer("email_verified", { mode: "boolean" }).default(false).notNull(),
     id: text("id").primaryKey(),
@@ -30,14 +28,7 @@ export const user = sqliteTable(
     role: text("role", { enum: ROLE_VALUES }).default(DEFAULT_ROLE_CODE).notNull(),
     timezone: text("timezone", { enum: TIMEZONE_CODES }).default(I18N.DEFAULT_TIMEZONE).notNull(),
     twoFactorEnabled: integer("two_factor_enabled", { mode: "boolean" }).default(false).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(
-        () =>
-          /* @__PURE__ */
-          new Date(),
-      )
-      .notNull(),
+    ...timestamps(),
   },
   (table) => [index("user_createdAt_idx").on(table.createdAt), index("user_role_createdAt_idx").on(table.role, table.createdAt)],
 )

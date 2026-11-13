@@ -19,17 +19,18 @@ type AuthApi = typeof auth.api
 
 const getSessionMock = vi.hoisted(() => vi.fn<AuthApi["getSession"]>())
 
-const dbMocks = vi.hoisted(() => {
+const dbMocks = await vi.hoisted(async () => {
+  const { CATEGORY_ICON, CATEGORY_KIND, CATEGORY_VISIBILITY } = await import("~/src/modules/category/category.constants")
   const updatedAt = new Date("2026-07-24T12:00:00.000Z")
   const dbRow = {
     createdAt: updatedAt,
     description: "Core subscription tiers",
-    icon: "FolderOpen" as const,
+    icon: CATEGORY_ICON.FOLDER_OPEN,
     id: "01900000-0000-7000-8000-000000000002",
-    kind: "category" as const,
+    kind: CATEGORY_KIND.CATEGORY,
     name: "Updated SaaS Plans",
     updatedAt,
-    visibility: "public" as const,
+    visibility: CATEGORY_VISIBILITY.PUBLIC,
   }
 
   const returning = vi.fn<() => Promise<(typeof dbRow)[]>>().mockResolvedValue([dbRow])

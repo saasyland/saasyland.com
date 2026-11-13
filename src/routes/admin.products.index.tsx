@@ -8,6 +8,7 @@ import * as zod from "zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { CATEGORY_KIND } from "~/src/modules/category/category.constants"
 import { getCategoriesPageQuery, getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import { getProductsPageQuery, getProductsQuery } from "~/src/modules/product/use-cases/get-products"
@@ -80,7 +81,11 @@ const ProductsPage = (): JSX.Element => {
               key={tab}
               options={{
                 query: ({ pageIndex, pageSize }) =>
-                  getCategoriesPageQuery({ kind: tab === "collections" ? "collection" : "category", pageIndex, pageSize }),
+                  getCategoriesPageQuery({
+                    kind: tab === "collections" ? CATEGORY_KIND.COLLECTION : CATEGORY_KIND.CATEGORY,
+                    pageIndex,
+                    pageSize,
+                  }),
               }}
             />
           )}

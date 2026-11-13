@@ -5,7 +5,7 @@ import { v7 } from "uuid"
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { CATEGORY_MUTATION_KEYS } from "~/src/modules/category/category.constants"
+import { CATEGORY_ICON, CATEGORY_MUTATION_KEYS, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import { category } from "~/src/modules/category/category.schema"
 import type { Category } from "~/src/modules/category/category.types"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
@@ -18,11 +18,11 @@ export const createCategory = createServerFn({ method: "POST" })
       .insert(category)
       .values({
         description: data.description ?? "",
-        icon: data.icon ?? "FolderOpen",
+        icon: data.icon ?? CATEGORY_ICON.FOLDER_OPEN,
         id: v7(),
         kind: data.kind,
         name: data.name,
-        visibility: data.visibility ?? "public",
+        visibility: data.visibility ?? CATEGORY_VISIBILITY.PUBLIC,
       })
       .returning()
       .get(),

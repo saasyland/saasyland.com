@@ -10,6 +10,7 @@ import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.sess
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
+import { CATEGORY_ICON, CATEGORY_KIND, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import type { Category } from "~/src/modules/category/category.types"
 import { getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
@@ -56,12 +57,12 @@ export const adminProduct = (overrides: Partial<Product["select"]> = {}): Produc
 export const adminCategory = (overrides: Partial<Category["select"]> = {}): Category["select"] => ({
   createdAt: fixtureDate,
   description: "Starter projects",
-  icon: "FolderOpen",
+  icon: CATEGORY_ICON.FOLDER_OPEN,
   id: "starters",
-  kind: "category",
+  kind: CATEGORY_KIND.CATEGORY,
   name: "Starters",
   updatedAt: fixtureDate,
-  visibility: "public",
+  visibility: CATEGORY_VISIBILITY.PUBLIC,
   ...overrides,
 })
 

@@ -1,0 +1,124 @@
+---
+title: "Серверні функції та помилки"
+description: "Єдина форма серверної функції: middleware, валідація вхідних даних через інтерфейс модуля, дозволи, належність даних, коди помилок і значення, що повертаються."
+---
+
+Кожна операція, яку може викликати браузер, — це серверна функція TanStack Start, побудована через `createServerFn`. Серверна функція — це ендпоінт у публічному інтернеті, тож вона сама виконує авторизацію та валідацію; guard маршруту лише вирішує, що показати відвідувачу.
+
+## Форма
+
+`src/modules/course/use-cases/update-course.ts`:
+
+```ts
+export const updateCourse = createServerFn({ method: "POST" })
+  .middleware([authorized({ course: ["update"] })])
+  .validator((input: Course["updateCourse"]) => courseZodSchemas.updateCourse.parse(input))
+  .handler(async ({ data }) => {
+    const { courseId, ...fields } = data
+    const [row] = await db.update(course).set(fields).where(eq(course.id, courseId)).returning({ id: course.id }).catch(rethrowAsConflict)
+
+    if (row === undefined) {
+      throw new AppError(ERROR_CODES.NOT_FOUND)
+    }
+
+    return row
+  })
+
+export const updateCourseMutation = mutationOptions({
+  mutationFn: (data: Course["updateCourse"]) => updateCourse({ data }),
+  mutationKey: COURSE_MUTATION_KEYS.UPDATE,
+})
+```
+
+Ланцюжок завжди має такий порядок:
+
+1. `createServerFn({ method: "GET" })` для читання, `{ method: "POST" }` для всього, що записує.
+2. `.middleware([...])` з middleware, які потрібні операції; їх описано нижче.
+3. `.validator((input: Module["operation"]) => moduleZodSchemas.operation.parse(input))`, коли функція приймає вхідні дані. Параметр типізовано через [інтерфейс модуля](/docs/conventions/modules), а схема та сама, якою валідує форма.
+4. `.handler(async ({ context, data }) => ...)`.
+
+Той самий файл експортує опції, якими користуються ті, хто викликає функцію: `<name>Mutation`, побудований через `mutationOptions`, або запит, побудований через `queryOptions` (див. [Отримання даних і кешування](/docs/conventions/data-fetching)). Компоненти, loader-и й тести імпортують ці опції, а не саму серверну функцію.
+
+## Middleware
+
+Усі три надходять із `src/integrations/better-auth/auth.middleware.ts`.
+
+| Middleware                                   | Для чого                                                                   | Додає до `context`        |
+| -------------------------------------------- | -------------------------------------------------------------------------- | ------------------------- |
+| `withRequest`                                | Публічні читання, як-от `getCatalogue` і `getCourse`                       | `requestHeaders`          |
+| `authorized()`                               | Усе, що потребує користувача, який увійшов                                 | `requestHeaders` і `auth` |
+| `authorized({ course: ["update"] })`         | Усе, що потребує дозволу                                                   | `requestHeaders` і `auth` |
+| `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` | Операції, що надсилають листи або змінюють облікові дані, як-от реєстрація | `requestHeaders`          |
+| `withRateLimit(kind, RATE_LIMITS.TOKEN)`     | Публічні операції, що використовують токен із посилання                    | `requestHeaders`          |
+
+Чутлива операція користувача, який увійшов, поєднує обидва види: `change-password.ts` використовує `[withRateLimit("change-password", RATE_LIMITS.SENSITIVE), authorized()]`. `kind` називає операцію в kebab-case і є ключем її лічильника.
+
+`authorized` і `withRateLimit` спершу запускають `withRequest`, тож кожна серверна функція отримує однакову обробку помилок.
+
+## Дозволи
+
+Декларації дозволів оголошуються один раз, в `APP_STATEMENTS` у `src/integrations/better-auth/auth.access.ts`:
+
+```ts
+const APP_STATEMENTS = {
+  admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  course: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
+  settings: ["manage"],
+  video: ["read", "delete"],
+} as const
+```
+
+- Новий ресурс додає сюди свою декларацію, а роль адміністратора отримує її через `ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements })`.
+- Серверні функції передають декларацію до `authorized`. Інший серверний код перевіряє `hasPermission({ permission, role })` на місці, як це робить `resolveViewer` у `lesson.viewer.ts` для доступу персоналу. Жодної обгортки на кшталт `canEditCourses()` навколо цього немає.
+- Дозвіл, який перевіряє серверна функція, вказано в [матриці дозволів](/docs/reference/permissions).
+
+## Належність даних
+
+Операція з власними даними того, хто викликає, бере користувача із сесії, а не з вхідних даних. `save-lesson-progress.ts` записує `userId: context.auth.user.id`, а `get-current-license.ts` читає `getLicense(context.auth.user.id)`. Вхідні дані з ідентифікатором користувача означають адміністративну операцію, яка перевіряє дозвіл.
+
+## Помилки
+
+Серверний код викидає `AppError` з кодом з `ERROR_CODES` у `src/modules/_core/constants/errors.ts`:
+
+| Код                 | Коли                                                                         |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `NOT_FOUND`         | Рядка не існує, зокрема коли оновлення чи видалення не знайшло жодного рядка |
+| `CONFLICT`          | Порушено обмеження унікальності                                              |
+| `UNAUTHORIZED`      | Немає сесії (викидає `authorized`)                                           |
+| `FORBIDDEN`         | Бракує дозволу або доступу                                                   |
+| `VALIDATION`        | Вхідні дані не пройшли схему (відображається з `ZodError`)                   |
+| `TOO_MANY_REQUESTS` | Досягнуто обмеження частоти запитів                                          |
+| `AUTH_API_ERROR`    | Better Auth відхилив виклик; передається ключ повідомлення помилки           |
+| `INTERNAL_ERROR`    | Усе інше; причину логують, але ніколи не надсилають                          |
+
+- Визначайте відсутність рядка за результатом (`const [row] = await ... .returning(...)`, потім `if (row === undefined)`), а не другим запитом.
+- Перетворюйте порушення унікальності на `CONFLICT` через `.catch(rethrowAsConflict)` з `src/integrations/drizzle-orm/drizzle.errors.ts`, як це роблять `create-course.ts` і `update-course.ts`.
+- `withRequest` повторно викидає `AppError` лише з його кодом, перетворює помилки Better Auth і Zod, а все інше логує, перш ніж відповісти `INTERNAL_ERROR`, тож жоден стек викликів чи SQL не потрапляє в браузер.
+- У браузері `useErrorMessage()` з `src/hooks/use-error-message.ts` перетворює будь-яку помилку на перекладений текст `errors.codes.<CODE>` або `auth.errors.<key>`. Форми показують його через `toast.error(errorMessage(error))`.
+- У loader маршруту `.catch(rethrowAsNotFound)` з `src/lib/not-found.ts` перетворює `NOT_FOUND` на сторінку «не знайдено» роутера.
+
+## Значення, що повертаються
+
+- Повертайте те, що використовує той, хто викликає. Мутація повертає ідентифікатор, який вона змінила (`returning({ id: course.id })`), посторінкове читання повертає `{ rows, total }`, а необов’язковий запис обгортається в об’єкт, як-от `{ license }`, щоб дані запиту ніколи не були `undefined`.
+- Надсилайте кілька інструкцій за один обмін із сервером через `db.batch([...])`. D1 виконує пакет як одну транзакцію; саме так `moveCourse` перенумеровує всі позиції одразу, а `getCourses` читає сторінку разом із загальною кількістю.
+- Визначайте мову відображення на сервері, коли дані локалізовано: `getCourse` повертає назви, уже пропущені через `localize(text, locale)`.
+
+## Де розміщуються серверні функції
+
+| Серверна функція                                       | Розміщення                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------------- |
+| Читає або записує таблицю                              | `src/modules/<table>/use-cases/<verb>-<noun>.ts`              |
+| Використовується лише одним маршрутом і не має таблиці | Файл цього маршруту, як у `src/routes/blog.index.tsx`         |
+| Читає зовнішній сервіс або контент, спільна            | `src/lib/<topic>.ts`, як `getStarCount` у `src/lib/github.ts` |
+| Суто серверна, ніколи не викликається з браузера       | Звичайна `async`-функція у файлі, позначеному `server-only`   |
+
+Компоненти ніколи не імпортують `db`, `env` з `cloudflare:workers` чи клієнт постачальника. Вони викликають серверні функції через опції запитів і мутацій.
+
+## Пов’язані сторінки
+
+- [Модулі](/docs/conventions/modules)
+- [Автентифікація та безпека](/docs/architecture/security-model)
+- [Додавання сценарію використання](/docs/guides/add-a-use-case)

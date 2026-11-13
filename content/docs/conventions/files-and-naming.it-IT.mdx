@@ -1,0 +1,119 @@
+---
+title: "File e nomi"
+description: "Dove si trova ogni tipo di codice, come si chiamano file e cartelle e quali strutture di cartelle non sono ammesse."
+---
+
+Ogni file e cartella è in kebab-case. I nomi sono composti anziché annidati: il suffisso dice a cosa serve un file, quindi `src/modules/course/course.constants.ts` sta accanto a `course.schema.ts` invece che dentro una cartella `constants/`. Le eccezioni sono `src/routes`, dove i punti separano i segmenti del percorso, e i file generati come `src/routeTree.gen.ts`.
+
+## Dove va il codice
+
+Decidi dove collocare il nuovo codice in base a ciò che fa, in quest'ordine:
+
+| Il codice                                                                      | Si trova in                                      | Esempio                                            |
+| ------------------------------------------------------------------------------ | ------------------------------------------------ | -------------------------------------------------- |
+| Possiede una tabella del database                                              | `src/modules/<table>/`                           | `src/modules/course/`                              |
+| È una server function che non legge alcuna tabella (un'API esterna, contenuti) | `src/lib/<topic>.ts`, o l'unica route che la usa | `src/lib/github.ts`, `src/routes/blog.index.tsx`   |
+| Configura o adatta una libreria o un servizio di un fornitore                  | `src/integrations/<vendor>/`                     | `src/integrations/polar/polar.config.ts`           |
+| Renderizza la UI                                                               | `src/presentation/components/custom/`            | `custom/admin/courses/course-form.tsx`             |
+| È un hook React usato da più componenti                                        | `src/hooks/use-<name>.ts`                        | `src/hooks/use-error-message.ts`                   |
+| È un provider dell'intera applicazione                                         | `src/providers/<name>-provider.tsx`              | `src/providers/theme-provider.tsx`                 |
+| Sono dati o costanti letti da più file                                         | `src/data/<topic>.ts`                            | `MARKETING_SECTION_IDS` in `src/data/marketing.ts` |
+| È una piccola utility senza un proprietario migliore                           | `src/lib/<name>.ts`                              | `src/lib/search-params.ts`, `src/lib/cn.ts`        |
+| È un codice di errore, un catalogo o un helper condiviso dai moduli            | `src/modules/_core/`                             | `src/modules/_core/constants/errors.ts`            |
+| Collega il runtime dei test                                                    | `src/platform/testing/`                          | `src/platform/testing/mocks/cloudflare.ts`         |
+
+Una costante o un helper usato da un solo file resta in quel file. Si sposta solo quando ne ha bisogno un secondo file.
+
+## Cartelle dei componenti
+
+`src/presentation/components/custom` contiene solo componenti `.tsx`, in cartelle piatte:
+
+- Un componente condiviso tra più aree sta al primo livello: `custom/data-table.tsx`, `custom/newsletter-form.tsx`.
+- Un componente di una sola area sta nella cartella dell'area: `custom/courses/curriculum.tsx`, `custom/auth/sign-in-form.tsx`.
+- Una pagina di amministrazione con più widget ha una cartella propria: `custom/admin/courses/course-form.tsx`, `custom/admin/users/delete-user-dialog.tsx`.
+- `custom/landing-page/` mantiene due cartelle, `components/` e `sections/`.
+
+Un widget, una finestra di dialogo, un form o un insieme di colonne per file. Le colonne delle tabelle sono `<entity>-columns.tsx` (`course-columns.tsx`); gli scheletri sono raggruppati in `<area>-pending.tsx` (`content-pending.tsx`, `courses-pending.tsx`).
+
+Non sono ammessi:
+
+- Sottocartelle `components/`, `constants/`, `hooks/`, `lib/` o `types/` dentro una cartella di componenti.
+- Un file `.ts` accanto ai componenti `.tsx`. I token di animazione si trovano in `src/integrations/motion/motion.tokens.ts`, gli helper dei campi in `src/integrations/tanstack-form/form.fields.ts`.
+- Dividere un componente in `x.tsx` e `x-content.tsx` per caricarne metà in modo lazy, oppure una facciata come un helper `toast` sopra l'API di un fornitore. Importa direttamente il fornitore.
+
+`src/presentation/components/shadcn/` contiene le primitive shadcn (vedi [Componenti e stili](/docs/conventions/components)), `src/presentation/emails/` i template di React Email, `src/presentation/styles/` i fogli di stile, e `src/presentation/branding` e `src/presentation/theme` le costanti di identità e di tema.
+
+## Integrazioni
+
+Una cartella di un fornitore prende il nome dal pacchetto o dal servizio, e i suoi file dal nome breve del fornitore e dall'aspetto che trattano: `<prefix>.<concern>.ts`.
+
+| Suffisso        | Contiene                                     | Esempio                                                       |
+| --------------- | -------------------------------------------- | ------------------------------------------------------------- |
+| `.config.ts`    | Il client configurato                        | `polar/polar.config.ts`, `resend/resend.config.ts`            |
+| `.constants.ts` | Valori derivati dall'ambiente o dal provider | `polar/polar.constants.ts`                                    |
+| `.server.ts`    | Configurazione solo server                   | `better-auth/auth.server.ts`                                  |
+| `.<concern>.ts` | Un singolo aspetto dell'integrazione         | `better-auth/auth.middleware.ts`, `use-intl/i18n.messages.ts` |
+
+Il prefisso è il nome breve e non il nome della cartella, ed è per questo che `better-auth` contiene file `auth.*`, `use-intl` contiene `i18n.*` e `tanstack-form` contiene `form.*`.
+
+## Moduli
+
+Una cartella di modulo prende il nome dalla sua tabella, e ogni file ripete quel nome. L'elenco completo dei tipi di file e di cosa può contenere ciascuno si trova in [Moduli](/docs/conventions/modules).
+
+| Pattern                      | Esempio                                              |
+| ---------------------------- | ---------------------------------------------------- |
+| `<table>.schema.ts`          | `course/course.schema.ts`                            |
+| `<table>.zod.ts`             | `course/course.zod.ts`                               |
+| `<table>.constants.ts`       | `course/course.constants.ts`                         |
+| `<table>.types.ts`           | `course/course.types.ts`                             |
+| `<table>.utils.ts`           | `course/course.utils.ts`                             |
+| `<table>.<concern>.ts`       | `lesson/lesson.access.ts`, `video/video.delivery.ts` |
+| `use-cases/<verb>-<noun>.ts` | `course/use-cases/move-course.ts`                    |
+
+## Route
+
+`src/routes` usa le route basate su file piatte di TanStack Start, quindi il nome di un file si legge come il suo URL.
+
+| Pattern                   | Significato                                   | Esempio                          |
+| ------------------------- | --------------------------------------------- | -------------------------------- |
+| `<segment>.<segment>.tsx` | Percorso annidato                             | `admin.courses.create.tsx`       |
+| `<path>.tsx`              | Layout di tutto ciò che sta sotto il percorso | `admin.courses.tsx`              |
+| `<path>.index.tsx`        | La pagina del percorso stesso                 | `admin.courses.index.tsx`        |
+| `_<name>.tsx`             | Layout senza percorso                         | `_landing.tsx`                   |
+| `$<param>`                | Segmento dinamico                             | `admin.courses.$courseId.tsx`    |
+| `$.tsx`                   | Route splat                                   | `docs.$.tsx`                     |
+| `__root.tsx`              | Route radice                                  | `__root.tsx`                     |
+| `api/<name>.ts`           | Handler HTTP                                  | `api/auth.$.ts`, `api/search.ts` |
+
+I file di route non contengono un segmento per il locale; il router aggiunge e rimuove il prefisso del locale.
+
+## Test
+
+I test si trovano in una cartella `__test__` accanto al codice che coprono, e il suffisso sceglie il progetto Vitest:
+
+| Pattern                               | Progetto      |
+| ------------------------------------- | ------------- |
+| `__test__/<file>.test.ts`             | `node`        |
+| `__test__/<file>.integration.test.ts` | `integration` |
+| `__test__/<file>.component.test.tsx`  | `component`   |
+
+Un test prende il nome dal file che copre, eventualmente con un argomento: `course.schema.test.ts`, `rate-limit.client-address.test.ts`. I test dei casi d'uso sono raggruppati per modulo e per destinatari: `use-cases/__test__/course-use-cases.test.ts` e `course-admin-use-cases.test.ts`. Le fixture stanno in `__test__/fixtures/` accanto al codice a cui appartengono (`src/modules/course/__test__/fixtures/catalogue.ts`). I test delle route si trovano in `src/routes/__test__/`, con un nome per area: `admin-course-routes.component.test.tsx`, `course-loaders.test.ts`.
+
+I test nel browser si trovano nella radice del repository: le spec in `e2e/specs/<flow>.spec.ts`, i page object in `e2e/pages/<name>-page.ts`, i dati di seed in `e2e/data/` e le fixture di Playwright in `e2e/fixtures/`.
+
+## Contenuti, messaggi e database
+
+| Pattern                                                          | Significato                                                                    |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `messages/<locale>/<namespace>.json`                             | Un namespace di traduzione: `pages.admin.courses.json`                         |
+| `content/docs/<path>/<page>.<locale>.mdx`                        | Una pagina della documentazione in un locale                                   |
+| `content/docs/<path>/meta.<locale>.json`                         | Ordine di navigazione e titolo di quella cartella                              |
+| `content/blog/<slug>.<locale>.mdx`                               | Un articolo del blog in un locale                                              |
+| `src/integrations/drizzle-orm/migrations/<timestamp>_<name>.sql` | Una migrazione, generata da `bun run db:generate`                              |
+| `scripts/<name>.ts`                                              | Uno script del repository eseguito con Bun: `check-content.ts`, `seed-test.ts` |
+
+## Pagine correlate
+
+- [Struttura delle directory](/docs/architecture/directory-structure)
+- [Moduli](/docs/conventions/modules)
+- [File di route](/docs/conventions/routes)

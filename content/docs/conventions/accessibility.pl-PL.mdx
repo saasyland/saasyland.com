@@ -1,0 +1,47 @@
+---
+title: "Dostępność"
+description: "Każda strona spełnia WCAG 2.2 AA w obu motywach, co sprawdza axe w zestawie testów przeglądarkowych, a do tego obowiązują reguły dotyczące klawiatury i czytników ekranu, których axe nie widzi."
+---
+
+Każda strona publiczna, wpis na blogu oraz każda strona obszarów roboczych administratora i klienta spełniają WCAG 2.2 na poziomie AA w jasnym i ciemnym motywie. To wymóg wydania, a nie cel: `e2e/specs/accessibility.spec.ts` skanuje je przy każdym pull requeście i kończy się błędem przy każdym naruszeniu.
+
+## Skan
+
+Specyfikacja uruchamia axe-core przez `@axe-core/playwright` z regułami WCAG 2.0, 2.1 i 2.2 na poziomach A i AA oraz dobrymi praktykami axe:
+
+```ts
+const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]
+const COLOR_SCHEMES = ["light", "dark"] as const
+```
+
+Przed skanem przewija całą stronę, aby widoczne były sekcje pojawiające się przy przewijaniu, i czeka na zakończenie skończonych animacji, aby kontrast był mierzony na ustabilizowanej stronie. Nową stronę dodaje się do `PUBLIC_PAGES` lub `WORKSPACE_PAGES` w tej specyfikacji w tej samej zmianie, która dodaje trasę. Uruchamiaj ją razem z resztą zestawu testów:
+
+```sh
+bun run test:e2e:pr
+```
+
+## Czego axe nie sprawdzi
+
+axe sprawdza znaczniki, a nie znaczenie ani przepływ klawiatury. Resztę obejmują poniższe reguły, których pilnuje przegląd kodu:
+
+- **Punkty orientacyjne i nazwy.** Każdy obszar roboczy ma opisaną nawigację (`<nav aria-label={t("navigationLabel")}>` w `admin-sidebar.tsx`), a paski boczne, panel boczny uwierzytelniania i spis treści dokumentacji są punktami orientacyjnymi.
+- **Prawdziwa semantyka.** Zakładki mają panele zakładek; zestaw opcji, który nie przełącza paneli, jest grupą przełączników, a nie listą zakładek. Link, który wygląda jak przycisk, to `LinkButton`, nigdy link owinięty wokół przycisku.
+- **Etykiety przy każdej kontrolce.** Pola wejściowe mają `FieldLabel`; etykieta ukryta wizualnie używa `className="sr-only"`, tak jak pole newslettera. Przyciski złożone wyłącznie z ikony mają `aria-label`, który nazywa ich cel, np. `t("actions.delete", { title })`, a widoczny tekst kontrolki jest częścią jej dostępnej nazwy.
+- **Błędy ogłaszane razem z polem.** Każde pole wejściowe ustawia `aria-describedby` na ID swojego błędu oraz `aria-invalid`, gdy jest nieprawidłowe; element błędu istnieje tylko wtedy, gdy występuje błąd. Zobacz [Formularze i tabele](/docs/conventions/forms-and-tables).
+- **Treść dekoracyjna jest ukryta.** Ikony obok tekstu dostają `aria-hidden`, podobnie jak czysto wizualne kropki, separatory i zapętlone filmy bez etykiety.
+- **Nagłówki po kolei.** Każda strona ma jeden `h1`; tytuł karty, który rozpoczyna sekcję, renderuje `h2` wewnątrz `CardTitle`, tak jak w `course-form.tsx`.
+- **Najpierw klawiatura.** Wszystko, do czego można dotrzeć myszą, jest dostępne z klawiatury, także akcje pojawiające się po najechaniu, które pojawiają się również przy fokusie. Obramowania fokusu używają `data-focus-visible:` na komponentach React Aria; zobacz [Komponenty i stylowanie](/docs/conventions/components).
+- **Stany zajętości.** Szkielety ustawiają `aria-busy="true"` na swoim elemencie głównym, a oczekujące przyciski używają stanu `isPending` z `Button` shadcn.
+- **Kolumny mają nazwy.** Kolumna akcji tabeli używa `DataTableActionsHeader`, nagłówka widocznego tylko dla czytników ekranu.
+- **Język jest zadeklarowany.** `<html lang>` odpowiada językowi trasy, a pole na tekst w innym języku ustawia `lang={locale}`, tak jak zlokalizowane pola kursów.
+
+## Kontrast i ruch
+
+- Tekst używa tokenów kolorów motywu. `text-muted-foreground` spełnia współczynnik 4.5:1 w obu motywach; jaśniejsze warianty, takie jak `text-muted-foreground/60`, są przeznaczone wyłącznie dla wyłączonych chipów, ikon dekoracyjnych i separatorów.
+- Ruch respektuje ustawienia czytelnika: `MotionConfig reducedMotion="user"` w `MotionProvider`, warianty `motion-reduce:` w przejściach, `scroll-behavior: auto` przy `prefers-reduced-motion`, a filmy na stronie głównej nie odtwarzają się automatycznie u czytelników, którzy proszą o ograniczenie ruchu (`concept-loop.tsx`).
+
+## Powiązane strony
+
+- [Playwright](/docs/tooling/playwright)
+- [Komponenty i stylowanie](/docs/conventions/components)
+- [Formularze i tabele](/docs/conventions/forms-and-tables)

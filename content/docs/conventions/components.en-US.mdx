@@ -1,0 +1,85 @@
+---
+title: "Components and styling"
+description: "Minimal abstractions, components that read their own data and translations, cn object syntax, shadcn primitives, focus rings and provider placement."
+---
+
+Components are where code most easily grows layers nobody asked for. The rules below keep each screen readable from one file: you open the component and see the data it reads, the text it shows and the classes it applies.
+
+## Minimal abstractions
+
+- **One obvious mechanism per concern.** Call the library directly: `toast.error(...)` from `sonner`, `hasPermission(...)` from `auth.access.ts`, the shadcn `Button`. Do not add a facade, a factory, a provider or a wrapper component that only forwards props or renames them.
+- **Abstract on the third use, not the first.** A helper earns its place when at least three call sites share logic that is not trivial, and it lives in the one file that owns the concern. `course-fields.tsx` exists because the course form, the chapter dialog and the lesson dialog render the same localized text field with the same validation display.
+- **Delete before you extend.** When a mechanism no longer pulls its weight, remove it rather than adding options to it. Speculative options, props and parameters "for later" are not added.
+- **No cosmetic machinery.** Constants or helpers whose only job is to look tidy, such as a builder for one emoji or a `className` prop for one call site, are not added.
+
+## Components read their own data
+
+A component gets its text and data itself:
+
+- translations with `useTranslations`, scoped to its own namespace (see [Translations and content](/docs/conventions/translations));
+- query data with `useSuspenseQuery(options)`, which the route loader prefetched;
+- route data with `Route.useParams()` in the route file, or `getRouteApi("/blog/$")` in a component file, as `post-meta.tsx` does.
+
+Props carry only what the parent alone knows: the record a dialog edits (`chapter`), the ID a form belongs to (`courseId`), a trigger element, `isOpen` and `onOpenChange`. A component that can read a label, a list or a query result itself does not receive it as a prop, and a value never travels through a component that does not use it. Rich-text tag maps for `t.rich` are module-level constants next to the component that uses them, never objects created during render.
+
+## Shape of a component file
+
+`src/presentation/components/custom/admin/courses/chapter-dialog.tsx` is a typical file:
+
+```tsx
+interface ChapterDialogProps {
+  readonly chapter?: { readonly id: string; readonly title: LocalizedText }
+  readonly courseId: string
+  readonly trigger: ReactNode
+}
+
+export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps): JSX.Element => {
+  const t = useTranslations("pages.admin.courses.chapter")
+  const queryClient = useQueryClient()
+  const errorMessage = useErrorMessage()
+  const [isOpen, setOpen] = useState(false)
+```
+
+- One exported component per file, declared as `export const Name = (...): JSX.Element =>`. A component that can render nothing returns `JSX.Element | undefined`.
+- Props are `readonly`, in a `<Name>Props` interface above the component, or inline when there is a single prop.
+- Hooks come first, in the order and spacing described in [Code style](/docs/conventions/code-style), then local callbacks, then the JSX.
+- Choices between two pieces of JSX use `&&` pairs or an early return, never a multi-line ternary.
+
+## Class names
+
+Styling is Tailwind utilities in `className`. Conditional classes go through `cn` from `~/src/lib/cn` with the object syntax, never a ternary inside the call:
+
+```tsx
+className={cn("flex items-center gap-4 border-b transition-colors duration-200 ease-exp", {
+  "border-border focus-within:border-foreground": !isInvalid,
+  "border-destructive": isInvalid,
+})}
+```
+
+A two-way choice is two entries, the second negated, as in `newsletter-form.tsx` above. Keys can be computed: `course-columns.tsx` writes `[ADMIN_STATUS_BADGE_CLASSES.emerald]: status === COURSE_STATUS.PUBLISHED`. A long class string used more than once in a file becomes a constant in that file, such as `NAV_LINK_CLASSNAME` in `src/routes/courses.tsx`.
+
+`~/src/lib/cn` is required, not a preference. It is `createCn` built from `src/lib/cn.config.ts` and the tables `bun run generate:cn` writes to `.source/cn-tables.ts`. The config registers the project's type tokens (`text-body`, `text-body-sm`, `text-label`, `text-spec`, `text-lead`, `text-title`, `text-statement`, `text-price` and the `text-headline-*` and `text-display-*` sizes) as font sizes. A plain `cn` would read them as colours and drop one of two classes it believes conflict: `cn("text-body-sm text-muted-foreground", { "text-foreground": true })` would lose the font size. Use those tokens for type instead of raw sizes, and theme colours (`text-foreground`, `text-muted-foreground`, `bg-card`) instead of fixed ones.
+
+## shadcn primitives
+
+`src/presentation/components/shadcn/` holds the shadcn/ui primitives of the `aria-lyra` style named in `components.json`, built on React Aria Components. Screens import them directly; there is no wrapper layer. Add a primitive with the shadcn CLI, and change a primitive's file only to fix the primitive itself, such as its focus or accessibility behaviour, never for one screen's look. React Aria props differ from DOM habits: `onPress`, `isDisabled`, `isOpen` with `onOpenChange`, `isSelected`. See [Shadcn components](/docs/ui/shadcn-components) for the full table and the `@source not` list in `globals.css`.
+
+## Focus rings
+
+React Aria components style their focus ring with `data-focus-visible:` variants, as `select.tsx`, `checkbox.tsx`, `switch.tsx` and `radio-group.tsx` do. React Aria sets `data-focus-visible` only for keyboard focus. Chrome's `:focus-visible`, by contrast, also matches when a popover closes after a click outside and React Aria returns focus to its trigger, so `focus-visible:` on a trigger paints a ring after a pure mouse interaction. Plain links and elements that are not React Aria components keep `focus-visible:`, because they never receive `data-focus-visible`; that is why `button-variants.ts`, which also styles links, uses `focus-visible:`.
+
+## Providers
+
+A provider whose value changes after hydration never wraps a route `<Outlet />`. It is mounted next to the components that consume it:
+
+- `AriaProvider` wraps the root outlet in `__root.tsx` and `TranslationsProvider` wraps the document body, because every screen needs them and their values are ready at hydration.
+- `ThemeProvider` wraps only the `Toaster` in `__root.tsx` and the `ThemeSwitch` in `docs.tsx`.
+- `MotionProvider` wraps the landing sections in `_landing.index.tsx` and the post list in `blog.index.tsx`.
+
+The reason, measured, is on [Performance](/docs/conventions/performance).
+
+## Related pages
+
+- [Composition patterns](/docs/ui/composition-patterns)
+- [Forms and tables](/docs/conventions/forms-and-tables)
+- [Accessibility](/docs/conventions/accessibility)

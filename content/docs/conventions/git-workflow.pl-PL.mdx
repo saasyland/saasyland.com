@@ -1,0 +1,55 @@
+---
+title: "Git i pull requesty"
+description: "Konwencjonalne commity z hookiem dodającym emoji, jeden worktree na gałąź, merge zamiast force-pusha, małe pull requesty, które aktualizują każdą dokumentację, której dotyczą, i żadnej atrybucji AI."
+---
+
+Historia `main` jest częścią produktu: każdy pull request scalony przez squash to jeden wiersz, który mówi, co zmieniło się dla osób korzystających z kodu.
+
+## Commity
+
+Komunikaty commitów są zgodne z Conventional Commits i pisze się je bez emoji; hook `prepare-commit-msg` dodaje emoji odpowiadające typowi (tabelę znajdziesz na stronie [Konwencjonalne commity](/docs/tooling/conventional-commits)):
+
+```sh
+git commit -m "fix(auth): keep the locale in verification links"
+```
+
+- Temat jest pisany małymi literami, w trybie rozkazującym, i mówi, co zmiana daje jej użytkownikom: `feat(course): reorder the catalogue from the course list`, a nie `update course files`.
+- Zakresem jest moduł lub obszar: `course`, `auth`, `a11y`, `deps`, `readme`.
+- Dziel pull request na logiczne commity: funkcję, jej dokumentację jako `docs(<scope>)` oraz poprawki znalezione po drodze.
+- Nigdy nie commituj z `--no-verify`. Hook `pre-commit` uruchamia `bun run check:pre-commit`; gdy kończy się błędem, usuń przyczynę.
+- Formatuj i lintuj tylko pliki, które zmieniłeś, przez `bunx vp fmt <files>` i `bunx vp lint --fix <files>`. Nie uruchamiaj `bun run check:fix` ani `vp check --fix` na całym repozytorium: przepisują pliki, których nie dotykałeś, w tym współdzielone ustawienia edytora w `.vscode/settings.json`. Jeśli `.vscode/` pojawi się w `git status`, przywróć go z `HEAD`.
+
+## Bez atrybucji AI
+
+Commity i opisy pull requestów nie zawierają trailera `Co-Authored-By` dla narzędzia AI, wiersza „Generated with” ani żadnej innej atrybucji AI, nawet jeśli narzędzie dodaje ją domyślnie. GitHub przypisuje adres z takiego trailera do niezwiązanego konta, które następnie pojawia się jako współtwórca repozytorium. To samo dotyczy poprawek zgłaszanych do projektów źródłowych (zobacz [Zależności](/docs/conventions/dependencies)).
+
+## Gałęzie i worktree
+
+- Twórz gałąź od `main`, jedną gałąź na pull request.
+- Każdej gałęzi daj własny worktree Gita zamiast przełączać gałąź w istniejącym checkoucie, aby nigdy nie zmienić checkoutu, który ma otwarty edytor lub inny proces:
+
+```sh
+git worktree add ../saasyland-fix-locale -b fix/locale-links main
+cd ../saasyland-fix-locale
+bun install --frozen-lockfile
+```
+
+- Zanim zaufasz wynikom testów, sprawdź `git branch --show-current` w katalogu, w którym testowałeś.
+- Aktualizuj gałąź pull requesta, scalając do niej `main`. Nie rób rebase’u wypchniętej gałęzi i nie wypychaj jej z force-pushem: pull requesty są scalane przez squash, więc historia gałęzi nigdy nie trafia do `main`, a force-push niszczy jedynie historię przeglądu.
+
+## Pull requesty
+
+- **Małe i ukierunkowane.** Jedna poprawka, jedna funkcja lub jeden refaktoring na pull request. Duża funkcja staje się stosem pull requestów, z których każdy da się przejrzeć osobno, tak jak powstawały wideo, kursy i administracja kursami.
+- **Tytuł jest commitem squash.** Używaj formatu commitów; tytuł staje się tematem na `main`.
+- **Opis** zawiera `## Summary` z tym, co się zmieniło i dlaczego, `## Test plan` z uruchomionymi poleceniami i ich wynikami oraz listę `## Docs` ze zaktualizowanymi stronami, sekcjami README i tekstami. Pisz go prosto, bez języka marketingowego.
+- **Każdy pull request aktualizuje to, co czyni nieaktualnym:** README, strony dokumentacji we wszystkich dziewięciu językach, [historię zmian](/docs/project/changelog) we wszystkich dziewięciu językach oraz wszelkie teksty serwisu i deklaracje na stronie głównej, których dotyczy. Nieścisłość znaleziona w kodzie, którego nie zmieniałeś, dostaje własny pull request.
+
+## Kontrole
+
+CI uruchamia `bun run check` i `bun run test:coverage`, następnie buduje testowego Workera i uruchamia zestaw testów przeglądarkowych w Chromium; wdrożenie preview następuje dopiero wtedy, gdy oba przejdą. Poczekaj także na wdrożenie preview: to jedyny krok, który przesyła Workera do Cloudflare, a limity przesyłania Cloudflare zablokowały już wdrożenie, które przeszło wszystkie inne kontrole. Zobacz [CI/CD](/docs/tooling/ci-cd).
+
+## Powiązane strony
+
+- [Konwencjonalne commity](/docs/tooling/conventional-commits)
+- [Współtworzenie](/docs/project/contributing)
+- [CI/CD](/docs/tooling/ci-cd)

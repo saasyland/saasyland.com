@@ -1,0 +1,86 @@
+---
+title: "Test"
+description: "A quale progetto Vitest appartiene un test, come si testano le server function su un D1 in memoria, la pratica della copertura al 100%, le costanti con un nome nelle asserzioni e la suite nel browser."
+---
+
+Ogni modifica viene rilasciata con i test che la dimostrano, nello stesso commit, e la copertura resta al 100% per righe, istruzioni, funzioni e branch. La correzione di un bug arriva con un test che fallisce senza la correzione.
+
+## Progetti
+
+`vite.config.ts` definisce tre progetti Vitest, scelti in base al suffisso del file. I test importano la propria API da `vite-plus/test` e si trovano in `__test__/` accanto al codice che coprono.
+
+| Suffisso               | Progetto      | Da usare per                                                                                 |
+| ---------------------- | ------------- | -------------------------------------------------------------------------------------------- |
+| `.test.ts`             | `node`        | Casi d'uso, loader, `head`, schemi, utility: tutto ciò che viene eseguito sul server         |
+| `.integration.test.ts` | `integration` | Flussi di Better Auth, l'adapter D1 e il caricamento dei messaggi, con timeout di 20 secondi |
+| `.component.test.tsx`  | `component`   | Componenti e pagine in jsdom                                                                 |
+
+`src/platform/testing/mocks/cloudflare.ts` sostituisce `cloudflare:workers` in ogni progetto: D1 è un database `node:sqlite` in memoria costruito da ogni migrazione versionata, KV e il bucket `MEDIA` sono store in memoria. `resetTestBindings()` svuota KV, il bucket e la tabella dei limiti di richieste prima di ogni test, e la funzione di seed di ogni suite reimposta le righe da cui dipende. Nessun test comunica con Cloudflare, Polar, Resend o un provider OAuth.
+
+## Testare una server function
+
+Chiamala tramite le sue opzioni esportate, così il test mette alla prova il vero middleware, la validazione e l'handler. `src/modules/course/use-cases/__test__/course-admin-use-cases.test.ts`:
+
+```ts
+const signInAs = (role: string): void => {
+  vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role, userId: USERS.VISITOR }))
+}
+
+beforeEach(async () => {
+  await seedCatalogue()
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+describe("getCourses", () => {
+  it("lists every course with its lesson count, drafts included", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    const page = await executeQuery(getCoursesPageQuery())
+
+    expect(page.total).toBe(3)
+    expect(page.rows.map(({ id, lessons, status }) => [id, lessons, status])).toStrictEqual([
+      [IDS.DRAFT_COURSE, 0, COURSE_STATUS.DRAFT],
+      [IDS.COURSE, 5, COURSE_STATUS.PUBLISHED],
+      [IDS.TUTORIAL, 0, COURSE_STATUS.PUBLISHED],
+    ])
+  })
+```
+
+- `executeQuery(options)` ed `executeMutation(options, variables)` da `src/platform/testing/lib/query.ts` eseguono le opzioni in un `QueryClient` nuovo.
+- La sessione proviene da `createAuthSessionFixture` in `src/integrations/better-auth/__test__/fixtures/auth.session.fixture.ts`; ogni permesso viene testato anche dal lato che deve essere rifiutato (`it("is for staff only")`).
+- I dati di seed si trovano nella cartella `__test__/fixtures/` del modulo, con i loro ID in oggetti con un nome (`IDS`, `LESSON_IDS`, `USERS`). `seedCatalogue()` elimina le righe che possiede e le inserisce di nuovo tramite Drizzle, così ogni test parte dallo stesso stato.
+- Nel progetto `component` una server function fallisce, perché jsdom fa le veci del browser. I test dei componenti forniscono a una route i dati del suo loader oppure fanno il mock di `queryFn` e `mutationFn` nelle opzioni che il componente legge.
+
+## Le asserzioni usano i nomi del codice
+
+- Gli stati, le tipologie, i ruoli e i codici di errore attesi sono le costanti che usa il codice: `COURSE_STATUS.DRAFT`, `ROLE_CODES.ADMIN`, `rejects.toThrow(ERROR_CODES.FORBIDDEN)`. Un test non ripete mai un letterale stringa di dominio.
+- I test dei componenti leggono i testi attesi dai file di messaggi inglesi, come fa `admin-course-routes.component.test.tsx` con `import labels from "~/messages/en-US/pages.admin.courses.json"` e `labels.form.kinds.course`, e trovano gli elementi per ruolo e nome accessibile.
+- Un test che ha bisogno di un tipo lo legge da una sorgente tipizzata o lo verifica a runtime con `toHaveProperty`; non fa mai cast.
+- I nomi dei test descrivono il comportamento con una frase: "lists every course with its lesson count, drafts included".
+
+## Copertura
+
+`bun run test:coverage` fallisce sotto il 100% su una qualsiasi delle quattro metriche per `src/**/*.{ts,tsx}`. Sono esclusi i test, `__test__/`, i file di dichiarazione, `src/routeTree.gen.ts`, le primitive shadcn e `src/platform/testing/`. La soglia viene mantenuta significativa:
+
+- **Elimina i branch che non possono mai essere eseguiti** invece di coprirli con degli stub. Un `?? fallback` su dati sempre presenti, o un optional chaining su un valore che non può essere `undefined`, viene rimosso dal sorgente, non raggiunto facendo lo stub di una variabile globale.
+- **Copri il comportamento reale.** Gli stati di attesa tengono aperta la richiesta con `Promise.withResolvers()`, verificano la UI di attesa, risolvono dentro `act` e verificano la UI inattiva, come fanno `expectPending` ed `expectIdle` in `auth-forms.component.test.tsx`.
+- **Mantieni le asserzioni quando una regola si fa sentire.** Quando un test supera `max-statements`, estrai un helper con un nome invece di eliminare dei controlli.
+- **Carica ogni file di messaggi.** `i18n.messages.test.ts` carica ogni namespace di ogni locale, ed è questo che copre le righe `import.meta.glob` in `i18n.messages.ts`. Un nuovo file di messaggi viene coperto automaticamente.
+
+## Test nel browser
+
+Playwright esegue il Worker di test compilato: `bun run build:test` lo compila con D1 e KV locali in `.wrangler/test`, `bun run db:seed:test` popola gli account, il video e il corso in `e2e/data`, e l'entry di test intercetta le email in uscita su `/__test/emails`, così una spec può seguire un link di verifica.
+
+- Le spec prendono il nome dal flusso (`course-admin.spec.ts`, `auth-redirect.spec.ts`) e guidano la pagina tramite ruoli e nomi accessibili, con i page object in `e2e/pages/`.
+- Ogni spec crea i dati che modifica con valori univoci, come uno slug costruito da `crypto.randomUUID()`, ed effettua l'accesso con un proprio header `CF-Connecting-IP`, così le spec possono essere eseguite in parallelo e ripetute senza scontrarsi tra loro o con i limiti di richieste.
+- Le pull request eseguono ogni spec in Chromium (`bun run test:e2e:pr`); i push su `main` e un'esecuzione settimanale pianificata eseguono anche WebKit.
+- Una correzione di route, di flusso o visiva che i test unitari non possono vedere riceve una spec: le scansioni di accessibilità e le regressioni di navigazione in `navigation.spec.ts` ne sono esempi.
+
+## Pagine correlate
+
+- [Test](/docs/tooling/testing)
+- [Scrivere i test](/docs/guides/writing-tests)
+- [Playwright](/docs/tooling/playwright)

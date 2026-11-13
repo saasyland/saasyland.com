@@ -1,0 +1,77 @@
+---
+title: "Performance"
+description: "The measured rules that keep pages fast: a small Worker boot graph, stripped preload hints, provider placement, one Tailwind build, media sizing and the reveal pattern."
+---
+
+Each rule on this page came from a measurement, and several replaced an intuitive fix that made things worse. Change the code behind one of them only with a new measurement that beats it.
+
+## Measure before you claim
+
+- Compare the previous build and the new build on the same page, at least five Lighthouse runs each, interleaved, and compare medians. One run proves nothing: about one run in five is an outlier from machine noise.
+- Do not judge a change on one PageSpeed Insights run. The same deployment scores very differently depending on the speed of the machine that runs the test, which Lighthouse reports as `benchmarkIndex`.
+- Measure a production build (`bun run build:test`, then `bun run start:test`) served over HTTP/2 with compression. Over plain local HTTP/1.1 without compression, Lighthouse's network simulation models connections and transfer sizes that production never has.
+- A Lighthouse diagnostic is not a score. A "forced reflow" or "properly size images" hint can be wrong for the page, as the sections below show; check the scored metrics before acting on it.
+
+## Keep the Worker's boot graph small
+
+`src/server.ts` runs for every HTML request (`run_worker_first` in `wrangler.jsonc`), and everything it imports statically is evaluated on every cold start. It imports only constants and pure helpers, and loads the rest when a request needs it:
+
+```ts
+const { default: handler } = await import("@tanstack/react-start/server-entry")
+```
+
+```ts
+const { serveMedia } = await import("~/src/modules/video/video.delivery")
+```
+
+One static import of a header name from a module that also imported the Polar client once pulled about 1.4 MB of SDK into every cold start, and the first byte of the landing page took up to 1.4 seconds. That is why `COUNTRY_HEADER` and `IP_ADDRESS_HEADER` live in `src/modules/_core/constants/api.ts`, which imports nothing heavy. Before adding a static import to `server.ts`, follow its import chain: anything that reaches `polar`, `drizzle-orm` or `resend` is a regression.
+
+## Prerendered pages load CSS and fonts first
+
+Public pages are prerendered and need no JavaScript for their first paint. TanStack Start emits a `modulepreload` hint for every chunk a page may need, more than a hundred on the landing page, and under a simulated mobile network they compete with the stylesheet and fonts. `scripts/optimize-prerendered-html.ts`, which every build script runs, removes every dependency hint and keeps only the page's own entry script hint, at `fetchpriority="low"`:
+
+```ts
+moduleEntries.has(hint) ? `<link rel="modulepreload" href="${hint}" fetchpriority="low"/>` : ""
+```
+
+Removing the hints cut First Contentful Paint by about a third; keeping the entry hint at low priority cut mobile First Contentful Paint by another 375 ms. Never add preload hints back, for dependencies or for route chunks. The script fails the build when it finds no hint to strip or none to keep, so a change in the build output is caught rather than silently undoing this.
+
+`robots.txt` and `llms.txt` are static files in `public/` that bypass the Worker (`"!/robots.txt", "!/llms.txt"` in `run_worker_first`). Lighthouse fetches both with a two-second timeout, and a slow Worker response failed its SEO and agent-readiness audits.
+
+## Providers never wrap a route outlet
+
+TanStack Router wraps route outlets in Suspense boundaries, and React hydrates those boundaries later, in small slices. A context provider above them whose value changes right after hydration forces React to hydrate everything below it at once:
+
+- `ThemeProvider` around the whole application turned the landing page's hydration into one 200 ms task that blocked input. Mounted around its two consumers, the `Toaster` and the docs `ThemeSwitch`, Total Blocking Time went from about 150 ms to under 10 ms.
+- `MotionProvider` above a route outlet publishes a new context when its animation features finish loading. On a blog post that update arrived while the page was still loading its content, React fell back to client rendering, and the layout shifted.
+
+Before adding a provider to `__root.tsx` or a layout, check whether its value can change after hydration. If it can, mount it next to the components that read it, below every route `<Outlet />`. The placements are listed in [Components and styling](/docs/conventions/components).
+
+## One Tailwind build
+
+Only `src/presentation/styles/globals.css` runs Tailwind. Route stylesheets such as `docs.css` and `typeset.css` are plain CSS, and Fumadocs' own styles come in through `globals.css`:
+
+```css
+@import "@fumadocs/base-ui/css/shadcn.css";
+@import "@fumadocs/base-ui/css/preset.css";
+```
+
+A second Tailwind build in a route stylesheet once shipped its own `.hidden`, `.rounded-md` and theme variables. Same-named cascade layers merge across stylesheets, and React never removes a stylesheet it inserted with `precedence`, so after one visit to the docs the landing page lost its responsive layout and fonts until a reload. The end-to-end test "landing keeps its responsive styles after visiting the docs" in `e2e/specs/navigation.spec.ts` guards this. Anything that needs Tailwind goes through `globals.css`.
+
+## Media
+
+- **Landing loops.** Each `src/presentation/assets/motion/<name>.webm` has a poster `<name>.webp` with exactly the video's dimensions (the `size` in `LOOPS` in `concept-loop.tsx`), so the hand-over from poster to video does not visibly sharpen. Smaller widths are separate files, `<name>-<width>.webp`, offered through the poster's `srcSet`. Never shrink the full-size poster; to make it lighter, re-encode it at the same dimensions. The videos load with `preload="none"`, play only while a quarter of them is visible and never play for readers who prefer reduced motion.
+- **Course videos** are encoded ahead of time to adaptive HLS and served from R2 with the Workers cache. See [Videos](/docs/features/videos).
+- **Scroll-scrubbed video.** The site has none today. A video whose time follows the scroll position must be encoded all-intra (every frame a keyframe, `keyint=1`): a normal encode seeks in about 200 ms, an all-intra one in about 3 ms, and no amount of smoothing in JavaScript makes a 200 ms seek scrub.
+
+## Reveal on scroll
+
+`Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) fades landing sections in as they enter the viewport. It shares one `IntersectionObserver` between every instance, decides from the observer's first callback whether an element starts below the fold, and writes `data-reveal` attributes directly, with no React state and no re-render. A version that kept the visibility in React state doubled Total Blocking Time, because every section re-rendered and the page laid out twice. Do not move it back into state, and do not replace it without a comparison.
+
+Two other optimisations were measured and rejected: `content-visibility: auto` on landing sections, which broke in-page links to sections further down, and loading the newsletter form lazily, which scored the same or worse than rendering it directly.
+
+## Related pages
+
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Caching and SSR](/docs/architecture/caching-and-ssr)
+- [Components and styling](/docs/conventions/components)

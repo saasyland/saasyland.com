@@ -1,0 +1,55 @@
+---
+title: "Git and pull requests"
+description: "Conventional commits with the emoji hook, one worktree per branch, merge instead of force-push, small pull requests that update every doc they affect, and no AI attribution."
+---
+
+The history of `main` is part of the product: every squash-merged pull request is one line that says what changed for the people using the code.
+
+## Commits
+
+Commit messages follow Conventional Commits, written without an emoji; the `prepare-commit-msg` hook adds the emoji of the type (see [Conventional commits](/docs/tooling/conventional-commits) for the table):
+
+```sh
+git commit -m "fix(auth): keep the locale in verification links"
+```
+
+- The subject is lowercase, in the imperative, and says what the change does for its users: `feat(course): reorder the catalogue from the course list`, not `update course files`.
+- The scope is the module or area: `course`, `auth`, `a11y`, `deps`, `readme`.
+- Split a pull request into logical commits: the feature, its documentation as `docs(<scope>)`, and fixes found on the way.
+- Never commit with `--no-verify`. The `pre-commit` hook runs `bun run check:pre-commit`; when it fails, fix the cause.
+- Format and lint only the files you changed, with `bunx vp fmt <files>` and `bunx vp lint --fix <files>`. Do not run `bun run check:fix` or `vp check --fix` over the whole repository: they rewrite files you did not touch, including the shared editor settings in `.vscode/settings.json`. If `.vscode/` appears in `git status`, restore it from `HEAD`.
+
+## No AI attribution
+
+Commits and pull request descriptions carry no `Co-Authored-By` trailer for an AI tool, no "Generated with" line and no other AI attribution, even when a tool adds one by default. GitHub resolves such a trailer's address to an unrelated account, which then shows up as a contributor to the repository. The same applies to fixes contributed upstream (see [Dependencies](/docs/conventions/dependencies)).
+
+## Branches and worktrees
+
+- Branch from `main`, one branch per pull request.
+- Give each branch its own Git worktree instead of switching the branch of a checkout, so a checkout that an editor or another process has open is never changed underneath it:
+
+```sh
+git worktree add ../saasyland-fix-locale -b fix/locale-links main
+cd ../saasyland-fix-locale
+bun install --frozen-lockfile
+```
+
+- Before trusting a test run, check `git branch --show-current` in the directory you tested.
+- Bring a pull request branch up to date by merging `main` into it. Do not rebase a pushed branch and force-push it: pull requests are squash-merged, so the branch history never reaches `main`, and a force-push only destroys the review history.
+
+## Pull requests
+
+- **Small and targeted.** One fix, one feature or one refactor per pull request. A large feature becomes a stack of pull requests, each reviewable on its own, as videos, courses and the course admin were.
+- **The title is the squash commit.** Use the commit format; it becomes the subject on `main`.
+- **The description** has a `## Summary` of what changed and why, a `## Test plan` with the commands you ran and their results, and a `## Docs` list of the pages, README sections and copy you updated. Write it plainly, without marketing language.
+- **Every pull request updates what it makes inaccurate:** the README, the docs pages in all nine locales, the [changelog](/docs/project/changelog) in all nine locales, and any site copy or landing page claim it touches. Inaccuracy found in code you did not change gets its own pull request.
+
+## Checks
+
+CI runs `bun run check` and `bun run test:coverage`, then builds the test Worker and runs the browser suite in Chromium; only when both pass does it deploy a preview. Wait for the preview deployment as well: it is the only step that uploads the Worker to Cloudflare, and Cloudflare's upload limits have failed a deployment that every other check passed. See [CI/CD](/docs/tooling/ci-cd).
+
+## Related pages
+
+- [Conventional commits](/docs/tooling/conventional-commits)
+- [Contributing](/docs/project/contributing)
+- [CI/CD](/docs/tooling/ci-cd)

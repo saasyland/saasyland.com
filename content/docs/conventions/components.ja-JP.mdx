@@ -1,0 +1,85 @@
+---
+title: "コンポーネントとスタイリング"
+description: "最小限の抽象化、データと翻訳を自分で読み込むコンポーネント、cn のオブジェクト構文、shadcn のプリミティブ、フォーカスリング、プロバイダーの配置。"
+---
+
+コンポーネントは、誰も求めていないレイヤーが最も増えやすい場所です。以下のルールに従えば、各画面を 1 つのファイルから読み取れる状態が保たれます。コンポーネントを開けば、それが読み込むデータ、表示するテキスト、適用するクラスがわかります。
+
+## 最小限の抽象化
+
+- **1 つの関心事に、明白な仕組みを 1 つ。** ライブラリを直接呼び出します。`sonner` の `toast.error(...)`、`auth.access.ts` の `hasPermission(...)`、shadcn の `Button` などです。props を転送したり名前を変えたりするだけのファサード、ファクトリー、プロバイダー、ラッパーコンポーネントを追加してはいけません。
+- **抽象化は 1 回目ではなく 3 回目の使用で。** ヘルパーを作る価値があるのは、自明でないロジックを少なくとも 3 か所の呼び出し元が共有する場合で、そのヘルパーは関心事を所有する 1 つのファイルに置きます。`course-fields.tsx` が存在するのは、コースのフォーム、チャプターのダイアログ、レッスンのダイアログが、同じローカライズされたテキストフィールドを同じバリデーション表示で描画するためです。
+- **拡張する前に削除する。** 仕組みが役割に見合わなくなったら、オプションを追加するのではなく削除します。「後で使うかもしれない」という推測によるオプション、props、パラメーターは追加しません。
+- **見た目のためだけの仕組みは作らない。** 1 つの絵文字のためのビルダーや、1 か所の呼び出しのための `className` prop のように、整って見せることだけが目的の定数やヘルパーは追加しません。
+
+## コンポーネントは自分でデータを読み込む
+
+コンポーネントは、テキストとデータを自分で取得します。
+
+- 翻訳は、自分の名前空間にスコープを限定した `useTranslations` で取得します（[翻訳とコンテンツ](/docs/conventions/translations)を参照）。
+- クエリのデータは、ルートのローダーがプリフェッチしたものを `useSuspenseQuery(options)` で読みます。
+- ルートのデータは、ルートファイルでは `Route.useParams()` で、コンポーネントファイルでは `post-meta.tsx` のように `getRouteApi("/blog/$")` で読みます。
+
+props が運ぶのは、親だけが知っているものに限ります。ダイアログが編集するレコード（`chapter`）、フォームが属する ID（`courseId`）、トリガー要素、`isOpen` と `onOpenChange` などです。ラベル、リスト、クエリの結果を自分で読み取れるコンポーネントは、それを props で受け取りません。また、値がそれを使わないコンポーネントを経由して渡されることもありません。`t.rich` 用のリッチテキストのタグマップは、それを使うコンポーネントの隣に置くモジュールレベルの定数にし、描画中にオブジェクトを作ることはしません。
+
+## コンポーネントファイルの形
+
+`src/presentation/components/custom/admin/courses/chapter-dialog.tsx` が典型的なファイルです。
+
+```tsx
+interface ChapterDialogProps {
+  readonly chapter?: { readonly id: string; readonly title: LocalizedText }
+  readonly courseId: string
+  readonly trigger: ReactNode
+}
+
+export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps): JSX.Element => {
+  const t = useTranslations("pages.admin.courses.chapter")
+  const queryClient = useQueryClient()
+  const errorMessage = useErrorMessage()
+  const [isOpen, setOpen] = useState(false)
+```
+
+- 1 ファイルにつきエクスポートするコンポーネントは 1 つで、`export const Name = (...): JSX.Element =>` として宣言します。何も描画しない場合があるコンポーネントは `JSX.Element | undefined` を返します。
+- props は `readonly` とし、コンポーネントの上の `<Name>Props` インターフェースで定義します。prop が 1 つだけの場合はインラインで書きます。
+- まず[コードスタイル](/docs/conventions/code-style)で説明した順序と空行でフックを書き、次にローカルなコールバック、最後に JSX を書きます。
+- 2 つの JSX のどちらかを選ぶ場合は、`&&` の組か早期リターンを使い、複数行の三項演算子は使いません。
+
+## クラス名
+
+スタイリングは `className` 内の Tailwind ユーティリティで行います。条件付きのクラスは `~/src/lib/cn` の `cn` をオブジェクト構文で使って指定し、呼び出しの中で三項演算子は使いません。
+
+```tsx
+className={cn("flex items-center gap-4 border-b transition-colors duration-200 ease-exp", {
+  "border-border focus-within:border-foreground": !isInvalid,
+  "border-destructive": isInvalid,
+})}
+```
+
+上の `newsletter-form.tsx` の例のように、二者択一は 2 つのエントリで表し、2 つ目は条件を否定します。キーは計算してもかまいません。`course-columns.tsx` では `[ADMIN_STATUS_BADGE_CLASSES.emerald]: status === COURSE_STATUS.PUBLISHED` と書いています。1 つのファイルで 2 回以上使う長いクラス文字列は、`src/routes/courses.tsx` の `NAV_LINK_CLASSNAME` のように、そのファイル内の定数にします。
+
+`~/src/lib/cn` は好みではなく必須です。これは、`src/lib/cn.config.ts` と、`bun run generate:cn` が `.source/cn-tables.ts` に書き出すテーブルから作った `createCn` です。この設定は、プロジェクトのタイポグラフィのトークン（`text-body`、`text-body-sm`、`text-label`、`text-spec`、`text-lead`、`text-title`、`text-statement`、`text-price`、および `text-headline-*` と `text-display-*` の各サイズ）をフォントサイズとして登録します。素の `cn` はこれらを色として解釈し、競合すると判断した 2 つのクラスの一方を削除してしまいます。`cn("text-body-sm text-muted-foreground", { "text-foreground": true })` ではフォントサイズが失われます。文字には生のサイズではなくこれらのトークンを、色には固定の色ではなくテーマの色（`text-foreground`、`text-muted-foreground`、`bg-card`）を使ってください。
+
+## shadcn のプリミティブ
+
+`src/presentation/components/shadcn/` には、`components.json` で指定された `aria-lyra` スタイルの shadcn/ui プリミティブがあり、React Aria Components の上に構築されています。画面はこれらを直接インポートし、ラッパーのレイヤーはありません。プリミティブは shadcn CLI で追加します。プリミティブのファイルを変更するのは、フォーカスやアクセシビリティの挙動などプリミティブ自体を修正する場合だけで、1 つの画面の見た目のために変更してはいけません。React Aria の props は DOM の慣習とは異なり、`onPress`、`isDisabled`、`isOpen` と `onOpenChange`、`isSelected` などを使います。完全な一覧と `globals.css` の `@source not` のリストについては、[shadcn コンポーネント](/docs/ui/shadcn-components)を参照してください。
+
+## フォーカスリング
+
+React Aria のコンポーネントは、`select.tsx`、`checkbox.tsx`、`switch.tsx`、`radio-group.tsx` のように、`data-focus-visible:` バリアントでフォーカスリングのスタイルを指定します。React Aria が `data-focus-visible` を設定するのは、キーボードによるフォーカスの場合だけです。一方、Chrome の `:focus-visible` は、外側をクリックしてポップオーバーが閉じ、React Aria がフォーカスをトリガーに戻した場合にも一致します。そのため、トリガーに `focus-visible:` を指定すると、マウスだけの操作の後にリングが表示されてしまいます。通常のリンクや React Aria のコンポーネントではない要素は `data-focus-visible` を受け取ることがないため、`focus-visible:` のままにします。リンクのスタイルも担う `button-variants.ts` が `focus-visible:` を使っているのはこのためです。
+
+## プロバイダー
+
+ハイドレーション後に値が変わるプロバイダーは、ルートの `<Outlet />` を決して包みません。それを利用するコンポーネントのそばにマウントします。
+
+- `AriaProvider` は `__root.tsx` で root の outlet を包み、`TranslationsProvider` はドキュメントの body を包みます。どの画面にも必要で、その値はハイドレーションの時点で準備できているためです。
+- `ThemeProvider` が包むのは、`__root.tsx` の `Toaster` と `docs.tsx` の `ThemeSwitch` だけです。
+- `MotionProvider` は、`_landing.index.tsx` のランディングページのセクションと、`blog.index.tsx` の記事一覧を包みます。
+
+その理由と計測結果は[パフォーマンス](/docs/conventions/performance)にあります。
+
+## 関連ページ
+
+- [コンポジションパターン](/docs/ui/composition-patterns)
+- [フォームとテーブル](/docs/conventions/forms-and-tables)
+- [アクセシビリティ](/docs/conventions/accessibility)

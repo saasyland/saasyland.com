@@ -1,0 +1,86 @@
+---
+title: "Testing"
+description: "Which Vitest project a test belongs to, how server functions are tested against an in-memory D1, the 100% coverage practice, named constants in assertions and the browser suite."
+---
+
+Every change ships with the tests that prove it, in the same commit, and coverage stays at 100% for lines, statements, functions and branches. A bug fix comes with a test that fails without the fix.
+
+## Projects
+
+`vite.config.ts` defines three Vitest projects, chosen by the file suffix. Tests import their API from `vite-plus/test` and live in `__test__/` beside the code they cover.
+
+| Suffix                 | Project       | Use it for                                                                       |
+| ---------------------- | ------------- | -------------------------------------------------------------------------------- |
+| `.test.ts`             | `node`        | Use cases, loaders, `head`, schemas, utilities: anything that runs on the server |
+| `.integration.test.ts` | `integration` | Better Auth flows, the D1 adapter and message loading, with 20-second timeouts   |
+| `.component.test.tsx`  | `component`   | Components and pages in jsdom                                                    |
+
+`src/platform/testing/mocks/cloudflare.ts` replaces `cloudflare:workers` in every project: D1 is an in-memory `node:sqlite` database built from every checked-in migration, KV and the `MEDIA` bucket are in-memory stores. `resetTestBindings()` empties KV, the bucket and the rate-limit table before each test, and each suite's seed function resets the rows it depends on. No test talks to Cloudflare, Polar, Resend or an OAuth provider.
+
+## Testing a server function
+
+Call it through its exported options, so the test exercises the real middleware, validation and handler. `src/modules/course/use-cases/__test__/course-admin-use-cases.test.ts`:
+
+```ts
+const signInAs = (role: string): void => {
+  vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role, userId: USERS.VISITOR }))
+}
+
+beforeEach(async () => {
+  await seedCatalogue()
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+describe("getCourses", () => {
+  it("lists every course with its lesson count, drafts included", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    const page = await executeQuery(getCoursesPageQuery())
+
+    expect(page.total).toBe(3)
+    expect(page.rows.map(({ id, lessons, status }) => [id, lessons, status])).toStrictEqual([
+      [IDS.DRAFT_COURSE, 0, COURSE_STATUS.DRAFT],
+      [IDS.COURSE, 5, COURSE_STATUS.PUBLISHED],
+      [IDS.TUTORIAL, 0, COURSE_STATUS.PUBLISHED],
+    ])
+  })
+```
+
+- `executeQuery(options)` and `executeMutation(options, variables)` from `src/platform/testing/lib/query.ts` run the options in a fresh `QueryClient`.
+- The session comes from `createAuthSessionFixture` in `src/integrations/better-auth/__test__/fixtures/auth.session.fixture.ts`; every permission is tested from the side that must be refused as well (`it("is for staff only")`).
+- Seed data lives in the module's `__test__/fixtures/`, with its IDs in named objects (`IDS`, `LESSON_IDS`, `USERS`). `seedCatalogue()` deletes the rows it owns and inserts them again through Drizzle, so every test starts from the same state.
+- In the `component` project a server function rejects, because jsdom stands for the browser. Component tests give a route its loader data or mock the `queryFn` and `mutationFn` of the options the component reads.
+
+## Assertions use the code's names
+
+- Expected statuses, kinds, roles and error codes are the constants the code uses: `COURSE_STATUS.DRAFT`, `ROLE_CODES.ADMIN`, `rejects.toThrow(ERROR_CODES.FORBIDDEN)`. A test never repeats a domain string literal.
+- Component tests read expected copy from the English message files, as `admin-course-routes.component.test.tsx` does with `import labels from "~/messages/en-US/pages.admin.courses.json"` and `labels.form.kinds.course`, and find elements by role and accessible name.
+- A test that needs a type reads it from a typed source or checks it at runtime with `toHaveProperty`; it never casts.
+- Test names describe behaviour as a sentence: "lists every course with its lesson count, drafts included".
+
+## Coverage
+
+`bun run test:coverage` fails below 100% on any of the four metrics for `src/**/*.{ts,tsx}`. Tests, `__test__/`, declaration files, `src/routeTree.gen.ts`, the shadcn primitives and `src/platform/testing/` are excluded. The gate is kept meaningful:
+
+- **Delete branches that can never run** instead of covering them with stubs. A `?? fallback` on data that is always present, or an optional chain on a value that cannot be `undefined`, is removed from the source, not reached by stubbing a global.
+- **Cover real behaviour.** Pending states hold the request open with `Promise.withResolvers()`, assert the pending UI, resolve inside `act` and assert the idle UI, as `expectPending` and `expectIdle` do in `auth-forms.component.test.tsx`.
+- **Keep assertions when a rule bites.** When a test passes `max-statements`, extract a named helper instead of dropping checks.
+- **Load every message file.** `i18n.messages.test.ts` loads every namespace of every locale, which is what covers the `import.meta.glob` lines in `i18n.messages.ts`. A new message file is covered by it automatically.
+
+## Browser tests
+
+Playwright runs the built test Worker: `bun run build:test` compiles it with local D1 and KV under `.wrangler/test`, `bun run db:seed:test` seeds the accounts, video and course in `e2e/data`, and the test entry captures outgoing email at `/__test/emails` so a spec can follow a verification link.
+
+- Specs are named after the flow (`course-admin.spec.ts`, `auth-redirect.spec.ts`) and drive the page through roles and accessible names, with page objects in `e2e/pages/`.
+- Each spec creates the data it changes with unique values, such as a slug built from `crypto.randomUUID()`, and signs in from its own `CF-Connecting-IP` header, so specs can run in parallel and rerun without colliding with each other or with rate limits.
+- Pull requests run every spec in Chromium (`bun run test:e2e:pr`); pushes to `main` and a weekly schedule also run WebKit.
+- A route, flow or visual fix that unit tests cannot see gets a spec: the accessibility scans and the navigation regressions in `navigation.spec.ts` are examples.
+
+## Related pages
+
+- [Testing](/docs/tooling/testing)
+- [Writing tests](/docs/guides/writing-tests)
+- [Playwright](/docs/tooling/playwright)

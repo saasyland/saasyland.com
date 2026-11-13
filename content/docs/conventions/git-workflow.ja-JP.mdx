@@ -1,0 +1,55 @@
+---
+title: "Git とプルリクエスト"
+description: "絵文字フック付きの Conventional Commits、ブランチごとに 1 つのワークツリー、force-push ではなくマージ、影響するすべてのドキュメントを更新する小さなプルリクエスト、そして AI の帰属表示の禁止。"
+---
+
+`main` の履歴はプロダクトの一部です。スカッシュマージされたプルリクエストはそれぞれ 1 行になり、コードを使う人にとって何が変わったのかを伝えます。
+
+## コミット
+
+コミットメッセージは Conventional Commits に従い、絵文字なしで書きます。タイプに対応する絵文字は `prepare-commit-msg` フックが付けます（対応表は [Conventional Commits](/docs/tooling/conventional-commits) を参照）。
+
+```sh
+git commit -m "fix(auth): keep the locale in verification links"
+```
+
+- 件名は小文字の命令形で書き、その変更がユーザーにとって何をするのかを述べます。`update course files` ではなく、`feat(course): reorder the catalogue from the course list` のように書きます。
+- スコープはモジュールまたはエリアです（`course`、`auth`、`a11y`、`deps`、`readme`）。
+- プルリクエストは論理的なコミットに分割します。機能そのもの、`docs(<scope>)` としてのそのドキュメント、そして途中で見つけた修正です。
+- `--no-verify` を付けてコミットしてはいけません。`pre-commit` フックは `bun run check:pre-commit` を実行します。失敗した場合は原因を修正してください。
+- フォーマットとリントは、`bunx vp fmt <files>` と `bunx vp lint --fix <files>` で、変更したファイルだけに行います。リポジトリ全体に対して `bun run check:fix` や `vp check --fix` を実行してはいけません。触っていないファイルまで書き換えてしまい、`.vscode/settings.json` の共有エディター設定もその対象になります。`git status` に `.vscode/` が表示された場合は、`HEAD` から復元してください。
+
+## AI の帰属表示をしない
+
+コミットとプルリクエストの説明には、AI ツールの `Co-Authored-By` トレーラーも、「Generated with」の行も、その他の AI の帰属表示も含めません。ツールがデフォルトで追加する場合も同様です。GitHub はそのようなトレーラーのアドレスを無関係なアカウントに結び付け、そのアカウントがリポジトリのコントリビューターとして表示されてしまいます。アップストリームに提供する修正にも同じことが当てはまります（[依存関係](/docs/conventions/dependencies)を参照）。
+
+## ブランチとワークツリー
+
+- `main` からブランチを作成し、プルリクエストごとに 1 つのブランチを使います。
+- チェックアウトのブランチを切り替えるのではなく、ブランチごとに専用の Git ワークツリーを用意します。そうすれば、エディターや別のプロセスが開いているチェックアウトが、知らないうちに変更されることはありません。
+
+```sh
+git worktree add ../saasyland-fix-locale -b fix/locale-links main
+cd ../saasyland-fix-locale
+bun install --frozen-lockfile
+```
+
+- テストの実行結果を信用する前に、テストしたディレクトリで `git branch --show-current` を確認します。
+- プルリクエストのブランチを最新にするには、そこに `main` をマージします。プッシュ済みのブランチをリベースして force-push してはいけません。プルリクエストはスカッシュマージされるため、ブランチの履歴が `main` に入ることはなく、force-push はレビューの履歴を壊すだけです。
+
+## プルリクエスト
+
+- **小さく、目的を絞る。** 1 つのプルリクエストには、1 つの修正、1 つの機能、または 1 つのリファクタリングだけを含めます。大きな機能は、動画、コース、コースの管理画面がそうだったように、それぞれ単独でレビューできるプルリクエストの積み重ねにします。
+- **タイトルがスカッシュコミットになる。** コミットの形式を使ってください。タイトルが `main` での件名になります。
+- **説明**には、何をなぜ変更したかを書く `## Summary`、実行したコマンドとその結果を書く `## Test plan`、更新したページ、README のセクション、文言を列挙する `## Docs` を含めます。マーケティング的な表現を使わず、平易に書いてください。
+- **すべてのプルリクエストは、自分が不正確にしたものを更新する。** README、9 つのロケールすべてのドキュメントページ、9 つのロケールすべての[変更履歴](/docs/project/changelog)、そして影響するサイトの文言やランディングページの主張です。変更していないコードで見つけた不正確な点は、別のプルリクエストで扱います。
+
+## チェック
+
+CI は `bun run check` と `bun run test:coverage` を実行し、次にテスト用 Worker をビルドして Chromium でブラウザーのスイートを実行します。両方が成功した場合にのみ、プレビューをデプロイします。チェックだけでなく、プレビューのデプロイが終わるまで待ってください。Worker を Cloudflare にアップロードするのはこのステップだけであり、ほかのチェックがすべて成功したのに、Cloudflare のアップロードの制限によってデプロイが失敗したことがあります。[CI/CD](/docs/tooling/ci-cd) を参照してください。
+
+## 関連ページ
+
+- [Conventional Commits](/docs/tooling/conventional-commits)
+- [コントリビューション](/docs/project/contributing)
+- [CI/CD](/docs/tooling/ci-cd)

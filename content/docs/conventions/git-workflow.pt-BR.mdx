@@ -1,0 +1,55 @@
+---
+title: "Git e pull requests"
+description: "Conventional commits com o hook de emoji, uma worktree por branch, merge em vez de force-push, pull requests pequenos que atualizam toda documentação que afetam e nenhuma atribuição a IA."
+---
+
+O histórico de `main` faz parte do produto: cada pull request mesclado com squash é uma linha que diz o que mudou para as pessoas que usam o código.
+
+## Commits
+
+As mensagens de commit seguem o Conventional Commits, escritas sem emoji; o hook `prepare-commit-msg` adiciona o emoji do tipo (veja [Conventional commits](/docs/tooling/conventional-commits) para a tabela):
+
+```sh
+git commit -m "fix(auth): keep the locale in verification links"
+```
+
+- O assunto é em minúsculas, no imperativo, e diz o que a alteração faz para os seus usuários: `feat(course): reorder the catalogue from the course list`, não `update course files`.
+- O escopo é o módulo ou a área: `course`, `auth`, `a11y`, `deps`, `readme`.
+- Divida um pull request em commits lógicos: o recurso, a sua documentação como `docs(<scope>)` e as correções encontradas no caminho.
+- Nunca faça commit com `--no-verify`. O hook `pre-commit` executa `bun run check:pre-commit`; quando ele falhar, corrija a causa.
+- Formate e aplique o lint apenas nos arquivos que você alterou, com `bunx vp fmt <files>` e `bunx vp lint --fix <files>`. Não execute `bun run check:fix` nem `vp check --fix` sobre o repositório inteiro: eles reescrevem arquivos que você não tocou, incluindo as configurações compartilhadas do editor em `.vscode/settings.json`. Se `.vscode/` aparecer em `git status`, restaure-o a partir de `HEAD`.
+
+## Nenhuma atribuição a IA
+
+Os commits e as descrições de pull requests não levam trailer `Co-Authored-By` de uma ferramenta de IA, nenhuma linha "Generated with" nem qualquer outra atribuição a IA, mesmo quando uma ferramenta a adiciona por padrão. O GitHub associa o endereço desse trailer a uma conta sem relação com o projeto, que passa então a aparecer como colaboradora do repositório. O mesmo vale para as correções enviadas upstream (veja [Dependências](/docs/conventions/dependencies)).
+
+## Branches e worktrees
+
+- Crie a branch a partir de `main`, uma branch por pull request.
+- Dê a cada branch a sua própria worktree do Git em vez de trocar a branch de um checkout, para que um checkout que um editor ou outro processo tem aberto nunca seja alterado por baixo dele:
+
+```sh
+git worktree add ../saasyland-fix-locale -b fix/locale-links main
+cd ../saasyland-fix-locale
+bun install --frozen-lockfile
+```
+
+- Antes de confiar em uma execução de testes, verifique `git branch --show-current` no diretório que você testou.
+- Atualize a branch de um pull request fazendo merge de `main` nela. Não faça rebase de uma branch já enviada para depois dar force-push: os pull requests são mesclados com squash, então o histórico da branch nunca chega a `main`, e um force-push só destrói o histórico da revisão.
+
+## Pull requests
+
+- **Pequenos e focados.** Uma correção, um recurso ou uma refatoração por pull request. Um recurso grande vira uma pilha de pull requests, cada um revisável por si só, como foram os vídeos, os cursos e a administração de cursos.
+- **O título é o commit do squash.** Use o formato de commit; ele se torna o assunto em `main`.
+- **A descrição** tem um `## Summary` do que mudou e por quê, um `## Test plan` com os comandos que você executou e os seus resultados, e uma lista `## Docs` das páginas, seções do README e textos que você atualizou. Escreva de forma simples, sem linguagem de marketing.
+- **Todo pull request atualiza o que ele torna impreciso:** o README, as páginas da documentação nos nove locales, o [changelog](/docs/project/changelog) nos nove locales e qualquer texto do site ou afirmação da landing page que ele afete. Uma imprecisão encontrada em código que você não alterou ganha o seu próprio pull request.
+
+## Verificações
+
+A CI executa `bun run check` e `bun run test:coverage`, depois compila o Worker de teste e executa a suíte de navegador no Chromium; só quando os dois passam ela faz o deploy de um preview. Espere também o deploy do preview: é a única etapa que envia o Worker ao Cloudflare, e os limites de upload do Cloudflare já fizeram falhar um deploy que tinha passado em todas as outras verificações. Veja [CI/CD](/docs/tooling/ci-cd).
+
+## Páginas relacionadas
+
+- [Conventional commits](/docs/tooling/conventional-commits)
+- [Como contribuir](/docs/project/contributing)
+- [CI/CD](/docs/tooling/ci-cd)

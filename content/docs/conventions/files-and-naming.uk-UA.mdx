@@ -1,0 +1,119 @@
+---
+title: "Файли та іменування"
+description: "Де лежить кожен тип коду, як називаються файли й папки та які структури папок заборонено."
+---
+
+Кожен файл і кожна папка називаються в kebab-case. Назви складені, а не вкладені: суфікс каже, для чого файл, тож `src/modules/course/course.constants.ts` лежить поруч із `course.schema.ts`, а не в папці `constants/`. Винятки — `src/routes`, де крапки розділяють сегменти шляху, і згенеровані файли, як-от `src/routeTree.gen.ts`.
+
+## Куди розміщувати код
+
+Місце для нового коду визначайте за тим, що він робить, у такому порядку:
+
+| Код                                                                       | Розміщення                                                  | Приклад                                           |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
+| Володіє таблицею бази даних                                               | `src/modules/<table>/`                                      | `src/modules/course/`                             |
+| Є серверною функцією, яка не читає таблиць (зовнішній API, контент)       | `src/lib/<topic>.ts` або єдиний маршрут, що її використовує | `src/lib/github.ts`, `src/routes/blog.index.tsx`  |
+| Налаштовує або адаптує бібліотеку чи сервіс постачальника                 | `src/integrations/<vendor>/`                                | `src/integrations/polar/polar.config.ts`          |
+| Рендерить UI                                                              | `src/presentation/components/custom/`                       | `custom/admin/courses/course-form.tsx`            |
+| Є React-хуком, який використовують кілька компонентів                     | `src/hooks/use-<name>.ts`                                   | `src/hooks/use-error-message.ts`                  |
+| Є провайдером для всього застосунку                                       | `src/providers/<name>-provider.tsx`                         | `src/providers/theme-provider.tsx`                |
+| Є даними чи константами, які читають кілька файлів                        | `src/data/<topic>.ts`                                       | `MARKETING_SECTION_IDS` у `src/data/marketing.ts` |
+| Є невеликою утилітою без кращого власника                                 | `src/lib/<name>.ts`                                         | `src/lib/search-params.ts`, `src/lib/cn.ts`       |
+| Є кодом помилки, каталогом або допоміжною функцією, спільними для модулів | `src/modules/_core/`                                        | `src/modules/_core/constants/errors.ts`           |
+| Підключає тестове середовище виконання                                    | `src/platform/testing/`                                     | `src/platform/testing/mocks/cloudflare.ts`        |
+
+Константа чи допоміжна функція, яку використовує один файл, залишається в ньому. Її виносять, лише коли вона знадобиться другому файлу.
+
+## Папки компонентів
+
+`src/presentation/components/custom` містить лише компоненти `.tsx` у пласких папках:
+
+- Компонент, спільний для кількох розділів, лежить на верхньому рівні: `custom/data-table.tsx`, `custom/newsletter-form.tsx`.
+- Компонент одного розділу лежить у папці цього розділу: `custom/courses/curriculum.tsx`, `custom/auth/sign-in-form.tsx`.
+- Сторінка адмінки з кількома віджетами отримує власну папку: `custom/admin/courses/course-form.tsx`, `custom/admin/users/delete-user-dialog.tsx`.
+- `custom/landing-page/` має дві папки: `components/` і `sections/`.
+
+Один віджет, діалог, форма чи набір стовпців на файл. Стовпці таблиці — це `<entity>-columns.tsx` (`course-columns.tsx`); скелетони згруповано в `<area>-pending.tsx` (`content-pending.tsx`, `courses-pending.tsx`).
+
+Заборонено:
+
+- Підпапки `components/`, `constants/`, `hooks/`, `lib/` або `types/` всередині папки компонентів.
+- Файл `.ts` поруч із компонентами `.tsx`. Токени анімації лежать у `src/integrations/motion/motion.tokens.ts`, допоміжні функції полів — у `src/integrations/tanstack-form/form.fields.ts`.
+- Поділ компонента на `x.tsx` і `x-content.tsx`, щоб ліниво завантажувати його половину, або фасад, як-от допоміжна функція `toast` над API постачальника. Імпортуйте постачальника напряму.
+
+`src/presentation/components/shadcn/` містить примітиви shadcn (див. [Компоненти та стилізація](/docs/conventions/components)), `src/presentation/emails/` — шаблони React Email, `src/presentation/styles/` — таблиці стилів, а `src/presentation/branding` і `src/presentation/theme` — константи айдентики й теми.
+
+## Інтеграції
+
+Папка постачальника називається за пакетом або сервісом, а її файли — за коротким ім’ям постачальника й аспектом: `<prefix>.<concern>.ts`.
+
+| Суфікс          | Містить                                                | Приклад                                                       |
+| --------------- | ------------------------------------------------------ | ------------------------------------------------------------- |
+| `.config.ts`    | Налаштований клієнт                                    | `polar/polar.config.ts`, `resend/resend.config.ts`            |
+| `.constants.ts` | Значення, отримані із середовища або від постачальника | `polar/polar.constants.ts`                                    |
+| `.server.ts`    | Суто серверне налаштування                             | `better-auth/auth.server.ts`                                  |
+| `.<concern>.ts` | Один аспект інтеграції                                 | `better-auth/auth.middleware.ts`, `use-intl/i18n.messages.ts` |
+
+Префікс — це коротке ім’я, а не назва папки, тому `better-auth` містить файли `auth.*`, `use-intl` — `i18n.*`, а `tanstack-form` — `form.*`.
+
+## Модулі
+
+Папка модуля називається за його таблицею, і кожен файл повторює цю назву. Повний перелік типів файлів і того, що кожен може містити, наведено на сторінці [Модулі](/docs/conventions/modules).
+
+| Шаблон                       | Приклад                                              |
+| ---------------------------- | ---------------------------------------------------- |
+| `<table>.schema.ts`          | `course/course.schema.ts`                            |
+| `<table>.zod.ts`             | `course/course.zod.ts`                               |
+| `<table>.constants.ts`       | `course/course.constants.ts`                         |
+| `<table>.types.ts`           | `course/course.types.ts`                             |
+| `<table>.utils.ts`           | `course/course.utils.ts`                             |
+| `<table>.<concern>.ts`       | `lesson/lesson.access.ts`, `video/video.delivery.ts` |
+| `use-cases/<verb>-<noun>.ts` | `course/use-cases/move-course.ts`                    |
+
+## Маршрути
+
+`src/routes` використовує пласкі файлові маршрути TanStack Start, тож назва файлу читається як його URL.
+
+| Шаблон                    | Значення                               | Приклад                          |
+| ------------------------- | -------------------------------------- | -------------------------------- |
+| `<segment>.<segment>.tsx` | Вкладений шлях                         | `admin.courses.create.tsx`       |
+| `<path>.tsx`              | Макет для всього, що лежить під шляхом | `admin.courses.tsx`              |
+| `<path>.index.tsx`        | Сторінка за самим шляхом               | `admin.courses.index.tsx`        |
+| `_<name>.tsx`             | Макет без шляху                        | `_landing.tsx`                   |
+| `$<param>`                | Динамічний сегмент                     | `admin.courses.$courseId.tsx`    |
+| `$.tsx`                   | Splat-маршрут                          | `docs.$.tsx`                     |
+| `__root.tsx`              | Кореневий маршрут                      | `__root.tsx`                     |
+| `api/<name>.ts`           | HTTP-обробник                          | `api/auth.$.ts`, `api/search.ts` |
+
+Файли маршрутів не містять сегмента локалі; роутер сам додає й прибирає префікс локалі.
+
+## Тести
+
+Тести лежать у папці `__test__` поруч із кодом, який вони покривають, а суфікс визначає проєкт Vitest:
+
+| Шаблон                                | Проєкт        |
+| ------------------------------------- | ------------- |
+| `__test__/<file>.test.ts`             | `node`        |
+| `__test__/<file>.integration.test.ts` | `integration` |
+| `__test__/<file>.component.test.tsx`  | `component`   |
+
+Тест називається за файлом, який він покриває, за потреби з темою: `course.schema.test.ts`, `rate-limit.client-address.test.ts`. Тести сценаріїв використання згруповано за модулем і аудиторією: `use-cases/__test__/course-use-cases.test.ts` і `course-admin-use-cases.test.ts`. Фікстури лежать у `__test__/fixtures/` поруч зі своїм власником (`src/modules/course/__test__/fixtures/catalogue.ts`). Тести маршрутів лежать у `src/routes/__test__/` і називаються за розділом: `admin-course-routes.component.test.tsx`, `course-loaders.test.ts`.
+
+Браузерні тести розміщено в корені репозиторію: специфікації — у `e2e/specs/<flow>.spec.ts`, page objects — у `e2e/pages/<name>-page.ts`, початкові дані — в `e2e/data/`, а фікстури Playwright — в `e2e/fixtures/`.
+
+## Контент, повідомлення та база даних
+
+| Шаблон                                                           | Значення                                                                            |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `messages/<locale>/<namespace>.json`                             | Один простір імен перекладів: `pages.admin.courses.json`                            |
+| `content/docs/<path>/<page>.<locale>.mdx`                        | Одна сторінка документації однією локаллю                                           |
+| `content/docs/<path>/meta.<locale>.json`                         | Порядок навігації та назва цієї папки                                               |
+| `content/blog/<slug>.<locale>.mdx`                               | Один допис блогу однією локаллю                                                     |
+| `src/integrations/drizzle-orm/migrations/<timestamp>_<name>.sql` | Одна міграція, згенерована командою `bun run db:generate`                           |
+| `scripts/<name>.ts`                                              | Скрипт репозиторію, який запускається через Bun: `check-content.ts`, `seed-test.ts` |
+
+## Пов’язані сторінки
+
+- [Структура каталогів](/docs/architecture/directory-structure)
+- [Модулі](/docs/conventions/modules)
+- [Файли маршрутів](/docs/conventions/routes)

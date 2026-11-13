@@ -1,0 +1,47 @@
+---
+title: "Acessibilidade"
+description: "Toda página atende à WCAG 2.2 AA nos dois temas, verificada pelo axe na suíte de navegador, além das regras de teclado e de leitor de tela que o axe não consegue enxergar."
+---
+
+Toda página pública, um post do blog e todas as páginas dos workspaces de administração e do cliente atendem à WCAG 2.2 nível AA no tema claro e no escuro. Isso é um requisito de lançamento, não uma meta: `e2e/specs/accessibility.spec.ts` as varre em todo pull request e falha em qualquer violação.
+
+## A varredura
+
+A spec executa o axe-core por meio de `@axe-core/playwright` com as regras A e AA da WCAG 2.0, 2.1 e 2.2 e as boas práticas do axe:
+
+```ts
+const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]
+const COLOR_SCHEMES = ["light", "dark"] as const
+```
+
+Antes da varredura, ela rola a página inteira, para que as seções que aparecem com fade ao rolar fiquem visíveis, e espera as animações finitas terminarem, para que o contraste seja medido na página já estável. Uma página nova é adicionada a `PUBLIC_PAGES` ou `WORKSPACE_PAGES` nessa spec na mesma alteração que adiciona a rota. Execute-a com o restante da suíte:
+
+```sh
+bun run test:e2e:pr
+```
+
+## O que o axe não consegue verificar
+
+O axe verifica a marcação, não o significado nem o fluxo pelo teclado. Estas regras cobrem o resto e são cobradas na revisão:
+
+- **Landmarks e nomes.** Cada workspace tem uma navegação com rótulo (`<nav aria-label={t("navigationLabel")}>` em `admin-sidebar.tsx`), e as barras laterais, o painel lateral de autenticação e o sumário da documentação são landmarks.
+- **Semântica real.** As abas têm painéis de abas; um conjunto de opções que não alterna painéis é um grupo de alternância, não uma lista de abas. Um link com aparência de botão é um `LinkButton`, nunca um link envolvendo um botão.
+- **Rótulos em todo controle.** Os inputs têm um `FieldLabel`; um rótulo visualmente oculto usa `className="sr-only"`, como faz o campo da newsletter. Botões só com ícone levam um `aria-label` que nomeia o seu alvo, como `t("actions.delete", { title })`, e o texto visível de um controle faz parte do seu nome acessível.
+- **Erros anunciados com o campo.** Todo input define `aria-describedby` com o ID do seu erro e `aria-invalid` enquanto é inválido; o elemento de erro só existe enquanto há um erro. Veja [Formulários e tabelas](/docs/conventions/forms-and-tables).
+- **Conteúdo decorativo fica oculto.** Ícones ao lado de texto recebem `aria-hidden`, assim como pontos, separadores puramente visuais e vídeos em loop sem rótulo.
+- **Títulos em ordem.** Cada página tem um único `h1`; um título de card que inicia uma seção renderiza um `h2` dentro de `CardTitle`, como faz `course-form.tsx`.
+- **Teclado em primeiro lugar.** Tudo o que se alcança com o mouse se alcança pelo teclado, inclusive as ações que aparecem no hover, que também aparecem no foco. Os anéis de foco usam `data-focus-visible:` nos componentes do React Aria; veja [Componentes e estilização](/docs/conventions/components).
+- **Estados de carregamento.** Os esqueletos definem `aria-busy="true"` no seu elemento raiz, e os botões pendentes usam o estado `isPending` do `Button` do shadcn.
+- **As colunas têm nome.** A coluna de ações de uma tabela usa `DataTableActionsHeader`, um cabeçalho visível apenas para leitores de tela.
+- **O idioma é declarado.** `<html lang>` acompanha o locale da rota, e um input para texto em outro idioma define `lang={locale}`, como fazem os campos localizados dos cursos.
+
+## Contraste e movimento
+
+- O texto usa os tokens de cor do tema. `text-muted-foreground` atinge o contraste de 4,5:1 nos dois temas; variantes mais claras como `text-muted-foreground/60` são apenas para chips desativados, ícones decorativos e separadores.
+- O movimento respeita as configurações do leitor: `MotionConfig reducedMotion="user"` em `MotionProvider`, variantes `motion-reduce:` nas transições, `scroll-behavior: auto` sob `prefers-reduced-motion`, e os vídeos da landing page não são reproduzidos automaticamente para quem pede movimento reduzido (`concept-loop.tsx`).
+
+## Páginas relacionadas
+
+- [Playwright](/docs/tooling/playwright)
+- [Componentes e estilização](/docs/conventions/components)
+- [Formulários e tabelas](/docs/conventions/forms-and-tables)

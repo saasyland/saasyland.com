@@ -1,0 +1,85 @@
+---
+title: "Componenti e stili"
+description: "Astrazioni minime, componenti che leggono da sé dati e traduzioni, sintassi a oggetto di cn, primitive shadcn, anelli di focus e posizione dei provider."
+---
+
+I componenti sono il punto in cui il codice accumula più facilmente livelli che nessuno ha chiesto. Le regole seguenti mantengono ogni schermata leggibile da un solo file: apri il componente e vedi i dati che legge, il testo che mostra e le classi che applica.
+
+## Astrazioni minime
+
+- **Un solo meccanismo evidente per ogni aspetto.** Chiama direttamente la libreria: `toast.error(...)` da `sonner`, `hasPermission(...)` da `auth.access.ts`, il `Button` di shadcn. Non aggiungere una facciata, una factory, un provider o un componente wrapper che si limita a inoltrare le props o a rinominarle.
+- **Astrai al terzo utilizzo, non al primo.** Un helper si guadagna il suo posto quando almeno tre punti di chiamata condividono una logica non banale, e si trova nell'unico file che possiede quell'aspetto. `course-fields.tsx` esiste perché il form del corso, la finestra di dialogo del capitolo e quella della lezione rendono lo stesso campo di testo localizzato con la stessa visualizzazione della validazione.
+- **Elimina prima di estendere.** Quando un meccanismo non giustifica più la sua esistenza, rimuovilo invece di aggiungergli opzioni. Opzioni, props e parametri speculativi «per dopo» non si aggiungono.
+- **Nessun meccanismo cosmetico.** Costanti o helper il cui unico scopo è sembrare ordinati, come un builder per una sola emoji o una prop `className` per un solo punto di chiamata, non si aggiungono.
+
+## I componenti leggono i propri dati
+
+Un componente ottiene da sé testi e dati:
+
+- le traduzioni con `useTranslations`, limitate al proprio namespace (vedi [Traduzioni e contenuti](/docs/conventions/translations));
+- i dati delle query con `useSuspenseQuery(options)`, già precaricati dal loader della route;
+- i dati della route con `Route.useParams()` nel file di route, oppure con `getRouteApi("/blog/$")` in un file di componente, come fa `post-meta.tsx`.
+
+Le props trasportano solo ciò che conosce soltanto il genitore: il record che una finestra di dialogo modifica (`chapter`), l'ID a cui appartiene un form (`courseId`), un elemento trigger, `isOpen` e `onOpenChange`. Un componente che può leggere da sé un'etichetta, un elenco o il risultato di una query non lo riceve come prop, e un valore non attraversa mai un componente che non lo usa. Le mappe dei tag del rich text per `t.rich` sono costanti di modulo accanto al componente che le usa, mai oggetti creati durante il rendering.
+
+## Forma di un file di componente
+
+`src/presentation/components/custom/admin/courses/chapter-dialog.tsx` è un file tipico:
+
+```tsx
+interface ChapterDialogProps {
+  readonly chapter?: { readonly id: string; readonly title: LocalizedText }
+  readonly courseId: string
+  readonly trigger: ReactNode
+}
+
+export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps): JSX.Element => {
+  const t = useTranslations("pages.admin.courses.chapter")
+  const queryClient = useQueryClient()
+  const errorMessage = useErrorMessage()
+  const [isOpen, setOpen] = useState(false)
+```
+
+- Un componente esportato per file, dichiarato come `export const Name = (...): JSX.Element =>`. Un componente che può non rendere nulla restituisce `JSX.Element | undefined`.
+- Le props sono `readonly`, in un'interfaccia `<Name>Props` sopra il componente, oppure inline quando c'è una sola prop.
+- Prima vengono gli hook, nell'ordine e con la spaziatura descritti in [Stile del codice](/docs/conventions/code-style), poi i callback locali, poi il JSX.
+- Le scelte tra due blocchi di JSX usano coppie di `&&` o un return anticipato, mai un ternario su più righe.
+
+## Nomi delle classi
+
+Lo stile è fatto di utility Tailwind in `className`. Le classi condizionali passano per `cn` da `~/src/lib/cn` con la sintassi a oggetto, mai con un ternario dentro la chiamata:
+
+```tsx
+className={cn("flex items-center gap-4 border-b transition-colors duration-200 ease-exp", {
+  "border-border focus-within:border-foreground": !isInvalid,
+  "border-destructive": isInvalid,
+})}
+```
+
+Una scelta tra due alternative sono due voci, la seconda negata, come in `newsletter-form.tsx` qui sopra. Le chiavi possono essere calcolate: `course-columns.tsx` scrive `[ADMIN_STATUS_BADGE_CLASSES.emerald]: status === COURSE_STATUS.PUBLISHED`. Una lunga stringa di classi usata più di una volta in un file diventa una costante in quel file, come `NAV_LINK_CLASSNAME` in `src/routes/courses.tsx`.
+
+`~/src/lib/cn` è obbligatorio, non una preferenza. È `createCn` costruito da `src/lib/cn.config.ts` e dalle tabelle che `bun run generate:cn` scrive in `.source/cn-tables.ts`. La configurazione registra come dimensioni del font i token tipografici del progetto (`text-body`, `text-body-sm`, `text-label`, `text-spec`, `text-lead`, `text-title`, `text-statement`, `text-price` e le dimensioni `text-headline-*` e `text-display-*`). Un `cn` semplice li leggerebbe come colori e scarterebbe una delle due classi che ritiene in conflitto: `cn("text-body-sm text-muted-foreground", { "text-foreground": true })` perderebbe la dimensione del font. Usa questi token per la tipografia invece di dimensioni grezze, e i colori del tema (`text-foreground`, `text-muted-foreground`, `bg-card`) invece di colori fissi.
+
+## Primitive shadcn
+
+`src/presentation/components/shadcn/` contiene le primitive shadcn/ui dello stile `aria-lyra` indicato in `components.json`, costruite su React Aria Components. Le schermate le importano direttamente; non esiste un livello di wrapper. Aggiungi una primitiva con la CLI di shadcn, e modifica il file di una primitiva solo per correggere la primitiva stessa, come il suo comportamento di focus o di accessibilità, mai per l'aspetto di una sola schermata. Le props di React Aria differiscono dalle abitudini del DOM: `onPress`, `isDisabled`, `isOpen` con `onOpenChange`, `isSelected`. Vedi [Componenti shadcn](/docs/ui/shadcn-components) per la tabella completa e l'elenco `@source not` in `globals.css`.
+
+## Anelli di focus
+
+I componenti React Aria definiscono lo stile del loro anello di focus con le varianti `data-focus-visible:`, come fanno `select.tsx`, `checkbox.tsx`, `switch.tsx` e `radio-group.tsx`. React Aria imposta `data-focus-visible` solo per il focus da tastiera. Il `:focus-visible` di Chrome, invece, corrisponde anche quando un popover si chiude dopo un clic all'esterno e React Aria restituisce il focus al suo trigger, quindi `focus-visible:` su un trigger disegna un anello dopo un'interazione puramente con il mouse. I link semplici e gli elementi che non sono componenti React Aria mantengono `focus-visible:`, perché non ricevono mai `data-focus-visible`; per questo `button-variants.ts`, che definisce anche lo stile dei link, usa `focus-visible:`.
+
+## Provider
+
+Un provider il cui valore cambia dopo l'idratazione non avvolge mai un `<Outlet />` di route. Viene montato accanto ai componenti che lo consumano:
+
+- `AriaProvider` avvolge l'outlet radice in `__root.tsx` e `TranslationsProvider` avvolge il corpo del documento, perché servono a tutte le schermate e i loro valori sono pronti al momento dell'idratazione.
+- `ThemeProvider` avvolge solo il `Toaster` in `__root.tsx` e il `ThemeSwitch` in `docs.tsx`.
+- `MotionProvider` avvolge le sezioni della landing page in `_landing.index.tsx` e l'elenco degli articoli in `blog.index.tsx`.
+
+Il motivo, misurato, è descritto in [Prestazioni](/docs/conventions/performance).
+
+## Pagine correlate
+
+- [Pattern di composizione](/docs/ui/composition-patterns)
+- [Form e tabelle](/docs/conventions/forms-and-tables)
+- [Accessibilità](/docs/conventions/accessibility)

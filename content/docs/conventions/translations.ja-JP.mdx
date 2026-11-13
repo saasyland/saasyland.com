@@ -1,0 +1,63 @@
+---
+title: "翻訳とコンテンツ"
+description: "すべての文字列とドキュメントページを 9 つのロケールで用意すること、1 ファイルに 1 つの名前空間、1 コンポーネントに 1 つの翻訳関数、バリデーション用の名前空間、ICU メッセージ、そして手入力ではなく計測される数値。"
+---
+
+SaaSy Land は 9 つのロケールで提供されます。`en-US`、`de-DE`、`es-ES`、`fr-FR`、`it-IT`、`ja-JP`、`pl-PL`、`pt-BR`、`uk-UA` で、`src/integrations/use-intl/i18n.config.ts` の `I18N.SUPPORTED_LOCALES` で一度だけ列挙しています。英語が信頼できる唯一の情報源です。テキストを追加または編集する変更は、同じコミットで 9 つのロケールすべてに対して追加または編集を行います。そうなっていない場合は `bun run check:i18n` が失敗します。
+
+## 名前空間
+
+メッセージは `messages/<locale>/<namespace>.json` に置きます。名前空間ごとに 1 ファイルで、ファイル名がそのまま名前空間になります。
+
+| 名前空間                                                      | 内容                                                                            | 読み込み                                          |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `common`、`errors`、`errors.global`                           | `errors.codes.<CODE>` を含め、どの画面でも必要になりうるテキスト                | すべてのルートで                                  |
+| `components.custom.<file>`、`components.shadcn.<file>`        | `components.custom.newsletter-form` のような、1 つの共有コンポーネントの文言    | すべてのルートで                                  |
+| `pages.<area>`、`pages.<area>.<page>`                         | `metadata.title` と `metadata.description` を持つ、1 つのレイアウトまたはページ | ルートが `NAMESPACE` または `NAMESPACES` を通して |
+| `<table>.validations`                                         | `course.validations` のような、1 つのモジュールの Zod メッセージ                | それを使うフォームを持つレイアウトが              |
+| `auth.errors`、`auth.validations`、その他の `auth.*` ファイル | Better Auth のエラー、バリデーション、認証画面                                  | それを必要とするレイアウトが                      |
+| `emails.<template>`                                           | 1 つのメールテンプレート                                                        | サーバー上で、それを送信するユースケースが        |
+| `countries`、`currencies`、`locales`、`timezones`             | カタログ                                                                        | それを必要とするレイアウトが                      |
+
+root 名前空間は、`src/integrations/use-intl/i18n.messages.ts` でファイル名（`common.json`、`components.*.json`、`errors*.json`）によって検出されます。共有コンポーネントの文言はページの名前空間の中ではなく、専用の `components.custom.<file>` 名前空間に置きます。そうすれば、どこに表示されても同じテキストが描画されます。ルートが宣言するすべての名前空間は、すべてのロケールにファイルとして存在しなければなりません。存在しない名前空間に対しては `loadNamespace` がエラーをスローします。
+
+## 1 コンポーネントに 1 つの翻訳関数
+
+コンポーネントは自分の名前空間を指定して `useTranslations` を 1 回だけ呼び出し、その結果を `t` と名付けます。
+
+```tsx
+const t = useTranslations("pages.admin.courses.form")
+```
+
+`scripts/check-i18n.ts` は、`src` の `.tsx` ファイルにあるすべての静的な `t("key")` を、その上にある `useTranslations` 呼び出しの名前空間に照らして解決し、英語に存在しないキーがあれば失敗します。同じコンポーネントで `useTranslations` を 2 回呼び出すと、それ以降のすべての `t()` のスコープが気づかないうちに変わってしまいます。呼び出しが 1 回だけなのはそのためです。2 つの名前空間のキーが必要なコンポーネントは、名前空間を指定せずに `useTranslations()` を呼び出し、`sign-in-form.tsx` の `t("errors.codes.INTERNAL_ERROR")` のように完全なキーを使います。
+
+## メッセージ
+
+- キーはキャメルケースの名前を持つ入れ子の JSON オブジェクトで、画面の構成に合わせてグループ化します（`table.headers.course`、`delete.confirm`）。
+- 複数形、数値、日付には、コード内での文字列連結ではなく、メッセージ内の ICU 構文を使います（`"{e2eSpecs, plural, one {# Playwright suite} other {# Playwright suites}}"`）。
+- `scripts/check-message-formats.ts` は、すべてのロケールで同じ ICU 引数とタグを要求し、ほかのロケールに残った英語のテキストを拒否します。
+- 数値、日付、通貨は、use-intl の `useFormatter`、または `useDateFormatter` と `useCurrencyFormatter` フックを使って読者のロケールに合わせてフォーマットし、手作業でフォーマットしてはいけません。
+- モジュールのスキーマにある Zod のメッセージは、そのモジュールの `<table>.validations` 名前空間のキー（`"slugInvalid"`）で、メッセージに含まれる数値は `<MODULE>_VALIDATION_PARAMS` から取ります。[フォームとテーブル](/docs/conventions/forms-and-tables)を参照してください。
+- データベースに保存し、訪問者が複数の言語で読むテキストは `LocalizedText` カラムにします。英語は必須で、翻訳がない場合に `localize(text, locale)` が返すフォールバックになります。
+
+## 数値は手入力せず計測する
+
+テストファイル、Playwright のスイート、UI コンポーネント、国、通貨など、リポジトリ内の何かの数を文言に手入力することはありません。`scripts/repository-facts.ts` がビルド時にそれらを計測して `virtual:repository-facts` モジュールとして提供し、`src/data/repository-facts.ts` がそれらを `REPOSITORY_FACTS` としてエクスポートします。ランディングページの文言は、メッセージに `"{testFiles, number} test files"` を含めた `t("body", REPOSITORY_FACTS)` のようにそれらを埋め込み、MDX では `<RepositoryCount fact="testFiles" />` で数値を 1 つ描画します。新しい数値に言及する場合は、まずそのプラグインで計測してください。
+
+## ドキュメントとブログ
+
+`content/docs` 配下のすべてのページと `content/blog` 配下のすべての記事は、9 つのロケールすべてに `<slug>.<locale>.mdx` として存在し、各フォルダーのナビゲーションは `meta.<locale>.json` として存在します。`bun run check:i18n` が実行する `scripts/check-content.ts` は、次の場合に失敗します。
+
+- ロケールのファイルが欠けている。
+- コードブロックが英語のものと異なる（コードブロックはバイト単位でそのままコピーします）。
+- `meta.<locale>.json` が英語と異なるスラッグを列挙している。
+- タイトル、説明、段落が英語のまま残っている。
+- 機械翻訳のマーカーがテキストに残っている。
+
+翻訳は、そのロケールが `messages/<locale>/` ですでに使っている用語を使い、ネイティブスピーカーが書くように書いてください（たとえばポーランド語では、ティアを Komplet と Agencja と呼びます）。コードの識別子、ファイルパス、コマンド、製品名はそのままにし、リンクはロケールプレフィックスなしの `/docs/...` のパスのままにします。プレフィックスはサイトが描画時に付けます。
+
+## 関連ページ
+
+- [国際化とロケール](/docs/architecture/i18n-architecture)
+- [翻訳メッセージ](/docs/guides/i18n-messages)
+- [use-intl](/docs/integrations/use-intl)

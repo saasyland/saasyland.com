@@ -1,0 +1,47 @@
+---
+title: "Barrierefreiheit"
+description: "Jede Seite erfüllt WCAG 2.2 AA in beiden Themes, geprüft von axe in der Browser-Suite, dazu die Regeln für Tastatur und Screenreader, die axe nicht sehen kann."
+---
+
+Jede öffentliche Seite, ein Blogbeitrag und jede Seite des Admin- und des Kundenbereichs erfüllen WCAG 2.2 Stufe AA im hellen und im dunklen Theme. Das ist eine Voraussetzung für jedes Release, kein Ziel: `e2e/specs/accessibility.spec.ts` scannt sie bei jedem Pull Request und schlägt bei jedem Verstoß fehl.
+
+## Der Scan
+
+Die Spec führt axe-core über `@axe-core/playwright` mit den A- und AA-Regeln von WCAG 2.0, 2.1 und 2.2 sowie den Best Practices von axe aus:
+
+```ts
+const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]
+const COLOR_SCHEMES = ["light", "dark"] as const
+```
+
+Vor dem Scan scrollt sie durch die ganze Seite, damit Abschnitte, die beim Scrollen eingeblendet werden, sichtbar sind, und wartet, bis endliche Animationen beendet sind, damit der Kontrast auf der fertig aufgebauten Seite gemessen wird. Eine neue Seite wird in derselben Änderung, die die Route hinzufügt, in `PUBLIC_PAGES` oder `WORKSPACE_PAGES` dieser Spec aufgenommen. Führen Sie sie mit dem Rest der Suite aus:
+
+```sh
+bun run test:e2e:pr
+```
+
+## Was axe nicht prüfen kann
+
+axe prüft Markup, nicht Bedeutung oder Tastaturabläufe. Diese Regeln decken den Rest ab und werden im Review durchgesetzt:
+
+- **Landmarks und Namen.** Jeder Bereich hat eine beschriftete Navigation (`<nav aria-label={t("navigationLabel")}>` in `admin-sidebar.tsx`), und Seitenleisten, das seitliche Auth-Panel und das Inhaltsverzeichnis der Dokumentation sind Landmarks.
+- **Echte Semantik.** Tabs haben Tab-Panels; eine Gruppe von Optionen, die keine Panels wechselt, ist eine Toggle-Gruppe, keine Tablist. Ein Link, der wie ein Button aussieht, ist ein `LinkButton`, niemals ein Link um einen Button herum.
+- **Labels an jedem Steuerelement.** Eingabefelder haben ein `FieldLabel`; ein visuell verborgenes Label verwendet `className="sr-only"`, wie das Newsletter-Feld. Buttons, die nur aus einem Icon bestehen, tragen ein `aria-label`, das ihr Ziel benennt, etwa `t("actions.delete", { title })`, und der sichtbare Text eines Steuerelements ist Teil seines zugänglichen Namens.
+- **Fehler werden mit dem Feld angesagt.** Jedes Eingabefeld setzt `aria-describedby` auf die ID seines Fehlers und `aria-invalid`, solange es ungültig ist; das Fehlerelement existiert nur, solange es einen Fehler gibt. Siehe [Formulare und Tabellen](/docs/conventions/forms-and-tables).
+- **Dekorative Inhalte sind verborgen.** Icons neben Text erhalten `aria-hidden`, ebenso rein visuelle Punkte, Trennzeichen und Videos in Endlosschleife ohne Beschriftung.
+- **Überschriften in Reihenfolge.** Jede Seite hat genau ein `h1`; ein Kartentitel, der einen Abschnitt beginnt, rendert ein `h2` in `CardTitle`, wie in `course-form.tsx`.
+- **Tastatur zuerst.** Alles, was per Maus erreichbar ist, ist per Tastatur erreichbar, einschließlich Aktionen, die beim Hovern erscheinen: Sie erscheinen auch bei Fokus. Fokusringe verwenden `data-focus-visible:` auf React-Aria-Komponenten; siehe [Komponenten und Styling](/docs/conventions/components).
+- **Ladezustände.** Skeletons setzen `aria-busy="true"` auf ihrem Wurzelelement, und Buttons im Ladezustand verwenden den Zustand `isPending` des shadcn-`Button`.
+- **Spalten haben Namen.** Die Aktionsspalte einer Tabelle verwendet `DataTableActionsHeader`, eine Kopfzeile nur für Screenreader.
+- **Die Sprache ist deklariert.** `<html lang>` folgt der Locale der Route, und ein Eingabefeld für Text in einer anderen Sprache setzt `lang={locale}`, wie die lokalisierten Kursfelder.
+
+## Kontrast und Bewegung
+
+- Text verwendet die Farb-Tokens des Themes. `text-muted-foreground` erreicht in beiden Themes 4,5:1; hellere Varianten wie `text-muted-foreground/60` sind nur für deaktivierte Chips, dekorative Icons und Trennzeichen gedacht.
+- Bewegung respektiert die Einstellungen des Lesers: `MotionConfig reducedMotion="user"` in `MotionProvider`, `motion-reduce:`-Varianten bei Übergängen, `scroll-behavior: auto` unter `prefers-reduced-motion`, und die Videos der Landingpage starten für Leser, die reduzierte Bewegung wünschen, nicht automatisch (`concept-loop.tsx`).
+
+## Verwandte Seiten
+
+- [Playwright](/docs/tooling/playwright)
+- [Komponenten und Styling](/docs/conventions/components)
+- [Formulare und Tabellen](/docs/conventions/forms-and-tables)

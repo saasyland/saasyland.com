@@ -1,0 +1,124 @@
+---
+title: "Server functions and errors"
+description: "The one shape of a server function: middleware, input validation through the module interface, permissions, ownership, error codes and return values."
+---
+
+Every operation the browser can call is a TanStack Start server function built with `createServerFn`. A server function is an endpoint on the public internet, so it authorizes and validates itself; a route guard only decides what a visitor is shown.
+
+## The shape
+
+`src/modules/course/use-cases/update-course.ts`:
+
+```ts
+export const updateCourse = createServerFn({ method: "POST" })
+  .middleware([authorized({ course: ["update"] })])
+  .validator((input: Course["updateCourse"]) => courseZodSchemas.updateCourse.parse(input))
+  .handler(async ({ data }) => {
+    const { courseId, ...fields } = data
+    const [row] = await db.update(course).set(fields).where(eq(course.id, courseId)).returning({ id: course.id }).catch(rethrowAsConflict)
+
+    if (row === undefined) {
+      throw new AppError(ERROR_CODES.NOT_FOUND)
+    }
+
+    return row
+  })
+
+export const updateCourseMutation = mutationOptions({
+  mutationFn: (data: Course["updateCourse"]) => updateCourse({ data }),
+  mutationKey: COURSE_MUTATION_KEYS.UPDATE,
+})
+```
+
+The chain is always in this order:
+
+1. `createServerFn({ method: "GET" })` for reads, `{ method: "POST" }` for anything that writes.
+2. `.middleware([...])` with the middleware the operation needs, described below.
+3. `.validator((input: Module["operation"]) => moduleZodSchemas.operation.parse(input))` when the function takes input. The parameter is typed through the [module interface](/docs/conventions/modules), and the schema is the one the form validates with.
+4. `.handler(async ({ context, data }) => ...)`.
+
+The same file exports the options callers use: `<name>Mutation` built with `mutationOptions`, or a query built with `queryOptions` (see [Data fetching and caching](/docs/conventions/data-fetching)). Components, loaders and tests import those options, never the bare server function.
+
+## Middleware
+
+All three come from `src/integrations/better-auth/auth.middleware.ts`.
+
+| Middleware                                   | Use it for                                                        | Adds to `context`           |
+| -------------------------------------------- | ----------------------------------------------------------------- | --------------------------- |
+| `withRequest`                                | Public reads, such as `getCatalogue` and `getCourse`              | `requestHeaders`            |
+| `authorized()`                               | Anything that needs a signed-in user                              | `requestHeaders` and `auth` |
+| `authorized({ course: ["update"] })`         | Anything that needs a permission                                  | `requestHeaders` and `auth` |
+| `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` | Operations that send email or change credentials, such as sign-up | `requestHeaders`            |
+| `withRateLimit(kind, RATE_LIMITS.TOKEN)`     | Public operations that redeem a token from a link                 | `requestHeaders`            |
+
+A sensitive operation of a signed-in user combines both: `change-password.ts` uses `[withRateLimit("change-password", RATE_LIMITS.SENSITIVE), authorized()]`. The `kind` names the operation in kebab-case and keys its counter.
+
+`authorized` and `withRateLimit` run `withRequest` first, so every server function gets the same error handling.
+
+## Permissions
+
+Permission statements are declared once, in `APP_STATEMENTS` in `src/integrations/better-auth/auth.access.ts`:
+
+```ts
+const APP_STATEMENTS = {
+  admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  course: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
+  settings: ["manage"],
+  video: ["read", "delete"],
+} as const
+```
+
+- A new resource adds its statement here, and the admin role receives it through `ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements })`.
+- Server functions pass the statement to `authorized`. Other server code checks `hasPermission({ permission, role })` inline, as `resolveViewer` in `lesson.viewer.ts` does for staff access. There is no wrapper such as `canEditCourses()` around it.
+- The permission a server function checks is listed in the [permissions matrix](/docs/reference/permissions).
+
+## Ownership
+
+An operation on the caller's own data reads the user from the session, never from the input. `save-lesson-progress.ts` writes `userId: context.auth.user.id`, and `get-current-license.ts` reads `getLicense(context.auth.user.id)`. An input that carries a user ID is an admin operation and checks a permission.
+
+## Errors
+
+Server code throws `AppError` with a code from `ERROR_CODES` in `src/modules/_core/constants/errors.ts`:
+
+| Code                | When                                                                       |
+| ------------------- | -------------------------------------------------------------------------- |
+| `NOT_FOUND`         | The row does not exist, including an update or delete that matched nothing |
+| `CONFLICT`          | A unique constraint failed                                                 |
+| `UNAUTHORIZED`      | No session (thrown by `authorized`)                                        |
+| `FORBIDDEN`         | Missing permission or access                                               |
+| `VALIDATION`        | Input failed its schema (mapped from `ZodError`)                           |
+| `TOO_MANY_REQUESTS` | A rate limit was hit                                                       |
+| `AUTH_API_ERROR`    | Better Auth rejected the call, with the error's message key                |
+| `INTERNAL_ERROR`    | Anything else; the cause is logged, never sent                             |
+
+- Detect a missing row from the result (`const [row] = await ... .returning(...)`, then `if (row === undefined)`), not with a second query.
+- Turn a unique violation into `CONFLICT` with `.catch(rethrowAsConflict)` from `src/integrations/drizzle-orm/drizzle.errors.ts`, as `create-course.ts` and `update-course.ts` do.
+- `withRequest` rethrows an `AppError` with only its code, maps Better Auth and Zod errors, and logs everything else before answering `INTERNAL_ERROR`, so no stack trace or SQL reaches the browser.
+- In the browser, `useErrorMessage()` from `src/hooks/use-error-message.ts` turns any error into the translated `errors.codes.<CODE>` or `auth.errors.<key>` text. Forms show it with `toast.error(errorMessage(error))`.
+- In a route loader, `.catch(rethrowAsNotFound)` from `src/lib/not-found.ts` turns `NOT_FOUND` into the router's not-found page.
+
+## Return values
+
+- Return what the caller uses. A mutation returns the ID it touched (`returning({ id: course.id })`), a paginated read returns `{ rows, total }`, and an optional record is wrapped in an object, such as `{ license }`, so the query data is never `undefined`.
+- Send several statements in one round trip with `db.batch([...])`. D1 runs a batch as one transaction, which is how `moveCourse` renumbers every position at once and `getCourses` reads a page and its total together.
+- Resolve the display language on the server when the shape is localised: `getCourse` returns titles already passed through `localize(text, locale)`.
+
+## Where server functions live
+
+| Server function                              | Lives in                                                       |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| Reads or writes a table                      | `src/modules/<table>/use-cases/<verb>-<noun>.ts`               |
+| Used by one route only and owns no table     | That route file, as in `src/routes/blog.index.tsx`             |
+| Reads an external service or content, shared | `src/lib/<topic>.ts`, as `getStarCount` in `src/lib/github.ts` |
+| Server-only, never called from the browser   | A plain `async` function in a file marked `server-only`        |
+
+Components never import `db`, `env` from `cloudflare:workers` or a provider client. They call server functions through query and mutation options.
+
+## Related pages
+
+- [Modules](/docs/conventions/modules)
+- [Authentication and security](/docs/architecture/security-model)
+- [Add a use case](/docs/guides/add-a-use-case)

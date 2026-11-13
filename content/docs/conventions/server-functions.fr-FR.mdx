@@ -1,0 +1,124 @@
+---
+title: "Fonctions serveur et erreurs"
+description: "La forme unique d'une fonction serveur : middleware, validation de l'entrée via l'interface du module, permissions, propriété des données, codes d'erreur et valeurs de retour."
+---
+
+Chaque opération que le navigateur peut appeler est une fonction serveur TanStack Start construite avec `createServerFn`. Une fonction serveur est un endpoint exposé sur l'internet public : elle vérifie donc elle-même les autorisations et valide elle-même son entrée ; un guard de route ne décide que de ce qui est montré à un visiteur.
+
+## La forme
+
+`src/modules/course/use-cases/update-course.ts` :
+
+```ts
+export const updateCourse = createServerFn({ method: "POST" })
+  .middleware([authorized({ course: ["update"] })])
+  .validator((input: Course["updateCourse"]) => courseZodSchemas.updateCourse.parse(input))
+  .handler(async ({ data }) => {
+    const { courseId, ...fields } = data
+    const [row] = await db.update(course).set(fields).where(eq(course.id, courseId)).returning({ id: course.id }).catch(rethrowAsConflict)
+
+    if (row === undefined) {
+      throw new AppError(ERROR_CODES.NOT_FOUND)
+    }
+
+    return row
+  })
+
+export const updateCourseMutation = mutationOptions({
+  mutationFn: (data: Course["updateCourse"]) => updateCourse({ data }),
+  mutationKey: COURSE_MUTATION_KEYS.UPDATE,
+})
+```
+
+La chaîne suit toujours cet ordre :
+
+1. `createServerFn({ method: "GET" })` pour les lectures, `{ method: "POST" }` pour tout ce qui écrit.
+2. `.middleware([...])` avec les middlewares dont l'opération a besoin, décrits ci-dessous.
+3. `.validator((input: Module["operation"]) => moduleZodSchemas.operation.parse(input))` lorsque la fonction prend une entrée. Le paramètre est typé via l'[interface du module](/docs/conventions/modules), et le schéma est celui avec lequel le formulaire valide.
+4. `.handler(async ({ context, data }) => ...)`.
+
+Le même fichier exporte les options qu'utilisent les appelants : `<name>Mutation`, construit avec `mutationOptions`, ou une query construite avec `queryOptions` (voir [Récupération des données et cache](/docs/conventions/data-fetching)). Les composants, les loaders et les tests importent ces options, jamais la fonction serveur seule.
+
+## Middleware
+
+Les trois proviennent de `src/integrations/better-auth/auth.middleware.ts`.
+
+| Middleware                                   | À utiliser pour                                                                          | Ajoute à `context`         |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------- |
+| `withRequest`                                | Les lectures publiques, comme `getCatalogue` et `getCourse`                              | `requestHeaders`           |
+| `authorized()`                               | Tout ce qui nécessite un utilisateur connecté                                            | `requestHeaders` et `auth` |
+| `authorized({ course: ["update"] })`         | Tout ce qui nécessite une permission                                                     | `requestHeaders` et `auth` |
+| `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` | Les opérations qui envoient un e-mail ou modifient des identifiants, comme l'inscription | `requestHeaders`           |
+| `withRateLimit(kind, RATE_LIMITS.TOKEN)`     | Les opérations publiques qui utilisent un jeton issu d'un lien                           | `requestHeaders`           |
+
+Une opération sensible d'un utilisateur connecté combine les deux : `change-password.ts` utilise `[withRateLimit("change-password", RATE_LIMITS.SENSITIVE), authorized()]`. Le `kind` nomme l'opération en kebab-case et sert de clé à son compteur.
+
+`authorized` et `withRateLimit` exécutent d'abord `withRequest` : chaque fonction serveur bénéficie donc de la même gestion des erreurs.
+
+## Permissions
+
+Les déclarations de permissions sont définies une seule fois, dans `APP_STATEMENTS` de `src/integrations/better-auth/auth.access.ts` :
+
+```ts
+const APP_STATEMENTS = {
+  admin: ["access"],
+  category: ["create", "read", "update", "delete"],
+  course: ["create", "read", "update", "delete"],
+  order: ["read", "update", "refund"],
+  product: ["create", "read", "update", "delete", "publish"],
+  settings: ["manage"],
+  video: ["read", "delete"],
+} as const
+```
+
+- Une nouvelle ressource ajoute sa déclaration ici, et le rôle d'administrateur la reçoit via `ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements })`.
+- Les fonctions serveur transmettent la déclaration à `authorized`. Le reste du code serveur vérifie `hasPermission({ permission, role })` directement, comme le fait `resolveViewer` dans `lesson.viewer.ts` pour l'accès du personnel. Il n'existe aucune enveloppe comme `canEditCourses()` autour de cet appel.
+- La permission que vérifie une fonction serveur figure dans la [matrice des permissions](/docs/reference/permissions).
+
+## Propriété des données
+
+Une opération sur les propres données de l'appelant lit l'utilisateur dans la session, jamais dans l'entrée. `save-lesson-progress.ts` écrit `userId: context.auth.user.id`, et `get-current-license.ts` lit `getLicense(context.auth.user.id)`. Une entrée qui transporte un identifiant d'utilisateur relève d'une opération d'administration et vérifie une permission.
+
+## Erreurs
+
+Le code serveur lève une `AppError` avec un code de `ERROR_CODES`, défini dans `src/modules/_core/constants/errors.ts` :
+
+| Code                | Quand                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
+| `NOT_FOUND`         | La ligne n'existe pas, y compris pour une mise à jour ou une suppression qui ne correspond à rien |
+| `CONFLICT`          | Une contrainte d'unicité a échoué                                                                 |
+| `UNAUTHORIZED`      | Pas de session (levée par `authorized`)                                                           |
+| `FORBIDDEN`         | Permission ou accès manquant                                                                      |
+| `VALIDATION`        | L'entrée n'a pas passé son schéma (correspond à `ZodError`)                                       |
+| `TOO_MANY_REQUESTS` | Une limite de débit a été atteinte                                                                |
+| `AUTH_API_ERROR`    | Better Auth a rejeté l'appel, avec la clé de message de l'erreur                                  |
+| `INTERNAL_ERROR`    | Tout le reste ; la cause est journalisée, jamais envoyée                                          |
+
+- Détectez une ligne manquante à partir du résultat (`const [row] = await ... .returning(...)`, puis `if (row === undefined)`), et non par une seconde requête.
+- Transformez une violation d'unicité en `CONFLICT` avec `.catch(rethrowAsConflict)` de `src/integrations/drizzle-orm/drizzle.errors.ts`, comme le font `create-course.ts` et `update-course.ts`.
+- `withRequest` relance une `AppError` avec son seul code, convertit les erreurs de Better Auth et de Zod, et journalise tout le reste avant de répondre `INTERNAL_ERROR` : aucune trace de pile ni aucun SQL n'atteint le navigateur.
+- Dans le navigateur, `useErrorMessage()` de `src/hooks/use-error-message.ts` transforme n'importe quelle erreur en texte traduit `errors.codes.<CODE>` ou `auth.errors.<key>`. Les formulaires l'affichent avec `toast.error(errorMessage(error))`.
+- Dans le loader d'une route, `.catch(rethrowAsNotFound)` de `src/lib/not-found.ts` transforme `NOT_FOUND` en page « introuvable » du routeur.
+
+## Valeurs de retour
+
+- Renvoyez ce que l'appelant utilise. Une mutation renvoie l'identifiant qu'elle a touché (`returning({ id: course.id })`), une lecture paginée renvoie `{ rows, total }`, et un enregistrement facultatif est enveloppé dans un objet, comme `{ license }`, pour que les données de la query ne soient jamais `undefined`.
+- Envoyez plusieurs instructions en un seul aller-retour avec `db.batch([...])`. D1 exécute un batch comme une seule transaction : c'est ainsi que `moveCourse` renumérote toutes les positions d'un coup et que `getCourses` lit une page et son total ensemble.
+- Résolvez la langue d'affichage sur le serveur lorsque la forme est localisée : `getCourse` renvoie des titres déjà passés par `localize(text, locale)`.
+
+## Où placer les fonctions serveur
+
+| Fonction serveur                                           | Se trouve dans                                                      |
+| ---------------------------------------------------------- | ------------------------------------------------------------------- |
+| Lit ou écrit une table                                     | `src/modules/<table>/use-cases/<verb>-<noun>.ts`                    |
+| Utilisée par une seule route et ne possède aucune table    | Ce fichier de route, comme dans `src/routes/blog.index.tsx`         |
+| Lit un service externe ou du contenu, partagée             | `src/lib/<topic>.ts`, comme `getStarCount` dans `src/lib/github.ts` |
+| Exclusivement serveur, jamais appelée depuis le navigateur | Une simple fonction `async` dans un fichier marqué `server-only`    |
+
+Les composants n'importent jamais `db`, `env` de `cloudflare:workers` ni le client d'un fournisseur. Ils appellent les fonctions serveur via les options de query et de mutation.
+
+## Pages associées
+
+- [Modules](/docs/conventions/modules)
+- [Authentification et sécurité](/docs/architecture/security-model)
+- [Ajouter un cas d'usage](/docs/guides/add-a-use-case)

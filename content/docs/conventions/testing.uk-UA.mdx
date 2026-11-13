@@ -1,0 +1,86 @@
+---
+title: "Тестування"
+description: "До якого проєкту Vitest належить тест, як серверні функції тестуються з D1 у пам’яті, практика 100% покриття, іменовані константи в перевірках і набір браузерних тестів."
+---
+
+Кожна зміна постачається з тестами, які її доводять, у тому самому коміті, а покриття залишається на рівні 100% для рядків, інструкцій, функцій і гілок. Виправлення помилки супроводжує тест, який без цього виправлення падає.
+
+## Проєкти
+
+`vite.config.ts` визначає три проєкти Vitest, які вибираються за суфіксом файлу. Тести імпортують свій API з `vite-plus/test` і лежать у `__test__/` поруч із кодом, який вони покривають.
+
+| Суфікс                 | Проєкт        | Для чого                                                                                |
+| ---------------------- | ------------- | --------------------------------------------------------------------------------------- |
+| `.test.ts`             | `node`        | Сценарії використання, loader-и, `head`, схеми, утиліти: усе, що виконується на сервері |
+| `.integration.test.ts` | `integration` | Сценарії Better Auth, адаптер D1 і завантаження повідомлень, з тайм-аутами 20 секунд    |
+| `.component.test.tsx`  | `component`   | Компоненти й сторінки в jsdom                                                           |
+
+`src/platform/testing/mocks/cloudflare.ts` замінює `cloudflare:workers` у кожному проєкті: D1 — це база даних `node:sqlite` у пам’яті, побудована з усіх закомічених міграцій, а KV і бакет `MEDIA` — сховища в пам’яті. `resetTestBindings()` очищає KV, бакет і таблицю обмеження частоти запитів перед кожним тестом, а функція початкових даних кожного набору скидає рядки, від яких він залежить. Жоден тест не звертається до Cloudflare, Polar, Resend чи постачальника OAuth.
+
+## Тестування серверної функції
+
+Викликайте її через експортовані опції, щоб тест перевіряв справжні middleware, валідацію й обробник. `src/modules/course/use-cases/__test__/course-admin-use-cases.test.ts`:
+
+```ts
+const signInAs = (role: string): void => {
+  vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role, userId: USERS.VISITOR }))
+}
+
+beforeEach(async () => {
+  await seedCatalogue()
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+describe("getCourses", () => {
+  it("lists every course with its lesson count, drafts included", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    const page = await executeQuery(getCoursesPageQuery())
+
+    expect(page.total).toBe(3)
+    expect(page.rows.map(({ id, lessons, status }) => [id, lessons, status])).toStrictEqual([
+      [IDS.DRAFT_COURSE, 0, COURSE_STATUS.DRAFT],
+      [IDS.COURSE, 5, COURSE_STATUS.PUBLISHED],
+      [IDS.TUTORIAL, 0, COURSE_STATUS.PUBLISHED],
+    ])
+  })
+```
+
+- `executeQuery(options)` і `executeMutation(options, variables)` з `src/platform/testing/lib/query.ts` виконують опції в новому `QueryClient`.
+- Сесія береться з `createAuthSessionFixture` у `src/integrations/better-auth/__test__/fixtures/auth.session.fixture.ts`; кожен дозвіл тестується й з боку, якому має бути відмовлено (`it("is for staff only")`).
+- Початкові дані лежать у `__test__/fixtures/` модуля, а їхні ідентифікатори — в іменованих об’єктах (`IDS`, `LESSON_IDS`, `USERS`). `seedCatalogue()` видаляє рядки, якими володіє, і вставляє їх знову через Drizzle, тож кожен тест починається з того самого стану.
+- У проєкті `component` серверна функція завершується відмовою, бо jsdom представляє браузер. Тести компонентів передають маршруту дані loader або мокають `queryFn` і `mutationFn` опцій, які читає компонент.
+
+## Перевірки використовують назви з коду
+
+- Очікувані статуси, види, ролі й коди помилок — це константи, які використовує код: `COURSE_STATUS.DRAFT`, `ROLE_CODES.ADMIN`, `rejects.toThrow(ERROR_CODES.FORBIDDEN)`. Тест ніколи не повторює доменний рядковий літерал.
+- Тести компонентів беруть очікуваний текст з англійських файлів повідомлень, як `admin-course-routes.component.test.tsx` з `import labels from "~/messages/en-US/pages.admin.courses.json"` і `labels.form.kinds.course`, і знаходять елементи за роллю та доступною назвою.
+- Тест, якому потрібен тип, бере його з типізованого джерела або перевіряє під час виконання через `toHaveProperty`; він ніколи не використовує приведення.
+- Назви тестів описують поведінку реченням: «lists every course with its lesson count, drafts included».
+
+## Покриття
+
+`bun run test:coverage` завершується помилкою, якщо будь-яка з чотирьох метрик для `src/**/*.{ts,tsx}` нижча за 100%. Тести, `__test__/`, файли оголошень, `src/routeTree.gen.ts`, примітиви shadcn і `src/platform/testing/` виключено. Поріг зберігає свій сенс:
+
+- **Видаляйте гілки, які ніколи не виконуються**, замість того щоб покривати їх заглушками. `?? fallback` для даних, які завжди є, чи опціональний ланцюжок для значення, яке не може бути `undefined`, прибирають з вихідного коду, а не досягають підміною глобального об’єкта.
+- **Покривайте справжню поведінку.** Стани очікування утримують запит відкритим через `Promise.withResolvers()`, перевіряють UI очікування, розв’язують проміс усередині `act` і перевіряють UI бездіяльності, як `expectPending` і `expectIdle` в `auth-forms.component.test.tsx`.
+- **Зберігайте перевірки, коли спрацьовує правило.** Коли тест перевищує `max-statements`, винесіть іменовану допоміжну функцію замість того, щоб відкидати перевірки.
+- **Завантажуйте кожен файл повідомлень.** `i18n.messages.test.ts` завантажує кожен простір імен кожної локалі, і саме це покриває рядки `import.meta.glob` в `i18n.messages.ts`. Новий файл повідомлень він покриває автоматично.
+
+## Браузерні тести
+
+Playwright запускає зібраний тестовий Worker: `bun run build:test` компілює його з локальними D1 і KV у `.wrangler/test`, `bun run db:seed:test` заповнює облікові записи, відео й курс з `e2e/data`, а тестова точка входу перехоплює вихідні листи за адресою `/__test/emails`, щоб специфікація могла перейти за посиланням підтвердження.
+
+- Специфікації називаються за сценарієм (`course-admin.spec.ts`, `auth-redirect.spec.ts`) і керують сторінкою через ролі й доступні назви, з page objects в `e2e/pages/`.
+- Кожна специфікація створює дані, які змінює, з унікальними значеннями, як-от slug, побудований з `crypto.randomUUID()`, і входить із власним заголовком `CF-Connecting-IP`, тож специфікації можуть виконуватися паралельно й повторно, не конфліктуючи одна з одною чи з обмеженнями частоти запитів.
+- У pull request запускаються всі специфікації в Chromium (`bun run test:e2e:pr`); для push у `main` і за щотижневим розкладом запускається також WebKit.
+- Маршрут, сценарій чи візуальне виправлення, яких не бачать модульні тести, отримують специфікацію: прикладами є сканування доступності й регресії навігації в `navigation.spec.ts`.
+
+## Пов’язані сторінки
+
+- [Тестування](/docs/tooling/testing)
+- [Написання тестів](/docs/guides/writing-tests)
+- [Playwright](/docs/tooling/playwright)

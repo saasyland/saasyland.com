@@ -1,0 +1,55 @@
+---
+title: "Git y pull requests"
+description: "Commits convencionales con el hook de emojis, un worktree por rama, merge en lugar de force-push, pull requests pequeñas que actualizan toda la documentación afectada y ninguna atribución a la IA."
+---
+
+El historial de `main` forma parte del producto: cada pull request fusionada con squash es una línea que dice qué ha cambiado para quienes usan el código.
+
+## Commits
+
+Los mensajes de commit siguen Conventional Commits y se escriben sin emoji; el hook `prepare-commit-msg` añade el emoji del tipo (consulta la tabla en [Commits convencionales](/docs/tooling/conventional-commits)):
+
+```sh
+git commit -m "fix(auth): keep the locale in verification links"
+```
+
+- El asunto va en minúsculas, en imperativo, y dice lo que el cambio hace por sus usuarios: `feat(course): reorder the catalogue from the course list`, no `update course files`.
+- El ámbito es el módulo o el área: `course`, `auth`, `a11y`, `deps`, `readme`.
+- Divide una pull request en commits lógicos: la funcionalidad, su documentación como `docs(<scope>)` y las correcciones que surjan por el camino.
+- Nunca hagas commit con `--no-verify`. El hook `pre-commit` ejecuta `bun run check:pre-commit`; cuando falle, corrige la causa.
+- Formatea y analiza solo los archivos que has cambiado, con `bunx vp fmt <files>` y `bunx vp lint --fix <files>`. No ejecutes `bun run check:fix` ni `vp check --fix` sobre todo el repositorio: reescriben archivos que no has tocado, incluida la configuración compartida del editor en `.vscode/settings.json`. Si `.vscode/` aparece en `git status`, restáuralo desde `HEAD`.
+
+## Sin atribución a la IA
+
+Los commits y las descripciones de las pull requests no llevan el trailer `Co-Authored-By` de una herramienta de IA, ni una línea «Generated with», ni ninguna otra atribución a la IA, aunque una herramienta la añada por defecto. GitHub asocia la dirección de ese trailer a una cuenta ajena, que entonces aparece como colaboradora del repositorio. Lo mismo se aplica a las correcciones que se aportan a los proyectos originales (consulta [Dependencias](/docs/conventions/dependencies)).
+
+## Ramas y worktrees
+
+- Crea las ramas a partir de `main`, una rama por pull request.
+- Da a cada rama su propio worktree de Git en lugar de cambiar la rama de una copia de trabajo, para que una copia que tiene abierta un editor u otro proceso nunca cambie por debajo de él:
+
+```sh
+git worktree add ../saasyland-fix-locale -b fix/locale-links main
+cd ../saasyland-fix-locale
+bun install --frozen-lockfile
+```
+
+- Antes de fiarte de una ejecución de pruebas, comprueba `git branch --show-current` en el directorio en el que has probado.
+- Pon al día la rama de una pull request fusionando `main` en ella. No hagas rebase de una rama ya subida ni force-push: las pull requests se fusionan con squash, así que el historial de la rama nunca llega a `main`, y un force-push solo destruye el historial de la revisión.
+
+## Pull requests
+
+- **Pequeñas y concretas.** Una corrección, una funcionalidad o una refactorización por pull request. Una funcionalidad grande se convierte en una pila de pull requests, cada una revisable por separado, como se hizo con los vídeos, los cursos y la administración de cursos.
+- **El título es el commit del squash.** Usa el formato de commit; se convierte en el asunto en `main`.
+- **La descripción** tiene un `## Summary` con lo que ha cambiado y por qué, un `## Test plan` con los comandos que has ejecutado y sus resultados, y una lista `## Docs` con las páginas, las secciones del README y los textos que has actualizado. Escríbela con sencillez, sin lenguaje de marketing.
+- **Cada pull request actualiza lo que deja inexacto:** el README, las páginas de la documentación en los nueve idiomas, el [registro de cambios](/docs/project/changelog) en los nueve idiomas y cualquier texto del sitio o afirmación de la página de inicio que toque. Una inexactitud encontrada en código que no has cambiado recibe su propia pull request.
+
+## Comprobaciones
+
+CI ejecuta `bun run check` y `bun run test:coverage`, después compila el Worker de pruebas y ejecuta la suite del navegador en Chromium; solo cuando ambos pasan despliega una preview. Espera también al despliegue de la preview: es el único paso que sube el Worker a Cloudflare, y los límites de subida de Cloudflare ya han hecho fallar un despliegue que había superado todas las demás comprobaciones. Consulta [CI/CD](/docs/tooling/ci-cd).
+
+## Páginas relacionadas
+
+- [Commits convencionales](/docs/tooling/conventional-commits)
+- [Contribuir](/docs/project/contributing)
+- [CI/CD](/docs/tooling/ci-cd)

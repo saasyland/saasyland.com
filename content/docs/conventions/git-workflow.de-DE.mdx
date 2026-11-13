@@ -1,0 +1,55 @@
+---
+title: "Git und Pull Requests"
+description: "Conventional Commits mit dem Emoji-Hook, ein Worktree pro Branch, Merge statt Force-Push, kleine Pull Requests, die jede betroffene Dokumentation aktualisieren, und keine KI-Attribution."
+---
+
+Die Historie von `main` ist Teil des Produkts: Jeder per Squash-Merge zusammengeführte Pull Request ist eine Zeile, die sagt, was sich für die Menschen geändert hat, die den Code verwenden.
+
+## Commits
+
+Commit-Nachrichten folgen Conventional Commits und werden ohne Emoji geschrieben; der Hook `prepare-commit-msg` fügt das Emoji des Typs hinzu (die Tabelle steht unter [Conventional Commits](/docs/tooling/conventional-commits)):
+
+```sh
+git commit -m "fix(auth): keep the locale in verification links"
+```
+
+- Der Betreff ist kleingeschrieben, steht im Imperativ und sagt, was die Änderung für ihre Nutzer bewirkt: `feat(course): reorder the catalogue from the course list`, nicht `update course files`.
+- Der Scope ist das Modul oder der Bereich: `course`, `auth`, `a11y`, `deps`, `readme`.
+- Teilen Sie einen Pull Request in logische Commits auf: die Funktion, ihre Dokumentation als `docs(<scope>)` und unterwegs gefundene Korrekturen.
+- Committen Sie nie mit `--no-verify`. Der Hook `pre-commit` führt `bun run check:pre-commit` aus; wenn er fehlschlägt, beheben Sie die Ursache.
+- Formatieren und linten Sie nur die Dateien, die Sie geändert haben, mit `bunx vp fmt <files>` und `bunx vp lint --fix <files>`. Führen Sie `bun run check:fix` oder `vp check --fix` nicht über das gesamte Repository aus: Sie schreiben Dateien um, die Sie nicht angefasst haben, einschließlich der gemeinsamen Editor-Einstellungen in `.vscode/settings.json`. Wenn `.vscode/` in `git status` erscheint, stellen Sie es aus `HEAD` wieder her.
+
+## Keine KI-Attribution
+
+Commits und Beschreibungen von Pull Requests enthalten keinen `Co-Authored-By`-Trailer für ein KI-Werkzeug, keine Zeile "Generated with" und keine andere KI-Attribution, selbst wenn ein Werkzeug standardmäßig eine hinzufügt. GitHub ordnet die Adresse eines solchen Trailers einem fremden Konto zu, das dann als Mitwirkender des Repositorys erscheint. Dasselbe gilt für Korrekturen, die upstream beigetragen werden (siehe [Abhängigkeiten](/docs/conventions/dependencies)).
+
+## Branches und Worktrees
+
+- Erstellen Sie Branches von `main`, ein Branch pro Pull Request.
+- Geben Sie jedem Branch einen eigenen Git-Worktree, statt den Branch eines Checkouts zu wechseln, damit ein Checkout, den ein Editor oder ein anderer Prozess geöffnet hat, nie unter ihm verändert wird:
+
+```sh
+git worktree add ../saasyland-fix-locale -b fix/locale-links main
+cd ../saasyland-fix-locale
+bun install --frozen-lockfile
+```
+
+- Bevor Sie einem Testlauf vertrauen, prüfen Sie `git branch --show-current` in dem Verzeichnis, in dem Sie getestet haben.
+- Bringen Sie einen Pull-Request-Branch auf den neuesten Stand, indem Sie `main` hineinmergen. Rebasen Sie keinen gepushten Branch und pushen Sie ihn nicht per Force-Push: Pull Requests werden per Squash-Merge zusammengeführt, sodass die Historie des Branches nie `main` erreicht, und ein Force-Push zerstört nur die Review-Historie.
+
+## Pull Requests
+
+- **Klein und gezielt.** Eine Korrektur, eine Funktion oder ein Refactoring pro Pull Request. Eine große Funktion wird zu einem Stapel von Pull Requests, die jeweils für sich reviewbar sind, wie es bei Videos, Kursen und der Kursverwaltung im Admin der Fall war.
+- **Der Titel ist der Squash-Commit.** Verwenden Sie das Commit-Format; der Titel wird zum Betreff auf `main`.
+- **Die Beschreibung** hat eine `## Summary` dessen, was sich geändert hat und warum, einen `## Test plan` mit den Befehlen, die Sie ausgeführt haben, und ihren Ergebnissen, und eine `## Docs`-Liste der Seiten, README-Abschnitte und Texte, die Sie aktualisiert haben. Schreiben Sie sie schlicht, ohne Marketingsprache.
+- **Jeder Pull Request aktualisiert, was er ungenau macht:** die README, die Dokumentationsseiten in allen neun Locales, das [Changelog](/docs/project/changelog) in allen neun Locales und alle Website-Texte oder Aussagen der Landingpage, die er berührt. Ungenauigkeiten in Code, den Sie nicht geändert haben, bekommen einen eigenen Pull Request.
+
+## Prüfungen
+
+Die CI führt `bun run check` und `bun run test:coverage` aus, baut dann den Test-Worker und führt die Browser-Suite in Chromium aus; nur wenn beides erfolgreich ist, deployt sie eine Preview. Warten Sie auch auf das Preview-Deployment: Es ist der einzige Schritt, der den Worker zu Cloudflare hochlädt, und die Upload-Limits von Cloudflare haben schon ein Deployment scheitern lassen, das jede andere Prüfung bestanden hatte. Siehe [CI/CD](/docs/tooling/ci-cd).
+
+## Verwandte Seiten
+
+- [Conventional Commits](/docs/tooling/conventional-commits)
+- [Mitwirken](/docs/project/contributing)
+- [CI/CD](/docs/tooling/ci-cd)

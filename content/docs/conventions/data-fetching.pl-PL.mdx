@@ -1,0 +1,104 @@
+---
+title: "Pobieranie danych i cache"
+description: "Opcje zapytań i mutacji obok ich funkcji serwerowej, klucze zapytań zawierające każde wejście, zasady świeżości, loadery, które nigdy nie pobierają ponownie tego, co jest na ekranie, oraz unieważnianie."
+---
+
+Dane trafiają na ekran przez TanStack Query. Przypadek użycia eksportuje swoje opcje obok funkcji serwerowej, a loader trasy, komponent i test używają tych samych opcji, więc z założenia współdzielą jeden wpis w cache.
+
+## Opcje zapytań
+
+```ts
+export const courseEditorQuery = (input: Course["getCourseEditor"]) =>
+  queryOptions({
+    queryFn: () => getCourseEditor({ data: input }),
+    queryKey: [...COURSE_QUERY_KEYS.EDITOR, input.courseId],
+    staleTime: COURSE_STALE_MS,
+  })
+```
+
+| Rodzaj odczytu                     | Eksport                                                                    | Przykład                                         |
+| ---------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------ |
+| Przyjmuje dane wejściowe           | Funkcja zwracająca opcje, nazwana `<noun>Query`                            | `courseEditorQuery(input)`, `courseQuery(input)` |
+| Nie przyjmuje danych wejściowych   | Stała nazwana `<noun>Query`                                                | `currentLicenseQuery`                            |
+| Lista stronicowana dla `DataTable` | `get<Things>PageQuery(input)` oraz pierwsza strona jako `get<Things>Query` | `getCoursesPageQuery`, `getCoursesQuery`         |
+
+## Klucze zapytań
+
+Klucz zaczyna się od prefiksu modułu z `<table>.constants.ts`, potem następuje operacja, a potem każde wejście, które zmienia wynik:
+
+```ts
+queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale]
+queryKey: [...COURSE_QUERY_KEYS.DETAIL, input.locale, input.slug]
+queryKey: [...COURSE_QUERY_KEYS.LIST, courseZodSchemas.getCourses.parse(input)]
+```
+
+Klucz listy przechowuje sparsowane wejście, więc `getCoursesPageQuery()` i `getCoursesPageQuery({ pageIndex: 0, pageSize: 10 })` trafiają do tego samego wpisu. Język należy do klucza zawsze wtedy, gdy serwer lokalizuje wynik. Nigdy nie wpisuj klucza bezpośrednio w komponencie: odczytaj go z opcji, a do unieważniania z obiektu `<MODULE>_QUERY_KEYS`.
+
+## Świeżość
+
+`getRouter()` w `src/router.tsx` tworzy jeden `QueryClient` na żądanie z tymi wartościami domyślnymi, a router używa tej samej minuty:
+
+```ts
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      gcTime: FIVE_MINS_IN_MS,
+      staleTime: ONE_MIN_IN_MS,
+    },
+  },
+})
+```
+
+Zapytanie, które potrzebuje innej świeżości, ustawia `staleTime` nazwaną stałą, która mówi dlaczego: `PLAYBACK_STALE_MS` (godzina, w granicach czasu życia podpisanego adresu URL odtwarzania), `REFRESH_AFTER_MS` dla liczby gwiazdek na GitHubie, `Infinity` dla komunikatów tłumaczeń, które zmieniają się tylko przy wdrożeniu. Nigdy nie twórz `QueryClient` na poziomie modułu; na serwerze współdzieliłby dane jednego użytkownika z kolejnym żądaniem.
+
+## Loadery pobierają z wyprzedzeniem, komponenty odczytują
+
+Loader strony pobiera z wyprzedzeniem zapytania, które odczytują jego komponenty, w jednym `Promise.all` opisanym na stronie [Pliki tras](/docs/conventions/routes). Z `src/routes/app.license.tsx`:
+
+```ts
+context.queryClient.query({ ...currentLicenseQuery, staleTime: "static" })
+```
+
+`staleTime: "static"` sprawia, że loader zwraca dane z cache, zamiast pobierać je ponownie. Komponent odczytuje następnie te same opcje i stosuje własny `staleTime` zapytania:
+
+```tsx
+const { license } = useSuspenseQuery(currentLicenseQuery).data
+```
+
+Dzięki temu przejście na stronę, której dane są już w cache, renderuje się od razu, a nieaktualne dane odświeżają się w tle, zamiast wstrzymywać nawigację.
+
+Odczyt `"static"` ignoruje też unieważnianie: zwraca dane z cache nawet po tym, jak mutacja je unieważniła, a świeże dane docierają dopiero wtedy, gdy komponent pobierze je ponownie. Dlatego loader czeka na zapytanie z jego własnym `staleTime`, gdy strona nigdy nie może pokazać danych starszych niż to, co odwiedzający właśnie zrobił, albo gdy loader sam potrzebuje danych, do tytułu lub do odpowiedzi 404. Tak robią strony kursów i edytor kursów w administracji, bo ukończenie lekcji lub zapisanie edytora musi pokazać zaktualizowany program na następnym ekranie:
+
+```ts
+context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound)
+```
+
+- Używaj `useSuspenseQuery` dla danych pobranych z wyprzedzeniem przez loader, a `useQuery` tylko dla danych, które mogą dotrzeć później bez blokowania strony, jak liczba gwiazdek w `proof-section.tsx`.
+- Nie pobieraj danych w `useEffect` i nie przekazuj wyników zapytań w dół przez właściwości: każdy komponent wywołuje opcje, których potrzebuje.
+- `DataTable` otrzymuje funkcję, która ze stanu strony tworzy opcje, `options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }}`, i sam wykonuje zapytanie.
+
+## Mutacje i unieważnianie
+
+Komponent rozwija opcje mutacji w `useMutation` operatorem spread i dodaje tylko własne callbacki. Po udanym zapisie unieważnia prefiks modułu, a następnie daje informację zwrotną:
+
+```tsx
+const update = useMutation({
+  ...updateCourseMutation,
+  onError,
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })
+    toast.success(t("saved"))
+  },
+})
+```
+
+- Unieważniaj najwęższy prefiks, który obejmuje każdy ekran pokazujący zmienione dane. Mutacje rozdziałów i lekcji unieważniają `COURSE_QUERY_KEYS.ALL`, ponieważ pokazują je edytor kursu i publiczne strony kursów. `useLessonProgress` unieważnia tylko `COURSE_QUERY_KEYS.DETAIL` i tylko wtedy, gdy lekcja zostanie ukończona.
+- Czekaj na zakończenie unieważniania, zanim przejdziesz na inną stronę lub zamkniesz okno dialogowe, aby następny ekran wyrenderował świeże dane.
+- Błędy przechodzą przez `useErrorMessage()`; zobacz [Funkcje serwerowe i błędy](/docs/conventions/server-functions).
+- Nigdy nie aktualizuj cache ręcznie, żeby udawać wynik. Jedynym wyjątkiem jest sesja: `loadRouteSession` w `auth.routes.ts` czyści cały cache, gdy zmienia się zalogowany użytkownik, więc żadne prywatne dane nie przetrwają wylogowania ani zmiany konta.
+
+## Powiązane strony
+
+- [Cache i SSR](/docs/architecture/caching-and-ssr)
+- [Pliki tras](/docs/conventions/routes)
+- [Funkcje serwerowe i błędy](/docs/conventions/server-functions)

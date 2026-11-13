@@ -1,0 +1,86 @@
+---
+title: "テスト"
+description: "テストが属する Vitest のプロジェクト、インメモリの D1 に対するサーバー関数のテスト方法、100% カバレッジの実践、アサーションでの名前付き定数、そしてブラウザーのスイート。"
+---
+
+すべての変更は、それを証明するテストと一緒に同じコミットで出荷し、カバレッジは行、ステートメント、関数、分岐のすべてで 100% を維持します。バグ修正には、その修正がなければ失敗するテストを付けます。
+
+## プロジェクト
+
+`vite.config.ts` は 3 つの Vitest プロジェクトを定義しており、ファイルのサフィックスによってどれかが選ばれます。テストは API を `vite-plus/test` からインポートし、対象のコードの隣の `__test__/` に置きます。
+
+| サフィックス           | プロジェクト  | 用途                                                                                           |
+| ---------------------- | ------------- | ---------------------------------------------------------------------------------------------- |
+| `.test.ts`             | `node`        | ユースケース、ローダー、`head`、スキーマ、ユーティリティなど、サーバー上で実行されるものすべて |
+| `.integration.test.ts` | `integration` | Better Auth のフロー、D1 アダプター、メッセージの読み込み。タイムアウトは 20 秒                |
+| `.component.test.tsx`  | `component`   | jsdom 上のコンポーネントとページ                                                               |
+
+`src/platform/testing/mocks/cloudflare.ts` は、すべてのプロジェクトで `cloudflare:workers` を置き換えます。D1 はチェックイン済みのすべてのマイグレーションから構築したインメモリの `node:sqlite` データベースで、KV と `MEDIA` バケットはインメモリのストアです。`resetTestBindings()` は各テストの前に KV、バケット、レート制限のテーブルを空にし、各スイートのシード関数は、そのスイートが依存する行をリセットします。Cloudflare、Polar、Resend、OAuth プロバイダーと通信するテストはありません。
+
+## サーバー関数のテスト
+
+サーバー関数は、エクスポートされたオプションを通して呼び出します。そうすることで、テストが本物のミドルウェア、バリデーション、ハンドラーを実行します。`src/modules/course/use-cases/__test__/course-admin-use-cases.test.ts` の例です。
+
+```ts
+const signInAs = (role: string): void => {
+  vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role, userId: USERS.VISITOR }))
+}
+
+beforeEach(async () => {
+  await seedCatalogue()
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+describe("getCourses", () => {
+  it("lists every course with its lesson count, drafts included", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    const page = await executeQuery(getCoursesPageQuery())
+
+    expect(page.total).toBe(3)
+    expect(page.rows.map(({ id, lessons, status }) => [id, lessons, status])).toStrictEqual([
+      [IDS.DRAFT_COURSE, 0, COURSE_STATUS.DRAFT],
+      [IDS.COURSE, 5, COURSE_STATUS.PUBLISHED],
+      [IDS.TUTORIAL, 0, COURSE_STATUS.PUBLISHED],
+    ])
+  })
+```
+
+- `src/platform/testing/lib/query.ts` の `executeQuery(options)` と `executeMutation(options, variables)` は、新しい `QueryClient` でオプションを実行します。
+- セッションは `src/integrations/better-auth/__test__/fixtures/auth.session.fixture.ts` の `createAuthSessionFixture` から作ります。すべての権限は、拒否されなければならない側からもテストします（`it("is for staff only")`）。
+- シードデータはモジュールの `__test__/fixtures/` に置き、その ID は名前付きのオブジェクト（`IDS`、`LESSON_IDS`、`USERS`）にまとめます。`seedCatalogue()` は自分が所有する行を削除し、Drizzle を通して挿入し直すため、すべてのテストは同じ状態から始まります。
+- `component` プロジェクトでは jsdom がブラウザーにあたるため、サーバー関数は reject されます。コンポーネントのテストでは、ルートにローダーのデータを与えるか、コンポーネントが読み取るオプションの `queryFn` と `mutationFn` をモックします。
+
+## アサーションではコードの名前を使う
+
+- 期待するステータス、種別、ロール、エラーコードには、コードが使う定数を使います（`COURSE_STATUS.DRAFT`、`ROLE_CODES.ADMIN`、`rejects.toThrow(ERROR_CODES.FORBIDDEN)`）。テストでドメインの文字列リテラルを繰り返すことはありません。
+- コンポーネントのテストは、期待する文言を英語のメッセージファイルから読み取り、要素はロールとアクセシブルな名前で探します。`admin-course-routes.component.test.tsx` では `import labels from "~/messages/en-US/pages.admin.courses.json"` と `labels.form.kinds.course` を使っています。
+- 型が必要なテストは、型付きのソースから読み取るか、`toHaveProperty` で実行時にチェックします。キャストは決して使いません。
+- テスト名は振る舞いを文として説明します（「lists every course with its lesson count, drafts included」）。
+
+## カバレッジ
+
+`bun run test:coverage` は、`src/**/*.{ts,tsx}` について 4 つの指標のいずれかが 100% を下回ると失敗します。テスト、`__test__/`、型宣言ファイル、`src/routeTree.gen.ts`、shadcn のプリミティブ、`src/platform/testing/` は対象外です。このゲートを意味のあるものに保つため、次のことを守ります。
+
+- **決して実行されない分岐は削除する。** スタブでカバーしてはいけません。常に存在するデータに対する `?? fallback` や、`undefined` になりえない値に対するオプショナルチェーンは、グローバルをスタブして到達させるのではなく、ソースから削除します。
+- **実際の振る舞いをカバーする。** 処理中の状態は、`auth-forms.component.test.tsx` の `expectPending` と `expectIdle` のように、`Promise.withResolvers()` でリクエストを保留したまま処理中の UI をアサートし、`act` の中で解決してから待機中の UI をアサートします。
+- **ルールに引っかかってもアサーションは残す。** テストが `max-statements` を超えたら、チェックを削らずに名前付きのヘルパーに切り出します。
+- **すべてのメッセージファイルを読み込む。** `i18n.messages.test.ts` はすべてのロケールのすべての名前空間を読み込み、これによって `i18n.messages.ts` の `import.meta.glob` の行がカバーされます。新しいメッセージファイルも自動的にカバーされます。
+
+## ブラウザーテスト
+
+Playwright は、ビルド済みのテスト用 Worker に対して実行されます。`bun run build:test` は `.wrangler/test` 配下のローカルの D1 と KV を使ってそれをビルドし、`bun run db:seed:test` は `e2e/data` のアカウント、動画、コースをシードします。テスト用のエントリーは送信メールを `/__test/emails` でキャプチャするため、スペックは確認リンクをたどることができます。
+
+- スペックはフローにちなんで命名し（`course-admin.spec.ts`、`auth-redirect.spec.ts`）、`e2e/pages/` のページオブジェクトを使って、ロールとアクセシブルな名前でページを操作します。
+- 各スペックは、`crypto.randomUUID()` から作ったスラッグのような一意の値で、自分が変更するデータを作成し、独自の `CF-Connecting-IP` ヘッダーでサインインします。そのため、スペックは互いに衝突したりレート制限に引っかかったりすることなく、並列に実行でき、再実行もできます。
+- プルリクエストでは、すべてのスペックを Chromium で実行します（`bun run test:e2e:pr`）。`main` へのプッシュと週次のスケジュールでは WebKit でも実行します。
+- ユニットテストでは検出できないルート、フロー、見た目の修正にはスペックを用意します。アクセシビリティのスキャンや、`navigation.spec.ts` のナビゲーションの退行テストがその例です。
+
+## 関連ページ
+
+- [テスト](/docs/tooling/testing)
+- [テストを書く](/docs/guides/writing-tests)
+- [Playwright](/docs/tooling/playwright)

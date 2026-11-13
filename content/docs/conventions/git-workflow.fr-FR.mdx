@@ -1,0 +1,55 @@
+---
+title: "Git et pull requests"
+description: "Des commits conventionnels avec le hook d'émojis, un worktree par branche, le merge plutôt que le force-push, de petites pull requests qui mettent à jour chaque documentation concernée, et aucune attribution à une IA."
+---
+
+L'historique de `main` fait partie du produit : chaque pull request fusionnée par squash y forme une ligne qui dit ce qui a changé pour les personnes qui utilisent le code.
+
+## Commits
+
+Les messages de commit suivent Conventional Commits et s'écrivent sans émoji ; le hook `prepare-commit-msg` ajoute l'émoji du type (voir [Commits conventionnels](/docs/tooling/conventional-commits) pour le tableau) :
+
+```sh
+git commit -m "fix(auth): keep the locale in verification links"
+```
+
+- Le sujet est en minuscules, à l'impératif, et dit ce que la modification apporte à ses utilisateurs : `feat(course): reorder the catalogue from the course list`, et non `update course files`.
+- La portée est le module ou la zone : `course`, `auth`, `a11y`, `deps`, `readme`.
+- Découpez une pull request en commits logiques : la fonctionnalité, sa documentation sous la forme `docs(<scope>)`, et les corrections trouvées en chemin.
+- Ne committez jamais avec `--no-verify`. Le hook `pre-commit` exécute `bun run check:pre-commit` ; lorsqu'il échoue, corrigez la cause.
+- Formatez et lintez uniquement les fichiers que vous avez modifiés, avec `bunx vp fmt <files>` et `bunx vp lint --fix <files>`. N'exécutez pas `bun run check:fix` ni `vp check --fix` sur tout le dépôt : ils réécrivent des fichiers que vous n'avez pas touchés, y compris les réglages partagés de l'éditeur dans `.vscode/settings.json`. Si `.vscode/` apparaît dans `git status`, restaurez-le depuis `HEAD`.
+
+## Aucune attribution à une IA
+
+Les commits et les descriptions de pull request ne portent aucun trailer `Co-Authored-By` pour un outil d'IA, aucune ligne « Generated with » ni aucune autre attribution à une IA, même lorsqu'un outil en ajoute une par défaut. GitHub associe l'adresse d'un tel trailer à un compte sans rapport, qui apparaît alors comme contributeur du dépôt. Il en va de même pour les correctifs proposés en amont (voir [Dépendances](/docs/conventions/dependencies)).
+
+## Branches et worktrees
+
+- Créez une branche à partir de `main`, une branche par pull request.
+- Donnez à chaque branche son propre worktree Git au lieu de changer la branche d'un checkout, pour qu'un checkout ouvert par un éditeur ou un autre processus ne soit jamais modifié à son insu :
+
+```sh
+git worktree add ../saasyland-fix-locale -b fix/locale-links main
+cd ../saasyland-fix-locale
+bun install --frozen-lockfile
+```
+
+- Avant de vous fier à une exécution des tests, vérifiez `git branch --show-current` dans le répertoire que vous avez testé.
+- Mettez à jour la branche d'une pull request en y fusionnant `main`. Ne faites pas de rebase d'une branche déjà poussée suivi d'un force-push : les pull requests sont fusionnées par squash, l'historique de la branche n'atteint donc jamais `main`, et un force-push ne fait que détruire l'historique de la revue.
+
+## Pull requests
+
+- **Petites et ciblées.** Une correction, une fonctionnalité ou un refactoring par pull request. Une grosse fonctionnalité devient une pile de pull requests, chacune pouvant être relue séparément, comme l'ont été les vidéos, les cours et l'administration des cours.
+- **Le titre est le commit de squash.** Utilisez le format des commits ; il devient le sujet sur `main`.
+- **La description** comporte une section `## Summary` sur ce qui a changé et pourquoi, une section `## Test plan` avec les commandes exécutées et leurs résultats, et une liste `## Docs` des pages, des sections du README et des textes que vous avez mis à jour. Rédigez-la simplement, sans langage marketing.
+- **Chaque pull request met à jour ce qu'elle rend inexact :** le README, les pages de documentation dans les neuf langues, le [journal des modifications](/docs/project/changelog) dans les neuf langues, et tout texte du site ou toute affirmation de la page d'accueil qu'elle touche. Une inexactitude repérée dans du code que vous n'avez pas modifié fait l'objet de sa propre pull request.
+
+## Vérifications
+
+La CI exécute `bun run check` et `bun run test:coverage`, puis construit le Worker de test et exécute la suite de tests du navigateur dans Chromium ; ce n'est que lorsque les deux réussissent qu'elle déploie une préversion. Attendez aussi le déploiement de la préversion : c'est la seule étape qui envoie le Worker sur Cloudflare, et les limites d'envoi de Cloudflare ont déjà fait échouer un déploiement qui avait passé toutes les autres vérifications. Voir [CI/CD](/docs/tooling/ci-cd).
+
+## Pages associées
+
+- [Commits conventionnels](/docs/tooling/conventional-commits)
+- [Contribuer](/docs/project/contributing)
+- [CI/CD](/docs/tooling/ci-cd)

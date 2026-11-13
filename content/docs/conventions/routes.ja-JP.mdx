@@ -1,0 +1,140 @@
+---
+title: "ルートファイル"
+description: "ページルートとレイアウトルートの唯一の形。NAMESPACE または NAMESPACES、1 つの Promise.all によるローダー、ページを再現するスケルトン、検索スキーマ、リンク。"
+---
+
+`src/routes` のファイルはすべて同じ形をしているため、1 つを知っていればすべてがわかります。ルートファイルは組み立てを担い、ページに必要なものを宣言してコンポーネントを配置します。ウィジェット、フォーム、ダイアログ、テーブルのカラムは `src/presentation/components/custom` に置きます。
+
+## ページルート
+
+`src/routes/admin.courses.index.tsx` の例です。
+
+```tsx
+const CoursesPage = (): JSX.Element => {
+  const t = useTranslations("pages.admin.courses")
+
+  return (
+    <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("description")}</p>
+        </div>
+        <LinkButton className="h-9 gap-2" href={ROUTES.ADMIN_COURSES_CREATE} size="sm">
+          <PlusCircle aria-hidden className="size-4" />
+          {t("actions.create")}
+        </LinkButton>
+      </div>
+
+      <DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
+    </div>
+  )
+}
+
+const NAMESPACE = "pages.admin.courses"
+
+export const Route = createFileRoute("/admin/courses/")({
+  component: CoursesPage,
+  head: pageHead(ROUTES.ADMIN_COURSES),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      context.queryClient.query({ ...getCoursesQuery, staleTime: "static" }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: AdminCoursesPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+- **コンポーネント**は `<Name>Page` という名前のローカルな `const` で、最初に定義します。このページだけで使う小さなマークアップは、`courses.$course.index.tsx` の `CourseProgress` や `StartLink` のように、ローカルなコンポーネントとしてその上に置いてもかまいません。独自のデータ、ミューテーション、状態を持つものはすべてコンポーネントファイルに置きます。
+- **名前空間は 1 つ。** `const NAMESPACE = "pages.<area>.<page>"` は `export const Route` の直上に置き、`loadPageMetadata`、`preloadNamespaces`、`staticData` で使います。ページが必要とするその他の名前空間は、レイアウトが宣言します。
+- **`Promise.all` は 1 つ。** ローダーは、ページのメタデータ、名前空間、コンポーネントが読み取るすべてのクエリを一度に開始し、`head` のために `{ locale, metadata }` を返します。どれかを await してから次を開始してはいけません。
+- **`head: pageHead(ROUTES.X)`** は、名前空間ファイルのメタデータからタイトル、説明、正規 URL、代替リンクを組み立てます。
+- **パスは `src/routes.ts` の `ROUTES` から取得します。** パスのリテラルを書いてはいけません。
+
+タイトルがレコードから決まるページは、`admin.courses.$courseId.tsx` のように、そのレコードを await し、ローダーのデータから head を組み立てます。
+
+```tsx
+export const Route = createFileRoute("/admin/courses/$courseId")({
+  component: CourseEditorPage,
+  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; title: string } | undefined }) =>
+    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_COURSES, title: loaderData?.title }),
+  loader: async ({ context, params }) => {
+    const locale = getCurrentLocale()
+    const data = await context.queryClient.query(courseEditorQuery({ courseId: params.courseId })).catch(rethrowAsNotFound)
+    return { locale, pathname: `${ROUTES.ADMIN_COURSES}/${data.course.id}`, title: localize(data.course.title, locale) }
+  },
+  pendingComponent: AdminCourseEditorPending,
+})
+```
+
+## レイアウトルート
+
+`src/routes/admin.courses.tsx` の例です。
+
+```tsx
+const NAMESPACES = ["course.validations", "pages.admin.courses"] as const
+
+export const Route = createFileRoute("/admin/courses")({
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  pendingComponent: AdminCourseSectionPending,
+  staticData: { namespaces: NAMESPACES },
+})
+```
+
+- レイアウトは `export const Route` の上で `const NAMESPACES = [...] as const` を宣言し、それをプリロードします。名前空間がない場合はオプションごと省略し、`namespaces: []` とは書きません。
+- レイアウトがコンポーネントを描画する場合、その名前は `<Name>Layout` とし、`<Outlet />` を配置します。
+- ガードは、そのエリアを所有するレイアウトの `beforeLoad` に置きます。`admin.tsx` では `beforeLoad: requireAdmin`、`app.tsx` では `requireSignedIn` です。ガードが決めるのはナビゲーションだけで、各サーバー関数は引き続き自分で権限をチェックします。
+
+## オプションの順序
+
+TanStack Router は宣言順に型を推論するため、`src/routes` では `sort-keys` を無効にしています。オプションはアルファベット順に並べますが、`validateSearch` だけは例外で、検索パラメーターを読み取るどのオプションよりも前の先頭に置きます。
+
+```tsx
+export const Route = createFileRoute("/auth/reset-password")({
+  validateSearch: zod.object({
+    error: searchText(),
+    token: searchText(),
+  }),
+  component: ResetPasswordPage,
+```
+
+`createFileRoute` の中にデータの配列やオブジェクトを直接書いてはいけません。その上で定数として宣言します。
+
+## 検索パラメーター
+
+`validateSearch` は、`src/lib/search-params.ts` のヘルパーで組み立てた `zod.object` です。
+
+| ヘルパー                          | パラメーターがない、または不正な場合の値 | 用途                                   |
+| --------------------------------- | ---------------------------------------- | -------------------------------------- |
+| `searchText()`                    | `undefined`                              | トークン、メールアドレス、エラーコード |
+| `searchFlag()`                    | `undefined`                              | 真偽値                                 |
+| `searchParam(schema)`             | `undefined`                              | パスなど、その他のスキーマ             |
+| `searchChoice(choices, fallback)` | `fallback`                               | タブやビュー                           |
+
+テキストがない場合は `undefined` のままなので、ルーターが組み立てる URL にデフォルト値が紛れ込むことはありません。`searchChoice` のパラメーターには `search: { middlewares: [stripSearchParams({ tab: DEFAULT_TAB })] }` を組み合わせ、URL からデフォルト値を取り除きます。`typeof search["x"] === "string"` のようなチェックを手書きしてはいけません。新しい種類のフィールドが必要になったら、ヘルパーを追加します。ページが存在を検証したパラメーターを子が必要とする場合は、`auth.reset-password.tsx` が `token` を `ResetPasswordForm` に渡しているように、ページが型を絞り込んでから下に渡します。
+
+## スケルトン
+
+ナビゲーションは一瞬で終わるように感じられなければなりません。そのため、ページを描画するすべてのルートは、そのページを再現する `pendingComponent` を持ちます。レイアウトも、カードも、行数も同じです。
+
+- スケルトンはエリアのペンディングファイル（`content-pending.tsx`、`courses-pending.tsx`）に置き、shadcn の `Skeleton` を使います。
+- テキストのプレースホルダーには、実際のタイポグラフィのトークンに `h-lh scale-y-70` を加え、置き換える行と同じ高さにします（`<Skeleton className="h-lh w-28 scale-y-70 font-mono text-label" />`）。
+- リストの長さは、ページが使う定数から取ります。`admin/pending-blocks.tsx` の `PAGE_ROWS` は、すべての管理画面のテーブルのページサイズである `DEFAULT_PAGE_SIZE` 行を持ちます。
+- レイアウトのスケルトンは、`admin-pending.tsx` の `ADMIN_PAGES` や `content-pending.tsx` の `COURSE_PAGES` のように、現在のパスに対応するページのスケルトンをマップから選びます。新しいページはそのマップに追加します。
+- ルーター全体の `defaultPendingComponent` はなく、`pendingMs` は TanStack のデフォルトのままです。唯一の例外はドキュメントのルートで、`pendingMs: Number.POSITIVE_INFINITY` と `wrapInSuspense: false` を設定しています。そのため、ドキュメントのページがハイドレーションされる前のクリックは、通常のページ読み込みになります。
+
+## リンク
+
+- ルーターのリンクには定数を渡します。`<Link to={ROUTES.COURSES}>`、`<Link hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>`、あるいは動的なパスであれば `params` 付きのルートパターンです。shadcn の `LinkButton` は `href` を受け取ります。
+- ルーターのリンクにロケールプレフィックスを付けてはいけません。ルーターの rewrite が付けます。文字列としてルーターの外に出る値のために現在のロケールの完全な URL が必要な場合は、`use-auth-redirect.ts` がサインインのリンクを組み立てるときのように、`router.buildLocation({ ... }).publicHref` から取得します。`localizePathname` は、ルーターのコンテキストの外で組み立てる URL や、別のロケールの URL に使います。メール、Better Auth のリダイレクト先、MDX 内のリンク、言語切り替えがこれにあたります。
+
+## 関連ページ
+
+- [ルートと配信](/docs/architecture/delivery-layer)
+- [データの取得とキャッシュ](/docs/conventions/data-fetching)
+- [翻訳とコンテンツ](/docs/conventions/translations)

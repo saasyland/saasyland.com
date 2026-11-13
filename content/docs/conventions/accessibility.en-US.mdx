@@ -1,0 +1,47 @@
+---
+title: "Accessibility"
+description: "Every page meets WCAG 2.2 AA in both themes, checked by axe in the browser suite, plus the keyboard and screen reader rules that axe cannot see."
+---
+
+Every public page, a blog post and every page of the admin and customer workspaces meet WCAG 2.2 level AA in the light and the dark theme. That is a release requirement, not a goal: `e2e/specs/accessibility.spec.ts` scans them on every pull request and fails on any violation.
+
+## The scan
+
+The spec runs axe-core through `@axe-core/playwright` with the WCAG 2.0, 2.1 and 2.2 A and AA rules and axe's best practices:
+
+```ts
+const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]
+const COLOR_SCHEMES = ["light", "dark"] as const
+```
+
+Before scanning, it scrolls through the whole page, so sections that fade in on scroll are visible, and waits for finite animations to finish, so contrast is measured on the settled page. A new page is added to `PUBLIC_PAGES` or `WORKSPACE_PAGES` in that spec in the same change that adds the route. Run it with the rest of the suite:
+
+```sh
+bun run test:e2e:pr
+```
+
+## What axe cannot check
+
+axe checks markup, not meaning or keyboard flow. These rules cover the rest and are held in review:
+
+- **Landmarks and names.** Each workspace has a labelled navigation (`<nav aria-label={t("navigationLabel")}>` in `admin-sidebar.tsx`), and sidebars, the auth side panel and the docs table of contents are landmarks.
+- **Real semantics.** Tabs have tab panels; a set of options that does not switch panels is a toggle group, not a tablist. A link that looks like a button is a `LinkButton`, never a link wrapped around a button.
+- **Labels on every control.** Inputs have a `FieldLabel`; a visually hidden label uses `className="sr-only"`, as the newsletter field does. Icon-only buttons carry an `aria-label` that names their target, such as `t("actions.delete", { title })`, and the visible text of a control is part of its accessible name.
+- **Errors announced with the field.** Every input sets `aria-describedby` to its error's ID and `aria-invalid` while invalid; the error element exists only while there is an error. See [Forms and tables](/docs/conventions/forms-and-tables).
+- **Decorative content is hidden.** Icons next to text get `aria-hidden`, as do purely visual dots, separators and looping videos without a label.
+- **Headings in order.** Each page has one `h1`; a card title that starts a section renders an `h2` inside `CardTitle`, as `course-form.tsx` does.
+- **Keyboard first.** Everything reachable by mouse is reachable by keyboard, including actions that appear on hover, which also appear on focus. Focus rings use `data-focus-visible:` on React Aria components; see [Components and styling](/docs/conventions/components).
+- **Busy states.** Skeletons set `aria-busy="true"` on their root, and pending buttons use the `isPending` state of the shadcn `Button`.
+- **Columns have names.** A table's actions column uses `DataTableActionsHeader`, a screen-reader-only header.
+- **Language is declared.** `<html lang>` follows the route's locale, and an input for another language's text sets `lang={locale}`, as the localized course fields do.
+
+## Contrast and motion
+
+- Text uses the theme's colour tokens. `text-muted-foreground` passes 4.5:1 in both themes; lighter variants such as `text-muted-foreground/60` are for disabled chips, decorative icons and separators only.
+- Motion respects the reader's settings: `MotionConfig reducedMotion="user"` in `MotionProvider`, `motion-reduce:` variants on transitions, `scroll-behavior: auto` under `prefers-reduced-motion`, and the landing videos do not autoplay for readers who ask for reduced motion (`concept-loop.tsx`).
+
+## Related pages
+
+- [Playwright](/docs/tooling/playwright)
+- [Components and styling](/docs/conventions/components)
+- [Forms and tables](/docs/conventions/forms-and-tables)

@@ -1,0 +1,127 @@
+---
+title: "コードスタイル"
+description: "フォーマッター、リンター、コンパイラーが強制すること、そしてそれらでは検出できないルール。コメントの禁止、抜け道の禁止、1 行の三項演算子、名前付きの定数。"
+---
+
+`bun run check` は `vp check` を実行します。`vp check` は `vite.config.ts` と `tsconfig.json` の設定に従い、oxfmt によるフォーマット、oxlint によるリント、TypeScript による型チェックを一度に行います。CI も同じコマンドを実行します。ここに好みの問題は何もありません。このページのルールに反するコードをツールが受け入れたとしても、レビューで却下されます。
+
+## ツールが強制すること
+
+oxlint は `correctness`、`nursery`、`pedantic`、`perf`、`style`、`suspicious` の各カテゴリーをエラーとして実行し、型情報を使うルールと型チェックも有効にしています。コードの形に最も大きく影響する制限は次のとおりです。
+
+| ルール                   | 設定                                                     | 効果                                           |
+| ------------------------ | -------------------------------------------------------- | ---------------------------------------------- |
+| `max-lines`              | 800                                                      | 大きくなる前に、責務ごとにファイルを分割する   |
+| `max-lines-per-function` | 150                                                      | コンポーネントとハンドラーを小さく保つ         |
+| `max-statements`         | 20                                                       | 長い本体を書かず、名前付きのヘルパーに切り出す |
+| `no-magic-numbers`       | `0` のみ許可。ほかに配列のインデックスとデフォルト値も可 | それ以外の数値はすべて名前付きの定数にする     |
+| `id-length`              | 2 文字以上。ただし `_`、`m`、`t` を除く                  | 識別子は単語にする。`t` は翻訳関数             |
+| `one-var`                | `never`                                                  | 1 つの文で宣言するのは 1 つだけ                |
+| `unicorn/no-null`        | テスト以外で有効                                         | 値がないことは `undefined` で表す              |
+
+オーバーライドは限定的で、ファイル単位で適用されます。テストは `no-magic-numbers`、`no-await-in-loop`、`unicorn/no-null` を緩和し、`src/presentation` と `src/hooks` は `typescript/consistent-return` を、テスト用モックは `require-await` を緩和します。`src/routes` では `sort-keys` を無効にしています。ルートのオプションは独自の順序に従うためです（[ルートファイル](/docs/conventions/routes)を参照）。
+
+`tsconfig.json` は、コードの書き方を左右する厳格なフラグを追加しています。`strict`、`exactOptionalPropertyTypes`、`noUncheckedIndexedAccess`、`noPropertyAccessFromIndexSignature`、`noImplicitReturns`、`noFallthroughCasesInSwitch`、`noUnusedLocals`、`noUnusedParameters` です。インデックスによる読み取りは `undefined` の可能性があり、省略可能なプロパティに明示的に `undefined` を設定することはできず、インデックスシグネチャは `record["key"]` の形で読み取ります。
+
+フォーマッターは、セミコロンなし、ダブルクォート、末尾カンマあり、行幅 140 で出力します。また、インポートを固定のグループに並べ替え、`className` と `cn` の呼び出し内の Tailwind のクラスも並べ替えるため、どちらも手作業で並べないでください。コマンドについては[リントとフォーマット](/docs/tooling/lint-format)を参照してください。
+
+## コメントを書かない
+
+コメントは書きません。TypeScript、TSX、テスト、スクリプト、設定、CSS のいずれでも、自明でない制約を説明するためであっても同じです。代わりに名前で意味を伝え、理由はコミットメッセージ、プルリクエスト、またはこのドキュメントに書きます。
+
+```ts
+const SINGLE_ROW_LIMIT = 1
+const LAST_INDEX_OFFSET = 1
+const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
+```
+
+最初の 2 つは `get-course-editor.ts` と `course-columns.tsx` から、3 つ目は `vite.config.ts` から取ったもので、どれも名前がなければコメントが必要になるところです。生成されたファイル（`src/routeTree.gen.ts`、`src/types/worker-configuration.d.ts`）は対象外です。また、いくつかの Drizzle スキーマにある `/* @__PURE__ */` アノテーションはバンドラーへの指示であり、コメントではありません。コミットする前に、差分から `//`、`/*`、`{/*` を検索してください。
+
+## 抜け道を使わない
+
+ルールを通すために `oxlint-disable`、`eslint-disable`、`@ts-expect-error`、`@ts-ignore`、`@ts-nocheck`、`as` によるキャスト、`any` を書いてはいけません。ルールが反応するのは設計に問題があるということです。設計を変えてください。
+
+- **アサーションではなくバリデーションを使う。** ストレージ、ネットワーク、リクエストから来るデータは Zod でパースします。`src/lib/github.ts` は、キャッシュされたスター数を `cachedStarCountSchema.safeParse(await env.CACHE.get(CACHE_KEY, "json")).data` で読み取ります。結果は数値か `undefined` のどちらかで、推測ではありません。
+- **型ガードで絞り込む。** `src/integrations/better-auth/auth.access.ts` の `isRole` と `src/hooks/use-error-message.ts` の `isErrorCode` は、実際のチェックによって `string` をユニオン型に絞り込みます。
+- **変換せずにチェックする。** `as const` と `satisfies` は型を変えないため使用できます。`POLAR_ORDER_STATUS` の末尾は `as const satisfies Record<string, models.OrderStatus>` なので、Polar のステータスのスペルを間違えるとコンパイルに失敗します。
+- **ライブラリの型の制約とぶつかったら構造を変える。** キャストするのではなく、値をオブジェクトで包む、関数を分割する、型付きのソースから読み取る、といった方法を取ります。
+
+## null と undefined
+
+テスト以外では `null` リテラルを禁止しており、値がないことは `undefined` で表します。`null` を返す API を `?? undefined` で橋渡ししてはいけません。先に入力をバリデーションして呼び出しが失敗しないようにするか、最初から `undefined` を返すパーサーを使います。よくあるのは検索パラメーターで、`src/lib/search-params.ts` の `searchParam(schema)` は、値がない場合や不正な場合に `undefined` を返します。
+
+```ts
+export const authSearchSchema = zod.object({
+  redirect: searchParam(callbackPathSchema),
+})
+```
+
+## 三項演算子と早期リターン
+
+三項演算子は、`course-form.tsx` の `{t(course === undefined ? "create" : "save")}` のように 1 行に収めます。それより長いものや、2 つの JSX のどちらかを選ぶ場合はすべて、早期リターン、`&&` 条件の組、または小さなコンポーネントにします。`src/routes/auth.reset-password.tsx` は、2 つの状態を 2 つの条件で描画しています。
+
+```tsx
+{resetToken !== undefined && <ResetPasswordForm token={resetToken} />}
+{resetToken === undefined && (
+  <>
+    <p className="text-body text-pretty text-destructive">{t("form.invalidToken")}</p>
+```
+
+関数は特殊なケースで早期にリターンし、メインの処理はインデントせずに書きます。`src/modules/lesson/lesson.access.ts` の `hasLessonAccess` がその例です。
+
+```ts
+export const hasLessonAccess = (access: Lesson["select"]["access"], viewer: Viewer): boolean => {
+  if (access === LESSON_ACCESS.PREVIEW || viewer.isStaff) {
+    return true
+  }
+
+  if (access === LESSON_ACCESS.ACCOUNT) {
+    return viewer.userId !== undefined
+  }
+
+  return viewer.licensed
+}
+```
+
+## 名前付きの定数
+
+`0` 以外の数値には名前を付けます（`COURSE_STALE_MS = 60_000`、`SAVE_INTERVAL_MS = 15_000`）。ステータス、種別、アクセスレベル、ティア、ロール、プロバイダーのイベント値など、ドメインに属する値は `as const` オブジェクトとして一度だけ宣言し、テストやフィクスチャを含むあらゆる場所で名前で参照します。
+
+```ts
+export const COURSE_STATUS = {
+  DRAFT: "draft",
+  PUBLISHED: "published",
+} as const
+```
+
+カラムや enum スキーマが必要とするタプルは、値を打ち直さずにこのオブジェクトから組み立てます。`course.schema.ts` は `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const` を宣言し、これを `text("status", { enum: COURSE_STATUSES })` と `zod.enum(COURSE_STATUSES)` の両方に渡しています。
+
+- モジュールの定数はそのモジュールの `<module>.constants.ts` に置き（`LESSON_ACCESS`、`LICENSE_TIER`）、プロバイダーの値は連携の `*.constants.ts` に置きます（`polar.constants.ts` の `POLAR_ORDER_STATUS`）。
+- 1 つの概念には、表記を統一したマップを 1 つだけ用意します。サーバーのエラーには `ERROR_CODES`、Better Auth のエラーキーには `AUTH_ERRORS`、ロールには `ROLE_CODES` を使います。
+- 1 つのファイルだけで使う定数は、そのファイルのインポートの下に置きます。複数のファイルで使う定数は、そのモジュール、`src/data`（[ファイルと命名](/docs/conventions/files-and-naming)を参照）、または `src/modules/_core/constants` に置きます。1 つの定数のためだけにファイルを作ってはいけません。
+- `license_key_id` のような型付き API のフィールド名は値ではなくプロパティなので、プロパティアクセスのままにします。
+
+## コンポーネント内のフック
+
+単一の値を返すフックの呼び出しを先に書き、空行を挟んでから、分割代入するフックの結果をそれぞれ書きます。こうすると、コンポーネントが分解して取り出す値が独立したグループとして読めます。`src/presentation/components/custom/auth/sign-in-form.tsx` の例です。
+
+```tsx
+const t = useTranslations()
+const router = useRouter()
+
+const { finishSignIn, redirect } = useAuthRedirect()
+```
+
+コンポーネントは `useTranslations` を 1 回だけ呼び出し、その結果を `t` と名付けます。理由は[翻訳とコンテンツ](/docs/conventions/translations)を参照してください。
+
+## 名前とインポート
+
+- ファイルとフォルダーはケバブケース、コンポーネントはパスカルケース、定数は SCREAMING_SNAKE_CASE にします。関数は動詞で始め（`resolveViewer`、`rethrowAsConflict`）、真偽値は問いかけとして読める名前にします（`isPending`、`hasLessonAccess`）。
+- インポートには `~/src/...` エイリアスを使い、シンボルを定義しているファイルから直接インポートします。フォルダーを再エクスポートするバレルファイルはありません。唯一の再エクスポート用ファイルは `src/integrations/drizzle-orm/drizzle.schemas.ts` で、これは Drizzle がすべてのテーブルを 1 つのスキーマオブジェクトにまとめる必要があるためです。
+- インデックスの計算にも名前を付けます。`course.utils.ts` の `index + NEXT` のように書き、`slice(i + 1, -5)` とは書きません。
+
+## 関連ページ
+
+- [リントとフォーマット](/docs/tooling/lint-format)
+- [コンポーネントとスタイリング](/docs/conventions/components)
+- [ファイルと命名](/docs/conventions/files-and-naming)

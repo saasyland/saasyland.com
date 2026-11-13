@@ -1,0 +1,140 @@
+---
+title: "Fichiers de route"
+description: "La forme unique d'une route de page et d'une route de layout : NAMESPACE ou NAMESPACES, un loader avec un seul Promise.all, un squelette qui reproduit la page, des schémas de recherche et des liens."
+---
+
+Chaque fichier de `src/routes` a la même forme : qui en connaît un les connaît tous. Un fichier de route compose : il déclare ce dont la page a besoin et place des composants. Les widgets, les formulaires, les boîtes de dialogue et les colonnes de tableau se trouvent dans `src/presentation/components/custom`.
+
+## Routes de page
+
+`src/routes/admin.courses.index.tsx` :
+
+```tsx
+const CoursesPage = (): JSX.Element => {
+  const t = useTranslations("pages.admin.courses")
+
+  return (
+    <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-statement font-semibold text-foreground">{t("title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("description")}</p>
+        </div>
+        <LinkButton className="h-9 gap-2" href={ROUTES.ADMIN_COURSES_CREATE} size="sm">
+          <PlusCircle aria-hidden className="size-4" />
+          {t("actions.create")}
+        </LinkButton>
+      </div>
+
+      <DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
+    </div>
+  )
+}
+
+const NAMESPACE = "pages.admin.courses"
+
+export const Route = createFileRoute("/admin/courses/")({
+  component: CoursesPage,
+  head: pageHead(ROUTES.ADMIN_COURSES),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      context.queryClient.query({ ...getCoursesQuery, staleTime: "static" }),
+    ])
+    return { locale, metadata }
+  },
+  pendingComponent: AdminCoursesPending,
+  staticData: { namespaces: [NAMESPACE] },
+})
+```
+
+- **Le composant** est une `const` locale nommée `<Name>Page`, définie en premier. Un petit balisage utilisé uniquement par cette page peut se placer au-dessus sous forme de composants locaux, comme `CourseProgress` et `StartLink` dans `courses.$course.index.tsx` ; tout ce qui a ses propres données, sa propre mutation ou son propre état va dans un fichier de composant.
+- **Un seul espace de noms.** `const NAMESPACE = "pages.<area>.<page>"` se trouve juste au-dessus de `export const Route` et sert dans `loadPageMetadata`, `preloadNamespaces` et `staticData`. Tout ce dont la page a besoin en plus est déclaré par son layout.
+- **Un seul `Promise.all`.** Le loader lance tout le travail en même temps : les métadonnées de la page, l'espace de noms et chaque query que lisent les composants. Il renvoie `{ locale, metadata }` pour `head`. N'attendez jamais l'un d'eux avant de lancer le suivant.
+- **`head: pageHead(ROUTES.X)`** construit le titre, la description, l'URL canonique et les alternatives à partir des métadonnées du fichier d'espace de noms.
+- **Les chemins proviennent de `ROUTES`** dans `src/routes.ts` ; n'écrivez jamais de chemin littéral.
+
+Une page dont le titre provient d'un enregistrement attend cet enregistrement et construit son head à partir des données du loader, comme le fait `admin.courses.$courseId.tsx` :
+
+```tsx
+export const Route = createFileRoute("/admin/courses/$courseId")({
+  component: CourseEditorPage,
+  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; title: string } | undefined }) =>
+    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_COURSES, title: loaderData?.title }),
+  loader: async ({ context, params }) => {
+    const locale = getCurrentLocale()
+    const data = await context.queryClient.query(courseEditorQuery({ courseId: params.courseId })).catch(rethrowAsNotFound)
+    return { locale, pathname: `${ROUTES.ADMIN_COURSES}/${data.course.id}`, title: localize(data.course.title, locale) }
+  },
+  pendingComponent: AdminCourseEditorPending,
+})
+```
+
+## Routes de layout
+
+`src/routes/admin.courses.tsx` :
+
+```tsx
+const NAMESPACES = ["course.validations", "pages.admin.courses"] as const
+
+export const Route = createFileRoute("/admin/courses")({
+  loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
+  pendingComponent: AdminCourseSectionPending,
+  staticData: { namespaces: NAMESPACES },
+})
+```
+
+- Un layout déclare `const NAMESPACES = [...] as const` au-dessus de `export const Route` et les précharge. Lorsqu'il n'en a aucun, il omet l'option ; il n'y a pas de `namespaces: []`.
+- Le composant, lorsque le layout en affiche un, est nommé `<Name>Layout` et place un `<Outlet />`.
+- Un guard va dans le `beforeLoad` du layout qui possède la zone : `beforeLoad: requireAdmin` dans `admin.tsx`, `requireSignedIn` dans `app.tsx`. Les guards ne décident que de la navigation ; chaque fonction serveur vérifie toujours sa propre permission.
+
+## Ordre des options
+
+`sort-keys` est désactivé dans `src/routes`, car TanStack Router infère les types dans l'ordre de déclaration. Les options sont classées par ordre alphabétique, sauf `validateSearch`, qui vient en premier, avant tout ce qui lit la recherche :
+
+```tsx
+export const Route = createFileRoute("/auth/reset-password")({
+  validateSearch: zod.object({
+    error: searchText(),
+    token: searchText(),
+  }),
+  component: ResetPasswordPage,
+```
+
+N'écrivez jamais un tableau ou un objet de données directement dans `createFileRoute` ; déclarez-le comme constante au-dessus.
+
+## Paramètres de recherche
+
+`validateSearch` est un `zod.object` construit à partir des utilitaires de `src/lib/search-params.ts` :
+
+| Utilitaire                        | Valeur quand le paramètre est absent ou mal formé | Usage                              |
+| --------------------------------- | ------------------------------------------------- | ---------------------------------- |
+| `searchText()`                    | `undefined`                                       | Jetons, e-mails, codes d'erreur    |
+| `searchFlag()`                    | `undefined`                                       | Booléens                           |
+| `searchParam(schema)`             | `undefined`                                       | Tout autre schéma, comme un chemin |
+| `searchChoice(choices, fallback)` | `fallback`                                        | Un onglet ou une vue               |
+
+Un texte absent reste `undefined`, si bien qu'une valeur par défaut ne fuit jamais dans une URL que construit le routeur. Un paramètre `searchChoice` est associé à `search: { middlewares: [stripSearchParams({ tab: DEFAULT_TAB })] }`, qui retire la valeur par défaut de l'URL. N'écrivez jamais à la main des vérifications `typeof search["x"] === "string"` ; ajoutez un utilitaire lorsqu'un nouveau type de champ est nécessaire. Lorsqu'un enfant a besoin d'un paramètre dont la page a validé la présence, la page l'affine et le lui transmet, comme `auth.reset-password.tsx` transmet `token` à `ResetPasswordForm`.
+
+## Squelettes
+
+La navigation doit sembler instantanée : chaque route qui affiche une page a donc un `pendingComponent` qui la reproduit, avec la même mise en page, les mêmes cartes et le même nombre de lignes.
+
+- Les squelettes se trouvent dans le fichier de squelettes de la zone (`content-pending.tsx`, `courses-pending.tsx`) et utilisent `Skeleton` de shadcn.
+- Un emplacement de texte reçoit le vrai jeton typographique plus `h-lh scale-y-70`, pour avoir la hauteur de la ligne qu'il remplace : `<Skeleton className="h-lh w-28 scale-y-70 font-mono text-label" />`.
+- Les longueurs des listes proviennent des constantes qu'utilise la page : `PAGE_ROWS` dans `admin/pending-blocks.tsx` compte `DEFAULT_PAGE_SIZE` lignes, la taille de page de tous les tableaux de l'administration.
+- Un squelette de layout choisit le squelette de page du chemin courant dans une table de correspondance, comme le font `ADMIN_PAGES` dans `admin-pending.tsx` et `COURSE_PAGES` dans `content-pending.tsx`. Une nouvelle page est ajoutée à cette table.
+- Il n'y a pas de `defaultPendingComponent` pour tout le routeur, et `pendingMs` conserve la valeur par défaut de TanStack. Les routes de la documentation sont la seule exception : `pendingMs: Number.POSITIVE_INFINITY` et `wrapInSuspense: false`, si bien qu'un clic qui survient avant l'hydratation de la page de documentation devient un chargement de page normal.
+
+## Liens
+
+- Les liens du routeur prennent une constante : `<Link to={ROUTES.COURSES}>`, `<Link hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>`, ou un modèle de route avec `params` pour les chemins dynamiques. Le `LinkButton` de shadcn prend un `href`.
+- N'ajoutez jamais le préfixe de locale à un lien du routeur ; la réécriture du routeur l'ajoute. Une URL complète dans la locale courante, pour une valeur qui quitte le routeur sous forme de chaîne, provient de `router.buildLocation({ ... }).publicHref`, comme `use-auth-redirect.ts` construit ses liens de connexion. `localizePathname` sert aux URL construites hors d'un contexte de routeur ou pour une autre locale : e-mails, cibles de redirection de Better Auth, liens dans le MDX et sélecteur de langue.
+
+## Pages associées
+
+- [Routes et livraison](/docs/architecture/delivery-layer)
+- [Récupération des données et cache](/docs/conventions/data-fetching)
+- [Traductions et contenu](/docs/conventions/translations)

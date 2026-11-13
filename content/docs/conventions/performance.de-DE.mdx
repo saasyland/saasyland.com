@@ -1,0 +1,77 @@
+---
+title: "Performance"
+description: "Die gemessenen Regeln, die Seiten schnell halten: ein kleiner Boot-Graph des Workers, entfernte Preload-Hinweise, die Platzierung von Providern, ein einziger Tailwind-Build, die Größe von Medien und das Reveal-Muster."
+---
+
+Jede Regel auf dieser Seite stammt aus einer Messung, und mehrere haben eine intuitive Lösung ersetzt, die es schlimmer gemacht hat. Ändern Sie den Code hinter einer dieser Regeln nur mit einer neuen Messung, die sie übertrifft.
+
+## Erst messen, dann behaupten
+
+- Vergleichen Sie den vorherigen und den neuen Build auf derselben Seite mit mindestens fünf Lighthouse-Läufen pro Build, abwechselnd ausgeführt, und vergleichen Sie die Mediane. Ein einzelner Lauf beweist nichts: Etwa jeder fünfte Lauf ist ein Ausreißer, verursacht durch Rauschen auf der Maschine.
+- Beurteilen Sie eine Änderung nicht anhand eines einzigen Laufs von PageSpeed Insights. Dasselbe Deployment erzielt je nach Geschwindigkeit der Maschine, die den Test ausführt, sehr unterschiedliche Werte; diese Geschwindigkeit meldet Lighthouse als `benchmarkIndex`.
+- Messen Sie einen Produktions-Build (`bun run build:test`, dann `bun run start:test`), ausgeliefert über HTTP/2 mit Komprimierung. Über einfaches lokales HTTP/1.1 ohne Komprimierung modelliert die Netzwerksimulation von Lighthouse Verbindungen und Übertragungsgrößen, die es in Produktion nie gibt.
+- Eine Lighthouse-Diagnose ist kein Score. Ein Hinweis wie „forced reflow“ oder „properly size images“ kann für die Seite falsch sein, wie die folgenden Abschnitte zeigen; prüfen Sie die bewerteten Metriken, bevor Sie danach handeln.
+
+## Den Boot-Graph des Workers klein halten
+
+`src/server.ts` läuft bei jeder HTML-Anfrage (`run_worker_first` in `wrangler.jsonc`), und alles, was es statisch importiert, wird bei jedem Kaltstart ausgewertet. Es importiert nur Konstanten und reine Hilfsfunktionen und lädt den Rest, wenn eine Anfrage ihn braucht:
+
+```ts
+const { default: handler } = await import("@tanstack/react-start/server-entry")
+```
+
+```ts
+const { serveMedia } = await import("~/src/modules/video/video.delivery")
+```
+
+Ein einziger statischer Import eines Header-Namens aus einem Modul, das auch den Polar-Client importierte, zog einmal etwa 1,4 MB SDK in jeden Kaltstart, und das erste Byte der Landingpage brauchte bis zu 1,4 Sekunden. Deshalb liegen `COUNTRY_HEADER` und `IP_ADDRESS_HEADER` in `src/modules/_core/constants/api.ts`, das nichts Schweres importiert. Bevor Sie `server.ts` einen statischen Import hinzufügen, verfolgen Sie dessen Importkette: Alles, was `polar`, `drizzle-orm` oder `resend` erreicht, ist eine Regression.
+
+## Vorgerenderte Seiten laden zuerst CSS und Schriften
+
+Öffentliche Seiten werden vorgerendert und brauchen für ihren ersten Paint kein JavaScript. TanStack Start erzeugt einen `modulepreload`-Hinweis für jeden Chunk, den eine Seite brauchen könnte, auf der Landingpage mehr als hundert, und in einem simulierten Mobilfunknetz konkurrieren sie mit dem Stylesheet und den Schriften. `scripts/optimize-prerendered-html.ts`, das jedes Build-Skript ausführt, entfernt jeden Hinweis auf Abhängigkeiten und behält nur den Hinweis auf das eigene Entry-Skript der Seite, mit `fetchpriority="low"`:
+
+```ts
+moduleEntries.has(hint) ? `<link rel="modulepreload" href="${hint}" fetchpriority="low"/>` : ""
+```
+
+Das Entfernen der Hinweise senkte den First Contentful Paint um etwa ein Drittel; den Entry-Hinweis mit niedriger Priorität zu behalten, senkte den mobilen First Contentful Paint um weitere 375 ms. Fügen Sie nie wieder Preload-Hinweise hinzu, weder für Abhängigkeiten noch für Routen-Chunks. Das Skript lässt den Build fehlschlagen, wenn es keinen Hinweis zum Entfernen oder keinen zum Behalten findet, sodass eine Änderung der Build-Ausgabe auffällt, statt dies stillschweigend rückgängig zu machen.
+
+`robots.txt` und `llms.txt` sind statische Dateien in `public/`, die den Worker umgehen (`"!/robots.txt", "!/llms.txt"` in `run_worker_first`). Lighthouse ruft beide mit einem Timeout von zwei Sekunden ab, und eine langsame Antwort des Workers ließ die Audits von Lighthouse für SEO und Agent-Readiness fehlschlagen.
+
+## Provider umschließen nie ein Routen-Outlet
+
+TanStack Router umschließt Routen-Outlets mit Suspense-Boundaries, und React hydriert diese Boundaries später, in kleinen Stücken. Ein Context-Provider darüber, dessen Wert sich direkt nach der Hydration ändert, zwingt React, alles darunter auf einmal zu hydrieren:
+
+- `ThemeProvider` um die gesamte Anwendung machte die Hydration der Landingpage zu einer einzigen Aufgabe von 200 ms, die Eingaben blockierte. Nachdem er nur noch um seine beiden Nutzer herum eingebunden wurde, den `Toaster` und den `ThemeSwitch` der Dokumentation, sank die Total Blocking Time von etwa 150 ms auf unter 10 ms.
+- `MotionProvider` über einem Routen-Outlet veröffentlicht einen neuen Context, wenn seine Animationsfunktionen fertig geladen sind. Bei einem Blogbeitrag traf diese Aktualisierung ein, während die Seite noch ihren Inhalt lud; React wich auf clientseitiges Rendern aus, und das Layout verschob sich.
+
+Bevor Sie `__root.tsx` oder einem Layout einen Provider hinzufügen, prüfen Sie, ob sich sein Wert nach der Hydration ändern kann. Wenn ja, binden Sie ihn neben den Komponenten ein, die ihn lesen, unterhalb jedes Routen-`<Outlet />`. Die Platzierungen sind unter [Komponenten und Styling](/docs/conventions/components) aufgeführt.
+
+## Ein einziger Tailwind-Build
+
+Nur `src/presentation/styles/globals.css` führt Tailwind aus. Routen-Stylesheets wie `docs.css` und `typeset.css` sind einfaches CSS, und die eigenen Styles von Fumadocs kommen über `globals.css` herein:
+
+```css
+@import "@fumadocs/base-ui/css/shadcn.css";
+@import "@fumadocs/base-ui/css/preset.css";
+```
+
+Ein zweiter Tailwind-Build in einem Routen-Stylesheet lieferte einmal seine eigenen `.hidden`, `.rounded-md` und Theme-Variablen aus. Gleichnamige Cascade Layers werden über Stylesheets hinweg zusammengeführt, und React entfernt nie ein Stylesheet, das es mit `precedence` eingefügt hat, sodass die Landingpage nach einem Besuch der Dokumentation ihr responsives Layout und ihre Schriften bis zum Neuladen verlor. Der End-to-End-Test "landing keeps its responsive styles after visiting the docs" in `e2e/specs/navigation.spec.ts` sichert das ab. Alles, was Tailwind braucht, läuft über `globals.css`.
+
+## Medien
+
+- **Landing-Loops.** Jede `src/presentation/assets/motion/<name>.webm` hat ein Posterbild `<name>.webp` mit genau den Abmessungen des Videos (die `size` in `LOOPS` in `concept-loop.tsx`), damit der Übergang vom Posterbild zum Video nicht sichtbar schärfer wird. Kleinere Breiten sind eigene Dateien, `<name>-<width>.webp`, angeboten über das `srcSet` des Posterbilds. Verkleinern Sie nie das Posterbild in voller Größe; um es leichter zu machen, kodieren Sie es in denselben Abmessungen neu. Die Videos laden mit `preload="none"`, spielen nur, solange ein Viertel davon sichtbar ist, und spielen nie für Leser, die reduzierte Bewegung bevorzugen.
+- **Kursvideos** werden vorab in adaptives HLS kodiert und mit dem Workers-Cache aus R2 ausgeliefert. Siehe [Videos](/docs/features/videos).
+- **Per Scrollen gesteuertes Video.** Die Website hat derzeit keines. Ein Video, dessen Zeit der Scrollposition folgt, muss all-intra kodiert sein (jeder Frame ein Keyframe, `keyint=1`): Bei einer normalen Kodierung dauert ein Sprung etwa 200 ms, bei einer all-intra-Kodierung etwa 3 ms, und keine noch so starke Glättung in JavaScript macht aus einem Sprung von 200 ms ein flüssiges Scrubbing.
+
+## Einblenden beim Scrollen
+
+`Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) blendet Abschnitte der Landingpage ein, wenn sie in den Viewport kommen. Es teilt einen `IntersectionObserver` zwischen allen Instanzen, entscheidet anhand des ersten Callbacks des Observers, ob ein Element unterhalb des sichtbaren Bereichs beginnt, und schreibt `data-reveal`-Attribute direkt, ohne React-State und ohne erneutes Rendern. Eine Version, die die Sichtbarkeit in React-State hielt, verdoppelte die Total Blocking Time, weil jeder Abschnitt neu renderte und die Seite zweimal das Layout berechnete. Verlagern Sie es nicht zurück in State, und ersetzen Sie es nicht ohne Vergleichsmessung.
+
+Zwei weitere Optimierungen wurden gemessen und verworfen: `content-visibility: auto` auf Abschnitten der Landingpage, was seiteninterne Links zu weiter unten liegenden Abschnitten kaputt machte, und das verzögerte Laden des Newsletter-Formulars, das gleich gut oder schlechter abschnitt, als es direkt zu rendern.
+
+## Verwandte Seiten
+
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Caching und SSR](/docs/architecture/caching-and-ssr)
+- [Komponenten und Styling](/docs/conventions/components)

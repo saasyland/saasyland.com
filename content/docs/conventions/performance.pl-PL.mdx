@@ -1,0 +1,77 @@
+---
+title: "Wydajność"
+description: "Zmierzone reguły, dzięki którym strony pozostają szybkie: mały graf startowy Workera, usunięte wskazówki preload, rozmieszczenie providerów, jeden build Tailwind, rozmiary mediów i wzorzec odsłaniania."
+---
+
+Każda reguła na tej stronie wynika z pomiaru, a kilka z nich zastąpiło intuicyjną poprawkę, która pogorszyła sytuację. Zmieniaj kod stojący za którąkolwiek z nich tylko wtedy, gdy nowy pomiar wypadnie lepiej.
+
+## Najpierw zmierz, potem twierdź
+
+- Porównuj poprzedni i nowy build na tej samej stronie, co najmniej pięć przebiegów Lighthouse dla każdego, naprzemiennie, i porównuj mediany. Jeden przebieg niczego nie dowodzi: mniej więcej co piąty przebieg jest wartością odstającą z powodu szumu maszyny.
+- Nie oceniaj zmiany na podstawie jednego przebiegu PageSpeed Insights. To samo wdrożenie otrzymuje bardzo różne wyniki w zależności od szybkości maszyny, która wykonuje test; Lighthouse podaje ją jako `benchmarkIndex`.
+- Mierz build produkcyjny (`bun run build:test`, a potem `bun run start:test`) serwowany przez HTTP/2 z kompresją. Przy zwykłym lokalnym HTTP/1.1 bez kompresji symulacja sieci w Lighthouse modeluje połączenia i rozmiary transferu, których produkcja nigdy nie ma.
+- Diagnostyka Lighthouse to nie wynik. Wskazówka „forced reflow” czy „properly size images” może być dla danej strony błędna, co pokazują poniższe sekcje; zanim na nią zareagujesz, sprawdź punktowane metryki.
+
+## Mały graf startowy Workera
+
+`src/server.ts` działa przy każdym żądaniu HTML (`run_worker_first` w `wrangler.jsonc`), a wszystko, co importuje statycznie, jest wykonywane przy każdym zimnym starcie. Importuje tylko stałe i czyste helpery, a resztę ładuje wtedy, gdy potrzebuje jej żądanie:
+
+```ts
+const { default: handler } = await import("@tanstack/react-start/server-entry")
+```
+
+```ts
+const { serveMedia } = await import("~/src/modules/video/video.delivery")
+```
+
+Jeden statyczny import nazwy nagłówka z modułu, który importował też klienta Polar, wciągał kiedyś około 1,4 MB SDK do każdego zimnego startu, a pierwszy bajt strony głównej przychodził nawet po 1,4 sekundy. Dlatego `COUNTRY_HEADER` i `IP_ADDRESS_HEADER` znajdują się w `src/modules/_core/constants/api.ts`, który nie importuje niczego ciężkiego. Zanim dodasz statyczny import do `server.ts`, prześledź jego łańcuch importów: wszystko, co dociera do `polar`, `drizzle-orm` lub `resend`, jest regresją.
+
+## Prerenderowane strony najpierw ładują CSS i czcionki
+
+Strony publiczne są prerenderowane i do pierwszego renderowania nie potrzebują JavaScriptu. TanStack Start emituje wskazówkę `modulepreload` dla każdego chunka, którego strona może potrzebować, na stronie głównej ponad sto, a w symulowanej sieci mobilnej konkurują one z arkuszem stylów i czcionkami. `scripts/optimize-prerendered-html.ts`, który uruchamia każdy skrypt budowania, usuwa wszystkie wskazówki zależności i zostawia tylko wskazówkę własnego skryptu wejściowego strony, z `fetchpriority="low"`:
+
+```ts
+moduleEntries.has(hint) ? `<link rel="modulepreload" href="${hint}" fetchpriority="low"/>` : ""
+```
+
+Usunięcie wskazówek skróciło First Contentful Paint o mniej więcej jedną trzecią; pozostawienie wskazówki punktu wejścia z niskim priorytetem skróciło mobilny First Contentful Paint o kolejne 375 ms. Nigdy nie przywracaj wskazówek preload, ani dla zależności, ani dla chunków tras. Skrypt przerywa build, gdy nie znajdzie żadnej wskazówki do usunięcia lub żadnej do zachowania, więc zmiana w wyniku builda nie cofnie tego po cichu, tylko zostanie wychwycona.
+
+`robots.txt` i `llms.txt` to pliki statyczne w `public/`, które omijają Workera (`"!/robots.txt", "!/llms.txt"` w `run_worker_first`). Lighthouse pobiera oba z dwusekundowym limitem czasu, a wolna odpowiedź Workera powodowała niepowodzenie jego audytów SEO i gotowości dla agentów.
+
+## Providery nigdy nie otaczają outletu trasy
+
+TanStack Router otacza outlety tras granicami Suspense, a React hydratuje te granice później, w małych porcjach. Provider kontekstu nad nimi, którego wartość zmienia się zaraz po hydratacji, zmusza React do zhydratowania wszystkiego poniżej naraz:
+
+- `ThemeProvider` wokół całej aplikacji zamienił hydratację strony głównej w jedno zadanie trwające 200 ms, które blokowało interakcję. Po zamontowaniu go wokół jego dwóch odbiorców, `Toaster` i `ThemeSwitch` dokumentacji, Total Blocking Time spadł z około 150 ms do poniżej 10 ms.
+- `MotionProvider` nad outletem trasy publikuje nowy kontekst, gdy jego funkcje animacji skończą się ładować. We wpisie na blogu ta aktualizacja docierała, gdy strona wciąż ładowała treść, React przechodził na renderowanie po stronie klienta, a układ się przesuwał.
+
+Zanim dodasz provider do `__root.tsx` lub layoutu, sprawdź, czy jego wartość może się zmienić po hydratacji. Jeśli tak, zamontuj go obok komponentów, które go odczytują, poniżej każdego `<Outlet />` trasy. Rozmieszczenie providerów opisuje strona [Komponenty i stylowanie](/docs/conventions/components).
+
+## Jeden build Tailwind
+
+Tylko `src/presentation/styles/globals.css` uruchamia Tailwind. Arkusze stylów tras, takie jak `docs.css` i `typeset.css`, to zwykły CSS, a własne style Fumadocs trafiają przez `globals.css`:
+
+```css
+@import "@fumadocs/base-ui/css/shadcn.css";
+@import "@fumadocs/base-ui/css/preset.css";
+```
+
+Drugi build Tailwind w arkuszu stylów trasy dostarczał kiedyś własne `.hidden`, `.rounded-md` i zmienne motywu. Warstwy kaskady o tej samej nazwie łączą się między arkuszami stylów, a React nigdy nie usuwa arkusza wstawionego z `precedence`, więc po jednej wizycie w dokumentacji strona główna traciła responsywny układ i czcionki aż do przeładowania. Pilnuje tego test end-to-end „landing keeps its responsive styles after visiting the docs” w `e2e/specs/navigation.spec.ts`. Wszystko, co potrzebuje Tailwind, przechodzi przez `globals.css`.
+
+## Media
+
+- **Pętle na stronie głównej.** Każdy `src/presentation/assets/motion/<name>.webm` ma plakat `<name>.webp` o dokładnie tych samych wymiarach co film (`size` w `LOOPS` w `concept-loop.tsx`), więc przejście z plakatu na film nie powoduje widocznego wyostrzenia. Mniejsze szerokości to osobne pliki `<name>-<width>.webp`, oferowane przez `srcSet` plakatu. Nigdy nie zmniejszaj pełnowymiarowego plakatu; aby go odchudzić, zakoduj go ponownie w tych samych wymiarach. Filmy ładują się z `preload="none"`, odtwarzają się tylko wtedy, gdy widoczna jest co najmniej ich ćwiartka, i nigdy nie odtwarzają się u czytelników, którzy wolą ograniczony ruch.
+- **Filmy kursów** są wcześniej kodowane do adaptacyjnego HLS i serwowane z R2 z cache Workers. Zobacz [Wideo](/docs/features/videos).
+- **Wideo sterowane przewijaniem.** Obecnie w serwisie go nie ma. Film, którego czas podąża za pozycją przewijania, musi być zakodowany w trybie all-intra (każda klatka jest klatką kluczową, `keyint=1`): w zwykłym kodowaniu przewinięcie do klatki trwa około 200 ms, w all-intra około 3 ms, a żadne wygładzanie w JavaScripcie nie sprawi, że przewijanie z opóźnieniem 200 ms będzie płynne.
+
+## Odsłanianie przy przewijaniu
+
+`Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) płynnie pokazuje sekcje strony głównej, gdy wchodzą w obszar widoku. Współdzieli jeden `IntersectionObserver` między wszystkimi instancjami, na podstawie pierwszego callbacku obserwatora decyduje, czy element zaczyna się poniżej pierwszego ekranu, i zapisuje atrybuty `data-reveal` bezpośrednio, bez stanu React i bez ponownego renderowania. Wersja, która trzymała widoczność w stanie React, podwoiła Total Blocking Time, ponieważ każda sekcja renderowała się ponownie, a układ strony był obliczany dwa razy. Nie przenoś tego z powrotem do stanu i nie zastępuj bez porównania.
+
+Dwie inne optymalizacje zmierzono i odrzucono: `content-visibility: auto` na sekcjach strony głównej, które psuło linki wewnątrz strony do sekcji położonych niżej, oraz leniwe ładowanie formularza newslettera, które wypadało tak samo lub gorzej niż renderowanie go bezpośrednio.
+
+## Powiązane strony
+
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Cache i SSR](/docs/architecture/caching-and-ssr)
+- [Komponenty i stylowanie](/docs/conventions/components)

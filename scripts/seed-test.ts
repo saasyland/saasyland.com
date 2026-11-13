@@ -21,7 +21,7 @@ const literal = (value: string): string => `'${value.replaceAll("'", "''")}'`
 const json = (value: object): string => literal(JSON.stringify(value))
 
 const wrangler = (args: readonly string[], failure: string): void => {
-  const result = spawnSync("bun", ["x", "wrangler", ...args, ...LOCAL_TEST_STATE], { stdio: "inherit" })
+  const result = spawnSync("vp", ["exec", "wrangler", ...args, ...LOCAL_TEST_STATE], { stdio: "inherit" })
   if (result.status !== 0) {
     throw new Error(failure)
   }

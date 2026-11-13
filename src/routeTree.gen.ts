@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BlogRouteImport } from './routes/blog'
+import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as LandingIndexRouteImport } from './routes/_landing.index'
 import { Route as LandingLicenceRouteImport } from './routes/_landing.licence'
@@ -42,6 +43,7 @@ import { Route as AuthTwoFactorRouteImport } from './routes/auth.two-factor'
 import { Route as AuthVerifyEmailRouteImport } from './routes/auth.verify-email'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as BlogSplatRouteImport } from './routes/blog.$'
+import { Route as CoursesIndexRouteImport } from './routes/courses.index'
 import { Route as DocsIndexRouteImport } from './routes/docs.index'
 import { Route as DocsSplatRouteImport } from './routes/docs.$'
 import { Route as LandingNewsletterConfirmRouteImport } from './routes/_landing.newsletter.confirm'
@@ -57,6 +59,8 @@ import { Route as AdminUsersInvitationsRouteImport } from './routes/admin.users.
 import { Route as AdminUsersRolesRouteImport } from './routes/admin.users.roles'
 import { Route as AdminUsersSecurityRouteImport } from './routes/admin.users.security'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
+import { Route as CoursesCourseIndexRouteImport } from './routes/courses.$course.index'
+import { Route as CoursesCourseLessonRouteImport } from './routes/courses.$course.$lesson'
 
 const LandingRoute = LandingRouteImport.update({
   id: '/_landing',
@@ -80,6 +84,11 @@ const AuthRoute = AuthRouteImport.update({
 const BlogRoute = BlogRouteImport.update({
   id: '/blog',
   path: '/blog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoursesRoute = CoursesRouteImport.update({
+  id: '/courses',
+  path: '/courses',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsRoute = DocsRouteImport.update({
@@ -222,6 +231,11 @@ const BlogSplatRoute = BlogSplatRouteImport.update({
   path: '/$',
   getParentRoute: () => BlogRoute,
 } as any)
+const CoursesIndexRoute = CoursesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CoursesRoute,
+} as any)
 const DocsIndexRoute = DocsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -299,6 +313,16 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CoursesCourseIndexRoute = CoursesCourseIndexRouteImport.update({
+  id: '/$course/',
+  path: '/$course/',
+  getParentRoute: () => CoursesRoute,
+} as any)
+const CoursesCourseLessonRoute = CoursesCourseLessonRouteImport.update({
+  id: '/$course/$lesson',
+  path: '/$course/$lesson',
+  getParentRoute: () => CoursesRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LandingIndexRoute
@@ -306,6 +330,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
   '/blog': typeof BlogRouteWithChildren
+  '/courses': typeof CoursesRouteWithChildren
   '/docs': typeof DocsRouteWithChildren
   '/licence': typeof LandingLicenceRoute
   '/premium': typeof LandingPremiumRoute
@@ -334,6 +359,7 @@ export interface FileRoutesByFullPath {
   '/api/': typeof ApiIndexRoute
   '/app/': typeof AppIndexRoute
   '/blog/': typeof BlogIndexRoute
+  '/courses/': typeof CoursesIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/newsletter/confirm': typeof LandingNewsletterConfirmRoute
   '/newsletter/unsubscribe': typeof LandingNewsletterUnsubscribeRoute
@@ -345,9 +371,11 @@ export interface FileRoutesByFullPath {
   '/admin/users/roles': typeof AdminUsersRolesRoute
   '/admin/users/security': typeof AdminUsersSecurityRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/courses/$course/$lesson': typeof CoursesCourseLessonRoute
   '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
+  '/courses/$course/': typeof CoursesCourseIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRouteWithChildren
@@ -378,6 +406,7 @@ export interface FileRoutesByTo {
   '/api': typeof ApiIndexRoute
   '/app': typeof AppIndexRoute
   '/blog': typeof BlogIndexRoute
+  '/courses': typeof CoursesIndexRoute
   '/docs': typeof DocsIndexRoute
   '/newsletter/confirm': typeof LandingNewsletterConfirmRoute
   '/newsletter/unsubscribe': typeof LandingNewsletterUnsubscribeRoute
@@ -389,9 +418,11 @@ export interface FileRoutesByTo {
   '/admin/users/roles': typeof AdminUsersRolesRoute
   '/admin/users/security': typeof AdminUsersSecurityRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/courses/$course/$lesson': typeof CoursesCourseLessonRoute
   '/admin/blog': typeof AdminBlogIndexRoute
   '/admin/products': typeof AdminProductsIndexRoute
   '/admin/users': typeof AdminUsersIndexRoute
+  '/courses/$course': typeof CoursesCourseIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -400,6 +431,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
   '/blog': typeof BlogRouteWithChildren
+  '/courses': typeof CoursesRouteWithChildren
   '/docs': typeof DocsRouteWithChildren
   '/_landing/licence': typeof LandingLicenceRoute
   '/_landing/premium': typeof LandingPremiumRoute
@@ -429,6 +461,7 @@ export interface FileRoutesById {
   '/api/': typeof ApiIndexRoute
   '/app/': typeof AppIndexRoute
   '/blog/': typeof BlogIndexRoute
+  '/courses/': typeof CoursesIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/_landing/newsletter/confirm': typeof LandingNewsletterConfirmRoute
   '/_landing/newsletter/unsubscribe': typeof LandingNewsletterUnsubscribeRoute
@@ -440,9 +473,11 @@ export interface FileRoutesById {
   '/admin/users/roles': typeof AdminUsersRolesRoute
   '/admin/users/security': typeof AdminUsersSecurityRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/courses/$course/$lesson': typeof CoursesCourseLessonRoute
   '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
+  '/courses/$course/': typeof CoursesCourseIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -452,6 +487,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/blog'
+    | '/courses'
     | '/docs'
     | '/licence'
     | '/premium'
@@ -480,6 +516,7 @@ export interface FileRouteTypes {
     | '/api/'
     | '/app/'
     | '/blog/'
+    | '/courses/'
     | '/docs/'
     | '/newsletter/confirm'
     | '/newsletter/unsubscribe'
@@ -491,9 +528,11 @@ export interface FileRouteTypes {
     | '/admin/users/roles'
     | '/admin/users/security'
     | '/api/auth/$'
+    | '/courses/$course/$lesson'
     | '/admin/blog/'
     | '/admin/products/'
     | '/admin/users/'
+    | '/courses/$course/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -524,6 +563,7 @@ export interface FileRouteTypes {
     | '/api'
     | '/app'
     | '/blog'
+    | '/courses'
     | '/docs'
     | '/newsletter/confirm'
     | '/newsletter/unsubscribe'
@@ -535,9 +575,11 @@ export interface FileRouteTypes {
     | '/admin/users/roles'
     | '/admin/users/security'
     | '/api/auth/$'
+    | '/courses/$course/$lesson'
     | '/admin/blog'
     | '/admin/products'
     | '/admin/users'
+    | '/courses/$course'
   id:
     | '__root__'
     | '/_landing'
@@ -545,6 +587,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/blog'
+    | '/courses'
     | '/docs'
     | '/_landing/licence'
     | '/_landing/premium'
@@ -574,6 +617,7 @@ export interface FileRouteTypes {
     | '/api/'
     | '/app/'
     | '/blog/'
+    | '/courses/'
     | '/docs/'
     | '/_landing/newsletter/confirm'
     | '/_landing/newsletter/unsubscribe'
@@ -585,9 +629,11 @@ export interface FileRouteTypes {
     | '/admin/users/roles'
     | '/admin/users/security'
     | '/api/auth/$'
+    | '/courses/$course/$lesson'
     | '/admin/blog/'
     | '/admin/products/'
     | '/admin/users/'
+    | '/courses/$course/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -596,6 +642,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
   BlogRoute: typeof BlogRouteWithChildren
+  CoursesRoute: typeof CoursesRouteWithChildren
   DocsRoute: typeof DocsRouteWithChildren
   ApiSearchRoute: typeof ApiSearchRoute
   ApiIndexRoute: typeof ApiIndexRoute
@@ -637,6 +684,13 @@ declare module '@tanstack/react-router' {
       path: '/blog'
       fullPath: '/blog'
       preLoaderRoute: typeof BlogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/courses': {
+      id: '/courses'
+      path: '/courses'
+      fullPath: '/courses'
+      preLoaderRoute: typeof CoursesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs': {
@@ -835,6 +889,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSplatRouteImport
       parentRoute: typeof BlogRoute
     }
+    '/courses/': {
+      id: '/courses/'
+      path: '/'
+      fullPath: '/courses/'
+      preLoaderRoute: typeof CoursesIndexRouteImport
+      parentRoute: typeof CoursesRoute
+    }
     '/docs/': {
       id: '/docs/'
       path: '/'
@@ -939,6 +1000,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/courses/$course/': {
+      id: '/courses/$course/'
+      path: '/$course'
+      fullPath: '/courses/$course/'
+      preLoaderRoute: typeof CoursesCourseIndexRouteImport
+      parentRoute: typeof CoursesRoute
+    }
+    '/courses/$course/$lesson': {
+      id: '/courses/$course/$lesson'
+      path: '/$course/$lesson'
+      fullPath: '/courses/$course/$lesson'
+      preLoaderRoute: typeof CoursesCourseLessonRouteImport
+      parentRoute: typeof CoursesRoute
     }
   }
 }
@@ -1068,6 +1143,21 @@ const BlogRouteChildren: BlogRouteChildren = {
 
 const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
 
+interface CoursesRouteChildren {
+  CoursesIndexRoute: typeof CoursesIndexRoute
+  CoursesCourseLessonRoute: typeof CoursesCourseLessonRoute
+  CoursesCourseIndexRoute: typeof CoursesCourseIndexRoute
+}
+
+const CoursesRouteChildren: CoursesRouteChildren = {
+  CoursesIndexRoute: CoursesIndexRoute,
+  CoursesCourseLessonRoute: CoursesCourseLessonRoute,
+  CoursesCourseIndexRoute: CoursesCourseIndexRoute,
+}
+
+const CoursesRouteWithChildren =
+  CoursesRoute._addFileChildren(CoursesRouteChildren)
+
 interface DocsRouteChildren {
   DocsSplatRoute: typeof DocsSplatRoute
   DocsIndexRoute: typeof DocsIndexRoute
@@ -1086,6 +1176,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
   BlogRoute: BlogRouteWithChildren,
+  CoursesRoute: CoursesRouteWithChildren,
   DocsRoute: DocsRouteWithChildren,
   ApiSearchRoute: ApiSearchRoute,
   ApiIndexRoute: ApiIndexRoute,

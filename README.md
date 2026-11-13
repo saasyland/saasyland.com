@@ -1,6 +1,6 @@
 # SaaSy Land
 
-Source code for the SaaSy Land website, customer workspace, and admin console. The application combines a multilingual marketing site, documentation and blog, authentication, newsletter subscriptions, video streaming, and Polar checkout and licence management in one TanStack Start application deployed to Cloudflare Workers.
+Source code for the SaaSy Land website, customer workspace, and admin console. The application combines a multilingual marketing site, documentation and blog, authentication, newsletter subscriptions, video streaming and courses, and Polar checkout and licence management in one TanStack Start application deployed to Cloudflare Workers.
 
 This repository contains the website application. The SaaSy Land CLI and private generator templates are maintained separately and are not included here. See [licensing](#licensing) for the distinction between the website source and the commercial product.
 
@@ -27,18 +27,19 @@ The landing page in September 2026. [View the full page](.github/assets/landing-
 
 The application includes both connected workflows and UI demonstrations. A rendered admin screen does not necessarily have a persistent backend workflow.
 
-| Area                        | Current implementation                                                                                                                                                                                                                                                                                                                                                                            |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public website              | Landing page, pricing presentation, localized legal pages, responsive layouts, theme support, and reduced-motion presentations. Public pages are prerendered during builds, and every count on the landing page is measured from the repository at build time ([`scripts/repository-facts.ts`](scripts/repository-facts.ts)).                                                                     |
-| Documentation and blog      | Localized MDX content, navigation, and documentation search through Fumadocs. Published content is maintained in Git.                                                                                                                                                                                                                                                                             |
-| Authentication              | Email/password registration with required email verification, GitHub and Google sign-in, password recovery, TOTP with backup codes, and session management. Better Auth's own endpoints enforce the same password, name, email and image rules as the forms, and verification and password-reset emails are limited per recipient.                                                                |
-| Customer workspace          | Protected `/app` area and `/app/license` for the customer's licence key, machine activations, and activation deactivation.                                                                                                                                                                                                                                                                        |
-| Billing                     | Authenticated Polar checkout for the Core, Complete, and Agency tiers with regional (PPP) discounts, and webhook handling for purchases, full refunds (a partial refund keeps the licence), and licence-key benefits. Requires configured provider products and credentials.                                                                                                                      |
-| Newsletter                  | Double opt-in subscription with localized email delivery, limited per recipient. The confirmation and unsubscribe links open a page that acts only when the visitor presses its button. Subscription preferences are managed from the workspace.                                                                                                                                                  |
-| Admin users and security    | Database-backed user listing, password reset, ban/unban, and deletion. The settings security tab connects password changes, TOTP, and session revocation.                                                                                                                                                                                                                                         |
-| Products and categories     | D1 schemas, permission-checked CRUD use cases, and database-backed lists. Product creation/publishing controls are not fully connected.                                                                                                                                                                                                                                                           |
-| Videos                      | Recordings are encoded on your machine to adaptive HLS with FFmpeg (`bun run video:publish:<environment>`), stored in a private R2 bucket, and streamed through signed, expiring `/media/` links with the Workers cache and range requests. `/admin/videos` lists, previews, and deletes them; no customer screen plays them yet. See the [Videos guide](content/docs/features/videos.en-US.mdx). |
-| Demo and unfinished screens | Analytics, payment administration, pricing models, blog administration, invitations, and role-management views, and the dashboard revenue chart, show demo data. General settings, course creation (its curriculum does not use the published videos), and the landing-page editor include unconnected controls. `/premium` is a placeholder.                                                     |
+| Area                        | Current implementation                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public website              | Landing page, pricing presentation, localized legal pages, responsive layouts, theme support, and reduced-motion presentations. Public pages are prerendered during builds, and every count on the landing page is measured from the repository at build time ([`scripts/repository-facts.ts`](scripts/repository-facts.ts)).                                                                                                                     |
+| Documentation and blog      | Localized MDX content, navigation, and documentation search through Fumadocs. Published content is maintained in Git.                                                                                                                                                                                                                                                                                                                             |
+| Authentication              | Email/password registration with required email verification, GitHub and Google sign-in, password recovery, TOTP with backup codes, and session management. Better Auth's own endpoints enforce the same password, name, email and image rules as the forms, and verification and password-reset emails are limited per recipient.                                                                                                                |
+| Customer workspace          | Protected `/app` area and `/app/license` for the customer's licence key, machine activations, and activation deactivation.                                                                                                                                                                                                                                                                                                                        |
+| Billing                     | Authenticated Polar checkout for the Core, Complete, and Agency tiers with regional (PPP) discounts, and webhook handling for purchases, full refunds (a partial refund keeps the licence), and licence-key benefits. Requires configured provider products and credentials.                                                                                                                                                                      |
+| Newsletter                  | Double opt-in subscription with localized email delivery, limited per recipient. The confirmation and unsubscribe links open a page that acts only when the visitor presses its button. Subscription preferences are managed from the workspace.                                                                                                                                                                                                  |
+| Admin users and security    | Database-backed user listing, password reset, ban/unban, and deletion. The settings security tab connects password changes, TOTP, and session revocation.                                                                                                                                                                                                                                                                                         |
+| Products and categories     | D1 schemas, permission-checked CRUD use cases, and database-backed lists. Product creation/publishing controls are not fully connected.                                                                                                                                                                                                                                                                                                           |
+| Courses                     | A public catalogue at `/courses` with course and lesson pages backed by D1 (`course`, `chapter`, `lesson`, and `lesson_progress`). Each lesson is a free preview, free with an account, or paid (an active Complete or Agency licence); the server functions enforce access, and admins can watch every lesson. The player resumes where the viewer stopped and saves progress. See the [Courses guide](content/docs/features/courses.en-US.mdx). |
+| Videos                      | Recordings are encoded on your machine to adaptive HLS with FFmpeg (`bun run video:publish:<environment>`), stored in a private R2 bucket, and streamed through signed, expiring `/media/` links with the Workers cache and range requests. `/admin/videos` lists, previews, and deletes them, and course lessons play them. See the [Videos guide](content/docs/features/videos.en-US.mdx).                                                      |
+| Demo and unfinished screens | Analytics, payment administration, pricing models, blog administration, invitations, and role-management views, and the dashboard revenue chart, show demo data. General settings, course creation in the admin (courses are inserted in D1 until it is built), and the landing-page editor include unconnected controls. `/premium` is a placeholder.                                                                                            |
 
 The admin blog editor does not publish the MDX blog, and the course and page-editor screens do not yet constitute complete authoring systems. User creation/edit/profile controls also remain incomplete. The built-in application roles are `admin` and `customer`; new accounts receive `customer`.
 
@@ -78,7 +79,7 @@ The install lifecycle configures Vite+ and generates the class-name tables and F
 
 ### Run an isolated local preview
 
-Use the committed test environment to explore the application with local D1/KV/R2 storage, test accounts, and intercepted provider requests:
+Use the committed test environment to explore the application with local D1/KV/R2 storage, test accounts, a sample course at `/courses`, and intercepted provider requests:
 
 ```sh
 bun run db:migrate:test
@@ -176,7 +177,7 @@ content/
   blog/                          Localized MDX posts
   docs/                          Localized MDX documentation and navigation metadata
 messages/{locale}/               JSON catalogues split into dotted namespaces
-e2e/                             Playwright specs and local test-account fixtures
+e2e/                             Playwright specs and the seeded test accounts, video, and course
 scripts/                         Content checks, build checks, seeding, and tooling
 remotion/                        Video authoring source and isolated npm toolchain
 src/
@@ -191,13 +192,13 @@ src/
     assets/motion/               Published landing-page videos and posters
     branding/                    Application identity and canonical URL
     components/shadcn/           UI primitives (React Aria; Base UI for the drawer and toggle)
-    components/custom/           Shared components, plus app/, auth/, blog/, admin/{page}/, landing-page/
+    components/custom/           Shared components, plus app/, auth/, blog/, courses/, admin/{page}/, landing-page/
     emails/                      Email templates (markup and message namespace only)
     styles/                      Theme, typography, and local font declarations
   providers/                     Application-wide React providers
   data/                          Data shared by several files: navigation, marketing, admin demo rows
   hooks/                         Shared React hooks
-  lib/                           Shared utilities (cn, cookies, durations, hashing, rate limits, route search params, SEO, GitHub stars)
+  lib/                           Shared utilities (cn, cookies, durations, hashing, rate limits, route search params, SEO, GitHub stars, not-found errors)
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers
 ```
 
@@ -267,7 +268,7 @@ bun run test:e2e
 
 Locally, Playwright migrates and seeds the test database, builds the test application, and starts its preview server unless an existing server already answers at the configured URL. Stop other servers on port 3000 before running the suite so it uses the intended test application. `PLAYWRIGHT_BASE_URL` overrides the default `http://127.0.0.1:3000`.
 
-[`e2e/specs/accessibility.spec.ts`](e2e/specs/accessibility.spec.ts) runs axe-core with the WCAG 2.0, 2.1 and 2.2 A and AA rules and axe's best practices on the public pages, a blog post, and both workspaces in the light and dark themes, and fails on any violation.
+[`e2e/specs/accessibility.spec.ts`](e2e/specs/accessibility.spec.ts) runs axe-core with the WCAG 2.0, 2.1 and 2.2 A and AA rules and axe's best practices on the public pages, a blog post, the course pages, and both workspaces in the light and dark themes, and fails on any violation.
 
 `build:test` selects `env.test` in the root `wrangler.jsonc` using `CLOUDFLARE_ENV=test`. It uses the test Worker entry, local bindings, `.env.test`, and `.wrangler/test`; no separate test Wrangler file or `E2E=true` flag is needed. In CI, migrations, seeding, and building run explicitly before Playwright starts the server.
 
@@ -364,7 +365,7 @@ bun run deploy:production
 
 Each deployment script verifies binding IDs, builds the selected environment, checks the generated artifacts, optimizes prerendered HTML, and deploys through Wrangler using the corresponding secrets file. The Cloudflare Vite plugin generates the deployment configuration consumed by Wrangler. Builds alone do not apply remote migrations or deploy resources.
 
-Public pages are prerendered to `dist/client`; protected, authentication, newsletter-action, and API routes are excluded from prerendering. The build verifier checks the Worker deployment configuration, localized home/legal pages and SEO links, fonts, client JavaScript, and selected route exclusions. The application still requires a Worker for server-rendered routes, authentication, APIs, video delivery, and locale handling.
+Public pages are prerendered to `dist/client`; protected, authentication, newsletter-action, course, and API routes are excluded from prerendering. The build verifier checks the Worker deployment configuration, localized home/legal pages and SEO links, fonts, client JavaScript, and selected route exclusions. The application still requires a Worker for server-rendered routes, authentication, APIs, video delivery, and locale handling.
 
 ## Localization and content
 

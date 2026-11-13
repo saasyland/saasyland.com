@@ -44,6 +44,7 @@ export const ROUTES = {
   AUTH: "/auth",
   AUTH_CALLBACK: "/auth/callback",
   BLOG: "/blog",
+  COURSES: "/courses",
   DOCS: "/docs",
   FORGOT_PASSWORD: "/auth/forgot-password",
   HOME: "/",

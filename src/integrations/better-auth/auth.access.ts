@@ -15,6 +15,7 @@ export const DEFAULT_ROLE_CODE = ROLE_CODES.CUSTOMER
 const APP_STATEMENTS = {
   admin: ["access"],
   category: ["create", "read", "update", "delete"],
+  course: ["create", "read", "update", "delete"],
   order: ["read", "update", "refund"],
   product: ["create", "read", "update", "delete", "publish"],
   settings: ["manage"],

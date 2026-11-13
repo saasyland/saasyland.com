@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
@@ -62,5 +62,43 @@ describe("VideoPlayer", () => {
     expect(poster).toHaveAttribute("alt", "")
     expect(container.firstElementChild).toHaveClass("aspect-video", "max-w-4xl")
     expect(screen.getAllByRole("button").length).toBeGreaterThan(0)
+  })
+
+  it("resumes at the saved position and reports progress and the end", () => {
+    const onEnded = vi.fn<() => void>()
+    const onProgress = vi.fn<(seconds: number) => void>()
+    const { container } = render(
+      <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
+        <VideoPlayer onEnded={onEnded} onProgress={onProgress} playback={PLAYBACK} sizes="100vw" startAt={42.5} title="Module boundaries" />
+      </IntlProvider>,
+    )
+    const video = container.querySelector("video")
+    if (video === null) {
+      throw new Error("Missing video element")
+    }
+
+    fireEvent.loadedMetadata(video)
+    expect(video.currentTime).toBe(42.5)
+    video.currentTime = 50
+    fireEvent.timeUpdate(video)
+    fireEvent.ended(video)
+
+    expect(onProgress).toHaveBeenCalledWith(50)
+    expect(onEnded).toHaveBeenCalledOnce()
+  })
+
+  it("starts from the beginning and ignores events without listeners", () => {
+    const { container } = renderPlayer("en-US")
+    const video = container.querySelector("video")
+    if (video === null) {
+      throw new Error("Missing video element")
+    }
+
+    video.currentTime = 12
+    fireEvent.loadedMetadata(video)
+    fireEvent.timeUpdate(video)
+    fireEvent.ended(video)
+
+    expect(video.currentTime).toBe(0)
   })
 })

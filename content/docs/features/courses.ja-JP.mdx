@@ -1,19 +1,77 @@
 ---
 title: "コース"
-description: "デモのみ: 静的なコースエディターと course 商品タイプだけで、コースのデータはありません。"
+description: "無料、アカウントが必要、ライセンスが必要のいずれかのレッスンで構成されるコースの公開カタログと、進捗を保存するプレーヤー。管理画面でのコース作成はまだありません。"
 ---
 
-存在するもの:
+コース、チュートリアル、プロジェクトは D1 に保存され、`/courses` で視聴します。各レッスンは[動画](/docs/features/videos)のライブラリにある動画を再生し、レッスンのアクセスレベルによって誰が視聴できるかが決まります。
 
-- `/admin/courses/create`（`src/routes/admin.courses.create.tsx`）は `CourseDetails`、`CourseSidebar`、および `src/data/admin.ts` の `ADMIN_COURSE_CURRICULUM_SECTIONS` から作るカリキュラム（`admin/courses/curriculum.tsx`）を表示します。このページへリンクするルートはなく、**保存** と **キャンセル** は未接続です。
-- `/admin/products?tab=courses` は空の状態を表示します。
-- 商品の `type` 列は `course` を受け付けます。
-- レッスン用の動画は、すでに[動画](/docs/features/videos)で公開してストリーミング配信できますが、動画をコースに結び付ける仕組みはありません。
+## データモデル
 
-存在しないもの: コース、レッスン、受講登録のテーブル、コースモジュール、`/app` の受講者向け画面。コース機能には `src/modules` 配下の専用テーブルとモジュールが必要です。
+各テーブルは `src/modules` に専用のモジュールを持ち、マイグレーション `20261113004409_salty_slipstream.sql` で作成されます。
 
-## 関連ガイド
+| テーブル          | 列                                                                                                                                                  |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `course`          | `slug`（一意）、`kind`（`course`、`tutorial`、`project`）、`status`（`draft`、`published`）、`position`、`title`、`summary`                         |
+| `chapter`         | `course_id`、`position`、`title`                                                                                                                    |
+| `lesson`          | `course_id`、`chapter_id`、`slug`（コース内で一意）、`access`（`preview`、`account`、`paid`）、`status`、`position`、`title`、`summary`、`video_id` |
+| `lesson_progress` | `user_id` と `lesson_id`（主キー）、`position_ms`、`completed_at`                                                                                   |
 
-- [モジュールを追加する](/docs/guides/add-a-module)
-- [商品](/docs/features/products)
+- `title` と `summary` は、`{"en-US": "Billing", "pl-PL": "Płatności"}` のようにロケールをキーとする JSON を保持します（`src/modules/_core/utils/localized-text.ts` の `LocalizedText`）。`localize()` は訪問者のロケールの値を返し、ない場合は `en-US` にフォールバックするため、`en-US` は必ず入力してください。
+- 新しい行は `draft`、新しいレッスンは `paid` になります。一覧表示や配信の対象になるのは `published` のコースとレッスンだけで、それ以外のスラッグでは Not Found ページが表示されます。
+- コースは `position` 順、チャプターはコース内の `position` 順、レッスンはチャプター内の `position` 順に並びます。レッスン番号はコース全体を通して振られます。
+- `video_id` は `video` テーブルを参照し、動画が削除されると `NULL` になります。コースやチャプターを削除するとそのレッスンが削除され、レッスンやユーザーを削除するとその進捗が削除されます。
+
+## アクセスレベル
+
+| `access`  | 視聴できる人                                                                                       |
+| --------- | -------------------------------------------------------------------------------------------------- |
+| `preview` | サインインの有無を問わず全員                                                                       |
+| `account` | サインインしているすべてのユーザー                                                                 |
+| `paid`    | ティア `complete` または `agency` の `active` なライセンスを持つユーザー（`COURSE_LICENCE_TIERS`） |
+
+`course: ["read"]` を持つロール（管理者が該当）は、すべてのレッスンを視聴できます。判定は `hasLessonAccess`（`src/modules/lesson/lesson.access.ts`）が行い、その対象となる視聴者は `resolveViewer`（`lesson.viewer.ts`）がセッション、ロール、`getLicense` から組み立てます。この判定はページだけでなく、コースのコンテンツを返すすべてのサーバー関数で行われます。
+
+- `getCatalogue`（公開）は、公開済みのコースを、レッスン数、動画の合計時間、無料プレビューの数とともに返します。
+- `getCourse`（公開）は、公開済みのコースを、そのチャプターと公開済みのレッスンとともに訪問者のロケールで返します。各レッスンには視聴者ごとの `locked`、`completed`、`positionMs` が付きます。
+- `getLessonPlayback`（公開）は、`createPlayback` による署名付きの再生パスを返します。レッスンを視聴できない場合、ゲストには `UNAUTHORIZED`、サインイン済みのユーザーには `FORBIDDEN` を返し、未公開のレッスンや動画のないレッスンには `NOT_FOUND` を返します。
+- `saveLessonProgress` はセッションを必要とし、書き込む前に同じアクセス判定を行います。
+
+## ページ
+
+`/courses` レイアウト（`courses.tsx`）は独自のナビゲーションを持ち、ラベルは `pages.courses` 名前空間にあります。これらのページは視聴者ごとに D1 を読むため、プリレンダリングされません。`ROUTES.COURSES` は `vite.config.ts` の `UNLISTED_ROUTES` に含まれています。
+
+- `/courses`: 公開済みのコースごとに 1 枚のカードを表示し、種類、レッスン数、分数、無料レッスンの数を示します。
+- `/courses/<course>`: 概要、サインイン済みの視聴者向けの進捗バー、次に視聴するレッスンへの **講座を始める** または **…の続きから** のリンク、チャプターごとのカリキュラムを表示します。カリキュラムには **無料プレビュー** バッジ、再生時間、鍵と完了のアイコンが付きます。ロックされたレッスンがある場合は、**すべてのレッスンがCompleteに含まれます** パネルが料金セクションに、サインイン済みの視聴者には `/app/license` にリンクします。
+- `/courses/<course>/<lesson>`: プレーヤー、またはロックのパネルを表示します。パネルには、サインイン後に `redirect` でレッスンに戻る **サインインして視聴** か、**Completeを入手** が表示されます。動画のないレッスンでは、録画が近日公開であることを示します。その下にアクセスレベル、サインイン済みの視聴者向けの **完了にする**、前後のレッスンへのリンクが並び、広い画面ではコースの内容が横に表示され続けます。
+
+## 進捗
+
+サインイン済みの視聴者の場合、プレーヤーは保存された `position_ms` から再生を始め、`useLessonProgress`（`src/hooks/use-lesson-progress.ts`）が再生中に最大 15 秒ごとに位置を保存します。これには `VideoPlayer` の `startAt` と `onProgress` プロパティを使います。動画が最後まで再生されたとき（`onEnded`）や、視聴者が **完了にする** を押したときは、`completed_at` が設定され、保存された位置が先頭に戻り、コースページの進捗が更新されます。一度設定された `completed_at` は保持されます。ゲストも無料プレビューを視聴できますが、何も保存されません。
+
+## レッスンと動画
+
+レッスンは自身の動画ファイルを持ちません。録画は `bun run video:publish:<environment>` で公開し（[動画](/docs/features/videos)を参照）、スクリプトが表示する動画の ID をレッスンの `video_id` に設定します。複数のレッスンで同じ動画を使えます。カタログとカリキュラムの再生時間は `video.duration_ms` から取得します。
+
+## コースを作成する
+
+管理画面でのコース作成機能はまだありません。`/admin/courses/create` は依然としてデモ画面で、**保存** と **キャンセル** は何もしません。`/admin/products?tab=courses` は空の状態を表示し、コースを一覧表示する管理画面もありません。それまでは、D1 に直接行を挿入してください。たとえば `bun run db:studio:<environment>` で開く Drizzle Studio や、`bunx wrangler d1 execute DB --env <environment> --remote --file <file>` を使います。ID には既定値がないため、一意な文字列を指定してください。
+
+```sql
+INSERT INTO course (id, slug, kind, status, title, summary)
+VALUES ('course-1', 'the-walkthrough', 'course', 'published', '{"en-US":"The walkthrough"}', '{"en-US":"How the code works, subsystem by subsystem."}');
+
+INSERT INTO chapter (id, course_id, position, title)
+VALUES ('chapter-1', 'course-1', 0, '{"en-US":"Foundations"}');
+
+INSERT INTO lesson (id, course_id, chapter_id, slug, access, status, position, title, summary, video_id)
+VALUES ('lesson-1', 'course-1', 'chapter-1', 'module-boundaries', 'preview', 'published', 0, '{"en-US":"Module boundaries"}', '{"en-US":"Why every feature starts at the module boundary."}', '<videoId>');
+```
+
+`scripts/seed-test.ts` は、`e2e/specs/courses.spec.ts` のブラウザテスト用に、1 つのチャプターと 4 つのレッスンを持つこのようなコースを投入します。
+
+## 関連ページ
+
 - [動画](/docs/features/videos)
+- [コンテンツアクセス](/docs/features/content-access)
+- [決済とライセンス](/docs/features/payments)
+- [データベースのマイグレーション](/docs/tooling/database)

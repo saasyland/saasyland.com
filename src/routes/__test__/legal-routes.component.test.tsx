@@ -5,17 +5,20 @@ import { expect, it } from "vite-plus/test"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { Route as AffiliatesRoute } from "~/src/routes/_landing.affiliates"
 import { Route as LicenceRoute } from "~/src/routes/_landing.licence"
 import { Route as PrivacyRoute } from "~/src/routes/_landing.privacy"
 import { Route as RefundsRoute } from "~/src/routes/_landing.refunds"
 import { Route as TermsRoute } from "~/src/routes/_landing.terms"
 
+import affiliates from "~/messages/en-US/pages.legal.affiliates.json"
 import licence from "~/messages/en-US/pages.legal.licence.json"
 import privacy from "~/messages/en-US/pages.legal.privacy.json"
 import refunds from "~/messages/en-US/pages.legal.refunds.json"
 import terms from "~/messages/en-US/pages.legal.terms.json"
 
 const DOCUMENTS = [
+  { copy: affiliates, document: "affiliates", route: AffiliatesRoute },
   { copy: licence, document: "licence", route: LicenceRoute },
   { copy: privacy, document: "privacy", route: PrivacyRoute },
   { copy: refunds, document: "refunds", route: RefundsRoute },

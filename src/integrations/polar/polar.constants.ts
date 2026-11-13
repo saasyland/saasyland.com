@@ -4,10 +4,12 @@ import { env } from "cloudflare:workers"
 
 import type { models } from "@polar-sh/sdk/2026-10"
 
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+
 export const POLAR_PRODUCT_IDS = {
-  agency: env.POLAR_PRODUCT_ID_AGENCY,
-  complete: env.POLAR_PRODUCT_ID_COMPLETE,
-  core: env.POLAR_PRODUCT_ID_CORE,
+  [LICENSE_TIER.AGENCY]: env.POLAR_PRODUCT_ID_AGENCY,
+  [LICENSE_TIER.COMPLETE]: env.POLAR_PRODUCT_ID_COMPLETE,
+  [LICENSE_TIER.CORE]: env.POLAR_PRODUCT_ID_CORE,
 } as const
 
 export const POLAR_ORDER_STATUS = {

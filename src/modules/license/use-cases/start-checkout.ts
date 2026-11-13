@@ -1,6 +1,7 @@
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 
+import { affonsoReferralMetadata } from "~/src/integrations/affonso/affonso.referral"
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
@@ -16,7 +17,12 @@ export const startCheckout = createServerFn({ method: "POST" })
   .handler(async ({ context, data: { tier } }) => {
     const discountId = await pppDiscountId(context.requestHeaders, POLAR_PRODUCT_IDS[tier])
     const { url } = await auth.api.checkout({
-      body: { allow_discount_codes: false, slug: tier, ...(discountId === undefined ? {} : { discount_id: discountId }) },
+      body: {
+        allow_discount_codes: false,
+        metadata: affonsoReferralMetadata(context.requestHeaders),
+        slug: tier,
+        ...(discountId === undefined ? {} : { discount_id: discountId }),
+      },
       headers: context.requestHeaders,
     })
 

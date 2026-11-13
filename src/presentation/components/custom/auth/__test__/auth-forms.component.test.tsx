@@ -14,6 +14,7 @@ import { createTestRouter, renderWithRouter as render } from "~/src/platform/tes
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import type * as AuthClient from "~/src/integrations/better-auth/auth.client"
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { AUTH_ERRORS } from "~/src/integrations/better-auth/auth.errors"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
@@ -655,6 +656,8 @@ describe("o auth buttons", () => {
     await waitFor(() => {
       expect(toastSuccessMock).toHaveBeenCalledWith(authOauthMessages.success)
     })
-    expect(signInSocialMock).toHaveBeenCalledWith(expect.objectContaining({ callbackURL: ROUTES.AUTH_CALLBACK, provider: "github" }))
+    expect(signInSocialMock).toHaveBeenCalledWith(
+      expect.objectContaining({ callbackURL: ROUTES.AUTH_CALLBACK, provider: AUTH_PROVIDER.GITHUB }),
+    )
   })
 })

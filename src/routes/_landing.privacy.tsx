@@ -6,6 +6,8 @@ import { useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { AFFILIATE_TERMS } from "~/src/data/affiliates"
+
 import { pageHead } from "~/src/lib/seo"
 
 import { LegalPending } from "~/src/presentation/components/custom/marketing-pending"
@@ -31,7 +33,9 @@ const PrivacyPage = (): JSX.Element => {
         {SECTIONS.map((section) => (
           <section className="flex flex-col gap-3" key={section}>
             <h2 className="text-xl font-medium text-foreground">{t(`sections.${section}.title`)}</h2>
-            <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{t(`sections.${section}.body`)}</p>
+            <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
+              {t(`sections.${section}.body`, { cookieDays: AFFILIATE_TERMS.COOKIE_DAYS })}
+            </p>
           </section>
         ))}
       </div>

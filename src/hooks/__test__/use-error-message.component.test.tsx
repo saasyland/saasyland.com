@@ -4,6 +4,8 @@ import { renderHook } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 const MESSAGES = {
@@ -50,21 +52,21 @@ describe("use error message", () => {
     expect.hasAssertions()
     const errorMessage = renderErrorMessage()
 
-    expect(errorMessage(new Error("AUTH_API_ERROR"))).toBe("Authentication failed.")
+    expect(errorMessage(new Error(ERROR_CODES.AUTH_API_ERROR))).toBe("Authentication failed.")
   })
 
   it("translates other server errors by code", () => {
     expect.hasAssertions()
     const errorMessage = renderErrorMessage()
 
-    expect(errorMessage(new Error("FORBIDDEN"))).toBe("You don't have permission to do this.")
+    expect(errorMessage(new Error(ERROR_CODES.FORBIDDEN))).toBe("You don't have permission to do this.")
   })
 
   it("reports validation failures with the generic validation message", () => {
     expect.hasAssertions()
     const errorMessage = renderErrorMessage()
 
-    expect(errorMessage(new Error("VALIDATION"))).toBe("Please check the form and try again.")
+    expect(errorMessage(new Error(ERROR_CODES.VALIDATION))).toBe("Please check the form and try again.")
   })
 })
 

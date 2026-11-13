@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { MOVE_DIRECTION } from "~/src/modules/_core/constants/ordering"
 import { CHAPTER_MUTATION_KEYS } from "~/src/modules/chapter/chapter.constants"
 import type { createChapterMutation } from "~/src/modules/chapter/use-cases/create-chapter"
@@ -332,7 +333,7 @@ describe("admin course list", () => {
   })
 
   it("explains a failed deletion", async () => {
-    mutations.deleteCourse.mockRejectedValueOnce(new Error("NOT_FOUND"))
+    mutations.deleteCourse.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
     const { user } = await renderAdminCourses("/admin/courses")
 
     await user.click(screen.getByRole("button", { name: "Delete The walkthrough" }))
@@ -401,7 +402,7 @@ describe("admin course creation", () => {
   })
 
   it("explains a slug that is already taken", async () => {
-    mutations.createCourse.mockRejectedValueOnce(new Error("CONFLICT"))
+    mutations.createCourse.mockRejectedValueOnce(new Error(ERROR_CODES.CONFLICT))
     const { user } = await renderAdminCourses("/admin/courses/create")
 
     await user.type(screen.getByLabelText(labels.form.courseTitle), "Again")
@@ -464,7 +465,7 @@ describe("admin course editor", () => {
   })
 
   it("explains a failed save", async () => {
-    mutations.updateCourse.mockRejectedValueOnce(new Error("CONFLICT"))
+    mutations.updateCourse.mockRejectedValueOnce(new Error(ERROR_CODES.CONFLICT))
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
     await user.click(screen.getByRole("button", { name: labels.form.save }))
@@ -528,7 +529,7 @@ describe("admin course chapters", () => {
   })
 
   it("explains a failed chapter save and keeps the dialog open", async () => {
-    mutations.updateChapter.mockRejectedValueOnce(new Error("NOT_FOUND"))
+    mutations.updateChapter.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
     await user.click(within(chapterSection("Product")).getByRole("button", { name: "Edit Product" }))
@@ -611,7 +612,7 @@ describe("admin course lessons", () => {
   })
 
   it("explains a failed lesson save and keeps the dialog open", async () => {
-    mutations.updateLesson.mockRejectedValueOnce(new Error("CONFLICT"))
+    mutations.updateLesson.mockRejectedValueOnce(new Error(ERROR_CODES.CONFLICT))
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
     await user.click(within(lessonRow("Sessions")).getByRole("button", { name: "Edit Sessions" }))
@@ -643,7 +644,7 @@ describe("admin course lessons", () => {
   })
 
   it("explains a failed curriculum change", async () => {
-    mutations.moveLesson.mockRejectedValueOnce(new Error("NOT_FOUND"))
+    mutations.moveLesson.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
     const { user } = await renderAdminCourses(`/admin/courses/${COURSE_ID}`)
 
     await user.click(screen.getByRole("button", { name: "Move Sessions up" }))

@@ -12,6 +12,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { updateUserMutation } from "~/src/modules/user/use-cases/update-user"
 
 const HEADERS = new Headers()
@@ -98,7 +99,9 @@ describe("update-user", () => {
     vi.spyOn(authServer.auth.api, "adminUpdateUser").mockImplementation(adminUpdateUserMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: ADMIN_USER_ID }))
 
-    await expect(executeMutation(updateUserMutation, { name: "Updated Name", userId: TARGET_USER_ID })).rejects.toThrow("FORBIDDEN")
+    await expect(executeMutation(updateUserMutation, { name: "Updated Name", userId: TARGET_USER_ID })).rejects.toThrow(
+      ERROR_CODES.FORBIDDEN,
+    )
 
     expect(adminUpdateUserMock).not.toHaveBeenCalled()
   })

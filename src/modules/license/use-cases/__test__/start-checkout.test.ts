@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 
+import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
@@ -11,11 +12,14 @@ import * as authServer from "~/src/integrations/better-auth/auth.server"
 import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import * as ppp from "~/src/modules/license/license.ppp"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
 
 const HEADERS = new Headers()
+const REFERRAL_ID = "cmh7q6ayf0001jz08referral"
+const REFERRAL_HEADERS = new Headers({ cookie: `${AFFONSO.REFERRAL_COOKIE}=${REFERRAL_ID}` })
 const USER_ID = "01900000-0000-7000-8000-000000000009"
 const CHECKOUT_URL = "https://sandbox.polar.sh/checkout/abc"
 
@@ -23,11 +27,12 @@ type AuthApi = typeof auth.api
 
 const getSessionMock = vi.hoisted(() => vi.fn<AuthApi["getSession"]>())
 const checkoutMock = vi.hoisted(() => vi.fn<AuthApi["checkout"]>())
+const request = vi.hoisted(() => ({ headers: new Headers() }))
 
 vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
 
 vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerModule> => ({
-  getRequest: vi.fn(() => new Request("http://127.0.0.1:3000/", { headers: HEADERS })),
+  getRequest: vi.fn(() => new Request("http://127.0.0.1:3000/", { headers: request.headers })),
 }))
 
 const signedIn = (): void => {
@@ -40,6 +45,7 @@ const signedIn = (): void => {
 }
 
 afterEach(() => {
+  request.headers = HEADERS
   vi.restoreAllMocks()
 })
 
@@ -48,11 +54,11 @@ describe("start-checkout", () => {
     signedIn()
     const discount = vi.spyOn(ppp, "pppDiscountId").mockResolvedValue("regional-discount-30")
 
-    await expect(executeMutation(startCheckoutMutation, { tier: "agency" })).resolves.toEqual({ url: CHECKOUT_URL })
+    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.AGENCY })).resolves.toEqual({ url: CHECKOUT_URL })
 
-    expect(discount).toHaveBeenCalledExactlyOnceWith(HEADERS, POLAR_PRODUCT_IDS.agency)
+    expect(discount).toHaveBeenCalledExactlyOnceWith(HEADERS, POLAR_PRODUCT_IDS[LICENSE_TIER.AGENCY])
     expect(checkoutMock).toHaveBeenCalledWith({
-      body: { allow_discount_codes: false, discount_id: "regional-discount-30", slug: "agency" },
+      body: { allow_discount_codes: false, discount_id: "regional-discount-30", metadata: {}, slug: LICENSE_TIER.AGENCY },
       headers: HEADERS,
     })
   })
@@ -61,9 +67,31 @@ describe("start-checkout", () => {
     expect.hasAssertions()
     signedIn()
 
-    await expect(executeMutation(startCheckoutMutation, { tier: "complete" })).resolves.toMatchObject({ url: CHECKOUT_URL })
+    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.COMPLETE })).resolves.toMatchObject({ url: CHECKOUT_URL })
 
-    expect(checkoutMock).toHaveBeenCalledWith({ body: { allow_discount_codes: false, slug: "complete" }, headers: HEADERS })
+    expect(checkoutMock).toHaveBeenCalledWith({
+      body: { allow_discount_codes: false, metadata: {}, slug: LICENSE_TIER.COMPLETE },
+      headers: HEADERS,
+    })
+  })
+
+  it("credits the affiliate whose referral the buyer carries, next to the regional discount", async () => {
+    expect.hasAssertions()
+    signedIn()
+    request.headers = REFERRAL_HEADERS
+    vi.spyOn(ppp, "pppDiscountId").mockResolvedValue("regional-discount-30")
+
+    await executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.COMPLETE })
+
+    expect(checkoutMock).toHaveBeenCalledWith({
+      body: {
+        allow_discount_codes: false,
+        discount_id: "regional-discount-30",
+        metadata: { [AFFONSO.METADATA_KEY]: REFERRAL_ID },
+        slug: LICENSE_TIER.COMPLETE,
+      },
+      headers: REFERRAL_HEADERS,
+    })
   })
 
   it("refuses a tier this app does not sell", () => {
@@ -79,6 +107,6 @@ describe("start-checkout", () => {
     signedIn()
     getSessionMock.mockResolvedValue(JSON_NULL)
 
-    await expect(executeMutation(startCheckoutMutation, { tier: "core" })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
+    await expect(executeMutation(startCheckoutMutation, { tier: LICENSE_TIER.CORE })).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
   })
 })

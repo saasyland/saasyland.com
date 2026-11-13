@@ -5,6 +5,7 @@ import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { Eye, EyeOff } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import { CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import type { Category } from "~/src/modules/category/category.types"
 
 import { useDateFormatter } from "~/src/hooks/use-date-formatter"
@@ -45,13 +46,13 @@ const VisibilityCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow
   return (
     <Badge
       className={cn("px-2 py-1 text-[10px] font-medium", {
-        [ADMIN_STATUS_BADGE_CLASSES.emerald]: visibility === "public",
-        [ADMIN_STATUS_BADGE_CLASSES.neutral]: visibility === "hidden",
+        [ADMIN_STATUS_BADGE_CLASSES.emerald]: visibility === CATEGORY_VISIBILITY.PUBLIC,
+        [ADMIN_STATUS_BADGE_CLASSES.neutral]: visibility === CATEGORY_VISIBILITY.HIDDEN,
       })}
       variant="outline"
     >
-      {visibility === "public" && <Eye className="mr-1.5 size-3" />}
-      {visibility === "hidden" && <EyeOff className="mr-1.5 size-3" />}
+      {visibility === CATEGORY_VISIBILITY.PUBLIC && <Eye className="mr-1.5 size-3" />}
+      {visibility === CATEGORY_VISIBILITY.HIDDEN && <EyeOff className="mr-1.5 size-3" />}
       {t(visibility)}
     </Badge>
   )

@@ -1,0 +1,48 @@
+---
+title: "Programa de afiliados"
+description: "Enlaces de referido registrados por Affonso, atribuidos en el pedido de Polar, con condiciones públicas en /affiliates."
+---
+
+Los afiliados ganan una comisión por las ventas que generan. SaaSy Land no cuenta los referidos por su cuenta: [Affonso](https://affonso.io) registra los clics, recibe los pedidos y reembolsos de Polar, calcula la comisión y paga a los afiliados. Así ninguna cifra queda en manos del vendedor, y eso es lo que hace creíble el programa para los afiliados.
+
+## El recorrido de un referido
+
+1. Un afiliado comparte cualquier página con un parámetro de referido, por ejemplo `/?via=jane`. Los parámetros que lee Affonso están en `AFFONSO.REFERRAL_PARAMS` (`src/integrations/affonso/affonso.constants.ts`): `affonso`, `atp`, `aff`, `via` y `ref`.
+2. `AffiliateReferral` (`src/presentation/components/custom/affiliate-referral.tsx`), que se renderiza una vez en la ruta raíz, comprueba la URL después de la hidratación. Solo cuando está presente uno de esos parámetros pide al servidor el ID del programa (`getAffonsoProgramId`, `src/integrations/affonso/affonso.program.ts`) y renderiza el script de Affonso con `data-cookie_duration` igual a `AFFILIATE_TERMS.COOKIE_DAYS`. Las visitas sin parámetro de referido no cargan ningún script de terceros.
+3. El script registra el clic en Affonso y guarda el ID del clic en la cookie propia `affonso_referral`.
+4. Cuando el visitante inicia un pago, `startCheckout` pasa `affonsoReferralMetadata(headers)` (`src/integrations/affonso/affonso.referral.ts`) como `metadata` del pago. Esta función lee la cookie, acepta solo letras, dígitos, `_` y `-` hasta 128 caracteres, y devuelve `{ affonso_referral: <click ID> }`, o un objeto vacío cuando no hay un referido válido.
+5. Polar copia los metadatos del pago en el pedido y envía `order.created` y `order.refunded` a Affonso, que abona o revierte la comisión.
+
+El precio regional se sigue aplicando a los compradores referidos: el referido viaja en los metadatos, no como descuento, así que nunca compite con el descuento regional por el único hueco de descuento de Polar.
+
+## Configuración
+
+El seguimiento está desactivado hasta que el Worker tiene `AFFONSO_PROGRAM_ID`. Es un valor público (aparece en la etiqueta del script), así que es una variable normal y no un secreto. Defínelo solo en el entorno que recibe pagos reales:
+
+```jsonc
+"production": {
+  "vars": {
+    "AFFONSO_PROGRAM_ID": "<program ID from Affonso>",
+  },
+}
+```
+
+Después, una sola vez:
+
+1. Crea el programa en Affonso y conecta Polar con un token de acceso de organización sin caducidad. La guía de Polar de Affonso indica los permisos que necesita.
+2. En Polar, añade el endpoint de webhook que muestra Affonso, con el formato **Raw** y los eventos `order.created`, `order.refunded` y `subscription.canceled`.
+3. En los ajustes del programa, usa los valores de la página pública de condiciones: la comisión, la duración de la cookie, el periodo de retención y el pago mínimo vienen de `AFFILIATE_TERMS` (`src/data/affiliates.ts`), así que la página y el script siempre coinciden.
+4. Pruébalo abriendo `/?atp=test`, comprobando que la cookie `affonso_referral` está definida y confirmando que el pago de Polar lleva `affonso_referral` en sus metadatos.
+
+## Página de condiciones
+
+`/affiliates` (`src/routes/_landing.affiliates.tsx`, mensajes en `pages.legal.affiliates`) publica las condiciones en todos los idiomas y está enlazada desde el pie de página. Cada cifra se interpola desde `AFFILIATE_TERMS`; el pago mínimo se formatea como moneda según el idioma del visitante. La política de privacidad describe la cookie de referido, lo que recibe Affonso y la base legal.
+
+## Pruebas
+
+- `affonso.referral.test.ts`: una cookie válida se convierte en metadatos; un valor ausente, mal formado o demasiado largo se ignora.
+- `start-checkout.test.ts`: el referido llega al cuerpo del pago de Polar junto al descuento regional.
+- `affiliate-referral.component.test.tsx`: el script se renderiza solo con un parámetro de referido y un ID de programa configurado.
+- `legal-routes.component.test.tsx`: la página de condiciones se renderiza completa en los nueve idiomas.
+- `e2e/specs/affiliates.spec.ts`: una visita normal no carga ningún script; una visita con `?via=` lo carga con el ID de programa del entorno de pruebas y conserva la cookie de referido (el script se sustituye con `page.route`); la página de condiciones se muestra.
+- `e2e/specs/accessibility.spec.ts`: axe analiza `/affiliates` en modo claro y oscuro.

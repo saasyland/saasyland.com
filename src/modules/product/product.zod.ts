@@ -4,13 +4,10 @@ import zod from "zod/v4"
 import { CURRENCY_CODES } from "~/src/modules/_core/constants/currency"
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
+import { BILLING_CYCLE_MAX_LENGTH, PRODUCT_NAME_MAX_LENGTH } from "~/src/modules/product/product.constants"
 import { PRODUCT_STATUSES, PRODUCT_TYPES, product } from "~/src/modules/product/product.schema"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
-
-export const PRODUCT_NAME_MAX_LENGTH = 255
-
-const BILLING_CYCLE_MAX_LENGTH = 32
 
 const productStatusSchema = zod.enum(PRODUCT_STATUSES)
 const productTypeSchema = zod.enum(PRODUCT_TYPES)

@@ -9,6 +9,12 @@ export const DEMO_BLOG_STATS = {
   viewsGrowth: 0.125,
 } as const
 
+export const ADMIN_BLOG_POST_STATUS = {
+  DRAFT: "draft",
+  PUBLISHED: "published",
+  SCHEDULED: "scheduled",
+} as const
+
 export const DUMMY_POSTS = [
   {
     author: {
@@ -18,7 +24,7 @@ export const DUMMY_POSTS = [
     date: "2024-10-24T00:00:00.000Z",
     id: "post-1",
     readTime: 8,
-    status: "published",
+    status: ADMIN_BLOG_POST_STATUS.PUBLISHED,
     views: 12_400,
   },
   {
@@ -29,7 +35,7 @@ export const DUMMY_POSTS = [
     date: "",
     id: "post-2",
     readTime: undefined,
-    status: "draft",
+    status: ADMIN_BLOG_POST_STATUS.DRAFT,
     views: undefined,
   },
   {
@@ -40,7 +46,7 @@ export const DUMMY_POSTS = [
     date: "2024-10-18T00:00:00.000Z",
     id: "post-3",
     readTime: 6,
-    status: "published",
+    status: ADMIN_BLOG_POST_STATUS.PUBLISHED,
     views: 8100,
   },
   {
@@ -51,7 +57,7 @@ export const DUMMY_POSTS = [
     date: "",
     id: "post-4",
     readTime: undefined,
-    status: "scheduled",
+    status: ADMIN_BLOG_POST_STATUS.SCHEDULED,
     views: undefined,
   },
   {
@@ -62,7 +68,7 @@ export const DUMMY_POSTS = [
     date: "2024-10-12T00:00:00.000Z",
     id: "post-5",
     readTime: 12,
-    status: "published",
+    status: ADMIN_BLOG_POST_STATUS.PUBLISHED,
     views: 5600,
   },
   {
@@ -73,7 +79,7 @@ export const DUMMY_POSTS = [
     date: "2024-10-05T00:00:00.000Z",
     id: "post-6",
     readTime: 5,
-    status: "published",
+    status: ADMIN_BLOG_POST_STATUS.PUBLISHED,
     views: 22_100,
   },
 ] as const

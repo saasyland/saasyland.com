@@ -22,6 +22,7 @@ const SECTION_LINKS = [MARKETING_SECTION_IDS.FOUNDATION, MARKETING_SECTION_IDS.P
 const PAGE_LINKS = [
   { key: "docs", to: ROUTES.DOCS },
   { key: "blog", to: ROUTES.BLOG },
+  { key: "affiliates", to: ROUTES.AFFILIATES },
   { key: "signIn", to: ROUTES.SIGN_IN },
 ] as const
 

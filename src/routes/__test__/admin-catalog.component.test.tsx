@@ -2,7 +2,9 @@ import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { CATEGORY_KIND, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import { getCategoriesPageQuery } from "~/src/modules/category/use-cases/get-categories"
+import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import { getProductsPageQuery } from "~/src/modules/product/use-cases/get-products"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
@@ -23,14 +25,26 @@ import pagesAdminProductsMessages from "~/messages/en-US/pages.admin.products.js
 
 const products = [
   adminProduct(),
-  adminProduct({ id: "monthly", name: "Monthly subscription", type: "subscription", billingCycle: "month", status: "draft" }),
-  adminProduct({ id: "yearly", name: "Yearly subscription", type: "subscription", billingCycle: "", status: "archived" }),
-  adminProduct({ id: "course", name: "React course", type: "course" }),
+  adminProduct({
+    id: "monthly",
+    name: "Monthly subscription",
+    type: PRODUCT_TYPE.SUBSCRIPTION,
+    billingCycle: "month",
+    status: PRODUCT_STATUS.DRAFT,
+  }),
+  adminProduct({
+    id: "yearly",
+    name: "Yearly subscription",
+    type: PRODUCT_TYPE.SUBSCRIPTION,
+    billingCycle: "",
+    status: PRODUCT_STATUS.ARCHIVED,
+  }),
+  adminProduct({ id: "course", name: "React course", type: PRODUCT_TYPE.COURSE }),
 ]
 const categories = [
   adminCategory(),
-  adminCategory({ id: "hidden", name: "Private category", visibility: "hidden" }),
-  adminCategory({ id: "collection", name: "Starter collection", kind: "collection" }),
+  adminCategory({ id: "hidden", name: "Private category", visibility: CATEGORY_VISIBILITY.HIDDEN }),
+  adminCategory({ id: "collection", name: "Starter collection", kind: CATEGORY_KIND.COLLECTION }),
 ]
 const categoryHeading = pagesAdminProductsMessages.categories.table.headers.category
 const collectionHeading = pagesAdminProductsMessages.collections.table.headers.collection
@@ -41,7 +55,7 @@ const renderProducts = (rows: ReturnType<typeof adminProduct>[], tab: "all" | "c
   vi.spyOn(ProductsRoute, "useSearch").mockReturnValue({ tab })
   const queryClient = adminQueryClient()
   queryClient.setQueryData(getProductsPageQuery().queryKey, { rows, total: rows.length })
-  const kind = tab === "collections" ? "collection" : "category"
+  const kind = tab === "collections" ? CATEGORY_KIND.COLLECTION : CATEGORY_KIND.CATEGORY
   queryClient.setQueryData(getCategoriesPageQuery({ kind }).queryKey, { rows: categories, total: categories.length })
   const Page = ProductsRoute.options.component
   if (!Page) {
@@ -67,7 +81,7 @@ describe("admin catalog", () => {
     })
     queryClient.setQueryData(getProductsPageQuery({ pageIndex: 1 }).queryKey, { rows: [adminProduct({ name: "Last product" })], total: 11 })
     for (const pageIndex of [0, 1]) {
-      queryClient.setQueryData(getCategoriesPageQuery({ pageIndex, kind: "category" }).queryKey, { rows: [], total: 0 })
+      queryClient.setQueryData(getCategoriesPageQuery({ pageIndex, kind: CATEGORY_KIND.CATEGORY }).queryKey, { rows: [], total: 0 })
     }
     const Page = ProductsRoute.options.component
     if (!Page) {
@@ -93,15 +107,15 @@ describe("admin catalog", () => {
     vi.spyOn(ProductsRoute, "useSearch").mockReturnValue({ tab })
     const queryClient = adminQueryClient()
     const productInput = {
-      ...(tab === "subscriptions" ? { type: "subscription" as const } : {}),
-      ...(tab === "onetime" ? { type: "one_time" as const } : {}),
-      ...(tab === "drafts" ? { status: "draft" as const } : {}),
+      ...(tab === "subscriptions" ? { type: PRODUCT_TYPE.SUBSCRIPTION } : {}),
+      ...(tab === "onetime" ? { type: PRODUCT_TYPE.ONE_TIME } : {}),
+      ...(tab === "drafts" ? { status: PRODUCT_STATUS.DRAFT } : {}),
     }
     const visibleProducts = products.filter(
       (row) => (!productInput.type || row.type === productInput.type) && (!productInput.status || row.status === productInput.status),
     )
     queryClient.setQueryData(getProductsPageQuery(productInput).queryKey, { rows: visibleProducts, total: visibleProducts.length })
-    const kind = tab === "collections" ? "collection" : "category"
+    const kind = tab === "collections" ? CATEGORY_KIND.COLLECTION : CATEGORY_KIND.CATEGORY
     const visibleCategories = categories.filter((row) => row.kind === kind)
     queryClient.setQueryData(getCategoriesPageQuery({ kind }).queryKey, { rows: visibleCategories, total: visibleCategories.length })
     const Page = ProductsRoute.options.component

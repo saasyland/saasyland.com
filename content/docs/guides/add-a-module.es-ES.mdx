@@ -7,37 +7,47 @@ Un módulo es una tabla de la base de datos. `src/modules/<table>/` existe solo 
 
 ## Archivos
 
-| Archivo                    | Contenido                                                                                                |
-| -------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `<table>.schema.ts`        | Tabla Drizzle, índices, relaciones y listas de valores enumerados                                        |
-| `<table>.zod.ts`           | Un esquema de entrada por operación y los esquemas de `drizzle-zod`, exportados como `<table>ZodSchemas` |
-| `<table>.constants.ts`     | Tuplas de claves de queries y mutations y límites del módulo                                             |
-| `<table>.types.ts`         | Una interfaz con los tipos de fila y el tipo de entrada de cada operación                                |
-| `<table>.utils.ts`         | Funciones auxiliares puras opcionales                                                                    |
-| `use-cases/<operation>.ts` | Una función de servidor por archivo con sus opciones de query o mutation                                 |
-| `__test__/`                | Tests nombrados según el archivo fuente, como `category.schema.test.ts` y `category.zod.test.ts`         |
+| Archivo                    | Contenido                                                                                                             |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`        | Tabla Drizzle, índices, relaciones y las tuplas de valores enumerados construidas con las constantes                  |
+| `<table>.zod.ts`           | Un esquema de entrada por operación y los esquemas de `drizzle-zod`, exportados como `<table>ZodSchemas`              |
+| `<table>.constants.ts`     | Valores de dominio con nombre como `CATEGORY_KIND`, límites de columnas y las tuplas de claves de queries y mutations |
+| `<table>.types.ts`         | Una interfaz con los tipos de fila y el tipo de entrada de cada operación                                             |
+| `<table>.utils.ts`         | Funciones auxiliares puras opcionales                                                                                 |
+| `use-cases/<operation>.ts` | Una función de servidor por archivo con sus opciones de query o mutation                                              |
+| `__test__/`                | Tests nombrados según el archivo fuente, como `category.schema.test.ts` y `category.zod.test.ts`                      |
 
 ## 1. Define la tabla
 
-```ts
-import { sql } from "drizzle-orm"
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
+Nombra los valores de la tabla una sola vez en `category.constants.ts`. El esquema, los esquemas Zod, los casos de uso, los componentes, los tests y los datos e2e los importan desde ahí en lugar de repetir una cadena como `"collection"`:
 
-export const CATEGORY_KINDS = ["category", "collection"] as const
+```ts
+export const CATEGORY_NAME_MAX_LENGTH = 255
+
+export const CATEGORY_KIND = {
+  CATEGORY: "category",
+  COLLECTION: "collection",
+} as const
+```
+
+Construye la tabla con esos nombres:
+
+```ts
+import { index, sqliteTable, text } from "drizzle-orm/sqlite-core"
+
+import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
+
+import { CATEGORY_KIND, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
+
+export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
 
 export const category = sqliteTable(
   "category",
   {
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .notNull(),
     id: text("id").primaryKey(),
-    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default("category"),
-    name: text("name", { length: 255 }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-      .default(sql`(unixepoch() * 1000)`)
-      .$onUpdate(() => new Date())
-      .notNull(),
+    kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default(CATEGORY_KIND.CATEGORY),
+    name: text("name", { length: CATEGORY_NAME_MAX_LENGTH }).notNull(),
+    ...timestamps(),
   },
   (table) => [index("category_createdAt_idx").on(table.createdAt)],
 )
@@ -45,7 +55,8 @@ export const category = sqliteTable(
 
 - Los nombres de columna van en snake_case y las propiedades en camelCase.
 - Los identificadores son claves primarias `text` que el caso de uso de inserción rellena con `v7()` de `uuid`.
-- Las fechas son `integer(..., { mode: "timestamp_ms" })` y los booleanos `integer(..., { mode: "boolean" })`.
+- `...timestamps()` de `src/integrations/drizzle-orm/drizzle.columns.ts` añade `createdAt` y `updatedAt`: marcas de tiempo en milisegundos cuyo valor por defecto es el momento de la inserción; `updatedAt` se vuelve a sellar en cada actualización. Las demás fechas son `integer(..., { mode: "timestamp_ms" })` y los booleanos `integer(..., { mode: "boolean" })`.
+- Una columna enumerada recibe la tupla construida con el objeto de constantes, y su valor por defecto es una constante como `CATEGORY_KIND.CATEGORY`, nunca un literal de cadena.
 - Las claves foráneas usan `.references(() => user.id, { onDelete: "cascade" })` y `relations(...)` declara los joins (consulta `session.schema.ts`).
 
 ## 2. Registra el esquema
@@ -76,11 +87,10 @@ import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
+import { CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
 import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
-
-export const CATEGORY_NAME_MAX_LENGTH = 255
 
 const createCategory = zod.object({
   kind: zod.enum(CATEGORY_KINDS),

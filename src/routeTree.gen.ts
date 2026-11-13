@@ -17,6 +17,7 @@ import { Route as BlogRouteImport } from './routes/blog'
 import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as LandingIndexRouteImport } from './routes/_landing.index'
+import { Route as LandingAffiliatesRouteImport } from './routes/_landing.affiliates'
 import { Route as LandingLicenceRouteImport } from './routes/_landing.licence'
 import { Route as LandingPremiumRouteImport } from './routes/_landing.premium'
 import { Route as LandingPrivacyRouteImport } from './routes/_landing.privacy'
@@ -102,6 +103,11 @@ const DocsRoute = DocsRouteImport.update({
 const LandingIndexRoute = LandingIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => LandingRoute,
+} as any)
+const LandingAffiliatesRoute = LandingAffiliatesRouteImport.update({
+  id: '/affiliates',
+  path: '/affiliates',
   getParentRoute: () => LandingRoute,
 } as any)
 const LandingLicenceRoute = LandingLicenceRouteImport.update({
@@ -350,6 +356,7 @@ export interface FileRoutesByFullPath {
   '/blog': typeof BlogRouteWithChildren
   '/courses': typeof CoursesRouteWithChildren
   '/docs': typeof DocsRouteWithChildren
+  '/affiliates': typeof LandingAffiliatesRoute
   '/licence': typeof LandingLicenceRoute
   '/premium': typeof LandingPremiumRoute
   '/privacy': typeof LandingPrivacyRoute
@@ -400,6 +407,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRouteWithChildren
+  '/affiliates': typeof LandingAffiliatesRoute
   '/licence': typeof LandingLicenceRoute
   '/premium': typeof LandingPremiumRoute
   '/privacy': typeof LandingPrivacyRoute
@@ -456,6 +464,7 @@ export interface FileRoutesById {
   '/blog': typeof BlogRouteWithChildren
   '/courses': typeof CoursesRouteWithChildren
   '/docs': typeof DocsRouteWithChildren
+  '/_landing/affiliates': typeof LandingAffiliatesRoute
   '/_landing/licence': typeof LandingLicenceRoute
   '/_landing/premium': typeof LandingPremiumRoute
   '/_landing/privacy': typeof LandingPrivacyRoute
@@ -515,6 +524,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/courses'
     | '/docs'
+    | '/affiliates'
     | '/licence'
     | '/premium'
     | '/privacy'
@@ -565,6 +575,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
+    | '/affiliates'
     | '/licence'
     | '/premium'
     | '/privacy'
@@ -620,6 +631,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/courses'
     | '/docs'
+    | '/_landing/affiliates'
     | '/_landing/licence'
     | '/_landing/premium'
     | '/_landing/privacy'
@@ -739,6 +751,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof LandingIndexRouteImport
+      parentRoute: typeof LandingRoute
+    }
+    '/_landing/affiliates': {
+      id: '/_landing/affiliates'
+      path: '/affiliates'
+      fullPath: '/affiliates'
+      preLoaderRoute: typeof LandingAffiliatesRouteImport
       parentRoute: typeof LandingRoute
     }
     '/_landing/licence': {
@@ -1074,6 +1093,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface LandingRouteChildren {
+  LandingAffiliatesRoute: typeof LandingAffiliatesRoute
   LandingLicenceRoute: typeof LandingLicenceRoute
   LandingPremiumRoute: typeof LandingPremiumRoute
   LandingPrivacyRoute: typeof LandingPrivacyRoute
@@ -1085,6 +1105,7 @@ interface LandingRouteChildren {
 }
 
 const LandingRouteChildren: LandingRouteChildren = {
+  LandingAffiliatesRoute: LandingAffiliatesRoute,
   LandingLicenceRoute: LandingLicenceRoute,
   LandingPremiumRoute: LandingPremiumRoute,
   LandingPrivacyRoute: LandingPrivacyRoute,

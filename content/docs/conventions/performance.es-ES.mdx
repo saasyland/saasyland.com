@@ -1,0 +1,78 @@
+---
+title: "Rendimiento"
+description: "Las reglas medidas que mantienen rápidas las páginas: un grafo de arranque del Worker pequeño, sugerencias de precarga eliminadas, la ubicación de los proveedores, un solo build de Tailwind, el tamaño de los medios y el patrón de aparición al desplazarse."
+---
+
+Cada regla de esta página salió de una medición, y varias sustituyeron una solución intuitiva que empeoraba las cosas. Cambia el código que hay detrás de una de ellas solo con una nueva medición que la supere.
+
+## Mide antes de afirmar
+
+- Compara el build anterior y el nuevo en la misma página, con al menos cinco ejecuciones de Lighthouse cada uno, intercaladas, y compara las medianas. Una sola ejecución no demuestra nada: aproximadamente una de cada cinco es un valor atípico causado por el ruido de la máquina.
+- No juzgues un cambio por una sola ejecución de PageSpeed Insights. El mismo despliegue obtiene puntuaciones muy distintas según la velocidad de la máquina que ejecuta la prueba, que Lighthouse indica como `benchmarkIndex`.
+- Mide un build de producción (`bun run build:test` y después `bun run start:test`) servido por HTTP/2 con compresión. Sobre HTTP/1.1 local sin compresión, la simulación de red de Lighthouse modela conexiones y tamaños de transferencia que producción nunca tiene.
+- Un diagnóstico de Lighthouse no es una puntuación. Una sugerencia de «reflow forzado» o de «ajustar el tamaño de las imágenes» puede ser errónea para la página, como muestran las secciones siguientes; comprueba las métricas puntuadas antes de actuar en consecuencia.
+
+## Mantén pequeño el grafo de arranque del Worker
+
+`src/server.ts` se ejecuta en cada petición HTML (`run_worker_first` en `wrangler.jsonc`), y todo lo que importa de forma estática se evalúa en cada arranque en frío. Solo importa constantes y helpers puros, y carga el resto cuando una petición lo necesita:
+
+```ts
+const { default: handler } = await import("@tanstack/react-start/server-entry")
+```
+
+```ts
+const { serveMedia } = await import("~/src/modules/video/video.delivery")
+```
+
+Una vez, una sola importación estática del nombre de una cabecera desde un módulo que también importaba el cliente de Polar metió unos 1,4 MB del SDK en cada arranque en frío, y el primer byte de la página de inicio llegó a tardar hasta 1,4 segundos. Por eso `COUNTRY_HEADER` e `IP_ADDRESS_HEADER` viven en `src/modules/_core/constants/api.ts`, que no importa nada pesado. Antes de añadir una importación estática a `server.ts`, sigue su cadena de importaciones: cualquier cosa que llegue a `polar`, `drizzle-orm` o `resend` es una regresión.
+
+## Las páginas prerenderizadas cargan primero el CSS y las fuentes
+
+Las páginas públicas se prerenderizan y no necesitan JavaScript para su primer pintado. TanStack Start emite una sugerencia `modulepreload` para cada chunk que pueda necesitar una página, más de cien en la página de inicio, y en una red móvil simulada compiten con la hoja de estilos y las fuentes. `scripts/optimize-prerendered-html.ts`, que ejecutan todos los scripts de build, elimina todas las sugerencias de dependencias y conserva solo la del script de entrada de la propia página, con `fetchpriority="low"`:
+
+```ts
+moduleEntries.has(hint) ? `<link rel="modulepreload" href="${hint}" fetchpriority="low"/>` : ""
+```
+
+Eliminar las sugerencias redujo el First Contentful Paint en aproximadamente un tercio; mantener la sugerencia de entrada con prioridad baja redujo el First Contentful Paint en móvil otros 375 ms. Nunca vuelvas a añadir sugerencias de precarga, ni para dependencias ni para chunks de rutas. El script hace fallar el build cuando no encuentra ninguna sugerencia que eliminar o ninguna que conservar, de modo que un cambio en la salida del build se detecta en lugar de deshacer esto en silencio.
+
+`robots.txt` y `llms.txt` son archivos estáticos de `public/` que no pasan por el Worker (`"!/robots.txt", "!/llms.txt"` en `run_worker_first`). Lighthouse descarga ambos con un tiempo de espera de dos segundos, y una respuesta lenta del Worker hacía fallar sus auditorías de SEO y de preparación para agentes.
+
+## Los proveedores nunca envuelven un outlet de ruta
+
+TanStack Router envuelve los outlets de ruta en límites de Suspense, y React hidrata esos límites más tarde, en pequeños fragmentos. Un proveedor de contexto situado por encima de ellos cuyo valor cambia justo después de la hidratación obliga a React a hidratar de golpe todo lo que tiene debajo:
+
+- `ThemeProvider` alrededor de toda la aplicación convertía la hidratación de la página de inicio en una única tarea de 200 ms que bloqueaba la entrada del usuario. Al montarlo alrededor de sus dos consumidores, el `Toaster` y el `ThemeSwitch` de la documentación, el Total Blocking Time pasó de unos 150 ms a menos de 10 ms.
+- `MotionProvider` por encima de un outlet de ruta publica un contexto nuevo cuando terminan de cargarse sus funcionalidades de animación. En una entrada del blog, esa actualización llegaba mientras la página aún cargaba su contenido, React recurría al renderizado en el cliente y el diseño se desplazaba.
+
+Antes de añadir un proveedor a `__root.tsx` o a un layout, comprueba si su valor puede cambiar después de la hidratación. Si puede, móntalo junto a los componentes que lo leen, por debajo de todo `<Outlet />` de ruta. Las ubicaciones se enumeran en [Componentes y estilos](/docs/conventions/components).
+
+## Un solo build de Tailwind
+
+Solo `src/presentation/styles/globals.css` ejecuta Tailwind. Las hojas de estilo de las rutas, como `docs.css` y `typeset.css`, son CSS normal, y los estilos propios de Fumadocs entran a través de `globals.css`:
+
+```css
+@import "@fumadocs/base-ui/css/shadcn.css";
+@import "@fumadocs/base-ui/css/preset.css";
+```
+
+Una vez, un segundo build de Tailwind en la hoja de estilos de una ruta incluyó sus propias `.hidden`, `.rounded-md` y variables de tema. Las capas de cascada con el mismo nombre se fusionan entre hojas de estilo, y React nunca elimina una hoja de estilos que insertó con `precedence`, así que tras una sola visita a la documentación la página de inicio perdía su diseño adaptable y sus fuentes hasta recargarla. La prueba end-to-end «landing keeps its responsive styles after visiting the docs» de `e2e/specs/navigation.spec.ts` lo vigila. Todo lo que necesite Tailwind pasa por `globals.css`.
+
+## Medios
+
+- **Bucles de la página de inicio.** Cada `src/presentation/assets/motion/<name>.webm` tiene un póster `<name>.webp` con exactamente las dimensiones del vídeo (el `size` de `LOOPS` en `concept-loop.tsx`), para que el paso del póster al vídeo no gane nitidez de forma visible. Los anchos menores son archivos aparte, `<name>-<width>.webp`, que se ofrecen mediante el `srcSet` del póster. Nunca reduzcas el póster a tamaño completo; para aligerarlo, vuelve a codificarlo con las mismas dimensiones. Los vídeos se cargan con `preload="none"`, solo se reproducen mientras se ve una cuarta parte de ellos y nunca se reproducen para los lectores que prefieren movimiento reducido.
+- **El recorrido del curso** en `course-showcase.tsx` no es un bucle. Su `<video>` solo se renderiza después de que el visitante pulse reproducir, así que hasta entonces la página carga únicamente el póster: un `<picture>` con fuentes AVIF y WebP a los 1600 píxeles del vídeo y a 800. El vídeo se sirve en WebM con MP4 como alternativa.
+- **Los vídeos de los cursos** se codifican de antemano en HLS adaptativo y se sirven desde R2 con la caché de Workers. Consulta [Vídeos](/docs/features/videos).
+- **Vídeo controlado por el scroll.** Hoy el sitio no tiene ninguno. Un vídeo cuyo tiempo sigue la posición del scroll debe codificarse all-intra (cada fotograma es un fotograma clave, `keyint=1`): una codificación normal tarda unos 200 ms en cada salto, una all-intra unos 3 ms, y ningún suavizado en JavaScript consigue que un salto de 200 ms acompañe al scroll con fluidez.
+
+## Aparición al desplazarse
+
+`Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) hace aparecer gradualmente las secciones de la página de inicio a medida que entran en el viewport. Comparte un único `IntersectionObserver` entre todas las instancias, decide a partir del primer callback del observer si un elemento empieza por debajo del pliegue y escribe los atributos `data-reveal` directamente, sin estado de React y sin volver a renderizar. Una versión que guardaba la visibilidad en el estado de React duplicó el Total Blocking Time, porque cada sección se volvía a renderizar y la página calculaba el diseño dos veces. No lo vuelvas a pasar al estado ni lo sustituyas sin una comparación.
+
+Se midieron y descartaron otras dos optimizaciones: `content-visibility: auto` en las secciones de la página de inicio, que rompía los enlaces internos a secciones situadas más abajo, y la carga diferida del formulario de la newsletter, que puntuaba igual o peor que renderizarlo directamente.
+
+## Páginas relacionadas
+
+- [Cloudflare Workers](/docs/integrations/cloudflare-workers)
+- [Caché y SSR](/docs/architecture/caching-and-ssr)
+- [Componentes y estilos](/docs/conventions/components)

@@ -1,0 +1,119 @@
+---
+title: "Files and naming"
+description: "Where each kind of code lives, how files and folders are named, and the folder layouts that are not allowed."
+---
+
+Every file and folder is kebab-case. Names are compound rather than nested: the suffix says what a file is for, so `src/modules/course/course.constants.ts` sits beside `course.schema.ts` instead of inside a `constants/` folder. The exceptions are `src/routes`, where dots are path separators, and generated files such as `src/routeTree.gen.ts`.
+
+## Where code goes
+
+Decide the home of new code by what it does, in this order:
+
+| The code                                                            | Lives in                                            | Example                                                                                           |
+| ------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Owns a database table                                               | `src/modules/<table>/`                              | `src/modules/course/`                                                                             |
+| Is a server function that reads no table (an external API, content) | `src/lib/<topic>.ts`, or the one route that uses it | `src/lib/github.ts`, `src/routes/blog.index.tsx`                                                  |
+| Configures or adapts a vendor library or service                    | `src/integrations/<vendor>/`                        | `src/integrations/polar/polar.config.ts`                                                          |
+| Renders UI                                                          | `src/presentation/components/custom/`               | `custom/admin/courses/course-form.tsx`                                                            |
+| Is a React hook used by several components                          | `src/hooks/use-<name>.ts`                           | `src/hooks/use-error-message.ts`                                                                  |
+| Is an application-wide provider                                     | `src/providers/<name>-provider.tsx`                 | `src/providers/theme-provider.tsx`                                                                |
+| Is data or constants read by several files                          | `src/data/<topic>.ts`                               | `MARKETING_SECTION_IDS` in `src/data/marketing.ts`, `AFFILIATE_TERMS` in `src/data/affiliates.ts` |
+| Is a small utility with no better owner                             | `src/lib/<name>.ts`                                 | `src/lib/search-params.ts`, `src/lib/cn.ts`                                                       |
+| Is an error code, catalogue or helper shared by modules             | `src/modules/_core/`                                | `src/modules/_core/constants/errors.ts`                                                           |
+| Wires the test runtime                                              | `src/platform/testing/`                             | `src/platform/testing/mocks/cloudflare.ts`                                                        |
+
+A constant or helper used by one file stays in that file. It moves out only when a second file needs it.
+
+## Component folders
+
+`src/presentation/components/custom` holds only `.tsx` components, in flat folders:
+
+- A component shared across areas sits at the top: `custom/data-table.tsx`, `custom/newsletter-form.tsx`, and `custom/pricing.tsx`, which renders the tier cards of both the landing page and `/app/license`.
+- A component of one area sits in the area folder: `custom/courses/curriculum.tsx`, `custom/auth/sign-in-form.tsx`.
+- An admin page with several widgets gets a folder for that page: `custom/admin/courses/course-form.tsx`, `custom/admin/users/delete-user-dialog.tsx`.
+- `custom/landing-page/` keeps two folders, `components/` and `sections/`.
+
+One widget, dialog, form or column set per file. Table columns are `<entity>-columns.tsx` (`course-columns.tsx`); skeletons are grouped in `<area>-pending.tsx` (`content-pending.tsx`, `courses-pending.tsx`).
+
+Not allowed:
+
+- `components/`, `constants/`, `hooks/`, `lib/` or `types/` subfolders inside a component folder.
+- A `.ts` file next to `.tsx` components. Motion tokens live in `src/integrations/motion/motion.tokens.ts`, field helpers in `src/integrations/tanstack-form/form.fields.ts`.
+- Splitting a component into `x.tsx` and `x-content.tsx` to lazy-load half of it, or a facade such as a `toast` helper over a vendor API. Import the vendor directly.
+
+`src/presentation/components/shadcn/` holds the shadcn primitives (see [Components and styling](/docs/conventions/components)), `src/presentation/emails/` the React Email templates, `src/presentation/styles/` the stylesheets, and `src/presentation/branding` and `src/presentation/theme` the identity and theme constants.
+
+## Integrations
+
+A vendor folder is named after the package or service, and its files after the vendor's short name and the concern: `<prefix>.<concern>.ts`.
+
+| Suffix          | Holds                                               | Example                                                                                                                   |
+| --------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `.config.ts`    | The configured client                               | `polar/polar.config.ts`, `resend/resend.config.ts`                                                                        |
+| `.constants.ts` | Values derived from the environment or the provider | `polar/polar.constants.ts`, `better-auth/auth.constants.ts`, `resend/resend.constants.ts`, `affonso/affonso.constants.ts` |
+| `.server.ts`    | Server-only setup                                   | `better-auth/auth.server.ts`                                                                                              |
+| `.<concern>.ts` | One concern of the integration                      | `better-auth/auth.middleware.ts`, `use-intl/i18n.messages.ts`, `drizzle-orm/drizzle.columns.ts`                           |
+
+The prefix is the short name rather than the folder name, which is why `better-auth` holds `auth.*` files, `use-intl` holds `i18n.*` and `tanstack-form` holds `form.*`.
+
+## Modules
+
+A module folder is named after its table, and every file repeats that name. The full list of file kinds and what each may contain is on [Modules](/docs/conventions/modules).
+
+| Pattern                      | Example                                              |
+| ---------------------------- | ---------------------------------------------------- |
+| `<table>.schema.ts`          | `course/course.schema.ts`                            |
+| `<table>.zod.ts`             | `course/course.zod.ts`                               |
+| `<table>.constants.ts`       | `course/course.constants.ts`                         |
+| `<table>.types.ts`           | `course/course.types.ts`                             |
+| `<table>.utils.ts`           | `course/course.utils.ts`                             |
+| `<table>.<concern>.ts`       | `lesson/lesson.access.ts`, `video/video.delivery.ts` |
+| `use-cases/<verb>-<noun>.ts` | `course/use-cases/move-course.ts`                    |
+
+## Routes
+
+`src/routes` uses TanStack Start's flat file routes, so a file name reads as its URL.
+
+| Pattern                   | Meaning                             | Example                          |
+| ------------------------- | ----------------------------------- | -------------------------------- |
+| `<segment>.<segment>.tsx` | Nested path                         | `admin.courses.create.tsx`       |
+| `<path>.tsx`              | Layout of everything below the path | `admin.courses.tsx`              |
+| `<path>.index.tsx`        | The page at the path itself         | `admin.courses.index.tsx`        |
+| `_<name>.tsx`             | Pathless layout                     | `_landing.tsx`                   |
+| `$<param>`                | Dynamic segment                     | `admin.courses.$courseId.tsx`    |
+| `$.tsx`                   | Splat route                         | `docs.$.tsx`                     |
+| `__root.tsx`              | Root route                          | `__root.tsx`                     |
+| `api/<name>.ts`           | HTTP handler                        | `api/auth.$.ts`, `api/search.ts` |
+
+Route files carry no locale segment; the router adds and strips the locale prefix.
+
+## Tests
+
+Tests live in a `__test__` folder beside the code they cover, and the suffix selects the Vitest project:
+
+| Pattern                               | Project       |
+| ------------------------------------- | ------------- |
+| `__test__/<file>.test.ts`             | `node`        |
+| `__test__/<file>.integration.test.ts` | `integration` |
+| `__test__/<file>.component.test.tsx`  | `component`   |
+
+A test is named after the file it covers, optionally with a topic: `course.schema.test.ts`, `rate-limit.client-address.test.ts`. Use case tests are grouped per module and audience: `use-cases/__test__/course-use-cases.test.ts` and `course-admin-use-cases.test.ts`. Fixtures sit in `__test__/fixtures/` beside their owner (`src/modules/course/__test__/fixtures/catalogue.ts`). Route tests live in `src/routes/__test__/`, named by area: `admin-course-routes.component.test.tsx`, `course-loaders.test.ts`.
+
+Browser tests are at the repository root: specs in `e2e/specs/<flow>.spec.ts`, page objects in `e2e/pages/<name>-page.ts`, seeded data in `e2e/data/` and Playwright fixtures in `e2e/fixtures/`.
+
+## Content, messages and the database
+
+| Pattern                                                          | Meaning                                                              |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `messages/<locale>/<namespace>.json`                             | One translation namespace: `pages.admin.courses.json`                |
+| `content/docs/<path>/<page>.<locale>.mdx`                        | One documentation page in one locale                                 |
+| `content/docs/<path>/meta.<locale>.json`                         | Navigation order and title of that folder                            |
+| `content/blog/<slug>.<locale>.mdx`                               | One blog post in one locale                                          |
+| `src/integrations/drizzle-orm/migrations/<timestamp>_<name>.sql` | One migration, generated by `bun run db:generate`                    |
+| `scripts/<name>.ts`                                              | A repository script run with Bun: `check-content.ts`, `seed-test.ts` |
+
+## Related pages
+
+- [Directory structure](/docs/architecture/directory-structure)
+- [Modules](/docs/conventions/modules)
+- [Route files](/docs/conventions/routes)

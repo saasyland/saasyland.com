@@ -1,0 +1,127 @@
+---
+title: "Форми та таблиці"
+description: "Кожна форма дотримується посібника shadcn для TanStack Form зі схемою Zod модуля й полями shadcn; кожна таблиця — це єдиний універсальний DataTable з файлом стовпців."
+---
+
+Форми й таблиці — два місця, де саморобні варіанти розмножуються найшвидше. Для кожного з них є один спосіб побудови, узятий із власних посібників постачальників, а не вигаданий тут.
+
+## Форми
+
+Кожна форма дотримується [посібника shadcn для TanStack Form](https://ui.shadcn.com/docs/forms/tanstack-form): `useForm` з `@tanstack/react-form`, Zod-схема модуля як валідатор і `Field`, `FieldLabel`, `Input`, `Textarea` або `Select` із shadcn. `src/presentation/components/custom/admin/courses/course-form.tsx`:
+
+```tsx
+const form = useForm({
+  defaultValues: course ?? NEW_COURSE,
+  onSubmit: ({ value }) => {
+    const fields = { kind: value.kind, slug: value.slug, status: value.status, summary: value.summary, title: value.title }
+    if (course === undefined) {
+      create.mutate(fields)
+      return
+    }
+    update.mutate({ ...fields, courseId: course.id })
+  },
+  validators: { onChange: courseZodSchemas.createCourse, onSubmit: courseZodSchemas.createCourse },
+})
+
+return (
+  <form
+    noValidate
+    onSubmit={(event) => {
+      event.preventDefault()
+      void form.handleSubmit()
+    }}
+  >
+```
+
+- **Схема — це схема сервера.** Валідатор — той самий `courseZodSchemas.createCourse`, яким розбирає дані серверна функція, або його `.pick(...)`, як це робить `chapter-dialog.tsx` з `chapterZodSchemas.updateChapter.pick({ title: true })`. Ніколи не пишіть другу схему лише для форми.
+- **Валідуйте під час зміни та під час надсилання.** Задано обидва валідатори: якщо є лише `onSubmit`, виправлене поле залишається червоним до наступного надсилання.
+- **`noValidate` і `preventDefault`.** Власну валідацію браузера вимкнено, тож кожне повідомлення походить зі схеми й має переклад.
+- **Значення за замовчуванням типізовано через інтерфейс модуля**, як `NEW_COURSE: Course["createCourse"]`.
+- **Надсилайте через мутацію.** `onSubmit` викликає `mutate` з опцій мутації, а кнопка надсилання показує стан очікування: `<Button isPending={create.isPending || update.isPending} type="submit">`.
+
+### Поля
+
+Кожне поле — це `Field` із shadcn, позначене некоректним лише після того, як відвідувач його торкнувся. З `course-fields.tsx`:
+
+```tsx
+<Field data-invalid={isInvalidField(field)}>
+  <FieldLabel htmlFor={id}>{label}</FieldLabel>
+  <Input
+    aria-describedby={`${id}-error`}
+    aria-invalid={isInvalidField(field)}
+    className={cn({ "font-mono": isCode })}
+    id={id}
+    lang={lang}
+    name={field.name}
+    onBlur={field.handleBlur}
+    onChange={(event) => {
+      field.handleChange(event.target.value)
+    }}
+    value={field.state.value ?? ""}
+  />
+  <FieldMessage field={field} id={id} />
+</Field>
+```
+
+- `isInvalid` — це `field.state.meta.isTouched && !field.state.meta.isValid`.
+- Поле введення завжди вказує в `aria-describedby` ідентифікатор своєї помилки. Елемент помилки рендериться лише поки поле некоректне, а посилання на відсутній елемент нічого не описує.
+- Помилки рендеряться через `ValidationFieldError` з `custom/validation-field-error.tsx`. Повідомлення Zod — це ключі перекладу, тож він шукає їх у просторі імен `<table>.validations` модуля й підставляє числа з `<MODULE>_VALIDATION_PARAMS`:
+
+```tsx
+<ValidationFieldError
+  id={`${id}-error`}
+  message={fieldErrorMessage(field.state.meta.errors)}
+  namespace="course.validations"
+  params={COURSE_VALIDATION_PARAMS}
+/>
+```
+
+- Жодних написаних вручну елементів `<input>`, `<label>` чи `<button>` і жодного компонента-обгортки навколо одного поля для однієї форми. Компонент поля, спільний для кількох форм одного розділу, лежить в одному файлі, як `CourseTextField`, `CourseTextAreaField` і `CourseOptionField` для форм курсу, розділу й уроку.
+- Помилки сервера показуються через `toast.error(errorMessage(error))`, успіх — через перекладений `toast.success`.
+
+Найменший повний приклад — `src/presentation/components/custom/newsletter-form.tsx`; [посібник із форм](/docs/guides/forms-and-validation) крок за кроком показує, як побудувати таку форму.
+
+## Таблиці
+
+Кожна таблиця — це універсальний `DataTable` з `src/presentation/components/custom/data-table.tsx`, використаний безпосередньо на сторінці:
+
+```tsx
+<DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
+```
+
+Його властивості — це весь його інтерфейс:
+
+| Властивість | Містить                                                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `columns`   | Набір стовпців з `<entity>-columns.tsx`                                                                                  |
+| `data`      | Рядки, які вже є в пам’яті, для таблиці з посторінковим поділом на клієнті                                               |
+| `options`   | `query` (перетворення стану сторінки на опції запиту для посторінкового поділу на сервері), `selectable`, `initialState` |
+| `filters`   | Елементи пошуку й вибору, прив’язані до ідентифікаторів стовпців                                                         |
+
+`DataTable` побудовано за зразком [таблиці даних shadcn на React Aria](https://ui.shadcn.com/docs/components/aria/data-table): `tableFeatures` і `useTable` з TanStack Table v9, відрендерені примітивами таблиці shadcn. Посторінковий поділ, сортування, фільтрування, вибір, рядки завантаження й панель пагінації — усе це всередині нього. Не пишіть окремих для сторінки компонентів таблиці, заголовка, рядка чи пагінації й не додавайте опцію, яку ще не використовує жодна сторінка.
+
+### Стовпці
+
+Набір стовпців лежить у `custom/<area>/<entity>-columns.tsx` і будується через `createColumnHelper<DataTableFeatures, Row>()`, де тип рядка береться з інтерфейсу модуля (`Course["listRow"]`):
+
+```tsx
+export const courseColumns = columnHelper.columns([
+  columnHelper.accessor("title", { cell: TitleCell, enableSorting: false, header: () => <CourseHeader id="course" /> }),
+  columnHelper.accessor("kind", { cell: KindCell, enableSorting: false, header: () => <CourseHeader id="kind" /> }),
+  columnHelper.accessor("status", { cell: StatusCell, enableSorting: false, header: () => <CourseHeader id="status" /> }),
+  columnHelper.accessor("lessons", { cell: LessonsCell, enableSorting: false, header: () => <CourseHeader id="lessons" /> }),
+  columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CourseHeader id="updated" /> }),
+  columnHelper.display({ cell: ActionsCell, header: DataTableActionsHeader, id: "actions" }),
+])
+```
+
+- Кожна комірка — це невеликий компонент у тому самому файлі, який сам читає свої переклади (`KindCell`, `StatusCell`), а для дій — і свої мутації (`ActionsCell`).
+- Мітки заголовків надходять із компонента заголовка, який читає простір імен сторінки, а не з рядків у визначенні стовпця.
+- Стовпець дій використовує `DataTableActionsHeader`, який дає стовпцю назву для екранних зчитувачів.
+- Дії лише з іконкою мають `aria-label`, що називає рядок: `t("actions.edit", { title })`.
+
+## Пов’язані сторінки
+
+- [Форми та валідація](/docs/guides/forms-and-validation)
+- [Додавання таблиці даних](/docs/guides/add-a-data-table)
+- [DataTable](/docs/ui/data-table)

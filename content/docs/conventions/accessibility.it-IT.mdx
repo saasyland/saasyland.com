@@ -1,0 +1,48 @@
+---
+title: "Accessibilità"
+description: "Ogni pagina soddisfa WCAG 2.2 AA in entrambi i temi, con verifica di axe nella suite nel browser, più le regole su tastiera e screen reader che axe non può vedere."
+---
+
+Ogni pagina pubblica, un articolo del blog e ogni pagina delle aree di lavoro di amministrazione e dei clienti soddisfano WCAG 2.2 livello AA nel tema chiaro e in quello scuro. È un requisito di rilascio, non un obiettivo: `e2e/specs/accessibility.spec.ts` le analizza a ogni pull request e fallisce per qualsiasi violazione.
+
+## La scansione
+
+La spec esegue axe-core tramite `@axe-core/playwright` con le regole A e AA di WCAG 2.0, 2.1 e 2.2 e le best practice di axe, usando gli helper in `e2e/fixtures/accessibility.ts`, che usa anche `checkout-funnel.spec.ts`:
+
+```ts
+const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]
+
+export const COLOR_SCHEMES = ["light", "dark"] as const
+```
+
+Prima della scansione, `accessibilityViolations` scorre l'intera pagina, così le sezioni che compaiono in dissolvenza durante lo scorrimento sono visibili, e attende la fine delle animazioni finite, così il contrasto viene misurato sulla pagina stabilizzata. Una nuova pagina viene aggiunta a `PUBLIC_PAGES` o `WORKSPACE_PAGES` in `accessibility.spec.ts` nella stessa modifica che aggiunge la route. Esegui la spec con il resto della suite:
+
+```sh
+bun run test:e2e:pr
+```
+
+## Cosa axe non può verificare
+
+axe verifica il markup, non il significato o il flusso della tastiera. Queste regole coprono il resto e vengono fatte rispettare in revisione:
+
+- **Landmark e nomi.** Ogni area di lavoro ha una navigazione con etichetta (`<nav aria-label={t("navigationLabel")}>` in `admin-sidebar.tsx`), e le barre laterali, il pannello laterale dell'autenticazione e l'indice della documentazione sono landmark.
+- **Semantica reale.** Le schede hanno pannelli di scheda; un insieme di opzioni che non cambia pannello è un gruppo di toggle, non una tablist. Un link che sembra un pulsante è un `LinkButton`, mai un link che avvolge un pulsante.
+- **Etichette su ogni controllo.** Gli input hanno un `FieldLabel`; un'etichetta nascosta visivamente usa `className="sr-only"`, come fa il campo della newsletter. I pulsanti con sola icona hanno un `aria-label` che nomina il loro obiettivo, come `t("actions.delete", { title })`, e il testo visibile di un controllo fa parte del suo nome accessibile.
+- **Errori annunciati insieme al campo.** Ogni input imposta `aria-describedby` sull'ID del proprio errore e `aria-invalid` finché non è valido; l'elemento di errore esiste solo finché c'è un errore. Vedi [Form e tabelle](/docs/conventions/forms-and-tables).
+- **Il contenuto decorativo è nascosto.** Le icone accanto al testo ricevono `aria-hidden`, così come i punti puramente visivi, i separatori e i video in loop senza etichetta.
+- **Titoli in ordine.** Ogni pagina ha un solo `h1`; il titolo di una card che apre una sezione rende un `h2` dentro `CardTitle`, come fa `course-form.tsx`.
+- **Prima la tastiera.** Tutto ciò che si raggiunge con il mouse si raggiunge con la tastiera, comprese le azioni che compaiono al passaggio del mouse, che compaiono anche al focus. Gli anelli di focus usano `data-focus-visible:` sui componenti React Aria; vedi [Componenti e stili](/docs/conventions/components).
+- **Stati di attesa.** Gli scheletri impostano `aria-busy="true"` sul proprio elemento radice, e i pulsanti in attesa usano lo stato `isPending` del `Button` di shadcn.
+- **Le colonne hanno un nome.** La colonna delle azioni di una tabella usa `DataTableActionsHeader`, un'intestazione visibile solo agli screen reader.
+- **La lingua è dichiarata.** `<html lang>` segue il locale della route, e un input per un testo in un'altra lingua imposta `lang={locale}`, come fanno i campi localizzati dei corsi.
+
+## Contrasto e animazioni
+
+- Il testo usa i token di colore del tema. `text-muted-foreground` supera 4,5:1 in entrambi i temi; le varianti più chiare come `text-muted-foreground/60` sono riservate a chip disattivati, icone decorative e separatori.
+- Le animazioni rispettano le impostazioni del lettore: `MotionConfig reducedMotion="user"` in `MotionProvider`, varianti `motion-reduce:` sulle transizioni, `scroll-behavior: auto` con `prefers-reduced-motion`, e i video della landing page non partono automaticamente per i lettori che chiedono animazioni ridotte (`concept-loop.tsx`).
+
+## Pagine correlate
+
+- [Playwright](/docs/tooling/playwright)
+- [Componenti e stili](/docs/conventions/components)
+- [Form e tabelle](/docs/conventions/forms-and-tables)

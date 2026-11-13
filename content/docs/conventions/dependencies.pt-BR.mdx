@@ -1,0 +1,62 @@
+---
+title: "Dependências"
+description: "Mantenha-se nas versões mais recentes, adapte o código ao uso documentado, carregue bugs upstream como patches do Bun com uma correção upstream, mantenha a forma do package.json que o Vite+ escreve e verifique toda atualização com um build."
+---
+
+O repositório roda com a versão mais recente de todas as dependências. Uma atualização que quebra algo é corrigida para a frente, no código ou upstream, nunca voltando atrás.
+
+## Versões do toolchain
+
+- O Bun é o gerenciador de pacotes e o executor de scripts. `packageManager` em `package.json` (`bun@1.4.4`) é o único lugar onde a sua versão é definida; a CI a lê de lá. `bun.lock` é versionado.
+- O Node vem de `.nvmrc` (`26.13.1`), e `engines.node` exige pelo menos essa versão.
+- `remotion/` é a única exceção, com o seu próprio toolchain npm, instalado apenas para editar os vídeos da landing page.
+
+## Atualizar
+
+1. Leia o changelog e o guia de migração da nova versão, de preferência a cópia distribuída em `node_modules/<package>`.
+2. Altere o código para seguir o uso documentado da nova versão.
+3. Verifique nesta ordem, e não dê nada como pronto antes que a última etapa passe:
+
+```sh
+bun run check
+bun run test:coverage
+bun run build:test
+bun run test:e2e:pr
+```
+
+`check` e os testes rodam sem o build do Cloudflare e do TanStack Start, então podem passar enquanto o build está quebrado. Isso aconteceu duas vezes em uma única atualização: um novo `@polar-sh/sdk` não podia ser empacotado, e uma versão do TanStack Start mudou a marcação de `modulepreload` que `optimize-prerendered-html.ts` reescreve. Os dois problemas só apareceram em `build:test`. Depois de um build, `find dist/server -name '*.map'` não pode imprimir nada; `upload_source_maps: false` em `wrangler.jsonc` existe porque o Worker com os seus source maps fica maior do que o Cloudflare aceita em um upload (veja [Cloudflare Workers](/docs/integrations/cloudflare-workers)).
+
+Nunca fixe um pacote em uma versão mais antiga para evitar uma breaking change, e nunca adicione à aplicação código que contorna um bug de biblioteca.
+
+## Quando o bug é upstream
+
+Quando a aplicação já segue o uso documentado e a nova versão está errada, mantenha a nova versão e carregue a correção:
+
+1. Comprove o bug com uma reprodução mínima fora deste repositório.
+2. Escreva a menor alteração que o corrige no pacote, espelhando a correção que você vai propor upstream, e salve-a com `bun patch`. O patch vai para `patches/<package>@<version>.patch` e para `patchedDependencies`, e o pacote é fixado nessa versão exata para que o patch continue sendo aplicado.
+3. Relate o bug upstream e abra um pull request com a correção, seguindo as regras de contribuição daquele projeto.
+4. Exclua o patch assim que uma versão trouxer a correção. Antes de manter ou documentar um patch, verifique com `npm view <package> version` se essa versão já saiu.
+
+O patch atual é `patches/@videojs%2Futils@10.3.0.patch`, que corrige as URLs das miniaturas do storyboard no player de vídeo; `@videojs/react` está fixado na 10.3.0 junto com ele. Um patch para o `fumadocs-mdx` 15.6.0 foi carregado da mesma forma e removido quando a 15.6.1 trouxe a correção upstream.
+
+## As entradas do Vite+ no package.json
+
+```json
+"vite": "npm:@voidzero-dev/vite-plus-core@1.6.0",
+"vite-plus": "1.6.0",
+"vitest": "5.1.0"
+```
+
+Estas linhas, e o mesmo alias `vite` e a mesma versão de `vitest` em `overrides`, são exatamente o que o próprio migrador do Vite+ escreve: `vite-plus` é fixado em uma versão exata, o Bun precisa do core como dependência direta `vite`, e `vitest` é listado porque `@vitest/coverage-v8` e os tipos de teste precisam dele. Atualize-os juntos com `vp migrate`, nunca com `bun update`. Para descobrir se um deles pode sair, copie o projeto, execute `vp migrate` na cópia e compare o resultado; não decida apenas raciocinando sobre isso.
+
+`build.rolldownOptions.external` em `vite.config.ts` lista dependências peer opcionais de `@polar-sh/sdk` que não estão instaladas e são removidas do Worker pelo tree-shaking; veja [Vite+](/docs/tooling/vite-plus). Remova a lista quando o Polar corrigir o seu empacotamento.
+
+## Adicionar uma dependência
+
+Verifique primeiro se um pacote que já está em `package.json` resolve o problema, para que cada aspecto continue com uma única biblioteca. Adicione uma dependência de runtime com `bun add`, uma ferramenta com `bun add --dev`, e use a skill para agentes do fornecedor listada em `skills-lock.json` quando houver uma (veja [Skills para agentes](/docs/tooling/agent-skills)).
+
+## Páginas relacionadas
+
+- [Vite+](/docs/tooling/vite-plus)
+- [Scripts do projeto](/docs/tooling/scripts)
+- [CI/CD](/docs/tooling/ci-cd)

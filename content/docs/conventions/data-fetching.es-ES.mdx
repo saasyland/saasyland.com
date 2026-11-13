@@ -1,0 +1,104 @@
+---
+title: "Obtención de datos y caché"
+description: "Opciones de consulta y de mutación junto a su función de servidor, claves de consulta que incluyen cada entrada, reglas de frescura, loaders que nunca vuelven a pedir lo que ya está en pantalla, e invalidación."
+---
+
+Los datos llegan a una pantalla a través de TanStack Query. Un caso de uso exporta sus opciones junto a su función de servidor, y el loader de la ruta, el componente y la prueba usan esas mismas opciones, así que, por construcción, comparten una única entrada de caché.
+
+## Opciones de consulta
+
+```ts
+export const courseEditorQuery = (input: Course["getCourseEditor"]) =>
+  queryOptions({
+    queryFn: () => getCourseEditor({ data: input }),
+    queryKey: [...COURSE_QUERY_KEYS.EDITOR, input.courseId],
+    staleTime: COURSE_STALE_MS,
+  })
+```
+
+| Tipo de lectura                    | Exportación                                                               | Ejemplo                                          |
+| ---------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------ |
+| Recibe una entrada                 | Una función que devuelve opciones, llamada `<noun>Query`                  | `courseEditorQuery(input)`, `courseQuery(input)` |
+| No recibe entrada                  | Una constante llamada `<noun>Query`                                       | `currentLicenseQuery`                            |
+| Lista paginada para un `DataTable` | `get<Things>PageQuery(input)` y la primera página como `get<Things>Query` | `getCoursesPageQuery`, `getCoursesQuery`         |
+
+## Claves de consulta
+
+Una clave empieza por el prefijo del módulo definido en `<table>.constants.ts`, sigue con la operación y después con cada entrada que cambia el resultado:
+
+```ts
+queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale]
+queryKey: [...COURSE_QUERY_KEYS.DETAIL, input.locale, input.slug]
+queryKey: [...COURSE_QUERY_KEYS.LIST, courseZodSchemas.getCourses.parse(input)]
+```
+
+La clave de la lista guarda la entrada ya parseada, así que `getCoursesPageQuery()` y `getCoursesPageQuery({ pageIndex: 0, pageSize: 10 })` apuntan a la misma entrada de caché. El idioma forma parte de la clave siempre que el servidor localiza el resultado. Nunca escribas una clave en línea en un componente: léela de las opciones o, para invalidar, del objeto `<MODULE>_QUERY_KEYS`.
+
+## Frescura
+
+`getRouter()` en `src/router.tsx` crea un `QueryClient` por petición con estos valores por defecto, y el router usa el mismo minuto:
+
+```ts
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      gcTime: FIVE_MINS_IN_MS,
+      staleTime: ONE_MIN_IN_MS,
+    },
+  },
+})
+```
+
+Una consulta que necesita otra frescura establece `staleTime` con una constante con nombre que explica el motivo: `PLAYBACK_STALE_MS` (una hora, dentro de la vida útil de una URL de reproducción firmada), `REFRESH_AFTER_MS` para el número de estrellas de GitHub e `Infinity` para los mensajes de traducción, que solo cambian con un despliegue. Nunca crees un `QueryClient` a nivel de módulo; en el servidor compartiría los datos de un usuario con la siguiente petición.
+
+## Los loaders precargan, los componentes leen
+
+El loader de una página precarga las consultas que leen sus componentes, dentro del único `Promise.all` descrito en [Archivos de ruta](/docs/conventions/routes). De `src/routes/app.license.tsx`:
+
+```ts
+context.queryClient.query({ ...currentLicenseQuery, staleTime: "static" })
+```
+
+`staleTime: "static"` hace que el loader devuelva cualquier dato que haya en caché en lugar de volver a pedirlo. Después, el componente lee las mismas opciones y aplica el `staleTime` propio de la consulta:
+
+```tsx
+const { license } = useSuspenseQuery(currentLicenseQuery).data
+```
+
+Así, una página cuyos datos ya están en caché se renderiza al instante al navegar a ella, y los datos obsoletos se refrescan en segundo plano en lugar de retener la navegación.
+
+Una lectura `"static"` también ignora la invalidación: devuelve los datos en caché incluso después de que una mutación los haya invalidado, y los datos nuevos solo llegan cuando el componente vuelve a pedirlos. Por eso, el loader espera la consulta con el `staleTime` propio de la consulta cuando la página nunca debe mostrar datos anteriores a algo que el visitante acaba de hacer, o cuando el loader necesita los datos en sí, para el título o para responder 404. Las páginas de cursos y el editor de cursos de la administración lo hacen así, porque terminar una lección o guardar en el editor debe mostrar el temario actualizado en la siguiente pantalla:
+
+```ts
+context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound)
+```
+
+- Usa `useSuspenseQuery` para los datos que precargó el loader, y `useQuery` solo para datos que pueden llegar más tarde sin bloquear la página, como el número de estrellas de `proof-section.tsx`.
+- No pidas datos en `useEffect` ni pases los resultados de las consultas hacia abajo como props: cada componente llama a las opciones que necesita.
+- Un `DataTable` recibe una función que convierte el estado de la página en opciones, `options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }}`, y ejecuta la consulta por sí mismo.
+
+## Mutaciones e invalidación
+
+Un componente expande las opciones de mutación en `useMutation` y solo añade sus propios callbacks. Tras una escritura correcta, invalida el prefijo del módulo y después informa al usuario:
+
+```tsx
+const update = useMutation({
+  ...updateCourseMutation,
+  onError,
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })
+    toast.success(t("saved"))
+  },
+})
+```
+
+- Invalida el prefijo más estrecho que cubra todas las pantallas que muestran los datos modificados. Las mutaciones de capítulos y lecciones invalidan `COURSE_QUERY_KEYS.ALL`, porque los muestran el editor de cursos y las páginas públicas de los cursos. `useLessonProgress` invalida solo `COURSE_QUERY_KEYS.DETAIL`, y solo cuando se completa una lección.
+- Espera a que termine la invalidación antes de salir de la página o de cerrar un diálogo, para que la siguiente pantalla renderice datos frescos.
+- Los errores pasan por `useErrorMessage()`; consulta [Funciones de servidor y errores](/docs/conventions/server-functions).
+- Nunca actualices la caché a mano para simular un resultado. La única excepción es la sesión: `loadRouteSession` en `auth.routes.ts` vacía toda la caché cuando cambia el usuario con sesión iniciada, para que ningún dato privado sobreviva a un cierre de sesión o a un cambio de cuenta.
+
+## Páginas relacionadas
+
+- [Caché y SSR](/docs/architecture/caching-and-ssr)
+- [Archivos de ruta](/docs/conventions/routes)
+- [Funciones de servidor y errores](/docs/conventions/server-functions)

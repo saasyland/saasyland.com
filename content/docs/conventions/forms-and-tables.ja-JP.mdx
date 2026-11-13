@@ -1,0 +1,127 @@
+---
+title: "フォームとテーブル"
+description: "すべてのフォームはモジュールの Zod スキーマと shadcn のフィールドを使い、shadcn の TanStack Form ガイドに従います。すべてのテーブルは、カラムのファイルを持つ唯一の汎用 DataTable です。"
+---
+
+フォームとテーブルは、独自に作ったバリエーションが最も早く増えていく 2 つの場所です。どちらにも構築方法は 1 つだけあり、それはここで考案したものではなく、ベンダー自身のガイドから採用したものです。
+
+## フォーム
+
+すべてのフォームは [shadcn の TanStack Form ガイド](https://ui.shadcn.com/docs/forms/tanstack-form)に従います。`@tanstack/react-form` の `useForm`、バリデーターとしてのモジュールの Zod スキーマ、そして shadcn の `Field`、`FieldLabel`、`Input`、`Textarea`、`Select` を使います。`src/presentation/components/custom/admin/courses/course-form.tsx` の例です。
+
+```tsx
+const form = useForm({
+  defaultValues: course ?? NEW_COURSE,
+  onSubmit: ({ value }) => {
+    const fields = { kind: value.kind, slug: value.slug, status: value.status, summary: value.summary, title: value.title }
+    if (course === undefined) {
+      create.mutate(fields)
+      return
+    }
+    update.mutate({ ...fields, courseId: course.id })
+  },
+  validators: { onChange: courseZodSchemas.createCourse, onSubmit: courseZodSchemas.createCourse },
+})
+
+return (
+  <form
+    noValidate
+    onSubmit={(event) => {
+      event.preventDefault()
+      void form.handleSubmit()
+    }}
+  >
+```
+
+- **スキーマはサーバーのスキーマと同じ。** バリデーターは、サーバー関数がパースに使うのと同じ `courseZodSchemas.createCourse` か、`chapter-dialog.tsx` が `chapterZodSchemas.updateChapter.pick({ title: true })` で行っているように、その `.pick(...)` です。フォーム専用の 2 つ目のスキーマを書いてはいけません。
+- **変更時と送信時の両方で検証する。** 両方のバリデーターを設定します。`onSubmit` だけでは、修正したフィールドが次に送信するまで赤いままになります。
+- **`noValidate` と `preventDefault`。** ブラウザー自身のバリデーションを無効にしているため、すべてのメッセージはスキーマから来て、翻訳されます。
+- **デフォルト値はモジュールのインターフェースを通して型付けします。** `NEW_COURSE: Course["createCourse"]` のように書きます。
+- **ミューテーションで送信する。** `onSubmit` はミューテーションオプションから得た `mutate` を呼び出し、送信ボタンは処理中の状態を表示します（`<Button isPending={create.isPending || update.isPending} type="submit">`）。
+
+### フィールド
+
+各フィールドは shadcn の `Field` で、訪問者が触れた後にだけ無効としてマークされます。`course-fields.tsx` の例です。
+
+```tsx
+<Field data-invalid={isInvalidField(field)}>
+  <FieldLabel htmlFor={id}>{label}</FieldLabel>
+  <Input
+    aria-describedby={`${id}-error`}
+    aria-invalid={isInvalidField(field)}
+    className={cn({ "font-mono": isCode })}
+    id={id}
+    lang={lang}
+    name={field.name}
+    onBlur={field.handleBlur}
+    onChange={(event) => {
+      field.handleChange(event.target.value)
+    }}
+    value={field.state.value ?? ""}
+  />
+  <FieldMessage field={field} id={id} />
+</Field>
+```
+
+- `isInvalid` は `field.state.meta.isTouched && !field.state.meta.isValid` です。
+- 入力は常に `aria-describedby` で自身のエラーの ID を参照します。エラー要素はフィールドが無効な間だけ描画され、存在しない要素への参照は何も説明しません。
+- エラーは `custom/validation-field-error.tsx` の `ValidationFieldError` で描画します。Zod のメッセージは翻訳キーなので、このコンポーネントはモジュールの `<table>.validations` 名前空間でキーを引き、`<MODULE>_VALIDATION_PARAMS` の数値を埋め込みます。
+
+```tsx
+<ValidationFieldError
+  id={`${id}-error`}
+  message={fieldErrorMessage(field.state.meta.errors)}
+  namespace="course.validations"
+  params={COURSE_VALIDATION_PARAMS}
+/>
+```
+
+- `<input>`、`<label>`、`<button>` 要素を手書きせず、1 つのフォームの 1 つのフィールドを包むだけのラッパーコンポーネントも作りません。1 つのエリアの複数のフォームで共有するフィールドコンポーネントは、コース、チャプター、レッスンのフォームで使う `CourseTextField`、`CourseTextAreaField`、`CourseOptionField` のように、1 つのファイルに置きます。
+- サーバーのエラーは `toast.error(errorMessage(error))` で、成功は翻訳済みの `toast.success` で表示します。
+
+最小限の完全な例は `src/presentation/components/custom/newsletter-form.tsx` です。フォームの作り方は[フォームのガイド](/docs/guides/forms-and-validation)で順を追って説明しています。
+
+## テーブル
+
+すべてのテーブルは `src/presentation/components/custom/data-table.tsx` の汎用 `DataTable` で、ページ内で直接使います。
+
+```tsx
+<DataTable columns={courseColumns} options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }} />
+```
+
+その props がインターフェースのすべてです。
+
+| Prop      | 内容                                                                                                        |
+| --------- | ----------------------------------------------------------------------------------------------------------- |
+| `columns` | `<entity>-columns.tsx` のカラムセット                                                                       |
+| `data`    | クライアント側でページングするテーブル用の、すでにメモリ上にある行                                          |
+| `options` | `query`（サーバー側のページング用に、ページの状態からクエリオプションを作る）、`selectable`、`initialState` |
+| `filters` | カラム ID に結び付けた検索コントロールと選択コントロール                                                    |
+
+`DataTable` は [shadcn の React Aria データテーブル](https://ui.shadcn.com/docs/components/aria/data-table)をモデルにしています。TanStack Table v9 の `tableFeatures` と `useTable` を使い、shadcn のテーブルプリミティブで描画します。ページング、ソート、フィルタリング、選択、読み込み中の行、ページネーションバーはすべてその中にあります。ページごとのテーブル、ヘッダー、行、ページネーションのコンポーネントを書いてはいけません。また、まだどのページも使っていないオプションを追加してはいけません。
+
+### カラム
+
+カラムセットは `custom/<area>/<entity>-columns.tsx` に置き、`createColumnHelper<DataTableFeatures, Row>()` で組み立てます。行の型はモジュールのインターフェース（`Course["listRow"]`）から取ります。
+
+```tsx
+export const courseColumns = columnHelper.columns([
+  columnHelper.accessor("title", { cell: TitleCell, enableSorting: false, header: () => <CourseHeader id="course" /> }),
+  columnHelper.accessor("kind", { cell: KindCell, enableSorting: false, header: () => <CourseHeader id="kind" /> }),
+  columnHelper.accessor("status", { cell: StatusCell, enableSorting: false, header: () => <CourseHeader id="status" /> }),
+  columnHelper.accessor("lessons", { cell: LessonsCell, enableSorting: false, header: () => <CourseHeader id="lessons" /> }),
+  columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CourseHeader id="updated" /> }),
+  columnHelper.display({ cell: ActionsCell, header: DataTableActionsHeader, id: "actions" }),
+])
+```
+
+- 各セルは同じファイル内の小さなコンポーネントで、自分の翻訳を読み込み（`KindCell`、`StatusCell`）、アクションの場合は自分のミューテーションも持ちます（`ActionsCell`）。
+- ヘッダーのラベルは、ページの名前空間を読み込むヘッダーコンポーネントから取得し、カラム定義内の文字列は使いません。
+- アクションのカラムには `DataTableActionsHeader` を使います。これによりスクリーンリーダーにカラム名が伝わります。
+- アイコンだけのアクションには、行を特定する `aria-label` を付けます（`t("actions.edit", { title })`）。
+
+## 関連ページ
+
+- [フォームとバリデーション](/docs/guides/forms-and-validation)
+- [データテーブルを追加する](/docs/guides/add-a-data-table)
+- [DataTable](/docs/ui/data-table)

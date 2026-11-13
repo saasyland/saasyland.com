@@ -1,0 +1,204 @@
+---
+title: "Module"
+description: "Ein Modul ist eine Datenbanktabelle: ihr Schema, ihre Konstanten, Zod-Schemas, ihr Typ-Interface, ihre Use Cases und die wenigen Dateien für einzelne Aspekte, die eine Tabelle brauchen kann."
+---
+
+`src/modules/<table>/` gibt es nur für eine echte Datenbanktabelle. Der Ordner spiegelt das Drizzle-Schema, und wer einen anlegt, behauptet damit, dass eine Tabelle existiert. Code, der einer Funktion ohne eigene Tabelle dient, gehört woandershin: Eine Server Function, die GitHub oder die Dokumentationssammlung liest, liegt in `src/lib/<topic>.ts` oder in der einen Route, die sie nutzt, und die Einrichtung eines Anbieters liegt in `src/integrations/<vendor>`.
+
+Die Module sind `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user`, `verification` und `video`. `license` besitzt zwei Tabellen, `license` und `revoked_license_order`. `_core` ist kein Modul: Es enthält die Fehlercodes, Kataloge und Zod-Felder, die alle Module gemeinsam nutzen.
+
+## Aufbau
+
+`src/modules/course` ist die Referenz. Ein Modul enthält diese Dateien, alle nach der Tabelle benannt:
+
+| Datei                        | Enthält                                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`          | Die Drizzle-Tabelle, ihre Indizes und Relationen sowie die Enum-Tupel, die ihre Spalten nutzen          |
+| `<table>.constants.ts`       | Objekte mit Domänenwerten, Query-Keys, Mutation-Keys und Grenzwerte des Moduls                          |
+| `<table>.zod.ts`             | Ein Eingabeschema pro Operation, exportiert als ein Objekt `<table>ZodSchemas`                          |
+| `<table>.types.ts`           | Ein Interface, das nach dem Modul benannt ist                                                           |
+| `<table>.utils.ts`           | Hilfsfunktionen für die Tabelle, rein und im Browser sicher, sofern sie nicht die Worker-Umgebung lesen |
+| `<table>.<concern>.ts`       | Ein weiterer Aspekt der Tabelle, etwa `lesson.access.ts` oder `video.delivery.ts`                       |
+| `use-cases/<verb>-<noun>.ts` | Eine Operation, benannt nach ihrer Server Function                                                      |
+| `__test__/`                  | Tests und Fixtures für die Dateien oben                                                                 |
+
+## Schema
+
+```ts
+export const COURSE_KINDS = [COURSE_KIND.COURSE, COURSE_KIND.TUTORIAL, COURSE_KIND.PROJECT] as const
+export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
+
+export const course = sqliteTable(
+  "course",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
+    position: integer("position").notNull().default(0),
+    slug: text("slug", { length: SLUG_MAX_LENGTH }).notNull().unique(),
+    status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
+    summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
+    title: text("title", { mode: "json" }).$type<LocalizedText>().notNull(),
+    ...timestamps(),
+  },
+  (table) => [index("course_status_position_idx").on(table.status, table.position)],
+)
+```
+
+- Spalten sind in TypeScript camelCase und in SQL snake_case. Schlüssel sind sortiert, wie es der Linter verlangt, mit `...timestamps()` als letztem Eintrag.
+- `createdAt` und `updatedAt` stammen aus `timestamps()` in `src/integrations/drizzle-orm/drizzle.columns.ts`: Millisekunden, beim Einfügen von SQLite gefüllt, wobei `updatedAt` bei jedem Update aktualisiert wird. Schreiben Sie sie nie von Hand. `lesson_progress` braucht nur die zweite Spalte und übernimmt deshalb `updatedAt: timestamps().updatedAt`.
+- Primärschlüssel sind Text. Ein Use Case, der eine Zeile einfügt, füllt den Schlüssel mit einer UUID v7 (`v7()` aus `uuid`).
+- Enum-Spalten erhalten ein Tupel, das aus dem Konstantenobjekt des Moduls gebildet wird, niemals eine Liste von Literalen.
+- Text, den Besucher in mehreren Sprachen lesen, ist eine JSON-Spalte vom Typ `LocalizedText`, validiert durch `localizedTextSchema` und gelesen mit `localize(text, locale)` aus `src/modules/_core/utils/localized-text.ts`.
+- Eine neue Tabelle wird aus `src/integrations/drizzle-orm/drizzle.schemas.ts` re-exportiert, und ihre Migration wird mit `bun run db:generate` erzeugt. Siehe [Datenbankmigrationen](/docs/guides/database-migrations).
+
+## Konstanten
+
+```ts
+export const COURSE_STATUS = {
+  DRAFT: "draft",
+  PUBLISHED: "published",
+} as const
+
+export const COURSE_STALE_MS = 60_000
+
+export const COURSE_SHOWCASE = {
+  COURSES: 2,
+  LESSONS: 6,
+} as const
+
+export const COURSE_QUERY_KEYS = {
+  ALL: ["course"],
+  CATALOGUE: ["course", "catalogue"],
+  DETAIL: ["course", "detail"],
+  EDITOR: ["course", "getCourseEditor"],
+  LIST: ["course", "getCourses"],
+  SHOWCASE: ["course", "showcase"],
+} as const
+
+export const COURSE_MUTATION_KEYS = {
+  CREATE: ["course", "createCourse"],
+  DELETE: ["course", "deleteCourse"],
+  MOVE: ["course", "moveCourse"],
+  UPDATE: ["course", "updateCourse"],
+} as const
+```
+
+- Jeder Query-Key beginnt mit dem Präfix `ALL` des Moduls, sodass ein einziges `invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })` alles aktualisiert, was das Modul liefert. Siehe [Datenabruf und Caching](/docs/conventions/data-fetching).
+- Mutation-Keys bestehen aus dem Modulnamen und dem Namen der Server Function.
+- Spalten- und Eingabelängen werden hier benannt und vom Schema und vom Zod-Schema gemeinsam genutzt, etwa `PRODUCT_NAME_MAX_LENGTH` in `product.constants.ts`.
+- `<MODULE>_VALIDATION_PARAMS` enthält die Zahlen, die Validierungsmeldungen interpolieren, etwa `{ slugTooLong: { max: SLUG_MAX_LENGTH } }`.
+
+## Zod-Schemas
+
+```ts
+const { createInsertSchema, createSelectSchema } = createSchemaFactory({ zodInstance: zod })
+
+const courseIdInput = zod.object({
+  courseId: idField,
+})
+
+const courseFields = zod.object({
+  kind: zod.enum(COURSE_KINDS),
+  slug: slugField,
+  status: zod.enum(COURSE_STATUSES),
+  summary: localizedTextSchema,
+  title: localizedTextSchema,
+})
+
+const createCourse = courseFields
+
+const deleteCourse = courseIdInput
+
+const getCatalogue = zod.object({
+  locale: localeField,
+})
+
+const getCourse = zod.object({
+  locale: localeField,
+  slug: slugField,
+})
+
+const getCourseEditor = courseIdInput
+
+const getCourseShowcase = zod.object({
+  locale: localeField,
+})
+
+const getCourses = paginationSchema
+
+const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
+
+const updateCourse = courseFields.extend(courseIdInput.shape)
+
+const insert = createInsertSchema(course)
+const select = createSelectSchema(course)
+
+export const courseZodSchemas = {
+  createCourse,
+  deleteCourse,
+  getCatalogue,
+  getCourse,
+  getCourseEditor,
+  getCourseShowcase,
+  getCourses,
+  insert,
+  moveCourse,
+  select,
+  updateCourse,
+}
+```
+
+- `<table>.zod.ts` importiert `zod from "zod/v4"` und exportiert ein einziges Objekt, dessen Schlüssel die Namen der Operationen sind, dazu `insert` und `select` aus `drizzle-zod`.
+- Felder stammen aus `src/modules/_core/utils/zod-fields.ts` (`idField`, `localeField`, `slugField`) und aus gemeinsamen Fragmenten in derselben Datei und werden nie pro Schema neu deklariert.
+- Paginierte Listen verwenden `paginationSchema` wieder; Operationen auf einem einzelnen Datensatz erhalten ein Objekt wie `{ courseId }`, niemals einen bloßen String.
+- Fehlermeldungen sind Übersetzungsschlüssel (`{ message: "slugInvalid" }`), die aus dem Namespace `<table>.validations` des Moduls gerendert werden. Siehe [Formulare und Tabellen](/docs/conventions/forms-and-tables).
+
+## Das Modul-Interface
+
+`<table>.types.ts` exportiert genau ein Interface, benannt nach dem Modul, dessen Schlüssel das Zod-Objekt spiegeln:
+
+```ts
+export interface Lesson {
+  select: typeof lesson.$inferSelect
+  insert: typeof lesson.$inferInsert
+  createLesson: zod.input<typeof lessonZodSchemas.createLesson>
+  deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
+  getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
+  moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
+  updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
+}
+```
+
+Server Functions, Mutation-Optionen und Formulare typisieren ihre Eingabe als `Lesson["createLesson"]`. Wenn Sie `<table>.zod.ts` ein Schema hinzufügen, ergänzen Sie dessen Schlüssel hier in derselben Änderung. Leiten Sie einen Eingabetyp nie mit `Parameters<typeof fn>[0]` ab, und deklarieren Sie nie einen lokalen Alias oder ein zweites Interface `LessonInput`. Wenn Komponenten die Form brauchen, die ein Lesezugriff zurückgibt, benennt das Interface auch diese, abgeleitet von der Server Function: `Course["listRow"]` ist `Awaited<ReturnType<typeof getCourses>>["rows"][number]`.
+
+## Use Cases
+
+Jede Datei in `use-cases/` enthält eine Operation, benannt nach ihrer Server Function in kebab-case: `get-course-editor.ts` exportiert `getCourseEditor` und `courseEditorQuery`, `update-course.ts` exportiert `updateCourse` und `updateCourseMutation`. Das Muster, seine Middleware und seine Fehler stehen unter [Server Functions und Fehler](/docs/conventions/server-functions).
+
+Ein Use Case, der nur auf dem Server läuft und von einem Better-Auth-Hook oder einem Polar-Webhook statt vom Browser aufgerufen wird, ist eine einfache `async`-Funktion in einer Datei, die mit `import "@tanstack/react-start/server-only"` beginnt, etwa `license/use-cases/grant-license.ts`.
+
+## Dateien für einzelne Aspekte
+
+Braucht eine Tabelle Logik, die weder ein Use Case noch eine reine Hilfsfunktion ist, bekommt sie eine Datei pro Aspekt, benannt `<table>.<concern>.ts`:
+
+| Datei                                                   | Aspekt                                                                   |
+| ------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `lesson/lesson.access.ts`                               | Wer eine Lektion ansehen darf; rein, genutzt auf dem Server und in Tests |
+| `lesson/lesson.viewer.ts`                               | Ermittelt auf dem Server den angemeldeten Betrachter und seine Lizenz    |
+| `license/license.webhooks.ts`                           | Polar-Webhook-Handler, registriert von `auth.server.ts`                  |
+| `license/license.ppp.ts`                                | Regionale Preisnachlässe für den Checkout                                |
+| `newsletter-subscriber/newsletter-subscriber.server.ts` | Prüfungen von Anfragen, die nur auf dem Server laufen                    |
+| `video/video.delivery.ts`                               | Der Worker-Handler für signierte `/media/`-Anfragen                      |
+| `video/video.playback.ts`, `video/video.files.ts`       | Signieren von Wiedergabe-URLs; Objektschlüssel und Content-Types         |
+
+Eine Datei, die niemals ins Browser-Bundle gelangen darf, beginnt mit `import "@tanstack/react-start/server-only"`, wie `lesson.viewer.ts`, `license.webhooks.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` und `license.utils.ts` (das die Polar-Produkt-IDs aus der Worker-Umgebung liest). Reine Dateien wie `lesson.access.ts` und `course.utils.ts` importieren nichts Serverseitiges, sodass Komponenten und Tests sie verwenden können.
+
+## Ein Modul hinzufügen
+
+Folgen Sie [Modul hinzufügen](/docs/guides/add-a-module) Schritt für Schritt und gehen Sie dabei von einer Kopie der Form des Kursmoduls aus.
+
+## Verwandte Seiten
+
+- [Server Functions und Fehler](/docs/conventions/server-functions)
+- [Modulkatalog](/docs/reference/modules)
+- [Gemeinsamer Kern](/docs/architecture/core)

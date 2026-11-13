@@ -1,0 +1,119 @@
+---
+title: "Arquivos e nomenclatura"
+description: "Onde fica cada tipo de código, como arquivos e pastas são nomeados e as estruturas de pastas que não são permitidas."
+---
+
+Todo arquivo e toda pasta usam kebab-case. Os nomes são compostos em vez de aninhados: o sufixo diz para que serve um arquivo, então `src/modules/course/course.constants.ts` fica ao lado de `course.schema.ts`, e não dentro de uma pasta `constants/`. As exceções são `src/routes`, onde os pontos são separadores de caminho, e os arquivos gerados, como `src/routeTree.gen.ts`.
+
+## Onde o código fica
+
+Decida o lugar de um código novo pelo que ele faz, nesta ordem:
+
+| O código                                                                    | Fica em                                         | Exemplo                                                                                           |
+| --------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| É dono de uma tabela do banco de dados                                      | `src/modules/<table>/`                          | `src/modules/course/`                                                                             |
+| É uma server function que não lê nenhuma tabela (uma API externa, conteúdo) | `src/lib/<topic>.ts`, ou a única rota que a usa | `src/lib/github.ts`, `src/routes/blog.index.tsx`                                                  |
+| Configura ou adapta uma biblioteca ou um serviço de fornecedor              | `src/integrations/<vendor>/`                    | `src/integrations/polar/polar.config.ts`                                                          |
+| Renderiza UI                                                                | `src/presentation/components/custom/`           | `custom/admin/courses/course-form.tsx`                                                            |
+| É um hook React usado por vários componentes                                | `src/hooks/use-<name>.ts`                       | `src/hooks/use-error-message.ts`                                                                  |
+| É um provider de toda a aplicação                                           | `src/providers/<name>-provider.tsx`             | `src/providers/theme-provider.tsx`                                                                |
+| São dados ou constantes lidos por vários arquivos                           | `src/data/<topic>.ts`                           | `MARKETING_SECTION_IDS` em `src/data/marketing.ts`, `AFFILIATE_TERMS` em `src/data/affiliates.ts` |
+| É um utilitário pequeno sem dono melhor                                     | `src/lib/<name>.ts`                             | `src/lib/search-params.ts`, `src/lib/cn.ts`                                                       |
+| É um código de erro, catálogo ou helper compartilhado pelos módulos         | `src/modules/_core/`                            | `src/modules/_core/constants/errors.ts`                                                           |
+| Configura o runtime de testes                                               | `src/platform/testing/`                         | `src/platform/testing/mocks/cloudflare.ts`                                                        |
+
+Uma constante ou um helper usado por um único arquivo fica nesse arquivo. Só sai dele quando um segundo arquivo precisa dele.
+
+## Pastas de componentes
+
+`src/presentation/components/custom` contém apenas componentes `.tsx`, em pastas planas:
+
+- Um componente compartilhado entre áreas fica no nível superior: `custom/data-table.tsx`, `custom/newsletter-form.tsx` e `custom/pricing.tsx`, que renderiza os cards de planos tanto da landing page quanto de `/app/license`.
+- Um componente de uma única área fica na pasta da área: `custom/courses/curriculum.tsx`, `custom/auth/sign-in-form.tsx`.
+- Uma página de administração com vários widgets ganha uma pasta própria: `custom/admin/courses/course-form.tsx`, `custom/admin/users/delete-user-dialog.tsx`.
+- `custom/landing-page/` mantém duas pastas, `components/` e `sections/`.
+
+Um widget, diálogo, formulário ou conjunto de colunas por arquivo. As colunas de tabela ficam em `<entity>-columns.tsx` (`course-columns.tsx`); os esqueletos são agrupados em `<area>-pending.tsx` (`content-pending.tsx`, `courses-pending.tsx`).
+
+Não é permitido:
+
+- Subpastas `components/`, `constants/`, `hooks/`, `lib/` ou `types/` dentro de uma pasta de componentes.
+- Um arquivo `.ts` ao lado de componentes `.tsx`. Os tokens de animação ficam em `src/integrations/motion/motion.tokens.ts`, e os helpers de campos em `src/integrations/tanstack-form/form.fields.ts`.
+- Dividir um componente em `x.tsx` e `x-content.tsx` para carregar metade dele de forma lazy, ou criar uma fachada, como um helper `toast` sobre a API de um fornecedor. Importe o fornecedor diretamente.
+
+`src/presentation/components/shadcn/` contém os primitivos do shadcn (veja [Componentes e estilização](/docs/conventions/components)), `src/presentation/emails/` os templates do React Email, `src/presentation/styles/` as folhas de estilo, e `src/presentation/branding` e `src/presentation/theme` as constantes de identidade visual e de tema.
+
+## Integrações
+
+Uma pasta de fornecedor leva o nome do pacote ou do serviço, e seus arquivos levam o nome curto do fornecedor e o aspecto que tratam: `<prefix>.<concern>.ts`.
+
+| Sufixo          | Contém                                       | Exemplo                                                                                                                   |
+| --------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `.config.ts`    | O cliente configurado                        | `polar/polar.config.ts`, `resend/resend.config.ts`                                                                        |
+| `.constants.ts` | Valores derivados do ambiente ou do provedor | `polar/polar.constants.ts`, `better-auth/auth.constants.ts`, `resend/resend.constants.ts`, `affonso/affonso.constants.ts` |
+| `.server.ts`    | Configuração exclusiva do servidor           | `better-auth/auth.server.ts`                                                                                              |
+| `.<concern>.ts` | Um aspecto da integração                     | `better-auth/auth.middleware.ts`, `use-intl/i18n.messages.ts`, `drizzle-orm/drizzle.columns.ts`                           |
+
+O prefixo é o nome curto, e não o nome da pasta, e é por isso que `better-auth` contém arquivos `auth.*`, `use-intl` contém `i18n.*` e `tanstack-form` contém `form.*`.
+
+## Módulos
+
+Uma pasta de módulo leva o nome da sua tabela, e todo arquivo repete esse nome. A lista completa dos tipos de arquivo e do que cada um pode conter está em [Módulos](/docs/conventions/modules).
+
+| Padrão                       | Exemplo                                              |
+| ---------------------------- | ---------------------------------------------------- |
+| `<table>.schema.ts`          | `course/course.schema.ts`                            |
+| `<table>.zod.ts`             | `course/course.zod.ts`                               |
+| `<table>.constants.ts`       | `course/course.constants.ts`                         |
+| `<table>.types.ts`           | `course/course.types.ts`                             |
+| `<table>.utils.ts`           | `course/course.utils.ts`                             |
+| `<table>.<concern>.ts`       | `lesson/lesson.access.ts`, `video/video.delivery.ts` |
+| `use-cases/<verb>-<noun>.ts` | `course/use-cases/move-course.ts`                    |
+
+## Rotas
+
+`src/routes` usa as rotas de arquivo planas do TanStack Start, então o nome de um arquivo se lê como a sua URL.
+
+| Padrão                    | Significado                                 | Exemplo                          |
+| ------------------------- | ------------------------------------------- | -------------------------------- |
+| `<segment>.<segment>.tsx` | Caminho aninhado                            | `admin.courses.create.tsx`       |
+| `<path>.tsx`              | Layout de tudo o que fica abaixo do caminho | `admin.courses.tsx`              |
+| `<path>.index.tsx`        | A página do próprio caminho                 | `admin.courses.index.tsx`        |
+| `_<name>.tsx`             | Layout sem caminho                          | `_landing.tsx`                   |
+| `$<param>`                | Segmento dinâmico                           | `admin.courses.$courseId.tsx`    |
+| `$.tsx`                   | Rota splat                                  | `docs.$.tsx`                     |
+| `__root.tsx`              | Rota raiz                                   | `__root.tsx`                     |
+| `api/<name>.ts`           | Handler HTTP                                | `api/auth.$.ts`, `api/search.ts` |
+
+Os arquivos de rota não têm segmento de locale; o router adiciona e remove o prefixo de locale.
+
+## Testes
+
+Os testes ficam em uma pasta `__test__` ao lado do código que cobrem, e o sufixo escolhe o projeto do Vitest:
+
+| Padrão                                | Projeto       |
+| ------------------------------------- | ------------- |
+| `__test__/<file>.test.ts`             | `node`        |
+| `__test__/<file>.integration.test.ts` | `integration` |
+| `__test__/<file>.component.test.tsx`  | `component`   |
+
+Um teste leva o nome do arquivo que cobre, opcionalmente com um tema: `course.schema.test.ts`, `rate-limit.client-address.test.ts`. Os testes de casos de uso são agrupados por módulo e por público: `use-cases/__test__/course-use-cases.test.ts` e `course-admin-use-cases.test.ts`. As fixtures ficam em `__test__/fixtures/`, ao lado do código a que pertencem (`src/modules/course/__test__/fixtures/catalogue.ts`). Os testes de rotas ficam em `src/routes/__test__/`, nomeados por área: `admin-course-routes.component.test.tsx`, `course-loaders.test.ts`.
+
+Os testes no navegador ficam na raiz do repositório: as specs em `e2e/specs/<flow>.spec.ts`, os page objects em `e2e/pages/<name>-page.ts`, os dados do seed em `e2e/data/` e as fixtures do Playwright em `e2e/fixtures/`.
+
+## Conteúdo, mensagens e banco de dados
+
+| Padrão                                                           | Significado                                                                      |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `messages/<locale>/<namespace>.json`                             | Um namespace de tradução: `pages.admin.courses.json`                             |
+| `content/docs/<path>/<page>.<locale>.mdx`                        | Uma página da documentação em um locale                                          |
+| `content/docs/<path>/meta.<locale>.json`                         | Ordem de navegação e título daquela pasta                                        |
+| `content/blog/<slug>.<locale>.mdx`                               | Um post do blog em um locale                                                     |
+| `src/integrations/drizzle-orm/migrations/<timestamp>_<name>.sql` | Uma migração, gerada por `bun run db:generate`                                   |
+| `scripts/<name>.ts`                                              | Um script do repositório executado com o Bun: `check-content.ts`, `seed-test.ts` |
+
+## Páginas relacionadas
+
+- [Estrutura de diretórios](/docs/architecture/directory-structure)
+- [Módulos](/docs/conventions/modules)
+- [Arquivos de rota](/docs/conventions/routes)

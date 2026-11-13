@@ -1,0 +1,56 @@
+---
+title: "Git e pull request"
+description: "Conventional commit con l'hook delle emoji, un worktree per branch, merge invece di force-push, pull request piccole che aggiornano ogni documento che toccano, e nessuna attribuzione all'IA."
+---
+
+La cronologia di `main` fa parte del prodotto: ogni pull request unita con squash merge è una riga che dice cosa è cambiato per chi usa il codice.
+
+## Commit
+
+I messaggi di commit seguono Conventional Commits, scritti senza emoji; l'hook `prepare-commit-msg` aggiunge l'emoji del tipo (vedi [Conventional commits](/docs/tooling/conventional-commits) per la tabella):
+
+```sh
+git commit -m "fix(auth): keep the locale in verification links"
+```
+
+- L'oggetto è in minuscolo, all'imperativo, e dice cosa fa la modifica per i suoi utenti: `feat(course): reorder the catalogue from the course list`, non `update course files`.
+- Lo scope è il modulo o l'area: `course`, `auth`, `a11y`, `deps`, `readme`.
+- Il tipo è uno tra `feat` ✨, `fix` 🐛, `docs` 📚, `refactor` 📦, `chore` ♻️, `test` 🚨, `perf` 🚀, `build` 🛠️, `ci` ⚙️, `style` 💎 e `revert` 🗑️; l'hook rifiuta qualsiasi altro tipo. Non scrivere mai l'emoji a mano: l'hook non controlla un oggetto che inizia già con un'emoji.
+- Dividi una pull request in commit logici: la funzionalità, la sua documentazione come `docs(<scope>)`, e le correzioni trovate lungo il percorso.
+- Non eseguire mai un commit con `--no-verify`. L'hook `pre-commit` esegue `bun run check:pre-commit`; quando fallisce, correggi la causa.
+- Formatta e analizza con il linter solo i file che hai modificato, con `bunx vp fmt <files>` e `bunx vp lint --fix <files>`. Non eseguire `bun run check:fix` o `vp check --fix` sull'intero repository: riscrivono file che non hai toccato, comprese le impostazioni condivise dell'editor in `.vscode/settings.json`. Se `.vscode/` compare in `git status`, ripristinala da `HEAD`.
+
+## Nessuna attribuzione all'IA
+
+I commit e le descrizioni delle pull request non riportano alcun trailer `Co-Authored-By` per uno strumento di IA, nessuna riga "Generated with" e nessun'altra attribuzione all'IA, anche quando uno strumento la aggiunge per impostazione predefinita. GitHub associa l'indirizzo di un trailer di questo tipo a un account estraneo, che compare poi tra i contributori del repository. Lo stesso vale per le correzioni proposte upstream (vedi [Dipendenze](/docs/conventions/dependencies)).
+
+## Branch e worktree
+
+- Crea un branch a partire da `main`, un branch per pull request.
+- Assegna a ogni branch il proprio worktree Git invece di cambiare il branch di un checkout, così un checkout aperto da un editor o da un altro processo non viene mai modificato mentre è in uso:
+
+```sh
+git worktree add ../saasyland-fix-locale -b fix/locale-links main
+cd ../saasyland-fix-locale
+bun install --frozen-lockfile
+```
+
+- Prima di fidarti dell'esito di un test, controlla `git branch --show-current` nella cartella in cui hai eseguito i test.
+- Aggiorna il branch di una pull request facendo il merge di `main` al suo interno. Non fare il rebase di un branch già pubblicato con push né il force-push: le pull request vengono unite con squash merge, quindi la cronologia del branch non arriva mai su `main`, e un force-push distrugge solo la cronologia della revisione.
+
+## Pull request
+
+- **Piccole e mirate.** Una correzione, una funzionalità o un refactoring per pull request. Una funzionalità grande diventa una serie di pull request, ognuna revisionabile da sola, come è stato per i video, i corsi e l'amministrazione dei corsi.
+- **Il titolo è il commit di squash.** Usa il formato dei commit; diventa l'oggetto su `main`.
+- **La descrizione** contiene un `## Summary` di cosa è cambiato e perché, un `## Test plan` con i comandi che hai eseguito e i loro risultati, e un elenco `## Docs` delle pagine, delle sezioni del README e dei testi che hai aggiornato. Scrivila in modo semplice, senza linguaggio di marketing.
+- **Ogni pull request aggiorna ciò che rende inesatto:** il README, le pagine della documentazione in tutti e nove i locale, il [changelog](/docs/project/changelog) in tutti e nove i locale, e qualsiasi testo del sito o affermazione della landing page che tocca. Le inesattezze trovate in codice che non hai modificato richiedono una pull request a parte.
+
+## Controlli
+
+La CI esegue `bun run check` e `bun run test:coverage`, poi compila il Worker di test ed esegue la suite nel browser in Chromium; solo quando entrambi passano esegue il deploy di una preview. Attendi anche il deploy della preview: è l'unico passaggio che carica il Worker su Cloudflare, e i limiti di caricamento di Cloudflare hanno fatto fallire un deploy che aveva superato tutti gli altri controlli. Vedi [CI/CD](/docs/tooling/ci-cd).
+
+## Pagine correlate
+
+- [Conventional commits](/docs/tooling/conventional-commits)
+- [Come contribuire](/docs/project/contributing)
+- [CI/CD](/docs/tooling/ci-cd)

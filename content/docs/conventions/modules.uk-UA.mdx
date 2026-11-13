@@ -1,0 +1,204 @@
+---
+title: "Модулі"
+description: "Модуль — це одна таблиця бази даних: її схема, константи, Zod-схеми, інтерфейс типів, сценарії використання та кілька файлів аспектів, які можуть знадобитися таблиці."
+---
+
+`src/modules/<table>/` існує лише для справжньої таблиці бази даних. Папка віддзеркалює схему Drizzle, тож її створення стверджує, що така таблиця існує. Код, який обслуговує функціональність без власної таблиці, розміщується деінде: серверна функція, що читає GitHub або колекцію документації, лежить у `src/lib/<topic>.ts` або в єдиному маршруті, який її використовує, а налаштування постачальника — у `src/integrations/<vendor>`.
+
+Модулі: `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user`, `verification` і `video`. `license` володіє двома таблицями, `license` і `revoked_license_order`. `_core` — не модуль: він містить коди помилок, каталоги й поля Zod, спільні для всіх модулів.
+
+## Будова
+
+Еталоном є `src/modules/course`. Модуль містить такі файли, усі названі за таблицею:
+
+| Файл                         | Містить                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`          | Таблицю Drizzle, її індекси та зв’язки, а також кортежі переліків, які використовують її стовпці     |
+| `<table>.constants.ts`       | Об’єкти доменних значень, ключі запитів, ключі мутацій і обмеження модуля                            |
+| `<table>.zod.ts`             | По одній схемі вхідних даних на операцію, експортованих одним об’єктом `<table>ZodSchemas`           |
+| `<table>.types.ts`           | Один інтерфейс, названий за модулем                                                                  |
+| `<table>.utils.ts`           | Допоміжні функції для таблиці, чисті й безпечні для браузера, якщо вони не читають середовище Worker |
+| `<table>.<concern>.ts`       | Ще один аспект таблиці, як-от `lesson.access.ts` або `video.delivery.ts`                             |
+| `use-cases/<verb>-<noun>.ts` | Одну операцію, названу за її серверною функцією                                                      |
+| `__test__/`                  | Тести й фікстури для наведених вище файлів                                                           |
+
+## Схема
+
+```ts
+export const COURSE_KINDS = [COURSE_KIND.COURSE, COURSE_KIND.TUTORIAL, COURSE_KIND.PROJECT] as const
+export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
+
+export const course = sqliteTable(
+  "course",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
+    position: integer("position").notNull().default(0),
+    slug: text("slug", { length: SLUG_MAX_LENGTH }).notNull().unique(),
+    status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
+    summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
+    title: text("title", { mode: "json" }).$type<LocalizedText>().notNull(),
+    ...timestamps(),
+  },
+  (table) => [index("course_status_position_idx").on(table.status, table.position)],
+)
+```
+
+- Стовпці мають назви в camelCase у TypeScript і в snake_case у SQL. Ключі відсортовано, як цього вимагає лінтер, а `...timestamps()` іде останнім записом.
+- `createdAt` і `updatedAt` беруться з `timestamps()` у `src/integrations/drizzle-orm/drizzle.columns.ts`: це мілісекунди, які SQLite заповнює під час вставлення, а `updatedAt` оновлюється під час кожного оновлення. Ніколи не записуйте їх вручну. `lesson_progress` потрібен лише другий, тому він бере `updatedAt: timestamps().updatedAt`.
+- Первинні ключі текстові. Сценарій використання, що вставляє рядок, заповнює ключ значенням UUID v7 (`v7()` з `uuid`).
+- Стовпці-переліки отримують кортеж, побудований з об’єкта констант модуля, а не список літералів.
+- Текст, який відвідувач читає кількома мовами, — це JSON-стовпець `LocalizedText`, який валідує `localizedTextSchema` і читає `localize(text, locale)` з `src/modules/_core/utils/localized-text.ts`.
+- Нову таблицю реекспортують з `src/integrations/drizzle-orm/drizzle.schemas.ts`, а її міграцію генерують командою `bun run db:generate`. Див. [Міграції бази даних](/docs/guides/database-migrations).
+
+## Константи
+
+```ts
+export const COURSE_STATUS = {
+  DRAFT: "draft",
+  PUBLISHED: "published",
+} as const
+
+export const COURSE_STALE_MS = 60_000
+
+export const COURSE_SHOWCASE = {
+  COURSES: 2,
+  LESSONS: 6,
+} as const
+
+export const COURSE_QUERY_KEYS = {
+  ALL: ["course"],
+  CATALOGUE: ["course", "catalogue"],
+  DETAIL: ["course", "detail"],
+  EDITOR: ["course", "getCourseEditor"],
+  LIST: ["course", "getCourses"],
+  SHOWCASE: ["course", "showcase"],
+} as const
+
+export const COURSE_MUTATION_KEYS = {
+  CREATE: ["course", "createCourse"],
+  DELETE: ["course", "deleteCourse"],
+  MOVE: ["course", "moveCourse"],
+  UPDATE: ["course", "updateCourse"],
+} as const
+```
+
+- Кожен ключ запиту починається з префікса `ALL` модуля, тож один виклик `invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })` оновлює все, що віддає модуль. Див. [Отримання даних і кешування](/docs/conventions/data-fetching).
+- Ключі мутацій складаються з назви модуля й назви серверної функції.
+- Довжини стовпців і вхідних даних отримують назву тут і є спільними для схеми та схеми Zod, як-от `PRODUCT_NAME_MAX_LENGTH` у `product.constants.ts`.
+- `<MODULE>_VALIDATION_PARAMS` містить числа, які підставляються в повідомлення валідації, як-от `{ slugTooLong: { max: SLUG_MAX_LENGTH } }`.
+
+## Zod-схеми
+
+```ts
+const { createInsertSchema, createSelectSchema } = createSchemaFactory({ zodInstance: zod })
+
+const courseIdInput = zod.object({
+  courseId: idField,
+})
+
+const courseFields = zod.object({
+  kind: zod.enum(COURSE_KINDS),
+  slug: slugField,
+  status: zod.enum(COURSE_STATUSES),
+  summary: localizedTextSchema,
+  title: localizedTextSchema,
+})
+
+const createCourse = courseFields
+
+const deleteCourse = courseIdInput
+
+const getCatalogue = zod.object({
+  locale: localeField,
+})
+
+const getCourse = zod.object({
+  locale: localeField,
+  slug: slugField,
+})
+
+const getCourseEditor = courseIdInput
+
+const getCourseShowcase = zod.object({
+  locale: localeField,
+})
+
+const getCourses = paginationSchema
+
+const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) })
+
+const updateCourse = courseFields.extend(courseIdInput.shape)
+
+const insert = createInsertSchema(course)
+const select = createSelectSchema(course)
+
+export const courseZodSchemas = {
+  createCourse,
+  deleteCourse,
+  getCatalogue,
+  getCourse,
+  getCourseEditor,
+  getCourseShowcase,
+  getCourses,
+  insert,
+  moveCourse,
+  select,
+  updateCourse,
+}
+```
+
+- `<table>.zod.ts` імпортує `zod from "zod/v4"` і експортує єдиний об’єкт, ключі якого — назви операцій, а також `insert` і `select` з `drizzle-zod`.
+- Поля беруться з `src/modules/_core/utils/zod-fields.ts` (`idField`, `localeField`, `slugField`) і зі спільних фрагментів у тому самому файлі; їх ніколи не оголошують заново для кожної схеми.
+- Посторінкові списки повторно використовують `paginationSchema`; операції з одним записом приймають об’єкт, як-от `{ courseId }`, а не голий рядок.
+- Повідомлення про помилки — це ключі перекладу (`{ message: "slugInvalid" }`), які рендеряться з простору імен `<table>.validations` модуля. Див. [Форми та таблиці](/docs/conventions/forms-and-tables).
+
+## Інтерфейс модуля
+
+`<table>.types.ts` експортує рівно один інтерфейс, названий за модулем, ключі якого віддзеркалюють об’єкт Zod:
+
+```ts
+export interface Lesson {
+  select: typeof lesson.$inferSelect
+  insert: typeof lesson.$inferInsert
+  createLesson: zod.input<typeof lessonZodSchemas.createLesson>
+  deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
+  getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
+  moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
+  updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
+}
+```
+
+Серверні функції, опції мутацій і форми типізують свої вхідні дані як `Lesson["createLesson"]`. Коли ви додаєте схему до `<table>.zod.ts`, додайте її ключ сюди в тій самій зміні. Ніколи не виводьте тип вхідних даних через `Parameters<typeof fn>[0]` і ніколи не оголошуйте локальний псевдонім чи другий інтерфейс `LessonInput`. Коли компонентам потрібна форма даних, яку повертає читання, інтерфейс теж дає їй назву, а сам тип виводиться з серверної функції: `Course["listRow"]` — це `Awaited<ReturnType<typeof getCourses>>["rows"][number]`.
+
+## Сценарії використання
+
+Кожен файл у `use-cases/` містить одну операцію, названу за її серверною функцією в kebab-case: `get-course-editor.ts` експортує `getCourseEditor` і `courseEditorQuery`, `update-course.ts` експортує `updateCourse` і `updateCourseMutation`. Шаблон, його middleware та помилки описано на сторінці [Серверні функції та помилки](/docs/conventions/server-functions).
+
+Сценарій використання, який виконується лише на сервері й викликається хуком Better Auth або вебхуком Polar, а не браузером, — це звичайна `async`-функція у файлі, що починається з `import "@tanstack/react-start/server-only"`, як-от `license/use-cases/grant-license.ts`.
+
+## Файли аспектів
+
+Коли таблиці потрібна логіка, яка не є ні сценарієм використання, ні чистою допоміжною функцією, вона отримує по одному файлу на аспект із назвою `<table>.<concern>.ts`:
+
+| Файл                                                    | Аспект                                                                 |
+| ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `lesson/lesson.access.ts`                               | Хто може дивитися урок; чистий, використовується на сервері й у тестах |
+| `lesson/lesson.viewer.ts`                               | Визначає на сервері глядача, який увійшов, і його ліцензію             |
+| `license/license.webhooks.ts`                           | Обробники вебхуків Polar, які реєструє `auth.server.ts`                |
+| `license/license.ppp.ts`                                | Регіональні знижки на ціни для оформлення замовлення                   |
+| `newsletter-subscriber/newsletter-subscriber.server.ts` | Суто серверні перевірки запитів                                        |
+| `video/video.delivery.ts`                               | Обробник Worker для підписаних запитів `/media/`                       |
+| `video/video.playback.ts`, `video/video.files.ts`       | Підписування URL-адрес відтворення; ключі об’єктів і типи вмісту       |
+
+Файл, який ніколи не має потрапити в браузерний бандл, починається з `import "@tanstack/react-start/server-only"`, як `lesson.viewer.ts`, `license.webhooks.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` і `license.utils.ts` (який читає ідентифікатори продуктів Polar із середовища Worker). Чисті файли, як-от `lesson.access.ts` і `course.utils.ts`, нічого серверного не імпортують, тож їх можуть використовувати компоненти й тести.
+
+## Додавання модуля
+
+Дотримуйтеся посібника [Додавання модуля](/docs/guides/add-a-module) крок за кроком, беручи за основу копію структури модуля курсів.
+
+## Пов’язані сторінки
+
+- [Серверні функції та помилки](/docs/conventions/server-functions)
+- [Каталог модулів](/docs/reference/modules)
+- [Спільне ядро core](/docs/architecture/core)

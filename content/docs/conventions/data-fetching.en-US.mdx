@@ -1,0 +1,104 @@
+---
+title: "Data fetching and caching"
+description: "Query and mutation options beside their server function, query keys that include every input, freshness rules, loaders that never refetch what is on screen, and invalidation."
+---
+
+Data reaches a screen through TanStack Query. A use case exports its options next to its server function, and the route loader, the component and the test all use those same options, so they share one cache entry by construction.
+
+## Query options
+
+```ts
+export const courseEditorQuery = (input: Course["getCourseEditor"]) =>
+  queryOptions({
+    queryFn: () => getCourseEditor({ data: input }),
+    queryKey: [...COURSE_QUERY_KEYS.EDITOR, input.courseId],
+    staleTime: COURSE_STALE_MS,
+  })
+```
+
+| Kind of read                     | Export                                                                 | Example                                          |
+| -------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------ |
+| Takes an input                   | A function returning options, named `<noun>Query`                      | `courseEditorQuery(input)`, `courseQuery(input)` |
+| Takes no input                   | A constant named `<noun>Query`                                         | `currentLicenseQuery`                            |
+| Paginated list for a `DataTable` | `get<Things>PageQuery(input)` and the first page as `get<Things>Query` | `getCoursesPageQuery`, `getCoursesQuery`         |
+
+## Query keys
+
+A key starts with the module's prefix from `<table>.constants.ts`, then the operation, then every input that changes the result:
+
+```ts
+queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale]
+queryKey: [...COURSE_QUERY_KEYS.DETAIL, input.locale, input.slug]
+queryKey: [...COURSE_QUERY_KEYS.LIST, courseZodSchemas.getCourses.parse(input)]
+```
+
+The list key stores the parsed input, so `getCoursesPageQuery()` and `getCoursesPageQuery({ pageIndex: 0, pageSize: 10 })` resolve to the same entry. A locale belongs in the key whenever the server localises the result. Never write a key inline in a component: read it from the options, or from the `<MODULE>_QUERY_KEYS` object to invalidate.
+
+## Freshness
+
+`getRouter()` in `src/router.tsx` creates one `QueryClient` per request with these defaults, and the router uses the same minute:
+
+```ts
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      gcTime: FIVE_MINS_IN_MS,
+      staleTime: ONE_MIN_IN_MS,
+    },
+  },
+})
+```
+
+A query that needs other freshness sets `staleTime` with a named constant that says why: `PLAYBACK_STALE_MS` (an hour, inside the lifetime of a signed playback URL), `REFRESH_AFTER_MS` for the GitHub star count, `Infinity` for translation messages, which only change with a deploy. Never create a `QueryClient` at module level; on the server it would share one user's data with the next request.
+
+## Loaders prefetch, components read
+
+A page loader prefetches the queries its components read, inside the one `Promise.all` described in [Route files](/docs/conventions/routes). From `src/routes/app.license.tsx`:
+
+```ts
+context.queryClient.query({ ...currentLicenseQuery, staleTime: "static" })
+```
+
+`staleTime: "static"` makes the loader return any cached data instead of refetching it. The component then reads the same options and applies the query's own `staleTime`:
+
+```tsx
+const { license } = useSuspenseQuery(currentLicenseQuery).data
+```
+
+So navigating to a page whose data is already cached renders at once, and stale data refreshes in the background instead of holding the navigation.
+
+A `"static"` read also ignores invalidation: it returns cached data even after a mutation has invalidated it, and the fresh data arrives only once the component refetches. So a loader awaits the query with the query's own `staleTime` instead when the page must never show data older than something the visitor just did, or when the loader needs the data itself, for the title or to answer 404. The course pages and the admin course editor do this, because finishing a lesson or saving the editor must show the updated curriculum on the next screen:
+
+```ts
+context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound)
+```
+
+- Use `useSuspenseQuery` for data the loader prefetched, and `useQuery` only for data that may arrive later without blocking the page, such as the star count in `proof-section.tsx`.
+- Do not fetch in `useEffect`, and do not pass query results down as props: each component calls the options it needs.
+- A `DataTable` receives a function from page state to options, `options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }}`, and runs the query itself.
+
+## Mutations and invalidation
+
+A component spreads the mutation options into `useMutation` and adds only its own callbacks. After a successful write it invalidates the module's prefix, then gives feedback:
+
+```tsx
+const update = useMutation({
+  ...updateCourseMutation,
+  onError,
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })
+    toast.success(t("saved"))
+  },
+})
+```
+
+- Invalidate the narrowest prefix that covers every screen showing the changed data. Chapter and lesson mutations invalidate `COURSE_QUERY_KEYS.ALL`, because the course editor and the public course pages show them. `useLessonProgress` invalidates only `COURSE_QUERY_KEYS.DETAIL`, and only when a lesson is completed.
+- Await the invalidation before navigating away or closing a dialog, so the next screen renders fresh data.
+- Errors go through `useErrorMessage()`; see [Server functions and errors](/docs/conventions/server-functions).
+- Never update the cache by hand to fake a result. The one exception is the session: `loadRouteSession` in `auth.routes.ts` clears the whole cache when the signed-in user changes, so no private data survives a sign-out or an account switch.
+
+## Related pages
+
+- [Caching and SSR](/docs/architecture/caching-and-ssr)
+- [Route files](/docs/conventions/routes)
+- [Server functions and errors](/docs/conventions/server-functions)

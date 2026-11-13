@@ -1,0 +1,63 @@
+---
+title: "Traducciones y contenido"
+description: "Nueve idiomas para cada texto y cada página de la documentación, un espacio de nombres por archivo, un traductor por componente, espacios de nombres de validación, mensajes ICU y cifras que se miden en lugar de escribirse a mano."
+---
+
+SaaSy Land se publica en nueve idiomas: `en-US`, `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` y `uk-UA`, enumerados una sola vez en `I18N.SUPPORTED_LOCALES` de `src/integrations/use-intl/i18n.config.ts`. El inglés es la fuente de verdad. Un cambio que añade o edita texto lo añade o lo edita en los nueve idiomas en el mismo commit, y `bun run check:i18n` falla cuando no es así.
+
+## Espacios de nombres
+
+Los mensajes viven en `messages/<locale>/<namespace>.json`, un archivo por espacio de nombres, y el nombre del archivo es el espacio de nombres.
+
+| Espacio de nombres                                              | Contiene                                                                         | Se carga                                         |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `common`, `errors`, `errors.global`                             | Texto que puede necesitar cualquier pantalla, incluido `errors.codes.<CODE>`     | En todas las rutas                               |
+| `components.custom.<file>`, `components.shadcn.<file>`          | Los textos de un componente compartido, como `components.custom.newsletter-form` | En todas las rutas                               |
+| `pages.<area>`, `pages.<area>.<page>`                           | Un layout o una página, con `metadata.title` y `metadata.description`            | Por la ruta, mediante `NAMESPACE` o `NAMESPACES` |
+| `<table>.validations`                                           | Los mensajes de Zod de un módulo, como `course.validations`                      | Por el layout cuyos formularios los usan         |
+| `auth.errors`, `auth.validations` y los demás archivos `auth.*` | Errores de Better Auth, validación y pantallas de autenticación                  | Por los layouts que los necesitan                |
+| `emails.<template>`                                             | Una plantilla de correo                                                          | En el servidor, por el caso de uso que la envía  |
+| `countries`, `currencies`, `locales`, `timezones`               | Catálogos                                                                        | Por los layouts que los necesitan                |
+
+Los espacios de nombres raíz se localizan por el nombre de archivo (`common.json`, `components.*.json`, `errors*.json`) en `src/integrations/use-intl/i18n.messages.ts`. Los textos de un componente compartido viven en su propio espacio de nombres `components.custom.<file>`, nunca dentro del espacio de nombres de una página, para que muestre el mismo texto dondequiera que aparezca. Cada espacio de nombres que declara una ruta debe existir como archivo en todos los idiomas; `loadNamespace` lanza un error si no existe.
+
+## Un traductor por componente
+
+Un componente llama a `useTranslations` una sola vez, con su espacio de nombres, y llama `t` al resultado:
+
+```tsx
+const t = useTranslations("pages.admin.courses.form")
+```
+
+`scripts/check-i18n.ts` resuelve cada `t("key")` estático de los archivos `.tsx` de `src` contra el espacio de nombres de la llamada a `useTranslations` que tiene encima, y falla ante una clave que no existe en inglés. Una segunda llamada a `useTranslations` en el mismo componente cambiaría en silencio el ámbito de cada `t()` posterior, y por eso solo hay una. Un componente que necesita claves de dos espacios de nombres llama a `useTranslations()` sin ninguno y usa claves completas, como hace `sign-in-form.tsx` con `t("errors.codes.INTERNAL_ERROR")`.
+
+## Mensajes
+
+- Las claves son objetos JSON anidados con nombres en camelCase, agrupados igual que la pantalla: `table.headers.course`, `delete.confirm`.
+- Los plurales, los números y las fechas usan sintaxis ICU dentro del mensaje, nunca concatenación de cadenas en el código: `"{e2eSpecs, plural, one {# Playwright suite} other {# Playwright suites}}"`.
+- `scripts/check-message-formats.ts` exige los mismos argumentos y etiquetas ICU en todos los idiomas, y rechaza el texto en inglés que se haya quedado en otro idioma.
+- Formatea los números, las fechas y las monedas según el idioma del lector con `useFormatter` de use-intl o con los hooks `useDateFormatter` y `useCurrencyFormatter`, nunca a mano.
+- Los mensajes de Zod de los esquemas de un módulo son claves de su espacio de nombres `<table>.validations` (`"slugInvalid"`), y los números que mencionan vienen de `<MODULE>_VALIDATION_PARAMS`. Consulta [Formularios y tablas](/docs/conventions/forms-and-tables).
+- El texto guardado en la base de datos que los visitantes leen en varios idiomas es una columna `LocalizedText`. El inglés es obligatorio y es el valor de reserva que devuelve `localize(text, locale)` cuando falta una traducción.
+
+## Las cifras se miden, no se escriben
+
+Un recuento de algo del repositorio, como archivos de prueba, suites de Playwright, componentes de interfaz, países o monedas, nunca se escribe a mano en los textos. `scripts/repository-facts.ts` los mide durante el build y los sirve como el módulo `virtual:repository-facts`; `src/data/repository-facts.ts` los exporta como `REPOSITORY_FACTS`. Los textos de la página de inicio los interpolan, como en `t("body", REPOSITORY_FACTS)` con `"{testFiles, number} test files"` en el mensaje, y el MDX renderiza uno con `<RepositoryCount fact="testFiles" />`. Para mencionar una cifra nueva, mídela primero en ese plugin. Una cifra que fija el negocio en lugar de medirse, como la comisión de afiliado, se declara una sola vez en `src/data` (`AFFILIATE_TERMS` en `src/data/affiliates.ts`) y se interpola de la misma forma.
+
+## Documentación y blog
+
+Cada página de `content/docs` y cada entrada de `content/blog` existe como `<slug>.<locale>.mdx` en los nueve idiomas, y la navegación de cada carpeta, como `meta.<locale>.json`. `scripts/check-content.ts`, que ejecuta `bun run check:i18n`, falla cuando:
+
+- falta el archivo de un idioma;
+- un bloque de código difiere del inglés (los bloques de código se copian byte a byte);
+- un `meta.<locale>.json` enumera slugs distintos de los del inglés;
+- un título, una descripción o un párrafo sigue en inglés;
+- queda en el texto un marcador de traducción automática.
+
+Escribe las traducciones como lo haría un hablante nativo, con la terminología que el idioma ya usa en `messages/<locale>/` (el polaco, por ejemplo, llama a los niveles Komplet y Agencja). Los identificadores de código, las rutas de archivo, los comandos y los nombres de producto se quedan como están, y los enlaces mantienen sus rutas `/docs/...` sin prefijo de idioma, que el sitio añade al renderizarlos.
+
+## Páginas relacionadas
+
+- [Internacionalización y locales](/docs/architecture/i18n-architecture)
+- [Mensajes de traducción](/docs/guides/i18n-messages)
+- [use-intl](/docs/integrations/use-intl)

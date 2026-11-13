@@ -1,0 +1,63 @@
+---
+title: "Translations and content"
+description: "Nine locales for every string and every docs page, one namespace per file, one translator per component, validation namespaces, ICU messages and numbers that are measured instead of typed."
+---
+
+SaaSy Land ships in nine locales: `en-US`, `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` and `uk-UA`, listed once in `I18N.SUPPORTED_LOCALES` in `src/integrations/use-intl/i18n.config.ts`. English is the source of truth. A change that adds or edits text adds or edits it in all nine locales in the same commit, and `bun run check:i18n` fails when it does not.
+
+## Namespaces
+
+Messages live in `messages/<locale>/<namespace>.json`, one file per namespace, and the file name is the namespace.
+
+| Namespace                                                      | Holds                                                                         | Loaded                                            |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------- |
+| `common`, `errors`, `errors.global`                            | Text every screen may need, including `errors.codes.<CODE>`                   | For every route                                   |
+| `components.custom.<file>`, `components.shadcn.<file>`         | The copy of one shared component, such as `components.custom.newsletter-form` | For every route                                   |
+| `pages.<area>`, `pages.<area>.<page>`                          | One layout or page, with `metadata.title` and `metadata.description`          | By the route, through `NAMESPACE` or `NAMESPACES` |
+| `<table>.validations`                                          | The Zod messages of one module, such as `course.validations`                  | By the layout whose forms use them                |
+| `auth.errors`, `auth.validations` and the other `auth.*` files | Better Auth errors, validation and auth screens                               | By the layouts that need them                     |
+| `emails.<template>`                                            | One email template                                                            | On the server, by the use case that sends it      |
+| `countries`, `currencies`, `locales`, `timezones`              | Catalogues                                                                    | By the layouts that need them                     |
+
+The root namespaces are found by file name (`common.json`, `components.*.json`, `errors*.json`) in `src/integrations/use-intl/i18n.messages.ts`. A shared component's copy lives in its own `components.custom.<file>` namespace, never inside a page namespace, so it renders the same text wherever it appears. Every namespace a route declares must exist as a file in every locale; `loadNamespace` throws for one that does not.
+
+## One translator per component
+
+A component calls `useTranslations` once, with its namespace, and names the result `t`:
+
+```tsx
+const t = useTranslations("pages.admin.courses.form")
+```
+
+`scripts/check-i18n.ts` resolves every static `t("key")` in the `.tsx` files of `src` against the namespace of the `useTranslations` call above it and fails on a key that does not exist in English. A second `useTranslations` call in the same component would silently re-scope every `t()` after it, which is why there is only one. A component that needs keys from two namespaces calls `useTranslations()` without one and uses full keys, as `sign-in-form.tsx` does with `t("errors.codes.INTERNAL_ERROR")`.
+
+## Messages
+
+- Keys are nested JSON objects with camelCase names, grouped the way the screen is: `table.headers.course`, `delete.confirm`.
+- Plurals, numbers and dates use ICU syntax inside the message, never string concatenation in code: `"{e2eSpecs, plural, one {# Playwright suite} other {# Playwright suites}}"`.
+- `scripts/check-message-formats.ts` requires the same ICU arguments and tags in every locale, and rejects English text left in another locale.
+- Format numbers, dates and currencies for the reader's locale with `useFormatter` from use-intl or the `useDateFormatter` and `useCurrencyFormatter` hooks, never by hand.
+- Zod messages in a module's schemas are keys of its `<table>.validations` namespace (`"slugInvalid"`), and the numbers they mention come from `<MODULE>_VALIDATION_PARAMS`. See [Forms and tables](/docs/conventions/forms-and-tables).
+- Text stored in the database that visitors read in several languages is a `LocalizedText` column. English is required and is the fallback that `localize(text, locale)` returns for a missing translation.
+
+## Numbers are measured, not typed
+
+A count of something in the repository, such as test files, Playwright suites, UI components, countries or currencies, is never typed into copy. `scripts/repository-facts.ts` measures them at build time and serves them as the `virtual:repository-facts` module; `src/data/repository-facts.ts` exports them as `REPOSITORY_FACTS`. Landing copy interpolates them, as in `t("body", REPOSITORY_FACTS)` with `"{testFiles, number} test files"` in the message, and MDX renders one with `<RepositoryCount fact="testFiles" />`. To mention a new number, measure it in that plugin first. A number the business sets rather than measures, such as the affiliate commission, is declared once in `src/data` (`AFFILIATE_TERMS` in `src/data/affiliates.ts`) and interpolated the same way.
+
+## Docs and blog
+
+Every page under `content/docs` and every post under `content/blog` exists as `<slug>.<locale>.mdx` in all nine locales, and every folder's navigation as `meta.<locale>.json`. `scripts/check-content.ts`, run by `bun run check:i18n`, fails when:
+
+- a locale file is missing;
+- a code block differs from the English one (code blocks are copied byte for byte);
+- a `meta.<locale>.json` lists different slugs from English;
+- a title, description or paragraph is still in English;
+- a machine-translation marker is left in the text.
+
+Write translations as a native speaker would, with the terminology the locale already uses in `messages/<locale>/` (Polish, for example, names the tiers Komplet and Agencja). Code identifiers, file paths, commands and product names stay as they are, and links keep their `/docs/...` paths without a locale prefix, which the site adds when it renders them.
+
+## Related pages
+
+- [Internationalization and locales](/docs/architecture/i18n-architecture)
+- [Translation messages](/docs/guides/i18n-messages)
+- [use-intl](/docs/integrations/use-intl)

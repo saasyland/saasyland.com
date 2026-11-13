@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm"
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { DEFAULT_ROLE_CODE, ROLE_VALUES } from "~/src/integrations/better-auth/auth.access"
+import { EMAIL_MAX_LENGTH, IMAGE_URL_MAX_LENGTH, NAME_MAX_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
@@ -9,6 +10,7 @@ import { TIMEZONES } from "~/src/modules/_core/constants/timezone"
 import { account } from "~/src/modules/account/account.schema"
 import { session } from "~/src/modules/session/session.schema"
 import { twoFactor } from "~/src/modules/two-factor/two-factor.schema"
+import { BAN_REASON_MAX_LENGTH } from "~/src/modules/user/user.constants"
 
 const AFTER_FIRST_TIMEZONE = 1
 
@@ -18,13 +20,13 @@ export const user = sqliteTable(
   "user",
   {
     banExpires: integer("ban_expires", { mode: "timestamp_ms" }),
-    banReason: text("ban_reason", { length: 255 }),
+    banReason: text("ban_reason", { length: BAN_REASON_MAX_LENGTH }),
     banned: integer("banned", { mode: "boolean" }).default(false).notNull(),
-    email: text("email", { length: 64 }).notNull().unique(),
+    email: text("email", { length: EMAIL_MAX_LENGTH }).notNull().unique(),
     emailVerified: integer("email_verified", { mode: "boolean" }).default(false).notNull(),
     id: text("id").primaryKey(),
-    image: text("image", { length: 2048 }),
-    name: text("name", { length: 32 }).notNull(),
+    image: text("image", { length: IMAGE_URL_MAX_LENGTH }),
+    name: text("name", { length: NAME_MAX_LENGTH }).notNull(),
     role: text("role", { enum: ROLE_VALUES }).default(DEFAULT_ROLE_CODE).notNull(),
     timezone: text("timezone", { enum: TIMEZONE_CODES }).default(I18N.DEFAULT_TIMEZONE).notNull(),
     twoFactorEnabled: integer("two_factor_enabled", { mode: "boolean" }).default(false).notNull(),

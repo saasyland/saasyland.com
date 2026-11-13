@@ -1,3 +1,5 @@
+export const BAN_REASON_MAX_LENGTH = 255
+
 export const USER_STATUS = {
   ACTIVE: "active",
   BANNED: "banned",

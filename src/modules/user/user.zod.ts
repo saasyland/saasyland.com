@@ -6,11 +6,11 @@ import { emailSchema, imageUrlSchema, nameSchema, strictPasswordSchema } from "~
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField } from "~/src/modules/_core/utils/zod-fields"
+import { BAN_REASON_MAX_LENGTH } from "~/src/modules/user/user.constants"
 import { TIMEZONE_CODES, user } from "~/src/modules/user/user.schema"
 
 const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
 
-const MAX_BAN_REASON_LENGTH = 255
 const MAX_SORT_COLUMNS = 8
 
 const userIdInput = zod.object({
@@ -19,7 +19,7 @@ const userIdInput = zod.object({
 
 const banUser = zod.object({
   banExpiresIn: zod.int().positive().optional(),
-  banReason: zod.string().trim().max(MAX_BAN_REASON_LENGTH).optional(),
+  banReason: zod.string().trim().max(BAN_REASON_MAX_LENGTH).optional(),
   userId: idField,
 })
 

@@ -2,6 +2,8 @@ import { pageSchema } from "fumadocs-core/source/schema"
 import { defineCollections, defineConfig, defineDocs } from "fumadocs-mdx/config"
 import zod from "zod/v4"
 
+import { rehypeOmitRenderedContent } from "../../../scripts/deployed-worker"
+
 export const docs = defineDocs({
   dir: "./content/docs",
 })
@@ -29,4 +31,4 @@ export const blog = defineCollections({
   type: "doc",
 })
 
-export default defineConfig()
+export default defineConfig({ mdxOptions: { rehypePlugins: (plugins) => [...plugins, rehypeOmitRenderedContent] } })

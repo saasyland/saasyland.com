@@ -1,7 +1,9 @@
 import type * as ReactStart from "@tanstack/react-start"
 import { afterEach, expect, it, vi } from "vite-plus/test"
 
-import { getCookie } from "~/src/lib/cookie"
+import { getStoredTheme } from "~/src/providers/theme-provider"
+
+import { THEME } from "~/src/presentation/theme"
 
 vi.mock("@tanstack/react-start", async (importOriginal) => ({
   ...(await importOriginal<typeof ReactStart>()),
@@ -9,13 +11,13 @@ vi.mock("@tanstack/react-start", async (importOriginal) => ({
 }))
 afterEach(() => {
   document.cookie = "locale=; Max-Age=0; Path=/"
-  document.cookie = "theme=; Max-Age=0; Path=/"
+  document.cookie = `${THEME.COOKIE_NAME}=; Max-Age=0; Path=/`
 })
-it("reads and decodes a cookie from the browser document", () => {
+it("reads the theme from the browser document cookie", () => {
   document.cookie = "locale=pl%2DPL; Path=/"
-  document.cookie = "theme=dark; Path=/"
-  expect(getCookie("locale")).toBe("pl-PL")
+  document.cookie = `${THEME.COOKIE_NAME}=dark; Path=/`
+  expect(getStoredTheme()).toBe("dark")
 })
-it("returns undefined for a cookie the browser does not have", () => {
-  expect(getCookie("locale")).toBeUndefined()
+it("falls back to the default theme when the browser has no theme cookie", () => {
+  expect(getStoredTheme()).toBe(THEME.DEFAULT_THEME)
 })

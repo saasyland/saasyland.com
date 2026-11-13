@@ -29,6 +29,8 @@ Todo ambiente vincula o D1 como `DB`, o KV como `CACHE` e o R2 como `MEDIA`, e l
 
 `bun run deploy:preview` e `bun run deploy:production` executam `scripts/verify-bindings.ts`, que rejeita bindings ausentes e IDs de D1 e KV de placeholder, e em seguida o build correspondente, `scripts/prepare-deploy-secrets.ts`, as migrações do D1 do ambiente, o `wrangler deploy` de `dist/server/wrangler.json` com os secrets que o `wrangler.jsonc` declara e `scripts/verify-deployment.ts`, que verifica o site no ar. Os buckets `MEDIA` são vinculados pelo nome e precisam existir antes do primeiro deploy; crie-os com `wrangler r2 bucket create`. Os builds pré-renderizam as páginas públicas e executam `scripts/verify-build.ts` e `scripts/optimize-prerendered-html.ts`. Veja [Deploy de um preview](/docs/getting-started/deploy-preview), [Scripts do projeto](/docs/tooling/scripts) e [CI/CD](/docs/tooling/ci-cd).
 
+Cada build compila o Worker duas vezes. O primeiro Worker contém todas as páginas e pré-renderiza as públicas. Depois da pré-renderização, `scripts/deployed-worker.ts` recompila o Worker que vai para o deploy sem o que só a pré-renderização precisa: as páginas da documentação e do blog mantêm frontmatter, títulos e texto de busca, mas não o MDX renderizado, e as traduções que só a landing e as páginas legais usam ficam de fora. As páginas pré-renderizadas são servidas a partir de `ASSETS`, e as navegações no cliente renderizam o MDX a partir dos chunks do navegador, então o Worker do deploy nunca o renderiza. `scripts/verify-build.ts` faz o build falhar quando uma página da documentação ou um post publicado do blog não foi pré-renderizado.
+
 ## Guias relacionados
 
 - [Ambiente e bindings](/docs/tooling/environment)

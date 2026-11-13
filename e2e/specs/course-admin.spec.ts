@@ -22,11 +22,12 @@ const choose = async (scope: Locator, label: string, option: string): Promise<vo
   await scope.page().getByRole("option", { name: option, exact: true }).click()
 }
 
-test("an administrator builds a course whose free lesson visitors can watch", async ({ authPage, browser, page }) => {
+test("an administrator builds a course whose free lesson visitors can watch", async ({ appPage, authPage, browser, page }) => {
   const slug = `e2e-${crypto.randomUUID().slice(0, 8)}`
   await signInAsAdmin(page, authPage)
 
   await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
   await page.getByRole("link", { name: "New course" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "New course" })).toBeVisible()
   await page.getByLabel("Title", { exact: true }).fill("Shipping the first release")
@@ -64,7 +65,8 @@ test("an administrator builds a course whose free lesson visitors can watch", as
   await visitor.close()
 
   await page.goto("/admin/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-  await page.getByRole("button", { name: "Delete Shipping the first release" }).click()
+  await appPage.waitForAppReady()
+  await page.getByRole("row").filter({ hasText: slug }).getByRole("button", { name: "Delete Shipping the first release" }).click()
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete course" }).click()
   await expect(page.getByText("“Shipping the first release” was deleted")).toBeVisible()
   await expect(page.getByRole("row").filter({ hasText: slug })).toHaveCount(0)

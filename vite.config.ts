@@ -157,6 +157,7 @@ const tooling = {
       newlinesBetween: true,
       sortSideEffects: true,
     },
+    sortPackageJson: { sortScripts: true },
     sortTailwindcss: {
       attributes: ["className", "classList"],
       functions: ["clsx", "cn", "cva", "tw"],

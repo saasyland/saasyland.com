@@ -5,12 +5,13 @@ description: "Der Bereich /app für angemeldete Benutzer: Übersicht, Lizenzseit
 
 ## Layout
 
-`src/routes/app.tsx` schützt den Bereich mit `requireSignedIn` und lädt seine Namespaces vorab:
+`src/routes/app.tsx` validiert die Suchparameter jeder Seite im Bereich, schützt ihn mit `requireSignedIn` und lädt seine Namespaces vorab:
 
 ```tsx
 const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
 
 export const Route = createFileRoute("/app")({
+  validateSearch: appSearchSchema,
   beforeLoad: requireSignedIn,
   component: AppLayout,
   loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
@@ -23,11 +24,24 @@ export const Route = createFileRoute("/app")({
 
 ## Seiten
 
-| Route          | Inhalt                                                                                                                                                                            |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/app`         | Ohne Lizenz `CheckoutOptions`, sonst `LicenseStatusCard` (Stufe, Status und ein Link zur Lizenzseite); Links zur Dokumentation und zum Support per E-Mail.                        |
-| `/app/license` | Ohne Lizenz `CheckoutOptions`, sonst `LicenseCard` (Schlüssel, Installationsbefehl, Link zum Kundenportal) und, sobald Polar den Schlüssel ausgestellt hat, `LicenseActivations`. |
+| Route          | Inhalt                                                                                                                                                                                                            |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/app`         | Ohne aktive Lizenz `LicenseOffer`, sonst `LicenseStatusCard` (Stufe, Status und ein Link zur Lizenzseite); Links zur Dokumentation und zum Support per E-Mail.                                                    |
+| `/app/license` | Ohne aktive Lizenz `LicenseOffer`, sonst `LicenseCard` (Schlüssel, Installationsbefehl, Link zum Kundenportal, wie man die Stufe wechselt) und, sobald Polar den Schlüssel ausgestellt hat, `LicenseActivations`. |
 
-Beide Loader laden `currentLicenseQuery` vorab; `/app/license` lädt zusätzlich `licenseActivationsQuery` vorab. Checkout, Webhooks und Lizenzzustände sind unter [Zahlungen und Lizenzen](/docs/features/payments) beschrieben.
+`LicenseOffer` (`src/presentation/components/custom/app/license-offer.tsx`) verwendet die `PricingTiers` der Landingpage mit einem `CheckoutButton` pro Stufe wieder, ergänzt die Kaufbedingungen (`CheckoutAgreement`) und endet mit `CourseUnlocks`: den veröffentlichten Kursen mit kostenpflichtigen Lektionen und der Anzahl der gesperrten Lektionen in jedem davon, gezählt von `getCatalogue` aus D1. Der Block entfällt, solange kein Kurs eine kostenpflichtige Lektion hat. Eine erstattete Lizenz behält ihre Karte, und das Angebot erscheint daneben.
+
+`appSearchSchema` (`src/data/app.ts`) akzeptiert zwei optionale Parameter, die beide ignoriert werden, wenn sie ungültig sind:
+
+| Parameter    | Wert                        | Wirkung                                                                                                                                               |
+| ------------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tier`       | ein Wert aus `LICENSE_TIER` | `ChosenTier` über dem Angebot: die Stufe, ihr Preis und eine Schaltfläche **Weiter zum Checkout**.                                                    |
+| `checkoutId` | eine UUID von Polar         | `CheckoutActivation` anstelle des Angebots, bis die Lizenz aktiv ist, danach ein Dankeschön. Siehe [Zahlungen und Lizenzen](/docs/features/payments). |
+
+Beide Loader laden `currentLicenseQuery` und den Kurskatalog vorab; `/app/license` lädt zusätzlich `licenseActivationsQuery` vorab. Checkout, Webhooks und Lizenzzustände sind unter [Zahlungen und Lizenzen](/docs/features/payments) beschrieben.
+
+## Skeletons
+
+`AppOverviewPending` und `AppLicensePending` (`app-pending.tsx`) bilden den Zustand ab, den die Seite anzeigen wird. Dazu lesen sie die Suchparameter mit `appSearchSchema` sowie die zwischengespeicherte Lizenz und den Katalog aus dem Query Client und zeichnen das Aktivierungspanel, die gewählte Stufe, das Stufenraster mit einer Zeile pro Kurs mit kostenpflichtigen Lektionen oder die Lizenzkarten.
 
 In `/app` gibt es keine Ansichten für den Rechnungsverlauf, Kontoeinstellungen oder Kurse.

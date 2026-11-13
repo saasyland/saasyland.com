@@ -9,28 +9,44 @@ Płatności przechodzą przez Polar za pomocą wtyczki `@polar-sh/better-auth` w
 polarPlugin({
   client: polarCore,
   use: [
-    checkout({
-      authenticatedUsersOnly: true,
-      products: POLAR_CHECKOUT_PRODUCTS,
-      successUrl: ROUTES.APP,
-    }),
+    checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
     portal(),
     webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
   ],
 }),
 ```
 
+Własny endpoint wtyczki `POST /api/auth/checkout` jest wpisany w `disabledPaths` Better Auth (`ROUTES.API_AUTH.CHECKOUT`), więc przez HTTP odpowiada 404. Każda płatność zaczyna się w funkcji serwerowej `startCheckout`, która po własnych sprawdzeniach wywołuje `auth.api.checkout` na serwerze.
+
 `src/integrations/polar/polar.config.ts` tworzy z `POLAR_ACCESS_TOKEN` i `POLAR_SERVER` klienta `polarCore`, którego używa wtyczka, oraz `polar`, czyli zbudowane na nim usługi rabatów, kluczy licencyjnych i zamówień. `POLAR_ORGANIZATION_ID` zawęża wyszukiwanie rabatów i dezaktywację kluczy licencyjnych. `POLAR_CHECKOUT_PRODUCTS` przypisuje identyfikatory planów `core`, `complete` i `agency` do `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` i `POLAR_PRODUCT_ID_AGENCY`.
 
 ## Zakup
 
-Zalogowany użytkownik bez licencji widzi `CheckoutOptions` na `/app` i `/app/license`. Komponent wywołuje `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`), który:
+Zalogowany użytkownik bez aktywnej licencji widzi `LicenseOffer` na `/app` i `/app/license`: karty planów ze strony głównej (`PricingTiers`, zobacz [Strona główna](/docs/features/landing-page)) z przyciskiem `CheckoutButton` dla każdego planu, pole wyboru cen regionalnych, warunki zakupu i lekcje kursów, które odblokowuje zakup. `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`) przyjmuje `{ locale, tier }` i:
 
-1. szuka rabatu regionalnego przez `pppDiscountId` (`license.ppp.ts`): procentu dla kraju z `cf-ipcountry`, dopasowanego do aktywnych automatycznych rabatów procentowych w Polar, i pomija go, gdy ciasteczko `regional_pricing` ma wartość `off`;
-2. tworzy sesję płatności Polar dla planu z wyłączonymi kodami rabatowymi;
-3. zwraca adres płatności, który otwiera przeglądarka.
+1. odmawia, zgłaszając `AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)`, gdy konto ma już licencję `active`. Przycisk pokazuje `errors.codes.LICENSE_ALREADY_ACTIVE` i odświeża licencję, więc strona pozostawiona otwarta od czasu zakupu przełącza się na licencję;
+2. szuka rabatu regionalnego przez `pppDiscountId` (`license.ppp.ts`): procentu dla kraju z `cf-ipcountry`, dopasowanego do aktywnych automatycznych rabatów procentowych w Polar, i pomija go, gdy ciasteczko `regional_pricing` ma wartość `off`;
+3. tworzy sesję płatności Polar dla planu z wyłączonymi kodami rabatowymi i adresem powrotu po udanej płatności `/app?checkoutId={CHECKOUT_ID}` w języku kupującego (`localizePathname`). Polar zastępuje `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) identyfikatorem płatności;
+4. zwraca adres płatności, który otwiera przeglądarka.
 
-Opłacona płatność wraca na `/app`.
+Licencja cofnięta po zwrocie pieniędzy (`revoked`) nie blokuje nowego zakupu.
+
+### Przejście na wyższy plan
+
+Konto ma jedną licencję, a nowsze opłacone zamówienie zastępuje plan starszego (`grantLicense`). Produkty Polar nie mają cen za przejście na wyższy plan, więc samodzielna zmiana pobrałaby pełną cenę wyższego planu oprócz pierwszego zakupu, a kupno niższego planu obniżyłoby licencję. Dlatego płatność jest odrzucana, dopóki licencja jest aktywna, a `LicenseCard` prosi właścicieli, by w sprawie zmiany planu napisali e-mail do pomocy. Zanim dopuścisz drugą płatność, utwórz w Polar produkty lub rabaty na przejście na wyższy plan.
+
+### Plan wybrany przed rejestracją
+
+Każdy przycisk planu na stronie głównej prowadzi do `/auth/sign-up?redirect=/app?tier=<tier>`. Ścieżka powrotu zostaje zachowana podczas rejestracji, weryfikacji adresu e-mail i logowania (`useAuthRedirect`), a odwiedzający, który jest już zalogowany, trafia prosto do niej. Layout `/app` sprawdza `tier` względem `LICENSE_TIER` za pomocą `appSearchSchema` (`src/data/app.ts`, zbudowanego z `searchParam`), a zarówno `/app`, jak i `/app/license` pokazują `ChosenTier` nad kartami planów: plan, jego cenę z rabatem regionalnym i przycisk **Przejdź do płatności**. Zablokowana lekcja kursu prowadzi do `/app/license?tier=complete`.
+
+### Po płatności
+
+Polar odsyła kupującego na `/app?checkoutId=<id>`, zwykle zanim webhook `order.paid` przyzna licencję. Dopóki `checkoutId` jest obecny, a licencja nie jest aktywna, strona ukrywa karty planów i pokazuje `CheckoutActivation`, który co 2 sekundy ponownie pobiera `currentLicenseQuery` (`ACTIVATION_POLL_MS`):
+
+- gdy licencja stanie się aktywna, dziękuje kupującemu, a licencja pojawia się poniżej;
+- po 60 sekundach (`ACTIVATION_TIMEOUT_MS`) bez licencji przestaje odpytywać i informuje, że Polar nie potwierdził jeszcze płatności, podając adres e-mail pomocy, identyfikator płatności jako numer referencyjny i przycisk **Sprawdź ponownie**.
+
+`checkoutId`, który nie jest UUID, jest ignorowany.
 
 ## Webhooki i licencje
 
@@ -42,7 +58,7 @@ Polar wysyła zdarzenia do `/api/auth/polar/webhooks`, weryfikowane za pomocą `
 
 ## Ekrany klienta
 
-`/app/license` wyświetla `LicenseCard` (plan, klucz, polecenie instalacji i link do portalu klienta Polar pod `/api/auth/customer/portal`) oraz `LicenseActivations`, który pokazuje aktywacje klucza w Polar i usuwa wybraną przez `deactivateLicense`. Zobacz [Aplikacja klienta](/docs/features/customer-app).
+`/app/license` wyświetla `LicenseCard` (plan, klucz, polecenie instalacji, link do portalu klienta Polar pod `/api/auth/customer/portal` i adres e-mail pomocy w sprawie zmiany planu) oraz `LicenseActivations`, który pokazuje aktywacje klucza w Polar i usuwa wybraną przez `deactivateLicense`. Zobacz [Aplikacja klienta](/docs/features/customer-app).
 
 ## Ekran administracyjny (demonstracyjny)
 
@@ -50,5 +66,6 @@ Polar wysyła zdarzenia do `/api/auth/polar/webhooks`, weryfikowane za pomocą `
 
 ## Powiązane strony
 
-- [Strona główna](/docs/features/landing-page) — ceny regionalne w sekcji cennika
+- [Strona główna](/docs/features/landing-page) — karty planów i ceny regionalne
+- [Aplikacja klienta](/docs/features/customer-app) — ekrany wokół płatności
 - [Zmienne środowiskowe](/docs/getting-started/environment-variables)

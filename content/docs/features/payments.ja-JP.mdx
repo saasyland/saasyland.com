@@ -9,28 +9,44 @@ description: "Polar の購入処理、カスタマーポータル、ライセン
 polarPlugin({
   client: polarCore,
   use: [
-    checkout({
-      authenticatedUsersOnly: true,
-      products: POLAR_CHECKOUT_PRODUCTS,
-      successUrl: ROUTES.APP,
-    }),
+    checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
     portal(),
     webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
   ],
 }),
 ```
 
+プラグイン自身の `POST /api/auth/checkout` は Better Auth の `disabledPaths` に登録されている（`ROUTES.API_AUTH.CHECKOUT`）ため、HTTP では 404 を返します。購入はすべて `startCheckout` サーバー関数から始まり、この関数は独自のチェックを行った後、サーバー上で `auth.api.checkout` を呼び出します。
+
 `src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に割引、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は割引の検索とライセンスキーの無効化の対象を絞り込みます。`POLAR_CHECKOUT_PRODUCTS` はプランのスラッグ `core`、`complete`、`agency` を `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付けます。
 
 ## 購入
 
-ライセンスを持たないサインイン済みユーザーには、`/app` と `/app/license` に `CheckoutOptions` が表示されます。このコンポーネントは `startCheckout`（`src/modules/license/use-cases/start-checkout.ts`）を呼び出し、次の処理を行います。
+有効なライセンスを持たないサインイン済みユーザーには、`/app` と `/app/license` に `LicenseOffer` が表示されます。ランディングページのプランのカード（`PricingTiers`。[ランディングページ](/docs/features/landing-page)を参照）にプランごとの `CheckoutButton` を付けたもので、地域価格のチェックボックス、購入条件、購入で視聴できるようになるコースのレッスンも表示されます。`startCheckout`（`src/modules/license/use-cases/start-checkout.ts`）は `{ locale, tier }` を受け取り、次の処理を行います。
 
-1. `pppDiscountId`（`license.ppp.ts`）で地域割引を探します。`cf-ipcountry` の国に対応する割引率を、Polar で有効な自動のパーセント割引と照合します。`regional_pricing` Cookie が `off` の場合は適用しません。
-2. 割引コードを無効にして、そのプランの Polar 購入セッションを作成します。
-3. 購入 URL を返し、ブラウザーがそれを開きます。
+1. アカウントにすでに `active` なライセンスがある場合は、`AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)` で拒否します。ボタンは `errors.codes.LICENSE_ALREADY_ACTIVE` を表示してライセンスを再取得するため、購入後も開いたままだったページはライセンスの表示に切り替わります。
+2. `pppDiscountId`（`license.ppp.ts`）で地域割引を探します。`cf-ipcountry` の国に対応する割引率を、Polar で有効な自動のパーセント割引と照合します。`regional_pricing` Cookie が `off` の場合は適用しません。
+3. 割引コードを無効にし、成功 URL を購入者の言語の `/app?checkoutId={CHECKOUT_ID}`（`localizePathname`）にして、そのプランの Polar 購入セッションを作成します。Polar は `{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）を購入セッションの ID に置き換えます。
+4. 購入 URL を返し、ブラウザーがそれを開きます。
 
-支払いが完了すると `/app` に戻ります。
+返金済み（`revoked`）のライセンスがあっても、新しい購入はできます。
+
+### アップグレード
+
+アカウントが持つライセンスは 1 つだけで、新しい支払い済みの注文は古い注文のプランを置き換えます（`grantLicense`）。Polar の商品にはアップグレード用の価格がないため、セルフサービスでアップグレードすると最初の購入に加えて上位プランの全額が請求され、下位プランを購入するとライセンスがダウングレードされてしまいます。そのため、ライセンスが有効な間は購入を拒否し、`LicenseCard` ではプランを変更したい場合はサポートにメールするよう所有者に案内します。2 回目の購入を許可する前に、Polar でアップグレード用の商品か割引を作成してください。
+
+### サインアップ前に選んだプラン
+
+ランディングページの各プランのボタンは `/auth/sign-up?redirect=/app?tier=<tier>` にリンクします。戻り先のパスはサインアップ、メール認証、サインインを経ても保持され（`useAuthRedirect`）、すでにサインインしている訪問者はそのまま戻り先に移動します。`/app` レイアウトは `appSearchSchema`（`src/data/app.ts`。`searchParam` で構築）で `tier` を `LICENSE_TIER` と照合し、`/app` と `/app/license` はどちらもプランのカードの上に `ChosenTier` を表示します。プラン、地域割引を適用した価格、**決済に進む** ボタンが含まれます。ロックされたコースのレッスンは `/app/license?tier=complete` にリンクします。
+
+### 支払い後
+
+Polar は購入者を `/app?checkoutId=<id>` に戻します。通常、これは `order.paid` Webhook がライセンスを付与するより前です。`checkoutId` があり、ライセンスがまだ有効でない間、ページはプランのカードを隠して `CheckoutActivation` を表示します。このコンポーネントは 2 秒ごと（`ACTIVATION_POLL_MS`）に `currentLicenseQuery` を再取得します。
+
+- ライセンスが有効になると購入者にお礼を表示し、その下にライセンスが表示されます。
+- 60 秒（`ACTIVATION_TIMEOUT_MS`）たってもライセンスがない場合は再取得を止め、Polar がまだ支払いを確認していないことを伝えます。あわせて、サポートのメールアドレス、問い合わせ用の番号としての購入セッション ID、**もう一度確認** ボタンを表示します。
+
+UUID ではない `checkoutId` は無視されます。
 
 ## Webhook とライセンス
 
@@ -42,7 +58,7 @@ Polar は `/api/auth/polar/webhooks` にイベントを送信し、`POLAR_WEBHOO
 
 ## 顧客向け画面
 
-`/app/license` は `LicenseCard`（プラン、キー、インストールコマンド、`/api/auth/customer/portal` の Polar カスタマーポータルへのリンク）と `LicenseActivations` を表示します。`LicenseActivations` は Polar 上のキーのアクティベーションを一覧表示し、`deactivateLicense` で個別に解除します。[顧客アプリ](/docs/features/customer-app)を参照してください。
+`/app/license` は `LicenseCard`（プラン、キー、インストールコマンド、`/api/auth/customer/portal` の Polar カスタマーポータルへのリンク、プラン変更の連絡先となるサポートのメールアドレス）と `LicenseActivations` を表示します。`LicenseActivations` は Polar 上のキーのアクティベーションを一覧表示し、`deactivateLicense` で個別に解除します。[顧客アプリ](/docs/features/customer-app)を参照してください。
 
 ## 管理画面（デモ）
 
@@ -50,5 +66,6 @@ Polar は `/api/auth/polar/webhooks` にイベントを送信し、`POLAR_WEBHOO
 
 ## 関連ページ
 
-- 料金セクションの地域別価格については[ランディングページ](/docs/features/landing-page)
+- プランのカードと地域別価格については[ランディングページ](/docs/features/landing-page)
+- 購入の前後の画面については[顧客アプリ](/docs/features/customer-app)
 - [環境変数](/docs/getting-started/environment-variables)

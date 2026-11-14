@@ -1,17 +1,17 @@
 ---
 title: "CI/CD"
-description: "チェック、ブラウザーテスト、デプロイのための GitHub Actions ワークフローです。"
+description: "チェック、ブラウザーテスト、デプロイ、リリースのための GitHub Actions ワークフローです。"
 ---
 
 ワークフローは `.github/workflows/` にあります。アプリケーションのワークフロー（`ci.yml`、`e2e-reusable.yml`、`deploy-reusable.yml`）は、コンポジットアクション `.github/actions/setup` でツールチェーンをセットアップします。内容は Bun 1.4.4、`.nvmrc` の Node バージョンを使う Vite+、Bun のキャッシュ、`bun install --frozen-lockfile --ignore-scripts`、`bun run typegen` です。`remotion.yml` は代わりに `.nvmrc` の Node と npm をセットアップします。
 
-| ワークフロー          | トリガー                                          | ジョブ                                                                        |
-| --------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `ci.yml`              | プルリクエストと `main` へのプッシュ              | チェックとカバレッジ、Chromium の E2E、その後プレビューまたは本番へのデプロイ |
-| `e2e-full.yml`        | `main` へのプッシュ、毎週月曜 03:15 UTC、手動実行 | プッシュ時は WebKit、スケジュール実行と手動実行では Chromium と WebKit        |
-| `e2e-reusable.yml`    | 上記のワークフローから呼び出し                    | テスト用データベース、テスト用ビルド、1 つの Playwright プロジェクト          |
-| `deploy-reusable.yml` | `ci.yml` から呼び出し                             | ビルド、D1 マイグレーション、`wrangler deploy`                                |
-| `remotion.yml`        | `remotion/` またはその共通定数の変更              | ランディングページの動画プロジェクトを npm でチェックしてバンドル             |
+| ワークフロー          | トリガー                                          | ジョブ                                                                                                |
+| --------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `ci.yml`              | プルリクエストと `main` へのプッシュ              | チェックとカバレッジ、Chromium の E2E、その後プレビューへのデプロイ、または本番へのデプロイとリリース |
+| `e2e-full.yml`        | `main` へのプッシュ、毎週月曜 03:15 UTC、手動実行 | プッシュ時は WebKit、スケジュール実行と手動実行では Chromium と WebKit                                |
+| `e2e-reusable.yml`    | 上記のワークフローから呼び出し                    | テスト用データベース、テスト用ビルド、1 つの Playwright プロジェクト                                  |
+| `deploy-reusable.yml` | `ci.yml` から呼び出し                             | ビルド、D1 マイグレーション、`wrangler deploy`                                                        |
+| `remotion.yml`        | `remotion/` またはその共通定数の変更              | ランディングページの動画プロジェクトを npm でチェックしてバンドル                                     |
 
 ## チェック
 
@@ -31,6 +31,23 @@ description: "チェック、ブラウザーテスト、デプロイのための
 `deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入ります。
 
 Dependabot は GitHub Actions を毎週更新します。
+
+## リリースとタグ [#releases-and-tags]
+
+サイトは継続的にデプロイされるため、バージョンはセマンティックバージョンではなく日付です。本番へのデプロイが成功すると、`ci.yml` の `release` ジョブがデプロイしたコミットに UTC の日付で `vYYYY.MM.DD` のタグを付け、GitHub Release を公開します。同じ日の 2 回目の本番デプロイには `vYYYY.MM.DD.2`、その次には `.3` というようにタグが付きます。プレビューへのデプロイにはタグを付けません。`contents: write` を持つジョブは `release` ジョブだけです。
+
+リリースノートは[変更履歴](/docs/project/changelog)のその日のセクションなので、変更の説明は 1 か所にまとまります。変更履歴にその日のセクションがない場合、リリースノートは変更履歴へのリンクになります。`scripts/publish-release.ts` が `src/lib/release.ts` でタグとリリースノートを決め、`gh release create` を実行します。再実行すると、コミットにすでに付いているタグをそのまま使い、既存のリリースは作り直しません。
+
+本番をあるリリースに戻すには、そのタグより後の変更をすべてプルリクエストで取り消します。
+
+```sh
+git fetch --tags origin
+git switch --create rollback/v2026.11.13 origin/main
+git revert --no-commit v2026.11.13..HEAD
+git commit --message "revert: roll back to v2026.11.13"
+```
+
+マージすると、通常のチェックを経てタグのコードがデプロイされ、新しいリリースとしてタグが付きます。D1 のマイグレーションは元に戻らないため、古いコードが新しいスキーマ上で動きます。スキーマの変更はすべて、その前にデプロイされていたアプリケーションで動作しなければならないので、1 つ前のリリースに戻すのは安全です。それより前に戻す場合は、間のマイグレーションを確認してください。
 
 ## 関連ガイド
 

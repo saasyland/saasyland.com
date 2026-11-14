@@ -1,17 +1,17 @@
 ---
 title: "CI/CD"
-description: "Workflowy GitHub Actions dla kontroli, testów przeglądarkowych i wdrożeń."
+description: "Workflowy GitHub Actions dla kontroli, testów przeglądarkowych, wdrożeń i wydań."
 ---
 
 Workflowy znajdują się w `.github/workflows/`. Workflowy aplikacji (`ci.yml`, `e2e-reusable.yml` i `deploy-reusable.yml`) konfigurują zestaw narzędzi za pomocą akcji złożonej `.github/actions/setup`: Bun 1.4.4, Vite+ z wersją Node z `.nvmrc`, cache Buna, `bun install --frozen-lockfile --ignore-scripts` i `bun run typegen`. `remotion.yml` konfiguruje zamiast tego Node z `.nvmrc` i npm.
 
-| Workflow              | Wyzwalacz                                                       | Zadania                                                                            |
-| --------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `ci.yml`              | Pull requesty i pushe do `main`                                 | Kontrole i pokrycie, E2E w Chromium, następnie wdrożenie preview lub produkcyjne   |
-| `e2e-full.yml`        | Pushe do `main`, co tydzień w poniedziałek o 03:15 UTC, ręcznie | WebKit przy pushu; Chromium i WebKit przy uruchomieniach z harmonogramu i ręcznych |
-| `e2e-reusable.yml`    | Wywoływany przez powyższe workflowy                             | Testowa baza danych, testowy build i jeden projekt Playwright                      |
-| `deploy-reusable.yml` | Wywoływany przez `ci.yml`                                       | Build, migracje D1 i `wrangler deploy`                                             |
-| `remotion.yml`        | Zmiany w `remotion/` lub w jego wspólnych stałych               | Sprawdza i pakuje projekt wideo strony głównej za pomocą npm                       |
+| Workflow              | Wyzwalacz                                                       | Zadania                                                                                      |
+| --------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `ci.yml`              | Pull requesty i pushe do `main`                                 | Kontrole i pokrycie, E2E w Chromium, następnie wdrożenie preview albo produkcyjne z wydaniem |
+| `e2e-full.yml`        | Pushe do `main`, co tydzień w poniedziałek o 03:15 UTC, ręcznie | WebKit przy pushu; Chromium i WebKit przy uruchomieniach z harmonogramu i ręcznych           |
+| `e2e-reusable.yml`    | Wywoływany przez powyższe workflowy                             | Testowa baza danych, testowy build i jeden projekt Playwright                                |
+| `deploy-reusable.yml` | Wywoływany przez `ci.yml`                                       | Build, migracje D1 i `wrangler deploy`                                                       |
+| `remotion.yml`        | Zmiany w `remotion/` lub w jego wspólnych stałych               | Sprawdza i pakuje projekt wideo strony głównej za pomocą npm                                 |
 
 ## Kontrole
 
@@ -31,6 +31,23 @@ Pull requesty z forków i od Dependabota są walidowane, ale nie są wdrażane. 
 `deploy-reusable.yml` sprawdza obecność sekretów `CLOUDFLARE_API_TOKEN` i `CLOUDFLARE_ACCOUNT_ID`, uruchamia `scripts/verify-bindings.ts`, buduje aplikację z fikcyjnymi wartościami z `.env.test`, usuwa wygenerowany `dist/server/.dev.vars`, stosuje `db:migrate:<target>` i uruchamia `vp exec wrangler deploy --config dist/server/wrangler.json`. Nie uruchamia `scripts/verify-deployment.ts`, czyli sprawdzenia działającej witryny ze skryptów `deploy:<target>`, ponieważ ochrona Cloudflare przed botami odpowiada kodem 403 na żądania z runnerów CI. Żaden plik sekretów nie jest przesyłany: Worker zachowuje sekrety środowiska uruchomieniowego ustawione już w Cloudflare. Wdrożenia do tego samego celu czekają w kolejce, zamiast wzajemnie się anulować.
 
 Dependabot co tydzień aktualizuje akcje GitHub Actions.
+
+## Wydania i tagi [#releases-and-tags]
+
+Witryna jest wdrażana w sposób ciągły, więc jej wersjami są daty, a nie wersje semantyczne. Gdy wdrożenie produkcyjne zakończy się sukcesem, zadanie `release` w `ci.yml` oznacza wdrożony commit tagiem `vYYYY.MM.DD` z datą UTC i publikuje dla niego GitHub Release. Drugie wdrożenie produkcyjne tego samego dnia dostaje tag `vYYYY.MM.DD.2`, kolejne `.3` i tak dalej. Wdrożenia preview nigdy nie dostają tagu. Zadanie `release` jako jedyne ma `contents: write`.
+
+Notatki do wydania to sekcja danego dnia z [historii zmian](/docs/project/changelog), więc każda zmiana jest opisana w jednym miejscu; gdy historia zmian nie ma sekcji dla tego dnia, notatki zawierają link do niej. `scripts/publish-release.ts` wybiera tag i notatki za pomocą `src/lib/release.ts` i uruchamia `gh release create`. Ponowne uruchomienie zachowuje tag, który commit już ma, i pomija wydanie, które już istnieje.
+
+Aby przywrócić produkcję do wybranego wydania, wycofaj w pull requeście wszystko, co nastąpiło po jego tagu:
+
+```sh
+git fetch --tags origin
+git switch --create rollback/v2026.11.13 origin/main
+git revert --no-commit v2026.11.13..HEAD
+git commit --message "revert: roll back to v2026.11.13"
+```
+
+Po scaleniu kod z tagu zostaje wdrożony po zwykłych kontrolach i oznaczony jako nowe wydanie. Migracje D1 nie są wycofywane, więc starszy kod działa na nowszym schemacie. Każda zmiana schematu musi działać z aplikacją wdrożoną przed nią, dlatego powrót do poprzedniego wydania jest bezpieczny; zanim cofniesz się dalej, przeczytaj migracje dodane w międzyczasie.
 
 ## Powiązane przewodniki
 

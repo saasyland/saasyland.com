@@ -5,6 +5,8 @@ import { expect, test } from "../fixtures/test"
 import { BasePage, LandingPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
+const LANDING_CPU_SLOWDOWN = 4
+
 test.describe("auth routing", () => {
   test("unauthenticated /admin redirects to sign-in", async ({ page }) => {
     const response = await page.goto("/admin", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -98,4 +100,31 @@ test("client navigation rechecks an ended session despite cached workspace data"
   await expect(page).toHaveURL(/\/auth\/sign-up$/u)
   await appPage.waitForAppReady()
   await expect(page.locator("#sign-up-form")).toBeVisible()
+})
+
+test("a signed-in visitor who presses a header link while the landing page hydrates opens the workspace without a hydration error", async ({
+  appPage,
+  baseURL,
+  browserName,
+  page,
+}) => {
+  const customer = TEST_ACCOUNTS[1]
+  const errors: string[] = []
+  page.on("pageerror", (error) => errors.push(error.message))
+  const signedIn = await page.request.post("/api/auth/sign-in/email", {
+    data: { email: customer.email, password: TEST_PASSWORD },
+    headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+  })
+  expect(signedIn.ok()).toBe(true)
+  if (browserName === "chromium") {
+    const devtools = await page.context().newCDPSession(page)
+    await devtools.send("Emulation.setCPUThrottlingRate", { rate: LANDING_CPU_SLOWDOWN })
+  }
+  await page.goto("/", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+  await page.getByRole("banner").locator('a[href^="/auth/sign-in"]').first().click()
+  await expect(page).toHaveURL(/\/app\/?$/u)
+  await appPage.waitForAppReady()
+  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible()
+  expect(errors).toEqual([])
 })

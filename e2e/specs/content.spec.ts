@@ -3,15 +3,22 @@ import { readFileSync } from "node:fs"
 import { expect, test } from "../fixtures/test"
 
 const INSTALLATION_TITLE = /^title: "(?<title>.+)"$/mu.exec(readFileSync("content/docs/getting-started/installation.en-US.mdx", "utf8"))?.groups?.["title"]
+const ENGLISH_MDX_CHUNK = /\/assets\/[\w.-]+\.en-US-[\w-]+\.js$/u
 
-test("documentation loads MDX and follows a sidebar link through the router", async ({ appPage, page }) => {
+test("documentation loads MDX and follows a sidebar link through the router before the page's MDX has loaded", async ({ appPage, page }) => {
   const errors: string[] = []
   page.on("pageerror", (error) => errors.push(error.message))
+  const mdx = Promise.withResolvers<void>()
+  await page.route(ENGLISH_MDX_CHUNK, async (route) => {
+    await mdx.promise
+    await route.continue()
+  })
   await page.goto("/docs/getting-started")
   await appPage.waitForAppReady()
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
   await page.evaluate(() => (document.documentElement.dataset["docsNavigation"] = "same-document"))
   await page.locator('a[href="/docs/getting-started/installation"]').first().click()
+  mdx.resolve()
   await expect(page).toHaveURL(/\/docs\/getting-started\/installation$/u)
   expect(INSTALLATION_TITLE).toBeDefined()
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(INSTALLATION_TITLE ?? "")

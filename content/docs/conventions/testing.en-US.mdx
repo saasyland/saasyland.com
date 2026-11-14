@@ -9,13 +9,13 @@ Every change ships with the tests that prove it, in the same commit, and coverag
 
 `vite.config.ts` defines three Vitest projects, chosen by the file suffix. Tests import their API from `vite-plus/test` and live in `__test__/` beside the code they cover.
 
-| Suffix                 | Project       | Use it for                                                                       |
-| ---------------------- | ------------- | -------------------------------------------------------------------------------- |
-| `.test.ts`             | `node`        | Use cases, loaders, `head`, schemas, utilities: anything that runs on the server |
-| `.integration.test.ts` | `integration` | Better Auth flows, the D1 adapter and message loading, with 20-second timeouts   |
-| `.component.test.tsx`  | `component`   | Components and pages in jsdom                                                    |
+| Suffix                 | Project       | Use it for                                                                                          |
+| ---------------------- | ------------- | --------------------------------------------------------------------------------------------------- |
+| `.test.ts`             | `node`        | Use cases, loaders, `head`, schemas, utilities: anything that runs on the server                    |
+| `.integration.test.ts` | `integration` | Better Auth, payment and licence flows, the D1 adapter and message loading, with 20-second timeouts |
+| `.component.test.tsx`  | `component`   | Components and pages in jsdom                                                                       |
 
-`src/platform/testing/mocks/cloudflare.ts` replaces `cloudflare:workers` in every project: D1 is an in-memory `node:sqlite` database built from every checked-in migration, KV and the `MEDIA` bucket are in-memory stores. `resetTestBindings()` empties KV, the bucket and the rate-limit table before each test, and each suite's seed function resets the rows it depends on. No test talks to Cloudflare, Polar, Resend or an OAuth provider.
+`src/platform/testing/mocks/cloudflare.ts` replaces `cloudflare:workers` in every project: D1 is an in-memory `node:sqlite` database built from every checked-in migration, KV and the `MEDIA` bucket are in-memory stores. `resetTestBindings()` empties KV, the bucket and the rate-limit table before each test, and each suite's seed function resets the rows it depends on. No test talks to Cloudflare, Polar, Resend or an OAuth provider: `fetch` reaches the strict doubles in `mocks/resend.ts` and `mocks/polar.ts`, which validate every request against the SDKs' request models and fail the test on one the provider would refuse. Tests assert what the double received instead of mocking an SDK method, and auth suites drive the real `auth.server.ts` configuration through `auth.harness.ts`.
 
 ## Testing a server function
 
@@ -58,7 +58,7 @@ describe("getCourses", () => {
 
 - Expected statuses, kinds, roles and error codes are the constants the code uses: `COURSE_STATUS.DRAFT`, `ROLE_CODES.ADMIN`, `rejects.toThrow(ERROR_CODES.FORBIDDEN)`. A test never repeats a domain string literal, and neither does the e2e data or the test seed: `e2e/data/courses.ts` writes `kind: COURSE_KIND.COURSE`.
 - Schema tests are the one place a stored value is written out: `product.schema.test.ts` pins `expect(PRODUCT_STATUSES).toStrictEqual(["draft", "published", "archived"])`, so changing a value the database holds fails a test instead of needing a migration nobody wrote.
-- The browser suite imports its constants from the application (`LICENSE_TIER`, `ROLE_CODES`, `I18N.SUPPORTED_LOCALES`), so it can import only files that load outside the Worker. The one provider value it declares itself is the paid order in `e2e/fixtures/polar.ts`, because `polar.constants.ts` reads `cloudflare:workers` and is server-only.
+- The browser suite imports its constants from the application (`LICENSE_TIER`, `ROLE_CODES`, `I18N.SUPPORTED_LOCALES`), so it can import only files that load outside the Worker. The one provider value it declares itself is the paid order status in `e2e/fixtures/polar.ts`, because `polar.constants.ts` reads `cloudflare:workers` and is server-only; the order itself comes from `src/platform/testing/lib/polar.ts`.
 - Component tests read expected copy from the English message files, as `admin-course-routes.component.test.tsx` does with `import labels from "~/messages/en-US/pages.admin.courses.json"` and `labels.form.kinds.course`, and find elements by role and accessible name.
 - A test that needs a type reads it from a typed source or checks it at runtime with `toHaveProperty`; it never casts.
 - Test names describe behaviour as a sentence: "lists every course with its lesson count, drafts included".

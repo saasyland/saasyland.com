@@ -46,7 +46,7 @@ const renderForm = () => {
     </IntlProvider>,
     { queryClient },
   )
-  return { queryClient, user: userEvent.setup() }
+  return { queryClient, user: userEvent.setup({ delay: null }) }
 }
 
 beforeEach(() => {

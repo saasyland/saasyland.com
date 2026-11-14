@@ -9,13 +9,13 @@ Ogni modifica viene rilasciata con i test che la dimostrano, nello stesso commit
 
 `vite.config.ts` definisce tre progetti Vitest, scelti in base al suffisso del file. I test importano la propria API da `vite-plus/test` e si trovano in `__test__/` accanto al codice che coprono.
 
-| Suffisso               | Progetto      | Da usare per                                                                                 |
-| ---------------------- | ------------- | -------------------------------------------------------------------------------------------- |
-| `.test.ts`             | `node`        | Casi d'uso, loader, `head`, schemi, utility: tutto ciò che viene eseguito sul server         |
-| `.integration.test.ts` | `integration` | Flussi di Better Auth, l'adapter D1 e il caricamento dei messaggi, con timeout di 20 secondi |
-| `.component.test.tsx`  | `component`   | Componenti e pagine in jsdom                                                                 |
+| Suffisso               | Progetto      | Da usare per                                                                                                            |
+| ---------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `.test.ts`             | `node`        | Casi d'uso, loader, `head`, schemi, utility: tutto ciò che viene eseguito sul server                                    |
+| `.integration.test.ts` | `integration` | Flussi di Better Auth, di pagamento e di licenza, l'adapter D1 e il caricamento dei messaggi, con timeout di 20 secondi |
+| `.component.test.tsx`  | `component`   | Componenti e pagine in jsdom                                                                                            |
 
-`src/platform/testing/mocks/cloudflare.ts` sostituisce `cloudflare:workers` in ogni progetto: D1 è un database `node:sqlite` in memoria costruito da ogni migrazione versionata, KV e il bucket `MEDIA` sono store in memoria. `resetTestBindings()` svuota KV, il bucket e la tabella dei limiti di richieste prima di ogni test, e la funzione di seed di ogni suite reimposta le righe da cui dipende. Nessun test comunica con Cloudflare, Polar, Resend o un provider OAuth.
+`src/platform/testing/mocks/cloudflare.ts` sostituisce `cloudflare:workers` in ogni progetto: D1 è un database `node:sqlite` in memoria costruito da ogni migrazione versionata, KV e il bucket `MEDIA` sono store in memoria. `resetTestBindings()` svuota KV, il bucket e la tabella dei limiti di richieste prima di ogni test, e la funzione di seed di ogni suite reimposta le righe da cui dipende. Nessun test comunica con Cloudflare, Polar, Resend o un provider OAuth: `fetch` raggiunge i test double rigorosi in `mocks/resend.ts` e `mocks/polar.ts`, che validano ogni richiesta rispetto ai modelli di richiesta degli SDK e fanno fallire il test per una richiesta che il provider rifiuterebbe. I test verificano ciò che il test double ha ricevuto invece di fare il mock di un metodo dell'SDK, e le suite di autenticazione pilotano la vera configurazione di `auth.server.ts` tramite `auth.harness.ts`.
 
 ## Testare una server function
 
@@ -58,7 +58,7 @@ describe("getCourses", () => {
 
 - Gli stati, le tipologie, i ruoli e i codici di errore attesi sono le costanti che usa il codice: `COURSE_STATUS.DRAFT`, `ROLE_CODES.ADMIN`, `rejects.toThrow(ERROR_CODES.FORBIDDEN)`. Un test non ripete mai un letterale stringa di dominio, e non lo fanno nemmeno i dati e2e o il seed di test: `e2e/data/courses.ts` scrive `kind: COURSE_KIND.COURSE`.
 - I test dello schema sono l'unico posto in cui un valore memorizzato si scrive per esteso: `product.schema.test.ts` fissa `expect(PRODUCT_STATUSES).toStrictEqual(["draft", "published", "archived"])`, così modificare un valore salvato nel database fa fallire un test invece di richiedere una migrazione che nessuno ha scritto.
-- La suite del browser importa le sue costanti dall'applicazione (`LICENSE_TIER`, `ROLE_CODES`, `I18N.SUPPORTED_LOCALES`), quindi può importare solo file che si caricano fuori dal Worker. L'unico valore di un provider che dichiara da sé è l'ordine pagato in `e2e/fixtures/polar.ts`, perché `polar.constants.ts` legge `cloudflare:workers` ed è solo server.
+- La suite del browser importa le sue costanti dall'applicazione (`LICENSE_TIER`, `ROLE_CODES`, `I18N.SUPPORTED_LOCALES`), quindi può importare solo file che si caricano fuori dal Worker. L'unico valore di un provider che dichiara da sé è lo stato dell'ordine pagato in `e2e/fixtures/polar.ts`, perché `polar.constants.ts` legge `cloudflare:workers` ed è solo server; l'ordine stesso viene da `src/platform/testing/lib/polar.ts`.
 - I test dei componenti leggono i testi attesi dai file di messaggi inglesi, come fa `admin-course-routes.component.test.tsx` con `import labels from "~/messages/en-US/pages.admin.courses.json"` e `labels.form.kinds.course`, e trovano gli elementi per ruolo e nome accessibile.
 - Un test che ha bisogno di un tipo lo legge da una sorgente tipizzata o lo verifica a runtime con `toHaveProperty`; non fa mai cast.
 - I nomi dei test descrivono il comportamento con una frase: "lists every course with its lesson count, drafts included".

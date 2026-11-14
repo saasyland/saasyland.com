@@ -32,7 +32,8 @@ Form / API validation schemas keep their own names (e.g. `auth.zod.test.ts` besi
 - `setup.ts` — registers jest-dom matchers and shared test hooks; loaded by `test.setupFiles` in root `vite.config.ts`
 - `.env.test` supplies the dummy test credentials. Vite+ loads them through `test.env`; Cloudflare loads them for its named `test` environment.
 - `mocks/cloudflare.ts` and `mocks/wrksz-themes.ts` — local binding and theme adapters used across suites
-- `lib/` — small shared helpers imported from many suites (URL/cookie helpers, nullable DB fixtures, component test utilities)
+- `mocks/resend.ts` and `mocks/polar.ts` — strict doubles of the Resend and Polar APIs; `mocks/providers.ts` routes `fetch` to them
+- `lib/` — small shared helpers imported from many suites (URL/cookie helpers, nullable DB fixtures, component test utilities, Polar models and signed webhooks)
 
 Everything else is colocated with its owner.
 
@@ -67,15 +68,26 @@ Routes in `src/routes/` compose pages and preload queries. Widgets, dialogs, for
 
 Use cases live in `src/modules/{table}/use-cases/`. They validate inputs and enforce their own authorization through native TanStack Start middleware. Vendor setup and adapters live in `src/integrations/{vendor}/`. Presentation components consume query/mutation options and never import database or provider clients directly.
 
+## Provider doubles
+
+`setup.ts` replaces `fetch` with `fetchFromProviders` before every test, so the app's own Resend and Polar SDK clients reach the doubles exactly as they reach the real APIs in production. Each double checks the request the way the provider would and answers like it:
+
+- `mocks/resend.ts` serves `POST /emails`. It requires the `RESEND_API_KEY` bearer token, validates the body with a strict Zod schema whose fields are typed against the SDK's `EmailApiOptions`, and replays a repeated `Idempotency-Key` instead of delivering twice. `getSentEmails()` returns the delivered emails, rendered HTML included.
+- `mocks/polar.ts` serves the five endpoints the app calls: create a checkout, list discounts, get a licence key, deactivate an activation and get an order. It requires `POLAR_ACCESS_TOKEN`, validates bodies and queries with strict schemas typed against the SDK's `models`, refuses products and discounts the organization does not have, and answers with complete `models.Checkout`, `models.Order` and `models.LicenseKeyWithActivations` objects. The catalogue is the app's own: the product IDs from `POLAR_PRODUCT_IDS`, the prices from `TIER_PRICES` and one automatic discount per regional pricing tier. Tests drive the purchase with `payPolarCheckout`, `grantPolarLicenseKey`, `refundPolarOrder`, `revokePolarLicenseKey` and `activatePolarLicenseKey`.
+
+A request the provider would refuse or an endpoint the app does not use is answered as the provider would answer it and recorded; the shared `afterEach` fails the test if anything was recorded, even when the app swallowed the error. Any other host fails as if the machine were offline. `lib/polar.ts` builds the Polar models and signs webhooks with the Standard Webhooks scheme, for the integration suites and for `e2e/fixtures/polar.ts`.
+
 ## Auth integration harness
 
-`src/integrations/better-auth/__test__/fixtures/auth.test-instance.ts` wraps Better Auth’s `getTestInstance` (Vitest-only). Do not import `better-auth/test` outside Vitest—it registers `afterAll` hooks at module load.
+The Better Auth suites run against the real `auth` from `src/integrations/better-auth/auth.server.ts`, with the in-memory D1 and the provider doubles as its only boundaries. `src/integrations/better-auth/__test__/fixtures/auth.harness.ts` signs up, verifies and signs in through `auth.api` with the headers a browser sends, and reads tokens from the emails the Resend double delivered.
 
 Session fixtures for use-case tests: `__test__/fixtures/auth.session.fixture.ts`.
 
-`auth.signup.integration.test.ts` exercises the production signup server function, Better Auth configuration, database adapter, email templates, and Resend SDK. Better Auth hands verification delivery to `waitUntil`, so the test awaits `flushWaitUntil()` from `mocks/cloudflare.ts` and then checks the captured outbound HTTP requests for fresh and repeated signups.
+`src/modules/license/__test__/license-purchase.integration.test.ts` runs the whole purchase on the server: `startCheckout` against the Polar double, then signed `order.paid`, `benefit_grant.created`, `order.refunded` and `benefit_grant.revoked` webhooks through Better Auth's Polar endpoint, in order, out of order, twice and with bad signatures, and the activation listing and deactivation.
 
-Browser tests use `worker.ts` and `mocks/providers.ts` with isolated local bindings. The test Worker exposes captured email payloads at `/__test/emails?to=...`, allowing Playwright to follow the actual verification link. This endpoint and provider interception belong only to the test entry; deployed builds use `src/server.ts`.
+Better Auth hands email delivery to `waitUntil`, so suites await `flushWaitUntil()` from `mocks/cloudflare.ts` before reading `getSentEmails()`.
+
+Browser tests use `worker.ts`, which installs the same provider doubles for Resend and Polar in the test Worker. The test Worker exposes captured email payloads at `/__test/emails?to=...`, allowing Playwright to follow the actual verification link. This endpoint and provider interception belong only to the test entry; deployed builds use `src/server.ts`.
 
 ## Vite+ and the browser test app
 

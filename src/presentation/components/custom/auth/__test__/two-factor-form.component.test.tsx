@@ -42,7 +42,7 @@ const setup = () => {
     { router },
   )
   result.queryClient.setQueryData(["private-session"], { userId: "user-1" })
-  return { ...result, clearCache, navigate, user: userEvent.setup() }
+  return { ...result, clearCache, navigate, user: userEvent.setup({ delay: null }) }
 }
 
 beforeEach(() => {

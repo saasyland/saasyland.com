@@ -1,9 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
 import { CopyButton } from "~/src/presentation/components/custom/copy-button"
+
+const CONFIRMATION_MS = 2000
 
 const writeText = vi.fn<(value: string) => Promise<void>>()
 
@@ -25,16 +27,19 @@ const renderButton = () => {
 describe("copy command", () => {
   it("copies the exact command and resets the confirmation after two seconds", async () => {
     writeText.mockResolvedValue(undefined)
+    vi.useFakeTimers()
     renderButton()
-    fireEvent.click(screen.getByRole("button", { name: "Copy command" }))
-    await screen.findByRole("button", { name: "Copied" })
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Copy command" }))
+      await Promise.resolve()
+    })
+    expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument()
     expect(writeText).toHaveBeenCalledExactlyOnceWith("bunx saasyland init")
-    await waitFor(
-      () => {
-        expect(screen.getByRole("button", { name: "Copy command" })).toBeInTheDocument()
-      },
-      { timeout: 3000 },
-    )
+
+    await act(() => vi.advanceTimersByTimeAsync(CONFIRMATION_MS - 1))
+    expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(1))
+    expect(screen.getByRole("button", { name: "Copy command" })).toBeInTheDocument()
   })
 
   it("keeps the copy action available after clipboard permission is denied", async () => {

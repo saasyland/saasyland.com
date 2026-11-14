@@ -35,7 +35,7 @@ Używaj `bun run test`, a nie `bun test`: tylko Vitest wczytuje projekty, środo
 
 - `src/platform/testing/setup.ts` rejestruje matchery jest-dom, resetuje bindingi przed każdym testem i przepuszcza każde `createServerFn` przez `withTestRpc`, więc wywołania uruchamiają prawdziwe middleware i walidator. Dotyczy to projektów `node` i `integration`. W projekcie `component` funkcja serwerowa kończy się błędem, ponieważ jsdom jest przeglądarką.
 - `cloudflare:workers` wskazuje na `src/platform/testing/mocks/cloudflare.ts`. D1 to baza SQLite w pamięci z zastosowanymi wszystkimi zatwierdzonymi migracjami, KV i bucket R2 `MEDIA` to mapy w pamięci, a `flushWaitUntil()` czeka na zadania w tle. `createEdgeCache()` z `mocks/cache.ts` zastępuje cache Workers zaślepką.
-- `.env.test` dostarcza fikcyjne dane dostępowe. Wywołania e-mail, OAuth i płatności są mockowane; nic nie opuszcza komputera.
+- `.env.test` dostarcza fikcyjne dane dostępowe. `fetch` trafia do ścisłych dublerów Resend i Polar (`mocks/resend.ts`, `mocks/polar.ts`), a żądanie do każdego innego hosta kończy się błędem, jakby komputer był offline, więc nic go nie opuszcza. Żądanie, które dostawca by odrzucił, kończy test błędem.
 - `renderWithRouter` z `src/platform/testing/lib/render.tsx` renderuje komponenty z prawdziwym routerem i `QueryClient`.
 
 ## Przetestuj przypadek użycia
@@ -76,9 +76,27 @@ describe("create-category", () => {
 
 Testuj każdy wynik przypadku użycia: sukces, każdy kod `AppError`, brak sesji i brak uprawnienia. Wartości domenowe i kody błędów pochodzą z ich stałych (`CATEGORY_KIND`, `ERROR_CODES`), nigdy z powtarzanych napisów.
 
+## Przetestuj wywołania Resend i Polar
+
+Nie mockuj SDK Resend ani Polar. Wywołaj kod, który wysyła żądanie, i sprawdź, co otrzymał dubler. `getSentEmails(recipient)` z `mocks/resend.ts` zwraca dostarczone e-maile wraz z wyrenderowanym HTML-em i kluczem idempotencji; `mocks/polar.ts` przechowuje sesje płatności, zamówienia i klucze licencyjne, a jego funkcje posuwają zakup naprzód: `payPolarCheckout`, `grantPolarLicenseKey`, `refundPolarOrder`, `revokePolarLicenseKey` i `activatePolarLicenseKey`. Skrócona wersja `src/modules/license/__test__/license-purchase.integration.test.ts`:
+
+```ts
+const buyer = await signUpAndVerify()
+const order = await paidOrder(buyer, LICENSE_TIER.COMPLETE)
+
+expect(await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, order)).toBe(HTTP_STATUS.OK)
+expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIVE, tier: LICENSE_TIER.COMPLETE })
+```
+
+`paidOrder` tworzy sesję płatności przez prawdziwe `startCheckout` i opłaca ją w dublerze. `deliver` podpisuje zdarzenie przez `signedPolarWebhook` z `lib/polar.ts`, wysyła je do endpointu Polar w Better Auth i zwraca status odpowiedzi, więc wykonują się weryfikacja podpisu, wtyczka i handlery z `license.webhooks.ts`. Aby sprawdzić, jak aplikacja radzi sobie z awarią dostawcy, odpowiedz na pojedyncze żądanie błędem dostawcy, tak jak robi to `resend.utils.test.ts`: `vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(error, { status }))`.
+
+## Przetestuj przepływ uwierzytelniania
+
+Zestawy testów uwierzytelniania działają na prawdziwym `auth` z `auth.server.ts`. `src/integrations/better-auth/__test__/fixtures/auth.harness.ts` tworzy konta tak, jak robi to odwiedzający: `signUp`, `verifyEmail` (który używa tokenu z dostarczonego e-maila i zwraca otwartą przez niego sesję), `signIn` i `signUpAndVerify`. `browserHeaders()` nadaje każdemu żądaniu własny `CF-Connecting-IP`, więc limity żądań Better Auth działają jak na produkcji, a żaden test nie wyczerpuje limitu innego. Zanim odczytasz e-mail, który Better Auth wysyła w tle, zaczekaj na `flushWaitUntil()`.
+
 ## Przetestuj komponent
 
-Testy komponentów renderują z prawdziwymi komunikatami z `messages/en-US`, mockują moduł przypadku użycia, który dostarcza opcje mutacji, i sterują interfejsem przez Testing Library oraz `userEvent`. W stanach oczekiwania wstrzymaj mockowane żądanie przez `Promise.withResolvers()`, sprawdź interfejs oczekiwania, a potem rozwiąż żądanie wewnątrz `act` i sprawdź interfejs spoczynkowy. Kompletnym przykładem jest `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx`. Test trasy przekazuje trasie dane loadera, a test `node` pokrywa loader przez `getRouter()`: `src/routes/__test__/marketing-routes.component.test.tsx` i `marketing-loaders.test.ts` to dwie połowy.
+Testy komponentów renderują z prawdziwymi komunikatami z `messages/en-US`, mockują moduł przypadku użycia, który dostarcza opcje mutacji, i sterują interfejsem przez Testing Library oraz `userEvent`. W stanach oczekiwania wstrzymaj mockowane żądanie przez `Promise.withResolvers()`, sprawdź interfejs oczekiwania, a potem rozwiąż żądanie wewnątrz `act` i sprawdź interfejs spoczynkowy. Komponent, który zmienia się po upływie czasu, testuje się fałszywymi timerami (`vi.useFakeTimers()`, a potem `vi.advanceTimersByTimeAsync` wewnątrz `act`), nigdy czekaniem w czasie rzeczywistym, a `QueryClient` w teście trasy utrzymuje dane pobrane przez loader jako świeże (`staleTime: Infinity`), więc szybkość renderowania na danej maszynie nigdy nie wpływa na to, ile razy wykona się zapytanie. `userEvent.setup({ delay: null })` steruje interfejsem bez prawdziwego timera między naciśnięciami klawiszy. Kompletnym przykładem jest `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx`. Test trasy przekazuje trasie dane loadera, a test `node` pokrywa loader przez `getRouter()`: `src/routes/__test__/marketing-routes.component.test.tsx` i `marketing-loaders.test.ts` to dwie połowy.
 
 ## Testy przeglądarkowe
 
@@ -91,7 +109,7 @@ bun run test:e2e:smoke
 bun run test:e2e:ui
 ```
 
-Testowy Worker zapisuje wysłane e-maile, więc specyfikacja może odczytać link weryfikacyjny z `/__test/emails?to=<address>`.
+Testowy Worker instaluje te same dublery Resend i Polar i zapisuje wysłane e-maile, więc specyfikacja może odczytać link weryfikacyjny z `/__test/emails?to=<address>`. `deliverPaidOrder` z `e2e/fixtures/polar.ts` wysyła kompletne zdarzenie `order.paid`, podpisane tak jak zdarzenia zestawów testów integracyjnych.
 
 ## Przed wypchnięciem zmian
 

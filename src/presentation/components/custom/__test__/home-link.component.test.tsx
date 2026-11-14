@@ -40,7 +40,7 @@ afterEach(() => {
 
 describe("logo on the landing page", () => {
   it("scrolls back to the top instead of reloading the page it is already on", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const { router } = renderHomeLink(ROUTES.HOME)
     const load = vi.spyOn(router, "load")
 
@@ -53,7 +53,7 @@ describe("logo on the landing page", () => {
   })
 
   it("clears the section hash without adding a history entry or resetting the smooth scroll", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const { router } = renderHomeLink(`${ROUTES.HOME}#pricing`)
     const entries = router.history.length
 
@@ -79,7 +79,7 @@ describe("logo on the landing page", () => {
 
 describe("logo on another page", () => {
   it("navigates home as a normal link", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const { router } = renderHomeLink(ROUTES.BLOG)
 
     await user.click(logo())

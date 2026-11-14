@@ -64,7 +64,7 @@ vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
 }))
 
 const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
   const root = createRootRouteWithContext<RouterContext>()({
     component: () => (
       <AriaProvider>
@@ -92,7 +92,7 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
     </QueryClientProvider>,
   )
   await act(() => router.load())
-  return { queryClient, router, user: userEvent.setup() }
+  return { queryClient, router, user: userEvent.setup({ delay: null }) }
 }
 
 beforeEach(() => {

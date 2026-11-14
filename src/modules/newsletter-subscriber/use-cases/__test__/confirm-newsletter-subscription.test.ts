@@ -1,10 +1,9 @@
 import type * as StartServerModule from "@tanstack/react-start/server"
 import { createHash } from "node:crypto"
-import type { Resend } from "resend"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { executeMutation } from "~/src/platform/testing/lib/query"
+import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
 import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
@@ -26,8 +25,6 @@ const ADDRESS = "ada@example.com"
 
 const SINGLE_CALL = 1
 
-const resendSendMock = vi.hoisted(() => vi.fn<Resend["emails"]["send"]>())
-
 const dbMocks = vi.hoisted(() => {
   const returning = vi.fn<() => Promise<{ email: string; locale: string }[]>>()
   const where = vi.fn<() => { returning: typeof returning }>().mockReturnValue({ returning })
@@ -39,11 +36,6 @@ const dbMocks = vi.hoisted(() => {
 
 vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
 
-vi.mock(import("~/src/integrations/resend/resend.config"), async (importOriginal) => {
-  const actual = await importOriginal()
-  return { ...actual, resend: Object.assign(actual.resend, { emails: { send: resendSendMock } }) }
-})
-
 vi.mock(import("~/src/integrations/drizzle-orm/drizzle.database"), async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual, db: Object.assign(actual.db, { update: dbMocks.updateMock }) }
@@ -53,9 +45,11 @@ vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerMo
   getRequest: vi.fn(() => new Request("http://127.0.0.1:3000/", { headers: HEADERS })),
 }))
 
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
 const mockMatchingToken = (): void => {
-  resendSendMock.mockReset()
-  resendSendMock.mockResolvedValue({ data: { id: "email_1" }, error: JSON_NULL, headers: JSON_NULL })
   dbMocks.updateMock.mockClear()
   dbMocks.returning.mockResolvedValue([{ email: ADDRESS, locale: "en-US" }])
 }
@@ -68,9 +62,13 @@ describe("confirm-newsletter-subscription", () => {
     await expect(executeMutation(confirmNewsletterSubscriptionMutation, { token: TOKEN })).resolves.toMatchObject({ confirmed: true })
 
     expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: NEWSLETTER_STATUS.SUBSCRIBED }))
-    expect(resendSendMock).toHaveBeenCalledWith(expect.objectContaining({ from: NOTIFICATIONS_EMAIL, to: CONTACT_EMAIL }), {
-      idempotencyKey: `${EMAIL_PURPOSE.NEWSLETTER_NOTIFICATION}/${sha256(TOKEN)}`,
-    })
+    expect(getSentEmails()).toStrictEqual([
+      expect.objectContaining({
+        from: NOTIFICATIONS_EMAIL,
+        idempotencyKey: `${EMAIL_PURPOSE.NEWSLETTER_NOTIFICATION}/${sha256(TOKEN)}`,
+        to: [CONTACT_EMAIL],
+      }),
+    ])
   })
 
   it("burns the token so the link works once", async () => {
@@ -92,18 +90,16 @@ describe("confirm-newsletter-subscription", () => {
 
     await expect(confirmNewsletterSubscription({ data: { token: TOKEN } })).resolves.toMatchObject({ confirmed: false })
 
-    expect(resendSendMock).not.toHaveBeenCalled()
+    expect(getSentEmails()).toStrictEqual([])
   })
 
   it("keeps the confirmation when the owner notification fails", async () => {
     expect.hasAssertions()
     mockMatchingToken()
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
-    resendSendMock.mockResolvedValue({
-      data: JSON_NULL,
-      error: { message: "failed", name: "application_error", statusCode: JSON_NULL },
-      headers: JSON_NULL,
-    })
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ message: "failed", name: "application_error", statusCode: 500 }, { status: 500 }),
+    )
 
     await expect(confirmNewsletterSubscription({ data: { token: TOKEN } })).resolves.toMatchObject({ confirmed: true })
 

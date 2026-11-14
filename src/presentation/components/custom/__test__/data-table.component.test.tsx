@@ -75,7 +75,7 @@ describe("data table component", () => {
 
   it("reflects selection on the row checkbox itself, and deselects again", async () => {
     expect.hasAssertions()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderTable()
 
     expect(rowCheckbox()).not.toBeChecked()
@@ -91,7 +91,7 @@ describe("data table component", () => {
 
   it("puts the header checkbox in a mixed state when only some rows are selected", async () => {
     expect.hasAssertions()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderTable()
 
     const selectAll = screen.getByRole("checkbox", { name: "Select all rows" })
@@ -104,7 +104,7 @@ describe("data table component", () => {
 
   it("selects and clears every row from the header checkbox", async () => {
     expect.hasAssertions()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderTable()
 
     const selectAll = screen.getByRole("checkbox", { name: "Select all rows" })
@@ -124,7 +124,7 @@ describe("data table component", () => {
 
   it("sorts by a column header", async () => {
     expect.hasAssertions()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderTable()
 
     await user.click(screen.getByRole("button", { name: /Name/u }))
@@ -134,7 +134,7 @@ describe("data table component", () => {
 
   it("toggles a column through ascending, descending, and back", async () => {
     expect.hasAssertions()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderTable()
 
     const header = screen.getByRole("button", { name: /Name/u })
@@ -152,7 +152,7 @@ describe("data table component", () => {
 
   it("pages forward and back once the rows exceed a page", async () => {
     expect.hasAssertions()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderTable(PAGED_ROWS)
 
     expect(screen.getAllByRole("row")).toHaveLength(PAGE_SIZE + HEADER_ROW_COUNT)
@@ -167,7 +167,7 @@ describe("data table component", () => {
   })
 
   it("returns to the first page when new data arrives", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const messages = getTestMessages("en-US")
     const table = (data: Person[]): JSX.Element => (
       <IntlProvider locale="en-US" messages={messages}>
@@ -193,7 +193,7 @@ describe("data table component", () => {
 
 describe("data table filters", () => {
   it("narrows rows with search and select filters and restores them", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const messages = getTestMessages("en-US")
     render(
       <IntlProvider locale="en-US" messages={messages}>

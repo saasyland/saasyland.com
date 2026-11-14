@@ -18,7 +18,23 @@ description: "Projekty Vitest, próg 100% pokrycia kodu, zestaw testów Playwrig
 - D1 to baza SQLite w pamięci, która stosuje migracje z repozytorium, a KV i bucket R2 `MEDIA` to mapy w pamięci. KV, bucket i liczniki limitów żądań są resetowane przed każdym testem, a `createEdgeCache` zastępuje cache Workers zaślepką.
 - `createServerFn` jest podmieniony, dzięki czemu funkcja serwerowa działa w tym samym procesie i przechodzi przez prawdziwe middleware i walidator. Dotyczy to projektów `node` i `integration`. W projekcie `component` funkcja serwerowa kończy się błędem, ponieważ jsdom jest przeglądarką.
 - Testy komponentów renderują z prawdziwym `QueryClient` i routerem.
-- Żądania związane z e-mailem, OAuth i płatnościami są mockowane.
+- `fetch` trafia do ścisłych dublerów Resend i Polar zamiast do sieci, a żądanie do każdego innego hosta kończy się błędem, jakby komputer był offline.
+
+## Dublery dostawców
+
+`src/platform/testing/setup.ts` podmienia `fetch` przed każdym testem, więc klienci SDK Resend i Polar, z których korzysta sama aplikacja, wysyłają swoje prawdziwe żądania do `src/platform/testing/mocks/resend.ts` i `src/platform/testing/mocks/polar.ts`.
+
+- Sprawdzają to, co sprawdza dostawca: klucz API lub token dostępu, endpoint i metodę oraz treść żądania lub parametry zapytania, za pomocą ścisłych schematów Zod typowanych względem modeli żądań samych SDK (`EmailApiOptions`, `models.CheckoutCreate`, `models.LicenseKeyDeactivate`). Dubler Polar odrzuca też produkt lub rabat, którego organizacja nie ma.
+- Odpowiadają tak, jak odpowiada dostawca: Resend przy powtórzonym `Idempotency-Key` odtwarza poprzednią odpowiedź zamiast wysyłać wiadomość ponownie i odpowiada 409, gdy klucz wraca z innym e-mailem; Polar zwraca kompletne obiekty `models.Checkout`, `models.Order` i `models.LicenseKeyWithActivations` oraz 404 dla zamówienia lub klucza, którego nie ma.
+- Katalog Polar pochodzi z kodu: identyfikatory produktów z `POLAR_PRODUCT_IDS`, ceny z `TIER_PRICES` i jeden automatyczny rabat procentowy na każdy próg cen regionalnych.
+- Żądanie, które dostawca by odrzucił, albo wywołanie endpointu, którego aplikacja nie używa, jest zapisywane, a wspólny `afterEach` kończy test niepowodzeniem, nawet gdy aplikacja przechwyciła błąd.
+
+## Zestawy testów integracyjnych
+
+Pliki `*.integration.test.ts` sprawdzają całe przepływy po stronie serwera na D1 w pamięci i dublerach dostawców:
+
+- Zestawy Better Auth działają na prawdziwym `auth` z `auth.server.ts`, łącznie z jego wtyczkami, hookami, limitami żądań i funkcjami wysyłającymi e-maile. `__test__/fixtures/auth.harness.ts` rejestruje, weryfikuje i loguje użytkownika z nagłówkami, które wysyła przeglądarka, a każdy token odczytuje z e-maila dostarczonego przez dubler Resend.
+- `license-purchase.integration.test.ts` pokrywa płatności i licencje: tworzenie sesji płatności (plan, rabat regionalny według kraju, metadane polecenia partnerskiego, odmowa przy aktywnej licencji), następnie podpisane webhooki `order.paid`, `benefit_grant.created`, `order.refunded` (częściowy i pełny zwrot) i `benefit_grant.revoked` przez endpoint Polar w Better Auth, dostarczane w złej kolejności, dwukrotnie i z błędnymi podpisami, a także listę aktywacji licencji i ich dezaktywację.
 
 ## Pokrycie
 
@@ -26,7 +42,7 @@ description: "Projekty Vitest, próg 100% pokrycia kodu, zestaw testów Playwrig
 
 ## Testy przeglądarkowe
 
-Specyfikacje Playwright znajdują się w `e2e/specs`, page objects w `e2e/pages`, a fixtures w `e2e/fixtures`. Działają na buildzie zbliżonym do produkcyjnego, który korzysta ze środowiska Wranglera `test`: lokalnych D1, KV i R2 w `.wrangler/test`, fikcyjnych sekretów z `.env.test` oraz testowego Workera przechwytującego wychodzące e-maile, dzięki czemu spec może przejść przez prawdziwy link weryfikacyjny. Lokalnie Playwright sam uruchamia migracje, zasila bazę danymi, buduje i startuje aplikację. Zestaw testów działa w Chromium i WebKit.
+Specyfikacje Playwright znajdują się w `e2e/specs`, page objects w `e2e/pages`, a fixtures w `e2e/fixtures`. Działają na buildzie zbliżonym do produkcyjnego, który korzysta ze środowiska Wranglera `test`: lokalnych D1, KV i R2 w `.wrangler/test`, fikcyjnych sekretów z `.env.test` oraz testowego Workera, który instaluje te same dublery Resend i Polar i udostępnia dostarczone e-maile, dzięki czemu spec może przejść przez prawdziwy link weryfikacyjny. `e2e/fixtures/polar.ts` dostarcza opłacone zamówienie podpisane dokładnie tak, jak swoje podpisują zestawy testów integracyjnych. Lokalnie Playwright sam uruchamia migracje, zasila bazę danymi, buduje i startuje aplikację. Zestaw testów działa w Chromium i WebKit.
 
 ## Skrypty
 

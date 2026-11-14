@@ -18,7 +18,23 @@ Kein Test kontaktiert ein echtes Cloudflare-Konto oder einen echten Anbieter:
 - D1 ist eine SQLite-Datenbank im Arbeitsspeicher, die die eingecheckten Migrationen ausführt, und KV sowie der R2-Bucket `MEDIA` sind Maps im Arbeitsspeicher. KV, der Bucket und die Rate-Limit-Zähler werden vor jedem Test zurückgesetzt, und `createEdgeCache` ersetzt den Workers-Cache durch einen Stub.
 - `createServerFn` wird ersetzt, sodass eine Server Function im selben Prozess durch ihre echte Middleware und ihren echten Validator läuft. Das gilt in den Projekten `node` und `integration`. Im Projekt `component` schlägt eine Serverfunktion fehl, weil jsdom der Browser ist.
 - Komponententests rendern mit einem echten `QueryClient` und einem echten Router.
-- Requests für E-Mail, OAuth und Zahlungen werden gemockt.
+- `fetch` erreicht statt des Netzwerks strikte Test-Doubles von Resend und Polar, und jeder andere Host schlägt fehl, als wäre der Rechner offline.
+
+## Test-Doubles der Anbieter
+
+`src/platform/testing/setup.ts` ersetzt `fetch` vor jedem Test, sodass die eigenen SDK-Clients der App für Resend und Polar ihre echten Requests an `src/platform/testing/mocks/resend.ts` und `src/platform/testing/mocks/polar.ts` senden.
+
+- Sie prüfen, was der Anbieter prüft: den API-Schlüssel oder das Zugriffstoken, Endpunkt und Methode sowie den Body oder die Query, mit strikten Zod-Schemas, die gegen die eigenen Request-Modelle der SDKs typisiert sind (`EmailApiOptions`, `models.CheckoutCreate`, `models.LicenseKeyDeactivate`). Das Double von Polar lehnt außerdem Produkte und Rabatte ab, die die Organisation nicht hat.
+- Sie antworten, wie der Anbieter antwortet: Resend wiederholt bei einem erneut gesendeten `Idempotency-Key` die erste Antwort, statt zweimal zu versenden, und antwortet mit 409, wenn der Schlüssel mit einer anderen E-Mail zurückkommt; Polar gibt vollständige Objekte vom Typ `models.Checkout`, `models.Order` und `models.LicenseKeyWithActivations` zurück und antwortet mit 404, wenn es die Bestellung oder den Schlüssel nicht hat.
+- Der Polar-Katalog stammt aus dem Code: die Produkt-IDs in `POLAR_PRODUCT_IDS`, die Preise in `TIER_PRICES` und ein automatischer Prozentrabatt pro regionaler Preisstufe.
+- Ein Request, den der Anbieter ablehnen würde, oder ein Endpunkt, den die App nicht aufruft, wird festgehalten, und ein gemeinsames `afterEach` lässt den Test fehlschlagen, auch wenn die App den Fehler abgefangen hat.
+
+## Integrations-Suites
+
+`*.integration.test.ts`-Dateien durchlaufen ganze serverseitige Abläufe gegen die D1 im Arbeitsspeicher und die Test-Doubles der Anbieter:
+
+- Die Better-Auth-Suites laufen gegen das echte `auth` aus `auth.server.ts`, einschließlich seiner Plugins, Hooks, Rate-Limits und E-Mail-Versender. `__test__/fixtures/auth.harness.ts` übernimmt Registrierung, Verifizierung und Anmeldung mit den Headern, die ein Browser sendet, und liest jedes Token aus der E-Mail, die das Resend-Double zugestellt hat.
+- `license-purchase.integration.test.ts` deckt Zahlungen und Lizenzen ab: das Erstellen des Checkouts (die Stufe, den regionalen Rabatt nach Land, die Metadaten der Partnerempfehlung, die Ablehnung bei aktiver Lizenz), dann signierte Webhooks `order.paid`, `benefit_grant.created`, `order.refunded` (Teil- und Vollerstattung) und `benefit_grant.revoked` über den Polar-Endpunkt von Better Auth, zugestellt in falscher Reihenfolge, doppelt und mit ungültigen Signaturen, sowie das Auflisten und Deaktivieren der Lizenzaktivierungen.
 
 ## Testabdeckung
 
@@ -26,7 +42,7 @@ Kein Test kontaktiert ein echtes Cloudflare-Konto oder einen echten Anbieter:
 
 ## Browsertests
 
-Playwright-Specs liegen in `e2e/specs`, die Page Objects in `e2e/pages` und die Fixtures in `e2e/fixtures`. Sie laufen gegen einen produktionsnahen Build, der die Wrangler-Umgebung `test` nutzt: lokale D1, lokaler KV und lokales R2 in `.wrangler/test`, Dummy-Secrets aus `.env.test` und ein Test-Worker, der ausgehende E-Mails mitschneidet, damit eine Spec einem echten Verifizierungslink folgen kann. Lokal migriert, befüllt, baut und startet Playwright die App selbst. Die Suite läuft in Chromium und WebKit.
+Playwright-Specs liegen in `e2e/specs`, die Page Objects in `e2e/pages` und die Fixtures in `e2e/fixtures`. Sie laufen gegen einen produktionsnahen Build, der die Wrangler-Umgebung `test` nutzt: lokale D1, lokaler KV und lokales R2 in `.wrangler/test`, Dummy-Secrets aus `.env.test` und ein Test-Worker, der dieselben Test-Doubles von Resend und Polar installiert und die zugestellte E-Mail bereitstellt, damit eine Spec einem echten Verifizierungslink folgen kann. `e2e/fixtures/polar.ts` stellt eine bezahlte Bestellung zu, die genau so signiert ist, wie die Integrations-Suites ihre signieren. Lokal migriert, befüllt, baut und startet Playwright die App selbst. Die Suite läuft in Chromium und WebKit.
 
 ## Skripte
 

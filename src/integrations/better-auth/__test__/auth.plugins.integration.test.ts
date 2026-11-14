@@ -1,98 +1,63 @@
+import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vite-plus/test"
 
-import {
-  createAuthTestInstance,
-  createTestUserPayload,
-  requireSessionUserId,
-  signUpVerifyAndSignIn,
-} from "~/src/integrations/better-auth/__test__/fixtures/auth.test-instance"
+import { browserHeaders, signIn, signUpAndVerify } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
+import { auth } from "~/src/integrations/better-auth/auth.server"
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-const authContext = await createAuthTestInstance()
-
-const SINGLE_SESSION_COUNT = 1
-const MULTIPLE_SESSIONS_THRESHOLD = 1
+import { user } from "~/src/modules/user/user.schema"
 
 describe("auth sessions", () => {
-  it("lists active sessions for a signed-in user", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
-    const { headers } = await signUpVerifyAndSignIn(authContext, user)
+  it("lists the active session of a signed-in user", async () => {
+    const { headers } = await signUpAndVerify()
 
-    const sessions = await authContext.auth.api.listSessions({ headers })
-
-    expect(sessions.length).toBeGreaterThan(0)
+    await expect(auth.api.listSessions({ headers })).resolves.toHaveLength(1)
   })
 
   it("revokes other sessions while keeping the current one", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
+    const { account, headers: firstSession } = await signUpAndVerify()
+    const secondSession = await signIn(account)
+    await expect(auth.api.listSessions({ headers: secondSession })).resolves.toHaveLength(2)
 
-    await signUpVerifyAndSignIn(authContext, user)
-    const secondSession = await authContext.signInWithUser(user.email, user.password)
+    await auth.api.revokeOtherSessions({ headers: secondSession })
 
-    const sessionsBefore = await authContext.auth.api.listSessions({ headers: secondSession.headers })
-    expect(sessionsBefore.length).toBeGreaterThan(MULTIPLE_SESSIONS_THRESHOLD)
-
-    await authContext.auth.api.revokeOtherSessions({ headers: secondSession.headers })
-
-    const sessionsAfter = await authContext.auth.api.listSessions({ headers: secondSession.headers })
-    expect(sessionsAfter).toHaveLength(SINGLE_SESSION_COUNT)
+    await expect(auth.api.listSessions({ headers: secondSession })).resolves.toHaveLength(1)
+    await expect(auth.api.getSession({ headers: firstSession })).resolves.toBeNull()
   })
 })
 
 describe("auth two-factor", () => {
-  it("generates a totp uri when enabling two-factor for a verified user", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
-    const { headers } = await signUpVerifyAndSignIn(authContext, user)
+  it("returns a TOTP URI and backup codes when a verified user enables two-factor", async () => {
+    const { account, headers } = await signUpAndVerify()
 
-    const result = await authContext.client.twoFactor.enable({
-      fetchOptions: { headers },
-      password: user.password,
-    })
+    const result = await auth.api.enableTwoFactor({ body: { password: account.password }, headers })
 
-    const { data } = result
-    expect(data?.method).toBe("totp")
-    expect(data?.method === "totp" ? data.totpURI : undefined).toContain("otpauth://")
+    expect(result).toHaveProperty("method", "totp")
+    expect(result).toHaveProperty("totpURI", expect.stringMatching(/^otpauth:\/\/totp\//u))
+    expect(result).toHaveProperty("backupCodes", expect.arrayContaining([expect.any(String)]))
   })
 })
 
 describe("auth account linking", () => {
-  it("lists linked accounts for a credential user", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
-    const { headers } = await signUpVerifyAndSignIn(authContext, user)
+  it("lists the credential account of a password user", async () => {
+    const { headers } = await signUpAndVerify()
 
-    const accounts = await authContext.auth.api.listUserAccounts({ headers })
+    const accounts = await auth.api.listUserAccounts({ headers })
 
-    expect(accounts.some((account) => account.providerId === AUTH_PROVIDER.CREDENTIAL)).toBe(true)
+    expect(accounts.map(({ providerId }) => providerId)).toStrictEqual([AUTH_PROVIDER.CREDENTIAL])
   })
 
   it("requires a session before listing linked accounts", async () => {
-    expect.hasAssertions()
-
-    await expect(authContext.auth.api.listUserAccounts({ headers: new Headers() })).rejects.toThrow("Unauthorized")
+    await expect(auth.api.listUserAccounts({ headers: browserHeaders() })).rejects.toThrow("Unauthorized")
   })
 })
 
 describe("auth bans", () => {
   it("prevents a banned user from signing in", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
-    const { headers } = await signUpVerifyAndSignIn(authContext, user)
-    const userId = await requireSessionUserId(authContext, headers)
+    const { account, userId } = await signUpAndVerify()
+    await db.update(user).set({ banReason: "test ban", banned: true }).where(eq(user.id, userId))
 
-    await authContext.db.update({
-      model: "user",
-      update: { banReason: "test ban", banned: true },
-      where: [{ field: "id", value: userId }],
-    })
-
-    await expect(
-      authContext.auth.api.signInEmail({
-        body: { email: user.email, password: user.password },
-      }),
-    ).rejects.toThrow("banned")
+    await expect(signIn(account)).rejects.toThrow("banned")
   })
 })

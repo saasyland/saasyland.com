@@ -4,16 +4,20 @@ import * as matchers from "@testing-library/jest-dom/matchers"
 import { afterEach, beforeEach, expect, vi } from "vite-plus/test"
 
 import { resetTestBindings } from "~/src/platform/testing/mocks/cloudflare"
+import { fetchFromProviders, resetProviderDoubles, takeProviderRefusals } from "~/src/platform/testing/mocks/providers"
 
 expect.extend(matchers)
 
 beforeEach(() => {
   resetTestBindings()
+  resetProviderDoubles()
+  vi.stubGlobal("fetch", fetchFromProviders)
   vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/"))
 })
 
 afterEach(() => {
   destroyAnnouncer()
+  expect(takeProviderRefusals(), "requests Resend or Polar would refuse").toStrictEqual([])
 })
 
 vi.mock(import("@tanstack/react-start"), async (importOriginal) => {

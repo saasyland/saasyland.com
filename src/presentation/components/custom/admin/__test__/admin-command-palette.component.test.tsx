@@ -25,7 +25,7 @@ describe("admin command palette", () => {
   it("opens with the keyboard shortcut and navigates to the selected destination", async () => {
     const router = createTestRouter()
     const navigate = vi.spyOn(router, "navigate").mockResolvedValue()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithRouter(
       <IntlProvider locale="en-US" messages={getTestMessages("en-US")}>
         <AdminCommandPalette />

@@ -101,7 +101,7 @@ describe("regional pricing", () => {
   })
 
   it("applies regional pricing by default and remembers when the buyer turns it off", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderSection(<PricingSection />)
     const offer = screen.getByRole("checkbox", { name: /off with regional pricing/u })
 
@@ -122,7 +122,7 @@ describe("regional pricing", () => {
 
 describe("marketing content and purchase links", () => {
   it("offers a working install command for every package manager", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderSection(<HeroSection />)
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("300+ hour head start")
     expect(screen.getByRole("link", { name: english.hero.ctaPrimary })).toHaveAttribute("href", "#pricing")
@@ -164,7 +164,7 @@ describe("marketing content and purchase links", () => {
   })
 
   it("exposes every FAQ answer through its question and keeps the contact link available", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderSection(<FaqSection />)
     for (const item of Object.values(english.faq.items)) {
       const trigger = screen.getByRole("button", { name: item.question })
@@ -271,7 +271,7 @@ describe("marketing content and purchase links", () => {
 
 describe("CLI configuration", () => {
   it("reconciles incompatible API, runtime and database choices when deployment changes", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderSection(<CliSection />)
     const { choices } = english.cli
     expect(screen.queryByRole("button", { name: choices.api.options.hono })).not.toBeInTheDocument()
@@ -290,7 +290,7 @@ describe("CLI configuration", () => {
   })
 
   it("toggles extras and omits them from the command when their required module is disabled", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderSection(<CliSection />)
     const { choices } = english.cli
     await user.click(screen.getByRole("button", { name: choices.extras.options.commerce }))
@@ -308,7 +308,7 @@ describe("CLI configuration", () => {
   })
 
   it("copies the selected runner and extra flags with matching development instructions", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderSection(<CliSection />)
     const { choices } = english.cli
     await user.click(screen.getByRole("button", { name: choices.extras.options["page-builder"] }))

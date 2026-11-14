@@ -18,7 +18,23 @@ No test contacts a real Cloudflare account or provider:
 - D1 is an in-memory SQLite database that runs the checked-in migrations, and KV and the `MEDIA` R2 bucket are in-memory maps. KV, the bucket and the rate-limit counters reset before each test, and `createEdgeCache` stubs the Workers cache.
 - `createServerFn` is replaced so a server function runs in-process through its real middleware and validator. That holds in the `node` and `integration` projects. In the `component` project a server function rejects, because jsdom is the browser.
 - Component tests render with a real `QueryClient` and router.
-- Email, OAuth and payment requests are mocked.
+- `fetch` reaches strict doubles of Resend and Polar instead of the network, and any other host fails as if the machine were offline.
+
+## Provider doubles
+
+`src/platform/testing/setup.ts` replaces `fetch` before every test, so the app's own Resend and Polar SDK clients send their real requests to `src/platform/testing/mocks/resend.ts` and `src/platform/testing/mocks/polar.ts`.
+
+- They check what the provider checks: the API key or access token, the endpoint and method, and the body or query, with strict Zod schemas typed against the SDKs' own request models (`EmailApiOptions`, `models.CheckoutCreate`, `models.LicenseKeyDeactivate`). Polar's double also refuses a product or a discount the organization does not have.
+- They answer as the provider answers: Resend replays a repeated `Idempotency-Key` instead of sending twice and answers 409 when the key comes back with a different email; Polar returns complete `models.Checkout`, `models.Order` and `models.LicenseKeyWithActivations` objects and a 404 for an order or key it does not hold.
+- The Polar catalogue comes from the code: the product IDs in `POLAR_PRODUCT_IDS`, the prices in `TIER_PRICES` and one automatic percentage discount per regional pricing tier.
+- A request the provider would refuse or an endpoint the app does not call is recorded, and a shared `afterEach` fails the test, even when the app caught the error.
+
+## Integration suites
+
+`*.integration.test.ts` files exercise whole server-side flows against the in-memory D1 and the provider doubles:
+
+- The Better Auth suites run against the real `auth` from `auth.server.ts`, its plugins, hooks, rate limits and email senders included. `__test__/fixtures/auth.harness.ts` signs up, verifies and signs in with the headers a browser sends and reads each token from the email the Resend double delivered.
+- `license-purchase.integration.test.ts` covers payments and licences: checkout creation (the tier, the regional discount by country, the referral metadata, refusal with an active licence), then signed `order.paid`, `benefit_grant.created`, `order.refunded` (partial and full) and `benefit_grant.revoked` webhooks through Better Auth's Polar endpoint, delivered out of order, twice and with bad signatures, and the licence activations listing and deactivation.
 
 ## Coverage
 
@@ -26,7 +42,7 @@ No test contacts a real Cloudflare account or provider:
 
 ## Browser tests
 
-Playwright specs live in `e2e/specs`, with page objects in `e2e/pages` and fixtures in `e2e/fixtures`. They run against a production-like build that uses the `test` Wrangler environment: local D1, KV and R2 in `.wrangler/test`, dummy secrets from `.env.test`, and a test Worker that captures outgoing email so a spec can follow a real verification link. Locally, Playwright migrates, seeds, builds and starts the app itself. The suite runs in Chromium and WebKit.
+Playwright specs live in `e2e/specs`, with page objects in `e2e/pages` and fixtures in `e2e/fixtures`. They run against a production-like build that uses the `test` Wrangler environment: local D1, KV and R2 in `.wrangler/test`, dummy secrets from `.env.test`, and a test Worker that installs the same Resend and Polar doubles and exposes the delivered email so a spec can follow a real verification link. `e2e/fixtures/polar.ts` delivers a paid order signed exactly as the integration suites sign theirs. Locally, Playwright migrates, seeds, builds and starts the app itself. The suite runs in Chromium and WebKit.
 
 ## Scripts
 

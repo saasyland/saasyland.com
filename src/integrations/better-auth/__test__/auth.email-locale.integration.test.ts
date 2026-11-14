@@ -1,10 +1,10 @@
 import type { MutationOptions } from "@tanstack/react-query"
 import { getRequest } from "@tanstack/react-start/server"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import * as zod from "zod"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { executeMutation } from "~/src/platform/testing/lib/query"
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
+import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { auth } from "~/src/integrations/better-auth/auth.server"
@@ -24,9 +24,6 @@ const ORIGIN = "http://127.0.0.1:3000"
 const { host: HOST } = new URL(ORIGIN)
 const PASSWORD = "LocalePassword1!"
 const OTHER_TAB_COOKIE = `${I18N.COOKIE_NAME}=de-DE`
-
-const EMAIL_SCHEMA = zod.object({ html: zod.string(), subject: zod.string(), to: zod.string() })
-const deliveries: zod.infer<typeof EMAIL_SCHEMA>[] = []
 
 const request = (url: string, { cookie = OTHER_TAB_COOKIE, ...init }: RequestInit & { cookie?: string } = {}) =>
   new Request(url, {
@@ -57,14 +54,6 @@ const callServerFunction = async <TData, TVariables>(
   await flushWaitUntil()
 }
 
-beforeEach(() => {
-  deliveries.length = 0
-  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-    deliveries.push(EMAIL_SCHEMA.parse(await new Request(input, init).json()))
-    return Response.json({ id: crypto.randomUUID() })
-  })
-})
-
 afterEach(() => {
   vi.restoreAllMocks()
 })
@@ -75,7 +64,7 @@ describe("auth emails follow the page the flow started on, not the locale cookie
 
     await callServerFunction(requestPasswordResetMutation, { email, redirectTo: `/pl-PL${ROUTES.RESET_PASSWORD}` })
 
-    expect(deliveries).toEqual([expect.objectContaining({ subject: resetPasswordMessages.subject, to: email })])
+    expect(getSentEmails(email)).toStrictEqual([expect.objectContaining({ subject: resetPasswordMessages.subject, to: [email] })])
   })
 
   it("writes the resent verification email in the locale of the verify-email page", async () => {
@@ -83,8 +72,8 @@ describe("auth emails follow the page the flow started on, not the locale cookie
 
     await callServerFunction(sendVerificationEmailMutation, { callbackURL: `/pl-PL${ROUTES.AUTH_CALLBACK}`, email })
 
-    expect(deliveries).toEqual([expect.objectContaining({ subject: verifyEmailMessages.subject, to: email })])
-    expect(deliveries[0]?.html).toContain(`${ORIGIN}/pl-PL${ROUTES.VERIFY_EMAIL}?token=`)
+    expect(getSentEmails(email)).toStrictEqual([expect.objectContaining({ subject: verifyEmailMessages.subject, to: [email] })])
+    expect(getSentEmails(email)[0]?.html).toContain(`${ORIGIN}/pl-PL${ROUTES.VERIFY_EMAIL}?token=`)
   })
 
   it("writes both change-email emails in the locale of the page the change started on, even after a link click", async () => {
@@ -103,18 +92,17 @@ describe("auth emails follow the page the flow started on, not the locale cookie
 
     await callServerFunction(changeEmailMutation, { callbackURL: `/pl-PL${ROUTES.APP}`, newEmail }, `${session}; ${OTHER_TAB_COOKIE}`)
 
-    expect(deliveries).toEqual([expect.objectContaining({ subject: changeEmailMessages.subject, to: email })])
+    expect(getSentEmails(email)).toStrictEqual([expect.objectContaining({ subject: changeEmailMessages.subject, to: [email] })])
     const confirmUrl = /href="(?<url>[^"]+\/verify-email\?[^"]+)"/u
-      .exec(deliveries[0]?.html ?? "")
+      .exec(getSentEmails(email)[0]?.html ?? "")
       ?.groups?.["url"]?.replaceAll("&amp;", "&")
     expect(confirmUrl).toBeDefined()
-    deliveries.length = 0
     const click = request(confirmUrl!)
     vi.mocked(getRequest).mockReturnValue(click)
 
     await auth.handler(click)
     await flushWaitUntil()
 
-    expect(deliveries).toEqual([expect.objectContaining({ subject: verifyEmailMessages.subject, to: newEmail })])
+    expect(getSentEmails(newEmail)).toStrictEqual([expect.objectContaining({ subject: verifyEmailMessages.subject, to: [newEmail] })])
   })
 })

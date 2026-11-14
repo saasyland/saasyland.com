@@ -141,7 +141,7 @@ describe("back to top label", () => {
 
 describe("back to top press", () => {
   it("scrolls to the top and moves focus to the page heading", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderBackToTop({ children: <h1>Ship it</h1> })
     scrollPastFirstScreen(true)
 
@@ -154,7 +154,7 @@ describe("back to top press", () => {
   })
 
   it("leaves the scroll behaviour to the stylesheet, which is instant under reduced motion", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderBackToTop()
     scrollPastFirstScreen(true)
 
@@ -166,7 +166,7 @@ describe("back to top press", () => {
   })
 
   it("keeps focus on the button when the page has no heading", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderBackToTop()
     scrollPastFirstScreen(true)
 

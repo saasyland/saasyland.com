@@ -35,7 +35,7 @@ bun run test:coverage
 
 - `src/platform/testing/setup.ts` registriert die jest-dom-Matcher, setzt die Bindings vor jedem Test zurück und leitet jedes `createServerFn` durch `withTestRpc`, sodass Aufrufe die echte Middleware und den echten Validator durchlaufen. Das gilt in den Projekten `node` und `integration`. Im Projekt `component` schlägt eine Serverfunktion fehl, weil jsdom der Browser ist.
 - `cloudflare:workers` wird zu `src/platform/testing/mocks/cloudflare.ts` aufgelöst. D1 ist eine In-Memory-SQLite-Datenbank, auf die alle eingecheckten Migrationen angewendet sind, KV und der R2-Bucket `MEDIA` sind In-Memory-Maps, und `flushWaitUntil()` wartet auf Hintergrundaufgaben. `createEdgeCache()` aus `mocks/cache.ts` ersetzt den Workers-Cache durch einen Stub.
-- `.env.test` liefert Dummy-Zugangsdaten. E-Mail-, OAuth- und Zahlungsaufrufe sind gemockt; nichts verlässt den Rechner.
+- `.env.test` liefert Dummy-Zugangsdaten. `fetch` erreicht strikte Test-Doubles von Resend und Polar (`mocks/resend.ts`, `mocks/polar.ts`), und jeder andere Host schlägt fehl, als wäre der Rechner offline, sodass nichts ihn verlässt. Ein Request, den der Anbieter ablehnen würde, lässt den Test fehlschlagen.
 - `renderWithRouter` in `src/platform/testing/lib/render.tsx` rendert Komponenten mit einem echten Router und `QueryClient`.
 
 ## Use Case testen
@@ -76,9 +76,27 @@ describe("create-category", () => {
 
 Jedes Ergebnis eines Use Case testen: Erfolg, jeden `AppError`-Code, fehlende Session und fehlende Berechtigung. Domänenwerte und Fehlercodes stammen aus ihren Konstanten (`CATEGORY_KIND`, `ERROR_CODES`), nie aus wiederholten Strings.
 
+## Gegen Resend und Polar testen
+
+Das SDK von Resend oder Polar nicht mocken. Den Code aufrufen, der den Request sendet, und prüfen, was das Double empfangen hat. `getSentEmails(recipient)` aus `mocks/resend.ts` gibt die zugestellten E-Mails mit ihrem gerenderten HTML und ihrem Idempotenzschlüssel zurück; `mocks/polar.ts` hält die Checkouts, Bestellungen und Lizenzschlüssel, und seine Funktionen bringen einen Kauf voran: `payPolarCheckout`, `grantPolarLicenseKey`, `refundPolarOrder`, `revokePolarLicenseKey` und `activatePolarLicenseKey`. Gekürzt aus `src/modules/license/__test__/license-purchase.integration.test.ts`:
+
+```ts
+const buyer = await signUpAndVerify()
+const order = await paidOrder(buyer, LICENSE_TIER.COMPLETE)
+
+expect(await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, order)).toBe(HTTP_STATUS.OK)
+expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIVE, tier: LICENSE_TIER.COMPLETE })
+```
+
+`paidOrder` startet den Checkout über das echte `startCheckout` und bezahlt ihn im Double. `deliver` signiert das Event mit `signedPolarWebhook` aus `lib/polar.ts`, sendet es per POST an den Polar-Endpunkt von Better Auth und gibt den Status der Antwort zurück, sodass die Signaturprüfung, das Plugin und die Handler in `license.webhooks.ts` alle laufen. Um zu testen, wie die Anwendung mit einem Fehler des Anbieters umgeht, einen einzelnen Request mit dem Fehler des Anbieters beantworten, wie es `resend.utils.test.ts` tut: `vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(error, { status }))`.
+
+## Auth-Ablauf testen
+
+Auth-Suites laufen gegen das echte `auth` aus `auth.server.ts`. `src/integrations/better-auth/__test__/fixtures/auth.harness.ts` legt Konten so an, wie es ein Besucher tut: `signUp`, `verifyEmail` (das dem Token in der zugestellten E-Mail folgt und die Session zurückgibt, die es öffnet), `signIn` und `signUpAndVerify`. `browserHeaders()` gibt jedem Request seine eigene `CF-Connecting-IP`, sodass die Rate-Limits von Better Auth wie in Produktion gelten, ohne dass ein Test das Kontingent eines anderen aufbraucht. Vor dem Lesen einer E-Mail, die Better Auth im Hintergrund sendet, auf `flushWaitUntil()` warten.
+
 ## Komponente testen
 
-Komponententests rendern mit echten Messages aus `messages/en-US`, mocken das Use-Case-Modul, das die Mutation-Optionen bereitstellt, und steuern die UI mit Testing Library und `userEvent`. Für Ladezustände den gemockten Request mit `Promise.withResolvers()` offen halten, die Lade-UI prüfen, dann innerhalb von `act` auflösen und die UI im Ruhezustand prüfen. `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx` ist ein vollständiges Beispiel. Ein Routentest gibt der Route ihre Loader-Daten, und ein `node`-Test deckt den Loader über `getRouter()` ab: `src/routes/__test__/marketing-routes.component.test.tsx` und `marketing-loaders.test.ts` sind die beiden Hälften.
+Komponententests rendern mit echten Messages aus `messages/en-US`, mocken das Use-Case-Modul, das die Mutation-Optionen bereitstellt, und steuern die UI mit Testing Library und `userEvent`. Für Ladezustände den gemockten Request mit `Promise.withResolvers()` offen halten, die Lade-UI prüfen, dann innerhalb von `act` auflösen und die UI im Ruhezustand prüfen. Eine Komponente, die sich nach einer Verzögerung ändert, wird mit Fake Timers getestet (`vi.useFakeTimers()`, dann `vi.advanceTimersByTimeAsync` innerhalb von `act`), nie durch Warten in Echtzeit, und der `QueryClient` eines Routentests hält die Daten, die sein Loader geladen hat, frisch (`staleTime: Infinity`), sodass die Rendergeschwindigkeit des Rechners nie beeinflusst, wie oft eine Query läuft. `userEvent.setup({ delay: null })` steuert die UI ohne echten Timer zwischen den Tastenanschlägen. `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx` ist ein vollständiges Beispiel. Ein Routentest gibt der Route ihre Loader-Daten, und ein `node`-Test deckt den Loader über `getRouter()` ab: `src/routes/__test__/marketing-routes.component.test.tsx` und `marketing-loaders.test.ts` sind die beiden Hälften.
 
 ## Browser-Tests
 
@@ -91,7 +109,7 @@ bun run test:e2e:smoke
 bun run test:e2e:ui
 ```
 
-Der Test-Worker zeichnet versendete E-Mails auf, sodass eine Spec den Verifizierungslink aus `/__test/emails?to=<address>` lesen kann.
+Der Test-Worker installiert dieselben Test-Doubles von Resend und Polar und zeichnet versendete E-Mails auf, sodass eine Spec den Verifizierungslink aus `/__test/emails?to=<address>` lesen kann. `deliverPaidOrder` in `e2e/fixtures/polar.ts` sendet ein vollständiges `order.paid`-Event, signiert wie die Events der Integrations-Suites.
 
 ## Vor dem Push
 

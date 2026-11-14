@@ -1,11 +1,8 @@
-import { env } from "cloudflare:workers"
-
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { createPolarOrder, grantPolarLicenseKey, polarLicenseKeyOf } from "~/src/platform/testing/mocks/polar"
+
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { POLAR_LICENSE_KEY } from "~/src/integrations/polar/__test__/fixtures/license-key"
-import { POLAR_ORDER } from "~/src/integrations/polar/__test__/fixtures/order"
-import { polar } from "~/src/integrations/polar/polar.config"
 
 import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
@@ -15,82 +12,101 @@ import { revokeLicense } from "~/src/modules/license/use-cases/revoke-license"
 import { user } from "~/src/modules/user/user.schema"
 
 const USER_ID = "key-owner"
-const input = { polarLicenseKeyId: "lk_1", polarOrderId: "ord_1", userId: USER_ID }
-const purchase = {
-  polarCustomerId: "cus_1",
-  polarOrderId: "ord_1",
-  purchaseCreatedAt: new Date(POLAR_ORDER.created_at),
-  tier: LICENSE_TIER.CORE,
-  userId: USER_ID,
-} as const
+const ACTIVATION_LIMIT = 3
+const A_DAY_MS = 86_400_000
+
+const createdAt = (offsetMs: number): string => new Date(Date.now() + offsetMs).toISOString()
+
+const purchase = () => {
+  const order = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.CORE })
+  const licenseKey = polarLicenseKeyOf(grantPolarLicenseKey(order, ACTIVATION_LIMIT))
+  return {
+    grant: { polarLicenseKeyId: licenseKey.id, polarOrderId: order.id, userId: USER_ID },
+    licenseKey,
+    paid: {
+      polarCustomerId: order.customer_id,
+      polarOrderId: order.id,
+      purchaseCreatedAt: new Date(order.created_at),
+      tier: LICENSE_TIER.CORE,
+      userId: USER_ID,
+    },
+  }
+}
+
 beforeEach(async () => {
   await db.delete(user)
   await db.insert(user).values({ email: "key@example.test", id: USER_ID, name: "Buyer" })
-  vi.spyOn(polar.licenseKeys, "get").mockResolvedValue(POLAR_LICENSE_KEY)
-  vi.spyOn(polar.orders, "get").mockResolvedValue({ ...POLAR_ORDER, product_id: env.POLAR_PRODUCT_ID_CORE })
 })
 afterEach(() => vi.restoreAllMocks())
 
 describe("attach-license-key", () => {
   it("rejects an early grant and attaches its retry after the order arrives", async () => {
-    await expect(attachLicenseKey(input)).rejects.toThrow("The license purchase has not been recorded yet")
-    await grantLicense(purchase)
-    await attachLicenseKey(input)
-    expect(await getLicense(USER_ID)).toMatchObject({ key: POLAR_LICENSE_KEY.key, polarLicenseKeyId: "lk_1" })
+    const { grant, licenseKey, paid } = purchase()
+
+    await expect(attachLicenseKey(grant)).rejects.toThrow("The license purchase has not been recorded yet")
+    await grantLicense(paid)
+    await attachLicenseKey(grant)
+
+    expect(await getLicense(USER_ID)).toMatchObject({ key: licenseKey.key, polarLicenseKeyId: licenseKey.id })
   })
 
   it("waits for a newer order instead of attaching its key to the old purchase", async () => {
-    await grantLicense(purchase)
-    vi.spyOn(polar.orders, "get").mockResolvedValue({
-      ...POLAR_ORDER,
-      created_at: "2026-09-25T10:00:00.000Z",
-      id: "newer",
-      product_id: env.POLAR_PRODUCT_ID_COMPLETE,
-    })
-    await expect(attachLicenseKey({ ...input, polarOrderId: "newer" })).rejects.toThrow("The license purchase has not been recorded yet")
-    expect(await getLicense(USER_ID)).toMatchObject({ key: null, polarOrderId: "ord_1" })
+    const { paid } = purchase()
+    await grantLicense(paid)
+    const newer = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.COMPLETE }, { created_at: createdAt(A_DAY_MS) })
+    const { id: newerKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(newer, ACTIVATION_LIMIT))
+
+    await expect(attachLicenseKey({ polarLicenseKeyId: newerKeyId, polarOrderId: newer.id, userId: USER_ID })).rejects.toThrow(
+      "The license purchase has not been recorded yet",
+    )
+    expect(await getLicense(USER_ID)).toMatchObject({ key: null, polarOrderId: paid.polarOrderId })
   })
 
   it("ignores older grants and grants for a revoked purchase", async () => {
-    await grantLicense(purchase)
-    vi.spyOn(polar.orders, "get").mockResolvedValue({
-      ...POLAR_ORDER,
-      created_at: "2026-09-23T10:00:00.000Z",
-      id: "older",
-      product_id: env.POLAR_PRODUCT_ID_CORE,
-    })
-    await attachLicenseKey({ ...input, polarOrderId: "older" })
-    await revokeLicense({ polarOrderId: "ord_1", userId: USER_ID })
-    await attachLicenseKey(input)
-    const fetchKey = vi.spyOn(polar.licenseKeys, "get")
-    expect(fetchKey).not.toHaveBeenCalled()
+    const { grant, paid } = purchase()
+    await grantLicense(paid)
+    const older = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.CORE }, { created_at: createdAt(-A_DAY_MS) })
+    const { id: olderKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(older, ACTIVATION_LIMIT))
+
+    await attachLicenseKey({ polarLicenseKeyId: olderKeyId, polarOrderId: older.id, userId: USER_ID })
+    await revokeLicense({ polarOrderId: paid.polarOrderId, userId: USER_ID })
+    const polarRequests = vi.spyOn(globalThis, "fetch")
+    await attachLicenseKey(grant)
+
+    expect(polarRequests).not.toHaveBeenCalled()
     expect(await getLicense(USER_ID)).toMatchObject({ key: null, status: LICENSE_STATUS.REVOKED })
   })
 
   it("acknowledges the key of a purchase refunded before it was recorded, without asking Polar for the order", async () => {
-    await revokeLicense({ polarOrderId: "ord_1", userId: USER_ID })
-    const fetchOrder = vi.spyOn(polar.orders, "get")
+    const { grant } = purchase()
+    await revokeLicense({ polarOrderId: grant.polarOrderId, userId: USER_ID })
+    const polarRequests = vi.spyOn(globalThis, "fetch")
 
-    await expect(attachLicenseKey(input)).resolves.toBeUndefined()
+    await expect(attachLicenseKey(grant)).resolves.toBeUndefined()
 
-    expect(fetchOrder).not.toHaveBeenCalled()
+    expect(polarRequests).not.toHaveBeenCalled()
     expect(await getLicense(USER_ID)).toBeUndefined()
   })
 
   it("acknowledges and logs a key granted for an order that is not a license purchase", async () => {
-    vi.spyOn(polar.orders, "get").mockResolvedValue({ ...POLAR_ORDER, product_id: "prod_not_a_license" })
+    const order = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.CORE }, { product_id: crypto.randomUUID() })
+    const { id: licenseKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(order, ACTIVATION_LIMIT))
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
 
-    await expect(attachLicenseKey(input)).resolves.toBeUndefined()
+    await expect(attachLicenseKey({ polarLicenseKeyId: licenseKeyId, polarOrderId: order.id, userId: USER_ID })).resolves.toBeUndefined()
 
-    expect(consoleError).toHaveBeenCalledWith("[license] license key lk_1 was granted for order ord_1, which is not a license purchase")
+    expect(consoleError).toHaveBeenCalledWith(
+      `[license] license key ${licenseKeyId} was granted for order ${order.id}, which is not a license purchase`,
+    )
     expect(await getLicense(USER_ID)).toBeUndefined()
   })
 
   it("acknowledges a key for an order without a product", async () => {
-    vi.spyOn(polar.orders, "get").mockResolvedValue({ ...POLAR_ORDER, product_id: null })
+    const order = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.CORE }, { product: null, product_id: null })
+    const { id: licenseKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(order, ACTIVATION_LIMIT))
     vi.spyOn(console, "error").mockImplementation(() => {})
 
-    await expect(attachLicenseKey(input)).resolves.toBeUndefined()
+    await expect(attachLicenseKey({ polarLicenseKeyId: licenseKeyId, polarOrderId: order.id, userId: USER_ID })).resolves.toBeUndefined()
+    expect(await getLicense(USER_ID)).toBeUndefined()
   })
 })

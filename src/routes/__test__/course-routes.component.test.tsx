@@ -373,7 +373,7 @@ describe("lesson page", () => {
   })
 
   it("marks a lesson without a recording complete from the button", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     await renderCourses({ data: LEARNER_PAGE, path: "/courses/the-walkthrough/coverage" })
 
     expect(screen.getByText(messages.lesson.noVideo)).toBeVisible()

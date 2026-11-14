@@ -2,9 +2,9 @@ import { env } from "cloudflare:workers"
 
 import { getRequest } from "@tanstack/react-start/server"
 import { createHash } from "node:crypto"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { clearSentEmails, getSentEmails, respondAsResend } from "~/src/platform/testing/mocks/providers"
+import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
 import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
@@ -21,11 +21,6 @@ const NEW_EMAIL = "ada.new@example.test"
 const USER = { email: "ada@example.test", name: "Ada Lovelace" }
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex")
-
-beforeEach(() => {
-  clearSentEmails()
-  vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => respondAsResend(new Request(input, init)))
-})
 
 afterEach(() => {
   vi.restoreAllMocks()

@@ -71,7 +71,7 @@ const renderOnPage = (pathname: string, ui: React.ReactElement) => {
     { router },
   )
 
-  return { navigate, user: userEvent.setup() }
+  return { navigate, user: userEvent.setup({ delay: null }) }
 }
 
 const signInWith = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {

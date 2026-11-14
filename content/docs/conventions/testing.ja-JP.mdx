@@ -9,13 +9,13 @@ description: "テストが属する Vitest のプロジェクト、インメモ�
 
 `vite.config.ts` は 3 つの Vitest プロジェクトを定義しており、ファイルのサフィックスによってどれかが選ばれます。テストは API を `vite-plus/test` からインポートし、対象のコードの隣の `__test__/` に置きます。
 
-| サフィックス           | プロジェクト  | 用途                                                                                           |
-| ---------------------- | ------------- | ---------------------------------------------------------------------------------------------- |
-| `.test.ts`             | `node`        | ユースケース、ローダー、`head`、スキーマ、ユーティリティなど、サーバー上で実行されるものすべて |
-| `.integration.test.ts` | `integration` | Better Auth のフロー、D1 アダプター、メッセージの読み込み。タイムアウトは 20 秒                |
-| `.component.test.tsx`  | `component`   | jsdom 上のコンポーネントとページ                                                               |
+| サフィックス           | プロジェクト  | 用途                                                                                             |
+| ---------------------- | ------------- | ------------------------------------------------------------------------------------------------ |
+| `.test.ts`             | `node`        | ユースケース、ローダー、`head`、スキーマ、ユーティリティなど、サーバー上で実行されるものすべて   |
+| `.integration.test.ts` | `integration` | Better Auth、決済、ライセンスのフロー、D1 アダプター、メッセージの読み込み。タイムアウトは 20 秒 |
+| `.component.test.tsx`  | `component`   | jsdom 上のコンポーネントとページ                                                                 |
 
-`src/platform/testing/mocks/cloudflare.ts` は、すべてのプロジェクトで `cloudflare:workers` を置き換えます。D1 はチェックイン済みのすべてのマイグレーションから構築したインメモリの `node:sqlite` データベースで、KV と `MEDIA` バケットはインメモリのストアです。`resetTestBindings()` は各テストの前に KV、バケット、レート制限のテーブルを空にし、各スイートのシード関数は、そのスイートが依存する行をリセットします。Cloudflare、Polar、Resend、OAuth プロバイダーと通信するテストはありません。
+`src/platform/testing/mocks/cloudflare.ts` は、すべてのプロジェクトで `cloudflare:workers` を置き換えます。D1 はチェックイン済みのすべてのマイグレーションから構築したインメモリの `node:sqlite` データベースで、KV と `MEDIA` バケットはインメモリのストアです。`resetTestBindings()` は各テストの前に KV、バケット、レート制限のテーブルを空にし、各スイートのシード関数は、そのスイートが依存する行をリセットします。Cloudflare、Polar、Resend、OAuth プロバイダーと通信するテストはありません。`fetch` は `mocks/resend.ts` と `mocks/polar.ts` の厳密なテストダブルに届き、テストダブルはすべてのリクエストを SDK のリクエストモデルに照らして検証し、プロバイダーが拒否するリクエストがあればテストを失敗させます。テストは SDK のメソッドをモックするのではなく、テストダブルが受け取った内容をアサートし、認証のスイートは `auth.harness.ts` を通じて本物の `auth.server.ts` の設定を動かします。
 
 ## サーバー関数のテスト
 
@@ -58,7 +58,7 @@ describe("getCourses", () => {
 
 - 期待するステータス、種別、ロール、エラーコードには、コードが使う定数を使います（`COURSE_STATUS.DRAFT`、`ROLE_CODES.ADMIN`、`rejects.toThrow(ERROR_CODES.FORBIDDEN)`）。テストでドメインの文字列リテラルを繰り返すことはなく、e2e のデータやテストのシードも同様です。`e2e/data/courses.ts` は `kind: COURSE_KIND.COURSE` と書いています。
 - 保存される値をそのまま書くのは、スキーマのテストだけです。`product.schema.test.ts` は `expect(PRODUCT_STATUSES).toStrictEqual(["draft", "published", "archived"])` で値を固定しているため、データベースに保存される値を変えると、誰も書いていないマイグレーションが必要になる代わりにテストが失敗します。
-- ブラウザーテストのスイートは定数をアプリケーションからインポートします（`LICENSE_TIER`、`ROLE_CODES`、`I18N.SUPPORTED_LOCALES`）。そのため、インポートできるのは Worker の外で読み込めるファイルだけです。スイートが自分で宣言するプロバイダーの値は `e2e/fixtures/polar.ts` の支払い済みの注文だけで、これは `polar.constants.ts` が `cloudflare:workers` を読み込むサーバー専用のファイルだからです。
+- ブラウザーテストのスイートは定数をアプリケーションからインポートします（`LICENSE_TIER`、`ROLE_CODES`、`I18N.SUPPORTED_LOCALES`）。そのため、インポートできるのは Worker の外で読み込めるファイルだけです。スイートが自分で宣言するプロバイダーの値は `e2e/fixtures/polar.ts` の支払い済みの注文ステータスだけで、これは `polar.constants.ts` が `cloudflare:workers` を読み込むサーバー専用のファイルだからです。注文そのものは `src/platform/testing/lib/polar.ts` から取得します。
 - コンポーネントのテストは、期待する文言を英語のメッセージファイルから読み取り、要素はロールとアクセシブルな名前で探します。`admin-course-routes.component.test.tsx` では `import labels from "~/messages/en-US/pages.admin.courses.json"` と `labels.form.kinds.course` を使っています。
 - 型が必要なテストは、型付きのソースから読み取るか、`toHaveProperty` で実行時にチェックします。キャストは決して使いません。
 - テスト名は振る舞いを文として説明します（「lists every course with its lesson count, drafts included」）。

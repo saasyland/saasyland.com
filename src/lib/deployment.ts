@@ -24,7 +24,7 @@ const CONTENT_TYPE = {
 
 const ROBOTS_TXT = "/robots.txt"
 
-const LIVE_SITE_CHECKS: readonly LiveSiteCheck[] = [
+export const LIVE_SITE_CHECKS: readonly LiveSiteCheck[] = [
   { contentType: CONTENT_TYPE.HTML, path: ROUTES.HOME, status: HTTP_STATUS.OK },
   { contentType: CONTENT_TYPE.HTML, path: ROUTES.COURSES, status: HTTP_STATUS.OK },
   { contentType: CONTENT_TYPE.PLAIN_TEXT, path: ROBOTS_TXT, status: HTTP_STATUS.OK },

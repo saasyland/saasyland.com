@@ -2,13 +2,51 @@ import { globSync, readFileSync } from "node:fs"
 import type { Plugin } from "vite-plus"
 import * as zod from "zod"
 
+import { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
+import { MILLISECONDS_PER_SECOND } from "../src/lib/duration.ts"
+import { COMMIT_EMOJIS } from "./commit-msg.ts"
+
 const MODULE_ID = "virtual:repository-facts"
 const RESOLVED_MODULE_ID = `\0${MODULE_ID}`
 const CATALOGUE_LOCALE = "en-US"
+const E2E_FULL_WORKFLOW = ".github/workflows/e2e-full.yml"
+
+const BUN_PACKAGE_MANAGER = /^bun@(?<version>\S+)$/u
+const WORKFLOW_CRON = /cron:\s*"(?<schedule>[^"]+)"/u
 
 const catalogueSchema = zod.record(zod.string(), zod.string())
 const packageSchema = zod.object({ version: zod.string() })
 const adminSidebarSchema = zod.object({ links: catalogueSchema })
+const rootPackageSchema = zod.object({ packageManager: zod.string() })
+const versionMatchSchema = zod.object({ version: zod.string() })
+const scheduleMatchSchema = zod.object({ schedule: zod.string() })
+
+const maxRuleSchema = zod.tuple([zod.string(), zod.object({ max: zod.number() })])
+
+const thresholdsSchema = zod
+  .object({ branches: zod.number(), functions: zod.number(), lines: zod.number(), statements: zod.number() })
+  .refine(
+    ({ branches, functions, lines, statements }) => [branches, functions, statements].every((threshold) => threshold === lines),
+    "The docs state one coverage threshold for all four metrics",
+  )
+
+const timeoutsSchema = zod
+  .object({ hookTimeout: zod.number(), testTimeout: zod.number() })
+  .refine(({ hookTimeout, testTimeout }) => hookTimeout === testTimeout, "The docs state one timeout for integration tests and hooks")
+
+const timedProjectSchema = zod.object({ test: timeoutsSchema })
+
+const projectWithTimeoutSchema = zod.object({ test: zod.object({ testTimeout: zod.number() }) })
+
+const rulesSchema = zod.object({ "max-lines": maxRuleSchema, "max-lines-per-function": maxRuleSchema, "max-statements": maxRuleSchema })
+
+const testSchema = zod.object({ coverage: zod.object({ thresholds: thresholdsSchema }), projects: zod.array(zod.unknown()) })
+
+const configSchema = zod.object({
+  fmt: zod.object({ printWidth: zod.number(), tabWidth: zod.number() }),
+  lint: zod.object({ rules: rulesSchema }),
+  test: testSchema,
+})
 
 const countFiles = (pattern: string): number => globSync(pattern).length
 
@@ -26,22 +64,68 @@ const majorVersionOf = (packageName: string): number => {
 const countAdminSections = (): number =>
   Object.keys(adminSidebarSchema.parse(readJson(`messages/${CATALOGUE_LOCALE}/pages.admin.sidebar.json`)).links).length
 
-const collectRepositoryFacts = () => ({
-  adminSections: countAdminSections(),
-  countries: countCatalogueEntries("countries"),
-  currencies: countCatalogueEntries("currencies"),
-  e2eSpecs: countFiles("e2e/specs/*.spec.ts"),
-  reactMajor: majorVersionOf("react"),
-  tanstackTableMajor: majorVersionOf("@tanstack/react-table"),
-  testFiles: countFiles("src/**/*.{test,spec}.{ts,tsx}"),
-  timezones: countCatalogueEntries("timezones"),
-  uiComponents: countFiles("src/presentation/components/shadcn/*.tsx"),
-})
+const readBunVersion = (): string => {
+  const { packageManager } = rootPackageSchema.parse(readJson("package.json"))
+
+  return versionMatchSchema.parse(BUN_PACKAGE_MANAGER.exec(packageManager)?.groups).version
+}
+
+const readE2eFullSchedule = (): string => {
+  const workflow = readFileSync(E2E_FULL_WORKFLOW, "utf8")
+
+  return scheduleMatchSchema.parse(WORKFLOW_CRON.exec(workflow)?.groups).schedule
+}
+
+const findTimedProject = (projects: readonly unknown[]) =>
+  timedProjectSchema.parse(projects.find((project) => projectWithTimeoutSchema.safeParse(project).success))
+
+export const collectRepositoryFacts = (config: unknown) => {
+  const { fmt, lint, test } = configSchema.parse(config)
+  const [, maxLines] = lint.rules["max-lines"]
+  const [, maxLinesPerFunction] = lint.rules["max-lines-per-function"]
+  const [, maxStatements] = lint.rules["max-statements"]
+
+  return {
+    adminSections: countAdminSections(),
+    bunVersion: readBunVersion(),
+    countries: countCatalogueEntries("countries"),
+    coverageThreshold: test.coverage.thresholds.lines,
+    currencies: countCatalogueEntries("currencies"),
+    e2eFullSchedule: readE2eFullSchedule(),
+    e2eSpecs: countFiles("e2e/specs/*.spec.ts"),
+    integrationTestTimeoutSeconds: findTimedProject(test.projects).test.testTimeout / MILLISECONDS_PER_SECOND,
+    maxLines: maxLines.max,
+    maxLinesPerFunction: maxLinesPerFunction.max,
+    maxStatements: maxStatements.max,
+    nodeVersion: readFileSync(".nvmrc", "utf8").trim(),
+    playwrightCiRetries: CI_RETRIES,
+    playwrightCiWorkers: CI_WORKERS,
+    playwrightLocalRetries: DEV_RETRIES,
+    playwrightLocalWorkers: LOCAL_WORKERS,
+    printWidth: fmt.printWidth,
+    reactMajor: majorVersionOf("react"),
+    tabWidth: fmt.tabWidth,
+    tanstackTableMajor: majorVersionOf("@tanstack/react-table"),
+    testFiles: countFiles("src/**/*.{test,spec}.{ts,tsx}"),
+    timezones: countCatalogueEntries("timezones"),
+    uiComponents: countFiles("src/presentation/components/shadcn/*.tsx"),
+  }
+}
 
 export type RepositoryFacts = ReturnType<typeof collectRepositoryFacts>
 
-export const repositoryFacts = (): Plugin => ({
-  load: (id) => (id === RESOLVED_MODULE_ID ? `export default ${JSON.stringify(collectRepositoryFacts())}` : undefined),
-  name: "saasyland:repository-facts",
-  resolveId: (id) => (id === MODULE_ID ? RESOLVED_MODULE_ID : undefined),
-})
+export const repositoryFacts = (): Plugin => {
+  let moduleSource = ""
+
+  return {
+    config: (config) => {
+      moduleSource = [
+        `export default ${JSON.stringify(collectRepositoryFacts(config))}`,
+        `export const commitEmojis = ${JSON.stringify(COMMIT_EMOJIS)}`,
+      ].join("\n")
+    },
+    load: (id) => (id === RESOLVED_MODULE_ID ? moduleSource : undefined),
+    name: "saasyland:repository-facts",
+    resolveId: (id) => (id === MODULE_ID ? RESOLVED_MODULE_ID : undefined),
+  }
+}

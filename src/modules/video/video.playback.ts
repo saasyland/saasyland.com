@@ -5,7 +5,7 @@ import { fromHex, toHex } from "~/src/lib/hex"
 
 const SIGNING_INFO = "saasyland:video-playback"
 const MILLISECONDS_PER_SECOND = 1000
-const PLAYBACK_TTL_SECONDS = 21_600
+export const PLAYBACK_TTL_SECONDS = 21_600
 const PLAYBACK_EXPIRY_STEP_SECONDS = 3600
 const EXPIRY_RADIX = 36
 

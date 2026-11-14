@@ -1,11 +1,11 @@
 ---
 title: "Internationalization and locales"
-description: "Nine locales, URL prefixes, the locale cookie and namespaced use-intl messages."
+description: "Supported locales, URL prefixes, the locale cookie and namespaced use-intl messages."
 ---
 
 ## Locales
 
-`I18N` in `src/integrations/use-intl/i18n.config.ts` defines `en-US` (default), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` and `uk-UA`, the cookie `saasyland.com_locale` and the default time zone `UTC`.
+`I18N` in `src/integrations/use-intl/i18n.config.ts` defines the <RepositoryFact name="languages" /> locales <RepositoryFact name="supportedLocales" /> with `en-US` as the default, the cookie `saasyland.com_locale`, the default time zone `UTC` and the named date formats `FORMATS`.
 
 ## URLs
 
@@ -40,7 +40,26 @@ loader: async ({ context }) => {
 
 ## Components
 
-Each component calls `useTranslations` once and names the translator `t`. A component that needs two namespaces uses their common parent or `useTranslations()` with full keys. Format numbers and dates with `useFormatter`, `useDateFormatter` and `useCurrencyFormatter`.
+Each component calls `useTranslations` once and names the translator `t`. A component that needs two namespaces uses their common parent or `useTranslations()` with full keys.
+
+## Dates, numbers and time zones
+
+Dates and numbers are formatted with use-intl's `useFormatter` (`format.dateTime`, `format.number`, `format.relativeTime`, `format.list`). The locale decides the conventions: the order of day and month, the 12- or 24-hour clock and the separators. The time zone is the only display preference a user stores.
+
+`TranslationsProvider` gives `IntlProvider` two more values:
+
+- `timeZone`: the `timezone` of the signed-in user from the current session query, or `I18N.DEFAULT_TIMEZONE` (`UTC`) without a session. The provider reads the session that the `/app`, `/admin` and auth route guards load and never fetches it itself, so prerendered public pages are the same for every visitor and hydrate unchanged. When the session query changes, for example after the user saves a new zone in [Settings](/docs/features/settings), every date re-renders.
+- `formats`: `I18N.FORMATS`, the named date formats. `src/types/use-intl.d.ts` registers their names with use-intl, so an unknown name fails the type check.
+
+| Name            | English example           | Use                                                                                                         |
+| --------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `date`          | Nov 14, 2026              | The day of an instant in the reader's zone, in tables                                                       |
+| `dateTime`      | Nov 14, 2026, 3:04 PM UTC | An instant with its time and the zone abbreviation: licence activations and account dates in the admin      |
+| `calendarDate`  | Nov 14, 2026              | A date without a time, such as a blog post's date. It is formatted in UTC, so it never moves to another day |
+| `calendarDay`   | November 14               | Day labels of the admin analytics chart                                                                     |
+| `calendarMonth` | Nov                       | Month labels of the admin dashboard chart                                                                   |
+
+A call can override one option of a named format: `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`. Admin tables show other users' dates in the viewer's own zone with the abbreviation, so a column reads and sorts in one zone; the user's zone has a column of its own.
 
 ## Switching language
 
@@ -48,7 +67,7 @@ Each component calls `useTranslations` once and names the translator `t`. A comp
 
 ## Checks
 
-`bun run check:i18n` checks key parity across locales, resolves static keys in their `useTranslations` scope, validates ICU message syntax and checks docs and blog content parity.
+`bun run check:i18n` checks key parity across locales, resolves static keys in their `useTranslations` scope, fails on keys that no source file renders, validates ICU message syntax and checks docs and blog content parity.
 
 ## Related guides
 

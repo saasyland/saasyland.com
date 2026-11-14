@@ -7,13 +7,22 @@ description: "Solo demo: la schermata /admin/pricing-models. I prezzi reali prov
 
 ## Da dove vengono i prezzi
 
-- **Landing page**: `TIER_PRICES` in `src/data/marketing.ts`, in dollari statunitensi: `core` 249, `complete` 399, `agency` 899. `Price` li formatta nella lingua della pagina. La descrizione della landing page riceve il prezzo di Core come `{price}` e gli articoli del blog mostrano il prezzo di un piano con `<TierPrice tier="core" />`, così nessun testo scrive un prezzo a mano. La tariffa oraria della scheda della consulenza è `CONSULTING_HOURLY_RATE`, nello stesso file; la chiamata si prenota via email e non si vende tramite Polar, quindi non ha un prezzo regionale.
+- **Landing page**: `TIER_PRICES` in `src/data/marketing.ts`: `core` <TierPrice tier="core" />, `complete` <TierPrice tier="complete" />, `agency` <TierPrice tier="agency" />. `Price` li formatta nella lingua della pagina. La descrizione della landing page riceve il prezzo di Core come `{price}` e gli articoli del blog e le pagine della documentazione mostrano il prezzo di un piano con `<TierPrice tier="core" />`, così nessun testo scrive un prezzo a mano. La tariffa oraria della scheda della consulenza è `CONSULTING_HOURLY_RATE`, nello stesso file; la chiamata si prenota via email e non si vende tramite Polar, quindi non ha un prezzo regionale.
 - **Checkout**: i prodotti Polar a cui fanno riferimento `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` e `POLAR_PRODUCT_ID_AGENCY`.
-- **Sconti regionali**: `PPP_TIERS` in `src/modules/_core/constants/pricing.ts` (moltiplicatori 0,8, 0,7, 0,6 e 0,5 in base al paese), confrontati al checkout con gli sconti percentuali automatici configurati in Polar.
+- **Sconti regionali**: `PPP_TIERS` in `src/modules/_core/constants/pricing.ts`, un moltiplicatore di prezzo per ogni gruppo di paesi, confrontato al checkout con gli sconti percentuali automatici configurati in Polar:
 
-Mantieni allineati `TIER_PRICES`, i prezzi dei prodotti Polar e gli sconti Polar; il codice non li confronta.
+<RepositoryTable name="pppTiers" columns={["Moltiplicatore di prezzo", "Paesi"]} />
+
+`bun run polar:verify:<environment>` confronta i prezzi dei prodotti Polar con `TIER_PRICES` e gli sconti Polar con `PPP_TIERS`, e gli script di deploy lo eseguono prima di ogni deploy manuale. Modifica prima il codice, poi Polar; vedi [Configurazione di Polar](/docs/getting-started/polar-setup).
+
+## Valuta e prezzi
+
+- **Valuta del negozio**: `DEFAULT_CURRENCY_CODE` in `src/modules/_core/constants/pricing.ts`. Per incassare in un’altra valuta, cambiala lì; non è definita da nessun’altra parte. Si trova accanto alle costanti dei prezzi invece che in `currency.ts`, così la landing page non carica il catalogo `CURRENCIES`.
+- **Cosa cambia**: `CURRENCY_FORMAT` e, con esso, ogni prezzo della landing page, le schede dei piani, `<TierPrice>` nel blog e la tariffa della consulenza; la `currency` predefinita dei nuovi prodotti (`product.schema.ts`, `createProduct`); e gli importi nei grafici dei ricavi e nella tabella dei rimborsi dell’amministrazione. I prezzi vengono arrotondati all’unità minima della valuta da `Intl.NumberFormat`, che conosce i decimali di ogni valuta ISO 4217, quindi i prezzi regionali non hanno bisogno di una propria costante di arrotondamento.
+- **Cosa non cambia**: Polar addebita nella valuta dei prezzi dei prodotti Polar, quindi imposta i prodotti nella stessa valuta e aggiorna gli importi in `TIER_PRICES`. `TIER_PRICES` rispecchia i prezzi Polar finché i prezzi non verranno gestiti dall’amministrazione e letti da Polar. I pagamenti agli affiliati restano in `AFFILIATE_TERMS.PAYOUT_CURRENCY`, i dollari statunitensi in cui paga Affonso.
 
 ## Pagine correlate
 
 - [Pagamenti e licenze](/docs/features/payments)
+- [Configurazione di Polar](/docs/getting-started/polar-setup)
 - [Landing page](/docs/features/landing-page)

@@ -24,7 +24,7 @@ const WORKSPACE_PATHS = {
     "/admin/videos",
     "/admin/settings",
   ],
-  [ROLE_CODES.CUSTOMER]: ["/app/license", "/pl-PL/app"],
+  [ROLE_CODES.CUSTOMER]: ["/app/license", "/app/settings", "/pl-PL/app"],
 } as const
 
 for (const account of TEST_ACCOUNTS) {

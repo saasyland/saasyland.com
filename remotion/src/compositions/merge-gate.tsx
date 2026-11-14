@@ -1,15 +1,19 @@
+import { LANDING_VIDEO_SIZES } from "../../../src/data/landing-videos"
+
 import { AbsoluteFill, Easing, Interactive, interpolate, useCurrentFrame } from "remotion"
 
 import { Plate } from "../components/plate"
 import { MONO } from "../fonts"
-import { BAND, FPS, THEME, TYPE } from "../theme"
+import { FPS, THEME, TYPE } from "../theme"
+
+const SIZE = LANDING_VIDEO_SIZES["merge-gate"]
 
 const PAD = 52
 const TRACK_Y = 258
 const GATE_X = 690
 const GATE_WIDTH = 132
 const ENTRY_X = PAD + 10
-const EXIT_X = BAND.width - PAD - 10
+const EXIT_X = SIZE.width - PAD - 10
 
 const COMMITS = [
   { enters: 0.35 * FPS, passes: true, sha: "4f1c9ab" },
@@ -98,7 +102,7 @@ export function MergeGate() {
   return (
     <Plate ground={THEME.background}>
       <AbsoluteFill name="Rail">
-        <svg height={BAND.height} viewBox={`0 0 ${BAND.width} ${BAND.height}`} width={BAND.width}>
+        <svg height={SIZE.height} viewBox={`0 0 ${SIZE.width} ${SIZE.height}`} width={SIZE.width}>
           <line stroke={THEME.hairline} strokeWidth={2} x1={ENTRY_X} x2={EXIT_X} y1={TRACK_Y} y2={TRACK_Y} />
           <line stroke={THEME.accentMuted} strokeWidth={2} x1={GATE_X + GATE_WIDTH / 2} x2={EXIT_X} y1={TRACK_Y} y2={TRACK_Y} />
 

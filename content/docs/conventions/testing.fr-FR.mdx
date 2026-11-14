@@ -1,19 +1,19 @@
 ---
 title: "Tests"
-description: "À quel projet Vitest appartient un test, comment tester les fonctions serveur sur un D1 en mémoire, la pratique de la couverture à 100 %, les constantes nommées dans les assertions et la suite de tests du navigateur."
+description: "À quel projet Vitest appartient un test, comment tester les fonctions serveur sur un D1 en mémoire, la pratique de la couverture, les constantes nommées dans les assertions et la suite de tests du navigateur."
 ---
 
-Chaque modification est livrée avec les tests qui la prouvent, dans le même commit, et la couverture reste à 100 % pour les lignes, les instructions, les fonctions et les branches. Une correction de bug s'accompagne d'un test qui échoue sans la correction.
+Chaque modification est livrée avec les tests qui la prouvent, dans le même commit, et la couverture reste à <RepositoryFact name="coverageThreshold" unit="percent" /> pour les lignes, les instructions, les fonctions et les branches. Une correction de bug s'accompagne d'un test qui échoue sans la correction.
 
 ## Projets
 
 `vite.config.ts` définit trois projets Vitest, choisis d'après le suffixe du fichier. Les tests importent leur API depuis `vite-plus/test` et se trouvent dans `__test__/`, à côté du code qu'ils couvrent.
 
-| Suffixe                | Projet        | À utiliser pour                                                                                                                             |
-| ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.test.ts`             | `node`        | Les cas d'usage, les loaders, `head`, les schémas, les utilitaires : tout ce qui s'exécute sur le serveur                                   |
-| `.integration.test.ts` | `integration` | Les flux Better Auth, de paiement et de licence, l'adaptateur D1 et le chargement des messages, avec des délais d'expiration de 20 secondes |
-| `.component.test.tsx`  | `component`   | Les composants et les pages dans jsdom                                                                                                      |
+| Suffixe                | Projet        | À utiliser pour                                                                                                                                                                                       |
+| ---------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.test.ts`             | `node`        | Les cas d'usage, les loaders, `head`, les schémas, les utilitaires : tout ce qui s'exécute sur le serveur                                                                                             |
+| `.integration.test.ts` | `integration` | Les flux Better Auth, de paiement et de licence, l'adaptateur D1 et le chargement des messages, avec des délais d'expiration de <RepositoryFact name="integrationTestTimeoutSeconds" unit="second" /> |
+| `.component.test.tsx`  | `component`   | Les composants et les pages dans jsdom                                                                                                                                                                |
 
 `src/platform/testing/mocks/cloudflare.ts` remplace `cloudflare:workers` dans chaque projet : D1 est une base de données `node:sqlite` en mémoire construite à partir de chaque migration versionnée, KV et le bucket `MEDIA` sont des stockages en mémoire. `resetTestBindings()` vide KV, le bucket et la table de limitation de débit avant chaque test, et la fonction d'amorçage de chaque suite réinitialise les lignes dont elle dépend. Aucun test ne communique avec Cloudflare, Polar, Resend ou un fournisseur OAuth : `fetch` atteint les doublures strictes de `mocks/resend.ts` et `mocks/polar.ts`, qui valident chaque requête d'après les modèles de requête des SDK et font échouer le test sur une requête que le fournisseur refuserait. Les tests vérifient ce que la doublure a reçu au lieu de simuler une méthode du SDK, et les suites d'authentification pilotent la vraie configuration de `auth.server.ts` via `auth.harness.ts`.
 
@@ -65,7 +65,7 @@ describe("getCourses", () => {
 
 ## Couverture
 
-`bun run test:coverage` échoue en dessous de 100 % sur l'une des quatre métriques pour `src/**/*.{ts,tsx}`. Les tests, `__test__/`, les fichiers de déclaration, `src/routeTree.gen.ts`, les primitives shadcn et `src/platform/testing/` sont exclus. Le seuil garde tout son sens :
+`bun run test:coverage` échoue en dessous de <RepositoryFact name="coverageThreshold" unit="percent" /> sur l'une des quatre métriques pour `src/**/*.{ts,tsx}`. Les tests, `__test__/`, les fichiers de déclaration, `src/routeTree.gen.ts`, les primitives shadcn et `src/platform/testing/` sont exclus. Le seuil garde tout son sens :
 
 - **Supprimez les branches qui ne peuvent jamais s'exécuter** au lieu de les couvrir avec des stubs. Un `?? fallback` sur une donnée toujours présente, ou un chaînage optionnel sur une valeur qui ne peut pas être `undefined`, est retiré du code source, et non atteint en remplaçant une globale.
 - **Couvrez le comportement réel.** Pour les états en attente, les tests maintiennent la requête ouverte avec `Promise.withResolvers()`, vérifient l'interface en attente, résolvent la promesse dans `act` et vérifient l'interface au repos, comme le font `expectPending` et `expectIdle` dans `auth-forms.component.test.tsx`.

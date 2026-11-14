@@ -1,9 +1,21 @@
 ---
 title: "Paramètres"
-description: "L’écran /admin/settings : un onglet sécurité réel, un onglet général statique et quatre onglets vides."
+description: "Les écrans /admin/settings et /app/settings : la préférence de fuseau horaire, un onglet sécurité réel, des cartes de démonstration pour l’espace de travail et quatre onglets vides."
 ---
 
-`src/routes/admin.settings.tsx` affiche six onglets issus de `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`) : **Général**, **Sécurité**, **Équipe et membres**, **Facturation**, **Intégrations** et **Clés API**. Seuls **Général** et **Sécurité** ont du contenu, composé de widgets de `src/presentation/components/custom/admin/settings` ; les quatre autres n’affichent rien. Le loader précharge `getActiveSessionsQuery`. L’espace client `/app` n’a pas d’écran de paramètres.
+`src/routes/admin.settings.tsx` affiche six onglets issus de `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`) : **Général**, **Sécurité**, **Équipe et membres**, **Facturation**, **Intégrations** et **Clés API**. Seuls **Général** et **Sécurité** ont du contenu, composé de widgets de `src/presentation/components/custom/admin/settings` et de la carte partagée `PreferencesCard` ; les quatre autres n’affichent rien. Le loader précharge `getActiveSessionsQuery`. Les clients ont leur propre page de paramètres, `/app/settings` (`src/routes/app.settings.tsx`), qui n’affiche que `PreferencesCard`.
+
+## Préférences (réel)
+
+`PreferencesCard` (`src/presentation/components/custom/preferences-card.tsx`) modifie le fuseau horaire de l’utilisateur connecté, la seule préférence d’affichage enregistrée avec le compte. La carte lit le fuseau enregistré dans la requête de session courante.
+
+- Une liste déroulante avec recherche répertorie chaque fuseau de `TIMEZONE_CODES` (`src/modules/user/user.schema.ts`, dérivé de `TIMEZONES`) sous son nom dans l’espace de noms `timezones`, que chargent les layouts `/admin` et `/app`.
+- **Détecter depuis ce navigateur** sélectionne le fuseau indiqué par le navigateur. Les fuseaux sont comparés tels que `Intl.DateTimeFormat` les résout, si bien qu’un alias comme `Asia/Calcutta` trouve `Asia/Kolkata` ; un fuseau absent de la liste affiche un message et conserve le choix actuel.
+- **Enregistrer les préférences** appelle `updatePreferences` (`src/modules/user/use-cases/update-preferences.ts`, connecté), qui valide le fuseau avec `userZodSchemas.updatePreferences` et l’enregistre via `updateUser` de Better Auth. La carte invalide ensuite la requête de session courante, et `TranslationsProvider` affiche chaque date dans le nouveau fuseau ([Internationalisation et langues](/docs/features/internationalization)).
+
+La langue n’est pas enregistrée : c’est la locale de l’URL, que l’on change avec `LocaleSelect`, et elle détermine aussi l’ordre des éléments de la date, l’horloge sur 12 ou 24 heures et les séparateurs des nombres.
+
+`PreferencesCardPending`, à côté de la carte, est son squelette dans `AdminSettingsPending` et `AppSettingsPending`.
 
 ## Sécurité (réel)
 
@@ -14,7 +26,6 @@ description: "L’écran /admin/settings : un onglet sécurité réel, un onglet
 ## Général (démo)
 
 - `ProfileCard` : nom de l’espace de travail, e-mail d’assistance et URL, préremplis avec `APP_NAME` et des constantes du fichier.
-- `PreferencesCard` : langue, fuseau horaire et un interrupteur pour les annonces.
 - `DangerZoneCard` : un bouton de suppression.
 
-Ces cartes affichent uniquement des valeurs par défaut ; rien n’est enregistré. `updateUser` et `changeEmail` dans `src/modules/account/use-cases` sont les fonctions serveur à brancher lorsque vous créez un formulaire de profil.
+Ces deux cartes affichent uniquement des valeurs par défaut ; rien n’est enregistré. `updateUser` et `changeEmail` dans `src/modules/account/use-cases` sont les fonctions serveur à brancher lorsque vous créez un formulaire de profil.

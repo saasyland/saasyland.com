@@ -1,3 +1,6 @@
+import sidebar from "../../../messages/en-US/pages.admin.sidebar.json"
+import { ADMIN_NAVIGATION } from "../../../src/data/admin-navigation"
+
 import type { ReactNode } from "react"
 
 import { MONO, SANS } from "../fonts"
@@ -5,13 +8,6 @@ import { THEME } from "../theme"
 
 export const RAIL_WIDTH = 300
 export const HEADER_HEIGHT = 84
-
-export const NAV_GROUPS = [
-  { items: ["Dashboard", "Analytics"], label: "Overview" },
-  { items: ["Products", "Pricing Models"], label: "Offerings" },
-  { items: ["Blog", "Landing Page"], label: "Content" },
-  { items: ["User Management", "Active Sessions", "Payments & Billing", "Settings"], label: "Administration" },
-] as const
 
 export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; reveal: (index: number) => number }>) {
   let row = 0
@@ -40,12 +36,12 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
         <svg fill={THEME.foreground} height={22} viewBox="0 0 24 24" width={22}>
           <path d="M6 0H15V9H24V18A6 6 0 0 1 18 24H6A6 6 0 0 1 0 18V6A6 6 0 0 1 6 0Z" />
         </svg>
-        <span style={{ fontFamily: SANS, fontSize: 19, fontWeight: 600, letterSpacing: "-0.02em" }}>SaaSy Land</span>
+        <span style={{ fontFamily: SANS, fontSize: 19, fontWeight: 600, letterSpacing: "-0.02em" }}>{sidebar.title}</span>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "20px 12px" }}>
-        {NAV_GROUPS.map((group) => (
-          <div key={group.label}>
+        {ADMIN_NAVIGATION.map((group) => (
+          <div key={group.titleKey}>
             <div
               style={{
                 color: THEME.mutedForeground,
@@ -56,7 +52,7 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
                 textTransform: "uppercase",
               }}
             >
-              {group.label}
+              {sidebar.groups[group.titleKey]}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 8 }}>
               {group.items.map((item) => {
@@ -64,7 +60,7 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
                 const isActive = index === activeIndex
                 return (
                   <div
-                    key={item}
+                    key={item.titleKey}
                     style={{
                       alignItems: "center",
                       backgroundColor: isActive ? THEME.muted : "transparent",
@@ -88,7 +84,7 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
                         width: 12,
                       }}
                     />
-                    {item}
+                    {sidebar.links[item.titleKey]}
                   </div>
                 )
               })}

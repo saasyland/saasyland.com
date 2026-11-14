@@ -9,8 +9,9 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { CATEGORY_ICON, CATEGORY_KIND, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import type { Category } from "~/src/modules/category/category.types"
 import { getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
@@ -79,7 +80,7 @@ export const adminQueryClient = () => {
 
 export const renderAdmin = (ui: ReactElement, { path = "/admin", queryClient = adminQueryClient() } = {}) =>
   renderWithRouter(
-    <IntlProvider locale="en-US" messages={adminMessages} timeZone="UTC">
+    <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={adminMessages} timeZone={I18N.DEFAULT_TIMEZONE}>
       {ui}
     </IntlProvider>,
     { queryClient, router: createTestRouter(path) },

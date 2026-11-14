@@ -1,11 +1,11 @@
 ---
 title: "Internacionalização e idiomas"
-description: "Nove idiomas, prefixos de URL, o cookie de idioma e mensagens do use-intl organizadas em namespaces."
+description: "Idiomas suportados, prefixos de URL, o cookie de idioma e mensagens do use-intl organizadas em namespaces."
 ---
 
 ## Idiomas
 
-`I18N` em `src/integrations/use-intl/i18n.config.ts` define `en-US` (padrão), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` e `uk-UA`, o cookie `saasyland.com_locale` e o fuso horário padrão `UTC`.
+`I18N` em `src/integrations/use-intl/i18n.config.ts` define os <RepositoryFact name="languages" /> idiomas <RepositoryFact name="supportedLocales" />, com `en-US` como padrão, além do cookie `saasyland.com_locale`, do fuso horário padrão `UTC` e dos formatos de data nomeados `FORMATS`.
 
 ## URLs
 
@@ -40,7 +40,26 @@ loader: async ({ context }) => {
 
 ## Componentes
 
-Cada componente chama `useTranslations` uma única vez e chama o tradutor de `t`. Um componente que precisa de dois namespaces usa o pai comum deles ou `useTranslations()` com chaves completas. Formate números e datas com `useFormatter`, `useDateFormatter` e `useCurrencyFormatter`.
+Cada componente chama `useTranslations` uma única vez e chama o tradutor de `t`. Um componente que precisa de dois namespaces usa o pai comum deles ou `useTranslations()` com chaves completas.
+
+## Datas, números e fusos horários
+
+Datas e números são formatados com o `useFormatter` do use-intl (`format.dateTime`, `format.number`, `format.relativeTime`, `format.list`). O locale decide as convenções: a ordem do dia e do mês, o relógio de 12 ou 24 horas e os separadores. O fuso horário é a única preferência de exibição que o usuário armazena.
+
+`TranslationsProvider` passa mais dois valores ao `IntlProvider`:
+
+- `timeZone`: o `timezone` do usuário logado, vindo da query da sessão atual, ou `I18N.DEFAULT_TIMEZONE` (`UTC`) quando não há sessão. O provider lê a sessão que os guards de rota de `/app`, de `/admin` e da autenticação carregam e nunca a busca por conta própria, então as páginas públicas pré-renderizadas são iguais para todos os visitantes e se hidratam sem mudanças. Quando a query da sessão muda, por exemplo depois que o usuário salva um novo fuso em [Configurações](/docs/features/settings), todas as datas são renderizadas de novo.
+- `formats`: `I18N.FORMATS`, os formatos de data nomeados. `src/types/use-intl.d.ts` registra os nomes deles no use-intl, então um nome desconhecido não passa na verificação de tipos.
+
+| Nome            | Exemplo (inglês)          | Uso                                                                                                        |
+| --------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `date`          | Nov 14, 2026              | O dia de um instante no fuso do leitor, em tabelas                                                         |
+| `dateTime`      | Nov 14, 2026, 3:04 PM UTC | Um instante com o horário e a sigla do fuso: ativações de licença e datas de contas no admin               |
+| `calendarDate`  | Nov 14, 2026              | Uma data sem horário, como a data de um post do blog. É formatada em UTC, então nunca passa para outro dia |
+| `calendarDay`   | November 14               | Rótulos de dia do gráfico de analytics do admin                                                            |
+| `calendarMonth` | Nov                       | Rótulos de mês do gráfico do painel do admin                                                               |
+
+Uma chamada pode substituir uma opção de um formato nomeado: `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`. As tabelas do admin mostram as datas de outros usuários no fuso horário de quem as visualiza, com a sigla, para que uma coluna seja lida e ordenada em um único fuso; o fuso do usuário tem uma coluna própria.
 
 ## Trocar de idioma
 
@@ -48,7 +67,7 @@ Cada componente chama `useTranslations` uma única vez e chama o tradutor de `t`
 
 ## Verificações
 
-`bun run check:i18n` verifica a paridade de chaves entre os idiomas, resolve as chaves estáticas no escopo do respectivo `useTranslations`, valida a sintaxe das mensagens ICU e verifica a paridade do conteúdo da documentação e do blog.
+`bun run check:i18n` verifica a paridade de chaves entre os idiomas, resolve as chaves estáticas no escopo do respectivo `useTranslations`, falha com chaves que nenhum arquivo do código-fonte renderiza, valida a sintaxe das mensagens ICU e verifica a paridade do conteúdo da documentação e do blog.
 
 ## Guias relacionados
 

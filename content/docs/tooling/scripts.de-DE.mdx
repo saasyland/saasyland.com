@@ -21,28 +21,30 @@ Führen Sie Skripte im Stammverzeichnis des Repositorys mit `bun run <script>` a
 
 ## Deployment
 
-| Skript              | Führt aus                                                                                                                                                                                                              |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` von `dist/server/wrangler.json` und `scripts/verify-deployment.ts preview` |
-| `deploy:production` | Dieselben Schritte für `production`                                                                                                                                                                                    |
+| Skript              | Führt aus                                                                                                                                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `polar:verify:preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` von `dist/server/wrangler.json` und `scripts/verify-deployment.ts preview` |
+| `deploy:production` | Dieselben Schritte für `production`                                                                                                                                                                                                            |
 
 - `verify-bindings.ts` schlägt fehl, wenn der Umgebung ein `DB`-, `CACHE`- oder `MEDIA`-Binding fehlt oder sie noch eine Platzhalter-ID für D1 oder KV enthält, und wenn die Produktion ihre Datenbank, ihren Namespace oder ihren Bucket mit Preview teilt.
+- `polar:verify:<environment>` stoppt das Deployment vor dem Build, wenn die Polar-Organisation in `.env.<environment>` nicht mit dem Code übereinstimmt.
 - `prepare-deploy-secrets.ts` liest die Schlüssel, die in `secrets.required` der Umgebung aufgeführt sind, aus `.env.<environment>`, schlägt fehl, wenn einer fehlt oder leer ist, und schreibt nur diese Schlüssel nach `.wrangler/secrets.<environment>.json`. Andere Variablen in der Datei werden nicht hochgeladen.
 - Migrationen laufen nach dem Build und vor dem Deployment, sodass ein fehlgeschlagener Build die Datenbank nie berührt und der neue Worker nie mit einem älteren Schema startet.
 - Das Deployment führt `env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.<environment>.json` aus. Die gebaute Konfiguration zielt bereits auf eine einzige Umgebung; ein in der Shell verbliebenes `CLOUDFLARE_ENV` würde Wrangler nach einem Umgebungsabschnitt suchen lassen, den diese Datei nicht hat.
-- `verify-deployment.ts` ruft `/`, `/courses`, `/robots.txt`, `/api` und `/api/auth/get-session` auf der Domain der Umgebung ab und schlägt fehl, sofern nicht jeder Pfad mit `200` und dem erwarteten Inhaltstyp antwortet. Einen fehlschlagenden Pfad ruft es dreimal im Abstand von fünf Sekunden ab und ändert nichts. `bun scripts/verify-deployment.ts <preview|production>` prüft eine Live-Website für sich allein.
+- `verify-deployment.ts` ruft <RepositoryFact name="liveSiteCheckPaths" /> auf der Domain der Umgebung ab und schlägt fehl, sofern nicht jeder Pfad mit `200` und dem erwarteten Inhaltstyp antwortet. Einen fehlschlagenden Pfad ruft es dreimal im Abstand von fünf Sekunden ab und ändert nichts. `bun scripts/verify-deployment.ts <preview|production>` prüft eine Live-Website für sich allein.
 
 ## Prüfungen
 
-| Skript             | Führt aus                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| `check`            | `generate:cn`, `check:i18n` und `vp check` (Formatierung, Linting und Typen)               |
-| `check:fix`        | Dasselbe mit `vp check --fix`                                                              |
-| `check:i18n`       | `scripts/check-i18n.ts`, `scripts/check-message-formats.ts` und `scripts/check-content.ts` |
-| `check:pre-commit` | `generate:cn`, `check:i18n` und `vp staged`; wird vom Pre-Commit-Hook ausgeführt           |
-| `lint`             | `vp lint`                                                                                  |
-| `format`           | `vp fmt`                                                                                   |
-| `format:check`     | `vp fmt --check`                                                                           |
+| Skript                                                                        | Führt aus                                                                                                                                                                  |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check`                                                                       | `generate:cn`, `check:i18n` und `vp check` (Formatierung, Linting und Typen)                                                                                               |
+| `check:fix`                                                                   | Dasselbe mit `vp check --fix`                                                                                                                                              |
+| `check:i18n`                                                                  | `scripts/check-i18n.ts`, `scripts/check-message-formats.ts` und `scripts/check-content.ts`                                                                                 |
+| `check:pre-commit`                                                            | `generate:cn`, `check:i18n` und `vp staged`; wird vom Pre-Commit-Hook ausgeführt                                                                                           |
+| `lint`                                                                        | `vp lint`                                                                                                                                                                  |
+| `format`                                                                      | `vp fmt`                                                                                                                                                                   |
+| `format:check`                                                                | `vp fmt --check`                                                                                                                                                           |
+| `polar:verify:development`, `polar:verify:preview`, `polar:verify:production` | `scripts/verify-polar.ts`: vergleicht die Polar-Organisation der Umgebung mit dem Code, nur mit GET-Anfragen; siehe [Polar-Einrichtung](/docs/getting-started/polar-setup) |
 
 ## Tests
 

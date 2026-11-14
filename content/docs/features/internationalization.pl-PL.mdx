@@ -1,11 +1,11 @@
 ---
 title: "Internacjonalizacja i języki"
-description: "Dziewięć języków, prefiksy w adresach URL, ciasteczko języka i komunikaty use-intl podzielone na przestrzenie nazw."
+description: "Obsługiwane języki, prefiksy w adresach URL, ciasteczko języka i komunikaty use-intl podzielone na przestrzenie nazw."
 ---
 
 ## Języki
 
-`I18N` w `src/integrations/use-intl/i18n.config.ts` definiuje `en-US` (domyślny), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` i `uk-UA`, ciasteczko `saasyland.com_locale` oraz domyślną strefę czasową `UTC`.
+`I18N` w `src/integrations/use-intl/i18n.config.ts` definiuje obsługiwane języki (łącznie <RepositoryFact name="languages" />): <RepositoryFact name="supportedLocales" />, z `en-US` jako domyślnym, a także ciasteczko `saasyland.com_locale`, domyślną strefę czasową `UTC` oraz nazwane formaty dat `FORMATS`.
 
 ## Adresy URL
 
@@ -40,7 +40,26 @@ loader: async ({ context }) => {
 
 ## Komponenty
 
-Każdy komponent wywołuje `useTranslations` tylko raz i nazywa tłumacza `t`. Komponent, który potrzebuje dwóch przestrzeni nazw, używa ich wspólnego rodzica albo `useTranslations()` z pełnymi kluczami. Liczby i daty formatuj za pomocą `useFormatter`, `useDateFormatter` i `useCurrencyFormatter`.
+Każdy komponent wywołuje `useTranslations` tylko raz i nazywa tłumacza `t`. Komponent, który potrzebuje dwóch przestrzeni nazw, używa ich wspólnego rodzica albo `useTranslations()` z pełnymi kluczami.
+
+## Daty, liczby i strefy czasowe
+
+Daty i liczby są formatowane przez `useFormatter` z use-intl (`format.dateTime`, `format.number`, `format.relativeTime`, `format.list`). Język decyduje o konwencjach: kolejności dnia i miesiąca, zegarze 12- lub 24-godzinnym i separatorach. Strefa czasowa to jedyna preferencja wyświetlania, którą zapisuje użytkownik.
+
+`TranslationsProvider` przekazuje do `IntlProvider` jeszcze dwie wartości:
+
+- `timeZone`: `timezone` zalogowanego użytkownika z bieżącego zapytania o sesję, a bez sesji `I18N.DEFAULT_TIMEZONE` (`UTC`). Provider odczytuje sesję, którą wczytują guardy tras `/app`, `/admin` i uwierzytelniania, i nigdy nie pobiera jej sam, dzięki czemu prerenderowane strony publiczne są takie same dla każdego odwiedzającego i hydratują się bez zmian. Gdy zapytanie o sesję się zmienia, na przykład po zapisaniu przez użytkownika nowej strefy na ekranie [Ustawienia](/docs/features/settings), każda data renderuje się ponownie.
+- `formats`: `I18N.FORMATS`, czyli nazwane formaty dat. `src/types/use-intl.d.ts` rejestruje ich nazwy w use-intl, więc nieznana nazwa nie przechodzi sprawdzania typów.
+
+| Nazwa           | Przykład (angielski)      | Zastosowanie                                                                                                 |
+| --------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `date`          | Nov 14, 2026              | Dzień, na który przypada dany moment w strefie czytelnika, w tabelach                                        |
+| `dateTime`      | Nov 14, 2026, 3:04 PM UTC | Moment z godziną i skrótem strefy: aktywacje licencji i daty kont w panelu administracyjnym                  |
+| `calendarDate`  | Nov 14, 2026              | Data bez godziny, np. data wpisu na blogu. Jest formatowana w UTC, więc nigdy nie przesuwa się na inny dzień |
+| `calendarDay`   | November 14               | Etykiety dni na wykresie analityki w panelu administracyjnym                                                 |
+| `calendarMonth` | Nov                       | Etykiety miesięcy na wykresie pulpitu w panelu administracyjnym                                              |
+
+Wywołanie może nadpisać jedną opcję nazwanego formatu: `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`. Tabele w panelu administracyjnym pokazują daty innych użytkowników we własnej strefie oglądającego, wraz z jej skrótem, więc kolumnę czyta się i sortuje w jednej strefie; strefa użytkownika ma osobną kolumnę.
 
 ## Zmiana języka
 
@@ -48,7 +67,7 @@ Każdy komponent wywołuje `useTranslations` tylko raz i nazywa tłumacza `t`. K
 
 ## Kontrole
 
-`bun run check:i18n` sprawdza zgodność kluczy między językami, rozwiązuje statyczne klucze w zakresie ich `useTranslations`, waliduje składnię komunikatów ICU i sprawdza zgodność treści dokumentacji i bloga.
+`bun run check:i18n` sprawdza zgodność kluczy między językami, rozwiązuje statyczne klucze w zakresie ich `useTranslations`, kończy się błędem dla kluczy, których nie renderuje żaden plik źródłowy, waliduje składnię komunikatów ICU i sprawdza zgodność treści dokumentacji i bloga.
 
 ## Powiązane przewodniki
 

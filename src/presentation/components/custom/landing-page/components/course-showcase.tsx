@@ -15,6 +15,8 @@ import { courseShowcaseQuery } from "~/src/modules/course/use-cases/get-course-s
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 
+import { LANDING_VIDEO_SIZES } from "~/src/data/landing-videos"
+
 import { cn } from "~/src/lib/cn"
 import { formatClock } from "~/src/lib/duration"
 
@@ -28,8 +30,7 @@ import courseTourVideoWebm from "~/src/presentation/assets/motion/course-tour.we
 import courseTourPosterWebp from "~/src/presentation/assets/motion/course-tour.webp?url"
 import { ROUTES } from "~/src/routes"
 
-const TOUR_WIDTH = 1600
-const TOUR_HEIGHT = 900
+const TOUR = LANDING_VIDEO_SIZES["course-tour"]
 const TOUR_POSTER_SMALL_WIDTH = 800
 
 const TOUR_SIZES =
@@ -44,7 +45,7 @@ const LESSON_NUMBER_PAD = 2
 const LINK_CLASSNAME =
   "rounded-sm transition-colors duration-200 ease-exp focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
 
-const posterSet = (small: string, large: string): string => `${small} ${String(TOUR_POSTER_SMALL_WIDTH)}w, ${large} ${String(TOUR_WIDTH)}w`
+const posterSet = (small: string, large: string): string => `${small} ${String(TOUR_POSTER_SMALL_WIDTH)}w, ${large} ${String(TOUR.width)}w`
 
 const takeOver = (video: HTMLVideoElement): (() => void) => {
   video.focus({ preventScroll: true })
@@ -69,13 +70,13 @@ const CourseTour = (): JSX.Element => {
           autoPlay
           className="absolute inset-0 size-full"
           controls
-          height={TOUR_HEIGHT}
+          height={TOUR.height}
           muted
           onPlaying={() => {
             setIsPlaying(true)
           }}
           playsInline
-          width={TOUR_WIDTH}
+          width={TOUR.width}
         >
           <source src={courseTourVideoWebm} type="video/webm" />
           <source src={courseTourVideoMp4} type="video/mp4" />
@@ -87,12 +88,12 @@ const CourseTour = (): JSX.Element => {
           alt=""
           className="size-full"
           decoding="async"
-          height={TOUR_HEIGHT}
+          height={TOUR.height}
           loading="lazy"
           sizes={TOUR_SIZES}
           src={courseTourPosterWebp}
           srcSet={posterSet(courseTourPosterWebp800, courseTourPosterWebp)}
-          width={TOUR_WIDTH}
+          width={TOUR.width}
         />
       </picture>
       {!isStarted && (

@@ -20,7 +20,7 @@ export const PostRow = ({ post }: Readonly<{ post: BlogPostSummary }>): JSX.Elem
       id={post.url}
     >
       <div className="font-mono text-spec text-muted-foreground tabular-nums">
-        <p>{format.dateTime(new Date(post.date), { day: "numeric", month: "short", year: "numeric" })}</p>
+        <p>{format.dateTime(new Date(post.date), "calendarDate")}</p>
         <p className="mt-1 text-muted-foreground">{t("post.readingTime", { minutes: post.readingTimeMinutes })}</p>
       </div>
       <div className="min-w-0">

@@ -27,8 +27,8 @@ import {
   RowActionPending,
   SortableHeadPending,
   TitlePending,
-  ToggleFieldPending,
 } from "~/src/presentation/components/custom/admin/pending-blocks"
+import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card"
 
 import { ROUTES } from "~/src/routes"
 
@@ -439,29 +439,10 @@ const ProfileCardHeaderPending = (): JSX.Element => (
   </CardHeader>
 )
 
-const PreferencesCardHeaderPending = (): JSX.Element => (
-  <CardHeader className="border-b border-border p-5">
-    <Skeleton className="mb-1 h-lh w-28 scale-y-70 text-base" />
-    <div className="flex flex-col text-xs">
-      <Skeleton className="h-lh w-84 max-w-full scale-y-70" />
-      <Skeleton className="h-lh w-1/5 scale-y-70 sm:hidden" />
-    </div>
-  </CardHeader>
-)
-
 const SettingsFieldPending = (): JSX.Element => (
   <div className="flex w-full flex-col gap-2">
     <Skeleton className="h-lh w-24 scale-y-70 text-xs" />
     <Skeleton className="h-8 w-full rounded-lg" />
-  </div>
-)
-
-const SettingsSelectFieldPending = (): JSX.Element => (
-  <div className="flex w-full flex-col gap-2">
-    <div>
-      <Skeleton className="h-lh w-16 scale-y-70 text-xs" />
-      <Skeleton className="h-8 w-full rounded-lg" />
-    </div>
   </div>
 )
 
@@ -513,20 +494,7 @@ export const AdminSettingsPending = (): JSX.Element => (
               <Skeleton className="h-8 w-28 rounded-lg" />
             </div>
           </Card>
-          <Card className="overflow-hidden">
-            <PreferencesCardHeaderPending />
-            <CardContent className="flex-1 p-5">
-              <div className="flex w-full flex-col gap-6">
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  <SettingsSelectFieldPending />
-                  <SettingsSelectFieldPending />
-                </div>
-                <div className="py-2">
-                  <ToggleFieldPending />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <PreferencesCardPending />
         </div>
         <Card className="overflow-hidden border-destructive/20 bg-destructive/5">
           <CardHeader className="border-b border-destructive/10 p-5">

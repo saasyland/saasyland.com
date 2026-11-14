@@ -1,14 +1,14 @@
 ---
 title: "Zależności"
-description: "Trzymaj się najnowszych wersji, dostosowuj kod do udokumentowanego użycia, utrzymuj błędy w pakietach zewnętrznych jako patche Bun z poprawką zgłoszoną do projektu źródłowego, zachowaj kształt package.json zapisywany przez Vite+ i weryfikuj każdą aktualizację buildem."
+description: "Trzymaj się najnowszych wersji, dostosowuj kod do udokumentowanego użycia, utrzymuj błędy w pakietach zewnętrznych jako patche Bun z poprawką zgłoszoną do projektu źródłowego, usuwaj podatności przez pakiet nadrzędny, zachowaj kształt package.json zapisywany przez Vite+ i weryfikuj każdą aktualizację buildem."
 ---
 
 Repozytorium działa na najnowszym wydaniu każdej zależności. Aktualizację, która coś psuje, naprawia się do przodu, w kodzie lub w projekcie źródłowym, nigdy przez cofnięcie się.
 
 ## Wersje narzędzi
 
-- Bun jest menedżerem pakietów i narzędziem do uruchamiania skryptów. `packageManager` w `package.json` (`bun@1.4.4`) to jedyne miejsce, w którym ustawia się jego wersję; CI odczytuje ją stamtąd. `bun.lock` jest zapisany w repozytorium.
-- Node pochodzi z `.nvmrc` (`26.13.1`), a `engines.node` wymaga co najmniej tej wersji.
+- Bun jest menedżerem pakietów i narzędziem do uruchamiania skryptów. `packageManager` w `package.json` (Bun <RepositoryFact name="bunVersion" />) to jedyne miejsce, w którym ustawia się jego wersję; CI odczytuje ją stamtąd. `bun.lock` jest zapisany w repozytorium.
+- Node pochodzi z `.nvmrc` (<RepositoryFact name="nodeVersion" />), a `engines.node` wymaga co najmniej tej wersji.
 - Jedynym wyjątkiem jest `remotion/`, z własnym zestawem narzędzi npm, instalowanym tylko przy edycji filmów strony głównej.
 
 ## Aktualizacja
@@ -39,6 +39,20 @@ Gdy aplikacja już stosuje udokumentowane użycie, a nowa wersja działa błędn
 
 Obecne patche to `patches/@videojs%2Futils@10.3.0.patch`, który naprawia adresy URL miniatur storyboardu w odtwarzaczu wideo (razem z nim `@videojs/react` jest przypięty do wersji 10.3.0), oraz `patches/@fumadocs%2Fbase-ui@16.19.0.patch`, dzięki któremu bloki kodu bez tytułu nie są nienazwanymi punktami orientacyjnymi typu region (`@fumadocs/base-ui` jest przypięty do wersji 16.19.0). W ten sam sposób utrzymywano patch do `fumadocs-mdx` 15.6.0 i usunięto go, gdy wersja 15.6.1 dostarczyła poprawkę z projektu źródłowego.
 
+## Ostrzeżenia o podatnościach
+
+Alerty Dependabota obejmują `remotion/package-lock.json`, ale GitHub nie czyta `bun.lock`, więc sprawdzaj aplikację przez `bun audit`, a projekt wideo przez `npm audit` w `remotion/`. Usuwaj podatność najnowszym wydaniem pakietu, który wciąga podatny pakiet. Jeśli zakres wersji tego pakietu już dopuszcza poprawione wydanie, wystarczy odświeżyć lockfile: `bun update` albo `npm update` w `remotion/`.
+
+Dopóki żadne wydanie pakietu nadrzędnego nie dopuszcza poprawki, wpis w `overrides` podnosi wersję podatnego pakietu i zostaje usunięty, gdy tylko zrobi to wydanie pakietu nadrzędnego. Obecne wpisy:
+
+- `package.json`: `"minimatch": "^11.0.1"`. `shadcn` dociera do `minimatch` ^10 przez `ts-morph` 26 i `@ts-morph/common`, a GHSA-g3hv-75wg-m249 naprawia dopiero `minimatch` 11.0.1. Usuń go, gdy `shadcn` będzie zależał od wydania `ts-morph` zawierającego [dsherret/ts-morph#1697](https://github.com/dsherret/ts-morph/pull/1697).
+- `remotion/package.json`: `minimatch` ^11.0.1 pod `@typescript-eslint/typescript-estree`, z powodu tego samego ostrzeżenia. `@remotion/eslint-config-flat` przypina `typescript-eslint` do wersji 8.71.2, której parser wymaga `minimatch` ^10. Usuń go, gdy `@remotion/eslint-config-flat` będzie zależał od wydania `typescript-eslint` zawierającego [typescript-eslint/typescript-eslint#13145](https://github.com/typescript-eslint/typescript-eslint/pull/13145).
+
+`bun audit` nadal zgłasza dwa ostrzeżenia, dla których nie ma poprawki do wdrożenia:
+
+- `deepmerge` 4.3.1 (GHSA-gcqx-w48m-w2h4, niska), przez `shadcn` i `@shadcn/registry`. Poprawione wydanie nie istnieje, jego CVE odrzucono jako nieopisujące podatności, a [github/advisory-database#10910](https://github.com/github/advisory-database/issues/10910) prosi GitHub o wycofanie ostrzeżenia.
+- `esbuild` 0.18.20 (GHSA-67mh-4wv8-2f99, umiarkowana), przez `drizzle-kit` i `@esbuild-kit/esm-loader`. `drizzle-kit` 0.31.11 deklaruje ten loader, ale nigdy go nie importuje, a ostrzeżenie dotyczy serwera deweloperskiego esbuild, którego nic tutaj nie uruchamia. [drizzle-team/drizzle-orm#5304](https://github.com/drizzle-team/drizzle-orm/issues/5304) śledzi jego usunięcie; wersje release candidate `drizzle-kit` 1.0 już od niego nie zależą.
+
 ## Wpisy Vite+ w package.json
 
 ```json
@@ -47,7 +61,7 @@ Obecne patche to `patches/@videojs%2Futils@10.3.0.patch`, który naprawia adresy
 "vitest": "5.1.0"
 ```
 
-Te wiersze oraz ten sam alias `vite` i wersja `vitest` w `overrides` to dokładnie to, co zapisuje migrator Vite+: `vite-plus` jest przypięty do dokładnej wersji, Bun potrzebuje rdzenia jako bezpośredniej zależności `vite`, a `vitest` jest wymieniony, ponieważ potrzebują go `@vitest/coverage-v8` i typy testów. Aktualizuj je razem przez `vp migrate`, nigdy przez `bun update`. Aby sprawdzić, czy któryś z nich można usunąć, skopiuj projekt, uruchom `vp migrate` na kopii i porównaj wynik; nie rozstrzygaj tego rozumowaniem.
+Te wiersze oraz ten sam alias `vite` i wersja `vitest` w `overrides` to dokładnie to, co zapisuje migrator Vite+: `vite-plus` jest przypięty do dokładnej wersji, Bun potrzebuje rdzenia jako bezpośredniej zależności `vite`, a `vitest` jest wymieniony, ponieważ potrzebują go `@vitest/coverage-v8` i typy testów. Aktualizuj je razem przez `vp migrate`, nigdy przez `bun update`. Aby sprawdzić, czy któryś z nich można usunąć, skopiuj projekt, uruchom `vp migrate` na kopii i porównaj wynik; nie rozstrzygaj tego rozumowaniem. Wpis `minimatch` w `overrides` to opisana wyżej poprawka bezpieczeństwa i `vp migrate` zostawia go bez zmian.
 
 `build.rolldownOptions.external` w `vite.config.ts` wymienia opcjonalne zależności peer `@polar-sh/sdk`, które nie są zainstalowane i są usuwane z Workera przez tree-shaking; zobacz [Vite+](/docs/tooling/vite-plus). Usuń tę listę, gdy Polar naprawi swoje pakowanie.
 

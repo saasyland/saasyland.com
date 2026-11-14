@@ -33,7 +33,7 @@ import { DefaultNotFound } from "~/src/presentation/components/custom/default-no
 import type { VideoPlayer } from "~/src/presentation/components/custom/video-player"
 
 import messages from "~/messages/en-US/pages.courses.json"
-import plMessages from "~/messages/pl-PL/pages.courses.json"
+import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.json"
 import type { RouterContext } from "~/src/router"
 
 type PlayerProps = ComponentProps<typeof VideoPlayer>
@@ -281,9 +281,10 @@ describe("course catalogue", () => {
   it("keeps the courses link current in the localized navigation", async () => {
     await renderCourses({ locale: "pl-PL", path: "/pl-PL/courses" })
 
-    const nav = within(screen.getByRole("navigation", { name: plMessages.metadata.title }))
-    expect(nav.getByRole("link", { name: plMessages.nav.courses })).toHaveAttribute("aria-current", "page")
-    expect(nav.getByRole("link", { name: plMessages.nav.getStarted })).toHaveAttribute("href", "/pl-PL#pricing")
+    const nav = within(screen.getByRole("navigation", { name: plNavigationMessages.ariaLabel }))
+    expect(nav.getByRole("link", { name: plNavigationMessages.items.courses })).toHaveAttribute("aria-current", "page")
+    expect(nav.getByRole("link", { name: plNavigationMessages.items.blog })).toHaveAttribute("href", "/pl-PL/blog")
+    expect(nav.getByRole("link", { name: plNavigationMessages.getStarted })).toHaveAttribute("href", "/pl-PL#pricing")
   })
 })
 

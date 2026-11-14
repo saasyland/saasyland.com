@@ -23,7 +23,9 @@ import {
 import { Separator } from "~/src/presentation/components/shadcn/separator"
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
-import { RepositoryCount } from "~/src/presentation/components/custom/repository-count"
+import { ActivationLimit } from "~/src/presentation/components/custom/activation-limit"
+import { RegionalDiscounts } from "~/src/presentation/components/custom/regional-discounts"
+import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
 import { TierPrice } from "~/src/presentation/components/custom/tier-price"
 
 const INTERNAL_PREFIX = "/"
@@ -63,6 +65,7 @@ export const mdxComponents = {
   ...defaultMdxComponents,
   Accordion,
   Accordions,
+  ActivationLimit,
   Alert,
   AlertDescription,
   AlertTitle,
@@ -74,7 +77,9 @@ export const mdxComponents = {
   CardFooter,
   CardHeader,
   CardTitle,
-  RepositoryCount,
+  RegionalDiscounts,
+  RepositoryFact,
+  RepositoryTable,
   Separator,
   ShadcnCard,
   Step,

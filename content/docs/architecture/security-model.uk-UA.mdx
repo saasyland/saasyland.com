@@ -32,17 +32,17 @@ Better Auth також відповідає за підтвердження ел
 
 ## Обмеження частоти запитів
 
-`withRateLimit(kind, limit)` рахує спроби для кожної операції та IP-адреси клієнта (`cf-connecting-ip`) у таблиці `rate_limit` одним атомарним пакетом D1. `RATE_LIMITS.SENSITIVE` дозволяє 3 спроби на хвилину, а `RATE_LIMITS.TOKEN` — 5. Якщо сховище лічильників дає збій, запит відхиляється. Власний обмежувач частоти запитів Better Auth використовує ту саму таблицю з префіксом ключа `auth:`; читання сесії, вихід і вебхуки Polar звільнено від обмежень.
+`withRateLimit(kind, limit)` рахує спроби для кожної операції та IP-адреси клієнта (`cf-connecting-ip`) у таблиці `rate_limit` одним атомарним пакетом D1. `RATE_LIMITS.SENSITIVE` обмежує кількість спроб до <RepositoryFact name="sensitiveRateLimit" />, а `RATE_LIMITS.TOKEN` — до <RepositoryFact name="tokenRateLimit" />, обидва у вікні тривалістю <RepositoryFact name="rateLimitWindowSeconds" unit="second" />. Якщо сховище лічильників дає збій, запит відхиляється. Власний обмежувач частоти запитів Better Auth використовує ту саму таблицю з префіксом ключа `auth:`; читання сесії, вихід і вебхуки Polar звільнено від обмежень.
 
-Листи, які може викликати відвідувач, мають друге обмеження. `withinRecipientRateLimit` дозволяє три листи підтвердження адреси, три листи скидання пароля й три листи підтвердження розсилки на адресу за годину, з ключем за хешем SHA-256 адреси, а понад це мовчки пропускає лист.
+Листи, які може викликати відвідувач, мають друге обмеження. `withinRecipientRateLimit` обмежує кількість листів кожного виду (підтвердження адреси, скидання пароля й підтвердження розсилки) на адресу за годину до <RepositoryFact name="recipientEmailsPerHour" />, з ключем за хешем SHA-256 адреси, а понад це мовчки пропускає лист.
 
 ## Заголовки відповіді
 
-`src/server.ts` додає `SECURITY_HEADERS` (Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` і `X-Frame-Options`) до кожної відповіді, яку повертає Worker, а через HTTPS ще й `Strict-Transport-Security`, і зберігає будь-який із них, який відповідь уже задає. Файли, що віддаються без Worker, отримують підмножину з `public/_headers`. Див. [Безпека та посилення захисту](/docs/features/security).
+`src/server.ts` задає `SECURITY_HEADERS` (Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` і `X-Frame-Options`) для кожної відповіді, яку повертає Worker, а через HTTPS ще й `HTTPS_SECURITY_HEADERS` (`Strict-Transport-Security`), і замінює будь-яке значення, яке вже задала відповідь або правило з `public/_headers`. Обидві константи містяться в `src/modules/_core/constants/api.ts`. Файли, що віддаються без Worker, отримують ті самі заголовки з правила `/*` у `public/_headers`, а `src/__test__/server.test.ts` завершується помилкою, коли це правило й константи розходяться. Див. [Безпека та посилення захисту](/docs/features/security).
 
 ## Посилання на медіафайли
 
-Відеофайли зберігаються в приватному бакеті R2. `getVideoPlayback` вимагає `video: ["read"]`, а `getLessonPlayback` — рівня доступу уроку, перш ніж підписати шлях, а підпис — це HMAC-SHA-256 із ключем, виведеним з `AUTH_SECRET` за допомогою HKDF. `serveMedia` відповідає `403` на неправильний або прострочений підпис. Підписаний шлях працює як посилання на пред'явника, доки не спливе його термін дії, щонайменше через шість годин після видачі, тож будь-хто, у кого він є, може відтворити це відео. Див. [Cloudflare R2](/docs/integrations/cloudflare-r2).
+Відеофайли зберігаються в приватному бакеті R2. `getVideoPlayback` вимагає `video: ["read"]`, а `getLessonPlayback` — рівня доступу уроку, перш ніж підписати шлях, а підпис — це HMAC-SHA-256 із ключем, виведеним з `AUTH_SECRET` за допомогою HKDF. `serveMedia` відповідає `403` на неправильний або прострочений підпис. Підписаний шлях працює як посилання на пред'явника, доки не спливе його термін дії, а це щонайменше <RepositoryFact name="signedMediaHours" unit="hour" /> після видачі, тож будь-хто, у кого він є, може відтворити це відео. Див. [Cloudflare R2](/docs/integrations/cloudflare-r2).
 
 ## Помилки та вхідні дані
 

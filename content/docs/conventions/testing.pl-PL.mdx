@@ -1,19 +1,19 @@
 ---
 title: "Testy"
-description: "Do którego projektu Vitest należy test, jak testuje się funkcje serwerowe na D1 w pamięci, praktyka 100% pokrycia, nazwane stałe w asercjach i zestaw testów przeglądarkowych."
+description: "Do którego projektu Vitest należy test, jak testuje się funkcje serwerowe na D1 w pamięci, praktyka pokrycia kodu, nazwane stałe w asercjach i zestaw testów przeglądarkowych."
 ---
 
-Każda zmiana trafia razem z testami, które ją potwierdzają, w tym samym commicie, a pokrycie linii, instrukcji, funkcji i gałęzi pozostaje na poziomie 100%. Poprawce błędu towarzyszy test, który bez tej poprawki nie przechodzi.
+Każda zmiana trafia razem z testami, które ją potwierdzają, w tym samym commicie, a pokrycie linii, instrukcji, funkcji i gałęzi pozostaje na poziomie <RepositoryFact name="coverageThreshold" unit="percent" />. Poprawce błędu towarzyszy test, który bez tej poprawki nie przechodzi.
 
 ## Projekty
 
 `vite.config.ts` definiuje trzy projekty Vitest, wybierane na podstawie sufiksu pliku. Testy importują swoje API z `vite-plus/test` i znajdują się w `__test__/` obok kodu, który pokrywają.
 
-| Sufiks                 | Projekt       | Zastosowanie                                                                                                |
-| ---------------------- | ------------- | ----------------------------------------------------------------------------------------------------------- |
-| `.test.ts`             | `node`        | Przypadki użycia, loadery, `head`, schematy, narzędzia: wszystko, co działa na serwerze                     |
-| `.integration.test.ts` | `integration` | Przepływy Better Auth, płatności i licencji, adapter D1 i ładowanie komunikatów, z limitami czasu 20 sekund |
-| `.component.test.tsx`  | `component`   | Komponenty i strony w jsdom                                                                                 |
+| Sufiks                 | Projekt       | Zastosowanie                                                                                                                                                          |
+| ---------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.test.ts`             | `node`        | Przypadki użycia, loadery, `head`, schematy, narzędzia: wszystko, co działa na serwerze                                                                               |
+| `.integration.test.ts` | `integration` | Przepływy Better Auth, płatności i licencji, adapter D1 i ładowanie komunikatów (limity czasu: <RepositoryFact name="integrationTestTimeoutSeconds" unit="second" />) |
+| `.component.test.tsx`  | `component`   | Komponenty i strony w jsdom                                                                                                                                           |
 
 `src/platform/testing/mocks/cloudflare.ts` zastępuje `cloudflare:workers` w każdym projekcie: D1 to baza `node:sqlite` w pamięci, zbudowana z każdej migracji zapisanej w repozytorium, a KV i bucket `MEDIA` to magazyny w pamięci. `resetTestBindings()` czyści KV, bucket i tabelę limitów żądań przed każdym testem, a funkcja seedująca każdego zestawu testów przywraca wiersze, od których zależy. Żaden test nie komunikuje się z Cloudflare, Polar, Resend ani dostawcą OAuth: `fetch` trafia do ścisłych dublerów w `mocks/resend.ts` i `mocks/polar.ts`, które sprawdzają każde żądanie względem modeli żądań SDK i kończą test błędem przy żądaniu, które dostawca by odrzucił. Testy sprawdzają, co otrzymał dubler, zamiast mockować metodę SDK, a zestawy testów uwierzytelniania sterują prawdziwą konfiguracją `auth.server.ts` przez `auth.harness.ts`.
 
@@ -65,7 +65,7 @@ describe("getCourses", () => {
 
 ## Pokrycie
 
-`bun run test:coverage` kończy się błędem, gdy którakolwiek z czterech metryk dla `src/**/*.{ts,tsx}` spadnie poniżej 100%. Wykluczone są testy, `__test__/`, pliki deklaracji, `src/routeTree.gen.ts`, prymitywy shadcn i `src/platform/testing/`. Wymóg pokrycia zachowuje sens dzięki tym zasadom:
+`bun run test:coverage` kończy się błędem, gdy którakolwiek z czterech metryk dla `src/**/*.{ts,tsx}` spadnie poniżej <RepositoryFact name="coverageThreshold" unit="percent" />. Wykluczone są testy, `__test__/`, pliki deklaracji, `src/routeTree.gen.ts`, prymitywy shadcn i `src/platform/testing/`. Wymóg pokrycia zachowuje sens dzięki tym zasadom:
 
 - **Usuwaj gałęzie, które nigdy nie mogą się wykonać**, zamiast pokrywać je zaślepkami. `?? fallback` na danych, które zawsze są obecne, czy opcjonalny łańcuch na wartości, która nie może być `undefined`, usuwa się z kodu źródłowego, a nie osiąga przez podmianę obiektu globalnego.
 - **Pokrywaj rzeczywiste zachowanie.** Stany oczekiwania utrzymują żądanie otwarte za pomocą `Promise.withResolvers()`, sprawdzają UI oczekiwania, rozwiązują obietnicę wewnątrz `act` i sprawdzają UI bezczynności, tak jak `expectPending` i `expectIdle` w `auth-forms.component.test.tsx`.

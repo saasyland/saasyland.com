@@ -14,7 +14,7 @@ import { AriaProvider } from "~/src/providers/aria-provider"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
-import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { COURSE_KIND } from "~/src/modules/course/course.constants"
@@ -148,7 +148,7 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
   })
   render(
     <QueryClientProvider client={queryClient}>
-      <IntlProvider locale={locale} messages={getTestMessages(locale)} timeZone="UTC">
+      <IntlProvider formats={I18N.FORMATS} locale={locale} messages={getTestMessages(locale)} timeZone={I18N.DEFAULT_TIMEZONE}>
         <RouterProvider router={router} />
       </IntlProvider>
     </QueryClientProvider>,
@@ -429,6 +429,7 @@ describe("owning a license", () => {
     const { user } = await renderApp(ROUTES.APP_LICENSE)
 
     expect(await screen.findByText(LICENSE_KEY)).toBeVisible()
+    expect(screen.getByText(pagesLicenseMessages.activations.activated.replace("{date}", "Sep 8, 2026, 10:00 AM UTC"))).toBeVisible()
     expect(screen.getByRole("link", { name: pagesLicenseMessages.manage })).toHaveAttribute("href", ROUTES.API_AUTH_CUSTOMER_PORTAL)
     expect(screen.getByRole("link", { name: CONTACT_EMAIL })).toHaveAttribute("href", `mailto:${CONTACT_EMAIL}`)
     expect(screen.queryByRole("region", { name: buy.title })).toBeNull()

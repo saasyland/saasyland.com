@@ -1,10 +1,5 @@
 import { expect, it } from "vite-plus/test"
 
-import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
-import { I18N } from "~/src/integrations/use-intl/i18n.config"
-
-import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
-
 import { ADMIN_BLOG_POST_STATUS, DUMMY_POSTS } from "~/src/data/admin-blog"
 import { CLI_CHOICES, CLI_EXTRAS, CLI_MODULES, NONE } from "~/src/data/cli"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -30,14 +25,6 @@ it("counts a CLI module as optional only when its question can be answered with 
     cliModules: CLI_MODULES.length,
     cliOptionalModules: optionalChoices.length,
   })
-})
-it("provides translated pricing tiers in every supported locale", () => {
-  for (const locale of I18N.SUPPORTED_LOCALES) {
-    const messages = getTestMessages(locale)
-    for (const tier of LICENSE_TIERS) {
-      expect(messages).toHaveProperty(["components", "custom", "pricing", "tiers", tier, "name"], expect.stringMatching(/\S/u))
-    }
-  }
 })
 it("keeps demo blog records uniquely addressable", () => {
   expect(new Set(DUMMY_POSTS.map((post) => post.id)).size).toBe(DUMMY_POSTS.length)

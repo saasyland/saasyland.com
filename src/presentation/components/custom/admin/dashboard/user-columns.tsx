@@ -40,7 +40,7 @@ const StatusCell = ({ getValue }: CellContext<DataTableFeatures, DashboardUser, 
 const LastActiveCell = ({ getValue }: CellContext<DataTableFeatures, DashboardUser, Date>): JSX.Element => {
   const format = useFormatter()
 
-  return <span className="text-xs text-muted-foreground">{format.dateTime(getValue(), { dateStyle: "medium" })}</span>
+  return <span className="text-xs text-muted-foreground">{format.dateTime(getValue(), "date")}</span>
 }
 
 const ActionsCell = (): JSX.Element => {

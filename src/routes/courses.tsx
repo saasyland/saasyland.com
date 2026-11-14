@@ -1,67 +1,27 @@
 import type { JSX } from "react"
 
-import { Link, Outlet, createFileRoute } from "@tanstack/react-router"
-import { useTranslations } from "use-intl/react"
+import { Outlet, createFileRoute } from "@tanstack/react-router"
 
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
-
-import { cn } from "~/src/lib/cn"
-
 import { BackToTop } from "~/src/presentation/components/custom/back-to-top"
+import { ContentNavigation } from "~/src/presentation/components/custom/content-navigation"
 import { CataloguePending } from "~/src/presentation/components/custom/courses/courses-pending"
 import { Footer } from "~/src/presentation/components/custom/footer"
-import { HomeLink } from "~/src/presentation/components/custom/home-link"
 import { PageFrame } from "~/src/presentation/components/custom/page-frame"
 
-import { ROUTES } from "~/src/routes"
-
-const NAV_LINK_CLASSNAME =
-  "rounded-md text-body-sm transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-
-const CoursesLayout = (): JSX.Element => {
-  const t = useTranslations("pages.courses")
-
-  return (
-    <div className="dark relative isolate min-h-svh bg-background text-foreground">
-      <PageFrame />
-      <header className="relative z-50 border-b border-border">
-        <nav
-          aria-label={t("metadata.title")}
-          className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-6 px-6 md:px-10"
-        >
-          <HomeLink />
-
-          <div className="flex items-center gap-5 lg:gap-7">
-            <Link className={cn(NAV_LINK_CLASSNAME, "text-muted-foreground")} to={ROUTES.DOCS}>
-              {t("nav.docs")}
-            </Link>
-            <Link className={cn(NAV_LINK_CLASSNAME, "text-muted-foreground")} to={ROUTES.BLOG}>
-              {t("nav.blog")}
-            </Link>
-            <Link aria-current="page" className={cn(NAV_LINK_CLASSNAME, "text-foreground")} to={ROUTES.COURSES}>
-              {t("nav.courses")}
-            </Link>
-            <Link
-              className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-body-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-exp hover:bg-primary/88 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px"
-              hash={MARKETING_SECTION_IDS.PRICING}
-              to={ROUTES.HOME}
-            >
-              {t("nav.getStarted")}
-            </Link>
-          </div>
-        </nav>
-      </header>
-      <main className="relative z-10">
-        <Outlet />
-      </main>
-      <Footer />
-      <BackToTop />
-    </div>
-  )
-}
+const CoursesLayout = (): JSX.Element => (
+  <div className="dark relative isolate min-h-svh bg-background text-foreground">
+    <PageFrame />
+    <ContentNavigation />
+    <main className="relative z-10">
+      <Outlet />
+    </main>
+    <Footer />
+    <BackToTop />
+  </div>
+)
 
 const NAMESPACES = ["pages.courses"] as const
 

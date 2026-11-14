@@ -77,6 +77,7 @@ const WORKSPACE_PAGES = {
   [ROLE_CODES.CUSTOMER]: [
     "/app",
     "/app/license",
+    "/app/settings",
     `/app?tier=${LICENSE_TIER.COMPLETE}`,
     `/app/license?tier=${LICENSE_TIER.CORE}`,
     `/app?checkoutId=${CHECKOUT_ID}`,

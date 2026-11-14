@@ -3,7 +3,7 @@ import { type JSX, useCallback, useEffect, useState } from "react"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS, NAVIGATION_PAGES, NAVIGATION_SECTIONS } from "~/src/data/marketing"
 
 import { cn } from "~/src/lib/cn"
 
@@ -11,19 +11,6 @@ import { HomeLink } from "~/src/presentation/components/custom/home-link"
 import { MobileMenu } from "~/src/presentation/components/custom/mobile-menu"
 
 import { ROUTES } from "~/src/routes"
-
-const SECTIONS = [
-  MARKETING_SECTION_IDS.FOUNDATION,
-  MARKETING_SECTION_IDS.QUALITY,
-  MARKETING_SECTION_IDS.TOOLKIT,
-  MARKETING_SECTION_IDS.PRICING,
-  MARKETING_SECTION_IDS.FAQ,
-] as const
-
-const PAGES = [
-  { key: "blog", to: ROUTES.BLOG },
-  { key: "docs", to: ROUTES.DOCS },
-] as const
 
 const ACTIVE_BAND = "-42% 0px -58% 0px"
 const MAX_PROGRESS = 1
@@ -77,7 +64,7 @@ const SectionLinks = (): JSX.Element => {
       { rootMargin: ACTIVE_BAND },
     )
 
-    for (const id of SECTIONS) {
+    for (const id of NAVIGATION_SECTIONS) {
       const section = document.querySelector(`#${id}`)
       if (section) {
         observer.observe(section)
@@ -90,8 +77,8 @@ const SectionLinks = (): JSX.Element => {
   }, [])
 
   return (
-    <nav className="hidden items-center gap-1 lg:flex">
-      {SECTIONS.map((id) => (
+    <nav className="hidden items-center gap-1 xl:flex">
+      {NAVIGATION_SECTIONS.map((id) => (
         <Link
           className={cn(LINK_CLASSNAME, {
             "text-foreground": active === id,
@@ -105,7 +92,7 @@ const SectionLinks = (): JSX.Element => {
           {active === id && <span aria-hidden className="absolute inset-x-0 -bottom-0.5 mx-auto size-0.75 rounded-full bg-ring" />}
         </Link>
       ))}
-      {PAGES.map((page) => (
+      {NAVIGATION_PAGES.map((page) => (
         <Link className={cn(LINK_CLASSNAME, "text-muted-foreground")} key={page.key} to={page.to}>
           {t(`items.${page.key}`)}
         </Link>
@@ -145,7 +132,7 @@ export const Navigation = (): JSX.Element => {
         <nav aria-label={t("ariaLabel")} className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-6 px-6 md:px-10">
           <HomeLink />
 
-          <div className="flex items-center gap-2 lg:gap-4">
+          <div className="flex items-center gap-2 xl:gap-4">
             <SectionLinks />
             <Link
               className="hidden shrink-0 rounded-md px-1 text-body-sm font-medium whitespace-nowrap text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:inline-flex"

@@ -26,9 +26,10 @@ describe("admin mock data", () => {
     expect(new Set(urls).size).toBe(urls.length)
   })
 
-  it("labels exactly the sidebar sections, so the landing page counts them from the labels", () => {
+  it("labels exactly the sidebar sections and counts them on the landing page from the navigation", () => {
     const sections = ADMIN_SIDEBAR_GROUPS.flatMap((group) => group.items.map((item) => item.titleKey))
     expect(Object.keys(sidebarMessages.links).toSorted()).toEqual(sections.toSorted())
+    expect(Object.keys(sidebarMessages.groups).toSorted()).toEqual(ADMIN_SIDEBAR_GROUPS.map((group) => group.titleKey).toSorted())
     expect(REPOSITORY_FACTS.adminSections).toBe(sections.length)
   })
 })

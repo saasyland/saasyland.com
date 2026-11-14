@@ -39,7 +39,7 @@ Les rôles qui ont `course: ["read"]`, comme les administrateurs, peuvent regard
 
 ## Pages
 
-Le layout `/courses` (`courses.tsx`) a sa propre navigation, et ses libellés sont dans le namespace `pages.courses`. Les pages lisent D1 pour chaque spectateur, elles ne sont donc pas prérendues : `ROUTES.COURSES` figure dans `UNLISTED_ROUTES` de `vite.config.ts`.
+Le layout `/courses` (`courses.tsx`) affiche le même en-tête `ContentNavigation` que le blog. Les pages lisent D1 pour chaque spectateur, elles ne sont donc pas prérendues : `ROUTES.COURSES` figure dans `UNLISTED_ROUTES` de `vite.config.ts`.
 
 - `/courses` : une carte par cours publié, avec son type, son nombre de leçons, ses minutes et ses leçons gratuites.
 - `/courses/<course>` : le résumé, une barre de progression pour les spectateurs connectés, un lien **Commencer le cours** ou **Continuer avec …** vers la prochaine leçon à regarder et le programme par chapitre, avec des badges **Aperçu gratuit**, les durées et des icônes de cadenas et de leçon terminée. Quand une leçon est verrouillée, le panneau **Chaque leçon est incluse avec Complete** renvoie vers la section des tarifs ou, pour un spectateur connecté, vers `/app/license?tier=complete`, où l’offre Complete est déjà choisie.
@@ -57,7 +57,7 @@ Le bloc des cours de la section **Boîte à outils** de la page d’accueil (`co
 
 ## Progression
 
-Pour un spectateur connecté, le lecteur démarre à la `position_ms` enregistrée et `useLessonProgress` (`src/hooks/use-lesson-progress.ts`) enregistre la position au plus toutes les 15 secondes pendant la lecture, grâce aux props `startAt` et `onProgress` de `VideoPlayer`. Quand la vidéo se termine (`onEnded`) ou que le spectateur appuie sur **Marquer comme terminée**, `completed_at` est renseigné, la position enregistrée revient au début et la page du cours met à jour sa progression. Une fois renseigné, `completed_at` est conservé. Les invités peuvent regarder les aperçus gratuits, mais rien n’est enregistré.
+Pour un spectateur connecté, le lecteur démarre à la `position_ms` enregistrée et `useLessonProgress` (`src/hooks/use-lesson-progress.ts`) enregistre la position au plus toutes les <RepositoryFact name="lessonProgressSaveSeconds" unit="second" /> pendant la lecture, grâce aux props `startAt` et `onProgress` de `VideoPlayer`. Quand la vidéo se termine (`onEnded`) ou que le spectateur appuie sur **Marquer comme terminée**, `completed_at` est renseigné, la position enregistrée revient au début et la page du cours met à jour sa progression. Une fois renseigné, `completed_at` est conservé. Les invités peuvent regarder les aperçus gratuits, mais rien n’est enregistré.
 
 ## Leçons et vidéos
 
@@ -78,7 +78,7 @@ Un nouveau cours est ajouté après les autres. Les flèches de la liste fixent 
 Le formulaire du cours (`course-form.tsx`) contient ces champs :
 
 - **Titre** et **Résumé**, avec un onglet par locale. L’onglet `en-US` est obligatoire ; une locale laissée vide se rabat sur l’anglais.
-- **Slug de l’URL** : lettres minuscules, chiffres et tirets simples, 96 caractères au plus, unique parmi les cours.
+- **Slug de l’URL** : lettres minuscules, chiffres et tirets simples, <RepositoryFact name="slugMaxLength" /> caractères au plus, unique parmi les cours.
 - **Type** : **Cours**, **Tutoriel** ou **Projet**.
 - **Statut** : **Brouillon**, la valeur par défaut, ou **Publié**. Seuls les cours publiés apparaissent sous `/courses`.
 
@@ -122,7 +122,7 @@ Les clés étrangères s’en chargent avec `ON DELETE CASCADE`. Les vidéos ne 
 - La liste des vidéos de la boîte de dialogue de leçon provient de `getVideos`, qui exige `video: ["read"]`.
 - Un slug déjà pris reçoit la réponse `CONFLICT` : `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) transforme l’erreur de contrainte d’unicité de D1 en `AppError`. Un id qui ne correspond à aucune ligne reçoit la réponse `NOT_FOUND`.
 - Un nouveau cours, chapitre ou leçon prend la `position` la plus haute parmi ses voisins plus un (`nextPosition`). Un déplacement échange la ligne avec sa voisine et renumérote les voisins à partir de 1 (`reorder`) dans un seul `db.batch`. Les deux fonctions se trouvent dans `src/modules/_core/utils/ordering.ts`, et les directions sont `MOVE_DIRECTION` dans `src/modules/_core/constants/ordering.ts`.
-- Chaque écriture valide les titres et les résumés avec `localizedTextSchema` : `en-US` est obligatoire et chaque texte compte au plus 2 000 caractères. Un slug compte au plus 96 caractères. Les messages du formulaire sont `defaultLocaleRequired`, `textTooLong`, `slugInvalid` et `slugTooLong` dans `course.validations`, et `COURSE_VALIDATION_PARAMS` (`course.constants.ts`) fournit leurs limites.
+- Chaque écriture valide les titres et les résumés avec `localizedTextSchema` : `en-US` est obligatoire et chaque texte compte au plus <RepositoryFact name="localizedTextMaxLength" /> caractères. Un slug compte au plus <RepositoryFact name="slugMaxLength" /> caractères. Les messages du formulaire sont `defaultLocaleRequired`, `textTooLong`, `slugInvalid` et `slugTooLong` dans `course.validations`, et `COURSE_VALIDATION_PARAMS` (`course.constants.ts`) fournit leurs limites.
 - `courseEditorQuery` garde `staleTime: COURSE_STALE_MS` comme les requêtes publiques des cours, et chaque modification invalide les requêtes `course`, si bien que la liste et l’éditeur se rechargent.
 
 ## Tests

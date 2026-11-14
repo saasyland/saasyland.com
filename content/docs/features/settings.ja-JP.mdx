@@ -1,9 +1,21 @@
 ---
 title: "設定"
-description: "/admin/settings 画面: 稼働中のセキュリティタブ、静的な一般タブ、4 つの空のタブ。"
+description: "/admin/settings と /app/settings の画面: タイムゾーンの環境設定、稼働中のセキュリティタブ、デモのワークスペースカード、4 つの空のタブ。"
 ---
 
-`src/routes/admin.settings.tsx` は `ADMIN_SETTINGS_TABS`（`src/data/admin.ts`）から 6 つのタブを表示します。**一般**、**セキュリティ**、**チームとメンバー**、**請求**、**連携**、**APIキー** です。内容があるのは **一般** と **セキュリティ** だけで、`src/presentation/components/custom/admin/settings` のウィジェットで構成されます。残りの 4 つには何も表示されません。ローダーは `getActiveSessionsQuery` をプリロードします。顧客向けの `/app` には設定画面がありません。
+`src/routes/admin.settings.tsx` は `ADMIN_SETTINGS_TABS`（`src/data/admin.ts`）から 6 つのタブを表示します。**一般**、**セキュリティ**、**チームとメンバー**、**請求**、**連携**、**APIキー** です。内容があるのは **一般** と **セキュリティ** だけで、`src/presentation/components/custom/admin/settings` のウィジェットと共有の `PreferencesCard` で構成されます。残りの 4 つには何も表示されません。ローダーは `getActiveSessionsQuery` をプリロードします。顧客には専用の設定ページ `/app/settings`（`src/routes/app.settings.tsx`）があり、`PreferencesCard` だけを表示します。
+
+## 環境設定（稼働中）
+
+`PreferencesCard`（`src/presentation/components/custom/preferences-card.tsx`）は、サインイン中のユーザーのタイムゾーンを編集します。これはアカウントに保存される唯一の表示設定です。保存済みのタイムゾーンは現在のセッションクエリから読み取ります。
+
+- 検索可能なコンボボックスが、`TIMEZONE_CODES`（`src/modules/user/user.schema.ts`、`TIMEZONES` から派生）のすべてのタイムゾーンを、`timezones` 名前空間での名前で一覧表示します。この名前空間は `/admin` と `/app` のレイアウトが読み込みます。
+- **このブラウザから検出** は、ブラウザーが報告するタイムゾーンを選択します。タイムゾーンは `Intl.DateTimeFormat` が解決した形で比較するため、`Asia/Calcutta` のようなエイリアスからでも `Asia/Kolkata` が見つかります。一覧にないタイムゾーンの場合はメッセージを表示し、現在の選択を維持します。
+- **環境設定を保存** は `updatePreferences`（`src/modules/user/use-cases/update-preferences.ts`、サインイン必須）を呼び出します。このユースケースは `userZodSchemas.updatePreferences` でタイムゾーンを検証し、Better Auth の `updateUser` を通じて保存します。その後、カードは現在のセッションクエリを無効化し、`TranslationsProvider` がすべての日付を新しいタイムゾーンで表示します（[国際化とロケール](/docs/features/internationalization)）。
+
+言語は保存されません。言語は URL 内のロケールで、`LocaleSelect` で切り替えます。日付の順序、12 時間制か 24 時間制か、数値の区切り文字もロケールで決まります。
+
+カードの隣にある `PreferencesCardPending` は、`AdminSettingsPending` と `AppSettingsPending` で使われるカードのスケルトンです。
 
 ## セキュリティ（稼働中）
 
@@ -14,7 +26,6 @@ description: "/admin/settings 画面: 稼働中のセキュリティタブ、静
 ## 一般（デモ）
 
 - `ProfileCard`: ワークスペース名、サポート用メール、URL。`APP_NAME` とファイル内の定数が初期値です。
-- `PreferencesCard`: 言語、タイムゾーン、お知らせのスイッチ。
 - `DangerZoneCard`: 削除ボタン。
 
-これらのカードは既定値を表示するだけで、何も保存しません。プロフィールフォームを作るときは、`src/modules/account/use-cases` の `updateUser` と `changeEmail` を接続します。
+この 2 つのカードは既定値を表示するだけで、何も保存しません。プロフィールフォームを作るときは、`src/modules/account/use-cases` の `updateUser` と `changeEmail` を接続します。

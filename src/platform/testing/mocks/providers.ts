@@ -1,8 +1,12 @@
 import * as zod from "zod"
 
+import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
+
 import { POLAR_CHECKOUT_ID_PLACEHOLDER } from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
+
+import { TEST_LICENSE } from "~/e2e/data/licenses"
 
 const customers = new Map<string, Record<string, unknown>>()
 const nativeFetch = globalThis.fetch
@@ -18,6 +22,7 @@ const polarCheckoutSchema = zod.object({ success_url: zod.string() })
 
 const RESEND_EMAILS_URL = "https://api.resend.com/emails"
 const POLAR_CHECKOUTS_PATH = "/v1/checkouts/"
+const POLAR_LICENSE_KEYS_PATH = "/v1/license-keys/"
 
 const RESEND_IDEMPOTENCY_KEY_MAX_LENGTH = 256
 
@@ -56,6 +61,27 @@ const respondAsPolarCheckout = async (request: Request): Promise<Response> => {
   const { success_url: successUrl } = polarCheckoutSchema.parse(await request.json())
   const id = crypto.randomUUID()
   return Response.json({ client_secret: `polar_c_${id}`, id, url: successUrl.replace(POLAR_CHECKOUT_ID_PLACEHOLDER, id) })
+}
+
+const respondAsPolarLicenseKey = (url: URL): Response => {
+  if (url.pathname !== `${POLAR_LICENSE_KEYS_PATH}${TEST_LICENSE.polarLicenseKeyId}`) {
+    return Response.json({ detail: "License key not found", error: "ResourceNotFound" }, { status: HTTP_STATUS.NOT_FOUND })
+  }
+  return Response.json({
+    activations: [
+      {
+        created_at: TEST_LICENSE.activation.createdAt,
+        id: TEST_LICENSE.activation.id,
+        label: TEST_LICENSE.activation.label,
+        license_key_id: TEST_LICENSE.polarLicenseKeyId,
+        meta: {},
+        modified_at: JSON_NULL,
+      },
+    ],
+    id: TEST_LICENSE.polarLicenseKeyId,
+    key: TEST_LICENSE.key,
+    limit_activations: TEST_LICENSE.limitActivations,
+  })
 }
 
 const respondAsPolarCustomer = async (request: Request, url: URL): Promise<Response> => {
@@ -104,6 +130,9 @@ export const installProviderMocks = (): void => {
       }
       if (url.hostname === "sandbox-api.polar.sh" && url.pathname === POLAR_CHECKOUTS_PATH && request.method === "POST") {
         return respondAsPolarCheckout(request)
+      }
+      if (url.hostname === "sandbox-api.polar.sh" && url.pathname.startsWith(POLAR_LICENSE_KEYS_PATH) && request.method === "GET") {
+        return respondAsPolarLicenseKey(url)
       }
       if (url.hostname === "sandbox-api.polar.sh" && url.pathname.startsWith("/v1/customers")) {
         return respondAsPolarCustomer(request, url)

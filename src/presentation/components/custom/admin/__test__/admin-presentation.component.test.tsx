@@ -4,6 +4,8 @@ import { act, render, screen, waitFor, within } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
 import { Route as AnalyticsRoute } from "~/src/routes/admin.analytics"
@@ -88,7 +90,7 @@ describe("admin data display fallbacks", () => {
     }
     const root = createRootRoute({
       component: () => (
-        <IntlProvider locale="en-US" messages={adminMessages}>
+        <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={adminMessages} timeZone={I18N.DEFAULT_TIMEZONE}>
           <Outlet />
         </IntlProvider>
       ),

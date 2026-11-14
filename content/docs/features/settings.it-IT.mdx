@@ -1,9 +1,21 @@
 ---
 title: "Impostazioni"
-description: "La schermata /admin/settings: una scheda sicurezza reale, una scheda generale statica e quattro schede vuote."
+description: "Le schermate /admin/settings e /app/settings: la preferenza del fuso orario, una scheda sicurezza reale, schede dimostrative dello spazio di lavoro e quattro schede vuote."
 ---
 
-`src/routes/admin.settings.tsx` mostra sei schede da `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`): **Generale**, **Sicurezza**, **Team e membri**, **Fatturazione**, **Integrazioni** e **Chiavi API**. Solo **Generale** e **Sicurezza** hanno contenuti, composti da widget di `src/presentation/components/custom/admin/settings`; le altre quattro non mostrano nulla. Il loader precarica `getActiveSessionsQuery`. L’area clienti `/app` non ha una schermata di impostazioni.
+`src/routes/admin.settings.tsx` mostra sei schede da `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`): **Generale**, **Sicurezza**, **Team e membri**, **Fatturazione**, **Integrazioni** e **Chiavi API**. Solo **Generale** e **Sicurezza** hanno contenuti, composti da widget di `src/presentation/components/custom/admin/settings` e dal `PreferencesCard` condiviso; le altre quattro non mostrano nulla. Il loader precarica `getActiveSessionsQuery`. I clienti hanno una propria pagina di impostazioni, `/app/settings` (`src/routes/app.settings.tsx`), che mostra solo `PreferencesCard`.
+
+## Preferenze (reale)
+
+`PreferencesCard` (`src/presentation/components/custom/preferences-card.tsx`) modifica il fuso orario dell’utente autenticato, l’unica preferenza di visualizzazione salvata con l’account. Legge il fuso salvato dalla query della sessione corrente.
+
+- Una casella combinata con ricerca elenca tutti i fusi di `TIMEZONE_CODES` (`src/modules/user/user.schema.ts`, derivato da `TIMEZONES`) con il loro nome nel namespace `timezones`, caricato dai layout di `/admin` e `/app`.
+- **Rileva da questo browser** seleziona il fuso indicato dal browser. Confronta i fusi così come li risolve `Intl.DateTimeFormat`, quindi un alias come `Asia/Calcutta` trova `Asia/Kolkata`; un fuso che non è nell’elenco mostra un messaggio e mantiene la scelta attuale.
+- **Salva preferenze** chiama `updatePreferences` (`src/modules/user/use-cases/update-preferences.ts`, autenticato), che convalida il fuso con `userZodSchemas.updatePreferences` e lo salva tramite `updateUser` di Better Auth. La scheda invalida poi la query della sessione corrente, e `TranslationsProvider` mostra tutte le date nel nuovo fuso ([Internazionalizzazione e lingue](/docs/features/internationalization)).
+
+La lingua non viene salvata: è il locale nell’URL, si cambia con `LocaleSelect` e determina anche l’ordine delle date, l’orologio a 12 o 24 ore e i separatori dei numeri.
+
+`PreferencesCardPending`, definito accanto alla scheda, è il suo scheletro in `AdminSettingsPending` e `AppSettingsPending`.
 
 ## Sicurezza (reale)
 
@@ -14,7 +26,6 @@ description: "La schermata /admin/settings: una scheda sicurezza reale, una sche
 ## Generale (demo)
 
 - `ProfileCard`: nome dello spazio di lavoro, email di supporto e URL, precompilati con `APP_NAME` e costanti del file.
-- `PreferencesCard`: lingua, fuso orario e un interruttore per gli annunci.
 - `DangerZoneCard`: un pulsante di eliminazione.
 
-Queste schede mostrano solo valori predefiniti; non viene salvato nulla. `updateUser` e `changeEmail` in `src/modules/account/use-cases` sono le funzioni server da collegare quando si crea un modulo del profilo.
+Queste due schede mostrano solo valori predefiniti; non viene salvato nulla. `updateUser` e `changeEmail` in `src/modules/account/use-cases` sono le funzioni server da collegare quando si crea un modulo del profilo.

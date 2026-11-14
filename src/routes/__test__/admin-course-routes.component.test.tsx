@@ -8,6 +8,7 @@ import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
@@ -231,7 +232,7 @@ const renderAdminCourses = async (path: string, editor: Course["editor"] = EDITO
   routers.push(router)
   render(
     <QueryClientProvider client={queryClient}>
-      <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
+      <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={getTestMessages("en-US")} timeZone={I18N.DEFAULT_TIMEZONE}>
         <RouterProvider router={router} />
       </IntlProvider>
     </QueryClientProvider>,

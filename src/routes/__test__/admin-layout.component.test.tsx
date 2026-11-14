@@ -15,10 +15,12 @@ import { adminQueryClient, renderAdmin } from "~/src/presentation/components/cus
 import { AdminBreadcrumbs } from "~/src/presentation/components/custom/admin/admin-breadcrumbs"
 import { UserWidget } from "~/src/presentation/components/custom/admin/user-widget"
 
+import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
 import pagesAdminMessages from "~/messages/en-US/pages.admin.json"
 import pagesAdminSettingsMessages from "~/messages/en-US/pages.admin.settings.json"
 import pagesAdminSidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
+import timezonesMessages from "~/messages/en-US/timezones.json"
 import { APP_DOMAIN, APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 
 vi.mock(import("~/src/hooks/use-mobile"), () => ({ useIsMobile: () => false }))
@@ -101,13 +103,14 @@ describe("general workspace settings", () => {
       throw new Error("Missing settings page")
     }
     renderAdmin(<Page />, { queryClient })
+    expect(screen.getByRole("combobox", { name: preferencesCardMessages.timezone.label })).toHaveValue(timezonesMessages.UTC)
     await userEvent.click(screen.getByRole("tab", { name: pagesAdminSettingsMessages.tabs.security }))
     expect(screen.getByRole("button", { name: pagesAdminSettingsMessages.security.twoFactor.enable })).toBeVisible()
     expect(screen.getByRole("heading", { name: pagesAdminSettingsMessages.security.sessions.title })).toBeVisible()
     expect(screen.getByLabelText(pagesAdminSettingsMessages.security.password.current)).toHaveValue("")
   })
 
-  it("shows workspace fields and allows announcement preferences to change", async () => {
+  it("shows the workspace fields and the admin's own saved time zone", () => {
     const Page = SettingsRoute.options.component
     if (!Page) {
       throw new Error("Missing settings page")
@@ -116,9 +119,8 @@ describe("general workspace settings", () => {
     expect(screen.getByDisplayValue(APP_NAME)).toBeVisible()
     expect(screen.getByDisplayValue(CONTACT_EMAIL)).toBeVisible()
     expect(screen.getByText(`${APP_DOMAIN}/`)).toBeVisible()
-    const announcements = screen.getByRole("switch")
-    expect(announcements).toBeChecked()
-    await userEvent.click(announcements)
-    expect(announcements).not.toBeChecked()
+    expect(screen.getByRole("heading", { name: preferencesCardMessages.title })).toBeVisible()
+    expect(screen.getByRole("combobox", { name: preferencesCardMessages.timezone.label })).toHaveValue(timezonesMessages["Europe/Warsaw"])
+    expect(screen.queryByRole("switch")).toBeNull()
   })
 })

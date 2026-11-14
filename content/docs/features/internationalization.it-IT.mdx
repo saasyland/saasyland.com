@@ -5,7 +5,7 @@ description: "Lingue supportate, prefissi negli URL, il cookie della lingua e me
 
 ## Lingue
 
-`I18N` in `src/integrations/use-intl/i18n.config.ts` definisce le <RepositoryFact name="languages" /> lingue <RepositoryFact name="supportedLocales" /> con `en-US` come predefinita, il cookie `saasyland.com_locale` e il fuso orario predefinito `UTC`.
+`I18N` in `src/integrations/use-intl/i18n.config.ts` definisce le <RepositoryFact name="languages" /> lingue <RepositoryFact name="supportedLocales" /> con `en-US` come predefinita, il cookie `saasyland.com_locale`, il fuso orario predefinito `UTC` e i formati di data con nome `FORMATS`.
 
 ## URL
 
@@ -40,7 +40,26 @@ loader: async ({ context }) => {
 
 ## Componenti
 
-Ogni componente chiama `useTranslations` una sola volta e chiama `t` il traduttore. Un componente che ha bisogno di due namespace usa il loro genitore comune oppure `useTranslations()` con chiavi complete. Formatta numeri e date con `useFormatter`, `useDateFormatter` e `useCurrencyFormatter`.
+Ogni componente chiama `useTranslations` una sola volta e chiama `t` il traduttore. Un componente che ha bisogno di due namespace usa il loro genitore comune oppure `useTranslations()` con chiavi complete.
+
+## Date, numeri e fusi orari
+
+Date e numeri vengono formattati con `useFormatter` di use-intl (`format.dateTime`, `format.number`, `format.relativeTime`, `format.list`). La lingua determina le convenzioni: l’ordine di giorno e mese, l’orologio a 12 o 24 ore e i separatori. Il fuso orario è l’unica preferenza di visualizzazione che un utente salva.
+
+`TranslationsProvider` passa a `IntlProvider` altri due valori:
+
+- `timeZone`: il `timezone` dell’utente autenticato, preso dalla query della sessione corrente, oppure `I18N.DEFAULT_TIMEZONE` (`UTC`) senza una sessione. Il provider legge la sessione caricata dalle guard delle rotte `/app`, `/admin` e di autenticazione e non la recupera mai da solo, quindi le pagine pubbliche prerenderizzate sono identiche per ogni visitatore e si idratano senza modifiche. Quando la query della sessione cambia, ad esempio dopo che l’utente ha salvato un nuovo fuso in [Impostazioni](/docs/features/settings), tutte le date vengono renderizzate di nuovo.
+- `formats`: `I18N.FORMATS`, i formati di data con nome. `src/types/use-intl.d.ts` registra i loro nomi in use-intl, quindi un nome sconosciuto fa fallire il controllo dei tipi.
+
+| Nome            | Esempio (inglese)         | Uso                                                                                                                      |
+| --------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `date`          | Nov 14, 2026              | Il giorno di un istante nel fuso del lettore, nelle tabelle                                                              |
+| `dateTime`      | Nov 14, 2026, 3:04 PM UTC | Un istante con l’orario e la sigla del fuso: le attivazioni delle licenze e le date degli account nell’amministrazione   |
+| `calendarDate`  | Nov 14, 2026              | Una data senza orario, come la data di un articolo del blog. È formattata in UTC, quindi non passa mai a un altro giorno |
+| `calendarDay`   | November 14               | Le etichette dei giorni nel grafico di Analytics dell’amministrazione                                                    |
+| `calendarMonth` | Nov                       | Le etichette dei mesi nel grafico della dashboard di amministrazione                                                     |
+
+Una chiamata può sovrascrivere una singola opzione di un formato con nome: `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`. Le tabelle dell’amministrazione mostrano le date degli altri utenti nel fuso di chi le consulta, con la sigla, così ogni colonna si legge e si ordina in un solo fuso; il fuso dell’utente ha una colonna a sé.
 
 ## Cambiare lingua
 

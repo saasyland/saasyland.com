@@ -5,7 +5,7 @@ description: "Idiomas admitidos, prefijos de URL, la cookie de idioma y mensajes
 
 ## Idiomas
 
-`I18N` en `src/integrations/use-intl/i18n.config.ts` define los <RepositoryFact name="languages" /> idiomas <RepositoryFact name="supportedLocales" /> con `en-US` como predeterminado, la cookie `saasyland.com_locale` y la zona horaria predeterminada `UTC`.
+`I18N` en `src/integrations/use-intl/i18n.config.ts` define los <RepositoryFact name="languages" /> idiomas <RepositoryFact name="supportedLocales" /> con `en-US` como predeterminado, la cookie `saasyland.com_locale`, la zona horaria predeterminada `UTC` y los formatos de fecha con nombre `FORMATS`.
 
 ## URL
 
@@ -40,7 +40,26 @@ loader: async ({ context }) => {
 
 ## Componentes
 
-Cada componente llama una sola vez a `useTranslations` y llama `t` al traductor. Un componente que necesita dos espacios de nombres usa su padre común o `useTranslations()` con claves completas. Formatea números y fechas con `useFormatter`, `useDateFormatter` y `useCurrencyFormatter`.
+Cada componente llama una sola vez a `useTranslations` y llama `t` al traductor. Un componente que necesita dos espacios de nombres usa su padre común o `useTranslations()` con claves completas.
+
+## Fechas, números y zonas horarias
+
+Las fechas y los números se formatean con `useFormatter` de use-intl (`format.dateTime`, `format.number`, `format.relativeTime`, `format.list`). El idioma decide las convenciones: el orden del día y el mes, el reloj de 12 o 24 horas y los separadores. La zona horaria es la única preferencia de visualización que guarda un usuario.
+
+`TranslationsProvider` pasa dos valores más a `IntlProvider`:
+
+- `timeZone`: la `timezone` del usuario con sesión iniciada, tomada de la consulta de la sesión actual, o `I18N.DEFAULT_TIMEZONE` (`UTC`) si no hay sesión. El provider lee la sesión que cargan los guards de las rutas `/app`, `/admin` y de autenticación, y nunca la obtiene por su cuenta, así que las páginas públicas prerrenderizadas son iguales para todos los visitantes y se hidratan sin cambios. Cuando cambia la consulta de sesión, por ejemplo después de que el usuario guarde una nueva zona en [Ajustes](/docs/features/settings), todas las fechas se vuelven a renderizar.
+- `formats`: `I18N.FORMATS`, los formatos de fecha con nombre. `src/types/use-intl.d.ts` registra sus nombres en use-intl, así que un nombre desconocido hace fallar la comprobación de tipos.
+
+| Nombre          | Ejemplo (inglés)          | Uso                                                                                                                                 |
+| --------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `date`          | Nov 14, 2026              | El día de un instante en la zona del lector, en las tablas                                                                          |
+| `dateTime`      | Nov 14, 2026, 3:04 PM UTC | Un instante con su hora y la abreviatura de la zona: las activaciones de licencias y las fechas de las cuentas en la administración |
+| `calendarDate`  | Nov 14, 2026              | Una fecha sin hora, como la fecha de una entrada del blog. Se formatea en UTC, así que nunca pasa a otro día                        |
+| `calendarDay`   | November 14               | Las etiquetas de los días en el gráfico de Analítica de la administración                                                           |
+| `calendarMonth` | Nov                       | Las etiquetas de los meses en el gráfico del panel de administración                                                                |
+
+Una llamada puede sobrescribir una opción de un formato con nombre: `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`. Las tablas de la administración muestran las fechas de otros usuarios en la zona de quien las consulta, con la abreviatura, así que cada columna se lee y se ordena en una sola zona; la zona del usuario tiene su propia columna.
 
 ## Cambiar de idioma
 

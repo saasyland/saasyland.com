@@ -16,5 +16,6 @@ export interface User {
   setUserPasswordForm: zod.input<typeof userZodSchemas.setUserPasswordForm>
   setUserRole: zod.input<typeof userZodSchemas.setUserRole>
   unbanUser: zod.input<typeof userZodSchemas.unbanUser>
+  updatePreferences: zod.input<typeof userZodSchemas.updatePreferences>
   updateUser: zod.input<typeof userZodSchemas.updateUser>
 }

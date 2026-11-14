@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { Pencil, Trash2 } from "lucide-react"
 import { toast } from "sonner"
-import { useTranslations } from "use-intl/react"
+import { useFormatter, useTranslations } from "use-intl/react"
 
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -14,7 +14,6 @@ import type { Course } from "~/src/modules/course/course.types"
 import { deleteCourseMutation } from "~/src/modules/course/use-cases/delete-course"
 import { moveCourseMutation } from "~/src/modules/course/use-cases/move-course"
 
-import { useDateFormatter } from "~/src/hooks/use-date-formatter"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { ADMIN_STATUS_BADGE_CLASSES } from "~/src/data/admin"
@@ -86,9 +85,9 @@ const LessonsCell = ({ getValue }: CellContext<DataTableFeatures, CourseRow, num
 )
 
 const UpdatedCell = ({ getValue }: CellContext<DataTableFeatures, CourseRow, Date>): JSX.Element => {
-  const { formatDate } = useDateFormatter({ day: "numeric", month: "short", year: "numeric" })
+  const format = useFormatter()
 
-  return <span className="text-sm text-muted-foreground">{formatDate({ value: getValue() })}</span>
+  return <span className="text-sm text-muted-foreground">{format.dateTime(getValue(), "date")}</span>
 }
 
 const ActionsCell = ({ row, table }: CellContext<DataTableFeatures, CourseRow>): JSX.Element => {

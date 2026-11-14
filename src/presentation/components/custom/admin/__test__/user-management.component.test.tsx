@@ -1,9 +1,11 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
+import { IntlProvider } from "use-intl/react"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createAuthUserMutationResult } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import type { banUserMutation } from "~/src/modules/user/use-cases/ban-user"
 import type { deleteUserMutation } from "~/src/modules/user/use-cases/delete-user"
@@ -14,7 +16,7 @@ import { USER_MUTATION_KEYS, USER_QUERY_KEYS } from "~/src/modules/user/user.con
 
 import { Route as UsersRoute } from "~/src/routes/admin.users.all"
 
-import { adminQueryClient, adminUser, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { adminMessages, adminQueryClient, adminUser, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 
@@ -65,6 +67,28 @@ beforeEach(() => {
 })
 
 describe("admin user management", () => {
+  it("shows when each account was created and updated in the admin's own time zone, labelled, beside the account's zone", () => {
+    const queryClient = adminQueryClient()
+    queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 0, rows: [adminUser()], total: 1 })
+    const Page = UsersRoute.options.component
+    if (!Page) {
+      throw new Error("Missing users page")
+    }
+    renderAdmin(
+      <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={adminMessages} timeZone="America/New_York">
+        <Page />
+      </IntlProvider>,
+      { queryClient },
+    )
+
+    const [, row] = within(screen.getByRole("table")).getAllByRole("row")
+    if (!row) {
+      throw new Error("Missing user row")
+    }
+    expect(within(row).getAllByText("Jan 1, 2025, 7:00 AM EST")).toHaveLength(2)
+    expect(within(row).getByText(adminUser().timezone)).toBeVisible()
+  })
+
   it("renders user details and supports individual and page selection", async () => {
     renderUser(false, [
       adminUser(),

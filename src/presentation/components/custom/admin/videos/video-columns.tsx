@@ -6,8 +6,6 @@ import { useFormatter, useTranslations } from "use-intl/react"
 import { BYTES_PER_MEGABYTE, VIDEO_SIZE_FORMAT } from "~/src/modules/video/video.constants"
 import type { Video } from "~/src/modules/video/video.types"
 
-import { useDateFormatter } from "~/src/hooks/use-date-formatter"
-
 import { formatClock } from "~/src/lib/duration"
 
 import { Badge } from "~/src/presentation/components/shadcn/badge"
@@ -71,9 +69,9 @@ const CaptionsCell = ({ getValue }: CellContext<DataTableFeatures, VideoRow, Vid
 }
 
 const PublishedCell = ({ getValue }: CellContext<DataTableFeatures, VideoRow, Date>): JSX.Element => {
-  const { formatDate } = useDateFormatter({ day: "numeric", month: "short", year: "numeric" })
+  const format = useFormatter()
 
-  return <span className="text-sm text-muted-foreground">{formatDate({ value: getValue() })}</span>
+  return <span className="text-sm text-muted-foreground">{format.dateTime(getValue(), "date")}</span>
 }
 
 const ActionsCell = ({ row }: CellContext<DataTableFeatures, VideoRow>): JSX.Element => (

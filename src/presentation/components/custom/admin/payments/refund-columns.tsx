@@ -43,11 +43,7 @@ const DemoCell = ({ column, row }: CellContext<DataTableFeatures, Payment, strin
 const DateCell = ({ getValue }: CellContext<DataTableFeatures, Payment, string>): JSX.Element => {
   const format = useFormatter()
 
-  return (
-    <span className="text-sm text-muted-foreground">
-      {format.dateTime(new Date(getValue()), { day: "numeric", month: "short", year: "numeric" })}
-    </span>
-  )
+  return <span className="text-sm text-muted-foreground">{format.dateTime(new Date(getValue()), "date")}</span>
 }
 
 const StatusCell = ({ row }: CellContext<DataTableFeatures, Payment, string>): JSX.Element => {

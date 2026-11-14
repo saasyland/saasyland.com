@@ -30,7 +30,7 @@ const AppLayout = (): JSX.Element => (
   </SidebarProvider>
 )
 
-const NAMESPACES = ["auth.errors", "pages.app", "pages.license"] as const
+const NAMESPACES = ["auth.errors", "pages.app", "pages.license", "timezones"] as const
 
 export const Route = createFileRoute("/app")({
   validateSearch: appSearchSchema,

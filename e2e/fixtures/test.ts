@@ -17,7 +17,7 @@ export const test = base.extend<AppFixtures>({
     async ({ page }, runWith) => {
       const errors: string[] = []
       page.on("console", (message) => {
-        if (/MISSING_MESSAGE|INVALID_MESSAGE|FORMATTING_ERROR|No messages\//u.test(message.text())) errors.push(message.text())
+        if (/MISSING_MESSAGE|MISSING_FORMAT|INVALID_MESSAGE|FORMATTING_ERROR|No messages\//u.test(message.text())) errors.push(message.text())
       })
       await runWith()
       expect(errors, "Every visited page must resolve and format its translations").toEqual([])

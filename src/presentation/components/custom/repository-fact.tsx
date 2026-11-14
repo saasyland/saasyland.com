@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import defaultMdxComponents from "@fumadocs/base-ui/mdx"
 import { adminAc } from "better-auth/plugins/admin/access"
 import { useFormatter } from "use-intl/react"
-import { commitEmojis } from "virtual:repository-facts"
+import { cliApiTables, commitEmojis } from "virtual:repository-facts"
 
 import {
   BACKUP_CODE_MAX_LENGTH,
@@ -19,6 +19,7 @@ import { PPP_TIERS } from "~/src/modules/_core/constants/pricing"
 import { LOCALIZED_TEXT_MAX_LENGTH } from "~/src/modules/_core/utils/localized-text"
 import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
+import { LICENSE_API_RETRY_AFTER_SECONDS } from "~/src/modules/license/license.constants"
 import { POSTER_SMALL_WIDTH, POSTER_WIDTH } from "~/src/modules/video/video.constants"
 import {
   AUDIO_BITRATE,
@@ -62,6 +63,7 @@ const FACTS = {
   audioSampleRate: AUDIO_SAMPLE_RATE,
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
   backupCodeMinLength: BACKUP_CODE_MIN_LENGTH,
+  cliApiRetryAfterSeconds: LICENSE_API_RETRY_AFTER_SECONDS,
   defaultPageSize: DEFAULT_PAGE_SIZE,
   lessonProgressSaveSeconds: SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
   liveSiteCheckPaths: LIVE_SITE_CHECKS.map(({ path }) => path),
@@ -96,9 +98,11 @@ const FACTS = {
 const TABLES = {
   adminStatements: Object.entries(adminAc.statements),
   appStatements: Object.entries(APP_STATEMENTS),
+  cliApiEndpoints: cliApiTables.endpoints,
+  cliApiErrors: cliApiTables.errors,
   commitTypes: Object.entries(commitEmojis),
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
-} satisfies Record<string, readonly (readonly [number | string, Value])[]>
+} satisfies Record<string, readonly (readonly [number | string, ...Value[]])[]>
 
 const UNIT_FORMATS = {
   hour: { style: "unit", unit: "hour", unitDisplay: "long" },
@@ -130,28 +134,28 @@ export const RepositoryFact = ({
 }): JSX.Element => <FactValue unit={unit} value={FACTS[name]} />
 
 export const RepositoryTable = ({
-  columns: [keyColumn, valueColumn],
+  columns,
   name,
 }: {
-  readonly columns: readonly [string, string]
+  readonly columns: readonly string[]
   readonly name: keyof typeof TABLES
 }): JSX.Element => (
   <defaultMdxComponents.table>
     <thead>
       <tr>
-        <th>{keyColumn}</th>
-        <th>{valueColumn}</th>
+        {columns.map((column) => (
+          <th key={column}>{column}</th>
+        ))}
       </tr>
     </thead>
     <tbody>
-      {TABLES[name].map(([key, value]) => (
-        <tr key={key}>
-          <td>
-            <FactValue value={key} />
-          </td>
-          <td>
-            <FactValue value={value} />
-          </td>
+      {TABLES[name].map((row) => (
+        <tr key={row[0]}>
+          {row.map((value, index) => (
+            <td key={columns[index]}>
+              <FactValue value={value} />
+            </td>
+          ))}
         </tr>
       ))}
     </tbody>

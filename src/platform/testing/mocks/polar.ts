@@ -18,7 +18,12 @@ import {
 } from "~/src/platform/testing/lib/polar"
 
 import { polarCore } from "~/src/integrations/polar/polar.config"
-import { POLAR_CHECKOUT_ID_PLACEHOLDER, POLAR_ORDER_STATUS, POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
+import {
+  POLAR_CHECKOUT_ID_PLACEHOLDER,
+  POLAR_LICENSE_KEY_STATUS,
+  POLAR_ORDER_STATUS,
+  POLAR_PRODUCT_IDS,
+} from "~/src/integrations/polar/polar.constants"
 import { BASIS_POINTS_PER_PERCENT } from "~/src/integrations/polar/polar.discounts"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
@@ -51,12 +56,14 @@ const DISCOUNTS_WITH_PRODUCTS = POLAR_DISCOUNTS.map((discount) => withProducts(d
 const checkouts = new Map<string, models.Checkout>()
 const orders = new Map<string, models.Order>()
 const licenseKeys = new Map<string, models.LicenseKeyWithActivations>()
+const activationConditions = new Map<string, models.LicenseKeyActivate["conditions"]>()
 const customers = new Map<string, models.CustomerIndividual>()
 
 export const resetPolar = (): void => {
   checkouts.clear()
   orders.clear()
   licenseKeys.clear()
+  activationConditions.clear()
   customers.clear()
 }
 
@@ -84,6 +91,9 @@ export const polarLicenseKeyOf = (grant: models.BenefitGrantLicenseKeysWebhook):
   const licenseKeyId = found(grant.properties.license_key_id, "license key of grant", grant.id)
   return found(licenseKeys.get(licenseKeyId), "license key", licenseKeyId)
 }
+
+export const polarActivationConditions = (activationId: string): models.LicenseKeyActivate["conditions"] =>
+  activationConditions.get(activationId)
 
 const saveOrder = (order: models.Order): models.Order => {
   orders.set(order.id, order)
@@ -182,29 +192,40 @@ export const seedPolarLicenseKey = ({
 
 export const revokePolarLicenseKey = (grant: models.BenefitGrantLicenseKeysWebhook): models.BenefitGrantLicenseKeysWebhook => {
   const licenseKey = polarLicenseKeyOf(grant)
-  licenseKeys.set(licenseKey.id, { ...licenseKey, status: "revoked" })
+  licenseKeys.set(licenseKey.id, { ...licenseKey, status: POLAR_LICENSE_KEY_STATUS.REVOKED })
   return { ...grant, is_granted: false, is_revoked: true, revoked_at: new Date().toISOString() }
 }
 
-export const activatePolarLicenseKey = (grant: models.BenefitGrantLicenseKeysWebhook, label: string): models.LicenseKeyActivationBase => {
-  const licenseKey = polarLicenseKeyOf(grant)
+const addActivation = (
+  licenseKey: models.LicenseKeyWithActivations,
+  { label, meta }: Pick<models.LicenseKeyActivationBase, "label" | "meta">,
+): models.LicenseKeyActivationBase => {
   const activation = {
     created_at: new Date().toISOString(),
     id: crypto.randomUUID(),
     label,
     license_key_id: licenseKey.id,
-    meta: {},
+    meta,
     modified_at: null,
   }
   licenseKeys.set(licenseKey.id, { ...licenseKey, activations: [...licenseKey.activations, activation] })
   return activation
 }
 
+export const activatePolarLicenseKey = (
+  grant: models.BenefitGrantLicenseKeysWebhook,
+  label: string,
+  meta: models.LicenseKeyActivationBase["meta"] = {},
+): models.LicenseKeyActivationBase => addActivation(polarLicenseKeyOf(grant), { label, meta })
+
 const respond = (status: number, body?: unknown): Response =>
   body === undefined ? new Response(undefined, { status }) : Response.json(body, { status })
 
 const notFound = (): Response =>
   respond(HTTP_STATUS.NOT_FOUND, { detail: "Not found", error: "ResourceNotFound" } satisfies models.ResourceNotFound)
+
+const notPermitted = (detail: string): Response =>
+  respond(HTTP_STATUS.FORBIDDEN, { detail, error: "NotPermitted" } satisfies models.NotPermitted)
 
 const refuse = (status: number, body: unknown, reason: string) => ({ reason, response: respond(status, body) })
 
@@ -235,6 +256,21 @@ const discountsQuerySchema = zod.strictObject({
   page: zod.coerce.number().int().min(1),
   sorting: zod.literal("-created_at" satisfies models.DiscountSortProperty),
 })
+
+const activationDataSchema = zod
+  .record(
+    zod.string().min(1).max(METADATA_KEY_MAX_LENGTH),
+    zod.union([zod.string().min(1).max(METADATA_VALUE_MAX_LENGTH), zod.number(), zod.boolean()]),
+  )
+  .refine((data) => Object.keys(data).length <= METADATA_MAX_KEYS, `it holds at most ${String(METADATA_MAX_KEYS)} keys`)
+
+const licenseKeyActivateSchema = zod.strictObject({
+  conditions: activationDataSchema.optional(),
+  key: zod.string().min(1),
+  label: zod.string(),
+  meta: activationDataSchema.optional(),
+  organization_id: zod.literal(env.POLAR_ORGANIZATION_ID),
+} satisfies RequestSchema<models.LicenseKeyActivate>)
 
 const licenseKeyDeactivateSchema = zod.strictObject({
   activation_id: zod.uuid(),
@@ -354,6 +390,30 @@ const listDiscounts = (url: URL) => {
   } satisfies models.ListResourceDiscount)
 }
 
+const activateLicenseKey = async (request: Request) => {
+  const body = licenseKeyActivateSchema.safeParse(await request.json())
+  if (!body.success) {
+    return invalid("body", zod.prettifyError(body.error))
+  }
+  const licenseKey = [...licenseKeys.values()].find(({ key }) => key === body.data.key)
+  if (licenseKey === undefined) {
+    return notFound()
+  }
+  const { activations, ...granted } = licenseKey
+  if (granted.status !== POLAR_LICENSE_KEY_STATUS.GRANTED) {
+    return notPermitted("License key is no longer active.")
+  }
+  if (granted.limit_activations !== null && activations.length >= granted.limit_activations) {
+    return notPermitted("License key activation limit already reached")
+  }
+  const activation = addActivation(licenseKey, { label: body.data.label, meta: body.data.meta ?? {} })
+  activationConditions.set(activation.id, body.data.conditions)
+  return respond(HTTP_STATUS.OK, {
+    ...activation,
+    license_key: { ...granted, status: POLAR_LICENSE_KEY_STATUS.GRANTED },
+  } satisfies models.LicenseKeyActivationCreated)
+}
+
 const deactivateLicenseKey = async (request: Request) => {
   const body = licenseKeyDeactivateSchema.safeParse(await request.json())
   if (!body.success) {
@@ -378,6 +438,9 @@ const route = (request: Request) => {
   }
   if (endpoint === "GET /v1/discounts/") {
     return listDiscounts(url)
+  }
+  if (endpoint === "POST /v1/license-keys/activate") {
+    return activateLicenseKey(request)
   }
   if (endpoint === "POST /v1/license-keys/deactivate") {
     return deactivateLicenseKey(request)

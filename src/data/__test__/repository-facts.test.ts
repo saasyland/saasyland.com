@@ -1,3 +1,4 @@
+import { API_BASE_PATH, API_HEADER, API_LIMIT, RATE_LIMIT } from "@saasyland/stack/api"
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
 
@@ -31,6 +32,17 @@ describe("collectRepositoryFacts", () => {
       maxStatements: 15,
       printWidth: 120,
       tabWidth: 4,
+    })
+  })
+
+  it("reads the CLI licence API's path, header, label limit and rate limits from the contract", () => {
+    expect(collectRepositoryFacts(configWith())).toMatchObject({
+      cliApiBasePath: API_BASE_PATH,
+      cliApiLabelMaxLength: API_LIMIT.LABEL_MAX_LENGTH,
+      cliApiMachineHeader: API_HEADER.MACHINE,
+      cliApiRateLimitSeconds: RATE_LIMIT.PERIOD_SECONDS,
+      cliApiRequestsPerAddress: RATE_LIMIT.REQUESTS_PER_ADDRESS,
+      cliApiRequestsPerLicenseKey: RATE_LIMIT.REQUESTS_PER_LICENSE_KEY,
     })
   })
 

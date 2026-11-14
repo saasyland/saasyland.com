@@ -29,7 +29,7 @@ Un utilisateur connecté sans licence active voit `LicenseOffer` sur `/app` et `
 3. crée un paiement Polar pour l’offre avec les codes de réduction désactivés, la recommandation d’affiliation dans `metadata` lorsque le visiteur est arrivé par un lien d’affiliation (voir [Programme d’affiliation](/docs/features/affiliates)) et l’URL de succès `/app?checkoutId={CHECKOUT_ID}` dans la langue de l’acheteur (`localizePathname`). Polar remplace `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) par l’identifiant du paiement ;
 4. renvoie l’URL de paiement, que le navigateur ouvre.
 
-Une licence remboursée (`revoked`) n’empêche pas un nouvel achat.
+Une licence remboursée (`refunded`) ou révoquée (`revoked`) n’empêche pas un nouvel achat.
 
 ### Mises à niveau
 
@@ -54,11 +54,14 @@ Polar envoie les événements listés dans `LICENSE_WEBHOOK_EVENTS` (`license.co
 
 - `onOrderPaid` → `grantLicense` : crée ou met à jour la licence unique de l’utilisateur avec l’offre du produit acheté ; un achat plus récent remplace un achat plus ancien.
 - `onBenefitGrantCreated` → `attachLicenseKey` : enregistre la clé de licence Polar sur la licence. Tant que la commande payée n’est pas enregistrée, il échoue pour que Polar le renvoie ; la clé d’une commande remboursée ou d’un produit qui n’est pas une licence est acquittée.
-- `onOrderRefunded` (seulement une fois la commande remboursée en totalité ; un remboursement partiel conserve la licence) et `onBenefitGrantRevoked` → `revokeLicense` : passe le statut à `revoked` et consigne la commande dans `revoked_license_order`, afin qu’un webhook tardif ne puisse pas l’accorder de nouveau.
+- `onOrderRefunded` → `revokeLicense` avec le statut `refunded`, seulement une fois la commande remboursée en totalité ; un remboursement partiel conserve la licence.
+- `onBenefitGrantRevoked` → `revokeLicense` avec le statut `revoked`.
+
+`revokeLicense` fixe le statut de la licence achetée avec cette commande et consigne la commande dans `revoked_license_order`, afin qu’un webhook tardif ne puisse pas l’accorder de nouveau. Il ne remplace jamais `refunded` : Polar révoque aussi l’avantage d’une commande remboursée, et les deux événements peuvent arriver dans n’importe quel ordre. L’[API de licence de la CLI](/docs/features/cli-licence-api) répond `licenseRefunded` ou `licenseRevoked` d’après ce statut.
 
 ## Écrans client
 
-`/app/license` affiche `LicenseCard` (offre, clé, commande d’installation, lien vers le portail client Polar à `/api/auth/customer/portal` et e-mail de l’assistance pour changer d’offre) et `LicenseActivations`, qui liste les activations de la clé dans Polar et en supprime une avec `deactivateLicense`. Polar fait respecter la limite d’activations de l’avantage de clé de licence de chaque offre, qui doit être égale à `LICENSE_ACTIVATION_LIMITS` : <ActivationLimit tier="core" /> pour Core, <ActivationLimit tier="complete" /> pour Complete et <ActivationLimit tier="agency" /> pour Agency. Voir [Application client](/docs/features/customer-app).
+`/app/license` affiche `LicenseCard` (offre, clé, commande d’installation, lien vers le portail client Polar à `/api/auth/customer/portal` et e-mail de l’assistance pour changer d’offre) et `LicenseActivations`, qui liste les activations de la clé dans Polar et en supprime une avec `deactivateLicense` ; celle-ci répond `NOT_FOUND` lorsque Polar ne détient plus cette activation. La CLI ajoute et supprime des activations via l’[API de licence de la CLI](/docs/features/cli-licence-api). Polar fait respecter la limite d’activations de l’avantage de clé de licence de chaque offre, qui doit être égale à `LICENSE_ACTIVATION_LIMITS` : <ActivationLimit tier="core" /> pour Core, <ActivationLimit tier="complete" /> pour Complete et <ActivationLimit tier="agency" /> pour Agency. Voir [Application client](/docs/features/customer-app).
 
 ## Écran d’administration (démo)
 

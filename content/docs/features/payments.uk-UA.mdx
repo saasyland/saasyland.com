@@ -29,7 +29,7 @@ polarPlugin({
 3. створює сеанс оплати Polar для плану з вимкненими кодами знижок, партнерською рекомендацією в `metadata`, якщо відвідувач перейшов за партнерським посиланням (див. [Партнерська програма](/docs/features/affiliates)), і адресою успіху `/app?checkoutId={CHECKOUT_ID}` мовою покупця (`localizePathname`). Polar замінює `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) на ID сеансу оплати;
 4. повертає адресу оплати, яку відкриває браузер.
 
-Повернена (`revoked`) ліцензія не заважає новій купівлі.
+Повернена (`refunded`) або відкликана (`revoked`) ліцензія не заважає новій купівлі.
 
 ### Підвищення плану
 
@@ -54,11 +54,14 @@ Polar надсилає на `/api/auth/polar/webhooks` події, перелі�
 
 - `onOrderPaid` → `grantLicense`: створює або оновлює єдину ліцензію користувача з планом придбаного продукту; новіша покупка замінює старішу.
 - `onBenefitGrantCreated` → `attachLicenseKey`: зберігає ліцензійний ключ Polar у ліцензії. Поки оплачене замовлення не записане, завершується помилкою, щоб Polar повторив подію; ключ для поверненого замовлення або продукту, який не є ліцензією, підтверджується.
-- `onOrderRefunded` (лише коли за замовлення повернули всю суму; часткове повернення зберігає ліцензію) і `onBenefitGrantRevoked` → `revokeLicense`: встановлює статус `revoked` і записує замовлення в `revoked_license_order`, щоб запізнілий вебхук не зміг знову видати ліцензію.
+- `onOrderRefunded` → `revokeLicense` зі статусом `refunded`, лише коли за замовлення повернули всю суму; часткове повернення зберігає ліцензію.
+- `onBenefitGrantRevoked` → `revokeLicense` зі статусом `revoked`.
+
+`revokeLicense` встановлює статус ліцензії, придбаної за цим замовленням, і записує замовлення в `revoked_license_order`, щоб запізнілий вебхук не зміг знову видати ліцензію. Він ніколи не замінює `refunded`: Polar також відкликає бенефіт поверненого замовлення, а дві події можуть надійти в будь-якому порядку. [API ліцензій для CLI](/docs/features/cli-licence-api) відповідає `licenseRefunded` або `licenseRevoked` залежно від цього статусу.
 
 ## Екрани клієнта
 
-`/app/license` показує `LicenseCard` (план, ключ, команду встановлення, посилання на портал клієнта Polar за адресою `/api/auth/customer/portal` та адресу підтримки для зміни плану) і `LicenseActivations`, який показує активації ключа в Polar і видаляє вибрану через `deactivateLicense`. Ліміт активацій бенефіту ліцензійного ключа кожного плану застосовує Polar, і він має дорівнювати `LICENSE_ACTIVATION_LIMITS`: <ActivationLimit tier="core" /> для Core, <ActivationLimit tier="complete" /> для Complete і <ActivationLimit tier="agency" /> для Agency. Див. [Застосунок клієнта](/docs/features/customer-app).
+`/app/license` показує `LicenseCard` (план, ключ, команду встановлення, посилання на портал клієнта Polar за адресою `/api/auth/customer/portal` та адресу підтримки для зміни плану) і `LicenseActivations`, який показує активації ключа в Polar і видаляє вибрану через `deactivateLicense`; `deactivateLicense` відповідає `NOT_FOUND`, коли Polar уже не має цієї активації. CLI додає й видаляє активації через [API ліцензій для CLI](/docs/features/cli-licence-api). Ліміт активацій бенефіту ліцензійного ключа кожного плану застосовує Polar, і він має дорівнювати `LICENSE_ACTIVATION_LIMITS`: <ActivationLimit tier="core" /> для Core, <ActivationLimit tier="complete" /> для Complete і <ActivationLimit tier="agency" /> для Agency. Див. [Застосунок клієнта](/docs/features/customer-app).
 
 ## Екран адмінпанелі (демонстраційний)
 

@@ -29,7 +29,7 @@ polarPlugin({
 3. 割引コードを無効にし、成功 URL を購入者の言語の `/app?checkoutId={CHECKOUT_ID}`（`localizePathname`）にして、そのプランの Polar 購入セッションを作成します。訪問者がアフィリエイトリンク経由で来た場合は、アフィリエイトの紹介情報を `metadata` に含めます（[アフィリエイトプログラム](/docs/features/affiliates)を参照）。Polar は `{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）を購入セッションの ID に置き換えます。
 4. 購入 URL を返し、ブラウザーがそれを開きます。
 
-返金済み（`revoked`）のライセンスがあっても、新しい購入はできます。
+返金済み（`refunded`）または取り消し済み（`revoked`）のライセンスがあっても、新しい購入はできます。
 
 ### アップグレード
 
@@ -57,11 +57,14 @@ Polar は `LICENSE_WEBHOOK_EVENTS`（`license.constants.ts`）に列挙された
 
 - `onOrderPaid` → `grantLicense`: 購入した商品のプランでユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。
 - `onBenefitGrantCreated` → `attachLicenseKey`: Polar のライセンスキーをライセンスに保存します。支払い済みの注文がまだ記録されていない間は失敗させ、Polar に再送させます。返金済みの注文やライセンスではない商品のキーは受領します。
-- `onOrderRefunded`（注文が全額返金された場合のみ。一部返金ではライセンスを維持します）と `onBenefitGrantRevoked` → `revokeLicense`: ステータスを `revoked` にし、注文を `revoked_license_order` に記録して、遅れて届いた Webhook が再び付与できないようにします。
+- `onOrderRefunded` → ステータス `refunded` で `revokeLicense`。注文が全額返金された場合のみで、一部返金ではライセンスを維持します。
+- `onBenefitGrantRevoked` → ステータス `revoked` で `revokeLicense`。
+
+`revokeLicense` は、その注文で購入したライセンスのステータスを設定し、注文を `revoked_license_order` に記録して、遅れて届いた Webhook が再び付与できないようにします。`refunded` を置き換えることはありません。Polar は返金された注文の特典も取り消し、2 つのイベントはどちらの順序でも届く可能性があるためです。[CLI ライセンス API](/docs/features/cli-licence-api) は、このステータスに応じて `licenseRefunded` または `licenseRevoked` を返します。
 
 ## 顧客向け画面
 
-`/app/license` は `LicenseCard`（プラン、キー、インストールコマンド、`/api/auth/customer/portal` の Polar カスタマーポータルへのリンク、プラン変更の連絡先となるサポートのメールアドレス）と `LicenseActivations` を表示します。`LicenseActivations` は Polar 上のキーのアクティベーションを一覧表示し、`deactivateLicense` で個別に解除します。Polar は各プランのライセンスキーの特典に設定されたアクティベーション数の上限を強制します。この上限は `LICENSE_ACTIVATION_LIMITS` と一致している必要があり、Core は <ActivationLimit tier="core" />、Complete は <ActivationLimit tier="complete" />、Agency は <ActivationLimit tier="agency" /> です。[顧客アプリ](/docs/features/customer-app)を参照してください。
+`/app/license` は `LicenseCard`（プラン、キー、インストールコマンド、`/api/auth/customer/portal` の Polar カスタマーポータルへのリンク、プラン変更の連絡先となるサポートのメールアドレス）と `LicenseActivations` を表示します。`LicenseActivations` は Polar 上のキーのアクティベーションを一覧表示し、`deactivateLicense` で個別に解除します。Polar がそのアクティベーションをもう保持していない場合、`deactivateLicense` は `NOT_FOUND` を返します。CLI は [CLI ライセンス API](/docs/features/cli-licence-api) を通じてアクティベーションを追加、削除します。Polar は各プランのライセンスキーの特典に設定されたアクティベーション数の上限を強制します。この上限は `LICENSE_ACTIVATION_LIMITS` と一致している必要があり、Core は <ActivationLimit tier="core" />、Complete は <ActivationLimit tier="complete" />、Agency は <ActivationLimit tier="agency" /> です。[顧客アプリ](/docs/features/customer-app)を参照してください。
 
 ## 管理画面（デモ）
 

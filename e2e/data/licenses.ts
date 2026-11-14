@@ -1,7 +1,7 @@
 import { LICENSE_STATUS, LICENSE_TIER } from "../../src/modules/license/license.constants"
 
 export const TEST_LICENSE = {
-  activation: { createdAt: "2025-01-01T12:00:00.000Z", id: "lka_test-licensed", label: "Development laptop" },
+  activation: { createdAt: "2025-01-01T12:00:00.000Z", id: "3f8e2a91-6c4d-4b7e-a2f5-9d1c8e7b6a40", label: "Development laptop" },
   id: "test-license",
   key: "SAASY-TEST-0000-0001",
   polarCustomerId: "cus_test-licensed",

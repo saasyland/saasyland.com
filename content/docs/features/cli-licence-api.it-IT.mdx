@@ -1,0 +1,69 @@
+---
+title: "API delle licenze della CLI"
+description: "L’API di saasyland.com che la CLI saasyland chiama per leggere una licenza e per attivare, verificare e rilasciare i dispositivi."
+---
+
+La CLI a pagamento `saasyland` verifica la propria chiave di licenza con saasyland.com. Il Worker risponde sotto <RepositoryFact name="cliApiBasePath" />, confronta la chiave con la tabella `license` in D1 e conserva i dispositivi come attivazioni della chiave in Polar, così la CLI non chiama mai Polar direttamente.
+
+Il contratto tra le due parti è il punto di ingresso `./api` del pacchetto `@saasyland/stack`, distribuito con licenza MIT e pubblicato dal repository della CLI. Definisce le route, gli header, gli schemi di richiesta e di risposta, i codici di errore e i limiti di richieste. La CLI costruisce ogni richiesta e legge ogni risposta con esso, e il sito legge ogni richiesta e scrive ogni risposta con esso (`readApiRequest`, `apiResponse` e `apiErrorResponse`), quindi nessuna delle due parti può discostarsi dall’altra. I valori e le tabelle di questa pagina vengono stampati a partire da esso.
+
+## Dispositivi
+
+- Una chiave di licenza può essere attiva su tanti dispositivi quanti ne consente il suo piano: <ActivationLimit tier="core" /> per Core, <ActivationLimit tier="complete" /> per Complete e <ActivationLimit tier="agency" /> per Agency. Sono i `LICENSE_ACTIVATION_LIMITS`, i limiti che Polar fa rispettare.
+- La CLI identifica un dispositivo tramite un ID di dispositivo che ricava su quel dispositivo stesso: un HMAC-SHA256, con una chiave fissa, dell’ID macchina del sistema operativo oppure, in CI, del provider di CI e dell’ID del repository. L’ID originale del sistema operativo non lascia mai il dispositivo.
+- Una nuova attivazione dallo stesso dispositivo restituisce invariata l’attivazione già esistente di quel dispositivo invece di occuparne un’altra, quindi il dispositivo mantiene la sua attivazione e il suo nome. Per rinominare un dispositivo, rilascialo e attivalo di nuovo con `--label`. In CI, tutte le esecuzioni in uno stesso repository contano come lo stesso dispositivo.
+- I clienti liberano un’attivazione da **Dispositivi** su `/app/license` o con la CLI.
+
+## Richieste
+
+Ogni richiesta invia la chiave di licenza come `authorization: Bearer <key>` e l’ID del dispositivo nell’header <RepositoryFact name="cliApiMachineHeader" />. Ogni risposta è in JSON.
+
+<RepositoryTable columns={["Richiesta", "Stati di successo", "Codici di errore"]} name="cliApiEndpoints" />
+
+- **Leggere la licenza**: il piano, il suo limite di dispositivi, il numero di dispositivi in uso e ogni dispositivo con la sua etichetta e la data di creazione. I dispositivi attivati dalla CLI mostrano anche il tipo (dispositivo o CI), la piattaforma e la versione della CLI. Il dispositivo chiamante è contrassegnato come `current`.
+- **Attivare**: riceve la versione della CLI, il tipo, la piattaforma e un’etichetta di massimo <RepositoryFact name="cliApiLabelMaxLength" /> caratteri. Una nuova attivazione risponde con il primo stato della tabella, l’attivazione già esistente del dispositivo chiamante con il secondo.
+- **Verificare un’attivazione**: conferma che l’attivazione appartiene alla chiave e al dispositivo chiamante.
+- **Rilasciare un’attivazione**: rimuove qualsiasi dispositivo della chiave e libera l’attivazione che occupava.
+
+Il contratto descrive anche il download di un bundle di template. Arriverà con i template della CLI in una release successiva, e il sito non lo instrada ancora.
+
+## Errori
+
+Un errore risponde con un oggetto JSON il cui `code` lo identifica:
+
+<RepositoryTable columns={["Codice", "Stato HTTP"]} name="cliApiErrors" />
+
+- `invalidLicenseKey`: la chiave manca, ha un formato non valido o è sconosciuta. La risposta include `www-authenticate: Bearer`.
+- `licenseRefunded`: Polar ha rimborsato l’ordine per intero.
+- `licenseRevoked`: la licenza è stata revocata senza rimborso, per esempio perché Polar ha revocato la chiave.
+- `activationLimitReached`: tutte le attivazioni sono occupate. La risposta include la licenza e i suoi dispositivi, così la CLI può proporre di liberarne uno.
+- `activationNotFound`: la chiave non ha quell’attivazione, oppure l’attivazione appartiene a un altro dispositivo.
+- `invalidRequest`: elenca ogni problema in `issues` con il suo percorso, come `body.label`, e un messaggio.
+- `rateLimited` e `serviceUnavailable`: includono `retryAfterSeconds` e lo stesso numero nell’header `retry-after`. `serviceUnavailable` significa che Polar non era raggiungibile, ha restituito un errore o ha limitato le richieste del sito; la CLI dovrebbe riprovare dopo <RepositoryFact name="cliApiRetryAfterSeconds" unit="second" /> (`LICENSE_API_RETRY_AFTER_SECONDS`).
+
+## Limiti di richieste
+
+Ogni indirizzo IP può inviare <RepositoryFact name="cliApiRequestsPerAddress" /> richieste e ogni chiave di licenza <RepositoryFact name="cliApiRequestsPerLicenseKey" /> richieste ogni <RepositoryFact name="cliApiRateLimitSeconds" unit="second" />. L’indirizzo viene conteggiato per primo, prima di leggere la chiave, quindi chi tenta di indovinare le chiavi da un solo indirizzo si ferma al limite dell’indirizzo. `consumeRateLimit` (`src/lib/rate-limit.ts`) conserva i contatori nella tabella `rate_limit`, indicizzati per indirizzo e per un hash SHA-256 della chiave, mai per la chiave stessa.
+
+## Licenze rimborsate e revocate
+
+Decide la riga di `license` a cui appartiene la chiave. I webhook di Polar la mantengono aggiornata (vedi [Pagamenti e licenze](/docs/features/payments)): un rimborso totale imposta lo stato su `refunded` e un benefit revocato lo imposta su `revoked`. Polar revoca anche il benefit di un ordine rimborsato, e i due eventi possono arrivare in qualsiasi ordine, quindi una revoca non sostituisce mai `refunded`. Quando Polar ha già revocato o disattivato la chiave e il suo webhook non è ancora arrivato, anche l’API risponde `licenseRevoked`.
+
+## Nel codice
+
+| File                                                                                               | Ruolo                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/cli.v1.license.ts`, `cli.v1.activations.ts`, `cli.v1.activations.$activationId.ts` | I file di route, con un metodo per ogni endpoint del contratto                                                                                                                                                        |
+| `src/modules/license/license.api.ts`                                                               | `licenseApiHandlers`: i limiti di richieste, la ricerca in D1, gli endpoint delle chiavi di licenza di Polar chiamati con il token dell’organizzazione, e le risposte                                                 |
+| `src/modules/license/__test__/license.api.integration.test.ts`                                     | Ogni endpoint su D1 e sul test double rigoroso di Polar: successo, riutilizzo, il limite, licenze rimborsate e revocate, limiti di richieste e disservizi di Polar, con ogni risposta letta tramite `readApiResponse` |
+| `src/routes/api/__test__/cli.v1.test.ts`                                                           | Il router invia ogni percorso del contratto al suo file di route                                                                                                                                                      |
+| `e2e/specs/cli-licence-api.spec.ts`                                                                | Il Worker compilato serve l’API al client del contratto stesso                                                                                                                                                        |
+
+`LICENSE_API_ENDPOINTS` in `license.constants.ts` elenca gli endpoint del contratto che il sito serve. Le tabelle qui sopra e il test di routing lo leggono.
+
+## Pagine correlate
+
+- [Pagamenti e licenze](/docs/features/payments)
+- [App cliente](/docs/features/customer-app)
+- [Handler HTTP](/docs/features/api-surface)
+- [Configurazione di Polar](/docs/getting-started/polar-setup)

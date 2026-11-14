@@ -3,13 +3,14 @@ title: "TanStack Start HTTP handlers"
 description: "The server routes under /api and how they relate to server functions."
 ---
 
-The app exposes three HTTP routes, declared with `server.handlers` on `createFileRoute` in `src/routes/api`:
+The app exposes these HTTP routes, declared with `server.handlers` on `createFileRoute` in `src/routes/api`:
 
-| Route         | Methods   | Handler                                                                                                                                                      |
-| ------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/api`        | GET       | Returns `{ "runtime": "cloudflare-workers" }`.                                                                                                               |
-| `/api/auth/$` | GET, POST | Better Auth: sign-in, OAuth callbacks, `/api/auth/verify-email`, plus the Polar plugin endpoints `/api/auth/polar/webhooks` and `/api/auth/customer/portal`. |
-| `/api/search` | GET       | Fumadocs search (`fumadocs.search.ts`).                                                                                                                      |
+| Route                                        | Methods           | Handler                                                                                                                                                                           |
+| -------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api`                                       | GET               | Returns `{ "runtime": "cloudflare-workers" }`.                                                                                                                                    |
+| `/api/auth/$`                                | GET, POST         | Better Auth: sign-in, OAuth callbacks, `/api/auth/verify-email`, plus the Polar plugin endpoints `/api/auth/polar/webhooks` and `/api/auth/customer/portal`.                      |
+| `/api/search`                                | GET               | Fumadocs search (`fumadocs.search.ts`).                                                                                                                                           |
+| <RepositoryFact name="cliApiBasePath" />`/*` | GET, POST, DELETE | The [CLI licence API](/docs/features/cli-licence-api): `licenseApiHandlers` (`license.api.ts`) read the licence and activate, check and release machines for the `saasyland` CLI. |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
@@ -23,14 +24,14 @@ export const Route = createFileRoute("/api/auth/$")({
 
 ## Server functions instead of REST
 
-Application operations are `createServerFn` functions in `src/modules/<table>/use-cases`. The others live in `src/lib` (`getStarCount` in `github.ts`), in an integration (`getCurrentSession` in `auth.session.ts`, `getDocsPage` in `fumadocs.docs.ts`) or inline in the single route that uses them (`getBlogPosts` in `blog.index.tsx`). TanStack Start calls them over RPC under `/_serverFn`, with middleware for sessions, permissions and rate limits. Do not add a REST endpoint for an operation that only this app calls; add an HTTP route only for external callers such as webhooks, and verify their signatures in the provider integration.
+Application operations are `createServerFn` functions in `src/modules/<table>/use-cases`. The others live in `src/lib` (`getStarCount` in `github.ts`), in an integration (`getCurrentSession` in `auth.session.ts`, `getDocsPage` in `fumadocs.docs.ts`) or inline in the single route that uses them (`getBlogPosts` in `blog.index.tsx`). TanStack Start calls them over RPC under `/_serverFn`, with middleware for sessions, permissions and rate limits. Do not add a REST endpoint for an operation that only this app calls; add an HTTP route only for external callers such as webhooks and the CLI, and verify webhook signatures in the provider integration.
 
 ## Behaviour
 
 - The Worker skips locale redirects for `/api` and `/_serverFn`. Their URLs carry no locale, so `getCurrentLocale()` returns `en-US` for them on the server; code that needs a locale receives it as input or reads it from a `callbackURL`.
 - The build does not prerender `/api`.
 - `/media/*` is not a TanStack Start route: the Worker sends it to `serveMedia` before locale handling. See [Cloudflare R2](/docs/integrations/cloudflare-r2).
-- Handler tests live in `src/routes/api/__test__/`, one file per handler: `auth.test.ts`, `search.test.ts` and `index.test.ts`.
+- Handler tests live in `src/routes/api/__test__/`, one file per handler: `auth.test.ts`, `search.test.ts` and `index.test.ts`. `cli.v1.test.ts` covers the route files of the CLI licence API, whose behaviour is tested in `src/modules/license/__test__/license.api.integration.test.ts`.
 
 ## Related guides
 

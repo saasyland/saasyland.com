@@ -1,3 +1,4 @@
+import { API_BASE_PATH, API_ENDPOINT, API_ERROR_STATUS, API_HEADER, API_LIMIT, RATE_LIMIT } from "@saasyland/stack/api"
 import { globSync, readFileSync } from "node:fs"
 import type { Plugin } from "vite-plus"
 import * as zod from "zod"
@@ -7,6 +8,7 @@ import { MILLISECONDS_PER_SECOND } from "../src/lib/duration.ts"
 import { COUNTRIES } from "../src/modules/_core/constants/country.ts"
 import { CURRENCY_CODES } from "../src/modules/_core/constants/currency.ts"
 import { TIMEZONES } from "../src/modules/_core/constants/timezone.ts"
+import { LICENSE_API_ENDPOINTS } from "../src/modules/license/license.constants.ts"
 import { COMMIT_EMOJIS } from "./commit-msg.ts"
 
 const MODULE_ID = "virtual:repository-facts"
@@ -73,6 +75,17 @@ const readE2eFullSchedule = (): string => {
 const findTimedProject = (projects: readonly unknown[]) =>
   timedProjectSchema.parse(projects.find((project) => projectWithTimeoutSchema.safeParse(project).success))
 
+const SERVED_API_ENDPOINTS = LICENSE_API_ENDPOINTS.map((name) => API_ENDPOINT[name])
+
+export const collectCliApiTables = () => ({
+  endpoints: SERVED_API_ENDPOINTS.map(
+    ({ errors, method, route, statuses }) => [`${method} ${API_BASE_PATH}${route}`, statuses.map(String), [...errors]] as const,
+  ),
+  errors: [...new Set(SERVED_API_ENDPOINTS.flatMap(({ errors }) => errors))].map((code) => [code, API_ERROR_STATUS[code]] as const),
+})
+
+export type CliApiTables = ReturnType<typeof collectCliApiTables>
+
 export const collectRepositoryFacts = (config: unknown) => {
   const { fmt, lint, test } = configSchema.parse(config)
   const [, maxLines] = lint.rules["max-lines"]
@@ -81,6 +94,12 @@ export const collectRepositoryFacts = (config: unknown) => {
 
   return {
     bunVersion: readBunVersion(),
+    cliApiBasePath: API_BASE_PATH,
+    cliApiLabelMaxLength: API_LIMIT.LABEL_MAX_LENGTH,
+    cliApiMachineHeader: API_HEADER.MACHINE,
+    cliApiRateLimitSeconds: RATE_LIMIT.PERIOD_SECONDS,
+    cliApiRequestsPerAddress: RATE_LIMIT.REQUESTS_PER_ADDRESS,
+    cliApiRequestsPerLicenseKey: RATE_LIMIT.REQUESTS_PER_LICENSE_KEY,
     countries: COUNTRIES.length,
     coverageThreshold: test.coverage.thresholds.lines,
     currencies: CURRENCY_CODES.length,
@@ -115,6 +134,7 @@ export const repositoryFacts = (): Plugin => {
       moduleSource = [
         `export default ${JSON.stringify(collectRepositoryFacts(config))}`,
         `export const commitEmojis = ${JSON.stringify(COMMIT_EMOJIS)}`,
+        `export const cliApiTables = ${JSON.stringify(collectCliApiTables())}`,
       ].join("\n")
     },
     load: (id) => (id === RESOLVED_MODULE_ID ? moduleSource : undefined),

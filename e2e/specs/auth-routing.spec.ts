@@ -2,6 +2,7 @@ import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/test"
+import { BasePage, LandingPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 test.describe("auth routing", () => {
@@ -38,10 +39,10 @@ test.describe("auth routing", () => {
 })
 
 for (const account of TEST_ACCOUNTS) {
-  test(`${account.role} bypasses sign-in and sign-up on direct and client navigation`, async ({ appPage, baseURL, landingPage, page }) => {
+  test(`${account.role} bypasses sign-in and sign-up on direct and client navigation`, async ({ baseURL, context }) => {
     const errors: string[] = []
-    page.on("pageerror", (error) => errors.push(error.message))
-    const signedIn = await page.request.post("/api/auth/sign-in/email", {
+    context.on("weberror", (webError) => errors.push(webError.error().message))
+    const signedIn = await context.request.post("/api/auth/sign-in/email", {
       data: { email: account.email, password: TEST_PASSWORD },
       headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
     })
@@ -49,25 +50,30 @@ for (const account of TEST_ACCOUNTS) {
     const workspace = account.role === ROLE_CODES.ADMIN ? "/admin" : "/app"
     for (const prefix of ["", "/pl-PL"]) {
       for (const route of ["/auth/sign-in", "/auth/sign-up"]) {
-        const response = await page.goto(`${prefix}${route}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-        await expect(page).toHaveURL(new RegExp(`${prefix}${workspace}/?$`, "u"))
+        const tab = await context.newPage()
+        const response = await tab.goto(`${prefix}${route}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+        await expect(tab).toHaveURL(new RegExp(`${prefix}${workspace}/?$`, "u"))
         const html = await response?.text()
         expect(html).not.toContain('id="sign-in-form"')
         expect(html).not.toContain('id="sign-up-form"')
-        await appPage.waitForAppReady()
-        await expect(page.getByRole("heading").first()).toBeVisible()
+        await new BasePage(tab).waitForAppReady()
+        await expect(tab.getByRole("heading").first()).toBeVisible()
+        await tab.close()
       }
     }
-    await landingPage.goto()
-    await page.locator('a[href^="/auth/sign-in"]').first().click()
-    await expect(page).toHaveURL(new RegExp(`${workspace}/?$`, "u"))
-    await appPage.waitForAppReady()
-    await expect(page.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
-    await landingPage.goto()
-    await page.locator("#pricing").getByRole("link", { name: "Get Core", exact: true }).click()
-    await expect(page).toHaveURL(`/app?tier=${LICENSE_TIER.CORE}`)
-    await appPage.waitForAppReady()
-    await expect(page.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
+    const fromLanding = await context.newPage()
+    await new LandingPage(fromLanding).goto()
+    await fromLanding.locator('a[href^="/auth/sign-in"]').first().click()
+    await expect(fromLanding).toHaveURL(new RegExp(`${workspace}/?$`, "u"))
+    await new BasePage(fromLanding).waitForAppReady()
+    await expect(fromLanding.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
+    await fromLanding.close()
+    const fromPricing = await context.newPage()
+    await new LandingPage(fromPricing).goto()
+    await fromPricing.locator("#pricing").getByRole("link", { name: "Get Core", exact: true }).click()
+    await expect(fromPricing).toHaveURL(`/app?tier=${LICENSE_TIER.CORE}`)
+    await new BasePage(fromPricing).waitForAppReady()
+    await expect(fromPricing.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
     expect(errors).toEqual([])
   })
 }

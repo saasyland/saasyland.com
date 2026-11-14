@@ -13,7 +13,7 @@ import {
 } from "~/src/integrations/polar/polar.discounts"
 
 import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { CURRENCIES } from "~/src/modules/_core/constants/currency"
+import { toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { DEFAULT_CURRENCY_CODE, PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
 import {
   LICENSE_ACTIVATION_LIMITS,
@@ -70,8 +70,6 @@ const PRODUCT_ID_KEYS = {
 } as const satisfies Record<LicenseTier, string>
 
 const PAGE_SIZE = 100
-
-const MINOR_UNIT_BASE = 10
 
 const settingValue = zod.string().trim().nonempty()
 
@@ -167,7 +165,7 @@ const readPolar = async (settings: Settings, source: Source): Promise<PolarState
 
 const priceProblems = (tier: LicenseTier, product: models.Product, label: string): string[] => {
   const prices = product.prices.filter(({ is_archived: archived }) => !archived)
-  const amount = Math.round(TIER_PRICES[tier] * MINOR_UNIT_BASE ** CURRENCIES[DEFAULT_CURRENCY_CODE].exponent)
+  const amount = toMinorUnits(TIER_PRICES[tier], DEFAULT_CURRENCY_CODE)
 
   return [
     ...failing([[prices.length === 0, `${label} has no price.`]]),

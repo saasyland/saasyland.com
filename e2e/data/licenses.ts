@@ -4,7 +4,6 @@ export const TEST_LICENSE = {
   activation: { createdAt: "2025-01-01T12:00:00.000Z", id: "lka_test-licensed", label: "Development laptop" },
   id: "test-license",
   key: "SAASY-TEST-0000-0001",
-  limitActivations: 3,
   polarCustomerId: "cus_test-licensed",
   polarLicenseKeyId: "lk_test-licensed",
   polarOrderId: "ord_test-licensed",

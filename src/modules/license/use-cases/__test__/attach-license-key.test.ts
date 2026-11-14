@@ -12,14 +12,13 @@ import { revokeLicense } from "~/src/modules/license/use-cases/revoke-license"
 import { user } from "~/src/modules/user/user.schema"
 
 const USER_ID = "key-owner"
-const ACTIVATION_LIMIT = 3
 const A_DAY_MS = 86_400_000
 
 const createdAt = (offsetMs: number): string => new Date(Date.now() + offsetMs).toISOString()
 
 const purchase = () => {
   const order = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.CORE })
-  const licenseKey = polarLicenseKeyOf(grantPolarLicenseKey(order, ACTIVATION_LIMIT))
+  const licenseKey = polarLicenseKeyOf(grantPolarLicenseKey(order))
   return {
     grant: { polarLicenseKeyId: licenseKey.id, polarOrderId: order.id, userId: USER_ID },
     licenseKey,
@@ -54,7 +53,7 @@ describe("attach-license-key", () => {
     const { paid } = purchase()
     await grantLicense(paid)
     const newer = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.COMPLETE }, { created_at: createdAt(A_DAY_MS) })
-    const { id: newerKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(newer, ACTIVATION_LIMIT))
+    const { id: newerKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(newer))
 
     await expect(attachLicenseKey({ polarLicenseKeyId: newerKeyId, polarOrderId: newer.id, userId: USER_ID })).rejects.toThrow(
       "The license purchase has not been recorded yet",
@@ -66,7 +65,7 @@ describe("attach-license-key", () => {
     const { grant, paid } = purchase()
     await grantLicense(paid)
     const older = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.CORE }, { created_at: createdAt(-A_DAY_MS) })
-    const { id: olderKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(older, ACTIVATION_LIMIT))
+    const { id: olderKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(older))
 
     await attachLicenseKey({ polarLicenseKeyId: olderKeyId, polarOrderId: older.id, userId: USER_ID })
     await revokeLicense({ polarOrderId: paid.polarOrderId, userId: USER_ID })
@@ -90,7 +89,7 @@ describe("attach-license-key", () => {
 
   it("acknowledges and logs a key granted for an order that is not a license purchase", async () => {
     const order = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.CORE }, { product_id: crypto.randomUUID() })
-    const { id: licenseKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(order, ACTIVATION_LIMIT))
+    const { id: licenseKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(order, LICENSE_TIER.CORE))
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
 
     await expect(attachLicenseKey({ polarLicenseKeyId: licenseKeyId, polarOrderId: order.id, userId: USER_ID })).resolves.toBeUndefined()
@@ -103,7 +102,7 @@ describe("attach-license-key", () => {
 
   it("acknowledges a key for an order without a product", async () => {
     const order = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.CORE }, { product: null, product_id: null })
-    const { id: licenseKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(order, ACTIVATION_LIMIT))
+    const { id: licenseKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(order, LICENSE_TIER.CORE))
     vi.spyOn(console, "error").mockImplementation(() => {})
 
     await expect(attachLicenseKey({ polarLicenseKeyId: licenseKeyId, polarOrderId: order.id, userId: USER_ID })).resolves.toBeUndefined()

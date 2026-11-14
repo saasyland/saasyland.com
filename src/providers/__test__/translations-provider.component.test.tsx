@@ -189,7 +189,7 @@ describe("time zone", () => {
         <RouterProvider router={router} />
       </QueryClientProvider>,
     )
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const timezone = await screen.findByRole("combobox", { name: preferencesCardMessages.timezone.label })
     expect(screen.getByTestId("instant")).toHaveTextContent("1:00 PM GMT+1")
 

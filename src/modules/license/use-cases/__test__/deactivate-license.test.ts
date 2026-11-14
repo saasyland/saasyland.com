@@ -15,11 +15,10 @@ import { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deact
 import { user } from "~/src/modules/user/user.schema"
 
 const USER_ID = "01900000-0000-7000-8000-00000000000a"
-const ACTIVATION_LIMIT = 3
 
 const seedLicenseKey = async () => {
   const order = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.CORE })
-  const grant = grantPolarLicenseKey(order, ACTIVATION_LIMIT)
+  const grant = grantPolarLicenseKey(order)
   const { id, key } = polarLicenseKeyOf(grant)
   await db.insert(license).values({
     id: "owned",

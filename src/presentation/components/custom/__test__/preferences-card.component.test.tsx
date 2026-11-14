@@ -61,7 +61,7 @@ const renderCard = () => {
     </IntlProvider>,
     { queryClient },
   )
-  return { ...result, user: userEvent.setup() }
+  return { ...result, user: userEvent.setup({ delay: null }) }
 }
 
 const timezoneField = () => screen.getByRole("combobox", { name: labels.timezone.label })

@@ -5,8 +5,8 @@ import type { APIRequestContext } from "@playwright/test"
 import type { models } from "@polar-sh/sdk/2026-10"
 import * as zod from "zod"
 
-import { LICENSE_TIER, type LicenseTier } from "../../src/modules/license/license.constants"
-import { POLAR_WEBHOOK_EVENT, type PolarCatalogue, polarCustomer, polarOrder, signedPolarWebhook } from "../../src/platform/testing/lib/polar"
+import { LICENSE_TIER, LICENSE_WEBHOOK_EVENTS, type LicenseTier } from "../../src/modules/license/license.constants"
+import { type PolarCatalogue, polarCustomer, polarOrder, signedPolarWebhook } from "../../src/platform/testing/lib/polar"
 import { ROUTES } from "../../src/routes"
 import { expect } from "./test"
 
@@ -41,7 +41,7 @@ export const deliverPaidOrder = async (request: APIRequestContext, { tier, userI
     status: PAID,
     tier,
   })
-  const { body, headers } = signedPolarWebhook({ data: order, secret: TEST_ENV.POLAR_WEBHOOK_SECRET, type: POLAR_WEBHOOK_EVENT.ORDER_PAID })
+  const { body, headers } = signedPolarWebhook({ data: order, secret: TEST_ENV.POLAR_WEBHOOK_SECRET, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid })
 
   const response = await request.post(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.POLAR_WEBHOOKS}`, { data: body, headers })
   expect(response.ok()).toBe(true)

@@ -5,7 +5,7 @@ import { getRequest } from "@tanstack/react-start/server"
 import { eq } from "drizzle-orm"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { POLAR_WEBHOOK_EVENT, signedPolarWebhook } from "~/src/platform/testing/lib/polar"
+import { signedPolarWebhook } from "~/src/platform/testing/lib/polar"
 import { executeMutation, executeQuery } from "~/src/platform/testing/lib/query"
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 import {
@@ -28,9 +28,16 @@ import { POLAR_CHECKOUT_ID_PLACEHOLDER, POLAR_PRODUCT_IDS } from "~/src/integrat
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER, HTTP_STATUS } from "~/src/modules/_core/constants/api"
+import { toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { PPP_COOKIE, PPP_DECLINED, applyPpp, getPppMultiplier } from "~/src/modules/_core/constants/pricing"
-import { LICENSE_STATUS, LICENSE_TIER, type LicenseTier } from "~/src/modules/license/license.constants"
+import { DEFAULT_CURRENCY_CODE, PPP_COOKIE, PPP_DECLINED, PPP_PERCENT, pppMultiplierKey } from "~/src/modules/_core/constants/pricing"
+import {
+  LICENSE_ACTIVATION_LIMITS,
+  LICENSE_STATUS,
+  LICENSE_TIER,
+  LICENSE_WEBHOOK_EVENTS,
+  type LicenseTier,
+} from "~/src/modules/license/license.constants"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
@@ -42,8 +49,6 @@ import { TIER_PRICES } from "~/src/data/marketing"
 
 import { ROUTES } from "~/src/routes"
 
-const CENTS_PER_DOLLAR = 100
-const ACTIVATION_LIMIT = 3
 const STALE_SIGNATURE_MS = 600_000
 const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.POLAR_WEBHOOKS}`, TEST_APP_URL)
 
@@ -104,15 +109,17 @@ const currentLicense = async (buyer: Buyer) => {
   return license
 }
 
+const listPrice = (tier: LicenseTier): number => toMinorUnits(TIER_PRICES[tier], DEFAULT_CURRENCY_CODE)
+
 const regionalPrice = (tier: LicenseTier, country: string): number =>
-  Math.round(applyPpp({ amount: TIER_PRICES[tier], multiplier: getPppMultiplier(country) }) * CENTS_PER_DOLLAR)
+  toMinorUnits((TIER_PRICES[tier] * pppMultiplierKey(country)) / PPP_PERCENT, DEFAULT_CURRENCY_CODE)
 
 const buyLicense = async (tier: LicenseTier = LICENSE_TIER.CORE) => {
   const buyer = await signUpAndVerify()
   const order = await paidOrder(buyer, tier)
-  await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, order)
-  const grant = grantPolarLicenseKey(order, ACTIVATION_LIMIT)
-  await deliver(POLAR_WEBHOOK_EVENT.BENEFIT_GRANT_CREATED, grant)
+  await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)
+  const grant = grantPolarLicenseKey(order)
+  await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated, grant)
   return { buyer, grant, order }
 }
 
@@ -131,7 +138,7 @@ describe("checkout", () => {
       discount_id: null,
       external_customer_id: buyer.userId,
       metadata: {},
-      net_amount: TIER_PRICES[LICENSE_TIER.COMPLETE] * CENTS_PER_DOLLAR,
+      net_amount: listPrice(LICENSE_TIER.COMPLETE),
       product_id: POLAR_PRODUCT_IDS[LICENSE_TIER.COMPLETE],
       success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}`,
     })
@@ -151,7 +158,7 @@ describe("checkout", () => {
 
     const checkout = await startCheckout(buyer, { cookie: `${PPP_COOKIE}=${PPP_DECLINED}`, country: "PL", tier: LICENSE_TIER.CORE })
 
-    expect(checkout).toMatchObject({ discount_id: null, net_amount: TIER_PRICES[LICENSE_TIER.CORE] * CENTS_PER_DOLLAR })
+    expect(checkout).toMatchObject({ discount_id: null, net_amount: listPrice(LICENSE_TIER.CORE) })
   })
 
   it("passes the affiliate referral to Polar, which keeps it on the paid order", async () => {
@@ -175,7 +182,7 @@ describe("checkout", () => {
 
   it("lets an account whose licence was refunded buy again", async () => {
     const { buyer, order } = await buyLicense()
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_REFUNDED, refundPolarOrder(order.id, order.net_amount))
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(order.id, order.net_amount))
 
     const checkout = await startCheckout(buyer, { tier: LICENSE_TIER.COMPLETE })
 
@@ -202,7 +209,7 @@ describe("Polar webhooks", () => {
     const buyer = await signUpAndVerify()
     const order = await paidOrder(buyer, LICENSE_TIER.COMPLETE)
 
-    expect(await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, order)).toBe(HTTP_STATUS.OK)
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)).toBe(HTTP_STATUS.OK)
     expect(await currentLicense(buyer)).toMatchObject({
       key: null,
       polarOrderId: order.id,
@@ -210,8 +217,8 @@ describe("Polar webhooks", () => {
       tier: LICENSE_TIER.COMPLETE,
     })
 
-    const grant = grantPolarLicenseKey(order, ACTIVATION_LIMIT)
-    expect(await deliver(POLAR_WEBHOOK_EVENT.BENEFIT_GRANT_CREATED, grant)).toBe(HTTP_STATUS.OK)
+    const grant = grantPolarLicenseKey(order)
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated, grant)).toBe(HTTP_STATUS.OK)
 
     const licenseKey = polarLicenseKeyOf(grant)
     expect(await currentLicense(buyer)).toMatchObject({
@@ -225,14 +232,14 @@ describe("Polar webhooks", () => {
     const { buyer, grant, order } = await buyLicense()
     const half = Math.floor(order.net_amount / 2)
 
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_REFUNDED, refundPolarOrder(order.id, half))
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(order.id, half))
     expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIVE })
 
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_REFUNDED, refundPolarOrder(order.id, order.net_amount - half))
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(order.id, order.net_amount - half))
     expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.REVOKED })
 
-    expect(await deliver(POLAR_WEBHOOK_EVENT.BENEFIT_GRANT_REVOKED, revokePolarLicenseKey(grant))).toBe(HTTP_STATUS.OK)
-    expect(await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, order)).toBe(HTTP_STATUS.OK)
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantRevoked, revokePolarLicenseKey(grant))).toBe(HTTP_STATUS.OK)
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)).toBe(HTTP_STATUS.OK)
     expect(await currentLicense(buyer)).toMatchObject({ polarOrderId: order.id, status: LICENSE_STATUS.REVOKED })
   })
 
@@ -243,8 +250,8 @@ describe("Polar webhooks", () => {
       { product_id: crypto.randomUUID() },
     )
 
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_REFUNDED, refundPolarOrder(otherProduct.id, otherProduct.net_amount))
-    await deliver(POLAR_WEBHOOK_EVENT.BENEFIT_GRANT_REVOKED, { ...revokePolarLicenseKey(grant), properties: {} })
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(otherProduct.id, otherProduct.net_amount))
+    await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantRevoked, { ...revokePolarLicenseKey(grant), properties: {} })
 
     expect(await currentLicense(buyer)).toMatchObject({ polarOrderId: order.id, status: LICENSE_STATUS.ACTIVE })
   })
@@ -259,10 +266,10 @@ describe("Polar webhooks", () => {
       { externalCustomerId: buyer.userId, tier: LICENSE_TIER.COMPLETE },
       { created_at: "2026-11-02T10:00:00.000Z" },
     )
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, original)
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, upgrade)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, original)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, upgrade)
 
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_REFUNDED, refundPolarOrder(original.id, original.net_amount))
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(original.id, original.net_amount))
 
     expect(await currentLicense(buyer)).toMatchObject({
       polarOrderId: upgrade.id,
@@ -274,7 +281,7 @@ describe("Polar webhooks", () => {
   it("revokes the licence when Polar revokes the key's benefit", async () => {
     const { buyer, grant } = await buyLicense()
 
-    await deliver(POLAR_WEBHOOK_EVENT.BENEFIT_GRANT_REVOKED, revokePolarLicenseKey(grant))
+    await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantRevoked, revokePolarLicenseKey(grant))
 
     expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.REVOKED })
   })
@@ -284,26 +291,26 @@ describe("Polar webhook delivery order", () => {
   it("asks Polar to retry a key granted before its order, and attaches it on the retry", async () => {
     const buyer = await signUpAndVerify()
     const order = await paidOrder(buyer, LICENSE_TIER.CORE)
-    const grant = grantPolarLicenseKey(order, ACTIVATION_LIMIT)
+    const grant = grantPolarLicenseKey(order)
     vi.spyOn(console, "error").mockImplementation(() => {})
 
-    expect(await deliver(POLAR_WEBHOOK_EVENT.BENEFIT_GRANT_CREATED, grant)).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated, grant)).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR)
     expect(await currentLicense(buyer)).toBeUndefined()
 
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, order)
-    expect(await deliver(POLAR_WEBHOOK_EVENT.BENEFIT_GRANT_CREATED, grant)).toBe(HTTP_STATUS.OK)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated, grant)).toBe(HTTP_STATUS.OK)
     expect(await currentLicense(buyer)).toMatchObject({ key: polarLicenseKeyOf(grant).key })
   })
 
   it("never activates a purchase whose refund arrived before its payment", async () => {
     const buyer = await signUpAndVerify()
     const order = await paidOrder(buyer, LICENSE_TIER.CORE)
-    const grant = grantPolarLicenseKey(order, ACTIVATION_LIMIT)
+    const grant = grantPolarLicenseKey(order)
 
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_REFUNDED, refundPolarOrder(order.id, order.net_amount))
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, order)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(order.id, order.net_amount))
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)
 
-    expect(await deliver(POLAR_WEBHOOK_EVENT.BENEFIT_GRANT_CREATED, grant)).toBe(HTTP_STATUS.OK)
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated, grant)).toBe(HTTP_STATUS.OK)
     expect(await currentLicense(buyer)).toBeUndefined()
   })
 
@@ -311,8 +318,8 @@ describe("Polar webhook delivery order", () => {
     const { buyer, grant, order } = await buyLicense()
     const recorded = await currentLicense(buyer)
 
-    expect(await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, order)).toBe(HTTP_STATUS.OK)
-    expect(await deliver(POLAR_WEBHOOK_EVENT.BENEFIT_GRANT_CREATED, grant)).toBe(HTTP_STATUS.OK)
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)).toBe(HTTP_STATUS.OK)
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated, grant)).toBe(HTTP_STATUS.OK)
 
     const redelivered = await currentLicense(buyer)
     expect(redelivered).toStrictEqual({ ...recorded, updatedAt: redelivered?.updatedAt })
@@ -329,8 +336,8 @@ describe("Polar webhook delivery order", () => {
       { created_at: "2026-11-02T10:00:00.000Z" },
     )
 
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, newer)
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, older)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, newer)
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, older)
 
     expect(await currentLicense(buyer)).toMatchObject({ polarOrderId: newer.id, tier: LICENSE_TIER.AGENCY })
   })
@@ -342,9 +349,9 @@ describe("Polar webhook delivery order", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
 
     const statuses = [
-      await deliver(POLAR_WEBHOOK_EVENT.ORDER_REFUNDED, refundPolarOrder(order.id, order.net_amount)),
-      await deliver(POLAR_WEBHOOK_EVENT.BENEFIT_GRANT_REVOKED, revokePolarLicenseKey(grant)),
-      await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, later),
+      await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(order.id, order.net_amount)),
+      await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantRevoked, revokePolarLicenseKey(grant)),
+      await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, later),
     ]
 
     expect(statuses).toStrictEqual([HTTP_STATUS.OK, HTTP_STATUS.OK, HTTP_STATUS.OK])
@@ -361,14 +368,18 @@ describe("Polar webhook signatures", () => {
     const order = await paidOrder(buyer, LICENSE_TIER.CORE)
     vi.spyOn(console, "error").mockImplementation(() => {})
 
-    expect(await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, order, signing)).toBe(HTTP_STATUS.FORBIDDEN)
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order, signing)).toBe(HTTP_STATUS.FORBIDDEN)
     expect(await currentLicense(buyer)).toBeUndefined()
   })
 
   it("rejects a signed order.paid whose body was changed after signing", async () => {
     const buyer = await signUpAndVerify()
     const order = await paidOrder(buyer, LICENSE_TIER.CORE)
-    const { body, headers } = signedPolarWebhook({ data: order, secret: env.POLAR_WEBHOOK_SECRET, type: POLAR_WEBHOOK_EVENT.ORDER_PAID })
+    const { body, headers } = signedPolarWebhook({
+      data: order,
+      secret: env.POLAR_WEBHOOK_SECRET,
+      type: LICENSE_WEBHOOK_EVENTS.onOrderPaid,
+    })
     const tampered = body.replace(POLAR_PRODUCT_IDS[LICENSE_TIER.CORE], POLAR_PRODUCT_IDS[LICENSE_TIER.AGENCY])
     vi.spyOn(console, "error").mockImplementation(() => {})
 
@@ -381,7 +392,7 @@ describe("Polar webhook signatures", () => {
     const order = await paidOrder(buyer, LICENSE_TIER.CORE)
     vi.spyOn(console, "error").mockImplementation(() => {})
 
-    const unsigned = JSON.stringify({ data: order, type: POLAR_WEBHOOK_EVENT.ORDER_PAID })
+    const unsigned = JSON.stringify({ data: order, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid })
 
     expect(await postWebhook(unsigned, { "content-type": "application/json" })).toBe(HTTP_STATUS.FORBIDDEN)
     expect(await currentLicense(buyer)).toBeUndefined()
@@ -391,7 +402,7 @@ describe("Polar webhook signatures", () => {
 describe("licence activations", () => {
   it("shows nothing to manage before Polar has granted the key", async () => {
     const buyer = await signUpAndVerify()
-    await deliver(POLAR_WEBHOOK_EVENT.ORDER_PAID, await paidOrder(buyer, LICENSE_TIER.CORE))
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, await paidOrder(buyer, LICENSE_TIER.CORE))
     actAs(buyer)
 
     await expect(executeQuery(licenseActivationsQuery)).resolves.toStrictEqual({ activations: [], limitActivations: 0 })
@@ -405,7 +416,7 @@ describe("licence activations", () => {
 
     await expect(executeQuery(licenseActivationsQuery)).resolves.toStrictEqual({
       activations: [laptop, server],
-      limitActivations: ACTIVATION_LIMIT,
+      limitActivations: LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE],
     })
   })
 

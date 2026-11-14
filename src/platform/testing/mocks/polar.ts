@@ -19,14 +19,14 @@ import {
 
 import { polarCore } from "~/src/integrations/polar/polar.config"
 import { POLAR_CHECKOUT_ID_PLACEHOLDER, POLAR_ORDER_STATUS, POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
+import { BASIS_POINTS_PER_PERCENT } from "~/src/integrations/polar/polar.discounts"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { PPP_KEYS, PPP_PERCENT } from "~/src/modules/_core/constants/pricing"
-import { LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
+import { PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
+import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 
 type RequestSchema<Model> = { readonly [Key in keyof Model]?: zod.ZodType<Model[Key]> }
 
-const BASIS_POINTS_PER_PERCENT = 100
 const MAX_PAGE_SIZE = 100
 const METADATA_MAX_KEYS = 50
 const METADATA_KEY_MAX_LENGTH = 40
@@ -37,9 +37,7 @@ const ORDER_PATH = /^\/v1\/orders\/(?<id>[^/]+)$/u
 
 const CATALOGUE: PolarCatalogue = { organizationId: env.POLAR_ORGANIZATION_ID, productIds: POLAR_PRODUCT_IDS }
 
-export const POLAR_DISCOUNTS = PPP_KEYS.filter((key) => key < PPP_PERCENT).map((key) =>
-  polarDiscount(CATALOGUE, (PPP_PERCENT - key) * BASIS_POINTS_PER_PERCENT),
-)
+export const POLAR_DISCOUNTS = PPP_PERCENTS_OFF.map((percentOff) => polarDiscount(CATALOGUE, percentOff * BASIS_POINTS_PER_PERCENT))
 
 const DISCOUNT_PRODUCTS = LICENSE_TIERS.map((tier) => polarOrderProduct(CATALOGUE, tier))
 
@@ -136,11 +134,50 @@ export const refundPolarOrder = (orderId: string, amount: number): models.Order 
   })
 }
 
-export const grantPolarLicenseKey = (order: models.Order, activationLimit: number): models.BenefitGrantLicenseKeysWebhook => {
+export const grantPolarLicenseKey = (
+  order: models.Order,
+  tier: LicenseTier = found(tierOf(order.product_id), "licence product of order", order.id),
+): models.BenefitGrantLicenseKeysWebhook => {
   const customer = customerFor(found(order.customer.external_id, "external customer of order", order.id))
+  const activationLimit = LICENSE_ACTIVATION_LIMITS[tier]
   const licenseKey = polarLicenseKey({ activationLimit, benefitId: crypto.randomUUID(), customer })
   licenseKeys.set(licenseKey.id, licenseKey)
   return polarLicenseKeyGrant({ activationLimit, customer, licenseKey, orderId: order.id })
+}
+
+export const seedPolarLicenseKey = ({
+  activation,
+  externalCustomerId,
+  key,
+  licenseKeyId,
+  tier,
+}: {
+  readonly activation: { readonly createdAt: string; readonly id: string; readonly label: string }
+  readonly externalCustomerId: string
+  readonly key: string
+  readonly licenseKeyId: string
+  readonly tier: LicenseTier
+}): void => {
+  const activations = [
+    {
+      created_at: activation.createdAt,
+      id: activation.id,
+      label: activation.label,
+      license_key_id: licenseKeyId,
+      meta: {},
+      modified_at: null,
+    },
+  ]
+  const customer = customerFor(externalCustomerId)
+  const licenseKey = polarLicenseKey({
+    activationLimit: LICENSE_ACTIVATION_LIMITS[tier],
+    activations,
+    benefitId: crypto.randomUUID(),
+    customer,
+    id: licenseKeyId,
+    key,
+  })
+  licenseKeys.set(licenseKeyId, licenseKey)
 }
 
 export const revokePolarLicenseKey = (grant: models.BenefitGrantLicenseKeysWebhook): models.BenefitGrantLicenseKeysWebhook => {

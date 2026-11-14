@@ -8,11 +8,10 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { LICENSE_ACTIVATION_LIMITS, LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license-activations"
 import * as licenses from "~/src/modules/license/use-cases/get-license"
 
-const ACTIVATION_LIMIT = 3
 const session = createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER })
 const ownedLicense = {
   createdAt: new Date(),
@@ -42,11 +41,14 @@ it("does not call Polar before a license key is attached", async () => {
 })
 it("fetches the activations and limit of the owned Polar license key", async () => {
   const order = createPolarOrder({ externalCustomerId: session.user.id, tier: LICENSE_TIER.CORE })
-  const grant = grantPolarLicenseKey(order, ACTIVATION_LIMIT)
+  const grant = grantPolarLicenseKey(order)
   const activation = activatePolarLicenseKey(grant, "Laptop")
   vi.spyOn(auth.api, "getSession").mockResolvedValue(session)
   vi.spyOn(licenses, "getLicense").mockResolvedValue({ ...ownedLicense, polarLicenseKeyId: polarLicenseKeyOf(grant).id })
-  expect(await executeQuery(licenseActivationsQuery)).toEqual({ activations: [activation], limitActivations: ACTIVATION_LIMIT })
+  expect(await executeQuery(licenseActivationsQuery)).toEqual({
+    activations: [activation],
+    limitActivations: LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE],
+  })
 })
 it("rejects a signed-out caller before querying a license", async () => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(null)

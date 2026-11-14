@@ -1,37 +1,31 @@
 import type { models } from "@polar-sh/sdk/2026-10"
 import { createHmac } from "node:crypto"
 
-import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+import { BASIS_POINTS_PER_PERCENT } from "~/src/integrations/polar/polar.discounts"
+
+import { toMinorUnits } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE, PPP_PERCENT } from "~/src/modules/_core/constants/pricing"
 import type { LicenseTier } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 
-const CENTS_PER_DOLLAR = 100
-const BASIS_POINTS = 10_000
 const MS_PER_SECOND = 1000
 const POLAR_API_VERSION = "2026-10"
 const LICENSE_KEY_PREFIX = "SAASYLAND"
 const DISPLAYED_KEY_CHARACTERS = 6
 const CATALOGUE_CREATED_AT = "2026-11-01T00:00:00.000Z"
-const CURRENCY = CURRENCY_FORMAT.currency.toLowerCase()
+const CURRENCY = DEFAULT_CURRENCY_CODE.toLowerCase()
 const UUID_NODE_DIGITS = 12
-
-export const POLAR_WEBHOOK_EVENT = {
-  BENEFIT_GRANT_CREATED: "benefit_grant.created",
-  BENEFIT_GRANT_REVOKED: "benefit_grant.revoked",
-  ORDER_PAID: "order.paid",
-  ORDER_REFUNDED: "order.refunded",
-} as const satisfies Record<string, models.WebhookEventType>
 
 export interface PolarCatalogue {
   readonly organizationId: string
   readonly productIds: Readonly<Record<LicenseTier, string>>
 }
 
-export const polarPrice = (tier: LicenseTier): number => TIER_PRICES[tier] * CENTS_PER_DOLLAR
+export const polarPrice = (tier: LicenseTier): number => toMinorUnits(TIER_PRICES[tier], DEFAULT_CURRENCY_CODE)
 
 export const polarDiscountAmount = (amount: number, discount: models.DiscountPercentageOnceForeverDurationBase | null): number =>
-  discount === null ? 0 : Math.round((amount * discount.basis_points) / BASIS_POINTS)
+  discount === null ? 0 : Math.round((amount * discount.basis_points) / (BASIS_POINTS_PER_PERCENT * PPP_PERCENT))
 
 const productFields = ({ organizationId, productIds }: PolarCatalogue, tier: LicenseTier): Omit<models.OrderProduct, "metadata"> => ({
   created_at: CATALOGUE_CREATED_AT,
@@ -90,7 +84,7 @@ export const polarDiscount = (
   max_redemptions_per_customer: null,
   metadata: {},
   modified_at: null,
-  name: `Regional pricing ${String(basisPoints / CENTS_PER_DOLLAR)}%`,
+  name: `Regional pricing ${String(basisPoints / BASIS_POINTS_PER_PERCENT)}%`,
   organization_id: organizationId,
   redemptions_count: 0,
   starts_at: null,
@@ -189,37 +183,39 @@ export const polarOrder = ({ catalogue, checkoutId, customer, discount, metadata
 
 export const polarLicenseKey = ({
   activationLimit,
+  activations = [],
   benefitId,
   customer,
+  id = crypto.randomUUID(),
+  key = `${LICENSE_KEY_PREFIX}-${crypto.randomUUID().toUpperCase()}`,
 }: {
   readonly activationLimit: number
+  readonly activations?: models.LicenseKeyActivationBase[]
   readonly benefitId: string
   readonly customer: models.CustomerIndividual
-}): models.LicenseKeyWithActivations => {
-  const key = `${LICENSE_KEY_PREFIX}-${crypto.randomUUID().toUpperCase()}`
-
-  return {
-    activations: [],
-    benefit_id: benefitId,
-    created_at: new Date().toISOString(),
-    customer,
-    customer_id: customer.id,
-    display_key: `****-${key.slice(-DISPLAYED_KEY_CHARACTERS)}`,
-    expires_at: null,
-    id: crypto.randomUUID(),
-    key,
-    last_validated_at: null,
-    limit_activations: activationLimit,
-    limit_usage: null,
-    member: null,
-    member_id: null,
-    modified_at: null,
-    organization_id: customer.organization_id,
-    status: "granted",
-    usage: 0,
-    validations: 0,
-  }
-}
+  readonly id?: string
+  readonly key?: string
+}): models.LicenseKeyWithActivations => ({
+  activations,
+  benefit_id: benefitId,
+  created_at: new Date().toISOString(),
+  customer,
+  customer_id: customer.id,
+  display_key: `****-${key.slice(-DISPLAYED_KEY_CHARACTERS)}`,
+  expires_at: null,
+  id,
+  key,
+  last_validated_at: null,
+  limit_activations: activationLimit,
+  limit_usage: null,
+  member: null,
+  member_id: null,
+  modified_at: null,
+  organization_id: customer.organization_id,
+  status: "granted",
+  usage: 0,
+  validations: 0,
+})
 
 export const polarLicenseKeyGrant = ({
   activationLimit,

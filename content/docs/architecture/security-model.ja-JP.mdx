@@ -32,9 +32,9 @@ Better Auth は、メール認証（サインイン前に必須）、パスワ�
 
 ## レート制限
 
-`withRateLimit(kind, limit)` は、操作とクライアント IP（`cf-connecting-ip`）ごとの試行回数を、単一のアトミックな D1 バッチで `rate_limit` テーブルにカウントします。`RATE_LIMITS.SENSITIVE` は 1 分あたり 3 回、`RATE_LIMITS.TOKEN` は 5 回まで許可します。カウンターのストレージで障害が発生した場合、リクエストは拒否されます。Better Auth 独自のレートリミッターも、`auth:` というキープレフィックスを付けて同じテーブルを使います。セッションの読み取り、サインアウト、Polar の Webhook は制限の対象外です。
+`withRateLimit(kind, limit)` は、操作とクライアント IP（`cf-connecting-ip`）ごとの試行回数を、単一のアトミックな D1 バッチで `rate_limit` テーブルにカウントします。試行は、`RATE_LIMITS.SENSITIVE` では <RepositoryFact name="sensitiveRateLimit" /> 回、`RATE_LIMITS.TOKEN` では <RepositoryFact name="tokenRateLimit" /> 回まで、いずれも <RepositoryFact name="rateLimitWindowSeconds" unit="second" />ごとに許可されます。カウンターのストレージで障害が発生した場合、リクエストは拒否されます。Better Auth 独自のレートリミッターも、`auth:` というキープレフィックスを付けて同じテーブルを使います。セッションの読み取り、サインアウト、Polar の Webhook は制限の対象外です。
 
-訪問者が送信をトリガーできるメールには、2 つ目の制限があります。`withinRecipientRateLimit` は、メールアドレスの SHA-256 ハッシュをキーとして、アドレスごとに 1 時間あたり確認メール 3 通、パスワードリセットメール 3 通、ニュースレターの確認メール 3 通まで許可し、それを超えるとメールを黙ってスキップします。
+訪問者が送信をトリガーできるメールには、2 つ目の制限があります。`withinRecipientRateLimit` は、メールアドレスの SHA-256 ハッシュをキーとして、種類（確認、パスワードリセット、ニュースレターの確認）ごとに、アドレスあたり 1 時間に <RepositoryFact name="recipientEmailsPerHour" /> 通までメールを許可し、それを超えるとメールを黙ってスキップします。
 
 ## レスポンスヘッダー
 
@@ -42,7 +42,7 @@ Better Auth は、メール認証（サインイン前に必須）、パスワ�
 
 ## メディアのリンク
 
-動画ファイルは非公開の R2 バケットに置かれます。`getVideoPlayback` はパスに署名する前に `video: ["read"]` を、`getLessonPlayback` はレッスンのアクセスレベルを要求します。署名は、`AUTH_SECRET` から HKDF で導出した鍵による HMAC-SHA-256 です。署名が不正または期限切れの場合、`serveMedia` は `403` を返します。署名済みパスは、発行から少なくとも 6 時間後の有効期限までベアラーリンクとして機能するため、パスを持っている人は誰でもその動画を再生できます。[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照してください。
+動画ファイルは非公開の R2 バケットに置かれます。`getVideoPlayback` はパスに署名する前に `video: ["read"]` を、`getLessonPlayback` はレッスンのアクセスレベルを要求します。署名は、`AUTH_SECRET` から HKDF で導出した鍵による HMAC-SHA-256 です。署名が不正または期限切れの場合、`serveMedia` は `403` を返します。署名済みパスは、発行から少なくとも <RepositoryFact name="signedMediaHours" unit="hour" />後の有効期限までベアラーリンクとして機能するため、パスを持っている人は誰でもその動画を再生できます。[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照してください。
 
 ## エラーと入力
 

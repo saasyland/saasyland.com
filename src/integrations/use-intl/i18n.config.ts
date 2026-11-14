@@ -1,5 +1,3 @@
-import type { Formats } from "use-intl"
-
 import { APP_DOMAIN } from "~/src/presentation/branding"
 
 const COOKIE_NAME = `${APP_DOMAIN}_locale`
@@ -20,7 +18,7 @@ const FORMATS = {
     date: { day: "numeric", month: "short", year: "numeric" },
     dateTime: { day: "numeric", hour: "numeric", minute: "2-digit", month: "short", timeZoneName: "short", year: "numeric" },
   },
-} as const satisfies Formats
+} as const satisfies { readonly dateTime: Record<string, Intl.DateTimeFormatOptions> }
 
 export const I18N = {
   COOKIE_NAME,

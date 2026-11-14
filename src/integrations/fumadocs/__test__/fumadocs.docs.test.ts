@@ -7,7 +7,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { APP_NAME, APP_URL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const { getPage, preload } = vi.hoisted(() => ({
+const { getPage, getPageTree, preload } = vi.hoisted(() => ({
   getPage: vi.fn<
     (slugs: string[], locale: string) => { data: { title: string; description?: string }; path: string; url: string } | undefined
   >(() => ({
@@ -15,10 +15,22 @@ const { getPage, preload } = vi.hoisted(() => ({
     path: "getting-started.mdx",
     url: "/docs/getting-started",
   })),
+  getPageTree: vi.fn(() => ({
+    $id: "root",
+    children: [
+      {
+        $id: "getting-started",
+        children: [{ $id: "page", name: "Getting started", type: "page" as const, url: "/docs/getting-started" }],
+        name: "Basics",
+        type: "folder" as const,
+      },
+    ],
+    name: "Docs",
+  })),
   preload: vi.fn<(path: string) => Promise<void>>(() => Promise.resolve()),
 }))
 
-vi.mock("~/src/integrations/fumadocs/fumadocs.source", () => ({ source: { getPage } }))
+vi.mock("~/src/integrations/fumadocs/fumadocs.source", () => ({ source: { getPage, getPageTree } }))
 vi.mock("~/src/presentation/components/custom/docs-content", () => ({ docsContent: { preload } }))
 
 afterEach(() => {
@@ -32,15 +44,17 @@ describe("documentation loader", () => {
       locale: "en-US",
       path: "getting-started.mdx",
       pathname: "/docs/getting-started",
+      section: "Basics",
       title: "Getting started",
     })
     expect(getPage).toHaveBeenCalledExactlyOnceWith(["getting-started"], "en-US")
+    expect(getPageTree).toHaveBeenCalledExactlyOnceWith("en-US")
     expect(preload).toHaveBeenCalledExactlyOnceWith("getting-started.mdx")
   })
 
   it("loads the docs index and normalizes a missing description", async () => {
     getPage.mockReturnValueOnce({ data: { title: "Docs" }, path: "index.mdx", url: "/docs" })
-    await expect(loadDocsPage()).resolves.toMatchObject({ description: "", pathname: "/docs", title: "Docs" })
+    await expect(loadDocsPage()).resolves.toMatchObject({ description: "", pathname: "/docs", section: undefined, title: "Docs" })
     expect(getPage).toHaveBeenCalledExactlyOnceWith([], "en-US")
   })
 
@@ -67,5 +81,11 @@ describe("documentation head", () => {
     expect(meta).toContainEqual({ content: "article", property: "og:type" })
     expect(meta).toContainEqual({ content: `${APP_URL}${ROUTES.DOCS}`, property: "og:url" })
     expect(meta).toContainEqual({ content: "en_US", property: "og:locale" })
+  })
+
+  it("names the section of a docs page beside its title", async () => {
+    const { meta } = docsHead({ loaderData: await loadDocsPage("getting-started") })
+    expect(meta).toContainEqual({ content: "Basics", property: "article:section" })
+    expect(meta).toContainEqual({ content: "Getting started", property: "og:title" })
   })
 })

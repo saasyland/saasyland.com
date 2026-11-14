@@ -14,7 +14,11 @@ const PLAIN_TEXT = "text/plain; charset=utf-8"
 
 const JSON_BODY = "application/json"
 
-const CHECKED_PATHS = ["/", "/courses", "/robots.txt", "/api", "/api/auth/get-session"]
+const XML = "application/xml"
+
+const PNG = "image/png"
+
+const CHECKED_PATHS = ["/", "/courses", "/robots.txt", "/sitemap.xml", "/images/og/site.png", "/api", "/api/auth/get-session"]
 
 const ATTEMPTS = LIVE_SITE_CHECK_RETRY_DELAYS_MS.length + 1
 
@@ -37,7 +41,9 @@ const WORKING_SITE: Readonly<Record<string, Answer>> = {
   "/api": page(200, JSON_BODY),
   "/api/auth/get-session": page(200, JSON_BODY),
   "/courses": page(200, HTML),
+  "/images/og/site.png": page(200, PNG),
   "/robots.txt": page(200, PLAIN_TEXT),
+  "/sitemap.xml": page(200, XML),
 }
 
 const fetchMock = vi.fn<(input: URL, init: RequestInit) => Promise<Response>>()
@@ -151,6 +157,12 @@ describe("verifyDeployment on a site that answers wrongly", () => {
     await expectProductionRefusal(`GET ${PRODUCTION_ORIGIN}/robots.txt answered 404 ${HTML} instead of 200 text/plain.`)
   })
 
+  it("refuses a sitemap the build did not write, which the Worker answers with its HTML 404 page", async () => {
+    serve({ "/sitemap.xml": page(404, HTML) })
+
+    await expectProductionRefusal(`GET ${PRODUCTION_ORIGIN}/sitemap.xml answered 404 ${HTML} instead of 200 ${XML}.`)
+  })
+
   it("reports a path that does not answer at all", async () => {
     serve({ "/api": () => Promise.reject(new TypeError("fetch failed")) })
 
@@ -174,7 +186,7 @@ describe("verifyDeployment on a site that answers wrongly", () => {
     await expectProductionRefusal("/courses answered 500")
 
     expect(requestsFor("/courses")).toBe(ATTEMPTS)
-    expect(CHECKED_PATHS.filter((path) => path !== "/courses").map((path) => requestsFor(path))).toStrictEqual([1, 1, 1, 1])
+    expect(CHECKED_PATHS.filter((path) => path !== "/courses").map((path) => requestsFor(path))).toStrictEqual([1, 1, 1, 1, 1, 1])
   })
 
   it("waits before asking again, so a version still spreading across Cloudflare can take over", async () => {

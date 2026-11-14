@@ -23,19 +23,21 @@ Chaque table a son propre module dans `src/modules` et est créée par la migrat
 
 ## Niveaux d’accès
 
-| `access`  | Qui peut regarder                                                                                         |
-| --------- | --------------------------------------------------------------------------------------------------------- |
-| `preview` | Tout le monde, connecté ou non                                                                            |
-| `account` | Tout utilisateur connecté                                                                                 |
-| `paid`    | Un utilisateur disposant d’une licence `active` de niveau `complete` ou `agency` (`COURSE_LICENCE_TIERS`) |
+| `access`  | Qui peut regarder                                                                                          |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| `preview` | Tout le monde, connecté ou non                                                                             |
+| `account` | Tout utilisateur connecté                                                                                  |
+| `paid`    | Un utilisateur disposant d’une licence `active` de niveau `complete` ou `agency` (`LICENSE_COURSE_ACCESS`) |
 
-Les rôles qui ont `course: ["read"]`, comme les administrateurs, peuvent regarder toutes les leçons. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) tranche pour un spectateur que `resolveViewer` (`lesson.viewer.ts`) construit à partir de la session, du rôle et de `getLicense`. Chaque fonction serveur qui sert du contenu de cours applique cette vérification, pas seulement les pages :
+Les rôles qui ont `course: ["read"]`, comme les administrateurs, peuvent regarder toutes les leçons. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) tranche pour un spectateur que `resolveViewer` (`lesson.viewer.ts`) construit à partir de la session, du rôle et de l’accès aux cours qu’accordent d’autres zones (`holdsCourseAccess`). Chaque fonction serveur qui sert du contenu de cours applique cette vérification, pas seulement les pages :
 
 - `getCatalogue` (publique) renvoie les cours publiés avec leur nombre de leçons, la durée totale des vidéos et le nombre d’aperçus gratuits.
 - `getCourseShowcase` (publique) renvoie, pour la page d’accueil, les deux premiers cours publiés (`COURSE_SHOWCASE`) avec leur nombre de leçons, la durée totale des vidéos, le nombre d’aperçus gratuits et leurs six premières leçons publiées, ainsi que le premier aperçu gratuit qui a une vidéo. Elle indique le niveau d’accès de chaque leçon, pas les verrous du spectateur.
 - `getCourse` (publique) renvoie un cours publié avec ses chapitres et ses leçons publiées dans la locale du visiteur, chacune avec `locked`, `completed` et `positionMs` pour le spectateur.
 - `getLessonPlayback` (publique) renvoie des chemins de lecture signés par `createPlayback`. Elle répond `UNAUTHORIZED` à un invité et `FORBIDDEN` à un utilisateur connecté qui n’a pas accès à la leçon, et `NOT_FOUND` pour une leçon non publiée ou sans vidéo.
 - `saveLessonProgress` exige une session et vérifie le même accès avant d’écrire.
+
+L’accès aux cours est une liste propre à la zone des cours : une zone qui le vend déclare un `CourseAccessGrant` dans `src/data/<area>.course-access.ts`, et `src/data/course-access.entries.ts` les réunit (voir [Ce que les zones apportent](/docs/architecture/platform-layer#what-the-areas-add)). Un octroi indique si un utilisateur a l’accès (`holds`, une fonction réservée au serveur), ce qui l’inclut (`includedWith`, les clés de message des noms que la page de licence affiche) et où l’obtenir (`unlock`, un lien pour un spectateur connecté et un pour un invité). `LICENSE_COURSE_ACCESS` de la zone des licences (`src/data/license.course-access.ts`) l’accorde à une licence `active` de niveau Complete ou Agency, et envoie un spectateur connecté vers `/app/license?tier=complete` et un invité vers la section des tarifs de la page d’accueil. Sans octroi, les leçons payantes sont réservées à l’équipe et leurs panneaux verrouillés n’offrent aucun lien.
 
 ## Pages
 

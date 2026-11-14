@@ -6,9 +6,8 @@ import { useTranslations } from "use-intl/react"
 
 import type { Course } from "~/src/modules/course/course.types"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
-import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { COURSE_ACCESS_GRANTS } from "~/src/data/course-access"
 
 import { ROUTES } from "~/src/routes"
 
@@ -20,7 +19,7 @@ interface LockedLessonProps {
   readonly signedIn: boolean
 }
 
-export const UnlockLink = ({ access, signedIn }: LockedLessonProps): JSX.Element => {
+export const UnlockLink = ({ access, signedIn }: LockedLessonProps): JSX.Element | JSX.Element[] => {
   const t = useTranslations("pages.courses.lesson.locked")
   const redirect = useRouterState({ select: ({ location }) => location.publicHref })
 
@@ -32,19 +31,11 @@ export const UnlockLink = ({ access, signedIn }: LockedLessonProps): JSX.Element
     )
   }
 
-  if (signedIn) {
-    return (
-      <Link className={CTA_CLASSNAME} search={{ tier: LICENSE_TIER.COMPLETE }} to={ROUTES.APP_LICENSE}>
-        {t("paid.cta")}
-      </Link>
-    )
-  }
-
-  return (
-    <Link className={CTA_CLASSNAME} hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>
+  return COURSE_ACCESS_GRANTS.map(({ key, unlock }) => (
+    <Link className={CTA_CLASSNAME} key={key} {...(signedIn ? unlock.signedIn : unlock.signedOut)}>
       {t("paid.cta")}
     </Link>
-  )
+  ))
 }
 
 export const LockedLesson = ({ access, signedIn }: LockedLessonProps): JSX.Element => {

@@ -179,7 +179,7 @@ describe("updateCourse", () => {
 describe("deleteCourse", () => {
   it("removes the course, its curriculum and its progress but keeps the videos", async () => {
     signInAs(ROLE_CODES.ADMIN)
-    await recordProgress({ lessonId: LESSON_IDS.PAID, positionMs: 1000, userId: USERS.BUYER })
+    await recordProgress({ lessonId: LESSON_IDS.PAID, positionMs: 1000, userId: USERS.ENTITLED })
 
     await executeMutation(deleteCourseMutation, { courseId: IDS.COURSE })
 

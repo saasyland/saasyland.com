@@ -18,7 +18,6 @@ import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
 
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
-import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
 import { Route as AppRoute } from "~/src/routes/app"
@@ -46,7 +45,6 @@ type SignOutResult = Awaited<ReturnType<NonNullable<typeof signOutUserMutation.m
 const sessionRequest = vi.hoisted(() => vi.fn())
 const currentLicense = vi.hoisted(() => vi.fn())
 const activations = vi.hoisted(() => vi.fn())
-const catalogue = vi.hoisted(() => vi.fn())
 const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
 const SIGN_OUT_SUCCESS = { redirect: undefined, success: true, url: undefined } satisfies SignOutResult
 const { account, navigation } = pagesAppSidebarMessages
@@ -63,10 +61,7 @@ vi.mock(import("~/src/modules/license/use-cases/get-current-license-activations"
   const actual = await importOriginal()
   return { ...actual, licenseActivationsQuery: { ...actual.licenseActivationsQuery, queryFn: activations } }
 })
-vi.mock(import("~/src/modules/course/use-cases/get-catalogue"), async (importOriginal) => {
-  const actual = await importOriginal()
-  return { ...actual, catalogueQuery: (input) => ({ ...actual.catalogueQuery(input), queryFn: catalogue }) }
-})
+vi.mock("~/src/data/license-offer.entries", () => ({}))
 vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
   signOutUserMutation: { mutationFn: signOutMock, mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_OUT },
 }))
@@ -108,7 +103,6 @@ beforeEach(() => {
   sessionRequest.mockReset().mockResolvedValue(createAuthSessionFixture())
   currentLicense.mockReset().mockResolvedValue({ license: undefined })
   activations.mockReset().mockResolvedValue({ activations: [], limitActivations: 2 })
-  catalogue.mockReset().mockResolvedValue([])
   signOutMock.mockReset().mockResolvedValue(SIGN_OUT_SUCCESS)
   vi.spyOn(toast, "success").mockReturnValue(0)
   vi.spyOn(toast, "error").mockReturnValue(0)
@@ -214,7 +208,7 @@ describe("customer workspace account", () => {
     expect(signOutMock).not.toHaveBeenCalled()
   })
 
-  it("removes the cached session and licence, keeps the catalogue and translations, and opens sign in after successful sign-out", async () => {
+  it("removes the cached session and licence, keeps the translations, and opens sign in after successful sign-out", async () => {
     const { queryClient, router, user } = await renderApp(ROUTES.APP)
     await user.click(await screen.findByRole("button", { name: commonMessages.signOut }))
 
@@ -224,7 +218,6 @@ describe("customer workspace account", () => {
     expect(queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toBeUndefined()
     expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toBeUndefined()
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0)
-    expect(queryClient.getQueryData(catalogueQuery({ locale: "en-US" }).queryKey)).toStrictEqual([])
     expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.app.sidebar" }).queryKey)).toBeDefined()
     expect(toast.success).toHaveBeenCalledWith(commonMessages.signedOut)
     expect(toast.error).not.toHaveBeenCalled()

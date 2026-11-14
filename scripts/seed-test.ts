@@ -5,9 +5,9 @@ import { join } from "node:path"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
+import { readBucketName } from "./wrangler-config.ts"
 import * as AREA_SEEDS from "~/e2e/data/seed.entries"
 
-const TEST_BUCKET = "saasyland-test"
 const LOCAL_TEST_STATE = ["--env", ENVIRONMENT.TEST, "--local", "--persist-to", ".wrangler/test"]
 
 const wrangler = (args: readonly string[], failure: string): void => {
@@ -27,14 +27,21 @@ try {
   await writeFile(sql, statements.join("\n"))
   wrangler(["d1", "execute", "DB", "--file", sql], "Could not seed the local test database")
 
-  const uploads = [...Map.groupBy(objects, ({ type }) => type)].map(([type, group], index) => ({
-    entries: group.map(({ file, key }) => ({ file, key })),
+  const groups = await Promise.all(
+    [...Map.groupBy(objects, ({ binding }) => binding)].map(async ([binding, group]) => {
+      const bucket = await readBucketName({ binding, environment: ENVIRONMENT.TEST })
+      return [...Map.groupBy(group, ({ type }) => type)].map(([type, files]) => ({ bucket, files, type }))
+    }),
+  )
+  const uploads = groups.flat().map(({ bucket, files, type }, index) => ({
+    bucket,
+    entries: files.map(({ file, key }) => ({ file, key })),
     list: join(directory, `media-${String(index)}.json`),
     type,
   }))
   await Promise.all(uploads.map(({ entries, list }) => writeFile(list, JSON.stringify(entries))))
-  for (const { list, type } of uploads) {
-    wrangler(["r2", "bulk", "put", TEST_BUCKET, "--content-type", type, "--filename", list], "Could not upload the seeded media")
+  for (const { bucket, list, type } of uploads) {
+    wrangler(["r2", "bulk", "put", bucket, "--content-type", type, "--filename", list], "Could not upload the seeded media")
   }
 } finally {
   await rm(directory, { recursive: true })

@@ -3,13 +3,11 @@ import type { JSX } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouterState } from "@tanstack/react-router"
 
-import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
-
-import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { LICENSE_STATUS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
 import { appSearchSchema } from "~/src/data/app"
+import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
 
 import { cn } from "~/src/lib/cn"
 
@@ -24,7 +22,6 @@ const usePendingLicenseView = () => {
   const search = useRouterState({ select: ({ location }) => appSearchSchema.parse(location.search) })
 
   const license = queryClient.getQueryData(currentLicenseQuery.queryKey)?.license
-  const catalogue = queryClient.getQueryData(catalogueQuery({ locale: getCurrentLocale() }).queryKey) ?? []
   const hasActiveLicense = license?.status === LICENSE_STATUS.ACTIVE
   const isBuying = search.checkoutId === undefined && !hasActiveLicense
 
@@ -32,7 +29,6 @@ const usePendingLicenseView = () => {
     hasActivations: typeof license?.polarLicenseKeyId === "string",
     isAwaitingPayment: search.checkoutId !== undefined,
     isBuying,
-    lockedCourses: catalogue.filter(({ paid }) => paid > 0).length,
     showsChosenTier: isBuying && search.tier !== undefined,
     showsLicense: license !== undefined && (hasActiveLicense || search.checkoutId === undefined),
   }
@@ -108,22 +104,7 @@ const TierColumnPending = ({ featured }: Readonly<{ featured: boolean }>): JSX.E
   </div>
 )
 
-const CourseUnlocksPending = ({ courses }: Readonly<{ courses: number }>): JSX.Element => (
-  <div className="rounded-xl border border-border bg-card p-6 md:p-8">
-    <Skeleton className="h-lh w-56 max-w-full scale-y-70 text-title" />
-    <TextLines className="mt-1.5 text-body-sm" />
-    <div className="mt-5 divide-y divide-border border-y border-border">
-      {Array.from({ length: courses }, (_, course) => (
-        <div className="flex items-center gap-3 py-3.5 text-body-sm" key={course}>
-          <Skeleton className="size-3.5 shrink-0" />
-          <Skeleton className="h-lh w-48 scale-y-70" />
-        </div>
-      ))}
-    </div>
-  </div>
-)
-
-const LicenseOfferPending = ({ lockedCourses }: Readonly<{ lockedCourses: number }>): JSX.Element => (
+const LicenseOfferPending = (): JSX.Element => (
   <div className="flex flex-col gap-6">
     <div className="flex flex-col gap-1.5">
       <Skeleton className="h-lh w-48 scale-y-70 text-title" />
@@ -137,7 +118,9 @@ const LicenseOfferPending = ({ lockedCourses }: Readonly<{ lockedCourses: number
       </div>
     </div>
     <AgreementPending />
-    {lockedCourses > 0 && <CourseUnlocksPending courses={lockedCourses} />}
+    {LICENSE_OFFER_SECTIONS.map(({ key, Pending }) => (
+      <Pending key={key} />
+    ))}
   </div>
 )
 
@@ -223,7 +206,7 @@ export const AppOverviewPending = (): JSX.Element => {
       {view.isAwaitingPayment && <ActivationPending />}
       {view.showsChosenTier && <ChosenTierPending />}
       {view.showsLicense && <LicenseStatusCardPending />}
-      {view.isBuying && <LicenseOfferPending lockedCourses={view.lockedCourses} />}
+      {view.isBuying && <LicenseOfferPending />}
       <div className="grid gap-8 sm:grid-cols-2">
         <DocsStepPending />
         <SupportStepPending />
@@ -242,7 +225,7 @@ export const AppLicensePending = (): JSX.Element => {
       {view.showsChosenTier && <ChosenTierPending />}
       {view.showsLicense && <LicenseCardPending />}
       {view.showsLicense && view.hasActivations && <LicenseActivationsPending />}
-      {view.isBuying && <LicenseOfferPending lockedCourses={view.lockedCourses} />}
+      {view.isBuying && <LicenseOfferPending />}
       <Skeleton className="h-lh w-28 scale-y-70 text-sm" />
     </div>
   )

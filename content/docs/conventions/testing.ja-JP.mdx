@@ -15,7 +15,7 @@ description: "テストが属する Vitest のプロジェクト、インメモ�
 | `.integration.test.ts` | `integration` | Better Auth、決済、ライセンスのフロー、D1 アダプター、メッセージの読み込み。タイムアウトは <RepositoryFact name="integrationTestTimeoutSeconds" unit="second" /> |
 | `.component.test.tsx`  | `component`   | jsdom 上のコンポーネントとページ                                                                                                                                 |
 
-`src/platform/testing/mocks/cloudflare.ts` は、すべてのプロジェクトで `cloudflare:workers` を置き換えます。D1 はチェックイン済みのすべてのマイグレーションから構築したインメモリの `node:sqlite` データベースで、KV と `MEDIA` バケットはインメモリのストアです。`resetTestBindings()` は各テストの前に KV、バケット、レート制限のテーブルを空にし、各スイートのシード関数は、そのスイートが依存する行をリセットします。Cloudflare、Polar、Resend、OAuth プロバイダーと通信するテストはありません。`fetch` は `mocks/resend.ts` と `mocks/polar.ts` の厳密なテストダブルに届き、テストダブルはすべてのリクエストを SDK のリクエストモデルに照らして検証し、プロバイダーが拒否するリクエストがあればテストを失敗させます。テストは SDK のメソッドをモックするのではなく、テストダブルが受け取った内容をアサートし、認証のスイートは `auth.harness.ts` を通じて本物の `auth.server.ts` の設定を動かします。
+`src/platform/testing/mocks/cloudflare.ts` は、すべてのプロジェクトで `cloudflare:workers` を置き換えます。D1 はチェックイン済みのすべてのマイグレーションから構築したインメモリの `node:sqlite` データベースで、KV と、`wrangler.jsonc` の `test` 環境にある R2 バインディングごとのバケットはインメモリのストアです。`resetTestBindings()` は各テストの前に KV、バケット、レート制限のテーブルを空にし、各スイートのシード関数は、そのスイートが依存する行をリセットします。Cloudflare、Polar、Resend、OAuth プロバイダーと通信するテストはありません。`fetch` は `mocks/resend.ts` と `mocks/polar.ts` の厳密なテストダブルに届き、テストダブルはすべてのリクエストを SDK のリクエストモデルに照らして検証し、プロバイダーが拒否するリクエストがあればテストを失敗させます。テストは SDK のメソッドをモックするのではなく、テストダブルが受け取った内容をアサートし、認証のスイートは `auth.harness.ts` を通じて本物の `auth.server.ts` の設定を動かします。
 
 ## サーバー関数のテスト
 
@@ -87,10 +87,13 @@ describe("getCourses", () => {
 | D1 の行                  | `src/integrations/drizzle-orm/__test__/<area>.rows.ts`                                                           | `rows.entries.ts`           | `d1.integration.test.ts`                        |
 | ブラウザーテストのページ | `e2e/data/<area>.pages.ts`                                                                                       | `e2e/data/pages.entries.ts` | `accessibility.spec.ts` と `workspaces.spec.ts` |
 | テスト用データベース     | `e2e/data/<area>.seed.ts`                                                                                        | `e2e/data/seed.entries.ts`  | `scripts/seed-test.ts`                          |
+| 公開クエリ               | `src/integrations/better-auth/__test__/<area>.public-queries.ts`                                                 | `public-queries.entries.ts` | `auth.session.test.ts`                          |
 
 複数のエリアが使うヘルパーは 1 か所にだけ書きます。`src/presentation/components/custom/admin/__test__/fixtures.tsx` の `renderAdmin` と `renderAdminPage`、`src/routes/__test__/fixtures/admin-router.ts` の `loadAsAdmin`、`src/platform/testing/lib/skeleton.tsx` の `markupOf` と `busyMarkup`、そしてブラウザーテストの `AuthPage.signIn`、`BasePage.leaveWhileLoading`、`pageWithoutJavaScript` フィクスチャです。
 
 エリアが提供する項目を必要とする共有コードのテストは、エリアが宣言した項目を読むのではなく、テスト専用の項目を宣言します。`dashboard-actions.component.test.tsx` は `ADMIN_DASHBOARD_ACTIONS` をテスト専用のアクションに置き換えるため、現在ダッシュボードの唯一のアクションを宣言している商品エリアがないプロジェクトでも、`DashboardActions` と `AdminDashboardPending` のアクションのプレースホルダーはカバーされたままです。`server.test.ts`、`root.component.test.tsx`、`vite.test.ts` も同様に、テスト専用の Worker ハンドラー、ルートコンポーネント、Vite プラグインを使い、各エリアは自分の項目を `src/data/__test__/<area>.worker.test.ts` と `<area>.vite.test.ts` でテストします。オプションのエリアだけが描画する共有コードには、専用のテストを用意します。`pending-blocks.component.test.tsx` は、商品、コース、決済、投稿エディターのスケルトンが使うフィールド、スイッチ、アップロードゾーンのスケルトンをカバーします。共有のアクセス制御のテストはコアのステートメントと Better Auth 自身のステートメントだけをチェックし、各エリアは自分の付与を `src/data/__test__/<area>.access.test.ts` でテストします。`access.website.test.ts` は、このサイトにおけるすべてのロールの権限を固定します。
+
+ライセンスのルートとスケルトンのテストはライセンスの購入案内のセクションをテスト内のセクションに置き換え、コースのテストはコースアクセスの付与を `TEST_COURSE_ACCESS`（`src/modules/course/__test__/fixtures/course-access.ts`）に置き換えるので、どちらのエリアのテストももう一方を読みません。両者をつなぐ部分は `license.course-access.test.ts` がテストします。ライセンスの付与と、ゲスト、アカウント、スタッフ、すべてのライセンスのティアとステータスについて、誰がどのレッスンを視聴できるかのスナップショットです。
 
 `navigation.website.test.ts` のようにサイト全体を固定するテスト（すべてのメニューの順序を確認します）はこのサイト専用で、テンプレートは生成しません。
 

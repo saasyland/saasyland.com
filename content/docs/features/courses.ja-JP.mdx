@@ -23,19 +23,21 @@ description: "無料、アカウントが必要、ライセンスが必要のい
 
 ## アクセスレベル
 
-| `access`  | 視聴できる人                                                                                       |
-| --------- | -------------------------------------------------------------------------------------------------- |
-| `preview` | サインインの有無を問わず全員                                                                       |
-| `account` | サインインしているすべてのユーザー                                                                 |
-| `paid`    | ティア `complete` または `agency` の `active` なライセンスを持つユーザー（`COURSE_LICENCE_TIERS`） |
+| `access`  | 視聴できる人                                                                                        |
+| --------- | --------------------------------------------------------------------------------------------------- |
+| `preview` | サインインの有無を問わず全員                                                                        |
+| `account` | サインインしているすべてのユーザー                                                                  |
+| `paid`    | ティア `complete` または `agency` の `active` なライセンスを持つユーザー（`LICENSE_COURSE_ACCESS`） |
 
-`course: ["read"]` を持つロール（管理者が該当）は、すべてのレッスンを視聴できます。判定は `hasLessonAccess`（`src/modules/lesson/lesson.access.ts`）が行い、その対象となる視聴者は `resolveViewer`（`lesson.viewer.ts`）がセッション、ロール、`getLicense` から組み立てます。この判定はページだけでなく、コースのコンテンツを返すすべてのサーバー関数で行われます。
+`course: ["read"]` を持つロール（管理者が該当）は、すべてのレッスンを視聴できます。判定は `hasLessonAccess`（`src/modules/lesson/lesson.access.ts`）が行い、その対象となる視聴者は `resolveViewer`（`lesson.viewer.ts`）がセッション、ロール、ほかのエリアが与えるコースアクセス（`holdsCourseAccess`）から組み立てます。この判定はページだけでなく、コースのコンテンツを返すすべてのサーバー関数で行われます。
 
 - `getCatalogue`（公開）は、公開済みのコースを、レッスン数、動画の合計時間、無料プレビューの数とともに返します。
 - `getCourseShowcase`（公開）は、ランディングページ用に、公開済みの最初の 2 つのコース（`COURSE_SHOWCASE`）をレッスン数、動画の合計時間、無料プレビューの数、公開済みの最初の 6 レッスンとともに返し、動画のある最初の無料プレビューも返します。返すのは各レッスンのアクセスレベルで、視聴者ごとのロック状態ではありません。
 - `getCourse`（公開）は、公開済みのコースを、そのチャプターと公開済みのレッスンとともに訪問者のロケールで返します。各レッスンには視聴者ごとの `locked`、`completed`、`positionMs` が付きます。
 - `getLessonPlayback`（公開）は、`createPlayback` による署名付きの再生パスを返します。レッスンを視聴できない場合、ゲストには `UNAUTHORIZED`、サインイン済みのユーザーには `FORBIDDEN` を返し、未公開のレッスンや動画のないレッスンには `NOT_FOUND` を返します。
 - `saveLessonProgress` はセッションを必要とし、書き込む前に同じアクセス判定を行います。
+
+コースアクセスは、コースのエリアが自分で定義するリストです。コースアクセスを販売するエリアは `src/data/<area>.course-access.ts` で `CourseAccessGrant` を宣言し、`src/data/course-access.entries.ts` がそれらをまとめます（[エリアが追加するもの](/docs/architecture/platform-layer#what-the-areas-add)を参照）。付与は、ユーザーがアクセスを持つかどうか（`holds`、サーバー専用の関数）、何に含まれるか（`includedWith`、ライセンスページが挙げる名前のメッセージキー）、どこで入手するか（`unlock`、サインイン中の視聴者用とゲスト用のリンク 1 つずつ）を示します。ライセンスのエリアの `LICENSE_COURSE_ACCESS`（`src/data/license.course-access.ts`）は、Complete または Agency の `active` なライセンスにアクセスを与え、サインイン中の視聴者を `/app/license?tier=complete` に、ゲストをランディングページの料金セクションに案内します。付与が 1 つもなければ、有料レッスンを視聴できるのはスタッフだけで、ロックされたパネルにはリンクが表示されません。
 
 ## ページ
 

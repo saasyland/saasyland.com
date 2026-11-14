@@ -20,18 +20,23 @@ Le richieste per `/assets/*`, `/fonts/*`, `/robots.txt` e `/llms.txt` vengono se
 
 Nessun file della piattaforma nomina un'area. Ogni area, come i corsi o la vendita delle licenze, aggiunge nei propri file ciò che le serve nel Worker, nella rotta radice, nella build di Vite e nel deploy, e un barrel li riunisce, come avviene per i percorsi e i menu (vedi [Percorsi e navigazione](/docs/conventions/routes#paths-and-navigation)):
 
-| Cosa                | Ogni area dichiara                                              | Barrel                       | Usato da                                                                                      |
-| ------------------- | --------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
-| Handler del Worker  | `src/data/<area>.worker.ts`: una lista `<AREA>_WORKER_HANDLERS` | `src/data/worker.entries.ts` | `DOCUMENT_HANDLERS` e `REQUEST_HANDLERS` in `src/data/worker.ts`, che `src/server.ts` esegue  |
-| Componenti radice   | `src/data/<area>.root.ts`: una lista `<AREA>_ROOT_COMPONENTS`   | `src/data/root.entries.ts`   | `ROOT_COMPONENTS` in `src/data/root.ts`, che `src/routes/__root.tsx` monta accanto all'outlet |
-| Plugin di Vite      | `src/data/<area>.vite.ts`: una lista `<AREA>_VITE_PLUGINS`      | `src/data/vite.entries.ts`   | `vitePlugins` in `src/data/vite.ts`, che `vite.config.ts` carica                              |
-| Controlli di deploy | `src/data/<area>.deploy.ts`: una lista `<AREA>_DEPLOY_CHECKS`   | `src/data/deploy.entries.ts` | `DEPLOY_CHECKS` in `src/data/deploy.ts`, che `scripts/run-deploy-checks.ts` esegue            |
+| Cosa                      | Ogni area dichiara                                              | Barrel                       | Usato da                                                                                             |
+| ------------------------- | --------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Handler del Worker        | `src/data/<area>.worker.ts`: una lista `<AREA>_WORKER_HANDLERS` | `src/data/worker.entries.ts` | `DOCUMENT_HANDLERS` e `REQUEST_HANDLERS` in `src/data/worker.ts`, che `src/server.ts` esegue         |
+| Componenti radice         | `src/data/<area>.root.ts`: una lista `<AREA>_ROOT_COMPONENTS`   | `src/data/root.entries.ts`   | `ROOT_COMPONENTS` in `src/data/root.ts`, che `src/routes/__root.tsx` monta accanto all'outlet        |
+| Plugin di Vite            | `src/data/<area>.vite.ts`: una lista `<AREA>_VITE_PLUGINS`      | `src/data/vite.entries.ts`   | `vitePlugins` in `src/data/vite.ts`, che `vite.config.ts` carica                                     |
+| Controlli di deploy       | `src/data/<area>.deploy.ts`: una lista `<AREA>_DEPLOY_CHECKS`   | `src/data/deploy.entries.ts` | `DEPLOY_CHECKS` in `src/data/deploy.ts`, che `scripts/run-deploy-checks.ts` esegue                   |
+| Controlli del sito online | `src/data/<area>.live.ts`: una lista `<AREA>_LIVE_CHECKS`       | `src/data/live.entries.ts`   | `LIVE_SITE_CHECKS` in `src/data/live.ts`, che `scripts/verify-deployment.ts` richiede dopo un deploy |
 
 Un handler delle richieste rivendica un `pathPrefix` e risponde a ogni richiesta sotto di esso prima del middleware del locale, degli asset statici e di TanStack Start, come fa l'handler dell'area dei corsi per `/media/`. Un handler dei documenti riceve ogni pagina HTML restituita dal Worker, con il suo locale e la richiesta, e restituisce la pagina da inviare, come fanno i prezzi regionali dell'area delle licenze. `src/server.ts` importa gli handler staticamente, quindi vengono valutati a ogni avvio a freddo: un file di handler importa solo costanti e helper puri e carica tutto ciò che è più pesante con un `import()` dinamico (vedi [Prestazioni](/docs/conventions/performance)).
 
 Una voce di plugin di Vite ha un `order`, che colloca i suoi plugin tra quelli delle altre aree, e `vitest`, che indica se vengono caricati anche sotto Vitest. Vite carica la propria configurazione prima che l'alias `~` venga risolto, quindi `vite.ts`, `vite.entries.ts` e ogni `<area>.vite.ts` importano con un percorso relativo e l'estensione `.ts`, e una voce importa il proprio pacchetto di plugin solo dentro la sua funzione `plugins`, così che `vp lint` e `vp fmt` non lo carichino mai.
 
 Un controllo di deploy nomina uno script del pacchetto con una variante per ogni ambiente di deploy. L'area Polar dichiara `polar:verify`, quindi `bun scripts/run-deploy-checks.ts preview` esegue `bun run polar:verify:preview`.
+
+Un controllo del sito online nomina un percorso e lo stato e il tipo di contenuto con cui deve rispondere dopo un deploy. Il core controlla la home page, `robots.txt`, la sitemap, la card del sito e `/api`, l'area di autenticazione l'endpoint della sessione e l'area dei corsi `/courses`, che viene renderizzata da D1 a ogni richiesta.
+
+Un'area può anche definire una lista propria a cui le altre aree contribuiscono allo stesso modo. L'area dei corsi definisce l'accesso ai corsi in `src/data/course-access.ts`, e l'area delle licenze lo concede in `src/data/license.course-access.ts` ([Corsi](/docs/features/courses)); l'area delle licenze definisce le sezioni della sua offerta in `src/data/license-offer.ts`, e l'area dei corsi vi aggiunge i corsi bloccati in `src/data/courses.license-offer.ts` ([App cliente](/docs/features/customer-app)). Un progetto senza una delle due aree tralascia la lista che quell'area definisce insieme a ciò che l'altra vi aggiunge, così nessuna delle due importa l'altra.
 
 ## Ambienti
 
@@ -46,6 +51,8 @@ Un controllo di deploy nomina uno script del pacchetto con una variante per ogni
 
 Ogni ambiente elenca i secret obbligatori in `secrets.required`. I valori provengono dal file `.env.<environment>` corrispondente; gli script di deploy scrivono le chiavi dichiarate in `.wrangler/secrets.<environment>.json` e passano quel file a Wrangler con `--secrets-file`. L'ambiente `test` usa `src/platform/testing/worker.ts` come entry point e i valori fittizi versionati in `.env.test`. `AFFONSO_PROGRAM_ID` è pubblico, quindi è una semplice variabile del Worker sotto `vars` e non un secret; solo `test` ne imposta uno. I secret di un modulo formano un blocco, separato dal successivo da una riga vuota, nell'ordine di `.env.example`, e di `.env.test` per `test`, così un'area aggiunge i propri secret come un unico blocco; `src/__test__/wrangler.test.ts` fallisce quando i blocchi dei due file differiscono.
 
+Anche i binding di un'area formano un blocco a sé. Il bucket R2 `MEDIA` appartiene all'area dei corsi, quindi `r2_buckets` viene per ultimo in ogni ambiente e un progetto senza i corsi lo tralascia. `wrangler.test.ts` fallisce anche quando un ambiente collega database D1, namespace KV o bucket R2 diversi da quelli di `development`, e `scripts/verify-bindings.ts` controlla ogni binding che l'ambiente di destinazione dichiara senza nominarne nessuno.
+
 ## Tipi
 
 - `src/types/worker-configuration.d.ts` viene generato da `bun run cf-typegen` a partire dall'ambiente `development` di `wrangler.jsonc` e dichiara `Cloudflare.Env`: i binding `DB`, `CACHE` e `MEDIA` e tutti i secret di `secrets.required`. `src/types/bindings.d.ts` aggiunge `ASSETS`, che Wrangler tralascia.
@@ -57,7 +64,7 @@ Ogni ambiente elenca i secret obbligatori in `secrets.required`. I valori proven
 `src/platform/testing` contiene solo ciò che non può appartenere a una singola funzionalità:
 
 - `setup.ts`: i matcher di jest-dom, un reset dei binding prima di ogni test e il sostituto di `createServerFn` che esegue le server function nello stesso processo
-- `mocks/cloudflare.ts`: un D1 SQLite in memoria che esegue le migrazioni versionate, un KV in memoria, un bucket `MEDIA` in memoria e un `waitUntil` che i test possono svuotare
+- `mocks/cloudflare.ts`: un D1 SQLite in memoria che esegue le migrazioni versionate, un KV in memoria, un bucket in memoria per ogni binding R2 dell'ambiente `test` in `wrangler.jsonc` e un `waitUntil` che i test possono svuotare
 - `mocks/cache.ts`: `createEdgeCache`, uno stub della cache di Workers per i test della distribuzione dei media
 - `mocks/resend.ts` e `mocks/polar.ts`: test double rigorosi delle API di Resend e Polar, e `mocks/providers.ts`, che instrada `fetch` verso di loro in ogni test e nel Worker dei test browser
 - `mocks/wrksz-themes.ts`: un sostituto della libreria dei temi

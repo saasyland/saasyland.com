@@ -12,6 +12,7 @@ import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
+import { TEST_COURSE_ACCESS } from "~/src/modules/course/__test__/fixtures/course-access"
 import { COURSE_KIND, COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
@@ -20,7 +21,6 @@ import { LESSON_PROGRESS_MUTATION_KEYS } from "~/src/modules/lesson-progress/les
 import type { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
 import { LESSON_ACCESS, LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
-import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import type { Video } from "~/src/modules/video/video.types"
 
 import { Route as CoursesRoute } from "~/src/routes/courses"
@@ -66,11 +66,15 @@ vi.mock(import("~/src/modules/course/use-cases/get-course"), async (importOrigin
   }
 })
 
+vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
+
 vi.mock(import("~/src/modules/lesson-progress/use-cases/save-lesson-progress"), () => ({
   saveLessonProgressMutation: { mutationFn: save, mutationKey: LESSON_PROGRESS_MUTATION_KEYS.SAVE },
 }))
 
 const COURSE_SLUG = "the-walkthrough"
+
+const [{ unlock }] = TEST_COURSE_ACCESS
 
 const PLAYBACK: Video["playback"] = {
   captions: [],
@@ -116,7 +120,7 @@ const GUEST_PAGE = page({
     lesson("billing", "Billing", { locked: true }),
     lesson("coverage", "Coverage", { durationMs: null, locked: true }),
   ],
-  viewer: { licensed: false, signedIn: false },
+  viewer: { signedIn: false },
 })
 
 const LEARNER_PAGE = page({
@@ -126,7 +130,7 @@ const LEARNER_PAGE = page({
     lesson("billing", "Billing"),
     lesson("coverage", "Coverage", { durationMs: null }),
   ],
-  viewer: { licensed: true, signedIn: true },
+  viewer: { signedIn: true },
 })
 
 const CUSTOMER_PAGE = page({
@@ -135,7 +139,7 @@ const CUSTOMER_PAGE = page({
     lesson("sessions", "Sessions", { access: LESSON_ACCESS.ACCOUNT }),
     lesson("billing", "Billing", { locked: true }),
   ],
-  viewer: { licensed: false, signedIn: true },
+  viewer: { signedIn: true },
 })
 
 const completeLesson = (source: Course["page"], slug: string): Course["page"] => ({
@@ -295,12 +299,12 @@ describe("course catalogue", () => {
 })
 
 describe("course page", () => {
-  it("starts a visitor on the free lesson and offers Complete for the locked ones", async () => {
+  it("starts a visitor on the free lesson and offers what unlocks the locked ones", async () => {
     await renderCourses({ path: "/courses/the-walkthrough" })
 
     expect(screen.getByRole("heading", { level: 1, name: "The walkthrough" })).toBeVisible()
     expect(screen.getByRole("link", { name: messages.course.start })).toHaveAttribute("href", "/courses/the-walkthrough/boundaries")
-    expect(screen.getByRole("link", { name: messages.course.unlock.cta })).toHaveAttribute("href", "/#pricing")
+    expect(screen.getByRole("link", { name: messages.course.unlock.cta })).toHaveAttribute("href", unlock.signedOut.to)
     expect(screen.queryByText(/lessons completed/u)).toBeNull()
 
     const boundaries = screen.getByRole("link", { name: /Boundaries/u })
@@ -322,17 +326,14 @@ describe("course page", () => {
     expect(screen.queryByRole("heading", { name: messages.course.unlock.title })).toBeNull()
   })
 
-  it("sends a signed-in customer to their licence page to unlock lessons", async () => {
+  it("sends a signed-in customer where an area grants course access", async () => {
     await renderCourses({ data: CUSTOMER_PAGE, path: "/courses/the-walkthrough" })
 
-    expect(screen.getByRole("link", { name: messages.course.unlock.cta })).toHaveAttribute(
-      "href",
-      `/app/license?tier=${LICENSE_TIER.COMPLETE}`,
-    )
+    expect(screen.getByRole("link", { name: messages.course.unlock.cta })).toHaveAttribute("href", unlock.signedIn.to)
   })
 
   it("offers no start link when every lesson is locked", async () => {
-    const locked = page({ lessons: [lesson("billing", "Billing", { locked: true })], viewer: { licensed: false, signedIn: false } })
+    const locked = page({ lessons: [lesson("billing", "Billing", { locked: true })], viewer: { signedIn: false } })
     await renderCourses({ data: locked, path: "/courses/the-walkthrough" })
 
     expect(screen.queryByRole("link", { name: messages.course.start })).toBeNull()
@@ -407,8 +408,8 @@ describe("lesson page", () => {
       href: "/auth/sign-in?redirect=%2Fcourses%2Fthe-walkthrough%2Fsessions",
       path: "sessions",
     },
-    { cta: messages.lesson.locked.paid.cta, data: GUEST_PAGE, href: "/#pricing", path: "billing" },
-    { cta: messages.lesson.locked.paid.cta, data: CUSTOMER_PAGE, href: `/app/license?tier=${LICENSE_TIER.COMPLETE}`, path: "billing" },
+    { cta: messages.lesson.locked.paid.cta, data: GUEST_PAGE, href: unlock.signedOut.to, path: "billing" },
+    { cta: messages.lesson.locked.paid.cta, data: CUSTOMER_PAGE, href: unlock.signedIn.to, path: "billing" },
   ])("locks $path and links to $href", async ({ cta, data, href, path }) => {
     await renderCourses({ data, path: `/courses/the-walkthrough/${path}` })
 

@@ -3,6 +3,7 @@ import { join, relative } from "node:path"
 
 import { COURSE_STATUS } from "../../src/modules/course/course.constants"
 import { LESSON_STATUS } from "../../src/modules/lesson/lesson.constants"
+import { MEDIA_BINDING } from "../../src/modules/video/video.constants"
 import { mediaContentType, videoObjectKey } from "../../src/modules/video/video.files"
 import { TEST_COURSE, TEST_LESSONS } from "./courses"
 import { type TestSeed, json, literal } from "./seed"
@@ -28,6 +29,7 @@ export const coursesSeed = async (): Promise<TestSeed> => {
 
   return {
     objects: files.map((file) => ({
+      binding: MEDIA_BINDING,
       file: join(TEST_VIDEO.fixture, file),
       key: videoObjectKey({ file, videoId: TEST_VIDEO.id }),
       type: contentTypeOf(file),

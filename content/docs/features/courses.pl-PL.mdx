@@ -23,19 +23,21 @@ Każda tabela ma własny moduł w `src/modules` i jest tworzona przez migrację 
 
 ## Poziomy dostępu
 
-| `access`  | Kto może oglądać                                                                                                       |
-| --------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `preview` | Wszyscy, zalogowani lub nie                                                                                            |
-| `account` | Każdy zalogowany użytkownik                                                                                            |
-| `paid`    | Użytkownik z licencją `active` na poziomie `complete` lub `agency`, czyli Komplet lub Agencja (`COURSE_LICENCE_TIERS`) |
+| `access`  | Kto może oglądać                                                                                                        |
+| --------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `preview` | Wszyscy, zalogowani lub nie                                                                                             |
+| `account` | Każdy zalogowany użytkownik                                                                                             |
+| `paid`    | Użytkownik z licencją `active` na poziomie `complete` lub `agency`, czyli Komplet lub Agencja (`LICENSE_COURSE_ACCESS`) |
 
-Role z uprawnieniem `course: ["read"]`, które mają administratorzy, mogą oglądać każdą lekcję. O dostępie decyduje `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) dla widza, którego `resolveViewer` (`lesson.viewer.ts`) buduje z sesji, roli i `getLicense`. Tę kontrolę stosuje każda funkcja serwerowa, która serwuje treści kursów, a nie tylko strony:
+Role z uprawnieniem `course: ["read"]`, które mają administratorzy, mogą oglądać każdą lekcję. O dostępie decyduje `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) dla widza, którego `resolveViewer` (`lesson.viewer.ts`) buduje z sesji, roli i dostępu do kursów, który przyznają inne obszary (`holdsCourseAccess`). Tę kontrolę stosuje każda funkcja serwerowa, która serwuje treści kursów, a nie tylko strony:
 
 - `getCatalogue` (publiczna) zwraca opublikowane kursy z liczbą lekcji, łącznym czasem filmów i liczbą darmowych podglądów.
 - `getCourseShowcase` (publiczna) zwraca na potrzeby strony głównej dwa pierwsze opublikowane kursy (`COURSE_SHOWCASE`) z liczbą lekcji, łącznym czasem filmów, liczbą darmowych podglądów i sześcioma pierwszymi opublikowanymi lekcjami, a także pierwszy darmowy podgląd, który ma film. Podaje poziom dostępu każdej lekcji, a nie blokady widza.
 - `getCourse` (publiczna) zwraca opublikowany kurs z rozdziałami i opublikowanymi lekcjami w locale odwiedzającego, każdą z `locked`, `completed` i `positionMs` dla widza.
 - `getLessonPlayback` (publiczna) zwraca podpisane ścieżki odtwarzania z `createPlayback`. Gościowi bez dostępu odpowiada `UNAUTHORIZED`, a zalogowanemu użytkownikowi bez dostępu `FORBIDDEN`; dla nieopublikowanej lekcji lub lekcji bez filmu zwraca `NOT_FOUND`.
 - `saveLessonProgress` wymaga sesji i przed zapisem sprawdza ten sam dostęp.
+
+Dostęp do kursów to własna lista obszaru kursów: obszar, który go sprzedaje, deklaruje `CourseAccessGrant` w `src/data/<area>.course-access.ts`, a `src/data/course-access.entries.ts` je łączy (zobacz [Co dodają obszary](/docs/architecture/platform-layer#what-the-areas-add)). Przyznanie mówi, czy użytkownik ma dostęp (`holds`, funkcja wyłącznie serwerowa), co go obejmuje (`includedWith`, klucze komunikatów z nazwami, które wymienia strona licencji) i gdzie go zdobyć (`unlock`, jeden link dla zalogowanego widza i jeden dla gościa). `LICENSE_COURSE_ACCESS` obszaru licencji (`src/data/license.course-access.ts`) przyznaje go licencji `active` na poziomie Komplet lub Agencja i kieruje zalogowanego widza do `/app/license?tier=complete`, a gościa do sekcji cennika na stronie głównej. Bez żadnego przyznania płatne lekcje są tylko dla zespołu, a ich zablokowane panele nie oferują linku.
 
 ## Strony
 

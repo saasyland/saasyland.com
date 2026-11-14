@@ -21,13 +21,13 @@ Execute os scripts a partir da raiz do repositório com `bun run <script>`. Os s
 
 ## Deploy
 
-| Script              | Executa                                                                                                                                                                                                                                     |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `polar:verify:preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` de `dist/server/wrangler.json` e `scripts/verify-deployment.ts preview` |
-| `deploy:production` | As mesmas etapas para `production`                                                                                                                                                                                                          |
+| Script              | Executa                                                                                                                                                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `scripts/run-deploy-checks.ts preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` de `dist/server/wrangler.json` e `scripts/verify-deployment.ts preview` |
+| `deploy:production` | As mesmas etapas para `production`                                                                                                                                                                                                                          |
 
 - `verify-bindings.ts` falha quando o ambiente não tem um binding `DB`, `CACHE` ou `MEDIA` ou ainda tem um ID de D1 ou KV de placeholder, e quando a produção compartilha com o preview o banco de dados, o namespace ou o bucket.
-- `polar:verify:<environment>` interrompe o deploy antes do build quando a organização do Polar em `.env.<environment>` não corresponde ao código.
+- `run-deploy-checks.ts` executa `bun run <check>:<environment>` para cada verificação de deploy que uma área declara em `src/data/<area>.deploy.ts` e interrompe o deploy antes do build quando uma falha. Hoje a única é `polar:verify`, da área do Polar, que falha quando a organização do Polar em `.env.<environment>` não corresponde ao código.
 - `prepare-deploy-secrets.ts` lê de `.env.<environment>` as chaves listadas em `secrets.required` do ambiente, falha quando alguma está ausente ou vazia e grava apenas essas chaves em `.wrangler/secrets.<environment>.json`. As outras variáveis do arquivo não são enviadas.
 - As migrações rodam depois do build e antes do deploy, então um build com falha nunca toca o banco de dados e o novo Worker nunca inicia com um schema antigo.
 - O deploy executa `env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.<environment>.json`. A configuração gerada pelo build já aponta para um único ambiente; um `CLOUDFLARE_ENV` que tenha ficado no shell faria o Wrangler procurar uma seção de ambiente que esse arquivo não tem.

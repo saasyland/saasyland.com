@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
+import { DEPLOYED_HOSTS, ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_TIMEOUT_MS, verifyDeployment } from "~/src/lib/deployment"
 
-const PRODUCTION_ORIGIN = "https://saasyland.com"
+const PRODUCTION_ORIGIN = `https://${DEPLOYED_HOSTS[ENVIRONMENT.PRODUCTION]}`
 
-const PREVIEW_ORIGIN = "https://preview.saasyland.com"
+const PREVIEW_ORIGIN = `https://${DEPLOYED_HOSTS[ENVIRONMENT.PREVIEW]}`
 
 const HTML = "text/html; charset=utf-8"
 

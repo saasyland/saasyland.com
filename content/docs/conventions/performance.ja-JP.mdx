@@ -14,7 +14,7 @@ description: "ページを高速に保つ、計測に基づくルール。小さ
 
 ## Worker の起動グラフを小さく保つ
 
-`src/server.ts` はすべての HTML リクエストで実行され（`wrangler.jsonc` の `run_worker_first`）、静的にインポートしたものはすべて、コールドスタートのたびに評価されます。そのため、定数と純粋なヘルパーだけをインポートし、それ以外はリクエストが必要としたときに読み込みます。
+`src/server.ts` はすべての HTML リクエストで実行され（`wrangler.jsonc` の `run_worker_first`）、静的にインポートしたものはすべて、コールドスタートのたびに評価されます。そのため、このファイルと各エリアが追加する Worker ハンドラーは、定数と純粋なヘルパーだけをインポートし、それ以外はリクエストが必要としたときに読み込みます。
 
 ```ts
 const { default: handler } = await import("@tanstack/react-start/server-entry")
@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-以前、Polar のクライアントもインポートしていたモジュールからヘッダー名を 1 つ静的にインポートしただけで、約 1.4 MB の SDK がすべてのコールドスタートに読み込まれ、ランディングページの最初の 1 バイトが届くまでに最大 1.4 秒かかったことがあります。`COUNTRY_HEADER` と `IP_ADDRESS_HEADER` が、重いものを何もインポートしない `src/modules/_core/constants/api.ts` にあるのはそのためです。`server.ts` に静的インポートを追加する前に、そのインポートの連鎖をたどってください。`polar`、`drizzle-orm`、`resend` に到達するものはすべて退行です。
+以前、Polar のクライアントもインポートしていたモジュールからヘッダー名を 1 つ静的にインポートしただけで、約 1.4 MB の SDK がすべてのコールドスタートに読み込まれ、ランディングページの最初の 1 バイトが届くまでに最大 1.4 秒かかったことがあります。`COUNTRY_HEADER` と `IP_ADDRESS_HEADER` が、重いものを何もインポートしない `src/modules/_core/constants/api.ts` にあるのはそのためです。`server.ts` や `<area>.worker.ts` に静的インポートを追加する前に、そのインポートの連鎖をたどってください。`polar`、`drizzle-orm`、`resend` に到達するものはすべて退行です。
 
 ## プリレンダリングされたページは CSS とフォントを先に読み込む
 

@@ -16,6 +16,23 @@ description: "Середовище виконання Cloudflare: точка в�
 
 Запити до `/assets/*`, `/fonts/*`, `/robots.txt` і `/llms.txt` обслуговуються зі статичних ресурсів без запуску Worker. Серверний код читає прив'язки, секрети та `waitUntil` з `cloudflare:workers`. `src/server.ts` додає заголовки безпеки до кожної відповіді, яку повертає; файли, що віддаються без Worker, отримують підмножину з `public/_headers` ([Безпека та посилення захисту](/docs/features/security)).
 
+## Що додають розділи [#what-the-areas-add]
+
+Жоден файл платформи не називає розділ. Кожен розділ, як-от курси чи продаж ліцензій, додає у власних файлах те, що йому потрібно у Worker, кореневому маршруті, збірці Vite і розгортанні, а barrel-файл їх об’єднує, так само як шляхи й меню (див. [Шляхи та навігація](/docs/conventions/routes#paths-and-navigation)):
+
+| Що                           | Кожен розділ оголошує                                             | Barrel-файл                  | Хто використовує                                                                              |
+| ---------------------------- | ----------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
+| Обробники Worker             | `src/data/<area>.worker.ts`: один список `<AREA>_WORKER_HANDLERS` | `src/data/worker.entries.ts` | `DOCUMENT_HANDLERS` і `REQUEST_HANDLERS` у `src/data/worker.ts`, які запускає `src/server.ts` |
+| Кореневі компоненти          | `src/data/<area>.root.ts`: один список `<AREA>_ROOT_COMPONENTS`   | `src/data/root.entries.ts`   | `ROOT_COMPONENTS` у `src/data/root.ts`, які `src/routes/__root.tsx` монтує поруч з outlet     |
+| Плагіни Vite                 | `src/data/<area>.vite.ts`: один список `<AREA>_VITE_PLUGINS`      | `src/data/vite.entries.ts`   | `vitePlugins` у `src/data/vite.ts`, які завантажує `vite.config.ts`                           |
+| Перевірки перед розгортанням | `src/data/<area>.deploy.ts`: один список `<AREA>_DEPLOY_CHECKS`   | `src/data/deploy.entries.ts` | `DEPLOY_CHECKS` у `src/data/deploy.ts`, які запускає `scripts/run-deploy-checks.ts`           |
+
+Обробник запитів займає `pathPrefix` і відповідає на кожен запит під ним раніше за middleware локалі, статичні ресурси й TanStack Start, як це робить обробник розділу курсів для `/media/`. Обробник документів отримує кожну HTML-сторінку, яку повертає Worker, разом з її локаллю та запитом, і повертає сторінку, яку слід надіслати, як це роблять регіональні ціни розділу ліцензій. `src/server.ts` імпортує обробники статично, тож вони обчислюються під час кожного холодного старту: файл обробників імпортує лише константи й чисті допоміжні функції, а все більше завантажує динамічним `import()` (див. [Продуктивність](/docs/conventions/performance)).
+
+Запис плагінів Vite має `order`, що ставить його плагіни серед плагінів інших розділів, і `vitest`, що вказує, чи завантажуються вони також під Vitest. Vite завантажує свою конфігурацію до того, як буде розпізнано аліас `~`, тому `vite.ts`, `vite.entries.ts` і кожен `<area>.vite.ts` імпортують за відносним шляхом із розширенням `.ts`, а запис імпортує свій пакет плагіна лише всередині своєї функції `plugins`, щоб `vp lint` і `vp fmt` ніколи його не завантажували.
+
+Перевірка перед розгортанням називає скрипт пакета з одним варіантом для кожного середовища розгортання. Розділ Polar оголошує `polar:verify`, тож `bun scripts/run-deploy-checks.ts preview` запускає `bun run polar:verify:preview`.
+
 ## Середовища
 
 `wrangler.jsonc` визначає чотири середовища. `CLOUDFLARE_ENV` обирає одне з них для `vp dev` і `vp build`.
@@ -27,12 +44,12 @@ description: "Середовище виконання Cloudflare: точка в�
 | `production`  | D1, KV і R2 середовища production        | `bun run build:production`, `deploy:production` |
 | `test`        | Локальні D1, KV і R2 у `.wrangler/test`  | `bun run build:test`, Playwright                |
 
-Кожне середовище перелічує свої обов'язкові секрети в `secrets.required`. Значення беруться з відповідного файлу `.env.<environment>`; скрипти розгортання записують оголошені ключі в `.wrangler/secrets.<environment>.json` і передають цей файл у Wrangler через `--secrets-file`. Середовище `test` використовує `src/platform/testing/worker.ts` як точку входу та фіктивні значення з `.env.test`, що зберігаються в репозиторії. `AFFONSO_PROGRAM_ID` публічний, тому це звичайна змінна Worker у `vars`, а не секрет; її задає лише `test`.
+Кожне середовище перелічує свої обов'язкові секрети в `secrets.required`. Значення беруться з відповідного файлу `.env.<environment>`; скрипти розгортання записують оголошені ключі в `.wrangler/secrets.<environment>.json` і передають цей файл у Wrangler через `--secrets-file`. Середовище `test` використовує `src/platform/testing/worker.ts` як точку входу та фіктивні значення з `.env.test`, що зберігаються в репозиторії. `AFFONSO_PROGRAM_ID` публічний, тому це звичайна змінна Worker у `vars`, а не секрет; її задає лише `test`. Секрети одного модуля утворюють один блок, відокремлений від наступного порожнім рядком, у порядку з `.env.example`, а для `test` — з `.env.test`, тож розділ додає свої секрети одним блоком; `src/__test__/wrangler.test.ts` не проходить, коли блоки двох файлів відрізняються.
 
 ## Типи
 
-- `src/types/bindings.d.ts` оголошує `Cloudflare.Env`: прив'язки, усі секрети, які читає Worker, і необов'язкову змінну `AFFONSO_PROGRAM_ID`. Три секрети `CLOUDFLARE_*` не оголошено, бо їх читає лише drizzle-kit, з `process.env`.
-- `src/types/worker-configuration.d.ts` генерує `bun run cf-typegen`.
+- `src/types/worker-configuration.d.ts` генерує `bun run cf-typegen` із середовища `development` у `wrangler.jsonc`, і він оголошує `Cloudflare.Env`: прив'язки `DB`, `CACHE` і `MEDIA` та всі секрети з `secrets.required`. `src/types/bindings.d.ts` додає `ASSETS`, який Wrangler пропускає.
+- Розділ оголошує в `src/types/<area>.d.ts` лише те, чого Wrangler не може вивести: `affiliates.d.ts` — необов'язкову змінну `AFFONSO_PROGRAM_ID`, яку задає лише `test`, `polar.d.ts` — два значення `POLAR_SERVER`, а `repository-facts.d.ts` — модуль `virtual:repository-facts`.
 - `src/types/router.d.ts` реєструє тип роутера та опцію маршруту `staticData.namespaces`.
 
 ## Тестова інфраструктура

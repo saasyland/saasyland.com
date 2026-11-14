@@ -16,6 +16,23 @@ description: "Cloudflare のランタイム：Worker のエントリー、バイ
 
 `/assets/*`、`/fonts/*`、`/robots.txt`、`/llms.txt` へのリクエストは、Worker を実行せずに静的アセットから返されます。サーバーコードは、バインディング、シークレット、`waitUntil` を `cloudflare:workers` から読み取ります。`src/server.ts` は、返すすべてのレスポンスにセキュリティヘッダーを追加します。Worker を経由せずに配信されるファイルには、`public/_headers` のサブセットが付きます（[セキュリティと堅牢化](/docs/features/security)）。
 
+## エリアが追加するもの [#what-the-areas-add]
+
+プラットフォームのファイルはどのエリアも名指ししません。コースやライセンス販売といった各エリアが、Worker、ルートルート、Vite のビルド、デプロイに必要なものを自分のファイルで追加し、パスやメニューと同じようにバレルがそれらをまとめます（[パスとナビゲーション](/docs/conventions/routes#paths-and-navigation)を参照）。
+
+| 対象                 | 各エリアが宣言するもの                                              | バレル                       | 使う側                                                                                              |
+| -------------------- | ------------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| Worker ハンドラー    | `src/data/<area>.worker.ts`: `<AREA>_WORKER_HANDLERS` のリスト 1 つ | `src/data/worker.entries.ts` | `src/data/worker.ts` の `DOCUMENT_HANDLERS` と `REQUEST_HANDLERS`。`src/server.ts` が実行します     |
+| ルートコンポーネント | `src/data/<area>.root.ts`: `<AREA>_ROOT_COMPONENTS` のリスト 1 つ   | `src/data/root.entries.ts`   | `src/data/root.ts` の `ROOT_COMPONENTS`。`src/routes/__root.tsx` がアウトレットの隣にマウントします |
+| Vite プラグイン      | `src/data/<area>.vite.ts`: `<AREA>_VITE_PLUGINS` のリスト 1 つ      | `src/data/vite.entries.ts`   | `src/data/vite.ts` の `vitePlugins`。`vite.config.ts` が読み込みます                                |
+| デプロイ前チェック   | `src/data/<area>.deploy.ts`: `<AREA>_DEPLOY_CHECKS` のリスト 1 つ   | `src/data/deploy.entries.ts` | `src/data/deploy.ts` の `DEPLOY_CHECKS`。`scripts/run-deploy-checks.ts` が実行します                |
+
+リクエストハンドラーは `pathPrefix` を受け持ち、その配下のすべてのリクエストに、ロケールのミドルウェア、静的アセット、TanStack Start より先に応答します。コースのエリアのハンドラーが `/media/` に対して行っているのがこれです。ドキュメントハンドラーは、Worker が返すすべての HTML ページをそのロケールとリクエストとともに受け取り、送信するページを返します。ライセンスのエリアの地域別価格がこれにあたります。`src/server.ts` はハンドラーを静的にインポートするため、ハンドラーはコールドスタートのたびに評価されます。そのためハンドラーのファイルがインポートするのは定数と純粋なヘルパーだけで、それより大きなものは動的 `import()` で読み込みます（[パフォーマンス](/docs/conventions/performance)を参照）。
+
+Vite プラグインのエントリーには、ほかのエリアのプラグインの中での位置を決める `order` と、Vitest でも読み込むかどうかを示す `vitest` があります。Vite は `~` エイリアスを解決する前に設定を読み込むため、`vite.ts`、`vite.entries.ts`、各 `<area>.vite.ts` は `.ts` 拡張子付きの相対パスでインポートします。また、`vp lint` と `vp fmt` がプラグインのパッケージを読み込まないように、エントリーはそのパッケージを `plugins` 関数の中でインポートします。
+
+デプロイ前チェックは、デプロイ先の環境ごとに 1 つずつバリエーションを持つパッケージスクリプトを指定します。Polar のエリアは `polar:verify` を宣言しているので、`bun scripts/run-deploy-checks.ts preview` は `bun run polar:verify:preview` を実行します。
+
 ## 環境
 
 `wrangler.jsonc` は 4 つの環境を定義します。`vp dev` と `vp build` で使う環境は `CLOUDFLARE_ENV` で選択します。
@@ -27,12 +44,12 @@ description: "Cloudflare のランタイム：Worker のエントリー、バイ
 | `production`  | 本番用 D1、KV、R2                        | `bun run build:production`、`deploy:production` |
 | `test`        | `.wrangler/test` 内のローカル D1、KV、R2 | `bun run build:test`、Playwright                |
 
-各環境は、必要なシークレットを `secrets.required` に列挙します。値は対応する `.env.<environment>` ファイルから取得され、デプロイスクリプトが宣言されたキーを `.wrangler/secrets.<environment>.json` に書き出し、そのファイルを `--secrets-file` で Wrangler に渡します。`test` 環境は、エントリーとして `src/platform/testing/worker.ts` を使い、`.env.test` にコミットされたダミー値を使います。`AFFONSO_PROGRAM_ID` は公開情報なので、シークレットではなく `vars` の下の通常の Worker 変数です。設定しているのは `test` だけです。
+各環境は、必要なシークレットを `secrets.required` に列挙します。値は対応する `.env.<environment>` ファイルから取得され、デプロイスクリプトが宣言されたキーを `.wrangler/secrets.<environment>.json` に書き出し、そのファイルを `--secrets-file` で Wrangler に渡します。`test` 環境は、エントリーとして `src/platform/testing/worker.ts` を使い、`.env.test` にコミットされたダミー値を使います。`AFFONSO_PROGRAM_ID` は公開情報なので、シークレットではなく `vars` の下の通常の Worker 変数です。設定しているのは `test` だけです。1 つのモジュールのシークレットは空行で区切られた 1 つのブロックになり、`.env.example`（`test` では `.env.test`）と同じ順序で並びます。そのため、エリアはシークレットを 1 つのブロックとして追加できます。2 つのファイルのブロックが異なると `src/__test__/wrangler.test.ts` が失敗します。
 
 ## 型
 
-- `src/types/bindings.d.ts` は、バインディング、Worker が読み取るすべてのシークレット、省略可能な `AFFONSO_PROGRAM_ID` 変数を含む `Cloudflare.Env` を宣言します。3 つの `CLOUDFLARE_*` シークレットは宣言されていません。これらを読み取るのは drizzle-kit だけで、`process.env` から読み取るためです。
-- `src/types/worker-configuration.d.ts` は `bun run cf-typegen` で生成されます。
+- `src/types/worker-configuration.d.ts` は `bun run cf-typegen` が `wrangler.jsonc` の `development` 環境から生成し、`DB`、`CACHE`、`MEDIA` のバインディングと `secrets.required` のすべてのシークレットを含む `Cloudflare.Env` を宣言します。`src/types/bindings.d.ts` は、Wrangler が出力しない `ASSETS` を追加します。
+- エリアが `src/types/<area>.d.ts` で宣言するのは、Wrangler が導き出せないものだけです。`affiliates.d.ts` は `test` だけが設定する省略可能な `AFFONSO_PROGRAM_ID` 変数、`polar.d.ts` は `POLAR_SERVER` の 2 つの値、`repository-facts.d.ts` は `virtual:repository-facts` モジュールを宣言します。
 - `src/types/router.d.ts` は、ルーターの型と `staticData.namespaces` ルートオプションを登録します。
 
 ## テストランタイムの配線

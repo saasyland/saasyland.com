@@ -16,6 +16,23 @@ description: "The Cloudflare runtime: Worker entry, bindings, environments, gene
 
 Requests for `/assets/*`, `/fonts/*`, `/robots.txt` and `/llms.txt` are served from static assets without running the Worker. Server code reads bindings, secrets and `waitUntil` from `cloudflare:workers`. `src/server.ts` adds the security headers to every response it returns; files served without the Worker get the subset in `public/_headers` ([Security and hardening](/docs/features/security)).
 
+## What the areas add
+
+No platform file names an area. Each area, such as the courses or the licence sales, adds what it needs to the Worker, the root route, the Vite build and the deploy in files of its own, and a barrel joins them, as the paths and menus are joined (see [Paths and navigation](/docs/conventions/routes#paths-and-navigation)):
+
+| What            | Each area declares                                             | Barrel                       | Used by                                                                                         |
+| --------------- | -------------------------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| Worker handlers | `src/data/<area>.worker.ts`: one `<AREA>_WORKER_HANDLERS` list | `src/data/worker.entries.ts` | `DOCUMENT_HANDLERS` and `REQUEST_HANDLERS` in `src/data/worker.ts`, which `src/server.ts` runs  |
+| Root components | `src/data/<area>.root.ts`: one `<AREA>_ROOT_COMPONENTS` list   | `src/data/root.entries.ts`   | `ROOT_COMPONENTS` in `src/data/root.ts`, which `src/routes/__root.tsx` mounts beside the outlet |
+| Vite plugins    | `src/data/<area>.vite.ts`: one `<AREA>_VITE_PLUGINS` list      | `src/data/vite.entries.ts`   | `vitePlugins` in `src/data/vite.ts`, which `vite.config.ts` loads                               |
+| Deploy checks   | `src/data/<area>.deploy.ts`: one `<AREA>_DEPLOY_CHECKS` list   | `src/data/deploy.entries.ts` | `DEPLOY_CHECKS` in `src/data/deploy.ts`, which `scripts/run-deploy-checks.ts` runs              |
+
+A request handler claims a `pathPrefix` and answers every request under it before the locale middleware, the static assets and TanStack Start, as the courses area's handler does for `/media/`. A document handler receives every HTML page the Worker returns, with its locale and the request, and returns the page to send, as the licence area's regional pricing does. `src/server.ts` imports the handlers statically, so they are evaluated on every cold start: a handler file imports only constants and pure helpers and loads anything larger with a dynamic `import()` (see [Performance](/docs/conventions/performance)).
+
+A Vite plugin entry has an `order`, which places its plugins among those of the other areas, and `vitest`, which says whether they also load under Vitest. Vite loads its configuration before the `~` alias resolves, so `vite.ts`, `vite.entries.ts` and every `<area>.vite.ts` import by relative path with the `.ts` extension, and an entry imports its plugin package inside its `plugins` function, so that `vp lint` and `vp fmt` never load it.
+
+A deploy check names a package script with one variant per deployed environment. The Polar area declares `polar:verify`, so `bun scripts/run-deploy-checks.ts preview` runs `bun run polar:verify:preview`.
+
 ## Environments
 
 `wrangler.jsonc` defines four environments. `CLOUDFLARE_ENV` selects one for `vp dev` and `vp build`.
@@ -27,12 +44,12 @@ Requests for `/assets/*`, `/fonts/*`, `/robots.txt` and `/llms.txt` are served f
 | `production`  | Production D1, KV and R2                | `bun run build:production`, `deploy:production` |
 | `test`        | Local D1, KV and R2 in `.wrangler/test` | `bun run build:test`, Playwright                |
 
-Each environment lists its required secrets under `secrets.required`. Values come from the matching `.env.<environment>` file; the deploy scripts write the declared keys to `.wrangler/secrets.<environment>.json` and pass that file to Wrangler with `--secrets-file`. The `test` environment uses `src/platform/testing/worker.ts` as its entry and the committed dummy values in `.env.test`. `AFFONSO_PROGRAM_ID` is public, so it is a plain Worker variable under `vars` rather than a secret; only `test` sets one.
+Each environment lists its required secrets under `secrets.required`. Values come from the matching `.env.<environment>` file; the deploy scripts write the declared keys to `.wrangler/secrets.<environment>.json` and pass that file to Wrangler with `--secrets-file`. The `test` environment uses `src/platform/testing/worker.ts` as its entry and the committed dummy values in `.env.test`. `AFFONSO_PROGRAM_ID` is public, so it is a plain Worker variable under `vars` rather than a secret; only `test` sets one. The secrets of one module form one block, separated from the next by a blank line, in the order of `.env.example`, and of `.env.test` for `test`, so an area contributes its secrets as one block; `src/__test__/wrangler.test.ts` fails when the blocks of the two files differ.
 
 ## Types
 
-- `src/types/bindings.d.ts` declares `Cloudflare.Env`: the bindings, every secret the Worker reads and the optional `AFFONSO_PROGRAM_ID` variable. The three `CLOUDFLARE_*` secrets are not declared, because only drizzle-kit reads them, from `process.env`.
-- `src/types/worker-configuration.d.ts` is generated by `bun run cf-typegen`.
+- `src/types/worker-configuration.d.ts` is generated by `bun run cf-typegen` from the `development` environment of `wrangler.jsonc` and declares `Cloudflare.Env`: the `DB`, `CACHE` and `MEDIA` bindings and every secret in `secrets.required`. `src/types/bindings.d.ts` adds `ASSETS`, which Wrangler leaves out.
+- An area declares in `src/types/<area>.d.ts` only what Wrangler cannot derive: `affiliates.d.ts` the optional `AFFONSO_PROGRAM_ID` variable, which only `test` sets, `polar.d.ts` the two values of `POLAR_SERVER`, and `repository-facts.d.ts` the `virtual:repository-facts` module.
 - `src/types/router.d.ts` registers the router type and the `staticData.namespaces` route option.
 
 ## Test runtime wiring

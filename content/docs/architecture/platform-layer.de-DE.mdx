@@ -16,6 +16,23 @@ description: "Die Cloudflare-Laufzeitumgebung: Worker-Einstiegspunkt, Bindings, 
 
 Requests an `/assets/*`, `/fonts/*`, `/robots.txt` und `/llms.txt` werden aus den statischen Assets bedient, ohne dass der Worker läuft. Servercode liest Bindings, Secrets und `waitUntil` aus `cloudflare:workers`. `src/server.ts` fügt jeder Antwort, die es zurückgibt, die Sicherheits-Header hinzu; Dateien, die ohne den Worker ausgeliefert werden, erhalten die Teilmenge aus `public/_headers` ([Sicherheit und Härtung](/docs/features/security)).
 
+## Was die Bereiche beitragen [#what-the-areas-add]
+
+Keine Datei der Plattform nennt einen Bereich. Jeder Bereich, etwa die Kurse oder der Lizenzverkauf, trägt in eigenen Dateien bei, was er im Worker, in der Root-Route, im Vite-Build und beim Deployment braucht, und ein Barrel führt sie zusammen, so wie die Pfade und Menüs (siehe [Pfade und Navigation](/docs/conventions/routes#paths-and-navigation)):
+
+| Was              | Jeder Bereich deklariert                                         | Barrel                       | Verwendet von                                                                                    |
+| ---------------- | ---------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| Worker-Handler   | `src/data/<area>.worker.ts`: eine Liste `<AREA>_WORKER_HANDLERS` | `src/data/worker.entries.ts` | `DOCUMENT_HANDLERS` und `REQUEST_HANDLERS` in `src/data/worker.ts`, die `src/server.ts` ausführt |
+| Root-Komponenten | `src/data/<area>.root.ts`: eine Liste `<AREA>_ROOT_COMPONENTS`   | `src/data/root.entries.ts`   | `ROOT_COMPONENTS` in `src/data/root.ts`, das `src/routes/__root.tsx` neben dem Outlet einhängt   |
+| Vite-Plugins     | `src/data/<area>.vite.ts`: eine Liste `<AREA>_VITE_PLUGINS`      | `src/data/vite.entries.ts`   | `vitePlugins` in `src/data/vite.ts`, das `vite.config.ts` lädt                                   |
+| Deploy-Checks    | `src/data/<area>.deploy.ts`: eine Liste `<AREA>_DEPLOY_CHECKS`   | `src/data/deploy.entries.ts` | `DEPLOY_CHECKS` in `src/data/deploy.ts`, die `scripts/run-deploy-checks.ts` ausführt             |
+
+Ein Request-Handler beansprucht ein `pathPrefix` und beantwortet jeden Request darunter vor der Locale-Middleware, den statischen Assets und TanStack Start, wie es der Handler des Kursbereichs für `/media/` tut. Ein Dokument-Handler erhält jede HTML-Seite, die der Worker zurückgibt, mit ihrer Locale und dem Request, und gibt die Seite zurück, die gesendet wird, wie es die regionalen Preise des Lizenzbereichs tun. `src/server.ts` importiert die Handler statisch, sie werden also bei jedem Kaltstart ausgewertet: Eine Handler-Datei importiert nur Konstanten und reine Hilfsfunktionen und lädt alles Größere per dynamischem `import()` (siehe [Performance](/docs/conventions/performance)).
+
+Ein Eintrag für Vite-Plugins hat eine `order`, die seine Plugins unter denen der anderen Bereiche einreiht, und `vitest`, das angibt, ob sie auch unter Vitest geladen werden. Vite lädt seine Konfiguration, bevor der Alias `~` aufgelöst wird, deshalb importieren `vite.ts`, `vite.entries.ts` und jede `<area>.vite.ts` über relative Pfade mit der Endung `.ts`, und ein Eintrag importiert sein Plugin-Paket erst in seiner Funktion `plugins`, damit `vp lint` und `vp fmt` es nie laden.
+
+Ein Deploy-Check nennt ein Paketskript mit einer Variante pro deployter Umgebung. Der Polar-Bereich deklariert `polar:verify`, also führt `bun scripts/run-deploy-checks.ts preview` den Befehl `bun run polar:verify:preview` aus.
+
 ## Umgebungen
 
 `wrangler.jsonc` definiert vier Umgebungen. `CLOUDFLARE_ENV` wählt eine davon für `vp dev` und `vp build` aus.
@@ -27,12 +44,12 @@ Requests an `/assets/*`, `/fonts/*`, `/robots.txt` und `/llms.txt` werden aus de
 | `production`  | Produktions-D1, -KV und -R2                              | `bun run build:production`, `deploy:production` |
 | `test`        | Lokale D1, lokaler KV und lokales R2 in `.wrangler/test` | `bun run build:test`, Playwright                |
 
-Jede Umgebung listet ihre benötigten Secrets unter `secrets.required` auf. Die Werte stammen aus der passenden Datei `.env.<environment>`; die Deploy-Skripte schreiben die deklarierten Schlüssel nach `.wrangler/secrets.<environment>.json` und übergeben diese Datei mit `--secrets-file` an Wrangler. Die Umgebung `test` verwendet `src/platform/testing/worker.ts` als Einstiegspunkt und die eingecheckten Dummy-Werte aus `.env.test`. `AFFONSO_PROGRAM_ID` ist öffentlich und deshalb kein Secret, sondern eine einfache Worker-Variable unter `vars`; nur `test` setzt eine.
+Jede Umgebung listet ihre benötigten Secrets unter `secrets.required` auf. Die Werte stammen aus der passenden Datei `.env.<environment>`; die Deploy-Skripte schreiben die deklarierten Schlüssel nach `.wrangler/secrets.<environment>.json` und übergeben diese Datei mit `--secrets-file` an Wrangler. Die Umgebung `test` verwendet `src/platform/testing/worker.ts` als Einstiegspunkt und die eingecheckten Dummy-Werte aus `.env.test`. `AFFONSO_PROGRAM_ID` ist öffentlich und deshalb kein Secret, sondern eine einfache Worker-Variable unter `vars`; nur `test` setzt eine. Die Secrets eines Moduls bilden einen Block, durch eine Leerzeile vom nächsten getrennt, in der Reihenfolge von `.env.example` und für `test` von `.env.test`, sodass ein Bereich seine Secrets als einen Block beiträgt; `src/__test__/wrangler.test.ts` schlägt fehl, wenn sich die Blöcke der beiden Dateien unterscheiden.
 
 ## Typen
 
-- `src/types/bindings.d.ts` deklariert `Cloudflare.Env`: die Bindings, jedes Secret, das der Worker liest, und die optionale Variable `AFFONSO_PROGRAM_ID`. Die drei `CLOUDFLARE_*`-Secrets sind nicht deklariert, weil nur drizzle-kit sie liest, und zwar aus `process.env`.
-- `src/types/worker-configuration.d.ts` wird von `bun run cf-typegen` generiert.
+- `src/types/worker-configuration.d.ts` wird von `bun run cf-typegen` aus der Umgebung `development` von `wrangler.jsonc` generiert und deklariert `Cloudflare.Env`: die Bindings `DB`, `CACHE` und `MEDIA` und jedes Secret aus `secrets.required`. `src/types/bindings.d.ts` ergänzt `ASSETS`, das Wrangler auslässt.
+- Ein Bereich deklariert in `src/types/<area>.d.ts` nur, was Wrangler nicht ableiten kann: `affiliates.d.ts` die optionale Variable `AFFONSO_PROGRAM_ID`, die nur `test` setzt, `polar.d.ts` die beiden Werte von `POLAR_SERVER` und `repository-facts.d.ts` das Modul `virtual:repository-facts`.
 - `src/types/router.d.ts` registriert den Router-Typ und die Routenoption `staticData.namespaces`.
 
 ## Verdrahtung der Testlaufzeit

@@ -18,14 +18,14 @@ polarPlugin({
 
 プラグイン自身の `POST /api/auth/checkout` は Better Auth の `disabledPaths` に登録されている（`ROUTES.API_AUTH.CHECKOUT`）ため、HTTP では 404 を返します。購入はすべて `startCheckout` サーバー関数から始まり、この関数は独自のチェックを行った後、サーバー上で `auth.api.checkout` を呼び出します。
 
-`src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に割引、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は割引の検索とライセンスキーの無効化の対象を絞り込みます。`POLAR_CHECKOUT_PRODUCTS` はプランのスラッグ `core`、`complete`、`agency` を `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付けます。
+`src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に割引、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は割引の検索とライセンスキーの無効化の対象を絞り込みます。`POLAR_CHECKOUT_PRODUCTS` はプランのスラッグ `core`、`complete`、`agency` を `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付けます。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、割引、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
 
 ## 購入
 
 有効なライセンスを持たないサインイン済みユーザーには、`/app` と `/app/license` に `LicenseOffer` が表示されます。ランディングページのプランのカード（`PricingTiers`。[ランディングページ](/docs/features/landing-page)を参照）にプランごとの `CheckoutButton` を付けたもので、地域価格のチェックボックス、購入条件、購入で視聴できるようになるコースのレッスンも表示されます。`startCheckout`（`src/modules/license/use-cases/start-checkout.ts`）は `{ locale, tier }` を受け取り、次の処理を行います。
 
 1. アカウントにすでに `active` なライセンスがある場合は、`AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)` で拒否します。ボタンは `errors.codes.LICENSE_ALREADY_ACTIVE` を表示してライセンスを再取得するため、購入後も開いたままだったページはライセンスの表示に切り替わります。
-2. `pppDiscountId`（`license.ppp.ts`）で地域割引を探します。`cf-ipcountry` の国に対応する割引率を、Polar で有効な自動のパーセント割引と照合します。`regional_pricing` Cookie が `off` の場合は適用しません。
+2. `pppDiscountId`（`license.ppp.ts`）で地域割引を探します。`cf-ipcountry` の国に対応する割引率を、`findRegionalDiscount`（`src/integrations/polar/polar.discounts.ts`）が Polar で現在利用できる自動のパーセント割引と照合します。`regional_pricing` Cookie が `off` の場合は適用しません。
 3. 割引コードを無効にし、成功 URL を購入者の言語の `/app?checkoutId={CHECKOUT_ID}`（`localizePathname`）にして、そのプランの Polar 購入セッションを作成します。訪問者がアフィリエイトリンク経由で来た場合は、アフィリエイトの紹介情報を `metadata` に含めます（[アフィリエイトプログラム](/docs/features/affiliates)を参照）。Polar は `{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）を購入セッションの ID に置き換えます。
 4. 購入 URL を返し、ブラウザーがそれを開きます。
 
@@ -53,7 +53,7 @@ UUID ではない `checkoutId` は無視されます。
 
 ## Webhook とライセンス
 
-Polar は `/api/auth/polar/webhooks` にイベントを送信し、`POLAR_WEBHOOK_SECRET` で検証されます。`licenseWebhookHandlers`（`src/modules/license/license.webhooks.ts`）は Polar の顧客の `external_id` でユーザーを特定します。このアプリにアカウントがない顧客のイベントは、アカウントが必要な場合はログに記録したうえで受領し、Polar が再送しないようにします。
+Polar は `LICENSE_WEBHOOK_EVENTS`（`license.constants.ts`）に列挙されたイベントを `/api/auth/polar/webhooks` に送信し、`POLAR_WEBHOOK_SECRET` で検証されます。`licenseWebhookHandlers` は `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>` を満たすため、イベントのないハンドラーや、ハンドラーのないイベントがあるとコンパイルが通りません。`licenseWebhookHandlers`（`src/modules/license/license.webhooks.ts`）は Polar の顧客の `external_id` でユーザーを特定します。このアプリにアカウントがない顧客のイベントは、アカウントが必要な場合はログに記録したうえで受領し、Polar が再送しないようにします。
 
 - `onOrderPaid` → `grantLicense`: 購入した商品のプランでユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。
 - `onBenefitGrantCreated` → `attachLicenseKey`: Polar のライセンスキーをライセンスに保存します。支払い済みの注文がまだ記録されていない間は失敗させ、Polar に再送させます。返金済みの注文やライセンスではない商品のキーは受領します。
@@ -61,7 +61,7 @@ Polar は `/api/auth/polar/webhooks` にイベントを送信し、`POLAR_WEBHOO
 
 ## 顧客向け画面
 
-`/app/license` は `LicenseCard`（プラン、キー、インストールコマンド、`/api/auth/customer/portal` の Polar カスタマーポータルへのリンク、プラン変更の連絡先となるサポートのメールアドレス）と `LicenseActivations` を表示します。`LicenseActivations` は Polar 上のキーのアクティベーションを一覧表示し、`deactivateLicense` で個別に解除します。[顧客アプリ](/docs/features/customer-app)を参照してください。
+`/app/license` は `LicenseCard`（プラン、キー、インストールコマンド、`/api/auth/customer/portal` の Polar カスタマーポータルへのリンク、プラン変更の連絡先となるサポートのメールアドレス）と `LicenseActivations` を表示します。`LicenseActivations` は Polar 上のキーのアクティベーションを一覧表示し、`deactivateLicense` で個別に解除します。Polar は各プランのライセンスキーの特典に設定されたアクティベーション数の上限を強制します。この上限は `LICENSE_ACTIVATION_LIMITS` と一致している必要があり、Core は <ActivationLimit tier="core" />、Complete は <ActivationLimit tier="complete" />、Agency は <ActivationLimit tier="agency" /> です。[顧客アプリ](/docs/features/customer-app)を参照してください。
 
 ## 管理画面（デモ）
 
@@ -69,6 +69,7 @@ Polar は `/api/auth/polar/webhooks` にイベントを送信し、`POLAR_WEBHOO
 
 ## 関連ページ
 
+- Polar での設定と `polar:verify` については [Polar の設定](/docs/getting-started/polar-setup)
 - プランのカードと地域別価格については[ランディングページ](/docs/features/landing-page)
 - 購入の前後の画面については[顧客アプリ](/docs/features/customer-app)
 - [環境変数](/docs/getting-started/environment-variables)

@@ -18,14 +18,14 @@ polarPlugin({
 
 Własny endpoint wtyczki `POST /api/auth/checkout` jest wpisany w `disabledPaths` Better Auth (`ROUTES.API_AUTH.CHECKOUT`), więc przez HTTP odpowiada 404. Każda płatność zaczyna się w funkcji serwerowej `startCheckout`, która po własnych sprawdzeniach wywołuje `auth.api.checkout` na serwerze.
 
-`src/integrations/polar/polar.config.ts` tworzy z `POLAR_ACCESS_TOKEN` i `POLAR_SERVER` klienta `polarCore`, którego używa wtyczka, oraz `polar`, czyli zbudowane na nim usługi rabatów, kluczy licencyjnych i zamówień. `POLAR_ORGANIZATION_ID` zawęża wyszukiwanie rabatów i dezaktywację kluczy licencyjnych. `POLAR_CHECKOUT_PRODUCTS` przypisuje identyfikatory planów `core`, `complete` i `agency` do `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` i `POLAR_PRODUCT_ID_AGENCY`.
+`src/integrations/polar/polar.config.ts` tworzy z `POLAR_ACCESS_TOKEN` i `POLAR_SERVER` klienta `polarCore`, którego używa wtyczka, oraz `polar`, czyli zbudowane na nim usługi rabatów, kluczy licencyjnych i zamówień. `POLAR_ORGANIZATION_ID` zawęża wyszukiwanie rabatów i dezaktywację kluczy licencyjnych. `POLAR_CHECKOUT_PRODUCTS` przypisuje identyfikatory planów `core`, `complete` i `agency` do `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` i `POLAR_PRODUCT_ID_AGENCY`. [Konfiguracja Polar](/docs/getting-started/polar-setup) opisuje produkty, klucze licencyjne, rabaty, webhook i token, których ten kod oczekuje w Polar, a `bun run polar:verify:<environment>` je sprawdza.
 
 ## Zakup
 
 Zalogowany użytkownik bez aktywnej licencji widzi `LicenseOffer` na `/app` i `/app/license`: karty planów ze strony głównej (`PricingTiers`, zobacz [Strona główna](/docs/features/landing-page)) z przyciskiem `CheckoutButton` dla każdego planu, pole wyboru cen regionalnych, warunki zakupu i lekcje kursów, które odblokowuje zakup. `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`) przyjmuje `{ locale, tier }` i:
 
 1. odmawia, zgłaszając `AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)`, gdy konto ma już licencję `active`. Przycisk pokazuje `errors.codes.LICENSE_ALREADY_ACTIVE` i odświeża licencję, więc strona pozostawiona otwarta od czasu zakupu przełącza się na licencję;
-2. szuka rabatu regionalnego przez `pppDiscountId` (`license.ppp.ts`): procentu dla kraju z `cf-ipcountry`, dopasowanego do aktywnych automatycznych rabatów procentowych w Polar, i pomija go, gdy ciasteczko `regional_pricing` ma wartość `off`;
+2. szuka rabatu regionalnego przez `pppDiscountId` (`license.ppp.ts`): procentu dla kraju z `cf-ipcountry`, dopasowanego przez `findRegionalDiscount` (`src/integrations/polar/polar.discounts.ts`) do automatycznych rabatów procentowych w Polar, które można teraz wykorzystać, i pomija go, gdy ciasteczko `regional_pricing` ma wartość `off`;
 3. tworzy sesję płatności Polar dla planu z wyłączonymi kodami rabatowymi, poleceniem partnerskim w `metadata`, gdy odwiedzający trafił przez link partnerski (zobacz [Program partnerski](/docs/features/affiliates)), i adresem powrotu po udanej płatności `/app?checkoutId={CHECKOUT_ID}` w języku kupującego (`localizePathname`). Polar zastępuje `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) identyfikatorem płatności;
 4. zwraca adres płatności, który otwiera przeglądarka.
 
@@ -50,7 +50,7 @@ Polar odsyła kupującego na `/app?checkoutId=<id>`, zwykle zanim webhook `order
 
 ## Webhooki i licencje
 
-Polar wysyła zdarzenia do `/api/auth/polar/webhooks`, weryfikowane za pomocą `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) rozpoznają użytkownika po `external_id` klienta Polar. Zdarzenie klienta, który nie ma konta w aplikacji, jest logowane, gdy konto było potrzebne, i potwierdzane, aby Polar go nie ponawiał:
+Polar wysyła do `/api/auth/polar/webhooks` zdarzenia wymienione w `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`), weryfikowane za pomocą `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` spełnia `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, więc handler bez swojego zdarzenia albo zdarzenie bez swojego handlera nie przechodzi kompilacji. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) rozpoznają użytkownika po `external_id` klienta Polar. Zdarzenie klienta, który nie ma konta w aplikacji, jest logowane, gdy konto było potrzebne, i potwierdzane, aby Polar go nie ponawiał:
 
 - `onOrderPaid` → `grantLicense`: tworzy lub aktualizuje jedyną licencję użytkownika z planem kupionego produktu; nowszy zakup zastępuje starszy.
 - `onBenefitGrantCreated` → `attachLicenseKey`: zapisuje w licencji klucz licencyjny Polar. Dopóki opłacone zamówienie nie jest zapisane, kończy się błędem, aby Polar je ponowił; klucz dla zwróconego zamówienia lub produktu, który nie jest licencją, jest potwierdzany.
@@ -58,7 +58,7 @@ Polar wysyła zdarzenia do `/api/auth/polar/webhooks`, weryfikowane za pomocą `
 
 ## Ekrany klienta
 
-`/app/license` wyświetla `LicenseCard` (plan, klucz, polecenie instalacji, link do portalu klienta Polar pod `/api/auth/customer/portal` i adres e-mail pomocy w sprawie zmiany planu) oraz `LicenseActivations`, który pokazuje aktywacje klucza w Polar i usuwa wybraną przez `deactivateLicense`. Zobacz [Aplikacja klienta](/docs/features/customer-app).
+`/app/license` wyświetla `LicenseCard` (plan, klucz, polecenie instalacji, link do portalu klienta Polar pod `/api/auth/customer/portal` i adres e-mail pomocy w sprawie zmiany planu) oraz `LicenseActivations`, który pokazuje aktywacje klucza w Polar i usuwa wybraną przez `deactivateLicense`. Polar egzekwuje limit aktywacji benefitu kluczy licencyjnych każdego planu, który musi być równy `LICENSE_ACTIVATION_LIMITS`: <ActivationLimit tier="core" /> dla planu Core, <ActivationLimit tier="complete" /> dla planu Komplet i <ActivationLimit tier="agency" /> dla planu Agencja. Zobacz [Aplikacja klienta](/docs/features/customer-app).
 
 ## Ekran administracyjny (demonstracyjny)
 
@@ -66,6 +66,7 @@ Polar wysyła zdarzenia do `/api/auth/polar/webhooks`, weryfikowane za pomocą `
 
 ## Powiązane strony
 
+- [Konfiguracja Polar](/docs/getting-started/polar-setup) — konfiguracja w Polar i `polar:verify`
 - [Strona główna](/docs/features/landing-page) — karty planów i ceny regionalne
 - [Aplikacja klienta](/docs/features/customer-app) — ekrany wokół płatności
 - [Zmienne środowiskowe](/docs/getting-started/environment-variables)

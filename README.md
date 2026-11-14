@@ -136,7 +136,7 @@ Server integrations read secrets through `env` from `cloudflare:workers`. Do not
 | `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`                            | GitHub OAuth application credentials.                                                                                                                                                  |
 | `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`                            | Google OAuth application credentials.                                                                                                                                                  |
 | `RESEND_API_KEY`, `RESEND_EMAIL_FROM`                                           | Email API credentials and the sender accepted by your Resend account.                                                                                                                  |
-| `POLAR_SERVER`                                                                  | Polar environment: `sandbox` for development or `production` for live billing.                                                                                                         |
+| `POLAR_SERVER`                                                                  | Polar environment: `sandbox` for development and preview, `production` for live billing. `polar:verify` refuses any other pairing.                                                     |
 | `POLAR_ACCESS_TOKEN`, `POLAR_ORGANIZATION_ID`                                   | Polar API access and the organization used for discounts and licence operations.                                                                                                       |
 | `POLAR_WEBHOOK_SECRET`                                                          | Secret used to verify Polar webhook deliveries.                                                                                                                                        |
 | `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE`, `POLAR_PRODUCT_ID_AGENCY` | Product IDs mapped to the three checkout tiers. Use IDs from the selected Polar environment.                                                                                           |
@@ -151,13 +151,13 @@ The public URL is configured in source: [`src/presentation/branding/index.ts`](s
 
 When adapting the application to your own domain, update these locations together:
 
-| Location                                                                   | What to configure                                                                                                                                                        |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, contact addresses, and GitHub identity.                                                                                              |
-| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `DEPLOYED_HOSTS`, the preview and production hosts derived from `APP_DOMAIN`, and the one place the code names them.                                                     |
-| [`wrangler.jsonc`](wrangler.jsonc)                                         | Worker names, custom-domain routes, D1 databases, KV namespaces, and R2 buckets for each environment.                                                                    |
-| [`src/data/marketing.ts`](src/data/marketing.ts)                           | Displayed tiers and prices (`TIERS`, `TIER_PRICES`) and the consulting rate (`CONSULTING_HOURLY_RATE`); keep the tier prices aligned with the configured Polar products. |
-| [`src/presentation/styles/`](src/presentation/styles)                      | Theme, typography, fonts, and shared style definitions.                                                                                                                  |
+| Location                                                                   | What to configure                                                                                                                                                         |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, contact addresses, and GitHub identity.                                                                                               |
+| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `DEPLOYED_HOSTS`, the preview and production hosts derived from `APP_DOMAIN`, and the one place the code names them.                                                      |
+| [`wrangler.jsonc`](wrangler.jsonc)                                         | Worker names, custom-domain routes, D1 databases, KV namespaces, and R2 buckets for each environment.                                                                     |
+| [`src/data/marketing.ts`](src/data/marketing.ts)                           | Displayed tiers and prices (`TIERS`, `TIER_PRICES`) and the consulting rate (`CONSULTING_HOURLY_RATE`); `polar:verify` checks the tier prices against the Polar products. |
+| [`src/presentation/styles/`](src/presentation/styles)                      | Theme, typography, fonts, and shared style definitions.                                                                                                                   |
 
 `DEPLOYED_HOSTS` gives the preview host `preview.<APP_DOMAIN>` and the production host `APP_DOMAIN`. `appHostsForMode` reads it for the hosts Better Auth and newsletter links accept in each mode, and the deployment scripts' live check requests it, so change it only when your preview host has another name. The custom-domain `routes` in `wrangler.jsonc` and the environment URLs in [`deploy-reusable.yml`](.github/workflows/deploy-reusable.yml) name the same hosts and must match. Changing an environment file alone does not change the canonical URL. Rebuild after changing branding or deployment configuration.
 
@@ -165,9 +165,9 @@ When adapting the application to your own domain, update these locations togethe
 
 - Configure GitHub and Google callback URLs at `https://<your-host>/api/auth/callback/github` and `https://<your-host>/api/auth/callback/google`. Use the appropriate development or deployed origin.
 - Configure Resend credentials and the sender address before testing verification, password recovery, or newsletter delivery. Templates live in [`src/presentation/emails/`](src/presentation/emails).
-- Create the Polar products matching the three tier variables. Attach a licence-key benefit to each paid product and set its activation limit to match the advertised package.
-- Configure Polar webhooks at `https://<your-host>/api/auth/polar/webhooks` with the matching webhook secret. The [handlers](src/modules/license/license.webhooks.ts) process paid orders, full refunds (a partial refund keeps the licence), and licence-benefit creation and revocation.
-- Regional checkout discounts require eligible percentage discounts without a discount code configured in Polar. The [discount lookup](src/modules/license/license.ppp.ts) uses the request country and the configured organization; synchronize provider discounts with the [pricing rules](src/modules/_core/constants/pricing.ts).
+- Set up Polar as the [Polar setup guide](content/docs/getting-started/polar-setup.en-US.mdx) describes: separate sandbox and production organisations, an organisation token with the listed scopes, one one-time product per tier priced from `TIER_PRICES` with one licence-key benefit limited by `LICENSE_ACTIVATION_LIMITS` ([`license.constants.ts`](src/modules/license/license.constants.ts)), never expiring and without a usage limit, and an automatic percentage discount without a code for each band in the [pricing rules](src/modules/_core/constants/pricing.ts).
+- Create one Polar webhook per deployed host at `https://<your-host>/api/auth/polar/webhooks`, in the raw format, signed with `POLAR_WEBHOOK_SECRET` and subscribed to exactly `LICENSE_WEBHOOK_EVENTS`. The [handlers](src/modules/license/license.webhooks.ts) process paid orders, full refunds (a partial refund keeps the licence), and licence-benefit creation and revocation.
+- Run `bun run polar:verify:<environment>` after every change in Polar. It reads the Polar keys from `.env.<environment>`, sends only GET requests, and fails with one line per difference between Polar and the code. Checkout and the check share one [regional discount rule](src/integrations/polar/polar.discounts.ts).
 
 The website associates purchases and issued keys with authenticated customers and exposes activation management. CLI installation and activation enforcement belong to the separately maintained CLI.
 
@@ -179,7 +179,7 @@ content/
   docs/                          Localized MDX documentation and navigation metadata
 messages/{locale}/               JSON catalogues split into dotted namespaces
 e2e/                             Playwright specs and the seeded test accounts, video, and course
-scripts/                         Content checks, build and deployment steps, seeding, video publishing, and tooling
+scripts/                         Content checks, build, deployment and release steps, seeding, video publishing, and tooling
 remotion/                        Video authoring source and isolated npm toolchain
 src/
   routes/                        TanStack file routes, loaders, guards, and HTTP handlers
@@ -199,7 +199,7 @@ src/
   providers/                     Application-wide React providers
   data/                          Data shared by several files: navigation, marketing, affiliate terms, CLI choices, repository facts, admin demo rows
   hooks/                         Shared React hooks
-  lib/                           Shared utilities (cn, confetti, cookies, the deployed-site check, durations, hex hashes and tokens, rate limits, route search params, select options, SEO, GitHub stars, not-found errors)
+  lib/                           Shared utilities (cn, confetti, cookies, the deployed-site check, durations, hex hashes and tokens, rate limits, release tags and notes, route search params, select options, SEO, GitHub stars, not-found errors)
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers
 ```
 
@@ -273,7 +273,7 @@ Locally, Playwright recreates the test database with `db:reset:test`, builds the
 
 `build:test` selects `env.test` in the root `wrangler.jsonc` using `CLOUDFLARE_ENV=test`. It uses the test Worker entry, local bindings, `.env.test`, and `.wrangler/test`; no separate test Wrangler file or `E2E=true` flag is needed. In CI, `db:reset:test` and `build:test` run explicitly before Playwright starts the server.
 
-- [Main CI](.github/workflows/ci.yml) runs checks, coverage, and Chromium E2E on pull requests and pushes to `main`. Successful eligible runs then deploy to Cloudflare.
+- [Main CI](.github/workflows/ci.yml) runs checks, coverage, and Chromium E2E on pull requests and pushes to `main`. Successful eligible runs then deploy to Cloudflare, and each successful production deploy is tagged and released on GitHub.
 - [Full E2E](.github/workflows/e2e-full.yml) adds WebKit on pushes to `main` and runs Chromium and WebKit weekly and on manual dispatch.
 - [Video CI](.github/workflows/remotion.yml) separately checks and bundles affected Remotion source.
 
@@ -339,9 +339,11 @@ These are deployment credentials. `CLOUDFLARE_API_TOKEN` is separate from the `C
 
 The existing Workers must already have all runtime secrets required by `wrangler.jsonc`. CI builds with committed dummy credentials from `.env.test` because prerendering initializes provider clients, while still selecting the real preview/production configuration and Worker entry. It removes the generated local `.dev.vars` file before deployment. No real provider credentials are needed in GitHub, and no secrets file is uploaded: Wrangler inherits the selected Worker's existing secrets. A new Worker still needs the initial provisioning described in the manual deployment section.
 
-Deployment jobs build and verify artifacts, apply the target D1 migrations, then deploy the tested revision. They do not run the live site check (`scripts/verify-deployment.ts`) that the manual deployment scripts run, because Cloudflare's bot protection answers 403 to requests from CI runners. Workflow runs and deployments queue rather than cancel one another, with a separate deployment queue per environment. Schema changes must remain compatible with the currently running application because migrations run before the new Worker is deployed. WebKit's additional main-branch suite runs independently of the production deployment gate.
+Deployment jobs build and verify artifacts, apply the target D1 migrations, then deploy the tested revision. They do not run the live site check (`scripts/verify-deployment.ts`) that the manual deployment scripts run, because Cloudflare's bot protection answers 403 to requests from CI runners, nor the Polar check (`polar:verify`), because GitHub holds no Polar token. Workflow runs and deployments queue rather than cancel one another, with a separate deployment queue per environment. Schema changes must remain compatible with the currently running application because migrations run before the new Worker is deployed. WebKit's additional main-branch suite runs independently of the production deployment gate.
 
 GitHub creates deployment records from the job's `environment` declaration and shows the job's real result. See [GitHub's deployment tracking documentation](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments).
+
+After a production deploy succeeds, the `release` job tags the deployed commit `vYYYY.MM.DD` with the UTC date (later deploys that day get `.2`, `.3`, and so on) and publishes a GitHub Release whose notes are that day's section of the [changelog](content/docs/project/changelog.en-US.mdx). It is the only job with `contents: write`, and preview deploys are never tagged. [CI/CD](content/docs/tooling/ci-cd.en-US.mdx) explains how to roll back to a release.
 
 Keep this workflow the only deployment owner: disable automatic deploy triggers in Cloudflare Workers Builds so a push does not deploy twice or bypass the CI gate. Worker source maps are not uploaded (`upload_source_maps: false` in `wrangler.jsonc`), because they pushed the upload past Cloudflare's size limit. Production environment branch rules can restrict deployment to `main`; preview rules must allow PR merge refs. Required environment reviewers, if configured, pause deployment until approval.
 
@@ -363,7 +365,7 @@ cp .env.example .env.production
 bun run deploy:production
 ```
 
-Each deployment script verifies the bindings, builds the selected environment, checks the generated artifacts, and optimizes prerendered HTML. It then writes the secrets that `wrangler.jsonc` declares for that environment from the environment file to `.wrangler/secrets.<environment>.json`, failing if any is empty, applies the environment's D1 migrations, deploys `dist/server/wrangler.json` (the configuration the Cloudflare Vite plugin generates) with that secrets file, and requests the home page, the course catalogue, `robots.txt`, `/api`, and `/api/auth/get-session` from the live site, retrying twice. Builds alone do not apply remote migrations or deploy resources.
+Each deployment script verifies the bindings, checks that the environment's Polar organisation matches the code (`polar:verify`), builds the selected environment, checks the generated artifacts, and optimizes prerendered HTML. It then writes the secrets that `wrangler.jsonc` declares for that environment from the environment file to `.wrangler/secrets.<environment>.json`, failing if any is empty, applies the environment's D1 migrations, deploys `dist/server/wrangler.json` (the configuration the Cloudflare Vite plugin generates) with that secrets file, and requests the home page, the course catalogue, `robots.txt`, `/api`, and `/api/auth/get-session` from the live site, retrying twice. Builds alone do not apply remote migrations or deploy resources.
 
 Public pages are prerendered to `dist/client`; protected, authentication, newsletter-action, course, and API routes are excluded from prerendering. After prerendering, [`scripts/deployed-worker.ts`](scripts/deployed-worker.ts) builds the Worker that is deployed again, without the rendered MDX of docs and blog pages and without the landing and legal page translations, which only prerendered pages use. The build verifier checks the Worker deployment configuration, localized home/legal pages and SEO links, that every docs page and published blog post was prerendered, fonts, client JavaScript, and selected route exclusions. The application still requires a Worker for server-rendered routes, authentication, APIs, video delivery, and locale handling.
 
@@ -430,6 +432,8 @@ Remotion Studio runs on port 3001. Finished videos and full-size/responsive post
 Normal application builds serve the checked-in assets without installing Remotion or rendering videos. Follow the [rendering instructions](remotion/README.md#rendering) when updating a composition, and regenerate its video and posters together.
 
 ## Contributing
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) before contributing, and [`SUPPORT.md`](SUPPORT.md) for where to get help. Report vulnerabilities privately as [`SECURITY.md`](SECURITY.md) describes, not in a public issue.
 
 Follow the [conventions](content/docs/conventions/index.en-US.mdx) and the [architecture guides](content/docs/architecture), and use the existing [theme and typography definitions](src/presentation/styles). Keep tests beside their owner, and update localized content and documentation under `content/docs/` when changing user-facing behavior.
 

@@ -1,17 +1,17 @@
 ---
 title: "CI/CD"
-description: "Workflows GitHub Actions pour les vérifications, les tests dans le navigateur et les déploiements."
+description: "Workflows GitHub Actions pour les vérifications, les tests dans le navigateur, les déploiements et la publication des versions."
 ---
 
 Les workflows se trouvent dans `.github/workflows/`. Les workflows de l'application (`ci.yml`, `e2e-reusable.yml` et `deploy-reusable.yml`) mettent en place la chaîne d'outils avec l'action composite `.github/actions/setup` : Bun <RepositoryFact name="bunVersion" />, Vite+ avec la version de Node de `.nvmrc`, un cache Bun, `bun install --frozen-lockfile --ignore-scripts` et `bun run typegen`. `remotion.yml` met plutôt en place Node depuis `.nvmrc` et npm.
 
-| Workflow              | Déclencheur                                                                                       | Jobs                                                                                       |
-| --------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `ci.yml`              | Pull requests et pushs sur `main`                                                                 | Vérifications et couverture, E2E Chromium, puis déploiement en préversion ou en production |
-| `e2e-full.yml`        | Pushs sur `main`, selon la planification <RepositoryFact name="e2eFullSchedule" /> en UTC, manuel | WebKit lors d'un push ; Chromium et WebKit lors des exécutions planifiées et manuelles     |
-| `e2e-reusable.yml`    | Appelé par les workflows ci-dessus                                                                | Base de données de test, build de test et un projet Playwright                             |
-| `deploy-reusable.yml` | Appelé par `ci.yml`                                                                               | Build, migrations D1 et `wrangler deploy`                                                  |
-| `remotion.yml`        | Modifications de `remotion/` ou de ses constantes partagées                                       | Vérifie et empaquette avec npm le projet vidéo de la page d'accueil                        |
+| Workflow              | Déclencheur                                                                                       | Jobs                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`              | Pull requests et pushs sur `main`                                                                 | Vérifications et couverture, E2E Chromium, puis déploiement en préversion, ou en production avec publication de la version |
+| `e2e-full.yml`        | Pushs sur `main`, selon la planification <RepositoryFact name="e2eFullSchedule" /> en UTC, manuel | WebKit lors d'un push ; Chromium et WebKit lors des exécutions planifiées et manuelles                                     |
+| `e2e-reusable.yml`    | Appelé par les workflows ci-dessus                                                                | Base de données de test, build de test et un projet Playwright                                                             |
+| `deploy-reusable.yml` | Appelé par `ci.yml`                                                                               | Build, migrations D1 et `wrangler deploy`                                                                                  |
+| `remotion.yml`        | Modifications de `remotion/` ou de ses constantes partagées                                       | Vérifie et empaquette avec npm le projet vidéo de la page d'accueil                                                        |
 
 ## Vérifications
 
@@ -28,9 +28,26 @@ Les déploiements ne s'exécutent qu'une fois `verify` et `e2e` réussis :
 
 Les pull requests provenant de forks et de Dependabot sont validées mais pas déployées. La préversion est partagée : chaque déploiement remplace le précédent et utilise la même base de données D1, le même espace de noms KV et le même bucket R2 de préversion.
 
-`deploy-reusable.yml` vérifie la présence des secrets `CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ACCOUNT_ID`, exécute `scripts/verify-bindings.ts`, construit avec les valeurs factices de `.env.test`, supprime le fichier généré `dist/server/.dev.vars`, applique `db:migrate:<target>` et lance `vp exec wrangler deploy --config dist/server/wrangler.json`. Il ne lance pas `scripts/verify-deployment.ts`, la vérification du site en ligne des scripts `deploy:<target>`, car la protection anti-bots de Cloudflare répond 403 aux requêtes des runners de CI. Aucun fichier de secrets n'est téléversé : le Worker conserve les secrets d'exécution déjà définis dans Cloudflare. Les déploiements vers une même cible sont mis en file d'attente au lieu de s'annuler mutuellement.
+`deploy-reusable.yml` vérifie la présence des secrets `CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ACCOUNT_ID`, exécute `scripts/verify-bindings.ts`, construit avec les valeurs factices de `.env.test`, supprime le fichier généré `dist/server/.dev.vars`, applique `db:migrate:<target>` et lance `vp exec wrangler deploy --config dist/server/wrangler.json`. Il ne lance pas `scripts/verify-deployment.ts`, la vérification du site en ligne des scripts `deploy:<target>`, car la protection anti-bots de Cloudflare répond 403 aux requêtes des runners de CI. Il ne lance pas non plus `polar:verify:<target>`, car les environnements GitHub ne contiennent aucun jeton Polar ; lancez-le en local après chaque modification dans Polar ([Configurer Polar](/docs/getting-started/polar-setup)). Aucun fichier de secrets n'est téléversé : le Worker conserve les secrets d'exécution déjà définis dans Cloudflare. Les déploiements vers une même cible sont mis en file d'attente au lieu de s'annuler mutuellement.
 
 Dependabot met à jour les GitHub Actions chaque semaine.
+
+## Versions et tags [#releases-and-tags]
+
+Le site est déployé en continu : ses versions sont donc des dates et non des versions sémantiques. Quand un déploiement en production réussit, le job `release` de `ci.yml` pose le tag `vYYYY.MM.DD` à la date UTC sur le commit déployé et publie une GitHub Release correspondante. Un deuxième déploiement en production le même jour reçoit le tag `vYYYY.MM.DD.2`, le suivant `.3`, et ainsi de suite. Les déploiements en préversion ne reçoivent jamais de tag. Le job `release` est le seul à disposer de `contents: write`.
+
+Les notes de version sont la section du jour dans le [journal des modifications](/docs/project/changelog), si bien que chaque changement n'est décrit qu'à un seul endroit ; si le journal n'a pas de section pour ce jour, les notes renvoient vers lui. `scripts/publish-release.ts` choisit le tag et les notes avec `src/lib/release.ts` et lance `gh release create`. Une nouvelle exécution conserve le tag que le commit possède déjà et ignore une GitHub Release qui existe déjà.
+
+Pour ramener la production à une version, annulez dans une pull request tout ce qui suit son tag :
+
+```sh
+git fetch --tags origin
+git switch --create rollback/v2026.11.13 origin/main
+git revert --no-commit v2026.11.13..HEAD
+git commit --message "revert: roll back to v2026.11.13"
+```
+
+Sa fusion déploie le code du tag après les vérifications habituelles et lui pose le tag d'une nouvelle version. Les migrations D1 ne sont pas annulées : l'ancien code s'exécute donc sur le schéma plus récent. Chaque modification du schéma doit fonctionner avec l'application déployée avant elle, ce qui rend l'opération sûre pour la version précédente ; lisez les migrations intermédiaires avant de remonter plus loin.
 
 ## Guides associés
 

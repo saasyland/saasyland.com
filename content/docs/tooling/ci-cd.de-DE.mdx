@@ -1,17 +1,17 @@
 ---
 title: "CI/CD"
-description: "GitHub Actions-Workflows für Prüfungen, Browsertests und Deployments."
+description: "GitHub Actions-Workflows für Prüfungen, Browsertests, Deployments und Releases."
 ---
 
 Workflows liegen in `.github/workflows/`. Die Anwendungs-Workflows (`ci.yml`, `e2e-reusable.yml` und `deploy-reusable.yml`) richten die Toolchain mit der Composite Action `.github/actions/setup` ein: Bun <RepositoryFact name="bunVersion" />, Vite+ mit der Node-Version aus `.nvmrc`, ein Bun-Cache, `bun install --frozen-lockfile --ignore-scripts` und `bun run typegen`. `remotion.yml` richtet stattdessen Node aus `.nvmrc` und npm ein.
 
-| Workflow              | Auslöser                                                                                       | Jobs                                                                                     |
-| --------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `ci.yml`              | Pull Requests und Pushes auf `main`                                                            | Prüfungen und Testabdeckung, E2E in Chromium, dann Deployment in Preview oder Produktion |
-| `e2e-full.yml`        | Pushes auf `main`, nach dem Zeitplan <RepositoryFact name="e2eFullSchedule" /> in UTC, manuell | WebKit bei Push; Chromium und WebKit bei geplanten und manuellen Läufen                  |
-| `e2e-reusable.yml`    | Von den obigen Workflows aufgerufen                                                            | Testdatenbank, Test-Build und ein Playwright-Projekt                                     |
-| `deploy-reusable.yml` | Von `ci.yml` aufgerufen                                                                        | Build, D1-Migrationen und `wrangler deploy`                                              |
-| `remotion.yml`        | Änderungen an `remotion/` oder seinen gemeinsamen Konstanten                                   | Prüft und bündelt das Videoprojekt der Landingpage mit npm                               |
+| Workflow              | Auslöser                                                                                       | Jobs                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `ci.yml`              | Pull Requests und Pushes auf `main`                                                            | Prüfungen und Testabdeckung, E2E in Chromium, dann Deployment in Preview oder in Produktion mit Release |
+| `e2e-full.yml`        | Pushes auf `main`, nach dem Zeitplan <RepositoryFact name="e2eFullSchedule" /> in UTC, manuell | WebKit bei Push; Chromium und WebKit bei geplanten und manuellen Läufen                                 |
+| `e2e-reusable.yml`    | Von den obigen Workflows aufgerufen                                                            | Testdatenbank, Test-Build und ein Playwright-Projekt                                                    |
+| `deploy-reusable.yml` | Von `ci.yml` aufgerufen                                                                        | Build, D1-Migrationen und `wrangler deploy`                                                             |
+| `remotion.yml`        | Änderungen an `remotion/` oder seinen gemeinsamen Konstanten                                   | Prüft und bündelt das Videoprojekt der Landingpage mit npm                                              |
 
 ## Prüfungen
 
@@ -28,9 +28,26 @@ Deployments laufen erst, nachdem `verify` und `e2e` erfolgreich waren:
 
 Pull Requests aus Forks und von Dependabot werden validiert, aber nicht deployt. Die Preview ist gemeinsam genutzt: Jedes Deployment ersetzt das vorherige und verwendet dieselbe Preview-D1-Datenbank, denselben KV-Namespace und denselben R2-Bucket.
 
-`deploy-reusable.yml` prüft, ob die Secrets `CLOUDFLARE_API_TOKEN` und `CLOUDFLARE_ACCOUNT_ID` vorhanden sind, führt `scripts/verify-bindings.ts` aus, baut mit den Platzhalterwerten aus `.env.test`, entfernt die erzeugte `dist/server/.dev.vars`, wendet `db:migrate:<target>` an und führt `vp exec wrangler deploy --config dist/server/wrangler.json` aus. `scripts/verify-deployment.ts`, die Prüfung der Live-Website aus den `deploy:<target>`-Skripten, läuft hier nicht, weil der Bot-Schutz von Cloudflare Anfragen von CI-Runnern mit 403 beantwortet. Es wird keine Secrets-Datei hochgeladen: Der Worker behält die Laufzeit-Secrets, die bereits in Cloudflare gesetzt sind. Deployments auf dasselbe Ziel werden in eine Warteschlange gestellt, statt sich gegenseitig abzubrechen.
+`deploy-reusable.yml` prüft, ob die Secrets `CLOUDFLARE_API_TOKEN` und `CLOUDFLARE_ACCOUNT_ID` vorhanden sind, führt `scripts/verify-bindings.ts` aus, baut mit den Platzhalterwerten aus `.env.test`, entfernt die erzeugte `dist/server/.dev.vars`, wendet `db:migrate:<target>` an und führt `vp exec wrangler deploy --config dist/server/wrangler.json` aus. `scripts/verify-deployment.ts`, die Prüfung der Live-Website aus den `deploy:<target>`-Skripten, läuft hier nicht, weil der Bot-Schutz von Cloudflare Anfragen von CI-Runnern mit 403 beantwortet. Auch `polar:verify:<target>` läuft hier nicht, weil die GitHub-Umgebungen kein Polar-Token enthalten; führen Sie es nach jeder Änderung in Polar lokal aus ([Polar-Einrichtung](/docs/getting-started/polar-setup)). Es wird keine Secrets-Datei hochgeladen: Der Worker behält die Laufzeit-Secrets, die bereits in Cloudflare gesetzt sind. Deployments auf dasselbe Ziel werden in eine Warteschlange gestellt, statt sich gegenseitig abzubrechen.
 
 Dependabot aktualisiert die GitHub Actions wöchentlich.
+
+## Releases und Tags [#releases-and-tags]
+
+Die Website wird kontinuierlich deployt, deshalb sind ihre Versionen Datumsangaben statt semantischer Versionen. Wenn ein Deployment in Produktion erfolgreich war, versieht der Job `release` in `ci.yml` den deployten Commit mit dem Tag `vYYYY.MM.DD` nach dem UTC-Datum und veröffentlicht dazu ein GitHub Release. Ein zweites Deployment in Produktion am selben Tag erhält den Tag `vYYYY.MM.DD.2`, das nächste `.3` und so weiter. Preview-Deployments erhalten nie einen Tag. Der Job `release` ist der einzige Job mit `contents: write`.
+
+Die Release Notes sind der Abschnitt dieses Tages im [Changelog](/docs/project/changelog), sodass jede Änderung an genau einer Stelle beschrieben ist; hat der Changelog keinen Abschnitt für den Tag, verlinken die Notes auf ihn. `scripts/publish-release.ts` bestimmt Tag und Notes mit `src/lib/release.ts` und führt `gh release create` aus. Ein erneuter Lauf behält den Tag, den der Commit bereits hat, und überspringt ein bereits vorhandenes Release.
+
+Um die Produktion auf ein Release zurückzusetzen, machen Sie in einem Pull Request alles nach seinem Tag rückgängig:
+
+```sh
+git fetch --tags origin
+git switch --create rollback/v2026.11.13 origin/main
+git revert --no-commit v2026.11.13..HEAD
+git commit --message "revert: roll back to v2026.11.13"
+```
+
+Nach dem Merge wird der Code des Tags mit den üblichen Prüfungen deployt und als neues Release getaggt. D1-Migrationen werden nicht zurückgenommen, der ältere Code läuft also auf dem neueren Schema. Jede Schemaänderung muss mit der Anwendung funktionieren, die vor ihr deployt wurde; das macht diesen Weg für das vorherige Release sicher. Lesen Sie die Migrationen dazwischen, bevor Sie weiter zurückgehen.
 
 ## Verwandte Anleitungen
 

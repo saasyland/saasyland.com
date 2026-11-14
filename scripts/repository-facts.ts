@@ -2,20 +2,18 @@ import { globSync, readFileSync } from "node:fs"
 import type { Plugin } from "vite-plus"
 import * as zod from "zod"
 
+import { COUNTRIES } from "../src/modules/_core/constants/country.ts"
+import { CURRENCY_CODES } from "../src/modules/_core/constants/currency.ts"
+import { TIMEZONES } from "../src/modules/_core/constants/timezone.ts"
+
 const MODULE_ID = "virtual:repository-facts"
 const RESOLVED_MODULE_ID = `\0${MODULE_ID}`
-const CATALOGUE_LOCALE = "en-US"
 
-const catalogueSchema = zod.record(zod.string(), zod.string())
 const packageSchema = zod.object({ version: zod.string() })
-const adminSidebarSchema = zod.object({ links: catalogueSchema })
 
 const countFiles = (pattern: string): number => globSync(pattern).length
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(path, "utf8"))
-
-const countCatalogueEntries = (catalogue: string): number =>
-  Object.keys(catalogueSchema.parse(readJson(`messages/${CATALOGUE_LOCALE}/${catalogue}.json`))).length
 
 const majorVersionOf = (packageName: string): number => {
   const [major] = packageSchema.parse(readJson(`node_modules/${packageName}/package.json`)).version.split(".")
@@ -23,18 +21,14 @@ const majorVersionOf = (packageName: string): number => {
   return Number(major)
 }
 
-const countAdminSections = (): number =>
-  Object.keys(adminSidebarSchema.parse(readJson(`messages/${CATALOGUE_LOCALE}/pages.admin.sidebar.json`)).links).length
-
 const collectRepositoryFacts = () => ({
-  adminSections: countAdminSections(),
-  countries: countCatalogueEntries("countries"),
-  currencies: countCatalogueEntries("currencies"),
+  countries: COUNTRIES.length,
+  currencies: CURRENCY_CODES.length,
   e2eSpecs: countFiles("e2e/specs/*.spec.ts"),
   reactMajor: majorVersionOf("react"),
   tanstackTableMajor: majorVersionOf("@tanstack/react-table"),
   testFiles: countFiles("src/**/*.{test,spec}.{ts,tsx}"),
-  timezones: countCatalogueEntries("timezones"),
+  timezones: TIMEZONES.length,
   uiComponents: countFiles("src/presentation/components/shadcn/*.tsx"),
 })
 

@@ -21,7 +21,7 @@ type AuthApi = typeof auth.api
 const getSessionMock = vi.hoisted(() => vi.fn<AuthApi["getSession"]>())
 
 const dbMocks = await vi.hoisted(async () => {
-  const { DEFAULT_CURRENCY_CODE } = await import("~/src/modules/_core/constants/currency")
+  const { DEFAULT_CURRENCY_CODE } = await import("~/src/modules/_core/constants/pricing")
   const { PRODUCT_STATUS, PRODUCT_TYPE } = await import("~/src/modules/product/product.constants")
   const nullableJsonValue: unknown = JSON.parse("null")
   if (nullableJsonValue !== null) {

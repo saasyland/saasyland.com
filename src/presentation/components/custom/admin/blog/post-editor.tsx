@@ -11,6 +11,9 @@ import { Field, FieldGroup, FieldLabel } from "~/src/presentation/components/sha
 import { Input } from "~/src/presentation/components/shadcn/input"
 import { Textarea } from "~/src/presentation/components/shadcn/textarea"
 
+import { APP_DOMAIN } from "~/src/presentation/branding"
+import { ROUTES } from "~/src/routes"
+
 export const PostEditor = (): JSX.Element => {
   const t = useTranslations("pages.admin.blog.create.editor")
 
@@ -29,7 +32,7 @@ export const PostEditor = (): JSX.Element => {
         <FieldLabel htmlFor="blog-post-slug">{t("slug")}</FieldLabel>
         <div className="flex shadow-sm">
           <span className="inline-flex items-center rounded-l-md border border-r-0 border-border bg-muted/40 px-4 text-muted-foreground sm:text-sm">
-            saasyland.com/blog/
+            {`${APP_DOMAIN}${ROUTES.BLOG}/`}
           </span>
           <Input className="rounded-l-none border-border bg-card" id="blog-post-slug" placeholder={t("slugPlaceholder")} />
         </div>

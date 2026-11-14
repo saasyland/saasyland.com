@@ -2,7 +2,7 @@ import type { JSX } from "react"
 
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
 import { ADMIN_ANALYTICS_REVENUE_BARS, ADMIN_ANALYTICS_Y_AXIS_VALUES, type AdminAnalyticsRevenueBar } from "~/src/data/admin"
 

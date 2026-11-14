@@ -18,6 +18,7 @@ import { Route as BlogIndexRoute } from "~/src/routes/blog.index"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
+import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
@@ -166,10 +167,12 @@ afterEach(() => {
 describe("blog routes", () => {
   it("keeps the blog navigation current and localizes the pricing and docs links", async () => {
     await renderBlog({ locale: "pl-PL", path: "/pl-PL/blog/guide", post: POLISH_GUIDE })
-    const nav = within(screen.getByRole("navigation", { name: plPagesBlogMessages.metadata.title }))
-    expect(nav.getByRole("link", { name: plPagesBlogMessages.nav.blog })).toHaveAttribute("aria-current", "page")
-    expect(nav.getByRole("link", { name: plPagesBlogMessages.nav.docs })).toHaveAttribute("href", "/pl-PL/docs")
-    expect(nav.getByRole("link", { name: plPagesBlogMessages.nav.getStarted })).toHaveAttribute("href", "/pl-PL#pricing")
+    const nav = within(screen.getByRole("navigation", { name: plNavigationMessages.ariaLabel }))
+    expect(nav.getByRole("link", { name: plNavigationMessages.items.blog })).toHaveAttribute("aria-current", "page")
+    expect(nav.getByRole("link", { name: plNavigationMessages.items.courses })).toHaveAttribute("href", "/pl-PL/courses")
+    expect(nav.getByRole("link", { name: plNavigationMessages.items.courses })).not.toHaveAttribute("aria-current")
+    expect(nav.getByRole("link", { name: plNavigationMessages.items.docs })).toHaveAttribute("href", "/pl-PL/docs")
+    expect(nav.getByRole("link", { name: plNavigationMessages.getStarted })).toHaveAttribute("href", "/pl-PL#pricing")
     expect(screen.getByRole("link", { name: plPagesBlogMessages.post.cta.primary })).toHaveAttribute("href", "/pl-PL#pricing")
     expect(screen.getByRole("link", { name: plPagesBlogMessages.post.cta.secondary })).toHaveAttribute("href", "/pl-PL/docs")
     const ctaBody = createTranslator({ locale: "pl-PL", messages: plPagesBlogMessages.post.cta })("body", REPOSITORY_FACTS)

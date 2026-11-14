@@ -3,6 +3,7 @@ import type { JSX } from "react"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { BYTES_PER_MEGABYTE, VIDEO_SIZE_FORMAT } from "~/src/modules/video/video.constants"
 import type { Video } from "~/src/modules/video/video.types"
 
 import { useDateFormatter } from "~/src/hooks/use-date-formatter"
@@ -14,8 +15,6 @@ import { Badge } from "~/src/presentation/components/shadcn/badge"
 import { DeleteVideoButton } from "~/src/presentation/components/custom/admin/videos/delete-video-button"
 import { VideoPreviewButton } from "~/src/presentation/components/custom/admin/videos/video-preview-button"
 import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
-
-const BYTES_PER_MEGABYTE = 1_000_000
 
 type VideoRow = Video["select"]
 
@@ -48,9 +47,7 @@ const SizeCell = ({ getValue }: CellContext<DataTableFeatures, VideoRow, number>
   const format = useFormatter()
 
   return (
-    <span className="text-sm text-muted-foreground tabular-nums">
-      {format.number(getValue() / BYTES_PER_MEGABYTE, { maximumFractionDigits: 1, style: "unit", unit: "megabyte" })}
-    </span>
+    <span className="text-sm text-muted-foreground tabular-nums">{format.number(getValue() / BYTES_PER_MEGABYTE, VIDEO_SIZE_FORMAT)}</span>
   )
 }
 

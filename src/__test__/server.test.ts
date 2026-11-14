@@ -8,6 +8,8 @@ import { createEdgeCache } from "~/src/platform/testing/mocks/cache"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { HTTPS_SECURITY_HEADERS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
+
 import { DOCUMENT_STYLESHEET } from "~/src/presentation/document-assets"
 import worker from "~/src/server"
 
@@ -46,14 +48,24 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
-const SECURITY_HEADERS = {
-  "content-security-policy": "base-uri 'self'; frame-ancestors 'none'; object-src 'none'",
-  "cross-origin-opener-policy": "same-origin",
-  "permissions-policy": "browsing-topics=(), camera=(), geolocation=(), microphone=()",
-  "referrer-policy": "strict-origin-when-cross-origin",
-  "x-content-type-options": "nosniff",
-  "x-frame-options": "DENY",
+const HEADER_LINE_PATTERN = /^ {2}(?<name>[^:]+): (?<value>.+)$/u
+
+const headerEntry = (line: string): [string, string][] => {
+  const { name, value } = HEADER_LINE_PATTERN.exec(line)?.groups ?? {}
+
+  return name === undefined || value === undefined ? [] : [[name, value]]
 }
+
+const staticFileHeaders = (pattern: string): Record<string, string> => {
+  const rule = readFileSync("public/_headers", "utf8")
+    .split("\n\n")
+    .find((block) => block.startsWith(`${pattern}\n`))
+
+  return Object.fromEntries((rule ?? "").split("\n").flatMap((line) => headerEntry(line)))
+}
+
+const headersNamed = (response: Response, names: readonly string[]): Record<string, string | null> =>
+  Object.fromEntries(names.map((name) => [name, response.headers.get(name)]))
 
 it.each([
   { kind: "page", url: "http://localhost/" },
@@ -62,35 +74,29 @@ it.each([
 ])("sends the security headers with a $kind response", async ({ url }) => {
   const response = await worker.fetch(new Request(url), env)
 
-  expect(Object.fromEntries(Object.keys(SECURITY_HEADERS).map((name) => [name, response.headers.get(name)]))).toStrictEqual(
-    SECURITY_HEADERS,
-  )
+  expect(headersNamed(response, Object.keys(SECURITY_HEADERS))).toStrictEqual(SECURITY_HEADERS)
 })
 
-it("keeps a stricter policy that the response already sets", async () => {
-  fetchHandler.mockResolvedValueOnce(new Response("rendered", { headers: { "Content-Security-Policy": "default-src 'self'" } }))
+it("replaces a security header that an asset rule or the response already set, so the Worker's set is the only one", async () => {
+  vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(
+    new Response("static page", { headers: { "Content-Security-Policy": "default-src *", "X-Frame-Options": "SAMEORIGIN" } }),
+  )
 
-  const response = await worker.fetch(new Request("http://localhost/"), env)
+  const response = await worker.fetch(new Request("http://localhost/docs"), env)
 
-  expect(response.headers.get("content-security-policy")).toBe("default-src 'self'")
-  expect(response.headers.get("x-frame-options")).toBe("DENY")
+  expect(headersNamed(response, Object.keys(SECURITY_HEADERS))).toStrictEqual(SECURITY_HEADERS)
 })
 
 it("asks browsers to keep using HTTPS only on HTTPS responses", async () => {
   const secure = await worker.fetch(new Request("https://saasyland.com/"), env)
   const local = await worker.fetch(new Request("http://localhost/"), env)
 
-  expect(secure.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains")
+  expect(headersNamed(secure, Object.keys(HTTPS_SECURITY_HEADERS))).toStrictEqual(HTTPS_SECURITY_HEADERS)
   expect(local.headers.get("strict-transport-security")).toBeNull()
 })
 
-it("gives static files served without the Worker the same protection headers", () => {
-  const rules = readFileSync("public/_headers", "utf8")
-
-  expect(rules).toContain(`  Content-Security-Policy: ${SECURITY_HEADERS["content-security-policy"]}`)
-  expect(rules).toContain(`  Referrer-Policy: ${SECURITY_HEADERS["referrer-policy"]}`)
-  expect(rules).toContain(`  X-Content-Type-Options: ${SECURITY_HEADERS["x-content-type-options"]}`)
-  expect(rules).toContain(`  X-Frame-Options: ${SECURITY_HEADERS["x-frame-options"]}`)
+it("gives static files served without the Worker exactly the Worker's HTTPS security headers", () => {
+  expect(staticFileHeaders("/*")).toStrictEqual({ ...SECURITY_HEADERS, ...HTTPS_SECURITY_HEADERS })
 })
 
 it("canonicalizes locale aliases before rendering", async () => {
@@ -155,7 +161,6 @@ it.each(["prerendered", "rendered"])(
       headers: {
         "Cache-Control": "public, max-age=0, must-revalidate",
         "Content-Length": "17",
-        "Content-Security-Policy": "default-src 'self'",
         "Content-Type": "text/html; charset=utf-8",
         ETag: '"page"',
         Link: "</feed.xml>; rel=alternate",
@@ -180,7 +185,6 @@ it.each(["prerendered", "rendered"])(
     ])
     expect(response.headers.get("cache-control")).toBe(html.headers.get("cache-control"))
     expect(response.headers.get("content-length")).toBe("17")
-    expect(response.headers.get("content-security-policy")).toBe("default-src 'self'")
     expect(response.headers.get("etag")).toBe('"page"')
     expect(response.headers.get("set-cookie")).toBe("session=kept; HttpOnly")
   },

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import type { Product } from "~/src/modules/product/product.types"
 

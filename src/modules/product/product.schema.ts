@@ -2,7 +2,7 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { BILLING_CYCLE_MAX_LENGTH, PRODUCT_NAME_MAX_LENGTH, PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 
 export const PRODUCT_STATUSES = [PRODUCT_STATUS.DRAFT, PRODUCT_STATUS.PUBLISHED, PRODUCT_STATUS.ARCHIVED] as const

@@ -13,9 +13,19 @@ const FAILURE_EXIT_CODE = 1
 const LAST_SCOPE_INDEX = -1
 const SOURCE_LOCALE = I18N.DEFAULT_LOCALE
 const SOURCE_ROOT = join(import.meta.dirname, "../src")
+const KEY_SEPARATOR = "."
+
+const CATALOGUE_NAMESPACES = ["countries", "currencies", "locales", "timezones"] as const
 
 const SCOPE_PATTERN = /(?:useTranslations\(\s*|getTranslations\(\s*|namespace:\s+)(?:["'`](?<namespace>.*?)["'`])?/gu
 const KEY_PATTERN = /[^\w]t(?:\.rich|\.markup|\.raw)?\s*\(\s*(?<quote>["'`])(?<key>[\w.-]+)\k<quote>/gu
+const CALL_PATTERN = /(?<![\w.])t(?:\.rich|\.markup|\.raw|\.has)?\(/gu
+const ARGUMENT_PATTERN = /^(?:"[^"]*"|'[^']*'|`[^`]*`|[^,()[\]{}"'`]|\((?:[^()]|\([^()]*\))*\)|\[[^\]]*\]|\{[^{}]*\})*/u
+const QUOTED_PATTERN = /(?<quote>["'])(?<key>(?:(?!\k<quote>).)*)\k<quote>/gu
+const TEMPLATE_PATTERN = /`(?<template>[^`]*)`/gu
+const PLACEHOLDER_PATTERN = /\$\{[^}]*\}/u
+const NAME_PATTERN = /["'`](?<name>[\w.-]+)["'`]/gu
+const PAGE_METADATA_PATTERN = /^[\w.-]+\.metadata\.(?:description|title)$/u
 
 interface TranslationScope {
   end: number
@@ -143,10 +153,12 @@ const missingKeys = (file: string, messages: AbstractIntlMessages): string[] => 
   })
 }
 
+const isApplicationSource = (file: string): boolean => !file.includes("/__test__/") && !file.endsWith(".d.ts")
+
 const checkStaticKeys = (): boolean => {
   const messages = loadLocaleMessages(SOURCE_LOCALE)
   const missing = collectSourceFiles(SOURCE_ROOT)
-    .filter((file) => !file.includes("/__test__/") && file.endsWith(".tsx"))
+    .filter((file) => isApplicationSource(file) && file.endsWith(".tsx"))
     .flatMap((file) => missingKeys(file, messages))
 
   if (missing.length === 0) {
@@ -160,8 +172,85 @@ const checkStaticKeys = (): boolean => {
   return false
 }
 
+interface KeyUsage {
+  readonly dynamicScopes: Set<string>
+  readonly names: Set<string>
+  readonly patterns: RegExp[]
+}
+
+const escapeRegExp = (value: string): string => value.replaceAll(/[$()*+.?[\\\]^{|}]/gu, String.raw`\$&`)
+
+const keyPattern = (key: string): RegExp => new RegExp(`^${key}(?:\\..+)?$`, "u")
+
+const quotedKeys = (argument: string): string[] => [...argument.matchAll(QUOTED_PATTERN)].map((match) => match.groups?.["key"] ?? "")
+
+const templateKeys = (argument: string): string[] =>
+  [...argument.matchAll(TEMPLATE_PATTERN)].map((match) =>
+    (match.groups?.["template"] ?? "")
+      .split(PLACEHOLDER_PATTERN)
+      .map((part) => escapeRegExp(part))
+      .join(".+"),
+  )
+
+const argumentPatterns = (argument: string, prefix: string): RegExp[] => [
+  ...quotedKeys(argument).map((key) => keyPattern(escapeRegExp(`${prefix}${key}`))),
+  ...templateKeys(argument).map((key) => keyPattern(`${escapeRegExp(prefix)}${key}`)),
+]
+
+const recordFileUsage = (file: string, usage: KeyUsage): void => {
+  const source = readFileSync(file, "utf8")
+  const scopes = translationScopes(source)
+
+  for (const match of source.matchAll(NAME_PATTERN)) {
+    usage.names.add(match.groups?.["name"] ?? "")
+  }
+
+  for (const call of source.matchAll(CALL_PATTERN)) {
+    const argument = ARGUMENT_PATTERN.exec(source.slice(call.index + call[0].length))?.[0] ?? ""
+    const scope = scopes.find(({ end, start }) => start <= call.index && call.index < end)
+    const prefix = scope === undefined ? "" : `${scope.namespace}${KEY_SEPARATOR}`
+    const patterns = argumentPatterns(argument, prefix)
+
+    if (patterns.length === 0) {
+      usage.dynamicScopes.add(prefix)
+    }
+    usage.patterns.push(...patterns)
+  }
+}
+
+const keySuffixes = (path: string): string[] =>
+  path.split(KEY_SEPARATOR).map((_, index, segments) => segments.slice(index).join(KEY_SEPARATOR))
+
+const isUsedKey = (key: string, usage: KeyUsage): boolean =>
+  CATALOGUE_NAMESPACES.some((namespace) => key.startsWith(`${namespace}${KEY_SEPARATOR}`)) ||
+  PAGE_METADATA_PATTERN.test(key) ||
+  usage.patterns.some((pattern) => pattern.test(key)) ||
+  [...usage.dynamicScopes].some(
+    (scope) => key.startsWith(scope) && keySuffixes(key.slice(scope.length)).some((suffix) => usage.names.has(suffix)),
+  )
+
+const checkUnusedKeys = (): boolean => {
+  const usage: KeyUsage = { dynamicScopes: new Set(), names: new Set(), patterns: [] }
+
+  for (const file of collectSourceFiles(SOURCE_ROOT).filter((path) => isApplicationSource(path))) {
+    recordFileUsage(file, usage)
+  }
+
+  const unused = [...loadLocaleKeys(SOURCE_LOCALE)].filter((key) => !isUsedKey(key, usage)).toSorted(compareAlphabetically)
+
+  if (unused.length === 0) {
+    process.stdout.write("✅ Every translation key is rendered by the application.\n")
+    return true
+  }
+
+  process.stderr.write("\n❌ Translation keys that no source file renders.\n\n")
+  process.stderr.write(`${unused.map((key) => `  ${key}`).join("\n")}\n\n`)
+  process.stderr.write("Delete them from messages/{locale}/*.json in every locale, or render them.\n\n")
+  return false
+}
+
 const run = (): void => {
-  if (!checkLocaleParity() || !checkStaticKeys()) {
+  if (!checkLocaleParity() || !checkStaticKeys() || !checkUnusedKeys()) {
     process.exit(FAILURE_EXIT_CODE)
   }
 }

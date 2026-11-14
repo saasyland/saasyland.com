@@ -2,7 +2,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { resolveLocale } from "~/src/integrations/use-intl/i18n.middleware"
 import { extractLocaleFromPath, shouldIgnorePath } from "~/src/integrations/use-intl/i18n.paths"
 
-import { COUNTRY_HEADER, HTTP_STATUS } from "~/src/modules/_core/constants/api"
+import { COUNTRY_HEADER, HTTPS_SECURITY_HEADERS, HTTP_STATUS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
 import {
   PPP_ATTRIBUTE,
   PPP_COOKIE,
@@ -18,17 +18,6 @@ import { readCookie, serializeCookie } from "~/src/lib/cookie"
 import { DOCUMENT_STYLESHEET, fontPreloads } from "~/src/presentation/document-assets"
 
 const HTML = /^text\/html(?:\s*;|$)/iu
-
-const SECURITY_HEADERS = {
-  "Content-Security-Policy": "base-uri 'self'; frame-ancestors 'none'; object-src 'none'",
-  "Cross-Origin-Opener-Policy": "same-origin",
-  "Permissions-Policy": "browsing-topics=(), camera=(), geolocation=(), microphone=()",
-  "Referrer-Policy": "strict-origin-when-cross-origin",
-  "X-Content-Type-Options": "nosniff",
-  "X-Frame-Options": "DENY",
-} as const
-
-const STRICT_TRANSPORT_SECURITY = "max-age=31536000; includeSubDomains"
 
 const render = async (request: Request, env: Cloudflare.Env): Promise<Response> => {
   if ((request.method === "GET" || request.method === "HEAD") && !shouldIgnorePath(new URL(request.url).pathname)) {
@@ -77,14 +66,10 @@ const withRegionalPricing = (page: Response, request: Request, locale: string): 
 
 const withSecurityHeaders = (response: Response, protocol: string): Response => {
   const secured = new Response(response.body, response)
+  const headers = protocol === "https:" ? { ...SECURITY_HEADERS, ...HTTPS_SECURITY_HEADERS } : SECURITY_HEADERS
 
-  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
-    if (!secured.headers.has(name)) {
-      secured.headers.set(name, value)
-    }
-  }
-  if (protocol === "https:" && !secured.headers.has("Strict-Transport-Security")) {
-    secured.headers.set("Strict-Transport-Security", STRICT_TRANSPORT_SECURITY)
+  for (const [name, value] of Object.entries(headers)) {
+    secured.headers.set(name, value)
   }
 
   return secured

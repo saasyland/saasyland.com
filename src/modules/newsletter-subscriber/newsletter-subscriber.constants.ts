@@ -1,7 +1,5 @@
 export const CONFIRMATION_WINDOW_IN_HOURS = 24
 
-export const EMAIL_MAX_LENGTH = 255
-
 export const NEWSLETTER_TOKEN_LENGTH = 64
 
 export const NEWSLETTER_SOURCE = {

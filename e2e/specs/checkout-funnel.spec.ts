@@ -1,4 +1,4 @@
-import type { APIRequestContext, Locator, Page } from "@playwright/test"
+import type { APIRequestContext, Page } from "@playwright/test"
 import * as zod from "zod"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
@@ -18,12 +18,8 @@ const [, customer] = TEST_ACCOUNTS
 const SIGN_UP_PASSWORD = "StrongPassword123!"
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
 const PAID_LESSONS = TEST_LESSONS.filter(({ access }) => access === LESSON_ACCESS.PAID).length
-const REACT_FIBER_KEY_PREFIX = "__reactFiber$"
 
 const sessionSchema = zod.object({ user: zod.object({ id: zod.string() }) })
-
-const isHydrated = async (element: Locator): Promise<boolean> =>
-  element.evaluate((node, prefix) => Object.keys(node).some((key) => key.startsWith(prefix)), REACT_FIBER_KEY_PREFIX)
 
 const useOwnRateLimit = async (page: Page): Promise<string> => {
   const id = crypto.randomUUID()
@@ -106,7 +102,7 @@ test.describe("checkout funnel", () => {
     const activation = page.getByRole("status").filter({ has: page.getByRole("heading", { name: "Payment received" }) })
     await expect(activation).toBeVisible()
     await expect(page.getByRole("region", { name: "Get your licence" })).toHaveCount(0)
-    await expect.poll(async () => isHydrated(activation)).toBe(true)
+    await appPage.waitForHydration(activation)
 
     await page.clock.fastForward("01:05")
 

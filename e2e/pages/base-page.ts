@@ -1,9 +1,11 @@
-import type { Page, Response } from "@playwright/test"
+import { type Locator, type Page, type Response, expect } from "@playwright/test"
 import type { AnyRouter } from "@tanstack/react-router"
 
 export const APP_NAVIGATION_WAIT_UNTIL = "domcontentloaded" as const
 
 export const RENDERED_LOCATION_KEY = "__e2eRenderedLocation"
+
+const REACT_FIBER_KEY_PREFIX = "__reactFiber$"
 
 const APP_READY_TIMEOUT_MS = 30_000
 
@@ -35,6 +37,19 @@ export class BasePage {
   async waitForAppReady(): Promise<void> {
     await this.page.locator("body").waitFor({ state: "visible" })
     await this.waitForRender()
+  }
+
+  async waitForHydration(element: Locator): Promise<void> {
+    await expect
+      .poll(
+        async () =>
+          element.evaluate(
+            (root, prefix) => [root, ...root.querySelectorAll("*")].every((node) => Object.keys(node).some((key) => key.startsWith(prefix))),
+            REACT_FIBER_KEY_PREFIX,
+          ),
+        { timeout: APP_READY_TIMEOUT_MS },
+      )
+      .toBe(true)
   }
 
   private async waitForRender(): Promise<void> {

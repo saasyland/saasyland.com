@@ -1,7 +1,11 @@
+import type { Route } from "@playwright/test"
+
+import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
 
 const [freeLesson] = TEST_LESSONS
+const MOTION_FEATURES_CHUNK = /\/assets\/motion\.features-[\w-]+\.js$/u
 
 test.describe("landing page", () => {
   test("renders hero, navigation, and primary CTA", async ({ landingPage }) => {
@@ -81,5 +85,45 @@ test.describe("landing page", () => {
     await expect(video).toHaveAttribute("controls")
     await expect.poll(async () => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(0)
     await expect(showcase.locator("picture")).toBeHidden()
+  })
+})
+
+test.describe("server rendering and client navigation", () => {
+  test("pricing navigates to sign-up without reloading the document", async ({ appPage, page }) => {
+    await page.goto("/")
+    await appPage.waitForAppReady()
+    await page.evaluate(() => (document.documentElement.dataset["navigationProbe"] = "same-document"))
+    await page.locator('#pricing a[href^="/auth/sign-up"]').first().click()
+    await page.waitForURL((url) => url.pathname.endsWith("/auth/sign-up"))
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+    await expect(page.locator("html")).toHaveAttribute("data-navigation-probe", "same-document")
+  })
+
+  test("landing keeps its responsive styles after visiting the docs", async ({ appPage, page }) => {
+    await page.goto("/")
+    await appPage.waitForAppReady()
+    await page.locator('header a[href="/docs"]').first().click()
+    await expect(page.getByRole("heading", { level: 1, name: "Documentation" })).toBeVisible()
+    await page.locator('a[href="/"]:visible').first().click()
+    await page.waitForURL((url) => url.pathname === "/")
+    await expect(page.locator("h1 svg")).toBeVisible()
+    await expect(page.locator('header a[href="/docs"]').first()).toBeVisible()
+  })
+})
+
+test.describe("a page that is still loading", () => {
+  test("reports no error when a visitor leaves while its animations load", async ({ landingPage, page }) => {
+    const errors: string[] = []
+    page.on("pageerror", (error) => errors.push(error.message))
+    const features = Promise.withResolvers<Route>()
+    await page.route(MOTION_FEATURES_CHUNK, (route) => {
+      features.resolve(route)
+    })
+    await landingPage.goto()
+
+    await landingPage.leaveWhileLoading(await features.promise, ROUTES.PRIVACY)
+
+    await expect(page).toHaveURL(ROUTES.PRIVACY)
+    expect(errors).toEqual([])
   })
 })

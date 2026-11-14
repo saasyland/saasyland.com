@@ -1,0 +1,3 @@
+export { authSeed } from "./auth.seed"
+export { coursesSeed } from "./courses.seed"
+export { licenseSeed } from "./license.seed"

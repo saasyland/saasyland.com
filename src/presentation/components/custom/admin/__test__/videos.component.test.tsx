@@ -12,7 +12,8 @@ import type { Video } from "~/src/modules/video/video.types"
 
 import { Route as VideosRoute } from "~/src/routes/admin.videos"
 
-import { adminQueryClient, fixtureDate, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { fixtureDate } from "~/src/presentation/components/custom/admin/__test__/fixture-date"
+import { adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 
 import errors from "~/messages/en-US/errors.json"
 import labels from "~/messages/en-US/pages.admin.videos.json"

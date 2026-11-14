@@ -1,0 +1,4 @@
+export { AUTH_ROWS } from "~/src/integrations/drizzle-orm/__test__/auth.rows"
+export { LICENSE_ROWS } from "~/src/integrations/drizzle-orm/__test__/license.rows"
+export { NEWSLETTER_ROWS } from "~/src/integrations/drizzle-orm/__test__/newsletter.rows"
+export { PRODUCTS_ROWS } from "~/src/integrations/drizzle-orm/__test__/products.rows"

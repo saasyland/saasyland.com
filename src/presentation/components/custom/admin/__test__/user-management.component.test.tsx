@@ -16,7 +16,8 @@ import { USER_MUTATION_KEYS, USER_QUERY_KEYS } from "~/src/modules/user/user.con
 
 import { Route as UsersRoute } from "~/src/routes/admin.users.all"
 
-import { adminMessages, adminQueryClient, adminUser, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
+import { adminMessages, adminQueryClient, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 

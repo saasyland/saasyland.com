@@ -72,6 +72,26 @@ describe("getCourses", () => {
 - **Behalten Sie Assertions, wenn eine Regel greift.** Überschreitet ein Test `max-statements`, extrahieren Sie einen benannten Helfer, statt Prüfungen wegzulassen.
 - **Laden Sie jede Nachrichtendatei.** `i18n.messages.test.ts` lädt jeden Namespace jeder Locale; das deckt die `import.meta.glob`-Zeilen in `i18n.messages.ts` ab. Eine neue Nachrichtendatei wird dadurch automatisch abgedeckt.
 
+## Tests folgen den Bereichen [#tests-follow-the-areas]
+
+Die Bereiche, die ihre eigenen Pfade und Menüeinträge deklarieren (siehe [Pfade und Navigation](/docs/conventions/routes#paths-and-navigation)), besitzen auch ihre Tests. So kann die `saasyland`-CLI einen Bereich samt seinen Tests aus einem generierten Projekt weglassen, und alle übrigen Tests laufen weiter durch.
+
+Eine Testdatei deckt einen Bereich oder eine Quelldatei ab. Die Admin-Seiten eines Bereichs werden mit ihren Skeletons und Breadcrumbs in `src/routes/__test__/admin-<area>-routes.component.test.tsx` getestet, ihre Loader in `admin-<area>-loaders.test.ts`; `admin-layout`, `admin-dashboard` und `admin-loaders` testen die Admin-Oberfläche selbst und nennen keinen Bereich. Voneinander unabhängige Dateien bekommen je eine eigene Testdatei, etwa `background.component.test.tsx` und `wordmark.component.test.tsx`, und jeder API-Handler hat seine eigene: `src/routes/api/__test__/auth.test.ts`, `search.test.ts` und `index.test.ts`.
+
+Eine Liste, die sich über die Bereiche erstreckt, wird pro Bereich deklariert und von einem Barrel zusammengeführt:
+
+| Liste                   | Jeder Bereich deklariert                                                                                                 | Barrel                      | Gelesen von                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------- | ------------------------------------------------ |
+| Abfragedaten des Admins | `seed<Area>Queries` und seine Zeilen-Factories in `src/presentation/components/custom/admin/__test__/<area>.fixtures.ts` | `fixtures.entries.ts`       | `adminQueryClient()` in `fixtures.tsx`           |
+| Enum-Beschriftungen     | `src/integrations/use-intl/__test__/<area>.labels.ts`                                                                    | `labels.entries.ts`         | `enum-labels.test.ts`                            |
+| D1-Zeilen               | `src/integrations/drizzle-orm/__test__/<area>.rows.ts`                                                                   | `rows.entries.ts`           | `d1.integration.test.ts`                         |
+| Seiten der Browsertests | `e2e/data/<area>.pages.ts`                                                                                               | `e2e/data/pages.entries.ts` | `accessibility.spec.ts` und `workspaces.spec.ts` |
+| Testdatenbank           | `e2e/data/<area>.seed.ts`                                                                                                | `e2e/data/seed.entries.ts`  | `scripts/seed-test.ts`                           |
+
+Hilfsfunktionen, die mehrere Bereiche nutzen, gibt es nur einmal: `renderAdmin` und `renderAdminPage` in `src/presentation/components/custom/admin/__test__/fixtures.tsx`, `loadAsAdmin` in `src/routes/__test__/fixtures/admin-router.ts`, `markupOf` und `busyMarkup` in `src/platform/testing/lib/skeleton.tsx` sowie in den Browsertests `AuthPage.signIn`, `BasePage.leaveWhileLoading` und die Fixture `pageWithoutJavaScript`.
+
+Ein Test, der die gesamte Website festschreibt, etwa `navigation.website.test.ts` mit der Reihenfolge jedes Menüs, gehört nur zur Website; die Templates erzeugen ihn nicht.
+
 ## Browsertests
 
 Playwright führt den gebauten Test-Worker aus: `bun run build:test` kompiliert ihn mit lokalem D1 und KV unter `.wrangler/test`, `bun run db:reset:test` erstellt diese Datenbank neu und legt die Konten, das Video und den Kurs in `e2e/data` an, und der Test-Einstiegspunkt fängt ausgehende E-Mails unter `/__test/emails` ab, damit eine Spec einem Verifizierungslink folgen kann.
@@ -80,7 +100,7 @@ Playwright führt den gebauten Test-Worker aus: `bun run build:test` kompiliert 
 - Jede Spec legt die Daten, die sie ändert, mit eindeutigen Werten an, etwa einem Slug aus `crypto.randomUUID()`, und meldet sich mit ihrem eigenen Header `CF-Connecting-IP` an, sodass Specs parallel laufen und erneut ausgeführt werden können, ohne miteinander oder mit Rate Limits zu kollidieren.
 - Eine Spec interagiert mit einer Seite erst, wenn `waitForAppReady()` aus `e2e/pages/base-page.ts` zurückgekehrt ist, auch nach clientseitigen Navigationen. Die Methode kehrt zurück, sobald TanStack Router die aktuelle URL gerendert hat, was die automatische Fixture `recordRenders` aus dem Router-Ereignis `onRendered` aufzeichnet, denn eine clientseitige Navigation ändert die URL, bevor die nächste Route rendert. Routeninhalte können erst nach diesem Rendern hydrieren. Eine Spec, die vom eigenen Zustand einer Komponente abhängt oder einen Link außerhalb des Inhalts drückt, bevor dieser hydriert ist, ruft deshalb zuerst `waitForHydration(element)` auf, das wartet, bis React das Element und alles darin hydriert hat; `LandingPage.goto()` tut das für `main` der Landingpage. Eine Spec darf eine Seite verlassen, während sie lädt, wie es auch Besucher tun, und eine Spec, die Seitenfehler über mehrere direkte Aufrufe sammelt, öffnet jeden Aufruf in einem eigenen Tab, wie `auth-routing.spec.ts`.
 - Pull Requests führen jede Spec in Chromium aus (`bun run test:e2e:pr`); Pushes auf `main` und ein wöchentlicher Zeitplan führen zusätzlich WebKit aus.
-- Eine Korrektur an einer Route, einem Ablauf oder der Darstellung, die Unit-Tests nicht sehen können, bekommt eine Spec: Die Barrierefreiheitsscans und die Navigationsregressionen in `navigation.spec.ts` sind Beispiele.
+- Eine Korrektur an einer Route, einem Ablauf oder der Darstellung, die Unit-Tests nicht sehen können, bekommt eine Spec: Die Barrierefreiheitsscans und die Navigationsregressionen in `navigation.spec.ts` und in den Specs der Bereiche, die sie betreffen, etwa `content.spec.ts`, `legal.spec.ts` und `landing.spec.ts`, sind Beispiele.
 
 ## Verwandte Seiten
 

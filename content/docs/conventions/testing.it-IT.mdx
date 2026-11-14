@@ -72,6 +72,26 @@ describe("getCourses", () => {
 - **Mantieni le asserzioni quando una regola si fa sentire.** Quando un test supera `max-statements`, estrai un helper con un nome invece di eliminare dei controlli.
 - **Carica ogni file di messaggi.** `i18n.messages.test.ts` carica ogni namespace di ogni locale, ed è questo che copre le righe `import.meta.glob` in `i18n.messages.ts`. Un nuovo file di messaggi viene coperto automaticamente.
 
+## I test seguono le aree [#tests-follow-the-areas]
+
+Le aree che dichiarano i propri percorsi e le proprie voci di menu (vedi [Percorsi e navigazione](/docs/conventions/routes#paths-and-navigation)) possiedono anche i propri test, così la CLI `saasyland` può escludere un'area da un progetto generato insieme ai suoi test e tutti gli altri test continuano a passare.
+
+Un file di test copre un'area o un file sorgente. Le pagine di amministrazione di un'area si testano con i loro scheletri e breadcrumb in `src/routes/__test__/admin-<area>-routes.component.test.tsx` e i loro loader in `admin-<area>-loaders.test.ts`; `admin-layout`, `admin-dashboard` e `admin-loaders` testano l'interfaccia di amministrazione stessa e non nominano alcuna area. File non correlati hanno ciascuno il proprio file di test, come `background.component.test.tsx` e `wordmark.component.test.tsx`, e ogni handler dell'API ha il suo: `src/routes/api/__test__/auth.test.ts`, `search.test.ts` e `index.test.ts`.
+
+Un elenco che attraversa le aree viene dichiarato per area e riunito da un barrel:
+
+| Elenco                                | Ogni area dichiara                                                                                                      | Barrel                      | Letto da                                       |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------- | ---------------------------------------------- |
+| Dati delle query dell'amministrazione | `seed<Area>Queries` e le sue factory di righe in `src/presentation/components/custom/admin/__test__/<area>.fixtures.ts` | `fixtures.entries.ts`       | `adminQueryClient()` in `fixtures.tsx`         |
+| Etichette delle enumerazioni          | `src/integrations/use-intl/__test__/<area>.labels.ts`                                                                   | `labels.entries.ts`         | `enum-labels.test.ts`                          |
+| Righe di D1                           | `src/integrations/drizzle-orm/__test__/<area>.rows.ts`                                                                  | `rows.entries.ts`           | `d1.integration.test.ts`                       |
+| Pagine dei test nel browser           | `e2e/data/<area>.pages.ts`                                                                                              | `e2e/data/pages.entries.ts` | `accessibility.spec.ts` e `workspaces.spec.ts` |
+| Database di test                      | `e2e/data/<area>.seed.ts`                                                                                               | `e2e/data/seed.entries.ts`  | `scripts/seed-test.ts`                         |
+
+Gli helper usati da più aree esistono una sola volta: `renderAdmin` e `renderAdminPage` in `src/presentation/components/custom/admin/__test__/fixtures.tsx`, `loadAsAdmin` in `src/routes/__test__/fixtures/admin-router.ts`, `markupOf` e `busyMarkup` in `src/platform/testing/lib/skeleton.tsx` e, nei test nel browser, `AuthPage.signIn`, `BasePage.leaveWhileLoading` e la fixture `pageWithoutJavaScript`.
+
+Un test che fissa l'intero sito, come `navigation.website.test.ts` con l'ordine di ogni menu, appartiene solo al sito; i template non lo generano.
+
 ## Test nel browser
 
 Playwright esegue il Worker di test compilato: `bun run build:test` lo compila con D1 e KV locali in `.wrangler/test`, `bun run db:reset:test` ricrea quel database e popola gli account, il video e il corso in `e2e/data`, e l'entry di test intercetta le email in uscita su `/__test/emails`, così una spec può seguire un link di verifica.
@@ -80,7 +100,7 @@ Playwright esegue il Worker di test compilato: `bun run build:test` lo compila c
 - Ogni spec crea i dati che modifica con valori univoci, come uno slug costruito da `crypto.randomUUID()`, ed effettua l'accesso con un proprio header `CF-Connecting-IP`, così le spec possono essere eseguite in parallelo e ripetute senza scontrarsi tra loro o con i limiti di richieste.
 - Una spec agisce su una pagina solo dopo che `waitForAppReady()` di `e2e/pages/base-page.ts` è terminato, anche dopo una navigazione lato client. Il metodo termina quando TanStack Router ha renderizzato l'URL corrente, che la fixture automatica `recordRenders` registra dall'evento `onRendered` del router, perché una navigazione lato client cambia l'URL prima che la route successiva venga renderizzata. Il contenuto della route può idratarsi dopo quel render, quindi una spec che dipende dallo stato proprio di un componente, o che preme un link fuori dal contenuto prima che questo sia idratato, chiama prima `waitForHydration(element)`, che attende che React abbia idratato l'elemento e tutto ciò che contiene; `LandingPage.goto()` lo fa per il `main` della landing page. Una spec può lasciare una pagina mentre è in caricamento, come può fare un visitatore, e una spec che raccoglie gli errori di pagina su più visite dirette apre ogni visita in una scheda propria, come fa `auth-routing.spec.ts`.
 - Le pull request eseguono ogni spec in Chromium (`bun run test:e2e:pr`); i push su `main` e un'esecuzione settimanale pianificata eseguono anche WebKit.
-- Una correzione di route, di flusso o visiva che i test unitari non possono vedere riceve una spec: le scansioni di accessibilità e le regressioni di navigazione in `navigation.spec.ts` ne sono esempi.
+- Una correzione di route, di flusso o visiva che i test unitari non possono vedere riceve una spec: le scansioni di accessibilità e le regressioni di navigazione in `navigation.spec.ts` e nelle spec delle aree che riguardano, come `content.spec.ts`, `legal.spec.ts` e `landing.spec.ts`, ne sono esempi.
 
 ## Pagine correlate
 

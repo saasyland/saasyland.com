@@ -72,6 +72,26 @@ describe("getCourses", () => {
 - **ルールに引っかかってもアサーションは残す。** テストが `max-statements` を超えたら、チェックを削らずに名前付きのヘルパーに切り出します。
 - **すべてのメッセージファイルを読み込む。** `i18n.messages.test.ts` はすべてのロケールのすべての名前空間を読み込み、これによって `i18n.messages.ts` の `import.meta.glob` の行がカバーされます。新しいメッセージファイルも自動的にカバーされます。
 
+## テストはエリアに従う [#tests-follow-the-areas]
+
+自分のパスとメニュー項目を宣言するエリア（[パスとナビゲーション](/docs/conventions/routes#paths-and-navigation)を参照）は、テストも自分で持ちます。そのため `saasyland` CLI は、生成するプロジェクトからエリアをそのテストごと外すことができ、残りのテストはすべて通り続けます。
+
+1 つのテストファイルが扱うのは 1 つのエリアか 1 つのソースファイルです。エリアの管理画面のページは、スケルトンとパンくずリストも含めて `src/routes/__test__/admin-<area>-routes.component.test.tsx` でテストし、ローダーは `admin-<area>-loaders.test.ts` でテストします。`admin-layout`、`admin-dashboard`、`admin-loaders` は管理画面そのものをテストし、どのエリアの名前も出しません。互いに関係のないファイルにはそれぞれテストファイルを用意し（`background.component.test.tsx` や `wordmark.component.test.tsx` など）、API ハンドラーにもそれぞれ 1 つずつ用意します（`src/routes/api/__test__/auth.test.ts`、`search.test.ts`、`index.test.ts`）。
+
+複数のエリアにまたがる一覧は、各エリアが宣言し、バレルがまとめます。
+
+| 一覧                     | 各エリアが宣言するもの                                                                                           | バレル                      | 読み取る側                                      |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------- | --------------------------- | ----------------------------------------------- |
+| 管理画面のクエリデータ   | `src/presentation/components/custom/admin/__test__/<area>.fixtures.ts` の `seed<Area>Queries` と行のファクトリー | `fixtures.entries.ts`       | `fixtures.tsx` の `adminQueryClient()`          |
+| 列挙値のラベル           | `src/integrations/use-intl/__test__/<area>.labels.ts`                                                            | `labels.entries.ts`         | `enum-labels.test.ts`                           |
+| D1 の行                  | `src/integrations/drizzle-orm/__test__/<area>.rows.ts`                                                           | `rows.entries.ts`           | `d1.integration.test.ts`                        |
+| ブラウザーテストのページ | `e2e/data/<area>.pages.ts`                                                                                       | `e2e/data/pages.entries.ts` | `accessibility.spec.ts` と `workspaces.spec.ts` |
+| テスト用データベース     | `e2e/data/<area>.seed.ts`                                                                                        | `e2e/data/seed.entries.ts`  | `scripts/seed-test.ts`                          |
+
+複数のエリアが使うヘルパーは 1 か所にだけ書きます。`src/presentation/components/custom/admin/__test__/fixtures.tsx` の `renderAdmin` と `renderAdminPage`、`src/routes/__test__/fixtures/admin-router.ts` の `loadAsAdmin`、`src/platform/testing/lib/skeleton.tsx` の `markupOf` と `busyMarkup`、そしてブラウザーテストの `AuthPage.signIn`、`BasePage.leaveWhileLoading`、`pageWithoutJavaScript` フィクスチャです。
+
+`navigation.website.test.ts` のようにサイト全体を固定するテスト（すべてのメニューの順序を確認します）はこのサイト専用で、テンプレートは生成しません。
+
 ## ブラウザーテスト
 
 Playwright は、ビルド済みのテスト用 Worker に対して実行されます。`bun run build:test` は `.wrangler/test` 配下のローカルの D1 と KV を使ってそれをビルドし、`bun run db:reset:test` はそのデータベースを作り直して、`e2e/data` のアカウント、動画、コースをシードします。テスト用のエントリーは送信メールを `/__test/emails` でキャプチャするため、スペックは確認リンクをたどることができます。
@@ -80,7 +100,7 @@ Playwright は、ビルド済みのテスト用 Worker に対して実行され�
 - 各スペックは、`crypto.randomUUID()` から作ったスラッグのような一意の値で、自分が変更するデータを作成し、独自の `CF-Connecting-IP` ヘッダーでサインインします。そのため、スペックは互いに衝突したりレート制限に引っかかったりすることなく、並列に実行でき、再実行もできます。
 - スペックは、クライアント側のナビゲーションの後も含めて、`e2e/pages/base-page.ts` の `waitForAppReady()` が返ってからページを操作します。このメソッドは TanStack Router が現在の URL をレンダリングした時点で返ります。それを記録するのは、ルーターの `onRendered` イベントを購読する自動フィクスチャ `recordRenders` です。クライアント側のナビゲーションでは、次のルートがレンダリングされる前に URL が変わるためです。ルートのコンテンツはそのレンダリングの後にハイドレーションされることがあります。そのため、コンポーネント自身の状態に依存するスペックや、コンテンツがハイドレーションされる前にコンテンツ外のリンクを押すスペックは、先に `waitForHydration(element)` を呼び出します。これは React が要素とその中のすべてをハイドレーションするまで待ちます。`LandingPage.goto()` はランディングページの `main` に対してこれを行います。スペックは訪問者と同じように、読み込み中のページを離れてもかまいません。複数の直接アクセスにわたってページのエラーを集めるスペックは、`auth-routing.spec.ts` のように、アクセスごとに別のタブを開きます。
 - プルリクエストでは、すべてのスペックを Chromium で実行します（`bun run test:e2e:pr`）。`main` へのプッシュと週次のスケジュールでは WebKit でも実行します。
-- ユニットテストでは検出できないルート、フロー、見た目の修正にはスペックを用意します。アクセシビリティのスキャンや、`navigation.spec.ts` のナビゲーションの退行テストがその例です。
+- ユニットテストでは検出できないルート、フロー、見た目の修正にはスペックを用意します。アクセシビリティのスキャンや、`navigation.spec.ts` と、`content.spec.ts`、`legal.spec.ts`、`landing.spec.ts` のように対象エリアのスペックにあるナビゲーションの退行テストがその例です。
 
 ## 関連ページ
 

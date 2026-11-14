@@ -1,41 +1,14 @@
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
-import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
-import { TEST_COURSE } from "../data/courses"
+import { TEST_ACCOUNTS } from "../data/accounts"
+import { workspacePages } from "../data/pages"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
-
-const WORKSPACE_PATHS = {
-  [ROLE_CODES.ADMIN]: [
-    "/admin/users/all",
-    "/admin/users/invitations",
-    "/admin/users/roles",
-    "/admin/users/security",
-    "/admin/products",
-    "/admin/products/create",
-    "/admin/courses",
-    "/admin/courses/create",
-    `/admin/courses/${TEST_COURSE.id}`,
-    "/admin/blog",
-    "/admin/blog/create",
-    "/admin/analytics",
-    "/admin/payments",
-    "/admin/pricing-models",
-    "/admin/landing-page",
-    "/admin/videos",
-    "/admin/settings",
-  ],
-  [ROLE_CODES.CUSTOMER]: ["/app/license", "/app/settings", "/pl-PL/app"],
-} as const
 
 for (const account of TEST_ACCOUNTS) {
   test(`${account.role} can sign in and load the permitted workspace`, async ({ appPage, authPage, page }, testInfo) => {
     const errors: string[] = []
     page.on("pageerror", (error) => errors.push(error.message))
-    await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
-    await authPage.gotoSignIn()
-    await authPage.emailField().fill(account.email)
-    await authPage.passwordField().fill(TEST_PASSWORD)
-    await authPage.signInSubmitButton().click()
+    await authPage.signIn(account.email)
     const workspace = account.role === ROLE_CODES.ADMIN ? "/admin" : "/app"
     await expect(page).toHaveURL(new RegExp(`${workspace}/?$`, "u"))
     await appPage.waitForAppReady()
@@ -54,56 +27,36 @@ for (const account of TEST_ACCOUNTS) {
       await page.emulateMedia({ colorScheme: "light" })
       await expect(page.locator("html")).toHaveClass(/light/u)
 
-      await navigation.getByRole("link", { name: "Licence", exact: true }).click()
-      await expect(page).toHaveURL(/\/app\/license$/u)
-      await expect(navigation.getByRole("link", { name: "Licence", exact: true })).toHaveAttribute("aria-current", "page")
-      await expect(page.getByRole("heading", { name: "Your licence", exact: true })).toBeVisible()
-      await expect(page.getByRole("button", { name: "Get Core", exact: true })).toBeVisible()
-      await page.screenshot({ animations: "disabled", fullPage: true, path: testInfo.outputPath("app-license-desktop.png") })
+      await navigation.getByRole("link", { name: "Settings", exact: true }).click()
+      await expect(page).toHaveURL(/\/app\/settings$/u)
+      await expect(navigation.getByRole("link", { name: "Settings", exact: true })).toHaveAttribute("aria-current", "page")
+      await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible()
+      await page.screenshot({ animations: "disabled", fullPage: true, path: testInfo.outputPath("app-settings-desktop.png") })
 
       await navigation.getByRole("link", { name: "Overview", exact: true }).click()
       await expect(page).toHaveURL(/\/app\/?$/u)
       await expect(navigation.getByRole("link", { name: "Overview", exact: true })).toHaveAttribute("aria-current", "page")
     }
 
-    for (const path of WORKSPACE_PATHS[account.role]) {
+    for (const { heading, path } of workspacePages(account.role)) {
       await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
       await appPage.waitForAppReady()
       await expect(page.getByRole("heading").first()).toBeVisible()
       await expect(page.getByRole("alert").filter({ hasText: "Something went wrong" })).toHaveCount(0)
       await expect(page.getByText("Page not found", { exact: true })).toHaveCount(0)
-      if (path === "/admin/users/all") {
-        const table = page.getByRole("table")
-        const userHeader = table.getByRole("columnheader", { name: /^User/u })
-        const names = table.locator("tbody tr td:nth-child(2) p:first-child")
-        await userHeader.getByRole("button", { name: /^User/u }).click()
-        await expect(userHeader).toHaveAttribute("aria-sort", "ascending")
-        await expect(table.getByRole("checkbox", { name: "Select row" }).first()).toBeVisible()
-        const ascending = await names.allTextContents()
-        expect(ascending.length).toBeGreaterThan(1)
-        expect(ascending).toEqual(ascending.toSorted())
-        await userHeader.getByRole("button", { name: /^User/u }).click()
-        await expect(userHeader).toHaveAttribute("aria-sort", "descending")
-        await expect(table.getByRole("checkbox", { name: "Select row" }).first()).toBeVisible()
-        const descending = await names.allTextContents()
-        expect(descending.length).toBeGreaterThan(1)
-        expect(descending).toEqual(descending.toSorted().toReversed())
-        await table.locator("label").filter({ has: page.getByRole("checkbox", { name: "Select all rows" }) }).click()
-        await expect(table.getByRole("checkbox", { name: "Select row" }).first()).toBeChecked()
-        await expect(table.getByRole("checkbox", { name: "Select row" }).last()).toBeChecked()
-      }
-      if (path === "/admin/products/create") await expect(page.getByRole("heading", { level: 1 })).toHaveText("Create Product")
-      if (path === "/admin/blog/create") await expect(page.getByRole("heading", { level: 1 })).toHaveText("Write Post")
-      if (path === "/admin/courses/create") await expect(page.getByRole("heading", { level: 1 })).toHaveText("New course")
+      if (heading !== undefined) await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading)
     }
     if (account.role === ROLE_CODES.CUSTOMER) {
+      await page.goto("/pl-PL/app", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await appPage.waitForAppReady()
+      await expect(page.getByRole("heading").first()).toBeVisible()
       const navigation = page.getByRole("navigation", { name: "Nawigacja aplikacji", exact: true })
       await expect(navigation.getByRole("link", { name: "Przegląd", exact: true })).toHaveAttribute("aria-current", "page")
-      await navigation.getByRole("link", { name: "Licencja", exact: true }).click()
-      await expect(page).toHaveURL(/\/pl-PL\/app\/license$/u)
-      await expect(navigation.getByRole("link", { name: "Licencja", exact: true })).toHaveAttribute("aria-current", "page")
-      await expect(page.getByRole("heading", { name: "Twoja licencja", exact: true })).toBeVisible()
-      await page.screenshot({ animations: "disabled", fullPage: true, path: testInfo.outputPath("app-license-polish.png") })
+      await navigation.getByRole("link", { name: "Ustawienia", exact: true }).click()
+      await expect(page).toHaveURL(/\/pl-PL\/app\/settings$/u)
+      await expect(navigation.getByRole("link", { name: "Ustawienia", exact: true })).toHaveAttribute("aria-current", "page")
+      await expect(page.getByRole("heading", { level: 1, name: "Ustawienia", exact: true })).toBeVisible()
+      await page.screenshot({ animations: "disabled", fullPage: true, path: testInfo.outputPath("app-settings-polish.png") })
 
       await page.goto("/admin", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
       await expect(page).toHaveURL(/\/app\/?$/u)
@@ -117,12 +70,8 @@ test("customer can use the mobile app sidebar and signing out protects both app 
   const customer = TEST_ACCOUNTS[1]
   const errors: string[] = []
   page.on("pageerror", (error) => errors.push(error.message))
-  await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
   await page.setViewportSize({ height: 844, width: 390 })
-  await authPage.gotoSignIn()
-  await authPage.emailField().fill(customer.email)
-  await authPage.passwordField().fill(TEST_PASSWORD)
-  await authPage.signInSubmitButton().click()
+  await authPage.signIn(customer.email)
   await expect(page).toHaveURL(/\/app\/?$/u)
   await appPage.waitForAppReady()
   await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible()
@@ -139,12 +88,12 @@ test("customer can use the mobile app sidebar and signing out protects both app 
   await expect(sidebar).toBeVisible()
   await expect(sidebar).toBeInViewport({ ratio: 1 })
   await page.screenshot({ animations: "disabled", fullPage: true, path: testInfo.outputPath("app-sidebar-mobile.png") })
-  await sidebar.getByRole("link", { name: "Licence", exact: true }).click()
-  await expect(page).toHaveURL(/\/app\/license$/u)
+  await sidebar.getByRole("link", { name: "Settings", exact: true }).click()
+  await expect(page).toHaveURL(/\/app\/settings$/u)
   await expect(sidebar).not.toBeVisible()
-  await expect(page.getByRole("heading", { name: "Your licence", exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await page.screenshot({ animations: "disabled", fullPage: true, path: testInfo.outputPath("app-license-mobile.png") })
+  await page.screenshot({ animations: "disabled", fullPage: true, path: testInfo.outputPath("app-settings-mobile.png") })
 
   await trigger.click()
   await expect(sidebar).toBeVisible()
@@ -157,7 +106,7 @@ test("customer can use the mobile app sidebar and signing out protects both app 
   await expect(page).toHaveURL(/\/auth\/sign-in$/u)
   await appPage.waitForAppReady()
   await expect(authPage.signInSubmitButton()).toBeEnabled()
-  for (const path of ["/app", "/app/license"]) {
+  for (const path of ["/app", "/app/settings"]) {
     await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await expect(page).toHaveURL(`/auth/sign-in?redirect=${encodeURIComponent(path)}`)
     await appPage.waitForAppReady()

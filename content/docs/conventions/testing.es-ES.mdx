@@ -72,6 +72,26 @@ describe("getCourses", () => {
 - **Conserva las aserciones cuando una regla aprieta.** Cuando una prueba supera `max-statements`, extrae un helper con nombre en lugar de quitar comprobaciones.
 - **Carga todos los archivos de mensajes.** `i18n.messages.test.ts` carga todos los espacios de nombres de todos los idiomas, y eso es lo que cubre las líneas `import.meta.glob` de `i18n.messages.ts`. Un archivo de mensajes nuevo queda cubierto automáticamente.
 
+## Las pruebas siguen a las áreas [#tests-follow-the-areas]
+
+Las áreas que declaran sus propias rutas y entradas de menú (consulta [Rutas y navegación](/docs/conventions/routes#paths-and-navigation)) también son dueñas de sus pruebas, así que la CLI `saasyland` puede dejar un área fuera de un proyecto generado junto con sus pruebas y todas las demás siguen pasando.
+
+Un archivo de pruebas cubre un área o un archivo de código. Las páginas de administración de un área se prueban con sus esqueletos y sus migas de pan en `src/routes/__test__/admin-<area>-routes.component.test.tsx`, y sus loaders en `admin-<area>-loaders.test.ts`; `admin-layout`, `admin-dashboard` y `admin-loaders` prueban la propia interfaz de administración y no nombran ningún área. Los archivos sin relación entre sí tienen cada uno su archivo de pruebas, como `background.component.test.tsx` y `wordmark.component.test.tsx`, y cada manejador de la API tiene el suyo: `src/routes/api/__test__/auth.test.ts`, `search.test.ts` e `index.test.ts`.
+
+Una lista que abarca varias áreas se declara por área y la reúne un barrel:
+
+| Lista                                  | Cada área declara                                                                                                      | Barrel                      | La lee                                         |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------- | ---------------------------------------------- |
+| Datos de consultas de administración   | `seed<Area>Queries` y sus factorías de filas en `src/presentation/components/custom/admin/__test__/<area>.fixtures.ts` | `fixtures.entries.ts`       | `adminQueryClient()` en `fixtures.tsx`         |
+| Etiquetas de enumeraciones             | `src/integrations/use-intl/__test__/<area>.labels.ts`                                                                  | `labels.entries.ts`         | `enum-labels.test.ts`                          |
+| Filas de D1                            | `src/integrations/drizzle-orm/__test__/<area>.rows.ts`                                                                 | `rows.entries.ts`           | `d1.integration.test.ts`                       |
+| Páginas de las pruebas en el navegador | `e2e/data/<area>.pages.ts`                                                                                             | `e2e/data/pages.entries.ts` | `accessibility.spec.ts` y `workspaces.spec.ts` |
+| Base de datos de pruebas               | `e2e/data/<area>.seed.ts`                                                                                              | `e2e/data/seed.entries.ts`  | `scripts/seed-test.ts`                         |
+
+Las utilidades que usan varias áreas se escriben una sola vez: `renderAdmin` y `renderAdminPage` en `src/presentation/components/custom/admin/__test__/fixtures.tsx`, `loadAsAdmin` en `src/routes/__test__/fixtures/admin-router.ts`, `markupOf` y `busyMarkup` en `src/platform/testing/lib/skeleton.tsx` y, en las pruebas en el navegador, `AuthPage.signIn`, `BasePage.leaveWhileLoading` y la fixture `pageWithoutJavaScript`.
+
+Una prueba que fija el sitio web completo, como `navigation.website.test.ts` con el orden de cada menú, es exclusiva del sitio; las plantillas no la generan.
+
 ## Pruebas en el navegador
 
 Playwright ejecuta el Worker de pruebas compilado: `bun run build:test` lo compila con D1 y KV locales en `.wrangler/test`, `bun run db:reset:test` vuelve a crear esa base de datos y precarga las cuentas, el vídeo y el curso de `e2e/data`, y el punto de entrada de pruebas captura el correo saliente en `/__test/emails` para que una spec pueda seguir un enlace de verificación.
@@ -80,7 +100,7 @@ Playwright ejecuta el Worker de pruebas compilado: `bun run build:test` lo compi
 - Cada spec crea los datos que modifica con valores únicos, como un slug construido a partir de `crypto.randomUUID()`, e inicia sesión desde su propia cabecera `CF-Connecting-IP`, para que las specs puedan ejecutarse en paralelo y repetirse sin chocar entre sí ni con los límites de peticiones.
 - Una spec actúa sobre una página solo cuando ha terminado `waitForAppReady()` de `e2e/pages/base-page.ts`, también tras una navegación en el cliente. El método termina cuando TanStack Router ha renderizado la URL actual, que la fixture automática `recordRenders` registra a partir del evento `onRendered` del router, porque una navegación en el cliente cambia la URL antes de que se renderice la siguiente ruta. El contenido de la ruta puede hidratarse después de ese renderizado, así que una spec que depende del estado propio de un componente, o que pulsa un enlace fuera del contenido antes de que este se haya hidratado, llama primero a `waitForHydration(element)`, que espera a que React haya hidratado el elemento y todo lo que contiene; `LandingPage.goto()` lo hace con el `main` de la página de inicio. Una spec puede abandonar una página mientras carga, como puede hacerlo un visitante, y una que recoge los errores de página de varias visitas directas abre cada visita en su propia pestaña, como hace `auth-routing.spec.ts`.
 - Las pull requests ejecutan todas las specs en Chromium (`bun run test:e2e:pr`); los push a `main` y una ejecución programada semanal también ejecutan WebKit.
-- Una ruta, un flujo o una corrección visual que las pruebas unitarias no pueden ver recibe una spec: los análisis de accesibilidad y las regresiones de navegación de `navigation.spec.ts` son ejemplos de ello.
+- Una ruta, un flujo o una corrección visual que las pruebas unitarias no pueden ver recibe una spec: los análisis de accesibilidad y las regresiones de navegación de `navigation.spec.ts` y de las specs de las áreas a las que afectan, como `content.spec.ts`, `legal.spec.ts` y `landing.spec.ts`, son ejemplos de ello.
 
 ## Páginas relacionadas
 

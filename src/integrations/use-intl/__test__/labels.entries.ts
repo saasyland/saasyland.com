@@ -1,0 +1,7 @@
+export { AUTH_LABELS } from "~/src/integrations/use-intl/__test__/auth.labels"
+export { CORE_LABELS } from "~/src/integrations/use-intl/__test__/core.labels"
+export { COURSES_LABELS } from "~/src/integrations/use-intl/__test__/courses.labels"
+export { LANDING_LABELS } from "~/src/integrations/use-intl/__test__/landing.labels"
+export { LICENSE_LABELS } from "~/src/integrations/use-intl/__test__/license.labels"
+export { POST_EDITOR_LABELS } from "~/src/integrations/use-intl/__test__/post-editor.labels"
+export { PRODUCTS_LABELS } from "~/src/integrations/use-intl/__test__/products.labels"

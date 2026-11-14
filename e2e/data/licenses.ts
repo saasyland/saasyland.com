@@ -10,3 +10,5 @@ export const TEST_LICENSE = {
   status: LICENSE_STATUS.ACTIVE,
   tier: LICENSE_TIER.CORE,
 } as const
+
+export const TEST_CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"

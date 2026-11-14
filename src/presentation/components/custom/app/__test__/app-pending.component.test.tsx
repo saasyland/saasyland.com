@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
+import { busyMarkup } from "~/src/platform/testing/lib/skeleton"
 
 import { COURSE_KIND } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
@@ -67,8 +68,6 @@ const renderAt = (ui: ReactElement, path: string, { catalogue, owned }: Cache = 
   }
   return renderWithRouter(ui, { queryClient, router: createTestRouter(path) }).container
 }
-
-const busyMarkup = (container: HTMLElement) => container.querySelector('[aria-busy="true"]')?.outerHTML
 
 afterEach(cleanup)
 

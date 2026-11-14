@@ -26,6 +26,12 @@ test.describe("auth", () => {
     await expect(authPage.signInSubmitButton()).toBeVisible()
   })
 
+  test("/auth/sign-in renders its heading before JavaScript runs", async ({ pageWithoutJavaScript }) => {
+    await pageWithoutJavaScript.goto("/auth/sign-in")
+    await expect(pageWithoutJavaScript.getByRole("heading", { level: 1 })).toBeVisible()
+    await expect(pageWithoutJavaScript.getByLabel("Email", { exact: true })).toBeVisible()
+  })
+
   for (const authPath of ["/auth/sign-in", "/auth/sign-up"]) {
     test(`Back to Home from ${authPath} loads homepage data without server-function errors`, async ({ appPage, page }) => {
       const errors: string[] = []

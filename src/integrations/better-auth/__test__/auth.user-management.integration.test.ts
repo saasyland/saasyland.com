@@ -1,105 +1,83 @@
-import { describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+
+import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
+import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
 import {
-  createAuthTestInstance,
-  createTestUserPayload,
-  signUpVerifyAndSignIn,
-} from "~/src/integrations/better-auth/__test__/fixtures/auth.test-instance"
+  browserHeaders,
+  createTestAccount,
+  postJson,
+  signIn,
+  signUp,
+  signUpAndVerify,
+} from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
+import { auth } from "~/src/integrations/better-auth/auth.server"
 
-const authContext = await createAuthTestInstance()
+import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
-const MULTIPLE_SESSIONS_THRESHOLD = 1
-const LAST_SESSION_INDEX = -1
-const SINGLE_SESSION_REVOKE_DELTA = 1
+import { ROUTES } from "~/src/routes"
+
+const A_MINUTE_LATER_MS = 60_000
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe("auth update user", () => {
-  it("updates the signed-in user name", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
-    const { headers } = await signUpVerifyAndSignIn(authContext, user)
+  it("updates the signed-in user's name", async () => {
+    const { headers } = await signUpAndVerify()
 
-    await authContext.auth.api.updateUser({
-      body: { name: "Updated Name" },
-      headers,
-    })
+    await auth.api.updateUser({ body: { name: "Updated Name" }, headers })
 
-    const session = await authContext.auth.api.getSession({ headers })
-
+    const session = await auth.api.getSession({ headers })
     expect(session?.user.name).toBe("Updated Name")
   })
 
-  it("rejects direct email updates through update-user", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
-    const { headers } = await signUpVerifyAndSignIn(authContext, user)
+  it("rejects an email change sent straight to update-user", async () => {
+    const { headers } = await signUpAndVerify()
 
-    const invalidBody = { email: createTestUserPayload().email }
+    const response = await auth.handler(
+      postJson(
+        `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.UPDATE_USER}`,
+        { email: createTestAccount().email },
+        { cookie: headers.get("cookie") ?? "" },
+      ),
+    )
 
-    await expect(
-      authContext.auth.api.updateUser({
-        body: invalidBody,
-        headers,
-      }),
-    ).rejects.toThrow("Email can not be updated")
+    expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST)
+    await expect(response.json()).resolves.toMatchObject({ message: "Email can not be updated" })
   })
 })
 
 describe("auth send verification email", () => {
-  it("resends verification for an unverified user without a session", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
+  it("resends verification to an unverified user without a session", async () => {
+    const { email } = await signUp()
+    vi.useFakeTimers({ now: Date.now() + A_MINUTE_LATER_MS, toFake: ["Date"] })
 
-    await authContext.auth.api.signUpEmail({ body: user })
+    await auth.api.sendVerificationEmail({ body: { email }, headers: browserHeaders() })
+    await flushWaitUntil()
 
-    const verificationCountBefore = authContext.emailCapture.verification.length
-
-    await authContext.auth.api.sendVerificationEmail({
-      body: { email: user.email },
-    })
-
-    expect(authContext.emailCapture.verification.length).toBeGreaterThan(verificationCountBefore)
+    expect(getSentEmails(email)).toHaveLength(2)
   })
 
-  it("rejects resend when the signed-in email is already verified", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
-    const { headers } = await signUpVerifyAndSignIn(authContext, user)
+  it("rejects a resend when the signed-in email is already verified", async () => {
+    const { account, headers } = await signUpAndVerify()
 
-    await expect(
-      authContext.auth.api.sendVerificationEmail({
-        body: { email: user.email },
-        headers,
-      }),
-    ).rejects.toThrow("verified")
+    await expect(auth.api.sendVerificationEmail({ body: { email: account.email }, headers })).rejects.toThrow("Email is already verified")
   })
 })
 
 describe("auth revoke session", () => {
   it("revokes another active session while keeping the current one", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
+    const { account, headers: firstSession } = await signUpAndVerify()
+    const secondSession = await signIn(account)
+    const sessions = await auth.api.listSessions({ headers: secondSession })
+    const current = await auth.api.getSession({ headers: secondSession })
+    const other = sessions.find(({ id }) => id !== current?.session.id)
 
-    await signUpVerifyAndSignIn(authContext, user)
-    const secondSession = await authContext.signInWithUser(user.email, user.password)
+    await auth.api.revokeSession({ body: { token: other?.token ?? "" }, headers: secondSession })
 
-    const sessionsBefore = await authContext.auth.api.listSessions({ headers: secondSession.headers })
-    expect(sessionsBefore.length).toBeGreaterThan(MULTIPLE_SESSIONS_THRESHOLD)
-
-    const currentSession = sessionsBefore.at(LAST_SESSION_INDEX)
-
-    expect(currentSession).toBeDefined()
-
-    const otherSession = sessionsBefore.find((session) => session.id !== currentSession!.id)
-
-    expect(otherSession).toBeDefined()
-
-    await authContext.auth.api.revokeSession({
-      body: { token: otherSession!.token },
-      headers: secondSession.headers,
-    })
-
-    const sessionsAfter = await authContext.auth.api.listSessions({ headers: secondSession.headers })
-
-    expect(sessionsAfter).toHaveLength(sessionsBefore.length - SINGLE_SESSION_REVOKE_DELTA)
+    await expect(auth.api.listSessions({ headers: secondSession })).resolves.toHaveLength(1)
+    await expect(auth.api.getSession({ headers: firstSession })).resolves.toBeNull()
   })
 })

@@ -180,7 +180,7 @@ describe("blog routes", () => {
   })
 
   it("encodes sharing targets and copies the canonical URL", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     await renderBlog({ locale: "en-US", path: "/blog/guide" })
     const url = `${APP_URL}/blog/guide`
     const shareOnX = screen.getByRole("link", { name: pagesBlogMessages.post.share.x })

@@ -53,7 +53,7 @@ const renderVerifyEmail = async ({ locale = "en-US", search = "" }: Readonly<{ l
     </QueryClientProvider>,
   )
   await act(() => router.load())
-  return { queryClient, user: userEvent.setup() }
+  return { queryClient, user: userEvent.setup({ delay: null }) }
 }
 
 beforeEach(() => {

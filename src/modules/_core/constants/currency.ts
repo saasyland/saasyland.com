@@ -167,3 +167,8 @@ export type CurrencyCode = keyof typeof CURRENCIES
 const isCurrencyCode = (value: string): value is CurrencyCode => value in CURRENCIES
 
 export const CURRENCY_CODES = Object.keys(CURRENCIES).filter((code) => isCurrencyCode(code))
+
+const MINOR_UNIT_BASE = 10
+
+export const toMinorUnits = (amount: number, currency: CurrencyCode): number =>
+  Math.round(amount * MINOR_UNIT_BASE ** CURRENCIES[currency].exponent)

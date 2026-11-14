@@ -230,7 +230,7 @@ vi.mock(import("~/src/integrations/better-auth/auth.client"), async (importOrigi
 describe("sign in form", () => {
   it("lets the user reveal and hide their password without changing it", async () => {
     setupSignInFormMocks()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignInForm />)
     const input = getPasswordInput("sign-in-password")
     await user.type(input, TEST_PASSWORD)
@@ -248,7 +248,7 @@ describe("sign in form", () => {
       data: null,
       error: { code, message: "Sign in rejected", status: 403, statusText: "Forbidden" },
     })
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignInForm />)
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
@@ -269,7 +269,7 @@ describe("sign in form", () => {
   it("reports network failures and lets the customer retry", async () => {
     setupSignInFormMocks()
     signInEmailMock.mockRejectedValueOnce(new Error("Network unavailable"))
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignInForm />)
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
@@ -284,7 +284,7 @@ describe("sign in form", () => {
   it("takes the visitor to the two-factor challenge instead of announcing a completed sign-in", async () => {
     setupSignInFormMocks()
     signInEmailMock.mockResolvedValueOnce({ data: { twoFactorRedirect: true }, error: null })
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignInForm />)
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
@@ -297,7 +297,7 @@ describe("sign in form", () => {
 
   it("blocks submit when email is invalid", async () => {
     setupSignInFormMocks()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignInForm />)
 
     await user.type(screen.getByLabelText(/email/iu), "not-an-email")
@@ -310,7 +310,7 @@ describe("sign in form", () => {
 
   it("explains a missing password and clears the error once one is entered", async () => {
     setupSignInFormMocks()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignInForm />)
     const password = getPasswordInput("sign-in-password")
 
@@ -333,7 +333,7 @@ describe("sign in form", () => {
     setupSignInFormMocks()
     const pending = Promise.withResolvers<Awaited<ReturnType<typeof signInEmailMock>>>()
     signInEmailMock.mockReturnValueOnce(pending.promise)
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignInForm />)
     const submit = screen.getByTestId("sign-in-form-submit-button")
 
@@ -358,7 +358,7 @@ describe("sign in form", () => {
 
   it("signs in and delegates to the guarded auth callback", async () => {
     setupSignInFormMocks()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignInForm />)
 
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
@@ -377,7 +377,7 @@ describe("sign up form", () => {
   it("does not show the verification page or celebrate when account creation fails", async () => {
     setupSignUpFormMocks()
     signUpMock.mockRejectedValueOnce(new Error("Sign up unavailable"))
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignUpForm />)
     await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
     await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
@@ -393,7 +393,7 @@ describe("sign up form", () => {
 
   it("blocks submit when passwords do not match", async () => {
     setupSignUpFormMocks()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignUpForm />)
 
     await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
@@ -416,7 +416,7 @@ describe("sign up form", () => {
     setupSignUpFormMocks()
     const pending = Promise.withResolvers<Awaited<ReturnType<typeof signUpMock>>>()
     signUpMock.mockReturnValueOnce(pending.promise)
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignUpForm />)
     const submit = screen.getByRole("button", { name: pagesAuthSignUpMessages.form.submit })
 
@@ -445,7 +445,7 @@ describe("sign up form", () => {
 
   it("signs up, celebrates, and redirects", async () => {
     setupSignUpFormMocks()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<SignUpForm />)
 
     await user.type(screen.getByLabelText(/^name$/iu), TEST_NAME)
@@ -469,7 +469,7 @@ describe("forgot password form", () => {
   it("allows retry after a failed request and disables the form only after success", async () => {
     setupForgotPasswordFormMocks()
     requestPasswordResetMock.mockRejectedValueOnce(new Error("Email delivery failed"))
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<ForgotPasswordForm />)
     const email = screen.getByLabelText(/email/iu)
     const submit = screen.getByTestId("forgot-password-form-submit-button")
@@ -493,7 +493,7 @@ describe("forgot password form", () => {
 
   it("requests a password reset email", async () => {
     setupForgotPasswordFormMocks()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const { queryClient } = renderWithAuthMessages(<ForgotPasswordForm />)
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, createAuthSessionFixture())
 
@@ -515,7 +515,7 @@ describe("forgot password form", () => {
     setupForgotPasswordFormMocks()
     const pending = Promise.withResolvers<Awaited<ReturnType<typeof requestPasswordResetMock>>>()
     requestPasswordResetMock.mockReturnValueOnce(pending.promise)
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<ForgotPasswordForm />)
     const submit = screen.getByTestId("forgot-password-form-submit-button")
 
@@ -545,7 +545,7 @@ describe("reset password form", () => {
   it("keeps the reset form available when the token is rejected", async () => {
     setupResetPasswordFormMocks()
     resetPasswordMock.mockRejectedValueOnce(new Error("Reset link expired"))
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const { navigate } = await renderResetPasswordPage()
     await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
     await user.type(getPasswordInput("reset-password-confirmPassword"), TEST_PASSWORD)
@@ -559,7 +559,7 @@ describe("reset password form", () => {
 
   it("blocks submit when passwords do not match", async () => {
     setupResetPasswordFormMocks()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     await renderResetPasswordPage()
 
     await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
@@ -574,7 +574,7 @@ describe("reset password form", () => {
     setupResetPasswordFormMocks()
     const pending = Promise.withResolvers<Awaited<ReturnType<typeof resetPasswordMock>>>()
     resetPasswordMock.mockReturnValueOnce(pending.promise)
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const { navigate } = await renderResetPasswordPage()
     const submit = screen.getByTestId("reset-password-form-submit-button")
 
@@ -601,7 +601,7 @@ describe("reset password form", () => {
 
   it("submits the new password with the reset token", async () => {
     setupResetPasswordFormMocks()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const { navigate } = await renderResetPasswordPage()
 
     await user.type(getPasswordInput("reset-password-password"), TEST_PASSWORD)
@@ -628,7 +628,7 @@ describe("o auth buttons", () => {
       }
       await fetchOptions?.onError?.(context)
     })
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<OAuthButtons />)
     await user.click(screen.getByRole("button", { name: authOauthMessages.github }))
     await waitFor(() => {
@@ -648,7 +648,7 @@ describe("o auth buttons", () => {
 
   it("starts GitHub OAuth sign-in", async () => {
     setupOAuthButtonsMocks()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<OAuthButtons />)
 
     await user.click(screen.getByRole("button", { name: authOauthMessages.github }))

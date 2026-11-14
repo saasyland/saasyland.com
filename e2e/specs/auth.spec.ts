@@ -3,6 +3,9 @@ import { expect, test } from "../fixtures/test"
 import type { AuthPage } from "../pages"
 
 const SIGN_UP_PASSWORD = "StrongPassword123!"
+const MS_PER_SECOND = 1000
+
+const secondOf = (milliseconds: number): number => Math.floor(milliseconds / MS_PER_SECOND)
 
 const completeSignUp = async (authPage: AuthPage, email: string): Promise<void> => {
   await authPage.gotoSignUp()
@@ -134,11 +137,17 @@ test.describe("auth", () => {
     await completeSignUp(authPage, email)
     await expect(page).toHaveURL(/\/auth\/verify-email\?email=/u)
     await expectVerificationEmail(request, email)
+    const firstEmailDeliveredBy = Date.now()
 
     await completeSignUp(authPage, email)
     await expect(page).toHaveURL(/\/auth\/verify-email\?email=/u)
     await expectVerificationEmail(request, email, 2)
 
+    await expect
+      .poll(() => secondOf(Date.now()), {
+        message: "A resend in the first email's second signs the same token, and Resend delivers a repeated idempotency key once",
+      })
+      .toBeGreaterThan(secondOf(firstEmailDeliveredBy))
     await authPage.verifyEmailResendButton().click()
     const verificationUrl = await expectVerificationEmail(request, email, 3)
     expect(verificationUrl.origin).toBe(new URL(page.url()).origin)

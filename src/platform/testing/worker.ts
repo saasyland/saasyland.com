@@ -1,22 +1,49 @@
-import type * as providersModuleType from "~/src/platform/testing/mocks/providers"
+import type * as resendModuleType from "~/src/platform/testing/mocks/resend"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
+import { TEST_LICENSED_ACCOUNT } from "~/e2e/data/accounts"
+import { TEST_LICENSE } from "~/e2e/data/licenses"
 import type * as applicationModuleType from "~/src/server"
 
-let providersModule: Promise<typeof providersModuleType> | null = null
+let resendModule: Promise<typeof resendModuleType> | null = null
 let applicationModule: Promise<typeof applicationModuleType> | null = null
 
-const installProviders = async (): Promise<typeof providersModuleType> => {
-  const providers = await import("~/src/platform/testing/mocks/providers")
-  providers.installProviderMocks()
-  return providers
+const installProviderDoubles = async (): Promise<typeof resendModuleType> => {
+  const [providers, resend, polar] = await Promise.all([
+    import("~/src/platform/testing/mocks/providers"),
+    import("~/src/platform/testing/mocks/resend"),
+    import("~/src/platform/testing/mocks/polar"),
+  ])
+  polar.seedPolarLicenseKey({
+    activation: TEST_LICENSE.activation,
+    externalCustomerId: TEST_LICENSED_ACCOUNT.id,
+    key: TEST_LICENSE.key,
+    licenseKeyId: TEST_LICENSE.polarLicenseKeyId,
+    tier: TEST_LICENSE.tier,
+  })
+  const nativeFetch = globalThis.fetch
+  globalThis.fetch = Object.assign(
+    async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const request = new Request(input, init)
+      if (!providers.servesProvider(request)) {
+        return nativeFetch(request)
+      }
+      const response = await providers.fetchFromProviders(request)
+      for (const refusal of providers.takeProviderRefusals()) {
+        console.error(`[provider double] refused ${refusal}`)
+      }
+      return response
+    },
+    { preconnect: nativeFetch.preconnect },
+  )
+  return resend
 }
 
 export default {
   async fetch(request, env) {
-    providersModule ??= installProviders()
-    const { getSentEmails } = await providersModule
+    resendModule ??= installProviderDoubles()
+    const { getSentEmails } = await resendModule
 
     const url = new URL(request.url)
     if (url.pathname === "/__test/emails" && request.method === "GET") {

@@ -11,5 +11,5 @@ export const Route = createFileRoute("/docs/")({
   head: docsHead,
   loader: () => loadDocsPage(),
   pendingMs: Number.POSITIVE_INFINITY,
-  wrapInSuspense: false,
+  wrapInSuspense: true,
 })

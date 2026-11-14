@@ -229,7 +229,7 @@ describe("course tour", () => {
   })
 
   it("plays in place with native controls and hides the poster once the first frame is on screen", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const focus = vi.spyOn(HTMLElement.prototype, "focus")
     const { container } = renderShowcase()
 
@@ -253,7 +253,7 @@ describe("course tour", () => {
   })
 
   it("stops the tour when the block leaves the page", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockReturnValue(undefined)
     const { unmount } = renderShowcase()
 

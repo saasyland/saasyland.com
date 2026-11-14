@@ -48,7 +48,7 @@ const renderUser = (banned = false, users = [adminUser({ banned })]) => {
   if (!Page) {
     throw new Error("Missing users page")
   }
-  return { ...renderAdmin(<Page />, { queryClient }), invalidateQueries, user: userEvent.setup() }
+  return { ...renderAdmin(<Page />, { queryClient }), invalidateQueries, user: userEvent.setup({ delay: null }) }
 }
 
 const chooseAction = async (user: ReturnType<typeof userEvent.setup>, action: string) => {

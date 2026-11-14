@@ -1,120 +1,73 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import {
-  AUTH_TEST_BASE_URL,
-  createAuthTestInstance,
-  createTestUserPayload,
-  signUpVerifyAndSignIn,
-} from "~/src/integrations/better-auth/__test__/fixtures/auth.test-instance"
+import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
+import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
-const authContext = await createAuthTestInstance()
+import {
+  browserHeaders,
+  createTestAccount,
+  emailLink,
+  signIn,
+  signUpAndVerify,
+} from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
+import { auth } from "~/src/integrations/better-auth/auth.server"
+
+import { ROUTES } from "~/src/routes"
+
+const RESET_TOKEN = /\/reset-password\/(?<token>[^/]+)$/u
+const NEW_PASSWORD = "NewSecret1!"
+
+const requestPasswordReset = async (email: string): Promise<void> => {
+  await auth.api.requestPasswordReset({ body: { email, redirectTo: ROUTES.RESET_PASSWORD }, headers: browserHeaders() })
+  await flushWaitUntil()
+}
+
+const resetToken = (email: string): string => {
+  const link = emailLink(email, `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.RESET_PASSWORD}/`)
+  return RESET_TOKEN.exec(link.pathname)?.groups?.["token"] ?? ""
+}
 
 describe("auth password reset", () => {
-  it("sends a reset password email for an existing user", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
+  it("emails a reset link that returns to the reset page", async () => {
+    const { account } = await signUpAndVerify()
 
-    await signUpVerifyAndSignIn(authContext, user)
+    await requestPasswordReset(account.email)
 
-    await authContext.auth.api.requestPasswordReset({
-      body: {
-        email: user.email,
-        redirectTo: `${AUTH_TEST_BASE_URL}/auth/reset-password`,
-      },
-    })
-
-    expect(authContext.emailCapture.resetPassword.some((entry) => entry.user.email === user.email)).toBe(true)
+    const link = emailLink(account.email, `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.RESET_PASSWORD}/`)
+    expect(link.searchParams.get("callbackURL")).toBe(ROUTES.RESET_PASSWORD)
   })
 
-  it("resets the password with a valid token", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
-    const newPassword = "NewSecret1!"
+  it("sets the new password with the emailed token and retires the old one", async () => {
+    const { account } = await signUpAndVerify()
+    await requestPasswordReset(account.email)
 
-    await signUpVerifyAndSignIn(authContext, user)
+    await auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: resetToken(account.email) }, headers: browserHeaders() })
 
-    await authContext.auth.api.requestPasswordReset({
-      body: {
-        email: user.email,
-        redirectTo: `${AUTH_TEST_BASE_URL}/auth/reset-password`,
-      },
-    })
-
-    const resetEmail = authContext.emailCapture.resetPassword.find((entry) => entry.user.email === user.email)
-    const token = resetEmail?.token
-
-    expect(token).toBeDefined()
-
-    await authContext.auth.api.resetPassword({
-      body: {
-        newPassword,
-        token: token!,
-      },
-    })
-
-    const { headers } = await authContext.signInWithUser(user.email, newPassword)
-    const session = await authContext.auth.api.getSession({ headers })
-
-    expect(session?.user.email).toBe(user.email)
+    const session = await auth.api.getSession({ headers: await signIn({ email: account.email, password: NEW_PASSWORD }) })
+    expect(session?.user.email).toBe(account.email)
+    await expect(signIn(account)).rejects.toThrow("Invalid email or password")
   })
 
-  it("rejects sign-in with the old password after reset", async () => {
-    expect.hasAssertions()
-    const user = createTestUserPayload()
-    const newPassword = "AnotherSecret1!"
+  it("signs out every session of the account once the password is reset", async () => {
+    const { account, headers } = await signUpAndVerify()
+    await requestPasswordReset(account.email)
 
-    await signUpVerifyAndSignIn(authContext, user)
+    await auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: resetToken(account.email) }, headers: browserHeaders() })
 
-    await authContext.auth.api.requestPasswordReset({
-      body: {
-        email: user.email,
-        redirectTo: `${AUTH_TEST_BASE_URL}/auth/reset-password`,
-      },
-    })
+    await expect(auth.api.getSession({ headers })).resolves.toBeNull()
+  })
 
-    const resetEmail = authContext.emailCapture.resetPassword.find((entry) => entry.user.email === user.email)
-    const token = resetEmail?.token
-
-    expect(token).toBeDefined()
-
-    await authContext.auth.api.resetPassword({
-      body: {
-        newPassword,
-        token: token!,
-      },
-    })
-
+  it("rejects a password reset with an invalid token", async () => {
     await expect(
-      authContext.auth.api.signInEmail({
-        body: { email: user.email, password: user.password },
-      }),
-    ).rejects.toThrow("Invalid email or password")
+      auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: "invalid-token" }, headers: browserHeaders() }),
+    ).rejects.toThrow("Invalid token")
   })
 
-  it("rejects password reset with an invalid token", async () => {
-    expect.hasAssertions()
+  it("answers a reset request for an unknown address without sending anything", async () => {
+    const { email } = createTestAccount()
 
-    await expect(
-      authContext.auth.api.resetPassword({
-        body: {
-          newPassword: "NewSecret1!",
-          token: "invalid-token",
-        },
-      }),
-    ).rejects.toThrow("token")
-  })
+    await requestPasswordReset(email)
 
-  it("returns success for password reset requests to unknown emails", async () => {
-    expect.hasAssertions()
-    const resetCountBefore = authContext.emailCapture.resetPassword.length
-
-    await authContext.auth.api.requestPasswordReset({
-      body: {
-        email: "missing-user@example.com",
-        redirectTo: `${AUTH_TEST_BASE_URL}/auth/reset-password`,
-      },
-    })
-
-    expect(authContext.emailCapture.resetPassword).toHaveLength(resetCountBefore)
+    expect(getSentEmails(email)).toStrictEqual([])
   })
 })

@@ -3,11 +3,11 @@ import { env } from "cloudflare:workers"
 import { getRequest } from "@tanstack/react-start/server"
 import { eq } from "drizzle-orm"
 import { createHash } from "node:crypto"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { executeMutation } from "~/src/platform/testing/lib/query"
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
-import { clearSentEmails, getSentEmails, respondAsResend } from "~/src/platform/testing/mocks/providers"
+import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
 import { EMAIL_MAX_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { auth } from "~/src/integrations/better-auth/auth.server"
@@ -23,7 +23,7 @@ import { ROUTES } from "~/src/routes"
 
 const ORIGIN = "http://127.0.0.1:3000"
 const RESEND_LIMIT = 256
-let failDelivery = false
+const A_MINUTE_MS = 60_000
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex")
 
@@ -54,7 +54,9 @@ const signUp = async (body: ReturnType<typeof createSignUp>, cookie = `${I18N.CO
 }
 
 const deliveredVerificationToken = (email: string): string => {
-  const verificationLink = getSentEmails(email)[0]?.html.match(/href="(?<url>[^"]+\/auth\/verify-email\?token=[^"]+)"/u)?.groups?.["url"]
+  const verificationLink = getSentEmails(email)
+    .at(-1)
+    ?.html.match(/href="(?<url>[^"]+\/auth\/verify-email\?token=[^"]+)"/u)?.groups?.["url"]
   expect(verificationLink).toBeDefined()
   const token = new URL(verificationLink!).searchParams.get("token")
   expect(token).toBeTruthy()
@@ -65,18 +67,12 @@ const verifyDeliveredEmail = async (email: string) => {
   await auth.api.verifyEmail({ headers: getRequest().headers, query: { token: deliveredVerificationToken(email) } })
 }
 
-beforeEach(() => {
-  clearSentEmails()
-  failDelivery = false
-  vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
-    if (failDelivery) {
-      return Promise.resolve(Response.json({ message: "Provider temporarily unavailable", name: "application_error" }, { status: 503 }))
-    }
-    return respondAsResend(new Request(input, init))
-  })
-})
+const aMinuteLater = (): void => {
+  vi.useFakeTimers({ now: Date.now() + A_MINUTE_MS, toFake: ["Date"] })
+}
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
@@ -113,7 +109,7 @@ describe("production signup verification delivery", () => {
     async ({ callbackURL, cookie, path }) => {
       const body = { ...createSignUp(), callbackURL }
       const first = await signUp(body, `${I18N.COOKIE_NAME}=${cookie}`)
-      clearSentEmails()
+      aMinuteLater()
 
       const repeated = await signUp(body, `${I18N.COOKIE_NAME}=${cookie}`)
 
@@ -121,8 +117,8 @@ describe("production signup verification delivery", () => {
       expect(repeated.user.email).toBe(body.email)
       expect(repeated.user.id).not.toBe(first.user.id)
       const deliveries = getSentEmails(body.email)
-      expect(deliveries).toHaveLength(1)
-      expect(deliveries[0]?.html).toContain(`${ORIGIN}${path}/auth/verify-email?token=`)
+      expect(deliveries).toHaveLength(2)
+      expect(deliveries[1]?.html).toContain(`${ORIGIN}${path}/auth/verify-email?token=`)
       const accounts = await db.select().from(user).where(eq(user.email, body.email))
       expect(accounts).toHaveLength(1)
       expect(accounts[0]?.id).toBe(first.user.id)
@@ -156,13 +152,13 @@ describe("production signup verification delivery", () => {
         await flushWaitUntil()
       }
       await signUpDirectly()
-      clearSentEmails()
+      aMinuteLater()
 
       await signUpDirectly()
 
       const deliveries = getSentEmails(email)
-      expect(deliveries).toHaveLength(1)
-      expect(deliveries[0]?.html).toContain(`${ORIGIN}${path}/auth/verify-email?token=`)
+      expect(deliveries).toHaveLength(2)
+      expect(deliveries[1]?.html).toContain(`${ORIGIN}${path}/auth/verify-email?token=`)
     },
   )
 
@@ -172,20 +168,22 @@ describe("production signup verification delivery", () => {
     vi.mocked(getRequest).mockReturnValue(request)
     await auth.api.signUpEmail({ body: { email, name, password }, headers: request.headers })
     await flushWaitUntil()
-    clearSentEmails()
+    aMinuteLater()
 
     await auth.api.signUpEmail({ body: { email, name, password }, headers: request.headers })
     await flushWaitUntil()
 
     const deliveries = getSentEmails(email)
-    expect(deliveries).toHaveLength(1)
-    expect(deliveries[0]?.html).toContain(`${ORIGIN}/auth/verify-email?token=`)
+    expect(deliveries).toHaveLength(2)
+    expect(deliveries[1]?.html).toContain(`${ORIGIN}/auth/verify-email?token=`)
   })
 
   it("recovers a failed initial email delivery when signup is retried and lets the customer verify and sign in", async () => {
     const body = createSignUp()
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
-    failDelivery = true
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ message: "Provider temporarily unavailable", name: "application_error", statusCode: 503 }, { status: 503 }),
+    )
 
     const first = await signUp(body)
 
@@ -195,7 +193,6 @@ describe("production signup verification delivery", () => {
     const accounts = await db.select().from(user).where(eq(user.email, body.email))
     expect(accounts).toHaveLength(1)
     expect(accounts[0]?.emailVerified).toBe(false)
-    failDelivery = false
 
     const repeated = await signUp(body)
 
@@ -214,14 +211,14 @@ describe("production signup verification delivery", () => {
     const body = createSignUp()
     const first = await signUp(body)
     await db.update(user).set({ emailVerified: true }).where(eq(user.id, first.user.id))
-    clearSentEmails()
+    aMinuteLater()
 
     const repeated = await signUp(body)
 
     expect(repeated.token).toBeNull()
     expect(repeated.user.email).toBe(body.email)
     expect(repeated.user.id).not.toBe(first.user.id)
-    expect(getSentEmails(body.email)).toHaveLength(0)
+    expect(getSentEmails(body.email)).toHaveLength(1)
   })
 })
 
@@ -275,6 +272,7 @@ describe("verification email limits", () => {
       const result = await auth.api.signUpEmail({ body: { email, name, password }, headers: request.headers })
       await flushWaitUntil()
       expect(result.user.email).toBe(email)
+      aMinuteLater()
     }
 
     expect(getSentEmails(email)).toHaveLength(3)

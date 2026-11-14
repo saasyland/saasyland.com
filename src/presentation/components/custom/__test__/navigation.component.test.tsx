@@ -183,7 +183,7 @@ describe("public navigation links", () => {
 
 describe("mobile menu", () => {
   it("opens with its trigger, ignores other keys and closes on Escape or the close button", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderNavigation()
     const open = () => user.click(screen.getByRole("button", { name: navigationMessages.openMenu }))
 
@@ -200,7 +200,7 @@ describe("mobile menu", () => {
   })
 
   it("links the same pages and sections as the desktop navigation, closes after a link and removes its Escape listener on unmount", async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const { unmount } = renderNavigation()
     const open = () => user.click(screen.getByRole("button", { name: navigationMessages.openMenu }))
 

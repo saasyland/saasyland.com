@@ -18,7 +18,23 @@ description: "Vitest のプロジェクト、カバレッジのゲート、Playw
 - D1 は、チェックイン済みのマイグレーションを実行するインメモリの SQLite データベースで、KV と `MEDIA` の R2 バケットはインメモリのマップです。KV、バケット、レート制限のカウンターは各テストの前にリセットされ、`createEdgeCache` が Workers のキャッシュをスタブします。
 - `createServerFn` が置き換えられているため、サーバー関数は本物のミドルウェアとバリデーターを通って、プロセス内で実行されます。これは `node` と `integration` プロジェクトでの動作です。`component` プロジェクトでは jsdom がブラウザにあたるため、サーバー関数は失敗します。
 - コンポーネントテストは、本物の `QueryClient` とルーターを使ってレンダリングします。
-- メール、OAuth、決済のリクエストはモックされます。
+- `fetch` はネットワークではなく Resend と Polar の厳密なテストダブルに届き、それ以外のホストへのリクエストは、マシンがオフラインであるかのように失敗します。
+
+## プロバイダーのテストダブル
+
+`src/platform/testing/setup.ts` は各テストの前に `fetch` を置き換えます。そのため、アプリ自身の Resend と Polar の SDK クライアントは、本物のリクエストを `src/platform/testing/mocks/resend.ts` と `src/platform/testing/mocks/polar.ts` に送信します。
+
+- プロバイダーと同じ項目をチェックします。API キーまたはアクセストークン、エンドポイントとメソッド、ボディまたはクエリを、SDK 自身のリクエストモデル（`EmailApiOptions`、`models.CheckoutCreate`、`models.LicenseKeyDeactivate`）に合わせて型付けした厳密な Zod スキーマで検証します。Polar のテストダブルは、組織に存在しない商品や割引も拒否します。
+- プロバイダーと同じように応答します。Resend は、同じ `Idempotency-Key` が繰り返されると二重に送信せずに最初の結果を返し、そのキーが別のメールとともに再び届くと 409 を返します。Polar は完全な `models.Checkout`、`models.Order`、`models.LicenseKeyWithActivations` オブジェクトを返し、保持していない注文やキーには 404 を返します。
+- Polar のカタログはコードから作られます。商品 ID は `POLAR_PRODUCT_IDS`、価格は `TIER_PRICES`、ライセンスキーのアクティベーション数の上限は `LICENSE_ACTIVATION_LIMITS` から取り、`PPP_PERCENTS_OFF` の値ごとに自動のパーセント割引を 1 つ用意します。
+- プロバイダーが拒否するリクエストや、アプリが呼び出さないエンドポイントへのリクエストは記録され、アプリがそのエラーを捕捉した場合でも、共通の `afterEach` がテストを失敗させます。
+
+## 統合テストのスイート
+
+`*.integration.test.ts` ファイルは、インメモリの D1 とプロバイダーのテストダブルを相手に、サーバー側のフロー全体を検証します。
+
+- Better Auth のスイートは、`auth.server.ts` の本物の `auth` に対して実行され、そのプラグイン、フック、レート制限、メール送信処理もすべて含まれます。`__test__/fixtures/auth.harness.ts` は、ブラウザが送るのと同じヘッダーでサインアップ、メール認証、サインインを行い、各トークンを Resend のテストダブルが配信したメールから読み取ります。
+- `license-purchase.integration.test.ts` は決済とライセンスをカバーします。購入セッションの作成（プラン、国別の地域割引、紹介情報のメタデータ、有効なライセンスがある場合の拒否）、続いて Better Auth の Polar エンドポイントを通る署名付きの `order.paid`、`benefit_grant.created`、`order.refunded`（一部返金と全額返金）、`benefit_grant.revoked` Webhook（順序の入れ替わり、二重配信、不正な署名を含む）、そしてライセンスのアクティベーションの一覧表示と解除です。
 
 ## カバレッジ
 
@@ -26,7 +42,7 @@ description: "Vitest のプロジェクト、カバレッジのゲート、Playw
 
 ## ブラウザテスト
 
-Playwright のスペックは `e2e/specs` に、ページオブジェクトは `e2e/pages` に、フィクスチャは `e2e/fixtures` に置きます。スペックは、`test` Wrangler 環境を使う本番相当のビルドに対して実行されます。この環境では、`.wrangler/test` 内のローカル D1、KV、R2、`.env.test` のダミーシークレット、そして送信メールをキャプチャするテスト用 Worker を使います。そのため、スペックは実際の認証リンクをたどることができます。ローカルでは、Playwright がマイグレーション、シード投入、ビルド、アプリの起動を自動で行います。スイートは Chromium と WebKit で実行されます。
+Playwright のスペックは `e2e/specs` に、ページオブジェクトは `e2e/pages` に、フィクスチャは `e2e/fixtures` に置きます。スペックは、`test` Wrangler 環境を使う本番相当のビルドに対して実行されます。この環境では、`.wrangler/test` 内のローカル D1、KV、R2、`.env.test` のダミーシークレット、そして同じ Resend と Polar のテストダブルをインストールし、配信されたメールを公開するテスト用 Worker を使います。そのため、スペックは実際の認証リンクをたどることができます。`e2e/fixtures/polar.ts` は、統合テストのスイートとまったく同じ方法で署名した支払い済みの注文を配信します。ローカルでは、Playwright がマイグレーション、シード投入、ビルド、アプリの起動を自動で行います。スイートは Chromium と WebKit で実行されます。
 
 ## スクリプト
 

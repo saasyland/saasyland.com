@@ -154,7 +154,7 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
     </QueryClientProvider>,
   )
   await act(() => router.load())
-  return { queryClient, router, user: userEvent.setup() }
+  return { queryClient, router, user: userEvent.setup({ delay: null }) }
 }
 
 const offer = () => screen.findByRole("region", { name: buy.title })

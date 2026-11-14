@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it } from "vite-plus/test"
 
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
 
 import { EMAIL_MAX_LENGTH, IMAGE_URL_MAX_LENGTH, NAME_MAX_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
-import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
+import { HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 
 import { ROUTES } from "~/src/routes"
 
@@ -32,7 +32,7 @@ const post = async (path: string, body: Record<string, unknown>): Promise<Respon
 }
 
 const expectRejected = async (response: Response): Promise<void> => {
-  expect(response.status).toBe(400)
+  expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST)
   expect(await response.json()).toMatchObject({ code: "VALIDATION_ERROR" })
 }
 
@@ -41,14 +41,6 @@ const signUpBody = (overrides: Record<string, unknown> = {}) => ({
   name: "Policy Tester",
   password: STRONG_PASSWORD,
   ...overrides,
-})
-
-beforeEach(() => {
-  vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.resolve(Response.json({ id: crypto.randomUUID() })))
-})
-
-afterEach(() => {
-  vi.restoreAllMocks()
 })
 
 describe("auth input policy on Better Auth's own endpoints", () => {
@@ -67,7 +59,7 @@ describe("auth input policy on Better Auth's own endpoints", () => {
   it("lets a sign-up that meets the policy through to Better Auth", async () => {
     const response = await post(ROUTES.API_AUTH.SIGN_UP_EMAIL, signUpBody())
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(HTTP_STATUS.OK)
   })
 
   it.each([
@@ -86,6 +78,6 @@ describe("auth input policy on Better Auth's own endpoints", () => {
   it("leaves endpoints without a policy, such as sign-in, to Better Auth", async () => {
     const response = await post(ROUTES.API_AUTH.SIGN_IN_EMAIL, { email: "nobody@example.test", password: "x" })
 
-    expect(response.status).toBe(401)
+    expect(response.status).toBe(HTTP_STATUS.UNAUTHORIZED)
   })
 })

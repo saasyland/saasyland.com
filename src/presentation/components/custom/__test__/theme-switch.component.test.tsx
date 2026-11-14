@@ -80,7 +80,7 @@ describe("theme switch", () => {
 
   it("keeps the current theme when opening without selecting an option", async () => {
     expect.hasAssertions()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderThemeSwitch()
 
     await user.click(await screen.findByRole("button", { name: selectTriggerNamed(labels.system) }))
@@ -90,7 +90,7 @@ describe("theme switch", () => {
 
   it("updates the theme when an option is selected", async () => {
     expect.hasAssertions()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderThemeSwitch()
 
     await user.click(await screen.findByRole("button", { name: selectTriggerNamed(labels.system) }))

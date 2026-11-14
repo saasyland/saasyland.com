@@ -238,7 +238,7 @@ const renderAdminCourses = async (path: string, editor: Course["editor"] = EDITO
     </QueryClientProvider>,
   )
   await act(() => router.load())
-  return { invalidateQueries, router, user: userEvent.setup() }
+  return { invalidateQueries, router, user: userEvent.setup({ delay: null }) }
 }
 
 const chapterSection = (title: string): HTMLElement => {

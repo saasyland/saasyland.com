@@ -35,7 +35,7 @@ Use `bun run test`, not `bun test`: only Vitest loads the projects, environments
 
 - `src/platform/testing/setup.ts` registers the jest-dom matchers, resets the bindings before each test and routes every `createServerFn` through `withTestRpc`, so calls run the real middleware and validator. That holds in the `node` and `integration` projects. In the `component` project a server function rejects, because jsdom is the browser.
 - `cloudflare:workers` resolves to `src/platform/testing/mocks/cloudflare.ts`. D1 is an in-memory SQLite database with every checked-in migration applied, KV and the `MEDIA` R2 bucket are in-memory maps, and `flushWaitUntil()` awaits background tasks. `createEdgeCache()` from `mocks/cache.ts` stubs the Workers cache.
-- `.env.test` supplies dummy credentials. Email, OAuth and payment calls are mocked; nothing leaves the machine.
+- `.env.test` supplies dummy credentials. `fetch` reaches strict doubles of Resend and Polar (`mocks/resend.ts`, `mocks/polar.ts`), and any other host fails as if the machine were offline, so nothing leaves it. A request the provider would refuse fails the test.
 - `renderWithRouter` in `src/platform/testing/lib/render.tsx` renders components with a real router and `QueryClient`.
 
 ## Test a use case
@@ -76,9 +76,27 @@ describe("create-category", () => {
 
 Test every outcome of a use case: success, each `AppError` code, missing session and missing permission. Domain values and error codes come from their constants (`CATEGORY_KIND`, `ERROR_CODES`), never from repeated strings.
 
+## Test against Resend and Polar
+
+Do not mock the Resend or Polar SDK. Call the code that sends the request and assert what the double received. `getSentEmails(recipient)` from `mocks/resend.ts` returns the delivered emails with their rendered HTML and idempotency key; `mocks/polar.ts` holds the checkouts, orders and licence keys, and its functions move a purchase forward: `payPolarCheckout`, `grantPolarLicenseKey`, `refundPolarOrder`, `revokePolarLicenseKey` and `activatePolarLicenseKey`. Condensed from `src/modules/license/__test__/license-purchase.integration.test.ts`:
+
+```ts
+const buyer = await signUpAndVerify()
+const order = await paidOrder(buyer, LICENSE_TIER.COMPLETE)
+
+expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)).toBe(HTTP_STATUS.OK)
+expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIVE, tier: LICENSE_TIER.COMPLETE })
+```
+
+`paidOrder` starts the checkout through the real `startCheckout` and pays it in the double. `deliver` signs the event with `signedPolarWebhook` from `lib/polar.ts`, posts it to Better Auth's Polar endpoint and returns the response status, so the signature check, the plugin and the handlers in `license.webhooks.ts` all run. To test how the app handles a provider failure, answer a single request with the provider's error, as `resend.utils.test.ts` does: `vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(error, { status }))`.
+
+## Test an auth flow
+
+Auth suites run against the real `auth` from `auth.server.ts`. `src/integrations/better-auth/__test__/fixtures/auth.harness.ts` creates accounts the way a visitor does: `signUp`, `verifyEmail` (which follows the token in the delivered email and returns the session it opens), `signIn` and `signUpAndVerify`. `browserHeaders()` gives every request its own `CF-Connecting-IP`, so Better Auth's rate limits apply as in production without one test using up another's allowance. Await `flushWaitUntil()` before reading an email that Better Auth sends in the background.
+
 ## Test a component
 
-Component tests render with real messages from `messages/en-US`, mock the use-case module that provides the mutation options and drive the UI with Testing Library and `userEvent`. For pending states, hold the mocked request open with `Promise.withResolvers()`, assert the pending UI, then resolve inside `act` and assert the idle UI. `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx` is a complete example. A route test gives the route its loader data, and a `node` test covers the loader through `getRouter()`: `src/routes/__test__/marketing-routes.component.test.tsx` and `marketing-loaders.test.ts` are the two halves.
+Component tests render with real messages from `messages/en-US`, mock the use-case module that provides the mutation options and drive the UI with Testing Library and `userEvent`. For pending states, hold the mocked request open with `Promise.withResolvers()`, assert the pending UI, then resolve inside `act` and assert the idle UI. A component that changes after a delay is tested with fake timers (`vi.useFakeTimers()`, then `vi.advanceTimersByTimeAsync` inside `act`), never by waiting real time, and a route test's `QueryClient` keeps the data its loader fetched fresh (`staleTime: Infinity`), so how fast the machine renders never changes how often a query runs. `userEvent.setup({ delay: null })` drives the UI without a real timer between keystrokes. `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx` is a complete example. A route test gives the route its loader data, and a `node` test covers the loader through `getRouter()`: `src/routes/__test__/marketing-routes.component.test.tsx` and `marketing-loaders.test.ts` are the two halves.
 
 ## Browser tests
 
@@ -91,7 +109,7 @@ bun run test:e2e:smoke
 bun run test:e2e:ui
 ```
 
-The test Worker records sent emails, so a spec can read the verification link from `/__test/emails?to=<address>`.
+The test Worker installs the same Resend and Polar doubles and records sent emails, so a spec can read the verification link from `/__test/emails?to=<address>`. `deliverPaidOrder` in `e2e/fixtures/polar.ts` posts a complete `order.paid` event, signed like the integration suites' events.
 
 ## Before you push
 

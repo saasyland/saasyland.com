@@ -5,7 +5,7 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 
 import { BASIS_POINTS_PER_PERCENT, POLAR_DISCOUNT_TYPE } from "~/src/integrations/polar/polar.discounts"
 
-import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
+import { ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { DEFAULT_CURRENCY_CODE, PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
 import {
   LICENSE_ACTIVATION_LIMITS,
@@ -372,7 +372,7 @@ describe("verifyPolar before it asks Polar", () => {
 
 describe("verifyPolar when Polar refuses the token", () => {
   it("says once that the server rejects the token, as with a production token against the sandbox", async () => {
-    fetchMock.mockImplementation(() => Promise.resolve(Response.json({ error: "invalid_token" }, { status: 401 })))
+    fetchMock.mockImplementation(() => Promise.resolve(Response.json({ error: "invalid_token" }, { status: HTTP_STATUS.UNAUTHORIZED })))
 
     await expect(verify(ENVIRONMENT.PREVIEW)).rejects.toThrow(
       new Error(
@@ -385,7 +385,7 @@ describe("verifyPolar when Polar refuses the token", () => {
   })
 
   it("names each scope the token lacks, in the order it reads them", async () => {
-    const insufficientScope = Response.json({ error: "insufficient_scope" }, { status: 403 })
+    const insufficientScope = Response.json({ error: "insufficient_scope" }, { status: HTTP_STATUS.FORBIDDEN })
     serve({}, { "/v1/discounts/": insufficientScope, "/v1/webhooks/endpoints": insufficientScope })
 
     await expect(verify(ENVIRONMENT.PRODUCTION)).rejects.toThrow(

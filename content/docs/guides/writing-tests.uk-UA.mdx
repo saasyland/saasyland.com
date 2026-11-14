@@ -35,7 +35,7 @@ bun run test:coverage
 
 - `src/platform/testing/setup.ts` реєструє matchers jest-dom, скидає прив'язки перед кожним тестом і пропускає кожен `createServerFn` через `withTestRpc`, тож виклики виконують справжні middleware і валідатор. Це стосується проєктів `node` та `integration`. У проєкті `component` серверна функція завершується помилкою, бо jsdom є браузером.
 - `cloudflare:workers` вказує на `src/platform/testing/mocks/cloudflare.ts`. D1 — це база SQLite в пам'яті із застосованими всіма міграціями з репозиторію, KV і бакет R2 `MEDIA` — мапи в пам'яті, а `flushWaitUntil()` чекає на фонові завдання. `createEdgeCache()` з `mocks/cache.ts` підміняє кеш Workers.
-- `.env.test` надає фіктивні облікові дані. Виклики пошти, OAuth і платежів замоковано; нічого не залишає машину.
+- `.env.test` надає фіктивні облікові дані. `fetch` потрапляє до строгих дублерів Resend і Polar (`mocks/resend.ts`, `mocks/polar.ts`), а запит до будь-якого іншого хоста завершується помилкою, наче машина офлайн, тож ніщо її не залишає. Запит, який провайдер відхилив би, провалює тест.
 - `renderWithRouter` з `src/platform/testing/lib/render.tsx` рендерить компоненти зі справжнім роутером і `QueryClient`.
 
 ## Протестуйте сценарій використання
@@ -76,9 +76,27 @@ describe("create-category", () => {
 
 Перевіряйте кожен результат сценарію використання: успіх, кожен код `AppError`, відсутню сесію й відсутній дозвіл. Доменні значення й коди помилок беруться з їхніх констант (`CATEGORY_KIND`, `ERROR_CODES`), а не з повторюваних рядків.
 
+## Протестуйте роботу з Resend і Polar
+
+Не мокайте SDK Resend чи Polar. Викличте код, який надсилає запит, і перевірте, що отримав дублер. `getSentEmails(recipient)` з `mocks/resend.ts` повертає доставлені листи з їхнім відрендереним HTML і ключем ідемпотентності; `mocks/polar.ts` зберігає сеанси оплати, замовлення й ліцензійні ключі, а його функції просувають покупку далі: `payPolarCheckout`, `grantPolarLicenseKey`, `refundPolarOrder`, `revokePolarLicenseKey` і `activatePolarLicenseKey`. Скорочена версія `src/modules/license/__test__/license-purchase.integration.test.ts`:
+
+```ts
+const buyer = await signUpAndVerify()
+const order = await paidOrder(buyer, LICENSE_TIER.COMPLETE)
+
+expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)).toBe(HTTP_STATUS.OK)
+expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIVE, tier: LICENSE_TIER.COMPLETE })
+```
+
+`paidOrder` створює сеанс оплати через справжній `startCheckout` і оплачує його в дублері. `deliver` підписує подію через `signedPolarWebhook` з `lib/polar.ts`, надсилає її на кінцеву точку Polar у Better Auth і повертає статус відповіді, тож виконуються і перевірка підпису, і плагін, і обробники в `license.webhooks.ts`. Щоб перевірити, як застосунок обробляє збій провайдера, дайте на один запит відповідь з помилкою провайдера, як це робить `resend.utils.test.ts`: `vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(error, { status }))`.
+
+## Протестуйте процес автентифікації
+
+Набори автентифікації працюють зі справжнім `auth` з `auth.server.ts`. `src/integrations/better-auth/__test__/fixtures/auth.harness.ts` створює облікові записи так само, як це робить відвідувач: `signUp`, `verifyEmail` (переходить за токеном з доставленого листа й повертає сесію, яку він відкриває), `signIn` і `signUpAndVerify`. `browserHeaders()` дає кожному запиту власний `CF-Connecting-IP`, тож обмеження частоти запитів Better Auth діють як у production, і жоден тест не вичерпує ліміт іншого. Перш ніж читати лист, який Better Auth надсилає у фоні, дочекайтеся `flushWaitUntil()` через `await`.
+
 ## Протестуйте компонент
 
-Тести компонентів рендерять зі справжніми повідомленнями з `messages/en-US`, мокають модуль сценарію використання, який надає параметри мутації, і керують інтерфейсом через Testing Library та `userEvent`. Для станів очікування тримайте замоканий запит відкритим через `Promise.withResolvers()`, перевірте інтерфейс очікування, потім розв'яжіть запит усередині `act` і перевірте інтерфейс у стані спокою. Повний приклад — `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx`. Тест маршруту передає маршруту дані loader, а тест `node` покриває loader через `getRouter()`: `src/routes/__test__/marketing-routes.component.test.tsx` і `marketing-loaders.test.ts` є двома половинами.
+Тести компонентів рендерять зі справжніми повідомленнями з `messages/en-US`, мокають модуль сценарію використання, який надає параметри мутації, і керують інтерфейсом через Testing Library та `userEvent`. Для станів очікування тримайте замоканий запит відкритим через `Promise.withResolvers()`, перевірте інтерфейс очікування, потім розв'яжіть запит усередині `act` і перевірте інтерфейс у стані спокою. Компонент, який змінюється із затримкою, тестують фейковими таймерами (`vi.useFakeTimers()`, потім `vi.advanceTimersByTimeAsync` усередині `act`), ніколи не чекаючи реального часу, а `QueryClient` у тесті маршруту тримає дані, отримані loader, свіжими (`staleTime: Infinity`), тож швидкість рендерингу на машині ніколи не змінює того, скільки разів виконується запит. `userEvent.setup({ delay: null })` керує інтерфейсом без справжнього таймера між натисканнями клавіш. Повний приклад — `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx`. Тест маршруту передає маршруту дані loader, а тест `node` покриває loader через `getRouter()`: `src/routes/__test__/marketing-routes.component.test.tsx` і `marketing-loaders.test.ts` є двома половинами.
 
 ## Браузерні тести
 
@@ -91,7 +109,7 @@ bun run test:e2e:smoke
 bun run test:e2e:ui
 ```
 
-Тестовий Worker зберігає надіслані листи, тож специфікація може прочитати посилання підтвердження з `/__test/emails?to=<address>`.
+Тестовий Worker встановлює ті самі дублери Resend і Polar і зберігає надіслані листи, тож специфікація може прочитати посилання підтвердження з `/__test/emails?to=<address>`. `deliverPaidOrder` у `e2e/fixtures/polar.ts` надсилає повну подію `order.paid`, підписану так само, як події інтеграційних наборів.
 
 ## Перед push
 

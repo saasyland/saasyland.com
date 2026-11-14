@@ -31,6 +31,6 @@ it("gives React Aria links and calendar labels the selected app locale", () => {
 })
 it("navigates through TanStack Router on click", async () => {
   const navigate = renderLink()
-  await userEvent.setup().click(screen.getByRole("link", { name: "Console" }))
+  await userEvent.setup({ delay: null }).click(screen.getByRole("link", { name: "Console" }))
   expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ to: "/admin" }))
 })

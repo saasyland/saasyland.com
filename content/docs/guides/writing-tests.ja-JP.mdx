@@ -35,7 +35,7 @@ bun run test:coverage
 
 - `src/platform/testing/setup.ts` は、jest-dom のマッチャーを登録し、各テストの前にバインディングをリセットし、すべての `createServerFn` を `withTestRpc` 経由で実行します。そのため、呼び出しは実際のミドルウェアとバリデーターを通ります。これは `node` と `integration` プロジェクトでの動作です。`component` プロジェクトでは jsdom がブラウザにあたるため、サーバー関数は失敗します。
 - `cloudflare:workers` は `src/platform/testing/mocks/cloudflare.ts` に解決されます。D1 はチェックイン済みのすべてのマイグレーションを適用したインメモリの SQLite データベース、KV と `MEDIA` の R2 バケットはインメモリのマップで、`flushWaitUntil()` はバックグラウンドタスクの完了を待ちます。`mocks/cache.ts` の `createEdgeCache()` は Workers のキャッシュをスタブします。
-- `.env.test` はダミーの認証情報を提供します。メール、OAuth、決済の呼び出しはモックされており、マシンの外には何も送信されません。
+- `.env.test` はダミーの認証情報を提供します。`fetch` は Resend と Polar の厳密なテストダブル（`mocks/resend.ts`、`mocks/polar.ts`）に届き、それ以外のホストへのリクエストはマシンがオフラインであるかのように失敗するため、マシンの外には何も送信されません。プロバイダーが拒否するリクエストは、テストを失敗させます。
 - `src/platform/testing/lib/render.tsx` の `renderWithRouter` は、実際のルーターと `QueryClient` を使ってコンポーネントをレンダリングします。
 
 ## ユースケースをテストする
@@ -76,9 +76,27 @@ describe("create-category", () => {
 
 ユースケースのすべての結果をテストします。成功、それぞれの `AppError` コード、セッションがない場合、権限がない場合です。ドメイン値とエラーコードは、文字列を繰り返し書かず、定数（`CATEGORY_KIND`、`ERROR_CODES`）から取得します。
 
+## Resend と Polar を相手にテストする
+
+Resend や Polar の SDK はモックしないでください。リクエストを送信するコードを呼び出し、テストダブルが受け取った内容をアサートします。`mocks/resend.ts` の `getSentEmails(recipient)` は、配信されたメールを、レンダリングされた HTML と冪等性キーとともに返します。`mocks/polar.ts` は購入セッション、注文、ライセンスキーを保持し、その関数が購入を先に進めます。`payPolarCheckout`、`grantPolarLicenseKey`、`refundPolarOrder`、`revokePolarLicenseKey`、`activatePolarLicenseKey` です。`src/modules/license/__test__/license-purchase.integration.test.ts` から抜粋したものです。
+
+```ts
+const buyer = await signUpAndVerify()
+const order = await paidOrder(buyer, LICENSE_TIER.COMPLETE)
+
+expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)).toBe(HTTP_STATUS.OK)
+expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIVE, tier: LICENSE_TIER.COMPLETE })
+```
+
+`paidOrder` は本物の `startCheckout` で購入セッションを開始し、テストダブルの中で支払いを済ませます。`deliver` は `lib/polar.ts` の `signedPolarWebhook` でイベントに署名し、Better Auth の Polar エンドポイントに POST して、レスポンスのステータスを返します。そのため、署名の検証、プラグイン、`license.webhooks.ts` のハンドラーがすべて実行されます。プロバイダーの障害をアプリがどう扱うかをテストするには、`resend.utils.test.ts` と同じように、1 つのリクエストだけにプロバイダーのエラーで応答します（`vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(error, { status }))`）。
+
+## 認証フローをテストする
+
+認証のスイートは、`auth.server.ts` の本物の `auth` に対して実行されます。`src/integrations/better-auth/__test__/fixtures/auth.harness.ts` は、訪問者と同じ手順でアカウントを作成します。`signUp`、`verifyEmail`（配信されたメール内のトークンをたどり、それによって開始されたセッションを返します）、`signIn`、`signUpAndVerify` です。`browserHeaders()` はリクエストごとに専用の `CF-Connecting-IP` を付けるため、あるテストが別のテストの許容回数を使い切ることなく、本番環境と同じように Better Auth のレート制限が適用されます。Better Auth がバックグラウンドで送信するメールを読む前に、`flushWaitUntil()` を await してください。
+
 ## コンポーネントをテストする
 
-コンポーネントのテストは、`messages/en-US` の実際のメッセージを使ってレンダリングし、ミューテーションオプションを提供するユースケースのモジュールをモックして、Testing Library と `userEvent` で UI を操作します。処理中の状態をテストするには、`Promise.withResolvers()` でモックしたリクエストを保留したままにして処理中の UI をアサートし、その後 `act` 内で解決してアイドル状態の UI をアサートします。完全な例は `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx` です。ルートのテストではルートにローダーデータを渡し、ローダー自体は `node` テストで `getRouter()` を通して検証します。`src/routes/__test__/marketing-routes.component.test.tsx` と `marketing-loaders.test.ts` がその両側の例です。
+コンポーネントのテストは、`messages/en-US` の実際のメッセージを使ってレンダリングし、ミューテーションオプションを提供するユースケースのモジュールをモックして、Testing Library と `userEvent` で UI を操作します。処理中の状態をテストするには、`Promise.withResolvers()` でモックしたリクエストを保留したままにして処理中の UI をアサートし、その後 `act` 内で解決してアイドル状態の UI をアサートします。時間をおいて変化するコンポーネントは、実際の時間を待つのではなく、フェイクタイマー（`vi.useFakeTimers()` のあと、`act` 内で `vi.advanceTimersByTimeAsync`）でテストします。また、ルートのテストの `QueryClient` はローダーが取得したデータを新鮮な状態に保つ（`staleTime: Infinity`）ため、マシンのレンダリング速度によってクエリの実行回数が変わることはありません。`userEvent.setup({ delay: null })` は、キー入力の間に実際のタイマーを挟まずに UI を操作します。完全な例は `src/presentation/components/custom/__test__/newsletter-form.component.test.tsx` です。ルートのテストではルートにローダーデータを渡し、ローダー自体は `node` テストで `getRouter()` を通して検証します。`src/routes/__test__/marketing-routes.component.test.tsx` と `marketing-loaders.test.ts` がその両側の例です。
 
 ## ブラウザテスト
 
@@ -91,7 +109,7 @@ bun run test:e2e:smoke
 bun run test:e2e:ui
 ```
 
-テスト用の Worker は送信されたメールを記録するため、スペックは `/__test/emails?to=<address>` から認証リンクを読み取れます。
+テスト用の Worker は同じ Resend と Polar のテストダブルをインストールし、送信されたメールを記録するため、スペックは `/__test/emails?to=<address>` から認証リンクを読み取れます。`e2e/fixtures/polar.ts` の `deliverPaidOrder` は、統合テストのスイートのイベントと同じように署名した、完全な `order.paid` イベントを POST します。
 
 ## プッシュする前に
 

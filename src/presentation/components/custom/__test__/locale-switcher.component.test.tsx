@@ -27,7 +27,7 @@ const renderSwitcher = (path = "/") => {
   )
   const trigger = screen.getByText(getLocaleName(I18N.DEFAULT_LOCALE), { selector: "summary" })
 
-  return { menu: screen.getByRole("group"), trigger, user: userEvent.setup() }
+  return { menu: screen.getByRole("group"), trigger, user: userEvent.setup({ delay: null }) }
 }
 
 describe("locale switcher", () => {
@@ -90,7 +90,7 @@ const renderSelect = (path: string) => {
     { router: createTestRouter(path) },
   )
 
-  return { assign, user: userEvent.setup() }
+  return { assign, user: userEvent.setup({ delay: null }) }
 }
 
 describe("locale select", () => {

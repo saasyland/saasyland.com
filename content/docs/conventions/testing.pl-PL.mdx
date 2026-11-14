@@ -9,13 +9,13 @@ Każda zmiana trafia razem z testami, które ją potwierdzają, w tym samym comm
 
 `vite.config.ts` definiuje trzy projekty Vitest, wybierane na podstawie sufiksu pliku. Testy importują swoje API z `vite-plus/test` i znajdują się w `__test__/` obok kodu, który pokrywają.
 
-| Sufiks                 | Projekt       | Zastosowanie                                                                                                                                    |
-| ---------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.test.ts`             | `node`        | Przypadki użycia, loadery, `head`, schematy, narzędzia: wszystko, co działa na serwerze                                                         |
-| `.integration.test.ts` | `integration` | Przepływy Better Auth, adapter D1 i ładowanie komunikatów (limity czasu: <RepositoryFact name="integrationTestTimeoutSeconds" unit="second" />) |
-| `.component.test.tsx`  | `component`   | Komponenty i strony w jsdom                                                                                                                     |
+| Sufiks                 | Projekt       | Zastosowanie                                                                                                                                                          |
+| ---------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.test.ts`             | `node`        | Przypadki użycia, loadery, `head`, schematy, narzędzia: wszystko, co działa na serwerze                                                                               |
+| `.integration.test.ts` | `integration` | Przepływy Better Auth, płatności i licencji, adapter D1 i ładowanie komunikatów (limity czasu: <RepositoryFact name="integrationTestTimeoutSeconds" unit="second" />) |
+| `.component.test.tsx`  | `component`   | Komponenty i strony w jsdom                                                                                                                                           |
 
-`src/platform/testing/mocks/cloudflare.ts` zastępuje `cloudflare:workers` w każdym projekcie: D1 to baza `node:sqlite` w pamięci, zbudowana z każdej migracji zapisanej w repozytorium, a KV i bucket `MEDIA` to magazyny w pamięci. `resetTestBindings()` czyści KV, bucket i tabelę limitów żądań przed każdym testem, a funkcja seedująca każdego zestawu testów przywraca wiersze, od których zależy. Żaden test nie komunikuje się z Cloudflare, Polar, Resend ani dostawcą OAuth.
+`src/platform/testing/mocks/cloudflare.ts` zastępuje `cloudflare:workers` w każdym projekcie: D1 to baza `node:sqlite` w pamięci, zbudowana z każdej migracji zapisanej w repozytorium, a KV i bucket `MEDIA` to magazyny w pamięci. `resetTestBindings()` czyści KV, bucket i tabelę limitów żądań przed każdym testem, a funkcja seedująca każdego zestawu testów przywraca wiersze, od których zależy. Żaden test nie komunikuje się z Cloudflare, Polar, Resend ani dostawcą OAuth: `fetch` trafia do ścisłych dublerów w `mocks/resend.ts` i `mocks/polar.ts`, które sprawdzają każde żądanie względem modeli żądań SDK i kończą test błędem przy żądaniu, które dostawca by odrzucił. Testy sprawdzają, co otrzymał dubler, zamiast mockować metodę SDK, a zestawy testów uwierzytelniania sterują prawdziwą konfiguracją `auth.server.ts` przez `auth.harness.ts`.
 
 ## Testowanie funkcji serwerowej
 
@@ -58,7 +58,7 @@ describe("getCourses", () => {
 
 - Oczekiwane statusy, rodzaje, role i kody błędów to stałe, których używa kod: `COURSE_STATUS.DRAFT`, `ROLE_CODES.ADMIN`, `rejects.toThrow(ERROR_CODES.FORBIDDEN)`. Test nigdy nie powtarza literału tekstowego z domeny; nie robią tego też dane e2e ani dane zasilające testową bazę: `e2e/data/courses.ts` zapisuje `kind: COURSE_KIND.COURSE`.
 - Testy schematów to jedyne miejsce, w którym zapisuje się przechowywaną wartość wprost: `product.schema.test.ts` utrwala `expect(PRODUCT_STATUSES).toStrictEqual(["draft", "published", "archived"])`, więc zmiana wartości zapisanej w bazie danych kończy się błędem testu, a nie potrzebą migracji, której nikt nie napisał.
-- Zestaw testów przeglądarkowych importuje stałe z aplikacji (`LICENSE_TIER`, `ROLE_CODES`, `I18N.SUPPORTED_LOCALES`), więc może importować tylko pliki, które ładują się poza Workerem. Jedyna wartość dostawcy, którą deklaruje sam, to opłacone zamówienie w `e2e/fixtures/polar.ts`, bo `polar.constants.ts` czyta `cloudflare:workers` i działa wyłącznie na serwerze.
+- Zestaw testów przeglądarkowych importuje stałe z aplikacji (`LICENSE_TIER`, `ROLE_CODES`, `I18N.SUPPORTED_LOCALES`), więc może importować tylko pliki, które ładują się poza Workerem. Jedyna wartość dostawcy, którą deklaruje sam, to status opłaconego zamówienia w `e2e/fixtures/polar.ts`, bo `polar.constants.ts` czyta `cloudflare:workers` i działa wyłącznie na serwerze; samo zamówienie pochodzi z `src/platform/testing/lib/polar.ts`.
 - Testy komponentów odczytują oczekiwane teksty z angielskich plików komunikatów, tak jak `admin-course-routes.component.test.tsx` z `import labels from "~/messages/en-US/pages.admin.courses.json"` i `labels.form.kinds.course`, a elementy znajdują po roli i dostępnej nazwie.
 - Test, który potrzebuje typu, odczytuje go z typowanego źródła lub sprawdza w czasie działania przez `toHaveProperty`; nigdy nie rzutuje.
 - Nazwy testów opisują zachowanie pełnym zdaniem: „lists every course with its lesson count, drafts included”.

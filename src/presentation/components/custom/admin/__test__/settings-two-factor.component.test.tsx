@@ -55,7 +55,7 @@ const renderCard = (twoFactorEnabled = false) => {
     </IntlProvider>,
     { queryClient },
   )
-  return { ...result, user: userEvent.setup() }
+  return { ...result, user: userEvent.setup({ delay: null }) }
 }
 
 const startSetup = async (user: ReturnType<typeof userEvent.setup>) => {

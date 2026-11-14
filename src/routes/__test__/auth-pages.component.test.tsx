@@ -287,7 +287,7 @@ describe("authentication routes", () => {
     expect(router.state.location.pathname).toBe(ROUTES.VERIFY_EMAIL)
     expect(screen.getByText(pagesAuthVerifyEmailMessages.form.invalidToken)).toBeVisible()
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole("button", { name: pagesAuthVerifyEmailMessages.form.resend }))
+    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: pagesAuthVerifyEmailMessages.form.resend }))
     await waitFor(() => {
       expect(sendVerificationEmail).toHaveBeenCalledExactlyOnceWith(
         { callbackURL: ROUTES.AUTH_CALLBACK, email: "person@example.com" },

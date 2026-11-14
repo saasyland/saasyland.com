@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it } from "vite-plus/test"
 
 import { TEST_APP_URL, createTestRequestUrl } from "~/src/platform/testing/lib/test-request"
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
@@ -9,7 +9,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
+import { HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { user } from "~/src/modules/user/user.schema"
 
 import { ROUTES } from "~/src/routes"
@@ -39,7 +39,7 @@ const createSignedInUser = async (): Promise<{ cookie: string; userId: string }>
     userId: created.id,
   })
   const response = await postAuth(ROUTES.API_AUTH.SIGN_IN_EMAIL, { email, password: PASSWORD })
-  expect(response.status).toBe(200)
+  expect(response.status).toBe(HTTP_STATUS.OK)
   const cookie = response.headers
     .getSetCookie()
     .map((entry) => entry.split(";")[0])
@@ -47,13 +47,10 @@ const createSignedInUser = async (): Promise<{ cookie: string; userId: string }>
   return { cookie, userId: created.id }
 }
 
-const stubEmailDelivery = () =>
-  vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.resolve(Response.json({ id: crypto.randomUUID() })))
-
 const signUp = async (body: Record<string, unknown>): Promise<Record<string, unknown>> => {
   const response = await postAuth(ROUTES.API_AUTH.SIGN_UP_EMAIL, { name: "Timezone Tester", password: PASSWORD, ...body })
   await flushWaitUntil()
-  expect(response.status).toBe(200)
+  expect(response.status).toBe(HTTP_STATUS.OK)
   const { user: created } = await response.json<{ user: Record<string, unknown> }>()
   return created
 }
@@ -63,17 +60,13 @@ const readTimezone = async (userId: string): Promise<string | undefined> => {
   return row?.timezone
 }
 
-afterEach(() => {
-  vi.restoreAllMocks()
-})
-
 describe("validated user timezone", () => {
   it("rejects an unknown timezone over HTTP without touching the stored value", async () => {
     const { cookie, userId } = await createSignedInUser()
 
     const response = await postAuth(ROUTES.API_AUTH.UPDATE_USER, { timezone: INVALID_TIMEZONE }, cookie)
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST)
     await expect(response.json()).resolves.toMatchObject({ code: "VALIDATION_ERROR" })
     await expect(readTimezone(userId)).resolves.toBe(I18N.DEFAULT_TIMEZONE)
   })
@@ -98,7 +91,7 @@ describe("validated user timezone", () => {
       timezone: INVALID_TIMEZONE,
     })
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST)
     await expect(response.json()).resolves.toMatchObject({ code: "VALIDATION_ERROR" })
     await expect(db.select().from(user).where(eq(user.email, email))).resolves.toHaveLength(0)
   })
@@ -115,7 +108,6 @@ describe("validated user timezone", () => {
   })
 
   it("defaults the timezone at sign-up, so a repeated sign-up returns the same account shape", async () => {
-    stubEmailDelivery()
     const email = `timezone-${crypto.randomUUID()}@example.test`
 
     const created = await signUp({ email })
@@ -127,8 +119,6 @@ describe("validated user timezone", () => {
   })
 
   it("stores a supported timezone chosen at sign-up", async () => {
-    stubEmailDelivery()
-
     const created = await signUp({ email: `timezone-${crypto.randomUUID()}@example.test`, timezone: VALID_TIMEZONE })
 
     expect(created["timezone"]).toBe(VALID_TIMEZONE)

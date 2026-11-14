@@ -46,7 +46,7 @@ const clickSignIn = async (): Promise<void> => {
       <OAuthButtons />
     </IntlProvider>,
   )
-  await userEvent.setup().click(screen.getByRole("button", { name: authOauthMessages.github }))
+  await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: authOauthMessages.github }))
 }
 
 beforeEach(() => {

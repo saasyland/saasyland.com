@@ -68,7 +68,7 @@ const renderVideos = () => {
   if (!Page) {
     throw new Error("Missing videos page")
   }
-  return { ...renderAdmin(<Page />, { path: "/admin/videos", queryClient }), invalidateQueries, user: userEvent.setup() }
+  return { ...renderAdmin(<Page />, { path: "/admin/videos", queryClient }), invalidateQueries, user: userEvent.setup({ delay: null }) }
 }
 
 beforeEach(() => {

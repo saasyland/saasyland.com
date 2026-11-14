@@ -1,11 +1,11 @@
 ---
 title: Choix d'une pile SaaS pour les agents de codage AI en 2026
 description: Populaire ne veut plus dire adapté aux agents. Un test à quatre questions pour toute dépendance, appliqué couche par couche à une véritable pile de production SaaS.
-excerpt: Le conseil standard est de choisir des outils populaires parce que les agents en ont vu plus. En 2026, ce conseil a été partiellement inversé, et il y a un artefact dans ce dépôt qui le prouve.
+excerpt: Le conseil standard est de choisir des outils populaires parce que les agents en ont vu plus. En 2026, ce conseil a été partiellement inversé, et un artefact livré par Next.js lui-même le prouve.
 authorName: Piotr J. Borowiecki
 authorImage: https://avatars.githubusercontent.com/u/27385980?s=96&v=4
 date: 2026-08-15
-updated: 2026-09-06
+updated: 2026-11-14
 image: /images/blog/choosing-a-saas-stack-for-ai-coding-agents.webp
 tags:
   - ai-agents
@@ -35,7 +35,7 @@ faq:
     answer: Presque jamais. Le coût d'une migration est certain et le gain est limité, alors qu'ajouter des types stricts, une validation aux frontières et une commande de vérification unique à votre pile existante coûte peu et s'applique immédiatement. Changez de pile quand vous alliez le faire de toute façon, et faites de l'adéquation aux agents un critère de départage plutôt que la raison.
 ---
 
-Le conseil que tout le monde donne pour choisir une pile destinée aux agents de codage IA est que le populaire vaut mieux, parce que les modèles en ont vu davantage. Cela semble évidemment vrai. C'était vrai. En 2026, c'est en partie inversé, et la preuve est un fichier que ce dépôt génère tout seul.
+Le conseil que tout le monde donne pour choisir une pile destinée aux agents de codage IA est que le populaire vaut mieux, parce que les modèles en ont vu davantage. Cela semble évidemment vrai. C'était vrai. En 2026, c'est en partie inversé, et la preuve est un fichier que Next.js écrit tout seul dans votre projet.
 
 Lancez `next dev` sur Next.js 16 et il écrit ceci dans votre `AGENTS.md`, sans qu'on le lui demande :
 
@@ -61,7 +61,7 @@ Cet article porte sur ce problème et sur ce qu'il faut en faire. Ce n'est pas u
 
 </Callout>
 
-_Dernière mise à jour le 15 août 2026. Cet article est le deuxième d'une série ; le premier explique [pourquoi votre dépôt décide de la qualité de sortie de l'agent](/blog/ai-coding-agents-repository-readiness) et mérite d'être lu en premier si ce n'est pas déjà fait._
+_Dernière mise à jour le 14 novembre 2026. Cet article est le deuxième d'une série ; le premier explique [pourquoi votre dépôt décide de la qualité de sortie de l'agent](/blog/ai-coding-agents-repository-readiness) et mérite d'être lu en premier si ce n'est pas déjà fait._
 
 ## Que fait réellement une pile pour un agent de codage IA ?
 
@@ -179,11 +179,13 @@ Le schéma est en TypeScript : il est donc à la fois la source des migrations e
 
 Deux propriétés comptent au-delà du typage. Les requêtes Drizzle ressemblent à du SQL, donc les connaissances SQL existantes se transposent. Cloudflare D1 utilise la sémantique de SQLite, donc les agents doivent suivre l'adaptateur D1 et la documentation installée au lieu de copier des requêtes propres à Postgres. Les migrations versionnées et les bindings locaux isolés permettent de relire les changements avant toute opération distante.
 
-### Validation : Zod à chaque frontière externe
+### Validation : Zod à la frontière des requêtes
 
 **Note : 8/8.** C'est la couche que la plupart des piles omettent, et celle qui est rentabilisée le plus vite.
 
 Les types décrivent ce que vous croyez. Les schémas le vérifient. Chaque point d'entrée des données dans le processus (corps HTTP, variables d'environnement, payloads de webhooks, réponses de tiers, colonnes JSON de la base de données) est un endroit où le système de types fait confiance à une promesse que personne n'a vérifiée.
+
+Dans cette application, Zod parse les entrées des fonctions serveur, les paramètres de recherche des routes et les valeurs des formulaires, et le SDK Polar vérifie et parse les payloads des webhooks. Les bindings d'environnement sont typés par Wrangler plutôt que parsés, si bien qu'ils restent la frontière que l'on croit encore sur parole.
 
 Pour le travail d'un agent, cela compte davantage que pour celui d'un humain. Un humain qui écrit une intégration a tendance à se méfier du payload parce qu'il s'est déjà brûlé les doigts. Un agent écrit le cas nominal avec une confiance totale, parce que c'est surtout le cas nominal que contiennent ses données d'entraînement. Un schéma à la périphérie transforme cet optimisme en erreur interceptée, avec un message qui nomme le champ.
 
@@ -259,12 +261,12 @@ Chaque affirmation ci-dessous correspond à une commande du dépôt public du si
 
 | Couche                    | Choix                             | Score | Vérifier                                                                                                                          |
 | ------------------------- | --------------------------------- | :---: | --------------------------------------------------------------------------------------------------------------------------------- |
-| Langage                   | TypeScript, strict, sans `any`    |   8   | `tsc --strict` bloque la fusion                                                                                                   |
+| Langage                   | TypeScript, strict, sans `any`    |   8   | La vérification des types de `vp check` bloque la fusion                                                                          |
 | Environnement d'exécution | Cloudflare Workers                |   7   | `bun run check && bun run test:coverage`                                                                                          |
 | Framework                 | TanStack Start, React             |   6   | Documentation installée épinglée dans `AGENTS.md`                                                                                 |
 | API                       | Fonctions serveur TanStack Start  |   7   | Un changement de route casse les sites d'appel au build                                                                           |
 | Base de données           | Drizzle, Cloudflare D1            |   8   | Le schéma est la migration et les types                                                                                           |
-| Validation                | Zod à chaque frontière            |   8   | HTTP, env, webhooks et lignes, tout est parsé                                                                                     |
+| Validation                | Zod à la frontière des requêtes   |   8   | Entrées des fonctions serveur et paramètres de recherche des routes parsés ; l'env est typé, pas parsé                            |
 | Auth                      | Better Auth, dans le dépôt        |   7   | Source lisible, `$0` par utilisateur                                                                                              |
 | Styles                    | Tailwind, shadcn/ui dans le dépôt |   7   | <RepositoryCount fact="uiComponents" /> composants que vous pouvez modifier                                                       |
 | i18n                      | use-intl, parité contrôlée        |   7   | `bun run check:i18n`                                                                                                              |
@@ -276,7 +278,7 @@ Le seuil de couverture de 100 % est ce qui permet de faire travailler un agent s
 
 <Callout title={"Vérifiez-le avant de le payer"}>
 
-La [documentation](/docs) est publique et le rapport de couverture est généré par le dépôt lui-même. Ensuite, [voyez ce que cela coûte](/#pricing) : un paiement unique à partir de 249 $, des mises à jour à vie du socle, sans frais par utilisateur.
+La [documentation](/docs) est publique et le rapport de couverture est généré par le dépôt lui-même. Ensuite, [voyez ce que cela coûte](/#pricing) : un paiement unique à partir de <TierPrice tier="core" />, des mises à jour à vie du socle, sans frais par utilisateur.
 
 </Callout>
 

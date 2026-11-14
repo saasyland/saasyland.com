@@ -4,7 +4,7 @@ import { Link, getRouteApi, useRouterState } from "@tanstack/react-router"
 import { BookOpen, Mail } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { APP_NAVIGATION } from "~/src/data/app"
+import { APP_NAVIGATION } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
 
@@ -30,7 +30,7 @@ import { ROUTES } from "~/src/routes"
 const route = getRouteApi("/app")
 
 export const AppSidebar = (): JSX.Element => {
-  const t = useTranslations("pages.app")
+  const t = useTranslations("pages.app.sidebar")
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { user } = route.useRouteContext().session
   const { setOpenMobile } = useSidebar()
@@ -56,14 +56,14 @@ export const AppSidebar = (): JSX.Element => {
           <SidebarGroup className="p-0">
             <SidebarMenu className="gap-1">
               {APP_NAVIGATION.map((item) => {
-                const isActive = pathname === item.url || (item.url !== ROUTES.APP && pathname.startsWith(`${item.url}/`))
+                const isActive = pathname === item.to || (item.to !== ROUTES.APP && pathname.startsWith(`${item.to}/`))
 
                 return (
-                  <SidebarMenuItem key={item.url}>
+                  <SidebarMenuItem key={item.to}>
                     <SidebarMenuButton
                       {...(isActive && { "aria-current": "page" })}
                       className="h-9 gap-2.5 rounded-md px-2 text-body-sm data-active:font-medium"
-                      href={item.url}
+                      href={item.to}
                       isActive={isActive}
                       onPress={closeMobile}
                     >
@@ -72,7 +72,7 @@ export const AppSidebar = (): JSX.Element => {
                         className={cn({ "text-muted-foreground": !isActive, "text-ring": isActive })}
                         strokeWidth={1.5}
                       />
-                      <span>{t(`navigation.${item.label}`)}</span>
+                      <span>{t(`navigation.${item.key}`)}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )

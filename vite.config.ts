@@ -1,7 +1,7 @@
 import { resolve } from "node:path"
 import { type PluginOption, type UserConfig, defineConfig, lazyPlugins, loadEnv } from "vite-plus"
 
-import { isUnlistedRoute } from "./src/routes.ts"
+import { isUnlistedRoute } from "./src/data/unlisted.ts"
 
 const projectRoot = import.meta.dirname
 

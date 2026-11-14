@@ -15,6 +15,7 @@ const signInAsAdmin = async (page: Page, authPage: AuthPage): Promise<void> => {
   await authPage.passwordField().fill(TEST_PASSWORD)
   await authPage.signInSubmitButton().click()
   await expect(page).toHaveURL(/\/admin\/?$/u)
+  await authPage.waitForAppReady()
 }
 
 const choose = async (scope: Locator, label: string, option: string): Promise<void> => {

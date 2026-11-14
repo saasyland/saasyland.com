@@ -11,8 +11,9 @@ import {
   ADMIN_DASHBOARD_CHART_MONTHS,
   ADMIN_DASHBOARD_CHART_TICKS,
   ADMIN_DASHBOARD_PREVIEW_PAGINATION,
-  ADMIN_DASHBOARD_STATS,
 } from "~/src/data/admin"
+import { ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
+import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
 
 import { Card, CardContent } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
@@ -111,12 +112,14 @@ export const AdminDashboardPending = (): JSX.Element => (
       </div>
       <div className="flex items-center gap-3">
         <Skeleton className="h-9 w-33 rounded-lg" />
-        <Skeleton className="h-9 w-32 rounded-lg" />
+        {ADMIN_DASHBOARD_ACTIONS.map((action) => (
+          <Skeleton className="h-9 w-32 rounded-lg" key={action.key} />
+        ))}
       </div>
     </div>
     <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl bg-border ring-1 ring-foreground/10 sm:grid-cols-3">
       {ADMIN_DASHBOARD_STATS.map((stat) => (
-        <div className="bg-card px-5 py-5" key={stat}>
+        <div className="bg-card px-5 py-5" key={stat.key}>
           <Skeleton className="h-lh w-32 scale-y-70 font-mono text-label" />
           <Skeleton className="mt-3 h-lh w-10 scale-y-70 text-headline-support" />
         </div>

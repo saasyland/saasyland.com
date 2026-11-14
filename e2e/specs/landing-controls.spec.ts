@@ -4,6 +4,19 @@ import { expect, test } from "../fixtures/test"
 
 const scrollY = async (page: Page): Promise<number> => page.evaluate(() => window.scrollY)
 
+const hasScrolledAndStopped = async (page: Page): Promise<boolean> =>
+  page.evaluate(
+    async () =>
+      new Promise<boolean>((resolve) => {
+        const start = window.scrollY
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            resolve(start > 0 && window.scrollY === start)
+          })
+        })
+      }),
+  )
+
 const scrollScreens = async (page: Page, screens: number): Promise<void> => {
   await page.evaluate((count) => window.scrollTo({ behavior: "instant", top: window.innerHeight * count }), screens)
 }
@@ -122,7 +135,7 @@ test("the logo on the landing page scrolls back to the top and drops the section
 
   await landingPage.navigation().getByRole("link", { name: "Pricing", exact: true }).click()
   await expect(page).toHaveURL(/#pricing$/u)
-  await expect.poll(async () => scrollY(page)).toBeGreaterThan(0)
+  await expect.poll(async () => hasScrolledAndStopped(page)).toBe(true)
   const entries = await page.evaluate(() => history.length)
   await logo.click()
   await expect.poll(async () => scrollY(page)).toBe(0)

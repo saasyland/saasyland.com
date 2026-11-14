@@ -1,8 +1,10 @@
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizePathname, localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { isUnlistedRoute } from "~/src/data/unlisted"
+
 import { APP_NAME, APP_URL } from "~/src/presentation/branding"
-import { ROUTES, isUnlistedRoute } from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const ROBOTS = {
   NOINDEX: "noindex",

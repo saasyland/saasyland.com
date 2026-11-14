@@ -38,14 +38,13 @@ import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
 import { LIVE_SITE_CHECKS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_SECOND, MINUTES_PER_HOUR, SECONDS_PER_MINUTE } from "~/src/lib/duration"
 import { SOCIAL_IMAGE } from "~/src/lib/seo"
 
 import { ACTIVATION_TIMEOUT_MS } from "~/src/presentation/components/custom/app/checkout-activation"
-
-import { UNLISTED_ROUTES } from "~/src/routes"
 
 type Value = number | string | readonly string[]
 

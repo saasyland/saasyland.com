@@ -115,7 +115,7 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
   Object.assign(HomeRoute.options, {
     getParentRoute: () => LandingRoute,
     id: "/",
-    loader: (): typeof HomeRoute.types.loaderData => ({ locale: "en-US", metadata: pagesLandingMessages.metadata, posts }),
+    loader: (): typeof HomeRoute.types.loaderData => ({ locale: "en-US", metadata: pagesLandingMessages.metadata, posts, stars: 456 }),
     path: "/",
   })
   for (const [route, pathName] of [

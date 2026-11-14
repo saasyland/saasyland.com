@@ -1,6 +1,7 @@
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
-import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
+import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "../data/accounts"
+import { TEST_LICENSE } from "../data/licenses"
 import { expect, test } from "../fixtures/test"
 import { BasePage, LandingPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
@@ -127,4 +128,73 @@ test("a signed-in visitor who presses a header link while the landing page hydra
   await appPage.waitForAppReady()
   await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible()
   expect(errors).toEqual([])
+})
+
+test.describe("cached data when the account changes", () => {
+  test("a client navigation after another account signs in shows that account's licence, not the previous one's", async ({
+    appPage,
+    baseURL,
+    page,
+  }) => {
+    const customer = TEST_ACCOUNTS[1]
+    const navigation = page.getByRole("navigation", { name: "App navigation", exact: true })
+    const licensedSignIn = await page.request.post("/api/auth/sign-in/email", {
+      data: { email: TEST_LICENSED_ACCOUNT.email, password: TEST_PASSWORD },
+      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+    })
+    expect(licensedSignIn.ok()).toBe(true)
+    await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await expect(page.getByText(TEST_LICENSE.key, { exact: true })).toBeVisible()
+    await navigation.getByRole("link", { name: "Overview", exact: true }).click()
+    await expect(page).toHaveURL("/app")
+    await appPage.waitForAppReady()
+
+    const customerSignIn = await page.request.post("/api/auth/sign-in/email", {
+      data: { email: customer.email, password: TEST_PASSWORD },
+      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+    })
+    expect(customerSignIn.ok()).toBe(true)
+    await navigation.getByRole("link", { name: "Licence", exact: true }).click()
+    await expect(page).toHaveURL("/app/license")
+    await appPage.waitForAppReady()
+
+    await expect(page.getByRole("heading", { name: "Get your licence", exact: true })).toBeVisible()
+    await expect(page.getByText(customer.email, { exact: true })).toBeVisible()
+    await expect(page.getByText(TEST_LICENSE.key, { exact: true })).toHaveCount(0)
+    await expect(page.getByText(TEST_LICENSED_ACCOUNT.email, { exact: true })).toHaveCount(0)
+  })
+
+  test("signing out and signing in as another account leaves none of the first account's data", async ({ appPage, authPage, page }) => {
+    const customer = TEST_ACCOUNTS[1]
+    const navigation = page.getByRole("navigation", { name: "App navigation", exact: true })
+    await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
+    await authPage.gotoSignIn()
+    await authPage.emailField().fill(TEST_LICENSED_ACCOUNT.email)
+    await authPage.passwordField().fill(TEST_PASSWORD)
+    await authPage.signInSubmitButton().click()
+    await expect(page).toHaveURL("/app")
+    await appPage.waitForAppReady()
+    await navigation.getByRole("link", { name: "Licence", exact: true }).click()
+    await expect(page).toHaveURL("/app/license")
+    await appPage.waitForAppReady()
+    await expect(page.getByText(TEST_LICENSE.key, { exact: true })).toBeVisible()
+
+    await page.getByRole("button", { name: "Sign out", exact: true }).click()
+    await expect(page).toHaveURL("/auth/sign-in")
+    await authPage.waitForAppReady()
+    await authPage.emailField().fill(customer.email)
+    await authPage.passwordField().fill(TEST_PASSWORD)
+    await authPage.signInSubmitButton().click()
+    await expect(page).toHaveURL("/app")
+    await appPage.waitForAppReady()
+    await navigation.getByRole("link", { name: "Licence", exact: true }).click()
+    await expect(page).toHaveURL("/app/license")
+    await appPage.waitForAppReady()
+
+    await expect(page.getByRole("heading", { name: "Get your licence", exact: true })).toBeVisible()
+    await expect(page.getByText(customer.email, { exact: true })).toBeVisible()
+    await expect(page.getByText(TEST_LICENSE.key, { exact: true })).toHaveCount(0)
+    await expect(page.getByText(TEST_LICENSED_ACCOUNT.email, { exact: true })).toHaveCount(0)
+  })
 })

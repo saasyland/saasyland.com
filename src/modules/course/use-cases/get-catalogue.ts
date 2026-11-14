@@ -52,6 +52,7 @@ export const getCatalogue = createServerFn({ method: "GET" })
 
 export const catalogueQuery = (input: Course["getCatalogue"]) =>
   queryOptions({
+    meta: { public: true },
     queryFn: () => getCatalogue({ data: input }),
     queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
     staleTime: COURSE_STALE_MS,

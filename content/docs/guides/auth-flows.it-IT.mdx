@@ -16,14 +16,14 @@ Better Auth (`src/integrations/better-auth/auth.server.ts`) memorizza utenti, se
 | `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Manda l'utente autenticato a `redirect`, oppure a `/admin` o `/app`               |
 | `redirectAfterAuth`  | `/auth/callback`                 | Manda la nuova sessione a `redirect`, oppure a `/admin` o `/app` in base al ruolo |
 
-`requireSignedIn` e `requireAdmin` ricontrollano la sessione a ogni navigazione, `redirectIfSignedIn` usa la sessione in cache e ogni guardia svuota la cache delle query quando cambia l'utente autenticato.
+`requireSignedIn` e `requireAdmin` ricontrollano la sessione a ogni navigazione, `redirectIfSignedIn` usa la sessione in cache e ogni guardia rimuove dalla cache delle query i dati dell'utente precedente quando cambia l'utente autenticato, mantenendo le [query pubbliche](/docs/conventions/data-fetching#public-queries).
 
 ## Accesso
 
 1. `SignInForm` chiama `signIn.email` del client Better Auth.
 2. Un account non verificato riceve l'errore `EMAIL_NOT_VERIFIED` e viene mandato a `/auth/verify-email` con il suo indirizzo email e `redirect`.
 3. Un account con autenticazione a due fattori riceve `twoFactorRedirect`; `SignInForm` apre `/auth/two-factor` conservando `redirect`.
-4. In caso di successo, `finishSignIn` di `useAuthRedirect` svuota le cache delle query e del router e naviga a `/auth/callback`, che prosegue verso `redirect` o verso l'area di lavoro del ruolo.
+4. In caso di successo, `finishSignIn` di `useAuthRedirect` rimuove dalla cache delle query i dati dell'utente precedente, svuota la cache del router e naviga a `/auth/callback`, che prosegue verso `redirect` o verso l'area di lavoro del ruolo.
 
 Gli errori che Better Auth segnala tramite reindirizzamento arrivano come `?error=` su `/auth/sign-in` e vengono mostrati da `auth.errors`.
 
@@ -61,15 +61,15 @@ Un visitatore che apre una pagina protetta senza aver effettuato l'accesso dovre
 
 I componenti di autenticazione lo ottengono da `useAuthRedirect` in `src/hooks/use-auth-redirect.ts`:
 
-| Membro                   | Utilizzo                                                                                                                                            |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `redirect`               | La pagina su cui arrivare dopo l'accesso, per i link e la navigazione tra le pagine di autenticazione                                               |
-| `hrefWithRedirect(page)` | Un URL localizzato verso `/auth/callback` o `/auth/sign-in` che conserva `redirect`, passato a Better Auth come `callbackURL` ed `errorCallbackURL` |
-| `finishSignIn()`         | Svuota le cache delle query e del router e prosegue verso `/auth/callback` dopo l'accesso o la verifica a due fattori                               |
+| Membro                   | Utilizzo                                                                                                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `redirect`               | La pagina su cui arrivare dopo l'accesso, per i link e la navigazione tra le pagine di autenticazione                                                                  |
+| `hrefWithRedirect(page)` | Un URL localizzato verso `/auth/callback` o `/auth/sign-in` che conserva `redirect`, passato a Better Auth come `callbackURL` ed `errorCallbackURL`                    |
+| `finishSignIn()`         | Rimuove dalla cache delle query i dati dell'utente precedente, svuota la cache del router e prosegue verso `/auth/callback` dopo l'accesso o la verifica a due fattori |
 
 ## Disconnessione
 
-`useSignOut` chiama `signOutUserMutation`, svuota la cache delle query, naviga a `/auth/sign-in` e svuota la cache del router.
+`useSignOut` chiama `signOutUserMutation`, rimuove dalla cache delle query i dati dell'account, naviga a `/auth/sign-in` e svuota la cache del router.
 
 ## Guide correlate
 

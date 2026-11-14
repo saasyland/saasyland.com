@@ -8,7 +8,10 @@ import { type getCurrentSession, getCurrentSessionQuery } from "~/src/integratio
 import type { AuthSearch } from "~/src/integrations/better-auth/auth.zod"
 import { resolveLocale } from "~/src/integrations/use-intl/i18n.middleware"
 
+import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import { LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
+
+import { starCountQuery } from "~/src/lib/github"
 
 const getSession = vi.hoisted(() => vi.fn<typeof getCurrentSession>())
 vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
@@ -68,23 +71,10 @@ describe("route authorization and locale handling", () => {
     const context = protectedPageContext()
     session(ROLE_CODES.ADMIN)
     await requireAdmin(context)
-    context.context.queryClient.setQueryData(LICENSE_QUERY_KEYS.CURRENT, { key: "previous-license" })
     signedOut()
     await expect(requireAdmin(context)).rejects.toHaveProperty("options.to", "/auth/sign-in")
     expect(context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toBeNull()
-    expect(context.context.queryClient.getQueryData(LICENSE_QUERY_KEYS.CURRENT)).toBeUndefined()
     expect(getSession).toHaveBeenCalledTimes(2)
-  })
-  it("clears the previous account's cached data when the session changes to another account", async () => {
-    const context = protectedPageContext()
-    session(ROLE_CODES.CUSTOMER)
-    await requireSignedIn(context)
-    context.context.queryClient.setQueryData(LICENSE_QUERY_KEYS.CURRENT, { key: "previous-license" })
-    const nextSession = createAuthSessionFixture({ userId: "another-customer" })
-    getSession.mockResolvedValue(nextSession)
-    await expect(requireSignedIn(context)).resolves.toEqual({ session: nextSession })
-    expect(context.context.queryClient.getQueryData(LICENSE_QUERY_KEYS.CURRENT)).toBeUndefined()
-    expect(context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toEqual(nextSession)
   })
   it("rechecks roles instead of trusting a cached admin role", async () => {
     const context = protectedPageContext()
@@ -130,6 +120,70 @@ describe("route authorization and locale handling", () => {
   })
   it("canonicalizes existing short locale links before routing", () => {
     expect(resolveLocale(new Request("http://localhost/pl/docs")).redirect?.headers.get("location")).toBe("http://localhost/pl-PL/docs")
+  })
+})
+
+describe("cached data when the visitor changes", () => {
+  const STAR_COUNT = 441
+
+  const fillCache = async (queryClient: QueryClient): Promise<void> => {
+    await queryClient.query({ ...starCountQuery, queryFn: () => STAR_COUNT })
+    queryClient.setQueryData(LICENSE_QUERY_KEYS.CURRENT, { key: "previous-license" })
+    queryClient.getMutationCache().build(queryClient, { mutationKey: ACCOUNT_MUTATION_KEYS.CHANGE_PASSWORD })
+  }
+
+  const expectOnlyPublicData = (queryClient: QueryClient): void => {
+    expect(queryClient.getQueryData(starCountQuery.queryKey)).toBe(STAR_COUNT)
+    expect(queryClient.getQueryData(LICENSE_QUERY_KEYS.CURRENT)).toBeUndefined()
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0)
+  }
+
+  it("keeps the public data of a prerendered page, which knew no session, when the visitor turns out to be signed in", async () => {
+    const context = authPageContext()
+    await fillCache(context.context.queryClient)
+    session(ROLE_CODES.CUSTOMER)
+    await expect(redirectIfSignedIn(context)).rejects.toHaveProperty("options.to", "/app")
+    expectOnlyPublicData(context.context.queryClient)
+  })
+  it("removes what a guest loaded and keeps public data when the guest signs in", async () => {
+    const context = authPageContext()
+    signedOut()
+    await redirectIfSignedIn(context)
+    await fillCache(context.context.queryClient)
+    session(ROLE_CODES.CUSTOMER)
+    await expect(redirectAfterAuth(context)).rejects.toHaveProperty("options.to", "/app")
+    expectOnlyPublicData(context.context.queryClient)
+  })
+  it("removes the account's data and keeps public data when its session ends", async () => {
+    const context = protectedPageContext()
+    session(ROLE_CODES.CUSTOMER)
+    await requireSignedIn(context)
+    await fillCache(context.context.queryClient)
+    signedOut()
+    await expect(requireSignedIn(context)).rejects.toHaveProperty("options.to", "/auth/sign-in")
+    expectOnlyPublicData(context.context.queryClient)
+    expect(context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toBeNull()
+  })
+  it("removes the previous account's data and keeps public data when another account signs in", async () => {
+    const context = protectedPageContext()
+    session(ROLE_CODES.CUSTOMER)
+    await requireSignedIn(context)
+    await fillCache(context.context.queryClient)
+    const nextSession = createAuthSessionFixture({ userId: "another-customer" })
+    getSession.mockResolvedValue(nextSession)
+    await expect(requireSignedIn(context)).resolves.toEqual({ session: nextSession })
+    expectOnlyPublicData(context.context.queryClient)
+    expect(context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toEqual(nextSession)
+  })
+  it("keeps the account's data when a recheck finds the same account", async () => {
+    const context = protectedPageContext()
+    session(ROLE_CODES.CUSTOMER)
+    await requireSignedIn(context)
+    await fillCache(context.context.queryClient)
+    await requireSignedIn(context)
+    expect(context.context.queryClient.getQueryData(LICENSE_QUERY_KEYS.CURRENT)).toEqual({ key: "previous-license" })
+    expect(context.context.queryClient.getMutationCache().getAll()).toHaveLength(1)
+    expect(getSession).toHaveBeenCalledTimes(2)
   })
 })
 

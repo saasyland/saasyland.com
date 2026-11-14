@@ -1,4 +1,5 @@
 import { getRequest } from "@tanstack/react-start/server"
+import { globSync, readFileSync } from "node:fs"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { executeQuery } from "~/src/platform/testing/lib/query"
@@ -6,6 +7,28 @@ import { executeQuery } from "~/src/platform/testing/lib/query"
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { getCurrentSessionQuery, getRequestSession } from "~/src/integrations/better-auth/auth.session"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
+
+import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
+import { courseShowcaseQuery } from "~/src/modules/course/use-cases/get-course-showcase"
+
+import { starCountQuery } from "~/src/lib/github"
+
+const SOURCES = "src/**/*.{ts,tsx}"
+const UNSCANNED_SOURCES = /\/__test__\/|^src\/platform\/testing\//u
+const PUBLIC_QUERY = "public: true"
+
+const PUBLIC_QUERIES: Readonly<Record<string, () => Promise<unknown>>> = {
+  "src/integrations/use-intl/i18n.messages.ts": () =>
+    executeQuery(messagesQueryOptions({ locale: I18N.DEFAULT_LOCALE, namespace: "common" })),
+  "src/lib/github.ts": () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ stargazers_count: 1 }))
+    return executeQuery(starCountQuery)
+  },
+  "src/modules/course/use-cases/get-catalogue.ts": () => executeQuery(catalogueQuery({ locale: I18N.DEFAULT_LOCALE })),
+  "src/modules/course/use-cases/get-course-showcase.ts": () => executeQuery(courseShowcaseQuery({ locale: I18N.DEFAULT_LOCALE })),
+}
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -117,5 +140,22 @@ describe("request session lookup", () => {
     await expect(getRequestSession(new Request("http://localhost/app"))).rejects.toBe(failure)
     await expect(getRequestSession(new Request("http://localhost/app"))).resolves.toEqual(session)
     expect(getSession).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe("queries that keep their data when the signed-in user changes", () => {
+  it("are declared only by the queries this suite runs", () => {
+    const declaring = globSync(SOURCES)
+      .filter((path) => !UNSCANNED_SOURCES.test(path) && readFileSync(path, "utf8").includes(PUBLIC_QUERY))
+      .toSorted()
+
+    expect(declaring).toStrictEqual(Object.keys(PUBLIC_QUERIES))
+  })
+
+  it.each(Object.entries(PUBLIC_QUERIES))("%s answers without reading the session", async (_path, run) => {
+    const getSession = vi.spyOn(auth.api, "getSession")
+
+    await expect(run()).resolves.toBeDefined()
+    expect(getSession).not.toHaveBeenCalled()
   })
 })

@@ -228,7 +228,7 @@ describe("Polar webhooks", () => {
     })
   })
 
-  it("keeps the licence through a partial refund and revokes it once the order is refunded in full", async () => {
+  it("keeps the licence through a partial refund and marks it refunded once the order is refunded in full", async () => {
     const { buyer, grant, order } = await buyLicense()
     const half = Math.floor(order.net_amount / 2)
 
@@ -236,11 +236,21 @@ describe("Polar webhooks", () => {
     expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIVE })
 
     await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(order.id, order.net_amount - half))
-    expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.REVOKED })
+    expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.REFUNDED })
 
     expect(await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantRevoked, revokePolarLicenseKey(grant))).toBe(HTTP_STATUS.OK)
     expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)).toBe(HTTP_STATUS.OK)
-    expect(await currentLicense(buyer)).toMatchObject({ polarOrderId: order.id, status: LICENSE_STATUS.REVOKED })
+    expect(await currentLicense(buyer)).toMatchObject({ polarOrderId: order.id, status: LICENSE_STATUS.REFUNDED })
+  })
+
+  it("marks the licence refunded when Polar revokes the key's benefit before the refund arrives", async () => {
+    const { buyer, grant, order } = await buyLicense()
+
+    await deliver(LICENSE_WEBHOOK_EVENTS.onBenefitGrantRevoked, revokePolarLicenseKey(grant))
+    expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.REVOKED })
+
+    await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(order.id, order.net_amount))
+    expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.REFUNDED })
   })
 
   it("ignores refunds of other products and revocations of other benefits", async () => {
@@ -432,14 +442,13 @@ describe("licence activations", () => {
     await expect(executeQuery(licenseActivationsQuery)).resolves.toMatchObject({ activations: [server] })
   })
 
-  it("cannot deactivate a machine activated with another buyer's key", async () => {
+  it("answers NOT_FOUND for a machine activated with another buyer's key and leaves it activated", async () => {
     const owner = await buyLicense()
     const other = await buyLicense()
     const ownerMachine = activatePolarLicenseKey(owner.grant, "Laptop")
-    vi.spyOn(console, "error").mockImplementation(() => {})
     actAs(other.buyer)
 
-    await expect(executeMutation(deactivateLicenseMutation, { activationId: ownerMachine.id })).rejects.toThrow(ERROR_CODES.INTERNAL_ERROR)
+    await expect(executeMutation(deactivateLicenseMutation, { activationId: ownerMachine.id })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
 
     expect(polarLicenseKeyOf(owner.grant).activations).toStrictEqual([ownerMachine])
   })

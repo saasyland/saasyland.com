@@ -8,6 +8,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
@@ -45,6 +46,23 @@ describe("deactivate-license", () => {
     await expect(executeMutation(deactivateLicenseMutation, { activationId: activation.id })).resolves.toMatchObject({ deactivated: true })
 
     expect(polarLicenseKeyOf(grant).activations).toStrictEqual([])
+  })
+
+  it("answers NOT_FOUND when Polar holds no such activation for the caller's key", async () => {
+    const { grant } = await seedLicenseKey()
+
+    await expect(executeMutation(deactivateLicenseMutation, { activationId: crypto.randomUUID() })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
+    expect(polarLicenseKeyOf(grant).activations).toHaveLength(1)
+  })
+
+  it("reports INTERNAL_ERROR when Polar fails to remove the activation", async () => {
+    const { activation, grant } = await seedLicenseKey()
+    vi.stubGlobal("fetch", () => Promise.resolve(new Response("upstream failed", { status: HTTP_STATUS.INTERNAL_SERVER_ERROR })))
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    await expect(executeMutation(deactivateLicenseMutation, { activationId: activation.id })).rejects.toThrow(ERROR_CODES.INTERNAL_ERROR)
+    expect(consoleError).toHaveBeenCalledOnce()
+    expect(polarLicenseKeyOf(grant).activations).toStrictEqual([activation])
   })
 
   it("refuses a caller whose license has no key yet", async () => {

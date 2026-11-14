@@ -68,7 +68,7 @@ describe("attach-license-key", () => {
     const { id: olderKeyId } = polarLicenseKeyOf(grantPolarLicenseKey(older))
 
     await attachLicenseKey({ polarLicenseKeyId: olderKeyId, polarOrderId: older.id, userId: USER_ID })
-    await revokeLicense({ polarOrderId: paid.polarOrderId, userId: USER_ID })
+    await revokeLicense({ polarOrderId: paid.polarOrderId, status: LICENSE_STATUS.REVOKED, userId: USER_ID })
     const polarRequests = vi.spyOn(globalThis, "fetch")
     await attachLicenseKey(grant)
 
@@ -78,7 +78,7 @@ describe("attach-license-key", () => {
 
   it("acknowledges the key of a purchase refunded before it was recorded, without asking Polar for the order", async () => {
     const { grant } = purchase()
-    await revokeLicense({ polarOrderId: grant.polarOrderId, userId: USER_ID })
+    await revokeLicense({ polarOrderId: grant.polarOrderId, status: LICENSE_STATUS.REFUNDED, userId: USER_ID })
     const polarRequests = vi.spyOn(globalThis, "fetch")
 
     await expect(attachLicenseKey(grant)).resolves.toBeUndefined()

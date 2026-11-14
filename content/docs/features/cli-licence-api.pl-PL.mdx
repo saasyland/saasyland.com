@@ -1,0 +1,69 @@
+---
+title: "API licencji CLI"
+description: "API w saasyland.com, które CLI saasyland wywołuje, aby odczytać licencję oraz aktywować, sprawdzać i zwalniać maszyny."
+---
+
+Płatne CLI `saasyland` sprawdza swój klucz licencyjny w saasyland.com. Worker odpowiada pod <RepositoryFact name="cliApiBasePath" />, sprawdza klucz w tabeli `license` w D1 i przechowuje maszyny jako aktywacje klucza w Polar, więc CLI nigdy samo nie wywołuje Polar.
+
+Kontraktem między nimi jest punkt wejścia `./api` pakietu `@saasyland/stack`, który jest objęty licencją MIT i publikowany z repozytorium CLI. Kontrakt definiuje trasy, nagłówki, schematy żądań i odpowiedzi, kody błędów i limity żądań. CLI buduje za jego pomocą każde żądanie i odczytuje każdą odpowiedź, a witryna za jego pomocą odczytuje każde żądanie i zapisuje każdą odpowiedź (`readApiRequest`, `apiResponse` i `apiErrorResponse`), więc żadna ze stron nie może rozminąć się z drugą. Wartości i tabele na tej stronie są wyświetlane na jego podstawie.
+
+## Maszyny
+
+- Klucz licencyjny może być aktywny na tylu maszynach, na ile pozwala jego plan: <ActivationLimit tier="core" /> dla planu Core, <ActivationLimit tier="complete" /> dla planu Komplet i <ActivationLimit tier="agency" /> dla planu Agencja. To `LICENSE_ACTIVATION_LIMITS`, czyli limity egzekwowane przez Polar.
+- CLI rozpoznaje maszynę po identyfikatorze maszyny, który wyprowadza na tej maszynie: HMAC-SHA256 ze stałym kluczem, obliczany z identyfikatora maszyny w systemie operacyjnym albo, w CI, z dostawcy CI i identyfikatora repozytorium. Surowy identyfikator z systemu operacyjnego nigdy nie opuszcza maszyny.
+- Ponowna aktywacja z tej samej maszyny zwraca niezmienioną aktywację tej maszyny, zamiast zajmować kolejne miejsce, więc maszyna zachowuje swoje miejsce i nazwę. Aby zmienić nazwę maszyny, zwolnij ją i aktywuj ponownie z `--label`. W CI każde uruchomienie w jednym repozytorium to ta sama maszyna.
+- Klienci zwalniają miejsce w sekcji **Maszyny** na `/app/license` albo za pomocą CLI.
+
+## Żądania
+
+Każde żądanie wysyła klucz licencyjny jako `authorization: Bearer <key>`, a identyfikator maszyny w nagłówku <RepositoryFact name="cliApiMachineHeader" />. Każda odpowiedź jest w formacie JSON.
+
+<RepositoryTable columns={["Żądanie", "Statusy powodzenia", "Kody błędów"]} name="cliApiEndpoints" />
+
+- **Odczyt licencji**: plan, jego limit maszyn, liczba używanych maszyn oraz każda maszyna z etykietą i czasem utworzenia. Maszyny aktywowane przez CLI pokazują też swój rodzaj (maszyna lub CI), platformę i wersję CLI. Wywołująca maszyna jest oznaczona jako `current`.
+- **Aktywacja**: przyjmuje wersję CLI, rodzaj, platformę i etykietę o długości do <RepositoryFact name="cliApiLabelMaxLength" /> znaków. Nowa aktywacja daje odpowiedź z pierwszym statusem z tabeli, a istniejąca aktywacja wywołującej maszyny z drugim.
+- **Sprawdzenie aktywacji**: potwierdza, że aktywacja należy do klucza i do wywołującej maszyny.
+- **Zwolnienie aktywacji**: usuwa dowolną maszynę klucza i zwalnia jej miejsce.
+
+Kontrakt opisuje też pobieranie paczki szablonów. Trafi ono do CLI razem z jego szablonami w jednym z kolejnych wydań, a witryna nie ma jeszcze dla niego trasy.
+
+## Błędy
+
+W przypadku błędu odpowiedzią jest obiekt JSON, którego pole `code` podaje nazwę błędu:
+
+<RepositoryTable columns={["Kod", "Status HTTP"]} name="cliApiErrors" />
+
+- `invalidLicenseKey`: brak klucza, klucz ma błędny format albo jest nieznany. Odpowiedź zawiera nagłówek `www-authenticate: Bearer`.
+- `licenseRefunded`: Polar zwrócił pieniądze za całe zamówienie.
+- `licenseRevoked`: licencję cofnięto bez zwrotu pieniędzy, na przykład dlatego, że Polar cofnął klucz.
+- `activationLimitReached`: wszystkie miejsca są zajęte. Odpowiedź zawiera licencję i jej maszyny, więc CLI może zaproponować zwolnienie jednej z nich.
+- `activationNotFound`: klucz nie ma takiej aktywacji albo aktywacja należy do innej maszyny.
+- `invalidRequest`: wymienia w `issues` każdy problem wraz ze ścieżką, taką jak `body.label`, i komunikatem.
+- `rateLimited` i `serviceUnavailable`: zawierają `retryAfterSeconds` i tę samą liczbę w nagłówku `retry-after`. `serviceUnavailable` oznacza, że Polar był nieosiągalny, zwrócił błąd albo ograniczył żądania witryny; CLI powinno odczekać <RepositoryFact name="cliApiRetryAfterSeconds" unit="second" /> (`LICENSE_API_RETRY_AFTER_SECONDS`) i ponowić żądanie.
+
+## Limity żądań
+
+Każdy adres IP może wysłać <RepositoryFact name="cliApiRequestsPerAddress" /> żądań, a każdy klucz licencyjny <RepositoryFact name="cliApiRequestsPerLicenseKey" /> żądań w ciągu <RepositoryFact name="cliApiRateLimitSeconds" unit="second" />. Adres jest zliczany najpierw, zanim klucz zostanie odczytany, więc zgadywanie kluczy z jednego adresu kończy się na limicie adresu. `consumeRateLimit` (`src/lib/rate-limit.ts`) przechowuje liczniki w tabeli `rate_limit` i przypisuje je do adresu oraz do hasha SHA-256 klucza, nigdy do samego klucza.
+
+## Licencje po zwrocie pieniędzy i cofnięte
+
+Decyduje wiersz `license`, do którego należy klucz. Webhooki Polar utrzymują go w aktualnym stanie (zobacz [Płatności i licencje](/docs/features/payments)): pełny zwrot ustawia status `refunded`, a cofnięty benefit ustawia `revoked`. Polar cofa też benefit zwróconego zamówienia, a oba zdarzenia mogą przyjść w dowolnej kolejności, więc cofnięcie nigdy nie zastępuje `refunded`. Gdy Polar już cofnął albo wyłączył klucz, a jego webhook jeszcze nie dotarł, API również odpowiada `licenseRevoked`.
+
+## W kodzie
+
+| Plik                                                                                               | Rola                                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/routes/api/cli.v1.license.ts`, `cli.v1.activations.ts`, `cli.v1.activations.$activationId.ts` | Pliki tras, z jedną metodą dla każdego endpointu kontraktu                                                                                                                                                         |
+| `src/modules/license/license.api.ts`                                                               | `licenseApiHandlers`: limity żądań, wyszukiwanie w D1, endpointy kluczy licencyjnych Polar wywoływane z tokenem organizacji oraz odpowiedzi                                                                        |
+| `src/modules/license/__test__/license.api.integration.test.ts`                                     | Każdy endpoint względem D1 i ścisłego dublera Polar: powodzenie, ponowne użycie, limit, licencje po zwrocie pieniędzy i cofnięte, limity żądań i awarie Polar, a każda odpowiedź odczytana przez `readApiResponse` |
+| `src/routes/api/__test__/cli.v1.test.ts`                                                           | Router kieruje każdą ścieżkę kontraktu do jej pliku trasy                                                                                                                                                          |
+| `e2e/specs/cli-licence-api.spec.ts`                                                                | Zbudowany Worker udostępnia API własnemu klientowi kontraktu                                                                                                                                                       |
+
+`LICENSE_API_ENDPOINTS` w `license.constants.ts` wymienia endpointy kontraktu, które obsługuje witryna. Odczytują je powyższe tabele i test routingu.
+
+## Powiązane strony
+
+- [Płatności i licencje](/docs/features/payments)
+- [Aplikacja klienta](/docs/features/customer-app)
+- [Handlery HTTP](/docs/features/api-surface)
+- [Konfiguracja Polar](/docs/getting-started/polar-setup)

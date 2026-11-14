@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 
+import { API_BASE_PATH, API_ENDPOINT, API_ERROR, API_ERROR_STATUS, RATE_LIMIT } from "@saasyland/stack/api"
 import { render, screen, within } from "@testing-library/react"
 import { adminAc } from "better-auth/plugins/admin/access"
 import { IntlProvider } from "use-intl/react"
@@ -9,6 +10,7 @@ import zod from "zod/v4"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { PPP_TIERS } from "~/src/modules/_core/constants/pricing"
+import { LICENSE_API_ENDPOINTS, LICENSE_API_RETRY_AFTER_SECONDS } from "~/src/modules/license/license.constants"
 import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
 import { APP_STATEMENTS } from "~/src/data/access"
@@ -120,6 +122,29 @@ describe("RepositoryFact", () => {
     )
   })
 
+  it("prints the CLI licence API's rate limits from the contract and its retry delay from the licence module", () => {
+    renderInLocale(
+      "en-US",
+      <ul>
+        <li>
+          <RepositoryFact name="cliApiRequestsPerAddress" />
+        </li>
+        <li>
+          <RepositoryFact name="cliApiRequestsPerLicenseKey" />
+        </li>
+        <li>
+          <RepositoryFact name="cliApiRetryAfterSeconds" unit="second" />
+        </li>
+      </ul>,
+    )
+
+    expect(listItems()).toEqual([
+      String(RATE_LIMIT.REQUESTS_PER_ADDRESS),
+      String(RATE_LIMIT.REQUESTS_PER_LICENSE_KEY),
+      new Intl.NumberFormat("en-US", { style: "unit", unit: "second", unitDisplay: "long" }).format(LICENSE_API_RETRY_AFTER_SECONDS),
+    ])
+  })
+
   it("prints the per-recipient email limit that the server-only rate limiter applies", () => {
     renderInLocale("en-US", <RepositoryFact name="recipientEmailsPerHour" />)
 
@@ -149,6 +174,32 @@ describe("RepositoryTable", () => {
     renderInLocale("en-US", <RepositoryTable columns={["Type", "Emoji"]} name="commitTypes" />)
 
     expect(tableRows().slice(1)).toEqual(Object.entries(COMMIT_EMOJIS))
+  })
+
+  it("prints every CLI licence API endpoint the site serves with its success statuses and error codes", () => {
+    renderInLocale("en-US", <RepositoryTable columns={["Request", "Success", "Errors"]} name="cliApiEndpoints" />)
+
+    expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual(["Request", "Success", "Errors"])
+    expect(tableRows().slice(1)).toEqual(
+      LICENSE_API_ENDPOINTS.map((name) => API_ENDPOINT[name]).map(({ errors, method, route, statuses }) => [
+        `${method} ${API_BASE_PATH}${route}`,
+        new Intl.ListFormat("en-US").format(statuses.map(String)),
+        new Intl.ListFormat("en-US").format(errors),
+      ]),
+    )
+  })
+
+  it("prints the HTTP status of every error those endpoints answer with, and only those", () => {
+    renderInLocale("en-US", <RepositoryTable columns={["Code", "Status"]} name="cliApiErrors" />)
+
+    const rows = tableRows().slice(1)
+    expect(rows).toEqual(
+      [...new Set(LICENSE_API_ENDPOINTS.flatMap((name) => API_ENDPOINT[name].errors))].map((code) => [
+        code,
+        String(API_ERROR_STATUS[code]),
+      ]),
+    )
+    expect(rows.map(([code]) => code)).not.toContain(API_ERROR.VERSION_NOT_FOUND)
   })
 
   it("prints the regional price multipliers formatted for the page locale", () => {

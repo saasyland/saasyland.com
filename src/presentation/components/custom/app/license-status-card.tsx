@@ -14,8 +14,8 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { ROUTES } from "~/src/routes"
 
 const licenseStatus = (license: License["select"]): License["select"]["status"] | "pending" => {
-  if (license.status === LICENSE_STATUS.REVOKED) {
-    return LICENSE_STATUS.REVOKED
+  if (license.status !== LICENSE_STATUS.ACTIVE) {
+    return license.status
   }
 
   if (typeof license.key === "string" && license.key.length > 0) {
@@ -43,7 +43,7 @@ export const LicenseStatusCard = (): JSX.Element | undefined => {
         </CardTitle>
         <CardDescription>{t("app.overview.license.description")}</CardDescription>
         <CardAction>
-          <Badge variant={license.status === LICENSE_STATUS.REVOKED ? "destructive" : "secondary"}>
+          <Badge variant={license.status === LICENSE_STATUS.ACTIVE ? "secondary" : "destructive"}>
             {t(`app.overview.license.${licenseStatus(license)}`)}
           </Badge>
         </CardAction>

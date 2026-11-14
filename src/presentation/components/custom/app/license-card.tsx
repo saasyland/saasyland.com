@@ -57,6 +57,7 @@ export const LicenseCard = (): JSX.Element | undefined => {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {license.status === LICENSE_STATUS.REVOKED && <p className="text-sm text-destructive">{t("revoked")}</p>}
+        {license.status === LICENSE_STATUS.REFUNDED && <p className="text-sm text-destructive">{t("refunded")}</p>}
         <div className="space-y-2">
           <p className="text-sm font-medium">{t("issued")}</p>
           <code className="block rounded-md border border-border bg-muted px-4 py-3 font-mono text-sm break-all select-all">

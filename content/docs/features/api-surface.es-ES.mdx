@@ -3,13 +3,14 @@ title: "Manejadores HTTP de TanStack Start"
 description: "Las rutas de servidor bajo /api y su relación con las funciones de servidor."
 ---
 
-La aplicación expone tres rutas HTTP, declaradas con `server.handlers` en `createFileRoute` dentro de `src/routes/api`:
+La aplicación expone estas rutas HTTP, declaradas con `server.handlers` en `createFileRoute` dentro de `src/routes/api`:
 
-| Ruta          | Métodos   | Manejador                                                                                                                                                                |
-| ------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/api`        | GET       | Devuelve `{ "runtime": "cloudflare-workers" }`.                                                                                                                          |
-| `/api/auth/$` | GET, POST | Better Auth: inicio de sesión, retornos de OAuth, `/api/auth/verify-email` y los endpoints del plugin de Polar `/api/auth/polar/webhooks` y `/api/auth/customer/portal`. |
-| `/api/search` | GET       | Búsqueda de Fumadocs (`fumadocs.search.ts`).                                                                                                                             |
+| Ruta                                         | Métodos           | Manejador                                                                                                                                                                                       |
+| -------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api`                                       | GET               | Devuelve `{ "runtime": "cloudflare-workers" }`.                                                                                                                                                 |
+| `/api/auth/$`                                | GET, POST         | Better Auth: inicio de sesión, retornos de OAuth, `/api/auth/verify-email` y los endpoints del plugin de Polar `/api/auth/polar/webhooks` y `/api/auth/customer/portal`.                        |
+| `/api/search`                                | GET               | Búsqueda de Fumadocs (`fumadocs.search.ts`).                                                                                                                                                    |
+| <RepositoryFact name="cliApiBasePath" />`/*` | GET, POST, DELETE | La [API de licencias de la CLI](/docs/features/cli-licence-api): `licenseApiHandlers` (`license.api.ts`) leen la licencia y activan, comprueban y liberan dispositivos para la CLI `saasyland`. |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
@@ -23,14 +24,14 @@ export const Route = createFileRoute("/api/auth/$")({
 
 ## Funciones de servidor en lugar de REST
 
-Las operaciones de la aplicación son funciones `createServerFn` en `src/modules/<table>/use-cases`. Las demás viven en `src/lib` (`getStarCount` en `github.ts`), en una integración (`getCurrentSession` en `auth.session.ts`, `getDocsPage` en `fumadocs.docs.ts`) o dentro de la única ruta que las usa (`getBlogPosts` en `blog.index.tsx`). TanStack Start las llama por RPC bajo `/_serverFn`, con middleware para sesiones, permisos y límites de peticiones. No añadas un endpoint REST para una operación que solo llama esta aplicación; añade una ruta HTTP solo para llamadas externas, como los webhooks, y verifica sus firmas en la integración del proveedor.
+Las operaciones de la aplicación son funciones `createServerFn` en `src/modules/<table>/use-cases`. Las demás viven en `src/lib` (`getStarCount` en `github.ts`), en una integración (`getCurrentSession` en `auth.session.ts`, `getDocsPage` en `fumadocs.docs.ts`) o dentro de la única ruta que las usa (`getBlogPosts` en `blog.index.tsx`). TanStack Start las llama por RPC bajo `/_serverFn`, con middleware para sesiones, permisos y límites de peticiones. No añadas un endpoint REST para una operación que solo llama esta aplicación; añade una ruta HTTP solo para llamadas externas, como los webhooks y la CLI, y verifica las firmas de los webhooks en la integración del proveedor.
 
 ## Comportamiento
 
 - El Worker no aplica redirecciones de idioma a `/api` ni a `/_serverFn`. Sus URL no llevan idioma, así que `getCurrentLocale()` devuelve `en-US` para ellas en el servidor; el código que necesita un idioma lo recibe como entrada o lo lee de un `callbackURL`.
 - La compilación no prerrenderiza `/api`.
 - `/media/*` no es una ruta de TanStack Start: el Worker la envía a `serveMedia` antes de la gestión del idioma. Consulta [Cloudflare R2](/docs/integrations/cloudflare-r2).
-- Las pruebas de los manejadores están en `src/routes/api/__test__/`, un archivo por manejador: `auth.test.ts`, `search.test.ts` e `index.test.ts`.
+- Las pruebas de los manejadores están en `src/routes/api/__test__/`, un archivo por manejador: `auth.test.ts`, `search.test.ts` e `index.test.ts`. `cli.v1.test.ts` cubre los archivos de ruta de la API de licencias de la CLI, cuyo comportamiento se prueba en `src/modules/license/__test__/license.api.integration.test.ts`.
 
 ## Guías relacionadas
 

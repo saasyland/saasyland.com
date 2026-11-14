@@ -3,13 +3,14 @@ title: "TanStack Start の HTTP ハンドラー"
 description: "/api 配下のサーバールートと、サーバー関数との関係。"
 ---
 
-アプリは 3 つの HTTP ルートを公開しており、`src/routes/api` で `createFileRoute` の `server.handlers` を使って宣言しています。
+アプリは次の HTTP ルートを公開しており、`src/routes/api` で `createFileRoute` の `server.handlers` を使って宣言しています。
 
-| ルート        | メソッド  | ハンドラー                                                                                                                                                          |
-| ------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api`        | GET       | `{ "runtime": "cloudflare-workers" }` を返します。                                                                                                                  |
-| `/api/auth/$` | GET、POST | Better Auth: サインイン、OAuth コールバック、`/api/auth/verify-email`、Polar プラグインのエンドポイント `/api/auth/polar/webhooks` と `/api/auth/customer/portal`。 |
-| `/api/search` | GET       | Fumadocs の検索（`fumadocs.search.ts`）。                                                                                                                           |
+| ルート                                       | メソッド          | ハンドラー                                                                                                                                                                               |
+| -------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api`                                       | GET               | `{ "runtime": "cloudflare-workers" }` を返します。                                                                                                                                       |
+| `/api/auth/$`                                | GET、POST         | Better Auth: サインイン、OAuth コールバック、`/api/auth/verify-email`、Polar プラグインのエンドポイント `/api/auth/polar/webhooks` と `/api/auth/customer/portal`。                      |
+| `/api/search`                                | GET               | Fumadocs の検索（`fumadocs.search.ts`）。                                                                                                                                                |
+| <RepositoryFact name="cliApiBasePath" />`/*` | GET、POST、DELETE | [CLI ライセンス API](/docs/features/cli-licence-api): `licenseApiHandlers`（`license.api.ts`）が、`saasyland` CLI のためにライセンスを読み取り、端末をアクティベート、確認、解放します。 |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
@@ -23,14 +24,14 @@ export const Route = createFileRoute("/api/auth/$")({
 
 ## REST の代わりにサーバー関数
 
-アプリの操作は `src/modules/<table>/use-cases` にある `createServerFn` 関数です。それ以外は `src/lib`（`github.ts` の `getStarCount`）、統合（`auth.session.ts` の `getCurrentSession`、`fumadocs.docs.ts` の `getDocsPage`）、またはそれを使う唯一のルート内（`blog.index.tsx` の `getBlogPosts`）にあります。TanStack Start はセッション、権限、レート制限のミドルウェアを通して、`/_serverFn` 配下の RPC でこれらを呼び出します。このアプリだけが呼び出す操作に REST エンドポイントを追加しないでください。HTTP ルートは Webhook のような外部の呼び出し元のためだけに追加し、署名はプロバイダーの統合で検証します。
+アプリの操作は `src/modules/<table>/use-cases` にある `createServerFn` 関数です。それ以外は `src/lib`（`github.ts` の `getStarCount`）、統合（`auth.session.ts` の `getCurrentSession`、`fumadocs.docs.ts` の `getDocsPage`）、またはそれを使う唯一のルート内（`blog.index.tsx` の `getBlogPosts`）にあります。TanStack Start はセッション、権限、レート制限のミドルウェアを通して、`/_serverFn` 配下の RPC でこれらを呼び出します。このアプリだけが呼び出す操作に REST エンドポイントを追加しないでください。HTTP ルートは Webhook や CLI のような外部の呼び出し元のためだけに追加し、Webhook の署名はプロバイダーの統合で検証します。
 
 ## 動作
 
 - Worker は `/api` と `/_serverFn` に言語のリダイレクトを適用しません。これらの URL には言語が含まれないため、サーバーでは `getCurrentLocale()` がこれらに対して `en-US` を返します。言語を必要とするコードは、それを入力として受け取るか、`callbackURL` から読み取ります。
 - ビルドは `/api` をプリレンダリングしません。
 - `/media/*` は TanStack Start のルートではありません。Worker が言語の処理より前に `serveMedia` へ渡します。[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照してください。
-- ハンドラーのテストは `src/routes/api/__test__/` にハンドラーごとに 1 ファイルずつあります（`auth.test.ts`、`search.test.ts`、`index.test.ts`）。
+- ハンドラーのテストは `src/routes/api/__test__/` にハンドラーごとに 1 ファイルずつあります（`auth.test.ts`、`search.test.ts`、`index.test.ts`）。`cli.v1.test.ts` は CLI ライセンス API のルートファイルを対象とし、その動作は `src/modules/license/__test__/license.api.integration.test.ts` でテストします。
 
 ## 関連ガイド
 

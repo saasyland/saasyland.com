@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
-import type { LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
+import { LICENSE_STATUS, type LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
 import { licenseTierForProduct } from "~/src/modules/license/license.utils"
 import { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
 import { grantLicense } from "~/src/modules/license/use-cases/grant-license"
@@ -78,7 +78,7 @@ export const licenseWebhookHandlers = {
     const userId = await accountId(data.customer)
 
     if (userId !== undefined) {
-      await revokeLicense({ polarOrderId: data.order_id, userId })
+      await revokeLicense({ polarOrderId: data.order_id, status: LICENSE_STATUS.REVOKED, userId })
     }
   },
 
@@ -108,7 +108,7 @@ export const licenseWebhookHandlers = {
     const userId = await accountId(data.customer)
 
     if (userId !== undefined) {
-      await revokeLicense({ polarOrderId: data.id, userId })
+      await revokeLicense({ polarOrderId: data.id, status: LICENSE_STATUS.REFUNDED, userId })
     }
   },
 } satisfies Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>

@@ -371,11 +371,11 @@ describe("returning from checkout", () => {
   })
 
   it("hides a refunded license while its replacement activates", async () => {
-    currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, status: LICENSE_STATUS.REVOKED } })
+    currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, status: LICENSE_STATUS.REFUNDED } })
     await renderApp(`${ROUTES.APP_LICENSE}?checkoutId=${CHECKOUT_ID}`)
 
     expect(await screen.findByRole("heading", { name: activation.activating.title })).toBeVisible()
-    expect(screen.queryByText(pagesLicenseMessages.revoked)).toBeNull()
+    expect(screen.queryByText(pagesLicenseMessages.refunded)).toBeNull()
   })
 
   it("ignores a checkout reference that is not a Polar checkout id", async () => {
@@ -402,11 +402,11 @@ describe("owning a license", () => {
     expect(screen.getByRole("link", { name: pagesAppMessages.overview.docs.action })).toHaveAttribute("href", ROUTES.DOCS)
   })
 
-  it("offers a new license next to a refunded one", async () => {
-    currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, key: JSON_NULL, status: LICENSE_STATUS.REVOKED } })
+  it.each([LICENSE_STATUS.REFUNDED, LICENSE_STATUS.REVOKED])("offers a new license next to a %s one", async (status) => {
+    currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, key: JSON_NULL, status } })
     await renderApp(ROUTES.APP)
 
-    expect(await screen.findByText(pagesAppMessages.overview.license.revoked)).toBeVisible()
+    expect(await screen.findByText(pagesAppMessages.overview.license[status])).toBeVisible()
     expect(await offer()).toBeVisible()
   })
 
@@ -443,11 +443,11 @@ describe("owning a license", () => {
     expect(toast.success).toHaveBeenCalledWith(pagesLicenseMessages.activations.success)
   })
 
-  it("explains a refunded license and offers a new one", async () => {
-    currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, status: LICENSE_STATUS.REVOKED } })
+  it.each([LICENSE_STATUS.REFUNDED, LICENSE_STATUS.REVOKED])("explains a %s license and offers a new one", async (status) => {
+    currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, status } })
     await renderApp(ROUTES.APP_LICENSE)
 
-    expect(await screen.findByText(pagesLicenseMessages.revoked)).toBeVisible()
+    expect(await screen.findByText(pagesLicenseMessages[status])).toBeVisible()
     expect(await offer()).toBeVisible()
   })
 

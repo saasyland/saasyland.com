@@ -1,0 +1,73 @@
+---
+title: "CLI ライセンス API"
+description: "saasyland CLI がライセンスを読み取り、端末をアクティベート、確認、解放するために呼び出す saasyland.com の API。"
+---
+
+有料の `saasyland` CLI は、ライセンスキーを saasyland.com で確認します。Worker は <RepositoryFact name="cliApiBasePath" /> 配下で応答し、キーを D1 の `license` テーブルと照合して、端末を Polar 上のキーのアクティベーションとして管理します。そのため、CLI が Polar を直接呼び出すことはありません。
+
+両者の間のコントラクトは、`@saasyland/stack` パッケージの `./api` エントリーです。このパッケージは MIT ライセンスで、CLI のリポジトリから公開されています。コントラクトは、ルート、ヘッダー、リクエストとレスポンスのスキーマ、エラーコード、レート制限を定義します。CLI はこれを使ってすべてのリクエストを組み立て、すべてのレスポンスを読み取ります。サイトはこれを使ってすべてのリクエストを読み取り、すべてのレスポンスを書き出します（`readApiRequest`、`apiResponse`、`apiErrorResponse`）。そのため、どちらの側も相手からずれることはありません。このページの値と表は、コントラクトから出力しています。
+
+## 端末
+
+- ライセンスキーは、プランが許す数の端末で有効にできます。Core は <ActivationLimit tier="core" />、Complete は <ActivationLimit tier="complete" />、Agency は <ActivationLimit tier="agency" /> です。これは `LICENSE_ACTIVATION_LIMITS` で、Polar が強制する上限です。
+- CLI は、その端末上で導出する端末 ID で端末を識別します。これは、オペレーティングシステムのマシン ID、または CI では CI プロバイダーとリポジトリの ID を、固定の鍵で HMAC-SHA256 にかけたものです。オペレーティングシステムの生の ID が端末の外に出ることはありません。
+- 同じ端末からもう一度アクティベートすると、別の枠を使わずに、その端末のアクティベーションを変更せずに返します。そのため、端末は枠と名前をそのまま保持します。端末の名前を変更するには、端末を解放してから `--label` を付けてもう一度アクティベートします。CI では、1 つのリポジトリ内のすべての実行が同じ端末として扱われます。
+- 顧客は、`/app/license` の **端末** から、または CLI で枠を解放します。
+
+## リクエスト
+
+すべてのリクエストは、ライセンスキーを `authorization: Bearer <key>` として、端末 ID を <RepositoryFact name="cliApiMachineHeader" /> ヘッダーで送信します。レスポンスはすべて JSON です。
+
+<RepositoryTable columns={["リクエスト", "成功時のステータス", "エラーコード"]} name="cliApiEndpoints" />
+
+- **ライセンスの読み取り**: プラン、その端末数の上限、使用中の端末の数、そしてすべての端末とそのラベルおよび作成日時を返します。CLI がアクティベートした端末には、種類（端末または CI）、プラットフォーム、CLI のバージョンも表示されます。呼び出し元の端末には `current` の印が付きます。
+- **アクティベート**: CLI のバージョン、種類、プラットフォーム、最大 <RepositoryFact name="cliApiLabelMaxLength" /> 文字のラベルを受け取ります。新しいアクティベーションには表の 1 つ目のステータスで、呼び出し元の端末の既存のアクティベーションには 2 つ目のステータスで応答します。
+- **アクティベーションの確認**: アクティベーションがそのキーと呼び出し元の端末のものであることを確認します。
+- **アクティベーションの解放**: キーの任意の端末を削除し、その枠を解放します。
+
+コントラクトには、テンプレートバンドルのダウンロードも記述されています。これは今後のリリースで CLI のテンプレートとともに提供される予定で、サイトはまだこれをルーティングしていません。
+
+## エラー
+
+エラーは、`code` でそのエラーを示す JSON オブジェクトで応答します。
+
+<RepositoryTable columns={["コード", "HTTP ステータス"]} name="cliApiErrors" />
+
+- `invalidLicenseKey`: キーがない、形式が正しくない、または存在しません。レスポンスには `www-authenticate: Bearer` が付きます。
+- `licenseRefunded`: Polar が注文を全額返金しました。
+- `licenseRevoked`: 返金なしでライセンスが取り消されました。たとえば、Polar がキーを取り消した場合です。
+- `activationLimitReached`: すべての枠が使用中です。レスポンスにはライセンスとその端末が含まれるため、CLI はいずれかの解放を提案できます。
+- `activationNotFound`: キーにそのアクティベーションがないか、アクティベーションが別の端末のものです。
+- `invalidRequest`: 問題を 1 つずつ、`body.label` のようなパスとメッセージとともに `issues` に列挙します。
+- `rateLimited` と `serviceUnavailable`: `retryAfterSeconds` と、同じ数値を入れた `retry-after` ヘッダーを返します。`serviceUnavailable` は、Polar に到達できなかった、Polar が失敗した、または Polar がサイトのリクエストを制限したことを意味します。CLI は <RepositoryFact name="cliApiRetryAfterSeconds" unit="second" />後（`LICENSE_API_RETRY_AFTER_SECONDS`）に再試行してください。
+
+## レート制限
+
+<RepositoryFact name="cliApiRateLimitSeconds" unit="second" />
+あたり、IP アドレスごとに <RepositoryFact name="cliApiRequestsPerAddress" /> 件、ライセンスキーごとに
+<RepositoryFact name="cliApiRequestsPerLicenseKey" /> 件のリクエストを送信できます。キーを読み取る前に、まずアドレスがカウントされるため、1
+つのアドレスからキーを推測しようとしても、アドレスの上限で止まります。`consumeRateLimit`（`src/lib/rate-limit.ts`）はカウンターを
+`rate_limit` テーブルに保持し、アドレスと、ライセンスキーの SHA-256 ハッシュで識別します。ライセンスキーそのものを使うことはありません。
+
+## 返金済みと取り消し済みのライセンス
+
+判断するのは、キーが属する `license` 行です。Polar の Webhook がこの行を最新の状態に保ちます（[決済とライセンス](/docs/features/payments)を参照）。全額返金でステータスは `refunded` になり、特典の取り消しで `revoked` になります。Polar は返金された注文の特典も取り消し、2 つのイベントはどちらの順序でも届く可能性があるため、取り消しが `refunded` を置き換えることはありません。Polar がすでにキーを取り消すか無効にしていて、その Webhook がまだ届いていない場合も、API は `licenseRevoked` を返します。
+
+## コード内の実装
+
+| ファイル                                                                                           | 役割                                                                                                                                                                                                  |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/cli.v1.license.ts`、`cli.v1.activations.ts`、`cli.v1.activations.$activationId.ts` | ルートファイル。コントラクトのエンドポイントごとに 1 つのメソッドを持ちます                                                                                                                           |
+| `src/modules/license/license.api.ts`                                                               | `licenseApiHandlers`: レート制限、D1 の検索、組織トークンで呼び出す Polar のライセンスキーのエンドポイント、レスポンス                                                                                |
+| `src/modules/license/__test__/license.api.integration.test.ts`                                     | D1 と Polar の厳密なテストダブルを相手にしたすべてのエンドポイント: 成功、再利用、上限、返金済みと取り消し済みのライセンス、レート制限、Polar の障害。各レスポンスは `readApiResponse` で読み取ります |
+| `src/routes/api/__test__/cli.v1.test.ts`                                                           | ルーターがコントラクトの各パスを対応するルートファイルに渡すこと                                                                                                                                      |
+| `e2e/specs/cli-licence-api.spec.ts`                                                                | ビルドした Worker が、コントラクト自身のクライアントに API を提供すること                                                                                                                             |
+
+`license.constants.ts` の `LICENSE_API_ENDPOINTS` は、コントラクトのエンドポイントのうち、サイトが提供するものを列挙します。上の表とルーティングのテストはこれを読み取ります。
+
+## 関連ページ
+
+- [決済とライセンス](/docs/features/payments)
+- [顧客アプリ](/docs/features/customer-app)
+- [HTTP ハンドラー](/docs/features/api-surface)
+- [Polar の設定](/docs/getting-started/polar-setup)

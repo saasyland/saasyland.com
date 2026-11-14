@@ -312,7 +312,7 @@ describe("buying a license", () => {
     await user.click(tierButton(LICENSE_TIER.COMPLETE))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(errorsMessages.codes.LICENSE_ALREADY_ACTIVE)
+      expect(toast.error).toHaveBeenCalledWith(errorsMessages.codes.LICENSE_ALREADY_ACTIVE.replace("{email}", CONTACT_EMAIL))
     })
     expect(await screen.findByRole("heading", { name: pagesAppMessages.overview.license.title })).toBeVisible()
     expect(screen.queryByRole("region", { name: buy.title })).toBeNull()

@@ -4,13 +4,19 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+
 import { Route as BlogPostRoute } from "~/src/routes/blog.$"
+
+import { TIER_PRICES } from "~/src/data/marketing"
 
 import { starCountQuery } from "~/src/lib/github"
 
 import { blogContent } from "~/src/presentation/components/custom/blog-content"
 
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
+import pagesLandingMessages from "~/messages/en-US/pages.landing.json"
 import { APP_NAME, APP_URL } from "~/src/presentation/branding"
 import { getRouter } from "~/src/router"
 import { ROUTES } from "~/src/routes"
@@ -97,6 +103,17 @@ describe("landing loader", () => {
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
       locale: "en-US",
       posts: [{ title: "Featured" }, { title: "Recent" }, { title: "Older" }],
+    })
+  })
+
+  it("describes the page with the entry price from TIER_PRICES", async () => {
+    const router = await load("/")
+    const price = new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(TIER_PRICES[LICENSE_TIER.CORE])
+    expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
+      metadata: {
+        description: pagesLandingMessages.metadata.description.replace("{price}", price),
+        title: pagesLandingMessages.metadata.title,
+      },
     })
   })
 })

@@ -151,13 +151,13 @@ The public URL is configured in source: [`src/presentation/branding/index.ts`](s
 
 When adapting the application to your own domain, update these locations together:
 
-| Location                                                                   | What to configure                                                                                                    |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, contact addresses, and GitHub identity.                                          |
-| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `appHostsForMode`, the hosts allowed per mode for authentication and newsletter requests, derived from `APP_DOMAIN`. |
-| [`wrangler.jsonc`](wrangler.jsonc)                                         | Worker names, custom-domain routes, D1 databases, KV namespaces, and R2 buckets for each environment.                |
-| [`src/data/marketing.ts`](src/data/marketing.ts)                           | Displayed tiers and prices (`TIERS`, `TIER_PRICES`); keep them aligned with the configured Polar products.           |
-| [`src/presentation/styles/`](src/presentation/styles)                      | Theme, typography, fonts, and shared style definitions.                                                              |
+| Location                                                                   | What to configure                                                                                                                                                        |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, contact addresses, and GitHub identity.                                                                                              |
+| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `appHostsForMode`, the hosts allowed per mode for authentication and newsletter requests, derived from `APP_DOMAIN`.                                                     |
+| [`wrangler.jsonc`](wrangler.jsonc)                                         | Worker names, custom-domain routes, D1 databases, KV namespaces, and R2 buckets for each environment.                                                                    |
+| [`src/data/marketing.ts`](src/data/marketing.ts)                           | Displayed tiers and prices (`TIERS`, `TIER_PRICES`) and the consulting rate (`CONSULTING_HOURLY_RATE`); keep the tier prices aligned with the configured Polar products. |
+| [`src/presentation/styles/`](src/presentation/styles)                      | Theme, typography, fonts, and shared style definitions.                                                                                                                  |
 
 Changing an environment file alone does not change the canonical URL. Rebuild after changing branding or deployment configuration.
 

@@ -38,7 +38,7 @@ Run tests with `bun run test`, never `bun test`. `bun run db:reset:test` recreat
 5. Statuses, kinds, tiers, roles and other domain values are named constants (`COURSE_STATUS.DRAFT`), never repeated string literals, in tests, e2e data and the seed too. Lengths are named constants as well.
 6. Server functions validate their input with the module's Zod schema, type it as `Module["operation"]` and authorize themselves with `authorized(...)`; route guards are not authorization.
 7. Forms follow the shadcn TanStack Form pattern; tables use the one `DataTable` with an `<entity>-columns.tsx` file.
-8. Every user-facing string in all nine locales; numbers shown on the site are measured (`REPOSITORY_FACTS`), never typed.
+8. Every user-facing string in all nine locales; numbers shown on the site are measured (`REPOSITORY_FACTS`) or declared once in `src/data` (`TIER_PRICES`), never typed.
 9. Coverage stays at 100% for lines, statements, functions and branches; delete unreachable branches instead of stubbing them.
 10. A change updates the README, the docs in all nine locales, the changelog and the site copy it affects.
 11. Commits are conventional (`fix(auth): keep the locale in verification links`), never `--no-verify`, and carry no `Co-Authored-By` trailer or any other AI attribution; the same goes for pull request descriptions. Do not type the emoji: the hook adds it from the type (`feat` ✨, `fix` 🐛, `docs` 📚, `refactor` 📦, `chore` ♻️, `test` 🚨, `perf` 🚀, `build` 🛠️, `ci` ⚙️, `style` 💎, `revert` 🗑️).

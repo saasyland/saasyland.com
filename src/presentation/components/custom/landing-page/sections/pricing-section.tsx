@@ -2,9 +2,11 @@ import type { JSX } from "react"
 
 import { Link, useRouter } from "@tanstack/react-router"
 import { Check } from "lucide-react"
-import { useTranslations } from "use-intl/react"
+import { useFormatter, useTranslations } from "use-intl/react"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+
+import { CONSULTING_HOURLY_RATE, MARKETING_SECTION_IDS } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { cn } from "~/src/lib/cn"
@@ -44,6 +46,7 @@ const TierSignUpLink: TierAction = ({ featured, tier }) => {
 
 export const PricingSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.pricing")
+  const format = useFormatter()
 
   return (
     <section className="relative border-t border-border" id={MARKETING_SECTION_IDS.PRICING}>
@@ -76,7 +79,7 @@ export const PricingSection = (): JSX.Element => {
 
             <div className="flex flex-col items-stretch gap-4">
               <p className="flex items-baseline gap-2 md:justify-end">
-                <span className="text-price text-foreground tabular-nums">{t("consulting.price")}</span>
+                <span className="text-price text-foreground tabular-nums">{format.number(CONSULTING_HOURLY_RATE, CURRENCY_FORMAT)}</span>
                 <span className="font-mono text-spec text-muted-foreground">{t("consulting.period")}</span>
               </p>
               <a

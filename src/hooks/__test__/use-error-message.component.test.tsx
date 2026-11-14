@@ -8,6 +8,8 @@ import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
+
 const MESSAGES = {
   auth: {
     errors: {
@@ -19,6 +21,7 @@ const MESSAGES = {
       AUTH_API_ERROR: "Authentication failed.",
       FORBIDDEN: "You don't have permission to do this.",
       INTERNAL_ERROR: "Something went wrong.",
+      LICENSE_ALREADY_ACTIVE: "To move to another tier, email {email}.",
       VALIDATION: "Please check the form and try again.",
     },
   },
@@ -60,6 +63,13 @@ describe("use error message", () => {
     const errorMessage = renderErrorMessage()
 
     expect(errorMessage(new Error(ERROR_CODES.FORBIDDEN))).toBe("You don't have permission to do this.")
+  })
+
+  it("fills the contact address into a code that asks the buyer to write in", () => {
+    expect.hasAssertions()
+    const errorMessage = renderErrorMessage()
+
+    expect(errorMessage(new Error(ERROR_CODES.LICENSE_ALREADY_ACTIVE))).toBe(`To move to another tier, email ${CONTACT_EMAIL}.`)
   })
 
   it("reports validation failures with the generic validation message", () => {

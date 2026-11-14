@@ -12,6 +12,7 @@ import { pageHead } from "~/src/lib/seo"
 
 import { LegalPending } from "~/src/presentation/components/custom/marketing-pending"
 
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const SECTIONS = ["controller", "collection", "purposes", "basis", "providers", "retention", "cookies", "rights", "changes"] as const
@@ -34,7 +35,7 @@ const PrivacyPage = (): JSX.Element => {
           <section className="flex flex-col gap-3" key={section}>
             <h2 className="text-xl font-medium text-foreground">{t(`sections.${section}.title`)}</h2>
             <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
-              {t(`sections.${section}.body`, { cookieDays: AFFILIATE_TERMS.COOKIE_DAYS })}
+              {t(`sections.${section}.body`, { cookieDays: AFFILIATE_TERMS.COOKIE_DAYS, email: CONTACT_EMAIL })}
             </p>
           </section>
         ))}

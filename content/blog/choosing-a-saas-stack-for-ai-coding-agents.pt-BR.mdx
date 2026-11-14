@@ -1,11 +1,11 @@
 ---
 title: "Como escolher um stack SaaS para agentes de programação com IA em 2026"
 description: Popular não significa mais amigável para agentes. Um teste de quatro perguntas para qualquer dependência, aplicado camada por camada a um stack SaaS real em produção.
-excerpt: O conselho padrão é escolher ferramentas populares porque os agentes já viram mais delas. Em 2026, esse conselho se inverteu em parte, e há um artefato neste repositório que prova isso.
+excerpt: O conselho padrão é escolher ferramentas populares porque os agentes já viram mais delas. Em 2026, esse conselho se inverteu em parte, e há um artefato distribuído pelo próprio Next.js que prova isso.
 authorName: Piotr J. Borowiecki
 authorImage: https://avatars.githubusercontent.com/u/27385980?s=96&v=4
 date: 2026-08-15
-updated: 2026-09-06
+updated: 2026-11-14
 image: /images/blog/choosing-a-saas-stack-for-ai-coding-agents.webp
 tags:
   - ai-agents
@@ -35,7 +35,7 @@ faq:
     answer: Quase nunca. O custo da migração é certo e o ganho é limitado, enquanto adicionar tipos rigorosos, validação nas fronteiras e um único comando de verificação ao stack que você já tem é barato e vale imediatamente. Troque de stack quando você já fosse trocá-lo de qualquer forma, e deixe a adequação a agentes ser um critério de desempate, e não o motivo.
 ---
 
-O conselho que todos dão sobre escolher um stack para agentes de programação com IA é que o popular é melhor, porque os modelos já viram mais dele. Parece obviamente verdade. Era verdade. Em 2026, isso está em parte invertido, e a prova é um arquivo que este repositório gera sozinho.
+O conselho que todos dão sobre escolher um stack para agentes de programação com IA é que o popular é melhor, porque os modelos já viram mais dele. Parece obviamente verdade. Era verdade. Em 2026, isso está em parte invertido, e a prova é um arquivo que o Next.js escreve sozinho no seu projeto.
 
 Execute `next dev` no Next.js 16 e ele escreve isto no seu `AGENTS.md`, sem que ninguém peça:
 
@@ -61,7 +61,7 @@ Este artigo é sobre esse problema e sobre o que fazer com ele. Não é uma list
 
 </Callout>
 
-_Última atualização em 15 de agosto de 2026. Este é o segundo texto de uma série; o primeiro trata de [por que seu repositório decide a qualidade do resultado dos agentes](/blog/ai-coding-agents-repository-readiness) e vale a pena lê-lo antes, se você ainda não leu._
+_Última atualização em 14 de novembro de 2026. Este é o segundo texto de uma série; o primeiro trata de [por que seu repositório decide a qualidade do resultado dos agentes](/blog/ai-coding-agents-repository-readiness) e vale a pena lê-lo antes, se você ainda não leu._
 
 ## O que um stack realmente faz por um agente de programação com IA?
 
@@ -179,11 +179,13 @@ O schema é TypeScript, então ele é ao mesmo tempo a fonte das migrações e a
 
 Duas propriedades importam além da tipagem. As consultas do Drizzle se parecem com SQL, então o conhecimento de SQL existente se transfere. O Cloudflare D1 usa a semântica do SQLite, então os agentes devem seguir o adaptador D1 e a documentação instalada em vez de copiar consultas específicas do Postgres. Migrações versionadas e bindings locais isolados tornam as mudanças revisáveis antes de qualquer operação remota.
 
-### Validação: Zod em cada fronteira externa
+### Validação: Zod na fronteira das requisições
 
 **Pontuação: 8/8.** É a camada que a maioria dos stacks pula e a que se paga mais rápido.
 
 Tipos descrevem o que você acredita. Schemas verificam. Todo lugar por onde dados entram no processo (corpos HTTP, variáveis de ambiente, payloads de webhooks, respostas de terceiros, colunas JSON do banco de dados) é um lugar em que o sistema de tipos confia em uma promessa que ninguém verificou.
+
+Nesta aplicação, o Zod valida as entradas das funções de servidor, os parâmetros de busca das rotas e os valores de formulários, e o SDK do Polar verifica e valida os payloads de webhooks. Os bindings de ambiente são tipados pelo Wrangler, e não validados, por isso continuam sendo a fronteira em que se confia sem verificar.
 
 No trabalho com agentes, isso importa mais do que no trabalho humano. Uma pessoa que escreve uma integração tende a desconfiar do payload porque já se queimou antes. Um agente escreve o caminho feliz com total confiança, porque é o caminho feliz que seus dados de treinamento mais contêm. Um schema na borda transforma esse otimismo em um erro capturado, com uma mensagem que nomeia o campo.
 
@@ -259,12 +261,12 @@ Cada afirmação abaixo corresponde a um comando no repositório público do sit
 
 | Camada         | Escolha                               | Pontuação | Verificação                                                                                                                 |
 | -------------- | ------------------------------------- | :-------: | --------------------------------------------------------------------------------------------------------------------------- |
-| Linguagem      | TypeScript, rigoroso, sem `any`       |     8     | `tsc --strict` bloqueia o merge                                                                                             |
+| Linguagem      | TypeScript, rigoroso, sem `any`       |     8     | A verificação de tipos do `vp check` bloqueia o merge                                                                       |
 | Runtime        | Cloudflare Workers                    |     7     | `bun run check && bun run test:coverage`                                                                                    |
 | Framework      | TanStack Start, React                 |     6     | Documentação instalada fixada no `AGENTS.md`                                                                                |
 | API            | Funções de servidor do TanStack Start |     7     | Mudar uma rota quebra os pontos de chamada no build                                                                         |
 | Banco de dados | Drizzle, Cloudflare D1                |     8     | O schema é a migração e os tipos                                                                                            |
-| Validação      | Zod em cada fronteira                 |     8     | HTTP, env, webhooks e linhas, tudo validado                                                                                 |
+| Validação      | Zod na fronteira das requisições      |     8     | Entradas das funções de servidor e parâmetros de busca das rotas validados; o env é tipado, não validado                    |
 | Autenticação   | Better Auth, no repositório           |     7     | Código-fonte legível, `$0` por usuário                                                                                      |
 | Estilos        | Tailwind, shadcn/ui no repositório    |     7     | <RepositoryCount fact="uiComponents" /> componentes que você pode editar                                                    |
 | i18n           | use-intl, com gate de paridade        |     7     | `bun run check:i18n`                                                                                                        |
@@ -276,7 +278,7 @@ O gate de cobertura de 100% é a parte que torna seguro colocar um agente para t
 
 <Callout title={"Confira antes de pagar"}>
 
-A [documentação](/docs) é pública e o relatório de cobertura é gerado pelo próprio repositório. Depois, [veja quanto custa](/#pricing): um pagamento a partir de US$ 249, atualizações vitalícias do núcleo, sem taxas por usuário.
+A [documentação](/docs) é pública e o relatório de cobertura é gerado pelo próprio repositório. Depois, [veja quanto custa](/#pricing): um pagamento a partir de <TierPrice tier="core" />, atualizações vitalícias do núcleo, sem taxas por usuário.
 
 </Callout>
 

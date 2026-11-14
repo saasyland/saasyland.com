@@ -1,11 +1,11 @@
 ---
 title: Scegliere uno stack SaaS per gli agenti di programmazione AI nel 2026
 description: Popolare non significa più adatto agli agenti. Un test di quattro domande per qualsiasi dipendenza, applicato livello per livello a un vero stack SaaS di produzione.
-excerpt: Il consiglio standard è scegliere gli strumenti popolari perché gli agenti ne hanno visti di più. Nel 2026 quel consiglio si è in parte ribaltato, e c'è un artefatto in questo repository che lo dimostra.
+excerpt: Il consiglio standard è scegliere gli strumenti popolari perché gli agenti ne hanno visti di più. Nel 2026 quel consiglio si è in parte ribaltato, e c'è un artefatto fornito dallo stesso Next.js che lo dimostra.
 authorName: Piotr J. Borowiecki
 authorImage: https://avatars.githubusercontent.com/u/27385980?s=96&v=4
 date: 2026-08-15
-updated: 2026-09-06
+updated: 2026-11-14
 image: /images/blog/choosing-a-saas-stack-for-ai-coding-agents.webp
 tags:
   - ai-agents
@@ -35,7 +35,7 @@ faq:
     answer: Quasi mai. Il costo della migrazione è certo e il guadagno è limitato, mentre aggiungere tipi rigorosi, validazione ai confini e un unico comando di verifica allo stack esistente costa poco e ha effetto subito. Cambia stack quando lo avresti cambiato comunque, e lascia che l'adeguatezza per gli agenti sia un criterio di spareggio, non il motivo.
 ---
 
-Il consiglio che tutti danno su come scegliere uno stack per gli agenti di programmazione AI è che il popolare è meglio, perché i modelli ne hanno visto di più. Sembra ovviamente vero. Era vero. Nel 2026 si è in parte ribaltato, e la prova è un file che questo repository genera da solo.
+Il consiglio che tutti danno su come scegliere uno stack per gli agenti di programmazione AI è che il popolare è meglio, perché i modelli ne hanno visto di più. Sembra ovviamente vero. Era vero. Nel 2026 si è in parte ribaltato, e la prova è un file che Next.js scrive da solo nel tuo progetto.
 
 Esegui `next dev` su Next.js 16 e scriverà questo nel tuo `AGENTS.md`, senza che nessuno glielo chieda:
 
@@ -61,7 +61,7 @@ Questo articolo parla di quel problema e di cosa farne. Non è una lista della s
 
 </Callout>
 
-_Ultimo aggiornamento: 15 agosto 2026. Questo è il secondo articolo di una serie; il primo spiega [perché il tuo repository decide la qualità dell'output dell'agente](/blog/ai-coding-agents-repository-readiness) e vale la pena leggerlo prima, se non l'hai ancora fatto._
+_Ultimo aggiornamento: 14 novembre 2026. Questo è il secondo articolo di una serie; il primo spiega [perché il tuo repository decide la qualità dell'output dell'agente](/blog/ai-coding-agents-repository-readiness) e vale la pena leggerlo prima, se non l'hai ancora fatto._
 
 ## Cosa fa davvero uno stack per un agente di programmazione AI?
 
@@ -179,11 +179,13 @@ Lo schema è TypeScript, quindi è sia la fonte delle migrazioni sia la fonte de
 
 Oltre alla tipizzazione contano due proprietà. Le query Drizzle somigliano a SQL, quindi le conoscenze SQL esistenti si trasferiscono. Cloudflare D1 usa la semantica di SQLite, quindi gli agenti devono seguire l'adapter D1 e la documentazione installata invece di copiare query specifiche di Postgres. Le migrazioni versionate e i binding locali isolati rendono le modifiche revisionabili prima di qualsiasi operazione remota.
 
-### Validazione: Zod a ogni confine esterno
+### Validazione: Zod al confine delle richieste
 
 **Punteggio: 8/8.** È il livello che la maggior parte degli stack salta e quello che ripaga più in fretta.
 
 I tipi descrivono ciò in cui credi. Gli schemi lo verificano. Ogni punto in cui i dati entrano nel processo (body HTTP, variabili d'ambiente, payload dei webhook, risposte di terze parti, colonne JSON del database) è un punto in cui il sistema di tipi si fida di una promessa che nessuno ha verificato.
+
+In questa applicazione Zod esegue il parsing degli input delle server function, dei parametri di ricerca delle route e dei valori dei form, mentre l'SDK di Polar verifica ed esegue il parsing dei payload dei webhook. I binding dell'ambiente sono tipizzati da Wrangler anziché sottoposti a parsing, quindi sono il confine che viene ancora preso sulla fiducia.
 
 Per il lavoro di un agente questo conta più che per quello di una persona. Chi scrive un'integrazione tende a diffidare del payload perché si è già scottato. Un agente scrive il percorso felice con totale sicurezza, perché il percorso felice è ciò che contengono soprattutto i suoi dati di addestramento. Uno schema al confine trasforma quell'ottimismo in un errore intercettato, con un messaggio che indica il campo.
 
@@ -257,18 +259,18 @@ Segna questi percorsi in `AGENTS.md` come riservati alla review umana, e sostien
 
 Ogni affermazione qui sotto corrisponde a un comando nel repository pubblico del sito, non a un aggettivo su una pagina.
 
-| Livello     | Scelta                             | Punteggio | Verifica                                                                                                                |
-| ----------- | ---------------------------------- | :-------: | ----------------------------------------------------------------------------------------------------------------------- |
-| Linguaggio  | TypeScript, rigoroso, niente `any` |     8     | `tsc --strict` blocca il merge                                                                                          |
-| Runtime     | Cloudflare Workers                 |     7     | `bun run check && bun run test:coverage`                                                                                |
-| Framework   | TanStack Start, React              |     6     | Documentazione installata fissata in `AGENTS.md`                                                                        |
-| API         | Server function di TanStack Start  |     7     | Una modifica alla route rompe i punti di chiamata in build                                                              |
-| Database    | Drizzle, Cloudflare D1             |     8     | Lo schema è la migrazione e i tipi                                                                                      |
-| Validazione | Zod a ogni confine                 |     8     | HTTP, env, webhook e righe, tutti sottoposti a parsing                                                                  |
-| Auth        | Better Auth, nel repo              |     7     | Sorgente leggibile, `$0` per utente                                                                                     |
-| Styling     | Tailwind, shadcn/ui nel repo       |     7     | <RepositoryCount fact="uiComponents" /> componenti che puoi modificare                                                  |
-| i18n        | use-intl, parità verificata        |     7     | `bun run check:i18n`                                                                                                    |
-| Test        | Vitest, Playwright                 |     8     | <RepositoryCount fact="testFiles" /> file di test, <RepositoryCount fact="e2eSpecs" /> suite Playwright, soglia al 100% |
+| Livello     | Scelta                             | Punteggio | Verifica                                                                                                                         |
+| ----------- | ---------------------------------- | :-------: | -------------------------------------------------------------------------------------------------------------------------------- |
+| Linguaggio  | TypeScript, rigoroso, niente `any` |     8     | Il controllo dei tipi di `vp check` blocca il merge                                                                              |
+| Runtime     | Cloudflare Workers                 |     7     | `bun run check && bun run test:coverage`                                                                                         |
+| Framework   | TanStack Start, React              |     6     | Documentazione installata fissata in `AGENTS.md`                                                                                 |
+| API         | Server function di TanStack Start  |     7     | Una modifica alla route rompe i punti di chiamata in build                                                                       |
+| Database    | Drizzle, Cloudflare D1             |     8     | Lo schema è la migrazione e i tipi                                                                                               |
+| Validazione | Zod al confine delle richieste     |     8     | Input delle server function e parametri di ricerca delle route sottoposti a parsing; l'env è tipizzato, non sottoposto a parsing |
+| Auth        | Better Auth, nel repo              |     7     | Sorgente leggibile, `$0` per utente                                                                                              |
+| Styling     | Tailwind, shadcn/ui nel repo       |     7     | <RepositoryCount fact="uiComponents" /> componenti che puoi modificare                                                           |
+| i18n        | use-intl, parità verificata        |     7     | `bun run check:i18n`                                                                                                             |
+| Test        | Vitest, Playwright                 |     8     | <RepositoryCount fact="testFiles" /> file di test, <RepositoryCount fact="e2eSpecs" /> suite Playwright, soglia al 100%          |
 
 La soglia di copertura al 100% è ciò che rende sicuro far lavorare un agente sul resto. Può scrivere alla velocità che vuole; nulla di ciò che rompe arriva su main, e lo scopri alla pull request invece che da un cliente.
 
@@ -276,7 +278,7 @@ La soglia di copertura al 100% è ciò che rende sicuro far lavorare un agente s
 
 <Callout title={"Controllare prima di pagare per questo"}>
 
-La [documentazione](/docs) è pubblica e il report di copertura è generato dal repository stesso. Poi [guarda quanto costa](/#pricing): un unico pagamento a partire da $249, aggiornamenti a vita del nucleo, nessun costo per utente.
+La [documentazione](/docs) è pubblica e il report di copertura è generato dal repository stesso. Poi [guarda quanto costa](/#pricing): un unico pagamento a partire da <TierPrice tier="core" />, aggiornamenti a vita del nucleo, nessun costo per utente.
 
 </Callout>
 

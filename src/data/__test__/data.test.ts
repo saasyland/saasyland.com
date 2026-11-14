@@ -4,8 +4,9 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { ADMIN_BLOG_POST_STATUS, DUMMY_POSTS } from "~/src/data/admin-blog"
-import { CLI_CHOICES } from "~/src/data/cli"
+import { CLI_CHOICES, CLI_EXTRAS, CLI_MODULES, NONE } from "~/src/data/cli"
 import { TIERS } from "~/src/data/marketing"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import pagesAdminBlogMessages from "~/messages/en-US/pages.admin.blog.json"
 
@@ -17,6 +18,17 @@ it("keeps scaffold choices and option identifiers unambiguous", () => {
       expect(option.flag).toMatch(/^--[a-z0-9-]+(?: [a-z0-9-]+)?$/u)
     }
   }
+})
+it("counts a CLI module as optional only when its question can be answered with none", () => {
+  const optionalChoices = CLI_MODULES.flatMap((module) => ("choiceId" in module ? [module.choiceId] : []))
+  for (const choiceId of optionalChoices) {
+    expect(CLI_CHOICES.find((choice) => choice.id === choiceId)?.options.map((option) => option.id)).toContain(NONE)
+  }
+  expect(REPOSITORY_FACTS).toMatchObject({
+    cliExtras: CLI_EXTRAS.length,
+    cliModules: CLI_MODULES.length,
+    cliOptionalModules: optionalChoices.length,
+  })
 })
 it("provides translated pricing tiers in every supported locale", () => {
   for (const locale of I18N.SUPPORTED_LOCALES) {

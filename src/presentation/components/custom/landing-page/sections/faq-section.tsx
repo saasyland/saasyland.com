@@ -38,7 +38,7 @@ export const FaqSection = (): JSX.Element => {
               strokeWidth={2}
             />
           </a>
-          <p className="mt-3 font-mono text-spec text-pretty text-muted-foreground">{t("contactNote")}</p>
+          <p className="mt-3 font-mono text-spec text-pretty text-muted-foreground">{t("contactNote", { email: CONTACT_EMAIL })}</p>
         </Reveal>
 
         <Reveal className="min-w-0" delay={ACCORDION_DELAY_MS}>

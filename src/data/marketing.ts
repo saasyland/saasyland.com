@@ -15,3 +15,5 @@ export const TIER_PRICES = {
   [LICENSE_TIER.COMPLETE]: 399,
   [LICENSE_TIER.CORE]: 249,
 } as const satisfies Record<(typeof TIERS)[number], number>
+
+export const CONSULTING_HOURLY_RATE = 149

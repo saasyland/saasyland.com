@@ -16,6 +16,7 @@ import licence from "~/messages/en-US/pages.legal.licence.json"
 import privacy from "~/messages/en-US/pages.legal.privacy.json"
 import refunds from "~/messages/en-US/pages.legal.refunds.json"
 import terms from "~/messages/en-US/pages.legal.terms.json"
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
 
 const DOCUMENTS = [
   { copy: affiliates, document: "affiliates", route: AffiliatesRoute },
@@ -42,6 +43,7 @@ it.each(I18N.SUPPORTED_LOCALES)("renders every legal document completely in %s",
     expect(messages).toHaveProperty(["pages", "legal", document, "title"], title.textContent)
     expect(messages).toHaveProperty(["pages", "legal", document, "lastUpdated"], title.previousElementSibling?.textContent)
     expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(Object.keys(copy.sections).length)
+    expect(view.container).toHaveTextContent(CONTACT_EMAIL)
     view.unmount()
   }
 })

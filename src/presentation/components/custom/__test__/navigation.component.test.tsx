@@ -39,6 +39,7 @@ const pageLabel = (key: string): string => {
   return label
 }
 
+const browserWindow: Window = globalThis.window
 const observers: TestObserver[] = []
 const resizeCallbacks: ((entries: ResizeEntry[]) => void)[] = []
 const observeSize = vi.fn<(element: Element) => void>()
@@ -254,7 +255,7 @@ describe("navigation scroll progress", () => {
 
   it("uses the native scroll timeline without fallback observers or scroll listeners", () => {
     supports.mockReturnValue(true)
-    const addListener = vi.spyOn(globalThis, "addEventListener")
+    const addListener = vi.spyOn(browserWindow, "addEventListener")
     const { container, unmount } = renderNavigation()
 
     expect(progressBar(container)).toHaveAttribute("aria-hidden", "true")
@@ -306,8 +307,8 @@ describe("navigation scroll progress", () => {
   })
 
   it("removes fallback listeners and disconnects every observer on unmount", () => {
-    const addListener = vi.spyOn(globalThis, "addEventListener")
-    const removeListener = vi.spyOn(globalThis, "removeEventListener")
+    const addListener = vi.spyOn(browserWindow, "addEventListener")
+    const removeListener = vi.spyOn(browserWindow, "removeEventListener")
     const { container, unmount } = renderNavigation()
     const progress = progressBar(container)
     resizeBody(1800)

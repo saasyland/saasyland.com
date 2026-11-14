@@ -2,18 +2,11 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { resolveLocale } from "~/src/integrations/use-intl/i18n.middleware"
 import { extractLocaleFromPath, shouldIgnorePath } from "~/src/integrations/use-intl/i18n.paths"
 
-import { COUNTRY_HEADER, HTTPS_SECURITY_HEADERS, HTTP_STATUS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
-import {
-  PPP_ATTRIBUTE,
-  PPP_COOKIE,
-  PPP_DECLINED,
-  PPP_PERCENT,
-  getPppPercentOff,
-  pppMultiplierKey,
-} from "~/src/modules/_core/constants/pricing"
-import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
+import { HTTPS_SECURITY_HEADERS, HTTP_STATUS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
 
-import { readCookie, serializeCookie } from "~/src/lib/cookie"
+import { DOCUMENT_HANDLERS, REQUEST_HANDLERS } from "~/src/data/worker"
+
+import { serializeCookie } from "~/src/lib/cookie"
 
 import { DOCUMENT_STYLESHEET, fontPreloads } from "~/src/presentation/document-assets"
 
@@ -30,40 +23,6 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Response> 
   return handler.fetch(request)
 }
 
-const withRegionalPricing = (page: Response, request: Request, locale: string): Response => {
-  const country = request.headers.get(COUNTRY_HEADER)?.toUpperCase()
-  const multiplierKey = pppMultiplierKey(country)
-
-  if (country === undefined || multiplierKey === PPP_PERCENT) {
-    return page
-  }
-
-  const region = new Intl.DisplayNames([locale], { type: "region" }).of(country)
-  const percent = new Intl.NumberFormat(locale, { style: "percent" }).format(getPppPercentOff(country) / PPP_PERCENT)
-  const declined = readCookie({ header: request.headers.get("Cookie"), name: PPP_COOKIE }) === PPP_DECLINED
-
-  page.headers.set("Cache-Control", "private, no-cache")
-  page.headers.delete("Content-Length")
-  page.headers.delete("ETag")
-  page.headers.delete("Last-Modified")
-
-  return new HTMLRewriter()
-    .on("html", {
-      element: (html) => {
-        html.setAttribute(PPP_ATTRIBUTE, String(multiplierKey))
-        html.setAttribute("style", `--ppp-region:${JSON.stringify(region)};--ppp-percent:${JSON.stringify(percent)}`)
-      },
-    })
-    .on(".ppp-offer input", {
-      element: (input) => {
-        if (declined) {
-          input.removeAttribute("checked")
-        }
-      },
-    })
-    .transform(page)
-}
-
 const withSecurityHeaders = (response: Response, protocol: string): Response => {
   const secured = new Response(response.body, response)
   const headers = protocol === "https:" ? { ...SECURITY_HEADERS, ...HTTPS_SECURITY_HEADERS } : SECURITY_HEADERS
@@ -73,11 +32,6 @@ const withSecurityHeaders = (response: Response, protocol: string): Response => 
   }
 
   return secured
-}
-
-const serveSignedMedia = async (request: Request): Promise<Response> => {
-  const { serveMedia } = await import("~/src/modules/video/video.delivery")
-  return serveMedia(request)
 }
 
 const respond = async (request: Request, env: Cloudflare.Env): Promise<Response> => {
@@ -113,13 +67,14 @@ const respond = async (request: Request, env: Cloudflare.Env): Promise<Response>
 
   page.headers.append("Link", [`<${DOCUMENT_STYLESHEET.href}>; rel=preload; as=style`, ...fonts].join(", "))
 
-  return withRegionalPricing(page, request, locale)
+  return DOCUMENT_HANDLERS.reduce((document, { rewrite }) => rewrite(document, { locale, request }), page)
 }
 
 export default {
   async fetch(request: Request, env: Cloudflare.Env): Promise<Response> {
     const { pathname, protocol } = new URL(request.url)
-    const response = pathname.startsWith(`${MEDIA_PATH_PREFIX}/`) ? await serveSignedMedia(request) : await respond(request, env)
+    const handler = REQUEST_HANDLERS.find(({ pathPrefix }) => pathname.startsWith(pathPrefix))
+    const response = handler === undefined ? await respond(request, env) : await handler.fetch(request)
     return withSecurityHeaders(response, protocol)
   },
 } satisfies ExportedHandler<Cloudflare.Env>

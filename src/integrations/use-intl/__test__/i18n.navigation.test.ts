@@ -26,6 +26,8 @@ it("keeps external and fragment links unchanged", () => {
 })
 it("normalizes locale roots and prefixed API links", () => {
   expect(deLocalizePathname("/pl-PL")).toBe("/")
+  expect(canonicalizePathname("/pl-PL")).toBe("/pl-PL")
+  expect(canonicalizePathname("/pl")).toBe("/pl-PL")
   expect(canonicalizePathname("/pl-PL/api/search")).toBe("/api/search")
 })
 it.each([

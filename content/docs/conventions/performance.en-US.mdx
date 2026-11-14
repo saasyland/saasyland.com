@@ -14,7 +14,7 @@ Each rule on this page came from a measurement, and several replaced an intuitiv
 
 ## Keep the Worker's boot graph small
 
-`src/server.ts` runs for every HTML request (`run_worker_first` in `wrangler.jsonc`), and everything it imports statically is evaluated on every cold start. It imports only constants and pure helpers, and loads the rest when a request needs it:
+`src/server.ts` runs for every HTML request (`run_worker_first` in `wrangler.jsonc`), and everything it imports statically is evaluated on every cold start. It and the Worker handlers that the areas add import only constants and pure helpers, and load the rest when a request needs it:
 
 ```ts
 const { default: handler } = await import("@tanstack/react-start/server-entry")
@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-One static import of a header name from a module that also imported the Polar client once pulled about 1.4 MB of SDK into every cold start, and the first byte of the landing page took up to 1.4 seconds. That is why `COUNTRY_HEADER` and `IP_ADDRESS_HEADER` live in `src/modules/_core/constants/api.ts`, which imports nothing heavy. Before adding a static import to `server.ts`, follow its import chain: anything that reaches `polar`, `drizzle-orm` or `resend` is a regression.
+One static import of a header name from a module that also imported the Polar client once pulled about 1.4 MB of SDK into every cold start, and the first byte of the landing page took up to 1.4 seconds. That is why `COUNTRY_HEADER` and `IP_ADDRESS_HEADER` live in `src/modules/_core/constants/api.ts`, which imports nothing heavy. Before adding a static import to `server.ts` or to an `<area>.worker.ts`, follow its import chain: anything that reaches `polar`, `drizzle-orm` or `resend` is a regression.
 
 ## Prerendered pages load CSS and fonts first
 

@@ -153,13 +153,13 @@ When adapting the application to your own domain, update these locations togethe
 
 | Location                                                                   | What to configure                                                                                                                                                         |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, contact addresses, and GitHub identity.                                                                                               |
-| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `DEPLOYED_HOSTS`, the preview and production hosts derived from `APP_DOMAIN`, and the one place the code names them.                                                      |
+| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, preview host (`APP_PREVIEW_DOMAIN`), contact addresses, and GitHub identity.                                                          |
+| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `DEPLOYED_HOSTS`, the preview and production hosts read from `APP_PREVIEW_DOMAIN` and `APP_DOMAIN`, and the one place the code names them by environment.                 |
 | [`wrangler.jsonc`](wrangler.jsonc)                                         | Worker names, custom-domain routes, D1 databases, KV namespaces, and R2 buckets for each environment.                                                                     |
 | [`src/data/marketing.ts`](src/data/marketing.ts)                           | Displayed tiers and prices (`TIERS`, `TIER_PRICES`) and the consulting rate (`CONSULTING_HOURLY_RATE`); `polar:verify` checks the tier prices against the Polar products. |
 | [`src/presentation/styles/`](src/presentation/styles)                      | Theme, typography, fonts, and shared style definitions.                                                                                                                   |
 
-`DEPLOYED_HOSTS` gives the preview host `preview.<APP_DOMAIN>` and the production host `APP_DOMAIN`. `appHostsForMode` reads it for the hosts Better Auth and newsletter links accept in each mode, and the deployment scripts' live check requests it, so change it only when your preview host has another name. The custom-domain `routes` in `wrangler.jsonc` and the environment URLs in [`deploy-reusable.yml`](.github/workflows/deploy-reusable.yml) name the same hosts and must match. Changing an environment file alone does not change the canonical URL. Rebuild after changing branding or deployment configuration.
+The branding names the preview host, `APP_PREVIEW_DOMAIN` (`preview.<APP_DOMAIN>`), and the production host, `APP_DOMAIN`, and `DEPLOYED_HOSTS` maps the `preview` and `production` environments to them. `appHostsForMode` reads it for the hosts Better Auth and newsletter links accept in each mode, and the deployment scripts' live check requests it, so change `APP_PREVIEW_DOMAIN` when your preview host has another name. The custom-domain `routes` in `wrangler.jsonc` and the environment URLs in [`deploy-reusable.yml`](.github/workflows/deploy-reusable.yml) name the same hosts and must match; [`src/__test__/wrangler.test.ts`](src/__test__/wrangler.test.ts) fails when the routes differ. Changing an environment file alone does not change the canonical URL. Rebuild after changing branding or deployment configuration.
 
 ### Provider setup
 
@@ -185,7 +185,7 @@ src/
   routes/                        TanStack file routes, loaders, guards, and HTTP handlers
   routes.ts                      Shared route constants
   router.tsx                     Per-request QueryClient and SSR integration
-  server.ts                      Cloudflare Worker entry, signed media routing, locale middleware, and security headers
+  server.ts                      Cloudflare Worker entry: the areas' Worker handlers, locale middleware, and security headers
   integrations/{vendor}/         Vendor configuration and adapters ({prefix}.{concern}.ts, e.g. auth.server.ts)
   modules/{table}/               One folder per database table: schema, zod, constants, types, use-cases/*.ts
   modules/_core/                 Shared error codes, catalogues, and helpers
@@ -198,7 +198,7 @@ src/
     social-card.tsx              Social cards rendered at build time with Takumi
     styles/                      Theme, typography, and local font declarations
   providers/                     Application-wide React providers
-  data/                          Data shared by several files: navigation, marketing, affiliate terms, CLI choices, repository facts, admin demo rows
+  data/                          Data shared by several files, and what each area adds: routes, menus, skeletons, Worker handlers, root components, Vite plugins, deploy checks
   hooks/                         Shared React hooks
   lib/                           Shared utilities (cn, confetti, cookies, the deployed-site check, durations, hex hashes and tokens, rate limits, release tags and notes, route search params, select options, SEO tags, prerendered page heads, robots.txt rules, the sitemap, GitHub stars, not-found errors)
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers
@@ -366,7 +366,7 @@ cp .env.example .env.production
 bun run deploy:production
 ```
 
-Each deployment script verifies the bindings, checks that the environment's Polar organisation matches the code (`polar:verify`), builds the selected environment, checks the generated artifacts, optimizes prerendered HTML, and writes the sitemap and social cards. It then writes the secrets that `wrangler.jsonc` declares for that environment from the environment file to `.wrangler/secrets.<environment>.json`, failing if any is empty, applies the environment's D1 migrations, deploys `dist/server/wrangler.json` (the configuration the Cloudflare Vite plugin generates) with that secrets file, and requests the home page, the course catalogue, `robots.txt`, `sitemap.xml`, the site social card, `/api`, and `/api/auth/get-session` from the live site, retrying twice. Builds alone do not apply remote migrations or deploy resources.
+Each deployment script verifies the bindings, runs the deploy checks the areas declare (`scripts/run-deploy-checks.ts`; today `polar:verify`, which checks that the environment's Polar organisation matches the code), builds the selected environment, checks the generated artifacts, optimizes prerendered HTML, and writes the sitemap and social cards. It then writes the secrets that `wrangler.jsonc` declares for that environment from the environment file to `.wrangler/secrets.<environment>.json`, failing if any is empty, applies the environment's D1 migrations, deploys `dist/server/wrangler.json` (the configuration the Cloudflare Vite plugin generates) with that secrets file, and requests the home page, the course catalogue, `robots.txt`, `sitemap.xml`, the site social card, `/api`, and `/api/auth/get-session` from the live site, retrying twice. Builds alone do not apply remote migrations or deploy resources.
 
 Public pages are prerendered to `dist/client`; protected, authentication, newsletter-action, course, and API routes are excluded from prerendering. After prerendering, [`scripts/deployed-worker.ts`](scripts/deployed-worker.ts) builds the Worker that is deployed again, without the rendered MDX of docs and blog pages and without the landing and legal page translations, which only prerendered pages use. The build verifier checks the Worker deployment configuration, localized home/legal pages and SEO links, that every docs page and published blog post was prerendered, fonts, client JavaScript, and selected route exclusions. [`scripts/generate-seo-files.ts`](scripts/generate-seo-files.ts) then reads the head of every prerendered page and writes `dist/client/sitemap.xml` and one social card per page under `dist/client/images/og/`; the Worker serves both from static assets. The application still requires a Worker for server-rendered routes, authentication, APIs, video delivery, and locale handling.
 

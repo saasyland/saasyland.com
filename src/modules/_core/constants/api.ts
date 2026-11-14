@@ -1,4 +1,4 @@
-import { APP_DOMAIN } from "~/src/presentation/branding"
+import { APP_DOMAIN, APP_PREVIEW_DOMAIN } from "~/src/presentation/branding"
 
 export const HTTP_STATUS = {
   BAD_REQUEST: 400,
@@ -44,7 +44,7 @@ export const ENVIRONMENT = {
 } as const
 
 export const DEPLOYED_HOSTS = {
-  [ENVIRONMENT.PREVIEW]: `preview.${APP_DOMAIN}`,
+  [ENVIRONMENT.PREVIEW]: APP_PREVIEW_DOMAIN,
   [ENVIRONMENT.PRODUCTION]: APP_DOMAIN,
 } as const
 

@@ -2,13 +2,15 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { ENVIRONMENT, appHostsForMode, isLocalMode } from "~/src/modules/_core/constants/api"
 
+import { APP_DOMAIN, APP_PREVIEW_DOMAIN } from "~/src/presentation/branding"
+
 describe("deployment hosts by build mode", () => {
-  it("trusts only the production domain in production", () => {
-    expect(appHostsForMode(ENVIRONMENT.PRODUCTION)).toEqual(["saasyland.com"])
+  it("trusts only the production domain of the branding in production", () => {
+    expect(appHostsForMode(ENVIRONMENT.PRODUCTION)).toEqual([APP_DOMAIN])
   })
 
-  it("trusts only the preview subdomain in preview", () => {
-    expect(appHostsForMode(ENVIRONMENT.PREVIEW)).toEqual(["preview.saasyland.com"])
+  it("trusts only the preview domain of the branding in preview", () => {
+    expect(appHostsForMode(ENVIRONMENT.PREVIEW)).toEqual([APP_PREVIEW_DOMAIN])
   })
 
   it.each([ENVIRONMENT.DEVELOPMENT, "unknown"])("falls back to the loopback hosts in %s mode", (mode) => {

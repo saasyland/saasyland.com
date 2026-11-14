@@ -1,4 +1,4 @@
-import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import type { PageEntry } from "./pages"
 
 export const PRODUCTS_PAGES = [

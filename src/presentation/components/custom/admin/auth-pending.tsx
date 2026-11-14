@@ -4,7 +4,7 @@ import { useRouterState } from "@tanstack/react-router"
 
 import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { ADMIN_INVITATION_ROWS, ADMIN_ROLE_ROWS, ADMIN_USERS_TABS } from "~/src/data/admin"
+import { ADMIN_INVITATION_ROWS, ADMIN_ROLE_ROWS, ADMIN_USERS_TABS } from "~/src/data/admin-users"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"

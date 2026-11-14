@@ -8,7 +8,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { pageHead } from "~/src/lib/seo"
 
-import { PremiumPending } from "~/src/presentation/components/custom/marketing-pending"
+import { PremiumPending } from "~/src/presentation/components/custom/license-pending"
 
 import { ROUTES } from "~/src/routes"
 

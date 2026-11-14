@@ -15,10 +15,10 @@ import { pageHead } from "~/src/lib/seo"
 
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 
-import { AppOverviewPending } from "~/src/presentation/components/custom/app/app-pending"
 import { CheckoutActivation } from "~/src/presentation/components/custom/app/checkout-activation"
 import { ChosenTier } from "~/src/presentation/components/custom/app/chosen-tier"
 import { LicenseOffer } from "~/src/presentation/components/custom/app/license-offer"
+import { AppOverviewPending } from "~/src/presentation/components/custom/app/license-pending"
 import { LicenseStatusCard } from "~/src/presentation/components/custom/app/license-status-card"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"

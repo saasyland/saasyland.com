@@ -1,4 +1,4 @@
-import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "../data/accounts"
 import { TEST_LICENSE } from "../data/licenses"

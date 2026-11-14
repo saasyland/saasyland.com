@@ -1,62 +1,23 @@
-import { cleanup } from "@testing-library/react"
-import { IntlProvider } from "use-intl"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-
-import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
-import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
-
-import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { describe, expect, it } from "vite-plus/test"
 
 import {
-  HomePending,
-  LegalPending,
-  MarketingPending,
-  NewsletterPending,
-  PremiumPending,
-} from "~/src/presentation/components/custom/marketing-pending"
+  expectMarketingSkeleton,
+  renderMarketingPending,
+  stubMarketingObservers,
+} from "~/src/presentation/components/custom/__test__/fixtures/marketing-pending"
+import { HomePending } from "~/src/presentation/components/custom/core-pending"
 
-const StubObserver = vi.fn(function stubObserver(this: Pick<IntersectionObserver, "disconnect" | "observe">) {
-  this.disconnect = vi.fn<() => void>()
-  this.observe = vi.fn<(element: Element) => void>()
-})
-
-const renderMarketingPending = (path: string) =>
-  renderWithRouter(
-    <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
-      <MarketingPending />
-    </IntlProvider>,
-    { router: createTestRouter(path) },
-  )
-
-beforeEach(() => {
-  vi.stubGlobal("IntersectionObserver", StubObserver)
-  vi.stubGlobal("ResizeObserver", StubObserver)
-})
-
-afterEach(() => {
-  cleanup()
-  vi.unstubAllGlobals()
-})
+stubMarketingObservers()
 
 describe("path-aware skeletons", () => {
-  it("renders only the layout chrome at /newsletter, which has no page skeleton", () => {
-    const { container } = renderMarketingPending("/newsletter")
+  it("renders only the layout chrome at a path without a page skeleton", () => {
+    const { container } = renderMarketingPending("/unknown")
 
+    expect(container.firstElementChild).not.toBeNull()
     expect(container.querySelector('[aria-busy="true"]')).toBeNull()
   })
 
-  it.each([
-    ["/", HomePending],
-    ["/pl-PL", HomePending],
-    ["/terms", LegalPending],
-    ["/de-DE/newsletter/confirm", NewsletterPending],
-    ["/newsletter/unsubscribe", NewsletterPending],
-    ["/premium", PremiumPending],
-  ])("renders the skeleton of the page at %s", (path, Page) => {
-    const page = markupOf(<Page />)
-    const { container } = renderMarketingPending(path)
-
-    expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
-    expect(busyMarkup(container)).toBe(page)
+  it.each(["/", "/pl-PL"])("renders the landing page skeleton at %s", (path) => {
+    expectMarketingSkeleton(path, HomePending)
   })
 })

@@ -7,7 +7,7 @@ import { useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { ADMIN_ANALYTICS_TABS } from "~/src/data/admin"
+import { ADMIN_ANALYTICS_TABS } from "~/src/data/admin-analytics"
 
 import { pageHead } from "~/src/lib/seo"
 

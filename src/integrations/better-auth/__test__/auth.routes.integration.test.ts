@@ -2,7 +2,7 @@ import { QueryClient } from "@tanstack/react-query"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { ROLE_CODES, type Role } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES, type Role } from "~/src/integrations/better-auth/auth.roles"
 import { redirectAfterAuth, redirectIfSignedIn, requireAdmin, requireSignedIn } from "~/src/integrations/better-auth/auth.routes"
 import { type getCurrentSession, getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import type { AuthSearch } from "~/src/integrations/better-auth/auth.zod"

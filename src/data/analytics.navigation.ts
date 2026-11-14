@@ -4,8 +4,11 @@ import { ADMIN_NAVIGATION_GROUP, NAVIGATION_PLACEMENT, type NavigationEntry } fr
 
 import { ROUTES } from "~/src/routes"
 
+const AREA = "analytics"
+
 export const ANALYTICS_NAVIGATION = [
   {
+    area: AREA,
     group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
     icon: BarChart,
     key: "analytics",

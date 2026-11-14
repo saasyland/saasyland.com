@@ -3,6 +3,8 @@ import type { JSX } from "react"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
+import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
+
 import { FOOTER_SECTIONS } from "~/src/data/marketing"
 import { FOOTER_NAVIGATION } from "~/src/data/navigation"
 import { FOOTER_COLUMN } from "~/src/data/navigation.constants"
@@ -23,6 +25,7 @@ const HEADING_CLASSNAME = "font-mono text-label text-muted-foreground uppercase"
 
 export const Footer = (): JSX.Element => {
   const t = useTranslations("components.custom.footer")
+  const navigationLabel = useNavigationLabel()
 
   const currentYear = new Date().getFullYear()
   const years = currentYear > APP_FOUNDED_YEAR ? `${APP_FOUNDED_YEAR}–${currentYear}` : String(APP_FOUNDED_YEAR)
@@ -65,7 +68,7 @@ export const Footer = (): JSX.Element => {
                 {column.links.map((link) => (
                   <li key={link.key}>
                     <Link className={LINK_CLASSNAME} to={link.to}>
-                      {t(`links.${link.key}`)}
+                      {navigationLabel(link)}
                     </Link>
                   </li>
                 ))}

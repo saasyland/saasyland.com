@@ -16,7 +16,14 @@ const TEST_ACTION = await vi.hoisted(async () => {
   const { NAVIGATION_PLACEMENT } = await import("~/src/data/navigation.constants")
   const { ROUTES } = await import("~/src/routes")
 
-  return { icon: FileDown, key: "exportReport", order: 10, placement: NAVIGATION_PLACEMENT.DASHBOARD, to: ROUTES.ADMIN_SETTINGS } as const
+  return {
+    area: "reports",
+    icon: FileDown,
+    key: "exportReport",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.DASHBOARD,
+    to: ROUTES.ADMIN_SETTINGS,
+  } as const
 })
 
 const TEST_ACTION_LABEL = "Export report"
@@ -27,15 +34,12 @@ vi.mock(import("~/src/data/navigation"), async (importOriginal) => ({
 }))
 
 const messages = {
-  pages: {
-    admin: {
-      dashboard: { actions: { last30Days: pagesAdminDashboardMessages.actions.last30Days, [TEST_ACTION.key]: TEST_ACTION_LABEL } },
-    },
-  },
+  navigation: { [TEST_ACTION.area]: { [TEST_ACTION.placement]: { [TEST_ACTION.key]: TEST_ACTION_LABEL } } },
+  pages: { admin: { dashboard: { actions: { last30Days: pagesAdminDashboardMessages.actions.last30Days } } } },
 }
 
 describe("dashboard actions", () => {
-  it("links every action an area contributes after the disabled date range, labelled by its key", () => {
+  it("links every action an area contributes after the disabled date range, labelled by its area", () => {
     renderWithRouter(
       <IntlProvider locale="en-US" messages={messages} timeZone="UTC">
         <DashboardActions />

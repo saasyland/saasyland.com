@@ -1,34 +1,39 @@
 ---
 title: "Rôles et permissions"
-description: "Définissez les permissions et les rôles dans auth.access.ts et vérifiez-les dans les gardes de route et les fonctions serveur."
+description: "Définissez les déclarations de permissions d'une zone et les rôles auxquels elle les accorde dans son fichier d'accès, puis vérifiez-les dans les gardes de route et les fonctions serveur."
 ---
 
-Le contrôle d'accès utilise le plugin admin de Better Auth. Les permissions, les rôles et la vérification des permissions se trouvent dans `src/integrations/better-auth/auth.access.ts`.
+Le contrôle d'accès utilise le plugin admin de Better Auth. Chaque zone définit les déclarations de permissions de ses ressources et les rôles auxquels elle les accorde dans `src/data/<area>.access.ts`. `src/data/access.entries.ts` réunit les zones, et `src/integrations/better-auth/auth.access.ts` construit à partir d'elles le contrôle d'accès de Better Auth, les rôles et la vérification des permissions : l'intégration d'authentification ne nomme donc aucune zone. Les codes de rôle se trouvent dans `src/integrations/better-auth/auth.roles.ts`.
 
 ## Permissions et rôles
 
-```ts title="src/integrations/better-auth/auth.access.ts"
-export const APP_STATEMENTS = {
+```ts title="src/data/core.access.ts"
+const STATEMENTS = {
   admin: ["access"],
-  category: ["create", "read", "update", "delete"],
-  course: ["create", "read", "update", "delete"],
-  order: ["read", "update", "refund"],
-  product: ["create", "read", "update", "delete", "publish"],
   settings: ["manage"],
-  video: ["read", "delete"],
 } as const
 
+export const CORE_ACCESS = {
+  grants: { [ROLE_CODES.ADMIN]: STATEMENTS },
+  statements: STATEMENTS,
+} as const satisfies AreaAccess
+```
+
+```ts title="src/integrations/better-auth/auth.access.ts"
 export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
 
 export const ROLES = {
-  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
-  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...grantsOf(ROLE_CODES.ADMIN), ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole(grantsOf(ROLE_CODES.CUSTOMER)),
 }
 ```
 
+- `APP_STATEMENTS` dans `src/data/access.ts` réunit les déclarations de toutes les zones, triées par ressource, et échoue au démarrage quand deux zones déclarent la même ressource. `grantsOf(role)` réunit ce que chaque zone accorde à ce rôle.
+- La zone de base déclare `admin` et `settings`, la zone des produits `category` et `product`, la zone des cours `course` et `video`, et la zone des paiements `order`.
 - Les `defaultStatements` de Better Auth ajoutent les ressources `user` et `session` (par exemple `user: ["list", "set-role", "ban", "impersonate", "delete"]` et `session: ["list", "revoke"]`).
-- `admin` possède toutes les permissions ; `customer`, le rôle par défaut des nouveaux utilisateurs, n'en a aucune.
+- Chaque zone accorde toutes ses déclarations à `admin`, qui reçoit aussi les déclarations d'administration de Better Auth ; `customer`, le rôle par défaut des nouveaux utilisateurs, n'en reçoit aucune.
 - `ROLE_VALUES` type la colonne `user.role` et les schémas de rôle de `user.zod.ts`.
+- `Permission`, le type qu'acceptent `authorized` et `hasPermission`, est construit à partir des déclarations des zones : une déclaration ou une action qu'aucune zone ne déclare ne compile pas.
 
 ## Où les permissions sont vérifiées
 
@@ -43,15 +48,15 @@ Le garde de route décide seulement des pages affichées. Les fonctions serveur 
 
 ## Ajouter une permission
 
-1. Ajoutez l'action à `APP_STATEMENTS`, par exemple `report: ["read", "export"]`.
-2. `admin` la reçoit automatiquement ; attribuez-la à d'autres rôles dans `ROLES` si nécessaire.
+1. Ajoutez l'action aux déclarations de la zone qui possède la ressource, par exemple `report: ["read", "export"]` dans `src/data/analytics.access.ts`. Une nouvelle zone ajoute son fichier et une ligne à `src/data/access.entries.ts`.
+2. Accordez-la dans les `grants` du même fichier : les zones accordent l'ensemble de leurs `STATEMENTS` à `ROLE_CODES.ADMIN`, et un rôle qui doit en recevoir moins se voit accorder un sous-ensemble.
 3. Exigez-la dans la fonction serveur : `.middleware([authorized({ report: ["export"] })])`.
-4. Testez à la fois le cas autorisé et le cas `FORBIDDEN`.
+4. Testez à la fois le cas autorisé et le cas `FORBIDDEN`, dans le fichier `src/data/__test__/<area>.access.test.ts` de la zone et dans les tests du cas d'usage.
 
 ## Ajouter un rôle
 
-1. Ajoutez le code à `ROLE_CODES` et `ROLE_VALUES`.
-2. Définissez ses permissions dans `ROLES`.
+1. Ajoutez le code à `ROLE_CODES` et `ROLE_VALUES` dans `auth.roles.ts`.
+2. Ajoutez-le à `ROLES` dans `auth.access.ts`, et accordez-lui des déclarations dans les `grants` des zones qu'il peut utiliser.
 3. Ajoutez le libellé du rôle à `filters.role.options` dans `messages/<locale>/pages.admin.users.json` pour toutes les langues.
 
 Le client d'authentification (`auth.client.ts`) reçoit `ac` et `ROLES` : les actions d'administration dans le navigateur utilisent donc les mêmes définitions.

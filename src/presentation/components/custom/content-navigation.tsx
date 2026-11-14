@@ -3,6 +3,8 @@ import type { JSX } from "react"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
+import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
+
 import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
 import { NAVIGATION_PAGES } from "~/src/data/navigation"
 
@@ -13,6 +15,7 @@ import { ROUTES } from "~/src/routes"
 
 export const ContentNavigation = (): JSX.Element => {
   const t = useTranslations("components.custom.navigation")
+  const navigationLabel = useNavigationLabel()
 
   return (
     <header className="relative z-50 border-b border-border">
@@ -27,7 +30,7 @@ export const ContentNavigation = (): JSX.Element => {
                 key={page.key}
                 to={page.to}
               >
-                {t(`items.${page.key}`)}
+                {navigationLabel(page)}
               </Link>
             ))}
           </div>

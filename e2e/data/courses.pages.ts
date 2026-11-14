@@ -1,4 +1,4 @@
-import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { TEST_COURSE, TEST_LESSONS } from "./courses"
 import type { PageEntry } from "./pages"
 

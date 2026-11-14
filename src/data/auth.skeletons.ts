@@ -1,4 +1,4 @@
-import type { AdminSkeleton } from "~/src/data/skeletons"
+import type { PageSkeleton } from "~/src/data/skeletons"
 
 import { AdminUsersPending } from "~/src/presentation/components/custom/admin/auth-pending"
 
@@ -10,4 +10,4 @@ export const AUTH_SKELETONS = [
   { pendingComponent: AdminUsersPending, to: ROUTES.ADMIN_USERS_INVITATIONS },
   { pendingComponent: AdminUsersPending, to: ROUTES.ADMIN_USERS_ROLES },
   { pendingComponent: AdminUsersPending, to: ROUTES.ADMIN_USERS_SECURITY },
-] as const satisfies readonly AdminSkeleton[]
+] as const satisfies readonly PageSkeleton[]

@@ -57,21 +57,21 @@ A sensitive operation of a signed-in user combines both: `change-password.ts` us
 
 ## Permissions
 
-Permission statements are declared once, in `APP_STATEMENTS` in `src/integrations/better-auth/auth.access.ts`:
+Each permission statement is declared once, by the area that owns the resource, in `src/data/<area>.access.ts`, together with the roles it is granted to:
 
-```ts
-const APP_STATEMENTS = {
+```ts title="src/data/core.access.ts"
+const STATEMENTS = {
   admin: ["access"],
-  category: ["create", "read", "update", "delete"],
-  course: ["create", "read", "update", "delete"],
-  order: ["read", "update", "refund"],
-  product: ["create", "read", "update", "delete", "publish"],
   settings: ["manage"],
-  video: ["read", "delete"],
 } as const
+
+export const CORE_ACCESS = {
+  grants: { [ROLE_CODES.ADMIN]: STATEMENTS },
+  statements: STATEMENTS,
+} as const satisfies AreaAccess
 ```
 
-- A new resource adds its statement here, and the admin role receives it through `ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements })`.
+- A new resource adds its statement to its area's file, and `auth.access.ts` builds every role from the areas' grants (see [Roles and permissions](/docs/guides/roles-and-permissions)).
 - Server functions pass the statement to `authorized`. Other server code checks `hasPermission({ permission, role })` inline, as `resolveViewer` in `lesson.viewer.ts` does for staff access. There is no wrapper such as `canEditCourses()` around it.
 - The permission a server function checks is listed in the [permissions matrix](/docs/reference/permissions).
 

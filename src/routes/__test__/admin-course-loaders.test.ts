@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 
 import { IDS, USERS, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
 import { courseEditorQuery } from "~/src/modules/course/use-cases/get-course-editor"

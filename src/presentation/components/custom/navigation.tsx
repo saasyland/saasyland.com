@@ -3,6 +3,8 @@ import { type JSX, useCallback, useEffect, useState } from "react"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
+import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
+
 import { MARKETING_SECTION_IDS, NAVIGATION_SECTIONS } from "~/src/data/marketing"
 import { NAVIGATION_PAGES } from "~/src/data/navigation"
 
@@ -51,6 +53,7 @@ const observeProgress = (element: HTMLDivElement | null): (() => void) | undefin
 
 const SectionLinks = (): JSX.Element => {
   const t = useTranslations("components.custom.navigation")
+  const navigationLabel = useNavigationLabel()
   const [active, setActive] = useState<string>()
 
   useEffect(() => {
@@ -95,7 +98,7 @@ const SectionLinks = (): JSX.Element => {
       ))}
       {NAVIGATION_PAGES.map((page) => (
         <Link className={cn(LINK_CLASSNAME, "text-muted-foreground")} key={page.key} to={page.to}>
-          {t(`items.${page.key}`)}
+          {navigationLabel(page)}
         </Link>
       ))}
     </nav>

@@ -7,7 +7,7 @@ import {
   ADMIN_ANALYTICS_TABS,
   ADMIN_ANALYTICS_UPGRADE_ROWS,
   ADMIN_ANALYTICS_Y_AXIS_VALUES,
-} from "~/src/data/admin"
+} from "~/src/data/admin-analytics"
 
 import { Card, CardContent } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"

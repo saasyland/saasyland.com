@@ -1,4 +1,4 @@
-import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TEST_CHECKOUT_ID } from "./licenses"
 import type { PageEntry } from "./pages"

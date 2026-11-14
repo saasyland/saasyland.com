@@ -30,6 +30,7 @@ export const FOOTER_COLUMN = {
 export const FOOTER_COLUMNS = [FOOTER_COLUMN.PRODUCT, FOOTER_COLUMN.LEGAL] as const
 
 interface Entry {
+  readonly area: string
   readonly key: string
   readonly order: number
   readonly to: string

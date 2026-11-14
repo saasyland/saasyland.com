@@ -5,6 +5,8 @@ import { Search } from "lucide-react"
 import { Button } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
+import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
+
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
 
 import {
@@ -23,6 +25,7 @@ export const AdminCommandPalette = (): JSX.Element => {
 
   const router = useRouter()
   const t = useTranslations("pages.admin")
+  const navigationLabel = useNavigationLabel()
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -71,10 +74,10 @@ export const AdminCommandPalette = (): JSX.Element => {
                       setIsOpen(false)
                       void router.navigate({ to: item.to })
                     }}
-                    textValue={t(`sidebar.links.${item.key}`)}
+                    textValue={navigationLabel(item)}
                   >
                     <item.icon aria-hidden className="size-4 text-muted-foreground" strokeWidth={1.5} />
-                    {t(`sidebar.links.${item.key}`)}
+                    {navigationLabel(item)}
                   </CommandItem>
                 ))}
               </CommandGroup>

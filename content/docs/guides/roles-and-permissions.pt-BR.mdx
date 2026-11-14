@@ -1,34 +1,39 @@
 ---
 title: "Papéis e permissões"
-description: "Defina permissões e papéis em auth.access.ts e verifique-os nos guards de rota e nas funções de servidor."
+description: "Defina no arquivo de acesso de uma área as declarações de permissão dela e os papéis aos quais as concede, e verifique-as nos guards de rota e nas funções de servidor."
 ---
 
-O controle de acesso usa o plugin admin do Better Auth. Permissões, papéis e a verificação de permissão ficam em `src/integrations/better-auth/auth.access.ts`.
+O controle de acesso usa o plugin admin do Better Auth. Cada área define em `src/data/<area>.access.ts` as declarações de permissão dos seus recursos e os papéis aos quais as concede. `src/data/access.entries.ts` reúne as áreas, e `src/integrations/better-auth/auth.access.ts` monta a partir delas o controle de acesso do Better Auth, os papéis e a verificação de permissão, de modo que a integração de autenticação não cita nenhuma área. Os códigos de papel ficam em `src/integrations/better-auth/auth.roles.ts`.
 
-## Permissões e papéis
+## Declarações e papéis
 
-```ts title="src/integrations/better-auth/auth.access.ts"
-export const APP_STATEMENTS = {
+```ts title="src/data/core.access.ts"
+const STATEMENTS = {
   admin: ["access"],
-  category: ["create", "read", "update", "delete"],
-  course: ["create", "read", "update", "delete"],
-  order: ["read", "update", "refund"],
-  product: ["create", "read", "update", "delete", "publish"],
   settings: ["manage"],
-  video: ["read", "delete"],
 } as const
 
+export const CORE_ACCESS = {
+  grants: { [ROLE_CODES.ADMIN]: STATEMENTS },
+  statements: STATEMENTS,
+} as const satisfies AreaAccess
+```
+
+```ts title="src/integrations/better-auth/auth.access.ts"
 export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
 
 export const ROLES = {
-  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
-  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...grantsOf(ROLE_CODES.ADMIN), ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole(grantsOf(ROLE_CODES.CUSTOMER)),
 }
 ```
 
+- `APP_STATEMENTS` em `src/data/access.ts` reúne as declarações de todas as áreas, ordenadas por recurso, e falha na inicialização quando duas áreas declaram o mesmo recurso. `grantsOf(role)` reúne o que cada área concede a esse papel.
+- A área base declara `admin` e `settings`, a área de produtos `category` e `product`, a área de cursos `course` e `video`, e a área de pagamentos `order`.
 - Os `defaultStatements` do Better Auth adicionam os recursos `user` e `session` (como `user: ["list", "set-role", "ban", "impersonate", "delete"]` e `session: ["list", "revoke"]`).
-- `admin` tem todas as permissões; `customer`, o papel padrão de novos usuários, não tem nenhuma.
+- Todas as áreas concedem todas as suas declarações a `admin`, que também recebe as declarações de administração do Better Auth; `customer`, o papel padrão de novos usuários, não recebe nenhuma.
 - `ROLE_VALUES` tipa a coluna `user.role` e os schemas de papel em `user.zod.ts`.
+- `Permission`, o tipo que `authorized` e `hasPermission` recebem, é montado a partir das declarações que as áreas fazem, então uma declaração ou ação que nenhuma área declara não compila.
 
 ## Onde as permissões são verificadas
 
@@ -43,15 +48,15 @@ O guard de rota só decide quais páginas são renderizadas. As funções de ser
 
 ## Adicione uma permissão
 
-1. Adicione a ação a `APP_STATEMENTS`, por exemplo `report: ["read", "export"]`.
-2. `admin` a recebe automaticamente; conceda-a a outros papéis em `ROLES` quando necessário.
+1. Adicione a ação às declarações da área dona do recurso, por exemplo `report: ["read", "export"]` em `src/data/analytics.access.ts`. Uma área nova adiciona o seu arquivo e uma linha a `src/data/access.entries.ts`.
+2. Conceda-a nos `grants` do mesmo arquivo: as áreas concedem todo o seu `STATEMENTS` a `ROLE_CODES.ADMIN`, e um papel que deve receber menos ganha um subconjunto.
 3. Exija-a na função de servidor: `.middleware([authorized({ report: ["export"] })])`.
-4. Teste tanto o caso permitido quanto o caso `FORBIDDEN`.
+4. Teste tanto o caso permitido quanto o caso `FORBIDDEN`, no `src/data/__test__/<area>.access.test.ts` da área e nos testes do caso de uso.
 
 ## Adicione um papel
 
-1. Adicione o código a `ROLE_CODES` e `ROLE_VALUES`.
-2. Defina as permissões dele em `ROLES`.
+1. Adicione o código a `ROLE_CODES` e `ROLE_VALUES` em `auth.roles.ts`.
+2. Adicione-o a `ROLES` em `auth.access.ts` e conceda-lhe declarações nos `grants` das áreas que ele pode usar.
 3. Adicione o rótulo do papel a `filters.role.options` em `messages/<locale>/pages.admin.users.json` em todos os idiomas.
 
 O cliente de autenticação (`auth.client.ts`) recebe `ac` e `ROLES`, então as ações de administração no navegador usam as mesmas definições.

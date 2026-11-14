@@ -3,7 +3,8 @@ import type { JSX } from "react"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useTranslations } from "use-intl/react"
 
-import { type ADMIN_ROLE_ROWS, ADMIN_STATUS_BADGE_CLASSES } from "~/src/data/admin"
+import { ADMIN_STATUS_BADGE_CLASSES } from "~/src/data/admin"
+import { type ADMIN_ROLE_ROWS } from "~/src/data/admin-users"
 
 import { cn } from "~/src/lib/cn"
 

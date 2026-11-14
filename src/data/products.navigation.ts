@@ -4,8 +4,11 @@ import { ADMIN_NAVIGATION_GROUP, NAVIGATION_PLACEMENT, type NavigationEntry } fr
 
 import { ROUTES } from "~/src/routes"
 
+const AREA = "products"
+
 export const PRODUCTS_NAVIGATION = [
   {
+    area: AREA,
     group: ADMIN_NAVIGATION_GROUP.OFFERINGS,
     icon: Package,
     key: "products",
@@ -13,5 +16,12 @@ export const PRODUCTS_NAVIGATION = [
     placement: NAVIGATION_PLACEMENT.ADMIN,
     to: ROUTES.ADMIN_PRODUCTS,
   },
-  { icon: PlusCircle, key: "addProduct", order: 10, placement: NAVIGATION_PLACEMENT.DASHBOARD, to: ROUTES.ADMIN_PRODUCTS_CREATE },
+  {
+    area: AREA,
+    icon: PlusCircle,
+    key: "addProduct",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.DASHBOARD,
+    to: ROUTES.ADMIN_PRODUCTS_CREATE,
+  },
 ] as const satisfies readonly NavigationEntry[]

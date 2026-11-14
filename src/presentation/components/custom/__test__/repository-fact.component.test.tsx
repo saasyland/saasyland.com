@@ -6,12 +6,12 @@ import { IntlProvider } from "use-intl/react"
 import { describe, expect, it, vi } from "vite-plus/test"
 import zod from "zod/v4"
 
-import { APP_STATEMENTS } from "~/src/integrations/better-auth/auth.access"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { PPP_TIERS } from "~/src/modules/_core/constants/pricing"
 import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
+import { APP_STATEMENTS } from "~/src/data/access"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { MILLISECONDS_PER_SECOND, MINUTES_PER_HOUR, SECONDS_PER_MINUTE } from "~/src/lib/duration"

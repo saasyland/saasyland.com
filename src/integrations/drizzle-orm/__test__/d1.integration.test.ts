@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm"
 import { expect, it } from "vite-plus/test"
 
-import { DEFAULT_ROLE_CODE } from "~/src/integrations/better-auth/auth.access"
+import { DEFAULT_ROLE_CODE } from "~/src/integrations/better-auth/auth.roles"
 import * as AREA_ROWS from "~/src/integrations/drizzle-orm/__test__/rows.entries"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { session, user } from "~/src/integrations/drizzle-orm/drizzle.schemas"

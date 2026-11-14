@@ -18,7 +18,7 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { TranslationsProvider } from "~/src/providers/translations-provider"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { ROOT_NAMESPACES, messagesQueryOptions, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 

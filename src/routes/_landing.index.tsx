@@ -19,6 +19,7 @@ import { TIER_PRICES } from "~/src/data/marketing"
 import { starCountQuery } from "~/src/lib/github"
 import { pageHead } from "~/src/lib/seo"
 
+import { HomePending } from "~/src/presentation/components/custom/core-pending"
 import { CasesSection } from "~/src/presentation/components/custom/landing-page/sections/cases-section"
 import { CliSection } from "~/src/presentation/components/custom/landing-page/sections/cli-section"
 import { CompareSection } from "~/src/presentation/components/custom/landing-page/sections/compare-section"
@@ -36,7 +37,6 @@ import { RallySection } from "~/src/presentation/components/custom/landing-page/
 import { RecordSection } from "~/src/presentation/components/custom/landing-page/sections/record-section"
 import { StackSection } from "~/src/presentation/components/custom/landing-page/sections/stack-section"
 import { StudioSection } from "~/src/presentation/components/custom/landing-page/sections/studio-section"
-import { HomePending } from "~/src/presentation/components/custom/marketing-pending"
 
 import { ROUTES } from "~/src/routes"
 

@@ -4,8 +4,11 @@ import { ADMIN_NAVIGATION_GROUP, NAVIGATION_PLACEMENT, type NavigationEntry } fr
 
 import { ROUTES } from "~/src/routes"
 
+const AREA = "payments"
+
 export const PAYMENTS_NAVIGATION = [
   {
+    area: AREA,
     group: ADMIN_NAVIGATION_GROUP.OFFERINGS,
     icon: Tags,
     key: "pricingModels",
@@ -14,6 +17,7 @@ export const PAYMENTS_NAVIGATION = [
     to: ROUTES.ADMIN_PRICING,
   },
   {
+    area: AREA,
     group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
     icon: CreditCard,
     key: "payments",

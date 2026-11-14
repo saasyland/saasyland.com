@@ -4,8 +4,11 @@ import { ADMIN_NAVIGATION_GROUP, NAVIGATION_PLACEMENT, type NavigationEntry } fr
 
 import { ROUTES } from "~/src/routes"
 
+const AREA = "page-builder"
+
 export const PAGE_BUILDER_NAVIGATION = [
   {
+    area: AREA,
     group: ADMIN_NAVIGATION_GROUP.CONTENT,
     icon: MonitorSmartphone,
     key: "landingPage",

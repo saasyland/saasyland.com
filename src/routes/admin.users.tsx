@@ -6,7 +6,7 @@ import { useTranslations } from "use-intl/react"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { ADMIN_USERS_TABS } from "~/src/data/admin"
+import { ADMIN_USERS_TABS } from "~/src/data/admin-users"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 

@@ -13,10 +13,11 @@ import { Route as InvitationsRoute } from "~/src/routes/admin.users.invitations"
 import { Route as RolesRoute } from "~/src/routes/admin.users.roles"
 import { Route as SecurityRoute } from "~/src/routes/admin.users.security"
 
-import { ADMIN_INVITATION_ROWS } from "~/src/data/admin"
+import { ADMIN_INVITATION_ROWS } from "~/src/data/admin-users"
 
 import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { adminQueryClient, breadcrumbDividers, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { AdminBreadcrumbs } from "~/src/presentation/components/custom/admin/admin-breadcrumbs"
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
 import {
   AdminUsersAllPending,
@@ -26,6 +27,7 @@ import {
   AdminUsersSecurityPending,
 } from "~/src/presentation/components/custom/admin/auth-pending"
 
+import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 
 vi.mock(import("~/src/hooks/use-mobile"), () => ({ useIsMobile: () => false }))
@@ -94,6 +96,18 @@ describe("admin users skeletons", () => {
 
     expect(container.firstElementChild).not.toBeNull()
     expect(container.querySelector('[aria-busy="true"]')).toBeNull()
+  })
+
+  it.each([
+    ["/admin/users/all", navigationAuthMessages.breadcrumbs.all],
+    ["/admin/users/invitations", navigationAuthMessages.breadcrumbs.invitations],
+    ["/admin/users/roles", navigationAuthMessages.breadcrumbs.roles],
+    ["/admin/users/security", navigationAuthMessages.breadcrumbs.security],
+  ])("names the user management sub-page at %s in the breadcrumbs", (path, label) => {
+    renderAdminPage(AdminBreadcrumbs, { path })
+
+    expect(screen.getByRole("link", { name: navigationAuthMessages.admin.userManagement })).toHaveAttribute("href", "/admin/users")
+    expect(screen.getByText(label)).toHaveAttribute("aria-current", "page")
   })
 
   it("draws the breadcrumb trail of /pl-PL/admin/users/roles", () => {

@@ -5,7 +5,7 @@ import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 

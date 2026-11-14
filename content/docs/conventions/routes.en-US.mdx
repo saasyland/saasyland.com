@@ -125,7 +125,7 @@ Navigation must feel instant, so every route that renders a page has a `pendingC
 - Skeletons live in the area's pending file (`admin/products-pending.tsx`, `courses/courses-pending.tsx`) and use `Skeleton` from shadcn.
 - A text placeholder takes the real type token plus `h-lh scale-y-70`, so it has the height of the line it replaces: `<Skeleton className="h-lh w-28 scale-y-70 font-mono text-label" />`.
 - List lengths come from the constants the page uses: `PAGE_ROWS` in `admin/pending-blocks.tsx` has `DEFAULT_PAGE_SIZE` rows, the page size of every admin table.
-- A layout skeleton picks the page skeleton for the current path from a map, as `AdminPending` does with `ADMIN_SKELETONS` and `AdminCourseSectionPending` with `COURSE_PAGES` in `admin/courses-pending.tsx`. Each area adds its admin pages to `ADMIN_SKELETONS` in `src/data/<area>.skeletons.ts` (see [Paths and navigation](#paths-and-navigation)); a page of another layout is added to that layout's map.
+- A layout skeleton picks the page skeleton for the current path from a map, as `AdminPending`, `AppPending` and `MarketingPending` do with `PAGE_SKELETONS` and `AdminCourseSectionPending` with `COURSE_PAGES` in `admin/courses-pending.tsx`. Each area adds its pages to `PAGE_SKELETONS` in `src/data/<area>.skeletons.ts` (see [Paths and navigation](#paths-and-navigation)); a page of a layout that belongs to one area, such as a course section, is added to that layout's own map.
 - There is no router-wide `defaultPendingComponent`, and `pendingMs` keeps TanStack's default. The docs routes are the one exception: `pendingMs: Number.POSITIVE_INFINITY` and `wrapInSuspense: false`. The page component hydrates with the docs layout and renders the MDX in its own `<Suspense key={path}>`, so the sidebar works before the page's MDX chunk has loaded, and a navigation replaces the previous page's server HTML instead of hydrating it with the next page's data.
 
 ## Links
@@ -135,14 +135,15 @@ Navigation must feel instant, so every route that renders a page has a `pendingC
 
 ## Paths and navigation
 
-No file lists every area of the application. Each area, such as the courses, the products or the legal pages, declares its own paths and menu entries, and a barrel joins them, so an area is added or left out with its own files. This is how the `saasyland` CLI builds a project from template layers.
+No file lists every area of the application. Each area, such as the courses, the products or the legal pages, declares its own paths, menu entries and their labels, page skeletons and permissions, and a barrel joins them, so an area is added or left out with its own files. This is how the `saasyland` CLI builds a project from template layers.
 
 | What                 | Each area declares                                             | Barrel                           | Read from                                                                                                                               |
 | -------------------- | -------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | Paths                | `src/data/<area>.routes.ts`: one `export const` per path       | `src/data/routes.entries.ts`     | `ROUTES` in `src/routes.ts`                                                                                                             |
 | Menu entries         | `src/data/<area>.navigation.ts`: one `<AREA>_NAVIGATION` list  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` and `FOOTER_NAVIGATION` in `src/data/navigation.ts` |
 | Dashboard statistics | `src/data/<area>.dashboard.ts`: one `<AREA>_DASHBOARD` list    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` in `src/data/dashboard.ts`                                                                                      |
-| Admin page skeletons | `src/data/<area>.skeletons.ts`: one `<AREA>_SKELETONS` list    | `src/data/skeletons.entries.ts`  | `ADMIN_SKELETONS` in `src/data/skeletons.ts`                                                                                            |
+| Page skeletons       | `src/data/<area>.skeletons.ts`: one `<AREA>_SKELETONS` list    | `src/data/skeletons.entries.ts`  | `PAGE_SKELETONS` in `src/data/skeletons.ts`                                                                                             |
+| Permissions          | `src/data/<area>.access.ts`: one `<AREA>_ACCESS` object        | `src/data/access.entries.ts`     | `APP_STATEMENTS` and `grantsOf` in `src/data/access.ts`                                                                                 |
 | Unlisted paths       | `src/data/<area>.routes.ts`: one `<AREA>_UNLISTED_ROUTES` list | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` and `isUnlistedRoute` in `src/data/unlisted.ts`                                                                       |
 
 A barrel holds only `export { … } from` lines, one per area file, sorted by module, like `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` re-exports the paths as one namespace, so each path keeps its literal type and `<Link to={ROUTES.COURSES}>` is still checked against the route tree:
@@ -151,37 +152,44 @@ A barrel holds only `export { … } from` lines, one per area file, sorted by mo
 export * as ROUTES from "~/src/data/routes.entries"
 ```
 
-A menu entry names where it appears with `placement` (`NAVIGATION_PLACEMENT` in `src/data/navigation.constants.ts`): the admin sidebar, the buttons above the dashboard, the customer sidebar, the public header or the footer. Its `order` sorts it among the entries of the other areas, so no list depends on the order of files. Admin entries also name their sidebar `group`, and footer links their `column`; `ADMIN_NAVIGATION_GROUPS` and `FOOTER_COLUMNS` fix the order of groups and columns, and one that no area fills is left out. The courses area adds two admin entries and a header page:
+A menu entry names where it appears with `placement` (`NAVIGATION_PLACEMENT` in `src/data/navigation.constants.ts`): the admin sidebar, the buttons above the dashboard, the customer sidebar, the public header or the footer. Its `order` sorts it among the entries of the other areas, so no list depends on the order of files. Admin entries also name their sidebar `group`, and footer links their `column`; `ADMIN_NAVIGATION_GROUPS` and `FOOTER_COLUMNS` fix the order of groups and columns, and one that no area fills is left out. The core area, which every project has, adds two admin entries and two entries to the customer sidebar:
 
-```ts title="src/data/courses.navigation.ts"
-export const COURSES_NAVIGATION = [
+```ts title="src/data/core.navigation.ts"
+const AREA = "core"
+
+export const CORE_NAVIGATION = [
   {
-    group: ADMIN_NAVIGATION_GROUP.CONTENT,
-    icon: GraduationCap,
-    key: "courses",
-    order: 20,
+    area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
+    icon: Home,
+    key: "dashboard",
+    order: 10,
     placement: NAVIGATION_PLACEMENT.ADMIN,
-    to: ROUTES.ADMIN_COURSES,
+    to: ROUTES.ADMIN,
   },
   {
-    group: ADMIN_NAVIGATION_GROUP.CONTENT,
-    icon: Clapperboard,
-    key: "videos",
+    area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
+    icon: Settings,
+    key: "settings",
     order: 30,
     placement: NAVIGATION_PLACEMENT.ADMIN,
-    to: ROUTES.ADMIN_VIDEOS,
+    to: ROUTES.ADMIN_SETTINGS,
   },
-  { key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
+  { area: AREA, icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
+  { area: AREA, icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
 ] as const satisfies readonly NavigationEntry[]
 ```
 
 A dashboard statistic has a `prefetch`, which the `/admin` loader runs, and a `useValue` hook, which `DashboardStats` calls to read the number.
 
-An admin page skeleton pairs the page's `to` with its `pendingComponent`, the same skeleton the page's route sets. `AdminPending`, the skeleton of the admin layout, draws the one for the current path when someone enters the admin area from elsewhere.
+A page skeleton pairs the page's `to` with its `pendingComponent`, the same skeleton the page's route sets. The layout skeletons `AdminPending`, `AppPending` and `MarketingPending` draw the one for the current path when someone enters their layout from elsewhere. An area declares the skeletons of all its pages, whichever layout shows them: the licence area declares `/app`, `/app/license` and `/premium`, and the legal area its five public pages.
 
-The lists in `src/data/navigation.ts` and `ADMIN_SKELETONS` have declared types, `NavigationEntry` and `AdminSkeleton`, rather than the types of the entries the areas happen to declare, so a placement that no area fills, such as the dashboard actions in a project without the products area, is an empty list that still type-checks. `navigation.test.ts` and `skeletons.test.ts` check at compile time that the `to` of every entry and skeleton an area declares is a path of the route tree (`FileRouteTypes["to"]` from `src/routeTree.gen.ts`).
+An area's access file declares the permission statements of its resources and the roles it grants them to. `auth.access.ts` builds Better Auth's access control from `APP_STATEMENTS` and each role from `grantsOf(role)`, so the auth integration names no area, and `APP_STATEMENTS` fails when two areas declare the same resource (see [Roles and permissions](/docs/guides/roles-and-permissions)).
 
-Labels stay in the namespace of the menu that shows them, under the entry's `key`: `links.<key>` and `groups.<group>` in `pages.admin.sidebar`, `navigation.<key>` in `pages.app.sidebar`, `items.<key>` in `components.custom.navigation`, `links.<key>` and `columns.<column>` in `components.custom.footer`, and `actions.<key>` and `stats.<key>.title` in `pages.admin.dashboard`. Each area owns its keys in those files, and `enum-labels.test.ts` fails when an entry has no label in a locale.
+The lists in `src/data/navigation.ts` and `PAGE_SKELETONS` have declared types, `NavigationEntry` and `PageSkeleton`, rather than the types of the entries the areas happen to declare, so a placement that no area fills, such as the dashboard actions in a project without the products area, is an empty list that still type-checks. `navigation.test.ts` and `skeletons.test.ts` check at compile time that the `to` of every entry and skeleton an area declares is a path of the route tree (`FileRouteTypes["to"]` from `src/routeTree.gen.ts`).
+
+An entry names its `area`, and the area labels it in its own message file: `<placement>.<key>` in `messages/<locale>/navigation.<area>.json`, such as `admin.courses` and `header.courses` in `navigation.courses.json`. A dashboard statistic is labelled by its `key` in `dashboard.<area>.json`, and an admin section labels its sub-pages for the breadcrumbs under `breadcrumbs.<segment>` in its `navigation.<area>.json`, such as `breadcrumbs.create`. Both kinds of file are root namespaces, so every menu can label every entry, and `useNavigationLabel` in `src/hooks/use-navigation-label.ts` returns an entry's label. What belongs to a menu itself stays in its namespace: `groups.<group>` in `pages.admin.sidebar`, `columns.<column>` in `components.custom.footer` and the landing sections in `components.custom.navigation`. `enum-labels.test.ts` fails when an entry or statistic has no label in a locale.
 
 An area whose pages render on the Worker for each request, such as `/admin`, `/auth` or `/courses`, lists those paths in `<AREA>_UNLISTED_ROUTES`. The TanStack Start plugin in `src/data/tanstack.vite.ts` keeps them out of prerendering with `isUnlistedRoute`, and `buildPageHead` gives them the site card instead of a page card (see [Search and social previews](/docs/features/seo)). Vite does not resolve the `~` alias while it loads its own configuration, so `unlisted.entries.ts` and `unlisted.ts` import the area files by relative path.
 

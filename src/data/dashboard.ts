@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query"
 import * as AREA_DASHBOARD from "~/src/data/dashboard.entries"
 
 export interface AdminDashboardStat {
+  readonly area: string
   readonly key: string
   readonly order: number
   readonly prefetch: (queryClient: QueryClient) => Promise<unknown>

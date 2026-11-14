@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useTranslations } from "use-intl/react"
 
-import { isRole } from "~/src/integrations/better-auth/auth.access"
+import { isRole } from "~/src/integrations/better-auth/auth.roles"
 
 import type { User } from "~/src/modules/user/user.types"
 import { type UserStatus, getUserInitials, getUserStatus } from "~/src/modules/user/user.utils"

@@ -25,7 +25,7 @@ import { DashboardActions } from "~/src/presentation/components/custom/admin/das
 import { AdminProductCreatePending, AdminProductsPending } from "~/src/presentation/components/custom/admin/products-pending"
 
 import componentsDataTableMessages from "~/messages/en-US/components.custom.data-table.json"
-import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"
+import navigationProductsMessages from "~/messages/en-US/navigation.products.json"
 import pagesAdminProductsCreateMessages from "~/messages/en-US/pages.admin.products.create.json"
 import pagesAdminProductsMessages from "~/messages/en-US/pages.admin.products.json"
 
@@ -69,7 +69,7 @@ const renderProducts = (rows: ReturnType<typeof adminProduct>[], tab: "all" | "c
 describe("admin catalog", () => {
   it("adds the create-product action to the dashboard", () => {
     renderAdmin(<DashboardActions />)
-    expect(screen.getByRole("link", { name: pagesAdminDashboardMessages.actions.addProduct })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: navigationProductsMessages.dashboard.addProduct })).toHaveAttribute(
       "href",
       "/admin/products/create",
     )

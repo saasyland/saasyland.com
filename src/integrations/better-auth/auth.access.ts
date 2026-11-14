@@ -1,39 +1,18 @@
 import { type RoleAuthorizeRequest, createAccessControl } from "better-auth/plugins/access"
 import { adminAc, defaultStatements } from "better-auth/plugins/admin/access"
 
-export const ROLE_CODES = {
-  ADMIN: "admin",
-  CUSTOMER: "customer",
-} as const
+import { ROLE_CODES, isRole } from "~/src/integrations/better-auth/auth.roles"
 
-export type Role = (typeof ROLE_CODES)[keyof typeof ROLE_CODES]
-
-export const ROLE_VALUES = [ROLE_CODES.ADMIN, ROLE_CODES.CUSTOMER] as const satisfies readonly Role[]
-
-export const DEFAULT_ROLE_CODE = ROLE_CODES.CUSTOMER
-
-export const APP_STATEMENTS = {
-  admin: ["access"],
-  category: ["create", "read", "update", "delete"],
-  course: ["create", "read", "update", "delete"],
-  order: ["read", "update", "refund"],
-  product: ["create", "read", "update", "delete", "publish"],
-  settings: ["manage"],
-  video: ["read", "delete"],
-} as const
+import { APP_STATEMENTS, grantsOf } from "~/src/data/access"
 
 export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
 
 export const ROLES = {
-  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
-  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...grantsOf(ROLE_CODES.ADMIN), ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole(grantsOf(ROLE_CODES.CUSTOMER)),
 }
 
 export type Permission = RoleAuthorizeRequest<typeof ac.statements>
-
-const ROLE_SET = new Set<string>(ROLE_VALUES)
-
-export const isRole = (value: string | null | undefined): value is Role => typeof value === "string" && ROLE_SET.has(value)
 
 export const hasPermission = ({
   permission,

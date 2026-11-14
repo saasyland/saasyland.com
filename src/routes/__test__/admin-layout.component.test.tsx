@@ -10,14 +10,19 @@ import { Route as SettingsRoute } from "~/src/routes/admin.settings"
 
 import { SidebarProvider } from "~/src/presentation/components/shadcn/sidebar"
 
-import { adminQueryClient, renderAdmin, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import {
+  adminQueryClient,
+  breadcrumbDividers,
+  renderAdmin,
+  renderAdminPage,
+} from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminBreadcrumbs } from "~/src/presentation/components/custom/admin/admin-breadcrumbs"
 import { UserWidget } from "~/src/presentation/components/custom/admin/user-widget"
 
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
+import navigationCoreMessages from "~/messages/en-US/navigation.core.json"
 import pagesAdminMessages from "~/messages/en-US/pages.admin.json"
 import pagesAdminSettingsMessages from "~/messages/en-US/pages.admin.settings.json"
-import pagesAdminSidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 import timezonesMessages from "~/messages/en-US/timezones.json"
 import { APP_DOMAIN, APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 
@@ -29,8 +34,16 @@ afterEach(() => vi.restoreAllMocks())
 describe("admin navigation", () => {
   it.each(["/admin", "/admin/unknown"])("renders breadcrumbs and navigation for %s", (path) => {
     renderAdminPage(AdminRoute.options.component, { path })
-    expect(screen.getAllByRole("link", { name: pagesAdminSidebarMessages.links.dashboard }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole("link", { name: navigationCoreMessages.admin.dashboard }).length).toBeGreaterThan(0)
     expect(screen.getByRole("navigation", { name: pagesAdminMessages.components.breadcrumbs.home })).toBeVisible()
+  })
+
+  it("leaves a sub-page out of the breadcrumbs when its area does not name it", () => {
+    const { container } = renderAdmin(<AdminBreadcrumbs />, { path: "/admin/settings/unknown" })
+
+    expect(screen.getByRole("link", { name: navigationCoreMessages.admin.settings })).toHaveAttribute("href", "/admin/settings")
+    expect(breadcrumbDividers(container)).toHaveLength(1)
+    expect(container.querySelector('[aria-current="page"]')).toBeNull()
   })
 
   it.each(["/", "/app"])("does not show admin breadcrumbs outside admin at %s", (path) => {

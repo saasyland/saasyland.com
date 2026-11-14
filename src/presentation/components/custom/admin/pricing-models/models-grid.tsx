@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { Archive, Calendar, CheckCircle2, MoreHorizontal, Pencil, ShoppingBag, Trash2, Users } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { ADMIN_PRICING_MODELS } from "~/src/data/admin"
+import { ADMIN_PRICING_MODELS } from "~/src/data/admin-payments"
 
 import { cn } from "~/src/lib/cn"
 

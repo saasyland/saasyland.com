@@ -3,6 +3,8 @@ import type { JSX } from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
+import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
+
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
@@ -22,7 +24,8 @@ const Divider = (): JSX.Element => (
 
 export const AdminBreadcrumbs = (): JSX.Element | undefined => {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const t = useTranslations("pages.admin")
+  const t = useTranslations()
+  const navigationLabel = useNavigationLabel()
 
   const [area, section, action] = pathname.split("/").filter(Boolean)
 
@@ -32,15 +35,14 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
 
   const sectionUrl = section === undefined ? ROUTES.ADMIN : `${ROUTES.ADMIN}/${section}`
   const item = SIDEBAR_ITEMS.find((candidate) => candidate.to === sectionUrl)
-  const actionKey = `components.breadcrumbs.actions.${action ?? ""}`
 
   return (
     <nav
-      aria-label={t("components.breadcrumbs.home")}
+      aria-label={t("pages.admin.components.breadcrumbs.home")}
       className="hidden min-w-0 items-center gap-1.5 text-body-sm text-muted-foreground sm:flex"
     >
       <Link activeOptions={{ exact: true, includeSearch: false }} className={LINK_CLASSNAME} to={ROUTES.ADMIN}>
-        {t("components.breadcrumbs.home")}
+        {t("pages.admin.components.breadcrumbs.home")}
       </Link>
       {item && (
         <>
@@ -50,15 +52,15 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
             className={cn(LINK_CLASSNAME, "data-[status=active]:font-medium data-[status=active]:text-foreground")}
             to={item.to}
           >
-            {t(`sidebar.links.${item.key}`)}
+            {navigationLabel(item)}
           </Link>
         </>
       )}
-      {item && t.has(actionKey) && (
+      {item && action !== undefined && t.has(`navigation.${item.area}.breadcrumbs.${action}`) && (
         <>
           <Divider />
           <span aria-current="page" className="truncate font-medium text-foreground">
-            {t(actionKey)}
+            {t(`navigation.${item.area}.breadcrumbs.${action}`)}
           </span>
         </>
       )}

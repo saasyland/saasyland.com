@@ -14,12 +14,12 @@ import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-cur
 
 import { pageHead } from "~/src/lib/seo"
 
-import { AppLicensePending } from "~/src/presentation/components/custom/app/app-pending"
 import { CheckoutActivation } from "~/src/presentation/components/custom/app/checkout-activation"
 import { ChosenTier } from "~/src/presentation/components/custom/app/chosen-tier"
 import { LicenseActivations } from "~/src/presentation/components/custom/app/license-activations"
 import { LicenseCard } from "~/src/presentation/components/custom/app/license-card"
 import { LicenseOffer } from "~/src/presentation/components/custom/app/license-offer"
+import { AppLicensePending } from "~/src/presentation/components/custom/app/license-pending"
 
 import { ROUTES } from "~/src/routes"
 

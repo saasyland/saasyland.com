@@ -4,7 +4,7 @@ export const FULL_PRICE_MULTIPLIER = 1
 
 export const PPP_PERCENT = 100
 
-const PPP_TIERS = [
+export const PPP_TIERS = [
   { countries: ["CY", "EE", "GR", "KR", "LT", "LV", "PT", "TW"], multiplier: 0.8 },
   { countries: ["BG", "BR", "CL", "CZ", "HU", "MX", "MY", "PL", "RO", "SK", "ZA"], multiplier: 0.7 },
   { countries: ["CO", "ID", "IN", "PE", "PH", "TH", "TR", "VN"], multiplier: 0.6 },

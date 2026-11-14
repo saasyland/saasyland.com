@@ -23,7 +23,7 @@ import {
 import { Separator } from "~/src/presentation/components/shadcn/separator"
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
-import { RepositoryCount } from "~/src/presentation/components/custom/repository-count"
+import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
 import { TierPrice } from "~/src/presentation/components/custom/tier-price"
 
 const INTERNAL_PREFIX = "/"
@@ -74,7 +74,8 @@ export const mdxComponents = {
   CardFooter,
   CardHeader,
   CardTitle,
-  RepositoryCount,
+  RepositoryFact,
+  RepositoryTable,
   Separator,
   ShadcnCard,
   Step,

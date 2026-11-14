@@ -4,10 +4,10 @@ const isCI = Boolean(process.env["CI"])
 const appUrl = process.env["PLAYWRIGHT_BASE_URL"] ?? "http://127.0.0.1:3000"
 const startCommand = `bun run start:test --port ${new URL(appUrl).port || "3000"}`
 
-const CI_RETRIES = 2
-const DEV_RETRIES = 0
-const CI_WORKERS = 2
-const LOCAL_WORKERS = 1
+export const CI_RETRIES = 2
+export const DEV_RETRIES = 0
+export const CI_WORKERS = 2
+export const LOCAL_WORKERS = 1
 const E2E_TIMEOUT_MS = 60_000
 
 export default defineConfig({

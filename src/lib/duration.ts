@@ -1,6 +1,6 @@
-const MILLISECONDS_PER_SECOND = 1000
-const SECONDS_PER_MINUTE = 60
-const MINUTES_PER_HOUR = 60
+export const MILLISECONDS_PER_SECOND = 1000
+export const SECONDS_PER_MINUTE = 60
+export const MINUTES_PER_HOUR = 60
 const CLOCK_PAD = 2
 
 const pad = (value: number): string => String(value).padStart(CLOCK_PAD, "0")

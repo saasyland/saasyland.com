@@ -15,6 +15,7 @@ const environmentSchema = z.object({
   name: z.string(),
   r2_buckets: z.array(bucketSchema),
   secrets: secretsSchema,
+  vars: z.record(z.string(), z.string()).optional(),
 })
 
 const wranglerSchema = z.object({ env: z.record(z.string(), environmentSchema) })

@@ -12,7 +12,7 @@ export const ROLE_VALUES = [ROLE_CODES.ADMIN, ROLE_CODES.CUSTOMER] as const sati
 
 export const DEFAULT_ROLE_CODE = ROLE_CODES.CUSTOMER
 
-const APP_STATEMENTS = {
+export const APP_STATEMENTS = {
   admin: ["access"],
   category: ["create", "read", "update", "delete"],
   course: ["create", "read", "update", "delete"],

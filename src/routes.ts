@@ -66,3 +66,8 @@ export const ROUTES = {
   TWO_FACTOR: "/auth/two-factor",
   VERIFY_EMAIL: "/auth/verify-email",
 } as const
+
+export const UNLISTED_ROUTES = [ROUTES.ADMIN, ROUTES.API, ROUTES.APP, ROUTES.AUTH, ROUTES.COURSES, ROUTES.NEWSLETTER]
+
+export const isUnlistedRoute = (pathname: string): boolean =>
+  UNLISTED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))

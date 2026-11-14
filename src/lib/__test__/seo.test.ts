@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { buildBlogPostStructuredData, buildBlogPostStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
+import {
+  ROBOTS,
+  SOCIAL_IMAGE,
+  buildBlogPostStructuredData,
+  buildBlogPostStructuredDataHtml,
+  buildPageHead,
+  pageHead,
+  socialImagePath,
+} from "~/src/lib/seo"
 
+import { APP_NAME, APP_URL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const GRAPH_NODES_WITHOUT_FAQ = 2
@@ -76,4 +85,80 @@ it("leaves og:locale:alternate to the root document, because route heads keep on
   const { meta } = buildPageHead({ locale: "pl-PL", pathname: ROUTES.BLOG })
   expect(meta).toContainEqual({ content: "pl_PL", property: "og:locale" })
   expect(meta).not.toContainEqual(expect.objectContaining({ property: "og:locale:alternate" }))
+})
+
+const imageUrl = (path: string): string => `${APP_URL}/images/og${path}.${SOCIAL_IMAGE.FORMAT}`
+
+describe("social preview", () => {
+  it("gives a prerendered page its own card, described in the page's locale", () => {
+    const { meta } = buildPageHead({
+      locale: "de-DE",
+      pathname: "/docs/conventions",
+      section: "Konventionen",
+      title: "Dateien",
+      type: "article",
+    })
+
+    expect(meta).toStrictEqual(
+      expect.arrayContaining([
+        { content: APP_NAME, property: "og:site_name" },
+        { content: "Dateien", property: "og:title" },
+        { content: "Konventionen", property: "article:section" },
+        { content: imageUrl("/de-DE/docs/conventions"), property: "og:image" },
+        { content: SOCIAL_IMAGE.TYPE, property: "og:image:type" },
+        { content: String(SOCIAL_IMAGE.WIDTH), property: "og:image:width" },
+        { content: String(SOCIAL_IMAGE.HEIGHT), property: "og:image:height" },
+        { content: `Dateien – Konventionen – ${APP_NAME}`, property: "og:image:alt" },
+        { content: SOCIAL_IMAGE.TWITTER_CARD, name: "twitter:card" },
+        { content: "Dateien", name: "twitter:title" },
+        { content: imageUrl("/de-DE/docs/conventions"), name: "twitter:image" },
+        { content: `Dateien – Konventionen – ${APP_NAME}`, name: "twitter:image:alt" },
+      ]),
+    )
+  })
+
+  it("names the home page's card after the index", () => {
+    const { meta } = buildPageHead({ pathname: ROUTES.HOME, title: "Starter kit" })
+
+    expect(meta).toContainEqual({ content: imageUrl("/index"), property: "og:image" })
+    expect(meta).toContainEqual({ content: `Starter kit — ${APP_NAME}`, property: "og:image:alt" })
+    expect(meta).not.toContainEqual(expect.objectContaining({ property: "article:section" }))
+  })
+
+  it.each([ROUTES.APP, ROUTES.SIGN_IN, `/pl-PL${ROUTES.ADMIN_USERS}`])("gives %s, which is not prerendered, the site card", (pathname) => {
+    const { meta } = buildPageHead({ locale: "pl-PL", pathname, title: "Panel" })
+
+    expect(meta).toContainEqual({ content: `${APP_URL}${SOCIAL_IMAGE.SITE_PATH}`, property: "og:image" })
+    expect(meta).toContainEqual({ content: APP_NAME, property: "og:image:alt" })
+  })
+
+  it("describes the card of a page without a title by the site name alone", () => {
+    const { meta } = buildPageHead({ pathname: ROUTES.DOCS })
+
+    expect(meta).toContainEqual({ content: APP_NAME, property: "og:title" })
+    expect(meta).toContainEqual({ content: APP_NAME, property: "og:image:alt" })
+  })
+})
+
+describe("robots directive", () => {
+  it("asks crawlers not to index a page that is not indexable", () => {
+    expect(buildPageHead({ indexable: false, pathname: ROUTES.PREMIUM }).meta).toContainEqual({ content: ROBOTS.NOINDEX, name: "robots" })
+  })
+
+  it("leaves the robots directive of an indexable page to the deployment", () => {
+    expect(buildPageHead({ pathname: ROUTES.PREMIUM }).meta).not.toContainEqual(expect.objectContaining({ name: "robots" }))
+  })
+
+  it("passes the indexing choice of a route through its page head", () => {
+    expect(pageHead(ROUTES.PREMIUM, { indexable: false })({ loaderData: undefined }).meta).toContainEqual({
+      content: ROBOTS.NOINDEX,
+      name: "robots",
+    })
+    expect(pageHead(ROUTES.TERMS)({ loaderData: undefined }).meta).not.toContainEqual(expect.objectContaining({ name: "robots" }))
+  })
+})
+
+it("names social images after the canonical path", () => {
+  expect(socialImagePath(ROUTES.HOME)).toBe(`/images/og/index.${SOCIAL_IMAGE.FORMAT}`)
+  expect(socialImagePath("/uk-UA/blog/post")).toBe(`/images/og/uk-UA/blog/post.${SOCIAL_IMAGE.FORMAT}`)
 })

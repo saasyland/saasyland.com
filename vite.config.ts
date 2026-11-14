@@ -1,11 +1,10 @@
 import { resolve } from "node:path"
 import { type PluginOption, type UserConfig, defineConfig, lazyPlugins, loadEnv } from "vite-plus"
 
-import { ROUTES } from "./src/routes.ts"
+import { isUnlistedRoute } from "./src/routes.ts"
 
 const projectRoot = import.meta.dirname
 
-const UNLISTED_ROUTES = [ROUTES.ADMIN, ROUTES.API, ROUTES.APP, ROUTES.AUTH, ROUTES.COURSES, ROUTES.NEWSLETTER]
 const LOCALE_PREFIX = /^\/[a-z]{2}-[A-Z]{2}(?=\/|$)/u
 const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 
@@ -14,9 +13,7 @@ const shouldPrerender = ({ path }: { path: string }): boolean => {
     return false
   }
 
-  const pathname = path.replace(LOCALE_PREFIX, "")
-
-  return !UNLISTED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+  return !isUnlistedRoute(path.replace(LOCALE_PREFIX, ""))
 }
 
 const ignorePatterns = [

@@ -1,0 +1,61 @@
+---
+title: "Suche und Social-Media-Vorschauen"
+description: "Seiten-Metadaten, robots.txt, die Sitemap und die Social Cards, die der Build für jede vorgerenderte Seite rendert."
+---
+
+Jede Seite beschreibt sich Suchmaschinen und Linkvorschauen gegenüber über das `head` ihrer Route. Der Build macht aus diesen Beschreibungen `sitemap.xml` und eine Social Card pro vorgerenderter Seite, sodass beides statische Dateien in `dist/client` sind und nichts davon im Worker läuft.
+
+## Seiten-Metadaten
+
+`buildPageHead` in `src/lib/seo.ts` erzeugt das Head jeder Seite. Die meisten Routen rufen es über `pageHead(ROUTES.X)` auf; Dokumentationsseiten, Blogbeiträge und Kursseiten rufen es direkt auf. Es gibt Folgendes aus:
+
+- den Titel mit dem Trennzeichen der Locale und `APP_NAME`, die Beschreibung, die kanonische URL und einen `alternate`-Link mit `hreflang` für jede Locale und für `x-default`;
+- Open Graph: `og:site_name`, `og:title` (der Seitentitel ohne den Namen der Website, wie Open Graph es erwartet), `og:description`, `og:type`, `og:url`, `og:locale` und, für eine Seite, die zu einem Abschnitt gehört, `article:section`;
+- das Vorschaubild: `og:image`, `og:image:type`, `og:image:width` und `og:image:height` (<RepositoryFact name="socialImageWidth" /> mal <RepositoryFact name="socialImageHeight" /> Pixel) und `og:image:alt`, dazu `twitter:card` mit dem Wert `summary_large_image`, `twitter:title`, `twitter:description`, `twitter:image` und `twitter:image:alt`.
+
+Die Root-Route ergänzt `og:locale:alternate` für die anderen Locales. In jedem Build-Modus außer `production` fügt sie außerdem die `robots`-Direktive `ROBOTS.NON_PRODUCTION` (`noindex, nofollow`) hinzu, die Preview- und Test-Deployments aus den Suchergebnissen heraushält.
+
+Eine Route hält sich mit `pageHead(ROUTES.X, { indexable: false })` aus den Suchergebnissen heraus; das fügt `ROBOTS.NOINDEX` (`noindex`) hinzu. `/premium`, eine Platzhalterseite, macht das so.
+
+Dokumentationsseiten nennen den Abschnitt, den ihre Breadcrumbs zeigen: `getDocsPage` in `fumadocs.docs.ts` liest ihn mit `getBreadcrumbItems` von Fumadocs, daher haben `/docs` und die erste Seite jedes Abschnitts keinen. Blogbeiträge nennen den Blog, mit dem Titel aus `pages.blog`.
+
+## Social Cards
+
+Jede vorgerenderte Seite hat ihre eigene Karte unter `/images/og/<canonical path>.png`, die Startseite unter `/images/og/index.png` (`socialImagePath`). Die Karte zeigt die Wortmarke, den Abschnitt in der Akzentfarbe, sofern es einen gibt, den `og:title` der Seite und die Domain, über dem Raster und dem Leuchten der Hintergründe der Website. Ihr Alt-Text ist genau dieser Text in der Locale der Seite: der Titel, der Abschnitt und `APP_NAME`, verbunden durch das Titeltrennzeichen der Locale.
+
+Seiten, die nicht vorgerendert werden, also <RepositoryFact name="unlistedRoutes" /> und jeder Pfad darunter, teilen sich `/images/og/site.png`, das nur die Wortmarke zeigt und `APP_NAME` als Alt-Text hat. `UNLISTED_ROUTES` in `src/routes.ts` ist die einzige Liste dieser Seiten: `vite.config.ts` nimmt sie vom Vorrendern aus, und `buildPageHead` gibt ihnen die Karte der Website.
+
+Die Karten sind React-Komponenten, `PageCard` und `SiteCard` in `src/presentation/social-card.tsx`. `createSocialCardRenderer` in `src/integrations/takumi/takumi.render.tsx` zeichnet sie mit [Takumi](https://takumi.kane.tw/docs/) (`@takumi-rs/core`), einem Renderer in Rust mit nativen Node-Bindings, der keinen Browser braucht:
+
+- Die Farben sind die Tokens des hellen Themes. Der Renderer liest `src/presentation/styles/globals.css`, sodass `var(--background)`, `var(--foreground)`, `var(--ring)` und die Klassen `field-grid` und `field-signal` dieselben wie auf der Website sind.
+- Die Schriften sind die Dateien, die die Website ausliefert. `takumi.fonts.ts` liest jede `@font-face`-Regel mit einer `url()`-Quelle aus `fonts.css`, also die Subsets von Geist und Geist Mono mit ihren Unicode-Bereichen, und aus `@fontsource-variable/noto-sans-jp`, weil die Website Japanisch der Systemschrift überlässt. Takumi lädt nur die Subsets, die der Text einer Karte verwendet. Jede Schrift wird unter `APP_NAME` gefolgt von ihrem Familiennamen registriert: Takumi bringt ein eigenes Geist mit, das nur lateinische Zeichen abdeckt und sonst anstelle der Subsets Cyrillic und Latin Extended der Website gewählt würde.
+- Das Logo ist `APP_LOGO_PATH` aus `src/presentation/branding`, der Pfad, den `Wordmark` zeichnet.
+
+Um das Design zu ändern, bearbeiten Sie `social-card.tsx`, führen Sie `bun run build:test` aus und öffnen Sie die Karten in `dist/client/images/og`.
+
+## Sitemap und robots.txt
+
+`public/robots.txt` erlaubt jeden Pfad und nennt `https://saasyland.com/sitemap.xml`; `robots.test.ts` schlägt fehl, wenn diese Zeile nicht zu `APP_URL` und `SITEMAP_PATH` passt.
+
+`scripts/generate-seo-files.ts` läuft am Ende jedes Build-Skripts, nach `optimize-prerendered-html.ts`. Es liest mit `readPageHead` aus `src/lib/page-head.ts` das Head jeder vorgerenderten Seite in `dist/client` und tut dann Folgendes:
+
+1. Es schreibt `dist/client/sitemap.xml` mit jeder Seite, deren `robots`-Direktive die Indexierung erlaubt und deren Pfad `robots.txt` nicht sperrt (`listedPages` und `buildSitemap` in `src/lib/sitemap.ts`, mit dem Abgleich nach RFC 9309 aus `src/lib/robots.ts`). Jedes `<url>` führt die eigenen `alternate`-Links der Seite als `xhtml:link`-Einträge auf, `x-default` eingeschlossen. Der Build schlägt fehl, wenn eine Seite eine Alternative nennt, die die Sitemap nicht aufführt, oder wenn eine URL doppelt vorkommt. `ROBOTS.NON_PRODUCTION` zählt nicht als eigene Direktive einer Seite, sodass jeder Build-Modus dieselbe Sitemap schreibt.
+2. Es rendert die Karte der Website und die Karte jeder Seite nach `dist/client/images/og` und schlägt fehl, wenn zwei Seiten dasselbe Bild nennen.
+
+Es gibt aus, wie viele Seiten die Sitemap aufführt, wie viele Karten es gerendert hat und wie lange das gedauert hat. Die Sitemap hat kein `lastmod`, weil Dokumentationsseiten kein verlässliches Änderungsdatum tragen. Kursseiten stehen nicht darin: Sie werden bei jeder Anfrage aus D1 gelesen, und die Sitemap ist eine Datei, die der Build schreibt.
+
+Der Worker ändert sich nicht. Takumi und das Skript laufen nur zur Build-Zeit, und `src/server.ts` liefert `sitemap.xml` und die Karten wie jede andere Datei aus den statischen Assets aus, mit der Cache-Richtlinie, die `public/_headers` für `/images/*` festlegt.
+
+## Tests
+
+- `seo.test.ts`, `page-head.test.tsx`, `sitemap.test.ts` und `robots.test.ts` in `src/lib/__test__` decken die Tags, ihr erneutes Auslesen, die Sitemap und die robots-Regeln ab. `takumi.render.test.ts` rendert Karten auf Englisch, Deutsch, Ukrainisch und Japanisch und prüft ihre Größe.
+- `e2e/specs/seo.spec.ts` vergleicht die ausgelieferte Sitemap mit den vorgerenderten Seiten, die eine Indexierung erlauben, ruft jede URL darin ab und erwartet `200` ohne Weiterleitung, und öffnet die Startseite, eine Dokumentationsseite und einen Blogbeitrag auf Englisch und Japanisch, um ihre Social-Media-Tags und das Bild zu prüfen, das sie nennen.
+- Nach einem Deployment ruft `verify-deployment.ts` <RepositoryFact name="liveSiteCheckPaths" /> ab, darunter die Sitemap und die Karte der Website.
+
+## Verwandte Seiten
+
+- [Internationalisierung](/docs/features/internationalization)
+- [Dokumentationsseite](/docs/features/docs-site)
+- [Blog](/docs/features/blog)
+- [Schriften und Branding](/docs/ui/fonts-and-branding)
+- [Performance](/docs/conventions/performance)

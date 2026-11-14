@@ -1,0 +1,61 @@
+---
+title: "Motori di ricerca e anteprime social"
+description: "I metadati delle pagine, robots.txt, la sitemap e le social card che la build genera per ogni pagina prerenderizzata."
+---
+
+Ogni pagina si descrive ai motori di ricerca e alle anteprime dei link tramite l’`head` della sua rotta. La build trasforma queste descrizioni in `sitemap.xml` e in una social card per ogni pagina prerenderizzata, quindi entrambi sono file statici in `dist/client` e niente di tutto questo viene eseguito nel Worker.
+
+## Metadati delle pagine
+
+`buildPageHead` in `src/lib/seo.ts` costruisce l’head di ogni pagina. La maggior parte delle rotte lo chiama tramite `pageHead(ROUTES.X)`; le pagine della documentazione, gli articoli del blog e le pagine dei corsi lo chiamano direttamente. Genera:
+
+- il titolo, con il separatore della lingua e `APP_NAME`, la descrizione, l’URL canonico e un link `alternate` con `hreflang` per ogni lingua e per `x-default`;
+- Open Graph: `og:site_name`, `og:title` (il titolo della pagina senza il nome del sito, come si aspetta Open Graph), `og:description`, `og:type`, `og:url`, `og:locale` e, per una pagina che appartiene a una sezione, `article:section`;
+- l’immagine social: `og:image`, `og:image:type`, `og:image:width` e `og:image:height` (<RepositoryFact name="socialImageWidth" /> per <RepositoryFact name="socialImageHeight" /> pixel) e `og:image:alt`, con `twitter:card` impostato su `summary_large_image`, `twitter:title`, `twitter:description`, `twitter:image` e `twitter:image:alt`.
+
+La rotta radice aggiunge `og:locale:alternate` per le altre lingue. In ogni modalità di build tranne `production` aggiunge anche la direttiva `robots` `ROBOTS.NON_PRODUCTION` (`noindex, nofollow`), che tiene i deploy di preview e di test fuori dai risultati di ricerca.
+
+Una rotta si esclude dai risultati di ricerca con `pageHead(ROUTES.X, { indexable: false })`, che aggiunge `ROBOTS.NOINDEX` (`noindex`). Lo fa `/premium`, una pagina segnaposto.
+
+Le pagine della documentazione indicano la sezione mostrata dal loro breadcrumb: `getDocsPage` in `fumadocs.docs.ts` la legge con `getBreadcrumbItems` di Fumadocs, quindi `/docs` e la prima pagina di ogni sezione non ne hanno. Gli articoli del blog indicano il blog, con il titolo preso da `pages.blog`.
+
+## Social card
+
+Ogni pagina prerenderizzata ha la propria card in `/images/og/<canonical path>.png`, e la home in `/images/og/index.png` (`socialImagePath`). La card mostra il wordmark, la sezione nel colore di accento quando c’è, l’`og:title` della pagina e il dominio, sopra la griglia e il bagliore degli sfondi del sito. Il testo alternativo è quello stesso testo nella lingua della pagina: il titolo, la sezione e `APP_NAME`, uniti dal separatore del titolo della lingua.
+
+Le pagine non prerenderizzate, <RepositoryFact name="unlistedRoutes" /> e ogni percorso sotto di esse, condividono `/images/og/site.png`, che mostra solo il wordmark e ha `APP_NAME` come testo alternativo. `UNLISTED_ROUTES` in `src/routes.ts` è l’unico elenco di queste pagine: `vite.config.ts` le esclude dal prerendering e `buildPageHead` assegna loro la card del sito.
+
+Le card sono componenti React, `PageCard` e `SiteCard` in `src/presentation/social-card.tsx`. `createSocialCardRenderer` in `src/integrations/takumi/takumi.render.tsx` le disegna con [Takumi](https://takumi.kane.tw/docs/) (`@takumi-rs/core`), un renderer scritto in Rust con binding nativi per Node che non ha bisogno di un browser:
+
+- I colori sono i token del tema chiaro. Il renderer legge `src/presentation/styles/globals.css`, quindi `var(--background)`, `var(--foreground)`, `var(--ring)` e le classi `field-grid` e `field-signal` sono quelli del sito.
+- I font sono i file serviti dal sito. `takumi.fonts.ts` legge ogni regola `@font-face` con una sorgente `url()` da `fonts.css`, cioè i sottoinsiemi di Geist e Geist Mono con i loro intervalli Unicode, e da `@fontsource-variable/noto-sans-jp`, perché il sito lascia il giapponese ai font di sistema. Takumi carica solo i sottoinsiemi usati dal testo di una card. Ogni font viene registrato con `APP_NAME` seguito dal nome della sua famiglia: Takumi include un proprio Geist solo latino, che altrimenti verrebbe scelto al posto dei sottoinsiemi cirillico e latino esteso del sito.
+- Il logo è `APP_LOGO_PATH` da `src/presentation/branding`, il tracciato che disegna `Wordmark`.
+
+Per cambiare il design, modifica `social-card.tsx`, esegui `bun run build:test` e apri le card in `dist/client/images/og`.
+
+## Sitemap e robots.txt
+
+`public/robots.txt` consente ogni percorso e indica `https://saasyland.com/sitemap.xml`; `robots.test.ts` fallisce quando quella riga non corrisponde ad `APP_URL` e `SITEMAP_PATH`.
+
+`scripts/generate-seo-files.ts` viene eseguito alla fine di ogni script di build, dopo `optimize-prerendered-html.ts`. Legge l’head di ogni pagina prerenderizzata in `dist/client` con `readPageHead` da `src/lib/page-head.ts`, poi:
+
+1. Scrive `dist/client/sitemap.xml` con ogni pagina la cui direttiva `robots` consente l’indicizzazione e il cui percorso non è vietato da `robots.txt` (`listedPages` e `buildSitemap` in `src/lib/sitemap.ts`, con la corrispondenza RFC 9309 di `src/lib/robots.ts`). Ogni `<url>` elenca i link `alternate` della pagina stessa come voci `xhtml:link`, `x-default` compreso. La build fallisce quando una pagina indica un’alternativa che la sitemap non elenca o quando un URL compare due volte. `ROBOTS.NON_PRODUCTION` non conta come direttiva propria della pagina, quindi ogni modalità di build scrive la stessa sitemap.
+2. Genera la card del sito e quella di ogni pagina in `dist/client/images/og`, e fallisce quando due pagine indicano la stessa immagine.
+
+Stampa quante pagine elenca la sitemap, quante card ha generato e quanto tempo ha impiegato. La sitemap non ha `lastmod`, perché le pagine della documentazione non hanno una data di modifica affidabile. Le pagine dei corsi non ci sono: vengono lette da D1 a ogni richiesta, mentre la sitemap è un file scritto dalla build.
+
+Il Worker non cambia. Takumi e lo script vengono eseguiti solo durante la build, e `src/server.ts` serve `sitemap.xml` e le card dagli asset statici come qualsiasi altro file, con la policy di cache che `public/_headers` imposta per `/images/*`.
+
+## Test
+
+- `seo.test.ts`, `page-head.test.tsx`, `sitemap.test.ts` e `robots.test.ts` in `src/lib/__test__` coprono i tag, la loro rilettura, la sitemap e le regole di robots. `takumi.render.test.ts` genera card in inglese, tedesco, ucraino e giapponese e ne controlla le dimensioni.
+- `e2e/specs/seo.spec.ts` confronta la sitemap servita con le pagine prerenderizzate che consentono l’indicizzazione, richiede ogni URL che contiene aspettandosi `200` senza redirect, e apre la home, una pagina della documentazione e un articolo del blog in inglese e giapponese per controllarne i tag social e l’immagine che indicano.
+- Dopo un deploy, `verify-deployment.ts` richiede <RepositoryFact name="liveSiteCheckPaths" />, tra cui la sitemap e la card del sito.
+
+## Pagine correlate
+
+- [Internazionalizzazione e lingue](/docs/features/internationalization)
+- [Sito della documentazione](/docs/features/docs-site)
+- [Blog](/docs/features/blog)
+- [Font e branding](/docs/ui/fonts-and-branding)
+- [Prestazioni](/docs/conventions/performance)

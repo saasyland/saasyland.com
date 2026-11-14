@@ -8,7 +8,7 @@ import zod from "zod/v4"
 
 import { type BlogPostSummary, blogSource, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
-import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
+import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
@@ -129,22 +129,24 @@ const NAMESPACE = "pages.blog"
 
 export const Route = createFileRoute("/blog/$")({
   component: BlogPostPage,
-  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; post: BlogPostSummary } | undefined }) =>
+  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; post: BlogPostSummary; section: string } | undefined }) =>
     buildPageHead({
       description: loaderData?.post.summary,
       locale: loaderData?.locale,
       pathname: loaderData?.post.url ?? ROUTES.BLOG,
+      section: loaderData?.section,
       title: loaderData?.post.title,
       type: "article",
     }),
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
-    const [post] = await Promise.all([
+    const [post, blog] = await Promise.all([
       getBlogPost({ data: { locale, slug: params._splat ?? "" } }),
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
     ])
     await blogContent.preload(post.path)
-    return { locale, post }
+    return { locale, post, section: blog.title }
   },
   pendingComponent: BlogPostPending,
   staticData: { namespaces: [NAMESPACE] },

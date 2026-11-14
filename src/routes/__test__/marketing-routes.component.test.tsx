@@ -23,6 +23,7 @@ import { Route as BlogIndexRoute } from "~/src/routes/blog.index"
 import { AFFILIATE_TERMS } from "~/src/data/affiliates"
 
 import { starCountQuery } from "~/src/lib/github"
+import { ROBOTS } from "~/src/lib/seo"
 
 import componentsNavigationMessages from "~/messages/en-US/components.custom.navigation.json"
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
@@ -136,7 +137,7 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
   Object.assign(BlogPostRoute.options, {
     getParentRoute: () => BlogRoute,
     id: "/$",
-    loader: (): typeof BlogPostRoute.types.loaderData => ({ locale: "en-US", post }),
+    loader: (): typeof BlogPostRoute.types.loaderData => ({ locale: "en-US", post, section: pagesBlogMessages.metadata.title }),
     path: "/$",
   })
   return createRouter({
@@ -216,10 +217,11 @@ describe("public route content", () => {
     expect(router.state.matches.at(-1)?.status).toBe("success")
   })
 
-  it("loads the premium page metadata and translated content", async () => {
+  it("loads the premium page metadata and translated content, and keeps the placeholder out of search results", async () => {
     const router = await renderRoute("/premium")
     expect(screen.getByText(pagesPremiumMessages.metadata.title)).toBeVisible()
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ metadata: pagesPremiumMessages.metadata })
+    expect(router.state.matches.at(-1)?.meta).toContainEqual({ content: ROBOTS.NOINDEX, name: "robots" })
   })
 
   it("renders the landing page with cached stars, installation controls and public navigation", async () => {

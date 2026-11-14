@@ -155,7 +155,9 @@ describe("blog post loader", () => {
         ],
         url: "/blog/complete",
       },
+      section: pagesBlogMessages.metadata.title,
     })
+    expect(router.state.matches.at(-1)?.meta).toContainEqual({ content: pagesBlogMessages.metadata.title, property: "article:section" })
   })
 
   it("loads an article without a summary, image or frequently asked questions", async () => {

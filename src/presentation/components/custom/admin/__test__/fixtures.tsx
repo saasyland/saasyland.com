@@ -10,7 +10,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { CATEGORY_ICON, CATEGORY_KIND, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import type { Category } from "~/src/modules/category/category.types"
 import { getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"

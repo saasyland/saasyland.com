@@ -4,19 +4,19 @@ import * as zod from "zod"
 
 import { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
 import { MILLISECONDS_PER_SECOND } from "../src/lib/duration.ts"
+import { COUNTRIES } from "../src/modules/_core/constants/country.ts"
+import { CURRENCY_CODES } from "../src/modules/_core/constants/currency.ts"
+import { TIMEZONES } from "../src/modules/_core/constants/timezone.ts"
 import { COMMIT_EMOJIS } from "./commit-msg.ts"
 
 const MODULE_ID = "virtual:repository-facts"
 const RESOLVED_MODULE_ID = `\0${MODULE_ID}`
-const CATALOGUE_LOCALE = "en-US"
 const E2E_FULL_WORKFLOW = ".github/workflows/e2e-full.yml"
 
 const BUN_PACKAGE_MANAGER = /^bun@(?<version>\S+)$/u
 const WORKFLOW_CRON = /cron:\s*"(?<schedule>[^"]+)"/u
 
-const catalogueSchema = zod.record(zod.string(), zod.string())
 const packageSchema = zod.object({ version: zod.string() })
-const adminSidebarSchema = zod.object({ links: catalogueSchema })
 const rootPackageSchema = zod.object({ packageManager: zod.string() })
 const versionMatchSchema = zod.object({ version: zod.string() })
 const scheduleMatchSchema = zod.object({ schedule: zod.string() })
@@ -52,17 +52,11 @@ const countFiles = (pattern: string): number => globSync(pattern).length
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(path, "utf8"))
 
-const countCatalogueEntries = (catalogue: string): number =>
-  Object.keys(catalogueSchema.parse(readJson(`messages/${CATALOGUE_LOCALE}/${catalogue}.json`))).length
-
 const majorVersionOf = (packageName: string): number => {
   const [major] = packageSchema.parse(readJson(`node_modules/${packageName}/package.json`)).version.split(".")
 
   return Number(major)
 }
-
-const countAdminSections = (): number =>
-  Object.keys(adminSidebarSchema.parse(readJson(`messages/${CATALOGUE_LOCALE}/pages.admin.sidebar.json`)).links).length
 
 const readBunVersion = (): string => {
   const { packageManager } = rootPackageSchema.parse(readJson("package.json"))
@@ -86,11 +80,10 @@ export const collectRepositoryFacts = (config: unknown) => {
   const [, maxStatements] = lint.rules["max-statements"]
 
   return {
-    adminSections: countAdminSections(),
     bunVersion: readBunVersion(),
-    countries: countCatalogueEntries("countries"),
+    countries: COUNTRIES.length,
     coverageThreshold: test.coverage.thresholds.lines,
-    currencies: countCatalogueEntries("currencies"),
+    currencies: CURRENCY_CODES.length,
     e2eFullSchedule: readE2eFullSchedule(),
     e2eSpecs: countFiles("e2e/specs/*.spec.ts"),
     integrationTestTimeoutSeconds: findTimedProject(test.projects).test.testTimeout / MILLISECONDS_PER_SECOND,
@@ -107,7 +100,7 @@ export const collectRepositoryFacts = (config: unknown) => {
     tabWidth: fmt.tabWidth,
     tanstackTableMajor: majorVersionOf("@tanstack/react-table"),
     testFiles: countFiles("src/**/*.{test,spec}.{ts,tsx}"),
-    timezones: countCatalogueEntries("timezones"),
+    timezones: TIMEZONES.length,
     uiComponents: countFiles("src/presentation/components/shadcn/*.tsx"),
   }
 }

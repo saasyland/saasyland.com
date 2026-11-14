@@ -19,6 +19,7 @@ import pagesAdminMessages from "~/messages/en-US/pages.admin.json"
 import pagesAdminSettingsMessages from "~/messages/en-US/pages.admin.settings.json"
 import pagesAdminSidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
+import { APP_DOMAIN, APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 
 vi.mock(import("~/src/hooks/use-mobile"), () => ({ useIsMobile: () => false }))
 vi.mock("@tanstack/react-router", async (importOriginal) => ({ ...(await importOriginal<typeof RouterModule>()), Outlet: () => null }))
@@ -112,8 +113,9 @@ describe("general workspace settings", () => {
       throw new Error("Missing settings page")
     }
     renderAdmin(<Page />)
-    expect(screen.getByDisplayValue("SaaSy Land")).toBeVisible()
-    expect(screen.getByDisplayValue("support@saasyland.com")).toBeVisible()
+    expect(screen.getByDisplayValue(APP_NAME)).toBeVisible()
+    expect(screen.getByDisplayValue(CONTACT_EMAIL)).toBeVisible()
+    expect(screen.getByText(`${APP_DOMAIN}/`)).toBeVisible()
     const announcements = screen.getByRole("switch")
     expect(announcements).toBeChecked()
     await userEvent.click(announcements)

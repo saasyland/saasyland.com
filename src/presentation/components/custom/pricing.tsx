@@ -5,7 +5,7 @@ import { Check } from "lucide-react"
 import { CheckboxButton, CheckboxField } from "react-aria-components"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { CURRENCY_FORMAT, PPP_COOKIE, PPP_DECLINED, PPP_KEYS, PPP_PERCENT, applyPpp } from "~/src/modules/_core/constants/pricing"
+import { CURRENCY_FORMAT, PPP_COOKIE, PPP_DECLINED, PPP_KEYS, PPP_PERCENT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
@@ -31,7 +31,7 @@ export const Price = ({ amount }: Readonly<{ amount: number }>): JSX.Element => 
     <>
       {PPP_KEYS.map((key) => (
         <span className={`pv pv-${String(key)}`} key={key}>
-          {formatter.number(applyPpp({ amount, multiplier: key / PPP_PERCENT }), CURRENCY_FORMAT)}
+          {formatter.number((amount * key) / PPP_PERCENT, CURRENCY_FORMAT)}
         </span>
       ))}
       <s className="pv pv-regional ms-[0.3em] text-[max(0.45em,0.875rem)] font-normal text-muted-foreground">

@@ -1,14 +1,18 @@
+import { LANDING_VIDEO_SIZES } from "../../../src/data/landing-videos"
+
 import { AbsoluteFill, Easing, Interactive, interpolate, useCurrentFrame } from "remotion"
 
 import { Plate } from "../components/plate"
 import { MONO } from "../fonts"
-import { BAND, FPS, THEME, TYPE } from "../theme"
+import { FPS, THEME, TYPE } from "../theme"
+
+const SIZE = LANDING_VIDEO_SIZES["cost-curve"]
 
 const PAD = 52
 const CHART_TOP = 214
-const CHART_BOTTOM = BAND.height - PAD - 46
+const CHART_BOTTOM = SIZE.height - PAD - 46
 const CHART_LEFT = PAD
-const CHART_RIGHT = BAND.width - PAD
+const CHART_RIGHT = SIZE.width - PAD
 const CHART_HEIGHT = CHART_BOTTOM - CHART_TOP
 
 const PEAK_USERS = 50_000
@@ -74,7 +78,7 @@ export function CostCurve() {
       </AbsoluteFill>
 
       <AbsoluteFill name="Chart">
-        <svg height={BAND.height} viewBox={`0 0 ${BAND.width} ${BAND.height}`} width={BAND.width}>
+        <svg height={SIZE.height} viewBox={`0 0 ${SIZE.width} ${SIZE.height}`} width={SIZE.width}>
           <defs>
             <linearGradient id="meteredFill" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor={THEME.series} stopOpacity={0.38} />

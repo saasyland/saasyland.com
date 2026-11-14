@@ -1,6 +1,6 @@
 import zod from "zod/v4"
 
-import { POSTER_SMALL_WIDTH, VIDEO_FILES } from "~/src/modules/video/video.constants"
+import { POSTER_SMALL_WIDTH, POSTER_WIDTH, VIDEO_FILES } from "~/src/modules/video/video.constants"
 
 const MILLISECONDS_PER_SECOND = 1000
 const KILOBITS = 1000
@@ -23,7 +23,6 @@ export const AUDIO_SAMPLE_RATE = "48000"
 const AUDIO_CHANNELS = "2"
 const AUDIO_RENDITION = "audio"
 
-export const POSTER_WIDTH = 1920
 const POSTER_POSITION = 0.1
 
 const STORYBOARD_TILE_BOX = 240

@@ -1,3 +1,5 @@
+import { LANDING_VIDEO_SIZES } from "../../../src/data/landing-videos"
+
 import type { ReactNode } from "react"
 
 import { AbsoluteFill, Easing, Interactive, interpolate, useCurrentFrame } from "remotion"
@@ -18,10 +20,10 @@ import {
 } from "../components/course-ui"
 import { Plate } from "../components/plate"
 import { MONO, SANS } from "../fonts"
-import { FPS, THEME, WIDE, WIDE_DURATION } from "../theme"
+import { FPS, THEME, WIDE_DURATION } from "../theme"
 
 const VIEW = { height: 540, width: 960 } as const
-const ZOOM = WIDE.width / VIEW.width
+const ZOOM = LANDING_VIDEO_SIZES["course-tour"].width / VIEW.width
 
 const EASE = Easing.bezier(0.16, 1, 0.3, 1)
 const STEP = Easing.bezier(0.4, 0, 0.2, 1)
@@ -161,7 +163,7 @@ function PortraitLayer() {
       <Portrait scale={scale} />
       <AbsoluteFill
         style={{
-          background: `linear-gradient(to top, ${THEME.background} 0%, transparent 46%), linear-gradient(to right, oklch(0.168 0.005 265 / 0.55) 0%, transparent 42%)`,
+          background: `linear-gradient(to top, ${THEME.background} 0%, transparent 46%), linear-gradient(to right, ${THEME.backgroundShade} 0%, transparent 42%)`,
         }}
       />
       <Caption />

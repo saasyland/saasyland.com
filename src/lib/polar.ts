@@ -13,8 +13,8 @@ import {
 } from "~/src/integrations/polar/polar.discounts"
 
 import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { CURRENCIES, DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
-import { PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
+import { CURRENCIES } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE, PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
 import {
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_TIER,

@@ -6,8 +6,7 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { BASIS_POINTS_PER_PERCENT, POLAR_DISCOUNT_TYPE } from "~/src/integrations/polar/polar.discounts"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
-import { PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
+import { DEFAULT_CURRENCY_CODE, PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
 import {
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_TIER,

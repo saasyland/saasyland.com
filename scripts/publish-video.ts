@@ -9,9 +9,11 @@ import sharp from "sharp"
 import { v7 } from "uuid"
 import { z } from "zod/v4"
 
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { MIN_FIELD_LENGTH, localeField } from "~/src/modules/_core/utils/zod-fields"
-import { VIDEO_FILES } from "~/src/modules/video/video.constants"
+import { BYTES_PER_MEGABYTE, VIDEO_FILES, VIDEO_SIZE_FORMAT } from "~/src/modules/video/video.constants"
 import {
   IMAGE_QUALITY,
   POSTER_VARIANTS,
@@ -32,7 +34,6 @@ import { videoZodSchemas } from "~/src/modules/video/video.zod"
 import { readWranglerEnvironment } from "./wrangler-config.ts"
 
 const SCRIPT_ARGUMENTS_START = 2
-const BYTES_PER_MEGABYTE = 1_048_576
 const MILLISECONDS_PER_MINUTE = 60_000
 const DECIMAL_PLACES = 1
 const MEDIA_BINDING = "MEDIA"
@@ -238,7 +239,7 @@ try {
   }
 
   console.log(
-    `Published ${row.title} (${videoId}) to ${bucket}: ${(source.durationMs / MILLISECONDS_PER_MINUTE).toFixed(DECIMAL_PLACES)} min, ${String(files.length)} files, ${(sizeBytes / BYTES_PER_MEGABYTE).toFixed(DECIMAL_PLACES)} MB`,
+    `Published ${row.title} (${videoId}) to ${bucket}: ${(source.durationMs / MILLISECONDS_PER_MINUTE).toFixed(DECIMAL_PLACES)} min, ${String(files.length)} files, ${new Intl.NumberFormat(I18N.DEFAULT_LOCALE, VIDEO_SIZE_FORMAT).format(sizeBytes / BYTES_PER_MEGABYTE)}`,
   )
 } finally {
   await rm(output, { force: true, recursive: true })

@@ -20,14 +20,13 @@ import { PPP_TIERS } from "~/src/modules/_core/constants/pricing"
 import { LOCALIZED_TEXT_MAX_LENGTH } from "~/src/modules/_core/utils/localized-text"
 import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
-import { POSTER_SMALL_WIDTH } from "~/src/modules/video/video.constants"
+import { POSTER_SMALL_WIDTH, POSTER_WIDTH } from "~/src/modules/video/video.constants"
 import {
   AUDIO_BITRATE,
   AUDIO_SAMPLE_RATE,
   KEYFRAME_SECONDS,
   LOWER_RENDITION_HEIGHTS,
   MAX_RENDITION_HEIGHT,
-  POSTER_WIDTH,
   SEGMENT_SECONDS,
   STORYBOARD_MAX_FRAMES,
   STORYBOARD_MIN_INTERVAL_SECONDS,

@@ -1,4 +1,7 @@
 import type { CountryCode } from "~/src/modules/_core/constants/country"
+import type { CurrencyCode } from "~/src/modules/_core/constants/currency"
+
+export const DEFAULT_CURRENCY_CODE: CurrencyCode = "USD"
 
 export const FULL_PRICE_MULTIPLIER = 1
 
@@ -24,14 +27,8 @@ export const getPppPercentOff = (countryCode: string | undefined): number => per
 
 export const PPP_PERCENTS_OFF: readonly number[] = PPP_TIERS.map(({ multiplier }) => percentOff(multiplier))
 
-const CENTS_PER_DOLLAR = 100
-
-export const applyPpp = ({ amount, multiplier }: { amount: number; multiplier: number }): number =>
-  Math.round(amount * multiplier * CENTS_PER_DOLLAR) / CENTS_PER_DOLLAR
-
 export const CURRENCY_FORMAT = {
-  currency: "USD",
-  minimumFractionDigits: 2,
+  currency: DEFAULT_CURRENCY_CODE,
   style: "currency",
   trailingZeroDisplay: "stripIfInteger",
 } as const

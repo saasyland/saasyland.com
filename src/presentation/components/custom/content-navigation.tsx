@@ -3,7 +3,8 @@ import type { JSX } from "react"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { MARKETING_SECTION_IDS, NAVIGATION_PAGES } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { NAVIGATION_PAGES } from "~/src/data/navigation"
 
 import { HomeLink } from "~/src/presentation/components/custom/home-link"
 import { MobileMenu } from "~/src/presentation/components/custom/mobile-menu"

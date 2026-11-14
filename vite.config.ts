@@ -1,11 +1,14 @@
 import { resolve } from "node:path"
 import { type PluginOption, type UserConfig, defineConfig, lazyPlugins, loadEnv } from "vite-plus"
 
-import { ROUTES } from "./src/routes.ts"
+import { AUTH } from "./src/data/auth.routes.ts"
+import { ADMIN, API, APP } from "./src/data/core.routes.ts"
+import { COURSES } from "./src/data/courses.routes.ts"
+import { NEWSLETTER } from "./src/data/newsletter.routes.ts"
 
 const projectRoot = import.meta.dirname
 
-const UNLISTED_ROUTES = [ROUTES.ADMIN, ROUTES.API, ROUTES.APP, ROUTES.AUTH, ROUTES.COURSES, ROUTES.NEWSLETTER]
+const UNLISTED_ROUTES = [ADMIN, API, APP, AUTH, COURSES, NEWSLETTER]
 const LOCALE_PREFIX = /^\/[a-z]{2}-[A-Z]{2}(?=\/|$)/u
 const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 

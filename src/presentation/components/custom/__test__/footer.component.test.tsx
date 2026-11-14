@@ -6,6 +6,10 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
+import { FOOTER_SECTIONS } from "~/src/data/marketing"
+import { FOOTER_NAVIGATION } from "~/src/data/navigation"
+import { FOOTER_COLUMN } from "~/src/data/navigation.constants"
+
 import { Footer } from "~/src/presentation/components/custom/footer"
 
 import footerMessages from "~/messages/en-US/components.custom.footer.json"
@@ -51,6 +55,17 @@ describe("marketing footer", () => {
     expect(within(footer).getByRole("link", { name: CONTACT_EMAIL })).toHaveAttribute("href", `mailto:${CONTACT_EMAIL}`)
     expect(within(footer).getByRole("textbox", { name: newsletterFormMessages.label })).toHaveAttribute("type", "email")
     expect(within(footer).getByRole("link", { name: "Polski" })).toHaveAttribute("hreflang", "pl-PL")
+  })
+
+  it.each(FOOTER_NAVIGATION)("lists the $key links under their heading in their order", ({ key, links }) => {
+    renderFooter()
+    const heading = screen.getByRole("heading", { level: 3, name: footerMessages.columns[key] })
+    const sections = key === FOOTER_COLUMN.PRODUCT ? FOOTER_SECTIONS.map((section) => `/#${section}`) : []
+    const hrefs = within(heading.parentElement ?? document.body)
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"))
+
+    expect(hrefs).toStrictEqual([...sections, ...links.map(({ to }) => to)])
   })
 
   it.each([

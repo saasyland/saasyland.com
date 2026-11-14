@@ -54,7 +54,7 @@ export const Route = createFileRoute("/admin/courses/")({
 - **Один простір імен.** `const NAMESPACE = "pages.<area>.<page>"` стоїть безпосередньо над `export const Route` і використовується в `loadPageMetadata`, `preloadNamespaces` і `staticData`. Усе інше, що потрібно сторінці, оголошує її макет.
 - **Один `Promise.all`.** Loader запускає всю роботу одночасно: метадані сторінки, простір імен і кожен запит, який читають компоненти. Він повертає `{ locale, metadata }` для `head`. Ніколи не чекайте на одне з них, перш ніж запустити наступне.
 - **`head: pageHead(ROUTES.X)`** будує заголовок, опис, канонічну URL-адресу й альтернативні версії з метаданих у файлі простору імен.
-- **Шляхи беруться з `ROUTES`** у `src/routes.ts`; ніколи не пишіть літерал шляху.
+- **Шляхи беруться з `ROUTES`** у `src/routes.ts`, який об’єднує шляхи всіх розділів (див. [Шляхи та навігація](#paths-and-navigation)); ніколи не пишіть літерал шляху.
 
 Сторінка, заголовок якої береться із запису, чекає на цей запис і будує свій head з даних loader, як це робить `admin.courses.$courseId.tsx`:
 
@@ -133,8 +133,55 @@ export const Route = createFileRoute("/auth/reset-password")({
 - Посилання роутера приймають константу: `<Link to={ROUTES.COURSES}>`, `<Link hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>` або шаблон маршруту з `params` для динамічних шляхів. `LinkButton` із shadcn приймає `href`.
 - Ніколи не додавайте префікс локалі до посилання роутера; його додає rewrite роутера. Повна URL-адреса в поточній локалі для значення, яке залишає роутер у вигляді рядка, береться з `router.buildLocation({ ... }).publicHref`, як `use-auth-redirect.ts` будує свої посилання для входу. `localizePathname` призначено для URL-адрес, побудованих поза контекстом роутера або для іншої локалі: листів, цілей перенаправлення Better Auth, посилань усередині MDX і перемикача мови.
 
+## Шляхи та навігація [#paths-and-navigation]
+
+Жоден файл не перелічує всі розділи застосунку. Кожен розділ, як-от курси, продукти чи юридичні сторінки, оголошує власні шляхи та пункти меню, а barrel-файл їх об’єднує, тож розділ додається або вилучається разом із власними файлами. Саме так CLI `saasyland` збирає проєкт із шарів шаблонів.
+
+| Що                | Кожен розділ оголошує                                            | Barrel-файл                      | Звідки читається                                                                                                                     |
+| ----------------- | ---------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Шляхи             | `src/data/<area>.routes.ts`: один `export const` на шлях         | `src/data/routes.entries.ts`     | `ROUTES` у `src/routes.ts`                                                                                                           |
+| Пункти меню       | `src/data/<area>.navigation.ts`: один список `<AREA>_NAVIGATION` | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` і `FOOTER_NAVIGATION` у `src/data/navigation.ts` |
+| Статистика панелі | `src/data/<area>.dashboard.ts`: один список `<AREA>_DASHBOARD`   | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` у `src/data/dashboard.ts`                                                                                    |
+
+Barrel-файл містить лише рядки `export { … } from`, по одному на файл розділу, відсортовані за модулем, як `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` повторно експортує шляхи як один простір імен, тож кожен шлях зберігає свій літеральний тип, а `<Link to={ROUTES.COURSES}>` і далі перевіряється за деревом маршрутів:
+
+```ts title="src/routes.ts"
+export * as ROUTES from "~/src/data/routes.entries"
+```
+
+Пункт меню вказує полем `placement` (`NAVIGATION_PLACEMENT` у `src/data/navigation.constants.ts`), де він з’являється: у бічній панелі адмін-панелі, у кнопках над панеллю, у бічній панелі застосунку клієнта, у публічному заголовку чи у футері. Його `order` ставить його серед пунктів інших розділів, тож жоден список не залежить від порядку файлів. Пункти адмін-панелі також називають свою групу бічної панелі (`group`), а посилання футера — свою колонку (`column`); `ADMIN_NAVIGATION_GROUPS` і `FOOTER_COLUMNS` задають порядок груп і колонок, а ті, які не заповнює жоден розділ, пропускаються. Розділ курсів додає два пункти адмін-панелі та одну сторінку в заголовку:
+
+```ts title="src/data/courses.navigation.ts"
+export const COURSES_NAVIGATION = [
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: GraduationCap,
+    key: "courses",
+    order: 20,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_COURSES,
+  },
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: Clapperboard,
+    key: "videos",
+    order: 30,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_VIDEOS,
+  },
+  { key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
+] as const satisfies readonly NavigationEntry[]
+```
+
+Статистика панелі має `prefetch`, який виконує loader `/admin`, і хук `useValue`, який `DashboardStats` викликає, щоб прочитати число.
+
+Підписи залишаються в просторі імен меню, яке їх показує, під `key` пункту: `links.<key>` і `groups.<group>` у `pages.admin.sidebar`, `navigation.<key>` у `pages.app.sidebar`, `items.<key>` у `components.custom.navigation`, `links.<key>` і `columns.<column>` у `components.custom.footer`, а також `actions.<key>` і `stats.<key>.title` у `pages.admin.dashboard`. Кожен розділ володіє своїми ключами в цих файлах, а `enum-labels.test.ts` падає, коли пункту бракує підпису в якійсь локалі.
+
+`vite.config.ts` імпортує за відносним шляхом файли розділів зі шляхами, які він виключає з пререндерингу, бо Vite не розпізнає аліас `~`, поки завантажує власну конфігурацію.
+
 ## Пов’язані сторінки
 
 - [Маршрути та доставка](/docs/architecture/delivery-layer)
 - [Отримання даних і кешування](/docs/conventions/data-fetching)
 - [Переклади та контент](/docs/conventions/translations)
+- [Додавання сторінки адмін-панелі](/docs/guides/add-an-admin-page)

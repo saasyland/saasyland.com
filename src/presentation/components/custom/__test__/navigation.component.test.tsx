@@ -9,7 +9,8 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { NAVIGATION_PAGES, NAVIGATION_SECTIONS } from "~/src/data/marketing"
+import { NAVIGATION_SECTIONS } from "~/src/data/marketing"
+import { NAVIGATION_PAGES } from "~/src/data/navigation"
 
 import { Navigation } from "~/src/presentation/components/custom/navigation"
 

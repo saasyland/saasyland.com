@@ -3,7 +3,8 @@ import { type JSX, useCallback, useEffect, useState } from "react"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { MARKETING_SECTION_IDS, NAVIGATION_PAGES, NAVIGATION_SECTIONS } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS, NAVIGATION_SECTIONS } from "~/src/data/marketing"
+import { NAVIGATION_PAGES } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
 

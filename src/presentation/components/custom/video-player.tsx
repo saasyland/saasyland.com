@@ -8,12 +8,10 @@ import "@videojs/react/video/skin.css"
 import { useLocale } from "use-intl/react"
 
 import { getLocaleName } from "~/src/modules/_core/constants/locale"
-import { POSTER_SMALL_WIDTH } from "~/src/modules/video/video.constants"
+import { POSTER_SMALL_WIDTH, POSTER_WIDTH } from "~/src/modules/video/video.constants"
 import type { Video } from "~/src/modules/video/video.types"
 
 import { cn } from "~/src/lib/cn"
-
-const POSTER_WIDTH = 1920
 
 interface VideoPlayerProps {
   readonly className?: string

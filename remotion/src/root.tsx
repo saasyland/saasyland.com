@@ -1,3 +1,7 @@
+import { LANDING_VIDEO_SIZES, type LandingVideoId } from "../../src/data/landing-videos"
+
+import type { ComponentType } from "react"
+
 import { Composition } from "remotion"
 
 import { AppTour } from "./compositions/app-tour"
@@ -9,60 +13,36 @@ import { MergeGate } from "./compositions/merge-gate"
 import { PageDesigner } from "./compositions/page-designer"
 import { RecordAudit } from "./compositions/record-audit"
 import { ScaffoldCli } from "./compositions/scaffold-cli"
-import { BAND, BAND_DURATION, FPS, SURFACE, SURFACE_DURATION, TERMINAL, TERMINAL_DURATION, WIDE, WIDE_DURATION } from "./theme"
+import { BAND_DURATION, FPS, SURFACE_DURATION, TERMINAL_DURATION, WIDE_DURATION } from "./theme"
+
+const COMPOSITIONS = {
+  "app-tour": { component: AppTour, durationInFrames: SURFACE_DURATION },
+  "cost-curve": { component: CostCurve, durationInFrames: BAND_DURATION },
+  "merge-gate": { component: MergeGate, durationInFrames: BAND_DURATION },
+  "locale-format": { component: LocaleFormat, durationInFrames: BAND_DURATION },
+  "scaffold-cli": { component: ScaffoldCli, durationInFrames: BAND_DURATION },
+  "page-designer": { component: PageDesigner, durationInFrames: SURFACE_DURATION },
+  "record-audit": { component: RecordAudit, durationInFrames: BAND_DURATION },
+  "coverage-run": { component: CoverageRun, durationInFrames: TERMINAL_DURATION },
+  "course-tour": { component: CourseTour, durationInFrames: WIDE_DURATION },
+} satisfies Record<LandingVideoId, { component: ComponentType; durationInFrames: number }>
+
+const isComposition = (id: string): id is LandingVideoId => id in COMPOSITIONS
 
 export const RemotionRoot = () => (
   <>
-    <Composition
-      component={AppTour}
-      durationInFrames={SURFACE_DURATION}
-      fps={FPS}
-      height={SURFACE.height}
-      id="app-tour"
-      width={SURFACE.width}
-    />
-    <Composition component={CostCurve} durationInFrames={BAND_DURATION} fps={FPS} height={BAND.height} id="cost-curve" width={BAND.width} />
-    <Composition component={MergeGate} durationInFrames={BAND_DURATION} fps={FPS} height={BAND.height} id="merge-gate" width={BAND.width} />
-    <Composition
-      component={LocaleFormat}
-      durationInFrames={BAND_DURATION}
-      fps={FPS}
-      height={BAND.height}
-      id="locale-format"
-      width={BAND.width}
-    />
-    <Composition
-      component={ScaffoldCli}
-      durationInFrames={BAND_DURATION}
-      fps={FPS}
-      height={BAND.height}
-      id="scaffold-cli"
-      width={BAND.width}
-    />
-    <Composition
-      component={PageDesigner}
-      durationInFrames={SURFACE_DURATION}
-      fps={FPS}
-      height={SURFACE.height}
-      id="page-designer"
-      width={SURFACE.width}
-    />
-    <Composition component={RecordAudit} durationInFrames={8 * FPS} fps={FPS} height={BAND.height} id="record-audit" width={BAND.width} />
-    <Composition
-      component={CoverageRun}
-      durationInFrames={TERMINAL_DURATION}
-      fps={FPS}
-      height={TERMINAL.height}
-      id="coverage-run"
-      width={TERMINAL.width}
-    />
-    <Composition
-      component={CourseTour}
-      durationInFrames={WIDE_DURATION}
-      fps={FPS}
-      height={WIDE.height}
-      id="course-tour"
-      width={WIDE.width}
-    />
+    {Object.keys(COMPOSITIONS)
+      .filter(isComposition)
+      .map((id) => (
+        <Composition
+          component={COMPOSITIONS[id].component}
+          durationInFrames={COMPOSITIONS[id].durationInFrames}
+          fps={FPS}
+          height={LANDING_VIDEO_SIZES[id].height}
+          id={id}
+          key={id}
+          width={LANDING_VIDEO_SIZES[id].width}
+        />
+      ))}
   </>
 )

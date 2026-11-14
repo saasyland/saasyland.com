@@ -32,17 +32,17 @@ Better Auth también gestiona la verificación de correo (obligatoria antes de i
 
 ## Límites de peticiones
 
-`withRateLimit(kind, limit)` cuenta los intentos por operación e IP del cliente (`cf-connecting-ip`) en la tabla `rate_limit` con un único lote atómico de D1. `RATE_LIMITS.SENSITIVE` permite 3 intentos por minuto y `RATE_LIMITS.TOKEN` permite 5. Si falla el almacenamiento de los contadores, la petición se rechaza. El limitador propio de Better Auth usa la misma tabla con el prefijo de clave `auth:`; las lecturas de sesión, el cierre de sesión y los webhooks de Polar quedan exentos.
+`withRateLimit(kind, limit)` cuenta los intentos por operación e IP del cliente (`cf-connecting-ip`) en la tabla `rate_limit` con un único lote atómico de D1. `RATE_LIMITS.SENSITIVE` permite <RepositoryFact name="sensitiveRateLimit" /> intentos y `RATE_LIMITS.TOKEN` permite <RepositoryFact name="tokenRateLimit" /> cada <RepositoryFact name="rateLimitWindowSeconds" unit="second" />. Si falla el almacenamiento de los contadores, la petición se rechaza. El limitador propio de Better Auth usa la misma tabla con el prefijo de clave `auth:`; las lecturas de sesión, el cierre de sesión y los webhooks de Polar quedan exentos.
 
-Los correos que un visitante puede provocar tienen un segundo límite. `withinRecipientRateLimit` permite tres correos de verificación, tres de restablecimiento de contraseña y tres de confirmación del boletín por dirección y hora, con un hash SHA-256 de la dirección como clave, y por encima de eso omite el correo sin avisar.
+Los correos que un visitante puede provocar tienen un segundo límite. `withinRecipientRateLimit` permite <RepositoryFact name="recipientEmailsPerHour" /> correos de cada tipo (verificación, restablecimiento de contraseña y confirmación del boletín) por dirección y hora, con un hash SHA-256 de la dirección como clave, y por encima de eso omite el correo sin avisar.
 
 ## Cabeceras de respuesta
 
-`src/server.ts` añade `SECURITY_HEADERS` (una Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` y `X-Frame-Options`) a cada respuesta que devuelve el Worker, más `Strict-Transport-Security` por HTTPS, y conserva las que la respuesta ya define. Los archivos que se sirven sin el Worker reciben el subconjunto de `public/_headers`. Consulta [Seguridad y endurecimiento](/docs/features/security).
+`src/server.ts` establece `SECURITY_HEADERS` (una Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` y `X-Frame-Options`) en cada respuesta que devuelve el Worker, más `HTTPS_SECURITY_HEADERS` (`Strict-Transport-Security`) por HTTPS, y sustituye cualquier valor que la respuesta o una regla de `public/_headers` ya hubiera definido. Ambas constantes están en `src/modules/_core/constants/api.ts`. Los archivos que se sirven sin el Worker reciben las mismas cabeceras de la regla `/*` de `public/_headers`, y `src/__test__/server.test.ts` falla cuando esa regla y las constantes no coinciden. Consulta [Seguridad y endurecimiento](/docs/features/security).
 
 ## Enlaces de medios
 
-Los archivos de vídeo se quedan en un bucket privado de R2. `getVideoPlayback` exige `video: ["read"]`, y `getLessonPlayback` el nivel de acceso de la lección, antes de firmar una ruta, y la firma es un HMAC-SHA-256 con una clave derivada de `AUTH_SECRET` mediante HKDF. `serveMedia` responde `403` ante una firma incorrecta o caducada. Una ruta firmada funciona como un enlace al portador hasta que caduca, como mínimo seis horas después de emitirse, así que quien la tenga puede reproducir ese vídeo. Consulta [Cloudflare R2](/docs/integrations/cloudflare-r2).
+Los archivos de vídeo se quedan en un bucket privado de R2. `getVideoPlayback` exige `video: ["read"]`, y `getLessonPlayback` el nivel de acceso de la lección, antes de firmar una ruta, y la firma es un HMAC-SHA-256 con una clave derivada de `AUTH_SECRET` mediante HKDF. `serveMedia` responde `403` ante una firma incorrecta o caducada. Una ruta firmada funciona como un enlace al portador hasta que caduca, como mínimo <RepositoryFact name="signedMediaHours" unit="hour" /> después de emitirse, así que quien la tenga puede reproducir ese vídeo. Consulta [Cloudflare R2](/docs/integrations/cloudflare-r2).
 
 ## Errores y entrada
 

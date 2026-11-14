@@ -8,17 +8,19 @@ The separate package keeps the renderer, browser types and Remotion-specific lin
 
 Composition IDs match their source filenames and the names passed to `ConceptLoop`, except `course-tour`, which `CourseShowcase` plays on request in the landing page's course block.
 
-| Composition     | Video dimensions | Duration | Poster frame |
-| --------------- | ---------------- | -------- | ------------ |
-| `app-tour`      | 1600 × 1000      | 10 s     | 0            |
-| `cost-curve`    | 1200 × 440       | 8 s      | 200          |
-| `merge-gate`    | 1200 × 440       | 8 s      | 212          |
-| `locale-format` | 1200 × 440       | 8 s      | 200          |
-| `scaffold-cli`  | 1200 × 440       | 8 s      | 400          |
-| `coverage-run`  | 1200 × 520       | 11 s     | 570          |
-| `page-designer` | 1600 × 1000      | 10 s     | 0            |
-| `record-audit`  | 1200 × 440       | 8 s      | 60           |
-| `course-tour`   | 1600 × 900       | 22 s     | 0            |
+| Composition     | Duration | Poster frame |
+| --------------- | -------- | ------------ |
+| `app-tour`      | 10 s     | 0            |
+| `cost-curve`    | 8 s      | 200          |
+| `merge-gate`    | 8 s      | 212          |
+| `locale-format` | 8 s      | 200          |
+| `scaffold-cli`  | 8 s      | 400          |
+| `coverage-run`  | 11 s     | 570          |
+| `page-designer` | 10 s     | 0            |
+| `record-audit`  | 8 s      | 60           |
+| `course-tour`   | 22 s     | 0            |
+
+Each composition's width and height come from `LANDING_VIDEO_SIZES` in `../src/data/landing-videos.ts`. `src/root.tsx` registers the compositions from it, and the app's `ConceptLoop` and `CourseShowcase` read the same table for the `width`, `height` and full-size `srcset` entry of each video, so a size is changed in one place. The app's `landing-videos.test.ts` fails when a poster file no longer has its composition's size, or when a responsive poster's width differs from the width in its file name.
 
 ## Editing
 
@@ -31,9 +33,9 @@ npm run dev
 
 Studio uses port 3001 so it can run beside the app on port 3000. `npm run format` formats this project. `npm run bundle` checks the composition bundle and writes it to the ignored `build/` directory; it does not render the published videos.
 
-Keep the colors in `src/theme.ts` aligned with the app's dark palette in `../src/presentation/styles/globals.css`. Each video's ground must match its surrounding surface. Font loading is limited to the Latin weights used here.
+`DARK_TOKENS` in `src/theme.ts` holds the app's dark theme tokens that the videos use, under their names in the `.dark` block of `../src/presentation/styles/globals.css`, and the app's `remotion-theme.test.ts` fails when a value differs. `THEME` derives every colour from them except the two hairlines, which have no token in the app. Each video's ground must match its surrounding surface. Font loading is limited to the Latin weights used here.
 
-`locale-format` and `record-audit` read the website's supported locales from its i18n configuration. Keep displayed paths and commands accurate. Test status illustrations omit changing suite counts; check actual results with `bun run test:coverage` at the repository root.
+`locale-format` and `record-audit` read the website's supported locales from its i18n configuration. The admin rail in `app-tour` lists `ADMIN_NAVIGATION` from `../src/data/admin-navigation.ts` with the English labels of `../messages/en-US/pages.admin.sidebar.json`, so render `app-tour` again after the admin navigation changes. Keep displayed paths and commands accurate. Test status illustrations omit changing suite counts; check actual results with `bun run test:coverage` at the repository root.
 
 Use frame-based animation. `app-tour`, `page-designer` and `course-tour` start and finish on the same frame and use frame 0 as their poster. `course-tour` opens and closes on `public/author.jpg`, the author's portrait. Other compositions fade to their background at both ends through `Plate`. The app keeps the poster visible for reduced motion and unsupported video formats.
 
@@ -47,7 +49,7 @@ npx remotion still locale-format out/locale-format.png --frame=200
 cwebp -q 90 out/locale-format.png -o out/locale-format.webp
 ```
 
-Install the [WebP command-line tools](https://developers.google.com/speed/webp/docs/precompiled) for `cwebp`. Inspect the temporary video and poster, then copy both into `../src/presentation/assets/motion/` with the same basename. Use CRF 38 for the two 1600 × 1000 compositions and CRF 36 for the remaining videos. All compositions use 60 fps.
+Install the [WebP command-line tools](https://developers.google.com/speed/webp/docs/precompiled) for `cwebp`. Inspect the temporary video and poster, then copy both into `../src/presentation/assets/motion/` with the same basename. Use CRF 38 for `app-tour` and `page-designer` and CRF 36 for the remaining videos. All compositions use 60 fps.
 
 Create responsive WebP posters from the same PNG at quality 82: `app-tour` needs widths 640, 800 and 1280; `page-designer` needs width 800; the other compositions need width 600. Name them `{composition}-{width}.webp` beside the full-size poster. For example:
 

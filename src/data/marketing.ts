@@ -1,4 +1,7 @@
 import { LICENSE_TIER, type LicenseTier } from "~/src/modules/license/license.constants"
+
+import { ROUTES } from "~/src/routes"
+
 export const MARKETING_SECTION_IDS = {
   CLI: "cli",
   FAQ: "faq",
@@ -7,6 +10,20 @@ export const MARKETING_SECTION_IDS = {
   QUALITY: "quality",
   TOOLKIT: "toolkit",
 } as const
+
+export const NAVIGATION_SECTIONS = [
+  MARKETING_SECTION_IDS.FOUNDATION,
+  MARKETING_SECTION_IDS.QUALITY,
+  MARKETING_SECTION_IDS.TOOLKIT,
+  MARKETING_SECTION_IDS.PRICING,
+  MARKETING_SECTION_IDS.FAQ,
+] as const
+
+export const NAVIGATION_PAGES = [
+  { key: "courses", to: ROUTES.COURSES },
+  { key: "blog", to: ROUTES.BLOG },
+  { key: "docs", to: ROUTES.DOCS },
+] as const
 
 export const TIER_PRICES = {
   [LICENSE_TIER.AGENCY]: 899,

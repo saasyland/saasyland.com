@@ -18,14 +18,14 @@ polarPlugin({
 
 Il `POST /api/auth/checkout` del plugin è elencato nei `disabledPaths` di Better Auth (`ROUTES.API_AUTH.CHECKOUT`), quindi via HTTP risponde 404. Ogni checkout parte dalla funzione server `startCheckout`, che chiama `auth.api.checkout` sul server dopo i propri controlli.
 
-`src/integrations/polar/polar.config.ts` crea `polarCore` da `POLAR_ACCESS_TOKEN` e `POLAR_SERVER`, che il plugin usa, e `polar`, i servizi per sconti, chiavi di licenza e ordini costruiti su di esso. `POLAR_ORGANIZATION_ID` circoscrive la ricerca degli sconti e la disattivazione delle chiavi di licenza. `POLAR_CHECKOUT_PRODUCTS` associa gli identificativi dei piani `core`, `complete` e `agency` a `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` e `POLAR_PRODUCT_ID_AGENCY`.
+`src/integrations/polar/polar.config.ts` crea `polarCore` da `POLAR_ACCESS_TOKEN` e `POLAR_SERVER`, che il plugin usa, e `polar`, i servizi per sconti, chiavi di licenza e ordini costruiti su di esso. `POLAR_ORGANIZATION_ID` circoscrive la ricerca degli sconti e la disattivazione delle chiavi di licenza. `POLAR_CHECKOUT_PRODUCTS` associa gli identificativi dei piani `core`, `complete` e `agency` a `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` e `POLAR_PRODUCT_ID_AGENCY`. [Configurazione di Polar](/docs/getting-started/polar-setup) descrive i prodotti, le chiavi di licenza, gli sconti, il webhook e il token che questo codice si aspetta in Polar, e `bun run polar:verify:<environment>` li controlla.
 
 ## Checkout
 
 Un utente autenticato senza una licenza attiva vede `LicenseOffer` su `/app` e `/app/license`: le schede dei piani della landing page (`PricingTiers`, vedi [Landing page](/docs/features/landing-page)) con un `CheckoutButton` per ogni piano, la casella dei prezzi regionali, le condizioni di acquisto e le lezioni dei corsi che l’acquisto sblocca. `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`) riceve `{ locale, tier }` e:
 
 1. rifiuta con `AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)` quando l’account ha già una licenza `active`. Il pulsante mostra `errors.codes.LICENSE_ALREADY_ACTIVE` e aggiorna la licenza, così una pagina rimasta aperta dall’acquisto passa alla licenza;
-2. cerca uno sconto regionale con `pppDiscountId` (`license.ppp.ts`): la percentuale del paese indicato da `cf-ipcountry`, confrontata con gli sconti percentuali automatici attivi in Polar, e la ignora quando il cookie `regional_pricing` vale `off`;
+2. cerca uno sconto regionale con `pppDiscountId` (`license.ppp.ts`): la percentuale del paese indicato da `cf-ipcountry`, confrontata da `findRegionalDiscount` (`src/integrations/polar/polar.discounts.ts`) con gli sconti percentuali automatici in Polar utilizzabili in quel momento, e la ignora quando il cookie `regional_pricing` vale `off`;
 3. crea un checkout Polar per il piano con i codici sconto disattivati, il referral dell’affiliato in `metadata` quando il visitatore è arrivato da un link di affiliazione (vedi [Programma di affiliazione](/docs/features/affiliates)) e l’URL di successo `/app?checkoutId={CHECKOUT_ID}` nella lingua dell’acquirente (`localizePathname`). Polar sostituisce `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) con l’ID del checkout;
 4. restituisce l’URL del checkout, che il browser apre.
 
@@ -44,13 +44,13 @@ Ogni pulsante dei piani sulla landing page rimanda a `/auth/sign-up?redirect=/ap
 Polar riporta l’acquirente su `/app?checkoutId=<id>`, di solito prima che il webhook `order.paid` abbia assegnato la licenza. Finché `checkoutId` è presente e la licenza non è attiva, la pagina nasconde le schede dei piani e mostra `CheckoutActivation`, che ricarica `currentLicenseQuery` ogni 2 secondi (`ACTIVATION_POLL_MS`):
 
 - quando la licenza è attiva, ringrazia l’acquirente e la licenza compare sotto;
-- dopo 60 secondi (`ACTIVATION_TIMEOUT_MS`) senza licenza, smette di controllare e indica che Polar non ha ancora confermato il pagamento, con l’email del supporto, l’ID del checkout come riferimento e un pulsante **Controlla di nuovo**.
+- dopo <RepositoryFact name="activationTimeoutSeconds" unit="second" /> (`ACTIVATION_TIMEOUT_MS`) senza licenza, smette di controllare e indica che Polar non ha ancora confermato il pagamento, con l’email del supporto, l’ID del checkout come riferimento e un pulsante **Controlla di nuovo**.
 
 Un `checkoutId` che non è un UUID viene ignorato.
 
 ## Webhook e licenze
 
-Polar invia gli eventi a `/api/auth/polar/webhooks`, verificati con `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) individuano l’utente tramite l’`external_id` del cliente Polar. Un evento di un cliente senza account nell’app viene registrato nei log quando ne serviva uno e confermato, così Polar non lo ritenta:
+Polar invia a `/api/auth/polar/webhooks` gli eventi elencati in `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`), verificati con `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` soddisfa `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, quindi un handler senza il suo evento, o un evento senza il suo handler, fa fallire la compilazione. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) individuano l’utente tramite l’`external_id` del cliente Polar. Un evento di un cliente senza account nell’app viene registrato nei log quando ne serviva uno e confermato, così Polar non lo ritenta:
 
 - `onOrderPaid` → `grantLicense`: crea o aggiorna l’unica licenza dell’utente con il piano del prodotto acquistato; un acquisto più recente sostituisce quello precedente.
 - `onBenefitGrantCreated` → `attachLicenseKey`: salva la chiave di licenza Polar sulla licenza. Finché l’ordine pagato non è registrato fallisce, così Polar lo ritenta; la chiave di un ordine rimborsato o di un prodotto che non è una licenza viene confermata.
@@ -58,7 +58,7 @@ Polar invia gli eventi a `/api/auth/polar/webhooks`, verificati con `POLAR_WEBHO
 
 ## Schermate per i clienti
 
-`/app/license` mostra `LicenseCard` (piano, chiave, comando di installazione, link al portale clienti Polar su `/api/auth/customer/portal` ed email del supporto per cambiare piano) e `LicenseActivations`, che elenca le attivazioni della chiave in Polar e ne rimuove una con `deactivateLicense`. Vedi [App cliente](/docs/features/customer-app).
+`/app/license` mostra `LicenseCard` (piano, chiave, comando di installazione, link al portale clienti Polar su `/api/auth/customer/portal` ed email del supporto per cambiare piano) e `LicenseActivations`, che elenca le attivazioni della chiave in Polar e ne rimuove una con `deactivateLicense`. Polar fa rispettare il limite di attivazioni del benefit di chiave di licenza di ogni piano, che deve essere uguale a `LICENSE_ACTIVATION_LIMITS`: <ActivationLimit tier="core" /> per Core, <ActivationLimit tier="complete" /> per Complete e <ActivationLimit tier="agency" /> per Agency. Vedi [App cliente](/docs/features/customer-app).
 
 ## Schermata di amministrazione (demo)
 
@@ -66,6 +66,7 @@ Polar invia gli eventi a `/api/auth/polar/webhooks`, verificati con `POLAR_WEBHO
 
 ## Pagine correlate
 
+- [Configurazione di Polar](/docs/getting-started/polar-setup) per la configurazione in Polar e `polar:verify`
 - [Landing page](/docs/features/landing-page) per le schede dei piani e i prezzi regionali
 - [App cliente](/docs/features/customer-app) per le schermate intorno al checkout
 - [Variabili d’ambiente](/docs/getting-started/environment-variables)

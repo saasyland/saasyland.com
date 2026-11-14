@@ -85,7 +85,7 @@ const Probe = () => {
 
 const BlogProbe = () => {
   const t = useTranslations("pages.blog")
-  return <span>{t("nav.blog")}</span>
+  return <span>{t("metadata.title")}</span>
 }
 
 it("loads shared translations through React Query before rendering consumers", async () => {
@@ -119,7 +119,7 @@ it("adds the namespaces declared by matched routes to the shared translations", 
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
-  expect(await screen.findByText(pagesBlogMessages.nav.blog)).toBeInTheDocument()
+  expect(await screen.findByText(pagesBlogMessages.metadata.title)).toBeInTheDocument()
   expect(screen.getByText(commonMessages.loading)).toBeInTheDocument()
   expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.blog" }).queryKey)).toEqual(pagesBlogMessages)
 })

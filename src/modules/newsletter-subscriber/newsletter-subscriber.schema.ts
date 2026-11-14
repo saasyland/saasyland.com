@@ -1,10 +1,10 @@
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
+import { EMAIL_MAX_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import {
-  EMAIL_MAX_LENGTH,
   NEWSLETTER_SOURCE,
   NEWSLETTER_SOURCES,
   NEWSLETTER_STATUS,

@@ -21,28 +21,30 @@ Run scripts from the repository root with `bun run <script>`. The scripts that c
 
 ## Deploy
 
-| Script              | Runs                                                                                                                                                                                                                  |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` of `dist/server/wrangler.json` and `scripts/verify-deployment.ts preview` |
-| `deploy:production` | The same steps for `production`                                                                                                                                                                                       |
+| Script              | Runs                                                                                                                                                                                                                                          |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `polar:verify:preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` of `dist/server/wrangler.json` and `scripts/verify-deployment.ts preview` |
+| `deploy:production` | The same steps for `production`                                                                                                                                                                                                               |
 
 - `verify-bindings.ts` fails when the environment has no `DB`, `CACHE` or `MEDIA` binding or still has a placeholder D1 or KV ID, and when production shares its database, namespace or bucket with preview.
+- `polar:verify:<environment>` stops the deploy before the build when the Polar organisation in `.env.<environment>` does not match the code.
 - `prepare-deploy-secrets.ts` reads the keys listed in the environment's `secrets.required` from `.env.<environment>`, fails when one is missing or empty and writes only those keys to `.wrangler/secrets.<environment>.json`. Other variables in the file are not uploaded.
 - Migrations run after the build and before the deploy, so a failed build never touches the database and the new Worker never starts on an older schema.
 - The deploy runs `env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.<environment>.json`. The built config already targets one environment; a `CLOUDFLARE_ENV` left in the shell would make Wrangler look for an environment section that file does not have.
-- `verify-deployment.ts` requests `/`, `/courses`, `/robots.txt`, `/api` and `/api/auth/get-session` on the environment's domain and fails unless each answers `200` with the expected content type. It asks a failing path three times, five seconds apart, and changes nothing. `bun scripts/verify-deployment.ts <preview|production>` checks a live site on its own.
+- `verify-deployment.ts` requests <RepositoryFact name="liveSiteCheckPaths" /> on the environment's domain and fails unless each answers `200` with the expected content type. It asks a failing path three times, five seconds apart, and changes nothing. `bun scripts/verify-deployment.ts <preview|production>` checks a live site on its own.
 
 ## Checks
 
-| Script             | Runs                                                                                       |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| `check`            | `generate:cn`, `check:i18n` and `vp check` (format, lint and types)                        |
-| `check:fix`        | The same with `vp check --fix`                                                             |
-| `check:i18n`       | `scripts/check-i18n.ts`, `scripts/check-message-formats.ts` and `scripts/check-content.ts` |
-| `check:pre-commit` | `generate:cn`, `check:i18n` and `vp staged`; run by the pre-commit hook                    |
-| `lint`             | `vp lint`                                                                                  |
-| `format`           | `vp fmt`                                                                                   |
-| `format:check`     | `vp fmt --check`                                                                           |
+| Script                                                                        | Runs                                                                                                                                                                 |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check`                                                                       | `generate:cn`, `check:i18n` and `vp check` (format, lint and types)                                                                                                  |
+| `check:fix`                                                                   | The same with `vp check --fix`                                                                                                                                       |
+| `check:i18n`                                                                  | `scripts/check-i18n.ts`, `scripts/check-message-formats.ts` and `scripts/check-content.ts`                                                                           |
+| `check:pre-commit`                                                            | `generate:cn`, `check:i18n` and `vp staged`; run by the pre-commit hook                                                                                              |
+| `lint`                                                                        | `vp lint`                                                                                                                                                            |
+| `format`                                                                      | `vp fmt`                                                                                                                                                             |
+| `format:check`                                                                | `vp fmt --check`                                                                                                                                                     |
+| `polar:verify:development`, `polar:verify:preview`, `polar:verify:production` | `scripts/verify-polar.ts`: compares the environment's Polar organisation with the code, with GET requests only; see [Polar setup](/docs/getting-started/polar-setup) |
 
 ## Tests
 

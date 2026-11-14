@@ -2,7 +2,7 @@ import type { JSX } from "react"
 
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
 import { ADMIN_DASHBOARD_CHART_FILTERS, ADMIN_DASHBOARD_CHART_MONTHS, ADMIN_DASHBOARD_CHART_TICKS } from "~/src/data/admin"
 

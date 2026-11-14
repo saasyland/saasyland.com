@@ -1,0 +1,138 @@
+---
+title: "Configurer Polar"
+description: "Les organisations, le jeton, les produits, les clés de licence, les remises régionales et les webhooks Polar qu'attend le code, et comment polar:verify les vérifie."
+---
+
+Polar vend les trois offres, émet leurs clés de licence et applique les remises régionales. Le code attend une configuration précise dans Polar, et Polar ne vous prévient pas quand les deux divergent : un produit sans avantage de clé de licence encaisse quand même le paiement, mais n'émet aucune clé. `bun run polar:verify:<environment>` compare Polar au code, et les scripts de déploiement l'exécutent avant chaque déploiement manuel.
+
+## Production et sandbox
+
+Polar exploite deux services distincts. La production (`polar.sh`, API `api.polar.sh`) débite de vraies cartes ; la sandbox (`sandbox.polar.sh`, API `sandbox-api.polar.sh`) n'accepte que des cartes de test. Ils ne partagent rien : un compte, une organisation, un jeton, un produit, une remise ou un webhook n'existe que dans un seul des deux services. Inscrivez-vous donc séparément sur `sandbox.polar.sh` et configurez chaque service indépendamment.
+
+| Fichier d'environnement | `POLAR_SERVER` | Organisation Polar |
+| ----------------------- | -------------- | ------------------ |
+| `.env.development`      | `sandbox`      | Sandbox            |
+| `.env.preview`          | `sandbox`      | Sandbox            |
+| `.env.production`       | `production`   | Production         |
+
+Le développement et la préversion peuvent partager une même organisation sandbox, comme ils partagent une même base de données D1 : son webhook envoie ses événements à l'hôte de préversion, et un achat de test effectué en développement parvient par ce biais à la base de données partagée.
+
+Ne mettez jamais un jeton, un identifiant d'organisation ou un identifiant de produit de production dans `.env.development` ou `.env.preview`. L'API de la sandbox rejette un jeton de production, et avec `POLAR_SERVER=production`, un paiement de test débiterait une vraie carte et accorderait la licence dans la base de données de préversion. `polar:verify` refuse `POLAR_SERVER=production` pour le développement et la préversion, et `POLAR_SERVER=sandbox` pour la production.
+
+## Organisation et jeton
+
+Dans la sandbox, puis en production :
+
+1. Créez une organisation et copiez son identifiant, depuis les paramètres de l'organisation, dans `POLAR_ORGANIZATION_ID`.
+2. Dans les paramètres de l'organisation, créez un jeton d'accès d'organisation avec ces scopes, et aucun autre, puis copiez-le dans `POLAR_ACCESS_TOKEN`.
+
+| Scope                     | Requis par                                                                                           |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `checkouts:write`         | `startCheckout`, qui crée le paiement via le plugin Polar de Better Auth                             |
+| `customer_sessions:write` | Le lien vers le portail client, `/api/auth/customer/portal`                                          |
+| `discounts:read`          | La recherche de la remise régionale au paiement (`pppDiscountId`) et `polar:verify`                  |
+| `license_keys:write`      | La lecture d'une clé et de ses activations, et la suppression d'une activation (`deactivateLicense`) |
+| `orders:read`             | Les handlers de webhooks, qui lisent la commande à l'origine d'une licence                           |
+| `products:read`           | `polar:verify`                                                                                       |
+| `webhooks:read`           | `polar:verify`                                                                                       |
+
+Un scope d'écriture inclut la lecture : `license_keys:write` couvre donc aussi la lecture des clés. Un jeton d'organisation agit déjà pour sa propre organisation. `polar:verify` envoie tout de même `POLAR_ORGANIZATION_ID` comme paramètre de requête `organization_id`, comme le fait la recherche de la remise au paiement, si bien que l'identifiant d'une autre organisation se manifeste par des produits manquants.
+
+## Produits
+
+Créez un produit par offre : un achat unique, et non un abonnement, avec un prix fixe en `DEFAULT_CURRENCY_CODE` (dollars américains) égal à `TIER_PRICES` dans `src/data/marketing.ts`. Copiez l'identifiant de chaque produit dans la clé correspondante.
+
+| Offre    | Clé                         | Prix                          | Activations par clé                 |
+| -------- | --------------------------- | ----------------------------- | ----------------------------------- |
+| Core     | `POLAR_PRODUCT_ID_CORE`     | <TierPrice tier="core" />     | <ActivationLimit tier="core" />     |
+| Complete | `POLAR_PRODUCT_ID_COMPLETE` | <TierPrice tier="complete" /> | <ActivationLimit tier="complete" /> |
+| Agency   | `POLAR_PRODUCT_ID_AGENCY`   | <TierPrice tier="agency" />   | <ActivationLimit tier="agency" />   |
+
+Polar enregistre un prix dans la plus petite unité de la devise, les cents pour le dollar américain, et `polar:verify` convertit `TIER_PRICES` de la même manière avant de les comparer. Il ignore les prix archivés.
+
+## Clés de licence
+
+Créez un avantage de type **License Keys** (clés de licence) par offre et rattachez-le uniquement au produit de cette offre :
+
+- **Activations** : limitées au nombre indiqué dans le tableau ci-dessus, `LICENSE_ACTIVATION_LIMITS` dans `src/modules/license/license.constants.ts`. Permettre aux clients de gérer leurs activations dans Polar est facultatif, car `/app/license` les liste et les supprime lui-même.
+- **Expiration** : aucune. Les clés n'expirent jamais, car l'achat est un paiement unique.
+- **Limite d'utilisation** : aucune.
+- **Préfixe** : au choix ; `polar:verify` ne le vérifie pas.
+
+Chaque produit doit avoir exactement un avantage de clé de licence ; d'autres avantages à côté ne posent pas de problème. Quand Polar accorde l'avantage, le webhook `benefit_grant.created` enregistre la clé sur la licence de l'acheteur.
+
+## Remises régionales
+
+Le paiement applique un prix régional au moyen d'une remise automatique dans Polar (voir [Paiements et licences](/docs/features/payments)). Créez une remise en pourcentage pour chaque palier de `PPP_TIERS` (`src/modules/_core/constants/pricing.ts`) : <RegionalDiscounts />. Chaque remise doit :
+
+- déduire un pourcentage ; Polar l'enregistre en points de base, c'est-à-dire en centièmes de pour cent ;
+- n'avoir aucun code, pour que le paiement puisse l'appliquer sans que l'acheteur en saisisse un ;
+- s'appliquer aux trois produits, ou à aucun produit en particulier ;
+- être utilisable dès maintenant : pas de date de début dans le futur, pas de date de fin dans le passé et, si elle a une limite d'utilisations, des utilisations restantes.
+
+`findRegionalDiscount`, dans `src/integrations/polar/polar.discounts.ts`, décide quelle remise le paiement applique, et `polar:verify` interroge la même fonction.
+
+## Webhook
+
+Créez un point de terminaison de webhook pour chaque environnement déployé, dans l'organisation qu'utilise cet environnement.
+
+| Environnement | Organisation | URL                                                     |
+| ------------- | ------------ | ------------------------------------------------------- |
+| `preview`     | Sandbox      | `https://preview.saasyland.com/api/auth/polar/webhooks` |
+| `production`  | Production   | `https://saasyland.com/api/auth/polar/webhooks`         |
+
+L'hôte provient de `DEPLOYED_HOSTS` et le chemin de `ROUTES`. Choisissez le format Raw, laissez le point de terminaison activé et abonnez-le exactement aux événements que traite `licenseWebhookHandlers`, listés dans `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`) :
+
+- `order.paid` accorde la licence ;
+- `order.refunded` la révoque une fois la commande remboursée en totalité ;
+- `benefit_grant.created` enregistre la clé de licence ;
+- `benefit_grant.revoked` révoque la licence.
+
+Copiez le secret de signature du point de terminaison dans `POLAR_WEBHOOK_SECRET`, dans le même fichier d'environnement. Le développement n'a besoin d'aucun point de terminaison, car Polar ne peut pas joindre `localhost`.
+
+N'ajoutez jamais de point de terminaison de préversion à l'organisation de production, ni de point de terminaison de production à la sandbox : de vrais paiements atteindraient la préversion, ou des achats de test accorderaient des licences en production.
+
+## Vérifier la configuration
+
+```sh
+bun run polar:verify:development
+bun run polar:verify:preview
+bun run polar:verify:production
+```
+
+Chaque script lit les clés Polar dans `.env.<environment>` et n'envoie que des requêtes GET à l'API que désigne `POLAR_SERVER` : il liste les produits, les remises et les points de terminaison de webhook de l'organisation, et ne modifie rien. Il vérifie que :
+
+- le fichier d'environnement définit chaque clé Polar, avec `POLAR_SERVER=sandbox` pour le développement et la préversion et `POLAR_SERVER=production` pour la production ;
+- chaque `POLAR_PRODUCT_ID_*` désigne un produit de l'organisation qui n'est ni archivé ni un abonnement, et dont les prix sont fixes, en `DEFAULT_CURRENCY_CODE` et égaux à `TIER_PRICES` ;
+- chaque produit a exactement un avantage de clé de licence, avec la limite de l'offre tirée de `LICENSE_ACTIVATION_LIMITS`, sans expiration ni limite d'utilisation ;
+- pour chaque palier de `PPP_TIERS`, une remise automatique en pourcentage est utilisable pour chaque produit d'offre, selon la règle qu'applique le paiement ;
+- la préversion et la production ont, à leur URL de webhook, un point de terminaison activé au format Raw, signé avec `POLAR_WEBHOOK_SECRET` et abonné exactement aux événements traités ;
+- aucun point de terminaison n'envoie ses événements à l'hôte d'un environnement qui utilise l'autre service Polar.
+
+`deploy:preview` et `deploy:production` l'exécutent juste après `scripts/verify-bindings.ts`, avant le build. Les déploiements de la CI ne le font pas : les environnements GitHub ne contiennent aucun jeton Polar, et le Worker conserve les secrets Polar déjà définis dans Cloudflare. Lancez vous-même `polar:verify` après chaque modification dans Polar.
+
+## En cas d'échec
+
+Le script se termine par une erreur qui liste chaque problème trouvé, un par ligne :
+
+```text
+Polar production does not match the code for production:
+The core product (POLAR_PRODUCT_ID_CORE) has 0 licence-key benefits; it needs exactly one.
+A webhook endpoint posts to https://preview.saasyland.com/api/auth/polar/webhooks, the preview host, from this Polar production organisation; remove it.
+```
+
+Un échec arrête le déploiement avant que quoi que ce soit ne soit construit, migré ou téléversé. Le script ne modifie jamais Polar : corrigez Polar, puis relancez-le. Chaque message nomme la clé, la constante ou le réglage à corriger :
+
+- **`Set … in .env.<environment>`** : une clé Polar est absente ou vide, ou `POLAR_SERVER` désigne le mauvais service.
+- **`rejects POLAR_ACCESS_TOKEN`** : le jeton est invalide, révoqué ou issu de l'autre service, comme un jeton de production dans `.env.preview`.
+- **`lacks the … scope`** : créez un jeton avec les scopes ci-dessus.
+- **`names no product of the organisation`** : l'identifiant du produit ou `POLAR_ORGANIZATION_ID` est erroné, ou appartient à l'autre service.
+- **Un prix, une clé de licence ou une remise** : modifiez-le dans Polar pour qu'il corresponde au code. Quand une valeur métier change volontairement, modifiez d'abord `TIER_PRICES`, `LICENSE_ACTIVATION_LIMITS` ou `PPP_TIERS`, puis Polar.
+- **Un point de terminaison de webhook** : corrigez le point de terminaison que nomme le message, ou supprimez un point de terminaison qui envoie ses événements à l'hôte d'un autre environnement.
+
+## Pages associées
+
+- [Paiements et licences](/docs/features/payments)
+- [Variables d'environnement](/docs/getting-started/environment-variables)
+- [Déployer une préversion](/docs/getting-started/deploy-preview)
+- [Modèles de tarification](/docs/features/pricing-models)

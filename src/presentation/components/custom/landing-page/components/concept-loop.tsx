@@ -1,6 +1,8 @@
 import { type JSX, useCallback, useState } from "react"
 import { preload } from "react-dom"
 
+import { LANDING_VIDEO_SIZES } from "~/src/data/landing-videos"
+
 import { cn } from "~/src/lib/cn"
 
 import appTourPoster640 from "~/src/presentation/assets/motion/app-tour-640.webp?url"
@@ -30,63 +32,45 @@ import scaffoldCliPoster600 from "~/src/presentation/assets/motion/scaffold-cli-
 import scaffoldCliVideo from "~/src/presentation/assets/motion/scaffold-cli.webm?url"
 import scaffoldCliPoster from "~/src/presentation/assets/motion/scaffold-cli.webp?url"
 
-const PANEL_WIDTH = 1600
-const PANEL_HEIGHT = 1000
-const STRIP_WIDTH = 1200
-const TERMINAL_HEIGHT = 520
-const STRIP_HEIGHT = 440
-
-const PANEL: readonly [number, number] = [PANEL_WIDTH, PANEL_HEIGHT]
-const TERMINAL: readonly [number, number] = [STRIP_WIDTH, TERMINAL_HEIGHT]
-const STRIP: readonly [number, number] = [STRIP_WIDTH, STRIP_HEIGHT]
-
 const LOOPS = {
   "app-tour": {
     poster: appTourPoster,
-    posterSrcSet: `${appTourPoster640} 640w, ${appTourPoster800} 800w, ${appTourPoster1280} 1280w, ${appTourPoster} 1600w`,
-    size: PANEL,
+    responsivePosters: `${appTourPoster640} 640w, ${appTourPoster800} 800w, ${appTourPoster1280} 1280w`,
     video: appTourVideo,
   },
   "cost-curve": {
     poster: costCurvePoster,
-    posterSrcSet: `${costCurvePoster600} 600w, ${costCurvePoster} 1200w`,
-    size: STRIP,
+    responsivePosters: `${costCurvePoster600} 600w`,
     video: costCurveVideo,
   },
   "coverage-run": {
     poster: coverageRunPoster,
-    posterSrcSet: `${coverageRunPoster600} 600w, ${coverageRunPoster} 1200w`,
-    size: TERMINAL,
+    responsivePosters: `${coverageRunPoster600} 600w`,
     video: coverageRunVideo,
   },
   "locale-format": {
     poster: localeFormatPoster,
-    posterSrcSet: `${localeFormatPoster600} 600w, ${localeFormatPoster} 1200w`,
-    size: STRIP,
+    responsivePosters: `${localeFormatPoster600} 600w`,
     video: localeFormatVideo,
   },
   "merge-gate": {
     poster: mergeGatePoster,
-    posterSrcSet: `${mergeGatePoster600} 600w, ${mergeGatePoster} 1200w`,
-    size: STRIP,
+    responsivePosters: `${mergeGatePoster600} 600w`,
     video: mergeGateVideo,
   },
   "page-designer": {
     poster: pageDesignerPoster,
-    posterSrcSet: `${pageDesignerPoster800} 800w, ${pageDesignerPoster} 1600w`,
-    size: PANEL,
+    responsivePosters: `${pageDesignerPoster800} 800w`,
     video: pageDesignerVideo,
   },
   "record-audit": {
     poster: recordAuditPoster,
-    posterSrcSet: `${recordAuditPoster600} 600w, ${recordAuditPoster} 1200w`,
-    size: STRIP,
+    responsivePosters: `${recordAuditPoster600} 600w`,
     video: recordAuditVideo,
   },
   "scaffold-cli": {
     poster: scaffoldCliPoster,
-    posterSrcSet: `${scaffoldCliPoster600} 600w, ${scaffoldCliPoster} 1200w`,
-    size: STRIP,
+    responsivePosters: `${scaffoldCliPoster600} 600w`,
     video: scaffoldCliVideo,
   },
 }
@@ -112,12 +96,10 @@ interface ConceptLoopProps {
 
 export const ConceptLoop = ({ className, label, name, offsetSeconds = NO_OFFSET, preloadMedia, sizes }: ConceptLoopProps): JSX.Element => {
   const [hasPlayed, setHasPlayed] = useState(false)
-  const {
-    poster,
-    posterSrcSet,
-    size: [width, height],
-    video: source,
-  } = LOOPS[name]
+
+  const { poster, responsivePosters, video: source } = LOOPS[name]
+  const { height, width } = LANDING_VIDEO_SIZES[name]
+  const posterSrcSet = `${responsivePosters}, ${poster} ${String(width)}w`
 
   if (preloadMedia !== undefined) {
     preload(poster, { as: "image", fetchPriority: "high", imageSizes: sizes, imageSrcSet: posterSrcSet, media: preloadMedia })

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-SaaSy Land is the source of the saasyland.com website, customer workspace and admin console: one TanStack Start (React 19) application running as a Cloudflare Worker with D1 through Drizzle, KV and R2, Better Auth, Polar, Resend, use-intl in nine locales and Fumadocs. Bun is the package manager and script runner; Vite+ (`vp`) runs the dev server, builds, Vitest, oxlint and oxfmt from `vite.config.ts`.
+SaaSy Land is the source of the saasyland.com website, customer workspace and admin console: one TanStack Start (React 19) application running as a Cloudflare Worker with D1 through Drizzle, KV and R2, Better Auth, Polar, Resend, use-intl and Fumadocs. Bun is the package manager and script runner; Vite+ (`vp`) runs the dev server, builds, Vitest, oxlint and oxfmt from `vite.config.ts`.
 
 The coding standard is the Conventions section of the docs, [`content/docs/conventions/`](content/docs/conventions/index.en-US.mdx), published at <https://saasyland.com/docs/conventions>. Read the page for the kind of code you are about to write before you write it. This file is the summary.
 
@@ -27,7 +27,7 @@ Run tests with `bun run test`, never `bun test`. `bun run db:reset:test` recreat
 - `src/routes/`: route files that compose pages, with `NAMESPACE` or `NAMESPACES`, one `Promise.all` loader and a skeleton `pendingComponent`. Copy `src/routes/admin.courses.index.tsx`.
 - `src/presentation/components/custom/`: a file per component, named after it, in flat area folders; it may also export the companions that only make sense beside it (a compound part, an area's skeletons, a field family). Components read their own translations and data; controls are shadcn primitives or React Aria components, not hand-written elements.
 - `src/integrations/<vendor>/`: vendor configuration. `src/lib/`: utilities and server functions that own no table. `src/data/`: data several files share.
-- `messages/<locale>/<namespace>.json` and `content/docs/**/<page>.<locale>.mdx`: every string and every docs page in all nine locales.
+- `messages/<locale>/<namespace>.json` and `content/docs/**/<page>.<locale>.mdx`: every string and every docs page in every locale.
 
 ## Rules without exceptions
 
@@ -38,9 +38,9 @@ Run tests with `bun run test`, never `bun test`. `bun run db:reset:test` recreat
 5. Statuses, kinds, tiers, roles, environment names, HTTP statuses and other domain values are named constants (`COURSE_STATUS.DRAFT`, `ENVIRONMENT.PRODUCTION`, `HTTP_STATUS.NOT_FOUND`), never repeated string literals, in tests, e2e data and the seed too; schema tests are the one place a stored value is written out. Lengths are named constants in the module's `.constants.ts` as well.
 6. Server functions validate their input with the module's Zod schema, type it as `Module["operation"]` and run the middleware of `auth.middleware.ts` that fits: `authorized(...)` for a signed-in user or a permission, `withRequest` for a public read, `withRateLimit(...)` for an operation that sends email, changes credentials or redeems a token. Route guards are not authorization.
 7. Forms follow the shadcn TanStack Form pattern; tables use the one `DataTable` with an `<entity>-columns.tsx` file.
-8. Every user-facing string in all nine locales; numbers shown on the site are measured (`REPOSITORY_FACTS`) or declared once in `src/data` (`TIER_PRICES`), never typed.
+8. Every user-facing string in every locale; numbers shown on the site are measured (`REPOSITORY_FACTS`) or declared once in `src/data` (`TIER_PRICES`), and the docs print values the code defines with `<RepositoryFact>` and `<RepositoryTable>`; nothing is typed.
 9. Coverage stays at 100% for lines, statements, functions and branches; delete unreachable branches instead of stubbing them.
-10. A change updates the README, the docs in all nine locales, the changelog and the site copy it affects.
+10. A change updates the README, the docs in every locale, the changelog and the site copy it affects.
 11. Commits are conventional (`fix(auth): keep the locale in verification links`), never `--no-verify`, and carry no `Co-Authored-By` trailer or any other AI attribution; the same goes for pull request descriptions. Do not type the emoji: the hook adds it from the type (`feat` ✨, `fix` 🐛, `docs` 📚, `refactor` 📦, `chore` ♻️, `test` 🚨, `perf` 🚀, `build` 🛠️, `ci` ⚙️, `style` 💎, `revert` 🗑️).
 12. Stay on the latest dependency versions: adapt the code, or carry an upstream bug as a `bun patch` and report it upstream. Never pin back.
 

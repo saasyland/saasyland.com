@@ -8,9 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "~/src/presentation/components/shadcn/field"
 import { Input } from "~/src/presentation/components/shadcn/input"
 
-import { APP_NAME } from "~/src/presentation/branding"
-
-const SUPPORT_EMAIL = "support@saasyland.com"
+import { APP_DOMAIN, APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 
 const WORKSPACE_SLUG = "hq"
 
@@ -53,7 +51,7 @@ export const ProfileCard = (): JSX.Element => {
               <FieldLabel className="text-xs" htmlFor="workspace-support-email">
                 {t("supportEmail")}
               </FieldLabel>
-              <Input defaultValue={SUPPORT_EMAIL} id="workspace-support-email" type="email" />
+              <Input defaultValue={CONTACT_EMAIL} id="workspace-support-email" type="email" />
             </Field>
           </div>
           <Field>
@@ -62,7 +60,7 @@ export const ProfileCard = (): JSX.Element => {
             </FieldLabel>
             <div className="flex">
               <span className="inline-flex items-center rounded-l-lg border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground">
-                {t("urlPrefix")}
+                {APP_DOMAIN}/
               </span>
               <Input className="rounded-l-none" defaultValue={WORKSPACE_SLUG} id="workspace-url" />
             </div>

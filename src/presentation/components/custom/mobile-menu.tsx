@@ -4,21 +4,13 @@ import { Link } from "@tanstack/react-router"
 import { ArrowUpRight, Menu, X } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { NAVIGATION_PAGES, NAVIGATION_SECTIONS } from "~/src/data/marketing"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 
 import { ROUTES } from "~/src/routes"
 
-const SECTIONS = [
-  MARKETING_SECTION_IDS.FOUNDATION,
-  MARKETING_SECTION_IDS.QUALITY,
-  MARKETING_SECTION_IDS.TOOLKIT,
-  MARKETING_SECTION_IDS.PRICING,
-  MARKETING_SECTION_IDS.FAQ,
-] as const
-
-const MENU_ID = "landing-mobile-menu"
+const MENU_ID = "mobile-menu"
 
 const ROW_CLASSNAME =
   "group flex items-center justify-between gap-6 py-4 text-[1.0625rem] font-medium tracking-tight text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground"
@@ -51,7 +43,7 @@ export const MobileMenu = (): JSX.Element => {
   }, [isOpen])
 
   return (
-    <div className="lg:hidden">
+    <div className="xl:hidden">
       <Button
         aria-controls={MENU_ID}
         aria-expanded={isOpen}
@@ -72,23 +64,25 @@ export const MobileMenu = (): JSX.Element => {
           id={MENU_ID}
         >
           <ul className="mx-auto w-full max-w-7xl divide-y divide-border px-6 pb-10">
-            {SECTIONS.map((id) => (
+            {NAVIGATION_SECTIONS.map((id) => (
               <li key={id}>
                 <Link className={ROW_CLASSNAME} hash={id} onClick={close} to={ROUTES.HOME}>
                   {t(`items.${id}`)}
                 </Link>
               </li>
             ))}
-            <li>
-              <Link className={ROW_CLASSNAME} to={ROUTES.DOCS}>
-                {t("items.docs")}
-                <ArrowUpRight
-                  aria-hidden
-                  className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-exp group-hover:translate-x-px group-hover:-translate-y-px"
-                  strokeWidth={1.5}
-                />
-              </Link>
-            </li>
+            {NAVIGATION_PAGES.map((page) => (
+              <li key={page.key}>
+                <Link className={ROW_CLASSNAME} onClick={close} to={page.to}>
+                  {t(`items.${page.key}`)}
+                  <ArrowUpRight
+                    aria-hidden
+                    className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-exp group-hover:translate-x-px group-hover:-translate-y-px"
+                    strokeWidth={1.5}
+                  />
+                </Link>
+              </li>
+            ))}
             <li>
               <Link className={ROW_CLASSNAME} onClick={close} to={ROUTES.SIGN_IN}>
                 {t("signIn")}

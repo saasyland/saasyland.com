@@ -39,7 +39,7 @@ Rollen mit `course: ["read"]`, die Admins haben, dürfen jede Lektion ansehen. `
 
 ## Seiten
 
-Das Layout `/courses` (`courses.tsx`) hat eine eigene Navigation, seine Texte liegen im Namespace `pages.courses`. Die Seiten lesen D1 für jeden Betrachter und werden daher nicht vorgerendert: `ROUTES.COURSES` steht in `UNLISTED_ROUTES` in `vite.config.ts`.
+Das Layout `/courses` (`courses.tsx`) rendert denselben Header `ContentNavigation` wie der Blog. Die Seiten lesen D1 für jeden Betrachter und werden daher nicht vorgerendert: `ROUTES.COURSES` steht in `UNLISTED_ROUTES` in `vite.config.ts`.
 
 - `/courses`: eine Karte pro veröffentlichtem Kurs mit Art, Anzahl der Lektionen, Minuten und kostenlosen Lektionen.
 - `/courses/<course>`: die Zusammenfassung, ein Fortschrittsbalken für angemeldete Betrachter, ein Link **Kurs starten** oder **Weiter mit …** zur nächsten anzusehenden Lektion und der Lehrplan nach Kapiteln mit **Kostenlose Vorschau**-Badges, Dauern sowie Schloss- und Erledigt-Symbolen. Ist eine Lektion gesperrt, verlinkt das Panel **Jede Lektion ist in Complete enthalten** auf den Preisabschnitt oder, für angemeldete Betrachter, auf `/app/license?tier=complete`, wo Complete bereits ausgewählt ist.
@@ -57,7 +57,7 @@ Der Kursblock im Abschnitt **Werkzeugkasten** der Landingpage (`course-showcase.
 
 ## Fortschritt
 
-Für angemeldete Betrachter startet der Player an der gespeicherten `position_ms`, und `useLessonProgress` (`src/hooks/use-lesson-progress.ts`) speichert die Position während der Wiedergabe höchstens alle 15 Sekunden, über die Props `startAt` und `onProgress` von `VideoPlayer`. Endet das Video (`onEnded`) oder drückt der Betrachter **Als abgeschlossen markieren**, wird `completed_at` gesetzt, die gespeicherte Position springt an den Anfang zurück und die Kursseite aktualisiert ihren Fortschritt. Ein gesetztes `completed_at` bleibt erhalten. Gäste können kostenlose Vorschauen ansehen, gespeichert wird für sie nichts.
+Für angemeldete Betrachter startet der Player an der gespeicherten `position_ms`, und `useLessonProgress` (`src/hooks/use-lesson-progress.ts`) speichert die Position während der Wiedergabe höchstens alle <RepositoryFact name="lessonProgressSaveSeconds" unit="second" />, über die Props `startAt` und `onProgress` von `VideoPlayer`. Endet das Video (`onEnded`) oder drückt der Betrachter **Als abgeschlossen markieren**, wird `completed_at` gesetzt, die gespeicherte Position springt an den Anfang zurück und die Kursseite aktualisiert ihren Fortschritt. Ein gesetztes `completed_at` bleibt erhalten. Gäste können kostenlose Vorschauen ansehen, gespeichert wird für sie nichts.
 
 ## Lektionen und Videos
 
@@ -78,7 +78,7 @@ Ein neuer Kurs wird hinter den anderen eingereiht. Die Pfeile in der Liste legen
 Das Kursformular (`course-form.tsx`) hat diese Felder:
 
 - **Titel** und **Zusammenfassung**, mit einem Tab pro Locale. Der Tab `en-US` ist Pflicht; eine leer gelassene Locale fällt auf Englisch zurück.
-- **URL-Slug**: Kleinbuchstaben, Ziffern und einzelne Bindestriche, höchstens 96 Zeichen, eindeutig über alle Kurse.
+- **URL-Slug**: Kleinbuchstaben, Ziffern und einzelne Bindestriche, höchstens <RepositoryFact name="slugMaxLength" /> Zeichen, eindeutig über alle Kurse.
 - **Typ**: **Kurs**, **Tutorial** oder **Projekt**.
 - **Status**: **Entwurf**, der Standard, oder **Veröffentlicht**. Nur veröffentlichte Kurse erscheinen unter `/courses`.
 
@@ -122,7 +122,7 @@ Das erledigen die Fremdschlüssel mit `ON DELETE CASCADE`. Videos werden nie mit
 - Die Videoliste des Lektionsdialogs kommt von `getVideos`, das `video: ["read"]` verlangt.
 - Ein bereits vergebener Slug wird mit `CONFLICT` beantwortet: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) wandelt den Unique-Constraint-Fehler von D1 in einen `AppError` um. Eine ID, zu der es keine Zeile gibt, wird mit `NOT_FOUND` beantwortet.
 - Ein neuer Kurs, ein neues Kapitel oder eine neue Lektion erhält die höchste `position` unter den Geschwistern plus eins (`nextPosition`). Ein Verschieben tauscht die Zeile mit ihrer Nachbarin und nummeriert die Geschwister ab 1 neu (`reorder`), in einem einzigen `db.batch`. Beide Funktionen liegen in `src/modules/_core/utils/ordering.ts`, die Richtungen sind `MOVE_DIRECTION` in `src/modules/_core/constants/ordering.ts`.
-- Jeder Schreibvorgang validiert Titel und Zusammenfassungen mit `localizedTextSchema`: `en-US` ist Pflicht, und jeder Text hat höchstens 2.000 Zeichen. Ein Slug hat höchstens 96 Zeichen. Die Formularmeldungen sind `defaultLocaleRequired`, `textTooLong`, `slugInvalid` und `slugTooLong` in `course.validations`, und `COURSE_VALIDATION_PARAMS` (`course.constants.ts`) liefert ihre Grenzen.
+- Jeder Schreibvorgang validiert Titel und Zusammenfassungen mit `localizedTextSchema`: `en-US` ist Pflicht, und jeder Text hat höchstens <RepositoryFact name="localizedTextMaxLength" /> Zeichen. Ein Slug hat höchstens <RepositoryFact name="slugMaxLength" /> Zeichen. Die Formularmeldungen sind `defaultLocaleRequired`, `textTooLong`, `slugInvalid` und `slugTooLong` in `course.validations`, und `COURSE_VALIDATION_PARAMS` (`course.constants.ts`) liefert ihre Grenzen.
 - `courseEditorQuery` behält `staleTime: COURSE_STALE_MS` wie die öffentlichen Kursabfragen, und jede Änderung invalidiert die `course`-Abfragen, sodass die Liste und der Editor neu laden.
 
 ## Tests

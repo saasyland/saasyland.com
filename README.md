@@ -431,6 +431,8 @@ Normal application builds serve the checked-in assets without installing Remotio
 
 ## Contributing
 
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) before contributing, and [`SUPPORT.md`](SUPPORT.md) for where to get help. Report vulnerabilities privately as [`SECURITY.md`](SECURITY.md) describes, not in a public issue.
+
 Follow the [conventions](content/docs/conventions/index.en-US.mdx) and the [architecture guides](content/docs/architecture), and use the existing [theme and typography definitions](src/presentation/styles). Keep tests beside their owner, and update localized content and documentation under `content/docs/` when changing user-facing behavior.
 
 Before opening a pull request, run the checks relevant to your change. The application verification sequence is:

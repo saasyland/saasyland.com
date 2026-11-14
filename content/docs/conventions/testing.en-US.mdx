@@ -72,6 +72,26 @@ describe("getCourses", () => {
 - **Keep assertions when a rule bites.** When a test passes `max-statements`, extract a named helper instead of dropping checks.
 - **Load every message file.** `i18n.messages.test.ts` loads every namespace of every locale, which is what covers the `import.meta.glob` lines in `i18n.messages.ts`. A new message file is covered by it automatically.
 
+## Tests follow the areas
+
+The areas that declare their own paths and menu entries (see [Paths and navigation](/docs/conventions/routes#paths-and-navigation)) own their tests as well, so the `saasyland` CLI can leave an area out of a generated project together with its tests while every remaining test still passes.
+
+A test file covers one area or one source file. An area's admin pages are tested with their skeletons and breadcrumbs in `src/routes/__test__/admin-<area>-routes.component.test.tsx` and their loaders in `admin-<area>-loaders.test.ts`; `admin-layout`, `admin-dashboard` and `admin-loaders` test the admin shell itself and name no area. Unrelated files get one test file each, such as `background.component.test.tsx` and `wordmark.component.test.tsx`, and each API handler has its own: `src/routes/api/__test__/auth.test.ts`, `search.test.ts` and `index.test.ts`.
+
+A list that spans the areas is declared per area and joined by a barrel:
+
+| List             | Each area declares                                                                                                  | Barrel                      | Read by                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------ |
+| Admin query data | `seed<Area>Queries` and its row factories in `src/presentation/components/custom/admin/__test__/<area>.fixtures.ts` | `fixtures.entries.ts`       | `adminQueryClient()` in `fixtures.tsx`           |
+| Enum labels      | `src/integrations/use-intl/__test__/<area>.labels.ts`                                                               | `labels.entries.ts`         | `enum-labels.test.ts`                            |
+| D1 rows          | `src/integrations/drizzle-orm/__test__/<area>.rows.ts`                                                              | `rows.entries.ts`           | `d1.integration.test.ts`                         |
+| Browser pages    | `e2e/data/<area>.pages.ts`                                                                                          | `e2e/data/pages.entries.ts` | `accessibility.spec.ts` and `workspaces.spec.ts` |
+| Test database    | `e2e/data/<area>.seed.ts`                                                                                           | `e2e/data/seed.entries.ts`  | `scripts/seed-test.ts`                           |
+
+Helpers that several areas use are written once: `renderAdmin` and `renderAdminPage` in `src/presentation/components/custom/admin/__test__/fixtures.tsx`, `loadAsAdmin` in `src/routes/__test__/fixtures/admin-router.ts`, `markupOf` and `busyMarkup` in `src/platform/testing/lib/skeleton.tsx`, and in the browser suite `AuthPage.signIn`, `BasePage.leaveWhileLoading` and the `pageWithoutJavaScript` fixture.
+
+A test that pins the whole website, such as `navigation.website.test.ts` with the order of every menu, belongs to the website only; the templates do not generate it.
+
 ## Browser tests
 
 Playwright runs the built test Worker: `bun run build:test` compiles it with local D1 and KV under `.wrangler/test`, `bun run db:reset:test` recreates that database and seeds the accounts, video and course in `e2e/data`, and the test entry captures outgoing email at `/__test/emails` so a spec can follow a verification link.
@@ -80,7 +100,7 @@ Playwright runs the built test Worker: `bun run build:test` compiles it with loc
 - Each spec creates the data it changes with unique values, such as a slug built from `crypto.randomUUID()`, and signs in from its own `CF-Connecting-IP` header, so specs can run in parallel and rerun without colliding with each other or with rate limits.
 - A spec acts on a page only after `waitForAppReady()` from `e2e/pages/base-page.ts` has returned, after client-side navigations too. It returns once TanStack Router has rendered the current URL, which the automatic `recordRenders` fixture records from the router's `onRendered` event, because a client-side navigation changes the URL before the next route renders. Route content can hydrate after that render, so a spec that depends on a component's own state, or presses a link outside the content before the content has hydrated, first calls `waitForHydration(element)`, which waits until React has hydrated the element and everything in it; `LandingPage.goto()` does this for the landing page's `main`. A spec may leave a page while it loads, as a visitor can, and one that collects page errors over several direct visits opens each visit in its own tab, as `auth-routing.spec.ts` does.
 - Pull requests run every spec in Chromium (`bun run test:e2e:pr`); pushes to `main` and a weekly schedule also run WebKit.
-- A route, flow or visual fix that unit tests cannot see gets a spec: the accessibility scans and the navigation regressions in `navigation.spec.ts` are examples.
+- A route, flow or visual fix that unit tests cannot see gets a spec: the accessibility scans and the navigation regressions in `navigation.spec.ts` and in the specs of the areas they concern, such as `content.spec.ts`, `legal.spec.ts` and `landing.spec.ts`, are examples.
 
 ## Related pages
 

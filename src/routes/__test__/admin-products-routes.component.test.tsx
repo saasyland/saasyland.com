@@ -1,26 +1,25 @@
-import { screen, within } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+
+import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
+import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 
 import { CATEGORY_KIND, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import { getCategoriesPageQuery } from "~/src/modules/category/use-cases/get-categories"
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import { getProductsPageQuery } from "~/src/modules/product/use-cases/get-products"
-import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
-import { Route as DashboardRoute } from "~/src/routes/admin.index"
+import { Route as ProductCreateRoute } from "~/src/routes/admin.products.create"
 import { Route as ProductsRoute } from "~/src/routes/admin.products.index"
 
-import {
-  adminCategory,
-  adminProduct,
-  adminQueryClient,
-  adminUser,
-  renderAdmin,
-} from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { adminQueryClient, breadcrumbDividers, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { adminCategory, adminProduct } from "~/src/presentation/components/custom/admin/__test__/products.fixtures"
+import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
+import { AdminProductCreatePending, AdminProductsPending } from "~/src/presentation/components/custom/admin/offerings-pending"
 
 import componentsDataTableMessages from "~/messages/en-US/components.custom.data-table.json"
-import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"
+import pagesAdminProductsCreateMessages from "~/messages/en-US/pages.admin.products.create.json"
 import pagesAdminProductsMessages from "~/messages/en-US/pages.admin.products.json"
 
 const products = [
@@ -57,14 +56,16 @@ const renderProducts = (rows: ReturnType<typeof adminProduct>[], tab: "all" | "c
   queryClient.setQueryData(getProductsPageQuery().queryKey, { rows, total: rows.length })
   const kind = tab === "collections" ? CATEGORY_KIND.COLLECTION : CATEGORY_KIND.CATEGORY
   queryClient.setQueryData(getCategoriesPageQuery({ kind }).queryKey, { rows: categories, total: categories.length })
-  const Page = ProductsRoute.options.component
-  if (!Page) {
-    throw new Error("Missing product page")
-  }
-  return renderAdmin(<Page />, { path: `/admin/products?tab=${tab}`, queryClient })
+  return renderAdminPage(ProductsRoute.options.component, { path: `/admin/products?tab=${tab}`, queryClient })
 }
 
 describe("admin catalog", () => {
+  it("renders the product form with its translated title and controls", () => {
+    renderAdminPage(ProductCreateRoute.options.component)
+    expect(screen.getByRole("heading", { name: pagesAdminProductsCreateMessages.metadata.title })).toBeVisible()
+    expect(screen.getAllByRole("button").length).toBeGreaterThan(0)
+  })
+
   it.each([0, 5])("shows the row count for %i products without enabling navigation", (count) => {
     renderProducts(Array.from({ length: count }, (_, index) => adminProduct({ id: `item-${index}`, name: `Item ${index}` })))
     expect(screen.getByRole("button", { name: componentsDataTableMessages.pagination.previousPage })).toBeDisabled()
@@ -83,11 +84,7 @@ describe("admin catalog", () => {
     for (const pageIndex of [0, 1]) {
       queryClient.setQueryData(getCategoriesPageQuery({ pageIndex, kind: CATEGORY_KIND.CATEGORY }).queryKey, { rows: [], total: 0 })
     }
-    const Page = ProductsRoute.options.component
-    if (!Page) {
-      throw new Error("Missing product page")
-    }
-    renderAdmin(<Page />, { queryClient })
+    renderAdminPage(ProductsRoute.options.component, { queryClient })
     expect(screen.getByRole("button", { name: componentsDataTableMessages.pagination.previousPage })).toBeDisabled()
     await userEvent.click(screen.getByRole("button", { name: componentsDataTableMessages.pagination.nextPage }))
     expect(await screen.findByText("Last product")).toBeVisible()
@@ -118,11 +115,7 @@ describe("admin catalog", () => {
     const kind = tab === "collections" ? CATEGORY_KIND.COLLECTION : CATEGORY_KIND.CATEGORY
     const visibleCategories = categories.filter((row) => row.kind === kind)
     queryClient.setQueryData(getCategoriesPageQuery({ kind }).queryKey, { rows: visibleCategories, total: visibleCategories.length })
-    const Page = ProductsRoute.options.component
-    if (!Page) {
-      throw new Error("Missing product page")
-    }
-    renderAdmin(<Page />, { queryClient })
+    renderAdminPage(ProductsRoute.options.component, { queryClient })
     expect(screen.getByRole("heading", { name: pagesAdminProductsMessages.title })).toBeVisible()
     expect(await screen.findByText(expected)).toBeVisible()
     if (tab === "onetime") {
@@ -161,36 +154,21 @@ describe("admin catalog", () => {
   })
 })
 
-describe("admin dashboard", () => {
-  it.each([0, 1, 6])("shows counts and a bounded preview for %i users", (count) => {
-    const queryClient = adminQueryClient()
-    const users = Array.from({ length: count }, (_, index) =>
-      adminUser({
-        id: `user-${index}`,
-        name: `Member ${index}`,
-        emailVerified: index % 2 === 0,
-        banned: index === 3,
-      }),
-    )
-    queryClient.setQueryData(getUsersQuery.queryKey, {
-      rows: users,
-      total: users.length,
-      pendingVerification: users.filter((row) => !row.emailVerified && !row.banned).length,
-    })
-    const Page = DashboardRoute.options.component
-    if (!Page) {
-      throw new Error("Missing dashboard page")
-    }
-    renderAdmin(<Page />, { queryClient })
-    expect(screen.getByRole("heading", { name: pagesAdminDashboardMessages.metadata.title })).toBeVisible()
-    expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(Math.max(Math.min(count, 5), 1) + 1)
-    if (count > 5) {
-      expect(screen.getByRole("link", { name: pagesAdminDashboardMessages.users.table.pagination.viewAll })).toHaveAttribute(
-        "href",
-        "/admin/users",
-      )
-    } else {
-      expect(screen.getByRole("button", { name: pagesAdminDashboardMessages.users.table.pagination.viewAll })).toBeDisabled()
-    }
+describe("admin catalog skeletons", () => {
+  it.each([
+    ["/admin/products", AdminProductsPending],
+    ["/admin/products/create", AdminProductCreatePending],
+  ])("renders the skeleton of the page at %s", (path, Page) => {
+    const page = markupOf(<Page />)
+    const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter(path) })
+
+    expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
+    expect(busyMarkup(container)).toBe(page)
+  })
+
+  it("draws the breadcrumb trail of /admin/products/create", () => {
+    const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter("/admin/products/create") })
+
+    expect(breadcrumbDividers(container)).toHaveLength(2)
   })
 })

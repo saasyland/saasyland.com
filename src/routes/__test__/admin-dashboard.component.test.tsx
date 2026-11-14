@@ -8,40 +8,43 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 
-import { Route as AnalyticsRoute } from "~/src/routes/admin.analytics"
 import { Route as DashboardRoute } from "~/src/routes/admin.index"
-import { Route as UsersRoute } from "~/src/routes/admin.users.all"
 
-import { ADMIN_ANALYTICS_REGION_ROWS } from "~/src/data/admin"
-
-import { adminMessages, adminQueryClient, adminUser, renderAdmin } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
+import { adminMessages, adminQueryClient, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/overview-pending"
+
+import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"
 
 afterEach(() => vi.restoreAllMocks())
 
-describe("admin data display fallbacks", () => {
-  it("keeps unfamiliar region codes visible when Intl has no display name", () => {
-    vi.spyOn(Intl.DisplayNames.prototype, "of").mockReturnValue(undefined)
-    const Page = AnalyticsRoute.options.component
-    if (!Page) {
-      throw new Error("Missing analytics page")
+describe("admin dashboard", () => {
+  it.each([0, 1, 6])("shows counts and a bounded preview for %i users", (count) => {
+    const queryClient = adminQueryClient()
+    const users = Array.from({ length: count }, (_, index) =>
+      adminUser({
+        id: `user-${index}`,
+        name: `Member ${index}`,
+        emailVerified: index % 2 === 0,
+        banned: index === 3,
+      }),
+    )
+    queryClient.setQueryData(getUsersQuery.queryKey, {
+      rows: users,
+      total: users.length,
+      pendingVerification: users.filter((row) => !row.emailVerified && !row.banned).length,
+    })
+    renderAdminPage(DashboardRoute.options.component, { queryClient })
+    expect(screen.getByRole("heading", { name: pagesAdminDashboardMessages.metadata.title })).toBeVisible()
+    expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(Math.max(Math.min(count, 5), 1) + 1)
+    if (count > 5) {
+      expect(screen.getByRole("link", { name: pagesAdminDashboardMessages.users.table.pagination.viewAll })).toHaveAttribute(
+        "href",
+        "/admin/users",
+      )
+    } else {
+      expect(screen.getByRole("button", { name: pagesAdminDashboardMessages.users.table.pagination.viewAll })).toBeDisabled()
     }
-    renderAdmin(<Page />)
-    for (const region of ADMIN_ANALYTICS_REGION_ROWS) {
-      expect(screen.getByText(new RegExp(`${region.flag} ${region.code}$`, "u"))).toBeVisible()
-    }
-  })
-
-  it("sizes the analytics bars and region meters from their measurements", () => {
-    const Page = AnalyticsRoute.options.component
-    if (!Page) {
-      throw new Error("Missing analytics page")
-    }
-    const { container } = renderAdmin(<Page />)
-    expect(container.querySelector('[style="height: 45%;"]')).toBeInTheDocument()
-    expect(container.querySelector('[style="height: 15%;"]')).toBeInTheDocument()
-    const [firstRegion] = ADMIN_ANALYTICS_REGION_ROWS
-    expect(container.querySelector(`[style="width: ${firstRegion.percentage}%;"]`)).toBeInTheDocument()
   })
 
   it("shows a dashboard user's identity, avatar and last activity date", () => {
@@ -51,11 +54,7 @@ describe("admin data display fallbacks", () => {
       rows: [adminUser(), adminUser({ id: "grace", image: "https://example.com/grace.png", name: "Grace Hopper" })],
       total: 2,
     })
-    const Page = DashboardRoute.options.component
-    if (!Page) {
-      throw new Error("Missing dashboard page")
-    }
-    renderAdmin(<Page />, { queryClient })
+    renderAdminPage(DashboardRoute.options.component, { queryClient })
     const [, adaRow] = within(screen.getByRole("table")).getAllByRole("row")
     if (!adaRow) {
       throw new Error("Missing dashboard row")
@@ -64,18 +63,6 @@ describe("admin data display fallbacks", () => {
     expect(adaRow).toHaveTextContent("ada@example.com")
     expect(adaRow).toHaveTextContent("Jan 1, 2025")
     expect(adaRow).toHaveTextContent("AL")
-  })
-
-  it("displays an unrecognized role without inventing a translated label", () => {
-    const user = Object.assign(adminUser(), { role: "external-role" })
-    const queryClient = adminQueryClient()
-    queryClient.setQueryData(getUsersQuery.queryKey, { pendingVerification: 0, rows: [user], total: 1 })
-    const Page = UsersRoute.options.component
-    if (!Page) {
-      throw new Error("Missing users page")
-    }
-    renderAdmin(<Page />, { queryClient })
-    expect(screen.getByText("external-role")).toBeVisible()
   })
 
   it("replaces the route's pending UI when the dashboard loader finishes", async () => {

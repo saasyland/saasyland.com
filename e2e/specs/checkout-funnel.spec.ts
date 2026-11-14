@@ -3,6 +3,7 @@ import * as zod from "zod"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_LESSONS } from "../data/courses"
+import { TEST_CHECKOUT_ID } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expectVerificationEmail } from "../fixtures/emails"
 import { deliverPaidOrder } from "../fixtures/polar"
@@ -16,7 +17,6 @@ import { CONTACT_EMAIL } from "../../src/presentation/branding"
 
 const [, customer] = TEST_ACCOUNTS
 const SIGN_UP_PASSWORD = "StrongPassword123!"
-const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
 const PAID_LESSONS = TEST_LESSONS.filter(({ access }) => access === LESSON_ACCESS.PAID).length
 
 const sessionSchema = zod.object({ user: zod.object({ id: zod.string() }) })
@@ -95,7 +95,7 @@ test.describe("checkout funnel", () => {
     await authPage.signInSubmitButton().click()
     await expect(page).toHaveURL("/app")
 
-    await page.goto(`/app/license?checkoutId=${CHECKOUT_ID}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(`/app/license?checkoutId=${TEST_CHECKOUT_ID}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     const activation = page.getByRole("status").filter({ has: page.getByRole("heading", { name: "Payment received" }) })
     await expect(activation).toBeVisible()
@@ -106,7 +106,7 @@ test.describe("checkout funnel", () => {
 
     await expect(page.getByRole("heading", { name: "Activation is taking longer than usual" })).toBeVisible()
     await expect(page.getByRole("link", { name: CONTACT_EMAIL })).toHaveAttribute("href", `mailto:${CONTACT_EMAIL}`)
-    await expect(page.getByText(CHECKOUT_ID, { exact: true })).toBeVisible()
+    await expect(page.getByText(TEST_CHECKOUT_ID, { exact: true })).toBeVisible()
     await expect(page.getByRole("button", { name: "Check again" })).toBeEnabled()
     for (const colorScheme of COLOR_SCHEMES) {
       await page.emulateMedia({ colorScheme })

@@ -9,6 +9,8 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 
+import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
+
 import { pageHead } from "~/src/lib/seo"
 
 import { CourseCard } from "~/src/presentation/components/custom/courses/course-card"
@@ -20,13 +22,14 @@ const CoursesPage = (): JSX.Element => {
   const t = useTranslations("pages.courses")
   const locale = getCurrentLocale()
 
+  const { offer } = useCourseAccessNames()
   const { data: courses } = useSuspenseQuery(catalogueQuery({ locale }))
 
   return (
     <section className="relative">
       <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32">
         <h1 className="max-w-[14ch] text-headline-peak text-balance text-foreground">{t("catalogue.title")}</h1>
-        <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("catalogue.description")}</p>
+        <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("catalogue.description", { offer })}</p>
 
         {courses.length === 0 && (
           <p className="mt-14 border-y border-border py-10 text-body text-muted-foreground md:mt-20">{t("catalogue.empty")}</p>

@@ -14,6 +14,7 @@ import { courseLessons, locateLesson } from "~/src/modules/course/course.utils"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 
+import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useLessonProgress } from "~/src/hooks/use-lesson-progress"
 
 import { rethrowAsNotFound } from "~/src/lib/not-found"
@@ -108,6 +109,7 @@ const LessonPage = (): JSX.Element => {
   const locale = getCurrentLocale()
   const params = Route.useParams()
 
+  const { offer } = useCourseAccessNames()
   const { data } = useSuspenseQuery(courseQuery({ locale, slug: params.course }))
 
   const { lesson, next, previous } = locateLesson(courseLessons(data), params.lesson)
@@ -131,7 +133,7 @@ const LessonPage = (): JSX.Element => {
             {data.course.title}
           </Link>
           <h1 className="mt-3 text-headline-support text-balance text-foreground">{lesson.title}</h1>
-          <p className="mt-2 font-mono text-label text-ring uppercase">{t(`access.${lesson.access}`)}</p>
+          <p className="mt-2 font-mono text-label text-ring uppercase">{t(`access.${lesson.access}`, { offer })}</p>
           <p className="mt-4 max-w-[68ch] text-body text-pretty text-muted-foreground">{lesson.summary}</p>
 
           {data.viewer.signedIn && !lesson.locked && (

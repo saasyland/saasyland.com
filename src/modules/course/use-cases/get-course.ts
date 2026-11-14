@@ -100,7 +100,7 @@ export const getCourse = createServerFn({ method: "GET" })
         title: localize(entry.title, locale),
       })),
       course: { id: row.id, kind: row.kind, slug: row.slug, summary: localize(row.summary, locale), title: localize(row.title, locale) },
-      viewer: { licensed: viewer.licensed, signedIn: viewer.userId !== undefined },
+      viewer: { signedIn: viewer.userId !== undefined },
     }
   })
 

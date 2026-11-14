@@ -32,7 +32,7 @@ describe("course utils", () => {
       courseLessons({
         ...page,
         course: { id: "c", kind: COURSE_KIND.COURSE, slug: "c", summary: "", title: "" },
-        viewer: { licensed: false, signedIn: false },
+        viewer: { signedIn: false },
       }).map(({ slug }) => slug),
     ).toStrictEqual(["a", "b", "c"])
   })

@@ -23,19 +23,21 @@ Ogni tabella ha il proprio modulo in `src/modules` ed è creata dalla migrazione
 
 ## Livelli di accesso
 
-| `access`  | Chi può guardare                                                                             |
-| --------- | -------------------------------------------------------------------------------------------- |
-| `preview` | Tutti, con o senza accesso                                                                   |
-| `account` | Qualsiasi utente che ha effettuato l’accesso                                                 |
-| `paid`    | Un utente con una licenza `active` di livello `complete` o `agency` (`COURSE_LICENCE_TIERS`) |
+| `access`  | Chi può guardare                                                                              |
+| --------- | --------------------------------------------------------------------------------------------- |
+| `preview` | Tutti, con o senza accesso                                                                    |
+| `account` | Qualsiasi utente che ha effettuato l’accesso                                                  |
+| `paid`    | Un utente con una licenza `active` di livello `complete` o `agency` (`LICENSE_COURSE_ACCESS`) |
 
-I ruoli con `course: ["read"]`, che gli amministratori hanno, possono guardare ogni lezione. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) decide per uno spettatore che `resolveViewer` (`lesson.viewer.ts`) costruisce dalla sessione, dal ruolo e da `getLicense`. Ogni funzione server che serve contenuti dei corsi applica questo controllo, non solo le pagine:
+I ruoli con `course: ["read"]`, che gli amministratori hanno, possono guardare ogni lezione. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) decide per uno spettatore che `resolveViewer` (`lesson.viewer.ts`) costruisce dalla sessione, dal ruolo e dall’accesso ai corsi che concedono altre aree (`holdsCourseAccess`). Ogni funzione server che serve contenuti dei corsi applica questo controllo, non solo le pagine:
 
 - `getCatalogue` (pubblica) restituisce i corsi pubblicati con il numero di lezioni, la durata totale dei video e il numero di anteprime gratuite.
 - `getCourseShowcase` (pubblica) restituisce, per la landing page, i primi due corsi pubblicati (`COURSE_SHOWCASE`) con il numero di lezioni, la durata totale dei video, il numero di anteprime gratuite e le prime sei lezioni pubblicate, oltre alla prima anteprima gratuita che ha un video. Indica il livello di accesso di ogni lezione, non i blocchi dello spettatore.
 - `getCourse` (pubblica) restituisce un corso pubblicato con i suoi capitoli e le lezioni pubblicate nel locale del visitatore, ciascuna con `locked`, `completed` e `positionMs` per lo spettatore.
 - `getLessonPlayback` (pubblica) restituisce percorsi di riproduzione firmati da `createPlayback`. Risponde `UNAUTHORIZED` a un ospite e `FORBIDDEN` a un utente che ha effettuato l’accesso ma non può guardare la lezione, e `NOT_FOUND` per una lezione non pubblicata o senza video.
 - `saveLessonProgress` richiede una sessione e controlla lo stesso accesso prima di scrivere.
+
+L’accesso ai corsi è una lista propria dell’area dei corsi: un’area che lo vende dichiara un `CourseAccessGrant` in `src/data/<area>.course-access.ts`, e `src/data/course-access.entries.ts` li riunisce (vedi [Cosa aggiungono le aree](/docs/architecture/platform-layer#what-the-areas-add)). Una concessione indica se un utente ha accesso (`holds`, una funzione solo server), che cosa lo include (`includedWith`, chiavi dei messaggi dei nomi che la pagina della licenza elenca) e dove ottenerlo (`unlock`, un link per uno spettatore che ha effettuato l’accesso e uno per un ospite). `LICENSE_COURSE_ACCESS` dell’area delle licenze (`src/data/license.course-access.ts`) lo concede a una licenza `active` di livello Complete o Agency, e manda chi ha effettuato l’accesso a `/app/license?tier=complete` e un ospite alla sezione dei prezzi della landing page. Senza alcuna concessione, le lezioni a pagamento sono solo per lo staff e i loro pannelli bloccati non offrono alcun link. I testi dei corsi prendono altri due nomi dalle concessioni invece di nominare un livello: `offer`, ciò che vendono i link di `unlock`, nell’etichetta di accesso, nei pannelli di sblocco e nella descrizione del catalogo, e `holders`, chi ha accesso, nel livello di accesso a pagamento dell’amministrazione. La licenza fornisce Complete e il testo `courseAccess.holders` di `components.custom.pricing`, così le pagine restano come prima.
 
 ## Pagine
 

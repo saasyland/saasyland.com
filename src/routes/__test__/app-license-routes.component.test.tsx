@@ -17,8 +17,6 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { COURSE_KIND } from "~/src/modules/course/course.constants"
-import type { Course } from "~/src/modules/course/course.types"
 import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS, LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import type { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"
@@ -45,12 +43,13 @@ import { ROUTES } from "~/src/routes"
 
 const LICENSE_KEY = "private-purchased-license-key"
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
-const { activation, buy, chosen, unlocks } = pagesLicenseMessages
+const { activation, buy, chosen } = pagesLicenseMessages
+const SECTION_NAME = vi.hoisted(() => "Included with every tier")
 
 const sessionRequest = vi.hoisted(() => vi.fn())
 const currentLicenseMock = vi.hoisted(() => vi.fn<() => Promise<{ license: License["select"] | undefined }>>())
 const activationsMock = vi.hoisted(() => vi.fn<() => ReturnType<typeof getCurrentLicenseActivations>>())
-const catalogueMock = vi.hoisted(() => vi.fn<() => Promise<Course["catalogue"]>>())
+const sectionLoad = vi.hoisted(() => vi.fn<() => Promise<unknown>>())
 const checkoutMock = vi.hoisted(() => vi.fn<NonNullable<typeof startCheckoutMutation.mutationFn>>())
 const deactivateMock = vi.hoisted(() => vi.fn<NonNullable<typeof deactivateLicenseMutation.mutationFn>>())
 
@@ -66,10 +65,16 @@ vi.mock(import("~/src/modules/license/use-cases/get-current-license-activations"
   const actual = await importOriginal()
   return { ...actual, licenseActivationsQuery: { ...actual.licenseActivationsQuery, queryFn: activationsMock } }
 })
-vi.mock(import("~/src/modules/course/use-cases/get-catalogue"), async (importOriginal) => {
-  const actual = await importOriginal()
-  return { ...actual, catalogueQuery: (input) => ({ ...actual.catalogueQuery(input), queryFn: catalogueMock }) }
-})
+vi.mock("~/src/data/license-offer.entries", () => ({
+  TEST_LICENSE_OFFER: [
+    {
+      key: "included",
+      load: sectionLoad,
+      Pending: () => {},
+      Section: () => <section aria-label={SECTION_NAME} />,
+    },
+  ],
+}))
 vi.mock(import("~/src/modules/license/use-cases/start-checkout"), () => ({
   startCheckoutMutation: { mutationFn: checkoutMock, mutationKey: LICENSE_MUTATION_KEYS.START_CHECKOUT },
 }))
@@ -90,42 +95,6 @@ const ownedLicense: License["select"] = {
   updatedAt: new Date("2026-09-08T10:00:00Z"),
   userId: "user-1",
 }
-
-const CATALOGUE: Course["catalogue"] = [
-  {
-    durationMs: 375_000,
-    id: "walkthrough",
-    kind: COURSE_KIND.COURSE,
-    lessons: 4,
-    paid: 2,
-    previews: 1,
-    slug: "the-walkthrough",
-    summary: "How it works.",
-    title: "The walkthrough",
-  },
-  {
-    durationMs: 120_000,
-    id: "deploy",
-    kind: COURSE_KIND.TUTORIAL,
-    lessons: 2,
-    paid: 1,
-    previews: 1,
-    slug: "deploy",
-    summary: "Ship it.",
-    title: "Deploying to Workers",
-  },
-  {
-    durationMs: 0,
-    id: "free",
-    kind: COURSE_KIND.TUTORIAL,
-    lessons: 1,
-    paid: 0,
-    previews: 1,
-    slug: "free",
-    summary: "Free.",
-    title: "Free tutorial",
-  },
-]
 
 const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } })
@@ -165,7 +134,7 @@ beforeEach(() => {
   sessionRequest.mockReset().mockResolvedValue(createAuthSessionFixture())
   currentLicenseMock.mockReset().mockResolvedValue({ license: undefined })
   activationsMock.mockReset().mockResolvedValue({ activations: [], limitActivations: 2 })
-  catalogueMock.mockReset().mockResolvedValue(CATALOGUE)
+  sectionLoad.mockReset().mockResolvedValue(undefined)
   checkoutMock.mockReset()
   deactivateMock.mockReset()
   vi.spyOn(toast, "error").mockReturnValue(0)
@@ -204,38 +173,11 @@ describe("buying a license", () => {
     expect(screen.queryByRole("region", { name: chosen.title.replace("{tier}", pricingMessages.tiers.complete.name) })).toBeNull()
   })
 
-  it("shows what Complete and Agency unlock in the courses, counted from the catalogue", async () => {
-    await renderApp(ROUTES.APP_LICENSE)
+  it.each([ROUTES.APP, ROUTES.APP_LICENSE])("ends the offer on %s with what other areas include and loads their data", async (path) => {
+    const { queryClient } = await renderApp(path)
 
-    const courses = await screen.findByRole("region", { name: "Courses included with Complete and Agency" })
-    expect(within(courses).getByText("Your account cannot open 3 lessons in 2 courses yet.")).toBeVisible()
-    expect(within(courses).getByRole("link", { name: /The walkthrough\s*2 locked lessons/u })).toHaveAttribute(
-      "href",
-      "/courses/the-walkthrough",
-    )
-    expect(within(courses).getByRole("link", { name: /Deploying to Workers\s*1 locked lesson$/u })).toHaveAttribute(
-      "href",
-      "/courses/deploy",
-    )
-    expect(within(courses).queryByRole("link", { name: /Free tutorial/u })).toBeNull()
-  })
-
-  it("names the course tiers in the visitor's language", async () => {
-    await renderApp(ROUTES.APP_LICENSE, "pl-PL")
-
-    expect(
-      await screen.findByRole("region", {
-        name: `Kursy w pakietach ${plPricingMessages.tiers.complete.name} i ${plPricingMessages.tiers.agency.name}`,
-      }),
-    ).toBeVisible()
-  })
-
-  it("leaves the course block out while no course has a paid lesson", async () => {
-    catalogueMock.mockResolvedValue(CATALOGUE.filter(({ paid }) => paid === 0))
-    await renderApp(ROUTES.APP_LICENSE)
-
-    await offer()
-    expect(screen.queryByRole("region", { name: /Courses included/u })).toBeNull()
+    expect(within(await offer()).getByRole("region", { name: SECTION_NAME })).toBeInTheDocument()
+    expect(sectionLoad).toHaveBeenCalledWith({ locale: "en-US", queryClient })
   })
 
   it("starts one checkout in the page's language and locks every tier until it opens or fails", async () => {
@@ -520,6 +462,5 @@ describe("license page text", () => {
     expect(await screen.findByRole("heading", { level: 1, name: pagesLicenseMessages.metadata.title })).toBeVisible()
     expect(screen.getByText(pagesLicenseMessages.metadata.description)).toBeVisible()
     expect(screen.getByRole("link", { name: pagesLicenseMessages.back })).toHaveAttribute("href", ROUTES.APP)
-    expect(screen.getByText(unlocks.title.replace("{tiers}", "Complete and Agency"))).toBeVisible()
   })
 })

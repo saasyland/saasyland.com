@@ -16,6 +16,7 @@ import { LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { deleteLessonMutation } from "~/src/modules/lesson/use-cases/delete-lesson"
 import { moveLessonMutation } from "~/src/modules/lesson/use-cases/move-lesson"
 
+import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { ADMIN_STATUS_BADGE_CLASSES } from "~/src/data/admin"
@@ -101,6 +102,7 @@ const LessonRow = ({
   const t = useTranslations("pages.admin.courses")
   const title = localize(lesson.title, getCurrentLocale())
 
+  const { holders } = useCourseAccessNames()
   const move = useCurriculumMutation(moveLessonMutation)
   const remove = useCurriculumMutation(deleteLessonMutation)
 
@@ -119,7 +121,7 @@ const LessonRow = ({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Badge className="text-[10px]" variant="outline">
-          {t(`lesson.accessLevels.${lesson.access}`)}
+          {t(`lesson.accessLevels.${lesson.access}`, { holders })}
         </Badge>
         <Badge
           className={cn("text-[10px]", {

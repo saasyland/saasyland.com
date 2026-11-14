@@ -2,7 +2,7 @@ import process from "node:process"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
-import { readWranglerEnvironment } from "./wrangler-config.ts"
+import { readWranglerBindings } from "./wrangler-config.ts"
 
 const SCRIPT_ARGUMENTS_START = 2
 const PLACEHOLDER_ID = /^[0-]+$/u
@@ -13,29 +13,25 @@ if (environment !== ENVIRONMENT.PREVIEW && environment !== ENVIRONMENT.PRODUCTIO
   throw new Error(`Expected ${ENVIRONMENT.PREVIEW} or ${ENVIRONMENT.PRODUCTION}`)
 }
 
-const readResources = async (name: string): Promise<(string | undefined)[]> => {
-  const { d1_databases: databases, kv_namespaces: namespaces, r2_buckets: buckets } = await readWranglerEnvironment(name)
+const bindings = await readWranglerBindings(environment)
+const development = await readWranglerBindings(ENVIRONMENT.DEVELOPMENT)
+const bound = new Set(bindings.map(({ binding }) => binding))
+const missing = development.filter(({ binding }) => !bound.has(binding))
+const placeholders = bindings.filter(({ resource }) => PLACEHOLDER_ID.test(resource))
 
-  return [
-    databases.find(({ binding }) => binding === "DB")?.database_id,
-    namespaces.find(({ binding }) => binding === "CACHE")?.id,
-    buckets.find(({ binding }) => binding === "MEDIA")?.bucket_name,
-  ]
-}
-
-const resources = await readResources(environment)
-
-if (resources.some((resource) => resource === undefined || PLACEHOLDER_ID.test(resource))) {
-  throw new Error(`Provision D1, KV and R2 for ${environment}, then replace their placeholder IDs in wrangler.jsonc. See README.md.`)
+if (missing.length > 0 || placeholders.length > 0) {
+  const names = [...missing, ...placeholders].map(({ binding }) => binding).join(", ")
+  throw new Error(`Provision ${names} for ${environment}, then set their IDs or bucket names in wrangler.jsonc. See README.md.`)
 }
 
 if (environment === ENVIRONMENT.PRODUCTION) {
-  const preview = new Set(await readResources(ENVIRONMENT.PREVIEW))
-  const shared = resources.filter((resource) => preview.has(resource))
+  const previewBindings = await readWranglerBindings(ENVIRONMENT.PREVIEW)
+  const preview = new Set(previewBindings.map(({ resource }) => resource))
+  const shared = bindings.filter(({ resource }) => preview.has(resource)).map(({ resource }) => resource)
 
   if (shared.length > 0) {
-    throw new Error(`Production shares ${shared.join(", ")} with preview. Give production its own D1, KV and R2 in wrangler.jsonc.`)
+    throw new Error(`Production shares ${shared.join(", ")} with preview. Give production its own resources in wrangler.jsonc.`)
   }
 }
 
-process.stdout.write(`Verified the ${environment} D1, KV and R2 bindings.\n`)
+process.stdout.write(`Verified the ${environment} bindings: ${[...bound].join(", ")}.\n`)

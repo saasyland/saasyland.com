@@ -1,6 +1,6 @@
 ---
 title: "Data fetching and caching"
-description: "Query and mutation options beside their server function, query keys that include every input, freshness rules, loaders that never refetch what is on screen, and invalidation."
+description: "Query and mutation options beside their server function, query keys that include every input, public queries that outlive a change of user, freshness rules, loaders that never refetch what is on screen, and invalidation."
 ---
 
 Data reaches a screen through TanStack Query. A use case exports its options next to its server function, and the route loader, the component and the test all use those same options, so they share one cache entry by construction.
@@ -33,6 +33,22 @@ queryKey: [...COURSE_QUERY_KEYS.LIST, courseZodSchemas.getCourses.parse(input)]
 ```
 
 The list key stores the parsed input, so `getCoursesPageQuery()` and `getCoursesPageQuery({ pageIndex: 0, pageSize: 10 })` resolve to the same entry. A locale belongs in the key whenever the server localises the result. Never write a key inline in a component: read it from the options, or from the `<MODULE>_QUERY_KEYS` object to invalidate.
+
+## Public queries
+
+A query whose result is the same for every visitor, whoever is signed in, declares `meta: { public: true }`:
+
+```ts
+export const catalogueQuery = (input: Course["getCatalogue"]) =>
+  queryOptions({
+    meta: { public: true },
+    queryFn: () => getCatalogue({ data: input }),
+    queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
+    staleTime: COURSE_STALE_MS,
+  })
+```
+
+The translations (`messagesQueryOptions`), the GitHub star count (`starCountQuery`), the course catalogue (`catalogueQuery`) and the landing page's course showcase (`courseShowcaseQuery`) are public. Every other query belongs to the signed-in user. When the user changes, `removeUserData` in `auth.session.ts` removes those queries and every mutation and keeps the public ones, so the next user never sees the previous user's data and a prerendered page keeps the data it was rendered with: the flag travels with every query the server dehydrates into the page. A query that leaves the flag out is fetched again for the next user, which costs a request and never leaks data, so mark a query public only when its server function never reads the session. `auth.session.test.ts` runs every public query and fails if one reads the session, or if a source file declares a public query the test does not run.
 
 ## Freshness
 
@@ -73,7 +89,7 @@ A `"static"` read also ignores invalidation: it returns cached data even after a
 context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound)
 ```
 
-- Use `useSuspenseQuery` for data the loader prefetched, and `useQuery` only for data that may arrive later without blocking the page, such as the star count in `proof-section.tsx`. A prerendered page cannot count on its dehydrated queries until it has hydrated, because a route guard clears the query cache the first time it sees a signed-in user: the landing loader also returns the star count, and `proof-section.tsx` passes it as the query's `placeholderData`, so the page hydrates the number it was rendered with.
+- Use `useSuspenseQuery` for data the loader prefetched, and `useQuery` only for data that may arrive later without blocking the page, such as the star count in `proof-section.tsx`.
 - Do not fetch in `useEffect`, and do not pass query results down as props: each component calls the options it needs.
 - A `DataTable` receives a function from page state to options, `options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }}`, and runs the query itself.
 
@@ -95,7 +111,7 @@ const update = useMutation({
 - Invalidate the narrowest prefix that covers every screen showing the changed data. Chapter and lesson mutations invalidate `COURSE_QUERY_KEYS.ALL`, because the course editor and the public course pages show them. `useLessonProgress` invalidates only `COURSE_QUERY_KEYS.DETAIL`, and only when a lesson is completed.
 - Await the invalidation before navigating away or closing a dialog, so the next screen renders fresh data.
 - Errors go through `useErrorMessage()`; see [Server functions and errors](/docs/conventions/server-functions).
-- Never update the cache by hand to fake a result. The one exception is the session: `loadRouteSession` in `auth.routes.ts` clears the whole cache when the signed-in user changes, so no private data survives a sign-out or an account switch.
+- Never update the cache by hand to fake a result. The one exception is the session: when the signed-in user changes, `loadRouteSession` in `auth.routes.ts` removes the previous user's data with `removeUserData` and stores the new session, so no private data survives a sign-out or an account switch. See [Public queries](#public-queries).
 
 ## Related pages
 

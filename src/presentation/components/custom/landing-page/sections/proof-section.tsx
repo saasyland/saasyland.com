@@ -1,7 +1,6 @@
 import type { JSX } from "react"
 
 import { useQuery } from "@tanstack/react-query"
-import { getRouteApi } from "@tanstack/react-router"
 import { useFormatter, useTranslations } from "use-intl/react"
 
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -12,16 +11,13 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 
-const landingRoute = getRouteApi("/_landing/")
-
 const FACT_KEYS = ["coverage", "tests", "locales", "components", "mau", "stars", "upkeep", "types", "tables", "admin"] as const
 
 export const ProofSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.proof")
   const format = useFormatter()
 
-  const { stars: renderedStars } = landingRoute.useLoaderData()
-  const { data: stars } = useQuery({ ...starCountQuery, placeholderData: () => renderedStars })
+  const { data: stars } = useQuery(starCountQuery)
 
   const starCount = typeof stars === "number" ? format.number(stars) : <Skeleton aria-hidden className="h-7 w-16" />
 

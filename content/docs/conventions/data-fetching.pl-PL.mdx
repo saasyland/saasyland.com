@@ -1,6 +1,6 @@
 ---
 title: "Pobieranie danych i cache"
-description: "Opcje zapytań i mutacji obok ich funkcji serwerowej, klucze zapytań zawierające każde wejście, zasady świeżości, loadery, które nigdy nie pobierają ponownie tego, co jest na ekranie, oraz unieważnianie."
+description: "Opcje zapytań i mutacji obok ich funkcji serwerowej, klucze zapytań zawierające każde wejście, publiczne zapytania, które przetrwają zmianę użytkownika, zasady świeżości, loadery, które nigdy nie pobierają ponownie tego, co jest na ekranie, oraz unieważnianie."
 ---
 
 Dane trafiają na ekran przez TanStack Query. Przypadek użycia eksportuje swoje opcje obok funkcji serwerowej, a loader trasy, komponent i test używają tych samych opcji, więc z założenia współdzielą jeden wpis w cache.
@@ -33,6 +33,22 @@ queryKey: [...COURSE_QUERY_KEYS.LIST, courseZodSchemas.getCourses.parse(input)]
 ```
 
 Klucz listy przechowuje sparsowane wejście, więc `getCoursesPageQuery()` i `getCoursesPageQuery({ pageIndex: 0, pageSize: 10 })` trafiają do tego samego wpisu. Język należy do klucza zawsze wtedy, gdy serwer lokalizuje wynik. Nigdy nie wpisuj klucza bezpośrednio w komponencie: odczytaj go z opcji, a do unieważniania z obiektu `<MODULE>_QUERY_KEYS`.
+
+## Publiczne zapytania [#public-queries]
+
+Zapytanie, którego wynik jest taki sam dla każdego odwiedzającego, niezależnie od tego, kto jest zalogowany, deklaruje `meta: { public: true }`:
+
+```ts
+export const catalogueQuery = (input: Course["getCatalogue"]) =>
+  queryOptions({
+    meta: { public: true },
+    queryFn: () => getCatalogue({ data: input }),
+    queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
+    staleTime: COURSE_STALE_MS,
+  })
+```
+
+Tłumaczenia (`messagesQueryOptions`), liczba gwiazdek na GitHubie (`starCountQuery`), katalog kursów (`catalogueQuery`) i blok kursów na stronie głównej (`courseShowcaseQuery`) są publiczne. Każde inne zapytanie należy do zalogowanego użytkownika. Gdy użytkownik się zmienia, `removeUserData` w `auth.session.ts` usuwa te zapytania i wszystkie mutacje, a publiczne zachowuje, więc następny użytkownik nigdy nie zobaczy danych poprzedniego, a strona wyrenderowana z góry zachowuje dane, z którymi została wyrenderowana: flaga jest częścią każdego zapytania, które serwer dehydratuje do strony. Zapytanie bez tej flagi zostaje pobrane ponownie dla następnego użytkownika, co kosztuje jedno żądanie, ale nigdy nie prowadzi do wycieku danych, więc oznaczaj zapytanie jako publiczne tylko wtedy, gdy jego funkcja serwerowa nigdy nie odczytuje sesji. `auth.session.test.ts` wykonuje każde publiczne zapytanie i kończy się błędem, jeśli któreś z nich odczytuje sesję albo jeśli plik źródłowy deklaruje publiczne zapytanie, którego test nie wykonuje.
 
 ## Świeżość
 
@@ -73,7 +89,7 @@ Odczyt `"static"` ignoruje też unieważnianie: zwraca dane z cache nawet po tym
 context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound)
 ```
 
-- Używaj `useSuspenseQuery` dla danych pobranych z wyprzedzeniem przez loader, a `useQuery` tylko dla danych, które mogą dotrzeć później bez blokowania strony, jak liczba gwiazdek w `proof-section.tsx`. Strona wyrenderowana z góry nie może polegać na swoich zdehydratowanych zapytaniach, dopóki się nie zhydratuje, bo guard trasy czyści cache zapytań, gdy pierwszy raz widzi zalogowanego użytkownika: dlatego loader strony głównej zwraca też liczbę gwiazdek, a `proof-section.tsx` przekazuje ją zapytaniu jako `placeholderData`, więc strona hydratuje się z liczbą, z którą została wyrenderowana.
+- Używaj `useSuspenseQuery` dla danych pobranych z wyprzedzeniem przez loader, a `useQuery` tylko dla danych, które mogą dotrzeć później bez blokowania strony, jak liczba gwiazdek w `proof-section.tsx`.
 - Nie pobieraj danych w `useEffect` i nie przekazuj wyników zapytań w dół przez właściwości: każdy komponent wywołuje opcje, których potrzebuje.
 - `DataTable` otrzymuje funkcję, która ze stanu strony tworzy opcje, `options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }}`, i sam wykonuje zapytanie.
 
@@ -95,7 +111,7 @@ const update = useMutation({
 - Unieważniaj najwęższy prefiks, który obejmuje każdy ekran pokazujący zmienione dane. Mutacje rozdziałów i lekcji unieważniają `COURSE_QUERY_KEYS.ALL`, ponieważ pokazują je edytor kursu i publiczne strony kursów. `useLessonProgress` unieważnia tylko `COURSE_QUERY_KEYS.DETAIL` i tylko wtedy, gdy lekcja zostanie ukończona.
 - Czekaj na zakończenie unieważniania, zanim przejdziesz na inną stronę lub zamkniesz okno dialogowe, aby następny ekran wyrenderował świeże dane.
 - Błędy przechodzą przez `useErrorMessage()`; zobacz [Funkcje serwerowe i błędy](/docs/conventions/server-functions).
-- Nigdy nie aktualizuj cache ręcznie, żeby udawać wynik. Jedynym wyjątkiem jest sesja: `loadRouteSession` w `auth.routes.ts` czyści cały cache, gdy zmienia się zalogowany użytkownik, więc żadne prywatne dane nie przetrwają wylogowania ani zmiany konta.
+- Nigdy nie aktualizuj cache ręcznie, żeby udawać wynik. Jedynym wyjątkiem jest sesja: gdy zmienia się zalogowany użytkownik, `loadRouteSession` w `auth.routes.ts` usuwa dane poprzedniego użytkownika za pomocą `removeUserData` i zapisuje nową sesję, więc żadne prywatne dane nie przetrwają wylogowania ani zmiany konta. Zobacz [Publiczne zapytania](#public-queries).
 
 ## Powiązane strony
 

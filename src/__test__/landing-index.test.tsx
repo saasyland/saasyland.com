@@ -1,7 +1,7 @@
 import { renderToString } from "react-dom/server"
 
 import { QueryClientProvider } from "@tanstack/react-query"
-import { RouterContextProvider, createMemoryHistory } from "@tanstack/react-router"
+import { createMemoryHistory } from "@tanstack/react-router"
 import { IntlProvider } from "use-intl"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -44,7 +44,7 @@ afterEach(() => {
 })
 
 describe("landing page star count during server rendering", () => {
-  it("waits for the repository count alongside translations, returns it with the page data and includes it in the initial HTML", async () => {
+  it("waits for the repository count alongside translations and includes it in the initial HTML", async () => {
     const response = Promise.withResolvers<number>()
     fetchStarsMock.mockReturnValue(response.promise)
     const router = createLandingRouter()
@@ -62,16 +62,13 @@ describe("landing page star count during server rendering", () => {
 
     const html = renderToString(
       <QueryClientProvider client={queryClient}>
-        <RouterContextProvider router={router}>
-          <IntlProvider locale="en-US" messages={{ pages: { landing: english } }} timeZone="UTC">
-            <ProofSection />
-          </IntlProvider>
-        </RouterContextProvider>
+        <IntlProvider locale="en-US" messages={{ pages: { landing: english } }} timeZone="UTC">
+          <ProofSection />
+        </IntlProvider>
       </QueryClientProvider>,
     )
 
     expect(queryClient.getQueryData(starCountQuery.queryKey)).toBe(54_321)
-    expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ stars: 54_321 })
     expect(html).toContain("54,321")
     expect(html).not.toContain('data-slot="skeleton"')
     expect(fetchStarsMock).toHaveBeenCalledOnce()
@@ -96,7 +93,6 @@ describe("landing page star count during server rendering", () => {
         ),
       },
       posts: [],
-      stars: undefined,
     })
     expect(queryClient.getQueryData(starCountQuery.queryKey)).toBeUndefined()
   })

@@ -90,6 +90,7 @@ export const buildMessageTree = (entries: readonly NamespaceEntry[]): AbstractIn
 export const messagesQueryOptions = ({ locale, namespace }: { locale: SupportedLocale; namespace: string }) =>
   queryOptions({
     gcTime: Infinity,
+    meta: { public: true },
     queryFn: () => loadNamespace({ locale, namespace }),
     queryKey: [MESSAGES_QUERY_KEY, locale, namespace],
     select: (messages): NamespaceEntry => [namespace, messages],

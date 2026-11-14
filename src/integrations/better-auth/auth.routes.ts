@@ -1,7 +1,7 @@
 import { type ParsedLocation, redirect } from "@tanstack/react-router"
 
 import { hasPermission } from "~/src/integrations/better-auth/auth.access"
-import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
+import { getCurrentSessionQuery, removeUserData } from "~/src/integrations/better-auth/auth.session"
 import type { AuthSearch } from "~/src/integrations/better-auth/auth.zod"
 
 import type { RouterContext } from "~/src/router"
@@ -24,7 +24,7 @@ const loadRouteSession = async ({ context: { queryClient }, preload = false }: A
   const previousSession = queryClient.getQueryData(getCurrentSessionQuery.queryKey)
   const session = await queryClient.query({ ...getCurrentSessionQuery, ...(recheck && !preload ? { staleTime: 0 } : {}) })
   if (previousSession?.user.id !== session?.user.id) {
-    queryClient.clear()
+    removeUserData(queryClient)
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, session)
   }
   return session

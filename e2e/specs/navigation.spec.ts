@@ -1,13 +1,34 @@
 import { readFileSync } from "node:fs"
 
+import type { Page, Route } from "@playwright/test"
+
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const ENGLISH_MDX_CHUNK = /\/assets\/[\w.-]+\.en-US-[\w-]+\.js$/u
 const INSTALLATION_PATH = "/docs/getting-started/installation"
 const INSTALLATION_CHUNK = "/installation.en-US-"
+const CLIENT_SCRIPT = /\/assets\/[\w.-]+\.js$/u
+const TERMS_CHUNK = /\/assets\/_landing\.terms-[\w-]+\.js$/u
+const MOTION_FEATURES_CHUNK = /\/assets\/motion\.features-[\w-]+\.js$/u
 
 const titleOf = (file: string) => /^title: "(?<title>.+)"$/mu.exec(readFileSync(file, "utf8"))?.groups?.["title"] ?? ""
+
+const leaveWhileLoading = async (page: Page, loading: Route): Promise<void> => {
+  const departing = Promise.withResolvers<void>()
+  const departed = Promise.withResolvers<void>()
+  await page.route(`**${ROUTES.PRIVACY}`, async (route) => {
+    departing.resolve()
+    await departed.promise
+    await route.continue()
+  })
+  const leaving = page.goto(ROUTES.PRIVACY, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await departing.promise
+  await loading.abort()
+  departed.resolve()
+  await leaving
+}
 
 test.describe("server rendering and client navigation", () => {
   for (const path of ["/", "/auth/sign-in", "/terms", "/blog"]) {
@@ -85,6 +106,54 @@ test.describe("server rendering and client navigation", () => {
     next.resolve()
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(titleOf("content/docs/getting-started/installation.en-US.mdx"))
+    expect(errors).toEqual([])
+  })
+})
+
+test.describe("a page that is still loading", () => {
+  test("keeps the position a visitor scrolled to before it hydrated", async ({ appPage, page }) => {
+    const scripts = Promise.withResolvers<void>()
+    await page.route(CLIENT_SCRIPT, async (route) => {
+      await scripts.promise
+      await route.continue()
+    })
+    await page.goto(ROUTES.HOME, { waitUntil: "commit" })
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+    await page.evaluate(() => window.scrollTo({ behavior: "instant", top: window.innerHeight * 3 }))
+    const scrolled = await page.evaluate(() => window.scrollY)
+    expect(scrolled).toBeGreaterThan(0)
+
+    scripts.resolve()
+    await appPage.waitForAppReady()
+
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrolled)
+  })
+
+  test("lets a visitor leave while its route code loads", async ({ appPage, page }) => {
+    const chunk = Promise.withResolvers<Route>()
+    await page.route(TERMS_CHUNK, (route) => {
+      chunk.resolve(route)
+    })
+    await page.goto(ROUTES.TERMS, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+
+    await leaveWhileLoading(page, await chunk.promise)
+
+    await expect(page).toHaveURL(ROUTES.PRIVACY)
+    await appPage.waitForAppReady()
+  })
+
+  test("reports no error when a visitor leaves while its animations load", async ({ landingPage, page }) => {
+    const errors: string[] = []
+    page.on("pageerror", (error) => errors.push(error.message))
+    const features = Promise.withResolvers<Route>()
+    await page.route(MOTION_FEATURES_CHUNK, (route) => {
+      features.resolve(route)
+    })
+    await landingPage.goto()
+
+    await leaveWhileLoading(page, await features.promise)
+
+    await expect(page).toHaveURL(ROUTES.PRIVACY)
     expect(errors).toEqual([])
   })
 })

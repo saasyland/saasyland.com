@@ -56,11 +56,10 @@ test.describe("courses", () => {
     expect((await playlist).status()).toBe(200)
   })
 
-  test("a customer without Complete is offered it on a paid lesson", async ({ appPage, authPage, page }) => {
+  test("a customer without Complete is offered it on a paid lesson", async ({ authPage, page }) => {
     await authPage.gotoSignIn()
     await signIn(authPage, customer.email)
     await expect(page).toHaveURL("/app")
-    await appPage.waitForAppReady()
 
     await page.goto(lessonPath(paid.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
@@ -68,11 +67,10 @@ test.describe("courses", () => {
     await expect(page.getByRole("link", { name: "Get Complete" })).toHaveAttribute("href", `/app/license?tier=${LICENSE_TIER.COMPLETE}`)
   })
 
-  test("an administrator can watch every lesson", async ({ appPage, authPage, page }) => {
+  test("an administrator can watch every lesson", async ({ authPage, page }) => {
     await authPage.gotoSignIn()
     await signIn(authPage, admin.email)
     await expect(page).toHaveURL("/admin")
-    await appPage.waitForAppReady()
 
     const playlist = signedPlaylist(page)
     await page.goto(lessonPath(paid.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })

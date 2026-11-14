@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test"
 
+import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "../data/accounts"
 import { TEST_LICENSE } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
@@ -58,6 +59,29 @@ test.describe("display preferences", () => {
     await page.getByRole("navigation", { name: "App navigation", exact: true }).getByRole("link", { name: "Licence", exact: true }).click()
     await expect(page).toHaveURL("/app/license")
     await expect(activation(page)).toContainText("Activated Jan 1, 2025, 9:00 PM GMT+9")
+    expect(errors).toEqual([])
+  })
+
+  test("every locale hydrates the date and time the server printed", async ({ appPage, baseURL, page }) => {
+    const errors: string[] = []
+    page.on("pageerror", (error) => errors.push(error.message))
+    const signedIn = await page.request.post("/api/auth/sign-in/email", {
+      data: { email: TEST_LICENSED_ACCOUNT.email, password: TEST_PASSWORD },
+      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+    })
+    expect(signedIn.ok()).toBe(true)
+    for (const locale of I18N.SUPPORTED_LOCALES) {
+      const prefix = locale === I18N.DEFAULT_LOCALE ? "" : `/${locale}`
+      const response = await page.goto(`${prefix}/app/license`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      const html = (await response?.text()) ?? ""
+      await appPage.waitForAppReady()
+      await appPage.waitForHydration(activation(page))
+      const texts = await activation(page)
+        .locator("span")
+        .evaluateAll((spans) => spans.filter((span) => span.childElementCount === 0).map((span) => span.textContent ?? ""))
+      expect(texts).toHaveLength(2)
+      for (const text of texts) expect(html.includes(text), `${locale}: the server printed "${text}"`).toBe(true)
+    }
     expect(errors).toEqual([])
   })
 })

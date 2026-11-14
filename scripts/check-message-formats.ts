@@ -54,12 +54,39 @@ const argumentsOf = (nodes: MessageFormatElement[], result = new Set<string>()):
   return [...result].toSorted()
 }
 
+const literalTextOf = (nodes: MessageFormatElement[]): string =>
+  nodes
+    .map((node) => {
+      if (isLiteralElement(node)) {
+        return node.value
+      }
+      if (isSelectElement(node) || isPluralElement(node)) {
+        return Object.values(node.options)
+          .map((option) => literalTextOf(option.value))
+          .join(" ")
+      }
+      if (isTagElement(node)) {
+        return literalTextOf(node.children)
+      }
+
+      return " "
+    })
+    .join("")
+
 const messageProblems = ({ locale, original, value }: { locale: SupportedLocale; original: string; value: string }): string[] => {
   const problems: string[] = []
 
   try {
-    if (JSON.stringify(argumentsOf(parse(original))) !== JSON.stringify(argumentsOf(parse(value)))) {
+    const parsed = parse(value)
+    if (JSON.stringify(argumentsOf(parse(original))) !== JSON.stringify(argumentsOf(parsed))) {
       problems.push("changed ICU arguments or tags")
+    }
+    if (
+      locale !== I18N.DEFAULT_LOCALE &&
+      value === original &&
+      (literalTextOf(parsed).match(/\p{L}+/gu)?.length ?? 0) >= MIN_UNTRANSLATED_WORDS
+    ) {
+      problems.push("untranslated English text")
     }
   } catch (error) {
     return [String(error)]
@@ -67,10 +94,6 @@ const messageProblems = ({ locale, original, value }: { locale: SupportedLocale;
 
   if (value.includes("```") && !original.includes("```")) {
     problems.push("unexpected Markdown code fence")
-  }
-
-  if (locale !== I18N.DEFAULT_LOCALE && value === original && (value.match(/\p{L}+/gu)?.length ?? 0) >= MIN_UNTRANSLATED_WORDS) {
-    problems.push("untranslated English text")
   }
 
   if (TRANSLATION_INSTRUCTIONS_PATTERN.test(value)) {

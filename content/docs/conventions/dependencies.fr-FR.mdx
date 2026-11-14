@@ -1,6 +1,6 @@
 ---
 title: "Dépendances"
-description: "Rester sur les dernières versions, adapter le code à l'usage documenté, traiter les bugs en amont par des patchs Bun accompagnés d'un correctif proposé en amont, conserver la forme de package.json qu'écrit Vite+, et vérifier chaque mise à jour par un build."
+description: "Rester sur les dernières versions, adapter le code à l'usage documenté, traiter les bugs en amont par des patchs Bun accompagnés d'un correctif proposé en amont, corriger les avis de sécurité via le paquet parent, conserver la forme de package.json qu'écrit Vite+, et vérifier chaque mise à jour par un build."
 ---
 
 Le dépôt utilise la dernière version de chaque dépendance. Une mise à jour qui casse quelque chose se corrige vers l'avant, dans le code ou en amont, jamais en revenant en arrière.
@@ -39,6 +39,20 @@ Lorsque l'application suit déjà l'usage documenté et que la nouvelle version 
 
 Les patchs actuels sont `patches/@videojs%2Futils@10.3.0.patch`, qui corrige les URL des miniatures du storyboard dans le lecteur vidéo (`@videojs/react` est figé en 10.3.0 avec lui), et `patches/@fumadocs%2Fbase-ui@16.19.0.patch`, qui empêche les blocs de code sans titre d'être des points de repère de type région sans nom (`@fumadocs/base-ui` est figé en 16.19.0). Un patch de `fumadocs-mdx` 15.6.0 a été appliqué de la même manière, puis supprimé lorsque la 15.6.1 a livré le correctif en amont.
 
+## Avis de sécurité
+
+Les alertes Dependabot couvrent `remotion/package-lock.json`, mais GitHub ne lit pas `bun.lock` : vérifiez donc l'application avec `bun audit` et le projet vidéo avec `npm audit` dans `remotion/`. Corrigez un avis avec la dernière version du paquet qui introduit le paquet vulnérable. Quand la plage de versions de ce paquet admet déjà la version corrigée, il suffit de rafraîchir le lockfile : `bun update`, ou `npm update` dans `remotion/`.
+
+Tant qu'aucune version du parent n'admet le correctif, une entrée `overrides` relève la version du paquet vulnérable, et elle est supprimée dès qu'une version du parent le fait. Les entrées actuelles :
+
+- `package.json` : `"minimatch": "^11.0.1"`. `shadcn` atteint `minimatch` ^10 via `ts-morph` 26 et `@ts-morph/common`, et seul `minimatch` 11.0.1 corrige GHSA-g3hv-75wg-m249. Supprimez-la quand `shadcn` dépendra d'une version de `ts-morph` qui contient [dsherret/ts-morph#1697](https://github.com/dsherret/ts-morph/pull/1697).
+- `remotion/package.json` : `minimatch` ^11.0.1 sous `@typescript-eslint/typescript-estree`, pour le même avis. `@remotion/eslint-config-flat` fixe `typescript-eslint` à 8.71.2, dont le parser demande `minimatch` ^10. Supprimez-la quand `@remotion/eslint-config-flat` dépendra d'une version de `typescript-eslint` qui contient [typescript-eslint/typescript-eslint#13145](https://github.com/typescript-eslint/typescript-eslint/pull/13145).
+
+`bun audit` signale encore deux avis pour lesquels il n'existe aucun correctif à appliquer :
+
+- `deepmerge` 4.3.1 (GHSA-gcqx-w48m-w2h4, faible), via `shadcn` et `@shadcn/registry`. Aucune version corrigée n'existe, sa CVE a été rejetée parce qu'elle ne décrit pas de vulnérabilité, et [github/advisory-database#10910](https://github.com/github/advisory-database/issues/10910) demande à GitHub de retirer l'avis.
+- `esbuild` 0.18.20 (GHSA-67mh-4wv8-2f99, modérée), via `drizzle-kit` et `@esbuild-kit/esm-loader`. `drizzle-kit` 0.31.11 déclare ce loader mais ne l'importe jamais, et l'avis concerne le serveur de développement d'esbuild, que rien ne démarre ici. [drizzle-team/drizzle-orm#5304](https://github.com/drizzle-team/drizzle-orm/issues/5304) suit son retrait ; les release candidates de `drizzle-kit` 1.0 n'en dépendent plus.
+
 ## Les entrées Vite+ de package.json
 
 ```json
@@ -47,7 +61,7 @@ Les patchs actuels sont `patches/@videojs%2Futils@10.3.0.patch`, qui corrige les
 "vitest": "5.1.0"
 ```
 
-Ces lignes, ainsi que le même alias `vite` et la même version de `vitest` sous `overrides`, sont exactement ce qu'écrit l'outil de migration de Vite+ lui-même : `vite-plus` est figé à une version exacte, Bun a besoin du cœur comme dépendance `vite` directe, et `vitest` est listé parce que `@vitest/coverage-v8` et les types de test en ont besoin. Mettez-les à jour ensemble avec `vp migrate`, jamais avec `bun update`. Pour savoir si l'une d'elles peut être retirée, copiez le projet, exécutez `vp migrate` sur la copie et comparez le résultat ; ne tranchez pas en raisonnant.
+Ces lignes, ainsi que le même alias `vite` et la même version de `vitest` sous `overrides`, sont exactement ce qu'écrit l'outil de migration de Vite+ lui-même : `vite-plus` est figé à une version exacte, Bun a besoin du cœur comme dépendance `vite` directe, et `vitest` est listé parce que `@vitest/coverage-v8` et les types de test en ont besoin. Mettez-les à jour ensemble avec `vp migrate`, jamais avec `bun update`. Pour savoir si l'une d'elles peut être retirée, copiez le projet, exécutez `vp migrate` sur la copie et comparez le résultat ; ne tranchez pas en raisonnant. L'entrée `minimatch` sous `overrides` est la correction de sécurité décrite plus haut, et `vp migrate` la laisse inchangée.
 
 `build.rolldownOptions.external` dans `vite.config.ts` liste des dépendances peer optionnelles de `@polar-sh/sdk` qui ne sont pas installées et sont éliminées du Worker par le tree shaking ; voir [Vite+](/docs/tooling/vite-plus). Supprimez la liste lorsque Polar corrigera son packaging.
 

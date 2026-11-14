@@ -1,6 +1,6 @@
 ---
 title: "依存関係"
-description: "常に最新バージョンを使い、ドキュメントどおりの使い方にコードを合わせ、アップストリームのバグはアップストリームへの修正とともに Bun のパッチとして保持し、Vite+ が書き出す package.json の形を守り、すべてのアップグレードをビルドで検証します。"
+description: "常に最新バージョンを使い、ドキュメントどおりの使い方にコードを合わせ、アップストリームのバグはアップストリームへの修正とともに Bun のパッチとして保持し、セキュリティアドバイザリーは親パッケージを通じて解消し、Vite+ が書き出す package.json の形を守り、すべてのアップグレードをビルドで検証します。"
 ---
 
 このリポジトリは、すべての依存関係の最新リリースで動作しています。アップグレードで何かが壊れた場合は、元に戻すのではなく、コードかアップストリームで前に進む形で修正します。
@@ -39,6 +39,20 @@ bun run test:e2e:pr
 
 現在のパッチは 2 つです。`patches/@videojs%2Futils@10.3.0.patch` は動画プレーヤーのストーリーボードのサムネイル URL を修正し、これに合わせて `@videojs/react` は 10.3.0 に固定されています。`patches/@fumadocs%2Fbase-ui@16.19.0.patch` はタイトルのないコードブロックが名前のない region ランドマークになるのを防ぎ、`@fumadocs/base-ui` は 16.19.0 に固定されています。`fumadocs-mdx` 15.6.0 へのパッチも同じ方法で保持し、15.6.1 でアップストリームの修正がリリースされた時点で削除しました。
 
+## セキュリティアドバイザリー
+
+Dependabot のアラートは `remotion/package-lock.json` を対象にしますが、GitHub は `bun.lock` を読みません。そのため、アプリケーションは `bun audit` で、動画プロジェクトは `remotion/` 内の `npm audit` で確認します。アドバイザリーは、脆弱なパッケージを取り込んでいるパッケージの最新リリースで解消します。そのパッケージのバージョン範囲がすでに修正済みのリリースを許容している場合は、ロックファイルを更新するだけで十分です（`bun update`、または `remotion/` での `npm update`）。
+
+親パッケージのどのリリースもまだ修正を許容していない場合は、`overrides` のエントリーで脆弱なパッケージのバージョンを引き上げ、親パッケージのリリースが対応した時点でそのエントリーを削除します。現在のエントリーは次のとおりです。
+
+- `package.json`: `"minimatch": "^11.0.1"`。`shadcn` は `ts-morph` 26 と `@ts-morph/common` を経由して `minimatch` ^10 を使っており、GHSA-g3hv-75wg-m249 を修正するのは `minimatch` 11.0.1 だけです。[dsherret/ts-morph#1697](https://github.com/dsherret/ts-morph/pull/1697) を含む `ts-morph` のリリースに `shadcn` が依存するようになったら削除します。
+- `remotion/package.json`: `@typescript-eslint/typescript-estree` 配下の `minimatch` ^11.0.1 で、同じアドバイザリーへの対応です。`@remotion/eslint-config-flat` は `typescript-eslint` を 8.71.2 に固定しており、そのパーサーが `minimatch` ^10 を要求します。[typescript-eslint/typescript-eslint#13145](https://github.com/typescript-eslint/typescript-eslint/pull/13145) を含む `typescript-eslint` のリリースに `@remotion/eslint-config-flat` が依存するようになったら削除します。
+
+`bun audit` は、適用できる修正のないアドバイザリーを 2 件まだ報告します。
+
+- `deepmerge` 4.3.1（GHSA-gcqx-w48m-w2h4、重大度は低）: `shadcn` と `@shadcn/registry` 経由です。修正済みのリリースは存在せず、その CVE は脆弱性を記述していないとして却下されており、[github/advisory-database#10910](https://github.com/github/advisory-database/issues/10910) で GitHub にアドバイザリーの取り下げが求められています。
+- `esbuild` 0.18.20（GHSA-67mh-4wv8-2f99、重大度は中）: `drizzle-kit` と `@esbuild-kit/esm-loader` 経由です。`drizzle-kit` 0.31.11 はこのローダーを依存関係として宣言していますが一度も import しておらず、アドバイザリーの対象は esbuild の開発サーバーで、このリポジトリでそれを起動するものはありません。[drizzle-team/drizzle-orm#5304](https://github.com/drizzle-team/drizzle-orm/issues/5304) で削除が追跡されており、`drizzle-kit` 1.0 のリリース候補はすでにこれに依存していません。
+
 ## package.json の Vite+ のエントリー
 
 ```json
@@ -47,7 +61,7 @@ bun run test:e2e:pr
 "vitest": "5.1.0"
 ```
 
-これらの行と、`overrides` 配下の同じ `vite` エイリアスと `vitest` のバージョンは、Vite+ 自身の移行ツールが書き出すものとまったく同じです。`vite-plus` は正確なバージョンに固定され、Bun はコアを直接の `vite` 依存関係として必要とし、`vitest` は `@vitest/coverage-v8` とテストの型が必要とするため記載されています。これらは `bun update` ではなく、`vp migrate` でまとめてアップグレードします。どれかを削除できるかどうかを知りたい場合は、プロジェクトをコピーし、コピーに対して `vp migrate` を実行して結果の差分を取ってください。推論で判断してはいけません。
+これらの行と、`overrides` 配下の同じ `vite` エイリアスと `vitest` のバージョンは、Vite+ 自身の移行ツールが書き出すものとまったく同じです。`vite-plus` は正確なバージョンに固定され、Bun はコアを直接の `vite` 依存関係として必要とし、`vitest` は `@vitest/coverage-v8` とテストの型が必要とするため記載されています。これらは `bun update` ではなく、`vp migrate` でまとめてアップグレードします。どれかを削除できるかどうかを知りたい場合は、プロジェクトをコピーし、コピーに対して `vp migrate` を実行して結果の差分を取ってください。推論で判断してはいけません。`overrides` 配下の `minimatch` エントリーは上で説明したセキュリティ対応で、`vp migrate` はそれを変更しません。
 
 `vite.config.ts` の `build.rolldownOptions.external` には、`@polar-sh/sdk` の省略可能なピア依存関係のうち、インストールされておらず Worker からツリーシェイキングで除かれるものを列挙しています。[Vite+](/docs/tooling/vite-plus) を参照してください。Polar がパッケージングを修正したら、このリストを削除します。
 

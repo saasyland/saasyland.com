@@ -44,11 +44,10 @@ test.describe("returning after sign-in", () => {
     await expect(page).toHaveURL(`/auth/sign-in?redirect=${encodeURIComponent("/app/license")}`)
   })
 
-  test("a signed-in visitor who follows a sign-in link goes straight to its return path", async ({ appPage, authPage, page }) => {
+  test("a signed-in visitor who follows a sign-in link goes straight to its return path", async ({ authPage, page }) => {
     await authPage.gotoSignIn()
     await signInAsCustomer(page, authPage)
     await expect(page).toHaveURL("/app")
-    await appPage.waitForAppReady()
 
     await page.goto(`/auth/sign-in?redirect=${encodeURIComponent("/app/license")}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 

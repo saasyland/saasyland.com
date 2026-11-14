@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
 
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"

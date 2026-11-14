@@ -57,11 +57,11 @@ const VisibilityCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow
 }
 
 const ItemsCell = (): JSX.Element => {
-  const t = useTranslations("pages.admin.labels")
+  const t = useTranslations("pages.admin.products.categories.table")
 
   return (
     <div className="text-sm font-medium text-foreground">
-      {ITEMS_PLACEHOLDER} <span className="font-normal text-muted-foreground">{t("products")}</span>
+      {ITEMS_PLACEHOLDER} <span className="font-normal text-muted-foreground">{t("itemsUnit")}</span>
     </div>
   )
 }

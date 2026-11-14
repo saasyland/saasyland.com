@@ -4,6 +4,8 @@ import { Link, getRouteApi, useRouterState } from "@tanstack/react-router"
 import { BookOpen, Mail } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
+
 import { APP_NAVIGATION } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
@@ -31,6 +33,7 @@ const route = getRouteApi("/app")
 
 export const AppSidebar = (): JSX.Element => {
   const t = useTranslations("pages.app.sidebar")
+  const navigationLabel = useNavigationLabel()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { user } = route.useRouteContext().session
   const { setOpenMobile } = useSidebar()
@@ -72,7 +75,7 @@ export const AppSidebar = (): JSX.Element => {
                         className={cn({ "text-muted-foreground": !isActive, "text-ring": isActive })}
                         strokeWidth={1.5}
                       />
-                      <span>{t(`navigation.${item.key}`)}</span>
+                      <span>{navigationLabel(item)}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )

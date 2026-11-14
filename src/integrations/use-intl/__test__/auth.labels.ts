@@ -1,5 +1,5 @@
-import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.access"
 import { AUTH_ERRORS } from "~/src/integrations/better-auth/auth.errors"
+import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.roles"
 
 import { USER_STATUS } from "~/src/modules/user/user.constants"
 

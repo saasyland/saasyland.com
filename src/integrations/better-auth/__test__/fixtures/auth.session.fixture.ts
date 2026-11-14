@@ -1,4 +1,4 @@
-import { DEFAULT_ROLE_CODE } from "~/src/integrations/better-auth/auth.access"
+import { DEFAULT_ROLE_CODE } from "~/src/integrations/better-auth/auth.roles"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 
 const FIXTURE_DATE = new Date("2024-01-01T00:00:00.000Z")

@@ -12,8 +12,8 @@ import {
   signUp,
   verifyEmail,
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
-import { DEFAULT_ROLE_CODE } from "~/src/integrations/better-auth/auth.access"
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
+import { DEFAULT_ROLE_CODE } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { ROUTES } from "~/src/routes"

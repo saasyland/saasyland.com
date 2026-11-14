@@ -8,15 +8,15 @@ import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 import { Route as AdminRoute } from "~/src/routes/admin"
 import { Route as AnalyticsRoute } from "~/src/routes/admin.analytics"
 
-import { ADMIN_ANALYTICS_REGION_ROWS } from "~/src/data/admin"
+import { ADMIN_ANALYTICS_REGION_ROWS } from "~/src/data/admin-analytics"
 
 import { breadcrumbDividers, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
 import { AdminAnalyticsPending } from "~/src/presentation/components/custom/admin/analytics-pending"
 
+import navigationCoreMessages from "~/messages/en-US/navigation.core.json"
 import pagesAdminAnalyticsMessages from "~/messages/en-US/pages.admin.analytics.json"
 import pagesAdminMessages from "~/messages/en-US/pages.admin.json"
-import pagesAdminSidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 
 vi.mock(import("~/src/hooks/use-mobile"), () => ({ useIsMobile: () => false }))
 vi.mock("@tanstack/react-router", async (importOriginal) => ({ ...(await importOriginal<typeof RouterModule>()), Outlet: () => null }))
@@ -48,7 +48,7 @@ describe("admin analytics", () => {
 
   it("renders breadcrumbs and navigation for /admin/analytics", () => {
     renderAdminPage(AdminRoute.options.component, { path: "/admin/analytics" })
-    expect(screen.getAllByRole("link", { name: pagesAdminSidebarMessages.links.dashboard }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole("link", { name: navigationCoreMessages.admin.dashboard }).length).toBeGreaterThan(0)
     expect(screen.getByRole("navigation", { name: pagesAdminMessages.components.breadcrumbs.home })).toBeVisible()
   })
 

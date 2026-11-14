@@ -1,4 +1,4 @@
-import type { AdminSkeleton } from "~/src/data/skeletons"
+import type { PageSkeleton } from "~/src/data/skeletons"
 
 import {
   AdminCourseCreatePending,
@@ -12,4 +12,4 @@ export const COURSES_SKELETONS = [
   { pendingComponent: AdminCoursesPending, to: ROUTES.ADMIN_COURSES },
   { pendingComponent: AdminCourseCreatePending, to: ROUTES.ADMIN_COURSES_CREATE },
   { pendingComponent: AdminVideosPending, to: ROUTES.ADMIN_VIDEOS },
-] as const satisfies readonly AdminSkeleton[]
+] as const satisfies readonly PageSkeleton[]

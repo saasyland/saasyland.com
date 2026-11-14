@@ -8,7 +8,7 @@ import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -28,12 +28,15 @@ import { Route as LessonRoute } from "~/src/routes/courses.$course.$lesson"
 import { Route as CourseRoute } from "~/src/routes/courses.$course.index"
 import { Route as CataloguePageRoute } from "~/src/routes/courses.index"
 
+import { NAVIGATION_PAGES } from "~/src/data/navigation"
+
 import { CataloguePending, CoursePending, LessonPending } from "~/src/presentation/components/custom/courses/courses-pending"
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
 import type { VideoPlayer } from "~/src/presentation/components/custom/video-player"
 
 import messages from "~/messages/en-US/pages.courses.json"
 import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.json"
+import plCoursesNavigationMessages from "~/messages/pl-PL/navigation.courses.json"
 import type { RouterContext } from "~/src/router"
 
 type PlayerProps = ComponentProps<typeof VideoPlayer>
@@ -282,8 +285,11 @@ describe("course catalogue", () => {
     await renderCourses({ locale: "pl-PL", path: "/pl-PL/courses" })
 
     const nav = within(screen.getByRole("navigation", { name: plNavigationMessages.ariaLabel }))
-    expect(nav.getByRole("link", { name: plNavigationMessages.items.courses })).toHaveAttribute("aria-current", "page")
-    expect(nav.getByRole("link", { name: plNavigationMessages.items.blog })).toHaveAttribute("href", "/pl-PL/blog")
+    const pageLabel = getNavigationLabel("pl-PL")
+    expect(nav.getByRole("link", { current: "page" })).toHaveAccessibleName(plCoursesNavigationMessages.header.courses)
+    for (const entry of NAVIGATION_PAGES) {
+      expect(nav.getByRole("link", { name: pageLabel(entry) })).toHaveAttribute("href", `/pl-PL${entry.to}`)
+    }
     expect(nav.getByRole("link", { name: plNavigationMessages.getStarted })).toHaveAttribute("href", "/pl-PL#pricing")
   })
 })

@@ -6,7 +6,7 @@ import {
   ADMIN_PRICING_MODELS,
   ADMIN_PRICING_STATS,
   ADMIN_REFUND_TRENDING_STATS,
-} from "~/src/data/admin"
+} from "~/src/data/admin-payments"
 
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"

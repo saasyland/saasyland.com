@@ -1,34 +1,39 @@
 ---
 title: "Role i uprawnienia"
-description: "Definiuj uprawnienia i role w auth.access.ts i sprawdzaj je w strażnikach tras oraz funkcjach serwerowych."
+description: "Deklaruj uprawnienia obszaru i przydziały ról w jego pliku dostępu i sprawdzaj je w strażnikach tras oraz funkcjach serwerowych."
 ---
 
-Kontrola dostępu korzysta z wtyczki admin Better Auth. Uprawnienia, role i funkcja sprawdzająca znajdują się w `src/integrations/better-auth/auth.access.ts`.
+Kontrola dostępu korzysta z wtyczki admin Better Auth. Każdy obszar deklaruje uprawnienia swoich zasobów i role, którym je przyznaje, w `src/data/<area>.access.ts`. `src/data/access.entries.ts` łączy obszary, a `src/integrations/better-auth/auth.access.ts` buduje z nich kontrolę dostępu Better Auth, role i funkcję sprawdzającą, więc integracja uwierzytelniania nie wymienia żadnego obszaru. Kody ról znajdują się w `src/integrations/better-auth/auth.roles.ts`.
 
 ## Uprawnienia i role
 
-```ts title="src/integrations/better-auth/auth.access.ts"
-export const APP_STATEMENTS = {
-  admin: ["access"],
+```ts title="src/data/products.access.ts"
+const STATEMENTS = {
   category: ["create", "read", "update", "delete"],
-  course: ["create", "read", "update", "delete"],
-  order: ["read", "update", "refund"],
   product: ["create", "read", "update", "delete", "publish"],
-  settings: ["manage"],
-  video: ["read", "delete"],
 } as const
 
+export const PRODUCTS_ACCESS = {
+  grants: { [ROLE_CODES.ADMIN]: STATEMENTS },
+  statements: STATEMENTS,
+} as const satisfies AreaAccess
+```
+
+```ts title="src/integrations/better-auth/auth.access.ts"
 export const ac = createAccessControl({ ...defaultStatements, ...APP_STATEMENTS })
 
 export const ROLES = {
-  [ROLE_CODES.ADMIN]: ac.newRole({ ...APP_STATEMENTS, ...adminAc.statements }),
-  [ROLE_CODES.CUSTOMER]: ac.newRole({}),
+  [ROLE_CODES.ADMIN]: ac.newRole({ ...grantsOf(ROLE_CODES.ADMIN), ...adminAc.statements }),
+  [ROLE_CODES.CUSTOMER]: ac.newRole(grantsOf(ROLE_CODES.CUSTOMER)),
 }
 ```
 
+- `APP_STATEMENTS` w `src/data/access.ts` łączy uprawnienia wszystkich obszarów, posortowane według zasobu, i kończy się błędem przy starcie, gdy dwa obszary deklarują ten sam zasób. `grantsOf(role)` łączy to, co każdy obszar przyznaje danej roli.
+- Obszar podstawowy deklaruje `admin` i `settings`, obszar produktów `category` i `product`, obszar kursów `course` i `video`, a obszar płatności `order`.
 - `defaultStatements` z Better Auth dodają zasoby `user` i `session` (np. `user: ["list", "set-role", "ban", "impersonate", "delete"]` oraz `session: ["list", "revoke"]`).
-- `admin` ma wszystkie uprawnienia; `customer`, domyślna rola nowych użytkowników, nie ma żadnego.
+- Każdy obszar przyznaje wszystkie swoje uprawnienia roli `admin`, która otrzymuje też administracyjne uprawnienia Better Auth; `customer`, domyślna rola nowych użytkowników, nie otrzymuje żadnego.
 - `ROLE_VALUES` typuje kolumnę `user.role` i schematy ról w `user.zod.ts`.
+- `Permission`, typ przyjmowany przez `authorized` i `hasPermission`, powstaje z uprawnień deklarowanych przez obszary, więc uprawnienie lub akcja, których nie deklaruje żaden obszar, nie skompiluje się.
 
 ## Gdzie sprawdzane są uprawnienia
 
@@ -43,15 +48,15 @@ Strażnik trasy decyduje tylko o tym, które strony się renderują. Funkcje ser
 
 ## Dodaj uprawnienie
 
-1. Dodaj akcję do `APP_STATEMENTS`, np. `report: ["read", "export"]`.
-2. `admin` otrzymuje ją automatycznie; innym rolom przypisz ją w `ROLES` w razie potrzeby.
+1. Dodaj akcję do uprawnień obszaru, do którego należy zasób, np. `report: ["read", "export"]` w `src/data/analytics.access.ts`. Nowy obszar dodaje swój plik i jeden wiersz do `src/data/access.entries.ts`.
+2. Przyznaj ją w `grants` tego samego pliku: obszary przyznają całe swoje `STATEMENTS` roli `ROLE_CODES.ADMIN`, a roli, która ma dostać mniej, przyznaje się podzbiór.
 3. Wymagaj jej w funkcji serwerowej: `.middleware([authorized({ report: ["export"] })])`.
-4. Przetestuj zarówno przypadek dozwolony, jak i `FORBIDDEN`.
+4. Przetestuj zarówno przypadek dozwolony, jak i `FORBIDDEN`, w `src/data/__test__/<area>.access.test.ts` obszaru i w testach przypadku użycia.
 
 ## Dodaj rolę
 
-1. Dodaj kod do `ROLE_CODES` i `ROLE_VALUES`.
-2. Zdefiniuj jej uprawnienia w `ROLES`.
+1. Dodaj kod do `ROLE_CODES` i `ROLE_VALUES` w `auth.roles.ts`.
+2. Dodaj ją do `ROLES` w `auth.access.ts` i przyznaj jej uprawnienia w `grants` obszarów, z których może korzystać.
 3. Dodaj etykietę roli do `filters.role.options` w `messages/<locale>/pages.admin.users.json` w każdym języku.
 
 Klient uwierzytelniania (`auth.client.ts`) otrzymuje `ac` i `ROLES`, więc akcje administracyjne w przeglądarce używają tych samych definicji.

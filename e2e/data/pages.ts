@@ -1,4 +1,4 @@
-import type { Role } from "../../src/integrations/better-auth/auth.access"
+import type { Role } from "../../src/integrations/better-auth/auth.roles"
 import * as AREA_PAGES from "./pages.entries"
 
 export interface PageEntry {

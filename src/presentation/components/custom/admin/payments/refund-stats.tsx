@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { Clock, TrendingDown } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { ADMIN_REFUND_TRENDING_STATS } from "~/src/data/admin"
+import { ADMIN_REFUND_TRENDING_STATS } from "~/src/data/admin-payments"
 
 import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 

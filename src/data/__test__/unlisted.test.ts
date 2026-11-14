@@ -21,15 +21,17 @@ describe("UNLISTED_ROUTES", () => {
 })
 
 describe("isUnlistedRoute", () => {
+  it("treats every unlisted path and the paths below it as unlisted", () => {
+    for (const route of UNLISTED_ROUTES) {
+      expect(isUnlistedRoute(route)).toBe(true)
+      expect(isUnlistedRoute(`${route}/nested`)).toBe(true)
+    }
+  })
+
   it.each([
-    [ROUTES.ADMIN, true],
-    [ROUTES.ADMIN_COURSES, true],
-    [ROUTES.SIGN_IN, true],
-    [ROUTES.NEWSLETTER_CONFIRM, true],
-    [ROUTES.COURSES, true],
+    [ROUTES.ADMIN_SETTINGS, true],
+    [ROUTES.APP_SETTINGS, true],
     [ROUTES.HOME, false],
-    [ROUTES.DOCS, false],
-    [ROUTES.PREMIUM, false],
     [`${ROUTES.APP}lication`, false],
   ])("treats %s as unlisted: %s", (pathname, unlisted) => {
     expect(isUnlistedRoute(pathname)).toBe(unlisted)

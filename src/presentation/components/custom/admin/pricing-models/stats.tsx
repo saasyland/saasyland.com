@@ -2,7 +2,7 @@ import type { JSX } from "react"
 
 import { useTranslations } from "use-intl/react"
 
-import { ADMIN_PRICING_STATS } from "~/src/data/admin"
+import { ADMIN_PRICING_STATS } from "~/src/data/admin-payments"
 
 import { Card, CardContent } from "~/src/presentation/components/shadcn/card"
 

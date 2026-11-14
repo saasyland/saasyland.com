@@ -1,6 +1,6 @@
 import type { JSX } from "react"
 
-import { ADMIN_PRODUCT_TABS } from "~/src/data/admin"
+import { ADMIN_PRODUCT_TABS } from "~/src/data/admin-products"
 
 import { Card } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"

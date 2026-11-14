@@ -4,8 +4,11 @@ import { ADMIN_NAVIGATION_GROUP, NAVIGATION_PLACEMENT, type NavigationEntry } fr
 
 import { ROUTES } from "~/src/routes"
 
+const AREA = "courses"
+
 export const COURSES_NAVIGATION = [
   {
+    area: AREA,
     group: ADMIN_NAVIGATION_GROUP.CONTENT,
     icon: GraduationCap,
     key: "courses",
@@ -14,6 +17,7 @@ export const COURSES_NAVIGATION = [
     to: ROUTES.ADMIN_COURSES,
   },
   {
+    area: AREA,
     group: ADMIN_NAVIGATION_GROUP.CONTENT,
     icon: Clapperboard,
     key: "videos",
@@ -21,5 +25,5 @@ export const COURSES_NAVIGATION = [
     placement: NAVIGATION_PLACEMENT.ADMIN,
     to: ROUTES.ADMIN_VIDEOS,
   },
-  { key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
+  { area: AREA, key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
 ] as const satisfies readonly NavigationEntry[]

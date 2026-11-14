@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { findUser, promoteToAdmin, signUpAndVerify } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
-import { DEFAULT_ROLE_CODE, ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { DEFAULT_ROLE_CODE, ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 describe("auth.access integration", () => {
@@ -13,20 +13,23 @@ describe("auth.access integration", () => {
     expect(session?.user.role).toBe(DEFAULT_ROLE_CODE)
   })
 
-  it("allows admins to manage products through Better Auth permission checks", async () => {
+  it("allows admins to manage settings through Better Auth permission checks", async () => {
     const { headers, userId } = await signUpAndVerify()
     await promoteToAdmin(userId)
 
-    const permission = await auth.api.userHasPermission({ body: { permissions: { product: ["create"] }, role: ROLE_CODES.ADMIN }, headers })
+    const permission = await auth.api.userHasPermission({
+      body: { permissions: { settings: ["manage"] }, role: ROLE_CODES.ADMIN },
+      headers,
+    })
 
     expect(permission.success).toBe(true)
   })
 
-  it("denies customers product mutations through Better Auth permission checks", async () => {
+  it("denies customers settings management through Better Auth permission checks", async () => {
     const { headers } = await signUpAndVerify()
 
     const permission = await auth.api.userHasPermission({
-      body: { permissions: { product: ["create"] }, role: ROLE_CODES.CUSTOMER },
+      body: { permissions: { settings: ["manage"] }, role: ROLE_CODES.CUSTOMER },
       headers,
     })
 

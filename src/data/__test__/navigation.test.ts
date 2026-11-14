@@ -64,8 +64,7 @@ describe("navigation composition", () => {
     expect(FOOTER_NAVIGATION.every(({ key, links }) => links.every(({ column }) => column === key))).toBe(true)
   })
 
-  it("labels exactly the admin sections", () => {
-    expect(Object.keys(sidebarMessages.links).toSorted()).toStrictEqual(ADMIN_ITEMS.map(({ key }) => key).toSorted())
+  it("labels exactly the admin groups and links each admin section once", () => {
     expect(Object.keys(sidebarMessages.groups).toSorted()).toStrictEqual(ADMIN_NAVIGATION.map(({ key }) => key).toSorted())
     expect(new Set(ADMIN_ITEMS.map(({ to }) => to)).size).toBe(ADMIN_ITEMS.length)
   })

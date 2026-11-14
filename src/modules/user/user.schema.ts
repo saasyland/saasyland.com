@@ -1,8 +1,8 @@
 import { relations } from "drizzle-orm"
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
-import { DEFAULT_ROLE_CODE, ROLE_VALUES } from "~/src/integrations/better-auth/auth.access"
 import { EMAIL_MAX_LENGTH, IMAGE_URL_MAX_LENGTH, NAME_MAX_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
+import { DEFAULT_ROLE_CODE, ROLE_VALUES } from "~/src/integrations/better-auth/auth.roles"
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 

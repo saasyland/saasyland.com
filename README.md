@@ -215,7 +215,8 @@ Authentication entry points are in [`src/integrations/better-auth/`](src/integra
 | File                 | Responsibility                                                                                  |
 | -------------------- | ----------------------------------------------------------------------------------------------- |
 | `auth.server.ts`     | Better Auth, providers, plugins, and allowed hosts.                                             |
-| `auth.access.ts`     | Roles, permissions, and permission checks.                                                      |
+| `auth.access.ts`     | Roles, permissions, and permission checks, built from each area's `src/data/<area>.access.ts`.  |
+| `auth.roles.ts`      | Role codes and the default role.                                                                |
 | `auth.hooks.ts`      | Input policy run before Better Auth's own endpoints: the password, name, email and image rules. |
 | `auth.routes.ts`     | Sign-in/admin guards, the return path after sign-in, and role-based redirects.                  |
 | `auth.middleware.ts` | Server-function authorization, error handling, and rate limiting.                               |

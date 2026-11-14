@@ -5,7 +5,6 @@ import { adminAc } from "better-auth/plugins/admin/access"
 import { useFormatter } from "use-intl/react"
 import { commitEmojis } from "virtual:repository-facts"
 
-import { APP_STATEMENTS } from "~/src/integrations/better-auth/auth.access"
 import {
   BACKUP_CODE_MAX_LENGTH,
   BACKUP_CODE_MIN_LENGTH,
@@ -36,6 +35,7 @@ import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
 import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
+import { APP_STATEMENTS } from "~/src/data/access"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { UNLISTED_ROUTES } from "~/src/data/unlisted"

@@ -16,7 +16,7 @@ const FORMATS = {
     calendarDay: { day: "numeric", month: "long", timeZone: CALENDAR_TIMEZONE },
     calendarMonth: { month: "short", timeZone: CALENDAR_TIMEZONE },
     date: { day: "numeric", month: "short", year: "numeric" },
-    dateTime: { day: "numeric", hour: "numeric", minute: "2-digit", month: "short", timeZoneName: "short", year: "numeric" },
+    time: { hour: "numeric", minute: "2-digit", timeZoneName: "short" },
   },
 } as const satisfies { readonly dateTime: Record<string, Intl.DateTimeFormatOptions> }
 

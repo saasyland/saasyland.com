@@ -51,13 +51,15 @@ Datas e números são formatados com o `useFormatter` do use-intl (`format.dateT
 - `timeZone`: o `timezone` do usuário logado, vindo da query da sessão atual, ou `I18N.DEFAULT_TIMEZONE` (`UTC`) quando não há sessão. O provider lê a sessão que os guards de rota de `/app`, de `/admin` e da autenticação carregam e nunca a busca por conta própria, então as páginas públicas pré-renderizadas são iguais para todos os visitantes e se hidratam sem mudanças. Quando a query da sessão muda, por exemplo depois que o usuário salva um novo fuso em [Configurações](/docs/features/settings), todas as datas são renderizadas de novo.
 - `formats`: `I18N.FORMATS`, os formatos de data nomeados. `src/types/use-intl.d.ts` registra os nomes deles no use-intl, então um nome desconhecido não passa na verificação de tipos.
 
-| Nome            | Exemplo (inglês)          | Uso                                                                                                        |
-| --------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `date`          | Nov 14, 2026              | O dia de um instante no fuso do leitor, em tabelas                                                         |
-| `dateTime`      | Nov 14, 2026, 3:04 PM UTC | Um instante com o horário e a sigla do fuso: ativações de licença e datas de contas no admin               |
-| `calendarDate`  | Nov 14, 2026              | Uma data sem horário, como a data de um post do blog. É formatada em UTC, então nunca passa para outro dia |
-| `calendarDay`   | November 14               | Rótulos de dia do gráfico de analytics do admin                                                            |
-| `calendarMonth` | Nov                       | Rótulos de mês do gráfico do painel do admin                                                               |
+| Nome            | Exemplo (inglês) | Uso                                                                                                        |
+| --------------- | ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| `date`          | Nov 14, 2026     | O dia de um instante no fuso do leitor, em tabelas                                                         |
+| `time`          | 3:04 PM UTC      | O horário de um instante com a sigla do fuso, que `common.dateTime` junta à sua `date`                     |
+| `calendarDate`  | Nov 14, 2026     | Uma data sem horário, como a data de um post do blog. É formatada em UTC, então nunca passa para outro dia |
+| `calendarDay`   | November 14      | Rótulos de dia do gráfico de analytics do admin                                                            |
+| `calendarMonth` | Nov              | Rótulos de mês do gráfico do painel do admin                                                               |
+
+Um formato nomeado contém uma data ou um horário, nunca os dois. Cada motor junta os dois de um jeito: o Safari imprime “Nov 14, 2026 at 3:04 PM UTC” onde o servidor imprime “Nov 14, 2026, 3:04 PM UTC”, então um formato com os dois renderizava no Safari um texto diferente do que o servidor enviou, e o React relatava um erro de hidratação. Uma data com horário é a mensagem `common.dateTime`, `{value, date, date}, {value, time, time}` (sem a vírgula em japonês), como em `t("common.dateTime", { value: createdAt })`, e todo motor imprime cada parte do mesmo jeito. As ativações de licença e as datas das contas no admin a usam. `i18n.config.test.ts` falha quando um formato nomeado mistura campos de data e de horário, e confere que a mensagem imprime o mesmo que o motor do servidor em todo locale e todo fuso horário.
 
 Uma chamada pode substituir uma opção de um formato nomeado: `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`. As tabelas do admin mostram as datas de outros usuários no fuso horário de quem as visualiza, com a sigla, para que uma coluna seja lida e ordenada em um único fuso; o fuso do usuário tem uma coluna própria.
 

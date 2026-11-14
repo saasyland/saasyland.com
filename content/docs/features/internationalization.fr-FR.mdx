@@ -51,13 +51,15 @@ Les dates et les nombres sont formatés avec `useFormatter` de use-intl (`format
 - `timeZone` : le champ `timezone` de l’utilisateur connecté, issu de la requête de session courante, ou `I18N.DEFAULT_TIMEZONE` (`UTC`) sans session. Le provider lit la session que chargent les gardes des routes `/app`, `/admin` et d’authentification, et ne la récupère jamais lui-même : les pages publiques prérendues sont donc identiques pour chaque visiteur et s’hydratent sans changement. Lorsque la requête de session change, par exemple après que l’utilisateur a enregistré un nouveau fuseau dans les [Paramètres](/docs/features/settings), chaque date est de nouveau rendue.
 - `formats` : `I18N.FORMATS`, les formats de date nommés. `src/types/use-intl.d.ts` déclare leurs noms auprès de use-intl, si bien qu’un nom inconnu fait échouer la vérification des types.
 
-| Nom             | Exemple (anglais)         | Usage                                                                                                                     |
-| --------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `date`          | Nov 14, 2026              | Le jour d’un instant dans le fuseau du lecteur, dans les tableaux                                                         |
-| `dateTime`      | Nov 14, 2026, 3:04 PM UTC | Un instant avec son heure et l’abréviation du fuseau : activations de licence et dates des comptes dans l’administration  |
-| `calendarDate`  | Nov 14, 2026              | Une date sans heure, comme la date d’un article de blog. Elle est formatée en UTC et ne passe donc jamais à un autre jour |
-| `calendarDay`   | November 14               | Libellés des jours du graphique d’analyse de l’administration                                                             |
-| `calendarMonth` | Nov                       | Libellés des mois du graphique du tableau de bord de l’administration                                                     |
+| Nom             | Exemple (anglais) | Usage                                                                                                                     |
+| --------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `date`          | Nov 14, 2026      | Le jour d’un instant dans le fuseau du lecteur, dans les tableaux                                                         |
+| `time`          | 3:04 PM UTC       | L’heure d’un instant avec l’abréviation du fuseau, que `common.dateTime` joint à sa `date`                                |
+| `calendarDate`  | Nov 14, 2026      | Une date sans heure, comme la date d’un article de blog. Elle est formatée en UTC et ne passe donc jamais à un autre jour |
+| `calendarDay`   | November 14       | Libellés des jours du graphique d’analyse de l’administration                                                             |
+| `calendarMonth` | Nov               | Libellés des mois du graphique du tableau de bord de l’administration                                                     |
+
+Un format nommé contient une date ou une heure, jamais les deux. Chaque moteur les relie à sa façon : Safari affiche « Nov 14, 2026 at 3:04 PM UTC » là où le serveur affiche « Nov 14, 2026, 3:04 PM UTC », si bien qu’un format contenant les deux produisait dans Safari un autre texte que celui envoyé par le serveur, et React signalait une erreur d’hydratation. Une date avec son heure passe par le message `common.dateTime`, `{value, date, date}, {value, time, time}` (sans la virgule en japonais), comme dans `t("common.dateTime", { value: createdAt })`, et chaque moteur affiche chaque partie de la même façon. Les activations de licence et les dates des comptes dans l’administration l’utilisent. `i18n.config.test.ts` échoue quand un format nommé mélange des champs de date et d’heure, et vérifie que le message affiche ce qu’affiche le moteur du serveur dans chaque locale et chaque fuseau horaire.
 
 Un appel peut remplacer une option d’un format nommé : `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`. Les tableaux de l’administration affichent les dates des autres utilisateurs dans le fuseau propre à la personne qui les consulte, avec son abréviation, afin qu’une colonne se lise et se trie dans un seul fuseau ; le fuseau de l’utilisateur a sa propre colonne.
 

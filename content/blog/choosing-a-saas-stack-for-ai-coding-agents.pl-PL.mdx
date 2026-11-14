@@ -1,11 +1,11 @@
 ---
 title: "Jak wybrać stack SaaS pod agenty AI w 2026"
 description: "Popularny nie znaczy już przyjazny agentom. Czteropytaniowy test dla dowolnej zależności, zastosowany warstwa po warstwie do produkcyjnego stacku SaaS."
-excerpt: "Standardowa rada mówi: wybieraj popularne narzędzia, bo modele widziały ich więcej. W 2026 ta rada częściowo się odwróciła, a w tym repozytorium jest artefakt, który to udowadnia."
+excerpt: "Standardowa rada mówi: wybieraj popularne narzędzia, bo modele widziały ich więcej. W 2026 ta rada częściowo się odwróciła, a sam Next.js dostarcza artefakt, który to udowadnia."
 authorName: Piotr J. Borowiecki
 authorImage: https://avatars.githubusercontent.com/u/27385980?s=96&v=4
 date: 2026-08-15
-updated: 2026-09-06
+updated: 2026-11-14
 image: /images/blog/choosing-a-saas-stack-for-ai-coding-agents.webp
 tags:
   - ai-agents
@@ -76,7 +76,7 @@ faq:
       będzie języczkiem u wagi, a nie powodem.
 ---
 
-Rada, którą wszyscy powtarzają przy wyborze stacku pod agenty AI, brzmi: popularne jest lepsze, bo modele widziały tego więcej. Brzmi oczywiście prawdziwie. Była prawdziwa. W 2026 częściowo się odwróciła, a dowodem jest plik, który to repozytorium generuje samo.
+Rada, którą wszyscy powtarzają przy wyborze stacku pod agenty AI, brzmi: popularne jest lepsze, bo modele widziały tego więcej. Brzmi oczywiście prawdziwie. Była prawdziwa. W 2026 częściowo się odwróciła, a dowodem jest plik, który Next.js sam zapisuje w Twoim projekcie.
 
 Uruchom `next dev` na Next.js 16, a bez pytania dopisze to do Twojego `AGENTS.md`:
 
@@ -102,7 +102,7 @@ Ten artykuł jest o tym problemie i o tym, co z nim zrobić. Nie jest listą zak
 
 </Callout>
 
-_Ostatnia aktualizacja: 15 sierpnia 2026. To druga część serii; pierwsza opisuje, [dlaczego Twoje repozytorium decyduje o jakości pracy agenta](/blog/ai-coding-agents-repository-readiness), i jeśli jej jeszcze nie znasz, warto zacząć od niej._
+_Ostatnia aktualizacja: 14 listopada 2026. To druga część serii; pierwsza opisuje, [dlaczego Twoje repozytorium decyduje o jakości pracy agenta](/blog/ai-coding-agents-repository-readiness), i jeśli jej jeszcze nie znasz, warto zacząć od niej._
 
 ## Co stack faktycznie robi dla agenta AI?
 
@@ -220,11 +220,13 @@ Schemat jest TypeScriptem, więc jest jednocześnie źródłem migracji i źród
 
 Poza typowaniem liczą się dwie cechy. Zapytania Drizzle przypominają SQL, więc istniejąca wiedza o SQL przenosi się wprost. Cloudflare D1 używa semantyki SQLite, więc agenty muszą trzymać się adaptera D1 i zainstalowanej dokumentacji, zamiast kopiować zapytania specyficzne dla Postgresa. Wersjonowane migracje i izolowane lokalne bindingi pozwalają zrecenzować zmiany przed jakąkolwiek operacją zdalną.
 
-### Walidacja: Zod na każdej granicy zewnętrznej
+### Walidacja: Zod na granicy żądań
 
 **Wynik: 8/8.** To warstwa, którą większość stacków pomija, i ta, która najszybciej się zwraca.
 
 Typy opisują to, w co wierzysz. Schematy to sprawdzają. Każde miejsce, w którym dane wchodzą do procesu (ciała HTTP, zmienne środowiskowe, payloady webhooków, odpowiedzi zewnętrzne, kolumny JSON), to miejsce, gdzie system typów ufa obietnicy, której nikt nie zweryfikował.
+
+W tej aplikacji Zod parsuje wejścia funkcji serwerowych, parametry wyszukiwania tras i wartości formularzy, a SDK Polar weryfikuje i parsuje payloady webhooków. Bindingi środowiska są typowane przez Wranglera, a nie parsowane, więc to one pozostają granicą, której wciąż ufa się na słowo.
 
 W pracy z agentami waży to więcej niż w pracy człowieka. Człowiek piszący integrację bywa podejrzliwy wobec payloadu, bo już się sparzył. Agent pisze ścieżkę szczęśliwą z pełnym przekonaniem, bo to ona dominuje w jego danych treningowych. Schemat na krawędzi zamienia ten optymizm w złapany błąd z komunikatem wskazującym pole.
 
@@ -300,12 +302,12 @@ Każde twierdzenie poniżej odpowiada komendzie w publicznym repozytorium strony
 
 | Warstwa          | Wybór                            | Wynik | Sprawdź                                                                                                                    |
 | ---------------- | -------------------------------- | :---: | -------------------------------------------------------------------------------------------------------------------------- |
-| Język            | TypeScript, ścisły, bez `any`    |   8   | `tsc --strict` blokuje merge                                                                                               |
+| Język            | TypeScript, ścisły, bez `any`    |   8   | Kontrola typów `vp check` blokuje merge                                                                                    |
 | Runtime          | Cloudflare Workers               |   7   | `bun run check && bun run test:coverage`                                                                                   |
 | Framework        | TanStack Start, React            |   6   | Zainstalowana dokumentacja wskazana w `AGENTS.md`                                                                          |
 | API              | Funkcje serwerowe TanStack Start |   7   | Zmiana trasy psuje wywołania przy buildzie                                                                                 |
 | Baza danych      | Drizzle, Cloudflare D1           |   8   | Schemat to migracja i typy jednocześnie                                                                                    |
-| Walidacja        | Zod na każdej granicy            |   8   | HTTP, env, webhooki i wiersze parsowane                                                                                    |
+| Walidacja        | Zod na granicy żądań             |   8   | Wejścia funkcji serwerowych i parametry wyszukiwania tras parsowane; env jest typowany, nie parsowany                      |
 | Uwierzytelnianie | Better Auth, w repo              |   7   | Czytelne źródło, `$0` za użytkownika                                                                                       |
 | Style            | Tailwind, shadcn/ui w repo       |   7   | Komponenty do edycji (<RepositoryCount fact="uiComponents" />)                                                             |
 | i18n             | use-intl, bramka spójności       |   7   | `bun run check:i18n`                                                                                                       |
@@ -317,7 +319,7 @@ Bramka 100% pokrycia jest tym, co czyni resztę bezpieczną do uruchamiania agen
 
 <Callout title="Sprawdź, zanim zapłacisz">
 
-[Dokumentacja](/docs) jest publiczna, a raport pokrycia generuje samo repozytorium. Potem [zobacz, ile to kosztuje](/#pricing): jedna płatność od 249 dolarów, dożywotnie aktualizacje rdzenia, bez opłat za użytkownika.
+[Dokumentacja](/docs) jest publiczna, a raport pokrycia generuje samo repozytorium. Potem [zobacz, ile to kosztuje](/#pricing): jedna płatność od <TierPrice tier="core" />, dożywotnie aktualizacje rdzenia, bez opłat za użytkownika.
 
 </Callout>
 

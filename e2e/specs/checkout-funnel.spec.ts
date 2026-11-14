@@ -74,7 +74,7 @@ test.describe("checkout funnel", () => {
 
     await deliverPaidOrder(request, { tier: LICENSE_TIER.COMPLETE, userId })
 
-    await expect(page.getByRole("heading", { name: "Your license is active" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Your licence is active" })).toBeVisible()
     await expect(page.getByText("Thank you for buying Complete.")).toBeVisible()
 
     await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -98,7 +98,7 @@ test.describe("checkout funnel", () => {
     await page.goto(`/app/license?checkoutId=${CHECKOUT_ID}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
-    await expect(page.getByRole("region", { name: "Get your license" })).toHaveCount(0)
+    await expect(page.getByRole("region", { name: "Get your licence" })).toHaveCount(0)
 
     await page.clock.fastForward("01:05")
 
@@ -129,15 +129,15 @@ test.describe("checkout funnel", () => {
     await deliverPaidOrder(request, { tier: LICENSE_TIER.CORE, userId })
     await page.getByRole("button", { name: "Get Agency", exact: true }).click()
 
-    await expect(page.getByText("You already have an active license. To move to another tier, email hello@saasyland.com.")).toBeVisible()
+    await expect(page.getByText("You already have an active licence. To move to another tier, email hello@saasyland.com.")).toBeVisible()
     await expect(page.getByRole("heading", { name: "Core", exact: true })).toBeVisible()
-    await expect(page.getByRole("region", { name: "Get your license" })).toHaveCount(0)
+    await expect(page.getByRole("region", { name: "Get your licence" })).toHaveCount(0)
 
     await landingPage.goto()
     await page.locator("#pricing").getByRole("link", { name: "Get Complete", exact: true }).click()
     await expect(page).toHaveURL(`/app?tier=${LICENSE_TIER.COMPLETE}`)
     await appPage.waitForAppReady()
-    await expect(page.getByRole("heading", { name: "Your license", exact: true })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Your licence", exact: true })).toBeVisible()
     await expect(page.getByRole("button", { name: "Continue to checkout" })).toHaveCount(0)
   })
 })

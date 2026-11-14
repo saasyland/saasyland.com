@@ -11,6 +11,9 @@ import { MotionProvider } from "~/src/providers/motion-provider"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+
+import { CONSULTING_HOURLY_RATE } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { CasesSection } from "~/src/presentation/components/custom/landing-page/sections/cases-section"
@@ -31,6 +34,7 @@ import { StudioSection } from "~/src/presentation/components/custom/landing-page
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
 import english from "~/messages/en-US/pages.landing.json"
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const withFacts = (message: string): string => createTranslator({ locale: "en-US", messages: { message } })("message", REPOSITORY_FACTS)
@@ -154,6 +158,9 @@ describe("marketing content and purchase links", () => {
       "href",
       "mailto:hello@saasyland.com?subject=Architecture%20call",
     )
+    expect(screen.getByText(english.pricing.consulting.period).previousElementSibling).toHaveTextContent(
+      new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(CONSULTING_HOURLY_RATE),
+    )
   })
 
   it("exposes every FAQ answer through its question and keeps the contact link available", async () => {
@@ -168,6 +175,7 @@ describe("marketing content and purchase links", () => {
       expect(screen.getByText(withFacts(item.answer))).toBeVisible()
     }
     expect(screen.getByRole("link", { name: english.faq.contact })).toHaveAttribute("href", "mailto:hello@saasyland.com")
+    expect(screen.getByText(english.faq.contactNote.replace("{email}", CONTACT_EMAIL))).toBeVisible()
   })
 
   it("links only live customer projects and presents the upcoming project without a dead link", () => {

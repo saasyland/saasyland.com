@@ -54,10 +54,10 @@ for (const account of TEST_ACCOUNTS) {
       await page.emulateMedia({ colorScheme: "light" })
       await expect(page.locator("html")).toHaveClass(/light/u)
 
-      await navigation.getByRole("link", { name: "License", exact: true }).click()
+      await navigation.getByRole("link", { name: "Licence", exact: true }).click()
       await expect(page).toHaveURL(/\/app\/license$/u)
-      await expect(navigation.getByRole("link", { name: "License", exact: true })).toHaveAttribute("aria-current", "page")
-      await expect(page.getByRole("heading", { name: "Your license", exact: true })).toBeVisible()
+      await expect(navigation.getByRole("link", { name: "Licence", exact: true })).toHaveAttribute("aria-current", "page")
+      await expect(page.getByRole("heading", { name: "Your licence", exact: true })).toBeVisible()
       await expect(page.getByRole("button", { name: "Get Core", exact: true })).toBeVisible()
       await page.screenshot({ animations: "disabled", fullPage: true, path: testInfo.outputPath("app-license-desktop.png") })
 
@@ -139,10 +139,10 @@ test("customer can use the mobile app sidebar and signing out protects both app 
   await expect(sidebar).toBeVisible()
   await expect(sidebar).toBeInViewport({ ratio: 1 })
   await page.screenshot({ animations: "disabled", fullPage: true, path: testInfo.outputPath("app-sidebar-mobile.png") })
-  await sidebar.getByRole("link", { name: "License", exact: true }).click()
+  await sidebar.getByRole("link", { name: "Licence", exact: true }).click()
   await expect(page).toHaveURL(/\/app\/license$/u)
   await expect(sidebar).not.toBeVisible()
-  await expect(page.getByRole("heading", { name: "Your license", exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Your licence", exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ animations: "disabled", fullPage: true, path: testInfo.outputPath("app-license-mobile.png") })
 

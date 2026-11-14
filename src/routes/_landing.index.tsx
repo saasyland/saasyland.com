@@ -2,6 +2,7 @@ import type { JSX } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
+import { createFormatter, createTranslator } from "use-intl"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
@@ -9,7 +10,11 @@ import { getPublishedBlogPosts } from "~/src/integrations/fumadocs/fumadocs.sour
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+
+import { TIER_PRICES } from "~/src/data/marketing"
 
 import { starCountQuery } from "~/src/lib/github"
 import { pageHead } from "~/src/lib/seo"
@@ -79,7 +84,9 @@ export const Route = createFileRoute("/_landing/")({
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query(starCountQuery).catch(() => {}),
     ])
-    return { locale, metadata, posts }
+    const price = createFormatter({ locale }).number(TIER_PRICES[LICENSE_TIER.CORE], CURRENCY_FORMAT)
+    const description = createTranslator({ locale, messages: metadata })("description", { price })
+    return { locale, metadata: { ...metadata, description }, posts }
   },
   pendingComponent: HomePending,
   staticData: { namespaces: [NAMESPACE] },

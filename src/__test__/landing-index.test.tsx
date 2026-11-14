@@ -5,6 +5,11 @@ import { createMemoryHistory } from "@tanstack/react-router"
 import { IntlProvider } from "use-intl"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+
+import { TIER_PRICES } from "~/src/data/marketing"
+
 import { starCountQuery } from "~/src/lib/github"
 
 import { ProofSection } from "~/src/presentation/components/custom/landing-page/sections/proof-section"
@@ -80,7 +85,13 @@ describe("landing page star count during server rendering", () => {
     expect(router.state.matches.at(-1)?.status).toBe("success")
     expect(router.state.matches.at(-1)?.loaderData).toEqual({
       locale: "en-US",
-      metadata: english.metadata,
+      metadata: {
+        ...english.metadata,
+        description: english.metadata.description.replace(
+          "{price}",
+          new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(TIER_PRICES[LICENSE_TIER.CORE]),
+        ),
+      },
       posts: [],
     })
     expect(queryClient.getQueryData(starCountQuery.queryKey)).toBeUndefined()

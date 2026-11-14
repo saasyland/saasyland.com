@@ -34,10 +34,7 @@ const listFiles = (directory: string): string[] =>
   )
 
 const codeBlocks = (source: string): string[] =>
-  [...source.matchAll(CODE_BLOCK_PATTERN)]
-    .map(([code]) => code)
-    .filter((code) => !code.startsWith("```markdown"))
-    .map((code) => code.replaceAll(/^\s*\/\/[^\n]*$/gmu, ""))
+  [...source.matchAll(CODE_BLOCK_PATTERN)].map(([code]) => code.replaceAll(/^\s*\/\/[^\n]*$/gmu, ""))
 
 const readFrontmatter = (source: string): Record<string, unknown> => {
   const yaml = FRONTMATTER_PATTERN.exec(source)?.groups?.["yaml"]

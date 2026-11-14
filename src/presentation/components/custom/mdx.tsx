@@ -24,6 +24,7 @@ import { Separator } from "~/src/presentation/components/shadcn/separator"
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
 import { RepositoryCount } from "~/src/presentation/components/custom/repository-count"
+import { TierPrice } from "~/src/presentation/components/custom/tier-price"
 
 const INTERNAL_PREFIX = "/"
 const TASK_LIST_ITEM = "task-list-item"
@@ -87,6 +88,7 @@ export const mdxComponents = {
   TableHeader,
   TableRow,
   Tabs,
+  TierPrice,
   a: MdxLink,
   li: MdxListItem,
 }

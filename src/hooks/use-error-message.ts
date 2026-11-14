@@ -4,6 +4,8 @@ import { AUTH_ERRORS, type AuthErrorMessageKey } from "~/src/integrations/better
 
 import { ERROR_CODES, type ErrorCode } from "~/src/modules/_core/constants/errors"
 
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
+
 const AUTH_ERROR_KEYS = new Set<string>(Object.values(AUTH_ERRORS))
 const ERROR_CODE_KEYS = new Set<string>(Object.values(ERROR_CODES))
 const VALIDATION_ERROR_NAMES = new Set(["ValidationError", "ZodError"])
@@ -24,7 +26,7 @@ export const useErrorMessage = (): ((error: unknown) => string) => {
       return t(`auth.errors.${message}`)
     }
     if (isErrorCode(message)) {
-      return t(`errors.codes.${message}`)
+      return t(`errors.codes.${message}`, { email: CONTACT_EMAIL })
     }
     if (VALIDATION_ERROR_NAMES.has(name)) {
       return t("errors.codes.VALIDATION")

@@ -1,11 +1,11 @@
 ---
 title: "Die Wahl eines SaaS-Stacks für KI-Coding-Agenten im Jahr 2026"
 description: Beliebt heißt nicht mehr automatisch agentenfreundlich. Ein Test aus vier Fragen für jede Abhängigkeit, Schicht für Schicht angewendet auf einen echten SaaS-Stack in Produktion.
-excerpt: Der übliche Rat lautet, beliebte Tools zu wählen, weil Agenten mehr davon gesehen haben. 2026 hat sich dieser Rat teilweise ins Gegenteil verkehrt, und in diesem Repository liegt eine Datei, die das beweist.
+excerpt: Der übliche Rat lautet, beliebte Tools zu wählen, weil Agenten mehr davon gesehen haben. 2026 hat sich dieser Rat teilweise ins Gegenteil verkehrt, und Next.js selbst liefert eine Datei mit, die das beweist.
 authorName: Piotr J. Borowiecki
 authorImage: https://avatars.githubusercontent.com/u/27385980?s=96&v=4
 date: 2026-08-15
-updated: 2026-09-06
+updated: 2026-11-14
 image: /images/blog/choosing-a-saas-stack-for-ai-coding-agents.webp
 tags:
   - ai-agents
@@ -35,7 +35,7 @@ faq:
     answer: Fast nie. Die Migrationskosten sind sicher und der Gewinn ist begrenzt, während strikte Typen, Validierung an den Grenzen und ein einziger Prüfbefehl in Ihrem bestehenden Stack günstig sind und sofort wirken. Wechseln Sie den Stack, wenn Sie ihn ohnehin wechseln wollten, und lassen Sie die Eignung für Agenten bei Gleichstand den Ausschlag geben, statt sie zum Grund zu machen.
 ---
 
-Der Rat, den alle zur Stack-Wahl für KI-Coding-Agenten geben, lautet: Beliebt ist besser, weil Modelle mehr davon gesehen haben. Das klingt offensichtlich richtig. Es war auch richtig. 2026 hat es sich teilweise ins Gegenteil verkehrt, und der Beweis ist eine Datei, die dieses Repository selbst erzeugt.
+Der Rat, den alle zur Stack-Wahl für KI-Coding-Agenten geben, lautet: Beliebt ist besser, weil Modelle mehr davon gesehen haben. Das klingt offensichtlich richtig. Es war auch richtig. 2026 hat es sich teilweise ins Gegenteil verkehrt, und der Beweis ist eine Datei, die Next.js von sich aus in Ihr Projekt schreibt.
 
 Führen Sie `next dev` unter Next.js 16 aus, und es schreibt ungefragt Folgendes in Ihre `AGENTS.md`:
 
@@ -61,7 +61,7 @@ In diesem Artikel geht es um dieses Problem und darum, was Sie damit anfangen. E
 
 </Callout>
 
-_Zuletzt aktualisiert am 15. August 2026. Dies ist der zweite Teil einer Reihe; der erste behandelt, [warum Ihr Repository über die Qualität der Agenten-Ergebnisse entscheidet](/blog/ai-coding-agents-repository-readiness), und es lohnt sich, ihn zuerst zu lesen, falls Sie das noch nicht getan haben._
+_Zuletzt aktualisiert am 14. November 2026. Dies ist der zweite Teil einer Reihe; der erste behandelt, [warum Ihr Repository über die Qualität der Agenten-Ergebnisse entscheidet](/blog/ai-coding-agents-repository-readiness), und es lohnt sich, ihn zuerst zu lesen, falls Sie das noch nicht getan haben._
 
 ## Was leistet ein Stack eigentlich für einen KI-Coding-Agenten?
 
@@ -179,11 +179,13 @@ Das Schema ist TypeScript, also gleichzeitig Quelle der Migrationen und Quelle d
 
 Über die Typisierung hinaus zählen zwei Eigenschaften. Drizzle-Abfragen ähneln SQL, also lässt sich vorhandenes SQL-Wissen übertragen. Cloudflare D1 verwendet SQLite-Semantik, also müssen Agenten dem D1-Adapter und der installierten Dokumentation folgen, statt Postgres-spezifische Abfragen zu kopieren. Versionierte Migrationen und isolierte lokale Bindings machen Änderungen prüfbar, bevor irgendeine Remote-Operation stattfindet.
 
-### Validierung: Zod an jeder externen Grenze
+### Validierung: Zod an der Request-Grenze
 
 **Punktzahl: 8/8.** Diese Schicht lassen die meisten Stacks weg, und sie zahlt sich am schnellsten aus.
 
 Typen beschreiben, was Sie glauben. Schemas prüfen es. Jede Stelle, an der Daten in den Prozess gelangen (HTTP-Bodies, Umgebungsvariablen, Webhook-Payloads, Antworten von Drittanbietern, JSON-Spalten in der Datenbank), ist eine Stelle, an der das Typsystem einem Versprechen vertraut, das niemand geprüft hat.
+
+In dieser Anwendung parst Zod die Eingaben von Serverfunktionen, die Suchparameter von Routen und Formularwerte, und das Polar-SDK verifiziert und parst Webhook-Payloads. Die Umgebungs-Bindings werden von Wrangler typisiert statt geparst; sie sind damit die Grenze, der weiterhin ungeprüft vertraut wird.
 
 Bei der Arbeit mit Agenten zählt das mehr als bei menschlicher Arbeit. Ein Mensch, der eine Integration schreibt, misstraut der Payload meist, weil er sich schon die Finger verbrannt hat. Ein Agent schreibt den Happy Path mit voller Zuversicht, weil seine Trainingsdaten überwiegend den Happy Path enthalten. Ein Schema an der Grenze verwandelt diesen Optimismus in einen abgefangenen Fehler mit einer Meldung, die das Feld benennt.
 
@@ -257,18 +259,18 @@ Kennzeichnen Sie diese Pfade in `AGENTS.md` als „nur mit menschlichem Review�
 
 Jede Aussage unten verweist auf einen Befehl im öffentlichen Repository der Website und nicht auf ein Adjektiv auf einer Seite.
 
-| Schicht           | Wahl                              | Punkte | Prüfung                                                                                                             |
-| ----------------- | --------------------------------- | :----: | ------------------------------------------------------------------------------------------------------------------- |
-| Sprache           | TypeScript, strikt, kein `any`    |   8    | `tsc --strict` blockiert den Merge                                                                                  |
-| Laufzeit          | Cloudflare Workers                |   7    | `bun run check && bun run test:coverage`                                                                            |
-| Framework         | TanStack Start, React             |   6    | Installierte Dokumentation, in `AGENTS.md` gepinnt                                                                  |
-| API               | TanStack Start Server Functions   |   7    | Eine geänderte Route bricht die Aufrufstellen beim Build                                                            |
-| Datenbank         | Drizzle, Cloudflare D1            |   8    | Das Schema ist Migration und Typen zugleich                                                                         |
-| Validierung       | Zod an jeder Grenze               |   8    | HTTP, Umgebung, Webhooks und Zeilen werden alle geparst                                                             |
-| Authentifizierung | Better Auth, im Repository        |   7    | Lesbarer Quellcode, `$0` pro Nutzer                                                                                 |
-| Styling           | Tailwind, shadcn/ui im Repository |   7    | <RepositoryCount fact="uiComponents" /> Komponenten, die Sie bearbeiten können                                      |
-| i18n              | use-intl, mit Paritätsprüfung     |   7    | `bun run check:i18n`                                                                                                |
-| Tests             | Vitest, Playwright                |   8    | <RepositoryCount fact="testFiles" /> Testdateien, <RepositoryCount fact="e2eSpecs" /> Playwright-Suites, 100-%-Gate |
+| Schicht           | Wahl                              | Punkte | Prüfung                                                                                                              |
+| ----------------- | --------------------------------- | :----: | -------------------------------------------------------------------------------------------------------------------- |
+| Sprache           | TypeScript, strikt, kein `any`    |   8    | Typprüfung mit `vp check` blockiert den Merge                                                                        |
+| Laufzeit          | Cloudflare Workers                |   7    | `bun run check && bun run test:coverage`                                                                             |
+| Framework         | TanStack Start, React             |   6    | Installierte Dokumentation, in `AGENTS.md` gepinnt                                                                   |
+| API               | TanStack Start Server Functions   |   7    | Eine geänderte Route bricht die Aufrufstellen beim Build                                                             |
+| Datenbank         | Drizzle, Cloudflare D1            |   8    | Das Schema ist Migration und Typen zugleich                                                                          |
+| Validierung       | Zod an der Request-Grenze         |   8    | Eingaben von Serverfunktionen und Suchparameter von Routen werden geparst; die Umgebung ist typisiert, nicht geparst |
+| Authentifizierung | Better Auth, im Repository        |   7    | Lesbarer Quellcode, `$0` pro Nutzer                                                                                  |
+| Styling           | Tailwind, shadcn/ui im Repository |   7    | <RepositoryCount fact="uiComponents" /> Komponenten, die Sie bearbeiten können                                       |
+| i18n              | use-intl, mit Paritätsprüfung     |   7    | `bun run check:i18n`                                                                                                 |
+| Tests             | Vitest, Playwright                |   8    | <RepositoryCount fact="testFiles" /> Testdateien, <RepositoryCount fact="e2eSpecs" /> Playwright-Suites, 100-%-Gate  |
 
 Das 100-%-Coverage-Gate ist der Teil, der den Rest sicher genug macht, um einen Agenten darauf anzusetzen. Der Agent kann so schnell schreiben, wie er will; nichts, was er kaputt macht, erreicht main, und Sie erfahren es im Pull Request statt von einem Kunden.
 
@@ -276,7 +278,7 @@ Das 100-%-Coverage-Gate ist der Teil, der den Rest sicher genug macht, um einen 
 
 <Callout title="Prüfen Sie es, bevor Sie dafür bezahlen">
 
-Die [Dokumentation](/docs) ist öffentlich, und der Coverage-Bericht wird vom Repository selbst erzeugt. Dann [sehen Sie sich an, was es kostet](/#pricing): eine Zahlung ab 249 $, lebenslange Core-Updates, keine Gebühren pro Nutzer.
+Die [Dokumentation](/docs) ist öffentlich, und der Coverage-Bericht wird vom Repository selbst erzeugt. Dann [sehen Sie sich an, was es kostet](/#pricing): eine Zahlung ab <TierPrice tier="core" />, lebenslange Core-Updates, keine Gebühren pro Nutzer.
 
 </Callout>
 

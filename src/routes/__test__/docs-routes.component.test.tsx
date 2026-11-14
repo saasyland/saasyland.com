@@ -57,6 +57,7 @@ beforeEach(() => {
       locale: "en-US" as const,
       path: `${slug || "index"}.mdx`,
       pathname: slug ? `/docs/${slug}` : "/docs",
+      section: undefined,
       title: slug || "Introduction",
     }),
   )

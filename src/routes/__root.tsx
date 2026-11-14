@@ -16,7 +16,7 @@ import { getLocaleDirection } from "~/src/modules/_core/constants/locale"
 
 import { THEME } from "~/src/presentation/theme"
 
-import { toOpenGraphLocale } from "~/src/lib/seo"
+import { ROBOTS, toOpenGraphLocale } from "~/src/lib/seo"
 
 import { Toaster } from "~/src/presentation/components/shadcn/sonner"
 
@@ -72,7 +72,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     links: [DOCUMENT_STYLESHEET, ...fontPreloads(getCurrentLocale())],
     meta: [
       { content: "width=device-width, initial-scale=1", name: "viewport" },
-      ...(import.meta.env.MODE === ENVIRONMENT.PRODUCTION ? [] : [{ content: "noindex, nofollow", name: "robots" }]),
+      ...(import.meta.env.MODE === ENVIRONMENT.PRODUCTION ? [] : [{ content: ROBOTS.NON_PRODUCTION, name: "robots" }]),
     ],
   }),
   shellComponent: RootDocument,

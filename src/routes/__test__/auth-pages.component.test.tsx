@@ -36,6 +36,8 @@ import { Route as SignUpRoute } from "~/src/routes/auth.sign-up"
 import { Route as TwoFactorRoute } from "~/src/routes/auth.two-factor"
 import { Route as VerifyEmailRoute } from "~/src/routes/auth.verify-email"
 
+import { ROBOTS } from "~/src/lib/seo"
+
 import authGateMessages from "~/messages/en-US/auth.gate.json"
 import authLayoutMessages from "~/messages/en-US/auth.layout.json"
 import pagesAuthForgotPasswordMessages from "~/messages/en-US/pages.auth.forgot-password.json"
@@ -130,7 +132,7 @@ it("includes a themed, accessible document shell and keeps production pages inde
   const { queryClient, router } = createAuthRouter(ROUTES.HOME)
   await router.load()
   await preloadNamespaces({ locale: "en-US", namespaces: ROOT_NAMESPACES, queryClient })
-  expect(router.state.matches[0]?.meta).not.toContainEqual({ content: "noindex, nofollow", name: "robots" })
+  expect(router.state.matches[0]?.meta).not.toContainEqual({ content: ROBOTS.NON_PRODUCTION, name: "robots" })
   if (!RootShell) {
     throw new Error("The root route must provide an HTML document shell")
   }
@@ -166,7 +168,7 @@ describe("authentication routes", () => {
     expect(screen.getByRole("link", { name: authLayoutMessages.backToHome })).toHaveAttribute("href", ROUTES.HOME)
     expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: `pages.auth.${namespace}` }).queryKey)).toBeDefined()
     expect(router.state.matches.at(-1)?.meta).toEqual(expect.arrayContaining([expect.objectContaining({ name: "description" })]))
-    expect(router.state.matches[0]?.meta).toContainEqual({ content: "noindex, nofollow", name: "robots" })
+    expect(router.state.matches[0]?.meta).toContainEqual({ content: ROBOTS.NON_PRODUCTION, name: "robots" })
   })
 
   it("uses new-account copy and legal links on signup, and returning-account copy on sign in", async () => {

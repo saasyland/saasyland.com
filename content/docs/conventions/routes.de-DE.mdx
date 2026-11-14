@@ -54,7 +54,7 @@ export const Route = createFileRoute("/admin/courses/")({
 - **Ein Namespace.** `const NAMESPACE = "pages.<area>.<page>"` steht direkt über `export const Route` und wird in `loadPageMetadata`, `preloadNamespaces` und `staticData` verwendet. Alles andere, was die Seite braucht, deklariert ihr Layout.
 - **Ein `Promise.all`.** Der Loader startet alle Arbeiten gleichzeitig: Seitenmetadaten, den Namespace und jede Query, die die Komponenten lesen. Er gibt `{ locale, metadata }` für `head` zurück. Warten Sie nie auf eine davon, bevor Sie die nächste starten.
 - **`head: pageHead(ROUTES.X)`** baut Titel, Beschreibung, kanonische URL und Sprachalternativen aus den Metadaten in der Namespace-Datei.
-- **Pfade stammen aus `ROUTES`** in `src/routes.ts`; schreiben Sie nie ein Pfadliteral.
+- **Pfade stammen aus `ROUTES`** in `src/routes.ts`, das die Pfade aller Bereiche zusammenführt (siehe [Pfade und Navigation](#paths-and-navigation)); schreiben Sie nie ein Pfadliteral.
 
 Eine Seite, deren Titel aus einem Datensatz stammt, wartet auf diesen Datensatz und baut ihren Head aus den Loader-Daten, wie `admin.courses.$courseId.tsx`:
 
@@ -133,8 +133,55 @@ Navigation muss sich sofort anfühlen, daher hat jede Route, die eine Seite rend
 - Router-Links erhalten eine Konstante: `<Link to={ROUTES.COURSES}>`, `<Link hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>` oder ein Routenmuster mit `params` für dynamische Pfade. `LinkButton` von shadcn erhält ein `href`.
 - Fügen Sie einem Router-Link nie das Locale-Präfix hinzu; das Rewrite des Routers ergänzt es. Eine vollständige URL in der aktuellen Locale, für einen Wert, der den Router als String verlässt, kommt aus `router.buildLocation({ ... }).publicHref`, so wie `use-auth-redirect.ts` seine Anmeldelinks baut. `localizePathname` ist für URLs gedacht, die außerhalb eines Router-Kontexts oder für eine andere Locale gebaut werden: E-Mails, Weiterleitungsziele von Better Auth, Links in MDX und der Sprachumschalter.
 
+## Pfade und Navigation [#paths-and-navigation]
+
+Keine Datei listet alle Bereiche der Anwendung auf. Jeder Bereich, etwa die Kurse, die Produkte oder die Rechtstexte, deklariert seine eigenen Pfade und Menüeinträge, und ein Barrel führt sie zusammen. Ein Bereich kommt also mit seinen eigenen Dateien hinzu oder fällt mit ihnen weg. So setzt die `saasyland`-CLI ein Projekt aus Template-Layern zusammen.
+
+| Was                   | Jeder Bereich deklariert                                        | Barrel                           | Gelesen aus                                                                                                                             |
+| --------------------- | --------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Pfade                 | `src/data/<area>.routes.ts`: ein `export const` pro Pfad        | `src/data/routes.entries.ts`     | `ROUTES` in `src/routes.ts`                                                                                                             |
+| Menüeinträge          | `src/data/<area>.navigation.ts`: eine Liste `<AREA>_NAVIGATION` | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` und `FOOTER_NAVIGATION` in `src/data/navigation.ts` |
+| Dashboard-Statistiken | `src/data/<area>.dashboard.ts`: eine Liste `<AREA>_DASHBOARD`   | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` in `src/data/dashboard.ts`                                                                                      |
+
+Ein Barrel enthält nur Zeilen der Form `export { … } from`, eine pro Bereichsdatei und nach Modul sortiert, wie `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` exportiert die Pfade als einen Namespace erneut, sodass jeder Pfad seinen Literaltyp behält und `<Link to={ROUTES.COURSES}>` weiterhin gegen den Routenbaum geprüft wird:
+
+```ts title="src/routes.ts"
+export * as ROUTES from "~/src/data/routes.entries"
+```
+
+Ein Menüeintrag gibt mit `placement` (`NAVIGATION_PLACEMENT` in `src/data/navigation.constants.ts`) an, wo er erscheint: in der Admin-Sidebar, in den Schaltflächen über dem Dashboard, in der Seitenleiste des Kundenbereichs, im öffentlichen Header oder im Footer. Sein `order` sortiert ihn zwischen die Einträge der anderen Bereiche, sodass keine Liste von der Reihenfolge der Dateien abhängt. Admin-Einträge nennen außerdem ihre Sidebar-Gruppe (`group`), Footer-Links ihre Spalte (`column`); `ADMIN_NAVIGATION_GROUPS` und `FOOTER_COLUMNS` legen die Reihenfolge der Gruppen und Spalten fest, und eine Gruppe oder Spalte, die kein Bereich füllt, entfällt. Der Kursbereich fügt zwei Admin-Einträge und eine Seite im Header hinzu:
+
+```ts title="src/data/courses.navigation.ts"
+export const COURSES_NAVIGATION = [
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: GraduationCap,
+    key: "courses",
+    order: 20,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_COURSES,
+  },
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: Clapperboard,
+    key: "videos",
+    order: 30,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_VIDEOS,
+  },
+  { key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
+] as const satisfies readonly NavigationEntry[]
+```
+
+Eine Dashboard-Statistik hat ein `prefetch`, das der Loader von `/admin` ausführt, und einen Hook `useValue`, den `DashboardStats` aufruft, um die Zahl zu lesen.
+
+Beschriftungen bleiben im Namespace des Menüs, das sie anzeigt, unter dem `key` des Eintrags: `links.<key>` und `groups.<group>` in `pages.admin.sidebar`, `navigation.<key>` in `pages.app.sidebar`, `items.<key>` in `components.custom.navigation`, `links.<key>` und `columns.<column>` in `components.custom.footer` sowie `actions.<key>` und `stats.<key>.title` in `pages.admin.dashboard`. Jeder Bereich besitzt seine eigenen Schlüssel in diesen Dateien, und `enum-labels.test.ts` schlägt fehl, wenn einem Eintrag in einer Locale die Beschriftung fehlt.
+
+`vite.config.ts` importiert die Bereichsdateien der Pfade, die es vom Prerendering ausnimmt, über relative Pfade, weil Vite den Alias `~` nicht auflöst, während es seine eigene Konfiguration lädt.
+
 ## Verwandte Seiten
 
 - [Routen und Auslieferung](/docs/architecture/delivery-layer)
 - [Datenabruf und Caching](/docs/conventions/data-fetching)
 - [Übersetzungen und Inhalte](/docs/conventions/translations)
+- [Admin-Seite hinzufügen](/docs/guides/add-an-admin-page)

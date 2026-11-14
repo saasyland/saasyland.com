@@ -54,7 +54,7 @@ export const Route = createFileRoute("/admin/courses/")({
 - **名前空間は 1 つ。** `const NAMESPACE = "pages.<area>.<page>"` は `export const Route` の直上に置き、`loadPageMetadata`、`preloadNamespaces`、`staticData` で使います。ページが必要とするその他の名前空間は、レイアウトが宣言します。
 - **`Promise.all` は 1 つ。** ローダーは、ページのメタデータ、名前空間、コンポーネントが読み取るすべてのクエリを一度に開始し、`head` のために `{ locale, metadata }` を返します。どれかを await してから次を開始してはいけません。
 - **`head: pageHead(ROUTES.X)`** は、名前空間ファイルのメタデータからタイトル、説明、正規 URL、代替リンクを組み立てます。
-- **パスは `src/routes.ts` の `ROUTES` から取得します。** パスのリテラルを書いてはいけません。
+- **パスは `src/routes.ts` の `ROUTES` から取得します。** `ROUTES` はすべてのエリアのパスをまとめたものです（[パスとナビゲーション](#paths-and-navigation)を参照）。 パスのリテラルを書いてはいけません。
 
 タイトルがレコードから決まるページは、`admin.courses.$courseId.tsx` のように、そのレコードを await し、ローダーのデータから head を組み立てます。
 
@@ -133,8 +133,55 @@ export const Route = createFileRoute("/auth/reset-password")({
 - ルーターのリンクには定数を渡します。`<Link to={ROUTES.COURSES}>`、`<Link hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>`、あるいは動的なパスであれば `params` 付きのルートパターンです。shadcn の `LinkButton` は `href` を受け取ります。
 - ルーターのリンクにロケールプレフィックスを付けてはいけません。ルーターの rewrite が付けます。文字列としてルーターの外に出る値のために現在のロケールの完全な URL が必要な場合は、`use-auth-redirect.ts` がサインインのリンクを組み立てるときのように、`router.buildLocation({ ... }).publicHref` から取得します。`localizePathname` は、ルーターのコンテキストの外で組み立てる URL や、別のロケールの URL に使います。メール、Better Auth のリダイレクト先、MDX 内のリンク、言語切り替えがこれにあたります。
 
+## パスとナビゲーション [#paths-and-navigation]
+
+アプリケーションのすべてのエリアを列挙するファイルはありません。コース、商品、法務ページといった各エリアが自分のパスとメニュー項目を宣言し、バレルがそれらをまとめます。そのため、エリアはそのエリア自身のファイルを追加するか外すだけで加えたり除いたりできます。`saasyland` CLI はこの仕組みでテンプレートのレイヤーからプロジェクトを組み立てます。
+
+| 対象                 | 各エリアが宣言するもの                                             | バレル                           | 読み取り元                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| パス                 | `src/data/<area>.routes.ts`：パスごとに 1 つの `export const`      | `src/data/routes.entries.ts`     | `src/routes.ts` の `ROUTES`                                                                                                          |
+| メニュー項目         | `src/data/<area>.navigation.ts`：1 つの `<AREA>_NAVIGATION` リスト | `src/data/navigation.entries.ts` | `src/data/navigation.ts` の `ADMIN_NAVIGATION`、`ADMIN_DASHBOARD_ACTIONS`、`APP_NAVIGATION`、`NAVIGATION_PAGES`、`FOOTER_NAVIGATION` |
+| ダッシュボードの統計 | `src/data/<area>.dashboard.ts`：1 つの `<AREA>_DASHBOARD` リスト   | `src/data/dashboard.entries.ts`  | `src/data/dashboard.ts` の `ADMIN_DASHBOARD_STATS`                                                                                   |
+
+バレルには `export { … } from` の行だけを、エリアのファイルごとに 1 行、モジュール順に並べます。`src/integrations/drizzle-orm/drizzle.schemas.ts` と同じ形です。`src/routes.ts` はパスを 1 つの名前空間として再エクスポートするため、各パスはリテラル型を保ち、`<Link to={ROUTES.COURSES}>` は引き続きルートツリーに対して型検査されます。
+
+```ts title="src/routes.ts"
+export * as ROUTES from "~/src/data/routes.entries"
+```
+
+メニュー項目は `placement`（`src/data/navigation.constants.ts` の `NAVIGATION_PLACEMENT`）で表示場所を示します。管理画面のサイドバー、ダッシュボード上部のボタン、顧客向けアプリのサイドバー、公開ヘッダー、フッターのいずれかです。`order` によってほかのエリアの項目との並び順が決まるため、どのリストもファイルの順序に依存しません。管理画面の項目はサイドバーのグループ（`group`）を、フッターのリンクは列（`column`）も指定します。グループと列の順序は `ADMIN_NAVIGATION_GROUPS` と `FOOTER_COLUMNS` で決まり、どのエリアも項目を入れないグループや列は表示されません。コースのエリアは、管理画面の項目 2 つとヘッダーのページ 1 つを追加します。
+
+```ts title="src/data/courses.navigation.ts"
+export const COURSES_NAVIGATION = [
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: GraduationCap,
+    key: "courses",
+    order: 20,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_COURSES,
+  },
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: Clapperboard,
+    key: "videos",
+    order: 30,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_VIDEOS,
+  },
+  { key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
+] as const satisfies readonly NavigationEntry[]
+```
+
+ダッシュボードの統計には、`/admin` のローダーが実行する `prefetch` と、`DashboardStats` が数値を読み取るために呼び出す `useValue` フックがあります。
+
+ラベルは、それを表示するメニューの名前空間に、項目の `key` の下で置きます。`pages.admin.sidebar` の `links.<key>` と `groups.<group>`、`pages.app.sidebar` の `navigation.<key>`、`components.custom.navigation` の `items.<key>`、`components.custom.footer` の `links.<key>` と `columns.<column>`、`pages.admin.dashboard` の `actions.<key>` と `stats.<key>.title` です。これらのファイルのキーは各エリアがそれぞれ所有し、いずれかのロケールで項目のラベルが欠けていると `enum-labels.test.ts` が失敗します。
+
+`vite.config.ts` は、プリレンダリングから除外するパスのエリアのファイルを相対パスでインポートします。Vite は自身の設定を読み込む間 `~` エイリアスを解決しないためです。
+
 ## 関連ページ
 
 - [ルートと配信](/docs/architecture/delivery-layer)
 - [データの取得とキャッシュ](/docs/conventions/data-fetching)
 - [翻訳とコンテンツ](/docs/conventions/translations)
+- [管理画面のページを追加する](/docs/guides/add-an-admin-page)

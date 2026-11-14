@@ -1,52 +1,9 @@
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  BarChart,
-  BookOpen,
-  CircleDollarSign,
-  Clapperboard,
-  CreditCard,
-  GraduationCap,
-  Home,
-  type LucideIcon,
-  MonitorSmartphone,
-  Package,
-  Settings,
-  Tag,
-  Tags,
-  TrendingDown,
-  UserMinus,
-  Users,
-  Wallet,
-} from "lucide-react"
+import { ArrowDownRight, ArrowUpRight, CircleDollarSign, CreditCard, Tag, TrendingDown, UserMinus, Users, Wallet } from "lucide-react"
 
 import { USER_STATUS } from "~/src/modules/user/user.constants"
 import type { UserStatus } from "~/src/modules/user/user.utils"
 
-import { ADMIN_NAVIGATION, type AdminNavigationItem } from "~/src/data/admin-navigation"
-
 import { ROUTES } from "~/src/routes"
-
-const ADMIN_SIDEBAR_ICONS = {
-  analytics: BarChart,
-  blog: BookOpen,
-  courses: GraduationCap,
-  dashboard: Home,
-  landingPage: MonitorSmartphone,
-  payments: CreditCard,
-  pricingModels: Tags,
-  products: Package,
-  settings: Settings,
-  userManagement: Users,
-  videos: Clapperboard,
-} as const satisfies Record<AdminNavigationItem["titleKey"], LucideIcon>
-
-export const ADMIN_SIDEBAR_GROUPS = ADMIN_NAVIGATION.map(({ items, titleKey }) => ({
-  items: items.map((item) => ({ icon: ADMIN_SIDEBAR_ICONS[item.titleKey], titleKey: item.titleKey, url: item.url })),
-  titleKey,
-}))
-
-export type AdminSidebarItem = (typeof ADMIN_SIDEBAR_GROUPS)[number]["items"][number]
 
 export type AdminStatusColor = "amber" | "emerald" | "neutral" | "rose"
 
@@ -144,8 +101,6 @@ export const ADMIN_ROLE_ROWS = [
   { id: "r4", usersCount: 28 },
   { id: "r5", usersCount: 2 },
 ] as const
-
-export const ADMIN_DASHBOARD_STATS = ["activeUsers", "totalProducts", "pendingVerification"] as const
 
 export const ADMIN_DASHBOARD_PREVIEW_PAGINATION = { pageIndex: 0, pageSize: 5 } as const
 

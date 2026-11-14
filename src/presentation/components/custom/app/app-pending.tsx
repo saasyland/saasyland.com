@@ -10,7 +10,8 @@ import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { LICENSE_STATUS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
-import { APP_NAVIGATION, appSearchSchema } from "~/src/data/app"
+import { appSearchSchema } from "~/src/data/app"
+import { APP_NAVIGATION } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
 
@@ -293,7 +294,7 @@ const AppSidebarPending = (): JSX.Element => (
     <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden px-2 pt-4">
       <div className="flex flex-col gap-1">
         {APP_NAVIGATION.map((item) => (
-          <SidebarLinkPending key={item.url} />
+          <SidebarLinkPending key={item.to} />
         ))}
       </div>
       <div className="flex flex-col">

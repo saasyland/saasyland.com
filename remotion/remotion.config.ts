@@ -11,6 +11,7 @@ Config.overrideBundlerConfig((config) => ({
     ...config.resolve,
     alias: {
       ...config.resolve?.alias,
+      "lucide-react": path.resolve(process.cwd(), "node_modules/lucide-react"),
       "~": path.resolve(process.cwd(), ".."),
     },
   },

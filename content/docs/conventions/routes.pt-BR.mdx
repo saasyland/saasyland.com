@@ -54,7 +54,7 @@ export const Route = createFileRoute("/admin/courses/")({
 - **Um namespace.** `const NAMESPACE = "pages.<area>.<page>"` fica logo acima de `export const Route` e é usado em `loadPageMetadata`, `preloadNamespaces` e `staticData`. Todo o resto de que a página precisa é declarado pelo seu layout.
 - **Um `Promise.all`.** O loader inicia todo o trabalho de uma vez: os metadados da página, o namespace e todas as queries que os componentes leem. Ele retorna `{ locale, metadata }` para `head`. Nunca aguarde um deles antes de iniciar o próximo.
 - **`head: pageHead(ROUTES.X)`** monta o título, a descrição, a URL canônica e os links alternativos a partir dos metadados do arquivo de namespace.
-- **Os caminhos vêm de `ROUTES`**, em `src/routes.ts`; nunca escreva um literal de caminho.
+- **Os caminhos vêm de `ROUTES`**, em `src/routes.ts`, que reúne os caminhos de todas as áreas (veja [Caminhos e navegação](#paths-and-navigation)); nunca escreva um literal de caminho.
 
 Uma página cujo título vem de um registro aguarda esse registro e monta o seu head a partir dos dados do loader, como faz `admin.courses.$courseId.tsx`:
 
@@ -133,8 +133,55 @@ A navegação precisa parecer instantânea, então toda rota que renderiza uma p
 - Os links do router recebem uma constante: `<Link to={ROUTES.COURSES}>`, `<Link hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>`, ou um padrão de rota com `params` para caminhos dinâmicos. O `LinkButton` do shadcn recebe um `href`.
 - Nunca adicione o prefixo de locale a um link do router; o rewrite do router o adiciona. Uma URL completa no locale atual, para um valor que sai do router como string, vem de `router.buildLocation({ ... }).publicHref`, como `use-auth-redirect.ts` monta os seus links de login. `localizePathname` é para URLs montadas fora de um contexto de router ou para outro locale: e-mails, destinos de redirecionamento do Better Auth, links dentro de MDX e o seletor de idioma.
 
+## Caminhos e navegação [#paths-and-navigation]
+
+Nenhum arquivo lista todas as áreas da aplicação. Cada área, como os cursos, os produtos ou as páginas legais, declara os próprios caminhos e itens de menu, e um barrel os reúne, então uma área entra ou sai junto com os próprios arquivos. É assim que a CLI `saasyland` monta um projeto a partir de camadas de templates.
+
+| O quê                  | Cada área declara                                              | Barrel                           | Lido de                                                                                                                               |
+| ---------------------- | -------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Caminhos               | `src/data/<area>.routes.ts`: um `export const` por caminho     | `src/data/routes.entries.ts`     | `ROUTES` em `src/routes.ts`                                                                                                           |
+| Itens de menu          | `src/data/<area>.navigation.ts`: uma lista `<AREA>_NAVIGATION` | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` e `FOOTER_NAVIGATION` em `src/data/navigation.ts` |
+| Estatísticas do painel | `src/data/<area>.dashboard.ts`: uma lista `<AREA>_DASHBOARD`   | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` em `src/data/dashboard.ts`                                                                                    |
+
+Um barrel contém só linhas `export { … } from`, uma por arquivo de área, ordenadas por módulo, como `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` reexporta os caminhos como um único namespace, então cada caminho mantém o seu tipo literal e `<Link to={ROUTES.COURSES}>` continua sendo verificado contra a árvore de rotas:
+
+```ts title="src/routes.ts"
+export * as ROUTES from "~/src/data/routes.entries"
+```
+
+Um item de menu indica onde aparece com `placement` (`NAVIGATION_PLACEMENT` em `src/data/navigation.constants.ts`): a barra lateral do admin, os botões acima do painel, a barra lateral do app do cliente, o cabeçalho público ou o rodapé. O seu `order` o posiciona entre os itens das outras áreas, então nenhuma lista depende da ordem dos arquivos. Os itens do admin também indicam o seu grupo da barra lateral (`group`), e os links do rodapé a sua coluna (`column`); `ADMIN_NAVIGATION_GROUPS` e `FOOTER_COLUMNS` fixam a ordem de grupos e colunas, e os que nenhuma área preenche ficam de fora. A área de cursos adiciona dois itens do admin e uma página do cabeçalho:
+
+```ts title="src/data/courses.navigation.ts"
+export const COURSES_NAVIGATION = [
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: GraduationCap,
+    key: "courses",
+    order: 20,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_COURSES,
+  },
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: Clapperboard,
+    key: "videos",
+    order: 30,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_VIDEOS,
+  },
+  { key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
+] as const satisfies readonly NavigationEntry[]
+```
+
+Uma estatística do painel tem um `prefetch`, que o loader de `/admin` executa, e um hook `useValue`, que `DashboardStats` chama para ler o número.
+
+Os rótulos ficam no namespace do menu que os mostra, sob a `key` do item: `links.<key>` e `groups.<group>` em `pages.admin.sidebar`, `navigation.<key>` em `pages.app.sidebar`, `items.<key>` em `components.custom.navigation`, `links.<key>` e `columns.<column>` em `components.custom.footer`, e `actions.<key>` e `stats.<key>.title` em `pages.admin.dashboard`. Cada área é dona das próprias chaves nesses arquivos, e `enum-labels.test.ts` falha quando falta o rótulo de um item em algum locale.
+
+`vite.config.ts` importa por caminho relativo os arquivos de área dos caminhos que exclui da pré-renderização, porque o Vite não resolve o alias `~` enquanto carrega a própria configuração.
+
 ## Páginas relacionadas
 
 - [Rotas e entrega](/docs/architecture/delivery-layer)
 - [Busca de dados e cache](/docs/conventions/data-fetching)
 - [Traduções e conteúdo](/docs/conventions/translations)
+- [Adicionar uma página de administração](/docs/guides/add-an-admin-page)

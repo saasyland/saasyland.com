@@ -54,7 +54,7 @@ export const Route = createFileRoute("/admin/courses/")({
 - **Un seul espace de noms.** `const NAMESPACE = "pages.<area>.<page>"` se trouve juste au-dessus de `export const Route` et sert dans `loadPageMetadata`, `preloadNamespaces` et `staticData`. Tout ce dont la page a besoin en plus est déclaré par son layout.
 - **Un seul `Promise.all`.** Le loader lance tout le travail en même temps : les métadonnées de la page, l'espace de noms et chaque query que lisent les composants. Il renvoie `{ locale, metadata }` pour `head`. N'attendez jamais l'un d'eux avant de lancer le suivant.
 - **`head: pageHead(ROUTES.X)`** construit le titre, la description, l'URL canonique et les alternatives à partir des métadonnées du fichier d'espace de noms.
-- **Les chemins proviennent de `ROUTES`** dans `src/routes.ts` ; n'écrivez jamais de chemin littéral.
+- **Les chemins proviennent de `ROUTES`** dans `src/routes.ts`, qui réunit les chemins de toutes les zones (voir [Chemins et navigation](#paths-and-navigation)) ; n'écrivez jamais de chemin littéral.
 
 Une page dont le titre provient d'un enregistrement attend cet enregistrement et construit son head à partir des données du loader, comme le fait `admin.courses.$courseId.tsx` :
 
@@ -133,8 +133,55 @@ La navigation doit sembler instantanée : chaque route qui affiche une page a do
 - Les liens du routeur prennent une constante : `<Link to={ROUTES.COURSES}>`, `<Link hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>`, ou un modèle de route avec `params` pour les chemins dynamiques. Le `LinkButton` de shadcn prend un `href`.
 - N'ajoutez jamais le préfixe de locale à un lien du routeur ; la réécriture du routeur l'ajoute. Une URL complète dans la locale courante, pour une valeur qui quitte le routeur sous forme de chaîne, provient de `router.buildLocation({ ... }).publicHref`, comme `use-auth-redirect.ts` construit ses liens de connexion. `localizePathname` sert aux URL construites hors d'un contexte de routeur ou pour une autre locale : e-mails, cibles de redirection de Better Auth, liens dans le MDX et sélecteur de langue.
 
+## Chemins et navigation [#paths-and-navigation]
+
+Aucun fichier ne liste toutes les zones de l'application. Chaque zone, comme les cours, les produits ou les pages légales, déclare ses propres chemins et entrées de menu, et un barrel les réunit : une zone s'ajoute ou se retire donc avec ses propres fichiers. C'est ainsi que la CLI `saasyland` assemble un projet à partir de couches de templates.
+
+| Quoi                            | Chaque zone déclare                                             | Barrel                           | Lu depuis                                                                                                                                |
+| ------------------------------- | --------------------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Chemins                         | `src/data/<area>.routes.ts` : un `export const` par chemin      | `src/data/routes.entries.ts`     | `ROUTES` dans `src/routes.ts`                                                                                                            |
+| Entrées de menu                 | `src/data/<area>.navigation.ts` : une liste `<AREA>_NAVIGATION` | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` et `FOOTER_NAVIGATION` dans `src/data/navigation.ts` |
+| Statistiques du tableau de bord | `src/data/<area>.dashboard.ts` : une liste `<AREA>_DASHBOARD`   | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` dans `src/data/dashboard.ts`                                                                                     |
+
+Un barrel ne contient que des lignes `export { … } from`, une par fichier de zone, triées par module, comme `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` réexporte les chemins sous un seul namespace : chaque chemin garde ainsi son type littéral et `<Link to={ROUTES.COURSES}>` reste vérifié par rapport à l'arbre des routes :
+
+```ts title="src/routes.ts"
+export * as ROUTES from "~/src/data/routes.entries"
+```
+
+Une entrée de menu indique où elle apparaît avec `placement` (`NAVIGATION_PLACEMENT` dans `src/data/navigation.constants.ts`) : la barre latérale d'administration, les boutons au-dessus du tableau de bord, la barre latérale de l'espace client, l'en-tête public ou le pied de page. Son `order` la place parmi les entrées des autres zones, si bien qu'aucune liste ne dépend de l'ordre des fichiers. Les entrées d'administration nomment aussi leur groupe de barre latérale (`group`), et les liens du pied de page leur colonne (`column`) ; `ADMIN_NAVIGATION_GROUPS` et `FOOTER_COLUMNS` fixent l'ordre des groupes et des colonnes, et ceux qu'aucune zone ne remplit sont omis. La zone des cours ajoute deux entrées d'administration et une page de l'en-tête :
+
+```ts title="src/data/courses.navigation.ts"
+export const COURSES_NAVIGATION = [
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: GraduationCap,
+    key: "courses",
+    order: 20,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_COURSES,
+  },
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: Clapperboard,
+    key: "videos",
+    order: 30,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_VIDEOS,
+  },
+  { key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
+] as const satisfies readonly NavigationEntry[]
+```
+
+Une statistique du tableau de bord a un `prefetch`, que le loader de `/admin` exécute, et un hook `useValue`, que `DashboardStats` appelle pour lire le nombre.
+
+Les libellés restent dans le namespace du menu qui les affiche, sous la `key` de l'entrée : `links.<key>` et `groups.<group>` dans `pages.admin.sidebar`, `navigation.<key>` dans `pages.app.sidebar`, `items.<key>` dans `components.custom.navigation`, `links.<key>` et `columns.<column>` dans `components.custom.footer`, et `actions.<key>` et `stats.<key>.title` dans `pages.admin.dashboard`. Chaque zone possède ses clés dans ces fichiers, et `enum-labels.test.ts` échoue quand une entrée n'a pas de libellé dans une locale.
+
+`vite.config.ts` importe par chemin relatif les fichiers de zone des chemins qu'il exclut du prérendu, car Vite ne résout pas l'alias `~` pendant qu'il charge sa propre configuration.
+
 ## Pages associées
 
 - [Routes et livraison](/docs/architecture/delivery-layer)
 - [Récupération des données et cache](/docs/conventions/data-fetching)
 - [Traductions et contenu](/docs/conventions/translations)
+- [Ajouter une page d'administration](/docs/guides/add-an-admin-page)

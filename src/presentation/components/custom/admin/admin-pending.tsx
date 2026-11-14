@@ -4,7 +4,7 @@ import { useRouterState } from "@tanstack/react-router"
 
 import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { ADMIN_SIDEBAR_GROUPS } from "~/src/data/admin"
+import { ADMIN_NAVIGATION } from "~/src/data/navigation"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
@@ -54,7 +54,7 @@ const ADMIN_PAGES = new Map<string, () => JSX.Element>([
   [ROUTES.ADMIN_VIDEOS, AdminVideosPending],
 ])
 
-const ADMIN_SIDEBAR_URLS = new Set<string>(ADMIN_SIDEBAR_GROUPS.flatMap((group) => group.items.map((item) => item.url)))
+const ADMIN_SIDEBAR_URLS = new Set<string>(ADMIN_NAVIGATION.flatMap((group) => group.items.map((item) => item.to)))
 
 const AdminSidebarPending = (): JSX.Element => (
   <div className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
@@ -64,14 +64,14 @@ const AdminSidebarPending = (): JSX.Element => (
       </div>
     </div>
     <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden px-2 pt-4">
-      {ADMIN_SIDEBAR_GROUPS.map((group) => (
-        <div className="flex flex-col" key={group.titleKey}>
+      {ADMIN_NAVIGATION.map((group) => (
+        <div className="flex flex-col" key={group.key}>
           <div className="mb-1.5 px-2 font-mono text-label">
             <Skeleton className="h-lh w-20 scale-y-70" />
           </div>
           <div className="flex flex-col gap-0.5">
             {group.items.map((item) => (
-              <div className="flex h-8 items-center gap-2.5 px-2 text-[0.8125rem]" key={item.url}>
+              <div className="flex h-8 items-center gap-2.5 px-2 text-[0.8125rem]" key={item.to}>
                 <IconPending />
                 <Skeleton className="h-lh w-24 scale-y-70" />
               </div>

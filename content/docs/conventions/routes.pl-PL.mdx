@@ -54,7 +54,7 @@ export const Route = createFileRoute("/admin/courses/")({
 - **Jedna przestrzeń nazw.** `const NAMESPACE = "pages.<area>.<page>"` stoi bezpośrednio nad `export const Route` i jest używana w `loadPageMetadata`, `preloadNamespaces` i `staticData`. Wszystko inne, czego potrzebuje strona, deklaruje jej layout.
 - **Jedno `Promise.all`.** Loader rozpoczyna całą pracę naraz: metadane strony, przestrzeń nazw i każde zapytanie, które odczytują komponenty. Zwraca `{ locale, metadata }` dla `head`. Nigdy nie czekaj na jedno z nich przed rozpoczęciem następnego.
 - **`head: pageHead(ROUTES.X)`** buduje tytuł, opis, kanoniczny URL i wersje alternatywne z metadanych w pliku przestrzeni nazw.
-- **Ścieżki pochodzą z `ROUTES`** w `src/routes.ts`; nigdy nie wpisuj literału ścieżki.
+- **Ścieżki pochodzą z `ROUTES`** w `src/routes.ts`, który łączy ścieżki wszystkich obszarów (zobacz [Ścieżki i nawigacja](#paths-and-navigation)); nigdy nie wpisuj literału ścieżki.
 
 Strona, której tytuł pochodzi z rekordu, czeka na ten rekord i buduje swój head z danych loadera, tak jak `admin.courses.$courseId.tsx`:
 
@@ -133,8 +133,55 @@ Nawigacja musi sprawiać wrażenie natychmiastowej, więc każda trasa, która r
 - Linki routera przyjmują stałą: `<Link to={ROUTES.COURSES}>`, `<Link hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>` albo wzorzec trasy z `params` dla ścieżek dynamicznych. `LinkButton` z shadcn przyjmuje `href`.
 - Nigdy nie dodawaj prefiksu języka do linku routera; dodaje go rewrite routera. Pełny URL w bieżącym języku, dla wartości, która opuszcza router jako string, pochodzi z `router.buildLocation({ ... }).publicHref`, tak jak `use-auth-redirect.ts` buduje swoje linki logowania. `localizePathname` służy do URL-i budowanych poza kontekstem routera lub dla innego języka: e-maili, celów przekierowań Better Auth, linków w MDX i przełącznika języka.
 
+## Ścieżki i nawigacja [#paths-and-navigation]
+
+Żaden plik nie wylicza wszystkich obszarów aplikacji. Każdy obszar, na przykład kursy, produkty czy strony prawne, deklaruje własne ścieżki i pozycje menu, a zbiorczy eksport (barrel) je łączy, więc obszar dodaje się albo pomija razem z jego własnymi plikami. W ten sposób CLI `saasyland` składa projekt z warstw szablonów.
+
+| Co                 | Każdy obszar deklaruje                                           | Zbiorczy eksport                 | Odczyt z                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Ścieżki            | `src/data/<area>.routes.ts`: jedno `export const` na ścieżkę     | `src/data/routes.entries.ts`     | `ROUTES` w `src/routes.ts`                                                                                                           |
+| Pozycje menu       | `src/data/<area>.navigation.ts`: jedna lista `<AREA>_NAVIGATION` | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` i `FOOTER_NAVIGATION` w `src/data/navigation.ts` |
+| Statystyki pulpitu | `src/data/<area>.dashboard.ts`: jedna lista `<AREA>_DASHBOARD`   | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` w `src/data/dashboard.ts`                                                                                    |
+
+Zbiorczy eksport zawiera wyłącznie wiersze `export { … } from`, po jednym na plik obszaru, posortowane według modułu, tak jak `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` ponownie eksportuje ścieżki jako jedną przestrzeń nazw, więc każda ścieżka zachowuje swój typ literałowy, a `<Link to={ROUTES.COURSES}>` nadal jest sprawdzany względem drzewa tras:
+
+```ts title="src/routes.ts"
+export * as ROUTES from "~/src/data/routes.entries"
+```
+
+Pozycja menu wskazuje polem `placement` (`NAVIGATION_PLACEMENT` w `src/data/navigation.constants.ts`), gdzie się pojawia: w pasku bocznym panelu administracyjnego, w przyciskach nad pulpitem, w pasku bocznym aplikacji klienta, w publicznym nagłówku albo w stopce. Jej `order` ustawia ją wśród pozycji innych obszarów, więc żadna lista nie zależy od kolejności plików. Pozycje panelu administracyjnego wskazują też grupę paska bocznego (`group`), a linki stopki kolumnę (`column`); `ADMIN_NAVIGATION_GROUPS` i `FOOTER_COLUMNS` ustalają kolejność grup i kolumn, a te, których żaden obszar nie wypełnia, są pomijane. Obszar kursów dodaje dwie pozycje panelu administracyjnego i jedną stronę w nagłówku:
+
+```ts title="src/data/courses.navigation.ts"
+export const COURSES_NAVIGATION = [
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: GraduationCap,
+    key: "courses",
+    order: 20,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_COURSES,
+  },
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: Clapperboard,
+    key: "videos",
+    order: 30,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_VIDEOS,
+  },
+  { key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
+] as const satisfies readonly NavigationEntry[]
+```
+
+Statystyka pulpitu ma `prefetch`, który uruchamia loader `/admin`, i hook `useValue`, który `DashboardStats` wywołuje, aby odczytać liczbę.
+
+Etykiety zostają w przestrzeni nazw menu, które je wyświetla, pod kluczem `key` pozycji: `links.<key>` i `groups.<group>` w `pages.admin.sidebar`, `navigation.<key>` w `pages.app.sidebar`, `items.<key>` w `components.custom.navigation`, `links.<key>` i `columns.<column>` w `components.custom.footer` oraz `actions.<key>` i `stats.<key>.title` w `pages.admin.dashboard`. Każdy obszar jest właścicielem swoich kluczy w tych plikach, a `enum-labels.test.ts` kończy się błędem, gdy pozycji brakuje etykiety w którymś locale.
+
+`vite.config.ts` importuje po ścieżce względnej pliki obszarów ze ścieżkami, które wyłącza z prerenderingu, ponieważ Vite nie rozwiązuje aliasu `~` podczas wczytywania własnej konfiguracji.
+
 ## Powiązane strony
 
 - [Trasy i warstwa dostarczania](/docs/architecture/delivery-layer)
 - [Pobieranie danych i cache](/docs/conventions/data-fetching)
 - [Tłumaczenia i treści](/docs/conventions/translations)
+- [Dodawanie strony panelu administracyjnego](/docs/guides/add-an-admin-page)

@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { ADMIN_SIDEBAR_GROUPS } from "~/src/data/admin"
+import { ADMIN_NAVIGATION } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
 
@@ -48,21 +48,21 @@ export const AdminSidebar = (): JSX.Element => {
 
       <SidebarContent className="custom-scrollbar px-2 pt-4">
         <nav aria-label={t("navigationLabel")} className="flex flex-col gap-5">
-          {ADMIN_SIDEBAR_GROUPS.map((group) => (
-            <SidebarGroup className="p-0" key={group.titleKey}>
-              <div className="mb-1.5 px-2 font-mono text-label text-muted-foreground uppercase" id={`admin-sidebar-${group.titleKey}`}>
-                {t(`groups.${group.titleKey}`)}
+          {ADMIN_NAVIGATION.map((group) => (
+            <SidebarGroup className="p-0" key={group.key}>
+              <div className="mb-1.5 px-2 font-mono text-label text-muted-foreground uppercase" id={`admin-sidebar-${group.key}`}>
+                {t(`groups.${group.key}`)}
               </div>
-              <SidebarMenu aria-labelledby={`admin-sidebar-${group.titleKey}`} className="gap-0.5">
+              <SidebarMenu aria-labelledby={`admin-sidebar-${group.key}`} className="gap-0.5">
                 {group.items.map((item) => {
-                  const isActive = isActiveUrl(pathname, item.url)
+                  const isActive = isActiveUrl(pathname, item.to)
 
                   return (
-                    <SidebarMenuItem key={item.titleKey}>
+                    <SidebarMenuItem key={item.key}>
                       <SidebarMenuButton
                         {...(isActive && { "aria-current": "page" })}
                         className="h-8 gap-2.5 rounded-md px-2 text-[0.8125rem] transition-colors duration-200 ease-exp data-active:font-medium"
-                        href={item.url}
+                        href={item.to}
                         isActive={isActive}
                       >
                         <item.icon
@@ -74,7 +74,7 @@ export const AdminSidebar = (): JSX.Element => {
                           strokeWidth={1.5}
                         />
                         <span className={cn({ "text-foreground": isActive, "text-sidebar-foreground/80": !isActive })}>
-                          {t(`links.${item.titleKey}`)}
+                          {t(`links.${item.key}`)}
                         </span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

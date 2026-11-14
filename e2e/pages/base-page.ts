@@ -1,8 +1,27 @@
-import type { Page, Response } from "@playwright/test"
+import { type Locator, type Page, type Response, expect } from "@playwright/test"
+import type { AnyRouter } from "@tanstack/react-router"
 
 export const APP_NAVIGATION_WAIT_UNTIL = "domcontentloaded" as const
 
+export const RENDERED_LOCATION_KEY = "__e2eRenderedLocation"
+
+const REACT_FIBER_KEY_PREFIX = "__reactFiber$"
+
 const APP_READY_TIMEOUT_MS = 30_000
+
+export const recordRenderedLocations = (key: string): void => {
+  let router: AnyRouter | undefined
+  Object.defineProperty(window, "__TSR_ROUTER__", {
+    configurable: true,
+    get: () => router,
+    set: (created: AnyRouter) => {
+      router = created
+      created.subscribe("onRendered", ({ toLocation }) => {
+        Reflect.set(window, key, toLocation.publicHref)
+      })
+    },
+  })
+}
 
 export class BasePage {
   protected readonly page: Page
@@ -17,14 +36,26 @@ export class BasePage {
 
   async waitForAppReady(): Promise<void> {
     await this.page.locator("body").waitFor({ state: "visible" })
-    await this.waitForHydration()
+    await this.waitForRender()
   }
 
-  private async waitForHydration(): Promise<void> {
+  async waitForHydration(element: Locator): Promise<void> {
+    await expect
+      .poll(
+        async () =>
+          element.evaluate(
+            (root, prefix) => [root, ...root.querySelectorAll("*")].every((node) => Object.keys(node).some((key) => key.startsWith(prefix))),
+            REACT_FIBER_KEY_PREFIX,
+          ),
+        { timeout: APP_READY_TIMEOUT_MS },
+      )
+      .toBe(true)
+  }
+
+  private async waitForRender(): Promise<void> {
     await this.page.waitForFunction(
-      () => {
-        const hydration: unknown = Reflect.get(window, "$_TSR")
-        if (typeof hydration === "object" && hydration !== null && (!("hydrated" in hydration) || hydration.hydrated !== true)) {
+      (key) => {
+        if (Reflect.get(window, key) !== `${location.pathname}${location.search}${location.hash}`) {
           return false
         }
         for (const node of document.querySelectorAll('div[id^="S:"]')) {
@@ -35,7 +66,7 @@ export class BasePage {
 
         return true
       },
-      undefined,
+      RENDERED_LOCATION_KEY,
       { timeout: APP_READY_TIMEOUT_MS },
     )
   }

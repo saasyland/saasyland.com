@@ -27,14 +27,16 @@ test.describe("returning after sign-in", () => {
       await page.goto(`${locale}/app/license`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
       await expect(page).toHaveURL(`${locale}/auth/sign-in?redirect=${encodeURIComponent(`${locale}/app/license`)}`)
+      await authPage.waitForAppReady()
       await signInAsCustomer(page, authPage)
 
       await expect(page).toHaveURL(`${locale}/app/license`)
     })
   }
 
-  test("the return path survives the switch from sign-in to sign-up and back", async ({ page }) => {
+  test("the return path survives the switch from sign-in to sign-up and back", async ({ authPage, page }) => {
     await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await authPage.waitForAppReady()
 
     await page.getByRole("main").getByRole("link", { name: "Sign up", exact: true }).click()
     await expect(page).toHaveURL(`/auth/sign-up?redirect=${encodeURIComponent("/app/license")}`)
@@ -42,10 +44,11 @@ test.describe("returning after sign-in", () => {
     await expect(page).toHaveURL(`/auth/sign-in?redirect=${encodeURIComponent("/app/license")}`)
   })
 
-  test("a signed-in visitor who follows a sign-in link goes straight to its return path", async ({ authPage, page }) => {
+  test("a signed-in visitor who follows a sign-in link goes straight to its return path", async ({ appPage, authPage, page }) => {
     await authPage.gotoSignIn()
     await signInAsCustomer(page, authPage)
     await expect(page).toHaveURL("/app")
+    await appPage.waitForAppReady()
 
     await page.goto(`/auth/sign-in?redirect=${encodeURIComponent("/app/license")}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
@@ -54,6 +57,7 @@ test.describe("returning after sign-in", () => {
 
   test("a return path that leaves the site is ignored", async ({ authPage, page }) => {
     await page.goto(`/auth/sign-in?redirect=${encodeURIComponent("//evil.example/steal")}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await authPage.waitForAppReady()
 
     await signInAsCustomer(page, authPage)
 

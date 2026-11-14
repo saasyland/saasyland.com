@@ -36,6 +36,7 @@ const signUpAndVerify = async ({ authPage, page, request }: { authPage: AuthPage
   await authPage.confirmPasswordField().fill(SIGN_UP_PASSWORD)
   await authPage.signUpSubmitButton().click()
   await expect(page).toHaveURL(/\/auth\/verify-email\?email=/u)
+  await authPage.waitForAppReady()
 
   await page.goto((await expectVerificationEmail(request, email)).toString(), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
@@ -94,11 +95,14 @@ test.describe("checkout funnel", () => {
     await authPage.passwordField().fill(TEST_PASSWORD)
     await authPage.signInSubmitButton().click()
     await expect(page).toHaveURL("/app")
+    await appPage.waitForAppReady()
 
     await page.goto(`/app/license?checkoutId=${CHECKOUT_ID}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
+    const activation = page.getByRole("status").filter({ has: page.getByRole("heading", { name: "Payment received" }) })
+    await expect(activation).toBeVisible()
     await expect(page.getByRole("region", { name: "Get your licence" })).toHaveCount(0)
+    await appPage.waitForHydration(activation)
 
     await page.clock.fastForward("01:05")
 
@@ -122,6 +126,7 @@ test.describe("checkout funnel", () => {
     await authPage.gotoSignUp()
     const userId = await signUpAndVerify({ authPage, page, request })
     await expect(page).toHaveURL("/app")
+    await appPage.waitForAppReady()
     await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(page.getByRole("button", { name: "Get Agency", exact: true })).toBeEnabled()

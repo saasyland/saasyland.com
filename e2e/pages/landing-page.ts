@@ -6,6 +6,7 @@ export class LandingPage extends BasePage {
   async goto(localePrefix = ""): Promise<void> {
     await this.gotoPath(localePrefix.length > 0 ? localePrefix : "/")
     await this.waitForAppReady()
+    await this.waitForHydration(this.page.getByRole("main"))
   }
 
   heroHeading(): Locator {

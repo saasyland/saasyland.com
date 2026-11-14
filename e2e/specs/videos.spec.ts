@@ -19,6 +19,7 @@ const signIn = async (page: Page, authPage: AuthPage, account: (typeof TEST_ACCO
   await authPage.passwordField().fill(TEST_PASSWORD)
   await authPage.signInSubmitButton().click()
   await expect(page).toHaveURL(account.role === ROLE_CODES.ADMIN ? /\/admin\/?$/u : /\/app\/?$/u)
+  await authPage.waitForAppReady()
 }
 
 test.describe("video library", () => {

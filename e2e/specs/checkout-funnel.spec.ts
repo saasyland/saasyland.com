@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from "@playwright/test"
+import type { APIRequestContext, Locator, Page } from "@playwright/test"
 import * as zod from "zod"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
@@ -18,8 +18,12 @@ const [, customer] = TEST_ACCOUNTS
 const SIGN_UP_PASSWORD = "StrongPassword123!"
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
 const PAID_LESSONS = TEST_LESSONS.filter(({ access }) => access === LESSON_ACCESS.PAID).length
+const REACT_FIBER_KEY_PREFIX = "__reactFiber$"
 
 const sessionSchema = zod.object({ user: zod.object({ id: zod.string() }) })
+
+const isHydrated = async (element: Locator): Promise<boolean> =>
+  element.evaluate((node, prefix) => Object.keys(node).some((key) => key.startsWith(prefix)), REACT_FIBER_KEY_PREFIX)
 
 const useOwnRateLimit = async (page: Page): Promise<string> => {
   const id = crypto.randomUUID()
@@ -36,6 +40,7 @@ const signUpAndVerify = async ({ authPage, page, request }: { authPage: AuthPage
   await authPage.confirmPasswordField().fill(SIGN_UP_PASSWORD)
   await authPage.signUpSubmitButton().click()
   await expect(page).toHaveURL(/\/auth\/verify-email\?email=/u)
+  await authPage.waitForAppReady()
 
   await page.goto((await expectVerificationEmail(request, email)).toString(), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
@@ -94,11 +99,14 @@ test.describe("checkout funnel", () => {
     await authPage.passwordField().fill(TEST_PASSWORD)
     await authPage.signInSubmitButton().click()
     await expect(page).toHaveURL("/app")
+    await appPage.waitForAppReady()
 
     await page.goto(`/app/license?checkoutId=${CHECKOUT_ID}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
+    const activation = page.getByRole("status").filter({ has: page.getByRole("heading", { name: "Payment received" }) })
+    await expect(activation).toBeVisible()
     await expect(page.getByRole("region", { name: "Get your licence" })).toHaveCount(0)
+    await expect.poll(async () => isHydrated(activation)).toBe(true)
 
     await page.clock.fastForward("01:05")
 
@@ -122,6 +130,7 @@ test.describe("checkout funnel", () => {
     await authPage.gotoSignUp()
     const userId = await signUpAndVerify({ authPage, page, request })
     await expect(page).toHaveURL("/app")
+    await appPage.waitForAppReady()
     await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(page.getByRole("button", { name: "Get Agency", exact: true })).toBeEnabled()

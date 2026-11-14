@@ -60,7 +60,7 @@ The admin blog editor does not publish the MDX blog, and the page-editor screen 
 | Video                            | FFmpeg encoding to HLS (CMAF) on the publisher's machine; Video.js 10 playback                         |
 | Verification                     | Vite+/Vitest, Testing Library, jsdom, and Playwright with axe-core accessibility scans                 |
 
-[`package.json`](package.json) and [`bun.lock`](bun.lock) define the application toolchain. The separate [Remotion project](remotion/README.md) uses its own npm lockfile.
+[`package.json`](package.json) and [`bun.lock`](bun.lock) define the application toolchain. The separate [Remotion project](remotion/README.md) uses its own npm lockfile. Check them for security advisories with `bun audit` at the root and `npm audit` inside `remotion/`; GitHub reads the npm lockfile but not `bun.lock`, so Dependabot alerts miss the application's transitive packages. Each `minimatch` entry under `overrides` is a security fix that waits for a parent release, and the [dependency conventions](content/docs/conventions/dependencies.en-US.mdx) name the upstream change that will let it go.
 
 ## Getting started
 

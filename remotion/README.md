@@ -6,6 +6,8 @@ Keep this source, its configuration and `package-lock.json` in Git. Keep the pub
 
 The separate package keeps the renderer, browser types and Remotion-specific lint rules outside the Cloudflare application. It uses npm's lockfile independently of the app's Bun lockfile. CI checks and bundles this source when it or the shared locale configuration changes.
 
+GitHub's Dependabot alerts read this project's `package-lock.json`. Keep `npm audit` clean: upgrade the Remotion packages together to the latest release, and refresh the other packages within their ranges with `npm update`. The `minimatch` override under `@typescript-eslint/typescript-estree` exists because `@remotion/eslint-config-flat` pins `typescript-eslint` 8.71.2, whose parser asks for a `minimatch` 10 release affected by GHSA-g3hv-75wg-m249. Delete it once `@remotion/eslint-config-flat` depends on a `typescript-eslint` release that contains [typescript-eslint/typescript-eslint#13145](https://github.com/typescript-eslint/typescript-eslint/pull/13145).
+
 Composition IDs match their source filenames and the names passed to `ConceptLoop`, except `course-tour`, which `CourseShowcase` plays on request in the landing page's course block.
 
 | Composition     | Video dimensions | Duration | Poster frame |

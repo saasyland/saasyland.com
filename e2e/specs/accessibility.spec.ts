@@ -1,5 +1,7 @@
 import type { Page } from "@playwright/test"
 
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.access"
+import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_COURSE } from "../data/courses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
@@ -52,17 +54,33 @@ const PUBLIC_PAGES = [
 ]
 
 const WORKSPACE_PAGES = {
-  admin: [
+  [ROLE_CODES.ADMIN]: [
     "/admin",
+    "/admin/analytics",
+    "/admin/payments",
+    "/admin/pricing-models",
     "/admin/users/all",
+    "/admin/users/invitations",
+    "/admin/users/roles",
+    "/admin/users/security",
     "/admin/products",
+    "/admin/products/create",
     "/admin/courses",
     "/admin/courses/create",
     `/admin/courses/${TEST_COURSE.id}`,
     "/admin/videos",
+    "/admin/blog",
+    "/admin/blog/create",
+    "/admin/landing-page",
     "/admin/settings",
   ],
-  customer: ["/app", "/app/license", "/app?tier=complete", "/app/license?tier=core", `/app?checkoutId=${CHECKOUT_ID}`],
+  [ROLE_CODES.CUSTOMER]: [
+    "/app",
+    "/app/license",
+    `/app?tier=${LICENSE_TIER.COMPLETE}`,
+    `/app/license?tier=${LICENSE_TIER.CORE}`,
+    `/app?checkoutId=${CHECKOUT_ID}`,
+  ],
 } as const
 
 const visit = async (page: Page, path: string): Promise<void> => {

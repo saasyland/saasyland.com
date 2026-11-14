@@ -204,12 +204,6 @@ const tooling = {
         files: ["src/routes/**"],
         rules: { "sort-keys": "off" },
       },
-      {
-        files: ["vite.config.ts"],
-        rules: {
-          "max-lines": "off",
-        },
-      },
     ],
     rules: {
       "id-length": ["error", { exceptions: ["_", "m", "t"], properties: "never" }],

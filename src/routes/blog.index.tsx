@@ -25,8 +25,9 @@ const getBlogPosts = createServerFn({ method: "GET" })
   .handler(({ data: locale }) => getPublishedBlogPosts(locale))
 
 const BlogIndexPage = (): JSX.Element => {
-  const { posts } = Route.useLoaderData()
   const t = useTranslations("pages.blog")
+
+  const { posts } = Route.useLoaderData()
 
   const POSTS_EXIST = posts.length > 0
 

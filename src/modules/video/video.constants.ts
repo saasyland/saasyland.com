@@ -1,5 +1,7 @@
 export const VIDEO_KEY_PREFIX = "videos"
 
+export const VIDEO_TITLE_MAX_LENGTH = 255
+
 export const MEDIA_PATH_PREFIX = "/media"
 
 export const VIDEO_FILES = {

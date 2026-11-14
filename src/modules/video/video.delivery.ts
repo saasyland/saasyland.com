@@ -4,6 +4,7 @@ import { env, waitUntil } from "cloudflare:workers"
 
 import zod from "zod/v4"
 
+import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { mediaContentType, videoObjectKey } from "~/src/modules/video/video.files"
 import { verifyPlayback } from "~/src/modules/video/video.playback"
 
@@ -15,14 +16,6 @@ const EDGE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 const EDGE_CACHE_PATH = "/media/_"
 const EDGE_CACHE_NAME = "media"
 const INCLUSIVE_END = 1
-
-const STATUS = {
-  FORBIDDEN: 403,
-  METHOD_NOT_ALLOWED: 405,
-  NOT_FOUND: 404,
-  PARTIAL_CONTENT: 206,
-  RANGE_NOT_SATISFIABLE: 416,
-} as const
 
 const mediaRequestSchema = zod.object({
   expires: zod.string(),
@@ -82,17 +75,17 @@ const servePartial = async ({
 }) => {
   const head = await env.MEDIA.head(key)
   if (head === null) {
-    return emptyResponse(STATUS.NOT_FOUND)
+    return emptyResponse(HTTP_STATUS.NOT_FOUND)
   }
 
   const range = resolveRange({ header, size: head.size })
   if (range === undefined) {
-    return emptyResponse(STATUS.RANGE_NOT_SATISFIABLE, { "Content-Range": `bytes */${String(head.size)}` })
+    return emptyResponse(HTTP_STATUS.RANGE_NOT_SATISFIABLE, { "Content-Range": `bytes */${String(head.size)}` })
   }
 
   const object = await env.MEDIA.get(key, { range })
   if (object === null) {
-    return emptyResponse(STATUS.NOT_FOUND)
+    return emptyResponse(HTTP_STATUS.NOT_FOUND)
   }
 
   const headers = mediaHeaders({ contentType, object })
@@ -102,7 +95,7 @@ const servePartial = async ({
     `bytes ${String(range.offset)}-${String(range.offset + range.length - INCLUSIVE_END)}/${String(object.size)}`,
   )
 
-  return new Response(object.body, { headers, status: STATUS.PARTIAL_CONTENT })
+  return new Response(object.body, { headers, status: HTTP_STATUS.PARTIAL_CONTENT })
 }
 
 const serveWhole = async ({
@@ -124,7 +117,7 @@ const serveWhole = async ({
 
   const object = await env.MEDIA.get(key)
   if (object === null) {
-    return emptyResponse(STATUS.NOT_FOUND)
+    return emptyResponse(HTTP_STATUS.NOT_FOUND)
   }
 
   const response = new Response(object.body, { headers: mediaHeaders({ contentType, object }) })
@@ -137,19 +130,19 @@ const serveWhole = async ({
 
 export const serveMedia = async (request: Request): Promise<Response> => {
   if (request.method !== "GET" && request.method !== "HEAD") {
-    return emptyResponse(STATUS.METHOD_NOT_ALLOWED, { Allow: "GET, HEAD" })
+    return emptyResponse(HTTP_STATUS.METHOD_NOT_ALLOWED, { Allow: "GET, HEAD" })
   }
 
   const url = new URL(request.url)
   const parsed = mediaRequestSchema.safeParse(MEDIA_REQUEST.exec(url.pathname)?.groups)
   const contentType = parsed.success ? mediaContentType(parsed.data.file) : undefined
   if (!parsed.success || contentType === undefined) {
-    return emptyResponse(STATUS.NOT_FOUND)
+    return emptyResponse(HTTP_STATUS.NOT_FOUND)
   }
 
   const { expires, file, signature, videoId } = parsed.data
   if (!(await verifyPlayback({ expires, now: Date.now(), secret: env.AUTH_SECRET, signature, videoId }))) {
-    return emptyResponse(STATUS.FORBIDDEN)
+    return emptyResponse(HTTP_STATUS.FORBIDDEN)
   }
 
   const key = videoObjectKey({ file, videoId })
@@ -157,7 +150,7 @@ export const serveMedia = async (request: Request): Promise<Response> => {
   if (request.method === "HEAD") {
     const head = await env.MEDIA.head(key)
     if (head === null) {
-      return emptyResponse(STATUS.NOT_FOUND)
+      return emptyResponse(HTTP_STATUS.NOT_FOUND)
     }
     return new Response(undefined, { headers: mediaHeaders({ contentType, object: head }) })
   }

@@ -2,8 +2,8 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { getTableConfig } from "drizzle-orm/sqlite-core"
 import { describe, expect, it } from "vite-plus/test"
 
-import { LICENSE_TIER } from "~/src/modules/license/license.constants"
-import { LICENSE_STATUSES, LICENSE_TIERS, license, licenseRelations, revokedLicenseOrder } from "~/src/modules/license/license.schema"
+import { LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
+import { LICENSE_STATUSES, license, licenseRelations, revokedLicenseOrder } from "~/src/modules/license/license.schema"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { user } from "~/src/modules/user/user.schema"
 

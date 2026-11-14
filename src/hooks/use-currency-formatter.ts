@@ -7,9 +7,7 @@ export interface CurrencyOptions extends Omit<Intl.NumberFormatOptions, "style">
 
 type HookDefaults = Partial<CurrencyOptions>
 
-type RequiresCurrency<TData> = TData extends { currency: string }
-  ? Partial<CurrencyOptions>
-  : Partial<CurrencyOptions> & { currency: string }
+type RequiresCurrency<TData> = TData extends { currency: string } ? HookDefaults : HookDefaults & { currency: string }
 
 interface CurrencyFormatter<TData extends HookDefaults> {
   formatCurrency: (args: { value: number } & RequiresCurrency<TData>) => string

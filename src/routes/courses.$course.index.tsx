@@ -17,7 +17,7 @@ import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 import { rethrowAsNotFound } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"
 
-import { Progress, ProgressIndicator, ProgressLabel, ProgressTrack } from "~/src/presentation/components/shadcn/progress"
+import { Progress, ProgressLabel } from "~/src/presentation/components/shadcn/progress"
 
 import { CoursePending } from "~/src/presentation/components/custom/courses/courses-pending"
 import { Curriculum } from "~/src/presentation/components/custom/courses/curriculum"
@@ -33,13 +33,10 @@ const CourseProgress = ({ lessons }: { readonly lessons: readonly Course["pageLe
   const completed = lessons.filter((lesson) => lesson.completed).length
 
   return (
-    <Progress className="mt-8 max-w-md" maxValue={lessons.length} value={completed}>
+    <Progress className="mt-8 max-w-md **:data-[slot=progress-indicator]:bg-ring" maxValue={lessons.length} value={completed}>
       <ProgressLabel className="font-mono text-spec text-muted-foreground">
         {t("progress", { completed, total: lessons.length })}
       </ProgressLabel>
-      <ProgressTrack>
-        <ProgressIndicator className="bg-ring" />
-      </ProgressTrack>
     </Progress>
   )
 }

@@ -1,5 +1,7 @@
 import process from "node:process"
 
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
+
 import { readWranglerEnvironment } from "./wrangler-config.ts"
 
 const SCRIPT_ARGUMENTS_START = 2
@@ -7,8 +9,8 @@ const PLACEHOLDER_ID = /^[0-]+$/u
 
 const [environment] = process.argv.slice(SCRIPT_ARGUMENTS_START)
 
-if (environment !== "preview" && environment !== "production") {
-  throw new Error("Expected preview or production")
+if (environment !== ENVIRONMENT.PREVIEW && environment !== ENVIRONMENT.PRODUCTION) {
+  throw new Error(`Expected ${ENVIRONMENT.PREVIEW} or ${ENVIRONMENT.PRODUCTION}`)
 }
 
 const readResources = async (name: string): Promise<(string | undefined)[]> => {
@@ -27,8 +29,8 @@ if (resources.some((resource) => resource === undefined || PLACEHOLDER_ID.test(r
   throw new Error(`Provision D1, KV and R2 for ${environment}, then replace their placeholder IDs in wrangler.jsonc. See README.md.`)
 }
 
-if (environment === "production") {
-  const preview = new Set(await readResources("preview"))
+if (environment === ENVIRONMENT.PRODUCTION) {
+  const preview = new Set(await readResources(ENVIRONMENT.PREVIEW))
   const shared = resources.filter((resource) => preview.has(resource))
 
   if (shared.length > 0) {

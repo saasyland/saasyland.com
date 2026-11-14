@@ -17,10 +17,10 @@ oxlint запускає категорії `correctness`, `nursery`, `pedantic`,
 | `no-magic-numbers`           | дозволено лише `0`, а також індекси масивів і значення за замовчуванням | Кожне інше число — іменована константа                          |
 | `id-length`                  | щонайменше два символи, крім `_`, `m` і `t`                             | Ідентифікатори — це слова; `t` — функція перекладу              |
 | `one-var`                    | `never`                                                                 | Одне оголошення на інструкцію                                   |
-| `unicorn/no-null`            | увімкнено поза тестами                                                  | Відсутні значення — це `undefined`                              |
+| `unicorn/no-null`            | увімкнено поза тестами й `src/platform/testing`                         | Відсутні значення — це `undefined`                              |
 | `typescript/no-explicit-any` | `error`                                                                 | Жодне значення не має типу `any`                                |
 
-Перевизначення вузькі й обмежені файлами: тести послаблюють `no-magic-numbers`, `no-await-in-loop` і `unicorn/no-null`; `src/presentation` і `src/hooks` послаблюють `typescript/consistent-return`; тестові моки послаблюють `require-await`; `src/routes` вимикає `sort-keys`, бо опції маршруту мають власний порядок (див. [Файли маршрутів](/docs/conventions/routes)).
+Перевизначення вузькі й обмежені файлами: тести та спільні тестові допоміжні модулі в `src/platform/testing` послаблюють `no-magic-numbers`, `no-await-in-loop` і `unicorn/no-null`; `src/presentation` і `src/hooks` послаблюють `typescript/consistent-return`; тестові моки послаблюють `require-await`; `src/routes` вимикає `sort-keys`, бо опції маршруту мають власний порядок (див. [Файли маршрутів](/docs/conventions/routes)).
 
 `tsconfig.json` додає суворі прапорці, що змінюють спосіб написання коду: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` і `noUnusedParameters`. Читання за індексом може повернути `undefined`, необов’язковій властивості не можна явно присвоїти `undefined`, а сигнатуру індексу читають як `record["key"]`.
 
@@ -49,7 +49,7 @@ const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 
 ## Null і undefined
 
-Літерали `null` заборонені поза тестами; відсутнє значення — це `undefined`. Ніколи не перетворюйте результат API, що повертає `null`, через `?? undefined`. Спершу валідуйте вхідні дані, щоб виклик не міг завершитися невдачею, або використайте парсер, який уже повертає `undefined`. Найчастіший випадок — параметри пошуку, і `searchParam(schema)` з `src/lib/search-params.ts` повертає `undefined` для відсутнього або некоректного значення:
+Поза тестами й `src/platform/testing` відсутнє значення — це `undefined`, а `null` ніколи не записують як значення. Лінтер дозволяє його там, де його вимагає API: у порівнянні зі значенням, яке може бути `null`, наприклад зі стовпцем, що допускає NULL (`entry.completedAt !== null` у `get-course.ts`), і в ref React для DOM-елемента, який починається з `useRef<HTMLElement>(null)`, бо React типізує `ref` як `RefObject<T | null>` і повертає його до `null` під час демонтування (`course-showcase.tsx`). Ніколи не перетворюйте результат API, що повертає `null`, через `?? undefined`. Спершу валідуйте вхідні дані, щоб виклик не міг завершитися невдачею, або використайте парсер, який уже повертає `undefined`. Найчастіший випадок — параметри пошуку, і `searchParam(schema)` з `src/lib/search-params.ts` повертає `undefined` для відсутнього або некоректного значення:
 
 ```ts
 export const authSearchSchema = zod.object({
@@ -95,11 +95,12 @@ export const COURSE_STATUS = {
 } as const
 ```
 
-Кортеж, потрібний стовпцю чи enum-схемі, будується з об’єкта, а не набирається заново: `course.schema.ts` оголошує `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, який використовують і `text("status", { enum: COURSE_STATUSES })`, і `zod.enum(COURSE_STATUSES)`.
+Кортеж, потрібний стовпцю чи enum-схемі, будується з об’єкта, а не набирається заново: `course.schema.ts` оголошує `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, який використовують і `text("status", { enum: COURSE_STATUSES })`, і `zod.enum(COURSE_STATUSES)`. Кортеж, який читає й код браузера, натомість оголошують у константах модуля, що нічого не імпортують із Drizzle: таблиця цін перебирає `LICENSE_TIERS` з `license.constants.ts`.
 
 - Константи модуля лежать у його `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); значення постачальника — у `*.constants.ts` інтеграції (`POLAR_ORDER_STATUS` у `polar.constants.ts`, `AUTH_PROVIDER` в `auth.constants.ts`, `EMAIL_PURPOSE` у `resend.constants.ts`).
 - Довжини стовпців і вхідних даних отримують назву один раз, у константах модуля, і їх читають і схема Drizzle, і схема Zod: `PRODUCT_NAME_MAX_LENGTH` у `product.constants.ts`.
 - Одне поняття має одну мапу в одному регістрі: `ERROR_CODES` для серверних помилок, `AUTH_ERRORS` для ключів помилок Better Auth, `ROLE_CODES` для ролей.
+- Назви середовищ і коди статусу HTTP оголошують один раз, у `src/modules/_core/constants/api.ts`: `ENVIRONMENT.PRODUCTION` у `__root.tsx` і в скриптах розгортання, `HTTP_STATUS.PARTIAL_CONTENT` в обробнику медіа у Worker. Жоден файл не оголошує власної мапи ні для того, ні для іншого. Єдиний виняток — `vite.config.ts`, який порівнює `mode` з простими назвами: Vite завантажує конфігурацію до того, як розв’язує псевдонім `~`, тож вона не може імпортувати `api.ts`.
 - Константа, яку використовує один файл, залишається в ньому, під імпортами. Константа, яку використовують кілька файлів, переходить до свого модуля, до `src/data` (див. [Файли та іменування](/docs/conventions/files-and-naming)) або до `src/modules/_core/constants`. Ніколи не виділяйте одній константі окремий файл.
 - Типізовані назви полів API, як-от `license_key_id`, — це властивості, а не значення, і до них звертаються як до властивостей.
 

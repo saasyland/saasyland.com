@@ -29,6 +29,8 @@ const regionalDiscountSchema = zod.object({
 
 const cachedDiscountsSchema = zod.object({ discounts: zod.array(regionalDiscountSchema), fetchedAt: zod.int().nonnegative() })
 
+const countryHeaderSchema = zod.string()
+
 type RegionalDiscount = zod.infer<typeof regionalDiscountSchema>
 
 type PercentageDiscount = Extract<models.Discount, { basis_points: number }>
@@ -85,7 +87,7 @@ const isRedeemableFor =
     (discount.productIds.length === 0 || discount.productIds.includes(productId))
 
 export const pppDiscountId = async (headers: Headers, productId: string): Promise<string | undefined> => {
-  const percentOff = getPppPercentOff(headers.get(COUNTRY_HEADER) ?? undefined)
+  const percentOff = getPppPercentOff(countryHeaderSchema.safeParse(headers.get(COUNTRY_HEADER)).data)
 
   if (percentOff === 0 || readCookie({ header: headers.get("Cookie"), name: PPP_COOKIE }) === PPP_DECLINED) {
     return undefined

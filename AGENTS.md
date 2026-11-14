@@ -23,20 +23,20 @@ Run tests with `bun run test`, never `bun test`. `bun run db:reset:test` recreat
 
 ## Where code goes
 
-- `src/modules/<table>/`: one folder per database table, and only for real tables: `<table>.schema.ts`, `.constants.ts`, `.zod.ts`, `.types.ts` (one interface named after the module), `use-cases/<verb>-<noun>.ts` (a server function plus its query or mutation options). Tables end their columns with `...timestamps()` from `src/integrations/drizzle-orm/drizzle.columns.ts`. Copy `src/modules/course`.
+- `src/modules/<table>/`: one folder per database table, and only for real tables: `<table>.schema.ts`, `.constants.ts`, `.zod.ts`, `.types.ts` (one interface named after the module), `use-cases/<verb>-<noun>.ts` (a server function plus its query or mutation options). Tables end their columns with `...timestamps()` from `src/integrations/drizzle-orm/drizzle.columns.ts`, except the short-lived `rate_limit` counters and the insert-only `revoked_license_order`. Copy `src/modules/course`.
 - `src/routes/`: route files that compose pages, with `NAMESPACE` or `NAMESPACES`, one `Promise.all` loader and a skeleton `pendingComponent`. Copy `src/routes/admin.courses.index.tsx`.
-- `src/presentation/components/custom/`: one component per file in flat area folders; components read their own translations and data.
+- `src/presentation/components/custom/`: a file per component, named after it, in flat area folders; it may also export the companions that only make sense beside it (a compound part, an area's skeletons, a field family). Components read their own translations and data; controls are shadcn primitives or React Aria components, not hand-written elements.
 - `src/integrations/<vendor>/`: vendor configuration. `src/lib/`: utilities and server functions that own no table. `src/data/`: data several files share.
 - `messages/<locale>/<namespace>.json` and `content/docs/**/<page>.<locale>.mdx`: every string and every docs page in all nine locales.
 
 ## Rules without exceptions
 
-1. No comments anywhere: code, tests, scripts, configuration, CSS.
-2. No `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-ignore`, `as` casts or `any` to get past a rule. Fix the cause.
+1. No comments anywhere: code, tests, scripts, configuration, CSS. Only generated files (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) are exempt.
+2. No `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-ignore`, `@ts-nocheck`, `as` casts or `any` to get past a rule. Fix the cause.
 3. No multi-line ternaries; conditional classes use `cn("base", { "classes": condition })` from `~/src/lib/cn`.
-4. No `?? undefined` and no `null` literals; validate with Zod instead.
-5. Statuses, kinds, tiers, roles and other domain values are named constants (`COURSE_STATUS.DRAFT`), never repeated string literals, in tests, e2e data and the seed too. Lengths are named constants as well.
-6. Server functions validate their input with the module's Zod schema, type it as `Module["operation"]` and authorize themselves with `authorized(...)`; route guards are not authorization.
+4. No `?? undefined`; validate with Zod instead. Outside tests and `src/platform/testing`, `null` is written only where an API defines it: in a comparison with a value that can be `null`, and in a React DOM ref (`useRef<HTMLElement>(null)`).
+5. Statuses, kinds, tiers, roles, environment names, HTTP statuses and other domain values are named constants (`COURSE_STATUS.DRAFT`, `ENVIRONMENT.PRODUCTION`, `HTTP_STATUS.NOT_FOUND`), never repeated string literals, in tests, e2e data and the seed too; schema tests are the one place a stored value is written out. Lengths are named constants in the module's `.constants.ts` as well.
+6. Server functions validate their input with the module's Zod schema, type it as `Module["operation"]` and run the middleware of `auth.middleware.ts` that fits: `authorized(...)` for a signed-in user or a permission, `withRequest` for a public read, `withRateLimit(...)` for an operation that sends email, changes credentials or redeems a token. Route guards are not authorization.
 7. Forms follow the shadcn TanStack Form pattern; tables use the one `DataTable` with an `<entity>-columns.tsx` file.
 8. Every user-facing string in all nine locales; numbers shown on the site are measured (`REPOSITORY_FACTS`), never typed.
 9. Coverage stays at 100% for lines, statements, functions and branches; delete unreachable branches instead of stubbing them.

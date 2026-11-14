@@ -20,10 +20,13 @@ const MESSAGES_DIR = join(import.meta.dirname, "../messages")
 const TRANSLATION_INSTRUCTIONS_PATTERN = /please provide the (?:english |source )?text|I am ready when you are|here is the translation/iu
 const TRANSLATION_MARKER_PATTERN = /ZXQ\d+QXZ|<ph\d+|▁|\{"translation":/u
 
-const flatten = (node: unknown, prefix = ""): [string, string][] =>
-  typeof node === "string"
-    ? [[prefix, node]]
-    : Object.entries(node ?? {}).flatMap(([key, value]) => flatten(value, prefix ? `${prefix}.${key}` : key))
+const flatten = (node: unknown, prefix = ""): [string, string][] => {
+  if (typeof node === "string") {
+    return [[prefix, node]]
+  }
+
+  return Object.entries(node ?? {}).flatMap(([key, value]) => flatten(value, prefix ? `${prefix}.${key}` : key))
+}
 
 const readMessages = (locale: string, file: string): [string, string][] => {
   const path = join(MESSAGES_DIR, locale, file)

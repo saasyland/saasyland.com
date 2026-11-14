@@ -40,7 +40,7 @@ export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps
   const [isOpen, setOpen] = useState(false)
 ```
 
-- 1 ファイルにつきエクスポートするコンポーネントは 1 つで、`export const Name = (...): JSX.Element =>` として宣言します。何も描画しない場合があるコンポーネントは `JSX.Element | undefined` を返します。
+- ファイル名は、そのファイルがエクスポートするコンポーネントに合わせ、`export const Name = (...): JSX.Element =>` として宣言します。何も描画しない場合があるコンポーネントは `JSX.Element | undefined` を返します。そのファイルは、隣にあってこそ意味を持つ付随物もエクスポートしますが、それ以外はエクスポートしません。複合コンポーネントの部品（`HighlightGroup` と `HighlightItem`、`DataTable` と `DataTableActionsHeader`）、1 つの領域のフォームが共有するフィールド（`course-fields.tsx`）、1 つの領域のスケルトン（`content-pending.tsx`）、同じ機能の別の画面が描画する部品（`locked-lesson.tsx` の `UnlockLink`、`checkout.tsx` の `CheckoutAgreement`、`lesson-player.tsx` の `PlayerPending`、`pricing.tsx` の `Price`）がこれにあたります。
 - props は `readonly` とし、コンポーネントの上の `<Name>Props` インターフェースで定義します。prop が 1 つだけの場合はインラインで書きます。
 - まず[コードスタイル](/docs/conventions/code-style)で説明した順序と空行でフックを書き、次にローカルなコールバック、最後に JSX を書きます。
 - 2 つの JSX のどちらかを選ぶ場合は、`&&` の組か早期リターンを使い、複数行の三項演算子は使いません。
@@ -64,9 +64,11 @@ className={cn("flex items-center gap-4 border-b transition-colors duration-200 e
 
 `src/presentation/components/shadcn/` には、`components.json` で指定された `aria-lyra` スタイルの shadcn/ui プリミティブがあり、React Aria Components の上に構築されています。画面はこれらを直接インポートし、ラッパーのレイヤーはありません。プリミティブは shadcn CLI で追加します。プリミティブのファイルを変更するのは、フォーカスやアクセシビリティの挙動などプリミティブ自体を修正する場合だけで、1 つの画面の見た目のために変更してはいけません。React Aria の props は DOM の慣習とは異なり、`onPress`、`isDisabled`、`isOpen` と `onOpenChange`、`isSelected` などを使います。完全な一覧と `globals.css` の `@source not` のリストについては、[shadcn コンポーネント](/docs/ui/shadcn-components)を参照してください。
 
+コントロールに必要な形を持つプリミティブがない場合、画面は手書きの要素ではなく React Aria のコンポーネントそのものを使います。コースツアーの再生ボタンと `back-to-top.tsx` は `react-aria-components` の `Button` を、`pricing.tsx` の地域価格のオファーは `CheckboxField` と `CheckboxButton` を使います。このオファーは、チェックボックスの見た目を `data-selected` ではなくネイティブの `:checked` 状態（`group-has-checked:`）で指定します。辞退した購入者に対しては、ページがハイドレートする前に、Worker がプリレンダリングされた HTML でチェックを外すためです。ネイティブの `<button>` 要素が残るのは、Motion が要素そのものをアニメーションさせる `copy-button.tsx` と CLI コンフィギュレーターのチップだけです。React Aria の `Button` は、Motion のジェスチャー用 props も、利用できないチップを説明する `title` も受け付けません。
+
 ## フォーカスリング
 
-React Aria のコンポーネントは、`select.tsx`、`checkbox.tsx`、`switch.tsx`、`radio-group.tsx` のように、`data-focus-visible:` バリアントでフォーカスリングのスタイルを指定します。React Aria が `data-focus-visible` を設定するのは、キーボードによるフォーカスの場合だけです。一方、Chrome の `:focus-visible` は、外側をクリックしてポップオーバーが閉じ、React Aria がフォーカスをトリガーに戻した場合にも一致します。そのため、トリガーに `focus-visible:` を指定すると、マウスだけの操作の後にリングが表示されてしまいます。通常のリンクや React Aria のコンポーネントではない要素は `data-focus-visible` を受け取ることがないため、`focus-visible:` のままにします。リンクのスタイルも担う `button-variants.ts` が `focus-visible:` を使っているのはこのためです。
+React Aria のコンポーネントは、`select.tsx`、`checkbox.tsx`、`switch.tsx`、`radio-group.tsx` のように、`data-focus-visible:` バリアントでフォーカスリングのスタイルを指定します。React Aria が `data-focus-visible` を設定するのは、キーボードによるフォーカスの場合だけです。一方、Chrome の `:focus-visible` は、外側をクリックしてポップオーバーが閉じ、React Aria がフォーカスをトリガーに戻した場合にも一致します。そのため、トリガーに `focus-visible:` を指定すると、マウスだけの操作の後にリングが表示されてしまいます。通常のリンクや React Aria のコンポーネントではない要素は `data-focus-visible` を受け取ることがないため、`focus-visible:` のままにします。リンクのスタイルも担う `button-variants.ts` が `focus-visible:` を使っているのはこのためです。Tailwind の `outline-none` はアウトラインのスタイルを `none` にし、`data-focus-visible:outline-2` はそれを引き継ぎます。そのため、ブラウザー自身のリングを隠す React Aria のトリガーには、管理画面のコマンドパレットのトリガーのように `data-focus-visible:outline-solid` を加えます。
 
 ## プロバイダー
 
@@ -74,7 +76,7 @@ React Aria のコンポーネントは、`select.tsx`、`checkbox.tsx`、`switch
 
 - `AriaProvider` は `__root.tsx` で root の outlet を包み、`TranslationsProvider` はドキュメントの body を包みます。どの画面にも必要で、その値はハイドレーションの時点で準備できているためです。
 - `ThemeProvider` が包むのは、`__root.tsx` の `Toaster` と `docs.tsx` の `ThemeSwitch` だけです。
-- `MotionProvider` は、`_landing.index.tsx` のランディングページのセクションと、`blog.index.tsx` の記事一覧を包みます。
+- `MotionProvider` は、`_landing.index.tsx` のランディングページのセクション、`blog.index.tsx` の記事一覧、`post-share.tsx` のコピーボタン、`license-offer.tsx` のプランのカードを包みます。
 
 その理由と計測結果は[パフォーマンス](/docs/conventions/performance)にあります。
 

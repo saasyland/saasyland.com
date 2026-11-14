@@ -9,6 +9,7 @@ import sharp from "sharp"
 import { v7 } from "uuid"
 import { z } from "zod/v4"
 
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { MIN_FIELD_LENGTH, localeField } from "~/src/modules/_core/utils/zod-fields"
 import { VIDEO_FILES } from "~/src/modules/video/video.constants"
 import {
@@ -44,7 +45,7 @@ const WEBP_EFFORT = 6
 
 const USAGE = `Usage: bun run video:publish:<preview|production> <video> --title "Title" [--poster image] [--captions en-US=file.vtt ...]`
 
-const environmentSchema = z.enum(["preview", "production"])
+const environmentSchema = z.enum([ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])
 
 const toolsSchema = z.object({
   FFMPEG: z.string().min(MIN_FIELD_LENGTH).default("ffmpeg"),

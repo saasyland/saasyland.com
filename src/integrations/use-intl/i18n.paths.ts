@@ -41,7 +41,6 @@ export const extractLocaleFromPath = (pathname: string): SupportedLocale | undef
   return undefined
 }
 
-// Auth email links carry the page their flow started on as `callbackURL`, which comes from client input and may not parse.
 export const extractLocaleFromCallbackURL = (url: string): SupportedLocale | undefined => {
   const link = new URL(url)
   const callbackURL = link.searchParams.get("callbackURL")

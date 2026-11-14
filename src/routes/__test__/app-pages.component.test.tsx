@@ -22,7 +22,8 @@ import type { Course } from "~/src/modules/course/course.types"
 import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS, LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import type { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"
-import { currentLicenseQuery, type getCurrentLicenseActivations } from "~/src/modules/license/use-cases/get-current-license"
+import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
+import type { getCurrentLicenseActivations } from "~/src/modules/license/use-cases/get-current-license-activations"
 import type { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
 
 import { Route as AppRoute } from "~/src/routes/app"
@@ -59,11 +60,11 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
 })
 vi.mock(import("~/src/modules/license/use-cases/get-current-license"), async (importOriginal) => {
   const actual = await importOriginal()
-  return {
-    ...actual,
-    currentLicenseQuery: { ...actual.currentLicenseQuery, queryFn: currentLicenseMock },
-    licenseActivationsQuery: { ...actual.licenseActivationsQuery, queryFn: activationsMock },
-  }
+  return { ...actual, currentLicenseQuery: { ...actual.currentLicenseQuery, queryFn: currentLicenseMock } }
+})
+vi.mock(import("~/src/modules/license/use-cases/get-current-license-activations"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, licenseActivationsQuery: { ...actual.licenseActivationsQuery, queryFn: activationsMock } }
 })
 vi.mock(import("~/src/modules/course/use-cases/get-catalogue"), async (importOriginal) => {
   const actual = await importOriginal()

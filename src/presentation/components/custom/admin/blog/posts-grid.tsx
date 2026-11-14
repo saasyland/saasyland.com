@@ -44,7 +44,7 @@ export const BlogPostsGrid = (): JSX.Element => {
               )}
             </div>
 
-            <h3 className="mt-2 line-clamp-2 cursor-pointer text-title text-balance text-foreground">{t(`demo.posts.${post.id}.title`)}</h3>
+            <h2 className="mt-2 line-clamp-2 cursor-pointer text-title text-balance text-foreground">{t(`demo.posts.${post.id}.title`)}</h2>
             <p className="mt-2 mb-6 line-clamp-2 flex-1 text-body-sm text-pretty text-muted-foreground">
               {t(`demo.posts.${post.id}.description`)}
             </p>

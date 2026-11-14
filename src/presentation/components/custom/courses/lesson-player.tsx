@@ -26,6 +26,7 @@ interface LessonPlayerProps {
 
 export const LessonPlayer = ({ courseSlug, lesson, signedIn }: LessonPlayerProps): JSX.Element => {
   const { data } = useQuery(lessonPlaybackQuery({ courseSlug, lessonSlug: lesson.slug }))
+
   const { complete, save } = useLessonProgress({ enabled: signedIn, lessonId: lesson.id })
 
   if (data === undefined) {

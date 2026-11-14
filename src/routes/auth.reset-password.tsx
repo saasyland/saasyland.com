@@ -20,7 +20,9 @@ import { ROUTES } from "~/src/routes"
 
 const ResetPasswordPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.reset-password")
+
   const { error, token } = Route.useSearch()
+
   const resetToken = error === undefined ? token : undefined
 
   return (

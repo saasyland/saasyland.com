@@ -27,8 +27,9 @@ import { DataTable } from "~/src/presentation/components/custom/data-table"
 import { ROUTES } from "~/src/routes"
 
 const BlogPage = (): JSX.Element => {
-  const { view } = Route.useSearch()
   const t = useTranslations("pages.admin.blog")
+
+  const { view } = Route.useSearch()
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 pb-8 duration-500 fade-in-50">
@@ -97,11 +98,11 @@ const BlogPage = (): JSX.Element => {
 const NAMESPACE = "pages.admin.blog"
 
 export const Route = createFileRoute("/admin/blog/")({
-  component: BlogPage,
-  head: pageHead(ROUTES.ADMIN_BLOG),
   validateSearch: zod.object({
     view: searchChoice([ADMIN_BLOG_VIEW.GRID, ADMIN_BLOG_VIEW.TABLE], ADMIN_BLOG_VIEW.GRID),
   }),
+  component: BlogPage,
+  head: pageHead(ROUTES.ADMIN_BLOG),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -110,7 +111,7 @@ export const Route = createFileRoute("/admin/blog/")({
     ])
     return { locale, metadata }
   },
-  search: { middlewares: [stripSearchParams({ view: ADMIN_BLOG_VIEW.GRID })] },
   pendingComponent: AdminBlogPending,
+  search: { middlewares: [stripSearchParams({ view: ADMIN_BLOG_VIEW.GRID })] },
   staticData: { namespaces: [NAMESPACE] },
 })

@@ -133,12 +133,17 @@ function Caption() {
   )
 }
 
+function portraitScale(frame: number): number {
+  if (frame < PORTRAIT_IN) {
+    return interpolate(frame, [0, PORTRAIT_OUT + FADE], [1, PUSH_IN], CLAMP)
+  }
+
+  return interpolate(frame, [PORTRAIT_IN, LAST_FRAME], [PUSH_IN, 1], { easing: EASE, ...CLAMP })
+}
+
 function PortraitLayer() {
   const frame = useCurrentFrame()
-  const scale =
-    frame < PORTRAIT_IN
-      ? interpolate(frame, [0, PORTRAIT_OUT + FADE], [1, PUSH_IN], CLAMP)
-      : interpolate(frame, [PORTRAIT_IN, LAST_FRAME], [PUSH_IN, 1], { easing: EASE, ...CLAMP })
+  const scale = portraitScale(frame)
 
   return (
     <Interactive.Div

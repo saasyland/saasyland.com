@@ -1,14 +1,14 @@
-import type { ChangeEvent, ComponentType, JSX } from "react"
+import type { ComponentType, JSX } from "react"
 
 import { useHydrated } from "@tanstack/react-router"
 import { Check } from "lucide-react"
+import { CheckboxButton, CheckboxField } from "react-aria-components"
 import { useFormatter, useTranslations } from "use-intl/react"
 
 import { CURRENCY_FORMAT, PPP_COOKIE, PPP_DECLINED, PPP_KEYS, PPP_PERCENT, applyPpp } from "~/src/modules/_core/constants/pricing"
-import { LICENSE_TIER } from "~/src/modules/license/license.constants"
-import type { LicenseTier } from "~/src/modules/license/license.schema"
+import { LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 
-import { TIERS, TIER_PRICES } from "~/src/data/marketing"
+import { TIER_PRICES } from "~/src/data/marketing"
 
 import { cn } from "~/src/lib/cn"
 import { readCookie, serializeCookie } from "~/src/lib/cookie"
@@ -44,11 +44,11 @@ export const Price = ({ amount }: Readonly<{ amount: number }>): JSX.Element => 
 
 export const PRICE_TAGS = { price: () => <Price amount={TIER_PRICES[LICENSE_TIER.CORE]} /> }
 
-const storeRegionalChoice = (event: ChangeEvent<HTMLInputElement>): void => {
+const storeRegionalChoice = (isSelected: boolean): void => {
   document.cookie = serializeCookie({
     name: PPP_COOKIE,
     options: { secure: globalThis.location.protocol === "https:" },
-    value: event.currentTarget.checked ? "" : PPP_DECLINED,
+    value: isSelected ? "" : PPP_DECLINED,
   })
 }
 
@@ -106,29 +106,25 @@ const RegionalPricing = (): JSX.Element => {
   const declined = useHydrated() && readCookie({ header: document.cookie, name: PPP_COOKIE }) === PPP_DECLINED
 
   return (
-    <label className="ppp-offer mt-6 cursor-pointer items-start gap-3 rounded-xl border border-ring/35 bg-ring/6 px-5 py-4">
-      <span className="relative mt-0.75 flex size-4 shrink-0">
-        <input
-          className="peer size-4 cursor-pointer appearance-none rounded-[4px] border border-input bg-background transition-colors checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          defaultChecked={!declined}
-          onChange={storeRegionalChoice}
-          type="checkbox"
-        />
-        <Check
-          aria-hidden
-          className="pointer-events-none absolute inset-0 m-auto size-3.5 text-primary-foreground opacity-0 peer-checked:opacity-100"
-          strokeWidth={3}
-        />
-      </span>
-      <span className="text-body-sm text-pretty text-foreground">{t.rich("regional.offer", REGIONAL_TAGS)}</span>
-    </label>
+    <CheckboxField defaultSelected={!declined} key={String(declined)} onChange={storeRegionalChoice}>
+      <CheckboxButton className="group ppp-offer mt-6 cursor-pointer items-start gap-3 rounded-xl border border-ring/35 bg-ring/6 px-5 py-4">
+        <span className="relative mt-0.75 flex size-4 shrink-0 rounded-[4px] border border-input bg-background transition-colors group-has-checked:border-primary group-has-checked:bg-primary group-data-focus-visible:outline-2 group-data-focus-visible:outline-offset-2 group-data-focus-visible:outline-ring">
+          <Check
+            aria-hidden
+            className="pointer-events-none absolute inset-0 m-auto size-3.5 text-primary-foreground opacity-0 group-has-checked:opacity-100"
+            strokeWidth={3}
+          />
+        </span>
+        <span className="text-body-sm text-pretty text-foreground">{t.rich("regional.offer", REGIONAL_TAGS)}</span>
+      </CheckboxButton>
+    </CheckboxField>
   )
 }
 
 export const PricingTiers = ({ Action }: Readonly<{ Action: TierAction }>): JSX.Element => (
   <div className="@container">
     <HighlightGroup className="grid overflow-hidden rounded-xl border border-border @2xl:grid-cols-3" name="pricing-highlight">
-      {TIERS.map((tier) => (
+      {LICENSE_TIERS.map((tier) => (
         <TierColumn Action={Action} key={tier} tier={tier} />
       ))}
     </HighlightGroup>

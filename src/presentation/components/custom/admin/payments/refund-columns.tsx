@@ -10,7 +10,7 @@ import type { ADMIN_PAYMENT_ROWS } from "~/src/data/admin"
 import { cn } from "~/src/lib/cn"
 
 import { RowActionsCell } from "~/src/presentation/components/custom/admin/row-actions-cell"
-import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type Payment = (typeof ADMIN_PAYMENT_ROWS)[number]
 
@@ -84,5 +84,5 @@ export const refundColumns = columnHelper.columns([
   columnHelper.accessor("id", { cell: DemoCell, enableSorting: false, header: () => <ColumnHeader id="reason" />, id: "reason" }),
   columnHelper.accessor("date", { cell: DateCell, header: () => <ColumnHeader id="date" />, sortFn: "text" }),
   columnHelper.accessor("id", { cell: StatusCell, enableSorting: false, header: () => <ColumnHeader id="status" />, id: "status" }),
-  columnHelper.display({ cell: RowActionsCell, header: "", id: "actions" }),
+  columnHelper.display({ cell: RowActionsCell, header: DataTableActionsHeader, id: "actions" }),
 ])

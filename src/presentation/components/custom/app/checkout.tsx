@@ -7,8 +7,7 @@ import { useTranslations } from "use-intl/react"
 
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
-import type { LicenseTier } from "~/src/modules/license/license.schema"
+import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS, type LicenseTier } from "~/src/modules/license/license.constants"
 import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"

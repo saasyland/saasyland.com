@@ -9,6 +9,7 @@ import { DropdownMenuItem } from "~/src/presentation/components/shadcn/dropdown-
 
 export const SignOutButton = (): JSX.Element => {
   const t = useTranslations("common")
+
   const { isPending, mutate } = useSignOut()
 
   return (

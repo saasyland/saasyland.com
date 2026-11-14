@@ -73,6 +73,7 @@ export const getCourseShowcase = createServerFn({ method: "GET" })
 
 export const courseShowcaseQuery = (input: Course["getCourseShowcase"]) =>
   queryOptions({
+    meta: { public: true },
     queryFn: () => getCourseShowcase({ data: input }),
     queryKey: [...COURSE_QUERY_KEYS.SHOWCASE, input.locale],
     staleTime: COURSE_STALE_MS,

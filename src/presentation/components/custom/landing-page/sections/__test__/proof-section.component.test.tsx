@@ -1,8 +1,11 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
+import { QueryClient, QueryClientProvider, dehydrate, hydrate } from "@tanstack/react-query"
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import { IntlProvider } from "use-intl"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+
+import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { redirectIfSignedIn } from "~/src/integrations/better-auth/auth.routes"
+import type { getCurrentSession } from "~/src/integrations/better-auth/auth.session"
 
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -12,37 +15,31 @@ import { ProofSection } from "~/src/presentation/components/custom/landing-page/
 
 import german from "~/messages/de-DE/pages.landing.json"
 import english from "~/messages/en-US/pages.landing.json"
+import { ROUTES } from "~/src/routes"
 
 const fetchStarsMock = vi.hoisted(() => vi.fn<() => Promise<number>>())
+const sessionRequest = vi.hoisted(() => vi.fn<typeof getCurrentSession>())
 
 vi.mock(import("~/src/lib/github"), async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual, starCountQuery: { ...actual.starCountQuery, queryFn: fetchStarsMock } }
 })
 
+vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, getCurrentSessionQuery: { ...actual.getCurrentSessionQuery, queryFn: sessionRequest } }
+})
+
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-const renderProof = async ({ locale = "en-US", stars }: { locale?: "en-US" | "de-DE"; stars?: number } = {}) => {
-  const root = createRootRoute({
-    component: () => (
-      <IntlProvider locale={locale} messages={{ pages: { landing: locale === "de-DE" ? german : english } }} timeZone="UTC">
-        <Outlet />
-      </IntlProvider>
-    ),
-  })
-  const layout = createRoute({ getParentRoute: () => root, id: "_landing" })
-  const landing = createRoute({ component: ProofSection, getParentRoute: () => layout, loader: () => ({ stars }), path: "/" })
-  const router = createRouter({
-    history: createMemoryHistory({ initialEntries: ["/"] }),
-    routeTree: root.addChildren([layout.addChildren([landing])]),
-  })
+const renderProof = (locale: "en-US" | "de-DE" = "en-US") =>
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <IntlProvider locale={locale} messages={{ pages: { landing: locale === "de-DE" ? german : english } }} timeZone="UTC">
+        <ProofSection />
+      </IntlProvider>
     </QueryClientProvider>,
   )
-  await act(() => router.load())
-}
 
 afterEach(() => {
   cleanup()
@@ -54,10 +51,10 @@ describe("landing page proof statistics", () => {
   it.each([
     { locale: "en-US", number: new Intl.NumberFormat("en-US") },
     { locale: "de-DE", number: new Intl.NumberFormat("de-DE") },
-  ] as const)("shows the counts measured from the repository in $locale", async ({ locale, number }) => {
+  ] as const)("shows the counts measured from the repository in $locale", ({ locale, number }) => {
     fetchStarsMock.mockResolvedValue(1)
 
-    await renderProof({ locale })
+    renderProof(locale)
 
     for (const count of [
       REPOSITORY_FACTS.testFiles,
@@ -77,7 +74,7 @@ describe("landing page proof statistics", () => {
   ] as const)("formats the actual GitHub count for $locale", async ({ formatted, locale }) => {
     fetchStarsMock.mockResolvedValue(54_321)
 
-    await renderProof({ locale })
+    renderProof(locale)
 
     expect(await screen.findByText(formatted, { selector: "dd" })).toBeVisible()
     expect(screen.queryByText("435", { selector: "dd" })).not.toBeInTheDocument()
@@ -86,41 +83,41 @@ describe("landing page proof statistics", () => {
   it("shows a genuine zero-star count", async () => {
     fetchStarsMock.mockResolvedValue(0)
 
-    await renderProof()
+    renderProof()
 
     expect(await screen.findByText("0", { selector: "dd" })).toBeVisible()
     expect(screen.queryByText("—", { selector: "dd" })).not.toBeInTheDocument()
   })
 
-  it("shows a count loaded by the server immediately without a client fetch", async () => {
+  it("shows a count loaded by the server immediately without a client fetch", () => {
     queryClient.setQueryData(starCountQuery.queryKey, 54_321)
 
-    await renderProof()
+    renderProof()
 
     expect(screen.getByText("54,321", { selector: "dd" })).toBeVisible()
     expect(fetchStarsMock).not.toHaveBeenCalled()
   })
 
-  it("shows the count the page was rendered with after the query cache was cleared, then the refreshed count", async () => {
-    const response = Promise.withResolvers<number>()
-    fetchStarsMock.mockReturnValue(response.promise)
+  it("keeps the count the page was rendered with when a route guard finds a signed-in visitor before the page hydrates", async () => {
+    const server = new QueryClient()
+    fetchStarsMock.mockResolvedValue(54_321)
+    await server.query(starCountQuery)
+    hydrate(queryClient, dehydrate(server))
+    sessionRequest.mockResolvedValue(createAuthSessionFixture())
 
-    await renderProof({ stars: 54_321 })
+    await expect(redirectIfSignedIn({ context: { queryClient }, search: {} })).rejects.toHaveProperty("options.to", ROUTES.APP)
+    renderProof()
 
     expect(screen.getByText("54,321", { selector: "dd" })).toBeVisible()
     expect(document.querySelector('[data-slot="skeleton"]')).not.toBeInTheDocument()
-    await act(async () => {
-      response.resolve(54_322)
-      await response.promise
-    })
-    expect(await screen.findByText("54,322", { selector: "dd" })).toBeVisible()
+    expect(fetchStarsMock).toHaveBeenCalledOnce()
   })
 
   it("keeps other facts visible while the GitHub request is pending, then displays its result", async () => {
     const response = Promise.withResolvers<number>()
     fetchStarsMock.mockReturnValue(response.promise)
 
-    await renderProof()
+    renderProof()
 
     expect(screen.getByText("100%", { selector: "dd" })).toBeVisible()
     expect(screen.queryByText("—", { selector: "dd" })).not.toBeInTheDocument()
@@ -135,7 +132,7 @@ describe("landing page proof statistics", () => {
     queryClient.setQueryData(starCountQuery.queryKey, 54_321, { updatedAt: 0 })
     fetchStarsMock.mockRejectedValue(new Error("Server function unavailable"))
 
-    await renderProof()
+    renderProof()
 
     await waitFor(() => {
       expect(queryClient.getQueryState(starCountQuery.queryKey)?.status).toBe("error")

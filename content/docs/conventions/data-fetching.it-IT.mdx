@@ -1,6 +1,6 @@
 ---
 title: "Recupero dei dati e caching"
-description: "Opzioni di query e di mutation accanto alla loro server function, chiavi di query che includono ogni input, regole di freschezza, loader che non ricaricano mai ciò che è già sullo schermo, e invalidazione."
+description: "Opzioni di query e di mutation accanto alla loro server function, chiavi di query che includono ogni input, query pubbliche che sopravvivono a un cambio di utente, regole di freschezza, loader che non ricaricano mai ciò che è già sullo schermo, e invalidazione."
 ---
 
 I dati arrivano su una schermata tramite TanStack Query. Un caso d'uso esporta le sue opzioni accanto alla sua server function, e il loader della route, il componente e il test usano tutti queste stesse opzioni, quindi condividono per costruzione un'unica voce della cache.
@@ -33,6 +33,22 @@ queryKey: [...COURSE_QUERY_KEYS.LIST, courseZodSchemas.getCourses.parse(input)]
 ```
 
 La chiave dell'elenco memorizza l'input già analizzato, quindi `getCoursesPageQuery()` e `getCoursesPageQuery({ pageIndex: 0, pageSize: 10 })` corrispondono alla stessa voce. Il locale fa parte della chiave ogni volta che il server localizza il risultato. Non scrivere mai una chiave direttamente in un componente: leggila dalle opzioni, oppure dall'oggetto `<MODULE>_QUERY_KEYS` per invalidare.
+
+## Query pubbliche [#public-queries]
+
+Una query il cui risultato è lo stesso per ogni visitatore, chiunque abbia effettuato l'accesso, dichiara `meta: { public: true }`:
+
+```ts
+export const catalogueQuery = (input: Course["getCatalogue"]) =>
+  queryOptions({
+    meta: { public: true },
+    queryFn: () => getCatalogue({ data: input }),
+    queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
+    staleTime: COURSE_STALE_MS,
+  })
+```
+
+Le traduzioni (`messagesQueryOptions`), il numero di stelle su GitHub (`starCountQuery`), il catalogo dei corsi (`catalogueQuery`) e il blocco dei corsi della landing page (`courseShowcaseQuery`) sono pubblici. Ogni altra query appartiene all'utente che ha effettuato l'accesso. Quando l'utente cambia, `removeUserData` in `auth.session.ts` rimuove quelle query e ogni mutation e mantiene quelle pubbliche, così l'utente successivo non vede mai i dati del precedente e una pagina prerenderizzata conserva i dati con cui è stata renderizzata: il flag viaggia con ogni query che il server disidrata nella pagina. Una query senza il flag viene recuperata di nuovo per l'utente successivo, il che costa una richiesta ma non espone mai dati, quindi contrassegna una query come pubblica solo quando la sua server function non legge mai la sessione. `auth.session.test.ts` esegue ogni query pubblica e fallisce se una di esse legge la sessione, o se un file sorgente dichiara una query pubblica che il test non esegue.
 
 ## Freschezza
 
@@ -73,7 +89,7 @@ Una lettura `"static"` ignora anche l'invalidazione: restituisce i dati in cache
 context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound)
 ```
 
-- Usa `useSuspenseQuery` per i dati che il loader ha precaricato, e `useQuery` solo per i dati che possono arrivare più tardi senza bloccare la pagina, come il numero di stelle in `proof-section.tsx`. Una pagina prerenderizzata non può contare sulle sue query disidratate finché non si è idratata, perché un guard di route svuota la cache delle query la prima volta che vede un utente con l'accesso effettuato: per questo il loader della landing restituisce anche il numero di stelle, e `proof-section.tsx` lo passa alla query come `placeholderData`, così la pagina si idrata con il numero con cui è stata renderizzata.
+- Usa `useSuspenseQuery` per i dati che il loader ha precaricato, e `useQuery` solo per i dati che possono arrivare più tardi senza bloccare la pagina, come il numero di stelle in `proof-section.tsx`.
 - Non recuperare dati in `useEffect` e non passare i risultati delle query come props: ogni componente chiama le opzioni di cui ha bisogno.
 - Una `DataTable` riceve una funzione che dallo stato della pagina ricava le opzioni, `options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }}`, ed esegue la query da sé.
 
@@ -95,7 +111,7 @@ const update = useMutation({
 - Invalida il prefisso più ristretto che copre ogni schermata che mostra i dati modificati. Le mutation di capitoli e lezioni invalidano `COURSE_QUERY_KEYS.ALL`, perché li mostrano l'editor dei corsi e le pagine pubbliche dei corsi. `useLessonProgress` invalida solo `COURSE_QUERY_KEYS.DETAIL`, e solo quando una lezione viene completata.
 - Attendi l'invalidazione prima di navigare altrove o di chiudere una finestra di dialogo, così la schermata successiva mostra dati aggiornati.
 - Gli errori passano per `useErrorMessage()`; vedi [Server function ed errori](/docs/conventions/server-functions).
-- Non aggiornare mai la cache a mano per simulare un risultato. L'unica eccezione è la sessione: `loadRouteSession` in `auth.routes.ts` svuota l'intera cache quando cambia l'utente che ha effettuato l'accesso, così nessun dato privato sopravvive a un logout o a un cambio di account.
+- Non aggiornare mai la cache a mano per simulare un risultato. L'unica eccezione è la sessione: quando cambia l'utente che ha effettuato l'accesso, `loadRouteSession` in `auth.routes.ts` rimuove i dati dell'utente precedente con `removeUserData` e salva la nuova sessione, così nessun dato privato sopravvive a un logout o a un cambio di account. Vedi [Query pubbliche](#public-queries).
 
 ## Pagine correlate
 

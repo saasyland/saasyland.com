@@ -1,6 +1,6 @@
 ---
 title: "データの取得とキャッシュ"
-description: "サーバー関数の隣に置くクエリオプションとミューテーションオプション、すべての入力を含むクエリキー、データの鮮度のルール、表示中のデータを再取得しないローダー、そして無効化。"
+description: "サーバー関数の隣に置くクエリオプションとミューテーションオプション、すべての入力を含むクエリキー、ユーザーが変わっても残る公開クエリ、データの鮮度のルール、表示中のデータを再取得しないローダー、そして無効化。"
 ---
 
 データは TanStack Query を通して画面に届きます。ユースケースはサーバー関数の隣でそのオプションをエクスポートし、ルートのローダー、コンポーネント、テストはすべて同じオプションを使います。そのため、これらは構造上 1 つのキャッシュエントリを共有します。
@@ -33,6 +33,22 @@ queryKey: [...COURSE_QUERY_KEYS.LIST, courseZodSchemas.getCourses.parse(input)]
 ```
 
 一覧のキーにはパース済みの入力を格納するため、`getCoursesPageQuery()` と `getCoursesPageQuery({ pageIndex: 0, pageSize: 10 })` は同じエントリになります。サーバーが結果をローカライズする場合は、必ずロケールをキーに含めます。コンポーネントの中でキーを直接書いてはいけません。キーはオプションから読み取るか、無効化する場合は `<MODULE>_QUERY_KEYS` オブジェクトから読み取ります。
+
+## 公開クエリ [#public-queries]
+
+サインインしているのが誰であっても、すべての訪問者に同じ結果を返すクエリは `meta: { public: true }` を宣言します。
+
+```ts
+export const catalogueQuery = (input: Course["getCatalogue"]) =>
+  queryOptions({
+    meta: { public: true },
+    queryFn: () => getCatalogue({ data: input }),
+    queryKey: [...COURSE_QUERY_KEYS.CATALOGUE, input.locale],
+    staleTime: COURSE_STALE_MS,
+  })
+```
+
+翻訳（`messagesQueryOptions`）、GitHub のスター数（`starCountQuery`）、コースカタログ（`catalogueQuery`）、ランディングページのコースブロック（`courseShowcaseQuery`）は公開クエリです。それ以外のクエリはすべてサインイン中のユーザーのものです。ユーザーが変わると、`auth.session.ts` の `removeUserData` がそれらのクエリとすべてのミューテーションを削除し、公開クエリは残します。そのため、次のユーザーが前のユーザーのデータを目にすることはなく、プリレンダーされたページはレンダリングされたときのデータを保ちます。このフラグは、サーバーがページにデハイドレートするすべてのクエリに付いたまま届くためです。フラグを省いたクエリは次のユーザーのために再取得されます。その分リクエストが 1 回増えますが、データが漏れることはありません。そのため、クエリを公開にするのは、そのサーバー関数がセッションを一切読まない場合だけにしてください。`auth.session.test.ts` はすべての公開クエリを実行し、いずれかがセッションを読んだ場合や、テストが実行しない公開クエリをソースファイルが宣言している場合に失敗します。
 
 ## データの鮮度
 
@@ -73,7 +89,7 @@ const { license } = useSuspenseQuery(currentLicenseQuery).data
 context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound)
 ```
 
-- ローダーがプリフェッチしたデータには `useSuspenseQuery` を使い、`useQuery` は `proof-section.tsx` のスター数のように、ページをブロックせずに後から届いてもよいデータにだけ使います。 ルートガードはサインイン済みのユーザーを初めて見たときにクエリキャッシュを消去するため、プリレンダーされたページはハイドレートが終わるまで、デハイドレートされたクエリに頼れません。そのためランディングページのローダーはスター数も返し、`proof-section.tsx` はそれをクエリの `placeholderData` に渡すので、ページはレンダリングされたときの数値のままハイドレートされます。
+- ローダーがプリフェッチしたデータには `useSuspenseQuery` を使い、`useQuery` は `proof-section.tsx` のスター数のように、ページをブロックせずに後から届いてもよいデータにだけ使います。
 - `useEffect` の中でデータを取得したり、クエリの結果を props で下に渡したりしないでください。各コンポーネントが必要なオプションを自分で呼び出します。
 - `DataTable` は、ページの状態からオプションを作る関数を `options={{ query: ({ pageIndex, pageSize }) => getCoursesPageQuery({ pageIndex, pageSize }) }}` の形で受け取り、クエリを自分で実行します。
 
@@ -95,7 +111,7 @@ const update = useMutation({
 - 変更されたデータを表示するすべての画面をカバーする、最も狭いプレフィックスを無効化します。チャプターとレッスンのミューテーションは `COURSE_QUERY_KEYS.ALL` を無効化します。コースエディターと公開のコースページの両方がそれらを表示するためです。`useLessonProgress` は、レッスンが完了したときにだけ、`COURSE_QUERY_KEYS.DETAIL` のみを無効化します。
 - ページを離れたりダイアログを閉じたりする前に無効化を await し、次の画面が新しいデータで描画されるようにします。
 - エラーは `useErrorMessage()` で処理します。[サーバー関数とエラー](/docs/conventions/server-functions)を参照してください。
-- 結果を偽装するためにキャッシュを手作業で更新してはいけません。唯一の例外はセッションです。`auth.routes.ts` の `loadRouteSession` は、サインイン中のユーザーが変わるとキャッシュ全体を消去するため、サインアウトやアカウントの切り替えの後に非公開のデータが残ることはありません。
+- 結果を偽装するためにキャッシュを手作業で更新してはいけません。唯一の例外はセッションです。サインイン中のユーザーが変わると、`auth.routes.ts` の `loadRouteSession` が `removeUserData` で前のユーザーのデータを削除し、新しいセッションを保存するため、サインアウトやアカウントの切り替えの後に非公開のデータが残ることはありません。[公開クエリ](#public-queries)を参照してください。
 
 ## 関連ページ
 

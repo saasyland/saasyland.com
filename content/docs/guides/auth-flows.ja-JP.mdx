@@ -16,14 +16,14 @@ Better Auth（`src/integrations/better-auth/auth.server.ts`）は、ユーザー
 | `redirectIfSignedIn` | `/auth/sign-in`、`/auth/sign-up` | サインイン済みのユーザーを `redirect`、または `/admin` か `/app` に送ります           |
 | `redirectAfterAuth`  | `/auth/callback`                 | 新しいセッションを `redirect`、またはロールに応じて `/admin` か `/app` に送ります     |
 
-`requireSignedIn` と `requireAdmin` はナビゲーションのたびにセッションを再確認し、`redirectIfSignedIn` はキャッシュ済みのセッションを使います。どのガードも、サインイン中のユーザーが変わるとクエリキャッシュをクリアします。
+`requireSignedIn` と `requireAdmin` はナビゲーションのたびにセッションを再確認し、`redirectIfSignedIn` はキャッシュ済みのセッションを使います。どのガードも、サインイン中のユーザーが変わると、[公開クエリ](/docs/conventions/data-fetching#public-queries)は残したまま、前のユーザーのデータをクエリキャッシュから削除します。
 
 ## サインイン
 
 1. `SignInForm` が、Better Auth クライアントの `signIn.email` を呼び出します。
 2. 未認証のアカウントには `EMAIL_NOT_VERIFIED` エラーが返され、そのメールアドレスと `redirect` とともに `/auth/verify-email` に送られます。
 3. 二要素認証が有効なアカウントは `twoFactorRedirect` を受け取り、`SignInForm` が `redirect` を保持したまま `/auth/two-factor` を開きます。
-4. 成功すると、`useAuthRedirect` の `finishSignIn` がクエリとルーターのキャッシュをクリアして `/auth/callback` に遷移し、そこから `redirect`、またはロールに応じたワークスペースへ進みます。
+4. 成功すると、`useAuthRedirect` の `finishSignIn` がクエリキャッシュから前のユーザーのデータを削除し、ルーターのキャッシュをクリアして `/auth/callback` に遷移し、そこから `redirect`、またはロールに応じたワークスペースへ進みます。
 
 Better Auth がリダイレクトで報告するエラーは、`/auth/sign-in` の `?error=` として届き、`auth.errors` のメッセージで表示されます。
 
@@ -65,11 +65,11 @@ Better Auth がリダイレクトで報告するエラーは、`/auth/sign-in` �
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `redirect`               | サインイン後に移動するページ。リンクや認証ページ間のナビゲーションに使います                                                                                 |
 | `hrefWithRedirect(page)` | `redirect` を保持した、`/auth/callback` または `/auth/sign-in` へのローカライズされた URL。Better Auth に `callbackURL` と `errorCallbackURL` として渡します |
-| `finishSignIn()`         | サインインまたは二要素認証の確認の後、クエリとルーターのキャッシュをクリアして `/auth/callback` へ進みます                                                   |
+| `finishSignIn()`         | サインインまたは二要素認証の確認の後、クエリキャッシュから前のユーザーのデータを削除し、ルーターのキャッシュをクリアして `/auth/callback` へ進みます         |
 
 ## サインアウト
 
-`useSignOut` は `signOutUserMutation` を呼び出し、クエリキャッシュをクリアし、`/auth/sign-in` に遷移してから、ルーターのキャッシュをクリアします。
+`useSignOut` は `signOutUserMutation` を呼び出し、クエリキャッシュからそのアカウントのデータを削除し、`/auth/sign-in` に遷移してから、ルーターのキャッシュをクリアします。
 
 ## 関連ガイド
 

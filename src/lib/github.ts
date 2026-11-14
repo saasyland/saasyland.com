@@ -54,6 +54,7 @@ export const getStarCount = createServerFn({ method: "GET" }).handler(async () =
 
 export const starCountQuery = queryOptions({
   gcTime: REFRESH_AFTER_MS,
+  meta: { public: true },
   queryFn: () => getStarCount(),
   queryKey: ["github", "stars"],
   staleTime: REFRESH_AFTER_MS,

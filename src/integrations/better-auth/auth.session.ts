@@ -1,10 +1,16 @@
-import { queryOptions } from "@tanstack/react-query"
+import { type QueryClient, queryOptions } from "@tanstack/react-query"
 import { createServerFn, createServerOnlyFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
 
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
+
+declare module "@tanstack/react-query" {
+  interface Register {
+    queryMeta: { public?: true }
+  }
+}
 
 const SESSION_STALE_TIME_MS = 60_000
 
@@ -37,3 +43,8 @@ export const getCurrentSessionQuery = queryOptions({
   retry: false,
   staleTime: SESSION_STALE_TIME_MS,
 })
+
+export const removeUserData = (queryClient: QueryClient): void => {
+  queryClient.getMutationCache().clear()
+  queryClient.removeQueries({ predicate: ({ meta }) => meta?.public !== true })
+}

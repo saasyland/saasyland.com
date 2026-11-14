@@ -16,14 +16,14 @@ Better Auth (`src/integrations/better-auth/auth.server.ts`) speichert Benutzer, 
 | `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Schickt einen angemeldeten Benutzer zu `redirect` oder zu `/admin` oder `/app`    |
 | `redirectAfterAuth`  | `/auth/callback`                 | Schickt die neue Session zu `redirect` oder je nach Rolle zu `/admin` oder `/app` |
 
-`requireSignedIn` und `requireAdmin` prüfen die Session bei jeder Navigation erneut, `redirectIfSignedIn` verwendet die zwischengespeicherte Session, und jeder Guard leert den Query-Cache, wenn sich der angemeldete Benutzer ändert.
+`requireSignedIn` und `requireAdmin` prüfen die Session bei jeder Navigation erneut, `redirectIfSignedIn` verwendet die zwischengespeicherte Session, und jeder Guard entfernt die Daten des vorherigen Benutzers aus dem Query-Cache, wenn sich der angemeldete Benutzer ändert, und behält dabei die [öffentlichen Queries](/docs/conventions/data-fetching#public-queries).
 
 ## Anmeldung
 
 1. `SignInForm` ruft `signIn.email` des Better-Auth-Clients auf.
 2. Ein nicht verifiziertes Konto erhält den Fehler `EMAIL_NOT_VERIFIED` und wird mit seiner E-Mail-Adresse und `redirect` zu `/auth/verify-email` geschickt.
 3. Ein Konto mit Zwei-Faktor-Authentifizierung erhält `twoFactorRedirect`; `SignInForm` öffnet `/auth/two-factor` und behält dabei `redirect` bei.
-4. Bei Erfolg leert `finishSignIn` aus `useAuthRedirect` die Query- und Router-Caches und navigiert zu `/auth/callback`, das zu `redirect` oder in den Arbeitsbereich der Rolle weiterleitet.
+4. Bei Erfolg entfernt `finishSignIn` aus `useAuthRedirect` die Daten des vorherigen Benutzers aus dem Query-Cache, leert den Router-Cache und navigiert zu `/auth/callback`, das zu `redirect` oder in den Arbeitsbereich der Rolle weiterleitet.
 
 Fehler, die Better Auth per Weiterleitung meldet, kommen als `?error=` auf `/auth/sign-in` an und werden aus `auth.errors` angezeigt.
 
@@ -61,15 +61,15 @@ Ein Besucher, der abgemeldet eine geschützte Seite öffnet, soll nach der Anmel
 
 Die Auth-Komponenten erhalten ihn von `useAuthRedirect` in `src/hooks/use-auth-redirect.ts`:
 
-| Member                   | Verwendung                                                                                                                                                       |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `redirect`               | Die Seite, auf der man nach der Anmeldung landet, für Links und die Navigation zwischen den Auth-Seiten                                                          |
-| `hrefWithRedirect(page)` | Eine lokalisierte URL zu `/auth/callback` oder `/auth/sign-in`, die `redirect` beibehält und Better Auth als `callbackURL` und `errorCallbackURL` übergeben wird |
-| `finishSignIn()`         | Leert die Query- und Router-Caches und leitet nach der Anmeldung oder der Zwei-Faktor-Verifizierung zu `/auth/callback` weiter                                   |
+| Member                   | Verwendung                                                                                                                                                                          |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `redirect`               | Die Seite, auf der man nach der Anmeldung landet, für Links und die Navigation zwischen den Auth-Seiten                                                                             |
+| `hrefWithRedirect(page)` | Eine lokalisierte URL zu `/auth/callback` oder `/auth/sign-in`, die `redirect` beibehält und Better Auth als `callbackURL` und `errorCallbackURL` übergeben wird                    |
+| `finishSignIn()`         | Entfernt die Daten des vorherigen Benutzers aus dem Query-Cache, leert den Router-Cache und leitet nach der Anmeldung oder der Zwei-Faktor-Verifizierung zu `/auth/callback` weiter |
 
 ## Abmeldung
 
-`useSignOut` ruft `signOutUserMutation` auf, leert den Query-Cache, navigiert zu `/auth/sign-in` und leert den Router-Cache.
+`useSignOut` ruft `signOutUserMutation` auf, entfernt die Daten des Kontos aus dem Query-Cache, navigiert zu `/auth/sign-in` und leert den Router-Cache.
 
 ## Verwandte Anleitungen
 

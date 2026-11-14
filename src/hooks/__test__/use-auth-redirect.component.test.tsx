@@ -7,6 +7,8 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { TestProviders, createTestRouter } from "~/src/platform/testing/lib/render"
 
+import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
+
 import { LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
 
 import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
@@ -40,15 +42,18 @@ describe("useAuthRedirect", () => {
     expect(result.current.hrefWithRedirect("/auth/callback")).toBe("/auth/callback")
   })
 
-  it("finishes sign-in by clearing the previous account's data and continuing through the guarded callback with the redirect", async () => {
+  it("finishes sign-in by removing the previous account's data, keeping public data, and continuing through the guarded callback with the redirect", async () => {
     const { queryClient, result, router } = renderAuthRedirect("/auth/sign-in?redirect=%2Fapp%2Flicense")
     const navigate = vi.spyOn(router, "navigate").mockResolvedValue()
     const clearCache = vi.spyOn(router, "clearCache")
+    const translations = messagesQueryOptions({ locale: "en-US", namespace: "common" })
     queryClient.setQueryData(LICENSE_QUERY_KEYS.CURRENT, { key: "previous-license" })
+    await queryClient.query(translations)
 
     await act(() => result.current.finishSignIn())
 
     expect(queryClient.getQueryData(LICENSE_QUERY_KEYS.CURRENT)).toBeUndefined()
+    expect(queryClient.getQueryData(translations.queryKey)).toBeDefined()
     expect(clearCache).toHaveBeenCalledOnce()
     expect(navigate).toHaveBeenCalledWith({ replace: true, search: { redirect: "/app/license" }, to: "/auth/callback" })
   })

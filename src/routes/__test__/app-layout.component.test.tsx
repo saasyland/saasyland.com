@@ -18,6 +18,7 @@ import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
 
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
+import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
 import { Route as AppRoute } from "~/src/routes/app"
@@ -211,7 +212,7 @@ describe("customer workspace account", () => {
     expect(signOutMock).not.toHaveBeenCalled()
   })
 
-  it("clears cached session and license data and opens sign in after successful sign-out", async () => {
+  it("removes the cached session and licence, keeps the catalogue and translations, and opens sign in after successful sign-out", async () => {
     const { queryClient, router, user } = await renderApp(ROUTES.APP)
     await user.click(await screen.findByRole("button", { name: commonMessages.signOut }))
 
@@ -220,6 +221,9 @@ describe("customer workspace account", () => {
     expect(signOutMock).toHaveBeenCalledOnce()
     expect(queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toBeUndefined()
     expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toBeUndefined()
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0)
+    expect(queryClient.getQueryData(catalogueQuery({ locale: "en-US" }).queryKey)).toStrictEqual([])
+    expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.app.sidebar" }).queryKey)).toBeDefined()
     expect(toast.success).toHaveBeenCalledWith(commonMessages.signedOut)
     expect(toast.error).not.toHaveBeenCalled()
   })

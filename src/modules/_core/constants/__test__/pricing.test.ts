@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { applyPpp, getPppMultiplier, getPppPercentOff, pppMultiplierKey } from "~/src/modules/_core/constants/pricing"
+import { PPP_PERCENTS_OFF, applyPpp, getPppMultiplier, getPppPercentOff, pppMultiplierKey } from "~/src/modules/_core/constants/pricing"
 
 describe("regional pricing", () => {
   it.each([
@@ -22,5 +22,9 @@ describe("regional pricing", () => {
     expect(getPppPercentOff(country)).toBe(0)
     expect(pppMultiplierKey(country)).toBe(100)
     expect(applyPpp({ amount: 295, multiplier })).toBe(295)
+  })
+
+  it("lists the percentage off of each regional band, the discounts Polar must offer", () => {
+    expect(PPP_PERCENTS_OFF).toStrictEqual([20, 30, 40, 50])
   })
 })

@@ -1,0 +1,138 @@
+---
+title: "Polar の設定"
+description: "コードが前提とする Polar の組織、トークン、商品、ライセンスキー、地域割引、Webhook と、polar:verify によるその確認方法です。"
+---
+
+Polar は 3 つのプランを販売し、そのライセンスキーを発行し、地域割引を適用します。コードは Polar 側に決まった設定があることを前提としていますが、両者が食い違っても Polar は警告しません。たとえば、ライセンスキーの特典がない商品でも支払いは受け付けますが、キーは発行されません。`bun run polar:verify:<environment>` は Polar とコードを比較し、デプロイスクリプトは手動デプロイのたびに事前にこれを実行します。
+
+## 本番とサンドボックス
+
+Polar は 2 つの独立したサービスを運営しています。本番（`polar.sh`、API は `api.polar.sh`）は実際のカードに請求し、サンドボックス（`sandbox.polar.sh`、API は `sandbox-api.polar.sh`）はテスト用のカードしか受け付けません。両者は何も共有しません。アカウント、組織、トークン、商品、割引、Webhook はどれも一方のサービスにしか存在しないため、`sandbox.polar.sh` には別途サインアップし、それぞれのサービスを個別に設定してください。
+
+| 環境ファイル       | `POLAR_SERVER` | Polar の組織   |
+| ------------------ | -------------- | -------------- |
+| `.env.development` | `sandbox`      | サンドボックス |
+| `.env.preview`     | `sandbox`      | サンドボックス |
+| `.env.production`  | `production`   | 本番           |
+
+開発とプレビューは 1 つの D1 データベースを共有しているため、サンドボックスの組織も 1 つを共有できます。その組織の Webhook はプレビューのホストに送信され、開発で行ったテスト購入もこの Webhook を通じて共有のデータベースに届きます。
+
+`.env.development` や `.env.preview` に、本番のトークン、組織 ID、商品 ID を入れないでください。サンドボックスの API は本番のトークンを拒否します。また `POLAR_SERVER=production` にすると、テスト購入で実際のカードに請求され、プレビューのデータベースでライセンスが付与されてしまいます。`polar:verify` は、開発とプレビューでは `POLAR_SERVER=production` を、本番では `POLAR_SERVER=sandbox` を拒否します。
+
+## 組織とトークン
+
+サンドボックスで、次に本番で、以下を行います。
+
+1. 組織を作成し、組織の設定からその ID を `POLAR_ORGANIZATION_ID` にコピーします。
+2. 組織の設定で、次のスコープだけを持ち、それ以外のスコープを持たない組織アクセストークンを作成し、`POLAR_ACCESS_TOKEN` にコピーします。
+
+| スコープ                  | 必要とする箇所                                                                                |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| `checkouts:write`         | Better Auth の Polar プラグインを通じて購入セッションを作成する `startCheckout`               |
+| `customer_sessions:write` | カスタマーポータルへのリンク `/api/auth/customer/portal`                                      |
+| `discounts:read`          | 購入時の地域割引の検索（`pppDiscountId`）と `polar:verify`                                    |
+| `license_keys:write`      | キーとそのアクティベーションの読み取り、およびアクティベーションの解除（`deactivateLicense`） |
+| `orders:read`             | ライセンスの元になった注文を読み取る Webhook ハンドラー                                       |
+| `products:read`           | `polar:verify`                                                                                |
+| `webhooks:read`           | `polar:verify`                                                                                |
+
+書き込みスコープには読み取りも含まれるため、`license_keys:write` でキーの読み取りもできます。組織トークンは、もともと自分の組織として動作します。それでも `polar:verify` は、購入時の割引の検索と同じように `POLAR_ORGANIZATION_ID` を `organization_id` クエリパラメーターとして送信するため、別の組織の ID を指定していると、商品がないものとして検出されます。
+
+## 商品
+
+プランごとに 1 つの商品を作成します。サブスクリプションではなく買い切りの商品とし、価格は `DEFAULT_CURRENCY_CODE`（米ドル）建ての固定価格で、`src/data/marketing.ts` の `TIER_PRICES` と同じ額にします。各商品の ID を対応するキーにコピーします。
+
+| プラン   | キー                        | 価格                          | キーあたりのアクティベーション数    |
+| -------- | --------------------------- | ----------------------------- | ----------------------------------- |
+| Core     | `POLAR_PRODUCT_ID_CORE`     | <TierPrice tier="core" />     | <ActivationLimit tier="core" />     |
+| Complete | `POLAR_PRODUCT_ID_COMPLETE` | <TierPrice tier="complete" /> | <ActivationLimit tier="complete" /> |
+| Agency   | `POLAR_PRODUCT_ID_AGENCY`   | <TierPrice tier="agency" />   | <ActivationLimit tier="agency" />   |
+
+Polar は価格を通貨の補助単位（米ドルではセント）で保存し、`polar:verify` は比較の前に `TIER_PRICES` を同じように変換します。アーカイブ済みの価格は無視します。
+
+## ライセンスキー
+
+プランごとに **License Keys** タイプの特典を 1 つ作成し、そのプランの商品だけに付けて、次のように設定します。
+
+- **アクティベーション**: 上の表の数、つまり `src/modules/license/license.constants.ts` の `LICENSE_ACTIVATION_LIMITS` に制限します。`/app/license` 自体がアクティベーションを一覧表示して解除できるため、顧客に Polar でアクティベーションを管理させるかどうかは任意です。
+- **有効期限**: なし。購入は 1 回限りの支払いなので、キーは失効しません。
+- **使用回数の上限**: なし。
+- **プレフィックス**: 任意です。`polar:verify` はチェックしません。
+
+各商品には、ライセンスキーの特典がちょうど 1 つ必要です。それ以外の特典が一緒に付いていても問題ありません。Polar が特典を付与すると、`benefit_grant.created` Webhook がキーを購入者のライセンスに保存します。
+
+## 地域割引
+
+購入時の地域価格は、Polar の自動割引によって適用されます（[決済とライセンス](/docs/features/payments)を参照）。`PPP_TIERS`（`src/modules/_core/constants/pricing.ts`）の区分ごとに 1 つずつ、<RegionalDiscounts /> のパーセント割引を作成します。各割引は次の条件を満たす必要があります。
+
+- パーセントで値引きすること。Polar はこれをベーシスポイント（1 パーセントの 100 分の 1）で保存します。
+- コードがないこと。これにより、購入者がコードを入力しなくても購入時に適用できます。
+- 3 つの商品すべてに適用されるか、特定の商品に限定されていないこと。
+- 現在利用できること。つまり、開始日が未来ではなく、終了日が過去ではなく、利用回数の上限がある場合はまだ残りがあること。
+
+購入時にどの割引を適用するかは `src/integrations/polar/polar.discounts.ts` の `findRegionalDiscount` が決め、`polar:verify` も同じ関数に問い合わせます。
+
+## Webhook
+
+デプロイする環境ごとに、その環境が使う組織で Webhook エンドポイントを 1 つ作成します。
+
+| 環境         | 組織           | URL                                                     |
+| ------------ | -------------- | ------------------------------------------------------- |
+| `preview`    | サンドボックス | `https://preview.saasyland.com/api/auth/polar/webhooks` |
+| `production` | 本番           | `https://saasyland.com/api/auth/polar/webhooks`         |
+
+ホストは `DEPLOYED_HOSTS` から、パスは `ROUTES` から取得されます。形式は Raw を選び、エンドポイントを有効のままにして、`licenseWebhookHandlers` が処理するイベント（`src/modules/license/license.constants.ts` の `LICENSE_WEBHOOK_EVENTS` に列挙）だけを過不足なく購読させます。
+
+- `order.paid` はライセンスを付与します。
+- `order.refunded` は、注文が全額返金された時点でライセンスを取り消します。
+- `benefit_grant.created` はライセンスキーを保存します。
+- `benefit_grant.revoked` はライセンスを取り消します。
+
+エンドポイントの署名シークレットを、同じ環境ファイルの `POLAR_WEBHOOK_SECRET` にコピーします。Polar は `localhost` に到達できないため、開発用のエンドポイントは不要です。
+
+本番の組織にプレビューのエンドポイントを、サンドボックスに本番のエンドポイントを追加しないでください。実際の支払いがプレビューに届いたり、テスト購入で本番のライセンスが付与されたりしてしまいます。
+
+## 設定を確認する
+
+```sh
+bun run polar:verify:development
+bun run polar:verify:preview
+bun run polar:verify:production
+```
+
+各スクリプトは `.env.<environment>` から Polar のキーを読み込み、`POLAR_SERVER` が示す API に GET リクエストだけを送ります。組織の商品、割引、Webhook エンドポイントを一覧で取得するだけで、何も変更しません。確認する内容は次のとおりです。
+
+- 環境ファイルにすべての Polar のキーが設定されており、開発とプレビューでは `POLAR_SERVER=sandbox`、本番では `POLAR_SERVER=production` になっていること。
+- 各 `POLAR_PRODUCT_ID_*` が、アーカイブ済みでもサブスクリプションでもない組織の商品を指し、その価格が固定価格で、`DEFAULT_CURRENCY_CODE` 建てで、`TIER_PRICES` と等しいこと。
+- 各商品にライセンスキーの特典がちょうど 1 つあり、その特典が `LICENSE_ACTIVATION_LIMITS` にあるプランの上限を持ち、有効期限も使用回数の上限もないこと。
+- `PPP_TIERS` のすべての区分について、購入時と同じルールで、自動のパーセント割引がすべてのプランの商品に利用できること。
+- プレビューと本番の Webhook URL に、有効な Raw 形式のエンドポイントがあり、`POLAR_WEBHOOK_SECRET` で署名され、処理するイベントだけを過不足なく購読していること。
+- もう一方の Polar サービスを使う環境のホストに送信するエンドポイントがないこと。
+
+`deploy:preview` と `deploy:production` は、`scripts/verify-bindings.ts` の直後、ビルドの前にこれを実行します。CI のデプロイでは実行しません。GitHub の環境には Polar のトークンがなく、Worker は Cloudflare にすでに設定されている Polar のシークレットをそのまま使うためです。Polar で何かを変更したら、そのたびに自分で `polar:verify` を実行してください。
+
+## 失敗した場合
+
+スクリプトは、見つかったすべての問題を 1 行に 1 つずつ列挙したエラーで終了します。
+
+```text
+Polar production does not match the code for production:
+The core product (POLAR_PRODUCT_ID_CORE) has 0 licence-key benefits; it needs exactly one.
+A webhook endpoint posts to https://preview.saasyland.com/api/auth/polar/webhooks, the preview host, from this Polar production organisation; remove it.
+```
+
+失敗すると、ビルド、マイグレーション、アップロードのいずれも行われる前にデプロイが止まります。スクリプトが Polar を変更することはないため、Polar を修正してから再度実行してください。各メッセージには、修正すべきキー、定数、設定が示されます。
+
+- **`Set … in .env.<environment>`**: Polar のキーがないか空になっているか、`POLAR_SERVER` が誤ったサービスを指しています。
+- **`rejects POLAR_ACCESS_TOKEN`**: トークンが無効か、取り消されているか、`.env.preview` に入れた本番のトークンのように、もう一方のサービスのものです。
+- **`lacks the … scope`**: 上記のスコープを持つトークンを作成してください。
+- **`names no product of the organisation`**: 商品 ID または `POLAR_ORGANIZATION_ID` が間違っているか、もう一方のサービスのものです。
+- **価格、ライセンスキー、割引**: コードに合わせて Polar 側を変更してください。ビジネス上の値を意図的に変える場合は、先に `TIER_PRICES`、`LICENSE_ACTIVATION_LIMITS`、`PPP_TIERS` を変更し、その後で Polar を変更します。
+- **Webhook エンドポイント**: メッセージが示すエンドポイントを修正するか、別の環境のホストに送信しているエンドポイントを削除してください。
+
+## 関連ページ
+
+- [決済とライセンス](/docs/features/payments)
+- [環境変数](/docs/getting-started/environment-variables)
+- [プレビューをデプロイする](/docs/getting-started/deploy-preview)
+- [料金モデル](/docs/features/pricing-models)

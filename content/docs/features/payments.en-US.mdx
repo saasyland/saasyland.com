@@ -18,14 +18,14 @@ polarPlugin({
 
 The plugin's own `POST /api/auth/checkout` is listed in Better Auth's `disabledPaths` (`ROUTES.API_AUTH.CHECKOUT`), so it answers 404 over HTTP. Every checkout starts in the `startCheckout` server function, which calls `auth.api.checkout` on the server after its own checks.
 
-`src/integrations/polar/polar.config.ts` creates `polarCore` from `POLAR_ACCESS_TOKEN` and `POLAR_SERVER`, which the plugin uses, and `polar`, the discounts, licence keys and orders services built on it. `POLAR_ORGANIZATION_ID` scopes the discount lookup and licence key deactivation. `POLAR_CHECKOUT_PRODUCTS` maps the tier slugs `core`, `complete` and `agency` to `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` and `POLAR_PRODUCT_ID_AGENCY`.
+`src/integrations/polar/polar.config.ts` creates `polarCore` from `POLAR_ACCESS_TOKEN` and `POLAR_SERVER`, which the plugin uses, and `polar`, the discounts, licence keys and orders services built on it. `POLAR_ORGANIZATION_ID` scopes the discount lookup and licence key deactivation. `POLAR_CHECKOUT_PRODUCTS` maps the tier slugs `core`, `complete` and `agency` to `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` and `POLAR_PRODUCT_ID_AGENCY`. [Polar setup](/docs/getting-started/polar-setup) describes the products, licence keys, discounts, webhook and token this code expects in Polar, and `bun run polar:verify:<environment>` checks them.
 
 ## Checkout
 
 A signed-in user without an active licence sees `LicenseOffer` on `/app` and `/app/license`: the tier cards of the landing page (`PricingTiers`, see [Landing page](/docs/features/landing-page)) with a `CheckoutButton` for each tier, the regional pricing checkbox, the purchase terms and the course lessons the purchase unlocks. `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`) takes `{ locale, tier }` and:
 
 1. refuses with `AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)` when the account already has an `active` licence. The button shows `errors.codes.LICENSE_ALREADY_ACTIVE` and refreshes the licence, so a page left open since the purchase switches to the licence;
-2. looks up a regional discount with `pppDiscountId` (`license.ppp.ts`): the percentage for the `cf-ipcountry` country, matched against active automatic percentage discounts in Polar, skipped when the `regional_pricing` cookie is `off`;
+2. looks up a regional discount with `pppDiscountId` (`license.ppp.ts`): the percentage for the `cf-ipcountry` country, matched by `findRegionalDiscount` (`src/integrations/polar/polar.discounts.ts`) against the automatic percentage discounts in Polar that are redeemable now, skipped when the `regional_pricing` cookie is `off`;
 3. creates a Polar checkout for the tier with discount codes disabled, the affiliate referral in `metadata` when the visitor came through an affiliate link (see [Affiliate programme](/docs/features/affiliates)), and the success URL `/app?checkoutId={CHECKOUT_ID}` in the buyer's language (`localizePathname`). Polar replaces `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) with the checkout ID;
 4. returns the checkout URL, which the browser opens.
 
@@ -50,7 +50,7 @@ A `checkoutId` that is not a UUID is ignored.
 
 ## Webhooks and licences
 
-Polar posts to `/api/auth/polar/webhooks`, verified with `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) match the user through the Polar customer `external_id`. An event for a customer with no account here is logged when it needed one and acknowledged, so Polar does not retry it:
+Polar posts to `/api/auth/polar/webhooks`, verified with `POLAR_WEBHOOK_SECRET`, the events listed in `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`). `licenseWebhookHandlers` satisfies `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, so a handler without its event, or an event without its handler, does not compile. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) match the user through the Polar customer `external_id`. An event for a customer with no account here is logged when it needed one and acknowledged, so Polar does not retry it:
 
 - `onOrderPaid` → `grantLicense`: upserts the user's single licence with the tier of the purchased product; a newer purchase replaces an older one.
 - `onBenefitGrantCreated` → `attachLicenseKey`: stores the Polar licence key on the licence. While the paid order is not recorded yet it fails, so Polar retries it; a key for a refunded order or for a product that is not a licence is acknowledged.
@@ -58,7 +58,7 @@ Polar posts to `/api/auth/polar/webhooks`, verified with `POLAR_WEBHOOK_SECRET`.
 
 ## Customer screens
 
-`/app/license` shows `LicenseCard` (tier, key, install command, a link to the Polar customer portal at `/api/auth/customer/portal` and the support email for a change of tier) and `LicenseActivations`, which lists key activations from Polar and removes one with `deactivateLicense`. See [Customer app](/docs/features/customer-app).
+`/app/license` shows `LicenseCard` (tier, key, install command, a link to the Polar customer portal at `/api/auth/customer/portal` and the support email for a change of tier) and `LicenseActivations`, which lists key activations from Polar and removes one with `deactivateLicense`. Polar enforces the activation limit of each tier's licence-key benefit, which must equal `LICENSE_ACTIVATION_LIMITS`: <ActivationLimit tier="core" /> for Core, <ActivationLimit tier="complete" /> for Complete and <ActivationLimit tier="agency" /> for Agency. See [Customer app](/docs/features/customer-app).
 
 ## Admin screen (demo)
 
@@ -66,6 +66,7 @@ Polar posts to `/api/auth/polar/webhooks`, verified with `POLAR_WEBHOOK_SECRET`.
 
 ## Related pages
 
+- [Polar setup](/docs/getting-started/polar-setup) for the configuration in Polar and `polar:verify`
 - [Landing page](/docs/features/landing-page) for the tier cards and regional prices
 - [Customer app](/docs/features/customer-app) for the screens around checkout
 - [Environment variables](/docs/getting-started/environment-variables)

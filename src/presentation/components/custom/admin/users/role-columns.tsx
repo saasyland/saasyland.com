@@ -10,7 +10,7 @@ import { cn } from "~/src/lib/cn"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 
 import { RowActionsCell } from "~/src/presentation/components/custom/admin/row-actions-cell"
-import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type Role = (typeof ADMIN_ROLE_ROWS)[number]
 
@@ -60,5 +60,5 @@ export const roleColumns = columnHelper.columns([
   }),
   columnHelper.accessor("id", { cell: TypeCell, enableSorting: false, header: () => <ColumnHeader id="type" />, id: "type" }),
   columnHelper.accessor("usersCount", { cell: UsersCountCell, header: () => <ColumnHeader id="users" /> }),
-  columnHelper.display({ cell: RowActionsCell, header: "", id: "actions" }),
+  columnHelper.display({ cell: RowActionsCell, header: DataTableActionsHeader, id: "actions" }),
 ])

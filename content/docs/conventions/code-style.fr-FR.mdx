@@ -17,10 +17,10 @@ oxlint traite les catégories `correctness`, `nursery`, `pedantic`, `perf`, `sty
 | `no-magic-numbers`           | seul `0` est autorisé, ainsi que les index de tableau et les valeurs par défaut | Tout autre nombre est une constante nommée                                    |
 | `id-length`                  | au moins deux caractères, sauf `_`, `m` et `t`                                  | Les identifiants sont des mots ; `t` est le traducteur                        |
 | `one-var`                    | `never`                                                                         | Une déclaration par instruction                                               |
-| `unicorn/no-null`            | activée hors des tests                                                          | Les valeurs absentes sont `undefined`                                         |
+| `unicorn/no-null`            | activée hors des tests et de `src/platform/testing`                             | Les valeurs absentes sont `undefined`                                         |
 | `typescript/no-explicit-any` | `error`                                                                         | Aucune valeur n'est typée `any`                                               |
 
-Les surcharges sont étroites et limitées à certains fichiers : les tests assouplissent `no-magic-numbers`, `no-await-in-loop` et `unicorn/no-null` ; `src/presentation` et `src/hooks` assouplissent `typescript/consistent-return` ; les mocks de test assouplissent `require-await` ; `src/routes` désactive `sort-keys`, car les options de route suivent leur propre ordre (voir [Fichiers de route](/docs/conventions/routes)).
+Les surcharges sont étroites et limitées à certains fichiers : les tests et les utilitaires de test partagés de `src/platform/testing` assouplissent `no-magic-numbers`, `no-await-in-loop` et `unicorn/no-null` ; `src/presentation` et `src/hooks` assouplissent `typescript/consistent-return` ; les mocks de test assouplissent `require-await` ; `src/routes` désactive `sort-keys`, car les options de route suivent leur propre ordre (voir [Fichiers de route](/docs/conventions/routes)).
 
 `tsconfig.json` ajoute les options strictes qui changent la façon d'écrire le code : `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` et `noUnusedParameters`. Une lecture indexée peut valoir `undefined`, une propriété optionnelle ne peut pas recevoir `undefined` explicitement, et une signature d'index se lit sous la forme `record["key"]`.
 
@@ -49,7 +49,7 @@ N'écrivez jamais `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-i
 
 ## Null et undefined
 
-Les littéraux `null` sont interdits hors des tests ; une valeur absente vaut `undefined`. Ne convertissez jamais le `null` renvoyé par une API avec `?? undefined`. Validez d'abord l'entrée, pour que l'appel ne puisse pas échouer, ou utilisez un parseur qui renvoie déjà `undefined`. Les paramètres de recherche sont le cas le plus courant, et `searchParam(schema)` de `src/lib/search-params.ts` renvoie `undefined` pour une valeur absente ou mal formée :
+Hors des tests et de `src/platform/testing`, une valeur absente vaut `undefined`, et `null` n'est jamais écrit comme valeur. Le linter l'autorise là où une API l'impose : dans une comparaison avec une valeur qui peut être `null`, comme une colonne nullable (`entry.completedAt !== null` dans `get-course.ts`), et dans une ref DOM de React, qui commence par `useRef<HTMLElement>(null)` parce que React type `ref` en `RefObject<T | null>` et la remet à `null` au démontage (`course-showcase.tsx`). Ne convertissez jamais le `null` renvoyé par une API avec `?? undefined`. Validez d'abord l'entrée, pour que l'appel ne puisse pas échouer, ou utilisez un parseur qui renvoie déjà `undefined`. Les paramètres de recherche sont le cas le plus courant, et `searchParam(schema)` de `src/lib/search-params.ts` renvoie `undefined` pour une valeur absente ou mal formée :
 
 ```ts
 export const authSearchSchema = zod.object({
@@ -95,11 +95,12 @@ export const COURSE_STATUS = {
 } as const
 ```
 
-Le tuple dont une colonne ou un schéma d'enum a besoin est construit à partir de l'objet, et non retapé : `course.schema.ts` déclare `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, qui alimente à la fois `text("status", { enum: COURSE_STATUSES })` et `zod.enum(COURSE_STATUSES)`.
+Le tuple dont une colonne ou un schéma d'enum a besoin est construit à partir de l'objet, et non retapé : `course.schema.ts` déclare `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, qui alimente à la fois `text("status", { enum: COURSE_STATUSES })` et `zod.enum(COURSE_STATUSES)`. Un tuple que lit aussi le code du navigateur est déclaré à la place dans les constantes du module, qui n'importent rien de Drizzle : la grille tarifaire parcourt `LICENSE_TIERS` de `license.constants.ts`.
 
 - Les constantes d'un module se trouvent dans son `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`) ; les valeurs d'un fournisseur se trouvent dans le `*.constants.ts` de l'intégration (`POLAR_ORDER_STATUS` dans `polar.constants.ts`, `AUTH_PROVIDER` dans `auth.constants.ts`, `EMAIL_PURPOSE` dans `resend.constants.ts`).
 - Les longueurs des colonnes et des entrées sont nommées une seule fois, dans les constantes du module, et lues à la fois par le schéma Drizzle et par le schéma Zod : `PRODUCT_NAME_MAX_LENGTH` dans `product.constants.ts`.
 - Un concept a une seule table de correspondance, dans une seule casse : `ERROR_CODES` pour les erreurs serveur, `AUTH_ERRORS` pour les clés d'erreur de Better Auth, `ROLE_CODES` pour les rôles.
+- Les noms d'environnement et les codes de statut HTTP sont déclarés une seule fois, dans `src/modules/_core/constants/api.ts` : `ENVIRONMENT.PRODUCTION` dans `__root.tsx` et les scripts de déploiement, `HTTP_STATUS.PARTIAL_CONTENT` dans le gestionnaire de médias du Worker. Aucun fichier ne déclare sa propre table de l'un ou de l'autre. La seule exception est `vite.config.ts`, qui compare `mode` aux noms bruts : Vite charge la configuration avant de résoudre l'alias `~`, elle ne peut donc pas importer `api.ts`.
 - Une constante utilisée par un seul fichier reste dans ce fichier, sous les imports. Une constante utilisée par plusieurs fichiers va dans son module, dans `src/data` (voir [Fichiers et nommage](/docs/conventions/files-and-naming)) ou dans `src/modules/_core/constants`. Ne donnez jamais à une constante un fichier pour elle seule.
 - Les noms de champs d'API typés comme `license_key_id` sont des propriétés, pas des valeurs, et restent des accès de propriété.
 

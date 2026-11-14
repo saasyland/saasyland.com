@@ -40,8 +40,9 @@ type ProductTab = (typeof ADMIN_PRODUCT_TABS)[number]
 const DEFAULT_TAB: ProductTab = "all"
 
 const ProductsPage = (): JSX.Element => {
-  const { tab } = Route.useSearch()
   const t = useTranslations("pages.admin.products")
+
+  const { tab } = Route.useSearch()
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
@@ -98,11 +99,11 @@ const ProductsPage = (): JSX.Element => {
 const NAMESPACE = "pages.admin.products"
 
 export const Route = createFileRoute("/admin/products/")({
-  component: ProductsPage,
-  head: pageHead(ROUTES.ADMIN_PRODUCTS),
   validateSearch: zod.object({
     tab: searchChoice(ADMIN_PRODUCT_TABS, DEFAULT_TAB),
   }),
+  component: ProductsPage,
+  head: pageHead(ROUTES.ADMIN_PRODUCTS),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
@@ -113,7 +114,7 @@ export const Route = createFileRoute("/admin/products/")({
     ])
     return { locale, metadata }
   },
-  search: { middlewares: [stripSearchParams({ tab: DEFAULT_TAB })] },
   pendingComponent: AdminProductsPending,
+  search: { middlewares: [stripSearchParams({ tab: DEFAULT_TAB })] },
   staticData: { namespaces: [NAMESPACE] },
 })

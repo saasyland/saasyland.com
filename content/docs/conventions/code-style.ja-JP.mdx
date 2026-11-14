@@ -17,10 +17,10 @@ oxlint は `correctness`、`nursery`、`pedantic`、`perf`、`style`、`suspicio
 | `no-magic-numbers`           | `0` のみ許可。ほかに配列のインデックスとデフォルト値も可 | それ以外の数値はすべて名前付きの定数にする     |
 | `id-length`                  | 2 文字以上。ただし `_`、`m`、`t` を除く                  | 識別子は単語にする。`t` は翻訳関数             |
 | `one-var`                    | `never`                                                  | 1 つの文で宣言するのは 1 つだけ                |
-| `unicorn/no-null`            | テスト以外で有効                                         | 値がないことは `undefined` で表す              |
+| `unicorn/no-null`            | テストと `src/platform/testing` 以外で有効               | 値がないことは `undefined` で表す              |
 | `typescript/no-explicit-any` | `error`                                                  | どの値も `any` で型付けしない                  |
 
-オーバーライドは限定的で、ファイル単位で適用されます。テストは `no-magic-numbers`、`no-await-in-loop`、`unicorn/no-null` を緩和し、`src/presentation` と `src/hooks` は `typescript/consistent-return` を、テスト用モックは `require-await` を緩和します。`src/routes` では `sort-keys` を無効にしています。ルートのオプションは独自の順序に従うためです（[ルートファイル](/docs/conventions/routes)を参照）。
+オーバーライドは限定的で、ファイル単位で適用されます。テストと `src/platform/testing` の共有テストヘルパーは `no-magic-numbers`、`no-await-in-loop`、`unicorn/no-null` を緩和し、`src/presentation` と `src/hooks` は `typescript/consistent-return` を、テスト用モックは `require-await` を緩和します。`src/routes` では `sort-keys` を無効にしています。ルートのオプションは独自の順序に従うためです（[ルートファイル](/docs/conventions/routes)を参照）。
 
 `tsconfig.json` は、コードの書き方を左右する厳格なフラグを追加しています。`strict`、`exactOptionalPropertyTypes`、`noUncheckedIndexedAccess`、`noPropertyAccessFromIndexSignature`、`noImplicitReturns`、`noFallthroughCasesInSwitch`、`noUnusedLocals`、`noUnusedParameters` です。インデックスによる読み取りは `undefined` の可能性があり、省略可能なプロパティに明示的に `undefined` を設定することはできず、インデックスシグネチャは `record["key"]` の形で読み取ります。
 
@@ -49,7 +49,7 @@ const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 
 ## null と undefined
 
-テスト以外では `null` リテラルを禁止しており、値がないことは `undefined` で表します。`null` を返す API を `?? undefined` で橋渡ししてはいけません。先に入力をバリデーションして呼び出しが失敗しないようにするか、最初から `undefined` を返すパーサーを使います。よくあるのは検索パラメーターで、`src/lib/search-params.ts` の `searchParam(schema)` は、値がない場合や不正な場合に `undefined` を返します。
+テストと `src/platform/testing` 以外では、値がないことは `undefined` で表し、`null` を値として書くことはありません。リンターが `null` を許すのは、API がそれを決めている箇所だけです。1 つは `null` になりうる値との比較で、null 許容のカラム（`get-course.ts` の `entry.completedAt !== null`）がその例です。もう 1 つは React の DOM ref で、React は `ref` を `RefObject<T | null>` として型付けし、アンマウント時に `null` に戻すため、`useRef<HTMLElement>(null)` から始めます（`course-showcase.tsx`）。`null` を返す API を `?? undefined` で橋渡ししてはいけません。先に入力をバリデーションして呼び出しが失敗しないようにするか、最初から `undefined` を返すパーサーを使います。よくあるのは検索パラメーターで、`src/lib/search-params.ts` の `searchParam(schema)` は、値がない場合や不正な場合に `undefined` を返します。
 
 ```ts
 export const authSearchSchema = zod.object({
@@ -95,11 +95,12 @@ export const COURSE_STATUS = {
 } as const
 ```
 
-カラムや enum スキーマが必要とするタプルは、値を打ち直さずにこのオブジェクトから組み立てます。`course.schema.ts` は `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const` を宣言し、これを `text("status", { enum: COURSE_STATUSES })` と `zod.enum(COURSE_STATUSES)` の両方に渡しています。
+カラムや enum スキーマが必要とするタプルは、値を打ち直さずにこのオブジェクトから組み立てます。`course.schema.ts` は `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const` を宣言し、これを `text("status", { enum: COURSE_STATUSES })` と `zod.enum(COURSE_STATUSES)` の両方に渡しています。ブラウザー側のコードも読むタプルは、代わりにモジュールの定数ファイルで宣言します。定数ファイルは Drizzle から何もインポートしません。料金表は `license.constants.ts` の `LICENSE_TIERS` を順に処理します。
 
 - モジュールの定数はそのモジュールの `<module>.constants.ts` に置き（`LESSON_ACCESS`、`LICENSE_TIER`）、プロバイダーの値は連携の `*.constants.ts` に置きます（`polar.constants.ts` の `POLAR_ORDER_STATUS`、`auth.constants.ts` の `AUTH_PROVIDER`、`resend.constants.ts` の `EMAIL_PURPOSE`）。
 - カラムと入力の長さは、モジュールの定数で一度だけ名前を付け、Drizzle のスキーマと Zod スキーマの両方がそれを読み取ります（`product.constants.ts` の `PRODUCT_NAME_MAX_LENGTH`）。
 - 1 つの概念には、表記を統一したマップを 1 つだけ用意します。サーバーのエラーには `ERROR_CODES`、Better Auth のエラーキーには `AUTH_ERRORS`、ロールには `ROLE_CODES` を使います。
+- 環境名と HTTP ステータスコードは `src/modules/_core/constants/api.ts` で一度だけ宣言します。`__root.tsx` とデプロイ用スクリプトは `ENVIRONMENT.PRODUCTION` を、Worker のメディアハンドラーは `HTTP_STATUS.PARTIAL_CONTENT` を使います。どちらについても、ファイルごとに独自のマップを宣言することはありません。唯一の例外は `vite.config.ts` で、`mode` をそのままの名前と比較します。Vite は `~` エイリアスを解決する前に設定を読み込むため、`api.ts` をインポートできないからです。
 - 1 つのファイルだけで使う定数は、そのファイルのインポートの下に置きます。複数のファイルで使う定数は、そのモジュール、`src/data`（[ファイルと命名](/docs/conventions/files-and-naming)を参照）、または `src/modules/_core/constants` に置きます。1 つの定数のためだけにファイルを作ってはいけません。
 - `license_key_id` のような型付き API のフィールド名は値ではなくプロパティなので、プロパティアクセスのままにします。
 

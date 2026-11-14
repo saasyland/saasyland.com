@@ -25,6 +25,7 @@ import { ROUTES } from "~/src/routes"
 
 const CourseEditorPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.courses.editor")
+
   const { courseId } = Route.useParams()
 
   const { data } = useSuspenseQuery(courseEditorQuery({ courseId }))

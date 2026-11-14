@@ -40,7 +40,7 @@ export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps
   const [isOpen, setOpen] = useState(false)
 ```
 
-- One exported component per file, declared as `export const Name = (...): JSX.Element =>`. A component that can render nothing returns `JSX.Element | undefined`.
+- A file is named after the component it exports, declared as `export const Name = (...): JSX.Element =>`. A component that can render nothing returns `JSX.Element | undefined`. The file also exports the companions that only make sense beside it, and nothing else: the parts of a compound component (`HighlightGroup` and `HighlightItem`, `DataTable` and `DataTableActionsHeader`), the fields one area's forms share (`course-fields.tsx`), an area's skeletons (`content-pending.tsx`), or a piece another screen of the same feature renders (`UnlockLink` in `locked-lesson.tsx`, `CheckoutAgreement` in `checkout.tsx`, `PlayerPending` in `lesson-player.tsx`, `Price` in `pricing.tsx`).
 - Props are `readonly`, in a `<Name>Props` interface above the component, or inline when there is a single prop.
 - Hooks come first, in the order and spacing described in [Code style](/docs/conventions/code-style), then local callbacks, then the JSX.
 - Choices between two pieces of JSX use `&&` pairs or an early return, never a multi-line ternary.
@@ -64,9 +64,11 @@ A two-way choice is two entries, the second negated, as in `newsletter-form.tsx`
 
 `src/presentation/components/shadcn/` holds the shadcn/ui primitives of the `aria-lyra` style named in `components.json`, built on React Aria Components. Screens import them directly; there is no wrapper layer. Add a primitive with the shadcn CLI, and change a primitive's file only to fix the primitive itself, such as its focus or accessibility behaviour, never for one screen's look. React Aria props differ from DOM habits: `onPress`, `isDisabled`, `isOpen` with `onOpenChange`, `isSelected`. See [Shadcn components](/docs/ui/shadcn-components) for the full table and the `@source not` list in `globals.css`.
 
+When no primitive has the shape a control needs, the screen uses the React Aria component itself, never a hand-written element: the course tour's play button and `back-to-top.tsx` use `Button` from `react-aria-components`, and the regional pricing offer in `pricing.tsx` uses `CheckboxField` and `CheckboxButton`. The offer styles its box from the native `:checked` state (`group-has-checked:`) rather than `data-selected`, because the Worker unchecks it in the prerendered HTML for a buyer who declined, before the page hydrates. Native `<button>` elements remain only where Motion animates the element itself, in `copy-button.tsx` and the CLI configurator's chips: React Aria's `Button` accepts neither Motion's gesture props nor the `title` that explains an unavailable chip.
+
 ## Focus rings
 
-React Aria components style their focus ring with `data-focus-visible:` variants, as `select.tsx`, `checkbox.tsx`, `switch.tsx` and `radio-group.tsx` do. React Aria sets `data-focus-visible` only for keyboard focus. Chrome's `:focus-visible`, by contrast, also matches when a popover closes after a click outside and React Aria returns focus to its trigger, so `focus-visible:` on a trigger paints a ring after a pure mouse interaction. Plain links and elements that are not React Aria components keep `focus-visible:`, because they never receive `data-focus-visible`; that is why `button-variants.ts`, which also styles links, uses `focus-visible:`.
+React Aria components style their focus ring with `data-focus-visible:` variants, as `select.tsx`, `checkbox.tsx`, `switch.tsx` and `radio-group.tsx` do. React Aria sets `data-focus-visible` only for keyboard focus. Chrome's `:focus-visible`, by contrast, also matches when a popover closes after a click outside and React Aria returns focus to its trigger, so `focus-visible:` on a trigger paints a ring after a pure mouse interaction. Plain links and elements that are not React Aria components keep `focus-visible:`, because they never receive `data-focus-visible`; that is why `button-variants.ts`, which also styles links, uses `focus-visible:`. Tailwind's `outline-none` sets the outline style to `none`, which `data-focus-visible:outline-2` keeps, so a React Aria trigger that hides the browser's own ring adds `data-focus-visible:outline-solid`, as the admin command palette's trigger does.
 
 ## Providers
 
@@ -74,7 +76,7 @@ A provider whose value changes after hydration never wraps a route `<Outlet />`.
 
 - `AriaProvider` wraps the root outlet in `__root.tsx` and `TranslationsProvider` wraps the document body, because every screen needs them and their values are ready at hydration.
 - `ThemeProvider` wraps only the `Toaster` in `__root.tsx` and the `ThemeSwitch` in `docs.tsx`.
-- `MotionProvider` wraps the landing sections in `_landing.index.tsx` and the post list in `blog.index.tsx`.
+- `MotionProvider` wraps the landing sections in `_landing.index.tsx`, the post list in `blog.index.tsx`, the copy button in `post-share.tsx` and the tier cards in `license-offer.tsx`.
 
 The reason, measured, is on [Performance](/docs/conventions/performance).
 

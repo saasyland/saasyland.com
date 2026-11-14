@@ -12,7 +12,8 @@ test("shows the regional price next to the struck-through regular price and reme
   await expect(core.locator("s")).toBeVisible()
   await expect(offer).toBeChecked()
 
-  await offer.uncheck()
+  await page.locator("label").filter({ has: offer }).click()
+  await expect(offer).not.toBeChecked()
   await expect(core.locator(".pv:visible")).toHaveText("$249")
   await expect(core.locator("s")).toBeHidden()
 

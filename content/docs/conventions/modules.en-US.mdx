@@ -45,9 +45,9 @@ export const course = sqliteTable(
 ```
 
 - Columns are camelCase in TypeScript and snake_case in SQL. Keys are sorted, as the linter requires, with `...timestamps()` as the last entry.
-- `createdAt` and `updatedAt` come from `timestamps()` in `src/integrations/drizzle-orm/drizzle.columns.ts`: milliseconds, filled by SQLite on insert, with `updatedAt` refreshed on every update. Never write them by hand. `lesson_progress` needs only the second, so it takes `updatedAt: timestamps().updatedAt`.
+- `createdAt` and `updatedAt` come from `timestamps()` in `src/integrations/drizzle-orm/drizzle.columns.ts`: milliseconds, filled by SQLite on insert, with `updatedAt` refreshed on every update. Never write them by hand. `lesson_progress` needs only the second, so it takes `updatedAt: timestamps().updatedAt`. Two tables have no timestamps: `rate_limit` holds short-lived counters that carry their own `expiresAt` and change on every request, and `revoked_license_order` records each refunded Polar order once, by its ID.
 - Primary keys are text. A use case that inserts a row fills the key with a UUID v7 (`v7()` from `uuid`).
-- Enum columns take a tuple built from the module's constant object, never a list of literals.
+- Enum columns take a tuple built from the module's constant object, never a list of literals. The tuple sits in the schema file unless code outside the server reads it, such as the landing page's pricing table (`LICENSE_TIERS`) or the browser suite (`NEWSLETTER_STATUSES`); then it sits in `<table>.constants.ts`, which imports nothing from Drizzle.
 - Text a visitor reads in several languages is a `LocalizedText` JSON column, validated by `localizedTextSchema` and read with `localize(text, locale)` from `src/modules/_core/utils/localized-text.ts`.
 - A new table is re-exported from `src/integrations/drizzle-orm/drizzle.schemas.ts`, and its migration is generated with `bun run db:generate`. See [Database migrations](/docs/guides/database-migrations).
 
@@ -175,7 +175,7 @@ Server functions, mutation options and forms type their input as `Lesson["create
 
 Each file in `use-cases/` holds one operation, named after its server function in kebab-case: `get-course-editor.ts` exports `getCourseEditor` and `courseEditorQuery`, `update-course.ts` exports `updateCourse` and `updateCourseMutation`. The pattern, its middleware and its errors are on [Server functions and errors](/docs/conventions/server-functions).
 
-A use case that runs only on the server, called by a Better Auth hook or a Polar webhook rather than by the browser, is a plain `async` function in a file that starts with `import "@tanstack/react-start/server-only"`, such as `license/use-cases/grant-license.ts`.
+A use case that runs only on the server, called by a Better Auth hook or a Polar webhook rather than by the browser, is a plain `async` function in a file that starts with `import "@tanstack/react-start/server-only"`, such as `license/use-cases/grant-license.ts` and the email senders `send-verify-email.ts`, `send-reset-password-email.ts` and `send-change-email-confirmation-email.ts`.
 
 ## Concern files
 

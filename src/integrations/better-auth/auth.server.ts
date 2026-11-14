@@ -42,10 +42,8 @@ const readSignUpCallbackURL = async (request: Request | undefined): Promise<stri
   if (!request?.body) {
     return ROUTES.AUTH_CALLBACK
   }
-  const body: unknown =
-    request.headers.get("content-type")?.toLowerCase().includes(FORM_CONTENT_TYPE) === true
-      ? Object.fromEntries(await request.formData())
-      : await request.json()
+  const isForm = request.headers.get("content-type")?.toLowerCase().includes(FORM_CONTENT_TYPE) === true
+  const body: unknown = isForm ? Object.fromEntries(await request.formData()) : await request.json()
 
   return signUpCallbackSchema.safeParse(body).data?.callbackURL ?? ROUTES.AUTH_CALLBACK
 }

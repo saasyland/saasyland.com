@@ -2,6 +2,7 @@ import { type JSX, useEffect, useState } from "react"
 
 import { useRouter } from "@tanstack/react-router"
 import { Search } from "lucide-react"
+import { Button } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
 import { ADMIN_SIDEBAR_GROUPS } from "~/src/data/admin"
@@ -38,12 +39,11 @@ export const AdminCommandPalette = (): JSX.Element => {
 
   return (
     <>
-      <button
-        className="group flex h-8 items-center gap-2 rounded-lg border border-border bg-muted/40 pr-1.5 pl-2.5 text-body-sm text-muted-foreground transition-colors duration-200 ease-exp hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        onClick={() => {
+      <Button
+        className="group flex h-8 items-center gap-2 rounded-lg border border-border bg-muted/40 pr-1.5 pl-2.5 text-body-sm text-muted-foreground transition-colors duration-200 ease-exp outline-none hover:bg-muted data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-ring data-focus-visible:outline-solid"
+        onPress={() => {
           setIsOpen(true)
         }}
-        type="button"
       >
         <Search aria-hidden className="size-3.5" strokeWidth={1.75} />
         <span className="sr-only sm:not-sr-only">{t("components.header.searchPlaceholder")}</span>
@@ -51,7 +51,7 @@ export const AdminCommandPalette = (): JSX.Element => {
           <Kbd>⌘</Kbd>
           <Kbd>K</Kbd>
         </KbdGroup>
-      </button>
+      </Button>
 
       <CommandDialog isOpen={isOpen} onOpenChange={setIsOpen}>
         <Command>

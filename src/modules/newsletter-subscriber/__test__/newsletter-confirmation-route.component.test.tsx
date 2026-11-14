@@ -138,7 +138,7 @@ describe("newsletter confirmation route", () => {
     await userEvent.click(await screen.findByRole("button", { name: confirmMessages.prompt.action }))
 
     expect(await screen.findByRole("heading", { level: 1, name: confirmMessages.expired.title })).toBeVisible()
-    expect(router.state.location.search).toMatchObject({ status: CONFIRMATION_STATUS.EXPIRED })
+    expect(router.state.location.searchStr).toBe("")
   })
 
   it("keeps the confirmed result on reload without calling the server again", async () => {

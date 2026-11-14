@@ -16,6 +16,7 @@ const FACT_KEYS = ["coverage", "tests", "locales", "components", "mau", "stars",
 export const ProofSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.proof")
   const format = useFormatter()
+
   const { data: stars } = useQuery(starCountQuery)
 
   const starCount = typeof stars === "number" ? format.number(stars) : <Skeleton aria-hidden className="h-7 w-16" />

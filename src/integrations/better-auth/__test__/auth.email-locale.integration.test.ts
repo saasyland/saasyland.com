@@ -23,7 +23,6 @@ import { ROUTES } from "~/src/routes"
 const ORIGIN = "http://127.0.0.1:3000"
 const { host: HOST } = new URL(ORIGIN)
 const PASSWORD = "LocalePassword1!"
-// Every flow starts on a Polish page while a German page, loaded last in another tab, owns the locale cookie.
 const OTHER_TAB_COOKIE = `${I18N.COOKIE_NAME}=de-DE`
 
 const EMAIL_SCHEMA = zod.object({ html: zod.string(), subject: zod.string(), to: zod.string() })

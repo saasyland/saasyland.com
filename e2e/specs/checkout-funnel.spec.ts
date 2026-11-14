@@ -11,6 +11,7 @@ import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 import { LESSON_ACCESS } from "../../src/modules/lesson/lesson.constants"
+import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
 
 const [, customer] = TEST_ACCOUNTS
@@ -52,12 +53,12 @@ test.describe("checkout funnel", () => {
   }) => {
     await landingPage.goto()
     await page.locator("#pricing").getByRole("link", { name: "Get Complete", exact: true }).click()
-    await expect(page).toHaveURL(`/auth/sign-up?redirect=${encodeURIComponent("/app?tier=complete")}`)
+    await expect(page).toHaveURL(`/auth/sign-up?redirect=${encodeURIComponent(`/app?tier=${LICENSE_TIER.COMPLETE}`)}`)
     await authPage.waitForAppReady()
 
     const userId = await signUpAndVerify({ authPage, page, request })
 
-    await expect(page).toHaveURL("/app?tier=complete")
+    await expect(page).toHaveURL(`/app?tier=${LICENSE_TIER.COMPLETE}`)
     await appPage.waitForAppReady()
     const chosen = page.getByRole("region", { name: "Continue with Complete" })
     await expect(chosen).toBeVisible()
@@ -71,7 +72,7 @@ test.describe("checkout funnel", () => {
     await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
     await expect(page.getByRole("button", { name: "Get Core" })).toHaveCount(0)
 
-    await deliverPaidOrder(request, { tier: "complete", userId })
+    await deliverPaidOrder(request, { tier: LICENSE_TIER.COMPLETE, userId })
 
     await expect(page.getByRole("heading", { name: "Your licence is active" })).toBeVisible()
     await expect(page.getByText("Thank you for buying Complete.")).toBeVisible()
@@ -125,7 +126,7 @@ test.describe("checkout funnel", () => {
     await appPage.waitForAppReady()
     await expect(page.getByRole("button", { name: "Get Agency", exact: true })).toBeEnabled()
 
-    await deliverPaidOrder(request, { tier: "core", userId })
+    await deliverPaidOrder(request, { tier: LICENSE_TIER.CORE, userId })
     await page.getByRole("button", { name: "Get Agency", exact: true }).click()
 
     await expect(page.getByText("You already have an active licence. To move to another tier, email hello@saasyland.com.")).toBeVisible()
@@ -134,7 +135,7 @@ test.describe("checkout funnel", () => {
 
     await landingPage.goto()
     await page.locator("#pricing").getByRole("link", { name: "Get Complete", exact: true }).click()
-    await expect(page).toHaveURL("/app?tier=complete")
+    await expect(page).toHaveURL(`/app?tier=${LICENSE_TIER.COMPLETE}`)
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading", { name: "Your licence", exact: true })).toBeVisible()
     await expect(page.getByRole("button", { name: "Continue to checkout" })).toHaveCount(0)

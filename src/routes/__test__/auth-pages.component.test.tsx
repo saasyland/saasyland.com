@@ -22,6 +22,7 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { ROOT_NAMESPACES, messagesQueryOptions, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import type * as SendVerificationEmailUseCase from "~/src/modules/verification/use-cases/send-verification-email"
 import { VERIFICATION_MUTATION_KEYS } from "~/src/modules/verification/verification.constants"
 
@@ -125,7 +126,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs())
 
 it("includes a themed, accessible document shell and keeps production pages indexable", async () => {
-  vi.stubEnv("MODE", "production")
+  vi.stubEnv("MODE", ENVIRONMENT.PRODUCTION)
   const { queryClient, router } = createAuthRouter(ROUTES.HOME)
   await router.load()
   await preloadNamespaces({ locale: "en-US", namespaces: ROOT_NAMESPACES, queryClient })

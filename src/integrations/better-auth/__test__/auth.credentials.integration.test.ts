@@ -48,10 +48,8 @@ describe("auth email and password credentials", () => {
 
     const token = extractQueryParam(verification!.url, "token")
 
-    expect(token).toBeDefined()
-
     await authContext.auth.api.verifyEmail({
-      query: { token: token! },
+      query: { token },
     })
 
     const { headers } = await authContext.signInWithUser(user.email, user.password)
@@ -71,10 +69,8 @@ describe("auth email and password credentials", () => {
 
     const token = extractQueryParam(verification!.url, "token")
 
-    expect(token).toBeDefined()
-
     await authContext.auth.api.verifyEmail({
-      query: { token: token! },
+      query: { token },
     })
 
     await expect(
@@ -95,10 +91,8 @@ describe("auth email and password credentials", () => {
 
     const token = extractQueryParam(verification!.url, "token")
 
-    expect(token).toBeDefined()
-
     await authContext.auth.api.verifyEmail({
-      query: { token: token! },
+      query: { token },
     })
 
     const { headers } = await authContext.signInWithUser(user.email, user.password)

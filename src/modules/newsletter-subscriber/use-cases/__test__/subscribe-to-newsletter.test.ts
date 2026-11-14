@@ -13,7 +13,7 @@ import { executeMutation } from "~/src/platform/testing/lib/query"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
-import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
+import { ENVIRONMENT, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { NEWSLETTER_STATUS, SUBSCRIPTION_RESULT } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
@@ -165,9 +165,9 @@ describe("subscribe-to-newsletter", () => {
   })
 
   it.each([
-    { mode: "test", origin: "http://localhost:3000" },
-    { mode: "preview", origin: "https://preview.saasyland.com" },
-    { mode: "production", origin: "https://saasyland.com" },
+    { mode: ENVIRONMENT.TEST, origin: "http://localhost:3000" },
+    { mode: ENVIRONMENT.PREVIEW, origin: "https://preview.saasyland.com" },
+    { mode: ENVIRONMENT.PRODUCTION, origin: "https://saasyland.com" },
   ])("renders the confirmation link for the $mode deployment the sign-up came through: $origin", async ({ mode, origin }) => {
     vi.stubEnv("MODE", mode)
     mockSuccessfulSend()

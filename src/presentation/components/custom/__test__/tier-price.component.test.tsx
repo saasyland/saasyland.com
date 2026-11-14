@@ -3,8 +3,9 @@ import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
-import { TIERS, TIER_PRICES } from "~/src/data/marketing"
+import { TIER_PRICES } from "~/src/data/marketing"
 
 import { TierPrice } from "~/src/presentation/components/custom/tier-price"
 
@@ -13,7 +14,7 @@ describe("TierPrice", () => {
     render(
       <IntlProvider locale={locale} messages={{}} timeZone="UTC">
         <ul>
-          {TIERS.map((tier) => (
+          {LICENSE_TIERS.map((tier) => (
             <li key={tier}>
               <TierPrice tier={tier} />
             </li>
@@ -23,7 +24,7 @@ describe("TierPrice", () => {
     )
 
     expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual(
-      TIERS.map((tier) => new Intl.NumberFormat(locale, CURRENCY_FORMAT).format(TIER_PRICES[tier])),
+      LICENSE_TIERS.map((tier) => new Intl.NumberFormat(locale, CURRENCY_FORMAT).format(TIER_PRICES[tier])),
     )
   })
 })

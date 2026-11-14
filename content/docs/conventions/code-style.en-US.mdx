@@ -17,10 +17,10 @@ oxlint runs the `correctness`, `nursery`, `pedantic`, `perf`, `style` and `suspi
 | `no-magic-numbers`           | only `0` allowed, plus array indexes and default values | Every other number is a named constant         |
 | `id-length`                  | at least two characters, except `_`, `m` and `t`        | Identifiers are words; `t` is the translator   |
 | `one-var`                    | `never`                                                 | One declaration per statement                  |
-| `unicorn/no-null`            | on outside tests                                        | Absent values are `undefined`                  |
+| `unicorn/no-null`            | on outside tests and `src/platform/testing`             | Absent values are `undefined`                  |
 | `typescript/no-explicit-any` | `error`                                                 | No value is typed `any`                        |
 
-The overrides are narrow and file-scoped: tests relax `no-magic-numbers`, `no-await-in-loop` and `unicorn/no-null`; `src/presentation` and `src/hooks` relax `typescript/consistent-return`; test mocks relax `require-await`; `src/routes` turns off `sort-keys`, because route options follow their own order (see [Route files](/docs/conventions/routes)).
+The overrides are narrow and file-scoped: tests and the shared test helpers in `src/platform/testing` relax `no-magic-numbers`, `no-await-in-loop` and `unicorn/no-null`; `src/presentation` and `src/hooks` relax `typescript/consistent-return`; test mocks relax `require-await`; `src/routes` turns off `sort-keys`, because route options follow their own order (see [Route files](/docs/conventions/routes)).
 
 `tsconfig.json` adds the strict flags that change how code is written: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` and `noUnusedParameters`. An indexed read is possibly `undefined`, an optional property cannot be set to `undefined` explicitly, and an index signature is read as `record["key"]`.
 
@@ -49,7 +49,7 @@ Never write `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-ignore`
 
 ## Null and undefined
 
-`null` literals are banned outside tests; an absent value is `undefined`. Never bridge an API that returns `null` with `?? undefined`. Validate the input first, so the call cannot fail, or use a parser that already returns `undefined`. Search params are the common case, and `searchParam(schema)` in `src/lib/search-params.ts` returns `undefined` for a missing or malformed value:
+Outside tests and `src/platform/testing`, an absent value is `undefined`, and `null` is never written as a value. The linter allows it where an API defines it: in a comparison with a value that can be `null`, such as a nullable column (`entry.completedAt !== null` in `get-course.ts`), and in a React DOM ref, which starts as `useRef<HTMLElement>(null)` because React types `ref` as `RefObject<T | null>` and sets it back to `null` on unmount (`course-showcase.tsx`). Never bridge an API that returns `null` with `?? undefined`. Validate the input first, so the call cannot fail, or use a parser that already returns `undefined`. Search params are the common case, and `searchParam(schema)` in `src/lib/search-params.ts` returns `undefined` for a missing or malformed value:
 
 ```ts
 export const authSearchSchema = zod.object({
@@ -95,11 +95,12 @@ export const COURSE_STATUS = {
 } as const
 ```
 
-The tuple a column or an enum schema needs is built from the object, not retyped: `course.schema.ts` declares `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, which feeds both `text("status", { enum: COURSE_STATUSES })` and `zod.enum(COURSE_STATUSES)`.
+The tuple a column or an enum schema needs is built from the object, not retyped: `course.schema.ts` declares `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, which feeds both `text("status", { enum: COURSE_STATUSES })` and `zod.enum(COURSE_STATUSES)`. A tuple that browser code also reads is declared in the module's constants instead, which import nothing from Drizzle: the pricing table iterates `LICENSE_TIERS` from `license.constants.ts`.
 
 - A module's constants live in its `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); a provider's values live in the integration's `*.constants.ts` (`POLAR_ORDER_STATUS` in `polar.constants.ts`, `AUTH_PROVIDER` in `auth.constants.ts`, `EMAIL_PURPOSE` in `resend.constants.ts`).
 - Column and input lengths are named once, in the module's constants, and read by both the Drizzle schema and the Zod schema: `PRODUCT_NAME_MAX_LENGTH` in `product.constants.ts`.
 - One concept has one map in one casing: `ERROR_CODES` for server errors, `AUTH_ERRORS` for Better Auth error keys, `ROLE_CODES` for roles.
+- Environment names and HTTP status codes are declared once, in `src/modules/_core/constants/api.ts`: `ENVIRONMENT.PRODUCTION` in `__root.tsx` and the deploy scripts, `HTTP_STATUS.PARTIAL_CONTENT` in the Worker's media handler. No file declares its own map of either. The one exception is `vite.config.ts`, which compares `mode` with the plain names: Vite loads the config before the `~` alias resolves, so it cannot import `api.ts`.
 - A constant used by one file stays in that file, below the imports. A constant used by several files goes to its module, to `src/data` (see [Files and naming](/docs/conventions/files-and-naming)) or to `src/modules/_core/constants`. Never give one constant a file of its own.
 - Typed API field names such as `license_key_id` are properties, not values, and stay as property access.
 

@@ -33,7 +33,7 @@ const collectRepositoryFacts = () => ({
   e2eSpecs: countFiles("e2e/specs/*.spec.ts"),
   reactMajor: majorVersionOf("react"),
   tanstackTableMajor: majorVersionOf("@tanstack/react-table"),
-  testFiles: countFiles("src/**/__test__/**/*.test.{ts,tsx}"),
+  testFiles: countFiles("src/**/*.{test,spec}.{ts,tsx}"),
   timezones: countCatalogueEntries("timezones"),
   uiComponents: countFiles("src/presentation/components/shadcn/*.tsx"),
 })

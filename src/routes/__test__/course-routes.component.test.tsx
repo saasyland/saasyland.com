@@ -20,6 +20,7 @@ import { LESSON_PROGRESS_MUTATION_KEYS } from "~/src/modules/lesson-progress/les
 import type { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
 import { LESSON_ACCESS, LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import type { Video } from "~/src/modules/video/video.types"
 
 import { Route as CoursesRoute } from "~/src/routes/courses"
@@ -307,7 +308,8 @@ describe("course page", () => {
   it("shows a learner's progress and continues where they stopped", async () => {
     await renderCourses({ data: LEARNER_PAGE, path: "/courses/the-walkthrough" })
 
-    expect(screen.getByText("1 of 4 lessons completed")).toBeVisible()
+    expect(screen.getByRole("progressbar", { name: "1 of 4 lessons completed" })).toHaveAttribute("aria-valuenow", "1")
+    expect(document.querySelectorAll("[data-slot=progress-indicator]")).toHaveLength(1)
     expect(screen.getByRole("link", { name: "Continue with Sessions" })).toHaveAttribute("href", "/courses/the-walkthrough/sessions")
     expect(screen.getByRole("link", { name: /Boundaries/u })).toHaveTextContent(messages.lesson.completed)
     expect(screen.queryByRole("heading", { name: messages.course.unlock.title })).toBeNull()
@@ -316,7 +318,10 @@ describe("course page", () => {
   it("sends a signed-in customer to their licence page to unlock lessons", async () => {
     await renderCourses({ data: CUSTOMER_PAGE, path: "/courses/the-walkthrough" })
 
-    expect(screen.getByRole("link", { name: messages.course.unlock.cta })).toHaveAttribute("href", "/app/license?tier=complete")
+    expect(screen.getByRole("link", { name: messages.course.unlock.cta })).toHaveAttribute(
+      "href",
+      `/app/license?tier=${LICENSE_TIER.COMPLETE}`,
+    )
   })
 
   it("offers no start link when every lesson is locked", async () => {
@@ -396,7 +401,7 @@ describe("lesson page", () => {
       path: "sessions",
     },
     { cta: messages.lesson.locked.paid.cta, data: GUEST_PAGE, href: "/#pricing", path: "billing" },
-    { cta: messages.lesson.locked.paid.cta, data: CUSTOMER_PAGE, href: "/app/license?tier=complete", path: "billing" },
+    { cta: messages.lesson.locked.paid.cta, data: CUSTOMER_PAGE, href: `/app/license?tier=${LICENSE_TIER.COMPLETE}`, path: "billing" },
   ])("locks $path and links to $href", async ({ cta, data, href, path }) => {
     await renderCourses({ data, path: `/courses/the-walkthrough/${path}` })
 

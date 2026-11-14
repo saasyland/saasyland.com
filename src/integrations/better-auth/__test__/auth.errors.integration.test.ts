@@ -4,6 +4,8 @@ import { AUTH_TEST_BASE_URL, createAuthTestInstance } from "~/src/integrations/b
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { authErrorKey, authErrorKeyFromSearch } from "~/src/integrations/better-auth/auth.errors"
 
+import { searchText } from "~/src/lib/search-params"
+
 import { ROUTES } from "~/src/routes"
 
 const AUTH_URL = `${AUTH_TEST_BASE_URL}${ROUTES.API_AUTH_BASE}`
@@ -24,9 +26,9 @@ const signInWithUnknownAccount = (): Promise<Response> => {
   )
 }
 
-const redirectError = (response: Response): { error: string | null; pathname: string } => {
+const redirectError = (response: Response): { error: string | undefined; pathname: string } => {
   const location = new URL(response.headers.get("location") ?? "", AUTH_TEST_BASE_URL)
-  return { error: location.searchParams.get("error"), pathname: location.pathname }
+  return { error: searchText().parse(location.searchParams.get("error")), pathname: location.pathname }
 }
 
 describe("Better Auth responses mapped to user-facing errors", () => {
@@ -60,7 +62,7 @@ describe("Better Auth responses mapped to user-facing errors", () => {
     expect(response.status).toBe(302)
     const { error, pathname } = redirectError(response)
     expect(pathname).toBe(ROUTES.SIGN_IN)
-    expect(authErrorKeyFromSearch(error ?? undefined)).toBe("signInCancelled")
+    expect(authErrorKeyFromSearch(error)).toBe("signInCancelled")
   })
 
   it("maps a callback that lost its OAuth state to the social sign-in failure", async () => {
@@ -69,6 +71,6 @@ describe("Better Auth responses mapped to user-facing errors", () => {
     expect(response.status).toBe(302)
     const { error } = redirectError(response)
     expect(error).toBe("state_not_found")
-    expect(authErrorKeyFromSearch(error ?? undefined)).toBe("socialSignInFailed")
+    expect(authErrorKeyFromSearch(error)).toBe("socialSignInFailed")
   })
 })

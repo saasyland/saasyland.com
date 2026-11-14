@@ -18,7 +18,7 @@ import { Badge } from "~/src/presentation/components/shadcn/badge"
 
 import { ItemName } from "~/src/presentation/components/custom/admin/products/product-columns"
 import { RowActionsCell } from "~/src/presentation/components/custom/admin/row-actions-cell"
-import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 const ITEMS_PLACEHOLDER = "0"
 
@@ -85,5 +85,5 @@ export const categoryColumns = columnHelper.columns([
   columnHelper.accessor("visibility", { cell: VisibilityCell, enableSorting: false, header: () => <CategoryHeader id="visibility" /> }),
   columnHelper.display({ cell: ItemsCell, header: () => <CategoryHeader id="items" />, id: "items" }),
   columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CategoryHeader id="lastUpdated" /> }),
-  columnHelper.display({ cell: RowActionsCell, header: "", id: "actions" }),
+  columnHelper.display({ cell: RowActionsCell, header: DataTableActionsHeader, id: "actions" }),
 ])

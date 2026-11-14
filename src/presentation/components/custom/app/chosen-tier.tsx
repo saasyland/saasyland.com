@@ -2,7 +2,7 @@ import { type JSX, useId } from "react"
 
 import { useTranslations } from "use-intl/react"
 
-import type { LicenseTier } from "~/src/modules/license/license.schema"
+import type { LicenseTier } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 

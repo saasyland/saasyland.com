@@ -45,9 +45,9 @@ export const course = sqliteTable(
 ```
 
 - As colunas usam camelCase no TypeScript e snake_case no SQL. As chaves ficam ordenadas, como o linter exige, com `...timestamps()` como a última entrada.
-- `createdAt` e `updatedAt` vêm de `timestamps()` em `src/integrations/drizzle-orm/drizzle.columns.ts`: em milissegundos, preenchidos pelo SQLite na inserção, com `updatedAt` renovado a cada atualização. Nunca os escreva à mão. `lesson_progress` precisa apenas do segundo, então recebe `updatedAt: timestamps().updatedAt`.
+- `createdAt` e `updatedAt` vêm de `timestamps()` em `src/integrations/drizzle-orm/drizzle.columns.ts`: em milissegundos, preenchidos pelo SQLite na inserção, com `updatedAt` renovado a cada atualização. Nunca os escreva à mão. `lesson_progress` precisa apenas do segundo, então recebe `updatedAt: timestamps().updatedAt`. Duas tabelas não têm timestamps: `rate_limit` guarda contadores de vida curta que têm seu próprio `expiresAt` e mudam a cada requisição, e `revoked_license_order` registra uma única vez cada pedido do Polar reembolsado, pelo seu ID.
 - As chaves primárias são texto. Um caso de uso que insere uma linha preenche a chave com um UUID v7 (`v7()` de `uuid`).
-- Colunas de enum recebem uma tupla montada a partir do objeto de constantes do módulo, nunca uma lista de literais.
+- Colunas de enum recebem uma tupla montada a partir do objeto de constantes do módulo, nunca uma lista de literais. A tupla fica no arquivo do schema, a menos que código fora do servidor a leia, como a tabela de preços da landing page (`LICENSE_TIERS`) ou a suíte do navegador (`NEWSLETTER_STATUSES`); nesse caso, fica em `<table>.constants.ts`, que não importa nada do Drizzle.
 - Um texto que os visitantes leem em vários idiomas é uma coluna JSON `LocalizedText`, validada por `localizedTextSchema` e lida com `localize(text, locale)` de `src/modules/_core/utils/localized-text.ts`.
 - Uma tabela nova é reexportada em `src/integrations/drizzle-orm/drizzle.schemas.ts`, e a sua migração é gerada com `bun run db:generate`. Veja [Migrações de banco de dados](/docs/guides/database-migrations).
 
@@ -175,7 +175,7 @@ As server functions, as mutation options e os formulários tipam a entrada como 
 
 Cada arquivo em `use-cases/` contém uma operação, com o nome da sua server function em kebab-case: `get-course-editor.ts` exporta `getCourseEditor` e `courseEditorQuery`, `update-course.ts` exporta `updateCourse` e `updateCourseMutation`. O padrão, o seu middleware e os seus erros estão em [Server functions e erros](/docs/conventions/server-functions).
 
-Um caso de uso que roda apenas no servidor, chamado por um hook do Better Auth ou por um webhook do Polar, e não pelo navegador, é uma função `async` comum em um arquivo que começa com `import "@tanstack/react-start/server-only"`, como `license/use-cases/grant-license.ts`.
+Um caso de uso que roda apenas no servidor, chamado por um hook do Better Auth ou por um webhook do Polar, e não pelo navegador, é uma função `async` comum em um arquivo que começa com `import "@tanstack/react-start/server-only"`, como `license/use-cases/grant-license.ts` e os remetentes de e-mail `send-verify-email.ts`, `send-reset-password-email.ts` e `send-change-email-confirmation-email.ts`.
 
 ## Arquivos de aspecto
 

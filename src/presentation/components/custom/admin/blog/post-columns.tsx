@@ -11,7 +11,7 @@ import { PostDate } from "~/src/presentation/components/custom/admin/blog/post-d
 import { PostViews } from "~/src/presentation/components/custom/admin/blog/post-views"
 import { StatusBadge } from "~/src/presentation/components/custom/admin/blog/status-badge"
 import { RowActionsCell } from "~/src/presentation/components/custom/admin/row-actions-cell"
-import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type BlogPost = (typeof DUMMY_POSTS)[number]
 
@@ -88,5 +88,5 @@ export const postColumns = columnHelper.columns([
     },
     header: () => <ColumnHeader id="views" />,
   }),
-  columnHelper.display({ cell: RowActionsCell, header: "", id: "actions" }),
+  columnHelper.display({ cell: RowActionsCell, header: DataTableActionsHeader, id: "actions" }),
 ])

@@ -21,8 +21,9 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 export const ThemeSwitch = (): JSX.Element => {
   const t = useTranslations("components.custom.theme-switch")
-  const { theme, setTheme } = useTheme()
   const hydrated = useHydrated()
+
+  const { theme, setTheme } = useTheme()
 
   if (!hydrated) {
     return <Skeleton className="h-8 w-full" />

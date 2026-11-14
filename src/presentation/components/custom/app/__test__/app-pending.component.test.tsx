@@ -10,11 +10,9 @@ import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/r
 import { COURSE_KIND } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
-import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { LICENSE_STATUS, LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
-
-import { TIERS } from "~/src/data/marketing"
 
 import { AppLicensePending, AppOverviewPending, AppPending } from "~/src/presentation/components/custom/app/app-pending"
 
@@ -102,7 +100,7 @@ describe("customer app skeletons", () => {
   ])("mirrors the tier grid for an account without a license at %s", (path, Page) => {
     const container = renderAt(<Page />, path)
 
-    expect(container.querySelectorAll(SELECTORS.TIER_COLUMN)).toHaveLength(TIERS.length)
+    expect(container.querySelectorAll(SELECTORS.TIER_COLUMN)).toHaveLength(LICENSE_TIERS.length)
     expect(container.querySelector(SELECTORS.CHOSEN_TIER)).toBeNull()
     expect(container.querySelector(SELECTORS.ACTIVATION)).toBeNull()
     expect(container.querySelector(SELECTORS.CARD)).toBeNull()
@@ -115,7 +113,7 @@ describe("customer app skeletons", () => {
     const container = renderAt(<Page />, `${path}?tier=${LICENSE_TIER.AGENCY}`)
 
     expect(container.querySelector(SELECTORS.CHOSEN_TIER)).not.toBeNull()
-    expect(container.querySelectorAll(SELECTORS.TIER_COLUMN)).toHaveLength(TIERS.length)
+    expect(container.querySelectorAll(SELECTORS.TIER_COLUMN)).toHaveLength(LICENSE_TIERS.length)
   })
 
   it("mirrors one row per course with paid lessons in the cached catalogue", () => {
@@ -155,6 +153,6 @@ describe("customer app skeletons", () => {
     })
 
     expect(container.querySelectorAll(SELECTORS.CARD)).toHaveLength(1)
-    expect(container.querySelectorAll(SELECTORS.TIER_COLUMN)).toHaveLength(TIERS.length)
+    expect(container.querySelectorAll(SELECTORS.TIER_COLUMN)).toHaveLength(LICENSE_TIERS.length)
   })
 })

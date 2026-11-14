@@ -21,7 +21,7 @@ export const AnalyticsKpis = (): JSX.Element => {
                 <Icon className="size-4" />
               </div>
             </div>
-            <h3 className="text-3xl font-semibold tracking-tight text-foreground">{t(`${metric}.value`)}</h3>
+            <p className="text-3xl font-semibold tracking-tight text-foreground">{t(`${metric}.value`)}</p>
             <div className="mt-2 flex items-center gap-2">
               <Badge variant="outline" className="px-0 text-xs font-medium text-ring">
                 <TrendIcon className="mr-1 size-3" /> {t(`${metric}.trend`)}

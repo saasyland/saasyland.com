@@ -45,9 +45,9 @@ export const course = sqliteTable(
 ```
 
 - カラムは TypeScript ではキャメルケース、SQL ではスネークケースです。リンターの要求どおり、キーは並べ替え、`...timestamps()` を最後のエントリーにします。
-- `createdAt` と `updatedAt` は `src/integrations/drizzle-orm/drizzle.columns.ts` の `timestamps()` から取得します。ミリ秒単位で、挿入時に SQLite が値を設定し、`updatedAt` は更新のたびに打ち直されます。これらを手書きしてはいけません。`lesson_progress` は後者だけが必要なので、`updatedAt: timestamps().updatedAt` を使います。
+- `createdAt` と `updatedAt` は `src/integrations/drizzle-orm/drizzle.columns.ts` の `timestamps()` から取得します。ミリ秒単位で、挿入時に SQLite が値を設定し、`updatedAt` は更新のたびに打ち直されます。これらを手書きしてはいけません。`lesson_progress` は後者だけが必要なので、`updatedAt: timestamps().updatedAt` を使います。タイムスタンプを持たないテーブルが 2 つあります。`rate_limit` は独自の `expiresAt` を持ち、リクエストのたびに変わる短命なカウンターを保持します。`revoked_license_order` は返金された Polar の注文を ID ごとに 1 回だけ記録します。
 - 主キーはテキストです。行を挿入するユースケースは、キーに UUID v7（`uuid` の `v7()`）を設定します。
-- enum カラムには、リテラルを並べたリストではなく、モジュールの定数オブジェクトから組み立てたタプルを渡します。
+- enum カラムには、リテラルを並べたリストではなく、モジュールの定数オブジェクトから組み立てたタプルを渡します。タプルはスキーマファイルに置きますが、サーバー以外のコードが読む場合は例外です。ランディングページの料金表（`LICENSE_TIERS`）やブラウザーテストのスイート（`NEWSLETTER_STATUSES`）がその例で、その場合は Drizzle から何もインポートしない `<table>.constants.ts` に置きます。
 - 訪問者が複数の言語で読むテキストは `LocalizedText` の JSON カラムにし、`localizedTextSchema` で検証して、`src/modules/_core/utils/localized-text.ts` の `localize(text, locale)` で読み取ります。
 - 新しいテーブルは `src/integrations/drizzle-orm/drizzle.schemas.ts` から再エクスポートし、そのマイグレーションは `bun run db:generate` で生成します。[データベースマイグレーション](/docs/guides/database-migrations)を参照してください。
 
@@ -175,7 +175,7 @@ export interface Lesson {
 
 `use-cases/` の各ファイルは 1 つの操作を持ち、そのサーバー関数の名前をケバブケースにして命名します。`get-course-editor.ts` は `getCourseEditor` と `courseEditorQuery` を、`update-course.ts` は `updateCourse` と `updateCourseMutation` をエクスポートします。パターン、ミドルウェア、エラーについては[サーバー関数とエラー](/docs/conventions/server-functions)を参照してください。
 
-ブラウザーからではなく Better Auth のフックや Polar の Webhook から呼び出され、サーバー上でのみ実行されるユースケースは、`import "@tanstack/react-start/server-only"` で始まるファイル内の通常の `async` 関数です。`license/use-cases/grant-license.ts` がその例です。
+ブラウザーからではなく Better Auth のフックや Polar の Webhook から呼び出され、サーバー上でのみ実行されるユースケースは、`import "@tanstack/react-start/server-only"` で始まるファイル内の通常の `async` 関数です。`license/use-cases/grant-license.ts` と、メール送信を担う `send-verify-email.ts`、`send-reset-password-email.ts`、`send-change-email-confirmation-email.ts` がその例です。
 
 ## 関心事ファイル
 

@@ -38,10 +38,8 @@ describe("auth rate limiting", () => {
 
     const token = extractQueryParam(verification!.url, "token")
 
-    expect(token).toBeDefined()
-
     await rateLimitContext.auth.api.verifyEmail({
-      query: { token: token! },
+      query: { token },
     })
 
     const firstAttempt = await signInWithWrongPassword(user.email)

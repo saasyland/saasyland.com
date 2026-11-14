@@ -25,7 +25,7 @@ export const PricingModelsGrid = (): JSX.Element => {
         return (
           <Card
             className={cn("group relative flex h-full flex-col gap-0 py-0", {
-              "opacity-60 transition-opacity hover:opacity-100": !model.isActive,
+              grayscale: !model.isActive,
               "ring-ring/45": model.isPopular,
             })}
             key={model.id}

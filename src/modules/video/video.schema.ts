@@ -4,7 +4,7 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-export const VIDEO_TITLE_MAX_LENGTH = 255
+import { VIDEO_TITLE_MAX_LENGTH } from "~/src/modules/video/video.constants"
 
 export const video = sqliteTable(
   "video",

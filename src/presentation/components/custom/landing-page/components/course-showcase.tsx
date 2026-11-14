@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { ArrowRight, Lock, Play } from "lucide-react"
 import { useInView } from "motion/react"
+import { Button } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
@@ -95,18 +96,17 @@ const CourseTour = (): JSX.Element => {
         />
       </picture>
       {!isStarted && (
-        <button
-          className="group absolute inset-0 flex cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-          onClick={() => {
+        <Button
+          className="group absolute inset-0 flex cursor-pointer items-center justify-center data-focus-visible:outline-2 data-focus-visible:-outline-offset-2 data-focus-visible:outline-ring"
+          onPress={() => {
             setIsStarted(true)
           }}
-          type="button"
         >
           <span className="flex size-12 items-center justify-center rounded-full border border-ring/50 bg-background/72 shadow-[0_8px_24px_-8px_oklch(0_0_0/0.6)] backdrop-blur-sm transition-[scale,background-color] duration-300 ease-exp group-hover:scale-106 group-hover:bg-background/86 motion-reduce:transition-none md:size-16">
             <Play aria-hidden className="size-4 translate-x-0.5 fill-current text-ring md:size-5" strokeWidth={0} />
           </span>
           <span className="sr-only">{t("play")}</span>
-        </button>
+        </Button>
       )}
     </div>
   )

@@ -135,7 +135,7 @@ export const ADMIN_PAYMENT_ROWS = [
     initials: "MB",
     name: "Michael Brown",
     statusColor: "bg-amber-500",
-    statusTextColor: "text-amber-500 dark:text-amber-400",
+    statusTextColor: "text-amber-800 dark:text-amber-400",
   },
   {
     amount: 199,
@@ -145,7 +145,7 @@ export const ADMIN_PAYMENT_ROWS = [
     initials: "ED",
     name: "Emma Davis",
     statusColor: "bg-rose-500",
-    statusTextColor: "text-rose-500 dark:text-rose-400",
+    statusTextColor: "text-rose-700 dark:text-rose-400",
   },
 ] as const
 

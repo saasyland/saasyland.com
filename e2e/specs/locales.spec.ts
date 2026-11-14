@@ -1,12 +1,15 @@
 import { readFileSync } from "node:fs"
 
+import * as zod from "zod"
+
+import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { expect, test } from "../fixtures/test"
 
-const locales = ["en-US", "de-DE", "es-ES", "fr-FR", "it-IT", "ja-JP", "pl-PL", "pt-BR", "uk-UA"] as const
 const legalPages = ["privacy", "terms", "refunds", "licence"] as const
+const legalPageSchema = zod.object({ title: zod.string() })
 
-for (const locale of locales) {
-  const prefix = locale === "en-US" ? "" : `/${locale}`
+for (const locale of I18N.SUPPORTED_LOCALES) {
+  const prefix = locale === I18N.DEFAULT_LOCALE ? "" : `/${locale}`
   test(`${locale}: canonical language, mobile layout, and all legal documents`, async ({ appPage, page }) => {
     const errors: string[] = []
     page.on("pageerror", (error) => errors.push(error.message))
@@ -21,17 +24,17 @@ for (const locale of locales) {
     await expect(localeSwitch).toHaveCount(1)
     await localeSwitch.locator("summary").click()
     await expect(localeSwitch).toHaveAttribute("open", "")
-    await expect(localeSwitch.getByRole("link")).toHaveCount(locales.length)
+    await expect(localeSwitch.getByRole("link")).toHaveCount(I18N.SUPPORTED_LOCALES.length)
     await expect(localeSwitch.locator('a[aria-current="true"]')).toHaveAttribute("hreflang", locale)
     await page.keyboard.press("Escape")
     await expect(localeSwitch).not.toHaveAttribute("open")
     for (const slug of legalPages) {
-      const messages = JSON.parse(readFileSync(`messages/${locale}/pages.legal.${slug}.json`, "utf8")) as { title: string }
+      const messages = legalPageSchema.parse(JSON.parse(readFileSync(`messages/${locale}/pages.legal.${slug}.json`, "utf8")))
       await page.locator(`footer a[href="${prefix}/${slug}"]`).click()
       await expect(page).toHaveURL(new RegExp(`${prefix}/${slug}$`, "u"))
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(messages.title)
       await expect(page.locator("html")).toHaveAttribute("lang", locale)
-      await expect(page.locator('head link[rel="alternate"][hreflang]')).toHaveCount(locales.length + 1)
+      await expect(page.locator('head link[rel="alternate"][hreflang]')).toHaveCount(I18N.SUPPORTED_LOCALES.length + 1)
     }
     expect(errors).toEqual([])
   })
@@ -53,7 +56,7 @@ for (const locale of locales) {
     await expect(page.locator("html")).toHaveAttribute("lang", locale)
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
     await expect(page.locator('head link[rel="canonical"]')).toHaveCount(1)
-    await expect(page.locator('head link[rel="alternate"][hreflang]')).toHaveCount(locales.length + 1)
+    await expect(page.locator('head link[rel="alternate"][hreflang]')).toHaveCount(I18N.SUPPORTED_LOCALES.length + 1)
     expect(errors).toEqual([])
   })
 }

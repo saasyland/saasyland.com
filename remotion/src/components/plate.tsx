@@ -8,19 +8,18 @@ import { SEAM, THEME } from "../theme"
 export function Plate({ children, ground = THEME.card, seam = true }: Readonly<{ children: ReactNode; ground?: string; seam?: boolean }>) {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()
+  const fade = interpolate(frame, [0, SEAM, durationInFrames - SEAM, durationInFrames], [0, 1, 1, 0], {
+    easing: Easing.bezier(0.16, 1, 0.3, 1),
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
 
   return (
     <AbsoluteFill name="Plate" style={{ backgroundColor: ground, color: THEME.foreground, fontFamily: SANS }}>
       <AbsoluteFill
         name="Seam"
         style={{
-          opacity: seam
-            ? interpolate(frame, [0, SEAM, durationInFrames - SEAM, durationInFrames], [0, 1, 1, 0], {
-                easing: Easing.bezier(0.16, 1, 0.3, 1),
-                extrapolateLeft: "clamp",
-                extrapolateRight: "clamp",
-              })
-            : 1,
+          opacity: seam ? fade : 1,
         }}
       >
         {children}

@@ -5,7 +5,7 @@ import { asc, count, desc, sql } from "drizzle-orm"
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { USER_QUERY_KEYS } from "~/src/modules/user/user.constants"
+import { USER_QUERY_KEYS, USER_STATUS } from "~/src/modules/user/user.constants"
 import { user } from "~/src/modules/user/user.schema"
 import type { User } from "~/src/modules/user/user.types"
 import { userZodSchemas } from "~/src/modules/user/user.zod"
@@ -14,7 +14,7 @@ const sortColumns = {
   createdAt: user.createdAt,
   emailVerified: user.emailVerified,
   role: user.role,
-  status: sql`case when ${user.banned} then 'banned' when ${user.emailVerified} then 'active' else 'pending' end`,
+  status: sql`case when ${user.banned} then ${USER_STATUS.BANNED} when ${user.emailVerified} then ${USER_STATUS.ACTIVE} else ${USER_STATUS.PENDING} end`,
   timezone: user.timezone,
   twoFactorEnabled: user.twoFactorEnabled,
   updatedAt: user.updatedAt,

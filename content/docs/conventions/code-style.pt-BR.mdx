@@ -17,10 +17,10 @@ O oxlint executa as categorias `correctness`, `nursery`, `pedantic`, `perf`, `st
 | `no-magic-numbers`           | apenas `0` é permitido, além de índices de array e valores padrão | Todo outro número é uma constante nomeada                   |
 | `id-length`                  | pelo menos dois caracteres, exceto `_`, `m` e `t`                 | Identificadores são palavras; `t` é o tradutor              |
 | `one-var`                    | `never`                                                           | Uma declaração por instrução                                |
-| `unicorn/no-null`            | ativada fora dos testes                                           | Valores ausentes são `undefined`                            |
+| `unicorn/no-null`            | ativada fora dos testes e de `src/platform/testing`               | Valores ausentes são `undefined`                            |
 | `typescript/no-explicit-any` | `error`                                                           | Nenhum valor é tipado como `any`                            |
 
-Os overrides são restritos e valem por arquivo: os testes relaxam `no-magic-numbers`, `no-await-in-loop` e `unicorn/no-null`; `src/presentation` e `src/hooks` relaxam `typescript/consistent-return`; os mocks de teste relaxam `require-await`; `src/routes` desativa `sort-keys`, porque as opções de rota seguem uma ordem própria (veja [Arquivos de rota](/docs/conventions/routes)).
+Os overrides são restritos e valem por arquivo: os testes e os helpers de teste compartilhados em `src/platform/testing` relaxam `no-magic-numbers`, `no-await-in-loop` e `unicorn/no-null`; `src/presentation` e `src/hooks` relaxam `typescript/consistent-return`; os mocks de teste relaxam `require-await`; `src/routes` desativa `sort-keys`, porque as opções de rota seguem uma ordem própria (veja [Arquivos de rota](/docs/conventions/routes)).
 
 `tsconfig.json` adiciona as flags estritas que mudam a forma de escrever código: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` e `noUnusedParameters`. Uma leitura indexada pode ser `undefined`, uma propriedade opcional não pode receber `undefined` explicitamente, e uma assinatura de índice é lida como `record["key"]`.
 
@@ -49,7 +49,7 @@ Nunca escreva `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-ignor
 
 ## Null e undefined
 
-Literais `null` são proibidos fora dos testes; um valor ausente é `undefined`. Nunca faça a ponte de uma API que retorna `null` com `?? undefined`. Valide a entrada primeiro, para que a chamada não possa falhar, ou use um parser que já retorna `undefined`. Os search params são o caso mais comum, e `searchParam(schema)` em `src/lib/search-params.ts` retorna `undefined` para um valor ausente ou malformado:
+Fora dos testes e de `src/platform/testing`, um valor ausente é `undefined`, e `null` nunca é escrito como valor. O linter o permite onde uma API o define: na comparação com um valor que pode ser `null`, como uma coluna anulável (`entry.completedAt !== null` em `get-course.ts`), e em uma ref de DOM do React, que começa como `useRef<HTMLElement>(null)` porque o React tipa `ref` como `RefObject<T | null>` e a volta para `null` ao desmontar (`course-showcase.tsx`). Nunca faça a ponte de uma API que retorna `null` com `?? undefined`. Valide a entrada primeiro, para que a chamada não possa falhar, ou use um parser que já retorna `undefined`. Os search params são o caso mais comum, e `searchParam(schema)` em `src/lib/search-params.ts` retorna `undefined` para um valor ausente ou malformado:
 
 ```ts
 export const authSearchSchema = zod.object({
@@ -95,11 +95,12 @@ export const COURSE_STATUS = {
 } as const
 ```
 
-A tupla de que uma coluna ou um schema de enum precisa é montada a partir do objeto, não digitada de novo: `course.schema.ts` declara `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, que alimenta tanto `text("status", { enum: COURSE_STATUSES })` quanto `zod.enum(COURSE_STATUSES)`.
+A tupla de que uma coluna ou um schema de enum precisa é montada a partir do objeto, não digitada de novo: `course.schema.ts` declara `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, que alimenta tanto `text("status", { enum: COURSE_STATUSES })` quanto `zod.enum(COURSE_STATUSES)`. Uma tupla que o código do navegador também lê é declarada nas constantes do módulo, que não importam nada do Drizzle: a tabela de preços percorre `LICENSE_TIERS` de `license.constants.ts`.
 
 - As constantes de um módulo ficam no seu `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); os valores de um provedor ficam no `*.constants.ts` da integração (`POLAR_ORDER_STATUS` em `polar.constants.ts`, `AUTH_PROVIDER` em `auth.constants.ts`, `EMAIL_PURPOSE` em `resend.constants.ts`).
 - Os comprimentos de colunas e de entradas são nomeados uma única vez, nas constantes do módulo, e lidos tanto pelo schema do Drizzle quanto pelo schema do Zod: `PRODUCT_NAME_MAX_LENGTH` em `product.constants.ts`.
 - Um conceito tem um único mapa, em uma única convenção de caixa: `ERROR_CODES` para erros do servidor, `AUTH_ERRORS` para chaves de erro do Better Auth, `ROLE_CODES` para papéis.
+- Nomes de ambiente e códigos de status HTTP são declarados uma única vez, em `src/modules/_core/constants/api.ts`: `ENVIRONMENT.PRODUCTION` em `__root.tsx` e nos scripts de deploy, `HTTP_STATUS.PARTIAL_CONTENT` no handler de mídia do Worker. Nenhum arquivo declara um mapa próprio de nenhum dos dois. A única exceção é `vite.config.ts`, que compara `mode` com os nomes puros: o Vite carrega a configuração antes de resolver o alias `~`, então ela não pode importar `api.ts`.
 - Uma constante usada por um único arquivo fica nesse arquivo, abaixo dos imports. Uma constante usada por vários arquivos vai para o seu módulo, para `src/data` (veja [Arquivos e nomenclatura](/docs/conventions/files-and-naming)) ou para `src/modules/_core/constants`. Nunca dê a uma constante um arquivo só para ela.
 - Nomes de campos de APIs tipadas, como `license_key_id`, são propriedades, não valores, e continuam como acesso a propriedade.
 

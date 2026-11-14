@@ -206,6 +206,9 @@ describe("marketing content and purchase links", () => {
       expect(screen.getByText(withFacts(item.evidence))).toBeVisible()
     }
     expect(screen.getByText("bun run test:coverage")).toBeInTheDocument()
+    expect(
+      screen.getByText(`Test Files ${String(REPOSITORY_FACTS.testFiles)} passed (${String(REPOSITORY_FACTS.testFiles)})`),
+    ).toBeInTheDocument()
     expect(screen.getByText(/% Branch\s+100/u)).toBeInTheDocument()
     expect(screen.getByRole("link", { name: english.quality.cta })).toHaveAttribute("href", "#pricing")
   })

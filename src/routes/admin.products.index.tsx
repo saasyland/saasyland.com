@@ -21,7 +21,7 @@ import { pageHead } from "~/src/lib/seo"
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
-import { AdminProductsPending } from "~/src/presentation/components/custom/admin/offerings-pending"
+import { AdminProductsPending } from "~/src/presentation/components/custom/admin/products-pending"
 import { categoryColumns } from "~/src/presentation/components/custom/admin/products/category-columns"
 import { productColumns } from "~/src/presentation/components/custom/admin/products/product-columns"
 import { DataTable } from "~/src/presentation/components/custom/data-table"

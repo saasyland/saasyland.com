@@ -10,7 +10,7 @@ import { ADMIN_USERS_TABS } from "~/src/data/admin"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
-import { AdminUsersPending } from "~/src/presentation/components/custom/admin/administration-pending"
+import { AdminUsersPending } from "~/src/presentation/components/custom/admin/auth-pending"
 
 const AdminUsersLayout = (): JSX.Element => {
   const t = useTranslations("pages.admin.users")

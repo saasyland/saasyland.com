@@ -12,7 +12,7 @@ import { ADMIN_ANALYTICS_REGION_ROWS } from "~/src/data/admin"
 
 import { breadcrumbDividers, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
-import { AdminAnalyticsPending } from "~/src/presentation/components/custom/admin/overview-pending"
+import { AdminAnalyticsPending } from "~/src/presentation/components/custom/admin/analytics-pending"
 
 import pagesAdminAnalyticsMessages from "~/messages/en-US/pages.admin.analytics.json"
 import pagesAdminMessages from "~/messages/en-US/pages.admin.json"

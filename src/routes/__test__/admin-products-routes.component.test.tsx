@@ -13,12 +13,19 @@ import { getProductsPageQuery } from "~/src/modules/product/use-cases/get-produc
 import { Route as ProductCreateRoute } from "~/src/routes/admin.products.create"
 import { Route as ProductsRoute } from "~/src/routes/admin.products.index"
 
-import { adminQueryClient, breadcrumbDividers, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import {
+  adminQueryClient,
+  breadcrumbDividers,
+  renderAdmin,
+  renderAdminPage,
+} from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { adminCategory, adminProduct } from "~/src/presentation/components/custom/admin/__test__/products.fixtures"
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
-import { AdminProductCreatePending, AdminProductsPending } from "~/src/presentation/components/custom/admin/offerings-pending"
+import { DashboardActions } from "~/src/presentation/components/custom/admin/dashboard/actions"
+import { AdminProductCreatePending, AdminProductsPending } from "~/src/presentation/components/custom/admin/products-pending"
 
 import componentsDataTableMessages from "~/messages/en-US/components.custom.data-table.json"
+import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"
 import pagesAdminProductsCreateMessages from "~/messages/en-US/pages.admin.products.create.json"
 import pagesAdminProductsMessages from "~/messages/en-US/pages.admin.products.json"
 
@@ -60,6 +67,14 @@ const renderProducts = (rows: ReturnType<typeof adminProduct>[], tab: "all" | "c
 }
 
 describe("admin catalog", () => {
+  it("adds the create-product action to the dashboard", () => {
+    renderAdmin(<DashboardActions />)
+    expect(screen.getByRole("link", { name: pagesAdminDashboardMessages.actions.addProduct })).toHaveAttribute(
+      "href",
+      "/admin/products/create",
+    )
+  })
+
   it("renders the product form with its translated title and controls", () => {
     renderAdminPage(ProductCreateRoute.options.component)
     expect(screen.getByRole("heading", { name: pagesAdminProductsCreateMessages.metadata.title })).toBeVisible()

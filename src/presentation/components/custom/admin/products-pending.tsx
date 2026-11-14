@@ -1,21 +1,19 @@
 import type { JSX } from "react"
 
-import { ADMIN_PRICING_MODELS, ADMIN_PRICING_STATS, ADMIN_PRODUCT_TABS } from "~/src/data/admin"
+import { ADMIN_PRODUCT_TABS } from "~/src/data/admin"
 
-import { Card, CardContent } from "~/src/presentation/components/shadcn/card"
+import { Card } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "~/src/presentation/components/shadcn/table"
 
 import {
   FieldPending,
-  IconPending,
   LongDescriptionPending,
   PAGE_ROWS,
   PaginationPending,
   RowActionPending,
   SwitchPending,
   TitlePending,
-  ToggleFieldPending,
   UploadZonePending,
 } from "~/src/presentation/components/custom/admin/pending-blocks"
 
@@ -128,6 +126,16 @@ const FieldSeparatorPending = (): JSX.Element => (
   </div>
 )
 
+const ToggleFieldPending = (): JSX.Element => (
+  <div className="flex w-full items-start gap-2">
+    <div className="flex flex-1 flex-col gap-0.5 leading-snug">
+      <Skeleton className="h-lh w-28 scale-y-70 text-sm leading-snug" />
+      <Skeleton className="h-lh w-40 scale-y-70 text-xs" />
+    </div>
+    <SwitchPending />
+  </div>
+)
+
 const SelectFieldPending = (): JSX.Element => (
   <div className="flex w-full flex-col gap-2">
     <div>
@@ -193,83 +201,6 @@ export const AdminProductCreatePending = (): JSX.Element => (
         </Card>
         <OrganizationSectionPending />
       </div>
-    </div>
-  </div>
-)
-
-export const AdminPricingModelsPending = (): JSX.Element => (
-  <div aria-busy="true" className="flex w-full flex-col space-y-8 pb-8">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <TitlePending />
-        <LongDescriptionPending />
-      </div>
-      <div className="flex items-center gap-3">
-        <Skeleton className="hidden h-9 w-32 rounded-lg sm:block" />
-        <Skeleton className="h-9 w-33 rounded-lg" />
-      </div>
-    </div>
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-      {ADMIN_PRICING_STATS.map((stat) => (
-        <Card key={stat.id}>
-          <CardContent className="flex items-center gap-4 p-4">
-            <Skeleton className="size-10 rounded-lg" />
-            <div>
-              <Skeleton className="h-lh w-24 scale-y-70 text-xs" />
-              <Skeleton className="h-lh w-18 scale-y-70 text-lg" />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-    <div className="grid grid-cols-1 items-start gap-6 pt-2 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
-      {ADMIN_PRICING_MODELS.map((model) => (
-        <Card className="relative flex h-full flex-col gap-0 py-0" key={model.id}>
-          {model.isPopular && (
-            <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-5 py-2 font-mono text-label sm:px-6">
-              <span className="size-1.25 rounded-xs bg-border" />
-              <Skeleton className="h-lh w-24 scale-y-70" />
-            </div>
-          )}
-          <CardContent className="flex h-full flex-col p-5 sm:p-6">
-            <div className="mb-4 flex items-start justify-between">
-              <div>
-                <Skeleton className="mb-3 h-5 w-26 rounded-4xl" />
-                <Skeleton className="h-lh w-28 scale-y-70 text-lg" />
-              </div>
-              <div className="mt-1">
-                <SwitchPending />
-              </div>
-            </div>
-            <div className="mb-6">
-              <div className="flex items-baseline gap-1.5">
-                <Skeleton className="h-lh w-20 scale-y-70 text-price" />
-                <Skeleton className="h-lh w-12 scale-y-70 font-mono text-spec" />
-              </div>
-              <Skeleton className="mt-2 h-lh w-52 max-w-full scale-y-70 text-body-sm" />
-            </div>
-            <div className="mb-6 h-px w-full bg-border" />
-            <div className="flex-1">
-              <Skeleton className="mb-4 h-lh w-28 scale-y-70 font-mono text-label" />
-              <div className="space-y-3">
-                {model.features.map((feature) => (
-                  <div className="flex items-start gap-3" key={feature}>
-                    <Skeleton className="mt-0.5 size-4 shrink-0 rounded-full" />
-                    <Skeleton className="h-lh w-48 scale-y-70 text-sm" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="mt-8 flex items-center justify-between border-t border-border pt-5">
-              <div className="flex items-center gap-2 text-xs">
-                <IconPending />
-                <Skeleton className="h-lh w-16 scale-y-70" />
-              </div>
-              <div className="h-8" />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
     </div>
   </div>
 )

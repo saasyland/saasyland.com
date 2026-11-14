@@ -2,7 +2,7 @@ import type { JSX } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Calendar, Download } from "lucide-react"
+import { Download } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
@@ -13,17 +13,17 @@ import { USER_STATUSES } from "~/src/modules/user/user.utils"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 import { ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
-import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
 
 import { pageHead } from "~/src/lib/seo"
 
 import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Card } from "~/src/presentation/components/shadcn/card"
 
+import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/core-pending"
+import { DashboardActions } from "~/src/presentation/components/custom/admin/dashboard/actions"
 import { RevenueChart } from "~/src/presentation/components/custom/admin/dashboard/revenue-chart"
 import { DashboardStats } from "~/src/presentation/components/custom/admin/dashboard/stats"
 import { dashboardUserColumns } from "~/src/presentation/components/custom/admin/dashboard/user-columns"
-import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/overview-pending"
 import { DataTable } from "~/src/presentation/components/custom/data-table"
 
 import { ROUTES } from "~/src/routes"
@@ -39,18 +39,7 @@ const DashboardPage = (): JSX.Element => {
           <h1 className="text-statement font-semibold text-foreground">{t("metadata.title")}</h1>
           <p className="text-sm text-muted-foreground">{t("metadata.description")}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="h-9 gap-2" isDisabled>
-            <Calendar className="size-4 text-muted-foreground" />
-            {t("actions.last30Days")}
-          </Button>
-          {ADMIN_DASHBOARD_ACTIONS.map((action) => (
-            <LinkButton className="h-9 gap-2 shadow-sm" href={action.to} key={action.key}>
-              <action.icon aria-hidden className="size-4" />
-              {t(`actions.${action.key}`)}
-            </LinkButton>
-          ))}
-        </div>
+        <DashboardActions />
       </div>
 
       <DashboardStats />

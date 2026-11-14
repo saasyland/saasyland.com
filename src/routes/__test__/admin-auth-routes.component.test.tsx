@@ -24,7 +24,7 @@ import {
   AdminUsersPending,
   AdminUsersRolesPending,
   AdminUsersSecurityPending,
-} from "~/src/presentation/components/custom/admin/administration-pending"
+} from "~/src/presentation/components/custom/admin/auth-pending"
 
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 

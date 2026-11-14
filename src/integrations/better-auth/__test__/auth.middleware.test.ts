@@ -13,8 +13,6 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { getCategory } from "~/src/modules/category/use-cases/get-category"
-import { getProduct } from "~/src/modules/product/use-cases/get-product"
 import { getUser } from "~/src/modules/user/use-cases/get-user"
 import { getUsers } from "~/src/modules/user/use-cases/get-users"
 
@@ -94,7 +92,7 @@ describe("authorization middleware", () => {
     const getSession = vi.spyOn(auth.api, "getSession").mockResolvedValue(session)
     await getCurrentSession()
     const action = createServerFn()
-      .middleware([authorized({ user: ["list"] }), authorized({ product: ["read"] })])
+      .middleware([authorized({ user: ["list"] }), authorized({ session: ["list"] })])
       .handler(({ context }) => context.auth.user.id)
     await expect(action()).resolves.toBe(session.user.id)
     expect(getSession).toHaveBeenCalledOnce()
@@ -175,13 +173,21 @@ describe("rate limiting middleware", () => {
 })
 
 describe("RPC input boundaries", () => {
-  it.each([
-    { name: "getUser", readRecord: () => getUser({ data: { userId: "" } }) },
-    { name: "getProduct", readRecord: () => getProduct({ data: { productId: "" } }) },
-    { name: "getCategory", readRecord: () => getCategory({ data: { categoryId: "" } }) },
-  ])("$name rejects an invalid record identifier before storage access", async ({ readRecord }) => {
+  it("rejects an invalid record identifier before a permission-checked handler reads storage", async () => {
     vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))
-    await expect(readRecord()).rejects.toMatchObject({ code: ERROR_CODES.VALIDATION })
+    const readStorage = vi.fn(() => "record")
+    const schema = zod.object({ recordId: zod.string().min(1) })
+    const readRecord = createServerFn()
+      .middleware([authorized({ user: ["get"] })])
+      .validator((input: zod.input<typeof schema>) => schema.parse(input))
+      .handler(readStorage)
+
+    await expect(readRecord({ data: { recordId: "" } })).rejects.toMatchObject({ code: ERROR_CODES.VALIDATION })
+    expect(readStorage).not.toHaveBeenCalled()
+  })
+  it("getUser rejects an invalid user identifier before storage access", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))
+    await expect(getUser({ data: { userId: "" } })).rejects.toMatchObject({ code: ERROR_CODES.VALIDATION })
   })
   it("returns a localized validation code for invalid page sizes", async () => {
     vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))

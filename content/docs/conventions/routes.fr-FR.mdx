@@ -122,10 +122,10 @@ Un texte absent reste `undefined`, si bien qu'une valeur par défaut ne fuit jam
 
 La navigation doit sembler instantanée : chaque route qui affiche une page a donc un `pendingComponent` qui la reproduit, avec la même mise en page, les mêmes cartes et le même nombre de lignes.
 
-- Les squelettes se trouvent dans le fichier de squelettes de la zone (`content-pending.tsx`, `courses-pending.tsx`) et utilisent `Skeleton` de shadcn.
+- Les squelettes se trouvent dans le fichier de squelettes de la zone (`admin/products-pending.tsx`, `courses/courses-pending.tsx`) et utilisent `Skeleton` de shadcn.
 - Un emplacement de texte reçoit le vrai jeton typographique plus `h-lh scale-y-70`, pour avoir la hauteur de la ligne qu'il remplace : `<Skeleton className="h-lh w-28 scale-y-70 font-mono text-label" />`.
 - Les longueurs des listes proviennent des constantes qu'utilise la page : `PAGE_ROWS` dans `admin/pending-blocks.tsx` compte `DEFAULT_PAGE_SIZE` lignes, la taille de page de tous les tableaux de l'administration.
-- Un squelette de layout choisit le squelette de page du chemin courant dans une table de correspondance, comme le font `ADMIN_PAGES` dans `admin-pending.tsx` et `COURSE_PAGES` dans `content-pending.tsx`. Une nouvelle page est ajoutée à cette table.
+- Un squelette de layout choisit le squelette de page du chemin courant dans une table de correspondance, comme le font `AdminPending` avec `ADMIN_SKELETONS` et `AdminCourseSectionPending` avec `COURSE_PAGES` dans `admin/courses-pending.tsx`. Chaque zone ajoute ses pages d'administration à `ADMIN_SKELETONS` dans `src/data/<area>.skeletons.ts` (voir [Chemins et navigation](#paths-and-navigation)) ; une page d'un autre layout est ajoutée à la table de ce layout.
 - Il n'y a pas de `defaultPendingComponent` pour tout le routeur, et `pendingMs` conserve la valeur par défaut de TanStack. Les routes de la documentation sont la seule exception : `pendingMs: Number.POSITIVE_INFINITY` et `wrapInSuspense: false`. Le composant de page s'hydrate avec la mise en page de la documentation et rend le MDX dans son propre `<Suspense key={path}>`, si bien que la barre latérale fonctionne avant le chargement du chunk MDX de la page, et qu'une navigation remplace le HTML serveur de la page précédente au lieu de l'hydrater avec les données de la suivante.
 
 ## Liens
@@ -137,12 +137,13 @@ La navigation doit sembler instantanée : chaque route qui affiche une page a do
 
 Aucun fichier ne liste toutes les zones de l'application. Chaque zone, comme les cours, les produits ou les pages légales, déclare ses propres chemins et entrées de menu, et un barrel les réunit : une zone s'ajoute ou se retire donc avec ses propres fichiers. C'est ainsi que la CLI `saasyland` assemble un projet à partir de couches de templates.
 
-| Quoi                            | Chaque zone déclare                                              | Barrel                           | Lu depuis                                                                                                                                |
-| ------------------------------- | ---------------------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Chemins                         | `src/data/<area>.routes.ts` : un `export const` par chemin       | `src/data/routes.entries.ts`     | `ROUTES` dans `src/routes.ts`                                                                                                            |
-| Entrées de menu                 | `src/data/<area>.navigation.ts` : une liste `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` et `FOOTER_NAVIGATION` dans `src/data/navigation.ts` |
-| Statistiques du tableau de bord | `src/data/<area>.dashboard.ts` : une liste `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` dans `src/data/dashboard.ts`                                                                                     |
-| Chemins non listés              | `src/data/<area>.routes.ts` : une liste `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` et `isUnlistedRoute` dans `src/data/unlisted.ts`                                                                       |
+| Quoi                                  | Chaque zone déclare                                              | Barrel                           | Lu depuis                                                                                                                                |
+| ------------------------------------- | ---------------------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Chemins                               | `src/data/<area>.routes.ts` : un `export const` par chemin       | `src/data/routes.entries.ts`     | `ROUTES` dans `src/routes.ts`                                                                                                            |
+| Entrées de menu                       | `src/data/<area>.navigation.ts` : une liste `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` et `FOOTER_NAVIGATION` dans `src/data/navigation.ts` |
+| Statistiques du tableau de bord       | `src/data/<area>.dashboard.ts` : une liste `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` dans `src/data/dashboard.ts`                                                                                     |
+| Squelettes des pages d'administration | `src/data/<area>.skeletons.ts` : une liste `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `ADMIN_SKELETONS` dans `src/data/skeletons.ts`                                                                                           |
+| Chemins non listés                    | `src/data/<area>.routes.ts` : une liste `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` et `isUnlistedRoute` dans `src/data/unlisted.ts`                                                                       |
 
 Un barrel ne contient que des lignes `export { … } from`, une par fichier de zone, triées par module, comme `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` réexporte les chemins sous un seul namespace : chaque chemin garde ainsi son type littéral et `<Link to={ROUTES.COURSES}>` reste vérifié par rapport à l'arbre des routes :
 
@@ -175,6 +176,10 @@ export const COURSES_NAVIGATION = [
 ```
 
 Une statistique du tableau de bord a un `prefetch`, que le loader de `/admin` exécute, et un hook `useValue`, que `DashboardStats` appelle pour lire le nombre.
+
+Un squelette de page d'administration associe le `to` de la page à son `pendingComponent`, le même squelette que celui que définit la route de la page. `AdminPending`, le squelette du layout d'administration, affiche celui du chemin courant quand on entre dans la zone d'administration depuis une autre partie du site.
+
+Les listes de `src/data/navigation.ts` et `ADMIN_SKELETONS` ont des types déclarés, `NavigationEntry` et `AdminSkeleton`, plutôt que les types des entrées que les zones déclarent à un moment donné : un emplacement qu'aucune zone ne remplit, comme les actions du tableau de bord dans un projet sans la zone des produits, est donc une liste vide qui passe toujours la vérification des types. Leur `to` est un chemin de l'arbre des routes (`FileRouteTypes["to"]` de `src/routeTree.gen.ts`) : une entrée dont le chemin n'existe dans aucune route ne compile pas, et `<Link to={entry.to}>` reste vérifié.
 
 Les libellés restent dans le namespace du menu qui les affiche, sous la `key` de l'entrée : `links.<key>` et `groups.<group>` dans `pages.admin.sidebar`, `navigation.<key>` dans `pages.app.sidebar`, `items.<key>` dans `components.custom.navigation`, `links.<key>` et `columns.<column>` dans `components.custom.footer`, et `actions.<key>` et `stats.<key>.title` dans `pages.admin.dashboard`. Chaque zone possède ses clés dans ces fichiers, et `enum-labels.test.ts` échoue quand une entrée n'a pas de libellé dans une locale.
 

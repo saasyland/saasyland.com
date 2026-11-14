@@ -17,7 +17,7 @@ import { buildPageHead } from "~/src/lib/seo"
 
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 
-import { AdminCourseEditorPending } from "~/src/presentation/components/custom/admin/content-pending"
+import { AdminCourseEditorPending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { CourseForm } from "~/src/presentation/components/custom/admin/courses/course-form"
 import { CurriculumEditor } from "~/src/presentation/components/custom/admin/courses/curriculum-editor"
 

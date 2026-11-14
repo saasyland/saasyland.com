@@ -12,7 +12,7 @@ import { Route as DashboardRoute } from "~/src/routes/admin.index"
 
 import { adminUser } from "~/src/presentation/components/custom/admin/__test__/auth.fixtures"
 import { adminMessages, adminQueryClient, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
-import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/overview-pending"
+import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/core-pending"
 
 import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"
 

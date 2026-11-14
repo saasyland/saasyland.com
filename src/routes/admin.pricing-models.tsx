@@ -11,7 +11,7 @@ import { pageHead } from "~/src/lib/seo"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 
-import { AdminPricingModelsPending } from "~/src/presentation/components/custom/admin/offerings-pending"
+import { AdminPricingModelsPending } from "~/src/presentation/components/custom/admin/payments-pending"
 import { PricingModelsGrid } from "~/src/presentation/components/custom/admin/pricing-models/models-grid"
 import { PricingModelStats } from "~/src/presentation/components/custom/admin/pricing-models/stats"
 

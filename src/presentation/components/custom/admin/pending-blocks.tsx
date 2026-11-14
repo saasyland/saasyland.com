@@ -54,16 +54,6 @@ export const FieldPending = (): JSX.Element => (
   </div>
 )
 
-export const ToggleFieldPending = (): JSX.Element => (
-  <div className="flex w-full items-start gap-2">
-    <div className="flex flex-1 flex-col gap-0.5 leading-snug">
-      <Skeleton className="h-lh w-28 scale-y-70 text-sm leading-snug" />
-      <Skeleton className="h-lh w-40 scale-y-70 text-xs" />
-    </div>
-    <SwitchPending />
-  </div>
-)
-
 export const UploadZonePending = (): JSX.Element => (
   <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 p-8">
     <Skeleton className="mb-3 size-12 rounded-full" />

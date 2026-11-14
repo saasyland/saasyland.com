@@ -122,10 +122,10 @@ Um texto ausente continua `undefined`, então um valor padrão nunca vaza para u
 
 A navegação precisa parecer instantânea, então toda rota que renderiza uma página tem um `pendingComponent` que a reproduz: o mesmo layout, os mesmos cards e o mesmo número de linhas.
 
-- Os esqueletos ficam no arquivo de esqueletos da área (`content-pending.tsx`, `courses-pending.tsx`) e usam o `Skeleton` do shadcn.
+- Os esqueletos ficam no arquivo de esqueletos da área (`admin/products-pending.tsx`, `courses/courses-pending.tsx`) e usam o `Skeleton` do shadcn.
 - Um placeholder de texto recebe o token tipográfico real mais `h-lh scale-y-70`, para ter a altura da linha que substitui: `<Skeleton className="h-lh w-28 scale-y-70 font-mono text-label" />`.
 - O comprimento das listas vem das constantes que a página usa: `PAGE_ROWS` em `admin/pending-blocks.tsx` tem `DEFAULT_PAGE_SIZE` linhas, o tamanho de página de todas as tabelas da administração.
-- Um esqueleto de layout escolhe o esqueleto de página do caminho atual em um mapa, como fazem `ADMIN_PAGES` em `admin-pending.tsx` e `COURSE_PAGES` em `content-pending.tsx`. Uma página nova é adicionada a esse mapa.
+- Um esqueleto de layout escolhe o esqueleto de página do caminho atual em um mapa, como fazem `AdminPending` com `ADMIN_SKELETONS` e `AdminCourseSectionPending` com `COURSE_PAGES` em `admin/courses-pending.tsx`. Cada área adiciona as suas páginas de administração a `ADMIN_SKELETONS` em `src/data/<area>.skeletons.ts` (veja [Caminhos e navegação](#paths-and-navigation)); uma página de outro layout é adicionada ao mapa desse layout.
 - Não existe um `defaultPendingComponent` para todo o router, e `pendingMs` mantém o padrão do TanStack. As rotas da documentação são a única exceção: `pendingMs: Number.POSITIVE_INFINITY` e `wrapInSuspense: false`. O componente da página hidrata junto com o layout da documentação e renderiza o MDX no próprio `<Suspense key={path}>`, então a barra lateral funciona antes de o chunk MDX da página carregar, e uma navegação substitui o HTML do servidor da página anterior em vez de hidratá-lo com os dados da próxima.
 
 ## Links
@@ -137,12 +137,13 @@ A navegação precisa parecer instantânea, então toda rota que renderiza uma p
 
 Nenhum arquivo lista todas as áreas da aplicação. Cada área, como os cursos, os produtos ou as páginas legais, declara os próprios caminhos e itens de menu, e um barrel os reúne, então uma área entra ou sai junto com os próprios arquivos. É assim que a CLI `saasyland` monta um projeto a partir de camadas de templates.
 
-| O quê                  | Cada área declara                                               | Barrel                           | Lido de                                                                                                                               |
-| ---------------------- | --------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Caminhos               | `src/data/<area>.routes.ts`: um `export const` por caminho      | `src/data/routes.entries.ts`     | `ROUTES` em `src/routes.ts`                                                                                                           |
-| Itens de menu          | `src/data/<area>.navigation.ts`: uma lista `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` e `FOOTER_NAVIGATION` em `src/data/navigation.ts` |
-| Estatísticas do painel | `src/data/<area>.dashboard.ts`: uma lista `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` em `src/data/dashboard.ts`                                                                                    |
-| Caminhos não listados  | `src/data/<area>.routes.ts`: uma lista `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` e `isUnlistedRoute` em `src/data/unlisted.ts`                                                                       |
+| O quê                                   | Cada área declara                                               | Barrel                           | Lido de                                                                                                                               |
+| --------------------------------------- | --------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Caminhos                                | `src/data/<area>.routes.ts`: um `export const` por caminho      | `src/data/routes.entries.ts`     | `ROUTES` em `src/routes.ts`                                                                                                           |
+| Itens de menu                           | `src/data/<area>.navigation.ts`: uma lista `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` e `FOOTER_NAVIGATION` em `src/data/navigation.ts` |
+| Estatísticas do painel                  | `src/data/<area>.dashboard.ts`: uma lista `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` em `src/data/dashboard.ts`                                                                                    |
+| Esqueletos das páginas de administração | `src/data/<area>.skeletons.ts`: uma lista `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `ADMIN_SKELETONS` em `src/data/skeletons.ts`                                                                                          |
+| Caminhos não listados                   | `src/data/<area>.routes.ts`: uma lista `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` e `isUnlistedRoute` em `src/data/unlisted.ts`                                                                       |
 
 Um barrel contém só linhas `export { … } from`, uma por arquivo de área, ordenadas por módulo, como `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` reexporta os caminhos como um único namespace, então cada caminho mantém o seu tipo literal e `<Link to={ROUTES.COURSES}>` continua sendo verificado contra a árvore de rotas:
 
@@ -175,6 +176,10 @@ export const COURSES_NAVIGATION = [
 ```
 
 Uma estatística do painel tem um `prefetch`, que o loader de `/admin` executa, e um hook `useValue`, que `DashboardStats` chama para ler o número.
+
+Um esqueleto de página de administração associa o `to` da página ao seu `pendingComponent`, o mesmo esqueleto que a rota da página define. `AdminPending`, o esqueleto do layout de administração, desenha o do caminho atual quando alguém entra na área de administração vindo de outro lugar.
+
+As listas de `src/data/navigation.ts` e `ADMIN_SKELETONS` têm tipos declarados, `NavigationEntry` e `AdminSkeleton`, em vez dos tipos dos itens que as áreas declaram no momento, então uma posição que nenhuma área preenche, como as ações do painel em um projeto sem a área de produtos, é uma lista vazia que continua passando na verificação de tipos. O `to` deles é um caminho da árvore de rotas (`FileRouteTypes["to"]` de `src/routeTree.gen.ts`), então um item com um caminho que nenhuma rota tem não compila, e `<Link to={entry.to}>` continua verificado.
 
 Os rótulos ficam no namespace do menu que os mostra, sob a `key` do item: `links.<key>` e `groups.<group>` em `pages.admin.sidebar`, `navigation.<key>` em `pages.app.sidebar`, `items.<key>` em `components.custom.navigation`, `links.<key>` e `columns.<column>` em `components.custom.footer`, e `actions.<key>` e `stats.<key>.title` em `pages.admin.dashboard`. Cada área é dona das próprias chaves nesses arquivos, e `enum-labels.test.ts` falha quando falta o rótulo de um item em algum locale.
 

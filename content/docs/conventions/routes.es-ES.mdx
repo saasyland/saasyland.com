@@ -122,10 +122,10 @@ Un texto ausente se queda en `undefined`, así que un valor por defecto nunca se
 
 La navegación debe sentirse instantánea, así que cada ruta que renderiza una página tiene un `pendingComponent` que la reproduce: la misma disposición, las mismas tarjetas y el mismo número de filas.
 
-- Los esqueletos viven en el archivo pending del área (`content-pending.tsx`, `courses-pending.tsx`) y usan `Skeleton` de shadcn.
+- Los esqueletos viven en el archivo pending del área (`admin/products-pending.tsx`, `courses/courses-pending.tsx`) y usan `Skeleton` de shadcn.
 - Un marcador de texto lleva el token tipográfico real más `h-lh scale-y-70`, para que tenga la altura de la línea que sustituye: `<Skeleton className="h-lh w-28 scale-y-70 font-mono text-label" />`.
 - La longitud de las listas sale de las constantes que usa la página: `PAGE_ROWS` en `admin/pending-blocks.tsx` tiene `DEFAULT_PAGE_SIZE` filas, el tamaño de página de todas las tablas de administración.
-- El esqueleto de un layout elige de un mapa el esqueleto de página que corresponde a la ruta actual, como hacen `ADMIN_PAGES` en `admin-pending.tsx` y `COURSE_PAGES` en `content-pending.tsx`. Cada página nueva se añade a ese mapa.
+- El esqueleto de un layout elige de un mapa el esqueleto de página que corresponde a la ruta actual, como hacen `AdminPending` con `ADMIN_SKELETONS` y `AdminCourseSectionPending` con `COURSE_PAGES` en `admin/courses-pending.tsx`. Cada área añade sus páginas de administración a `ADMIN_SKELETONS` en `src/data/<area>.skeletons.ts` (consulta [Rutas y navegación](#paths-and-navigation)); una página de otro layout se añade al mapa de ese layout.
 - No hay un `defaultPendingComponent` para todo el router, y `pendingMs` mantiene el valor por defecto de TanStack. Las rutas de la documentación son la única excepción: `pendingMs: Number.POSITIVE_INFINITY` y `wrapInSuspense: false`. El componente de la página se hidrata con el layout de la documentación y renderiza el MDX en su propio `<Suspense key={path}>`, así que la barra lateral funciona antes de que cargue el chunk MDX de la página, y una navegación reemplaza el HTML del servidor de la página anterior en lugar de hidratarlo con los datos de la siguiente.
 
 ## Enlaces
@@ -137,12 +137,13 @@ La navegación debe sentirse instantánea, así que cada ruta que renderiza una 
 
 Ningún archivo enumera todas las áreas de la aplicación. Cada área, como los cursos, los productos o las páginas legales, declara sus propias rutas y entradas de menú, y un barrel las reúne, así que un área se añade o se deja fuera con sus propios archivos. Así es como la CLI `saasyland` monta un proyecto a partir de capas de plantillas.
 
-| Qué                    | Cada área declara                                               | Barrel                           | Se lee de                                                                                                                             |
-| ---------------------- | --------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Rutas                  | `src/data/<area>.routes.ts`: un `export const` por ruta         | `src/data/routes.entries.ts`     | `ROUTES` en `src/routes.ts`                                                                                                           |
-| Entradas de menú       | `src/data/<area>.navigation.ts`: una lista `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` y `FOOTER_NAVIGATION` en `src/data/navigation.ts` |
-| Estadísticas del panel | `src/data/<area>.dashboard.ts`: una lista `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` en `src/data/dashboard.ts`                                                                                    |
-| Rutas no listadas      | `src/data/<area>.routes.ts`: una lista `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` y `isUnlistedRoute` en `src/data/unlisted.ts`                                                                       |
+| Qué                                     | Cada área declara                                               | Barrel                           | Se lee de                                                                                                                             |
+| --------------------------------------- | --------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Rutas                                   | `src/data/<area>.routes.ts`: un `export const` por ruta         | `src/data/routes.entries.ts`     | `ROUTES` en `src/routes.ts`                                                                                                           |
+| Entradas de menú                        | `src/data/<area>.navigation.ts`: una lista `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` y `FOOTER_NAVIGATION` en `src/data/navigation.ts` |
+| Estadísticas del panel                  | `src/data/<area>.dashboard.ts`: una lista `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` en `src/data/dashboard.ts`                                                                                    |
+| Esqueletos de páginas de administración | `src/data/<area>.skeletons.ts`: una lista `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `ADMIN_SKELETONS` en `src/data/skeletons.ts`                                                                                          |
+| Rutas no listadas                       | `src/data/<area>.routes.ts`: una lista `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` y `isUnlistedRoute` en `src/data/unlisted.ts`                                                                       |
 
 Un barrel solo contiene líneas `export { … } from`, una por archivo de área y ordenadas por módulo, como `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` reexporta las rutas como un único espacio de nombres, así que cada ruta conserva su tipo literal y `<Link to={ROUTES.COURSES}>` se sigue comprobando contra el árbol de rutas:
 
@@ -175,6 +176,10 @@ export const COURSES_NAVIGATION = [
 ```
 
 Una estadística del panel tiene un `prefetch`, que ejecuta el loader de `/admin`, y un hook `useValue`, al que `DashboardStats` llama para leer el número.
+
+Un esqueleto de página de administración une el `to` de la página con su `pendingComponent`, el mismo esqueleto que fija la ruta de la página. `AdminPending`, el esqueleto del layout de administración, dibuja el de la ruta actual cuando alguien entra en el área de administración desde otra parte.
+
+Las listas de `src/data/navigation.ts` y `ADMIN_SKELETONS` tienen tipos declarados, `NavigationEntry` y `AdminSkeleton`, en lugar de los tipos de las entradas que declaren las áreas en cada momento, así que una ubicación que ningún área llena, como las acciones del panel en un proyecto sin el área de productos, es una lista vacía que sigue pasando la comprobación de tipos. Su `to` es una ruta del árbol de rutas (`FileRouteTypes["to"]` de `src/routeTree.gen.ts`), de modo que una entrada cuya ruta no existe en el árbol no compila y `<Link to={entry.to}>` se sigue comprobando.
 
 Las etiquetas se quedan en el espacio de nombres del menú que las muestra, bajo la `key` de la entrada: `links.<key>` y `groups.<group>` en `pages.admin.sidebar`, `navigation.<key>` en `pages.app.sidebar`, `items.<key>` en `components.custom.navigation`, `links.<key>` y `columns.<column>` en `components.custom.footer`, y `actions.<key>` y `stats.<key>.title` en `pages.admin.dashboard`. Cada área es dueña de sus claves en esos archivos, y `enum-labels.test.ts` falla cuando a una entrada le falta la etiqueta en algún locale.
 

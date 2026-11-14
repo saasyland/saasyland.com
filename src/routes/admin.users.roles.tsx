@@ -13,7 +13,7 @@ import { pageHead } from "~/src/lib/seo"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 
-import { AdminUsersRolesPending } from "~/src/presentation/components/custom/admin/administration-pending"
+import { AdminUsersRolesPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { roleColumns } from "~/src/presentation/components/custom/admin/users/role-columns"
 import { DataTable } from "~/src/presentation/components/custom/data-table"
 

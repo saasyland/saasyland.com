@@ -15,7 +15,7 @@ import { Button } from "~/src/presentation/components/shadcn/button"
 import { Card } from "~/src/presentation/components/shadcn/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
-import { AdminPaymentsPending } from "~/src/presentation/components/custom/admin/administration-pending"
+import { AdminPaymentsPending } from "~/src/presentation/components/custom/admin/payments-pending"
 import { refundColumns } from "~/src/presentation/components/custom/admin/payments/refund-columns"
 import { RefundStats } from "~/src/presentation/components/custom/admin/payments/refund-stats"
 import { DataTable } from "~/src/presentation/components/custom/data-table"

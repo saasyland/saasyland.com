@@ -11,7 +11,7 @@ import { pageHead } from "~/src/lib/seo"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 
-import { AdminProductCreatePending } from "~/src/presentation/components/custom/admin/offerings-pending"
+import { AdminProductCreatePending } from "~/src/presentation/components/custom/admin/products-pending"
 import { ProductDetails } from "~/src/presentation/components/custom/admin/products/details"
 import { ProductSidebar } from "~/src/presentation/components/custom/admin/products/sidebar"
 

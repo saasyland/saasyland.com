@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/com
 import { postColumns } from "~/src/presentation/components/custom/admin/blog/post-columns"
 import { BlogPostsGrid } from "~/src/presentation/components/custom/admin/blog/posts-grid"
 import { BlogStats } from "~/src/presentation/components/custom/admin/blog/stats"
-import { AdminBlogPending } from "~/src/presentation/components/custom/admin/content-pending"
+import { AdminBlogPending } from "~/src/presentation/components/custom/admin/post-editor-pending"
 import { DataTable } from "~/src/presentation/components/custom/data-table"
 
 import { ROUTES } from "~/src/routes"

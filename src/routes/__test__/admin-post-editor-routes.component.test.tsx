@@ -12,7 +12,7 @@ import { Route as BlogRoute } from "~/src/routes/admin.blog.index"
 
 import { renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
-import { AdminBlogCreatePending, AdminBlogPending } from "~/src/presentation/components/custom/admin/content-pending"
+import { AdminBlogCreatePending, AdminBlogPending } from "~/src/presentation/components/custom/admin/post-editor-pending"
 
 import pagesAdminBlogCreateMessages from "~/messages/en-US/pages.admin.blog.create.json"
 import pagesAdminBlogMessages from "~/messages/en-US/pages.admin.blog.json"

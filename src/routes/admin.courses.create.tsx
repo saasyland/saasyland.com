@@ -8,7 +8,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { pageHead } from "~/src/lib/seo"
 
-import { AdminCourseCreatePending } from "~/src/presentation/components/custom/admin/content-pending"
+import { AdminCourseCreatePending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { CourseForm } from "~/src/presentation/components/custom/admin/courses/course-form"
 
 import { ROUTES } from "~/src/routes"

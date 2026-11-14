@@ -50,7 +50,7 @@ import {
   AdminCourseSectionPending,
   AdminCoursesPending,
   AdminVideosPending,
-} from "~/src/presentation/components/custom/admin/content-pending"
+} from "~/src/presentation/components/custom/admin/courses-pending"
 
 import validations from "~/messages/en-US/course.validations.json"
 import errors from "~/messages/en-US/errors.json"

@@ -14,10 +14,10 @@ import { pageHead } from "~/src/lib/seo"
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
+import { AdminAnalyticsPending } from "~/src/presentation/components/custom/admin/analytics-pending"
 import { AnalyticsKpis } from "~/src/presentation/components/custom/admin/analytics/kpis"
 import { RegionsAndUpgrades } from "~/src/presentation/components/custom/admin/analytics/regions-and-upgrades"
 import { AnalyticsRevenueChart } from "~/src/presentation/components/custom/admin/analytics/revenue-chart"
-import { AdminAnalyticsPending } from "~/src/presentation/components/custom/admin/overview-pending"
 
 import { ROUTES } from "~/src/routes"
 

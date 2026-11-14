@@ -122,10 +122,10 @@ export const Route = createFileRoute("/auth/reset-password")({
 
 Навігація має відчуватися миттєвою, тож кожен маршрут, що рендерить сторінку, має `pendingComponent`, який її віддзеркалює: та сама розкладка, ті самі картки й та сама кількість рядків.
 
-- Скелетони лежать у pending-файлі розділу (`content-pending.tsx`, `courses-pending.tsx`) і використовують `Skeleton` із shadcn.
+- Скелетони лежать у pending-файлі розділу (`admin/products-pending.tsx`, `courses/courses-pending.tsx`) і використовують `Skeleton` із shadcn.
 - Текстовий заповнювач отримує справжній типографічний токен плюс `h-lh scale-y-70`, тож має висоту рядка, який замінює: `<Skeleton className="h-lh w-28 scale-y-70 font-mono text-label" />`.
 - Довжини списків беруться з констант, які використовує сторінка: `PAGE_ROWS` в `admin/pending-blocks.tsx` має `DEFAULT_PAGE_SIZE` рядків — розмір сторінки кожної таблиці адмінки.
-- Скелетон макета вибирає скелетон сторінки для поточного шляху з мапи, як це роблять `ADMIN_PAGES` в `admin-pending.tsx` і `COURSE_PAGES` в `content-pending.tsx`. Нову сторінку додають до цієї мапи.
+- Скелетон макета вибирає скелетон сторінки для поточного шляху з мапи, як це роблять `AdminPending` з `ADMIN_SKELETONS` і `AdminCourseSectionPending` з `COURSE_PAGES` в `admin/courses-pending.tsx`. Кожен розділ додає свої сторінки адмін-панелі до `ADMIN_SKELETONS` у `src/data/<area>.skeletons.ts` (див. [Шляхи та навігація](#paths-and-navigation)); сторінку іншого макета додають до мапи цього макета.
 - Немає загального для роутера `defaultPendingComponent`, а `pendingMs` зберігає значення TanStack за замовчуванням. Єдиний виняток — маршрути документації: `pendingMs: Number.POSITIVE_INFINITY` і `wrapInSuspense: false`. Компонент сторінки гідратується разом із макетом документації й рендерить MDX у власному `<Suspense key={path}>`, тож бічна панель працює ще до завантаження MDX-чанка сторінки, а навігація замінює серверний HTML попередньої сторінки, а не гідратує його даними наступної.
 
 ## Посилання
@@ -137,12 +137,13 @@ export const Route = createFileRoute("/auth/reset-password")({
 
 Жоден файл не перелічує всі розділи застосунку. Кожен розділ, як-от курси, продукти чи юридичні сторінки, оголошує власні шляхи та пункти меню, а barrel-файл їх об’єднує, тож розділ додається або вилучається разом із власними файлами. Саме так CLI `saasyland` збирає проєкт із шарів шаблонів.
 
-| Що                 | Кожен розділ оголошує                                             | Barrel-файл                      | Звідки читається                                                                                                                     |
-| ------------------ | ----------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Шляхи              | `src/data/<area>.routes.ts`: один `export const` на шлях          | `src/data/routes.entries.ts`     | `ROUTES` у `src/routes.ts`                                                                                                           |
-| Пункти меню        | `src/data/<area>.navigation.ts`: один список `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` і `FOOTER_NAVIGATION` у `src/data/navigation.ts` |
-| Статистика панелі  | `src/data/<area>.dashboard.ts`: один список `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` у `src/data/dashboard.ts`                                                                                    |
-| Неперелічені шляхи | `src/data/<area>.routes.ts`: один список `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` і `isUnlistedRoute` у `src/data/unlisted.ts`                                                                       |
+| Що                              | Кожен розділ оголошує                                             | Barrel-файл                      | Звідки читається                                                                                                                     |
+| ------------------------------- | ----------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Шляхи                           | `src/data/<area>.routes.ts`: один `export const` на шлях          | `src/data/routes.entries.ts`     | `ROUTES` у `src/routes.ts`                                                                                                           |
+| Пункти меню                     | `src/data/<area>.navigation.ts`: один список `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` і `FOOTER_NAVIGATION` у `src/data/navigation.ts` |
+| Статистика панелі               | `src/data/<area>.dashboard.ts`: один список `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` у `src/data/dashboard.ts`                                                                                    |
+| Скелетони сторінок адмін-панелі | `src/data/<area>.skeletons.ts`: один список `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `ADMIN_SKELETONS` у `src/data/skeletons.ts`                                                                                          |
+| Неперелічені шляхи              | `src/data/<area>.routes.ts`: один список `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` і `isUnlistedRoute` у `src/data/unlisted.ts`                                                                       |
 
 Barrel-файл містить лише рядки `export { … } from`, по одному на файл розділу, відсортовані за модулем, як `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` повторно експортує шляхи як один простір імен, тож кожен шлях зберігає свій літеральний тип, а `<Link to={ROUTES.COURSES}>` і далі перевіряється за деревом маршрутів:
 
@@ -175,6 +176,10 @@ export const COURSES_NAVIGATION = [
 ```
 
 Статистика панелі має `prefetch`, який виконує loader `/admin`, і хук `useValue`, який `DashboardStats` викликає, щоб прочитати число.
+
+Скелетон сторінки адмін-панелі пов’язує `to` сторінки з її `pendingComponent`, тим самим скелетоном, який задає маршрут сторінки. `AdminPending`, скелетон макета адмін-панелі, малює скелетон поточного шляху, коли хтось заходить в адмін-панель з іншого місця.
+
+Списки в `src/data/navigation.ts` і `ADMIN_SKELETONS` мають оголошені типи, `NavigationEntry` і `AdminSkeleton`, а не типи пунктів, які розділи оголошують зараз, тож розміщення, яке не заповнює жоден розділ, як-от дії панелі в проєкті без розділу продуктів, є порожнім списком, що все одно проходить перевірку типів. `navigation.test.ts` і `skeletons.test.ts` під час компіляції перевіряють, що `to` кожного пункту й кожного скелетона, які оголошує розділ, є шляхом дерева маршрутів (`FileRouteTypes["to"]` із `src/routeTree.gen.ts`).
 
 Підписи залишаються в просторі імен меню, яке їх показує, під `key` пункту: `links.<key>` і `groups.<group>` у `pages.admin.sidebar`, `navigation.<key>` у `pages.app.sidebar`, `items.<key>` у `components.custom.navigation`, `links.<key>` і `columns.<column>` у `components.custom.footer`, а також `actions.<key>` і `stats.<key>.title` у `pages.admin.dashboard`. Кожен розділ володіє своїми ключами в цих файлах, а `enum-labels.test.ts` падає, коли пункту бракує підпису в якійсь локалі.
 

@@ -29,6 +29,16 @@ interface TestObserver {
 
 const SECTION_BAND = "-42% 0px -58% 0px"
 
+const PAGE_LABELS = new Map(Object.entries(navigationMessages.items))
+
+const pageLabel = (key: string): string => {
+  const label = PAGE_LABELS.get(key)
+  if (label === undefined) {
+    throw new Error(`The navigation has no label for ${key}`)
+  }
+  return label
+}
+
 const observers: TestObserver[] = []
 const resizeCallbacks: ((entries: ResizeEntry[]) => void)[] = []
 const observeSize = vi.fn<(element: Element) => void>()
@@ -144,7 +154,7 @@ describe("public navigation links", () => {
     expect(within(nav).getAllByRole("link", { name: navigationMessages.signIn })[0]).toHaveAttribute("href", "/auth/sign-in")
     expect(within(nav).getByRole("link", { name: navigationMessages.getStarted })).toHaveAttribute("href", "/#pricing")
     for (const page of NAVIGATION_PAGES) {
-      expect(within(nav).getByRole("link", { name: navigationMessages.items[page.key] })).toHaveAttribute("href", page.to)
+      expect(within(nav).getByRole("link", { name: pageLabel(page.key) })).toHaveAttribute("href", page.to)
     }
     for (const section of NAVIGATION_SECTIONS) {
       expect(within(nav).getByRole("link", { name: navigationMessages.items[section] })).toHaveAttribute("href", `/#${section}`)
@@ -207,7 +217,7 @@ describe("mobile menu", () => {
 
     await open()
     for (const page of NAVIGATION_PAGES) {
-      expect(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items[page.key] })).toHaveAttribute("href", page.to)
+      expect(within(openedMobileMenu()).getByRole("link", { name: pageLabel(page.key) })).toHaveAttribute("href", page.to)
     }
     for (const section of NAVIGATION_SECTIONS) {
       expect(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items[section] })).toHaveAttribute(

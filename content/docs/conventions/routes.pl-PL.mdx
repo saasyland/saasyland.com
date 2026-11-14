@@ -122,10 +122,10 @@ Brakujący tekst pozostaje `undefined`, więc wartość domyślna nigdy nie prze
 
 Nawigacja musi sprawiać wrażenie natychmiastowej, więc każda trasa, która renderuje stronę, ma `pendingComponent` odzwierciedlający tę stronę: ten sam układ, te same karty i tę samą liczbę wierszy.
 
-- Szkielety znajdują się w pliku pending danego obszaru (`content-pending.tsx`, `courses-pending.tsx`) i używają `Skeleton` z shadcn.
+- Szkielety znajdują się w pliku pending danego obszaru (`admin/products-pending.tsx`, `courses/courses-pending.tsx`) i używają `Skeleton` z shadcn.
 - Zastępnik tekstu otrzymuje prawdziwy token typografii oraz `h-lh scale-y-70`, dzięki czemu ma wysokość wiersza, który zastępuje: `<Skeleton className="h-lh w-28 scale-y-70 font-mono text-label" />`.
 - Długości list pochodzą ze stałych, których używa strona: `PAGE_ROWS` w `admin/pending-blocks.tsx` ma `DEFAULT_PAGE_SIZE` wierszy, czyli rozmiar strony każdej tabeli w administracji.
-- Szkielet layoutu wybiera szkielet strony dla bieżącej ścieżki z mapy, tak jak `ADMIN_PAGES` w `admin-pending.tsx` i `COURSE_PAGES` w `content-pending.tsx`. Nową stronę dodaje się do tej mapy.
+- Szkielet layoutu wybiera szkielet strony dla bieżącej ścieżki z mapy, tak jak `AdminPending` z `ADMIN_SKELETONS` i `AdminCourseSectionPending` z `COURSE_PAGES` w `admin/courses-pending.tsx`. Każdy obszar dodaje swoje strony panelu administracyjnego do `ADMIN_SKELETONS` w `src/data/<area>.skeletons.ts` (zobacz [Ścieżki i nawigacja](#paths-and-navigation)); stronę innego layoutu dodaje się do mapy tego layoutu.
 - Nie ma `defaultPendingComponent` dla całego routera, a `pendingMs` zachowuje domyślną wartość TanStack. Jedynym wyjątkiem są trasy dokumentacji: `pendingMs: Number.POSITIVE_INFINITY` i `wrapInSuspense: false`. Komponent strony hydratuje się razem z layoutem dokumentacji i renderuje MDX we własnym `<Suspense key={path}>`, więc pasek boczny działa, zanim załaduje się chunk MDX strony, a nawigacja zastępuje serwerowy HTML poprzedniej strony, zamiast hydratować go danymi następnej.
 
 ## Linki
@@ -137,12 +137,13 @@ Nawigacja musi sprawiać wrażenie natychmiastowej, więc każda trasa, która r
 
 Żaden plik nie wylicza wszystkich obszarów aplikacji. Każdy obszar, na przykład kursy, produkty czy strony prawne, deklaruje własne ścieżki i pozycje menu, a zbiorczy eksport (barrel) je łączy, więc obszar dodaje się albo pomija razem z jego własnymi plikami. W ten sposób CLI `saasyland` składa projekt z warstw szablonów.
 
-| Co                   | Każdy obszar deklaruje                                            | Zbiorczy eksport                 | Odczyt z                                                                                                                             |
-| -------------------- | ----------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Ścieżki              | `src/data/<area>.routes.ts`: jedno `export const` na ścieżkę      | `src/data/routes.entries.ts`     | `ROUTES` w `src/routes.ts`                                                                                                           |
-| Pozycje menu         | `src/data/<area>.navigation.ts`: jedna lista `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` i `FOOTER_NAVIGATION` w `src/data/navigation.ts` |
-| Statystyki pulpitu   | `src/data/<area>.dashboard.ts`: jedna lista `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` w `src/data/dashboard.ts`                                                                                    |
-| Ścieżki nielistowane | `src/data/<area>.routes.ts`: jedna lista `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` i `isUnlistedRoute` w `src/data/unlisted.ts`                                                                       |
+| Co                                       | Każdy obszar deklaruje                                            | Zbiorczy eksport                 | Odczyt z                                                                                                                             |
+| ---------------------------------------- | ----------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Ścieżki                                  | `src/data/<area>.routes.ts`: jedno `export const` na ścieżkę      | `src/data/routes.entries.ts`     | `ROUTES` w `src/routes.ts`                                                                                                           |
+| Pozycje menu                             | `src/data/<area>.navigation.ts`: jedna lista `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` i `FOOTER_NAVIGATION` w `src/data/navigation.ts` |
+| Statystyki pulpitu                       | `src/data/<area>.dashboard.ts`: jedna lista `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` w `src/data/dashboard.ts`                                                                                    |
+| Szkielety stron panelu administracyjnego | `src/data/<area>.skeletons.ts`: jedna lista `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `ADMIN_SKELETONS` w `src/data/skeletons.ts`                                                                                          |
+| Ścieżki nielistowane                     | `src/data/<area>.routes.ts`: jedna lista `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` i `isUnlistedRoute` w `src/data/unlisted.ts`                                                                       |
 
 Zbiorczy eksport zawiera wyłącznie wiersze `export { … } from`, po jednym na plik obszaru, posortowane według modułu, tak jak `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` ponownie eksportuje ścieżki jako jedną przestrzeń nazw, więc każda ścieżka zachowuje swój typ literałowy, a `<Link to={ROUTES.COURSES}>` nadal jest sprawdzany względem drzewa tras:
 
@@ -175,6 +176,10 @@ export const COURSES_NAVIGATION = [
 ```
 
 Statystyka pulpitu ma `prefetch`, który uruchamia loader `/admin`, i hook `useValue`, który `DashboardStats` wywołuje, aby odczytać liczbę.
+
+Szkielet strony panelu administracyjnego łączy `to` strony z jej `pendingComponent`, tym samym szkieletem, który ustawia trasa strony. `AdminPending`, szkielet layoutu panelu administracyjnego, rysuje szkielet bieżącej ścieżki, gdy ktoś wchodzi do panelu administracyjnego z innego miejsca.
+
+Listy w `src/data/navigation.ts` i `ADMIN_SKELETONS` mają zadeklarowane typy, `NavigationEntry` i `AdminSkeleton`, a nie typy pozycji, które obszary akurat deklarują, więc umiejscowienie, którego nie wypełnia żaden obszar, np. akcje pulpitu w projekcie bez obszaru produktów, jest pustą listą, która nadal przechodzi sprawdzanie typów. `navigation.test.ts` i `skeletons.test.ts` sprawdzają podczas kompilacji, że `to` każdej pozycji i każdego szkieletu deklarowanego przez obszar jest ścieżką drzewa tras (`FileRouteTypes["to"]` z `src/routeTree.gen.ts`).
 
 Etykiety zostają w przestrzeni nazw menu, które je wyświetla, pod kluczem `key` pozycji: `links.<key>` i `groups.<group>` w `pages.admin.sidebar`, `navigation.<key>` w `pages.app.sidebar`, `items.<key>` w `components.custom.navigation`, `links.<key>` i `columns.<column>` w `components.custom.footer` oraz `actions.<key>` i `stats.<key>.title` w `pages.admin.dashboard`. Każdy obszar jest właścicielem swoich kluczy w tych plikach, a `enum-labels.test.ts` kończy się błędem, gdy pozycji brakuje etykiety w którymś locale.
 

@@ -122,10 +122,10 @@ Absent text stays `undefined`, so a default never leaks into a URL the router bu
 
 Navigation must feel instant, so every route that renders a page has a `pendingComponent` that mirrors it: the same layout, the same cards and the same number of rows.
 
-- Skeletons live in the area's pending file (`content-pending.tsx`, `courses-pending.tsx`) and use `Skeleton` from shadcn.
+- Skeletons live in the area's pending file (`admin/products-pending.tsx`, `courses/courses-pending.tsx`) and use `Skeleton` from shadcn.
 - A text placeholder takes the real type token plus `h-lh scale-y-70`, so it has the height of the line it replaces: `<Skeleton className="h-lh w-28 scale-y-70 font-mono text-label" />`.
 - List lengths come from the constants the page uses: `PAGE_ROWS` in `admin/pending-blocks.tsx` has `DEFAULT_PAGE_SIZE` rows, the page size of every admin table.
-- A layout skeleton picks the page skeleton for the current path from a map, as `ADMIN_PAGES` in `admin-pending.tsx` and `COURSE_PAGES` in `content-pending.tsx` do. A new page is added to that map.
+- A layout skeleton picks the page skeleton for the current path from a map, as `AdminPending` does with `ADMIN_SKELETONS` and `AdminCourseSectionPending` with `COURSE_PAGES` in `admin/courses-pending.tsx`. Each area adds its admin pages to `ADMIN_SKELETONS` in `src/data/<area>.skeletons.ts` (see [Paths and navigation](#paths-and-navigation)); a page of another layout is added to that layout's map.
 - There is no router-wide `defaultPendingComponent`, and `pendingMs` keeps TanStack's default. The docs routes are the one exception: `pendingMs: Number.POSITIVE_INFINITY` and `wrapInSuspense: false`. The page component hydrates with the docs layout and renders the MDX in its own `<Suspense key={path}>`, so the sidebar works before the page's MDX chunk has loaded, and a navigation replaces the previous page's server HTML instead of hydrating it with the next page's data.
 
 ## Links
@@ -142,6 +142,7 @@ No file lists every area of the application. Each area, such as the courses, the
 | Paths                | `src/data/<area>.routes.ts`: one `export const` per path       | `src/data/routes.entries.ts`     | `ROUTES` in `src/routes.ts`                                                                                                             |
 | Menu entries         | `src/data/<area>.navigation.ts`: one `<AREA>_NAVIGATION` list  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` and `FOOTER_NAVIGATION` in `src/data/navigation.ts` |
 | Dashboard statistics | `src/data/<area>.dashboard.ts`: one `<AREA>_DASHBOARD` list    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` in `src/data/dashboard.ts`                                                                                      |
+| Admin page skeletons | `src/data/<area>.skeletons.ts`: one `<AREA>_SKELETONS` list    | `src/data/skeletons.entries.ts`  | `ADMIN_SKELETONS` in `src/data/skeletons.ts`                                                                                            |
 | Unlisted paths       | `src/data/<area>.routes.ts`: one `<AREA>_UNLISTED_ROUTES` list | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` and `isUnlistedRoute` in `src/data/unlisted.ts`                                                                       |
 
 A barrel holds only `export { … } from` lines, one per area file, sorted by module, like `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` re-exports the paths as one namespace, so each path keeps its literal type and `<Link to={ROUTES.COURSES}>` is still checked against the route tree:
@@ -175,6 +176,10 @@ export const COURSES_NAVIGATION = [
 ```
 
 A dashboard statistic has a `prefetch`, which the `/admin` loader runs, and a `useValue` hook, which `DashboardStats` calls to read the number.
+
+An admin page skeleton pairs the page's `to` with its `pendingComponent`, the same skeleton the page's route sets. `AdminPending`, the skeleton of the admin layout, draws the one for the current path when someone enters the admin area from elsewhere.
+
+The lists in `src/data/navigation.ts` and `ADMIN_SKELETONS` have declared types, `NavigationEntry` and `AdminSkeleton`, rather than the types of the entries the areas happen to declare, so a placement that no area fills, such as the dashboard actions in a project without the products area, is an empty list that still type-checks. `navigation.test.ts` and `skeletons.test.ts` check at compile time that the `to` of every entry and skeleton an area declares is a path of the route tree (`FileRouteTypes["to"]` from `src/routeTree.gen.ts`).
 
 Labels stay in the namespace of the menu that shows them, under the entry's `key`: `links.<key>` and `groups.<group>` in `pages.admin.sidebar`, `navigation.<key>` in `pages.app.sidebar`, `items.<key>` in `components.custom.navigation`, `links.<key>` and `columns.<column>` in `components.custom.footer`, and `actions.<key>` and `stats.<key>.title` in `pages.admin.dashboard`. Each area owns its keys in those files, and `enum-labels.test.ts` fails when an entry has no label in a locale.
 

@@ -1,0 +1,8 @@
+export { ANALYTICS_SKELETONS } from "~/src/data/analytics.skeletons"
+export { AUTH_SKELETONS } from "~/src/data/auth.skeletons"
+export { CORE_SKELETONS } from "~/src/data/core.skeletons"
+export { COURSES_SKELETONS } from "~/src/data/courses.skeletons"
+export { PAGE_BUILDER_SKELETONS } from "~/src/data/page-builder.skeletons"
+export { PAYMENTS_SKELETONS } from "~/src/data/payments.skeletons"
+export { POST_EDITOR_SKELETONS } from "~/src/data/post-editor.skeletons"
+export { PRODUCTS_SKELETONS } from "~/src/data/products.skeletons"

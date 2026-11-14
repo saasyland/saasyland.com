@@ -8,11 +8,11 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { pageHead } from "~/src/lib/seo"
 
-import { AdminLandingPagePending } from "~/src/presentation/components/custom/admin/content-pending"
 import { LandingPageActions } from "~/src/presentation/components/custom/admin/landing-page/actions"
 import { LandingPageCanvas } from "~/src/presentation/components/custom/admin/landing-page/canvas"
 import { LandingPageProperties } from "~/src/presentation/components/custom/admin/landing-page/properties"
 import { LandingPageSections } from "~/src/presentation/components/custom/admin/landing-page/sections"
+import { AdminLandingPagePending } from "~/src/presentation/components/custom/admin/page-builder-pending"
 
 import { ROUTES } from "~/src/routes"
 

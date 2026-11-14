@@ -10,8 +10,7 @@ import { Route as PricingRoute } from "~/src/routes/admin.pricing-models"
 
 import { renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
-import { AdminPaymentsPending } from "~/src/presentation/components/custom/admin/administration-pending"
-import { AdminPricingModelsPending } from "~/src/presentation/components/custom/admin/offerings-pending"
+import { AdminPaymentsPending, AdminPricingModelsPending } from "~/src/presentation/components/custom/admin/payments-pending"
 
 import pagesAdminPaymentsMessages from "~/messages/en-US/pages.admin.payments.json"
 import pagesAdminPricingModelsMessages from "~/messages/en-US/pages.admin.pricing-models.json"

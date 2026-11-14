@@ -14,7 +14,7 @@ import { pageHead } from "~/src/lib/seo"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
-import { AdminSettingsPending } from "~/src/presentation/components/custom/admin/administration-pending"
+import { AdminSettingsPending } from "~/src/presentation/components/custom/admin/core-pending"
 import { DangerZoneCard } from "~/src/presentation/components/custom/admin/settings/danger-zone-card"
 import { SettingsPasswordForm } from "~/src/presentation/components/custom/admin/settings/password-form"
 import { ProfileCard } from "~/src/presentation/components/custom/admin/settings/profile-card"

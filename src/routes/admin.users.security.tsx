@@ -8,7 +8,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { pageHead } from "~/src/lib/seo"
 
-import { AdminUsersSecurityPending } from "~/src/presentation/components/custom/admin/administration-pending"
+import { AdminUsersSecurityPending } from "~/src/presentation/components/custom/admin/auth-pending"
 
 import { ROUTES } from "~/src/routes"
 

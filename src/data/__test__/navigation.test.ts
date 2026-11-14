@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, expectTypeOf, it, vi } from "vite-plus/test"
 
 import { CORE_NAVIGATION } from "~/src/data/core.navigation"
 import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, NAVIGATION_PAGES } from "~/src/data/navigation"
@@ -7,6 +7,7 @@ import * as AREA_NAVIGATION from "~/src/data/navigation.entries"
 
 import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 import { ROUTES } from "~/src/routes"
+import type { FileRouteTypes } from "~/src/routeTree.gen"
 
 const ENTRIES = Object.values(AREA_NAVIGATION).flat()
 
@@ -37,6 +38,10 @@ describe("navigation composition", () => {
     const placed = PLACEMENT_LISTS.flatMap(([placement, list]) => list.map(({ key }) => identity({ key, placement })))
 
     expect(placed.toSorted()).toStrictEqual(ENTRIES.map((entry) => identity(entry)).toSorted())
+  })
+
+  it("points every entry an area declares at a path of the route tree", () => {
+    expectTypeOf<(typeof ENTRIES)[number]["to"]>().toExtend<FileRouteTypes["to"]>()
   })
 
   it.each(PLACEMENT_LISTS)("gives every %s entry its own key", (_placement, list) => {

@@ -13,7 +13,7 @@ import { pageHead } from "~/src/lib/seo"
 
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 
-import { AdminCoursesPending } from "~/src/presentation/components/custom/admin/content-pending"
+import { AdminCoursesPending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { courseColumns } from "~/src/presentation/components/custom/admin/courses/course-columns"
 import { DataTable } from "~/src/presentation/components/custom/data-table"
 

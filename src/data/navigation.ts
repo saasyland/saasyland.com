@@ -1,7 +1,7 @@
-import { ADMIN_NAVIGATION_GROUPS, FOOTER_COLUMNS, NAVIGATION_PLACEMENT } from "~/src/data/navigation.constants"
+import { ADMIN_NAVIGATION_GROUPS, FOOTER_COLUMNS, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 import * as AREA_NAVIGATION from "~/src/data/navigation.entries"
 
-const ENTRIES = Object.values(AREA_NAVIGATION)
+const ENTRIES: readonly NavigationEntry[] = Object.values(AREA_NAVIGATION)
   .flat()
   .toSorted((first, second) => first.order - second.order)
 

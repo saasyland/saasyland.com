@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { AdminCourseSectionPending } from "~/src/presentation/components/custom/admin/content-pending"
+import { AdminCourseSectionPending } from "~/src/presentation/components/custom/admin/courses-pending"
 
 const NAMESPACES = ["course.validations", "pages.admin.courses"] as const
 

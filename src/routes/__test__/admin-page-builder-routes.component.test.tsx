@@ -8,7 +8,7 @@ import { Route as LandingRoute } from "~/src/routes/admin.landing-page"
 
 import { renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
-import { AdminLandingPagePending } from "~/src/presentation/components/custom/admin/content-pending"
+import { AdminLandingPagePending } from "~/src/presentation/components/custom/admin/page-builder-pending"
 
 import pagesAdminLandingPageMessages from "~/messages/en-US/pages.admin.landing-page.json"
 

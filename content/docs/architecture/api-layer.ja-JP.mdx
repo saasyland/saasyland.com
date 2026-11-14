@@ -11,6 +11,8 @@ description: "/api 配下の HTTP エンドポイントと、サーバー関数�
 | `src/routes/api/auth.$.ts` | `/api/auth/*` | GET, POST | OAuth コールバック、メール認証、Polar のカスタマーポータル、`/api/auth/polar/webhooks` を含む Better Auth のすべてのエンドポイント |
 | `src/routes/api/search.ts` | `/api/search` | GET       | ドキュメントを対象とした Fumadocs の検索                                                                                           |
 
+Worker は `/media/<expiry>.<signature>/<videoId>/<file>` にも自分で応答します。これはルートではありません。`src/server.ts` がこれらのリクエストをロケールミドルウェアと TanStack Start より前に `serveMedia`（`src/modules/video/video.delivery.ts`）へ渡し、`serveMedia` が署名を確認して、動画ファイルを Workers のキャッシュまたは `MEDIA` バケットから配信します。[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照してください。
+
 ハンドラーは `createFileRoute` の `server.handlers` で宣言します。Web API の `Request` を受け取り、`Response` を返します。
 
 ```ts
@@ -28,7 +30,7 @@ export const Route = createFileRoute("/api/auth/$")({
 - このアプリケーションからしか呼ばれない処理のために REST エンドポイントを追加しないでください。代わりに `createServerFn` でユースケースを書きます。そうすれば、型付きの入力、ミドルウェア、クエリオプションを利用できます。
 - ハンドラーは入力の検証と権限のチェックを自分で行います。サーバー関数のミドルウェア（`authorized`、`withRateLimit`）はハンドラーでは実行されません。
 - ベンダー固有の検証はインテグレーション内に置きます。Polar の Webhook 署名は、独自のハンドラーではなく、Better Auth 内の Polar プラグインが検証します。
-- `/api` のパスはローカライズもプリレンダリングもされず、Worker のロケール処理もスキップします。
+- `/api` と `/media` のパスはローカライズもプリレンダリングもされず、Worker のロケール処理もスキップします。
 
 ## 関連ページ
 

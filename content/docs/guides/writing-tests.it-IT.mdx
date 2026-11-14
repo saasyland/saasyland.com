@@ -52,6 +52,8 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { CATEGORY_KIND } from "~/src/modules/category/category.constants"
 import { createCategoryMutation } from "~/src/modules/category/use-cases/create-category"
 
 const getSessionMock = vi.hoisted(() => vi.fn<(typeof auth.api)["getSession"]>())
@@ -65,12 +67,14 @@ describe("create-category", () => {
       createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: "01900000-0000-7000-8000-000000000001" }),
     )
 
-    await expect(executeMutation(createCategoryMutation, { kind: "category", name: "SaaS Plans" })).rejects.toThrow("FORBIDDEN")
+    await expect(executeMutation(createCategoryMutation, { kind: CATEGORY_KIND.CATEGORY, name: "SaaS Plans" })).rejects.toThrow(
+      ERROR_CODES.FORBIDDEN,
+    )
   })
 })
 ```
 
-Testa ogni esito di un caso d'uso: successo, ogni codice di `AppError`, sessione mancante e permesso mancante.
+Testa ogni esito di un caso d'uso: successo, ogni codice di `AppError`, sessione mancante e permesso mancante. I valori di dominio e i codici di errore provengono dalle loro costanti (`CATEGORY_KIND`, `ERROR_CODES`), mai da stringhe ripetute.
 
 ## Testa un componente
 
@@ -94,8 +98,10 @@ Il Worker di test registra le email inviate, così una specifica può leggere il
 ```sh
 bun run check
 bun run test:coverage
-bun run build
+bun run build:test
 bun run test:e2e:pr
 ```
+
+`build:test` esegue la build Cloudflare completa, che i test unitari non coprono, e `test:e2e:pr` esegue ogni specifica su Chromium, come fa la CI delle pull request.
 
 La CI esegue i controlli, la copertura e la suite browser su Chromium a ogni pull request e a ogni push su `main`, e WebKit ogni settimana e a ogni push su `main`.

@@ -143,7 +143,7 @@ Server integrations read secrets through `env` from `cloudflare:workers`. Do not
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID`, `CLOUDFLARE_ACCESS_TOKEN`    | Credentials for Drizzle Studio and introspection over the D1 HTTP API. Application queries use the `DB` binding instead.                                                               |
 | `AFFONSO_PROGRAM_ID`                                                            | Optional Worker variable (`vars` in `wrangler.jsonc`), set only for the environment that takes real payments. The public Affonso program ID that turns on affiliate referral tracking. |
 
-The development, preview, and production environments currently declare **all of these keys** in `secrets.required`, including the Cloudflare credentials used by Drizzle tooling. Supply the required secrets for the selected environment; see [`wrangler.jsonc`](wrangler.jsonc) for the authoritative list.
+The development, preview, and production environments declare **every key above except `AFFONSO_PROGRAM_ID`** in `secrets.required`, including the Cloudflare credentials used by Drizzle tooling. `AFFONSO_PROGRAM_ID` is public, so it is a plain Worker variable under `vars`, not a secret; only the `test` environment sets one, a dummy ID for the browser tests. Supply the required secrets for the selected environment; see [`wrangler.jsonc`](wrangler.jsonc) for the authoritative list.
 
 ### Domains and branding
 
@@ -154,12 +154,12 @@ When adapting the application to your own domain, update these locations togethe
 | Location                                                                   | What to configure                                                                                                                                                        |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, contact addresses, and GitHub identity.                                                                                              |
-| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `appHostsForMode`, the hosts allowed per mode for authentication and newsletter requests, derived from `APP_DOMAIN`.                                                     |
+| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `DEPLOYED_HOSTS`, the preview and production hosts derived from `APP_DOMAIN`, and the one place the code names them.                                                     |
 | [`wrangler.jsonc`](wrangler.jsonc)                                         | Worker names, custom-domain routes, D1 databases, KV namespaces, and R2 buckets for each environment.                                                                    |
 | [`src/data/marketing.ts`](src/data/marketing.ts)                           | Displayed tiers and prices (`TIERS`, `TIER_PRICES`) and the consulting rate (`CONSULTING_HOURLY_RATE`); keep the tier prices aligned with the configured Polar products. |
 | [`src/presentation/styles/`](src/presentation/styles)                      | Theme, typography, fonts, and shared style definitions.                                                                                                                  |
 
-Changing an environment file alone does not change the canonical URL. Rebuild after changing branding or deployment configuration.
+`DEPLOYED_HOSTS` gives the preview host `preview.<APP_DOMAIN>` and the production host `APP_DOMAIN`. `appHostsForMode` reads it for the hosts Better Auth and newsletter links accept in each mode, and the deployment scripts' live check requests it, so change it only when your preview host has another name. The custom-domain `routes` in `wrangler.jsonc` and the environment URLs in [`deploy-reusable.yml`](.github/workflows/deploy-reusable.yml) name the same hosts and must match. Changing an environment file alone does not change the canonical URL. Rebuild after changing branding or deployment configuration.
 
 ### Provider setup
 
@@ -179,7 +179,7 @@ content/
   docs/                          Localized MDX documentation and navigation metadata
 messages/{locale}/               JSON catalogues split into dotted namespaces
 e2e/                             Playwright specs and the seeded test accounts, video, and course
-scripts/                         Content checks, build checks, seeding, and tooling
+scripts/                         Content checks, build and deployment steps, seeding, video publishing, and tooling
 remotion/                        Video authoring source and isolated npm toolchain
 src/
   routes/                        TanStack file routes, loaders, guards, and HTTP handlers
@@ -197,9 +197,9 @@ src/
     emails/                      Email templates (markup and message namespace only)
     styles/                      Theme, typography, and local font declarations
   providers/                     Application-wide React providers
-  data/                          Data shared by several files: navigation, marketing, admin demo rows
+  data/                          Data shared by several files: navigation, marketing, affiliate terms, CLI choices, repository facts, admin demo rows
   hooks/                         Shared React hooks
-  lib/                           Shared utilities (cn, confetti, cookies, durations, hex hashes and tokens, rate limits, route search params, select options, SEO, GitHub stars, not-found errors)
+  lib/                           Shared utilities (cn, confetti, cookies, the deployed-site check, durations, hex hashes and tokens, rate limits, route search params, select options, SEO, GitHub stars, not-found errors)
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers
 ```
 
@@ -382,7 +382,7 @@ English uses unprefixed paths. Other languages use the full locale, such as `/de
 - Email messages live in `emails.*` namespaces and are loaded by the sending use case, never by browser code.
 - Run `bun run check:i18n` after changes. Builds additionally verify localized home and legal-page output.
 
-Fumadocs generates `.source/`; edit the source MDX and catalogues instead of generated output. The public legal routes are `/privacy`, `/terms`, `/refunds`, and `/licence`. Review their content when adapting the application to a different business.
+Fumadocs generates `.source/`; edit the source MDX and catalogues instead of generated output. The public legal routes are `/privacy`, `/terms`, `/refunds`, `/licence`, and `/affiliates`. Review their content when adapting the application to a different business.
 
 ## Performance
 

@@ -21,4 +21,5 @@ export const USER_MUTATION_KEYS = {
   STOP_IMPERSONATING: ["user", "stopImpersonatingUser"],
   UNBAN: ["user", "unbanUser"],
   UPDATE: ["user", "updateUser"],
+  UPDATE_PREFERENCES: ["user", "updatePreferences"],
 } as const

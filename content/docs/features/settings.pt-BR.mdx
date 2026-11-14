@@ -1,9 +1,21 @@
 ---
 title: "Configurações"
-description: "A tela /admin/settings: uma aba de segurança real, uma aba geral estática e quatro abas vazias."
+description: "As telas /admin/settings e /app/settings: a preferência de fuso horário, uma aba de segurança real, cards de demonstração do espaço de trabalho e quatro abas vazias."
 ---
 
-`src/routes/admin.settings.tsx` mostra seis abas de `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`): **Geral**, **Segurança**, **Equipe e membros**, **Cobrança**, **Integrações** e **Chaves de API**. Só **Geral** e **Segurança** têm conteúdo, montado com widgets de `src/presentation/components/custom/admin/settings`; as outras quatro não mostram nada. O loader pré-carrega `getActiveSessionsQuery`. A área do cliente `/app` não tem tela de configurações.
+`src/routes/admin.settings.tsx` mostra seis abas de `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`): **Geral**, **Segurança**, **Equipe e membros**, **Cobrança**, **Integrações** e **Chaves de API**. Só **Geral** e **Segurança** têm conteúdo, montado com widgets de `src/presentation/components/custom/admin/settings` e com o `PreferencesCard` compartilhado; as outras quatro não mostram nada. O loader pré-carrega `getActiveSessionsQuery`. Os clientes têm a própria página de configurações, `/app/settings` (`src/routes/app.settings.tsx`), que mostra apenas o `PreferencesCard`.
+
+## Preferências (real)
+
+`PreferencesCard` (`src/presentation/components/custom/preferences-card.tsx`) edita o fuso horário do usuário logado, a única preferência de exibição armazenada com a conta. Ele lê o fuso salvo da query da sessão atual.
+
+- Um combobox com pesquisa lista todos os fusos de `TIMEZONE_CODES` (`src/modules/user/user.schema.ts`, derivado de `TIMEZONES`) pelo nome no namespace `timezones`, que os layouts de `/admin` e `/app` carregam.
+- **Detectar pelo navegador** seleciona o fuso que o navegador informa. A comparação usa os fusos como o `Intl.DateTimeFormat` os resolve, então um alias como `Asia/Calcutta` encontra `Asia/Kolkata`; um fuso que não está na lista mostra uma mensagem e mantém a escolha atual.
+- **Salvar preferências** chama `updatePreferences` (`src/modules/user/use-cases/update-preferences.ts`, logado), que valida o fuso com `userZodSchemas.updatePreferences` e o armazena por meio do `updateUser` do Better Auth. Em seguida, o card invalida a query da sessão atual, e o `TranslationsProvider` mostra todas as datas no novo fuso ([Internacionalização e idiomas](/docs/features/internationalization)).
+
+O idioma não é armazenado: ele é o locale da URL, trocado com `LocaleSelect`, e também define a ordem da data, o relógio de 12 ou 24 horas e os separadores de números.
+
+`PreferencesCardPending`, ao lado do card, é o esqueleto dele em `AdminSettingsPending` e `AppSettingsPending`.
 
 ## Segurança (real)
 
@@ -14,7 +26,6 @@ description: "A tela /admin/settings: uma aba de segurança real, uma aba geral 
 ## Geral (demonstração)
 
 - `ProfileCard`: nome do espaço de trabalho, e-mail de suporte e URL, preenchidos com `APP_NAME` e constantes do próprio arquivo.
-- `PreferencesCard`: idioma, fuso horário e um interruptor de anúncios.
 - `DangerZoneCard`: um botão de exclusão.
 
-Esses cards mostram apenas valores padrão; nada é salvo. `updateUser` e `changeEmail` em `src/modules/account/use-cases` são as funções de servidor a conectar quando você criar um formulário de perfil.
+Esses dois cards mostram apenas valores padrão; nada é salvo. `updateUser` e `changeEmail` em `src/modules/account/use-cases` são as funções de servidor a conectar quando você criar um formulário de perfil.

@@ -37,6 +37,12 @@ describe("user zod schemas", () => {
     ).toBe(true)
   })
 
+  it("accepts a catalogued time zone as a preference and refuses any other", () => {
+    expect.hasAssertions()
+    expect(userZodSchemas.updatePreferences.safeParse({ timezone: "Europe/Warsaw" }).success).toBe(true)
+    expect(userZodSchemas.updatePreferences.safeParse({ timezone: "Mars/Olympus_Mons" }).success).toBe(false)
+  })
+
   it("accepts a strong password on set user password form", () => {
     expect.hasAssertions()
     expect(userZodSchemas.setUserPasswordForm.safeParse({ newPassword: "Secret1!" }).success).toBe(true)

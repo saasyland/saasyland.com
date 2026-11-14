@@ -17,10 +17,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/com
 import { AdminSettingsPending } from "~/src/presentation/components/custom/admin/administration-pending"
 import { DangerZoneCard } from "~/src/presentation/components/custom/admin/settings/danger-zone-card"
 import { SettingsPasswordForm } from "~/src/presentation/components/custom/admin/settings/password-form"
-import { PreferencesCard } from "~/src/presentation/components/custom/admin/settings/preferences-card"
 import { ProfileCard } from "~/src/presentation/components/custom/admin/settings/profile-card"
 import { SettingsSessions } from "~/src/presentation/components/custom/admin/settings/sessions"
 import { SettingsTwoFactor } from "~/src/presentation/components/custom/admin/settings/two-factor"
+import { PreferencesCard } from "~/src/presentation/components/custom/preferences-card"
 
 import { ROUTES } from "~/src/routes"
 

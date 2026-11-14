@@ -11,7 +11,7 @@ import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 
 import { clientAddress, withinRateLimit } from "~/src/lib/rate-limit"
 
-const RATE_LIMIT_WINDOW_SECONDS = 60
+export const RATE_LIMIT_WINDOW_SECONDS = 60
 
 export const RATE_LIMITS = {
   SENSITIVE: { max: 3, window: RATE_LIMIT_WINDOW_SECONDS },

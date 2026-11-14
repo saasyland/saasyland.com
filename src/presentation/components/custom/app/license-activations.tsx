@@ -35,7 +35,7 @@ export const LicenseActivations = (): JSX.Element => {
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="text-sm font-medium wrap-anywhere text-foreground">{activation.label}</span>
                 <span className="text-xs text-muted-foreground">
-                  {t("activated", { date: format.dateTime(new Date(activation.created_at), { dateStyle: "short", timeStyle: "short" }) })}
+                  {t("activated", { date: format.dateTime(new Date(activation.created_at), "dateTime") })}
                 </span>
               </span>
               <DeactivateActivationButton activationId={activation.id} />

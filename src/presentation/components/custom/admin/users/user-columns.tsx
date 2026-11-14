@@ -1,14 +1,12 @@
 import type { JSX } from "react"
 
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
-import { useTranslations } from "use-intl/react"
+import { useFormatter, useTranslations } from "use-intl/react"
 
 import { isRole } from "~/src/integrations/better-auth/auth.access"
 
 import type { User } from "~/src/modules/user/user.types"
 import { type UserStatus, getUserInitials, getUserStatus } from "~/src/modules/user/user.utils"
-
-import { useDateFormatter } from "~/src/hooks/use-date-formatter"
 
 import { ADMIN_STATUS_BADGE_CLASSES, USER_STATUS_COLORS } from "~/src/data/admin"
 
@@ -88,14 +86,10 @@ const BooleanCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, boo
   return <span className="text-muted-foreground">{getValue() ? t("yes") : t("no")}</span>
 }
 
-const DateCell = ({ getValue, row }: CellContext<DataTableFeatures, AdminUser, Date>): JSX.Element => {
-  const { formatDate } = useDateFormatter({ day: "numeric", hour: "numeric", minute: "2-digit", month: "short", year: "numeric" })
+const DateCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, Date>): JSX.Element => {
+  const format = useFormatter()
 
-  return (
-    <span className="text-sm text-muted-foreground" suppressHydrationWarning>
-      {formatDate({ timeZone: row.original.timezone, value: getValue() })}
-    </span>
-  )
+  return <span className="text-sm text-muted-foreground">{format.dateTime(getValue(), "dateTime")}</span>
 }
 
 const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()

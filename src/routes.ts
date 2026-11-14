@@ -44,6 +44,7 @@ export const ROUTES = {
   API_AUTH_VERIFY_EMAIL: "/api/auth/verify-email",
   APP: "/app",
   APP_LICENSE: "/app/license",
+  APP_SETTINGS: "/app/settings",
   AUTH: "/auth",
   AUTH_CALLBACK: "/auth/callback",
   BLOG: "/blog",

@@ -8,6 +8,7 @@ import {
   CreditCard,
   GraduationCap,
   Home,
+  type LucideIcon,
   MonitorSmartphone,
   Package,
   Settings,
@@ -22,41 +23,28 @@ import {
 import { USER_STATUS } from "~/src/modules/user/user.constants"
 import type { UserStatus } from "~/src/modules/user/user.utils"
 
+import { ADMIN_NAVIGATION, type AdminNavigationItem } from "~/src/data/admin-navigation"
+
 import { ROUTES } from "~/src/routes"
 
-export const ADMIN_SIDEBAR_GROUPS = [
-  {
-    items: [
-      { icon: Home, titleKey: "dashboard", url: ROUTES.ADMIN },
-      { icon: BarChart, titleKey: "analytics", url: ROUTES.ADMIN_ANALYTICS },
-    ],
-    titleKey: "overview",
-  },
-  {
-    items: [
-      { icon: Package, titleKey: "products", url: ROUTES.ADMIN_PRODUCTS },
-      { icon: Tags, titleKey: "pricingModels", url: ROUTES.ADMIN_PRICING },
-    ],
-    titleKey: "offerings",
-  },
-  {
-    items: [
-      { icon: BookOpen, titleKey: "blog", url: ROUTES.ADMIN_BLOG },
-      { icon: GraduationCap, titleKey: "courses", url: ROUTES.ADMIN_COURSES },
-      { icon: Clapperboard, titleKey: "videos", url: ROUTES.ADMIN_VIDEOS },
-      { icon: MonitorSmartphone, titleKey: "landingPage", url: ROUTES.ADMIN_LANDING_PAGE },
-    ],
-    titleKey: "content",
-  },
-  {
-    items: [
-      { icon: Users, titleKey: "userManagement", url: ROUTES.ADMIN_USERS },
-      { icon: CreditCard, titleKey: "payments", url: ROUTES.ADMIN_PAYMENTS },
-      { icon: Settings, titleKey: "settings", url: ROUTES.ADMIN_SETTINGS },
-    ],
-    titleKey: "administration",
-  },
-] as const
+const ADMIN_SIDEBAR_ICONS = {
+  analytics: BarChart,
+  blog: BookOpen,
+  courses: GraduationCap,
+  dashboard: Home,
+  landingPage: MonitorSmartphone,
+  payments: CreditCard,
+  pricingModels: Tags,
+  products: Package,
+  settings: Settings,
+  userManagement: Users,
+  videos: Clapperboard,
+} as const satisfies Record<AdminNavigationItem["titleKey"], LucideIcon>
+
+export const ADMIN_SIDEBAR_GROUPS = ADMIN_NAVIGATION.map(({ items, titleKey }) => ({
+  items: items.map((item) => ({ icon: ADMIN_SIDEBAR_ICONS[item.titleKey], titleKey: item.titleKey, url: item.url })),
+  titleKey,
+}))
 
 export type AdminSidebarItem = (typeof ADMIN_SIDEBAR_GROUPS)[number]["items"][number]
 

@@ -21,28 +21,30 @@ description: "Усі скрипти package.json і те, що вони запу
 
 ## Розгортання
 
-| Скрипт              | Що запускає                                                                                                                                                                                                          |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` для `dist/server/wrangler.json` і `scripts/verify-deployment.ts preview` |
-| `deploy:production` | Ті самі кроки для `production`                                                                                                                                                                                       |
+| Скрипт              | Що запускає                                                                                                                                                                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `polar:verify:preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` для `dist/server/wrangler.json` і `scripts/verify-deployment.ts preview` |
+| `deploy:production` | Ті самі кроки для `production`                                                                                                                                                                                                               |
 
 - `verify-bindings.ts` завершується помилкою, коли середовище не має прив'язки `DB`, `CACHE` або `MEDIA` чи досі має ідентифікатор-заглушку D1 або KV, а також коли production використовує ту саму базу даних, простір імен або бакет, що й preview.
+- `polar:verify:<environment>` зупиняє розгортання перед збіркою, коли організація Polar з `.env.<environment>` не відповідає коду.
 - `prepare-deploy-secrets.ts` зчитує з `.env.<environment>` ключі, перелічені в `secrets.required` середовища, завершується помилкою, коли якийсь із них відсутній або порожній, і записує лише ці ключі в `.wrangler/secrets.<environment>.json`. Інші змінні з файлу не завантажуються.
 - Міграції виконуються після збірки й перед розгортанням, тож невдала збірка ніколи не зачіпає базу даних, а новий Worker ніколи не запускається на старішій схемі.
 - Розгортання запускає `env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.<environment>.json`. Зібрана конфігурація вже націлена на одне середовище; `CLOUDFLARE_ENV`, що залишився в оболонці, змусив би Wrangler шукати розділ середовища, якого в цьому файлі немає.
-- `verify-deployment.ts` надсилає запити до `/`, `/courses`, `/robots.txt`, `/api` і `/api/auth/get-session` на домені середовища й завершується помилкою, якщо котрийсь із них не відповідає `200` з очікуваним типом вмісту. Шлях, що не пройшов перевірку, він запитує тричі з інтервалом у п'ять секунд і нічого не змінює. `bun scripts/verify-deployment.ts <preview|production>` окремо перевіряє розгорнутий сайт.
+- `verify-deployment.ts` надсилає запити до <RepositoryFact name="liveSiteCheckPaths" /> на домені середовища й завершується помилкою, якщо котрийсь із них не відповідає `200` з очікуваним типом вмісту. Шлях, що не пройшов перевірку, він запитує тричі з інтервалом у п'ять секунд і нічого не змінює. `bun scripts/verify-deployment.ts <preview|production>` окремо перевіряє розгорнутий сайт.
 
 ## Перевірки
 
-| Скрипт             | Що запускає                                                                              |
-| ------------------ | ---------------------------------------------------------------------------------------- |
-| `check`            | `generate:cn`, `check:i18n` і `vp check` (форматування, лінтинг і типи)                  |
-| `check:fix`        | Те саме з `vp check --fix`                                                               |
-| `check:i18n`       | `scripts/check-i18n.ts`, `scripts/check-message-formats.ts` і `scripts/check-content.ts` |
-| `check:pre-commit` | `generate:cn`, `check:i18n` і `vp staged`; запускається хуком pre-commit                 |
-| `lint`             | `vp lint`                                                                                |
-| `format`           | `vp fmt`                                                                                 |
-| `format:check`     | `vp fmt --check`                                                                         |
+| Скрипт                                                                        | Що запускає                                                                                                                                                              |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `check`                                                                       | `generate:cn`, `check:i18n` і `vp check` (форматування, лінтинг і типи)                                                                                                  |
+| `check:fix`                                                                   | Те саме з `vp check --fix`                                                                                                                                               |
+| `check:i18n`                                                                  | `scripts/check-i18n.ts`, `scripts/check-message-formats.ts` і `scripts/check-content.ts`                                                                                 |
+| `check:pre-commit`                                                            | `generate:cn`, `check:i18n` і `vp staged`; запускається хуком pre-commit                                                                                                 |
+| `lint`                                                                        | `vp lint`                                                                                                                                                                |
+| `format`                                                                      | `vp fmt`                                                                                                                                                                 |
+| `format:check`                                                                | `vp fmt --check`                                                                                                                                                         |
+| `polar:verify:development`, `polar:verify:preview`, `polar:verify:production` | `scripts/verify-polar.ts`: порівнює організацію Polar цього середовища з кодом, надсилаючи лише GET-запити; див. [Налаштування Polar](/docs/getting-started/polar-setup) |
 
 ## Тести
 

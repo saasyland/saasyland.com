@@ -39,7 +39,7 @@ Roles with `course: ["read"]`, which admins have, can watch every lesson. `hasLe
 
 ## Pages
 
-The `/courses` layout (`courses.tsx`) has its own navigation, and its labels are in the `pages.courses` namespace. The pages read D1 for each viewer, so they are not prerendered: `ROUTES.COURSES` is in `UNLISTED_ROUTES` in `vite.config.ts`.
+The `/courses` layout (`courses.tsx`) renders the same `ContentNavigation` header as the blog. The pages read D1 for each viewer, so they are not prerendered: `ROUTES.COURSES` is in `UNLISTED_ROUTES` in `vite.config.ts`.
 
 - `/courses`: one card per published course with its kind, lesson count, minutes and free lessons.
 - `/courses/<course>`: the summary, a progress bar for signed-in viewers, a **Start the course** or **Continue with …** link to the next lesson to watch, and the curriculum by chapter with **Free preview** badges, durations, and lock and completed icons. When a lesson is locked, the **Every lesson comes with Complete** panel links to the pricing section, or to `/app/license?tier=complete` for a signed-in viewer, where Complete is already chosen.
@@ -57,7 +57,7 @@ The course block in the landing page's **Toolkit** section (`course-showcase.tsx
 
 ## Progress
 
-For a signed-in viewer, the player starts at the saved `position_ms` and `useLessonProgress` (`src/hooks/use-lesson-progress.ts`) saves the position at most every 15 seconds while it plays, through the `startAt` and `onProgress` props of `VideoPlayer`. When the video ends (`onEnded`) or the viewer presses **Mark as complete**, `completed_at` is set, the saved position returns to the start and the course page refreshes its progress. `completed_at` is kept once set. Guests can watch free previews, but nothing is saved.
+For a signed-in viewer, the player starts at the saved `position_ms` and `useLessonProgress` (`src/hooks/use-lesson-progress.ts`) saves the position at most every <RepositoryFact name="lessonProgressSaveSeconds" unit="second" /> while it plays, through the `startAt` and `onProgress` props of `VideoPlayer`. When the video ends (`onEnded`) or the viewer presses **Mark as complete**, `completed_at` is set, the saved position returns to the start and the course page refreshes its progress. `completed_at` is kept once set. Guests can watch free previews, but nothing is saved.
 
 ## Lessons and videos
 
@@ -78,7 +78,7 @@ A new course is added after the others. The arrows in the list set the order of 
 The course form (`course-form.tsx`) has these fields:
 
 - **Title** and **Summary**, with one tab per locale. The `en-US` tab is required; a locale left empty falls back to English.
-- **URL slug**: lowercase letters, digits and single hyphens, at most 96 characters, unique across courses.
+- **URL slug**: lowercase letters, digits and single hyphens, at most <RepositoryFact name="slugMaxLength" /> characters, unique across courses.
 - **Type**: **Course**, **Tutorial** or **Project**.
 - **Status**: **Draft**, the default, or **Published**. Only published courses appear under `/courses`.
 
@@ -122,7 +122,7 @@ The foreign keys do this with `ON DELETE CASCADE`. Videos are never deleted with
 - The video list of the lesson dialog comes from `getVideos`, which requires `video: ["read"]`.
 - A slug that is already taken answers `CONFLICT`: `rethrowAsConflict` (`src/integrations/drizzle-orm/drizzle.errors.ts`) turns D1's unique-constraint error into an `AppError`. An id that matches no row answers `NOT_FOUND`.
 - A new course, chapter or lesson takes the highest `position` among its siblings plus one (`nextPosition`). A move swaps the row with its neighbour and renumbers the siblings from 1 (`reorder`) in one `db.batch`. Both functions are in `src/modules/_core/utils/ordering.ts`, and the directions are `MOVE_DIRECTION` in `src/modules/_core/constants/ordering.ts`.
-- Every write validates titles and summaries with `localizedTextSchema`: `en-US` is required and each text has at most 2,000 characters. A slug has at most 96 characters. The form messages are `defaultLocaleRequired`, `textTooLong`, `slugInvalid` and `slugTooLong` in `course.validations`, and `COURSE_VALIDATION_PARAMS` (`course.constants.ts`) supplies their limits.
+- Every write validates titles and summaries with `localizedTextSchema`: `en-US` is required and each text has at most <RepositoryFact name="localizedTextMaxLength" /> characters. A slug has at most <RepositoryFact name="slugMaxLength" /> characters. The form messages are `defaultLocaleRequired`, `textTooLong`, `slugInvalid` and `slugTooLong` in `course.validations`, and `COURSE_VALIDATION_PARAMS` (`course.constants.ts`) supplies their limits.
 - `courseEditorQuery` keeps `staleTime: COURSE_STALE_MS` like the public course queries, and every change invalidates the `course` queries, so the list and the editor refetch.
 
 ## Tests

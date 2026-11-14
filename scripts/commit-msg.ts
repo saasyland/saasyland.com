@@ -4,7 +4,7 @@ import process from "node:process"
 const FAILURE_EXIT_CODE = 1
 const HOOK_ARGUMENTS_START = 2
 
-const COMMIT_EMOJIS: Readonly<Record<string, string>> = {
+export const COMMIT_EMOJIS: Readonly<Record<string, string>> = {
   build: "🛠️",
   chore: "♻️",
   ci: "⚙️",
@@ -75,8 +75,10 @@ const run = (): void => {
   writeFileSync(messageFile, lines.with(subjectIndex, `${emoji} ${subjectLine.trimEnd()}`).join("\n").replace(TRAILING_NEWLINE, "\n"))
 }
 
-try {
-  run()
-} catch (error) {
-  fail([`Failed to process commit message: ${String(error)}`])
+if (import.meta.main) {
+  try {
+    run()
+  } catch (error) {
+    fail([`Failed to process commit message: ${String(error)}`])
+  }
 }

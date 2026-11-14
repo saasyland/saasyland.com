@@ -9,6 +9,8 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
+import { NAVIGATION_PAGES, NAVIGATION_SECTIONS } from "~/src/data/marketing"
+
 import { Navigation } from "~/src/presentation/components/custom/navigation"
 
 import navigationMessages from "~/messages/en-US/components.custom.navigation.json"
@@ -100,7 +102,7 @@ const renderNavigation = (ui: ReactElement = <Navigation />, options: { wrapper?
     options,
   )
 
-const mobileMenu = (): HTMLElement | null => document.querySelector<HTMLElement>("#landing-mobile-menu")
+const mobileMenu = (): HTMLElement | null => document.querySelector<HTMLElement>("#mobile-menu")
 
 const openedMobileMenu = (): HTMLElement => {
   const menu = mobileMenu()
@@ -133,16 +135,19 @@ afterEach(() => {
 })
 
 describe("public navigation links", () => {
-  it("links the logo, account, docs, blog, pricing and landing sections through the router", () => {
+  it("links the logo, account, pricing, every public page and every landing section through the router", () => {
     renderNavigation()
     const nav = screen.getByRole("navigation", { name: navigationMessages.ariaLabel })
 
     expect(within(nav).getByRole("link", { name: "SaaSy Land" })).toHaveAttribute("href", "/")
     expect(within(nav).getAllByRole("link", { name: navigationMessages.signIn })[0]).toHaveAttribute("href", "/auth/sign-in")
     expect(within(nav).getByRole("link", { name: navigationMessages.getStarted })).toHaveAttribute("href", "/#pricing")
-    expect(within(nav).getByRole("link", { name: navigationMessages.items.docs })).toHaveAttribute("href", "/docs")
-    expect(within(nav).getByRole("link", { name: navigationMessages.items.blog })).toHaveAttribute("href", "/blog")
-    expect(within(nav).getByRole("link", { name: navigationMessages.items.foundation })).toHaveAttribute("href", "/#foundation")
+    for (const page of NAVIGATION_PAGES) {
+      expect(within(nav).getByRole("link", { name: navigationMessages.items[page.key] })).toHaveAttribute("href", page.to)
+    }
+    for (const section of NAVIGATION_SECTIONS) {
+      expect(within(nav).getByRole("link", { name: navigationMessages.items[section] })).toHaveAttribute("href", `/#${section}`)
+    }
   })
 
   it("highlights the section in the reading band and keeps it until another section enters", () => {
@@ -194,14 +199,26 @@ describe("mobile menu", () => {
     expect(mobileMenu()).not.toBeInTheDocument()
   })
 
-  it("links pages, closes after a section link and removes its Escape listener on unmount", async () => {
+  it("links the same pages and sections as the desktop navigation, closes after a link and removes its Escape listener on unmount", async () => {
     const user = userEvent.setup()
     const { unmount } = renderNavigation()
     const open = () => user.click(screen.getByRole("button", { name: navigationMessages.openMenu }))
 
     await open()
-    expect(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items.docs })).toHaveAttribute("href", "/docs")
+    for (const page of NAVIGATION_PAGES) {
+      expect(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items[page.key] })).toHaveAttribute("href", page.to)
+    }
+    for (const section of NAVIGATION_SECTIONS) {
+      expect(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items[section] })).toHaveAttribute(
+        "href",
+        `/#${section}`,
+      )
+    }
     await user.click(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items.foundation }))
+    expect(mobileMenu()).not.toBeInTheDocument()
+
+    await open()
+    await user.click(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items.blog }))
     expect(mobileMenu()).not.toBeInTheDocument()
 
     await open()

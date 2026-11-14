@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { Route as LandingRoute } from "~/src/routes/_landing"
 import { Route as AffiliatesRoute } from "~/src/routes/_landing.affiliates"
@@ -154,7 +155,7 @@ const renderRoute = async (path: string, { post = COMPLETE, posts = NOTES }: { p
   routers.push(router)
   render(
     <QueryClientProvider client={router.options.context.queryClient}>
-      <IntlProvider locale="en-US" messages={messages} timeZone="UTC">
+      <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={messages} timeZone={I18N.DEFAULT_TIMEZONE}>
         <RouterProvider router={router} />
       </IntlProvider>
     </QueryClientProvider>,

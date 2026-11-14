@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/currency"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
 import type { ADMIN_PAYMENT_ROWS } from "~/src/data/admin"
 
@@ -43,11 +43,7 @@ const DemoCell = ({ column, row }: CellContext<DataTableFeatures, Payment, strin
 const DateCell = ({ getValue }: CellContext<DataTableFeatures, Payment, string>): JSX.Element => {
   const format = useFormatter()
 
-  return (
-    <span className="text-sm text-muted-foreground">
-      {format.dateTime(new Date(getValue()), { day: "numeric", month: "short", year: "numeric" })}
-    </span>
-  )
+  return <span className="text-sm text-muted-foreground">{format.dateTime(new Date(getValue()), "date")}</span>
 }
 
 const StatusCell = ({ row }: CellContext<DataTableFeatures, Payment, string>): JSX.Element => {

@@ -7,7 +7,7 @@ export const PostDate = ({ post }: { readonly post: (typeof DUMMY_POSTS)[number]
   const format = useFormatter()
 
   if (post.status === ADMIN_BLOG_POST_STATUS.PUBLISHED) {
-    return format.dateTime(new Date(post.date), { day: "numeric", month: "short" })
+    return format.dateTime(new Date(post.date), "calendarDate")
   }
 
   return t(post.status)

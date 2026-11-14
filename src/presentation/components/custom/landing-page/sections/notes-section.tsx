@@ -15,8 +15,6 @@ const landingRoute = getRouteApi("/_landing/")
 
 const GRID_DELAY_MS = 100
 
-const DATE_FORMAT = { day: "numeric", month: "short", year: "numeric" } as const
-
 export const NotesSection = (): JSX.Element => {
   const { posts } = landingRoute.useLoaderData()
   const format = useFormatter()
@@ -40,7 +38,7 @@ export const NotesSection = (): JSX.Element => {
                 key={url}
               >
                 <p className="font-mono text-label text-muted-foreground uppercase tabular-nums">
-                  {format.dateTime(new Date(date), DATE_FORMAT)}
+                  {format.dateTime(new Date(date), "calendarDate")}
                   {` · ${t("readingTime", { minutes })}`}
                 </p>
                 <h3 className="mt-4 text-title text-balance text-foreground">

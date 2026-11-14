@@ -32,17 +32,17 @@ Better Auth also handles email verification (required before sign-in), password 
 
 ## Rate limits
 
-`withRateLimit(kind, limit)` counts attempts per operation and client IP (`cf-connecting-ip`) in the `rate_limit` table with a single atomic D1 batch. `RATE_LIMITS.SENSITIVE` allows 3 attempts per minute and `RATE_LIMITS.TOKEN` allows 5. If the counter storage fails, the request is refused. Better Auth's own rate limiter uses the same table with an `auth:` key prefix; session reads, sign-out and Polar webhooks are exempt.
+`withRateLimit(kind, limit)` counts attempts per operation and client IP (`cf-connecting-ip`) in the `rate_limit` table with a single atomic D1 batch. `RATE_LIMITS.SENSITIVE` allows <RepositoryFact name="sensitiveRateLimit" /> attempts and `RATE_LIMITS.TOKEN` allows <RepositoryFact name="tokenRateLimit" /> per <RepositoryFact name="rateLimitWindowSeconds" unit="second" />. If the counter storage fails, the request is refused. Better Auth's own rate limiter uses the same table with an `auth:` key prefix; session reads, sign-out and Polar webhooks are exempt.
 
-Emails a visitor can trigger have a second limit. `withinRecipientRateLimit` allows three verification, three password reset and three newsletter confirmation emails per address per hour, keyed on a SHA-256 hash of the address, and skips the email silently beyond that.
+Emails a visitor can trigger have a second limit. `withinRecipientRateLimit` allows <RepositoryFact name="recipientEmailsPerHour" /> emails of each kind (verification, password reset and newsletter confirmation) per address per hour, keyed on a SHA-256 hash of the address, and skips the email silently beyond that.
 
 ## Response headers
 
-`src/server.ts` adds `SECURITY_HEADERS` (a Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` and `X-Frame-Options`) to every response the Worker returns, plus `Strict-Transport-Security` over HTTPS, and keeps any of them the response already sets. Files served without the Worker get the subset in `public/_headers`. See [Security and hardening](/docs/features/security).
+`src/server.ts` sets `SECURITY_HEADERS` (a Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` and `X-Frame-Options`) on every response the Worker returns, plus `HTTPS_SECURITY_HEADERS` (`Strict-Transport-Security`) over HTTPS, and replaces any value the response or a `public/_headers` rule already set. Both constants live in `src/modules/_core/constants/api.ts`. Files served without the Worker get the same headers from the `/*` rule in `public/_headers`, and `src/__test__/server.test.ts` fails when that rule and the constants differ. See [Security and hardening](/docs/features/security).
 
 ## Media links
 
-Video files stay in a private R2 bucket. `getVideoPlayback` requires `video: ["read"]`, and `getLessonPlayback` the lesson's access level, before they sign a path, and the signature is an HMAC-SHA-256 with a key derived from `AUTH_SECRET` by HKDF. `serveMedia` answers `403` for a wrong or expired signature. A signed path works as a bearer link until it expires, at least six hours after it is issued, so whoever holds it can play that video. See [Cloudflare R2](/docs/integrations/cloudflare-r2).
+Video files stay in a private R2 bucket. `getVideoPlayback` requires `video: ["read"]`, and `getLessonPlayback` the lesson's access level, before they sign a path, and the signature is an HMAC-SHA-256 with a key derived from `AUTH_SECRET` by HKDF. `serveMedia` answers `403` for a wrong or expired signature. A signed path works as a bearer link until it expires, at least <RepositoryFact name="signedMediaHours" unit="hour" /> after it is issued, so whoever holds it can play that video. See [Cloudflare R2](/docs/integrations/cloudflare-r2).
 
 ## Errors and input
 

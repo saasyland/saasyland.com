@@ -7,13 +7,22 @@ description: "Demo only: the /admin/pricing-models screen. Real prices come from
 
 ## Where prices come from
 
-- **Landing page**: `TIER_PRICES` in `src/data/marketing.ts`, in US dollars: `core` 249, `complete` 399, `agency` 899. `Price` formats them in the page locale. The landing page description takes the Core price as `{price}`, and blog posts print a tier's price with `<TierPrice tier="core" />`, so no copy types a price. The consulting card's hourly rate is `CONSULTING_HOURLY_RATE` in the same file; the call is booked by email rather than sold through Polar, so it has no regional price.
+- **Landing page**: `TIER_PRICES` in `src/data/marketing.ts`: `core` <TierPrice tier="core" />, `complete` <TierPrice tier="complete" />, `agency` <TierPrice tier="agency" />. `Price` formats them in the page locale. The landing page description takes the Core price as `{price}`, and blog posts and docs pages print a tier's price with `<TierPrice tier="core" />`, so no copy types a price. The consulting card's hourly rate is `CONSULTING_HOURLY_RATE` in the same file; the call is booked by email rather than sold through Polar, so it has no regional price.
 - **Checkout**: the Polar products referenced by `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` and `POLAR_PRODUCT_ID_AGENCY`.
-- **Regional discounts**: `PPP_TIERS` in `src/modules/_core/constants/pricing.ts` (multipliers 0.8, 0.7, 0.6 and 0.5 by country), matched at checkout against automatic percentage discounts configured in Polar.
+- **Regional discounts**: `PPP_TIERS` in `src/modules/_core/constants/pricing.ts`, a price multiplier per group of countries, matched at checkout against automatic percentage discounts configured in Polar:
 
-Keep `TIER_PRICES`, the Polar product prices and the Polar discounts in sync; the code does not compare them.
+<RepositoryTable name="pppTiers" columns={["Price multiplier", "Countries"]} />
+
+`bun run polar:verify:<environment>` compares the Polar product prices with `TIER_PRICES` and the Polar discounts with `PPP_TIERS`, and the deploy scripts run it before every manual deploy. Change the code first, then Polar; see [Polar setup](/docs/getting-started/polar-setup).
+
+## Currency and prices
+
+- **Store currency**: `DEFAULT_CURRENCY_CODE` in `src/modules/_core/constants/pricing.ts`. To charge in another currency, change it there; it is defined nowhere else. It lives beside the pricing constants rather than in `currency.ts`, so the landing page does not load the `CURRENCIES` catalogue.
+- **What it changes**: `CURRENCY_FORMAT`, and with it every price on the landing page, the tier cards, `<TierPrice>` in the blog and the consulting rate; the default `currency` of new products (`product.schema.ts`, `createProduct`); and the amounts in the admin revenue charts and refunds table. Prices are rounded to the currency's minor unit by `Intl.NumberFormat`, which knows each ISO 4217 currency's decimals, so regional prices need no rounding constant of their own.
+- **What it does not change**: Polar charges in the currency of the Polar product prices, so set the products to the same currency and the amounts in `TIER_PRICES`. `TIER_PRICES` mirrors the Polar prices until prices are managed from the admin and read from Polar. Affiliate payouts stay in `AFFILIATE_TERMS.PAYOUT_CURRENCY`, the US dollars Affonso pays out in.
 
 ## Related pages
 
 - [Payments and licences](/docs/features/payments)
+- [Polar setup](/docs/getting-started/polar-setup)
 - [Landing page](/docs/features/landing-page)

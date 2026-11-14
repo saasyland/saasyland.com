@@ -1,11 +1,11 @@
 ---
 title: "Internationalisation et langues"
-description: "Neuf langues, préfixes d’URL, cookie de langue et messages use-intl organisés par espaces de noms."
+description: "Langues prises en charge, préfixes d’URL, cookie de langue et messages use-intl organisés par espaces de noms."
 ---
 
 ## Langues
 
-`I18N` dans `src/integrations/use-intl/i18n.config.ts` définit `en-US` (par défaut), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` et `uk-UA`, le cookie `saasyland.com_locale` et le fuseau horaire par défaut `UTC`.
+`I18N` dans `src/integrations/use-intl/i18n.config.ts` définit les <RepositoryFact name="languages" /> langues <RepositoryFact name="supportedLocales" />, avec `en-US` par défaut, ainsi que le cookie `saasyland.com_locale`, le fuseau horaire par défaut `UTC` et les formats de date nommés `FORMATS`.
 
 ## URL
 
@@ -40,7 +40,26 @@ loader: async ({ context }) => {
 
 ## Composants
 
-Chaque composant appelle `useTranslations` une seule fois et nomme le traducteur `t`. Un composant qui a besoin de deux espaces de noms utilise leur parent commun ou `useTranslations()` avec des clés complètes. Formatez les nombres et les dates avec `useFormatter`, `useDateFormatter` et `useCurrencyFormatter`.
+Chaque composant appelle `useTranslations` une seule fois et nomme le traducteur `t`. Un composant qui a besoin de deux espaces de noms utilise leur parent commun ou `useTranslations()` avec des clés complètes.
+
+## Dates, nombres et fuseaux horaires
+
+Les dates et les nombres sont formatés avec `useFormatter` de use-intl (`format.dateTime`, `format.number`, `format.relativeTime`, `format.list`). La langue détermine les conventions : l’ordre du jour et du mois, l’horloge sur 12 ou 24 heures et les séparateurs. Le fuseau horaire est la seule préférence d’affichage qu’un utilisateur enregistre.
+
+`TranslationsProvider` transmet deux valeurs supplémentaires à `IntlProvider` :
+
+- `timeZone` : le champ `timezone` de l’utilisateur connecté, issu de la requête de session courante, ou `I18N.DEFAULT_TIMEZONE` (`UTC`) sans session. Le provider lit la session que chargent les gardes des routes `/app`, `/admin` et d’authentification, et ne la récupère jamais lui-même : les pages publiques prérendues sont donc identiques pour chaque visiteur et s’hydratent sans changement. Lorsque la requête de session change, par exemple après que l’utilisateur a enregistré un nouveau fuseau dans les [Paramètres](/docs/features/settings), chaque date est de nouveau rendue.
+- `formats` : `I18N.FORMATS`, les formats de date nommés. `src/types/use-intl.d.ts` déclare leurs noms auprès de use-intl, si bien qu’un nom inconnu fait échouer la vérification des types.
+
+| Nom             | Exemple (anglais)         | Usage                                                                                                                     |
+| --------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `date`          | Nov 14, 2026              | Le jour d’un instant dans le fuseau du lecteur, dans les tableaux                                                         |
+| `dateTime`      | Nov 14, 2026, 3:04 PM UTC | Un instant avec son heure et l’abréviation du fuseau : activations de licence et dates des comptes dans l’administration  |
+| `calendarDate`  | Nov 14, 2026              | Une date sans heure, comme la date d’un article de blog. Elle est formatée en UTC et ne passe donc jamais à un autre jour |
+| `calendarDay`   | November 14               | Libellés des jours du graphique d’analyse de l’administration                                                             |
+| `calendarMonth` | Nov                       | Libellés des mois du graphique du tableau de bord de l’administration                                                     |
+
+Un appel peut remplacer une option d’un format nommé : `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`. Les tableaux de l’administration affichent les dates des autres utilisateurs dans le fuseau propre à la personne qui les consulte, avec son abréviation, afin qu’une colonne se lise et se trie dans un seul fuseau ; le fuseau de l’utilisateur a sa propre colonne.
 
 ## Changer de langue
 
@@ -48,7 +67,7 @@ Chaque composant appelle `useTranslations` une seule fois et nomme le traducteur
 
 ## Vérifications
 
-`bun run check:i18n` vérifie la parité des clés entre les langues, résout les clés statiques dans la portée de leur `useTranslations`, valide la syntaxe des messages ICU et vérifie la parité du contenu de la documentation et du blog.
+`bun run check:i18n` vérifie la parité des clés entre les langues, résout les clés statiques dans la portée de leur `useTranslations`, échoue sur les clés qu’aucun fichier source n’affiche, valide la syntaxe des messages ICU et vérifie la parité du contenu de la documentation et du blog.
 
 ## Guides associés
 

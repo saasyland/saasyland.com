@@ -167,5 +167,3 @@ export type CurrencyCode = keyof typeof CURRENCIES
 const isCurrencyCode = (value: string): value is CurrencyCode => value in CURRENCIES
 
 export const CURRENCY_CODES = Object.keys(CURRENCIES).filter((code) => isCurrencyCode(code))
-
-export const DEFAULT_CURRENCY_CODE: CurrencyCode = "USD"

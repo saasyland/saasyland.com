@@ -1,9 +1,21 @@
 ---
 title: "Settings"
-description: "The /admin/settings screen: a live security tab, a static general tab and four empty tabs."
+description: "The /admin/settings and /app/settings screens: the time zone preference, a live security tab, demo workspace cards and four empty tabs."
 ---
 
-`src/routes/admin.settings.tsx` renders six tabs from `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`): **General**, **Security**, **Team & Members**, **Billing**, **Integrations** and **API Keys**. Only **General** and **Security** have content, built from widgets in `src/presentation/components/custom/admin/settings`; the other four show nothing. The loader preloads `getActiveSessionsQuery`. The customer area `/app` has no settings screen.
+`src/routes/admin.settings.tsx` renders six tabs from `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`): **General**, **Security**, **Team & Members**, **Billing**, **Integrations** and **API Keys**. Only **General** and **Security** have content, built from widgets in `src/presentation/components/custom/admin/settings` and the shared `PreferencesCard`; the other four show nothing. The loader preloads `getActiveSessionsQuery`. Customers have their own settings page, `/app/settings` (`src/routes/app.settings.tsx`), which shows `PreferencesCard` alone.
+
+## Preferences (live)
+
+`PreferencesCard` (`src/presentation/components/custom/preferences-card.tsx`) edits the signed-in user's time zone, the one display preference stored with the account. It reads the saved zone from the current session query.
+
+- A searchable combobox lists every zone in `TIMEZONE_CODES` (`src/modules/user/user.schema.ts`, derived from `TIMEZONES`) by its name in the `timezones` namespace, which the `/admin` and `/app` layouts load.
+- **Detect from this browser** selects the zone the browser reports. It compares zones as `Intl.DateTimeFormat` resolves them, so an alias such as `Asia/Calcutta` finds `Asia/Kolkata`; a zone that is not in the list shows a message and keeps the current choice.
+- **Save preferences** calls `updatePreferences` (`src/modules/user/use-cases/update-preferences.ts`, signed in), which validates the zone with `userZodSchemas.updatePreferences` and stores it through Better Auth's `updateUser`. The card then invalidates the current session query, and `TranslationsProvider` shows every date in the new zone ([Internationalization and locales](/docs/features/internationalization)).
+
+The language is not stored: it is the locale in the URL, switched with `LocaleSelect`, and it also decides the date order, the 12- or 24-hour clock and the number separators.
+
+`PreferencesCardPending`, next to the card, is its skeleton in `AdminSettingsPending` and `AppSettingsPending`.
 
 ## Security (live)
 
@@ -14,7 +26,6 @@ description: "The /admin/settings screen: a live security tab, a static general 
 ## General (demo)
 
 - `ProfileCard`: workspace name, support email and URL, prefilled from `APP_NAME` and constants in the file.
-- `PreferencesCard`: language, time zone and an announcements switch.
 - `DangerZoneCard`: a delete button.
 
-These cards render default values only; nothing is saved. `updateUser` and `changeEmail` in `src/modules/account/use-cases` are the server functions to connect when you build a profile form.
+These two cards render default values only; nothing is saved. `updateUser` and `changeEmail` in `src/modules/account/use-cases` are the server functions to connect when you build a profile form.

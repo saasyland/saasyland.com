@@ -4,3 +4,5 @@ export const API = "/api"
 export const APP = "/app"
 export const APP_SETTINGS = "/app/settings"
 export const HOME = "/"
+
+export const CORE_UNLISTED_ROUTES = [ADMIN, API, APP] as const

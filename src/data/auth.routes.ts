@@ -33,3 +33,5 @@ export const SIGN_IN = "/auth/sign-in"
 export const SIGN_UP = "/auth/sign-up"
 export const TWO_FACTOR = "/auth/two-factor"
 export const VERIFY_EMAIL = "/auth/verify-email"
+
+export const AUTH_UNLISTED_ROUTES = [AUTH] as const

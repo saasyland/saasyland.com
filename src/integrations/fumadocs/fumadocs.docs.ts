@@ -1,5 +1,6 @@
 import { notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
+import { getBreadcrumbItems } from "fumadocs-core/breadcrumb"
 import zod from "zod/v4"
 
 import { source } from "~/src/integrations/fumadocs/fumadocs.source"
@@ -11,6 +12,10 @@ import { buildPageHead } from "~/src/lib/seo"
 
 import { ROUTES } from "~/src/routes"
 
+const PARENT_BREADCRUMB_INDEX = -1
+
+const sectionSchema = zod.string().optional()
+
 const getDocsPage = createServerFn({ method: "GET" })
   .validator(zod.object({ locale: localeField, slugs: zod.string().array() }))
   .handler(({ data: { locale, slugs } }) => {
@@ -18,7 +23,15 @@ const getDocsPage = createServerFn({ method: "GET" })
     if (!page) {
       throw notFound()
     }
-    return { description: page.data.description ?? "", locale, path: page.path, pathname: page.url, title: page.data.title }
+    const section = getBreadcrumbItems(page.url, source.getPageTree(locale)).at(PARENT_BREADCRUMB_INDEX)?.name
+    return {
+      description: page.data.description ?? "",
+      locale,
+      path: page.path,
+      pathname: page.url,
+      section: sectionSchema.parse(section),
+      title: page.data.title,
+    }
   })
 
 export const loadDocsPage = async (splat?: string) => {
@@ -35,6 +48,7 @@ export const docsHead = ({ loaderData }: { loaderData?: Awaited<ReturnType<typeo
     description: loaderData?.description,
     locale: loaderData?.locale,
     pathname: loaderData?.pathname ?? ROUTES.DOCS,
+    section: loaderData?.section,
     title: loaderData?.title,
     type: "article",
   })

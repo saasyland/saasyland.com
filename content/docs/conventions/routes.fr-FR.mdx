@@ -137,11 +137,12 @@ La navigation doit sembler instantanée : chaque route qui affiche une page a do
 
 Aucun fichier ne liste toutes les zones de l'application. Chaque zone, comme les cours, les produits ou les pages légales, déclare ses propres chemins et entrées de menu, et un barrel les réunit : une zone s'ajoute ou se retire donc avec ses propres fichiers. C'est ainsi que la CLI `saasyland` assemble un projet à partir de couches de templates.
 
-| Quoi                            | Chaque zone déclare                                             | Barrel                           | Lu depuis                                                                                                                                |
-| ------------------------------- | --------------------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Chemins                         | `src/data/<area>.routes.ts` : un `export const` par chemin      | `src/data/routes.entries.ts`     | `ROUTES` dans `src/routes.ts`                                                                                                            |
-| Entrées de menu                 | `src/data/<area>.navigation.ts` : une liste `<AREA>_NAVIGATION` | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` et `FOOTER_NAVIGATION` dans `src/data/navigation.ts` |
-| Statistiques du tableau de bord | `src/data/<area>.dashboard.ts` : une liste `<AREA>_DASHBOARD`   | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` dans `src/data/dashboard.ts`                                                                                     |
+| Quoi                            | Chaque zone déclare                                              | Barrel                           | Lu depuis                                                                                                                                |
+| ------------------------------- | ---------------------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Chemins                         | `src/data/<area>.routes.ts` : un `export const` par chemin       | `src/data/routes.entries.ts`     | `ROUTES` dans `src/routes.ts`                                                                                                            |
+| Entrées de menu                 | `src/data/<area>.navigation.ts` : une liste `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` et `FOOTER_NAVIGATION` dans `src/data/navigation.ts` |
+| Statistiques du tableau de bord | `src/data/<area>.dashboard.ts` : une liste `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` dans `src/data/dashboard.ts`                                                                                     |
+| Chemins non listés              | `src/data/<area>.routes.ts` : une liste `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` et `isUnlistedRoute` dans `src/data/unlisted.ts`                                                                       |
 
 Un barrel ne contient que des lignes `export { … } from`, une par fichier de zone, triées par module, comme `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` réexporte les chemins sous un seul namespace : chaque chemin garde ainsi son type littéral et `<Link to={ROUTES.COURSES}>` reste vérifié par rapport à l'arbre des routes :
 
@@ -177,7 +178,7 @@ Une statistique du tableau de bord a un `prefetch`, que le loader de `/admin` ex
 
 Les libellés restent dans le namespace du menu qui les affiche, sous la `key` de l'entrée : `links.<key>` et `groups.<group>` dans `pages.admin.sidebar`, `navigation.<key>` dans `pages.app.sidebar`, `items.<key>` dans `components.custom.navigation`, `links.<key>` et `columns.<column>` dans `components.custom.footer`, et `actions.<key>` et `stats.<key>.title` dans `pages.admin.dashboard`. Chaque zone possède ses clés dans ces fichiers, et `enum-labels.test.ts` échoue quand une entrée n'a pas de libellé dans une locale.
 
-`vite.config.ts` importe par chemin relatif les fichiers de zone des chemins qu'il exclut du prérendu, car Vite ne résout pas l'alias `~` pendant qu'il charge sa propre configuration.
+Une zone dont les pages sont rendues par le Worker à chaque requête, comme `/admin`, `/auth` ou `/courses`, liste ces chemins dans `<AREA>_UNLISTED_ROUTES`. `vite.config.ts` les exclut du prérendu avec `isUnlistedRoute`, et `buildPageHead` leur attribue la carte du site au lieu d'une carte de page (voir [Référencement et aperçus sociaux](/docs/features/seo)). Vite ne résout pas l'alias `~` pendant qu'il charge sa propre configuration : `unlisted.entries.ts` et `unlisted.ts` importent donc les fichiers de zone par chemin relatif.
 
 ## Pages associées
 

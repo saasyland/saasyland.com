@@ -38,9 +38,11 @@ import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
 import { LIVE_SITE_CHECKS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_SECOND, MINUTES_PER_HOUR, SECONDS_PER_MINUTE } from "~/src/lib/duration"
+import { SOCIAL_IMAGE } from "~/src/lib/seo"
 
 import { ACTIVATION_TIMEOUT_MS } from "~/src/presentation/components/custom/app/checkout-activation"
 
@@ -76,11 +78,14 @@ const FACTS = {
   sensitiveRateLimit: RATE_LIMITS.SENSITIVE.max,
   signedMediaHours: PLAYBACK_TTL_SECONDS / (SECONDS_PER_MINUTE * MINUTES_PER_HOUR),
   slugMaxLength: SLUG_MAX_LENGTH,
+  socialImageHeight: SOCIAL_IMAGE.HEIGHT,
+  socialImageWidth: SOCIAL_IMAGE.WIDTH,
   storyboardIntervalSeconds: STORYBOARD_MIN_INTERVAL_SECONDS,
   storyboardMaxTiles: STORYBOARD_MAX_FRAMES,
   supportedLocales: I18N.SUPPORTED_LOCALES,
   tokenRateLimit: RATE_LIMITS.TOKEN.max,
   twoFactorCodeLength: TWO_FACTOR_CODE_LENGTH,
+  unlistedRoutes: UNLISTED_ROUTES,
   videoKeyframeSeconds: KEYFRAME_SECONDS,
   videoLowerRenditions: LOWER_RENDITION_HEIGHTS.map((height) => renditionName(height)),
   videoQualityCrf: VIDEO_QUALITY_CRF,

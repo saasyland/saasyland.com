@@ -53,11 +53,11 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
 })
 vi.mock(import("~/src/modules/license/use-cases/get-current-license"), async (importOriginal) => {
   const actual = await importOriginal()
-  return {
-    ...actual,
-    currentLicenseQuery: { ...actual.currentLicenseQuery, queryFn: currentLicense },
-    licenseActivationsQuery: { ...actual.licenseActivationsQuery, queryFn: activations },
-  }
+  return { ...actual, currentLicenseQuery: { ...actual.currentLicenseQuery, queryFn: currentLicense } }
+})
+vi.mock(import("~/src/modules/license/use-cases/get-current-license-activations"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, licenseActivationsQuery: { ...actual.licenseActivationsQuery, queryFn: activations } }
 })
 vi.mock(import("~/src/modules/course/use-cases/get-catalogue"), async (importOriginal) => {
   const actual = await importOriginal()

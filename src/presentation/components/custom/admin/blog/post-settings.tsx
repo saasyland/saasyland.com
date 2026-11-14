@@ -20,7 +20,7 @@ export const PostSettings = (): JSX.Element => {
   return (
     <div className="space-y-6 lg:col-span-1">
       <Card className="border-border p-5 sm:p-6">
-        <h3 className="mb-4 text-sm font-medium text-foreground">{t("featuredImage")}</h3>
+        <h2 className="mb-4 text-sm font-medium text-foreground">{t("featuredImage")}</h2>
         <MediaUploadZone>
           <p className="mb-1 text-sm font-medium text-foreground">{t("upload")}</p>
           <p className="text-xs text-muted-foreground">{t("uploadHelp")}</p>
@@ -28,7 +28,7 @@ export const PostSettings = (): JSX.Element => {
       </Card>
 
       <Card className="border-border p-5 sm:p-6">
-        <h3 className="mb-4 text-sm font-medium text-foreground">{t("publishing")}</h3>
+        <h2 className="mb-4 text-sm font-medium text-foreground">{t("publishing")}</h2>
         <FieldGroup className="gap-4">
           <Field>
             <Select defaultValue={ADMIN_BLOG_POST_STATUS.DRAFT} fieldLabel={t("status")} fieldLabelClassName={SETTINGS_LABEL_CLASSNAME}>

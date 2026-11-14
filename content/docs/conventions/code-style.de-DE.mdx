@@ -17,10 +17,10 @@ oxlint behandelt die Kategorien `correctness`, `nursery`, `pedantic`, `perf`, `s
 | `no-magic-numbers`           | nur `0` erlaubt, dazu Array-Indizes und Standardwerte | Jede andere Zahl ist eine benannte Konstante              |
 | `id-length`                  | mindestens zwei Zeichen, außer `_`, `m` und `t`       | Bezeichner sind Wörter; `t` ist die Übersetzungsfunktion  |
 | `one-var`                    | `never`                                               | Eine Deklaration pro Anweisung                            |
-| `unicorn/no-null`            | außerhalb von Tests aktiv                             | Fehlende Werte sind `undefined`                           |
+| `unicorn/no-null`            | außerhalb von Tests und `src/platform/testing` aktiv  | Fehlende Werte sind `undefined`                           |
 | `typescript/no-explicit-any` | `error`                                               | Kein Wert ist als `any` typisiert                         |
 
-Die Overrides sind eng und auf Dateien begrenzt: Tests lockern `no-magic-numbers`, `no-await-in-loop` und `unicorn/no-null`; `src/presentation` und `src/hooks` lockern `typescript/consistent-return`; Test-Mocks lockern `require-await`; `src/routes` schaltet `sort-keys` ab, weil Routenoptionen ihrer eigenen Reihenfolge folgen (siehe [Routendateien](/docs/conventions/routes)).
+Die Overrides sind eng und auf Dateien begrenzt: Tests und die gemeinsamen Testhelfer in `src/platform/testing` lockern `no-magic-numbers`, `no-await-in-loop` und `unicorn/no-null`; `src/presentation` und `src/hooks` lockern `typescript/consistent-return`; Test-Mocks lockern `require-await`; `src/routes` schaltet `sort-keys` ab, weil Routenoptionen ihrer eigenen Reihenfolge folgen (siehe [Routendateien](/docs/conventions/routes)).
 
 `tsconfig.json` ergänzt die strikten Flags, die verändern, wie Code geschrieben wird: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` und `noUnusedParameters`. Ein indizierter Lesezugriff ist möglicherweise `undefined`, eine optionale Eigenschaft kann nicht explizit auf `undefined` gesetzt werden, und eine Indexsignatur wird als `record["key"]` gelesen.
 
@@ -49,7 +49,7 @@ Schreiben Sie niemals `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@
 
 ## Null und undefined
 
-`null`-Literale sind außerhalb von Tests verboten; ein fehlender Wert ist `undefined`. Überbrücken Sie eine API, die `null` zurückgibt, nie mit `?? undefined`. Validieren Sie zuerst die Eingabe, damit der Aufruf nicht fehlschlagen kann, oder verwenden Sie einen Parser, der bereits `undefined` zurückgibt. Suchparameter sind der häufigste Fall, und `searchParam(schema)` in `src/lib/search-params.ts` gibt für einen fehlenden oder fehlerhaften Wert `undefined` zurück:
+Außerhalb von Tests und `src/platform/testing` ist ein fehlender Wert `undefined`, und `null` wird nie als Wert geschrieben. Der Linter erlaubt es dort, wo eine API es vorgibt: im Vergleich mit einem Wert, der `null` sein kann, etwa einer nullbaren Spalte (`entry.completedAt !== null` in `get-course.ts`), und in einer React-DOM-Ref, die mit `useRef<HTMLElement>(null)` beginnt, weil React `ref` als `RefObject<T | null>` typisiert und es beim Unmount auf `null` zurücksetzt (`course-showcase.tsx`). Überbrücken Sie eine API, die `null` zurückgibt, nie mit `?? undefined`. Validieren Sie zuerst die Eingabe, damit der Aufruf nicht fehlschlagen kann, oder verwenden Sie einen Parser, der bereits `undefined` zurückgibt. Suchparameter sind der häufigste Fall, und `searchParam(schema)` in `src/lib/search-params.ts` gibt für einen fehlenden oder fehlerhaften Wert `undefined` zurück:
 
 ```ts
 export const authSearchSchema = zod.object({
@@ -95,11 +95,12 @@ export const COURSE_STATUS = {
 } as const
 ```
 
-Das Tupel, das eine Spalte oder ein Enum-Schema braucht, wird aus dem Objekt gebildet und nicht neu abgetippt: `course.schema.ts` deklariert `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, das sowohl `text("status", { enum: COURSE_STATUSES })` als auch `zod.enum(COURSE_STATUSES)` speist.
+Das Tupel, das eine Spalte oder ein Enum-Schema braucht, wird aus dem Objekt gebildet und nicht neu abgetippt: `course.schema.ts` deklariert `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, das sowohl `text("status", { enum: COURSE_STATUSES })` als auch `zod.enum(COURSE_STATUSES)` speist. Ein Tupel, das auch Browsercode liest, wird stattdessen in den Konstanten des Moduls deklariert, die nichts aus Drizzle importieren: Die Preistabelle iteriert über `LICENSE_TIERS` aus `license.constants.ts`.
 
 - Die Konstanten eines Moduls liegen in seiner `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); die Werte eines Anbieters liegen in der `*.constants.ts` der Integration (`POLAR_ORDER_STATUS` in `polar.constants.ts`, `AUTH_PROVIDER` in `auth.constants.ts`, `EMAIL_PURPOSE` in `resend.constants.ts`).
 - Spalten- und Eingabelängen werden einmal in den Konstanten des Moduls benannt und sowohl vom Drizzle-Schema als auch vom Zod-Schema gelesen: `PRODUCT_NAME_MAX_LENGTH` in `product.constants.ts`.
 - Ein Konzept hat eine Map in einer Schreibweise: `ERROR_CODES` für Serverfehler, `AUTH_ERRORS` für die Fehlerschlüssel von Better Auth, `ROLE_CODES` für Rollen.
+- Umgebungsnamen und HTTP-Statuscodes werden einmal in `src/modules/_core/constants/api.ts` deklariert: `ENVIRONMENT.PRODUCTION` in `__root.tsx` und in den Deploy-Skripten, `HTTP_STATUS.PARTIAL_CONTENT` im Medien-Handler des Workers. Keine Datei deklariert eine eigene Map für eines davon. Die einzige Ausnahme ist `vite.config.ts`, das `mode` mit den reinen Namen vergleicht: Vite lädt die Konfiguration, bevor der Alias `~` aufgelöst wird, und kann `api.ts` deshalb nicht importieren.
 - Eine Konstante, die nur eine Datei verwendet, bleibt in dieser Datei, unterhalb der Importe. Eine Konstante, die mehrere Dateien verwenden, kommt in ihr Modul, nach `src/data` (siehe [Dateien und Benennung](/docs/conventions/files-and-naming)) oder nach `src/modules/_core/constants`. Geben Sie einer einzelnen Konstante nie eine eigene Datei.
 - Typisierte API-Feldnamen wie `license_key_id` sind Eigenschaften, keine Werte, und bleiben Eigenschaftszugriffe.
 

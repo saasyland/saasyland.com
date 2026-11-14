@@ -176,11 +176,8 @@ export function LessonRow({ access, active, compact, focus, index, title }: Less
         {title}
         {open && !compact ? <PreviewBadge /> : undefined}
       </span>
-      {open ? (
-        <PlayIcon color={THEME.accent} size={compact ? 11 : 13} />
-      ) : (
-        <LockIcon color={THEME.mutedForeground} size={compact ? 11 : 13} />
-      )}
+      {open && <PlayIcon color={THEME.accent} size={compact ? 11 : 13} />}
+      {!open && <LockIcon color={THEME.mutedForeground} size={compact ? 11 : 13} />}
     </div>
   )
 }

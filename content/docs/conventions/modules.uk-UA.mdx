@@ -45,9 +45,9 @@ export const course = sqliteTable(
 ```
 
 - Стовпці мають назви в camelCase у TypeScript і в snake_case у SQL. Ключі відсортовано, як цього вимагає лінтер, а `...timestamps()` іде останнім записом.
-- `createdAt` і `updatedAt` беруться з `timestamps()` у `src/integrations/drizzle-orm/drizzle.columns.ts`: це мілісекунди, які SQLite заповнює під час вставлення, а `updatedAt` оновлюється під час кожного оновлення. Ніколи не записуйте їх вручну. `lesson_progress` потрібен лише другий, тому він бере `updatedAt: timestamps().updatedAt`.
+- `createdAt` і `updatedAt` беруться з `timestamps()` у `src/integrations/drizzle-orm/drizzle.columns.ts`: це мілісекунди, які SQLite заповнює під час вставлення, а `updatedAt` оновлюється під час кожного оновлення. Ніколи не записуйте їх вручну. `lesson_progress` потрібен лише другий, тому він бере `updatedAt: timestamps().updatedAt`. Дві таблиці не мають часових міток: `rate_limit` зберігає короткоживучі лічильники, які мають власний `expiresAt` і змінюються з кожним запитом, а `revoked_license_order` один раз записує кожне повернене замовлення Polar за його ID.
 - Первинні ключі текстові. Сценарій використання, що вставляє рядок, заповнює ключ значенням UUID v7 (`v7()` з `uuid`).
-- Стовпці-переліки отримують кортеж, побудований з об’єкта констант модуля, а не список літералів.
+- Стовпці-переліки отримують кортеж, побудований з об’єкта констант модуля, а не список літералів. Кортеж лежить у файлі схеми, якщо його не читає код поза сервером, як-от таблиця цін на лендингу (`LICENSE_TIERS`) або браузерний набір тестів (`NEWSLETTER_STATUSES`); тоді він лежить у `<table>.constants.ts`, що нічого не імпортує з Drizzle.
 - Текст, який відвідувач читає кількома мовами, — це JSON-стовпець `LocalizedText`, який валідує `localizedTextSchema` і читає `localize(text, locale)` з `src/modules/_core/utils/localized-text.ts`.
 - Нову таблицю реекспортують з `src/integrations/drizzle-orm/drizzle.schemas.ts`, а її міграцію генерують командою `bun run db:generate`. Див. [Міграції бази даних](/docs/guides/database-migrations).
 
@@ -175,7 +175,7 @@ export interface Lesson {
 
 Кожен файл у `use-cases/` містить одну операцію, названу за її серверною функцією в kebab-case: `get-course-editor.ts` експортує `getCourseEditor` і `courseEditorQuery`, `update-course.ts` експортує `updateCourse` і `updateCourseMutation`. Шаблон, його middleware та помилки описано на сторінці [Серверні функції та помилки](/docs/conventions/server-functions).
 
-Сценарій використання, який виконується лише на сервері й викликається хуком Better Auth або вебхуком Polar, а не браузером, — це звичайна `async`-функція у файлі, що починається з `import "@tanstack/react-start/server-only"`, як-от `license/use-cases/grant-license.ts`.
+Сценарій використання, який виконується лише на сервері й викликається хуком Better Auth або вебхуком Polar, а не браузером, — це звичайна `async`-функція у файлі, що починається з `import "@tanstack/react-start/server-only"`, як-от `license/use-cases/grant-license.ts` і модулі надсилання листів `send-verify-email.ts`, `send-reset-password-email.ts` та `send-change-email-confirmation-email.ts`.
 
 ## Файли аспектів
 

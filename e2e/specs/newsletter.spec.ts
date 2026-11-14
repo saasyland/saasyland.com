@@ -1,7 +1,7 @@
 import type { APIRequestContext } from "@playwright/test"
 import * as zod from "zod"
 
-import { CONFIRMATION_STATUS, NEWSLETTER_STATUS, NEWSLETTER_STATUSES } from "../../src/modules/newsletter-subscriber/newsletter-subscriber.constants"
+import { CONFIRMATION_STATUS, NEWSLETTER_STATUS, NEWSLETTER_STATUSES, UNSUBSCRIBE_STATUS } from "../../src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
@@ -84,7 +84,7 @@ test("localized newsletter signup, confirmation and unsubscribe survive hydratio
   await page.getByRole("button", { exact: true, name: "Wypisz się" }).click()
   await expect(page.getByRole("heading", { exact: true, level: 1, name: "Jesteś wypisany." })).toBeVisible()
   await expect(page).toHaveURL(
-    (url) => url.pathname === "/pl-PL/newsletter/unsubscribe" && url.searchParams.get("status") === "success" && !url.searchParams.get("token"),
+    (url) => url.pathname === "/pl-PL/newsletter/unsubscribe" && url.searchParams.get("status") === UNSUBSCRIBE_STATUS.SUCCESS && !url.searchParams.get("token"),
   )
   const unsubscribed = await readSubscriber(request, email)
   expect(unsubscribed.status).toBe(NEWSLETTER_STATUS.UNSUBSCRIBED)

@@ -6,6 +6,7 @@ import { join, relative } from "node:path"
 
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { mediaContentType, videoObjectKey } from "~/src/modules/video/video.files"
@@ -16,7 +17,7 @@ import { TEST_LICENSE } from "~/e2e/data/licenses"
 import { TEST_VIDEO } from "~/e2e/data/videos"
 
 const TEST_BUCKET = "saasyland-test"
-const LOCAL_TEST_STATE = ["--env", "test", "--local", "--persist-to", ".wrangler/test"]
+const LOCAL_TEST_STATE = ["--env", ENVIRONMENT.TEST, "--local", "--persist-to", ".wrangler/test"]
 
 const literal = (value: string): string => `'${value.replaceAll("'", "''")}'`
 const json = (value: object): string => literal(JSON.stringify(value))

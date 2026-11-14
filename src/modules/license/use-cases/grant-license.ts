@@ -6,8 +6,8 @@ import { v7 } from "uuid"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { polar } from "~/src/integrations/polar/polar.config"
 
-import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
-import { type LicenseTier, license, revokedLicenseOrder } from "~/src/modules/license/license.schema"
+import { LICENSE_STATUS, type LicenseTier } from "~/src/modules/license/license.constants"
+import { license, revokedLicenseOrder } from "~/src/modules/license/license.schema"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 
 const backfillPurchaseDate = async (userId: string): Promise<void> => {

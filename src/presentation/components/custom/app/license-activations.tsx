@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license"
+import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license-activations"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
@@ -12,6 +12,7 @@ import { DeactivateActivationButton } from "~/src/presentation/components/custom
 export const LicenseActivations = (): JSX.Element => {
   const t = useTranslations("pages.license.activations")
   const format = useFormatter()
+
   const { activations, limitActivations } = useSuspenseQuery(licenseActivationsQuery).data
 
   return (

@@ -15,8 +15,7 @@ const TERMINAL_DELAY_MS = 120
 
 const TERMINAL_LINES = [
   { kind: "command", text: "bun run test:coverage" },
-  { kind: "output", text: "Test Files  140 passed (140)" },
-  { kind: "output", text: "     Tests  1284 passed (1284)" },
+  { kind: "output", text: `Test Files  ${String(REPOSITORY_FACTS.testFiles)} passed (${String(REPOSITORY_FACTS.testFiles)})` },
   { kind: "blank", text: "" },
   { kind: "pass", text: "% Stmts     100" },
   { kind: "pass", text: "% Branch    100" },

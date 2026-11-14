@@ -10,7 +10,7 @@ import { cn } from "~/src/lib/cn"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 
 import { RowActionsCell } from "~/src/presentation/components/custom/admin/row-actions-cell"
-import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type Invitation = (typeof ADMIN_INVITATION_ROWS)[number]
 
@@ -46,5 +46,5 @@ export const invitationColumns = columnHelper.columns([
   columnHelper.accessor("id", { cell: DemoCell, enableSorting: false, header: () => <ColumnHeader id="role" />, id: "role" }),
   columnHelper.accessor("statusColor", { cell: StatusCell, header: () => <ColumnHeader id="status" />, id: "status" }),
   columnHelper.accessor("id", { cell: DemoCell, enableSorting: false, header: () => <ColumnHeader id="sentDate" />, id: "sentDate" }),
-  columnHelper.display({ cell: RowActionsCell, header: "", id: "actions" }),
+  columnHelper.display({ cell: RowActionsCell, header: DataTableActionsHeader, id: "actions" }),
 ])

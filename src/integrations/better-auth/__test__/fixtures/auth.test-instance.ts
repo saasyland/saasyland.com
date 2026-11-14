@@ -1,6 +1,7 @@
 import { adminClient, twoFactorClient } from "better-auth/client/plugins"
 import { admin, twoFactor } from "better-auth/plugins"
 import { getTestInstance } from "better-auth/test"
+import * as zod from "zod"
 
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 
@@ -54,7 +55,7 @@ export const createTestUserPayload = (
   password: overrides?.password ?? STRONG_TEST_PASSWORD,
 })
 
-export const extractQueryParam = (url: string, key: string): string | undefined => new URL(url).searchParams.get(key) ?? undefined
+export const extractQueryParam = (url: string, key: string): string => zod.string().parse(new URL(url).searchParams.get(key))
 
 type AuthTestContext = Awaited<ReturnType<typeof createAuthTestInstance>>
 
@@ -179,13 +180,12 @@ export const signUpVerifyAndSignIn = async (
   await context.auth.api.signUpEmail({ body: user })
 
   const verification = context.emailCapture.verification.find((entry) => entry.user.email === user.email)
-  const token = verification === undefined ? undefined : extractQueryParam(verification.url, "token")
 
-  if (token === undefined) {
+  if (verification === undefined) {
     throw new Error("Verification email was not captured")
   }
 
-  await context.auth.api.verifyEmail({ query: { token } })
+  await context.auth.api.verifyEmail({ query: { token: extractQueryParam(verification.url, "token") } })
 
   const { headers } = await context.signInWithUser(user.email, user.password)
 
@@ -240,6 +240,19 @@ interface CreateAuthTestInstanceOptions {
   rateLimitWindow?: number
 }
 
+const strictRateLimitRules = (options?: CreateAuthTestInstanceOptions): Record<string, { max: number; window: number }> => {
+  const window = options?.rateLimitWindow ?? DEFAULT_RATE_LIMIT_WINDOW_SECONDS
+
+  return (
+    options?.rateLimitCustomRules ?? {
+      [ROUTES.API_AUTH.REQUEST_PASSWORD_RESET]: { max: STRICT_RATE_LIMIT_MAX, window },
+      [ROUTES.API_AUTH.RESET_PASSWORD]: { max: STRICT_RATE_LIMIT_MAX, window },
+      [ROUTES.API_AUTH.SIGN_IN_EMAIL]: { max: options?.rateLimitMax ?? STRICT_RATE_LIMIT_MAX, window },
+      [ROUTES.API_AUTH.SIGN_UP_EMAIL]: { max: STRICT_RATE_LIMIT_MAX, window },
+    }
+  )
+}
+
 export const createAuthTestInstance = (options?: CreateAuthTestInstanceOptions) => {
   const emailCapture = options?.emailCapture ?? createEmptyEmailCapture()
   const rateLimitEnabled = options?.rateLimitEnabled ?? false
@@ -275,26 +288,7 @@ export const createAuthTestInstance = (options?: CreateAuthTestInstanceOptions) 
         twoFactor({ issuer: APP_NAME }),
       ],
       rateLimit: {
-        customRules: rateLimitEnabled
-          ? (options?.rateLimitCustomRules ?? {
-              [ROUTES.API_AUTH.REQUEST_PASSWORD_RESET]: {
-                max: STRICT_RATE_LIMIT_MAX,
-                window: options?.rateLimitWindow ?? DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
-              },
-              [ROUTES.API_AUTH.RESET_PASSWORD]: {
-                max: STRICT_RATE_LIMIT_MAX,
-                window: options?.rateLimitWindow ?? DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
-              },
-              [ROUTES.API_AUTH.SIGN_IN_EMAIL]: {
-                max: options?.rateLimitMax ?? STRICT_RATE_LIMIT_MAX,
-                window: options?.rateLimitWindow ?? DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
-              },
-              [ROUTES.API_AUTH.SIGN_UP_EMAIL]: {
-                max: STRICT_RATE_LIMIT_MAX,
-                window: options?.rateLimitWindow ?? DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
-              },
-            })
-          : undefined,
+        customRules: rateLimitEnabled ? strictRateLimitRules(options) : undefined,
         customStorage: authRateLimitStorage,
         enabled: rateLimitEnabled,
         max: options?.rateLimitMax ?? DEFAULT_RATE_LIMIT_MAX,

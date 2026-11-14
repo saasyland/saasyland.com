@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test"
 
+import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
@@ -58,7 +59,7 @@ test.describe("courses", () => {
     await page.goto(lessonPath(paid.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
     await expect(page.getByRole("heading", { name: "This lesson comes with Complete" })).toBeVisible()
-    await expect(page.getByRole("link", { name: "Get Complete" })).toHaveAttribute("href", "/app/license?tier=complete")
+    await expect(page.getByRole("link", { name: "Get Complete" })).toHaveAttribute("href", `/app/license?tier=${LICENSE_TIER.COMPLETE}`)
   })
 
   test("an administrator can watch every lesson", async ({ authPage, page }) => {

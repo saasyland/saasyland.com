@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { newsletterRequestOrigin } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.server"
 
@@ -11,11 +12,11 @@ afterEach(() => {
 
 describe("newsletter request origin", () => {
   it.each([
-    { mode: "production", origin: "https://saasyland.com" },
-    { mode: "preview", origin: "https://preview.saasyland.com" },
-    { mode: "development", origin: "http://localhost:3000" },
-    { mode: "development", origin: "http://127.0.0.1:3000" },
-    { mode: "test", origin: "http://127.0.0.1:3020" },
+    { mode: ENVIRONMENT.PRODUCTION, origin: "https://saasyland.com" },
+    { mode: ENVIRONMENT.PREVIEW, origin: "https://preview.saasyland.com" },
+    { mode: ENVIRONMENT.DEVELOPMENT, origin: "http://localhost:3000" },
+    { mode: ENVIRONMENT.DEVELOPMENT, origin: "http://127.0.0.1:3000" },
+    { mode: ENVIRONMENT.TEST, origin: "http://127.0.0.1:3020" },
   ])("accepts $origin, a host the $mode build trusts", ({ mode, origin }) => {
     vi.stubEnv("MODE", mode)
 
@@ -23,14 +24,14 @@ describe("newsletter request origin", () => {
   })
 
   it.each([
-    { mode: "production", origin: "https://preview.saasyland.com" },
-    { mode: "production", origin: "http://saasyland.com" },
-    { mode: "production", origin: "http://localhost:3000" },
-    { mode: "production", origin: "https://saasyland.com.example.test" },
-    { mode: "preview", origin: "https://saasyland-preview.account.workers.dev" },
-    { mode: "development", origin: "http://127.0.0.1:3020" },
-    { mode: "development", origin: "https://example.test" },
-    { mode: "test", origin: "ftp://localhost:3000" },
+    { mode: ENVIRONMENT.PRODUCTION, origin: "https://preview.saasyland.com" },
+    { mode: ENVIRONMENT.PRODUCTION, origin: "http://saasyland.com" },
+    { mode: ENVIRONMENT.PRODUCTION, origin: "http://localhost:3000" },
+    { mode: ENVIRONMENT.PRODUCTION, origin: "https://saasyland.com.example.test" },
+    { mode: ENVIRONMENT.PREVIEW, origin: "https://saasyland-preview.account.workers.dev" },
+    { mode: ENVIRONMENT.DEVELOPMENT, origin: "http://127.0.0.1:3020" },
+    { mode: ENVIRONMENT.DEVELOPMENT, origin: "https://example.test" },
+    { mode: ENVIRONMENT.TEST, origin: "ftp://localhost:3000" },
   ])("rejects $origin in the $mode build", ({ mode, origin }) => {
     vi.stubEnv("MODE", mode)
 

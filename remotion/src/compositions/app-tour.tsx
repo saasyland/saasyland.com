@@ -42,6 +42,8 @@ const GAP = 0.34 * FPS
 const HIGHLIGHT_FROM = 6.4 * FPS
 const HIGHLIGHT_STEP = 0.5 * FPS
 
+const CATMULL_ROM_TO_BEZIER = 6
+
 interface Point {
   readonly x: number
   readonly y: number
@@ -51,7 +53,6 @@ function pointAt(index: number): Point {
   return { x: (index / (SERIES.length - 1)) * CHART_W, y: CHART_H - (SERIES[index] ?? 0) * CHART_H }
 }
 
-// Catmull-Rom tangents converted to cubic Bézier controls.
 function seriesPath(close: boolean): string {
   const points = SERIES.map((_, index) => pointAt(index))
   const segments: string[] = [`M${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`]
@@ -61,8 +62,11 @@ function seriesPath(close: boolean): string {
     const current = points[index]
     const next = points[index + 1]
     const after = points[Math.min(points.length - 1, index + 2)]
-    const c1 = { x: current.x + (next.x - previous.x) / 6, y: current.y + (next.y - previous.y) / 6 }
-    const c2 = { x: next.x - (after.x - current.x) / 6, y: next.y - (after.y - current.y) / 6 }
+    const c1 = {
+      x: current.x + (next.x - previous.x) / CATMULL_ROM_TO_BEZIER,
+      y: current.y + (next.y - previous.y) / CATMULL_ROM_TO_BEZIER,
+    }
+    const c2 = { x: next.x - (after.x - current.x) / CATMULL_ROM_TO_BEZIER, y: next.y - (after.y - current.y) / CATMULL_ROM_TO_BEZIER }
     segments.push(`C${c1.x.toFixed(2)} ${c1.y.toFixed(2)} ${c2.x.toFixed(2)} ${c2.y.toFixed(2)} ${next.x.toFixed(2)} ${next.y.toFixed(2)}`)
   }
 

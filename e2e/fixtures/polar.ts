@@ -6,6 +6,7 @@ import type { APIRequestContext } from "@playwright/test"
 import type { models } from "@polar-sh/sdk/2026-10"
 import * as zod from "zod"
 
+import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { expect } from "./test"
 
 const testEnvSchema = zod.object({
@@ -20,9 +21,9 @@ const TEST_ENV = testEnvSchema.parse(parseEnv(readFileSync(new URL("../../.env.t
 const ORDER_PAID = { event: "order.paid", status: "paid" } as const satisfies { event: string; status: models.OrderStatus }
 
 const PRODUCT_IDS = {
-  agency: TEST_ENV.POLAR_PRODUCT_ID_AGENCY,
-  complete: TEST_ENV.POLAR_PRODUCT_ID_COMPLETE,
-  core: TEST_ENV.POLAR_PRODUCT_ID_CORE,
+  [LICENSE_TIER.AGENCY]: TEST_ENV.POLAR_PRODUCT_ID_AGENCY,
+  [LICENSE_TIER.COMPLETE]: TEST_ENV.POLAR_PRODUCT_ID_COMPLETE,
+  [LICENSE_TIER.CORE]: TEST_ENV.POLAR_PRODUCT_ID_CORE,
 } as const
 
 const MILLISECONDS_PER_SECOND = 1000

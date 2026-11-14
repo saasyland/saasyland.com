@@ -79,21 +79,16 @@ export const CopyButton = ({ copiedLabel, copyLabel, value }: CopyButtonProps): 
       <AnimatePresence initial={false} mode="popLayout">
         <m.span
           animate={SWAP_SHOWN}
-          className={cn("flex items-center", hasCopied && "gap-1.5 text-body-sm font-medium text-ring")}
+          className={cn("flex items-center", { "gap-1.5 text-body-sm font-medium text-ring": hasCopied })}
           exit={SWAP_HIDDEN}
           initial={SWAP_HIDDEN}
           key={hasCopied ? "copied" : "copy"}
           layout="position"
           transition={SWAP}
         >
-          {hasCopied ? (
-            <>
-              <CheckGlyph />
-              {copiedLabel}
-            </>
-          ) : (
-            <Copy aria-hidden className="size-3.5" strokeWidth={COPY_STROKE} />
-          )}
+          {hasCopied && <CheckGlyph />}
+          {hasCopied && copiedLabel}
+          {!hasCopied && <Copy aria-hidden className="size-3.5" strokeWidth={COPY_STROKE} />}
         </m.span>
       </AnimatePresence>
     </m.button>

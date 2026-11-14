@@ -1,7 +1,6 @@
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
-import { LICENSE_TIER } from "~/src/modules/license/license.constants"
-import type { LicenseTier } from "~/src/modules/license/license.schema"
+import { LICENSE_TIER, type LicenseTier } from "~/src/modules/license/license.constants"
 
 export const COURSE_LICENCE_TIERS: ReadonlySet<LicenseTier> = new Set([LICENSE_TIER.COMPLETE, LICENSE_TIER.AGENCY])
 

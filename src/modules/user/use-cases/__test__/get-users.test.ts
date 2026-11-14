@@ -1,4 +1,5 @@
 import type * as StartServerModule from "@tanstack/react-start/server"
+import { eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { executeQuery } from "~/src/platform/testing/lib/query"
@@ -14,7 +15,9 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { getUsersPageQuery, getUsersQuery } from "~/src/modules/user/use-cases/get-users"
+import { USER_STATUS } from "~/src/modules/user/user.constants"
 import { user } from "~/src/modules/user/user.schema"
+import { getUserStatus } from "~/src/modules/user/user.utils"
 
 const HEADERS = new Headers()
 const SINGLE_CALL = 1
@@ -104,6 +107,18 @@ describe("list-users", () => {
     const result = await executeQuery(getUsersPageQuery({ pageIndex: 1, pageSize: 2, sorting: [{ desc, id: "user" }] }))
     expect(result.rows.map((row) => row.name)).toEqual(desc ? ["Member 09", "Member 08"] : ["Member 02", "Member 03"])
     expect(result.pendingVerification).toBe(6)
+  })
+
+  it("sorts by the status the table shows, from active through banned to pending", async () => {
+    await db.update(user).set({ banned: true }).where(eq(user.id, "row-11"))
+
+    const result = await executeQuery(getUsersPageQuery({ pageSize: 12, sorting: [{ desc: false, id: "status" }] }))
+
+    expect(result.rows.map(getUserStatus)).toEqual([
+      ...Array.from({ length: 6 }, () => USER_STATUS.ACTIVE),
+      USER_STATUS.BANNED,
+      ...Array.from({ length: 5 }, () => USER_STATUS.PENDING),
+    ])
   })
 
   it("rejects unsupported sort columns from table state", () => {

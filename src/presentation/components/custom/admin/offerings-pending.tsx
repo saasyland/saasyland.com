@@ -143,7 +143,7 @@ const ProductPricingSectionPending = (): JSX.Element => (
     <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-start">
       <div className="flex w-fit flex-col gap-2">
         <Skeleton className="h-lh w-24 scale-y-70 text-sm" />
-        <Skeleton className="h-8 w-44 rounded-lg" />
+        <Skeleton className="h-8 w-40 rounded-lg" />
       </div>
       <div className="flex flex-1 flex-col gap-2">
         <Skeleton className="h-lh w-12 scale-y-70 text-sm leading-snug" />

@@ -1,0 +1,24 @@
+import { queryOptions } from "@tanstack/react-query"
+import { createServerFn } from "@tanstack/react-start"
+
+import { authorized } from "~/src/integrations/better-auth/auth.middleware"
+import { polar } from "~/src/integrations/polar/polar.config"
+
+import { LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
+import { getLicense } from "~/src/modules/license/use-cases/get-license"
+
+export const getCurrentLicenseActivations = createServerFn({ method: "GET" })
+  .middleware([authorized()])
+  .handler(async ({ context }) => {
+    const license = await getLicense(context.auth.user.id)
+    if (typeof license?.polarLicenseKeyId !== "string" || license.polarLicenseKeyId.length === 0) {
+      return { activations: [], limitActivations: 0 }
+    }
+    const { activations, limit_activations: limitActivations } = await polar.licenseKeys.get(license.polarLicenseKeyId)
+    return { activations, limitActivations }
+  })
+
+export const licenseActivationsQuery = queryOptions({
+  queryFn: () => getCurrentLicenseActivations(),
+  queryKey: LICENSE_QUERY_KEYS.ACTIVATIONS,
+})

@@ -2,6 +2,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import process from "node:process"
 import { parseEnv } from "node:util"
 
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
+
 import { readWranglerEnvironment } from "./wrangler-config.ts"
 
 const SCRIPT_ARGUMENTS_START = 2
@@ -9,8 +11,8 @@ const OWNER_ONLY = 0o600
 
 const [environment] = process.argv.slice(SCRIPT_ARGUMENTS_START)
 
-if (environment !== "preview" && environment !== "production") {
-  throw new Error("Expected preview or production")
+if (environment !== ENVIRONMENT.PREVIEW && environment !== ENVIRONMENT.PRODUCTION) {
+  throw new Error(`Expected ${ENVIRONMENT.PREVIEW} or ${ENVIRONMENT.PRODUCTION}`)
 }
 
 const environmentFile = `.env.${environment}`

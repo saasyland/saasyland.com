@@ -9,7 +9,8 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
-import { currentLicenseQuery, licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license"
+import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
+import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license-activations"
 
 import { pageHead } from "~/src/lib/seo"
 

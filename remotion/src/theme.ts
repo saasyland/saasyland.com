@@ -1,4 +1,3 @@
-// Mirror the dark palette in src/presentation/styles/globals.css when re-rendering videos.
 export const THEME = {
   accent: "oklch(0.775 0.108 199)",
 

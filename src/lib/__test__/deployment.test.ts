@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
+
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_TIMEOUT_MS, verifyDeployment } from "~/src/lib/deployment"
 
 const PRODUCTION_ORIGIN = "https://saasyland.com"
@@ -58,7 +60,7 @@ const productionRefusal = (...problems: readonly string[]): Error =>
   new Error([`The production Worker at ${PRODUCTION_ORIGIN} is deployed but does not answer as expected:`, ...problems].join("\n"))
 
 const expectProductionRefusal = async (expected: Error | string): Promise<void> => {
-  const failure = expect(verifyDeployment("production")).rejects.toThrow(expected)
+  const failure = expect(verifyDeployment(ENVIRONMENT.PRODUCTION)).rejects.toThrow(expected)
   await vi.advanceTimersByTimeAsync(EVERY_RETRY_MS)
 
   await failure
@@ -77,8 +79,8 @@ afterEach(() => {
 
 describe("verifyDeployment on a working site", () => {
   it.each([
-    ["production", PRODUCTION_ORIGIN],
-    ["preview", PREVIEW_ORIGIN],
+    [ENVIRONMENT.PRODUCTION, PRODUCTION_ORIGIN],
+    [ENVIRONMENT.PREVIEW, PREVIEW_ORIGIN],
   ] as const)("asks the %s Worker on its custom domain for every checked path", async (environment, origin) => {
     serve()
 
@@ -94,7 +96,7 @@ describe("verifyDeployment on a working site", () => {
     serve()
     const timeout = vi.spyOn(AbortSignal, "timeout")
 
-    await verifyDeployment("production")
+    await verifyDeployment(ENVIRONMENT.PRODUCTION)
 
     expect(fetchMock).toHaveBeenCalledTimes(CHECKED_PATHS.length)
     expect(fetchMock.mock.calls.every(([, init]) => init.redirect === "manual" && init.signal instanceof AbortSignal)).toBe(true)
@@ -116,7 +118,7 @@ describe("verifyDeployment on a site that answers wrongly", () => {
   it("refuses a home page that redirects, naming the status alone when there is no content type", async () => {
     serve({ "/": untyped(302) })
 
-    const failure = expect(verifyDeployment("preview")).rejects.toThrow(
+    const failure = expect(verifyDeployment(ENVIRONMENT.PREVIEW)).rejects.toThrow(
       new Error(
         [
           `The preview Worker at ${PREVIEW_ORIGIN} is deployed but does not answer as expected:`,
@@ -180,7 +182,7 @@ describe("verifyDeployment on a site that answers wrongly", () => {
     serve({ "/courses": catalogue })
 
     const [firstRetryDelay = 0] = LIVE_SITE_CHECK_RETRY_DELAYS_MS
-    const verifying = verifyDeployment("production")
+    const verifying = verifyDeployment(ENVIRONMENT.PRODUCTION)
     await vi.advanceTimersByTimeAsync(firstRetryDelay - 1)
 
     expect(catalogue).toHaveBeenCalledOnce()

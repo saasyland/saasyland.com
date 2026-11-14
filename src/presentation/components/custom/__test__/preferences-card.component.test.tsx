@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query"
-import { act, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { IntlProvider } from "use-intl/react"
@@ -66,6 +66,11 @@ const renderCard = () => {
 
 const timezoneField = () => screen.getByRole("combobox", { name: labels.timezone.label })
 
+const search = async (user: ReturnType<typeof userEvent.setup>, text: string): Promise<void> => {
+  await user.click(timezoneField())
+  fireEvent.change(timezoneField(), { target: { value: text } })
+}
+
 const saveButton = () => screen.getByRole("button", { name: labels.save })
 
 beforeEach(() => {
@@ -87,8 +92,7 @@ describe("preferences card", () => {
     expect(timezoneField()).toHaveValue(timezonesMessages[SAVED_TIMEZONE])
     expect(timezoneField()).toHaveAccessibleDescription(labels.timezone.description)
 
-    await user.clear(timezoneField())
-    await user.type(timezoneField(), "Tokyo")
+    await search(user, "Tokyo")
     await user.click(await screen.findByRole("option", { name: timezonesMessages[BROWSER_TIMEZONE] }))
     await user.click(saveButton())
 
@@ -103,8 +107,7 @@ describe("preferences card", () => {
   it("says so when no time zone matches the search", async () => {
     const { user } = renderCard()
 
-    await user.clear(timezoneField())
-    await user.type(timezoneField(), "Atlantis")
+    await search(user, "Atlantis")
 
     expect(await screen.findByText(labels.timezone.empty)).toBeVisible()
   })
@@ -112,8 +115,8 @@ describe("preferences card", () => {
   it("keeps the saved time zone when the search is abandoned", async () => {
     const { user } = renderCard()
 
-    await user.clear(timezoneField())
-    await user.tab()
+    fireEvent.change(timezoneField(), { target: { value: "" } })
+    fireEvent.blur(timezoneField())
     await user.click(saveButton())
 
     await waitFor(() => {

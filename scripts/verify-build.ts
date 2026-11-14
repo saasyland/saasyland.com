@@ -7,6 +7,8 @@ import { z } from "zod/v4"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
+
 import { readWranglerEnvironment } from "./wrangler-config.ts"
 import { ROUTES } from "~/src/routes"
 
@@ -36,7 +38,7 @@ const CONTENT_ROUTES = [
 const CONTENT_PAGE = /^(?<slug>.*?)(?:(?:^|\/)index)?\.(?<locale>[a-zA-Z-]+)\.mdx$/u
 const FRONTMATTER = /^---\r?\n(?<yaml>[\s\S]*?)\r?\n---/u
 
-const environmentSchema = z.enum(["preview", "production", "test"])
+const environmentSchema = z.enum([ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION, ENVIRONMENT.TEST])
 const deploymentSchema = z.object({ configPath: z.string() })
 const workerConfigSchema = z.object({ name: z.string() })
 const contentPageSchema = z.object({ locale: z.enum(I18N.SUPPORTED_LOCALES), slug: z.string() })

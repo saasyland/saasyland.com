@@ -11,6 +11,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { ROOT_NAMESPACES, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { getLocaleDirection } from "~/src/modules/_core/constants/locale"
 
 import { THEME } from "~/src/presentation/theme"
@@ -71,7 +72,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     links: [DOCUMENT_STYLESHEET, ...fontPreloads(getCurrentLocale())],
     meta: [
       { content: "width=device-width, initial-scale=1", name: "viewport" },
-      ...(import.meta.env.MODE === "production" ? [] : [{ content: "noindex, nofollow", name: "robots" }]),
+      ...(import.meta.env.MODE === ENVIRONMENT.PRODUCTION ? [] : [{ content: "noindex, nofollow", name: "robots" }]),
     ],
   }),
   shellComponent: RootDocument,

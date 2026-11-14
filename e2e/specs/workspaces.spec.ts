@@ -4,6 +4,29 @@ import { TEST_COURSE } from "../data/courses"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
+const WORKSPACE_PATHS = {
+  [ROLE_CODES.ADMIN]: [
+    "/admin/users/all",
+    "/admin/users/invitations",
+    "/admin/users/roles",
+    "/admin/users/security",
+    "/admin/products",
+    "/admin/products/create",
+    "/admin/courses",
+    "/admin/courses/create",
+    `/admin/courses/${TEST_COURSE.id}`,
+    "/admin/blog",
+    "/admin/blog/create",
+    "/admin/analytics",
+    "/admin/payments",
+    "/admin/pricing-models",
+    "/admin/landing-page",
+    "/admin/videos",
+    "/admin/settings",
+  ],
+  [ROLE_CODES.CUSTOMER]: ["/app/license", "/app/settings", "/pl-PL/app"],
+} as const
+
 for (const account of TEST_ACCOUNTS) {
   test(`${account.role} can sign in and load the permitted workspace`, async ({ appPage, authPage, page }, testInfo) => {
     const errors: string[] = []
@@ -43,29 +66,7 @@ for (const account of TEST_ACCOUNTS) {
       await expect(navigation.getByRole("link", { name: "Overview", exact: true })).toHaveAttribute("aria-current", "page")
     }
 
-    const paths =
-      account.role === ROLE_CODES.ADMIN
-        ? [
-            "/admin/users/all",
-            "/admin/users/invitations",
-            "/admin/users/roles",
-            "/admin/users/security",
-            "/admin/products",
-            "/admin/products/create",
-            "/admin/courses",
-            "/admin/courses/create",
-            `/admin/courses/${TEST_COURSE.id}`,
-            "/admin/blog",
-            "/admin/blog/create",
-            "/admin/analytics",
-            "/admin/payments",
-            "/admin/pricing-models",
-            "/admin/landing-page",
-            "/admin/videos",
-            "/admin/settings",
-          ]
-        : ["/app/license", "/app/settings", "/pl-PL/app"]
-    for (const path of paths) {
+    for (const path of WORKSPACE_PATHS[account.role]) {
       await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
       await appPage.waitForAppReady()
       await expect(page.getByRole("heading").first()).toBeVisible()

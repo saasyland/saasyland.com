@@ -1,3 +1,5 @@
+import "@tanstack/react-start/server-only"
+
 import { createElement } from "react"
 
 import { getRequest } from "@tanstack/react-start/server"

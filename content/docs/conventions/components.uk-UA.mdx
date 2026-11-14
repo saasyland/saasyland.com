@@ -40,7 +40,7 @@ export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps
   const [isOpen, setOpen] = useState(false)
 ```
 
-- Один експортований компонент на файл, оголошений як `export const Name = (...): JSX.Element =>`. Компонент, який може нічого не рендерити, повертає `JSX.Element | undefined`.
+- Файл названо за компонентом, який він експортує й оголошує як `export const Name = (...): JSX.Element =>`. Компонент, який може нічого не рендерити, повертає `JSX.Element | undefined`. Файл також експортує супутні частини, які мають сенс лише поруч із ним, і нічого більше: частини складеного компонента (`HighlightGroup` і `HighlightItem`, `DataTable` і `DataTableActionsHeader`), поля, спільні для форм однієї області (`course-fields.tsx`), скелетони однієї області (`content-pending.tsx`) або фрагмент, який рендерить інший екран тієї самої функції (`UnlockLink` у `locked-lesson.tsx`, `CheckoutAgreement` у `checkout.tsx`, `PlayerPending` у `lesson-player.tsx`, `Price` у `pricing.tsx`).
 - Властивості мають модифікатор `readonly` і оголошуються в інтерфейсі `<Name>Props` над компонентом або вбудовано, коли властивість одна.
 - Спершу йдуть хуки в порядку й з відступами, описаними на сторінці [Стиль коду](/docs/conventions/code-style), потім локальні колбеки, потім JSX.
 - Вибір між двома фрагментами JSX робиться парами `&&` або раннім поверненням, а не багаторядковим тернарним оператором.
@@ -64,9 +64,11 @@ className={cn("flex items-center gap-4 border-b transition-colors duration-200 e
 
 `src/presentation/components/shadcn/` містить примітиви shadcn/ui стилю `aria-lyra`, указаного в `components.json`, побудовані на React Aria Components. Екрани імпортують їх напряму; жодного шару обгорток немає. Додавайте примітив через shadcn CLI і змінюйте файл примітива лише для виправлення самого примітива, як-от його поведінки фокусу чи доступності, але ніколи заради вигляду одного екрана. Властивості React Aria відрізняються від звичок DOM: `onPress`, `isDisabled`, `isOpen` з `onOpenChange`, `isSelected`. Повну таблицю та список `@source not` у `globals.css` наведено на сторінці [Компоненти shadcn](/docs/ui/shadcn-components).
 
+Коли жоден примітив не має потрібної елементу керування форми, екран використовує сам компонент React Aria, а не написаний вручну елемент: кнопка відтворення в презентації курсу та `back-to-top.tsx` використовують `Button` з `react-aria-components`, а пропозиція регіональних цін у `pricing.tsx` використовує `CheckboxField` і `CheckboxButton`. Пропозиція стилізує своє поле за нативним станом `:checked` (`group-has-checked:`), а не за `data-selected`, бо Worker знімає позначку в попередньо відрендереному HTML для покупця, який від неї відмовився, ще до гідратації сторінки. Нативні елементи `<button>` лишаються тільки там, де Motion анімує сам елемент, — у `copy-button.tsx` і в чипах конфігуратора CLI: `Button` з React Aria не приймає ні пропсів жестів Motion, ні `title`, що пояснює недоступний чип.
+
 ## Кільця фокусу
 
-Компоненти React Aria стилізують кільце фокусу варіантами `data-focus-visible:`, як це роблять `select.tsx`, `checkbox.tsx`, `switch.tsx` і `radio-group.tsx`. React Aria встановлює `data-focus-visible` лише для фокусу з клавіатури. Натомість `:focus-visible` у Chrome спрацьовує й тоді, коли поповер закривається після кліку поза ним, а React Aria повертає фокус на його тригер, тож `focus-visible:` на тригері малює кільце після суто мишачої взаємодії. Звичайні посилання й елементи, які не є компонентами React Aria, зберігають `focus-visible:`, бо ніколи не отримують `data-focus-visible`; саме тому `button-variants.ts`, який стилізує й посилання, використовує `focus-visible:`.
+Компоненти React Aria стилізують кільце фокусу варіантами `data-focus-visible:`, як це роблять `select.tsx`, `checkbox.tsx`, `switch.tsx` і `radio-group.tsx`. React Aria встановлює `data-focus-visible` лише для фокусу з клавіатури. Натомість `:focus-visible` у Chrome спрацьовує й тоді, коли поповер закривається після кліку поза ним, а React Aria повертає фокус на його тригер, тож `focus-visible:` на тригері малює кільце після суто мишачої взаємодії. Звичайні посилання й елементи, які не є компонентами React Aria, зберігають `focus-visible:`, бо ніколи не отримують `data-focus-visible`; саме тому `button-variants.ts`, який стилізує й посилання, використовує `focus-visible:`. `outline-none` у Tailwind встановлює стиль контуру `none`, який `data-focus-visible:outline-2` зберігає, тож тригер React Aria, що ховає власне кільце браузера, додає `data-focus-visible:outline-solid`, як це робить тригер палітри команд в адмінці.
 
 ## Провайдери
 
@@ -74,7 +76,7 @@ className={cn("flex items-center gap-4 border-b transition-colors duration-200 e
 
 - `AriaProvider` обгортає кореневий outlet у `__root.tsx`, а `TranslationsProvider` — тіло документа, бо вони потрібні кожному екрану, а їхні значення готові на момент гідратації.
 - `ThemeProvider` обгортає лише `Toaster` у `__root.tsx` і `ThemeSwitch` у `docs.tsx`.
-- `MotionProvider` обгортає розділи лендингу в `_landing.index.tsx` і список дописів у `blog.index.tsx`.
+- `MotionProvider` обгортає розділи лендингу в `_landing.index.tsx`, список дописів у `blog.index.tsx`, кнопку копіювання в `post-share.tsx` і картки тарифів у `license-offer.tsx`.
 
 Причину, підтверджену вимірюваннями, наведено на сторінці [Продуктивність](/docs/conventions/performance).
 

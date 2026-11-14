@@ -8,6 +8,8 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 
 import { TranslationsProvider } from "~/src/providers/translations-provider"
 
+import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+
 import { Route as RootRoute } from "~/src/routes/__root"
 import { Route as AuthRoute } from "~/src/routes/auth"
 import { Route as SignInRoute } from "~/src/routes/auth.sign-in"
@@ -105,7 +107,7 @@ describe("sign-in redirect errors", () => {
   })
 
   it.each([
-    { expected: { error: "state_mismatch", tier: "agency" }, search: "?error=state_mismatch&tier=agency" },
+    { expected: { error: "state_mismatch", tier: LICENSE_TIER.AGENCY }, search: `?error=state_mismatch&tier=${LICENSE_TIER.AGENCY}` },
     { expected: {}, search: "?error=%5B%22access_denied%22%5D" },
     { expected: {}, search: "" },
   ])("keeps only a string error from the URL and leaves other params alone: $search", async ({ expected, search }) => {

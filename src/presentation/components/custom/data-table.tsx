@@ -26,6 +26,7 @@ import {
   useTable,
 } from "@tanstack/react-table"
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Search } from "lucide-react"
+import { Button as ButtonPrimitive } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
 import { DEFAULT_PAGINATION } from "~/src/modules/_core/utils/pagination"
@@ -314,10 +315,11 @@ export const DataTable = <TData extends { id: string }>({
                   <TableHead aria-sort={header.column.getCanSort() ? ARIA_SORT[sorted] : undefined} key={header.id}>
                     {!header.column.getCanSort() && <table.FlexRender header={header} />}
                     {header.column.getCanSort() && (
-                      <button
+                      <ButtonPrimitive
                         className="flex cursor-pointer items-center gap-1.5 text-left uppercase transition-colors duration-200 ease-exp hover:text-foreground"
-                        onClick={header.column.getToggleSortingHandler()}
-                        type="button"
+                        onPress={(event) => {
+                          header.column.toggleSorting(undefined, event.shiftKey)
+                        }}
                       >
                         <table.FlexRender header={header} />
                         <SortIcon
@@ -325,7 +327,7 @@ export const DataTable = <TData extends { id: string }>({
                           className="size-3.5 shrink-0 text-muted-foreground/60 data-[sorted=true]:text-ring"
                           data-sorted={sorted !== "none"}
                         />
-                      </button>
+                      </ButtonPrimitive>
                     )}
                   </TableHead>
                 )

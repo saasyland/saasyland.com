@@ -8,8 +8,8 @@ import { Card } from "~/src/presentation/components/shadcn/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "~/src/presentation/components/shadcn/field"
 import { Input } from "~/src/presentation/components/shadcn/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/src/presentation/components/shadcn/select"
-import { Tabs, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 import { Textarea } from "~/src/presentation/components/shadcn/textarea"
+import { ToggleGroup, ToggleGroupItem } from "~/src/presentation/components/shadcn/toggle-group"
 
 import { MediaUploadZone } from "~/src/presentation/components/custom/admin/media-upload-zone"
 
@@ -43,12 +43,16 @@ export const ProductDetails = (): JSX.Element => {
         <FieldGroup className="sm:flex-row sm:items-start">
           <Field className="w-fit">
             <FieldTitle>{t("pricing.model.label")}</FieldTitle>
-            <Tabs aria-label={t("pricing.model.label")} className="w-fit" defaultSelectedKey={PRODUCT_TYPE.SUBSCRIPTION}>
-              <TabsList className="w-fit">
-                <TabsTrigger id={PRODUCT_TYPE.SUBSCRIPTION}>{t("pricing.model.subscription")}</TabsTrigger>
-                <TabsTrigger id={PRODUCT_TYPE.ONE_TIME}>{t("pricing.model.oneTime")}</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <ToggleGroup
+              aria-label={t("pricing.model.label")}
+              defaultSelectedKeys={[PRODUCT_TYPE.SUBSCRIPTION]}
+              disallowEmptySelection
+              spacing={0}
+              variant="outline"
+            >
+              <ToggleGroupItem id={PRODUCT_TYPE.SUBSCRIPTION}>{t("pricing.model.subscription")}</ToggleGroupItem>
+              <ToggleGroupItem id={PRODUCT_TYPE.ONE_TIME}>{t("pricing.model.oneTime")}</ToggleGroupItem>
+            </ToggleGroup>
           </Field>
           <Field className="flex-1">
             <FieldLabel htmlFor="product-price">{t("pricing.price.label")}</FieldLabel>

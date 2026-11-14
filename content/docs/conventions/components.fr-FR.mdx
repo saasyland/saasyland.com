@@ -40,7 +40,7 @@ export const ChapterDialog = ({ chapter, courseId, trigger }: ChapterDialogProps
   const [isOpen, setOpen] = useState(false)
 ```
 
-- Un composant exporté par fichier, déclaré sous la forme `export const Name = (...): JSX.Element =>`. Un composant qui peut ne rien afficher renvoie `JSX.Element | undefined`.
+- Un fichier porte le nom du composant qu'il exporte, déclaré sous la forme `export const Name = (...): JSX.Element =>`. Un composant qui peut ne rien afficher renvoie `JSX.Element | undefined`. Le fichier exporte aussi les compagnons qui n'ont de sens qu'à côté de lui, et rien d'autre : les parties d'un composant composé (`HighlightGroup` et `HighlightItem`, `DataTable` et `DataTableActionsHeader`), les champs que partagent les formulaires d'un espace (`course-fields.tsx`), les squelettes d'un espace (`content-pending.tsx`) ou un élément qu'un autre écran de la même fonctionnalité affiche (`UnlockLink` dans `locked-lesson.tsx`, `CheckoutAgreement` dans `checkout.tsx`, `PlayerPending` dans `lesson-player.tsx`, `Price` dans `pricing.tsx`).
 - Les props sont `readonly`, dans une interface `<Name>Props` au-dessus du composant, ou directement en ligne lorsqu'il n'y a qu'une seule prop.
 - Les hooks viennent d'abord, dans l'ordre et avec l'espacement décrits dans [Style de code](/docs/conventions/code-style), puis les callbacks locaux, puis le JSX.
 - Les choix entre deux morceaux de JSX utilisent des paires `&&` ou un retour anticipé, jamais un ternaire sur plusieurs lignes.
@@ -64,9 +64,11 @@ Un choix entre deux options s'écrit en deux entrées, la seconde étant la nég
 
 `src/presentation/components/shadcn/` contient les primitives shadcn/ui du style `aria-lyra` indiqué dans `components.json`, construites sur React Aria Components. Les écrans les importent directement ; il n'y a pas de couche d'enveloppes. Ajoutez une primitive avec la CLI shadcn, et ne modifiez le fichier d'une primitive que pour corriger la primitive elle-même, par exemple son comportement de focus ou d'accessibilité, jamais pour l'apparence d'un seul écran. Les props de React Aria diffèrent des habitudes du DOM : `onPress`, `isDisabled`, `isOpen` avec `onOpenChange`, `isSelected`. Voir [Composants shadcn](/docs/ui/shadcn-components) pour le tableau complet et la liste `@source not` de `globals.css`.
 
+Quand aucune primitive n'a la forme dont un contrôle a besoin, l'écran utilise le composant React Aria lui-même, jamais un élément écrit à la main : le bouton de lecture de la visite du cours et `back-to-top.tsx` utilisent `Button` de `react-aria-components`, et l'offre de tarification régionale de `pricing.tsx` utilise `CheckboxField` et `CheckboxButton`. L'offre style sa case à partir de l'état natif `:checked` (`group-has-checked:`) plutôt que de `data-selected`, parce que le Worker la décoche dans le HTML prérendu pour un acheteur qui l'a refusée, avant l'hydratation de la page. Les éléments `<button>` natifs ne restent que là où Motion anime l'élément lui-même, dans `copy-button.tsx` et les puces du configurateur de la CLI : le `Button` de React Aria n'accepte ni les props de geste de Motion ni le `title` qui explique une puce indisponible.
+
 ## Anneaux de focus
 
-Les composants React Aria stylent leur anneau de focus avec des variantes `data-focus-visible:`, comme le font `select.tsx`, `checkbox.tsx`, `switch.tsx` et `radio-group.tsx`. React Aria ne définit `data-focus-visible` que pour le focus au clavier. Le `:focus-visible` de Chrome, en revanche, correspond aussi lorsqu'un popover se ferme après un clic à l'extérieur et que React Aria rend le focus à son déclencheur : `focus-visible:` sur un déclencheur dessine donc un anneau après une interaction uniquement à la souris. Les liens simples et les éléments qui ne sont pas des composants React Aria conservent `focus-visible:`, car ils ne reçoivent jamais `data-focus-visible` ; c'est pourquoi `button-variants.ts`, qui style aussi des liens, utilise `focus-visible:`.
+Les composants React Aria stylent leur anneau de focus avec des variantes `data-focus-visible:`, comme le font `select.tsx`, `checkbox.tsx`, `switch.tsx` et `radio-group.tsx`. React Aria ne définit `data-focus-visible` que pour le focus au clavier. Le `:focus-visible` de Chrome, en revanche, correspond aussi lorsqu'un popover se ferme après un clic à l'extérieur et que React Aria rend le focus à son déclencheur : `focus-visible:` sur un déclencheur dessine donc un anneau après une interaction uniquement à la souris. Les liens simples et les éléments qui ne sont pas des composants React Aria conservent `focus-visible:`, car ils ne reçoivent jamais `data-focus-visible` ; c'est pourquoi `button-variants.ts`, qui style aussi des liens, utilise `focus-visible:`. Le `outline-none` de Tailwind règle le style du contour sur `none`, que `data-focus-visible:outline-2` conserve ; un déclencheur React Aria qui masque l'anneau du navigateur ajoute donc `data-focus-visible:outline-solid`, comme le fait le déclencheur de la palette de commandes de l'administration.
 
 ## Fournisseurs
 
@@ -74,7 +76,7 @@ Un fournisseur dont la valeur change après l'hydratation n'enveloppe jamais un 
 
 - `AriaProvider` enveloppe l'outlet racine dans `__root.tsx` et `TranslationsProvider` enveloppe le corps du document, car tous les écrans en ont besoin et leurs valeurs sont prêtes à l'hydratation.
 - `ThemeProvider` n'enveloppe que le `Toaster` dans `__root.tsx` et le `ThemeSwitch` dans `docs.tsx`.
-- `MotionProvider` enveloppe les sections de la page d'accueil dans `_landing.index.tsx` et la liste des articles dans `blog.index.tsx`.
+- `MotionProvider` enveloppe les sections de la page d'accueil dans `_landing.index.tsx`, la liste des articles dans `blog.index.tsx`, le bouton de copie dans `post-share.tsx` et les cartes des offres dans `license-offer.tsx`.
 
 La raison, mesurée, est expliquée dans [Performances](/docs/conventions/performance).
 

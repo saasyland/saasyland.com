@@ -1,7 +1,7 @@
 import type { JSX } from "react"
 
 import { useMutation } from "@tanstack/react-query"
-import { Link, createFileRoute } from "@tanstack/react-router"
+import { Link, createFileRoute, stripSearchParams } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 import * as zod from "zod"
 
@@ -109,5 +109,6 @@ export const Route = createFileRoute("/_landing/newsletter/unsubscribe")({
     return { locale, metadata }
   },
   pendingComponent: NewsletterPending,
+  search: { middlewares: [stripSearchParams({ status: UNSUBSCRIBE_STATUS.ERROR })] },
   staticData: { namespaces: [NAMESPACE] },
 })

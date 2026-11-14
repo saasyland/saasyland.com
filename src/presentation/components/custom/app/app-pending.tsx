@@ -7,11 +7,10 @@ import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
-import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
+import { LICENSE_STATUS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
 import { APP_NAVIGATION, appSearchSchema } from "~/src/data/app"
-import { TIERS } from "~/src/data/marketing"
 
 import { cn } from "~/src/lib/cn"
 
@@ -137,7 +136,7 @@ const LicenseOfferPending = ({ lockedCourses }: Readonly<{ lockedCourses: number
     </div>
     <div className="@container">
       <div className="grid overflow-hidden rounded-xl border border-border @2xl:grid-cols-3">
-        {TIERS.map((tier) => (
+        {LICENSE_TIERS.map((tier) => (
           <TierColumnPending featured={tier === FEATURED_TIER} key={tier} />
         ))}
       </div>

@@ -2,7 +2,7 @@ import { Suspense } from "react"
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
-import { render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { useFormatter, useTranslations } from "use-intl/react"
@@ -14,7 +14,8 @@ import { TranslationsProvider } from "~/src/providers/translations-provider"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
-import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+import { ROOT_NAMESPACES, messagesQueryOptions, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 
 import type { TimezoneCode } from "~/src/modules/_core/constants/timezone"
 import type { updatePreferencesMutation } from "~/src/modules/user/use-cases/update-preferences"
@@ -182,6 +183,7 @@ describe("time zone", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, sessionIn("Europe/Warsaw"))
     sessionRequest.mockResolvedValue(sessionIn("Asia/Tokyo"))
+    await preloadNamespaces({ locale: I18N.DEFAULT_LOCALE, namespaces: [...ROOT_NAMESPACES, "timezones"], queryClient })
     render(
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
@@ -191,8 +193,8 @@ describe("time zone", () => {
     const timezone = await screen.findByRole("combobox", { name: preferencesCardMessages.timezone.label })
     expect(screen.getByTestId("instant")).toHaveTextContent("1:00 PM GMT+1")
 
-    await user.clear(timezone)
-    await user.type(timezone, "Tokyo")
+    await user.click(timezone)
+    fireEvent.change(timezone, { target: { value: "Tokyo" } })
     await user.click(await screen.findByRole("option", { name: timezonesMessages["Asia/Tokyo"] }))
     await user.click(screen.getByRole("button", { name: preferencesCardMessages.save }))
 

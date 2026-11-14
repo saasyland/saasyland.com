@@ -36,6 +36,7 @@ import { Route as ApiIndexRouteImport } from './routes/api/index'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppLicenseRouteImport } from './routes/app.license'
+import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
@@ -198,6 +199,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppLicenseRoute = AppLicenseRouteImport.update({
   id: '/license',
   path: '/license',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
@@ -372,6 +378,7 @@ export interface FileRoutesByFullPath {
   '/admin/videos': typeof AdminVideosRoute
   '/api/search': typeof ApiSearchRoute
   '/app/license': typeof AppLicenseRoute
+  '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -421,6 +428,7 @@ export interface FileRoutesByTo {
   '/admin/videos': typeof AdminVideosRoute
   '/api/search': typeof ApiSearchRoute
   '/app/license': typeof AppLicenseRoute
+  '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -480,6 +488,7 @@ export interface FileRoutesById {
   '/admin/videos': typeof AdminVideosRoute
   '/api/search': typeof ApiSearchRoute
   '/app/license': typeof AppLicenseRoute
+  '/app/settings': typeof AppSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -540,6 +549,7 @@ export interface FileRouteTypes {
     | '/admin/videos'
     | '/api/search'
     | '/app/license'
+    | '/app/settings'
     | '/auth/callback'
     | '/auth/forgot-password'
     | '/auth/reset-password'
@@ -589,6 +599,7 @@ export interface FileRouteTypes {
     | '/admin/videos'
     | '/api/search'
     | '/app/license'
+    | '/app/settings'
     | '/auth/callback'
     | '/auth/forgot-password'
     | '/auth/reset-password'
@@ -647,6 +658,7 @@ export interface FileRouteTypes {
     | '/admin/videos'
     | '/api/search'
     | '/app/license'
+    | '/app/settings'
     | '/auth/callback'
     | '/auth/forgot-password'
     | '/auth/reset-password'
@@ -884,6 +896,13 @@ declare module '@tanstack/react-router' {
       path: '/license'
       fullPath: '/app/license'
       preLoaderRoute: typeof AppLicenseRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/settings': {
+      id: '/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
     '/auth/callback': {
@@ -1191,11 +1210,13 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface AppRouteChildren {
   AppLicenseRoute: typeof AppLicenseRoute
+  AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppLicenseRoute: AppLicenseRoute,
+  AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

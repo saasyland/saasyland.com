@@ -19,7 +19,7 @@ export const PostMeta = (): JSX.Element => {
       <span className="flex items-center gap-2.5">
         <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />
         <time className="tabular-nums" dateTime={new Date(post.date).toISOString()}>
-          {format.dateTime(new Date(post.date), { day: "numeric", month: "long", year: "numeric" })}
+          {format.dateTime(new Date(post.date), "calendarDate", { month: "long" })}
         </time>
       </span>
       {details.map((item) => (

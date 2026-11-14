@@ -5,7 +5,7 @@ description: "9 つの言語、URL プレフィックス、言語 Cookie、名�
 
 ## 言語
 
-`src/integrations/use-intl/i18n.config.ts` の `I18N` は、`en-US`（既定）、`de-DE`、`es-ES`、`fr-FR`、`it-IT`、`ja-JP`、`pl-PL`、`pt-BR`、`uk-UA`、Cookie `saasyland.com_locale`、既定のタイムゾーン `UTC` を定義します。
+`src/integrations/use-intl/i18n.config.ts` の `I18N` は、`en-US`（既定）、`de-DE`、`es-ES`、`fr-FR`、`it-IT`、`ja-JP`、`pl-PL`、`pt-BR`、`uk-UA`、Cookie `saasyland.com_locale`、既定のタイムゾーン `UTC`、名前付きの日付フォーマット `FORMATS` を定義します。
 
 ## URL
 
@@ -40,7 +40,26 @@ loader: async ({ context }) => {
 
 ## コンポーネント
 
-各コンポーネントは `useTranslations` を 1 回だけ呼び出し、翻訳関数を `t` と名付けます。2 つの名前空間が必要なコンポーネントは、共通の親名前空間か、完全なキーを使う `useTranslations()` を使います。数値と日付は `useFormatter`、`useDateFormatter`、`useCurrencyFormatter` で書式設定します。
+各コンポーネントは `useTranslations` を 1 回だけ呼び出し、翻訳関数を `t` と名付けます。2 つの名前空間が必要なコンポーネントは、共通の親名前空間か、完全なキーを使う `useTranslations()` を使います。
+
+## 日付、数値、タイムゾーン
+
+日付と数値は use-intl の `useFormatter`（`format.dateTime`、`format.number`、`format.relativeTime`、`format.list`）でフォーマットします。日と月の順序、12 時間制か 24 時間制か、区切り文字といった表記の慣習はロケールで決まります。ユーザーが保存する表示設定はタイムゾーンだけです。
+
+`TranslationsProvider` は `IntlProvider` にさらに 2 つの値を渡します。
+
+- `timeZone`: 現在のセッションクエリから得た、サインイン中のユーザーの `timezone` です。セッションがなければ `I18N.DEFAULT_TIMEZONE`（`UTC`）になります。プロバイダーは `/app`、`/admin`、認証の各ルートガードが読み込んだセッションを読み取るだけで、自分では取得しません。そのため、プリレンダリングされた公開ページはどの訪問者にも同じ内容になり、そのままハイドレーションされます。たとえばユーザーが[設定](/docs/features/settings)で新しいタイムゾーンを保存してセッションクエリが変わると、すべての日付が再レンダリングされます。
+- `formats`: 名前付きの日付フォーマットである `I18N.FORMATS` です。`src/types/use-intl.d.ts` がその名前を use-intl に登録するため、未知の名前を使うと型チェックが失敗します。
+
+| 名前            | 英語での例                | 用途                                                                                                     |
+| --------------- | ------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `date`          | Nov 14, 2026              | 読者のタイムゾーンにおける、ある時点の日付。テーブルで使います                                           |
+| `dateTime`      | Nov 14, 2026, 3:04 PM UTC | 時刻とタイムゾーンの略称を含む時点。ライセンスの有効化と、管理画面のアカウントの日付で使います           |
+| `calendarDate`  | Nov 14, 2026              | ブログ記事の日付のような、時刻を持たない日付。UTC でフォーマットするため、別の日にずれることはありません |
+| `calendarDay`   | November 14               | 管理画面のアナリティクスのグラフにある日付ラベル                                                         |
+| `calendarMonth` | Nov                       | 管理画面のダッシュボードのグラフにある月ラベル                                                           |
+
+呼び出しごとに、名前付きフォーマットのオプションを 1 つ上書きできます（例: `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`）。管理画面のテーブルは、他のユーザーの日付を閲覧者自身のタイムゾーンで略称付きで表示するため、1 つの列が 1 つのタイムゾーンで表示され、並べ替えられます。ユーザーのタイムゾーンは独立した列で表示されます。
 
 ## 言語の切り替え
 

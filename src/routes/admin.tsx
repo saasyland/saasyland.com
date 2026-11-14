@@ -37,7 +37,7 @@ const AdminLayout = (): JSX.Element => (
   </SidebarProvider>
 )
 
-const NAMESPACES = ["auth.errors", "auth.validations", "locales", "pages.admin", "pages.admin.sidebar", "timezones"] as const
+const NAMESPACES = ["auth.errors", "auth.validations", "pages.admin", "pages.admin.sidebar", "timezones"] as const
 
 export const Route = createFileRoute("/admin")({
   beforeLoad: requireAdmin,

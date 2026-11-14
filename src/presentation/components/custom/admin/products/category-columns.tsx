@@ -3,12 +3,10 @@ import type { JSX } from "react"
 import { useRouterState } from "@tanstack/react-router"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { Eye, EyeOff } from "lucide-react"
-import { useTranslations } from "use-intl/react"
+import { useFormatter, useTranslations } from "use-intl/react"
 
 import { CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import type { Category } from "~/src/modules/category/category.types"
-
-import { useDateFormatter } from "~/src/hooks/use-date-formatter"
 
 import { ADMIN_STATUS_BADGE_CLASSES } from "~/src/data/admin"
 
@@ -69,9 +67,9 @@ const ItemsCell = (): JSX.Element => {
 }
 
 const UpdatedCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow, Date>): JSX.Element => {
-  const { formatDate } = useDateFormatter({ day: "numeric", month: "short", year: "numeric" })
+  const format = useFormatter()
 
-  return <span className="text-sm text-muted-foreground">{formatDate({ value: getValue() })}</span>
+  return <span className="text-sm text-muted-foreground">{format.dateTime(getValue(), "date")}</span>
 }
 
 const columnHelper = createColumnHelper<DataTableFeatures, CategoryRow>()

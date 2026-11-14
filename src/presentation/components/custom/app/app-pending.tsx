@@ -19,6 +19,7 @@ import { Card, CardAction, CardContent, CardHeader } from "~/src/presentation/co
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { Background } from "~/src/presentation/components/custom/background"
+import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card"
 import { FEATURED_TIER, FEATURE_IDS } from "~/src/presentation/components/custom/pricing"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
@@ -263,9 +264,17 @@ export const AppLicensePending = (): JSX.Element => {
   )
 }
 
+export const AppSettingsPending = (): JSX.Element => (
+  <div aria-busy="true" className="flex w-full flex-col gap-8 pb-8">
+    <PageHeaderPending />
+    <PreferencesCardPending />
+  </div>
+)
+
 const APP_PAGES = new Map<string, () => JSX.Element>([
   [ROUTES.APP, AppOverviewPending],
   [ROUTES.APP_LICENSE, AppLicensePending],
+  [ROUTES.APP_SETTINGS, AppSettingsPending],
 ])
 
 const SidebarLinkPending = (): JSX.Element => (

@@ -5,7 +5,7 @@ description: "Neun Locales, URL-Präfixe, das Locale-Cookie und use-intl-Meldung
 
 ## Locales
 
-`I18N` in `src/integrations/use-intl/i18n.config.ts` definiert `en-US` (Standard), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` und `uk-UA`, das Cookie `saasyland.com_locale` und die Standardzeitzone `UTC`.
+`I18N` in `src/integrations/use-intl/i18n.config.ts` definiert `en-US` (Standard), `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, `pl-PL`, `pt-BR` und `uk-UA`, das Cookie `saasyland.com_locale`, die Standardzeitzone `UTC` und die benannten Datumsformate `FORMATS`.
 
 ## URLs
 
@@ -40,7 +40,26 @@ loader: async ({ context }) => {
 
 ## Komponenten
 
-Jede Komponente ruft `useTranslations` einmal auf und nennt den Übersetzer `t`. Eine Komponente, die zwei Namespaces benötigt, verwendet deren gemeinsamen übergeordneten Namespace oder `useTranslations()` mit vollständigen Schlüsseln. Zahlen und Datumsangaben werden mit `useFormatter`, `useDateFormatter` und `useCurrencyFormatter` formatiert.
+Jede Komponente ruft `useTranslations` einmal auf und nennt den Übersetzer `t`. Eine Komponente, die zwei Namespaces benötigt, verwendet deren gemeinsamen übergeordneten Namespace oder `useTranslations()` mit vollständigen Schlüsseln.
+
+## Datumsangaben, Zahlen und Zeitzonen
+
+Datumsangaben und Zahlen werden mit `useFormatter` von use-intl formatiert (`format.dateTime`, `format.number`, `format.relativeTime`, `format.list`). Die Locale bestimmt die Konventionen: die Reihenfolge von Tag und Monat, die 12- oder 24-Stunden-Uhr und die Trennzeichen. Die Zeitzone ist die einzige Anzeigepräferenz, die ein Benutzer speichert.
+
+`TranslationsProvider` übergibt `IntlProvider` zwei weitere Werte:
+
+- `timeZone`: die `timezone` des angemeldeten Benutzers aus der aktuellen Session-Query oder ohne Session `I18N.DEFAULT_TIMEZONE` (`UTC`). Der Provider liest die Session, die die Route-Guards von `/app`, `/admin` und den Auth-Routen laden, und ruft sie nie selbst ab, sodass vorgerenderte öffentliche Seiten für jeden Besucher gleich sind und unverändert hydrieren. Ändert sich die Session-Query, etwa nachdem der Benutzer in den [Einstellungen](/docs/features/settings) eine neue Zeitzone gespeichert hat, wird jedes Datum neu gerendert.
+- `formats`: `I18N.FORMATS`, die benannten Datumsformate. `src/types/use-intl.d.ts` registriert ihre Namen bei use-intl, sodass ein unbekannter Name die Typprüfung nicht besteht.
+
+| Name            | Beispiel (Englisch)       | Verwendung                                                                                                                               |
+| --------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `date`          | Nov 14, 2026              | Der Tag eines Zeitpunkts in der Zeitzone des Lesers, in Tabellen                                                                         |
+| `dateTime`      | Nov 14, 2026, 3:04 PM UTC | Ein Zeitpunkt mit Uhrzeit und Zonenkürzel: Lizenzaktivierungen und Datumsangaben von Konten im Adminbereich                              |
+| `calendarDate`  | Nov 14, 2026              | Ein Datum ohne Uhrzeit, etwa das Datum eines Blogbeitrags. Es wird in UTC formatiert und verschiebt sich daher nie auf einen anderen Tag |
+| `calendarDay`   | November 14               | Tagesbeschriftungen des Analysediagramms im Adminbereich                                                                                 |
+| `calendarMonth` | Nov                       | Monatsbeschriftungen des Diagramms im Admin-Dashboard                                                                                    |
+
+Ein Aufruf kann eine Option eines benannten Formats überschreiben: `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`. Admin-Tabellen zeigen die Datumsangaben anderer Benutzer in der eigenen Zeitzone des Betrachters mit deren Kürzel, sodass eine Spalte in einer einzigen Zeitzone gelesen und sortiert wird; die Zeitzone des Benutzers hat eine eigene Spalte.
 
 ## Sprache wechseln
 

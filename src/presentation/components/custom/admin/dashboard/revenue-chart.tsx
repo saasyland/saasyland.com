@@ -83,7 +83,7 @@ export const RevenueChart = (): JSX.Element => {
 
         <div className="absolute right-0 bottom-0 left-11 flex justify-between font-mono text-[0.6875rem] text-muted-foreground">
           {ADMIN_DASHBOARD_CHART_MONTHS.map((month) => (
-            <span key={month.getTime()}>{format.dateTime(month, { month: "short", timeZone: "UTC" })}</span>
+            <span key={month.getTime()}>{format.dateTime(month, "calendarMonth")}</span>
           ))}
         </div>
       </div>

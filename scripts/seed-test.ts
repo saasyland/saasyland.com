@@ -10,8 +10,9 @@ import { COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { mediaContentType, videoObjectKey } from "~/src/modules/video/video.files"
 
-import { TEST_ACCOUNTS, TEST_PASSWORD } from "~/e2e/data/accounts"
+import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "~/e2e/data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "~/e2e/data/courses"
+import { TEST_LICENSE } from "~/e2e/data/licenses"
 import { TEST_VIDEO } from "~/e2e/data/videos"
 
 const TEST_BUCKET = "saasyland-test"
@@ -46,11 +47,12 @@ const sizes = await Promise.all(files.map((file) => stat(join(TEST_VIDEO.fixture
 const sizeBytes = sizes.reduce((total, { size }) => total + size, 0)
 
 const statements = [
-  ...TEST_ACCOUNTS.flatMap(({ email, id, name, role }) => [
+  ...[...TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT].flatMap(({ email, id, name, role }) => [
     `DELETE FROM session WHERE user_id = ${literal(id)};`,
     `INSERT INTO user (id, email, name, role, email_verified) VALUES (${literal(id)}, ${literal(email)}, ${literal(name)}, ${literal(role)}, 1) ON CONFLICT(id) DO UPDATE SET email_verified = 1, role = excluded.role;`,
     `INSERT INTO account (id, account_id, provider_id, user_id, password) VALUES (${literal(`${id}-credential`)}, ${literal(id)}, ${literal(AUTH_PROVIDER.CREDENTIAL)}, ${literal(id)}, ${literal(password)}) ON CONFLICT(id) DO UPDATE SET password = excluded.password;`,
   ]),
+  `INSERT INTO license (id, user_id, tier, status, polar_customer_id, polar_order_id, polar_license_key_id, key) VALUES (${literal(TEST_LICENSE.id)}, ${literal(TEST_LICENSED_ACCOUNT.id)}, ${literal(TEST_LICENSE.tier)}, ${literal(TEST_LICENSE.status)}, ${literal(TEST_LICENSE.polarCustomerId)}, ${literal(TEST_LICENSE.polarOrderId)}, ${literal(TEST_LICENSE.polarLicenseKeyId)}, ${literal(TEST_LICENSE.key)}) ON CONFLICT(id) DO UPDATE SET status = excluded.status, polar_license_key_id = excluded.polar_license_key_id, key = excluded.key;`,
   `INSERT INTO video (id, title, duration_ms, width, height, size_bytes, caption_locales) VALUES (${literal(TEST_VIDEO.id)}, ${literal(TEST_VIDEO.title)}, ${String(TEST_VIDEO.durationMs)}, ${String(TEST_VIDEO.width)}, ${String(TEST_VIDEO.height)}, ${String(sizeBytes)}, '[]') ON CONFLICT(id) DO UPDATE SET title = excluded.title, size_bytes = excluded.size_bytes;`,
   `INSERT INTO course (id, slug, kind, status, title, summary) VALUES (${literal(TEST_COURSE.id)}, ${literal(TEST_COURSE.slug)}, ${literal(TEST_COURSE.kind)}, ${literal(COURSE_STATUS.PUBLISHED)}, ${json(TEST_COURSE.title)}, ${json(TEST_COURSE.summary)}) ON CONFLICT(id) DO UPDATE SET title = excluded.title, summary = excluded.summary, status = excluded.status;`,
   `INSERT INTO chapter (id, course_id, title) VALUES (${literal(TEST_COURSE.chapter.id)}, ${literal(TEST_COURSE.id)}, ${json(TEST_COURSE.chapter.title)}) ON CONFLICT(id) DO UPDATE SET title = excluded.title;`,

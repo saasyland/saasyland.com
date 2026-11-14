@@ -1,9 +1,21 @@
 ---
 title: "Ajustes"
-description: "La pantalla /admin/settings: una pestaña de seguridad real, una pestaña general estática y cuatro pestañas vacías."
+description: "Las pantallas /admin/settings y /app/settings: la preferencia de zona horaria, una pestaña de seguridad real, tarjetas de demostración del espacio de trabajo y cuatro pestañas vacías."
 ---
 
-`src/routes/admin.settings.tsx` muestra seis pestañas a partir de `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`): **General**, **Seguridad**, **Equipo y Miembros**, **Facturación**, **Integraciones** y **Claves de API**. Solo **General** y **Seguridad** tienen contenido, construido con widgets de `src/presentation/components/custom/admin/settings`; las otras cuatro no muestran nada. El loader precarga `getActiveSessionsQuery`. El área de clientes `/app` no tiene pantalla de ajustes.
+`src/routes/admin.settings.tsx` muestra seis pestañas a partir de `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`): **General**, **Seguridad**, **Equipo y Miembros**, **Facturación**, **Integraciones** y **Claves de API**. Solo **General** y **Seguridad** tienen contenido, construido con widgets de `src/presentation/components/custom/admin/settings` y con el `PreferencesCard` compartido; las otras cuatro no muestran nada. El loader precarga `getActiveSessionsQuery`. Los clientes tienen su propia página de ajustes, `/app/settings` (`src/routes/app.settings.tsx`), que muestra solo `PreferencesCard`.
+
+## Preferencias (real)
+
+`PreferencesCard` (`src/presentation/components/custom/preferences-card.tsx`) edita la zona horaria del usuario con sesión iniciada, la única preferencia de visualización que se guarda con la cuenta. Lee la zona guardada de la consulta de la sesión actual.
+
+- Un cuadro combinado con búsqueda lista todas las zonas de `TIMEZONE_CODES` (`src/modules/user/user.schema.ts`, derivado de `TIMEZONES`) por su nombre en el espacio de nombres `timezones`, que cargan los layouts de `/admin` y `/app`.
+- **Detectar desde este navegador** selecciona la zona que indica el navegador. Compara las zonas tal como las resuelve `Intl.DateTimeFormat`, así que un alias como `Asia/Calcutta` encuentra `Asia/Kolkata`; una zona que no está en la lista muestra un mensaje y conserva la selección actual.
+- **Guardar preferencias** llama a `updatePreferences` (`src/modules/user/use-cases/update-preferences.ts`, con sesión), que valida la zona con `userZodSchemas.updatePreferences` y la guarda mediante `updateUser` de Better Auth. Después, la tarjeta invalida la consulta de la sesión actual y `TranslationsProvider` muestra todas las fechas en la nueva zona ([Internacionalización e idiomas](/docs/features/internationalization)).
+
+El idioma no se guarda: es el locale de la URL, se cambia con `LocaleSelect` y también decide el orden de las fechas, el reloj de 12 o 24 horas y los separadores de los números.
+
+`PreferencesCardPending`, definido junto a la tarjeta, es su esqueleto en `AdminSettingsPending` y `AppSettingsPending`.
 
 ## Seguridad (real)
 
@@ -14,7 +26,6 @@ description: "La pantalla /admin/settings: una pestaña de seguridad real, una p
 ## General (demostración)
 
 - `ProfileCard`: nombre del espacio de trabajo, correo de soporte y URL, rellenados con `APP_NAME` y constantes del propio archivo.
-- `PreferencesCard`: idioma, zona horaria y un interruptor de anuncios.
 - `DangerZoneCard`: un botón de eliminación.
 
-Estas tarjetas solo muestran valores predeterminados; no se guarda nada. `updateUser` y `changeEmail` en `src/modules/account/use-cases` son las funciones de servidor que hay que conectar al crear un formulario de perfil.
+Estas dos tarjetas solo muestran valores predeterminados; no se guarda nada. `updateUser` y `changeEmail` en `src/modules/account/use-cases` son las funciones de servidor que hay que conectar al crear un formulario de perfil.

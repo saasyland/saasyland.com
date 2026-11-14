@@ -23,10 +23,14 @@ import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current
 import { Route as AppRoute } from "~/src/routes/app"
 import { Route as OverviewRoute } from "~/src/routes/app.index"
 import { Route as LicenseRoute } from "~/src/routes/app.license"
+import { Route as SettingsRoute } from "~/src/routes/app.settings"
 
 import commonMessages from "~/messages/en-US/common.json"
+import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
 import pagesAppMessages from "~/messages/en-US/pages.app.json"
+import pagesAppSettingsMessages from "~/messages/en-US/pages.app.settings.json"
 import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
+import timezonesMessages from "~/messages/en-US/timezones.json"
 import plCommonMessages from "~/messages/pl-PL/common.json"
 import plErrorMessages from "~/messages/pl-PL/errors.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
@@ -75,6 +79,7 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
   Object.assign(AppRoute.options, { getParentRoute: () => root, id: "/app", path: "/app" })
   Object.assign(OverviewRoute.options, { getParentRoute: () => AppRoute, id: "/", path: "/" })
   Object.assign(LicenseRoute.options, { getParentRoute: () => AppRoute, id: "/license", path: "/license" })
+  Object.assign(SettingsRoute.options, { getParentRoute: () => AppRoute, id: "/settings", path: "/settings" })
   const nested = createRoute({ component: () => <p>Activation details</p>, getParentRoute: () => AppRoute, path: "/license/details" })
   const signIn = createRoute({ component: () => <h1>Sign in required</h1>, getParentRoute: () => root, path: ROUTES.SIGN_IN })
   const docs = createRoute({ component: () => <h1>Documentation</h1>, getParentRoute: () => root, path: ROUTES.DOCS })
@@ -82,7 +87,7 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
     context: { queryClient },
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree: root.addChildren([signIn, docs, AppRoute.addChildren([OverviewRoute, LicenseRoute, nested])]),
+    routeTree: root.addChildren([signIn, docs, AppRoute.addChildren([OverviewRoute, LicenseRoute, SettingsRoute, nested])]),
   })
   render(
     <QueryClientProvider client={queryClient}>
@@ -146,6 +151,21 @@ describe("customer workspace routes", () => {
     expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.app" }).queryKey)).toBeDefined()
     expect(currentLicense).toHaveBeenCalledOnce()
     expect(router.state.matches.at(-1)?.meta).toEqual(expect.arrayContaining([expect.objectContaining({ name: "description" })]))
+  })
+
+  it("loads the settings page with its navigation, metadata and the saved time zone, without a license lookup", async () => {
+    const { queryClient, router } = await renderApp(ROUTES.APP_SETTINGS)
+
+    expect(await screen.findByRole("heading", { level: 1, name: pagesAppSettingsMessages.metadata.title })).toBeVisible()
+    const nav = screen.getByRole("navigation", { name: navigation.label })
+    expect(within(nav).getByRole("link", { name: navigation.settings })).toHaveAttribute("aria-current", "page")
+    expect(screen.getByRole("heading", { level: 2, name: preferencesCardMessages.title })).toBeVisible()
+    expect(screen.getByRole("combobox", { name: preferencesCardMessages.timezone.label })).toHaveValue(timezonesMessages["Europe/Warsaw"])
+    expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "timezones" }).queryKey)).toBeDefined()
+    expect(currentLicense).not.toHaveBeenCalled()
+    expect(router.state.matches.at(-1)?.meta).toEqual(
+      expect.arrayContaining([expect.objectContaining({ content: pagesAppSettingsMessages.metadata.description, name: "description" })]),
+    )
   })
 
   it("keeps the license navigation active for nested pages and falls back to the overview header", async () => {

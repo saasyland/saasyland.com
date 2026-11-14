@@ -1,9 +1,21 @@
 ---
 title: "Ustawienia"
-description: "Ekran /admin/settings: działająca karta bezpieczeństwa, statyczna karta ogólna i cztery puste karty."
+description: "Ekrany /admin/settings i /app/settings: preferencja strefy czasowej, działająca karta bezpieczeństwa, demonstracyjne karty przestrzeni roboczej i cztery puste karty."
 ---
 
-`src/routes/admin.settings.tsx` wyświetla sześć kart z `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`): **Ogólne**, **Bezpieczeństwo**, **Zespół i członkowie**, **Rozliczenia**, **Integracje** i **Klucze API**. Treść mają tylko **Ogólne** i **Bezpieczeństwo**, złożone z widżetów z `src/presentation/components/custom/admin/settings`; pozostałe cztery są puste. Loader wstępnie ładuje `getActiveSessionsQuery`. Obszar klienta `/app` nie ma ekranu ustawień.
+`src/routes/admin.settings.tsx` wyświetla sześć kart z `ADMIN_SETTINGS_TABS` (`src/data/admin.ts`): **Ogólne**, **Bezpieczeństwo**, **Zespół i członkowie**, **Rozliczenia**, **Integracje** i **Klucze API**. Treść mają tylko **Ogólne** i **Bezpieczeństwo**, złożone z widżetów z `src/presentation/components/custom/admin/settings` i współdzielonego `PreferencesCard`; pozostałe cztery są puste. Loader wstępnie ładuje `getActiveSessionsQuery`. Klienci mają własną stronę ustawień, `/app/settings` (`src/routes/app.settings.tsx`), która pokazuje wyłącznie `PreferencesCard`.
+
+## Preferencje (działające)
+
+`PreferencesCard` (`src/presentation/components/custom/preferences-card.tsx`) edytuje strefę czasową zalogowanego użytkownika, jedyną preferencję wyświetlania zapisywaną razem z kontem. Zapisaną strefę odczytuje z bieżącego zapytania o sesję.
+
+- Combobox z wyszukiwaniem wyświetla każdą strefę z `TIMEZONE_CODES` (`src/modules/user/user.schema.ts`, wyprowadzone z `TIMEZONES`) pod jej nazwą z przestrzeni nazw `timezones`, którą ładują layouty `/admin` i `/app`.
+- Przycisk **Wykryj z tej przeglądarki** wybiera strefę zgłaszaną przez przeglądarkę. Porównuje strefy w postaci, do której rozwiązuje je `Intl.DateTimeFormat`, więc alias taki jak `Asia/Calcutta` odnajduje `Asia/Kolkata`; gdy strefy nie ma na liście, wyświetla komunikat i zachowuje bieżący wybór.
+- Przycisk **Zapisz preferencje** wywołuje `updatePreferences` (`src/modules/user/use-cases/update-preferences.ts`, dla zalogowanych), który waliduje strefę za pomocą `userZodSchemas.updatePreferences` i zapisuje ją przez `updateUser` z Better Auth. Następnie karta unieważnia bieżące zapytanie o sesję, a `TranslationsProvider` pokazuje każdą datę w nowej strefie ([Internacjonalizacja i języki](/docs/features/internationalization)).
+
+Język nie jest zapisywany: to locale w adresie URL, przełączane przez `LocaleSelect`, i to ono decyduje też o kolejności elementów daty, zegarze 12- lub 24-godzinnym i separatorach liczb.
+
+`PreferencesCardPending`, zdefiniowany obok karty, to jej szkielet w `AdminSettingsPending` i `AppSettingsPending`.
 
 ## Bezpieczeństwo (działające)
 
@@ -14,7 +26,6 @@ description: "Ekran /admin/settings: działająca karta bezpieczeństwa, statycz
 ## Ogólne (demonstracyjne)
 
 - `ProfileCard`: nazwa przestrzeni roboczej, e-mail pomocy technicznej i URL, wypełnione wartościami `APP_NAME` i stałych z pliku.
-- `PreferencesCard`: język, strefa czasowa i przełącznik ogłoszeń.
 - `DangerZoneCard`: przycisk usuwania.
 
-Te karty pokazują tylko wartości domyślne; nic nie jest zapisywane. `updateUser` i `changeEmail` w `src/modules/account/use-cases` to funkcje serwerowe do podłączenia przy budowie formularza profilu.
+Te dwie karty pokazują tylko wartości domyślne; nic nie jest zapisywane. `updateUser` i `changeEmail` w `src/modules/account/use-cases` to funkcje serwerowe do podłączenia przy budowie formularza profilu.

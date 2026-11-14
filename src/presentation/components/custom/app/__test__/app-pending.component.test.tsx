@@ -16,7 +16,7 @@ import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current
 
 import { TIERS } from "~/src/data/marketing"
 
-import { AppLicensePending, AppOverviewPending, AppPending } from "~/src/presentation/components/custom/app/app-pending"
+import { AppLicensePending, AppOverviewPending, AppPending, AppSettingsPending } from "~/src/presentation/components/custom/app/app-pending"
 
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
 
@@ -80,6 +80,8 @@ describe("customer app skeletons", () => {
     ["/pl-PL/app", AppOverviewPending],
     ["/app/license", AppLicensePending],
     ["/uk-UA/app/license", AppLicensePending],
+    ["/app/settings", AppSettingsPending],
+    ["/ja-JP/app/settings", AppSettingsPending],
   ])("renders the skeleton of the page at %s", (path, Page) => {
     const page = busyMarkup(renderAt(<Page />, path))
     cleanup()

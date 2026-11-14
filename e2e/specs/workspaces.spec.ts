@@ -64,7 +64,7 @@ for (const account of TEST_ACCOUNTS) {
             "/admin/videos",
             "/admin/settings",
           ]
-        : ["/app/license", "/pl-PL/app"]
+        : ["/app/license", "/app/settings", "/pl-PL/app"]
     for (const path of paths) {
       await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
       await appPage.waitForAppReady()

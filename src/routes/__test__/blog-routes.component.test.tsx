@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
-import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizeUrl, localizeUrl } from "~/src/integrations/use-intl/i18n.utils"
 
 import { Route as BlogRoute } from "~/src/routes/blog"
@@ -123,7 +123,7 @@ const renderBlog = async ({
   routers.push(router)
   render(
     <QueryClientProvider client={router.options.context.queryClient}>
-      <IntlProvider locale={locale} messages={getTestMessages(locale)} timeZone="UTC">
+      <IntlProvider formats={I18N.FORMATS} locale={locale} messages={getTestMessages(locale)} timeZone={I18N.DEFAULT_TIMEZONE}>
         <RouterProvider router={router} />
       </IntlProvider>
     </QueryClientProvider>,

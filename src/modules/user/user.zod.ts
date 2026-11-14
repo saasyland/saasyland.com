@@ -13,6 +13,8 @@ const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSch
 
 const MAX_SORT_COLUMNS = 8
 
+const timezone = zod.enum(TIMEZONE_CODES)
+
 const userIdInput = zod.object({
   userId: idField,
 })
@@ -59,11 +61,13 @@ const setUserRole = zod.object({
 
 const unbanUser = userIdInput
 
+const updatePreferences = zod.object({ timezone })
+
 const updateUser = zod
   .object({
     image: imageUrlSchema.nullable().optional(),
     name: nameSchema.optional(),
-    timezone: zod.enum(TIMEZONE_CODES).optional(),
+    timezone: timezone.optional(),
     userId: idField,
   })
   .refine(({ userId: _userId, ...fields }) => Object.values(fields).some((val) => val !== undefined), {
@@ -88,5 +92,6 @@ export const userZodSchemas = {
   setUserRole,
   unbanUser,
   update,
+  updatePreferences,
   updateUser,
 }

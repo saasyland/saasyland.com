@@ -62,7 +62,7 @@ const WORKSPACE_PAGES = {
     "/admin/videos",
     "/admin/settings",
   ],
-  customer: ["/app", "/app/license", "/app?tier=complete", "/app/license?tier=core", `/app?checkoutId=${CHECKOUT_ID}`],
+  customer: ["/app", "/app/license", "/app/settings", "/app?tier=complete", "/app/license?tier=core", `/app?checkoutId=${CHECKOUT_ID}`],
 } as const
 
 const visit = async (page: Page, path: string): Promise<void> => {

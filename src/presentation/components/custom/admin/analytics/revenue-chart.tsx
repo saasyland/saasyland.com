@@ -20,7 +20,7 @@ export const AnalyticsRevenueChart = (): JSX.Element => {
       return undefined
     }
 
-    const day = bar.date === undefined ? t("today") : format.dateTime(bar.date, { day: "numeric", month: "long", timeZone: "UTC" })
+    const day = bar.date === undefined ? t("today") : format.dateTime(bar.date, "calendarDay")
 
     return `${day}: ${currency(bar.amount)}`
   }

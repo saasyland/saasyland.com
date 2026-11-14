@@ -29,10 +29,12 @@ test.describe("courses", () => {
     await useOwnRateLimit(page)
   })
 
-  test("a visitor finds the course and watches its free lesson", async ({ page }) => {
+  test("a visitor finds the course and watches its free lesson", async ({ appPage, page }) => {
     await page.goto("/courses", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
     await page.getByRole("link", { name: new RegExp(TEST_COURSE.title["en-US"], "u") }).click()
     await expect(page).toHaveURL(`/courses/${TEST_COURSE.slug}`)
+    await appPage.waitForAppReady()
 
     const playlist = signedPlaylist(page)
     await page.getByRole("link", { name: "Start the course" }).click()
@@ -41,9 +43,12 @@ test.describe("courses", () => {
     await expect(page.getByRole("heading", { level: 1, name: preview.title["en-US"] })).toBeVisible()
   })
 
-  test("a visitor signs in from an account lesson and comes back to watch it", async ({ authPage, page }) => {
+  test("a visitor signs in from an account lesson and comes back to watch it", async ({ appPage, authPage, page }) => {
     await page.goto(lessonPath(account.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
     await page.getByRole("link", { name: "Sign in to watch" }).click()
+    await expect(page).toHaveURL(`/auth/sign-in?redirect=${encodeURIComponent(lessonPath(account.slug))}`)
+    await authPage.waitForAppReady()
 
     const playlist = signedPlaylist(page)
     await signIn(authPage, customer.email)
@@ -51,10 +56,11 @@ test.describe("courses", () => {
     expect((await playlist).status()).toBe(200)
   })
 
-  test("a customer without Complete is offered it on a paid lesson", async ({ authPage, page }) => {
+  test("a customer without Complete is offered it on a paid lesson", async ({ appPage, authPage, page }) => {
     await authPage.gotoSignIn()
     await signIn(authPage, customer.email)
     await expect(page).toHaveURL("/app")
+    await appPage.waitForAppReady()
 
     await page.goto(lessonPath(paid.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
@@ -62,10 +68,11 @@ test.describe("courses", () => {
     await expect(page.getByRole("link", { name: "Get Complete" })).toHaveAttribute("href", `/app/license?tier=${LICENSE_TIER.COMPLETE}`)
   })
 
-  test("an administrator can watch every lesson", async ({ authPage, page }) => {
+  test("an administrator can watch every lesson", async ({ appPage, authPage, page }) => {
     await authPage.gotoSignIn()
     await signIn(authPage, admin.email)
     await expect(page).toHaveURL("/admin")
+    await appPage.waitForAppReady()
 
     const playlist = signedPlaylist(page)
     await page.goto(lessonPath(paid.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })

@@ -51,13 +51,15 @@ Date e numeri vengono formattati con `useFormatter` di use-intl (`format.dateTim
 - `timeZone`: il `timezone` dell’utente autenticato, preso dalla query della sessione corrente, oppure `I18N.DEFAULT_TIMEZONE` (`UTC`) senza una sessione. Il provider legge la sessione caricata dalle guard delle rotte `/app`, `/admin` e di autenticazione e non la recupera mai da solo, quindi le pagine pubbliche prerenderizzate sono identiche per ogni visitatore e si idratano senza modifiche. Quando la query della sessione cambia, ad esempio dopo che l’utente ha salvato un nuovo fuso in [Impostazioni](/docs/features/settings), tutte le date vengono renderizzate di nuovo.
 - `formats`: `I18N.FORMATS`, i formati di data con nome. `src/types/use-intl.d.ts` registra i loro nomi in use-intl, quindi un nome sconosciuto fa fallire il controllo dei tipi.
 
-| Nome            | Esempio (inglese)         | Uso                                                                                                                      |
-| --------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `date`          | Nov 14, 2026              | Il giorno di un istante nel fuso del lettore, nelle tabelle                                                              |
-| `dateTime`      | Nov 14, 2026, 3:04 PM UTC | Un istante con l’orario e la sigla del fuso: le attivazioni delle licenze e le date degli account nell’amministrazione   |
-| `calendarDate`  | Nov 14, 2026              | Una data senza orario, come la data di un articolo del blog. È formattata in UTC, quindi non passa mai a un altro giorno |
-| `calendarDay`   | November 14               | Le etichette dei giorni nel grafico di Analytics dell’amministrazione                                                    |
-| `calendarMonth` | Nov                       | Le etichette dei mesi nel grafico della dashboard di amministrazione                                                     |
+| Nome            | Esempio (inglese) | Uso                                                                                                                      |
+| --------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `date`          | Nov 14, 2026      | Il giorno di un istante nel fuso del lettore, nelle tabelle                                                              |
+| `time`          | 3:04 PM UTC       | L’orario di un istante con la sigla del fuso, che `common.dateTime` unisce alla sua `date`                               |
+| `calendarDate`  | Nov 14, 2026      | Una data senza orario, come la data di un articolo del blog. È formattata in UTC, quindi non passa mai a un altro giorno |
+| `calendarDay`   | November 14       | Le etichette dei giorni nel grafico di Analytics dell’amministrazione                                                    |
+| `calendarMonth` | Nov               | Le etichette dei mesi nel grafico della dashboard di amministrazione                                                     |
+
+Un formato con nome contiene una data o un orario, mai entrambi. Ogni motore li unisce in modo diverso: Safari stampa «Nov 14, 2026 at 3:04 PM UTC» dove il server stampa «Nov 14, 2026, 3:04 PM UTC», quindi un formato con entrambi produceva in Safari un testo diverso da quello inviato dal server e React segnalava un errore di idratazione. Una data con il suo orario è il messaggio `common.dateTime`, `{value, date, date}, {value, time, time}` (in giapponese senza la virgola), come in `t("common.dateTime", { value: createdAt })`, e ogni motore stampa ciascuna parte allo stesso modo. Lo usano le attivazioni delle licenze e le date degli account nell’amministrazione. `i18n.config.test.ts` fallisce quando un formato con nome mescola campi di data e di orario, e verifica che il messaggio stampi ciò che stampa il motore del server in ogni locale e in ogni fuso orario.
 
 Una chiamata può sovrascrivere una singola opzione di un formato con nome: `format.dateTime(new Date(post.date), "calendarDate", { month: "long" })`. Le tabelle dell’amministrazione mostrano le date degli altri utenti nel fuso di chi le consulta, con la sigla, così ogni colonna si legge e si ordina in un solo fuso; il fuso dell’utente ha una colonna a sé.
 

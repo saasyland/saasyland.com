@@ -1,7 +1,7 @@
 import type { JSX } from "react"
 
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
-import { useFormatter, useTranslations } from "use-intl/react"
+import { useTranslations } from "use-intl/react"
 
 import { isRole } from "~/src/integrations/better-auth/auth.access"
 
@@ -87,9 +87,9 @@ const BooleanCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, boo
 }
 
 const DateCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, Date>): JSX.Element => {
-  const format = useFormatter()
+  const t = useTranslations("common")
 
-  return <span className="text-sm text-muted-foreground">{format.dateTime(getValue(), "dateTime")}</span>
+  return <span className="text-sm text-muted-foreground">{t("dateTime", { value: getValue() })}</span>
 }
 
 const columnHelper = createColumnHelper<DataTableFeatures, AdminUser>()

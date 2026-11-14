@@ -48,11 +48,12 @@ const sessionIn = (timezone: TimezoneCode) => {
 }
 
 const DateProbe = () => {
+  const t = useTranslations("common")
   const format = useFormatter()
 
   return (
     <>
-      <p data-testid="instant">{format.dateTime(ACTIVATED_AT, "dateTime")}</p>
+      <p data-testid="instant">{t("dateTime", { value: ACTIVATED_AT })}</p>
       <p data-testid="calendar-date">{format.dateTime(PUBLISHED_ON, "calendarDate")}</p>
     </>
   )

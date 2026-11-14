@@ -86,7 +86,7 @@ export const Route = createFileRoute("/_landing/")({
     ])
     const price = createFormatter({ locale }).number(TIER_PRICES[LICENSE_TIER.CORE], CURRENCY_FORMAT)
     const description = createTranslator({ locale, messages: metadata })("description", { price })
-    return { locale, metadata: { ...metadata, description }, posts }
+    return { locale, metadata: { ...metadata, description }, posts, stars: context.queryClient.getQueryData(starCountQuery.queryKey) }
   },
   pendingComponent: HomePending,
   staticData: { namespaces: [NAMESPACE] },

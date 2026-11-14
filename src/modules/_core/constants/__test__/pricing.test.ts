@@ -4,6 +4,7 @@ import { CURRENCIES } from "~/src/modules/_core/constants/currency"
 import {
   CURRENCY_FORMAT,
   DEFAULT_CURRENCY_CODE,
+  PPP_PERCENTS_OFF,
   getPppMultiplier,
   getPppPercentOff,
   pppMultiplierKey,
@@ -40,5 +41,9 @@ describe("regional pricing", () => {
     expect(getPppPercentOff(country)).toBe(0)
     expect(pppMultiplierKey(country)).toBe(100)
     expect(formatPrice(295 * multiplier)).toBe("$295")
+  })
+
+  it("lists the percentage off of each regional band, the discounts Polar must offer", () => {
+    expect(PPP_PERCENTS_OFF).toStrictEqual([20, 30, 40, 50])
   })
 })

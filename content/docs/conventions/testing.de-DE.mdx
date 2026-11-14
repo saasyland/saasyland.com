@@ -1,19 +1,19 @@
 ---
 title: "Testen"
-description: "Zu welchem Vitest-Projekt ein Test gehört, wie Server Functions gegen ein D1 im Arbeitsspeicher getestet werden, die Praxis der 100-%-Testabdeckung, benannte Konstanten in Assertions und die Browser-Suite."
+description: "Zu welchem Vitest-Projekt ein Test gehört, wie Server Functions gegen ein D1 im Arbeitsspeicher getestet werden, die Praxis der Testabdeckung, benannte Konstanten in Assertions und die Browser-Suite."
 ---
 
-Jede Änderung wird im selben Commit mit den Tests ausgeliefert, die sie belegen, und die Testabdeckung bleibt bei 100 % für Zeilen, Anweisungen, Funktionen und Verzweigungen. Ein Bugfix kommt mit einem Test, der ohne den Fix fehlschlägt.
+Jede Änderung wird im selben Commit mit den Tests ausgeliefert, die sie belegen, und die Testabdeckung bleibt bei <RepositoryFact name="coverageThreshold" unit="percent" /> für Zeilen, Anweisungen, Funktionen und Verzweigungen. Ein Bugfix kommt mit einem Test, der ohne den Fix fehlschlägt.
 
 ## Projekte
 
 `vite.config.ts` definiert drei Vitest-Projekte, ausgewählt über das Dateisuffix. Tests importieren ihre API aus `vite-plus/test` und liegen in `__test__/` neben dem Code, den sie abdecken.
 
-| Suffix                 | Projekt       | Verwenden für                                                                                       |
-| ---------------------- | ------------- | --------------------------------------------------------------------------------------------------- |
-| `.test.ts`             | `node`        | Use Cases, Loader, `head`, Schemas, Hilfsfunktionen: alles, was auf dem Server läuft                |
-| `.integration.test.ts` | `integration` | Abläufe von Better Auth, den D1-Adapter und das Laden von Nachrichten, mit Timeouts von 20 Sekunden |
-| `.component.test.tsx`  | `component`   | Komponenten und Seiten in jsdom                                                                     |
+| Suffix                 | Projekt       | Verwenden für                                                                                                                                                 |
+| ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.test.ts`             | `node`        | Use Cases, Loader, `head`, Schemas, Hilfsfunktionen: alles, was auf dem Server läuft                                                                          |
+| `.integration.test.ts` | `integration` | Abläufe von Better Auth, den D1-Adapter und das Laden von Nachrichten, mit Timeouts von <RepositoryFact name="integrationTestTimeoutSeconds" unit="second" /> |
+| `.component.test.tsx`  | `component`   | Komponenten und Seiten in jsdom                                                                                                                               |
 
 `src/platform/testing/mocks/cloudflare.ts` ersetzt `cloudflare:workers` in jedem Projekt: D1 ist eine `node:sqlite`-Datenbank im Arbeitsspeicher, aufgebaut aus jeder eingecheckten Migration, KV und der Bucket `MEDIA` sind Speicher im Arbeitsspeicher. `resetTestBindings()` leert vor jedem Test KV, den Bucket und die Rate-Limit-Tabelle, und die Seed-Funktion jeder Suite setzt die Zeilen zurück, von denen sie abhängt. Kein Test spricht mit Cloudflare, Polar, Resend oder einem OAuth-Anbieter.
 
@@ -65,7 +65,7 @@ describe("getCourses", () => {
 
 ## Testabdeckung
 
-`bun run test:coverage` schlägt fehl, wenn eine der vier Metriken für `src/**/*.{ts,tsx}` unter 100 % liegt. Ausgenommen sind Tests, `__test__/`, Deklarationsdateien, `src/routeTree.gen.ts`, die shadcn-Primitive und `src/platform/testing/`. Die Hürde bleibt aussagekräftig:
+`bun run test:coverage` schlägt fehl, wenn eine der vier Metriken für `src/**/*.{ts,tsx}` unter <RepositoryFact name="coverageThreshold" unit="percent" /> liegt. Ausgenommen sind Tests, `__test__/`, Deklarationsdateien, `src/routeTree.gen.ts`, die shadcn-Primitive und `src/platform/testing/`. Die Hürde bleibt aussagekräftig:
 
 - **Löschen Sie Verzweigungen, die nie ausgeführt werden können**, statt sie mit Stubs abzudecken. Ein `?? fallback` auf Daten, die immer vorhanden sind, oder ein Optional Chaining auf einem Wert, der nicht `undefined` sein kann, wird aus dem Quellcode entfernt, nicht durch das Stubben eines globalen Objekts erreicht.
 - **Decken Sie echtes Verhalten ab.** Ladezustände halten die Anfrage mit `Promise.withResolvers()` offen, prüfen die Lade-UI, lösen innerhalb von `act` auf und prüfen die Ruhe-UI, wie es `expectPending` und `expectIdle` in `auth-forms.component.test.tsx` tun.

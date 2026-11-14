@@ -7,7 +7,7 @@ export const FULL_PRICE_MULTIPLIER = 1
 
 export const PPP_PERCENT = 100
 
-const PPP_TIERS = [
+export const PPP_TIERS = [
   { countries: ["CY", "EE", "GR", "KR", "LT", "LV", "PT", "TW"], multiplier: 0.8 },
   { countries: ["BG", "BR", "CL", "CZ", "HU", "MX", "MY", "PL", "RO", "SK", "ZA"], multiplier: 0.7 },
   { countries: ["CO", "ID", "IN", "PE", "PH", "TH", "TR", "VN"], multiplier: 0.6 },
@@ -21,8 +21,11 @@ const PPP_MULTIPLIERS: ReadonlyMap<string, number> = new Map(
 export const getPppMultiplier = (countryCode: string | undefined): number =>
   PPP_MULTIPLIERS.get(countryCode?.toUpperCase() ?? "") ?? FULL_PRICE_MULTIPLIER
 
-export const getPppPercentOff = (countryCode: string | undefined): number =>
-  Math.round((FULL_PRICE_MULTIPLIER - getPppMultiplier(countryCode)) * PPP_PERCENT)
+const percentOff = (multiplier: number): number => Math.round((FULL_PRICE_MULTIPLIER - multiplier) * PPP_PERCENT)
+
+export const getPppPercentOff = (countryCode: string | undefined): number => percentOff(getPppMultiplier(countryCode))
+
+export const PPP_PERCENTS_OFF: readonly number[] = PPP_TIERS.map(({ multiplier }) => percentOff(multiplier))
 
 export const CURRENCY_FORMAT = {
   currency: DEFAULT_CURRENCY_CODE,

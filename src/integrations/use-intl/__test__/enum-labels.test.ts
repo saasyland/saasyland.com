@@ -14,12 +14,19 @@ import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.cons
 import { USER_STATUS } from "~/src/modules/user/user.constants"
 
 import { ADMIN_BLOG_POST_STATUS } from "~/src/data/admin-blog"
-import { NAVIGATION_PAGES, NAVIGATION_SECTIONS } from "~/src/data/marketing"
+import { ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
+import { FOOTER_SECTIONS, NAVIGATION_SECTIONS } from "~/src/data/marketing"
+import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, NAVIGATION_PAGES } from "~/src/data/navigation"
 
 const TIER_LABELS = ["cta", "name", "period", "tagline", "whoFor"] as const
 
 const ENUM_LABELS = [
   { keys: Object.values(AUTH_ERRORS), labels: "auth.errors" },
+  { keys: FOOTER_NAVIGATION.map(({ key }) => key), labels: "components.custom.footer.columns" },
+  {
+    keys: [...FOOTER_SECTIONS, ...FOOTER_NAVIGATION.flatMap(({ links }) => links.map(({ key }) => key))],
+    labels: "components.custom.footer.links",
+  },
   { keys: [...NAVIGATION_SECTIONS, ...NAVIGATION_PAGES.map(({ key }) => key)], labels: "components.custom.navigation.items" },
   { keys: LICENSE_TIERS.flatMap((tier) => TIER_LABELS.map((label) => `${tier}.${label}`)), labels: "components.custom.pricing.tiers" },
   { keys: Object.values(ERROR_CODES), labels: "errors.codes" },
@@ -28,13 +35,18 @@ const ENUM_LABELS = [
   { keys: Object.values(COURSE_STATUS), labels: "pages.admin.courses.form.statuses" },
   { keys: Object.values(LESSON_ACCESS), labels: "pages.admin.courses.lesson.accessLevels" },
   { keys: Object.values(LESSON_STATUS), labels: "pages.admin.courses.lesson.statuses" },
+  { keys: ADMIN_DASHBOARD_ACTIONS.map(({ key }) => key), labels: "pages.admin.dashboard.actions" },
+  { keys: ADMIN_DASHBOARD_STATS.map(({ key }) => `${key}.title`), labels: "pages.admin.dashboard.stats" },
   { keys: Object.values(USER_STATUS), labels: "pages.admin.dashboard.users.table.status" },
   { keys: Object.values(PRODUCT_STATUS), labels: "pages.admin.products.table.statusLabels" },
   { keys: Object.values(PRODUCT_TYPE), labels: "pages.admin.products.table.typeLabels" },
   { keys: Object.values(CATEGORY_VISIBILITY), labels: "pages.admin.products.table.visibilityLabels" },
+  { keys: ADMIN_NAVIGATION.map(({ key }) => key), labels: "pages.admin.sidebar.groups" },
+  { keys: ADMIN_NAVIGATION.flatMap(({ items }) => items.map(({ key }) => key)), labels: "pages.admin.sidebar.links" },
   { keys: ROLE_VALUES, labels: "pages.admin.users.filters.role.options" },
   { keys: Object.values(USER_STATUS), labels: "pages.admin.users.filters.status.options" },
   { keys: Object.values(LICENSE_STATUS), labels: "pages.app.overview.license" },
+  { keys: APP_NAVIGATION.map(({ key }) => key), labels: "pages.app.sidebar.navigation" },
   { keys: Object.values(LESSON_ACCESS), labels: "pages.courses.access" },
   { keys: Object.values(COURSE_KIND), labels: "pages.courses.kinds" },
   { keys: Object.values(LESSON_ACCESS), labels: "pages.landing.studio.masterclass.access" },

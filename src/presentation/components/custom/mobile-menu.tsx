@@ -4,7 +4,8 @@ import { Link } from "@tanstack/react-router"
 import { ArrowUpRight, Menu, X } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { NAVIGATION_PAGES, NAVIGATION_SECTIONS } from "~/src/data/marketing"
+import { NAVIGATION_SECTIONS } from "~/src/data/marketing"
+import { NAVIGATION_PAGES } from "~/src/data/navigation"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 

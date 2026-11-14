@@ -5,7 +5,7 @@ import { Search } from "lucide-react"
 import { Button } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
-import { ADMIN_SIDEBAR_GROUPS } from "~/src/data/admin"
+import { ADMIN_NAVIGATION } from "~/src/data/navigation"
 
 import {
   Command,
@@ -60,21 +60,21 @@ export const AdminCommandPalette = (): JSX.Element => {
             className="max-h-80"
             renderEmptyState={() => <CommandEmpty className="text-muted-foreground">{t("components.header.searchEmpty")}</CommandEmpty>}
           >
-            {ADMIN_SIDEBAR_GROUPS.map((group) => (
-              <CommandGroup heading={t(`sidebar.groups.${group.titleKey}`)} id={group.titleKey} key={group.titleKey}>
+            {ADMIN_NAVIGATION.map((group) => (
+              <CommandGroup heading={t(`sidebar.groups.${group.key}`)} id={group.key} key={group.key}>
                 {group.items.map((item) => (
                   <CommandItem
                     className="gap-2.5"
-                    id={item.url}
-                    key={item.titleKey}
+                    id={item.to}
+                    key={item.key}
                     onAction={() => {
                       setIsOpen(false)
-                      void router.navigate({ to: item.url })
+                      void router.navigate({ to: item.to })
                     }}
-                    textValue={t(`sidebar.links.${item.titleKey}`)}
+                    textValue={t(`sidebar.links.${item.key}`)}
                   >
                     <item.icon aria-hidden className="size-4 text-muted-foreground" strokeWidth={1.5} />
-                    {t(`sidebar.links.${item.titleKey}`)}
+                    {t(`sidebar.links.${item.key}`)}
                   </CommandItem>
                 ))}
               </CommandGroup>

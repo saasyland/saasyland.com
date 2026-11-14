@@ -3,13 +3,13 @@ import type { JSX } from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { ADMIN_SIDEBAR_GROUPS, type AdminSidebarItem } from "~/src/data/admin"
+import { ADMIN_NAVIGATION } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
 
 import { ROUTES } from "~/src/routes"
 
-const SIDEBAR_ITEMS = ADMIN_SIDEBAR_GROUPS.flatMap<AdminSidebarItem>((group) => group.items)
+const SIDEBAR_ITEMS = ADMIN_NAVIGATION.flatMap((group) => group.items)
 
 const LINK_CLASSNAME =
   "truncate rounded-sm transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
@@ -31,7 +31,7 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
   }
 
   const sectionUrl = section === undefined ? ROUTES.ADMIN : `${ROUTES.ADMIN}/${section}`
-  const item = SIDEBAR_ITEMS.find((candidate) => candidate.url === sectionUrl)
+  const item = SIDEBAR_ITEMS.find((candidate) => candidate.to === sectionUrl)
   const actionKey = `components.breadcrumbs.actions.${action ?? ""}`
 
   return (
@@ -48,9 +48,9 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
           <Link
             activeOptions={{ exact: true, includeSearch: false }}
             className={cn(LINK_CLASSNAME, "data-[status=active]:font-medium data-[status=active]:text-foreground")}
-            to={item.url}
+            to={item.to}
           >
-            {t(`sidebar.links.${item.titleKey}`)}
+            {t(`sidebar.links.${item.key}`)}
           </Link>
         </>
       )}

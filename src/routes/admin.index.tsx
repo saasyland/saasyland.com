@@ -2,17 +2,18 @@ import type { JSX } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Calendar, Download, PlusCircle } from "lucide-react"
+import { Calendar, Download } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 import { USER_STATUSES } from "~/src/modules/user/user.utils"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
+import { ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
+import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
 
 import { pageHead } from "~/src/lib/seo"
 
@@ -43,10 +44,12 @@ const DashboardPage = (): JSX.Element => {
             <Calendar className="size-4 text-muted-foreground" />
             {t("actions.last30Days")}
           </Button>
-          <LinkButton className="h-9 gap-2 shadow-sm" href={ROUTES.ADMIN_PRODUCTS_CREATE}>
-            <PlusCircle aria-hidden className="size-4" />
-            {t("actions.addProduct")}
-          </LinkButton>
+          {ADMIN_DASHBOARD_ACTIONS.map((action) => (
+            <LinkButton className="h-9 gap-2 shadow-sm" href={action.to} key={action.key}>
+              <action.icon aria-hidden className="size-4" />
+              {t(`actions.${action.key}`)}
+            </LinkButton>
+          ))}
         </div>
       </div>
 
@@ -108,8 +111,8 @@ export const Route = createFileRoute("/admin/")({
     const [metadata] = await Promise.all([
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
-      context.queryClient.query({ ...getProductsQuery, staleTime: "static" }),
       context.queryClient.query({ ...getUsersQuery, staleTime: "static" }),
+      ...ADMIN_DASHBOARD_STATS.map((stat) => stat.prefetch(context.queryClient)),
     ])
     return { locale, metadata }
   },

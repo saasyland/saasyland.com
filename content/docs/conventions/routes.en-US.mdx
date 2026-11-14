@@ -54,7 +54,7 @@ export const Route = createFileRoute("/admin/courses/")({
 - **One namespace.** `const NAMESPACE = "pages.<area>.<page>"` sits directly above `export const Route` and is used in `loadPageMetadata`, `preloadNamespaces` and `staticData`. Anything else the page needs is declared by its layout.
 - **One `Promise.all`.** The loader starts every piece of work at once: page metadata, the namespace and every query the components read. It returns `{ locale, metadata }` for `head`. Never await one of them before starting the next.
 - **`head: pageHead(ROUTES.X)`** builds the title, description, canonical URL and alternates from the metadata in the namespace file.
-- **Paths come from `ROUTES`** in `src/routes.ts`; never write a path literal.
+- **Paths come from `ROUTES`** in `src/routes.ts`, which joins the paths of every area (see [Paths and navigation](#paths-and-navigation)); never write a path literal.
 
 A page whose title comes from a record awaits that record and builds its head from the loader data, as `admin.courses.$courseId.tsx` does:
 
@@ -133,8 +133,55 @@ Navigation must feel instant, so every route that renders a page has a `pendingC
 - Router links take a constant: `<Link to={ROUTES.COURSES}>`, `<Link hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>`, or a route pattern with `params` for dynamic paths. shadcn `LinkButton` takes an `href`.
 - Never add the locale prefix to a router link; the router's rewrite adds it. A full URL in the current locale, for a value that leaves the router as a string, comes from `router.buildLocation({ ... }).publicHref`, as `use-auth-redirect.ts` builds its sign-in links. `localizePathname` is for URLs built outside a router context or for another locale: emails, Better Auth redirect targets, links inside MDX and the language switcher.
 
+## Paths and navigation
+
+No file lists every area of the application. Each area, such as the courses, the products or the legal pages, declares its own paths and menu entries, and a barrel joins them, so an area is added or left out with its own files. This is how the `saasyland` CLI builds a project from template layers.
+
+| What                 | Each area declares                                            | Barrel                           | Read from                                                                                                                               |
+| -------------------- | ------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Paths                | `src/data/<area>.routes.ts`: one `export const` per path      | `src/data/routes.entries.ts`     | `ROUTES` in `src/routes.ts`                                                                                                             |
+| Menu entries         | `src/data/<area>.navigation.ts`: one `<AREA>_NAVIGATION` list | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` and `FOOTER_NAVIGATION` in `src/data/navigation.ts` |
+| Dashboard statistics | `src/data/<area>.dashboard.ts`: one `<AREA>_DASHBOARD` list   | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` in `src/data/dashboard.ts`                                                                                      |
+
+A barrel holds only `export { … } from` lines, one per area file, sorted by module, like `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` re-exports the paths as one namespace, so each path keeps its literal type and `<Link to={ROUTES.COURSES}>` is still checked against the route tree:
+
+```ts title="src/routes.ts"
+export * as ROUTES from "~/src/data/routes.entries"
+```
+
+A menu entry names where it appears with `placement` (`NAVIGATION_PLACEMENT` in `src/data/navigation.constants.ts`): the admin sidebar, the buttons above the dashboard, the customer sidebar, the public header or the footer. Its `order` sorts it among the entries of the other areas, so no list depends on the order of files. Admin entries also name their sidebar `group`, and footer links their `column`; `ADMIN_NAVIGATION_GROUPS` and `FOOTER_COLUMNS` fix the order of groups and columns, and one that no area fills is left out. The courses area adds two admin entries and a header page:
+
+```ts title="src/data/courses.navigation.ts"
+export const COURSES_NAVIGATION = [
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: GraduationCap,
+    key: "courses",
+    order: 20,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_COURSES,
+  },
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: Clapperboard,
+    key: "videos",
+    order: 30,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_VIDEOS,
+  },
+  { key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
+] as const satisfies readonly NavigationEntry[]
+```
+
+A dashboard statistic has a `prefetch`, which the `/admin` loader runs, and a `useValue` hook, which `DashboardStats` calls to read the number.
+
+Labels stay in the namespace of the menu that shows them, under the entry's `key`: `links.<key>` and `groups.<group>` in `pages.admin.sidebar`, `navigation.<key>` in `pages.app.sidebar`, `items.<key>` in `components.custom.navigation`, `links.<key>` and `columns.<column>` in `components.custom.footer`, and `actions.<key>` and `stats.<key>.title` in `pages.admin.dashboard`. Each area owns its keys in those files, and `enum-labels.test.ts` fails when an entry has no label in a locale.
+
+`vite.config.ts` imports the area files of the paths it keeps out of prerendering by relative path, because Vite does not resolve the `~` alias while it loads its own configuration.
+
 ## Related pages
 
 - [Routes and delivery](/docs/architecture/delivery-layer)
 - [Data fetching and caching](/docs/conventions/data-fetching)
 - [Translations and content](/docs/conventions/translations)
+- [Add an admin page](/docs/guides/add-an-admin-page)

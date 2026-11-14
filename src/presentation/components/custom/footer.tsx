@@ -3,7 +3,11 @@ import type { JSX } from "react"
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { FOOTER_SECTIONS } from "~/src/data/marketing"
+import { FOOTER_NAVIGATION } from "~/src/data/navigation"
+import { FOOTER_COLUMN } from "~/src/data/navigation.constants"
+
+import { cn } from "~/src/lib/cn"
 
 import { LocaleSwitcher } from "~/src/presentation/components/custom/locale-switcher"
 import { NewsletterForm } from "~/src/presentation/components/custom/newsletter-form"
@@ -16,22 +20,6 @@ const LINK_CLASSNAME =
   "inline-block rounded-sm py-1.5 text-body-sm text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 
 const HEADING_CLASSNAME = "font-mono text-label text-muted-foreground uppercase"
-
-const SECTION_LINKS = [MARKETING_SECTION_IDS.FOUNDATION, MARKETING_SECTION_IDS.PRICING, MARKETING_SECTION_IDS.FAQ] as const
-
-const PAGE_LINKS = [
-  { key: "docs", to: ROUTES.DOCS },
-  { key: "blog", to: ROUTES.BLOG },
-  { key: "affiliates", to: ROUTES.AFFILIATES },
-  { key: "signIn", to: ROUTES.SIGN_IN },
-] as const
-
-const LEGAL_LINKS = [
-  { key: "privacy", to: ROUTES.PRIVACY },
-  { key: "terms", to: ROUTES.TERMS },
-  { key: "refunds", to: ROUTES.REFUNDS },
-  { key: "licence", to: ROUTES.LICENCE },
-] as const
 
 export const Footer = (): JSX.Element => {
   const t = useTranslations("components.custom.footer")
@@ -62,38 +50,28 @@ export const Footer = (): JSX.Element => {
             </a>
           </div>
 
-          <div>
-            <h3 className={HEADING_CLASSNAME}>{t("product")}</h3>
-            <ul className="mt-4 grid grid-cols-2 gap-x-8">
-              {SECTION_LINKS.map((section) => (
-                <li key={section}>
-                  <Link className={LINK_CLASSNAME} hash={section} to={ROUTES.HOME}>
-                    {t(`links.${section}`)}
-                  </Link>
-                </li>
-              ))}
-              {PAGE_LINKS.map((link) => (
-                <li key={link.key}>
-                  <Link className={LINK_CLASSNAME} to={link.to}>
-                    {t(`links.${link.key}`)}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className={HEADING_CLASSNAME}>{t("legal")}</h3>
-            <ul className="mt-4">
-              {LEGAL_LINKS.map((link) => (
-                <li key={link.key}>
-                  <Link className={LINK_CLASSNAME} to={link.to}>
-                    {t(`links.${link.key}`)}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {FOOTER_NAVIGATION.map((column) => (
+            <div key={column.key}>
+              <h3 className={HEADING_CLASSNAME}>{t(`columns.${column.key}`)}</h3>
+              <ul className={cn("mt-4", { "grid grid-cols-2 gap-x-8": column.key === FOOTER_COLUMN.PRODUCT })}>
+                {column.key === FOOTER_COLUMN.PRODUCT &&
+                  FOOTER_SECTIONS.map((section) => (
+                    <li key={section}>
+                      <Link className={LINK_CLASSNAME} hash={section} to={ROUTES.HOME}>
+                        {t(`links.${section}`)}
+                      </Link>
+                    </li>
+                  ))}
+                {column.links.map((link) => (
+                  <li key={link.key}>
+                    <Link className={LINK_CLASSNAME} to={link.to}>
+                      {t(`links.${link.key}`)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 border-t border-border py-7">

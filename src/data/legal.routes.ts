@@ -1,0 +1,5 @@
+export const AFFILIATES = "/affiliates"
+export const LICENCE = "/licence"
+export const PRIVACY = "/privacy"
+export const REFUNDS = "/refunds"
+export const TERMS = "/terms"

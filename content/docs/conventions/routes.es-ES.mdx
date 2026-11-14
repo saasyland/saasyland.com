@@ -54,7 +54,7 @@ export const Route = createFileRoute("/admin/courses/")({
 - **Un espacio de nombres.** `const NAMESPACE = "pages.<area>.<page>"` va justo encima de `export const Route` y se usa en `loadPageMetadata`, `preloadNamespaces` y `staticData`. Todo lo demás que necesite la página lo declara su layout.
 - **Un solo `Promise.all`.** El loader inicia todo el trabajo a la vez: los metadatos de la página, el espacio de nombres y cada consulta que leen los componentes. Devuelve `{ locale, metadata }` para `head`. Nunca esperes a que termine una de estas tareas antes de iniciar la siguiente.
 - **`head: pageHead(ROUTES.X)`** construye el título, la descripción, la URL canónica y las URL alternativas a partir de los metadatos del archivo del espacio de nombres.
-- **Las rutas de URL salen de `ROUTES`**, en `src/routes.ts`; nunca escribas una ruta como literal.
+- **Las rutas de URL salen de `ROUTES`**, en `src/routes.ts`, que reúne las rutas de todas las áreas (consulta [Rutas y navegación](#paths-and-navigation)); nunca escribas una ruta como literal.
 
 Una página cuyo título sale de un registro espera ese registro y construye su head a partir de los datos del loader, como hace `admin.courses.$courseId.tsx`:
 
@@ -133,8 +133,55 @@ La navegación debe sentirse instantánea, así que cada ruta que renderiza una 
 - Los enlaces del router reciben una constante: `<Link to={ROUTES.COURSES}>`, `<Link hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>`, o un patrón de ruta con `params` para las rutas dinámicas. `LinkButton` de shadcn recibe un `href`.
 - Nunca añadas el prefijo de idioma a un enlace del router; lo añade la reescritura del router. Una URL completa en el idioma actual, para un valor que sale del router como cadena, se obtiene de `router.buildLocation({ ... }).publicHref`, que es como `use-auth-redirect.ts` construye sus enlaces de inicio de sesión. `localizePathname` es para las URL que se construyen fuera de un contexto de router o para otro idioma: correos, destinos de redirección de Better Auth, enlaces dentro de MDX y el selector de idioma.
 
+## Rutas y navegación [#paths-and-navigation]
+
+Ningún archivo enumera todas las áreas de la aplicación. Cada área, como los cursos, los productos o las páginas legales, declara sus propias rutas y entradas de menú, y un barrel las reúne, así que un área se añade o se deja fuera con sus propios archivos. Así es como la CLI `saasyland` monta un proyecto a partir de capas de plantillas.
+
+| Qué                    | Cada área declara                                              | Barrel                           | Se lee de                                                                                                                             |
+| ---------------------- | -------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Rutas                  | `src/data/<area>.routes.ts`: un `export const` por ruta        | `src/data/routes.entries.ts`     | `ROUTES` en `src/routes.ts`                                                                                                           |
+| Entradas de menú       | `src/data/<area>.navigation.ts`: una lista `<AREA>_NAVIGATION` | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` y `FOOTER_NAVIGATION` en `src/data/navigation.ts` |
+| Estadísticas del panel | `src/data/<area>.dashboard.ts`: una lista `<AREA>_DASHBOARD`   | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` en `src/data/dashboard.ts`                                                                                    |
+
+Un barrel solo contiene líneas `export { … } from`, una por archivo de área y ordenadas por módulo, como `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` reexporta las rutas como un único espacio de nombres, así que cada ruta conserva su tipo literal y `<Link to={ROUTES.COURSES}>` se sigue comprobando contra el árbol de rutas:
+
+```ts title="src/routes.ts"
+export * as ROUTES from "~/src/data/routes.entries"
+```
+
+Una entrada de menú indica dónde aparece con `placement` (`NAVIGATION_PLACEMENT` en `src/data/navigation.constants.ts`): la barra lateral de administración, los botones sobre el panel, la barra lateral de la app de clientes, la cabecera pública o el pie. Su `order` la ordena entre las entradas de las demás áreas, de modo que ninguna lista depende del orden de los archivos. Las entradas de administración indican además su grupo de la barra lateral (`group`), y los enlaces del pie su columna (`column`); `ADMIN_NAVIGATION_GROUPS` y `FOOTER_COLUMNS` fijan el orden de grupos y columnas, y el que ninguna área rellena se omite. El área de cursos añade dos entradas de administración y una página de la cabecera:
+
+```ts title="src/data/courses.navigation.ts"
+export const COURSES_NAVIGATION = [
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: GraduationCap,
+    key: "courses",
+    order: 20,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_COURSES,
+  },
+  {
+    group: ADMIN_NAVIGATION_GROUP.CONTENT,
+    icon: Clapperboard,
+    key: "videos",
+    order: 30,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_VIDEOS,
+  },
+  { key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
+] as const satisfies readonly NavigationEntry[]
+```
+
+Una estadística del panel tiene un `prefetch`, que ejecuta el loader de `/admin`, y un hook `useValue`, al que `DashboardStats` llama para leer el número.
+
+Las etiquetas se quedan en el espacio de nombres del menú que las muestra, bajo la `key` de la entrada: `links.<key>` y `groups.<group>` en `pages.admin.sidebar`, `navigation.<key>` en `pages.app.sidebar`, `items.<key>` en `components.custom.navigation`, `links.<key>` y `columns.<column>` en `components.custom.footer`, y `actions.<key>` y `stats.<key>.title` en `pages.admin.dashboard`. Cada área es dueña de sus claves en esos archivos, y `enum-labels.test.ts` falla cuando a una entrada le falta la etiqueta en algún locale.
+
+`vite.config.ts` importa por ruta relativa los archivos de área de las rutas que excluye del prerenderizado, porque Vite no resuelve el alias `~` mientras carga su propia configuración.
+
 ## Páginas relacionadas
 
 - [Rutas y entrega](/docs/architecture/delivery-layer)
 - [Obtención de datos y caché](/docs/conventions/data-fetching)
 - [Traducciones y contenido](/docs/conventions/translations)
+- [Añadir una página de administración](/docs/guides/add-an-admin-page)

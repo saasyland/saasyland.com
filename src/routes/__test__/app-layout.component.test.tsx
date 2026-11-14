@@ -29,6 +29,7 @@ import commonMessages from "~/messages/en-US/common.json"
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
 import pagesAppMessages from "~/messages/en-US/pages.app.json"
 import pagesAppSettingsMessages from "~/messages/en-US/pages.app.settings.json"
+import pagesAppSidebarMessages from "~/messages/en-US/pages.app.sidebar.json"
 import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
 import timezonesMessages from "~/messages/en-US/timezones.json"
 import plCommonMessages from "~/messages/pl-PL/common.json"
@@ -45,7 +46,7 @@ const activations = vi.hoisted(() => vi.fn())
 const catalogue = vi.hoisted(() => vi.fn())
 const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
 const SIGN_OUT_SUCCESS = { redirect: undefined, success: true, url: undefined } satisfies SignOutResult
-const { account, navigation } = pagesAppMessages
+const { account, navigation } = pagesAppSidebarMessages
 
 vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
   const actual = await importOriginal()
@@ -148,7 +149,7 @@ describe("customer workspace routes", () => {
       within(screen.getByRole("navigation", { name: navigation.resources })).getByRole("link", { name: navigation.support }),
     ).toHaveAttribute("href", `mailto:${CONTACT_EMAIL}`)
     expect(screen.getByRole("link", { name: navigation.website })).toHaveAttribute("href", ROUTES.HOME)
-    expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.app" }).queryKey)).toBeDefined()
+    expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.app.sidebar" }).queryKey)).toBeDefined()
     expect(currentLicense).toHaveBeenCalledOnce()
     expect(router.state.matches.at(-1)?.meta).toEqual(expect.arrayContaining([expect.objectContaining({ name: "description" })]))
   })

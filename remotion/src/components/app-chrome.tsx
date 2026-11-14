@@ -1,5 +1,5 @@
 import sidebar from "../../../messages/en-US/pages.admin.sidebar.json"
-import { ADMIN_NAVIGATION } from "../../../src/data/admin-navigation"
+import { ADMIN_NAVIGATION } from "../../../src/data/navigation"
 
 import type { ReactNode } from "react"
 
@@ -41,7 +41,7 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "20px 12px" }}>
         {ADMIN_NAVIGATION.map((group) => (
-          <div key={group.titleKey}>
+          <div key={group.key}>
             <div
               style={{
                 color: THEME.mutedForeground,
@@ -52,7 +52,7 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
                 textTransform: "uppercase",
               }}
             >
-              {sidebar.groups[group.titleKey]}
+              {sidebar.groups[group.key]}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 8 }}>
               {group.items.map((item) => {
@@ -60,7 +60,7 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
                 const isActive = index === activeIndex
                 return (
                   <div
-                    key={item.titleKey}
+                    key={item.key}
                     style={{
                       alignItems: "center",
                       backgroundColor: isActive ? THEME.muted : "transparent",
@@ -84,7 +84,7 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
                         width: 12,
                       }}
                     />
-                    {sidebar.links[item.titleKey]}
+                    {sidebar.links[item.key]}
                   </div>
                 )
               })}

@@ -10,6 +10,7 @@ export const HTTP_STATUS = {
   PERMANENT_REDIRECT: 308,
   RANGE_NOT_SATISFIABLE: 416,
   TOO_MANY_REQUESTS: 429,
+  UNAUTHORIZED: 401,
 } as const
 
 export const COUNTRY_HEADER = "cf-ipcountry"

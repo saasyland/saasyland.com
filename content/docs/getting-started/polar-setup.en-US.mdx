@@ -1,0 +1,138 @@
+---
+title: "Polar setup"
+description: "The Polar organisations, token, products, licence keys, regional discounts and webhooks the code expects, and how polar:verify checks them."
+---
+
+Polar sells the three tiers, issues their licence keys and applies the regional discounts. The code expects a precise setup in Polar, and Polar does not warn you when the two drift apart: a product without a licence-key benefit still takes the payment but issues no key. `bun run polar:verify:<environment>` compares Polar with the code, and the deploy scripts run it before every manual deploy.
+
+## Production and sandbox
+
+Polar runs two separate services. Production (`polar.sh`, API `api.polar.sh`) charges real cards; the sandbox (`sandbox.polar.sh`, API `sandbox-api.polar.sh`) accepts only test cards. They share nothing: an account, organisation, token, product, discount or webhook exists in one service only, so sign up at `sandbox.polar.sh` separately and set up each service on its own.
+
+| Environment file   | `POLAR_SERVER` | Polar organisation |
+| ------------------ | -------------- | ------------------ |
+| `.env.development` | `sandbox`      | Sandbox            |
+| `.env.preview`     | `sandbox`      | Sandbox            |
+| `.env.production`  | `production`   | Production         |
+
+Development and preview can share one sandbox organisation, as they share one D1 database: its webhook posts to the preview host, and a test purchase made in development reaches the shared database through it.
+
+Never put a production token, organisation ID or product ID in `.env.development` or `.env.preview`. The sandbox API rejects a production token, and with `POLAR_SERVER=production` a test checkout would charge a real card and grant the licence in the preview database. `polar:verify` refuses `POLAR_SERVER=production` for development and preview, and `POLAR_SERVER=sandbox` for production.
+
+## Organisation and token
+
+In the sandbox, then in production:
+
+1. Create an organisation and copy its ID from the organisation settings into `POLAR_ORGANIZATION_ID`.
+2. In the organisation settings, create an organisation access token with these scopes, and no others, and copy it into `POLAR_ACCESS_TOKEN`.
+
+| Scope                     | Needed by                                                                           |
+| ------------------------- | ----------------------------------------------------------------------------------- |
+| `checkouts:write`         | `startCheckout`, which creates the checkout through the Better Auth Polar plugin    |
+| `customer_sessions:write` | The customer portal link, `/api/auth/customer/portal`                               |
+| `discounts:read`          | The regional discount lookup at checkout (`pppDiscountId`) and `polar:verify`       |
+| `license_keys:write`      | Reading a key and its activations, and removing an activation (`deactivateLicense`) |
+| `orders:read`             | The webhook handlers, which read the order behind a licence                         |
+| `products:read`           | `polar:verify`                                                                      |
+| `webhooks:read`           | `polar:verify`                                                                      |
+
+A write scope includes reading, so `license_keys:write` also covers reading keys. An organisation token already acts for its own organisation. `polar:verify` still sends `POLAR_ORGANIZATION_ID` as the `organization_id` query parameter, as the discount lookup at checkout does, so an ID of another organisation shows up as missing products.
+
+## Products
+
+Create one product per tier: a one-time purchase, not a subscription, with a fixed price in `DEFAULT_CURRENCY_CODE` (US dollars) equal to `TIER_PRICES` in `src/data/marketing.ts`. Copy each product's ID into its key.
+
+| Tier     | Key                         | Price                         | Activations per key                 |
+| -------- | --------------------------- | ----------------------------- | ----------------------------------- |
+| Core     | `POLAR_PRODUCT_ID_CORE`     | <TierPrice tier="core" />     | <ActivationLimit tier="core" />     |
+| Complete | `POLAR_PRODUCT_ID_COMPLETE` | <TierPrice tier="complete" /> | <ActivationLimit tier="complete" /> |
+| Agency   | `POLAR_PRODUCT_ID_AGENCY`   | <TierPrice tier="agency" />   | <ActivationLimit tier="agency" />   |
+
+Polar stores a price in the currency's minor units, cents for US dollars, and `polar:verify` converts `TIER_PRICES` the same way before it compares them. It ignores archived prices.
+
+## Licence keys
+
+Create one **License Keys** benefit per tier and attach it to that tier's product only:
+
+- **Activations**: limited to the number in the table above, `LICENSE_ACTIVATION_LIMITS` in `src/modules/license/license.constants.ts`. Letting customers manage their activations in Polar is optional, because `/app/license` lists and removes them itself.
+- **Expiration**: none. Keys never expire, as the purchase is a one-time payment.
+- **Usage limit**: none.
+- **Prefix**: your choice; `polar:verify` does not check it.
+
+Each product needs exactly one licence-key benefit; other benefits beside it are fine. When Polar grants the benefit, the `benefit_grant.created` webhook stores the key on the buyer's licence.
+
+## Regional discounts
+
+Checkout applies a regional price through an automatic discount in Polar (see [Payments and licences](/docs/features/payments)). Create one percentage discount for each band in `PPP_TIERS` (`src/modules/_core/constants/pricing.ts`): <RegionalDiscounts />. Each discount must:
+
+- take a percentage off; Polar stores it in basis points, hundredths of a percent;
+- have no code, so checkout can apply it without the buyer typing one;
+- apply to all three products, or to no product in particular;
+- be redeemable now: no start date in the future, no end date in the past and, if it has a redemption limit, redemptions left.
+
+`findRegionalDiscount` in `src/integrations/polar/polar.discounts.ts` decides which discount checkout applies, and `polar:verify` asks the same function.
+
+## Webhook
+
+Create one webhook endpoint for each deployed environment, in the organisation that environment uses.
+
+| Environment  | Organisation | URL                                                     |
+| ------------ | ------------ | ------------------------------------------------------- |
+| `preview`    | Sandbox      | `https://preview.saasyland.com/api/auth/polar/webhooks` |
+| `production` | Production   | `https://saasyland.com/api/auth/polar/webhooks`         |
+
+The host comes from `DEPLOYED_HOSTS` and the path from `ROUTES`. Choose the raw format, keep the endpoint enabled and subscribe it to exactly the events that `licenseWebhookHandlers` handles, listed in `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`):
+
+- `order.paid` grants the licence;
+- `order.refunded` revokes it once the order is fully refunded;
+- `benefit_grant.created` stores the licence key;
+- `benefit_grant.revoked` revokes the licence.
+
+Copy the endpoint's signing secret into `POLAR_WEBHOOK_SECRET` in the same environment file. Development needs no endpoint, because Polar cannot reach `localhost`.
+
+Never add a preview endpoint to the production organisation, or a production endpoint to the sandbox: real payments would reach preview, or test purchases would grant licences in production.
+
+## Check the setup
+
+```sh
+bun run polar:verify:development
+bun run polar:verify:preview
+bun run polar:verify:production
+```
+
+Each script reads the Polar keys from `.env.<environment>` and sends only GET requests to the API that `POLAR_SERVER` names: it lists the organisation's products, discounts and webhook endpoints, and changes nothing. It checks that:
+
+- the environment file sets every Polar key, with `POLAR_SERVER=sandbox` for development and preview and `POLAR_SERVER=production` for production;
+- each `POLAR_PRODUCT_ID_*` names a product of the organisation that is neither archived nor a subscription, whose prices are fixed, in `DEFAULT_CURRENCY_CODE` and equal to `TIER_PRICES`;
+- each product has exactly one licence-key benefit with the tier's limit from `LICENSE_ACTIVATION_LIMITS`, no expiration and no usage limit;
+- for every band in `PPP_TIERS`, an automatic percentage discount is redeemable for every tier product, by the rule checkout uses;
+- preview and production have an enabled raw endpoint at their webhook URL, signed with `POLAR_WEBHOOK_SECRET` and subscribed to exactly the handled events;
+- no endpoint posts to the host of an environment that uses the other Polar service.
+
+`deploy:preview` and `deploy:production` run it right after `scripts/verify-bindings.ts`, before the build. CI deployments do not: the GitHub environments hold no Polar token, and the Worker keeps the Polar secrets already set in Cloudflare. Run `polar:verify` yourself after every change in Polar.
+
+## When it fails
+
+The script exits with an error that lists every problem it found, one per line:
+
+```text
+Polar production does not match the code for production:
+The core product (POLAR_PRODUCT_ID_CORE) has 0 licence-key benefits; it needs exactly one.
+A webhook endpoint posts to https://preview.saasyland.com/api/auth/polar/webhooks, the preview host, from this Polar production organisation; remove it.
+```
+
+A failure stops the deploy before anything is built, migrated or uploaded. The script never changes Polar: fix Polar, then run it again. Each message names the key, constant or setting to fix:
+
+- **`Set … in .env.<environment>`**: a Polar key is missing or empty, or `POLAR_SERVER` names the wrong service.
+- **`rejects POLAR_ACCESS_TOKEN`**: the token is invalid, revoked or from the other service, such as a production token in `.env.preview`.
+- **`lacks the … scope`**: create a token with the scopes above.
+- **`names no product of the organisation`**: the product ID or `POLAR_ORGANIZATION_ID` is wrong, or belongs to the other service.
+- **A price, licence key or discount**: change it in Polar to match the code. When a business value changes on purpose, change `TIER_PRICES`, `LICENSE_ACTIVATION_LIMITS` or `PPP_TIERS` first, then Polar.
+- **A webhook endpoint**: fix the endpoint the message names, or remove an endpoint that posts to another environment's host.
+
+## Related pages
+
+- [Payments and licences](/docs/features/payments)
+- [Environment variables](/docs/getting-started/environment-variables)
+- [Deploy a preview](/docs/getting-started/deploy-preview)
+- [Pricing models](/docs/features/pricing-models)

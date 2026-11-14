@@ -179,7 +179,7 @@ content/
   docs/                          Localized MDX documentation and navigation metadata
 messages/{locale}/               JSON catalogues split into dotted namespaces
 e2e/                             Playwright specs and the seeded test accounts, video, and course
-scripts/                         Content checks, build and deployment steps, seeding, video publishing, and tooling
+scripts/                         Content checks, build, deployment and release steps, seeding, video publishing, and tooling
 remotion/                        Video authoring source and isolated npm toolchain
 src/
   routes/                        TanStack file routes, loaders, guards, and HTTP handlers
@@ -199,7 +199,7 @@ src/
   providers/                     Application-wide React providers
   data/                          Data shared by several files: navigation, marketing, affiliate terms, CLI choices, repository facts, admin demo rows
   hooks/                         Shared React hooks
-  lib/                           Shared utilities (cn, confetti, cookies, the deployed-site check, durations, hex hashes and tokens, rate limits, route search params, select options, SEO, GitHub stars, not-found errors)
+  lib/                           Shared utilities (cn, confetti, cookies, the deployed-site check, durations, hex hashes and tokens, rate limits, release tags and notes, route search params, select options, SEO, GitHub stars, not-found errors)
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers
 ```
 
@@ -273,7 +273,7 @@ Locally, Playwright recreates the test database with `db:reset:test`, builds the
 
 `build:test` selects `env.test` in the root `wrangler.jsonc` using `CLOUDFLARE_ENV=test`. It uses the test Worker entry, local bindings, `.env.test`, and `.wrangler/test`; no separate test Wrangler file or `E2E=true` flag is needed. In CI, `db:reset:test` and `build:test` run explicitly before Playwright starts the server.
 
-- [Main CI](.github/workflows/ci.yml) runs checks, coverage, and Chromium E2E on pull requests and pushes to `main`. Successful eligible runs then deploy to Cloudflare.
+- [Main CI](.github/workflows/ci.yml) runs checks, coverage, and Chromium E2E on pull requests and pushes to `main`. Successful eligible runs then deploy to Cloudflare, and each successful production deploy is tagged and released on GitHub.
 - [Full E2E](.github/workflows/e2e-full.yml) adds WebKit on pushes to `main` and runs Chromium and WebKit weekly and on manual dispatch.
 - [Video CI](.github/workflows/remotion.yml) separately checks and bundles affected Remotion source.
 
@@ -342,6 +342,8 @@ The existing Workers must already have all runtime secrets required by `wrangler
 Deployment jobs build and verify artifacts, apply the target D1 migrations, then deploy the tested revision. They do not run the live site check (`scripts/verify-deployment.ts`) that the manual deployment scripts run, because Cloudflare's bot protection answers 403 to requests from CI runners, nor the Polar check (`polar:verify`), because GitHub holds no Polar token. Workflow runs and deployments queue rather than cancel one another, with a separate deployment queue per environment. Schema changes must remain compatible with the currently running application because migrations run before the new Worker is deployed. WebKit's additional main-branch suite runs independently of the production deployment gate.
 
 GitHub creates deployment records from the job's `environment` declaration and shows the job's real result. See [GitHub's deployment tracking documentation](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments).
+
+After a production deploy succeeds, the `release` job tags the deployed commit `vYYYY.MM.DD` with the UTC date (later deploys that day get `.2`, `.3`, and so on) and publishes a GitHub Release whose notes are that day's section of the [changelog](content/docs/project/changelog.en-US.mdx). It is the only job with `contents: write`, and preview deploys are never tagged. [CI/CD](content/docs/tooling/ci-cd.en-US.mdx) explains how to roll back to a release.
 
 Keep this workflow the only deployment owner: disable automatic deploy triggers in Cloudflare Workers Builds so a push does not deploy twice or bypass the CI gate. Worker source maps are not uploaded (`upload_source_maps: false` in `wrangler.jsonc`), because they pushed the upload past Cloudflare's size limit. Production environment branch rules can restrict deployment to `main`; preview rules must allow PR merge refs. Required environment reviewers, if configured, pause deployment until approval.
 
@@ -430,6 +432,8 @@ Remotion Studio runs on port 3001. Finished videos and full-size/responsive post
 Normal application builds serve the checked-in assets without installing Remotion or rendering videos. Follow the [rendering instructions](remotion/README.md#rendering) when updating a composition, and regenerate its video and posters together.
 
 ## Contributing
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) before contributing, and [`SUPPORT.md`](SUPPORT.md) for where to get help. Report vulnerabilities privately as [`SECURITY.md`](SECURITY.md) describes, not in a public issue.
 
 Follow the [conventions](content/docs/conventions/index.en-US.mdx) and the [architecture guides](content/docs/architecture), and use the existing [theme and typography definitions](src/presentation/styles). Keep tests beside their owner, and update localized content and documentation under `content/docs/` when changing user-facing behavior.
 

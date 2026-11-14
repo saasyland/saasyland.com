@@ -1,17 +1,17 @@
 ---
 title: "CI/CD"
-description: "GitHub Actions workflows for checks, browser tests and deployments."
+description: "GitHub Actions workflows for checks, browser tests, deployments and releases."
 ---
 
 Workflows live in `.github/workflows/`. The application workflows (`ci.yml`, `e2e-reusable.yml` and `deploy-reusable.yml`) set up the toolchain with the composite action `.github/actions/setup`: Bun 1.4.4, Vite+ with the Node version from `.nvmrc`, a Bun cache, `bun install --frozen-lockfile --ignore-scripts` and `bun run typegen`. `remotion.yml` sets up Node from `.nvmrc` and npm instead.
 
-| Workflow              | Trigger                                                 | Jobs                                                                 |
-| --------------------- | ------------------------------------------------------- | -------------------------------------------------------------------- |
-| `ci.yml`              | Pull requests and pushes to `main`                      | Checks and coverage, Chromium E2E, then preview or production deploy |
-| `e2e-full.yml`        | Pushes to `main`, weekly on Monday at 03:15 UTC, manual | WebKit on push; Chromium and WebKit on schedule and manual runs      |
-| `e2e-reusable.yml`    | Called by the workflows above                           | Test database, test build and one Playwright project                 |
-| `deploy-reusable.yml` | Called by `ci.yml`                                      | Build, D1 migrations and `wrangler deploy`                           |
-| `remotion.yml`        | Changes to `remotion/` or its shared constants          | Checks and bundles the landing page video project with npm           |
+| Workflow              | Trigger                                                 | Jobs                                                                                    |
+| --------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `ci.yml`              | Pull requests and pushes to `main`                      | Checks and coverage, Chromium E2E, then preview deploy or production deploy and release |
+| `e2e-full.yml`        | Pushes to `main`, weekly on Monday at 03:15 UTC, manual | WebKit on push; Chromium and WebKit on schedule and manual runs                         |
+| `e2e-reusable.yml`    | Called by the workflows above                           | Test database, test build and one Playwright project                                    |
+| `deploy-reusable.yml` | Called by `ci.yml`                                      | Build, D1 migrations and `wrangler deploy`                                              |
+| `remotion.yml`        | Changes to `remotion/` or its shared constants          | Checks and bundles the landing page video project with npm                              |
 
 ## Checks
 
@@ -31,6 +31,23 @@ Pull requests from forks and Dependabot are validated but not deployed. The prev
 `deploy-reusable.yml` checks for the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, runs `scripts/verify-bindings.ts`, builds with the dummy values from `.env.test`, removes the generated `dist/server/.dev.vars`, applies `db:migrate:<target>` and runs `vp exec wrangler deploy --config dist/server/wrangler.json`. It does not run `scripts/verify-deployment.ts`, the live site check of the `deploy:<target>` scripts, because Cloudflare's bot protection answers 403 to requests from CI runners. Nor does it run `polar:verify:<target>`, because the GitHub environments hold no Polar token; run it locally after every change in Polar ([Polar setup](/docs/getting-started/polar-setup)). No secrets file is uploaded: the Worker keeps the runtime secrets already set in Cloudflare. Deployments to the same target queue instead of cancelling each other.
 
 Dependabot updates the GitHub Actions weekly.
+
+## Releases and tags
+
+The site is deployed continuously, so its versions are dates, not semantic versions. When a production deploy succeeds, the `release` job in `ci.yml` tags the deployed commit `vYYYY.MM.DD` with the UTC date and publishes a GitHub Release for it. A second production deploy on the same day is tagged `vYYYY.MM.DD.2`, the next one `.3`, and so on. Preview deploys are never tagged. The `release` job is the only job with `contents: write`.
+
+The release notes are that day's section of the [changelog](/docs/project/changelog), so every change is described in one place; when the changelog has no section for the day, the notes link to it. `scripts/publish-release.ts` picks the tag and the notes with `src/lib/release.ts` and runs `gh release create`. A re-run keeps the tag the commit already has and skips a release that already exists.
+
+To roll production back to a release, revert everything after its tag in a pull request:
+
+```sh
+git fetch --tags origin
+git switch --create rollback/v2026.11.13 origin/main
+git revert --no-commit v2026.11.13..HEAD
+git commit --message "revert: roll back to v2026.11.13"
+```
+
+Merging it deploys the tagged code after the usual checks and tags it as a new release. D1 migrations are not reverted, so the older code runs against the newer schema. Every schema change must work with the application deployed before it, which makes this safe for the previous release; read the migrations in between before going further back.
 
 ## Related guides
 

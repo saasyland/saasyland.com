@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, expectTypeOf, it, vi } from "vite-plus/test"
 
 import { CORE_SKELETONS } from "~/src/data/core.skeletons"
 import { ADMIN_SKELETONS } from "~/src/data/skeletons"
 import * as AREA_SKELETONS from "~/src/data/skeletons.entries"
 
 import { ROUTES } from "~/src/routes"
+import type { FileRouteTypes } from "~/src/routeTree.gen"
 
 const ENTRIES = Object.values(AREA_SKELETONS).flat()
 
@@ -14,6 +15,10 @@ describe("admin skeleton composition", () => {
     for (const { pendingComponent, to } of ENTRIES) {
       expect(ADMIN_SKELETONS.get(to)).toBe(pendingComponent)
     }
+  })
+
+  it("names a path of the route tree for every admin page an area declares", () => {
+    expectTypeOf<(typeof ENTRIES)[number]["to"]>().toExtend<FileRouteTypes["to"]>()
   })
 
   it("leaves out the pages of every area the project does not include", async () => {

@@ -9,6 +9,8 @@ import { THEME } from "../theme"
 export const RAIL_WIDTH = 300
 export const HEADER_HEIGHT = 84
 
+const SIDEBAR_LINKS = new Map(Object.entries(sidebar.links))
+
 export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; reveal: (index: number) => number }>) {
   let row = 0
 
@@ -84,7 +86,7 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
                         width: 12,
                       }}
                     />
-                    {sidebar.links[item.key]}
+                    {SIDEBAR_LINKS.get(item.key)}
                   </div>
                 )
               })}

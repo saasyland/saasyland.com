@@ -1,7 +1,5 @@
 import type { LucideIcon } from "lucide-react"
 
-import type { FileRouteTypes } from "~/src/routeTree.gen"
-
 export const NAVIGATION_PLACEMENT = {
   ADMIN: "admin",
   APP: "app",
@@ -34,7 +32,7 @@ export const FOOTER_COLUMNS = [FOOTER_COLUMN.PRODUCT, FOOTER_COLUMN.LEGAL] as co
 interface Entry {
   readonly key: string
   readonly order: number
-  readonly to: FileRouteTypes["to"]
+  readonly to: string
 }
 
 interface AdminEntry extends Entry {

@@ -52,6 +52,8 @@ import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
+import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { CATEGORY_KIND } from "~/src/modules/category/category.constants"
 import { createCategoryMutation } from "~/src/modules/category/use-cases/create-category"
 
 const getSessionMock = vi.hoisted(() => vi.fn<(typeof auth.api)["getSession"]>())
@@ -65,12 +67,14 @@ describe("create-category", () => {
       createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: "01900000-0000-7000-8000-000000000001" }),
     )
 
-    await expect(executeMutation(createCategoryMutation, { kind: "category", name: "SaaS Plans" })).rejects.toThrow("FORBIDDEN")
+    await expect(executeMutation(createCategoryMutation, { kind: CATEGORY_KIND.CATEGORY, name: "SaaS Plans" })).rejects.toThrow(
+      ERROR_CODES.FORBIDDEN,
+    )
   })
 })
 ```
 
-ユースケースのすべての結果をテストします。成功、それぞれの `AppError` コード、セッションがない場合、権限がない場合です。
+ユースケースのすべての結果をテストします。成功、それぞれの `AppError` コード、セッションがない場合、権限がない場合です。ドメイン値とエラーコードは、文字列を繰り返し書かず、定数（`CATEGORY_KIND`、`ERROR_CODES`）から取得します。
 
 ## コンポーネントをテストする
 
@@ -94,8 +98,10 @@ bun run test:e2e:ui
 ```sh
 bun run check
 bun run test:coverage
-bun run build
+bun run build:test
 bun run test:e2e:pr
 ```
+
+`build:test` はユニットテストでは検証されない Cloudflare の完全なビルドを実行し、`test:e2e:pr` はプルリクエストの CI と同じく、すべてのスペックを Chromium で実行します。
 
 CI は、すべてのプルリクエストと `main` へのプッシュでチェック、カバレッジ、Chromium のブラウザスイートを実行し、WebKit のスイートは毎週と `main` へのプッシュ時に実行します。

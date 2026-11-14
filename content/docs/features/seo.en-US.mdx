@@ -1,0 +1,61 @@
+---
+title: "Search and social previews"
+description: "Page metadata, robots.txt, the sitemap and the social cards the build renders for every prerendered page."
+---
+
+Every page describes itself to search engines and link previews through its route's `head`. The build turns those descriptions into `sitemap.xml` and a social card per prerendered page, so both are static files in `dist/client` and nothing about them runs in the Worker.
+
+## Page metadata
+
+`buildPageHead` in `src/lib/seo.ts` builds the head of every page. Most routes call it through `pageHead(ROUTES.X)`; docs pages, blog posts and course pages call it directly. It emits:
+
+- the title, with the locale's separator and `APP_NAME`, the description, the canonical URL and an `alternate` link with `hreflang` for every locale and for `x-default`;
+- Open Graph: `og:site_name`, `og:title` (the page title without the site name, as Open Graph expects), `og:description`, `og:type`, `og:url`, `og:locale` and, for a page that belongs to a section, `article:section`;
+- the social image: `og:image`, `og:image:type`, `og:image:width` and `og:image:height` (<RepositoryFact name="socialImageWidth" /> by <RepositoryFact name="socialImageHeight" /> pixels) and `og:image:alt`, with `twitter:card` set to `summary_large_image`, `twitter:title`, `twitter:description`, `twitter:image` and `twitter:image:alt`.
+
+The root route adds `og:locale:alternate` for the other locales. In every build mode except `production` it also adds the `robots` directive `ROBOTS.NON_PRODUCTION` (`noindex, nofollow`), which keeps preview and test deployments out of search results.
+
+A route keeps itself out of search results with `pageHead(ROUTES.X, { indexable: false })`, which adds `ROBOTS.NOINDEX` (`noindex`). `/premium`, a placeholder page, does this.
+
+Docs pages name the section their breadcrumb shows: `getDocsPage` in `fumadocs.docs.ts` reads it with Fumadocs' `getBreadcrumbItems`, so `/docs` and the first page of each section have none. Blog posts name the blog, with the title from `pages.blog`.
+
+## Social cards
+
+Each prerendered page has its own card at `/images/og/<canonical path>.png`, and the home page at `/images/og/index.png` (`socialImagePath`). The card shows the wordmark, the section in the accent colour when there is one, the page's `og:title` and the domain, over the grid and glow of the site's backgrounds. Its alt text is that text in the page's locale: the title, the section and `APP_NAME`, joined by the locale's title separator.
+
+Pages that are not prerendered, <RepositoryFact name="unlistedRoutes" /> and every path below them, share `/images/og/site.png`, which shows the wordmark alone and has `APP_NAME` as its alt text. `UNLISTED_ROUTES` in `src/routes.ts` is the one list of them: `vite.config.ts` leaves them out of prerendering and `buildPageHead` gives them the site card.
+
+The cards are React components, `PageCard` and `SiteCard` in `src/presentation/social-card.tsx`. `createSocialCardRenderer` in `src/integrations/takumi/takumi.render.tsx` draws them with [Takumi](https://takumi.kane.tw/docs/) (`@takumi-rs/core`), a Rust renderer with native Node bindings that needs no browser:
+
+- The colours are the light theme's tokens. The renderer reads `src/presentation/styles/globals.css`, so `var(--background)`, `var(--foreground)`, `var(--ring)` and the `field-grid` and `field-signal` classes are the site's own.
+- The fonts are the files the site serves. `takumi.fonts.ts` reads every `@font-face` rule with a `url()` source from `fonts.css`, the Geist and Geist Mono subsets with their unicode ranges, and from `@fontsource-variable/noto-sans-jp`, because the site leaves Japanese to the system font. Takumi loads only the subsets a card's text uses. Each face is registered under `APP_NAME` followed by its family name: Takumi bundles its own Latin-only Geist, which would otherwise be chosen instead of the site's Cyrillic and Latin Extended subsets.
+- The logo is `APP_LOGO_PATH` from `src/presentation/branding`, the path `Wordmark` draws.
+
+To change the design, edit `social-card.tsx`, run `bun run build:test` and open the cards in `dist/client/images/og`.
+
+## Sitemap and robots.txt
+
+`public/robots.txt` allows every path and names `https://saasyland.com/sitemap.xml`; `robots.test.ts` fails when that line does not match `APP_URL` and `SITEMAP_PATH`.
+
+`scripts/generate-seo-files.ts` runs at the end of every build script, after `optimize-prerendered-html.ts`. It reads the head of every prerendered page in `dist/client` with `readPageHead` from `src/lib/page-head.ts`, then:
+
+1. Writes `dist/client/sitemap.xml` with every page whose `robots` directive allows indexing and whose path `robots.txt` does not disallow (`listedPages` and `buildSitemap` in `src/lib/sitemap.ts`, with the RFC 9309 matching of `src/lib/robots.ts`). Each `<url>` lists the page's own `alternate` links as `xhtml:link` entries, `x-default` included. The build fails when a page names an alternate that the sitemap does not list, or when a URL appears twice. `ROBOTS.NON_PRODUCTION` does not count as a page's own directive, so every build mode writes the same sitemap.
+2. Renders the site card and every page's card into `dist/client/images/og`, and fails when two pages name the same image.
+
+It prints how many pages the sitemap lists, how many cards it rendered and how long it took. The sitemap has no `lastmod`, because docs pages carry no reliable modification date. Course pages are not in it: they are read from D1 on each request, and the sitemap is a file written by the build.
+
+The Worker does not change. Takumi and the script run only at build time, and `src/server.ts` serves `sitemap.xml` and the cards from static assets like any other file, with the cache policy `public/_headers` sets for `/images/*`.
+
+## Tests
+
+- `seo.test.ts`, `page-head.test.tsx`, `sitemap.test.ts` and `robots.test.ts` in `src/lib/__test__` cover the tags, reading them back, the sitemap and the robots rules. `takumi.render.test.ts` renders cards in English, German, Ukrainian and Japanese and checks their size.
+- `e2e/specs/seo.spec.ts` compares the served sitemap with the prerendered pages that allow indexing, requests every URL in it and expects `200` without a redirect, and opens the home page, a docs page and a blog post in English and Japanese to check their social tags and the image they name.
+- After a deploy, `verify-deployment.ts` requests <RepositoryFact name="liveSiteCheckPaths" />, the sitemap and the site card among them.
+
+## Related pages
+
+- [Internationalization](/docs/features/internationalization)
+- [Docs site](/docs/features/docs-site)
+- [Blog](/docs/features/blog)
+- [Fonts and branding](/docs/ui/fonts-and-branding)
+- [Performance](/docs/conventions/performance)

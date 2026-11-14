@@ -96,7 +96,7 @@ const createBlogRouter = ({
   Object.assign(BlogPostRoute.options, {
     getParentRoute: () => BlogRoute,
     id: "/$",
-    loader: (): typeof BlogPostRoute.types.loaderData => ({ locale, post }),
+    loader: (): typeof BlogPostRoute.types.loaderData => ({ locale, post, section: pagesBlogMessages.metadata.title }),
     path: "/$",
   })
   return createRouter({

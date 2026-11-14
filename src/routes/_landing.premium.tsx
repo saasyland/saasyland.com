@@ -22,7 +22,7 @@ const NAMESPACE = "pages.premium"
 
 export const Route = createFileRoute("/_landing/premium")({
   component: PremiumPage,
-  head: pageHead(ROUTES.PREMIUM),
+  head: pageHead(ROUTES.PREMIUM, { indexable: false }),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([

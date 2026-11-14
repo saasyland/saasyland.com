@@ -1,5 +1,7 @@
 import { DEPLOYED_HOSTS, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
+import { SITEMAP_PATH, SOCIAL_IMAGE } from "~/src/lib/seo"
+
 import { ROUTES } from "~/src/routes"
 
 const RETRY_DELAY_MS = 5000
@@ -20,6 +22,7 @@ const CONTENT_TYPE = {
   HTML: "text/html",
   JSON: "application/json",
   PLAIN_TEXT: "text/plain",
+  XML: "application/xml",
 } as const
 
 const ROBOTS_TXT = "/robots.txt"
@@ -28,6 +31,8 @@ export const LIVE_SITE_CHECKS: readonly LiveSiteCheck[] = [
   { contentType: CONTENT_TYPE.HTML, path: ROUTES.HOME, status: HTTP_STATUS.OK },
   { contentType: CONTENT_TYPE.HTML, path: ROUTES.COURSES, status: HTTP_STATUS.OK },
   { contentType: CONTENT_TYPE.PLAIN_TEXT, path: ROBOTS_TXT, status: HTTP_STATUS.OK },
+  { contentType: CONTENT_TYPE.XML, path: SITEMAP_PATH, status: HTTP_STATUS.OK },
+  { contentType: SOCIAL_IMAGE.TYPE, path: SOCIAL_IMAGE.SITE_PATH, status: HTTP_STATUS.OK },
   { contentType: CONTENT_TYPE.JSON, path: ROUTES.API, status: HTTP_STATUS.OK },
   { contentType: CONTENT_TYPE.JSON, path: `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.GET_SESSION}`, status: HTTP_STATUS.OK },
 ]

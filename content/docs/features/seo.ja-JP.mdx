@@ -1,0 +1,61 @@
+---
+title: "検索エンジンとソーシャルプレビュー"
+description: "ページのメタデータ、robots.txt、サイトマップ、そしてビルドがプリレンダリングされたすべてのページ用に描画するソーシャルカード。"
+---
+
+各ページは、ルートの `head` を通じて検索エンジンとリンクプレビューに自身の情報を伝えます。ビルドはその情報から `sitemap.xml` と、プリレンダリングされたページごとのソーシャルカードを生成します。どちらも `dist/client` に置かれる静的ファイルなので、これらに関して Worker で実行されるものはありません。
+
+## ページのメタデータ
+
+`src/lib/seo.ts` の `buildPageHead` が、すべてのページの head を組み立てます。ほとんどのルートは `pageHead(ROUTES.X)` を通じて呼び出し、ドキュメントページ、ブログ記事、コースのページは直接呼び出します。出力するタグは次のとおりです。
+
+- タイトル（言語ごとの区切り文字と `APP_NAME` 付き）、説明、正規 URL、そしてすべての言語と `x-default` に対する `hreflang` 付きの `alternate` リンク
+- Open Graph: `og:site_name`、`og:title`（Open Graph の想定どおり、サイト名を含まないページタイトル）、`og:description`、`og:type`、`og:url`、`og:locale`、そしてセクションに属するページでは `article:section`
+- ソーシャル画像: `og:image`、`og:image:type`、`og:image:width` と `og:image:height`（<RepositoryFact name="socialImageWidth" /> × <RepositoryFact name="socialImageHeight" /> ピクセル）、`og:image:alt`、そして `summary_large_image` に設定した `twitter:card`、`twitter:title`、`twitter:description`、`twitter:image`、`twitter:image:alt`
+
+ルートルートは、ほかの言語の `og:locale:alternate` を追加します。`production` 以外のすべてのビルドモードでは、`robots` ディレクティブ `ROBOTS.NON_PRODUCTION`（`noindex, nofollow`）も追加し、プレビューとテストのデプロイが検索結果に表示されないようにします。
+
+ルートを検索結果から除外するには `pageHead(ROUTES.X, { indexable: false })` を使います。これにより `ROBOTS.NOINDEX`（`noindex`）が追加されます。プレースホルダーのページである `/premium` がこれを使っています。
+
+ドキュメントページは、パンくずリストに表示されるセクションを指定します。`fumadocs.docs.ts` の `getDocsPage` が Fumadocs の `getBreadcrumbItems` でセクションを読み取るため、`/docs` と各セクションの最初のページにはセクションがありません。ブログ記事は、`pages.blog` のタイトルでブログをセクションとして指定します。
+
+## ソーシャルカード
+
+プリレンダリングされた各ページには `/images/og/<canonical path>.png` に専用のカードがあり、ホームページのカードは `/images/og/index.png` です（`socialImagePath`）。カードには、サイトの背景と同じグリッドとグローの上に、ワードマーク、セクションがあればアクセントカラーのセクション名、ページの `og:title`、ドメインが表示されます。代替テキストはその内容をページの言語で表したもので、タイトル、セクション、`APP_NAME` を言語ごとのタイトルの区切り文字でつないだものです。
+
+プリレンダリングされないページ、つまり <RepositoryFact name="unlistedRoutes" /> とその配下のすべてのパスは、`/images/og/site.png` を共有します。このカードはワードマークだけを表示し、代替テキストは `APP_NAME` です。これらのページを列挙するのは `src/routes.ts` の `UNLISTED_ROUTES` だけです。`vite.config.ts` はこれらをプリレンダリングの対象から外し、`buildPageHead` はこれらにサイトカードを割り当てます。
+
+カードは React コンポーネントで、`src/presentation/social-card.tsx` の `PageCard` と `SiteCard` です。`src/integrations/takumi/takumi.render.tsx` の `createSocialCardRenderer` が、これらを [Takumi](https://takumi.kane.tw/docs/)（`@takumi-rs/core`）で描画します。Takumi はネイティブの Node バインディングを持つ Rust 製のレンダラーで、ブラウザーを必要としません。
+
+- 色はライトテーマのトークンです。レンダラーは `src/presentation/styles/globals.css` を読み込むため、`var(--background)`、`var(--foreground)`、`var(--ring)`、そして `field-grid` と `field-signal` のクラスはサイトのものそのままです。
+- フォントはサイトが配信しているファイルそのものです。`takumi.fonts.ts` は、`url()` をソースに持つすべての `@font-face` ルールを、Unicode の範囲付きの Geist と Geist Mono のサブセットを宣言する `fonts.css` と、`@fontsource-variable/noto-sans-jp` から読み込みます。後者を使うのは、サイトでは日本語をシステムフォントに任せているためです。Takumi は、カードのテキストが使うサブセットだけを読み込みます。各フォントフェイスは `APP_NAME` にファミリー名を続けた名前で登録します。Takumi はラテン文字だけの独自の Geist を同梱しており、そうしないとサイトのキリル文字とラテン拡張のサブセットではなく、そちらが選ばれてしまうためです。
+- ロゴは `src/presentation/branding` の `APP_LOGO_PATH` で、`Wordmark` が描画するのと同じパスです。
+
+デザインを変更するには、`social-card.tsx` を編集して `bun run build:test` を実行し、`dist/client/images/og` のカードを開いて確認します。
+
+## サイトマップと robots.txt
+
+`public/robots.txt` はすべてのパスを許可し、`https://saasyland.com/sitemap.xml` を指定しています。この行が `APP_URL` と `SITEMAP_PATH` に一致しないと、`robots.test.ts` が失敗します。
+
+`scripts/generate-seo-files.ts` は、すべてのビルドスクリプトの最後、`optimize-prerendered-html.ts` の後に実行されます。`src/lib/page-head.ts` の `readPageHead` で `dist/client` にあるプリレンダリングされたすべてのページの head を読み取り、次の処理を行います。
+
+1. `robots` ディレクティブがインデックスを許可し、かつ `robots.txt` がそのパスを禁止していないすべてのページを載せた `dist/client/sitemap.xml` を書き出します（`src/lib/sitemap.ts` の `listedPages` と `buildSitemap`。照合には `src/lib/robots.ts` の RFC 9309 に沿ったマッチングを使います）。各 `<url>` には、そのページ自身の `alternate` リンクを `x-default` も含めて `xhtml:link` エントリーとして列挙します。サイトマップに載っていない代替ページをページが指定している場合や、同じ URL が 2 回現れる場合、ビルドは失敗します。`ROBOTS.NON_PRODUCTION` はページ自身のディレクティブとは見なされないため、どのビルドモードでも同じサイトマップが書き出されます。
+2. サイトカードとすべてのページのカードを `dist/client/images/og` に描画します。2 つのページが同じ画像を指定している場合は失敗します。
+
+スクリプトは、サイトマップに載せたページ数、描画したカードの数、かかった時間を出力します。ドキュメントページには信頼できる更新日がないため、サイトマップに `lastmod` はありません。コースのページはサイトマップに含まれません。コースのページはリクエストごとに D1 から読み込まれますが、サイトマップはビルドが書き出すファイルだからです。
+
+Worker は変わりません。Takumi とこのスクリプトはビルド時にしか実行されず、`src/server.ts` は `sitemap.xml` とカードをほかのファイルと同じく静的アセットから、`public/_headers` が `/images/*` に設定したキャッシュポリシーで配信します。
+
+## テスト
+
+- `src/lib/__test__` の `seo.test.ts`、`page-head.test.tsx`、`sitemap.test.ts`、`robots.test.ts` は、タグの生成とその読み取り、サイトマップ、robots のルールをテストします。`takumi.render.test.ts` は英語、ドイツ語、ウクライナ語、日本語でカードを描画し、そのサイズを確認します。
+- `e2e/specs/seo.spec.ts` は、配信されたサイトマップをインデックスを許可するプリレンダリング済みのページと比較し、サイトマップ内のすべての URL をリクエストしてリダイレクトなしで `200` が返ることを確認します。また、ホームページ、ドキュメントページ、ブログ記事を英語と日本語で開き、ソーシャル用のタグとそこで指定された画像を確認します。
+- デプロイ後、`verify-deployment.ts` は <RepositoryFact name="liveSiteCheckPaths" /> をリクエストします。サイトマップとサイトカードもこれに含まれます。
+
+## 関連ページ
+
+- [国際化とロケール](/docs/features/internationalization)
+- [ドキュメントサイト](/docs/features/docs-site)
+- [ブログ](/docs/features/blog)
+- [フォントとブランディング](/docs/ui/fonts-and-branding)
+- [パフォーマンス](/docs/conventions/performance)

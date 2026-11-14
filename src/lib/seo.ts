@@ -1,8 +1,28 @@
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
-import { localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
+import { deLocalizePathname, localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { APP_NAME, APP_URL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+import { ROUTES, isUnlistedRoute } from "~/src/routes"
+
+export const ROBOTS = {
+  NOINDEX: "noindex",
+  NON_PRODUCTION: "noindex, nofollow",
+} as const
+
+const SOCIAL_IMAGE_DIRECTORY = "/images/og"
+const SOCIAL_IMAGE_FORMAT = "png"
+const HOME_IMAGE_NAME = "/index"
+
+export const SOCIAL_IMAGE = {
+  FORMAT: SOCIAL_IMAGE_FORMAT,
+  HEIGHT: 630,
+  SITE_PATH: `${SOCIAL_IMAGE_DIRECTORY}/site.${SOCIAL_IMAGE_FORMAT}`,
+  TWITTER_CARD: "summary_large_image",
+  TYPE: `image/${SOCIAL_IMAGE_FORMAT}`,
+  WIDTH: 1200,
+} as const
+
+export const SITEMAP_PATH = "/sitemap.xml"
 
 const TITLE_SEPARATORS: Record<SupportedLocale, string> = {
   "de-DE": " – ",
@@ -21,34 +41,78 @@ export const toOpenGraphLocale = (locale: SupportedLocale): string => locale.rep
 export const buildTitle = ({ locale, title }: { locale: SupportedLocale; title: string }): string =>
   `${title}${TITLE_SEPARATORS[locale]}${APP_NAME}`
 
+export const socialImagePath = (canonicalPath: string): string => {
+  const name = canonicalPath === ROUTES.HOME ? HOME_IMAGE_NAME : canonicalPath
+
+  return `${SOCIAL_IMAGE_DIRECTORY}${name}.${SOCIAL_IMAGE_FORMAT}`
+}
+
+const socialImage = ({
+  canonicalPath,
+  locale,
+  section,
+  title,
+}: {
+  readonly canonicalPath: string
+  readonly locale: SupportedLocale
+  readonly section: string | undefined
+  readonly title: string | undefined
+}): { readonly alt: string; readonly path: string } => {
+  if (isUnlistedRoute(deLocalizePathname(canonicalPath))) {
+    return { alt: APP_NAME, path: SOCIAL_IMAGE.SITE_PATH }
+  }
+
+  const text = [title, section, APP_NAME].filter((part) => part !== undefined)
+
+  return { alt: text.join(TITLE_SEPARATORS[locale]), path: socialImagePath(canonicalPath) }
+}
+
 export const buildPageHead = ({
   description = "",
+  indexable = true,
   locale = I18N.DEFAULT_LOCALE,
   pathname,
+  section,
   title,
   type = "website",
 }: {
   readonly description?: string | undefined
+  readonly indexable?: boolean
   readonly locale?: SupportedLocale | undefined
   readonly pathname: string
+  readonly section?: string | undefined
   readonly title?: string | undefined
   readonly type?: "article" | "website"
 }) => {
   const canonicalPath = localizePathname({ locale, pathname })
   const pageTitle = title === undefined ? APP_NAME : buildTitle({ locale, title })
+  const shareTitle = title ?? APP_NAME
+  const image = socialImage({ canonicalPath, locale, section, title })
+  const imageUrl = `${APP_URL}${image.path}`
 
   return {
     links: [...localeLinks({ origin: APP_URL, pathname: canonicalPath })],
     meta: [
       { title: pageTitle },
       { content: description, name: "description" },
-      { content: pageTitle, property: "og:title" },
+      ...(indexable ? [] : [{ content: ROBOTS.NOINDEX, name: "robots" }]),
+      { content: APP_NAME, property: "og:site_name" },
+      { content: shareTitle, property: "og:title" },
       { content: description, property: "og:description" },
       { content: type, property: "og:type" },
       { content: `${APP_URL}${canonicalPath}`, property: "og:url" },
       { content: toOpenGraphLocale(locale), property: "og:locale" },
-      { content: pageTitle, name: "twitter:title" },
+      ...(section === undefined ? [] : [{ content: section, property: "article:section" }]),
+      { content: imageUrl, property: "og:image" },
+      { content: SOCIAL_IMAGE.TYPE, property: "og:image:type" },
+      { content: String(SOCIAL_IMAGE.WIDTH), property: "og:image:width" },
+      { content: String(SOCIAL_IMAGE.HEIGHT), property: "og:image:height" },
+      { content: image.alt, property: "og:image:alt" },
+      { content: SOCIAL_IMAGE.TWITTER_CARD, name: "twitter:card" },
+      { content: shareTitle, name: "twitter:title" },
       { content: description, name: "twitter:description" },
+      { content: imageUrl, name: "twitter:image" },
+      { content: image.alt, name: "twitter:image:alt" },
     ],
   }
 }
@@ -59,9 +123,9 @@ export interface PageLoaderData {
 }
 
 export const pageHead =
-  (pathname: string) =>
+  (pathname: string, { indexable = true }: { readonly indexable?: boolean } = {}) =>
   ({ loaderData }: { loaderData?: PageLoaderData | undefined }) =>
-    buildPageHead({ ...loaderData?.metadata, locale: loaderData?.locale, pathname })
+    buildPageHead({ ...loaderData?.metadata, indexable, locale: loaderData?.locale, pathname })
 
 type PostStructuredDataInput = Readonly<{
   authorName: string

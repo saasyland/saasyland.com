@@ -6,6 +6,7 @@ import { useRouterState } from "@tanstack/react-router"
 import { LICENSE_STATUS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
+import { CLI_LICENSE_COMMANDS } from "~/src/data/cli"
 import { licenseSearchSchema } from "~/src/data/license"
 import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
 
@@ -151,7 +152,15 @@ const LicenseCardPending = (): JSX.Element => (
         <Skeleton className="h-11.5 w-full rounded-md" />
       </div>
       <TextLines className="text-sm" />
-      <Skeleton className="h-11.5 w-full rounded-md" />
+      <div className="flex flex-col gap-3">
+        {CLI_LICENSE_COMMANDS.map((command) => (
+          <div className="space-y-1.5" key={command}>
+            <Skeleton className="h-11.5 w-full rounded-md" />
+            <Skeleton className="h-lh w-2/3 scale-y-70 text-sm" />
+          </div>
+        ))}
+      </div>
+      <Skeleton className="h-lh w-1/2 scale-y-70 text-sm" />
       <Skeleton className="h-lh w-3/4 scale-y-70 text-xs leading-relaxed" />
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <Skeleton className="h-7 w-36 rounded-lg" />

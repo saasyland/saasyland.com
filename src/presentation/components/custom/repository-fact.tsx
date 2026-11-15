@@ -38,6 +38,7 @@ import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { APP_STATEMENTS } from "~/src/data/access"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
+import { CLI_EXEC, CLI_LICENSE_COMMANDS, CLI_LICENSE_KEY_VARIABLE, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { UNLISTED_ROUTES } from "~/src/data/unlisted"
@@ -64,6 +65,9 @@ const FACTS = {
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
   backupCodeMinLength: BACKUP_CODE_MIN_LENGTH,
   cliApiRetryAfterSeconds: LICENSE_API_RETRY_AFTER_SECONDS,
+  cliExec: CLI_EXEC,
+  cliLicenseCommands: CLI_LICENSE_COMMANDS.map((command) => cliCommand(command)),
+  cliLicenseKeyVariable: CLI_LICENSE_KEY_VARIABLE,
   defaultPageSize: DEFAULT_PAGE_SIZE,
   lessonProgressSaveSeconds: SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
   liveSiteCheckPaths: LIVE_SITE_CHECKS.map(({ path }) => path),
@@ -77,6 +81,7 @@ const FACTS = {
   rateLimitWindowSeconds: RATE_LIMIT_WINDOW_SECONDS,
   recipientEmailsPerHour: RECIPIENT_EMAILS_PER_HOUR,
   routerStaleTimeMinutes: QUERY_STALE_TIME_MINUTES,
+  scaffoldTarget: SCAFFOLD_TARGET,
   sensitiveRateLimit: RATE_LIMITS.SENSITIVE.max,
   signedMediaHours: PLAYBACK_TTL_SECONDS / (SECONDS_PER_MINUTE * MINUTES_PER_HOUR),
   slugMaxLength: SLUG_MAX_LENGTH,

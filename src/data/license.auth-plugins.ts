@@ -2,10 +2,9 @@ import "@tanstack/react-start/server-only"
 
 import { env } from "cloudflare:workers"
 
-import { checkout, polar, portal, webhooks } from "@polar-sh/better-auth"
+import { polar, portal, webhooks } from "@polar-sh/better-auth"
 
 import { polarCore } from "~/src/integrations/polar/polar.config"
-import { POLAR_CHECKOUT_PRODUCTS } from "~/src/integrations/polar/polar.constants"
 
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 
@@ -15,14 +14,10 @@ import { ROUTES } from "~/src/routes"
 
 export const LICENSE_AUTH_PLUGINS = [
   {
-    disabledPaths: [ROUTES.API_AUTH_POLAR.CHECKOUT],
+    disabledPaths: [],
     plugin: polar({
       client: polarCore,
-      use: [
-        checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
-        portal(),
-        webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
-      ],
+      use: [portal(), webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET })],
     }),
     rateLimitExemptPaths: [ROUTES.API_AUTH_POLAR.WEBHOOKS],
   },

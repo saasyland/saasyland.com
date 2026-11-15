@@ -15,6 +15,7 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
+import { PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
 import { CONSULTING_HOURLY_RATE } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -161,10 +162,10 @@ describe("marketing content and purchase links", () => {
     ] as const) {
       await user.click(screen.getByRole("radio", { name: runner }))
       expect(screen.getByRole("radio", { name: runner })).toBeChecked()
-      expect(screen.getByText(`${command} saasyland@latest init my-app`)).toBeVisible()
+      expect(screen.getByText(`${command} ${SCAFFOLD_TARGET}`)).toBeVisible()
     }
     await user.click(screen.getByRole("button", { name: english.hero.surface.copy }))
-    expect(await navigator.clipboard.readText()).toBe("yarn dlx saasyland@latest init my-app")
+    expect(await navigator.clipboard.readText()).toBe(`${PACKAGE_MANAGER.YARN.exec} ${SCAFFOLD_TARGET}`)
   })
 
   it("sends each tier to sign-up with a return path that keeps the chosen tier, and marks only the featured tier", () => {
@@ -341,7 +342,7 @@ describe("CLI configuration", () => {
     await user.click(screen.getByRole("radio", { name: "pnpm" }))
     await user.click(screen.getByRole("button", { name: english.cli.copy }))
     const command = await navigator.clipboard.readText()
-    expect(command).toContain("pnpm dlx saasyland@latest init my-app")
+    expect(command).toContain(`${PACKAGE_MANAGER.PNPM.exec} ${SCAFFOLD_TARGET}`)
     expect(command).toContain("--with page-builder")
     expect(command).not.toContain("--with courses")
     expect(screen.getByText("pnpm dev")).toBeVisible()

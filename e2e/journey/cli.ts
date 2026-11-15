@@ -9,13 +9,7 @@ import * as zod from "zod"
 
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 
-const CLI_PACKAGE = "saasyland@beta"
-
-export const CLI_COMMAND = {
-  ACTIVATE: "activate",
-  DEACTIVATE: "deactivate",
-  WHOAMI: "whoami",
-} as const
+import { CLI_LICENSE_KEY_VARIABLE, CLI_PACKAGE_SPEC, PACKAGE_MANAGER } from "../../src/data/cli"
 
 export const CLI_RESULT = {
   ACTIVATED: "activated",
@@ -41,7 +35,6 @@ const CLI_STATUS = {
 
 const CLI_VARIABLE = {
   API_URL: "SAASYLAND_API_URL",
-  LICENSE_KEY: "SAASYLAND_LICENSE_KEY",
   LOCALE: "SAASYLAND_LOCALE",
 } as const
 
@@ -101,7 +94,7 @@ export const createMachine = async ({ apiUrl, home, licenseKey, npmCache, reposi
       [CLI_VARIABLE.LOCALE]: I18N.DEFAULT_LOCALE,
       npm_config_cache: npmCache,
       npm_config_update_notifier: String(false),
-      ...(licenseKey === undefined ? {} : { [CLI_VARIABLE.LICENSE_KEY]: licenseKey }),
+      ...(licenseKey === undefined ? {} : { [CLI_LICENSE_KEY_VARIABLE]: licenseKey }),
       ...(repository === undefined ? {} : { [CI_REPOSITORY_VARIABLE]: repository }),
     },
     home,
@@ -120,7 +113,7 @@ const parsedJson = (text: string): unknown => {
 
 export const runCli = async ({ env, home }: Machine, inputs: readonly string[]): Promise<CliRun> => {
   const variables = Object.entries(env).map(([name, value]) => `${name}=${value}`)
-  const child = spawn("env", ["-i", ...variables, "npx", "--yes", CLI_PACKAGE, ...inputs, "--json"], { cwd: home })
+  const child = spawn("env", ["-i", ...variables, PACKAGE_MANAGER.NPM.exec, "--yes", CLI_PACKAGE_SPEC, ...inputs, "--json"], { cwd: home })
   const stdout: Buffer[] = []
   const stderr: Buffer[] = []
   child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk))

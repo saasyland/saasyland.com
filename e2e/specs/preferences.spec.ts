@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test"
 
+import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "../data/accounts"
 import { TEST_LICENSE } from "../data/licenses"
@@ -67,7 +68,7 @@ test.describe("display preferences", () => {
     page.on("pageerror", (error) => errors.push(error.message))
     const signedIn = await page.request.post("/api/auth/sign-in/email", {
       data: { email: TEST_LICENSED_ACCOUNT.email, password: TEST_PASSWORD },
-      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
     })
     expect(signedIn.ok()).toBe(true)
     for (const locale of I18N.SUPPORTED_LOCALES) {

@@ -39,6 +39,8 @@ export const LICENSE_API_ENDPOINTS = [
 
 export const LICENSE_API_RETRY_AFTER_SECONDS = 30
 
+export const REGIONAL_DISCOUNTS_REFRESH_AFTER_MS = 300_000
+
 export const POLAR_ID_MAX_LENGTH = 64
 
 export const LICENSE_QUERY_KEYS = {

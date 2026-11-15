@@ -1,13 +1,16 @@
 export const MILLISECONDS_PER_SECOND = 1000
 export const SECONDS_PER_MINUTE = 60
 export const MINUTES_PER_HOUR = 60
+export const MILLISECONDS_PER_MINUTE = MILLISECONDS_PER_SECOND * SECONDS_PER_MINUTE
+export const SECONDS_PER_HOUR = SECONDS_PER_MINUTE * MINUTES_PER_HOUR
+export const MILLISECONDS_PER_HOUR = MILLISECONDS_PER_SECOND * SECONDS_PER_HOUR
 const CLOCK_PAD = 2
 
 const pad = (value: number): string => String(value).padStart(CLOCK_PAD, "0")
 
 export const formatClock = (milliseconds: number): string => {
   const totalSeconds = Math.round(milliseconds / MILLISECONDS_PER_SECOND)
-  const hours = Math.floor(totalSeconds / (SECONDS_PER_MINUTE * MINUTES_PER_HOUR))
+  const hours = Math.floor(totalSeconds / SECONDS_PER_HOUR)
   const minutes = Math.floor(totalSeconds / SECONDS_PER_MINUTE) % MINUTES_PER_HOUR
   const seconds = totalSeconds % SECONDS_PER_MINUTE
 

@@ -4,13 +4,17 @@ import { API_BASE_PATH, API_ENDPOINT, API_ERROR, API_ERROR_STATUS, RATE_LIMIT } 
 import { render, screen, within } from "@testing-library/react"
 import { adminAc } from "better-auth/plugins/admin/access"
 import { IntlProvider } from "use-intl/react"
-import { describe, expect, it, vi } from "vite-plus/test"
-import zod from "zod/v4"
+import { describe, expect, it } from "vite-plus/test"
 
+import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { PPP_TIERS } from "~/src/modules/_core/constants/pricing"
-import { LICENSE_API_ENDPOINTS, LICENSE_API_RETRY_AFTER_SECONDS } from "~/src/modules/license/license.constants"
+import {
+  LICENSE_API_ENDPOINTS,
+  LICENSE_API_RETRY_AFTER_SECONDS,
+  REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
+} from "~/src/modules/license/license.constants"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
@@ -18,20 +22,15 @@ import { APP_STATEMENTS } from "~/src/data/access"
 import { CLI_LICENSE_COMMANDS, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
-import { MILLISECONDS_PER_SECOND, MINUTES_PER_HOUR, SECONDS_PER_MINUTE } from "~/src/lib/duration"
+import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
+import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
+import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
 
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
 
+import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT } from "~/e2e/data/accounts"
+import { TEST_LICENSE } from "~/e2e/data/licenses"
 import { COMMIT_EMOJIS } from "~/scripts/commit-msg"
-import { getRouter } from "~/src/router"
-
-vi.mock("~/src/routeTree.gen", async () => {
-  const { createRootRoute } = await import("@tanstack/react-router")
-
-  return { routeTree: createRootRoute() }
-})
-
-const MILLISECONDS_PER_MINUTE = MILLISECONDS_PER_SECOND * SECONDS_PER_MINUTE
 
 const renderInLocale = (locale: SupportedLocale, children: ReactNode) =>
   render(
@@ -39,6 +38,9 @@ const renderInLocale = (locale: SupportedLocale, children: ReactNode) =>
       <div data-testid="fact">{children}</div>
     </IntlProvider>,
   )
+
+const inUnit = (unit: string, value: number): string =>
+  new Intl.NumberFormat("en-US", { style: "unit", unit, unitDisplay: "long" }).format(value)
 
 const listItems = (): (string | null)[] => screen.getAllByRole("listitem").map((item) => item.textContent)
 
@@ -67,9 +69,7 @@ describe("RepositoryFact", () => {
     renderInLocale(locale, <RepositoryFact name="signedMediaHours" unit="hour" />)
 
     expect(screen.getByTestId("fact")).toHaveTextContent(
-      new Intl.NumberFormat(locale, { style: "unit", unit: "hour", unitDisplay: "long" }).format(
-        PLAYBACK_TTL_SECONDS / (SECONDS_PER_MINUTE * MINUTES_PER_HOUR),
-      ),
+      new Intl.NumberFormat(locale, { style: "unit", unit: "hour", unitDisplay: "long" }).format(PLAYBACK_TTL_SECONDS / SECONDS_PER_HOUR),
     )
   })
 
@@ -94,11 +94,7 @@ describe("RepositoryFact", () => {
     expect(screen.getByTestId("fact")).toHaveTextContent(new Intl.ListFormat(locale).format(I18N.SUPPORTED_LOCALES))
   })
 
-  it("prints the router and query cache times the router is created with", () => {
-    const router = getRouter()
-    const { gcTime, staleTime } = zod
-      .object({ gcTime: zod.number(), staleTime: zod.number() })
-      .parse(router.options.context.queryClient.getDefaultOptions().queries)
+  it("prints the query and router cache times in minutes from the constants the router is created with", () => {
     renderInLocale(
       "en-US",
       <ul>
@@ -115,12 +111,43 @@ describe("RepositoryFact", () => {
     )
 
     expect(listItems()).toEqual(
-      [staleTime, gcTime, zod.number().parse(router.options.defaultStaleTime)].map((milliseconds) =>
+      [QUERY_STALE_TIME_MS, QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS].map((milliseconds) =>
         new Intl.NumberFormat("en-US", { style: "unit", unit: "minute", unitDisplay: "long" }).format(
           milliseconds / MILLISECONDS_PER_MINUTE,
         ),
       ),
     )
+  })
+
+  it("prints the cache lifetimes of the KV entries and the retries of the live site check in their units", () => {
+    renderInLocale(
+      "en-US",
+      <ul>
+        <li>
+          <RepositoryFact name="starCountFetchTimeoutSeconds" unit="second" />
+        </li>
+        <li>
+          <RepositoryFact name="starCountRefreshHours" unit="hour" />
+        </li>
+        <li>
+          <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" />
+        </li>
+        <li>
+          <RepositoryFact name="liveSiteCheckRetries" />
+        </li>
+        <li>
+          <RepositoryFact name="liveSiteCheckRetrySeconds" unit="second" />
+        </li>
+      </ul>,
+    )
+
+    expect(listItems()).toEqual([
+      inUnit("second", STAR_COUNT_FETCH_TIMEOUT_MS / MILLISECONDS_PER_SECOND),
+      inUnit("hour", STAR_COUNT_REFRESH_AFTER_MS / MILLISECONDS_PER_HOUR),
+      inUnit("minute", REGIONAL_DISCOUNTS_REFRESH_AFTER_MS / MILLISECONDS_PER_MINUTE),
+      String(LIVE_SITE_CHECK_RETRY_DELAYS_MS.length),
+      inUnit("second", LIVE_SITE_CHECK_RETRY_DELAY_MS / MILLISECONDS_PER_SECOND),
+    ])
   })
 
   it("prints the CLI licence API's rate limits from the contract and its retry delay from the licence module", () => {
@@ -220,6 +247,15 @@ describe("RepositoryTable", () => {
       ]),
     )
     expect(rows.map(([code]) => code)).not.toContain(API_ERROR.VERSION_NOT_FOUND)
+  })
+
+  it("prints every seeded account with its role and the tier of its licence", () => {
+    renderInLocale("en-US", <RepositoryTable columns={["Email", "Role", "Licence"]} name="seededAccounts" />)
+
+    expect(tableRows().slice(1)).toEqual([
+      ...TEST_ACCOUNTS.map(({ email, role }) => [email, role, ""]),
+      [TEST_LICENSED_ACCOUNT.email, TEST_LICENSED_ACCOUNT.role, TEST_LICENSE.tier],
+    ])
   })
 
   it("prints the regional price multipliers formatted for the page locale", () => {

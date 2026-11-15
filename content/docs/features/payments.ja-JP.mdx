@@ -20,7 +20,7 @@ export const LICENSE_AUTH_PLUGINS = [
 
 プラグインはカスタマーポータルと Webhook を追加し、Webhook は Better Auth のレート制限の対象外です。購入セッションはプラグインでは作成しません。プラグインの `checkout()` はアカウントの ID だけで購入セッションを作成するため、Polar がサインイン済みの購入者にメールアドレスをもう一度尋ねることになるからです。購入はすべて `startCheckout` サーバー関数から始まり、この関数は独自のチェックを行った後、Polar SDK で購入セッションを作成します。
 
-`src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に購入セッション、割引、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は割引の検索とライセンスキーの無効化の対象を絞り込みます。`POLAR_PRODUCT_IDS` はプラン `core`、`complete`、`agency` を `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付けます。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、割引、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
+`src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に購入セッション、割引、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は、組織を指定する Polar の呼び出しすべての対象を組織に絞り込みます。その一覧は[環境とバインディング](/docs/reference/environment)にあります。`POLAR_PRODUCT_IDS` はプラン `core`、`complete`、`agency` を `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付けます。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、割引、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
 
 ## 購入
 
@@ -39,11 +39,11 @@ export const LICENSE_AUTH_PLUGINS = [
 
 ### サインアップ前に選んだプラン
 
-ランディングページの各プランのボタンは `/auth/sign-up?redirect=/app?tier=<tier>` にリンクします。戻り先のパスはサインアップ、メール認証、サインインを経ても保持され（`useAuthRedirect`）、すでにサインインしている訪問者はそのまま戻り先に移動します。`/app` レイアウトは `appSearchSchema`（`src/data/app.ts`。`searchParam` で構築）で `tier` を `LICENSE_TIER` と照合し、`/app` と `/app/license` はどちらもプランのカードの上に `ChosenTier` を表示します。プラン、地域割引を適用した価格、**決済に進む** ボタンが含まれます。ロックされた有料レッスンは、サインイン済みの視聴者を `/app/license?tier=complete` に、ゲストをランディングページの料金セクションにリンクします。アカウントが必要なレッスンはサインインにリンクします（[コース](/docs/features/courses)）。
+ランディングページの各プランのボタンは `/auth/sign-up?redirect=/app?tier=<tier>` にリンクします。戻り先のパスはサインアップ、メール認証、サインインを経ても保持され（`useAuthRedirect`）、すでにサインインしている訪問者はそのまま戻り先に移動します。`licenseSearchSchema`（`src/data/license.ts`。`searchParam` で構築）は、`/app/license` で、またライセンスのエリアが概要ページに追加するパラメーターとして `/app` で、`tier` を `LICENSE_TIER` と照合します。`/app` と `/app/license` はどちらもプランのカードの上に `ChosenTier` を表示します。プラン、地域割引を適用した価格、**決済に進む** ボタンが含まれます。ロックされた有料レッスンは、サインイン済みの視聴者を `/app/license?tier=complete` に、ゲストをランディングページの料金セクションにリンクします。アカウントが必要なレッスンはサインインにリンクします（[コース](/docs/features/courses)）。
 
 ### 支払い後
 
-Polar は購入者を `/app?checkoutId=<id>` に戻します。通常、これは `order.paid` Webhook がライセンスを付与するより前です。`checkoutId` があり、ライセンスがまだ有効でない間、ページはプランのカードを隠して `CheckoutActivation` を表示します。このコンポーネントは 2 秒ごと（`ACTIVATION_POLL_MS`）に `currentLicenseQuery` を再取得します。
+Polar は購入者を `/app?checkoutId=<id>` に戻します。通常、これは `order.paid` Webhook がライセンスを付与するより前です。`checkoutId` があり、ライセンスがまだ有効でない間、ページはプランのカードを隠して `CheckoutActivation` を表示します。このコンポーネントは <RepositoryFact name="activationPollSeconds" unit="second" />ごと（`ACTIVATION_POLL_MS`）に `currentLicenseQuery` を再取得します。
 
 - ライセンスが有効になると購入者にお礼を表示し、その下にライセンスが表示されます。
 - <RepositoryFact name="activationTimeoutSeconds" unit="second" />

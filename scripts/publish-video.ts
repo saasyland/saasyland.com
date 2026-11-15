@@ -31,10 +31,11 @@ import { mediaContentType, videoObjectKey } from "~/src/modules/video/video.file
 import { video } from "~/src/modules/video/video.schema"
 import { videoZodSchemas } from "~/src/modules/video/video.zod"
 
+import { MILLISECONDS_PER_MINUTE } from "~/src/lib/duration"
+
 import { readBucketName } from "./wrangler-config.ts"
 
 const SCRIPT_ARGUMENTS_START = 2
-const MILLISECONDS_PER_MINUTE = 60_000
 const DECIMAL_PLACES = 1
 const DATABASE_BINDING = "DB"
 const WEBVTT_SIGNATURE = "WEBVTT"

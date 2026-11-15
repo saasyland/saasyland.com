@@ -7,13 +7,12 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
-import { MILLISECONDS_PER_SECOND, MINUTES_PER_HOUR, SECONDS_PER_MINUTE } from "~/src/lib/duration"
+import { MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
 import { sha256Hex } from "~/src/lib/hex"
 
 const SINGLE_REQUEST = 1
 const CLEANUP_BATCH_SIZE = 100
 const RECIPIENT_KEY_PREFIX = "recipient:"
-const SECONDS_PER_HOUR = SECONDS_PER_MINUTE * MINUTES_PER_HOUR
 const NO_WAIT_SECONDS = 0
 
 interface RateLimitInput {

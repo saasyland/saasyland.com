@@ -3,9 +3,9 @@ import { DEPLOYED_HOSTS } from "~/src/modules/_core/constants/api"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import type { LiveSiteCheck } from "~/src/data/live.constants"
 
-const RETRY_DELAY_MS = 5000
+export const LIVE_SITE_CHECK_RETRY_DELAY_MS = 5000
 
-export const LIVE_SITE_CHECK_RETRY_DELAYS_MS = [RETRY_DELAY_MS, RETRY_DELAY_MS]
+export const LIVE_SITE_CHECK_RETRY_DELAYS_MS = [LIVE_SITE_CHECK_RETRY_DELAY_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS]
 
 export const LIVE_SITE_CHECK_TIMEOUT_MS = 15_000
 

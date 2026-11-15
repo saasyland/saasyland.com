@@ -15,12 +15,12 @@ import {
 
 import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
 import { PPP_COOKIE, PPP_DECLINED, getPppPercentOff } from "~/src/modules/_core/constants/pricing"
+import { REGIONAL_DISCOUNTS_REFRESH_AFTER_MS } from "~/src/modules/license/license.constants"
 
 import { readCookie } from "~/src/lib/cookie"
 
 const DISCOUNT_PAGE_SIZE = 100
 const CACHE_KEY = "polar:regional-discounts"
-const REFRESH_AFTER_MS = 300_000
 
 const cachedDiscountsSchema = zod.object({ discounts: zod.array(regionalDiscountSchema), fetchedAt: zod.int().nonnegative() })
 
@@ -49,7 +49,7 @@ const fetchDiscounts = async (): Promise<readonly RegionalDiscount[]> => {
 const regionalDiscounts = async (): Promise<readonly RegionalDiscount[]> => {
   const cached = cachedDiscountsSchema.safeParse(await env.CACHE.get(CACHE_KEY, "json")).data
 
-  if (cached !== undefined && Date.now() - cached.fetchedAt < REFRESH_AFTER_MS) {
+  if (cached !== undefined && Date.now() - cached.fetchedAt < REGIONAL_DISCOUNTS_REFRESH_AFTER_MS) {
     return cached.discounts
   }
 

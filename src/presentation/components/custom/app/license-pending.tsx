@@ -15,7 +15,7 @@ import { cn } from "~/src/lib/cn"
 import { Card, CardAction, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import { PageHeaderPending } from "~/src/presentation/components/custom/app/auth-pending"
+import { PageHeaderPending } from "~/src/presentation/components/custom/app/pending-blocks"
 import { FEATURED_TIER, FEATURE_IDS } from "~/src/presentation/components/custom/pricing"
 
 const usePendingLicenseView = () => {
@@ -184,44 +184,16 @@ const LicenseActivationsPending = (): JSX.Element => (
   </Card>
 )
 
-const DocsStepPending = (): JSX.Element => (
-  <div className="flex flex-col items-start gap-3">
-    <div className="w-full space-y-1 text-sm">
-      <Skeleton className="h-lh w-24 scale-y-70" />
-      <div className="flex flex-col">
-        <Skeleton className="h-lh w-full scale-y-70" />
-        <Skeleton className="h-lh w-1/4 scale-y-70 sm:hidden" />
-      </div>
-    </div>
-    <Skeleton className="h-7 w-42 rounded-lg" />
-  </div>
-)
-
-const SupportStepPending = (): JSX.Element => (
-  <div className="flex flex-col items-start gap-3">
-    <div className="w-full space-y-1 text-sm">
-      <Skeleton className="h-lh w-24 scale-y-70" />
-      <Skeleton className="h-lh w-4/5 scale-y-70" />
-    </div>
-    <Skeleton className="h-7 w-30 rounded-lg" />
-  </div>
-)
-
-export const AppOverviewPending = (): JSX.Element => {
+export const LicenseOverviewPending = (): JSX.Element => {
   const view = usePendingLicenseView()
 
   return (
-    <div aria-busy="true" className="flex w-full flex-col gap-8 pb-8">
-      <PageHeaderPending />
+    <>
       {view.isAwaitingPayment && <ActivationPending />}
       {view.showsChosenTier && <ChosenTierPending />}
       {view.showsLicense && <LicenseStatusCardPending />}
       {view.isBuying && <LicenseOfferPending />}
-      <div className="grid gap-8 sm:grid-cols-2">
-        <DocsStepPending />
-        <SupportStepPending />
-      </div>
-    </div>
+    </>
   )
 }
 

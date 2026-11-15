@@ -4,6 +4,8 @@ import { posix } from "node:path"
 import type { Plugin } from "vite-plus"
 import * as zod from "zod"
 
+import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "../e2e/data/accounts.ts"
+import { TEST_LICENSE } from "../e2e/data/licenses.ts"
 import playwrightConfig, { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
 import { MILLISECONDS_PER_SECOND } from "../src/lib/duration.ts"
 import { COUNTRIES } from "../src/modules/_core/constants/country.ts"
@@ -100,6 +102,13 @@ export const collectCliApiTables = () => ({
 
 export type CliApiTables = ReturnType<typeof collectCliApiTables>
 
+export const collectSeededAccounts = () => [
+  ...TEST_ACCOUNTS.map(({ email, role }) => [email, role, []] as const),
+  [TEST_LICENSED_ACCOUNT.email, TEST_LICENSED_ACCOUNT.role, [TEST_LICENSE.tier]] as const,
+]
+
+export type SeededAccounts = ReturnType<typeof collectSeededAccounts>
+
 export const collectRepositoryFacts = (config: unknown) => {
   const { fmt, lint, test } = configSchema.parse(config)
   const e2eSpecsPath = posix.normalize(playwrightSchema.parse(playwrightConfig).testDir)
@@ -141,6 +150,7 @@ export const collectRepositoryFacts = (config: unknown) => {
     tabWidth: fmt.tabWidth,
     tanstackTableMajor: majorVersionOf("@tanstack/react-table"),
     testFiles: countFiles("src/**/*.{test,spec}.{ts,tsx}"),
+    testPassword: TEST_PASSWORD,
     timezones: TIMEZONES.length,
     uiComponents: countFiles("src/presentation/components/shadcn/*.tsx"),
   }
@@ -157,6 +167,7 @@ export const repositoryFacts = (): Plugin => {
         `export default ${JSON.stringify(collectRepositoryFacts(config))}`,
         `export const commitEmojis = ${JSON.stringify(COMMIT_EMOJIS)}`,
         `export const cliApiTables = ${JSON.stringify(collectCliApiTables())}`,
+        `export const seededAccounts = ${JSON.stringify(collectSeededAccounts())}`,
       ].join("\n")
     },
     load: (id) => (id === RESOLVED_MODULE_ID ? moduleSource : undefined),

@@ -6,6 +6,7 @@ import { LICENSE_API_ENDPOINTS } from "~/src/modules/license/license.constants"
 
 import { Route as ActivationsRoute } from "~/src/routes/api/cli.v1.activations"
 import { Route as ActivationRoute } from "~/src/routes/api/cli.v1.activations.$activationId"
+import { Route as BundlesRoute } from "~/src/routes/api/cli.v1.activations.$activationId.bundles"
 import { Route as LicenseRoute } from "~/src/routes/api/cli.v1.license"
 
 import { getRouter } from "~/src/router"
@@ -16,12 +17,12 @@ vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () =>
 const ACTIVATION_ID = crypto.randomUUID()
 const CONTRACT_SEGMENT = `:${ROUTE_PARAMETER.ACTIVATION_ID}`
 const FILE_ROUTE_SEGMENT = `$${ROUTE_PARAMETER.ACTIVATION_ID}`
-const SERVED_ENDPOINTS = new Set<string>(LICENSE_API_ENDPOINTS)
 
 const CONTRACT_ROUTES = [
   { endpoint: API_ENDPOINT.LICENSE, name: "LICENSE", params: {}, route: LicenseRoute },
   { endpoint: API_ENDPOINT.ACTIVATE, name: "ACTIVATE", params: {}, route: ActivationsRoute },
   { endpoint: API_ENDPOINT.VALIDATE, name: "VALIDATE", params: { [ROUTE_PARAMETER.ACTIVATION_ID]: ACTIVATION_ID }, route: ActivationRoute },
+  { endpoint: API_ENDPOINT.BUNDLE, name: "BUNDLE", params: { [ROUTE_PARAMETER.ACTIVATION_ID]: ACTIVATION_ID }, route: BundlesRoute },
   {
     endpoint: API_ENDPOINT.DEACTIVATE,
     name: "DEACTIVATE",
@@ -49,14 +50,9 @@ it("serves exactly the endpoints that LICENSE_API_ENDPOINTS lists for the docs",
   expect(CONTRACT_ROUTES.map(({ name }) => name)).toStrictEqual([...LICENSE_API_ENDPOINTS])
 })
 
-it.each(Object.entries(API_ENDPOINT).filter(([name]) => !SERVED_ENDPOINTS.has(name)))(
-  "has no route file for the %s endpoint, which a later release adds",
-  (_name, { route }) => {
-    const [matchedRoutes] = getRouter().getMatchedRoutes(requestPath(route))
-
-    expect(matchedRoutes.some(({ fullPath }) => fullPath === fileRoutePath(route))).toBe(false)
-  },
-)
+it("serves every endpoint of the contract", () => {
+  expect([...LICENSE_API_ENDPOINTS].toSorted()).toStrictEqual(Object.keys(API_ENDPOINT).toSorted())
+})
 
 it("answers each contract method with its licence API handler and no other method", () => {
   expect(LicenseRoute.options.server?.handlers).toStrictEqual({ [API_ENDPOINT.LICENSE.method]: licenseApiHandlers.license })
@@ -65,6 +61,7 @@ it("answers each contract method with its licence API handler and no other metho
     [API_ENDPOINT.DEACTIVATE.method]: licenseApiHandlers.deactivate,
     [API_ENDPOINT.VALIDATE.method]: licenseApiHandlers.validate,
   })
+  expect(BundlesRoute.options.server?.handlers).toStrictEqual({ [API_ENDPOINT.BUNDLE.method]: licenseApiHandlers.bundle })
 })
 
 it("sends the CLI to the licence page this app serves", () => {

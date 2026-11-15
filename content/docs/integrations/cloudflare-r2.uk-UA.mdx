@@ -1,9 +1,9 @@
 ---
 title: "Cloudflare R2"
-description: "Бакет MEDIA: приватне сховище відео, яке Worker віддає через підписані шляхи з обмеженим терміном дії та периферійний кеш."
+description: "Бакети MEDIA і BUNDLES: приватне сховище відео та бандли шаблонів CLI, які Worker віддає через підписані шляхи з обмеженим терміном дії."
 ---
 
-Кожне середовище прив'язує бакет R2 як `MEDIA` у `wrangler.jsonc`: `saasyland` у production, `saasyland-preview` для preview і локальної розробки та локальний бакет `saasyland-test` для тестової збірки. Бакети приватні: публічний доступ і URL-адреса `r2.dev` залишаються вимкненими, а кожне читання проходить через Worker.
+Кожне середовище прив'язує бакет R2 як `MEDIA` у `wrangler.jsonc`: `saasyland` у production, `saasyland-preview` для preview і локальної розробки та локальний бакет `saasyland-test` для тестової збірки. Бакети приватні: публічний доступ і URL-адреса `r2.dev` залишаються вимкненими, а кожне читання проходить через Worker. Розділ ліцензій прив'язує другий бакет, `BUNDLES`, для бандлів шаблонів CLI (див. [Бандли шаблонів](#template-bundles)).
 
 ## Структура об'єктів
 
@@ -34,9 +34,17 @@ description: "Бакет MEDIA: приватне сховище відео, як
 
 Worker не приймає завантажень. `scripts/publish-video.ts` записує файли в бакет командою `wrangler r2 bulk put --remote`, використовуючи ваш вхід через `bunx wrangler login`; див. [Відео](/docs/features/videos). Видалення відео в адмінці отримує перелік об'єктів під його префіксом і видаляє їх сторінку за сторінкою через прив'язку.
 
+## Бандли шаблонів [#template-bundles]
+
+Кожне середовище прив'язує також бакет `BUNDLES` розділу ліцензій:
+
+<RepositoryTable columns={["Середовище", "Бакет"]} name="cliBundleBuckets" />
+
+Він містить по одному об'єкту на кожен випуск CLI — бандл шаблонів випуску під ключем <RepositoryFact name="cliBundleKey" />, який завантажує репозиторій CLI під час випуску; Worker ніколи в нього не записує. [API ліцензій для CLI](/docs/features/cli-licence-api#template-bundles) підписує URL-адреси <RepositoryFact name="cliBundleUrlPath" /> так само, як підписуються шляхи `/media/`, але власним ключем і з терміном дії <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />, а `serveBundle` (`src/modules/license/license.delivery.ts`) потоково віддає об'єкт, не кешуючи його. [Публікація бандлів](/docs/features/cli-licence-api#publishing-bundles) перелічує ключ, тип вмісту й бакети, у які завантажує випуск.
+
 ## Тести
 
-У Vitest `cloudflare:workers` розв'язується в `src/platform/testing/mocks/cloudflare.ts`, який надає бакет `MEDIA` у пам'яті з `get` (зокрема з діапазонами), `head`, `put`, `delete` і посторінковим `list`. `src/platform/testing/mocks/cache.ts` підміняє кеш Workers. Тестова збірка використовує локальний бакет `saasyland-test` у `.wrangler/test`.
+У Vitest `cloudflare:workers` розв'язується в `src/platform/testing/mocks/cloudflare.ts`, який надає бакет у пам'яті для кожної прив'язки R2 середовища `test`, тобто `MEDIA` і `BUNDLES`, з `get` (зокрема з діапазонами), `head`, `put` для тексту або байтів, `delete` і посторінковим `list`. `src/platform/testing/mocks/cache.ts` підміняє кеш Workers. Тестова збірка використовує локальні бакети `saasyland-test` і `saasyland-bundles-test` у `.wrangler/test`.
 
 ## Пов'язані сторінки
 

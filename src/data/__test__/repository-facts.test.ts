@@ -41,9 +41,10 @@ describe("collectRepositoryFacts", () => {
     })
   })
 
-  it("reads the CLI licence API's path, header, label limit and rate limits from the contract", () => {
+  it("reads the CLI licence API's path, header, label limit, bundle URL lifetime and rate limits from the contract", () => {
     expect(collectRepositoryFacts(configWith())).toMatchObject({
       cliApiBasePath: API_BASE_PATH,
+      cliApiBundleUrlTtlSeconds: API_LIMIT.BUNDLE_URL_TTL_SECONDS,
       cliApiLabelMaxLength: API_LIMIT.LABEL_MAX_LENGTH,
       cliApiMachineHeader: API_HEADER.MACHINE,
       cliApiRateLimitSeconds: RATE_LIMIT.PERIOD_SECONDS,

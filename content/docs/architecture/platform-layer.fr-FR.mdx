@@ -5,14 +5,15 @@ description: "Le runtime Cloudflare : point d'entrée du Worker, bindings, envir
 
 ## Worker et bindings
 
-`wrangler.jsonc` définit `src/server.ts` comme point d'entrée du Worker. Le Worker reçoit quatre bindings :
+`wrangler.jsonc` définit `src/server.ts` comme point d'entrée du Worker. Le Worker reçoit ces bindings :
 
-| Binding  | Type                 | Utilisé pour                                                                      |
-| -------- | -------------------- | --------------------------------------------------------------------------------- |
-| `DB`     | Base de données D1   | Toutes les tables, y compris les sessions et les compteurs de limitation de débit |
-| `CACHE`  | Namespace KV         | Le nombre d'étoiles GitHub et les remises régionales du paiement                  |
-| `MEDIA`  | Bucket R2            | Les fichiers vidéo, servis par `serveMedia` sous `/media/`                        |
-| `ASSETS` | Ressources statiques | Les pages prérendues et les fichiers de `public`                                  |
+| Binding   | Type                 | Utilisé pour                                                                      |
+| --------- | -------------------- | --------------------------------------------------------------------------------- |
+| `DB`      | Base de données D1   | Toutes les tables, y compris les sessions et les compteurs de limitation de débit |
+| `CACHE`   | Namespace KV         | Le nombre d'étoiles GitHub et les remises régionales du paiement                  |
+| `MEDIA`   | Bucket R2            | Les fichiers vidéo, servis par `serveMedia` sous `/media/`                        |
+| `BUNDLES` | Bucket R2            | Les bundles de modèles de la CLI, servis par `serveBundle` sous `/bundles/`       |
+| `ASSETS`  | Ressources statiques | Les pages prérendues et les fichiers de `public`                                  |
 
 Les requêtes vers `/assets/*`, `/fonts/*`, `/robots.txt` et `/llms.txt` sont servies depuis les ressources statiques sans exécuter le Worker. Le code serveur lit les bindings, les secrets et `waitUntil` depuis `cloudflare:workers`. `src/server.ts` ajoute les en-têtes de sécurité à chaque réponse qu'il renvoie ; les fichiers servis sans le Worker reçoivent le sous-ensemble défini dans `public/_headers` ([Sécurité et durcissement](/docs/features/security)).
 
@@ -29,7 +30,7 @@ Aucun fichier de la plateforme ne nomme une zone. Chaque zone, comme les cours o
 | Vérifications de déploiement   | `src/data/<area>.deploy.ts`: une liste `<AREA>_DEPLOY_CHECKS`   | `src/data/deploy.entries.ts`    | `DEPLOY_CHECKS` dans `src/data/deploy.ts`, que `scripts/run-deploy-checks.ts` exécute                                          |
 | Vérifications du site en ligne | `src/data/<area>.live.ts`: une liste `<AREA>_LIVE_CHECKS`       | `src/data/live.entries.ts`      | `LIVE_SITE_CHECKS` dans `src/data/live.ts`, que `scripts/verify-deployment.ts` interroge après un déploiement                  |
 
-Un handler de requêtes revendique un `pathPrefix` et répond à toutes les requêtes situées dessous avant le middleware de locale, les ressources statiques et TanStack Start, comme le fait le handler de la zone des cours pour `/media/`. Un handler de documents reçoit chaque page HTML que renvoie le Worker, avec sa locale et la requête, et renvoie la page à envoyer, comme le fait la tarification régionale de la zone des licences. `src/server.ts` importe les handlers statiquement, ils sont donc évalués à chaque démarrage à froid : un fichier de handlers n'importe que des constantes et des utilitaires purs et charge tout ce qui est plus lourd avec un `import()` dynamique (voir [Performances](/docs/conventions/performance)).
+Un handler de requêtes revendique un `pathPrefix` et répond à toutes les requêtes situées dessous avant le middleware de locale, les ressources statiques et TanStack Start, comme le font le handler de la zone des cours pour `/media/` et celui de la zone des licences pour `/bundles/`. Un handler de documents reçoit chaque page HTML que renvoie le Worker, avec sa locale et la requête, et renvoie la page à envoyer, comme le fait la tarification régionale de la zone des licences. `src/server.ts` importe les handlers statiquement, ils sont donc évalués à chaque démarrage à froid : un fichier de handlers n'importe que des constantes et des utilitaires purs et charge tout ce qui est plus lourd avec un `import()` dynamique (voir [Performances](/docs/conventions/performance)).
 
 Une entrée de plugins Vite a un `order`, qui place ses plugins parmi ceux des autres zones, et `vitest`, qui indique s'ils se chargent aussi sous Vitest. Vite charge sa configuration avant que l'alias `~` ne soit résolu : `vite.ts`, `vite.entries.ts` et chaque `<area>.vite.ts` importent donc par chemin relatif avec l'extension `.ts`, et une entrée n'importe son paquet de plugins que dans sa fonction `plugins`, afin que `vp lint` et `vp fmt` ne le chargent jamais.
 
@@ -56,11 +57,11 @@ La base ajoute une liste vide à chaque barrel que seules des zones facultatives
 
 Chaque environnement liste ses secrets obligatoires sous `secrets.required`. Les valeurs proviennent du fichier `.env.<environment>` correspondant ; les scripts de déploiement écrivent les clés déclarées dans `.wrangler/secrets.<environment>.json` et transmettent ce fichier à Wrangler avec `--secrets-file`. L'environnement `test` utilise `src/platform/testing/worker.ts` comme point d'entrée et les valeurs factices versionnées dans `.env.test`. `AFFONSO_PROGRAM_ID` est public : c'est donc une simple variable de Worker sous `vars` et non un secret ; seul `test` en définit une. Les secrets d'un module restent groupés, dans l'ordre de `.env.example`, et de `.env.test` pour `test`, si bien qu'une zone apporte ses secrets en un seul groupe ; `src/__test__/wrangler.test.ts` compare les noms dans l'ordre et échoue lorsqu'ils diffèrent. Une ligne vide entre deux groupes ne sert qu'à la lecture, car un formateur peut la supprimer, si bien que le test l'ignore.
 
-Les bindings d'une zone forment aussi un bloc à part. Le bucket R2 `MEDIA` appartient à la zone des cours : `r2_buckets` vient donc en dernier dans chaque environnement, et un projet sans les cours l'omet. `wrangler.test.ts` échoue aussi lorsqu'un environnement lie d'autres bases D1, espaces de noms KV ou buckets R2 que `development`, et `scripts/verify-bindings.ts` vérifie chaque binding que déclare l'environnement cible sans en nommer aucun.
+Les bindings d'une zone forment aussi un bloc à part. Les buckets R2 appartiennent à des zones, `MEDIA` aux cours et `BUNDLES` à la vente de licences : `r2_buckets` vient donc en dernier dans chaque environnement, avec une entrée par zone, et un projet sans une zone omet son entrée. `wrangler.test.ts` échoue aussi lorsqu'un environnement lie d'autres bases D1, espaces de noms KV ou buckets R2 que `development`, et `scripts/verify-bindings.ts` vérifie chaque binding que déclare l'environnement cible sans en nommer aucun.
 
 ## Types
 
-- `src/types/worker-configuration.d.ts` est généré par `bun run cf-typegen` à partir de l'environnement `development` de `wrangler.jsonc` et déclare `Cloudflare.Env` : les bindings `DB`, `CACHE` et `MEDIA` et tous les secrets de `secrets.required`. `src/types/bindings.d.ts` ajoute `ASSETS`, que Wrangler omet.
+- `src/types/worker-configuration.d.ts` est généré par `bun run cf-typegen` à partir de l'environnement `development` de `wrangler.jsonc` et déclare `Cloudflare.Env` : les bindings `DB`, `CACHE`, `MEDIA` et `BUNDLES` et tous les secrets de `secrets.required`. `src/types/bindings.d.ts` ajoute `ASSETS`, que Wrangler omet.
 - Une zone ne déclare dans `src/types/<area>.d.ts` que ce que Wrangler ne peut pas déduire : `affiliates.d.ts` la variable facultative `AFFONSO_PROGRAM_ID`, que seul `test` définit, `polar.d.ts` les deux valeurs de `POLAR_SERVER` et `repository-facts.d.ts` le module `virtual:repository-facts`.
 - `src/types/router.d.ts` enregistre le type du routeur et l'option de route `staticData.namespaces`.
 

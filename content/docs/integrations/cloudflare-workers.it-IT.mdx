@@ -12,13 +12,13 @@ L'applicazione gira come un unico Cloudflare Worker. `@cloudflare/vite-plugin` l
 | `production`  | `saasyland`             | Risorse di produzione              | `saasyland.com`         |
 | `test`        | `saasyland-test`        | Risorse locali in `.wrangler/test` | `127.0.0.1:3000`        |
 
-Ogni ambiente collega D1 come `DB`, KV come `CACHE` e R2 come `MEDIA`, ed elenca i secret di cui ha bisogno. `AFFONSO_PROGRAM_ID`, che attiva il tracciamento dei referral degli affiliati, è una semplice variabile sotto `vars`, per ora impostata solo in `test`. L'ambiente `test` usa `src/platform/testing/worker.ts` come entry point; intercetta le richieste a Resend e Polar ed espone endpoint riservati ai test per Playwright.
+Ogni ambiente collega D1 come `DB`, KV come `CACHE` e R2 come `MEDIA` e `BUNDLES`, ed elenca i secret di cui ha bisogno. `AFFONSO_PROGRAM_ID`, che attiva il tracciamento dei referral degli affiliati, è una semplice variabile sotto `vars`, per ora impostata solo in `test`. L'ambiente `test` usa `src/platform/testing/worker.ts` come entry point; intercetta le richieste a Resend e Polar ed espone endpoint riservati ai test per Playwright.
 
 ## Flusso delle richieste
 
 `src/server.ts` gestisce ogni richiesta:
 
-1. Un percorso rivendicato da un'area va, prima di ogni altra cosa, all'handler delle richieste di quell'area. L'area dei corsi rivendica `/media/` e lo passa a `serveMedia`, che serve i file video firmati dalla cache di Workers o da R2 (vedi [Cloudflare R2](/docs/integrations/cloudflare-r2)). Dei passaggi seguenti, gli si applicano solo gli header di sicurezza.
+1. Un percorso rivendicato da un'area va, prima di ogni altra cosa, all'handler delle richieste di quell'area. L'area dei corsi rivendica `/media/` e lo passa a `serveMedia`, che serve i file video firmati dalla cache di Workers o da R2 (vedi [Cloudflare R2](/docs/integrations/cloudflare-r2)), e l'area delle licenze rivendica `/bundles/` e lo passa a `serveBundle`, che serve da R2 i bundle di template firmati della CLI (vedi [API delle licenze della CLI](/docs/features/cli-licence-api#template-bundles)). Dei passaggi seguenti, a questi percorsi si applicano solo gli header di sicurezza.
 2. `resolveLocale` di `i18n.middleware.ts` esamina le richieste di documenti `GET` e `HEAD` al di fuori di `/api` e `/_serverFn`. Reindirizza gli alias di lingua e i percorsi con locale non canonici con lo stato 308 e segnala quando il cookie del locale è diverso dal locale dell'URL.
 3. Le richieste `GET` e `HEAD` al di fuori di `/api` e `/_serverFn` vengono servite prima da `ASSETS`, che copre le pagine prerenderizzate. Un 404 passa all'handler di TanStack Start.
 4. Quando il cookie del locale va aggiornato, il Worker lo aggiunge alla risposta. Le risposte HTML ricevono anche intestazioni `Link` di preload per il foglio di stile e per i font del locale.

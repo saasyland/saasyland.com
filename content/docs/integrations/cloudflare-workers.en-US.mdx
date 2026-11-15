@@ -12,13 +12,13 @@ The application runs as one Cloudflare Worker. `@cloudflare/vite-plugin` builds 
 | `production`  | `saasyland`             | Production resources                | `saasyland.com`         |
 | `test`        | `saasyland-test`        | Local resources in `.wrangler/test` | `127.0.0.1:3000`        |
 
-Every environment binds D1 as `DB`, KV as `CACHE` and R2 as `MEDIA`, and lists its required secrets. `AFFONSO_PROGRAM_ID`, which turns on affiliate referral tracking, is a plain variable under `vars`, set only in `test` for now. The `test` environment uses `src/platform/testing/worker.ts` as its entry; it intercepts Resend and Polar requests and exposes test-only endpoints for Playwright.
+Every environment binds D1 as `DB`, KV as `CACHE` and R2 as `MEDIA` and `BUNDLES`, and lists its required secrets. `AFFONSO_PROGRAM_ID`, which turns on affiliate referral tracking, is a plain variable under `vars`, set only in `test` for now. The `test` environment uses `src/platform/testing/worker.ts` as its entry; it intercepts Resend and Polar requests and exposes test-only endpoints for Playwright.
 
 ## Request flow
 
 `src/server.ts` handles every request:
 
-1. A path that an area claims goes to that area's request handler before anything else. The courses area claims `/media/` and hands it to `serveMedia`, which serves signed video files from the Workers cache or R2 (see [Cloudflare R2](/docs/integrations/cloudflare-r2)). Of the steps below, only the security headers apply to it.
+1. A path that an area claims goes to that area's request handler before anything else. The courses area claims `/media/` and hands it to `serveMedia`, which serves signed video files from the Workers cache or R2 (see [Cloudflare R2](/docs/integrations/cloudflare-r2)), and the licence area claims `/bundles/` and hands it to `serveBundle`, which serves the CLI's signed template bundles from R2 (see [CLI licence API](/docs/features/cli-licence-api#template-bundles)). Of the steps below, only the security headers apply to them.
 2. `resolveLocale` from `i18n.middleware.ts` inspects `GET` and `HEAD` document requests outside `/api` and `/_serverFn`. It redirects language aliases and non-canonical locale paths with status 308 and reports when the locale cookie differs from the URL locale.
 3. `GET` and `HEAD` requests outside `/api` and `/_serverFn` are served from `ASSETS` first, which covers prerendered pages. A 404 falls through to the TanStack Start handler.
 4. When the locale cookie needs an update, the Worker appends it to the response. HTML responses also receive `Link` preload headers for the stylesheet and the locale's fonts.

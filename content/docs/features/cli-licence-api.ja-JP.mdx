@@ -1,9 +1,9 @@
 ---
 title: "CLI ライセンス API"
-description: "saasyland CLI がライセンスを読み取り、端末をアクティベート、確認、解放するために呼び出す saasyland.com の API。"
+description: "saasyland CLI がライセンスを読み取り、端末をアクティベート、確認、解放し、リリースのテンプレートをダウンロードするために呼び出す saasyland.com の API。"
 ---
 
-有料の `saasyland` CLI は、ライセンスキーを saasyland.com で確認します。Worker は <RepositoryFact name="cliApiBasePath" /> 配下で応答し、キーを D1 の `license` テーブルと照合して、端末を Polar 上のキーのアクティベーションとして管理します。そのため、CLI が Polar を直接呼び出すことはありません。
+有料の `saasyland` CLI は、ライセンスキーを saasyland.com で確認します。Worker は <RepositoryFact name="cliApiBasePath" /> 配下で応答し、キーを D1 の `license` テーブルと照合し、端末を Polar 上のキーのアクティベーションとして管理し、各リリースのテンプレートバンドルを R2 から配信します。そのため、CLI が Polar を直接呼び出すことはありません。
 
 両者の間のコントラクトは、`@saasyland/stack` パッケージの `./api` エントリーです。このパッケージは MIT ライセンスで、CLI のリポジトリから公開されています。コントラクトは、ルート、ヘッダー、リクエストとレスポンスのスキーマ、エラーコード、レート制限を定義します。CLI はこれを使ってすべてのリクエストを組み立て、すべてのレスポンスを読み取ります。サイトはこれを使ってすべてのリクエストを読み取り、すべてのレスポンスを書き出します（`readApiRequest`、`apiResponse`、`apiErrorResponse`）。そのため、どちらの側も相手からずれることはありません。このページの値と表は、コントラクトから出力しています。
 
@@ -23,9 +23,39 @@ description: "saasyland CLI がライセンスを読み取り、端末をアク�
 - **ライセンスの読み取り**: プラン、その端末数の上限、使用中の端末の数、そしてすべての端末とそのラベルおよび作成日時を返します。CLI がアクティベートした端末には、種類（端末または CI）、プラットフォーム、CLI のバージョンも表示されます。呼び出し元の端末には `current` の印が付きます。
 - **アクティベート**: CLI のバージョン、種類、プラットフォーム、最大 <RepositoryFact name="cliApiLabelMaxLength" /> 文字のラベルを受け取ります。新しいアクティベーションには表の 1 つ目のステータスで、呼び出し元の端末の既存のアクティベーションには 2 つ目のステータスで応答します。
 - **アクティベーションの確認**: アクティベーションがそのキーと呼び出し元の端末のものであることを確認します。
+- **リリースのテンプレートのダウンロード**: リリース（`version`）とスタックの回答を受け取り、リリースのテンプレートバンドルへの署名済み URL、バンドルのダイジェストとサイズ、URL の有効期限を返します。[テンプレートバンドル](#template-bundles)を参照してください。
 - **アクティベーションの解放**: キーの任意の端末を削除し、その枠を解放します。
 
-コントラクトには、テンプレートバンドルのダウンロードも記述されています。これは今後のリリースで CLI のテンプレートとともに提供される予定で、サイトはまだこれをルーティングしていません。
+## テンプレートバンドル [#template-bundles]
+
+CLI のテンプレートは、リリースごとに 1 つのバンドルとして提供されます。これは CLI のリポジトリのリリースがビルドするアーカイブで、JSON にしたバンドルを gzip で圧縮したものです。各リリースのアーカイブは、<RepositoryFact name="cliBundleBinding" /> R2 バケットの <RepositoryFact name="cliBundleKey" /> というキーのオブジェクトです。バンドルのリクエストは次のことを行います。
+
+1. **アクティベーションの確認** と同じように、パスのアクティベーションがそのキーと呼び出し元の端末のものであることを確認し、そうでなければ `activationNotFound` を返します。
+2. バケットからリリースのオブジェクトを読み取り、オブジェクトがなければ、要求された `version` を付けて `versionNotFound` を返します。
+3. `url`、`sha256`、`size`、`expiresAt` を返します。
+
+`sha256` は、アーカイブの内容、つまり gzip を展開して得られる JSON の SHA-256 を小文字の 16 進数で表したものです。これは、CLI が `bundle-digests.json` でリリースごとに固定し、ダウンロードしたものを展開するときに `unpackBundle` から返されるダイジェストです。圧縮後のバイト列はランタイムの zlib によって変わりますが、JSON は変わらないためです。`size` は URL が配信するバイト数、つまり圧縮されたアーカイブのサイズです。Worker はリクエストのたびに、保存されたオブジェクトを `DecompressionStream` に通して SHA-256 に流し込むため、ダイジェストは常にバケット内のオブジェクトを表し、リリースはオブジェクトのほかにメタデータをアップロードしません。
+
+URL は、コントラクトが求めるとおり HTTPS で、リクエストに応答したホスト上の <RepositoryFact name="cliBundleUrlPath" /> というパスです。
+
+- `expiry` は 36 進数の Unix 時刻で、URL を発行した秒から <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />後です（`API_LIMIT.BUNDLE_URL_TTL_SECONDS`）。`expiresAt` は同じ時刻を ISO 8601 で表したものです。
+- `signature` は、HKDF が `AUTH_SECRET` からバンドルの URL 専用に導出した鍵による `<version>.<expiry>` の HMAC-SHA-256 です（`src/lib/hmac.ts` の `signHmac`）。URL には S3 の認証情報も独自のシークレットも必要なく、署名済みの動画のパスでバンドルが開くことはありません。
+
+`src/data/license.worker.ts` にあるライセンスのエリアのリクエストハンドラーは、`/bundles/` 配下のすべてのパスを、ロケールミドルウェアと TanStack Start より前に `serveBundle`（`src/modules/license/license.delivery.ts`）へ渡します。`serveBundle` は `GET` と `HEAD` だけを受け付け（それ以外は `405`）、署名済みのバンドルのパスではないパスやアーカイブのないリリースには `404` を、期限切れまたは不正な署名には `403` を返し、それ以外の場合はオブジェクトを <RepositoryFact name="cliBundleContentType" /> として、その `Content-Length`、`ETag`、`Cache-Control: private, no-store` とともにストリーミングします。署名済み URL は、期限が切れるまでベアラーリンクとして機能します。誰がダウンロードできるかのチェックは、URL を発行する時点で行われます。
+
+コントラクトはスタック自身のスキーマで回答を検証するため、ルールが禁止するスタックのリクエストには、何も読み取る前に `invalidRequest` を返します。どのスタックにもそのリリースの同じバンドルが返され、サイトは回答もリリースも保存しません。読み取れないバケットや、gzip アーカイブではないオブジェクトには `serviceUnavailable` を返します。
+
+## バンドルの公開 [#publishing-bundles]
+
+サイトが <RepositoryFact name="cliBundleBinding" /> バケットに書き込むことはありません。CLI のリポジトリのリリースワークフローが、各リリースのアーカイブを変更せずに、`wrangler.jsonc` がバインドする次のバケットにアップロードします。
+
+<RepositoryTable columns={["環境", "バケット"]} name="cliBundleBuckets" />
+
+- すべてのリリースは、デプロイされた両方のバケットにアップロードされます。`development` も共有するプレビューのバケットはプレビューのデプロイ上のジャーニースイートに、本番のバケットは顧客に配信します。`test` のバケットはローカルで、`bun run db:reset:test` が `e2e/fixtures/bundle` のアーカイブを投入します。
+- オブジェクトのキーは <RepositoryFact name="cliBundleKey" /> で、バージョンは CLI が `version` で送るとおりのものです。
+- コンテンツタイプは <RepositoryFact name="cliBundleContentType" /> で、コンテンツエンコーディングは指定しません。アーカイブそのものがオブジェクトであり、`Content-Encoding` があると、CLI が確認する前に HTTP クライアントがアーカイブを展開してしまうためです。
+- オブジェクトは `serializeBundle` が書き出したアーカイブです。その内容の SHA-256 はリリースが固定するダイジェストなので、その固定値を持つ CLI はほかのバイト列を拒否し、公開したオブジェクトが変わることはありません。
+- Wrangler が、R2 への書き込みを許可された API トークンで、`wrangler r2 object put <bucket>/<key> --file <archive> --content-type <type> --remote` によってアップロードします。
 
 ## エラー
 
@@ -38,8 +68,9 @@ description: "saasyland CLI がライセンスを読み取り、端末をアク�
 - `licenseRevoked`: 返金なしでライセンスが取り消されました。たとえば、Polar がキーを取り消した場合です。
 - `activationLimitReached`: すべての枠が使用中です。レスポンスにはライセンスとその端末が含まれるため、CLI はいずれかの解放を提案できます。
 - `activationNotFound`: キーにそのアクティベーションがないか、アクティベーションが別の端末のものです。
+- `versionNotFound`: リリースにテンプレートバンドルがありません。レスポンスには `version` が含まれます。
 - `invalidRequest`: 問題を 1 つずつ、`body.label` のようなパスとメッセージとともに `issues` に列挙します。
-- `rateLimited` と `serviceUnavailable`: `retryAfterSeconds` と、同じ数値を入れた `retry-after` ヘッダーを返します。`serviceUnavailable` は、Polar に到達できなかった、Polar が失敗した、または Polar がサイトのリクエストを制限したことを意味します。CLI は <RepositoryFact name="cliApiRetryAfterSeconds" unit="second" />後（`LICENSE_API_RETRY_AFTER_SECONDS`）に再試行してください。
+- `rateLimited` と `serviceUnavailable`: `retryAfterSeconds` と、同じ数値を入れた `retry-after` ヘッダーを返します。`serviceUnavailable` は、Polar に到達できなかった、Polar が失敗した、Polar がサイトのリクエストを制限した、またはバンドルのバケットを読み取れなかったことを意味します。CLI は <RepositoryFact name="cliApiRetryAfterSeconds" unit="second" />後（`LICENSE_API_RETRY_AFTER_SECONDS`）に再試行してください。
 
 ## レート制限
 
@@ -47,7 +78,9 @@ description: "saasyland CLI がライセンスを読み取り、端末をアク�
 あたり、IP アドレスごとに <RepositoryFact name="cliApiRequestsPerAddress" /> 件、ライセンスキーごとに
 <RepositoryFact name="cliApiRequestsPerLicenseKey" /> 件のリクエストを送信できます。キーを読み取る前に、まずアドレスがカウントされるため、1
 つのアドレスからキーを推測しようとしても、アドレスの上限で止まります。`consumeRateLimit`（`src/lib/rate-limit.ts`）はカウンターを
-`rate_limit` テーブルに保持し、アドレスと、ライセンスキーの SHA-256 ハッシュで識別します。ライセンスキーそのものを使うことはありません。
+`rate_limit` テーブルに保持し、アドレスと、ライセンスキーの SHA-256
+ハッシュで識別します。ライセンスキーそのものを使うことはありません。バンドルのリクエストはほかのリクエストと同じようにカウントされますが、署名済み
+URL からのダウンロードはカウントされません。
 
 ## 返金済みと取り消し済みのライセンス
 
@@ -55,19 +88,23 @@ description: "saasyland CLI がライセンスを読み取り、端末をアク�
 
 ## コード内の実装
 
-| ファイル                                                                                           | 役割                                                                                                                                                                                                  |
-| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/routes/api/cli.v1.license.ts`、`cli.v1.activations.ts`、`cli.v1.activations.$activationId.ts` | ルートファイル。コントラクトのエンドポイントごとに 1 つのメソッドを持ちます                                                                                                                           |
-| `src/modules/license/license.api.ts`                                                               | `licenseApiHandlers`: レート制限、D1 の検索、組織トークンで呼び出す Polar のライセンスキーのエンドポイント、レスポンス                                                                                |
-| `src/modules/license/__test__/license.api.integration.test.ts`                                     | D1 と Polar の厳密なテストダブルを相手にしたすべてのエンドポイント: 成功、再利用、上限、返金済みと取り消し済みのライセンス、レート制限、Polar の障害。各レスポンスは `readApiResponse` で読み取ります |
-| `src/routes/api/__test__/cli.v1.test.ts`                                                           | ルーターがコントラクトの各パスを対応するルートファイルに渡すこと                                                                                                                                      |
-| `e2e/specs/cli-licence-api.spec.ts`                                                                | ビルドした Worker が、コントラクト自身のクライアントに API を提供すること                                                                                                                             |
+| ファイル                                                                                                                                          | 役割                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/cli.v1.license.ts`、`cli.v1.activations.ts`、`cli.v1.activations.$activationId.ts`、`cli.v1.activations.$activationId.bundles.ts` | ルートファイル。コントラクトのエンドポイントごとに 1 つのメソッドを持ちます                                                                                                                                                                                                                     |
+| `src/modules/license/license.api.ts`                                                                                                              | `licenseApiHandlers`: レート制限、D1 の検索、組織トークンで呼び出す Polar のライセンスキーのエンドポイント、R2 から読み取るバンドルのダイジェストとサイズ、レスポンス                                                                                                                           |
+| `src/modules/license/license.bundles.ts`                                                                                                          | `bundleObjectKey`、`signBundle`、`verifyBundle`、`SIGNED_BUNDLE_PATH`: リリースのバンドルのバケットのキーと署名済み URL                                                                                                                                                                         |
+| `src/modules/license/license.delivery.ts`                                                                                                         | 署名済みの `/bundles/` パスに R2 から応答する `serveBundle`                                                                                                                                                                                                                                     |
+| `src/modules/license/__test__/license.api.integration.test.ts`                                                                                    | D1 と Polar の厳密なテストダブルを相手にしたすべてのエンドポイント: 成功、再利用、上限、返金済みと取り消し済みのライセンス、レート制限、Polar の障害。各レスポンスは `readApiResponse` で読み取ります                                                                                           |
+| `src/modules/license/__test__/license.bundles.integration.test.ts`                                                                                | D1、インメモリの R2 バケット、Polar のテストダブルを相手にしたバンドルのリクエスト: 保存されたアーカイブのダイジェストとサイズ、URL の期限が切れるまでのダウンロード、`versionNotFound`、`activationNotFound`、返金済みと取り消し済みのライセンス、ストレージの障害、拒否される回答、レート制限 |
+| `src/routes/api/__test__/cli.v1.test.ts`                                                                                                          | ルーターがコントラクトの各パスを対応するルートファイルに渡すこと                                                                                                                                                                                                                                |
+| `e2e/specs/cli-licence-api.spec.ts`                                                                                                               | ビルドした Worker が、コントラクト自身のクライアントに、API と、ローカルの R2 バケットにあるリリースのバンドルを提供すること                                                                                                                                                                    |
 
-`license.constants.ts` の `LICENSE_API_ENDPOINTS` は、コントラクトのエンドポイントのうち、サイトが提供するものを列挙します。上の表とルーティングのテストはこれを読み取ります。
+`license.constants.ts` の `LICENSE_API_ENDPOINTS` は、コントラクトのエンドポイントのうち、サイトが提供するもの（現在はすべて）を列挙します。上の表とルーティングのテストはこれを読み取り、コントラクトにこのリストにないエンドポイントがあると、ルーティングのテストが失敗します。
 
 ## 関連ページ
 
 - [決済とライセンス](/docs/features/payments)
 - [顧客アプリ](/docs/features/customer-app)
 - [HTTP ハンドラー](/docs/features/api-surface)
+- [Cloudflare R2](/docs/integrations/cloudflare-r2)
 - [Polar の設定](/docs/getting-started/polar-setup)

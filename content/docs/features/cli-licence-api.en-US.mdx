@@ -1,9 +1,9 @@
 ---
 title: "CLI licence API"
-description: "The API on saasyland.com that the saasyland CLI calls to read a licence and to activate, check and release machines."
+description: "The API on saasyland.com that the saasyland CLI calls to read a licence, to activate, check and release machines and to download the templates of a release."
 ---
 
-The paid `saasyland` CLI checks its licence key with saasyland.com. The Worker answers under <RepositoryFact name="cliApiBasePath" />, checks the key against the `license` table in D1 and keeps the machines as activations of the key in Polar, so the CLI never calls Polar itself.
+The paid `saasyland` CLI checks its licence key with saasyland.com. The Worker answers under <RepositoryFact name="cliApiBasePath" />, checks the key against the `license` table in D1, keeps the machines as activations of the key in Polar and serves the template bundle of each release from R2, so the CLI never calls Polar itself.
 
 The contract between the two is the `./api` entry of the `@saasyland/stack` package, which is MIT-licensed and published from the CLI repository. It defines the routes, headers, request and response schemas, error codes and rate limits. The CLI builds every request and reads every answer with it, and the website reads every request and writes every answer with it (`readApiRequest`, `apiResponse` and `apiErrorResponse`), so neither side can drift from the other. The values and tables on this page are printed from it.
 
@@ -23,9 +23,39 @@ Every request sends the licence key as `authorization: Bearer <key>` and the mac
 - **Read the licence**: the tier, its machine limit, the number of machines in use and every machine with its label and creation time. Machines that the CLI activated also show their kind (machine or CI), platform and CLI version. The calling machine is marked `current`.
 - **Activate**: takes the CLI version, the kind, the platform and a label of up to <RepositoryFact name="cliApiLabelMaxLength" /> characters. A new activation answers with the first status in the table, the calling machine's existing activation with the second.
 - **Check an activation**: confirms that the activation belongs to the key and to the calling machine.
+- **Download the templates of a release**: takes the release (`version`) and the stack's answers, and answers with a signed URL to the release's template bundle, the bundle's digest and size, and when the URL expires. See [Template bundles](#template-bundles).
 - **Release an activation**: removes any machine of the key and frees its slot.
 
-The contract also describes a template bundle download. It ships with the CLI's templates in a later release, and the site does not route it yet.
+## Template bundles
+
+The CLI's templates ship as one bundle per release: the archive that the CLI repository's release builds, the bundle as JSON compressed with gzip. Each release's archive is an object of the <RepositoryFact name="cliBundleBinding" /> R2 bucket under the key <RepositoryFact name="cliBundleKey" />. A bundle request:
+
+1. checks, like **Check an activation**, that the activation in the path belongs to the key and to the calling machine, and answers `activationNotFound` otherwise;
+2. reads the release's object from the bucket and answers `versionNotFound`, with the `version` it was asked for, when there is none;
+3. answers with `url`, `sha256`, `size` and `expiresAt`.
+
+`sha256` is the SHA-256, in lowercase hex, of the archive's content: the JSON that gzip decompresses to. It is the digest the CLI pins for each release in `bundle-digests.json` and gets back from `unpackBundle` when it unpacks a download, because the compressed bytes depend on the runtime's zlib and the JSON does not. `size` is the number of bytes the URL serves, the compressed archive. The Worker streams the stored object through a `DecompressionStream` into SHA-256 on every request, so the digest always describes the object in the bucket and the release uploads no metadata beside it.
+
+The URL is HTTPS, as the contract requires, on the host that answered the request, with the path <RepositoryFact name="cliBundleUrlPath" />:
+
+- `expiry` is a Unix time in base 36, <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" /> after the second the URL was issued (`API_LIMIT.BUNDLE_URL_TTL_SECONDS`), and `expiresAt` is the same time in ISO 8601.
+- `signature` is an HMAC-SHA-256 of `<version>.<expiry>` with a key that HKDF derives from `AUTH_SECRET` for bundle URLs alone (`signHmac` in `src/lib/hmac.ts`). The URL needs no S3 credentials and no secret of its own, and a signed video path never opens a bundle.
+
+The licence area's request handler in `src/data/license.worker.ts` sends every path under `/bundles/` to `serveBundle` (`src/modules/license/license.delivery.ts`) before the locale middleware and TanStack Start. `serveBundle` accepts only `GET` and `HEAD` (`405` otherwise), answers `404` for a path that is not a signed bundle path or a release without an archive and `403` for an expired or wrong signature, and otherwise streams the object as <RepositoryFact name="cliBundleContentType" /> with its `Content-Length`, its `ETag` and `Cache-Control: private, no-store`. A signed URL works as a bearer link until it expires; who may download is checked when the URL is issued.
+
+The contract validates the answers with the stack's own schema, so a stack that the rules forbid answers `invalidRequest` before anything is read. Every stack gets the same bundle of a release, and the website keeps neither the answers nor the release. A bucket that cannot be read, or an object that is not a gzip archive, answers `serviceUnavailable`.
+
+## Publishing bundles
+
+The website never writes to the <RepositoryFact name="cliBundleBinding" /> bucket. The CLI repository's release workflow uploads each release's archive, unchanged, to the buckets below, which `wrangler.jsonc` binds:
+
+<RepositoryTable columns={["Environment", "Bucket"]} name="cliBundleBuckets" />
+
+- Every release goes to both deployed buckets: the preview bucket, which `development` shares, serves the journey suite on the preview deployment, and the production bucket serves customers. The `test` bucket is local, and `bun run db:reset:test` seeds it with the archive in `e2e/fixtures/bundle`.
+- The object key is <RepositoryFact name="cliBundleKey" />, with the version exactly as the CLI sends it in `version`.
+- The content type is <RepositoryFact name="cliBundleContentType" />, with no content encoding: the archive itself is the object, and a `Content-Encoding` would let HTTP clients decompress it before the CLI checks it.
+- The object is the archive that `serializeBundle` wrote. Its content's SHA-256 is the digest the release pins, so a CLI that has the pin refuses any other bytes, and a published object never changes.
+- Wrangler uploads it with `wrangler r2 object put <bucket>/<key> --file <archive> --content-type <type> --remote`, under an API token that may write to R2.
 
 ## Errors
 
@@ -38,12 +68,13 @@ An error answers with a JSON object whose `code` names it:
 - `licenseRevoked`: the licence was revoked without a refund, for example because Polar revoked the key.
 - `activationLimitReached`: every slot is taken. The answer includes the licence and its machines, so the CLI can offer to release one.
 - `activationNotFound`: the key holds no such activation, or the activation belongs to another machine.
+- `versionNotFound`: the release has no template bundle. The answer carries the `version`.
 - `invalidRequest`: lists each problem under `issues` with its path, such as `body.label`, and a message.
-- `rateLimited` and `serviceUnavailable`: carry `retryAfterSeconds` and the same number in the `retry-after` header. `serviceUnavailable` means that Polar could not be reached, failed or throttled the site; the CLI should retry after <RepositoryFact name="cliApiRetryAfterSeconds" unit="second" /> (`LICENSE_API_RETRY_AFTER_SECONDS`).
+- `rateLimited` and `serviceUnavailable`: carry `retryAfterSeconds` and the same number in the `retry-after` header. `serviceUnavailable` means that Polar could not be reached, failed or throttled the site, or that the bundle bucket could not be read; the CLI should retry after <RepositoryFact name="cliApiRetryAfterSeconds" unit="second" /> (`LICENSE_API_RETRY_AFTER_SECONDS`).
 
 ## Rate limits
 
-Each IP address may send <RepositoryFact name="cliApiRequestsPerAddress" /> requests and each licence key <RepositoryFact name="cliApiRequestsPerLicenseKey" /> requests in <RepositoryFact name="cliApiRateLimitSeconds" unit="second" />. The address is counted first, before the key is read, so guessing keys from one address stops at the address limit. `consumeRateLimit` (`src/lib/rate-limit.ts`) keeps the counters in the `rate_limit` table, keyed by the address and by a SHA-256 hash of the key, never by the key itself.
+Each IP address may send <RepositoryFact name="cliApiRequestsPerAddress" /> requests and each licence key <RepositoryFact name="cliApiRequestsPerLicenseKey" /> requests in <RepositoryFact name="cliApiRateLimitSeconds" unit="second" />. The address is counted first, before the key is read, so guessing keys from one address stops at the address limit. `consumeRateLimit` (`src/lib/rate-limit.ts`) keeps the counters in the `rate_limit` table, keyed by the address and by a SHA-256 hash of the key, never by the key itself. Bundle requests count like every other request; downloading from a signed URL does not.
 
 ## Refunded and revoked licences
 
@@ -51,19 +82,23 @@ The `license` row that the key belongs to decides. The Polar webhooks keep it cu
 
 ## In the code
 
-| File                                                                                               | Role                                                                                                                                                                                    |
-| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/routes/api/cli.v1.license.ts`, `cli.v1.activations.ts`, `cli.v1.activations.$activationId.ts` | The route files, with one method for each endpoint of the contract                                                                                                                      |
-| `src/modules/license/license.api.ts`                                                               | `licenseApiHandlers`: the rate limits, the D1 lookup, Polar's licence-key endpoints called with the organisation token, and the answers                                                 |
-| `src/modules/license/__test__/license.api.integration.test.ts`                                     | Every endpoint against D1 and the strict Polar double: success, reuse, the limit, refunded and revoked licences, rate limits and Polar outages, each answer read with `readApiResponse` |
-| `src/routes/api/__test__/cli.v1.test.ts`                                                           | The router sends each path of the contract to its route file                                                                                                                            |
-| `e2e/specs/cli-licence-api.spec.ts`                                                                | The built Worker serves the API to the contract's own client                                                                                                                            |
+| File                                                                                                                                              | Role                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/cli.v1.license.ts`, `cli.v1.activations.ts`, `cli.v1.activations.$activationId.ts`, `cli.v1.activations.$activationId.bundles.ts` | The route files, with one method for each endpoint of the contract                                                                                                                                                                                                                  |
+| `src/modules/license/license.api.ts`                                                                                                              | `licenseApiHandlers`: the rate limits, the D1 lookup, Polar's licence-key endpoints called with the organisation token, the bundle's digest and size read from R2, and the answers                                                                                                  |
+| `src/modules/license/license.bundles.ts`                                                                                                          | `bundleObjectKey`, `signBundle`, `verifyBundle` and `SIGNED_BUNDLE_PATH`: the bucket key and the signed URL of a release's bundle                                                                                                                                                   |
+| `src/modules/license/license.delivery.ts`                                                                                                         | `serveBundle`, which answers the signed `/bundles/` paths from R2                                                                                                                                                                                                                   |
+| `src/modules/license/__test__/license.api.integration.test.ts`                                                                                    | Every endpoint against D1 and the strict Polar double: success, reuse, the limit, refunded and revoked licences, rate limits and Polar outages, each answer read with `readApiResponse`                                                                                             |
+| `src/modules/license/__test__/license.bundles.integration.test.ts`                                                                                | Bundle requests against D1, the in-memory R2 bucket and the Polar double: the digest and size of a stored archive, its download until the URL expires, `versionNotFound`, `activationNotFound`, refunded and revoked licences, storage outages, refused answers and the rate limits |
+| `src/routes/api/__test__/cli.v1.test.ts`                                                                                                          | The router sends each path of the contract to its route file                                                                                                                                                                                                                        |
+| `e2e/specs/cli-licence-api.spec.ts`                                                                                                               | The built Worker serves the API, and a release's bundle from its local R2 bucket, to the contract's own client                                                                                                                                                                      |
 
-`LICENSE_API_ENDPOINTS` in `license.constants.ts` lists the endpoints of the contract that the site serves. The tables above and the routing test read it.
+`LICENSE_API_ENDPOINTS` in `license.constants.ts` lists the endpoints of the contract that the site serves, today all of them. The tables above and the routing test read it, and the routing test fails when the contract has an endpoint that it leaves out.
 
 ## Related pages
 
 - [Payments and licences](/docs/features/payments)
 - [Customer app](/docs/features/customer-app)
 - [HTTP handlers](/docs/features/api-surface)
+- [Cloudflare R2](/docs/integrations/cloudflare-r2)
 - [Polar setup](/docs/getting-started/polar-setup)

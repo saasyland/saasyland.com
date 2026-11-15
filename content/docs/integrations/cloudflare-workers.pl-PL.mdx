@@ -12,13 +12,13 @@ Aplikacja działa jako jeden Cloudflare Worker. Buduje go `@cloudflare/vite-plug
 | `production`  | `saasyland`             | Zasoby produkcyjne                | `saasyland.com`         |
 | `test`        | `saasyland-test`        | Lokalne zasoby w `.wrangler/test` | `127.0.0.1:3000`        |
 
-Każde środowisko wiąże D1 jako `DB`, KV jako `CACHE` i R2 jako `MEDIA` oraz wymienia swoje wymagane sekrety. `AFFONSO_PROGRAM_ID`, który włącza śledzenie poleceń partnerskich, jest zwykłą zmienną w `vars`, na razie ustawianą tylko w `test`. Środowisko `test` używa `src/platform/testing/worker.ts` jako punktu wejścia; przechwytuje on żądania do Resend i Polar i udostępnia endpointy przeznaczone wyłącznie dla testów Playwright.
+Każde środowisko wiąże D1 jako `DB`, KV jako `CACHE` oraz R2 jako `MEDIA` i `BUNDLES` i wymienia swoje wymagane sekrety. `AFFONSO_PROGRAM_ID`, który włącza śledzenie poleceń partnerskich, jest zwykłą zmienną w `vars`, na razie ustawianą tylko w `test`. Środowisko `test` używa `src/platform/testing/worker.ts` jako punktu wejścia; przechwytuje on żądania do Resend i Polar i udostępnia endpointy przeznaczone wyłącznie dla testów Playwright.
 
 ## Przepływ żądania
 
 `src/server.ts` obsługuje każde żądanie:
 
-1. Ścieżka, którą przejmuje jakiś obszar, trafia przed wszystkim innym do handlera żądań tego obszaru. Obszar kursów przejmuje `/media/` i przekazuje ją do `serveMedia`, który serwuje podpisane pliki wideo z cache Workers lub z R2 (zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2)). Z poniższych kroków dotyczą jej tylko nagłówki bezpieczeństwa.
+1. Ścieżka, którą przejmuje jakiś obszar, trafia przed wszystkim innym do handlera żądań tego obszaru. Obszar kursów przejmuje `/media/` i przekazuje ją do `serveMedia`, który serwuje podpisane pliki wideo z cache Workers lub z R2 (zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2)), a obszar licencji przejmuje `/bundles/` i przekazuje ją do `serveBundle`, który serwuje z R2 podpisane paczki szablonów CLI (zobacz [API licencji CLI](/docs/features/cli-licence-api#template-bundles)). Z poniższych kroków dotyczą ich tylko nagłówki bezpieczeństwa.
 2. `resolveLocale` z `i18n.middleware.ts` analizuje żądania dokumentów `GET` i `HEAD` spoza `/api` i `/_serverFn`. Przekierowuje aliasy języków i niekanoniczne ścieżki językowe ze statusem 308 oraz sygnalizuje, gdy ciasteczko języka różni się od języka w URL-u.
 3. Żądania `GET` i `HEAD` spoza `/api` i `/_serverFn` są najpierw obsługiwane z `ASSETS`, co obejmuje prerenderowane strony. Odpowiedź 404 przechodzi dalej do handlera TanStack Start.
 4. Gdy ciasteczko języka wymaga aktualizacji, Worker dołącza je do odpowiedzi. Odpowiedzi HTML otrzymują też nagłówki `Link` z preloadem arkusza stylów i czcionek danego języka.

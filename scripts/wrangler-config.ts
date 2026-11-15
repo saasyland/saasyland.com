@@ -25,14 +25,19 @@ interface WranglerBinding {
   readonly resource: string
 }
 
-export const readWranglerEnvironment = async (environment: string): Promise<z.infer<typeof environmentSchema>> => {
+const readWranglerEnvironments = async (): Promise<z.infer<typeof wranglerSchema>["env"]> => {
   const errors: ParseError[] = []
   const value: unknown = parse(await readFile(WRANGLER_CONFIG, "utf8"), errors, { allowTrailingComma: true })
   if (errors.length > 0) {
     throw new Error(`Invalid JSONC configuration: ${WRANGLER_CONFIG}`)
   }
 
-  const config = wranglerSchema.parse(value).env[environment]
+  return wranglerSchema.parse(value).env
+}
+
+export const readWranglerEnvironment = async (environment: string): Promise<z.infer<typeof environmentSchema>> => {
+  const environments = await readWranglerEnvironments()
+  const config = environments[environment]
   if (config === undefined) {
     throw new Error(`${WRANGLER_CONFIG} has no ${environment} environment`)
   }
@@ -59,3 +64,8 @@ export const readBucketName = async ({ binding, environment }: { binding: string
 
   return bucket.bucket_name
 }
+
+export const readBucketNames = async (binding: string): Promise<(readonly [environment: string, bucket: string])[]> =>
+  Object.entries(await readWranglerEnvironments()).flatMap(([environment, { r2_buckets: buckets }]) =>
+    buckets.filter((entry) => entry.binding === binding).map(({ bucket_name: bucket }) => [environment, bucket] as const),
+  )

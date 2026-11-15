@@ -3,7 +3,7 @@ title: "Deploy a preview"
 description: "Provision Cloudflare resources and deploy the preview Worker."
 ---
 
-The `preview` environment deploys the Worker `saasyland-preview` to `preview.saasyland.com`. By default `development` and `preview` share one D1 database, one KV namespace and one R2 bucket.
+The `preview` environment deploys the Worker `saasyland-preview` to `preview.saasyland.com`. By default `development` and `preview` share one D1 database, one KV namespace and two R2 buckets.
 
 ## Provision resources
 
@@ -12,9 +12,10 @@ bunx wrangler login
 bunx wrangler d1 create saasyland_com_preview
 bunx wrangler kv namespace create CACHE --env preview
 bunx wrangler r2 bucket create saasyland-preview
+bunx wrangler r2 bucket create saasyland-bundles-preview
 ```
 
-In `wrangler.jsonc`, replace `database_id`, `database_name`, the KV `id` and the `MEDIA` `bucket_name` under both `development` and `preview`. Keep the binding names `DB`, `CACHE` and `MEDIA` and the `migrations_dir`, and update the Worker names and custom domain routes for your account. For production, create separate resources, including the `saasyland` bucket, and update the `production` block. Set `APP_DOMAIN` in `src/presentation/branding/index.ts`. `DEPLOYED_HOSTS` in `src/modules/_core/constants/api.ts` derives the deployed hosts from it, `APP_DOMAIN` for production and `preview.<APP_DOMAIN>` for preview, and is the one place the code names them: `appHostsForMode` reads it for the hosts Better Auth and newsletter links accept, and `scripts/verify-deployment.ts` requests it after a deploy. Locally `appHostsForMode` accepts `localhost:3000` or `127.0.0.1:3000` in development, and those plus `localhost:3020` and `127.0.0.1:3020` in test. Edit `DEPLOYED_HOSTS` only if your preview host has a different name. The custom domain `routes` in `wrangler.jsonc` and the environment URLs in `.github/workflows/deploy-reusable.yml` name the same hosts, so keep them in step.
+In `wrangler.jsonc`, replace `database_id`, `database_name`, the KV `id` and the `bucket_name` of `MEDIA` and `BUNDLES` under both `development` and `preview`. Keep the binding names `DB`, `CACHE`, `MEDIA` and `BUNDLES` and the `migrations_dir`, and update the Worker names and custom domain routes for your account. For production, create separate resources, including the `saasyland` and `saasyland-bundles` buckets, and update the `production` block. `BUNDLES` holds the template bundles of the CLI's releases, which the CLI repository's release uploads to the preview and the production bucket; see [Publishing bundles](/docs/features/cli-licence-api#publishing-bundles). Set `APP_DOMAIN` in `src/presentation/branding/index.ts`. `DEPLOYED_HOSTS` in `src/modules/_core/constants/api.ts` derives the deployed hosts from it, `APP_DOMAIN` for production and `preview.<APP_DOMAIN>` for preview, and is the one place the code names them: `appHostsForMode` reads it for the hosts Better Auth and newsletter links accept, and `scripts/verify-deployment.ts` requests it after a deploy. Locally `appHostsForMode` accepts `localhost:3000` or `127.0.0.1:3000` in development, and those plus `localhost:3020` and `127.0.0.1:3020` in test. Edit `DEPLOYED_HOSTS` only if your preview host has a different name. The custom domain `routes` in `wrangler.jsonc` and the environment URLs in `.github/workflows/deploy-reusable.yml` name the same hosts, so keep them in step.
 
 ## Deploy
 
@@ -24,7 +25,7 @@ Fill in `.env.preview` and set up the Polar sandbox as described in [Polar setup
 bun run deploy:preview
 ```
 
-`deploy:preview` runs `scripts/verify-bindings.ts preview`, which rejects missing bindings and placeholder IDs, then `scripts/run-deploy-checks.ts preview`, which runs the deploy check of every area, today `polar:verify:preview`, which compares the Polar organisation in `.env.preview` with the code, then `build:preview`, which prerenders the public pages and verifies the output. `scripts/prepare-deploy-secrets.ts preview` then writes the secrets that `wrangler.jsonc` declares for `preview` from `.env.preview` to `.wrangler/secrets.preview.json` and fails if one is empty. `db:migrate:preview` applies the new migrations before `wrangler deploy` uploads `dist/server/wrangler.json` with those secrets, and `scripts/verify-deployment.ts preview` finally checks that the preview host from `DEPLOYED_HOSTS` (https://preview.saasyland.com) answers. `verify-bindings.ts` does not check that the R2 bucket exists, because it is bound by name: the deploy fails until it does. `bun run db:migrations:preview` lists the migrations the preview database has not applied yet.
+`deploy:preview` runs `scripts/verify-bindings.ts preview`, which rejects missing bindings and placeholder IDs, then `scripts/run-deploy-checks.ts preview`, which runs the deploy check of every area, today `polar:verify:preview`, which compares the Polar organisation in `.env.preview` with the code, then `build:preview`, which prerenders the public pages and verifies the output. `scripts/prepare-deploy-secrets.ts preview` then writes the secrets that `wrangler.jsonc` declares for `preview` from `.env.preview` to `.wrangler/secrets.preview.json` and fails if one is empty. `db:migrate:preview` applies the new migrations before `wrangler deploy` uploads `dist/server/wrangler.json` with those secrets, and `scripts/verify-deployment.ts preview` finally checks that the preview host from `DEPLOYED_HOSTS` (https://preview.saasyland.com) answers. `verify-bindings.ts` does not check that the R2 buckets exist, because they are bound by name: the deploy fails until they do. `bun run db:migrations:preview` lists the migrations the preview database has not applied yet.
 
 Register the OAuth callbacks for the preview host as listed in [Environment variables](/docs/getting-started/environment-variables).
 

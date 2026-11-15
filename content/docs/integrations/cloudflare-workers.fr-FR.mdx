@@ -12,13 +12,13 @@ L'application s'exécute comme un seul Cloudflare Worker. `@cloudflare/vite-plug
 | `production`  | `saasyland`             | Ressources de production                 | `saasyland.com`         |
 | `test`        | `saasyland-test`        | Ressources locales dans `.wrangler/test` | `127.0.0.1:3000`        |
 
-Chaque environnement lie D1 sous le nom `DB`, KV sous le nom `CACHE` et R2 sous le nom `MEDIA`, et liste ses secrets obligatoires. `AFFONSO_PROGRAM_ID`, qui active le suivi des recommandations d'affiliation, est une simple variable sous `vars`, définie uniquement dans `test` pour l'instant. L'environnement `test` utilise `src/platform/testing/worker.ts` comme point d'entrée ; il intercepte les requêtes vers Resend et Polar et expose des points de terminaison réservés aux tests pour Playwright.
+Chaque environnement lie D1 sous le nom `DB`, KV sous le nom `CACHE` et R2 sous les noms `MEDIA` et `BUNDLES`, et liste ses secrets obligatoires. `AFFONSO_PROGRAM_ID`, qui active le suivi des recommandations d'affiliation, est une simple variable sous `vars`, définie uniquement dans `test` pour l'instant. L'environnement `test` utilise `src/platform/testing/worker.ts` comme point d'entrée ; il intercepte les requêtes vers Resend et Polar et expose des points de terminaison réservés aux tests pour Playwright.
 
 ## Flux des requêtes
 
 `src/server.ts` traite chaque requête :
 
-1. Un chemin qu'une zone revendique est confié, avant toute autre chose, au handler de requêtes de cette zone. La zone des cours revendique `/media/` et le confie à `serveMedia`, qui sert les fichiers vidéo signés depuis le cache des Workers ou depuis R2 (voir [Cloudflare R2](/docs/integrations/cloudflare-r2)). Parmi les étapes ci-dessous, seuls les en-têtes de sécurité s'y appliquent.
+1. Un chemin qu'une zone revendique est confié, avant toute autre chose, au handler de requêtes de cette zone. La zone des cours revendique `/media/` et le confie à `serveMedia`, qui sert les fichiers vidéo signés depuis le cache des Workers ou depuis R2 (voir [Cloudflare R2](/docs/integrations/cloudflare-r2)), et la zone des licences revendique `/bundles/` et le confie à `serveBundle`, qui sert depuis R2 les bundles de modèles signés de la CLI (voir [API de licence de la CLI](/docs/features/cli-licence-api#template-bundles)). Parmi les étapes ci-dessous, seuls les en-têtes de sécurité s'y appliquent.
 2. `resolveLocale` de `i18n.middleware.ts` examine les requêtes de document `GET` et `HEAD` en dehors de `/api` et `/_serverFn`. Il redirige les alias de langue et les chemins de langue non canoniques avec le statut 308 et signale lorsque le cookie de langue diffère de la langue de l'URL.
 3. Les requêtes `GET` et `HEAD` en dehors de `/api` et `/_serverFn` sont d'abord servies depuis `ASSETS`, ce qui couvre les pages prérendues. Une réponse 404 est transmise au handler TanStack Start.
 4. Lorsque le cookie de langue doit être mis à jour, le Worker l'ajoute à la réponse. Les réponses HTML reçoivent aussi des en-têtes `Link` de préchargement pour la feuille de style et les polices de la langue.

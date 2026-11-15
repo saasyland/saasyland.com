@@ -5,14 +5,15 @@ description: "Die Cloudflare-Laufzeitumgebung: Worker-Einstiegspunkt, Bindings, 
 
 ## Worker und Bindings
 
-`wrangler.jsonc` legt `src/server.ts` als Einstiegspunkt des Workers fest. Der Worker erhält vier Bindings:
+`wrangler.jsonc` legt `src/server.ts` als Einstiegspunkt des Workers fest. Der Worker erhält diese Bindings:
 
-| Binding  | Typ              | Verwendet für                                                    |
-| -------- | ---------------- | ---------------------------------------------------------------- |
-| `DB`     | D1-Datenbank     | Alle Tabellen, einschließlich Sessions und Rate-Limit-Zählern    |
-| `CACHE`  | KV-Namespace     | Die Anzahl der GitHub-Sterne und die regionalen Checkout-Rabatte |
-| `MEDIA`  | R2-Bucket        | Videodateien, ausgeliefert von `serveMedia` unter `/media/`      |
-| `ASSETS` | Statische Assets | Vorgerenderte Seiten und Dateien aus `public`                    |
+| Binding   | Typ              | Verwendet für                                                                  |
+| --------- | ---------------- | ------------------------------------------------------------------------------ |
+| `DB`      | D1-Datenbank     | Alle Tabellen, einschließlich Sessions und Rate-Limit-Zählern                  |
+| `CACHE`   | KV-Namespace     | Die Anzahl der GitHub-Sterne und die regionalen Checkout-Rabatte               |
+| `MEDIA`   | R2-Bucket        | Videodateien, ausgeliefert von `serveMedia` unter `/media/`                    |
+| `BUNDLES` | R2-Bucket        | Die Vorlagen-Bundles der CLI, ausgeliefert von `serveBundle` unter `/bundles/` |
+| `ASSETS`  | Statische Assets | Vorgerenderte Seiten und Dateien aus `public`                                  |
 
 Requests an `/assets/*`, `/fonts/*`, `/robots.txt` und `/llms.txt` werden aus den statischen Assets bedient, ohne dass der Worker läuft. Servercode liest Bindings, Secrets und `waitUntil` aus `cloudflare:workers`. `src/server.ts` fügt jeder Antwort, die es zurückgibt, die Sicherheits-Header hinzu; Dateien, die ohne den Worker ausgeliefert werden, erhalten die Teilmenge aus `public/_headers` ([Sicherheit und Härtung](/docs/features/security)).
 
@@ -29,7 +30,7 @@ Keine Datei der Plattform nennt einen Bereich. Jeder Bereich, etwa die Kurse ode
 | Deploy-Checks    | `src/data/<area>.deploy.ts`: eine Liste `<AREA>_DEPLOY_CHECKS`   | `src/data/deploy.entries.ts`    | `DEPLOY_CHECKS` in `src/data/deploy.ts`, die `scripts/run-deploy-checks.ts` ausführt                                 |
 | Live-Checks      | `src/data/<area>.live.ts`: eine Liste `<AREA>_LIVE_CHECKS`       | `src/data/live.entries.ts`      | `LIVE_SITE_CHECKS` in `src/data/live.ts`, die `scripts/verify-deployment.ts` nach einem Deployment abruft            |
 
-Ein Request-Handler beansprucht ein `pathPrefix` und beantwortet jeden Request darunter vor der Locale-Middleware, den statischen Assets und TanStack Start, wie es der Handler des Kursbereichs für `/media/` tut. Ein Dokument-Handler erhält jede HTML-Seite, die der Worker zurückgibt, mit ihrer Locale und dem Request, und gibt die Seite zurück, die gesendet wird, wie es die regionalen Preise des Lizenzbereichs tun. `src/server.ts` importiert die Handler statisch, sie werden also bei jedem Kaltstart ausgewertet: Eine Handler-Datei importiert nur Konstanten und reine Hilfsfunktionen und lädt alles Größere per dynamischem `import()` (siehe [Performance](/docs/conventions/performance)).
+Ein Request-Handler beansprucht ein `pathPrefix` und beantwortet jeden Request darunter vor der Locale-Middleware, den statischen Assets und TanStack Start, wie es der Handler des Kursbereichs für `/media/` und der des Lizenzbereichs für `/bundles/` tun. Ein Dokument-Handler erhält jede HTML-Seite, die der Worker zurückgibt, mit ihrer Locale und dem Request, und gibt die Seite zurück, die gesendet wird, wie es die regionalen Preise des Lizenzbereichs tun. `src/server.ts` importiert die Handler statisch, sie werden also bei jedem Kaltstart ausgewertet: Eine Handler-Datei importiert nur Konstanten und reine Hilfsfunktionen und lädt alles Größere per dynamischem `import()` (siehe [Performance](/docs/conventions/performance)).
 
 Ein Eintrag für Vite-Plugins hat eine `order`, die seine Plugins unter denen der anderen Bereiche einreiht, und `vitest`, das angibt, ob sie auch unter Vitest geladen werden. Vite lädt seine Konfiguration, bevor der Alias `~` aufgelöst wird, deshalb importieren `vite.ts`, `vite.entries.ts` und jede `<area>.vite.ts` über relative Pfade mit der Endung `.ts`, und ein Eintrag importiert sein Plugin-Paket erst in seiner Funktion `plugins`, damit `vp lint` und `vp fmt` es nie laden.
 
@@ -56,11 +57,11 @@ Der Kern trägt zu jedem Barrel, das nur optionale Bereiche füllen, eine leere 
 
 Jede Umgebung listet ihre benötigten Secrets unter `secrets.required` auf. Die Werte stammen aus der passenden Datei `.env.<environment>`; die Deploy-Skripte schreiben die deklarierten Schlüssel nach `.wrangler/secrets.<environment>.json` und übergeben diese Datei mit `--secrets-file` an Wrangler. Die Umgebung `test` verwendet `src/platform/testing/worker.ts` als Einstiegspunkt und die eingecheckten Dummy-Werte aus `.env.test`. `AFFONSO_PROGRAM_ID` ist öffentlich und deshalb kein Secret, sondern eine einfache Worker-Variable unter `vars`; nur `test` setzt eine. Die Secrets eines Moduls stehen zusammen, in der Reihenfolge von `.env.example` und für `test` von `.env.test`, sodass ein Bereich seine Secrets als eine Gruppe beiträgt; `src/__test__/wrangler.test.ts` vergleicht die Namen in ihrer Reihenfolge und schlägt fehl, wenn sie sich unterscheiden. Eine Leerzeile zwischen zwei Gruppen dient nur der Lesbarkeit, da ein Formatter sie entfernen kann, deshalb ignoriert der Test sie.
 
-Auch die Bindings eines Bereichs bilden einen eigenen Block. Der R2-Bucket `MEDIA` gehört zum Kursbereich, deshalb steht `r2_buckets` in jeder Umgebung zuletzt, und ein Projekt ohne die Kurse lässt ihn weg. `wrangler.test.ts` schlägt außerdem fehl, wenn eine Umgebung andere D1-Datenbanken, KV-Namespaces oder R2-Buckets bindet als `development`, und `scripts/verify-bindings.ts` prüft jedes Binding, das die Zielumgebung deklariert, ohne eines zu nennen.
+Auch die Bindings eines Bereichs bilden einen eigenen Block. Die R2-Buckets gehören zu Bereichen, `MEDIA` zu den Kursen und `BUNDLES` zum Lizenzverkauf, deshalb steht `r2_buckets` in jeder Umgebung zuletzt, mit einem Eintrag pro Bereich, und ein Projekt ohne einen Bereich lässt dessen Eintrag weg. `wrangler.test.ts` schlägt außerdem fehl, wenn eine Umgebung andere D1-Datenbanken, KV-Namespaces oder R2-Buckets bindet als `development`, und `scripts/verify-bindings.ts` prüft jedes Binding, das die Zielumgebung deklariert, ohne eines zu nennen.
 
 ## Typen
 
-- `src/types/worker-configuration.d.ts` wird von `bun run cf-typegen` aus der Umgebung `development` von `wrangler.jsonc` generiert und deklariert `Cloudflare.Env`: die Bindings `DB`, `CACHE` und `MEDIA` und jedes Secret aus `secrets.required`. `src/types/bindings.d.ts` ergänzt `ASSETS`, das Wrangler auslässt.
+- `src/types/worker-configuration.d.ts` wird von `bun run cf-typegen` aus der Umgebung `development` von `wrangler.jsonc` generiert und deklariert `Cloudflare.Env`: die Bindings `DB`, `CACHE`, `MEDIA` und `BUNDLES` und jedes Secret aus `secrets.required`. `src/types/bindings.d.ts` ergänzt `ASSETS`, das Wrangler auslässt.
 - Ein Bereich deklariert in `src/types/<area>.d.ts` nur, was Wrangler nicht ableiten kann: `affiliates.d.ts` die optionale Variable `AFFONSO_PROGRAM_ID`, die nur `test` setzt, `polar.d.ts` die beiden Werte von `POLAR_SERVER` und `repository-facts.d.ts` das Modul `virtual:repository-facts`.
 - `src/types/router.d.ts` registriert den Router-Typ und die Routenoption `staticData.namespaces`.
 

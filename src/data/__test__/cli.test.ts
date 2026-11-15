@@ -35,6 +35,7 @@ it("counts a CLI module as optional only when its question can be answered with 
     cliOptionalModules: optionalChoices.length,
   })
 })
+
 it("runs the CLI from the npm tag that the installed @saasyland/stack release was published on", () => {
   expect(CLI_RELEASE_CHANNEL).toBe(PRERELEASE.exec(stack.version)?.groups?.["channel"] ?? NPM_DIST_TAG.LATEST)
   expect(CLI_PACKAGE_SPEC).toBe(`${CLI_PACKAGE}@${CLI_RELEASE_CHANNEL}`)

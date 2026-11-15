@@ -12,6 +12,7 @@ import { MotionProvider } from "~/src/providers/motion-provider"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { CONSULTING_HOURLY_RATE } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -117,6 +118,20 @@ describe("regional pricing", () => {
     renderSection(<PricingSection />)
 
     expect(screen.getByRole("checkbox", { name: /off with regional pricing/u })).not.toBeChecked()
+  })
+})
+
+describe("machine limits", () => {
+  it("shows on each tier card how many machines its key runs on at a time, from LICENSE_ACTIVATION_LIMITS", () => {
+    renderSection(<PricingSection />)
+    const translate = createTranslator({ locale: "en-US", messages: pricing })
+    for (const tier of LICENSE_TIERS) {
+      const card = screen.getByRole("heading", { name: pricing.tiers[tier].name }).parentElement
+      if (!card) {
+        throw new Error(`The ${tier} card is missing`)
+      }
+      expect(within(card).getByText(translate("machines", { limit: LICENSE_ACTIVATION_LIMITS[tier] }))).toBeVisible()
+    }
   })
 })
 

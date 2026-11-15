@@ -14,7 +14,7 @@ const SPEC_KEYS = ["vitest", "playwright", "typescript"] as const
 const TERMINAL_DELAY_MS = 120
 
 const TERMINAL_LINES = [
-  { kind: "command", text: "bun run test:coverage" },
+  { kind: "command", text: REPOSITORY_FACTS.coverageCommand },
   { kind: "output", text: `Test Files  ${String(REPOSITORY_FACTS.testFiles)} passed (${String(REPOSITORY_FACTS.testFiles)})` },
   { kind: "blank", text: "" },
   { kind: "pass", text: "% Stmts     100" },

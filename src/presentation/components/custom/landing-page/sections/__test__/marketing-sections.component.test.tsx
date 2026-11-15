@@ -10,6 +10,7 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 import { MotionProvider } from "~/src/providers/motion-provider"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
@@ -40,9 +41,19 @@ import { ROUTES } from "~/src/routes"
 
 const withFacts = (message: string): string => createTranslator({ locale: "en-US", messages: { message } })("message", REPOSITORY_FACTS)
 
-const renderSection = (ui: ReactElement) =>
+const EVIDENCE_CODE = [
+  REPOSITORY_FACTS.authIntegrationPath,
+  REPOSITORY_FACTS.ciWorkflowPath,
+  REPOSITORY_FACTS.coverageCommand,
+  REPOSITORY_FACTS.coverageSummaryPath,
+  REPOSITORY_FACTS.e2eSpecsPath,
+  REPOSITORY_FACTS.i18nCheckCommand,
+  REPOSITORY_FACTS.messagesPath,
+]
+
+const renderSection = (ui: ReactElement, locale: SupportedLocale = I18N.DEFAULT_LOCALE) =>
   renderWithRouter(
-    <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
+    <IntlProvider locale={locale} messages={getTestMessages(locale)} timeZone="UTC">
       <MotionProvider>{ui}</MotionProvider>
     </IntlProvider>,
   )
@@ -220,7 +231,7 @@ describe("marketing content and purchase links", () => {
       expect(screen.getByText(withFacts(item.claim), { selector: "dt" })).toBeVisible()
       expect(screen.getByText(withFacts(item.evidence))).toBeVisible()
     }
-    expect(screen.getByText("bun run test:coverage")).toBeInTheDocument()
+    expect(screen.getByText(REPOSITORY_FACTS.coverageCommand)).toBeInTheDocument()
     expect(
       screen.getByText(`Test Files ${String(REPOSITORY_FACTS.testFiles)} passed (${String(REPOSITORY_FACTS.testFiles)})`),
     ).toBeInTheDocument()
@@ -334,5 +345,19 @@ describe("CLI configuration", () => {
     expect(command).toContain("--with page-builder")
     expect(command).not.toContain("--with courses")
     expect(screen.getByText("pnpm dev")).toBeVisible()
+  })
+})
+
+describe("record evidence", () => {
+  it.each(I18N.SUPPORTED_LOCALES)("cites the paths and commands exactly as the repository spells them in %s", (locale) => {
+    renderSection(<RecordSection />, locale)
+    const evidence = screen
+      .getAllByRole("definition")
+      .map(({ textContent }) => textContent)
+      .join("\n")
+
+    for (const code of EVIDENCE_CODE) {
+      expect(evidence).toContain(code)
+    }
   })
 })

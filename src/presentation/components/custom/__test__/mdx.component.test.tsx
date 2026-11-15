@@ -38,7 +38,7 @@ describe("MDX components", () => {
     expect(screen.getByText("const ready = true").closest("pre")).toBeInTheDocument()
   })
 
-  it("keeps an untitled code block out of the landmarks and names a titled one by its caption", () => {
+  it("keeps code blocks out of the landmarks with a scroll area that the keyboard reaches", () => {
     render(
       <>
         <Pre>
@@ -49,8 +49,9 @@ describe("MDX components", () => {
         </Pre>
       </>,
     )
-    expect(screen.getAllByRole("region")).toStrictEqual([screen.getByRole("region", { name: "vite.config.ts" })])
-    expect(screen.getByRole("region", { name: "vite.config.ts" })).toHaveTextContent("export default config")
+    expect(screen.queryAllByRole("region")).toStrictEqual([])
+    expect(screen.getByText("bun install").closest("[tabindex='0']")).toBeInTheDocument()
+    expect(screen.getByText("export default config").closest("[tabindex='0']")).toBeInTheDocument()
   })
 
   it("names a task list checkbox by the text of its item", () => {

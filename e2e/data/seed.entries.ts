@@ -1,3 +1,4 @@
 export { authSeed } from "./auth.seed"
+export { coreSeed } from "./core.seed"
 export { coursesSeed } from "./courses.seed"
 export { licenseSeed } from "./license.seed"

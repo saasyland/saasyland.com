@@ -1,5 +1,18 @@
 import { CreditCard, Tag, TrendingDown, Users, Wallet } from "lucide-react"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+
+const MONTHLY_PASS_PRICE = 29
+const ANNUAL_PASS_PRICE = 290
+const COURSE_LICENCE_PRICE = 99
+const MONTHS_PER_YEAR = 12
+const MONTHLY_RECURRING_REVENUE = 12_450
+const REVENUE_CHART_TICK_STEP = 10_000
+const REVENUE_CHART_TICK_COUNT = 4
+const REVENUE_CHART_YEAR = 2026
+
+const COUNT_FORMAT = { style: "decimal" } as const satisfies Intl.NumberFormatOptions
+
 export const ADMIN_PAYMENT_ROWS = [
   {
     amount: 199,
@@ -43,12 +56,6 @@ export const ADMIN_PAYMENT_ROWS = [
   },
 ] as const
 
-export const ADMIN_PRICING_STATS = [
-  { icon: Wallet, id: "monthlyRecurring", value: "$12,450" },
-  { icon: Users, id: "activeSubscribers", value: "842" },
-  { icon: Tag, id: "activeModels", value: "3" },
-] as const
-
 export const ADMIN_PRICING_MODELS = [
   {
     activeUsers: 624,
@@ -56,6 +63,7 @@ export const ADMIN_PRICING_MODELS = [
     id: "monthly",
     isActive: true,
     isPopular: false,
+    price: MONTHLY_PASS_PRICE,
     tag: "subscription",
   },
   {
@@ -64,6 +72,7 @@ export const ADMIN_PRICING_MODELS = [
     id: "annual",
     isActive: true,
     isPopular: true,
+    price: ANNUAL_PASS_PRICE,
     tag: "subscription",
   },
   {
@@ -72,8 +81,20 @@ export const ADMIN_PRICING_MODELS = [
     id: "lifetime",
     isActive: false,
     isPopular: false,
+    price: COURSE_LICENCE_PRICE,
     tag: "oneTime",
   },
+] as const
+
+export const ADMIN_ANNUAL_PASS_SAVINGS = MONTHLY_PASS_PRICE * MONTHS_PER_YEAR - ANNUAL_PASS_PRICE
+
+const ACTIVE_MODELS = ADMIN_PRICING_MODELS.filter(({ isActive }) => isActive)
+const ACTIVE_SUBSCRIBERS = ACTIVE_MODELS.reduce((total, { activeUsers }) => total + activeUsers, 0)
+
+export const ADMIN_PRICING_STATS = [
+  { format: CURRENCY_FORMAT, icon: Wallet, id: "monthlyRecurring", value: MONTHLY_RECURRING_REVENUE },
+  { format: COUNT_FORMAT, icon: Users, id: "activeSubscribers", value: ACTIVE_SUBSCRIBERS },
+  { format: COUNT_FORMAT, icon: Tag, id: "activeModels", value: ACTIVE_MODELS.length },
 ] as const
 
 export const ADMIN_PAYMENTS_TABS = ["transactions", "subscriptions", "payouts", "refunds"] as const
@@ -82,3 +103,15 @@ export const ADMIN_REFUND_TRENDING_STATS = [
   { icon: CreditCard, id: "refunded" },
   { icon: TrendingDown, id: "refundRate" },
 ] as const
+
+export const ADMIN_REVENUE_CHART_TICKS = Array.from(
+  { length: REVENUE_CHART_TICK_COUNT },
+  (_, index) => (REVENUE_CHART_TICK_COUNT - index) * REVENUE_CHART_TICK_STEP - REVENUE_CHART_TICK_STEP,
+)
+
+export const ADMIN_REVENUE_CHART_MONTHS = Array.from(
+  { length: MONTHS_PER_YEAR },
+  (_, month) => new Date(Date.UTC(REVENUE_CHART_YEAR, month)),
+)
+
+export const ADMIN_REVENUE_CHART_FILTERS = ["12m", "30d", "7d"] as const

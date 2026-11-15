@@ -4,13 +4,13 @@ import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useTranslations } from "use-intl/react"
 
 import { ADMIN_STATUS_BADGE_CLASSES } from "~/src/data/admin"
-import { type ADMIN_ROLE_ROWS } from "~/src/data/admin-users"
+import { type ADMIN_ROLE_ROWS } from "~/src/data/admin-team"
 
 import { cn } from "~/src/lib/cn"
 
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 
-import { RowActionsCell } from "~/src/presentation/components/custom/admin/row-actions-cell"
+import { RowActionsCell } from "~/src/presentation/components/custom/admin/products/row-actions-cell"
 import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type Role = (typeof ADMIN_ROLE_ROWS)[number]
@@ -22,19 +22,19 @@ const ColumnHeader = ({ id }: { readonly id: "description" | "name" | "type" | "
 }
 
 const NameCell = ({ row }: CellContext<DataTableFeatures, Role, string>): JSX.Element => {
-  const t = useTranslations("pages.admin.users.demo.roles")
+  const t = useTranslations("pages.admin.users.roles.demo")
 
   return <span className="text-sm font-medium text-foreground">{t(`${row.original.id}.name`)}</span>
 }
 
 const DescriptionCell = ({ row }: CellContext<DataTableFeatures, Role, string>): JSX.Element => {
-  const t = useTranslations("pages.admin.users.demo.roles")
+  const t = useTranslations("pages.admin.users.roles.demo")
 
   return <span className="block max-w-sm truncate text-sm text-muted-foreground">{t(`${row.original.id}.description`)}</span>
 }
 
 const TypeCell = ({ row }: CellContext<DataTableFeatures, Role, string>): JSX.Element => {
-  const t = useTranslations("pages.admin.users.demo.roles")
+  const t = useTranslations("pages.admin.users.roles.demo")
 
   return (
     <Badge className={cn("px-2 py-1 text-xs font-medium", ADMIN_STATUS_BADGE_CLASSES.neutral)} variant="outline">

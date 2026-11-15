@@ -1,9 +1,11 @@
 import type { JSX } from "react"
 
 import { Archive, Calendar, CheckCircle2, MoreHorizontal, Pencil, ShoppingBag, Trash2, Users } from "lucide-react"
-import { useTranslations } from "use-intl/react"
+import { useFormatter, useTranslations } from "use-intl/react"
 
-import { ADMIN_PRICING_MODELS } from "~/src/data/admin-payments"
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+
+import { ADMIN_ANNUAL_PASS_SAVINGS, ADMIN_PRICING_MODELS } from "~/src/data/admin-payments"
 
 import { cn } from "~/src/lib/cn"
 
@@ -16,6 +18,8 @@ const TAG_ICONS = { oneTime: ShoppingBag, subscription: Calendar } as const
 
 export const PricingModelsGrid = (): JSX.Element => {
   const t = useTranslations("pages.admin.pricing-models")
+  const formatter = useFormatter()
+  const savings = formatter.number(ADMIN_ANNUAL_PASS_SAVINGS, CURRENCY_FORMAT)
 
   return (
     <div className="grid grid-cols-1 items-start gap-6 pt-2 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
@@ -50,11 +54,11 @@ export const PricingModelsGrid = (): JSX.Element => {
 
               <div className="mb-6">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-price text-foreground tabular-nums">{t(`models.${model.id}.price`)}</span>
+                  <span className="text-price text-foreground tabular-nums">{formatter.number(model.price, CURRENCY_FORMAT)}</span>
                   <span className="font-mono text-spec text-muted-foreground">{t(`models.${model.id}.interval`)}</span>
                 </div>
                 <p className={cn("mt-2 text-body-sm", { "text-muted-foreground": !model.isPopular, "text-ring": model.isPopular })}>
-                  {t(`models.${model.id}.description`)}
+                  {t(`models.${model.id}.description`, { savings })}
                 </p>
               </div>
 

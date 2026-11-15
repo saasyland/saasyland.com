@@ -8,8 +8,6 @@ export const AUTH_PAGES = [
   { path: "/admin", role: ROLE_CODES.ADMIN },
   { path: "/admin/settings", role: ROLE_CODES.ADMIN },
   { path: "/admin/users/all", role: ROLE_CODES.ADMIN },
-  { path: "/admin/users/invitations", role: ROLE_CODES.ADMIN },
-  { path: "/admin/users/roles", role: ROLE_CODES.ADMIN },
   { path: "/admin/users/security", role: ROLE_CODES.ADMIN },
   { path: "/app/settings", role: ROLE_CODES.CUSTOMER },
 ] as const satisfies readonly PageEntry[]

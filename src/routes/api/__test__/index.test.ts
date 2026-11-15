@@ -10,7 +10,7 @@ it("reports the Worker runtime through the API root", async () => {
     next: vi.fn(),
     params: {},
     pathname: "/api",
-    request: new Request("https://saasyland.com/api/"),
+    request: new Request("https://example.com/api/"),
   })
   assert(response instanceof Response)
   expect(response.status).toBe(200)

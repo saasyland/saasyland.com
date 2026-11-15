@@ -4,8 +4,6 @@ export {
   ADMIN_SETTINGS,
   ADMIN_USERS,
   ADMIN_USERS_ALL,
-  ADMIN_USERS_INVITATIONS,
-  ADMIN_USERS_ROLES,
   ADMIN_USERS_SECURITY,
   API_AUTH,
   API_AUTH_BASE,
@@ -31,3 +29,4 @@ export { ADMIN_LANDING_PAGE } from "~/src/data/page-builder.routes"
 export { ADMIN_PAYMENTS, ADMIN_PRICING } from "~/src/data/payments.routes"
 export { ADMIN_BLOG, ADMIN_BLOG_CREATE } from "~/src/data/post-editor.routes"
 export { ADMIN_PRODUCTS, ADMIN_PRODUCTS_CREATE } from "~/src/data/products.routes"
+export { ADMIN_USERS_INVITATIONS, ADMIN_USERS_ROLES } from "~/src/data/team.routes"

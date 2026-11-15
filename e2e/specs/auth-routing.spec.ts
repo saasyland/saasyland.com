@@ -2,7 +2,7 @@ import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "../data/accounts"
 import { TEST_LICENSE } from "../data/licenses"
-import { expect, test } from "../fixtures/test"
+import { expect, test } from "../fixtures/auth"
 import { BasePage, LandingPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 

@@ -15,6 +15,7 @@ import { NAVIGATION_PAGES } from "~/src/data/navigation"
 import { Navigation } from "~/src/presentation/components/custom/navigation"
 
 import navigationMessages from "~/messages/en-US/components.custom.navigation.json"
+import { APP_NAME } from "~/src/presentation/branding"
 
 interface ResizeEntry {
   contentRect: Pick<DOMRectReadOnly, "height">
@@ -143,7 +144,7 @@ describe("public navigation links", () => {
     renderNavigation()
     const nav = screen.getByRole("navigation", { name: navigationMessages.ariaLabel })
 
-    expect(within(nav).getByRole("link", { name: "SaaSy Land" })).toHaveAttribute("href", "/")
+    expect(within(nav).getByRole("link", { name: APP_NAME })).toHaveAttribute("href", "/")
     expect(within(nav).getAllByRole("link", { name: navigationMessages.signIn })[0]).toHaveAttribute("href", "/auth/sign-in")
     expect(within(nav).getByRole("link", { name: navigationMessages.getStarted })).toHaveAttribute("href", "/#pricing")
     for (const page of NAVIGATION_PAGES) {

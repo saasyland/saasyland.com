@@ -19,6 +19,8 @@ const MIN_UNTRANSLATED_WORDS = 5
 const MESSAGES_DIR = join(import.meta.dirname, "../messages")
 const TRANSLATION_INSTRUCTIONS_PATTERN = /please provide the (?:english |source )?text|I am ready when you are|here is the translation/iu
 const TRANSLATION_MARKER_PATTERN = /ZXQ\d+QXZ|<ph\d+|▁|\{"translation":/u
+const PATH_PATTERN = /(?<![\w./-])\.?[a-z0-9][\w.@-]*\/[\w.@/-]*/gu
+const COMMAND_PATTERN = /\b(?:bun run|bunx|npx|vp) [\w@][\w:@./-]*[\w/]/gu
 
 const flatten = (node: unknown, prefix = ""): [string, string][] => {
   if (typeof node === "string") {
@@ -73,27 +75,32 @@ const literalTextOf = (nodes: MessageFormatElement[]): string =>
     })
     .join("")
 
-const messageProblems = ({ locale, original, value }: { locale: SupportedLocale; original: string; value: string }): string[] => {
+const codeOf = (text: string): string[] => [...(text.match(PATH_PATTERN) ?? []), ...(text.match(COMMAND_PATTERN) ?? [])]
+
+export const messageProblems = ({ locale, original, value }: { locale: SupportedLocale; original: string; value: string }): string[] => {
   const problems: string[] = []
 
   try {
     const parsed = parse(value)
-    if (JSON.stringify(argumentsOf(parse(original))) !== JSON.stringify(argumentsOf(parsed))) {
+    const parsedOriginal = parse(original)
+    if (JSON.stringify(argumentsOf(parsedOriginal)) !== JSON.stringify(argumentsOf(parsed))) {
       problems.push("changed ICU arguments or tags")
     }
-    if (
-      locale !== I18N.DEFAULT_LOCALE &&
-      value === original &&
-      (literalTextOf(parsed).match(/\p{L}+/gu)?.length ?? 0) >= MIN_UNTRANSLATED_WORDS
-    ) {
+    const text = literalTextOf(parsed)
+    problems.push(
+      ...codeOf(literalTextOf(parsedOriginal))
+        .filter((code) => !text.includes(code))
+        .map((code) => `changed the path or command ${code}`),
+    )
+    if (locale !== I18N.DEFAULT_LOCALE && value === original && (text.match(/\p{L}+/gu)?.length ?? 0) >= MIN_UNTRANSLATED_WORDS) {
       problems.push("untranslated English text")
     }
   } catch (error) {
     return [String(error)]
   }
 
-  if (value.includes("```") && !original.includes("```")) {
-    problems.push("unexpected Markdown code fence")
+  if (value.includes("`") && !original.includes("`")) {
+    problems.push("unexpected Markdown code")
   }
 
   if (TRANSLATION_INSTRUCTIONS_PATTERN.test(value)) {
@@ -107,22 +114,26 @@ const messageProblems = ({ locale, original, value }: { locale: SupportedLocale;
   return problems
 }
 
-const problems: string[] = []
+export const messageFormatProblems = (): string[] =>
+  readdirSync(join(MESSAGES_DIR, I18N.DEFAULT_LOCALE))
+    .filter((name) => name.endsWith(".json"))
+    .flatMap((file) => {
+      const source = new Map(readMessages(I18N.DEFAULT_LOCALE, file))
 
-for (const file of readdirSync(join(MESSAGES_DIR, I18N.DEFAULT_LOCALE)).filter((name) => name.endsWith(".json"))) {
-  const source = new Map(readMessages(I18N.DEFAULT_LOCALE, file))
+      return I18N.SUPPORTED_LOCALES.flatMap((locale) =>
+        readMessages(locale, file).flatMap(([key, value]) =>
+          messageProblems({ locale, original: source.get(key) ?? "", value }).map((problem) => `${locale}/${file}:${key}: ${problem}`),
+        ),
+      )
+    })
 
-  for (const locale of I18N.SUPPORTED_LOCALES) {
-    for (const [key, value] of readMessages(locale, file)) {
-      const found = messageProblems({ locale, original: source.get(key) ?? "", value })
-      problems.push(...found.map((problem) => `${locale}/${file}:${key}: ${problem}`))
-    }
+if (import.meta.main) {
+  const problems = messageFormatProblems()
+
+  if (problems.length > 0) {
+    console.error(problems.join("\n"))
+    process.exit(FAILURE_EXIT_CODE)
   }
-}
 
-if (problems.length > 0) {
-  console.error(problems.join("\n"))
-  process.exit(FAILURE_EXIT_CODE)
+  console.log("✅ Every translated message parses and preserves its ICU arguments, rich-text tags, paths and commands.")
 }
-
-console.log("✅ Every translated message parses and preserves its ICU arguments and rich-text tags.")

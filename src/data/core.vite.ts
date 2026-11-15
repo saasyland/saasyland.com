@@ -4,9 +4,12 @@ export const CORE_VITE_PLUGINS = [
   {
     order: 40,
     plugins: async () => {
-      const { default: tailwindcss } = await import("@tailwindcss/vite")
+      const [{ default: tailwindcss }, { unusedPrimitivesPlugin }] = await Promise.all([
+        import("@tailwindcss/vite"),
+        import("../../scripts/unused-primitives.ts"),
+      ])
 
-      return [tailwindcss()]
+      return [unusedPrimitivesPlugin(), tailwindcss()]
     },
     vitest: false,
   },

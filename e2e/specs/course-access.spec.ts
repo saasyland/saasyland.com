@@ -2,7 +2,7 @@ import { LESSON_ACCESS } from "../../src/modules/lesson/lesson.constants"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
-import { expect, test } from "../fixtures/test"
+import { expect, test } from "../fixtures/auth"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const [, customer] = TEST_ACCOUNTS

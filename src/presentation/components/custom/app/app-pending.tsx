@@ -4,7 +4,7 @@ import { useRouterState } from "@tanstack/react-router"
 
 import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { APP_NAVIGATION } from "~/src/data/navigation"
+import { APP_NAVIGATION, APP_RESOURCE_NAVIGATION } from "~/src/data/navigation"
 import { PAGE_SKELETONS } from "~/src/data/skeletons"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
@@ -37,7 +37,9 @@ const AppSidebarPending = (): JSX.Element => (
           <Skeleton className="h-lh w-18 scale-y-70" />
         </div>
         <div className="flex flex-col gap-1">
-          <SidebarLinkPending />
+          {APP_RESOURCE_NAVIGATION.map((item) => (
+            <SidebarLinkPending key={item.to} />
+          ))}
           <SidebarLinkPending />
         </div>
       </div>

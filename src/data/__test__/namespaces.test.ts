@@ -1,11 +1,13 @@
 import { describe, expect, expectTypeOf, it, vi } from "vite-plus/test"
 
-import { layoutNamespaces } from "~/src/data/namespaces"
+import { type LayoutNamespaces, layoutNamespaces } from "~/src/data/namespaces"
 import * as AREA_NAMESPACES from "~/src/data/namespaces.entries"
 
 import type { FileRouteTypes } from "~/src/routeTree.gen"
 
-const ENTRIES = Object.values(AREA_NAMESPACES).flat()
+const ENTRIES: readonly LayoutNamespaces[] = Object.values(AREA_NAMESPACES).flat()
+
+type DeclaredLayout = (typeof AREA_NAMESPACES)[keyof typeof AREA_NAMESPACES][number]["layout"]
 
 const SAMPLE_LAYOUT = "/sample"
 
@@ -22,7 +24,7 @@ describe("layout namespaces", () => {
   })
 
   it("names a layout route of the route tree for every entry", () => {
-    expectTypeOf<(typeof ENTRIES)[number]["layout"]>().toExtend<FileRouteTypes["id"]>()
+    expectTypeOf<Exclude<DeclaredLayout, FileRouteTypes["id"]>>().toBeNever()
   })
 
   it("adds nothing to a layout no area adds to", async () => {

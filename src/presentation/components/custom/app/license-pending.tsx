@@ -97,6 +97,7 @@ const TierColumnPending = ({ featured }: Readonly<{ featured: boolean }>): JSX.E
         {FEATURE_IDS.map((feature) => (
           <Skeleton className="h-lh w-4/5 scale-y-70 text-body-sm" key={feature} />
         ))}
+        <Skeleton className="h-lh w-4/5 scale-y-70 text-body-sm" />
       </div>
       <div className="mt-auto pt-10 @2xl:pt-12">
         <Skeleton className="h-11 w-full rounded-lg" />

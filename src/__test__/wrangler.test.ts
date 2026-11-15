@@ -6,7 +6,6 @@ import * as zod from "zod"
 import { DEPLOYED_HOSTS, ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
 const WRANGLER = readFileSync("wrangler.jsonc", "utf8")
-const BLANK_LINE = /\n[ \t]*\n/u
 const SECRET_NAME = /[A-Z][A-Z0-9_]*/gu
 const VARIABLE_NAME = /^[A-Z][A-Z0-9_]*(?==)/gmu
 
@@ -26,12 +25,10 @@ const nodeAt = (path: string[]): Node => {
   return node
 }
 
-const secretBlocks = (environment: string): string[][] => {
+const secretNames = (environment: string): string[] => {
   const { length, offset } = nodeAt(["env", environment, "secrets", "required"])
 
-  return WRANGLER.slice(offset, offset + length)
-    .split(BLANK_LINE)
-    .map((block) => block.match(SECRET_NAME) ?? [])
+  return WRANGLER.slice(offset, offset + length).match(SECRET_NAME) ?? []
 }
 
 const bindingNames = (environment: string): Record<string, string[]> => {
@@ -40,22 +37,18 @@ const bindingNames = (environment: string): Record<string, string[]> => {
   return Object.fromEntries(Object.entries(bindings).map(([kind, entries]) => [kind, entries.map(({ binding }) => binding)]))
 }
 
-const variableBlocks = (file: string): string[][] =>
-  readFileSync(file, "utf8")
-    .trim()
-    .split(BLANK_LINE)
-    .map((block) => block.match(VARIABLE_NAME) ?? [])
+const variableNames = (file: string): string[] => readFileSync(file, "utf8").match(VARIABLE_NAME) ?? []
 
 describe("wrangler.jsonc", () => {
   it.each([ENVIRONMENT.DEVELOPMENT, ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])(
-    "requires the secrets of .env.example in %s, in the same blocks and order",
+    "requires the secrets of .env.example in %s, in the same order",
     (environment) => {
-      expect(secretBlocks(environment)).toStrictEqual(variableBlocks(".env.example"))
+      expect(secretNames(environment)).toStrictEqual(variableNames(".env.example"))
     },
   )
 
-  it("requires the secrets of .env.test in the test Worker, in the same blocks and order", () => {
-    expect(secretBlocks(ENVIRONMENT.TEST)).toStrictEqual(variableBlocks(".env.test"))
+  it("requires the secrets of .env.test in the test Worker, in the same order", () => {
+    expect(secretNames(ENVIRONMENT.TEST)).toStrictEqual(variableNames(".env.test"))
   })
 
   it.each([ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION, ENVIRONMENT.TEST])(

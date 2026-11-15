@@ -1,9 +1,10 @@
 import { API_BASE_PATH, API_ENDPOINT, API_ERROR_STATUS, API_HEADER, API_LIMIT, RATE_LIMIT } from "@saasyland/stack/api"
 import { globSync, readFileSync } from "node:fs"
+import { posix } from "node:path"
 import type { Plugin } from "vite-plus"
 import * as zod from "zod"
 
-import { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
+import playwrightConfig, { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
 import { MILLISECONDS_PER_SECOND } from "../src/lib/duration.ts"
 import { COUNTRIES } from "../src/modules/_core/constants/country.ts"
 import { CURRENCY_CODES } from "../src/modules/_core/constants/currency.ts"
@@ -14,6 +15,13 @@ import { COMMIT_EMOJIS } from "./commit-msg.ts"
 const MODULE_ID = "virtual:repository-facts"
 const RESOLVED_MODULE_ID = `\0${MODULE_ID}`
 const E2E_FULL_WORKFLOW = ".github/workflows/e2e-full.yml"
+const CI_WORKFLOW = ".github/workflows/ci.yml"
+const MESSAGES_PATH = "messages/"
+const AUTH_INTEGRATION_PATH = "src/integrations/better-auth"
+const COVERAGE_COMMAND = "bun run test:coverage"
+const I18N_CHECK_COMMAND = "bun run check:i18n"
+const COVERAGE_SUMMARY_REPORTER = "json-summary"
+const COVERAGE_SUMMARY_FILE = "coverage-summary.json"
 
 const BUN_PACKAGE_MANAGER = /^bun@(?<version>\S+)$/u
 const WORKFLOW_CRON = /cron:\s*"(?<schedule>[^"]+)"/u
@@ -42,7 +50,13 @@ const projectWithTimeoutSchema = zod.object({ test: zod.object({ testTimeout: zo
 
 const rulesSchema = zod.object({ "max-lines": maxRuleSchema, "max-lines-per-function": maxRuleSchema, "max-statements": maxRuleSchema })
 
-const testSchema = zod.object({ coverage: zod.object({ thresholds: thresholdsSchema }), projects: zod.array(zod.unknown()) })
+const coverageSchema = zod
+  .object({ reporter: zod.array(zod.string()), reportsDirectory: zod.string(), thresholds: thresholdsSchema })
+  .refine(({ reporter }) => reporter.includes(COVERAGE_SUMMARY_REPORTER), "The landing page cites the coverage summary report")
+
+const testSchema = zod.object({ coverage: coverageSchema, projects: zod.array(zod.unknown()) })
+
+const playwrightSchema = zod.object({ testDir: zod.string() })
 
 const configSchema = zod.object({
   fmt: zod.object({ printWidth: zod.number(), tabWidth: zod.number() }),
@@ -88,12 +102,15 @@ export type CliApiTables = ReturnType<typeof collectCliApiTables>
 
 export const collectRepositoryFacts = (config: unknown) => {
   const { fmt, lint, test } = configSchema.parse(config)
+  const e2eSpecsPath = posix.normalize(playwrightSchema.parse(playwrightConfig).testDir)
   const [, maxLines] = lint.rules["max-lines"]
   const [, maxLinesPerFunction] = lint.rules["max-lines-per-function"]
   const [, maxStatements] = lint.rules["max-statements"]
 
   return {
+    authIntegrationPath: AUTH_INTEGRATION_PATH,
     bunVersion: readBunVersion(),
+    ciWorkflowPath: CI_WORKFLOW,
     cliApiBasePath: API_BASE_PATH,
     cliApiLabelMaxLength: API_LIMIT.LABEL_MAX_LENGTH,
     cliApiMachineHeader: API_HEADER.MACHINE,
@@ -101,14 +118,19 @@ export const collectRepositoryFacts = (config: unknown) => {
     cliApiRequestsPerAddress: RATE_LIMIT.REQUESTS_PER_ADDRESS,
     cliApiRequestsPerLicenseKey: RATE_LIMIT.REQUESTS_PER_LICENSE_KEY,
     countries: COUNTRIES.length,
+    coverageCommand: COVERAGE_COMMAND,
+    coverageSummaryPath: posix.join(test.coverage.reportsDirectory, COVERAGE_SUMMARY_FILE),
     coverageThreshold: test.coverage.thresholds.lines,
     currencies: CURRENCY_CODES.length,
     e2eFullSchedule: readE2eFullSchedule(),
-    e2eSpecs: countFiles("e2e/specs/*.spec.ts"),
+    e2eSpecs: countFiles(`${e2eSpecsPath}/*.spec.ts`),
+    e2eSpecsPath,
+    i18nCheckCommand: I18N_CHECK_COMMAND,
     integrationTestTimeoutSeconds: findTimedProject(test.projects).test.testTimeout / MILLISECONDS_PER_SECOND,
     maxLines: maxLines.max,
     maxLinesPerFunction: maxLinesPerFunction.max,
     maxStatements: maxStatements.max,
+    messagesPath: MESSAGES_PATH,
     nodeVersion: readFileSync(".nvmrc", "utf8").trim(),
     playwrightCiRetries: CI_RETRIES,
     playwrightCiWorkers: CI_WORKERS,

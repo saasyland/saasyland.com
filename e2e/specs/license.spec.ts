@@ -1,5 +1,5 @@
 import { TEST_ACCOUNTS } from "../data/accounts"
-import { expect, test } from "../fixtures/test"
+import { expect, test } from "../fixtures/auth"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const [, customer] = TEST_ACCOUNTS

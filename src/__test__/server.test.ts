@@ -79,7 +79,7 @@ it("replaces a security header that an asset rule or the response already set, s
 })
 
 it("asks browsers to keep using HTTPS only on HTTPS responses", async () => {
-  const secure = await worker.fetch(new Request("https://saasyland.com/"), env)
+  const secure = await worker.fetch(new Request("https://example.com/"), env)
   const local = await worker.fetch(new Request("http://localhost/"), env)
 
   expect(headersNamed(secure, Object.keys(HTTPS_SECURITY_HEADERS))).toStrictEqual(HTTPS_SECURITY_HEADERS)

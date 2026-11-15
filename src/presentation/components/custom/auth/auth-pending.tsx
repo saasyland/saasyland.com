@@ -8,6 +8,7 @@ import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { createOtpSlotIndices } from "~/src/modules/two-factor/two-factor.utils"
 
 import { AUTH_ASSURANCES, OAUTH_PROVIDERS, PASSWORD_RULES } from "~/src/data/auth"
+import { SIGN_UP_NOTICES } from "~/src/data/sign-up-notices"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
@@ -92,10 +93,9 @@ export const SignUpPending = (): JSX.Element => (
         <PasswordRulesPending />
         <Skeleton className="h-12 w-full rounded-lg" />
       </div>
-      <div className="flex flex-col text-body-sm">
-        <Skeleton className="h-lh w-full scale-y-70" />
-        <Skeleton className="h-lh w-1/4 scale-y-70" />
-      </div>
+      {SIGN_UP_NOTICES.map(({ Pending, key }) => (
+        <Pending key={key} />
+      ))}
     </div>
     <FooterPending />
   </div>

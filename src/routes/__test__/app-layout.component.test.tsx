@@ -28,6 +28,7 @@ import { Route as SettingsRoute } from "~/src/routes/app.settings"
 import commonMessages from "~/messages/en-US/common.json"
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
+import navigationContentMessages from "~/messages/en-US/navigation.content.json"
 import navigationLicenseMessages from "~/messages/en-US/navigation.license.json"
 import pagesAppMessages from "~/messages/en-US/pages.app.json"
 import pagesAppSettingsMessages from "~/messages/en-US/pages.app.settings.json"
@@ -36,7 +37,7 @@ import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
 import timezonesMessages from "~/messages/en-US/timezones.json"
 import plCommonMessages from "~/messages/pl-PL/common.json"
 import plErrorMessages from "~/messages/pl-PL/errors.json"
-import { CONTACT_EMAIL } from "~/src/presentation/branding"
+import { APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
@@ -135,7 +136,7 @@ describe("customer workspace routes", () => {
   })
 
   it.each([
-    [ROUTES.APP, navigationLicenseMessages.app.overview, pagesAppMessages.metadata.title],
+    [ROUTES.APP, navigationAuthMessages.app.overview, pagesAppMessages.metadata.title],
     [ROUTES.APP_LICENSE, navigationLicenseMessages.app.license, pagesLicenseMessages.metadata.title],
   ])("loads %s with active navigation, metadata, and a single license lookup", async (path, active, heading) => {
     const { queryClient, router } = await renderApp(path)
@@ -171,8 +172,8 @@ describe("customer workspace routes", () => {
     expect(await screen.findByText("Activation details")).toBeVisible()
     const nav = screen.getByRole("navigation", { name: navigation.label })
     expect(within(nav).getByRole("link", { name: navigationLicenseMessages.app.license })).toHaveAttribute("aria-current", "page")
-    expect(within(nav).getByRole("link", { name: navigationLicenseMessages.app.overview })).not.toHaveAttribute("aria-current")
-    expect(within(screen.getByRole("banner")).getByText(navigationLicenseMessages.app.overview)).toBeVisible()
+    expect(within(nav).getByRole("link", { name: navigationAuthMessages.app.overview })).not.toHaveAttribute("aria-current")
+    expect(within(screen.getByRole("banner")).getByText(navigationAuthMessages.app.overview)).toBeVisible()
   })
 
   it("uses the email as the account name when the profile has no name", async () => {
@@ -189,9 +190,9 @@ describe("customer workspace routes", () => {
     const nav = screen.getByRole("navigation", { name: navigation.label })
     await user.click(within(nav).getByRole("link", { name: navigationLicenseMessages.app.license }))
     expect(await screen.findByRole("heading", { level: 1, name: pagesLicenseMessages.metadata.title })).toBeVisible()
-    await user.click(screen.getByRole("link", { name: "SaaSy Land" }))
+    await user.click(screen.getByRole("link", { name: APP_NAME }))
     expect(await screen.findByRole("heading", { name: pagesAppMessages.metadata.title })).toBeVisible()
-    await user.click(screen.getByRole("link", { name: navigation.documentation }))
+    await user.click(screen.getByRole("link", { name: navigationContentMessages.appResources.docs }))
     expect(await screen.findByRole("heading", { name: "Documentation" })).toBeVisible()
     expect(router.state.location.pathname).toBe(ROUTES.DOCS)
   })

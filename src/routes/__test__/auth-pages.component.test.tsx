@@ -46,6 +46,7 @@ import pagesAuthSignInMessages from "~/messages/en-US/pages.auth.sign-in.json"
 import pagesAuthSignUpMessages from "~/messages/en-US/pages.auth.sign-up.json"
 import pagesAuthTwoFactorMessages from "~/messages/en-US/pages.auth.two-factor.json"
 import pagesAuthVerifyEmailMessages from "~/messages/en-US/pages.auth.verify-email.json"
+import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const sessionRequest = vi.hoisted(() => vi.fn())
@@ -171,12 +172,10 @@ describe("authentication routes", () => {
     expect(router.state.matches[0]?.meta).toContainEqual({ content: ROBOTS.NON_PRODUCTION, name: "robots" })
   })
 
-  it("uses new-account copy and legal links on signup, and returning-account copy on sign in", async () => {
+  it("uses new-account copy on signup, and returning-account copy on sign in", async () => {
     const { router } = await renderAuth(ROUTES.SIGN_UP)
     expect(await screen.findByText(authGateMessages.signUpHeadline)).toBeInTheDocument()
     expect(screen.queryByText(authGateMessages.headline)).not.toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Terms of Service" })).toHaveAttribute("href", ROUTES.TERMS)
-    expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", ROUTES.PRIVACY)
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeVisible()
     expect(screen.getByRole("button", { name: "Continue with GitHub" })).toBeVisible()
     await act(() => router.navigate({ to: ROUTES.SIGN_IN }))
@@ -255,7 +254,13 @@ describe("authentication routes", () => {
       }),
     )
     expect(matches?.at(-1)).toMatchObject({
-      loaderData: { locale: "en-US", metadata: pagesAuthVerifyEmailMessages.metadata },
+      loaderData: {
+        locale: "en-US",
+        metadata: {
+          description: pagesAuthVerifyEmailMessages.metadata.description.replace("{appName}", APP_NAME),
+          title: pagesAuthVerifyEmailMessages.metadata.title,
+        },
+      },
       routeId: "/auth/verify-email",
       status: "success",
     })
@@ -270,7 +275,7 @@ describe("authentication routes", () => {
     expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ reloadDocument: true, replace: true }))
     const destination = navigate.mock.calls.at(0)?.[0]?.href
     expect(destination).toBeDefined()
-    const redirect = new URL(destination ?? "", "https://saasyland.com")
+    const redirect = new URL(destination ?? "", "https://example.com")
     expect(redirect.pathname).toBe(ROUTES.API_AUTH_VERIFY_EMAIL)
     expect(redirect.searchParams.get("token")).toBe("token+with&symbols")
     expect(redirect.searchParams.get("callbackURL")).toBe(`${ROUTES.VERIFY_EMAIL}?verified=true`)

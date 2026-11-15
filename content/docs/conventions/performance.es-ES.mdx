@@ -1,6 +1,6 @@
 ---
 title: "Rendimiento"
-description: "Las reglas medidas que mantienen rápidas las páginas: un grafo de arranque del Worker pequeño, sugerencias de precarga eliminadas, la ubicación de los proveedores, un solo build de Tailwind, el tamaño de los medios y el patrón de aparición al desplazarse."
+description: "Las reglas medidas que mantienen rápidas las páginas: un grafo de arranque del Worker pequeño, ningún ORM en el navegador, sugerencias de precarga eliminadas, la ubicación de los proveedores, un solo build de Tailwind, el tamaño de los medios y el patrón de aparición al desplazarse."
 ---
 
 Cada regla de esta página salió de una medición, y varias sustituyeron una solución intuitiva que empeoraba las cosas. Cambia el código que hay detrás de una de ellas solo con una nueva medición que la supere.
@@ -25,6 +25,28 @@ const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
 Una vez, una sola importación estática del nombre de una cabecera desde un módulo que también importaba el cliente de Polar metió unos 1,4 MB del SDK en cada arranque en frío, y el primer byte de la página de inicio llegó a tardar hasta 1,4 segundos. Por eso `COUNTRY_HEADER` e `IP_ADDRESS_HEADER` viven en `src/modules/_core/constants/api.ts`, que no importa nada pesado. Antes de añadir una importación estática a `server.ts` o a un `<area>.worker.ts`, sigue su cadena de importaciones: cualquier cosa que llegue a `polar`, `drizzle-orm` o `resend` es una regresión.
+
+## Mantén el ORM fuera del navegador [#keep-the-orm-out-of-the-browser]
+
+Drizzle solo se ejecuta en el Worker. El navegador necesita los esquemas Zod de un módulo para sus formularios y sus tuplas de enum para sus campos de selección, así que ambos viven en archivos que no importan nada de Drizzle: `<table>.zod.ts` y `<table>.constants.ts` (consulta [Módulos](/docs/conventions/modules)). Una importación del navegador que llega a un `<table>.schema.ts` ejecuta `sqliteTable(...)`, una llamada que el bundler tiene que conservar, y arrastra consigo `drizzle-orm`.
+
+Antes, `<table>.zod.ts` también construía esquemas `insert`, `select` y `update` a partir de las tablas con `drizzle-zod`, y nada los leía en tiempo de ejecución. `drizzle-zod` retiene todo el espacio de nombres de zod, así que el bundler conservaba además todos los locales de zod, su conversor a JSON Schema y su compilador. Los esqueletos de carga de `/admin` y `/app` importan `PreferencesCardPending` de `preferences-card.tsx`, que importaba `user.zod.ts`, y la división de código no separa los componentes de carga, así que todo ello se cargaba en cada página. Mover las tuplas a las constantes y eliminar esos esquemas le quitó a cada página unos 75 KiB de JavaScript comprimido con gzip. Los tamaños siguientes suman todos los scripts que carga cada página, comprimidos con gzip, según la salida de `bun run build:test`:
+
+| Página         | Antes     | Después   |
+| -------------- | --------- | --------- |
+| `/`            | 526,2 KiB | 450,7 KiB |
+| `/docs/<page>` | 612,1 KiB | 536,5 KiB |
+| `/blog`        | 487,2 KiB | 411,7 KiB |
+| `/app`         | 496,6 KiB | 421,0 KiB |
+| `/admin`       | 515,0 KiB | 439,4 KiB |
+
+`src/data/tanstack.vite.ts` prohíbe `drizzle-orm` en el entorno del cliente mediante la protección de importaciones de TanStack Start:
+
+```ts title="src/data/tanstack.vite.ts"
+const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
+```
+
+Un build en el que una importación suya sobrevive al tree-shaking falla e imprime la cadena de importaciones desde la ruta hasta el archivo que llegó a Drizzle. Rompe la cadena donde empieza: importa la tupla desde las constantes del módulo o mueve el código a una función de servidor. Las importaciones de solo tipos se eliminan y nunca cuentan.
 
 ## Las páginas prerenderizadas cargan primero el CSS y las fuentes
 

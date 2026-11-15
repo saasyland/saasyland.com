@@ -11,9 +11,10 @@ vi.mock(import("@tanstack/react-start/plugin/vite"), () => ({ tanstackStart }))
 const [start] = TANSTACK_VITE_PLUGINS
 
 describe("TanStack Start Vite plugin", () => {
-  it("prerenders the pages it can crawl, splits route code and ignores route tests", async () => {
+  it("prerenders the pages it can crawl, splits route code, ignores route tests and keeps the ORM out of the browser", async () => {
     expect(await start.plugins()).toStrictEqual([[{ name: "tanstack-start" }]])
     expect(tanstackStart).toHaveBeenCalledExactlyOnceWith({
+      importProtection: { client: { specifiers: [/^drizzle-orm(?:\/|$)/u] } },
       prerender: { autoStaticPathsDiscovery: true, crawlLinks: true, enabled: true, filter: shouldPrerender },
       router: {
         codeSplittingOptions: { defaultBehavior: [["component"], ["loader"], ["errorComponent"], ["notFoundComponent"]] },

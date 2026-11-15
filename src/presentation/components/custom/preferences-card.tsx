@@ -11,7 +11,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 import { updatePreferencesMutation } from "~/src/modules/user/use-cases/update-preferences"
-import { TIMEZONE_CODES } from "~/src/modules/user/user.schema"
+import { TIMEZONE_CODES } from "~/src/modules/user/user.constants"
 import { userZodSchemas } from "~/src/modules/user/user.zod"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"

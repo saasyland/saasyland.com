@@ -13,8 +13,8 @@ description: "Модуль — це одна таблиця бази даних:
 
 | Файл                         | Містить                                                                                              |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `<table>.schema.ts`          | Таблицю Drizzle, її індекси та зв’язки, а також кортежі переліків, які використовують її стовпці     |
-| `<table>.constants.ts`       | Об’єкти доменних значень, ключі запитів, ключі мутацій і обмеження модуля                            |
+| `<table>.schema.ts`          | Таблицю Drizzle, її індекси та зв’язки                                                               |
+| `<table>.constants.ts`       | Об’єкти доменних значень, їхні кортежі переліків, ключі запитів, ключі мутацій і обмеження модуля    |
 | `<table>.zod.ts`             | По одній схемі вхідних даних на операцію, експортованих одним об’єктом `<table>ZodSchemas`           |
 | `<table>.types.ts`           | Один інтерфейс, названий за модулем                                                                  |
 | `<table>.utils.ts`           | Допоміжні функції для таблиці, чисті й безпечні для браузера, якщо вони не читають середовище Worker |
@@ -25,9 +25,6 @@ description: "Модуль — це одна таблиця бази даних:
 ## Схема
 
 ```ts
-export const COURSE_KINDS = [COURSE_KIND.COURSE, COURSE_KIND.TUTORIAL, COURSE_KIND.PROJECT] as const
-export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
-
 export const course = sqliteTable(
   "course",
   {
@@ -47,7 +44,7 @@ export const course = sqliteTable(
 - Стовпці мають назви в camelCase у TypeScript і в snake_case у SQL. Ключі відсортовано, як цього вимагає лінтер, а `...timestamps()` іде останнім записом.
 - `createdAt` і `updatedAt` беруться з `timestamps()` у `src/integrations/drizzle-orm/drizzle.columns.ts`: це мілісекунди, які SQLite заповнює під час вставлення, а `updatedAt` оновлюється під час кожного оновлення. Ніколи не записуйте їх вручну. `lesson_progress` потрібен лише другий, тому він бере `updatedAt: timestamps().updatedAt`. Дві таблиці не мають часових міток: `rate_limit` зберігає короткоживучі лічильники, які мають власний `expiresAt` і змінюються з кожним запитом, а `revoked_license_order` один раз записує кожне повернене замовлення Polar за його ID.
 - Первинні ключі текстові. Сценарій використання, що вставляє рядок, заповнює ключ значенням UUID v7 (`v7()` з `uuid`).
-- Стовпці-переліки отримують кортеж, побудований з об’єкта констант модуля, а не список літералів. Кортеж лежить у файлі схеми, якщо його не читає код поза сервером, як-от таблиця цін на лендингу (`LICENSE_TIERS`) або браузерний набір тестів (`NEWSLETTER_STATUSES`); тоді він лежить у `<table>.constants.ts`, що нічого не імпортує з Drizzle.
+- Стовпці-переліки отримують кортеж, побудований з об’єкта констант модуля, а не список літералів. Кортеж лежить поруч з об’єктом у `<table>.constants.ts`, бо його також читають схеми Zod і браузер, а цей файл нічого не імпортує з Drizzle.
 - Текст, який відвідувач читає кількома мовами, — це JSON-стовпець `LocalizedText`, який валідує `localizedTextSchema` і читає `localize(text, locale)` з `src/modules/_core/utils/localized-text.ts`.
 - Нову таблицю реекспортують з `src/integrations/drizzle-orm/drizzle.schemas.ts`, а її міграцію генерують командою `bun run db:generate`. Див. [Міграції бази даних](/docs/guides/database-migrations).
 
@@ -58,6 +55,8 @@ export const COURSE_STATUS = {
   DRAFT: "draft",
   PUBLISHED: "published",
 } as const
+
+export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
 
 export const COURSE_STALE_MS = 60_000
 
@@ -90,8 +89,14 @@ export const COURSE_MUTATION_KEYS = {
 
 ## Zod-схеми
 
-```ts
-const { createInsertSchema, createSelectSchema } = createSchemaFactory({ zodInstance: zod })
+```ts title="src/modules/course/course.zod.ts"
+import zod from "zod/v4"
+
+import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
+import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
+import { paginationSchema } from "~/src/modules/_core/utils/pagination"
+import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
+import { COURSE_KINDS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
 
 const courseIdInput = zod.object({
   courseId: idField,
@@ -130,9 +135,6 @@ const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) }
 
 const updateCourse = courseFields.extend(courseIdInput.shape)
 
-const insert = createInsertSchema(course)
-const select = createSelectSchema(course)
-
 export const courseZodSchemas = {
   createCourse,
   deleteCourse,
@@ -141,14 +143,14 @@ export const courseZodSchemas = {
   getCourseEditor,
   getCourseShowcase,
   getCourses,
-  insert,
   moveCourse,
-  select,
   updateCourse,
 }
 ```
 
-- `<table>.zod.ts` імпортує `zod from "zod/v4"` і експортує єдиний об’єкт, ключі якого — назви операцій, а також `insert` і `select` з `drizzle-zod`.
+- `<table>.zod.ts` імпортує `zod from "zod/v4"` і експортує єдиний об’єкт, ключі якого — назви операцій.
+- Форми валідують дані тими самими схемами в браузері, тому `<table>.zod.ts` нічого не імпортує ні з Drizzle, ні з `.schema.ts`. Кортежі переліків і довжини беруться з `<table>.constants.ts`, який імпортує й таблиця, тож стовпець і схема спираються на одне визначення. Клієнтська збірка завершується помилкою, коли `drizzle-orm` потрапляє в браузер; див. [Тримайте ORM поза браузером](/docs/conventions/performance#keep-the-orm-out-of-the-browser).
+- Жодну схему Zod не виводять із таблиці: ніщо не валідує цілий рядок під час виконання, а типи рядків в інтерфейсі модуля беруться з `$inferSelect` і `$inferInsert`.
 - Поля беруться з `src/modules/_core/utils/zod-fields.ts` (`idField`, `localeField`, `slugField`) і зі спільних фрагментів у тому самому файлі; їх ніколи не оголошують заново для кожної схеми.
 - Посторінкові списки повторно використовують `paginationSchema`; операції з одним записом приймають об’єкт, як-от `{ courseId }`, а не голий рядок.
 - Повідомлення про помилки — це ключі перекладу (`{ message: "slugInvalid" }`), які рендеряться з простору імен `<table>.validations` модуля. Див. [Форми та таблиці](/docs/conventions/forms-and-tables).

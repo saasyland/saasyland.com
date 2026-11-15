@@ -1,6 +1,6 @@
 ---
 title: "Performance"
-description: "Die gemessenen Regeln, die Seiten schnell halten: ein kleiner Boot-Graph des Workers, entfernte Preload-Hinweise, die Platzierung von Providern, ein einziger Tailwind-Build, die Größe von Medien und das Reveal-Muster."
+description: "Die gemessenen Regeln, die Seiten schnell halten: ein kleiner Boot-Graph des Workers, kein ORM im Browser, entfernte Preload-Hinweise, die Platzierung von Providern, ein einziger Tailwind-Build, die Größe von Medien und das Reveal-Muster."
 ---
 
 Jede Regel auf dieser Seite stammt aus einer Messung, und mehrere haben eine intuitive Lösung ersetzt, die es schlimmer gemacht hat. Ändern Sie den Code hinter einer dieser Regeln nur mit einer neuen Messung, die sie übertrifft.
@@ -25,6 +25,28 @@ const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
 Ein einziger statischer Import eines Header-Namens aus einem Modul, das auch den Polar-Client importierte, zog einmal etwa 1,4 MB SDK in jeden Kaltstart, und das erste Byte der Landingpage brauchte bis zu 1,4 Sekunden. Deshalb liegen `COUNTRY_HEADER` und `IP_ADDRESS_HEADER` in `src/modules/_core/constants/api.ts`, das nichts Schweres importiert. Bevor Sie `server.ts` oder einer `<area>.worker.ts` einen statischen Import hinzufügen, verfolgen Sie dessen Importkette: Alles, was `polar`, `drizzle-orm` oder `resend` erreicht, ist eine Regression.
+
+## Das ORM aus dem Browser heraushalten [#keep-the-orm-out-of-the-browser]
+
+Drizzle läuft nur im Worker. Der Browser braucht die Zod-Schemas eines Moduls für seine Formulare und dessen Enum-Tupel für seine Auswahlfelder, deshalb liegen beide in Dateien, die nichts aus Drizzle importieren: `<table>.zod.ts` und `<table>.constants.ts` (siehe [Module](/docs/conventions/modules)). Ein Browser-Import, der eine `<table>.schema.ts` erreicht, führt `sqliteTable(...)` aus, einen Aufruf, den der Bundler behalten muss, und bringt `drizzle-orm` mit.
+
+`<table>.zod.ts` erzeugte früher außerdem mit `drizzle-zod` die Schemas `insert`, `select` und `update` aus den Tabellen, und zur Laufzeit las sie nichts. `drizzle-zod` hält den gesamten Zod-Namespace fest, sodass der Bundler auch jede Zod-Locale, den JSON-Schema-Konverter von Zod und seinen Compiler behielt. Die Pending-Skeletons von `/admin` und `/app` importieren `PreferencesCardPending` aus `preferences-card.tsx`, das `user.zod.ts` importierte, und Pending-Komponenten werden nicht in eigene Chunks aufgeteilt, sodass all das auf jeder Seite geladen wurde. Die Tupel in die Konstanten zu verschieben und diese Schemas zu löschen, hat jede Seite um etwa 75 KiB gzip-komprimiertes JavaScript verkleinert. Die Größen unten umfassen jedes Skript, das die jeweilige Seite lädt, gzip-komprimiert, laut Ausgabe von `bun run build:test`:
+
+| Seite          | Vorher    | Nachher   |
+| -------------- | --------- | --------- |
+| `/`            | 526,2 KiB | 450,7 KiB |
+| `/docs/<page>` | 612,1 KiB | 536,5 KiB |
+| `/blog`        | 487,2 KiB | 411,7 KiB |
+| `/app`         | 496,6 KiB | 421,0 KiB |
+| `/admin`       | 515,0 KiB | 439,4 KiB |
+
+`src/data/tanstack.vite.ts` verweigert `drizzle-orm` der Client-Umgebung über den Importschutz von TanStack Start:
+
+```ts title="src/data/tanstack.vite.ts"
+const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
+```
+
+Ein Build, in dem ein Import davon das Tree-Shaking übersteht, schlägt fehl und gibt die Importkette von der Route bis zu der Datei aus, die Drizzle erreicht hat. Unterbrechen Sie die Kette dort, wo sie beginnt: Importieren Sie das Tupel aus den Konstanten des Moduls, oder verschieben Sie den Code in eine Server Function. Reine Typ-Importe werden entfernt und zählen nie.
 
 ## Vorgerenderte Seiten laden zuerst CSS und Schriften
 

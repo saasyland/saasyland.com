@@ -1,12 +1,7 @@
-import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { BACKUP_CODE_MAX_LENGTH, BACKUP_CODE_MIN_LENGTH, TWO_FACTOR_CODE_LENGTH } from "~/src/integrations/better-auth/auth.constraints"
 import { signInPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
-
-import { twoFactor } from "~/src/modules/two-factor/two-factor.schema"
-
-const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
 
 const totpCodeField = zod
   .string()
@@ -38,16 +33,9 @@ const verifyTotp = zod.object({
   trustDevice: zod.boolean().optional(),
 })
 
-const insert = createInsertSchema(twoFactor)
-const select = createSelectSchema(twoFactor)
-const update = createUpdateSchema(twoFactor)
-
 export const twoFactorZodSchemas = {
   disableTwoFactor,
   enableTwoFactor,
-  insert,
-  select,
-  update,
   verifyBackupCode,
   verifyTotp,
 }

@@ -6,11 +6,8 @@ import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 import type { LocalizedText } from "~/src/modules/_core/utils/localized-text"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
-import { COURSE_KIND, COURSE_STATUS } from "~/src/modules/course/course.constants"
+import { COURSE_KIND, COURSE_KINDS, COURSE_STATUS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
-
-export const COURSE_KINDS = [COURSE_KIND.COURSE, COURSE_KIND.TUTORIAL, COURSE_KIND.PROJECT] as const
-export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
 
 export const course = sqliteTable(
   "course",

@@ -1,6 +1,6 @@
 ---
 title: "Performance"
-description: "The measured rules that keep pages fast: a small Worker boot graph, stripped preload hints, provider placement, one Tailwind build, media sizing and the reveal pattern."
+description: "The measured rules that keep pages fast: a small Worker boot graph, no ORM in the browser, stripped preload hints, provider placement, one Tailwind build, media sizing and the reveal pattern."
 ---
 
 Each rule on this page came from a measurement, and several replaced an intuitive fix that made things worse. Change the code behind one of them only with a new measurement that beats it.
@@ -25,6 +25,28 @@ const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
 One static import of a header name from a module that also imported the Polar client once pulled about 1.4 MB of SDK into every cold start, and the first byte of the landing page took up to 1.4 seconds. That is why `COUNTRY_HEADER` and `IP_ADDRESS_HEADER` live in `src/modules/_core/constants/api.ts`, which imports nothing heavy. Before adding a static import to `server.ts` or to an `<area>.worker.ts`, follow its import chain: anything that reaches `polar`, `drizzle-orm` or `resend` is a regression.
+
+## Keep the ORM out of the browser
+
+Drizzle runs only in the Worker. The browser needs a module's Zod schemas for its forms and its enum tuples for its selects, so both live in files that import nothing from Drizzle: `<table>.zod.ts` and `<table>.constants.ts` (see [Modules](/docs/conventions/modules)). A browser import that reaches a `<table>.schema.ts` runs `sqliteTable(...)`, a call the bundler has to keep, and brings `drizzle-orm` with it.
+
+`<table>.zod.ts` once also built `insert`, `select` and `update` schemas from the tables with `drizzle-zod`, and nothing read them at runtime. `drizzle-zod` holds on to the whole zod namespace, so the bundler also kept every zod locale, its JSON Schema converter and its compiler. The `/admin` and `/app` pending skeletons import `PreferencesCardPending` from `preferences-card.tsx`, which imported `user.zod.ts`, and pending components are not code-split, so all of it loaded on every page. Moving the tuples to the constants and deleting those schemas took about 75 KiB of gzipped JavaScript off every page. The sizes below are every script each page loads, gzipped, from the `bun run build:test` output:
+
+| Page           | Before    | After     |
+| -------------- | --------- | --------- |
+| `/`            | 526.2 KiB | 450.7 KiB |
+| `/docs/<page>` | 612.1 KiB | 536.5 KiB |
+| `/blog`        | 487.2 KiB | 411.7 KiB |
+| `/app`         | 496.6 KiB | 421.0 KiB |
+| `/admin`       | 515.0 KiB | 439.4 KiB |
+
+`src/data/tanstack.vite.ts` denies `drizzle-orm` to the client environment through TanStack Start's import protection:
+
+```ts title="src/data/tanstack.vite.ts"
+const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
+```
+
+A build in which an import of it survives tree-shaking fails and prints the chain of imports from the route to the file that reached Drizzle. Break the chain where it starts: import the tuple from the module's constants, or move the code into a server function. Type-only imports are erased and never count.
 
 ## Prerendered pages load CSS and fonts first
 

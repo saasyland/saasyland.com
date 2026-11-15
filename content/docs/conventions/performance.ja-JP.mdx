@@ -1,6 +1,6 @@
 ---
 title: "パフォーマンス"
-description: "ページを高速に保つ、計測に基づくルール。小さな Worker の起動グラフ、プリロードヒントの除去、プロバイダーの配置、1 つの Tailwind ビルド、メディアのサイズ、スクロール時の表示パターン。"
+description: "ページを高速に保つ、計測に基づくルール。小さな Worker の起動グラフ、ORM を含まないブラウザーのバンドル、プリロードヒントの除去、プロバイダーの配置、1 つの Tailwind ビルド、メディアのサイズ、スクロール時の表示パターン。"
 ---
 
 このページのルールはどれも計測から生まれたもので、いくつかは、かえって状況を悪化させた直感的な修正を置き換えたものです。これらのルールの背後にあるコードを変更するのは、それを上回る新しい計測結果がある場合だけにしてください。
@@ -25,6 +25,28 @@ const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
 以前、Polar のクライアントもインポートしていたモジュールからヘッダー名を 1 つ静的にインポートしただけで、約 1.4 MB の SDK がすべてのコールドスタートに読み込まれ、ランディングページの最初の 1 バイトが届くまでに最大 1.4 秒かかったことがあります。`COUNTRY_HEADER` と `IP_ADDRESS_HEADER` が、重いものを何もインポートしない `src/modules/_core/constants/api.ts` にあるのはそのためです。`server.ts` や `<area>.worker.ts` に静的インポートを追加する前に、そのインポートの連鎖をたどってください。`polar`、`drizzle-orm`、`resend` に到達するものはすべて退行です。
+
+## ORM をブラウザーに入れない [#keep-the-orm-out-of-the-browser]
+
+Drizzle は Worker の中だけで動きます。ブラウザーには、フォームのためにモジュールの Zod スキーマが、セレクトフィールドのために enum のタプルが必要です。そのため、どちらも Drizzle から何もインポートしないファイル、`<table>.zod.ts` と `<table>.constants.ts` に置きます（[モジュール](/docs/conventions/modules)を参照）。ブラウザー側のインポートが `<table>.schema.ts` に到達すると `sqliteTable(...)` が実行されます。バンドラーはこの呼び出しを取り除けないため、`drizzle-orm` も一緒に読み込まれます。
+
+以前の `<table>.zod.ts` は、`drizzle-zod` を使ってテーブルから `insert`、`select`、`update` のスキーマも組み立てていましたが、実行時にそれらを読むものはありませんでした。`drizzle-zod` は zod の名前空間全体を保持するため、バンドラーは zod のすべてのロケール、JSON Schema への変換器、コンパイラーまで残していました。`/admin` と `/app` の読み込み中のスケルトンは `preferences-card.tsx` から `PreferencesCardPending` をインポートし、このファイルは `user.zod.ts` をインポートしていました。ペンディングコンポーネントはコード分割されないため、これらすべてがすべてのページで読み込まれていました。タプルを定数に移し、これらのスキーマを削除したことで、すべてのページで gzip 圧縮後の JavaScript が約 75 KiB 減りました。以下のサイズは、各ページが読み込むすべてのスクリプトを gzip で圧縮した合計で、`bun run build:test` の出力から取ったものです。
+
+| ページ         | 変更前    | 変更後    |
+| -------------- | --------- | --------- |
+| `/`            | 526.2 KiB | 450.7 KiB |
+| `/docs/<page>` | 612.1 KiB | 536.5 KiB |
+| `/blog`        | 487.2 KiB | 411.7 KiB |
+| `/app`         | 496.6 KiB | 421.0 KiB |
+| `/admin`       | 515.0 KiB | 439.4 KiB |
+
+`src/data/tanstack.vite.ts` は、TanStack Start のインポート保護によって、クライアント環境での `drizzle-orm` のインポートを禁止しています。
+
+```ts title="src/data/tanstack.vite.ts"
+const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
+```
+
+そのインポートがツリーシェイキング後も残るビルドは失敗し、ルートから Drizzle に到達したファイルまでのインポートの連鎖を出力します。連鎖はその起点で断ち切ってください。タプルはモジュールの定数からインポートするか、コードをサーバー関数に移します。型のみのインポートは消去されるため、対象になりません。
 
 ## プリレンダリングされたページは CSS とフォントを先に読み込む
 

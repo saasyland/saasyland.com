@@ -1,9 +1,10 @@
-import { globSync, readFileSync } from "node:fs"
-import { basename, join } from "node:path"
+import { existsSync, globSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { basename, dirname, join, relative } from "node:path"
 import type { Plugin } from "vite-plus"
 
 const STYLESHEET = /\/src\/presentation\/styles\/globals\.css(?:\?.*)?$/u
 const SHADCN_DIRECTORY = "src/presentation/components/shadcn"
+const EXCLUSIONS = ".source/unused-primitives.css"
 const SCANNED_SOURCES = "src/**/*.{ts,tsx}"
 const UNSCANNED_SOURCES = /\.(?:test|spec)\.tsx?$|\/__test__\/|^src\/platform\/testing\/|^src\/presentation\/components\/shadcn\//u
 const PRIMITIVE_IMPORT = /~\/src\/presentation\/components\/shadcn\/(?<name>[a-z-]+)"/gu
@@ -34,10 +35,27 @@ export const unusedPrimitives = (root: string): string[] => {
     .toSorted()
 }
 
-export const excludeUnusedPrimitives = (css: string, root: string): string =>
-  css.replace(TAILWIND_IMPORT, (line) =>
-    [line, ...unusedPrimitives(root).map((name) => `@source not "../components/shadcn/${name}.tsx";`)].join("\n"),
-  )
+export const writeUnusedPrimitives = (root: string): boolean => {
+  const path = join(root, EXCLUSIONS)
+  const exclusions = unusedPrimitives(root)
+    .map((name) => `@source not "${relative(dirname(path), join(root, SHADCN_DIRECTORY, `${name}.tsx`))}";\n`)
+    .join("")
+
+  if (existsSync(path) && readFileSync(path, "utf8") === exclusions) {
+    return false
+  }
+
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, exclusions)
+
+  return true
+}
+
+export const excludeUnusedPrimitives = ({ css, root, stylesheet }: { css: string; root: string; stylesheet: string }): string => {
+  writeUnusedPrimitives(root)
+
+  return css.replace(TAILWIND_IMPORT, (line) => `${line}\n@import "${relative(dirname(stylesheet), join(root, EXCLUSIONS))}";`)
+}
 
 export const unusedPrimitivesPlugin = (): Plugin => {
   let root = ""
@@ -50,7 +68,7 @@ export const unusedPrimitivesPlugin = (): Plugin => {
     name: "unused-primitives",
     transform: {
       filter: { id: STYLESHEET },
-      handler: (code) => excludeUnusedPrimitives(code, root),
+      handler: (code, id) => excludeUnusedPrimitives({ css: code, root, stylesheet: id.replace(/\?.*$/u, "") }),
       order: "pre",
     },
   }

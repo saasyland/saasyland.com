@@ -1,16 +1,4 @@
-import "@tanstack/react-start/server-only"
-
-import { env } from "cloudflare:workers"
-
 import type { models } from "@polar-sh/sdk/2026-10"
-
-import { LICENSE_TIER } from "~/src/modules/license/license.constants"
-
-export const POLAR_PRODUCT_IDS = {
-  [LICENSE_TIER.AGENCY]: env.POLAR_PRODUCT_ID_AGENCY,
-  [LICENSE_TIER.COMPLETE]: env.POLAR_PRODUCT_ID_COMPLETE,
-  [LICENSE_TIER.CORE]: env.POLAR_PRODUCT_ID_CORE,
-} as const
 
 export const POLAR_CHECKOUT_ID_PLACEHOLDER = "{CHECKOUT_ID}"
 
@@ -25,3 +13,8 @@ export const POLAR_LICENSE_KEY_STATUS = {
   GRANTED: "granted",
   REVOKED: "revoked",
 } as const satisfies Record<string, models.LicenseKeyStatus>
+
+export const POLAR_WEBHOOK_EVENT = {
+  ORDER_PAID: "order.paid",
+  ORDER_REFUNDED: "order.refunded",
+} as const satisfies Record<string, models.WebhookEventType>

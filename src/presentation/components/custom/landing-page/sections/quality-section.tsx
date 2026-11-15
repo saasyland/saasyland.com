@@ -68,7 +68,7 @@ export const QualitySection = (): JSX.Element => {
             {SPEC_KEYS.map((key) => (
               <li className="flex items-start gap-3" key={key}>
                 <Check aria-hidden className="mt-0.5 size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
-                <span className="font-mono text-spec text-pretty text-muted-foreground">{t(`specs.${key}`)}</span>
+                <span className="font-mono text-spec text-pretty text-muted-foreground">{t(`specs.${key}`, REPOSITORY_FACTS)}</span>
               </li>
             ))}
           </ul>

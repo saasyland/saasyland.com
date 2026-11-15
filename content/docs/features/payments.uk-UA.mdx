@@ -1,69 +1,55 @@
 ---
-title: "Платежі та ліцензії"
-description: "Оплата через Polar, портал клієнта й вебхуки, що видають ліцензії; екран платежів в адмінпанелі демонстраційний."
+title: "Платежі"
+description: "Розділ Polar: плагін Polar для Better Auth, портал клієнта, вебхуки, які він передає розділам, і демонстраційний екран платежів в адмінпанелі."
 ---
 
-Платежі проходять через Polar за допомогою плагіна `@polar-sh/better-auth`, який розділ ліцензій додає до Better Auth у `src/data/license.auth-plugins.ts`:
+Платежі проходять через Polar за допомогою плагіна `@polar-sh/better-auth`, який розділ Polar додає до Better Auth у `src/data/polar.auth-plugins.ts`:
 
 ```ts
-export const LICENSE_AUTH_PLUGINS = [
+export const POLAR_AUTH_PLUGINS = [
   {
     disabledPaths: [],
     plugin: polar({
       client: polarCore,
-      use: [portal(), webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET })],
+      use: [portal(), webhooks({ onPayload: handlePolarEvent, secret: env.POLAR_WEBHOOK_SECRET })],
     }),
     rateLimitExemptPaths: [ROUTES.API_AUTH_POLAR.WEBHOOKS],
   },
 ] as const satisfies readonly AuthPluginEntry[]
 ```
 
-Плагін додає портал клієнта й вебхуки, звільнені від обмежувача частоти запитів Better Auth, але не оплату: його `checkout()` створював би сеанс оплати лише з ID облікового запису, тож Polar знову питав би в покупця, який уже ввійшов, адресу електронної пошти. Кожна оплата починається в серверній функції `startCheckout`, яка після власних перевірок створює її через SDK Polar.
+Плагін додає портал клієнта й вебхуки, звільнені від обмежувача частоти запитів Better Auth, але не оплату: його `checkout()` створював би сеанс оплати лише з ID облікового запису, тож Polar знову питав би в покупця, який уже ввійшов, адресу електронної пошти. Розділ, який продає, сам створює свої сеанси оплати через SDK Polar після власних перевірок, як це робить `startCheckout` розділу ліцензій (див. [Ліцензії](/docs/features/licences)).
 
-`src/integrations/polar/polar.config.ts` створює з `POLAR_ACCESS_TOKEN` і `POLAR_SERVER` клієнт `polarCore`, який використовує плагін, і `polar` — побудовані на ньому сервіси сеансів оплати, знижок, ліцензійних ключів і замовлень. `POLAR_ORGANIZATION_ID` обмежує організацією кожен виклик Polar, що називає організацію; їх перелічує сторінка [Середовище та прив'язки](/docs/reference/environment). `POLAR_PRODUCT_IDS` зіставляє плани `core`, `complete` і `agency` з `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` і `POLAR_PRODUCT_ID_AGENCY`. [Налаштування Polar](/docs/getting-started/polar-setup) описує продукти, ліцензійні ключі, знижки, вебхук і токен, на які цей код розраховує в Polar, а `bun run polar:verify:<environment>` їх перевіряє.
+`src/integrations/polar/polar.config.ts` створює з `POLAR_ACCESS_TOKEN` і `POLAR_SERVER` клієнт `polarCore`, який використовує плагін, і `polar` — побудовані на ньому сервіси сеансів оплати, знижок, ліцензійних ключів і замовлень. `POLAR_ORGANIZATION_ID` обмежує організацією кожен виклик Polar, що називає організацію; їх перелічує сторінка [Середовище та прив'язки](/docs/reference/environment). `src/integrations/polar/polar.constants.ts` містить власні значення Polar — `POLAR_ORDER_STATUS`, `POLAR_LICENSE_KEY_STATUS`, `POLAR_WEBHOOK_EVENT` і `POLAR_CHECKOUT_ID_PLACEHOLDER`, кожне з яких звірено з типами SDK; цей файл не читає змінних середовища, тож його імпортують також браузер і набір браузерних тестів. Шляхи розділу Polar, `API_AUTH_POLAR` і `API_AUTH_CUSTOMER_PORTAL`, лежать у `src/data/polar.routes.ts`. [Налаштування Polar](/docs/getting-started/polar-setup) описує продукти, ліцензійні ключі, знижки, вебхук і токен, на які цей код розраховує в Polar, а `bun run polar:verify:<environment>` їх перевіряє.
 
-## Оплата
+## Вебхуки [#webhooks]
 
-Користувач із сесією без активної ліцензії бачить `LicenseOffer` на `/app` і `/app/license`: картки планів із головної сторінки (`PricingTiers`, див. [Головна сторінка](/docs/features/landing-page)) з `CheckoutButton` для кожного плану, прапорець регіональних цін, умови купівлі та уроки курсів, які відкриває покупка. `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`) приймає `{ locale, tier }` і:
+Polar надсилає події на `/api/auth/polar/webhooks`. Плагін перевіряє підпис за допомогою `POLAR_WEBHOOK_SECRET` і передає кожну подію в `handlePolarEvent` у `src/data/polar-events.ts`. Розділ, який реагує на події Polar, оголошує список у `src/data/<area>.polar-events.ts` і додає його до `src/data/polar-events.entries.ts`. Кожен запис називає події, які він обробляє, і функцію, що їх обробляє:
 
-1. відмовляє з `AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)`, коли обліковий запис уже має ліцензію `active`. Кнопка показує `errors.codes.LICENSE_ALREADY_ACTIVE` й оновлює ліцензію, тож сторінка, яку залишили відкритою після купівлі, перемикається на ліцензію;
-2. шукає регіональну знижку через `pppDiscountId` (`license.ppp.ts`): відсоток для країни з `cf-ipcountry`, зіставлений через `findRegionalDiscount` (`src/integrations/polar/polar.discounts.ts`) з автоматичними відсотковими знижками в Polar, які можна застосувати вже зараз; знижка не застосовується, коли cookie `regional_pricing` має значення `off`;
-3. створює через `polar.checkouts.create` сеанс оплати Polar для плану, прив’язаний до облікового запису (`external_customer_id`) і заповнений його адресою електронної пошти та ім’ям (`customer_email`, `customer_name`), тож форма оплати відкривається з ними. Сеанс також містить IP-адресу покупця з `cf-connecting-ip` (`customer_ip_address`, прочитану через `getIP` з Better Auth), вимкнені коди знижок, партнерську рекомендацію в `metadata`, якщо відвідувач перейшов за партнерським посиланням (див. [Партнерська програма](/docs/features/affiliates)), і адресу успіху `/app?checkoutId={CHECKOUT_ID}` мовою покупця (`localizePathname`). Polar замінює `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) на ID сеансу оплати;
-4. повертає адресу оплати, яку відкриває браузер.
+```ts
+export interface PolarEventHandler {
+  readonly events: readonly models.WebhookEventType[]
+  readonly handle: (event: webhooks.WebhookPayload) => Promise<void>
+}
+```
 
-Повернена (`refunded`) або відкликана (`revoked`) ліцензія не заважає новій купівлі.
+- `handlePolarEvent` запускає `handle` кожного запису, що містить тип події, усі одночасно, і чекає на завершення кожного з них.
+- Коли один із них завершується помилкою, плагін відповідає 500, і Polar пізніше доставляє подію ще раз, тож кожен обробник має безпечно виконуватися двічі для тієї самої події. Polar вимикає кінцеву точку, яка постійно повертає помилки, а `polar:verify` повідомляє про вимкнену кінцеву точку.
+- Подію, якої не містить жоден запис, підтверджують, і вона нікуди не потрапляє.
+- `POLAR_EVENTS` об’єднує події всіх записів, відсортовані й без повторів. Кінцева точка вебхука в Polar має надсилати саме ці події, а `polar:verify` їх порівнює.
+- Розділ Polar додає порожній список у `src/data/polar.polar-events.ts`, тож barrel-файл ніколи не буває порожнім. Наразі події обробляє лише розділ ліцензій, у `src/data/license.polar-events.ts`; див. [Ліцензії](/docs/features/licences#webhooks-and-licences).
 
-### Підвищення плану
+`polar:verify` працює в Bun, поза Worker, і читає `POLAR_EVENTS`, тож ні `src/data/polar-events.ts`, ні жоден `<area>.polar-events.ts` не імпортують серверного коду. `handle` розділу завантажує його обробники, коли надходить подія:
 
-Обліковий запис має одну ліцензію, а новіше оплачене замовлення замінює план старішого (`grantLicense`). Продукти в Polar не мають цін для підвищення, тож самостійне підвищення стягнуло б повну ціну вищого плану на додачу до першої покупки, а купівля нижчого плану понизила б ліцензію. Тому, поки ліцензія активна, оплату відхиляють, а `LicenseCard` пропонує власникам написати в підтримку, щоб змінити план. Перш ніж дозволити другу оплату, створіть у Polar продукти або знижки для підвищення.
+```ts
+const { licenseWebhookHandlers } = await import("~/src/modules/license/license.webhooks")
+```
 
-### План, вибраний до реєстрації
+`src/data/__test__/polar-events.test.ts` імпортує `src/data/polar-events.ts` у Bun і не проходить, коли цей імпорт доходить до середовища виконання Worker.
 
-Кожна кнопка плану на головній сторінці веде на `/auth/sign-up?redirect=/app?tier=<tier>`. Шлях повернення зберігається під час реєстрації, підтвердження електронної пошти та входу (`useAuthRedirect`), а відвідувач, який уже увійшов, потрапляє туди одразу. `licenseSearchSchema` (`src/data/license.ts`, побудована за допомогою `searchParam`) перевіряє `tier` за `LICENSE_TIER` на `/app/license` і, як параметр, який розділ ліцензії додає до огляду, на `/app`, а `/app` і `/app/license` показують над картками планів `ChosenTier`: план, його ціну з регіональною знижкою та кнопку **Перейти до оплати**. Заблокований платний урок курсу веде глядача, який увійшов, на `/app/license?tier=complete`, а гостя — до розділу цін на головній сторінці; урок, що потребує акаунта, веде на сторінку входу ([Курси](/docs/features/courses)).
+## Портал клієнта
 
-### Після оплати
-
-Polar повертає покупця на `/app?checkoutId=<id>`, зазвичай ще до того, як вебхук `order.paid` видасть ліцензію. Поки в адресі є `checkoutId`, а ліцензія неактивна, сторінка ховає картки планів і показує `CheckoutActivation`, який повторно запитує `currentLicenseQuery` кожні <RepositoryFact name="activationPollSeconds" unit="second" /> (`ACTIVATION_POLL_MS`):
-
-- щойно ліцензія стає активною, він дякує покупцеві, а ліцензія з’являється нижче;
-- якщо ліцензії все ще немає, коли спливає час очікування (<RepositoryFact name="activationTimeoutSeconds" unit="second" />, `ACTIVATION_TIMEOUT_MS`), він припиняє опитування й повідомляє, що Polar ще не підтвердив оплату, та показує адресу підтримки, ID сеансу оплати як номер для звернення й кнопку **Перевірити ще раз**.
-
-`checkoutId`, який не є UUID, ігнорується.
-
-## Вебхуки та ліцензії
-
-Polar надсилає на `/api/auth/polar/webhooks` події, перелічені в `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`), їх перевіряють за допомогою `POLAR_WEBHOOK_SECRET`. `licenseWebhookHandlers` задовольняє тип `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, тож код з обробником без його події чи з подією без її обробника не компілюється. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) визначають користувача за `external_id` клієнта Polar. Подію клієнта без облікового запису в застосунку записують у лог, коли запис був потрібен, і підтверджують, щоб Polar не надсилав її повторно:
-
-- `onOrderPaid` → `grantLicense`: створює або оновлює єдину ліцензію користувача з планом придбаного продукту; новіша покупка замінює старішу.
-- `onBenefitGrantCreated` → `attachLicenseKey`: зберігає ліцензійний ключ Polar у ліцензії. Поки оплачене замовлення не записане, завершується помилкою, щоб Polar повторив подію; ключ для поверненого замовлення або продукту, який не є ліцензією, підтверджується.
-- `onOrderRefunded` → `revokeLicense` зі статусом `refunded`, лише коли за замовлення повернули всю суму; часткове повернення зберігає ліцензію.
-- `onBenefitGrantRevoked` → `revokeLicense` зі статусом `revoked`.
-
-`revokeLicense` встановлює статус ліцензії, придбаної за цим замовленням, і записує замовлення в `revoked_license_order`, щоб запізнілий вебхук не зміг знову видати ліцензію. Він ніколи не замінює `refunded`: Polar також відкликає бенефіт поверненого замовлення, а дві події можуть надійти в будь-якому порядку. [API ліцензій для CLI](/docs/features/cli-licence-api) відповідає `licenseRefunded` або `licenseRevoked` залежно від цього статусу.
-
-## Екрани клієнта
-
-`/app/license` показує `LicenseCard` (план, ключ, команди CLI, посилання на портал клієнта Polar за адресою `/api/auth/customer/portal` та адресу підтримки для зміни плану) і `LicenseActivations`, який показує активації ключа в Polar і видаляє вибрану через `deactivateLicense`; `deactivateLicense` відповідає `NOT_FOUND`, коли Polar уже не має цієї активації. CLI додає й видаляє активації через [API ліцензій для CLI](/docs/features/cli-licence-api). Ліміт активацій бенефіту ліцензійного ключа кожного плану застосовує Polar, і він має дорівнювати `LICENSE_ACTIVATION_LIMITS`: <ActivationLimit tier="core" /> для Core, <ActivationLimit tier="complete" /> для Complete і <ActivationLimit tier="agency" /> для Agency. Див. [Застосунок клієнта](/docs/features/customer-app).
+`ROUTES.API_AUTH_CUSTOMER_PORTAL` (`/api/auth/customer/portal`) відкриває портал клієнта Polar для облікового запису, який увійшов. Картка ліцензії на `/app/license` містить посилання на нього.
 
 ## Екран адмінпанелі (демонстраційний)
 
@@ -71,7 +57,7 @@ Polar надсилає на `/api/auth/polar/webhooks` події, перелі�
 
 ## Пов’язані сторінки
 
+- [Ліцензії](/docs/features/licences) — оплата, вебхуки ліцензій і екрани клієнта
 - [Налаштування Polar](/docs/getting-started/polar-setup) — налаштування в Polar і `polar:verify`
-- [Головна сторінка](/docs/features/landing-page) — картки планів і регіональні ціни
 - [Застосунок клієнта](/docs/features/customer-app) — екрани навколо оплати
 - [Змінні середовища](/docs/getting-started/environment-variables)

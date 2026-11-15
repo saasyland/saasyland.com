@@ -15,13 +15,18 @@ import { LocaleSwitcher } from "~/src/presentation/components/custom/locale-swit
 import { NewsletterForm } from "~/src/presentation/components/custom/newsletter-form"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
-import { APP_FOUNDED_YEAR, APP_GITHUB_URL, APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
+import { APP_FOUNDED_YEAR, APP_GITHUB_URL, APP_INSTAGRAM_URL, APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const LINK_CLASSNAME =
   "inline-block rounded-sm py-1.5 text-body-sm text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 
 const HEADING_CLASSNAME = "font-mono text-label text-muted-foreground uppercase"
+
+const PROFILE_LINKS = [
+  { href: APP_GITHUB_URL, key: "github" },
+  { href: APP_INSTAGRAM_URL, key: "instagram" },
+] as const
 
 export const Footer = (): JSX.Element => {
   const t = useTranslations("components.custom.footer")
@@ -84,14 +89,17 @@ export const Footer = (): JSX.Element => {
             <span className="ml-2">{t("rights")}</span>
           </p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <a
-              className="rounded-sm py-1.5 text-body-sm text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              href={APP_GITHUB_URL}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {t("links.github")}
-            </a>
+            {PROFILE_LINKS.map((link) => (
+              <a
+                className="rounded-sm py-1.5 text-body-sm text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                href={link.href}
+                key={link.key}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {t(`links.${link.key}`)}
+              </a>
+            ))}
             <span aria-hidden className="h-4 w-px bg-border" />
             <LocaleSwitcher />
           </div>

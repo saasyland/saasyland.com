@@ -8,27 +8,26 @@ import { expect, test as base } from "../fixtures/auth"
 import type { AuthPage, BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
+import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { toMinorUnits } from "../../src/modules/_core/constants/currency"
 import { CURRENCY_FORMAT, DEFAULT_CURRENCY_CODE, PPP_PERCENT, pppMultiplierKey } from "../../src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "../../src/modules/license/license.constants"
 
-import { CLI_COMMAND, CLI_LICENSE_COMMANDS, CLI_LICENSE_KEY_VARIABLE, cliCommand } from "../../src/data/cli"
+import {
+  CLI_COMMAND,
+  CLI_CREDENTIALS_FILE_MODE,
+  CLI_EXIT_CODE,
+  CLI_LICENSE_COMMANDS,
+  CLI_LICENSE_KEY_VARIABLE,
+  cliCommand,
+} from "../../src/data/cli"
 import { TIER_PRICES } from "../../src/data/marketing"
 
-import {
-  CLI_ERROR,
-  CLI_EXIT_CODE,
-  CLI_RESULT,
-  type Machine,
-  PRIVATE_FILE_MODE,
-  createMachine,
-  runCli,
-  storedCredentials,
-} from "./cli"
+import { CLI_ERROR, CLI_RESULT, type Machine, createMachine, runCli, storedCredentials } from "./cli"
 import { inboxAddress, verificationLink } from "./inbox"
 import { POLAR_SANDBOX_CHECKOUT, PolarCheckoutPage } from "./polar-checkout-page"
-import { ORDER_STATUS, accountOrders, refundOrder, refundPaidOrders } from "./sandbox"
+import { accountOrders, refundOrder, refundPaidOrders } from "./sandbox"
 import { PRODUCT_IDS } from "./settings"
 
 interface Buyer {
@@ -135,7 +134,7 @@ const paidOrder = async ({ tier, userId }: Buyer, price: number): Promise<models
   expect(others).toEqual([])
   expect(order).toMatchObject({
     product_id: PRODUCT_IDS[tier],
-    status: ORDER_STATUS.PAID,
+    status: POLAR_ORDER_STATUS.PAID,
     subtotal_amount: toMinorUnits(TIER_PRICES[tier], DEFAULT_CURRENCY_CODE),
   })
   expect(order.subtotal_amount - order.discount_amount).toBe(toMinorUnits(price, DEFAULT_CURRENCY_CODE))
@@ -215,7 +214,7 @@ for (const tier of LICENSE_TIERS) {
       })
       const stored = await storedCredentials(workstation)
       assert(stored !== undefined)
-      expect(stored).toMatchObject({ credentials: { key }, mode: PRIVATE_FILE_MODE })
+      expect(stored).toMatchObject({ credentials: { key }, mode: CLI_CREDENTIALS_FILE_MODE })
 
       return stored.credentials.activationId
     })
@@ -298,7 +297,7 @@ for (const tier of LICENSE_TIERS) {
           page.getByText("This licence was refunded, so its key no longer works. Write to us if that looks wrong."),
         ).toBeVisible()
       }).toPass({ timeout: WEBHOOK_TIMEOUT_MS })
-      expect(await accountOrders(buyer.userId)).toMatchObject([{ status: ORDER_STATUS.REFUNDED }])
+      expect(await accountOrders(buyer.userId)).toMatchObject([{ status: POLAR_ORDER_STATUS.REFUNDED }])
 
       expect(await runCli(overflow, [CLI_COMMAND.WHOAMI])).toMatchObject({
         exitCode: CLI_EXIT_CODE.NO_PERMISSION,

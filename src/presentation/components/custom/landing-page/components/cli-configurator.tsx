@@ -1,4 +1,4 @@
-import { Fragment, type JSX, type ReactNode, useEffect, useState } from "react"
+import { Fragment, type JSX, type ReactNode, useEffect, useId, useState } from "react"
 
 import { AnimatePresence, animate, useMotionValue, useTransform } from "motion/react"
 import * as m from "motion/react-m"
@@ -29,7 +29,7 @@ const ROW_ENTER = { opacity: 0, x: -8 }
 const ROW_SETTLED = { opacity: 1, x: 0 }
 
 const CHIP_CLASSNAME =
-  "inline-flex items-center rounded-md border px-3 py-1.5 text-body-sm transition-colors duration-200 ease-exp focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+  "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-body-sm transition-colors duration-200 ease-exp focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 
 const isUnavailable = (option: ChoiceOption, taken: Taken): boolean =>
   Object.entries(option.unavailableWhen ?? {}).some(([choiceId, blocked]) => blocked.some((optionId) => optionId === taken[choiceId]))
@@ -52,26 +52,36 @@ const reconcile = (taken: Taken): Taken => {
   return next
 }
 
+const DEFAULT_STACK = reconcile(Object.fromEntries(CLI_CHOICES.map((choice) => [choice.id, choice.options[0].id])))
+
+const DefaultMark = (): JSX.Element => <span aria-hidden className="inline-block size-1.25 shrink-0 rounded-xs bg-ring align-middle" />
+
+const LEGEND_TAGS = { mark: () => <DefaultMark /> }
+
 interface ChipProps {
   readonly choiceId: string
   readonly isBlocked: boolean
+  readonly isDefault: boolean
   readonly isPressed: boolean
+  readonly legendId: string
   readonly onPress: () => void
   readonly optionId: string
 }
 
-const Chip = ({ choiceId, isBlocked, isPressed, onPress, optionId }: ChipProps): JSX.Element => {
+const Chip = ({ choiceId, isBlocked, isDefault, isPressed, legendId, onPress, optionId }: ChipProps): JSX.Element => {
   const t = useTranslations("pages.landing.cli")
   const label = t(`choices.${choiceId}.options.${optionId}`)
 
   if (isBlocked) {
     return (
       <button
+        aria-describedby={isDefault ? legendId : undefined}
         className={cn(CHIP_CLASSNAME, "cursor-not-allowed border-border/40 text-muted-foreground/40")}
         disabled
         title={t(`choices.${choiceId}.unavailable.${optionId}`)}
         type="button"
       >
+        {isDefault && <DefaultMark />}
         <span className="line-through decoration-muted-foreground/30">{label}</span>
       </button>
     )
@@ -79,6 +89,7 @@ const Chip = ({ choiceId, isBlocked, isPressed, onPress, optionId }: ChipProps):
 
   return (
     <m.button
+      aria-describedby={isDefault ? legendId : undefined}
       aria-pressed={isPressed}
       className={cn(CHIP_CLASSNAME, "cursor-pointer", {
         "border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground": !isPressed,
@@ -89,6 +100,7 @@ const Chip = ({ choiceId, isBlocked, isPressed, onPress, optionId }: ChipProps):
       type="button"
       whileTap={TAP}
     >
+      {isDefault && <DefaultMark />}
       {label}
     </m.button>
   )
@@ -219,9 +231,8 @@ const NextSteps = ({ dev }: Readonly<{ dev: string }>): JSX.Element => {
 
 export const CliConfigurator = (): JSX.Element => {
   const t = useTranslations("pages.landing.cli")
-  const [taken, setTaken] = useState<Taken>(() =>
-    reconcile(Object.fromEntries(CLI_CHOICES.map((choice) => [choice.id, choice.options[0].id]))),
-  )
+  const [taken, setTaken] = useState<Taken>(DEFAULT_STACK)
+  const legendId = useId()
   const [extras, setExtras] = useState<readonly string[]>([])
   const [runner, setRunner] = useState<(typeof PACKAGE_MANAGERS)[number]>(PACKAGE_MANAGERS[0])
 
@@ -262,7 +273,9 @@ export const CliConfigurator = (): JSX.Element => {
                         <Chip
                           choiceId={choice.id}
                           isBlocked={isUnavailable(option, taken)}
+                          isDefault={DEFAULT_STACK[choice.id] === option.id}
                           isPressed={taken[choice.id] === option.id}
+                          legendId={legendId}
                           key={option.id}
                           onPress={() => {
                             select(choice.id, option.id)
@@ -278,7 +291,9 @@ export const CliConfigurator = (): JSX.Element => {
                       <Chip
                         choiceId={EXTRAS_GROUP}
                         isBlocked={isUnavailable(extra, taken)}
+                        isDefault={false}
                         isPressed={extras.includes(extra.id)}
+                        legendId={legendId}
                         key={extra.id}
                         onPress={() => {
                           toggle(extra.id)
@@ -300,7 +315,12 @@ export const CliConfigurator = (): JSX.Element => {
         </div>
       </div>
 
-      <p className="border-t border-border bg-card px-5 py-4 text-body-sm text-pretty text-muted-foreground md:px-7">{t("choicesLabel")}</p>
+      <div className="flex flex-col gap-2 border-t border-border bg-card px-5 py-4 text-body-sm text-pretty text-muted-foreground md:px-7">
+        <p className="text-foreground" id={legendId}>
+          {t.rich("defaultStack", LEGEND_TAGS)}
+        </p>
+        <p>{t("choicesLabel")}</p>
+      </div>
     </div>
   )
 }

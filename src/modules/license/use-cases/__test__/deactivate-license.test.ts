@@ -7,12 +7,12 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
+import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"
 import { user } from "~/src/modules/user/user.schema"
 

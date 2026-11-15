@@ -21,7 +21,6 @@ import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 import { createPolarOrder, grantPolarLicenseKey, polarLicenseKeyOf } from "~/src/platform/testing/mocks/polar"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { licenseApiHandlers } from "~/src/modules/license/license.api"
@@ -31,6 +30,7 @@ import {
   LICENSE_TIER,
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
+import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 import { user } from "~/src/modules/user/user.schema"
 

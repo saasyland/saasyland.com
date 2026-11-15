@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
 import { sha256Hex } from "~/src/lib/hex"
-import { RECIPIENT_EMAILS_PER_HOUR, withinRateLimit, withinRecipientRateLimit } from "~/src/lib/rate-limit"
+import { withinRateLimit, withinRecipientRateLimit } from "~/src/lib/rate-limit"
 
 const EMAIL_KIND = { CONFIRMATION: "confirmation", RESET: "reset" } as const
 

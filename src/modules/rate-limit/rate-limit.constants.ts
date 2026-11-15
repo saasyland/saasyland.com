@@ -1,0 +1,1 @@
+export const RECIPIENT_EMAILS_PER_HOUR = 3

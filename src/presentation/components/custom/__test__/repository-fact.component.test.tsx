@@ -11,13 +11,13 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 
 import { PPP_TIERS } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_API_ENDPOINTS, LICENSE_API_RETRY_AFTER_SECONDS } from "~/src/modules/license/license.constants"
+import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
 import { APP_STATEMENTS } from "~/src/data/access"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { MILLISECONDS_PER_SECOND, MINUTES_PER_HOUR, SECONDS_PER_MINUTE } from "~/src/lib/duration"
-import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/lib/rate-limit"
 
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
 

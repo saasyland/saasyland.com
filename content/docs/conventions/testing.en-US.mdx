@@ -72,6 +72,17 @@ describe("getCourses", () => {
 - **Keep assertions when a rule bites.** When a test passes `max-statements`, extract a named helper instead of dropping checks.
 - **Load every message file.** `i18n.messages.test.ts` loads every namespace of every locale, which is what covers the `import.meta.glob` lines in `i18n.messages.ts`. A new message file is covered by it automatically.
 
+## Tests on a busy machine
+
+Vitest's time limit and the one-second budget of `waitFor` and `findBy*` count wall-clock time, so a test that does work its behaviour does not need, or that waits on a timer, fails on a busy machine although nothing is broken. The default time limit stays as it is; a slow test is made to do less:
+
+- **A check over many files runs one test per file.** `check-content.test.ts` runs `pageProblems` for each English page with `it.each(sourcePages())`, and a drift names its page.
+- **What a component suspends on is loaded before it renders**, as `preloadNamespaces` does for translations. When the loading is what the test is about, the test resolves it inside `act`, as `translations-provider.component.test.tsx` does: content that resumes outside `act` appears only after React's reveal throttle, on a real timer, and the test has to poll for it.
+- **A test replaces an area list without importing the component again.** `translations-provider.component.test.tsx` mocks `TIME_ZONE_SOURCES` once and fills it in each test, and `time-zone.test.ts` checks how the areas' lists are joined. Importing a component after `vi.resetModules()` evaluates its whole import graph inside the test.
+- **Fixtures that every test reads are built once per file**, such as the messages from `getTestMessages`.
+- **A form is filled with `user.paste` unless its keystrokes are the behaviour under test.** `fill` in `admin-course-routes.component.test.tsx` clicks the field and pastes; `user.type` runs the form's validation and rendering once per character.
+- **A long option list is cheap to re-render.** The time zone combobox in `preferences-card.tsx` passes its options to `ComboboxList` as memoized `items`, so React Aria reuses them when the form re-renders.
+
 ## Tests follow the areas
 
 The areas that declare their own paths and menu entries (see [Paths and navigation](/docs/conventions/routes#paths-and-navigation)) own their tests as well, so the `saasyland` CLI can leave an area out of a generated project together with its tests while every remaining test still passes.

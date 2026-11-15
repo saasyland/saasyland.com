@@ -27,7 +27,7 @@ describe("load locale messages from dir component", () => {
     expect.hasAssertions()
     const messages = getTestMessages(I18N.DEFAULT_LOCALE)
     expect(messages).toHaveProperty(["pages", "landing", "hero", "ctaPrimary"], expect.any(String))
-    expect(messages).toHaveProperty(["auth", "form", "placeholders", "email"], expect.any(String))
+    expect(messages).toHaveProperty(["components", "custom", "theme-switch", "light"], expect.any(String))
   })
 
   it("returns equivalent messages for repeated loads", () => {

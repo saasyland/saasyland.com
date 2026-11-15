@@ -27,7 +27,7 @@ import { Route as SettingsRoute } from "~/src/routes/app.settings"
 
 import commonMessages from "~/messages/en-US/common.json"
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
-import navigationCoreMessages from "~/messages/en-US/navigation.core.json"
+import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import navigationLicenseMessages from "~/messages/en-US/navigation.license.json"
 import pagesAppMessages from "~/messages/en-US/pages.app.json"
 import pagesAppSettingsMessages from "~/messages/en-US/pages.app.settings.json"
@@ -135,7 +135,7 @@ describe("customer workspace routes", () => {
   })
 
   it.each([
-    [ROUTES.APP, navigationCoreMessages.app.overview, pagesAppMessages.metadata.title],
+    [ROUTES.APP, navigationLicenseMessages.app.overview, pagesAppMessages.metadata.title],
     [ROUTES.APP_LICENSE, navigationLicenseMessages.app.license, pagesLicenseMessages.metadata.title],
   ])("loads %s with active navigation, metadata, and a single license lookup", async (path, active, heading) => {
     const { queryClient, router } = await renderApp(path)
@@ -156,7 +156,7 @@ describe("customer workspace routes", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: pagesAppSettingsMessages.metadata.title })).toBeVisible()
     const nav = screen.getByRole("navigation", { name: navigation.label })
-    expect(within(nav).getByRole("link", { name: navigationCoreMessages.app.settings })).toHaveAttribute("aria-current", "page")
+    expect(within(nav).getByRole("link", { name: navigationAuthMessages.app.settings })).toHaveAttribute("aria-current", "page")
     expect(screen.getByRole("heading", { level: 2, name: preferencesCardMessages.title })).toBeVisible()
     expect(screen.getByRole("combobox", { name: preferencesCardMessages.timezone.label })).toHaveValue(timezonesMessages["Europe/Warsaw"])
     expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "timezones" }).queryKey)).toBeDefined()
@@ -171,8 +171,8 @@ describe("customer workspace routes", () => {
     expect(await screen.findByText("Activation details")).toBeVisible()
     const nav = screen.getByRole("navigation", { name: navigation.label })
     expect(within(nav).getByRole("link", { name: navigationLicenseMessages.app.license })).toHaveAttribute("aria-current", "page")
-    expect(within(nav).getByRole("link", { name: navigationCoreMessages.app.overview })).not.toHaveAttribute("aria-current")
-    expect(within(screen.getByRole("banner")).getByText(navigationCoreMessages.app.overview)).toBeVisible()
+    expect(within(nav).getByRole("link", { name: navigationLicenseMessages.app.overview })).not.toHaveAttribute("aria-current")
+    expect(within(screen.getByRole("banner")).getByText(navigationLicenseMessages.app.overview)).toBeVisible()
   })
 
   it("uses the email as the account name when the profile has no name", async () => {

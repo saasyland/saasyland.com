@@ -27,8 +27,8 @@ describe("TanStack Start Vite plugin", () => {
     [ROUTES.HOME, true],
     [ROUTES.DOCS, true],
     ["/pl-PL/docs", true],
-    [ROUTES.ADMIN, false],
-    ["/de-DE/auth/sign-in", false],
+    [ROUTES.API, false],
+    [`/de-DE${ROUTES.API}/search`, false],
     [`${ROUTES.DOCS}?search=one`, false],
     [`${ROUTES.HOME}#pricing`, false],
   ])("prerenders %s: %s", (path, prerendered) => {

@@ -6,6 +6,8 @@ import { LIVE_SITE_CHECKS } from "~/src/data/live"
 
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_TIMEOUT_MS, verifyDeployment } from "~/src/lib/deployment"
 
+import { ROUTES } from "~/src/routes"
+
 const PRODUCTION_ORIGIN = `https://${DEPLOYED_HOSTS[ENVIRONMENT.PRODUCTION]}`
 
 const PREVIEW_ORIGIN = `https://${DEPLOYED_HOSTS[ENVIRONMENT.PREVIEW]}`
@@ -135,11 +137,11 @@ describe("verifyDeployment on a site that answers wrongly", () => {
     await expectProductionRefusal(`GET ${PRODUCTION_ORIGIN}/ answered 200 instead of 200 text/html.`)
   })
 
-  it("refuses a session endpoint that fails, as when the Worker is missing a secret", async () => {
-    serve({ "/api/auth/get-session": page(500, JSON_BODY) })
+  it("refuses an API endpoint that fails, as when the Worker is missing a secret", async () => {
+    serve({ [ROUTES.API]: page(500, JSON_BODY) })
 
     await expectProductionRefusal(
-      productionRefusal(`GET ${PRODUCTION_ORIGIN}/api/auth/get-session answered 500 ${JSON_BODY} instead of 200 application/json.`),
+      productionRefusal(`GET ${PRODUCTION_ORIGIN}${ROUTES.API} answered 500 ${JSON_BODY} instead of 200 application/json.`),
     )
   })
 

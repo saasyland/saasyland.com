@@ -8,7 +8,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { pageHead } from "~/src/lib/seo"
 
-import { AppSettingsPending } from "~/src/presentation/components/custom/app/core-pending"
+import { AppSettingsPending } from "~/src/presentation/components/custom/app/auth-pending"
 import { PreferencesCard } from "~/src/presentation/components/custom/preferences-card"
 
 import { ROUTES } from "~/src/routes"

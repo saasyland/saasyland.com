@@ -6,7 +6,7 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
 
-import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/core-pending"
+import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { DashboardActions } from "~/src/presentation/components/custom/admin/dashboard/actions"
 
 import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"

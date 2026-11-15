@@ -5,7 +5,7 @@ import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 
 import { breadcrumbDividers } from "~/src/presentation/components/custom/admin/__test__/fixtures"
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
-import { AdminDashboardPending, AdminSettingsPending } from "~/src/presentation/components/custom/admin/core-pending"
+import { AdminDashboardPending, AdminSettingsPending } from "~/src/presentation/components/custom/admin/auth-pending"
 
 describe("admin skeletons", () => {
   it.each([

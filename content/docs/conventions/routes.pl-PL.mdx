@@ -87,8 +87,9 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - Layout deklaruje `const NAMESPACES = [...] as const` nad `export const Route` i wczytuje je z wyprzedzeniem. Gdy nie ma żadnych, pomija tę opcję; nie ma `namespaces: []`.
+- Przestrzeń nazw, której komponent innego obszaru potrzebuje w layoucie, dodaje ten obszar w `src/data/<area>.namespaces.ts`, który wskazuje layout po identyfikatorze jego trasy, a layout rozwija `...layoutNamespaces("/app")` w swoich `NAMESPACES`. Obszar licencji dodaje `pages.license` do `/app`, którego przegląd pokazuje kartę licencji i ofertę, a obszar newslettera dodaje `auth.validations` do `/_landing` i `/blog`, których stopka pokazuje formularz newslettera. `namespaces.test.ts` sprawdza podczas kompilacji, czy każdy layout wskazany przez obszar jest identyfikatorem trasy.
 - Komponent, jeśli layout go renderuje, nazywa się `<Name>Layout` i umieszcza `<Outlet />`.
-- Strażnik trafia do `beforeLoad` w layoucie, który jest właścicielem obszaru: `beforeLoad: requireAdmin` w `admin.tsx`, `requireSignedIn` w `app.tsx`. Strażnicy decydują tylko o nawigacji; każda funkcja serwerowa i tak sprawdza własne uprawnienie.
+- Strażnik trafia do `beforeLoad` w layoucie, który jest właścicielem obszaru: `beforeLoad: requireAdmin` w `admin.tsx`, `requireSignedIn` w `app.tsx`, czyli w obu layoutach obszaru uwierzytelniania. Strażnicy decydują tylko o nawigacji; każda funkcja serwerowa i tak sprawdza własne uprawnienie.
 
 ## Kolejność opcji
 
@@ -137,14 +138,15 @@ Nawigacja musi sprawiać wrażenie natychmiastowej, więc każda trasa, która r
 
 Żaden plik nie wylicza wszystkich obszarów aplikacji. Każdy obszar, na przykład kursy, produkty czy strony prawne, deklaruje własne ścieżki, pozycje menu wraz z ich etykietami, szkielety stron i uprawnienia, a zbiorczy eksport (barrel) je łączy, więc obszar dodaje się albo pomija razem z jego własnymi plikami. W ten sposób CLI `saasyland` składa projekt z warstw szablonów.
 
-| Co                   | Każdy obszar deklaruje                                            | Zbiorczy eksport                 | Odczyt z                                                                                                                             |
-| -------------------- | ----------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Ścieżki              | `src/data/<area>.routes.ts`: jedno `export const` na ścieżkę      | `src/data/routes.entries.ts`     | `ROUTES` w `src/routes.ts`                                                                                                           |
-| Pozycje menu         | `src/data/<area>.navigation.ts`: jedna lista `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` i `FOOTER_NAVIGATION` w `src/data/navigation.ts` |
-| Statystyki pulpitu   | `src/data/<area>.dashboard.ts`: jedna lista `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` w `src/data/dashboard.ts`                                                                                    |
-| Szkielety stron      | `src/data/<area>.skeletons.ts`: jedna lista `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `PAGE_SKELETONS` w `src/data/skeletons.ts`                                                                                           |
-| Uprawnienia          | `src/data/<area>.access.ts`: jeden obiekt `<AREA>_ACCESS`         | `src/data/access.entries.ts`     | `APP_STATEMENTS` i `grantsOf` w `src/data/access.ts`                                                                                 |
-| Ścieżki nielistowane | `src/data/<area>.routes.ts`: jedna lista `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` i `isUnlistedRoute` w `src/data/unlisted.ts`                                                                       |
+| Co                         | Każdy obszar deklaruje                                            | Zbiorczy eksport                 | Odczyt z                                                                                                                             |
+| -------------------------- | ----------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Ścieżki                    | `src/data/<area>.routes.ts`: jedno `export const` na ścieżkę      | `src/data/routes.entries.ts`     | `ROUTES` w `src/routes.ts`                                                                                                           |
+| Pozycje menu               | `src/data/<area>.navigation.ts`: jedna lista `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` i `FOOTER_NAVIGATION` w `src/data/navigation.ts` |
+| Statystyki pulpitu         | `src/data/<area>.dashboard.ts`: jedna lista `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` w `src/data/dashboard.ts`                                                                                    |
+| Szkielety stron            | `src/data/<area>.skeletons.ts`: jedna lista `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `PAGE_SKELETONS` w `src/data/skeletons.ts`                                                                                           |
+| Uprawnienia                | `src/data/<area>.access.ts`: jeden obiekt `<AREA>_ACCESS`         | `src/data/access.entries.ts`     | `APP_STATEMENTS` i `grantsOf` w `src/data/access.ts`                                                                                 |
+| Ścieżki nielistowane       | `src/data/<area>.routes.ts`: jedna lista `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` i `isUnlistedRoute` w `src/data/unlisted.ts`                                                                       |
+| Przestrzenie nazw layoutów | `src/data/<area>.namespaces.ts`: jedna lista `<AREA>_NAMESPACES`  | `src/data/namespaces.entries.ts` | `layoutNamespaces(layout)` w `src/data/namespaces.ts`                                                                                |
 
 Zbiorczy eksport zawiera wyłącznie wiersze `export { … } from`, po jednym na plik obszaru, posortowane według modułu, tak jak `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` ponownie eksportuje ścieżki jako jedną przestrzeń nazw, więc każda ścieżka zachowuje swój typ literałowy, a `<Link to={ROUTES.COURSES}>` nadal jest sprawdzany względem drzewa tras:
 
@@ -152,12 +154,12 @@ Zbiorczy eksport zawiera wyłącznie wiersze `export { … } from`, po jednym na
 export * as ROUTES from "~/src/data/routes.entries"
 ```
 
-Pozycja menu wskazuje polem `placement` (`NAVIGATION_PLACEMENT` w `src/data/navigation.constants.ts`), gdzie się pojawia: w pasku bocznym panelu administracyjnego, w przyciskach nad pulpitem, w pasku bocznym aplikacji klienta, w publicznym nagłówku albo w stopce. Jej `order` ustawia ją wśród pozycji innych obszarów, więc żadna lista nie zależy od kolejności plików. Pozycje panelu administracyjnego wskazują też grupę paska bocznego (`group`), a linki stopki kolumnę (`column`); `ADMIN_NAVIGATION_GROUPS` i `FOOTER_COLUMNS` ustalają kolejność grup i kolumn, a te, których żaden obszar nie wypełnia, są pomijane. Obszar podstawowy, który ma każdy projekt, dodaje dwie pozycje panelu administracyjnego i dwie pozycje paska bocznego aplikacji klienta:
+Pozycja menu wskazuje polem `placement` (`NAVIGATION_PLACEMENT` w `src/data/navigation.constants.ts`), gdzie się pojawia: w pasku bocznym panelu administracyjnego, w przyciskach nad pulpitem, w pasku bocznym aplikacji klienta, w publicznym nagłówku albo w stopce. Jej `order` ustawia ją wśród pozycji innych obszarów, więc żadna lista nie zależy od kolejności plików. Pozycje panelu administracyjnego wskazują też grupę paska bocznego (`group`), a linki stopki kolumnę (`column`); `ADMIN_NAVIGATION_GROUPS` i `FOOTER_COLUMNS` ustalają kolejność grup i kolumn, a te, których żaden obszar nie wypełnia, są pomijane. Konsola administracyjna i panel klienta istnieją tylko z logowaniem, więc należą do obszaru uwierzytelniania: ich ścieżki, `/admin`, `/admin/settings`, `/app` i `/app/settings`, oraz ich pozycje pulpitu, ustawień i zarządzania użytkownikami:
 
-```ts title="src/data/core.navigation.ts"
-const AREA = "core"
+```ts title="src/data/auth.navigation.ts"
+const AREA = "auth"
 
-export const CORE_NAVIGATION = [
+export const AUTH_NAVIGATION = [
   {
     area: AREA,
     group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
@@ -170,16 +172,27 @@ export const CORE_NAVIGATION = [
   {
     area: AREA,
     group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
+    icon: Users,
+    key: "userManagement",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_USERS,
+  },
+  {
+    area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
     icon: Settings,
     key: "settings",
     order: 30,
     placement: NAVIGATION_PLACEMENT.ADMIN,
     to: ROUTES.ADMIN_SETTINGS,
   },
-  { area: AREA, icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
   { area: AREA, icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
+  { area: AREA, column: FOOTER_COLUMN.PRODUCT, key: "signIn", order: 40, placement: NAVIGATION_PLACEMENT.FOOTER, to: ROUTES.SIGN_IN },
 ] as const satisfies readonly NavigationEntry[]
 ```
+
+Obszar licencji, do którego należy strona `/app`, dodaje pozycję **Przegląd** paska bocznego aplikacji klienta obok swojej pozycji **Licencja**. Obszar podstawowy deklaruje tylko `/` i `/api`.
 
 Statystyka pulpitu ma `prefetch`, który uruchamia loader `/admin`, i hook `useValue`, który `DashboardStats` wywołuje, aby odczytać liczbę.
 

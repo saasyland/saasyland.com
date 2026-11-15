@@ -200,7 +200,7 @@ src/
     social-card.tsx              Social cards rendered at build time with Takumi
     styles/                      Theme, typography, and local font declarations
   providers/                     Application-wide React providers
-  data/                          Data shared by several files, and what each area adds: routes, menus, skeletons, Worker handlers, root components, Vite plugins, deploy checks, live site checks
+  data/                          Data shared by several files, and what each area adds: routes, menus, skeletons, layout namespaces, Worker handlers, root components, the time zone, Vite plugins, deploy checks, live site checks, Better Auth plugins and emails
   hooks/                         Shared React hooks
   lib/                           Shared utilities (cn, confetti, cookies, the deployed-site check, durations, hex hashes and tokens, rate limits, release tags and notes, route search params, select options, SEO tags, prerendered page heads, robots.txt rules, the sitemap, GitHub stars, not-found errors)
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers
@@ -214,15 +214,15 @@ Validate inputs at the server boundary and authorize protected functions themsel
 
 Authentication entry points are in [`src/integrations/better-auth/`](src/integrations/better-auth):
 
-| File                 | Responsibility                                                                                  |
-| -------------------- | ----------------------------------------------------------------------------------------------- |
-| `auth.server.ts`     | Better Auth, providers, plugins, and allowed hosts.                                             |
-| `auth.access.ts`     | Roles, permissions, and permission checks, built from each area's `src/data/<area>.access.ts`.  |
-| `auth.roles.ts`      | Role codes and the default role.                                                                |
-| `auth.hooks.ts`      | Input policy run before Better Auth's own endpoints: the password, name, email and image rules. |
-| `auth.routes.ts`     | Sign-in/admin guards, the return path after sign-in, and role-based redirects.                  |
-| `auth.middleware.ts` | Server-function authorization, error handling, and rate limiting.                               |
-| `auth.session.ts`    | Request-scoped session lookup and UI query options.                                             |
+| File                 | Responsibility                                                                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.server.ts`     | Better Auth, providers, plugins (with those the areas add in `src/data/<area>.auth-plugins.ts`), the emails the areas send (`src/data/<area>.auth-emails.ts`), and allowed hosts. |
+| `auth.access.ts`     | Roles, permissions, and permission checks, built from each area's `src/data/<area>.access.ts`.                                                                                    |
+| `auth.roles.ts`      | Role codes and the default role.                                                                                                                                                  |
+| `auth.hooks.ts`      | Input policy run before Better Auth's own endpoints: the password, name, email and image rules.                                                                                   |
+| `auth.routes.ts`     | Sign-in/admin guards, the return path after sign-in, and role-based redirects.                                                                                                    |
+| `auth.middleware.ts` | Server-function authorization, error handling, rate limiting, and the client address Better Auth's limiter uses.                                                                  |
+| `auth.session.ts`    | Request-scoped session lookup and UI query options.                                                                                                                               |
 
 Authorization shares a fresh session lookup within one HTTP request; a new request checks session storage again. Route navigation rechecks sessions. Sign-in and sign-out remove the previous user's cached data, and so do route guards when the authenticated user changes; public queries (`meta: { public: true }`), such as translations, stay cached. Rate limiting uses atomic D1 operations and rejects requests when its storage is unavailable. Expired counters are removed in bounded batches during rate-limit checks; there is no scheduled cleanup Worker. Verification, password-reset and newsletter confirmation emails are also limited to three of each kind per hour for each address, keyed by a SHA-256 of the address; an email over the limit is skipped without an error.
 

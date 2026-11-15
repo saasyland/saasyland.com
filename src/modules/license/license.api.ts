@@ -18,6 +18,7 @@ import {
 import { eq } from "drizzle-orm"
 import type * as zod from "zod"
 
+import { clientAddress } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { polar } from "~/src/integrations/polar/polar.config"
 import { POLAR_LICENSE_KEY_STATUS } from "~/src/integrations/polar/polar.constants"
@@ -31,7 +32,7 @@ import {
 import { license } from "~/src/modules/license/license.schema"
 
 import { sha256Hex } from "~/src/lib/hex"
-import { clientAddress, consumeRateLimit } from "~/src/lib/rate-limit"
+import { consumeRateLimit } from "~/src/lib/rate-limit"
 
 const SINGLE_ROW = 1
 const ONE_SLOT = 1

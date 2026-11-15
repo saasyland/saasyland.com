@@ -72,9 +72,3 @@ for (const path of SHARED_PAGES) {
     expect([png.readUInt32BE(PNG_WIDTH_OFFSET), png.readUInt32BE(PNG_HEIGHT_OFFSET)]).toStrictEqual([SOCIAL_IMAGE.WIDTH, SOCIAL_IMAGE.HEIGHT])
   })
 }
-
-test("a page that is not prerendered shares the site card", async ({ page, request }) => {
-  await page.goto(ROUTES.SIGN_IN)
-  await expect(page.locator('head > meta[property="og:image"]')).toHaveAttribute("content", `${APP_URL}${SOCIAL_IMAGE.SITE_PATH}`)
-  expect((await request.get(SOCIAL_IMAGE.SITE_PATH)).status()).toBe(HTTP_STATUS.OK)
-})

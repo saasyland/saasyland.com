@@ -87,8 +87,9 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - レイアウトは `export const Route` の上で `const NAMESPACES = [...] as const` を宣言し、それをプリロードします。名前空間がない場合はオプションごと省略し、`namespaces: []` とは書きません。
+- ほかのエリアのコンポーネントがレイアウト内で必要とする名前空間は、そのエリアが `src/data/<area>.namespaces.ts` で追加します。このファイルはレイアウトをルート ID で指定し、レイアウトは `...layoutNamespaces("/app")` を自分の `NAMESPACES` に展開します。ライセンスのエリアは、概要にライセンスカードと購入案内を表示する `/app` に `pages.license` を追加し、ニュースレターのエリアは、フッターにニュースレターのフォームを表示する `/_landing` と `/blog` に `auth.validations` を追加します。`namespaces.test.ts` は、エリアが指定するすべてのレイアウトがルート ID であることをコンパイル時にチェックします。
 - レイアウトがコンポーネントを描画する場合、その名前は `<Name>Layout` とし、`<Outlet />` を配置します。
-- ガードは、そのエリアを所有するレイアウトの `beforeLoad` に置きます。`admin.tsx` では `beforeLoad: requireAdmin`、`app.tsx` では `requireSignedIn` です。ガードが決めるのはナビゲーションだけで、各サーバー関数は引き続き自分で権限をチェックします。
+- ガードは、そのエリアを所有するレイアウトの `beforeLoad` に置きます。`admin.tsx` では `beforeLoad: requireAdmin`、`app.tsx` では `requireSignedIn` で、どちらも認証のエリアのレイアウトです。ガードが決めるのはナビゲーションだけで、各サーバー関数は引き続き自分で権限をチェックします。
 
 ## オプションの順序
 
@@ -145,6 +146,7 @@ export const Route = createFileRoute("/auth/reset-password")({
 | ページのスケルトン   | `src/data/<area>.skeletons.ts`：1 つの `<AREA>_SKELETONS` リスト    | `src/data/skeletons.entries.ts`  | `src/data/skeletons.ts` の `PAGE_SKELETONS`                                                                                          |
 | 権限                 | `src/data/<area>.access.ts`：1 つの `<AREA>_ACCESS` オブジェクト    | `src/data/access.entries.ts`     | `src/data/access.ts` の `APP_STATEMENTS` と `grantsOf`                                                                               |
 | 非掲載のパス         | `src/data/<area>.routes.ts`：1 つの `<AREA>_UNLISTED_ROUTES` リスト | `src/data/unlisted.entries.ts`   | `src/data/unlisted.ts` の `UNLISTED_ROUTES` と `isUnlistedRoute`                                                                     |
+| レイアウトの名前空間 | `src/data/<area>.namespaces.ts`：1 つの `<AREA>_NAMESPACES` リスト  | `src/data/namespaces.entries.ts` | `src/data/namespaces.ts` の `layoutNamespaces(layout)`                                                                               |
 
 バレルには `export { … } from` の行だけを、エリアのファイルごとに 1 行、モジュール順に並べます。`src/integrations/drizzle-orm/drizzle.schemas.ts` と同じ形です。`src/routes.ts` はパスを 1 つの名前空間として再エクスポートするため、各パスはリテラル型を保ち、`<Link to={ROUTES.COURSES}>` は引き続きルートツリーに対して型検査されます。
 
@@ -152,12 +154,12 @@ export const Route = createFileRoute("/auth/reset-password")({
 export * as ROUTES from "~/src/data/routes.entries"
 ```
 
-メニュー項目は `placement`（`src/data/navigation.constants.ts` の `NAVIGATION_PLACEMENT`）で表示場所を示します。管理画面のサイドバー、ダッシュボード上部のボタン、顧客向けアプリのサイドバー、公開ヘッダー、フッターのいずれかです。`order` によってほかのエリアの項目との並び順が決まるため、どのリストもファイルの順序に依存しません。管理画面の項目はサイドバーのグループ（`group`）を、フッターのリンクは列（`column`）も指定します。グループと列の順序は `ADMIN_NAVIGATION_GROUPS` と `FOOTER_COLUMNS` で決まり、どのエリアも項目を入れないグループや列は表示されません。すべてのプロジェクトにあるコアエリアは、管理画面の項目 2 つと顧客向けアプリのサイドバーの項目 2 つを追加します。
+メニュー項目は `placement`（`src/data/navigation.constants.ts` の `NAVIGATION_PLACEMENT`）で表示場所を示します。管理画面のサイドバー、ダッシュボード上部のボタン、顧客向けアプリのサイドバー、公開ヘッダー、フッターのいずれかです。`order` によってほかのエリアの項目との並び順が決まるため、どのリストもファイルの順序に依存しません。管理画面の項目はサイドバーのグループ（`group`）を、フッターのリンクは列（`column`）も指定します。グループと列の順序は `ADMIN_NAVIGATION_GROUPS` と `FOOTER_COLUMNS` で決まり、どのエリアも項目を入れないグループや列は表示されません。管理画面と顧客ワークスペースはサインインがあって初めて存在するため、認証のエリアがそれらを所有します。そのパスである `/admin`、`/admin/settings`、`/app`、`/app/settings` と、ダッシュボード、設定、ユーザー管理の項目です。
 
-```ts title="src/data/core.navigation.ts"
-const AREA = "core"
+```ts title="src/data/auth.navigation.ts"
+const AREA = "auth"
 
-export const CORE_NAVIGATION = [
+export const AUTH_NAVIGATION = [
   {
     area: AREA,
     group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
@@ -170,16 +172,27 @@ export const CORE_NAVIGATION = [
   {
     area: AREA,
     group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
+    icon: Users,
+    key: "userManagement",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_USERS,
+  },
+  {
+    area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
     icon: Settings,
     key: "settings",
     order: 30,
     placement: NAVIGATION_PLACEMENT.ADMIN,
     to: ROUTES.ADMIN_SETTINGS,
   },
-  { area: AREA, icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
   { area: AREA, icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
+  { area: AREA, column: FOOTER_COLUMN.PRODUCT, key: "signIn", order: 40, placement: NAVIGATION_PLACEMENT.FOOTER, to: ROUTES.SIGN_IN },
 ] as const satisfies readonly NavigationEntry[]
 ```
+
+`/app` はライセンスのエリアのページなので、顧客向けアプリのサイドバーの **概要** 項目は、ライセンスのエリアが自分の **ライセンス** 項目の隣に追加します。コアエリアが宣言するのは `/` と `/api` だけです。
 
 ダッシュボードの統計には、`/admin` のローダーが実行する `prefetch` と、`DashboardStats` が数値を読み取るために呼び出す `useValue` フックがあります。
 

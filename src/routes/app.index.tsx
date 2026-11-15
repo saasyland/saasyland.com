@@ -10,6 +10,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
+import { licenseSearchSchema } from "~/src/data/license"
 import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
 
 import { pageHead } from "~/src/lib/seo"
@@ -73,6 +74,7 @@ const OverviewPage = (): JSX.Element => {
 const NAMESPACE = "pages.app"
 
 export const Route = createFileRoute("/app/")({
+  validateSearch: licenseSearchSchema,
   component: OverviewPage,
   head: pageHead(ROUTES.APP),
   loader: async ({ context }) => {

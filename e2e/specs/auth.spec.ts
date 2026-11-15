@@ -1,3 +1,7 @@
+import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
+import { SOCIAL_IMAGE } from "../../src/lib/seo"
+import { APP_URL } from "../../src/presentation/branding"
+import { ROUTES } from "../../src/routes"
 import { expectVerificationEmail } from "../fixtures/emails"
 import { expect, test } from "../fixtures/test"
 import type { AuthPage } from "../pages"
@@ -269,4 +273,10 @@ test.describe("auth", () => {
 
     await expect(authPage.legalDocumentTitle()).toBeVisible()
   })
+})
+
+test("the sign-in page, which is not prerendered, shares the site card", async ({ page, request }) => {
+  await page.goto(ROUTES.SIGN_IN)
+  await expect(page.locator('head > meta[property="og:image"]')).toHaveAttribute("content", `${APP_URL}${SOCIAL_IMAGE.SITE_PATH}`)
+  expect((await request.get(SOCIAL_IMAGE.SITE_PATH)).status()).toBe(HTTP_STATUS.OK)
 })

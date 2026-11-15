@@ -7,7 +7,7 @@ const STATEMENTS = {
   settings: ["manage"],
 } as const
 
-export const CORE_ACCESS = {
+export const AUTH_ACCESS = {
   grants: { [ROLE_CODES.ADMIN]: STATEMENTS },
   statements: STATEMENTS,
 } as const satisfies AreaAccess

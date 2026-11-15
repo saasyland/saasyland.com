@@ -50,7 +50,7 @@ import { TIER_PRICES } from "~/src/data/marketing"
 import { ROUTES } from "~/src/routes"
 
 const STALE_SIGNATURE_MS = 600_000
-const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.POLAR_WEBHOOKS}`, TEST_APP_URL)
+const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, TEST_APP_URL)
 
 interface Buyer {
   readonly headers: Headers

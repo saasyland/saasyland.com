@@ -2,15 +2,18 @@ import { render, screen } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
 
-import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
-
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
 import errorsMessages from "~/messages/en-US/errors.json"
 
-const MIN_LENGTH_PARAMS = { passwordMinLength: { min: 8 } }
+const NAMESPACE = "sample.validations"
 
-const messages = getTestMessages("en-US")
+const MIN_LENGTH_PARAMS = { tooShort: { min: 8 } }
+
+const messages = {
+  errors: errorsMessages,
+  sample: { validations: { required: "This field is required.", tooShort: "Use at least {min} characters." } },
+}
 
 const renderWithMessages = (node: React.ReactNode): ReturnType<typeof render> =>
   render(
@@ -22,33 +25,33 @@ const renderWithMessages = (node: React.ReactNode): ReturnType<typeof render> =>
 describe("validationFieldError", () => {
   it("renders nothing when there is no message", () => {
     expect.hasAssertions()
-    const { container } = renderWithMessages(<ValidationFieldError namespace="user.validations" />)
+    const { container } = renderWithMessages(<ValidationFieldError namespace={NAMESPACE} />)
     expect(container).toBeEmptyDOMElement()
   })
 
   it("renders nothing for an empty message", () => {
     expect.hasAssertions()
-    const { container } = renderWithMessages(<ValidationFieldError message="" namespace="user.validations" />)
+    const { container } = renderWithMessages(<ValidationFieldError message="" namespace={NAMESPACE} />)
     expect(container).toBeEmptyDOMElement()
   })
 
   it("translates a validation key through the given namespace", () => {
     expect.hasAssertions()
-    renderWithMessages(<ValidationFieldError message="atLeastOneFieldRequired" namespace="user.validations" />)
+    renderWithMessages(<ValidationFieldError message="required" namespace={NAMESPACE} />)
 
-    expect(screen.getByText("At least one field is required.")).toBeInTheDocument()
+    expect(screen.getByText(messages.sample.validations.required)).toBeInTheDocument()
   })
 
   it("passes interpolation params through for the key that declares them", () => {
     expect.hasAssertions()
-    renderWithMessages(<ValidationFieldError message="passwordMinLength" namespace="auth.validations" params={MIN_LENGTH_PARAMS} />)
+    renderWithMessages(<ValidationFieldError message="tooShort" namespace={NAMESPACE} params={MIN_LENGTH_PARAMS} />)
 
-    expect(screen.getByText(/8/u)).toBeInTheDocument()
+    expect(screen.getByText("Use at least 8 characters.")).toBeInTheDocument()
   })
 
   it("falls back to the generic validation message when the namespace has no translation for the error", () => {
     expect.hasAssertions()
-    renderWithMessages(<ValidationFieldError id="email-error" message="notATranslatedCode" namespace="auth.validations" />)
+    renderWithMessages(<ValidationFieldError id="email-error" message="notATranslatedCode" namespace={NAMESPACE} />)
 
     expect(screen.getByText(errorsMessages.codes.VALIDATION)).toHaveAttribute("id", "email-error")
     expect(screen.queryByText(/notATranslatedCode/u)).not.toBeInTheDocument()

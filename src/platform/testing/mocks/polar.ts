@@ -59,7 +59,7 @@ const licenseKeys = new Map<string, models.LicenseKeyWithActivations>()
 const activationConditions = new Map<string, models.LicenseKeyActivate["conditions"]>()
 const customers = new Map<string, models.CustomerIndividual>()
 
-export const resetPolar = (): void => {
+const resetPolar = (): void => {
   checkouts.clear()
   orders.clear()
   licenseKeys.clear()
@@ -458,6 +458,7 @@ const route = (request: Request) => {
 
 export const polarApi = {
   origin: new URL(polarCore.buildRequest("GET", "/")[0]).origin,
+  reset: resetPolar,
   respond: async (request: Request) => {
     if (request.headers.get("Authorization") !== `Bearer ${env.POLAR_ACCESS_TOKEN}`) {
       return refuse(

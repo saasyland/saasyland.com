@@ -3,20 +3,26 @@ title: "決済とライセンス"
 description: "Polar の購入処理、カスタマーポータル、ライセンスを付与する Webhook。管理画面の決済ページはデモです。"
 ---
 
-決済は `auth.server.ts` の `@polar-sh/better-auth` プラグインを通じて Polar で処理されます。
+決済は、ライセンスのエリアが `src/data/license.auth-plugins.ts` で Better Auth に追加する `@polar-sh/better-auth` プラグインを通じて Polar で処理されます。
 
 ```ts
-polarPlugin({
-  client: polarCore,
-  use: [
-    checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
-    portal(),
-    webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
-  ],
-}),
+export const LICENSE_AUTH_PLUGINS = [
+  {
+    disabledPaths: [ROUTES.API_AUTH_POLAR.CHECKOUT],
+    plugin: polar({
+      client: polarCore,
+      use: [
+        checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
+        portal(),
+        webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
+      ],
+    }),
+    rateLimitExemptPaths: [ROUTES.API_AUTH_POLAR.WEBHOOKS],
+  },
+] as const satisfies readonly AuthPluginEntry[]
 ```
 
-プラグイン自身の `POST /api/auth/checkout` は Better Auth の `disabledPaths` に登録されている（`ROUTES.API_AUTH.CHECKOUT`）ため、HTTP では 404 を返します。購入はすべて `startCheckout` サーバー関数から始まり、この関数は独自のチェックを行った後、サーバー上で `auth.api.checkout` を呼び出します。
+プラグイン自身の `POST /api/auth/checkout` は Better Auth の `disabledPaths` に登録されているため HTTP では 404 を返し、その Webhook は Better Auth のレート制限の対象外です。購入はすべて `startCheckout` サーバー関数から始まり、この関数は独自のチェックを行った後、サーバー上で `auth.api.checkout` を呼び出します。
 
 `src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に割引、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は割引の検索とライセンスキーの無効化の対象を絞り込みます。`POLAR_CHECKOUT_PRODUCTS` はプランのスラッグ `core`、`complete`、`agency` を `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付けます。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、割引、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
 

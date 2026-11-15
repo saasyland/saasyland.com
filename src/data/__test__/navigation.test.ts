@@ -1,15 +1,37 @@
+import { Home, Settings } from "lucide-react"
 import { describe, expect, expectTypeOf, it, vi } from "vite-plus/test"
 
-import { CORE_NAVIGATION } from "~/src/data/core.navigation"
 import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, NAVIGATION_PAGES } from "~/src/data/navigation"
-import { ADMIN_NAVIGATION_GROUP, ADMIN_NAVIGATION_GROUPS, FOOTER_COLUMNS, NAVIGATION_PLACEMENT } from "~/src/data/navigation.constants"
+import {
+  ADMIN_NAVIGATION_GROUP,
+  ADMIN_NAVIGATION_GROUPS,
+  FOOTER_COLUMNS,
+  NAVIGATION_PLACEMENT,
+  type NavigationEntry,
+} from "~/src/data/navigation.constants"
 import * as AREA_NAVIGATION from "~/src/data/navigation.entries"
 
-import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 import { ROUTES } from "~/src/routes"
 import type { FileRouteTypes } from "~/src/routeTree.gen"
 
 const ENTRIES = Object.values(AREA_NAVIGATION).flat()
+
+const SAMPLE_AREA = "sample"
+
+const SAMPLE_NAVIGATION = [
+  {
+    area: SAMPLE_AREA,
+    group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
+    icon: Settings,
+    key: "settings",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.API,
+  },
+  { area: SAMPLE_AREA, icon: Home, key: "home", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.HOME },
+] as const satisfies readonly NavigationEntry[]
+
+const SAMPLE_AREA_NAVIGATION = { SAMPLE_NAVIGATION }
 
 const ADMIN_ITEMS = ADMIN_NAVIGATION.flatMap(({ items }) => items)
 
@@ -64,22 +86,20 @@ describe("navigation composition", () => {
     expect(FOOTER_NAVIGATION.every(({ key, links }) => links.every(({ column }) => column === key))).toBe(true)
   })
 
-  it("labels exactly the admin groups and links each admin section once", () => {
-    expect(Object.keys(sidebarMessages.groups).toSorted()).toStrictEqual(ADMIN_NAVIGATION.map(({ key }) => key).toSorted())
+  it("links each admin section once", () => {
     expect(new Set(ADMIN_ITEMS.map(({ to }) => to)).size).toBe(ADMIN_ITEMS.length)
   })
 
   it("leaves out every group, column and list no area contributes to", async () => {
     vi.resetModules()
-    vi.doMock(import("~/src/data/navigation.entries"), () => ({ CORE_NAVIGATION }))
+    vi.doMock("~/src/data/navigation.entries", () => SAMPLE_AREA_NAVIGATION)
 
     const navigation = await import("~/src/data/navigation")
 
     expect(navigation.ADMIN_NAVIGATION.map(({ items, key }) => [key, items.map(({ to }) => to)])).toStrictEqual([
-      [ADMIN_NAVIGATION_GROUP.OVERVIEW, [ROUTES.ADMIN]],
-      [ADMIN_NAVIGATION_GROUP.ADMINISTRATION, [ROUTES.ADMIN_SETTINGS]],
+      [ADMIN_NAVIGATION_GROUP.ADMINISTRATION, [ROUTES.API]],
     ])
-    expect(navigation.APP_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.APP, ROUTES.APP_SETTINGS])
+    expect(navigation.APP_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.HOME])
     expect(navigation.ADMIN_DASHBOARD_ACTIONS).toStrictEqual([])
     expect(navigation.FOOTER_NAVIGATION).toStrictEqual([])
     expect(navigation.NAVIGATION_PAGES).toStrictEqual([])

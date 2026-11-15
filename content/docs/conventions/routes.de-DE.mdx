@@ -87,8 +87,9 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - Ein Layout deklariert `const NAMESPACES = [...] as const` über `export const Route` und lädt sie vor. Hat es keine, lässt es die Option weg; ein `namespaces: []` gibt es nicht.
+- Einen Namespace, den eine Komponente eines anderen Bereichs im Layout braucht, fügt dieser Bereich in `src/data/<area>.namespaces.ts` hinzu, das das Layout über seine Routen-ID benennt, und das Layout übernimmt `...layoutNamespaces("/app")` per Spread in seine `NAMESPACES`. Der Lizenzbereich fügt `/app`, dessen Übersicht die Lizenzkarte und das Angebot zeigt, `pages.license` hinzu, und der Newsletter-Bereich fügt `/_landing` und `/blog`, deren Footer das Newsletter-Formular zeigt, `auth.validations` hinzu. `namespaces.test.ts` prüft beim Kompilieren, dass jedes Layout, das ein Bereich nennt, eine Routen-ID ist.
 - Die Komponente, sofern das Layout eine rendert, heißt `<Name>Layout` und platziert ein `<Outlet />`.
-- Ein Guard gehört in `beforeLoad` des Layouts, dem der Bereich gehört: `beforeLoad: requireAdmin` in `admin.tsx`, `requireSignedIn` in `app.tsx`. Guards entscheiden nur über die Navigation; jede Server Function prüft trotzdem ihre eigene Berechtigung.
+- Ein Guard gehört in `beforeLoad` des Layouts, dem der Bereich gehört: `beforeLoad: requireAdmin` in `admin.tsx`, `requireSignedIn` in `app.tsx`, beides Layouts des Auth-Bereichs. Guards entscheiden nur über die Navigation; jede Server Function prüft trotzdem ihre eigene Berechtigung.
 
 ## Reihenfolge der Optionen
 
@@ -145,6 +146,7 @@ Keine Datei listet alle Bereiche der Anwendung auf. Jeder Bereich, etwa die Kurs
 | Seiten-Skeletons      | `src/data/<area>.skeletons.ts`: eine Liste `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `PAGE_SKELETONS` in `src/data/skeletons.ts`                                                                                             |
 | Berechtigungen        | `src/data/<area>.access.ts`: ein Objekt `<AREA>_ACCESS`          | `src/data/access.entries.ts`     | `APP_STATEMENTS` und `grantsOf` in `src/data/access.ts`                                                                                 |
 | Nicht gelistete Pfade | `src/data/<area>.routes.ts`: eine Liste `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` und `isUnlistedRoute` in `src/data/unlisted.ts`                                                                       |
+| Layout-Namespaces     | `src/data/<area>.namespaces.ts`: eine Liste `<AREA>_NAMESPACES`  | `src/data/namespaces.entries.ts` | `layoutNamespaces(layout)` in `src/data/namespaces.ts`                                                                                  |
 
 Ein Barrel enthält nur Zeilen der Form `export { … } from`, eine pro Bereichsdatei und nach Modul sortiert, wie `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` exportiert die Pfade als einen Namespace erneut, sodass jeder Pfad seinen Literaltyp behält und `<Link to={ROUTES.COURSES}>` weiterhin gegen den Routenbaum geprüft wird:
 
@@ -152,12 +154,12 @@ Ein Barrel enthält nur Zeilen der Form `export { … } from`, eine pro Bereichs
 export * as ROUTES from "~/src/data/routes.entries"
 ```
 
-Ein Menüeintrag gibt mit `placement` (`NAVIGATION_PLACEMENT` in `src/data/navigation.constants.ts`) an, wo er erscheint: in der Admin-Sidebar, in den Schaltflächen über dem Dashboard, in der Seitenleiste des Kundenbereichs, im öffentlichen Header oder im Footer. Sein `order` sortiert ihn zwischen die Einträge der anderen Bereiche, sodass keine Liste von der Reihenfolge der Dateien abhängt. Admin-Einträge nennen außerdem ihre Sidebar-Gruppe (`group`), Footer-Links ihre Spalte (`column`); `ADMIN_NAVIGATION_GROUPS` und `FOOTER_COLUMNS` legen die Reihenfolge der Gruppen und Spalten fest, und eine Gruppe oder Spalte, die kein Bereich füllt, entfällt. Der Kernbereich, den jedes Projekt hat, fügt zwei Admin-Einträge und zwei Einträge in der Seitenleiste des Kundenbereichs hinzu:
+Ein Menüeintrag gibt mit `placement` (`NAVIGATION_PLACEMENT` in `src/data/navigation.constants.ts`) an, wo er erscheint: in der Admin-Sidebar, in den Schaltflächen über dem Dashboard, in der Seitenleiste des Kundenbereichs, im öffentlichen Header oder im Footer. Sein `order` sortiert ihn zwischen die Einträge der anderen Bereiche, sodass keine Liste von der Reihenfolge der Dateien abhängt. Admin-Einträge nennen außerdem ihre Sidebar-Gruppe (`group`), Footer-Links ihre Spalte (`column`); `ADMIN_NAVIGATION_GROUPS` und `FOOTER_COLUMNS` legen die Reihenfolge der Gruppen und Spalten fest, und eine Gruppe oder Spalte, die kein Bereich füllt, entfällt. Die Admin-Konsole und der Kundenbereich existieren nur mit Anmeldung, deshalb gehören sie dem Auth-Bereich: ihre Pfade `/admin`, `/admin/settings`, `/app` und `/app/settings` sowie ihre Einträge für Dashboard, Einstellungen und Benutzerverwaltung:
 
-```ts title="src/data/core.navigation.ts"
-const AREA = "core"
+```ts title="src/data/auth.navigation.ts"
+const AREA = "auth"
 
-export const CORE_NAVIGATION = [
+export const AUTH_NAVIGATION = [
   {
     area: AREA,
     group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
@@ -170,16 +172,27 @@ export const CORE_NAVIGATION = [
   {
     area: AREA,
     group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
+    icon: Users,
+    key: "userManagement",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_USERS,
+  },
+  {
+    area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
     icon: Settings,
     key: "settings",
     order: 30,
     placement: NAVIGATION_PLACEMENT.ADMIN,
     to: ROUTES.ADMIN_SETTINGS,
   },
-  { area: AREA, icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
   { area: AREA, icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
+  { area: AREA, column: FOOTER_COLUMN.PRODUCT, key: "signIn", order: 40, placement: NAVIGATION_PLACEMENT.FOOTER, to: ROUTES.SIGN_IN },
 ] as const satisfies readonly NavigationEntry[]
 ```
+
+Der Lizenzbereich, dem die Seite `/app` gehört, fügt den Eintrag **Übersicht** der Seitenleiste des Kundenbereichs neben seinem Eintrag **Lizenz** hinzu. Der Kernbereich deklariert nur `/` und `/api`.
 
 Eine Dashboard-Statistik hat ein `prefetch`, das der Loader von `/admin` ausführt, und einen Hook `useValue`, den `DashboardStats` aufruft, um die Zahl zu lesen.
 

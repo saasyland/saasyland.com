@@ -10,7 +10,14 @@ import { TestProviders, renderWithRouter as render } from "~/src/platform/testin
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { DataTable, type DataTableColumnDef, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
+import {
+  DataTable,
+  DataTableActionsHeader,
+  type DataTableColumnDef,
+  type DataTableFeatures,
+} from "~/src/presentation/components/custom/data-table"
+
+import dataTableMessages from "~/messages/en-US/components.custom.data-table.json"
 
 interface Person {
   id: string
@@ -44,7 +51,12 @@ const HEADER_ROW_COUNT = 1
 const rowCheckbox = (): HTMLElement => screen.getAllByRole("checkbox", { name: "Select row" })[FIRST_ROW_CHECKBOX]!
 const firstBodyRow = (): HTMLElement => screen.getAllByRole("row")[HEADER_ROW_COUNT]!
 
-const renderTable = (data: Person[] = ROWS): void => {
+const ACTION_COLUMNS: DataTableColumnDef<Person>[] = columnHelper.columns([
+  ...COLUMNS,
+  columnHelper.display({ header: () => <DataTableActionsHeader />, id: "actions" }),
+])
+
+const renderTable = (data: Person[] = ROWS, columns: DataTableColumnDef<Person>[] = COLUMNS): void => {
   const messages = getTestMessages("en-US")
 
   const Wrapper = ({ children }: { children: ReactNode }): JSX.Element => (
@@ -53,10 +65,16 @@ const renderTable = (data: Person[] = ROWS): void => {
     </IntlProvider>
   )
 
-  render(<DataTable columns={COLUMNS} data={data} options={{ selectable: true }} />, { wrapper: Wrapper })
+  render(<DataTable columns={columns} data={data} options={{ selectable: true }} />, { wrapper: Wrapper })
 }
 
 describe("data table component", () => {
+  it("names an actions column for screen readers", () => {
+    renderTable(ROWS, ACTION_COLUMNS)
+
+    expect(screen.getByRole("columnheader", { name: dataTableMessages.actions })).toBeInTheDocument()
+  })
+
   it("renders a row per record plus the header row", () => {
     expect.hasAssertions()
     renderTable()

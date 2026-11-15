@@ -1,12 +1,9 @@
 import "@tanstack/react-start/server-only"
 
-import type { BetterAuthOptions, BetterAuthRateLimitStorage } from "better-auth"
-import { getIP } from "better-auth/api"
 import { eq, inArray, lte, sql } from "drizzle-orm"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
 import { sha256Hex } from "~/src/lib/hex"
@@ -14,14 +11,10 @@ import { sha256Hex } from "~/src/lib/hex"
 const SINGLE_REQUEST = 1
 const MS_PER_SECOND = 1000
 const CLEANUP_BATCH_SIZE = 100
-const AUTH_KEY_PREFIX = "auth:"
 const RECIPIENT_KEY_PREFIX = "recipient:"
 export const RECIPIENT_EMAILS_PER_HOUR = 3
 const SECONDS_PER_HOUR = 3600
-const UNKNOWN_CLIENT = "unknown"
 const NO_WAIT_SECONDS = 0
-
-const IP_OPTIONS: BetterAuthOptions = { advanced: { ipAddress: { ipAddressHeaders: [IP_ADDRESS_HEADER] } } }
 
 interface RateLimitInput {
   readonly key: string
@@ -33,8 +26,6 @@ interface RateLimitDecision {
   readonly allowed: boolean
   readonly retryAfter: number
 }
-
-export const clientAddress = (headers: Headers): string => getIP(headers, IP_OPTIONS) ?? UNKNOWN_CLIENT
 
 export const consumeRateLimit = async ({ key, limit, windowSeconds }: RateLimitInput): Promise<RateLimitDecision> => {
   try {
@@ -77,7 +68,3 @@ export const withinRecipientRateLimit = async ({ kind, recipient }: Readonly<{ k
     limit: RECIPIENT_EMAILS_PER_HOUR,
     windowSeconds: SECONDS_PER_HOUR,
   })
-
-export const authRateLimitStorage: BetterAuthRateLimitStorage = {
-  consume: (key, { max, window }) => consumeRateLimit({ key: `${AUTH_KEY_PREFIX}${key}`, limit: max, windowSeconds: window }),
-}

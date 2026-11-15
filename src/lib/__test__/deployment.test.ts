@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { DEPLOYED_HOSTS, ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
+import { LIVE_SITE_CHECKS } from "~/src/data/live"
+
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_TIMEOUT_MS, verifyDeployment } from "~/src/lib/deployment"
 
 const PRODUCTION_ORIGIN = `https://${DEPLOYED_HOSTS[ENVIRONMENT.PRODUCTION]}`
@@ -10,15 +12,11 @@ const PREVIEW_ORIGIN = `https://${DEPLOYED_HOSTS[ENVIRONMENT.PREVIEW]}`
 
 const HTML = "text/html; charset=utf-8"
 
-const PLAIN_TEXT = "text/plain; charset=utf-8"
-
 const JSON_BODY = "application/json"
 
 const XML = "application/xml"
 
-const PNG = "image/png"
-
-const CHECKED_PATHS = ["/", "/courses", "/robots.txt", "/sitemap.xml", "/images/og/site.png", "/api", "/api/auth/get-session"]
+const CHECKED_PATHS = LIVE_SITE_CHECKS.map(({ path }) => path)
 
 const ATTEMPTS = LIVE_SITE_CHECK_RETRY_DELAYS_MS.length + 1
 
@@ -36,15 +34,9 @@ const untyped =
   () =>
     Promise.resolve(new Response(null, { status }))
 
-const WORKING_SITE: Readonly<Record<string, Answer>> = {
-  "/": page(200, HTML),
-  "/api": page(200, JSON_BODY),
-  "/api/auth/get-session": page(200, JSON_BODY),
-  "/courses": page(200, HTML),
-  "/images/og/site.png": page(200, PNG),
-  "/robots.txt": page(200, PLAIN_TEXT),
-  "/sitemap.xml": page(200, XML),
-}
+const WORKING_SITE: Readonly<Record<string, Answer>> = Object.fromEntries(
+  LIVE_SITE_CHECKS.map(({ contentType, path, status }) => [path, page(status, `${contentType}; charset=utf-8`)]),
+)
 
 const fetchMock = vi.fn<(input: URL, init: RequestInit) => Promise<Response>>()
 
@@ -115,10 +107,10 @@ describe("verifyDeployment on a site that answers wrongly", () => {
     vi.useFakeTimers()
   })
 
-  it("refuses a course catalogue that cannot render, as when its D1 tables are missing", async () => {
-    serve({ "/courses": page(500, HTML) })
+  it("refuses a home page that cannot render", async () => {
+    serve({ "/": page(500, HTML) })
 
-    await expectProductionRefusal(productionRefusal(`GET ${PRODUCTION_ORIGIN}/courses answered 500 ${HTML} instead of 200 text/html.`))
+    await expectProductionRefusal(productionRefusal(`GET ${PRODUCTION_ORIGIN}/ answered 500 ${HTML} instead of 200 text/html.`))
   })
 
   it("refuses a home page that redirects, naming the status alone when there is no content type", async () => {
@@ -138,9 +130,9 @@ describe("verifyDeployment on a site that answers wrongly", () => {
   })
 
   it("refuses a page that answers 200 with no content type", async () => {
-    serve({ "/courses": untyped(200) })
+    serve({ "/": untyped(200) })
 
-    await expectProductionRefusal(`GET ${PRODUCTION_ORIGIN}/courses answered 200 instead of 200 text/html.`)
+    await expectProductionRefusal(`GET ${PRODUCTION_ORIGIN}/ answered 200 instead of 200 text/html.`)
   })
 
   it("refuses a session endpoint that fails, as when the Worker is missing a secret", async () => {
@@ -181,27 +173,29 @@ describe("verifyDeployment on a site that answers wrongly", () => {
   })
 
   it(`asks a failing path ${String(ATTEMPTS)} times before giving up, and every other path once`, async () => {
-    serve({ "/courses": page(500, HTML) })
+    serve({ "/sitemap.xml": page(500, HTML) })
 
-    await expectProductionRefusal("/courses answered 500")
+    await expectProductionRefusal("/sitemap.xml answered 500")
 
-    expect(requestsFor("/courses")).toBe(ATTEMPTS)
-    expect(CHECKED_PATHS.filter((path) => path !== "/courses").map((path) => requestsFor(path))).toStrictEqual([1, 1, 1, 1, 1, 1])
+    expect(requestsFor("/sitemap.xml")).toBe(ATTEMPTS)
+    expect(CHECKED_PATHS.filter((path) => path !== "/sitemap.xml").map((path) => requestsFor(path))).toStrictEqual(
+      CHECKED_PATHS.slice(1).map(() => 1),
+    )
   })
 
   it("waits before asking again, so a version still spreading across Cloudflare can take over", async () => {
-    const catalogue = vi.fn<Answer>().mockImplementationOnce(page(500, HTML)).mockImplementation(page(200, HTML))
-    serve({ "/courses": catalogue })
+    const home = vi.fn<Answer>().mockImplementationOnce(page(500, HTML)).mockImplementation(page(200, HTML))
+    serve({ "/": home })
 
     const [firstRetryDelay = 0] = LIVE_SITE_CHECK_RETRY_DELAYS_MS
     const verifying = verifyDeployment(ENVIRONMENT.PRODUCTION)
     await vi.advanceTimersByTimeAsync(firstRetryDelay - 1)
 
-    expect(catalogue).toHaveBeenCalledOnce()
+    expect(home).toHaveBeenCalledOnce()
 
     await vi.advanceTimersByTimeAsync(1)
 
     await expect(verifying).resolves.toContain("as expected")
-    expect(catalogue).toHaveBeenCalledTimes(2)
+    expect(home).toHaveBeenCalledTimes(2)
   })
 })

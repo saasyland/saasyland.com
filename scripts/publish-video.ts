@@ -13,7 +13,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { MIN_FIELD_LENGTH, localeField } from "~/src/modules/_core/utils/zod-fields"
-import { BYTES_PER_MEGABYTE, VIDEO_FILES, VIDEO_SIZE_FORMAT } from "~/src/modules/video/video.constants"
+import { BYTES_PER_MEGABYTE, MEDIA_BINDING, VIDEO_FILES, VIDEO_SIZE_FORMAT } from "~/src/modules/video/video.constants"
 import {
   IMAGE_QUALITY,
   POSTER_VARIANTS,
@@ -31,12 +31,11 @@ import { mediaContentType, videoObjectKey } from "~/src/modules/video/video.file
 import { video } from "~/src/modules/video/video.schema"
 import { videoZodSchemas } from "~/src/modules/video/video.zod"
 
-import { readWranglerEnvironment } from "./wrangler-config.ts"
+import { readBucketName } from "./wrangler-config.ts"
 
 const SCRIPT_ARGUMENTS_START = 2
 const MILLISECONDS_PER_MINUTE = 60_000
 const DECIMAL_PLACES = 1
-const MEDIA_BINDING = "MEDIA"
 const DATABASE_BINDING = "DB"
 const WEBVTT_SIGNATURE = "WEBVTT"
 const LOCALE_SEPARATOR = "="
@@ -83,15 +82,6 @@ if (input === undefined || values.title === undefined) {
 
 const tools = toolsSchema.parse(process.env)
 const captions = z.array(captionSchema).parse(values.captions ?? [])
-
-const findBucket = async (): Promise<string> => {
-  const { r2_buckets: buckets } = await readWranglerEnvironment(environment)
-  const bucket = buckets.find(({ binding }) => binding === MEDIA_BINDING)
-  if (bucket === undefined) {
-    throw new Error(`wrangler.jsonc has no ${MEDIA_BINDING} R2 binding for ${environment}`)
-  }
-  return bucket.bucket_name
-}
 
 const run = async ([program = "", ...args]: readonly string[]): Promise<void> => {
   const child = spawn([program, ...args], { stderr: "inherit", stdout: "inherit" })
@@ -184,7 +174,7 @@ const insertStatement = (row: z.output<typeof videoZodSchemas.registerVideo>): s
   return sql.replaceAll(PARAMETER, () => sqlLiteral(pending.shift()))
 }
 
-const bucket = await findBucket()
+const bucket = await readBucketName({ binding: MEDIA_BINDING, environment })
 const source = await probe(input)
 const renditions = planRenditions(source)
 const storyboard = planStoryboard(source)

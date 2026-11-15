@@ -18,6 +18,7 @@ import { createLessonMutation } from "~/src/modules/lesson/use-cases/create-less
 import { updateLessonMutation } from "~/src/modules/lesson/use-cases/update-lesson"
 import { getVideosPageQuery } from "~/src/modules/video/use-cases/get-videos"
 
+import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { formatClock } from "~/src/lib/duration"
@@ -68,6 +69,7 @@ export const LessonDialog = ({ chapterId, lesson, trigger }: LessonDialogProps):
   const errorMessage = useErrorMessage()
   const [isOpen, setOpen] = useState(false)
 
+  const { holders } = useCourseAccessNames()
   const { data: videos } = useQuery({ ...getVideosPageQuery({ pageSize: VIDEO_LIBRARY_PAGE_SIZE }), enabled: isOpen })
 
   const onSuccess = async (): Promise<void> => {
@@ -139,7 +141,7 @@ export const LessonDialog = ({ chapterId, lesson, trigger }: LessonDialogProps):
                     options={LESSON_ACCESS_LEVELS}
                     value={field.state.value}
                   >
-                    {(access) => t(`accessLevels.${access}`)}
+                    {(access) => t(`accessLevels.${access}`, { holders })}
                   </CourseOptionField>
                 )}
               </form.Field>

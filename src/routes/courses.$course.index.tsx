@@ -14,6 +14,8 @@ import { courseLessons, nextLessonToWatch } from "~/src/modules/course/course.ut
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 
+import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
+
 import { rethrowAsNotFound } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"
 
@@ -63,6 +65,7 @@ const CoursePage = (): JSX.Element => {
   const locale = getCurrentLocale()
   const params = Route.useParams()
 
+  const { offer } = useCourseAccessNames()
   const { data } = useSuspenseQuery(courseQuery({ locale, slug: params.course }))
 
   const lessons = courseLessons(data)
@@ -102,8 +105,8 @@ const CoursePage = (): JSX.Element => {
 
         {hasLockedLessons && (
           <aside className="self-start rounded-xl border border-ring/30 bg-radial-[at_top] from-ring/10 to-card to-70% p-7 lg:sticky lg:top-8">
-            <h2 className="text-title text-balance text-foreground">{t("course.unlock.title")}</h2>
-            <p className="mt-3 text-body-sm text-pretty text-muted-foreground">{t("course.unlock.body")}</p>
+            <h2 className="text-title text-balance text-foreground">{t("course.unlock.title", { offer })}</h2>
+            <p className="mt-3 text-body-sm text-pretty text-muted-foreground">{t("course.unlock.body", { offer })}</p>
             <UnlockLink access={LESSON_ACCESS.PAID} signedIn={data.viewer.signedIn} />
           </aside>
         )}

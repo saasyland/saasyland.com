@@ -7,6 +7,8 @@ import { useTranslations } from "use-intl/react"
 import type { Course } from "~/src/modules/course/course.types"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 
+import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
+
 import { formatClock } from "~/src/lib/duration"
 
 const LESSON_NUMBER_BASE = 1
@@ -16,6 +18,8 @@ type Lesson = Course["pageLesson"]
 
 const LessonState = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
   const t = useTranslations("pages.courses")
+
+  const { offer } = useCourseAccessNames()
 
   if (lesson.completed) {
     return (
@@ -30,7 +34,7 @@ const LessonState = ({ lesson }: { readonly lesson: Lesson }): JSX.Element => {
     return (
       <>
         <Lock aria-hidden className="size-3 shrink-0 text-muted-foreground/60" strokeWidth={2.25} />
-        <span className="sr-only">{t(`access.${lesson.access}`)}</span>
+        <span className="sr-only">{t(`access.${lesson.access}`, { offer })}</span>
       </>
     )
   }

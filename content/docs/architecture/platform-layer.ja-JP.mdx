@@ -20,18 +20,23 @@ description: "Cloudflare のランタイム：Worker のエントリー、バイ
 
 プラットフォームのファイルはどのエリアも名指ししません。コースやライセンス販売といった各エリアが、Worker、ルートルート、Vite のビルド、デプロイに必要なものを自分のファイルで追加し、パスやメニューと同じようにバレルがそれらをまとめます（[パスとナビゲーション](/docs/conventions/routes#paths-and-navigation)を参照）。
 
-| 対象                 | 各エリアが宣言するもの                                              | バレル                       | 使う側                                                                                              |
-| -------------------- | ------------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------- |
-| Worker ハンドラー    | `src/data/<area>.worker.ts`: `<AREA>_WORKER_HANDLERS` のリスト 1 つ | `src/data/worker.entries.ts` | `src/data/worker.ts` の `DOCUMENT_HANDLERS` と `REQUEST_HANDLERS`。`src/server.ts` が実行します     |
-| ルートコンポーネント | `src/data/<area>.root.ts`: `<AREA>_ROOT_COMPONENTS` のリスト 1 つ   | `src/data/root.entries.ts`   | `src/data/root.ts` の `ROOT_COMPONENTS`。`src/routes/__root.tsx` がアウトレットの隣にマウントします |
-| Vite プラグイン      | `src/data/<area>.vite.ts`: `<AREA>_VITE_PLUGINS` のリスト 1 つ      | `src/data/vite.entries.ts`   | `src/data/vite.ts` の `vitePlugins`。`vite.config.ts` が読み込みます                                |
-| デプロイ前チェック   | `src/data/<area>.deploy.ts`: `<AREA>_DEPLOY_CHECKS` のリスト 1 つ   | `src/data/deploy.entries.ts` | `src/data/deploy.ts` の `DEPLOY_CHECKS`。`scripts/run-deploy-checks.ts` が実行します                |
+| 対象                 | 各エリアが宣言するもの                                              | バレル                       | 使う側                                                                                                   |
+| -------------------- | ------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Worker ハンドラー    | `src/data/<area>.worker.ts`: `<AREA>_WORKER_HANDLERS` のリスト 1 つ | `src/data/worker.entries.ts` | `src/data/worker.ts` の `DOCUMENT_HANDLERS` と `REQUEST_HANDLERS`。`src/server.ts` が実行します          |
+| ルートコンポーネント | `src/data/<area>.root.ts`: `<AREA>_ROOT_COMPONENTS` のリスト 1 つ   | `src/data/root.entries.ts`   | `src/data/root.ts` の `ROOT_COMPONENTS`。`src/routes/__root.tsx` がアウトレットの隣にマウントします      |
+| Vite プラグイン      | `src/data/<area>.vite.ts`: `<AREA>_VITE_PLUGINS` のリスト 1 つ      | `src/data/vite.entries.ts`   | `src/data/vite.ts` の `vitePlugins`。`vite.config.ts` が読み込みます                                     |
+| デプロイ前チェック   | `src/data/<area>.deploy.ts`: `<AREA>_DEPLOY_CHECKS` のリスト 1 つ   | `src/data/deploy.entries.ts` | `src/data/deploy.ts` の `DEPLOY_CHECKS`。`scripts/run-deploy-checks.ts` が実行します                     |
+| 公開サイトのチェック | `src/data/<area>.live.ts`: `<AREA>_LIVE_CHECKS` のリスト 1 つ       | `src/data/live.entries.ts`   | `src/data/live.ts` の `LIVE_SITE_CHECKS`。デプロイ後に `scripts/verify-deployment.ts` がリクエストします |
 
 リクエストハンドラーは `pathPrefix` を受け持ち、その配下のすべてのリクエストに、ロケールのミドルウェア、静的アセット、TanStack Start より先に応答します。コースのエリアのハンドラーが `/media/` に対して行っているのがこれです。ドキュメントハンドラーは、Worker が返すすべての HTML ページをそのロケールとリクエストとともに受け取り、送信するページを返します。ライセンスのエリアの地域別価格がこれにあたります。`src/server.ts` はハンドラーを静的にインポートするため、ハンドラーはコールドスタートのたびに評価されます。そのためハンドラーのファイルがインポートするのは定数と純粋なヘルパーだけで、それより大きなものは動的 `import()` で読み込みます（[パフォーマンス](/docs/conventions/performance)を参照）。
 
 Vite プラグインのエントリーには、ほかのエリアのプラグインの中での位置を決める `order` と、Vitest でも読み込むかどうかを示す `vitest` があります。Vite は `~` エイリアスを解決する前に設定を読み込むため、`vite.ts`、`vite.entries.ts`、各 `<area>.vite.ts` は `.ts` 拡張子付きの相対パスでインポートします。また、`vp lint` と `vp fmt` がプラグインのパッケージを読み込まないように、エントリーはそのパッケージを `plugins` 関数の中でインポートします。
 
 デプロイ前チェックは、デプロイ先の環境ごとに 1 つずつバリエーションを持つパッケージスクリプトを指定します。Polar のエリアは `polar:verify` を宣言しているので、`bun scripts/run-deploy-checks.ts preview` は `bun run polar:verify:preview` を実行します。
+
+公開サイトのチェックは、デプロイ後にリクエストするパスと、そのパスが返すべきステータスとコンテンツタイプを指定します。コアはトップページ、`robots.txt`、サイトマップ、サイトカード、`/api` を、認証のエリアはセッションのエンドポイントを、コースのエリアはリクエストごとに D1 から描画される `/courses` をチェックします。
+
+エリアは、ほかのエリアが同じ方法で項目を追加する独自のリストを定義することもできます。コースのエリアは `src/data/course-access.ts` でコースアクセスを定義し、ライセンスのエリアが `src/data/license.course-access.ts` でそれを与えます（[コース](/docs/features/courses)）。ライセンスのエリアは `src/data/license-offer.ts` で購入案内のセクションを定義し、コースのエリアが `src/data/courses.license-offer.ts` でロックされたコースを追加します（[顧客アプリ](/docs/features/customer-app)）。2 つのエリアのどちらかがないプロジェクトでは、そのエリアが定義するリストと、もう一方のエリアがそこに追加するものが一緒に外れるので、どちらのエリアももう一方をインポートしません。
 
 ## 環境
 
@@ -46,6 +51,8 @@ Vite プラグインのエントリーには、ほかのエリアのプラグイ
 
 各環境は、必要なシークレットを `secrets.required` に列挙します。値は対応する `.env.<environment>` ファイルから取得され、デプロイスクリプトが宣言されたキーを `.wrangler/secrets.<environment>.json` に書き出し、そのファイルを `--secrets-file` で Wrangler に渡します。`test` 環境は、エントリーとして `src/platform/testing/worker.ts` を使い、`.env.test` にコミットされたダミー値を使います。`AFFONSO_PROGRAM_ID` は公開情報なので、シークレットではなく `vars` の下の通常の Worker 変数です。設定しているのは `test` だけです。1 つのモジュールのシークレットは空行で区切られた 1 つのブロックになり、`.env.example`（`test` では `.env.test`）と同じ順序で並びます。そのため、エリアはシークレットを 1 つのブロックとして追加できます。2 つのファイルのブロックが異なると `src/__test__/wrangler.test.ts` が失敗します。
 
+エリアのバインディングも独立したブロックになります。R2 バケット `MEDIA` はコースのエリアのものなので、各環境で `r2_buckets` は最後に置かれ、コースのないプロジェクトではこのブロックがありません。`wrangler.test.ts` は、`development` と異なる D1 データベース、KV 名前空間、R2 バケットをバインドする環境があっても失敗し、`scripts/verify-bindings.ts` はどのバインディングも名指しせずに、対象環境が宣言するすべてのバインディングをチェックします。
+
 ## 型
 
 - `src/types/worker-configuration.d.ts` は `bun run cf-typegen` が `wrangler.jsonc` の `development` 環境から生成し、`DB`、`CACHE`、`MEDIA` のバインディングと `secrets.required` のすべてのシークレットを含む `Cloudflare.Env` を宣言します。`src/types/bindings.d.ts` は、Wrangler が出力しない `ASSETS` を追加します。
@@ -57,7 +64,7 @@ Vite プラグインのエントリーには、ほかのエリアのプラグイ
 `src/platform/testing` には、特定の機能に属させることができないものだけを置きます。
 
 - `setup.ts`：jest-dom のマッチャー、各テスト前のバインディングのリセット、サーバー関数をプロセス内で実行するための `createServerFn` の置き換え
-- `mocks/cloudflare.ts`：チェックイン済みのマイグレーションを実行するインメモリ SQLite の D1、インメモリの KV、インメモリの `MEDIA` バケット、テストからフラッシュできる `waitUntil`
+- `mocks/cloudflare.ts`：チェックイン済みのマイグレーションを実行するインメモリ SQLite の D1、インメモリの KV、`wrangler.jsonc` の `test` 環境にある R2 バインディングごとのインメモリのバケット、テストからフラッシュできる `waitUntil`
 - `mocks/cache.ts`：`createEdgeCache`。メディア配信のテストで使う Workers のキャッシュのスタブ
 - `mocks/resend.ts` と `mocks/polar.ts`：Resend と Polar の API の厳密なテストダブル。あわせて、すべてのテストとブラウザテスト用の Worker で `fetch` をそれらに振り向ける `mocks/providers.ts`
 - `mocks/wrksz-themes.ts`：テーマライブラリの代替実装

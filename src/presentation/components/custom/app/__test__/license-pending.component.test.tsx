@@ -2,15 +2,12 @@ import type { ReactElement } from "react"
 
 import { QueryClient } from "@tanstack/react-query"
 import { cleanup } from "@testing-library/react"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 import { busyMarkup } from "~/src/platform/testing/lib/skeleton"
 
-import { COURSE_KIND } from "~/src/modules/course/course.constants"
-import type { Course } from "~/src/modules/course/course.types"
-import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { LICENSE_STATUS, LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
@@ -24,7 +21,7 @@ const SELECTORS = {
   ACTIVATION: ".size-11.rounded-full",
   CARD: "[data-slot=card]",
   CHOSEN_TIER: "[class*='lg:grid-cols-[1fr_18rem]']",
-  COURSE_ROW: ".divide-y > div",
+  SECTION: "[data-section=included]",
   STATUS_BADGE: "[data-slot=card-action]",
   TIER_COLUMN: "[class~='@container'] > div > div",
 } as const
@@ -44,29 +41,19 @@ const license = (overrides: Partial<License["select"]> = {}): License["select"] 
   ...overrides,
 })
 
-const course = (id: string, paid: number): Course["catalogue"][number] => ({
-  durationMs: 0,
-  id,
-  kind: COURSE_KIND.COURSE,
-  lessons: paid,
-  paid,
-  previews: 0,
-  slug: id,
-  summary: id,
-  title: id,
-})
+vi.mock("~/src/data/license-offer.entries", () => ({
+  TEST_LICENSE_OFFER: [
+    { Pending: () => <div data-section="included" />, Section: () => <span />, key: "included", load: () => Promise.resolve() },
+  ],
+}))
 
 interface Cache {
-  readonly catalogue?: Course["catalogue"]
   readonly owned?: License["select"]
 }
 
-const renderAt = (ui: ReactElement, path: string, { catalogue, owned }: Cache = {}) => {
+const renderAt = (ui: ReactElement, path: string, { owned }: Cache = {}) => {
   const queryClient = new QueryClient()
   queryClient.setQueryData(currentLicenseQuery.queryKey, { license: owned })
-  if (catalogue !== undefined) {
-    queryClient.setQueryData(catalogueQuery({ locale: "en-US" }).queryKey, catalogue)
-  }
   return renderWithRouter(ui, { queryClient, router: createTestRouter(path) }).container
 }
 
@@ -109,10 +96,13 @@ describe("license skeletons", () => {
     expect(container.querySelectorAll(SELECTORS.TIER_COLUMN)).toHaveLength(LICENSE_TIERS.length)
   })
 
-  it("mirrors one row per course with paid lessons in the cached catalogue", () => {
-    const container = renderAt(<AppLicensePending />, "/app/license", { catalogue: [course("a", 2), course("b", 0), course("c", 1)] })
-
-    expect(container.querySelectorAll(SELECTORS.COURSE_ROW)).toHaveLength(2)
+  it.each([
+    ["/app", AppOverviewPending],
+    ["/app/license", AppLicensePending],
+  ])("ends the offer with the skeleton of what other areas include at %s", (path, Page) => {
+    expect(renderAt(<Page />, path).querySelectorAll(SELECTORS.SECTION)).toHaveLength(1)
+    cleanup()
+    expect(renderAt(<Page />, path, { owned: license() }).querySelectorAll(SELECTORS.SECTION)).toHaveLength(0)
   })
 
   it.each([

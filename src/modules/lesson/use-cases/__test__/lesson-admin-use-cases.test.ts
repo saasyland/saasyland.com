@@ -130,7 +130,7 @@ describe("updateLesson", () => {
 describe("deleteLesson", () => {
   it("removes the lesson and the progress in it", async () => {
     signInAs(ROLE_CODES.ADMIN)
-    await recordProgress({ lessonId: LESSON_IDS.ACCOUNT, positionMs: 1000, userId: USERS.BUYER })
+    await recordProgress({ lessonId: LESSON_IDS.ACCOUNT, positionMs: 1000, userId: USERS.ENTITLED })
 
     await executeMutation(deleteLessonMutation, { lessonId: LESSON_IDS.ACCOUNT })
 

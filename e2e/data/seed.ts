@@ -1,4 +1,5 @@
 export interface SeedObject {
+  readonly binding: string
   readonly file: string
   readonly key: string
   readonly type: string

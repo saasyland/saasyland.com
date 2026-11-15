@@ -4,6 +4,8 @@ export const VIDEO_TITLE_MAX_LENGTH = 255
 
 export const MEDIA_PATH_PREFIX = "/media"
 
+export const MEDIA_BINDING = "MEDIA"
+
 export const POSTER_WIDTH = 1920
 
 export const POSTER_SMALL_WIDTH = 960

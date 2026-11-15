@@ -200,7 +200,7 @@ src/
     social-card.tsx              Social cards rendered at build time with Takumi
     styles/                      Theme, typography, and local font declarations
   providers/                     Application-wide React providers
-  data/                          Data shared by several files, and what each area adds: routes, menus, skeletons, Worker handlers, root components, Vite plugins, deploy checks
+  data/                          Data shared by several files, and what each area adds: routes, menus, skeletons, Worker handlers, root components, Vite plugins, deploy checks, live site checks
   hooks/                         Shared React hooks
   lib/                           Shared utilities (cn, confetti, cookies, the deployed-site check, durations, hex hashes and tokens, rate limits, release tags and notes, route search params, select options, SEO tags, prerendered page heads, robots.txt rules, the sitemap, GitHub stars, not-found errors)
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers

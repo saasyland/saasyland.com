@@ -2,7 +2,6 @@ import type { APIRequestContext, Page } from "@playwright/test"
 import * as zod from "zod"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
-import { TEST_LESSONS } from "../data/courses"
 import { TEST_CHECKOUT_ID } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expectVerificationEmail } from "../fixtures/emails"
@@ -11,13 +10,11 @@ import { expect, test } from "../fixtures/test"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
-import { LESSON_ACCESS } from "../../src/modules/lesson/lesson.constants"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
 
 const [, customer] = TEST_ACCOUNTS
 const SIGN_UP_PASSWORD = "StrongPassword123!"
-const PAID_LESSONS = TEST_LESSONS.filter(({ access }) => access === LESSON_ACCESS.PAID).length
 
 const sessionSchema = zod.object({ user: zod.object({ id: zod.string() }) })
 
@@ -62,9 +59,6 @@ test.describe("checkout funnel", () => {
     await appPage.waitForAppReady()
     const chosen = page.getByRole("region", { name: "Continue with Complete" })
     await expect(chosen).toBeVisible()
-    await expect(page.getByRole("region", { name: "Courses included with Complete and Agency" })).toContainText(
-      `Your account cannot open ${String(PAID_LESSONS)} lessons in 1 course yet.`,
-    )
 
     await chosen.getByRole("button", { name: "Continue to checkout" }).click()
 

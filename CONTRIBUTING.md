@@ -43,4 +43,4 @@ The docs are MDX files in `content/docs`, one per page and locale (`<page>.<loca
 
 ## Licence and conduct
 
-Contributions are accepted under the MIT licence in [LICENSE.md](LICENSE.md). Everyone who takes part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+Contributions are accepted under the MIT licence in [LICENSE](LICENSE), as scoped in [LICENSING.md](LICENSING.md). Everyone who takes part follows the [Code of Conduct](CODE_OF_CONDUCT.md).

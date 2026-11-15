@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, NAVIGATION_PAGES } from "~/src/data/navigation"
-import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN } from "~/src/data/navigation.constants"
+import { ADMIN_NAVIGATION_GROUP, FEATURE_STATUS, FOOTER_COLUMN } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
@@ -28,7 +28,17 @@ describe("the website's navigation", () => {
     expect(Object.keys(sidebarMessages.groups).toSorted()).toStrictEqual(ADMIN_NAVIGATION.map(({ key }) => key).toSorted())
   })
 
-  it("counts the admin sections on the landing page", () => {
-    expect(REPOSITORY_FACTS.adminSections).toBe(ADMIN_NAVIGATION.flatMap(({ items }) => items).length)
+  it("counts only the admin sections that work on the landing page, not the demo screens", () => {
+    const working = ADMIN_NAVIGATION.flatMap(({ items }) => items).filter(({ status }) => status === FEATURE_STATUS.AVAILABLE)
+
+    expect(working.map(({ to }) => to)).toStrictEqual([
+      ROUTES.ADMIN,
+      ROUTES.ADMIN_PRODUCTS,
+      ROUTES.ADMIN_COURSES,
+      ROUTES.ADMIN_VIDEOS,
+      ROUTES.ADMIN_USERS,
+      ROUTES.ADMIN_SETTINGS,
+    ])
+    expect(REPOSITORY_FACTS.adminSections).toBe(working.length)
   })
 })

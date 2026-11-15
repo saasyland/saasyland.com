@@ -1,6 +1,6 @@
 import { MonitorSmartphone } from "lucide-react"
 
-import { ADMIN_NAVIGATION_GROUP, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
+import { ADMIN_NAVIGATION_GROUP, FEATURE_STATUS, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 
 import { ROUTES } from "~/src/routes"
 
@@ -14,6 +14,7 @@ export const PAGE_BUILDER_NAVIGATION = [
     key: "landingPage",
     order: 40,
     placement: NAVIGATION_PLACEMENT.ADMIN,
+    status: FEATURE_STATUS.ARRIVING,
     to: ROUTES.ADMIN_LANDING_PAGE,
   },
 ] as const satisfies readonly NavigationEntry[]

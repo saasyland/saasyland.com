@@ -1,6 +1,6 @@
 import { CreditCard, Tags } from "lucide-react"
 
-import { ADMIN_NAVIGATION_GROUP, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
+import { ADMIN_NAVIGATION_GROUP, FEATURE_STATUS, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 
 import { ROUTES } from "~/src/routes"
 
@@ -14,6 +14,7 @@ export const PAYMENTS_NAVIGATION = [
     key: "pricingModels",
     order: 20,
     placement: NAVIGATION_PLACEMENT.ADMIN,
+    status: FEATURE_STATUS.ARRIVING,
     to: ROUTES.ADMIN_PRICING,
   },
   {
@@ -23,6 +24,7 @@ export const PAYMENTS_NAVIGATION = [
     key: "payments",
     order: 20,
     placement: NAVIGATION_PLACEMENT.ADMIN,
+    status: FEATURE_STATUS.ARRIVING,
     to: ROUTES.ADMIN_PAYMENTS,
   },
 ] as const satisfies readonly NavigationEntry[]

@@ -1,6 +1,6 @@
 import { Package, PlusCircle } from "lucide-react"
 
-import { ADMIN_NAVIGATION_GROUP, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
+import { ADMIN_NAVIGATION_GROUP, FEATURE_STATUS, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 
 import { ROUTES } from "~/src/routes"
 
@@ -14,6 +14,7 @@ export const PRODUCTS_NAVIGATION = [
     key: "products",
     order: 10,
     placement: NAVIGATION_PLACEMENT.ADMIN,
+    status: FEATURE_STATUS.AVAILABLE,
     to: ROUTES.ADMIN_PRODUCTS,
   },
   {

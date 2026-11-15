@@ -1,22 +1,27 @@
-import { createMiddleware } from "@tanstack/react-start"
+import { createMiddleware, createServerOnlyFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
-import { isAPIError } from "better-auth/api"
+import { getIP, isAPIError } from "better-auth/api"
 import { ZodError } from "zod"
 
 import { type Permission, hasPermission } from "~/src/integrations/better-auth/auth.access"
 import { authErrorKey } from "~/src/integrations/better-auth/auth.errors"
+import { auth } from "~/src/integrations/better-auth/auth.server"
 import { getRequestSession } from "~/src/integrations/better-auth/auth.session"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 
-import { clientAddress, withinRateLimit } from "~/src/lib/rate-limit"
+import { withinRateLimit } from "~/src/lib/rate-limit"
 
 export const RATE_LIMIT_WINDOW_SECONDS = 60
+
+const UNKNOWN_CLIENT = "unknown"
 
 export const RATE_LIMITS = {
   SENSITIVE: { max: 3, window: RATE_LIMIT_WINDOW_SECONDS },
   TOKEN: { max: 5, window: RATE_LIMIT_WINDOW_SECONDS },
 } as const
+
+export const clientAddress = createServerOnlyFn((headers: Headers): string => getIP(headers, auth.options) ?? UNKNOWN_CLIENT)
 
 const handleRequestError = (error: unknown): never => {
   if (error instanceof AppError) {

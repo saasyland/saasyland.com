@@ -19,7 +19,7 @@ import { pageHead } from "~/src/lib/seo"
 import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Card } from "~/src/presentation/components/shadcn/card"
 
-import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/core-pending"
+import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { DashboardActions } from "~/src/presentation/components/custom/admin/dashboard/actions"
 import { RevenueChart } from "~/src/presentation/components/custom/admin/dashboard/revenue-chart"
 import { DashboardStats } from "~/src/presentation/components/custom/admin/dashboard/stats"

@@ -87,8 +87,9 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - Un layout dichiara `const NAMESPACES = [...] as const` sopra `export const Route` e lo precarica. Quando non ne ha, omette l'opzione; non esiste `namespaces: []`.
+- Un namespace di cui un componente di un'altra area ha bisogno nel layout viene aggiunto da quell'area in `src/data/<area>.namespaces.ts`, che indica il layout con il suo route id, e il layout espande `...layoutNamespaces("/app")` nei suoi `NAMESPACES`. L'area della licenza aggiunge `pages.license` a `/app`, la cui panoramica mostra la scheda e l'offerta della licenza, e l'area della newsletter aggiunge `auth.validations` a `/_landing` e `/blog`, il cui footer mostra il modulo della newsletter. `namespaces.test.ts` controlla in compilazione che ogni layout nominato da un'area sia un route id.
 - Il componente, quando il layout ne rende uno, si chiama `<Name>Layout` e posiziona un `<Outlet />`.
-- Una guard va in `beforeLoad` sul layout che possiede l'area: `beforeLoad: requireAdmin` in `admin.tsx`, `requireSignedIn` in `app.tsx`. Le guard decidono solo la navigazione; ogni server function controlla comunque il proprio permesso.
+- Una guard va in `beforeLoad` sul layout che possiede l'area: `beforeLoad: requireAdmin` in `admin.tsx`, `requireSignedIn` in `app.tsx`, entrambi layout dell'area di autenticazione. Le guard decidono solo la navigazione; ogni server function controlla comunque il proprio permesso.
 
 ## Ordine delle opzioni
 
@@ -145,6 +146,7 @@ Nessun file elenca tutte le aree dell'applicazione. Ogni area, come i corsi, i p
 | Scheletri delle pagine      | `src/data/<area>.skeletons.ts`: una lista `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `PAGE_SKELETONS` in `src/data/skeletons.ts`                                                                                           |
 | Permessi                    | `src/data/<area>.access.ts`: un oggetto `<AREA>_ACCESS`         | `src/data/access.entries.ts`     | `APP_STATEMENTS` e `grantsOf` in `src/data/access.ts`                                                                                 |
 | Percorsi non elencati       | `src/data/<area>.routes.ts`: una lista `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` e `isUnlistedRoute` in `src/data/unlisted.ts`                                                                       |
+| Namespace dei layout        | `src/data/<area>.namespaces.ts`: una lista `<AREA>_NAMESPACES`  | `src/data/namespaces.entries.ts` | `layoutNamespaces(layout)` in `src/data/namespaces.ts`                                                                                |
 
 Un barrel contiene solo righe `export { … } from`, una per file di area e ordinate per modulo, come `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` riesporta i percorsi come un unico namespace, così ogni percorso mantiene il suo tipo letterale e `<Link to={ROUTES.COURSES}>` resta verificato rispetto all'albero delle route:
 
@@ -152,12 +154,12 @@ Un barrel contiene solo righe `export { … } from`, una per file di area e ordi
 export * as ROUTES from "~/src/data/routes.entries"
 ```
 
-Una voce di menu indica dove compare con `placement` (`NAVIGATION_PLACEMENT` in `src/data/navigation.constants.ts`): la sidebar dell'admin, i pulsanti sopra la dashboard, la barra laterale dell'app clienti, l'intestazione pubblica o il footer. Il suo `order` la colloca tra le voci delle altre aree, quindi nessuna lista dipende dall'ordine dei file. Le voci dell'admin indicano anche il loro gruppo della sidebar (`group`) e i link del footer la loro colonna (`column`); `ADMIN_NAVIGATION_GROUPS` e `FOOTER_COLUMNS` fissano l'ordine di gruppi e colonne, e quelli che nessuna area riempie vengono omessi. L'area di base, presente in ogni progetto, aggiunge due voci dell'admin e due voci alla barra laterale dell'app clienti:
+Una voce di menu indica dove compare con `placement` (`NAVIGATION_PLACEMENT` in `src/data/navigation.constants.ts`): la sidebar dell'admin, i pulsanti sopra la dashboard, la barra laterale dell'app clienti, l'intestazione pubblica o il footer. Il suo `order` la colloca tra le voci delle altre aree, quindi nessuna lista dipende dall'ordine dei file. Le voci dell'admin indicano anche il loro gruppo della sidebar (`group`) e i link del footer la loro colonna (`column`); `ADMIN_NAVIGATION_GROUPS` e `FOOTER_COLUMNS` fissano l'ordine di gruppi e colonne, e quelli che nessuna area riempie vengono omessi. La console di amministrazione e l'app clienti esistono solo con l'accesso, quindi appartengono all'area di autenticazione: i loro percorsi, `/admin`, `/admin/settings`, `/app` e `/app/settings`, e le loro voci di dashboard, impostazioni e gestione utenti:
 
-```ts title="src/data/core.navigation.ts"
-const AREA = "core"
+```ts title="src/data/auth.navigation.ts"
+const AREA = "auth"
 
-export const CORE_NAVIGATION = [
+export const AUTH_NAVIGATION = [
   {
     area: AREA,
     group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
@@ -170,16 +172,27 @@ export const CORE_NAVIGATION = [
   {
     area: AREA,
     group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
+    icon: Users,
+    key: "userManagement",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_USERS,
+  },
+  {
+    area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
     icon: Settings,
     key: "settings",
     order: 30,
     placement: NAVIGATION_PLACEMENT.ADMIN,
     to: ROUTES.ADMIN_SETTINGS,
   },
-  { area: AREA, icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
   { area: AREA, icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
+  { area: AREA, column: FOOTER_COLUMN.PRODUCT, key: "signIn", order: 40, placement: NAVIGATION_PLACEMENT.FOOTER, to: ROUTES.SIGN_IN },
 ] as const satisfies readonly NavigationEntry[]
 ```
+
+L'area della licenza, a cui appartiene la pagina `/app`, aggiunge la voce **Panoramica** della barra laterale dell'app clienti accanto alla sua voce **Licenza**. L'area di base dichiara solo `/` e `/api`.
 
 Una statistica della dashboard ha un `prefetch`, che il loader di `/admin` esegue, e un hook `useValue`, che `DashboardStats` chiama per leggere il numero.
 

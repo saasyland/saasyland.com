@@ -5,13 +5,12 @@ description: "Der Bereich /app für angemeldete Benutzer: Übersicht, Lizenzseit
 
 ## Layout
 
-`src/routes/app.tsx` validiert die Suchparameter jeder Seite im Bereich, schützt ihn mit `requireSignedIn` und lädt seine Namespaces vorab:
+`src/routes/app.tsx` gehört zum Auth-Bereich. Es schützt den Kundenbereich mit `requireSignedIn` und lädt seine Namespaces vorab, zusammen mit denen, die andere Bereiche ihm hinzufügen (`layoutNamespaces("/app")`; der Lizenzbereich fügt `pages.license` hinzu):
 
 ```tsx
-const NAMESPACES = ["auth.errors", "pages.app.sidebar", "pages.license", "timezones"] as const
+const NAMESPACES = ["auth.errors", "pages.app.sidebar", "timezones", ...layoutNamespaces("/app")] as const
 
 export const Route = createFileRoute("/app")({
-  validateSearch: appSearchSchema,
   beforeLoad: requireSignedIn,
   component: AppLayout,
   loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
@@ -20,7 +19,7 @@ export const Route = createFileRoute("/app")({
 })
 ```
 
-`AppLayout` rendert `AppSidebar` und `AppHeader` aus `src/presentation/components/custom/app` innerhalb des shadcn-`SidebarProvider`. Die Seitenleiste baut ihre Links aus `APP_NAVIGATION` in `src/data/navigation.ts` auf (Übersicht und Einstellungen aus `core.navigation.ts`, Lizenz aus `license.navigation.ts`, beschriftet aus `navigation.core.json` und `navigation.license.json`), liest den Benutzer aus dem Routenkontext (`getRouteApi("/app")`) und endet mit `SignOutButton`. Der Header zeigt die aktuelle Seite und einen Link zurück zur Website. Admins landen nach der Anmeldung auf `/admin`, alle anderen auf `/app`.
+`AppLayout` rendert `AppSidebar` und `AppHeader` aus `src/presentation/components/custom/app` innerhalb des shadcn-`SidebarProvider`. Die Seitenleiste baut ihre Links aus `APP_NAVIGATION` in `src/data/navigation.ts` auf (Übersicht und Lizenz aus `license.navigation.ts`, Einstellungen aus `auth.navigation.ts`, beschriftet aus `navigation.license.json` und `navigation.auth.json`), liest den Benutzer aus dem Routenkontext (`getRouteApi("/app")`) und endet mit `SignOutButton`. Der Header zeigt die aktuelle Seite und einen Link zurück zur Website. Admins landen nach der Anmeldung auf `/admin`, alle anderen auf `/app`.
 
 ## Seiten
 
@@ -32,7 +31,7 @@ export const Route = createFileRoute("/app")({
 
 `LicenseOffer` (`src/presentation/components/custom/app/license-offer.tsx`) verwendet die `PricingTiers` der Landingpage mit einem `CheckoutButton` pro Stufe wieder, ergänzt die Kaufbedingungen (`CheckoutAgreement`) und endet mit den Abschnitten, die andere Bereiche beitragen (`LICENSE_OFFER_SECTIONS` in `src/data/license-offer.ts`), jeweils mit seinem Skeleton und den Daten, die seine Seiten laden. Der Kursbereich trägt `CourseUnlocks` bei (`src/data/courses.license-offer.ts`): die veröffentlichten Kurse mit kostenpflichtigen Lektionen und der Anzahl der gesperrten Lektionen in jedem davon, gezählt von `getCatalogue` aus D1. Der Block entfällt, solange kein Kurs eine kostenpflichtige Lektion hat. Eine erstattete Lizenz behält ihre Karte, und das Angebot erscheint daneben.
 
-`appSearchSchema` (`src/data/app.ts`) akzeptiert zwei optionale Parameter, die beide ignoriert werden, wenn sie ungültig sind:
+Die Übersichts- und die Lizenzseite des Lizenzbereichs validieren ihre Suchparameter mit `licenseSearchSchema` (`src/data/license.ts`), das zwei optionale Parameter akzeptiert, die beide ignoriert werden, wenn sie ungültig sind:
 
 | Parameter    | Wert                        | Wirkung                                                                                                                                               |
 | ------------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -43,6 +42,6 @@ Die Loader der Übersicht und der Lizenzseite laden `currentLicenseQuery` und de
 
 ## Skeletons
 
-`AppSettingsPending` (`app/core-pending.tsx`) zeichnet den Seitenkopf und `PreferencesCardPending`. `AppOverviewPending` und `AppLicensePending` (`app/license-pending.tsx`, vom Lizenzbereich in `src/data/license.skeletons.ts` deklariert) bilden den Zustand ab, den die Seite anzeigen wird. Dazu lesen sie die Suchparameter mit `appSearchSchema` sowie die zwischengespeicherte Lizenz und den Katalog aus dem Query Client und zeichnen das Aktivierungspanel, die gewählte Stufe, das Stufenraster mit einer Zeile pro Kurs mit kostenpflichtigen Lektionen oder die Lizenzkarten.
+`AppSettingsPending` (`app/auth-pending.tsx`, vom Auth-Bereich in `src/data/auth.skeletons.ts` deklariert) zeichnet den Seitenkopf und `PreferencesCardPending`. `AppOverviewPending` und `AppLicensePending` (`app/license-pending.tsx`, vom Lizenzbereich in `src/data/license.skeletons.ts` deklariert) bilden den Zustand ab, den die Seite anzeigen wird. Dazu lesen sie die Suchparameter mit `licenseSearchSchema` sowie die zwischengespeicherte Lizenz und den Katalog aus dem Query Client und zeichnen das Aktivierungspanel, die gewählte Stufe, das Stufenraster mit einer Zeile pro Kurs mit kostenpflichtigen Lektionen oder die Lizenzkarten.
 
 In `/app` gibt es keine Ansichten für den Rechnungsverlauf oder Kurse, und `/app/settings` hat noch keine Formulare für Profil, E-Mail-Adresse oder Passwort.

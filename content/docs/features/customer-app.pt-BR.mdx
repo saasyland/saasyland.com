@@ -5,13 +5,12 @@ description: "A área /app para usuários logados: visão geral, página de lice
 
 ## Layout
 
-`src/routes/app.tsx` valida os parâmetros de busca de todas as páginas da área, protege-a com `requireSignedIn` e pré-carrega seus namespaces:
+`src/routes/app.tsx` pertence à área de autenticação. Ele protege o workspace com `requireSignedIn` e pré-carrega seus namespaces, junto com os que outras áreas adicionam a ele (`layoutNamespaces("/app")`; a área de licenças adiciona `pages.license`):
 
 ```tsx
-const NAMESPACES = ["auth.errors", "pages.app.sidebar", "pages.license", "timezones"] as const
+const NAMESPACES = ["auth.errors", "pages.app.sidebar", "timezones", ...layoutNamespaces("/app")] as const
 
 export const Route = createFileRoute("/app")({
-  validateSearch: appSearchSchema,
   beforeLoad: requireSignedIn,
   component: AppLayout,
   loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
@@ -20,7 +19,7 @@ export const Route = createFileRoute("/app")({
 })
 ```
 
-`AppLayout` mostra `AppSidebar` e `AppHeader` de `src/presentation/components/custom/app` dentro do `SidebarProvider` do shadcn. A barra lateral monta os links a partir de `APP_NAVIGATION` em `src/data/navigation.ts` (Visão geral e Configurações de `core.navigation.ts`, Licença de `license.navigation.ts`, com os rótulos de `navigation.core.json` e `navigation.license.json`), lê o usuário do contexto da rota (`getRouteApi("/app")`) e termina com `SignOutButton`. O cabeçalho mostra a página atual e um link de volta ao site. Após o login, administradores chegam a `/admin` e todos os demais a `/app`.
+`AppLayout` mostra `AppSidebar` e `AppHeader` de `src/presentation/components/custom/app` dentro do `SidebarProvider` do shadcn. A barra lateral monta os links a partir de `APP_NAVIGATION` em `src/data/navigation.ts` (Visão geral e Licença de `license.navigation.ts`, Configurações de `auth.navigation.ts`, com os rótulos de `navigation.license.json` e `navigation.auth.json`), lê o usuário do contexto da rota (`getRouteApi("/app")`) e termina com `SignOutButton`. O cabeçalho mostra a página atual e um link de volta ao site. Após o login, administradores chegam a `/admin` e todos os demais a `/app`.
 
 ## Páginas
 
@@ -32,7 +31,7 @@ export const Route = createFileRoute("/app")({
 
 `LicenseOffer` (`src/presentation/components/custom/app/license-offer.tsx`) reaproveita o `PricingTiers` da landing page com um `CheckoutButton` para cada plano, acrescenta os termos de compra (`CheckoutAgreement`) e termina com as seções que outras áreas adicionam a ele (`LICENSE_OFFER_SECTIONS` em `src/data/license-offer.ts`), cada uma com seu esqueleto e os dados que suas páginas carregam. A área de cursos adiciona `CourseUnlocks` (`src/data/courses.license-offer.ts`): os cursos publicados que têm aulas pagas, com o número de aulas bloqueadas em cada um, contadas no D1 por `getCatalogue`. Esse bloco fica de fora enquanto nenhum curso tiver uma aula paga. Uma licença reembolsada mantém o card e ganha a oferta ao lado.
 
-`appSearchSchema` (`src/data/app.ts`) aceita dois parâmetros opcionais, ambos ignorados quando inválidos:
+As páginas de visão geral e de licença da área de licenças validam a sua busca com `licenseSearchSchema` (`src/data/license.ts`), que aceita dois parâmetros opcionais, ambos ignorados quando inválidos:
 
 | Parâmetro    | Valor                      | Efeito                                                                                                                                                |
 | ------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -43,6 +42,6 @@ Os loaders da visão geral e da licença pré-carregam `currentLicenseQuery` e o
 
 ## Esqueletos
 
-`AppSettingsPending` (`app/core-pending.tsx`) desenha o cabeçalho da página e `PreferencesCardPending`. `AppOverviewPending` e `AppLicensePending` (`app/license-pending.tsx`, declarados pela área de licenças em `src/data/license.skeletons.ts`) espelham o estado que a página vai mostrar: leem os parâmetros de busca com `appSearchSchema` e a licença e o catálogo que já estão no cache de queries, e desenham o painel de ativação, o plano escolhido, a grade de planos com uma linha por curso com aulas pagas, ou os cards da licença.
+`AppSettingsPending` (`app/auth-pending.tsx`, declarado pela área de autenticação em `src/data/auth.skeletons.ts`) desenha o cabeçalho da página e `PreferencesCardPending`. `AppOverviewPending` e `AppLicensePending` (`app/license-pending.tsx`, declarados pela área de licenças em `src/data/license.skeletons.ts`) espelham o estado que a página vai mostrar: leem os parâmetros de busca com `licenseSearchSchema` e a licença e o catálogo que já estão no cache de queries, e desenham o painel de ativação, o plano escolhido, a grade de planos com uma linha por curso com aulas pagas, ou os cards da licença.
 
 Não há histórico de cobrança nem telas de cursos em `/app`, e `/app/settings` ainda não tem formulários de perfil, e-mail ou senha.

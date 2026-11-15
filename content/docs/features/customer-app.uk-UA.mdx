@@ -5,13 +5,12 @@ description: "Зона /app для користувачів із сесією: �
 
 ## Макет
 
-`src/routes/app.tsx` перевіряє параметри пошуку кожної сторінки зони, захищає її за допомогою `requireSignedIn` і попередньо завантажує її простори імен:
+`src/routes/app.tsx` належить розділу автентифікації. Він захищає робочий простір за допомогою `requireSignedIn` і попередньо завантажує його простори імен разом із тими, які до нього додають інші розділи (`layoutNamespaces("/app")`; розділ ліцензії додає `pages.license`):
 
 ```tsx
-const NAMESPACES = ["auth.errors", "pages.app.sidebar", "pages.license", "timezones"] as const
+const NAMESPACES = ["auth.errors", "pages.app.sidebar", "timezones", ...layoutNamespaces("/app")] as const
 
 export const Route = createFileRoute("/app")({
-  validateSearch: appSearchSchema,
   beforeLoad: requireSignedIn,
   component: AppLayout,
   loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
@@ -20,7 +19,7 @@ export const Route = createFileRoute("/app")({
 })
 ```
 
-`AppLayout` показує `AppSidebar` і `AppHeader` з `src/presentation/components/custom/app` усередині `SidebarProvider` з shadcn. Бічна панель будує посилання з `APP_NAVIGATION` у `src/data/navigation.ts` (Огляд і Налаштування з `core.navigation.ts`, Ліцензія з `license.navigation.ts`, підписи з `navigation.core.json` і `navigation.license.json`), читає користувача з контексту маршруту (`getRouteApi("/app")`) і закінчується кнопкою `SignOutButton`. Заголовок показує поточну сторінку та посилання назад на сайт. Після входу адміністратори потрапляють на `/admin`, а решта — на `/app`.
+`AppLayout` показує `AppSidebar` і `AppHeader` з `src/presentation/components/custom/app` усередині `SidebarProvider` з shadcn. Бічна панель будує посилання з `APP_NAVIGATION` у `src/data/navigation.ts` (Огляд і Ліцензія з `license.navigation.ts`, Налаштування з `auth.navigation.ts`, підписи з `navigation.license.json` і `navigation.auth.json`), читає користувача з контексту маршруту (`getRouteApi("/app")`) і закінчується кнопкою `SignOutButton`. Заголовок показує поточну сторінку та посилання назад на сайт. Після входу адміністратори потрапляють на `/admin`, а решта — на `/app`.
 
 ## Сторінки
 
@@ -32,7 +31,7 @@ export const Route = createFileRoute("/app")({
 
 `LicenseOffer` (`src/presentation/components/custom/app/license-offer.tsx`) повторно використовує `PricingTiers` з головної сторінки з `CheckoutButton` для кожного плану, додає умови купівлі (`CheckoutAgreement`) і закінчується секціями, які додають до нього інші розділи (`LICENSE_OFFER_SECTIONS` у `src/data/license-offer.ts`), кожна зі своїм скелетоном і даними, які завантажують її сторінки. Розділ курсів додає блок `CourseUnlocks` (`src/data/courses.license-offer.ts`): опубліковані курси з платними уроками та кількістю заблокованих уроків у кожному, яку `getCatalogue` рахує з D1. Поки жоден курс не має платних уроків, блок не показується. Повернена ліцензія зберігає свою картку, а поруч із нею з’являється пропозиція купівлі.
 
-`appSearchSchema` (`src/data/app.ts`) приймає два необов’язкові параметри й ігнорує кожен із них, якщо значення некоректне:
+Сторінки огляду й ліцензії розділу ліцензії перевіряють параметри пошуку через `licenseSearchSchema` (`src/data/license.ts`), яка приймає два необов’язкові параметри й ігнорує кожен із них, якщо значення некоректне:
 
 | Параметр     | Значення                | Дія                                                                                                                                                    |
 | ------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -43,6 +42,6 @@ Loader-функції огляду та ліцензії попередньо з
 
 ## Скелетони
 
-`AppSettingsPending` (`app/core-pending.tsx`) малює заголовок сторінки та `PreferencesCardPending`. `AppOverviewPending` і `AppLicensePending` (`app/license-pending.tsx`, їх оголошує розділ ліцензії в `src/data/license.skeletons.ts`) відтворюють стан, який покаже сторінка: вони читають параметри пошуку через `appSearchSchema`, а кешовані ліцензію й каталог — із клієнта запитів, і малюють панель активації, вибраний план, сітку планів із рядком для кожного курсу з платними уроками або картки ліцензії.
+`AppSettingsPending` (`app/auth-pending.tsx`, його оголошує розділ автентифікації в `src/data/auth.skeletons.ts`) малює заголовок сторінки та `PreferencesCardPending`. `AppOverviewPending` і `AppLicensePending` (`app/license-pending.tsx`, їх оголошує розділ ліцензії в `src/data/license.skeletons.ts`) відтворюють стан, який покаже сторінка: вони читають параметри пошуку через `licenseSearchSchema`, а кешовані ліцензію й каталог — із клієнта запитів, і малюють панель активації, вибраний план, сітку планів із рядком для кожного курсу з платними уроками або картки ліцензії.
 
 У `/app` немає історії рахунків чи екранів курсів, а `/app/settings` поки не має форм профілю, електронної пошти чи пароля.

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { z as zod } from "zod"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { RATE_LIMITS, authorized, withRateLimit, withRequest } from "~/src/integrations/better-auth/auth.middleware"
+import { RATE_LIMITS, authorized, clientAddress, withRateLimit, withRequest } from "~/src/integrations/better-auth/auth.middleware"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { getCurrentSession } from "~/src/integrations/better-auth/auth.session"
@@ -169,6 +169,24 @@ describe("rate limiting middleware", () => {
       .middleware([withRateLimit("test", RATE_LIMITS.SENSITIVE)])
       .handler(() => "done")
     await expect(action()).rejects.toThrow(ERROR_CODES.TOO_MANY_REQUESTS)
+  })
+})
+
+describe("client address", () => {
+  it("passes a single IPv4 address through", () => {
+    expect(clientAddress(new Headers({ [IP_ADDRESS_HEADER]: "203.0.113.1" }))).toBe("203.0.113.1")
+  })
+
+  it("groups IPv6 clients by their /64 prefix", () => {
+    const prefix = "2001:0db8:0001:0002:0000:0000:0000:0000"
+
+    expect(clientAddress(new Headers({ [IP_ADDRESS_HEADER]: "2001:db8:1:2:3:4:5:6" }))).toBe(prefix)
+    expect(clientAddress(new Headers({ [IP_ADDRESS_HEADER]: "2001:db8:1:2:ffff::1" }))).toBe(prefix)
+  })
+
+  it("ignores multi-hop and missing headers like Better Auth's limiter", () => {
+    expect(clientAddress(new Headers({ [IP_ADDRESS_HEADER]: "203.0.113.1, 198.51.100.2" }))).toBe("127.0.0.1")
+    expect(clientAddress(new Headers({ "X-Forwarded-For": "203.0.113.1" }))).toBe("127.0.0.1")
   })
 })
 

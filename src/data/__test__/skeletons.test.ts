@@ -27,7 +27,7 @@ describe("page skeleton composition", () => {
 
     const skeletons = await import("~/src/data/skeletons")
 
-    expect([...skeletons.PAGE_SKELETONS.keys()]).toStrictEqual([ROUTES.ADMIN, ROUTES.ADMIN_SETTINGS, ROUTES.APP_SETTINGS, ROUTES.HOME])
+    expect([...skeletons.PAGE_SKELETONS.keys()]).toStrictEqual([ROUTES.HOME])
     vi.doUnmock("~/src/data/skeletons.entries")
   })
 })

@@ -1,4 +1,4 @@
-import { Users } from "lucide-react"
+import { Home, Settings, Users } from "lucide-react"
 
 import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 
@@ -9,6 +9,15 @@ const AREA = "auth"
 export const AUTH_NAVIGATION = [
   {
     area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
+    icon: Home,
+    key: "dashboard",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN,
+  },
+  {
+    area: AREA,
     group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
     icon: Users,
     key: "userManagement",
@@ -16,5 +25,15 @@ export const AUTH_NAVIGATION = [
     placement: NAVIGATION_PLACEMENT.ADMIN,
     to: ROUTES.ADMIN_USERS,
   },
+  {
+    area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
+    icon: Settings,
+    key: "settings",
+    order: 30,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_SETTINGS,
+  },
+  { area: AREA, icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
   { area: AREA, column: FOOTER_COLUMN.PRODUCT, key: "signIn", order: 40, placement: NAVIGATION_PLACEMENT.FOOTER, to: ROUTES.SIGN_IN },
 ] as const satisfies readonly NavigationEntry[]

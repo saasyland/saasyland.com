@@ -125,7 +125,7 @@ describe("social preview", () => {
     expect(meta).not.toContainEqual(expect.objectContaining({ property: "article:section" }))
   })
 
-  it.each([ROUTES.APP, ROUTES.SIGN_IN, `/pl-PL${ROUTES.ADMIN_USERS}`])("gives %s, which is not prerendered, the site card", (pathname) => {
+  it.each([ROUTES.API, `${ROUTES.API}/search`, `/pl-PL${ROUTES.API}`])("gives %s, which is not prerendered, the site card", (pathname) => {
     const { meta } = buildPageHead({ locale: "pl-PL", pathname, title: "Panel" })
 
     expect(meta).toContainEqual({ content: `${APP_URL}${SOCIAL_IMAGE.SITE_PATH}`, property: "og:image" })

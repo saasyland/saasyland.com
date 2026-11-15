@@ -43,6 +43,6 @@ export const deliverPaidOrder = async (request: APIRequestContext, { tier, userI
   })
   const { body, headers } = signedPolarWebhook({ data: order, secret: TEST_ENV.POLAR_WEBHOOK_SECRET, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid })
 
-  const response = await request.post(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.POLAR_WEBHOOKS}`, { data: body, headers })
+  const response = await request.post(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, { data: body, headers })
   expect(response.ok()).toBe(true)
 }

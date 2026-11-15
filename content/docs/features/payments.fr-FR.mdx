@@ -3,20 +3,26 @@ title: "Paiements et licences"
 description: "Paiement Polar, portail client et webhooks qui accordent des licences ; l’écran des paiements de l’administration est une démo."
 ---
 
-Les paiements passent par Polar avec le plugin `@polar-sh/better-auth` dans `auth.server.ts` :
+Les paiements passent par Polar avec le plugin `@polar-sh/better-auth`, que la zone des licences ajoute à Better Auth dans `src/data/license.auth-plugins.ts` :
 
 ```ts
-polarPlugin({
-  client: polarCore,
-  use: [
-    checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
-    portal(),
-    webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
-  ],
-}),
+export const LICENSE_AUTH_PLUGINS = [
+  {
+    disabledPaths: [ROUTES.API_AUTH_POLAR.CHECKOUT],
+    plugin: polar({
+      client: polarCore,
+      use: [
+        checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
+        portal(),
+        webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
+      ],
+    }),
+    rateLimitExemptPaths: [ROUTES.API_AUTH_POLAR.WEBHOOKS],
+  },
+] as const satisfies readonly AuthPluginEntry[]
 ```
 
-Le `POST /api/auth/checkout` propre au plugin figure dans les `disabledPaths` de Better Auth (`ROUTES.API_AUTH.CHECKOUT`), il répond donc 404 en HTTP. Chaque paiement commence dans la fonction serveur `startCheckout`, qui appelle `auth.api.checkout` côté serveur après ses propres vérifications.
+Le `POST /api/auth/checkout` propre au plugin figure dans les `disabledPaths` de Better Auth, il répond donc 404 en HTTP, et ses webhooks sont exemptés du limiteur de débit de Better Auth. Chaque paiement commence dans la fonction serveur `startCheckout`, qui appelle `auth.api.checkout` côté serveur après ses propres vérifications.
 
 `src/integrations/polar/polar.config.ts` crée `polarCore` à partir de `POLAR_ACCESS_TOKEN` et `POLAR_SERVER`, que le plugin utilise, ainsi que `polar`, les services de remises, de clés de licence et de commandes construits dessus. `POLAR_ORGANIZATION_ID` restreint la recherche des remises et la désactivation des clés de licence. `POLAR_CHECKOUT_PRODUCTS` associe les identifiants d’offre `core`, `complete` et `agency` à `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` et `POLAR_PRODUCT_ID_AGENCY`. [Configurer Polar](/docs/getting-started/polar-setup) décrit les produits, les clés de licence, les remises, le webhook et le jeton que ce code attend dans Polar, et `bun run polar:verify:<environment>` les vérifie.
 

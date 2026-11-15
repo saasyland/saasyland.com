@@ -104,7 +104,7 @@ const DEPLOYED_ENVIRONMENTS = Object.keys(DEPLOYED_HOSTS).filter((name): name is
 
 const failing = (checks: readonly Check[]): string[] => checks.filter(([failed]) => failed).map(([, problem]) => problem)
 
-const webhookUrl = (host: string): string => `https://${host}${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.POLAR_WEBHOOKS}`
+const webhookUrl = (host: string): string => `https://${host}${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`
 
 const readSettings = (values: Readonly<Record<string, string | undefined>>, { file, server }: Source): Settings => {
   const parsed = settingsSchema.safeParse(values)

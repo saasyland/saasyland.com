@@ -7,6 +7,7 @@ import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
 import { readBucketName } from "./wrangler-config.ts"
 import * as AREA_SEEDS from "~/e2e/data/seed.entries"
+import { APP_SLUG } from "~/src/presentation/branding"
 
 const LOCAL_TEST_STATE = ["--env", ENVIRONMENT.TEST, "--local", "--persist-to", ".wrangler/test"]
 
@@ -21,7 +22,7 @@ const seeds = await Promise.all(Object.values(AREA_SEEDS).map((seed) => seed()))
 const statements = seeds.flatMap((seed) => seed.statements)
 const objects = seeds.flatMap((seed) => seed.objects)
 
-const directory = await mkdtemp(join(tmpdir(), "saasyland-test-seed-"))
+const directory = await mkdtemp(join(tmpdir(), `${APP_SLUG}-test-seed-`))
 try {
   const sql = join(directory, "seed.sql")
   await writeFile(sql, statements.join("\n"))

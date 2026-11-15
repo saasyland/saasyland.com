@@ -14,7 +14,7 @@ import { renderAdminPage } from "~/src/presentation/components/custom/admin/__te
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
 import { AdminBlogCreatePending, AdminBlogPending } from "~/src/presentation/components/custom/admin/post-editor-pending"
 
-import navigationCoreMessages from "~/messages/en-US/navigation.core.json"
+import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import navigationPostEditorMessages from "~/messages/en-US/navigation.post-editor.json"
 import pagesAdminBlogCreateMessages from "~/messages/en-US/pages.admin.blog.create.json"
 import pagesAdminBlogMessages from "~/messages/en-US/pages.admin.blog.json"
@@ -66,7 +66,7 @@ describe("admin post editor", () => {
 
   it("renders breadcrumbs and navigation for /admin/blog/create", () => {
     renderAdminPage(AdminRoute.options.component, { path: "/admin/blog/create" })
-    expect(screen.getAllByRole("link", { name: navigationCoreMessages.admin.dashboard }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole("link", { name: navigationAuthMessages.admin.dashboard }).length).toBeGreaterThan(0)
     expect(screen.getByRole("navigation", { name: pagesAdminMessages.components.breadcrumbs.home })).toBeVisible()
     expect(screen.getByText(navigationPostEditorMessages.breadcrumbs.create)).toBeVisible()
   })

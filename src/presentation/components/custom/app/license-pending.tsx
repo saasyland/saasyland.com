@@ -6,7 +6,7 @@ import { useRouterState } from "@tanstack/react-router"
 import { LICENSE_STATUS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
-import { appSearchSchema } from "~/src/data/app"
+import { licenseSearchSchema } from "~/src/data/license"
 import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
 
 import { cn } from "~/src/lib/cn"
@@ -14,12 +14,12 @@ import { cn } from "~/src/lib/cn"
 import { Card, CardAction, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import { PageHeaderPending } from "~/src/presentation/components/custom/app/core-pending"
+import { PageHeaderPending } from "~/src/presentation/components/custom/app/auth-pending"
 import { FEATURED_TIER, FEATURE_IDS } from "~/src/presentation/components/custom/pricing"
 
 const usePendingLicenseView = () => {
   const queryClient = useQueryClient()
-  const search = useRouterState({ select: ({ location }) => appSearchSchema.parse(location.search) })
+  const search = useRouterState({ select: ({ location }) => licenseSearchSchema.parse(location.search) })
 
   const license = queryClient.getQueryData(currentLicenseQuery.queryKey)?.license
   const hasActiveLicense = license?.status === LICENSE_STATUS.ACTIVE

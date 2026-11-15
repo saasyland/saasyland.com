@@ -1,3 +1,5 @@
+export const ADMIN = "/admin"
+export const ADMIN_SETTINGS = "/admin/settings"
 export const ADMIN_USERS = "/admin/users"
 export const ADMIN_USERS_ALL = "/admin/users/all"
 export const ADMIN_USERS_INVITATIONS = "/admin/users/invitations"
@@ -10,9 +12,7 @@ export const API_AUTH = {
   CALLBACK: "/callback",
   CHANGE_EMAIL: "/change-email",
   CHANGE_PASSWORD: "/change-password",
-  CHECKOUT: "/checkout",
   GET_SESSION: "/get-session",
-  POLAR_WEBHOOKS: "/polar/webhooks",
   REQUEST_PASSWORD_RESET: "/request-password-reset",
   RESET_PASSWORD: "/reset-password",
   SEND_VERIFICATION_EMAIL: "/send-verification-email",
@@ -25,6 +25,8 @@ export const API_AUTH = {
 } as const
 export const API_AUTH_BASE = "/api/auth"
 export const API_AUTH_VERIFY_EMAIL = "/api/auth/verify-email"
+export const APP = "/app"
+export const APP_SETTINGS = "/app/settings"
 export const AUTH = "/auth"
 export const AUTH_CALLBACK = "/auth/callback"
 export const FORGOT_PASSWORD = "/auth/forgot-password"
@@ -34,4 +36,4 @@ export const SIGN_UP = "/auth/sign-up"
 export const TWO_FACTOR = "/auth/two-factor"
 export const VERIFY_EMAIL = "/auth/verify-email"
 
-export const AUTH_UNLISTED_ROUTES = [AUTH] as const
+export const AUTH_UNLISTED_ROUTES = [ADMIN, APP, AUTH] as const

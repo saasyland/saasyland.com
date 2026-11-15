@@ -4,7 +4,7 @@ import { ROLE_CODES, ROLE_VALUES } from "~/src/integrations/better-auth/auth.rol
 
 import { APP_STATEMENTS, type AreaAccess, grantsOf } from "~/src/data/access"
 import * as AREA_ACCESS from "~/src/data/access.entries"
-import { CORE_ACCESS } from "~/src/data/core.access"
+import { AUTH_ACCESS } from "~/src/data/auth.access"
 
 const AREAS: readonly AreaAccess[] = Object.values(AREA_ACCESS)
 
@@ -37,19 +37,19 @@ describe("access statement composition", () => {
 
   it("leaves out the statements and grants of every area the project does not include", async () => {
     vi.resetModules()
-    vi.doMock(import("~/src/data/access.entries"), () => ({ CORE_ACCESS }))
+    vi.doMock(import("~/src/data/access.entries"), () => ({ AUTH_ACCESS }))
 
     const access = await import("~/src/data/access")
 
-    expect(access.APP_STATEMENTS).toStrictEqual(CORE_ACCESS.statements)
-    expect(access.grantsOf(ROLE_CODES.ADMIN)).toStrictEqual(CORE_ACCESS.statements)
+    expect(access.APP_STATEMENTS).toStrictEqual(AUTH_ACCESS.statements)
+    expect(access.grantsOf(ROLE_CODES.ADMIN)).toStrictEqual(AUTH_ACCESS.statements)
     expect(access.grantsOf(ROLE_CODES.CUSTOMER)).toStrictEqual({})
     vi.doUnmock("~/src/data/access.entries")
   })
 
   it("refuses two areas that declare the same statement", async () => {
     vi.resetModules()
-    vi.doMock(import("~/src/data/access.entries"), () => ({ CORE_ACCESS, ...DUPLICATE_AREA }))
+    vi.doMock(import("~/src/data/access.entries"), () => ({ AUTH_ACCESS, ...DUPLICATE_AREA }))
 
     await expect(import("~/src/data/access")).rejects.toThrow("Two areas declare the same access statement.")
     vi.doUnmock("~/src/data/access.entries")

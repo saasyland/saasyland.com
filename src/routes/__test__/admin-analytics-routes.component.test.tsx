@@ -14,7 +14,7 @@ import { breadcrumbDividers, renderAdminPage } from "~/src/presentation/componen
 import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
 import { AdminAnalyticsPending } from "~/src/presentation/components/custom/admin/analytics-pending"
 
-import navigationCoreMessages from "~/messages/en-US/navigation.core.json"
+import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import pagesAdminAnalyticsMessages from "~/messages/en-US/pages.admin.analytics.json"
 import pagesAdminMessages from "~/messages/en-US/pages.admin.json"
 
@@ -48,7 +48,7 @@ describe("admin analytics", () => {
 
   it("renders breadcrumbs and navigation for /admin/analytics", () => {
     renderAdminPage(AdminRoute.options.component, { path: "/admin/analytics" })
-    expect(screen.getAllByRole("link", { name: navigationCoreMessages.admin.dashboard }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole("link", { name: navigationAuthMessages.admin.dashboard }).length).toBeGreaterThan(0)
     expect(screen.getByRole("navigation", { name: pagesAdminMessages.components.breadcrumbs.home })).toBeVisible()
   })
 

@@ -87,8 +87,9 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - Um layout declara `const NAMESPACES = [...] as const` acima de `export const Route` e os pré-carrega. Quando não tem nenhum, ele omite a opção; não existe `namespaces: []`.
+- Um namespace de que um componente de outra área precisa no layout é adicionado por essa área em `src/data/<area>.namespaces.ts`, que nomeia o layout pelo seu id de rota, e o layout espalha `...layoutNamespaces("/app")` nos seus `NAMESPACES`. A área de licenças adiciona `pages.license` a `/app`, cuja visão geral mostra o card da licença e a oferta, e a área da newsletter adiciona `auth.validations` a `/_landing` e `/blog`, cujo rodapé mostra o formulário da newsletter. `namespaces.test.ts` verifica em tempo de compilação que todo layout que uma área nomeia é um id de rota.
 - O componente, quando o layout renderiza um, se chama `<Name>Layout` e posiciona um `<Outlet />`.
-- Um guard vai em `beforeLoad`, no layout que é dono da área: `beforeLoad: requireAdmin` em `admin.tsx`, `requireSignedIn` em `app.tsx`. Os guards decidem apenas a navegação; toda server function continua verificando a sua própria permissão.
+- Um guard vai em `beforeLoad`, no layout que é dono da área: `beforeLoad: requireAdmin` em `admin.tsx`, `requireSignedIn` em `app.tsx`, ambos layouts da área de autenticação. Os guards decidem apenas a navegação; toda server function continua verificando a sua própria permissão.
 
 ## Ordem das opções
 
@@ -145,6 +146,7 @@ Nenhum arquivo lista todas as áreas da aplicação. Cada área, como os cursos,
 | Esqueletos de página   | `src/data/<area>.skeletons.ts`: uma lista `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `PAGE_SKELETONS` em `src/data/skeletons.ts`                                                                                           |
 | Permissões             | `src/data/<area>.access.ts`: um objeto `<AREA>_ACCESS`          | `src/data/access.entries.ts`     | `APP_STATEMENTS` e `grantsOf` em `src/data/access.ts`                                                                                 |
 | Caminhos não listados  | `src/data/<area>.routes.ts`: uma lista `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` e `isUnlistedRoute` em `src/data/unlisted.ts`                                                                       |
+| Namespaces de layout   | `src/data/<area>.namespaces.ts`: uma lista `<AREA>_NAMESPACES`  | `src/data/namespaces.entries.ts` | `layoutNamespaces(layout)` em `src/data/namespaces.ts`                                                                                |
 
 Um barrel contém só linhas `export { … } from`, uma por arquivo de área, ordenadas por módulo, como `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` reexporta os caminhos como um único namespace, então cada caminho mantém o seu tipo literal e `<Link to={ROUTES.COURSES}>` continua sendo verificado contra a árvore de rotas:
 
@@ -152,12 +154,12 @@ Um barrel contém só linhas `export { … } from`, uma por arquivo de área, or
 export * as ROUTES from "~/src/data/routes.entries"
 ```
 
-Um item de menu indica onde aparece com `placement` (`NAVIGATION_PLACEMENT` em `src/data/navigation.constants.ts`): a barra lateral do admin, os botões acima do painel, a barra lateral do app do cliente, o cabeçalho público ou o rodapé. O seu `order` o posiciona entre os itens das outras áreas, então nenhuma lista depende da ordem dos arquivos. Os itens do admin também indicam o seu grupo da barra lateral (`group`), e os links do rodapé a sua coluna (`column`); `ADMIN_NAVIGATION_GROUPS` e `FOOTER_COLUMNS` fixam a ordem de grupos e colunas, e os que nenhuma área preenche ficam de fora. A área base, que todo projeto tem, adiciona dois itens do admin e dois itens à barra lateral do app do cliente:
+Um item de menu indica onde aparece com `placement` (`NAVIGATION_PLACEMENT` em `src/data/navigation.constants.ts`): a barra lateral do admin, os botões acima do painel, a barra lateral do app do cliente, o cabeçalho público ou o rodapé. O seu `order` o posiciona entre os itens das outras áreas, então nenhuma lista depende da ordem dos arquivos. Os itens do admin também indicam o seu grupo da barra lateral (`group`), e os links do rodapé a sua coluna (`column`); `ADMIN_NAVIGATION_GROUPS` e `FOOTER_COLUMNS` fixam a ordem de grupos e colunas, e os que nenhuma área preenche ficam de fora. O console de administração e o workspace do cliente só existem com login, então pertencem à área de autenticação: os seus caminhos, `/admin`, `/admin/settings`, `/app` e `/app/settings`, e os seus itens de painel, configurações e gerenciamento de usuários:
 
-```ts title="src/data/core.navigation.ts"
-const AREA = "core"
+```ts title="src/data/auth.navigation.ts"
+const AREA = "auth"
 
-export const CORE_NAVIGATION = [
+export const AUTH_NAVIGATION = [
   {
     area: AREA,
     group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
@@ -170,16 +172,27 @@ export const CORE_NAVIGATION = [
   {
     area: AREA,
     group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
+    icon: Users,
+    key: "userManagement",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_USERS,
+  },
+  {
+    area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
     icon: Settings,
     key: "settings",
     order: 30,
     placement: NAVIGATION_PLACEMENT.ADMIN,
     to: ROUTES.ADMIN_SETTINGS,
   },
-  { area: AREA, icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
   { area: AREA, icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
+  { area: AREA, column: FOOTER_COLUMN.PRODUCT, key: "signIn", order: 40, placement: NAVIGATION_PLACEMENT.FOOTER, to: ROUTES.SIGN_IN },
 ] as const satisfies readonly NavigationEntry[]
 ```
+
+A área de licenças, à qual pertence a página `/app`, adiciona o item **Visão geral** da barra lateral do app do cliente ao lado do seu item **Licença**. A área base declara apenas `/` e `/api`.
 
 Uma estatística do painel tem um `prefetch`, que o loader de `/admin` executa, e um hook `useValue`, que `DashboardStats` chama para ler o número.
 

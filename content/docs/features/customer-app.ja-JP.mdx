@@ -5,13 +5,12 @@ description: "サインイン済みユーザー向けの /app 領域: 概要、�
 
 ## レイアウト
 
-`src/routes/app.tsx` はこの領域にあるすべてのページの検索パラメーターを検証し、`requireSignedIn` で領域を保護して、名前空間をプリロードします。
+`src/routes/app.tsx` は認証のエリアに属します。`requireSignedIn` でワークスペースを保護し、自分の名前空間を、ほかのエリアが追加する名前空間（`layoutNamespaces("/app")`。ライセンスのエリアは `pages.license` を追加します）とあわせてプリロードします。
 
 ```tsx
-const NAMESPACES = ["auth.errors", "pages.app.sidebar", "pages.license", "timezones"] as const
+const NAMESPACES = ["auth.errors", "pages.app.sidebar", "timezones", ...layoutNamespaces("/app")] as const
 
 export const Route = createFileRoute("/app")({
-  validateSearch: appSearchSchema,
   beforeLoad: requireSignedIn,
   component: AppLayout,
   loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
@@ -20,7 +19,7 @@ export const Route = createFileRoute("/app")({
 })
 ```
 
-`AppLayout` は shadcn の `SidebarProvider` の中に、`src/presentation/components/custom/app` の `AppSidebar` と `AppHeader` を表示します。サイドバーは `src/data/navigation.ts` の `APP_NAVIGATION`（概要と設定は `core.navigation.ts`、ライセンスは `license.navigation.ts` から、ラベルは `navigation.core.json` と `navigation.license.json` から）でリンクを作り、ルートコンテキスト（`getRouteApi("/app")`）からユーザーを読み取り、最後に `SignOutButton` を置きます。ヘッダーは現在のページとサイトへ戻るリンクを表示します。サインイン後、管理者は `/admin` に、それ以外のユーザーは `/app` に移動します。
+`AppLayout` は shadcn の `SidebarProvider` の中に、`src/presentation/components/custom/app` の `AppSidebar` と `AppHeader` を表示します。サイドバーは `src/data/navigation.ts` の `APP_NAVIGATION`（概要とライセンスは `license.navigation.ts`、設定は `auth.navigation.ts` から、ラベルは `navigation.license.json` と `navigation.auth.json` から）でリンクを作り、ルートコンテキスト（`getRouteApi("/app")`）からユーザーを読み取り、最後に `SignOutButton` を置きます。ヘッダーは現在のページとサイトへ戻るリンクを表示します。サインイン後、管理者は `/admin` に、それ以外のユーザーは `/app` に移動します。
 
 ## ページ
 
@@ -32,7 +31,7 @@ export const Route = createFileRoute("/app")({
 
 `LicenseOffer`（`src/presentation/components/custom/app/license-offer.tsx`）は、ランディングページの `PricingTiers` を再利用してプランごとに `CheckoutButton` を置き、購入条件（`CheckoutAgreement`）を加え、最後に、ほかのエリアが追加するセクション（`src/data/license-offer.ts` の `LICENSE_OFFER_SECTIONS`）を、それぞれのスケルトンとページが読み込むデータとともに表示します。コースのエリアは `CourseUnlocks`（`src/data/courses.license-offer.ts`）を追加します。`CourseUnlocks` は有料レッスンのある公開済みコースを、それぞれのロックされたレッスン数とともに示します。この数は `getCatalogue` が D1 から数えます。有料レッスンのあるコースが 1 つもない間、このブロックは表示されません。返金されたライセンスはカードがそのまま残り、その横に購入案内が表示されます。
 
-`appSearchSchema`（`src/data/app.ts`）は省略可能なパラメーターを 2 つ受け付け、どちらも無効な値は無視します。
+ライセンスのエリアの概要ページとライセンスページは、`licenseSearchSchema`（`src/data/license.ts`）で検索パラメーターを検証します。このスキーマは省略可能なパラメーターを 2 つ受け付け、どちらも無効な値は無視します。
 
 | パラメーター | 値                  | 効果                                                                                                                                                                      |
 | ------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -43,6 +42,6 @@ export const Route = createFileRoute("/app")({
 
 ## スケルトン
 
-`AppSettingsPending`（`app/core-pending.tsx`）は、ページのヘッダーと `PreferencesCardPending` を描画します。`AppOverviewPending` と `AppLicensePending`（`app/license-pending.tsx`。ライセンスのエリアが `src/data/license.skeletons.ts` で宣言します）は、ページが表示することになる状態をそのまま再現します。`appSearchSchema` で検索パラメーターを読み取り、クエリクライアントからキャッシュ済みのライセンスとカタログを読み取って、有効化のパネル、選択されたプラン、プランのグリッド（有料レッスンのあるコースごとに 1 行付き）、ライセンスのカードのいずれかを描画します。
+`AppSettingsPending`（`app/auth-pending.tsx`。認証のエリアが `src/data/auth.skeletons.ts` で宣言します）は、ページのヘッダーと `PreferencesCardPending` を描画します。`AppOverviewPending` と `AppLicensePending`（`app/license-pending.tsx`。ライセンスのエリアが `src/data/license.skeletons.ts` で宣言します）は、ページが表示することになる状態をそのまま再現します。`licenseSearchSchema` で検索パラメーターを読み取り、クエリクライアントからキャッシュ済みのライセンスとカタログを読み取って、有効化のパネル、選択されたプラン、プランのグリッド（有料レッスンのあるコースごとに 1 行付き）、ライセンスのカードのいずれかを描画します。
 
 `/app` には請求履歴とコースの画面はありません。また、`/app/settings` にはまだプロフィール、メールアドレス、パスワードのフォームはありません。

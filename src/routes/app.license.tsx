@@ -11,6 +11,7 @@ import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license-activations"
 
+import { licenseSearchSchema } from "~/src/data/license"
 import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
 
 import { pageHead } from "~/src/lib/seo"
@@ -59,6 +60,7 @@ const LicensePage = (): JSX.Element => {
 const NAMESPACE = "pages.license"
 
 export const Route = createFileRoute("/app/license")({
+  validateSearch: licenseSearchSchema,
   component: LicensePage,
   head: pageHead(ROUTES.APP_LICENSE),
   loader: async ({ context }) => {

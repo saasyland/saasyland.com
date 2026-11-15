@@ -32,7 +32,7 @@ Form / API validation schemas keep their own names (e.g. `auth.zod.test.ts` besi
 - `setup.ts` — registers jest-dom matchers and shared test hooks; loaded by `test.setupFiles` in root `vite.config.ts`
 - `.env.test` supplies the dummy test credentials. Vite+ loads them through `test.env`; Cloudflare loads them for its named `test` environment.
 - `mocks/cloudflare.ts` and `mocks/wrksz-themes.ts` — local binding and theme adapters used across suites
-- `mocks/resend.ts` and `mocks/polar.ts` — strict doubles of the Resend and Polar APIs; `mocks/providers.ts` routes `fetch` to them
+- `mocks/resend.ts` and `mocks/polar.ts` — strict doubles of the Resend and Polar APIs, each an `origin`, `respond` and `reset` joined by `mocks/providers.entries.ts`; `mocks/providers.ts` routes `fetch` to them and resets them
 - `lib/` — small shared helpers imported from many suites (URL/cookie helpers, nullable DB fixtures, component test utilities, Polar models and signed webhooks)
 
 Everything else is colocated with its owner.
@@ -87,7 +87,7 @@ Session fixtures for use-case tests: `__test__/fixtures/auth.session.fixture.ts`
 
 Better Auth hands email delivery to `waitUntil`, so suites await `flushWaitUntil()` from `mocks/cloudflare.ts` before reading `getSentEmails()`.
 
-Browser tests use `worker.ts`, which installs the same provider doubles for Resend and Polar in the test Worker and gives the Polar double the licence key of the seeded `TEST_LICENSE` with its activation. The test Worker exposes captured email payloads at `/__test/emails?to=...`, allowing Playwright to follow the actual verification link. This endpoint and provider interception belong only to the test entry; deployed builds use `src/server.ts`.
+Browser tests use `worker.ts`, which installs the same provider doubles in the test Worker and runs the set-ups and test endpoints the areas declare in `e2e/data/<area>.worker.ts`, joined by `e2e/data/worker.entries.ts`: the licence area gives the Polar double the licence key of the seeded `TEST_LICENSE` with its activation, Resend exposes captured email payloads at `/__test/emails?to=...`, allowing Playwright to follow the actual verification link, and the newsletter area a subscriber's state at `/__test/newsletter?email=...`. This endpoint and provider interception belong only to the test entry; deployed builds use `src/server.ts`.
 
 ## Vite+ and the browser test app
 

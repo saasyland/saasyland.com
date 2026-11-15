@@ -3,20 +3,26 @@ title: "Платежі та ліцензії"
 description: "Оплата через Polar, портал клієнта й вебхуки, що видають ліцензії; екран платежів в адмінпанелі демонстраційний."
 ---
 
-Платежі проходять через Polar за допомогою плагіна `@polar-sh/better-auth` в `auth.server.ts`:
+Платежі проходять через Polar за допомогою плагіна `@polar-sh/better-auth`, який розділ ліцензій додає до Better Auth у `src/data/license.auth-plugins.ts`:
 
 ```ts
-polarPlugin({
-  client: polarCore,
-  use: [
-    checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
-    portal(),
-    webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
-  ],
-}),
+export const LICENSE_AUTH_PLUGINS = [
+  {
+    disabledPaths: [ROUTES.API_AUTH_POLAR.CHECKOUT],
+    plugin: polar({
+      client: polarCore,
+      use: [
+        checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
+        portal(),
+        webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
+      ],
+    }),
+    rateLimitExemptPaths: [ROUTES.API_AUTH_POLAR.WEBHOOKS],
+  },
+] as const satisfies readonly AuthPluginEntry[]
 ```
 
-Власний маршрут плагіна `POST /api/auth/checkout` внесено до `disabledPaths` Better Auth (`ROUTES.API_AUTH.CHECKOUT`), тож через HTTP він відповідає 404. Кожна оплата починається в серверній функції `startCheckout`, яка після власних перевірок викликає `auth.api.checkout` на сервері.
+Власний маршрут плагіна `POST /api/auth/checkout` внесено до `disabledPaths` Better Auth, тож через HTTP він відповідає 404, а його вебхуки звільнено від обмежувача частоти запитів Better Auth. Кожна оплата починається в серверній функції `startCheckout`, яка після власних перевірок викликає `auth.api.checkout` на сервері.
 
 `src/integrations/polar/polar.config.ts` створює з `POLAR_ACCESS_TOKEN` і `POLAR_SERVER` клієнт `polarCore`, який використовує плагін, і `polar` — побудовані на ньому сервіси знижок, ліцензійних ключів і замовлень. `POLAR_ORGANIZATION_ID` обмежує організацією пошук знижок і деактивацію ліцензійних ключів. `POLAR_CHECKOUT_PRODUCTS` зіставляє ідентифікатори планів `core`, `complete` і `agency` з `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` і `POLAR_PRODUCT_ID_AGENCY`. [Налаштування Polar](/docs/getting-started/polar-setup) описує продукти, ліцензійні ключі, знижки, вебхук і токен, на які цей код розраховує в Polar, а `bun run polar:verify:<environment>` їх перевіряє.
 

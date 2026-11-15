@@ -3,20 +3,26 @@ title: "Payments and licences"
 description: "Polar checkout, customer portal and webhooks that grant licences; the admin payments screen is a demo."
 ---
 
-Payments run through Polar with the `@polar-sh/better-auth` plugin in `auth.server.ts`:
+Payments run through Polar with the `@polar-sh/better-auth` plugin, which the licence area adds to Better Auth in `src/data/license.auth-plugins.ts`:
 
 ```ts
-polarPlugin({
-  client: polarCore,
-  use: [
-    checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
-    portal(),
-    webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
-  ],
-}),
+export const LICENSE_AUTH_PLUGINS = [
+  {
+    disabledPaths: [ROUTES.API_AUTH_POLAR.CHECKOUT],
+    plugin: polar({
+      client: polarCore,
+      use: [
+        checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
+        portal(),
+        webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
+      ],
+    }),
+    rateLimitExemptPaths: [ROUTES.API_AUTH_POLAR.WEBHOOKS],
+  },
+] as const satisfies readonly AuthPluginEntry[]
 ```
 
-The plugin's own `POST /api/auth/checkout` is listed in Better Auth's `disabledPaths` (`ROUTES.API_AUTH.CHECKOUT`), so it answers 404 over HTTP. Every checkout starts in the `startCheckout` server function, which calls `auth.api.checkout` on the server after its own checks.
+The plugin's own `POST /api/auth/checkout` is listed in Better Auth's `disabledPaths`, so it answers 404 over HTTP, and its webhooks are exempt from Better Auth's rate limiter. Every checkout starts in the `startCheckout` server function, which calls `auth.api.checkout` on the server after its own checks.
 
 `src/integrations/polar/polar.config.ts` creates `polarCore` from `POLAR_ACCESS_TOKEN` and `POLAR_SERVER`, which the plugin uses, and `polar`, the discounts, licence keys and orders services built on it. `POLAR_ORGANIZATION_ID` scopes the discount lookup and licence key deactivation. `POLAR_CHECKOUT_PRODUCTS` maps the tier slugs `core`, `complete` and `agency` to `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` and `POLAR_PRODUCT_ID_AGENCY`. [Polar setup](/docs/getting-started/polar-setup) describes the products, licence keys, discounts, webhook and token this code expects in Polar, and `bun run polar:verify:<environment>` checks them.
 

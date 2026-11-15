@@ -29,10 +29,9 @@ describe("isUnlistedRoute", () => {
   })
 
   it.each([
-    [ROUTES.ADMIN_SETTINGS, true],
-    [ROUTES.APP_SETTINGS, true],
+    [`${ROUTES.API}/search`, true],
     [ROUTES.HOME, false],
-    [`${ROUTES.APP}lication`, false],
+    [`${ROUTES.API}docs`, false],
   ])("treats %s as unlisted: %s", (pathname, unlisted) => {
     expect(isUnlistedRoute(pathname)).toBe(unlisted)
   })

@@ -5,13 +5,12 @@ description: "L’espace /app réservé aux utilisateurs connectés : vue d’en
 
 ## Layout
 
-`src/routes/app.tsx` valide les paramètres de recherche de chaque page de l’espace, le protège avec `requireSignedIn` et précharge ses espaces de noms :
+`src/routes/app.tsx` appartient à la zone d’authentification. Il protège l’espace de travail avec `requireSignedIn` et précharge ses espaces de noms, avec ceux que d’autres zones y ajoutent (`layoutNamespaces("/app")` ; la zone de la licence ajoute `pages.license`) :
 
 ```tsx
-const NAMESPACES = ["auth.errors", "pages.app.sidebar", "pages.license", "timezones"] as const
+const NAMESPACES = ["auth.errors", "pages.app.sidebar", "timezones", ...layoutNamespaces("/app")] as const
 
 export const Route = createFileRoute("/app")({
-  validateSearch: appSearchSchema,
   beforeLoad: requireSignedIn,
   component: AppLayout,
   loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
@@ -20,7 +19,7 @@ export const Route = createFileRoute("/app")({
 })
 ```
 
-`AppLayout` affiche `AppSidebar` et `AppHeader` de `src/presentation/components/custom/app` dans le `SidebarProvider` de shadcn. La barre latérale construit ses liens à partir de `APP_NAVIGATION` dans `src/data/navigation.ts` (Vue d’ensemble et Paramètres de `core.navigation.ts`, Licence de `license.navigation.ts`, avec les libellés de `navigation.core.json` et `navigation.license.json`), lit l’utilisateur dans le contexte de route (`getRouteApi("/app")`) et se termine par `SignOutButton`. L’en-tête affiche la page courante et un lien de retour vers le site. Après la connexion, les administrateurs arrivent sur `/admin` et tous les autres sur `/app`.
+`AppLayout` affiche `AppSidebar` et `AppHeader` de `src/presentation/components/custom/app` dans le `SidebarProvider` de shadcn. La barre latérale construit ses liens à partir de `APP_NAVIGATION` dans `src/data/navigation.ts` (Vue d’ensemble et Licence de `license.navigation.ts`, Paramètres de `auth.navigation.ts`, avec les libellés de `navigation.license.json` et `navigation.auth.json`), lit l’utilisateur dans le contexte de route (`getRouteApi("/app")`) et se termine par `SignOutButton`. L’en-tête affiche la page courante et un lien de retour vers le site. Après la connexion, les administrateurs arrivent sur `/admin` et tous les autres sur `/app`.
 
 ## Pages
 
@@ -32,7 +31,7 @@ export const Route = createFileRoute("/app")({
 
 `LicenseOffer` (`src/presentation/components/custom/app/license-offer.tsx`) réutilise les `PricingTiers` de la page d’accueil avec un `CheckoutButton` pour chaque offre, ajoute les conditions d’achat (`CheckoutAgreement`) et se termine par les sections que d’autres zones y ajoutent (`LICENSE_OFFER_SECTIONS` dans `src/data/license-offer.ts`), chacune avec son squelette et les données que ses pages chargent. La zone des cours ajoute `CourseUnlocks` (`src/data/courses.license-offer.ts`) : les cours publiés qui ont des leçons payantes, avec le nombre de leçons verrouillées de chacun, compté dans D1 par `getCatalogue`. Ce bloc est omis tant qu’aucun cours n’a de leçon payante. Une licence remboursée garde sa carte, et l’offre d’achat s’affiche à côté.
 
-`appSearchSchema` (`src/data/app.ts`) accepte deux paramètres facultatifs, tous deux ignorés s’ils sont invalides :
+Les pages de vue d’ensemble et de licence de la zone de la licence valident leur recherche avec `licenseSearchSchema` (`src/data/license.ts`), qui accepte deux paramètres facultatifs, tous deux ignorés s’ils sont invalides :
 
 | Paramètre    | Valeur                       | Effet                                                                                                                                                                  |
 | ------------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -43,6 +42,6 @@ Les loaders de la vue d’ensemble et de la licence préchargent `currentLicense
 
 ## Squelettes
 
-`AppSettingsPending` (`app/core-pending.tsx`) dessine l’en-tête de la page et `PreferencesCardPending`. `AppOverviewPending` et `AppLicensePending` (`app/license-pending.tsx`, déclarés par la zone de la licence dans `src/data/license.skeletons.ts`) reflètent l’état que la page va afficher : ils lisent les paramètres de recherche avec `appSearchSchema` ainsi que la licence et le catalogue mis en cache dans le client de requêtes, et dessinent le panneau d’activation, l’offre choisie, la grille des offres avec une ligne par cours ayant des leçons payantes, ou les cartes de licence.
+`AppSettingsPending` (`app/auth-pending.tsx`, déclaré par la zone d’authentification dans `src/data/auth.skeletons.ts`) dessine l’en-tête de la page et `PreferencesCardPending`. `AppOverviewPending` et `AppLicensePending` (`app/license-pending.tsx`, déclarés par la zone de la licence dans `src/data/license.skeletons.ts`) reflètent l’état que la page va afficher : ils lisent les paramètres de recherche avec `licenseSearchSchema` ainsi que la licence et le catalogue mis en cache dans le client de requêtes, et dessinent le panneau d’activation, l’offre choisie, la grille des offres avec une ligne par cours ayant des leçons payantes, ou les cartes de licence.
 
 Il n’y a dans `/app` ni historique de facturation, ni écrans de cours, et `/app/settings` n’a pas encore de formulaires pour le profil, l’adresse e-mail ou le mot de passe.

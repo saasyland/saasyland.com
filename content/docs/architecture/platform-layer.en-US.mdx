@@ -20,23 +20,26 @@ Requests for `/assets/*`, `/fonts/*`, `/robots.txt` and `/llms.txt` are served f
 
 No platform file names an area. Each area, such as the courses or the licence sales, adds what it needs to the Worker, the root route, the Vite build and the deploy in files of its own, and a barrel joins them, as the paths and menus are joined (see [Paths and navigation](/docs/conventions/routes#paths-and-navigation)):
 
-| What             | Each area declares                                             | Barrel                       | Used by                                                                                                |
-| ---------------- | -------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Worker handlers  | `src/data/<area>.worker.ts`: one `<AREA>_WORKER_HANDLERS` list | `src/data/worker.entries.ts` | `DOCUMENT_HANDLERS` and `REQUEST_HANDLERS` in `src/data/worker.ts`, which `src/server.ts` runs         |
-| Root components  | `src/data/<area>.root.ts`: one `<AREA>_ROOT_COMPONENTS` list   | `src/data/root.entries.ts`   | `ROOT_COMPONENTS` in `src/data/root.ts`, which `src/routes/__root.tsx` mounts beside the outlet        |
-| Vite plugins     | `src/data/<area>.vite.ts`: one `<AREA>_VITE_PLUGINS` list      | `src/data/vite.entries.ts`   | `vitePlugins` in `src/data/vite.ts`, which `vite.config.ts` loads                                      |
-| Deploy checks    | `src/data/<area>.deploy.ts`: one `<AREA>_DEPLOY_CHECKS` list   | `src/data/deploy.entries.ts` | `DEPLOY_CHECKS` in `src/data/deploy.ts`, which `scripts/run-deploy-checks.ts` runs                     |
-| Live site checks | `src/data/<area>.live.ts`: one `<AREA>_LIVE_CHECKS` list       | `src/data/live.entries.ts`   | `LIVE_SITE_CHECKS` in `src/data/live.ts`, which `scripts/verify-deployment.ts` requests after a deploy |
+| What             | Each area declares                                             | Barrel                          | Used by                                                                                                  |
+| ---------------- | -------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Worker handlers  | `src/data/<area>.worker.ts`: one `<AREA>_WORKER_HANDLERS` list | `src/data/worker.entries.ts`    | `DOCUMENT_HANDLERS` and `REQUEST_HANDLERS` in `src/data/worker.ts`, which `src/server.ts` runs           |
+| Root components  | `src/data/<area>.root.ts`: one `<AREA>_ROOT_COMPONENTS` list   | `src/data/root.entries.ts`      | `ROOT_COMPONENTS` in `src/data/root.ts`, which `src/routes/__root.tsx` mounts beside the outlet          |
+| Time zone        | `src/data/<area>.time-zone.ts`: one `<AREA>_TIME_ZONES` list   | `src/data/time-zone.entries.ts` | `TIME_ZONE_SOURCES` in `src/data/time-zone.ts`, whose first zone `TranslationsProvider` formats dates in |
+| Vite plugins     | `src/data/<area>.vite.ts`: one `<AREA>_VITE_PLUGINS` list      | `src/data/vite.entries.ts`      | `vitePlugins` in `src/data/vite.ts`, which `vite.config.ts` loads                                        |
+| Deploy checks    | `src/data/<area>.deploy.ts`: one `<AREA>_DEPLOY_CHECKS` list   | `src/data/deploy.entries.ts`    | `DEPLOY_CHECKS` in `src/data/deploy.ts`, which `scripts/run-deploy-checks.ts` runs                       |
+| Live site checks | `src/data/<area>.live.ts`: one `<AREA>_LIVE_CHECKS` list       | `src/data/live.entries.ts`      | `LIVE_SITE_CHECKS` in `src/data/live.ts`, which `scripts/verify-deployment.ts` requests after a deploy   |
 
 A request handler claims a `pathPrefix` and answers every request under it before the locale middleware, the static assets and TanStack Start, as the courses area's handler does for `/media/`. A document handler receives every HTML page the Worker returns, with its locale and the request, and returns the page to send, as the licence area's regional pricing does. `src/server.ts` imports the handlers statically, so they are evaluated on every cold start: a handler file imports only constants and pure helpers and loads anything larger with a dynamic `import()` (see [Performance](/docs/conventions/performance)).
 
 A Vite plugin entry has an `order`, which places its plugins among those of the other areas, and `vitest`, which says whether they also load under Vitest. Vite loads its configuration before the `~` alias resolves, so `vite.ts`, `vite.entries.ts` and every `<area>.vite.ts` import by relative path with the `.ts` extension, and an entry imports its plugin package inside its `plugins` function, so that `vp lint` and `vp fmt` never load it.
 
+A time zone source is a hook that returns the zone to format dates in. The auth area's returns the signed-in user's zone from the session that the route guards loaded, or `UTC`; without a source, `TranslationsProvider` uses `UTC` as well.
+
 A deploy check names a package script with one variant per deployed environment. The Polar area declares `polar:verify`, so `bun scripts/run-deploy-checks.ts preview` runs `bun run polar:verify:preview`.
 
 A live site check names a path and the status and content type it must answer with after a deploy. The core checks the home page, `robots.txt`, the sitemap, the site card and `/api`, the auth area the session endpoint, and the courses area `/courses`, which renders from D1 on every request.
 
-An area can also define a list of its own that other areas add to in the same way. The courses area defines course access in `src/data/course-access.ts`, and the licence area grants it in `src/data/license.course-access.ts` ([Courses](/docs/features/courses)); the licence area defines the sections of its offer in `src/data/license-offer.ts`, and the courses area adds the locked courses in `src/data/courses.license-offer.ts` ([Customer app](/docs/features/customer-app)). A project without one of the two areas leaves out the list that area defines together with what the other area adds to it, so neither area imports the other.
+An area can also define a list of its own that other areas add to in the same way. The courses area defines course access in `src/data/course-access.ts`, and the licence area grants it in `src/data/license.course-access.ts` ([Courses](/docs/features/courses)); the licence area defines the sections of its offer in `src/data/license-offer.ts`, and the courses area adds the locked courses in `src/data/courses.license-offer.ts` ([Customer app](/docs/features/customer-app)). The auth area defines the plugins and emails that other areas add to Better Auth ([Better Auth](/docs/integrations/better-auth)): the licence area adds the Polar plugin and Resend the auth emails. A project without one of the areas leaves out the list that area defines together with what the others add to it, so no area imports another that does not depend on it.
 
 ## Environments
 
@@ -66,10 +69,10 @@ An area's bindings form a block of their own as well. The `MEDIA` R2 bucket belo
 - `setup.ts`: jest-dom matchers, a binding reset before each test, and the `createServerFn` replacement that runs server functions in-process
 - `mocks/cloudflare.ts`: an in-memory SQLite D1 that runs the checked-in migrations, an in-memory KV, an in-memory bucket for each R2 binding of the `test` environment in `wrangler.jsonc` and a `waitUntil` that tests can flush
 - `mocks/cache.ts`: `createEdgeCache`, a stub of the Workers cache for the media delivery tests
-- `mocks/resend.ts` and `mocks/polar.ts`: strict doubles of the Resend and Polar APIs, and `mocks/providers.ts`, which routes `fetch` to them in every test and in the browser test Worker
+- `mocks/resend.ts` and `mocks/polar.ts`: strict doubles of the Resend and Polar APIs, joined by `mocks/providers.entries.ts`, and `mocks/providers.ts`, which routes `fetch` to them and resets them in every test and in the browser test Worker
 - `mocks/wrksz-themes.ts`: a replacement for the theme library
 - `lib/`: the server-function RPC bridge, render helpers, request URL helpers, query runners, and Polar models with signed webhooks
-- `worker.ts`: the Worker entry for browser tests, which installs the provider doubles and exposes the delivered email
+- `worker.ts`: the Worker entry for browser tests, which installs the provider doubles and runs the set-up and test endpoints the areas declare in `e2e/data/<area>.worker.ts` (`worker.entries.ts`): the licence area seeds the test licence key in the Polar double, Resend exposes the delivered email and the newsletter a subscriber's state
 
 See [Testing and CI](/docs/architecture/testing-architecture) for how the suites use them.
 

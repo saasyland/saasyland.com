@@ -5,7 +5,7 @@ import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/r
 import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 
 import { AppPending } from "~/src/presentation/components/custom/app/app-pending"
-import { AppSettingsPending } from "~/src/presentation/components/custom/app/core-pending"
+import { AppSettingsPending } from "~/src/presentation/components/custom/app/auth-pending"
 
 afterEach(cleanup)
 

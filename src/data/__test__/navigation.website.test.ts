@@ -4,6 +4,7 @@ import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIG
 import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
+import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 import { ROUTES } from "~/src/routes"
 
 describe("the website's navigation", () => {
@@ -21,6 +22,10 @@ describe("the website's navigation", () => {
       [FOOTER_COLUMN.PRODUCT, [ROUTES.DOCS, ROUTES.BLOG, ROUTES.AFFILIATES, ROUTES.SIGN_IN]],
       [FOOTER_COLUMN.LEGAL, [ROUTES.PRIVACY, ROUTES.TERMS, ROUTES.REFUNDS, ROUTES.LICENCE]],
     ])
+  })
+
+  it("labels exactly the admin groups in the admin sidebar", () => {
+    expect(Object.keys(sidebarMessages.groups).toSorted()).toStrictEqual(ADMIN_NAVIGATION.map(({ key }) => key).toSorted())
   })
 
   it("counts the admin sections on the landing page", () => {

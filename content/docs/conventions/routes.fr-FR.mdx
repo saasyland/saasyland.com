@@ -87,8 +87,9 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - Un layout déclare `const NAMESPACES = [...] as const` au-dessus de `export const Route` et les précharge. Lorsqu'il n'en a aucun, il omet l'option ; il n'y a pas de `namespaces: []`.
+- Un namespace dont un composant d'une autre zone a besoin dans le layout est ajouté par cette zone dans `src/data/<area>.namespaces.ts`, qui nomme le layout par son identifiant de route, et le layout étale `...layoutNamespaces("/app")` dans ses `NAMESPACES`. La zone de la licence ajoute `pages.license` à `/app`, dont la vue d'ensemble affiche la carte et l'offre de licence, et la zone de la newsletter ajoute `auth.validations` à `/_landing` et `/blog`, dont le pied de page affiche le formulaire de la newsletter. `namespaces.test.ts` vérifie à la compilation que chaque layout qu'une zone nomme est un identifiant de route.
 - Le composant, lorsque le layout en affiche un, est nommé `<Name>Layout` et place un `<Outlet />`.
-- Un guard va dans le `beforeLoad` du layout qui possède la zone : `beforeLoad: requireAdmin` dans `admin.tsx`, `requireSignedIn` dans `app.tsx`. Les guards ne décident que de la navigation ; chaque fonction serveur vérifie toujours sa propre permission.
+- Un guard va dans le `beforeLoad` du layout qui possède la zone : `beforeLoad: requireAdmin` dans `admin.tsx`, `requireSignedIn` dans `app.tsx`, les deux layouts de la zone d'authentification. Les guards ne décident que de la navigation ; chaque fonction serveur vérifie toujours sa propre permission.
 
 ## Ordre des options
 
@@ -145,6 +146,7 @@ Aucun fichier ne liste toutes les zones de l'application. Chaque zone, comme les
 | Squelettes de pages             | `src/data/<area>.skeletons.ts` : une liste `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `PAGE_SKELETONS` dans `src/data/skeletons.ts`                                                                                            |
 | Permissions                     | `src/data/<area>.access.ts` : un objet `<AREA>_ACCESS`           | `src/data/access.entries.ts`     | `APP_STATEMENTS` et `grantsOf` dans `src/data/access.ts`                                                                                 |
 | Chemins non listés              | `src/data/<area>.routes.ts` : une liste `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` et `isUnlistedRoute` dans `src/data/unlisted.ts`                                                                       |
+| Namespaces des layouts          | `src/data/<area>.namespaces.ts` : une liste `<AREA>_NAMESPACES`  | `src/data/namespaces.entries.ts` | `layoutNamespaces(layout)` dans `src/data/namespaces.ts`                                                                                 |
 
 Un barrel ne contient que des lignes `export { … } from`, une par fichier de zone, triées par module, comme `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` réexporte les chemins sous un seul namespace : chaque chemin garde ainsi son type littéral et `<Link to={ROUTES.COURSES}>` reste vérifié par rapport à l'arbre des routes :
 
@@ -152,12 +154,12 @@ Un barrel ne contient que des lignes `export { … } from`, une par fichier de z
 export * as ROUTES from "~/src/data/routes.entries"
 ```
 
-Une entrée de menu indique où elle apparaît avec `placement` (`NAVIGATION_PLACEMENT` dans `src/data/navigation.constants.ts`) : la barre latérale d'administration, les boutons au-dessus du tableau de bord, la barre latérale de l'espace client, l'en-tête public ou le pied de page. Son `order` la place parmi les entrées des autres zones, si bien qu'aucune liste ne dépend de l'ordre des fichiers. Les entrées d'administration nomment aussi leur groupe de barre latérale (`group`), et les liens du pied de page leur colonne (`column`) ; `ADMIN_NAVIGATION_GROUPS` et `FOOTER_COLUMNS` fixent l'ordre des groupes et des colonnes, et ceux qu'aucune zone ne remplit sont omis. La zone de base, présente dans tout projet, ajoute deux entrées d'administration et deux entrées à la barre latérale de l'espace client :
+Une entrée de menu indique où elle apparaît avec `placement` (`NAVIGATION_PLACEMENT` dans `src/data/navigation.constants.ts`) : la barre latérale d'administration, les boutons au-dessus du tableau de bord, la barre latérale de l'espace client, l'en-tête public ou le pied de page. Son `order` la place parmi les entrées des autres zones, si bien qu'aucune liste ne dépend de l'ordre des fichiers. Les entrées d'administration nomment aussi leur groupe de barre latérale (`group`), et les liens du pied de page leur colonne (`column`) ; `ADMIN_NAVIGATION_GROUPS` et `FOOTER_COLUMNS` fixent l'ordre des groupes et des colonnes, et ceux qu'aucune zone ne remplit sont omis. La console d'administration et l'espace client n'existent qu'avec la connexion, la zone d'authentification en est donc propriétaire : leurs chemins, `/admin`, `/admin/settings`, `/app` et `/app/settings`, et leurs entrées de tableau de bord, de paramètres et de gestion des utilisateurs :
 
-```ts title="src/data/core.navigation.ts"
-const AREA = "core"
+```ts title="src/data/auth.navigation.ts"
+const AREA = "auth"
 
-export const CORE_NAVIGATION = [
+export const AUTH_NAVIGATION = [
   {
     area: AREA,
     group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
@@ -170,16 +172,27 @@ export const CORE_NAVIGATION = [
   {
     area: AREA,
     group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
+    icon: Users,
+    key: "userManagement",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    to: ROUTES.ADMIN_USERS,
+  },
+  {
+    area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
     icon: Settings,
     key: "settings",
     order: 30,
     placement: NAVIGATION_PLACEMENT.ADMIN,
     to: ROUTES.ADMIN_SETTINGS,
   },
-  { area: AREA, icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
   { area: AREA, icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
+  { area: AREA, column: FOOTER_COLUMN.PRODUCT, key: "signIn", order: 40, placement: NAVIGATION_PLACEMENT.FOOTER, to: ROUTES.SIGN_IN },
 ] as const satisfies readonly NavigationEntry[]
 ```
+
+La zone de la licence, à laquelle appartient la page `/app`, ajoute l'entrée **Vue d'ensemble** de la barre latérale de l'espace client à côté de son entrée **Licence**. La zone de base ne déclare que `/` et `/api`.
 
 Une statistique du tableau de bord a un `prefetch`, que le loader de `/admin` exécute, et un hook `useValue`, que `DashboardStats` appelle pour lire le nombre.
 

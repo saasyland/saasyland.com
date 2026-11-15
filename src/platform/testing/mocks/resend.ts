@@ -5,7 +5,7 @@ import * as zod from "zod"
 
 import type { ProviderDouble } from "~/src/platform/testing/mocks/providers"
 
-import { resend } from "~/src/integrations/resend/resend.config"
+import { resendClient } from "~/src/integrations/resend/resend.config"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
@@ -77,7 +77,7 @@ const sendEmail = async (request: Request) => {
 }
 
 export const resendApi = {
-  origin: new URL(resend.baseUrl).origin,
+  origin: new URL(resendClient().baseUrl).origin,
   reset: resetResend,
   respond: async (request: Request) => {
     if (request.headers.get("Authorization") !== `Bearer ${env.RESEND_API_KEY}`) {

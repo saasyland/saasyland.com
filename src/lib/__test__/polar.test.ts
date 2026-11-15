@@ -16,6 +16,7 @@ import {
 } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
+import { POLAR_EVENTS } from "~/src/data/polar-events"
 
 import {
   POLAR_BENEFIT_TYPE,
@@ -193,7 +194,7 @@ const webhookEndpoint = (url: string, fields: Partial<models.WebhookEndpoint> = 
   api_version: "2026-10",
   created_at: CREATED_AT,
   enabled: true,
-  events: Object.values(LICENSE_WEBHOOK_EVENTS),
+  events: POLAR_EVENTS,
   format: POLAR_WEBHOOK_FORMAT.RAW,
   id: `endpoint-${url}`,
   modified_at: JSON_NULL,
@@ -556,7 +557,7 @@ describe("verifyPolar on the webhook endpoints", () => {
         ],
       },
       `The webhook endpoint for ${PREVIEW_WEBHOOK} does not send benefit_grant.created, benefit_grant.revoked.`,
-      `The webhook endpoint for ${PREVIEW_WEBHOOK} also sends checkout.created, which license.webhooks.ts does not handle.`,
+      `The webhook endpoint for ${PREVIEW_WEBHOOK} also sends checkout.created, which no area handles (POLAR_EVENTS).`,
     )
   })
 

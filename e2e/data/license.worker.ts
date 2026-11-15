@@ -7,7 +7,7 @@ export const LICENSE_TEST_WORKER = [
     kind: TEST_WORKER_KIND.SETUP,
     setup: async () => {
       const polar = await import("../../src/platform/testing/mocks/polar")
-      const { POLAR_PRODUCT_IDS } = await import("../../src/integrations/polar/polar.constants")
+      const { POLAR_PRODUCT_IDS } = await import("../../src/modules/license/license.utils")
       polar.seedPolarLicenseKey({
         activation: TEST_LICENSE.activation,
         externalCustomerId: TEST_LICENSED_ACCOUNT.id,

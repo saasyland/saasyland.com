@@ -17,7 +17,7 @@ describe("locale resolution request boundary", () => {
     ["/fonts/display.woff2", "font"],
     ["/pl/assets/logo.svg", "image"],
   ])("does not redirect %s or overwrite the document locale", (pathname, destination) => {
-    const request = new Request(`https://saasyland.com${pathname}`, {
+    const request = new Request(`https://example.com${pathname}`, {
       headers: { accept: "*/*", cookie: polishCookie, "sec-fetch-dest": destination },
     })
 
@@ -27,7 +27,7 @@ describe("locale resolution request boundary", () => {
   it.each(["empty", "worker", "unknown", "Document", ""])(
     "ignores non-document or malformed Fetch Metadata destination %j even when HTML is accepted",
     (destination) => {
-      const request = new Request("https://saasyland.com/", {
+      const request = new Request("https://example.com/", {
         headers: { accept: "text/html", cookie: polishCookie, "sec-fetch-dest": destination },
       })
 
@@ -36,7 +36,7 @@ describe("locale resolution request boundary", () => {
   )
 
   it.each(["document", "iframe", "frame"])("updates the locale for a %s navigation", (destination) => {
-    const request = new Request("https://saasyland.com/", {
+    const request = new Request("https://example.com/", {
       headers: { cookie: polishCookie, "sec-fetch-dest": destination },
     })
 
@@ -46,7 +46,7 @@ describe("locale resolution request boundary", () => {
   it.each(["text/html", "application/xhtml+xml", "application/json, text/html; q=0.9", "TEXT/HTML; charset=utf-8"])(
     "recognizes document Accept %j when Fetch Metadata is unavailable",
     (accept) => {
-      const request = new Request("https://saasyland.com/pl-PL/docs", { headers: { accept } })
+      const request = new Request("https://example.com/pl-PL/docs", { headers: { accept } })
 
       expect(resolveLocale(request)).toEqual({ setCookie: { name: I18N.COOKIE_NAME, value: "pl-PL" } })
     },
@@ -55,7 +55,7 @@ describe("locale resolution request boundary", () => {
   it.each(["*/*", "text/css,*/*;q=0.1", "application/javascript", "application/json", "text/html-invalid", ""])(
     "ignores non-document Accept %j when Fetch Metadata is unavailable",
     (accept) => {
-      const request = new Request("https://saasyland.com/src/presentation/styles/globals.css", {
+      const request = new Request("https://example.com/src/presentation/styles/globals.css", {
         headers: { accept, cookie: polishCookie },
       })
 
@@ -64,17 +64,17 @@ describe("locale resolution request boundary", () => {
   )
 
   it.each(["GET", "HEAD"])("preserves headerless %s document requests and canonical redirects", (method) => {
-    const response = resolveLocale(new Request("https://saasyland.com/pl/docs?query=one", { method }))
+    const response = resolveLocale(new Request("https://example.com/pl/docs?query=one", { method }))
 
     expect(response.redirect?.status).toBe(308)
-    expect(response.redirect?.headers.get("location")).toBe("https://saasyland.com/pl-PL/docs?query=one")
-    expect(resolveLocale(new Request("https://saasyland.com/pl-PL/docs", { method }))).toEqual({
+    expect(response.redirect?.headers.get("location")).toBe("https://example.com/pl-PL/docs?query=one")
+    expect(resolveLocale(new Request("https://example.com/pl-PL/docs", { method }))).toEqual({
       setCookie: { name: I18N.COOKIE_NAME, value: "pl-PL" },
     })
   })
 
   it.each(["POST", "PUT", "DELETE"])("does not treat %s requests as locale navigations", (method) => {
-    const request = new Request("https://saasyland.com/pl/docs", {
+    const request = new Request("https://example.com/pl/docs", {
       headers: { accept: "text/html", cookie: polishCookie, "sec-fetch-dest": "document" },
       method,
     })
@@ -85,7 +85,7 @@ describe("locale resolution request boundary", () => {
   it.each(["/api/auth/get-session", "/_serverFn/messages", "/media/abc.def/0195a2b4-6c8d-7e9f-8a0b-1c2d3e4f5a6b/master.m3u8"])(
     "keeps locale cookies unchanged for %s even with document headers",
     (pathname) => {
-      const request = new Request(`https://saasyland.com${pathname}`, {
+      const request = new Request(`https://example.com${pathname}`, {
         headers: { accept: "text/html", cookie: polishCookie, "sec-fetch-dest": "document" },
       })
 
@@ -94,7 +94,7 @@ describe("locale resolution request boundary", () => {
   )
 
   it("does not rewrite an already matching locale cookie", () => {
-    const request = new Request("https://saasyland.com/pl-PL/docs", {
+    const request = new Request("https://example.com/pl-PL/docs", {
       headers: { accept: "text/html", cookie: polishCookie, "sec-fetch-dest": "document" },
     })
 

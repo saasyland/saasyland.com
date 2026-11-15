@@ -92,10 +92,10 @@ bun run start:test
 
 Open <http://127.0.0.1:3000>. Sign in with either account below; both use the password `WorkerTestPassword123!` from [`e2e/data/accounts.ts`](e2e/data/accounts.ts).
 
-| Role     | Email                             | Workspace |
-| -------- | --------------------------------- | --------- |
-| Admin    | `admin@saasyland.example.test`    | `/admin`  |
-| Customer | `customer@saasyland.example.test` | `/app`    |
+| Role     | Email                   | Workspace |
+| -------- | ----------------------- | --------- |
+| Admin    | `admin@example.test`    | `/admin`  |
+| Customer | `customer@example.test` | `/app`    |
 
 This serves a built test application; rebuild it to see source changes. It uses dummy values from [`.env.test`](.env.test), the `test` environment in [`wrangler.jsonc`](wrangler.jsonc), and isolated state under `.wrangler/test`. Provider interception is intended for local verification, not for validating real OAuth, email delivery, or payments. Keep this test configuration local.
 

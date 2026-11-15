@@ -12,7 +12,7 @@ import { ResetPasswordEmail } from "~/src/presentation/emails/reset-password-ema
 import { VerifyEmail } from "~/src/presentation/emails/verify-email"
 
 it.each(I18N.SUPPORTED_LOCALES)("renders account emails in %s with working action links", async (locale) => {
-  const url = `https://saasyland.com/${locale}/auth/verify-email?token=example`
+  const url = `https://example.com/${locale}/auth/verify-email?token=example`
   const reset = await loadNamespace<typeof resetPasswordMessages>({ locale, namespace: "emails.reset-password-email" })
   const verify = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: "emails.verify-email" })
   const change = await loadNamespace<typeof changeEmailMessages>({ locale, namespace: "emails.change-email-confirmation-email" })

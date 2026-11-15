@@ -7,14 +7,14 @@ import { useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { ADMIN_ROLE_ROWS } from "~/src/data/admin-users"
+import { ADMIN_ROLE_ROWS } from "~/src/data/admin-team"
 
 import { pageHead } from "~/src/lib/seo"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 
-import { AdminUsersRolesPending } from "~/src/presentation/components/custom/admin/auth-pending"
-import { roleColumns } from "~/src/presentation/components/custom/admin/users/role-columns"
+import { AdminUsersRolesPending } from "~/src/presentation/components/custom/admin/team-pending"
+import { roleColumns } from "~/src/presentation/components/custom/admin/team/role-columns"
 import { DataTable } from "~/src/presentation/components/custom/data-table"
 
 import { ROUTES } from "~/src/routes"

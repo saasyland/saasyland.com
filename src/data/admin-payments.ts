@@ -7,6 +7,9 @@ const ANNUAL_PASS_PRICE = 290
 const COURSE_LICENCE_PRICE = 99
 const MONTHS_PER_YEAR = 12
 const MONTHLY_RECURRING_REVENUE = 12_450
+const REVENUE_CHART_TICK_STEP = 10_000
+const REVENUE_CHART_TICK_COUNT = 4
+const REVENUE_CHART_YEAR = 2026
 
 const COUNT_FORMAT = { style: "decimal" } as const satisfies Intl.NumberFormatOptions
 
@@ -100,3 +103,15 @@ export const ADMIN_REFUND_TRENDING_STATS = [
   { icon: CreditCard, id: "refunded" },
   { icon: TrendingDown, id: "refundRate" },
 ] as const
+
+export const ADMIN_REVENUE_CHART_TICKS = Array.from(
+  { length: REVENUE_CHART_TICK_COUNT },
+  (_, index) => (REVENUE_CHART_TICK_COUNT - index) * REVENUE_CHART_TICK_STEP - REVENUE_CHART_TICK_STEP,
+)
+
+export const ADMIN_REVENUE_CHART_MONTHS = Array.from(
+  { length: MONTHS_PER_YEAR },
+  (_, month) => new Date(Date.UTC(REVENUE_CHART_YEAR, month)),
+)
+
+export const ADMIN_REVENUE_CHART_FILTERS = ["12m", "30d", "7d"] as const

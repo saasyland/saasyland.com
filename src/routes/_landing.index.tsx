@@ -2,7 +2,7 @@ import type { JSX } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
-import { createFormatter, createTranslator } from "use-intl"
+import { createFormatter } from "use-intl"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
@@ -78,15 +78,14 @@ export const Route = createFileRoute("/_landing/")({
   head: pageHead(ROUTES.HOME),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
+    const price = createFormatter({ locale }).number(TIER_PRICES[LICENSE_TIER.CORE], CURRENCY_FORMAT)
     const [metadata, posts] = await Promise.all([
-      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      loadPageMetadata({ locale, namespace: NAMESPACE, values: { price } }),
       getLatestBlogPosts({ data: locale }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query(starCountQuery).catch(() => {}),
     ])
-    const price = createFormatter({ locale }).number(TIER_PRICES[LICENSE_TIER.CORE], CURRENCY_FORMAT)
-    const description = createTranslator({ locale, messages: metadata })("description", { price })
-    return { locale, metadata: { ...metadata, description }, posts }
+    return { locale, metadata, posts }
   },
   pendingComponent: HomePending,
   staticData: { namespaces: [NAMESPACE] },

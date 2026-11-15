@@ -10,7 +10,7 @@ vi.mock("~/src/integrations/better-auth/auth.server", () => ({ auth: { handler: 
 
 describe("API route forwarding", () => {
   it.each(["GET", "POST"] as const)("forwards auth %s requests and preserves the provider response", async (method) => {
-    const request = new Request("https://saasyland.com/api/auth/get-session", { method })
+    const request = new Request("https://example.com/api/auth/get-session", { method })
     const response = Response.json({ user: null }, { headers: { "set-cookie": "session=; Max-Age=0" } })
     authHandler.mockResolvedValueOnce(response)
     const handlers = AuthRoute.options.server?.handlers

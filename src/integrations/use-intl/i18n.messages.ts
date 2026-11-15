@@ -1,7 +1,9 @@
 import { type QueryClient, queryOptions } from "@tanstack/react-query"
-import type { AbstractIntlMessages } from "use-intl"
+import { type AbstractIntlMessages, createTranslator } from "use-intl"
 
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+
+import { APP_NAME } from "~/src/presentation/branding"
 
 type MessageTree = Record<string, AbstractIntlMessages>
 
@@ -16,7 +18,7 @@ const MESSAGES_QUERY_KEY = "i18n-messages"
 const NAMESPACE_SEPARATOR = "."
 
 const messageModules = import.meta.glob<AbstractIntlMessages>("../../../messages/*/*.json", { import: "default" })
-const metadataModules = import.meta.glob<PageMetadata>("../../../messages/*/*.json", { import: "metadata" })
+const metadataModules = import.meta.glob<PageMetadata | undefined>("../../../messages/*/*.json", { import: "metadata" })
 
 export const toNamespace = (path: string): string => path.replaceAll(/^.*\/|\.json$/gu, "")
 
@@ -38,14 +40,31 @@ const modulePath = ({ locale, namespace }: { locale: SupportedLocale; namespace:
 const missingNamespace = ({ locale, namespace }: { locale: SupportedLocale; namespace: string }): Error =>
   new Error(`No messages/${locale}/${namespace}.json — every declared namespace needs a file per supported locale.`)
 
-export const loadPageMetadata = ({ locale, namespace }: { locale: SupportedLocale; namespace: string }): Promise<PageMetadata> => {
+export const loadPageMetadata = async ({
+  locale,
+  namespace,
+  values = {},
+}: {
+  locale: SupportedLocale
+  namespace: string
+  values?: Readonly<Record<string, string>>
+}): Promise<PageMetadata> => {
   const load = metadataModules[modulePath({ locale, namespace })]
 
   if (load === undefined) {
     throw missingNamespace({ locale, namespace })
   }
 
-  return load()
+  const metadata = await load()
+
+  if (metadata === undefined) {
+    throw new Error(`messages/${locale}/${namespace}.json has no page metadata — a page namespace starts with its title and description.`)
+  }
+
+  const t = createTranslator({ locale, messages: metadata })
+  const args = { appName: APP_NAME, ...values }
+
+  return { description: t("description", args), title: t("title", args) }
 }
 
 export function loadNamespace<TMessages extends AbstractIntlMessages>(args: {

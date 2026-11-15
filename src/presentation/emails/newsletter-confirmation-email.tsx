@@ -6,7 +6,7 @@ import { createTranslator } from "use-intl"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import type emailMessages from "~/messages/en-US/emails.newsletter-confirmation-email.json"
-import { CONTACT_EMAIL } from "~/src/presentation/branding"
+import { APP_DOMAIN, CONTACT_EMAIL } from "~/src/presentation/branding"
 
 export const NEWSLETTER_CONFIRMATION_NAMESPACE = "emails.newsletter-confirmation-email"
 
@@ -33,7 +33,7 @@ export const NewsletterConfirmationEmail = ({ messages, confirmUrl, locale }: Re
           <Preview>{t("preview")}</Preview>
           <Container className="mx-auto px-5 py-10">
             <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading")}</Heading>
-            <Text className="m-0 mb-6 text-base text-neutral-600">{t("body")}</Text>
+            <Text className="m-0 mb-6 text-base text-neutral-600">{t("body", { appDomain: APP_DOMAIN })}</Text>
             <Button
               href={confirmUrl}
               className="box-border rounded-md bg-neutral-900 px-5 py-3 text-center text-base text-white no-underline"

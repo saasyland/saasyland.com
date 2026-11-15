@@ -15,15 +15,10 @@ import {
 import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { DEFAULT_CURRENCY_CODE, PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
-import {
-  LICENSE_ACTIVATION_LIMITS,
-  LICENSE_TIER,
-  LICENSE_TIERS,
-  LICENSE_WEBHOOK_EVENTS,
-  type LicenseTier,
-} from "~/src/modules/license/license.constants"
+import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
+import { POLAR_EVENTS } from "~/src/data/polar-events"
 
 import { ROUTES } from "~/src/routes"
 
@@ -97,8 +92,6 @@ interface PolarState {
 }
 
 type Check = readonly [failed: boolean, problem: string]
-
-const HANDLED_EVENTS: readonly string[] = Object.values(LICENSE_WEBHOOK_EVENTS)
 
 const DEPLOYED_ENVIRONMENTS = Object.keys(DEPLOYED_HOSTS).filter((name): name is keyof typeof DEPLOYED_HOSTS => name in DEPLOYED_HOSTS)
 
@@ -254,18 +247,15 @@ interface WebhookContext {
 }
 
 const endpointProblems = ({ enabled, events, format, secret, url }: models.WebhookEndpoint, context: WebhookContext): string[] => {
-  const missing = HANDLED_EVENTS.filter((event) => !events.some((subscribed) => subscribed === event))
-  const unhandled = events.filter((event) => !HANDLED_EVENTS.includes(event))
+  const missing = POLAR_EVENTS.filter((event) => !events.includes(event))
+  const unhandled = events.filter((event) => !POLAR_EVENTS.includes(event))
 
   return failing([
     [!enabled, `The webhook endpoint for ${url} is disabled.`],
     [format !== POLAR_WEBHOOK_FORMAT.RAW, `The webhook endpoint for ${url} sends ${format} payloads instead of raw JSON.`],
     [secret !== context.secret, `The webhook endpoint for ${url} signs with another secret than POLAR_WEBHOOK_SECRET in ${context.file}.`],
     [missing.length > 0, `The webhook endpoint for ${url} does not send ${missing.join(", ")}.`],
-    [
-      unhandled.length > 0,
-      `The webhook endpoint for ${url} also sends ${unhandled.join(", ")}, which license.webhooks.ts does not handle.`,
-    ],
+    [unhandled.length > 0, `The webhook endpoint for ${url} also sends ${unhandled.join(", ")}, which no area handles (POLAR_EVENTS).`],
   ])
 }
 

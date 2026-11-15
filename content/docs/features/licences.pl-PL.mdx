@@ -1,0 +1,57 @@
+---
+title: "Licencje"
+description: "Zakup planów licencji przez Polar, ceny regionalne, webhooki, które przyznają i cofają licencje, oraz ekrany licencji klienta."
+---
+
+Obszar licencji sprzedaje plany `core`, `complete` i `agency` jako produkty Polar, korzystając z wtyczki i webhooków obszaru Polar ([Płatności](/docs/features/payments)). `POLAR_PRODUCT_IDS` w `src/modules/license/license.utils.ts` przypisuje plany do `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` i `POLAR_PRODUCT_ID_AGENCY`, a `licenseTierForProduct` odczytuje plan produktu z tego samego przypisania. [Konfiguracja Polar](/docs/getting-started/polar-setup) opisuje produkty, klucze licencyjne i rabaty, których plany potrzebują w Polar.
+
+## Zakup
+
+Zalogowany użytkownik bez aktywnej licencji widzi `LicenseOffer` na `/app` i `/app/license`: karty planów ze strony głównej (`PricingTiers`, zobacz [Strona główna](/docs/features/landing-page)) z przyciskiem `CheckoutButton` dla każdego planu, pole wyboru cen regionalnych, warunki zakupu i lekcje kursów, które odblokowuje zakup. `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`) przyjmuje `{ locale, tier }` i:
+
+1. odmawia, zgłaszając `AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)`, gdy konto ma już licencję `active`. Przycisk pokazuje `errors.codes.LICENSE_ALREADY_ACTIVE` i odświeża licencję, więc strona pozostawiona otwarta od czasu zakupu przełącza się na licencję;
+2. szuka rabatu regionalnego przez `pppDiscountId` (`license.ppp.ts`): procentu dla kraju z `cf-ipcountry`, dopasowanego przez `findRegionalDiscount` (`src/integrations/polar/polar.discounts.ts`) do automatycznych rabatów procentowych w Polar, które można teraz wykorzystać, i pomija go, gdy ciasteczko `regional_pricing` ma wartość `off`;
+3. tworzy za pomocą `polar.checkouts.create` sesję płatności Polar dla planu, powiązaną z kontem (`external_customer_id`) i wypełnioną jego adresem e-mail i imieniem (`customer_email`, `customer_name`), więc formularz płatności otwiera się z tymi danymi. Sesja zawiera też adres IP kupującego z `cf-connecting-ip` (`customer_ip_address`, odczytany przez `getIP` z Better Auth), wyłączone kody rabatowe, polecenie partnerskie w `metadata`, gdy odwiedzający trafił przez link partnerski (zobacz [Program partnerski](/docs/features/affiliates)), i adres powrotu po udanej płatności `/app?checkoutId={CHECKOUT_ID}` w języku kupującego (`localizePathname`). Polar zastępuje `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) identyfikatorem płatności;
+4. zwraca adres płatności, który otwiera przeglądarka.
+
+Ani licencja po zwrocie pieniędzy (`refunded`), ani licencja cofnięta (`revoked`) nie blokuje nowego zakupu.
+
+### Przejście na wyższy plan
+
+Konto ma jedną licencję, a nowsze opłacone zamówienie zastępuje plan starszego (`grantLicense`). Produkty Polar nie mają cen za przejście na wyższy plan, więc samodzielna zmiana pobrałaby pełną cenę wyższego planu oprócz pierwszego zakupu, a kupno niższego planu obniżyłoby licencję. Dlatego płatność jest odrzucana, dopóki licencja jest aktywna, a `LicenseCard` prosi właścicieli, by w sprawie zmiany planu napisali e-mail do pomocy. Zanim dopuścisz drugą płatność, utwórz w Polar produkty lub rabaty na przejście na wyższy plan.
+
+### Plan wybrany przed rejestracją
+
+Każdy przycisk planu na stronie głównej prowadzi do `/auth/sign-up?redirect=/app?tier=<tier>`. Ścieżka powrotu zostaje zachowana podczas rejestracji, weryfikacji adresu e-mail i logowania (`useAuthRedirect`), a odwiedzający, który jest już zalogowany, trafia prosto do niej. `licenseSearchSchema` (`src/data/license.ts`, zbudowany z `searchParam`) sprawdza `tier` względem `LICENSE_TIER` na `/app/license` oraz, jako parametr, który obszar licencji dodaje do przeglądu, na `/app`, a zarówno `/app`, jak i `/app/license` pokazują `ChosenTier` nad kartami planów: plan, jego cenę z rabatem regionalnym i przycisk **Przejdź do płatności**. Zablokowana płatna lekcja kursu prowadzi zalogowanego widza do `/app/license?tier=complete`, a gościa do sekcji cennika na stronie głównej; lekcja wymagająca konta prowadzi do logowania ([Kursy](/docs/features/courses)).
+
+### Po płatności
+
+Polar odsyła kupującego na `/app?checkoutId=<id>`, zwykle zanim webhook `order.paid` przyzna licencję. Dopóki `checkoutId` jest obecny, a licencja nie jest aktywna, strona ukrywa karty planów i pokazuje `CheckoutActivation`, który co <RepositoryFact name="activationPollSeconds" unit="second" /> ponownie pobiera `currentLicenseQuery` (`ACTIVATION_POLL_MS`):
+
+- gdy licencja stanie się aktywna, dziękuje kupującemu, a licencja pojawia się poniżej;
+- gdy minie czas oczekiwania (<RepositoryFact name="activationTimeoutSeconds" unit="second" />, `ACTIVATION_TIMEOUT_MS`), a licencji nadal nie ma, przestaje odpytywać i informuje, że Polar nie potwierdził jeszcze płatności, podając adres e-mail pomocy, identyfikator płatności jako numer referencyjny i przycisk **Sprawdź ponownie**.
+
+`checkoutId`, który nie jest UUID, jest ignorowany.
+
+## Webhooki i licencje [#webhooks-and-licences]
+
+`src/data/license.polar-events.ts` dodaje obszar licencji do zdarzeń Polar (zobacz [Płatności](/docs/features/payments#webhooks)) ze zdarzeniami wymienionymi w `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`), których zdarzenia zamówień pochodzą z `POLAR_WEBHOOK_EVENT`, a jego `handle` przekazuje każde zdarzenie do handlera o tej samej nazwie w `licenseWebhookHandlers`. `licenseWebhookHandlers` spełnia `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, więc handler bez swojego zdarzenia albo zdarzenie bez swojego handlera nie przechodzi kompilacji. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) rozpoznają użytkownika po `external_id` klienta Polar. Zdarzenie klienta, który nie ma konta w aplikacji, jest logowane, gdy konto było potrzebne, i potwierdzane, aby Polar go nie ponawiał:
+
+- `onOrderPaid` → `grantLicense`: tworzy lub aktualizuje jedyną licencję użytkownika z planem kupionego produktu; nowszy zakup zastępuje starszy.
+- `onBenefitGrantCreated` → `attachLicenseKey`: zapisuje w licencji klucz licencyjny Polar. Dopóki opłacone zamówienie nie jest zapisane, kończy się błędem, aby Polar je ponowił; klucz dla zwróconego zamówienia lub produktu, który nie jest licencją, jest potwierdzany.
+- `onOrderRefunded` → `revokeLicense` ze statusem `refunded`, dopiero gdy zamówienie zostało zwrócone w całości; częściowy zwrot zachowuje licencję.
+- `onBenefitGrantRevoked` → `revokeLicense` ze statusem `revoked`.
+
+`revokeLicense` ustawia status licencji kupionej w tym zamówieniu i zapisuje zamówienie w `revoked_license_order`, aby spóźniony webhook nie mógł ponownie przyznać licencji. Nigdy nie zastępuje statusu `refunded`: Polar cofa też benefit zwróconego zamówienia, a oba zdarzenia mogą przyjść w dowolnej kolejności. Na podstawie tego statusu [API licencji CLI](/docs/features/cli-licence-api) odpowiada kodem `licenseRefunded` lub `licenseRevoked`.
+
+## Ekrany klienta
+
+`/app/license` wyświetla `LicenseCard` (plan, klucz, polecenia CLI, link do portalu klienta Polar pod `/api/auth/customer/portal` i adres e-mail pomocy w sprawie zmiany planu) oraz `LicenseActivations`, który pokazuje aktywacje klucza w Polar i usuwa wybraną przez `deactivateLicense`; ta funkcja odpowiada `NOT_FOUND`, gdy Polar nie ma już tej aktywacji. CLI dodaje i usuwa aktywacje przez [API licencji CLI](/docs/features/cli-licence-api). Polar egzekwuje limit aktywacji benefitu kluczy licencyjnych każdego planu, który musi być równy `LICENSE_ACTIVATION_LIMITS`: <ActivationLimit tier="core" /> dla planu Core, <ActivationLimit tier="complete" /> dla planu Komplet i <ActivationLimit tier="agency" /> dla planu Agencja. Zobacz [Aplikacja klienta](/docs/features/customer-app).
+
+## Powiązane strony
+
+- [Płatności](/docs/features/payments) — wtyczka Polar, rozsyłanie webhooków i portal klienta
+- [Konfiguracja Polar](/docs/getting-started/polar-setup) — konfiguracja w Polar i `polar:verify`
+- [Strona główna](/docs/features/landing-page) — karty planów i ceny regionalne
+- [Aplikacja klienta](/docs/features/customer-app) — ekrany wokół płatności
+- [API licencji CLI](/docs/features/cli-licence-api)

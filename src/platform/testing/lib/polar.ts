@@ -1,12 +1,13 @@
 import type { models } from "@polar-sh/sdk/2026-10"
 import { createHmac } from "node:crypto"
 
+import { POLAR_LICENSE_KEY_STATUS } from "~/src/integrations/polar/polar.constants"
 import { BASIS_POINTS_PER_PERCENT } from "~/src/integrations/polar/polar.discounts"
 
 import { PPP_PERCENT } from "~/src/modules/_core/constants/pricing"
 
 const MS_PER_SECOND = 1000
-const POLAR_API_VERSION = "2026-10"
+export const POLAR_API_VERSION = "2026-10"
 const DISPLAYED_KEY_CHARACTERS = 6
 const CATALOGUE_CREATED_AT = "2026-11-01T00:00:00.000Z"
 const RECURRING_INTERVAL_COUNT = 1
@@ -223,7 +224,7 @@ export const polarLicenseKey = ({
   member_id: null,
   modified_at: null,
   organization_id: customer.organization_id,
-  status: "granted",
+  status: POLAR_LICENSE_KEY_STATUS.GRANTED,
   usage: 0,
   validations: 0,
 })

@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { createPolarOrder } from "~/src/platform/testing/mocks/polar"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
+import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 import { grantLicense } from "~/src/modules/license/use-cases/grant-license"
 import { user } from "~/src/modules/user/user.schema"

@@ -6,12 +6,12 @@ import { useTranslations } from "use-intl/react"
 import { Button } from "~/src/presentation/components/shadcn/button"
 
 export const RowActionsCell = (): JSX.Element => {
-  const t = useTranslations("pages.admin.labels")
+  const t = useTranslations("components.custom.row-actions-cell")
 
   return (
     <div className="flex justify-end">
       <Button
-        aria-label={t("rowActions")}
+        aria-label={t("label")}
         className="size-8 text-muted-foreground hover:bg-secondary hover:text-foreground"
         size="icon"
         variant="ghost"

@@ -1,37 +1,59 @@
-import { globSync, readFileSync } from "node:fs"
-import { basename } from "node:path"
-import { expect, it } from "vite-plus/test"
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { dirname, join } from "node:path"
+import { afterAll, describe, expect, it } from "vite-plus/test"
 
-const SHADCN_DIRECTORY = "src/presentation/components/shadcn"
-const SCANNED_SOURCES = "src/**/*.{ts,tsx}"
-const UNSCANNED_SOURCES = /\.(?:test|spec)\.tsx?$|\/__test__\/|^src\/platform\/testing\/|^src\/presentation\/components\/shadcn\//u
-const PRIMITIVE_IMPORT = /~\/src\/presentation\/components\/shadcn\/(?<name>[a-z-]+)"/gu
-const EXCLUDED_PRIMITIVES = /@source not "\.\.\/components\/shadcn\/\{(?<names>[a-z,-]+)\}\.tsx";/u
+import { excludeUnusedPrimitives, unusedPrimitives, unusedPrimitivesPlugin } from "~/scripts/unused-primitives"
 
-const importedPrimitives = (path: string): string[] =>
-  [...readFileSync(path, "utf8").matchAll(PRIMITIVE_IMPORT)].flatMap((match) => match.groups?.["name"] ?? [])
+const PRIMITIVES = "src/presentation/components/shadcn"
+const TAILWIND_IMPORT = '@import "tailwindcss" source("../../");'
 
-const usedPrimitives = (): Set<string> => {
-  const sources = globSync(SCANNED_SOURCES).filter((path) => !UNSCANNED_SOURCES.test(path))
-  const used = new Set(sources.flatMap((path) => importedPrimitives(path)))
+const importOf = (name: string): string => `import { Part } from "~/src/presentation/components/shadcn/${name}"\n`
 
-  for (const name of used) {
-    for (const dependency of importedPrimitives(`${SHADCN_DIRECTORY}/${name}.tsx`)) {
-      used.add(dependency)
-    }
-  }
+const project = mkdtempSync(join(tmpdir(), "primitives-"))
 
-  return used
+const files = {
+  [`${PRIMITIVES}/button.tsx`]: "",
+  [`${PRIMITIVES}/calendar.tsx`]: "",
+  [`${PRIMITIVES}/dialog.tsx`]: importOf("button"),
+  [`${PRIMITIVES}/tabs.tsx`]: "",
+  "src/platform/testing/render.tsx": importOf("calendar"),
+  "src/routes/__test__/page.test.tsx": importOf("tabs"),
+  "src/routes/page.tsx": importOf("dialog"),
 }
 
-it("leaves out of the Tailwind scan exactly the shadcn primitives that nothing imports", () => {
-  const css = readFileSync("src/presentation/styles/globals.css", "utf8")
-  const excluded = EXCLUDED_PRIMITIVES.exec(css)?.groups?.["names"]?.split(",")
-  const used = usedPrimitives()
-  const unused = globSync(`${SHADCN_DIRECTORY}/*.tsx`)
-    .map((path) => basename(path, ".tsx"))
-    .filter((name) => !used.has(name))
-    .toSorted()
+for (const [path, source] of Object.entries(files)) {
+  mkdirSync(dirname(join(project, path)), { recursive: true })
+  writeFileSync(join(project, path), source)
+}
 
-  expect(excluded).toStrictEqual(unused)
+afterAll(() => {
+  rmSync(project, { force: true, recursive: true })
+})
+
+describe("unused shadcn primitives", () => {
+  it("finds the primitives that no application source imports, directly or through another primitive", () => {
+    expect(unusedPrimitives(project)).toStrictEqual(["calendar", "tabs"])
+  })
+
+  it("leaves each of them out of the Tailwind scan, right after the Tailwind import", () => {
+    expect(excludeUnusedPrimitives(`${TAILWIND_IMPORT}\n@import "./fonts.css";\n`, project)).toBe(
+      [
+        TAILWIND_IMPORT,
+        '@source not "../components/shadcn/calendar.tsx";',
+        '@source not "../components/shadcn/tabs.tsx";',
+        '@import "./fonts.css";',
+        "",
+      ].join("\n"),
+    )
+  })
+
+  it("keeps the stylesheet free of any hand-written list, which the plugin derives for the project's own areas", () => {
+    const css = readFileSync("src/presentation/styles/globals.css", "utf8")
+
+    expect(css).toContain(TAILWIND_IMPORT)
+    expect(css).not.toContain("../components/shadcn/")
+    expect(excludeUnusedPrimitives(css, process.cwd())).toContain("../components/shadcn/")
+    expect(unusedPrimitivesPlugin()).toMatchObject({ enforce: "pre", name: "unused-primitives" })
+  })
 })

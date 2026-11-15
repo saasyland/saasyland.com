@@ -10,12 +10,9 @@ vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () =>
 afterEach(() => vi.restoreAllMocks())
 
 describe("admin user route loaders", () => {
-  it.each(["/admin/users/all", "/admin/users/invitations", "/admin/users/roles", "/admin/users/security"])(
-    "loads localized metadata for an authorized administrator at %s",
-    async (path) => {
-      expectLocalizedAdminPage(await loadAsAdmin(path))
-    },
-  )
+  it.each(["/admin/users/all", "/admin/users/security"])("loads localized metadata for an authorized administrator at %s", async (path) => {
+    expectLocalizedAdminPage(await loadAsAdmin(path))
+  })
 
   it("populates required query data before rendering /admin/users/all", async () => {
     vi.spyOn(getUsersQuery, "queryFn")

@@ -20,7 +20,7 @@ import { Route as DocsIndexRoute } from "~/src/routes/docs.index"
 import { docsContent } from "~/src/presentation/components/custom/docs-content"
 
 import localeSwitcherMessages from "~/messages/en-US/components.custom.locale-switcher.json"
-import { APP_NAME } from "~/src/presentation/branding"
+import { APP_GITHUB_OWNER, APP_GITHUB_REPO, APP_GITHUB_URL, APP_NAME } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
 
 const LAYOUT_DATA: typeof DocsRoute.types.loaderData = {
@@ -112,10 +112,7 @@ it.each([
   await act(() => router.load())
   expect(screen.getByText("Documentation content")).toBeVisible()
   expect(screen.getByRole("navigation", { name: "Documentation navigation" })).toHaveTextContent(APP_NAME)
-  expect(screen.getByRole("link", { name: "saasyland/saasyland.com" })).toHaveAttribute(
-    "href",
-    "https://github.com/saasyland/saasyland.com",
-  )
+  expect(screen.getByRole("link", { name: `${APP_GITHUB_OWNER}/${APP_GITHUB_REPO}` })).toHaveAttribute("href", APP_GITHUB_URL)
   expect(screen.getByRole("button", { name: selectTriggerNamed(localeSwitcherMessages.label) })).toHaveTextContent("English")
   expect(screen.getByTestId("builtin-theme-switch")).toHaveTextContent("false")
   expect(docsContent.useContent).toHaveBeenCalledWith(path)

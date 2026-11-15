@@ -127,6 +127,6 @@ describe("Polar test double", () => {
 
 describe("outbound requests", () => {
   it("fail like an offline network for any origin no provider double serves", async () => {
-    await expect(fetch("https://api.github.com/repos/saasyland/saasyland.com")).rejects.toThrow("tests run offline")
+    await expect(fetch("https://example.com/")).rejects.toThrow("tests run offline")
   })
 })

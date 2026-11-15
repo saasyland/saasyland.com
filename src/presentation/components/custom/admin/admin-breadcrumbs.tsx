@@ -6,6 +6,7 @@ import { useTranslations } from "use-intl/react"
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
+import { USER_TABS } from "~/src/data/user-tabs"
 
 import { cn } from "~/src/lib/cn"
 
@@ -22,6 +23,15 @@ const Divider = (): JSX.Element => (
   </span>
 )
 
+const CurrentPage = ({ label }: { readonly label: string }): JSX.Element => (
+  <>
+    <Divider />
+    <span aria-current="page" className="truncate font-medium text-foreground">
+      {label}
+    </span>
+  </>
+)
+
 export const AdminBreadcrumbs = (): JSX.Element | undefined => {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const t = useTranslations()
@@ -35,6 +45,7 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
 
   const sectionUrl = section === undefined ? ROUTES.ADMIN : `${ROUTES.ADMIN}/${section}`
   const item = SIDEBAR_ITEMS.find((candidate) => candidate.to === sectionUrl)
+  const tab = USER_TABS.find((candidate) => candidate.to === pathname)
 
   return (
     <nav
@@ -56,13 +67,9 @@ export const AdminBreadcrumbs = (): JSX.Element | undefined => {
           </Link>
         </>
       )}
-      {item && action !== undefined && t.has(`navigation.${item.area}.breadcrumbs.${action}`) && (
-        <>
-          <Divider />
-          <span aria-current="page" className="truncate font-medium text-foreground">
-            {t(`navigation.${item.area}.breadcrumbs.${action}`)}
-          </span>
-        </>
+      {tab && <CurrentPage label={t(`navigation.${tab.area}.userTabs.${tab.key}`)} />}
+      {item && !tab && action !== undefined && t.has(`navigation.${item.area}.breadcrumbs.${action}`) && (
+        <CurrentPage label={t(`navigation.${item.area}.breadcrumbs.${action}`)} />
       )}
     </nav>
   )

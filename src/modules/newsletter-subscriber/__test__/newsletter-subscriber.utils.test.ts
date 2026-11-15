@@ -10,7 +10,7 @@ import {
   unsubscribeUrl,
 } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.utils"
 
-import { APP_URL } from "~/src/presentation/branding"
+import { APP_PREVIEW_DOMAIN, APP_URL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const SAMPLE_SIZE = 50
@@ -59,7 +59,7 @@ describe("newsletter-subscriber.utils", () => {
     expect(unsubscribeUrl({ locale: "pl-PL", origin: APP_URL, token: TOKEN })).toContain(`/pl-PL${ROUTES.NEWSLETTER_UNSUBSCRIBE}`)
   })
 
-  it.each(["http://localhost:3000", "http://127.0.0.1:3020", "https://preview.saasyland.com", APP_URL])(
+  it.each(["http://localhost:3000", "http://127.0.0.1:3020", `https://${APP_PREVIEW_DOMAIN}`, APP_URL])(
     "keeps newsletter action links on their originating deployment: %s",
     (origin) => {
       const options = { locale: "fr-FR" as const, origin, token: TOKEN }

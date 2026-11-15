@@ -10,7 +10,7 @@ import { AuthorInitials } from "~/src/presentation/components/custom/admin/blog/
 import { PostDate } from "~/src/presentation/components/custom/admin/blog/post-date"
 import { PostViews } from "~/src/presentation/components/custom/admin/blog/post-views"
 import { StatusBadge } from "~/src/presentation/components/custom/admin/blog/status-badge"
-import { RowActionsCell } from "~/src/presentation/components/custom/admin/row-actions-cell"
+import { RowActionsCell } from "~/src/presentation/components/custom/admin/products/row-actions-cell"
 import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type BlogPost = (typeof DUMMY_POSTS)[number]

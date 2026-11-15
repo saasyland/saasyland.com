@@ -37,7 +37,7 @@ import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
 import timezonesMessages from "~/messages/en-US/timezones.json"
 import plCommonMessages from "~/messages/pl-PL/common.json"
 import plErrorMessages from "~/messages/pl-PL/errors.json"
-import { CONTACT_EMAIL } from "~/src/presentation/branding"
+import { APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
@@ -190,7 +190,7 @@ describe("customer workspace routes", () => {
     const nav = screen.getByRole("navigation", { name: navigation.label })
     await user.click(within(nav).getByRole("link", { name: navigationLicenseMessages.app.license }))
     expect(await screen.findByRole("heading", { level: 1, name: pagesLicenseMessages.metadata.title })).toBeVisible()
-    await user.click(screen.getByRole("link", { name: "SaaSy Land" }))
+    await user.click(screen.getByRole("link", { name: APP_NAME }))
     expect(await screen.findByRole("heading", { name: pagesAppMessages.metadata.title })).toBeVisible()
     await user.click(screen.getByRole("link", { name: navigationContentMessages.appResources.docs }))
     expect(await screen.findByRole("heading", { name: "Documentation" })).toBeVisible()

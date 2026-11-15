@@ -86,28 +86,12 @@ export class AuthPage extends BasePage {
     await this.waitForAppReady()
   }
 
-  async gotoTerms(localePrefix = ""): Promise<void> {
-    const path = localePrefix.length > 0 ? `${localePrefix}/terms` : "/terms"
-    await this.gotoPath(path)
-    await this.waitForAppReady()
-  }
-
-  async gotoPrivacy(localePrefix = ""): Promise<void> {
-    const path = localePrefix.length > 0 ? `${localePrefix}/privacy` : "/privacy"
-    await this.gotoPath(path)
-    await this.waitForAppReady()
-  }
-
   twoFactorSubmitButton(): Locator {
     return this.page.getByTestId("two-factor-form-submit-button")
   }
 
   verifyEmailResendButton(): Locator {
     return this.page.getByTestId("verify-email-resend-button")
-  }
-
-  legalDocumentTitle(): Locator {
-    return this.page.getByTestId("legal-document-title")
   }
 
   async gotoResetPassword(localePrefix = "", query = ""): Promise<void> {

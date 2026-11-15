@@ -23,3 +23,27 @@ test("lets a visitor leave while its route code loads", async ({ appPage, page }
   await expect(page).toHaveURL(ROUTES.PRIVACY)
   await appPage.waitForAppReady()
 })
+
+for (const path of [ROUTES.TERMS, ROUTES.PRIVACY]) {
+  test(`${path} renders its legal document`, async ({ appPage, page }) => {
+    await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+
+    await expect(page.getByTestId("legal-document-title")).toBeVisible()
+  })
+}
+
+for (const [name, path] of [
+  ["Terms of Service", ROUTES.TERMS],
+  ["Privacy Policy", ROUTES.PRIVACY],
+] as const) {
+  test(`the sign-up consent links ${path}`, async ({ appPage, page }) => {
+    await page.goto(ROUTES.SIGN_UP, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+
+    await page.getByRole("link", { exact: true, name }).click()
+
+    await expect(page).toHaveURL(path)
+    await expect(page.getByTestId("legal-document-title")).toBeVisible()
+  })
+}

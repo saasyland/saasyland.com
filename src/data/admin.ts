@@ -25,18 +25,4 @@ export const USER_STATUS_COLORS: Record<UserStatus, AdminStatusColor> = {
 
 export const ADMIN_DASHBOARD_PREVIEW_PAGINATION = { pageIndex: 0, pageSize: 5 } as const
 
-const CHART_TICK_STEP = 10_000
-const CHART_TICK_COUNT = 4
-const CHART_YEAR = 2026
-const MONTHS_IN_YEAR = 12
-
-export const ADMIN_DASHBOARD_CHART_TICKS = Array.from(
-  { length: CHART_TICK_COUNT },
-  (_, index) => (CHART_TICK_COUNT - index) * CHART_TICK_STEP - CHART_TICK_STEP,
-)
-
-export const ADMIN_DASHBOARD_CHART_MONTHS = Array.from({ length: MONTHS_IN_YEAR }, (_, month) => new Date(Date.UTC(CHART_YEAR, month)))
-
-export const ADMIN_DASHBOARD_CHART_FILTERS = ["12m", "30d", "7d"] as const
-
-export const ADMIN_SETTINGS_TABS = ["general", "security", "team", "billing", "integrations", "api"] as const
+export const ADMIN_SETTINGS_TABS = ["general", "security"] as const

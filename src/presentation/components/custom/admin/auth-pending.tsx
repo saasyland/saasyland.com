@@ -1,18 +1,7 @@
 import type { JSX } from "react"
 
-import { useRouterState } from "@tanstack/react-router"
-
-import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
-
-import {
-  ADMIN_DASHBOARD_CHART_FILTERS,
-  ADMIN_DASHBOARD_CHART_MONTHS,
-  ADMIN_DASHBOARD_CHART_TICKS,
-  ADMIN_DASHBOARD_PREVIEW_PAGINATION,
-  ADMIN_SETTINGS_TABS,
-} from "~/src/data/admin"
-import { ADMIN_INVITATION_ROWS, ADMIN_ROLE_ROWS, ADMIN_USERS_TABS } from "~/src/data/admin-users"
-import { ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
+import { ADMIN_DASHBOARD_PREVIEW_PAGINATION, ADMIN_SETTINGS_TABS } from "~/src/data/admin"
+import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
 import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
 
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
@@ -31,8 +20,6 @@ import {
   TitlePending,
 } from "~/src/presentation/components/custom/admin/pending-blocks"
 import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card"
-
-import { ROUTES } from "~/src/routes"
 
 const PREVIEW_ROWS = Array.from({ length: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }, (_, index) => index)
 
@@ -75,39 +62,6 @@ const DashboardUserRowPending = (): JSX.Element => (
   </TableRow>
 )
 
-const DashboardChartPending = (): JSX.Element => (
-  <Card className="gap-0 p-5">
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <Skeleton className="h-lh w-36 scale-y-70 text-title" />
-        <Skeleton className="mt-1 h-lh w-80 max-w-full scale-y-70 text-body-sm" />
-      </div>
-      <div className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/50 p-0.5">
-        {ADMIN_DASHBOARD_CHART_FILTERS.map((filter) => (
-          <Skeleton className="h-7 w-11 rounded-md" key={filter} />
-        ))}
-      </div>
-    </div>
-    <div className="relative mt-7 h-70 w-full">
-      <div className="absolute top-0 bottom-6 left-0 flex flex-col justify-between font-mono text-[0.6875rem]">
-        {ADMIN_DASHBOARD_CHART_TICKS.map((tick) => (
-          <Skeleton className="h-lh w-6.5 scale-y-70" key={tick} />
-        ))}
-      </div>
-      <div className="absolute top-2 right-0 bottom-8 left-11 flex flex-col justify-between">
-        {ADMIN_DASHBOARD_CHART_TICKS.map((tick) => (
-          <div className="h-px w-full bg-border" key={tick} />
-        ))}
-      </div>
-      <div className="absolute right-0 bottom-0 left-11 flex justify-between font-mono text-[0.6875rem]">
-        {ADMIN_DASHBOARD_CHART_MONTHS.map((month) => (
-          <Skeleton className="h-lh w-5 scale-y-70" key={month.getTime()} />
-        ))}
-      </div>
-    </div>
-  </Card>
-)
-
 export const AdminDashboardPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8 pb-8">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -130,17 +84,16 @@ export const AdminDashboardPending = (): JSX.Element => (
         </div>
       ))}
     </div>
-    <DashboardChartPending />
+    {ADMIN_DASHBOARD_PANELS.map(({ Pending, key }) => (
+      <Pending key={key} />
+    ))}
     <Card className="flex flex-col gap-4 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Skeleton className="h-lh w-36 scale-y-70 text-title" />
-          <div className="mt-0.5 flex flex-col text-body-sm">
-            <Skeleton className="h-lh w-100 max-w-full scale-y-70" />
-            <Skeleton className="h-lh w-1/3 scale-y-70 sm:hidden" />
-          </div>
+      <div>
+        <Skeleton className="h-lh w-36 scale-y-70 text-title" />
+        <div className="mt-0.5 flex flex-col text-body-sm">
+          <Skeleton className="h-lh w-100 max-w-full scale-y-70" />
+          <Skeleton className="h-lh w-1/3 scale-y-70 sm:hidden" />
         </div>
-        <Skeleton className="h-8 w-20 rounded-lg" />
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
@@ -272,14 +225,6 @@ export const AdminSettingsPending = (): JSX.Element => (
   </div>
 )
 
-const SearchFilterPending = (): JSX.Element => (
-  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-    <div className="relative flex-1">
-      <Skeleton className="h-10 w-full rounded-lg" />
-    </div>
-  </div>
-)
-
 const UserRowPending = (): JSX.Element => (
   <TableRow>
     <TableCell>
@@ -380,153 +325,8 @@ export const AdminUsersAllPending = (): JSX.Element => (
   </div>
 )
 
-export const AdminUsersInvitationsPending = (): JSX.Element => (
-  <div aria-busy="true" className="space-y-6">
-    <div className="flex flex-wrap items-center justify-end gap-3">
-      <Skeleton className="h-10 w-26 rounded-lg" />
-      <Skeleton className="h-10 w-28 rounded-lg" />
-    </div>
-    <SearchFilterPending />
-    <TableContainer>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>
-              <SortableHeadPending />
-            </TableHead>
-            <TableHead>
-              <Skeleton className="h-lh w-8 scale-y-70" />
-            </TableHead>
-            <TableHead>
-              <SortableHeadPending />
-            </TableHead>
-            <TableHead>
-              <Skeleton className="h-lh w-16 scale-y-70" />
-            </TableHead>
-            <TableHead />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {ADMIN_INVITATION_ROWS.map((invitation) => (
-            <TableRow key={invitation.id}>
-              <TableCell>
-                <Skeleton className="h-lh w-40 scale-y-70 text-sm" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-lh w-20 scale-y-70" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-6 w-16 rounded-4xl" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-lh w-20 scale-y-70" />
-              </TableCell>
-              <TableCell>
-                <RowActionPending />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-    <PaginationPending />
-  </div>
-)
-
-export const AdminUsersRolesPending = (): JSX.Element => (
-  <div aria-busy="true" className="space-y-8">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <TitlePending />
-        <LongDescriptionPending />
-      </div>
-      <Skeleton className="h-9 w-full rounded-lg sm:w-29" />
-    </div>
-    <TableContainer>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>
-              <Skeleton className="h-lh w-16 scale-y-70" />
-            </TableHead>
-            <TableHead>
-              <Skeleton className="h-lh w-20 scale-y-70" />
-            </TableHead>
-            <TableHead>
-              <Skeleton className="h-lh w-8 scale-y-70" />
-            </TableHead>
-            <TableHead>
-              <SortableHeadPending />
-            </TableHead>
-            <TableHead />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {ADMIN_ROLE_ROWS.map((role) => (
-            <TableRow key={role.id}>
-              <TableCell>
-                <Skeleton className="h-lh w-24 scale-y-70 text-sm" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-lh w-96 scale-y-70 text-sm" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-6 w-15 rounded-4xl" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-lh w-14 scale-y-70 text-sm" />
-              </TableCell>
-              <TableCell>
-                <RowActionPending />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-    <PaginationPending />
-  </div>
-)
-
 export const AdminUsersSecurityPending = (): JSX.Element => (
   <div aria-busy="true" className="mt-6">
     <Skeleton className="h-lh w-36 scale-y-70 text-sm" />
   </div>
 )
-
-const ADMIN_USERS_PAGES = new Map<string, () => JSX.Element>([
-  [ROUTES.ADMIN_USERS, AdminUsersAllPending],
-  [ROUTES.ADMIN_USERS_ALL, AdminUsersAllPending],
-  [ROUTES.ADMIN_USERS_INVITATIONS, AdminUsersInvitationsPending],
-  [ROUTES.ADMIN_USERS_ROLES, AdminUsersRolesPending],
-  [ROUTES.ADMIN_USERS_SECURITY, AdminUsersSecurityPending],
-])
-
-export const AdminUsersPending = (): JSX.Element => {
-  const pathname = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) })
-  const Page = ADMIN_USERS_PAGES.get(pathname)
-
-  return (
-    <div className="-mx-4 -mt-5 -mb-6 flex min-h-0 w-[calc(100%+2rem)] flex-1 flex-col overflow-hidden md:-mx-6 md:-mt-7 md:-mb-8 md:w-[calc(100%+3rem)]">
-      <div className="shrink-0 border-b border-border bg-muted/30 px-4 pt-5 md:px-6 md:pt-7">
-        <div className="mb-6">
-          <TitlePending />
-          <div className="mt-0.5 flex flex-col text-body-sm">
-            <Skeleton className="h-lh w-104 max-w-full scale-y-70" />
-            <Skeleton className="h-lh w-1/3 scale-y-70 sm:hidden" />
-          </div>
-        </div>
-        <div className="flex w-full flex-col gap-2">
-          <div className="border-b border-border">
-            <div className="no-scrollbar flex h-8 w-fit max-w-full items-center justify-start gap-6 overflow-x-auto p-[3px]">
-              {ADMIN_USERS_TABS.map((tab) => (
-                <Skeleton className="h-lh w-20 shrink-0 scale-y-70 text-sm" key={tab.id} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-5 md:px-6 md:pt-6">{Page && <Page />}</div>
-    </div>
-  )
-}

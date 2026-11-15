@@ -1,18 +1,18 @@
 ---
 title: "Utenti (admin)"
-description: "Gestione utenti in /admin/users: una tabella utenti reale con azioni per riga, più schede demo per inviti e ruoli."
+description: "Gestione utenti in /admin/users: una tabella utenti reale, una pagina di profilo per ogni utente e azioni che chiamano l’API di amministrazione di Better Auth, più schede demo per inviti e ruoli."
 ---
 
 ## Rotte
 
-`src/routes/admin.users.tsx` è un layout le cui schede sotto forma di link sono `USER_TABS` in `src/data/user-tabs.ts`, che unisce il `src/data/<area>.user-tabs.ts` di ogni area secondo il suo `order`. Una scheda indica il proprio percorso e lo scheletro della sua pagina, e la sua etichetta nel `navigation.<area>.json` dell’area dà il nome alla pagina anche nelle breadcrumb. L’area di autenticazione aggiunge **Tutti gli utenti** e **Sicurezza**, l’area team **Inviti** e **Ruoli e permessi**. `/admin/users` reindirizza a `/admin/users/all`. Ogni scheda prende il titolo della pagina da `pages.admin.users`; i testi propri dell’area team sono in `pages.admin.users.invitations` e `pages.admin.users.roles`, che aggiunge al layout in `src/data/team.namespaces.ts`.
+`src/routes/admin.users.tsx` è un layout le cui schede sotto forma di link sono `USER_TABS` in `src/data/user-tabs.ts`, che unisce il `src/data/<area>.user-tabs.ts` di ogni area secondo il suo `order`. Una scheda indica il proprio percorso e lo scheletro della sua pagina, e la sua etichetta nel `navigation.<area>.json` dell’area dà il nome alla pagina anche nelle breadcrumb. L’area di autenticazione aggiunge **Tutti gli utenti**, l’area team **Inviti** e **Ruoli e autorizzazioni**. `/admin/users` reindirizza a `/admin/users/all`. Ogni scheda prende il titolo della pagina da `pages.admin.users`; i testi propri dell’area team sono in `pages.admin.users.invitations` e `pages.admin.users.roles`, che aggiunge al layout in `src/data/team.namespaces.ts`.
 
 | Rotta                      | Contenuto                                                  |
 | -------------------------- | ---------------------------------------------------------- |
 | `/admin/users/all`         | Tabella utenti reale                                       |
+| `/admin/users/$userId`     | Profilo di un utente: dati dell’account e sessioni         |
 | `/admin/users/invitations` | Righe demo (`ADMIN_INVITATION_ROWS`) con ricerca per email |
 | `/admin/users/roles`       | Righe demo (`ADMIN_ROLE_ROWS`)                             |
-| `/admin/users/security`    | Stato vuoto                                                |
 
 ## Tutti gli utenti
 
@@ -21,24 +21,48 @@ description: "Gestione utenti in /admin/users: una tabella utenti reale con azio
 ```
 
 - `getUsersPageQuery` chiama la funzione server `getUsers` (`src/modules/user/use-cases/get-users.ts`, permesso `user: ["list"]`). Paginazione e ordinamento avvengono sul server per nome, ruolo, stato, verifica dell’email, 2FA, fuso orario e date di creazione e aggiornamento.
-- Lo stato non è una colonna. `getUserStatus` (`user.utils.ts`) ricava `banned`, `pending` o `active` da `banned` ed `emailVerified`, e il server ordina con la stessa espressione SQL `case`.
-- `userColumns` si trova in `src/presentation/components/custom/admin/users/user-columns.tsx`; le date di creazione e di aggiornamento usano il messaggio `common.dateTime`, nel fuso orario di chi le consulta e con la sua sigla, così entrambe le colonne si leggono e si ordinano in un solo fuso. Il fuso di ciascun utente ha una colonna a sé.
+- Lo stato non è una colonna. `getUserStatus` (`user.utils.ts`) ricava `banned`, `pending` o `active` da `banned` ed `emailVerified`, e il server ordina con la stessa espressione SQL `case`. `UserStatusBadge` (`user-status-badge.tsx`) lo mostra nella tabella e nel profilo.
+- `userColumns` si trova in `src/presentation/components/custom/admin/users/user-columns.tsx`; ogni nome porta al profilo dell’utente. Le date di creazione e di aggiornamento usano il messaggio `common.dateTime`, nel fuso orario di chi le consulta e con la sua sigla, così entrambe le colonne si leggono e si ordinano in un solo fuso. Il fuso di ciascun utente ha una colonna a sé.
 
-## Azioni per riga
+**Aggiungi utente** apre `CreateUserDialog` (`create-user-dialog.tsx`), un form TanStack Form validato da `userZodSchemas.createUser`: nome, email, una password iniziale e un ruolo. Chiama `createUser` (`user: ["create"]`, e per il ruolo Better Auth controlla anche `user: ["set-role"]`), poi apre il profilo del nuovo utente. Better Auth crea l’account con l’email non verificata, quindi il primo accesso porta a `/auth/verify-email`, che invia il link di verifica.
 
-`UserRowActions` (`row-actions.tsx`) è il menu dell’ultima colonna:
+## Profilo
 
-- **Reimposta password** apre `ResetPasswordDialog`, che chiama `setUserPassword`.
-- **Banna** o **Rimuovi ban** chiama `banUser` o `unbanUser`.
-- **Elimina** apre `DeleteUserDialog`, che chiama `deleteUser`.
+`src/routes/admin.users.$userId.tsx` carica due query in parallelo e intitola la pagina con il nome dell’utente; per un utente che non esiste mostra la pagina «non trovato».
 
-Ogni operazione riuscita invalida `USER_QUERY_KEYS.ALL` e mostra una notifica; gli errori passano da `useErrorMessage`. Le voci **Modifica** e **Visualizza profilo** e il pulsante **Aggiungi utente** non hanno ancora alcuna azione.
+- `getUserQuery` legge la riga dell’utente (`get-user.ts`, `user: ["get"]`). `UserDetails` (`user-details.tsx`) elenca ruolo, stato, verifica dell’email, autenticazione a due fattori, fuso orario e date di creazione e aggiornamento, nell’ordine di `ADMIN_USER_DETAILS` (`src/data/admin.ts`), che segue anche `AdminUserProfilePending`.
+- `listUserSessionsQuery` elenca le sessioni attive dell’utente, dalla più recente, senza i loro token (`list-user-sessions.ts`, `session: ["list"]`). `UserSessions` (`user-sessions.tsx`) mostra ogni dispositivo e la sua attività, revoca una sessione con `revokeUserSession` e, dopo una conferma, tutte le sessioni con `revokeUserSessions` (entrambe con `session: ["revoke"]`). `revokeUserSession` riceve l’ID della sessione e ne cerca il token sul server, come fa `revokeSession` per le sessioni dell’amministratore stesso.
 
-## Non collegati
+L’intestazione mostra nome ed email dell’utente e lo stesso menu delle azioni della riga della tabella.
 
-`createUser`, `getUser`, `updateUser`, `setUserRole`, `impersonateUser` e `stopImpersonatingUser` esistono in `src/modules/user/use-cases` con il loro middleware di permessi, ma nessuna schermata li chiama. Non esiste una tabella degli inviti; i ruoli reali sono `admin` e `customer` in `auth.roles.ts`. Le schede degli inviti e dei ruoli sono le schermate demo dell’area team: le loro righe si trovano in `src/data/admin-team.ts` e i loro scheletri in `team-pending.tsx`, e un progetto senza l’area team conserva le due schede dell’area di autenticazione.
+## Azioni
+
+`UserActions` (`row-actions.tsx`) è il menu di un utente, nell’ultima colonna della tabella (`UserRowActions`) e nel profilo:
+
+| Voce                      | Apre                          | Funzione server                                 |
+| ------------------------- | ----------------------------- | ----------------------------------------------- |
+| **Modifica utente**       | `EditUserDialog`              | `updateUser` (`user: ["update"]`), solo il nome |
+| **Cambia ruolo**          | Un sottomenu dei ruoli        | `setUserRole` (`user: ["set-role"]`)            |
+| **Reimposta la password** | `ResetPasswordDialog`         | `setUserPassword` (`user: ["set-password"]`)    |
+| **Impersona**             | Niente, accede subito         | `impersonateUser` (`user: ["impersonate"]`)     |
+| **Blocca utente**         | `BanUserDialog`, con conferma | `banUser` (`user: ["ban"]`)                     |
+| **Sblocca utente**        | Niente                        | `unbanUser` (`user: ["ban"]`)                   |
+| **Elimina utente**        | `DeleteUserDialog`            | `deleteUser` (`user: ["delete"]`)               |
+
+- La riga dell’amministratore che ha effettuato l’accesso non ha **Cambia ruolo**, **Blocca utente** né **Elimina utente**, così un amministratore non può chiudersi fuori da solo; in ogni caso Better Auth si rifiuta di bloccare o eliminare chi effettua la chiamata.
+- **Impersona** compare solo per un utente che non è né amministratore né bloccato: Better Auth si rifiuta di impersonificare un amministratore senza `user: ["impersonate-admins"]`, che nessun ruolo possiede, e nega la sessione a un utente bloccato. Vedi [Impersonificazione](/docs/features/impersonation).
+- Eliminare l’utente di cui è aperto il profilo riporta a `/admin/users/all`.
+- Ogni operazione riuscita invalida `USER_QUERY_KEYS.ALL`, o `SESSION_QUERY_KEYS.USER` per le sessioni, e mostra una notifica; gli errori, compreso un permesso mancante, passano da `useErrorMessage`. Il pulsante del menu è disattivato mentre una delle sue azioni è in corso.
+
+Ogni funzione server controlla il proprio permesso con `authorized(...)` di `auth.middleware.ts`. Le dichiarazioni `user` e `session` sono i `defaultStatements` di Better Auth, e il ruolo `admin` riceve `adminAc` di Better Auth, quindi `src/data/auth.access.ts` dichiara solo `admin` e `settings`. La guardia di `/admin` ammette solo i ruoli che hanno `admin: ["access"]`.
+
+## Area team
+
+Non esiste una tabella degli inviti; i ruoli reali sono `admin` e `customer` in `auth.roles.ts`. Le schede degli inviti e dei ruoli sono le schermate demo dell’area team: le loro righe si trovano in `src/data/admin-team.ts` e i loro scheletri in `team-pending.tsx`, e un progetto senza l’area team conserva l’unica scheda dell’area di autenticazione.
 
 ## Guide correlate
 
 - [DataTable](/docs/ui/data-table)
 - [Impersonificazione](/docs/features/impersonation)
+- [Sessioni](/docs/features/sessions)
+- [Ruoli e permessi](/docs/guides/roles-and-permissions)

@@ -1,18 +1,18 @@
 ---
 title: "Użytkownicy (admin)"
-description: "Zarządzanie użytkownikami w /admin/users: działająca tabela użytkowników z akcjami wierszy oraz demonstracyjne karty zaproszeń i ról."
+description: "Zarządzanie użytkownikami w /admin/users: działająca tabela użytkowników, strona profilu każdego użytkownika i akcje wywołujące API administracyjne Better Auth oraz demonstracyjne karty zaproszeń i ról."
 ---
 
 ## Trasy
 
-`src/routes/admin.users.tsx` to layout, którego karty w postaci linków to `USER_TABS` z `src/data/user-tabs.ts`, łączący `src/data/<area>.user-tabs.ts` każdego obszaru według `order`. Karta podaje swoją ścieżkę i szkielet swojej strony, a jej etykieta w pliku `navigation.<area>.json` obszaru nazywa też stronę w okruszkach. Obszar uwierzytelniania dodaje **Wszyscy użytkownicy** i **Bezpieczeństwo**, obszar zespołu **Zaproszenia** oraz **Role i uprawnienia**. `/admin/users` przekierowuje do `/admin/users/all`. Każda karta bierze tytuł strony z `pages.admin.users`; własne teksty obszaru zespołu są w `pages.admin.users.invitations` i `pages.admin.users.roles`, które dodaje on do layoutu w `src/data/team.namespaces.ts`.
+`src/routes/admin.users.tsx` to layout, którego karty w postaci linków to `USER_TABS` z `src/data/user-tabs.ts`, łączący `src/data/<area>.user-tabs.ts` każdego obszaru według `order`. Karta podaje swoją ścieżkę i szkielet swojej strony, a jej etykieta w pliku `navigation.<area>.json` obszaru nazywa też stronę w okruszkach. Obszar uwierzytelniania dodaje **Wszyscy użytkownicy**, obszar zespołu **Zaproszenia** oraz **Role i uprawnienia**. `/admin/users` przekierowuje do `/admin/users/all`. Każda karta bierze tytuł strony z `pages.admin.users`; własne teksty obszaru zespołu są w `pages.admin.users.invitations` i `pages.admin.users.roles`, które dodaje on do layoutu w `src/data/team.namespaces.ts`.
 
 | Trasa                      | Zawartość                                                                   |
 | -------------------------- | --------------------------------------------------------------------------- |
 | `/admin/users/all`         | Działająca tabela użytkowników                                              |
+| `/admin/users/$userId`     | Profil użytkownika: dane konta i sesje                                      |
 | `/admin/users/invitations` | Wiersze demonstracyjne (`ADMIN_INVITATION_ROWS`) z wyszukiwaniem po e-mailu |
 | `/admin/users/roles`       | Wiersze demonstracyjne (`ADMIN_ROLE_ROWS`)                                  |
-| `/admin/users/security`    | Pusty stan                                                                  |
 
 ## Wszyscy użytkownicy
 
@@ -21,24 +21,48 @@ description: "Zarządzanie użytkownikami w /admin/users: działająca tabela u�
 ```
 
 - `getUsersPageQuery` wywołuje funkcję serwerową `getUsers` (`src/modules/user/use-cases/get-users.ts`, uprawnienie `user: ["list"]`). Paginacja i sortowanie odbywają się na serwerze według nazwy, roli, statusu, weryfikacji e-maila, 2FA, strefy czasowej oraz dat utworzenia i aktualizacji.
-- Status nie jest kolumną. `getUserStatus` (`user.utils.ts`) wyznacza `banned`, `pending` lub `active` na podstawie `banned` i `emailVerified`, a serwer sortuje według tego samego wyrażenia SQL `case`.
-- `userColumns` znajduje się w `src/presentation/components/custom/admin/users/user-columns.tsx`; daty utworzenia i aktualizacji używają komunikatu `common.dateTime`, we własnej strefie czasowej oglądającego wraz z jej skrótem, więc obie kolumny czyta się i sortuje w jednej strefie. Strefa każdego użytkownika ma własną kolumnę.
+- Status nie jest kolumną. `getUserStatus` (`user.utils.ts`) wyznacza `banned`, `pending` lub `active` na podstawie `banned` i `emailVerified`, a serwer sortuje według tego samego wyrażenia SQL `case`. `UserStatusBadge` (`user-status-badge.tsx`) wyświetla go w tabeli i w profilu.
+- `userColumns` znajduje się w `src/presentation/components/custom/admin/users/user-columns.tsx`; imię i nazwisko każdego użytkownika prowadzi do jego profilu. Daty utworzenia i aktualizacji używają komunikatu `common.dateTime`, we własnej strefie czasowej oglądającego wraz z jej skrótem, więc obie kolumny czyta się i sortuje w jednej strefie. Strefa każdego użytkownika ma własną kolumnę.
 
-## Akcje wierszy
+**Dodaj użytkownika** otwiera `CreateUserDialog` (`create-user-dialog.tsx`), formularz TanStack Form walidowany przez `userZodSchemas.createUser`: imię i nazwisko, e-mail, hasło początkowe i rola. Wywołuje `createUser` (`user: ["create"]`, a dla roli Better Auth sprawdza też `user: ["set-role"]`), po czym otwiera profil nowego użytkownika. Better Auth tworzy konto z niezweryfikowanym adresem e-mail, więc pierwsze logowanie prowadzi do `/auth/verify-email`, która wysyła link weryfikacyjny.
 
-`UserRowActions` (`row-actions.tsx`) to menu w ostatniej kolumnie:
+## Profil
 
-- **Zresetuj hasło** otwiera `ResetPasswordDialog`, który wywołuje `setUserPassword`.
-- **Zablokuj** lub **Odblokuj** wywołuje `banUser` albo `unbanUser`.
-- **Usuń** otwiera `DeleteUserDialog`, który wywołuje `deleteUser`.
+`src/routes/admin.users.$userId.tsx` wczytuje dwa zapytania jednocześnie i nadaje stronie tytuł od imienia i nazwiska użytkownika; dla nieistniejącego użytkownika wyświetla stronę „nie znaleziono”.
 
-Każde powodzenie unieważnia `USER_QUERY_KEYS.ALL` i wyświetla powiadomienie; błędy przechodzą przez `useErrorMessage`. Pozycje **Edytuj** i **Zobacz profil** oraz przycisk **Dodaj użytkownika** nie mają jeszcze żadnej akcji.
+- `getUserQuery` odczytuje wiersz użytkownika (`get-user.ts`, `user: ["get"]`). `UserDetails` (`user-details.tsx`) wymienia rolę, status, weryfikację e-maila, uwierzytelnianie dwuskładnikowe, strefę czasową oraz daty utworzenia i aktualizacji w kolejności `ADMIN_USER_DETAILS` (`src/data/admin.ts`), której trzyma się też `AdminUserProfilePending`.
+- `listUserSessionsQuery` zwraca aktywne sesje użytkownika, od najnowszej, bez ich tokenów (`list-user-sessions.ts`, `session: ["list"]`). `UserSessions` (`user-sessions.tsx`) pokazuje każde urządzenie i jego aktywność, unieważnia jedną sesję przez `revokeUserSession`, a po potwierdzeniu wszystkie sesje przez `revokeUserSessions` (obie wymagają `session: ["revoke"]`). `revokeUserSession` przyjmuje ID sesji i wyszukuje jej token na serwerze, tak jak `revokeSession` robi to dla własnych sesji administratora.
 
-## Niepodłączone
+Nagłówek pokazuje imię i nazwisko oraz e-mail użytkownika i to samo menu akcji co wiersz tabeli.
 
-`createUser`, `getUser`, `updateUser`, `setUserRole`, `impersonateUser` i `stopImpersonatingUser` istnieją w `src/modules/user/use-cases` z middleware uprawnień, ale żaden ekran ich nie wywołuje. Nie ma tabeli zaproszeń; faktyczne role to `admin` i `customer` w `auth.roles.ts`. Karty zaproszeń i ról to demonstracyjne ekrany obszaru zespołu: ich wiersze znajdują się w `src/data/admin-team.ts`, a szkielety w `team-pending.tsx`, a projekt bez obszaru zespołu zachowuje dwie karty obszaru uwierzytelniania.
+## Akcje
+
+`UserActions` (`row-actions.tsx`) to menu użytkownika, w ostatniej kolumnie tabeli (`UserRowActions`) i w profilu:
+
+| Pozycja                         | Otwiera                          | Funkcja serwerowa                                        |
+| ------------------------------- | -------------------------------- | -------------------------------------------------------- |
+| **Edytuj użytkownika**          | `EditUserDialog`                 | `updateUser` (`user: ["update"]`), tylko imię i nazwisko |
+| **Zmień rolę**                  | Podmenu z rolami                 | `setUserRole` (`user: ["set-role"]`)                     |
+| **Resetuj hasło**               | `ResetPasswordDialog`            | `setUserPassword` (`user: ["set-password"]`)             |
+| **Zaloguj się jako użytkownik** | Nic, od razu loguje              | `impersonateUser` (`user: ["impersonate"]`)              |
+| **Zablokuj użytkownika**        | `BanUserDialog` z potwierdzeniem | `banUser` (`user: ["ban"]`)                              |
+| **Odblokuj użytkownika**        | Nic                              | `unbanUser` (`user: ["ban"]`)                            |
+| **Usuń użytkownika**            | `DeleteUserDialog`               | `deleteUser` (`user: ["delete"]`)                        |
+
+- Własny wiersz zalogowanego administratora nie ma pozycji **Zmień rolę**, **Zablokuj użytkownika** ani **Usuń użytkownika**, więc administrator nie może odciąć sobie dostępu; Better Auth i tak odmawia zablokowania lub usunięcia wywołującego.
+- **Zaloguj się jako użytkownik** pojawia się tylko przy użytkowniku, który nie jest administratorem ani nie jest zablokowany: Better Auth odmawia podszywania się pod administratora bez `user: ["impersonate-admins"]`, którego nie ma żadna rola, i odmawia sesji zablokowanemu użytkownikowi. Zobacz [Podszywanie się](/docs/features/impersonation).
+- Usunięcie użytkownika, którego profil jest otwarty, przenosi z powrotem do `/admin/users/all`.
+- Każde powodzenie unieważnia `USER_QUERY_KEYS.ALL`, a w przypadku sesji `SESSION_QUERY_KEYS.USER`, i wyświetla powiadomienie; błędy, w tym brak uprawnienia, przechodzą przez `useErrorMessage`. Przycisk menu jest wyłączony, dopóki trwa jedna z jego akcji.
+
+Każda funkcja serwerowa sprawdza własne uprawnienie przez `authorized(...)` z `auth.middleware.ts`. Uprawnienia `user` i `session` to `defaultStatements` z Better Auth, a rola `admin` otrzymuje `adminAc` z Better Auth, więc `src/data/auth.access.ts` deklaruje tylko `admin` i `settings`. Strażnik `/admin` wpuszcza tylko role, które mają `admin: ["access"]`.
+
+## Obszar zespołu
+
+Nie ma tabeli zaproszeń; faktyczne role to `admin` i `customer` w `auth.roles.ts`. Karty zaproszeń i ról to demonstracyjne ekrany obszaru zespołu: ich wiersze znajdują się w `src/data/admin-team.ts`, a szkielety w `team-pending.tsx`, a projekt bez obszaru zespołu zachowuje jedyną kartę obszaru uwierzytelniania.
 
 ## Powiązane przewodniki
 
 - [DataTable](/docs/ui/data-table)
 - [Podszywanie się](/docs/features/impersonation)
+- [Sesje](/docs/features/sessions)
+- [Role i uprawnienia](/docs/guides/roles-and-permissions)

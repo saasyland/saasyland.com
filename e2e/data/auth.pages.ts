@@ -1,4 +1,5 @@
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
+import { TEST_ACCOUNTS } from "./accounts"
 import type { PageEntry } from "./pages"
 
 export const AUTH_PAGES = [
@@ -8,6 +9,6 @@ export const AUTH_PAGES = [
   { path: "/admin", role: ROLE_CODES.ADMIN },
   { path: "/admin/settings", role: ROLE_CODES.ADMIN },
   { path: "/admin/users/all", role: ROLE_CODES.ADMIN },
-  { path: "/admin/users/security", role: ROLE_CODES.ADMIN },
+  { path: `/admin/users/${TEST_ACCOUNTS[1].id}`, role: ROLE_CODES.ADMIN },
   { path: "/app/settings", role: ROLE_CODES.CUSTOMER },
 ] as const satisfies readonly PageEntry[]

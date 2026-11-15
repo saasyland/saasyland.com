@@ -8,7 +8,7 @@ import { USER_TABS, type UserTab } from "~/src/data/user-tabs"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import { AdminUsersAllPending } from "~/src/presentation/components/custom/admin/auth-pending"
+import { AdminUserProfilePending, AdminUsersAllPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { TitlePending } from "~/src/presentation/components/custom/admin/pending-blocks"
 
 import { ROUTES } from "~/src/routes"
@@ -20,7 +20,7 @@ const USER_PAGES = new Map<string, UserTab["pendingComponent"]>([
 
 export const AdminUsersPending = (): JSX.Element => {
   const pathname = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) })
-  const Page = USER_PAGES.get(pathname)
+  const Page = USER_PAGES.get(pathname) ?? AdminUserProfilePending
 
   return (
     <div className="-mx-4 -mt-5 -mb-6 flex min-h-0 w-[calc(100%+2rem)] flex-1 flex-col overflow-hidden md:-mx-6 md:-mt-7 md:-mb-8 md:w-[calc(100%+3rem)]">
@@ -42,7 +42,9 @@ export const AdminUsersPending = (): JSX.Element => {
           </div>
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-5 md:px-6 md:pt-6">{Page && <Page />}</div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-5 md:px-6 md:pt-6">
+        <Page />
+      </div>
     </div>
   )
 }

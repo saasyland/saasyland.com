@@ -1,18 +1,18 @@
 ---
 title: "ユーザー（管理）"
-description: "/admin/users のユーザー管理: 行アクション付きの稼働中のユーザーテーブルと、デモの招待・ロールタブ。"
+description: "/admin/users のユーザー管理: 稼働中のユーザーテーブル、ユーザーごとのプロフィールページ、Better Auth の管理 API を呼び出すアクション、そしてデモの招待・ロールタブ。"
 ---
 
 ## ルート
 
-`src/routes/admin.users.tsx` はレイアウトで、リンク形式のタブは `src/data/user-tabs.ts` の `USER_TABS` です。これは各エリアの `src/data/<area>.user-tabs.ts` を `order` の順にまとめます。タブはパスとページのスケルトンを指定し、エリアの `navigation.<area>.json` にあるタブのラベルはパンくずリストでもそのページの名前になります。認証エリアは **全ユーザー** と **セキュリティ** を、チームエリアは **招待** と **ロールと権限** を追加します。`/admin/users` は `/admin/users/all` へリダイレクトします。どのタブもページタイトルは `pages.admin.users` から取ります。チームエリア自身の文言は `pages.admin.users.invitations` と `pages.admin.users.roles` にあり、チームエリアが `src/data/team.namespaces.ts` でレイアウトに追加します。
+`src/routes/admin.users.tsx` はレイアウトで、リンク形式のタブは `src/data/user-tabs.ts` の `USER_TABS` です。これは各エリアの `src/data/<area>.user-tabs.ts` を `order` の順にまとめます。タブはパスとページのスケルトンを指定し、エリアの `navigation.<area>.json` にあるタブのラベルはパンくずリストでもそのページの名前になります。認証エリアは **全ユーザー** を、チームエリアは **招待** と **ロールと権限** を追加します。`/admin/users` は `/admin/users/all` へリダイレクトします。どのタブもページタイトルは `pages.admin.users` から取ります。チームエリア自身の文言は `pages.admin.users.invitations` と `pages.admin.users.roles` にあり、チームエリアが `src/data/team.namespaces.ts` でレイアウトに追加します。
 
-| ルート                     | 内容                                              |
-| -------------------------- | ------------------------------------------------- |
-| `/admin/users/all`         | 稼働中のユーザーテーブル                          |
-| `/admin/users/invitations` | メール検索付きのデモ行（`ADMIN_INVITATION_ROWS`） |
-| `/admin/users/roles`       | デモ行（`ADMIN_ROLE_ROWS`）                       |
-| `/admin/users/security`    | 空の状態                                          |
+| ルート                     | 内容                                                 |
+| -------------------------- | ---------------------------------------------------- |
+| `/admin/users/all`         | 稼働中のユーザーテーブル                             |
+| `/admin/users/$userId`     | ユーザーのプロフィール: アカウントの詳細とセッション |
+| `/admin/users/invitations` | メール検索付きのデモ行（`ADMIN_INVITATION_ROWS`）    |
+| `/admin/users/roles`       | デモ行（`ADMIN_ROLE_ROWS`）                          |
 
 ## すべてのユーザー
 
@@ -21,24 +21,48 @@ description: "/admin/users のユーザー管理: 行アクション付きの稼
 ```
 
 - `getUsersPageQuery` はサーバー関数 `getUsers`（`src/modules/user/use-cases/get-users.ts`、権限 `user: ["list"]`）を呼び出します。ページネーションと並べ替えはサーバー側で行い、名前、ロール、ステータス、メール確認、2FA、タイムゾーン、作成日時と更新日時で並べ替えられます。
-- ステータスは列ではありません。`getUserStatus`（`user.utils.ts`）が `banned` と `emailVerified` から `banned`、`pending`、`active` を導き、サーバーは同じ SQL の `case` 式で並べ替えます。
-- `userColumns` は `src/presentation/components/custom/admin/users/user-columns.tsx` にあります。作成日時と更新日時は `common.dateTime` メッセージを使い、閲覧者自身のタイムゾーンで略称付きで表示されるため、どちらの列も 1 つのタイムゾーンで表示され、並べ替えられます。各ユーザーのタイムゾーンは独立した列で表示されます。
+- ステータスは列ではありません。`getUserStatus`（`user.utils.ts`）が `banned` と `emailVerified` から `banned`、`pending`、`active` を導き、サーバーは同じ SQL の `case` 式で並べ替えます。`UserStatusBadge`（`user-status-badge.tsx`）がテーブルとプロフィールでステータスを表示します。
+- `userColumns` は `src/presentation/components/custom/admin/users/user-columns.tsx` にあり、各ユーザーの名前はそのユーザーのプロフィールへリンクします。作成日時と更新日時は `common.dateTime` メッセージを使い、閲覧者自身のタイムゾーンで略称付きで表示されるため、どちらの列も 1 つのタイムゾーンで表示され、並べ替えられます。各ユーザーのタイムゾーンは独立した列で表示されます。
 
-## 行アクション
+**ユーザーを追加** は `CreateUserDialog`（`create-user-dialog.tsx`）を開きます。これは `userZodSchemas.createUser` で検証する TanStack Form のフォームで、名前、メールアドレス、初期パスワード、ロールを入力します。`createUser`（`user: ["create"]`。ロールについては Better Auth が `user: ["set-role"]` もチェックします）を呼び出し、新しいユーザーのプロフィールを開きます。Better Auth はメールアドレスが未確認の状態でアカウントを作成するため、最初のサインインで `/auth/verify-email` に移動し、そこで確認リンクが送信されます。
 
-`UserRowActions`（`row-actions.tsx`）は最後の列のメニューです。
+## プロフィール
 
-- **パスワードをリセット** は `ResetPasswordDialog` を開き、`setUserPassword` を呼び出します。
-- **利用停止** または **利用停止を解除** は `banUser` または `unbanUser` を呼び出します。
-- **削除** は `DeleteUserDialog` を開き、`deleteUser` を呼び出します。
+`src/routes/admin.users.$userId.tsx` は 2 つのクエリを同時に読み込み、ページのタイトルをユーザーの名前にします。存在しないユーザーの場合は Not Found ページになります。
 
-成功するたびに `USER_QUERY_KEYS.ALL` を無効化してトーストを表示し、エラーは `useErrorMessage` を通して表示します。**編集** と **プロフィールを表示** の項目、および **ユーザーを追加** ボタンにはまだ処理がありません。
+- `getUserQuery` はユーザーの行を読み取ります（`get-user.ts`、`user: ["get"]`）。`UserDetails`（`user-details.tsx`）は、ロール、ステータス、メール確認、二要素認証、タイムゾーン、作成日時と更新日時を `ADMIN_USER_DETAILS`（`src/data/admin.ts`）の順に表示し、`AdminUserProfilePending` も同じ順序に従います。
+- `listUserSessionsQuery` はユーザーの有効なセッションを、トークンを除いて新しい順に一覧表示します（`list-user-sessions.ts`、`session: ["list"]`）。`UserSessions`（`user-sessions.tsx`）は各デバイスとそのアクティビティを表示し、`revokeUserSession` で 1 つのセッションを、確認のうえ `revokeUserSessions` ですべてのセッションを失効させます（どちらも `session: ["revoke"]`）。`revokeUserSession` はセッションの ID を受け取り、サーバー側でそのトークンを調べます。これは `revokeSession` が管理者自身のセッションに対して行うのと同じです。
 
-## 未接続
+ヘッダーには、ユーザーの名前とメールアドレス、そしてテーブルの行と同じアクションメニューが表示されます。
 
-`createUser`、`getUser`、`updateUser`、`setUserRole`、`impersonateUser`、`stopImpersonatingUser` は権限ミドルウェア付きで `src/modules/user/use-cases` にありますが、どの画面も呼び出していません。招待テーブルはなく、実際のロールは `auth.roles.ts` の `admin` と `customer` です。招待タブとロールタブはチームエリアのデモ画面で、行は `src/data/admin-team.ts`、スケルトンは `team-pending.tsx` にあります。チームエリアのないプロジェクトには、認証エリアの 2 つのタブだけが残ります。
+## アクション
+
+`UserActions`（`row-actions.tsx`）はユーザーごとのメニューで、テーブルの最後の列（`UserRowActions`）とプロフィールにあります。
+
+| 項目                           | 開くもの                 | サーバー関数                                  |
+| ------------------------------ | ------------------------ | --------------------------------------------- |
+| **ユーザーを編集する**         | `EditUserDialog`         | `updateUser`（`user: ["update"]`）、名前のみ  |
+| **ロールを変更**               | ロールのサブメニュー     | `setUserRole`（`user: ["set-role"]`）         |
+| **パスワードをリセットする**   | `ResetPasswordDialog`    | `setUserPassword`（`user: ["set-password"]`） |
+| **このユーザーとしてログイン** | なし、そのままサインイン | `impersonateUser`（`user: ["impersonate"]`）  |
+| **ユーザーを利用停止**         | `BanUserDialog`（確認）  | `banUser`（`user: ["ban"]`）                  |
+| **利用停止を解除**             | なし                     | `unbanUser`（`user: ["ban"]`）                |
+| **ユーザーを削除する**         | `DeleteUserDialog`       | `deleteUser`（`user: ["delete"]`）            |
+
+- サインイン中の管理者自身の行には **ロールを変更**、**ユーザーを利用停止**、**ユーザーを削除する** がないため、管理者が自分自身を締め出すことはありません。いずれにしても、Better Auth は呼び出し元自身の利用停止や削除を拒否します。
+- **このユーザーとしてログイン** は、管理者でも利用停止中でもないユーザーにだけ表示されます。Better Auth は `user: ["impersonate-admins"]` がなければ管理者へのなりすましを拒否し（この権限はどのロールにもありません）、利用停止中のユーザーにはセッションを与えません。[なりすまし](/docs/features/impersonation)を参照してください。
+- プロフィールを開いているユーザーを削除すると、`/admin/users/all` に戻ります。
+- 成功するたびに `USER_QUERY_KEYS.ALL`（セッションの場合は `SESSION_QUERY_KEYS.USER`）を無効化してトーストを表示し、権限不足を含むエラーは `useErrorMessage` を通して表示します。いずれかのアクションの実行中は、メニューボタンが無効になります。
+
+各サーバー関数は `auth.middleware.ts` の `authorized(...)` で自身の権限をチェックします。`user` と `session` のステートメントは Better Auth の `defaultStatements` で、`admin` ロールは Better Auth の `adminAc` を持つため、`src/data/auth.access.ts` は `admin` と `settings` だけを宣言します。`/admin` のガードは `admin: ["access"]` を持つロールだけを通します。
+
+## チームエリア
+
+招待テーブルはなく、実際のロールは `auth.roles.ts` の `admin` と `customer` です。招待タブとロールタブはチームエリアのデモ画面で、行は `src/data/admin-team.ts`、スケルトンは `team-pending.tsx` にあります。チームエリアのないプロジェクトには、認証エリアの 1 つのタブだけが残ります。
 
 ## 関連ガイド
 
 - [DataTable](/docs/ui/data-table)
 - [なりすまし](/docs/features/impersonation)
+- [セッション](/docs/features/sessions)
+- [ロールと権限](/docs/guides/roles-and-permissions)

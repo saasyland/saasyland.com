@@ -12,6 +12,7 @@ import { SidebarInset, SidebarProvider } from "~/src/presentation/components/sha
 
 import { AppPending } from "~/src/presentation/components/custom/app/app-pending"
 import { AppHeader } from "~/src/presentation/components/custom/app/header"
+import { ImpersonationBanner } from "~/src/presentation/components/custom/app/impersonation-banner"
 import { AppSidebar } from "~/src/presentation/components/custom/app/sidebar"
 import { Background } from "~/src/presentation/components/custom/background"
 
@@ -20,6 +21,7 @@ const AppLayout = (): JSX.Element => (
     <AppSidebar />
     <SidebarInset className="relative min-h-0 min-w-0 overflow-hidden">
       <Background className="z-[-1]" glow={false} />
+      <ImpersonationBanner />
       <AppHeader />
       <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-5 pb-6 md:px-6 md:pt-7 md:pb-8">
         <div className="mx-auto w-full max-w-5xl">

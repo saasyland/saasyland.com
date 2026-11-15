@@ -17,6 +17,7 @@ const TARGET_USER_ID = "01900000-0000-7000-8000-000000000002"
 const OTHER_TARGET_USER_ID = "01900000-0000-7000-8000-000000000004"
 const ADMIN_USER_ID = "01900000-0000-7000-8000-000000000001"
 const FIXTURE_DATE = new Date("2024-01-01T00:00:00.000Z")
+const LATER_DATE = new Date("2024-01-02T00:00:00.000Z")
 
 type AuthApi = typeof auth.api
 
@@ -30,28 +31,50 @@ vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerMo
 }))
 
 describe("list-user-sessions", () => {
-  it("lists sessions when the caller is an admin", async () => {
+  it("lists the user's sessions newest first without their tokens when the caller is an admin", async () => {
     expect.hasAssertions()
     getSessionMock.mockReset()
     listUserSessionsMock.mockReset()
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     vi.spyOn(authServer.auth.api, "listUserSessions").mockImplementation(listUserSessionsMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: ADMIN_USER_ID }))
-    const sessionsResult = {
+    listUserSessionsMock.mockResolvedValue({
       sessions: [
         {
           createdAt: FIXTURE_DATE,
-          expiresAt: FIXTURE_DATE,
+          expiresAt: LATER_DATE,
           id: "01900000-0000-7000-8000-000000000003",
-          token: "session-token",
+          token: "older-session-token",
           updatedAt: FIXTURE_DATE,
           userId: TARGET_USER_ID,
         },
+        {
+          createdAt: LATER_DATE,
+          expiresAt: LATER_DATE,
+          id: "01900000-0000-7000-8000-000000000006",
+          token: "newer-session-token",
+          updatedAt: LATER_DATE,
+          userId: TARGET_USER_ID,
+        },
       ],
-    }
-    listUserSessionsMock.mockResolvedValue(sessionsResult)
+    })
 
-    await expect(executeQuery(listUserSessionsQuery({ userId: TARGET_USER_ID }))).resolves.toMatchObject(sessionsResult)
+    await expect(executeQuery(listUserSessionsQuery({ userId: TARGET_USER_ID }))).resolves.toStrictEqual([
+      {
+        createdAt: LATER_DATE,
+        expiresAt: LATER_DATE,
+        id: "01900000-0000-7000-8000-000000000006",
+        updatedAt: LATER_DATE,
+        userId: TARGET_USER_ID,
+      },
+      {
+        createdAt: FIXTURE_DATE,
+        expiresAt: LATER_DATE,
+        id: "01900000-0000-7000-8000-000000000003",
+        updatedAt: FIXTURE_DATE,
+        userId: TARGET_USER_ID,
+      },
+    ])
     expect(listUserSessionsMock).toHaveBeenCalledWith({
       body: { userId: TARGET_USER_ID },
       headers: HEADERS,
@@ -64,20 +87,18 @@ describe("list-user-sessions", () => {
     vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
     vi.spyOn(authServer.auth.api, "listUserSessions").mockImplementation(listUserSessionsMock)
     getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: ADMIN_USER_ID }))
-    const firstResult = { sessions: [] }
-    const secondResult = {
-      sessions: [
-        {
-          createdAt: FIXTURE_DATE,
-          expiresAt: FIXTURE_DATE,
-          id: "01900000-0000-7000-8000-000000000005",
-          token: "other-session-token",
-          updatedAt: FIXTURE_DATE,
-          userId: OTHER_TARGET_USER_ID,
-        },
-      ],
+    const otherSession = {
+      createdAt: FIXTURE_DATE,
+      expiresAt: FIXTURE_DATE,
+      id: "01900000-0000-7000-8000-000000000005",
+      updatedAt: FIXTURE_DATE,
+      userId: OTHER_TARGET_USER_ID,
     }
-    listUserSessionsMock.mockResolvedValueOnce(firstResult).mockResolvedValueOnce(secondResult)
+    const firstResult: (typeof otherSession)[] = []
+    const secondResult = [otherSession]
+    listUserSessionsMock
+      .mockResolvedValueOnce({ sessions: [] })
+      .mockResolvedValueOnce({ sessions: [{ ...otherSession, token: "other-session-token" }] })
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
 
     await expect(queryClient.query(listUserSessionsQuery({ userId: TARGET_USER_ID }))).resolves.toEqual(firstResult)

@@ -21,13 +21,13 @@ import {
 } from "~/src/platform/testing/mocks/polar"
 
 import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
-import { browserHeaders, signUpAndVerify } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
+import { browserHeaders, createTestAccount, signUpAndVerify } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_CHECKOUT_ID_PLACEHOLDER, POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { COUNTRY_HEADER, HTTP_STATUS } from "~/src/modules/_core/constants/api"
+import { COUNTRY_HEADER, HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { DEFAULT_CURRENCY_CODE, PPP_COOKIE, PPP_DECLINED, PPP_PERCENT, pppMultiplierKey } from "~/src/modules/_core/constants/pricing"
@@ -141,6 +141,19 @@ describe("checkout", () => {
       net_amount: listPrice(LICENSE_TIER.COMPLETE),
       product_id: POLAR_PRODUCT_IDS[LICENSE_TIER.COMPLETE],
       success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}`,
+    })
+  })
+
+  it("fills in the signed-in buyer's email and name and passes the buyer's address, so the checkout form asks for neither", async () => {
+    const buyer = await signUpAndVerify({ ...createTestAccount(), name: "Ada Lovelace" })
+
+    const checkout = await startCheckout(buyer, { tier: LICENSE_TIER.CORE })
+
+    expect(checkout).toMatchObject({
+      customer_email: buyer.account.email,
+      customer_ip_address: buyer.headers.get(IP_ADDRESS_HEADER),
+      customer_name: buyer.account.name,
+      external_customer_id: buyer.userId,
     })
   })
 

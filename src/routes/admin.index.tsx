@@ -2,7 +2,6 @@ import type { JSX } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Download } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
@@ -12,7 +11,7 @@ import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 import { USER_STATUSES } from "~/src/modules/user/user.utils"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
-import { ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
+import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
 
 import { pageHead } from "~/src/lib/seo"
 
@@ -21,7 +20,6 @@ import { Card } from "~/src/presentation/components/shadcn/card"
 
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { DashboardActions } from "~/src/presentation/components/custom/admin/dashboard/actions"
-import { RevenueChart } from "~/src/presentation/components/custom/admin/dashboard/revenue-chart"
 import { DashboardStats } from "~/src/presentation/components/custom/admin/dashboard/stats"
 import { dashboardUserColumns } from "~/src/presentation/components/custom/admin/dashboard/user-columns"
 import { DataTable } from "~/src/presentation/components/custom/data-table"
@@ -44,18 +42,14 @@ const DashboardPage = (): JSX.Element => {
 
       <DashboardStats />
 
-      <RevenueChart />
+      {ADMIN_DASHBOARD_PANELS.map(({ Panel, key }) => (
+        <Panel key={key} />
+      ))}
 
       <Card className="flex flex-col gap-4 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-title text-foreground">{t("users.title")}</h2>
-            <p className="mt-0.5 text-body-sm text-muted-foreground">{t("users.description")}</p>
-          </div>
-          <Button className="h-8 gap-1.5 px-2.5 text-xs" size="sm" variant="outline">
-            <Download className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
-            {t("users.export")}
-          </Button>
+        <div>
+          <h2 className="text-title text-foreground">{t("users.title")}</h2>
+          <p className="mt-0.5 text-body-sm text-muted-foreground">{t("users.description")}</p>
         </div>
 
         <DataTable

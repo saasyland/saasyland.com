@@ -4,6 +4,8 @@ import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { newsletterRequestOrigin } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.server"
 
+import { APP_DOMAIN, APP_PREVIEW_DOMAIN, APP_SLUG, APP_URL } from "~/src/presentation/branding"
+
 vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
 
 afterEach(() => {
@@ -12,8 +14,8 @@ afterEach(() => {
 
 describe("newsletter request origin", () => {
   it.each([
-    { mode: ENVIRONMENT.PRODUCTION, origin: "https://saasyland.com" },
-    { mode: ENVIRONMENT.PREVIEW, origin: "https://preview.saasyland.com" },
+    { mode: ENVIRONMENT.PRODUCTION, origin: APP_URL },
+    { mode: ENVIRONMENT.PREVIEW, origin: `https://${APP_PREVIEW_DOMAIN}` },
     { mode: ENVIRONMENT.DEVELOPMENT, origin: "http://localhost:3000" },
     { mode: ENVIRONMENT.DEVELOPMENT, origin: "http://127.0.0.1:3000" },
     { mode: ENVIRONMENT.TEST, origin: "http://127.0.0.1:3020" },
@@ -24,11 +26,11 @@ describe("newsletter request origin", () => {
   })
 
   it.each([
-    { mode: ENVIRONMENT.PRODUCTION, origin: "https://preview.saasyland.com" },
-    { mode: ENVIRONMENT.PRODUCTION, origin: "http://saasyland.com" },
+    { mode: ENVIRONMENT.PRODUCTION, origin: `https://${APP_PREVIEW_DOMAIN}` },
+    { mode: ENVIRONMENT.PRODUCTION, origin: `http://${APP_DOMAIN}` },
     { mode: ENVIRONMENT.PRODUCTION, origin: "http://localhost:3000" },
-    { mode: ENVIRONMENT.PRODUCTION, origin: "https://saasyland.com.example.test" },
-    { mode: ENVIRONMENT.PREVIEW, origin: "https://saasyland-preview.account.workers.dev" },
+    { mode: ENVIRONMENT.PRODUCTION, origin: `${APP_URL}.example.test` },
+    { mode: ENVIRONMENT.PREVIEW, origin: `https://${APP_SLUG}-preview.account.workers.dev` },
     { mode: ENVIRONMENT.DEVELOPMENT, origin: "http://127.0.0.1:3020" },
     { mode: ENVIRONMENT.DEVELOPMENT, origin: "https://example.test" },
     { mode: ENVIRONMENT.TEST, origin: "ftp://localhost:3000" },

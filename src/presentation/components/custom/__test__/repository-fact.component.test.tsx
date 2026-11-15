@@ -11,13 +11,14 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 
 import { PPP_TIERS } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_API_ENDPOINTS, LICENSE_API_RETRY_AFTER_SECONDS } from "~/src/modules/license/license.constants"
+import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
 import { APP_STATEMENTS } from "~/src/data/access"
+import { CLI_LICENSE_COMMANDS, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { MILLISECONDS_PER_SECOND, MINUTES_PER_HOUR, SECONDS_PER_MINUTE } from "~/src/lib/duration"
-import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/lib/rate-limit"
 
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
 
@@ -142,6 +143,25 @@ describe("RepositoryFact", () => {
       String(RATE_LIMIT.REQUESTS_PER_ADDRESS),
       String(RATE_LIMIT.REQUESTS_PER_LICENSE_KEY),
       new Intl.NumberFormat("en-US", { style: "unit", unit: "second", unitDisplay: "long" }).format(LICENSE_API_RETRY_AFTER_SECONDS),
+    ])
+  })
+
+  it("prints the CLI commands of the licence page and the landing page's scaffold command from the CLI data", () => {
+    renderInLocale(
+      "en-US",
+      <ul>
+        <li>
+          <RepositoryFact name="cliLicenseCommands" />
+        </li>
+        <li>
+          <RepositoryFact name="scaffoldTarget" />
+        </li>
+      </ul>,
+    )
+
+    expect(listItems()).toEqual([
+      new Intl.ListFormat("en-US").format(CLI_LICENSE_COMMANDS.map((command) => cliCommand(command))),
+      SCAFFOLD_TARGET,
     ])
   })
 

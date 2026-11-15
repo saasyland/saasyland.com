@@ -28,6 +28,8 @@ import { Route as AppRoute } from "~/src/routes/app"
 import { Route as OverviewRoute } from "~/src/routes/app.index"
 import { Route as LicenseRoute } from "~/src/routes/app.license"
 
+import { CLI_LICENSE_COMMANDS, CLI_LICENSE_KEY_VARIABLE, cliCommand } from "~/src/data/cli"
+
 import { LicenseCard } from "~/src/presentation/components/custom/app/license-card"
 import { LicenseStatusCard } from "~/src/presentation/components/custom/app/license-status-card"
 
@@ -383,6 +385,22 @@ describe("owning a license", () => {
     })
     expect(screen.getByText(pagesLicenseMessages.activations.none)).toBeVisible()
     expect(toast.success).toHaveBeenCalledWith(pagesLicenseMessages.activations.success)
+  })
+
+  it("shows the CLI commands that activate, show and free a machine, and the variable that holds the key in CI", async () => {
+    currentLicenseMock.mockResolvedValue({ license: ownedLicense })
+    activationsMock.mockResolvedValue({ activations: [], limitActivations: 2 })
+    await renderApp(ROUTES.APP_LICENSE)
+
+    expect(await screen.findByText(pagesLicenseMessages.usage)).toBeVisible()
+    expect(screen.getAllByRole("term").map((term) => term.textContent)).toEqual(CLI_LICENSE_COMMANDS.map((command) => cliCommand(command)))
+    expect(screen.getAllByRole("definition").map((definition) => definition.textContent)).toEqual(
+      CLI_LICENSE_COMMANDS.map((command) => pagesLicenseMessages.commands[command]),
+    )
+    expect(screen.getByText(CLI_LICENSE_KEY_VARIABLE).tagName).toBe("CODE")
+    expect(screen.getByText(CLI_LICENSE_KEY_VARIABLE).parentElement).toHaveTextContent(
+      pagesLicenseMessages.ci.replace("<code>{variable}</code>", CLI_LICENSE_KEY_VARIABLE),
+    )
   })
 
   it.each([LICENSE_STATUS.REFUNDED, LICENSE_STATUS.REVOKED])("explains a %s license and offers a new one", async (status) => {

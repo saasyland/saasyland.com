@@ -9,7 +9,7 @@ import type { ADMIN_PAYMENT_ROWS } from "~/src/data/admin-payments"
 
 import { cn } from "~/src/lib/cn"
 
-import { RowActionsCell } from "~/src/presentation/components/custom/admin/row-actions-cell"
+import { RowActionsCell } from "~/src/presentation/components/custom/admin/products/row-actions-cell"
 import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type Payment = (typeof ADMIN_PAYMENT_ROWS)[number]

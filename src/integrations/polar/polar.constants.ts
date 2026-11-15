@@ -25,5 +25,3 @@ export const POLAR_LICENSE_KEY_STATUS = {
   GRANTED: "granted",
   REVOKED: "revoked",
 } as const satisfies Record<string, models.LicenseKeyStatus>
-
-export const POLAR_CHECKOUT_PRODUCTS = Object.entries(POLAR_PRODUCT_IDS).map(([slug, productId]) => ({ productId, slug }))

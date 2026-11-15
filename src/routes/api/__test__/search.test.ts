@@ -10,7 +10,7 @@ vi.mock("~/src/integrations/fumadocs/fumadocs.search", () => ({ search: { GET: s
 
 describe("API route forwarding", () => {
   it("preserves the search query, locale and returned search response", async () => {
-    const request = new Request("https://saasyland.com/api/search?query=auth&locale=pl-PL")
+    const request = new Request("https://example.com/api/search?query=auth&locale=pl-PL")
     const response = Response.json([{ title: "Authentication", url: "/pl-PL/docs/auth" }])
     searchHandler.mockResolvedValueOnce(response)
     const handlers = SearchRoute.options.server?.handlers

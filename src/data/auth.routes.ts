@@ -2,8 +2,6 @@ export const ADMIN = "/admin"
 export const ADMIN_SETTINGS = "/admin/settings"
 export const ADMIN_USERS = "/admin/users"
 export const ADMIN_USERS_ALL = "/admin/users/all"
-export const ADMIN_USERS_INVITATIONS = "/admin/users/invitations"
-export const ADMIN_USERS_ROLES = "/admin/users/roles"
 export const ADMIN_USERS_SECURITY = "/admin/users/security"
 export const API_AUTH = {
   ADMIN_CREATE_USER: "/admin/create-user",
@@ -24,7 +22,7 @@ export const API_AUTH = {
   UPDATE_USER: "/update-user",
 } as const
 export const API_AUTH_BASE = "/api/auth"
-export const API_AUTH_VERIFY_EMAIL = "/api/auth/verify-email"
+export const API_AUTH_VERIFY_EMAIL = `${API_AUTH_BASE}/verify-email`
 export const APP = "/app"
 export const APP_SETTINGS = "/app/settings"
 export const AUTH = "/auth"

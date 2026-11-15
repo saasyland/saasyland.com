@@ -17,7 +17,6 @@ import { SignInPending } from "~/src/presentation/components/custom/auth/auth-pe
 import { OAuthButtons } from "~/src/presentation/components/custom/auth/oauth-buttons"
 import { SignInForm } from "~/src/presentation/components/custom/auth/sign-in-form"
 
-import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const SignInPage = (): JSX.Element => {
@@ -27,7 +26,7 @@ const SignInPage = (): JSX.Element => {
   return (
     <>
       <h1 className="text-headline-support text-balance text-foreground">{t("pages.auth.sign-in.form.title")}</h1>
-      <p className="mt-3 text-body text-pretty text-muted-foreground">{t("pages.auth.sign-in.form.description", { name: APP_NAME })}</p>
+      <p className="mt-3 text-body text-pretty text-muted-foreground">{t("pages.auth.sign-in.form.description")}</p>
 
       <div className="mt-10 flex flex-col gap-6">
         {errorKey !== undefined && (

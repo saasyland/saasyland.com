@@ -22,7 +22,7 @@ export const API_AUTH = {
   UPDATE_USER: "/update-user",
 } as const
 export const API_AUTH_BASE = "/api/auth"
-export const API_AUTH_VERIFY_EMAIL = "/api/auth/verify-email"
+export const API_AUTH_VERIFY_EMAIL = `${API_AUTH_BASE}/verify-email`
 export const APP = "/app"
 export const APP_SETTINGS = "/app/settings"
 export const AUTH = "/auth"

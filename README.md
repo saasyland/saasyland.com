@@ -180,7 +180,7 @@ content/
   blog/                          Localized MDX posts
   docs/                          Localized MDX documentation and navigation metadata
 messages/{locale}/               JSON catalogues split into dotted namespaces
-e2e/                             Playwright specs and the seeded test accounts, video, and course
+e2e/                             Playwright specs, the journey suite, and the seeded test accounts, video, and course
 scripts/                         Content checks, build, deployment and release steps, seeding, video publishing, and tooling
 remotion/                        Video authoring source and isolated npm toolchain
 src/
@@ -250,6 +250,7 @@ Use `bun run test` to invoke the configured Vite+ test runner. Running `bun test
 | `bun run test:e2e:pr`                                                       | Run the browser suite in Chromium, as pull request CI does.                                            |
 | `bun run test:e2e:smoke`                                                    | Run the Chromium smoke suite.                                                                          |
 | `bun run test:all`                                                          | Run the Vite+ tests followed by Chromium smoke tests.                                                  |
+| `bun run test:journey`                                                      | Buy each tier on preview with the Polar sandbox and use the published CLI with each licence.           |
 | `bun run build` / `bun run build:preview`                                   | Build the preview Worker, prerender public pages, and verify/optimize output.                          |
 | `bun run build:production`                                                  | Build and verify the production application.                                                           |
 | `bun run build:test` / `bun run start:test`                                 | Build or serve the isolated test application.                                                          |
@@ -272,6 +273,8 @@ bun run test:e2e
 ```
 
 Locally, Playwright recreates the test database with `db:reset:test`, builds the test application, and starts its preview server unless an existing server already answers at the configured URL. Stop other servers on port 3000 before running the suite so it uses the intended test application. `PLAYWRIGHT_BASE_URL` overrides the default `http://127.0.0.1:3000`.
+
+`bun run test:journey` runs the journey suite in [`e2e/journey/`](e2e/journey/) by hand against the preview deployment instead: it signs up through Resend's test inbox, buys each tier on the Polar sandbox checkout with Stripe's test card, and activates, fills, frees and deactivates machines with the published CLI until a refund ends the licence. It reads the Polar sandbox token and product IDs and a full-access Resend key from the environment or `.env.preview`; see [Journey suite](content/docs/tooling/playwright.en-US.mdx#journey-suite).
 
 [`e2e/specs/accessibility.spec.ts`](e2e/specs/accessibility.spec.ts) runs axe-core with the WCAG 2.0, 2.1 and 2.2 A and AA rules and axe's best practices on the public pages, the course pages, the docs home, every Conventions page and one page from each other docs section, a blog post, and both workspaces in the light and dark themes, and fails on any violation.
 

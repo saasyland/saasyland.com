@@ -1,6 +1,6 @@
 ---
 title: "Playwright"
-description: "Browser tests against the isolated test Worker."
+description: "Browser tests against the isolated test Worker, and the journey suite against the preview deployment."
 ---
 
 Playwright tests the built application in real browsers. The suite runs against the `test` Wrangler environment: local D1, KV and R2 in `.wrangler/test`, dummy credentials from `.env.test` and the test entry `src/platform/testing/worker.ts`, which intercepts Resend and Polar requests.
@@ -12,6 +12,7 @@ bun run test:e2e:smoke
 bun run test:e2e:pr
 bun run test:e2e:headed
 bun run test:e2e:ui
+bun run test:journey
 ```
 
 | Script             | Runs                                                  |
@@ -22,10 +23,11 @@ bun run test:e2e:ui
 | `test:e2e:pr`      | All specs in Chromium, as in pull request CI          |
 | `test:e2e:headed`  | All specs in visible browsers                         |
 | `test:e2e:ui`      | Playwright UI mode                                    |
+| `test:journey`     | The [journey suite](#journey-suite) against preview   |
 
 ## Configuration
 
-`playwright.config.ts` defines the `chromium` (Desktop Chrome) and `webkit` (Desktop Safari) projects and uses `PLAYWRIGHT_BASE_URL` or `http://127.0.0.1:3000`. Locally the web server command runs `db:reset:test`, `build:test` and `start:test`, and reuses a server that already answers at that URL, so stop other servers on `127.0.0.1:3000` first. In CI the workflow prepares the build and Playwright only starts the server.
+`playwright.config.ts` runs the specs in `e2e/specs/`, defines the `chromium` (Desktop Chrome) and `webkit` (Desktop Safari) projects and uses `PLAYWRIGHT_BASE_URL` or `http://127.0.0.1:3000`. Locally the web server command runs `db:reset:test`, `build:test` and `start:test`, and reuses a server that already answers at that URL, so stop other servers on `127.0.0.1:3000` first. In CI the workflow prepares the build and Playwright only starts the server.
 
 | Setting  | Local                                            | CI                                            |
 | -------- | ------------------------------------------------ | --------------------------------------------- |
@@ -43,12 +45,45 @@ bun run test:e2e:ui
 - `e2e/data/accounts.ts`: the seeded admin and customer accounts and their password.
 - `e2e/data/videos.ts` and `e2e/data/courses.ts`: the seeded test video, whose files are in `e2e/fixtures/video/`, and the seeded course: one chapter with a free preview, an account lesson and two paid lessons, one of them without a video.
 - `e2e/data/<area>.pages.ts` and `e2e/data/<area>.seed.ts`: each area's pages, which `accessibility.spec.ts` and `workspaces.spec.ts` visit, and its rows and media in the test database, joined by `pages.entries.ts` and `seed.entries.ts`.
+- `e2e/journey/`: the [journey suite](#journey-suite), with its own configuration.
 
 The test Worker exposes `/__test/emails` to read emails captured from the Resend mock and `/__test/newsletter` to read a subscriber's state.
 
 ## Accessibility
 
 `e2e/specs/accessibility.spec.ts` runs [axe-core](https://github.com/dequelabs/axe-core) through `@axe-core/playwright` on the public pages, the course pages, the docs home, every Conventions page and one page from each other docs section, a blog post, and the admin and customer workspaces in the light and dark themes. The admin pages include `/admin/courses`, `/admin/courses/create` and the seeded course's editor, which `e2e/specs/workspaces.spec.ts` also visits. It applies the WCAG 2.0, 2.1 and 2.2 A and AA rules plus axe's best practices, fails when a page does not load with a successful status, scrolls through the page so sections that reveal on scroll are checked too, waits for finite animations to finish, and fails on any violation, listing the rule, its impact and the affected selectors.
+
+## Journey suite
+
+`bun run test:journey` buys a licence and uses the CLI the way a customer does, on the preview deployment at `https://preview.saasyland.com`, which takes payments in the Polar sandbox. `e2e/journey/playwright.config.ts` is a configuration of its own, with a Chromium project and no web server, so `test:e2e` and the pull request checks never run it. Each tier is a test of its own, and the tests run in parallel:
+
+1. **Account.** The test signs up with a new address of Resend's test inbox, `delivered+journey-<run>-<tier>@resend.dev`, finds the verification email through the Resend API and opens its link.
+2. **Price.** `/app/license` must offer the tier at the price for the country that Cloudflare places the runner in, as `/cdn-cgi/trace` reports it: the regional price in a country of `PPP_TIERS`, the full price anywhere else.
+3. **Checkout.** The test pays on the Polar sandbox checkout with [Stripe's test card](https://docs.stripe.com/testing), billed to Poland, where the billing address is only the country.
+4. **Order and key.** Polar must hold one paid order for the tier's product, at the full price less the regional discount, and `/app/license` must show the key that the webhooks issued, the install command and no machine in use.
+5. **CLI.** The published CLI, `npx saasyland@beta`, talks to preview through `SAASYLAND_API_URL`. `activate` writes the credentials file with mode `0600`, activating again keeps the same slot, and `whoami` shows the machine. CI machines, told apart by `SAASYLAND_CI_REPOSITORY`, take the remaining slots, up to <ActivationLimit tier="core" /> machines for Core, <ActivationLimit tier="complete" /> for Complete and <ActivationLimit tier="agency" /> for Agency, and the next one is refused with `activationLimitReached`. Once a slot is freed on `/app/license`, the refused machine gets it and the freed one is told `activationNotFound`. `deactivate` frees the first machine and removes its credentials.
+6. **Refund.** The test refunds the order through the Polar sandbox API and waits until `/app/license` shows the licence as refunded; `whoami` must then answer `licenseRefunded` and remove the credentials.
+
+Every CLI machine is a directory in the test's output folder that the CLI uses as its home, and the CLI runs with nothing in its environment but `PATH`, that home, an npm cache and the `SAASYLAND_*` variables, so none of the suite's credentials reach it. An order that a failed test leaves paid is refunded when the test ends. The accounts stay on preview, each with a refunded licence.
+
+The suite reads these values from the environment, or from `.env.preview` when the file exists, and stops before the first test without them:
+
+| Variable                                                                        | Used for                                                                                           |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `POLAR_ACCESS_TOKEN`                                                            | Reading and refunding the orders in the sandbox, with the `orders:read` and `refunds:write` scopes |
+| `POLAR_SERVER`                                                                  | Must be `sandbox`                                                                                  |
+| `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE`, `POLAR_PRODUCT_ID_AGENCY` | The sandbox products the orders must be for                                                        |
+| `RESEND_API_KEY`                                                                | Reading the verification emails that preview sent, which takes a full-access key                   |
+
+Preview must run a build with the [CLI licence API](/docs/features/cli-licence-api): a pull request deploys its branch there in the **Deploy preview** job. The sandbox must match the code, which `bun run polar:verify:preview` checks. Then:
+
+```sh
+bun run test:e2e:install
+bun run polar:verify:preview
+bun run test:journey
+```
+
+The report is written to `playwright-report/journey/`, and the traces, videos and machine directories of failed tests to `test-results/journey/`.
 
 ## Related guides
 

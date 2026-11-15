@@ -22,7 +22,7 @@ export default defineConfig({
   ],
   reporter: isCI ? [["github"], ["html", { open: "never" }]] : [["list"], ["html", { open: "on-failure" }]],
   retries: isCI ? CI_RETRIES : DEV_RETRIES,
-  testDir: "./e2e",
+  testDir: "./e2e/specs",
   timeout: E2E_TIMEOUT_MS,
   use: {
     baseURL: appUrl,

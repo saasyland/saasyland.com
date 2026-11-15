@@ -11,7 +11,9 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 | `e2e-full.yml`        | `main` へのプッシュ、UTC のスケジュール <RepositoryFact name="e2eFullSchedule" />、手動実行 | プッシュ時は WebKit、スケジュール実行と手動実行では Chromium と WebKit                                |
 | `e2e-reusable.yml`    | 上記のワークフローから呼び出し                                                              | テスト用データベース、テスト用ビルド、1 つの Playwright プロジェクト                                  |
 | `deploy-reusable.yml` | `ci.yml` から呼び出し                                                                       | ビルド、D1 マイグレーション、`wrangler deploy`                                                        |
-| `remotion.yml`        | `remotion/` またはその共通定数の変更                                                        | ランディングページの動画プロジェクトを npm でチェックしてバンドル                                     |
+| `remotion.yml`        | `remotion/` またはそれがインポートするサイトのファイルの変更                                | ランディングページの動画プロジェクトを npm でチェックしてバンドル                                     |
+
+`remotion.yml` は、プルリクエストでもプッシュでも同じパスで実行されます。対象は `remotion/`、ワークフロー自体、そして `remotion/src` が直接または他のサイトのファイルを通じてインポートするサイトのファイルです。`src/__test__/workflows.test.ts` はそのインポートをたどり、たどり着いたファイルがどのパスにも一致しない場合や、どのファイルにも一致しないパスがある場合に失敗します。
 
 ## チェック
 
@@ -26,9 +28,9 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 | このリポジトリ内のブランチからのプルリクエスト | `preview`    | `Preview`     | https://preview.saasyland.com |
 | `main` へのプッシュ                            | `production` | `Production`  | https://saasyland.com         |
 
-フォークと Dependabot からのプルリクエストは検証されますが、デプロイはされません。プレビューは共有されており、各デプロイは前回のデプロイを置き換え、同じプレビュー用の D1 データベース、KV 名前空間、R2 バケットを使います。
+`deploy-reusable.yml` は GitHub の各環境に URL を設定します。`src/__test__/workflows.test.ts` は、そのいずれかが `DEPLOYED_HOSTS`（`src/modules/_core/constants/api.ts`）にあるその環境のホストと異なる場合に失敗します。フォークと Dependabot からのプルリクエストは検証されますが、デプロイはされません。プレビューは共有されており、各デプロイは前回のデプロイを置き換え、同じプレビュー用の D1 データベース、KV 名前空間、R2 バケットを使います。
 
-`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。`polar:verify:<target>` も実行しません。GitHub の環境には Polar のトークンがないためです。Polar を変更するたびに、ローカルでこれを実行してください（[Polar の設定](/docs/getting-started/polar-setup)）。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入ります。
+`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。`scripts/run-deploy-checks.ts` も実行しません。そのため、各エリアが `DEPLOY_CHECKS` で宣言したデプロイ前チェックは CI ではいずれも実行されません。CI には `.env.<target>` がなく、GitHub の環境には Cloudflare の認証情報しかないからです。現在のチェックは Polar エリアの `polar:verify` だけです。Polar を変更するたびに、ローカルで `bun run polar:verify:<target>` を実行してください（[Polar の設定](/docs/getting-started/polar-setup)）。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入ります。
 
 Dependabot は GitHub Actions を毎週更新します。
 

@@ -13,7 +13,6 @@ import { ROUTES } from "~/src/routes"
 
 export const POLAR_AUTH_PLUGINS = [
   {
-    disabledPaths: [],
     plugin: polar({
       client: polarCore,
       use: [portal(), webhooks({ onPayload: handlePolarEvent, secret: env.POLAR_WEBHOOK_SECRET })],

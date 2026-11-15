@@ -24,7 +24,7 @@ import { IP_ADDRESS_HEADER, appHostsForMode, isLocalMode } from "~/src/modules/_
 import { TIMEZONE_CODES } from "~/src/modules/user/user.schema"
 
 import { AUTH_EMAILS } from "~/src/data/auth-emails"
-import { AUTH_PLUGINS, DISABLED_AUTH_PATHS, RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"
+import { AUTH_PLUGINS, RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"
 
 import { consumeRateLimit } from "~/src/lib/rate-limit"
 
@@ -62,9 +62,9 @@ export const auth = betterAuth({
     useSecureCookies: !isLocalMode(import.meta.env.MODE),
   },
   appName: APP_NAME,
+  basePath: ROUTES.API_AUTH_BASE,
   baseURL: { allowedHosts: appHostsForMode(import.meta.env.MODE) },
   database: drizzleAdapter(db, { provider: "sqlite", schema }),
-  disabledPaths: DISABLED_AUTH_PATHS,
   emailAndPassword: {
     enabled: true,
     maxPasswordLength: PASSWORD_MAX_LENGTH,

@@ -1,12 +1,11 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { AUTH_PLUGINS, type AuthPluginEntry, DISABLED_AUTH_PATHS, RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"
+import { AUTH_PLUGINS, type AuthPluginEntry, RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"
 import * as AREA_AUTH_PLUGINS from "~/src/data/auth-plugins.entries"
 
 const ENTRIES: readonly AuthPluginEntry[] = Object.values(AREA_AUTH_PLUGINS).flat()
 
 const SAMPLE_ENTRY = {
-  disabledPaths: ["/sample/closed"],
   plugin: { id: "sample" },
   rateLimitExemptPaths: ["/sample/hook"],
 } as const satisfies AuthPluginEntry
@@ -16,8 +15,7 @@ describe("auth plugin composition", () => {
     expect(AUTH_PLUGINS).toStrictEqual(ENTRIES.map(({ plugin }) => plugin))
   })
 
-  it("joins the paths every area closes to HTTP or exempts from rate limiting", () => {
-    expect(DISABLED_AUTH_PATHS).toStrictEqual(ENTRIES.flatMap(({ disabledPaths }) => disabledPaths))
+  it("joins the paths every area exempts from rate limiting", () => {
     expect(RATE_LIMIT_EXEMPT_AUTH_PATHS).toStrictEqual(ENTRIES.flatMap(({ rateLimitExemptPaths }) => rateLimitExemptPaths))
   })
 
@@ -28,7 +26,6 @@ describe("auth plugin composition", () => {
     const plugins = await import("~/src/data/auth-plugins")
 
     expect(plugins.AUTH_PLUGINS).toStrictEqual([SAMPLE_ENTRY.plugin])
-    expect(plugins.DISABLED_AUTH_PATHS).toStrictEqual(SAMPLE_ENTRY.disabledPaths)
     expect(plugins.RATE_LIMIT_EXEMPT_AUTH_PATHS).toStrictEqual(SAMPLE_ENTRY.rateLimitExemptPaths)
     vi.doUnmock("~/src/data/auth-plugins.entries")
   })
@@ -40,7 +37,6 @@ describe("auth plugin composition", () => {
     const plugins = await import("~/src/data/auth-plugins")
 
     expect(plugins.AUTH_PLUGINS).toStrictEqual([])
-    expect(plugins.DISABLED_AUTH_PATHS).toStrictEqual([])
     expect(plugins.RATE_LIMIT_EXEMPT_AUTH_PATHS).toStrictEqual([])
     vi.doUnmock("~/src/data/auth-plugins.entries")
   })

@@ -16,7 +16,7 @@ import { PostFaq } from "~/src/presentation/components/custom/blog/post-faq"
 
 const ENTRIES = [
   { answer: "Core costs {corePrice} and runs on {coreMachines, number} machines.", question: "What does Core cost?" },
-  { answer: "The site has {testFiles, number} test files.", question: "How many tests?" },
+  { answer: "The site has {testFiles, number} test files.", question: "Is coverage held at {coverageThreshold, number}%?" },
 ]
 
 const renderFaq = (entries: Parameters<typeof PostFaq>[0]["entries"], locale: SupportedLocale = "en-US") =>
@@ -29,21 +29,25 @@ const renderFaq = (entries: Parameters<typeof PostFaq>[0]["entries"], locale: Su
 afterEach(cleanup)
 
 describe("PostFaq", () => {
-  it.each(["en-US", "de-DE"] as const)("renders each answer with the prices, limits and counts the code defines in %s", async (locale) => {
-    const user = userEvent.setup({ delay: null })
-    const number = new Intl.NumberFormat(locale)
-    const price = new Intl.NumberFormat(locale, CURRENCY_FORMAT).format(TIER_PRICES[LICENSE_TIER.CORE])
-    const answers = [
-      `Core costs ${price} and runs on ${number.format(LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE])} machines.`,
-      `The site has ${number.format(REPOSITORY_FACTS.testFiles)} test files.`,
-    ]
-    renderFaq(ENTRIES, locale)
+  it.each(["en-US", "de-DE"] as const)(
+    "renders each question and answer with the prices, limits and counts the code defines in %s",
+    async (locale) => {
+      const user = userEvent.setup({ delay: null })
+      const number = new Intl.NumberFormat(locale)
+      const price = new Intl.NumberFormat(locale, CURRENCY_FORMAT).format(TIER_PRICES[LICENSE_TIER.CORE])
+      const answers = [
+        `Core costs ${price} and runs on ${number.format(LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE])} machines.`,
+        `The site has ${number.format(REPOSITORY_FACTS.testFiles)} test files.`,
+      ]
+      renderFaq(ENTRIES, locale)
 
-    for (const [index, { question }] of ENTRIES.entries()) {
-      await user.click(screen.getByRole("button", { name: question }))
-      expect(screen.getByText(answers[index]?.replaceAll(/\s/gu, " ") ?? "")).toBeVisible()
-    }
-  })
+      const questions = ["What does Core cost?", `Is coverage held at ${number.format(REPOSITORY_FACTS.coverageThreshold)}%?`]
+      for (const [index, question] of questions.entries()) {
+        await user.click(screen.getByRole("button", { name: question }))
+        expect(screen.getByText(answers[index]?.replaceAll(/\s/gu, " ") ?? "")).toBeVisible()
+      }
+    },
+  )
 
   it("renders no question for a post without a FAQ", () => {
     renderFaq(undefined)

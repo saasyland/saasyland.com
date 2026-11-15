@@ -3,7 +3,7 @@ import { type JSX, type ReactNode, useState } from "react"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { PACKAGE_MANAGERS, SCAFFOLD_TARGET } from "~/src/data/cli"
+import { CLI_GENERATION_VALUES, PACKAGE_MANAGERS, SCAFFOLD_TARGET } from "~/src/data/cli"
 import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -56,7 +56,7 @@ export const HeroSection = (): JSX.Element => {
         </h1>
 
         <p className="mt-6 max-w-2xl text-lead text-pretty text-muted-foreground sm:[--rise-delay:100ms] sm:motion-safe:animate-rise">
-          {t.rich("description", { ...HERO_TAGS, ...REPOSITORY_FACTS })}
+          {t.rich("description", { ...HERO_TAGS, ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}
         </p>
 
         <div className="mt-9 flex flex-wrap items-center gap-x-3 gap-y-4 sm:[--rise-delay:200ms] sm:motion-safe:animate-rise">

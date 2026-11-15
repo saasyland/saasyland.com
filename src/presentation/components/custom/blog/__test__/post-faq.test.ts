@@ -3,9 +3,7 @@ import { readFileSync, readdirSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
 import * as zod from "zod"
 
-import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
-
-import { faqValues, formatFaqAnswer } from "~/src/presentation/components/custom/blog/post-faq"
+import { formatPostText } from "~/src/lib/post-text"
 
 const BLOG_DIR = "content/blog"
 const POST_FAQ = "<PostFaq entries={frontmatter.faq} />"
@@ -13,13 +11,14 @@ const LOCALE_PATTERN = /\.(?<locale>[a-z]{2}-[A-Z]{2})\.mdx$/u
 
 const entrySchema = zod.object({ answer: zod.string(), question: zod.string() })
 
-const faqSchema = zod.object({ faq: zod.array(entrySchema) })
+const postSchema = zod.object({ faq: zod.array(entrySchema), title: zod.string() })
 
 const posts = readdirSync(BLOG_DIR).map((file) => {
   const source = readFileSync(`${BLOG_DIR}/${file}`, "utf8")
   const { content, data } = frontmatter(source)
+  const { faq, title } = postSchema.parse(data)
 
-  return { content, faq: faqSchema.parse(data).faq, file, locale: LOCALE_PATTERN.exec(file)?.groups?.["locale"] ?? "" }
+  return { content, faq, file, locale: LOCALE_PATTERN.exec(file)?.groups?.["locale"] ?? "", title }
 })
 
 describe("blog FAQs", () => {
@@ -29,14 +28,12 @@ describe("blog FAQs", () => {
     expect(content).not.toContain("<Accordion")
   })
 
-  it.each(posts)("$file formats every answer with the values the code defines", ({ faq, locale }) => {
-    const values = faqValues((amount) => new Intl.NumberFormat(locale, CURRENCY_FORMAT).format(amount))
-
-    for (const { answer } of faq) {
-      const formatted = formatFaqAnswer({ answer, locale, values })
+  it.each(posts)("$file formats its title and every question and answer with the values the code defines", ({ faq, locale, title }) => {
+    for (const text of [title, ...faq.flatMap(({ answer, question }) => [question, answer])]) {
+      const formatted = formatPostText({ locale, text })
 
       expect(formatted).not.toMatch(/[{}`]/u)
-      expect(formatted).not.toBe("answer")
+      expect(formatted).not.toBe("text")
     }
   })
 })

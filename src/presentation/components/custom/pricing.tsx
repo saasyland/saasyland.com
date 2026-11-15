@@ -8,6 +8,7 @@ import { useFormatter, useTranslations } from "use-intl/react"
 import { CURRENCY_FORMAT, PPP_COOKIE, PPP_DECLINED, PPP_KEYS, PPP_PERCENT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { REACTPROJECTS_FACTS, TIER_FEATURES, TIER_PRICES } from "~/src/data/marketing"
 import { FEATURE_STATUS, FEATURE_STATUSES, type FeatureStatus } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -137,7 +138,9 @@ const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: Licen
             {t.rich("regional.save", REGIONAL_TAGS)}
           </span>
         </p>
-        <p className="mt-3 text-body-sm text-pretty text-muted-foreground @2xl:min-h-12">{t(`tiers.${tier}.tagline`)}</p>
+        <p className="mt-3 text-body-sm text-pretty text-muted-foreground @2xl:min-h-12">
+          {t(`tiers.${tier}.tagline`, CLI_GENERATION_VALUES)}
+        </p>
 
         <TierFeatures tier={tier} />
 

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, render } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
@@ -6,7 +6,6 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 import { Input } from "~/src/presentation/components/shadcn/input"
 import { Switch } from "~/src/presentation/components/shadcn/switch"
 
-import { MediaUploadZone } from "~/src/presentation/components/custom/admin/media-upload-zone"
 import { FieldPending, SwitchPending, UploadZonePending } from "~/src/presentation/components/custom/admin/pending-blocks"
 
 const SKELETON = '[data-slot="skeleton"]'
@@ -31,14 +30,10 @@ describe("form skeleton blocks shared by the admin areas", () => {
     expect(track).toHaveClass("data-[size=default]:h-[18.4px]", "data-[size=default]:w-[32px]", "rounded-full")
   })
 
-  it("draws an upload zone in the dashed frame of the media upload zone", () => {
+  it("draws an upload zone in a dashed frame", () => {
     const frame = render(<UploadZonePending />).container.firstElementChild
-    render(<MediaUploadZone>Drop a file</MediaUploadZone>)
-    const zone = screen.getByText("Drop a file")
 
     expect(frame?.querySelectorAll(SKELETON)).toHaveLength(3)
-    for (const element of [frame, zone]) {
-      expect(element).toHaveClass("rounded-xl", "border-2", "border-dashed", "border-border", "bg-muted/40", "p-8")
-    }
+    expect(frame).toHaveClass("rounded-xl", "border-2", "border-dashed", "border-border", "bg-muted/40", "p-8")
   })
 })

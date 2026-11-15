@@ -5,7 +5,7 @@ import { THEME } from "../../src/presentation/theme"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { workspacePages } from "../data/pages"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
-import { expect, test } from "../fixtures/test"
+import { expect, test } from "../fixtures/auth"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 
 const visit = async (page: Page, path: string): Promise<void> => {

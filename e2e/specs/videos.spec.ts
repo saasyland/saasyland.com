@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test"
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_VIDEO } from "../data/videos"
-import { expect, test } from "../fixtures/test"
+import { expect, test } from "../fixtures/auth"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto"
 import type { APIRequestContext } from "@playwright/test"
 import * as zod from "zod"
 
+import { EMAIL_PURPOSE } from "../../src/integrations/resend/resend.constants"
 import { expect } from "./test"
 
 const sentEmailsSchema = zod.array(
@@ -41,6 +42,6 @@ export const expectVerificationEmail = async (
 
   const verificationUrl = new URL(verificationLink.replaceAll("&amp;", "&"))
   expect(verificationUrl.searchParams.get("token")).toBeTruthy()
-  expect(email.idempotencyKey).toBe(`verify-email/${createHash("sha256").update(verificationUrl.searchParams.get("token") ?? "").digest("hex")}`)
+  expect(email.idempotencyKey).toBe(`${EMAIL_PURPOSE.VERIFY_EMAIL}/${createHash("sha256").update(verificationUrl.searchParams.get("token") ?? "").digest("hex")}`)
   return verificationUrl
 }

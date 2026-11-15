@@ -19,7 +19,10 @@ test.describe("a page that is still loading", () => {
     })
     await page.goto(ROUTES.HOME, { waitUntil: "commit" })
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
-    await page.evaluate(() => window.scrollTo({ behavior: "instant", top: window.innerHeight * 3 }))
+    await page.evaluate(() => {
+      document.body.style.minHeight = `${window.innerHeight * 4}px`
+      window.scrollTo({ behavior: "instant", top: window.innerHeight * 3 })
+    })
     const scrolled = await page.evaluate(() => window.scrollY)
     expect(scrolled).toBeGreaterThan(0)
 

@@ -4,7 +4,7 @@ import type { APIRequestContext, Page, TestInfo } from "@playwright/test"
 import type { models } from "@polar-sh/sdk/2026-10"
 import * as zod from "zod"
 
-import { expect, test as base } from "../fixtures/test"
+import { expect, test as base } from "../fixtures/auth"
 import type { AuthPage, BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 

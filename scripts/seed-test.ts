@@ -24,9 +24,11 @@ const objects = seeds.flatMap((seed) => seed.objects)
 
 const directory = await mkdtemp(join(tmpdir(), `${APP_SLUG}-test-seed-`))
 try {
-  const sql = join(directory, "seed.sql")
-  await writeFile(sql, statements.join("\n"))
-  wrangler(["d1", "execute", "DB", "--file", sql], "Could not seed the local test database")
+  if (statements.length > 0) {
+    const sql = join(directory, "seed.sql")
+    await writeFile(sql, statements.join("\n"))
+    wrangler(["d1", "execute", "DB", "--file", sql], "Could not seed the local test database")
+  }
 
   const groups = await Promise.all(
     [...Map.groupBy(objects, ({ binding }) => binding)].map(async ([binding, group]) => {

@@ -11,7 +11,9 @@ export interface ProviderDouble {
   readonly respond: (request: Request) => Promise<Refusal | Response>
 }
 
-const DOUBLES: readonly ProviderDouble[] = Object.values(AREA_PROVIDER_DOUBLES)
+const AREAS: Readonly<Record<string, readonly ProviderDouble[]>> = AREA_PROVIDER_DOUBLES
+
+const DOUBLES = Object.values(AREAS).flat()
 
 const PROVIDER_DOUBLES = new Map(DOUBLES.map(({ origin, respond }) => [origin, respond]))
 

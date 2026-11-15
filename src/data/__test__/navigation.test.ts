@@ -1,7 +1,14 @@
 import { Home, Settings } from "lucide-react"
 import { describe, expect, expectTypeOf, it, vi } from "vite-plus/test"
 
-import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, NAVIGATION_PAGES } from "~/src/data/navigation"
+import {
+  ADMIN_DASHBOARD_ACTIONS,
+  ADMIN_NAVIGATION,
+  APP_NAVIGATION,
+  APP_RESOURCE_NAVIGATION,
+  FOOTER_NAVIGATION,
+  NAVIGATION_PAGES,
+} from "~/src/data/navigation"
 import {
   ADMIN_NAVIGATION_GROUP,
   ADMIN_NAVIGATION_GROUPS,
@@ -41,6 +48,7 @@ const PLACEMENT_LISTS = [
   [NAVIGATION_PLACEMENT.ADMIN, ADMIN_ITEMS],
   [NAVIGATION_PLACEMENT.DASHBOARD, ADMIN_DASHBOARD_ACTIONS],
   [NAVIGATION_PLACEMENT.APP, APP_NAVIGATION],
+  [NAVIGATION_PLACEMENT.APP_RESOURCES, APP_RESOURCE_NAVIGATION],
   [NAVIGATION_PLACEMENT.HEADER, NAVIGATION_PAGES],
   [NAVIGATION_PLACEMENT.FOOTER, FOOTER_LINKS],
 ] as const
@@ -49,6 +57,7 @@ const ORDERED_LISTS = [
   ...ADMIN_NAVIGATION.map(({ items, key }) => [`${NAVIGATION_PLACEMENT.ADMIN} ${key}`, items] as const),
   [NAVIGATION_PLACEMENT.DASHBOARD, ADMIN_DASHBOARD_ACTIONS] as const,
   [NAVIGATION_PLACEMENT.APP, APP_NAVIGATION] as const,
+  [NAVIGATION_PLACEMENT.APP_RESOURCES, APP_RESOURCE_NAVIGATION] as const,
   [NAVIGATION_PLACEMENT.HEADER, NAVIGATION_PAGES] as const,
   ...FOOTER_NAVIGATION.map(({ key, links }) => [`${NAVIGATION_PLACEMENT.FOOTER} ${key}`, links] as const),
 ]
@@ -80,8 +89,16 @@ describe("navigation composition", () => {
   })
 
   it("keeps admin groups and footer columns in their declared order, each holding only its own entries", () => {
-    expect(ADMIN_NAVIGATION.map(({ key }) => key)).toStrictEqual(ADMIN_NAVIGATION_GROUPS)
-    expect(FOOTER_NAVIGATION.map(({ key }) => key)).toStrictEqual(FOOTER_COLUMNS)
+    expect(ADMIN_NAVIGATION.map(({ key }) => key)).toStrictEqual(
+      ADMIN_NAVIGATION_GROUPS.filter((group) =>
+        ENTRIES.some((entry) => entry.placement === NAVIGATION_PLACEMENT.ADMIN && entry.group === group),
+      ),
+    )
+    expect(FOOTER_NAVIGATION.map(({ key }) => key)).toStrictEqual(
+      FOOTER_COLUMNS.filter((column) =>
+        ENTRIES.some((entry) => entry.placement === NAVIGATION_PLACEMENT.FOOTER && entry.column === column),
+      ),
+    )
     expect(ADMIN_NAVIGATION.every(({ items, key }) => items.every(({ group }) => group === key))).toBe(true)
     expect(FOOTER_NAVIGATION.every(({ key, links }) => links.every(({ column }) => column === key))).toBe(true)
   })
@@ -100,6 +117,7 @@ describe("navigation composition", () => {
       [ADMIN_NAVIGATION_GROUP.ADMINISTRATION, [ROUTES.API]],
     ])
     expect(navigation.APP_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.HOME])
+    expect(navigation.APP_RESOURCE_NAVIGATION).toStrictEqual([])
     expect(navigation.ADMIN_DASHBOARD_ACTIONS).toStrictEqual([])
     expect(navigation.FOOTER_NAVIGATION).toStrictEqual([])
     expect(navigation.NAVIGATION_PAGES).toStrictEqual([])

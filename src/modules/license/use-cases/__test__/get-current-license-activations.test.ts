@@ -6,6 +6,7 @@ import { activatePolarLicenseKey, createPolarOrder, grantPolarLicenseKey, polarL
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
+import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
@@ -40,7 +41,7 @@ it("does not call Polar before a license key is attached", async () => {
   expect(polarRequests).not.toHaveBeenCalled()
 })
 it("fetches the activations and limit of the owned Polar license key", async () => {
-  const order = createPolarOrder({ externalCustomerId: session.user.id, tier: LICENSE_TIER.CORE })
+  const order = createPolarOrder({ externalCustomerId: session.user.id, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] })
   const grant = grantPolarLicenseKey(order)
   const activation = activatePolarLicenseKey(grant, "Laptop")
   vi.spyOn(auth.api, "getSession").mockResolvedValue(session)

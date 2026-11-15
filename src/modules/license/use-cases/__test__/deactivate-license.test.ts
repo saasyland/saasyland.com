@@ -7,6 +7,7 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
@@ -18,7 +19,7 @@ import { user } from "~/src/modules/user/user.schema"
 const USER_ID = "01900000-0000-7000-8000-00000000000a"
 
 const seedLicenseKey = async () => {
-  const order = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.CORE })
+  const order = createPolarOrder({ externalCustomerId: USER_ID, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] })
   const grant = grantPolarLicenseKey(order)
   const { id, key } = polarLicenseKeyOf(grant)
   await db.insert(license).values({

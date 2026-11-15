@@ -5,6 +5,9 @@ import * as zod from "zod"
 
 import {
   type PolarCatalogue,
+  type PolarDiscount,
+  type PolarLicenseKeyBenefit,
+  type PolarProduct,
   polarCheckoutProduct,
   polarCustomer,
   polarDiscount,
@@ -13,23 +16,15 @@ import {
   polarLicenseKeyGrant,
   polarOrder,
   polarOrderProduct,
-  polarPrice,
   polarProductPrice,
 } from "~/src/platform/testing/lib/polar"
+import * as AREA_POLAR_CATALOGUES from "~/src/platform/testing/mocks/polar-catalogue.entries"
 import type { ProviderDouble } from "~/src/platform/testing/mocks/providers"
 
 import { polarCore } from "~/src/integrations/polar/polar.config"
-import {
-  POLAR_CHECKOUT_ID_PLACEHOLDER,
-  POLAR_LICENSE_KEY_STATUS,
-  POLAR_ORDER_STATUS,
-  POLAR_PRODUCT_IDS,
-} from "~/src/integrations/polar/polar.constants"
-import { BASIS_POINTS_PER_PERCENT } from "~/src/integrations/polar/polar.discounts"
+import { POLAR_CHECKOUT_ID_PLACEHOLDER, POLAR_LICENSE_KEY_STATUS, POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
-import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 
 type RequestSchema<Model> = { readonly [Key in keyof Model]?: zod.ZodType<Model[Key]> }
 
@@ -41,42 +36,43 @@ const CHECKOUT_LIFETIME_MS = 3_600_000
 const LICENSE_KEY_PATH = /^\/v1\/license-keys\/(?<id>[^/]+)$/u
 const ORDER_PATH = /^\/v1\/orders\/(?<id>[^/]+)$/u
 
-const CATALOGUE: PolarCatalogue = { organizationId: env.POLAR_ORGANIZATION_ID, productIds: POLAR_PRODUCT_IDS }
+const AREAS: Readonly<Record<string, PolarCatalogue>> = AREA_POLAR_CATALOGUES
 
-export const POLAR_DISCOUNTS = PPP_PERCENTS_OFF.map((percentOff) => polarDiscount(CATALOGUE, percentOff * BASIS_POINTS_PER_PERCENT))
-
-const DISCOUNT_PRODUCTS = LICENSE_TIERS.map((tier) => polarOrderProduct(CATALOGUE, tier))
-
-const withProducts = (discount: models.DiscountPercentageOnceForeverDurationBase): models.Discount => ({
-  ...discount,
-  products: DISCOUNT_PRODUCTS,
-})
-
-const DISCOUNTS_WITH_PRODUCTS = POLAR_DISCOUNTS.map((discount) => withProducts(discount))
-
+const products = new Map<string, PolarProduct>()
+const discounts = new Map<string, PolarDiscount>()
+const licenseKeyBenefits = new Map<string, PolarLicenseKeyBenefit>()
 const checkouts = new Map<string, models.Checkout>()
 const orders = new Map<string, models.Order>()
 const licenseKeys = new Map<string, models.LicenseKeyWithActivations>()
 const activationConditions = new Map<string, models.LicenseKeyActivate["conditions"]>()
 const customers = new Map<string, models.CustomerIndividual>()
 
+export const seedPolarCatalogue = (catalogue: PolarCatalogue): void => {
+  for (const product of catalogue.products) {
+    products.set(product.id, product)
+  }
+  for (const discount of catalogue.discounts) {
+    discounts.set(discount.id, discount)
+  }
+  for (const benefit of catalogue.licenseKeyBenefits) {
+    for (const { id } of benefit.products) {
+      licenseKeyBenefits.set(id, benefit)
+    }
+  }
+}
+
 const resetPolar = (): void => {
+  products.clear()
+  discounts.clear()
+  licenseKeyBenefits.clear()
   checkouts.clear()
   orders.clear()
   licenseKeys.clear()
   activationConditions.clear()
   customers.clear()
-}
-
-const tierOf = (productId: string | null): LicenseTier | undefined => LICENSE_TIERS.find((tier) => POLAR_PRODUCT_IDS[tier] === productId)
-
-const discountOf = (discountId: string | null): models.DiscountPercentageOnceForeverDurationBase | null =>
-  POLAR_DISCOUNTS.find(({ id }) => id === discountId) ?? null
-
-const customerFor = (externalId: string): models.CustomerIndividual => {
-  const customer = customers.get(externalId) ?? polarCustomer(CATALOGUE, externalId)
-  customers.set(externalId, customer)
-  return customer
+  for (const catalogue of Object.values(AREAS)) {
+    seedPolarCatalogue(catalogue)
+  }
 }
 
 const found = <Value>(value: Value | null | undefined, kind: string, id: string): Value => {
@@ -84,6 +80,19 @@ const found = <Value>(value: Value | null | undefined, kind: string, id: string)
     throw new Error(`The Polar test double has no ${kind} ${id}`)
   }
   return value
+}
+
+const productOf = (productId: string): PolarProduct => found(products.get(productId), "product", productId)
+
+const discountOf = (discountId: string | null): models.DiscountPercentageOnceForeverDurationBase | null => {
+  const discount = [...discounts.values()].find(({ id }) => id === discountId)
+  return discount === undefined ? null : polarDiscount(env.POLAR_ORGANIZATION_ID, discount)
+}
+
+const customerFor = (externalId: string): models.CustomerIndividual => {
+  const customer = customers.get(externalId) ?? polarCustomer(env.POLAR_ORGANIZATION_ID, externalId)
+  customers.set(externalId, customer)
+  return customer
 }
 
 export const polarCheckouts = (): models.Checkout[] => [...checkouts.values()]
@@ -102,17 +111,16 @@ const saveOrder = (order: models.Order): models.Order => {
 }
 
 export const createPolarOrder = (
-  { externalCustomerId, tier }: { readonly externalCustomerId: string; readonly tier: LicenseTier },
+  { externalCustomerId, productId }: { readonly externalCustomerId: string; readonly productId: string },
   overrides: Partial<models.Order> = {},
 ): models.Order => {
   const order = polarOrder({
-    catalogue: CATALOGUE,
     checkoutId: null,
     customer: customerFor(externalCustomerId),
     discount: null,
     metadata: {},
+    product: productOf(productId),
     status: POLAR_ORDER_STATUS.PAID,
-    tier,
   })
   return saveOrder({ ...order, ...overrides })
 }
@@ -120,16 +128,15 @@ export const createPolarOrder = (
 export const payPolarCheckout = (checkoutId: string): models.Order => {
   const checkout = found(checkouts.get(checkoutId), "checkout", checkoutId)
   const externalCustomerId = found(checkout.external_customer_id, "external customer of checkout", checkoutId)
-  const tier = found(tierOf(checkout.product_id), "licence product of checkout", checkoutId)
+  const product = productOf(found(checkout.product_id, "product of checkout", checkoutId))
   checkouts.set(checkoutId, { ...checkout, status: "succeeded" })
   const order = polarOrder({
-    catalogue: CATALOGUE,
     checkoutId,
     customer: customerFor(externalCustomerId),
     discount: discountOf(checkout.discount_id),
     metadata: checkout.metadata,
+    product,
     status: POLAR_ORDER_STATUS.PAID,
-    tier,
   })
   return saveOrder(order)
 }
@@ -145,15 +152,18 @@ export const refundPolarOrder = (orderId: string, amount: number): models.Order 
   })
 }
 
+const licenseKeyBenefitOf = (productId: string): PolarLicenseKeyBenefit =>
+  found(licenseKeyBenefits.get(productId), "licence-key benefit of product", productId)
+
 export const grantPolarLicenseKey = (
   order: models.Order,
-  tier: LicenseTier = found(tierOf(order.product_id), "licence product of order", order.id),
+  productId: string = found(order.product_id, "product of order", order.id),
 ): models.BenefitGrantLicenseKeysWebhook => {
+  const benefit = licenseKeyBenefitOf(productId)
   const customer = customerFor(found(order.customer.external_id, "external customer of order", order.id))
-  const activationLimit = LICENSE_ACTIVATION_LIMITS[tier]
-  const licenseKey = polarLicenseKey({ activationLimit, benefitId: crypto.randomUUID(), customer })
+  const licenseKey = polarLicenseKey({ benefit, customer })
   licenseKeys.set(licenseKey.id, licenseKey)
-  return polarLicenseKeyGrant({ activationLimit, customer, licenseKey, orderId: order.id })
+  return polarLicenseKeyGrant({ benefit, customer, licenseKey, orderId: order.id })
 }
 
 export const seedPolarLicenseKey = ({
@@ -161,13 +171,13 @@ export const seedPolarLicenseKey = ({
   externalCustomerId,
   key,
   licenseKeyId,
-  tier,
+  productId,
 }: {
   readonly activation: { readonly createdAt: string; readonly id: string; readonly label: string }
   readonly externalCustomerId: string
   readonly key: string
   readonly licenseKeyId: string
-  readonly tier: LicenseTier
+  readonly productId: string
 }): void => {
   const activations = [
     {
@@ -179,12 +189,10 @@ export const seedPolarLicenseKey = ({
       modified_at: null,
     },
   ]
-  const customer = customerFor(externalCustomerId)
   const licenseKey = polarLicenseKey({
-    activationLimit: LICENSE_ACTIVATION_LIMITS[tier],
     activations,
-    benefitId: crypto.randomUUID(),
-    customer,
+    benefit: licenseKeyBenefitOf(productId),
+    customer: customerFor(externalCustomerId),
     id: licenseKeyId,
     key,
   })
@@ -295,8 +303,8 @@ const createCheckout = async (request: Request) => {
     return invalid("body", zod.prettifyError(body.error))
   }
   const [productId] = body.data.products
-  const tier = tierOf(productId)
-  if (tier === undefined) {
+  const catalogueProduct = products.get(productId)
+  if (catalogueProduct === undefined) {
     return invalid("body.products", `${productId} is not a product of the organization`)
   }
   const discount = discountOf(body.data.discount_id ?? null)
@@ -305,9 +313,9 @@ const createCheckout = async (request: Request) => {
   }
   const id = crypto.randomUUID()
   const createdAt = new Date()
-  const product = polarCheckoutProduct(CATALOGUE, tier)
-  const price = polarProductPrice(CATALOGUE, tier)
-  const amount = polarPrice(tier)
+  const product = polarCheckoutProduct(env.POLAR_ORGANIZATION_ID, catalogueProduct)
+  const price = polarProductPrice(catalogueProduct)
+  const { amount } = catalogueProduct.price
   const discountAmount = polarDiscountAmount(amount, discount)
   const checkout: models.Checkout = {
     active_trial_interval: null,
@@ -353,7 +361,7 @@ const createCheckout = async (request: Request) => {
     min_units: null,
     modified_at: null,
     net_amount: amount - discountAmount,
-    organization_id: CATALOGUE.organizationId,
+    organization_id: env.POLAR_ORGANIZATION_ID,
     payment_method_type: null,
     payment_processor: "stripe",
     payment_processor_metadata: {},
@@ -381,15 +389,21 @@ const createCheckout = async (request: Request) => {
   return respond(HTTP_STATUS.CREATED, checkout)
 }
 
+const listedDiscount = (discount: PolarDiscount): models.Discount => ({
+  ...polarDiscount(env.POLAR_ORGANIZATION_ID, discount),
+  products: discount.products.map((product) => polarOrderProduct(env.POLAR_ORGANIZATION_ID, product)),
+})
+
 const listDiscounts = (url: URL) => {
   const query = discountsQuerySchema.safeParse(Object.fromEntries(url.searchParams))
   if (!query.success) {
     return invalid("query", zod.prettifyError(query.error))
   }
   const { limit, page } = query.data
+  const items = [...discounts.values()].map((discount) => listedDiscount(discount))
   return respond(HTTP_STATUS.OK, {
-    items: DISCOUNTS_WITH_PRODUCTS.slice((page - 1) * limit, page * limit),
-    pagination: { max_page: Math.max(1, Math.ceil(DISCOUNTS_WITH_PRODUCTS.length / limit)), total_count: DISCOUNTS_WITH_PRODUCTS.length },
+    items: items.slice((page - 1) * limit, page * limit),
+    pagination: { max_page: Math.max(1, Math.ceil(items.length / limit)), total_count: items.length },
   } satisfies models.ListResourceDiscount)
 }
 

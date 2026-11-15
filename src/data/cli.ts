@@ -1,3 +1,5 @@
+import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
+
 export const NPM_DIST_TAG = {
   BETA: "beta",
   LATEST: "latest",
@@ -66,6 +68,15 @@ export const CLI_CREDENTIALS_DIRECTORY = {
 export const SCAFFOLD_DIR = "my-app"
 
 export const SCAFFOLD_TARGET = `${CLI_PACKAGE_SPEC} ${CLI_COMMAND.INIT} ${SCAFFOLD_DIR}`
+
+export const CLI_INIT_COMMAND = `${PACKAGE_MANAGER.NPM.exec} ${SCAFFOLD_TARGET}`
+
+export const CLI_GENERATION: FeatureStatus = FEATURE_STATUS.ARRIVING
+
+export const CLI_GENERATION_VALUES: { readonly generation: FeatureStatus; readonly initCommand: string } = {
+  generation: CLI_GENERATION,
+  initCommand: CLI_INIT_COMMAND,
+}
 
 export const CLI_GROUPS = ["platform", "data", "product", "extras"] as const
 
@@ -199,6 +210,32 @@ export const CLI_EXTRAS = [
 ] as const
 
 export const NONE = "none"
+
+type CliChoice = (typeof CLI_CHOICES)[number]
+
+interface CliTemplateSupport {
+  readonly choices: Readonly<Record<CliChoice["id"], readonly string[]>>
+  readonly extras: readonly (typeof CLI_EXTRAS)[number]["id"][]
+}
+
+export const CLI_TEMPLATE_SUPPORT: CliTemplateSupport = {
+  choices: {
+    api: [],
+    architecture: ["monolith"],
+    auth: ["better-auth", NONE],
+    billing: ["polar"],
+    content: ["mdx"],
+    database: ["sqlite"],
+    deployment: ["cloudflare"],
+    email: ["resend"],
+    framework: ["tanstack"],
+    orm: ["drizzle"],
+    provider: ["d1"],
+    runtime: ["node"],
+    tenancy: ["single"],
+  },
+  extras: [],
+}
 
 export const CLI_MODULES = [
   { choiceId: "auth", id: "auth" },

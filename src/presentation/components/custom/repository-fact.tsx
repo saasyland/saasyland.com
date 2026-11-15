@@ -17,7 +17,7 @@ import { RATE_LIMITS, RATE_LIMIT_WINDOW_SECONDS } from "~/src/integrations/bette
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { PPP_TIERS } from "~/src/modules/_core/constants/pricing"
+import { CURRENCY_FORMAT, PPP_TIERS } from "~/src/modules/_core/constants/pricing"
 import { LOCALIZED_TEXT_MAX_LENGTH } from "~/src/modules/_core/utils/localized-text"
 import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
@@ -57,6 +57,7 @@ import {
   CLI_CREDENTIALS_FILE_MODE,
   CLI_EXEC,
   CLI_EXIT_CODE,
+  CLI_INIT_COMMAND,
   CLI_LICENSE_COMMANDS,
   CLI_LICENSE_KEY_VARIABLE,
   CLI_LOCALE_VARIABLE,
@@ -68,6 +69,7 @@ import {
 } from "~/src/data/cli"
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
+import { CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
@@ -117,16 +119,19 @@ const FACTS = {
   cliExitTemporaryFailure: CLI_EXIT_CODE.TEMPORARY_FAILURE,
   cliExitUsage: CLI_EXIT_CODE.USAGE,
   cliInit: cliCommand(CLI_COMMAND.INIT),
+  cliInitCommand: CLI_INIT_COMMAND,
   cliLicenseCommands: CLI_LICENSE_COMMANDS.map((command) => cliCommand(command)),
   cliLicenseKeyVariable: CLI_LICENSE_KEY_VARIABLE,
   cliLocaleVariable: CLI_LOCALE_VARIABLE,
   cliPackageSpec: CLI_PACKAGE_SPEC,
   cliReleaseChannel: CLI_RELEASE_CHANNEL,
   cliWhoami: cliCommand(CLI_COMMAND.WHOAMI),
+  corePriceInHours: CORE_PRICE_IN_HOURS,
   courseShowcaseCourses: COURSE_SHOWCASE.COURSES,
   courseShowcaseLessons: COURSE_SHOWCASE.LESSONS,
   defaultPageSize: DEFAULT_PAGE_SIZE,
   headStartClaimMaxHours: HEAD_START_CLAIM_MAX_HOURS,
+  illustrativeHourlyRate: ILLUSTRATIVE_HOURLY_RATE,
   lessonProgressSaveSeconds: SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
   liveSiteCheckPaths: LIVE_SITE_CHECKS.map(({ path }) => path),
   liveSiteCheckRetries: LIVE_SITE_CHECK_RETRY_DELAYS_MS.length,
@@ -182,6 +187,7 @@ const TABLES = {
 } satisfies Record<string, readonly (readonly [number | string, ...Value[]])[]>
 
 const UNIT_FORMATS = {
+  currency: CURRENCY_FORMAT,
   hour: { style: "unit", unit: "hour", unitDisplay: "long" },
   minute: { style: "unit", unit: "minute", unitDisplay: "long" },
   percent: { style: "unit", unit: "percent" },

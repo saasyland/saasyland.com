@@ -3,6 +3,7 @@ import type { JSX } from "react"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -53,7 +54,7 @@ export const FaqSection = (): JSX.Element => {
                   </span>
                 </AccordionTrigger>
                 <AccordionContent className="max-w-[68ch] pr-8 pb-6 text-body text-pretty text-muted-foreground">
-                  {t(`items.${id}.answer`, REPOSITORY_FACTS)}
+                  {t(`items.${id}.answer`, { ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}
                 </AccordionContent>
               </AccordionItem>
             ))}

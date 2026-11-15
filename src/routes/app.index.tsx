@@ -7,6 +7,7 @@ import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { APP_OVERVIEW_SECTIONS, appOverviewSearchSchema } from "~/src/data/app-overview"
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 
 import { pageHead } from "~/src/lib/seo"
 
@@ -33,7 +34,7 @@ const OverviewPage = (): JSX.Element => {
         <section className="flex flex-col items-start gap-3">
           <div className="space-y-1">
             <h2 className="text-sm font-semibold">{t("overview.docs.title")}</h2>
-            <p className="text-sm text-muted-foreground">{t("overview.docs.description")}</p>
+            <p className="text-sm text-muted-foreground">{t("overview.docs.description", CLI_GENERATION_VALUES)}</p>
           </div>
           <LinkButton href={ROUTES.DOCS_CLI} size="sm" variant="outline">
             {t("overview.docs.action")}

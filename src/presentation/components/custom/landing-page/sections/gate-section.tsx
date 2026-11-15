@@ -6,6 +6,7 @@ import { useTranslations } from "use-intl/react"
 
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { MARKETING_SECTION_IDS, TIER_PRICES } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -71,7 +72,7 @@ export const GateSection = (): JSX.Element => {
               </li>
             ))}
           </ul>
-          <p className="mx-auto mt-5 max-w-lg text-body-sm text-pretty text-muted-foreground">{t("assurance")}</p>
+          <p className="mx-auto mt-5 max-w-lg text-body-sm text-pretty text-muted-foreground">{t("assurance", CLI_GENERATION_VALUES)}</p>
         </Reveal>
       </div>
     </section>

@@ -2,6 +2,8 @@ import type { CSSProperties, ReactNode } from "react"
 
 import { Img, staticFile } from "remotion"
 
+import { APP_LOGO_PATH } from "../../../src/presentation/branding"
+
 import { MONO, SANS } from "../fonts"
 import { THEME } from "../theme"
 
@@ -66,7 +68,7 @@ const LABEL: CSSProperties = {
 export function Mark({ size }: Readonly<{ size: number }>) {
   return (
     <svg fill={THEME.foreground} height={size} viewBox="0 0 24 24" width={size}>
-      <path d="M6 0H15V9H24V18A6 6 0 0 1 18 24H6A6 6 0 0 1 0 18V6A6 6 0 0 1 6 0Z" />
+      <path d={APP_LOGO_PATH} />
     </svg>
   )
 }

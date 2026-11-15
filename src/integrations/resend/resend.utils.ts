@@ -4,7 +4,7 @@ import { env } from "cloudflare:workers"
 
 import type { JSX } from "react"
 
-import { resendClient } from "~/src/integrations/resend/resend.config"
+import { resend } from "~/src/integrations/resend/resend.config"
 
 import { sha256Hex } from "~/src/lib/hex"
 
@@ -30,10 +30,7 @@ export const sendEmail = async ({
   subject,
   to,
 }: Readonly<SendEmailOptions>): Promise<string> => {
-  const { data, error } = await resendClient().emails.send(
-    { from, react, subject, to },
-    { idempotencyKey: await idempotencyKey(idempotency) },
-  )
+  const { data, error } = await resend.emails.send({ from, react, subject, to }, { idempotencyKey: await idempotencyKey(idempotency) })
 
   if (error) {
     throw new Error(`Failed to send "${subject}" to ${to}: ${error.message}`)

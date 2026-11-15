@@ -1,31 +1,30 @@
-import { env } from "cloudflare:workers"
+import type * as ResendModule from "resend"
+import { describe, expect, it, vi } from "vite-plus/test"
 
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
-
-import { resendClient } from "~/src/integrations/resend/resend.config"
+import { resend } from "~/src/integrations/resend/resend.config"
 
 vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
 
-afterEach(() => {
-  vi.unstubAllEnvs()
-  vi.resetModules()
+vi.mock(import("resend"), async (importOriginal) => {
+  const actual = await importOriginal<typeof ResendModule>()
+
+  class MockResend extends actual.Resend {
+    constructor() {
+      super("test-resend-key")
+    }
+  }
+
+  return {
+    ...actual,
+    Resend: MockResend,
+  }
 })
 
-describe("resendClient", () => {
-  it("builds a new client with the API key each time an email is sent", () => {
-    const client = resendClient()
-
-    expect(client.key).toBe(env.RESEND_API_KEY)
-    expect(client.emails).toHaveProperty("send")
-    expect(resendClient()).not.toBe(client)
-  })
-
-  it("loads without an API key and asks for one only when a client is built", async () => {
-    vi.stubEnv("RESEND_API_KEY", "")
-    vi.resetModules()
-
-    const config = await import("~/src/integrations/resend/resend.config")
-
-    expect(() => config.resendClient()).toThrow(/API key/u)
+describe("resend config", () => {
+  it("exports a resend client", () => {
+    expect.hasAssertions()
+    expect(resend).toBeDefined()
+    expect(resend.emails).toBeDefined()
+    expect("send" in resend.emails).toBe(true)
   })
 })

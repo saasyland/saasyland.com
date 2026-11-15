@@ -1,6 +1,6 @@
 ---
 title: "Playwright"
-description: "Tests dans le navigateur contre le Worker de test isolé."
+description: "Tests dans le navigateur contre le Worker de test isolé, et la suite de parcours client contre le déploiement de preview."
 ---
 
 Playwright teste l'application construite dans de vrais navigateurs. La suite s'exécute sur l'environnement Wrangler `test` : D1, KV et R2 locaux dans `.wrangler/test`, identifiants factices issus de `.env.test` et point d'entrée de test `src/platform/testing/worker.ts`, qui intercepte les requêtes vers Resend et Polar.
@@ -12,6 +12,7 @@ bun run test:e2e:smoke
 bun run test:e2e:pr
 bun run test:e2e:headed
 bun run test:e2e:ui
+bun run test:journey
 ```
 
 | Script             | Exécute                                                            |
@@ -22,10 +23,11 @@ bun run test:e2e:ui
 | `test:e2e:pr`      | Toutes les specs dans Chromium, comme dans la CI des pull requests |
 | `test:e2e:headed`  | Toutes les specs dans des navigateurs visibles                     |
 | `test:e2e:ui`      | Mode UI de Playwright                                              |
+| `test:journey`     | La [suite de parcours client](#journey-suite) sur la preview       |
 
 ## Configuration
 
-`playwright.config.ts` définit les projets `chromium` (Desktop Chrome) et `webkit` (Desktop Safari) et utilise `PLAYWRIGHT_BASE_URL` ou `http://127.0.0.1:3000`. En local, la commande du serveur web exécute `db:reset:test`, `build:test` et `start:test`, et réutilise un serveur qui répond déjà à cette URL : arrêtez donc d'abord les autres serveurs sur `127.0.0.1:3000`. En CI, le workflow prépare le build et Playwright se contente de démarrer le serveur.
+`playwright.config.ts` exécute les specs de `e2e/specs/`, définit les projets `chromium` (Desktop Chrome) et `webkit` (Desktop Safari) et utilise `PLAYWRIGHT_BASE_URL` ou `http://127.0.0.1:3000`. En local, la commande du serveur web exécute `db:reset:test`, `build:test` et `start:test`, et réutilise un serveur qui répond déjà à cette URL : arrêtez donc d'abord les autres serveurs sur `127.0.0.1:3000`. En CI, le workflow prépare le build et Playwright se contente de démarrer le serveur.
 
 | Paramètre  | Local                                            | CI                                            |
 | ---------- | ------------------------------------------------ | --------------------------------------------- |
@@ -43,12 +45,45 @@ bun run test:e2e:ui
 - `e2e/data/accounts.ts` : les comptes administrateur et client créés par le seed, ainsi que leur mot de passe.
 - `e2e/data/videos.ts` et `e2e/data/courses.ts` : la vidéo de test créée par le seed, dont les fichiers sont dans `e2e/fixtures/video/`, et le cours créé par le seed : un chapitre avec un aperçu gratuit, une leçon réservée aux comptes et deux leçons payantes, dont une sans vidéo.
 - `e2e/data/<area>.pages.ts` et `e2e/data/<area>.seed.ts` : les pages de chaque zone, que visitent `accessibility.spec.ts` et `workspaces.spec.ts`, ainsi que ses lignes et ses médias dans la base de test, réunis par `pages.entries.ts` et `seed.entries.ts`.
+- `e2e/journey/` : la [suite de parcours client](#journey-suite), avec sa propre configuration.
 
 Le Worker de test expose `/__test/emails` pour lire les e-mails capturés par le mock de Resend et `/__test/newsletter` pour lire l'état d'un abonné.
 
 ## Accessibilité
 
 `e2e/specs/accessibility.spec.ts` exécute [axe-core](https://github.com/dequelabs/axe-core) via `@axe-core/playwright` sur les pages publiques, les pages de cours, l'accueil de la documentation, chaque page de Conventions et une page de chacune des autres sections de la documentation, un article du blog et les espaces de travail administrateur et client, dans les thèmes clair et sombre. Les pages d'administration comprennent `/admin/courses`, `/admin/courses/create` et l'éditeur du cours de test, que `e2e/specs/workspaces.spec.ts` visite aussi. Il applique les règles A et AA des WCAG 2.0, 2.1 et 2.2 ainsi que les bonnes pratiques d'axe, échoue si une page ne se charge pas avec un statut de succès, fait défiler la page pour que les sections qui apparaissent au défilement soient aussi vérifiées, attend la fin des animations finies et échoue à la moindre violation en indiquant la règle, son impact et les sélecteurs concernés.
+
+## Suite de parcours client [#journey-suite]
+
+`bun run test:journey` achète une licence et utilise la CLI comme le fait un client, sur le déploiement de preview à `https://preview.saasyland.com`, qui encaisse les paiements dans la sandbox Polar. `e2e/journey/playwright.config.ts` est une configuration à part, avec son propre projet Chromium et sans serveur web, si bien que ni `test:e2e` ni les vérifications des pull requests ne l'exécutent. Chaque offre est un test à part entière, et les tests s'exécutent en parallèle :
+
+1. **Compte.** Le test s'inscrit avec une nouvelle adresse de la boîte de test de Resend, `delivered+journey-<run>-<tier>@resend.dev`, trouve l'e-mail de vérification via l'API Resend et ouvre son lien.
+2. **Prix.** `/app/license` doit proposer l'offre au prix du pays où Cloudflare situe le runner, tel que `/cdn-cgi/trace` l'indique : le prix régional dans un pays de `PPP_TIERS`, le prix plein partout ailleurs.
+3. **Paiement.** Le test paie sur le checkout de la sandbox Polar avec la [carte de test de Stripe](https://docs.stripe.com/testing) et une facturation en Pologne, où l'adresse de facturation se limite au pays.
+4. **Commande et clé.** Polar doit détenir une seule commande payée pour le produit de l'offre, au prix plein moins la remise régionale, et `/app/license` doit afficher la clé émise par les webhooks, la commande d'installation et aucune machine utilisée.
+5. **CLI.** La CLI publiée, `npx saasyland@beta`, s'adresse à la preview via `SAASYLAND_API_URL`. `activate` écrit le fichier d'identifiants avec le mode `0600`, une nouvelle activation garde le même emplacement, et `whoami` affiche la machine. Des machines de CI, distinguées par `SAASYLAND_CI_REPOSITORY`, occupent les emplacements restants, jusqu'à <ActivationLimit tier="core" /> machines pour Core, <ActivationLimit tier="complete" /> pour Complete et <ActivationLimit tier="agency" /> pour Agency, et la suivante est refusée avec `activationLimitReached`. Dès qu'un emplacement est libéré sur `/app/license`, la machine refusée l'obtient et celle qui a été libérée reçoit `activationNotFound`. `deactivate` libère la première machine et supprime ses identifiants.
+6. **Remboursement.** Le test rembourse la commande via l'API de la sandbox Polar et attend que `/app/license` affiche la licence comme remboursée ; `whoami` doit alors répondre `licenseRefunded` et supprimer les identifiants.
+
+Chaque machine de la CLI est un répertoire du dossier de sortie du test que la CLI utilise comme répertoire personnel, et la CLI s'exécute avec pour tout environnement `PATH`, ce répertoire, un cache npm et les variables `SAASYLAND_*`, de sorte qu'aucun identifiant de la suite ne l'atteint. Une commande qu'un test en échec laisse payée est remboursée à la fin du test. Les comptes restent sur la preview, chacun avec une licence remboursée.
+
+La suite lit ces valeurs dans l'environnement, ou dans `.env.preview` quand le fichier existe, et s'arrête avant le premier test sans elles :
+
+| Variable                                                                        | Utilisation                                                                                        |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `POLAR_ACCESS_TOKEN`                                                            | Lire et rembourser les commandes dans la sandbox, avec les scopes `orders:read` et `refunds:write` |
+| `POLAR_SERVER`                                                                  | Doit valoir `sandbox`                                                                              |
+| `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE`, `POLAR_PRODUCT_ID_AGENCY` | Les produits de la sandbox auxquels les commandes doivent correspondre                             |
+| `RESEND_API_KEY`                                                                | Lire les e-mails de vérification envoyés par la preview, ce qui demande une clé à accès complet    |
+
+La preview doit exécuter un build qui contient l'[API de licence de la CLI](/docs/features/cli-licence-api) : une pull request y déploie sa branche dans le job **Deploy preview**. La sandbox doit correspondre au code, ce que vérifie `bun run polar:verify:preview`. Ensuite :
+
+```sh
+bun run test:e2e:install
+bun run polar:verify:preview
+bun run test:journey
+```
+
+Le rapport est écrit dans `playwright-report/journey/`, et les traces, vidéos et répertoires de machines des tests en échec dans `test-results/journey/`.
 
 ## Guides associés
 

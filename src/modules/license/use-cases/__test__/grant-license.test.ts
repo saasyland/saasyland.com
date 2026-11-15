@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { createPolarOrder } from "~/src/platform/testing/mocks/polar"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
@@ -41,7 +42,10 @@ describe("grant-license", () => {
   })
 
   it("fetches the true purchase date of a migrated license from Polar before comparing an older event", async () => {
-    const migrated = createPolarOrder({ externalCustomerId: USER_ID, tier: LICENSE_TIER.COMPLETE }, { created_at: PURCHASED_AT })
+    const migrated = createPolarOrder(
+      { externalCustomerId: USER_ID, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.COMPLETE] },
+      { created_at: PURCHASED_AT },
+    )
     await db.insert(license).values({
       id: "legacy",
       polarCustomerId: migrated.customer_id,

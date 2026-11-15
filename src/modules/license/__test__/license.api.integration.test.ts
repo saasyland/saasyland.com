@@ -35,6 +35,7 @@ import {
 import { fetchFromProviders } from "~/src/platform/testing/mocks/providers"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { licenseApiHandlers } from "~/src/modules/license/license.api"
@@ -101,7 +102,7 @@ interface ApiCall {
 const buy = async (tier: LicenseTier = LICENSE_TIER.CORE): Promise<Buyer> => {
   const userId = crypto.randomUUID()
   await db.insert(user).values({ email: `${userId}@example.test`, id: userId, name: "Buyer" })
-  const order = createPolarOrder({ externalCustomerId: userId, tier })
+  const order = createPolarOrder({ externalCustomerId: userId, productId: POLAR_PRODUCT_IDS[tier] })
   await licenseWebhookHandlers.onOrderPaid({ data: order })
   const grant = grantPolarLicenseKey(order)
   await licenseWebhookHandlers.onBenefitGrantCreated({ data: grant })

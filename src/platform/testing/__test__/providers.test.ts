@@ -2,21 +2,46 @@ import { env } from "cloudflare:workers"
 
 import { createElement } from "react"
 
-import { describe, expect, it } from "vite-plus/test"
+import { beforeEach, describe, expect, it } from "vite-plus/test"
 
-import { createPolarOrder, polarApi } from "~/src/platform/testing/mocks/polar"
+import type { PolarProduct } from "~/src/platform/testing/lib/polar"
+import { createPolarOrder, polarApi, polarCheckouts, seedPolarCatalogue } from "~/src/platform/testing/mocks/polar"
 import { takeProviderRefusals } from "~/src/platform/testing/mocks/providers"
 import { getSentEmails, resendApi } from "~/src/platform/testing/mocks/resend"
 
 import { polar } from "~/src/integrations/polar/polar.config"
-import { POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
 const RESEND_EMAILS = `${resendApi.origin}/emails`
 const POLAR_CHECKOUTS = `${polarApi.origin}/v1/checkouts/`
+
+const STARTER_KIT: PolarProduct = {
+  id: crypto.randomUUID(),
+  name: "Starter kit",
+  price: { amount: 4900, currency: DEFAULT_CURRENCY_CODE },
+  recurringInterval: null,
+}
+
+const MONTHLY_PLAN: PolarProduct = {
+  id: crypto.randomUUID(),
+  name: "Monthly plan",
+  price: { amount: 1900, currency: DEFAULT_CURRENCY_CODE },
+  recurringInterval: "month",
+}
+
+const checkoutBody = (productId: string) => ({
+  allow_discount_codes: false,
+  customer_email: "ada@example.test",
+  customer_ip_address: null,
+  customer_name: "Ada Lovelace",
+  external_customer_id: "customer",
+  metadata: {},
+  products: [productId],
+  success_url: "http://localhost:3000/app",
+})
 
 const post = (url: string, body: unknown, token: string): Promise<Response> =>
   fetch(url, {
@@ -80,8 +105,12 @@ describe("Resend test double", () => {
 })
 
 describe("Polar test double", () => {
+  beforeEach(() => {
+    seedPolarCatalogue({ discounts: [], licenseKeyBenefits: [], products: [STARTER_KIT, MONTHLY_PLAN] })
+  })
+
   it("serves an order through the Polar SDK", async () => {
-    const order = createPolarOrder({ externalCustomerId: "customer", tier: LICENSE_TIER.CORE })
+    const order = createPolarOrder({ externalCustomerId: "customer", productId: STARTER_KIT.id })
 
     await expect(polar.orders.get(order.id)).resolves.toStrictEqual(order)
   })
@@ -91,25 +120,49 @@ describe("Polar test double", () => {
     expect(takeProviderRefusals()).toStrictEqual([])
   })
 
-  it.each([
-    ["a product the organization does not sell", { products: ["unknown-product"] }],
-    ["a checkout without the buyer's account", { external_customer_id: undefined }],
-    ["a discount the organization does not have", { discount_id: crypto.randomUUID() }],
-    ["a field Polar does not know", { coupon: "LAUNCH" }],
-  ])("answers 422 to a checkout for %s and records the refusal", async (_case, change) => {
-    const body = {
-      allow_discount_codes: false,
-      external_customer_id: "customer",
-      metadata: {},
-      products: [POLAR_PRODUCT_IDS[LICENSE_TIER.CORE]],
-      success_url: "http://localhost:3000/app",
-      ...change,
-    }
+  it("opens a checkout for a recurring product at its price, as Polar does for a subscription", async () => {
+    const checkout = await polar.checkouts.create(checkoutBody(MONTHLY_PLAN.id))
 
-    const response = await post(POLAR_CHECKOUTS, body, env.POLAR_ACCESS_TOKEN)
+    expect(checkout).toMatchObject({
+      amount: MONTHLY_PLAN.price.amount,
+      currency: MONTHLY_PLAN.price.currency.toLowerCase(),
+      net_amount: MONTHLY_PLAN.price.amount,
+      product: { is_recurring: true, recurring_interval: MONTHLY_PLAN.recurringInterval, recurring_interval_count: 1 },
+      product_id: MONTHLY_PLAN.id,
+    })
+    expect(polarCheckouts()).toStrictEqual([checkout])
+  })
+
+  it("answers 422 to a checkout for a product the organization does not sell and records why", async () => {
+    const productId = crypto.randomUUID()
+
+    const response = await post(POLAR_CHECKOUTS, checkoutBody(productId), env.POLAR_ACCESS_TOKEN)
+
+    expect(response.status).toBe(HTTP_STATUS.UNPROCESSABLE_CONTENT)
+    expect(takeProviderRefusals()).toStrictEqual([
+      `POST ${POLAR_CHECKOUTS}: body.products: ${productId} is not a product of the organization`,
+    ])
+    expect(polarCheckouts()).toStrictEqual([])
+  })
+
+  it("forgets the products a test seeded when it is reset", async () => {
+    polarApi.reset()
+
+    const response = await post(POLAR_CHECKOUTS, checkoutBody(MONTHLY_PLAN.id), env.POLAR_ACCESS_TOKEN)
 
     expect(response.status).toBe(HTTP_STATUS.UNPROCESSABLE_CONTENT)
     expect(takeProviderRefusals()).toHaveLength(1)
+  })
+
+  it.each([
+    ["a checkout without the buyer's account", { external_customer_id: undefined }, "body"],
+    ["a checkout with a discount the organization does not have", { discount_id: crypto.randomUUID() }, "body.discount_id"],
+    ["a checkout with a field Polar does not know", { coupon: "LAUNCH" }, "body"],
+  ])("answers 422 to %s and records the refusal", async (_case, change, location) => {
+    const response = await post(POLAR_CHECKOUTS, { ...checkoutBody(STARTER_KIT.id), ...change }, env.POLAR_ACCESS_TOKEN)
+
+    expect(response.status).toBe(HTTP_STATUS.UNPROCESSABLE_CONTENT)
+    expect(takeProviderRefusals()).toStrictEqual([expect.stringContaining(`: ${location}: `)])
   })
 
   it("answers 401 to a request without the configured access token", async () => {

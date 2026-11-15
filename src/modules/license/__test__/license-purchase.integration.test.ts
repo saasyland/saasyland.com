@@ -9,7 +9,6 @@ import { signedPolarWebhook } from "~/src/platform/testing/lib/polar"
 import { executeMutation, executeQuery } from "~/src/platform/testing/lib/query"
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 import {
-  POLAR_DISCOUNTS,
   activatePolarLicenseKey,
   createPolarOrder,
   grantPolarLicenseKey,
@@ -31,6 +30,7 @@ import { COUNTRY_HEADER, HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_c
 import { toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { DEFAULT_CURRENCY_CODE, PPP_COOKIE, PPP_DECLINED, PPP_PERCENT, pppMultiplierKey } from "~/src/modules/_core/constants/pricing"
+import { REGIONAL_POLAR_DISCOUNTS } from "~/src/modules/license/__test__/fixtures/license.polar-catalogue"
 import {
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_STATUS,
@@ -162,7 +162,7 @@ describe("checkout", () => {
 
     const checkout = await startCheckout(buyer, { country, tier: LICENSE_TIER.AGENCY })
 
-    expect(POLAR_DISCOUNTS.map(({ id }) => id)).toContain(checkout.discount_id)
+    expect(REGIONAL_POLAR_DISCOUNTS.map(({ id }) => id)).toContain(checkout.discount_id)
     expect(checkout.net_amount).toBe(regionalPrice(LICENSE_TIER.AGENCY, country))
   })
 
@@ -269,7 +269,7 @@ describe("Polar webhooks", () => {
   it("ignores refunds of other products and revocations of other benefits", async () => {
     const { buyer, grant, order } = await buyLicense()
     const otherProduct = createPolarOrder(
-      { externalCustomerId: buyer.userId, tier: LICENSE_TIER.CORE },
+      { externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] },
       { product_id: crypto.randomUUID() },
     )
 
@@ -282,11 +282,11 @@ describe("Polar webhooks", () => {
   it("keeps a later purchase active when the earlier order is refunded", async () => {
     const buyer = await signUpAndVerify()
     const original = createPolarOrder(
-      { externalCustomerId: buyer.userId, tier: LICENSE_TIER.CORE },
+      { externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] },
       { created_at: "2026-11-01T10:00:00.000Z" },
     )
     const upgrade = createPolarOrder(
-      { externalCustomerId: buyer.userId, tier: LICENSE_TIER.COMPLETE },
+      { externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.COMPLETE] },
       { created_at: "2026-11-02T10:00:00.000Z" },
     )
     await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, original)
@@ -351,11 +351,11 @@ describe("Polar webhook delivery order", () => {
   it("keeps a newer purchase when an older paid order arrives late", async () => {
     const buyer = await signUpAndVerify()
     const older = createPolarOrder(
-      { externalCustomerId: buyer.userId, tier: LICENSE_TIER.CORE },
+      { externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] },
       { created_at: "2026-11-01T10:00:00.000Z" },
     )
     const newer = createPolarOrder(
-      { externalCustomerId: buyer.userId, tier: LICENSE_TIER.AGENCY },
+      { externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.AGENCY] },
       { created_at: "2026-11-02T10:00:00.000Z" },
     )
 
@@ -367,7 +367,7 @@ describe("Polar webhook delivery order", () => {
 
   it("acknowledges every event for an account deleted after its purchase, and logs a new paid order", async () => {
     const { buyer, grant, order } = await buyLicense()
-    const later = createPolarOrder({ externalCustomerId: buyer.userId, tier: LICENSE_TIER.AGENCY })
+    const later = createPolarOrder({ externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.AGENCY] })
     await db.delete(user).where(eq(user.id, buyer.userId))
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
 

@@ -9,6 +9,7 @@ let applicationModule: Promise<typeof applicationModuleType> | null = null
 
 const installProviderDoubles = async (): Promise<void> => {
   const providers = await import("~/src/platform/testing/mocks/providers")
+  providers.resetProviderDoubles()
   for (const entry of ENTRIES) {
     if (entry.kind === TEST_WORKER_KIND.SETUP) {
       await entry.setup()

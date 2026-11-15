@@ -15,7 +15,7 @@ import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashbo
 
 import { pageHead } from "~/src/lib/seo"
 
-import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
+import { LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Card } from "~/src/presentation/components/shadcn/card"
 
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
@@ -68,16 +68,9 @@ const DashboardPage = (): JSX.Element => {
         />
 
         <div className="flex justify-end">
-          {users.total > ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize && (
-            <LinkButton className="h-7 px-2.5" href={ROUTES.ADMIN_USERS} size="sm" variant="outline">
-              {t("users.table.pagination.viewAll")}
-            </LinkButton>
-          )}
-          {users.total <= ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize && (
-            <Button className="h-7 px-2.5" isDisabled size="sm" variant="outline">
-              {t("users.table.pagination.viewAll")}
-            </Button>
-          )}
+          <LinkButton className="h-7 px-2.5" href={ROUTES.ADMIN_USERS} size="sm" variant="outline">
+            {t("users.table.pagination.viewAll")}
+          </LinkButton>
         </div>
       </Card>
     </div>

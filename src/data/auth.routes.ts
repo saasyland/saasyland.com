@@ -2,7 +2,6 @@ export const ADMIN = "/admin"
 export const ADMIN_SETTINGS = "/admin/settings"
 export const ADMIN_USERS = "/admin/users"
 export const ADMIN_USERS_ALL = "/admin/users/all"
-export const ADMIN_USERS_SECURITY = "/admin/users/security"
 export const API_AUTH = {
   ADMIN_CREATE_USER: "/admin/create-user",
   ADMIN_SET_USER_PASSWORD: "/admin/set-user-password",

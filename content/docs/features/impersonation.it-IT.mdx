@@ -1,6 +1,6 @@
 ---
 title: "Impersonificazione"
-description: "Impersonificazione da amministratore con Better Auth: le funzioni server esistono, ma nessuna schermata le usa ancora."
+description: "Impersonificazione da amministratore con Better Auth: un amministratore accede come cliente dalla schermata degli utenti e la interrompe da un banner nell’app clienti."
 ---
 
 Il plugin `admin` di Better Auth fornisce l’impersonificazione, e `src/modules/user/use-cases` la incapsula:
@@ -14,11 +14,25 @@ export const impersonateUser = createServerFn({ method: "POST" })
 
 `stopImpersonatingUser` richiede solo una sessione autenticata. Entrambi i file esportano le opzioni di mutazione (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-## Stato attuale
+## Avvio
 
-- Nessuna schermata chiama queste funzioni: il menu delle azioni di riga degli utenti non ha una voce per impersonificare e non esiste un banner per interrompere l’impersonificazione.
-- Better Auth contrassegna le sessioni di impersonificazione con `impersonatedBy`; `getActiveSessions` le esclude dall’elenco delle sessioni nelle impostazioni.
-- Le guardie di rotta rimuovono dalla cache delle query i dati dell’utente precedente quando cambia l’utente della sessione, quindi la navigazione successiva all’impersonificazione carica i dati dell’altro utente.
-- Non esiste un registro di audit delle impersonificazioni.
+**Impersona** nel menu delle azioni di un utente ([Utenti (admin)](/docs/features/users-admin)), su `/admin/users/all` o nel profilo dell’utente, chiama `impersonateUser`. Better Auth crea per l’utente una sessione contrassegnata con `impersonatedBy`, conserva il token di sessione dell’amministratore in un cookie firmato `admin_session` e passa il cookie di sessione alla nuova sessione; `tanstackStartCookies()` porta entrambi i cookie nella risposta della funzione server. Poi il menu rimuove i dati dell’amministratore dalla cache delle query con `removeUserData`, svuota la cache del router e apre `/app`.
 
-Per aggiungerla, inserisci una voce di menu in `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) e un modo visibile per interrompere l’impersonificazione nei layout.
+La voce compare solo per un utente che non è né amministratore né bloccato. Better Auth si rifiuta di impersonificare un utente con un ruolo di amministratore a meno che chi chiama non abbia `user: ["impersonate-admins"]`, che nessun ruolo in `auth.access.ts` concede, e il suo hook di sessione nega la sessione a un utente bloccato. `auth.server.ts` non imposta `impersonationSessionDuration`, quindi la sessione dura quanto consente il valore predefinito di Better Auth.
+
+## Banner e interruzione
+
+`ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) sta sopra l’intestazione del layout di `/app`. Legge `getCurrentSessionQuery` e viene mostrato solo quando la sessione ha `impersonatedBy`: una regione con l’etichetta di `components.custom.impersonation-banner.json` che indica l’utente impersonificato e la sua email, e un pulsante **Termina l’impersonificazione**. Il pulsante chiama `stopImpersonatingUser`, che elimina la sessione di impersonificazione e ripristina la sessione dell’amministratore dal cookie `admin_session`; poi il banner rimuove i dati dell’utente dalla cache e apre il profilo di quell’utente in `/admin/users`.
+
+## Sessioni
+
+- `getActiveSessions` esclude le sessioni di impersonificazione dall’elenco delle sessioni nelle impostazioni, e lo stesso fa l’endpoint `list-sessions` di Better Auth.
+- La scheda delle sessioni nel profilo di un utente le elenca, così un amministratore può revocare una sessione di impersonificazione lasciata aperta da un altro amministratore.
+- Le guardie di rotta rimuovono dalla cache delle query i dati dell’utente precedente quando cambia l’utente della sessione, quindi ogni navigazione dopo l’avvio o l’interruzione carica i dati dell’utente giusto.
+
+Non esiste un registro di audit delle impersonificazioni.
+
+## Guide correlate
+
+- [Utenti (admin)](/docs/features/users-admin)
+- [Sessioni](/docs/features/sessions)

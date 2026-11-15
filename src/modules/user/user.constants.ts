@@ -8,6 +8,7 @@ export const USER_STATUS = {
 
 export const USER_QUERY_KEYS = {
   ALL: ["user"],
+  DETAIL: ["user", "getUser"],
   LIST: ["user", "getUsers"],
 } as const
 

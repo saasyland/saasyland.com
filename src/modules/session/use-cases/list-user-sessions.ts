@@ -11,7 +11,13 @@ import { sessionZodSchemas } from "~/src/modules/session/session.zod"
 export const listUserSessions = createServerFn({ method: "GET" })
   .middleware([authorized({ session: ["list"] })])
   .validator((input: Session["listUserSessions"]) => sessionZodSchemas.listUserSessions.parse(input))
-  .handler(({ context, data }) => auth.api.listUserSessions({ body: data, headers: context.requestHeaders }))
+  .handler(async ({ context, data }) => {
+    const { sessions } = await auth.api.listUserSessions({ body: data, headers: context.requestHeaders })
+
+    return sessions
+      .map(({ token: _token, ...session }) => session)
+      .toSorted((first, second) => second.createdAt.getTime() - first.createdAt.getTime())
+  })
 
 export const listUserSessionsQuery = (data: Session["listUserSessions"]) =>
   queryOptions({

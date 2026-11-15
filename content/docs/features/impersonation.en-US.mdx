@@ -1,6 +1,6 @@
 ---
 title: "Impersonation"
-description: "Better Auth admin impersonation: the server functions exist, no screen uses them yet."
+description: "Better Auth admin impersonation: an admin signs in as a customer from the users screen and stops from a banner in the workspace."
 ---
 
 The Better Auth `admin` plugin provides impersonation, and `src/modules/user/use-cases` wraps it:
@@ -14,11 +14,25 @@ export const impersonateUser = createServerFn({ method: "POST" })
 
 `stopImpersonatingUser` needs only a signed-in session. Both files export mutation options (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-## Current state
+## Start
 
-- No screen calls these functions: the users row actions menu has no impersonate item and there is no banner to stop impersonating.
-- Better Auth marks impersonation sessions with `impersonatedBy`; `getActiveSessions` leaves them out of the settings session list.
-- The route guards remove the previous user's data from the query cache when the session user changes, so the next navigation after impersonating loads the other user's data.
-- There is no audit log of impersonation.
+**Impersonate** in the actions menu of a user ([Users (admin)](/docs/features/users-admin)), on `/admin/users/all` or on the user's profile, calls `impersonateUser`. Better Auth creates a session for the user marked with `impersonatedBy`, keeps the admin's session token in a signed `admin_session` cookie and switches the session cookie to the new session; `tanstackStartCookies()` carries both cookies on the server function's response. The menu then removes the admin's data from the query cache with `removeUserData`, clears the router cache and opens `/app`.
 
-To add it, put a menu item in `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) and a visible way to stop impersonating in the layouts.
+The item appears only for a user who is neither an admin nor banned. Better Auth refuses to impersonate a user with an admin role unless the caller holds `user: ["impersonate-admins"]`, which no role in `auth.access.ts` grants, and its session hook refuses a session to a banned user. `auth.server.ts` sets no `impersonationSessionDuration`, so the session lasts as long as Better Auth's default allows.
+
+## Banner and stop
+
+`ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) sits above the header of the `/app` layout. It reads `getCurrentSessionQuery` and renders only when the session has `impersonatedBy`: a region labelled from `components.custom.impersonation-banner.json` that names the impersonated user and their email, and a **Stop impersonating** button. The button calls `stopImpersonatingUser`, which deletes the impersonation session and restores the admin's session from the `admin_session` cookie; the banner then removes the user's data from the cache and opens that user's profile in `/admin/users`.
+
+## Sessions
+
+- `getActiveSessions` leaves impersonation sessions out of the settings session list, and Better Auth's own `list-sessions` endpoint does the same.
+- The sessions card on a user's profile lists them, so an admin can revoke an impersonation session that another admin left open.
+- The route guards remove the previous user's data from the query cache when the session user changes, so every navigation after starting or stopping loads the right user's data.
+
+There is no audit log of impersonation.
+
+## Related guides
+
+- [Users (admin)](/docs/features/users-admin)
+- [Sessions](/docs/features/sessions)

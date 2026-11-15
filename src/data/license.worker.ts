@@ -7,6 +7,7 @@ import {
   getPppPercentOff,
   pppMultiplierKey,
 } from "~/src/modules/_core/constants/pricing"
+import { BUNDLE_PATH_PREFIX } from "~/src/modules/license/license.constants"
 
 import { WORKER_HANDLER_KIND, type WorkerHandler } from "~/src/data/worker.constants"
 
@@ -48,5 +49,13 @@ export const LICENSE_WORKER_HANDLERS = [
         })
         .transform(page)
     },
+  },
+  {
+    fetch: async (request) => {
+      const { serveBundle } = await import("~/src/modules/license/license.delivery")
+      return serveBundle(request)
+    },
+    kind: WORKER_HANDLER_KIND.REQUEST,
+    pathPrefix: `${BUNDLE_PATH_PREFIX}/`,
   },
 ] as const satisfies readonly WorkerHandler[]

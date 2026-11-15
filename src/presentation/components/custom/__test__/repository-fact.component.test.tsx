@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 
-import { API_BASE_PATH, API_ENDPOINT, API_ERROR, API_ERROR_STATUS, RATE_LIMIT } from "@saasyland/stack/api"
+import { API_BASE_PATH, API_ENDPOINT, API_ERROR_STATUS, API_LIMIT, RATE_LIMIT } from "@saasyland/stack/api"
 import { render, screen, within } from "@testing-library/react"
 import { adminAc } from "better-auth/plugins/admin/access"
 import { IntlProvider } from "use-intl/react"
@@ -9,8 +9,13 @@ import { describe, expect, it } from "vite-plus/test"
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { PPP_TIERS } from "~/src/modules/_core/constants/pricing"
 import {
+  BUNDLE_ARCHIVE_EXTENSION,
+  BUNDLE_BINDING,
+  BUNDLE_CONTENT_TYPE,
+  BUNDLE_PATH_PREFIX,
   LICENSE_API_ENDPOINTS,
   LICENSE_API_RETRY_AFTER_SECONDS,
   REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
@@ -246,7 +251,6 @@ describe("RepositoryTable", () => {
         String(API_ERROR_STATUS[code]),
       ]),
     )
-    expect(rows.map(([code]) => code)).not.toContain(API_ERROR.VERSION_NOT_FOUND)
   })
 
   it("prints every seeded account with its role and the tier of its licence", () => {
@@ -267,5 +271,46 @@ describe("RepositoryTable", () => {
         new Intl.ListFormat("pl-PL").format(countries),
       ]),
     )
+  })
+})
+
+describe("CLI template bundles", () => {
+  it("prints the bundle URL's lifetime from the contract and the archive's path, key and media type from the licence module", () => {
+    renderInLocale(
+      "en-US",
+      <ul>
+        <li>
+          <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />
+        </li>
+        <li>
+          <RepositoryFact name="cliBundleUrlPath" />
+        </li>
+        <li>
+          <RepositoryFact name="cliBundleKey" />
+        </li>
+        <li>
+          <RepositoryFact name="cliBundleContentType" />
+        </li>
+      </ul>,
+    )
+
+    expect(listItems()).toEqual([
+      new Intl.NumberFormat("en-US", { style: "unit", unit: "second", unitDisplay: "long" }).format(API_LIMIT.BUNDLE_URL_TTL_SECONDS),
+      `${BUNDLE_PATH_PREFIX}/<expiry>.<signature>/<version>${BUNDLE_ARCHIVE_EXTENSION}`,
+      `<version>${BUNDLE_ARCHIVE_EXTENSION}`,
+      BUNDLE_CONTENT_TYPE,
+    ])
+  })
+
+  it("prints the BUNDLES bucket of every environment from wrangler.jsonc", async () => {
+    const { readBucketName } = await import("~/scripts/wrangler-config")
+    renderInLocale("en-US", <RepositoryTable columns={["Environment", "Bucket"]} name="cliBundleBuckets" />)
+
+    const rows = tableRows().slice(1)
+    const expected = await Promise.all(
+      rows.map(async ([environment = ""]) => [environment, await readBucketName({ binding: BUNDLE_BINDING, environment })]),
+    )
+    expect(new Set(rows.map(([environment]) => environment))).toEqual(new Set(Object.values(ENVIRONMENT)))
+    expect(rows).toEqual(expected)
   })
 })

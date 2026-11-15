@@ -21,7 +21,14 @@ import { LOCALIZED_TEXT_MAX_LENGTH } from "~/src/modules/_core/utils/localized-t
 import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 import { COURSE_SHOWCASE } from "~/src/modules/course/course.constants"
-import { LICENSE_API_RETRY_AFTER_SECONDS, REGIONAL_DISCOUNTS_REFRESH_AFTER_MS } from "~/src/modules/license/license.constants"
+import {
+  BUNDLE_ARCHIVE_EXTENSION,
+  BUNDLE_BINDING,
+  BUNDLE_CONTENT_TYPE,
+  BUNDLE_PATH_PREFIX,
+  LICENSE_API_RETRY_AFTER_SECONDS,
+  REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
+} from "~/src/modules/license/license.constants"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { POSTER_SMALL_WIDTH, POSTER_WIDTH, VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 import {
@@ -67,6 +74,10 @@ const FACTS = {
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
   backupCodeMinLength: BACKUP_CODE_MIN_LENGTH,
   cliApiRetryAfterSeconds: LICENSE_API_RETRY_AFTER_SECONDS,
+  cliBundleBinding: BUNDLE_BINDING,
+  cliBundleContentType: BUNDLE_CONTENT_TYPE,
+  cliBundleKey: `<version>${BUNDLE_ARCHIVE_EXTENSION}`,
+  cliBundleUrlPath: `${BUNDLE_PATH_PREFIX}/<expiry>.<signature>/<version>${BUNDLE_ARCHIVE_EXTENSION}`,
   cliExec: CLI_EXEC,
   cliLicenseCommands: CLI_LICENSE_COMMANDS.map((command) => cliCommand(command)),
   cliLicenseKeyVariable: CLI_LICENSE_KEY_VARIABLE,
@@ -115,6 +126,7 @@ const TABLES = {
   appStatements: Object.entries(APP_STATEMENTS),
   cliApiEndpoints: cliApiTables.endpoints,
   cliApiErrors: cliApiTables.errors,
+  cliBundleBuckets: cliApiTables.bundleBuckets,
   commitTypes: Object.entries(commitEmojis),
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
   seededAccounts,

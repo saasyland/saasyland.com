@@ -85,8 +85,9 @@ const createBucket = (objects: Map<string, StoredObject>) => ({
     const truncated = keys.length > limit
     return { objects: page.map((key) => ({ key })), truncated, ...(truncated ? { cursor: page.at(-1) } : {}) }
   },
-  put: async (key: string, value: string) => {
-    objects.set(key, { body: new TextEncoder().encode(value), etag: `${key}:${String(value.length)}` })
+  put: async (key: string, value: string | Uint8Array<ArrayBuffer>) => {
+    const body = typeof value === "string" ? new TextEncoder().encode(value) : value
+    objects.set(key, { body, etag: `${key}:${String(body.byteLength)}` })
   },
 })
 

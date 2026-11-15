@@ -1,9 +1,9 @@
 ---
 title: "Cloudflare R2"
-description: "Bucket MEDIA: prywatne przechowywanie wideo, które Worker serwuje przez podpisane, wygasające ścieżki i cache brzegowy."
+description: "Buckety MEDIA i BUNDLES: prywatne przechowywanie wideo i paczki szablonów CLI, które Worker serwuje przez podpisane, wygasające ścieżki."
 ---
 
-Każde środowisko wiąże bucket R2 jako `MEDIA` w `wrangler.jsonc`: `saasyland` na produkcji, `saasyland-preview` dla preview i lokalnego trybu deweloperskiego oraz lokalny bucket `saasyland-test` dla builda testowego. Buckety są prywatne: publiczny dostęp i adres URL `r2.dev` pozostają wyłączone, a każdy odczyt przechodzi przez Workera.
+Każde środowisko wiąże bucket R2 jako `MEDIA` w `wrangler.jsonc`: `saasyland` na produkcji, `saasyland-preview` dla preview i lokalnego trybu deweloperskiego oraz lokalny bucket `saasyland-test` dla builda testowego. Buckety są prywatne: publiczny dostęp i adres URL `r2.dev` pozostają wyłączone, a każdy odczyt przechodzi przez Workera. Obszar licencji wiąże drugi bucket, `BUNDLES`, na paczki szablonów CLI (zobacz [Paczki szablonów](#template-bundles)).
 
 ## Układ obiektów
 
@@ -34,9 +34,17 @@ Podpisane ścieżki działają jak linki na okaziciela, dopóki nie wygasną: ka
 
 Worker nie przyjmuje przesyłanych plików. `scripts/publish-video.ts` zapisuje do bucketu poleceniem `wrangler r2 bulk put --remote`, korzystając z Twojego logowania `bunx wrangler login`; zobacz [Wideo](/docs/features/videos). Usunięcie filmu w panelu administracyjnym listuje prefiks i usuwa obiekty strona po stronie przez binding.
 
+## Paczki szablonów [#template-bundles]
+
+Każde środowisko wiąże też bucket `BUNDLES` obszaru licencji:
+
+<RepositoryTable columns={["Środowisko", "Bucket"]} name="cliBundleBuckets" />
+
+Przechowuje on jeden obiekt na każde wydanie CLI, czyli paczkę szablonów wydania pod <RepositoryFact name="cliBundleKey" />, którą przesyła wydanie w repozytorium CLI; Worker nigdy do niego nie zapisuje. [API licencji CLI](/docs/features/cli-licence-api#template-bundles) podpisuje adresy URL <RepositoryFact name="cliBundleUrlPath" /> tak samo, jak podpisywane są ścieżki `/media/`, z własnym kluczem i czasem ważności <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />, a `serveBundle` (`src/modules/license/license.delivery.ts`) strumieniuje obiekt bez zapisywania go w cache. [Publikowanie paczek](/docs/features/cli-licence-api#publishing-bundles) podaje klucz, typ zawartości i buckety, do których wydanie przesyła paczki.
+
 ## Testy
 
-W Vitest `cloudflare:workers` wskazuje na `src/platform/testing/mocks/cloudflare.ts`, który zapewnia bucket `MEDIA` w pamięci z metodami `get` (także z zakresami), `head`, `put`, `delete` i stronicowanym `list`. `src/platform/testing/mocks/cache.ts` zastępuje cache Workers zaślepką. Build testowy używa lokalnego bucketu `saasyland-test` w `.wrangler/test`.
+W Vitest `cloudflare:workers` wskazuje na `src/platform/testing/mocks/cloudflare.ts`, który zapewnia bucket w pamięci dla każdego bindingu R2 środowiska `test`, `MEDIA` i `BUNDLES`, z metodami `get` (także z zakresami), `head`, `put` dla tekstu lub bajtów, `delete` i stronicowanym `list`. `src/platform/testing/mocks/cache.ts` zastępuje cache Workers zaślepką. Build testowy używa lokalnych bucketów `saasyland-test` i `saasyland-bundles-test` w `.wrangler/test`.
 
 ## Powiązane strony
 

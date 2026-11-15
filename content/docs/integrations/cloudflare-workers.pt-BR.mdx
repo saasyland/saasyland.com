@@ -12,13 +12,13 @@ A aplicação é executada como um único Cloudflare Worker. `@cloudflare/vite-p
 | `production`  | `saasyland`             | Recursos de produção                | `saasyland.com`         |
 | `test`        | `saasyland-test`        | Recursos locais em `.wrangler/test` | `127.0.0.1:3000`        |
 
-Todo ambiente vincula o D1 como `DB`, o KV como `CACHE` e o R2 como `MEDIA`, e lista os secrets obrigatórios. `AFFONSO_PROGRAM_ID`, que ativa o rastreamento de indicações de afiliados, é uma variável comum em `vars`, definida por enquanto apenas em `test`. O ambiente `test` usa `src/platform/testing/worker.ts` como entrada; ele intercepta as requisições ao Resend e à Polar e expõe endpoints exclusivos de teste para o Playwright.
+Todo ambiente vincula o D1 como `DB`, o KV como `CACHE` e o R2 como `MEDIA` e `BUNDLES`, e lista os secrets obrigatórios. `AFFONSO_PROGRAM_ID`, que ativa o rastreamento de indicações de afiliados, é uma variável comum em `vars`, definida por enquanto apenas em `test`. O ambiente `test` usa `src/platform/testing/worker.ts` como entrada; ele intercepta as requisições ao Resend e à Polar e expõe endpoints exclusivos de teste para o Playwright.
 
 ## Fluxo da requisição
 
 `src/server.ts` trata todas as requisições:
 
-1. Um caminho que uma área reivindica vai, antes de qualquer outra coisa, para o handler de requisições dessa área. A área de cursos reivindica `/media/` e o entrega a `serveMedia`, que serve os arquivos de vídeo assinados a partir do cache do Workers ou do R2 (veja [Cloudflare R2](/docs/integrations/cloudflare-r2)). Das etapas abaixo, só os cabeçalhos de segurança se aplicam a ele.
+1. Um caminho que uma área reivindica vai, antes de qualquer outra coisa, para o handler de requisições dessa área. A área de cursos reivindica `/media/` e o entrega a `serveMedia`, que serve os arquivos de vídeo assinados a partir do cache do Workers ou do R2 (veja [Cloudflare R2](/docs/integrations/cloudflare-r2)), e a área de licenças reivindica `/bundles/` e o entrega a `serveBundle`, que serve os pacotes de templates assinados da CLI a partir do R2 (veja [API de licenças da CLI](/docs/features/cli-licence-api#template-bundles)). Das etapas abaixo, só os cabeçalhos de segurança se aplicam a eles.
 2. `resolveLocale`, de `i18n.middleware.ts`, inspeciona requisições de documento `GET` e `HEAD` fora de `/api` e `/_serverFn`. Ele redireciona aliases de idioma e caminhos de locale não canônicos com status 308 e informa quando o cookie de locale difere do locale da URL.
 3. Requisições `GET` e `HEAD` fora de `/api` e `/_serverFn` são servidas primeiro a partir de `ASSETS`, o que cobre as páginas pré-renderizadas. Um 404 é repassado ao handler do TanStack Start.
 4. Quando o cookie de locale precisa ser atualizado, o Worker o anexa à resposta. As respostas HTML também recebem headers `Link` de preload para a folha de estilos e as fontes do locale.

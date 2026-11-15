@@ -12,4 +12,7 @@ export const APP_FOUNDED_YEAR = 2023
 
 export const APP_GITHUB_OWNER = "saasyland"
 export const APP_GITHUB_REPO = APP_DOMAIN
-export const APP_GITHUB_URL = `https://github.com/${APP_GITHUB_OWNER}/${APP_GITHUB_REPO}`
+export const APP_GITHUB_OWNER_URL = `https://github.com/${APP_GITHUB_OWNER}`
+export const APP_GITHUB_URL = `${APP_GITHUB_OWNER_URL}/${APP_GITHUB_REPO}`
+
+export const APP_INSTAGRAM_URL = "https://www.instagram.com/saasyland/"

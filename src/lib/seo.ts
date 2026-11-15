@@ -3,7 +3,7 @@ import { deLocalizePathname, localeLinks, localizePathname } from "~/src/integra
 
 import { isUnlistedRoute } from "~/src/data/unlisted"
 
-import { APP_NAME, APP_URL } from "~/src/presentation/branding"
+import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 export const ROBOTS = {
@@ -148,6 +148,22 @@ type PostStructuredData = Readonly<{
   "@graph": StructuredDataNode[]
 }>
 
+const SCHEMA_CONTEXT = "https://schema.org"
+
+const ORGANIZATION: StructuredDataNode = {
+  "@type": "Organization",
+  email: CONTACT_EMAIL,
+  name: APP_NAME,
+  sameAs: [APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL],
+  url: APP_URL,
+}
+
+const toStructuredDataHtml = (data: StructuredDataNode): { __html: string } => ({
+  __html: JSON.stringify(data).replaceAll("<", String.raw`\u003c`),
+})
+
+export const ORGANIZATION_STRUCTURED_DATA_HTML = toStructuredDataHtml({ "@context": SCHEMA_CONTEXT, ...ORGANIZATION })
+
 const toIsoDate = (value: string | Date): string => new Date(value).toISOString()
 
 const absoluteUrl = (baseUrl: string, path: string): string => new URL(path, baseUrl).toString()
@@ -163,7 +179,7 @@ export const buildBlogPostStructuredData = (input: PostStructuredDataInput): Pos
     datePublished: published,
     headline: input.title,
     mainEntityOfPage: { "@id": canonical, "@type": "WebPage" },
-    publisher: { "@type": "Organization", name: APP_NAME, url: input.baseUrl },
+    publisher: ORGANIZATION,
     url: canonical,
   }
 
@@ -198,9 +214,8 @@ export const buildBlogPostStructuredData = (input: PostStructuredDataInput): Pos
     })
   }
 
-  return { "@context": "https://schema.org", "@graph": graph }
+  return { "@context": SCHEMA_CONTEXT, "@graph": graph }
 }
 
-export const buildBlogPostStructuredDataHtml = (input: PostStructuredDataInput): { __html: string } => ({
-  __html: JSON.stringify(buildBlogPostStructuredData(input)).replaceAll("<", String.raw`\u003c`),
-})
+export const buildBlogPostStructuredDataHtml = (input: PostStructuredDataInput): { __html: string } =>
+  toStructuredDataHtml(buildBlogPostStructuredData(input))

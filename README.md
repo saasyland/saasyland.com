@@ -150,13 +150,13 @@ The development, preview, and production environments declare **every key above 
 
 ### Domains and branding
 
-The public URL is configured in source: [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) defines `APP_DOMAIN` and derives `APP_URL` as `https://${APP_DOMAIN}`, together with the contact addresses and GitHub URL. **`VITE_APP_URL` is not read by the application.**
+The public URL is configured in source: [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) defines `APP_DOMAIN` and derives `APP_URL` as `https://${APP_DOMAIN}`, together with the contact addresses, the GitHub organisation and repository URLs and the Instagram profile, which the footer links and the home page's structured data lists. **`VITE_APP_URL` is not read by the application.**
 
 When adapting the application to your own domain, update these locations together:
 
 | Location                                                                   | What to configure                                                                                                                                                               |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, preview host (`APP_PREVIEW_DOMAIN`), contact addresses, and GitHub identity.                                                                |
+| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, preview host (`APP_PREVIEW_DOMAIN`), contact addresses, GitHub identity and Instagram profile (`APP_INSTAGRAM_URL`).                        |
 | [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `DEPLOYED_HOSTS`, the preview and production hosts read from `APP_PREVIEW_DOMAIN` and `APP_DOMAIN`, and the one place the code names them by environment.                       |
 | [`wrangler.jsonc`](wrangler.jsonc)                                         | Worker names, custom-domain routes, D1 databases, KV namespaces, and R2 buckets for each environment.                                                                           |
 | [`src/data/marketing.ts`](src/data/marketing.ts)                           | The price of each tier of `LICENSE_TIERS` (`TIER_PRICES`) and the consulting rate (`CONSULTING_HOURLY_RATE`); `polar:verify` checks the tier prices against the Polar products. |

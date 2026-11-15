@@ -14,7 +14,7 @@ import { Footer } from "~/src/presentation/components/custom/footer"
 
 import footerMessages from "~/messages/en-US/components.custom.footer.json"
 import newsletterFormMessages from "~/messages/en-US/components.custom.newsletter-form.json"
-import { APP_FOUNDED_YEAR, APP_GITHUB_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
+import { APP_FOUNDED_YEAR, APP_GITHUB_URL, APP_INSTAGRAM_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 
 const renderFooter = () =>
   renderWithRouter(
@@ -29,7 +29,7 @@ afterEach(() => {
 })
 
 describe("marketing footer", () => {
-  it("links landing sections, pages, every legal document, contact, GitHub and language selection", () => {
+  it("links landing sections, pages, every legal document, contact and language selection", () => {
     renderFooter()
     const footer = screen.getByRole("contentinfo")
     const hrefs = within(footer)
@@ -51,10 +51,21 @@ describe("marketing footer", () => {
         "/licence",
       ]),
     )
-    expect(within(footer).getByRole("link", { name: footerMessages.links.github })).toHaveAttribute("href", APP_GITHUB_URL)
     expect(within(footer).getByRole("link", { name: CONTACT_EMAIL })).toHaveAttribute("href", `mailto:${CONTACT_EMAIL}`)
     expect(within(footer).getByRole("textbox", { name: newsletterFormMessages.label })).toHaveAttribute("type", "email")
     expect(within(footer).getByRole("link", { name: "Polski" })).toHaveAttribute("hreflang", "pl-PL")
+  })
+
+  it.each([
+    { href: APP_GITHUB_URL, name: footerMessages.links.github },
+    { href: APP_INSTAGRAM_URL, name: footerMessages.links.instagram },
+  ])("links $name in a new tab without a referrer", ({ href, name }) => {
+    renderFooter()
+    const link = within(screen.getByRole("contentinfo")).getByRole("link", { name })
+
+    expect(link).toHaveAttribute("href", href)
+    expect(link).toHaveAttribute("target", "_blank")
+    expect(link).toHaveAttribute("rel", "noreferrer")
   })
 
   it.each(FOOTER_NAVIGATION)("lists the $key links under their heading in their order", ({ key, links }) => {

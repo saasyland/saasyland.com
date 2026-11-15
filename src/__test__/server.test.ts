@@ -8,11 +8,13 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { HTTPS_SECURITY_HEADERS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
 
+import { renderedPagePolicy } from "~/src/lib/content-security-policy"
+
 import { DOCUMENT_STYLESHEET } from "~/src/presentation/document-assets"
 import worker from "~/src/server"
 
 const AREA_PATH_PREFIX = vi.hoisted(() => "/area-files/")
-const fetchHandler = vi.hoisted(() => vi.fn<(request: Request) => Promise<Response>>())
+const fetchHandler = vi.hoisted(() => vi.fn<(request: Request, options?: { context: { nonce: string } }) => Promise<Response>>())
 const areaFetch = vi.hoisted(() => vi.fn<(request: Request) => Promise<Response>>())
 const areaRewrite = vi.hoisted(() => vi.fn<(document: Response, context: { locale: string; request: Request }) => Response>())
 
@@ -29,6 +31,7 @@ vi.mock("~/src/data/worker.entries", async () => {
 })
 
 beforeEach(() => {
+  vi.stubEnv("DEV", false)
   fetchHandler.mockReset()
   fetchHandler.mockResolvedValue(new Response("rendered", { headers: { "Set-Cookie": "session=kept" } }))
   areaFetch.mockReset()
@@ -38,6 +41,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
 })
 const HEADER_LINE_PATTERN = /^ {2}(?<name>[^:]+): (?<value>.+)$/u
 
@@ -58,6 +62,12 @@ const staticFileHeaders = (pattern: string): Record<string, string> => {
 const headersNamed = (response: Response, names: readonly string[]): Record<string, string | null> =>
   Object.fromEntries(names.map((name) => [name, response.headers.get(name)]))
 
+const POLICY_HEADER = "Content-Security-Policy"
+
+const { [POLICY_HEADER]: BASE_POLICY, ...OTHER_SECURITY_HEADERS } = SECURITY_HEADERS
+
+const renderedNonce = (call: number): string => fetchHandler.mock.calls[call]?.[1]?.context.nonce ?? ""
+
 it.each([
   { kind: "page", url: "http://localhost/" },
   { kind: "API", url: "http://localhost/api/auth/session" },
@@ -65,7 +75,44 @@ it.each([
 ])("sends the security headers with a $kind response", async ({ url }) => {
   const response = await worker.fetch(new Request(url), env)
 
-  expect(headersNamed(response, Object.keys(SECURITY_HEADERS))).toStrictEqual(SECURITY_HEADERS)
+  expect(headersNamed(response, Object.keys(OTHER_SECURITY_HEADERS))).toStrictEqual(OTHER_SECURITY_HEADERS)
+  expect(response.headers.get(POLICY_HEADER)?.split("; ")).toEqual(expect.arrayContaining(BASE_POLICY.split("; ")))
+})
+
+it("gives every page the Worker renders a script policy with a nonce of its own, and hands that nonce to TanStack Start", async () => {
+  const first = await worker.fetch(new Request("http://localhost/auth/sign-in"), env)
+  const second = await worker.fetch(new Request("http://localhost/auth/sign-in"), env)
+
+  expect(renderedNonce(0)).toMatch(/^[\da-f]{32}$/u)
+  expect(renderedNonce(1)).not.toBe(renderedNonce(0))
+  expect(first.headers.get(POLICY_HEADER)).toBe(renderedPagePolicy(renderedNonce(0)))
+  expect(second.headers.get(POLICY_HEADER)).toBe(renderedPagePolicy(renderedNonce(1)))
+  expect(first.headers.get(POLICY_HEADER)).toContain("frame-ancestors 'none'")
+})
+
+it("renders pages on the dev server under the base policy, because Vite's own inline scripts carry no nonce", async () => {
+  vi.stubEnv("DEV", true)
+  const request = new Request("http://localhost/auth/sign-in")
+
+  const response = await worker.fetch(request, env)
+
+  expect(response.headers.get(POLICY_HEADER)).toBe(BASE_POLICY)
+  expect(fetchHandler).toHaveBeenCalledExactlyOnceWith(request)
+})
+
+it.each([
+  { kind: "prerendered page", url: "http://localhost/docs" },
+  { kind: "locale redirect", url: "http://localhost/pl/docs" },
+  { kind: "file an area serves", url: `http://localhost${AREA_PATH_PREFIX}bundle.tgz` },
+])("keeps a $kind on the base policy, because prerendered pages carry their script hashes themselves", async ({ kind, url }) => {
+  if (kind === "prerendered page") {
+    vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(new Response("<html>Page</html>", { headers: { "Content-Type": "text/html" } }))
+  }
+
+  const response = await worker.fetch(new Request(url), env)
+
+  expect(response.headers.get(POLICY_HEADER)).toBe(BASE_POLICY)
+  expect(fetchHandler).not.toHaveBeenCalled()
 })
 
 it("replaces a security header that an asset rule or the response already set, so the Worker's set is the only one", async () => {
@@ -101,7 +148,7 @@ it("renders a page without a prerendered asset through TanStack Start", async ()
   const request = new Request("http://localhost/")
   const response = await worker.fetch(request, env)
   expect(await response.text()).toBe("rendered")
-  expect(fetchHandler).toHaveBeenCalledExactlyOnceWith(request)
+  expect(fetchHandler).toHaveBeenCalledExactlyOnceWith(request, { context: { nonce: renderedNonce(0) } })
 })
 it("sets the document locale without discarding authentication cookies", async () => {
   const response = await worker.fetch(new Request("http://localhost/pl-PL/docs"), env)
@@ -266,7 +313,7 @@ it.each([
   expect(await response.text()).toBe("rewritten page")
   expect(areaRewrite).toHaveBeenCalledExactlyOnceWith(expect.any(Response), { locale, request })
   expect(areaRewrite.mock.calls[0]?.[0].headers.get("link")).toContain(`<${DOCUMENT_STYLESHEET.href}>; rel=preload; as=style`)
-  expect(headersNamed(response, Object.keys(SECURITY_HEADERS))).toStrictEqual(SECURITY_HEADERS)
+  expect(headersNamed(response, Object.keys(OTHER_SECURITY_HEADERS))).toStrictEqual(OTHER_SECURITY_HEADERS)
 })
 
 it("answers a path an area claims with that area's handler, without the locale middleware or TanStack Start", async () => {

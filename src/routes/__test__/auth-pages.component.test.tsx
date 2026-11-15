@@ -155,6 +155,26 @@ it("includes a themed, accessible document shell and keeps production pages inde
   )
   expect(alternateLocales).toEqual(["de_DE", "es_ES", "fr_FR", "it_IT", "ja_JP", "pl_PL", "pt_BR", "uk_UA"])
 })
+
+it("gives the theme script the nonce of a page the Worker renders, so the page's policy lets it run", async () => {
+  const { queryClient, router } = createAuthRouter(ROUTES.HOME)
+  Object.assign(router.options, { ssr: { nonce: "0123456789abcdef0123456789abcdef" } })
+  await router.load()
+  await preloadNamespaces({ locale: "en-US", namespaces: ROOT_NAMESPACES, queryClient })
+  if (!RootShell) {
+    throw new Error("The root route must provide an HTML document shell")
+  }
+  const html = renderToStaticMarkup(
+    <QueryClientProvider client={queryClient}>
+      <RouterContextProvider router={router}>
+        <RootShell>
+          <p>Application content</p>
+        </RootShell>
+      </RouterContextProvider>
+    </QueryClientProvider>,
+  )
+  expect(html).toMatch(/<script nonce="0123456789abcdef0123456789abcdef">[^<]*localStorage/u)
+})
 describe("authentication routes", () => {
   it.each([
     [ROUTES.SIGN_IN, "sign-in", pagesAuthSignInMessages.form.title],

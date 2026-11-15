@@ -1,5 +1,6 @@
 import { LICENSE_TIER, type LicenseTier } from "~/src/modules/license/license.constants"
 
+import { CLI_GENERATION } from "~/src/data/cli"
 import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
 
 export const MARKETING_SECTION_IDS = {
@@ -46,10 +47,10 @@ export const TIER_FEATURES = {
   [LICENSE_TIER.CORE]: [
     { id: "cli", status: FEATURE_STATUS.AVAILABLE },
     { id: "updates", status: FEATURE_STATUS.AVAILABLE },
-    { id: "source", status: FEATURE_STATUS.ARRIVING },
-    { id: "providers", status: FEATURE_STATUS.ARRIVING },
-    { id: "tests", status: FEATURE_STATUS.ARRIVING },
-    { id: "projects", status: FEATURE_STATUS.ARRIVING },
+    { id: "source", status: CLI_GENERATION },
+    { id: "providers", status: CLI_GENERATION },
+    { id: "tests", status: CLI_GENERATION },
+    { id: "projects", status: CLI_GENERATION },
   ],
 } as const satisfies Record<LicenseTier, readonly { readonly id: string; readonly status: FeatureStatus }[]>
 

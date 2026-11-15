@@ -1,11 +1,29 @@
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE, TIER_FEATURES, TIER_PRICES } from "~/src/data/marketing"
-import { FEATURE_STATUS } from "~/src/data/navigation.constants"
+import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
+
+const coreStatuses = async (generation: FeatureStatus): Promise<Record<string, FeatureStatus>> => {
+  vi.resetModules()
+  vi.doMock(import("~/src/data/cli"), async (importOriginal) => ({ ...(await importOriginal()), CLI_GENERATION: generation }))
+  const marketing = await import("~/src/data/marketing")
+  vi.doUnmock(import("~/src/data/cli"))
+
+  return Object.fromEntries(marketing.TIER_FEATURES[LICENSE_TIER.CORE].map(({ id, status }) => [id, status]))
+}
+
+const generatedBy = (generation: FeatureStatus): Record<string, FeatureStatus> => ({
+  cli: FEATURE_STATUS.AVAILABLE,
+  projects: generation,
+  providers: generation,
+  source: generation,
+  tests: generation,
+  updates: FEATURE_STATUS.AVAILABLE,
+})
 
 describe("marketing data", () => {
   it("says the Core price is under the whole number of hours the landing page names, and not a full hour less", () => {
@@ -22,5 +40,10 @@ describe("marketing data", () => {
       expect(features.some(({ status }) => status === FEATURE_STATUS.AVAILABLE)).toBe(true)
       expect(Object.keys(labels).toSorted()).toStrictEqual(features.map(({ id }) => id).toSorted())
     }
+  })
+
+  it("takes the status of the Core features that project generation delivers from the CLI's generation status", async () => {
+    expect(await coreStatuses(FEATURE_STATUS.AVAILABLE)).toStrictEqual(generatedBy(FEATURE_STATUS.AVAILABLE))
+    expect(await coreStatuses(FEATURE_STATUS.ARRIVING)).toStrictEqual(generatedBy(FEATURE_STATUS.ARRIVING))
   })
 })

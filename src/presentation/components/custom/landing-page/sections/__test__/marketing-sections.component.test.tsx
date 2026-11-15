@@ -15,7 +15,7 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
-import { PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
+import { CLI_GENERATION_VALUES, PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
 import { CONSULTING_HOURLY_RATE, REACTPROJECTS_FACTS, TIER_FEATURES } from "~/src/data/marketing"
 import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -42,7 +42,11 @@ import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const withFacts = (message: string): string =>
-  createTranslator({ locale: "en-US", messages: { message } })("message", { ...REPOSITORY_FACTS, ...REACTPROJECTS_FACTS })
+  createTranslator({ locale: "en-US", messages: { message } })("message", {
+    ...REPOSITORY_FACTS,
+    ...REACTPROJECTS_FACTS,
+    ...CLI_GENERATION_VALUES,
+  })
 
 const EVIDENCE_CODE = [
   REPOSITORY_FACTS.authIntegrationPath,
@@ -310,7 +314,7 @@ describe("marketing content and purchase links", () => {
     expect(screen.getByRole("link", { name: withFacts(english.manifesto.p3) })).toHaveAttribute("href", "#pricing")
     expect(screen.getAllByRole("link", { name: english.rally.ctaPrimary }).some((link) => link.getAttribute("href") === "#cli")).toBe(true)
     expect(screen.getByRole("link", { name: english.gate.ctaSecondary })).toHaveAttribute("href", "/docs")
-    expect(screen.getByText(english.gate.assurance)).toBeVisible()
+    expect(screen.getByText(withFacts(english.gate.assurance))).toBeVisible()
     const stack = screen.getByRole("region", { name: english.stack.title })
     expect(within(stack).getAllByText("Cloudflare")).toHaveLength(2)
     expect(container.querySelector('linearGradient[id="accent-stroke-manifesto"]')).toBeInTheDocument()
@@ -334,27 +338,30 @@ describe("customer cases", () => {
 })
 
 describe("CLI configuration", () => {
-  it("opens on the default stack and describes only its options with the legend", () => {
+  it("opens on the default stack and describes the options the templates support with the legend", () => {
     renderSection(<CliSection />)
     const { choices } = english.cli
-    const legend = english.cli.defaultStack.replace("<mark></mark> ", "")
+    const legend = withFacts(english.cli.defaultStack.replace("<mark></mark> ", ""))
     for (const name of [choices.framework.options.tanstack, choices.deployment.options.cloudflare, choices.provider.options.d1]) {
       expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true")
       expect(screen.getByRole("button", { name })).toHaveAccessibleDescription(legend)
     }
+    expect(
+      screen.getAllByRole("button", { name: choices.auth.options.none }).map((button) => button.getAttribute("aria-describedby") !== null),
+    ).toStrictEqual([true, false, false, false])
     for (const name of [choices.framework.options.next, choices.extras.options.commerce]) {
       expect(screen.getByRole("button", { name })).not.toHaveAccessibleDescription()
     }
   })
 
-  it("keeps the default mark on a default option that another answer rules out", async () => {
+  it("keeps the mark on a supported option that another answer rules out", async () => {
     const user = userEvent.setup({ delay: null })
     renderSection(<CliSection />)
     const { choices } = english.cli
     await user.click(screen.getByRole("button", { name: choices.deployment.options.vercel }))
     expect(screen.getByRole("button", { name: choices.database.options.sqlite })).toBeDisabled()
     expect(screen.getByRole("button", { name: choices.database.options.sqlite })).toHaveAccessibleDescription(
-      english.cli.defaultStack.replace("<mark></mark> ", ""),
+      withFacts(english.cli.defaultStack.replace("<mark></mark> ", "")),
     )
   })
 

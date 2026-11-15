@@ -16,6 +16,7 @@ import {
   polarPrice,
   polarProductPrice,
 } from "~/src/platform/testing/lib/polar"
+import type { ProviderDouble } from "~/src/platform/testing/mocks/providers"
 
 import { polarCore } from "~/src/integrations/polar/polar.config"
 import {
@@ -470,3 +471,5 @@ export const polarApi = {
     return route(request)
   },
 }
+
+export const POLAR_PROVIDER_DOUBLES = [polarApi] as const satisfies readonly ProviderDouble[]

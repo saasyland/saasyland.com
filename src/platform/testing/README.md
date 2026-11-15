@@ -32,7 +32,7 @@ Form / API validation schemas keep their own names (e.g. `auth.zod.test.ts` besi
 - `setup.ts` — registers jest-dom matchers and shared test hooks; loaded by `test.setupFiles` in root `vite.config.ts`
 - `.env.test` supplies the dummy test credentials. Vite+ loads them through `test.env`; Cloudflare loads them for its named `test` environment.
 - `mocks/cloudflare.ts` and `mocks/wrksz-themes.ts` — local binding and theme adapters used across suites
-- `mocks/resend.ts` and `mocks/polar.ts` — strict doubles of the Resend and Polar APIs, each an `origin`, `respond` and `reset` joined by `mocks/providers.entries.ts`; `mocks/providers.ts` routes `fetch` to them and resets them
+- `mocks/resend.ts` and `mocks/polar.ts` — strict doubles of the Resend and Polar APIs, each an `origin`, `respond` and `reset` in a list of its area's doubles (`RESEND_PROVIDER_DOUBLES`, `POLAR_PROVIDER_DOUBLES`) that `mocks/providers.entries.ts` joins with the core's empty `mocks/core.providers.ts`; `mocks/providers.ts` routes `fetch` to them and resets them
 - `lib/` — small shared helpers imported from many suites (URL/cookie helpers, nullable DB fixtures, component test utilities, Polar models and signed webhooks)
 
 Everything else is colocated with its owner.

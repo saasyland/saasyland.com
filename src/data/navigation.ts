@@ -18,6 +18,8 @@ export const ADMIN_DASHBOARD_ACTIONS = ENTRIES.filter((entry) => entry.placement
 
 export const APP_NAVIGATION = ENTRIES.filter((entry) => entry.placement === NAVIGATION_PLACEMENT.APP)
 
+export const APP_RESOURCE_NAVIGATION = ENTRIES.filter((entry) => entry.placement === NAVIGATION_PLACEMENT.APP_RESOURCES)
+
 export const NAVIGATION_PAGES = ENTRIES.filter((entry) => entry.placement === NAVIGATION_PLACEMENT.HEADER)
 
 export const FOOTER_NAVIGATION = FOOTER_COLUMNS.map((column) => ({

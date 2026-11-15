@@ -12,19 +12,18 @@ import { TranslationsProvider } from "~/src/providers/translations-provider"
 
 import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
 
-import commonMessages from "~/messages/en-US/common.json"
-import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
+import errorsGlobalMessages from "~/messages/en-US/errors.global.json"
+import pagesLandingMessages from "~/messages/en-US/pages.landing.json"
 
 const ACTIVATED_AT = new Date("2025-01-01T12:00:00Z")
 const PUBLISHED_ON = new Date("2026-11-14")
 
 const DateProbe = () => {
-  const t = useTranslations("common")
   const format = useFormatter()
 
   return (
     <>
-      <p data-testid="instant">{t("dateTime", { value: ACTIVATED_AT })}</p>
+      <p data-testid="instant">{`${format.dateTime(ACTIVATED_AT, "date")}, ${format.dateTime(ACTIVATED_AT, "time")}`}</p>
       <p data-testid="calendar-date">{format.dateTime(PUBLISHED_ON, "calendarDate")}</p>
     </>
   )
@@ -50,12 +49,12 @@ const renderDatesWith = async (sources: Readonly<Record<string, readonly { reado
 }
 
 const Probe = () => {
-  const t = useTranslations("common")
-  return <span>{t("loading")}</span>
+  const t = useTranslations("errors.global")
+  return <span>{t("title")}</span>
 }
 
-const BlogProbe = () => {
-  const t = useTranslations("pages.blog")
+const LandingProbe = () => {
+  const t = useTranslations("pages.landing")
   return <span>{t("metadata.title")}</span>
 }
 
@@ -67,8 +66,10 @@ it("loads shared translations through React Query before rendering consumers", a
       </TranslationsProvider>
     </Suspense>,
   )
-  expect(await screen.findByText(commonMessages.loading)).toBeInTheDocument()
-  expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "common" }).queryKey)).toEqual(commonMessages)
+  expect(await screen.findByText(errorsGlobalMessages.title)).toBeInTheDocument()
+  expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "errors.global" }).queryKey)).toEqual(
+    errorsGlobalMessages,
+  )
 })
 
 it("adds the namespaces declared by matched routes to the shared translations", async () => {
@@ -82,17 +83,24 @@ it("adds the namespaces declared by matched routes to the shared translations", 
       </Suspense>
     ),
   })
-  const blog = createRoute({ component: BlogProbe, getParentRoute: () => root, path: "/blog", staticData: { namespaces: ["pages.blog"] } })
-  const router = createRouter({ history: createMemoryHistory({ initialEntries: ["/blog"] }), routeTree: root.addChildren([blog]) })
+  const landing = createRoute({
+    component: LandingProbe,
+    getParentRoute: () => root,
+    path: "/landing",
+    staticData: { namespaces: ["pages.landing"] },
+  })
+  const router = createRouter({ history: createMemoryHistory({ initialEntries: ["/landing"] }), routeTree: root.addChildren([landing]) })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
-  expect(await screen.findByText(pagesBlogMessages.metadata.title)).toBeInTheDocument()
-  expect(screen.getByText(commonMessages.loading)).toBeInTheDocument()
-  expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.blog" }).queryKey)).toEqual(pagesBlogMessages)
+  expect(await screen.findByText(pagesLandingMessages.metadata.title)).toBeInTheDocument()
+  expect(screen.getByText(errorsGlobalMessages.title)).toBeInTheDocument()
+  expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.landing" }).queryKey)).toEqual(
+    pagesLandingMessages,
+  )
 })
 
 describe("time zone", () => {

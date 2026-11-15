@@ -1,12 +1,12 @@
 import type { JSX } from "react"
 
 import { Link, getRouteApi, useRouterState } from "@tanstack/react-router"
-import { BookOpen, Mail } from "lucide-react"
+import { Mail } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
-import { APP_NAVIGATION } from "~/src/data/navigation"
+import { APP_NAVIGATION, APP_RESOURCE_NAVIGATION } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
 
@@ -87,12 +87,14 @@ export const AppSidebar = (): JSX.Element => {
           <SidebarGroup className="p-0">
             <p className="mb-1.5 px-2 font-mono text-label text-muted-foreground uppercase">{t("navigation.resources")}</p>
             <SidebarMenu className="gap-1">
-              <SidebarMenuItem>
-                <SidebarMenuButton className="h-9 gap-2.5 text-body-sm text-muted-foreground" href={ROUTES.DOCS} onPress={closeMobile}>
-                  <BookOpen aria-hidden strokeWidth={1.5} />
-                  <span>{t("navigation.documentation")}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {APP_RESOURCE_NAVIGATION.map((item) => (
+                <SidebarMenuItem key={item.to}>
+                  <SidebarMenuButton className="h-9 gap-2.5 text-body-sm text-muted-foreground" href={item.to} onPress={closeMobile}>
+                    <item.icon aria-hidden strokeWidth={1.5} />
+                    <span>{navigationLabel(item)}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
               <SidebarMenuItem>
                 <SidebarMenuButton className="h-9 gap-2.5 text-body-sm text-muted-foreground" href={`mailto:${CONTACT_EMAIL}`}>
                   <Mail aria-hidden strokeWidth={1.5} />

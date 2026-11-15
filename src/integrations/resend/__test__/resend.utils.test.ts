@@ -7,9 +7,9 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
-import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import { sendEmail } from "~/src/integrations/resend/resend.utils"
 
+const PURPOSE = "sample-email"
 const RECIPIENT = "ada@example.test"
 const RESEND_IDEMPOTENCY_KEY_MAX_LENGTH = 256
 const message = { react: createElement("p", null, "Hello"), subject: "Hello", to: RECIPIENT }
@@ -22,22 +22,20 @@ afterEach(() => {
 
 describe("sendEmail", () => {
   it("keys the request on its purpose and a SHA-256 digest of the token, so a retry is not sent twice", async () => {
-    const id = await sendEmail({ ...message, idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token: "token-1" } })
-    const retried = await sendEmail({ ...message, idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token: "token-1" } })
+    const id = await sendEmail({ ...message, idempotency: { purpose: PURPOSE, token: "token-1" } })
+    const retried = await sendEmail({ ...message, idempotency: { purpose: PURPOSE, token: "token-1" } })
 
     expect(retried).toBe(id)
-    expect(getSentEmails(RECIPIENT)).toStrictEqual([
-      expect.objectContaining({ id, idempotencyKey: `${EMAIL_PURPOSE.VERIFY_EMAIL}/${sha256("token-1")}` }),
-    ])
+    expect(getSentEmails(RECIPIENT)).toStrictEqual([expect.objectContaining({ id, idempotencyKey: `${PURPOSE}/${sha256("token-1")}` })])
   })
 
   it("stays within Resend's idempotency key limit however long the token is", async () => {
     const token = "x".repeat(RESEND_IDEMPOTENCY_KEY_MAX_LENGTH * 4)
 
-    await sendEmail({ ...message, idempotency: { purpose: EMAIL_PURPOSE.CHANGE_EMAIL_CONFIRMATION, token } })
+    await sendEmail({ ...message, idempotency: { purpose: PURPOSE, token } })
 
     const [delivery] = getSentEmails(RECIPIENT)
-    expect(delivery?.idempotencyKey).toBe(`${EMAIL_PURPOSE.CHANGE_EMAIL_CONFIRMATION}/${sha256(token)}`)
+    expect(delivery?.idempotencyKey).toBe(`${PURPOSE}/${sha256(token)}`)
     expect(delivery?.idempotencyKey?.length).toBeLessThanOrEqual(RESEND_IDEMPOTENCY_KEY_MAX_LENGTH)
   })
 
@@ -53,7 +51,7 @@ describe("sendEmail", () => {
       Response.json({ message: "The domain is not verified.", name: "validation_error", statusCode: 403 }, { status: 403 }),
     )
 
-    await expect(sendEmail({ ...message, idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token: "token-4" } })).rejects.toThrow(
+    await expect(sendEmail({ ...message, idempotency: { purpose: PURPOSE, token: "token-4" } })).rejects.toThrow(
       `Failed to send "Hello" to ${RECIPIENT}: The domain is not verified.`,
     )
   })

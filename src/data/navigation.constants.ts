@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react"
 export const NAVIGATION_PLACEMENT = {
   ADMIN: "admin",
   APP: "app",
+  APP_RESOURCES: "appResources",
   DASHBOARD: "dashboard",
   FOOTER: "footer",
   HEADER: "header",
@@ -47,6 +48,11 @@ interface AppEntry extends Entry {
   readonly placement: typeof NAVIGATION_PLACEMENT.APP
 }
 
+interface AppResourceEntry extends Entry {
+  readonly icon: LucideIcon
+  readonly placement: typeof NAVIGATION_PLACEMENT.APP_RESOURCES
+}
+
 interface DashboardEntry extends Entry {
   readonly icon: LucideIcon
   readonly placement: typeof NAVIGATION_PLACEMENT.DASHBOARD
@@ -61,4 +67,4 @@ interface HeaderEntry extends Entry {
   readonly placement: typeof NAVIGATION_PLACEMENT.HEADER
 }
 
-export type NavigationEntry = AdminEntry | AppEntry | DashboardEntry | FooterEntry | HeaderEntry
+export type NavigationEntry = AdminEntry | AppEntry | AppResourceEntry | DashboardEntry | FooterEntry | HeaderEntry

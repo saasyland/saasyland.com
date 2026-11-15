@@ -4,7 +4,7 @@ import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "../data/accounts"
 import { TEST_LICENSE } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
-import { expect, test } from "../fixtures/test"
+import { expect, test } from "../fixtures/auth"
 import type { BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 

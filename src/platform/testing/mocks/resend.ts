@@ -3,6 +3,8 @@ import { env } from "cloudflare:workers"
 import type { CreateEmailResponseSuccess, EmailApiOptions, ErrorResponse } from "resend"
 import * as zod from "zod"
 
+import type { ProviderDouble } from "~/src/platform/testing/mocks/providers"
+
 import { resend } from "~/src/integrations/resend/resend.config"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
@@ -87,3 +89,5 @@ export const resendApi = {
     return sendEmail(request)
   },
 }
+
+export const RESEND_PROVIDER_DOUBLES = [resendApi] as const satisfies readonly ProviderDouble[]

@@ -17,7 +17,7 @@ import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { TIER_PRICES } from "~/src/data/marketing"
 
 import { starCountQuery } from "~/src/lib/github"
-import { pageHead } from "~/src/lib/seo"
+import { ORGANIZATION_STRUCTURED_DATA_HTML, pageHead } from "~/src/lib/seo"
 
 import { HomePending } from "~/src/presentation/components/custom/core-pending"
 import { CasesSection } from "~/src/presentation/components/custom/landing-page/sections/cases-section"
@@ -51,6 +51,7 @@ const getLatestBlogPosts = createServerFn({ method: "GET" })
 
 const LandingPage = (): JSX.Element => (
   <MotionProvider>
+    <script dangerouslySetInnerHTML={ORGANIZATION_STRUCTURED_DATA_HTML} type="application/ld+json" />
     <HeroSection />
     <ProofSection />
     <StackSection />

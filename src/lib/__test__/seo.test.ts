@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  ORGANIZATION_STRUCTURED_DATA_HTML,
   ROBOTS,
   SOCIAL_IMAGE,
   buildBlogPostStructuredData,
@@ -10,10 +11,18 @@ import {
   socialImagePath,
 } from "~/src/lib/seo"
 
-import { APP_NAME, APP_URL } from "~/src/presentation/branding"
+import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const GRAPH_NODES_WITHOUT_FAQ = 2
+
+const ORGANIZATION = {
+  "@type": "Organization",
+  email: CONTACT_EMAIL,
+  name: APP_NAME,
+  sameAs: [APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL],
+  url: APP_URL,
+}
 
 const BASE_INPUT = {
   authorName: "Piotr J. Borowiecki",
@@ -30,6 +39,12 @@ describe("blog post structured data", () => {
     expect(graph.map((node) => node["@type"])).toStrictEqual(["BlogPosting", "BreadcrumbList"])
     expect(graph[0]?.["url"]).toBe("https://example.com/blog/a-post")
     expect(graph[0]?.["datePublished"]).toBe("2026-08-15T00:00:00.000Z")
+  })
+
+  it("names the organisation as the publisher", () => {
+    expect.hasAssertions()
+    const graph = buildBlogPostStructuredData(BASE_INPUT)["@graph"]
+    expect(graph[0]?.["publisher"]).toStrictEqual(ORGANIZATION)
   })
 
   it("falls back to the published date when no update date is given", () => {
@@ -72,6 +87,11 @@ describe("blog post structured data", () => {
     const graph = buildBlogPostStructuredData({ ...BASE_INPUT, faq: [] })["@graph"]
     expect(graph).toHaveLength(GRAPH_NODES_WITHOUT_FAQ)
   })
+})
+
+it("describes the organisation with its profiles on other sites", () => {
+  const { __html: html } = ORGANIZATION_STRUCTURED_DATA_HTML
+  expect(JSON.parse(html)).toStrictEqual({ "@context": "https://schema.org", ...ORGANIZATION })
 })
 
 it("escapes structured data so post titles cannot close the script element", () => {

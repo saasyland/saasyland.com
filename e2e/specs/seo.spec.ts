@@ -3,7 +3,7 @@ import { basename, join } from "node:path"
 
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { readPageHead } from "../../src/lib/page-head"
-import { SITEMAP_PATH, SOCIAL_IMAGE } from "../../src/lib/seo"
+import { ORGANIZATION_STRUCTURED_DATA_HTML, SITEMAP_PATH, SOCIAL_IMAGE } from "../../src/lib/seo"
 import { listedPages } from "../../src/lib/sitemap"
 import { APP_URL } from "../../src/presentation/branding"
 import { ROUTES } from "../../src/routes"
@@ -44,6 +44,14 @@ test("every sitemap URL answers 200 on the built site without a redirect", async
     const statuses = await Promise.all(batch.map(async (url) => [url, (await request.get(new URL(url).pathname, { maxRedirects: 0 })).status()]))
     expect(statuses.filter(([, status]) => status !== HTTP_STATUS.OK)).toStrictEqual([])
   }
+})
+
+test("the prerendered home page describes the organisation in structured data", async ({ request }) => {
+  const { __html: html } = ORGANIZATION_STRUCTURED_DATA_HTML
+  const response = await request.get(ROUTES.HOME)
+
+  expect(response.status()).toBe(HTTP_STATUS.OK)
+  expect(await response.text()).toContain(`<script type="application/ld+json">${html}</script>`)
 })
 
 for (const path of SHARED_PAGES) {

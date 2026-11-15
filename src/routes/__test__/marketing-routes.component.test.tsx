@@ -23,7 +23,7 @@ import { Route as BlogIndexRoute } from "~/src/routes/blog.index"
 import { AFFILIATE_TERMS } from "~/src/data/affiliates"
 
 import { starCountQuery } from "~/src/lib/github"
-import { ROBOTS } from "~/src/lib/seo"
+import { ORGANIZATION_STRUCTURED_DATA_HTML, ROBOTS } from "~/src/lib/seo"
 
 import componentsNavigationMessages from "~/messages/en-US/components.custom.navigation.json"
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
@@ -231,6 +231,12 @@ describe("public route content", () => {
     expect(screen.getAllByRole("radio", { name: "bun" })).toHaveLength(2)
     expect(screen.getByRole("contentinfo")).toBeVisible()
     expect(screen.getByRole("navigation", { name: componentsNavigationMessages.ariaLabel })).toBeVisible()
+  })
+
+  it("describes the organisation in the landing page's structured data", async () => {
+    const { __html: html } = ORGANIZATION_STRUCTURED_DATA_HTML
+    await renderRoute("/")
+    expect(document.querySelector('script[type="application/ld+json"]')?.innerHTML).toBe(html)
   })
 
   it("lists the latest notes in the order the server selected them, with their reading time", async () => {

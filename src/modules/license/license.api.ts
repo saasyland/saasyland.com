@@ -16,6 +16,7 @@ import {
   readApiRequest,
 } from "@saasyland/stack/api"
 import { eq } from "drizzle-orm"
+import { createHash } from "node:crypto"
 import type * as zod from "zod"
 
 import { clientAddress } from "~/src/integrations/better-auth/auth.middleware"
@@ -23,6 +24,7 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { polar } from "~/src/integrations/polar/polar.config"
 import { POLAR_LICENSE_KEY_STATUS } from "~/src/integrations/polar/polar.constants"
 
+import { bundleObjectKey, signBundle } from "~/src/modules/license/license.bundles"
 import {
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_API_RETRY_AFTER_SECONDS,
@@ -38,8 +40,13 @@ const SINGLE_ROW = 1
 const ONE_SLOT = 1
 const ADDRESS_RATE_LIMIT_PREFIX = "cli:address:"
 const LICENSE_KEY_RATE_LIMIT_PREFIX = "cli:key:"
+const ARCHIVE_COMPRESSION = "gzip"
+const DIGEST_ALGORITHM = "sha256"
+const DIGEST_ENCODING = "hex"
 
 const POLAR_OUTAGES = [PolarNetworkError, PolarServerError, PolarRateLimitError]
+
+const SERVICE_UNAVAILABLE = { code: API_ERROR.SERVICE_UNAVAILABLE, retryAfterSeconds: LICENSE_API_RETRY_AFTER_SECONDS } as const
 
 const REFUSED_STATUSES = {
   [LICENSE_STATUS.REFUNDED]: API_ERROR.LICENSE_REFUNDED,
@@ -72,6 +79,13 @@ interface Licence<Input> {
 
 type Admission<Input> = (Licence<Input> & { readonly success: true }) | { readonly error: Api["error"]; readonly success: false }
 
+type StoredBundle =
+  | { readonly bundle: Pick<Api["bundleResponse"], "sha256" | "size">; readonly success: true }
+  | {
+      readonly error: Extract<Api["error"], { readonly code: typeof API_ERROR.SERVICE_UNAVAILABLE | typeof API_ERROR.VERSION_NOT_FOUND }>
+      readonly success: false
+    }
+
 const refuse = (error: Api["error"]): Admission<never> => ({ error, success: false })
 
 const summary = (tier: LicenseTier, machinesUsed: number): Api["license"] => ({
@@ -87,6 +101,37 @@ const machinesOf = ({ activations }: models.LicenseKeyWithActivations, machine: 
 
     return { ...details, createdAt: new Date(createdAt).toISOString(), current: activationMachine === machine, id, label }
   })
+
+const holdsActivation = (machines: readonly Api["machine"][], activationId: string): boolean =>
+  machines.some(({ current, id }) => current && id === activationId)
+
+const contentDigest = async ({ body }: R2ObjectBody): Promise<string> => {
+  const hash = createHash(DIGEST_ALGORITHM)
+
+  await body.pipeThrough(new DecompressionStream(ARCHIVE_COMPRESSION)).pipeTo(
+    new WritableStream({
+      write: (chunk) => {
+        hash.update(chunk)
+      },
+    }),
+  )
+
+  return hash.digest(DIGEST_ENCODING)
+}
+
+const storedBundle = async (version: string): Promise<StoredBundle> => {
+  try {
+    const object = await env.BUNDLES.get(bundleObjectKey(version))
+
+    if (object === null) {
+      return { error: { code: API_ERROR.VERSION_NOT_FOUND, version }, success: false }
+    }
+
+    return { bundle: { sha256: await contentDigest(object), size: object.size }, success: true }
+  } catch {
+    return { error: SERVICE_UNAVAILABLE, success: false }
+  }
+}
 
 const consume = async (key: string, limit: number): Promise<Api["error"] | undefined> => {
   const { allowed, retryAfter } = await consumeRateLimit({ key, limit, windowSeconds: RATE_LIMIT.PERIOD_SECONDS })
@@ -158,7 +203,7 @@ const serve = async <Schema extends zod.ZodType>(
     return await operation(admission)
   } catch (error) {
     if (POLAR_OUTAGES.some((outage) => error instanceof outage)) {
-      return apiErrorResponse(endpoint, { code: API_ERROR.SERVICE_UNAVAILABLE, retryAfterSeconds: LICENSE_API_RETRY_AFTER_SECONDS })
+      return apiErrorResponse(endpoint, SERVICE_UNAVAILABLE)
     }
 
     throw error
@@ -203,6 +248,28 @@ export const licenseApiHandlers = {
       }
     }),
 
+  bundle: (call: ApiCall): Promise<Response> =>
+    serve(API_ENDPOINT.BUNDLE, call, async ({ credentials, input: { body, params }, licenseKey }) => {
+      if (!holdsActivation(machinesOf(licenseKey, credentials.machine), params.activationId)) {
+        return apiErrorResponse(API_ENDPOINT.BUNDLE, { code: API_ERROR.ACTIVATION_NOT_FOUND })
+      }
+
+      const stored = await storedBundle(body.version)
+
+      if (!stored.success) {
+        return apiErrorResponse(API_ENDPOINT.BUNDLE, stored.error)
+      }
+
+      const signed = await signBundle({
+        host: new URL(call.request.url).host,
+        now: Date.now(),
+        secret: env.AUTH_SECRET,
+        version: body.version,
+      })
+
+      return apiResponse(API_ENDPOINT.BUNDLE, HTTP_STATUS.OK, { ...stored.bundle, ...signed })
+    }),
+
   deactivate: (call: ApiCall): Promise<Response> =>
     serve(API_ENDPOINT.DEACTIVATE, call, async ({ credentials, input: { params }, licenseKey, tier }) => {
       try {
@@ -234,7 +301,7 @@ export const licenseApiHandlers = {
     serve(API_ENDPOINT.VALIDATE, call, ({ credentials, input: { params }, licenseKey, tier }) => {
       const machines = machinesOf(licenseKey, credentials.machine)
 
-      if (!machines.some(({ current, id }) => current && id === params.activationId)) {
+      if (!holdsActivation(machines, params.activationId)) {
         return apiErrorResponse(API_ENDPOINT.VALIDATE, { code: API_ERROR.ACTIVATION_NOT_FOUND })
       }
 

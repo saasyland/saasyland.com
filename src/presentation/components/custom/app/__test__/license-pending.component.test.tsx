@@ -13,7 +13,8 @@ import type { License } from "~/src/modules/license/license.types"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
 import { AppPending } from "~/src/presentation/components/custom/app/app-pending"
-import { AppLicensePending, AppOverviewPending } from "~/src/presentation/components/custom/app/license-pending"
+import { AppOverviewPending } from "~/src/presentation/components/custom/app/auth-pending"
+import { AppLicensePending } from "~/src/presentation/components/custom/app/license-pending"
 
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
 

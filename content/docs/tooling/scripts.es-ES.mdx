@@ -26,12 +26,12 @@ Ejecute los scripts desde la raíz del repositorio con `bun run <script>`. Los s
 | `deploy:preview`    | `scripts/verify-bindings.ts preview`, `scripts/run-deploy-checks.ts preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` de `dist/server/wrangler.json` y `scripts/verify-deployment.ts preview` |
 | `deploy:production` | Los mismos pasos para `production`                                                                                                                                                                                                                          |
 
-- `verify-bindings.ts` falla cuando al entorno le falta un binding que declara `development` (aquí `DB`, `CACHE` y `MEDIA`) o todavía tiene un ID de D1 o KV de marcador de posición, y cuando producción comparte con preview su base de datos, su espacio de nombres o su bucket.
+- `verify-bindings.ts` falla cuando al entorno le falta un binding que declara `development` (aquí `DB`, `CACHE`, `MEDIA` y `BUNDLES`) o todavía tiene un ID de D1 o KV de marcador de posición, y cuando producción comparte con preview su base de datos, su espacio de nombres o su bucket.
 - `run-deploy-checks.ts` ejecuta `bun run <check>:<environment>` para cada comprobación de despliegue que un área declara en `src/data/<area>.deploy.ts`, y detiene el despliegue antes de la compilación cuando una falla. Hoy la única es `polar:verify`, del área de Polar, que falla cuando la organización de Polar de `.env.<environment>` no coincide con el código.
 - `prepare-deploy-secrets.ts` lee de `.env.<environment>` las claves enumeradas en `secrets.required` del entorno, falla cuando alguna falta o está vacía y escribe solo esas claves en `.wrangler/secrets.<environment>.json`. Las demás variables del archivo no se suben.
 - Las migraciones se ejecutan después de la compilación y antes del despliegue, así que una compilación fallida nunca toca la base de datos y el nuevo Worker nunca arranca con un esquema anterior.
 - El despliegue ejecuta `env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.<environment>.json`. La configuración compilada ya apunta a un único entorno; un `CLOUDFLARE_ENV` que quede en la shell haría que Wrangler buscara una sección de entorno que ese archivo no tiene.
-- `verify-deployment.ts` solicita <RepositoryFact name="liveSiteCheckPaths" /> en el dominio del entorno y falla a menos que cada ruta responda `200` con el tipo de contenido esperado. Solicita tres veces una ruta que falla, con cinco segundos de intervalo, y no modifica nada. `bun scripts/verify-deployment.ts <preview|production>` comprueba de forma independiente un sitio desplegado.
+- `verify-deployment.ts` solicita <RepositoryFact name="liveSiteCheckPaths" /> en el dominio del entorno y falla a menos que cada ruta responda `200` con el tipo de contenido esperado. Vuelve a solicitar una ruta que falla hasta <RepositoryFact name="liveSiteCheckRetries" /> veces, con <RepositoryFact name="liveSiteCheckRetrySeconds" unit="second" /> de intervalo, y no modifica nada. `bun scripts/verify-deployment.ts <preview|production>` comprueba de forma independiente un sitio desplegado.
 
 ## Comprobaciones
 
@@ -61,16 +61,16 @@ Ejecute los scripts desde la raíz del repositorio con `bun run <script>`. Los s
 
 ## Base de datos
 
-| Script                                                                           | Ejecuta                                                               |
-| -------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `db:generate`                                                                    | Generación de migraciones con drizzle-kit                             |
-| `db:migrate:local`, `db:migrate:test`                                            | Migraciones de Wrangler en una base de datos local                    |
-| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Migraciones de Wrangler en una base de datos remota                   |
-| `db:migrations:development`, `db:migrations:preview`, `db:migrations:production` | Las migraciones que una base de datos remota aún no ha aplicado       |
-| `db:seed:test`                                                                   | `scripts/seed-test.ts`: cuentas de prueba, un vídeo y un curso        |
-| `db:reset:test`                                                                  | Elimina `.wrangler/test` y después `db:migrate:test` y `db:seed:test` |
-| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                                        |
-| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Introspección con drizzle-kit                                         |
+| Script                                                                           | Ejecuta                                                                      |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `db:generate`                                                                    | Generación de migraciones con drizzle-kit                                    |
+| `db:migrate:local`, `db:migrate:test`                                            | Migraciones de Wrangler en una base de datos local                           |
+| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Migraciones de Wrangler en una base de datos remota                          |
+| `db:migrations:development`, `db:migrations:preview`, `db:migrations:production` | Las migraciones que una base de datos remota aún no ha aplicado              |
+| `db:seed:test`                                                                   | `scripts/seed-test.ts`: cuentas de prueba, una licencia, un vídeo y un curso |
+| `db:reset:test`                                                                  | Elimina `.wrangler/test` y después `db:migrate:test` y `db:seed:test`        |
+| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                                               |
+| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Introspección con drizzle-kit                                                |
 
 ## Vídeos
 

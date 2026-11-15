@@ -12,13 +12,13 @@ description: "Worker のエントリー、ロケールミドルウェア、バ�
 | `production`  | `saasyland`             | 本番用リソース                        | `saasyland.com`         |
 | `test`        | `saasyland-test`        | `.wrangler/test` 内のローカルリソース | `127.0.0.1:3000`        |
 
-どの環境も D1 を `DB`、KV を `CACHE`、R2 を `MEDIA` としてバインドし、必要なシークレットを列挙します。アフィリエイトの紹介トラッキングを有効にする `AFFONSO_PROGRAM_ID` は `vars` の下の通常の変数で、現時点では `test` にだけ設定されています。`test` 環境は `src/platform/testing/worker.ts` をエントリーとして使います。このエントリーは Resend と Polar へのリクエストを横取りし、Playwright 用のテスト専用エンドポイントを公開します。
+どの環境も D1 を `DB`、KV を `CACHE`、R2 を `MEDIA` と `BUNDLES` としてバインドし、必要なシークレットを列挙します。アフィリエイトの紹介トラッキングを有効にする `AFFONSO_PROGRAM_ID` は `vars` の下の通常の変数で、現時点では `test` にだけ設定されています。`test` 環境は `src/platform/testing/worker.ts` をエントリーとして使います。このエントリーは Resend と Polar へのリクエストを横取りし、Playwright 用のテスト専用エンドポイントを公開します。
 
 ## リクエストの流れ
 
 `src/server.ts` がすべてのリクエストを処理します。
 
-1. いずれかのエリアが受け持つパスは、ほかの何よりも先にそのエリアのリクエストハンドラーに渡されます。コースのエリアは `/media/` を受け持ち、`serveMedia` に渡します。`serveMedia` は署名済みの動画ファイルを Workers のキャッシュまたは R2 から配信します（[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照）。以下の手順のうち、これに適用されるのはセキュリティヘッダーだけです。
+1. いずれかのエリアが受け持つパスは、ほかの何よりも先にそのエリアのリクエストハンドラーに渡されます。コースのエリアは `/media/` を受け持ち、`serveMedia` に渡します。`serveMedia` は署名済みの動画ファイルを Workers のキャッシュまたは R2 から配信します（[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照）。ライセンスのエリアは `/bundles/` を受け持ち、`serveBundle` に渡します。`serveBundle` は CLI の署名済みのテンプレートバンドルを R2 から配信します（[CLI ライセンス API](/docs/features/cli-licence-api#template-bundles) を参照）。以下の手順のうち、これらに適用されるのはセキュリティヘッダーだけです。
 2. `i18n.middleware.ts` の `resolveLocale` が、`/api` と `/_serverFn` 以外への `GET` と `HEAD` のドキュメントリクエストを検査します。言語エイリアスと正規でないロケールパスをステータス 308 でリダイレクトし、ロケール Cookie が URL のロケールと異なる場合はそれを通知します。
 3. `/api` と `/_serverFn` 以外への `GET` と `HEAD` のリクエストは、まず `ASSETS` から配信されます。プリレンダリングされたページもここに含まれます。404 の場合は TanStack Start のハンドラーに処理が移ります。
 4. ロケール Cookie の更新が必要な場合、Worker はそれをレスポンスに追加します。HTML レスポンスには、スタイルシートとそのロケールのフォントに対する `Link` プリロードヘッダーも付与されます。

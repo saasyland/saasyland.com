@@ -18,7 +18,7 @@ import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import { LANDING_VIDEO_SIZES } from "~/src/data/landing-videos"
 
 import { cn } from "~/src/lib/cn"
-import { formatClock } from "~/src/lib/duration"
+import { MILLISECONDS_PER_MINUTE, formatClock } from "~/src/lib/duration"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
@@ -38,7 +38,6 @@ const TOUR_SIZES =
 
 const NEAR_VIEWPORT = "100% 0px 100% 0px"
 const SINGLE_COURSE = 1
-const MILLISECONDS_PER_MINUTE = 60_000
 const LESSON_NUMBER_BASE = 1
 const LESSON_NUMBER_PAD = 2
 

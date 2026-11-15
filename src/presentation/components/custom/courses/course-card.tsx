@@ -6,7 +6,7 @@ import { useTranslations } from "use-intl/react"
 
 import type { Course } from "~/src/modules/course/course.types"
 
-const MILLISECONDS_PER_MINUTE = 60_000
+import { MILLISECONDS_PER_MINUTE } from "~/src/lib/duration"
 
 export const CourseCard = ({ course }: { readonly course: Course["catalogue"][number] }): JSX.Element => {
   const t = useTranslations("pages.courses")

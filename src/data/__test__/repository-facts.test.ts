@@ -4,8 +4,10 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
+import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "~/e2e/data/accounts"
+import { TEST_LICENSE } from "~/e2e/data/licenses"
 import packageJson from "~/package.json"
-import { collectRepositoryFacts } from "~/scripts/repository-facts"
+import { collectRepositoryFacts, collectSeededAccounts } from "~/scripts/repository-facts"
 
 const configWith = ({
   hookTimeout = 4000,
@@ -39,15 +41,20 @@ describe("collectRepositoryFacts", () => {
     })
   })
 
-  it("reads the CLI licence API's path, header, label limit and rate limits from the contract", () => {
+  it("reads the CLI licence API's path, header, label limit, bundle URL lifetime and rate limits from the contract", () => {
     expect(collectRepositoryFacts(configWith())).toMatchObject({
       cliApiBasePath: API_BASE_PATH,
+      cliApiBundleUrlTtlSeconds: API_LIMIT.BUNDLE_URL_TTL_SECONDS,
       cliApiLabelMaxLength: API_LIMIT.LABEL_MAX_LENGTH,
       cliApiMachineHeader: API_HEADER.MACHINE,
       cliApiRateLimitSeconds: RATE_LIMIT.PERIOD_SECONDS,
       cliApiRequestsPerAddress: RATE_LIMIT.REQUESTS_PER_ADDRESS,
       cliApiRequestsPerLicenseKey: RATE_LIMIT.REQUESTS_PER_LICENSE_KEY,
     })
+  })
+
+  it("prints the password of the seeded accounts from the browser test data", () => {
+    expect(collectRepositoryFacts(configWith()).testPassword).toBe(TEST_PASSWORD)
   })
 
   it("finds the coverage summary in the configured reports directory", () => {
@@ -64,6 +71,26 @@ describe("collectRepositoryFacts", () => {
 
   it("refuses test and hook timeouts that the docs could not state as one duration", () => {
     expect(() => collectRepositoryFacts(configWith({ hookTimeout: 8000 }))).toThrow("one timeout")
+  })
+})
+
+describe("collectSeededAccounts", () => {
+  it("lists every account the test seed creates once, with its role", () => {
+    const accounts = collectSeededAccounts()
+
+    expect(accounts.map(([email, role]) => ({ email, role }))).toStrictEqual(
+      [...TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT].map(({ email, role }) => ({ email, role })),
+    )
+    expect(new Set(accounts.map(([email]) => email)).size).toBe(accounts.length)
+  })
+
+  it("names the tier of the seeded licence beside the licensed account only", () => {
+    const tiers = new Map(collectSeededAccounts().map(([email, , licensed]) => [email, licensed]))
+
+    expect(tiers.get(TEST_LICENSED_ACCOUNT.email)).toStrictEqual([TEST_LICENSE.tier])
+    for (const { email } of TEST_ACCOUNTS) {
+      expect(tiers.get(email)).toStrictEqual([])
+    }
   })
 })
 

@@ -4,10 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
+import { COUNTRY_HEADER, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { PPP_ATTRIBUTE, PPP_COOKIE, PPP_DECLINED } from "~/src/modules/_core/constants/pricing"
+import { bundleObjectKey, signBundle } from "~/src/modules/license/license.bundles"
+import { BUNDLE_PATH_PREFIX } from "~/src/modules/license/license.constants"
 
 import { LICENSE_WORKER_HANDLERS } from "~/src/data/license.worker"
+import { WORKER_HANDLER_KIND } from "~/src/data/worker.constants"
 
 import worker from "~/src/server"
 
@@ -127,5 +130,26 @@ describe("regional pricing", () => {
     const setAttribute = vi.fn()
     await runElementHandler("html", { setAttribute })
     expect(setAttribute).toHaveBeenCalledWith("style", '--ppp-region:"Polska";--ppp-percent:"30%"')
+  })
+})
+
+describe("template bundles", () => {
+  it("claims every path under the bundle prefix", () => {
+    const requestHandlers = LICENSE_WORKER_HANDLERS.filter((handler) => handler.kind === WORKER_HANDLER_KIND.REQUEST)
+
+    expect(requestHandlers.map(({ pathPrefix }) => pathPrefix)).toStrictEqual([`${BUNDLE_PATH_PREFIX}/`])
+  })
+
+  it("streams a signed bundle without the locale middleware or TanStack Start", async () => {
+    const version = "0.1.0"
+    await env.BUNDLES.put(bundleObjectKey(version), "archive")
+    const { url } = await signBundle({ host: "localhost", now: Date.now(), secret: env.AUTH_SECRET, version })
+
+    const response = await worker.fetch(new Request(url, { headers: { cookie: `${I18N.COOKIE_NAME}=pl-PL` } }), env)
+
+    expect(response.status).toBe(HTTP_STATUS.OK)
+    expect(await response.text()).toBe("archive")
+    expect(response.headers.get("set-cookie")).toBeNull()
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff")
   })
 })

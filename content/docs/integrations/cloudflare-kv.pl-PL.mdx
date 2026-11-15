@@ -10,15 +10,15 @@ Każde środowisko wiąże przestrzeń nazw KV jako `CACHE`. Przechowuje ona dwa
 Liczba gwiazdek wyświetlana w serwisie, zaimplementowana w `src/lib/github.ts`:
 
 - `getStarCount` odczytuje wpis `github:<owner>/<repo>:stars`.
-- Gdy wpisu nie ma, pobiera dane repozytorium z API GitHuba z trzysekundowym limitem czasu, zwraca liczbę gwiazdek i zapisuje `count` oraz `fetchedAt` w KV za pomocą `waitUntil`.
-- Gdy wpis jest starszy niż godzina, zwraca zapisaną liczbę i odświeża ją w tle.
-- `starCountQuery` przechowuje wynik w cache zapytań przez godzinę.
+- Gdy wpisu nie ma, pobiera dane repozytorium z API GitHuba z limitem czasu <RepositoryFact name="starCountFetchTimeoutSeconds" unit="second" />, zwraca liczbę gwiazdek i zapisuje `count` oraz `fetchedAt` w KV za pomocą `waitUntil`.
+- Gdy wpis jest starszy niż <RepositoryFact name="starCountRefreshHours" unit="hour" /> (`STAR_COUNT_REFRESH_AFTER_MS`), zwraca zapisaną liczbę i odświeża ją w tle.
+- `starCountQuery` przechowuje wynik w cache zapytań równie długo: `STAR_COUNT_REFRESH_AFTER_MS` to także jego `staleTime` i `gcTime`.
 
 Wpisy nie mają ustawionego czasu wygaśnięcia w KV; o odświeżeniu decyduje `fetchedAt`. Żądanie do GitHuba uwierzytelnia się danymi aplikacji GitHub OAuth `AUTH_GITHUB_CLIENT_ID` i `AUTH_GITHUB_CLIENT_SECRET`.
 
 ## Rabaty regionalne w checkoucie
 
-`pppDiscountId` (`src/modules/license/license.ppp.ts`) odczytuje wpis `polar:regional-discounts`: automatyczne rabaty procentowe z Polar, ograniczone do pól potrzebnych w checkoucie, wraz z `fetchedAt`. Wpis młodszy niż pięć minut jest używany bez zmian. W przeciwnym razie, albo gdy wpis jest uszkodzony, rabaty są ponownie pobierane z Polar, a pełna lista jest zapisywana przez `waitUntil`. Nieudane pobranie jest logowane i nie jest zapisywane; ten checkout korzysta z rabatów znalezionych do tej pory, a następny pobiera je ponownie. Między żądaniami nic nie zostaje w pamięci Workera.
+`pppDiscountId` (`src/modules/license/license.ppp.ts`) odczytuje wpis `polar:regional-discounts`: automatyczne rabaty procentowe z Polar, ograniczone do pól potrzebnych w checkoucie, wraz z `fetchedAt`. Wpis młodszy niż <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" /> (`REGIONAL_DISCOUNTS_REFRESH_AFTER_MS` w `license.constants.ts`) jest używany bez zmian. W przeciwnym razie, albo gdy wpis jest uszkodzony, rabaty są ponownie pobierane z Polar, a pełna lista jest zapisywana przez `waitUntil`. Nieudane pobranie jest logowane i nie jest zapisywane; ten checkout korzysta z rabatów znalezionych do tej pory, a następny pobiera je ponownie. Między żądaniami nic nie zostaje w pamięci Workera.
 
 ## Spójność i testy
 

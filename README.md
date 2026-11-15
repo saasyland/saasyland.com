@@ -34,7 +34,7 @@ The application includes both connected workflows and UI demonstrations. A rende
 | Authentication              | Email/password registration with required email verification, GitHub and Google sign-in, password recovery, TOTP with backup codes, and session management. Better Auth's own endpoints enforce the same password, name, email and image rules as the forms, and verification and password-reset emails are limited per recipient.                                                                                                                                                                                                                                                                                                                                                                                           |
 | Customer workspace          | Protected `/app` area, `/app/license` and `/app/settings`. Accounts without a licence see the landing page's tier cards with regional prices and the course lessons a purchase unlocks (counted from D1), and start checkout in one press, with their email already filled in; a tier picked on the landing page carries through sign-up. After payment the workspace waits for the licence to activate. Licence owners see their key with the CLI commands that activate, show and free a machine, their machine activations, and activation deactivation. In `/app/settings` a customer picks the time zone that every date in the workspace is shown in.                                                                  |
 | Billing                     | Authenticated Polar checkout for the Core, Complete, and Agency tiers with regional (PPP) discounts, returning the buyer to the workspace in their language, and webhook handling for purchases, full refunds (a partial refund keeps the licence), and licence-key benefits; a full refund marks the licence refunded and a revoked benefit marks it revoked. One licence per account: checkout is refused while a licence is active, and Polar's checkout endpoint is reachable only through that server-side check. Requires configured provider products and credentials.                                                                                                                                                |
-| CLI licence API             | The API that the `saasyland` CLI calls under `/api/cli/v1` to read a licence and to activate, check and release machines. It is built on the `@saasyland/stack/api` contract, which the CLI imports too: the key is checked against D1, machines are Polar activations identified by an HMAC of the machine ID, activating again from the same machine reuses its slot, and requests are rate-limited per IP address and per licence key. See the [CLI licence API guide](content/docs/features/cli-licence-api.en-US.mdx).                                                                                                                                                                                                  |
+| CLI licence API             | The API that the `saasyland` CLI calls under `/api/cli/v1` to read a licence, to activate, check and release machines and to download the template bundle of a release. It is built on the `@saasyland/stack/api` contract, which the CLI imports too: the key is checked against D1, machines are Polar activations identified by an HMAC of the machine ID, activating again from the same machine reuses its slot, bundles come from a private R2 bucket through short-lived signed URLs, and requests are rate-limited per IP address and per licence key. See the [CLI licence API guide](content/docs/features/cli-licence-api.en-US.mdx).                                                                             |
 | Newsletter                  | Double opt-in subscription with localized email delivery, limited per recipient. The confirmation and unsubscribe links open a page that acts only when the visitor presses its button. Server functions read and change a signed-in user's subscription, but no workspace screen uses them yet.                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Admin users and security    | Database-backed user listing, password reset, ban/unban, and deletion. The settings security tab connects password changes, TOTP, and session revocation, and the general tab saves the admin's own time zone.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Products and categories     | D1 schemas, permission-checked CRUD use cases, and database-backed lists. Product creation/publishing controls are not fully connected.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -90,18 +90,19 @@ bun run build:test
 bun run start:test
 ```
 
-Open <http://127.0.0.1:3000>. Sign in with either account below; both use the password `WorkerTestPassword123!` from [`e2e/data/accounts.ts`](e2e/data/accounts.ts).
+Open <http://127.0.0.1:3000>. Sign in with any account below; each uses the password `WorkerTestPassword123!` from [`e2e/data/accounts.ts`](e2e/data/accounts.ts), and the licensed account owns the licence from [`e2e/data/licenses.ts`](e2e/data/licenses.ts).
 
-| Role     | Email                   | Workspace |
-| -------- | ----------------------- | --------- |
-| Admin    | `admin@example.test`    | `/admin`  |
-| Customer | `customer@example.test` | `/app`    |
+| Role                    | Email                   | Workspace |
+| ----------------------- | ----------------------- | --------- |
+| Admin                   | `admin@example.test`    | `/admin`  |
+| Customer                | `customer@example.test` | `/app`    |
+| Customer with a licence | `licensed@example.test` | `/app`    |
 
 This serves a built test application; rebuild it to see source changes. It uses dummy values from [`.env.test`](.env.test), the `test` environment in [`wrangler.jsonc`](wrangler.jsonc), and isolated state under `.wrangler/test`. Provider interception is intended for local verification, not for validating real OAuth, email delivery, or payments. Keep this test configuration local.
 
 ### Develop with Cloudflare and provider integrations
 
-The development server supports hot reload at <http://localhost:3000>. Its `DB`, `CACHE`, and `MEDIA` bindings connect to **remote preview resources**. Consequently, development database writes and `db:migrate:development` affect that preview database.
+The development server supports hot reload at <http://localhost:3000>. Its `DB`, `CACHE`, `MEDIA`, and `BUNDLES` bindings connect to **remote preview resources**. Consequently, development database writes and `db:migrate:development` affect that preview database.
 
 1. Sign in to Cloudflare and copy the environment template:
 
@@ -153,13 +154,13 @@ The public URL is configured in source: [`src/presentation/branding/index.ts`](s
 
 When adapting the application to your own domain, update these locations together:
 
-| Location                                                                   | What to configure                                                                                                                                                         |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, preview host (`APP_PREVIEW_DOMAIN`), contact addresses, and GitHub identity.                                                          |
-| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `DEPLOYED_HOSTS`, the preview and production hosts read from `APP_PREVIEW_DOMAIN` and `APP_DOMAIN`, and the one place the code names them by environment.                 |
-| [`wrangler.jsonc`](wrangler.jsonc)                                         | Worker names, custom-domain routes, D1 databases, KV namespaces, and R2 buckets for each environment.                                                                     |
-| [`src/data/marketing.ts`](src/data/marketing.ts)                           | Displayed tiers and prices (`TIERS`, `TIER_PRICES`) and the consulting rate (`CONSULTING_HOURLY_RATE`); `polar:verify` checks the tier prices against the Polar products. |
-| [`src/presentation/styles/`](src/presentation/styles)                      | Theme, typography, fonts, and shared style definitions.                                                                                                                   |
+| Location                                                                   | What to configure                                                                                                                                                               |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, preview host (`APP_PREVIEW_DOMAIN`), contact addresses, and GitHub identity.                                                                |
+| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `DEPLOYED_HOSTS`, the preview and production hosts read from `APP_PREVIEW_DOMAIN` and `APP_DOMAIN`, and the one place the code names them by environment.                       |
+| [`wrangler.jsonc`](wrangler.jsonc)                                         | Worker names, custom-domain routes, D1 databases, KV namespaces, and R2 buckets for each environment.                                                                           |
+| [`src/data/marketing.ts`](src/data/marketing.ts)                           | The price of each tier of `LICENSE_TIERS` (`TIER_PRICES`) and the consulting rate (`CONSULTING_HOURLY_RATE`); `polar:verify` checks the tier prices against the Polar products. |
+| [`src/presentation/styles/`](src/presentation/styles)                      | Theme, typography, fonts, and shared style definitions.                                                                                                                         |
 
 The branding names the preview host, `APP_PREVIEW_DOMAIN` (`preview.<APP_DOMAIN>`), and the production host, `APP_DOMAIN`, and `DEPLOYED_HOSTS` maps the `preview` and `production` environments to them. `appHostsForMode` reads it for the hosts Better Auth and newsletter links accept in each mode, and the deployment scripts' live check requests it, so change `APP_PREVIEW_DOMAIN` when your preview host has another name. The custom-domain `routes` in `wrangler.jsonc` and the environment URLs in [`deploy-reusable.yml`](.github/workflows/deploy-reusable.yml) name the same hosts and must match; [`src/__test__/wrangler.test.ts`](src/__test__/wrangler.test.ts) fails when the routes differ. Changing an environment file alone does not change the canonical URL. Rebuild after changing branding or deployment configuration.
 
@@ -171,7 +172,7 @@ The branding names the preview host, `APP_PREVIEW_DOMAIN` (`preview.<APP_DOMAIN>
 - Create one Polar webhook per deployed host at `https://<your-host>/api/auth/polar/webhooks`, in the raw format, signed with `POLAR_WEBHOOK_SECRET` and subscribed to exactly `LICENSE_WEBHOOK_EVENTS`. The [handlers](src/modules/license/license.webhooks.ts) process paid orders, full refunds (a partial refund keeps the licence), and licence-benefit creation and revocation.
 - Run `bun run polar:verify:<environment>` after every change in Polar. It reads the Polar keys from `.env.<environment>`, sends only GET requests, and fails with one line per difference between Polar and the code. Checkout and the check share one [regional discount rule](src/integrations/polar/polar.discounts.ts).
 
-The website associates purchases and issued keys with authenticated customers, exposes activation management and serves the [CLI licence API](content/docs/features/cli-licence-api.en-US.mdx) through which the CLI activates machines. The CLI itself, its installation and the templates it generates are maintained separately.
+The website associates purchases and issued keys with authenticated customers, exposes activation management and serves the [CLI licence API](content/docs/features/cli-licence-api.en-US.mdx) through which the CLI activates machines and downloads the templates of its release. The CLI itself, its installation and the templates it generates are maintained separately.
 
 ## Project structure and conventions
 
@@ -200,7 +201,7 @@ src/
     social-card.tsx              Social cards rendered at build time with Takumi
     styles/                      Theme, typography, and local font declarations
   providers/                     Application-wide React providers
-  data/                          Data shared by several files, and what each area adds: routes, menus, skeletons, layout namespaces, Worker handlers, root components, the time zone, Vite plugins, deploy checks, live site checks, Better Auth plugins and emails
+  data/                          Data shared by several files, and what each area adds: routes, menus, skeletons, layout namespaces, Worker handlers, root components, the time zone, Vite plugins, deploy checks, live site checks, Better Auth plugins and emails, the customer overview
   hooks/                         Shared React hooks
   lib/                           Shared utilities (cn, confetti, cookies, the deployed-site check, durations, hex hashes and tokens, rate limits, release tags and notes, route search params, select options, SEO tags, prerendered page heads, robots.txt rules, the sitemap, GitHub stars, not-found errors)
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers
@@ -290,18 +291,19 @@ The [deployment workflow](.github/workflows/deploy-reusable.yml) records actual 
 
 ### Provision Cloudflare resources
 
-For a new Cloudflare account, create a preview database, KV namespace, and R2 bucket:
+For a new Cloudflare account, create a preview database, KV namespace, and R2 buckets:
 
 ```sh
 bunx wrangler login
 bunx wrangler d1 create saasyland_com_preview
 bunx wrangler kv namespace create CACHE --env preview
 bunx wrangler r2 bucket create saasyland-preview
+bunx wrangler r2 bucket create saasyland-bundles-preview
 ```
 
-Replace `database_id`, `database_name`, the KV namespace `id`, and the `MEDIA` `bucket_name` under both `development` and `preview` in `wrangler.jsonc`. Keep the binding names `DB`, `CACHE`, and `MEDIA`, and preserve `migrations_dir`. These two environments share resources by default. Update Worker names and custom-domain routes for your account.
+Replace `database_id`, `database_name`, the KV namespace `id`, and the `bucket_name` of `MEDIA` and `BUNDLES` under both `development` and `preview` in `wrangler.jsonc`. Keep the binding names `DB`, `CACHE`, `MEDIA`, and `BUNDLES`, and preserve `migrations_dir`. These two environments share resources by default. Update Worker names and custom-domain routes for your account.
 
-Create separate production resources with `saasyland_com_production`, `bunx wrangler kv namespace create CACHE --env production`, and `bunx wrangler r2 bucket create saasyland`, then update the `production` bindings. The deployment guard rejects missing bindings, placeholder IDs, and a production environment that shares its database, namespace, or bucket with preview; it does not verify that the existing IDs belong to your account or that the R2 buckets exist, and a deploy fails while a bound bucket is missing.
+Create separate production resources with `saasyland_com_production`, `bunx wrangler kv namespace create CACHE --env production`, `bunx wrangler r2 bucket create saasyland`, and `bunx wrangler r2 bucket create saasyland-bundles`, then update the `production` bindings. The `BUNDLES` buckets hold the CLI's template bundles, which the CLI repository's release uploads to both; see [Publishing bundles](content/docs/features/cli-licence-api.en-US.mdx#publishing-bundles). The deployment guard rejects missing bindings, placeholder IDs, and a production environment that shares its database, namespace, or bucket with preview; it does not verify that the existing IDs belong to your account or that the R2 buckets exist, and a deploy fails while a bound bucket is missing.
 
 ### Migrations
 

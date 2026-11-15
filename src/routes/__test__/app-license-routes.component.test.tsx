@@ -45,7 +45,7 @@ import { ROUTES } from "~/src/routes"
 
 const LICENSE_KEY = "private-purchased-license-key"
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
-const { activation, buy, chosen } = pagesLicenseMessages
+const { activation, buy, chosen, statusCard } = pagesLicenseMessages
 const SECTION_NAME = vi.hoisted(() => "Included with every tier")
 
 const sessionRequest = vi.hoisted(() => vi.fn())
@@ -259,7 +259,7 @@ describe("buying a license", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(errorsMessages.codes.LICENSE_ALREADY_ACTIVE.replace("{email}", CONTACT_EMAIL))
     })
-    expect(await screen.findByRole("heading", { name: pagesAppMessages.overview.license.title })).toBeVisible()
+    expect(await screen.findByRole("heading", { name: statusCard.title })).toBeVisible()
     expect(screen.queryByRole("region", { name: buy.title })).toBeNull()
   })
 })
@@ -289,7 +289,7 @@ describe("a tier chosen on the pricing page", () => {
     currentLicenseMock.mockResolvedValue({ license: ownedLicense })
     await renderApp(`${ROUTES.APP}?tier=${LICENSE_TIER.COMPLETE}`)
 
-    expect(await screen.findByRole("heading", { name: pagesAppMessages.overview.license.title })).toBeVisible()
+    expect(await screen.findByRole("heading", { name: statusCard.title })).toBeVisible()
     expect(screen.queryByRole("button", { name: chosen.continue })).toBeNull()
     expect(screen.queryByRole("region", { name: buy.title })).toBeNull()
   })
@@ -332,15 +332,15 @@ describe("returning from checkout", () => {
 
 describe("owning a license", () => {
   it.each([
-    { license: ownedLicense, status: pagesAppMessages.overview.license.active },
-    { license: { ...ownedLicense, key: JSON_NULL }, status: pagesAppMessages.overview.license.pending },
+    { license: ownedLicense, status: statusCard.active },
+    { license: { ...ownedLicense, key: JSON_NULL }, status: statusCard.pending },
   ])("shows the purchased tier and $status state on the overview without the key or the offer", async ({ license, status }) => {
     currentLicenseMock.mockResolvedValue({ license })
     await renderApp(ROUTES.APP)
 
     expect(await screen.findByText(pricingMessages.tiers.agency.name)).toBeVisible()
     expect(screen.getByText(status)).toBeVisible()
-    expect(screen.getByRole("link", { name: pagesAppMessages.license })).toHaveAttribute("href", ROUTES.APP_LICENSE)
+    expect(screen.getByRole("link", { name: statusCard.action })).toHaveAttribute("href", ROUTES.APP_LICENSE)
     expect(screen.queryByText(LICENSE_KEY)).toBeNull()
     expect(screen.queryByRole("region", { name: buy.title })).toBeNull()
     expect(screen.getByRole("link", { name: pagesAppMessages.overview.docs.action })).toHaveAttribute("href", ROUTES.DOCS)
@@ -350,7 +350,7 @@ describe("owning a license", () => {
     currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, key: JSON_NULL, status } })
     await renderApp(ROUTES.APP)
 
-    expect(await screen.findByText(pagesAppMessages.overview.license[status])).toBeVisible()
+    expect(await screen.findByText(statusCard[status])).toBeVisible()
     expect(await offer()).toBeVisible()
   })
 

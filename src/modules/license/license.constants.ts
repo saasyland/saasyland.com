@@ -34,10 +34,21 @@ export const LICENSE_API_ENDPOINTS = [
   "LICENSE",
   "ACTIVATE",
   "VALIDATE",
+  "BUNDLE",
   "DEACTIVATE",
 ] as const satisfies readonly (keyof typeof API_ENDPOINT)[]
 
 export const LICENSE_API_RETRY_AFTER_SECONDS = 30
+
+export const REGIONAL_DISCOUNTS_REFRESH_AFTER_MS = 300_000
+
+export const BUNDLE_BINDING = "BUNDLES"
+
+export const BUNDLE_PATH_PREFIX = "/bundles"
+
+export const BUNDLE_ARCHIVE_EXTENSION = ".json.gz"
+
+export const BUNDLE_CONTENT_TYPE = "application/gzip"
 
 export const POLAR_ID_MAX_LENGTH = 64
 

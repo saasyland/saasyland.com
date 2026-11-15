@@ -26,12 +26,12 @@ Führen Sie Skripte im Stammverzeichnis des Repositorys mit `bun run <script>` a
 | `deploy:preview`    | `scripts/verify-bindings.ts preview`, `scripts/run-deploy-checks.ts preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` von `dist/server/wrangler.json` und `scripts/verify-deployment.ts preview` |
 | `deploy:production` | Dieselben Schritte für `production`                                                                                                                                                                                                                            |
 
-- `verify-bindings.ts` schlägt fehl, wenn der Umgebung ein Binding fehlt, das `development` deklariert (hier `DB`, `CACHE` und `MEDIA`) oder sie noch eine Platzhalter-ID für D1 oder KV enthält, und wenn die Produktion ihre Datenbank, ihren Namespace oder ihren Bucket mit Preview teilt.
+- `verify-bindings.ts` schlägt fehl, wenn der Umgebung ein Binding fehlt, das `development` deklariert (hier `DB`, `CACHE`, `MEDIA` und `BUNDLES`) oder sie noch eine Platzhalter-ID für D1 oder KV enthält, und wenn die Produktion ihre Datenbank, ihren Namespace oder ihren Bucket mit Preview teilt.
 - `run-deploy-checks.ts` führt für jeden Deploy-Check, den ein Bereich in `src/data/<area>.deploy.ts` deklariert, `bun run <check>:<environment>` aus und stoppt das Deployment vor dem Build, wenn einer fehlschlägt. Der einzige Check ist derzeit `polar:verify` aus dem Polar-Bereich, der fehlschlägt, wenn die Polar-Organisation in `.env.<environment>` nicht mit dem Code übereinstimmt.
 - `prepare-deploy-secrets.ts` liest die Schlüssel, die in `secrets.required` der Umgebung aufgeführt sind, aus `.env.<environment>`, schlägt fehl, wenn einer fehlt oder leer ist, und schreibt nur diese Schlüssel nach `.wrangler/secrets.<environment>.json`. Andere Variablen in der Datei werden nicht hochgeladen.
 - Migrationen laufen nach dem Build und vor dem Deployment, sodass ein fehlgeschlagener Build die Datenbank nie berührt und der neue Worker nie mit einem älteren Schema startet.
 - Das Deployment führt `env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.<environment>.json` aus. Die gebaute Konfiguration zielt bereits auf eine einzige Umgebung; ein in der Shell verbliebenes `CLOUDFLARE_ENV` würde Wrangler nach einem Umgebungsabschnitt suchen lassen, den diese Datei nicht hat.
-- `verify-deployment.ts` ruft <RepositoryFact name="liveSiteCheckPaths" /> auf der Domain der Umgebung ab und schlägt fehl, sofern nicht jeder Pfad mit `200` und dem erwarteten Inhaltstyp antwortet. Einen fehlschlagenden Pfad ruft es dreimal im Abstand von fünf Sekunden ab und ändert nichts. `bun scripts/verify-deployment.ts <preview|production>` prüft eine Live-Website für sich allein.
+- `verify-deployment.ts` ruft <RepositoryFact name="liveSiteCheckPaths" /> auf der Domain der Umgebung ab und schlägt fehl, sofern nicht jeder Pfad mit `200` und dem erwarteten Inhaltstyp antwortet. Einen fehlschlagenden Pfad ruft es bis zu <RepositoryFact name="liveSiteCheckRetries" /> weitere Male im Abstand von <RepositoryFact name="liveSiteCheckRetrySeconds" unit="second" /> ab und ändert nichts. `bun scripts/verify-deployment.ts <preview|production>` prüft eine Live-Website für sich allein.
 
 ## Prüfungen
 
@@ -67,7 +67,7 @@ Führen Sie Skripte im Stammverzeichnis des Repositorys mit `bun run <script>` a
 | `db:migrate:local`, `db:migrate:test`                                            | Wrangler-Migrationen auf einer lokalen Datenbank                        |
 | `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Wrangler-Migrationen auf einer entfernten Datenbank                     |
 | `db:migrations:development`, `db:migrations:preview`, `db:migrations:production` | Die Migrationen, die eine entfernte Datenbank noch nicht angewendet hat |
-| `db:seed:test`                                                                   | `scripts/seed-test.ts`: Testkonten, ein Video und ein Kurs              |
+| `db:seed:test`                                                                   | `scripts/seed-test.ts`: Testkonten, eine Lizenz, ein Video und ein Kurs |
 | `db:reset:test`                                                                  | Löscht `.wrangler/test`, dann `db:migrate:test` und `db:seed:test`      |
 | `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                                          |
 | `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Introspektion mit drizzle-kit                                           |

@@ -4,13 +4,16 @@ import { posix } from "node:path"
 import type { Plugin } from "vite-plus"
 import * as zod from "zod"
 
+import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "../e2e/data/accounts.ts"
+import { TEST_LICENSE } from "../e2e/data/licenses.ts"
 import playwrightConfig, { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
 import { MILLISECONDS_PER_SECOND } from "../src/lib/duration.ts"
 import { COUNTRIES } from "../src/modules/_core/constants/country.ts"
 import { CURRENCY_CODES } from "../src/modules/_core/constants/currency.ts"
 import { TIMEZONES } from "../src/modules/_core/constants/timezone.ts"
-import { LICENSE_API_ENDPOINTS } from "../src/modules/license/license.constants.ts"
+import { BUNDLE_BINDING, LICENSE_API_ENDPOINTS } from "../src/modules/license/license.constants.ts"
 import { COMMIT_EMOJIS } from "./commit-msg.ts"
+import { readBucketNames } from "./wrangler-config.ts"
 
 const MODULE_ID = "virtual:repository-facts"
 const RESOLVED_MODULE_ID = `\0${MODULE_ID}`
@@ -91,14 +94,22 @@ const findTimedProject = (projects: readonly unknown[]) =>
 
 const SERVED_API_ENDPOINTS = LICENSE_API_ENDPOINTS.map((name) => API_ENDPOINT[name])
 
-export const collectCliApiTables = () => ({
+export const collectCliApiTables = async () => ({
+  bundleBuckets: await readBucketNames(BUNDLE_BINDING),
   endpoints: SERVED_API_ENDPOINTS.map(
     ({ errors, method, route, statuses }) => [`${method} ${API_BASE_PATH}${route}`, statuses.map(String), [...errors]] as const,
   ),
   errors: [...new Set(SERVED_API_ENDPOINTS.flatMap(({ errors }) => errors))].map((code) => [code, API_ERROR_STATUS[code]] as const),
 })
 
-export type CliApiTables = ReturnType<typeof collectCliApiTables>
+export type CliApiTables = Awaited<ReturnType<typeof collectCliApiTables>>
+
+export const collectSeededAccounts = () => [
+  ...TEST_ACCOUNTS.map(({ email, role }) => [email, role, []] as const),
+  [TEST_LICENSED_ACCOUNT.email, TEST_LICENSED_ACCOUNT.role, [TEST_LICENSE.tier]] as const,
+]
+
+export type SeededAccounts = ReturnType<typeof collectSeededAccounts>
 
 export const collectRepositoryFacts = (config: unknown) => {
   const { fmt, lint, test } = configSchema.parse(config)
@@ -112,6 +123,7 @@ export const collectRepositoryFacts = (config: unknown) => {
     bunVersion: readBunVersion(),
     ciWorkflowPath: CI_WORKFLOW,
     cliApiBasePath: API_BASE_PATH,
+    cliApiBundleUrlTtlSeconds: API_LIMIT.BUNDLE_URL_TTL_SECONDS,
     cliApiLabelMaxLength: API_LIMIT.LABEL_MAX_LENGTH,
     cliApiMachineHeader: API_HEADER.MACHINE,
     cliApiRateLimitSeconds: RATE_LIMIT.PERIOD_SECONDS,
@@ -141,6 +153,7 @@ export const collectRepositoryFacts = (config: unknown) => {
     tabWidth: fmt.tabWidth,
     tanstackTableMajor: majorVersionOf("@tanstack/react-table"),
     testFiles: countFiles("src/**/*.{test,spec}.{ts,tsx}"),
+    testPassword: TEST_PASSWORD,
     timezones: TIMEZONES.length,
     uiComponents: countFiles("src/presentation/components/shadcn/*.tsx"),
   }
@@ -152,11 +165,12 @@ export const repositoryFacts = (): Plugin => {
   let moduleSource = ""
 
   return {
-    config: (config) => {
+    config: async (config) => {
       moduleSource = [
         `export default ${JSON.stringify(collectRepositoryFacts(config))}`,
         `export const commitEmojis = ${JSON.stringify(COMMIT_EMOJIS)}`,
-        `export const cliApiTables = ${JSON.stringify(collectCliApiTables())}`,
+        `export const cliApiTables = ${JSON.stringify(await collectCliApiTables())}`,
+        `export const seededAccounts = ${JSON.stringify(collectSeededAccounts())}`,
       ].join("\n")
     },
     load: (id) => (id === RESOLVED_MODULE_ID ? moduleSource : undefined),

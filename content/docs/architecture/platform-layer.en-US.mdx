@@ -5,14 +5,15 @@ description: "The Cloudflare runtime: Worker entry, bindings, environments, gene
 
 ## Worker and bindings
 
-`wrangler.jsonc` sets `src/server.ts` as the Worker entry. The Worker receives four bindings:
+`wrangler.jsonc` sets `src/server.ts` as the Worker entry. The Worker receives these bindings:
 
-| Binding  | Type          | Used for                                                  |
-| -------- | ------------- | --------------------------------------------------------- |
-| `DB`     | D1 database   | All tables, including sessions and rate-limit counters    |
-| `CACHE`  | KV namespace  | The GitHub star count and the regional checkout discounts |
-| `MEDIA`  | R2 bucket     | Video files, served by `serveMedia` under `/media/`       |
-| `ASSETS` | Static assets | Prerendered pages and files from `public`                 |
+| Binding   | Type          | Used for                                                              |
+| --------- | ------------- | --------------------------------------------------------------------- |
+| `DB`      | D1 database   | All tables, including sessions and rate-limit counters                |
+| `CACHE`   | KV namespace  | The GitHub star count and the regional checkout discounts             |
+| `MEDIA`   | R2 bucket     | Video files, served by `serveMedia` under `/media/`                   |
+| `BUNDLES` | R2 bucket     | The CLI's template bundles, served by `serveBundle` under `/bundles/` |
+| `ASSETS`  | Static assets | Prerendered pages and files from `public`                             |
 
 Requests for `/assets/*`, `/fonts/*`, `/robots.txt` and `/llms.txt` are served from static assets without running the Worker. Server code reads bindings, secrets and `waitUntil` from `cloudflare:workers`. `src/server.ts` adds the security headers to every response it returns; files served without the Worker get the subset in `public/_headers` ([Security and hardening](/docs/features/security)).
 
@@ -29,7 +30,7 @@ No platform file names an area. Each area, such as the courses or the licence sa
 | Deploy checks    | `src/data/<area>.deploy.ts`: one `<AREA>_DEPLOY_CHECKS` list   | `src/data/deploy.entries.ts`    | `DEPLOY_CHECKS` in `src/data/deploy.ts`, which `scripts/run-deploy-checks.ts` runs                       |
 | Live site checks | `src/data/<area>.live.ts`: one `<AREA>_LIVE_CHECKS` list       | `src/data/live.entries.ts`      | `LIVE_SITE_CHECKS` in `src/data/live.ts`, which `scripts/verify-deployment.ts` requests after a deploy   |
 
-A request handler claims a `pathPrefix` and answers every request under it before the locale middleware, the static assets and TanStack Start, as the courses area's handler does for `/media/`. A document handler receives every HTML page the Worker returns, with its locale and the request, and returns the page to send, as the licence area's regional pricing does. `src/server.ts` imports the handlers statically, so they are evaluated on every cold start: a handler file imports only constants and pure helpers and loads anything larger with a dynamic `import()` (see [Performance](/docs/conventions/performance)).
+A request handler claims a `pathPrefix` and answers every request under it before the locale middleware, the static assets and TanStack Start, as the courses area's handler does for `/media/` and the licence area's for `/bundles/`. A document handler receives every HTML page the Worker returns, with its locale and the request, and returns the page to send, as the licence area's regional pricing does. `src/server.ts` imports the handlers statically, so they are evaluated on every cold start: a handler file imports only constants and pure helpers and loads anything larger with a dynamic `import()` (see [Performance](/docs/conventions/performance)).
 
 A Vite plugin entry has an `order`, which places its plugins among those of the other areas, and `vitest`, which says whether they also load under Vitest. Vite loads its configuration before the `~` alias resolves, so `vite.ts`, `vite.entries.ts` and every `<area>.vite.ts` import by relative path with the `.ts` extension, and an entry imports its plugin package inside its `plugins` function, so that `vp lint` and `vp fmt` never load it.
 
@@ -39,9 +40,9 @@ A deploy check names a package script with one variant per deployed environment.
 
 A live site check names a path and the status and content type it must answer with after a deploy. The core checks the home page, `robots.txt`, the sitemap, the site card and `/api`, the auth area the session endpoint, and the courses area `/courses`, which renders from D1 on every request.
 
-An area can also define a list of its own that other areas add to in the same way. The courses area defines course access in `src/data/course-access.ts`, and the licence area grants it in `src/data/license.course-access.ts` ([Courses](/docs/features/courses)); the licence area defines the sections of its offer in `src/data/license-offer.ts`, and the courses area adds the locked courses in `src/data/courses.license-offer.ts` ([Customer app](/docs/features/customer-app)). The auth area defines the plugins and emails that other areas add to Better Auth ([Better Auth](/docs/integrations/better-auth)): the licence area adds the Polar plugin and Resend the auth emails. The auth area also defines the user management tabs in `src/data/user-tabs.ts`, to which the team area adds its invitations and roles ([Users (admin)](/docs/features/users-admin)), and the notices under the sign-up form in `src/data/sign-up-notices.ts`, to which the legal area adds the consent line ([Legal pages](/docs/features/legal-pages)). A project without one of the areas leaves out the list that area defines together with what the others add to it, so no area imports another that does not depend on it.
+An area can also define a list of its own that other areas add to in the same way. The courses area defines course access in `src/data/course-access.ts`, and the licence area grants it in `src/data/license.course-access.ts` ([Courses](/docs/features/courses)); the licence area defines the sections of its offer in `src/data/license-offer.ts`, and the courses area adds the locked courses in `src/data/courses.license-offer.ts` ([Customer app](/docs/features/customer-app)). The auth area defines the plugins and emails that other areas add to Better Auth ([Better Auth](/docs/integrations/better-auth)): the licence area adds the Polar plugin and Resend the auth emails. The auth area also defines the user management tabs in `src/data/user-tabs.ts`, to which the team area adds its invitations and roles ([Users (admin)](/docs/features/users-admin)), and the notices under the sign-up form in `src/data/sign-up-notices.ts`, to which the legal area adds the consent line ([Legal pages](/docs/features/legal-pages)), and the customer app's overview in `src/data/app-overview.ts`, to which the licence area adds its section and the search params it reads ([Customer app](/docs/features/customer-app)). A project without one of the areas leaves out the list that area defines together with what the others add to it, so no area imports another that does not depend on it.
 
-The core adds an empty list to each barrel that only optional areas fill: `src/data/core.worker.ts`, `core.root.ts`, `core.time-zone.ts`, `core.deploy.ts` and `core.namespaces.ts`, so a project without those areas still type-checks and lints, and the auth area adds an empty `AUTH_AUTH_PLUGINS` to its plugin list and an empty `AUTH_SIGN_UP_NOTICES` to its sign-up notices. The areas that send email name the purposes of their emails in `src/data/<area>.email-purposes.ts`, which `src/data/email-purposes.entries.ts` joins into `EMAIL_PURPOSE` ([Resend](/docs/integrations/resend)).
+The core adds an empty list to each barrel that only optional areas fill: `src/data/core.worker.ts`, `core.root.ts`, `core.time-zone.ts`, `core.deploy.ts` and `core.namespaces.ts`, so a project without those areas still type-checks and lints, and the auth area adds an empty `AUTH_AUTH_PLUGINS` to its plugin list, an empty `AUTH_SIGN_UP_NOTICES` to its sign-up notices and an empty `AUTH_APP_OVERVIEW` to the overview. The areas that send email name the purposes of their emails in `src/data/<area>.email-purposes.ts`, which `src/data/email-purposes.entries.ts` joins into `EMAIL_PURPOSE` ([Resend](/docs/integrations/resend)).
 
 ## Environments
 
@@ -56,11 +57,11 @@ The core adds an empty list to each barrel that only optional areas fill: `src/d
 
 Each environment lists its required secrets under `secrets.required`. Values come from the matching `.env.<environment>` file; the deploy scripts write the declared keys to `.wrangler/secrets.<environment>.json` and pass that file to Wrangler with `--secrets-file`. The `test` environment uses `src/platform/testing/worker.ts` as its entry and the committed dummy values in `.env.test`. `AFFONSO_PROGRAM_ID` is public, so it is a plain Worker variable under `vars` rather than a secret; only `test` sets one. The secrets of one module stay together, in the order of `.env.example`, and of `.env.test` for `test`, so an area contributes its secrets as one group; `src/__test__/wrangler.test.ts` compares the names in order and fails when they differ. A blank line between two groups is only for reading, since a formatter may remove it, so the test ignores it.
 
-An area's bindings form a block of their own as well. The `MEDIA` R2 bucket belongs to the courses area, so `r2_buckets` comes last in each environment and a project without the courses leaves it out. `wrangler.test.ts` also fails when an environment binds other D1 databases, KV namespaces or R2 buckets than `development`, and `scripts/verify-bindings.ts` checks every binding the target environment declares without naming any.
+An area's bindings form a block of their own as well. The R2 buckets belong to areas, `MEDIA` to the courses and `BUNDLES` to the licence sales, so `r2_buckets` comes last in each environment, with one entry per area, and a project without an area leaves its entry out. `wrangler.test.ts` also fails when an environment binds other D1 databases, KV namespaces or R2 buckets than `development`, and `scripts/verify-bindings.ts` checks every binding the target environment declares without naming any.
 
 ## Types
 
-- `src/types/worker-configuration.d.ts` is generated by `bun run cf-typegen` from the `development` environment of `wrangler.jsonc` and declares `Cloudflare.Env`: the `DB`, `CACHE` and `MEDIA` bindings and every secret in `secrets.required`. `src/types/bindings.d.ts` adds `ASSETS`, which Wrangler leaves out.
+- `src/types/worker-configuration.d.ts` is generated by `bun run cf-typegen` from the `development` environment of `wrangler.jsonc` and declares `Cloudflare.Env`: the `DB`, `CACHE`, `MEDIA` and `BUNDLES` bindings and every secret in `secrets.required`. `src/types/bindings.d.ts` adds `ASSETS`, which Wrangler leaves out.
 - An area declares in `src/types/<area>.d.ts` only what Wrangler cannot derive: `affiliates.d.ts` the optional `AFFONSO_PROGRAM_ID` variable, which only `test` sets, `polar.d.ts` the two values of `POLAR_SERVER`, and `repository-facts.d.ts` the `virtual:repository-facts` module.
 - `src/types/router.d.ts` registers the router type and the `staticData.namespaces` route option.
 

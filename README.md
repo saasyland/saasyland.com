@@ -464,7 +464,7 @@ For documentation corrections, verify commands and links against the implementat
 
 ## Licensing
 
-The website source code and associated technical documentation, including account, checkout, and licence-management code, are covered by the [MIT licence and scope statements in `LICENSE.md`](LICENSE.md). A commercial purchase is not required to reuse the MIT-covered website code.
+The website source code and associated technical documentation, including account, checkout, and licence-management code, are covered by the [MIT licence in `LICENSE`](LICENSE) and the scope statements in [`LICENSING.md`](LICENSING.md). A commercial purchase is not required to reuse the MIT-covered website code.
 
 SaaSy Land's original logos and brand artwork are excluded from that grant, and no rights to the SaaSy Land name or trademarks are granted. Generic interface components remain covered; third-party assets retain their own licences. Reuse must not imply that a fork is the official service or has its endorsement. Previously granted MIT and other third-party permissions remain in effect.
 

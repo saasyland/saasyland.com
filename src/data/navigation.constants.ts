@@ -1,5 +1,12 @@
 import type { LucideIcon } from "lucide-react"
 
+export const FEATURE_STATUS = {
+  ARRIVING: "arriving",
+  AVAILABLE: "available",
+} as const
+
+type FeatureStatus = (typeof FEATURE_STATUS)[keyof typeof FEATURE_STATUS]
+
 export const NAVIGATION_PLACEMENT = {
   ADMIN: "admin",
   APP: "app",
@@ -41,6 +48,7 @@ interface AdminEntry extends Entry {
   readonly group: (typeof ADMIN_NAVIGATION_GROUPS)[number]
   readonly icon: LucideIcon
   readonly placement: typeof NAVIGATION_PLACEMENT.ADMIN
+  readonly status: FeatureStatus
 }
 
 interface AppEntry extends Entry {

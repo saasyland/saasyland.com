@@ -12,6 +12,7 @@ import {
 import {
   ADMIN_NAVIGATION_GROUP,
   ADMIN_NAVIGATION_GROUPS,
+  FEATURE_STATUS,
   FOOTER_COLUMNS,
   NAVIGATION_PLACEMENT,
   type NavigationEntry,
@@ -33,6 +34,7 @@ const SAMPLE_NAVIGATION = [
     key: "settings",
     order: 10,
     placement: NAVIGATION_PLACEMENT.ADMIN,
+    status: FEATURE_STATUS.AVAILABLE,
     to: ROUTES.API,
   },
   { area: SAMPLE_AREA, icon: Home, key: "home", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.HOME },

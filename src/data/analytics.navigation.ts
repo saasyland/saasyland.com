@@ -1,6 +1,6 @@
 import { BarChart } from "lucide-react"
 
-import { ADMIN_NAVIGATION_GROUP, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
+import { ADMIN_NAVIGATION_GROUP, FEATURE_STATUS, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 
 import { ROUTES } from "~/src/routes"
 
@@ -14,6 +14,7 @@ export const ANALYTICS_NAVIGATION = [
     key: "analytics",
     order: 20,
     placement: NAVIGATION_PLACEMENT.ADMIN,
+    status: FEATURE_STATUS.ARRIVING,
     to: ROUTES.ADMIN_ANALYTICS,
   },
 ] as const satisfies readonly NavigationEntry[]

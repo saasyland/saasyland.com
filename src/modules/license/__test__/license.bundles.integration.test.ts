@@ -17,20 +17,22 @@ import {
   LAPTOP,
   LAPTOP_ACTIVATION,
   NOW,
-  SERVICE_UNAVAILABLE,
   STUDIO,
   activated,
   buy,
+  consoleErrors,
   deactivate,
   exchange,
+  expectFailureLogged,
   expectInvalid,
+  expectServiceUnavailable,
   rawRequest,
   requestBundle,
   signedHeaders,
 } from "~/src/modules/license/__test__/fixtures/license-api"
 import { licenseApiHandlers } from "~/src/modules/license/license.api"
 import { bundleObjectKey } from "~/src/modules/license/license.bundles"
-import { BUNDLE_PATH_PREFIX, LICENSE_API_RETRY_AFTER_SECONDS, LICENSE_STATUS } from "~/src/modules/license/license.constants"
+import { BUNDLE_PATH_PREFIX, LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { serveBundle } from "~/src/modules/license/license.delivery"
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 
@@ -42,6 +44,8 @@ const ARCHIVE_CONTENT = JSON.stringify({ layers: [], schemaVersion: 1, version: 
 const ARCHIVE = gzipSync(ARCHIVE_CONTENT)
 const KEY_LIMIT_ADDRESSES = 3
 const APP_HOST = new URL(TEST_APP_URL).host
+const R2_OUTAGE = "We encountered an internal error. Please try again."
+const NOT_GZIP = "incorrect header check"
 
 const bundleRoute = (activationId: string): string =>
   API_ROUTE.ACTIVATION_BUNDLES.replace(`:${ROUTE_PARAMETER.ACTIVATION_ID}`, activationId)
@@ -159,23 +163,22 @@ describe("POST /activations/:activationId/bundles", () => {
 })
 
 describe("bundle storage", () => {
-  it("answers serviceUnavailable with retry-after when the bucket cannot be read", async () => {
+  it("answers serviceUnavailable with retry-after when the bucket cannot be read, and logs the failure", async () => {
     const { activationId, key } = await studioBundle()
-    vi.spyOn(env.BUNDLES, "get").mockRejectedValueOnce(new Error("We encountered an internal error. Please try again."))
+    const errors = consoleErrors()
+    vi.spyOn(env.BUNDLES, "get").mockRejectedValueOnce(new Error(R2_OUTAGE))
 
-    const { headers, result } = await requestBundle({ key, machine: STUDIO }, activationId)
-
-    expect(result).toStrictEqual(SERVICE_UNAVAILABLE)
-    expect(headers.get(API_HEADER.RETRY_AFTER)).toBe(String(LICENSE_API_RETRY_AFTER_SECONDS))
+    expectServiceUnavailable(await requestBundle({ key, machine: STUDIO }, activationId))
+    expectFailureLogged(errors, API_ENDPOINT.BUNDLE, R2_OUTAGE)
   })
 
-  it("answers serviceUnavailable instead of a digest when the stored object is not a gzip archive", async () => {
+  it("answers serviceUnavailable instead of a digest when the stored object is not a gzip archive, and logs the failure", async () => {
     const { activationId, key } = await studioBundle()
+    const errors = consoleErrors()
     await env.BUNDLES.put(bundleObjectKey(CLI_VERSION), ARCHIVE_CONTENT)
 
-    const { result } = await requestBundle({ key, machine: STUDIO }, activationId)
-
-    expect(result).toStrictEqual(SERVICE_UNAVAILABLE)
+    expectServiceUnavailable(await requestBundle({ key, machine: STUDIO }, activationId))
+    expectFailureLogged(errors, API_ENDPOINT.BUNDLE, NOT_GZIP)
   })
 })
 

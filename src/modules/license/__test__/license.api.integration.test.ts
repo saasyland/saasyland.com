@@ -14,8 +14,8 @@ import {
   ROUTE_PARAMETER,
   deriveMachineId,
 } from "@saasyland/stack/api"
-import { eq } from "drizzle-orm"
-import { afterEach, assert, describe, expect, it, vi } from "vite-plus/test"
+import { eq, getTableName, sql } from "drizzle-orm"
+import { afterEach, assert, describe, expect, it, onTestFinished, vi } from "vite-plus/test"
 
 import {
   activatePolarLicenseKey,
@@ -40,16 +40,19 @@ import {
   NEWER_CLI_VERSION,
   NOW,
   OTHER_ADDRESS,
-  SERVICE_UNAVAILABLE,
   STUDIO,
   STUDIO_ACTIVATION,
   UNKNOWN_KEY,
   activate,
   activated,
   buy,
+  consoleErrors,
   deactivate,
   exchange,
+  expectFailureLogged,
   expectInvalid,
+  expectKeyNotLogged,
+  expectServiceUnavailable,
   getLicense,
   rawRequest,
   signedHeaders,
@@ -57,12 +60,7 @@ import {
   validate,
 } from "~/src/modules/license/__test__/fixtures/license-api"
 import { licenseApiHandlers } from "~/src/modules/license/license.api"
-import {
-  LICENSE_ACTIVATION_LIMITS,
-  LICENSE_API_RETRY_AFTER_SECONDS,
-  LICENSE_TIER,
-  LICENSE_TIERS,
-} from "~/src/modules/license/license.constants"
+import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 
@@ -83,26 +81,61 @@ const otherMachine = (
 const polarMachines = ({ grant }: Buyer, details: Api["activateRequest"]["body"]): Api["machine"][] =>
   polarLicenseKeyOf(grant).activations.map((activation) => otherMachine(details, activation))
 
-const failingPolar = (method: string, answer: () => Promise<Response>): void => {
+const failingPolar = (method: string, answer: (request: Request) => Promise<Response>): void => {
   vi.stubGlobal("fetch", (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
     const request = new Request(input, init)
-    return request.method === method ? answer() : fetchFromProviders(request)
+    return request.method === method ? answer(request) : fetchFromProviders(request)
   })
 }
 
-const POLAR_OUTAGES = [
-  { answer: (): Promise<Response> => Promise.reject(new TypeError("fetch failed")), outage: "cannot be reached" },
+const echoAsInvalid = async (request: Request): Promise<Response> =>
+  Response.json(
+    { detail: [{ input: await request.text(), loc: ["body"], msg: "Invalid request", type: "value_error" }] },
+    { status: HTTP_STATUS.UNPROCESSABLE_CONTENT },
+  )
+
+const POLAR_FAILURES = [
+  { answer: (): Promise<Response> => Promise.reject(new TypeError("fetch failed")), failure: "cannot be reached", reason: "fetch failed" },
   {
     answer: (): Promise<Response> => Promise.resolve(new Response("upstream failed", { status: HTTP_STATUS.INTERNAL_SERVER_ERROR })),
-    outage: "fails with a server error",
+    failure: "fails with a server error",
+    reason: "upstream failed",
   },
   {
     answer: (): Promise<Response> => Promise.resolve(Response.json({ detail: "Rate limited" }, { status: HTTP_STATUS.TOO_MANY_REQUESTS })),
-    outage: "throttles the organisation",
+    failure: "throttles the organisation",
+    reason: "Rate limit exceeded",
+  },
+  {
+    answer: (): Promise<Response> => Promise.resolve(Response.json({ detail: "Refused" }, { status: HTTP_STATUS.UNAUTHORIZED })),
+    failure: "rejects the access token",
+    reason: "Refused",
+  },
+  { answer: echoAsInvalid, failure: "refuses the request as invalid and echoes it", reason: "Invalid request" },
+]
+
+const D1_OUTAGE = "D1_ERROR: Network connection lost."
+const OFFLINE_LICENSE_TABLE = "license_offline"
+const MISSING_LICENSE_TABLE = `no such table: ${getTableName(license)}`
+const runBatch = db.batch.bind(db)
+
+const RATE_LIMIT_FAILURES = [
+  {
+    count: "the address",
+    fail: () => vi.spyOn(db, "batch").mockRejectedValueOnce(new Error(D1_OUTAGE)),
+  },
+  {
+    count: "the licence key",
+    fail: () => vi.spyOn(db, "batch").mockImplementationOnce(runBatch).mockRejectedValueOnce(new Error(D1_OUTAGE)),
   },
 ]
 
-const refusal = (status: number) => (): Promise<Response> => Promise.resolve(Response.json({ detail: "Refused" }, { status }))
+const takeLicenseTableOffline = async (): Promise<void> => {
+  await db.run(sql`alter table ${license} rename to ${sql.identifier(OFFLINE_LICENSE_TABLE)}`)
+  onTestFinished(async () => {
+    await db.run(sql`alter table ${sql.identifier(OFFLINE_LICENSE_TABLE)} rename to ${license}`)
+  })
+}
 
 afterEach(() => {
   vi.useRealTimers()
@@ -439,57 +472,70 @@ describe("rate limits", () => {
   })
 })
 
-describe.each(POLAR_OUTAGES)("when Polar $outage", ({ answer }) => {
-  it.each(ENDPOINT_CALLS)("answers $name with serviceUnavailable and retry-after", async ({ call }) => {
-    const { key } = await buy()
-    failingPolar(HTTP_METHOD.GET, answer)
+describe("server-side failures", () => {
+  describe.each(RATE_LIMIT_FAILURES)("when the rate-limit storage cannot count $count", ({ fail }) => {
+    it.each(ENDPOINT_CALLS)("answers $name with serviceUnavailable, not rateLimited, and logs the failure", async ({ call, endpoint }) => {
+      const { key } = await buy()
+      const errors = consoleErrors()
+      fail()
 
-    const { headers, result } = await call({ key, machine: STUDIO })
-
-    expect(result).toStrictEqual(SERVICE_UNAVAILABLE)
-    expect(headers.get(API_HEADER.RETRY_AFTER)).toBe(String(LICENSE_API_RETRY_AFTER_SECONDS))
+      expectServiceUnavailable(await call({ key, machine: STUDIO }))
+      expectFailureLogged(errors, endpoint, D1_OUTAGE)
+    })
   })
 
-  it("answers an activation that Polar fails to record with serviceUnavailable", async () => {
-    const { key } = await buy()
-    failingPolar(HTTP_METHOD.POST, answer)
+  it("answers a request without a key with serviceUnavailable when its address cannot be counted", async () => {
+    const errors = consoleErrors()
+    vi.spyOn(db, "batch").mockRejectedValueOnce(new Error(D1_OUTAGE))
+    const request = rawRequest(API_ROUTE.LICENSE, { headers: { [API_HEADER.MACHINE]: STUDIO, [IP_ADDRESS_HEADER]: ADDRESS } })
 
-    const { result } = await activate({ key, machine: STUDIO })
-
-    expect(result).toStrictEqual(SERVICE_UNAVAILABLE)
+    expectServiceUnavailable(await exchange(API_ENDPOINT.LICENSE, licenseApiHandlers.license, request))
+    expectFailureLogged(errors, API_ENDPOINT.LICENSE, D1_OUTAGE)
   })
 
-  it("answers a release that Polar fails to record with serviceUnavailable and keeps the machine", async () => {
-    const buyer = await buy()
-    const activationId = await activated({ key: buyer.key, machine: STUDIO })
-    failingPolar(HTTP_METHOD.POST, answer)
+  it.each(ENDPOINT_CALLS)(
+    "answers $name with serviceUnavailable when D1 cannot read the licence, and logs it without the key",
+    async ({ call, endpoint }) => {
+      const { key } = await buy()
+      const errors = consoleErrors()
+      await takeLicenseTableOffline()
 
-    const { result } = await deactivate({ key: buyer.key, machine: STUDIO }, activationId)
+      expectServiceUnavailable(await call({ key, machine: STUDIO }))
+      expectFailureLogged(errors, endpoint, MISSING_LICENSE_TABLE)
+      expectKeyNotLogged(errors, key)
+    },
+  )
 
-    expect(result).toStrictEqual(SERVICE_UNAVAILABLE)
-    expect(polarLicenseKeyOf(buyer.grant).activations).toHaveLength(1)
-  })
-})
+  describe.each(POLAR_FAILURES)("when Polar $failure", ({ answer, reason }) => {
+    it.each(ENDPOINT_CALLS)("answers $name with serviceUnavailable and retry-after, and logs the failure", async ({ call, endpoint }) => {
+      const { key } = await buy()
+      const errors = consoleErrors()
+      failingPolar(HTTP_METHOD.GET, answer)
 
-describe("unexpected Polar answers", () => {
-  it("fails the request when Polar rejects the access token", async () => {
-    const { key } = await buy()
-    failingPolar(HTTP_METHOD.GET, refusal(HTTP_STATUS.UNAUTHORIZED))
+      expectServiceUnavailable(await call({ key, machine: STUDIO }))
+      expectFailureLogged(errors, endpoint, reason)
+    })
 
-    await expect(getLicense({ key, machine: STUDIO })).rejects.toThrow(String(HTTP_STATUS.UNAUTHORIZED))
-  })
+    it("answers an activation that Polar fails to record with serviceUnavailable, and logs it without the key", async () => {
+      const { key } = await buy()
+      const errors = consoleErrors()
+      failingPolar(HTTP_METHOD.POST, answer)
 
-  it("fails an activation Polar refuses as invalid", async () => {
-    const { key } = await buy()
-    failingPolar(HTTP_METHOD.POST, refusal(HTTP_STATUS.UNPROCESSABLE_CONTENT))
+      expectServiceUnavailable(await activate({ key, machine: STUDIO }))
+      expectFailureLogged(errors, API_ENDPOINT.ACTIVATE, reason)
+      expectKeyNotLogged(errors, key)
+    })
 
-    await expect(activate({ key, machine: STUDIO })).rejects.toThrow(String(HTTP_STATUS.UNPROCESSABLE_CONTENT))
-  })
+    it("answers a release that Polar fails to record with serviceUnavailable, keeps the machine and logs it without the key", async () => {
+      const buyer = await buy()
+      const activationId = await activated({ key: buyer.key, machine: STUDIO })
+      const errors = consoleErrors()
+      failingPolar(HTTP_METHOD.POST, answer)
 
-  it("fails a release Polar refuses as invalid", async () => {
-    const { key } = await buy()
-    failingPolar(HTTP_METHOD.POST, refusal(HTTP_STATUS.UNPROCESSABLE_CONTENT))
-
-    await expect(deactivate({ key, machine: STUDIO }, crypto.randomUUID())).rejects.toThrow(String(HTTP_STATUS.UNPROCESSABLE_CONTENT))
+      expectServiceUnavailable(await deactivate({ key: buyer.key, machine: STUDIO }, activationId))
+      expectFailureLogged(errors, API_ENDPOINT.DEACTIVATE, reason)
+      expectKeyNotLogged(errors, buyer.key)
+      expect(polarLicenseKeyOf(buyer.grant).activations).toHaveLength(1)
+    })
   })
 })

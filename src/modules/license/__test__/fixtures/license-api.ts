@@ -14,7 +14,7 @@ import {
   deriveMachineId,
   readApiResponse,
 } from "@saasyland/stack/api"
-import { assert, expect } from "vite-plus/test"
+import { type MockInstance, assert, expect, vi } from "vite-plus/test"
 import type * as zod from "zod"
 
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
@@ -162,16 +162,43 @@ export const summary = (tier: LicenseTier, machinesUsed: number): Api["license"]
 })
 
 export const ENDPOINT_CALLS = [
-  { call: (credentials: Credentials) => getLicense(credentials), name: "LICENSE" },
-  { call: (credentials: Credentials) => activate(credentials), name: "ACTIVATE" },
-  { call: (credentials: Credentials) => validate(credentials, crypto.randomUUID()), name: "VALIDATE" },
-  { call: (credentials: Credentials) => requestBundle(credentials, crypto.randomUUID()), name: "BUNDLE" },
-  { call: (credentials: Credentials) => deactivate(credentials, crypto.randomUUID()), name: "DEACTIVATE" },
+  { call: (credentials: Credentials) => getLicense(credentials), endpoint: API_ENDPOINT.LICENSE, name: "LICENSE" },
+  { call: (credentials: Credentials) => activate(credentials), endpoint: API_ENDPOINT.ACTIVATE, name: "ACTIVATE" },
+  { call: (credentials: Credentials) => validate(credentials, crypto.randomUUID()), endpoint: API_ENDPOINT.VALIDATE, name: "VALIDATE" },
+  {
+    call: (credentials: Credentials) => requestBundle(credentials, crypto.randomUUID()),
+    endpoint: API_ENDPOINT.BUNDLE,
+    name: "BUNDLE",
+  },
+  {
+    call: (credentials: Credentials) => deactivate(credentials, crypto.randomUUID()),
+    endpoint: API_ENDPOINT.DEACTIVATE,
+    name: "DEACTIVATE",
+  },
 ] as const
 
 export const SERVICE_UNAVAILABLE = {
   failure: { code: API_ERROR.SERVICE_UNAVAILABLE, retryAfterSeconds: LICENSE_API_RETRY_AFTER_SECONDS },
   success: false,
+}
+
+export const expectServiceUnavailable = ({ headers, result }: { readonly headers: Headers; readonly result: unknown }): void => {
+  expect(result).toStrictEqual(SERVICE_UNAVAILABLE)
+  expect(headers.get(API_HEADER.RETRY_AFTER)).toBe(String(LICENSE_API_RETRY_AFTER_SECONDS))
+}
+
+export const consoleErrors = (): MockInstance<typeof console.error> => vi.spyOn(console, "error").mockImplementation(() => {})
+
+export const expectFailureLogged = (
+  errors: MockInstance<typeof console.error>,
+  { method, route }: Pick<Api["endpoint"], "method" | "route">,
+  reason: string,
+): void => {
+  expect(errors).toHaveBeenCalledExactlyOnceWith(`[license] ${method} ${API_BASE_PATH}${route} failed`, expect.stringContaining(reason))
+}
+
+export const expectKeyNotLogged = (errors: MockInstance<typeof console.error>, key: string): void => {
+  expect(errors).not.toHaveBeenCalledWith(expect.anything(), expect.stringContaining(key))
 }
 
 export const expectInvalid = (result: unknown, ...paths: string[]): void => {

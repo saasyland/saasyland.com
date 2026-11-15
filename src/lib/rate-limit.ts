@@ -26,33 +26,37 @@ interface RateLimitDecision {
   readonly retryAfter: number
 }
 
-export const consumeRateLimit = async ({ key, limit, windowSeconds }: RateLimitInput): Promise<RateLimitDecision> => {
-  try {
-    const now = new Date()
-    const expiresAt = new Date(now.getTime() + windowSeconds * MILLISECONDS_PER_SECOND)
-    const expired = db.select({ key: rateLimit.key }).from(rateLimit).where(lte(rateLimit.expiresAt, now)).limit(CLEANUP_BATCH_SIZE)
-    const [, admitted, counters] = await db.batch([
-      db.delete(rateLimit).where(inArray(rateLimit.key, expired)),
-      db
-        .insert(rateLimit)
-        .values({ attempts: SINGLE_REQUEST, expiresAt, key })
-        .onConflictDoUpdate({
-          set: {
-            attempts: sql`case when ${rateLimit.expiresAt} <= ${now.getTime()} then 1 else ${rateLimit.attempts} + 1 end`,
-            expiresAt: sql`case when ${rateLimit.expiresAt} <= ${now.getTime()} then ${expiresAt.getTime()} else ${rateLimit.expiresAt} end`,
-          },
-          setWhere: sql`${rateLimit.expiresAt} <= ${now.getTime()} or ${rateLimit.attempts} < ${limit}`,
-          target: rateLimit.key,
-        })
-        .returning({ key: rateLimit.key }),
-      db.select({ resetsAt: rateLimit.expiresAt }).from(rateLimit).where(eq(rateLimit.key, key)),
-    ])
-    const secondsUntilReset = counters.map(({ resetsAt }) => Math.ceil((resetsAt.getTime() - now.getTime()) / MILLISECONDS_PER_SECOND))
+export const countRequest = async ({ key, limit, windowSeconds }: RateLimitInput): Promise<RateLimitDecision> => {
+  const now = new Date()
+  const expiresAt = new Date(now.getTime() + windowSeconds * MILLISECONDS_PER_SECOND)
+  const expired = db.select({ key: rateLimit.key }).from(rateLimit).where(lte(rateLimit.expiresAt, now)).limit(CLEANUP_BATCH_SIZE)
+  const [, admitted, counters] = await db.batch([
+    db.delete(rateLimit).where(inArray(rateLimit.key, expired)),
+    db
+      .insert(rateLimit)
+      .values({ attempts: SINGLE_REQUEST, expiresAt, key })
+      .onConflictDoUpdate({
+        set: {
+          attempts: sql`case when ${rateLimit.expiresAt} <= ${now.getTime()} then 1 else ${rateLimit.attempts} + 1 end`,
+          expiresAt: sql`case when ${rateLimit.expiresAt} <= ${now.getTime()} then ${expiresAt.getTime()} else ${rateLimit.expiresAt} end`,
+        },
+        setWhere: sql`${rateLimit.expiresAt} <= ${now.getTime()} or ${rateLimit.attempts} < ${limit}`,
+        target: rateLimit.key,
+      })
+      .returning({ key: rateLimit.key }),
+    db.select({ resetsAt: rateLimit.expiresAt }).from(rateLimit).where(eq(rateLimit.key, key)),
+  ])
+  const secondsUntilReset = counters.map(({ resetsAt }) => Math.ceil((resetsAt.getTime() - now.getTime()) / MILLISECONDS_PER_SECOND))
 
-    return { allowed: admitted.length === SINGLE_REQUEST, retryAfter: Math.max(NO_WAIT_SECONDS, ...secondsUntilReset) }
+  return { allowed: admitted.length === SINGLE_REQUEST, retryAfter: Math.max(NO_WAIT_SECONDS, ...secondsUntilReset) }
+}
+
+export const consumeRateLimit = async (input: RateLimitInput): Promise<RateLimitDecision> => {
+  try {
+    return await countRequest(input)
   } catch (error) {
     console.error("Rate-limit storage unavailable", error)
-    return { allowed: false, retryAfter: windowSeconds }
+    return { allowed: false, retryAfter: input.windowSeconds }
   }
 }
 

@@ -2,11 +2,12 @@ import "@tanstack/react-start/server-only"
 
 import { env } from "cloudflare:workers"
 
-import { PolarNetworkError, PolarRateLimitError, PolarServerError } from "@polar-sh/sdk"
 import { errors, type models } from "@polar-sh/sdk/2026-10"
 import {
+  API_BASE_PATH,
   API_ENDPOINT,
   API_ERROR,
+  API_HEADER,
   type Api,
   HTTP_STATUS,
   RATE_LIMIT,
@@ -17,6 +18,7 @@ import {
 } from "@saasyland/stack/api"
 import { eq } from "drizzle-orm"
 import { createHash } from "node:crypto"
+import { inspect } from "node:util"
 import type * as zod from "zod"
 
 import { clientAddress } from "~/src/integrations/better-auth/auth.middleware"
@@ -34,7 +36,7 @@ import {
 import { license } from "~/src/modules/license/license.schema"
 
 import { sha256Hex } from "~/src/lib/hex"
-import { consumeRateLimit } from "~/src/lib/rate-limit"
+import { countRequest } from "~/src/lib/rate-limit"
 
 const SINGLE_ROW = 1
 const ONE_SLOT = 1
@@ -43,8 +45,7 @@ const LICENSE_KEY_RATE_LIMIT_PREFIX = "cli:key:"
 const ARCHIVE_COMPRESSION = "gzip"
 const DIGEST_ALGORITHM = "sha256"
 const DIGEST_ENCODING = "hex"
-
-const POLAR_OUTAGES = [PolarNetworkError, PolarServerError, PolarRateLimitError]
+const REDACTED_LICENSE_KEY = "[licence key]"
 
 const SERVICE_UNAVAILABLE = { code: API_ERROR.SERVICE_UNAVAILABLE, retryAfterSeconds: LICENSE_API_RETRY_AFTER_SECONDS } as const
 
@@ -81,10 +82,7 @@ type Admission<Input> = (Licence<Input> & { readonly success: true }) | { readon
 
 type StoredBundle =
   | { readonly bundle: Pick<Api["bundleResponse"], "sha256" | "size">; readonly success: true }
-  | {
-      readonly error: Extract<Api["error"], { readonly code: typeof API_ERROR.SERVICE_UNAVAILABLE | typeof API_ERROR.VERSION_NOT_FOUND }>
-      readonly success: false
-    }
+  | { readonly error: Extract<Api["error"], { readonly code: typeof API_ERROR.VERSION_NOT_FOUND }>; readonly success: false }
 
 const refuse = (error: Api["error"]): Admission<never> => ({ error, success: false })
 
@@ -120,21 +118,17 @@ const contentDigest = async ({ body }: R2ObjectBody): Promise<string> => {
 }
 
 const storedBundle = async (version: string): Promise<StoredBundle> => {
-  try {
-    const object = await env.BUNDLES.get(bundleObjectKey(version))
+  const object = await env.BUNDLES.get(bundleObjectKey(version))
 
-    if (object === null) {
-      return { error: { code: API_ERROR.VERSION_NOT_FOUND, version }, success: false }
-    }
-
-    return { bundle: { sha256: await contentDigest(object), size: object.size }, success: true }
-  } catch {
-    return { error: SERVICE_UNAVAILABLE, success: false }
+  if (object === null) {
+    return { error: { code: API_ERROR.VERSION_NOT_FOUND, version }, success: false }
   }
+
+  return { bundle: { sha256: await contentDigest(object), size: object.size }, success: true }
 }
 
 const consume = async (key: string, limit: number): Promise<Api["error"] | undefined> => {
-  const { allowed, retryAfter } = await consumeRateLimit({ key, limit, windowSeconds: RATE_LIMIT.PERIOD_SECONDS })
+  const { allowed, retryAfter } = await countRequest({ key, limit, windowSeconds: RATE_LIMIT.PERIOD_SECONDS })
 
   return allowed ? undefined : { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: retryAfter }
 }
@@ -188,6 +182,13 @@ const admit = async <Schema extends zod.ZodType>(
   return { credentials, input: read.request, licenseKey, success: true, tier: row.tier }
 }
 
+const describeFailure = (error: unknown, { headers }: Request): string => {
+  const failure = inspect(error)
+  const key = apiZodSchemas.authorization.safeParse(headers.get(API_HEADER.AUTHORIZATION))
+
+  return key.success ? failure.replaceAll(key.data, REDACTED_LICENSE_KEY) : failure
+}
+
 const serve = async <Schema extends zod.ZodType>(
   endpoint: Endpoint<Schema>,
   call: ApiCall,
@@ -202,11 +203,9 @@ const serve = async <Schema extends zod.ZodType>(
 
     return await operation(admission)
   } catch (error) {
-    if (POLAR_OUTAGES.some((outage) => error instanceof outage)) {
-      return apiErrorResponse(endpoint, SERVICE_UNAVAILABLE)
-    }
+    console.error(`[license] ${endpoint.method} ${API_BASE_PATH}${endpoint.route} failed`, describeFailure(error, call.request))
 
-    throw error
+    return apiErrorResponse(endpoint, SERVICE_UNAVAILABLE)
   }
 }
 

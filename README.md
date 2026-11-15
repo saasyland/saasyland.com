@@ -90,12 +90,13 @@ bun run build:test
 bun run start:test
 ```
 
-Open <http://127.0.0.1:3000>. Sign in with either account below; both use the password `WorkerTestPassword123!` from [`e2e/data/accounts.ts`](e2e/data/accounts.ts).
+Open <http://127.0.0.1:3000>. Sign in with any account below; each uses the password `WorkerTestPassword123!` from [`e2e/data/accounts.ts`](e2e/data/accounts.ts), and the licensed account owns the licence from [`e2e/data/licenses.ts`](e2e/data/licenses.ts).
 
-| Role     | Email                   | Workspace |
-| -------- | ----------------------- | --------- |
-| Admin    | `admin@example.test`    | `/admin`  |
-| Customer | `customer@example.test` | `/app`    |
+| Role                    | Email                   | Workspace |
+| ----------------------- | ----------------------- | --------- |
+| Admin                   | `admin@example.test`    | `/admin`  |
+| Customer                | `customer@example.test` | `/app`    |
+| Customer with a licence | `licensed@example.test` | `/app`    |
 
 This serves a built test application; rebuild it to see source changes. It uses dummy values from [`.env.test`](.env.test), the `test` environment in [`wrangler.jsonc`](wrangler.jsonc), and isolated state under `.wrangler/test`. Provider interception is intended for local verification, not for validating real OAuth, email delivery, or payments. Keep this test configuration local.
 
@@ -153,13 +154,13 @@ The public URL is configured in source: [`src/presentation/branding/index.ts`](s
 
 When adapting the application to your own domain, update these locations together:
 
-| Location                                                                   | What to configure                                                                                                                                                         |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, preview host (`APP_PREVIEW_DOMAIN`), contact addresses, and GitHub identity.                                                          |
-| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `DEPLOYED_HOSTS`, the preview and production hosts read from `APP_PREVIEW_DOMAIN` and `APP_DOMAIN`, and the one place the code names them by environment.                 |
-| [`wrangler.jsonc`](wrangler.jsonc)                                         | Worker names, custom-domain routes, D1 databases, KV namespaces, and R2 buckets for each environment.                                                                     |
-| [`src/data/marketing.ts`](src/data/marketing.ts)                           | Displayed tiers and prices (`TIERS`, `TIER_PRICES`) and the consulting rate (`CONSULTING_HOURLY_RATE`); `polar:verify` checks the tier prices against the Polar products. |
-| [`src/presentation/styles/`](src/presentation/styles)                      | Theme, typography, fonts, and shared style definitions.                                                                                                                   |
+| Location                                                                   | What to configure                                                                                                                                                               |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`src/presentation/branding/index.ts`](src/presentation/branding/index.ts) | Application name, canonical domain, preview host (`APP_PREVIEW_DOMAIN`), contact addresses, and GitHub identity.                                                                |
+| [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts) | `DEPLOYED_HOSTS`, the preview and production hosts read from `APP_PREVIEW_DOMAIN` and `APP_DOMAIN`, and the one place the code names them by environment.                       |
+| [`wrangler.jsonc`](wrangler.jsonc)                                         | Worker names, custom-domain routes, D1 databases, KV namespaces, and R2 buckets for each environment.                                                                           |
+| [`src/data/marketing.ts`](src/data/marketing.ts)                           | The price of each tier of `LICENSE_TIERS` (`TIER_PRICES`) and the consulting rate (`CONSULTING_HOURLY_RATE`); `polar:verify` checks the tier prices against the Polar products. |
+| [`src/presentation/styles/`](src/presentation/styles)                      | Theme, typography, fonts, and shared style definitions.                                                                                                                         |
 
 The branding names the preview host, `APP_PREVIEW_DOMAIN` (`preview.<APP_DOMAIN>`), and the production host, `APP_DOMAIN`, and `DEPLOYED_HOSTS` maps the `preview` and `production` environments to them. `appHostsForMode` reads it for the hosts Better Auth and newsletter links accept in each mode, and the deployment scripts' live check requests it, so change `APP_PREVIEW_DOMAIN` when your preview host has another name. The custom-domain `routes` in `wrangler.jsonc` and the environment URLs in [`deploy-reusable.yml`](.github/workflows/deploy-reusable.yml) name the same hosts and must match; [`src/__test__/wrangler.test.ts`](src/__test__/wrangler.test.ts) fails when the routes differ. Changing an environment file alone does not change the canonical URL. Rebuild after changing branding or deployment configuration.
 
@@ -200,7 +201,7 @@ src/
     social-card.tsx              Social cards rendered at build time with Takumi
     styles/                      Theme, typography, and local font declarations
   providers/                     Application-wide React providers
-  data/                          Data shared by several files, and what each area adds: routes, menus, skeletons, layout namespaces, Worker handlers, root components, the time zone, Vite plugins, deploy checks, live site checks, Better Auth plugins and emails
+  data/                          Data shared by several files, and what each area adds: routes, menus, skeletons, layout namespaces, Worker handlers, root components, the time zone, Vite plugins, deploy checks, live site checks, Better Auth plugins and emails, the customer overview
   hooks/                         Shared React hooks
   lib/                           Shared utilities (cn, confetti, cookies, the deployed-site check, durations, hex hashes and tokens, rate limits, release tags and notes, route search params, select options, SEO tags, prerendered page heads, robots.txt rules, the sitemap, GitHub stars, not-found errors)
   platform/testing/              Test Worker, mocks, RPC helpers, and render helpers

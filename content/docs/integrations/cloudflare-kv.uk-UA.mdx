@@ -10,15 +10,15 @@ description: "Простір імен CACHE: кількість зірок на 
 Кількість зірок, яку показує сайт; реалізацію розміщено в `src/lib/github.ts`:
 
 - `getStarCount` зчитує запис `github:<owner>/<repo>:stars`.
-- Якщо запису немає, функція отримує репозиторій через GitHub API з тайм-аутом у три секунди, повертає кількість і записує `count` та `fetchedAt` у KV за допомогою `waitUntil`.
-- Коли запис старший за одну годину, функція повертає кешовану кількість і оновлює її у фоні.
-- `starCountQuery` зберігає результат у кеші запитів протягом однієї години.
+- Якщо запису немає, функція отримує репозиторій через GitHub API з тайм-аутом <RepositoryFact name="starCountFetchTimeoutSeconds" unit="second" />, повертає кількість і записує `count` та `fetchedAt` у KV за допомогою `waitUntil`.
+- Коли запис старіший, ніж <RepositoryFact name="starCountRefreshHours" unit="hour" /> (`STAR_COUNT_REFRESH_AFTER_MS`), функція повертає кешовану кількість і оновлює її у фоні.
+- `starCountQuery` зберігає результат у кеші запитів стільки ж часу: `STAR_COUNT_REFRESH_AFTER_MS` — це також його `staleTime` і `gcTime`.
 
 Записи не мають терміну дії в KV; момент оновлення визначає `fetchedAt`. Запит до GitHub автентифікується обліковими даними OAuth-застосунку GitHub `AUTH_GITHUB_CLIENT_ID` і `AUTH_GITHUB_CLIENT_SECRET`.
 
 ## Регіональні знижки під час оплати
 
-`pppDiscountId` (`src/modules/license/license.ppp.ts`) читає запис `polar:regional-discounts`: автоматичні відсоткові знижки з Polar, скорочені до полів, потрібних для оплати, разом із `fetchedAt`. Запис, молодший за п’ять хвилин, використовується як є. Інакше, або коли запис пошкоджений, знижки знову отримуються з Polar, а повний список записується через `waitUntil`. Невдале отримання записується в лог і не зберігається; ця оплата продовжується зі знижками, знайденими досі, а наступна отримує їх знову. Між запитами в пам’яті Worker нічого не зберігається.
+`pppDiscountId` (`src/modules/license/license.ppp.ts`) читає запис `polar:regional-discounts`: автоматичні відсоткові знижки з Polar, скорочені до полів, потрібних для оплати, разом із `fetchedAt`. Запис, молодший, ніж <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" /> (`REGIONAL_DISCOUNTS_REFRESH_AFTER_MS` у `license.constants.ts`), використовується як є. Інакше, або коли запис пошкоджений, знижки знову отримуються з Polar, а повний список записується через `waitUntil`. Невдале отримання записується в лог і не зберігається; ця оплата продовжується зі знижками, знайденими досі, а наступна отримує їх знову. Між запитами в пам’яті Worker нічого не зберігається.
 
 ## Узгодженість і тести
 

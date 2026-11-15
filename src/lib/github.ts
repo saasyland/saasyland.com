@@ -4,11 +4,15 @@ import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 
+import { MILLISECONDS_PER_HOUR } from "~/src/lib/duration"
+
 import { APP_GITHUB_OWNER, APP_GITHUB_REPO } from "~/src/presentation/branding"
 
 const CACHE_KEY = `github:${APP_GITHUB_OWNER}/${APP_GITHUB_REPO}:stars`
-const REFRESH_AFTER_MS = 3_600_000
-const FETCH_TIMEOUT_MS = 3000
+
+export const STAR_COUNT_REFRESH_AFTER_MS = MILLISECONDS_PER_HOUR
+
+export const STAR_COUNT_FETCH_TIMEOUT_MS = 3000
 
 const starCountSchema = z.int().nonnegative()
 const cachedStarCountSchema = z.object({ count: starCountSchema, fetchedAt: z.int().nonnegative() })
@@ -23,7 +27,7 @@ const fetchStarCount = async (): Promise<number> => {
       authorization: `Basic ${credentials}`,
       "user-agent": APP_GITHUB_REPO,
     },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    signal: AbortSignal.timeout(STAR_COUNT_FETCH_TIMEOUT_MS),
   })
 
   if (!response.ok) {
@@ -45,7 +49,7 @@ export const getStarCount = createServerFn({ method: "GET" }).handler(async () =
     return fetchStarCount()
   }
 
-  if (Date.now() - cached.fetchedAt >= REFRESH_AFTER_MS) {
+  if (Date.now() - cached.fetchedAt >= STAR_COUNT_REFRESH_AFTER_MS) {
     waitUntil(fetchStarCount())
   }
 
@@ -53,9 +57,9 @@ export const getStarCount = createServerFn({ method: "GET" }).handler(async () =
 })
 
 export const starCountQuery = queryOptions({
-  gcTime: REFRESH_AFTER_MS,
+  gcTime: STAR_COUNT_REFRESH_AFTER_MS,
   meta: { public: true },
   queryFn: () => getStarCount(),
   queryKey: ["github", "stars"],
-  staleTime: REFRESH_AFTER_MS,
+  staleTime: STAR_COUNT_REFRESH_AFTER_MS,
 })

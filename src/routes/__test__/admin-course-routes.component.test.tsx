@@ -35,6 +35,7 @@ import type { deleteLessonMutation } from "~/src/modules/lesson/use-cases/delete
 import type { moveLessonMutation } from "~/src/modules/lesson/use-cases/move-lesson"
 import type { updateLessonMutation } from "~/src/modules/lesson/use-cases/update-lesson"
 import { getVideosPageQuery } from "~/src/modules/video/use-cases/get-videos"
+import { VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 import type { Video } from "~/src/modules/video/video.types"
 
 import { Route as AdminCoursesRoute } from "~/src/routes/admin.courses"
@@ -113,7 +114,6 @@ vi.mock(import("~/src/modules/lesson/use-cases/move-lesson"), () => ({
 const UPDATED_AT = new Date("2026-11-01T12:00:00Z")
 const COURSE_ID = "01960000-0000-7000-8000-00000000c001"
 const CREATED_ID = "01960000-0000-7000-8000-00000000c009"
-const VIDEO_LIBRARY_PAGE_SIZE = 100
 
 const VIDEO: Video["select"] = {
   captionLocales: [],

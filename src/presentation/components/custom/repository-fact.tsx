@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import defaultMdxComponents from "@fumadocs/base-ui/mdx"
 import { adminAc } from "better-auth/plugins/admin/access"
 import { useFormatter } from "use-intl/react"
-import { cliApiTables, commitEmojis } from "virtual:repository-facts"
+import { cliApiTables, commitEmojis, seededAccounts } from "virtual:repository-facts"
 
 import {
   BACKUP_CODE_MAX_LENGTH,
@@ -13,14 +13,17 @@ import {
   TWO_FACTOR_CODE_LENGTH,
 } from "~/src/integrations/better-auth/auth.constraints"
 import { RATE_LIMITS, RATE_LIMIT_WINDOW_SECONDS } from "~/src/integrations/better-auth/auth.middleware"
+import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { PPP_TIERS } from "~/src/modules/_core/constants/pricing"
 import { LOCALIZED_TEXT_MAX_LENGTH } from "~/src/modules/_core/utils/localized-text"
 import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
-import { LICENSE_API_RETRY_AFTER_SECONDS } from "~/src/modules/license/license.constants"
-import { POSTER_SMALL_WIDTH, POSTER_WIDTH } from "~/src/modules/video/video.constants"
+import { COURSE_SHOWCASE } from "~/src/modules/course/course.constants"
+import { LICENSE_API_RETRY_AFTER_SECONDS, REGIONAL_DISCOUNTS_REFRESH_AFTER_MS } from "~/src/modules/license/license.constants"
+import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
+import { POSTER_SMALL_WIDTH, POSTER_WIDTH, VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 import {
   AUDIO_BITRATE,
   AUDIO_SAMPLE_RATE,
@@ -43,21 +46,20 @@ import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
-import { MILLISECONDS_PER_SECOND, MINUTES_PER_HOUR, SECONDS_PER_MINUTE } from "~/src/lib/duration"
+import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
+import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
+import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
 import { SOCIAL_IMAGE } from "~/src/lib/seo"
 
-import { ACTIVATION_TIMEOUT_MS } from "~/src/presentation/components/custom/app/checkout-activation"
+import { ACTIVATION_POLL_MS, ACTIVATION_TIMEOUT_MS } from "~/src/presentation/components/custom/app/checkout-activation"
 
 type Value = number | string | readonly string[]
-
-const QUERY_GC_TIME_MINUTES = 5
-const QUERY_STALE_TIME_MINUTES = 1
-const RECIPIENT_EMAILS_PER_HOUR = 3
 
 const renditionName = (height: number): string => `${String(height)}p`
 
 const FACTS = {
   ...REPOSITORY_FACTS,
+  activationPollSeconds: ACTIVATION_POLL_MS / MILLISECONDS_PER_SECOND,
   activationTimeoutSeconds: ACTIVATION_TIMEOUT_MS / MILLISECONDS_PER_SECOND,
   adminPreviewPageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize,
   audioBitrate: AUDIO_BITRATE,
@@ -68,25 +70,32 @@ const FACTS = {
   cliExec: CLI_EXEC,
   cliLicenseCommands: CLI_LICENSE_COMMANDS.map((command) => cliCommand(command)),
   cliLicenseKeyVariable: CLI_LICENSE_KEY_VARIABLE,
+  courseShowcaseCourses: COURSE_SHOWCASE.COURSES,
+  courseShowcaseLessons: COURSE_SHOWCASE.LESSONS,
   defaultPageSize: DEFAULT_PAGE_SIZE,
   lessonProgressSaveSeconds: SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
   liveSiteCheckPaths: LIVE_SITE_CHECKS.map(({ path }) => path),
+  liveSiteCheckRetries: LIVE_SITE_CHECK_RETRY_DELAYS_MS.length,
+  liveSiteCheckRetrySeconds: LIVE_SITE_CHECK_RETRY_DELAY_MS / MILLISECONDS_PER_SECOND,
   localizedTextMaxLength: LOCALIZED_TEXT_MAX_LENGTH,
   passwordMaxLength: PASSWORD_MAX_LENGTH,
   passwordMinLength: PASSWORD_MIN_LENGTH,
   posterSmallWidth: POSTER_SMALL_WIDTH,
   posterWidth: POSTER_WIDTH,
-  queryGcTimeMinutes: QUERY_GC_TIME_MINUTES,
-  queryStaleTimeMinutes: QUERY_STALE_TIME_MINUTES,
+  queryGcTimeMinutes: QUERY_GC_TIME_MS / MILLISECONDS_PER_MINUTE,
+  queryStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   rateLimitWindowSeconds: RATE_LIMIT_WINDOW_SECONDS,
   recipientEmailsPerHour: RECIPIENT_EMAILS_PER_HOUR,
-  routerStaleTimeMinutes: QUERY_STALE_TIME_MINUTES,
+  regionalDiscountsRefreshMinutes: REGIONAL_DISCOUNTS_REFRESH_AFTER_MS / MILLISECONDS_PER_MINUTE,
+  routerStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   scaffoldTarget: SCAFFOLD_TARGET,
   sensitiveRateLimit: RATE_LIMITS.SENSITIVE.max,
-  signedMediaHours: PLAYBACK_TTL_SECONDS / (SECONDS_PER_MINUTE * MINUTES_PER_HOUR),
+  signedMediaHours: PLAYBACK_TTL_SECONDS / SECONDS_PER_HOUR,
   slugMaxLength: SLUG_MAX_LENGTH,
   socialImageHeight: SOCIAL_IMAGE.HEIGHT,
   socialImageWidth: SOCIAL_IMAGE.WIDTH,
+  starCountFetchTimeoutSeconds: STAR_COUNT_FETCH_TIMEOUT_MS / MILLISECONDS_PER_SECOND,
+  starCountRefreshHours: STAR_COUNT_REFRESH_AFTER_MS / MILLISECONDS_PER_HOUR,
   storyboardIntervalSeconds: STORYBOARD_MIN_INTERVAL_SECONDS,
   storyboardMaxTiles: STORYBOARD_MAX_FRAMES,
   supportedLocales: I18N.SUPPORTED_LOCALES,
@@ -94,6 +103,7 @@ const FACTS = {
   twoFactorCodeLength: TWO_FACTOR_CODE_LENGTH,
   unlistedRoutes: UNLISTED_ROUTES,
   videoKeyframeSeconds: KEYFRAME_SECONDS,
+  videoLibraryPageSize: VIDEO_LIBRARY_PAGE_SIZE,
   videoLowerRenditions: LOWER_RENDITION_HEIGHTS.map((height) => renditionName(height)),
   videoQualityCrf: VIDEO_QUALITY_CRF,
   videoSegmentSeconds: SEGMENT_SECONDS,
@@ -107,6 +117,7 @@ const TABLES = {
   cliApiErrors: cliApiTables.errors,
   commitTypes: Object.entries(commitEmojis),
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
+  seededAccounts,
 } satisfies Record<string, readonly (readonly [number | string, ...Value[]])[]>
 
 const UNIT_FORMATS = {

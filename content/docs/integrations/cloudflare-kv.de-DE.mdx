@@ -10,15 +10,15 @@ Jede Umgebung bindet einen KV-Namespace als `CACHE`. Er enthält zwei Einträge.
 Die auf der Website angezeigte Anzahl der GitHub-Sterne, implementiert in `src/lib/github.ts`:
 
 - `getStarCount` liest den Eintrag `github:<owner>/<repo>:stars`.
-- Ohne Eintrag ruft die Funktion das Repository mit einem Timeout von drei Sekunden über die GitHub-API ab, gibt die Anzahl zurück und schreibt `count` und `fetchedAt` mit `waitUntil` in KV.
-- Ist der Eintrag älter als eine Stunde, gibt sie die zwischengespeicherte Anzahl zurück und aktualisiert sie im Hintergrund.
-- `starCountQuery` hält das Ergebnis eine Stunde lang im Query-Cache.
+- Ohne Eintrag ruft die Funktion das Repository mit einem Timeout von <RepositoryFact name="starCountFetchTimeoutSeconds" unit="second" /> über die GitHub-API ab, gibt die Anzahl zurück und schreibt `count` und `fetchedAt` mit `waitUntil` in KV.
+- Ist der Eintrag älter als <RepositoryFact name="starCountRefreshHours" unit="hour" /> (`STAR_COUNT_REFRESH_AFTER_MS`), gibt sie die zwischengespeicherte Anzahl zurück und aktualisiert sie im Hintergrund.
+- `starCountQuery` hält das Ergebnis ebenso lange im Query-Cache: `STAR_COUNT_REFRESH_AFTER_MS` ist auch seine `staleTime` und `gcTime`.
 
 Einträge haben kein KV-Ablaufdatum; `fetchedAt` entscheidet, wann aktualisiert wird. Die GitHub-Anfrage authentifiziert sich mit den Zugangsdaten der GitHub-OAuth-App, `AUTH_GITHUB_CLIENT_ID` und `AUTH_GITHUB_CLIENT_SECRET`.
 
 ## Regionale Checkout-Rabatte
 
-`pppDiscountId` (`src/modules/license/license.ppp.ts`) liest den Eintrag `polar:regional-discounts`: die automatischen Prozentrabatte aus Polar, reduziert auf die Felder, die der Checkout braucht, mit `fetchedAt`. Ein Eintrag, der jünger als fünf Minuten ist, wird so verwendet. Andernfalls oder bei einem fehlerhaften Eintrag werden die Rabatte erneut von Polar abgerufen, und eine vollständige Liste wird mit `waitUntil` zurückgeschrieben. Ein fehlgeschlagener Abruf wird protokolliert und nicht gespeichert; dieser Checkout läuft mit den bis dahin gefundenen Rabatten weiter, und der nächste ruft erneut ab. Zwischen Anfragen bleibt nichts im Speicher des Workers.
+`pppDiscountId` (`src/modules/license/license.ppp.ts`) liest den Eintrag `polar:regional-discounts`: die automatischen Prozentrabatte aus Polar, reduziert auf die Felder, die der Checkout braucht, mit `fetchedAt`. Ein Eintrag, der jünger als <RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" /> ist (`REGIONAL_DISCOUNTS_REFRESH_AFTER_MS` in `license.constants.ts`), wird so verwendet. Andernfalls oder bei einem fehlerhaften Eintrag werden die Rabatte erneut von Polar abgerufen, und eine vollständige Liste wird mit `waitUntil` zurückgeschrieben. Ein fehlgeschlagener Abruf wird protokolliert und nicht gespeichert; dieser Checkout läuft mit den bis dahin gefundenen Rabatten weiter, und der nächste ruft erneut ab. Zwischen Anfragen bleibt nichts im Speicher des Workers.
 
 ## Konsistenz und Tests
 

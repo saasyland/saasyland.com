@@ -5,10 +5,9 @@ import { afterEach, expect, it, vi } from "vite-plus/test"
 
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
 
-import { getStarCount, starCountQuery } from "~/src/lib/github"
+import { STAR_COUNT_REFRESH_AFTER_MS, getStarCount, starCountQuery } from "~/src/lib/github"
 
 const CACHE_KEY = "github:saasyland/saasyland.com:stars"
-const ONE_HOUR_MS = 3_600_000
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -46,7 +45,7 @@ it("persists a verified count without an expiration and reuses the TanStack Quer
 it("returns the verified count immediately while stale data refreshes in the background", async () => {
   const now = Date.now()
   vi.spyOn(Date, "now").mockReturnValue(now)
-  await env.CACHE.put(CACHE_KEY, JSON.stringify({ count: 455, fetchedAt: now - ONE_HOUR_MS }))
+  await env.CACHE.put(CACHE_KEY, JSON.stringify({ count: 455, fetchedAt: now - STAR_COUNT_REFRESH_AFTER_MS }))
   const response = Promise.withResolvers<Response>()
   const fetch = vi.spyOn(globalThis, "fetch").mockReturnValue(response.promise)
 
@@ -65,7 +64,7 @@ it.each([
   { name: "offline", response: () => Promise.reject(new Error("offline")) },
   { name: "invalid data", response: () => Promise.resolve(Response.json({ stargazers_count: -1 })) },
 ])("keeps the last verified count when GitHub is $name, even days later", async ({ response }) => {
-  const cached = { count: 456, fetchedAt: Date.now() - ONE_HOUR_MS * 72 }
+  const cached = { count: 456, fetchedAt: Date.now() - STAR_COUNT_REFRESH_AFTER_MS * 72 }
   await env.CACHE.put(CACHE_KEY, JSON.stringify(cached))
   vi.spyOn(globalThis, "fetch").mockImplementation(response)
   const put = vi.spyOn(env.CACHE, "put")

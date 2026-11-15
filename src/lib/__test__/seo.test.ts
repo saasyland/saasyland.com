@@ -17,7 +17,7 @@ const GRAPH_NODES_WITHOUT_FAQ = 2
 
 const BASE_INPUT = {
   authorName: "Piotr J. Borowiecki",
-  baseUrl: "https://saasyland.com",
+  baseUrl: "https://example.com",
   date: "2026-08-15",
   title: "A post",
   url: "/blog/a-post",
@@ -28,7 +28,7 @@ describe("blog post structured data", () => {
     expect.hasAssertions()
     const graph = buildBlogPostStructuredData(BASE_INPUT)["@graph"]
     expect(graph.map((node) => node["@type"])).toStrictEqual(["BlogPosting", "BreadcrumbList"])
-    expect(graph[0]?.["url"]).toBe("https://saasyland.com/blog/a-post")
+    expect(graph[0]?.["url"]).toBe("https://example.com/blog/a-post")
     expect(graph[0]?.["datePublished"]).toBe("2026-08-15T00:00:00.000Z")
   })
 
@@ -47,7 +47,7 @@ describe("blog post structured data", () => {
   it("resolves a relative image path against the base url", () => {
     expect.hasAssertions()
     const graph = buildBlogPostStructuredData({ ...BASE_INPUT, description: "A summary", image: "/images/blog/a.webp" })["@graph"]
-    expect(graph[0]?.["image"]).toBe("https://saasyland.com/images/blog/a.webp")
+    expect(graph[0]?.["image"]).toBe("https://example.com/images/blog/a.webp")
     expect(graph[0]?.["description"]).toBe("A summary")
   })
 
@@ -125,7 +125,7 @@ describe("social preview", () => {
     expect(meta).not.toContainEqual(expect.objectContaining({ property: "article:section" }))
   })
 
-  it.each([ROUTES.APP, ROUTES.SIGN_IN, `/pl-PL${ROUTES.ADMIN_USERS}`])("gives %s, which is not prerendered, the site card", (pathname) => {
+  it.each([ROUTES.API, `${ROUTES.API}/search`, `/pl-PL${ROUTES.API}`])("gives %s, which is not prerendered, the site card", (pathname) => {
     const { meta } = buildPageHead({ locale: "pl-PL", pathname, title: "Panel" })
 
     expect(meta).toContainEqual({ content: `${APP_URL}${SOCIAL_IMAGE.SITE_PATH}`, property: "og:image" })

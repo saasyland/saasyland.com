@@ -9,11 +9,13 @@ description: "Маркетингова сторінка за адресою /, �
 
 Усі інші числа на сторінці виміряні, а не вписані вручну: Vite-плагін `virtual:repository-facts` у `scripts/repository-facts.ts` під час збирання рахує тестові файли, специфікації Playwright і UI-компоненти, бере кількість валют, часових поясів і країн із `CURRENCY_CODES`, `TIMEZONES` і `COUNTRIES` та зчитує мажорні версії React і TanStack Table. `REPOSITORY_FACTS` у `src/data/repository-facts.ts` додає мови, розділи адмінки з `ADMIN_NAVIGATION` та, з `src/data/cli.ts`, запитання (`cliQuestions`), модулі (`cliModules`), модулі, які відповідь може пропустити (`cliOptionalModules`), і додатки (`cliExtras`) CLI, а розділи передають його повідомленням `pages.landing` як ICU-аргументи, наприклад `{testFiles, number}`.
 
+`adminSections` рахує лише записи `ADMIN_NAVIGATION`, чий `status` дорівнює `FEATURE_STATUS.AVAILABLE` (`src/data/navigation.constants.ts`), який кожна область оголошує поруч із записом у `src/data/<area>.navigation.ts`, тож екрани адмінки з демонстраційними даними не рахуються: сьогодні їх <RepositoryFact name="adminSections" />. Поле **Мови** в сітці Proof показує підтримувані локалі, а його числа тестів кажуть, що їх пораховано у власному коді цього сайту, а не в згенерованому проєкті.
+
 Макет `_landing` обгортає `/`, юридичні сторінки, `/premium` і сторінки розсилки компонентами `Navigation`, `PageFrame`, `Footer` і `BackToTop`, завжди в темній темі. Якорі розділів — це `MARKETING_SECTION_IDS` у `src/data/marketing.ts` (`foundation`, `cli`, `quality`, `toolkit`, `pricing`, `faq`); посилання мають вигляд `<Link to={ROUTES.HOME} hash={MARKETING_SECTION_IDS.PRICING}>`.
 
 ## Навігація й повернення нагору
 
-- Розділи головної сторінки й сторінки в заголовку беруться з `NAVIGATION_SECTIONS` у `src/data/marketing.ts` і `NAVIGATION_PAGES` у `src/data/navigation.ts` — пунктів заголовка розділів курсів і вмісту, а підписи до них — з `components.custom.navigation`. Їх рендерять і десктопна `Navigation`, і `MobileMenu`, і заголовок `ContentNavigation` макетів блогу й курсів, тож сторінка, додана туди, з’являється в усіх трьох. Нижче брейкпойнта `xl` обидва заголовки згортають посилання в `MobileMenu`, тож довші переклади ніколи не переносяться на новий рядок.
+- Розділи головної сторінки й сторінки в заголовку беруться з `NAVIGATION_SECTIONS` у `src/data/marketing.ts` і `NAVIGATION_PAGES` у `src/data/navigation.ts` — пунктів заголовка розділів курсів і вмісту з підписами з `navigation.courses.json` і `navigation.content.json`, тоді як посилання на розділи головної сторінки зберігають свої підписи в `components.custom.navigation`. Їх рендерять і десктопна `Navigation`, і `MobileMenu`, і заголовок `ContentNavigation` макетів блогу й курсів, тож сторінка, додана туди, з’являється в усіх трьох. Нижче брейкпойнта `xl` обидва заголовки згортають посилання в `MobileMenu`, тож довші переклади ніколи не переносяться на новий рядок.
 - Логотип у заголовках головної сторінки, блогу й курсів — це `HomeLink` (`src/presentation/components/custom/home-link.tsx`). На `/` клік прокручує сторінку назад нагору й прибирає з адреси якір розділу на кшталт `#pricing`, замінюючи запис в історії, замість того щоб перезавантажувати сторінку, на якій відвідувач уже перебуває. На будь-якій іншій сторінці це звичайне посилання на головну, а клік із клавішею-модифікатором і далі відкриває нову вкладку чи вікно.
 - `BackToTop` (`src/presentation/components/custom/back-to-top.tsx`) — кнопка React Aria, закріплена в правому нижньому куті, з підписом із простору імен `components.custom.back-to-top`. Сторожовий елемент, за яким стежить `IntersectionObserver`, показує її, коли перший екран виходить із поля зору, і знову ховає біля верху сторінки, тож на події прокручування не виконується жоден код. Натискання прокручує сторінку нагору й переводить фокус на `h1` сторінки. Її рендерять макети головної сторінки, блогу, курсів і документації.
 - Обидва викликають `scrollTo({ top: 0 })` і залишають рух на `globals.css`: `html` прокручується плавно, а з `prefers-reduced-motion: reduce` сторінка одразу переходить нагору.
@@ -23,7 +25,7 @@ description: "Маркетингова сторінка за адресою /, �
 `PricingSection` показує `PricingTiers` з `src/presentation/components/custom/pricing.tsx` — ті самі картки планів, які [застосунок клієнта](/docs/features/customer-app) показує обліковим записам без ліцензії. Кожна картка показує план із `TIERS` із сумою з `TIER_PRICES` і текстами з простору імен `components.custom.pricing`, а кнопку для неї задає сторінка: на головній сторінці це посилання на `/auth/sign-up?redirect=/app?tier=<tier>`, тож вибраний план зберігається після реєстрації. Сітка переходить на три колонки, коли її власний контейнер має ширину щонайменше 42rem (`@container`), тож вона вміщується й у вужчу колонку застосунку. Регіональні ціни працюють без JavaScript на клієнті, тож сторінка залишається попередньо відрендереною:
 
 1. `Price` показує суму один раз для кожного регіонального множника (`PPP_KEYS`) плюс перекреслену звичайну ціну.
-2. Worker (`src/server.ts`) читає `cf-ipcountry`. Для країни з `PPP_TIERS` він через `HTMLRewriter` встановлює `data-ppp` і змінні `--ppp-region` та `--ppp-percent` на елементі `html` і позначає відповідь як `private, no-cache`.
+2. Обробник документів розділу ліцензій (`src/data/license.worker.ts`), який Worker застосовує до кожної HTML-сторінки, читає `cf-ipcountry`. Для країни з `PPP_TIERS` він через `HTMLRewriter` встановлює `data-ppp` і змінні `--ppp-region` та `--ppp-percent` на елементі `html` і позначає відповідь як `private, no-cache`.
 3. CSS у `globals.css` показує відповідну ціну, поки прапорець регіональної пропозиції позначено.
 4. Зняття прапорця записує `regional_pricing=off` у cookie; його враховують і Worker, і `startCheckout`.
 
@@ -31,7 +33,7 @@ description: "Маркетингова сторінка за адресою /, �
 
 ## Конфігуратор CLI
 
-`CliSection` містить `CliConfigurator` (`landing-page/components/cli-configurator.tsx`). Варіанти, доповнення та менеджери пакетів із `src/data/cli.ts` складають команду `saasyland@latest init my-app` з прапорцями, яку копіює `CopyButton`.
+`CliSection` містить `CliConfigurator` (`landing-page/components/cli-configurator.tsx`). Варіанти, доповнення та менеджери пакетів із `src/data/cli.ts` складають команду <RepositoryFact name="scaffoldTarget" /> з прапорцями, яку копіює `CopyButton`.
 
 ## Розсилка
 

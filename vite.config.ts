@@ -1,20 +1,9 @@
 import { resolve } from "node:path"
-import { type PluginOption, type UserConfig, defineConfig, lazyPlugins, loadEnv } from "vite-plus"
+import { type UserConfig, defineConfig, lazyPlugins, loadEnv } from "vite-plus"
 
-import { isUnlistedRoute } from "./src/data/unlisted.ts"
+import { vitePlugins } from "./src/data/vite.ts"
 
 const projectRoot = import.meta.dirname
-
-const LOCALE_PREFIX = /^\/[a-z]{2}-[A-Z]{2}(?=\/|$)/u
-const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
-
-const shouldPrerender = ({ path }: { path: string }): boolean => {
-  if (path.includes("?") || path.includes("#")) {
-    return false
-  }
-
-  return !isUnlistedRoute(path.replace(LOCALE_PREFIX, ""))
-}
 
 const ignorePatterns = [
   "**/*.d.ts",
@@ -231,49 +220,8 @@ const tooling = {
 
 export default defineConfig(({ mode }) => ({
   ...tooling,
-  build: { rolldownOptions: { external: UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS } },
-  plugins:
-    lazyPlugins(async (): Promise<PluginOption[]> => {
-      const { cloudflare } = await import("@cloudflare/vite-plugin")
-      const { tanstackStart } = await import("@tanstack/react-start/plugin/vite")
-
-      const { fumadocsMdx } = await import("fumadocs-mdx/vite")
-      const { default: tailwindcss } = await import("@tailwindcss/vite")
-      const { default: viteReact } = await import("@vitejs/plugin-react")
-      const { deployedWorker } = await import("./scripts/deployed-worker.ts")
-      const { repositoryFacts } = await import("./scripts/repository-facts.ts")
-
-      if (process.env["VITEST"] === "true") {
-        return [repositoryFacts(), viteReact()]
-      }
-
-      return [
-        cloudflare({
-          inspectorPort: false,
-          persistState: mode === "test" ? { path: ".wrangler/test" } : true,
-          remoteBindings: mode !== "test" && process.env["CLOUDFLARE_ENV"] === "development",
-          viteEnvironment: { name: "ssr" },
-        }),
-        fumadocsMdx({ configPath: "./src/integrations/fumadocs/fumadocs.config.ts" }),
-        repositoryFacts(),
-        tailwindcss(),
-        tanstackStart({
-          prerender: {
-            autoStaticPathsDiscovery: true,
-            crawlLinks: true,
-            enabled: true,
-            filter: shouldPrerender,
-          },
-          router: {
-            codeSplittingOptions: { defaultBehavior: [["component"], ["loader"], ["errorComponent"], ["notFoundComponent"]] },
-            routeFileIgnorePattern: "__test__",
-          },
-        }),
-        viteReact(),
-        deployedWorker(),
-      ]
-    }) ?? [],
-  resolve: { noExternal: ["fumadocs-core", "@fumadocs/base-ui"], tsconfigPaths: true },
+  plugins: lazyPlugins(() => vitePlugins({ mode, vitest: process.env["VITEST"] === "true" })) ?? [],
+  resolve: { tsconfigPaths: true },
   server: { port: 3000, strictPort: true, watch: { ignored: ["**/coverage/**"] } },
   staged: { "*": "vp check --fix" },
   test: {

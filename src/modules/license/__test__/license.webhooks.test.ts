@@ -8,7 +8,7 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
-import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 import type { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
 import type { grantLicense } from "~/src/modules/license/use-cases/grant-license"
@@ -130,16 +130,17 @@ describe("license webhooks", () => {
     consoleError.mockRestore()
   })
 
-  it("revokes on a full refund and on a revoked grant", async () => {
+  it("marks a fully refunded order refunded and a revoked grant revoked", async () => {
     expect.hasAssertions()
     resetUseCases()
-    const REVOCATIONS = 2
 
     await licenseWebhookHandlers.onOrderRefunded(orderPayload(env.POLAR_PRODUCT_ID_CORE, USER_ID, POLAR_ORDER_STATUS.REFUNDED))
     await licenseWebhookHandlers.onBenefitGrantRevoked(grantPayload(LICENSE_KEY_GRANT, USER_ID))
 
-    expect(useCaseMocks.revokeLicense).toHaveBeenCalledTimes(REVOCATIONS)
-    expect(useCaseMocks.revokeLicense).toHaveBeenCalledWith({ polarOrderId: "ord_1", userId: USER_ID })
+    expect(useCaseMocks.revokeLicense.mock.calls).toStrictEqual([
+      [{ polarOrderId: "ord_1", status: LICENSE_STATUS.REFUNDED, userId: USER_ID }],
+      [{ polarOrderId: "ord_1", status: LICENSE_STATUS.REVOKED, userId: USER_ID }],
+    ])
   })
 
   it("keeps the license when an order is only partially refunded", async () => {

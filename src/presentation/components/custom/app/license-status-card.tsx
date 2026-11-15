@@ -14,8 +14,8 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { ROUTES } from "~/src/routes"
 
 const licenseStatus = (license: License["select"]): License["select"]["status"] | "pending" => {
-  if (license.status === LICENSE_STATUS.REVOKED) {
-    return LICENSE_STATUS.REVOKED
+  if (license.status !== LICENSE_STATUS.ACTIVE) {
+    return license.status
   }
 
   if (typeof license.key === "string" && license.key.length > 0) {
@@ -27,7 +27,7 @@ const licenseStatus = (license: License["select"]): License["select"]["status"] 
 
 export const LicenseStatusCard = (): JSX.Element | undefined => {
   const tTier = useTranslations("components.custom.pricing")
-  const t = useTranslations("pages")
+  const t = useTranslations("pages.license.statusCard")
 
   const { license } = useSuspenseQuery(currentLicenseQuery).data
 
@@ -39,19 +39,17 @@ export const LicenseStatusCard = (): JSX.Element | undefined => {
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2>{t("app.overview.license.title")}</h2>
+          <h2>{t("title")}</h2>
         </CardTitle>
-        <CardDescription>{t("app.overview.license.description")}</CardDescription>
+        <CardDescription>{t("description")}</CardDescription>
         <CardAction>
-          <Badge variant={license.status === LICENSE_STATUS.REVOKED ? "destructive" : "secondary"}>
-            {t(`app.overview.license.${licenseStatus(license)}`)}
-          </Badge>
+          <Badge variant={license.status === LICENSE_STATUS.ACTIVE ? "secondary" : "destructive"}>{t(licenseStatus(license))}</Badge>
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center justify-between gap-4">
         <p className="text-lg font-semibold text-foreground">{tTier(`tiers.${license.tier}.name`)}</p>
         <LinkButton href={ROUTES.APP_LICENSE} size="sm" variant="outline">
-          {t("app.license")}
+          {t("action")}
         </LinkButton>
       </CardContent>
     </Card>

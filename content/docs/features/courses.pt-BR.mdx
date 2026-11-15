@@ -23,19 +23,21 @@ Cada tabela tem o próprio módulo em `src/modules` e é criada pela migração 
 
 ## Níveis de acesso
 
-| `access`  | Quem pode assistir                                                                           |
-| --------- | -------------------------------------------------------------------------------------------- |
-| `preview` | Todos, com ou sem login                                                                      |
-| `account` | Qualquer usuário que tenha entrado                                                           |
-| `paid`    | Um usuário com uma licença `active` do nível `complete` ou `agency` (`COURSE_LICENCE_TIERS`) |
+| `access`  | Quem pode assistir                                                                            |
+| --------- | --------------------------------------------------------------------------------------------- |
+| `preview` | Todos, com ou sem login                                                                       |
+| `account` | Qualquer usuário que tenha entrado                                                            |
+| `paid`    | Um usuário com uma licença `active` do nível `complete` ou `agency` (`LICENSE_COURSE_ACCESS`) |
 
-Papéis com `course: ["read"]`, que os admins têm, podem assistir a todas as aulas. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) decide para um espectador que `resolveViewer` (`lesson.viewer.ts`) monta a partir da sessão, do papel e de `getLicense`. Toda função de servidor que serve conteúdo dos cursos aplica essa verificação, não apenas as páginas:
+Papéis com `course: ["read"]`, que os admins têm, podem assistir a todas as aulas. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) decide para um espectador que `resolveViewer` (`lesson.viewer.ts`) monta a partir da sessão, do papel e do acesso aos cursos que outras áreas concedem (`holdsCourseAccess`). Toda função de servidor que serve conteúdo dos cursos aplica essa verificação, não apenas as páginas:
 
 - `getCatalogue` (pública) devolve os cursos publicados com o número de aulas, a duração total dos vídeos e o número de prévias gratuitas.
-- `getCourseShowcase` (pública) devolve, para a landing page, os dois primeiros cursos publicados (`COURSE_SHOWCASE`) com o número de aulas, a duração total dos vídeos, o número de prévias gratuitas e as seis primeiras aulas publicadas, além da primeira prévia gratuita que tem vídeo. Informa o nível de acesso de cada aula, não os bloqueios do espectador.
+- `getCourseShowcase` (pública) devolve, para a landing page, os <RepositoryFact name="courseShowcaseCourses" /> primeiros cursos publicados (`COURSE_SHOWCASE`) com o número de aulas, a duração total dos vídeos, o número de prévias gratuitas e as <RepositoryFact name="courseShowcaseLessons" /> primeiras aulas publicadas, além da primeira prévia gratuita que tem vídeo. Informa o nível de acesso de cada aula, não os bloqueios do espectador.
 - `getCourse` (pública) devolve um curso publicado com os capítulos e as aulas publicadas no locale do visitante, cada uma com `locked`, `completed` e `positionMs` para o espectador.
 - `getLessonPlayback` (pública) devolve caminhos de reprodução assinados por `createPlayback`. Responde `UNAUTHORIZED` a um visitante sem login e `FORBIDDEN` a um usuário logado que não pode assistir à aula, e `NOT_FOUND` para uma aula não publicada ou sem vídeo.
 - `saveLessonProgress` exige uma sessão e verifica o mesmo acesso antes de gravar.
+
+O acesso aos cursos é uma lista da própria área de cursos: uma área que o vende declara um `CourseAccessGrant` em `src/data/<area>.course-access.ts`, e `src/data/course-access.entries.ts` os reúne (veja [O que as áreas adicionam](/docs/architecture/platform-layer#what-the-areas-add)). Uma concessão diz se um usuário tem acesso (`holds`, uma função só de servidor), o que o inclui (`includedWith`, chaves de mensagem dos nomes que a página da licença lista) e onde obtê-lo (`unlock`, um link para um espectador autenticado e outro para um visitante). `LICENSE_COURSE_ACCESS` da área de licenças (`src/data/license.course-access.ts`) o concede a uma licença `active` do nível Complete ou Agency, e envia um espectador autenticado para `/app/license?tier=complete` e um visitante para a seção de preços da landing page. Sem nenhuma concessão, as aulas pagas ficam só para a equipe e os painéis bloqueados não oferecem link. Os textos dos cursos pegam mais dois nomes das concessões em vez de nomear um nível: `offer`, o que os links de `unlock` vendem, no rótulo de acesso, nos painéis de desbloqueio e na descrição do catálogo, e `holders`, quem tem acesso, no nível de acesso pago da administração. A licença fornece Complete e o texto `courseAccess.holders` de `components.custom.pricing`, então as páginas dizem o mesmo que antes.
 
 ## Páginas
 
@@ -96,7 +98,7 @@ O diálogo da aula tem estes campos:
 - **Slug da URL**, único dentro do curso.
 - **Quem pode assistir**: **Todos (prévia gratuita)** (`preview`), **Visitantes conectados** (`account`) ou **Licenças Complete e Agency** (`paid`, o padrão).
 - **Status**: **Rascunho**, o padrão, ou **Publicado**.
-- **Vídeo**: os 100 vídeos publicados mais recentes da biblioteca, com a duração. **Ainda sem vídeo** deixa a aula sem vídeo ou remove o que ela tem.
+- **Vídeo**: os <RepositoryFact name="videoLibraryPageSize" /> vídeos publicados mais recentes da biblioteca (`VIDEO_LIBRARY_PAGE_SIZE`), com a duração. **Ainda sem vídeo** deixa a aula sem vídeo ou remove o que ela tem.
 
 ### Excluir
 
@@ -127,7 +129,7 @@ As chaves estrangeiras fazem isso com `ON DELETE CASCADE`. Os vídeos nunca são
 
 ## Testes
 
-`scripts/seed-test.ts` cria um curso publicado com um capítulo e quatro aulas para os testes de navegador em `e2e/specs/courses.spec.ts`. Em `e2e/specs/course-admin.spec.ts`, um administrador cria um curso, um capítulo e uma aula gratuita com o vídeo semeado, um visitante em outra página do navegador assiste à aula e o administrador exclui o curso. `e2e/specs/landing.spec.ts` verifica que a landing page leva ao curso semeado e às suas aulas, abre a aula gratuita e reproduz o tour pelas páginas do curso.
+`scripts/seed-test.ts` cria um curso publicado com um capítulo e quatro aulas para os testes de navegador em `e2e/specs/courses.spec.ts`. Em `e2e/specs/course-admin.spec.ts`, um administrador cria um curso, um capítulo e uma aula gratuita com o vídeo semeado, um visitante em outra página do navegador assiste à aula e o administrador exclui o curso. `e2e/specs/landing.spec.ts` verifica que a landing page leva ao curso semeado e às suas aulas, abre a aula gratuita e reproduz o tour pelas páginas do curso. `e2e/specs/course-access.spec.ts` entra como um cliente sem licença e verifica que uma aula paga oferece o Complete com um link para `/app/license?tier=complete` e que a visão geral lista o curso bloqueado ao lado da oferta de licenças.
 
 ## Páginas relacionadas
 

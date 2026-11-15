@@ -17,7 +17,7 @@ description: "Cómo se aplica el control de acceso en las rutas y las funciones 
 Los guards solo deciden lo que ve el usuario. **El middleware de las funciones de servidor** de `auth.middleware.ts` protege los datos, porque cualquier función de servidor se puede llamar sin pasar por su página:
 
 - `authorized()` carga la sesión de la petición y lanza `UNAUTHORIZED` si no la hay.
-- `authorized({ user: ["ban"] })` además comprueba los permisos del rol definidos en `auth.access.ts` y lanza `FORBIDDEN`.
+- `authorized({ user: ["ban"] })` además comprueba los permisos del rol, que `auth.access.ts` construye a partir de los archivos de acceso de las áreas, y lanza `FORBIDDEN`.
 - El handler recibe la sesión como `context.auth`. Las operaciones sobre los datos del propio usuario usan `context.auth.user.id`, nunca un ID de usuario que llegue en la entrada.
 
 ## Sesiones
@@ -36,6 +36,8 @@ Better Auth también gestiona la verificación de correo (obligatoria antes de i
 
 Los correos que un visitante puede provocar tienen un segundo límite. `withinRecipientRateLimit` permite <RepositoryFact name="recipientEmailsPerHour" /> correos de cada tipo (verificación, restablecimiento de contraseña y confirmación del boletín) por dirección y hora, con un hash SHA-256 de la dirección como clave, y por encima de eso omite el correo sin avisar.
 
+La API de licencias de la CLI cuenta cada petición dos veces en la misma tabla, por IP del cliente y por un hash SHA-256 de la clave de licencia, mediante `consumeRateLimit`: <RepositoryFact name="cliApiRequestsPerAddress" /> peticiones por dirección y <RepositoryFact name="cliApiRequestsPerLicenseKey" /> por clave cada <RepositoryFact name="cliApiRateLimitSeconds" unit="second" />. La dirección se cuenta antes de leer la clave y, si se supera cualquiera de los dos límites, la API responde `rateLimited` con una cabecera `retry-after`. Consulta [API de licencias de la CLI](/docs/features/cli-licence-api).
+
 ## Cabeceras de respuesta
 
 `src/server.ts` establece `SECURITY_HEADERS` (una Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` y `X-Frame-Options`) en cada respuesta que devuelve el Worker, más `HTTPS_SECURITY_HEADERS` (`Strict-Transport-Security`) por HTTPS, y sustituye cualquier valor que la respuesta o una regla de `public/_headers` ya hubiera definido. Ambas constantes están en `src/modules/_core/constants/api.ts`. Los archivos que se sirven sin el Worker reciben las mismas cabeceras de la regla `/*` de `public/_headers`, y `src/__test__/server.test.ts` falla cuando esa regla y las constantes no coinciden. Consulta [Seguridad y endurecimiento](/docs/features/security).
@@ -43,6 +45,8 @@ Los correos que un visitante puede provocar tienen un segundo límite. `withinRe
 ## Enlaces de medios
 
 Los archivos de vídeo se quedan en un bucket privado de R2. `getVideoPlayback` exige `video: ["read"]`, y `getLessonPlayback` el nivel de acceso de la lección, antes de firmar una ruta, y la firma es un HMAC-SHA-256 con una clave derivada de `AUTH_SECRET` mediante HKDF. `serveMedia` responde `403` ante una firma incorrecta o caducada. Una ruta firmada funciona como un enlace al portador hasta que caduca, como mínimo <RepositoryFact name="signedMediaHours" unit="hour" /> después de emitirse, así que quien la tenga puede reproducir ese vídeo. Consulta [Cloudflare R2](/docs/integrations/cloudflare-r2).
+
+Los bundles de plantillas de la CLI también se quedan en un bucket privado de R2. La API de licencias de la CLI solo firma una URL de bundle para una licencia activa y una activación del dispositivo que hace la llamada, con una clave que HKDF deriva de `AUTH_SECRET` solo para los bundles, así que una ruta de vídeo nunca abre un bundle. `serveBundle` responde `403` ante una firma incorrecta o caducada, y una URL firmada caduca <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" /> después de emitirse. Consulta [API de licencias de la CLI](/docs/features/cli-licence-api#template-bundles).
 
 ## Errores y entrada
 

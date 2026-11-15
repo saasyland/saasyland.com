@@ -15,8 +15,8 @@ it.each(I18N.SUPPORTED_LOCALES)("uses %s consistently for documents, aliases and
   const path = localizePathname({ locale, pathname: "/refunds" })
   const alias = `/${locale.split("-")[0]}/refunds`
   expect(canonicalizePathname(alias)).toBe(path)
-  expect(resolveLocale(new Request(`https://saasyland.com${alias}`)).redirect?.headers.get("location")).toBe(`https://saasyland.com${path}`)
-  vi.mocked(getRequest).mockReturnValue(new Request(`https://saasyland.com${path}`))
+  expect(resolveLocale(new Request(`https://example.com${alias}`)).redirect?.headers.get("location")).toBe(`https://example.com${path}`)
+  vi.mocked(getRequest).mockReturnValue(new Request(`https://example.com${path}`))
   expect(getCurrentLocale()).toBe(locale)
   const errors = await loadNamespace<typeof globalErrorMessages>({ locale, namespace: "errors.global" })
   const reset = await loadNamespace<typeof resetPasswordMessages>({ locale, namespace: "emails.reset-password-email" })

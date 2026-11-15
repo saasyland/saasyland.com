@@ -9,6 +9,8 @@ import { localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
+import { UNLISTED_ROUTES } from "~/src/data/unlisted"
+
 import { readWranglerEnvironment } from "./wrangler-config.ts"
 import { ROUTES } from "~/src/routes"
 
@@ -19,13 +21,7 @@ const DEPLOY_CONFIG_PATH = ".wrangler/deploy/config.json"
 const WORKER_CONFIG_PATH = "dist/server/wrangler.json"
 
 const LOCALIZED_PAGES = [ROUTES.HOME, ROUTES.PRIVACY, ROUTES.TERMS, ROUTES.REFUNDS, ROUTES.LICENCE, ROUTES.AFFILIATES]
-const UNPRERENDERED_PAGES = [
-  ...I18N.SUPPORTED_LOCALES.map((locale) => `/${locale.split("-")[0]}`),
-  `/${I18N.DEFAULT_LOCALE}`,
-  ROUTES.ADMIN,
-  ROUTES.APP,
-  ROUTES.SIGN_IN,
-]
+const LOCALE_ALIASES = [...I18N.SUPPORTED_LOCALES.map((locale) => `/${locale.split("-")[0]}`), `/${I18N.DEFAULT_LOCALE}`]
 
 const SEO_LINKS = localeLinks({ origin: "", pathname: ROUTES.HOME })
 const CANONICAL_LINKS = SEO_LINKS.filter(({ rel }) => rel === "canonical").length
@@ -94,9 +90,17 @@ for (const locale of I18N.SUPPORTED_LOCALES) {
 
 accessSync(join(CLIENT_DIR, "fonts"))
 
-for (const page of UNPRERENDERED_PAGES) {
-  if (existsSync(join(CLIENT_DIR, page, "index.html"))) {
-    throw new Error(`Unexpected prerendered alias or protected page: ${page}`)
+for (const alias of LOCALE_ALIASES) {
+  if (existsSync(join(CLIENT_DIR, alias, "index.html"))) {
+    throw new Error(`Unexpected prerendered locale alias: ${alias}`)
+  }
+}
+
+for (const route of UNLISTED_ROUTES) {
+  const prerendered = globSync("**/index.html", { cwd: join(CLIENT_DIR, route) })
+
+  if (prerendered.length > 0) {
+    throw new Error(`Unexpected prerendered page under ${route}, which the Worker renders on each request: ${prerendered.join(", ")}`)
   }
 }
 

@@ -13,7 +13,7 @@ import { getCategoriesPageQuery, getCategoriesQuery } from "~/src/modules/catego
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import { getProductsPageQuery, getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 
-import { ADMIN_PRODUCT_TABS } from "~/src/data/admin"
+import { ADMIN_PRODUCT_TABS } from "~/src/data/admin-products"
 
 import { searchChoice } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
@@ -21,7 +21,7 @@ import { pageHead } from "~/src/lib/seo"
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
-import { AdminProductsPending } from "~/src/presentation/components/custom/admin/offerings-pending"
+import { AdminProductsPending } from "~/src/presentation/components/custom/admin/products-pending"
 import { categoryColumns } from "~/src/presentation/components/custom/admin/products/category-columns"
 import { productColumns } from "~/src/presentation/components/custom/admin/products/product-columns"
 import { DataTable } from "~/src/presentation/components/custom/data-table"

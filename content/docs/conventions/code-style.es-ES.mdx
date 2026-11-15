@@ -36,14 +36,14 @@ const LAST_INDEX_OFFSET = 1
 const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 ```
 
-Las dos primeras vienen de `get-course-editor.ts` y `course-columns.tsx`, y la tercera de `vite.config.ts`: de lo contrario, cada una necesitaría un comentario. Los archivos generados (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) están exentos. Antes de hacer commit, busca en tu diff `//`, `/*` y `{/*`.
+Las dos primeras vienen de `get-course-editor.ts` y `course-columns.tsx`, y la tercera de `src/data/polar.vite.ts`: de lo contrario, cada una necesitaría un comentario. Los archivos generados (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) están exentos. Antes de hacer commit, busca en tu diff `//`, `/*` y `{/*`.
 
 ## Sin vías de escape
 
 Nunca escribas `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-ignore`, `@ts-nocheck`, un cast con `as` ni `any` para que pase una regla. Una regla que salta señala un problema de diseño; cambia el diseño.
 
 - **Valida en lugar de hacer aserciones.** Los datos que vienen del almacenamiento, de la red o de una petición se parsean con Zod: `src/lib/github.ts` lee el número de estrellas en caché con `cachedStarCountSchema.safeParse(await env.CACHE.get(CACHE_KEY, "json")).data`, que es un número o `undefined`, nunca una suposición.
-- **Estrecha el tipo con una guarda de tipo.** `isRole` en `src/integrations/better-auth/auth.access.ts` e `isErrorCode` en `src/hooks/use-error-message.ts` convierten un `string` en una unión mediante una comprobación real.
+- **Estrecha el tipo con una guarda de tipo.** `isRole` en `src/integrations/better-auth/auth.roles.ts` e `isErrorCode` en `src/hooks/use-error-message.ts` convierten un `string` en una unión mediante una comprobación real.
 - **Comprueba, no conviertas.** `as const` y `satisfies` están permitidos porque nunca cambian un tipo: `POLAR_ORDER_STATUS` termina en `as const satisfies Record<string, models.OrderStatus>`, así que un estado de Polar mal escrito no compila.
 - **Reestructura cuando el contrato de una biblioteca te lo ponga difícil.** Envuelve un valor en un objeto, divide una función o lee de una fuente tipada en lugar de hacer un cast.
 
@@ -80,7 +80,7 @@ export const hasLessonAccess = (access: Lesson["select"]["access"], viewer: View
     return viewer.userId !== undefined
   }
 
-  return viewer.licensed
+  return viewer.entitled
 }
 ```
 
@@ -97,10 +97,10 @@ export const COURSE_STATUS = {
 
 La tupla que necesita una columna o un esquema enum se construye a partir del objeto, no se vuelve a escribir: `course.schema.ts` declara `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, que alimenta tanto `text("status", { enum: COURSE_STATUSES })` como `zod.enum(COURSE_STATUSES)`. Una tupla que también lee el código del navegador se declara en cambio en las constantes del módulo, que no importan nada de Drizzle: la tabla de precios recorre `LICENSE_TIERS` de `license.constants.ts`.
 
-- Las constantes de un módulo viven en su `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); los valores de un proveedor viven en el `*.constants.ts` de la integración (`POLAR_ORDER_STATUS` en `polar.constants.ts`, `AUTH_PROVIDER` en `auth.constants.ts`, `EMAIL_PURPOSE` en `resend.constants.ts`).
+- Las constantes de un módulo viven en su `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); los valores de un proveedor viven en el `*.constants.ts` de la integración (`POLAR_ORDER_STATUS` en `polar.constants.ts`, `AUTH_PROVIDER` en `auth.constants.ts`).
 - Las longitudes de las columnas y de las entradas se nombran una sola vez, en las constantes del módulo, y las leen tanto el esquema de Drizzle como el esquema Zod: `PRODUCT_NAME_MAX_LENGTH` en `product.constants.ts`.
 - Cada concepto tiene un único mapa, con una sola convención de mayúsculas: `ERROR_CODES` para los errores del servidor, `AUTH_ERRORS` para las claves de error de Better Auth, `ROLE_CODES` para los roles.
-- Los nombres de entorno y los códigos de estado HTTP se declaran una sola vez, en `src/modules/_core/constants/api.ts`: `ENVIRONMENT.PRODUCTION` en `__root.tsx` y en los scripts de despliegue, `HTTP_STATUS.PARTIAL_CONTENT` en el manejador de medios del Worker. Ningún archivo declara su propio mapa de ninguno de los dos. La única excepción es `vite.config.ts`, que compara `mode` con los nombres tal cual: Vite carga la configuración antes de resolver el alias `~`, así que no puede importar `api.ts`.
+- Los nombres de entorno y los códigos de estado HTTP se declaran una sola vez, en `src/modules/_core/constants/api.ts`: `ENVIRONMENT.PRODUCTION` en `__root.tsx` y en los scripts de despliegue, `HTTP_STATUS.PARTIAL_CONTENT` en el manejador de medios del Worker. Ningún archivo declara su propio mapa de ninguno de los dos. La única excepción son los archivos de plugins de Vite, como `src/data/cloudflare.vite.ts`, que comparan `mode` con los nombres tal cual: Vite los carga antes de resolver el alias `~`, así que no pueden importar `api.ts`.
 - Una constante que usa un solo archivo se queda en ese archivo, debajo de las importaciones. Una constante que usan varios archivos va a su módulo, a `src/data` (consulta [Archivos y nomenclatura](/docs/conventions/files-and-naming)) o a `src/modules/_core/constants`. Nunca des a una constante un archivo propio.
 - Los nombres de campo de una API tipada, como `license_key_id`, son propiedades, no valores, y se siguen leyendo como acceso a propiedades.
 

@@ -18,6 +18,8 @@ import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsle
 import { newsletterSubscriberZodSchemas } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.zod"
 import { subscribeToNewsletterMutation } from "~/src/modules/newsletter-subscriber/use-cases/subscribe-to-newsletter"
 
+import { APP_PREVIEW_DOMAIN, APP_URL } from "~/src/presentation/branding"
+
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex")
 
 const HEADERS = new Headers()
@@ -143,8 +145,8 @@ describe("subscribe-to-newsletter", () => {
 
   it.each([
     { mode: ENVIRONMENT.TEST, origin: "http://localhost:3000" },
-    { mode: ENVIRONMENT.PREVIEW, origin: "https://preview.saasyland.com" },
-    { mode: ENVIRONMENT.PRODUCTION, origin: "https://saasyland.com" },
+    { mode: ENVIRONMENT.PREVIEW, origin: `https://${APP_PREVIEW_DOMAIN}` },
+    { mode: ENVIRONMENT.PRODUCTION, origin: APP_URL },
   ])("renders the confirmation link for the $mode deployment the sign-up came through: $origin", async ({ mode, origin }) => {
     vi.stubEnv("MODE", mode)
     vi.mocked(getRequest).mockReturnValue(
@@ -163,7 +165,7 @@ describe("subscribe-to-newsletter", () => {
   })
 
   it("rejects an untrusted deployment before storing a subscriber or sending email", async () => {
-    vi.mocked(getRequest).mockReturnValue(new Request("https://saasyland.com.attacker.example/_serverFn/subscribe"))
+    vi.mocked(getRequest).mockReturnValue(new Request(`${APP_URL}.attacker.example/_serverFn/subscribe`))
 
     await expect(executeMutation(subscribeToNewsletterMutation, { email: SUBSCRIBER, locale: "en-US" })).rejects.toThrow(
       ERROR_CODES.FORBIDDEN,

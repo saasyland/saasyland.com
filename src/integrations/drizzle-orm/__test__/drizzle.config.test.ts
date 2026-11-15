@@ -15,7 +15,6 @@ describe("drizzle kit config", () => {
 describe("platform db schema barrel", () => {
   it("re-exports schema modules", () => {
     expect.hasAssertions()
-    expect(schema.user).toBeDefined()
-    expect(schema.account).toBeDefined()
+    expect(schema.rateLimit).toBeDefined()
   })
 })

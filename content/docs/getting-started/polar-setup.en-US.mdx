@@ -26,15 +26,15 @@ In the sandbox, then in production:
 1. Create an organisation and copy its ID from the organisation settings into `POLAR_ORGANIZATION_ID`.
 2. In the organisation settings, create an organisation access token with these scopes, and no others, and copy it into `POLAR_ACCESS_TOKEN`.
 
-| Scope                     | Needed by                                                                           |
-| ------------------------- | ----------------------------------------------------------------------------------- |
-| `checkouts:write`         | `startCheckout`, which creates the checkout through the Better Auth Polar plugin    |
-| `customer_sessions:write` | The customer portal link, `/api/auth/customer/portal`                               |
-| `discounts:read`          | The regional discount lookup at checkout (`pppDiscountId`) and `polar:verify`       |
-| `license_keys:write`      | Reading a key and its activations, and removing an activation (`deactivateLicense`) |
-| `orders:read`             | The webhook handlers, which read the order behind a licence                         |
-| `products:read`           | `polar:verify`                                                                      |
-| `webhooks:read`           | `polar:verify`                                                                      |
+| Scope                     | Needed by                                                                                                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `checkouts:write`         | `startCheckout`, which creates the checkout through the Better Auth Polar plugin                                                                                   |
+| `customer_sessions:write` | The customer portal link, `/api/auth/customer/portal`                                                                                                              |
+| `discounts:read`          | The regional discount lookup at checkout (`pppDiscountId`) and `polar:verify`                                                                                      |
+| `license_keys:write`      | Reading a key and its activations, activating a machine and removing an activation (`deactivateLicense` and the [CLI licence API](/docs/features/cli-licence-api)) |
+| `orders:read`             | The webhook handlers, which read the order behind a licence                                                                                                        |
+| `products:read`           | `polar:verify`                                                                                                                                                     |
+| `webhooks:read`           | `polar:verify`                                                                                                                                                     |
 
 A write scope includes reading, so `license_keys:write` also covers reading keys. An organisation token already acts for its own organisation. `polar:verify` still sends `POLAR_ORGANIZATION_ID` as the `organization_id` query parameter, as the discount lookup at checkout does, so an ID of another organisation shows up as missing products.
 
@@ -84,7 +84,7 @@ Create one webhook endpoint for each deployed environment, in the organisation t
 The host comes from `DEPLOYED_HOSTS` and the path from `ROUTES`. Choose the raw format, keep the endpoint enabled and subscribe it to exactly the events that `licenseWebhookHandlers` handles, listed in `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`):
 
 - `order.paid` grants the licence;
-- `order.refunded` revokes it once the order is fully refunded;
+- `order.refunded` marks it refunded once the order is fully refunded;
 - `benefit_grant.created` stores the licence key;
 - `benefit_grant.revoked` revokes the licence.
 
@@ -109,7 +109,7 @@ Each script reads the Polar keys from `.env.<environment>` and sends only GET re
 - preview and production have an enabled raw endpoint at their webhook URL, signed with `POLAR_WEBHOOK_SECRET` and subscribed to exactly the handled events;
 - no endpoint posts to the host of an environment that uses the other Polar service.
 
-`deploy:preview` and `deploy:production` run it right after `scripts/verify-bindings.ts`, before the build. CI deployments do not: the GitHub environments hold no Polar token, and the Worker keeps the Polar secrets already set in Cloudflare. Run `polar:verify` yourself after every change in Polar.
+`polar:verify` is the Polar area's deploy check (`POLAR_DEPLOY_CHECKS` in `src/data/polar.deploy.ts`), so `deploy:preview` and `deploy:production` run it through `scripts/run-deploy-checks.ts`, right after `scripts/verify-bindings.ts` and before the build. CI deployments run none of the deploy checks, `polar:verify` included: `deploy-reusable.yml` has no `scripts/run-deploy-checks.ts` step, the GitHub environments hold no Polar token, and the Worker keeps the Polar secrets already set in Cloudflare. Run `polar:verify` yourself after every change in Polar.
 
 ## When it fails
 

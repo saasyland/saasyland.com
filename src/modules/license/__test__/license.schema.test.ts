@@ -23,7 +23,7 @@ describe("license schema", () => {
   it("defines enums and updatedAt onUpdate", () => {
     expect.hasAssertions()
     expect(LICENSE_TIERS).toStrictEqual(["core", "complete", "agency"])
-    expect(LICENSE_STATUSES).toStrictEqual(["active", "revoked"])
+    expect(LICENSE_STATUSES).toStrictEqual(["active", "revoked", "refunded"])
     const onUpdate = license.updatedAt.onUpdateFn
     expect(onUpdate).toBeDefined()
     expect(onUpdate?.()).toBeInstanceOf(Date)

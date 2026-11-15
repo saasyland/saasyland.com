@@ -5,13 +5,12 @@ description: "Зона /app для користувачів із сесією: �
 
 ## Макет
 
-`src/routes/app.tsx` перевіряє параметри пошуку кожної сторінки зони, захищає її за допомогою `requireSignedIn` і попередньо завантажує її простори імен:
+`src/routes/app.tsx` належить розділу автентифікації. Він захищає робочий простір за допомогою `requireSignedIn` і попередньо завантажує його простори імен разом із тими, які до нього додають інші розділи (`layoutNamespaces("/app")`; розділ ліцензії додає `pages.license`):
 
 ```tsx
-const NAMESPACES = ["auth.errors", "pages.app.sidebar", "pages.license", "timezones"] as const
+const NAMESPACES = ["auth.errors", "pages.app.sidebar", "timezones", ...layoutNamespaces("/app")] as const
 
 export const Route = createFileRoute("/app")({
-  validateSearch: appSearchSchema,
   beforeLoad: requireSignedIn,
   component: AppLayout,
   loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
@@ -20,29 +19,33 @@ export const Route = createFileRoute("/app")({
 })
 ```
 
-`AppLayout` показує `AppSidebar` і `AppHeader` з `src/presentation/components/custom/app` усередині `SidebarProvider` з shadcn. Бічна панель будує посилання з `APP_NAVIGATION` у `src/data/navigation.ts` (Огляд і Налаштування з `core.navigation.ts`, Ліцензія з `license.navigation.ts`, підписи з `pages.app.sidebar`), читає користувача з контексту маршруту (`getRouteApi("/app")`) і закінчується кнопкою `SignOutButton`. Заголовок показує поточну сторінку та посилання назад на сайт. Після входу адміністратори потрапляють на `/admin`, а решта — на `/app`.
+`AppLayout` показує `AppSidebar` і `AppHeader` з `src/presentation/components/custom/app` усередині `SidebarProvider` з shadcn. Бічна панель будує посилання з `APP_NAVIGATION` у `src/data/navigation.ts` (Огляд і Налаштування з `auth.navigation.ts`, Ліцензія з `license.navigation.ts`, підписи з `navigation.auth.json` і `navigation.license.json`) і ресурси з `APP_RESOURCE_NAVIGATION` (Документація з `content.navigation.ts`), після яких іде адреса підтримки, читає користувача з контексту маршруту (`getRouteApi("/app")`) і закінчується кнопкою `SignOutButton`. Заголовок показує поточну сторінку та посилання назад на сайт. Після входу адміністратори потрапляють на `/admin`, а решта — на `/app`.
 
 ## Сторінки
 
-| Маршрут         | Вміст                                                                                                                                                                                 |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/app`          | `LicenseOffer` без активної ліцензії, інакше `LicenseStatusCard` (план, статус і посилання на сторінку ліцензії); посилання на документацію та підтримку електронною поштою.          |
-| `/app/license`  | `LicenseOffer` без активної ліцензії, інакше `LicenseCard` (ключ, команда встановлення, посилання на портал клієнта, як змінити план) і, коли Polar видав ключ, `LicenseActivations`. |
-| `/app/settings` | `PreferencesCard`: часовий пояс усіх дат у робочому просторі, з пошуком і кнопкою **Визначити за цим браузером**. Див. [Налаштування](/docs/features/settings).                       |
+| Маршрут         | Вміст                                                                                                                                                                        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/app`          | `LicenseOffer` без активної ліцензії, інакше `LicenseStatusCard` (план, статус і посилання на сторінку ліцензії); посилання на документацію та підтримку електронною поштою. |
+| `/app/license`  | `LicenseOffer` без активної ліцензії, інакше `LicenseCard` (ключ, команди CLI, посилання на портал клієнта, як змінити план) і, коли Polar видав ключ, `LicenseActivations`. |
+| `/app/settings` | `PreferencesCard`: часовий пояс усіх дат у робочому просторі, з пошуком і кнопкою **Визначити за цим браузером**. Див. [Налаштування](/docs/features/settings).              |
 
-`LicenseOffer` (`src/presentation/components/custom/app/license-offer.tsx`) повторно використовує `PricingTiers` з головної сторінки з `CheckoutButton` для кожного плану, додає умови купівлі (`CheckoutAgreement`) і закінчується блоком `CourseUnlocks`: опубліковані курси з платними уроками та кількістю заблокованих уроків у кожному, яку `getCatalogue` рахує з D1. Поки жоден курс не має платних уроків, блок не показується. Повернена ліцензія зберігає свою картку, а поруч із нею з’являється пропозиція купівлі.
+`LicenseOffer` (`src/presentation/components/custom/app/license-offer.tsx`) повторно використовує `PricingTiers` з головної сторінки з `CheckoutButton` для кожного плану, додає умови купівлі (`CheckoutAgreement`) і закінчується секціями, які додають до нього інші розділи (`LICENSE_OFFER_SECTIONS` у `src/data/license-offer.ts`), кожна зі своїм скелетоном і даними, які завантажують її сторінки. Розділ курсів додає блок `CourseUnlocks` (`src/data/courses.license-offer.ts`): опубліковані курси з платними уроками та кількістю заблокованих уроків у кожному, яку `getCatalogue` рахує з D1. Поки жоден курс не має платних уроків, блок не показується. Повернена ліцензія зберігає свою картку, а поруч із нею з’являється пропозиція купівлі.
 
-`appSearchSchema` (`src/data/app.ts`) приймає два необов’язкові параметри й ігнорує кожен із них, якщо значення некоректне:
+`src/routes/app.index.tsx` належить розділу автентифікації, а інші розділи додають свої частини до огляду в `src/data/<area>.app-overview.ts`, які об’єднує `src/data/app-overview.entries.ts`: параметри пошуку, які вони читають і які перевіряє `appOverviewSearchSchema` (`src/data/app-overview.ts`), і свої секції, кожну з її скелетоном і даними, які завантажує сторінка. Розділ ліцензії додає `LicenseOverview` (панель активації, вибраний план, `LicenseStatusCard` або пропозицію) і два параметри `licenseSearchSchema` (`src/data/license.ts`), яку також перевіряє `/app/license`. Обидва параметри необов’язкові й ігноруються, якщо значення некоректне:
 
 | Параметр     | Значення                | Дія                                                                                                                                                    |
 | ------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `tier`       | значення `LICENSE_TIER` | `ChosenTier` над пропозицією купівлі: план, його ціна й кнопка **Перейти до оплати**.                                                                  |
 | `checkoutId` | UUID від Polar          | `CheckoutActivation` замість пропозиції купівлі, доки ліцензія не стане активною, а потім подяка. Див. [Платежі та ліцензії](/docs/features/payments). |
 
-Loader-функції огляду та ліцензії попередньо завантажують `currentLicenseQuery` і каталог курсів; `/app/license` також завантажує `licenseActivationsQuery`. `/app/settings` завантажує лише простір імен своєї сторінки, а `NAMESPACES` макета містять `timezones` для назв поясів. Оплату, вебхуки та стани ліцензії описано на сторінці [Платежі та ліцензії](/docs/features/payments).
+Loader-функція огляду запускає завантаження своїх секцій, тож розділ ліцензії попередньо завантажує там `currentLicenseQuery` і каталог курсів; `/app/license` завантажує обидва й ще `licenseActivationsQuery`. `/app/settings` завантажує лише простір імен своєї сторінки, а `NAMESPACES` макета містять `timezones` для назв поясів. Оплату, вебхуки та стани ліцензії описано на сторінці [Платежі та ліцензії](/docs/features/payments).
+
+## Інструкції для CLI [#cli-instructions]
+
+`LicenseCard` перелічує команди, які використовують ключ на пристрої, <RepositoryFact name="cliLicenseCommands" />, кожну з описом її дії, і повідомляє, що CI читає ключ із <RepositoryFact name="cliLicenseKeyVariable" />. Їхнє єдине джерело — `src/data/cli.ts`, який також складає команду <RepositoryFact name="scaffoldTarget" /> з головної сторінки. `CLI_RELEASE_CHANNEL` називає тег npm, з якого запускається CLI. CLI і `@saasyland/stack` виходять разом під однією версією, тож `cli.test.ts` падає, якщо тег не той, з яким опубліковано встановлений `@saasyland/stack`: `beta` для попередньої версії `x.y.z-beta.n`, типовий тег npm для стабільної. Тому оновлення `@saasyland/stack` до стабільної версії валить тести, доки `CLI_RELEASE_CHANNEL` не назве типовий тег, а сторінка ліцензії, головна сторінка, документація і [набір тестів шляху клієнта](/docs/tooling/playwright#journey-suite) йдуть за ним. Це константа, а не імпорт `@saasyland/stack/package.json`, який заніс би весь файл у Worker і в бандл кожної сторінки.
 
 ## Скелетони
 
-`AppSettingsPending` (`app-pending.tsx`) малює заголовок сторінки та `PreferencesCardPending`. `AppOverviewPending` і `AppLicensePending` відтворюють стан, який покаже сторінка: вони читають параметри пошуку через `appSearchSchema`, а кешовані ліцензію й каталог — із клієнта запитів, і малюють панель активації, вибраний план, сітку планів із рядком для кожного курсу з платними уроками або картки ліцензії.
+`AppOverviewPending` і `AppSettingsPending` (`app/auth-pending.tsx`, їх оголошує розділ автентифікації в `src/data/auth.skeletons.ts`) малюють заголовок сторінки з `app/pending-blocks.tsx`, а далі огляд малює скелетон кожної секції, яку додають розділи, і кроки з документацією та підтримкою, а сторінка налаштувань — `PreferencesCardPending`. `LicenseOverviewPending`, скелетон секції ліцензії, і `AppLicensePending` (`app/license-pending.tsx`; розділ ліцензії оголошує `AppLicensePending` в `src/data/license.skeletons.ts`) відтворюють стан, який покаже сторінка: вони читають параметри пошуку через `licenseSearchSchema`, а кешовані ліцензію й каталог — із клієнта запитів, і малюють панель активації, вибраний план, сітку планів із рядком для кожного курсу з платними уроками або картки ліцензії.
 
 У `/app` немає історії рахунків чи екранів курсів, а `/app/settings` поки не має форм профілю, електронної пошти чи пароля.

@@ -3,15 +3,16 @@ title: "HTTP-обробники TanStack Start"
 description: "HTTP-ендпоінти в /api і коли варто додати такий ендпоінт замість серверної функції."
 ---
 
-Власні операції застосунку — це серверні функції. HTTP-обробники існують лише там, де URL викликає щось поза RPC-клієнтом застосунку: браузерний клієнт Better Auth, OAuth-провайдери, вебхуки Polar і поле пошуку документації.
+Власні операції застосунку — це серверні функції. HTTP-обробники існують лише там, де URL викликає щось поза RPC-клієнтом застосунку: браузерний клієнт Better Auth, OAuth-провайдери, вебхуки Polar, поле пошуку документації та CLI `saasyland`.
 
-| Файл                       | Шлях          | Методи    | Що обробляє                                                                                                                              |
-| -------------------------- | ------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/routes/api/index.ts`  | `/api`        | GET       | JSON-відповідь зі статусом `{ runtime: "cloudflare-workers" }`                                                                           |
-| `src/routes/api/auth.$.ts` | `/api/auth/*` | GET, POST | Усі ендпоінти Better Auth, зокрема OAuth-колбеки, підтвердження електронної пошти, клієнтський портал Polar і `/api/auth/polar/webhooks` |
-| `src/routes/api/search.ts` | `/api/search` | GET       | Пошук Fumadocs по документації                                                                                                           |
+| Файл                         | Шлях                                         | Методи            | Що обробляє                                                                                                                                |
+| ---------------------------- | -------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/routes/api/index.ts`    | `/api`                                       | GET               | JSON-відповідь зі статусом `{ runtime: "cloudflare-workers" }`                                                                             |
+| `src/routes/api/auth.$.ts`   | `/api/auth/*`                                | GET, POST         | Усі ендпоінти Better Auth, зокрема OAuth-колбеки, підтвердження електронної пошти, клієнтський портал Polar і `/api/auth/polar/webhooks`   |
+| `src/routes/api/search.ts`   | `/api/search`                                | GET               | Пошук Fumadocs по документації                                                                                                             |
+| `src/routes/api/cli.v1.*.ts` | <RepositoryFact name="cliApiBasePath" />`/*` | GET, POST, DELETE | [API ліцензій для CLI](/docs/features/cli-licence-api): ліцензія, її пристрої та бандл шаблонів кожного випуску через `licenseApiHandlers` |
 
-Worker також сам відповідає на `/media/<expiry>.<signature>/<videoId>/<file>`. Це не маршрут: `src/server.ts` передає такі запити до `serveMedia` (`src/modules/video/video.delivery.ts`) ще до middleware локалі й TanStack Start, а `serveMedia` перевіряє підпис і віддає відеофайл із кешу Workers або з бакета `MEDIA`. Див. [Cloudflare R2](/docs/integrations/cloudflare-r2).
+Worker також сам відповідає на `/media/<expiry>.<signature>/<videoId>/<file>`. Це не маршрут: `src/server.ts` передає такі запити до `serveMedia` (`src/modules/video/video.delivery.ts`) ще до middleware локалі й TanStack Start, а `serveMedia` перевіряє підпис і віддає відеофайл із кешу Workers або з бакета `MEDIA`. Див. [Cloudflare R2](/docs/integrations/cloudflare-r2). Так само він відповідає на <RepositoryFact name="cliBundleUrlPath" />: обробник розділу ліцензій передає такі запити до `serveBundle` (`src/modules/license/license.delivery.ts`), який перевіряє підпис і потоково віддає бандл шаблонів CLI з бакета `BUNDLES`. Див. [API ліцензій для CLI](/docs/features/cli-licence-api#template-bundles).
 
 Обробник оголошується через `server.handlers` у `createFileRoute`. Він отримує Web `Request` і повертає `Response`:
 
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/api/auth/$")({
 ## Правила
 
 - Не додавайте REST-ендпоінт для операції, яку викликає лише цей застосунок. Натомість напишіть сценарій використання з `createServerFn`: він отримує типізовані вхідні дані, middleware та опції запиту.
-- Обробник сам валідує вхідні дані й перевіряє дозволи. Middleware серверних функцій (`authorized`, `withRateLimit`) для обробників не виконуються.
+- Обробник сам валідує вхідні дані й перевіряє дозволи. Middleware серверних функцій (`authorized`, `withRateLimit`) для обробників не виконуються. API ліцензій для CLI читає кожен запит функцією `readApiRequest` з контракту й рахує його через `consumeRateLimit` з `src/lib/rate-limit.ts`.
 - Перевірку, специфічну для вендора, тримайте в інтеграції. Підписи вебхуків Polar перевіряє плагін Polar усередині Better Auth, а не власний обробник.
 - Шляхи `/api` і `/media` ніколи не локалізуються, ніколи не проходять пререндеринг і оминають обробку локалі у Worker.
 

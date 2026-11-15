@@ -18,7 +18,6 @@ import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
 
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
-import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
 import { Route as AppRoute } from "~/src/routes/app"
@@ -28,6 +27,9 @@ import { Route as SettingsRoute } from "~/src/routes/app.settings"
 
 import commonMessages from "~/messages/en-US/common.json"
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
+import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
+import navigationContentMessages from "~/messages/en-US/navigation.content.json"
+import navigationLicenseMessages from "~/messages/en-US/navigation.license.json"
 import pagesAppMessages from "~/messages/en-US/pages.app.json"
 import pagesAppSettingsMessages from "~/messages/en-US/pages.app.settings.json"
 import pagesAppSidebarMessages from "~/messages/en-US/pages.app.sidebar.json"
@@ -35,7 +37,7 @@ import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
 import timezonesMessages from "~/messages/en-US/timezones.json"
 import plCommonMessages from "~/messages/pl-PL/common.json"
 import plErrorMessages from "~/messages/pl-PL/errors.json"
-import { CONTACT_EMAIL } from "~/src/presentation/branding"
+import { APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
@@ -44,7 +46,6 @@ type SignOutResult = Awaited<ReturnType<NonNullable<typeof signOutUserMutation.m
 const sessionRequest = vi.hoisted(() => vi.fn())
 const currentLicense = vi.hoisted(() => vi.fn())
 const activations = vi.hoisted(() => vi.fn())
-const catalogue = vi.hoisted(() => vi.fn())
 const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
 const SIGN_OUT_SUCCESS = { redirect: undefined, success: true, url: undefined } satisfies SignOutResult
 const { account, navigation } = pagesAppSidebarMessages
@@ -61,10 +62,7 @@ vi.mock(import("~/src/modules/license/use-cases/get-current-license-activations"
   const actual = await importOriginal()
   return { ...actual, licenseActivationsQuery: { ...actual.licenseActivationsQuery, queryFn: activations } }
 })
-vi.mock(import("~/src/modules/course/use-cases/get-catalogue"), async (importOriginal) => {
-  const actual = await importOriginal()
-  return { ...actual, catalogueQuery: (input) => ({ ...actual.catalogueQuery(input), queryFn: catalogue }) }
-})
+vi.mock("~/src/data/license-offer.entries", () => ({}))
 vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
   signOutUserMutation: { mutationFn: signOutMock, mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_OUT },
 }))
@@ -106,7 +104,6 @@ beforeEach(() => {
   sessionRequest.mockReset().mockResolvedValue(createAuthSessionFixture())
   currentLicense.mockReset().mockResolvedValue({ license: undefined })
   activations.mockReset().mockResolvedValue({ activations: [], limitActivations: 2 })
-  catalogue.mockReset().mockResolvedValue([])
   signOutMock.mockReset().mockResolvedValue(SIGN_OUT_SUCCESS)
   vi.spyOn(toast, "success").mockReturnValue(0)
   vi.spyOn(toast, "error").mockReturnValue(0)
@@ -139,8 +136,8 @@ describe("customer workspace routes", () => {
   })
 
   it.each([
-    [ROUTES.APP, navigation.overview, pagesAppMessages.metadata.title],
-    [ROUTES.APP_LICENSE, navigation.license, pagesLicenseMessages.metadata.title],
+    [ROUTES.APP, navigationAuthMessages.app.overview, pagesAppMessages.metadata.title],
+    [ROUTES.APP_LICENSE, navigationLicenseMessages.app.license, pagesLicenseMessages.metadata.title],
   ])("loads %s with active navigation, metadata, and a single license lookup", async (path, active, heading) => {
     const { queryClient, router } = await renderApp(path)
     expect(await screen.findByRole("heading", { level: 1, name: heading })).toBeVisible()
@@ -160,7 +157,7 @@ describe("customer workspace routes", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: pagesAppSettingsMessages.metadata.title })).toBeVisible()
     const nav = screen.getByRole("navigation", { name: navigation.label })
-    expect(within(nav).getByRole("link", { name: navigation.settings })).toHaveAttribute("aria-current", "page")
+    expect(within(nav).getByRole("link", { name: navigationAuthMessages.app.settings })).toHaveAttribute("aria-current", "page")
     expect(screen.getByRole("heading", { level: 2, name: preferencesCardMessages.title })).toBeVisible()
     expect(screen.getByRole("combobox", { name: preferencesCardMessages.timezone.label })).toHaveValue(timezonesMessages["Europe/Warsaw"])
     expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "timezones" }).queryKey)).toBeDefined()
@@ -174,9 +171,9 @@ describe("customer workspace routes", () => {
     await renderApp(`${ROUTES.APP_LICENSE}/details`)
     expect(await screen.findByText("Activation details")).toBeVisible()
     const nav = screen.getByRole("navigation", { name: navigation.label })
-    expect(within(nav).getByRole("link", { name: navigation.license })).toHaveAttribute("aria-current", "page")
-    expect(within(nav).getByRole("link", { name: navigation.overview })).not.toHaveAttribute("aria-current")
-    expect(within(screen.getByRole("banner")).getByText(navigation.overview)).toBeVisible()
+    expect(within(nav).getByRole("link", { name: navigationLicenseMessages.app.license })).toHaveAttribute("aria-current", "page")
+    expect(within(nav).getByRole("link", { name: navigationAuthMessages.app.overview })).not.toHaveAttribute("aria-current")
+    expect(within(screen.getByRole("banner")).getByText(navigationAuthMessages.app.overview)).toBeVisible()
   })
 
   it("uses the email as the account name when the profile has no name", async () => {
@@ -191,11 +188,11 @@ describe("customer workspace routes", () => {
     const { router, user } = await renderApp(ROUTES.APP)
     await screen.findByRole("heading", { name: pagesAppMessages.metadata.title })
     const nav = screen.getByRole("navigation", { name: navigation.label })
-    await user.click(within(nav).getByRole("link", { name: navigation.license }))
+    await user.click(within(nav).getByRole("link", { name: navigationLicenseMessages.app.license }))
     expect(await screen.findByRole("heading", { level: 1, name: pagesLicenseMessages.metadata.title })).toBeVisible()
-    await user.click(screen.getByRole("link", { name: "SaaSy Land" }))
+    await user.click(screen.getByRole("link", { name: APP_NAME }))
     expect(await screen.findByRole("heading", { name: pagesAppMessages.metadata.title })).toBeVisible()
-    await user.click(screen.getByRole("link", { name: navigation.documentation }))
+    await user.click(screen.getByRole("link", { name: navigationContentMessages.appResources.docs }))
     expect(await screen.findByRole("heading", { name: "Documentation" })).toBeVisible()
     expect(router.state.location.pathname).toBe(ROUTES.DOCS)
   })
@@ -212,7 +209,7 @@ describe("customer workspace account", () => {
     expect(signOutMock).not.toHaveBeenCalled()
   })
 
-  it("removes the cached session and licence, keeps the catalogue and translations, and opens sign in after successful sign-out", async () => {
+  it("removes the cached session and licence, keeps the translations, and opens sign in after successful sign-out", async () => {
     const { queryClient, router, user } = await renderApp(ROUTES.APP)
     await user.click(await screen.findByRole("button", { name: commonMessages.signOut }))
 
@@ -222,7 +219,6 @@ describe("customer workspace account", () => {
     expect(queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toBeUndefined()
     expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toBeUndefined()
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0)
-    expect(queryClient.getQueryData(catalogueQuery({ locale: "en-US" }).queryKey)).toStrictEqual([])
     expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.app.sidebar" }).queryKey)).toBeDefined()
     expect(toast.success).toHaveBeenCalledWith(commonMessages.signedOut)
     expect(toast.error).not.toHaveBeenCalled()

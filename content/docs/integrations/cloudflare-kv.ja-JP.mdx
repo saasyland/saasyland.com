@@ -10,15 +10,15 @@ description: "CACHE 名前空間：GitHub のスター数と、チェックア�
 サイトに表示する GitHub のスター数で、`src/lib/github.ts` に実装されています。
 
 - `getStarCount` は `github:<owner>/<repo>:stars` エントリーを読み取ります。
-- エントリーがない場合は、3 秒のタイムアウトで GitHub API からリポジトリを取得してスター数を返し、`waitUntil` で `count` と `fetchedAt` を KV に書き込みます。
-- エントリーが 1 時間より古い場合は、キャッシュされたスター数を返し、バックグラウンドで更新します。
-- `starCountQuery` は結果を 1 時間クエリキャッシュに保持します。
+- エントリーがない場合は、<RepositoryFact name="starCountFetchTimeoutSeconds" unit="second" />のタイムアウトで GitHub API からリポジトリを取得してスター数を返し、`waitUntil` で `count` と `fetchedAt` を KV に書き込みます。
+- エントリーが <RepositoryFact name="starCountRefreshHours" unit="hour" />（`STAR_COUNT_REFRESH_AFTER_MS`）より古い場合は、キャッシュされたスター数を返し、バックグラウンドで更新します。
+- `starCountQuery` も同じ時間だけ結果をクエリキャッシュに保持します。`STAR_COUNT_REFRESH_AFTER_MS` はその `staleTime` と `gcTime` でもあります。
 
 エントリーには KV の有効期限を設定しておらず、更新のタイミングは `fetchedAt` で判断します。GitHub へのリクエストは、GitHub OAuth アプリの認証情報 `AUTH_GITHUB_CLIENT_ID` と `AUTH_GITHUB_CLIENT_SECRET` で認証されます。
 
 ## チェックアウトの地域割引
 
-`pppDiscountId`（`src/modules/license/license.ppp.ts`）は `polar:regional-discounts` エントリーを読みます。内容は Polar の自動パーセント割引を、チェックアウトに必要な項目だけに絞ったものと `fetchedAt` です。5 分以内のエントリーはそのまま使います。それ以外、またはエントリーが不正な場合は Polar から割引を取得し直し、完全な一覧を `waitUntil` で書き込みます。取得に失敗した場合はログに記録して保存せず、そのチェックアウトはそれまでに見つかった割引で続行し、次のチェックアウトで再取得します。リクエストの間で Worker のメモリには何も保持しません。
+`pppDiscountId`（`src/modules/license/license.ppp.ts`）は `polar:regional-discounts` エントリーを読みます。内容は Polar の自動パーセント割引を、チェックアウトに必要な項目だけに絞ったものと `fetchedAt` です。<RepositoryFact name="regionalDiscountsRefreshMinutes" unit="minute" />（`license.constants.ts` の `REGIONAL_DISCOUNTS_REFRESH_AFTER_MS`）以内のエントリーはそのまま使います。それ以外、またはエントリーが不正な場合は Polar から割引を取得し直し、完全な一覧を `waitUntil` で書き込みます。取得に失敗した場合はログに記録して保存せず、そのチェックアウトはそれまでに見つかった割引で続行し、次のチェックアウトで再取得します。リクエストの間で Worker のメモリには何も保持しません。
 
 ## 整合性とテスト
 

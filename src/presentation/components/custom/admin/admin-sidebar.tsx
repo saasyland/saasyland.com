@@ -3,6 +3,8 @@ import type { JSX } from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
+import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
+
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
 
 import { cn } from "~/src/lib/cn"
@@ -33,6 +35,7 @@ const isActiveUrl = (pathname: string, url: string): boolean => {
 
 export const AdminSidebar = (): JSX.Element => {
   const t = useTranslations("pages.admin.sidebar")
+  const navigationLabel = useNavigationLabel()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
 
   return (
@@ -74,7 +77,7 @@ export const AdminSidebar = (): JSX.Element => {
                           strokeWidth={1.5}
                         />
                         <span className={cn({ "text-foreground": isActive, "text-sidebar-foreground/80": !isActive })}>
-                          {t(`links.${item.key}`)}
+                          {navigationLabel(item)}
                         </span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

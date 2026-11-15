@@ -17,7 +17,7 @@ description: "Como o acesso é garantido nas rotas e nas server functions, e com
 Os guards só decidem o que o usuário vê. Quem protege os dados é o **middleware das server functions**, em `auth.middleware.ts`, porque qualquer server function pode ser chamada sem passar pela sua página:
 
 - `authorized()` carrega a sessão da requisição e lança `UNAUTHORIZED` quando não há sessão.
-- `authorized({ user: ["ban"] })` também verifica as permissões do papel definidas em `auth.access.ts` e lança `FORBIDDEN`.
+- `authorized({ user: ["ban"] })` também verifica as permissões do papel, que `auth.access.ts` monta a partir dos arquivos de acesso das áreas, e lança `FORBIDDEN`.
 - O handler recebe a sessão como `context.auth`. Operações sobre os dados do próprio chamador usam `context.auth.user.id`, nunca um ID de usuário vindo da entrada.
 
 ## Sessões
@@ -36,6 +36,8 @@ O Better Auth também cuida da verificação de e-mail (obrigatória antes do lo
 
 Os e-mails que um visitante pode disparar têm um segundo limite. `withinRecipientRateLimit` permite <RepositoryFact name="recipientEmailsPerHour" /> e-mails de cada tipo (verificação, redefinição de senha e confirmação da newsletter) por endereço por hora, com a chave em um hash SHA-256 do endereço, e descarta o e-mail silenciosamente além disso.
 
+A API de licenças da CLI conta cada requisição duas vezes na mesma tabela, pelo IP do cliente e por um hash SHA-256 da chave de licença, por meio de `consumeRateLimit`: <RepositoryFact name="cliApiRequestsPerAddress" /> requisições por endereço e <RepositoryFact name="cliApiRequestsPerLicenseKey" /> por chave a cada <RepositoryFact name="cliApiRateLimitSeconds" unit="second" />. O endereço é contado antes de a chave ser lida, e acima de qualquer um dos limites a API responde `rateLimited` com um header `retry-after`. Veja [API de licenças da CLI](/docs/features/cli-licence-api).
+
 ## Headers da resposta
 
 `src/server.ts` define `SECURITY_HEADERS` (uma Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` e `X-Frame-Options`) em toda resposta que o Worker retorna, mais `HTTPS_SECURITY_HEADERS` (`Strict-Transport-Security`) sobre HTTPS, e substitui qualquer valor que a resposta ou uma regra de `public/_headers` já tenha definido. As duas constantes ficam em `src/modules/_core/constants/api.ts`. Os arquivos servidos sem o Worker recebem os mesmos headers da regra `/*` de `public/_headers`, e `src/__test__/server.test.ts` falha quando essa regra e as constantes divergem. Veja [Segurança e hardening](/docs/features/security).
@@ -43,6 +45,8 @@ Os e-mails que um visitante pode disparar têm um segundo limite. `withinRecipie
 ## Links de mídia
 
 Os arquivos de vídeo ficam em um bucket R2 privado. `getVideoPlayback` exige `video: ["read"]`, e `getLessonPlayback` o nível de acesso da aula, antes de assinar um caminho, e a assinatura é um HMAC-SHA-256 com uma chave derivada de `AUTH_SECRET` por HKDF. `serveMedia` responde `403` para uma assinatura errada ou expirada. Um caminho assinado funciona como um link de portador até expirar, pelo menos <RepositoryFact name="signedMediaHours" unit="hour" /> depois de emitido, então quem o tiver pode reproduzir aquele vídeo. Veja [Cloudflare R2](/docs/integrations/cloudflare-r2).
+
+Os pacotes de templates da CLI também ficam em um bucket R2 privado. A API de licenças da CLI só assina a URL de um pacote para uma licença ativa e uma ativação do dispositivo que faz a chamada, com uma chave que o HKDF deriva de `AUTH_SECRET` apenas para os pacotes, então um caminho de vídeo nunca abre um pacote. `serveBundle` responde `403` para uma assinatura errada ou expirada, e uma URL assinada expira <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" /> depois de emitida. Veja [API de licenças da CLI](/docs/features/cli-licence-api#template-bundles).
 
 ## Erros e entrada
 

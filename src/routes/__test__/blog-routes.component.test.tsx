@@ -7,7 +7,7 @@ import { IntlProvider, createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
-import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizeUrl, localizeUrl } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -15,10 +15,12 @@ import { Route as BlogRoute } from "~/src/routes/blog"
 import { Route as BlogPostRoute } from "~/src/routes/blog.$"
 import { Route as BlogIndexRoute } from "~/src/routes/blog.index"
 
+import { NAVIGATION_PAGES } from "~/src/data/navigation"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.json"
+import plContentNavigationMessages from "~/messages/pl-PL/navigation.content.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
@@ -165,13 +167,14 @@ afterEach(() => {
 })
 
 describe("blog routes", () => {
-  it("keeps the blog navigation current and localizes the pricing and docs links", async () => {
+  it("keeps the blog navigation current and localizes the pricing and page links", async () => {
     await renderBlog({ locale: "pl-PL", path: "/pl-PL/blog/guide", post: POLISH_GUIDE })
     const nav = within(screen.getByRole("navigation", { name: plNavigationMessages.ariaLabel }))
-    expect(nav.getByRole("link", { name: plNavigationMessages.items.blog })).toHaveAttribute("aria-current", "page")
-    expect(nav.getByRole("link", { name: plNavigationMessages.items.courses })).toHaveAttribute("href", "/pl-PL/courses")
-    expect(nav.getByRole("link", { name: plNavigationMessages.items.courses })).not.toHaveAttribute("aria-current")
-    expect(nav.getByRole("link", { name: plNavigationMessages.items.docs })).toHaveAttribute("href", "/pl-PL/docs")
+    const pageLabel = getNavigationLabel("pl-PL")
+    expect(nav.getByRole("link", { current: "page" })).toHaveAccessibleName(plContentNavigationMessages.header.blog)
+    for (const entry of NAVIGATION_PAGES) {
+      expect(nav.getByRole("link", { name: pageLabel(entry) })).toHaveAttribute("href", `/pl-PL${entry.to}`)
+    }
     expect(nav.getByRole("link", { name: plNavigationMessages.getStarted })).toHaveAttribute("href", "/pl-PL#pricing")
     expect(screen.getByRole("link", { name: plPagesBlogMessages.post.cta.primary })).toHaveAttribute("href", "/pl-PL#pricing")
     expect(screen.getByRole("link", { name: plPagesBlogMessages.post.cta.secondary })).toHaveAttribute("href", "/pl-PL/docs")

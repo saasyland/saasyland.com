@@ -5,7 +5,7 @@ import {
   createAuthSessionFixture,
   createMissingAuthSessionResult,
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { USERS, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"

@@ -32,7 +32,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { pageHead } from "~/src/lib/seo"
 
-import { AdminReportsPending } from "~/src/presentation/components/custom/admin/overview-pending"
+import { AdminReportsPending } from "~/src/presentation/components/custom/admin/reports-pending"
 import { ReportStats } from "~/src/presentation/components/custom/admin/reports/report-stats"
 
 import { ROUTES } from "~/src/routes"
@@ -70,14 +70,23 @@ export const Route = createFileRoute("/admin/reports")({
 })
 ```
 
-Le query necessarie alla pagina vanno nello stesso `Promise.all`, ad esempio `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` in `src/routes/admin.users.all.tsx`. `pageHead` costruisce titolo, descrizione, URL canonico e link alle altre lingue a partire da `metadata` del loader. `AdminReportsPending` è lo scheletro proprio della pagina, mostrato solo quando una navigazione richiede più di un secondo. Scrivilo nel file del gruppo della barra laterale a cui appartiene la pagina (`overview-pending.tsx`, `offerings-pending.tsx`, `content-pending.tsx` o `administration-pending.tsx` in `custom/admin/`) usando i blocchi di `pending-blocks.tsx`, così che riproduca la struttura della pagina. Poi aggiungilo a `ADMIN_PAGES` in `admin-pending.tsx`, in modo che lo scheletro del layout di amministrazione lo mostri quando qualcuno entra in `/admin/reports` da fuori dell'area di amministrazione. Vedi [Scheletri di caricamento](/docs/architecture/delivery-layer#scheletri-di-caricamento).
+Le query necessarie alla pagina vanno nello stesso `Promise.all`, ad esempio `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` in `src/routes/admin.users.all.tsx`. `pageHead` costruisce titolo, descrizione, URL canonico e link alle altre lingue a partire da `metadata` del loader. `AdminReportsPending` è lo scheletro proprio della pagina, mostrato solo quando una navigazione richiede più di un secondo. Scrivilo nel file degli scheletri della sua area, qui un nuovo `custom/admin/reports-pending.tsx`, usando i blocchi di `pending-blocks.tsx`, così che riproduca la struttura della pagina. Poi aggiungilo alla lista degli scheletri della sua area, qui `REPORTS_SKELETONS` in un nuovo `src/data/reports.skeletons.ts`, e aggiungi il file nuovo al barrel `src/data/skeletons.entries.ts`, in modo che lo scheletro del layout di amministrazione lo mostri quando qualcuno entra in `/admin/reports` da fuori dell'area di amministrazione:
+
+```ts
+export const REPORTS_SKELETONS = [
+  { pendingComponent: AdminReportsPending, to: ROUTES.ADMIN_REPORTS },
+] as const satisfies readonly PageSkeleton[]
+```
+
+Vedi [Scheletri di caricamento](/docs/architecture/delivery-layer#scheletri-di-caricamento).
 
 ## 3. Aggiungi la voce della barra laterale
 
-Aggiungi una voce con `placement: NAVIGATION_PLACEMENT.ADMIN` alla lista di menu della sua area, qui `REPORTS_NAVIGATION` in un nuovo `src/data/reports.navigation.ts`, e aggiungi un file nuovo al barrel `src/data/navigation.entries.ts`. La voce indica il suo gruppo della barra laterale, la sua icona di `lucide-react` e il suo `order` nel gruppo: Dashboard è 10 e Analytics 20, quindi 30 mette Reports dopo di loro.
+Aggiungi una voce con `placement: NAVIGATION_PLACEMENT.ADMIN` alla lista di menu della sua area, qui `REPORTS_NAVIGATION` in un nuovo `src/data/reports.navigation.ts`, e aggiungi un file nuovo al barrel `src/data/navigation.entries.ts`. La voce indica la sua `area`, il suo gruppo della barra laterale, la sua icona di `lucide-react` e il suo `order` nel gruppo: Dashboard è 10 e Analytics 20, quindi 30 mette Reports dopo di loro.
 
 ```ts
 {
+  area: AREA,
   group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
   icon: FileText,
   key: "reports",
@@ -87,7 +96,7 @@ Aggiungi una voce con `placement: NAVIGATION_PLACEMENT.ADMIN` alla lista di menu
 },
 ```
 
-Aggiungi `links.reports` a `messages/<locale>/pages.admin.sidebar.json` in tutte le lingue. Un nuovo gruppo richiede anche un valore in `ADMIN_NAVIGATION_GROUP`, il suo posto in `ADMIN_NAVIGATION_GROUPS` e `groups.<group>`. La barra laterale, le breadcrumb e la palette dei comandi ⌘K leggono tutte `ADMIN_NAVIGATION` (`src/data/navigation.ts`), quindi la pagina compare in tutti e tre i punti. La landing page la conta tra le sezioni dell'admin, e il menu laterale dell'admin nel video `app-tour` della landing page la elenca dopo che il video è stato renderizzato di nuovo (vedi `remotion/README.md`). Un terzo segmento dell'URL, come `/admin/reports/create`, mostra nelle breadcrumb l'etichetta `components.breadcrumbs.actions.create` di `pages.admin.json`.
+Assegna alla voce l'etichetta `admin.reports` nel file `messages/<locale>/navigation.reports.json` dell'area, in tutte le lingue. Un nuovo gruppo richiede anche un valore in `ADMIN_NAVIGATION_GROUP`, il suo posto in `ADMIN_NAVIGATION_GROUPS` e `groups.<group>`. La barra laterale, le breadcrumb e la palette dei comandi ⌘K leggono tutte `ADMIN_NAVIGATION` (`src/data/navigation.ts`), quindi la pagina compare in tutti e tre i punti. La landing page la conta tra le sezioni dell'admin, e il menu laterale dell'admin nel video `app-tour` della landing page la elenca dopo che il video è stato renderizzato di nuovo (vedi `remotion/README.md`). Un terzo segmento dell'URL, come `/admin/reports/create`, mostra nelle breadcrumb l'etichetta `breadcrumbs.create` dello stesso `navigation.reports.json` quando l'area la definisce, e nessun terzo elemento quando non la definisce.
 
 ## 4. Aggiungi i messaggi della pagina
 
@@ -110,4 +119,4 @@ Metti ogni widget, finestra di dialogo, modulo e insieme di colonne di tabella i
 
 - La guardia del layout controlla l'accesso alla pagina. Ogni funzione server chiamata dalla pagina richiede comunque `authorized(permission)`; vedi [Ruoli e permessi](/docs/guides/roles-and-permissions).
 - `/admin` è escluso dal prerendering.
-- Aggiungi i test della route accanto a quelli esistenti in `src/routes/__test__/` e i test dei widget in `src/presentation/components/custom/admin/__test__/`, poi esegui `bun run check:i18n` e `bun run test:coverage`.
+- Aggiungi i test delle route dell'area in `src/routes/__test__/admin-<area>-routes.component.test.tsx` e `admin-<area>-loaders.test.ts`, i test dei widget in `src/presentation/components/custom/admin/__test__/` e la pagina in `e2e/data/<area>.pages.ts`, poi esegui `bun run check:i18n` e `bun run test:coverage`.

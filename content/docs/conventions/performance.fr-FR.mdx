@@ -14,7 +14,7 @@ Chaque règle de cette page est issue d'une mesure, et plusieurs ont remplacé u
 
 ## Gardez petit le graphe de démarrage du Worker
 
-`src/server.ts` s'exécute pour chaque requête HTML (`run_worker_first` dans `wrangler.jsonc`), et tout ce qu'il importe statiquement est évalué à chaque démarrage à froid. Il n'importe que des constantes et des utilitaires purs, et charge le reste lorsqu'une requête en a besoin :
+`src/server.ts` s'exécute pour chaque requête HTML (`run_worker_first` dans `wrangler.jsonc`), et tout ce qu'il importe statiquement est évalué à chaque démarrage à froid. Lui et les handlers du Worker qu'apportent les zones n'importent que des constantes et des utilitaires purs, et chargent le reste lorsqu'une requête en a besoin :
 
 ```ts
 const { default: handler } = await import("@tanstack/react-start/server-entry")
@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-Un seul import statique d'un nom d'en-tête depuis un module qui importait aussi le client Polar a un jour ajouté environ 1,4 Mo de SDK à chaque démarrage à froid, et le premier octet de la page d'accueil mettait jusqu'à 1,4 seconde à arriver. C'est pourquoi `COUNTRY_HEADER` et `IP_ADDRESS_HEADER` se trouvent dans `src/modules/_core/constants/api.ts`, qui n'importe rien de lourd. Avant d'ajouter un import statique à `server.ts`, suivez sa chaîne d'imports : tout ce qui atteint `polar`, `drizzle-orm` ou `resend` est une régression.
+Un seul import statique d'un nom d'en-tête depuis un module qui importait aussi le client Polar a un jour ajouté environ 1,4 Mo de SDK à chaque démarrage à froid, et le premier octet de la page d'accueil mettait jusqu'à 1,4 seconde à arriver. C'est pourquoi `COUNTRY_HEADER` et `IP_ADDRESS_HEADER` se trouvent dans `src/modules/_core/constants/api.ts`, qui n'importe rien de lourd. Avant d'ajouter un import statique à `server.ts` ou à un `<area>.worker.ts`, suivez sa chaîne d'imports : tout ce qui atteint `polar`, `drizzle-orm` ou `resend` est une régression.
 
 ## Les pages prérendues chargent d'abord le CSS et les polices
 
@@ -56,7 +56,7 @@ Seul `src/presentation/styles/globals.css` exécute Tailwind. Les feuilles de st
 @import "@fumadocs/base-ui/css/preset.css";
 ```
 
-Un second build Tailwind dans la feuille de style d'une route a un jour livré ses propres `.hidden`, `.rounded-md` et variables de thème. Les couches de cascade de même nom fusionnent d'une feuille de style à l'autre, et React ne retire jamais une feuille de style qu'il a insérée avec `precedence` : après une visite de la documentation, la page d'accueil perdait sa mise en page responsive et ses polices jusqu'au rechargement. Le test de bout en bout « landing keeps its responsive styles after visiting the docs » de `e2e/specs/navigation.spec.ts` protège contre ce problème. Tout ce qui a besoin de Tailwind passe par `globals.css`.
+Un second build Tailwind dans la feuille de style d'une route a un jour livré ses propres `.hidden`, `.rounded-md` et variables de thème. Les couches de cascade de même nom fusionnent d'une feuille de style à l'autre, et React ne retire jamais une feuille de style qu'il a insérée avec `precedence` : après une visite de la documentation, la page d'accueil perdait sa mise en page responsive et ses polices jusqu'au rechargement. Le test de bout en bout « landing keeps its responsive styles after visiting the docs » de `e2e/specs/landing.spec.ts` protège contre ce problème. Tout ce qui a besoin de Tailwind passe par `globals.css`.
 
 ## Médias
 

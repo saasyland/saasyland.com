@@ -116,7 +116,7 @@ export const sendVerifyEmail = async ({
 
 ## Quem envia o quê
 
-- Os hooks do Better Auth em `src/integrations/better-auth/auth.server.ts` chamam os casos de uso: `sendVerifyEmail` para `emailVerification.sendVerificationEmail` e para novos cadastros de contas não verificadas, `sendResetPasswordEmail` para `emailAndPassword.sendResetPassword` e `sendChangeEmailConfirmationEmail` para `user.changeEmail`.
+- Os hooks do Better Auth em `src/integrations/better-auth/auth.server.ts` chamam os casos de uso por meio de `RESEND_AUTH_EMAILS` (`src/data/resend.auth-emails.ts`): `sendVerifyEmail` para `emailVerification.sendVerificationEmail` e para novos cadastros de contas não verificadas, `sendResetPasswordEmail` para `emailAndPassword.sendResetPassword` e `sendChangeEmailConfirmationEmail` para `user.changeEmail`.
 - As requisições do Better Auth chegam em `/api/auth` sem prefixo de idioma, então os hooks obtêm o idioma do e-mail a partir do `callbackURL` do fluxo, um caminho de página localizado, com `extractLocaleFromCallbackURL` ou `extractLocaleFromPath` de `src/integrations/use-intl/i18n.paths.ts`. O inglês é o idioma de reserva.
 - Os casos de uso da newsletter enviam eles mesmos os e-mails de confirmação e de notificação, por exemplo `subscribeToNewsletter`.
 - `sendVerifyEmail`, `sendResetPasswordEmail` e `subscribeToNewsletter` chamam `withinRecipientRateLimit` (`src/lib/rate-limit.ts`) antes de enviar: no máximo <RepositoryFact name="recipientEmailsPerHour" /> e-mails de um tipo por endereço por hora, com a chave em um hash SHA-256 do endereço. Acima do limite, eles registram um aviso em log e não enviam nada. Adicione a mesma verificação a qualquer e-mail que um visitante possa disparar sem conta.
@@ -125,7 +125,7 @@ export const sendVerifyEmail = async ({
 
 1. Adicione o template em `src/presentation/emails/<name>.tsx` com o `<NAME>_NAMESPACE` exportado.
 2. Adicione `messages/<locale>/emails.<name>.json` em todos os idiomas.
-3. Dê nome ao propósito dele em `EMAIL_PURPOSE` (`src/integrations/resend/resend.constants.ts`) e envie-o a partir do caso de uso dono da ação, passando `idempotency: { purpose, token }` com o token ou o id do registro que o dispara.
+3. Dê nome ao propósito dele no `src/data/<area>.email-purposes.ts` da área, que `src/data/email-purposes.entries.ts` reúne em `EMAIL_PURPOSE`, e envie-o a partir do caso de uso dono da ação, passando `idempotency: { purpose, token }` com o token ou o id do registro que o dispara.
 4. Teste o template em `src/presentation/emails/__test__/` e o caso de uso com `sendEmail` simulado.
 
 Credenciais do Resend: `RESEND_API_KEY` e `RESEND_EMAIL_FROM`. Os testes nunca acessam o Resend.

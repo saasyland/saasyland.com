@@ -14,7 +14,7 @@ Cada regla de esta página salió de una medición, y varias sustituyeron una so
 
 ## Mantén pequeño el grafo de arranque del Worker
 
-`src/server.ts` se ejecuta en cada petición HTML (`run_worker_first` en `wrangler.jsonc`), y todo lo que importa de forma estática se evalúa en cada arranque en frío. Solo importa constantes y helpers puros, y carga el resto cuando una petición lo necesita:
+`src/server.ts` se ejecuta en cada petición HTML (`run_worker_first` en `wrangler.jsonc`), y todo lo que importa de forma estática se evalúa en cada arranque en frío. Tanto él como los handlers del Worker que aportan las áreas solo importan constantes y helpers puros, y cargan el resto cuando una petición lo necesita:
 
 ```ts
 const { default: handler } = await import("@tanstack/react-start/server-entry")
@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-Una vez, una sola importación estática del nombre de una cabecera desde un módulo que también importaba el cliente de Polar metió unos 1,4 MB del SDK en cada arranque en frío, y el primer byte de la página de inicio llegó a tardar hasta 1,4 segundos. Por eso `COUNTRY_HEADER` e `IP_ADDRESS_HEADER` viven en `src/modules/_core/constants/api.ts`, que no importa nada pesado. Antes de añadir una importación estática a `server.ts`, sigue su cadena de importaciones: cualquier cosa que llegue a `polar`, `drizzle-orm` o `resend` es una regresión.
+Una vez, una sola importación estática del nombre de una cabecera desde un módulo que también importaba el cliente de Polar metió unos 1,4 MB del SDK en cada arranque en frío, y el primer byte de la página de inicio llegó a tardar hasta 1,4 segundos. Por eso `COUNTRY_HEADER` e `IP_ADDRESS_HEADER` viven en `src/modules/_core/constants/api.ts`, que no importa nada pesado. Antes de añadir una importación estática a `server.ts` o a un `<area>.worker.ts`, sigue su cadena de importaciones: cualquier cosa que llegue a `polar`, `drizzle-orm` o `resend` es una regresión.
 
 ## Las páginas prerenderizadas cargan primero el CSS y las fuentes
 
@@ -56,7 +56,7 @@ Solo `src/presentation/styles/globals.css` ejecuta Tailwind. Las hojas de estilo
 @import "@fumadocs/base-ui/css/preset.css";
 ```
 
-Una vez, un segundo build de Tailwind en la hoja de estilos de una ruta incluyó sus propias `.hidden`, `.rounded-md` y variables de tema. Las capas de cascada con el mismo nombre se fusionan entre hojas de estilo, y React nunca elimina una hoja de estilos que insertó con `precedence`, así que tras una sola visita a la documentación la página de inicio perdía su diseño adaptable y sus fuentes hasta recargarla. La prueba end-to-end «landing keeps its responsive styles after visiting the docs» de `e2e/specs/navigation.spec.ts` lo vigila. Todo lo que necesite Tailwind pasa por `globals.css`.
+Una vez, un segundo build de Tailwind en la hoja de estilos de una ruta incluyó sus propias `.hidden`, `.rounded-md` y variables de tema. Las capas de cascada con el mismo nombre se fusionan entre hojas de estilo, y React nunca elimina una hoja de estilos que insertó con `precedence`, así que tras una sola visita a la documentación la página de inicio perdía su diseño adaptable y sus fuentes hasta recargarla. La prueba end-to-end «landing keeps its responsive styles after visiting the docs» de `e2e/specs/landing.spec.ts` lo vigila. Todo lo que necesite Tailwind pasa por `globals.css`.
 
 ## Medios
 

@@ -17,7 +17,7 @@ description: "How access is enforced on routes and server functions, and how ses
 Guards only decide what the user sees. **Server function middleware** in `auth.middleware.ts` protects the data, because any server function can be called without its page:
 
 - `authorized()` loads the session for the request and throws `UNAUTHORIZED` without one.
-- `authorized({ user: ["ban"] })` also checks the role's permissions from `auth.access.ts` and throws `FORBIDDEN`.
+- `authorized({ user: ["ban"] })` also checks the role's permissions, which `auth.access.ts` builds from the areas' access files, and throws `FORBIDDEN`.
 - The handler receives the session as `context.auth`. Operations on the caller's own data use `context.auth.user.id`, never a user ID from the input.
 
 ## Sessions
@@ -36,6 +36,8 @@ Better Auth also handles email verification (required before sign-in), password 
 
 Emails a visitor can trigger have a second limit. `withinRecipientRateLimit` allows <RepositoryFact name="recipientEmailsPerHour" /> emails of each kind (verification, password reset and newsletter confirmation) per address per hour, keyed on a SHA-256 hash of the address, and skips the email silently beyond that.
 
+The CLI licence API counts every request twice in the same table, by client IP and by a SHA-256 hash of the licence key, through `consumeRateLimit`: <RepositoryFact name="cliApiRequestsPerAddress" /> requests per address and <RepositoryFact name="cliApiRequestsPerLicenseKey" /> per key in <RepositoryFact name="cliApiRateLimitSeconds" unit="second" />. The address is counted before the key is read, and over either limit it answers `rateLimited` with a `retry-after` header. See [CLI licence API](/docs/features/cli-licence-api).
+
 ## Response headers
 
 `src/server.ts` sets `SECURITY_HEADERS` (a Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` and `X-Frame-Options`) on every response the Worker returns, plus `HTTPS_SECURITY_HEADERS` (`Strict-Transport-Security`) over HTTPS, and replaces any value the response or a `public/_headers` rule already set. Both constants live in `src/modules/_core/constants/api.ts`. Files served without the Worker get the same headers from the `/*` rule in `public/_headers`, and `src/__test__/server.test.ts` fails when that rule and the constants differ. See [Security and hardening](/docs/features/security).
@@ -43,6 +45,8 @@ Emails a visitor can trigger have a second limit. `withinRecipientRateLimit` all
 ## Media links
 
 Video files stay in a private R2 bucket. `getVideoPlayback` requires `video: ["read"]`, and `getLessonPlayback` the lesson's access level, before they sign a path, and the signature is an HMAC-SHA-256 with a key derived from `AUTH_SECRET` by HKDF. `serveMedia` answers `403` for a wrong or expired signature. A signed path works as a bearer link until it expires, at least <RepositoryFact name="signedMediaHours" unit="hour" /> after it is issued, so whoever holds it can play that video. See [Cloudflare R2](/docs/integrations/cloudflare-r2).
+
+The CLI's template bundles stay in a private R2 bucket too. The CLI licence API signs a bundle URL only for an active licence and an activation of the calling machine, with a key that HKDF derives from `AUTH_SECRET` for bundles alone, so a video path never opens a bundle. `serveBundle` answers `403` for a wrong or expired signature, and a signed URL expires <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" /> after it is issued. See [CLI licence API](/docs/features/cli-licence-api#template-bundles).
 
 ## Errors and input
 

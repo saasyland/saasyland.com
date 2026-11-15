@@ -7,13 +7,14 @@ API ルートは、`src/routes/api/` にある TanStack Start のサーバーハ
 
 ## 既存のルート
 
-| ファイル                   | パス          | 用途                                                                                 |
-| -------------------------- | ------------- | ------------------------------------------------------------------------------------ |
-| `src/routes/api/auth.$.ts` | `/api/auth/*` | Better Auth：サインイン、OAuth のコールバック、メール認証、Polar のポータル、Webhook |
-| `src/routes/api/search.ts` | `/api/search` | ドキュメント用の Fumadocs 検索                                                       |
-| `src/routes/api/index.ts`  | `/api`        | `{ "runtime": "cloudflare-workers" }` を返すランタイムチェック                       |
+| ファイル                     | パス                                         | 用途                                                                                 |
+| ---------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `src/routes/api/auth.$.ts`   | `/api/auth/*`                                | Better Auth：サインイン、OAuth のコールバック、メール認証、Polar のポータル、Webhook |
+| `src/routes/api/search.ts`   | `/api/search`                                | ドキュメント用の Fumadocs 検索                                                       |
+| `src/routes/api/index.ts`    | `/api`                                       | `{ "runtime": "cloudflare-workers" }` を返すランタイムチェック                       |
+| `src/routes/api/cli.v1.*.ts` | <RepositoryFact name="cliApiBasePath" />`/*` | `saasyland` CLI が呼び出す [CLI ライセンス API](/docs/features/cli-licence-api)      |
 
-Polar プラグインの `/api/auth/checkout` は Better Auth の `disabledPaths` に含まれており、404 を返します。チェックアウトは `startCheckout` サーバー関数で開始します。Polar の Webhook は `/api/auth/polar/webhooks` に届きます。Better Auth の Polar プラグインが `POLAR_WEBHOOK_SECRET` で署名を検証してから、`license.webhooks.ts` が処理します。
+Polar プラグインはチェックアウトのエンドポイントを追加しません。チェックアウトは `startCheckout` サーバー関数で開始します。Polar の Webhook は `/api/auth/polar/webhooks` に届きます。Better Auth の Polar プラグインが `POLAR_WEBHOOK_SECRET` で署名を検証してから、`license.webhooks.ts` が処理します。
 
 ## ハンドラーを書く
 
@@ -37,7 +38,7 @@ export const Route = createFileRoute("/api/search")({
 
 - クエリやボディを Zod スキーマで検証し、失敗した場合は `HTTP_STATUS.BAD_REQUEST`（`src/modules/_core/constants/api.ts` から）を返します。ハンドラーに新しいステータスが必要な場合は、そこに追加します。
 - `getRequestSession(request)` でセッションを読み取り、`hasPermission` でチェックします。`authorized` のような関数ミドルウェアはサーバー関数に適用されるもので、ハンドラーには適用されません。
-- 公開エンドポイントには、`src/lib/rate-limit.ts` の `withinRateLimit({ key, limit, windowSeconds })` と `clientAddress(request.headers)` でレート制限をかけます。
+- 公開エンドポイントには、`src/lib/rate-limit.ts` の `withinRateLimit({ key, limit, windowSeconds })` と `src/integrations/better-auth/auth.middleware.ts` の `clientAddress(request.headers)` でレート制限をかけます。
 - Webhook のペイロードを信頼する前に、署名を検証します。
 - 安全なエラーボディを返し、詳細は `console.error` でログに記録します。
 
@@ -49,4 +50,4 @@ export const Route = createFileRoute("/api/search")({
 
 ## テスト
 
-`src/routes/api/__test__/handlers.test.ts` が `Route.options.server.handlers` で行っているように、ルートのオプションを通じてハンドラーを呼び出し、転送先のプロバイダーをモックします。
+`src/routes/api/__test__/search.test.ts` が `Route.options.server.handlers` で行っているように、ルートのオプションを通じてハンドラーを呼び出し、転送先のプロバイダーをモックします。

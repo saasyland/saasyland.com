@@ -7,13 +7,14 @@ Le route API sono handler server di TanStack Start in `src/routes/api/`. Le sche
 
 ## Route esistenti
 
-| File                       | Percorso      | Scopo                                                                            |
-| -------------------------- | ------------- | -------------------------------------------------------------------------------- |
-| `src/routes/api/auth.$.ts` | `/api/auth/*` | Better Auth: accesso, callback OAuth, verifica email, portale e webhook di Polar |
-| `src/routes/api/search.ts` | `/api/search` | Ricerca Fumadocs per la documentazione                                           |
-| `src/routes/api/index.ts`  | `/api`        | Controllo del runtime che restituisce `{ "runtime": "cloudflare-workers" }`      |
+| File                         | Percorso                                     | Scopo                                                                                         |
+| ---------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `src/routes/api/auth.$.ts`   | `/api/auth/*`                                | Better Auth: accesso, callback OAuth, verifica email, portale e webhook di Polar              |
+| `src/routes/api/search.ts`   | `/api/search`                                | Ricerca Fumadocs per la documentazione                                                        |
+| `src/routes/api/index.ts`    | `/api`                                       | Controllo del runtime che restituisce `{ "runtime": "cloudflare-workers" }`                   |
+| `src/routes/api/cli.v1.*.ts` | <RepositoryFact name="cliApiBasePath" />`/*` | L'[API delle licenze della CLI](/docs/features/cli-licence-api) che la CLI `saasyland` chiama |
 
-L'endpoint `/api/auth/checkout` del plugin Polar è elencato nei `disabledPaths` di Better Auth e risponde 404; i checkout partono dalla funzione server `startCheckout`. I webhook di Polar arrivano su `/api/auth/polar/webhooks`; il plugin Polar per Better Auth ne verifica la firma con `POLAR_WEBHOOK_SECRET` prima che `license.webhooks.ts` li gestisca.
+Il plugin Polar non aggiunge alcun endpoint di checkout; i checkout partono dalla funzione server `startCheckout`. I webhook di Polar arrivano su `/api/auth/polar/webhooks`; il plugin Polar per Better Auth ne verifica la firma con `POLAR_WEBHOOK_SECRET` prima che `license.webhooks.ts` li gestisca.
 
 ## Scrivi un handler
 
@@ -37,7 +38,7 @@ All'interno di un handler:
 
 - Valida la query o il corpo con uno schema Zod e restituisci `HTTP_STATUS.BAD_REQUEST` (da `src/modules/_core/constants/api.ts`) quando la validazione fallisce. Se all'handler serve un nuovo stato, aggiungilo lì.
 - Leggi la sessione con `getRequestSession(request)` e controllala con `hasPermission`. Il middleware di funzione, come `authorized`, vale per le funzioni server, non per gli handler.
-- Limita le richieste agli endpoint pubblici con `withinRateLimit({ key, limit, windowSeconds })` e `clientAddress(request.headers)` di `src/lib/rate-limit.ts`.
+- Limita le richieste agli endpoint pubblici con `withinRateLimit({ key, limit, windowSeconds })` di `src/lib/rate-limit.ts` e `clientAddress(request.headers)` di `src/integrations/better-auth/auth.middleware.ts`.
 - Verifica le firme prima di fidarti del contenuto di un webhook.
 - Restituisci corpi di errore sicuri e registra i dettagli con `console.error`.
 
@@ -49,4 +50,4 @@ All'interno di un handler:
 
 ## Test
 
-Chiama l'handler tramite le opzioni della route, come fa `src/routes/api/__test__/handlers.test.ts` con `Route.options.server.handlers`, e simula il provider a cui inoltra la richiesta.
+Chiama l'handler tramite le opzioni della route, come fa `src/routes/api/__test__/search.test.ts` con `Route.options.server.handlers`, e simula il provider a cui inoltra la richiesta.

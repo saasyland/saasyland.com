@@ -6,8 +6,6 @@ import { course } from "~/src/modules/course/course.schema"
 import { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
 import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
-import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
-import { license } from "~/src/modules/license/license.schema"
 import { user } from "~/src/modules/user/user.schema"
 import { video } from "~/src/modules/video/video.schema"
 
@@ -29,9 +27,7 @@ export const LESSON_IDS = {
 } as const
 
 export const USERS = {
-  BUYER: "01960000-0000-7000-8000-0000000b0001",
-  CORE_BUYER: "01960000-0000-7000-8000-0000000b0002",
-  REFUNDED: "01960000-0000-7000-8000-0000000b0003",
+  ENTITLED: "01960000-0000-7000-8000-0000000b0001",
   VISITOR: "01960000-0000-7000-8000-0000000b0004",
 } as const
 
@@ -40,21 +36,9 @@ const DURATION_MS = 125_000
 export const seedCatalogue = async (): Promise<void> => {
   await db.delete(course)
   await db.delete(video)
-  await db.delete(license)
   await db.delete(user)
 
   await db.insert(user).values(Object.values(USERS).map((id) => ({ email: `${id}@example.test`, id, name: "Learner" })))
-  await db.insert(license).values([
-    { id: "licence-buyer", polarCustomerId: "customer", status: LICENSE_STATUS.ACTIVE, tier: LICENSE_TIER.COMPLETE, userId: USERS.BUYER },
-    { id: "licence-core", polarCustomerId: "customer", status: LICENSE_STATUS.ACTIVE, tier: LICENSE_TIER.CORE, userId: USERS.CORE_BUYER },
-    {
-      id: "licence-refunded",
-      polarCustomerId: "customer",
-      status: LICENSE_STATUS.REVOKED,
-      tier: LICENSE_TIER.AGENCY,
-      userId: USERS.REFUNDED,
-    },
-  ])
   await db
     .insert(video)
     .values({ captionLocales: ["en-US"], durationMs: DURATION_MS, height: 1080, id: IDS.VIDEO, sizeBytes: 1, title: "Lesson", width: 1920 })

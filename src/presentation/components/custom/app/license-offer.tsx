@@ -4,8 +4,9 @@ import { useTranslations } from "use-intl/react"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
+import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
+
 import { CheckoutAgreement, CheckoutButton } from "~/src/presentation/components/custom/app/checkout"
-import { CourseUnlocks } from "~/src/presentation/components/custom/app/course-unlocks"
 import { PricingTiers, type TierAction } from "~/src/presentation/components/custom/pricing"
 
 const TierCheckoutButton: TierAction = ({ featured, tier }) => {
@@ -34,7 +35,9 @@ export const LicenseOffer = (): JSX.Element => {
         <PricingTiers Action={TierCheckoutButton} />
       </MotionProvider>
       <CheckoutAgreement />
-      <CourseUnlocks />
+      {LICENSE_OFFER_SECTIONS.map(({ key, Section }) => (
+        <Section key={key} />
+      ))}
     </section>
   )
 }

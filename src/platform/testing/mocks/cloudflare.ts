@@ -1,6 +1,8 @@
+import { parse } from "jsonc-parser"
 import { readFileSync, readdirSync } from "node:fs"
 import { resolve } from "node:path"
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
+import * as zod from "zod"
 
 const database = new DatabaseSync(":memory:")
 const migrations = resolve("src/integrations/drizzle-orm/migrations")
@@ -36,24 +38,64 @@ const prepare = (query: string, values: SQLInputValue[] = []) => ({
 const cache = new Map<string, string>()
 const pendingTasks = new Set<Promise<unknown>>()
 
-interface StoredMediaObject {
+interface StoredObject {
   readonly body: Uint8Array<ArrayBuffer>
   readonly etag: string
 }
 
-interface MediaRange {
+interface ObjectRange {
   readonly length: number
   readonly offset: number
 }
 
-const MEDIA_LIST_LIMIT = 1000
-const media = new Map<string, StoredMediaObject>()
+const BUCKET_LIST_LIMIT = 1000
 
-const mediaMetadata = (key: string, stored: StoredMediaObject) => ({ httpEtag: `"${stored.etag}"`, key, size: stored.body.byteLength })
+const bucketListSchema = zod.array(zod.object({ binding: zod.string() })).default([])
+const testBucketsSchema = zod.object({ env: zod.object({ test: zod.object({ r2_buckets: bucketListSchema }) }) })
+
+const wranglerConfig: unknown = parse(readFileSync(resolve("wrangler.jsonc"), "utf8"))
+const testBuckets = testBucketsSchema.parse(wranglerConfig).env.test.r2_buckets
+
+const buckets = new Map(testBuckets.map(({ binding }) => [binding, new Map<string, StoredObject>()]))
+
+const objectMetadata = (key: string, stored: StoredObject) => ({ httpEtag: `"${stored.etag}"`, key, size: stored.body.byteLength })
+
+const createBucket = (objects: Map<string, StoredObject>) => ({
+  delete: async (keys: string | string[]) => {
+    for (const key of [keys].flat()) {
+      objects.delete(key)
+    }
+  },
+  get: async (key: string, options?: { range?: ObjectRange }) => {
+    const stored = objects.get(key)
+    if (stored === undefined) {
+      return null
+    }
+    const range = options?.range
+    const body = range === undefined ? stored.body : stored.body.slice(range.offset, range.offset + range.length)
+    return { ...objectMetadata(key, stored), body: new Blob([body]).stream() }
+  },
+  head: async (key: string) => {
+    const stored = objects.get(key)
+    return stored === undefined ? null : objectMetadata(key, stored)
+  },
+  list: async ({ cursor, limit = BUCKET_LIST_LIMIT, prefix = "" }: { cursor?: string; limit?: number; prefix?: string } = {}) => {
+    const keys = [...objects.keys()].filter((key) => key.startsWith(prefix) && (cursor === undefined || key > cursor)).toSorted()
+    const page = keys.slice(0, limit)
+    const truncated = keys.length > limit
+    return { objects: page.map((key) => ({ key })), truncated, ...(truncated ? { cursor: page.at(-1) } : {}) }
+  },
+  put: async (key: string, value: string | Uint8Array<ArrayBuffer>) => {
+    const body = typeof value === "string" ? new TextEncoder().encode(value) : value
+    objects.set(key, { body, etag: `${key}:${String(body.byteLength)}` })
+  },
+})
 
 export const resetTestBindings = (): void => {
   cache.clear()
-  media.clear()
+  for (const objects of buckets.values()) {
+    objects.clear()
+  }
   pendingTasks.clear()
   database.exec("DELETE FROM rate_limit")
 }
@@ -90,35 +132,7 @@ export const env = {
     },
     prepare,
   },
-  MEDIA: {
-    delete: async (keys: string | string[]) => {
-      for (const key of [keys].flat()) {
-        media.delete(key)
-      }
-    },
-    get: async (key: string, options?: { range?: MediaRange }) => {
-      const stored = media.get(key)
-      if (stored === undefined) {
-        return null
-      }
-      const range = options?.range
-      const body = range === undefined ? stored.body : stored.body.slice(range.offset, range.offset + range.length)
-      return { ...mediaMetadata(key, stored), body: new Blob([body]).stream() }
-    },
-    head: async (key: string) => {
-      const stored = media.get(key)
-      return stored === undefined ? null : mediaMetadata(key, stored)
-    },
-    list: async ({ cursor, limit = MEDIA_LIST_LIMIT, prefix = "" }: { cursor?: string; limit?: number; prefix?: string } = {}) => {
-      const keys = [...media.keys()].filter((key) => key.startsWith(prefix) && (cursor === undefined || key > cursor)).toSorted()
-      const page = keys.slice(0, limit)
-      const truncated = keys.length > limit
-      return { objects: page.map((key) => ({ key })), truncated, ...(truncated ? { cursor: page.at(-1) } : {}) }
-    },
-    put: async (key: string, value: string) => {
-      media.set(key, { body: new TextEncoder().encode(value), etag: `${key}:${String(value.length)}` })
-    },
-  },
+  ...Object.fromEntries([...buckets].map(([binding, objects]) => [binding, createBucket(objects)] as const)),
 }
 
 export const waitUntil = (promise: Promise<unknown>): void => {

@@ -15,7 +15,7 @@ import { cn } from "~/src/lib/cn"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 
 import { ItemName } from "~/src/presentation/components/custom/admin/products/product-columns"
-import { RowActionsCell } from "~/src/presentation/components/custom/admin/row-actions-cell"
+import { RowActionsCell } from "~/src/presentation/components/custom/admin/products/row-actions-cell"
 import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 const ITEMS_PLACEHOLDER = "0"
@@ -57,11 +57,11 @@ const VisibilityCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow
 }
 
 const ItemsCell = (): JSX.Element => {
-  const t = useTranslations("pages.admin.labels")
+  const t = useTranslations("pages.admin.products.categories.table")
 
   return (
     <div className="text-sm font-medium text-foreground">
-      {ITEMS_PLACEHOLDER} <span className="font-normal text-muted-foreground">{t("products")}</span>
+      {ITEMS_PLACEHOLDER} <span className="font-normal text-muted-foreground">{t("itemsUnit")}</span>
     </div>
   )
 }

@@ -6,7 +6,7 @@ import {
   createAuthSessionFixture,
   createMissingAuthSessionResult,
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
@@ -16,6 +16,8 @@ import { IDS, LESSON_IDS, USERS, recordProgress, seedCatalogue } from "~/src/mod
 import { COURSE_KIND } from "~/src/modules/course/course.constants"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { courseQuery } from "~/src/modules/course/use-cases/get-course"
+
+vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
 
 const signIn = (userId: string, role: string = ROLE_CODES.CUSTOMER): void => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role, userId }))
@@ -101,19 +103,21 @@ describe("getCourse", () => {
     ])
     expect(page.chapters[0]?.lessons[0]).toMatchObject({ durationMs: 125_000, title: "Granice" })
     expect(page.chapters[1]?.lessons[1]).toMatchObject({ durationMs: null })
-    expect(page.viewer).toStrictEqual({ licensed: false, signedIn: false })
+    expect(page.viewer).toStrictEqual({ signedIn: false })
   })
 
   it.each([
     { expected: { billing: true, boundaries: false, coverage: true, sessions: true }, name: "a visitor", user: undefined },
     {
       expected: { billing: true, boundaries: false, coverage: true, sessions: false },
-      name: "an account without a licence",
+      name: "an account without course access",
       user: USERS.VISITOR,
     },
-    { expected: { billing: true, boundaries: false, coverage: true, sessions: false }, name: "a Core licence", user: USERS.CORE_BUYER },
-    { expected: { billing: true, boundaries: false, coverage: true, sessions: false }, name: "a revoked licence", user: USERS.REFUNDED },
-    { expected: { billing: false, boundaries: false, coverage: false, sessions: false }, name: "a Complete licence", user: USERS.BUYER },
+    {
+      expected: { billing: false, boundaries: false, coverage: false, sessions: false },
+      name: "an account an area grants course access",
+      user: USERS.ENTITLED,
+    },
   ])("locks lessons for $name", async ({ expected, user }) => {
     if (user === undefined) {
       signOut()
@@ -131,9 +135,9 @@ describe("getCourse", () => {
   })
 
   it("returns the viewer's own progress", async () => {
-    signIn(USERS.BUYER)
-    await recordProgress({ completedAt: new Date(), lessonId: LESSON_IDS.PREVIEW, positionMs: 0, userId: USERS.BUYER })
-    await recordProgress({ lessonId: LESSON_IDS.ACCOUNT, positionMs: 42_000, userId: USERS.BUYER })
+    signIn(USERS.ENTITLED)
+    await recordProgress({ completedAt: new Date(), lessonId: LESSON_IDS.PREVIEW, positionMs: 0, userId: USERS.ENTITLED })
+    await recordProgress({ lessonId: LESSON_IDS.ACCOUNT, positionMs: 42_000, userId: USERS.ENTITLED })
     await recordProgress({ completedAt: new Date(), lessonId: LESSON_IDS.PAID, positionMs: 0, userId: USERS.VISITOR })
 
     const page = await executeQuery(courseQuery({ locale: "en-US", slug: "the-walkthrough" }))
@@ -145,7 +149,7 @@ describe("getCourse", () => {
       ["billing", false, 0],
       ["coverage", false, 0],
     ])
-    expect(page.viewer).toStrictEqual({ licensed: true, signedIn: true })
+    expect(page.viewer).toStrictEqual({ signedIn: true })
   })
 
   it.each(["unreleased", "missing"])("reports %s as not found", async (slug) => {

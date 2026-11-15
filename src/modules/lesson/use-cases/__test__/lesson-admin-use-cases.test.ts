@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
@@ -130,7 +130,7 @@ describe("updateLesson", () => {
 describe("deleteLesson", () => {
   it("removes the lesson and the progress in it", async () => {
     signInAs(ROLE_CODES.ADMIN)
-    await recordProgress({ lessonId: LESSON_IDS.ACCOUNT, positionMs: 1000, userId: USERS.BUYER })
+    await recordProgress({ lessonId: LESSON_IDS.ACCOUNT, positionMs: 1000, userId: USERS.ENTITLED })
 
     await executeMutation(deleteLessonMutation, { lessonId: LESSON_IDS.ACCOUNT })
 

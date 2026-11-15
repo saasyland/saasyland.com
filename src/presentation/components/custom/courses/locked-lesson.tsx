@@ -6,9 +6,10 @@ import { useTranslations } from "use-intl/react"
 
 import type { Course } from "~/src/modules/course/course.types"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
-import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
+
+import { COURSE_ACCESS_GRANTS } from "~/src/data/course-access"
 
 import { ROUTES } from "~/src/routes"
 
@@ -20,7 +21,8 @@ interface LockedLessonProps {
   readonly signedIn: boolean
 }
 
-export const UnlockLink = ({ access, signedIn }: LockedLessonProps): JSX.Element => {
+export const UnlockLink = ({ access, signedIn }: LockedLessonProps): JSX.Element | JSX.Element[] => {
+  const tName = useTranslations()
   const t = useTranslations("pages.courses.lesson.locked")
   const redirect = useRouterState({ select: ({ location }) => location.publicHref })
 
@@ -32,23 +34,17 @@ export const UnlockLink = ({ access, signedIn }: LockedLessonProps): JSX.Element
     )
   }
 
-  if (signedIn) {
-    return (
-      <Link className={CTA_CLASSNAME} search={{ tier: LICENSE_TIER.COMPLETE }} to={ROUTES.APP_LICENSE}>
-        {t("paid.cta")}
-      </Link>
-    )
-  }
-
-  return (
-    <Link className={CTA_CLASSNAME} hash={MARKETING_SECTION_IDS.PRICING} to={ROUTES.HOME}>
-      {t("paid.cta")}
+  return COURSE_ACCESS_GRANTS.map(({ key, offer, unlock }) => (
+    <Link className={CTA_CLASSNAME} key={key} {...(signedIn ? unlock.signedIn : unlock.signedOut)}>
+      {t("paid.cta", { offer: tName(offer) })}
     </Link>
-  )
+  ))
 }
 
 export const LockedLesson = ({ access, signedIn }: LockedLessonProps): JSX.Element => {
   const t = useTranslations("pages.courses.lesson.locked")
+
+  const { offer } = useCourseAccessNames()
   const reason = access === LESSON_ACCESS.ACCOUNT ? LESSON_ACCESS.ACCOUNT : LESSON_ACCESS.PAID
 
   return (
@@ -56,8 +52,8 @@ export const LockedLesson = ({ access, signedIn }: LockedLessonProps): JSX.Eleme
       <span aria-hidden className="flex size-11 items-center justify-center rounded-full border border-ring/40 bg-ring/10">
         <Lock className="size-4 text-ring" strokeWidth={2.25} />
       </span>
-      <h2 className="mt-5 text-title text-balance text-foreground">{t(`${reason}.title`)}</h2>
-      <p className="mt-2 max-w-[46ch] text-body-sm text-pretty text-muted-foreground">{t(`${reason}.body`)}</p>
+      <h2 className="mt-5 text-title text-balance text-foreground">{t(`${reason}.title`, { offer })}</h2>
+      <p className="mt-2 max-w-[46ch] text-body-sm text-pretty text-muted-foreground">{t(`${reason}.body`, { offer })}</p>
       <UnlockLink access={access} signedIn={signedIn} />
     </div>
   )

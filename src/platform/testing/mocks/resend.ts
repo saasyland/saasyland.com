@@ -3,7 +3,9 @@ import { env } from "cloudflare:workers"
 import type { CreateEmailResponseSuccess, EmailApiOptions, ErrorResponse } from "resend"
 import * as zod from "zod"
 
-import { resend } from "~/src/integrations/resend/resend.config"
+import type { ProviderDouble } from "~/src/platform/testing/mocks/providers"
+
+import { resendClient } from "~/src/integrations/resend/resend.config"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
@@ -40,7 +42,7 @@ const idempotentRequests = new Map<string, { readonly body: string; readonly id:
 export const getSentEmails = (recipient?: string): SentEmail[] =>
   sentEmails.filter(({ to }) => recipient === undefined || to.includes(recipient))
 
-export const resetResend = (): void => {
+const resetResend = (): void => {
   sentEmails.length = 0
   idempotentRequests.clear()
 }
@@ -75,7 +77,8 @@ const sendEmail = async (request: Request) => {
 }
 
 export const resendApi = {
-  origin: new URL(resend.baseUrl).origin,
+  origin: new URL(resendClient().baseUrl).origin,
+  reset: resetResend,
   respond: async (request: Request) => {
     if (request.headers.get("Authorization") !== `Bearer ${env.RESEND_API_KEY}`) {
       return refuse(HTTP_STATUS.UNAUTHORIZED, "missing_api_key", "Missing or invalid API key in the authorization header.")
@@ -86,3 +89,5 @@ export const resendApi = {
     return sendEmail(request)
   },
 }
+
+export const RESEND_PROVIDER_DOUBLES = [resendApi] as const satisfies readonly ProviderDouble[]

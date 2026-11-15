@@ -15,7 +15,7 @@ description: "Os projetos do Vitest, a exigência de cobertura, a suíte do Play
 
 Nenhum teste acessa uma conta real do Cloudflare ou um provedor real:
 
-- O D1 é um banco SQLite em memória que executa as migrações versionadas no repositório, e o KV e o bucket R2 `MEDIA` são mapas em memória. O KV, o bucket e os contadores de rate limit são reiniciados antes de cada teste, e `createEdgeCache` faz o stub do cache do Workers.
+- O D1 é um banco SQLite em memória que executa as migrações versionadas no repositório, e o KV e os buckets R2 `MEDIA` e `BUNDLES` são mapas em memória. O KV, os buckets e os contadores de rate limit são reiniciados antes de cada teste, e `createEdgeCache` faz o stub do cache do Workers.
 - `createServerFn` é substituído para que uma server function rode no próprio processo, passando pelo middleware e pelo validator reais. Isso vale para os projetos `node` e `integration`. No projeto `component` uma server function falha, porque o jsdom é o navegador.
 - Os testes de componente renderizam com um `QueryClient` e um router reais.
 - O `fetch` chega a dublês estritos do Resend e do Polar em vez da rede, e qualquer outro host falha como se a máquina estivesse offline.
@@ -26,7 +26,8 @@ Nenhum teste acessa uma conta real do Cloudflare ou um provedor real:
 
 - Eles verificam o que o provedor verifica: a chave de API ou o token de acesso, o endpoint e o método, e o corpo ou os parâmetros de consulta, com schemas Zod estritos tipados a partir dos próprios modelos de requisição dos SDKs (`EmailApiOptions`, `models.CheckoutCreate`, `models.LicenseKeyDeactivate`). O dublê do Polar também recusa um produto ou um desconto que a organização não tem.
 - Eles respondem como o provedor responde: o Resend reproduz a resposta de um `Idempotency-Key` repetido em vez de enviar duas vezes e responde 409 quando a chave volta com um e-mail diferente; o Polar retorna objetos `models.Checkout`, `models.Order` e `models.LicenseKeyWithActivations` completos e um 404 para um pedido ou uma chave que ele não tem.
-- O catálogo do Polar vem do código: os IDs de produto em `POLAR_PRODUCT_IDS`, os preços em `TIER_PRICES`, os limites de ativações das chaves de licença em `LICENSE_ACTIVATION_LIMITS` e um desconto percentual automático para cada valor de `PPP_PERCENTS_OFF`.
+- O dublê do Polar serve os produtos, os descontos e os benefícios de chave de licença que as áreas carregam nele, cada uma a partir de `__test__/fixtures/<area>.polar-catalogue.ts` no seu módulo, reunidos por `src/platform/testing/mocks/polar-catalogue.entries.ts`. Um produto tem um ID, um nome, um preço na menor unidade da moeda junto com essa moeda e um intervalo de cobrança, ou nenhum para uma compra única. O dublê recarrega o catálogo a cada reset, então um produto que um teste adiciona com `seedPolarCatalogue`, como um plano mensal, não existe mais no teste seguinte.
+- O catálogo da área de licenças vem do código: um produto por plano com o ID em `POLAR_PRODUCT_IDS` e o preço em `TIER_PRICES`, para cada um um benefício de chave de licença com o limite de ativações em `LICENSE_ACTIVATION_LIMITS`, e um desconto percentual automático para cada valor de `PPP_PERCENTS_OFF`.
 - Uma requisição que o provedor recusaria ou uma chamada a um endpoint que o app não usa é registrada, e um `afterEach` compartilhado faz o teste falhar, mesmo quando o app capturou o erro.
 
 ## Suítes de integração
@@ -35,6 +36,7 @@ Os arquivos `*.integration.test.ts` exercitam fluxos inteiros do lado do servido
 
 - As suítes do Better Auth rodam contra o `auth` real de `auth.server.ts`, incluindo seus plugins, hooks, rate limits e funções de envio de e-mail. `__test__/fixtures/auth.harness.ts` faz o cadastro, a verificação e o login com os cabeçalhos que um navegador envia e lê cada token do e-mail que o dublê do Resend entregou.
 - `license-purchase.integration.test.ts` cobre pagamentos e licenças: a criação do checkout (o plano, o desconto regional por país, os metadados de indicação, a recusa com uma licença ativa), depois os webhooks assinados `order.paid`, `benefit_grant.created`, `order.refunded` (parcial e total) e `benefit_grant.revoked` pelo endpoint do Polar no Better Auth, entregues fora de ordem, duas vezes e com assinaturas inválidas, e a listagem das ativações da licença e a desativação.
+- `license.api.integration.test.ts` cobre a [API de licenças da CLI](/docs/features/cli-licence-api): todos os endpoints contra o D1 e o dublê do Polar, para licenças compradas pelos handlers de webhook reais, com a reutilização da ativação de um dispositivo, o limite de ativações, licenças reembolsadas e revogadas, os limites de requisições por endereço e por chave e as falhas do Polar. Ele lê cada resposta com o `readApiResponse` do contrato, e `e2e/specs/cli-licence-api.spec.ts` chama o Worker gerado pelo build do mesmo jeito que a CLI.
 
 ## Cobertura
 
@@ -43,6 +45,8 @@ Os arquivos `*.integration.test.ts` exercitam fluxos inteiros do lado do servido
 ## Testes de navegador
 
 As specs do Playwright ficam em `e2e/specs`, com os page objects em `e2e/pages` e as fixtures em `e2e/fixtures`. Elas rodam contra um build semelhante ao de produção que usa o ambiente Wrangler `test`: D1, KV e R2 locais em `.wrangler/test`, secrets fictícios de `.env.test` e um Worker de teste que instala os mesmos dublês do Resend e do Polar e expõe os e-mails entregues, para que uma spec possa seguir um link de verificação real. `e2e/fixtures/polar.ts` entrega um pedido pago assinado exatamente como as suítes de integração assinam os delas. Localmente, o próprio Playwright aplica as migrações, popula o banco, faz o build e inicia o app. A suíte roda no Chromium e no WebKit.
+
+A suíte da jornada do cliente em `e2e/journey/` é a exceção: ela roda manualmente contra o deploy de preview, com e-mails reais, o sandbox do Polar e a CLI publicada. Veja [Suíte da jornada do cliente](/docs/tooling/playwright#journey-suite).
 
 ## Scripts
 
@@ -57,6 +61,7 @@ bun run test:coverage
 bun run test:e2e
 bun run test:e2e:smoke
 bun run test:e2e:pr
+bun run test:journey
 ```
 
 ## CI

@@ -15,7 +15,7 @@ description: "Die Vitest-Projekte, die Schwelle für die Testabdeckung, die Play
 
 Kein Test kontaktiert ein echtes Cloudflare-Konto oder einen echten Anbieter:
 
-- D1 ist eine SQLite-Datenbank im Arbeitsspeicher, die die eingecheckten Migrationen ausführt, und KV sowie der R2-Bucket `MEDIA` sind Maps im Arbeitsspeicher. KV, der Bucket und die Rate-Limit-Zähler werden vor jedem Test zurückgesetzt, und `createEdgeCache` ersetzt den Workers-Cache durch einen Stub.
+- D1 ist eine SQLite-Datenbank im Arbeitsspeicher, die die eingecheckten Migrationen ausführt, und KV sowie die R2-Buckets `MEDIA` und `BUNDLES` sind Maps im Arbeitsspeicher. KV, die Buckets und die Rate-Limit-Zähler werden vor jedem Test zurückgesetzt, und `createEdgeCache` ersetzt den Workers-Cache durch einen Stub.
 - `createServerFn` wird ersetzt, sodass eine Server Function im selben Prozess durch ihre echte Middleware und ihren echten Validator läuft. Das gilt in den Projekten `node` und `integration`. Im Projekt `component` schlägt eine Serverfunktion fehl, weil jsdom der Browser ist.
 - Komponententests rendern mit einem echten `QueryClient` und einem echten Router.
 - `fetch` erreicht statt des Netzwerks strikte Test-Doubles von Resend und Polar, und jeder andere Host schlägt fehl, als wäre der Rechner offline.
@@ -26,7 +26,8 @@ Kein Test kontaktiert ein echtes Cloudflare-Konto oder einen echten Anbieter:
 
 - Sie prüfen, was der Anbieter prüft: den API-Schlüssel oder das Zugriffstoken, Endpunkt und Methode sowie den Body oder die Query, mit strikten Zod-Schemas, die gegen die eigenen Request-Modelle der SDKs typisiert sind (`EmailApiOptions`, `models.CheckoutCreate`, `models.LicenseKeyDeactivate`). Das Double von Polar lehnt außerdem Produkte und Rabatte ab, die die Organisation nicht hat.
 - Sie antworten, wie der Anbieter antwortet: Resend wiederholt bei einem erneut gesendeten `Idempotency-Key` die erste Antwort, statt zweimal zu versenden, und antwortet mit 409, wenn der Schlüssel mit einer anderen E-Mail zurückkommt; Polar gibt vollständige Objekte vom Typ `models.Checkout`, `models.Order` und `models.LicenseKeyWithActivations` zurück und antwortet mit 404, wenn es die Bestellung oder den Schlüssel nicht hat.
-- Der Polar-Katalog stammt aus dem Code: die Produkt-IDs in `POLAR_PRODUCT_IDS`, die Preise in `TIER_PRICES`, die Aktivierungslimits der Lizenzschlüssel in `LICENSE_ACTIVATION_LIMITS` und ein automatischer Prozentrabatt für jeden Wert in `PPP_PERCENTS_OFF`.
+- Das Double von Polar liefert die Produkte, Rabatte und Lizenzschlüssel-Benefits, die die Bereiche einspielen, jeder aus `__test__/fixtures/<area>.polar-catalogue.ts` in seinem Modul, zusammengeführt durch `src/platform/testing/mocks/polar-catalogue.entries.ts`. Ein Produkt hat eine ID, einen Namen, einen Preis in der kleinsten Einheit seiner Währung samt dieser Währung und ein Abrechnungsintervall, bei einem Einmalkauf keines. Das Double spielt den Katalog bei jedem Zurücksetzen neu ein, sodass ein Produkt, das ein Test mit `seedPolarCatalogue` hinzufügt, etwa ein Monatsabo, im nächsten Test fehlt.
+- Der Katalog des Lizenzbereichs stammt aus dem Code: ein Produkt pro Stufe mit seiner ID aus `POLAR_PRODUCT_IDS` und seinem Preis aus `TIER_PRICES`, zu jedem ein Lizenzschlüssel-Benefit mit dem Aktivierungslimit aus `LICENSE_ACTIVATION_LIMITS` und ein automatischer Prozentrabatt für jeden Wert in `PPP_PERCENTS_OFF`.
 - Ein Request, den der Anbieter ablehnen würde, oder ein Endpunkt, den die App nicht aufruft, wird festgehalten, und ein gemeinsames `afterEach` lässt den Test fehlschlagen, auch wenn die App den Fehler abgefangen hat.
 
 ## Integrations-Suites
@@ -35,6 +36,7 @@ Kein Test kontaktiert ein echtes Cloudflare-Konto oder einen echten Anbieter:
 
 - Die Better-Auth-Suites laufen gegen das echte `auth` aus `auth.server.ts`, einschließlich seiner Plugins, Hooks, Rate-Limits und E-Mail-Versender. `__test__/fixtures/auth.harness.ts` übernimmt Registrierung, Verifizierung und Anmeldung mit den Headern, die ein Browser sendet, und liest jedes Token aus der E-Mail, die das Resend-Double zugestellt hat.
 - `license-purchase.integration.test.ts` deckt Zahlungen und Lizenzen ab: das Erstellen des Checkouts (die Stufe, den regionalen Rabatt nach Land, die Metadaten der Partnerempfehlung, die Ablehnung bei aktiver Lizenz), dann signierte Webhooks `order.paid`, `benefit_grant.created`, `order.refunded` (Teil- und Vollerstattung) und `benefit_grant.revoked` über den Polar-Endpunkt von Better Auth, zugestellt in falscher Reihenfolge, doppelt und mit ungültigen Signaturen, sowie das Auflisten und Deaktivieren der Lizenzaktivierungen.
+- `license.api.integration.test.ts` deckt die [CLI-Lizenz-API](/docs/features/cli-licence-api) ab: jeden Endpunkt gegen D1 und das Polar-Double, für Lizenzen, die über die echten Webhook-Handler gekauft wurden, mit der wiederverwendeten Aktivierung eines Geräts, dem Aktivierungslimit, erstatteten und widerrufenen Lizenzen, den Rate-Limits pro Adresse und pro Schlüssel sowie Polar-Ausfällen. Die Suite liest jede Antwort mit `readApiResponse` aus dem Vertrag, und `e2e/specs/cli-licence-api.spec.ts` ruft den gebauten Worker so auf, wie es die CLI tut.
 
 ## Testabdeckung
 
@@ -43,6 +45,8 @@ Kein Test kontaktiert ein echtes Cloudflare-Konto oder einen echten Anbieter:
 ## Browsertests
 
 Playwright-Specs liegen in `e2e/specs`, die Page Objects in `e2e/pages` und die Fixtures in `e2e/fixtures`. Sie laufen gegen einen produktionsnahen Build, der die Wrangler-Umgebung `test` nutzt: lokale D1, lokaler KV und lokales R2 in `.wrangler/test`, Dummy-Secrets aus `.env.test` und ein Test-Worker, der dieselben Test-Doubles von Resend und Polar installiert und die zugestellte E-Mail bereitstellt, damit eine Spec einem echten Verifizierungslink folgen kann. `e2e/fixtures/polar.ts` stellt eine bezahlte Bestellung zu, die genau so signiert ist, wie die Integrations-Suites ihre signieren. Lokal migriert, befüllt, baut und startet Playwright die App selbst. Die Suite läuft in Chromium und WebKit.
+
+Die Journey-Suite in `e2e/journey/` ist die Ausnahme: Sie läuft von Hand gegen das Preview-Deployment, mit echten E-Mails, der Polar-Sandbox und der veröffentlichten CLI. Siehe [Journey-Suite](/docs/tooling/playwright#journey-suite).
 
 ## Skripte
 
@@ -57,6 +61,7 @@ bun run test:coverage
 bun run test:e2e
 bun run test:e2e:smoke
 bun run test:e2e:pr
+bun run test:journey
 ```
 
 ## CI

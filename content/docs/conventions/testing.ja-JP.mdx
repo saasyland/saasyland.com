@@ -15,7 +15,7 @@ description: "テストが属する Vitest のプロジェクト、インメモ�
 | `.integration.test.ts` | `integration` | Better Auth、決済、ライセンスのフロー、D1 アダプター、メッセージの読み込み。タイムアウトは <RepositoryFact name="integrationTestTimeoutSeconds" unit="second" /> |
 | `.component.test.tsx`  | `component`   | jsdom 上のコンポーネントとページ                                                                                                                                 |
 
-`src/platform/testing/mocks/cloudflare.ts` は、すべてのプロジェクトで `cloudflare:workers` を置き換えます。D1 はチェックイン済みのすべてのマイグレーションから構築したインメモリの `node:sqlite` データベースで、KV と `MEDIA` バケットはインメモリのストアです。`resetTestBindings()` は各テストの前に KV、バケット、レート制限のテーブルを空にし、各スイートのシード関数は、そのスイートが依存する行をリセットします。Cloudflare、Polar、Resend、OAuth プロバイダーと通信するテストはありません。`fetch` は `mocks/resend.ts` と `mocks/polar.ts` の厳密なテストダブルに届き、テストダブルはすべてのリクエストを SDK のリクエストモデルに照らして検証し、プロバイダーが拒否するリクエストがあればテストを失敗させます。テストは SDK のメソッドをモックするのではなく、テストダブルが受け取った内容をアサートし、認証のスイートは `auth.harness.ts` を通じて本物の `auth.server.ts` の設定を動かします。
+`src/platform/testing/mocks/cloudflare.ts` は、すべてのプロジェクトで `cloudflare:workers` を置き換えます。D1 はチェックイン済みのすべてのマイグレーションから構築したインメモリの `node:sqlite` データベースで、KV と、`wrangler.jsonc` の `test` 環境にある R2 バインディングごとのバケットはインメモリのストアです。`resetTestBindings()` は各テストの前に KV、バケット、レート制限のテーブルを空にし、各スイートのシード関数は、そのスイートが依存する行をリセットします。Cloudflare、Polar、Resend、OAuth プロバイダーと通信するテストはありません。`fetch` は `mocks/resend.ts` と `mocks/polar.ts` の厳密なテストダブルに届き、テストダブルはすべてのリクエストを SDK のリクエストモデルに照らして検証し、プロバイダーが拒否するリクエストがあればテストを失敗させます。テストは SDK のメソッドをモックするのではなく、テストダブルが受け取った内容をアサートし、認証のスイートは `auth.harness.ts` を通じて本物の `auth.server.ts` の設定を動かします。
 
 ## サーバー関数のテスト
 
@@ -72,15 +72,47 @@ describe("getCourses", () => {
 - **ルールに引っかかってもアサーションは残す。** テストが `max-statements` を超えたら、チェックを削らずに名前付きのヘルパーに切り出します。
 - **すべてのメッセージファイルを読み込む。** `i18n.messages.test.ts` はすべてのロケールのすべての名前空間を読み込み、これによって `i18n.messages.ts` の `import.meta.glob` の行がカバーされます。新しいメッセージファイルも自動的にカバーされます。
 
+## テストはエリアに従う [#tests-follow-the-areas]
+
+自分のパスとメニュー項目を宣言するエリア（[パスとナビゲーション](/docs/conventions/routes#paths-and-navigation)を参照）は、テストも自分で持ちます。そのため `saasyland` CLI は、生成するプロジェクトからエリアをそのテストごと外すことができ、残りのテストはすべて通り続けます。
+
+1 つのテストファイルが扱うのは 1 つのエリアか 1 つのソースファイルです。エリアの管理画面のページは、スケルトンとパンくずリストも含めて `src/routes/__test__/admin-<area>-routes.component.test.tsx` でテストし、ローダーは `admin-<area>-loaders.test.ts` でテストします。`admin-layout`、`admin-dashboard`、`admin-loaders` は管理画面そのものをテストし、どのエリアの名前も出しません。互いに関係のないファイルにはそれぞれテストファイルを用意し（`background.component.test.tsx` や `wordmark.component.test.tsx` など）、API ハンドラーにもそれぞれ 1 つずつ用意します（`src/routes/api/__test__/auth.test.ts`、`search.test.ts`、`index.test.ts`）。`cli.v1.test.ts` は CLI ライセンス API のルートファイルを対象とし、その動作は `src/modules/license/__test__/license.api.integration.test.ts` でテストします。
+
+複数のエリアにまたがる一覧は、各エリアが宣言し、バレルがまとめます。
+
+| 一覧                       | 各エリアが宣言するもの                                                                                                        | バレル                             | 読み取る側                                      |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------- |
+| 管理画面のクエリデータ     | `src/presentation/components/custom/admin/__test__/<area>.fixtures.ts` の `seed<Area>Queries` と行のファクトリー              | `fixtures.entries.ts`              | `fixtures.tsx` の `adminQueryClient()`          |
+| 列挙値のラベル             | `src/integrations/use-intl/__test__/<area>.labels.ts`                                                                         | `labels.entries.ts`                | `enum-labels.test.ts`                           |
+| D1 の行                    | `src/integrations/drizzle-orm/__test__/<area>.rows.ts`                                                                        | `rows.entries.ts`                  | `d1.integration.test.ts`                        |
+| ブラウザーテストのページ   | `e2e/data/<area>.pages.ts`                                                                                                    | `e2e/data/pages.entries.ts`        | `accessibility.spec.ts` と `workspaces.spec.ts` |
+| テスト用データベース       | `e2e/data/<area>.seed.ts`                                                                                                     | `e2e/data/seed.entries.ts`         | `scripts/seed-test.ts`                          |
+| 公開クエリ                 | `src/integrations/better-auth/__test__/<area>.public-queries.ts`                                                              | `public-queries.entries.ts`        | `auth.session.test.ts`                          |
+| プロバイダーのテストダブル | `src/platform/testing/mocks/<provider>.ts` の `<PROVIDER>_PROVIDER_DOUBLES` リスト（各ダブルは `origin`、`respond`、`reset`） | `mocks/providers.entries.ts`       | `mocks/providers.ts`                            |
+| Polar のカタログ           | `src/modules/<module>/__test__/fixtures/<area>.polar-catalogue.ts` の、そのエリアが販売する商品、割引、ライセンスキーの特典   | `mocks/polar-catalogue.entries.ts` | `mocks/polar.ts`                                |
+| テスト用 Worker            | `e2e/data/<area>.worker.ts` のセットアップとテスト用エンドポイント                                                            | `e2e/data/worker.entries.ts`       | `src/platform/testing/worker.ts`                |
+
+任意のエリアだけが中身を入れるバレルには、コアが空のリストを追加します。`e2e/data/core.seed.ts`、`e2e/data/core.worker.ts`、`mocks/core.providers.ts`、`src/integrations/drizzle-orm/__test__/core.rows.ts` です。これにより、それらのエリアがないプロジェクトでも型チェックが通ります。`scripts/seed-test.ts` は、エリアが行を投入するときだけ Wrangler を実行します。エリアのページオブジェクトには専用のフィクスチャがあります。`e2e/fixtures/auth.ts` は `e2e/fixtures/test.ts` のコアの `test` に `authPage` を加えたもので、サインインするスペックはここから `test` をインポートします。
+
+複数のエリアが使うヘルパーは 1 か所にだけ書きます。`src/presentation/components/custom/admin/__test__/fixtures.tsx` の `renderAdmin` と `renderAdminPage`、`src/routes/__test__/fixtures/admin-router.ts` の `loadAsAdmin`、`src/platform/testing/lib/skeleton.tsx` の `markupOf` と `busyMarkup`、そしてブラウザーテストの `AuthPage.signIn`、`BasePage.leaveWhileLoading`、`pageWithoutJavaScript` フィクスチャです。`accessibility.spec.ts` や `theme.spec.ts` のような公開ページのスペックは、どのアカウントでもサインインしません。サインイン後のページと、そのアクセシビリティとテーマは `workspaces.spec.ts` がチェックします。
+
+エリアが提供する項目を必要とする共有コードのテストは、エリアが宣言した項目を読むのではなく、テスト専用の項目を宣言します。`dashboard-actions.component.test.tsx` は `ADMIN_DASHBOARD_ACTIONS` をテスト専用のアクションに置き換えるため、現在ダッシュボードの唯一のアクションを宣言している商品エリアがないプロジェクトでも、`DashboardActions` と `AdminDashboardPending` のアクションのプレースホルダーはカバーされたままです。`server.test.ts`、`root.component.test.tsx`、`vite.test.ts` も同様に、テスト専用の Worker ハンドラー、ルートコンポーネント、Vite プラグインを使い、各エリアは自分の項目を `src/data/__test__/<area>.worker.test.ts` と `<area>.vite.test.ts` でテストします。オプションのエリアだけが描画する共有コードには、専用のテストを用意します。`pending-blocks.component.test.tsx` は、商品、コース、決済、投稿エディターのスケルトンが使うフィールド、スイッチ、アップロードゾーンのスケルトンをカバーします。共有のアクセス制御のテストは認証のエリアのステートメントと Better Auth 自身のステートメントだけをチェックし、各エリアは自分の付与を `src/data/__test__/<area>.access.test.ts` でテストします。`access.website.test.ts` は、このサイトにおけるすべてのロールの権限を固定します。
+
+`auth-plugins.test.ts` はサンプルのプラグインでプラグインの組み立てをカバーするため、ライセンスの Polar プラグインがなくてもカバーされたままです。`navigation.test.ts` は、項目のある管理画面のグループとフッターの列だけを期待します。`translations-provider.component.test.tsx` はコアの名前空間を例に使い、認証のテストはセッション一覧や `/app/settings` のような認証のエリア自身のデータとパスを例に使います。`media-upload-zone.component.test.tsx` は、商品と投稿エディターのアップロードゾーンがそのスケルトンと同じ枠を描くことを確認します。
+
+ライセンスのルートとスケルトンのテストはライセンスの購入案内のセクションをテスト内のセクションに置き換え、コースのテストはコースアクセスの付与を `TEST_COURSE_ACCESS`（`src/modules/course/__test__/fixtures/course-access.ts`）に置き換えるので、どちらのエリアのテストももう一方を読みません。両者をつなぐ部分は `license.course-access.test.ts` がテストします。ライセンスの付与と、ゲスト、アカウント、スタッフ、すべてのライセンスのティアとステータスについて、誰がどのレッスンを視聴できるかのスナップショットです。
+
+`navigation.website.test.ts` のようにサイト全体を固定するテスト（すべてのメニューの順序を確認します）はこのサイト専用で、テンプレートは生成しません。
+
 ## ブラウザーテスト
 
 Playwright は、ビルド済みのテスト用 Worker に対して実行されます。`bun run build:test` は `.wrangler/test` 配下のローカルの D1 と KV を使ってそれをビルドし、`bun run db:reset:test` はそのデータベースを作り直して、`e2e/data` のアカウント、動画、コースをシードします。テスト用のエントリーは送信メールを `/__test/emails` でキャプチャするため、スペックは確認リンクをたどることができます。
 
 - スペックはフローにちなんで命名し（`course-admin.spec.ts`、`auth-redirect.spec.ts`）、`e2e/pages/` のページオブジェクトを使って、ロールとアクセシブルな名前でページを操作します。
 - 各スペックは、`crypto.randomUUID()` から作ったスラッグのような一意の値で、自分が変更するデータを作成し、独自の `CF-Connecting-IP` ヘッダーでサインインします。そのため、スペックは互いに衝突したりレート制限に引っかかったりすることなく、並列に実行でき、再実行もできます。
-- スペックは、クライアント側のナビゲーションの後も含めて、`e2e/pages/base-page.ts` の `waitForAppReady()` が返ってからページを操作します。このメソッドは TanStack Router が現在の URL をレンダリングした時点で返ります。それを記録するのは、ルーターの `onRendered` イベントを購読する自動フィクスチャ `recordRenders` です。クライアント側のナビゲーションでは、次のルートがレンダリングされる前に URL が変わるためです。ルートのコンテンツはそのレンダリングの後にハイドレーションされることがあります。そのため、コンポーネント自身の状態に依存するスペックや、コンテンツがハイドレーションされる前にコンテンツ外のリンクを押すスペックは、先に `waitForHydration(element)` を呼び出します。これは React が要素とその中のすべてをハイドレーションするまで待ちます。`LandingPage.goto()` はランディングページの `main` に対してこれを行います。スペックは訪問者と同じように、読み込み中のページを離れてもかまいません。複数の直接アクセスにわたってページのエラーを集めるスペックは、`auth-routing.spec.ts` のように、アクセスごとに別のタブを開きます。
+- スペックは、クライアント側のナビゲーションの後も含めて、`e2e/pages/base-page.ts` の `waitForAppReady()` が返ってからページを操作します。このメソッドは TanStack Router が現在の URL をレンダリングした時点で返ります。それを記録するのは、ルーターの `onRendered` イベントを購読する自動フィクスチャ `recordRenders` です。クライアント側のナビゲーションでは、次のルートがレンダリングされる前に URL が変わるためです。ルートのコンテンツはそのレンダリングの後にハイドレーションされることがあります。そのため、コンポーネント自身の状態に依存するスペックや、コンテンツがハイドレーションされる前にコンテンツ外のリンクを押すスペックは、先に `waitForHydration(element)` を呼び出します。これは React が要素とその中のすべてをハイドレーションするまで待ちます。`LandingPage.goto()` はランディングページの `main` に対してこれを行います。スペックは訪問者と同じように、読み込み中のページを離れてもかまいません。複数の直接アクセスにわたってページのエラーを集めるスペックは、`auth-routing.spec.ts` のように、アクセスごとに別のタブを開きます。ページのエラーを集めるスペックは、クライアント側のナビゲーションがレンダリングされてからページを離れます。スペックがページを離れ始めた後にページが開始したリクエストを、WebKit はアプリがその失敗を処理していてもページのエラー `Fetch API cannot load … due to access control checks.` として報告するためです。
 - プルリクエストでは、すべてのスペックを Chromium で実行します（`bun run test:e2e:pr`）。`main` へのプッシュと週次のスケジュールでは WebKit でも実行します。
-- ユニットテストでは検出できないルート、フロー、見た目の修正にはスペックを用意します。アクセシビリティのスキャンや、`navigation.spec.ts` のナビゲーションの退行テストがその例です。
+- ユニットテストでは検出できないルート、フロー、見た目の修正にはスペックを用意します。アクセシビリティのスキャンや、`navigation.spec.ts` と、`content.spec.ts`、`legal.spec.ts`、`landing.spec.ts` のように対象エリアのスペックにあるナビゲーションの退行テストがその例です。スクロールするスペックは、`navigation.spec.ts` のスクロールのテストのように、ページの長さに頼らず自分でページを十分な高さにします。スムーズスクロールの止まる位置を確かめるスペックは、`landing-controls.spec.ts` のロゴのテストがコースブロックで行うように、その途中で遅れて中身が入るセクションを先に読み込みます。スクロール中にビューポートより上のセクションの高さが変わり、スクロールアンカリングがそれを補正すると、WebKit はスムーズスクロールを止めてしまうためです。
 
 ## 関連ページ
 

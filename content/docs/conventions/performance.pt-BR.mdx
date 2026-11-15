@@ -14,7 +14,7 @@ Cada regra desta página veio de uma medição, e várias substituíram uma corr
 
 ## Mantenha pequeno o grafo de inicialização do Worker
 
-`src/server.ts` é executado em toda requisição de HTML (`run_worker_first` em `wrangler.jsonc`), e tudo o que ele importa estaticamente é avaliado em todo cold start. Ele importa apenas constantes e helpers puros, e carrega o resto quando uma requisição precisa:
+`src/server.ts` é executado em toda requisição de HTML (`run_worker_first` em `wrangler.jsonc`), e tudo o que ele importa estaticamente é avaliado em todo cold start. Ele e os handlers do Worker que as áreas adicionam importam apenas constantes e helpers puros, e carregam o resto quando uma requisição precisa:
 
 ```ts
 const { default: handler } = await import("@tanstack/react-start/server-entry")
@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-Um único import estático do nome de um cabeçalho, vindo de um módulo que também importava o cliente do Polar, já colocou cerca de 1,4 MB de SDK em todo cold start, e o primeiro byte da landing page chegou a levar 1,4 segundo. É por isso que `COUNTRY_HEADER` e `IP_ADDRESS_HEADER` ficam em `src/modules/_core/constants/api.ts`, que não importa nada pesado. Antes de adicionar um import estático a `server.ts`, siga a sua cadeia de imports: qualquer coisa que chegue a `polar`, `drizzle-orm` ou `resend` é uma regressão.
+Um único import estático do nome de um cabeçalho, vindo de um módulo que também importava o cliente do Polar, já colocou cerca de 1,4 MB de SDK em todo cold start, e o primeiro byte da landing page chegou a levar 1,4 segundo. É por isso que `COUNTRY_HEADER` e `IP_ADDRESS_HEADER` ficam em `src/modules/_core/constants/api.ts`, que não importa nada pesado. Antes de adicionar um import estático a `server.ts` ou a um `<area>.worker.ts`, siga a sua cadeia de imports: qualquer coisa que chegue a `polar`, `drizzle-orm` ou `resend` é uma regressão.
 
 ## Páginas pré-renderizadas carregam CSS e fontes primeiro
 
@@ -56,7 +56,7 @@ Apenas `src/presentation/styles/globals.css` executa o Tailwind. As folhas de es
 @import "@fumadocs/base-ui/css/preset.css";
 ```
 
-Um segundo build do Tailwind em uma folha de estilo de rota já entregou os seus próprios `.hidden`, `.rounded-md` e variáveis de tema. Cascade layers com o mesmo nome se mesclam entre folhas de estilo, e o React nunca remove uma folha de estilo que inseriu com `precedence`, então, depois de uma visita à documentação, a landing page perdia o seu layout responsivo e as suas fontes até um recarregamento. O teste end-to-end "landing keeps its responsive styles after visiting the docs" em `e2e/specs/navigation.spec.ts` protege contra isso. Tudo o que precisa do Tailwind passa por `globals.css`.
+Um segundo build do Tailwind em uma folha de estilo de rota já entregou os seus próprios `.hidden`, `.rounded-md` e variáveis de tema. Cascade layers com o mesmo nome se mesclam entre folhas de estilo, e o React nunca remove uma folha de estilo que inseriu com `precedence`, então, depois de uma visita à documentação, a landing page perdia o seu layout responsivo e as suas fontes até um recarregamento. O teste end-to-end "landing keeps its responsive styles after visiting the docs" em `e2e/specs/landing.spec.ts` protege contra isso. Tudo o que precisa do Tailwind passa por `globals.css`.
 
 ## Mídia
 

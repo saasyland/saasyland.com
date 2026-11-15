@@ -1,8 +1,16 @@
 import type { LucideIcon } from "lucide-react"
 
+export const FEATURE_STATUS = {
+  ARRIVING: "arriving",
+  AVAILABLE: "available",
+} as const
+
+type FeatureStatus = (typeof FEATURE_STATUS)[keyof typeof FEATURE_STATUS]
+
 export const NAVIGATION_PLACEMENT = {
   ADMIN: "admin",
   APP: "app",
+  APP_RESOURCES: "appResources",
   DASHBOARD: "dashboard",
   FOOTER: "footer",
   HEADER: "header",
@@ -30,6 +38,7 @@ export const FOOTER_COLUMN = {
 export const FOOTER_COLUMNS = [FOOTER_COLUMN.PRODUCT, FOOTER_COLUMN.LEGAL] as const
 
 interface Entry {
+  readonly area: string
   readonly key: string
   readonly order: number
   readonly to: string
@@ -39,11 +48,17 @@ interface AdminEntry extends Entry {
   readonly group: (typeof ADMIN_NAVIGATION_GROUPS)[number]
   readonly icon: LucideIcon
   readonly placement: typeof NAVIGATION_PLACEMENT.ADMIN
+  readonly status: FeatureStatus
 }
 
 interface AppEntry extends Entry {
   readonly icon: LucideIcon
   readonly placement: typeof NAVIGATION_PLACEMENT.APP
+}
+
+interface AppResourceEntry extends Entry {
+  readonly icon: LucideIcon
+  readonly placement: typeof NAVIGATION_PLACEMENT.APP_RESOURCES
 }
 
 interface DashboardEntry extends Entry {
@@ -60,4 +75,4 @@ interface HeaderEntry extends Entry {
   readonly placement: typeof NAVIGATION_PLACEMENT.HEADER
 }
 
-export type NavigationEntry = AdminEntry | AppEntry | DashboardEntry | FooterEntry | HeaderEntry
+export type NavigationEntry = AdminEntry | AppEntry | AppResourceEntry | DashboardEntry | FooterEntry | HeaderEntry

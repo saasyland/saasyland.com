@@ -1,0 +1,104 @@
+---
+title: "API de licence de la CLI"
+description: "L’API de saasyland.com qu’appelle la CLI saasyland pour lire une licence, pour activer, vérifier et libérer des machines et pour télécharger les modèles d’une version."
+---
+
+La CLI payante `saasyland` vérifie sa clé de licence auprès de saasyland.com. Le Worker répond sous <RepositoryFact name="cliApiBasePath" />, vérifie la clé dans la table `license` de D1, gère les machines comme des activations de la clé dans Polar et sert depuis R2 le bundle de modèles de chaque version, si bien que la CLI n’appelle jamais Polar elle-même.
+
+Le contrat entre les deux est l’entrée `./api` du paquet `@saasyland/stack`, publié sous licence MIT depuis le dépôt de la CLI. Il définit les routes, les en-têtes, les schémas de requête et de réponse, les codes d’erreur et les limites de débit. La CLI construit chaque requête et lit chaque réponse avec lui, et le site lit chaque requête et écrit chaque réponse avec lui (`readApiRequest`, `apiResponse` et `apiErrorResponse`), de sorte qu’aucun des deux ne peut s’écarter de l’autre. Les valeurs et les tableaux de cette page en sont issus.
+
+## Machines
+
+- Une clé de licence peut être active sur autant de machines que son offre le permet : <ActivationLimit tier="core" /> pour Core, <ActivationLimit tier="complete" /> pour Complete et <ActivationLimit tier="agency" /> pour Agency. Ce sont les `LICENSE_ACTIVATION_LIMITS`, les limites qu’applique Polar. Les cartes d’offres de la page d’accueil et de `/app/license` (`PricingTiers`) les affichent depuis cette source, si bien que l’acheteur voit chaque limite avant de payer.
+- La CLI identifie une machine par un identifiant de machine qu’elle dérive sur cette machine : un HMAC-SHA256, avec une clé fixe, de l’identifiant de machine du système d’exploitation ou, en CI, du fournisseur de CI et de l’identifiant du dépôt. L’identifiant brut du système d’exploitation ne quitte jamais la machine.
+- Une nouvelle activation depuis la même machine renvoie l’activation de cette machine inchangée au lieu d’occuper un autre emplacement, si bien que la machine conserve son emplacement et son nom. Pour renommer une machine, libérez-la puis activez-la de nouveau avec `--label`. En CI, toutes les exécutions dans un même dépôt comptent comme la même machine.
+- Les clients libèrent un emplacement depuis **Appareils** sur `/app/license` ou avec la CLI.
+
+## Requêtes
+
+Chaque requête envoie la clé de licence sous la forme `authorization: Bearer <key>` et l’identifiant de machine dans l’en-tête <RepositoryFact name="cliApiMachineHeader" />. Chaque réponse est en JSON.
+
+<RepositoryTable columns={["Requête", "Statuts de succès", "Codes d’erreur"]} name="cliApiEndpoints" />
+
+- **Lire la licence** : l’offre, sa limite de machines, le nombre de machines utilisées et chaque machine avec son libellé et sa date de création. Les machines activées par la CLI indiquent aussi leur type (machine ou CI), leur plateforme et leur version de la CLI. La machine appelante est marquée `current`.
+- **Activer** : reçoit la version de la CLI, le type, la plateforme et un libellé d’au plus <RepositoryFact name="cliApiLabelMaxLength" /> caractères. Une nouvelle activation répond avec le premier statut du tableau, l’activation existante de la machine appelante avec le second.
+- **Vérifier une activation** : confirme que l’activation appartient à la clé et à la machine appelante.
+- **Télécharger les modèles d’une version** : reçoit la version (`version`) et les réponses de la stack, et répond avec une URL signée vers le bundle de modèles de la version, l’empreinte et la taille du bundle, et le moment où l’URL expire. Voir [Bundles de modèles](#template-bundles).
+- **Libérer une activation** : supprime n’importe quelle machine de la clé et libère son emplacement.
+
+## Bundles de modèles [#template-bundles]
+
+Les modèles de la CLI sont livrés sous la forme d’un bundle par version : l’archive que construit la publication d’une version dans le dépôt de la CLI, c’est-à-dire le bundle en JSON compressé avec gzip. L’archive de chaque version est un objet du bucket R2 <RepositoryFact name="cliBundleBinding" /> sous la clé <RepositoryFact name="cliBundleKey" />. Une requête de bundle :
+
+1. vérifie, comme **Vérifier une activation**, que l’activation indiquée dans le chemin appartient à la clé et à la machine appelante, et répond `activationNotFound` dans le cas contraire ;
+2. lit l’objet de la version dans le bucket et répond `versionNotFound`, avec la `version` demandée, lorsqu’il n’existe pas ;
+3. répond avec `url`, `sha256`, `size` et `expiresAt`.
+
+`sha256` est le SHA-256, en hexadécimal minuscule, du contenu de l’archive : le JSON qu’on obtient en la décompressant avec gzip. C’est l’empreinte que la CLI épingle pour chaque version dans `bundle-digests.json` et que `unpackBundle` lui renvoie lorsqu’elle extrait un téléchargement, car les octets compressés dépendent du zlib du runtime, alors que le JSON n’en dépend pas. `size` est le nombre d’octets que sert l’URL, ceux de l’archive compressée. À chaque requête, le Worker fait passer en flux l’objet stocké par un `DecompressionStream` puis dans SHA-256, si bien que l’empreinte décrit toujours l’objet présent dans le bucket et que la publication ne téléverse aucune métadonnée à côté.
+
+L’URL est en HTTPS, comme l’exige le contrat, sur l’hôte qui a répondu à la requête, avec le chemin <RepositoryFact name="cliBundleUrlPath" /> :
+
+- `expiry` est un horodatage Unix en base 36, situé <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" /> après la seconde où l’URL a été émise (`API_LIMIT.BUNDLE_URL_TTL_SECONDS`), et `expiresAt` est le même instant au format ISO 8601.
+- `signature` est un HMAC-SHA-256 de `<version>.<expiry>` avec une clé que HKDF dérive de `AUTH_SECRET` pour les seules URL de bundles (`signHmac` dans `src/lib/hmac.ts`). L’URL n’a besoin ni d’identifiants S3 ni d’un secret propre, et un chemin vidéo signé n’ouvre jamais un bundle.
+
+Le handler de requêtes de la zone des licences, dans `src/data/license.worker.ts`, envoie chaque chemin sous `/bundles/` à `serveBundle` (`src/modules/license/license.delivery.ts`) avant le middleware de langue et TanStack Start. `serveBundle` n’accepte que `GET` et `HEAD` (`405` sinon), répond `404` pour un chemin qui n’est pas un chemin de bundle signé ou pour une version sans archive et `403` pour une signature expirée ou erronée, et sinon diffuse l’objet en flux en tant que <RepositoryFact name="cliBundleContentType" /> avec son `Content-Length`, son `ETag` et `Cache-Control: private, no-store`. Une URL signée fonctionne comme un lien au porteur jusqu’à son expiration ; le contrôle de qui peut télécharger a lieu au moment où l’URL est émise.
+
+Le contrat valide les réponses avec le schéma propre à la stack : une stack que les règles interdisent obtient donc `invalidRequest` avant toute lecture. Toutes les stacks reçoivent le même bundle d’une version, et le site ne conserve ni les réponses ni la version. Un bucket qui ne peut pas être lu, ou un objet qui n’est pas une archive gzip, donne `serviceUnavailable`.
+
+## Publier les bundles [#publishing-bundles]
+
+Le site n’écrit jamais dans le bucket <RepositoryFact name="cliBundleBinding" />. Le workflow de publication du dépôt de la CLI téléverse l’archive de chaque version, telle quelle, dans les buckets ci-dessous, que lie `wrangler.jsonc` :
+
+<RepositoryTable columns={["Environnement", "Bucket"]} name="cliBundleBuckets" />
+
+- Chaque version va dans les deux buckets déployés : le bucket de préversion, que partage `development`, sert la suite de parcours client sur le déploiement de préversion, et le bucket de production sert les clients. Le bucket `test` est local, et `bun run db:reset:test` l’alimente avec l’archive de `e2e/fixtures/bundle`.
+- La clé de l’objet est <RepositoryFact name="cliBundleKey" />, avec la version exactement telle que la CLI l’envoie dans `version`.
+- Le type de contenu est <RepositoryFact name="cliBundleContentType" />, sans encodage de contenu : l’archive elle-même est l’objet, et un `Content-Encoding` permettrait aux clients HTTP de la décompresser avant que la CLI ne la vérifie.
+- L’objet est l’archive qu’a écrite `serializeBundle`. Le SHA-256 de son contenu est l’empreinte qu’épingle la version, si bien qu’une CLI qui possède cette empreinte refuse tous les autres octets, et qu’un objet publié ne change jamais.
+- Wrangler le téléverse avec `wrangler r2 object put <bucket>/<key> --file <archive> --content-type <type> --remote`, sous un jeton d’API autorisé à écrire dans R2.
+
+## Erreurs
+
+En cas d’erreur, l’API répond avec un objet JSON dont le `code` nomme l’erreur :
+
+<RepositoryTable columns={["Code", "Statut HTTP"]} name="cliApiErrors" />
+
+- `invalidLicenseKey` : la clé est absente, mal formée ou inconnue. La réponse porte `www-authenticate: Bearer`.
+- `licenseRefunded` : Polar a remboursé la commande en totalité.
+- `licenseRevoked` : la licence a été révoquée sans remboursement, par exemple parce que Polar a révoqué la clé.
+- `activationLimitReached` : tous les emplacements sont occupés. La réponse inclut la licence et ses machines, pour que la CLI puisse proposer d’en libérer une.
+- `activationNotFound` : la clé ne détient pas cette activation, ou l’activation appartient à une autre machine.
+- `versionNotFound` : la version n’a pas de bundle de modèles. La réponse porte la `version`.
+- `invalidRequest` : liste chaque problème sous `issues` avec son chemin, comme `body.label`, et un message.
+- `rateLimited` et `serviceUnavailable` : portent `retryAfterSeconds` et le même nombre dans l’en-tête `retry-after`. `serviceUnavailable` signifie que Polar était injoignable, a échoué ou a limité le débit du site, ou que le bucket des bundles n’a pas pu être lu ; la CLI doit réessayer après <RepositoryFact name="cliApiRetryAfterSeconds" unit="second" /> (`LICENSE_API_RETRY_AFTER_SECONDS`).
+
+## Limites de débit
+
+Chaque adresse IP peut envoyer <RepositoryFact name="cliApiRequestsPerAddress" /> requêtes et chaque clé de licence <RepositoryFact name="cliApiRequestsPerLicenseKey" /> requêtes en <RepositoryFact name="cliApiRateLimitSeconds" unit="second" />. L’adresse est comptée en premier, avant la lecture de la clé : deviner des clés depuis une même adresse s’arrête donc à la limite de l’adresse. `consumeRateLimit` (`src/lib/rate-limit.ts`) tient les compteurs dans la table `rate_limit`, indexés par l’adresse et par un hachage SHA-256 de la clé, jamais par la clé elle-même. Les requêtes de bundle comptent comme toutes les autres requêtes ; le téléchargement depuis une URL signée, non.
+
+## Licences remboursées et révoquées
+
+C’est la ligne de `license` à laquelle appartient la clé qui décide. Les webhooks Polar la tiennent à jour (voir [Paiements et licences](/docs/features/payments)) : un remboursement total passe le statut à `refunded` et un avantage révoqué le passe à `revoked`. Polar révoque aussi l’avantage d’une commande remboursée, et les deux événements peuvent arriver dans n’importe quel ordre : une révocation ne remplace donc jamais `refunded`. Lorsque Polar a déjà révoqué ou désactivé la clé et que son webhook n’est pas encore arrivé, l’API répond aussi `licenseRevoked`.
+
+## Dans le code
+
+| Fichier                                                                                                                                           | Rôle                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/cli.v1.license.ts`, `cli.v1.activations.ts`, `cli.v1.activations.$activationId.ts`, `cli.v1.activations.$activationId.bundles.ts` | Les fichiers de route, avec une méthode pour chaque point de terminaison du contrat                                                                                                                                                                                                                                                      |
+| `src/modules/license/license.api.ts`                                                                                                              | `licenseApiHandlers` : les limites de débit, la recherche dans D1, les points de terminaison de clés de licence de Polar appelés avec le jeton d’organisation, l’empreinte et la taille du bundle lues dans R2, et les réponses                                                                                                          |
+| `src/modules/license/license.bundles.ts`                                                                                                          | `bundleObjectKey`, `signBundle`, `verifyBundle` et `SIGNED_BUNDLE_PATH` : la clé dans le bucket et l’URL signée du bundle d’une version                                                                                                                                                                                                  |
+| `src/modules/license/license.delivery.ts`                                                                                                         | `serveBundle`, qui répond depuis R2 aux chemins `/bundles/` signés                                                                                                                                                                                                                                                                       |
+| `src/modules/license/__test__/license.api.integration.test.ts`                                                                                    | Chaque point de terminaison sur D1 et la doublure stricte de Polar : succès, réutilisation, limite, licences remboursées et révoquées, limites de débit et pannes de Polar, chaque réponse étant lue avec `readApiResponse`                                                                                                              |
+| `src/modules/license/__test__/license.bundles.integration.test.ts`                                                                                | Les requêtes de bundle sur D1, le bucket R2 en mémoire et la doublure de Polar : l’empreinte et la taille d’une archive stockée, son téléchargement jusqu’à l’expiration de l’URL, `versionNotFound`, `activationNotFound`, les licences remboursées et révoquées, les pannes du stockage, les réponses refusées et les limites de débit |
+| `src/routes/api/__test__/cli.v1.test.ts`                                                                                                          | Le routeur envoie chaque chemin du contrat à son fichier de route                                                                                                                                                                                                                                                                        |
+| `e2e/specs/cli-licence-api.spec.ts`                                                                                                               | Le Worker compilé sert l’API, ainsi que le bundle d’une version depuis son bucket R2 local, au client propre du contrat                                                                                                                                                                                                                  |
+
+`LICENSE_API_ENDPOINTS` dans `license.constants.ts` liste les points de terminaison du contrat que sert le site, aujourd’hui tous. Les tableaux ci-dessus et le test de routage le lisent, et le test de routage échoue lorsque le contrat a un point de terminaison qu’il omet.
+
+## Pages associées
+
+- [Paiements et licences](/docs/features/payments)
+- [Application client](/docs/features/customer-app)
+- [Gestionnaires HTTP](/docs/features/api-surface)
+- [Cloudflare R2](/docs/integrations/cloudflare-r2)
+- [Configurer Polar](/docs/getting-started/polar-setup)

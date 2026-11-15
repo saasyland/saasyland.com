@@ -14,13 +14,13 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { getLocaleDirection } from "~/src/modules/_core/constants/locale"
 
+import { ROOT_COMPONENTS } from "~/src/data/root"
 import { THEME } from "~/src/presentation/theme"
 
 import { ROBOTS, toOpenGraphLocale } from "~/src/lib/seo"
 
 import { Toaster } from "~/src/presentation/components/shadcn/sonner"
 
-import { AffiliateReferral } from "~/src/presentation/components/custom/affiliate-referral"
 import { OfflineBanner } from "~/src/presentation/components/custom/offline-banner"
 
 import { DOCUMENT_STYLESHEET, fontPreloads } from "~/src/presentation/document-assets"
@@ -29,7 +29,9 @@ import type { RouterContext } from "~/src/router"
 const RootComponent = () => (
   <AriaProvider>
     <OfflineBanner />
-    <AffiliateReferral />
+    {ROOT_COMPONENTS.map(({ component: Component, key }) => (
+      <Component key={key} />
+    ))}
     <Outlet />
     <ThemeProvider>
       <Toaster />

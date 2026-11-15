@@ -34,7 +34,7 @@ Utilisez `bun run test` et non `bun test` : seul Vitest charge les projets, les 
 ## Environnement de test
 
 - `src/platform/testing/setup.ts` enregistre les matchers jest-dom, réinitialise les bindings avant chaque test et fait passer chaque `createServerFn` par `withTestRpc`, si bien que les appels exécutent le vrai middleware et le vrai validateur. Cela vaut pour les projets `node` et `integration`. Dans le projet `component`, une fonction serveur échoue, car jsdom est le navigateur.
-- `cloudflare:workers` pointe vers `src/platform/testing/mocks/cloudflare.ts`. D1 est une base SQLite en mémoire où toutes les migrations du dépôt sont appliquées, KV et le bucket R2 `MEDIA` sont des tables en mémoire et `flushWaitUntil()` attend les tâches en arrière-plan. `createEdgeCache()` de `mocks/cache.ts` simule le cache des Workers.
+- `cloudflare:workers` pointe vers `src/platform/testing/mocks/cloudflare.ts`. D1 est une base SQLite en mémoire où toutes les migrations du dépôt sont appliquées, KV et les buckets R2 `MEDIA` et `BUNDLES` sont des tables en mémoire et `flushWaitUntil()` attend les tâches en arrière-plan. `createEdgeCache()` de `mocks/cache.ts` simule le cache des Workers.
 - `.env.test` fournit des identifiants factices. `fetch` atteint des doublures strictes de Resend et Polar (`mocks/resend.ts`, `mocks/polar.ts`), et tout autre hôte échoue comme si la machine était hors ligne, si bien que rien ne la quitte. Une requête que le fournisseur refuserait fait échouer le test.
 - `renderWithRouter` de `src/platform/testing/lib/render.tsx` affiche les composants avec un vrai routeur et un vrai `QueryClient`.
 
@@ -48,7 +48,7 @@ import { describe, expect, it, vi } from "vite-plus/test"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
@@ -89,6 +89,8 @@ expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIV
 ```
 
 `paidOrder` démarre le paiement via le vrai `startCheckout` et le paie dans la doublure. `deliver` signe l'événement avec `signedPolarWebhook` de `lib/polar.ts`, l'envoie en POST à l'endpoint Polar de Better Auth et renvoie le statut de la réponse, si bien que la vérification de la signature, le plugin et les gestionnaires de `license.webhooks.ts` s'exécutent tous. Pour tester la façon dont l'application gère une défaillance du fournisseur, répondez à une seule requête avec l'erreur du fournisseur, comme le fait `resend.utils.test.ts` : `vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(error, { status }))`.
+
+La doublure ne vend que ce que les zones chargent dans `__test__/fixtures/<area>.polar-catalogue.ts` ; pour la zone des licences, ses offres, leurs avantages de clé de licence et les remises régionales. Un test d'un autre produit le charge d'abord avec `seedPolarCatalogue`, avec son identifiant, son nom, son prix dans la plus petite unité de la devise avec cette devise, et son intervalle de facturation, ou `null` pour un achat unique, et `createPolarOrder({ externalCustomerId, productId })` enregistre une commande de ce produit. La doublure l'oublie avant le test suivant. `src/platform/testing/__test__/providers.test.ts` ouvre ainsi un paiement pour un abonnement mensuel.
 
 ## Tester un parcours d'authentification
 

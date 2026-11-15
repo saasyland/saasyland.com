@@ -1,18 +1,24 @@
 import { waitUntil } from "cloudflare:workers"
 
+import { eq } from "drizzle-orm"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { auth } from "~/src/integrations/better-auth/auth.server"
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
+import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
-import { authRateLimitStorage } from "~/src/lib/rate-limit"
+import { RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"
 
+import { APP_SLUG } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.unstubAllEnvs()
+  vi.useRealTimers()
   vi.resetModules()
 })
 
@@ -31,10 +37,9 @@ describe("Cloudflare auth configuration", () => {
     expect(auth.options.rateLimit).toMatchObject({
       customRules: {
         [ROUTES.API_AUTH.GET_SESSION]: false,
-        [ROUTES.API_AUTH.POLAR_WEBHOOKS]: false,
         [ROUTES.API_AUTH.SIGN_OUT]: false,
+        ...Object.fromEntries(RATE_LIMIT_EXEMPT_AUTH_PATHS.map((path) => [path, false])),
       },
-      customStorage: authRateLimitStorage,
       enabled: true,
     })
     expect(auth.options.rateLimit).not.toHaveProperty("storage")
@@ -62,9 +67,9 @@ describe("Cloudflare auth configuration", () => {
   it("names cookies after the app and marks them Secure outside local modes", async () => {
     const { authCookies } = await auth.$context
 
-    expect(auth.options.advanced.cookiePrefix).toBe("saasyland")
+    expect(auth.options.advanced.cookiePrefix).toBe(APP_SLUG)
     expect(auth.options.advanced.useSecureCookies).toBe(false)
-    expect(authCookies.sessionToken.name).toBe("saasyland.session_token")
+    expect(authCookies.sessionToken.name).toBe(`${APP_SLUG}.session_token`)
   })
   it("trusts only the local hosts in test mode", () => {
     expect(auth.options.baseURL.allowedHosts).toEqual(["localhost:3000", "127.0.0.1:3000", "localhost:3020", "127.0.0.1:3020"])
@@ -80,5 +85,40 @@ describe("Cloudflare auth configuration", () => {
     expect(auth.options.plugins.at(-1)?.id).toBe("tanstack-start-cookies")
     expect(auth.options.plugins.map((plugin) => plugin.id)).not.toContain("multi-session")
     expect(auth.options).not.toHaveProperty("telemetry")
+  })
+})
+
+describe("Better Auth rate-limit storage", () => {
+  const key = `203.0.113.9|${ROUTES.API_AUTH.SIGN_IN_EMAIL}`
+  const rule = { max: 3, window: 10 }
+  const { customStorage } = auth.options.rateLimit
+
+  it("admits the rule's maximum, then refuses with the seconds left in the window", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-09-24T10:00:00Z"))
+    for (let attempt = 0; attempt < rule.max; attempt++) {
+      expect(await customStorage.consume(key, rule)).toEqual({ allowed: true, retryAfter: rule.window })
+    }
+    vi.setSystemTime(new Date("2026-09-24T10:00:04Z"))
+
+    expect(await customStorage.consume(key, rule)).toEqual({ allowed: false, retryAfter: 6 })
+  })
+
+  it("stores auth counters under their own prefix", async () => {
+    await customStorage.consume(key, rule)
+
+    expect(
+      await db
+        .select()
+        .from(rateLimit)
+        .where(eq(rateLimit.key, `auth:${key}`)),
+    ).toHaveLength(1)
+  })
+
+  it("refuses requests when the store is unavailable", async () => {
+    vi.spyOn(db, "batch").mockRejectedValueOnce(new Error("D1 unavailable"))
+    vi.spyOn(console, "error").mockImplementation(() => {})
+
+    expect(await customStorage.consume(key, rule)).toEqual({ allowed: false, retryAfter: rule.window })
   })
 })

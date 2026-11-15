@@ -1,4 +1,4 @@
-import { type Locator, type Page, type Response, expect } from "@playwright/test"
+import { type Locator, type Page, type Response, type Route, expect } from "@playwright/test"
 import type { AnyRouter } from "@tanstack/react-router"
 
 export const APP_NAVIGATION_WAIT_UNTIL = "domcontentloaded" as const
@@ -37,6 +37,21 @@ export class BasePage {
   async waitForAppReady(): Promise<void> {
     await this.page.locator("body").waitFor({ state: "visible" })
     await this.waitForRender()
+  }
+
+  async leaveWhileLoading(loading: Route, destination: string): Promise<void> {
+    const departing = Promise.withResolvers<void>()
+    const departed = Promise.withResolvers<void>()
+    await this.page.route(`**${destination}`, async (route) => {
+      departing.resolve()
+      await departed.promise
+      await route.continue()
+    })
+    const leaving = this.page.goto(destination, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await departing.promise
+    await loading.abort()
+    departed.resolve()
+    await leaving
   }
 
   async waitForHydration(element: Locator): Promise<void> {

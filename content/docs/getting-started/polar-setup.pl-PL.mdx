@@ -26,15 +26,15 @@ Najpierw w usłudze sandbox, potem w produkcyjnej:
 1. Utwórz organizację i skopiuj jej ID z ustawień organizacji do `POLAR_ORGANIZATION_ID`.
 2. W ustawieniach organizacji utwórz token dostępu organizacji z poniższymi zakresami uprawnień, i tylko z nimi, a następnie skopiuj go do `POLAR_ACCESS_TOKEN`.
 
-| Zakres                    | Wymagany przez                                                                     |
-| ------------------------- | ---------------------------------------------------------------------------------- |
-| `checkouts:write`         | `startCheckout`, który tworzy sesję płatności przez wtyczkę Polar dla Better Auth  |
-| `customer_sessions:write` | Link do portalu klienta, `/api/auth/customer/portal`                               |
-| `discounts:read`          | Wyszukiwanie rabatu regionalnego przy płatności (`pppDiscountId`) i `polar:verify` |
-| `license_keys:write`      | Odczyt klucza i jego aktywacji oraz usuwanie aktywacji (`deactivateLicense`)       |
-| `orders:read`             | Handlery webhooków, które odczytują zamówienie powiązane z licencją                |
-| `products:read`           | `polar:verify`                                                                     |
-| `webhooks:read`           | `polar:verify`                                                                     |
+| Zakres                    | Wymagany przez                                                                                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `checkouts:write`         | `startCheckout`, który tworzy sesję płatności przez wtyczkę Polar dla Better Auth                                                                    |
+| `customer_sessions:write` | Link do portalu klienta, `/api/auth/customer/portal`                                                                                                 |
+| `discounts:read`          | Wyszukiwanie rabatu regionalnego przy płatności (`pppDiscountId`) i `polar:verify`                                                                   |
+| `license_keys:write`      | Odczyt klucza i jego aktywacji, aktywacja maszyny oraz usuwanie aktywacji (`deactivateLicense` i [API licencji CLI](/docs/features/cli-licence-api)) |
+| `orders:read`             | Handlery webhooków, które odczytują zamówienie powiązane z licencją                                                                                  |
+| `products:read`           | `polar:verify`                                                                                                                                       |
+| `webhooks:read`           | `polar:verify`                                                                                                                                       |
 
 Zakres zapisu obejmuje odczyt, więc `license_keys:write` pozwala też odczytywać klucze. Token organizacji działa już w imieniu własnej organizacji. `polar:verify` mimo to wysyła `POLAR_ORGANIZATION_ID` jako parametr zapytania `organization_id`, tak jak robi to wyszukiwanie rabatu przy płatności, więc ID innej organizacji objawia się brakującymi produktami.
 
@@ -84,7 +84,7 @@ Utwórz po jednym endpoincie webhooka dla każdego wdrożonego środowiska, w or
 Host pochodzi z `DEPLOYED_HOSTS`, a ścieżka z `ROUTES`. Wybierz format Raw, pozostaw endpoint włączony i zasubskrybuj w nim dokładnie te zdarzenia, które obsługuje `licenseWebhookHandlers`, wymienione w `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`):
 
 - `order.paid` przyznaje licencję;
-- `order.refunded` cofa ją, gdy zamówienie zostanie zwrócone w całości;
+- `order.refunded` oznacza zwrot pieniędzy za licencję, gdy zamówienie zostanie zwrócone w całości;
 - `benefit_grant.created` zapisuje klucz licencyjny;
 - `benefit_grant.revoked` cofa licencję.
 
@@ -109,7 +109,7 @@ Każdy skrypt odczytuje klucze Polar z `.env.<environment>` i wysyła wyłączni
 - preview i produkcja mają włączony endpoint w formacie Raw pod swoim adresem URL webhooka, podpisany za pomocą `POLAR_WEBHOOK_SECRET` i zasubskrybowany dokładnie na obsługiwane zdarzenia;
 - żaden endpoint nie wysyła zdarzeń do hosta środowiska, które używa drugiej usługi Polar.
 
-`deploy:preview` i `deploy:production` uruchamiają go zaraz po `scripts/verify-bindings.ts`, przed buildem. Wdrożenia z CI tego nie robią: środowiska GitHub nie przechowują tokenu Polar, a Worker zachowuje sekrety Polar ustawione już w Cloudflare. Po każdej zmianie w Polar uruchom `polar:verify` samodzielnie.
+`polar:verify` jest sprawdzeniem przed wdrożeniem obszaru Polar (`POLAR_DEPLOY_CHECKS` w `src/data/polar.deploy.ts`), więc `deploy:preview` i `deploy:production` uruchamiają go przez `scripts/run-deploy-checks.ts`, zaraz po `scripts/verify-bindings.ts` i przed buildem. Wdrożenia z CI nie uruchamiają żadnego sprawdzenia przed wdrożeniem, w tym `polar:verify`: `deploy-reusable.yml` nie ma kroku z `scripts/run-deploy-checks.ts`, środowiska GitHub nie przechowują tokenu Polar, a Worker zachowuje sekrety Polar ustawione już w Cloudflare. Po każdej zmianie w Polar uruchom `polar:verify` samodzielnie.
 
 ## Gdy kontrola kończy się błędem
 

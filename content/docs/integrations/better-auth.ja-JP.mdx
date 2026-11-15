@@ -7,17 +7,18 @@ Better Auth は、ユーザー、アカウント、セッション、検証ト�
 
 ## ファイル
 
-| ファイル                                               | 役割                                                                                                                                                                       |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.server.ts`                                       | `betterAuth` インスタンス。プロバイダー、`admin`・`twoFactor`・Polar・`tanstackStartCookies` の各プラグイン、許可するホスト、D1 によるレート制限、メールフックを設定します |
-| `auth.client.ts`                                       | `authClient` とそのメソッド（`signIn`、`signUp`、`signOut`、`useSession`、`twoFactor` など）                                                                               |
-| `auth.routes.ts`                                       | `beforeLoad` 用のルートガード                                                                                                                                              |
-| `auth.middleware.ts`                                   | サーバー関数のミドルウェア: `withRequest`、`authorized`、`withRateLimit`、`RATE_LIMITS`                                                                                    |
-| `auth.access.ts`                                       | ロール、権限ステートメント、`hasPermission`                                                                                                                                |
-| `auth.constants.ts`                                    | `AUTH_PROVIDER`：メールとパスワードのプロバイダー（`credential`）と OAuth プロバイダーの ID                                                                                |
-| `auth.session.ts`                                      | `getRequestSession`、`getCurrentSession` サーバー関数、`getCurrentSessionQuery`                                                                                            |
-| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | エラーキー、フォームのスキーマ、パスワードの制限                                                                                                                           |
-| `auth.hooks.ts`                                        | `enforceInputPolicy`：フォームのスキーマを Better Auth のエンドポイントに適用                                                                                              |
+| ファイル                                               | 役割                                                                                                                                                                                            |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.server.ts`                                       | `betterAuth` インスタンス。プロバイダー、`admin`・`twoFactor`・`tanstackStartCookies` の各プラグインとエリアが追加するプラグイン、許可するホスト、D1 によるレート制限、メールフックを設定します |
+| `auth.client.ts`                                       | `authClient` とそのメソッド（`signIn`、`signUp`、`signOut`、`useSession`、`twoFactor` など）                                                                                                    |
+| `auth.routes.ts`                                       | `beforeLoad` 用のルートガード                                                                                                                                                                   |
+| `auth.middleware.ts`                                   | サーバー関数のミドルウェア: `withRequest`、`authorized`、`withRateLimit`、`RATE_LIMITS`                                                                                                         |
+| `auth.access.ts`                                       | エリアが宣言する権限ステートメントと付与から組み立てる `ac`、`ROLES`、`hasPermission`                                                                                                           |
+| `auth.roles.ts`                                        | `ROLE_CODES`、`ROLE_VALUES`、`DEFAULT_ROLE_CODE`、`isRole`                                                                                                                                      |
+| `auth.constants.ts`                                    | `AUTH_PROVIDER`：メールとパスワードのプロバイダー（`credential`）と OAuth プロバイダーの ID                                                                                                     |
+| `auth.session.ts`                                      | `getRequestSession`、`getCurrentSession` サーバー関数、`getCurrentSessionQuery`                                                                                                                 |
+| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | エラーキー、フォームのスキーマ、パスワードの制限                                                                                                                                                |
+| `auth.hooks.ts`                                        | `enforceInputPolicy`：フォームのスキーマを Better Auth のエンドポイントに適用                                                                                                                   |
 
 ## ルートガード
 
@@ -40,11 +41,18 @@ Better Auth は、ユーザー、アカウント、セッション、検証ト�
 
 ## ロールと権限
 
-`auth.access.ts` は 2 つのロールを定義します。`admin` と `customer`（新規アカウントのデフォルト）です。アプリケーションのステートメントは `admin`、`category`、`course`、`order`、`product`、`settings`、`video` を対象とし、admin ロールには Better Auth の管理者用ステートメントも付与されます。`hasPermission({ permission, role })` はガード、ミドルウェア、UI で共有されます。
+`auth.roles.ts` は 2 つのロールを定義します。`admin` と `customer`（新規アカウントのデフォルト）です。各エリアは、自分のリソースのステートメントを `src/data/<area>.access.ts` で宣言し、ロールに付与します。現在は、認証エリアが `admin` と `settings`、商品エリアが `category` と `product`、コースエリアが `course` と `video`、決済エリアが `order` を宣言し、いずれも管理者に付与しています。`auth.access.ts` はそれらからアクセス制御とロールを組み立て、admin ロールには Better Auth の管理者用ステートメントも付与されます。`hasPermission({ permission, role })` はガード、ミドルウェア、UI で共有されます。[ロールと権限](/docs/guides/roles-and-permissions)を参照してください。
 
 ## メールとレート制限
 
-`auth.server.ts` のメールフックは、`sendVerifyEmail`、`sendResetPasswordEmail`、`sendChangeEmailConfirmationEmail` の各ユースケースを呼び出します。Better Auth 自身のレートリミッターは、`src/lib/rate-limit.ts` の `authRateLimitStorage` を通じて D1 の `rate_limit` テーブルにカウンターを保存します。このストレージはアトミックなアップサートを使い、ストレージが利用できない場合はリクエストを拒否します。`getRequestSession` は Cookie キャッシュを経由しないため、認可では常に D1 からセッションを読み込みます。
+`auth.server.ts` はほかのエリアを名指ししません。ほかのエリアが追加するものは、認証エリア自身の 2 つのリストがまとめます。
+
+| リスト         | 各エリアが宣言するもの                                                                                          | バレル                             | 使う側                                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 認証プラグイン | `src/data/<area>.auth-plugins.ts`：プラグインと、Better Auth が HTTP に対して閉じ、レート制限の対象外にするパス | `src/data/auth-plugins.entries.ts` | `plugins`、`disabledPaths`、`rateLimit.customRules`。ライセンスのエリアが Polar プラグインを追加します |
+| 認証メール     | `src/data/<area>.auth-emails.ts`：確認、パスワードリセット、メールアドレス変更の各メールの送信関数              | `src/data/auth-emails.entries.ts`  | メールフックが呼び出す `AUTH_EMAILS`。Resend が `RESEND_AUTH_EMAILS` を追加します                      |
+
+エリアのプラグインは `admin` と `twoFactor` の後、最後に置かなければならない `tanstackStartCookies` の前に入ります。Better Auth は、プラグインのユーザーとセッションのフィールドを、プラグインのリストから最初に展開されたリストの手前まで順に読み取るため、そうしたフィールドを追加するプラグインは `auth.server.ts` に置きます。メールフックは、それぞれのメールを、そのメールを送るすべてのエリアの送信関数に渡します。`sendVerifyEmail`、`sendResetPasswordEmail`、`sendChangeEmailConfirmationEmail` です。Better Auth 自身のレートリミッターは、`src/lib/rate-limit.ts` の `consumeRateLimit` を通じて、D1 の `rate_limit` テーブルに `auth:` プレフィックス付きでカウンターを保存します。この関数はアトミックなアップサートを使い、ストレージが利用できない場合はリクエストを拒否します。`auth.middleware.ts` の `clientAddress` は、このリミッターと同じ方法でリクエストのクライアントを特定します。`cf-connecting-ip` を使い、IPv6 アドレスは /64 単位でまとめます。Cookie のプレフィックスはブランディングの `APP_SLUG` です。`getRequestSession` は Cookie キャッシュを経由しないため、認可では常に D1 からセッションを読み込みます。
 
 ## 関連ガイド
 

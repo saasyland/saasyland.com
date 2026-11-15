@@ -13,7 +13,7 @@ import { Button } from "~/src/presentation/components/shadcn/button"
 
 import { PostEditor } from "~/src/presentation/components/custom/admin/blog/post-editor"
 import { PostSettings } from "~/src/presentation/components/custom/admin/blog/post-settings"
-import { AdminBlogCreatePending } from "~/src/presentation/components/custom/admin/content-pending"
+import { AdminBlogCreatePending } from "~/src/presentation/components/custom/admin/post-editor-pending"
 
 import { ROUTES } from "~/src/routes"
 

@@ -1,7 +1,7 @@
-import { ADMIN_NAVIGATION_GROUPS, FOOTER_COLUMNS, NAVIGATION_PLACEMENT } from "~/src/data/navigation.constants"
+import { ADMIN_NAVIGATION_GROUPS, FOOTER_COLUMNS, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 import * as AREA_NAVIGATION from "~/src/data/navigation.entries"
 
-const ENTRIES = Object.values(AREA_NAVIGATION)
+const ENTRIES: readonly NavigationEntry[] = Object.values(AREA_NAVIGATION)
   .flat()
   .toSorted((first, second) => first.order - second.order)
 
@@ -17,6 +17,8 @@ export const ADMIN_NAVIGATION = ADMIN_NAVIGATION_GROUPS.map((group) => ({
 export const ADMIN_DASHBOARD_ACTIONS = ENTRIES.filter((entry) => entry.placement === NAVIGATION_PLACEMENT.DASHBOARD)
 
 export const APP_NAVIGATION = ENTRIES.filter((entry) => entry.placement === NAVIGATION_PLACEMENT.APP)
+
+export const APP_RESOURCE_NAVIGATION = ENTRIES.filter((entry) => entry.placement === NAVIGATION_PLACEMENT.APP_RESOURCES)
 
 export const NAVIGATION_PAGES = ENTRIES.filter((entry) => entry.placement === NAVIGATION_PLACEMENT.HEADER)
 

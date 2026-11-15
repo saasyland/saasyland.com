@@ -47,13 +47,12 @@ Dados extras entram no mesmo `Promise.all`, por exemplo `context.queryClient.que
 
 ## Rotas de layout
 
-Uma rota de layout define um componente `<Name>Layout`, um array `NAMESPACES` e, nas áreas protegidas, um guard em `beforeLoad`. Um parâmetro de busca compartilhado pelas páginas da área é validado no layout, como `/app` faz com `tier`:
+Uma rota de layout define um componente `<Name>Layout`, um array `NAMESPACES` e, nas áreas protegidas, um guard em `beforeLoad`. Os seus `NAMESPACES` terminam com os namespaces que outras áreas acrescentam a ele, e um parâmetro de busca é validado pelas páginas que o leem, como as páginas de licença `/app` e `/app/license` fazem com `tier`:
 
 ```tsx
-const NAMESPACES = ["auth.errors", "pages.app.sidebar", "pages.license", "timezones"] as const
+const NAMESPACES = ["auth.errors", "pages.app.sidebar", "timezones", ...layoutNamespaces("/app")] as const
 
 export const Route = createFileRoute("/app")({
-  validateSearch: appSearchSchema,
   beforeLoad: requireSignedIn,
   component: AppLayout,
   loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
@@ -70,11 +69,11 @@ A maioria das navegações termina antes que qualquer UI de carregamento apareç
 
 Não há componente de carregamento padrão. Cada rota de layout e de página define o seu próprio `pendingComponent`, exceto as páginas da documentação: `docs.index.tsx` e `docs.$.tsx` definem `pendingMs: Number.POSITIVE_INFINITY` no lugar, de modo que nunca mostram um esqueleto próprio, e `DocsPending` pertence ao layout `docs`. Cada esqueleto reproduz a página que substitui:
 
-- **Esqueletos de página**, como `SignInPending` e `LegalPending`, ficam no arquivo de esqueletos da área e marcam o seu elemento raiz com `aria-busy="true"`. Os arquivos são `custom/auth/auth-pending.tsx`, os arquivos de administração em `custom/admin/` (`admin-pending.tsx` para o layout, um arquivo por grupo da barra lateral e blocos compartilhados em `pending-blocks.tsx`), `custom/app/app-pending.tsx`, `custom/blog/blog-pending.tsx`, `custom/courses/courses-pending.tsx`, `custom/marketing-pending.tsx` e `custom/docs-pending.tsx`.
-- **Esqueletos de layout**, como `AuthPending` e `MarketingPending`, renderizam a moldura do layout e escolhem o esqueleto de página do caminho atual em um mapa indexado por `ROUTES`. Por isso, entrar em uma área vindo de outro lugar mostra a página certa. Os elementos da moldura que não precisam de dados, como `Wordmark`, `PageFrame` e a `Navigation` do marketing, são renderizados de verdade.
+- **Esqueletos de página**, como `SignInPending` e `LegalPending`, ficam no arquivo de esqueletos da área e marcam o seu elemento raiz com `aria-busy="true"`. Os arquivos são `custom/auth/auth-pending.tsx`, os arquivos de administração em `custom/admin/` (`admin-pending.tsx` para o layout, um arquivo `<area>-pending.tsx` por área, como `products-pending.tsx`, e blocos compartilhados em `pending-blocks.tsx`), os arquivos do app do cliente em `custom/app/` (`app-pending.tsx` para o layout, `auth-pending.tsx` e `license-pending.tsx`, e o cabeçalho de página que compartilham em `pending-blocks.tsx`), os arquivos do layout público na raiz de `custom/` (`marketing-pending.tsx` para o layout, `core-pending.tsx`, `legal-pending.tsx`, `license-pending.tsx` e `newsletter-pending.tsx`), `custom/blog/blog-pending.tsx`, `custom/courses/courses-pending.tsx` e `custom/docs-pending.tsx`.
+- **Esqueletos de layout**, como `AuthPending` e `MarketingPending`, renderizam a moldura do layout e escolhem o esqueleto de página do caminho atual em um mapa indexado por `ROUTES`. Os layouts de administração, do app do cliente e público compartilham um único mapa, `PAGE_SKELETONS` em `src/data/skeletons.ts`, que reúne as listas que cada área declara em `src/data/<area>.skeletons.ts`. Por isso, entrar em uma área vindo de outro lugar mostra a página certa. Os elementos da moldura que não precisam de dados, como `Wordmark`, `PageFrame` e a `Navigation` do marketing, são renderizados de verdade.
 - **Placeholders de texto** são barras `Skeleton` com o token tipográfico do elemento real mais `h-lh scale-y-70`, de modo que cada barra preenche exatamente uma caixa de linha. Os blocos usam as alturas e os raios reais. As listas tiram o seu comprimento das mesmas constantes da UI, como `OAUTH_PROVIDERS` e `PASSWORD_RULES` em `src/data/auth.ts`.
 
-Ao adicionar uma página, adicione o esqueleto dela ao arquivo de esqueletos da área, registre-o no mapa do esqueleto de layout e defina-o como `pendingComponent` da rota.
+Ao adicionar uma página, adicione o esqueleto dela ao arquivo de esqueletos da área, registre-o no mapa do esqueleto de layout (para uma página de administração, do app do cliente ou pública, em `src/data/<area>.skeletons.ts` da área dela) e defina-o como `pendingComponent` da rota.
 
 ## Outros aspectos das rotas
 
@@ -87,7 +86,7 @@ Ao adicionar uma página, adicione o esqueleto dela ao arquivo de esqueletos da 
 `src/router.tsx` exporta `getRouter`, que cria um novo `QueryClient` e um novo router a cada requisição. Ele configura:
 
 - os componentes padrão de erro e de página não encontrada, vindos de `presentation/components/custom`, e nenhum componente de carregamento padrão (veja [Esqueletos de carregamento](#esqueletos-de-carregamento))
-- o pré-carregamento por intenção e um stale time padrão de um minuto
+- o pré-carregamento por intenção e um stale time padrão de <RepositoryFact name="routerStaleTimeMinutes" unit="minute" />
 - um `rewrite` que remove o prefixo de locale das URLs recebidas e o adiciona de volta aos links gerados
 - a integração das queries com o SSR por meio de `setupRouterSsrQueryIntegration`
 

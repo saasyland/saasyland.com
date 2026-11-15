@@ -2,7 +2,7 @@ import type { JSX } from "react"
 
 import { useLocale, useTranslations } from "use-intl/react"
 
-import { ADMIN_ANALYTICS_REGION_ROWS, ADMIN_ANALYTICS_UPGRADE_ROWS } from "~/src/data/admin"
+import { ADMIN_ANALYTICS_REGION_ROWS, ADMIN_ANALYTICS_UPGRADE_ROWS } from "~/src/data/admin-analytics"
 
 import { cn } from "~/src/lib/cn"
 

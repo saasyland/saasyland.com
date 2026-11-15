@@ -34,7 +34,7 @@ bun run test:coverage
 ## Середовище тестів
 
 - `src/platform/testing/setup.ts` реєструє matchers jest-dom, скидає прив'язки перед кожним тестом і пропускає кожен `createServerFn` через `withTestRpc`, тож виклики виконують справжні middleware і валідатор. Це стосується проєктів `node` та `integration`. У проєкті `component` серверна функція завершується помилкою, бо jsdom є браузером.
-- `cloudflare:workers` вказує на `src/platform/testing/mocks/cloudflare.ts`. D1 — це база SQLite в пам'яті із застосованими всіма міграціями з репозиторію, KV і бакет R2 `MEDIA` — мапи в пам'яті, а `flushWaitUntil()` чекає на фонові завдання. `createEdgeCache()` з `mocks/cache.ts` підміняє кеш Workers.
+- `cloudflare:workers` вказує на `src/platform/testing/mocks/cloudflare.ts`. D1 — це база SQLite в пам'яті із застосованими всіма міграціями з репозиторію, KV і бакети R2 `MEDIA` і `BUNDLES` — мапи в пам'яті, а `flushWaitUntil()` чекає на фонові завдання. `createEdgeCache()` з `mocks/cache.ts` підміняє кеш Workers.
 - `.env.test` надає фіктивні облікові дані. `fetch` потрапляє до строгих дублерів Resend і Polar (`mocks/resend.ts`, `mocks/polar.ts`), а запит до будь-якого іншого хоста завершується помилкою, наче машина офлайн, тож ніщо її не залишає. Запит, який провайдер відхилив би, провалює тест.
 - `renderWithRouter` з `src/platform/testing/lib/render.tsx` рендерить компоненти зі справжнім роутером і `QueryClient`.
 
@@ -48,7 +48,7 @@ import { describe, expect, it, vi } from "vite-plus/test"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
@@ -90,9 +90,11 @@ expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIV
 
 `paidOrder` створює сеанс оплати через справжній `startCheckout` і оплачує його в дублері. `deliver` підписує подію через `signedPolarWebhook` з `lib/polar.ts`, надсилає її на кінцеву точку Polar у Better Auth і повертає статус відповіді, тож виконуються і перевірка підпису, і плагін, і обробники в `license.webhooks.ts`. Щоб перевірити, як застосунок обробляє збій провайдера, дайте на один запит відповідь з помилкою провайдера, як це робить `resend.utils.test.ts`: `vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(error, { status }))`.
 
+Дублер продає лише те, що розділи завантажують у `__test__/fixtures/<area>.polar-catalogue.ts`; для розділу ліцензій це його плани, їхні бенефіти ліцензійних ключів і регіональні знижки. Тест іншого продукту спершу завантажує його через `seedPolarCatalogue`, вказавши ID, назву, ціну в найменших одиницях валюти разом із валютою та період оплати або `null` для разової покупки, а `createPolarOrder({ externalCustomerId, productId })` записує замовлення на цей продукт. Перед наступним тестом дублер про нього забуває. Так `src/platform/testing/__test__/providers.test.ts` створює сеанс оплати для місячного плану.
+
 ## Протестуйте процес автентифікації
 
-Набори автентифікації працюють зі справжнім `auth` з `auth.server.ts`. `src/integrations/better-auth/__test__/fixtures/auth.harness.ts` створює облікові записи так само, як це робить відвідувач: `signUp`, `verifyEmail` (переходить за токеном з доставленого листа й повертає сесію, яку він відкриває), `signIn` і `signUpAndVerify`. `browserHeaders()` дає кожному запиту власний `CF-Connecting-IP`, тож обмеження частоти запитів Better Auth діють як у production, і жоден тест не вичерпує ліміт іншого. Перш ніж читати лист, який Better Auth надсилає у фоні, дочекайтеся `flushWaitUntil()` через `await`.
+Набори автентифікації працюють зі справжнім `auth` з `auth.server.ts`. `src/integrations/better-auth/__test__/fixtures/auth.harness.ts` створює облікові записи так само, як це робить відвідувач: `signUp`, `verifyEmail` (переходить за токеном з доставленого листа й повертає сесію, яку він відкриває), `signIn` і `signUpAndVerify`. `browserHeaders()` дає кожному запиту власний `CF-Connecting-IP`, тож обмеження частоти запитів Better Auth діють як у production, і жоден тест не вичерпує ліміт іншого. Перш ніж читати лист, який Better Auth надсилає у фоні, дочекайтеся завершення `flushWaitUntil()`.
 
 ## Протестуйте компонент
 

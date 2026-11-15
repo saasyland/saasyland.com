@@ -25,6 +25,7 @@ const FIRST_SCREEN = "100% 0px 0px 0px"
 const REDUCED_MOTION_SCROLL = /@media \(prefers-reduced-motion: reduce\) \{\s*html \{\s*scroll-behavior: auto;/u
 const HIDDEN_CLASSES = ["invisible", "translate-y-2", "opacity-0"]
 
+const browserWindow: Window = globalThis.window
 const observers: TestObserver[] = []
 const scrollTo = vi.fn<(options: ScrollToOptions) => void>()
 
@@ -91,7 +92,7 @@ afterEach(() => {
 
 describe("back to top visibility", () => {
   it("stays hidden near the top and watches a sentinel one screen deep instead of scroll events", () => {
-    const addListener = vi.spyOn(globalThis, "addEventListener")
+    const addListener = vi.spyOn(browserWindow, "addEventListener")
     const { container } = renderBackToTop()
 
     expect(backToTop()).toHaveClass(...HIDDEN_CLASSES)

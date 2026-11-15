@@ -17,21 +17,21 @@ description: "Усі скрипти package.json і те, що вони запу
 | `start`            | `vp preview` останньої збірки за адресою http://127.0.0.1:3000                                                                                                                   |
 | `start:test`       | `vp preview` тестової збірки                                                                                                                                                     |
 
-`verify-build.ts` перевіряє, що `.wrangler/deploy/config.json` вказує на `dist/server/wrangler.json` і що цей файл розгортає Worker, який `wrangler.jsonc` називає для цього середовища, а потім мову документа, канонічні та альтернативні посилання локалізованих головної і юридичних сторінок, шрифти, те, що захищені сторінки й псевдоніми локалей не були попередньо відрендерені, те, що кожну сторінку документації та кожен опублікований допис блогу попередньо відрендерено, а також те, що жоден клієнтський ресурс не імпортує `cloudflare:workers`. `optimize-prerendered-html.ts` видаляє підказки `modulepreload` для залежностей з попередньо відрендерених сторінок і залишає підказку для точки входу з низьким пріоритетом. `generate-seo-files.ts` записує `sitemap.xml` і рендерить картку для соцмереж для кожної попередньо відрендереної сторінки на основі метаданих самої сторінки; див. [Пошук і попередній перегляд у соцмережах](/docs/features/seo).
+`verify-build.ts` перевіряє, що `.wrangler/deploy/config.json` вказує на `dist/server/wrangler.json` і що цей файл розгортає Worker, який `wrangler.jsonc` називає для цього середовища, а потім мову документа, канонічні та альтернативні посилання локалізованих головної і юридичних сторінок, шрифти, те, що псевдоніми локалей і сторінки під непереліченими шляхами розділів не були попередньо відрендерені, те, що кожну сторінку документації та кожен опублікований допис блогу попередньо відрендерено, а також те, що жоден клієнтський ресурс не імпортує `cloudflare:workers`. `optimize-prerendered-html.ts` видаляє підказки `modulepreload` для залежностей з попередньо відрендерених сторінок і залишає підказку для точки входу з низьким пріоритетом. `generate-seo-files.ts` записує `sitemap.xml` і рендерить картку для соцмереж для кожної попередньо відрендереної сторінки на основі метаданих самої сторінки; див. [Пошук і попередній перегляд у соцмережах](/docs/features/seo).
 
 ## Розгортання
 
-| Скрипт              | Що запускає                                                                                                                                                                                                                                  |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `polar:verify:preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` для `dist/server/wrangler.json` і `scripts/verify-deployment.ts preview` |
-| `deploy:production` | Ті самі кроки для `production`                                                                                                                                                                                                               |
+| Скрипт              | Що запускає                                                                                                                                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `scripts/run-deploy-checks.ts preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` для `dist/server/wrangler.json` і `scripts/verify-deployment.ts preview` |
+| `deploy:production` | Ті самі кроки для `production`                                                                                                                                                                                                                               |
 
-- `verify-bindings.ts` завершується помилкою, коли середовище не має прив'язки `DB`, `CACHE` або `MEDIA` чи досі має ідентифікатор-заглушку D1 або KV, а також коли production використовує ту саму базу даних, простір імен або бакет, що й preview.
-- `polar:verify:<environment>` зупиняє розгортання перед збіркою, коли організація Polar з `.env.<environment>` не відповідає коду.
+- `verify-bindings.ts` завершується помилкою, коли середовищу бракує прив'язки, яку оголошує `development` (тут `DB`, `CACHE`, `MEDIA` і `BUNDLES`) чи досі має ідентифікатор-заглушку D1 або KV, а також коли production використовує ту саму базу даних, простір імен або бакет, що й preview.
+- `run-deploy-checks.ts` запускає `bun run <check>:<environment>` для кожної перевірки перед розгортанням, яку розділ оголошує в `src/data/<area>.deploy.ts`, і зупиняє розгортання перед збіркою, якщо якась не проходить. Зараз єдина така перевірка — `polar:verify` із розділу Polar, яка не проходить, коли організація Polar з `.env.<environment>` не відповідає коду.
 - `prepare-deploy-secrets.ts` зчитує з `.env.<environment>` ключі, перелічені в `secrets.required` середовища, завершується помилкою, коли якийсь із них відсутній або порожній, і записує лише ці ключі в `.wrangler/secrets.<environment>.json`. Інші змінні з файлу не завантажуються.
 - Міграції виконуються після збірки й перед розгортанням, тож невдала збірка ніколи не зачіпає базу даних, а новий Worker ніколи не запускається на старішій схемі.
 - Розгортання запускає `env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.<environment>.json`. Зібрана конфігурація вже націлена на одне середовище; `CLOUDFLARE_ENV`, що залишився в оболонці, змусив би Wrangler шукати розділ середовища, якого в цьому файлі немає.
-- `verify-deployment.ts` надсилає запити до <RepositoryFact name="liveSiteCheckPaths" /> на домені середовища й завершується помилкою, якщо котрийсь із них не відповідає `200` з очікуваним типом вмісту. Шлях, що не пройшов перевірку, він запитує тричі з інтервалом у п'ять секунд і нічого не змінює. `bun scripts/verify-deployment.ts <preview|production>` окремо перевіряє розгорнутий сайт.
+- `verify-deployment.ts` надсилає запити до <RepositoryFact name="liveSiteCheckPaths" /> на домені середовища й завершується помилкою, якщо котрийсь із них не відповідає `200` з очікуваним типом вмісту. Шлях, що не пройшов перевірку, він запитує повторно до <RepositoryFact name="liveSiteCheckRetries" /> разів з інтервалом <RepositoryFact name="liveSiteCheckRetrySeconds" unit="second" /> і нічого не змінює. `bun scripts/verify-deployment.ts <preview|production>` окремо перевіряє розгорнутий сайт.
 
 ## Перевірки
 
@@ -48,28 +48,29 @@ description: "Усі скрипти package.json і те, що вони запу
 
 ## Тести
 
-| Скрипт                                                                                            | Що запускає                                             |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `test`                                                                                            | `vp test run` для всіх проєктів Vitest                  |
-| `test:unit`, `test:integration`, `test:component`                                                 | Один проєкт Vitest (`node`, `integration`, `component`) |
-| `test:changed`                                                                                    | Тести, яких стосуються змінені файли                    |
-| `test:watch`                                                                                      | Vitest у режимі спостереження                           |
-| `test:coverage`                                                                                   | Усі проєкти з перевіркою покриття                       |
-| `test:all`                                                                                        | `test`, потім `test:e2e:smoke`                          |
-| `test:e2e`, `test:e2e:smoke`, `test:e2e:pr`, `test:e2e:headed`, `test:e2e:ui`, `test:e2e:install` | Playwright; див. [Playwright](/docs/tooling/playwright) |
+| Скрипт                                                                                            | Що запускає                                                                                                      |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `test`                                                                                            | `vp test run` для всіх проєктів Vitest                                                                           |
+| `test:unit`, `test:integration`, `test:component`                                                 | Один проєкт Vitest (`node`, `integration`, `component`)                                                          |
+| `test:changed`                                                                                    | Тести, яких стосуються змінені файли                                                                             |
+| `test:watch`                                                                                      | Vitest у режимі спостереження                                                                                    |
+| `test:coverage`                                                                                   | Усі проєкти з перевіркою покриття                                                                                |
+| `test:all`                                                                                        | `test`, потім `test:e2e:smoke`                                                                                   |
+| `test:e2e`, `test:e2e:smoke`, `test:e2e:pr`, `test:e2e:headed`, `test:e2e:ui`, `test:e2e:install` | Playwright; див. [Playwright](/docs/tooling/playwright)                                                          |
+| `test:journey`                                                                                    | Набір тестів шляху клієнта на preview; див. [Набір тестів шляху клієнта](/docs/tooling/playwright#journey-suite) |
 
 ## База даних
 
-| Скрипт                                                                           | Що запускає                                                          |
-| -------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `db:generate`                                                                    | Генерування міграцій drizzle-kit                                     |
-| `db:migrate:local`, `db:migrate:test`                                            | Міграції Wrangler для локальної бази даних                           |
-| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Міграції Wrangler для віддаленої бази даних                          |
-| `db:migrations:development`, `db:migrations:preview`, `db:migrations:production` | Міграції, які віддалена база даних ще не застосувала                 |
-| `db:seed:test`                                                                   | `scripts/seed-test.ts`: тестові облікові записи, відео й курс        |
-| `db:reset:test`                                                                  | Видалення `.wrangler/test`, потім `db:migrate:test` і `db:seed:test` |
-| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                                       |
-| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Інтроспекція drizzle-kit                                             |
+| Скрипт                                                                           | Що запускає                                                             |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `db:generate`                                                                    | Генерування міграцій drizzle-kit                                        |
+| `db:migrate:local`, `db:migrate:test`                                            | Міграції Wrangler для локальної бази даних                              |
+| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Міграції Wrangler для віддаленої бази даних                             |
+| `db:migrations:development`, `db:migrations:preview`, `db:migrations:production` | Міграції, які віддалена база даних ще не застосувала                    |
+| `db:seed:test`                                                                   | `scripts/seed-test.ts`: тестові облікові записи, ліцензія, відео й курс |
+| `db:reset:test`                                                                  | Видалення `.wrangler/test`, потім `db:migrate:test` і `db:seed:test`    |
+| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                                          |
+| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Інтроспекція drizzle-kit                                                |
 
 ## Відео
 

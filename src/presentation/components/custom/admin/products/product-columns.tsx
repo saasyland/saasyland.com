@@ -12,7 +12,7 @@ import { cn } from "~/src/lib/cn"
 
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 
-import { RowActionsCell } from "~/src/presentation/components/custom/admin/row-actions-cell"
+import { RowActionsCell } from "~/src/presentation/components/custom/admin/products/row-actions-cell"
 import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 const PRODUCT_STATUS_COLORS: Record<ProductRow["status"], AdminStatusColor> = {

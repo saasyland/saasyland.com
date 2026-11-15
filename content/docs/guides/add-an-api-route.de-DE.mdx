@@ -7,13 +7,14 @@ API-Routen sind Server-Handler von TanStack Start in `src/routes/api/`. Die eige
 
 ## Bestehende Routen
 
-| Datei                      | Pfad          | Zweck                                                                                                  |
-| -------------------------- | ------------- | ------------------------------------------------------------------------------------------------------ |
-| `src/routes/api/auth.$.ts` | `/api/auth/*` | Better Auth: Anmeldung, OAuth-Callbacks, E-Mail-Verifizierung, das Kundenportal von Polar und Webhooks |
-| `src/routes/api/search.ts` | `/api/search` | Fumadocs-Suche für die Dokumentation                                                                   |
-| `src/routes/api/index.ts`  | `/api`        | Laufzeitprüfung, die `{ "runtime": "cloudflare-workers" }` zurückgibt                                  |
+| Datei                        | Pfad                                         | Zweck                                                                                                  |
+| ---------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `src/routes/api/auth.$.ts`   | `/api/auth/*`                                | Better Auth: Anmeldung, OAuth-Callbacks, E-Mail-Verifizierung, das Kundenportal von Polar und Webhooks |
+| `src/routes/api/search.ts`   | `/api/search`                                | Fumadocs-Suche für die Dokumentation                                                                   |
+| `src/routes/api/index.ts`    | `/api`                                       | Laufzeitprüfung, die `{ "runtime": "cloudflare-workers" }` zurückgibt                                  |
+| `src/routes/api/cli.v1.*.ts` | <RepositoryFact name="cliApiBasePath" />`/*` | Die [CLI-Lizenz-API](/docs/features/cli-licence-api), die die CLI `saasyland` aufruft                  |
 
-Der Endpunkt `/api/auth/checkout` des Polar-Plugins steht in den `disabledPaths` von Better Auth und antwortet mit 404; Checkouts starten in der Server-Funktion `startCheckout`. Polar-Webhooks kommen unter `/api/auth/polar/webhooks` an; das Polar-Plugin von Better Auth prüft ihre Signatur mit `POLAR_WEBHOOK_SECRET`, bevor `license.webhooks.ts` sie verarbeitet.
+Das Polar-Plugin fügt keinen Checkout-Endpunkt hinzu; Checkouts starten in der Server-Funktion `startCheckout`. Polar-Webhooks kommen unter `/api/auth/polar/webhooks` an; das Polar-Plugin von Better Auth prüft ihre Signatur mit `POLAR_WEBHOOK_SECRET`, bevor `license.webhooks.ts` sie verarbeitet.
 
 ## Handler schreiben
 
@@ -37,7 +38,7 @@ Innerhalb eines Handlers:
 
 - Query-Parameter oder Body mit einem Zod-Schema validieren und bei einem Fehlschlag `HTTP_STATUS.BAD_REQUEST` (aus `src/modules/_core/constants/api.ts`) zurückgeben. Dort einen Status ergänzen, wenn der Handler einen neuen benötigt.
 - Die Session mit `getRequestSession(request)` lesen und mit `hasPermission` prüfen. Funktions-Middleware wie `authorized` gilt für Server-Funktionen, nicht für Handler.
-- Öffentliche Endpunkte mit `withinRateLimit({ key, limit, windowSeconds })` und `clientAddress(request.headers)` aus `src/lib/rate-limit.ts` begrenzen.
+- Öffentliche Endpunkte mit `withinRateLimit({ key, limit, windowSeconds })` aus `src/lib/rate-limit.ts` und `clientAddress(request.headers)` aus `src/integrations/better-auth/auth.middleware.ts` begrenzen.
 - Signaturen prüfen, bevor einem Webhook-Payload vertraut wird.
 - Sichere Fehler-Bodys zurückgeben; Details mit `console.error` protokollieren.
 
@@ -49,4 +50,4 @@ Innerhalb eines Handlers:
 
 ## Testen
 
-Den Handler über die Route-Optionen aufrufen, wie es `src/routes/api/__test__/handlers.test.ts` mit `Route.options.server.handlers` tut, und den Provider mocken, an den er weiterleitet.
+Den Handler über die Route-Optionen aufrufen, wie es `src/routes/api/__test__/search.test.ts` mit `Route.options.server.handlers` tut, und den Provider mocken, an den er weiterleitet.

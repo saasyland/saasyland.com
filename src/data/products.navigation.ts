@@ -1,17 +1,28 @@
 import { Package, PlusCircle } from "lucide-react"
 
-import { ADMIN_NAVIGATION_GROUP, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
+import { ADMIN_NAVIGATION_GROUP, FEATURE_STATUS, NAVIGATION_PLACEMENT, type NavigationEntry } from "~/src/data/navigation.constants"
 
 import { ROUTES } from "~/src/routes"
 
+const AREA = "products"
+
 export const PRODUCTS_NAVIGATION = [
   {
+    area: AREA,
     group: ADMIN_NAVIGATION_GROUP.OFFERINGS,
     icon: Package,
     key: "products",
     order: 10,
     placement: NAVIGATION_PLACEMENT.ADMIN,
+    status: FEATURE_STATUS.AVAILABLE,
     to: ROUTES.ADMIN_PRODUCTS,
   },
-  { icon: PlusCircle, key: "addProduct", order: 10, placement: NAVIGATION_PLACEMENT.DASHBOARD, to: ROUTES.ADMIN_PRODUCTS_CREATE },
+  {
+    area: AREA,
+    icon: PlusCircle,
+    key: "addProduct",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.DASHBOARD,
+    to: ROUTES.ADMIN_PRODUCTS_CREATE,
+  },
 ] as const satisfies readonly NavigationEntry[]

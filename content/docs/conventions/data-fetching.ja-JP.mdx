@@ -48,18 +48,18 @@ export const catalogueQuery = (input: Course["getCatalogue"]) =>
   })
 ```
 
-翻訳（`messagesQueryOptions`）、GitHub のスター数（`starCountQuery`）、コースカタログ（`catalogueQuery`）、ランディングページのコースブロック（`courseShowcaseQuery`）は公開クエリです。それ以外のクエリはすべてサインイン中のユーザーのものです。ユーザーが変わると、`auth.session.ts` の `removeUserData` がそれらのクエリとすべてのミューテーションを削除し、公開クエリは残します。そのため、次のユーザーが前のユーザーのデータを目にすることはなく、プリレンダーされたページはレンダリングされたときのデータを保ちます。このフラグは、サーバーがページにデハイドレートするすべてのクエリに付いたまま届くためです。フラグを省いたクエリは次のユーザーのために再取得されます。その分リクエストが 1 回増えますが、データが漏れることはありません。そのため、クエリを公開にするのは、そのサーバー関数がセッションを一切読まない場合だけにしてください。`auth.session.test.ts` はすべての公開クエリを実行し、いずれかがセッションを読んだ場合や、テストが実行しない公開クエリをソースファイルが宣言している場合に失敗します。
+翻訳（`messagesQueryOptions`）、GitHub のスター数（`starCountQuery`）、コースカタログ（`catalogueQuery`）、ランディングページのコースブロック（`courseShowcaseQuery`）は公開クエリです。それ以外のクエリはすべてサインイン中のユーザーのものです。ユーザーが変わると、`auth.session.ts` の `removeUserData` がそれらのクエリとすべてのミューテーションを削除し、公開クエリは残します。そのため、次のユーザーが前のユーザーのデータを目にすることはなく、プリレンダーされたページはレンダリングされたときのデータを保ちます。このフラグは、サーバーがページにデハイドレートするすべてのクエリに付いたまま届くためです。フラグを省いたクエリは次のユーザーのために再取得されます。その分リクエストが 1 回増えますが、データが漏れることはありません。そのため、クエリを公開にするのは、そのサーバー関数がセッションを一切読まない場合だけにしてください。`auth.session.test.ts` はすべての公開クエリを実行し、いずれかがセッションを読んだ場合や、テストが実行しない公開クエリをソースファイルが宣言している場合に失敗します。各エリアは、このテストのための公開クエリを `src/integrations/better-auth/__test__/<area>.public-queries.ts` に列挙します。
 
 ## データの鮮度
 
-`src/router.tsx` の `getRouter()` は、リクエストごとに次のデフォルト値で `QueryClient` を 1 つ作成し、ルーターも同じ 1 分を使います。
+`src/router.tsx` の `getRouter()` は、リクエストごとに `src/integrations/tanstack-query/query.cache.ts` のキャッシュ時間で `QueryClient` を 1 つ作成し、ルーターの `defaultStaleTime` にも同じ `QUERY_STALE_TIME_MS` を使います。
 
 ```ts
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      gcTime: FIVE_MINS_IN_MS,
-      staleTime: ONE_MIN_IN_MS,
+      gcTime: QUERY_GC_TIME_MS,
+      staleTime: QUERY_STALE_TIME_MS,
     },
   },
 })

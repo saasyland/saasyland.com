@@ -9,11 +9,13 @@ description: "/ のマーケティングページ、各セクション、地域�
 
 ページ上のその他の数値は手入力ではなく計測された値です。`scripts/repository-facts.ts` の Vite プラグイン `virtual:repository-facts` が、ビルド時にテストファイル、Playwright スペック、UI コンポーネントを数え、通貨、タイムゾーン、国の数を `CURRENCY_CODES`、`TIMEZONES`、`COUNTRIES` から取得し、React と TanStack Table のメジャーバージョンを読み取ります。`src/data/repository-facts.ts` の `REPOSITORY_FACTS` が言語数、`ADMIN_NAVIGATION` の管理画面のセクション数と、`src/data/cli.ts` から CLI の質問数（`cliQuestions`）、モジュール数（`cliModules`）、回答で省けるモジュール数（`cliOptionalModules`）、追加機能の数（`cliExtras`）を加え、各セクションはそれを `{testFiles, number}` のような ICU 引数として `pages.landing` のメッセージに渡します。
 
+`adminSections` は、`ADMIN_NAVIGATION` のうち `status` が `FEATURE_STATUS.AVAILABLE`（`src/data/navigation.constants.ts`）のエントリだけを数えます。各エリアはこの値を `src/data/<area>.navigation.ts` のエントリの横で宣言するため、デモデータを表示する管理画面は数えられず、現在は <RepositoryFact name="adminSections" /> です。Proof グリッドの **言語** は対応ロケールを表示し、テストの数値については、生成されたプロジェクトではなくこのサイト自体のソースで数えたものだと明記しています。
+
 `_landing` レイアウトは `/`、法務ページ、`/premium`、ニュースレターのページを `Navigation`、`PageFrame`、`Footer`、`BackToTop` で囲み、常にダークテーマで表示します。セクションのアンカーは `src/data/marketing.ts` の `MARKETING_SECTION_IDS`（`foundation`、`cli`、`quality`、`toolkit`、`pricing`、`faq`）で、リンクは `<Link to={ROUTES.HOME} hash={MARKETING_SECTION_IDS.PRICING}>` の形で書きます。
 
 ## ナビゲーションとページトップへ戻るボタン
 
-- ヘッダーに並ぶランディングページのセクションとページは `src/data/marketing.ts` の `NAVIGATION_SECTIONS` と、コースとコンテンツのエリアが追加したヘッダー項目である `src/data/navigation.ts` の `NAVIGATION_PAGES` から取得し、ラベルは `components.custom.navigation` から取得します。デスクトップの `Navigation`、`MobileMenu`、ブログとコースのレイアウトの `ContentNavigation` ヘッダーはいずれもこれらを表示するため、そこに追加したページは 3 つすべてに表示されます。`xl` ブレークポイント未満では、どちらのヘッダーもリンクを `MobileMenu` にまとめるため、長い翻訳でも折り返しません。
+- ヘッダーに並ぶランディングページのセクションとページは `src/data/marketing.ts` の `NAVIGATION_SECTIONS` と、コースとコンテンツのエリアが追加したヘッダー項目である `src/data/navigation.ts` の `NAVIGATION_PAGES` から取得します。ページのラベルは `navigation.courses.json` と `navigation.content.json` から、セクションのリンクのラベルは引き続き `components.custom.navigation` から取得します。デスクトップの `Navigation`、`MobileMenu`、ブログとコースのレイアウトの `ContentNavigation` ヘッダーはいずれもこれらを表示するため、そこに追加したページは 3 つすべてに表示されます。`xl` ブレークポイント未満では、どちらのヘッダーもリンクを `MobileMenu` にまとめるため、長い翻訳でも折り返しません。
 - ランディングページ、ブログ、コースのヘッダーにあるロゴは `HomeLink`（`src/presentation/components/custom/home-link.tsx`）です。`/` でクリックすると、表示中のページを再読み込みする代わりにページの先頭までスクロールし、`#pricing` のようなセクションのハッシュを、履歴エントリーを置き換えてアドレスから取り除きます。ほかのページでは通常のホームへのリンクで、修飾キーを押しながらクリックすれば新しいタブやウィンドウで開けます。
 - `BackToTop`（`src/presentation/components/custom/back-to-top.tsx`）は右下に固定された React Aria のボタンで、ラベルは `components.custom.back-to-top` 名前空間から取得します。`IntersectionObserver` で監視する番兵要素が、最初の画面がビューから外れると表示し、先頭近くに戻ると再び隠すので、スクロールイベントでコードは実行されません。押すとページの先頭までスクロールし、フォーカスをページの `h1` に移します。ランディングページ、ブログ、コース、ドキュメントの各レイアウトが表示します。
 - どちらも `scrollTo({ top: 0 })` を呼び、動きは `globals.css` に任せます。`html` は滑らかにスクロールし、`prefers-reduced-motion: reduce` のときは先頭へ即座に移動します。
@@ -23,7 +25,7 @@ description: "/ のマーケティングページ、各セクション、地域�
 `PricingSection` は `src/presentation/components/custom/pricing.tsx` の `PricingTiers` を表示します。これは[顧客アプリ](/docs/features/customer-app)がライセンスのないアカウントに表示するのと同じプランのカードです。各カードは `TIERS` のプランを、`TIER_PRICES` の金額と `components.custom.pricing` 名前空間の文言とともに表示し、ボタンは表示するページから受け取ります。ランディングページでは `/auth/sign-up?redirect=/app?tier=<tier>` へのリンクなので、選んだプランはサインアップ後も引き継がれます。グリッドは自身のコンテナの幅が 42rem 以上になると 3 列に切り替わる（`@container`）ため、幅の狭いアプリの列にも収まります。地域別価格はクライアント側の JavaScript なしで動くため、ページはプリレンダリングされたままです。
 
 1. `Price` は地域の倍率（`PPP_KEYS`）ごとに金額を 1 回ずつ表示し、通常価格を取り消し線付きで表示します。
-2. Worker（`src/server.ts`）は `cf-ipcountry` を読み取ります。`PPP_TIERS` に含まれる国であれば、`HTMLRewriter` で `html` 要素に `data-ppp` と変数 `--ppp-region`、`--ppp-percent` を設定し、レスポンスを `private, no-cache` にします。
+2. Worker がすべての HTML ページに適用する、ライセンスのエリアのドキュメントハンドラー（`src/data/license.worker.ts`）が `cf-ipcountry` を読み取ります。`PPP_TIERS` に含まれる国であれば、`HTMLRewriter` で `html` 要素に `data-ppp` と変数 `--ppp-region`、`--ppp-percent` を設定し、レスポンスを `private, no-cache` にします。
 3. 地域割引のチェックボックスがオンの間、`globals.css` の CSS が該当する価格を表示します。
 4. チェックを外すと Cookie に `regional_pricing=off` が保存され、Worker と `startCheckout` の両方がこれに従います。
 
@@ -31,7 +33,7 @@ description: "/ のマーケティングページ、各セクション、地域�
 
 ## CLI コンフィギュレーター
 
-`CliSection` は `CliConfigurator`（`landing-page/components/cli-configurator.tsx`）を含みます。`src/data/cli.ts` の選択肢、追加機能、パッケージマネージャーからフラグ付きの `saasyland@latest init my-app` コマンドを組み立て、`CopyButton` でコピーできます。
+`CliSection` は `CliConfigurator`（`landing-page/components/cli-configurator.tsx`）を含みます。`src/data/cli.ts` の選択肢、追加機能、パッケージマネージャーからフラグ付きの <RepositoryFact name="scaffoldTarget" /> コマンドを組み立て、`CopyButton` でコピーできます。
 
 ## ニュースレター
 

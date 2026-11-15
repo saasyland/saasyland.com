@@ -20,6 +20,7 @@ import { SettingsTwoFactor } from "~/src/presentation/components/custom/admin/se
 
 import authValidationsMessages from "~/messages/en-US/auth.validations.json"
 import pagesAdminSettingsMessages from "~/messages/en-US/pages.admin.settings.json"
+import { APP_NAME } from "~/src/presentation/branding"
 
 const messages = getTestMessages("en-US")
 const labels = pagesAdminSettingsMessages.security.twoFactor
@@ -27,7 +28,7 @@ const FIRST_BACKUP_CODE = "first-backup-code"
 const setupData = {
   backupCodes: [FIRST_BACKUP_CODE, "second-backup-code"],
   method: "totp" as const,
-  totpURI: "otpauth://totp/Saasyland?secret=TESTSECRET",
+  totpURI: `otpauth://totp/${encodeURIComponent(APP_NAME)}?secret=TESTSECRET`,
 }
 const verificationData = { token: "session-token", user: createAuthSessionFixture().user }
 const enableMock = vi.hoisted(() => vi.fn<NonNullable<typeof enableTwoFactorMutation.mutationFn>>())

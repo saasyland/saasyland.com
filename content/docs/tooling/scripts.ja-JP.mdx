@@ -17,21 +17,21 @@ description: "package.json のすべてのスクリプトと、その実行内�
 | `start`            | 最新のビルドを `vp preview` で http://127.0.0.1:3000 に配信                                                                                                                          |
 | `start:test`       | テスト用ビルドの `vp preview`                                                                                                                                                        |
 
-`verify-build.ts` は、まず `.wrangler/deploy/config.json` が `dist/server/wrangler.json` を指していること、そしてこのファイルが `wrangler.jsonc` でその環境に指定された Worker をデプロイすることを確認します。続いて、ローカライズされたホームページと法的ページのドキュメント言語・正規リンク・代替リンク、フォント、保護されたページとロケールエイリアスがプリレンダリングされていないこと、すべてのドキュメントページと公開済みのブログ記事がプリレンダリングされていること、そしてクライアントのアセットが `cloudflare:workers` をインポートしていないことを確認します。`optimize-prerendered-html.ts` は、プリレンダリングされたページから依存関係の `modulepreload` ヒントを取り除き、エントリーのヒントは低優先度のまま残します。`generate-seo-files.ts` は、各ページ自身のメタデータから `sitemap.xml` を書き出し、プリレンダリングされたすべてのページのソーシャルカードを描画します。[検索エンジンとソーシャルプレビュー](/docs/features/seo)を参照してください。
+`verify-build.ts` は、まず `.wrangler/deploy/config.json` が `dist/server/wrangler.json` を指していること、そしてこのファイルが `wrangler.jsonc` でその環境に指定された Worker をデプロイすることを確認します。続いて、ローカライズされたホームページと法的ページのドキュメント言語・正規リンク・代替リンク、フォント、ロケールエイリアスと、各エリアの非掲載のパス配下のページがプリレンダリングされていないこと、すべてのドキュメントページと公開済みのブログ記事がプリレンダリングされていること、そしてクライアントのアセットが `cloudflare:workers` をインポートしていないことを確認します。`optimize-prerendered-html.ts` は、プリレンダリングされたページから依存関係の `modulepreload` ヒントを取り除き、エントリーのヒントは低優先度のまま残します。`generate-seo-files.ts` は、各ページ自身のメタデータから `sitemap.xml` を書き出し、プリレンダリングされたすべてのページのソーシャルカードを描画します。[検索エンジンとソーシャルプレビュー](/docs/features/seo)を参照してください。
 
 ## デプロイ
 
-| スクリプト          | 実行内容                                                                                                                                                                                                                                   |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `deploy:preview`    | `scripts/verify-bindings.ts preview`、`polar:verify:preview`、`build:preview`、`scripts/prepare-deploy-secrets.ts preview`、`db:migrate:preview`、`dist/server/wrangler.json` の `wrangler deploy`、`scripts/verify-deployment.ts preview` |
-| `deploy:production` | `production` 向けに同じ手順を実行                                                                                                                                                                                                          |
+| スクリプト          | 実行内容                                                                                                                                                                                                                                                   |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy:preview`    | `scripts/verify-bindings.ts preview`、`scripts/run-deploy-checks.ts preview`、`build:preview`、`scripts/prepare-deploy-secrets.ts preview`、`db:migrate:preview`、`dist/server/wrangler.json` の `wrangler deploy`、`scripts/verify-deployment.ts preview` |
+| `deploy:production` | `production` 向けに同じ手順を実行                                                                                                                                                                                                                          |
 
-- `verify-bindings.ts` は、環境に `DB`、`CACHE`、`MEDIA` のいずれかのバインディングがない場合や D1 または KV のプレースホルダー ID が残っている場合、また本番がデータベース、名前空間、バケットをプレビューと共有している場合に失敗します。
-- `polar:verify:<environment>` は、`.env.<environment>` の Polar の組織がコードと一致しない場合、ビルドの前にデプロイを止めます。
+- `verify-bindings.ts` は、`development` が宣言しているバインディング（ここでは `DB`、`CACHE`、`MEDIA`、`BUNDLES`）が環境にない場合や D1 または KV のプレースホルダー ID が残っている場合、また本番がデータベース、名前空間、バケットをプレビューと共有している場合に失敗します。
+- `run-deploy-checks.ts` は、各エリアが `src/data/<area>.deploy.ts` で宣言したデプロイ前チェックごとに `bun run <check>:<environment>` を実行し、いずれかが失敗するとビルドの前にデプロイを止めます。現在のチェックは Polar エリアの `polar:verify` だけで、`.env.<environment>` の Polar の組織がコードと一致しない場合に失敗します。
 - `prepare-deploy-secrets.ts` は、環境の `secrets.required` に列挙されたキーを `.env.<environment>` から読み込み、いずれかがないか空の場合は失敗し、それらのキーだけを `.wrangler/secrets.<environment>.json` に書き出します。ファイル内のその他の変数はアップロードされません。
 - マイグレーションはビルドの後、デプロイの前に実行されます。そのため、ビルドが失敗してもデータベースに手が加わることはなく、新しい Worker が古いスキーマで起動することもありません。
 - デプロイでは `env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.<environment>.json` を実行します。ビルドされた設定はすでに 1 つの環境を対象にしています。シェルに `CLOUDFLARE_ENV` が残っていると、Wrangler はそのファイルにない環境セクションを探そうとします。
-- `verify-deployment.ts` は、環境のドメインで <RepositoryFact name="liveSiteCheckPaths" /> にリクエストを送り、それぞれが期待されるコンテンツタイプで `200` を返さない限り失敗します。失敗したパスには 5 秒間隔で 3 回リクエストし、何も変更しません。`bun scripts/verify-deployment.ts <preview|production>` は、稼働中のサイトを単独で確認します。
+- `verify-deployment.ts` は、環境のドメインで <RepositoryFact name="liveSiteCheckPaths" /> にリクエストを送り、それぞれが期待されるコンテンツタイプで `200` を返さない限り失敗します。失敗したパスには <RepositoryFact name="liveSiteCheckRetrySeconds" unit="second" />間隔で最大 <RepositoryFact name="liveSiteCheckRetries" /> 回まで再リクエストし、何も変更しません。`bun scripts/verify-deployment.ts <preview|production>` は、稼働中のサイトを単独で確認します。
 
 ## チェック
 
@@ -48,15 +48,16 @@ description: "package.json のすべてのスクリプトと、その実行内�
 
 ## テスト
 
-| スクリプト                                                                                        | 実行内容                                                              |
-| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `test`                                                                                            | すべての Vitest プロジェクトに対する `vp test run`                    |
-| `test:unit`, `test:integration`, `test:component`                                                 | 1 つの Vitest プロジェクト（`node`、`integration`、`component`）      |
-| `test:changed`                                                                                    | 変更されたファイルの影響を受けるテスト                                |
-| `test:watch`                                                                                      | ウォッチモードの Vitest                                               |
-| `test:coverage`                                                                                   | カバレッジのゲート付きで全プロジェクト                                |
-| `test:all`                                                                                        | `test` の後に `test:e2e:smoke`                                        |
-| `test:e2e`, `test:e2e:smoke`, `test:e2e:pr`, `test:e2e:headed`, `test:e2e:ui`, `test:e2e:install` | Playwright。[Playwright](/docs/tooling/playwright) を参照してください |
+| スクリプト                                                                                        | 実行内容                                                                                                          |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `test`                                                                                            | すべての Vitest プロジェクトに対する `vp test run`                                                                |
+| `test:unit`, `test:integration`, `test:component`                                                 | 1 つの Vitest プロジェクト（`node`、`integration`、`component`）                                                  |
+| `test:changed`                                                                                    | 変更されたファイルの影響を受けるテスト                                                                            |
+| `test:watch`                                                                                      | ウォッチモードの Vitest                                                                                           |
+| `test:coverage`                                                                                   | カバレッジのゲート付きで全プロジェクト                                                                            |
+| `test:all`                                                                                        | `test` の後に `test:e2e:smoke`                                                                                    |
+| `test:e2e`, `test:e2e:smoke`, `test:e2e:pr`, `test:e2e:headed`, `test:e2e:ui`, `test:e2e:install` | Playwright。[Playwright](/docs/tooling/playwright) を参照してください                                             |
+| `test:journey`                                                                                    | プレビューでのジャーニースイート。[ジャーニースイート](/docs/tooling/playwright#journey-suite) を参照してください |
 
 ## データベース
 
@@ -66,7 +67,7 @@ description: "package.json のすべてのスクリプトと、その実行内�
 | `db:migrate:local`, `db:migrate:test`                                            | ローカルのデータベースに対する Wrangler のマイグレーション          |
 | `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | リモートのデータベースに対する Wrangler のマイグレーション          |
 | `db:migrations:development`, `db:migrations:preview`, `db:migrations:production` | リモートのデータベースにまだ適用されていないマイグレーション        |
-| `db:seed:test`                                                                   | `scripts/seed-test.ts`: テストアカウント、動画、コース              |
+| `db:seed:test`                                                                   | `scripts/seed-test.ts`: テストアカウント、ライセンス、動画、コース  |
 | `db:reset:test`                                                                  | `.wrangler/test` の削除、続いて `db:migrate:test` と `db:seed:test` |
 | `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                                      |
 | `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | drizzle-kit のイントロスペクション                                  |

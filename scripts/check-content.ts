@@ -1,4 +1,4 @@
-import { YAML } from "bun"
+import { frontmatter } from "fumadocs-core/content/md/frontmatter"
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join, relative } from "node:path"
 import process from "node:process"
@@ -22,11 +22,13 @@ const SOURCE_META_SUFFIX = `.${I18N.DEFAULT_LOCALE}.json`
 const TRANSLATED_FIELDS = ["title", "description", "excerpt"]
 
 const CODE_BLOCK_PATTERN = /^(?<fence>`{3,}|~{3,})[^\n]*\n[\s\S]*?^\k<fence>\s*$/gmu
-const FRONTMATTER_PATTERN = /^---\r?\n(?<yaml>[\s\S]*?)\r?\n---/u
 const TRANSLATION_MARKER_PATTERN = /ZXQ\d+QXZ|<ph\d+|▁|\{"translation":/u
 const QUOTED_SOURCE_PATTERN = /^(?<fence>`{3,})[^\n]*\btitle="(?<path>[^"]+)"[^\n]*\n(?<code>[\s\S]*?)^\k<fence>\s*$/gmu
 const TABLE_ROW_PATTERN = /^\|(?<cells>.*)\|[ \t]*$/gmu
 const INLINE_CODE_PATTERN = /`(?<code>[^`\n]+)`/gu
+const COMPONENT_PATTERN = /<(?<name>[A-Z][A-Za-z]*)(?<props>(?:\s+[A-Za-z-]+(?:=(?:"[^"]*"|\{[^}]*\}))?)*)\s*\/?>/gu
+const STRING_PROP_PATTERN = /(?<name>[A-Za-z-]+)="[^"]*"/gu
+const LINK_PATTERN = /\]\((?<href>[^)#\s]+)/gu
 const HOST_PATTERN = /\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?\b|\b(?:localhost|127\.0\.0\.1):\d+\b/gu
 const LOCAL_HOST_PATTERN = /^(?:localhost|127\.0\.0\.1):/u
 const ENVIRONMENT_VARIABLE_PATTERN = /^[A-Z][A-Z0-9_]+$/u
@@ -55,23 +57,23 @@ const codeBlocks = (source: string): string[] =>
   [...source.matchAll(CODE_BLOCK_PATTERN)].map(([code]) => code.replaceAll(/^\s*\/\/[^\n]*$/gmu, ""))
 
 const readFrontmatter = (source: string): Record<string, unknown> => {
-  const yaml = FRONTMATTER_PATTERN.exec(source)?.groups?.["yaml"]
+  const { data, matter } = frontmatter(source)
 
-  if (yaml === undefined || yaml.length === 0) {
+  if (matter.length === 0) {
     throw new Error("Missing MDX frontmatter")
   }
 
-  return frontmatterSchema.parse(YAML.parse(yaml))
+  return frontmatterSchema.parse(data)
 }
+
+const proseOf = (source: string): string => frontmatter(source).content.replaceAll(CODE_BLOCK_PATTERN, "")
 
 const isEnglishProse = (text: string): boolean =>
   (text.match(/\p{L}+/gu)?.length ?? 0) >= MIN_ENGLISH_PROSE_WORDS &&
   /\b(?:the|your|you|this|that|with|from|for|and|will|our|how)\b/iu.test(text)
 
 const proseParagraphs = (source: string): string[] =>
-  source
-    .replace(FRONTMATTER_PATTERN, "")
-    .replaceAll(CODE_BLOCK_PATTERN, "")
+  proseOf(source)
     .split(/\n\s*\n/u)
     .map((paragraph) => paragraph.trim().replaceAll(/\s+/gu, " "))
     .filter((paragraph) => !/^(?:import |export |<)/u.test(paragraph) && isEnglishProse(paragraph))
@@ -85,6 +87,24 @@ const appHosts = new Set(Object.values(ENVIRONMENT).flatMap((mode) => appHostsFo
 const routePaths: Readonly<Record<string, unknown>> = ROUTES
 
 const inlineCode = (text: string): string[] => [...text.matchAll(INLINE_CODE_PATTERN)].flatMap(({ groups }) => groups?.["code"] ?? [])
+
+const proseWithoutCode = (source: string): string => proseOf(source).replaceAll(INLINE_CODE_PATTERN, "")
+
+const untranslatedProps = (props: string): string[] =>
+  [...props.matchAll(STRING_PROP_PATTERN)]
+    .filter(({ groups }) => !TRANSLATED_FIELDS.includes(groups?.["name"] ?? ""))
+    .map(([prop]) => prop)
+    .toSorted()
+
+const componentsOf = (source: string): string[] =>
+  [...proseWithoutCode(source).matchAll(COMPONENT_PATTERN)].map(
+    ({ groups }) => `<${[groups?.["name"] ?? "", ...untranslatedProps(groups?.["props"] ?? "")].join(" ")}>`,
+  )
+
+const linksOf = (source: string): string[] =>
+  [...proseWithoutCode(source).matchAll(LINK_PATTERN)].flatMap(({ groups }) => groups?.["href"] ?? [])
+
+const inlineCodeOf = (source: string): string[] => inlineCode(proseOf(source)).map((code) => `\`${code}\``)
 
 const tableRows = (source: string): string[][] =>
   [...source.matchAll(TABLE_ROW_PATTERN)].map(({ groups }) => (groups?.["cells"] ?? "").split("|").map((cell) => cell.trim()))
@@ -156,6 +176,28 @@ const secretProblems = ({ label, target }: Translation): string[] => {
 const variableProblems = ({ label, target }: Translation): string[] =>
   undocumented({ documented: documentedVariables(target), expected: workerVariables, label })
 
+const changedItems = ({ items, label, source, target }: Translation & { items: (text: string) => string[] }): string[] => {
+  const expected = new Set(items(source))
+  const found = new Set(items(target))
+
+  return [
+    ...[...expected].filter((item) => !found.has(item)).map((item) => `${label} leaves out ${item} from the English page`),
+    ...[...found].filter((item) => !expected.has(item)).map((item) => `${label} adds ${item}, which the English page does not have`),
+  ]
+}
+
+const tableRowProblems = ({ label, source, target }: Translation): string[] => {
+  const expected = tableRows(source).length
+  const found = tableRows(target).length
+
+  return found === expected ? [] : [`${label} has ${String(found)} table rows where the English page has ${String(expected)}`]
+}
+
+const structureProblems = (translation: Translation): string[] => [
+  ...[inlineCodeOf, componentsOf, linksOf].flatMap((items) => changedItems({ ...translation, items })),
+  ...tableRowProblems(translation),
+]
+
 const DOCS_PAGE_CHECKS: Readonly<Record<string, (translation: Translation) => string[]>> = {
   "docs/getting-started/environment-variables": secretProblems,
   "docs/reference/environment": variableProblems,
@@ -173,7 +215,30 @@ const codeValueProblems = (translation: Translation): string[] => {
   return [...quotedSourceProblems(translation), ...hostProblems(translation), ...(DOCS_PAGE_CHECKS[page]?.(translation) ?? [])]
 }
 
-const mdxProblems = ({ label, locale, source, target }: Translation): string[] => {
+const untranslatedProblems = ({ label, source, target }: Translation): string[] => {
+  const problems: string[] = []
+  const translatedParagraphs = new Set(proseParagraphs(target))
+
+  if (proseParagraphs(source).some((paragraph) => translatedParagraphs.has(paragraph))) {
+    problems.push(`Untranslated English paragraph in ${label}`)
+  }
+
+  const sourceMetadata = readFrontmatter(source)
+  const metadata = readFrontmatter(target)
+
+  for (const field of TRANSLATED_FIELDS) {
+    const original = sourceMetadata[field]
+
+    if (typeof original === "string" && isEnglishProse(original) && metadata[field] === original) {
+      problems.push(`Untranslated ${field} in ${label}`)
+    }
+  }
+
+  return problems
+}
+
+export const mdxProblems = (translation: Translation): string[] => {
+  const { label, locale, source, target } = translation
   const problems: string[] = []
   const metadata = readFrontmatter(target)
 
@@ -189,29 +254,13 @@ const mdxProblems = ({ label, locale, source, target }: Translation): string[] =
     problems.push(`Unresolved translation marker in ${label}`)
   }
 
-  problems.push(...codeValueProblems({ label, locale, source, target }))
+  problems.push(...codeValueProblems(translation))
 
   if (locale === I18N.DEFAULT_LOCALE) {
     return problems
   }
 
-  const translatedParagraphs = new Set(proseParagraphs(target))
-
-  if (proseParagraphs(source).some((paragraph) => translatedParagraphs.has(paragraph))) {
-    problems.push(`Untranslated English paragraph in ${label}`)
-  }
-
-  const sourceMetadata = readFrontmatter(source)
-
-  for (const field of TRANSLATED_FIELDS) {
-    const original = sourceMetadata[field]
-
-    if (typeof original === "string" && isEnglishProse(original) && metadata[field] === original) {
-      problems.push(`Untranslated ${field} in ${label}`)
-    }
-  }
-
-  return problems
+  return [...problems, ...structureProblems(translation), ...untranslatedProblems(translation)]
 }
 
 const metaProblems = ({ label, source, target }: Translation): string[] => {
@@ -236,19 +285,24 @@ const translationProblems = ({ locale, source, sourcePath }: { locale: Supported
   return isMdx ? mdxProblems(translation) : metaProblems(translation)
 }
 
-const problems = listFiles(CONTENT_DIR)
-  .filter((path) => path.endsWith(SOURCE_MDX_SUFFIX) || path.endsWith(SOURCE_META_SUFFIX))
-  .flatMap((sourcePath) => {
-    const source = readFileSync(sourcePath, "utf8")
+export const contentProblems = (): string[] =>
+  listFiles(CONTENT_DIR)
+    .filter((path) => path.endsWith(SOURCE_MDX_SUFFIX) || path.endsWith(SOURCE_META_SUFFIX))
+    .flatMap((sourcePath) => {
+      const source = readFileSync(sourcePath, "utf8")
 
-    return I18N.SUPPORTED_LOCALES.flatMap((locale) => translationProblems({ locale, source, sourcePath }))
-  })
+      return I18N.SUPPORTED_LOCALES.flatMap((locale) => translationProblems({ locale, source, sourcePath }))
+    })
 
-if (problems.length > 0) {
-  console.error(problems.join("\n"))
-  process.exit(FAILURE_EXIT_CODE)
+if (import.meta.main) {
+  const problems = contentProblems()
+
+  if (problems.length > 0) {
+    console.error(problems.join("\n"))
+    process.exit(FAILURE_EXIT_CODE)
+  }
+
+  console.log(
+    `✅ Content files, navigation, code examples, inline code, components, links and tables match across ${I18N.SUPPORTED_LOCALES.length} locales, and the docs quote the code's own values.`,
+  )
 }
-
-console.log(
-  `✅ Content files, navigation and code examples match across ${I18N.SUPPORTED_LOCALES.length} locales, and the docs quote the code's own values.`,
-)

@@ -1,12 +1,14 @@
-import type { JSX, ReactNode } from "react"
+import type { JSX } from "react"
 
-import { Link, createFileRoute } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { redirectIfSignedIn } from "~/src/integrations/better-auth/auth.routes"
 import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
+
+import { SIGN_UP_NOTICES } from "~/src/data/sign-up-notices"
 
 import { pageHead } from "~/src/lib/seo"
 
@@ -18,28 +20,13 @@ import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-fo
 import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const LEGAL_LINK_CLASS = "text-foreground underline underline-offset-4 transition-colors duration-200 ease-exp hover:text-muted-foreground"
-
-const LEGAL_TAGS = {
-  privacy: (chunks: ReactNode) => (
-    <Link className={LEGAL_LINK_CLASS} to={ROUTES.PRIVACY}>
-      {chunks}
-    </Link>
-  ),
-  terms: (chunks: ReactNode) => (
-    <Link className={LEGAL_LINK_CLASS} to={ROUTES.TERMS}>
-      {chunks}
-    </Link>
-  ),
-}
-
 const SignUpPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.sign-up")
 
   return (
     <>
       <h1 className="text-headline-support text-balance text-foreground">{t("form.title")}</h1>
-      <p className="mt-3 text-body text-pretty text-muted-foreground">{t("form.description", { name: APP_NAME })}</p>
+      <p className="mt-3 text-body text-pretty text-muted-foreground">{t("form.description", { appName: APP_NAME })}</p>
 
       <div className="mt-10 flex flex-col gap-6">
         <OAuthButtons intent="sign-up" />
@@ -49,7 +36,9 @@ const SignUpPage = (): JSX.Element => {
           <span aria-hidden className="h-px flex-1 bg-border" />
         </div>
         <SignUpForm />
-        <p className="text-body-sm text-pretty text-muted-foreground">{t.rich("form.termsAndPrivacy", LEGAL_TAGS)}</p>
+        {SIGN_UP_NOTICES.map(({ Notice, key }) => (
+          <Notice key={key} />
+        ))}
       </div>
 
       <p className="mt-10 text-body-sm text-muted-foreground">{t.rich("form.hasAccount", AUTH_LINK_TAGS)}</p>

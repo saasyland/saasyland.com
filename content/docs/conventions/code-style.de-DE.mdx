@@ -36,14 +36,14 @@ const LAST_INDEX_OFFSET = 1
 const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 ```
 
-Die ersten beiden stammen aus `get-course-editor.ts` und `course-columns.tsx`, die dritte aus `vite.config.ts`: Jede bräuchte sonst einen Kommentar. Generierte Dateien (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) sind ausgenommen. Durchsuchen Sie vor dem Commit Ihren Diff nach `//`, `/*` und `{/*`.
+Die ersten beiden stammen aus `get-course-editor.ts` und `course-columns.tsx`, die dritte aus `src/data/polar.vite.ts`: Jede bräuchte sonst einen Kommentar. Generierte Dateien (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) sind ausgenommen. Durchsuchen Sie vor dem Commit Ihren Diff nach `//`, `/*` und `{/*`.
 
 ## Keine Hintertüren
 
 Schreiben Sie niemals `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-ignore`, `@ts-nocheck`, einen `as`-Cast oder `any`, um eine Regel zu erfüllen. Eine Regel, die anschlägt, zeigt auf ein Designproblem; ändern Sie das Design.
 
 - **Validieren statt behaupten.** Daten aus dem Speicher, dem Netzwerk oder einer Anfrage werden mit Zod geparst: `src/lib/github.ts` liest die zwischengespeicherte Anzahl der Sterne mit `cachedStarCountSchema.safeParse(await env.CACHE.get(CACHE_KEY, "json")).data`, was eine Zahl oder `undefined` ergibt, niemals eine Vermutung.
-- **Mit einem Type Guard eingrenzen.** `isRole` in `src/integrations/better-auth/auth.access.ts` und `isErrorCode` in `src/hooks/use-error-message.ts` machen aus einem `string` mit einer echten Prüfung eine Union.
+- **Mit einem Type Guard eingrenzen.** `isRole` in `src/integrations/better-auth/auth.roles.ts` und `isErrorCode` in `src/hooks/use-error-message.ts` machen aus einem `string` mit einer echten Prüfung eine Union.
 - **Prüfen, nicht umwandeln.** `as const` und `satisfies` sind erlaubt, weil sie einen Typ nie verändern: `POLAR_ORDER_STATUS` endet mit `as const satisfies Record<string, models.OrderStatus>`, sodass ein falsch geschriebener Polar-Status nicht kompiliert.
 - **Umstrukturieren, wenn der Vertrag einer Bibliothek dagegenhält.** Packen Sie einen Wert in ein Objekt, teilen Sie eine Funktion auf oder lesen Sie aus einer typisierten Quelle, statt zu casten.
 
@@ -80,7 +80,7 @@ export const hasLessonAccess = (access: Lesson["select"]["access"], viewer: View
     return viewer.userId !== undefined
   }
 
-  return viewer.licensed
+  return viewer.entitled
 }
 ```
 
@@ -97,10 +97,10 @@ export const COURSE_STATUS = {
 
 Das Tupel, das eine Spalte oder ein Enum-Schema braucht, wird aus dem Objekt gebildet und nicht neu abgetippt: `course.schema.ts` deklariert `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, das sowohl `text("status", { enum: COURSE_STATUSES })` als auch `zod.enum(COURSE_STATUSES)` speist. Ein Tupel, das auch Browsercode liest, wird stattdessen in den Konstanten des Moduls deklariert, die nichts aus Drizzle importieren: Die Preistabelle iteriert über `LICENSE_TIERS` aus `license.constants.ts`.
 
-- Die Konstanten eines Moduls liegen in seiner `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); die Werte eines Anbieters liegen in der `*.constants.ts` der Integration (`POLAR_ORDER_STATUS` in `polar.constants.ts`, `AUTH_PROVIDER` in `auth.constants.ts`, `EMAIL_PURPOSE` in `resend.constants.ts`).
+- Die Konstanten eines Moduls liegen in seiner `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); die Werte eines Anbieters liegen in der `*.constants.ts` der Integration (`POLAR_ORDER_STATUS` in `polar.constants.ts`, `AUTH_PROVIDER` in `auth.constants.ts`).
 - Spalten- und Eingabelängen werden einmal in den Konstanten des Moduls benannt und sowohl vom Drizzle-Schema als auch vom Zod-Schema gelesen: `PRODUCT_NAME_MAX_LENGTH` in `product.constants.ts`.
 - Ein Konzept hat eine Map in einer Schreibweise: `ERROR_CODES` für Serverfehler, `AUTH_ERRORS` für die Fehlerschlüssel von Better Auth, `ROLE_CODES` für Rollen.
-- Umgebungsnamen und HTTP-Statuscodes werden einmal in `src/modules/_core/constants/api.ts` deklariert: `ENVIRONMENT.PRODUCTION` in `__root.tsx` und in den Deploy-Skripten, `HTTP_STATUS.PARTIAL_CONTENT` im Medien-Handler des Workers. Keine Datei deklariert eine eigene Map für eines davon. Die einzige Ausnahme ist `vite.config.ts`, das `mode` mit den reinen Namen vergleicht: Vite lädt die Konfiguration, bevor der Alias `~` aufgelöst wird, und kann `api.ts` deshalb nicht importieren.
+- Umgebungsnamen und HTTP-Statuscodes werden einmal in `src/modules/_core/constants/api.ts` deklariert: `ENVIRONMENT.PRODUCTION` in `__root.tsx` und in den Deploy-Skripten, `HTTP_STATUS.PARTIAL_CONTENT` im Medien-Handler des Workers. Keine Datei deklariert eine eigene Map für eines davon. Die einzige Ausnahme sind die Dateien der Vite-Plugins wie `src/data/cloudflare.vite.ts`, die `mode` mit den reinen Namen vergleichen: Vite lädt sie, bevor der Alias `~` aufgelöst wird, deshalb können sie `api.ts` nicht importieren.
 - Eine Konstante, die nur eine Datei verwendet, bleibt in dieser Datei, unterhalb der Importe. Eine Konstante, die mehrere Dateien verwenden, kommt in ihr Modul, nach `src/data` (siehe [Dateien und Benennung](/docs/conventions/files-and-naming)) oder nach `src/modules/_core/constants`. Geben Sie einer einzelnen Konstante nie eine eigene Datei.
 - Typisierte API-Feldnamen wie `license_key_id` sind Eigenschaften, keine Werte, und bleiben Eigenschaftszugriffe.
 

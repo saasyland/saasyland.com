@@ -17,7 +17,7 @@ description: "Common errors during development, testing and deployment, and how 
 
 **Sign-in or OAuth fails.** Check `AUTH_SECRET` and the OAuth client credentials in the environment file, and that the provider's callback URL points to `/api/auth/callback/<provider>` on the host you use. Better Auth only accepts the hosts configured for the build mode: `localhost:3000` and `127.0.0.1:3000` in development.
 
-**Worker types are missing a binding or secret.** Run `bun run cf-typegen` after changing `wrangler.jsonc`, and add the variable to `src/types/bindings.d.ts`.
+**Worker types are missing a binding or secret.** Run `bun run cf-typegen` after changing `wrangler.jsonc`: it types every binding and every secret in `secrets.required`. A value Wrangler cannot derive, such as a variable that only `test` sets, goes into the area's `src/types/<area>.d.ts`.
 
 **Custom `text-*` classes disappear when merged.** `cn` depends on tables generated from `src/lib/cn.config.ts`. `bun run dev`, `bun run check` and the builds regenerate them; run `bun run generate:cn` if `.source/cn-tables.ts` is missing.
 
@@ -31,13 +31,15 @@ description: "Common errors during development, testing and deployment, and how 
 
 **A docs page returns 404.** The file must be named `<page>.<locale>.mdx` and listed in `pages` of the folder's `meta.<locale>.json`. Run `bun run content` to regenerate `.source`.
 
-**`check-content.ts` fails.** It compares every locale with en-US. `Changed code examples` means a code block differs from the English one; code blocks must be identical. `Untranslated English paragraph` means a paragraph was copied without translating it. `Missing <file>` means a locale file does not exist.
+**`check-content.ts` fails.** It compares every locale with en-US. `Changed code examples` means a code block differs from the English one; code blocks must be identical. `Untranslated English paragraph` means a paragraph was copied without translating it. `Missing <file>` means a locale file does not exist. `leaves out … from the English page` and `adds …, which the English page does not have` mean that a translation dropped or added inline code, a component or one of its props, or a link to another page; copy it as the English page has it. `has … table rows where the English page has …` means that a table lost or gained a row.
+
+**`check-message-formats.ts` fails.** `changed the path or command …` means that a translation changed a file path or a command of the English message; keep it as it is, or pass it as an ICU argument from `REPOSITORY_FACTS`. `unexpected Markdown code` means that a translation added backticks, which a message prints as they are.
 
 ## Tests and deployment
 
 **`test:coverage` fails.** Coverage must be <RepositoryFact name="coverageThreshold" unit="percent" /> for lines, statements, functions and branches. The report in `coverage/` lists the uncovered lines.
 
-**Deploy stops at `verify-bindings.ts`.** The target environment in `wrangler.jsonc` lacks a `DB`, `CACHE` or `MEDIA` binding, still has placeholder D1 or KV IDs, or, for production, shares a resource with preview. Create the resources in Cloudflare and replace the IDs.
+**Deploy stops at `verify-bindings.ts`.** The target environment in `wrangler.jsonc` lacks a binding that the `development` environment declares (`DB`, `CACHE`, `MEDIA` or `BUNDLES`), still has placeholder D1 or KV IDs, or, for production, shares a resource with preview. Create the resources in Cloudflare and replace the IDs.
 
 **Deploy stops at `polar:verify`.** Polar does not match the code: a key in `.env.<environment>` is missing or names the wrong Polar service, the token is rejected or lacks a scope, or a product, price, licence key, regional discount or webhook differs from what the code expects. The error lists each problem; [Polar setup](/docs/getting-started/polar-setup) explains every message. `bun run polar:verify:<environment>` runs the check again.
 

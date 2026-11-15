@@ -3,15 +3,16 @@ title: "Handlery HTTP w TanStack Start"
 description: "Endpointy HTTP pod /api oraz sytuacje, w których dodaje się endpoint zamiast funkcji serwerowej."
 ---
 
-Własne operacje aplikacji są funkcjami serwerowymi. Handlery HTTP istnieją tylko tam, gdzie adres URL wywołuje coś spoza klienta RPC aplikacji: przeglądarkowy klient Better Auth, dostawcy OAuth, webhooki Polar i pole wyszukiwania w dokumentacji.
+Własne operacje aplikacji są funkcjami serwerowymi. Handlery HTTP istnieją tylko tam, gdzie adres URL wywołuje coś spoza klienta RPC aplikacji: przeglądarkowy klient Better Auth, dostawcy OAuth, webhooki Polar, pole wyszukiwania w dokumentacji i CLI `saasyland`.
 
-| Plik                       | Ścieżka       | Metody    | Obsługuje                                                                                                                            |
-| -------------------------- | ------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/routes/api/index.ts`  | `/api`        | GET       | Odpowiedź JSON ze statusem `{ runtime: "cloudflare-workers" }`                                                                       |
-| `src/routes/api/auth.$.ts` | `/api/auth/*` | GET, POST | Wszystkie endpointy Better Auth, w tym callbacki OAuth, weryfikację adresu e-mail, portal klienta Polar i `/api/auth/polar/webhooks` |
-| `src/routes/api/search.ts` | `/api/search` | GET       | Wyszukiwanie Fumadocs w dokumentacji                                                                                                 |
+| Plik                         | Ścieżka                                      | Metody            | Obsługuje                                                                                                                                |
+| ---------------------------- | -------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/index.ts`    | `/api`                                       | GET               | Odpowiedź JSON ze statusem `{ runtime: "cloudflare-workers" }`                                                                           |
+| `src/routes/api/auth.$.ts`   | `/api/auth/*`                                | GET, POST         | Wszystkie endpointy Better Auth, w tym callbacki OAuth, weryfikację adresu e-mail, portal klienta Polar i `/api/auth/polar/webhooks`     |
+| `src/routes/api/search.ts`   | `/api/search`                                | GET               | Wyszukiwanie Fumadocs w dokumentacji                                                                                                     |
+| `src/routes/api/cli.v1.*.ts` | <RepositoryFact name="cliApiBasePath" />`/*` | GET, POST, DELETE | [API licencji CLI](/docs/features/cli-licence-api): licencja, jej maszyny i paczka szablonów każdego wydania, przez `licenseApiHandlers` |
 
-Worker sam obsługuje też `/media/<expiry>.<signature>/<videoId>/<file>`. Nie jest to trasa: `src/server.ts` przekazuje te żądania do `serveMedia` (`src/modules/video/video.delivery.ts`) przed middleware języka i TanStack Start, a `serveMedia` sprawdza podpis i serwuje plik wideo z cache Workers lub z bucketu `MEDIA`. Zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2).
+Worker sam obsługuje też `/media/<expiry>.<signature>/<videoId>/<file>`. Nie jest to trasa: `src/server.ts` przekazuje te żądania do `serveMedia` (`src/modules/video/video.delivery.ts`) przed middleware języka i TanStack Start, a `serveMedia` sprawdza podpis i serwuje plik wideo z cache Workers lub z bucketu `MEDIA`. Zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2). W ten sam sposób Worker odpowiada na <RepositoryFact name="cliBundleUrlPath" />: handler obszaru licencji przekazuje tę ścieżkę do `serveBundle` (`src/modules/license/license.delivery.ts`), który sprawdza podpis i strumieniuje paczkę szablonów CLI z bucketu `BUNDLES`. Zobacz [API licencji CLI](/docs/features/cli-licence-api#template-bundles).
 
 Handler deklaruje się przez `server.handlers` w `createFileRoute`. Otrzymuje webowy obiekt `Request` i zwraca `Response`:
 
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/api/auth/$")({
 ## Zasady
 
 - Nie dodawaj endpointu REST dla operacji, którą wywołuje wyłącznie ta aplikacja. Zamiast tego napisz przypadek użycia z `createServerFn`; otrzymuje on typowane dane wejściowe, middleware i opcje zapytania.
-- Handler sam waliduje dane wejściowe i sprawdza uprawnienia. Middleware funkcji serwerowych (`authorized`, `withRateLimit`) nie jest uruchamiane dla handlerów.
+- Handler sam waliduje dane wejściowe i sprawdza uprawnienia. Middleware funkcji serwerowych (`authorized`, `withRateLimit`) nie jest uruchamiane dla handlerów. API licencji CLI odczytuje każde żądanie funkcją `readApiRequest` z kontraktu i zlicza je przez `consumeRateLimit` z `src/lib/rate-limit.ts`.
 - Weryfikacja specyficzna dla dostawcy pozostaje w integracji. Podpisy webhooków Polar weryfikuje plugin Polar w Better Auth, a nie własny handler.
 - Ścieżki `/api` i `/media` nigdy nie są lokalizowane ani prerenderowane i omijają obsługę locale w Workerze.
 

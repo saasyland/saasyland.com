@@ -5,54 +5,15 @@ import { useRouterState } from "@tanstack/react-router"
 import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { ADMIN_NAVIGATION } from "~/src/data/navigation"
+import { PAGE_SKELETONS } from "~/src/data/skeletons"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import {
-  AdminPaymentsPending,
-  AdminSettingsPending,
-  AdminUsersPending,
-} from "~/src/presentation/components/custom/admin/administration-pending"
-import {
-  AdminBlogCreatePending,
-  AdminBlogPending,
-  AdminCourseCreatePending,
-  AdminCoursesPending,
-  AdminLandingPagePending,
-  AdminVideosPending,
-} from "~/src/presentation/components/custom/admin/content-pending"
-import {
-  AdminPricingModelsPending,
-  AdminProductCreatePending,
-  AdminProductsPending,
-} from "~/src/presentation/components/custom/admin/offerings-pending"
-import { AdminAnalyticsPending, AdminDashboardPending } from "~/src/presentation/components/custom/admin/overview-pending"
 import { IconPending } from "~/src/presentation/components/custom/admin/pending-blocks"
 import { Background } from "~/src/presentation/components/custom/background"
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
 import { ROUTES } from "~/src/routes"
-
-const ADMIN_PAGES = new Map<string, () => JSX.Element>([
-  [ROUTES.ADMIN, AdminDashboardPending],
-  [ROUTES.ADMIN_ANALYTICS, AdminAnalyticsPending],
-  [ROUTES.ADMIN_BLOG, AdminBlogPending],
-  [ROUTES.ADMIN_BLOG_CREATE, AdminBlogCreatePending],
-  [ROUTES.ADMIN_COURSES, AdminCoursesPending],
-  [ROUTES.ADMIN_COURSES_CREATE, AdminCourseCreatePending],
-  [ROUTES.ADMIN_LANDING_PAGE, AdminLandingPagePending],
-  [ROUTES.ADMIN_PAYMENTS, AdminPaymentsPending],
-  [ROUTES.ADMIN_PRICING, AdminPricingModelsPending],
-  [ROUTES.ADMIN_PRODUCTS, AdminProductsPending],
-  [ROUTES.ADMIN_PRODUCTS_CREATE, AdminProductCreatePending],
-  [ROUTES.ADMIN_SETTINGS, AdminSettingsPending],
-  [ROUTES.ADMIN_USERS, AdminUsersPending],
-  [ROUTES.ADMIN_USERS_ALL, AdminUsersPending],
-  [ROUTES.ADMIN_USERS_INVITATIONS, AdminUsersPending],
-  [ROUTES.ADMIN_USERS_ROLES, AdminUsersPending],
-  [ROUTES.ADMIN_USERS_SECURITY, AdminUsersPending],
-  [ROUTES.ADMIN_VIDEOS, AdminVideosPending],
-])
 
 const ADMIN_SIDEBAR_URLS = new Set<string>(ADMIN_NAVIGATION.flatMap((group) => group.items.map((item) => item.to)))
 
@@ -101,7 +62,7 @@ const BreadcrumbDivider = (): JSX.Element => (
 
 export const AdminPending = (): JSX.Element => {
   const pathname = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) })
-  const Page = ADMIN_PAGES.get(pathname)
+  const Page = PAGE_SKELETONS.get(pathname)
   const [, section, action] = pathname.split("/").filter(Boolean)
   const hasSection = ADMIN_SIDEBAR_URLS.has(section === undefined ? ROUTES.ADMIN : `${ROUTES.ADMIN}/${section}`)
 

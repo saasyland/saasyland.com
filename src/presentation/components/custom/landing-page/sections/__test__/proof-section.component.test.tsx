@@ -60,7 +60,7 @@ describe("landing page proof statistics", () => {
       REPOSITORY_FACTS.testFiles,
       REPOSITORY_FACTS.uiComponents,
       REPOSITORY_FACTS.adminSections,
-      REPOSITORY_FACTS.currencies,
+      REPOSITORY_FACTS.languages,
     ]) {
       expect(screen.getByText(number.format(count), { selector: "dd" })).toBeVisible()
     }

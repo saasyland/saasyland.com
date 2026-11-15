@@ -9,6 +9,7 @@ import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
 import type { polar } from "~/src/integrations/polar/polar.config"
 
 import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
+import { REGIONAL_DISCOUNTS_REFRESH_AFTER_MS } from "~/src/modules/license/license.constants"
 import { pppDiscountId } from "~/src/modules/license/license.ppp"
 
 const iterDiscountsMock = vi.hoisted(() => vi.fn<typeof polar.discounts.iterList>())
@@ -80,7 +81,6 @@ const findDiscount = async (country?: string, productId = env.POLAR_PRODUCT_ID_C
   return discountId
 }
 
-const FIVE_MINUTES_MS = 300_000
 const LISTING_FAILED = "[ppp] Polar discounts could not be listed; checkout continues with the discounts found so far"
 
 const NOW = Date.parse("2026-09-09T12:00:00Z")
@@ -251,14 +251,14 @@ describe("regional discount eligibility", () => {
 })
 
 describe("regional discount cache refresh", () => {
-  it("lists again after five minutes and never offers a discount that was removed", async () => {
+  it("lists again once the stored discounts are as old as the refresh interval and never offers a discount that was removed", async () => {
     iterDiscountsMock.mockImplementationOnce(() => discountPages([percentageDiscount("removed", 3000)]))
     await expect(findDiscount("PL")).resolves.toBe("removed")
 
     iterDiscountsMock.mockImplementation(() => discountPages([percentageDiscount("new", 5000)]))
-    vi.mocked(Date.now).mockReturnValue(NOW + FIVE_MINUTES_MS - 1)
+    vi.mocked(Date.now).mockReturnValue(NOW + REGIONAL_DISCOUNTS_REFRESH_AFTER_MS - 1)
     await expect(findDiscount("PL")).resolves.toBe("removed")
-    vi.mocked(Date.now).mockReturnValue(NOW + FIVE_MINUTES_MS)
+    vi.mocked(Date.now).mockReturnValue(NOW + REGIONAL_DISCOUNTS_REFRESH_AFTER_MS)
 
     await expect(findDiscount("PL")).resolves.toBeUndefined()
     await expect(findDiscount("UA")).resolves.toBe("new")
@@ -272,7 +272,7 @@ describe("regional discount cache refresh", () => {
       .mockImplementation(() => discountPages([percentageDiscount("recovered", 3000)]))
 
     await expect(findDiscount("PL")).resolves.toBe("old")
-    vi.mocked(Date.now).mockReturnValue(NOW + FIVE_MINUTES_MS)
+    vi.mocked(Date.now).mockReturnValue(NOW + REGIONAL_DISCOUNTS_REFRESH_AFTER_MS)
     await expect(findDiscount("PL")).resolves.toBeUndefined()
     await expect(findDiscount("PL")).resolves.toBe("recovered")
     expect(iterDiscountsMock).toHaveBeenCalledTimes(3)

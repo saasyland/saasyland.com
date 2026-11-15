@@ -6,6 +6,7 @@ import { createTranslator } from "use-intl"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import type emailMessages from "~/messages/en-US/emails.reset-password-email.json"
+import { APP_NAME } from "~/src/presentation/branding"
 
 export const RESET_PASSWORD_NAMESPACE = "emails.reset-password-email"
 
@@ -30,7 +31,7 @@ export const ResetPasswordEmail = ({ messages, locale, name, resetPasswordUrl }:
       <Tailwind config={TAILWIND_CONFIG}>
         <Head />
         <Body className="font-sans">
-          <Preview>{t("preview")}</Preview>
+          <Preview>{t("preview", { appName: APP_NAME })}</Preview>
           <Container className="mx-auto px-5 py-10">
             <Section>
               <Heading className="m-0 mb-4 text-2xl font-bold">{t("heading")}</Heading>

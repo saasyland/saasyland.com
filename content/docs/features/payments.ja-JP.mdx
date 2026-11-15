@@ -3,22 +3,24 @@ title: "決済とライセンス"
 description: "Polar の購入処理、カスタマーポータル、ライセンスを付与する Webhook。管理画面の決済ページはデモです。"
 ---
 
-決済は `auth.server.ts` の `@polar-sh/better-auth` プラグインを通じて Polar で処理されます。
+決済は、ライセンスのエリアが `src/data/license.auth-plugins.ts` で Better Auth に追加する `@polar-sh/better-auth` プラグインを通じて Polar で処理されます。
 
 ```ts
-polarPlugin({
-  client: polarCore,
-  use: [
-    checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
-    portal(),
-    webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
-  ],
-}),
+export const LICENSE_AUTH_PLUGINS = [
+  {
+    disabledPaths: [],
+    plugin: polar({
+      client: polarCore,
+      use: [portal(), webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET })],
+    }),
+    rateLimitExemptPaths: [ROUTES.API_AUTH_POLAR.WEBHOOKS],
+  },
+] as const satisfies readonly AuthPluginEntry[]
 ```
 
-プラグイン自身の `POST /api/auth/checkout` は Better Auth の `disabledPaths` に登録されている（`ROUTES.API_AUTH.CHECKOUT`）ため、HTTP では 404 を返します。購入はすべて `startCheckout` サーバー関数から始まり、この関数は独自のチェックを行った後、サーバー上で `auth.api.checkout` を呼び出します。
+プラグインはカスタマーポータルと Webhook を追加し、Webhook は Better Auth のレート制限の対象外です。購入セッションはプラグインでは作成しません。プラグインの `checkout()` はアカウントの ID だけで購入セッションを作成するため、Polar がサインイン済みの購入者にメールアドレスをもう一度尋ねることになるからです。購入はすべて `startCheckout` サーバー関数から始まり、この関数は独自のチェックを行った後、Polar SDK で購入セッションを作成します。
 
-`src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に割引、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は割引の検索とライセンスキーの無効化の対象を絞り込みます。`POLAR_CHECKOUT_PRODUCTS` はプランのスラッグ `core`、`complete`、`agency` を `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付けます。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、割引、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
+`src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に購入セッション、割引、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は、組織を指定する Polar の呼び出しすべての対象を組織に絞り込みます。その一覧は[環境とバインディング](/docs/reference/environment)にあります。`POLAR_PRODUCT_IDS` はプラン `core`、`complete`、`agency` を `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付けます。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、割引、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
 
 ## 購入
 
@@ -26,10 +28,10 @@ polarPlugin({
 
 1. アカウントにすでに `active` なライセンスがある場合は、`AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)` で拒否します。ボタンは `errors.codes.LICENSE_ALREADY_ACTIVE` を表示してライセンスを再取得するため、購入後も開いたままだったページはライセンスの表示に切り替わります。
 2. `pppDiscountId`（`license.ppp.ts`）で地域割引を探します。`cf-ipcountry` の国に対応する割引率を、`findRegionalDiscount`（`src/integrations/polar/polar.discounts.ts`）が Polar で現在利用できる自動のパーセント割引と照合します。`regional_pricing` Cookie が `off` の場合は適用しません。
-3. 割引コードを無効にし、成功 URL を購入者の言語の `/app?checkoutId={CHECKOUT_ID}`（`localizePathname`）にして、そのプランの Polar 購入セッションを作成します。訪問者がアフィリエイトリンク経由で来た場合は、アフィリエイトの紹介情報を `metadata` に含めます（[アフィリエイトプログラム](/docs/features/affiliates)を参照）。Polar は `{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）を購入セッションの ID に置き換えます。
+3. `polar.checkouts.create` で、そのプランの Polar 購入セッションを作成します。セッションはアカウントに結び付けられ（`external_customer_id`）、アカウントのメールアドレスと名前が入力済みになる（`customer_email`、`customer_name`）ため、購入フォームはそれらが入った状態で開きます。さらに、`cf-connecting-ip` から得た購入者の IP アドレス（`customer_ip_address`、Better Auth の `getIP` で取得）を渡し、割引コードを無効にし、成功 URL を購入者の言語の `/app?checkoutId={CHECKOUT_ID}`（`localizePathname`）にします。訪問者がアフィリエイトリンク経由で来た場合は、アフィリエイトの紹介情報を `metadata` に含めます（[アフィリエイトプログラム](/docs/features/affiliates)を参照）。Polar は `{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）を購入セッションの ID に置き換えます。
 4. 購入 URL を返し、ブラウザーがそれを開きます。
 
-返金済み（`revoked`）のライセンスがあっても、新しい購入はできます。
+返金済み（`refunded`）または取り消し済み（`revoked`）のライセンスがあっても、新しい購入はできます。
 
 ### アップグレード
 
@@ -37,11 +39,11 @@ polarPlugin({
 
 ### サインアップ前に選んだプラン
 
-ランディングページの各プランのボタンは `/auth/sign-up?redirect=/app?tier=<tier>` にリンクします。戻り先のパスはサインアップ、メール認証、サインインを経ても保持され（`useAuthRedirect`）、すでにサインインしている訪問者はそのまま戻り先に移動します。`/app` レイアウトは `appSearchSchema`（`src/data/app.ts`。`searchParam` で構築）で `tier` を `LICENSE_TIER` と照合し、`/app` と `/app/license` はどちらもプランのカードの上に `ChosenTier` を表示します。プラン、地域割引を適用した価格、**決済に進む** ボタンが含まれます。ロックされた有料レッスンは、サインイン済みの視聴者を `/app/license?tier=complete` に、ゲストをランディングページの料金セクションにリンクします。アカウントが必要なレッスンはサインインにリンクします（[コース](/docs/features/courses)）。
+ランディングページの各プランのボタンは `/auth/sign-up?redirect=/app?tier=<tier>` にリンクします。戻り先のパスはサインアップ、メール認証、サインインを経ても保持され（`useAuthRedirect`）、すでにサインインしている訪問者はそのまま戻り先に移動します。`licenseSearchSchema`（`src/data/license.ts`。`searchParam` で構築）は、`/app/license` で、またライセンスのエリアが概要ページに追加するパラメーターとして `/app` で、`tier` を `LICENSE_TIER` と照合します。`/app` と `/app/license` はどちらもプランのカードの上に `ChosenTier` を表示します。プラン、地域割引を適用した価格、**決済に進む** ボタンが含まれます。ロックされた有料レッスンは、サインイン済みの視聴者を `/app/license?tier=complete` に、ゲストをランディングページの料金セクションにリンクします。アカウントが必要なレッスンはサインインにリンクします（[コース](/docs/features/courses)）。
 
 ### 支払い後
 
-Polar は購入者を `/app?checkoutId=<id>` に戻します。通常、これは `order.paid` Webhook がライセンスを付与するより前です。`checkoutId` があり、ライセンスがまだ有効でない間、ページはプランのカードを隠して `CheckoutActivation` を表示します。このコンポーネントは 2 秒ごと（`ACTIVATION_POLL_MS`）に `currentLicenseQuery` を再取得します。
+Polar は購入者を `/app?checkoutId=<id>` に戻します。通常、これは `order.paid` Webhook がライセンスを付与するより前です。`checkoutId` があり、ライセンスがまだ有効でない間、ページはプランのカードを隠して `CheckoutActivation` を表示します。このコンポーネントは <RepositoryFact name="activationPollSeconds" unit="second" />ごと（`ACTIVATION_POLL_MS`）に `currentLicenseQuery` を再取得します。
 
 - ライセンスが有効になると購入者にお礼を表示し、その下にライセンスが表示されます。
 - <RepositoryFact name="activationTimeoutSeconds" unit="second" />
@@ -57,15 +59,18 @@ Polar は `LICENSE_WEBHOOK_EVENTS`（`license.constants.ts`）に列挙された
 
 - `onOrderPaid` → `grantLicense`: 購入した商品のプランでユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。
 - `onBenefitGrantCreated` → `attachLicenseKey`: Polar のライセンスキーをライセンスに保存します。支払い済みの注文がまだ記録されていない間は失敗させ、Polar に再送させます。返金済みの注文やライセンスではない商品のキーは受領します。
-- `onOrderRefunded`（注文が全額返金された場合のみ。一部返金ではライセンスを維持します）と `onBenefitGrantRevoked` → `revokeLicense`: ステータスを `revoked` にし、注文を `revoked_license_order` に記録して、遅れて届いた Webhook が再び付与できないようにします。
+- `onOrderRefunded` → ステータス `refunded` で `revokeLicense`。注文が全額返金された場合のみで、一部返金ではライセンスを維持します。
+- `onBenefitGrantRevoked` → ステータス `revoked` で `revokeLicense`。
+
+`revokeLicense` は、その注文で購入したライセンスのステータスを設定し、注文を `revoked_license_order` に記録して、遅れて届いた Webhook が再び付与できないようにします。`refunded` を置き換えることはありません。Polar は返金された注文の特典も取り消し、2 つのイベントはどちらの順序でも届く可能性があるためです。[CLI ライセンス API](/docs/features/cli-licence-api) は、このステータスに応じて `licenseRefunded` または `licenseRevoked` を返します。
 
 ## 顧客向け画面
 
-`/app/license` は `LicenseCard`（プラン、キー、インストールコマンド、`/api/auth/customer/portal` の Polar カスタマーポータルへのリンク、プラン変更の連絡先となるサポートのメールアドレス）と `LicenseActivations` を表示します。`LicenseActivations` は Polar 上のキーのアクティベーションを一覧表示し、`deactivateLicense` で個別に解除します。Polar は各プランのライセンスキーの特典に設定されたアクティベーション数の上限を強制します。この上限は `LICENSE_ACTIVATION_LIMITS` と一致している必要があり、Core は <ActivationLimit tier="core" />、Complete は <ActivationLimit tier="complete" />、Agency は <ActivationLimit tier="agency" /> です。[顧客アプリ](/docs/features/customer-app)を参照してください。
+`/app/license` は `LicenseCard`（プラン、キー、CLI コマンド、`/api/auth/customer/portal` の Polar カスタマーポータルへのリンク、プラン変更の連絡先となるサポートのメールアドレス）と `LicenseActivations` を表示します。`LicenseActivations` は Polar 上のキーのアクティベーションを一覧表示し、`deactivateLicense` で個別に解除します。Polar がそのアクティベーションをもう保持していない場合、`deactivateLicense` は `NOT_FOUND` を返します。CLI は [CLI ライセンス API](/docs/features/cli-licence-api) を通じてアクティベーションを追加、削除します。Polar は各プランのライセンスキーの特典に設定されたアクティベーション数の上限を強制します。この上限は `LICENSE_ACTIVATION_LIMITS` と一致している必要があり、Core は <ActivationLimit tier="core" />、Complete は <ActivationLimit tier="complete" />、Agency は <ActivationLimit tier="agency" /> です。[顧客アプリ](/docs/features/customer-app)を参照してください。
 
 ## 管理画面（デモ）
 
-`/admin/payments` は `RefundStats` と、`src/data/admin.ts` の `ADMIN_PAYMENT_ROWS` を使う返金の `DataTable` を表示します。ボタンは未接続です。`order` の権限定義（`read`、`update`、`refund`）は `auth.access.ts` にありますが、注文や返金を読み取るユースケースはありません。
+`/admin/payments` は `RefundStats` と、`src/data/admin-payments.ts` の `ADMIN_PAYMENT_ROWS` を使う返金の `DataTable` を表示します。ボタンは未接続です。決済のエリアは `order` の権限定義（`read`、`update`、`refund`）を `src/data/payments.access.ts` で宣言していますが、注文や返金を読み取るユースケースはありません。
 
 ## 関連ページ
 

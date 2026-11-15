@@ -6,7 +6,7 @@ import {
   createAuthSessionFixture,
   createMissingAuthSessionResult,
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
@@ -15,6 +15,8 @@ import { IDS, LESSON_IDS, USERS, seedCatalogue } from "~/src/modules/course/__te
 import { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
 import { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
+
+vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
 
 const COURSE_SLUG = "the-walkthrough"
 
@@ -58,18 +60,14 @@ describe("getLessonPlayback", () => {
     await expect(playback("sessions")).resolves.toHaveProperty("src")
   })
 
-  it.each([
-    { name: "an account without a licence", user: USERS.VISITOR },
-    { name: "a Core licence", user: USERS.CORE_BUYER },
-    { name: "a revoked licence", user: USERS.REFUNDED },
-  ])("refuses a paid lesson to $name", async ({ user }) => {
-    signIn(user)
+  it("refuses a paid lesson to an account without course access", async () => {
+    signIn(USERS.VISITOR)
 
     await expect(playback("billing")).rejects.toThrow(ERROR_CODES.FORBIDDEN)
   })
 
   it.each([
-    { name: "a Complete licence", role: ROLE_CODES.CUSTOMER, user: USERS.BUYER },
+    { name: "an account an area grants course access", role: ROLE_CODES.CUSTOMER, user: USERS.ENTITLED },
     { name: "staff", role: ROLE_CODES.ADMIN, user: USERS.VISITOR },
   ])("signs a paid lesson for $name", async ({ role, user }) => {
     signIn(user, role)
@@ -139,7 +137,7 @@ describe("saveLessonProgress", () => {
   })
 
   it.each([LESSON_IDS.DRAFT, "missing"])("reports the lesson %s as not found", async (lessonId) => {
-    signIn(USERS.BUYER)
+    signIn(USERS.ENTITLED)
 
     await expect(executeMutation(saveLessonProgressMutation, { completed: false, lessonId, positionMs: 0 })).rejects.toThrow(
       ERROR_CODES.NOT_FOUND,

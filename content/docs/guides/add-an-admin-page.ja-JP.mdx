@@ -32,7 +32,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { pageHead } from "~/src/lib/seo"
 
-import { AdminReportsPending } from "~/src/presentation/components/custom/admin/overview-pending"
+import { AdminReportsPending } from "~/src/presentation/components/custom/admin/reports-pending"
 import { ReportStats } from "~/src/presentation/components/custom/admin/reports/report-stats"
 
 import { ROUTES } from "~/src/routes"
@@ -70,14 +70,23 @@ export const Route = createFileRoute("/admin/reports")({
 })
 ```
 
-ページに必要なクエリは、同じ `Promise.all` に入れます。例えば `src/routes/admin.users.all.tsx` では `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` を使っています。`pageHead` は、ローダーの `metadata` からタイトル、説明、正規 URL、代替ロケールへのリンクを組み立てます。`AdminReportsPending` はこのページ専用のスケルトンで、ナビゲーションに 1 秒より長くかかった場合にだけ表示されます。ページが属するサイドバーグループのファイル（`custom/admin/` 内の `overview-pending.tsx`、`offerings-pending.tsx`、`content-pending.tsx`、`administration-pending.tsx` のいずれか）に、`pending-blocks.tsx` のブロックを組み合わせて、ページのレイアウトを再現するように書きます。次に、`admin-pending.tsx` の `ADMIN_PAGES` に追加します。これで、管理エリアの外から `/admin/reports` に入ったときに、管理画面レイアウトのスケルトンがこのスケルトンを表示します。[読み込み中のスケルトン](/docs/architecture/delivery-layer#loading-skeletons) を参照してください。
+ページに必要なクエリは、同じ `Promise.all` に入れます。例えば `src/routes/admin.users.all.tsx` では `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` を使っています。`pageHead` は、ローダーの `metadata` からタイトル、説明、正規 URL、代替ロケールへのリンクを組み立てます。`AdminReportsPending` はこのページ専用のスケルトンで、ナビゲーションに 1 秒より長くかかった場合にだけ表示されます。このスケルトンは、エリアのスケルトンファイル（ここでは新しい `custom/admin/reports-pending.tsx`）に、`pending-blocks.tsx` のブロックを組み合わせて、ページのレイアウトを再現するように書きます。次に、エリアのスケルトンリスト（ここでは新しい `src/data/reports.skeletons.ts` の `REPORTS_SKELETONS`）に追加し、新しいファイルはバレル `src/data/skeletons.entries.ts` に追加します。これで、管理エリアの外から `/admin/reports` に入ったときに、管理画面レイアウトのスケルトンがこのスケルトンを表示します。
+
+```ts
+export const REPORTS_SKELETONS = [
+  { pendingComponent: AdminReportsPending, to: ROUTES.ADMIN_REPORTS },
+] as const satisfies readonly PageSkeleton[]
+```
+
+[読み込み中のスケルトン](/docs/architecture/delivery-layer#loading-skeletons) を参照してください。
 
 ## 3. サイドバーの項目を追加する
 
-エリアのメニューリスト（ここでは新しい `src/data/reports.navigation.ts` の `REPORTS_NAVIGATION`）に `placement: NAVIGATION_PLACEMENT.ADMIN` の項目を追加し、新しいファイルはバレル `src/data/navigation.entries.ts` に追加します。項目にはサイドバーのグループ、`lucide-react` のアイコン、グループ内の `order` を指定します。ダッシュボードは 10、アナリティクスは 20 なので、30 にすると Reports はその後ろに並びます。
+エリアのメニューリスト（ここでは新しい `src/data/reports.navigation.ts` の `REPORTS_NAVIGATION`）に `placement: NAVIGATION_PLACEMENT.ADMIN` の項目を追加し、新しいファイルはバレル `src/data/navigation.entries.ts` に追加します。項目には `area`、サイドバーのグループ、`lucide-react` のアイコン、グループ内の `order` を指定します。ダッシュボードは 10、アナリティクスは 20 なので、30 にすると Reports はその後ろに並びます。
 
 ```ts
 {
+  area: AREA,
   group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
   icon: FileText,
   key: "reports",
@@ -87,7 +96,7 @@ export const Route = createFileRoute("/admin/reports")({
 },
 ```
 
-すべてのロケールの `messages/<locale>/pages.admin.sidebar.json` に `links.reports` を追加します。新しいグループには、`ADMIN_NAVIGATION_GROUP` の値、`ADMIN_NAVIGATION_GROUPS` 内の位置、`groups.<group>` も必要です。サイドバー、パンくずリスト、⌘K コマンドパレットはいずれも `ADMIN_NAVIGATION`（`src/data/navigation.ts`）を読み取るため、ページはこの 3 つすべてに表示されます。ランディングページはこのページを管理画面のセクションの 1 つとして数え、ランディングページの動画 `app-tour` の管理画面のレールには、動画を再レンダリングした後に表示されます（`remotion/README.md` を参照）。`/admin/reports/create` のような 3 番目の URL セグメントには、`pages.admin.json` の `components.breadcrumbs.actions.create` がパンくずのラベルとして表示されます。
+すべてのロケールで、エリアの `messages/<locale>/navigation.reports.json` にある `admin.reports` でラベルを付けます。新しいグループには、`ADMIN_NAVIGATION_GROUP` の値、`ADMIN_NAVIGATION_GROUPS` 内の位置、`groups.<group>` も必要です。サイドバー、パンくずリスト、⌘K コマンドパレットはいずれも `ADMIN_NAVIGATION`（`src/data/navigation.ts`）を読み取るため、ページはこの 3 つすべてに表示されます。ランディングページはこのページを管理画面のセクションの 1 つとして数え、ランディングページの動画 `app-tour` の管理画面のレールには、動画を再レンダリングした後に表示されます（`remotion/README.md` を参照）。`/admin/reports/create` のような 3 番目の URL セグメントには、エリアが定義していれば同じ `navigation.reports.json` の `breadcrumbs.create` がパンくずのラベルとして表示され、定義していなければ 3 番目のパンくずは表示されません。
 
 ## 4. ページのメッセージを追加する
 
@@ -110,4 +119,4 @@ export const Route = createFileRoute("/admin/reports")({
 
 - ページへのアクセスはレイアウトのガードが保護します。それでも、ページが呼び出すすべてのサーバー関数には `authorized(permission)` が必要です。[ロールと権限](/docs/guides/roles-and-permissions) を参照してください。
 - `/admin` はプリレンダリングの対象外です。
-- ルートのテストは `src/routes/__test__/` の既存のテストの隣に、ウィジェットのテストは `src/presentation/components/custom/admin/__test__/` に追加し、`bun run check:i18n` と `bun run test:coverage` を実行します。
+- エリアのルートのテストは `src/routes/__test__/admin-<area>-routes.component.test.tsx` と `admin-<area>-loaders.test.ts` に、ウィジェットのテストは `src/presentation/components/custom/admin/__test__/` に追加し、ページを `e2e/data/<area>.pages.ts` に加えて、`bun run check:i18n` と `bun run test:coverage` を実行します。

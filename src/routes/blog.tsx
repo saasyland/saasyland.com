@@ -5,6 +5,8 @@ import { Outlet, createFileRoute } from "@tanstack/react-router"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { layoutNamespaces } from "~/src/data/namespaces"
+
 import { BackToTop } from "~/src/presentation/components/custom/back-to-top"
 import { BlogPending } from "~/src/presentation/components/custom/blog/blog-pending"
 import { ContentNavigation } from "~/src/presentation/components/custom/content-navigation"
@@ -25,7 +27,7 @@ const BlogLayout = (): JSX.Element => (
   </div>
 )
 
-const NAMESPACES = ["auth.validations", "pages.blog"] as const
+const NAMESPACES = ["pages.blog", ...layoutNamespaces("/blog")] as const
 
 export const Route = createFileRoute("/blog")({
   component: BlogLayout,

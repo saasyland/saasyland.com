@@ -8,10 +8,12 @@ import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
+import { TEST_COURSE_ACCESS } from "~/src/modules/course/__test__/fixtures/course-access"
+import { COURSE_ACCESS_TEST_MESSAGES, COURSE_ACCESS_TEST_NAMES } from "~/src/modules/course/__test__/fixtures/course-access.messages"
 import { COURSE_KIND, COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
@@ -20,7 +22,6 @@ import { LESSON_PROGRESS_MUTATION_KEYS } from "~/src/modules/lesson-progress/les
 import type { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
 import { LESSON_ACCESS, LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
-import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 import type { Video } from "~/src/modules/video/video.types"
 
 import { Route as CoursesRoute } from "~/src/routes/courses"
@@ -28,12 +29,15 @@ import { Route as LessonRoute } from "~/src/routes/courses.$course.$lesson"
 import { Route as CourseRoute } from "~/src/routes/courses.$course.index"
 import { Route as CataloguePageRoute } from "~/src/routes/courses.index"
 
+import { NAVIGATION_PAGES } from "~/src/data/navigation"
+
 import { CataloguePending, CoursePending, LessonPending } from "~/src/presentation/components/custom/courses/courses-pending"
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
 import type { VideoPlayer } from "~/src/presentation/components/custom/video-player"
 
 import messages from "~/messages/en-US/pages.courses.json"
 import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.json"
+import plCoursesNavigationMessages from "~/messages/pl-PL/navigation.courses.json"
 import type { RouterContext } from "~/src/router"
 
 type PlayerProps = ComponentProps<typeof VideoPlayer>
@@ -63,11 +67,17 @@ vi.mock(import("~/src/modules/course/use-cases/get-course"), async (importOrigin
   }
 })
 
+vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
+
 vi.mock(import("~/src/modules/lesson-progress/use-cases/save-lesson-progress"), () => ({
   saveLessonProgressMutation: { mutationFn: save, mutationKey: LESSON_PROGRESS_MUTATION_KEYS.SAVE },
 }))
 
 const COURSE_SLUG = "the-walkthrough"
+
+const [{ unlock }] = TEST_COURSE_ACCESS
+
+const withOffer = (message: string): string => message.replace("{offer}", COURSE_ACCESS_TEST_NAMES.offer)
 
 const PLAYBACK: Video["playback"] = {
   captions: [],
@@ -113,7 +123,7 @@ const GUEST_PAGE = page({
     lesson("billing", "Billing", { locked: true }),
     lesson("coverage", "Coverage", { durationMs: null, locked: true }),
   ],
-  viewer: { licensed: false, signedIn: false },
+  viewer: { signedIn: false },
 })
 
 const LEARNER_PAGE = page({
@@ -123,7 +133,7 @@ const LEARNER_PAGE = page({
     lesson("billing", "Billing"),
     lesson("coverage", "Coverage", { durationMs: null }),
   ],
-  viewer: { licensed: true, signedIn: true },
+  viewer: { signedIn: true },
 })
 
 const CUSTOMER_PAGE = page({
@@ -132,7 +142,7 @@ const CUSTOMER_PAGE = page({
     lesson("sessions", "Sessions", { access: LESSON_ACCESS.ACCOUNT }),
     lesson("billing", "Billing", { locked: true }),
   ],
-  viewer: { licensed: false, signedIn: true },
+  viewer: { signedIn: true },
 })
 
 const completeLesson = (source: Course["page"], slug: string): Course["page"] => ({
@@ -226,7 +236,7 @@ const renderCourses = async ({
   routers.push(router)
   render(
     <QueryClientProvider client={router.options.context.queryClient}>
-      <IntlProvider locale={locale} messages={getTestMessages(locale)} timeZone="UTC">
+      <IntlProvider locale={locale} messages={{ ...getTestMessages(locale), ...COURSE_ACCESS_TEST_MESSAGES }} timeZone="UTC">
         <RouterProvider router={router} />
       </IntlProvider>
     </QueryClientProvider>,
@@ -282,19 +292,22 @@ describe("course catalogue", () => {
     await renderCourses({ locale: "pl-PL", path: "/pl-PL/courses" })
 
     const nav = within(screen.getByRole("navigation", { name: plNavigationMessages.ariaLabel }))
-    expect(nav.getByRole("link", { name: plNavigationMessages.items.courses })).toHaveAttribute("aria-current", "page")
-    expect(nav.getByRole("link", { name: plNavigationMessages.items.blog })).toHaveAttribute("href", "/pl-PL/blog")
+    const pageLabel = getNavigationLabel("pl-PL")
+    expect(nav.getByRole("link", { current: "page" })).toHaveAccessibleName(plCoursesNavigationMessages.header.courses)
+    for (const entry of NAVIGATION_PAGES) {
+      expect(nav.getByRole("link", { name: pageLabel(entry) })).toHaveAttribute("href", `/pl-PL${entry.to}`)
+    }
     expect(nav.getByRole("link", { name: plNavigationMessages.getStarted })).toHaveAttribute("href", "/pl-PL#pricing")
   })
 })
 
 describe("course page", () => {
-  it("starts a visitor on the free lesson and offers Complete for the locked ones", async () => {
+  it("starts a visitor on the free lesson and offers what unlocks the locked ones", async () => {
     await renderCourses({ path: "/courses/the-walkthrough" })
 
     expect(screen.getByRole("heading", { level: 1, name: "The walkthrough" })).toBeVisible()
     expect(screen.getByRole("link", { name: messages.course.start })).toHaveAttribute("href", "/courses/the-walkthrough/boundaries")
-    expect(screen.getByRole("link", { name: messages.course.unlock.cta })).toHaveAttribute("href", "/#pricing")
+    expect(screen.getByRole("link", { name: withOffer(messages.course.unlock.cta) })).toHaveAttribute("href", unlock.signedOut.to)
     expect(screen.queryByText(/lessons completed/u)).toBeNull()
 
     const boundaries = screen.getByRole("link", { name: /Boundaries/u })
@@ -313,20 +326,17 @@ describe("course page", () => {
     expect(document.querySelectorAll("[data-slot=progress-indicator]")).toHaveLength(1)
     expect(screen.getByRole("link", { name: "Continue with Sessions" })).toHaveAttribute("href", "/courses/the-walkthrough/sessions")
     expect(screen.getByRole("link", { name: /Boundaries/u })).toHaveTextContent(messages.lesson.completed)
-    expect(screen.queryByRole("heading", { name: messages.course.unlock.title })).toBeNull()
+    expect(screen.queryByRole("heading", { name: withOffer(messages.course.unlock.title) })).toBeNull()
   })
 
-  it("sends a signed-in customer to their licence page to unlock lessons", async () => {
+  it("sends a signed-in customer where an area grants course access", async () => {
     await renderCourses({ data: CUSTOMER_PAGE, path: "/courses/the-walkthrough" })
 
-    expect(screen.getByRole("link", { name: messages.course.unlock.cta })).toHaveAttribute(
-      "href",
-      `/app/license?tier=${LICENSE_TIER.COMPLETE}`,
-    )
+    expect(screen.getByRole("link", { name: withOffer(messages.course.unlock.cta) })).toHaveAttribute("href", unlock.signedIn.to)
   })
 
   it("offers no start link when every lesson is locked", async () => {
-    const locked = page({ lessons: [lesson("billing", "Billing", { locked: true })], viewer: { licensed: false, signedIn: false } })
+    const locked = page({ lessons: [lesson("billing", "Billing", { locked: true })], viewer: { signedIn: false } })
     await renderCourses({ data: locked, path: "/courses/the-walkthrough" })
 
     expect(screen.queryByRole("link", { name: messages.course.start })).toBeNull()
@@ -401,8 +411,8 @@ describe("lesson page", () => {
       href: "/auth/sign-in?redirect=%2Fcourses%2Fthe-walkthrough%2Fsessions",
       path: "sessions",
     },
-    { cta: messages.lesson.locked.paid.cta, data: GUEST_PAGE, href: "/#pricing", path: "billing" },
-    { cta: messages.lesson.locked.paid.cta, data: CUSTOMER_PAGE, href: `/app/license?tier=${LICENSE_TIER.COMPLETE}`, path: "billing" },
+    { cta: withOffer(messages.lesson.locked.paid.cta), data: GUEST_PAGE, href: unlock.signedOut.to, path: "billing" },
+    { cta: withOffer(messages.lesson.locked.paid.cta), data: CUSTOMER_PAGE, href: unlock.signedIn.to, path: "billing" },
   ])("locks $path and links to $href", async ({ cta, data, href, path }) => {
     await renderCourses({ data, path: `/courses/the-walkthrough/${path}` })
 
@@ -424,7 +434,7 @@ describe("lesson page", () => {
     routers.push(router)
     const { container } = render(
       <QueryClientProvider client={queryClient}>
-        <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
+        <IntlProvider locale="en-US" messages={{ ...getTestMessages("en-US"), ...COURSE_ACCESS_TEST_MESSAGES }} timeZone="UTC">
           <RouterProvider router={router} />
         </IntlProvider>
       </QueryClientProvider>,

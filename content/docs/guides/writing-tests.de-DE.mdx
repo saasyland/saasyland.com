@@ -34,7 +34,7 @@ bun run test:coverage
 ## Test-Laufzeitumgebung
 
 - `src/platform/testing/setup.ts` registriert die jest-dom-Matcher, setzt die Bindings vor jedem Test zurück und leitet jedes `createServerFn` durch `withTestRpc`, sodass Aufrufe die echte Middleware und den echten Validator durchlaufen. Das gilt in den Projekten `node` und `integration`. Im Projekt `component` schlägt eine Serverfunktion fehl, weil jsdom der Browser ist.
-- `cloudflare:workers` wird zu `src/platform/testing/mocks/cloudflare.ts` aufgelöst. D1 ist eine In-Memory-SQLite-Datenbank, auf die alle eingecheckten Migrationen angewendet sind, KV und der R2-Bucket `MEDIA` sind In-Memory-Maps, und `flushWaitUntil()` wartet auf Hintergrundaufgaben. `createEdgeCache()` aus `mocks/cache.ts` ersetzt den Workers-Cache durch einen Stub.
+- `cloudflare:workers` wird zu `src/platform/testing/mocks/cloudflare.ts` aufgelöst. D1 ist eine In-Memory-SQLite-Datenbank, auf die alle eingecheckten Migrationen angewendet sind, KV und die R2-Buckets `MEDIA` und `BUNDLES` sind In-Memory-Maps, und `flushWaitUntil()` wartet auf Hintergrundaufgaben. `createEdgeCache()` aus `mocks/cache.ts` ersetzt den Workers-Cache durch einen Stub.
 - `.env.test` liefert Dummy-Zugangsdaten. `fetch` erreicht strikte Test-Doubles von Resend und Polar (`mocks/resend.ts`, `mocks/polar.ts`), und jeder andere Host schlägt fehl, als wäre der Rechner offline, sodass nichts ihn verlässt. Ein Request, den der Anbieter ablehnen würde, lässt den Test fehlschlagen.
 - `renderWithRouter` in `src/platform/testing/lib/render.tsx` rendert Komponenten mit einem echten Router und `QueryClient`.
 
@@ -48,7 +48,7 @@ import { describe, expect, it, vi } from "vite-plus/test"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
@@ -89,6 +89,8 @@ expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIV
 ```
 
 `paidOrder` startet den Checkout über das echte `startCheckout` und bezahlt ihn im Double. `deliver` signiert das Event mit `signedPolarWebhook` aus `lib/polar.ts`, sendet es per POST an den Polar-Endpunkt von Better Auth und gibt den Status der Antwort zurück, sodass die Signaturprüfung, das Plugin und die Handler in `license.webhooks.ts` alle laufen. Um zu testen, wie die Anwendung mit einem Fehler des Anbieters umgeht, einen einzelnen Request mit dem Fehler des Anbieters beantworten, wie es `resend.utils.test.ts` tut: `vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(error, { status }))`.
+
+Das Double verkauft nur, was die Bereiche in `__test__/fixtures/<area>.polar-catalogue.ts` einspielen, beim Lizenzbereich seine Stufen, deren Lizenzschlüssel-Benefits und die regionalen Rabatte. Ein Test für ein anderes Produkt spielt es zuerst mit `seedPolarCatalogue` ein, mit ID, Namen, Preis in der kleinsten Währungseinheit samt Währung und Abrechnungsintervall, bei einem Einmalkauf `null`, und `createPolarOrder({ externalCustomerId, productId })` legt eine Bestellung dafür an. Vor dem nächsten Test vergisst das Double das Produkt wieder. `src/platform/testing/__test__/providers.test.ts` öffnet so einen Checkout für ein Monatsabo.
 
 ## Auth-Ablauf testen
 

@@ -5,16 +5,44 @@ description: "Die Cloudflare-Laufzeitumgebung: Worker-Einstiegspunkt, Bindings, 
 
 ## Worker und Bindings
 
-`wrangler.jsonc` legt `src/server.ts` als Einstiegspunkt des Workers fest. Der Worker erhält vier Bindings:
+`wrangler.jsonc` legt `src/server.ts` als Einstiegspunkt des Workers fest. Der Worker erhält diese Bindings:
 
-| Binding  | Typ              | Verwendet für                                                    |
-| -------- | ---------------- | ---------------------------------------------------------------- |
-| `DB`     | D1-Datenbank     | Alle Tabellen, einschließlich Sessions und Rate-Limit-Zählern    |
-| `CACHE`  | KV-Namespace     | Die Anzahl der GitHub-Sterne und die regionalen Checkout-Rabatte |
-| `MEDIA`  | R2-Bucket        | Videodateien, ausgeliefert von `serveMedia` unter `/media/`      |
-| `ASSETS` | Statische Assets | Vorgerenderte Seiten und Dateien aus `public`                    |
+| Binding   | Typ              | Verwendet für                                                                  |
+| --------- | ---------------- | ------------------------------------------------------------------------------ |
+| `DB`      | D1-Datenbank     | Alle Tabellen, einschließlich Sessions und Rate-Limit-Zählern                  |
+| `CACHE`   | KV-Namespace     | Die Anzahl der GitHub-Sterne und die regionalen Checkout-Rabatte               |
+| `MEDIA`   | R2-Bucket        | Videodateien, ausgeliefert von `serveMedia` unter `/media/`                    |
+| `BUNDLES` | R2-Bucket        | Die Vorlagen-Bundles der CLI, ausgeliefert von `serveBundle` unter `/bundles/` |
+| `ASSETS`  | Statische Assets | Vorgerenderte Seiten und Dateien aus `public`                                  |
 
 Requests an `/assets/*`, `/fonts/*`, `/robots.txt` und `/llms.txt` werden aus den statischen Assets bedient, ohne dass der Worker läuft. Servercode liest Bindings, Secrets und `waitUntil` aus `cloudflare:workers`. `src/server.ts` fügt jeder Antwort, die es zurückgibt, die Sicherheits-Header hinzu; Dateien, die ohne den Worker ausgeliefert werden, erhalten die Teilmenge aus `public/_headers` ([Sicherheit und Härtung](/docs/features/security)).
+
+## Was die Bereiche beitragen [#what-the-areas-add]
+
+Keine Datei der Plattform nennt einen Bereich. Jeder Bereich, etwa die Kurse oder der Lizenzverkauf, trägt in eigenen Dateien bei, was er im Worker, in der Root-Route, im Vite-Build und beim Deployment braucht, und ein Barrel führt sie zusammen, so wie die Pfade und Menüs (siehe [Pfade und Navigation](/docs/conventions/routes#paths-and-navigation)):
+
+| Was              | Jeder Bereich deklariert                                         | Barrel                          | Verwendet von                                                                                                        |
+| ---------------- | ---------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Worker-Handler   | `src/data/<area>.worker.ts`: eine Liste `<AREA>_WORKER_HANDLERS` | `src/data/worker.entries.ts`    | `DOCUMENT_HANDLERS` und `REQUEST_HANDLERS` in `src/data/worker.ts`, die `src/server.ts` ausführt                     |
+| Root-Komponenten | `src/data/<area>.root.ts`: eine Liste `<AREA>_ROOT_COMPONENTS`   | `src/data/root.entries.ts`      | `ROOT_COMPONENTS` in `src/data/root.ts`, das `src/routes/__root.tsx` neben dem Outlet einhängt                       |
+| Zeitzone         | `src/data/<area>.time-zone.ts`: eine Liste `<AREA>_TIME_ZONES`   | `src/data/time-zone.entries.ts` | `TIME_ZONE_SOURCES` in `src/data/time-zone.ts`, in deren erster Zone `TranslationsProvider` Datumsangaben formatiert |
+| Vite-Plugins     | `src/data/<area>.vite.ts`: eine Liste `<AREA>_VITE_PLUGINS`      | `src/data/vite.entries.ts`      | `vitePlugins` in `src/data/vite.ts`, das `vite.config.ts` lädt                                                       |
+| Deploy-Checks    | `src/data/<area>.deploy.ts`: eine Liste `<AREA>_DEPLOY_CHECKS`   | `src/data/deploy.entries.ts`    | `DEPLOY_CHECKS` in `src/data/deploy.ts`, die `scripts/run-deploy-checks.ts` ausführt                                 |
+| Live-Checks      | `src/data/<area>.live.ts`: eine Liste `<AREA>_LIVE_CHECKS`       | `src/data/live.entries.ts`      | `LIVE_SITE_CHECKS` in `src/data/live.ts`, die `scripts/verify-deployment.ts` nach einem Deployment abruft            |
+
+Ein Request-Handler beansprucht ein `pathPrefix` und beantwortet jeden Request darunter vor der Locale-Middleware, den statischen Assets und TanStack Start, wie es der Handler des Kursbereichs für `/media/` und der des Lizenzbereichs für `/bundles/` tun. Ein Dokument-Handler erhält jede HTML-Seite, die der Worker zurückgibt, mit ihrer Locale und dem Request, und gibt die Seite zurück, die gesendet wird, wie es die regionalen Preise des Lizenzbereichs tun. `src/server.ts` importiert die Handler statisch, sie werden also bei jedem Kaltstart ausgewertet: Eine Handler-Datei importiert nur Konstanten und reine Hilfsfunktionen und lädt alles Größere per dynamischem `import()` (siehe [Performance](/docs/conventions/performance)).
+
+Ein Eintrag für Vite-Plugins hat eine `order`, die seine Plugins unter denen der anderen Bereiche einreiht, und `vitest`, das angibt, ob sie auch unter Vitest geladen werden. Vite lädt seine Konfiguration, bevor der Alias `~` aufgelöst wird, deshalb importieren `vite.ts`, `vite.entries.ts` und jede `<area>.vite.ts` über relative Pfade mit der Endung `.ts`, und ein Eintrag importiert sein Plugin-Paket erst in seiner Funktion `plugins`, damit `vp lint` und `vp fmt` es nie laden.
+
+Eine Zeitzonenquelle ist ein Hook, der die Zone zurückgibt, in der Datumsangaben formatiert werden. Die des Auth-Bereichs gibt die Zeitzone des angemeldeten Benutzers aus der Session zurück, die die Route-Guards geladen haben, oder `UTC`; ohne Quelle verwendet `TranslationsProvider` ebenfalls `UTC`.
+
+Ein Deploy-Check nennt ein Paketskript mit einer Variante pro deployter Umgebung. Der Polar-Bereich deklariert `polar:verify`, also führt `bun scripts/run-deploy-checks.ts preview` den Befehl `bun run polar:verify:preview` aus.
+
+Ein Live-Check nennt einen Pfad sowie den Status und den Inhaltstyp, mit denen er nach einem Deployment antworten muss. Der Kern prüft die Startseite, `robots.txt`, die Sitemap, die Karte der Website und `/api`, der Auth-Bereich den Sitzungsendpunkt und der Kursbereich `/courses`, das bei jeder Anfrage aus D1 gerendert wird.
+
+Ein Bereich kann auch eine eigene Liste festlegen, zu der andere Bereiche auf dieselbe Weise beitragen. Der Kursbereich legt den Kurszugang in `src/data/course-access.ts` fest, und der Lizenzbereich gewährt ihn in `src/data/license.course-access.ts` ([Kurse](/docs/features/courses)); der Lizenzbereich legt die Abschnitte seines Angebots in `src/data/license-offer.ts` fest, und der Kursbereich trägt die gesperrten Kurse in `src/data/courses.license-offer.ts` bei ([Kunden-App](/docs/features/customer-app)). Der Auth-Bereich legt die Plugins und E-Mails fest, die andere Bereiche zu Better Auth beitragen ([Better Auth](/docs/integrations/better-auth)): Der Lizenzbereich trägt das Polar-Plugin bei und Resend die Auth-E-Mails. Der Auth-Bereich definiert außerdem die Tabs der Benutzerverwaltung in `src/data/user-tabs.ts`, zu denen der Team-Bereich seine Einladungen und Rollen beiträgt ([Benutzer (Admin)](/docs/features/users-admin)), und die Hinweise unter dem Registrierungsformular in `src/data/sign-up-notices.ts`, zu denen der Rechtsbereich die Zustimmungszeile beiträgt ([Rechtliche Seiten](/docs/features/legal-pages)), sowie die Übersicht der Kunden-App in `src/data/app-overview.ts`, zu der der Lizenzbereich seinen Abschnitt und die Suchparameter beiträgt, die dieser liest ([Kunden-App](/docs/features/customer-app)). Ein Projekt ohne einen der Bereiche lässt die Liste dieses Bereichs zusammen mit dem weg, was die anderen dazu beitragen, sodass kein Bereich einen anderen importiert, der nicht von ihm abhängt.
+
+Der Kern trägt zu jedem Barrel, das nur optionale Bereiche füllen, eine leere Liste bei: `src/data/core.worker.ts`, `core.root.ts`, `core.time-zone.ts`, `core.deploy.ts` und `core.namespaces.ts`, sodass ein Projekt ohne diese Bereiche weiterhin Typprüfung und Lint besteht, und der Auth-Bereich trägt zu seiner Plugin-Liste das leere `AUTH_AUTH_PLUGINS`, zu seinen Registrierungshinweisen das leere `AUTH_SIGN_UP_NOTICES` und zur Übersicht das leere `AUTH_APP_OVERVIEW` bei. Die Bereiche, die E-Mails versenden, benennen die Zwecke ihrer E-Mails in `src/data/<area>.email-purposes.ts`, die `src/data/email-purposes.entries.ts` in `EMAIL_PURPOSE` zusammenführt ([Resend](/docs/integrations/resend)).
 
 ## Umgebungen
 
@@ -27,12 +55,14 @@ Requests an `/assets/*`, `/fonts/*`, `/robots.txt` und `/llms.txt` werden aus de
 | `production`  | Produktions-D1, -KV und -R2                              | `bun run build:production`, `deploy:production` |
 | `test`        | Lokale D1, lokaler KV und lokales R2 in `.wrangler/test` | `bun run build:test`, Playwright                |
 
-Jede Umgebung listet ihre benötigten Secrets unter `secrets.required` auf. Die Werte stammen aus der passenden Datei `.env.<environment>`; die Deploy-Skripte schreiben die deklarierten Schlüssel nach `.wrangler/secrets.<environment>.json` und übergeben diese Datei mit `--secrets-file` an Wrangler. Die Umgebung `test` verwendet `src/platform/testing/worker.ts` als Einstiegspunkt und die eingecheckten Dummy-Werte aus `.env.test`. `AFFONSO_PROGRAM_ID` ist öffentlich und deshalb kein Secret, sondern eine einfache Worker-Variable unter `vars`; nur `test` setzt eine.
+Jede Umgebung listet ihre benötigten Secrets unter `secrets.required` auf. Die Werte stammen aus der passenden Datei `.env.<environment>`; die Deploy-Skripte schreiben die deklarierten Schlüssel nach `.wrangler/secrets.<environment>.json` und übergeben diese Datei mit `--secrets-file` an Wrangler. Die Umgebung `test` verwendet `src/platform/testing/worker.ts` als Einstiegspunkt und die eingecheckten Dummy-Werte aus `.env.test`. `AFFONSO_PROGRAM_ID` ist öffentlich und deshalb kein Secret, sondern eine einfache Worker-Variable unter `vars`; nur `test` setzt eine. Die Secrets eines Moduls stehen zusammen, in der Reihenfolge von `.env.example` und für `test` von `.env.test`, sodass ein Bereich seine Secrets als eine Gruppe beiträgt; `src/__test__/wrangler.test.ts` vergleicht die Namen in ihrer Reihenfolge und schlägt fehl, wenn sie sich unterscheiden. Eine Leerzeile zwischen zwei Gruppen dient nur der Lesbarkeit, da ein Formatter sie entfernen kann, deshalb ignoriert der Test sie.
+
+Auch die Bindings eines Bereichs bilden einen eigenen Block. Die R2-Buckets gehören zu Bereichen, `MEDIA` zu den Kursen und `BUNDLES` zum Lizenzverkauf, deshalb steht `r2_buckets` in jeder Umgebung zuletzt, mit einem Eintrag pro Bereich, und ein Projekt ohne einen Bereich lässt dessen Eintrag weg. `wrangler.test.ts` schlägt außerdem fehl, wenn eine Umgebung andere D1-Datenbanken, KV-Namespaces oder R2-Buckets bindet als `development`, und `scripts/verify-bindings.ts` prüft jedes Binding, das die Zielumgebung deklariert, ohne eines zu nennen.
 
 ## Typen
 
-- `src/types/bindings.d.ts` deklariert `Cloudflare.Env`: die Bindings, jedes Secret, das der Worker liest, und die optionale Variable `AFFONSO_PROGRAM_ID`. Die drei `CLOUDFLARE_*`-Secrets sind nicht deklariert, weil nur drizzle-kit sie liest, und zwar aus `process.env`.
-- `src/types/worker-configuration.d.ts` wird von `bun run cf-typegen` generiert.
+- `src/types/worker-configuration.d.ts` wird von `bun run cf-typegen` aus der Umgebung `development` von `wrangler.jsonc` generiert und deklariert `Cloudflare.Env`: die Bindings `DB`, `CACHE`, `MEDIA` und `BUNDLES` und jedes Secret aus `secrets.required`. `src/types/bindings.d.ts` ergänzt `ASSETS`, das Wrangler auslässt.
+- Ein Bereich deklariert in `src/types/<area>.d.ts` nur, was Wrangler nicht ableiten kann: `affiliates.d.ts` die optionale Variable `AFFONSO_PROGRAM_ID`, die nur `test` setzt, `polar.d.ts` die beiden Werte von `POLAR_SERVER` und `repository-facts.d.ts` das Modul `virtual:repository-facts`.
 - `src/types/router.d.ts` registriert den Router-Typ und die Routenoption `staticData.namespaces`.
 
 ## Verdrahtung der Testlaufzeit
@@ -40,12 +70,12 @@ Jede Umgebung listet ihre benötigten Secrets unter `secrets.required` auf. Die 
 `src/platform/testing` enthält nur, was zu keinem einzelnen Feature gehören kann:
 
 - `setup.ts`: jest-dom-Matcher, ein Zurücksetzen der Bindings vor jedem Test und der Ersatz für `createServerFn`, der Server Functions im selben Prozess ausführt
-- `mocks/cloudflare.ts`: eine D1 auf Basis von SQLite im Arbeitsspeicher, die die eingecheckten Migrationen ausführt, ein KV im Arbeitsspeicher, ein `MEDIA`-Bucket im Arbeitsspeicher und ein `waitUntil`, das Tests flushen können
+- `mocks/cloudflare.ts`: eine D1 auf Basis von SQLite im Arbeitsspeicher, die die eingecheckten Migrationen ausführt, ein KV im Arbeitsspeicher, ein Bucket im Arbeitsspeicher für jedes R2-Binding der Umgebung `test` in `wrangler.jsonc` und ein `waitUntil`, das Tests flushen können
 - `mocks/cache.ts`: `createEdgeCache`, ein Stub des Workers-Cache für die Tests der Medienauslieferung
-- `mocks/resend.ts` und `mocks/polar.ts`: strikte Test-Doubles der APIs von Resend und Polar, und `mocks/providers.ts`, das `fetch` in jedem Test und im Test-Worker für Browsertests an sie weiterleitet
+- `mocks/resend.ts` und `mocks/polar.ts`: strikte Test-Doubles der APIs von Resend und Polar, jedes in einer Liste der Doubles seines Bereichs (`RESEND_PROVIDER_DOUBLES`, `POLAR_PROVIDER_DOUBLES`), die `mocks/providers.entries.ts` mit der leeren Liste `CORE_PROVIDER_DOUBLES` des Kerns zusammenführt, und `mocks/providers.ts`, das `fetch` an sie weiterleitet und sie zurücksetzt, in jedem Test und im Test-Worker für Browsertests
 - `mocks/wrksz-themes.ts`: ein Ersatz für die Theme-Bibliothek
 - `lib/`: die RPC-Brücke für Server Functions, Render-Helfer, Helfer für Request-URLs, Query-Runner sowie Polar-Modelle mit signierten Webhooks
-- `worker.ts`: der Worker-Einstiegspunkt für Browsertests, der die Test-Doubles der Anbieter installiert und die zugestellte E-Mail bereitstellt
+- `worker.ts`: der Worker-Einstiegspunkt für Browsertests, der die Test-Doubles der Anbieter installiert und die Set-ups und Testendpunkte ausführt, die die Bereiche in `e2e/data/<area>.worker.ts` (`worker.entries.ts`) deklarieren: Der Lizenzbereich legt den Testlizenzschlüssel im Polar-Double an, Resend stellt die zugestellte E-Mail bereit und der Newsletter den Status eines Abonnenten
 
 Wie die Testsuiten diese Bausteine nutzen, beschreibt [Tests und CI](/docs/architecture/testing-architecture).
 

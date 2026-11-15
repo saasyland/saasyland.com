@@ -11,7 +11,9 @@ Workflows live in `.github/workflows/`. The application workflows (`ci.yml`, `e2
 | `e2e-full.yml`        | Pushes to `main`, the schedule <RepositoryFact name="e2eFullSchedule" /> in UTC, manual | WebKit on push; Chromium and WebKit on schedule and manual runs                         |
 | `e2e-reusable.yml`    | Called by the workflows above                                                           | Test database, test build and one Playwright project                                    |
 | `deploy-reusable.yml` | Called by `ci.yml`                                                                      | Build, D1 migrations and `wrangler deploy`                                              |
-| `remotion.yml`        | Changes to `remotion/` or its shared constants                                          | Checks and bundles the landing page video project with npm                              |
+| `remotion.yml`        | Changes to `remotion/` or the website files it imports                                  | Checks and bundles the landing page video project with npm                              |
+
+`remotion.yml` runs on the same paths for pull requests and pushes: `remotion/`, the workflow itself and the website files that `remotion/src` imports, directly or through other website files. `src/__test__/workflows.test.ts` follows those imports and fails when a file they reach matches none of the paths, or a path matches none of the files.
 
 ## Checks
 
@@ -26,9 +28,9 @@ Deployments run only after `verify` and `e2e` pass:
 | Pull request from a branch in this repository | `preview`    | `Preview`          | https://preview.saasyland.com |
 | Push to `main`                                | `production` | `Production`       | https://saasyland.com         |
 
-Pull requests from forks and Dependabot are validated but not deployed. The preview is shared: each deployment replaces the previous one and uses the same preview D1 database, KV namespace and R2 bucket.
+`deploy-reusable.yml` gives each GitHub environment its URL, and `src/__test__/workflows.test.ts` fails when one differs from its host in `DEPLOYED_HOSTS` (`src/modules/_core/constants/api.ts`). Pull requests from forks and Dependabot are validated but not deployed. The preview is shared: each deployment replaces the previous one and uses the same preview D1 database, KV namespace and R2 buckets.
 
-`deploy-reusable.yml` checks for the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, runs `scripts/verify-bindings.ts`, builds with the dummy values from `.env.test`, removes the generated `dist/server/.dev.vars`, applies `db:migrate:<target>` and runs `vp exec wrangler deploy --config dist/server/wrangler.json`. It does not run `scripts/verify-deployment.ts`, the live site check of the `deploy:<target>` scripts, because Cloudflare's bot protection answers 403 to requests from CI runners. Nor does it run `polar:verify:<target>`, because the GitHub environments hold no Polar token; run it locally after every change in Polar ([Polar setup](/docs/getting-started/polar-setup)). No secrets file is uploaded: the Worker keeps the runtime secrets already set in Cloudflare. Deployments to the same target queue instead of cancelling each other.
+`deploy-reusable.yml` checks for the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, runs `scripts/verify-bindings.ts`, builds with the dummy values from `.env.test`, removes the generated `dist/server/.dev.vars`, applies `db:migrate:<target>` and runs `vp exec wrangler deploy --config dist/server/wrangler.json`. It does not run `scripts/verify-deployment.ts`, the live site check of the `deploy:<target>` scripts, because Cloudflare's bot protection answers 403 to requests from CI runners. Nor does it run `scripts/run-deploy-checks.ts`, so CI runs none of the deploy checks the areas declare in `DEPLOY_CHECKS`: CI has no `.env.<target>`, and the GitHub environments hold only the Cloudflare credentials. Today the only check is the Polar area's `polar:verify`; run `bun run polar:verify:<target>` locally after every change in Polar ([Polar setup](/docs/getting-started/polar-setup)). No secrets file is uploaded: the Worker keeps the runtime secrets already set in Cloudflare. Deployments to the same target queue instead of cancelling each other.
 
 Dependabot updates the GitHub Actions weekly.
 

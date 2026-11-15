@@ -1,7 +1,7 @@
 import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
-import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.roles"
 import { emailSchema, imageUrlSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"

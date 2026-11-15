@@ -5,6 +5,8 @@ import { Outlet, createFileRoute } from "@tanstack/react-router"
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { layoutNamespaces } from "~/src/data/namespaces"
+
 import { BackToTop } from "~/src/presentation/components/custom/back-to-top"
 import { Footer } from "~/src/presentation/components/custom/footer"
 import { MarketingPending } from "~/src/presentation/components/custom/marketing-pending"
@@ -23,7 +25,7 @@ const LandingLayout = (): JSX.Element => (
   </div>
 )
 
-const NAMESPACES = ["auth.validations"] as const
+const NAMESPACES = [...layoutNamespaces("/_landing")] as const
 
 export const Route = createFileRoute("/_landing")({
   component: LandingLayout,

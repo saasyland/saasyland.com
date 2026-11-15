@@ -15,7 +15,7 @@ const referenceCn = createCn(config)
 
 describe("cn helper", () => {
   it("uses current full compiled tables for every class group and stylesheet theme", async () => {
-    const outputDirectory = await mkdtemp(join(tmpdir(), "saasyland-cn-"))
+    const outputDirectory = await mkdtemp(join(tmpdir(), "cn-"))
     try {
       const { fullConfig } = await build({ config: "src/lib/cn.config.ts", full: true, out: join(outputDirectory, "cn-tables.ts") })
       const { tables: expected } = compileToTables(fullConfig)

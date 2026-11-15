@@ -1,13 +1,28 @@
+import analytics from "../../../messages/en-US/navigation.analytics.json"
+import auth from "../../../messages/en-US/navigation.auth.json"
+import courses from "../../../messages/en-US/navigation.courses.json"
+import pageBuilder from "../../../messages/en-US/navigation.page-builder.json"
+import payments from "../../../messages/en-US/navigation.payments.json"
+import postEditor from "../../../messages/en-US/navigation.post-editor.json"
+import products from "../../../messages/en-US/navigation.products.json"
 import sidebar from "../../../messages/en-US/pages.admin.sidebar.json"
 import { ADMIN_NAVIGATION } from "../../../src/data/navigation"
+import { APP_NAME } from "../../../src/presentation/branding"
 
 import type { ReactNode } from "react"
 
 import { MONO, SANS } from "../fonts"
 import { THEME } from "../theme"
+import { Mark } from "./course-ui"
 
 export const RAIL_WIDTH = 300
 export const HEADER_HEIGHT = 84
+
+const AREA_LABELS = new Map(
+  Object.entries({ analytics, auth, courses, "page-builder": pageBuilder, payments, "post-editor": postEditor, products }).map(
+    ([area, labels]) => [area, new Map(Object.entries(labels.admin))],
+  ),
+)
 
 export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; reveal: (index: number) => number }>) {
   let row = 0
@@ -33,10 +48,8 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
           paddingLeft: 24,
         }}
       >
-        <svg fill={THEME.foreground} height={22} viewBox="0 0 24 24" width={22}>
-          <path d="M6 0H15V9H24V18A6 6 0 0 1 18 24H6A6 6 0 0 1 0 18V6A6 6 0 0 1 6 0Z" />
-        </svg>
-        <span style={{ fontFamily: SANS, fontSize: 19, fontWeight: 600, letterSpacing: "-0.02em" }}>{sidebar.title}</span>
+        <Mark size={22} />
+        <span style={{ fontFamily: SANS, fontSize: 19, fontWeight: 600, letterSpacing: "-0.02em" }}>{APP_NAME}</span>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "20px 12px" }}>
@@ -84,7 +97,7 @@ export function Rail({ activeIndex, reveal }: Readonly<{ activeIndex: number; re
                         width: 12,
                       }}
                     />
-                    {sidebar.links[item.key]}
+                    {AREA_LABELS.get(item.area)?.get(item.key)}
                   </div>
                 )
               })}

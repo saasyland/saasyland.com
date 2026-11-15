@@ -7,7 +7,7 @@ import { useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { ADMIN_PAYMENTS_TABS, ADMIN_PAYMENT_ROWS } from "~/src/data/admin"
+import { ADMIN_PAYMENTS_TABS, ADMIN_PAYMENT_ROWS } from "~/src/data/admin-payments"
 
 import { pageHead } from "~/src/lib/seo"
 
@@ -15,7 +15,7 @@ import { Button } from "~/src/presentation/components/shadcn/button"
 import { Card } from "~/src/presentation/components/shadcn/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
-import { AdminPaymentsPending } from "~/src/presentation/components/custom/admin/administration-pending"
+import { AdminPaymentsPending } from "~/src/presentation/components/custom/admin/payments-pending"
 import { refundColumns } from "~/src/presentation/components/custom/admin/payments/refund-columns"
 import { RefundStats } from "~/src/presentation/components/custom/admin/payments/refund-stats"
 import { DataTable } from "~/src/presentation/components/custom/data-table"

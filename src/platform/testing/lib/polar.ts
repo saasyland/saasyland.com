@@ -3,95 +3,109 @@ import { createHmac } from "node:crypto"
 
 import { BASIS_POINTS_PER_PERCENT } from "~/src/integrations/polar/polar.discounts"
 
-import { toMinorUnits } from "~/src/modules/_core/constants/currency"
-import { DEFAULT_CURRENCY_CODE, PPP_PERCENT } from "~/src/modules/_core/constants/pricing"
-import type { LicenseTier } from "~/src/modules/license/license.constants"
-
-import { TIER_PRICES } from "~/src/data/marketing"
+import { PPP_PERCENT } from "~/src/modules/_core/constants/pricing"
 
 const MS_PER_SECOND = 1000
 const POLAR_API_VERSION = "2026-10"
-const LICENSE_KEY_PREFIX = "SAASYLAND"
 const DISPLAYED_KEY_CHARACTERS = 6
 const CATALOGUE_CREATED_AT = "2026-11-01T00:00:00.000Z"
-const CURRENCY = DEFAULT_CURRENCY_CODE.toLowerCase()
-const UUID_NODE_DIGITS = 12
+const RECURRING_INTERVAL_COUNT = 1
 
-export interface PolarCatalogue {
-  readonly organizationId: string
-  readonly productIds: Readonly<Record<LicenseTier, string>>
+export interface PolarProduct {
+  readonly id: string
+  readonly name: string
+  readonly price: { readonly amount: number; readonly currency: string }
+  readonly recurringInterval: models.RecurringInterval | null
 }
 
-export const polarPrice = (tier: LicenseTier): number => toMinorUnits(TIER_PRICES[tier], DEFAULT_CURRENCY_CODE)
+export interface PolarDiscount {
+  readonly basisPoints: number
+  readonly id: string
+  readonly name: string
+  readonly products: readonly PolarProduct[]
+}
+
+export interface PolarLicenseKeyBenefit {
+  readonly activationLimit: number
+  readonly id: string
+  readonly prefix: string
+  readonly products: readonly PolarProduct[]
+}
+
+export interface PolarCatalogue {
+  readonly discounts: readonly PolarDiscount[]
+  readonly licenseKeyBenefits: readonly PolarLicenseKeyBenefit[]
+  readonly products: readonly PolarProduct[]
+}
 
 export const polarDiscountAmount = (amount: number, discount: models.DiscountPercentageOnceForeverDurationBase | null): number =>
   discount === null ? 0 : Math.round((amount * discount.basis_points) / (BASIS_POINTS_PER_PERCENT * PPP_PERCENT))
 
-const productFields = ({ organizationId, productIds }: PolarCatalogue, tier: LicenseTier): Omit<models.OrderProduct, "metadata"> => ({
+const productFields = (organizationId: string, { id, name, recurringInterval }: PolarProduct): Omit<models.OrderProduct, "metadata"> => ({
   created_at: CATALOGUE_CREATED_AT,
   description: null,
-  id: productIds[tier],
+  id,
   is_archived: false,
-  is_recurring: false,
+  is_recurring: recurringInterval !== null,
   meter_interval: null,
   meter_interval_count: null,
   modified_at: null,
-  name: tier,
+  name,
   organization_id: organizationId,
-  recurring_interval: null,
-  recurring_interval_count: null,
+  recurring_interval: recurringInterval,
+  recurring_interval_count: recurringInterval === null ? null : RECURRING_INTERVAL_COUNT,
   trial_interval: null,
   trial_interval_count: null,
   visibility: "public",
 })
 
-export const polarOrderProduct = (catalogue: PolarCatalogue, tier: LicenseTier): models.OrderProduct => ({
-  ...productFields(catalogue, tier),
+export const polarOrderProduct = (organizationId: string, product: PolarProduct): models.OrderProduct => ({
+  ...productFields(organizationId, product),
   metadata: {},
 })
 
-export const polarProductPrice = ({ productIds }: PolarCatalogue, tier: LicenseTier): models.ProductPriceFixed => ({
+export const polarProductPrice = ({ id, price }: PolarProduct): models.ProductPriceFixed => ({
   amount_type: "fixed",
   created_at: CATALOGUE_CREATED_AT,
-  id: `${productIds[tier]}-price`,
+  id: `${id}-price`,
   is_archived: false,
   modified_at: null,
-  price_amount: polarPrice(tier),
-  price_currency: CURRENCY,
-  product_id: productIds[tier],
+  price_amount: price.amount,
+  price_currency: price.currency.toLowerCase(),
+  product_id: id,
   source: "catalog",
   tax_behavior: null,
 })
 
-export const polarCheckoutProduct = (catalogue: PolarCatalogue, tier: LicenseTier): models.CheckoutProduct => ({
-  ...productFields(catalogue, tier),
+export const polarCheckoutProduct = (organizationId: string, product: PolarProduct): models.CheckoutProduct => ({
+  ...productFields(organizationId, product),
   benefits: [],
   medias: [],
-  prices: [polarProductPrice(catalogue, tier)],
+  prices: [polarProductPrice(product)],
 })
 
 export const polarDiscount = (
-  { organizationId }: PolarCatalogue,
-  basisPoints: number,
+  organizationId: string,
+  { basisPoints, id, name }: PolarDiscount,
 ): models.DiscountPercentageOnceForeverDurationBase => ({
   basis_points: basisPoints,
   code: null,
   created_at: CATALOGUE_CREATED_AT,
   duration: "once",
   ends_at: null,
-  id: `00000000-0000-4000-8000-${String(basisPoints).padStart(UUID_NODE_DIGITS, "0")}`,
+  id,
   max_redemptions: null,
   max_redemptions_per_customer: null,
   metadata: {},
   modified_at: null,
-  name: `Regional pricing ${String(basisPoints / BASIS_POINTS_PER_PERCENT)}%`,
+  name,
   organization_id: organizationId,
   redemptions_count: 0,
   starts_at: null,
   type: "percentage",
 })
 
-export const polarCustomer = ({ organizationId }: PolarCatalogue, externalId: string): models.CustomerIndividual => ({
+export const polarCustomer = (organizationId: string, externalId: string): models.CustomerIndividual => ({
   avatar_url: null,
   billing_address: null,
   billing_name: null,
@@ -111,20 +125,19 @@ export const polarCustomer = ({ organizationId }: PolarCatalogue, externalId: st
 })
 
 interface PolarOrderInput {
-  readonly catalogue: PolarCatalogue
   readonly checkoutId: string | null
   readonly customer: models.CustomerIndividual
   readonly discount: models.DiscountPercentageOnceForeverDurationBase | null
   readonly metadata: models.MetadataOutputType
+  readonly product: PolarProduct
   readonly status: models.OrderStatus
-  readonly tier: LicenseTier
 }
 
-export const polarOrder = ({ catalogue, checkoutId, customer, discount, metadata, status, tier }: PolarOrderInput): models.Order => {
+export const polarOrder = ({ checkoutId, customer, discount, metadata, product, status }: PolarOrderInput): models.Order => {
   const createdAt = new Date().toISOString()
-  const subtotal = polarPrice(tier)
+  const subtotal = product.price.amount
   const net = subtotal - polarDiscountAmount(subtotal, discount)
-  const product = polarOrderProduct(catalogue, tier)
+  const orderProduct = polarOrderProduct(customer.organization_id, product)
 
   return {
     applied_balance_amount: 0,
@@ -133,10 +146,10 @@ export const polarOrder = ({ catalogue, checkoutId, customer, discount, metadata
     billing_reason: "purchase",
     checkout_id: checkoutId,
     created_at: createdAt,
-    currency: CURRENCY,
+    currency: product.price.currency.toLowerCase(),
     customer,
     customer_id: customer.id,
-    description: product.name,
+    description: orderProduct.name,
     discount,
     discount_amount: subtotal - net,
     discount_id: discount?.id ?? null,
@@ -150,9 +163,9 @@ export const polarOrder = ({ catalogue, checkoutId, customer, discount, metadata
         created_at: createdAt,
         end_timestamp: null,
         id: crypto.randomUUID(),
-        label: product.name,
+        label: orderProduct.name,
         modified_at: null,
-        product_price_id: polarProductPrice(catalogue, tier).id,
+        product_price_id: polarProductPrice(product).id,
         proration: false,
         start_timestamp: null,
         tax_amount: 0,
@@ -164,8 +177,8 @@ export const polarOrder = ({ catalogue, checkoutId, customer, discount, metadata
     paid: true,
     platform_fee_amount: 0,
     platform_fee_currency: null,
-    product,
-    product_id: product.id,
+    product: orderProduct,
+    product_id: orderProduct.id,
     receipt_number: null,
     refundable_amount: net,
     refundable_tax_amount: 0,
@@ -182,22 +195,20 @@ export const polarOrder = ({ catalogue, checkoutId, customer, discount, metadata
 }
 
 export const polarLicenseKey = ({
-  activationLimit,
   activations = [],
-  benefitId,
+  benefit,
   customer,
   id = crypto.randomUUID(),
-  key = `${LICENSE_KEY_PREFIX}-${crypto.randomUUID().toUpperCase()}`,
+  key = `${benefit.prefix}-${crypto.randomUUID().toUpperCase()}`,
 }: {
-  readonly activationLimit: number
   readonly activations?: models.LicenseKeyActivationBase[]
-  readonly benefitId: string
+  readonly benefit: PolarLicenseKeyBenefit
   readonly customer: models.CustomerIndividual
   readonly id?: string
   readonly key?: string
 }): models.LicenseKeyWithActivations => ({
   activations,
-  benefit_id: benefitId,
+  benefit_id: benefit.id,
   created_at: new Date().toISOString(),
   customer,
   customer_id: customer.id,
@@ -206,7 +217,7 @@ export const polarLicenseKey = ({
   id,
   key,
   last_validated_at: null,
-  limit_activations: activationLimit,
+  limit_activations: benefit.activationLimit,
   limit_usage: null,
   member: null,
   member_id: null,
@@ -218,12 +229,12 @@ export const polarLicenseKey = ({
 })
 
 export const polarLicenseKeyGrant = ({
-  activationLimit,
+  benefit,
   customer,
   licenseKey,
   orderId,
 }: {
-  readonly activationLimit: number
+  readonly benefit: PolarLicenseKeyBenefit
   readonly customer: models.CustomerIndividual
   readonly licenseKey: models.LicenseKeyWithActivations
   readonly orderId: string
@@ -231,24 +242,24 @@ export const polarLicenseKeyGrant = ({
   benefit: {
     created_at: CATALOGUE_CREATED_AT,
     deletable: true,
-    description: `${LICENSE_KEY_PREFIX} licence key`,
-    id: licenseKey.benefit_id,
+    description: `${benefit.prefix} licence key`,
+    id: benefit.id,
     is_deleted: false,
     metadata: {},
     modified_at: null,
     organization_id: licenseKey.organization_id,
     properties: {
-      activations: { enable_customer_admin: true, limit: activationLimit },
+      activations: { enable_customer_admin: true, limit: benefit.activationLimit },
       expires: null,
       limit_usage: null,
-      prefix: LICENSE_KEY_PREFIX,
+      prefix: benefit.prefix,
     },
     selectable: true,
     type: "license_keys",
     visibility: "public",
     visibility_configurable: false,
   },
-  benefit_id: licenseKey.benefit_id,
+  benefit_id: benefit.id,
   created_at: licenseKey.created_at,
   customer,
   customer_id: customer.id,

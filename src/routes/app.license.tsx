@@ -7,19 +7,21 @@ import { useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license-activations"
 
+import { licenseSearchSchema } from "~/src/data/license"
+import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
+
 import { pageHead } from "~/src/lib/seo"
 
-import { AppLicensePending } from "~/src/presentation/components/custom/app/app-pending"
 import { CheckoutActivation } from "~/src/presentation/components/custom/app/checkout-activation"
 import { ChosenTier } from "~/src/presentation/components/custom/app/chosen-tier"
 import { LicenseActivations } from "~/src/presentation/components/custom/app/license-activations"
 import { LicenseCard } from "~/src/presentation/components/custom/app/license-card"
 import { LicenseOffer } from "~/src/presentation/components/custom/app/license-offer"
+import { AppLicensePending } from "~/src/presentation/components/custom/app/license-pending"
 
 import { ROUTES } from "~/src/routes"
 
@@ -58,6 +60,7 @@ const LicensePage = (): JSX.Element => {
 const NAMESPACE = "pages.license"
 
 export const Route = createFileRoute("/app/license")({
+  validateSearch: licenseSearchSchema,
   component: LicensePage,
   head: pageHead(ROUTES.APP_LICENSE),
   loader: async ({ context }) => {
@@ -67,7 +70,7 @@ export const Route = createFileRoute("/app/license")({
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query({ ...currentLicenseQuery, staleTime: "static" }),
       context.queryClient.query({ ...licenseActivationsQuery, staleTime: "static" }),
-      context.queryClient.query(catalogueQuery({ locale })),
+      ...LICENSE_OFFER_SECTIONS.map(({ load }) => load({ locale, queryClient: context.queryClient })),
     ])
     return { locale, metadata }
   },

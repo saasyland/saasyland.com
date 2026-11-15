@@ -11,7 +11,7 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 
-const FACT_KEYS = ["coverage", "tests", "locales", "components", "mau", "stars", "upkeep", "types", "tables", "admin"] as const
+const FACT_KEYS = ["coverage", "tests", "languages", "components", "mau", "stars", "upkeep", "types", "tables", "admin"] as const
 
 export const ProofSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.proof")

@@ -3,22 +3,24 @@ title: "Zahlungen und Lizenzen"
 description: "Polar-Checkout, Kundenportal und Webhooks, die Lizenzen vergeben; die Admin-Ansicht für Zahlungen ist eine Demo."
 ---
 
-Zahlungen laufen über Polar mit dem Plugin `@polar-sh/better-auth` in `auth.server.ts`:
+Zahlungen laufen über Polar mit dem Plugin `@polar-sh/better-auth`, das der Lizenzbereich in `src/data/license.auth-plugins.ts` zu Better Auth hinzufügt:
 
 ```ts
-polarPlugin({
-  client: polarCore,
-  use: [
-    checkout({ authenticatedUsersOnly: true, products: POLAR_CHECKOUT_PRODUCTS }),
-    portal(),
-    webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET }),
-  ],
-}),
+export const LICENSE_AUTH_PLUGINS = [
+  {
+    disabledPaths: [],
+    plugin: polar({
+      client: polarCore,
+      use: [portal(), webhooks({ ...licenseWebhookHandlers, secret: env.POLAR_WEBHOOK_SECRET })],
+    }),
+    rateLimitExemptPaths: [ROUTES.API_AUTH_POLAR.WEBHOOKS],
+  },
+] as const satisfies readonly AuthPluginEntry[]
 ```
 
-Der eigene Endpunkt `POST /api/auth/checkout` des Plugins steht in den `disabledPaths` von Better Auth (`ROUTES.API_AUTH.CHECKOUT`) und antwortet über HTTP daher mit 404. Jeder Checkout beginnt in der Serverfunktion `startCheckout`, die nach ihren eigenen Prüfungen `auth.api.checkout` auf dem Server aufruft.
+Das Plugin fügt das Kundenportal und die Webhooks hinzu, die von der Ratenbegrenzung von Better Auth ausgenommen sind, aber keinen Checkout: Sein `checkout()` würde einen Checkout nur mit der ID des Kontos erstellen, sodass Polar einen angemeldeten Käufer erneut nach seiner E-Mail-Adresse fragen würde. Jeder Checkout beginnt in der Serverfunktion `startCheckout`, die ihn nach ihren eigenen Prüfungen mit dem Polar-SDK erstellt.
 
-`src/integrations/polar/polar.config.ts` erstellt aus `POLAR_ACCESS_TOKEN` und `POLAR_SERVER` den Client `polarCore`, den das Plugin verwendet, sowie `polar`, die darauf aufbauenden Dienste für Rabatte, Lizenzschlüssel und Bestellungen. `POLAR_ORGANIZATION_ID` grenzt die Abfrage von Rabatten und die Deaktivierung von Lizenzschlüsseln auf die Organisation ein. `POLAR_CHECKOUT_PRODUCTS` ordnet die Stufen-Slugs `core`, `complete` und `agency` den Variablen `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` und `POLAR_PRODUCT_ID_AGENCY` zu. [Polar-Einrichtung](/docs/getting-started/polar-setup) beschreibt die Produkte, Lizenzschlüssel, Rabatte, den Webhook und das Token, die dieser Code in Polar erwartet, und `bun run polar:verify:<environment>` prüft sie.
+`src/integrations/polar/polar.config.ts` erstellt aus `POLAR_ACCESS_TOKEN` und `POLAR_SERVER` den Client `polarCore`, den das Plugin verwendet, sowie `polar`, die darauf aufbauenden Dienste für Checkouts, Rabatte, Lizenzschlüssel und Bestellungen. `POLAR_ORGANIZATION_ID` grenzt jeden Polar-Aufruf, der eine Organisation nennt, auf die Organisation ein; [Umgebung und Bindings](/docs/reference/environment) listet sie auf. `POLAR_PRODUCT_IDS` ordnet die Stufen `core`, `complete` und `agency` den Variablen `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` und `POLAR_PRODUCT_ID_AGENCY` zu. [Polar-Einrichtung](/docs/getting-started/polar-setup) beschreibt die Produkte, Lizenzschlüssel, Rabatte, den Webhook und das Token, die dieser Code in Polar erwartet, und `bun run polar:verify:<environment>` prüft sie.
 
 ## Checkout
 
@@ -26,10 +28,10 @@ Ein angemeldeter Benutzer ohne aktive Lizenz sieht `LicenseOffer` auf `/app` und
 
 1. lehnt mit `AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)` ab, wenn das Konto bereits eine `active` Lizenz hat. Die Schaltfläche zeigt `errors.codes.LICENSE_ALREADY_ACTIVE` und lädt die Lizenz neu, sodass eine seit dem Kauf offen gebliebene Seite zur Lizenz wechselt;
 2. ermittelt mit `pppDiscountId` (`license.ppp.ts`) einen regionalen Rabatt: den Prozentsatz für das Land aus `cf-ipcountry`, von `findRegionalDiscount` (`src/integrations/polar/polar.discounts.ts`) abgeglichen mit den automatischen Prozentrabatten in Polar, die jetzt einlösbar sind, und übersprungen, wenn das Cookie `regional_pricing` den Wert `off` hat;
-3. erstellt einen Polar-Checkout für die Stufe mit deaktivierten Rabattcodes, der Partnerempfehlung in `metadata`, wenn der Besucher über einen Partnerlink kam (siehe [Partnerprogramm](/docs/features/affiliates)), und der Erfolgs-URL `/app?checkoutId={CHECKOUT_ID}` in der Sprache des Käufers (`localizePathname`). Polar ersetzt `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) durch die Checkout-ID;
+3. erstellt mit `polar.checkouts.create` einen Polar-Checkout für die Stufe, der an das Konto gebunden ist (`external_customer_id`) und dessen E-Mail-Adresse und Namen schon enthält (`customer_email`, `customer_name`), sodass das Checkout-Formular mit ihnen öffnet. Er enthält außerdem die IP-Adresse des Käufers aus `cf-connecting-ip` (`customer_ip_address`, gelesen mit `getIP` von Better Auth), deaktivierte Rabattcodes, die Partnerempfehlung in `metadata`, wenn der Besucher über einen Partnerlink kam (siehe [Partnerprogramm](/docs/features/affiliates)), und die Erfolgs-URL `/app?checkoutId={CHECKOUT_ID}` in der Sprache des Käufers (`localizePathname`). Polar ersetzt `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) durch die Checkout-ID;
 4. gibt die Checkout-URL zurück, die der Browser öffnet.
 
-Eine erstattete (`revoked`) Lizenz verhindert keinen neuen Kauf.
+Eine erstattete (`refunded`) oder widerrufene (`revoked`) Lizenz verhindert keinen neuen Kauf.
 
 ### Upgrades
 
@@ -37,11 +39,11 @@ Ein Konto hat eine Lizenz, und eine neuere bezahlte Bestellung ersetzt die Stufe
 
 ### Vor der Registrierung gewählte Stufe
 
-Jede Stufen-Schaltfläche auf der Landingpage verlinkt auf `/auth/sign-up?redirect=/app?tier=<tier>`. Der Rückkehrpfad bleibt über Registrierung, E-Mail-Bestätigung und Anmeldung hinweg erhalten (`useAuthRedirect`), und ein bereits angemeldeter Besucher gelangt direkt dorthin. Das Layout `/app` prüft `tier` mit `appSearchSchema` (`src/data/app.ts`, aufgebaut mit `searchParam`) gegen `LICENSE_TIER`, und sowohl `/app` als auch `/app/license` zeigen `ChosenTier` über den Stufenkarten: die Stufe, ihren Preis mit dem regionalen Rabatt und eine Schaltfläche **Weiter zum Checkout**. Eine gesperrte kostenpflichtige Kurslektion verlinkt angemeldete Betrachter auf `/app/license?tier=complete` und Gäste auf den Preisabschnitt der Landingpage; eine Lektion, die ein Konto voraussetzt, verlinkt auf die Anmeldung ([Kurse](/docs/features/courses)).
+Jede Stufen-Schaltfläche auf der Landingpage verlinkt auf `/auth/sign-up?redirect=/app?tier=<tier>`. Der Rückkehrpfad bleibt über Registrierung, E-Mail-Bestätigung und Anmeldung hinweg erhalten (`useAuthRedirect`), und ein bereits angemeldeter Besucher gelangt direkt dorthin. `licenseSearchSchema` (`src/data/license.ts`, aufgebaut mit `searchParam`) prüft `tier` gegen `LICENSE_TIER`, auf `/app/license` und, als Parameter, den der Lizenzbereich zur Übersicht beiträgt, auf `/app`, und sowohl `/app` als auch `/app/license` zeigen `ChosenTier` über den Stufenkarten: die Stufe, ihren Preis mit dem regionalen Rabatt und eine Schaltfläche **Weiter zum Checkout**. Eine gesperrte kostenpflichtige Kurslektion verlinkt angemeldete Betrachter auf `/app/license?tier=complete` und Gäste auf den Preisabschnitt der Landingpage; eine Lektion, die ein Konto voraussetzt, verlinkt auf die Anmeldung ([Kurse](/docs/features/courses)).
 
 ### Nach der Zahlung
 
-Polar schickt den Käufer zu `/app?checkoutId=<id>` zurück, meist bevor der Webhook `order.paid` die Lizenz vergeben hat. Solange `checkoutId` vorhanden und die Lizenz nicht aktiv ist, blendet die Seite die Stufenkarten aus und zeigt `CheckoutActivation`, das `currentLicenseQuery` alle 2 Sekunden neu abruft (`ACTIVATION_POLL_MS`):
+Polar schickt den Käufer zu `/app?checkoutId=<id>` zurück, meist bevor der Webhook `order.paid` die Lizenz vergeben hat. Solange `checkoutId` vorhanden und die Lizenz nicht aktiv ist, blendet die Seite die Stufenkarten aus und zeigt `CheckoutActivation`, das `currentLicenseQuery` alle <RepositoryFact name="activationPollSeconds" unit="second" /> neu abruft (`ACTIVATION_POLL_MS`):
 
 - sobald die Lizenz aktiv ist, bedankt es sich beim Käufer, und die Lizenz erscheint darunter;
 - nach <RepositoryFact name="activationTimeoutSeconds" unit="second" /> (`ACTIVATION_TIMEOUT_MS`) ohne Lizenz beendet es die Abfragen und meldet, dass Polar die Zahlung noch nicht bestätigt hat, mit der Support-E-Mail-Adresse, der Checkout-ID als Referenz und einer Schaltfläche **Erneut prüfen**.
@@ -54,15 +56,18 @@ Polar sendet die in `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`) aufgeführ
 
 - `onOrderPaid` → `grantLicense`: legt die einzige Lizenz des Benutzers mit der Stufe des gekauften Produkts an oder aktualisiert sie; ein neuerer Kauf ersetzt einen älteren.
 - `onBenefitGrantCreated` → `attachLicenseKey`: speichert den Polar-Lizenzschlüssel in der Lizenz. Solange die bezahlte Bestellung noch nicht erfasst ist, schlägt es fehl, damit Polar es erneut sendet; ein Schlüssel für eine erstattete Bestellung oder für ein Produkt ohne Lizenz wird bestätigt.
-- `onOrderRefunded` (erst wenn die Bestellung vollständig erstattet ist; eine Teilerstattung behält die Lizenz) und `onBenefitGrantRevoked` → `revokeLicense`: setzt den Status auf `revoked` und erfasst die Bestellung in `revoked_license_order`, sodass ein verspäteter Webhook sie nicht erneut vergeben kann.
+- `onOrderRefunded` → `revokeLicense` mit dem Status `refunded`, erst wenn die Bestellung vollständig erstattet ist; eine Teilerstattung behält die Lizenz.
+- `onBenefitGrantRevoked` → `revokeLicense` mit dem Status `revoked`.
+
+`revokeLicense` setzt den Status der mit dieser Bestellung gekauften Lizenz und erfasst die Bestellung in `revoked_license_order`, sodass ein verspäteter Webhook sie nicht erneut vergeben kann. `refunded` ersetzt es nie: Polar widerruft auch den Benefit einer erstatteten Bestellung, und die beiden Ereignisse können in beliebiger Reihenfolge eintreffen. Die [CLI-Lizenz-API](/docs/features/cli-licence-api) antwortet anhand dieses Status mit `licenseRefunded` oder `licenseRevoked`.
 
 ## Kundenansichten
 
-`/app/license` zeigt `LicenseCard` (Stufe, Schlüssel, Installationsbefehl, ein Link zum Polar-Kundenportal unter `/api/auth/customer/portal` und die Support-E-Mail-Adresse für einen Stufenwechsel) und `LicenseActivations`, das die Schlüsselaktivierungen aus Polar auflistet und einzelne mit `deactivateLicense` entfernt. Polar setzt das Aktivierungslimit des Lizenzschlüssel-Benefits jeder Stufe durch, das `LICENSE_ACTIVATION_LIMITS` entsprechen muss: <ActivationLimit tier="core" /> für Core, <ActivationLimit tier="complete" /> für Complete und <ActivationLimit tier="agency" /> für Agency. Siehe [Kunden-App](/docs/features/customer-app).
+`/app/license` zeigt `LicenseCard` (Stufe, Schlüssel, CLI-Befehle, ein Link zum Polar-Kundenportal unter `/api/auth/customer/portal` und die Support-E-Mail-Adresse für einen Stufenwechsel) und `LicenseActivations`, das die Schlüsselaktivierungen aus Polar auflistet und einzelne mit `deactivateLicense` entfernt; `deactivateLicense` antwortet mit `NOT_FOUND`, wenn Polar diese Aktivierung nicht mehr führt. Die CLI legt Aktivierungen über die [CLI-Lizenz-API](/docs/features/cli-licence-api) an und entfernt sie. Polar setzt das Aktivierungslimit des Lizenzschlüssel-Benefits jeder Stufe durch, das `LICENSE_ACTIVATION_LIMITS` entsprechen muss: <ActivationLimit tier="core" /> für Core, <ActivationLimit tier="complete" /> für Complete und <ActivationLimit tier="agency" /> für Agency. Siehe [Kunden-App](/docs/features/customer-app).
 
 ## Admin-Ansicht (Demo)
 
-`/admin/payments` rendert `RefundStats` und eine `DataTable` mit Rückerstattungen über `ADMIN_PAYMENT_ROWS` aus `src/data/admin.ts`; ihre Schaltflächen sind nicht angebunden. Die Berechtigungsanweisungen für `order` (`read`, `update`, `refund`) existieren in `auth.access.ts`, aber kein Anwendungsfall liest Bestellungen oder Rückerstattungen.
+`/admin/payments` rendert `RefundStats` und eine `DataTable` mit Rückerstattungen über `ADMIN_PAYMENT_ROWS` aus `src/data/admin-payments.ts`; ihre Schaltflächen sind nicht angebunden. Der Zahlungsbereich deklariert die Berechtigungs-Statements für `order` (`read`, `update`, `refund`) in `src/data/payments.access.ts`, aber kein Anwendungsfall liest Bestellungen oder Rückerstattungen.
 
 ## Verwandte Seiten
 

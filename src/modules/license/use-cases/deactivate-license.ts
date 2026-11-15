@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers"
 
+import { errors } from "@polar-sh/sdk/2026-10"
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { eq } from "drizzle-orm"
@@ -26,7 +27,15 @@ export const deactivateLicense = createServerFn({ method: "POST" })
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
-    await polar.licenseKeys.deactivate({ activation_id: activationId, key: row.key, organization_id: env.POLAR_ORGANIZATION_ID })
+    try {
+      await polar.licenseKeys.deactivate({ activation_id: activationId, key: row.key, organization_id: env.POLAR_ORGANIZATION_ID })
+    } catch (error) {
+      if (error instanceof errors.ResourceNotFound) {
+        throw new AppError(ERROR_CODES.NOT_FOUND)
+      }
+
+      throw error
+    }
 
     return { deactivated: true }
   })

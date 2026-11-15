@@ -26,15 +26,15 @@ Nella sandbox, poi in produzione:
 1. Crea un'organizzazione e copia il suo ID dalle impostazioni dell'organizzazione in `POLAR_ORGANIZATION_ID`.
 2. Nelle impostazioni dell'organizzazione, crea un token di accesso dell'organizzazione con questi scope, e nessun altro, e copialo in `POLAR_ACCESS_TOKEN`.
 
-| Scope                     | Necessario per                                                                                           |
-| ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `checkouts:write`         | `startCheckout`, che crea il checkout tramite il plugin Polar di Better Auth                             |
-| `customer_sessions:write` | Il link al portale clienti, `/api/auth/customer/portal`                                                  |
-| `discounts:read`          | La ricerca dello sconto regionale al checkout (`pppDiscountId`) e `polar:verify`                         |
-| `license_keys:write`      | La lettura di una chiave e delle sue attivazioni, e la rimozione di un'attivazione (`deactivateLicense`) |
-| `orders:read`             | Gli handler dei webhook, che leggono l'ordine alla base di una licenza                                   |
-| `products:read`           | `polar:verify`                                                                                           |
-| `webhooks:read`           | `polar:verify`                                                                                           |
+| Scope                     | Necessario per                                                                                                                                                                                             |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `checkouts:write`         | `startCheckout`, che crea il checkout tramite il plugin Polar di Better Auth                                                                                                                               |
+| `customer_sessions:write` | Il link al portale clienti, `/api/auth/customer/portal`                                                                                                                                                    |
+| `discounts:read`          | La ricerca dello sconto regionale al checkout (`pppDiscountId`) e `polar:verify`                                                                                                                           |
+| `license_keys:write`      | La lettura di una chiave e delle sue attivazioni, l'attivazione di un dispositivo e la rimozione di un'attivazione (`deactivateLicense` e l'[API delle licenze della CLI](/docs/features/cli-licence-api)) |
+| `orders:read`             | Gli handler dei webhook, che leggono l'ordine alla base di una licenza                                                                                                                                     |
+| `products:read`           | `polar:verify`                                                                                                                                                                                             |
+| `webhooks:read`           | `polar:verify`                                                                                                                                                                                             |
 
 Uno scope di scrittura include la lettura, quindi `license_keys:write` copre anche la lettura delle chiavi. Un token dell'organizzazione agisce già per la propria organizzazione. `polar:verify` invia comunque `POLAR_ORGANIZATION_ID` come parametro di query `organization_id`, come fa la ricerca dello sconto al checkout, quindi l'ID di un'altra organizzazione si traduce in prodotti mancanti.
 
@@ -84,7 +84,7 @@ Crea un endpoint del webhook per ogni ambiente distribuito, nell'organizzazione 
 L'host viene da `DEPLOYED_HOSTS` e il percorso da `ROUTES`. Scegli il formato raw, mantieni l'endpoint abilitato e iscrivilo esattamente agli eventi che `licenseWebhookHandlers` gestisce, elencati in `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`):
 
 - `order.paid` assegna la licenza;
-- `order.refunded` la revoca quando l'ordine è rimborsato per intero;
+- `order.refunded` la segna come rimborsata quando l'ordine è rimborsato per intero;
 - `benefit_grant.created` salva la chiave di licenza;
 - `benefit_grant.revoked` revoca la licenza.
 
@@ -109,7 +109,7 @@ Ogni script legge le chiavi Polar da `.env.<environment>` e invia solo richieste
 - preview e produzione abbiano un endpoint raw abilitato al loro URL del webhook, firmato con `POLAR_WEBHOOK_SECRET` e iscritto esattamente agli eventi gestiti;
 - nessun endpoint invii eventi all'host di un ambiente che usa l'altro servizio Polar.
 
-`deploy:preview` e `deploy:production` lo eseguono subito dopo `scripts/verify-bindings.ts`, prima della build. I deploy della CI no: gli ambienti GitHub non contengono alcun token Polar, e il Worker mantiene i secret Polar già impostati in Cloudflare. Esegui tu stesso `polar:verify` dopo ogni modifica in Polar.
+`polar:verify` è il controllo di deploy dell'area Polar (`POLAR_DEPLOY_CHECKS` in `src/data/polar.deploy.ts`), quindi `deploy:preview` e `deploy:production` lo eseguono tramite `scripts/run-deploy-checks.ts`, subito dopo `scripts/verify-bindings.ts` e prima della build. I deploy della CI non eseguono nessun controllo di deploy, `polar:verify` compreso: `deploy-reusable.yml` non ha alcun passaggio per `scripts/run-deploy-checks.ts`, gli ambienti GitHub non contengono alcun token Polar, e il Worker mantiene i secret Polar già impostati in Cloudflare. Esegui tu stesso `polar:verify` dopo ogni modifica in Polar.
 
 ## Quando fallisce
 

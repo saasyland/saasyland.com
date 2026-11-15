@@ -14,7 +14,7 @@ description: "ページを高速に保つ、計測に基づくルール。小さ
 
 ## Worker の起動グラフを小さく保つ
 
-`src/server.ts` はすべての HTML リクエストで実行され（`wrangler.jsonc` の `run_worker_first`）、静的にインポートしたものはすべて、コールドスタートのたびに評価されます。そのため、定数と純粋なヘルパーだけをインポートし、それ以外はリクエストが必要としたときに読み込みます。
+`src/server.ts` はすべての HTML リクエストで実行され（`wrangler.jsonc` の `run_worker_first`）、静的にインポートしたものはすべて、コールドスタートのたびに評価されます。そのため、このファイルと各エリアが追加する Worker ハンドラーは、定数と純粋なヘルパーだけをインポートし、それ以外はリクエストが必要としたときに読み込みます。
 
 ```ts
 const { default: handler } = await import("@tanstack/react-start/server-entry")
@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-以前、Polar のクライアントもインポートしていたモジュールからヘッダー名を 1 つ静的にインポートしただけで、約 1.4 MB の SDK がすべてのコールドスタートに読み込まれ、ランディングページの最初の 1 バイトが届くまでに最大 1.4 秒かかったことがあります。`COUNTRY_HEADER` と `IP_ADDRESS_HEADER` が、重いものを何もインポートしない `src/modules/_core/constants/api.ts` にあるのはそのためです。`server.ts` に静的インポートを追加する前に、そのインポートの連鎖をたどってください。`polar`、`drizzle-orm`、`resend` に到達するものはすべて退行です。
+以前、Polar のクライアントもインポートしていたモジュールからヘッダー名を 1 つ静的にインポートしただけで、約 1.4 MB の SDK がすべてのコールドスタートに読み込まれ、ランディングページの最初の 1 バイトが届くまでに最大 1.4 秒かかったことがあります。`COUNTRY_HEADER` と `IP_ADDRESS_HEADER` が、重いものを何もインポートしない `src/modules/_core/constants/api.ts` にあるのはそのためです。`server.ts` や `<area>.worker.ts` に静的インポートを追加する前に、そのインポートの連鎖をたどってください。`polar`、`drizzle-orm`、`resend` に到達するものはすべて退行です。
 
 ## プリレンダリングされたページは CSS とフォントを先に読み込む
 
@@ -56,7 +56,7 @@ Tailwind を実行するのは `src/presentation/styles/globals.css` だけで�
 @import "@fumadocs/base-ui/css/preset.css";
 ```
 
-以前、ルートのスタイルシートで 2 つ目の Tailwind ビルドを行った結果、独自の `.hidden`、`.rounded-md`、テーマ変数が出力されたことがあります。同じ名前のカスケードレイヤーはスタイルシートをまたいでマージされ、React は `precedence` 付きで挿入したスタイルシートを決して削除しません。そのため、ドキュメントを一度訪れると、ランディングページはリロードするまでレスポンシブなレイアウトとフォントを失いました。`e2e/specs/navigation.spec.ts` の E2E テスト「landing keeps its responsive styles after visiting the docs」がこれを防いでいます。Tailwind が必要なものはすべて `globals.css` を通します。
+以前、ルートのスタイルシートで 2 つ目の Tailwind ビルドを行った結果、独自の `.hidden`、`.rounded-md`、テーマ変数が出力されたことがあります。同じ名前のカスケードレイヤーはスタイルシートをまたいでマージされ、React は `precedence` 付きで挿入したスタイルシートを決して削除しません。そのため、ドキュメントを一度訪れると、ランディングページはリロードするまでレスポンシブなレイアウトとフォントを失いました。`e2e/specs/landing.spec.ts` の E2E テスト「landing keeps its responsive styles after visiting the docs」がこれを防いでいます。Tailwind が必要なものはすべて `globals.css` を通します。
 
 ## メディア
 

@@ -17,7 +17,7 @@ description: "Errores habituales durante el desarrollo, las pruebas y el desplie
 
 **Falla el inicio de sesión o OAuth.** Comprueba `AUTH_SECRET` y las credenciales del cliente OAuth en el archivo de entorno, y que la URL de callback del proveedor apunte a `/api/auth/callback/<provider>` en el host que estás usando. Better Auth solo acepta los hosts configurados para el modo de build: `localhost:3000` y `127.0.0.1:3000` en desarrollo.
 
-**A los tipos del Worker les falta un binding o un secreto.** Ejecuta `bun run cf-typegen` después de cambiar `wrangler.jsonc` y añade la variable a `src/types/bindings.d.ts`.
+**A los tipos del Worker les falta un binding o un secreto.** Ejecuta `bun run cf-typegen` después de cambiar `wrangler.jsonc`: tipa cada binding y cada secreto de `secrets.required`. Un valor que Wrangler no puede derivar, como una variable que solo define `test`, va en el `src/types/<area>.d.ts` del área.
 
 **Las clases personalizadas `text-*` desaparecen al combinarlas.** `cn` depende de tablas generadas a partir de `src/lib/cn.config.ts`. `bun run dev`, `bun run check` y los builds las regeneran; ejecuta `bun run generate:cn` si falta `.source/cn-tables.ts`.
 
@@ -31,13 +31,15 @@ description: "Errores habituales durante el desarrollo, las pruebas y el desplie
 
 **Una página de la documentación devuelve 404.** El archivo debe llamarse `<page>.<locale>.mdx` y figurar en `pages` dentro del `meta.<locale>.json` de su carpeta. Ejecuta `bun run content` para regenerar `.source`.
 
-**Falla `check-content.ts`.** Compara cada locale con en-US. `Changed code examples` significa que un bloque de código difiere del inglés; los bloques de código deben ser idénticos. `Untranslated English paragraph` significa que se ha copiado un párrafo sin traducirlo. `Missing <file>` significa que no existe el archivo de un locale.
+**Falla `check-content.ts`.** Compara cada locale con en-US. `Changed code examples` significa que un bloque de código difiere del inglés; los bloques de código deben ser idénticos. `Untranslated English paragraph` significa que se ha copiado un párrafo sin traducirlo. `Missing <file>` significa que no existe el archivo de un locale. `leaves out … from the English page` y `adds …, which the English page does not have` significan que una traducción perdió o añadió código en línea, un componente o una de sus props, o un enlace a otra página; cópialo tal como lo tiene la página en inglés. `has … table rows where the English page has …` significa que una tabla perdió o ganó una fila.
+
+**Falla `check-message-formats.ts`.** `changed the path or command …` significa que una traducción cambió una ruta de archivo o un comando del mensaje en inglés; déjalo como está o pásalo como argumento ICU desde `REPOSITORY_FACTS`. `unexpected Markdown code` significa que una traducción añadió comillas invertidas, que un mensaje muestra tal cual.
 
 ## Pruebas y despliegue
 
 **Falla `test:coverage`.** La cobertura debe ser del <RepositoryFact name="coverageThreshold" unit="percent" /> en líneas, sentencias, funciones y ramas. El informe de `coverage/` enumera las líneas sin cubrir.
 
-**El despliegue se detiene en `verify-bindings.ts`.** Al entorno de destino en `wrangler.jsonc` le falta un binding `DB`, `CACHE` o `MEDIA`, todavía tiene IDs provisionales de D1 o KV o, en el caso de producción, comparte un recurso con preview. Crea los recursos en Cloudflare y sustituye los IDs.
+**El despliegue se detiene en `verify-bindings.ts`.** Al entorno de destino en `wrangler.jsonc` le falta un binding que declara el entorno `development` (`DB`, `CACHE`, `MEDIA` o `BUNDLES`), todavía tiene IDs provisionales de D1 o KV o, en el caso de producción, comparte un recurso con preview. Crea los recursos en Cloudflare y sustituye los IDs.
 
 **El despliegue se detiene en `polar:verify`.** Polar no coincide con el código: falta una clave en `.env.<environment>` o indica el servicio de Polar equivocado, el token se rechaza o le falta un ámbito, o un producto, un precio, una clave de licencia, un descuento regional o un webhook difiere de lo que espera el código. El error enumera cada problema; [Configuración de Polar](/docs/getting-started/polar-setup) explica cada mensaje. `bun run polar:verify:<environment>` vuelve a ejecutar la comprobación.
 

@@ -34,7 +34,7 @@ bun run test:coverage
 ## テストランタイム
 
 - `src/platform/testing/setup.ts` は、jest-dom のマッチャーを登録し、各テストの前にバインディングをリセットし、すべての `createServerFn` を `withTestRpc` 経由で実行します。そのため、呼び出しは実際のミドルウェアとバリデーターを通ります。これは `node` と `integration` プロジェクトでの動作です。`component` プロジェクトでは jsdom がブラウザにあたるため、サーバー関数は失敗します。
-- `cloudflare:workers` は `src/platform/testing/mocks/cloudflare.ts` に解決されます。D1 はチェックイン済みのすべてのマイグレーションを適用したインメモリの SQLite データベース、KV と `MEDIA` の R2 バケットはインメモリのマップで、`flushWaitUntil()` はバックグラウンドタスクの完了を待ちます。`mocks/cache.ts` の `createEdgeCache()` は Workers のキャッシュをスタブします。
+- `cloudflare:workers` は `src/platform/testing/mocks/cloudflare.ts` に解決されます。D1 はチェックイン済みのすべてのマイグレーションを適用したインメモリの SQLite データベース、KV、および `MEDIA` と `BUNDLES` の R2 バケットはインメモリのマップで、`flushWaitUntil()` はバックグラウンドタスクの完了を待ちます。`mocks/cache.ts` の `createEdgeCache()` は Workers のキャッシュをスタブします。
 - `.env.test` はダミーの認証情報を提供します。`fetch` は Resend と Polar の厳密なテストダブル（`mocks/resend.ts`、`mocks/polar.ts`）に届き、それ以外のホストへのリクエストはマシンがオフラインであるかのように失敗するため、マシンの外には何も送信されません。プロバイダーが拒否するリクエストは、テストを失敗させます。
 - `src/platform/testing/lib/render.tsx` の `renderWithRouter` は、実際のルーターと `QueryClient` を使ってコンポーネントをレンダリングします。
 
@@ -48,7 +48,7 @@ import { describe, expect, it, vi } from "vite-plus/test"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
 import * as authServer from "~/src/integrations/better-auth/auth.server"
 
@@ -89,6 +89,8 @@ expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIV
 ```
 
 `paidOrder` は本物の `startCheckout` で購入セッションを開始し、テストダブルの中で支払いを済ませます。`deliver` は `lib/polar.ts` の `signedPolarWebhook` でイベントに署名し、Better Auth の Polar エンドポイントに POST して、レスポンスのステータスを返します。そのため、署名の検証、プラグイン、`license.webhooks.ts` のハンドラーがすべて実行されます。プロバイダーの障害をアプリがどう扱うかをテストするには、`resend.utils.test.ts` と同じように、1 つのリクエストだけにプロバイダーのエラーで応答します（`vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(error, { status }))`）。
+
+テストダブルが販売するのは、各エリアが `__test__/fixtures/<area>.polar-catalogue.ts` で投入したものだけです。ライセンスのエリアなら、そのプラン、プランごとのライセンスキーの特典、地域割引です。別の商品をテストするときは、先に `seedPolarCatalogue` でその商品を投入します。ID、名前、通貨の最小単位で表した価格とその通貨、請求間隔（買い切りなら `null`）を指定し、`createPolarOrder({ externalCustomerId, productId })` でその商品の注文を記録します。テストダブルは次のテストの前にその商品を忘れます。`src/platform/testing/__test__/providers.test.ts` は、この方法で月額プランの購入セッションを開きます。
 
 ## 認証フローをテストする
 

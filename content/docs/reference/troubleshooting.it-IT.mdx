@@ -17,7 +17,7 @@ description: "Errori comuni durante sviluppo, test e deploy, e come risolverli."
 
 **L'accesso o OAuth non funziona.** Controlla `AUTH_SECRET` e le credenziali del client OAuth nel file di ambiente, e verifica che l'URL di callback del provider punti a `/api/auth/callback/<provider>` sull'host che stai usando. Better Auth accetta solo gli host configurati per la modalità di build: `localhost:3000` e `127.0.0.1:3000` in sviluppo.
 
-**Nei tipi del Worker manca un binding o un secret.** Esegui `bun run cf-typegen` dopo aver modificato `wrangler.jsonc` e aggiungi la variabile a `src/types/bindings.d.ts`.
+**Nei tipi del Worker manca un binding o un secret.** Esegui `bun run cf-typegen` dopo aver modificato `wrangler.jsonc`: tipizza ogni binding e ogni secret di `secrets.required`. Un valore che Wrangler non può ricavare, come una variabile impostata solo da `test`, va nel `src/types/<area>.d.ts` dell'area.
 
 **Le classi `text-*` personalizzate scompaiono durante l'unione.** `cn` dipende da tabelle generate da `src/lib/cn.config.ts`. `bun run dev`, `bun run check` e le build le rigenerano; esegui `bun run generate:cn` se manca `.source/cn-tables.ts`.
 
@@ -31,13 +31,15 @@ description: "Errori comuni durante sviluppo, test e deploy, e come risolverli."
 
 **Una pagina della documentazione restituisce 404.** Il file deve chiamarsi `<page>.<locale>.mdx` ed essere elencato in `pages` nel `meta.<locale>.json` della cartella. Esegui `bun run content` per rigenerare `.source`.
 
-**`check-content.ts` fallisce.** Lo script confronta ogni locale con en-US. `Changed code examples` significa che un blocco di codice differisce da quello inglese; i blocchi di codice devono essere identici. `Untranslated English paragraph` significa che un paragrafo è stato copiato senza tradurlo. `Missing <file>` significa che il file di un locale non esiste.
+**`check-content.ts` fallisce.** Lo script confronta ogni locale con en-US. `Changed code examples` significa che un blocco di codice differisce da quello inglese; i blocchi di codice devono essere identici. `Untranslated English paragraph` significa che un paragrafo è stato copiato senza tradurlo. `Missing <file>` significa che il file di un locale non esiste. `leaves out … from the English page` e `adds …, which the English page does not have` significano che una traduzione ha perso o aggiunto codice inline, un componente o una delle sue prop, o un link a un'altra pagina; riportalo come lo ha la pagina inglese. `has … table rows where the English page has …` significa che una tabella ha perso o guadagnato una riga.
+
+**`check-message-formats.ts` fallisce.** `changed the path or command …` significa che una traduzione ha modificato un percorso di file o un comando del messaggio inglese; lascialo com'è o passalo come argomento ICU da `REPOSITORY_FACTS`. `unexpected Markdown code` significa che una traduzione ha aggiunto dei backtick, che un messaggio stampa così come sono.
 
 ## Test e deploy
 
 **`test:coverage` fallisce.** La copertura deve essere pari a <RepositoryFact name="coverageThreshold" unit="percent" /> per righe, istruzioni, funzioni e branch. Il report in `coverage/` elenca le righe non coperte.
 
-**Il deploy si ferma a `verify-bindings.ts`.** L'ambiente di destinazione in `wrangler.jsonc` non ha un binding `DB`, `CACHE` o `MEDIA`, ha ancora ID D1 o KV segnaposto oppure, per la produzione, condivide una risorsa con la preview. Crea le risorse in Cloudflare e sostituisci gli ID.
+**Il deploy si ferma a `verify-bindings.ts`.** L'ambiente di destinazione in `wrangler.jsonc` non ha un binding che l'ambiente `development` dichiara (`DB`, `CACHE`, `MEDIA` o `BUNDLES`), ha ancora ID D1 o KV segnaposto oppure, per la produzione, condivide una risorsa con la preview. Crea le risorse in Cloudflare e sostituisci gli ID.
 
 **Il deploy si ferma a `polar:verify`.** Polar non corrisponde al codice: una chiave in `.env.<environment>` manca o indica il servizio Polar sbagliato, il token viene rifiutato o non ha uno scope, oppure un prodotto, un prezzo, una chiave di licenza, uno sconto regionale o un webhook è diverso da ciò che il codice si aspetta. L'errore elenca ogni problema; [Configurazione di Polar](/docs/getting-started/polar-setup) spiega ogni messaggio. `bun run polar:verify:<environment>` ripete il controllo.
 

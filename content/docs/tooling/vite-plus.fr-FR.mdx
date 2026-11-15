@@ -19,19 +19,22 @@ Vite+ (`vite-plus`, commande `vp`) regroupe Vite, Vitest, oxlint et oxfmt derri�
 
 ## Configuration
 
-`vite.config.ts` charge ses plugins à la demande. Sous Vitest, seuls `repositoryFacts()` et `@vitejs/plugin-react` sont chargés ; sinon, la pile est la suivante :
+`vite.config.ts` ne nomme lui-même aucun plugin : il charge à la demande les plugins que chaque zone déclare dans `src/data/<area>.vite.ts`, que `src/data/vite.entries.ts` réunit et que `vitePlugins` dans `src/data/vite.ts` range selon leur `order` (voir [Ce que les zones apportent](/docs/architecture/platform-layer#what-the-areas-add)). Sous Vitest, seules les entrées marquées `vitest` sont chargées, c'est-à-dire `repositoryFacts()` et `@vitejs/plugin-react` ; sinon, la pile est la suivante :
 
 - `@cloudflare/vite-plugin` : exécute le Worker dans l'environnement SSR, conserve l'état local (dans `.wrangler/test` pour le mode `test`) et utilise des bindings distants pour `development`.
 - `fumadocs-mdx` : compile les collections de la documentation et du blog.
+- `saasyland:fumadocs-bundled` : garde `fumadocs-core` et `@fumadocs/base-ui` dans le bundle serveur (`resolve.noExternal`).
 - `repositoryFacts` (`scripts/repository-facts.ts`) : sert le module `virtual:repository-facts` : les nombres, les versions et les réglages d'outils que la page d'accueil et la documentation affichent, lus dans le dépôt au moment du build ; voir [Traductions et contenu](/docs/conventions/translations).
+- `unused-primitives` (`scripts/unused-primitives.ts`) : avant Tailwind, écarte les classes de chaque primitive shadcn qu'aucune source de l'application n'importe ; voir [Composants shadcn](/docs/ui/shadcn-components).
 - `@tailwindcss/vite` : Tailwind CSS 4.
 - `tanstackStart` : routage, découpage du code et prérendu des pages publiques.
 - `@vitejs/plugin-react`.
 - `deployedWorker` (`scripts/deployed-worker.ts`) : recompile le Worker après le prérendu sans le MDX rendu ni les traductions de la landing page et des pages légales ; voir [Cloudflare Workers](/docs/integrations/cloudflare-workers).
+- `saasyland:polar-sdk-optional-peers` : marque comme externes les dépendances pairs optionnelles de `@polar-sh/sdk` qui ne sont pas installées (`build.rolldownOptions.external`) ; voir [Dépendances](/docs/conventions/dependencies).
 
 Le serveur de développement écoute sur `localhost:3000` et échoue si le port est occupé. `resolve.tsconfigPaths` fournit l'alias d'import `~/`. Le même fichier contient les sections `fmt`, `lint`, `staged` et `test` ; voir [Lint et formatage](/docs/tooling/lint-format) et [Tests](/docs/tooling/testing).
 
-`build.rolldownOptions.external` liste les dépendances peer optionnelles de `@polar-sh/sdk` (OpenTelemetry et `ioredis`). Elles ne sont pas installées, et le module qui les importe est éliminé du Worker par tree-shaking.
+`src/data/polar.vite.ts` ajoute un plugin dont le hook `config` liste dans `build.rolldownOptions.external` les dépendances peer optionnelles de `@polar-sh/sdk` (OpenTelemetry et `ioredis`). Elles ne sont pas installées, et le module qui les importe est éliminé du Worker par tree-shaking.
 
 ## Hooks Git
 

@@ -1,25 +1,30 @@
-import { polarApi, resetPolar } from "~/src/platform/testing/mocks/polar"
-import { resendApi, resetResend } from "~/src/platform/testing/mocks/resend"
+import * as AREA_PROVIDER_DOUBLES from "~/src/platform/testing/mocks/providers.entries"
 
 interface Refusal {
   readonly reason: string
   readonly response: Response
 }
 
-type ProviderDouble = (request: Request) => Promise<Refusal | Response>
+export interface ProviderDouble {
+  readonly origin: string
+  readonly reset: () => void
+  readonly respond: (request: Request) => Promise<Refusal | Response>
+}
 
-const PROVIDER_DOUBLES = new Map<string, ProviderDouble>([
-  [polarApi.origin, polarApi.respond],
-  [resendApi.origin, resendApi.respond],
-])
+const AREAS: Readonly<Record<string, readonly ProviderDouble[]>> = AREA_PROVIDER_DOUBLES
+
+const DOUBLES = Object.values(AREAS).flat()
+
+const PROVIDER_DOUBLES = new Map(DOUBLES.map(({ origin, respond }) => [origin, respond]))
 
 const refusals: string[] = []
 
 export const takeProviderRefusals = (): string[] => refusals.splice(0)
 
 export const resetProviderDoubles = (): void => {
-  resetPolar()
-  resetResend()
+  for (const { reset } of DOUBLES) {
+    reset()
+  }
   refusals.length = 0
 }
 

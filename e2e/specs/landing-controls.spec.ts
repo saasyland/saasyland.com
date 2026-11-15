@@ -1,5 +1,7 @@
 import type { Page } from "@playwright/test"
 
+import { CLI_EXEC, CLI_PACKAGE_SPEC, PACKAGE_MANAGER } from "../../src/data/cli"
+import { TEST_COURSE } from "../data/courses"
 import { expect, test } from "../fixtures/test"
 
 const scrollY = async (page: Page): Promise<number> => page.evaluate(() => window.scrollY)
@@ -35,7 +37,7 @@ test("CLI keeps valid choices, command output and clipboard contents in sync", a
   await expect(cli.getByRole("button", { name: "Cloudflare D1", exact: true })).toHaveAttribute("aria-pressed", "true")
 
   await cli.getByRole("radio", { name: "npm", exact: true }).click()
-  await expect(command).toContainText("npx saasyland@latest")
+  await expect(command).toContainText(CLI_EXEC)
   await cli.getByRole("button", { name: "Vercel", exact: true }).click()
   await expect(cli.getByRole("button", { name: "SQLite", exact: true })).toBeDisabled()
   await expect(command).toContainText("--db postgres")
@@ -56,7 +58,7 @@ test("CLI keeps valid choices, command output and clipboard contents in sync", a
   await cli.getByRole("button", { name: "Copy the command", exact: true }).click()
   await expect(cli.getByRole("button", { name: "Copied", exact: true })).toBeVisible()
   const copied = await page.locator("html").getAttribute("data-copied-command")
-  expect(copied).toContain("npx saasyland@latest")
+  expect(copied).toContain(CLI_EXEC)
   expect(copied).toContain("--provider neon")
   expect(copied).not.toContain("--with commerce")
   expect(copied).not.toContain("--api")
@@ -67,7 +69,7 @@ test("hero install command follows the selected package manager", async ({ landi
   await landingPage.goto()
   const hero = page.locator("#floor")
   await hero.getByRole("radio", { name: "pnpm", exact: true }).click()
-  await expect(hero.locator("code")).toContainText("pnpm dlx saasyland@latest")
+  await expect(hero.locator("code")).toContainText(`${PACKAGE_MANAGER.PNPM.exec} ${CLI_PACKAGE_SPEC}`)
   await expect(hero.getByRole("radio", { name: "pnpm", exact: true })).toBeChecked()
 })
 
@@ -127,6 +129,9 @@ test("back to top jumps straight to the top for reduced motion", async ({ landin
 test("the logo on the landing page scrolls back to the top and drops the section hash", async ({ landingPage, page }) => {
   await landingPage.goto()
   const logo = landingPage.navigation().getByRole("link", { name: "SaaSy Land", exact: true })
+  const showcase = landingPage.courseShowcase()
+  await showcase.scrollIntoViewIfNeeded()
+  await expect(showcase.getByRole("link", { exact: true, name: TEST_COURSE.title["en-US"] })).toBeVisible()
 
   await scrollScreens(page, 3)
   await logo.click()

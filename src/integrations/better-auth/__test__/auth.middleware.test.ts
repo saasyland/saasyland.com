@@ -5,16 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { z as zod } from "zod"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { ROLE_CODES } from "~/src/integrations/better-auth/auth.access"
-import { RATE_LIMITS, authorized, withRateLimit, withRequest } from "~/src/integrations/better-auth/auth.middleware"
+import { RATE_LIMITS, authorized, clientAddress, withRateLimit, withRequest } from "~/src/integrations/better-auth/auth.middleware"
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { getCurrentSession } from "~/src/integrations/better-auth/auth.session"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { getCategory } from "~/src/modules/category/use-cases/get-category"
-import { getProduct } from "~/src/modules/product/use-cases/get-product"
 import { getUser } from "~/src/modules/user/use-cases/get-user"
 import { getUsers } from "~/src/modules/user/use-cases/get-users"
 
@@ -94,7 +92,7 @@ describe("authorization middleware", () => {
     const getSession = vi.spyOn(auth.api, "getSession").mockResolvedValue(session)
     await getCurrentSession()
     const action = createServerFn()
-      .middleware([authorized({ user: ["list"] }), authorized({ product: ["read"] })])
+      .middleware([authorized({ user: ["list"] }), authorized({ session: ["list"] })])
       .handler(({ context }) => context.auth.user.id)
     await expect(action()).resolves.toBe(session.user.id)
     expect(getSession).toHaveBeenCalledOnce()
@@ -174,14 +172,40 @@ describe("rate limiting middleware", () => {
   })
 })
 
+describe("client address", () => {
+  it("passes a single IPv4 address through", () => {
+    expect(clientAddress(new Headers({ [IP_ADDRESS_HEADER]: "203.0.113.1" }))).toBe("203.0.113.1")
+  })
+
+  it("groups IPv6 clients by their /64 prefix", () => {
+    const prefix = "2001:0db8:0001:0002:0000:0000:0000:0000"
+
+    expect(clientAddress(new Headers({ [IP_ADDRESS_HEADER]: "2001:db8:1:2:3:4:5:6" }))).toBe(prefix)
+    expect(clientAddress(new Headers({ [IP_ADDRESS_HEADER]: "2001:db8:1:2:ffff::1" }))).toBe(prefix)
+  })
+
+  it("ignores multi-hop and missing headers like Better Auth's limiter", () => {
+    expect(clientAddress(new Headers({ [IP_ADDRESS_HEADER]: "203.0.113.1, 198.51.100.2" }))).toBe("127.0.0.1")
+    expect(clientAddress(new Headers({ "X-Forwarded-For": "203.0.113.1" }))).toBe("127.0.0.1")
+  })
+})
+
 describe("RPC input boundaries", () => {
-  it.each([
-    { name: "getUser", readRecord: () => getUser({ data: { userId: "" } }) },
-    { name: "getProduct", readRecord: () => getProduct({ data: { productId: "" } }) },
-    { name: "getCategory", readRecord: () => getCategory({ data: { categoryId: "" } }) },
-  ])("$name rejects an invalid record identifier before storage access", async ({ readRecord }) => {
+  it("rejects an invalid record identifier before a permission-checked handler reads storage", async () => {
     vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))
-    await expect(readRecord()).rejects.toMatchObject({ code: ERROR_CODES.VALIDATION })
+    const readStorage = vi.fn(() => "record")
+    const schema = zod.object({ recordId: zod.string().min(1) })
+    const readRecord = createServerFn()
+      .middleware([authorized({ user: ["get"] })])
+      .validator((input: zod.input<typeof schema>) => schema.parse(input))
+      .handler(readStorage)
+
+    await expect(readRecord({ data: { recordId: "" } })).rejects.toMatchObject({ code: ERROR_CODES.VALIDATION })
+    expect(readStorage).not.toHaveBeenCalled()
+  })
+  it("getUser rejects an invalid user identifier before storage access", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))
+    await expect(getUser({ data: { userId: "" } })).rejects.toMatchObject({ code: ERROR_CODES.VALIDATION })
   })
   it("returns a localized validation code for invalid page sizes", async () => {
     vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))

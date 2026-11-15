@@ -5,16 +5,44 @@ description: "Środowisko uruchomieniowe Cloudflare: punkt wejścia Workera, bin
 
 ## Worker i bindingi
 
-`wrangler.jsonc` ustawia `src/server.ts` jako punkt wejścia Workera. Worker otrzymuje cztery bindingi:
+`wrangler.jsonc` ustawia `src/server.ts` jako punkt wejścia Workera. Worker otrzymuje te bindingi:
 
-| Binding  | Typ                | Zastosowanie                                                 |
-| -------- | ------------------ | ------------------------------------------------------------ |
-| `DB`     | Baza danych D1     | Wszystkie tabele, w tym sesje i liczniki limitów żądań       |
-| `CACHE`  | Przestrzeń nazw KV | Liczba gwiazdek na GitHubie i rabaty regionalne w checkoucie |
-| `MEDIA`  | Bucket R2          | Pliki wideo serwowane przez `serveMedia` pod `/media/`       |
-| `ASSETS` | Zasoby statyczne   | Prerenderowane strony i pliki z `public`                     |
+| Binding   | Typ                | Zastosowanie                                                       |
+| --------- | ------------------ | ------------------------------------------------------------------ |
+| `DB`      | Baza danych D1     | Wszystkie tabele, w tym sesje i liczniki limitów żądań             |
+| `CACHE`   | Przestrzeń nazw KV | Liczba gwiazdek na GitHubie i rabaty regionalne w checkoucie       |
+| `MEDIA`   | Bucket R2          | Pliki wideo serwowane przez `serveMedia` pod `/media/`             |
+| `BUNDLES` | Bucket R2          | Paczki szablonów CLI serwowane przez `serveBundle` pod `/bundles/` |
+| `ASSETS`  | Zasoby statyczne   | Prerenderowane strony i pliki z `public`                           |
 
 Żądania do `/assets/*`, `/fonts/*`, `/robots.txt` i `/llms.txt` są obsługiwane z zasobów statycznych bez uruchamiania Workera. Kod serwerowy odczytuje bindingi, sekrety i `waitUntil` z `cloudflare:workers`. `src/server.ts` dodaje nagłówki bezpieczeństwa do każdej zwracanej odpowiedzi; pliki serwowane bez Workera dostają ich podzbiór z `public/_headers` ([Bezpieczeństwo i utwardzanie](/docs/features/security)).
+
+## Co dodają obszary [#what-the-areas-add]
+
+Żaden plik platformy nie wymienia obszaru. Każdy obszar, na przykład kursy czy sprzedaż licencji, dodaje we własnych plikach to, czego potrzebuje w Workerze, w trasie głównej, w buildzie Vite i przy wdrożeniu, a zbiorczy eksport je łączy, tak jak ścieżki i menu (zobacz [Ścieżki i nawigacja](/docs/conventions/routes#paths-and-navigation)):
+
+| Co                              | Każdy obszar deklaruje                                            | Zbiorczy eksport                | Używa                                                                                                            |
+| ------------------------------- | ----------------------------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Handlery Workera                | `src/data/<area>.worker.ts`: jedną listę `<AREA>_WORKER_HANDLERS` | `src/data/worker.entries.ts`    | `DOCUMENT_HANDLERS` i `REQUEST_HANDLERS` w `src/data/worker.ts`, które uruchamia `src/server.ts`                 |
+| Komponenty główne               | `src/data/<area>.root.ts`: jedną listę `<AREA>_ROOT_COMPONENTS`   | `src/data/root.entries.ts`      | `ROOT_COMPONENTS` w `src/data/root.ts`, które `src/routes/__root.tsx` montuje obok outletu                       |
+| Strefa czasowa                  | `src/data/<area>.time-zone.ts`: jedną listę `<AREA>_TIME_ZONES`   | `src/data/time-zone.entries.ts` | `TIME_ZONE_SOURCES` w `src/data/time-zone.ts`, w których pierwszej strefie `TranslationsProvider` formatuje daty |
+| Pluginy Vite                    | `src/data/<area>.vite.ts`: jedną listę `<AREA>_VITE_PLUGINS`      | `src/data/vite.entries.ts`      | `vitePlugins` w `src/data/vite.ts`, które ładuje `vite.config.ts`                                                |
+| Sprawdzenia przed wdrożeniem    | `src/data/<area>.deploy.ts`: jedną listę `<AREA>_DEPLOY_CHECKS`   | `src/data/deploy.entries.ts`    | `DEPLOY_CHECKS` w `src/data/deploy.ts`, które uruchamia `scripts/run-deploy-checks.ts`                           |
+| Sprawdzenia działającej witryny | `src/data/<area>.live.ts`: jedną listę `<AREA>_LIVE_CHECKS`       | `src/data/live.entries.ts`      | `LIVE_SITE_CHECKS` w `src/data/live.ts`, o które `scripts/verify-deployment.ts` pyta po wdrożeniu                |
+
+Handler żądań przejmuje `pathPrefix` i odpowiada na każde żądanie pod nim przed middleware locale, zasobami statycznymi i TanStack Start, tak jak handler obszaru kursów robi to dla `/media/`, a handler obszaru licencji dla `/bundles/`. Handler dokumentów dostaje każdą stronę HTML zwracaną przez Workera, razem z jej locale i żądaniem, i zwraca stronę do wysłania, tak jak robią to ceny regionalne obszaru licencji. `src/server.ts` importuje handlery statycznie, więc są one wykonywane przy każdym zimnym starcie: plik handlerów importuje tylko stałe i czyste funkcje pomocnicze, a wszystko większe ładuje dynamicznym `import()` (zobacz [Wydajność](/docs/conventions/performance)).
+
+Wpis pluginów Vite ma `order`, który ustawia jego pluginy wśród pluginów innych obszarów, oraz `vitest`, które określa, czy ładują się także pod Vitest. Vite wczytuje swoją konfigurację, zanim zostanie rozwiązany alias `~`, więc `vite.ts`, `vite.entries.ts` i każdy `<area>.vite.ts` importują po ścieżce względnej z rozszerzeniem `.ts`, a wpis importuje swój pakiet pluginu dopiero wewnątrz funkcji `plugins`, żeby `vp lint` i `vp fmt` nigdy go nie ładowały.
+
+Źródło strefy czasowej to hook, który zwraca strefę, w której formatowane są daty. Źródło obszaru uwierzytelniania zwraca strefę zalogowanego użytkownika z sesji, którą wczytały guardy tras, albo `UTC`; bez żadnego źródła `TranslationsProvider` również używa `UTC`.
+
+Sprawdzenie przed wdrożeniem wskazuje skrypt pakietu z jednym wariantem dla każdego wdrażanego środowiska. Obszar Polar deklaruje `polar:verify`, więc `bun scripts/run-deploy-checks.ts preview` uruchamia `bun run polar:verify:preview`.
+
+Sprawdzenie działającej witryny wskazuje ścieżkę oraz status i typ zawartości, którymi musi ona odpowiedzieć po wdrożeniu. Rdzeń sprawdza stronę główną, `robots.txt`, mapę witryny, kartę witryny i `/api`, obszar uwierzytelniania punkt końcowy sesji, a obszar kursów `/courses`, renderowane z D1 przy każdym żądaniu.
+
+Obszar może też zdefiniować własną listę, do której inne obszary dodają wpisy w ten sam sposób. Obszar kursów definiuje dostęp do kursów w `src/data/course-access.ts`, a obszar licencji przyznaje go w `src/data/license.course-access.ts` ([Kursy](/docs/features/courses)); obszar licencji definiuje sekcje swojej oferty w `src/data/license-offer.ts`, a obszar kursów dodaje zablokowane kursy w `src/data/courses.license-offer.ts` ([Aplikacja klienta](/docs/features/customer-app)). Obszar uwierzytelniania definiuje pluginy i e-maile, które inne obszary dodają do Better Auth ([Better Auth](/docs/integrations/better-auth)): obszar licencji dodaje plugin Polar, a Resend e-maile uwierzytelniania. Obszar uwierzytelniania definiuje też karty zarządzania użytkownikami w `src/data/user-tabs.ts`, do których obszar zespołu dodaje swoje zaproszenia i role ([Użytkownicy (admin)](/docs/features/users-admin)), oraz informacje pod formularzem rejestracji w `src/data/sign-up-notices.ts`, do których obszar prawny dodaje wiersz zgody ([Strony prawne](/docs/features/legal-pages)), a także przegląd aplikacji klienta w `src/data/app-overview.ts`, do którego obszar licencji dodaje swoją sekcję i parametry wyszukiwania, które ona czyta ([Aplikacja klienta](/docs/features/customer-app)). Projekt bez jednego z obszarów pomija listę, którą ten obszar definiuje, razem z tym, co dodają do niej pozostałe, więc żaden obszar nie importuje innego, który od niego nie zależy.
+
+Obszar podstawowy dodaje pustą listę do każdego zbiorczego eksportu, który wypełniają tylko opcjonalne obszary: `src/data/core.worker.ts`, `core.root.ts`, `core.time-zone.ts`, `core.deploy.ts` i `core.namespaces.ts`, więc projekt bez tych obszarów nadal przechodzi sprawdzanie typów i lint, a obszar uwierzytelniania dodaje puste `AUTH_AUTH_PLUGINS` do swojej listy pluginów, puste `AUTH_SIGN_UP_NOTICES` do swoich informacji przy rejestracji i puste `AUTH_APP_OVERVIEW` do przeglądu. Obszary, które wysyłają e-maile, nazywają cele swoich wiadomości w `src/data/<area>.email-purposes.ts`, a `src/data/email-purposes.entries.ts` łączy je w `EMAIL_PURPOSE` ([Resend](/docs/integrations/resend)).
 
 ## Środowiska
 
@@ -27,12 +55,14 @@ description: "Środowisko uruchomieniowe Cloudflare: punkt wejścia Workera, bin
 | `production`  | Produkcyjne D1, KV i R2                | `bun run build:production`, `deploy:production` |
 | `test`        | Lokalne D1, KV i R2 w `.wrangler/test` | `bun run build:test`, Playwright                |
 
-Każde środowisko wymienia wymagane sekrety w `secrets.required`. Wartości pochodzą z odpowiadającego mu pliku `.env.<environment>`; skrypty wdrożeniowe zapisują zadeklarowane klucze do `.wrangler/secrets.<environment>.json` i przekazują ten plik do Wranglera przez `--secrets-file`. Środowisko `test` używa `src/platform/testing/worker.ts` jako punktu wejścia oraz fikcyjnych wartości z `.env.test`, które są w repozytorium. `AFFONSO_PROGRAM_ID` jest publiczny, więc jest zwykłą zmienną Workera w `vars`, a nie sekretem; ustawia ją tylko `test`.
+Każde środowisko wymienia wymagane sekrety w `secrets.required`. Wartości pochodzą z odpowiadającego mu pliku `.env.<environment>`; skrypty wdrożeniowe zapisują zadeklarowane klucze do `.wrangler/secrets.<environment>.json` i przekazują ten plik do Wranglera przez `--secrets-file`. Środowisko `test` używa `src/platform/testing/worker.ts` jako punktu wejścia oraz fikcyjnych wartości z `.env.test`, które są w repozytorium. `AFFONSO_PROGRAM_ID` jest publiczny, więc jest zwykłą zmienną Workera w `vars`, a nie sekretem; ustawia ją tylko `test`. Sekrety jednego modułu stoją razem, w kolejności z `.env.example`, a dla `test` z `.env.test`, więc obszar dodaje swoje sekrety jako jedną grupę; `src/__test__/wrangler.test.ts` porównuje nazwy w ich kolejności i kończy się błędem, gdy się różnią. Pusta linia między dwiema grupami służy tylko czytelności, bo formater może ją usunąć, więc test ją pomija.
+
+Bindingi obszaru też tworzą osobny blok. Buckety R2 należą do obszarów, `MEDIA` do kursów, a `BUNDLES` do sprzedaży licencji, więc `r2_buckets` jest ostatni w każdym środowisku, z jednym wpisem na obszar, a projekt bez danego obszaru pomija jego wpis. `wrangler.test.ts` kończy się też błędem, gdy środowisko wiąże inne bazy D1, przestrzenie nazw KV lub buckety R2 niż `development`, a `scripts/verify-bindings.ts` sprawdza każdy binding, który deklaruje środowisko docelowe, nie wymieniając żadnego z nazwy.
 
 ## Typy
 
-- `src/types/bindings.d.ts` deklaruje `Cloudflare.Env`: bindingi, wszystkie sekrety odczytywane przez Workera i opcjonalną zmienną `AFFONSO_PROGRAM_ID`. Trzy sekrety `CLOUDFLARE_*` nie są zadeklarowane, ponieważ odczytuje je tylko drizzle-kit, z `process.env`.
-- `src/types/worker-configuration.d.ts` jest generowany przez `bun run cf-typegen`.
+- `src/types/worker-configuration.d.ts` jest generowany przez `bun run cf-typegen` ze środowiska `development` w `wrangler.jsonc` i deklaruje `Cloudflare.Env`: bindingi `DB`, `CACHE`, `MEDIA` i `BUNDLES` oraz wszystkie sekrety z `secrets.required`. `src/types/bindings.d.ts` dodaje `ASSETS`, którego Wrangler nie generuje.
+- Obszar deklaruje w `src/types/<area>.d.ts` tylko to, czego Wrangler nie potrafi wyprowadzić: `affiliates.d.ts` opcjonalną zmienną `AFFONSO_PROGRAM_ID`, którą ustawia tylko `test`, `polar.d.ts` dwie wartości `POLAR_SERVER`, a `repository-facts.d.ts` moduł `virtual:repository-facts`.
 - `src/types/router.d.ts` rejestruje typ routera i opcję trasy `staticData.namespaces`.
 
 ## Konfiguracja środowiska testowego
@@ -40,12 +70,12 @@ Każde środowisko wymienia wymagane sekrety w `secrets.required`. Wartości poc
 `src/platform/testing` zawiera tylko to, czego nie da się przypisać do jednej funkcjonalności:
 
 - `setup.ts`: matchery jest-dom, reset bindingów przed każdym testem i zamiennik `createServerFn`, który uruchamia funkcje serwerowe w tym samym procesie
-- `mocks/cloudflare.ts`: D1 oparte na SQLite w pamięci, które stosuje migracje z repozytorium, KV w pamięci, bucket `MEDIA` w pamięci oraz `waitUntil`, którego kolejkę testy mogą opróżnić
+- `mocks/cloudflare.ts`: D1 oparte na SQLite w pamięci, które stosuje migracje z repozytorium, KV w pamięci, bucket w pamięci dla każdego bindingu R2 środowiska `test` w `wrangler.jsonc` oraz `waitUntil`, którego kolejkę testy mogą opróżnić
 - `mocks/cache.ts`: `createEdgeCache`, zaślepka cache Workers dla testów dostarczania mediów
-- `mocks/resend.ts` i `mocks/polar.ts`: ścisłe dublery API Resend i Polar oraz `mocks/providers.ts`, który kieruje do nich `fetch` w każdym teście i w testowym Workerze dla testów przeglądarkowych
+- `mocks/resend.ts` i `mocks/polar.ts`: ścisłe dublery API Resend i Polar, każdy na liście dublerów swojego obszaru (`RESEND_PROVIDER_DOUBLES`, `POLAR_PROVIDER_DOUBLES`), którą `mocks/providers.entries.ts` łączy z pustą listą `CORE_PROVIDER_DOUBLES` obszaru podstawowego, oraz `mocks/providers.ts`, który kieruje do nich `fetch` i resetuje je w każdym teście i w testowym Workerze dla testów przeglądarkowych
 - `mocks/wrksz-themes.ts`: zamiennik biblioteki motywów
 - `lib/`: most RPC dla funkcji serwerowych, helpery renderowania, helpery do URL-i żądań, funkcje uruchamiające zapytania oraz modele Polar z podpisanymi webhookami
-- `worker.ts`: punkt wejścia Workera dla testów przeglądarkowych, który instaluje dublery dostawców i udostępnia dostarczone e-maile
+- `worker.ts`: punkt wejścia Workera dla testów przeglądarkowych, który instaluje dublery dostawców i uruchamia przygotowania i testowe punkty końcowe deklarowane przez obszary w `e2e/data/<area>.worker.ts` (`worker.entries.ts`): obszar licencji zapisuje testowy klucz licencyjny w dublerze Polar, Resend udostępnia dostarczone e-maile, a newsletter stan subskrybenta
 
 Sposób, w jaki korzystają z nich zestawy testów, opisuje strona [Testy i CI](/docs/architecture/testing-architecture).
 

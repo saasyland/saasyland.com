@@ -17,7 +17,9 @@ import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 import { createLessonMutation } from "~/src/modules/lesson/use-cases/create-lesson"
 import { updateLessonMutation } from "~/src/modules/lesson/use-cases/update-lesson"
 import { getVideosPageQuery } from "~/src/modules/video/use-cases/get-videos"
+import { VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 
+import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { formatClock } from "~/src/lib/duration"
@@ -29,7 +31,6 @@ import { FieldGroup } from "~/src/presentation/components/shadcn/field"
 import { CourseOptionField, CourseTextAreaField, CourseTextField } from "~/src/presentation/components/custom/admin/courses/course-fields"
 import { LocaleTabs } from "~/src/presentation/components/custom/admin/courses/locale-tabs"
 
-const VIDEO_LIBRARY_PAGE_SIZE = 100
 const NO_VIDEO = "none"
 
 const lessonFormSchema = lessonZodSchemas.updateLesson.omit({ lessonId: true }).extend({ videoId: idField })
@@ -68,6 +69,7 @@ export const LessonDialog = ({ chapterId, lesson, trigger }: LessonDialogProps):
   const errorMessage = useErrorMessage()
   const [isOpen, setOpen] = useState(false)
 
+  const { holders } = useCourseAccessNames()
   const { data: videos } = useQuery({ ...getVideosPageQuery({ pageSize: VIDEO_LIBRARY_PAGE_SIZE }), enabled: isOpen })
 
   const onSuccess = async (): Promise<void> => {
@@ -139,7 +141,7 @@ export const LessonDialog = ({ chapterId, lesson, trigger }: LessonDialogProps):
                     options={LESSON_ACCESS_LEVELS}
                     value={field.state.value}
                   >
-                    {(access) => t(`accessLevels.${access}`)}
+                    {(access) => t(`accessLevels.${access}`, { holders })}
                   </CourseOptionField>
                 )}
               </form.Field>

@@ -87,8 +87,9 @@ export const Route = createFileRoute("/admin/courses")({
 ```
 
 - Ein Layout deklariert `const NAMESPACES = [...] as const` über `export const Route` und lädt sie vor. Hat es keine, lässt es die Option weg; ein `namespaces: []` gibt es nicht.
+- Einen Namespace, den eine Komponente eines anderen Bereichs im Layout braucht, fügt dieser Bereich in `src/data/<area>.namespaces.ts` hinzu, das das Layout über seine Routen-ID benennt, und das Layout übernimmt `...layoutNamespaces("/app")` per Spread in seine `NAMESPACES`. Der Lizenzbereich fügt `/app`, dessen Übersicht die Lizenzkarte und das Angebot zeigt, `pages.license` hinzu, und der Newsletter-Bereich fügt `/_landing` und `/blog`, deren Footer das Newsletter-Formular zeigt, `auth.validations` hinzu. `namespaces.test.ts` prüft beim Kompilieren, dass jedes Layout, das ein Bereich nennt, eine Routen-ID ist.
 - Die Komponente, sofern das Layout eine rendert, heißt `<Name>Layout` und platziert ein `<Outlet />`.
-- Ein Guard gehört in `beforeLoad` des Layouts, dem der Bereich gehört: `beforeLoad: requireAdmin` in `admin.tsx`, `requireSignedIn` in `app.tsx`. Guards entscheiden nur über die Navigation; jede Server Function prüft trotzdem ihre eigene Berechtigung.
+- Ein Guard gehört in `beforeLoad` des Layouts, dem der Bereich gehört: `beforeLoad: requireAdmin` in `admin.tsx`, `requireSignedIn` in `app.tsx`, beides Layouts des Auth-Bereichs. Guards entscheiden nur über die Navigation; jede Server Function prüft trotzdem ihre eigene Berechtigung.
 
 ## Reihenfolge der Optionen
 
@@ -116,16 +117,16 @@ Schreiben Sie nie ein Array oder Objekt mit Daten inline in `createFileRoute`; d
 | `searchParam(schema)`             | `undefined`                                        | Jedes andere Schema, etwa ein Pfad   |
 | `searchChoice(choices, fallback)` | `fallback`                                         | Ein Tab oder eine Ansicht            |
 
-Fehlender Text bleibt `undefined`, sodass ein Standardwert nie in eine URL gelangt, die der Router baut. Ein `searchChoice`-Parameter wird mit `search: { middlewares: [stripSearchParams({ tab: DEFAULT_TAB })] }` kombiniert, das den Standardwert aus der URL entfernt. Schreiben Sie nie von Hand Prüfungen wie `typeof search["x"] === "string"`; ergänzen Sie einen Helfer, wenn eine neue Art von Feld nötig ist. Braucht eine Kindkomponente einen Parameter, dessen Vorhandensein die Seite validiert hat, grenzt die Seite ihn ein und reicht ihn weiter, so wie `auth.reset-password.tsx` `token` an `ResetPasswordForm` übergibt. Ein Layout validiert die Parameter, die sein ganzer Bereich liest, so wie `app.tsx` mit `validateSearch: appSearchSchema`; das Schema liegt in `src/data/app.ts`, weil das Skeleton des Layouts dieselben Parameter parst.
+Fehlender Text bleibt `undefined`, sodass ein Standardwert nie in eine URL gelangt, die der Router baut. Ein `searchChoice`-Parameter wird mit `search: { middlewares: [stripSearchParams({ tab: DEFAULT_TAB })] }` kombiniert, das den Standardwert aus der URL entfernt. Schreiben Sie nie von Hand Prüfungen wie `typeof search["x"] === "string"`; ergänzen Sie einen Helfer, wenn eine neue Art von Feld nötig ist. Braucht eine Kindkomponente einen Parameter, dessen Vorhandensein die Seite validiert hat, grenzt die Seite ihn ein und reicht ihn weiter, so wie `auth.reset-password.tsx` `token` an `ResetPasswordForm` übergibt. Seiten, die dieselben Parameter lesen, teilen sich ein Schema in `src/data`, das auch ihre Skeletons parsen, so wie `/app/license` und der Teil der Übersicht, den der Lizenzbereich beiträgt, mit `licenseSearchSchema` (`src/data/license.ts`).
 
 ## Skeletons
 
 Navigation muss sich sofort anfühlen, daher hat jede Route, die eine Seite rendert, eine `pendingComponent`, die sie spiegelt: dasselbe Layout, dieselben Karten und dieselbe Anzahl an Zeilen.
 
-- Skeletons liegen in der Pending-Datei des Bereichs (`content-pending.tsx`, `courses-pending.tsx`) und verwenden `Skeleton` von shadcn.
+- Skeletons liegen in der Pending-Datei des Bereichs (`admin/products-pending.tsx`, `courses/courses-pending.tsx`) und verwenden `Skeleton` von shadcn.
 - Ein Textplatzhalter erhält das echte Typografie-Token plus `h-lh scale-y-70`, sodass er die Höhe der Zeile hat, die er ersetzt: `<Skeleton className="h-lh w-28 scale-y-70 font-mono text-label" />`.
 - Listenlängen stammen aus den Konstanten, die die Seite verwendet: `PAGE_ROWS` in `admin/pending-blocks.tsx` hat `DEFAULT_PAGE_SIZE` Zeilen, die Seitengröße jeder Admin-Tabelle.
-- Ein Layout-Skeleton wählt das Seiten-Skeleton für den aktuellen Pfad aus einer Map, wie `ADMIN_PAGES` in `admin-pending.tsx` und `COURSE_PAGES` in `content-pending.tsx`. Eine neue Seite wird in diese Map aufgenommen.
+- Ein Layout-Skeleton wählt das Seiten-Skeleton für den aktuellen Pfad aus einer Map, wie `AdminPending`, `AppPending` und `MarketingPending` mit `PAGE_SKELETONS` und `AdminCourseSectionPending` mit `COURSE_PAGES` in `admin/courses-pending.tsx`. Jeder Bereich trägt seine Seiten in `src/data/<area>.skeletons.ts` in `PAGE_SKELETONS` ein (siehe [Pfade und Navigation](#paths-and-navigation)); eine Seite eines Layouts, das zu einem einzigen Bereich gehört, etwa des Kursabschnitts, kommt in die eigene Map dieses Layouts.
 - Es gibt keine routerweite `defaultPendingComponent`, und `pendingMs` behält den Standardwert von TanStack. Die einzige Ausnahme sind die Routen der Dokumentation: `pendingMs: Number.POSITIVE_INFINITY` und `wrapInSuspense: false`. Die Seitenkomponente hydriert mit dem Docs-Layout und rendert das MDX in einer eigenen `<Suspense key={path}>`, sodass die Seitenleiste funktioniert, bevor der MDX-Chunk der Seite geladen ist, und eine Navigation das Server-HTML der vorherigen Seite ersetzt, statt es mit den Daten der nächsten Seite zu hydrieren.
 
 ## Links
@@ -135,50 +136,81 @@ Navigation muss sich sofort anfühlen, daher hat jede Route, die eine Seite rend
 
 ## Pfade und Navigation [#paths-and-navigation]
 
-Keine Datei listet alle Bereiche der Anwendung auf. Jeder Bereich, etwa die Kurse, die Produkte oder die Rechtstexte, deklariert seine eigenen Pfade und Menüeinträge, und ein Barrel führt sie zusammen. Ein Bereich kommt also mit seinen eigenen Dateien hinzu oder fällt mit ihnen weg. So setzt die `saasyland`-CLI ein Projekt aus Template-Layern zusammen.
+Keine Datei listet alle Bereiche der Anwendung auf. Jeder Bereich, etwa die Kurse, die Produkte oder die Rechtstexte, deklariert seine eigenen Pfade, Menüeinträge samt ihren Beschriftungen, Seiten-Skeletons und Berechtigungen, und ein Barrel führt sie zusammen. Ein Bereich kommt also mit seinen eigenen Dateien hinzu oder fällt mit ihnen weg. So setzt die `saasyland`-CLI ein Projekt aus Template-Layern zusammen.
 
-| Was                   | Jeder Bereich deklariert                                         | Barrel                           | Gelesen aus                                                                                                                             |
-| --------------------- | ---------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Pfade                 | `src/data/<area>.routes.ts`: ein `export const` pro Pfad         | `src/data/routes.entries.ts`     | `ROUTES` in `src/routes.ts`                                                                                                             |
-| Menüeinträge          | `src/data/<area>.navigation.ts`: eine Liste `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `NAVIGATION_PAGES` und `FOOTER_NAVIGATION` in `src/data/navigation.ts` |
-| Dashboard-Statistiken | `src/data/<area>.dashboard.ts`: eine Liste `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` in `src/data/dashboard.ts`                                                                                      |
-| Nicht gelistete Pfade | `src/data/<area>.routes.ts`: eine Liste `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` und `isUnlistedRoute` in `src/data/unlisted.ts`                                                                       |
+| Was                               | Jeder Bereich deklariert                                         | Barrel                           | Gelesen aus                                                                                                                                                        |
+| --------------------------------- | ---------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pfade                             | `src/data/<area>.routes.ts`: ein `export const` pro Pfad         | `src/data/routes.entries.ts`     | `ROUTES` in `src/routes.ts`                                                                                                                                        |
+| Menüeinträge                      | `src/data/<area>.navigation.ts`: eine Liste `<AREA>_NAVIGATION`  | `src/data/navigation.entries.ts` | `ADMIN_NAVIGATION`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `APP_RESOURCE_NAVIGATION`, `NAVIGATION_PAGES` und `FOOTER_NAVIGATION` in `src/data/navigation.ts` |
+| Dashboard-Statistiken und -Panels | `src/data/<area>.dashboard.ts`: eine Liste `<AREA>_DASHBOARD`    | `src/data/dashboard.entries.ts`  | `ADMIN_DASHBOARD_STATS` und `ADMIN_DASHBOARD_PANELS` in `src/data/dashboard.ts`                                                                                    |
+| Seiten-Skeletons                  | `src/data/<area>.skeletons.ts`: eine Liste `<AREA>_SKELETONS`    | `src/data/skeletons.entries.ts`  | `PAGE_SKELETONS` in `src/data/skeletons.ts`                                                                                                                        |
+| Berechtigungen                    | `src/data/<area>.access.ts`: ein Objekt `<AREA>_ACCESS`          | `src/data/access.entries.ts`     | `APP_STATEMENTS` und `grantsOf` in `src/data/access.ts`                                                                                                            |
+| Nicht gelistete Pfade             | `src/data/<area>.routes.ts`: eine Liste `<AREA>_UNLISTED_ROUTES` | `src/data/unlisted.entries.ts`   | `UNLISTED_ROUTES` und `isUnlistedRoute` in `src/data/unlisted.ts`                                                                                                  |
+| Layout-Namespaces                 | `src/data/<area>.namespaces.ts`: eine Liste `<AREA>_NAMESPACES`  | `src/data/namespaces.entries.ts` | `layoutNamespaces(layout)` in `src/data/namespaces.ts`                                                                                                             |
 
-Ein Barrel enthält nur Zeilen der Form `export { … } from`, eine pro Bereichsdatei und nach Modul sortiert, wie `src/integrations/drizzle-orm/drizzle.schemas.ts`. `src/routes.ts` exportiert die Pfade als einen Namespace erneut, sodass jeder Pfad seinen Literaltyp behält und `<Link to={ROUTES.COURSES}>` weiterhin gegen den Routenbaum geprüft wird:
+Ein Barrel enthält nur Zeilen der Form `export { … } from`, eine pro Bereichsdatei und nach Modul sortiert, wie `src/integrations/drizzle-orm/drizzle.schemas.ts`. Ein Barrel, das nur optionale Bereiche füllen, wie die Layout-Namespaces, bekommt außerdem eine leere Liste vom Kern (`CORE_NAMESPACES` in `src/data/core.namespaces.ts`), sodass ein Projekt ohne diese Bereiche weiterhin Typprüfung und Lint besteht. `src/routes.ts` exportiert die Pfade als einen Namespace erneut, sodass jeder Pfad seinen Literaltyp behält und `<Link to={ROUTES.COURSES}>` weiterhin gegen den Routenbaum geprüft wird:
 
 ```ts title="src/routes.ts"
 export * as ROUTES from "~/src/data/routes.entries"
 ```
 
-Ein Menüeintrag gibt mit `placement` (`NAVIGATION_PLACEMENT` in `src/data/navigation.constants.ts`) an, wo er erscheint: in der Admin-Sidebar, in den Schaltflächen über dem Dashboard, in der Seitenleiste des Kundenbereichs, im öffentlichen Header oder im Footer. Sein `order` sortiert ihn zwischen die Einträge der anderen Bereiche, sodass keine Liste von der Reihenfolge der Dateien abhängt. Admin-Einträge nennen außerdem ihre Sidebar-Gruppe (`group`), Footer-Links ihre Spalte (`column`); `ADMIN_NAVIGATION_GROUPS` und `FOOTER_COLUMNS` legen die Reihenfolge der Gruppen und Spalten fest, und eine Gruppe oder Spalte, die kein Bereich füllt, entfällt. Der Kursbereich fügt zwei Admin-Einträge und eine Seite im Header hinzu:
+Ein Menüeintrag gibt mit `placement` (`NAVIGATION_PLACEMENT` in `src/data/navigation.constants.ts`) an, wo er erscheint: in der Admin-Sidebar, in den Schaltflächen über dem Dashboard, in der Seitenleiste des Kundenbereichs und ihren Ressourcen, im öffentlichen Header oder im Footer. Sein `order` sortiert ihn zwischen die Einträge der anderen Bereiche, sodass keine Liste von der Reihenfolge der Dateien abhängt. Admin-Einträge nennen außerdem ihre Sidebar-Gruppe (`group`), Footer-Links ihre Spalte (`column`); `ADMIN_NAVIGATION_GROUPS` und `FOOTER_COLUMNS` legen die Reihenfolge der Gruppen und Spalten fest, und eine Gruppe oder Spalte, die kein Bereich füllt, entfällt. Die Admin-Konsole und der Kundenbereich existieren nur mit Anmeldung, deshalb gehören sie dem Auth-Bereich: ihre Pfade `/admin`, `/admin/settings`, `/app` und `/app/settings` sowie ihre Einträge für Dashboard, Übersicht, Einstellungen und Benutzerverwaltung:
 
-```ts title="src/data/courses.navigation.ts"
-export const COURSES_NAVIGATION = [
+```ts title="src/data/auth.navigation.ts"
+const AREA = "auth"
+
+export const AUTH_NAVIGATION = [
   {
-    group: ADMIN_NAVIGATION_GROUP.CONTENT,
-    icon: GraduationCap,
-    key: "courses",
-    order: 20,
+    area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
+    icon: Home,
+    key: "dashboard",
+    order: 10,
     placement: NAVIGATION_PLACEMENT.ADMIN,
-    to: ROUTES.ADMIN_COURSES,
+    status: FEATURE_STATUS.AVAILABLE,
+    to: ROUTES.ADMIN,
   },
   {
-    group: ADMIN_NAVIGATION_GROUP.CONTENT,
-    icon: Clapperboard,
-    key: "videos",
+    area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
+    icon: Users,
+    key: "userManagement",
+    order: 10,
+    placement: NAVIGATION_PLACEMENT.ADMIN,
+    status: FEATURE_STATUS.AVAILABLE,
+    to: ROUTES.ADMIN_USERS,
+  },
+  {
+    area: AREA,
+    group: ADMIN_NAVIGATION_GROUP.ADMINISTRATION,
+    icon: Settings,
+    key: "settings",
     order: 30,
     placement: NAVIGATION_PLACEMENT.ADMIN,
-    to: ROUTES.ADMIN_VIDEOS,
+    status: FEATURE_STATUS.AVAILABLE,
+    to: ROUTES.ADMIN_SETTINGS,
   },
-  { key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
+  { area: AREA, icon: Home, key: "overview", order: 10, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP },
+  { area: AREA, icon: Settings, key: "settings", order: 30, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.APP_SETTINGS },
+  { area: AREA, column: FOOTER_COLUMN.PRODUCT, key: "signIn", order: 40, placement: NAVIGATION_PLACEMENT.FOOTER, to: ROUTES.SIGN_IN },
 ] as const satisfies readonly NavigationEntry[]
 ```
 
+Ein Admin-Eintrag gibt außerdem mit `status` (`FEATURE_STATUS` in `src/data/navigation.constants.ts`) an, ob sein Bereich funktioniert oder noch kommt; die Landingpage zählt nur die funktionierenden Bereiche.
+
+Der Lizenzbereich fügt der Seitenleiste des Kundenbereichs seinen Eintrag **Lizenz** hinzu, und der Inhaltsbereich fügt ihren Ressourcen über der Support-Adresse **Dokumentation** hinzu. Der Kernbereich deklariert nur `/` und `/api`.
+
 Eine Dashboard-Statistik hat ein `prefetch`, das der Loader von `/admin` ausführt, und einen Hook `useValue`, den `DashboardStats` aufruft, um die Zahl zu lesen.
 
-Beschriftungen bleiben im Namespace des Menüs, das sie anzeigt, unter dem `key` des Eintrags: `links.<key>` und `groups.<group>` in `pages.admin.sidebar`, `navigation.<key>` in `pages.app.sidebar`, `items.<key>` in `components.custom.navigation`, `links.<key>` und `columns.<column>` in `components.custom.footer` sowie `actions.<key>` und `stats.<key>.title` in `pages.admin.dashboard`. Jeder Bereich besitzt seine eigenen Schlüssel in diesen Dateien, und `enum-labels.test.ts` schlägt fehl, wenn einem Eintrag in einer Locale die Beschriftung fehlt.
+Ein Seiten-Skeleton verbindet das `to` der Seite mit ihrem `pendingComponent`, demselben Skeleton, das die Route der Seite setzt. Die Layout-Skeletons `AdminPending`, `AppPending` und `MarketingPending` zeichnen das Skeleton des aktuellen Pfads, wenn jemand ihr Layout von woanders betritt. Ein Bereich deklariert die Skeletons all seiner Seiten, gleich welches Layout sie anzeigt: Der Lizenzbereich deklariert `/app`, `/app/license` und `/premium`, der Bereich der Rechtstexte seine fünf öffentlichen Seiten.
 
-Ein Bereich, dessen Seiten der Worker bei jedem Request rendert, etwa `/admin`, `/auth` oder `/courses`, listet diese Pfade in `<AREA>_UNLISTED_ROUTES` auf. `vite.config.ts` nimmt sie mit `isUnlistedRoute` vom Prerendering aus, und `buildPageHead` gibt ihnen die Karte der Website statt einer Seitenkarte (siehe [Suche und Social-Media-Vorschauen](/docs/features/seo)). Vite löst den Alias `~` nicht auf, während es seine eigene Konfiguration lädt, deshalb importieren `unlisted.entries.ts` und `unlisted.ts` die Bereichsdateien über relative Pfade.
+Die Access-Datei eines Bereichs deklariert die Berechtigungs-Statements seiner Ressourcen und die Rollen, denen er sie gewährt. `auth.access.ts` baut die Zugriffskontrolle von Better Auth aus `APP_STATEMENTS` und jede Rolle aus `grantsOf(role)` auf, sodass die Auth-Integration keinen Bereich nennt, und `APP_STATEMENTS` schlägt fehl, wenn zwei Bereiche dieselbe Ressource deklarieren (siehe [Rollen und Berechtigungen](/docs/guides/roles-and-permissions)).
+
+Die Listen in `src/data/navigation.ts` und `PAGE_SKELETONS` haben deklarierte Typen, `NavigationEntry` und `PageSkeleton`, statt der Typen der Einträge, die die Bereiche gerade deklarieren. Eine Platzierung, die kein Bereich füllt, etwa die Dashboard-Aktionen in einem Projekt ohne den Produktbereich, ist deshalb eine leere Liste, die trotzdem die Typprüfung besteht. `navigation.test.ts` und `skeletons.test.ts` prüfen beim Kompilieren, dass das `to` jedes Eintrags und jedes Skeletons, das ein Bereich deklariert, ein Pfad des Routenbaums ist (`FileRouteTypes["to"]` aus `src/routeTree.gen.ts`).
+
+Ein Eintrag nennt mit `area` seinen Bereich, und der Bereich beschriftet ihn in seiner eigenen Nachrichtendatei: `<placement>.<key>` in `messages/<locale>/navigation.<area>.json`, etwa `admin.courses` und `header.courses` in `navigation.courses.json`. Eine Dashboard-Statistik wird über ihren `key` in `dashboard.<area>.json` beschriftet, und ein Admin-Abschnitt beschriftet seine Unterseiten für die Breadcrumbs unter `breadcrumbs.<segment>` in seiner `navigation.<area>.json`, etwa `breadcrumbs.create`; ein Tab der Benutzerverwaltung wird unter `userTabs.<key>` beschriftet, was den Tab und seine Seite in den Breadcrumbs benennt, und ein Dashboard-Panel hält seine Texte unter seinem `key` in `dashboard.<area>.json`. Beide Arten von Dateien sind Root-Namespaces, sodass jedes Menü jeden Eintrag beschriften kann, und `useNavigationLabel` in `src/hooks/use-navigation-label.ts` liefert die Beschriftung eines Eintrags. Was zum Menü selbst gehört, bleibt in dessen Namespace: `groups.<group>` in `pages.admin.sidebar`, `columns.<column>` in `components.custom.footer` und die Abschnitte der Landingpage in `components.custom.navigation`. `enum-labels.test.ts` schlägt fehl, wenn einem Eintrag oder einer Statistik in einer Locale die Beschriftung fehlt.
+
+Ein Bereich, dessen Seiten der Worker bei jedem Request rendert, etwa `/admin`, `/auth` oder `/courses`, listet diese Pfade in `<AREA>_UNLISTED_ROUTES` auf. Das TanStack-Start-Plugin in `src/data/tanstack.vite.ts` nimmt sie mit `isUnlistedRoute` vom Prerendering aus, und `buildPageHead` gibt ihnen die Karte der Website statt einer Seitenkarte (siehe [Suche und Social-Media-Vorschauen](/docs/features/seo)). Vite löst den Alias `~` nicht auf, während es seine eigene Konfiguration lädt, deshalb importieren `unlisted.entries.ts` und `unlisted.ts` die Bereichsdateien über relative Pfade.
 
 ## Verwandte Seiten
 

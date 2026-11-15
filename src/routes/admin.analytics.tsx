@@ -7,17 +7,17 @@ import { useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { ADMIN_ANALYTICS_TABS } from "~/src/data/admin"
+import { ADMIN_ANALYTICS_TABS } from "~/src/data/admin-analytics"
 
 import { pageHead } from "~/src/lib/seo"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/src/presentation/components/shadcn/tabs"
 
+import { AdminAnalyticsPending } from "~/src/presentation/components/custom/admin/analytics-pending"
 import { AnalyticsKpis } from "~/src/presentation/components/custom/admin/analytics/kpis"
 import { RegionsAndUpgrades } from "~/src/presentation/components/custom/admin/analytics/regions-and-upgrades"
 import { AnalyticsRevenueChart } from "~/src/presentation/components/custom/admin/analytics/revenue-chart"
-import { AdminAnalyticsPending } from "~/src/presentation/components/custom/admin/overview-pending"
 
 import { ROUTES } from "~/src/routes"
 

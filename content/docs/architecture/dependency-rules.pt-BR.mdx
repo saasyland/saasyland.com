@@ -5,15 +5,15 @@ description: "Quais pastas podem importar quais, e como o código exclusivo do s
 
 ## Direção dos imports
 
-| Pasta                     | Pode importar                                                                                                            | Não pode importar                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| `src/routes`              | apresentação, query/mutation options dos módulos, integrações (guards, i18n, Fumadocs), `src/data`, `src/lib`            | clientes de banco de dados ou de provedores fora de uma server function |
-| `src/presentation`        | options dos módulos, schemas Zod, constantes e tipos, hooks, `src/data`, `src/lib`, integrações seguras para o navegador | `db`, `auth` de `auth.server.ts`, Polar, Resend                         |
-| `src/modules/*/use-cases` | integrações (`db`, `auth`, `sendEmail`, `polar`), `_core`, schemas dos módulos, templates de e-mail                      | componentes                                                             |
-| `src/integrations`        | `_core`, schemas e casos de uso dos módulos que o fornecedor chama de volta                                              | componentes                                                             |
-| `src/server.ts`           | helpers de locale, cookies, constantes de `_core`, `MEDIA_PATH_PREFIX`, assets do documento                              | o banco de dados, o Better Auth ou o SDK do Polar                       |
+| Pasta                     | Pode importar                                                                                                                  | Não pode importar                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `src/routes`              | apresentação, query/mutation options dos módulos, integrações (guards, i18n, Fumadocs), `src/data`, `src/lib`                  | clientes de banco de dados ou de provedores fora de uma server function |
+| `src/presentation`        | options dos módulos, schemas Zod, constantes e tipos, hooks, `src/data`, `src/lib`, integrações seguras para o navegador       | `db`, `auth` de `auth.server.ts`, Polar, Resend                         |
+| `src/modules/*/use-cases` | integrações (`db`, `auth`, `sendEmail`, `polar`), `_core`, schemas dos módulos, templates de e-mail                            | componentes                                                             |
+| `src/integrations`        | `_core`, schemas e casos de uso dos módulos que o fornecedor chama de volta                                                    | componentes                                                             |
+| `src/server.ts`           | helpers de locale, cookies, constantes de `_core`, os handlers do Worker das áreas (`src/data/worker.ts`), assets do documento | o banco de dados, o Better Auth ou o SDK do Polar                       |
 
-Entre as integrações seguras para o navegador estão `i18n.paths.ts`, `i18n.utils.ts`, `auth.client.ts`, `auth.access.ts` e `form.fields.ts`.
+Entre as integrações seguras para o navegador estão `i18n.paths.ts`, `i18n.utils.ts`, `auth.client.ts`, `auth.access.ts`, `auth.roles.ts` e `form.fields.ts`. `auth.access.ts` lê as declarações de permissão das áreas em `src/data/access.ts`, e os arquivos de acesso das áreas importam de `auth.roles.ts` apenas os códigos de papel, de modo que um nunca importa o outro.
 
 ## Fronteiras do código exclusivo do servidor
 
@@ -21,7 +21,7 @@ Entre as integrações seguras para o navegador estão `i18n.paths.ts`, `i18n.ut
 - **Módulos exclusivos do servidor.** Arquivos que leem secrets ou bindings começam com `import "@tanstack/react-start/server-only"`, o que os mantém fora do build do cliente. Exemplos: `drizzle.database.ts`, `auth.server.ts`, `polar.config.ts`, `resend.utils.ts`, `src/lib/rate-limit.ts` e `i18n.middleware.ts`. A exceção são os arquivos que exportam uma server function, como `src/lib/github.ts` e `deactivate-license.ts`: os componentes os importam para a chamada RPC, então eles leem `env` apenas no handler e nos helpers que ele chama, que o build deixa fora do bundle do cliente.
 - **Funções específicas de cada ambiente.** `createServerOnlyFn` envolve código que só roda no servidor (`getRequestSession`). `createIsomorphicFn` fornece implementações separadas para o servidor e para o navegador (`getCurrentLocale`).
 - **Bindings e secrets** vêm de `env` em `cloudflare:workers` e só são lidos por código de servidor: módulos exclusivos do servidor, handlers de server functions e helpers que só eles importam. `scripts/verify-build.ts` faz o build falhar quando um asset do cliente importa `cloudflare:workers`.
-- **Entrada do Worker.** `src/server.ts` roda em toda requisição, exceto `/assets/*`, `/fonts/*`, `/robots.txt` e `/llms.txt`, que `run_worker_first` em `wrangler.jsonc` serve diretamente dos assets estáticos. Ele mantém seus imports estáticos enxutos: carrega `serveMedia` com um `import()` dinâmico apenas para caminhos `/media/`, e o handler do TanStack Start apenas quando nenhum asset estático corresponde.
+- **Entrada do Worker.** `src/server.ts` roda em toda requisição, exceto `/assets/*`, `/fonts/*`, `/robots.txt` e `/llms.txt`, que `run_worker_first` em `wrangler.jsonc` serve diretamente dos assets estáticos. Ele mantém seus imports estáticos enxutos, e os handlers do Worker das áreas, que ele importa estaticamente, seguem a mesma regra: o da área de cursos carrega `serveMedia` com um `import()` dinâmico apenas para caminhos `/media/`, o da área de licenças carrega `serveBundle` apenas para caminhos `/bundles/`, e `server.ts` carrega o handler do TanStack Start apenas quando nenhum asset estático corresponde.
 
 ```ts
 import "@tanstack/react-start/server-only"

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
-import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { NAVIGATION_SECTIONS } from "~/src/data/marketing"
 import { NAVIGATION_PAGES } from "~/src/data/navigation"
@@ -15,6 +15,7 @@ import { NAVIGATION_PAGES } from "~/src/data/navigation"
 import { Navigation } from "~/src/presentation/components/custom/navigation"
 
 import navigationMessages from "~/messages/en-US/components.custom.navigation.json"
+import { APP_NAME } from "~/src/presentation/branding"
 
 interface ResizeEntry {
   contentRect: Pick<DOMRectReadOnly, "height">
@@ -29,6 +30,9 @@ interface TestObserver {
 
 const SECTION_BAND = "-42% 0px -58% 0px"
 
+const pageLabel = getNavigationLabel("en-US")
+
+const browserWindow: Window = globalThis.window
 const observers: TestObserver[] = []
 const resizeCallbacks: ((entries: ResizeEntry[]) => void)[] = []
 const observeSize = vi.fn<(element: Element) => void>()
@@ -140,11 +144,11 @@ describe("public navigation links", () => {
     renderNavigation()
     const nav = screen.getByRole("navigation", { name: navigationMessages.ariaLabel })
 
-    expect(within(nav).getByRole("link", { name: "SaaSy Land" })).toHaveAttribute("href", "/")
+    expect(within(nav).getByRole("link", { name: APP_NAME })).toHaveAttribute("href", "/")
     expect(within(nav).getAllByRole("link", { name: navigationMessages.signIn })[0]).toHaveAttribute("href", "/auth/sign-in")
     expect(within(nav).getByRole("link", { name: navigationMessages.getStarted })).toHaveAttribute("href", "/#pricing")
     for (const page of NAVIGATION_PAGES) {
-      expect(within(nav).getByRole("link", { name: navigationMessages.items[page.key] })).toHaveAttribute("href", page.to)
+      expect(within(nav).getByRole("link", { name: pageLabel(page) })).toHaveAttribute("href", page.to)
     }
     for (const section of NAVIGATION_SECTIONS) {
       expect(within(nav).getByRole("link", { name: navigationMessages.items[section] })).toHaveAttribute("href", `/#${section}`)
@@ -207,7 +211,7 @@ describe("mobile menu", () => {
 
     await open()
     for (const page of NAVIGATION_PAGES) {
-      expect(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items[page.key] })).toHaveAttribute("href", page.to)
+      expect(within(openedMobileMenu()).getByRole("link", { name: pageLabel(page) })).toHaveAttribute("href", page.to)
     }
     for (const section of NAVIGATION_SECTIONS) {
       expect(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items[section] })).toHaveAttribute(
@@ -218,9 +222,11 @@ describe("mobile menu", () => {
     await user.click(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items.foundation }))
     expect(mobileMenu()).not.toBeInTheDocument()
 
-    await open()
-    await user.click(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items.blog }))
-    expect(mobileMenu()).not.toBeInTheDocument()
+    for (const page of NAVIGATION_PAGES) {
+      await open()
+      await user.click(within(openedMobileMenu()).getByRole("link", { name: pageLabel(page) }))
+      expect(mobileMenu()).not.toBeInTheDocument()
+    }
 
     await open()
     const remove = vi.spyOn(document, "removeEventListener")
@@ -244,7 +250,7 @@ describe("navigation scroll progress", () => {
 
   it("uses the native scroll timeline without fallback observers or scroll listeners", () => {
     supports.mockReturnValue(true)
-    const addListener = vi.spyOn(globalThis, "addEventListener")
+    const addListener = vi.spyOn(browserWindow, "addEventListener")
     const { container, unmount } = renderNavigation()
 
     expect(progressBar(container)).toHaveAttribute("aria-hidden", "true")
@@ -296,8 +302,8 @@ describe("navigation scroll progress", () => {
   })
 
   it("removes fallback listeners and disconnects every observer on unmount", () => {
-    const addListener = vi.spyOn(globalThis, "addEventListener")
-    const removeListener = vi.spyOn(globalThis, "removeEventListener")
+    const addListener = vi.spyOn(browserWindow, "addEventListener")
+    const removeListener = vi.spyOn(browserWindow, "removeEventListener")
     const { container, unmount } = renderNavigation()
     const progress = progressBar(container)
     resizeBody(1800)

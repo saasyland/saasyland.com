@@ -32,7 +32,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { pageHead } from "~/src/lib/seo"
 
-import { AdminReportsPending } from "~/src/presentation/components/custom/admin/overview-pending"
+import { AdminReportsPending } from "~/src/presentation/components/custom/admin/reports-pending"
 import { ReportStats } from "~/src/presentation/components/custom/admin/reports/report-stats"
 
 import { ROUTES } from "~/src/routes"
@@ -70,14 +70,23 @@ export const Route = createFileRoute("/admin/reports")({
 })
 ```
 
-Queries, die die Seite benötigt, kommen in dasselbe `Promise.all`, zum Beispiel `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` in `src/routes/admin.users.all.tsx`. `pageHead` erzeugt Titel, Beschreibung, kanonische URL und Links zu den anderen Locales aus den `metadata` des Loaders. `AdminReportsPending` ist das eigene Skeleton der Seite und erscheint nur, wenn eine Navigation länger als eine Sekunde dauert. Das Skeleton in der Datei der Sidebar-Gruppe der Seite (`overview-pending.tsx`, `offerings-pending.tsx`, `content-pending.tsx` oder `administration-pending.tsx` in `custom/admin/`) aus den Bausteinen in `pending-blocks.tsx` aufbauen, sodass es das Layout der Seite nachbildet. Anschließend in `admin-pending.tsx` zu `ADMIN_PAGES` hinzufügen, damit das Skeleton des Admin-Layouts es anzeigt, wenn jemand `/admin/reports` von außerhalb des Admin-Bereichs aufruft. Siehe [Lade-Skeletons](/docs/architecture/delivery-layer#lade-skeletons).
+Queries, die die Seite benötigt, kommen in dasselbe `Promise.all`, zum Beispiel `context.queryClient.query({ ...getUsersQuery, staleTime: "static" })` in `src/routes/admin.users.all.tsx`. `pageHead` erzeugt Titel, Beschreibung, kanonische URL und Links zu den anderen Locales aus den `metadata` des Loaders. `AdminReportsPending` ist das eigene Skeleton der Seite und erscheint nur, wenn eine Navigation länger als eine Sekunde dauert. Das Skeleton in der Skeleton-Datei seines Bereichs, hier einer neuen `custom/admin/reports-pending.tsx`, aus den Bausteinen in `pending-blocks.tsx` aufbauen, sodass es das Layout der Seite nachbildet. Anschließend in die Skeleton-Liste des Bereichs eintragen, hier `REPORTS_SKELETONS` in einer neuen `src/data/reports.skeletons.ts`, und die neue Datei in das Barrel `src/data/skeletons.entries.ts` eintragen, damit das Skeleton des Admin-Layouts es anzeigt, wenn jemand `/admin/reports` von außerhalb des Admin-Bereichs aufruft:
+
+```ts
+export const REPORTS_SKELETONS = [
+  { pendingComponent: AdminReportsPending, to: ROUTES.ADMIN_REPORTS },
+] as const satisfies readonly PageSkeleton[]
+```
+
+Siehe [Lade-Skeletons](/docs/architecture/delivery-layer#lade-skeletons).
 
 ## 3. Sidebar-Eintrag hinzufügen
 
-Der Menüliste des Bereichs einen Eintrag mit `placement: NAVIGATION_PLACEMENT.ADMIN` hinzufügen, hier `REPORTS_NAVIGATION` in einer neuen `src/data/reports.navigation.ts`, und eine neue Datei in das Barrel `src/data/navigation.entries.ts` eintragen. Der Eintrag nennt seine Sidebar-Gruppe, sein `lucide-react`-Icon und sein `order` innerhalb der Gruppe: Dashboard hat 10 und Analytics 20, also setzt 30 Reports dahinter.
+Der Menüliste des Bereichs einen Eintrag mit `placement: NAVIGATION_PLACEMENT.ADMIN` hinzufügen, hier `REPORTS_NAVIGATION` in einer neuen `src/data/reports.navigation.ts`, und eine neue Datei in das Barrel `src/data/navigation.entries.ts` eintragen. Der Eintrag nennt seinen Bereich (`area`), seine Sidebar-Gruppe, sein `lucide-react`-Icon und sein `order` innerhalb der Gruppe: Dashboard hat 10 und Analytics 20, also setzt 30 Reports dahinter.
 
 ```ts
 {
+  area: AREA,
   group: ADMIN_NAVIGATION_GROUP.OVERVIEW,
   icon: FileText,
   key: "reports",
@@ -87,7 +96,7 @@ Der Menüliste des Bereichs einen Eintrag mit `placement: NAVIGATION_PLACEMENT.A
 },
 ```
 
-`links.reports` in jeder Locale zu `messages/<locale>/pages.admin.sidebar.json` hinzufügen. Eine neue Gruppe benötigt zusätzlich einen Wert in `ADMIN_NAVIGATION_GROUP`, ihren Platz in `ADMIN_NAVIGATION_GROUPS` und `groups.<group>`. Sidebar, Breadcrumbs und die ⌘K-Befehlspalette lesen alle `ADMIN_NAVIGATION` (`src/data/navigation.ts`), sodass die Seite an allen drei Stellen erscheint. Die Landingpage zählt sie zu den Admin-Bereichen, und die Admin-Leiste des Landingpage-Videos `app-tour` führt sie auf, sobald das Video neu gerendert wurde (siehe `remotion/README.md`). Ein drittes URL-Segment wie `/admin/reports/create` zeigt die Breadcrumb-Beschriftung `components.breadcrumbs.actions.create` aus `pages.admin.json`.
+Den Eintrag in jeder Locale mit `admin.reports` in der `messages/<locale>/navigation.reports.json` des Bereichs beschriften. Eine neue Gruppe benötigt zusätzlich einen Wert in `ADMIN_NAVIGATION_GROUP`, ihren Platz in `ADMIN_NAVIGATION_GROUPS` und `groups.<group>`. Sidebar, Breadcrumbs und die ⌘K-Befehlspalette lesen alle `ADMIN_NAVIGATION` (`src/data/navigation.ts`), sodass die Seite an allen drei Stellen erscheint. Die Landingpage zählt sie zu den Admin-Bereichen, und die Admin-Leiste des Landingpage-Videos `app-tour` führt sie auf, sobald das Video neu gerendert wurde (siehe `remotion/README.md`). Ein drittes URL-Segment wie `/admin/reports/create` zeigt die Breadcrumb-Beschriftung `breadcrumbs.create` aus derselben `navigation.reports.json`, wenn der Bereich sie definiert, und keinen dritten Breadcrumb, wenn nicht.
 
 ## 4. Seiten-Messages hinzufügen
 
@@ -110,4 +119,4 @@ Jedes Widget, jeden Dialog, jedes Formular und jeden Satz Tabellenspalten in ein
 
 - Der Layout-Guard regelt den Seitenzugriff. Jede Server-Funktion, die die Seite aufruft, benötigt trotzdem `authorized(permission)`; siehe [Rollen und Berechtigungen](/docs/guides/roles-and-permissions).
 - `/admin` ist vom Prerendering ausgeschlossen.
-- Route-Tests neben den bestehenden in `src/routes/__test__/` und Widget-Tests in `src/presentation/components/custom/admin/__test__/` hinzufügen, danach `bun run check:i18n` und `bun run test:coverage` ausführen.
+- Route-Tests des Bereichs in `src/routes/__test__/admin-<area>-routes.component.test.tsx` und `admin-<area>-loaders.test.ts`, Widget-Tests in `src/presentation/components/custom/admin/__test__/` und die Seite in `e2e/data/<area>.pages.ts` hinzufügen, danach `bun run check:i18n` und `bun run test:coverage` ausführen.

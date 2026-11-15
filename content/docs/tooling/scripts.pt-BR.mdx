@@ -17,21 +17,21 @@ Execute os scripts a partir da raiz do repositório com `bun run <script>`. Os s
 | `start`            | `vp preview` do build mais recente em http://127.0.0.1:3000                                                                                                                    |
 | `start:test`       | `vp preview` do build de testes                                                                                                                                                |
 
-`verify-build.ts` verifica se `.wrangler/deploy/config.json` aponta para `dist/server/wrangler.json` e se esse arquivo faz o deploy do Worker que o `wrangler.jsonc` define para o ambiente e, em seguida, o idioma do documento, os links canônicos e alternativos da página inicial e das páginas legais localizadas, as fontes, que páginas protegidas e aliases de locale não foram pré-renderizados, que todas as páginas da documentação e todos os posts publicados do blog foram pré-renderizados e que nenhum asset do cliente importa `cloudflare:workers`. `optimize-prerendered-html.ts` remove das páginas pré-renderizadas as dicas `modulepreload` de dependências e mantém a dica da entrada com baixa prioridade. `generate-seo-files.ts` grava o `sitemap.xml` e renderiza um card social para cada página pré-renderizada a partir dos metadados da própria página; veja [Busca e prévias em redes sociais](/docs/features/seo).
+`verify-build.ts` verifica se `.wrangler/deploy/config.json` aponta para `dist/server/wrangler.json` e se esse arquivo faz o deploy do Worker que o `wrangler.jsonc` define para o ambiente e, em seguida, o idioma do documento, os links canônicos e alternativos da página inicial e das páginas legais localizadas, as fontes, que aliases de locale e as páginas sob os caminhos não listados das áreas não foram pré-renderizados, que todas as páginas da documentação e todos os posts publicados do blog foram pré-renderizados e que nenhum asset do cliente importa `cloudflare:workers`. `optimize-prerendered-html.ts` remove das páginas pré-renderizadas as dicas `modulepreload` de dependências e mantém a dica da entrada com baixa prioridade. `generate-seo-files.ts` grava o `sitemap.xml` e renderiza um card social para cada página pré-renderizada a partir dos metadados da própria página; veja [Busca e prévias em redes sociais](/docs/features/seo).
 
 ## Deploy
 
-| Script              | Executa                                                                                                                                                                                                                                     |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `polar:verify:preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` de `dist/server/wrangler.json` e `scripts/verify-deployment.ts preview` |
-| `deploy:production` | As mesmas etapas para `production`                                                                                                                                                                                                          |
+| Script              | Executa                                                                                                                                                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy:preview`    | `scripts/verify-bindings.ts preview`, `scripts/run-deploy-checks.ts preview`, `build:preview`, `scripts/prepare-deploy-secrets.ts preview`, `db:migrate:preview`, `wrangler deploy` de `dist/server/wrangler.json` e `scripts/verify-deployment.ts preview` |
+| `deploy:production` | As mesmas etapas para `production`                                                                                                                                                                                                                          |
 
-- `verify-bindings.ts` falha quando o ambiente não tem um binding `DB`, `CACHE` ou `MEDIA` ou ainda tem um ID de D1 ou KV de placeholder, e quando a produção compartilha com o preview o banco de dados, o namespace ou o bucket.
-- `polar:verify:<environment>` interrompe o deploy antes do build quando a organização do Polar em `.env.<environment>` não corresponde ao código.
+- `verify-bindings.ts` falha quando falta ao ambiente um binding que `development` declara (aqui `DB`, `CACHE`, `MEDIA` e `BUNDLES`) ou ainda tem um ID de D1 ou KV de placeholder, e quando a produção compartilha com o preview o banco de dados, o namespace ou o bucket.
+- `run-deploy-checks.ts` executa `bun run <check>:<environment>` para cada verificação de deploy que uma área declara em `src/data/<area>.deploy.ts` e interrompe o deploy antes do build quando uma falha. Hoje a única é `polar:verify`, da área do Polar, que falha quando a organização do Polar em `.env.<environment>` não corresponde ao código.
 - `prepare-deploy-secrets.ts` lê de `.env.<environment>` as chaves listadas em `secrets.required` do ambiente, falha quando alguma está ausente ou vazia e grava apenas essas chaves em `.wrangler/secrets.<environment>.json`. As outras variáveis do arquivo não são enviadas.
 - As migrações rodam depois do build e antes do deploy, então um build com falha nunca toca o banco de dados e o novo Worker nunca inicia com um schema antigo.
 - O deploy executa `env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.<environment>.json`. A configuração gerada pelo build já aponta para um único ambiente; um `CLOUDFLARE_ENV` que tenha ficado no shell faria o Wrangler procurar uma seção de ambiente que esse arquivo não tem.
-- `verify-deployment.ts` faz requisições a <RepositoryFact name="liveSiteCheckPaths" /> no domínio do ambiente e falha a menos que cada um responda `200` com o tipo de conteúdo esperado. Ele tenta três vezes um caminho que falha, com cinco segundos de intervalo, e não altera nada. `bun scripts/verify-deployment.ts <preview|production>` verifica um site no ar de forma independente.
+- `verify-deployment.ts` faz requisições a <RepositoryFact name="liveSiteCheckPaths" /> no domínio do ambiente e falha a menos que cada um responda `200` com o tipo de conteúdo esperado. Ele tenta de novo um caminho que falha até <RepositoryFact name="liveSiteCheckRetries" /> vezes, com <RepositoryFact name="liveSiteCheckRetrySeconds" unit="second" /> de intervalo, e não altera nada. `bun scripts/verify-deployment.ts <preview|production>` verifica um site no ar de forma independente.
 
 ## Verificações
 
@@ -48,28 +48,29 @@ Execute os scripts a partir da raiz do repositório com `bun run <script>`. Os s
 
 ## Testes
 
-| Script                                                                                            | Executa                                                   |
-| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `test`                                                                                            | `vp test run` para todos os projetos do Vitest            |
-| `test:unit`, `test:integration`, `test:component`                                                 | Um projeto do Vitest (`node`, `integration`, `component`) |
-| `test:changed`                                                                                    | Testes afetados pelos arquivos alterados                  |
-| `test:watch`                                                                                      | Vitest em modo watch                                      |
-| `test:coverage`                                                                                   | Todos os projetos com a verificação de cobertura          |
-| `test:all`                                                                                        | `test` e, depois, `test:e2e:smoke`                        |
-| `test:e2e`, `test:e2e:smoke`, `test:e2e:pr`, `test:e2e:headed`, `test:e2e:ui`, `test:e2e:install` | Playwright; veja [Playwright](/docs/tooling/playwright)   |
+| Script                                                                                            | Executa                                                                                                              |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `test`                                                                                            | `vp test run` para todos os projetos do Vitest                                                                       |
+| `test:unit`, `test:integration`, `test:component`                                                 | Um projeto do Vitest (`node`, `integration`, `component`)                                                            |
+| `test:changed`                                                                                    | Testes afetados pelos arquivos alterados                                                                             |
+| `test:watch`                                                                                      | Vitest em modo watch                                                                                                 |
+| `test:coverage`                                                                                   | Todos os projetos com a verificação de cobertura                                                                     |
+| `test:all`                                                                                        | `test` e, depois, `test:e2e:smoke`                                                                                   |
+| `test:e2e`, `test:e2e:smoke`, `test:e2e:pr`, `test:e2e:headed`, `test:e2e:ui`, `test:e2e:install` | Playwright; veja [Playwright](/docs/tooling/playwright)                                                              |
+| `test:journey`                                                                                    | A suíte da jornada do cliente no preview; veja [Suíte da jornada do cliente](/docs/tooling/playwright#journey-suite) |
 
 ## Banco de dados
 
-| Script                                                                           | Executa                                                                  |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `db:generate`                                                                    | Geração de migrações com o drizzle-kit                                   |
-| `db:migrate:local`, `db:migrate:test`                                            | Migrações do Wrangler em um banco de dados local                         |
-| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Migrações do Wrangler em um banco de dados remoto                        |
-| `db:migrations:development`, `db:migrations:preview`, `db:migrations:production` | As migrações que um banco de dados remoto ainda não aplicou              |
-| `db:seed:test`                                                                   | `scripts/seed-test.ts`: contas de teste, um vídeo e um curso             |
-| `db:reset:test`                                                                  | Apaga `.wrangler/test` e, em seguida, `db:migrate:test` e `db:seed:test` |
-| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                                           |
-| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Introspecção do drizzle-kit                                              |
+| Script                                                                           | Executa                                                                   |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `db:generate`                                                                    | Geração de migrações com o drizzle-kit                                    |
+| `db:migrate:local`, `db:migrate:test`                                            | Migrações do Wrangler em um banco de dados local                          |
+| `db:migrate:development`, `db:migrate:preview`, `db:migrate:production`          | Migrações do Wrangler em um banco de dados remoto                         |
+| `db:migrations:development`, `db:migrations:preview`, `db:migrations:production` | As migrações que um banco de dados remoto ainda não aplicou               |
+| `db:seed:test`                                                                   | `scripts/seed-test.ts`: contas de teste, uma licença, um vídeo e um curso |
+| `db:reset:test`                                                                  | Apaga `.wrangler/test` e, em seguida, `db:migrate:test` e `db:seed:test`  |
+| `db:studio:development`, `db:studio:preview`, `db:studio:production`             | Drizzle Studio                                                            |
+| `db:introspect:development`, `db:introspect:preview`, `db:introspect:production` | Introspecção do drizzle-kit                                               |
 
 ## Vídeos
 

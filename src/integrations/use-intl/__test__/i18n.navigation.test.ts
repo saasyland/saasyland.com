@@ -26,15 +26,17 @@ it("keeps external and fragment links unchanged", () => {
 })
 it("normalizes locale roots and prefixed API links", () => {
   expect(deLocalizePathname("/pl-PL")).toBe("/")
+  expect(canonicalizePathname("/pl-PL")).toBe("/pl-PL")
+  expect(canonicalizePathname("/pl")).toBe("/pl-PL")
   expect(canonicalizePathname("/pl-PL/api/search")).toBe("/api/search")
 })
 it.each([
-  { locale: "pl-PL", url: "https://saasyland.com/api/auth/verify-email?token=t&callbackURL=%2Fpl-PL%2Fapp" },
-  { locale: "de-DE", url: "https://saasyland.com/api/auth/verify-email?token=t&callbackURL=https%3A%2F%2Fsaasyland.com%2Fde-DE%2Fapp" },
-  { locale: undefined, url: "https://saasyland.com/api/auth/reset-password/t?callbackURL=%2Fauth%2Freset-password" },
-  { locale: undefined, url: "https://saasyland.com/api/auth/reset-password/t?callbackURL=" },
-  { locale: undefined, url: "https://saasyland.com/api/auth/reset-password/t?callbackURL=http%3A%2F%2F%5B%2Fpl-PL" },
-  { locale: undefined, url: "https://saasyland.com/pl-PL/api/auth/verify-email?token=t" },
+  { locale: "pl-PL", url: "https://example.com/api/auth/verify-email?token=t&callbackURL=%2Fpl-PL%2Fapp" },
+  { locale: "de-DE", url: "https://example.com/api/auth/verify-email?token=t&callbackURL=https%3A%2F%2Fexample.com%2Fde-DE%2Fapp" },
+  { locale: undefined, url: "https://example.com/api/auth/reset-password/t?callbackURL=%2Fauth%2Freset-password" },
+  { locale: undefined, url: "https://example.com/api/auth/reset-password/t?callbackURL=" },
+  { locale: undefined, url: "https://example.com/api/auth/reset-password/t?callbackURL=http%3A%2F%2F%5B%2Fpl-PL" },
+  { locale: undefined, url: "https://example.com/pl-PL/api/auth/verify-email?token=t" },
 ])("reads $locale from the page an auth link returns to: $url", ({ locale, url }) => {
   expect(extractLocaleFromCallbackURL(url)).toBe(locale)
 })

@@ -36,20 +36,20 @@ const LAST_INDEX_OFFSET = 1
 const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 ```
 
-Pierwsze dwie pochodzą z `get-course-editor.ts` i `course-columns.tsx`, trzecia z `vite.config.ts`: każda z nich wymagałaby inaczej komentarza. Pliki generowane (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) są z tej reguły zwolnione. Przed commitem przeszukaj swój diff pod kątem `//`, `/*` i `{/*`.
+Pierwsze dwie pochodzą z `get-course-editor.ts` i `course-columns.tsx`, trzecia z `src/data/polar.vite.ts`: każda z nich wymagałaby inaczej komentarza. Pliki generowane (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) są z tej reguły zwolnione. Przed commitem przeszukaj swój diff pod kątem `//`, `/*` i `{/*`.
 
 ## Bez furtek
 
 Nigdy nie pisz `oxlint-disable`, `eslint-disable`, `@ts-expect-error`, `@ts-ignore`, `@ts-nocheck`, rzutowania `as` ani `any`, żeby reguła przeszła. Reguła, która się zgłasza, wskazuje problem w projekcie kodu; zmień projekt.
 
 - **Waliduj zamiast stosować asercje typów.** Dane z magazynu, sieci lub żądania są parsowane przez Zod: `src/lib/github.ts` odczytuje zapisaną w cache liczbę gwiazdek przez `cachedStarCountSchema.safeParse(await env.CACHE.get(CACHE_KEY, "json")).data`, co daje liczbę albo `undefined`, nigdy domysł.
-- **Zawężaj strażnikiem typu.** `isRole` w `src/integrations/better-auth/auth.access.ts` i `isErrorCode` w `src/hooks/use-error-message.ts` zamieniają `string` w unię dzięki prawdziwemu sprawdzeniu.
+- **Zawężaj strażnikiem typu.** `isRole` w `src/integrations/better-auth/auth.roles.ts` i `isErrorCode` w `src/hooks/use-error-message.ts` zamieniają `string` w unię dzięki prawdziwemu sprawdzeniu.
 - **Sprawdzaj, nie konwertuj.** `as const` i `satisfies` są dozwolone, ponieważ nigdy nie zmieniają typu: `POLAR_ORDER_STATUS` kończy się na `as const satisfies Record<string, models.OrderStatus>`, więc literówka w statusie Polar nie przejdzie kompilacji.
 - **Przebuduj kod, gdy kontrakt biblioteki z Tobą walczy.** Opakuj wartość w obiekt, podziel funkcję lub odczytaj dane z typowanego źródła zamiast rzutować.
 
 ## Null i undefined
 
-Poza testami i `src/platform/testing` brakująca wartość to `undefined`, a `null` nigdy nie jest zapisywany jako wartość. Linter dopuszcza go tam, gdzie wymaga tego API: w porównaniu z wartością, która może być `null`, na przykład z kolumną dopuszczającą `NULL` (`entry.completedAt !== null` w `get-course.ts`), oraz w referencji React do elementu DOM, która zaczyna się od `useRef<HTMLElement>(null)`, bo React typuje `ref` jako `RefObject<T | null>` i przy odmontowaniu ustawia go z powrotem na `null` (`course-showcase.tsx`). Nigdy nie zamieniaj `null` zwracanego przez API na brak wartości za pomocą `?? undefined`. Najpierw zwaliduj dane wejściowe, żeby wywołanie nie mogło się nie powieść, albo użyj parsera, który już zwraca `undefined`. Najczęstszym przypadkiem są parametry wyszukiwania, a `searchParam(schema)` w `src/lib/search-params.ts` zwraca `undefined` dla brakującej lub błędnej wartości:
+Poza testami i `src/platform/testing` brakująca wartość to `undefined`, a `null` nigdy nie jest zapisywany jako wartość. Linter dopuszcza go tam, gdzie wymaga tego API: w porównaniu z wartością, która może być `null`, na przykład z kolumną dopuszczającą NULL (`entry.completedAt !== null` w `get-course.ts`), oraz w referencji React do elementu DOM, która zaczyna się od `useRef<HTMLElement>(null)`, bo React typuje `ref` jako `RefObject<T | null>` i przy odmontowaniu ustawia go z powrotem na `null` (`course-showcase.tsx`). Nigdy nie zamieniaj `null` zwracanego przez API na brak wartości za pomocą `?? undefined`. Najpierw zwaliduj dane wejściowe, żeby wywołanie nie mogło się nie powieść, albo użyj parsera, który już zwraca `undefined`. Najczęstszym przypadkiem są parametry wyszukiwania, a `searchParam(schema)` w `src/lib/search-params.ts` zwraca `undefined` dla brakującej lub błędnej wartości:
 
 ```ts
 export const authSearchSchema = zod.object({
@@ -80,7 +80,7 @@ export const hasLessonAccess = (access: Lesson["select"]["access"], viewer: View
     return viewer.userId !== undefined
   }
 
-  return viewer.licensed
+  return viewer.entitled
 }
 ```
 
@@ -97,10 +97,10 @@ export const COURSE_STATUS = {
 
 Krotka potrzebna kolumnie lub schematowi enum jest budowana z obiektu, a nie przepisywana: `course.schema.ts` deklaruje `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, z której korzystają zarówno `text("status", { enum: COURSE_STATUSES })`, jak i `zod.enum(COURSE_STATUSES)`. Krotkę, którą czyta też kod przeglądarki, deklaruje się zamiast tego w stałych modułu, które nie importują niczego z Drizzle: tabela cen iteruje po `LICENSE_TIERS` z `license.constants.ts`.
 
-- Stałe modułu znajdują się w jego `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); wartości dostawcy znajdują się w pliku `*.constants.ts` integracji (`POLAR_ORDER_STATUS` w `polar.constants.ts`, `AUTH_PROVIDER` w `auth.constants.ts`, `EMAIL_PURPOSE` w `resend.constants.ts`).
+- Stałe modułu znajdują się w jego `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); wartości dostawcy znajdują się w pliku `*.constants.ts` integracji (`POLAR_ORDER_STATUS` w `polar.constants.ts`, `AUTH_PROVIDER` w `auth.constants.ts`).
 - Długości kolumn i danych wejściowych są nazywane raz, w stałych modułu, i odczytywane zarówno przez schemat Drizzle, jak i schemat Zod: `PRODUCT_NAME_MAX_LENGTH` w `product.constants.ts`.
 - Jedno pojęcie ma jedną mapę w jednej konwencji wielkości liter: `ERROR_CODES` dla błędów serwera, `AUTH_ERRORS` dla kluczy błędów Better Auth, `ROLE_CODES` dla ról.
-- Nazwy środowisk i kody statusu HTTP deklaruje się raz, w `src/modules/_core/constants/api.ts`: `ENVIRONMENT.PRODUCTION` w `__root.tsx` i w skryptach wdrożeniowych, `HTTP_STATUS.PARTIAL_CONTENT` w obsłudze mediów w Workerze. Żaden plik nie deklaruje własnej mapy żadnego z nich. Jedynym wyjątkiem jest `vite.config.ts`, który porównuje `mode` z samymi nazwami: Vite ładuje konfigurację, zanim rozwiąże alias `~`, więc nie może ona importować `api.ts`.
+- Nazwy środowisk i kody statusu HTTP deklaruje się raz, w `src/modules/_core/constants/api.ts`: `ENVIRONMENT.PRODUCTION` w `__root.tsx` i w skryptach wdrożeniowych, `HTTP_STATUS.PARTIAL_CONTENT` w obsłudze mediów w Workerze. Żaden plik nie deklaruje własnej mapy żadnego z nich. Jedynym wyjątkiem są pliki pluginów Vite, takie jak `src/data/cloudflare.vite.ts`, które porównują `mode` z samymi nazwami: Vite ładuje je, zanim rozwiąże alias `~`, więc nie mogą importować `api.ts`.
 - Stała używana w jednym pliku zostaje w tym pliku, pod importami. Stała używana w kilku plikach trafia do swojego modułu, do `src/data` (zobacz [Pliki i nazewnictwo](/docs/conventions/files-and-naming)) lub do `src/modules/_core/constants`. Nigdy nie dawaj jednej stałej osobnego pliku.
 - Typowane nazwy pól API, takie jak `license_key_id`, są właściwościami, a nie wartościami, i pozostają dostępem do właściwości.
 

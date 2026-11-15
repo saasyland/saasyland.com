@@ -7,6 +7,9 @@ import { toast } from "sonner"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
+import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
+
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
@@ -32,6 +35,7 @@ import type { deleteLessonMutation } from "~/src/modules/lesson/use-cases/delete
 import type { moveLessonMutation } from "~/src/modules/lesson/use-cases/move-lesson"
 import type { updateLessonMutation } from "~/src/modules/lesson/use-cases/update-lesson"
 import { getVideosPageQuery } from "~/src/modules/video/use-cases/get-videos"
+import { VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 import type { Video } from "~/src/modules/video/video.types"
 
 import { Route as AdminCoursesRoute } from "~/src/routes/admin.courses"
@@ -39,8 +43,19 @@ import { Route as CourseEditorRoute } from "~/src/routes/admin.courses.$courseId
 import { Route as CourseCreateRoute } from "~/src/routes/admin.courses.create"
 import { Route as CourseListRoute } from "~/src/routes/admin.courses.index"
 
+import { breadcrumbDividers, renderAdminPage } from "~/src/presentation/components/custom/admin/__test__/fixtures"
+import { AdminPending } from "~/src/presentation/components/custom/admin/admin-pending"
+import {
+  AdminCourseCreatePending,
+  AdminCourseEditorPending,
+  AdminCourseSectionPending,
+  AdminCoursesPending,
+  AdminVideosPending,
+} from "~/src/presentation/components/custom/admin/courses-pending"
+
 import validations from "~/messages/en-US/course.validations.json"
 import errors from "~/messages/en-US/errors.json"
+import createLabels from "~/messages/en-US/pages.admin.courses.create.json"
 import labels from "~/messages/en-US/pages.admin.courses.json"
 import type { RouterContext } from "~/src/router"
 
@@ -99,7 +114,6 @@ vi.mock(import("~/src/modules/lesson/use-cases/move-lesson"), () => ({
 const UPDATED_AT = new Date("2026-11-01T12:00:00Z")
 const COURSE_ID = "01960000-0000-7000-8000-00000000c001"
 const CREATED_ID = "01960000-0000-7000-8000-00000000c009"
-const VIDEO_LIBRARY_PAGE_SIZE = 100
 
 const VIDEO: Video["select"] = {
   captionLocales: [],
@@ -347,6 +361,12 @@ describe("admin course list", () => {
 })
 
 describe("admin course creation", () => {
+  it("renders the course form with its translated title and controls", () => {
+    renderAdminPage(CourseCreateRoute.options.component)
+    expect(screen.getByRole("heading", { name: createLabels.metadata.title })).toBeVisible()
+    expect(screen.getAllByRole("button").length).toBeGreaterThan(0)
+  })
+
   it("explains what is missing before creating anything", async () => {
     const { user } = await renderAdminCourses("/admin/courses/create")
 
@@ -653,5 +673,28 @@ describe("admin course lessons", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(errors.codes.NOT_FOUND)
     })
+  })
+})
+
+describe("admin course skeletons", () => {
+  it.each([
+    ["/admin/courses", AdminPending, AdminCoursesPending],
+    ["/admin/courses/create", AdminPending, AdminCourseCreatePending],
+    ["/admin/videos", AdminPending, AdminVideosPending],
+    ["/admin/courses", AdminCourseSectionPending, AdminCoursesPending],
+    ["/pl-PL/admin/courses/create", AdminCourseSectionPending, AdminCourseCreatePending],
+    [`/admin/courses/${COURSE_ID}`, AdminCourseSectionPending, AdminCourseEditorPending],
+  ])("renders the skeleton of the page at %s", (path, Layout, Page) => {
+    const page = markupOf(<Page />)
+    const { container } = renderWithRouter(<Layout />, { router: createTestRouter(path) })
+
+    expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
+    expect(busyMarkup(container)).toBe(page)
+  })
+
+  it("draws the breadcrumb trail of /admin/courses/create", () => {
+    const { container } = renderWithRouter(<AdminPending />, { router: createTestRouter("/admin/courses/create") })
+
+    expect(breadcrumbDividers(container)).toHaveLength(2)
   })
 })

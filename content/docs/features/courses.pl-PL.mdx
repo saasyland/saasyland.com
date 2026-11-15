@@ -23,19 +23,21 @@ Każda tabela ma własny moduł w `src/modules` i jest tworzona przez migrację 
 
 ## Poziomy dostępu
 
-| `access`  | Kto może oglądać                                                                                                       |
-| --------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `preview` | Wszyscy, zalogowani lub nie                                                                                            |
-| `account` | Każdy zalogowany użytkownik                                                                                            |
-| `paid`    | Użytkownik z licencją `active` na poziomie `complete` lub `agency`, czyli Komplet lub Agencja (`COURSE_LICENCE_TIERS`) |
+| `access`  | Kto może oglądać                                                                                                        |
+| --------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `preview` | Wszyscy, zalogowani lub nie                                                                                             |
+| `account` | Każdy zalogowany użytkownik                                                                                             |
+| `paid`    | Użytkownik z licencją `active` na poziomie `complete` lub `agency`, czyli Komplet lub Agencja (`LICENSE_COURSE_ACCESS`) |
 
-Role z uprawnieniem `course: ["read"]`, które mają administratorzy, mogą oglądać każdą lekcję. O dostępie decyduje `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) dla widza, którego `resolveViewer` (`lesson.viewer.ts`) buduje z sesji, roli i `getLicense`. Tę kontrolę stosuje każda funkcja serwerowa, która serwuje treści kursów, a nie tylko strony:
+Role z uprawnieniem `course: ["read"]`, które mają administratorzy, mogą oglądać każdą lekcję. O dostępie decyduje `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) dla widza, którego `resolveViewer` (`lesson.viewer.ts`) buduje z sesji, roli i dostępu do kursów, który przyznają inne obszary (`holdsCourseAccess`). Tę kontrolę stosuje każda funkcja serwerowa, która serwuje treści kursów, a nie tylko strony:
 
 - `getCatalogue` (publiczna) zwraca opublikowane kursy z liczbą lekcji, łącznym czasem filmów i liczbą darmowych podglądów.
-- `getCourseShowcase` (publiczna) zwraca na potrzeby strony głównej dwa pierwsze opublikowane kursy (`COURSE_SHOWCASE`) z liczbą lekcji, łącznym czasem filmów, liczbą darmowych podglądów i sześcioma pierwszymi opublikowanymi lekcjami, a także pierwszy darmowy podgląd, który ma film. Podaje poziom dostępu każdej lekcji, a nie blokady widza.
+- `getCourseShowcase` (publiczna) zwraca na potrzeby strony głównej <RepositoryFact name="courseShowcaseCourses" /> pierwsze opublikowane kursy (`COURSE_SHOWCASE`) z liczbą lekcji, łącznym czasem filmów, liczbą darmowych podglądów i <RepositoryFact name="courseShowcaseLessons" /> pierwszymi opublikowanymi lekcjami, a także pierwszy darmowy podgląd, który ma film. Podaje poziom dostępu każdej lekcji, a nie blokady widza.
 - `getCourse` (publiczna) zwraca opublikowany kurs z rozdziałami i opublikowanymi lekcjami w locale odwiedzającego, każdą z `locked`, `completed` i `positionMs` dla widza.
 - `getLessonPlayback` (publiczna) zwraca podpisane ścieżki odtwarzania z `createPlayback`. Gościowi bez dostępu odpowiada `UNAUTHORIZED`, a zalogowanemu użytkownikowi bez dostępu `FORBIDDEN`; dla nieopublikowanej lekcji lub lekcji bez filmu zwraca `NOT_FOUND`.
 - `saveLessonProgress` wymaga sesji i przed zapisem sprawdza ten sam dostęp.
+
+Dostęp do kursów to własna lista obszaru kursów: obszar, który go sprzedaje, deklaruje `CourseAccessGrant` w `src/data/<area>.course-access.ts`, a `src/data/course-access.entries.ts` je łączy (zobacz [Co dodają obszary](/docs/architecture/platform-layer#what-the-areas-add)). Przyznanie mówi, czy użytkownik ma dostęp (`holds`, funkcja wyłącznie serwerowa), co go obejmuje (`includedWith`, klucze komunikatów z nazwami, które wymienia strona licencji) i gdzie go zdobyć (`unlock`, jeden link dla zalogowanego widza i jeden dla gościa). `LICENSE_COURSE_ACCESS` obszaru licencji (`src/data/license.course-access.ts`) przyznaje go licencji `active` na poziomie Komplet lub Agencja i kieruje zalogowanego widza do `/app/license?tier=complete`, a gościa do sekcji cennika na stronie głównej. Bez żadnego przyznania płatne lekcje są tylko dla zespołu, a ich zablokowane panele nie oferują linku. Teksty kursów biorą z przyznań jeszcze dwie nazwy, zamiast wymieniać poziom: `offer`, czyli to, co sprzedają linki `unlock`, w etykiecie dostępu, panelach odblokowania i opisie katalogu, oraz `holders`, czyli kto ma dostęp, w płatnym poziomie dostępu w panelu administracyjnym. Licencja podaje Komplet i tekst `courseAccess.holders` z `components.custom.pricing`, więc strony brzmią tak jak wcześniej.
 
 ## Strony
 
@@ -96,7 +98,7 @@ Okno lekcji ma następujące pola:
 - **Slug w adresie URL**, unikalny w obrębie kursu.
 - **Kto może oglądać**: **Wszyscy (darmowy podgląd)** (`preview`), **Zalogowani odwiedzający** (`account`) albo **Licencje Komplet i Agencja** (`paid`, domyślnie).
 - **Status**: **Szkic**, domyślnie, albo **Opublikowany**.
-- **Wideo**: 100 ostatnio opublikowanych filmów z biblioteki z ich czasem trwania. **Jeszcze bez wideo** zostawia lekcję bez filmu albo odłącza ten, który ma.
+- **Wideo**: <RepositoryFact name="videoLibraryPageSize" /> ostatnio opublikowanych filmów z biblioteki (`VIDEO_LIBRARY_PAGE_SIZE`) z ich czasem trwania. **Jeszcze bez wideo** zostawia lekcję bez filmu albo odłącza ten, który ma.
 
 ### Usuwanie
 
@@ -127,7 +129,7 @@ Robią to klucze obce z `ON DELETE CASCADE`. Filmy nigdy nie są usuwane razem z
 
 ## Testy
 
-`scripts/seed-test.ts` tworzy opublikowany kurs z jednym rozdziałem i czterema lekcjami na potrzeby testów przeglądarkowych w `e2e/specs/courses.spec.ts`. W `e2e/specs/course-admin.spec.ts` administrator tworzy kurs, rozdział i darmową lekcję z testowym filmem, odwiedzający w innej karcie przeglądarki ogląda lekcję, a administrator usuwa kurs. `e2e/specs/landing.spec.ts` sprawdza, że strona główna linkuje do testowego kursu i jego lekcji, otwiera darmową lekcję i odtwarza przegląd stron kursu.
+`scripts/seed-test.ts` tworzy opublikowany kurs z jednym rozdziałem i czterema lekcjami na potrzeby testów przeglądarkowych w `e2e/specs/courses.spec.ts`. W `e2e/specs/course-admin.spec.ts` administrator tworzy kurs, rozdział i darmową lekcję z testowym filmem, odwiedzający w innej karcie przeglądarki ogląda lekcję, a administrator usuwa kurs. `e2e/specs/landing.spec.ts` sprawdza, że strona główna linkuje do testowego kursu i jego lekcji, otwiera darmową lekcję i odtwarza przegląd stron kursu. `e2e/specs/course-access.spec.ts` loguje klienta bez licencji i sprawdza, że płatna lekcja proponuje plan Komplet z linkiem do `/app/license?tier=complete`, a przegląd pokazuje zablokowany kurs obok oferty licencji.
 
 ## Powiązane strony
 

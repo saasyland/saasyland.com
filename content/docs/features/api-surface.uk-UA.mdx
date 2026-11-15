@@ -3,13 +3,14 @@ title: "HTTP-обробники TanStack Start"
 description: "Серверні маршрути під /api та їхній зв’язок із серверними функціями."
 ---
 
-Застосунок надає три HTTP-маршрути, оголошені через `server.handlers` у `createFileRoute` в `src/routes/api`:
+Застосунок надає такі HTTP-маршрути, оголошені через `server.handlers` у `createFileRoute` в `src/routes/api`:
 
-| Маршрут       | Методи    | Обробник                                                                                                                                                     |
-| ------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/api`        | GET       | Повертає `{ "runtime": "cloudflare-workers" }`.                                                                                                              |
-| `/api/auth/$` | GET, POST | Better Auth: вхід, повернення OAuth, `/api/auth/verify-email`, а також кінцеві точки плагіна Polar `/api/auth/polar/webhooks` і `/api/auth/customer/portal`. |
-| `/api/search` | GET       | Пошук Fumadocs (`fumadocs.search.ts`).                                                                                                                       |
+| Маршрут                                      | Методи            | Обробник                                                                                                                                                                                    |
+| -------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api`                                       | GET               | Повертає `{ "runtime": "cloudflare-workers" }`.                                                                                                                                             |
+| `/api/auth/$`                                | GET, POST         | Better Auth: вхід, повернення OAuth, `/api/auth/verify-email`, а також кінцеві точки плагіна Polar `/api/auth/polar/webhooks` і `/api/auth/customer/portal`.                                |
+| `/api/search`                                | GET               | Пошук Fumadocs (`fumadocs.search.ts`).                                                                                                                                                      |
+| <RepositoryFact name="cliApiBasePath" />`/*` | GET, POST, DELETE | [API ліцензій для CLI](/docs/features/cli-licence-api): `licenseApiHandlers` (`license.api.ts`) читають ліцензію, а також активують, перевіряють і звільняють пристрої для CLI `saasyland`. |
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
@@ -23,14 +24,14 @@ export const Route = createFileRoute("/api/auth/$")({
 
 ## Серверні функції замість REST
 
-Операції застосунку — це функції `createServerFn` у `src/modules/<table>/use-cases`. Решта лежить у `src/lib` (`getStarCount` у `github.ts`), в інтеграції (`getCurrentSession` в `auth.session.ts`, `getDocsPage` у `fumadocs.docs.ts`) або в єдиному маршруті, який їх використовує (`getBlogPosts` у `blog.index.tsx`). TanStack Start викликає їх через RPC під `/_serverFn` з middleware для сесій, дозволів і обмеження частоти запитів. Не додавайте REST-ендпоінт для операції, яку викликає лише цей застосунок; HTTP-маршрут додавайте тільки для зовнішніх викликачів, як-от вебхуки, і перевіряйте їхні підписи в інтеграції провайдера.
+Операції застосунку — це функції `createServerFn` у `src/modules/<table>/use-cases`. Решта лежить у `src/lib` (`getStarCount` у `github.ts`), в інтеграції (`getCurrentSession` в `auth.session.ts`, `getDocsPage` у `fumadocs.docs.ts`) або в єдиному маршруті, який їх використовує (`getBlogPosts` у `blog.index.tsx`). TanStack Start викликає їх через RPC під `/_serverFn` з middleware для сесій, дозволів і обмеження частоти запитів. Не додавайте REST-ендпоінт для операції, яку викликає лише цей застосунок; HTTP-маршрут додавайте тільки для зовнішніх викликачів, як-от вебхуки й CLI, і перевіряйте підписи вебхуків в інтеграції провайдера.
 
 ## Поведінка
 
 - Worker не застосовує мовні перенаправлення до `/api` і `/_serverFn`. Їхні URL не містять мови, тож на сервері `getCurrentLocale()` повертає для них `en-US`; код, якому потрібна мова, отримує її як вхідний параметр або читає з `callbackURL`.
 - Збирання не рендерить `/api` заздалегідь.
-- `/media/*` не є маршрутом TanStack Start: Worker передає такі запити до `serveMedia` ще до обробки локалі. Див. [Cloudflare R2](/docs/integrations/cloudflare-r2).
-- Тести обробників розташовані в `src/routes/api/__test__/handlers.test.ts`.
+- `/media/*` не є маршрутом TanStack Start: Worker передає такі запити до `serveMedia` ще до обробки локалі. Див. [Cloudflare R2](/docs/integrations/cloudflare-r2). Не є ним і `/bundles/*`: такі запити Worker передає до `serveBundle`; див. [API ліцензій для CLI](/docs/features/cli-licence-api#template-bundles).
+- Тести обробників розташовані в `src/routes/api/__test__/`, по одному файлу на обробник: `auth.test.ts`, `search.test.ts` і `index.test.ts`. `cli.v1.test.ts` охоплює файли маршрутів API ліцензій для CLI, а поведінку цього API перевіряють `src/modules/license/__test__/license.api.integration.test.ts` і, для бандлів, `license.bundles.integration.test.ts`.
 
 ## Пов’язані посібники
 

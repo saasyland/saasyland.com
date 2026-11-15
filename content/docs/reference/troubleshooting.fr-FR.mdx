@@ -17,7 +17,7 @@ description: "Erreurs courantes pendant le développement, les tests et le dépl
 
 **La connexion ou OAuth échoue.** Vérifiez `AUTH_SECRET` et les identifiants du client OAuth dans le fichier d'environnement, ainsi que l'URL de callback du fournisseur, qui doit pointer vers `/api/auth/callback/<provider>` sur l'hôte que vous utilisez. Better Auth n'accepte que les hôtes configurés pour le mode de build : `localhost:3000` et `127.0.0.1:3000` en développement.
 
-**Il manque un binding ou un secret dans les types du Worker.** Exécutez `bun run cf-typegen` après avoir modifié `wrangler.jsonc`, et ajoutez la variable à `src/types/bindings.d.ts`.
+**Il manque un binding ou un secret dans les types du Worker.** Exécutez `bun run cf-typegen` après avoir modifié `wrangler.jsonc` : il type chaque binding et chaque secret de `secrets.required`. Une valeur que Wrangler ne peut pas déduire, comme une variable que seul `test` définit, va dans le `src/types/<area>.d.ts` de la zone.
 
 **Les classes `text-*` personnalisées disparaissent lors de la fusion.** `cn` dépend de tables générées à partir de `src/lib/cn.config.ts`. `bun run dev`, `bun run check` et les builds les régénèrent ; exécutez `bun run generate:cn` si `.source/cn-tables.ts` est absent.
 
@@ -31,13 +31,15 @@ description: "Erreurs courantes pendant le développement, les tests et le dépl
 
 **Une page de documentation renvoie une erreur 404.** Le fichier doit s'appeler `<page>.<locale>.mdx` et figurer dans `pages` du fichier `meta.<locale>.json` du dossier. Exécutez `bun run content` pour régénérer `.source`.
 
-**`check-content.ts` échoue.** Il compare chaque locale à en-US. `Changed code examples` signifie qu'un bloc de code diffère de celui de la version anglaise ; les blocs de code doivent être identiques. `Untranslated English paragraph` signifie qu'un paragraphe a été copié sans être traduit. `Missing <file>` signifie qu'un fichier de locale n'existe pas.
+**`check-content.ts` échoue.** Il compare chaque locale à en-US. `Changed code examples` signifie qu'un bloc de code diffère de celui de la version anglaise ; les blocs de code doivent être identiques. `Untranslated English paragraph` signifie qu'un paragraphe a été copié sans être traduit. `Missing <file>` signifie qu'un fichier de locale n'existe pas. `leaves out … from the English page` et `adds …, which the English page does not have` signifient qu'une traduction a perdu ou ajouté du code en ligne, un composant ou l'une de ses props, ou un lien vers une autre page ; recopiez-le tel que la page anglaise le contient. `has … table rows where the English page has …` signifie qu'un tableau a perdu ou gagné une ligne.
+
+**`check-message-formats.ts` échoue.** `changed the path or command …` signifie qu'une traduction a modifié un chemin de fichier ou une commande du message anglais ; laissez-le tel quel ou passez-le en argument ICU depuis `REPOSITORY_FACTS`. `unexpected Markdown code` signifie qu'une traduction a ajouté des accents graves, qu'un message affiche tels quels.
 
 ## Tests et déploiement
 
 **`test:coverage` échoue.** La couverture doit atteindre <RepositoryFact name="coverageThreshold" unit="percent" /> pour les lignes, les instructions, les fonctions et les branches. Le rapport dans `coverage/` liste les lignes non couvertes.
 
-**Le déploiement s'arrête à `verify-bindings.ts`.** L'environnement cible dans `wrangler.jsonc` n'a pas de binding `DB`, `CACHE` ou `MEDIA`, contient encore des identifiants D1 ou KV provisoires ou, pour la production, partage une ressource avec la preview. Créez les ressources dans Cloudflare et remplacez les identifiants.
+**Le déploiement s'arrête à `verify-bindings.ts`.** L'environnement cible dans `wrangler.jsonc` n'a pas un binding que l'environnement `development` déclare (`DB`, `CACHE`, `MEDIA` ou `BUNDLES`), contient encore des identifiants D1 ou KV provisoires ou, pour la production, partage une ressource avec la preview. Créez les ressources dans Cloudflare et remplacez les identifiants.
 
 **Le déploiement s'arrête à `polar:verify`.** Polar ne correspond pas au code : une clé de `.env.<environment>` est absente ou désigne le mauvais service Polar, le jeton est rejeté ou il lui manque un scope, ou bien un produit, un prix, une clé de licence, une remise régionale ou un webhook diffère de ce qu'attend le code. L'erreur liste chaque problème ; [Configurer Polar](/docs/getting-started/polar-setup) explique chaque message. `bun run polar:verify:<environment>` relance la vérification.
 

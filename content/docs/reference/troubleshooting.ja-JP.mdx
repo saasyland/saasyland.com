@@ -17,7 +17,7 @@ description: "開発、テスト、デプロイ時によくあるエラーとそ
 
 **サインインや OAuth が失敗する。** 環境ファイルの `AUTH_SECRET` と OAuth クライアントの認証情報を確認してください。また、プロバイダーのコールバック URL が、使用しているホストの `/api/auth/callback/<provider>` を指していることも確認します。Better Auth は、ビルドモードごとに設定されたホストだけを受け付けます。development では `localhost:3000` と `127.0.0.1:3000` です。
 
-**Worker の型にバインディングやシークレットが含まれていない。** `wrangler.jsonc` を変更した後に `bun run cf-typegen` を実行し、変数を `src/types/bindings.d.ts` に追加してください。
+**Worker の型にバインディングやシークレットが含まれていない。** `wrangler.jsonc` を変更した後に `bun run cf-typegen` を実行してください。すべてのバインディングと `secrets.required` のすべてのシークレットに型が付きます。`test` だけが設定する変数のように Wrangler が導き出せない値は、そのエリアの `src/types/<area>.d.ts` で宣言します。
 
 **カスタムの `text-*` クラスがマージ時に消える。** `cn` は、`src/lib/cn.config.ts` から生成されたテーブルに依存しています。このテーブルは `bun run dev`、`bun run check`、各ビルドで再生成されます。`.source/cn-tables.ts` が存在しない場合は、`bun run generate:cn` を実行してください。
 
@@ -31,13 +31,15 @@ description: "開発、テスト、デプロイ時によくあるエラーとそ
 
 **ドキュメントページが 404 を返す。** ファイル名を `<page>.<locale>.mdx` にし、フォルダーの `meta.<locale>.json` の `pages` に列挙する必要があります。`bun run content` を実行して `.source` を再生成してください。
 
-**`check-content.ts` が失敗する。** このスクリプトは、すべてのロケールを en-US と比較します。`Changed code examples` は、コードブロックが英語版と異なることを意味します。コードブロックは同一でなければなりません。`Untranslated English paragraph` は、段落が翻訳されずにコピーされたことを意味します。`Missing <file>` は、ロケールのファイルが存在しないことを意味します。
+**`check-content.ts` が失敗する。** このスクリプトは、すべてのロケールを en-US と比較します。`Changed code examples` は、コードブロックが英語版と異なることを意味します。コードブロックは同一でなければなりません。`Untranslated English paragraph` は、段落が翻訳されずにコピーされたことを意味します。`Missing <file>` は、ロケールのファイルが存在しないことを意味します。`leaves out … from the English page` と `adds …, which the English page does not have` は、翻訳がインラインコード、コンポーネントやその props、ほかのページへのリンクを落としたり加えたりしたことを意味します。英語のページのとおりに写してください。`has … table rows where the English page has …` は、表の行が減ったか増えたことを意味します。
+
+**`check-message-formats.ts` が失敗する。** `changed the path or command …` は、翻訳が英語のメッセージのファイルパスやコマンドを変えたことを意味します。そのまま残すか、`REPOSITORY_FACTS` から ICU 引数として渡してください。`unexpected Markdown code` は、翻訳がバッククォートを加えたことを意味します。メッセージはバッククォートをそのまま表示します。
 
 ## テストとデプロイ
 
 **`test:coverage` が失敗する。** カバレッジは、行、ステートメント、関数、分岐のすべてで <RepositoryFact name="coverageThreshold" unit="percent" /> である必要があります。カバーされていない行は、`coverage/` のレポートで確認できます。
 
-**デプロイが `verify-bindings.ts` で止まる。** `wrangler.jsonc` の対象環境に `DB`、`CACHE`、`MEDIA` のいずれかのバインディングがないか、D1 や KV のプレースホルダー ID が残っているか、本番の場合はプレビューとリソースを共有しています。Cloudflare でリソースを作成し、ID を置き換えてください。
+**デプロイが `verify-bindings.ts` で止まる。** `wrangler.jsonc` の対象環境に `development` 環境が宣言しているバインディング（`DB`、`CACHE`、`MEDIA`、`BUNDLES`）のいずれかがないか、D1 や KV のプレースホルダー ID が残っているか、本番の場合はプレビューとリソースを共有しています。Cloudflare でリソースを作成し、ID を置き換えてください。
 
 **デプロイが `polar:verify` で止まる。** Polar がコードと一致していません。`.env.<environment>` のキーがないか誤った Polar サービスを指している、トークンが拒否されたかスコープが足りない、あるいは商品、価格、ライセンスキー、地域割引、Webhook のいずれかがコードの前提と異なっています。エラーには各問題が列挙され、各メッセージの意味は [Polar の設定](/docs/getting-started/polar-setup)で説明しています。`bun run polar:verify:<environment>` でチェックを再実行できます。
 

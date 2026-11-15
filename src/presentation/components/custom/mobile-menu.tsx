@@ -4,6 +4,8 @@ import { Link } from "@tanstack/react-router"
 import { ArrowUpRight, Menu, X } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
+
 import { NAVIGATION_SECTIONS } from "~/src/data/marketing"
 import { NAVIGATION_PAGES } from "~/src/data/navigation"
 
@@ -20,6 +22,7 @@ export const MobileMenu = (): JSX.Element => {
   const [isOpen, setIsOpen] = useState(false)
 
   const t = useTranslations("components.custom.navigation")
+  const navigationLabel = useNavigationLabel()
 
   const close = (): void => {
     setIsOpen(false)
@@ -75,7 +78,7 @@ export const MobileMenu = (): JSX.Element => {
             {NAVIGATION_PAGES.map((page) => (
               <li key={page.key}>
                 <Link className={ROW_CLASSNAME} onClick={close} to={page.to}>
-                  {t(`items.${page.key}`)}
+                  {navigationLabel(page)}
                   <ArrowUpRight
                     aria-hidden
                     className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-exp group-hover:translate-x-px group-hover:-translate-y-px"

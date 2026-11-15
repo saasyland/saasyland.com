@@ -11,7 +11,9 @@ Workflow-файли розміщено в `.github/workflows/`. Workflow-фай�
 | `e2e-full.yml`        | Push у `main`, за розкладом <RepositoryFact name="e2eFullSchedule" /> в UTC, вручну | WebKit при push; Chromium і WebKit за розкладом і при ручному запуску                     |
 | `e2e-reusable.yml`    | Викликається наведеними вище workflow                                               | Тестова база даних, тестова збірка та один проєкт Playwright                              |
 | `deploy-reusable.yml` | Викликається з `ci.yml`                                                             | Збірка, міграції D1 і `wrangler deploy`                                                   |
-| `remotion.yml`        | Зміни в `remotion/` або його спільних константах                                    | Перевіряє та пакує проєкт відео для лендингу за допомогою npm                             |
+| `remotion.yml`        | Зміни в `remotion/` або у файлах сайту, які він імпортує                            | Перевіряє та пакує проєкт відео для лендингу за допомогою npm                             |
+
+`remotion.yml` запускається для pull request і push за тими самими шляхами: `remotion/`, сам workflow і файли сайту, які імпортує `remotion/src`, напряму або через інші файли сайту. `src/__test__/workflows.test.ts` іде за цими імпортами й не проходить, коли знайдений через них файл не відповідає жодному зі шляхів або шлях не відповідає жодному з файлів.
 
 ## Перевірки
 
@@ -26,9 +28,9 @@ Workflow-файли розміщено в `.github/workflows/`. Workflow-фай�
 | Pull request з гілки цього репозиторію | `preview`    | `Preview`         | https://preview.saasyland.com |
 | Push у `main`                          | `production` | `Production`      | https://saasyland.com         |
 
-Pull request із форків і від Dependabot перевіряються, але не розгортаються. Preview спільний: кожне розгортання замінює попереднє й використовує ту саму базу даних D1, простір імен KV і бакет R2 для preview.
+`deploy-reusable.yml` задає кожному середовищу GitHub його URL, а `src/__test__/workflows.test.ts` не проходить, коли якийсь із них відрізняється від хоста середовища в `DEPLOYED_HOSTS` (`src/modules/_core/constants/api.ts`). Pull request із форків і від Dependabot перевіряються, але не розгортаються. Preview спільний: кожне розгортання замінює попереднє й використовує ту саму базу даних D1, простір імен KV і бакети R2 для preview.
 
-`deploy-reusable.yml` перевіряє наявність секретів `CLOUDFLARE_API_TOKEN` і `CLOUDFLARE_ACCOUNT_ID`, запускає `scripts/verify-bindings.ts`, виконує збірку з фіктивними значеннями з `.env.test`, видаляє згенерований `dist/server/.dev.vars`, застосовує `db:migrate:<target>` і запускає `vp exec wrangler deploy --config dist/server/wrangler.json`. `scripts/verify-deployment.ts`, перевірка розгорнутого сайту зі скриптів `deploy:<target>`, тут не запускається, бо захист Cloudflare від ботів відповідає 403 на запити з раннерів CI. `polar:verify:<target>` тут теж не запускається, бо середовища GitHub не містять токена Polar; запускайте його локально після кожної зміни в Polar ([Налаштування Polar](/docs/getting-started/polar-setup)). Файл секретів не завантажується: Worker зберігає секрети середовища виконання, уже задані в Cloudflare. Розгортання в ту саму ціль стають у чергу, а не скасовують одне одного.
+`deploy-reusable.yml` перевіряє наявність секретів `CLOUDFLARE_API_TOKEN` і `CLOUDFLARE_ACCOUNT_ID`, запускає `scripts/verify-bindings.ts`, виконує збірку з фіктивними значеннями з `.env.test`, видаляє згенерований `dist/server/.dev.vars`, застосовує `db:migrate:<target>` і запускає `vp exec wrangler deploy --config dist/server/wrangler.json`. `scripts/verify-deployment.ts`, перевірка розгорнутого сайту зі скриптів `deploy:<target>`, тут не запускається, бо захист Cloudflare від ботів відповідає 403 на запити з раннерів CI. `scripts/run-deploy-checks.ts` тут теж не запускається, тож CI не виконує жодної з перевірок перед розгортанням, які розділи оголошують у `DEPLOY_CHECKS`: у CI немає `.env.<target>`, а середовища GitHub містять лише облікові дані Cloudflare. Зараз єдина така перевірка — `polar:verify` із розділу Polar; запускайте `bun run polar:verify:<target>` локально після кожної зміни в Polar ([Налаштування Polar](/docs/getting-started/polar-setup)). Файл секретів не завантажується: Worker зберігає секрети середовища виконання, уже задані в Cloudflare. Розгортання в ту саму ціль стають у чергу, а не скасовують одне одного.
 
 Dependabot щотижня оновлює GitHub Actions.
 

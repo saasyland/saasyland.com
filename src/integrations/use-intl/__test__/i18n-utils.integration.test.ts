@@ -11,7 +11,7 @@ describe("bundled locale namespaces", () => {
     expect(() => loadNamespace({ locale: "pl-PL", namespace: "missing" })).toThrow("No messages/pl-PL/missing.json")
   })
   it("loads independently of the filesystem working directory", async () => {
-    expect(await loadNamespace({ locale: "en-US", namespace: "auth.form" })).toHaveProperty("placeholders.email")
+    expect(await loadNamespace({ locale: "en-US", namespace: "errors.global" })).toHaveProperty("title")
   })
   it("builds nested namespace paths", () => {
     expect(buildMessageTree([["pages.auth.sign-in", { title: "Sign in" }]])).toEqual({
@@ -36,9 +36,9 @@ describe("bundled locale namespaces", () => {
   })
   it("keeps each locale and namespace separate in one query cache", async () => {
     const queryClient = new QueryClient()
-    const englishForm = { locale: "en-US", namespace: "auth.form" } as const
-    const polishForm = { locale: "pl-PL", namespace: "auth.form" } as const
-    const englishSignIn = { locale: "en-US", namespace: "pages.auth.sign-in" } as const
+    const englishForm = { locale: "en-US", namespace: "errors.global" } as const
+    const polishForm = { locale: "pl-PL", namespace: "errors.global" } as const
+    const englishSignIn = { locale: "en-US", namespace: "pages.landing" } as const
 
     await queryClient.query(messagesQueryOptions(englishForm))
     await queryClient.query(messagesQueryOptions(polishForm))
@@ -50,9 +50,7 @@ describe("bundled locale namespaces", () => {
   })
   it("preloads messages into the same cache used by the provider", async () => {
     const queryClient = new QueryClient()
-    await preloadNamespaces({ locale: "en-US", namespaces: ["auth.form"], queryClient })
-    expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "auth.form" }).queryKey)).toHaveProperty(
-      "placeholderPassword",
-    )
+    await preloadNamespaces({ locale: "en-US", namespaces: ["errors.global"], queryClient })
+    expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "errors.global" }).queryKey)).toHaveProperty("retry")
   })
 })

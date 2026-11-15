@@ -19,19 +19,22 @@ Vite+（`vite-plus`、コマンドは `vp`）は、Vite、Vitest、oxlint、oxfm
 
 ## 設定
 
-`vite.config.ts` はプラグインを遅延読み込みします。Vitest の実行中は `repositoryFacts()` と `@vitejs/plugin-react` だけが読み込まれ、それ以外のときは次の構成になります。
+`vite.config.ts` 自体はプラグインを1つも指定しません。各エリアが `src/data/<area>.vite.ts` で宣言したプラグインを遅延読み込みし、`src/data/vite.entries.ts` がそれらをまとめ、`src/data/vite.ts` の `vitePlugins` が `order` の順に並べます（[エリアが追加するもの](/docs/architecture/platform-layer#what-the-areas-add)を参照）。Vitest の実行中は `vitest` が指定されたエントリー、つまり `repositoryFacts()` と `@vitejs/plugin-react` だけが読み込まれ、それ以外のときは次の構成になります。
 
 - `@cloudflare/vite-plugin`: SSR 環境で Worker を実行し、ローカルの状態を永続化し（`test` モードでは `.wrangler/test` 内）、`development` ではリモートバインディングを使います。
 - `fumadocs-mdx`: ドキュメントとブログのコレクションをコンパイルします。
+- `saasyland:fumadocs-bundled`: `fumadocs-core` と `@fumadocs/base-ui` をサーバーバンドルに含めます（`resolve.noExternal`）。
 - `repositoryFacts`（`scripts/repository-facts.ts`）: ランディングページとドキュメントが表示する数値、バージョン、ツールの設定をビルド時にリポジトリから読み取り、`virtual:repository-facts` モジュールとして提供します。[翻訳とコンテンツ](/docs/conventions/translations)を参照してください。
+- `unused-primitives`（`scripts/unused-primitives.ts`）: Tailwind の前に実行され、アプリケーションのソースがどこからもインポートしない shadcn のプリミティブのクラスを除外します。[shadcn コンポーネント](/docs/ui/shadcn-components)を参照してください。
 - `@tailwindcss/vite`: Tailwind CSS 4。
 - `tanstackStart`: ルーティング、コード分割、公開ページのプリレンダリング。
 - `@vitejs/plugin-react`。
 - `deployedWorker`（`scripts/deployed-worker.ts`）: プリレンダリングの後、レンダリングされた MDX と、ランディングと法務の各ページの翻訳を除いて Worker を再ビルドします。[Cloudflare Workers](/docs/integrations/cloudflare-workers) を参照してください。
+- `saasyland:polar-sdk-optional-peers`: インストールされていない `@polar-sh/sdk` の任意のピア依存関係を外部扱いにします（`build.rolldownOptions.external`）。[依存関係](/docs/conventions/dependencies)を参照してください。
 
 開発サーバーは `localhost:3000` で待ち受け、そのポートが使用中の場合は起動に失敗します。`resolve.tsconfigPaths` が `~/` のインポートエイリアスを提供します。同じファイルに `fmt`、`lint`、`staged`、`test` のセクションもあります。[リントとフォーマット](/docs/tooling/lint-format)と[テスト](/docs/tooling/testing)を参照してください。
 
-`build.rolldownOptions.external` には `@polar-sh/sdk` のオプションの peer 依存関係（OpenTelemetry と `ioredis`）を指定しています。これらはインストールしておらず、それらをインポートするモジュールはツリーシェイキングによって Worker から取り除かれます。
+`src/data/polar.vite.ts` は、`config` フックで `build.rolldownOptions.external` に `@polar-sh/sdk` のオプションの peer 依存関係（OpenTelemetry と `ioredis`）を指定するプラグインを追加します。これらはインストールしておらず、それらをインポートするモジュールはツリーシェイキングによって Worker から取り除かれます。
 
 ## Git フック
 

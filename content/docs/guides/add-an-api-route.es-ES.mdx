@@ -7,13 +7,14 @@ Las rutas de API son handlers de servidor de TanStack Start en `src/routes/api/`
 
 ## Rutas existentes
 
-| Archivo                    | Ruta          | Propósito                                                                                                    |
-| -------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------ |
-| `src/routes/api/auth.$.ts` | `/api/auth/*` | Better Auth: inicio de sesión, callbacks de OAuth, verificación de correo, el portal y los webhooks de Polar |
-| `src/routes/api/search.ts` | `/api/search` | Búsqueda de Fumadocs para la documentación                                                                   |
-| `src/routes/api/index.ts`  | `/api`        | Comprobación del entorno de ejecución que devuelve `{ "runtime": "cloudflare-workers" }`                     |
+| Archivo                      | Ruta                                         | Propósito                                                                                                    |
+| ---------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `src/routes/api/auth.$.ts`   | `/api/auth/*`                                | Better Auth: inicio de sesión, callbacks de OAuth, verificación de correo, el portal y los webhooks de Polar |
+| `src/routes/api/search.ts`   | `/api/search`                                | Búsqueda de Fumadocs para la documentación                                                                   |
+| `src/routes/api/index.ts`    | `/api`                                       | Comprobación del entorno de ejecución que devuelve `{ "runtime": "cloudflare-workers" }`                     |
+| `src/routes/api/cli.v1.*.ts` | <RepositoryFact name="cliApiBasePath" />`/*` | La [API de licencias de la CLI](/docs/features/cli-licence-api) a la que llama la CLI `saasyland`            |
 
-El `/api/auth/checkout` del plugin de Polar figura en los `disabledPaths` de Better Auth y responde 404; el checkout se inicia en la función de servidor `startCheckout`. Los webhooks de Polar llegan a `/api/auth/polar/webhooks`; el plugin de Polar para Better Auth verifica su firma con `POLAR_WEBHOOK_SECRET` antes de que `license.webhooks.ts` los procese.
+El plugin de Polar no añade ningún endpoint de checkout; el checkout se inicia en la función de servidor `startCheckout`. Los webhooks de Polar llegan a `/api/auth/polar/webhooks`; el plugin de Polar para Better Auth verifica su firma con `POLAR_WEBHOOK_SECRET` antes de que `license.webhooks.ts` los procese.
 
 ## Escribe un handler
 
@@ -37,7 +38,7 @@ Dentro de un handler:
 
 - Valida la query o el cuerpo con un esquema Zod y devuelve `HTTP_STATUS.BAD_REQUEST` (de `src/modules/_core/constants/api.ts`) cuando falle. Si el handler necesita un estado nuevo, añádelo ahí.
 - Lee la sesión con `getRequestSession(request)` y compruébala con `hasPermission`. El middleware de función, como `authorized`, se aplica a las funciones de servidor, no a los handlers.
-- Limita las peticiones a los endpoints públicos con `withinRateLimit({ key, limit, windowSeconds })` y `clientAddress(request.headers)` de `src/lib/rate-limit.ts`.
+- Limita las peticiones a los endpoints públicos con `withinRateLimit({ key, limit, windowSeconds })` de `src/lib/rate-limit.ts` y `clientAddress(request.headers)` de `src/integrations/better-auth/auth.middleware.ts`.
 - Verifica las firmas antes de confiar en el contenido de un webhook.
 - Devuelve cuerpos de error seguros y registra los detalles con `console.error`.
 
@@ -49,4 +50,4 @@ Dentro de un handler:
 
 ## Test
 
-Llama al handler a través de las opciones de la ruta, como hace `src/routes/api/__test__/handlers.test.ts` con `Route.options.server.handlers`, y simula el proveedor al que reenvía la petición.
+Llama al handler a través de las opciones de la ruta, como hace `src/routes/api/__test__/search.test.ts` con `Route.options.server.handlers`, y simula el proveedor al que reenvía la petición.

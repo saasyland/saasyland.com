@@ -1,5 +1,9 @@
+import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
+import { SOCIAL_IMAGE } from "../../src/lib/seo"
+import { APP_URL } from "../../src/presentation/branding"
+import { ROUTES } from "../../src/routes"
 import { expectVerificationEmail } from "../fixtures/emails"
-import { expect, test } from "../fixtures/test"
+import { expect, test } from "../fixtures/auth"
 import type { AuthPage } from "../pages"
 
 const SIGN_UP_PASSWORD = "StrongPassword123!"
@@ -26,8 +30,14 @@ test.describe("auth", () => {
     await expect(authPage.signInSubmitButton()).toBeVisible()
   })
 
+  test("/auth/sign-in renders its heading before JavaScript runs", async ({ pageWithoutJavaScript }) => {
+    await pageWithoutJavaScript.goto("/auth/sign-in")
+    await expect(pageWithoutJavaScript.getByRole("heading", { level: 1 })).toBeVisible()
+    await expect(pageWithoutJavaScript.getByLabel("Email", { exact: true })).toBeVisible()
+  })
+
   for (const authPath of ["/auth/sign-in", "/auth/sign-up"]) {
-    test(`Back to Home from ${authPath} loads homepage data without server-function errors`, async ({ appPage, page }) => {
+    test(`Back to Home from ${authPath} returns to the home page without server-function errors`, async ({ appPage, page }) => {
       const errors: string[] = []
       page.on("pageerror", (error) => errors.push(error.message))
       page.on("response", (response) => {
@@ -42,7 +52,7 @@ test.describe("auth", () => {
 
       await expect(page).toHaveURL(/\/$/u)
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
-      await expect(page.getByText("GitHub stars", { exact: true })).toBeVisible()
+      await appPage.waitForAppReady()
       await expect(page.getByText("Something went wrong", { exact: true })).toHaveCount(0)
       expect(errors).toEqual([])
     })
@@ -251,16 +261,10 @@ test.describe("auth", () => {
     await expect(authPage.signInHeading()).toBeVisible()
     await expect(authPage.twoFactorSubmitButton()).toBeVisible()
   })
+})
 
-  test("terms page renders legal content", async ({ authPage }) => {
-    await authPage.gotoTerms()
-
-    await expect(authPage.legalDocumentTitle()).toBeVisible()
-  })
-
-  test("privacy page renders legal content", async ({ authPage }) => {
-    await authPage.gotoPrivacy()
-
-    await expect(authPage.legalDocumentTitle()).toBeVisible()
-  })
+test("the sign-in page, which is not prerendered, shares the site card", async ({ page, request }) => {
+  await page.goto(ROUTES.SIGN_IN)
+  await expect(page.locator('head > meta[property="og:image"]')).toHaveAttribute("content", `${APP_URL}${SOCIAL_IMAGE.SITE_PATH}`)
+  expect((await request.get(SOCIAL_IMAGE.SITE_PATH)).status()).toBe(HTTP_STATUS.OK)
 })

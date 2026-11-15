@@ -10,7 +10,7 @@ import { getVideosPageQuery, getVideosQuery } from "~/src/modules/video/use-case
 
 import { pageHead } from "~/src/lib/seo"
 
-import { AdminVideosPending } from "~/src/presentation/components/custom/admin/content-pending"
+import { AdminVideosPending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { PublishVideoCard } from "~/src/presentation/components/custom/admin/videos/publish-video-card"
 import { videoColumns } from "~/src/presentation/components/custom/admin/videos/video-columns"
 import { DataTable } from "~/src/presentation/components/custom/data-table"

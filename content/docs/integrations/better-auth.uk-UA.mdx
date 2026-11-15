@@ -7,17 +7,18 @@ Better Auth зберігає користувачів, облікові запи
 
 ## Файли
 
-| Файл                                                   | Відповідальність                                                                                                                                                |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.server.ts`                                       | Екземпляр `betterAuth`: провайдери, плагіни `admin`, `twoFactor`, Polar і `tanstackStartCookies`, дозволені хости, обмеження частоти запитів у D1 і хуки листів |
-| `auth.client.ts`                                       | `authClient` та його методи (`signIn`, `signUp`, `signOut`, `useSession`, `twoFactor` та інші)                                                                  |
-| `auth.routes.ts`                                       | Гарди маршрутів для `beforeLoad`                                                                                                                                |
-| `auth.middleware.ts`                                   | Middleware серверних функцій: `withRequest`, `authorized`, `withRateLimit` і `RATE_LIMITS`                                                                      |
-| `auth.access.ts`                                       | Ролі, оголошення дозволів і `hasPermission`                                                                                                                     |
-| `auth.constants.ts`                                    | `AUTH_PROVIDER`: ідентифікатори провайдера електронної пошти й пароля (`credential`) та OAuth-провайдерів                                                       |
-| `auth.session.ts`                                      | `getRequestSession`, серверна функція `getCurrentSession` і `getCurrentSessionQuery`                                                                            |
-| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | Ключі помилок, схеми форм і обмеження пароля                                                                                                                    |
-| `auth.hooks.ts`                                        | `enforceInputPolicy`: схеми форм, застосовані до ендпоінтів Better Auth                                                                                         |
+| Файл                                                   | Відповідальність                                                                                                                                                                    |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.server.ts`                                       | Екземпляр `betterAuth`: провайдери, плагіни `admin`, `twoFactor` і `tanstackStartCookies` та ті, які додають розділи, дозволені хости, обмеження частоти запитів у D1 і хуки листів |
+| `auth.client.ts`                                       | `authClient` та його методи (`signIn`, `signUp`, `signOut`, `useSession`, `twoFactor` та інші)                                                                                      |
+| `auth.routes.ts`                                       | Гарди маршрутів для `beforeLoad`                                                                                                                                                    |
+| `auth.middleware.ts`                                   | Middleware серверних функцій: `withRequest`, `authorized`, `withRateLimit` і `RATE_LIMITS`                                                                                          |
+| `auth.access.ts`                                       | `ac`, `ROLES` і `hasPermission`, побудовані з оголошень дозволів, які розділи оголошують і надають ролям                                                                            |
+| `auth.roles.ts`                                        | `ROLE_CODES`, `ROLE_VALUES`, `DEFAULT_ROLE_CODE` і `isRole`                                                                                                                         |
+| `auth.constants.ts`                                    | `AUTH_PROVIDER`: ідентифікатори провайдера електронної пошти й пароля (`credential`) та OAuth-провайдерів                                                                           |
+| `auth.session.ts`                                      | `getRequestSession`, серверна функція `getCurrentSession` і `getCurrentSessionQuery`                                                                                                |
+| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | Ключі помилок, схеми форм і обмеження пароля                                                                                                                                        |
+| `auth.hooks.ts`                                        | `enforceInputPolicy`: схеми форм, застосовані до ендпоінтів Better Auth                                                                                                             |
 
 ## Гарди маршрутів
 
@@ -40,11 +41,18 @@ Better Auth зберігає користувачів, облікові запи
 
 ## Ролі та дозволи
 
-`auth.access.ts` визначає дві ролі: `admin` і `customer` (типова для нових облікових записів). Оголошення застосунку охоплюють `admin`, `category`, `course`, `order`, `product`, `settings` і `video`; роль адміністратора також отримує адміністративні оголошення Better Auth. `hasPermission({ permission, role })` спільно використовують гарди, middleware та UI.
+`auth.roles.ts` визначає дві ролі: `admin` і `customer` (типова для нових облікових записів). Кожен розділ описує оголошення дозволів своїх ресурсів і надає їх ролям у `src/data/<area>.access.ts`: сьогодні розділ автентифікації оголошує `admin` і `settings`, розділ продуктів — `category` і `product`, розділ курсів — `course` і `video`, а розділ платежів — `order`, і кожен надає їх адміністраторам. `auth.access.ts` будує з них контроль доступу та ролі; роль адміністратора також отримує адміністративні оголошення Better Auth. `hasPermission({ permission, role })` спільно використовують гарди, middleware та UI. Див. [Ролі та дозволи](/docs/guides/roles-and-permissions).
 
 ## Листи та обмеження частоти
 
-Хуки листів в `auth.server.ts` викликають сценарії використання: `sendVerifyEmail`, `sendResetPasswordEmail` і `sendChangeEmailConfirmationEmail`. Власний обмежувач частоти Better Auth зберігає лічильники в таблиці D1 `rate_limit` через `authRateLimitStorage` з `src/lib/rate-limit.ts`, який використовує атомарні upsert-операції й відхиляє запити, коли його сховище недоступне. `getRequestSession` оминає кеш cookie, тож авторизація завжди зчитує сесію з D1.
+`auth.server.ts` не називає жодного іншого розділу. Два власні списки розділу автентифікації об'єднують те, що додають інші:
+
+| Список                 | Кожен розділ оголошує                                                                                                                   | Barrel-файл                        | Хто використовує                                                                         |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| Плагіни автентифікації | `src/data/<area>.auth-plugins.ts`: плагіни разом зі шляхами, які Better Auth закриває для HTTP і звільняє від обмеження частоти запитів | `src/data/auth-plugins.entries.ts` | `plugins`, `disabledPaths` і `rateLimit.customRules`; розділ ліцензій додає плагін Polar |
+| Листи автентифікації   | `src/data/<area>.auth-emails.ts`: відправники листів підтвердження адреси, скидання пароля та зміни адреси                              | `src/data/auth-emails.entries.ts`  | `AUTH_EMAILS`, які викликають хуки листів; Resend додає `RESEND_AUTH_EMAILS`             |
+
+Плагіни розділів ідуть після `admin` і `twoFactor` та перед `tanstackStartCookies`, який має бути останнім. Better Auth читає поля користувача й сесії своїх плагінів зі списку плагінів по порядку до першого розгорнутого списку, тож плагін, який додає такі поля, має бути в `auth.server.ts`. Хуки листів передають кожен лист відправнику кожного розділу, який такі листи надсилає: `sendVerifyEmail`, `sendResetPasswordEmail` і `sendChangeEmailConfirmationEmail`. Власний обмежувач частоти Better Auth зберігає лічильники в таблиці D1 `rate_limit` з префіксом `auth:` через `consumeRateLimit` з `src/lib/rate-limit.ts`, який використовує атомарні upsert-операції й відхиляє запити, коли його сховище недоступне. `clientAddress` в `auth.middleware.ts` визначає клієнта запиту так само, як цей обмежувач: з `cf-connecting-ip`, групуючи адреси IPv6 за /64. Префікс cookie — це `APP_SLUG` із брендингу. `getRequestSession` оминає кеш cookie, тож авторизація завжди зчитує сесію з D1.
 
 ## Пов'язані посібники
 

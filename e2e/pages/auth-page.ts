@@ -1,8 +1,17 @@
 import type { Locator } from "@playwright/test"
 
+import { TEST_PASSWORD } from "../data/accounts"
 import { BasePage } from "./base-page"
 
 export class AuthPage extends BasePage {
+  async signIn(email: string): Promise<void> {
+    await this.page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
+    await this.gotoSignIn()
+    await this.emailField().fill(email)
+    await this.passwordField().fill(TEST_PASSWORD)
+    await this.signInSubmitButton().click()
+  }
+
   async gotoSignIn(localePrefix = ""): Promise<void> {
     const path = localePrefix.length > 0 ? `${localePrefix}/auth/sign-in` : "/auth/sign-in"
     await this.gotoPath(path)
@@ -77,28 +86,12 @@ export class AuthPage extends BasePage {
     await this.waitForAppReady()
   }
 
-  async gotoTerms(localePrefix = ""): Promise<void> {
-    const path = localePrefix.length > 0 ? `${localePrefix}/terms` : "/terms"
-    await this.gotoPath(path)
-    await this.waitForAppReady()
-  }
-
-  async gotoPrivacy(localePrefix = ""): Promise<void> {
-    const path = localePrefix.length > 0 ? `${localePrefix}/privacy` : "/privacy"
-    await this.gotoPath(path)
-    await this.waitForAppReady()
-  }
-
   twoFactorSubmitButton(): Locator {
     return this.page.getByTestId("two-factor-form-submit-button")
   }
 
   verifyEmailResendButton(): Locator {
     return this.page.getByTestId("verify-email-resend-button")
-  }
-
-  legalDocumentTitle(): Locator {
-    return this.page.getByTestId("legal-document-title")
   }
 
   async gotoResetPassword(localePrefix = "", query = ""): Promise<void> {

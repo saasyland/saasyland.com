@@ -20,7 +20,7 @@ import { pageHead } from "~/src/lib/seo"
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
-import { NewsletterPending } from "~/src/presentation/components/custom/marketing-pending"
+import { NewsletterPending } from "~/src/presentation/components/custom/newsletter-pending"
 
 import { ROUTES } from "~/src/routes"
 

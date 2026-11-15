@@ -17,7 +17,7 @@ description: "Як контролюється доступ до маршруті
 Guard-функції визначають лише те, що бачить користувач. Дані захищають **middleware серверних функцій** в `auth.middleware.ts`, бо будь-яку серверну функцію можна викликати й без її сторінки:
 
 - `authorized()` завантажує сесію для запиту й викидає `UNAUTHORIZED`, якщо сесії немає.
-- `authorized({ user: ["ban"] })` додатково перевіряє дозволи ролі з `auth.access.ts` і викидає `FORBIDDEN`.
+- `authorized({ user: ["ban"] })` додатково перевіряє дозволи ролі, які `auth.access.ts` будує з файлів доступу розділів, і викидає `FORBIDDEN`.
 - Обробник отримує сесію як `context.auth`. Операції з власними даними того, хто викликає, використовують `context.auth.user.id`, а не ідентифікатор користувача з вхідних даних.
 
 ## Сесії
@@ -36,6 +36,8 @@ Better Auth також відповідає за підтвердження ел
 
 Листи, які може викликати відвідувач, мають друге обмеження. `withinRecipientRateLimit` обмежує кількість листів кожного виду (підтвердження адреси, скидання пароля й підтвердження розсилки) на адресу за годину до <RepositoryFact name="recipientEmailsPerHour" />, з ключем за хешем SHA-256 адреси, а понад це мовчки пропускає лист.
 
+API ліцензій для CLI рахує кожен запит двічі в тій самій таблиці через `consumeRateLimit`: за IP-адресою клієнта й за хешем SHA-256 ліцензійного ключа. Дозволено <RepositoryFact name="cliApiRequestsPerAddress" /> запитів на адресу та <RepositoryFact name="cliApiRequestsPerLicenseKey" /> на ключ за <RepositoryFact name="cliApiRateLimitSeconds" unit="second" />. Адреса рахується ще до читання ключа, а понад будь-який із лімітів API відповідає `rateLimited` із заголовком `retry-after`. Див. [API ліцензій для CLI](/docs/features/cli-licence-api).
+
 ## Заголовки відповіді
 
 `src/server.ts` задає `SECURITY_HEADERS` (Content Security Policy, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options` і `X-Frame-Options`) для кожної відповіді, яку повертає Worker, а через HTTPS ще й `HTTPS_SECURITY_HEADERS` (`Strict-Transport-Security`), і замінює будь-яке значення, яке вже задала відповідь або правило з `public/_headers`. Обидві константи містяться в `src/modules/_core/constants/api.ts`. Файли, що віддаються без Worker, отримують ті самі заголовки з правила `/*` у `public/_headers`, а `src/__test__/server.test.ts` завершується помилкою, коли це правило й константи розходяться. Див. [Безпека та посилення захисту](/docs/features/security).
@@ -43,6 +45,8 @@ Better Auth також відповідає за підтвердження ел
 ## Посилання на медіафайли
 
 Відеофайли зберігаються в приватному бакеті R2. `getVideoPlayback` вимагає `video: ["read"]`, а `getLessonPlayback` — рівня доступу уроку, перш ніж підписати шлях, а підпис — це HMAC-SHA-256 із ключем, виведеним з `AUTH_SECRET` за допомогою HKDF. `serveMedia` відповідає `403` на неправильний або прострочений підпис. Підписаний шлях працює як посилання на пред'явника, доки не спливе його термін дії, а це щонайменше <RepositoryFact name="signedMediaHours" unit="hour" /> після видачі, тож будь-хто, у кого він є, може відтворити це відео. Див. [Cloudflare R2](/docs/integrations/cloudflare-r2).
+
+Бандли шаблонів CLI теж зберігаються в приватному бакеті R2. API ліцензій для CLI підписує URL-адресу бандла лише для активної ліцензії та активації пристрою, що надсилає запит, ключем, який HKDF виводить з `AUTH_SECRET` лише для бандлів, тож шлях до відео ніколи не відкриває бандл. `serveBundle` відповідає `403` на неправильний або прострочений підпис, а термін дії підписаної URL-адреси спливає через <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" /> після її видачі. Див. [API ліцензій для CLI](/docs/features/cli-licence-api#template-bundles).
 
 ## Помилки та вхідні дані
 

@@ -66,6 +66,10 @@ import { Route as AdminUsersSecurityRouteImport } from './routes/admin.users.sec
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as CoursesCourseIndexRouteImport } from './routes/courses.$course.index'
 import { Route as CoursesCourseLessonRouteImport } from './routes/courses.$course.$lesson'
+import { Route as ApiCliV1ActivationsRouteImport } from './routes/api/cli.v1.activations'
+import { Route as ApiCliV1LicenseRouteImport } from './routes/api/cli.v1.license'
+import { Route as ApiCliV1ActivationsActivationIdRouteImport } from './routes/api/cli.v1.activations.$activationId'
+import { Route as ApiCliV1ActivationsActivationIdBundlesRouteImport } from './routes/api/cli.v1.activations.$activationId.bundles'
 
 const LandingRoute = LandingRouteImport.update({
   id: '/_landing',
@@ -353,6 +357,28 @@ const CoursesCourseLessonRoute = CoursesCourseLessonRouteImport.update({
   path: '/$course/$lesson',
   getParentRoute: () => CoursesRoute,
 } as any)
+const ApiCliV1ActivationsRoute = ApiCliV1ActivationsRouteImport.update({
+  id: '/api/cli/v1/activations',
+  path: '/api/cli/v1/activations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCliV1LicenseRoute = ApiCliV1LicenseRouteImport.update({
+  id: '/api/cli/v1/license',
+  path: '/api/cli/v1/license',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCliV1ActivationsActivationIdRoute =
+  ApiCliV1ActivationsActivationIdRouteImport.update({
+    id: '/$activationId',
+    path: '/$activationId',
+    getParentRoute: () => ApiCliV1ActivationsRoute,
+  } as any)
+const ApiCliV1ActivationsActivationIdBundlesRoute =
+  ApiCliV1ActivationsActivationIdBundlesRouteImport.update({
+    id: '/bundles',
+    path: '/bundles',
+    getParentRoute: () => ApiCliV1ActivationsActivationIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LandingIndexRoute
@@ -411,6 +437,10 @@ export interface FileRoutesByFullPath {
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
   '/courses/$course/': typeof CoursesCourseIndexRoute
+  '/api/cli/v1/activations': typeof ApiCliV1ActivationsRouteWithChildren
+  '/api/cli/v1/license': typeof ApiCliV1LicenseRoute
+  '/api/cli/v1/activations/$activationId': typeof ApiCliV1ActivationsActivationIdRouteWithChildren
+  '/api/cli/v1/activations/$activationId/bundles': typeof ApiCliV1ActivationsActivationIdBundlesRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRouteWithChildren
@@ -462,6 +492,10 @@ export interface FileRoutesByTo {
   '/admin/products': typeof AdminProductsIndexRoute
   '/admin/users': typeof AdminUsersIndexRoute
   '/courses/$course': typeof CoursesCourseIndexRoute
+  '/api/cli/v1/activations': typeof ApiCliV1ActivationsRouteWithChildren
+  '/api/cli/v1/license': typeof ApiCliV1LicenseRoute
+  '/api/cli/v1/activations/$activationId': typeof ApiCliV1ActivationsActivationIdRouteWithChildren
+  '/api/cli/v1/activations/$activationId/bundles': typeof ApiCliV1ActivationsActivationIdBundlesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -522,6 +556,10 @@ export interface FileRoutesById {
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
   '/courses/$course/': typeof CoursesCourseIndexRoute
+  '/api/cli/v1/activations': typeof ApiCliV1ActivationsRouteWithChildren
+  '/api/cli/v1/license': typeof ApiCliV1LicenseRoute
+  '/api/cli/v1/activations/$activationId': typeof ApiCliV1ActivationsActivationIdRouteWithChildren
+  '/api/cli/v1/activations/$activationId/bundles': typeof ApiCliV1ActivationsActivationIdBundlesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -582,6 +620,10 @@ export interface FileRouteTypes {
     | '/admin/products/'
     | '/admin/users/'
     | '/courses/$course/'
+    | '/api/cli/v1/activations'
+    | '/api/cli/v1/license'
+    | '/api/cli/v1/activations/$activationId'
+    | '/api/cli/v1/activations/$activationId/bundles'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -633,6 +675,10 @@ export interface FileRouteTypes {
     | '/admin/products'
     | '/admin/users'
     | '/courses/$course'
+    | '/api/cli/v1/activations'
+    | '/api/cli/v1/license'
+    | '/api/cli/v1/activations/$activationId'
+    | '/api/cli/v1/activations/$activationId/bundles'
   id:
     | '__root__'
     | '/_landing'
@@ -692,6 +738,10 @@ export interface FileRouteTypes {
     | '/admin/products/'
     | '/admin/users/'
     | '/courses/$course/'
+    | '/api/cli/v1/activations'
+    | '/api/cli/v1/license'
+    | '/api/cli/v1/activations/$activationId'
+    | '/api/cli/v1/activations/$activationId/bundles'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -705,6 +755,8 @@ export interface RootRouteChildren {
   ApiSearchRoute: typeof ApiSearchRoute
   ApiIndexRoute: typeof ApiIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCliV1ActivationsRoute: typeof ApiCliV1ActivationsRouteWithChildren
+  ApiCliV1LicenseRoute: typeof ApiCliV1LicenseRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1108,6 +1160,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoursesCourseLessonRouteImport
       parentRoute: typeof CoursesRoute
     }
+    '/api/cli/v1/activations': {
+      id: '/api/cli/v1/activations'
+      path: '/api/cli/v1/activations'
+      fullPath: '/api/cli/v1/activations'
+      preLoaderRoute: typeof ApiCliV1ActivationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cli/v1/license': {
+      id: '/api/cli/v1/license'
+      path: '/api/cli/v1/license'
+      fullPath: '/api/cli/v1/license'
+      preLoaderRoute: typeof ApiCliV1LicenseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cli/v1/activations/$activationId': {
+      id: '/api/cli/v1/activations/$activationId'
+      path: '/$activationId'
+      fullPath: '/api/cli/v1/activations/$activationId'
+      preLoaderRoute: typeof ApiCliV1ActivationsActivationIdRouteImport
+      parentRoute: typeof ApiCliV1ActivationsRoute
+    }
+    '/api/cli/v1/activations/$activationId/bundles': {
+      id: '/api/cli/v1/activations/$activationId/bundles'
+      path: '/bundles'
+      fullPath: '/api/cli/v1/activations/$activationId/bundles'
+      preLoaderRoute: typeof ApiCliV1ActivationsActivationIdBundlesRouteImport
+      parentRoute: typeof ApiCliV1ActivationsActivationIdRoute
+    }
   }
 }
 
@@ -1283,6 +1363,33 @@ const DocsRouteChildren: DocsRouteChildren = {
 
 const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
 
+interface ApiCliV1ActivationsActivationIdRouteChildren {
+  ApiCliV1ActivationsActivationIdBundlesRoute: typeof ApiCliV1ActivationsActivationIdBundlesRoute
+}
+
+const ApiCliV1ActivationsActivationIdRouteChildren: ApiCliV1ActivationsActivationIdRouteChildren =
+  {
+    ApiCliV1ActivationsActivationIdBundlesRoute:
+      ApiCliV1ActivationsActivationIdBundlesRoute,
+  }
+
+const ApiCliV1ActivationsActivationIdRouteWithChildren =
+  ApiCliV1ActivationsActivationIdRoute._addFileChildren(
+    ApiCliV1ActivationsActivationIdRouteChildren,
+  )
+
+interface ApiCliV1ActivationsRouteChildren {
+  ApiCliV1ActivationsActivationIdRoute: typeof ApiCliV1ActivationsActivationIdRouteWithChildren
+}
+
+const ApiCliV1ActivationsRouteChildren: ApiCliV1ActivationsRouteChildren = {
+  ApiCliV1ActivationsActivationIdRoute:
+    ApiCliV1ActivationsActivationIdRouteWithChildren,
+}
+
+const ApiCliV1ActivationsRouteWithChildren =
+  ApiCliV1ActivationsRoute._addFileChildren(ApiCliV1ActivationsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   LandingRoute: LandingRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
@@ -1294,6 +1401,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSearchRoute: ApiSearchRoute,
   ApiIndexRoute: ApiIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCliV1ActivationsRoute: ApiCliV1ActivationsRouteWithChildren,
+  ApiCliV1LicenseRoute: ApiCliV1LicenseRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

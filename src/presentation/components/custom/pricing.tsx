@@ -1,4 +1,4 @@
-import type { ComponentType, JSX } from "react"
+import type { ComponentType, JSX, ReactNode } from "react"
 
 import { useHydrated } from "@tanstack/react-router"
 import { Check } from "lucide-react"
@@ -6,7 +6,7 @@ import { CheckboxButton, CheckboxField } from "react-aria-components"
 import { useFormatter, useTranslations } from "use-intl/react"
 
 import { CURRENCY_FORMAT, PPP_COOKIE, PPP_DECLINED, PPP_KEYS, PPP_PERCENT } from "~/src/modules/_core/constants/pricing"
-import { LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
+import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 
@@ -52,6 +52,13 @@ const storeRegionalChoice = (isSelected: boolean): void => {
   })
 }
 
+const TierFeature = ({ children }: Readonly<{ children: ReactNode }>): JSX.Element => (
+  <li className="flex items-start gap-3">
+    <Check aria-hidden className="mt-0.5 size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
+    <span className="text-body-sm text-pretty text-muted-foreground">{children}</span>
+  </li>
+)
+
 const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: LicenseTier }>): JSX.Element => {
   const t = useTranslations("components.custom.pricing")
   const isFeatured = tier === FEATURED_TIER
@@ -86,11 +93,9 @@ const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: Licen
 
         <ul className="mt-7 space-y-3 border-t border-border pt-7">
           {FEATURE_IDS.map((feature) => (
-            <li className="flex items-start gap-3" key={feature}>
-              <Check aria-hidden className="mt-0.5 size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
-              <span className="text-body-sm text-pretty text-muted-foreground">{t(`tiers.${tier}.features.${feature}`)}</span>
-            </li>
+            <TierFeature key={feature}>{t(`tiers.${tier}.features.${feature}`)}</TierFeature>
           ))}
+          <TierFeature>{t("machines", { limit: LICENSE_ACTIVATION_LIMITS[tier] })}</TierFeature>
         </ul>
 
         <div className="mt-auto pt-10 @2xl:pt-12">

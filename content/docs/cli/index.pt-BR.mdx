@@ -1,0 +1,74 @@
+---
+title: "CLI do SaaSy Land"
+description: "Execute a CLI saasyland a partir da tag beta do npm, ative sua chave de licença nos seus dispositivos e no CI e veja o que chega em versões futuras."
+---
+
+Uma licença do SaaSy Land é uma licença para a linha de comando `saasyland`. Esta página descreve a versão publicada na tag <RepositoryFact name="cliReleaseChannel" /> do npm, <RepositoryFact name="cliPackageSpec" />, e as [notas de versão](/docs/cli/releases) listam o que cada versão mudou.
+
+## O que funciona hoje
+
+- `activate`, `whoami` e `deactivate` gerenciam sua chave de licença em um dispositivo.
+- `--help` e `--version` funcionam por completo, e todo comando aceita `--json` e `--locale`.
+- A geração de projetos chega em uma versão futura. Até lá, <RepositoryFact name="cliInit" /> verifica suas flags e encerra com o código <RepositoryFact name="cliExitNotAvailable" />, assim como `change`, `update` e `status`. O [configurador](/#cli) da landing page marca o stack padrão, o que a primeira versão com geração de projetos escreve, e o [roadmap](/docs/project/roadmap) lista o que vem depois.
+
+## Como executar
+
+Execute a CLI a partir da tag <RepositoryFact name="cliReleaseChannel" /> com o seu gerenciador de pacotes. Não é preciso instalar nada globalmente:
+
+<RepositoryTable columns={["Gerenciador de pacotes", "Comando"]} name="cliRunners" />
+
+Sem a tag, o seu gerenciador de pacotes executa a tag `latest` do npm, que ainda contém a versão provisória que reservou o nome, e nenhum dos comandos dela funciona. A CLI precisa do Node.js <RepositoryFact name="cliNodeEngine" /> ou do Bun.
+
+## Ative sua chave
+
+1. Entre e copie sua chave na [sua página de licença](/app/license).
+2. Execute <RepositoryFact name="cliActivate" />. Em um terminal, a CLI pede a chave e a oculta enquanto você digita.
+3. Em vez de digitá-la, você pode passar a chave como argumento, que fica no histórico do seu shell, ou definir <RepositoryFact name="cliLicenseKeyVariable" />, que não fica. Sem chave, `activate` usa a chave já ativada neste dispositivo.
+
+`--label` dá nome ao dispositivo na sua página de licença; por padrão, o nome é o do host. Ativar um dispositivo de novo mantém a ativação que ele já ocupa.
+
+## Dispositivos
+
+Cada dispositivo que você ativa ocupa uma das ativações da sua licença: <ActivationLimit tier="core" /> no Core, <ActivationLimit tier="complete" /> no Complete e <ActivationLimit tier="agency" /> no Agency.
+
+- <RepositoryFact name="cliWhoami" /> mostra seu plano, as ativações em uso e o nome deste dispositivo.
+- <RepositoryFact name="cliDeactivate" /> libera a ativação deste dispositivo e remove a licença dele.
+- Para liberar a ativação de um dispositivo que você não usa mais, remova-o em **Dispositivos** na [sua página de licença](/app/license). O próximo `whoami` ou `deactivate` nesse dispositivo percebe a mudança.
+
+Quando todas as ativações estão em uso, `activate` lista os dispositivos que as ocupam e envia você para a sua página de licença para liberar uma.
+
+## CI
+
+Guarde a chave como secret em <RepositoryFact name="cliLicenseKeyVariable" />. Em <RepositoryFact name="cliCiProviders" />, toda execução de um mesmo repositório deriva o mesmo ID de dispositivo, então o repositório ocupa uma única ativação, não importa quantas vezes seja executado, com o nome do provedor e do repositório. Em qualquer outro sistema de CI, ou em um contêiner sem ID de dispositivo, defina <RepositoryFact name="cliCiRepositoryVariable" /> com o nome do repositório.
+
+## Onde a licença fica guardada
+
+A CLI guarda a licença em <RepositoryFact name="cliCredentialsFile" />, que só o seu usuário pode ler (modo <RepositoryFact name="cliCredentialsFileMode" />), no seu diretório de configuração:
+
+<RepositoryTable columns={["Sistema", "Diretório"]} name="cliCredentialDirectories" />
+
+Quando `XDG_CONFIG_HOME` não está definida, o Linux usa <RepositoryFact name="cliCredentialsLinuxFallback" />. A CLI envia ao saasyland.com um hash com chave do ID deste dispositivo, nunca o próprio ID. Quando o saasyland.com informa que a licença foi reembolsada ou revogada, a CLI a remove do dispositivo e indica a sua página de licença e o suporte.
+
+## Variáveis de ambiente
+
+| Variável                                          | O que define                                                                                              |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| <RepositoryFact name="cliLicenseKeyVariable" />   | A chave de licença, para o CI e para sessões que não podem pedi-la                                        |
+| <RepositoryFact name="cliCiRepositoryVariable" /> | O nome do repositório em um sistema de CI que a CLI não reconhece                                         |
+| <RepositoryFact name="cliLocaleVariable" />       | O idioma da saída: primeiro `--locale`, depois esta variável e depois o idioma do seu sistema             |
+| <RepositoryFact name="cliApiUrlVariable" />       | Outro deploy do saasyland.com, como um preview: uma URL `https`, ou uma URL `http` na sua própria máquina |
+
+## Scripts e agentes de código
+
+`--json` imprime o resultado ou o erro como um único documento JSON. No CI, em um agente de código ou sem terminal, a CLI nunca espera uma entrada: `activate` sem chave para com o código de saída <RepositoryFact name="cliExitUsage" /> e explica como passar uma.
+
+| Código de saída                                   | Quando                                                                                                                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <RepositoryFact name="cliExitSuccess" />          | O comando fez o que diz                                                                                                                                       |
+| <RepositoryFact name="cliExitFailure" />          | Algo deu errado dentro da CLI                                                                                                                                 |
+| <RepositoryFact name="cliExitUsage" />            | Uma flag ou <RepositoryFact name="cliApiUrlVariable" /> é inválida, ou falta a chave em uma sessão que não pode pedi-la                                       |
+| <RepositoryFact name="cliExitNotAvailable" />     | O comando ainda não está disponível, o ID deste dispositivo não pode ser lido, ou o sistema não é Linux, macOS nem Windows                                    |
+| <RepositoryFact name="cliExitTemporaryFailure" /> | O saasyland.com não pode ser alcançado, ou pede para tentar de novo mais tarde                                                                                |
+| <RepositoryFact name="cliExitProtocol" />         | O saasyland.com e esta versão da CLI não se entendem; atualize a CLI                                                                                          |
+| <RepositoryFact name="cliExitNoPermission" />     | Nenhuma licença está ativada aqui, a ativação deste dispositivo foi liberada, a chave é inválida, revogada ou reembolsada, ou todas as ativações estão em uso |
+| <RepositoryFact name="cliExitCancelled" />        | Você cancelou a pergunta com Ctrl+C                                                                                                                           |

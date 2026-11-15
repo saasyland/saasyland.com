@@ -14,19 +14,17 @@ import { toMinorUnits } from "../../src/modules/_core/constants/currency"
 import { CURRENCY_FORMAT, DEFAULT_CURRENCY_CODE, PPP_PERCENT, pppMultiplierKey } from "../../src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "../../src/modules/license/license.constants"
 
-import { CLI_COMMAND, CLI_LICENSE_COMMANDS, CLI_LICENSE_KEY_VARIABLE, cliCommand } from "../../src/data/cli"
+import {
+  CLI_COMMAND,
+  CLI_CREDENTIALS_FILE_MODE,
+  CLI_EXIT_CODE,
+  CLI_LICENSE_COMMANDS,
+  CLI_LICENSE_KEY_VARIABLE,
+  cliCommand,
+} from "../../src/data/cli"
 import { TIER_PRICES } from "../../src/data/marketing"
 
-import {
-  CLI_ERROR,
-  CLI_EXIT_CODE,
-  CLI_RESULT,
-  type Machine,
-  PRIVATE_FILE_MODE,
-  createMachine,
-  runCli,
-  storedCredentials,
-} from "./cli"
+import { CLI_ERROR, CLI_RESULT, type Machine, createMachine, runCli, storedCredentials } from "./cli"
 import { inboxAddress, verificationLink } from "./inbox"
 import { POLAR_SANDBOX_CHECKOUT, PolarCheckoutPage } from "./polar-checkout-page"
 import { accountOrders, refundOrder, refundPaidOrders } from "./sandbox"
@@ -216,7 +214,7 @@ for (const tier of LICENSE_TIERS) {
       })
       const stored = await storedCredentials(workstation)
       assert(stored !== undefined)
-      expect(stored).toMatchObject({ credentials: { key }, mode: PRIVATE_FILE_MODE })
+      expect(stored).toMatchObject({ credentials: { key }, mode: CLI_CREDENTIALS_FILE_MODE })
 
       return stored.credentials.activationId
     })

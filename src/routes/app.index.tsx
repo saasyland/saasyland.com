@@ -35,7 +35,7 @@ const OverviewPage = (): JSX.Element => {
             <h2 className="text-sm font-semibold">{t("overview.docs.title")}</h2>
             <p className="text-sm text-muted-foreground">{t("overview.docs.description")}</p>
           </div>
-          <LinkButton href={ROUTES.DOCS} size="sm" variant="outline">
+          <LinkButton href={ROUTES.DOCS_CLI} size="sm" variant="outline">
             {t("overview.docs.action")}
           </LinkButton>
         </section>

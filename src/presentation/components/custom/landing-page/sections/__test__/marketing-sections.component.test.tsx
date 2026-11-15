@@ -16,7 +16,8 @@ import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
-import { CONSULTING_HOURLY_RATE } from "~/src/data/marketing"
+import { CONSULTING_HOURLY_RATE, REACTPROJECTS_FACTS, TIER_FEATURES } from "~/src/data/marketing"
+import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { CasesSection } from "~/src/presentation/components/custom/landing-page/sections/cases-section"
@@ -40,7 +41,8 @@ import english from "~/messages/en-US/pages.landing.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const withFacts = (message: string): string => createTranslator({ locale: "en-US", messages: { message } })("message", REPOSITORY_FACTS)
+const withFacts = (message: string): string =>
+  createTranslator({ locale: "en-US", messages: { message } })("message", { ...REPOSITORY_FACTS, ...REACTPROJECTS_FACTS })
 
 const EVIDENCE_CODE = [
   REPOSITORY_FACTS.authIntegrationPath,
@@ -145,13 +147,43 @@ describe("machine limits", () => {
       expect(within(card).getByText(translate("machines", { limit: LICENSE_ACTIVATION_LIMITS[tier] }))).toBeVisible()
     }
   })
+
+  it("lists each tier's features under what is available now and what is arriving, as TIER_FEATURES declares", () => {
+    renderSection(<PricingSection />)
+    const translate = createTranslator({ locale: "en-US", messages: pricing })
+    for (const tier of LICENSE_TIERS) {
+      const card = screen.getByRole("heading", { name: pricing.tiers[tier].name }).parentElement
+      if (!card) {
+        throw new Error(`The ${tier} card is missing`)
+      }
+      const declared: readonly { readonly id: string; readonly status: string }[] = TIER_FEATURES[tier]
+      const texts: Readonly<Record<string, string>> = pricing.tiers[tier].features
+      const listed = (status: string): string[] =>
+        declared.filter((feature) => feature.status === status).map(({ id }) => withFacts(texts[id] ?? ""))
+      const expected = {
+        [FEATURE_STATUS.ARRIVING]: listed(FEATURE_STATUS.ARRIVING),
+        [FEATURE_STATUS.AVAILABLE]: [
+          ...listed(FEATURE_STATUS.AVAILABLE),
+          translate("machines", { limit: LICENSE_ACTIVATION_LIMITS[tier] }),
+        ],
+      }
+      for (const status of FEATURE_STATUSES) {
+        const list = within(card).getByRole("list", { name: pricing.status[status] })
+        expect(
+          within(list)
+            .getAllByRole("listitem")
+            .map((item) => item.textContent),
+        ).toStrictEqual(expected[status])
+      }
+    }
+  })
 })
 
 describe("marketing content and purchase links", () => {
   it("offers a working install command for every package manager", async () => {
     const user = userEvent.setup({ delay: null })
     renderSection(<HeroSection />)
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("300+ hour head start")
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(`${String(REPOSITORY_FACTS.headStartHours)}+ hour head start`)
     expect(screen.getByRole("link", { name: english.hero.ctaPrimary })).toHaveAttribute("href", "#pricing")
     expect(screen.getByRole("link", { name: english.hero.ctaSecondary })).toHaveAttribute("href", "#foundation")
     for (const [runner, command] of [
@@ -177,7 +209,7 @@ describe("marketing content and purchase links", () => {
         `${ROUTES.SIGN_UP}?redirect=${encodeURIComponent(`${ROUTES.APP}?tier=${id}`)}`,
       )
       for (const feature of Object.values(tier.features)) {
-        expect(screen.getAllByText(feature).length).toBeGreaterThan(0)
+        expect(screen.getAllByText(withFacts(feature)).length).toBeGreaterThan(0)
       }
     }
     expect(screen.getAllByText(pricing.mostPopular)).toHaveLength(1)
@@ -194,7 +226,7 @@ describe("marketing content and purchase links", () => {
     const user = userEvent.setup({ delay: null })
     renderSection(<FaqSection />)
     for (const item of Object.values(english.faq.items)) {
-      const trigger = screen.getByRole("button", { name: item.question })
+      const trigger = screen.getByRole("button", { name: withFacts(item.question) })
       if (trigger.getAttribute("aria-expanded") !== "true") {
         await user.click(trigger)
       }
@@ -203,17 +235,6 @@ describe("marketing content and purchase links", () => {
     }
     expect(screen.getByRole("link", { name: english.faq.contact })).toHaveAttribute("href", "mailto:hello@saasyland.com")
     expect(screen.getByText(english.faq.contactNote.replace("{email}", CONTACT_EMAIL))).toBeVisible()
-  })
-
-  it("links only live customer projects and presents the upcoming project without a dead link", () => {
-    renderSection(<CasesSection />)
-    expect(screen.getByRole("link", { name: english.cases.items.reactprojects.name })).toHaveAttribute("href", "https://reactprojects.com")
-    expect(screen.getByRole("heading", { name: english.cases.items.marte.name })).toBeVisible()
-    expect(screen.queryByRole("link", { name: english.cases.items.marte.name })).not.toBeInTheDocument()
-    expect(screen.getByRole("link", { name: english.cases.inviteCta })).toHaveAttribute(
-      "href",
-      "mailto:hello@saasyland.com?subject=Built%20on%20SaaSy%20Land",
-    )
   })
 
   it("preserves the product manifest and evidence behind each claim", () => {
@@ -286,7 +307,7 @@ describe("marketing content and purchase links", () => {
         <StackSection />
       </>,
     )
-    expect(screen.getByRole("link", { name: english.manifesto.p3 })).toHaveAttribute("href", "#pricing")
+    expect(screen.getByRole("link", { name: withFacts(english.manifesto.p3) })).toHaveAttribute("href", "#pricing")
     expect(screen.getAllByRole("link", { name: english.rally.ctaPrimary }).some((link) => link.getAttribute("href") === "#cli")).toBe(true)
     expect(screen.getByRole("link", { name: english.gate.ctaSecondary })).toHaveAttribute("href", "/docs")
     expect(screen.getByText(english.gate.assurance)).toBeVisible()
@@ -296,7 +317,47 @@ describe("marketing content and purchase links", () => {
   })
 })
 
+describe("customer cases", () => {
+  it("presents both upcoming products as shipping at launch, without links to products that are not live", () => {
+    renderSection(<CasesSection />)
+    for (const item of Object.values(english.cases.items)) {
+      expect(screen.getByRole("heading", { name: item.name })).toBeVisible()
+      expect(screen.queryByRole("link", { name: item.name })).not.toBeInTheDocument()
+    }
+    expect(screen.getAllByText(english.cases.statusSoon, { exact: false })).toHaveLength(Object.keys(english.cases.items).length)
+    expect(screen.getByText(withFacts(english.cases.items.reactprojects.body))).toBeVisible()
+    expect(screen.getByRole("link", { name: english.cases.inviteCta })).toHaveAttribute(
+      "href",
+      "mailto:hello@saasyland.com?subject=Built%20on%20SaaSy%20Land",
+    )
+  })
+})
+
 describe("CLI configuration", () => {
+  it("opens on the default stack and describes only its options with the legend", () => {
+    renderSection(<CliSection />)
+    const { choices } = english.cli
+    const legend = english.cli.defaultStack.replace("<mark></mark> ", "")
+    for (const name of [choices.framework.options.tanstack, choices.deployment.options.cloudflare, choices.provider.options.d1]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true")
+      expect(screen.getByRole("button", { name })).toHaveAccessibleDescription(legend)
+    }
+    for (const name of [choices.framework.options.next, choices.extras.options.commerce]) {
+      expect(screen.getByRole("button", { name })).not.toHaveAccessibleDescription()
+    }
+  })
+
+  it("keeps the default mark on a default option that another answer rules out", async () => {
+    const user = userEvent.setup({ delay: null })
+    renderSection(<CliSection />)
+    const { choices } = english.cli
+    await user.click(screen.getByRole("button", { name: choices.deployment.options.vercel }))
+    expect(screen.getByRole("button", { name: choices.database.options.sqlite })).toBeDisabled()
+    expect(screen.getByRole("button", { name: choices.database.options.sqlite })).toHaveAccessibleDescription(
+      english.cli.defaultStack.replace("<mark></mark> ", ""),
+    )
+  })
+
   it("reconciles incompatible API, runtime and database choices when deployment changes", async () => {
     const user = userEvent.setup({ delay: null })
     renderSection(<CliSection />)

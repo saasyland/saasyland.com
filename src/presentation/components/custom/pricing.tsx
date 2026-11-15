@@ -1,21 +1,21 @@
-import type { ComponentType, JSX, ReactNode } from "react"
+import { type ComponentType, type JSX, type ReactNode, useId } from "react"
 
 import { useHydrated } from "@tanstack/react-router"
-import { Check } from "lucide-react"
+import { Check, CircleDashed } from "lucide-react"
 import { CheckboxButton, CheckboxField } from "react-aria-components"
 import { useFormatter, useTranslations } from "use-intl/react"
 
 import { CURRENCY_FORMAT, PPP_COOKIE, PPP_DECLINED, PPP_KEYS, PPP_PERCENT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 
-import { TIER_PRICES } from "~/src/data/marketing"
+import { REACTPROJECTS_FACTS, TIER_FEATURES, TIER_PRICES } from "~/src/data/marketing"
+import { FEATURE_STATUS, FEATURE_STATUSES, type FeatureStatus } from "~/src/data/navigation.constants"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { cn } from "~/src/lib/cn"
 import { readCookie, serializeCookie } from "~/src/lib/cookie"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
-
-export const FEATURE_IDS = ["f1", "f2", "f3", "f4", "f5", "f6"] as const
 
 export const FEATURED_TIER = LICENSE_TIER.COMPLETE
 
@@ -52,12 +52,60 @@ const storeRegionalChoice = (isSelected: boolean): void => {
   })
 }
 
-const TierFeature = ({ children }: Readonly<{ children: ReactNode }>): JSX.Element => (
-  <li className="flex items-start gap-3">
-    <Check aria-hidden className="mt-0.5 size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
-    <span className="text-body-sm text-pretty text-muted-foreground">{children}</span>
-  </li>
-)
+const FEATURE_VALUES = { coverageThreshold: REPOSITORY_FACTS.coverageThreshold, ...REACTPROJECTS_FACTS }
+
+const FEATURE_ICONS = { [FEATURE_STATUS.ARRIVING]: CircleDashed, [FEATURE_STATUS.AVAILABLE]: Check } as const
+
+export const tierFeaturesWith = (tier: LicenseTier, status: FeatureStatus): readonly { readonly id: string }[] => {
+  const features: readonly { readonly id: string; readonly status: FeatureStatus }[] = TIER_FEATURES[tier]
+
+  return features.filter((feature) => feature.status === status)
+}
+
+const TierFeature = ({ children, status }: Readonly<{ children: ReactNode; status: FeatureStatus }>): JSX.Element => {
+  const Icon = FEATURE_ICONS[status]
+
+  return (
+    <li className="flex items-start gap-3">
+      <Icon
+        aria-hidden
+        className={cn("mt-0.5 size-3.5 shrink-0", {
+          "text-muted-foreground/70": status === FEATURE_STATUS.ARRIVING,
+          "text-ring": status === FEATURE_STATUS.AVAILABLE,
+        })}
+        strokeWidth={2.25}
+      />
+      <span className="text-body-sm text-pretty text-muted-foreground">{children}</span>
+    </li>
+  )
+}
+
+const TierFeatures = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element => {
+  const t = useTranslations("components.custom.pricing")
+  const id = useId()
+
+  return (
+    <div className="mt-7 space-y-6 border-t border-border pt-7">
+      {FEATURE_STATUSES.map((status) => (
+        <div key={status}>
+          <p className="font-mono text-label text-muted-foreground uppercase" id={`${id}-${status}`}>
+            {t(`status.${status}`)}
+          </p>
+          <ul aria-labelledby={`${id}-${status}`} className="mt-3 space-y-3">
+            {tierFeaturesWith(tier, status).map((feature) => (
+              <TierFeature key={feature.id} status={status}>
+                {t(`tiers.${tier}.features.${feature.id}`, FEATURE_VALUES)}
+              </TierFeature>
+            ))}
+            {status === FEATURE_STATUS.AVAILABLE && (
+              <TierFeature status={status}>{t("machines", { limit: LICENSE_ACTIVATION_LIMITS[tier] })}</TierFeature>
+            )}
+          </ul>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: LicenseTier }>): JSX.Element => {
   const t = useTranslations("components.custom.pricing")
@@ -91,12 +139,7 @@ const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: Licen
         </p>
         <p className="mt-3 text-body-sm text-pretty text-muted-foreground @2xl:min-h-12">{t(`tiers.${tier}.tagline`)}</p>
 
-        <ul className="mt-7 space-y-3 border-t border-border pt-7">
-          {FEATURE_IDS.map((feature) => (
-            <TierFeature key={feature}>{t(`tiers.${tier}.features.${feature}`)}</TierFeature>
-          ))}
-          <TierFeature>{t("machines", { limit: LICENSE_ACTIVATION_LIMITS[tier] })}</TierFeature>
-        </ul>
+        <TierFeatures tier={tier} />
 
         <div className="mt-auto pt-10 @2xl:pt-12">
           <Action featured={isFeatured} tier={tier} />

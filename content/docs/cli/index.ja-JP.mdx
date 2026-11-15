@@ -1,0 +1,74 @@
+---
+title: "SaaSy Land CLI"
+description: "saasyland CLI を npm の beta タグから実行し、ライセンスキーを端末と CI で有効化して、今後のリリースで提供予定の内容を確認します。"
+---
+
+SaaSy Land のライセンスは、コマンドライン `saasyland` のライセンスです。このページでは npm の <RepositoryFact name="cliReleaseChannel" /> タグのリリース <RepositoryFact name="cliPackageSpec" /> を説明します。各リリースの変更点は[リリースノート](/docs/cli/releases)にあります。
+
+## 現在使える機能
+
+- `activate`、`whoami`、`deactivate` で端末上のライセンスキーを管理します。
+- `--help` と `--version` はすべて動作し、どのコマンドも `--json` と `--locale` を受け付けます。
+- プロジェクト生成は今後のリリースで提供予定です。それまでは <RepositoryFact name="cliInit" /> はフラグを検証したうえでコード <RepositoryFact name="cliExitNotAvailable" /> で終了し、`change`、`update`、`status` も同じです。ランディングページの[構成ツール](/#cli)は、プロジェクト生成の最初のリリースが書き出すデフォルト構成に印を付けており、その後に続く内容は[ロードマップ](/docs/project/roadmap)にあります。
+
+## 実行する
+
+パッケージマネージャーで <RepositoryFact name="cliReleaseChannel" /> タグから CLI を実行します。グローバルにインストールする必要はありません。
+
+<RepositoryTable columns={["パッケージマネージャー", "コマンド"]} name="cliRunners" />
+
+タグを付けないと、パッケージマネージャーは npm の `latest` タグを実行します。そこにはまだ名前を確保するためのプレースホルダーのリリースがあり、どのコマンドも動きません。CLI には Node.js <RepositoryFact name="cliNodeEngine" /> または Bun が必要です。
+
+## キーを有効化する
+
+1. サインインし、[ライセンスページ](/app/license)からキーをコピーします。
+2. <RepositoryFact name="cliActivate" /> を実行します。ターミナルでは CLI がキーの入力を求め、入力中は表示しません。
+3. 入力する代わりに、キーを引数として渡すこともできます（シェルの履歴に残ります）。<RepositoryFact name="cliLicenseKeyVariable" /> を設定すれば履歴には残りません。キーを指定しない場合、`activate` はこの端末ですでに有効化されているキーを使います。
+
+`--label` はライセンスページ上の端末の名前を付けます。既定ではホスト名です。同じ端末を再度有効化しても、その端末がすでに使っている枠はそのままです。
+
+## 端末
+
+有効化した端末はそれぞれライセンスの有効化枠を 1 つ使います。Core は <ActivationLimit tier="core" />、Complete は <ActivationLimit tier="complete" />、Agency は <ActivationLimit tier="agency" /> です。
+
+- <RepositoryFact name="cliWhoami" /> は、プラン、使用中の枠、この端末の名前を表示します。
+- <RepositoryFact name="cliDeactivate" /> は、この端末の枠を解放し、端末からライセンスを削除します。
+- 使わなくなった端末の枠を解放するには、[ライセンスページ](/app/license)の **端末** からその端末を削除します。その端末で次に `whoami` か `deactivate` を実行したときに反映されます。
+
+すべての枠が使用中の場合、`activate` は枠を使っている端末を一覧表示し、枠を解放できるようライセンスページへ案内します。
+
+## CI
+
+キーをシークレットとして <RepositoryFact name="cliLicenseKeyVariable" /> に保存します。<RepositoryFact name="cliCiProviders" /> では、1 つのリポジトリのすべての実行が同じ端末 ID を導き出すため、何回実行してもそのリポジトリが使う枠は 1 つで、プロバイダー名とリポジトリ名がラベルになります。それ以外の CI システムや端末 ID のないコンテナでは、<RepositoryFact name="cliCiRepositoryVariable" /> にリポジトリ名を設定してください。
+
+## ライセンスの保存場所
+
+CLI はライセンスを <RepositoryFact name="cliCredentialsFile" /> に保存します。このファイルはあなたのユーザーだけが読め（モード <RepositoryFact name="cliCredentialsFileMode" />）、設定ディレクトリに置かれます。
+
+<RepositoryTable columns={["システム", "ディレクトリ"]} name="cliCredentialDirectories" />
+
+`XDG_CONFIG_HOME` が設定されていない場合、Linux では <RepositoryFact name="cliCredentialsLinuxFallback" /> を使います。CLI が saasyland.com に送るのは、この端末の ID から鍵付きで計算したハッシュだけで、ID そのものは送りません。saasyland.com がライセンスの返金または取り消しを伝えると、CLI は端末からライセンスを削除し、ライセンスページとサポートを案内します。
+
+## 環境変数
+
+| 変数                                              | 設定する内容                                                                                    |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| <RepositoryFact name="cliLicenseKeyVariable" />   | ライセンスキー。CI や、キーの入力を求められないセッションで使います                             |
+| <RepositoryFact name="cliCiRepositoryVariable" /> | CLI が認識しない CI システムでのリポジトリ名                                                    |
+| <RepositoryFact name="cliLocaleVariable" />       | 出力の言語。`--locale` が最優先で、次にこの変数、その次にシステムの言語です                     |
+| <RepositoryFact name="cliApiUrlVariable" />       | プレビューなど、saasyland.com の別のデプロイ。`https` の URL か、自分のマシン上の `http` の URL |
+
+## スクリプトとコーディングエージェント
+
+`--json` は結果またはエラーを 1 つの JSON ドキュメントとして出力します。CI、コーディングエージェント、ターミナルのない環境では、CLI は入力を待ちません。キーなしの `activate` は終了コード <RepositoryFact name="cliExitUsage" /> で停止し、キーの渡し方を表示します。
+
+| 終了コード                                        | 状況                                                                                                                             |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| <RepositoryFact name="cliExitSuccess" />          | コマンドが説明どおりに完了した                                                                                                   |
+| <RepositoryFact name="cliExitFailure" />          | CLI の内部で問題が起きた                                                                                                         |
+| <RepositoryFact name="cliExitUsage" />            | フラグまたは <RepositoryFact name="cliApiUrlVariable" /> が無効、またはキーの入力を求められないセッションでキーがない            |
+| <RepositoryFact name="cliExitNotAvailable" />     | コマンドがまだ提供されていない、この端末の ID を読み取れない、またはシステムが Linux、macOS、Windows のいずれでもない            |
+| <RepositoryFact name="cliExitTemporaryFailure" /> | saasyland.com に接続できない、または後で再試行するよう求められた                                                                 |
+| <RepositoryFact name="cliExitProtocol" />         | saasyland.com とこのバージョンの CLI が互いを理解できない。CLI を更新してください                                                |
+| <RepositoryFact name="cliExitNoPermission" />     | この端末でライセンスが有効化されていない、この端末の枠が解放された、キーが無効・取り消し済み・返金済み、またはすべての枠が使用中 |
+| <RepositoryFact name="cliExitCancelled" />        | Ctrl+C で質問をキャンセルした                                                                                                    |

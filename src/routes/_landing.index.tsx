@@ -15,6 +15,7 @@ import { localeField } from "~/src/modules/_core/utils/zod-fields"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { starCountQuery } from "~/src/lib/github"
 import { pageHead } from "~/src/lib/seo"
@@ -80,7 +81,11 @@ export const Route = createFileRoute("/_landing/")({
     const locale = getCurrentLocale()
     const price = createFormatter({ locale }).number(TIER_PRICES[LICENSE_TIER.CORE], CURRENCY_FORMAT)
     const [metadata, posts] = await Promise.all([
-      loadPageMetadata({ locale, namespace: NAMESPACE, values: { price } }),
+      loadPageMetadata({
+        locale,
+        namespace: NAMESPACE,
+        values: { coverageThreshold: REPOSITORY_FACTS.coverageThreshold, languages: REPOSITORY_FACTS.languages, price },
+      }),
       getLatestBlogPosts({ data: locale }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query(starCountQuery).catch(() => {}),

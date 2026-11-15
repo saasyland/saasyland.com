@@ -36,7 +36,7 @@ const t = useTranslations("pages.admin.courses.form")
 
 - キーはキャメルケースの名前を持つ入れ子の JSON オブジェクトで、画面の構成に合わせてグループ化します（`table.headers.course`、`delete.confirm`）。
 - 複数形、数値、日付には、コード内での文字列連結ではなく、メッセージ内の ICU 構文を使います（`"{e2eSpecs, plural, one {# Playwright suite} other {# Playwright suites}}"`）。
-- `scripts/check-message-formats.ts` は、すべてのロケールで同じ ICU 引数とタグを要求し、ほかのロケールに残った英語のテキストを拒否します。
+- `scripts/check-message-formats.ts` は、すべてのロケールで同じ ICU 引数とタグを要求し、英語のメッセージにあるファイルパスと `bun run`、`bunx`、`npx`、`vp` のコマンドはすべてそのまま残すことを求めます。ほかのロケールに残った英語のテキストと、メッセージでは描画されない Markdown のバッククォートは拒否します。
 - 数値、日付、通貨は、use-intl の `useFormatter` を使って読者のロケールに合わせてフォーマットし、手作業でフォーマットしてはいけません。日付には `I18N.FORMATS` の名前付きフォーマット（`date`、`time`、`calendarDate`）を使うため、タイムゾーンとその表記が一貫します。名前付きフォーマットは日付か時刻のどちらか一方だけを持ちます。エンジンによって 2 つのつなぎ方が異なり、サーバーが「Jan 1, 2025, 7:00 AM」と書くところを Safari は「Jan 1, 2025 at 7:00 AM」と書くため、時刻付きの日付は `t("common.dateTime", { value })` のように `common.dateTime` メッセージで表示します。`useCurrencyFormatter` は、指定した通貨で金額をフォーマットします。
 - モジュールのスキーマにある Zod のメッセージは、そのモジュールの `<table>.validations` 名前空間のキー（`"slugInvalid"`）で、メッセージに含まれる数値は `<MODULE>_VALIDATION_PARAMS` から取ります。[フォームとテーブル](/docs/conventions/forms-and-tables)を参照してください。
 - データベースに保存し、訪問者が複数の言語で読むテキストは `LocalizedText` カラムにします。英語は必須で、翻訳がない場合に `localize(text, locale)` が返すフォールバックになります。
@@ -44,6 +44,8 @@ const t = useTranslations("pages.admin.courses.form")
 ## 数値は手入力せず計測する
 
 テストファイル、Playwright のスイート、UI コンポーネント、国、通貨など、リポジトリ内の何かの数を文言に手入力することはありません。`scripts/repository-facts.ts` がビルド時にそれらを計測して `virtual:repository-facts` モジュールとして提供し、`src/data/repository-facts.ts` がそれらを `REPOSITORY_FACTS` としてエクスポートします。カタログの件数は、それを翻訳するメッセージファイルからではなく、必ずその定数（`COUNTRIES`、`CURRENCY_CODES`、`TIMEZONES`、`ADMIN_NAVIGATION`）から取得します。ランディングページの文言は、メッセージに `"{testFiles, number} test files"` を含めた `t("body", REPOSITORY_FACTS)` のようにそれらを埋め込み、MDX では `<RepositoryFact name="testFiles" />` で数値を 1 つ描画します。新しい数値に言及する場合は、まずそのプラグインで計測してください。アフィリエイトの報酬率のように、計測するのではなくビジネスとして決める数値は、`src/data` で一度だけ宣言し（`src/data/affiliates.ts` の `AFFILIATE_TERMS`）、同じ方法で埋め込みます。価格も同じルールに従います。`src/data/marketing.ts` の `TIER_PRICES` と `CONSULTING_HOURLY_RATE` は、メッセージには `{price}`、MDX には `<TierPrice tier="core" />` として渡り、連絡先のアドレスは `CONTACT_EMAIL` から `{email}` としてメッセージに渡ります。`LICENSE_ACTIVATION_LIMITS` の端末の上限は、プランのカードの `machines` メッセージには `{limit}`、MDX には `<ActivationLimit tier="core" />` として渡ります。コンポーネントは `REPOSITORY_FACTS` を直接読みます。品質セクションのテスト実行の表示は、`REPOSITORY_FACTS.testFiles` を使って `Test Files` を出力します。これは Vitest の `include` パターンに一致するファイルの数です。個々のテストの件数のように、スイートを実行しなければ得られない数値は表示しません。
+
+文言に出てくるファイルパスやコマンドもリポジトリの事実として扱い、どのロケールでも翻訳できないようにします。ランディングページの `RecordSection` は `{coverageSummaryPath}`、`{coverageCommand}`、`{ciWorkflowPath}`、`{e2eSpecsPath}`、`{messagesPath}`、`{i18nCheckCommand}`、`{authIntegrationPath}` を `REPOSITORY_FACTS` から渡します。サマリーのディレクトリは `vite.config.ts` の `reportsDirectory`、specs のディレクトリは `playwright.config.ts` の `testDir` から取り、`repository-facts.test.ts` が、どのパスも存在し、どのコマンドも `package.json` のスクリプトであることを確認します。
 
 ドキュメントのページでも、コードが定義する値は手入力しません。`src/presentation/components/custom/repository-fact.tsx` の `<RepositoryFact name="…" />` は、計測した数、`repositoryFacts` が `vite.config.ts`、`playwright.config.ts`、`.nvmrc`、`package.json`、またはワークフローから読み取る設定、あるいは `RATE_LIMITS` や `PLAYBACK_TTL_SECONDS` のようにコードからインポートした定数を表示します。数値はページのロケールに合わせて書式設定され、値に単位がある場合は `unit="second"`、`"minute"`、`"hour"`、`"percent"` を指定します。テキストはコードとして、リストはコードのリストとして表示されます。`<RepositoryTable name="…" columns={["…", "…"]} />` は、権限のステートメント、コミットのタイプ、地域別価格の倍率など、コードから組み立てた表を、ページで翻訳した列名を付けて表示します。ルーターのキャッシュ時間と受信者ごとのメールの上限は、ドキュメントからインポートできないモジュール（`src/router.tsx` と、サーバー専用の `src/lib/rate-limit.ts`）にあるため、コンポーネントはそれらの値のコピーを持ち、そのテストがコピーをルーターとリミッターの値と比較します。コードブロックやフロントマターに残す必要がある値は、代わりに `scripts/check-content.ts` がチェックします。
 
@@ -59,6 +61,7 @@ const t = useTranslations("pages.admin.courses.form")
 - リポジトリのパスをタイトルに付けたコードブロック（`title="src/integrations/better-auth/auth.access.ts"` など）が、そのファイルの抜粋になっていない。
 - ドキュメントのページが、どのビルドモードでも `appHostsForMode` が許可しないローカルホストや `APP_DOMAIN` のサブドメインに言及している。
 - ルートのリファレンス、スクリプトのページ、環境変数の表が、`ROUTES` の定数、`package.json` のスクリプト、`wrangler.jsonc` のシークレットのいずれかを載せていない、または誤った値で載せている。
+- 翻訳が、インラインコード、コンポーネント、`title`・`description`・`excerpt` 以外のコンポーネントの props、ほかのページへのリンクのいずれかを英語のページから落としたり加えたりしている、または表の行数が英語のページと異なる。
 
 翻訳は、そのロケールが `messages/<locale>/` ですでに使っている用語を使い、ネイティブスピーカーが書くように書いてください（たとえばポーランド語では、ティアを Komplet と Agencja と呼びます）。コードの識別子、ファイルパス、コマンド、製品名はそのままにし、リンクはロケールプレフィックスなしの `/docs/...` のパスのままにします。プレフィックスはサイトが描画時に付けます。
 

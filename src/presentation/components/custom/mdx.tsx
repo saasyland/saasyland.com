@@ -26,6 +26,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { ActivationLimit } from "~/src/presentation/components/custom/activation-limit"
 import { RegionalDiscounts } from "~/src/presentation/components/custom/regional-discounts"
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
+import { ScaffoldCommand } from "~/src/presentation/components/custom/scaffold-command"
 import { TierPrice } from "~/src/presentation/components/custom/tier-price"
 
 const INTERNAL_PREFIX = "/"
@@ -80,6 +81,7 @@ export const mdxComponents = {
   RegionalDiscounts,
   RepositoryFact,
   RepositoryTable,
+  ScaffoldCommand,
   Separator,
   ShadcnCard,
   Step,

@@ -21,7 +21,7 @@ export class PolarCheckoutPage {
   async pay({ email, name }: { readonly email: string; readonly name: string }): Promise<void> {
     const card = this.page.locator('iframe[title="Secure payment input frame"]:not([aria-hidden="true"])').contentFrame()
 
-    await this.page.getByRole("textbox", { name: "Email" }).fill(email)
+    await expect(this.page.getByRole("textbox", { name: "Email" })).toHaveValue(email)
     await this.billingCountry().click()
     await this.page.keyboard.type(BILLING_COUNTRY)
     await this.page.getByRole("option", { name: BILLING_COUNTRY, exact: true }).click()

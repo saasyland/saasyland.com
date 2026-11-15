@@ -13,10 +13,10 @@ import { toMinorUnits } from "../../src/modules/_core/constants/currency"
 import { CURRENCY_FORMAT, DEFAULT_CURRENCY_CODE, PPP_PERCENT, pppMultiplierKey } from "../../src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "../../src/modules/license/license.constants"
 
+import { CLI_COMMAND, CLI_LICENSE_COMMANDS, CLI_LICENSE_KEY_VARIABLE, cliCommand } from "../../src/data/cli"
 import { TIER_PRICES } from "../../src/data/marketing"
 
 import {
-  CLI_COMMAND,
   CLI_ERROR,
   CLI_EXIT_CODE,
   CLI_RESULT,
@@ -152,12 +152,9 @@ const issuedKey = async (pages: Pages, tier: LicenseTier): Promise<string> => {
   }).toPass({ timeout: WEBHOOK_TIMEOUT_MS })
 
   await expect(page.getByRole("heading", { exact: true, level: 2, name: TIER_NAMES[tier] })).toBeVisible()
-  await expect(
-    page.getByText(
-      "A purchase and a valid key are required to install and use the CLI. Run this command and provide your key when prompted. Keep the key private.",
-    ),
-  ).toBeVisible()
-  await expect(page.getByText("npx saasyland@latest init", { exact: true })).toBeVisible()
+  await expect(page.getByText("Activate the key with the SaaSy Land CLI on each machine you build on. Keep the key private.")).toBeVisible()
+  await Promise.all(CLI_LICENSE_COMMANDS.map((command) => expect(page.getByText(cliCommand(command), { exact: true })).toBeVisible()))
+  await expect(page.getByText(`In CI, store the key as a secret in ${CLI_LICENSE_KEY_VARIABLE}.`)).toBeVisible()
   await expect(page.getByText(usage(0, tier))).toBeVisible()
   await expect(page.getByText("No machines have used this key yet.")).toBeVisible()
 

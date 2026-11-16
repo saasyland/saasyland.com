@@ -15,7 +15,7 @@ const BlogLayout = (): JSX.Element => (
   </div>
 )
 
-const NAMESPACES = ["fumadocs", "pages.blog"] as const
+const NAMESPACES = ["pages.blog"] as const
 
 export const Route = createFileRoute("/_site/_marketing/blog")({
   component: BlogLayout,

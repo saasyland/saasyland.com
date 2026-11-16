@@ -1,7 +1,6 @@
 import { type JSX, type ReactNode, isValidElement } from "react"
 
 import { InlineTOC } from "@fumadocs/base-ui/components/inline-toc"
-import { RootProvider } from "@fumadocs/base-ui/provider/tanstack"
 import { Link, createFileRoute, notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { useTranslations } from "use-intl/react"
@@ -13,8 +12,6 @@ import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
-
-import { useFumadocsI18n } from "~/src/hooks/use-fumadocs-i18n"
 
 import { buildBlogPostStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
 
@@ -45,9 +42,6 @@ const tocItemTitle = (title: ReactNode): string => {
   return ""
 }
 
-const SEARCH = { enabled: false } as const
-const THEME = { enabled: false } as const
-
 const getBlogPost = createServerFn({ method: "GET" })
   .validator(zod.object({ locale: localeField, slug: zod.string() }))
   .handler(({ data: { locale, slug } }) => {
@@ -71,7 +65,6 @@ const BlogPostPage = (): JSX.Element => {
   const content = blogContent.useContent(post.path)
   const t = useTranslations("pages.blog.post")
   const faq = usePostFaq(post.faq)
-  const i18n = useFumadocsI18n()
 
   const structuredDataHtml = buildBlogPostStructuredDataHtml({
     authorName: post.authorName,
@@ -119,11 +112,9 @@ const BlogPostPage = (): JSX.Element => {
         <div className="mt-14 grid gap-x-16 lg:grid-cols-[minmax(0,72ch)_1fr]">
           <div className="min-w-0">
             <div className="mb-10 lg:hidden">
-              <InlineTOC items={post.toc}>{t("contents")}</InlineTOC>
+              <InlineTOC items={post.toc} />
             </div>
-            <RootProvider i18n={i18n} search={SEARCH} theme={THEME}>
-              <div className="typeset typeset-article">{content}</div>
-            </RootProvider>
+            <div className="typeset typeset-article">{content}</div>
             <PostCta />
             <div className="mt-16 border-t border-border pt-8">
               <PostShare />

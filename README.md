@@ -90,7 +90,7 @@ bun run build:test
 bun run start:test
 ```
 
-Open <http://127.0.0.1:3000>. Sign in with any account below; each uses the password `WorkerTestPassword123!` from [`e2e/data/accounts.ts`](e2e/data/accounts.ts), and the licensed account owns the licence from [`e2e/data/licenses.ts`](e2e/data/licenses.ts).
+Open <http://127.0.0.1:3000>. Sign in with any account below; each uses the password `WorkerTestPassword123!` from [`e2e/data/accounts.ts`](e2e/data/accounts.ts), and the licensed account and its licence come from [`e2e/data/licenses.ts`](e2e/data/licenses.ts).
 
 | Role                    | Email                   | Workspace |
 | ----------------------- | ----------------------- | --------- |
@@ -168,7 +168,7 @@ The branding names the preview host, `APP_PREVIEW_DOMAIN` (`preview.<APP_DOMAIN>
 
 - Configure GitHub and Google callback URLs at `https://<your-host>/api/auth/callback/github` and `https://<your-host>/api/auth/callback/google`. Use the appropriate development or deployed origin.
 - Configure Resend credentials and the sender address before testing verification, password recovery, or newsletter delivery. Templates live in [`src/presentation/emails/`](src/presentation/emails).
-- Set up Polar as the [Polar setup guide](content/docs/getting-started/polar-setup.en-US.mdx) describes: separate sandbox and production organisations, an organisation token with the listed scopes, one one-time product per tier priced from `TIER_PRICES` with one licence-key benefit limited by `LICENSE_ACTIVATION_LIMITS` ([`license.constants.ts`](src/modules/license/license.constants.ts)), never expiring and without a usage limit, and an automatic percentage discount without a code for each band in the [pricing rules](src/modules/_core/constants/pricing.ts).
+- Set up Polar as the [Polar setup guide](content/docs/getting-started/polar-setup.en-US.mdx) describes: separate sandbox and production organisations, an organisation token with the listed scopes, one one-time product per tier priced from `TIER_PRICES` with one licence-key benefit limited by `LICENSE_ACTIVATION_LIMITS` ([`license.constants.ts`](src/modules/license/license.constants.ts)), never expiring and without a usage limit, and an automatic percentage discount without a code for each band in the [pricing rules](src/modules/license/license.pricing.ts).
 - Create one Polar webhook per deployed host at `https://<your-host>/api/auth/polar/webhooks`, in the raw format, signed with `POLAR_WEBHOOK_SECRET` and subscribed to exactly `POLAR_EVENTS` from [`src/data/polar-events.ts`](src/data/polar-events.ts), the events every area handles; today these are the licence area's `LICENSE_WEBHOOK_EVENTS`. The licence [handlers](src/modules/license/license.webhooks.ts) process paid orders, full refunds (a partial refund keeps the licence), and licence-benefit creation and revocation.
 - Run `bun run polar:verify:<environment>` after every change in Polar. It reads the Polar keys from `.env.<environment>`, sends only GET requests, and fails with one line per difference between Polar and the code. Checkout and the check share one [regional discount rule](src/integrations/polar/polar.discounts.ts).
 

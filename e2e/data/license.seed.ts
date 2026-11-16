@@ -2,9 +2,8 @@ import { join } from "node:path"
 
 import { bundleObjectKey } from "../../src/modules/license/license.bundles"
 import { BUNDLE_BINDING, BUNDLE_CONTENT_TYPE } from "../../src/modules/license/license.constants"
-import { TEST_LICENSED_ACCOUNT } from "./accounts"
 import { accountStatements } from "./auth.seed"
-import { TEST_BUNDLE, TEST_LICENSE } from "./licenses"
+import { TEST_BUNDLE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "./licenses"
 import { type TestSeed, literal } from "./seed"
 
 export const licenseSeed = async (): Promise<TestSeed> => ({

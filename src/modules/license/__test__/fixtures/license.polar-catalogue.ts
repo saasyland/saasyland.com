@@ -2,9 +2,9 @@ import type { PolarCatalogue, PolarDiscount } from "~/src/platform/testing/lib/p
 
 import { BASIS_POINTS_PER_PERCENT } from "~/src/integrations/polar/polar.discounts"
 
-import { PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
 import { licensePolarProduct } from "~/src/modules/license/__test__/fixtures/polar-product"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
+import { PPP_PERCENTS_OFF } from "~/src/modules/license/license.pricing"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 
 const LICENSE_KEY_PREFIX = "SAASYLAND"

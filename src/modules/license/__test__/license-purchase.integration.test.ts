@@ -29,7 +29,7 @@ import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { COUNTRY_HEADER, HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { DEFAULT_CURRENCY_CODE, PPP_COOKIE, PPP_DECLINED, PPP_PERCENT, pppMultiplierKey } from "~/src/modules/_core/constants/pricing"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { REGIONAL_POLAR_DISCOUNTS } from "~/src/modules/license/__test__/fixtures/license.polar-catalogue"
 import {
   LICENSE_ACTIVATION_LIMITS,
@@ -38,6 +38,7 @@ import {
   LICENSE_WEBHOOK_EVENTS,
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
+import { PPP_COOKIE, PPP_DECLINED, PPP_PERCENT, pppMultiplierKey } from "~/src/modules/license/license.pricing"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"

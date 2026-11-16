@@ -5,8 +5,9 @@ import { Check, CircleDashed } from "lucide-react"
 import { CheckboxButton, CheckboxField } from "react-aria-components"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { CURRENCY_FORMAT, PPP_COOKIE, PPP_DECLINED, PPP_KEYS, PPP_PERCENT } from "~/src/modules/_core/constants/pricing"
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
+import { PPP_COOKIE, PPP_DECLINED, PPP_KEYS, PPP_PERCENT } from "~/src/modules/license/license.pricing"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { REACTPROJECTS_FACTS, TIER_FEATURES, TIER_PRICES } from "~/src/data/marketing"

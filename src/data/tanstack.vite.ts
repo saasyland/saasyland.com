@@ -3,6 +3,8 @@ import type { VitePluginEntry } from "./vite.ts"
 
 const LOCALE_PREFIX = /^\/[a-z]{2}-[A-Z]{2}(?=\/|$)/u
 
+const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
+
 export const shouldPrerender = ({ path }: { path: string }): boolean => {
   if (path.includes("?") || path.includes("#")) {
     return false
@@ -19,6 +21,7 @@ export const TANSTACK_VITE_PLUGINS = [
 
       return [
         tanstackStart({
+          importProtection: { client: { specifiers: SERVER_ONLY_PACKAGES } },
           prerender: {
             autoStaticPathsDiscovery: true,
             crawlLinks: true,

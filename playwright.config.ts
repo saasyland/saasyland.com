@@ -1,8 +1,10 @@
 import { defineConfig, devices } from "@playwright/test"
 
+import { LOCAL_SERVER, LOCAL_SERVER_ORIGIN } from "./src/data/local-server.ts"
+
 const isCI = Boolean(process.env["CI"])
-const appUrl = process.env["PLAYWRIGHT_BASE_URL"] ?? "http://127.0.0.1:3000"
-const startCommand = `bun run start:test --port ${new URL(appUrl).port || "3000"}`
+const appUrl = process.env["PLAYWRIGHT_BASE_URL"] ?? LOCAL_SERVER_ORIGIN
+const startCommand = `bun run start:test --port ${new URL(appUrl).port || String(LOCAL_SERVER.PORT)}`
 
 export const CI_RETRIES = 2
 export const DEV_RETRIES = 0

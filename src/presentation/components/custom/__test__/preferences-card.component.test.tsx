@@ -39,6 +39,7 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
 })
 
 const labels = preferencesCardMessages
+const messages = getTestMessages("en-US")
 
 const SystemDateTimeFormat = Intl.DateTimeFormat
 
@@ -56,7 +57,7 @@ const renderCard = () => {
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } })
   queryClient.setQueryData(getCurrentSessionQuery.queryKey, createAuthSessionFixture())
   const result = renderWithRouter(
-    <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={getTestMessages("en-US")} timeZone={I18N.DEFAULT_TIMEZONE}>
+    <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={messages} timeZone={I18N.DEFAULT_TIMEZONE}>
       <PreferencesCard />
     </IntlProvider>,
     { queryClient },

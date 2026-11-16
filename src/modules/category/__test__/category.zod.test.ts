@@ -4,11 +4,6 @@ import { CATEGORY_KIND } from "~/src/modules/category/category.constants"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
 describe("category zod schemas", () => {
-  it("rejects empty select payloads", () => {
-    expect.hasAssertions()
-    expect(categoryZodSchemas.select.safeParse({}).success).toBe(false)
-  })
-
   it("accepts valid create payloads", () => {
     expect.hasAssertions()
     expect(

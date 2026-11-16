@@ -57,8 +57,10 @@ const DateProbe = () => {
   )
 }
 
-const renderDates = (queryClient: QueryClient) =>
-  renderWithRouter(
+const renderDates = async (queryClient: QueryClient) => {
+  await preloadNamespaces({ locale: I18N.DEFAULT_LOCALE, namespaces: ROOT_NAMESPACES, queryClient })
+
+  return renderWithRouter(
     <Suspense fallback="pending">
       <TranslationsProvider>
         <DateProbe />
@@ -66,6 +68,7 @@ const renderDates = (queryClient: QueryClient) =>
     </Suspense>,
     { queryClient },
   )
+}
 
 beforeEach(() => {
   sessionRequest.mockReset()
@@ -79,9 +82,9 @@ afterEach(() => {
 
 describe("the auth area's time zone", () => {
   it("formats dates in UTC for a visitor without a session and never fetches one", async () => {
-    renderDates(new QueryClient())
+    await renderDates(new QueryClient())
 
-    expect(await screen.findByTestId("instant")).toHaveTextContent("Jan 1, 2025, 12:00 PM UTC")
+    expect(screen.getByTestId("instant")).toHaveTextContent("Jan 1, 2025, 12:00 PM UTC")
     expect(screen.getByTestId("calendar-date")).toHaveTextContent("Nov 14, 2026")
     expect(sessionRequest).not.toHaveBeenCalled()
   })
@@ -89,17 +92,17 @@ describe("the auth area's time zone", () => {
   it("applies the signed-in user's time zone with its label and keeps calendar dates on their day", async () => {
     const queryClient = new QueryClient()
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, sessionIn("America/Los_Angeles"))
-    renderDates(queryClient)
+    await renderDates(queryClient)
 
-    expect(await screen.findByTestId("instant")).toHaveTextContent("Jan 1, 2025, 4:00 AM PST")
+    expect(screen.getByTestId("instant")).toHaveTextContent("Jan 1, 2025, 4:00 AM PST")
     expect(screen.getByTestId("calendar-date")).toHaveTextContent("Nov 14, 2026")
   })
 
   it("re-renders every date when the session changes", async () => {
     const queryClient = new QueryClient()
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, sessionIn("Europe/Warsaw"))
-    renderDates(queryClient)
-    expect(await screen.findByTestId("instant")).toHaveTextContent("Jan 1, 2025, 1:00 PM GMT+1")
+    await renderDates(queryClient)
+    expect(screen.getByTestId("instant")).toHaveTextContent("Jan 1, 2025, 1:00 PM GMT+1")
 
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, sessionIn("Asia/Tokyo"))
 

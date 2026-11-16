@@ -1,6 +1,7 @@
 import { resolve } from "node:path"
 import { type UserConfig, defineConfig, lazyPlugins, loadEnv } from "vite-plus"
 
+import { LOCAL_SERVER } from "./src/data/local-server.ts"
 import { vitePlugins } from "./src/data/vite.ts"
 
 const projectRoot = import.meta.dirname
@@ -221,8 +222,9 @@ const tooling = {
 export default defineConfig(({ mode }) => ({
   ...tooling,
   plugins: lazyPlugins(() => vitePlugins({ mode, vitest: process.env["VITEST"] === "true" })) ?? [],
+  preview: { host: LOCAL_SERVER.HOST, port: LOCAL_SERVER.PORT },
   resolve: { tsconfigPaths: true },
-  server: { port: 3000, strictPort: true, watch: { ignored: ["**/coverage/**"] } },
+  server: { port: LOCAL_SERVER.PORT, strictPort: true, watch: { ignored: ["**/coverage/**"] } },
   staged: { "*": "vp check --fix" },
   test: {
     alias: [

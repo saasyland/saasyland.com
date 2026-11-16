@@ -1,7 +1,8 @@
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { describe, expect, it } from "vite-plus/test"
 
-import { PRODUCT_STATUSES, PRODUCT_TYPES, product } from "~/src/modules/product/product.schema"
+import { PRODUCT_STATUSES, PRODUCT_TYPES } from "~/src/modules/product/product.constants"
+import { product } from "~/src/modules/product/product.schema"
 
 describe("product schema", () => {
   it("materializes through drizzle adapter", () => {

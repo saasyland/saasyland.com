@@ -1,11 +1,7 @@
-import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
 import { LICENSE_TIERS } from "~/src/modules/license/license.constants"
-import { license } from "~/src/modules/license/license.schema"
-
-const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
 
 const startCheckout = zod.object({
   locale: localeField,
@@ -16,14 +12,7 @@ const deactivateLicense = zod.object({
   activationId: zod.uuid(),
 })
 
-const insert = createInsertSchema(license)
-const select = createSelectSchema(license)
-const update = createUpdateSchema(license)
-
 export const licenseZodSchemas = {
   deactivateLicense,
-  insert,
-  select,
   startCheckout,
-  update,
 }

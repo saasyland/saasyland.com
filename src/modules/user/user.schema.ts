@@ -6,15 +6,10 @@ import { DEFAULT_ROLE_CODE, ROLE_VALUES } from "~/src/integrations/better-auth/a
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { TIMEZONES } from "~/src/modules/_core/constants/timezone"
 import { account } from "~/src/modules/account/account.schema"
 import { session } from "~/src/modules/session/session.schema"
 import { twoFactor } from "~/src/modules/two-factor/two-factor.schema"
-import { BAN_REASON_MAX_LENGTH } from "~/src/modules/user/user.constants"
-
-const AFTER_FIRST_TIMEZONE = 1
-
-export const TIMEZONE_CODES = [TIMEZONES[0].iana, ...TIMEZONES.slice(AFTER_FIRST_TIMEZONE).map((timezone) => timezone.iana)] as const
+import { BAN_REASON_MAX_LENGTH, TIMEZONE_CODES } from "~/src/modules/user/user.constants"
 
 export const user = sqliteTable(
   "user",

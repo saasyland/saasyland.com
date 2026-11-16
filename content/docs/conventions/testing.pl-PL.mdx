@@ -72,6 +72,17 @@ describe("getCourses", () => {
 - **Zachowuj asercje, gdy reguła się zgłasza.** Gdy test przekracza `max-statements`, wydziel nazwany helper, zamiast usuwać sprawdzenia.
 - **Ładuj każdy plik komunikatów.** `i18n.messages.test.ts` ładuje każdą przestrzeń nazw każdego języka i to on pokrywa linie `import.meta.glob` w `i18n.messages.ts`. Nowy plik komunikatów jest przez niego pokryty automatycznie.
 
+## Testy na obciążonej maszynie
+
+Limit czasu Vitest i jednosekundowy zapas `waitFor` i `findBy*` liczą czas rzeczywisty, więc test, który wykonuje pracę niepotrzebną dla sprawdzanego zachowania albo czeka na zegar, nie przechodzi na obciążonej maszynie, choć nic nie jest zepsute. Domyślny limit zostaje bez zmian; wolny test przebudowuje się tak, żeby robił mniej:
+
+- **Sprawdzenie wielu plików to jeden test na plik.** `check-content.test.ts` uruchamia `pageProblems` dla każdej angielskiej strony przez `it.each(sourcePages())`, a rozbieżność podaje swoją stronę.
+- **To, na co komponent czeka w Suspense, ładuje się przed jego renderowaniem**, tak jak robi to `preloadNamespaces` z tłumaczeniami. Gdy test dotyczy samego ładowania, rozwiązuje je wewnątrz `act`, jak `translations-provider.component.test.tsx`: treść wznowiona poza `act` pojawia się dopiero po opóźnieniu, z jakim React ją odsłania, na prawdziwym zegarze, a test musi na nią czekać, odpytując DOM.
+- **Test podmienia listę obszaru bez ponownego importowania komponentu.** `translations-provider.component.test.tsx` raz mockuje `TIME_ZONE_SOURCES` i wypełnia ją w każdym teście, a `time-zone.test.ts` sprawdza, jak łączą się listy obszarów. Ponowny import komponentu po `vi.resetModules()` wykonuje od nowa cały jego graf importów wewnątrz testu.
+- **Fixtures, które czyta każdy test, tworzy się raz na plik**, jak komunikaty z `getTestMessages`.
+- **Formularz wypełnia się przez `user.paste`, chyba że testowanym zachowaniem są naciśnięcia klawiszy.** `fill` w `admin-course-routes.component.test.tsx` klika pole i wkleja tekst; `user.type` uruchamia walidację i renderowanie formularza dla każdego znaku.
+- **Długą listę opcji da się tanio renderować ponownie.** Combobox stref czasowych w `preferences-card.tsx` przekazuje swoje opcje do `ComboboxList` jako zmemoizowane `items`, więc React Aria używa ich ponownie, gdy formularz renderuje się od nowa.
+
 ## Testy podążają za obszarami [#tests-follow-the-areas]
 
 Obszary, które deklarują własne ścieżki i pozycje menu (zobacz [Ścieżki i nawigacja](/docs/conventions/routes#paths-and-navigation)), mają też własne testy, dzięki czemu CLI `saasyland` może pominąć obszar w generowanym projekcie razem z jego testami, a wszystkie pozostałe testy nadal przechodzą.

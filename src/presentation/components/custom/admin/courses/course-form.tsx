@@ -8,8 +8,7 @@ import { useTranslations } from "use-intl/react"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { COURSE_KIND, COURSE_QUERY_KEYS, COURSE_STATUS } from "~/src/modules/course/course.constants"
-import { COURSE_KINDS, COURSE_STATUSES } from "~/src/modules/course/course.schema"
+import { COURSE_KIND, COURSE_KINDS, COURSE_QUERY_KEYS, COURSE_STATUS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
 import { createCourseMutation } from "~/src/modules/course/use-cases/create-course"

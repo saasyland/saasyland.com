@@ -17,7 +17,7 @@ import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 import type { updatePreferencesMutation } from "~/src/modules/user/use-cases/update-preferences"
 import { USER_MUTATION_KEYS } from "~/src/modules/user/user.constants"
 
-import { PreferencesCard, PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card"
+import { PreferencesCard } from "~/src/presentation/components/custom/preferences-card"
 
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
 import errorsMessages from "~/messages/en-US/errors.json"
@@ -182,13 +182,5 @@ describe("preferences card", () => {
     })
     expect(sessionRequest).not.toHaveBeenCalled()
     expect(timezoneField()).toHaveValue(timezonesMessages[SAVED_TIMEZONE])
-  })
-
-  it("renders a skeleton with the card's header, field and footer", () => {
-    const { container } = renderWithRouter(<PreferencesCardPending />)
-
-    expect(container.querySelector("[data-slot=card-header]")).toBeInTheDocument()
-    expect(container.querySelector("[data-slot=card-footer]")).toBeInTheDocument()
-    expect(container.querySelectorAll("[data-slot=skeleton]").length).toBeGreaterThan(0)
   })
 })

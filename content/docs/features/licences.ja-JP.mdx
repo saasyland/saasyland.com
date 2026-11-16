@@ -9,7 +9,7 @@ description: "ライセンスのプランを販売する Polar の購入処理�
 
 有効なライセンスを持たないサインイン済みユーザーには、`/app` と `/app/license` に `LicenseOffer` が表示されます。ランディングページのプランのカード（`PricingTiers`。[ランディングページ](/docs/features/landing-page)を参照）にプランごとの `CheckoutButton` を付けたもので、地域価格のチェックボックス、購入条件、購入で視聴できるようになるコースのレッスンも表示されます。`startCheckout`（`src/modules/license/use-cases/start-checkout.ts`）は `{ locale, tier }` を受け取り、次の処理を行います。
 
-1. アカウントにすでに `active` なライセンスがある場合は、`AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)` で拒否します。ボタンは `errors.codes.LICENSE_ALREADY_ACTIVE` を表示してライセンスを再取得するため、購入後も開いたままだったページはライセンスの表示に切り替わります。
+1. アカウントにすでに `active` なライセンスがある場合は、チェックアウトの代わりに `{ alreadyActive: true }` を返します。ボタンは `pages.license` の `buy.alreadyActive` を表示してライセンスを再取得するため、購入後も開いたままだったページはライセンスの表示に切り替わります。
 2. `pppDiscountId`（`license.ppp.ts`）で地域割引を探します。`cf-ipcountry` の国に対応する割引率を、`findRegionalDiscount`（`src/integrations/polar/polar.discounts.ts`）が Polar で現在利用できる自動のパーセント割引と照合します。`regional_pricing` Cookie が `off` の場合は適用しません。
 3. `polar.checkouts.create` で、そのプランの Polar 購入セッションを作成します。セッションはアカウントに結び付けられ（`external_customer_id`）、アカウントのメールアドレスと名前が入力済みになる（`customer_email`、`customer_name`）ため、購入フォームはそれらが入った状態で開きます。さらに、`cf-connecting-ip` から得た購入者の IP アドレス（`customer_ip_address`、Better Auth の `getIP` で取得）を渡し、割引コードを無効にし、成功 URL を購入者の言語の `/app?checkoutId={CHECKOUT_ID}`（`localizePathname`）にします。訪問者がアフィリエイトリンク経由で来た場合は、アフィリエイトの紹介情報を `metadata` に含めます（[アフィリエイトプログラム](/docs/features/affiliates)を参照）。Polar は `{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）を購入セッションの ID に置き換えます。
 4. 購入 URL を返し、ブラウザーがそれを開きます。

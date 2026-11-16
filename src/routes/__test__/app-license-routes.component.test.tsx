@@ -17,7 +17,6 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
 import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS, LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
@@ -273,7 +272,7 @@ describe("buying a license", () => {
   })
 
   it("explains a refused checkout and switches a stale page to the license it already owns", async () => {
-    checkoutMock.mockRejectedValue(new AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE))
+    checkoutMock.mockResolvedValue({ alreadyActive: true })
     const { user } = await renderApp(ROUTES.APP)
     await offer()
     currentLicenseMock.mockResolvedValue({ license: ownedLicense })
@@ -281,7 +280,7 @@ describe("buying a license", () => {
     await user.click(tierButton(LICENSE_TIER.COMPLETE))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(errorsMessages.codes.LICENSE_ALREADY_ACTIVE.replace("{email}", CONTACT_EMAIL))
+      expect(toast.error).toHaveBeenCalledWith(`You already have an active licence. To move to another tier, email ${CONTACT_EMAIL}.`)
     })
     expect(await screen.findByRole("heading", { name: statusCard.title })).toBeVisible()
     expect(screen.queryByRole("region", { name: buy.title })).toBeNull()

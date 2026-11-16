@@ -9,7 +9,7 @@ import type { AuthSearch } from "~/src/integrations/better-auth/auth.zod"
 import { resolveLocale } from "~/src/integrations/use-intl/i18n.middleware"
 
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
-import { LICENSE_QUERY_KEYS } from "~/src/modules/license/license.constants"
+import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 
 import { starCountQuery } from "~/src/lib/github"
 
@@ -128,13 +128,13 @@ describe("cached data when the visitor changes", () => {
 
   const fillCache = async (queryClient: QueryClient): Promise<void> => {
     await queryClient.query({ ...starCountQuery, queryFn: () => STAR_COUNT })
-    queryClient.setQueryData(LICENSE_QUERY_KEYS.CURRENT, { key: "previous-license" })
+    queryClient.setQueryData(SESSION_QUERY_KEYS.ACTIVE, [{ id: "previous-session" }])
     queryClient.getMutationCache().build(queryClient, { mutationKey: ACCOUNT_MUTATION_KEYS.CHANGE_PASSWORD })
   }
 
   const expectOnlyPublicData = (queryClient: QueryClient): void => {
     expect(queryClient.getQueryData(starCountQuery.queryKey)).toBe(STAR_COUNT)
-    expect(queryClient.getQueryData(LICENSE_QUERY_KEYS.CURRENT)).toBeUndefined()
+    expect(queryClient.getQueryData(SESSION_QUERY_KEYS.ACTIVE)).toBeUndefined()
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0)
   }
 
@@ -181,7 +181,7 @@ describe("cached data when the visitor changes", () => {
     await requireSignedIn(context)
     await fillCache(context.context.queryClient)
     await requireSignedIn(context)
-    expect(context.context.queryClient.getQueryData(LICENSE_QUERY_KEYS.CURRENT)).toEqual({ key: "previous-license" })
+    expect(context.context.queryClient.getQueryData(SESSION_QUERY_KEYS.ACTIVE)).toEqual([{ id: "previous-session" }])
     expect(context.context.queryClient.getMutationCache().getAll()).toHaveLength(1)
     expect(getSession).toHaveBeenCalledTimes(2)
   })
@@ -190,16 +190,16 @@ describe("cached data when the visitor changes", () => {
 describe("return path through authentication", () => {
   it("sends a signed-out visitor to sign-in with the page they asked for as the return path", async () => {
     signedOut()
-    await expect(requireSignedIn(protectedPageContext("/pl-PL/app/license"))).rejects.toHaveProperty(
+    await expect(requireSignedIn(protectedPageContext("/pl-PL/app/settings"))).rejects.toHaveProperty(
       "options",
-      expect.objectContaining({ search: { redirect: "/pl-PL/app/license" }, to: "/auth/sign-in" }),
+      expect.objectContaining({ search: { redirect: "/pl-PL/app/settings" }, to: "/auth/sign-in" }),
     )
   })
   it("returns a signed-in visitor from a guest page to the return path instead of the workspace", async () => {
     session(ROLE_CODES.CUSTOMER)
-    await expect(redirectIfSignedIn(authPageContext({ redirect: "/pl-PL/app/license" }))).rejects.toHaveProperty(
+    await expect(redirectIfSignedIn(authPageContext({ redirect: "/pl-PL/app/settings" }))).rejects.toHaveProperty(
       "options",
-      expect.objectContaining({ href: "/pl-PL/app/license", replace: true }),
+      expect.objectContaining({ href: "/pl-PL/app/settings", replace: true }),
     )
   })
   it("continues a callback to the return path", async () => {
@@ -211,9 +211,9 @@ describe("return path through authentication", () => {
   })
   it("keeps the return path when a signed-out callback goes back to sign-in", async () => {
     signedOut()
-    await expect(redirectAfterAuth(authPageContext({ redirect: "/app/license" }))).rejects.toHaveProperty(
+    await expect(redirectAfterAuth(authPageContext({ redirect: "/app/settings" }))).rejects.toHaveProperty(
       "options",
-      expect.objectContaining({ search: { redirect: "/app/license" }, to: "/auth/sign-in" }),
+      expect.objectContaining({ search: { redirect: "/app/settings" }, to: "/auth/sign-in" }),
     )
   })
 })

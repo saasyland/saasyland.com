@@ -78,7 +78,11 @@ const startCheckout = async (
   { locale = "en-US", tier, ...browser }: BrowserState & { readonly locale?: SupportedLocale; readonly tier: LicenseTier },
 ): Promise<models.Checkout> => {
   actAs(buyer, browser)
-  const { url } = await executeMutation(startCheckoutMutation, { locale, tier })
+  const started = await executeMutation(startCheckoutMutation, { locale, tier })
+  if ("alreadyActive" in started) {
+    throw new Error("The account already holds an active licence, so no checkout started")
+  }
+  const { url } = started
   const checkout = polarCheckouts().find(({ id }) => new URL(url).searchParams.get("checkoutId") === id)
   if (checkout === undefined) {
     throw new Error(`Polar holds no checkout for ${url}`)
@@ -190,7 +194,10 @@ describe("checkout", () => {
     const { buyer } = await buyLicense()
     const checkoutsBefore = polarCheckouts().length
 
-    await expect(startCheckout(buyer, { tier: LICENSE_TIER.AGENCY })).rejects.toThrow(ERROR_CODES.LICENSE_ALREADY_ACTIVE)
+    actAs(buyer)
+    await expect(executeMutation(startCheckoutMutation, { locale: "en-US", tier: LICENSE_TIER.AGENCY })).resolves.toStrictEqual({
+      alreadyActive: true,
+    })
 
     expect(polarCheckouts()).toHaveLength(checkoutsBefore)
   })

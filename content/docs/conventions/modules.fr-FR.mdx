@@ -13,8 +13,8 @@ Les modules sont `account`, `category`, `chapter`, `course`, `lesson`, `lesson-p
 
 | Fichier                      | Contenu                                                                                                                        |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `<table>.schema.ts`          | La table Drizzle, ses index et ses relations, et les tuples d'enum qu'utilisent ses colonnes                                   |
-| `<table>.constants.ts`       | Les objets de valeurs du domaine, les clés de query, les clés de mutation et les limites du module                             |
+| `<table>.schema.ts`          | La table Drizzle, ses index et ses relations                                                                                   |
+| `<table>.constants.ts`       | Les objets de valeurs du domaine, leurs tuples d'enum, les clés de query, les clés de mutation et les limites du module        |
 | `<table>.zod.ts`             | Un schéma d'entrée par opération, tous exportés dans un seul objet `<table>ZodSchemas`                                         |
 | `<table>.types.ts`           | Une interface au nom du module                                                                                                 |
 | `<table>.utils.ts`           | Des utilitaires pour la table, purs et utilisables sans risque dans le navigateur, sauf s'ils lisent l'environnement du Worker |
@@ -25,9 +25,6 @@ Les modules sont `account`, `category`, `chapter`, `course`, `lesson`, `lesson-p
 ## Schéma
 
 ```ts
-export const COURSE_KINDS = [COURSE_KIND.COURSE, COURSE_KIND.TUTORIAL, COURSE_KIND.PROJECT] as const
-export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
-
 export const course = sqliteTable(
   "course",
   {
@@ -47,7 +44,7 @@ export const course = sqliteTable(
 - Les colonnes sont en camelCase en TypeScript et en snake_case en SQL. Les clés sont triées, comme l'exige le linter, avec `...timestamps()` en dernière entrée.
 - `createdAt` et `updatedAt` proviennent de `timestamps()` dans `src/integrations/drizzle-orm/drizzle.columns.ts` : des millisecondes, renseignées par SQLite à l'insertion, `updatedAt` étant actualisée à chaque mise à jour. Ne les écrivez jamais à la main. `lesson_progress` n'a besoin que de la seconde et prend donc `updatedAt: timestamps().updatedAt`. Deux tables n'ont pas d'horodatage : `rate_limit` contient des compteurs de courte durée qui portent leur propre `expiresAt` et changent à chaque requête, et `revoked_license_order` enregistre une seule fois chaque commande Polar remboursée, par son identifiant.
 - Les clés primaires sont de type texte. Un cas d'usage qui insère une ligne remplit la clé avec un UUID v7 (`v7()` de `uuid`).
-- Les colonnes d'enum prennent un tuple construit à partir de l'objet de constantes du module, jamais une liste de littéraux. Le tuple se trouve dans le fichier du schéma, sauf si du code hors du serveur le lit, comme la grille tarifaire de la page d'accueil (`LICENSE_TIERS`) ou la suite du navigateur (`NEWSLETTER_STATUSES`) ; il se trouve alors dans `<table>.constants.ts`, qui n'importe rien de Drizzle.
+- Les colonnes d'enum prennent un tuple construit à partir de l'objet de constantes du module, jamais une liste de littéraux. Le tuple se trouve à côté de l'objet dans `<table>.constants.ts`, car les schémas Zod et le navigateur le lisent aussi, et ce fichier n'importe rien de Drizzle.
 - Un texte qu'un visiteur lit en plusieurs langues est une colonne JSON `LocalizedText`, validée par `localizedTextSchema` et lue avec `localize(text, locale)` de `src/modules/_core/utils/localized-text.ts`.
 - Une nouvelle table est réexportée par `src/integrations/drizzle-orm/drizzle.schemas.ts`, et sa migration est générée avec `bun run db:generate`. Voir [Migrations de base de données](/docs/guides/database-migrations).
 
@@ -58,6 +55,8 @@ export const COURSE_STATUS = {
   DRAFT: "draft",
   PUBLISHED: "published",
 } as const
+
+export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
 
 export const COURSE_STALE_MS = 60_000
 
@@ -91,8 +90,14 @@ export const COURSE_MUTATION_KEYS = {
 
 ## Schémas Zod
 
-```ts
-const { createInsertSchema, createSelectSchema } = createSchemaFactory({ zodInstance: zod })
+```ts title="src/modules/course/course.zod.ts"
+import zod from "zod/v4"
+
+import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
+import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
+import { paginationSchema } from "~/src/modules/_core/utils/pagination"
+import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
+import { COURSE_KINDS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
 
 const courseIdInput = zod.object({
   courseId: idField,
@@ -131,9 +136,6 @@ const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) }
 
 const updateCourse = courseFields.extend(courseIdInput.shape)
 
-const insert = createInsertSchema(course)
-const select = createSelectSchema(course)
-
 export const courseZodSchemas = {
   createCourse,
   deleteCourse,
@@ -142,14 +144,14 @@ export const courseZodSchemas = {
   getCourseEditor,
   getCourseShowcase,
   getCourses,
-  insert,
   moveCourse,
-  select,
   updateCourse,
 }
 ```
 
-- `<table>.zod.ts` importe `zod from "zod/v4"` et exporte un seul objet dont les clés sont les noms des opérations, plus `insert` et `select` issus de `drizzle-zod`.
+- `<table>.zod.ts` importe `zod from "zod/v4"` et exporte un seul objet dont les clés sont les noms des opérations.
+- Les formulaires valident avec ces mêmes schémas dans le navigateur, si bien que `<table>.zod.ts` n'importe rien de Drizzle ni d'un `.schema.ts`. Les tuples d'enum et les longueurs proviennent de `<table>.constants.ts`, que la table importe aussi : la colonne et le schéma partagent ainsi une seule définition. Le build client échoue lorsque `drizzle-orm` atteint le navigateur ; voir [Gardez l'ORM hors du navigateur](/docs/conventions/performance#keep-the-orm-out-of-the-browser).
+- Aucun schéma Zod n'est dérivé de la table : rien ne valide une ligne entière à l'exécution, et les types de ligne de l'interface du module proviennent de `$inferSelect` et `$inferInsert`.
 - Les champs proviennent de `src/modules/_core/utils/zod-fields.ts` (`idField`, `localeField`, `slugField`) et de fragments partagés dans le même fichier, sans jamais être redéclarés pour chaque schéma.
 - Les listes paginées réutilisent `paginationSchema` ; les opérations sur un seul enregistrement prennent un objet comme `{ courseId }`, jamais une chaîne seule.
 - Les messages d'erreur sont des clés de traduction (`{ message: "slugInvalid" }`), affichées à partir de l'espace de noms `<table>.validations` du module. Voir [Formulaires et tableaux](/docs/conventions/forms-and-tables).

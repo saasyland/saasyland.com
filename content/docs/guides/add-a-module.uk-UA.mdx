@@ -9,9 +9,9 @@ description: "Додайте таблицю бази даних зі схемо�
 
 | Файл                       | Вміст                                                                                                                                            |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `<table>.schema.ts`        | Таблиця Drizzle, індекси, зв'язки та кортежі значень перелічень, зібрані з констант                                                              |
-| `<table>.zod.ts`           | Одна схема вхідних даних на операцію та схеми `drizzle-zod`, експортовані як `<table>ZodSchemas`                                                 |
-| `<table>.constants.ts`     | Іменовані доменні значення, як-от `CATEGORY_KIND`, ліміти колонок і кортежі ключів запитів і мутацій                                             |
+| `<table>.schema.ts`        | Таблиця Drizzle, індекси та зв'язки                                                                                                              |
+| `<table>.zod.ts`           | По одній схемі вхідних даних на операцію, експортованих як `<table>ZodSchemas`                                                                   |
+| `<table>.constants.ts`     | Іменовані доменні значення, як-от `CATEGORY_KIND`, зібрані з них кортежі значень перелічень, ліміти колонок і кортежі ключів запитів і мутацій   |
 | `<table>.types.ts`         | Один інтерфейс із типами рядків і типом вхідних даних кожної операції                                                                            |
 | `<table>.utils.ts`         | Необов'язкові допоміжні функції; `license.utils.ts` читає середовище Worker, тому виконується лише на сервері                                    |
 | `<table>.<concern>.ts`     | Необов'язковий код, який не є однією операцією, як-от `license.webhooks.ts` або `video.playback.ts` ([Каталог модулів](/docs/reference/modules)) |
@@ -20,7 +20,7 @@ description: "Додайте таблицю бази даних зі схемо�
 
 ## 1. Визначте таблицю
 
-Назвіть значення таблиці один раз у `category.constants.ts`. Схема, схеми Zod, сценарії використання, компоненти, тести й дані e2e імпортують їх звідти, а не повторюють рядок на кшталт `"collection"`:
+Назвіть значення таблиці один раз у `category.constants.ts` разом із кортежем, який отримує колонка-перелічення. Схема, схеми Zod, сценарії використання, компоненти, тести й дані e2e імпортують їх звідти, а не повторюють рядок на кшталт `"collection"`:
 
 ```ts
 export const CATEGORY_NAME_MAX_LENGTH = 255
@@ -29,6 +29,8 @@ export const CATEGORY_KIND = {
   CATEGORY: "category",
   COLLECTION: "collection",
 } as const
+
+export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
 ```
 
 Побудуйте таблицю з цих назв:
@@ -38,9 +40,7 @@ import { index, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 
-import { CATEGORY_KIND, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
-
-export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
+import { CATEGORY_KIND, CATEGORY_KINDS, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
 
 export const category = sqliteTable(
   "category",
@@ -84,14 +84,10 @@ bun run db:migrate:local
 Кожна операція має власну схему вхідних даних. Повідомлення валідації — це ключі перекладу; форма показує їх через `ValidationFieldError` у просторі імен, який вона вказує.
 
 ```ts
-import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
-import { CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
-import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
-
-const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
+import { CATEGORY_KINDS, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
 
 const createCategory = zod.object({
   kind: zod.enum(CATEGORY_KINDS),
@@ -103,11 +99,10 @@ const deleteCategory = zod.object({ categoryId: idField })
 export const categoryZodSchemas = {
   createCategory,
   deleteCategory,
-  insert: createInsertSchema(category),
-  select: createSelectSchema(category),
-  update: createUpdateSchema(category),
 }
 ```
+
+Форми валідують дані цими схемами в браузері, тому файл бере кортежі й ліміти з `category.constants.ts` і нічого не імпортує ні з Drizzle, ні з `category.schema.ts`. Збірка, у якій `drizzle-orm` потрапляє в браузер, завершується помилкою; див. [Тримайте ORM поза браузером](/docs/conventions/performance#keep-the-orm-out-of-the-browser).
 
 Додайте `messages/<locale>/<table>.validations.json` для кожної мови з усіма ключами, які використовують схеми. Форма показує ці ключі, лише коли її маршрут попередньо завантажує простір імен і передає його в `ValidationFieldError`; форми курсів в адмінпанелі використовують `course.validations`, а інші форми — `auth.validations`.
 

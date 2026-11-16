@@ -1,4 +1,3 @@
-import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import {
@@ -11,9 +10,6 @@ import {
 } from "~/src/integrations/better-auth/auth.zod"
 
 import { MIN_FIELD_LENGTH } from "~/src/modules/_core/utils/zod-fields"
-import { account } from "~/src/modules/account/account.schema"
-
-const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
 
 const changeEmail = zod.object({
   callbackURL: callbackPathSchema,
@@ -41,17 +37,10 @@ const updateUser = zod.object({
   name: nameSchema,
 })
 
-const insert = createInsertSchema(account)
-const select = createSelectSchema(account)
-const update = createUpdateSchema(account)
-
 export const accountZodSchemas = {
   changeEmail,
   changePassword,
   changePasswordForm,
-  insert,
-  select,
   signUpWithPassword: signUpWithPasswordSchema,
-  update,
   updateUser,
 }

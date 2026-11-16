@@ -7,16 +7,17 @@ description: "Cómo se nombran y estructuran los archivos de ruta y cómo se con
 
 Las rutas son archivos planos en `src/routes`. Los puntos se convierten en segmentos de la ruta:
 
-| Archivo               | URL                | Notas                                                     |
-| --------------------- | ------------------ | --------------------------------------------------------- |
-| `__root.tsx`          | todas las páginas  | Shell del documento y namespaces raíz                     |
-| `_landing.tsx`        | ninguna            | Layout sin segmento de ruta para las páginas de marketing |
-| `_landing.terms.tsx`  | `/terms`           | Página dentro del layout de la landing                    |
-| `admin.tsx`           | `/admin`           | Layout con el guard `requireAdmin`                        |
-| `admin.users.all.tsx` | `/admin/users/all` | Página dentro del layout de administración                |
-| `blog.index.tsx`      | `/blog`            | Página índice del layout `blog`                           |
-| `docs.$.tsx`          | `/docs/*`          | Ruta comodín para las páginas de documentación            |
-| `api/auth.$.ts`       | `/api/auth/*`      | Handler HTTP, sin componente                              |
+| Archivo                           | URL                | Notas                                                     |
+| --------------------------------- | ------------------ | --------------------------------------------------------- |
+| `__root.tsx`                      | todas las páginas  | Shell del documento y namespaces raíz                     |
+| `_site.tsx`                       | ninguna            | Layout sin segmento de ruta con la cabecera del sitio     |
+| `_site._marketing.tsx`            | ninguna            | Layout sin segmento de ruta para las páginas de marketing |
+| `_site._marketing.terms.tsx`      | `/terms`           | Página dentro del layout de marketing                     |
+| `admin.tsx`                       | `/admin`           | Layout con el guard `requireAdmin`                        |
+| `admin.users.all.tsx`             | `/admin/users/all` | Página dentro del layout de administración                |
+| `_site._marketing.blog.index.tsx` | `/blog`            | Página índice del layout `blog`                           |
+| `_site.docs.$.tsx`                | `/docs/*`          | Ruta comodín para las páginas de documentación            |
+| `api/auth.$.ts`                   | `/api/auth/*`      | Handler HTTP, sin componente                              |
 
 Los IDs de `createFileRoute("…")` son literales de cadena que mantiene el generador del router, que también escribe `src/routeTree.gen.ts`. Los archivos de las carpetas `__test__` se ignoran. Cada URL tiene una constante en `ROUTES` (`src/routes.ts`) y los enlaces usan `<Link to={ROUTES.X}>`.
 
@@ -27,7 +28,7 @@ Una ruta de página define un componente `<Name>Page`, una constante `NAMESPACE`
 ```tsx
 const NAMESPACE = "pages.legal.terms"
 
-export const Route = createFileRoute("/_landing/terms")({
+export const Route = createFileRoute("/_site/_marketing/terms")({
   component: TermsPage,
   head: pageHead(ROUTES.TERMS),
   loader: async ({ context }) => {
@@ -67,10 +68,10 @@ Los guards `requireSignedIn`, `requireAdmin`, `redirectIfSignedIn` y `redirectAf
 
 La mayoría de las navegaciones terminan antes de que aparezca cualquier interfaz de carga. Los enlaces precargan su ruta al pasar el cursor y al tocarlos, las páginas públicas están prerenderizadas y el router espera su `pendingMs` por defecto de un segundo antes de mostrar nada. Un esqueleto solo aparece cuando una navegación tarda más, normalmente en la primera visita a un área con una conexión lenta.
 
-No hay ningún componente de carga por defecto. Cada ruta de layout y de página define su propio `pendingComponent`, salvo las páginas de la documentación: `docs.index.tsx` y `docs.$.tsx` definen en su lugar `pendingMs: Number.POSITIVE_INFINITY`, así que nunca muestran un esqueleto propio, y `DocsPending` pertenece al layout `docs`. Cada esqueleto reproduce la página a la que sustituye:
+No hay ningún componente de carga por defecto. Cada ruta de layout y de página define su propio `pendingComponent`, salvo las páginas de la documentación: `_site.docs.index.tsx` y `_site.docs.$.tsx` definen en su lugar `pendingMs: Number.POSITIVE_INFINITY`, así que nunca muestran un esqueleto propio, y `DocsPending` pertenece al layout `docs`. Cada esqueleto reproduce la página a la que sustituye:
 
 - **Los esqueletos de página**, como `SignInPending` y `LegalPending`, están en el archivo de esqueletos del área y marcan su elemento raíz con `aria-busy="true"`. Los archivos son `custom/auth/auth-pending.tsx`, los archivos de administración en `custom/admin/` (`admin-pending.tsx` para el layout, un archivo `<area>-pending.tsx` por área, como `products-pending.tsx`, y bloques compartidos en `pending-blocks.tsx`), los archivos de la app de clientes en `custom/app/` (`app-pending.tsx` para el layout, `auth-pending.tsx` y `license-pending.tsx`, y la cabecera de página que comparten en `pending-blocks.tsx`), los archivos del layout público en la raíz de `custom/` (`marketing-pending.tsx` para el layout, `core-pending.tsx`, `legal-pending.tsx`, `license-pending.tsx` y `newsletter-pending.tsx`), `custom/blog/blog-pending.tsx`, `custom/courses/courses-pending.tsx` y `custom/docs-pending.tsx`.
-- **Los esqueletos de layout**, como `AuthPending` y `MarketingPending`, renderizan el marco del layout y eligen el esqueleto de página de la ruta actual a partir de un mapa indexado por `ROUTES`. Los layouts de administración, de la app de clientes y público comparten un mismo mapa, `PAGE_SKELETONS` en `src/data/skeletons.ts`, que reúne las listas que cada área declara en `src/data/<area>.skeletons.ts`. Por eso, al entrar en un área desde otra parte se muestra la página correcta. Los elementos del marco que no necesitan datos, como `Wordmark`, `PageFrame` y la `Navigation` de marketing, se renderizan de verdad.
+- **Los esqueletos de layout**, como `AuthPending` y `MarketingPending`, renderizan el marco del layout y eligen el esqueleto de página de la ruta actual a partir de un mapa indexado por `ROUTES`. Los layouts de administración, de la app de clientes y público comparten un mismo mapa, `PAGE_SKELETONS` en `src/data/skeletons.ts`, que reúne las listas que cada área declara en `src/data/<area>.skeletons.ts`. Por eso, al entrar en un área desde otra parte se muestra la página correcta. Los elementos del marco que no necesitan datos, como `Wordmark` y `PageFrame`, se renderizan de verdad, y la cabecera del sitio permanece en pantalla, porque el layout `_site` que la renderiza no tiene ningún loader al que esperar.
 - **Los marcadores de posición de texto** son barras `Skeleton` con el token tipográfico del elemento real más `h-lh scale-y-70`, de modo que cada barra ocupa exactamente una caja de línea. Las cajas usan las alturas y los radios reales. Las listas toman su longitud de las mismas constantes que la interfaz, como `OAUTH_PROVIDERS` y `PASSWORD_RULES` en `src/data/auth.ts`.
 
 Cuando añadas una página, añade su esqueleto al archivo de esqueletos del área, regístralo en el mapa del esqueleto de layout (en una página de administración, de la app de clientes o pública, en `src/data/<area>.skeletons.ts` de su área) y asígnalo como `pendingComponent` de la ruta.
@@ -78,7 +79,7 @@ Cuando añadas una página, añade su esqueleto al archivo de esqueletos del ár
 ## Otros aspectos de las rutas
 
 - **Los parámetros de búsqueda** se parsean con `validateSearch` en la propia ruta, por ejemplo el parámetro `tab` de `/admin/products` o el parámetro `view` de `/admin/blog`. El esquema es un `zod.object` construido con las funciones auxiliares de `src/lib/search-params.ts`: `searchText()` y `searchFlag()` devuelven `undefined` para un valor ausente, vacío o mal formado, y `searchChoice(choices, fallback)` devuelve el valor de respaldo. `searchParam(schema)` devuelve `undefined` salvo que el valor cumpla otro esquema de zod, como el token del boletín.
-- **Las funciones de servidor de una sola ruta** pueden definirse en el archivo de ruta con `createServerFn`, como `getBlogPosts` en `blog.index.tsx`.
+- **Las funciones de servidor de una sola ruta** pueden definirse en el archivo de ruta con `createServerFn`, como `getBlogPosts` en `_site._marketing.blog.index.tsx`.
 - **Los endpoints HTTP** viven en `src/routes/api`. Consulta [Handlers HTTP de TanStack Start](/docs/architecture/api-layer).
 
 ## Router

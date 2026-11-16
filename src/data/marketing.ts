@@ -1,24 +1,7 @@
 import { LICENSE_TIER, type LicenseTier } from "~/src/modules/license/license.constants"
 
 import { CLI_GENERATION } from "~/src/data/cli"
-import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
-
-export const MARKETING_SECTION_IDS = {
-  CLI: "cli",
-  FAQ: "faq",
-  FOUNDATION: "foundation",
-  PRICING: "pricing",
-  QUALITY: "quality",
-  TOOLKIT: "toolkit",
-} as const
-
-export const NAVIGATION_SECTIONS = [
-  MARKETING_SECTION_IDS.FOUNDATION,
-  MARKETING_SECTION_IDS.QUALITY,
-  MARKETING_SECTION_IDS.TOOLKIT,
-  MARKETING_SECTION_IDS.PRICING,
-  MARKETING_SECTION_IDS.FAQ,
-] as const
+import { FEATURE_STATUS, type FeatureStatus, MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
 export const FOOTER_SECTIONS = [MARKETING_SECTION_IDS.FOUNDATION, MARKETING_SECTION_IDS.PRICING, MARKETING_SECTION_IDS.FAQ] as const
 

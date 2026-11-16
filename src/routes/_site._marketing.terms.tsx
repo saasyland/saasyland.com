@@ -13,21 +13,10 @@ import { LegalPending } from "~/src/presentation/components/custom/legal-pending
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const SECTIONS = [
-  "publicCode",
-  "paidMaterial",
-  "keys",
-  "packages",
-  "output",
-  "restrictions",
-  "dependencies",
-  "termination",
-  "warranty",
-  "questions",
-] as const
+const SECTIONS = ["operator", "accounts", "purchases", "payments", "licence", "conduct", "refunds", "responsibility", "law"] as const
 
-const LicencePage = (): JSX.Element => {
-  const t = useTranslations("pages.legal.licence")
+const TermsPage = (): JSX.Element => {
+  const t = useTranslations("pages.legal.terms")
 
   return (
     <div className="container mx-auto max-w-3xl px-6 py-16 md:py-24">
@@ -53,11 +42,11 @@ const LicencePage = (): JSX.Element => {
   )
 }
 
-const NAMESPACE = "pages.legal.licence"
+const NAMESPACE = "pages.legal.terms"
 
-export const Route = createFileRoute("/_landing/licence")({
-  component: LicencePage,
-  head: pageHead(ROUTES.LICENCE),
+export const Route = createFileRoute("/_site/_marketing/terms")({
+  component: TermsPage,
+  head: pageHead(ROUTES.TERMS),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([

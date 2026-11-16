@@ -5,6 +5,7 @@ declare module "@tanstack/react-router" {
     router: ReturnType<typeof getRouter>
   }
   interface StaticDataRouteOption {
+    dark?: boolean
     namespaces?: readonly string[]
   }
 }

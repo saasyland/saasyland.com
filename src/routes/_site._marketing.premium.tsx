@@ -20,7 +20,7 @@ const PremiumPage = (): JSX.Element => {
 
 const NAMESPACE = "pages.premium"
 
-export const Route = createFileRoute("/_landing/premium")({
+export const Route = createFileRoute("/_site/_marketing/premium")({
   component: PremiumPage,
   head: pageHead(ROUTES.PREMIUM, { indexable: false }),
   loader: async ({ context }) => {

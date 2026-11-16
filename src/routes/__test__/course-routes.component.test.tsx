@@ -8,6 +8,9 @@ import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { getHeaderHref } from "~/src/platform/testing/lib/navigation"
+import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
+
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
@@ -24,14 +27,21 @@ import { LESSON_ACCESS, LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.co
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 import type { Video } from "~/src/modules/video/video.types"
 
-import { Route as CoursesRoute } from "~/src/routes/courses"
-import { Route as LessonRoute } from "~/src/routes/courses.$course.$lesson"
-import { Route as CourseRoute } from "~/src/routes/courses.$course.index"
-import { Route as CataloguePageRoute } from "~/src/routes/courses.index"
+import { Route as SiteRoute } from "~/src/routes/_site"
+import { Route as MarketingRoute } from "~/src/routes/_site._marketing"
+import { Route as CoursesRoute } from "~/src/routes/_site._marketing.courses"
+import { Route as LessonRoute } from "~/src/routes/_site._marketing.courses.$course.$lesson"
+import { Route as CourseRoute } from "~/src/routes/_site._marketing.courses.$course.index"
+import { Route as CataloguePageRoute } from "~/src/routes/_site._marketing.courses.index"
 
-import { NAVIGATION_PAGES } from "~/src/data/navigation"
+import { HEADER_NAVIGATION } from "~/src/data/navigation"
 
-import { CataloguePending, CoursePending, LessonPending } from "~/src/presentation/components/custom/courses/courses-pending"
+import {
+  CataloguePending,
+  CoursePending,
+  CoursesPending,
+  LessonPending,
+} from "~/src/presentation/components/custom/courses/courses-pending"
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
 import type { VideoPlayer } from "~/src/presentation/components/custom/video-player"
 
@@ -201,7 +211,9 @@ const createCourseRouter = ({
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
   const metadata = { locale, metadata: messages.metadata }
   const lessonData = { locale, pathname: path, summary: "", title: "" }
-  Object.assign(CoursesRoute.options, { getParentRoute: () => root, id: "/courses", path: "/courses" })
+  Object.assign(SiteRoute.options, { getParentRoute: () => root, id: "_site" })
+  Object.assign(MarketingRoute.options, { getParentRoute: () => SiteRoute, id: "_marketing" })
+  Object.assign(CoursesRoute.options, { getParentRoute: () => MarketingRoute, id: "/courses", path: "/courses" })
   Object.assign(CataloguePageRoute.options, { getParentRoute: () => CoursesRoute, id: "/", loader: () => metadata, path: "/" })
   Object.assign(CourseRoute.options, { getParentRoute: () => CoursesRoute, id: "/$course/", loader: () => lessonData, path: "/$course/" })
   Object.assign(LessonRoute.options, {
@@ -210,13 +222,15 @@ const createCourseRouter = ({
     loader: () => lessonData,
     path: "/$course/$lesson",
   })
+  const courses = CoursesRoute.addChildren([CataloguePageRoute, CourseRoute, LessonRoute])
+  const site = SiteRoute.addChildren([MarketingRoute.addChildren([courses])])
   return createRouter({
     context: { queryClient },
     defaultNotFoundComponent: DefaultNotFound,
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
     rewrite: LOCALE_REWRITE,
-    routeTree: root.addChildren([CoursesRoute.addChildren([CataloguePageRoute, CourseRoute, LessonRoute])]),
+    routeTree: root.addChildren([site]),
   })
 }
 
@@ -255,6 +269,7 @@ beforeEach(() => {
       disconnect = vi.fn()
     },
   )
+  vi.stubGlobal("CSS", { supports: () => true })
   player.clear()
   coursePages.clear()
   save.mockImplementation(({ completed, lessonId }) => Promise.resolve({ completed, lessonId }))
@@ -294,8 +309,9 @@ describe("course catalogue", () => {
     const nav = within(screen.getByRole("navigation", { name: plNavigationMessages.ariaLabel }))
     const pageLabel = getNavigationLabel("pl-PL")
     expect(nav.getByRole("link", { current: "page" })).toHaveAccessibleName(plCoursesNavigationMessages.header.courses)
-    for (const entry of NAVIGATION_PAGES) {
-      expect(nav.getByRole("link", { name: pageLabel(entry) })).toHaveAttribute("href", `/pl-PL${entry.to}`)
+    const headerHref = getHeaderHref("pl-PL")
+    for (const entry of HEADER_NAVIGATION) {
+      expect(nav.getByRole("link", { name: pageLabel(entry) })).toHaveAttribute("href", headerHref(entry))
     }
     expect(nav.getByRole("link", { name: plNavigationMessages.getStarted })).toHaveAttribute("href", "/pl-PL#pricing")
   })
@@ -462,5 +478,12 @@ describe("course skeletons", () => {
     const { container } = render(<Pending />)
 
     expect(container.querySelector('[aria-busy="true"]')).not.toBeNull()
+  })
+
+  it("draws the catalogue skeleton below the site header while the courses layout loads", () => {
+    const { container } = render(<CoursesPending />)
+
+    expect(container.firstElementChild).toHaveClass("pt-header")
+    expect(busyMarkup(container)).toBe(markupOf(<CataloguePending />))
   })
 })

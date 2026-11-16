@@ -9,6 +9,17 @@ export const FEATURE_STATUSES = [FEATURE_STATUS.AVAILABLE, FEATURE_STATUS.ARRIVI
 
 export type FeatureStatus = (typeof FEATURE_STATUSES)[number]
 
+export const SITE_CONTENT_ID = "content"
+
+export const MARKETING_SECTION_IDS = {
+  CLI: "cli",
+  FAQ: "faq",
+  FOUNDATION: "foundation",
+  PRICING: "pricing",
+  QUALITY: "quality",
+  TOOLKIT: "toolkit",
+} as const
+
 export const NAVIGATION_PLACEMENT = {
   ADMIN: "admin",
   APP: "app",
@@ -74,6 +85,7 @@ interface FooterEntry extends Entry {
 }
 
 interface HeaderEntry extends Entry {
+  readonly hash?: string
   readonly placement: typeof NAVIGATION_PLACEMENT.HEADER
 }
 

@@ -2,7 +2,7 @@ import type { JSX } from "react"
 
 import { useTranslations } from "use-intl/react"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
 import { CourseShowcase } from "~/src/presentation/components/custom/landing-page/components/course-showcase"

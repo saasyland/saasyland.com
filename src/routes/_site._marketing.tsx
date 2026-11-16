@@ -6,30 +6,27 @@ import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { layoutNamespaces } from "~/src/data/namespaces"
+import { SITE_CONTENT_ID } from "~/src/data/navigation.constants"
 
-import { BackToTop } from "~/src/presentation/components/custom/back-to-top"
 import { Footer } from "~/src/presentation/components/custom/footer"
 import { MarketingPending } from "~/src/presentation/components/custom/marketing-pending"
-import { Navigation } from "~/src/presentation/components/custom/navigation"
 import { PageFrame } from "~/src/presentation/components/custom/page-frame"
 
-const LandingLayout = (): JSX.Element => (
-  <div className="dark relative isolate min-h-svh bg-background text-foreground">
+const MarketingLayout = (): JSX.Element => (
+  <>
     <PageFrame />
-    <Navigation />
-    <main className="relative z-10">
+    <main className="relative z-10" id={SITE_CONTENT_ID}>
       <Outlet />
     </main>
     <Footer />
-    <BackToTop />
-  </div>
+  </>
 )
 
-const NAMESPACES = [...layoutNamespaces("/_landing")] as const
+const NAMESPACES = [...layoutNamespaces("/_site/_marketing")] as const
 
-export const Route = createFileRoute("/_landing")({
-  component: LandingLayout,
+export const Route = createFileRoute("/_site/_marketing")({
+  component: MarketingLayout,
   loader: ({ context }) => preloadNamespaces({ locale: getCurrentLocale(), namespaces: NAMESPACES, queryClient: context.queryClient }),
   pendingComponent: MarketingPending,
-  staticData: { namespaces: NAMESPACES },
+  staticData: { dark: true, namespaces: NAMESPACES },
 })

@@ -92,7 +92,7 @@ const NewsletterUnsubscribePage = (): JSX.Element => {
   return <NewsletterUnsubscribeResult status={status} />
 }
 
-export const Route = createFileRoute("/_landing/newsletter/unsubscribe")({
+export const Route = createFileRoute("/_site/_marketing/newsletter/unsubscribe")({
   validateSearch: zod.object({
     status: searchChoice([UNSUBSCRIBE_STATUS.ERROR, UNSUBSCRIBE_STATUS.SUCCESS], UNSUBSCRIBE_STATUS.ERROR),
     token: searchParam(newsletterSubscriberZodSchemas.unsubscribeFromNewsletter.shape.token),

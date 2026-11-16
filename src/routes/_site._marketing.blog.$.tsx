@@ -129,7 +129,7 @@ const BlogPostPage = (): JSX.Element => {
 
 const NAMESPACE = "pages.blog"
 
-export const Route = createFileRoute("/blog/$")({
+export const Route = createFileRoute("/_site/_marketing/blog/$")({
   component: BlogPostPage,
   head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; post: BlogPostSummary; section: string } | undefined }) =>
     buildPageHead({

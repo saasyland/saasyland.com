@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, NAVIGATION_PAGES } from "~/src/data/navigation"
+import { ADMIN_DASHBOARD_ACTIONS, ADMIN_NAVIGATION, APP_NAVIGATION, FOOTER_NAVIGATION, HEADER_NAVIGATION } from "~/src/data/navigation"
 import { ADMIN_NAVIGATION_GROUP, FEATURE_STATUS, FOOTER_COLUMN } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -17,7 +17,7 @@ describe("the website's navigation", () => {
     ])
     expect(ADMIN_DASHBOARD_ACTIONS.map(({ to }) => to)).toStrictEqual([ROUTES.ADMIN_PRODUCTS_CREATE])
     expect(APP_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.APP, ROUTES.APP_LICENSE, ROUTES.APP_SETTINGS])
-    expect(NAVIGATION_PAGES.map(({ to }) => to)).toStrictEqual([ROUTES.COURSES, ROUTES.BLOG, ROUTES.DOCS])
+    expect(HEADER_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.HOME, ROUTES.COURSES, ROUTES.BLOG, ROUTES.DOCS, ROUTES.SIGN_IN])
     expect(FOOTER_NAVIGATION.map(({ key, links }) => [key, links.map(({ to }) => to)])).toStrictEqual([
       [FOOTER_COLUMN.PRODUCT, [ROUTES.DOCS, ROUTES.BLOG, ROUTES.AFFILIATES, ROUTES.SIGN_IN]],
       [FOOTER_COLUMN.LEGAL, [ROUTES.PRIVACY, ROUTES.TERMS, ROUTES.REFUNDS, ROUTES.LICENCE]],

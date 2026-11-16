@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { getRouteApi } from "@tanstack/react-router"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-const route = getRouteApi("/blog/$")
+const route = getRouteApi("/_site/_marketing/blog/$")
 
 export const PostMeta = (): JSX.Element => {
   const { post } = route.useLoaderData()

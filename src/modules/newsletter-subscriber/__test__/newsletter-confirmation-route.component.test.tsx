@@ -20,8 +20,8 @@ import {
 } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import type { NewsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.types"
 
-import { Route as ConfirmRoute } from "~/src/routes/_landing.newsletter.confirm"
-import { Route as UnsubscribeRoute } from "~/src/routes/_landing.newsletter.unsubscribe"
+import { Route as ConfirmRoute } from "~/src/routes/_site._marketing.newsletter.confirm"
+import { Route as UnsubscribeRoute } from "~/src/routes/_site._marketing.newsletter.unsubscribe"
 
 import spinnerMessages from "~/messages/pl-PL/components.shadcn.spinner.json"
 import errorMessages from "~/messages/pl-PL/errors.json"
@@ -68,10 +68,16 @@ vi.mock("~/src/modules/newsletter-subscriber/use-cases/unsubscribe-from-newslett
 
 const createNewsletterRouter = (path: string) => {
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
-  const landing = createRoute({ getParentRoute: () => root, id: "_landing" })
+  const site = createRoute({ getParentRoute: () => root, id: "_site" })
+  const marketing = createRoute({ getParentRoute: () => site, id: "_marketing" })
   const home = createRoute({ component: () => <p>Home</p>, getParentRoute: () => root, path: "/" })
-  Object.assign(ConfirmRoute.options, { getParentRoute: () => landing, id: "/newsletter/confirm", path: "/newsletter/confirm" })
-  Object.assign(UnsubscribeRoute.options, { getParentRoute: () => landing, id: "/newsletter/unsubscribe", path: "/newsletter/unsubscribe" })
+  Object.assign(ConfirmRoute.options, { getParentRoute: () => marketing, id: "/newsletter/confirm", path: "/newsletter/confirm" })
+  Object.assign(UnsubscribeRoute.options, {
+    getParentRoute: () => marketing,
+    id: "/newsletter/unsubscribe",
+    path: "/newsletter/unsubscribe",
+  })
+  const pages = marketing.addChildren([ConfirmRoute, UnsubscribeRoute])
   const queryClient = new QueryClient()
   return createRouter({
     Wrap: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
@@ -79,7 +85,7 @@ const createNewsletterRouter = (path: string) => {
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
     rewrite: { input: ({ url }) => deLocalizeUrl(url), output: ({ url }) => localizeUrl(url) },
-    routeTree: root.addChildren([home, landing.addChildren([ConfirmRoute, UnsubscribeRoute])]),
+    routeTree: root.addChildren([home, site.addChildren([pages])]),
   })
 }
 

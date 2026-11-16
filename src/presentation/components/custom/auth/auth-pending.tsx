@@ -70,7 +70,7 @@ export const SignInPending = (): JSX.Element => (
             <Skeleton className="h-11 w-full rounded-lg" />
           </div>
         </div>
-        <Skeleton className="h-12 w-full rounded-lg" />
+        <Skeleton className="h-11 w-full rounded-lg" />
       </div>
     </div>
     <FooterPending />
@@ -91,7 +91,7 @@ export const SignUpPending = (): JSX.Element => (
           <FieldPending />
         </div>
         <PasswordRulesPending />
-        <Skeleton className="h-12 w-full rounded-lg" />
+        <Skeleton className="h-11 w-full rounded-lg" />
       </div>
       {SIGN_UP_NOTICES.map(({ Pending, key }) => (
         <Pending key={key} />
@@ -110,7 +110,7 @@ export const ForgotPasswordPending = (): JSX.Element => (
     </div>
     <div className="mt-10 flex flex-col gap-6">
       <FieldPending />
-      <Skeleton className="h-12 w-full rounded-lg" />
+      <Skeleton className="h-11 w-full rounded-lg" />
     </div>
     <FooterPending />
   </div>
@@ -126,7 +126,7 @@ export const ResetPasswordPending = (): JSX.Element => (
         <FieldPending />
       </div>
       <PasswordRulesPending />
-      <Skeleton className="h-12 w-full rounded-lg" />
+      <Skeleton className="h-11 w-full rounded-lg" />
     </div>
   </div>
 )
@@ -147,7 +147,7 @@ export const TwoFactorPending = (): JSX.Element => (
           ))}
         </div>
       </div>
-      <Skeleton className="h-12 w-full rounded-lg" />
+      <Skeleton className="h-11 w-full rounded-lg" />
       <Skeleton className="h-11 w-full rounded-lg" />
     </div>
   </div>
@@ -163,7 +163,7 @@ export const VerifyEmailPending = (): JSX.Element => (
         <Skeleton className="h-lh w-1/2 scale-y-70" />
       </div>
       <div className="flex flex-col gap-3">
-        <Skeleton className="h-12 w-full rounded-lg" />
+        <Skeleton className="h-11 w-full rounded-lg" />
         <FieldPending />
         <div className="flex h-11 items-center self-center text-body-sm">
           <Skeleton className="h-lh w-40 scale-y-70" />
@@ -187,36 +187,38 @@ export const AuthPending = (): JSX.Element => {
   const Page = AUTH_PAGES.get(pathname)
 
   return (
-    <div className="dark relative grid min-h-svh grid-cols-1 bg-background text-foreground antialiased lg:grid-cols-2">
-      <div className="absolute inset-x-0 top-0 z-10 flex h-20 items-center justify-between gap-6 px-6 md:px-10">
-        <div className="flex h-11 items-center">
+    <div className="dark grid min-h-svh grid-cols-[minmax(0,var(--form-width))] grid-rows-[auto_1fr] justify-center bg-background px-(--gutter) text-foreground antialiased [--form-width:--spacing(105)] [--gutter:--spacing(6)] md:[--gutter:--spacing(10)] lg:grid-cols-2 lg:px-0">
+      <div className="relative z-10 col-span-full row-start-1 flex h-header items-center justify-between gap-6 lg:grid lg:grid-cols-subgrid lg:px-(--gutter)">
+        <div className="flex h-11 items-center justify-self-start">
           <Wordmark />
         </div>
-        <div className="flex h-11 items-center gap-2 text-body-sm">
+        <div className="flex h-11 items-center gap-2 justify-self-end text-body-sm">
           <Skeleton className="size-4" />
           <Skeleton className="h-lh w-24 scale-y-70" />
         </div>
       </div>
 
-      <div className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-background p-12 lg:flex xl:p-16">
+      <div className="relative hidden overflow-hidden border-r border-border px-(--gutter) lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:grid lg:grid-rows-subgrid">
         <div className="field-grid pointer-events-none absolute inset-0" />
-        <div className="relative flex max-w-md flex-col text-display-gate">
-          <Skeleton className="h-lh w-2/3 scale-y-75" />
-          <Skeleton className="h-lh w-7/10 scale-y-75" />
-          <Skeleton className="h-lh w-3/4 scale-y-75" />
-        </div>
-        <div className="relative flex flex-col gap-5">
-          {AUTH_ASSURANCES.map((assurance) => (
-            <div className="flex items-start gap-3" key={assurance}>
-              <span className="mt-2 size-1.25 shrink-0 rounded-xs bg-border" />
-              <Skeleton className="h-lh w-64 scale-y-70 font-mono text-spec" />
-            </div>
-          ))}
+        <div className="relative row-start-2 flex flex-col justify-between gap-12 py-12">
+          <div className="flex max-w-md flex-col text-display-gate">
+            <Skeleton className="h-lh w-2/3 scale-y-75" />
+            <Skeleton className="h-lh w-7/10 scale-y-75" />
+            <Skeleton className="h-lh w-3/4 scale-y-75" />
+          </div>
+          <div className="flex flex-col gap-5">
+            {AUTH_ASSURANCES.map((assurance) => (
+              <div className="flex items-start gap-3" key={assurance}>
+                <span className="mt-2 size-1.25 shrink-0 rounded-xs bg-border" />
+                <Skeleton className="h-lh w-64 scale-y-70 font-mono text-spec" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="relative flex flex-col items-center justify-center px-6 py-28 md:px-10 lg:py-32">
-        <div className="flex w-full max-w-105 flex-col">{Page && <Page />}</div>
+      <div className="row-start-2 flex flex-col items-center py-12 lg:col-start-2 lg:px-(--gutter)">
+        <div className="flex w-full max-w-(--form-width) flex-col">{Page && <Page />}</div>
       </div>
     </div>
   )

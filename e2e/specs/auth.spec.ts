@@ -37,7 +37,7 @@ test.describe("auth", () => {
   })
 
   for (const authPath of ["/auth/sign-in", "/auth/sign-up"]) {
-    test(`Back to Home from ${authPath} returns to the home page without server-function errors`, async ({ appPage, page }) => {
+    test(`Back to home from ${authPath} returns to the home page without server-function errors`, async ({ appPage, page }) => {
       const errors: string[] = []
       page.on("pageerror", (error) => errors.push(error.message))
       page.on("response", (response) => {
@@ -48,7 +48,7 @@ test.describe("auth", () => {
       await page.goto(authPath, { waitUntil: "domcontentloaded" })
       await appPage.waitForAppReady()
 
-      await page.getByRole("link", { name: "Back to Home", exact: true }).click()
+      await page.getByRole("link", { name: "Back to home", exact: true }).click()
 
       await expect(page).toHaveURL(/\/$/u)
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible()

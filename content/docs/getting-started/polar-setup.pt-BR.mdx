@@ -81,12 +81,20 @@ Crie um endpoint de webhook para cada ambiente com deploy, na organização que 
 | `preview`    | Sandbox     | `https://preview.saasyland.com/api/auth/polar/webhooks` |
 | `production` | Produção    | `https://saasyland.com/api/auth/polar/webhooks`         |
 
-O host vem de `DEPLOYED_HOSTS` e o caminho, de `ROUTES`. Escolha o formato raw, mantenha o endpoint ativado e inscreva-o exatamente nos eventos de `POLAR_EVENTS` (`src/data/polar-events.ts`), que reúne os eventos que todas as áreas tratam (veja [Pagamentos](/docs/features/payments#webhooks)). Hoje só a área de licenças trata eventos, os listados em `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`):
+O host vem de `DEPLOYED_HOSTS` e o caminho, de `ROUTES`. Escolha o formato raw, mantenha o endpoint ativado e inscreva-o exatamente nos eventos de `POLAR_EVENTS` (`src/data/polar-events.ts`), que reúne os eventos que todas as áreas tratam (veja [Pagamentos](/docs/features/payments#webhooks)). Hoje a área de licenças trata os eventos de `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`), e a área de cobrança, os de `src/data/billing.polar-events.ts`:
 
-- `order.paid` concede a licença;
-- `order.refunded` a marca como reembolsada quando o pedido é reembolsado por completo;
-- `benefit_grant.created` grava a chave de licença;
-- `benefit_grant.revoked` revoga a licença.
+| Evento                  | Área de licenças                                                            | Área de cobrança               |
+| ----------------------- | --------------------------------------------------------------------------- | ------------------------------ |
+| `benefit_grant.created` | Grava a chave de licença                                                    |                                |
+| `benefit_grant.revoked` | Revoga a licença                                                            |                                |
+| `order.created`         |                                                                             | Copia o pedido para o D1       |
+| `order.paid`            | Concede a licença                                                           | Atualiza a cópia do pedido     |
+| `order.refunded`        | Marca a licença como reembolsada quando o pedido é reembolsado por completo | Atualiza a cópia do pedido     |
+| `order.updated`         |                                                                             | Atualiza a cópia do pedido     |
+| `subscription.created`  |                                                                             | Copia a assinatura para o D1   |
+| `subscription.updated`  |                                                                             | Atualiza a cópia da assinatura |
+
+Quando uma área começar a tratar um evento, adicione o evento a cada endpoint antes de fazer o deploy desse código. O código implantado até lá responde 200 a um evento que nenhuma área trata e não faz nada com ele, então adicionar o evento antes não causa problema, e o `polar:verify` faz o deploy falhar enquanto um endpoint não enviar todos os eventos de `POLAR_EVENTS`.
 
 Copie o secret de assinatura do endpoint para `POLAR_WEBHOOK_SECRET` no mesmo arquivo de ambiente. O desenvolvimento não precisa de endpoint, porque o Polar não consegue alcançar `localhost`.
 

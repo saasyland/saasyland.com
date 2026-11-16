@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { gunzipSync } from "node:zlib"
 import assert from "node:assert/strict"
 
-import { expect, test } from "@playwright/test"
+import { test as base, expect } from "@playwright/test"
 import { STACK_DEFAULTS } from "@saasyland/stack"
 import {
   ACTIVATION_KIND,
@@ -21,7 +21,7 @@ import type * as zod from "zod"
 import { HTTP_STATUS, IP_ADDRESS_HEADER } from "../../src/modules/_core/constants/api"
 import { bundleObjectKey } from "../../src/modules/license/license.bundles"
 import { BUNDLE_CONTENT_TYPE, LICENSE_ACTIVATION_LIMITS } from "../../src/modules/license/license.constants"
-import { TEST_BUNDLE, TEST_LICENSE } from "../data/licenses"
+import { TEST_BUNDLE, TEST_CLI_LICENSES } from "../data/licenses"
 
 interface Endpoint<Input extends zod.ZodType, Output extends zod.ZodType> {
   readonly errors: readonly Api["errorCode"][]
@@ -30,6 +30,13 @@ interface Endpoint<Input extends zod.ZodType, Output extends zod.ZodType> {
   readonly response: Output
   readonly route: string
   readonly statuses: readonly number[]
+}
+
+type CliTestLicense = (typeof TEST_CLI_LICENSES)[number]
+
+interface CliMachine {
+  readonly connection: Api["connection"]
+  readonly license: CliTestLicense
 }
 
 const UNKNOWN_KEY = "SAASYLAND-00000000-0000-4000-8000-000000000000"
@@ -47,39 +54,57 @@ const send = async <Input extends zod.ZodType, Output extends zod.ZodType>(
   return readApiResponse(endpoint, await fetch(request))
 }
 
-const license = (machinesUsed: number): Api["license"] => ({
-  machineLimit: LICENSE_ACTIVATION_LIMITS[TEST_LICENSE.tier],
+const summary = ({ tier }: CliTestLicense, machinesUsed: number): Api["license"] => ({
+  machineLimit: LICENSE_ACTIVATION_LIMITS[tier],
   machinesUsed,
-  tier: TEST_LICENSE.tier,
+  tier,
+})
+
+const test = base.extend<{ cliMachine: CliMachine }>({
+  cliMachine: async ({ baseURL }, runWith, { parallelIndex }) => {
+    const license = TEST_CLI_LICENSES[parallelIndex]
+    assert(license, `e2e/data/licenses.ts seeds no CLI licence for parallel worker ${String(parallelIndex)}`)
+    const machine = await deriveMachineId(ACTIVATION_KIND.MACHINE, [crypto.randomUUID()])
+    const connection = { credentials: { key: license.key, machine }, origin: String(baseURL) }
+
+    await runWith({ connection, license })
+
+    const read = await send(API_ENDPOINT.LICENSE, {}, connection)
+    assert(read.success)
+    const held = read.data.machines.find(({ current }) => current)
+    if (held !== undefined) {
+      expect(await send(API_ENDPOINT.DEACTIVATE, { params: { activationId: held.id } }, connection)).toMatchObject({ success: true })
+    }
+  },
 })
 
 test.describe("CLI licence API", () => {
-  test("activates, reuses, validates and releases a machine for the CLI through the Worker", async ({ baseURL }) => {
-    const machine = await deriveMachineId(ACTIVATION_KIND.MACHINE, [crypto.randomUUID()])
-    const connection = { credentials: { key: TEST_LICENSE.key, machine }, origin: String(baseURL) }
+  test("activates, reuses, validates and releases a machine for the CLI through the Worker", async ({ cliMachine }) => {
+    const { connection, license } = cliMachine
 
     expect(await send(API_ENDPOINT.LICENSE, {}, connection)).toMatchObject({
-      data: { license: license(SEEDED_MACHINES), machines: [{ current: false, id: TEST_LICENSE.activation.id }] },
+      data: { license: summary(license, SEEDED_MACHINES), machines: [{ current: false, id: license.activation.id }] },
     })
 
     const created = await send(API_ENDPOINT.ACTIVATE, ACTIVATION, connection)
     assert(created.success)
-    expect(created.data.license).toStrictEqual(license(SEEDED_MACHINES + 1))
+    expect(created.data.license).toStrictEqual(summary(license, SEEDED_MACHINES + 1))
     const { activationId } = created.data
     const activation = { params: { activationId } }
 
     expect(await send(API_ENDPOINT.ACTIVATE, ACTIVATION, connection)).toMatchObject({ data: { activationId } })
     expect(await send(API_ENDPOINT.VALIDATE, activation, connection)).toMatchObject({ success: true })
-    expect(await send(API_ENDPOINT.DEACTIVATE, activation, connection)).toMatchObject({ data: { license: license(SEEDED_MACHINES) } })
+    expect(await send(API_ENDPOINT.DEACTIVATE, activation, connection)).toMatchObject({
+      data: { license: summary(license, SEEDED_MACHINES) },
+    })
     expect(await send(API_ENDPOINT.VALIDATE, activation, connection)).toStrictEqual({
       failure: { code: API_ERROR.ACTIVATION_NOT_FOUND },
       success: false,
     })
   })
 
-  test("signs a URL to a release's bundle that the Worker serves with the digest and size it promised", async ({ baseURL }) => {
-    const machine = await deriveMachineId(ACTIVATION_KIND.MACHINE, [crypto.randomUUID()])
-    const connection = { credentials: { key: TEST_LICENSE.key, machine }, origin: String(baseURL) }
+  test("signs a URL to a release's bundle that the Worker serves with the digest and size it promised", async ({ baseURL, cliMachine }) => {
+    const { connection } = cliMachine
     const archive = readFileSync(join(TEST_BUNDLE.fixture, bundleObjectKey(TEST_BUNDLE.version)))
     const created = await send(API_ENDPOINT.ACTIVATE, ACTIVATION, connection)
     assert(created.success)
@@ -87,7 +112,6 @@ test.describe("CLI licence API", () => {
 
     const bundle = await send(API_ENDPOINT.BUNDLE, { body: { answers: STACK_DEFAULTS, version: TEST_BUNDLE.version }, params }, connection)
     const unreleased = await send(API_ENDPOINT.BUNDLE, { body: { answers: STACK_DEFAULTS, version: UNRELEASED_VERSION }, params }, connection)
-    await send(API_ENDPOINT.DEACTIVATE, { params }, connection)
 
     assert(bundle.success)
     expect(bundle.data).toMatchObject({ sha256: createHash("sha256").update(gunzipSync(archive)).digest("hex"), size: archive.byteLength })

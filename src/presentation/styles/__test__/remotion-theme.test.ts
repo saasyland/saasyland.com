@@ -3,7 +3,7 @@ import { expect, it } from "vite-plus/test"
 
 import { DARK_TOKENS } from "~/remotion/src/theme"
 
-const DARK_BLOCK_PATTERN = /^\.dark \{(?<block>[^}]*)\}/mu
+const DARK_BLOCK_PATTERN = /^\.dark[^{]*\{(?<block>[^}]*)\}/mu
 const TOKEN_PATTERN = /--(?<name>[\w-]+):\s*(?<value>[^;]+);/gu
 
 const darkTokens = (): Map<string, string> => {

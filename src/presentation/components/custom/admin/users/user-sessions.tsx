@@ -32,7 +32,8 @@ export const UserSessions = ({ user }: { readonly user: User["select"] }): JSX.E
   const format = useFormatter()
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
-  const sessions = useSuspenseQuery(listUserSessionsQuery({ userId: user.id })).data
+
+  const { data: sessions, dataUpdatedAt } = useSuspenseQuery(listUserSessionsQuery({ userId: user.id }))
 
   const onError = (error: Error): void => {
     toast.error(errorMessage(error))
@@ -100,7 +101,7 @@ export const UserSessions = ({ user }: { readonly user: User["select"] }): JSX.E
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{sessionDeviceLabel(session) ?? t("unknownDevice")}</p>
                     <p className="text-xs text-muted-foreground">
-                      {t("activity", { signedIn: session.createdAt, time: format.relativeTime(session.updatedAt, new Date()) })}
+                      {t("activity", { signedIn: session.createdAt, time: format.relativeTime(session.updatedAt, dataUpdatedAt) })}
                     </p>
                   </div>
                 </div>

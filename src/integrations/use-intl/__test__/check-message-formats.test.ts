@@ -55,6 +55,12 @@ describe("check-message-formats", () => {
     ).toEqual([])
   })
 
+  it("fails a translation that addresses the reader in another form than its locale uses", () => {
+    expect(messageProblems({ locale: "de-DE", original: "Choose a theme", value: "Wählen Sie ein Farbschema" })).toEqual([
+      "uses “Sie” where de-DE addresses the reader as “du”",
+    ])
+  })
+
   it("fails Markdown backticks in a translation of plain text", () => {
     expect(
       messageProblems({ locale: "es-ES", original: "Loaded on demand, not bundled", value: "Cargado bajo demanda, no `bundled`" }),

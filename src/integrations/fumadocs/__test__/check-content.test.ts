@@ -55,7 +55,7 @@ describe("check-content", () => {
     expect(
       problemsOf({
         source: "Spread `timestamps()` and await `flushWaitUntil()`.",
-        target: "Rufen Sie `...timestamps()` auf und warten Sie mit `await` auf `flushWaitUntil()`.",
+        target: "Rufe `...timestamps()` auf und warte mit `await` auf `flushWaitUntil()`.",
       }),
     ).toEqual([
       `${EXAMPLE_LABEL} leaves out \`timestamps()\` from the English page`,
@@ -170,5 +170,19 @@ describe("pullRequestEntryProblems", () => {
     expect(pullRequestEntryProblems("refs/pull/99999/merge")).toEqual([
       "Pull request #99999 has no changelog entry: add content/changelog/99999.<locale>.mdx in every locale",
     ])
+  })
+})
+
+describe("check-content forms of address", () => {
+  it.each([
+    {
+      problems: [`${EXAMPLE_LABEL} uses “Sie” where de-DE addresses the reader as “du”`],
+      prose: "Führen Sie `echo Sie` aus, bevor du pushst.",
+    },
+    { problems: [], prose: "Führe `echo Sie` aus, bevor du pushst." },
+  ])("checks the form of address in the prose of a translation and never in its code: $prose", ({ problems, prose }) => {
+    const code = "\n\n```sh\necho Sie\n```"
+
+    expect(problemsOf({ source: `Run \`echo Sie\` before you push.${code}`, target: `${prose}${code}` })).toEqual(problems)
   })
 })

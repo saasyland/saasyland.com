@@ -10,6 +10,7 @@ import { canonicalizePathname, deLocalizePathname } from "~/src/integrations/use
 import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
 
 import { CHANGELOG_DIRECTORY, ENTRY_KEY, pullRequestOf } from "~/src/lib/changelog"
+import { formOfAddressProblems } from "~/src/lib/forms-of-address"
 
 import { readWranglerEnvironment } from "./wrangler-config"
 import { APP_DOMAIN } from "~/src/presentation/branding"
@@ -271,6 +272,11 @@ const entryKeyProblems = ({ label, locale }: Translation): string[] => {
   return ENTRY_KEY.test(key) ? [] : [`${label} is named after neither a pull request number nor a full commit hash`]
 }
 
+const addressProblems = ({ label, locale, target }: Translation): string[] =>
+  formOfAddressProblems({ locale, text: target.replaceAll(CODE_BLOCK_PATTERN, "").replaceAll(INLINE_CODE_PATTERN, "") }).map(
+    (problem) => `${label} ${problem}`,
+  )
+
 export const mdxProblems = (translation: Translation): string[] => {
   const { label, locale, source, target } = translation
   const isChangelogEntry = label.startsWith(CHANGELOG_PREFIX)
@@ -284,7 +290,12 @@ export const mdxProblems = (translation: Translation): string[] => {
     problems.push(`Unresolved translation marker in ${label}`)
   }
 
-  problems.push(...codeValueProblems(translation), ...linkProblems(translation), ...bareUrlProblems(translation))
+  problems.push(
+    ...codeValueProblems(translation),
+    ...linkProblems(translation),
+    ...bareUrlProblems(translation),
+    ...addressProblems(translation),
+  )
 
   if (locale === I18N.DEFAULT_LOCALE) {
     return problems

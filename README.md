@@ -238,28 +238,28 @@ Every page also runs only the scripts it was served with, under a strict policy 
 
 Use `bun run test` to invoke the configured Vite+ test runner. Running `bun test` directly does not use this test setup.
 
-| Command                                                                     | Purpose                                                                                                |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `bun run dev`                                                               | Generate content/class-name tables and start development with remote preview bindings.                 |
-| `bun run typegen`                                                           | Generate Worker declarations, class-name tables, and Fumadocs content/types.                           |
-| `bun run check`                                                             | Generate class-name tables; check localization/content, formatting, lint, and types.                   |
-| `bun run check:fix`                                                         | Run checks and apply supported formatting/lint fixes.                                                  |
-| `bun run check:i18n`                                                        | Validate message parity, scoped translation keys, unrendered keys, ICU formats, and localized content. |
-| `bun run test`                                                              | Run node, integration, and component test projects.                                                    |
-| `bun run test:unit` / `bun run test:integration` / `bun run test:component` | Run one test project.                                                                                  |
-| `bun run test:watch` / `bun run test:changed`                               | Watch tests or run tests affected by changes.                                                          |
-| `bun run test:coverage`                                                     | Run tests with the configured coverage gate and reports.                                               |
-| `bun run test:e2e:install`                                                  | Install Chromium/WebKit and their Playwright dependencies.                                             |
-| `bun run test:e2e`                                                          | Run the browser suite in Chromium and WebKit.                                                          |
-| `bun run test:e2e:pr`                                                       | Run the browser suite in Chromium, as pull request CI does.                                            |
-| `bun run test:e2e:smoke`                                                    | Run the Chromium smoke suite.                                                                          |
-| `bun run test:all`                                                          | Run the Vite+ tests followed by Chromium smoke tests.                                                  |
-| `bun run test:journey`                                                      | Buy each tier on preview with the Polar sandbox and use the published CLI with each licence.           |
-| `bun run build` / `bun run build:preview`                                   | Build the preview Worker, prerender public pages, and verify/optimize output.                          |
-| `bun run build:production`                                                  | Build and verify the production application.                                                           |
-| `bun run build:test` / `bun run start:test`                                 | Build or serve the isolated test application.                                                          |
-| `bun run start`                                                             | Serve the most recently built application at `127.0.0.1:3000`.                                         |
-| `bun run video:publish:preview` / `bun run video:publish:production`        | Encode a recording with FFmpeg, then upload and register it with your `wrangler login`.                |
+| Command                                                                     | Purpose                                                                                                                  |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `bun run dev`                                                               | Generate content/class-name tables and start development with remote preview bindings.                                   |
+| `bun run typegen`                                                           | Generate Worker declarations, class-name tables, and Fumadocs content/types.                                             |
+| `bun run check`                                                             | Generate class-name tables; check localization/content, formatting, lint, and types.                                     |
+| `bun run check:fix`                                                         | Run checks and apply supported formatting/lint fixes.                                                                    |
+| `bun run check:i18n`                                                        | Validate message parity, scoped translation keys, unrendered keys, ICU formats, forms of address, and localized content. |
+| `bun run test`                                                              | Run node, integration, and component test projects.                                                                      |
+| `bun run test:unit` / `bun run test:integration` / `bun run test:component` | Run one test project.                                                                                                    |
+| `bun run test:watch` / `bun run test:changed`                               | Watch tests or run tests affected by changes.                                                                            |
+| `bun run test:coverage`                                                     | Run tests with the configured coverage gate and reports.                                                                 |
+| `bun run test:e2e:install`                                                  | Install Chromium/WebKit and their Playwright dependencies.                                                               |
+| `bun run test:e2e`                                                          | Run the browser suite in Chromium and WebKit.                                                                            |
+| `bun run test:e2e:pr`                                                       | Run the browser suite in Chromium, as pull request CI does.                                                              |
+| `bun run test:e2e:smoke`                                                    | Run the Chromium smoke suite.                                                                                            |
+| `bun run test:all`                                                          | Run the Vite+ tests followed by Chromium smoke tests.                                                                    |
+| `bun run test:journey`                                                      | Buy each tier on preview with the Polar sandbox and use the published CLI with each licence.                             |
+| `bun run build` / `bun run build:preview`                                   | Build the preview Worker, prerender public pages, and verify/optimize output.                                            |
+| `bun run build:production`                                                  | Build and verify the production application.                                                                             |
+| `bun run build:test` / `bun run start:test`                                 | Build or serve the isolated test application.                                                                            |
+| `bun run start`                                                             | Serve the most recently built application at `127.0.0.1:3000`.                                                           |
+| `bun run video:publish:preview` / `bun run video:publish:production`        | Encode a recording with FFmpeg, then upload and register it with your `wrangler login`.                                  |
 
 Run the commands from the root [package scripts](package.json); the Remotion commands run inside `remotion/`.
 
@@ -395,6 +395,7 @@ English uses unprefixed paths. Other languages use the full locale, such as `/de
 - Use one `useTranslations` per component and name the translator `t`. A later `useTranslations` call re-scopes every following `t()` for i18n-ally, and `bun run check:i18n` fails on keys that do not resolve in their scope.
 - Link with `<Link to={ROUTES.X}>`; the router adds the locale prefix. For a raw URL in the current locale, such as an authentication callback, use `router.buildLocation(...).publicHref`; for a URL in a given locale, such as an email link, use `localizePathname`.
 - Email messages live in `emails.*` namespaces and are loaded by the sending use case, never by browser code.
+- Address the reader one way in each locale, in the form that `FORMS_OF_ADDRESS` in [`forms-of-address.ts`](src/lib/forms-of-address.ts) names; `bun run check:i18n` rejects the forms that contradict it.
 - Run `bun run check:i18n` after changes. Builds additionally verify localized home and legal-page output.
 
 Fumadocs generates `.source/`; edit the source MDX and catalogues instead of generated output. The public legal routes are `/privacy`, `/terms`, `/refunds`, `/licence`, and `/affiliates`. Review their content when adapting the application to a different business.

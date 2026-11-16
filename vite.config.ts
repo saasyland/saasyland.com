@@ -166,14 +166,20 @@ const tooling = {
     env: { browser: true, es2024: true, node: true, worker: true },
     globals: { HTMLRewriter: "readonly", caches: "readonly" },
     ignorePatterns,
+    jsPlugins: ["./scripts/hydration-lint-plugin.ts"],
     options: {
       typeAware: true,
       typeCheck: true,
     },
     overrides: [
       {
+        files: ["src/hooks/**", "src/presentation/**", "src/providers/**", "src/routes/*.tsx"],
+        rules: { "hydration/no-clock-or-locale-in-render": "error" },
+      },
+      {
         files: ["src/**/*.test.{ts,tsx}", "src/**/__test__/**", "src/platform/testing/**"],
         rules: {
+          "hydration/no-clock-or-locale-in-render": "off",
           "no-await-in-loop": "off",
           "no-magic-numbers": "off",
           "unicorn/no-null": "off",

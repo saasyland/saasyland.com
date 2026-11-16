@@ -2,6 +2,7 @@ import { type CSSProperties, type ComponentProps, type ComponentType, type React
 
 import type { TooltipValueType } from "recharts"
 import * as RechartsPrimitive from "recharts"
+import { useFormatter } from "use-intl/react"
 
 import { cn } from "~/src/lib/cn"
 
@@ -191,6 +192,7 @@ const ChartTooltipItem = ({
   tooltipLabel: ReactNode
 }>) => {
   const { config } = useChart()
+  const format = useFormatter()
   const key = toDisplayKey(nameKey ?? item.name ?? item.dataKey)
   const itemConfig = getPayloadConfigFromPayload(config, item, key)
   const itemPayload = isNonNullObject(item.payload) ? item.payload : undefined
@@ -213,7 +215,7 @@ const ChartTooltipItem = ({
   const valueNode =
     item.value === undefined ? undefined : (
       <span className="font-mono font-medium text-foreground tabular-nums">
-        {typeof item.value === "number" ? item.value.toLocaleString() : String(item.value)}
+        {typeof item.value === "number" ? format.number(item.value) : String(item.value)}
       </span>
     )
 

@@ -20,11 +20,22 @@ oxlint behandelt die Kategorien `correctness`, `nursery`, `pedantic`, `perf`, `s
 | `unicorn/no-null`            | außerhalb von Tests und `src/platform/testing` aktiv  | Fehlende Werte sind `undefined`                           |
 | `typescript/no-explicit-any` | `error`                                               | Kein Wert ist als `any` typisiert                         |
 
-Die Overrides sind eng und auf Dateien begrenzt: Tests und die gemeinsamen Testhelfer in `src/platform/testing` lockern `no-magic-numbers`, `no-await-in-loop` und `unicorn/no-null`; `src/presentation` und `src/hooks` lockern `typescript/consistent-return`; Test-Mocks lockern `require-await`; `src/routes` schaltet `sort-keys` ab, weil Routenoptionen ihrer eigenen Reihenfolge folgen (siehe [Routendateien](/docs/conventions/routes)).
+Die Overrides sind eng und auf Dateien begrenzt: Tests und die gemeinsamen Testhelfer in `src/platform/testing` lockern `no-magic-numbers`, `no-await-in-loop`, `unicorn/no-null` und `hydration/no-clock-or-locale-in-render`; `src/presentation` und `src/hooks` lockern `typescript/consistent-return`; Test-Mocks lockern `require-await`; `src/routes` schaltet `sort-keys` ab, weil Routenoptionen ihrer eigenen Reihenfolge folgen (siehe [Routendateien](/docs/conventions/routes)).
 
 `tsconfig.json` ergänzt die strikten Flags, die verändern, wie Code geschrieben wird: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` und `noUnusedParameters`. Ein indizierter Lesezugriff ist möglicherweise `undefined`, eine optionale Eigenschaft kann nicht explizit auf `undefined` gesetzt werden, und eine Indexsignatur wird als `record["key"]` gelesen.
 
 Der Formatter schreibt ohne Semikolons, mit doppelten Anführungszeichen, abschließenden Kommas und einer Zeilenbreite von <RepositoryFact name="printWidth" />. Außerdem sortiert er Importe in feste Gruppen, Tailwind-Klassen in `className`- und `cn`-Aufrufen und die Skripte in `package.json` nach Namen (`sortPackageJson: { sortScripts: true }`); ordnen Sie also nichts davon von Hand, denn `vp check` schlägt fehl, wenn etwas nicht in der richtigen Reihenfolge steht. Die Befehle finden Sie unter [Linting und Formatierung](/docs/tooling/lint-format).
+
+## Rendern, was der Server gerendert hat
+
+Eine Seite wird zweimal gerendert: auf dem Server und noch einmal im Browser, wenn React das HTML hydriert. Beide Renderings müssen denselben Text ausgeben, sonst meldet React einen Hydration-Mismatch (Fehler #418) und rendert die Seite neu. Render-Code liest deshalb weder die Uhr noch die Locale der Laufzeitumgebung, die sich zwischen beiden unterscheiden: kein `new Date()` ohne Argument, kein `Date.now` und kein `toLocaleString`, `toLocaleDateString` oder `toLocaleTimeString`. Verwenden Sie einen Wert, den beide Seiten teilen:
+
+- eine relative Zeit zählt ab dem `dataUpdatedAt` der Query, die ihre Daten gelesen hat, wie [Internationalisierung und Locales](/docs/features/internationalization) zeigt;
+- ein Jahr, das die Website ausgibt, stammt aus dem Build: Der Footer beendet sein Copyright mit `REPOSITORY_FACTS.buildYear`, dem UTC-Jahr, in dem die Website gebaut wurde;
+- Zahlen und Datumsangaben laufen über `useFormatter` aus use-intl, in der Locale der Seite und der Zeitzone des Benutzers;
+- eine Wartezeit im Browser, etwa das Aktivierungs-Timeout von `CheckoutActivation`, ist ein Timer, der in `useEffect` startet, sodass das erste Rendering das des Servers ist.
+
+`hydration/no-clock-or-locale-in-render`, die Regel des repository-eigenen oxlint-Plugins in `scripts/hydration-lint-plugin.ts`, setzt das in `src/hooks`, `src/presentation`, `src/providers` und `src/routes/*.tsx` durch. Dort zählt alles als Render-Code außer einer Funktion, die später läuft: ein `on…`-Event-Handler, als JSX-Prop, Objekteigenschaft oder Variable; eine `queryFn` oder `mutationFn`; und ein Callback, der an `useEffect`, `useLayoutEffect`, `useCallback`, `setTimeout`, `setInterval`, `requestAnimationFrame` oder `addEventListener` übergeben wird. Diese Listen im Plugin sind die Allowlist: Eine weitere Art verzögerter Callbacks kommt dort hinzu, mit einem Fall in `src/__test__/hydration-lint-plugin.test.ts`, niemals mit einem Disable-Kommentar.
 
 ## Keine Kommentare
 

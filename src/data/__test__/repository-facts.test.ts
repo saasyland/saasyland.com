@@ -1,6 +1,6 @@
 import { API_BASE_PATH, API_HEADER, API_LIMIT, RATE_LIMIT } from "@saasyland/stack/api"
 import { existsSync, readFileSync } from "node:fs"
-import { describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -28,7 +28,16 @@ const configWith = ({
   },
 })
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe("collectRepositoryFacts", () => {
+  it("takes the year the build runs in, in UTC, so every machine prints the same year", () => {
+    vi.useFakeTimers({ now: new Date("2032-01-01T01:00:00Z"), toFake: ["Date"] })
+    expect(collectRepositoryFacts(configWith()).buildYear).toBe(2032)
+  })
+
   it("reads the coverage threshold, lint limits, formatter widths and test timeout from the Vite config", () => {
     expect(collectRepositoryFacts(configWith())).toMatchObject({
       coverageThreshold: 90,

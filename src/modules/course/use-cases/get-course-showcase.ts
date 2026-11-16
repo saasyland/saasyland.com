@@ -28,18 +28,15 @@ const readLessons = (courseIds: readonly string[]) =>
     .select({
       access: lesson.access,
       courseId: lesson.courseId,
-      courseSlug: course.slug,
       durationMs: video.durationMs,
-      id: lesson.id,
       slug: lesson.slug,
       title: lesson.title,
     })
     .from(lesson)
-    .innerJoin(course, eq(course.id, lesson.courseId))
     .innerJoin(chapter, eq(chapter.id, lesson.chapterId))
     .leftJoin(video, eq(video.id, lesson.videoId))
     .where(and(inArray(lesson.courseId, [...courseIds]), eq(lesson.status, LESSON_STATUS.PUBLISHED)))
-    .orderBy(asc(course.position), asc(course.id), asc(chapter.position), asc(chapter.id), asc(lesson.position), asc(lesson.id))
+    .orderBy(asc(chapter.position), asc(chapter.id), asc(lesson.position), asc(lesson.id))
 
 export const getCourseShowcase = createServerFn({ method: "GET" })
   .middleware([withRequest])
@@ -48,27 +45,22 @@ export const getCourseShowcase = createServerFn({ method: "GET" })
     const courses = await readCourses()
     const lessons = await readLessons(courses.map(({ id }) => id))
     const lessonsByCourse = Map.groupBy(lessons, (entry) => entry.courseId)
-    const freeLesson = lessons.find((entry) => entry.access === LESSON_ACCESS.PREVIEW && entry.durationMs !== null)
 
-    return {
-      courses: courses.map((entry) => {
-        const own = lessonsByCourse.get(entry.id) ?? []
+    return courses.map((entry) => {
+      const own = lessonsByCourse.get(entry.id) ?? []
+      const freeLesson = own.find(({ access, durationMs }) => access === LESSON_ACCESS.PREVIEW && durationMs !== null)
 
-        return {
-          durationMs: own.reduce((total, { durationMs }) => total + (durationMs ?? 0), 0),
-          id: entry.id,
-          kind: entry.kind,
-          lessonCount: own.length,
-          lessons: own
-            .slice(0, COURSE_SHOWCASE.LESSONS)
-            .map(({ access, durationMs, id, slug, title }) => ({ access, durationMs, id, slug, title: localize(title, locale) })),
-          previewCount: own.filter(({ access }) => access === LESSON_ACCESS.PREVIEW).length,
-          slug: entry.slug,
-          title: localize(entry.title, locale),
-        }
-      }),
-      freeLesson: freeLesson && { courseSlug: freeLesson.courseSlug, slug: freeLesson.slug, title: localize(freeLesson.title, locale) },
-    }
+      return {
+        durationMs: own.reduce((total, { durationMs }) => total + (durationMs ?? 0), 0),
+        freeLesson: freeLesson && { slug: freeLesson.slug, title: localize(freeLesson.title, locale) },
+        id: entry.id,
+        kind: entry.kind,
+        lessonCount: own.length,
+        previewCount: own.filter(({ access }) => access === LESSON_ACCESS.PREVIEW).length,
+        slug: entry.slug,
+        title: localize(entry.title, locale),
+      }
+    })
   })
 
 export const courseShowcaseQuery = (input: Course["getCourseShowcase"]) =>

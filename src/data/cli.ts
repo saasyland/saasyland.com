@@ -1,3 +1,5 @@
+import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
+
 export const NPM_DIST_TAG = {
   BETA: "beta",
   LATEST: "latest",
@@ -35,9 +37,46 @@ export const CLI_LICENSE_COMMANDS = [CLI_COMMAND.ACTIVATE, CLI_COMMAND.WHOAMI, C
 
 export const CLI_LICENSE_KEY_VARIABLE = "SAASYLAND_LICENSE_KEY"
 
+export const CLI_API_URL_VARIABLE = "SAASYLAND_API_URL"
+
+export const CLI_LOCALE_VARIABLE = "SAASYLAND_LOCALE"
+
+export const CLI_EXIT_CODE = {
+  CANCELLED: 130,
+  FAILURE: 1,
+  NOT_AVAILABLE: 69,
+  NO_PERMISSION: 77,
+  PROTOCOL: 76,
+  SUCCESS: 0,
+  TEMPORARY_FAILURE: 75,
+  USAGE: 2,
+} as const
+
+export const CLI_CREDENTIALS_FILE = "credentials.json"
+
+export const CLI_CREDENTIALS_FILE_MODE = 0o600
+
+const WINDOWS_PATH_SEPARATOR = "\\"
+
+export const CLI_CREDENTIALS_DIRECTORY = {
+  LINUX: `$XDG_CONFIG_HOME/${CLI_PACKAGE}`,
+  LINUX_FALLBACK: `~/.config/${CLI_PACKAGE}`,
+  MACOS: `~/Library/Preferences/${CLI_PACKAGE}`,
+  WINDOWS: ["%APPDATA%", CLI_PACKAGE, "Config"].join(WINDOWS_PATH_SEPARATOR),
+} as const
+
 export const SCAFFOLD_DIR = "my-app"
 
 export const SCAFFOLD_TARGET = `${CLI_PACKAGE_SPEC} ${CLI_COMMAND.INIT} ${SCAFFOLD_DIR}`
+
+export const CLI_INIT_COMMAND = `${PACKAGE_MANAGER.NPM.exec} ${SCAFFOLD_TARGET}`
+
+export const CLI_GENERATION: FeatureStatus = FEATURE_STATUS.ARRIVING
+
+export const CLI_GENERATION_VALUES: { readonly generation: FeatureStatus; readonly initCommand: string } = {
+  generation: CLI_GENERATION,
+  initCommand: CLI_INIT_COMMAND,
+}
 
 export const CLI_GROUPS = ["platform", "data", "product", "extras"] as const
 
@@ -171,6 +210,32 @@ export const CLI_EXTRAS = [
 ] as const
 
 export const NONE = "none"
+
+type CliChoice = (typeof CLI_CHOICES)[number]
+
+interface CliTemplateSupport {
+  readonly choices: Readonly<Record<CliChoice["id"], readonly string[]>>
+  readonly extras: readonly (typeof CLI_EXTRAS)[number]["id"][]
+}
+
+export const CLI_TEMPLATE_SUPPORT: CliTemplateSupport = {
+  choices: {
+    api: [],
+    architecture: ["monolith"],
+    auth: ["better-auth", NONE],
+    billing: ["polar"],
+    content: ["mdx"],
+    database: ["sqlite"],
+    deployment: ["cloudflare"],
+    email: ["resend"],
+    framework: ["tanstack"],
+    orm: ["drizzle"],
+    provider: ["d1"],
+    runtime: ["node"],
+    tenancy: ["single"],
+  },
+  extras: [],
+}
 
 export const CLI_MODULES = [
   { choiceId: "auth", id: "auth" },

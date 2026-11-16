@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs"
 import { parseEnv } from "node:util"
 
 import type { APIRequestContext } from "@playwright/test"
-import type { models } from "@polar-sh/sdk/2026-10"
 import * as zod from "zod"
 
+import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants"
 import { licensePolarProduct } from "../../src/modules/license/__test__/fixtures/polar-product"
 import { LICENSE_TIER, LICENSE_WEBHOOK_EVENTS, type LicenseTier } from "../../src/modules/license/license.constants"
 import { polarCustomer, polarOrder, signedPolarWebhook } from "../../src/platform/testing/lib/polar"
@@ -21,8 +21,6 @@ const testEnvSchema = zod.object({
 
 const TEST_ENV = testEnvSchema.parse(parseEnv(readFileSync(new URL("../../.env.test", import.meta.url), "utf8")))
 
-const PAID: models.OrderStatus = "paid"
-
 const PRODUCT_IDS: Readonly<Record<LicenseTier, string>> = {
   [LICENSE_TIER.AGENCY]: TEST_ENV.POLAR_PRODUCT_ID_AGENCY,
   [LICENSE_TIER.COMPLETE]: TEST_ENV.POLAR_PRODUCT_ID_COMPLETE,
@@ -36,7 +34,7 @@ export const deliverPaidOrder = async (request: APIRequestContext, { tier, userI
     discount: null,
     metadata: {},
     product: licensePolarProduct(tier, PRODUCT_IDS[tier]),
-    status: PAID,
+    status: POLAR_ORDER_STATUS.PAID,
   })
   const { body, headers } = signedPolarWebhook({ data: order, secret: TEST_ENV.POLAR_WEBHOOK_SECRET, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid })
 

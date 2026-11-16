@@ -7,7 +7,11 @@ description: "/ のマーケティングページ、各セクション、地域�
 
 `src/routes/_landing.index.tsx` は `MotionProvider` の中で、`src/presentation/components/custom/landing-page/sections` の 17 セクションを組み合わせます。Hero、Proof、Stack、Manifesto、CLI、Line、Quality、Rally、Manifest、Studio、Record、Cases、Compare、Pricing、FAQ、Notes、Gate です。文言は `pages.landing` 名前空間から取得します。ローダーは Notes セクション用に最新のブログ記事 3 件（おすすめ記事を優先）も取得し、Proof セクション用に KV にキャッシュされた GitHub のスター数 `starCountQuery` を事前に読み込みます。続いて `TIER_PRICES` の Core の価格を整形してページの説明文に入れます。`pages.landing` のメッセージはそれを `{price}` として受け取ります。ページには組織の構造化データ `ORGANIZATION_STRUCTURED_DATA_HTML` も含まれます。[検索エンジンとソーシャルプレビュー](/docs/features/seo#structured-data)を参照してください。
 
-ページ上のその他の数値は手入力ではなく計測された値です。`scripts/repository-facts.ts` の Vite プラグイン `virtual:repository-facts` が、ビルド時にテストファイル、Playwright スペック、UI コンポーネントを数え、通貨、タイムゾーン、国の数を `CURRENCY_CODES`、`TIMEZONES`、`COUNTRIES` から取得し、React と TanStack Table のメジャーバージョンを読み取ります。`src/data/repository-facts.ts` の `REPOSITORY_FACTS` が言語数、`ADMIN_NAVIGATION` の管理画面のセクション数と、`src/data/cli.ts` から CLI の質問数（`cliQuestions`）、モジュール数（`cliModules`）、回答で省けるモジュール数（`cliOptionalModules`）、追加機能の数（`cliExtras`）を加え、各セクションはそれを `{testFiles, number}` のような ICU 引数として `pages.landing` のメッセージに渡します。
+ページ上のその他の数値は手入力ではなく計測された値です。`scripts/repository-facts.ts` の Vite プラグイン `virtual:repository-facts` が、ビルド時にテストファイル、Playwright スペック、UI コンポーネントを数え、通貨、タイムゾーン、国の数を `CURRENCY_CODES`、`TIMEZONES`、`COUNTRIES` から取得し、React と TanStack Table のメジャーバージョンを読み取ります。`src/data/repository-facts.ts` の `REPOSITORY_FACTS` が言語数、動作する管理画面のセクション数と、`src/data/cli.ts` から CLI のモジュール数（`cliModules`）、回答で省けるモジュール数（`cliOptionalModules`）、追加機能の数（`cliExtras`）を加え、各セクションはそれを `{testFiles, number}` のような ICU 引数として `pages.landing` のメッセージに渡します。**すべての主張を検証してください** のリストも、引用するファイルとコマンドを同じ値から受け取るため、どの言語でも翻訳されません。`vite.config.ts` のカバレッジサマリーのパス、`playwright.config.ts` のスペックのディレクトリ、CI のワークフロー、メッセージのディレクトリ、認証の統合、そしてコマンド <RepositoryFact name="coverageCommand" /> と <RepositoryFact name="i18nCheckCommand" /> です。
+
+Hero、Manifesto、Gate の各セクションに表示するアドバンテージは `headStartHours` で、`src/data/head-start.ts` の `HEAD_START_ROWS` から算出します。各行は、CLI のテンプレートが生成するデフォルトプロジェクトの一部、それを含むテンプレートレイヤー、そしてシニアエンジニアが手で書く場合の時間の下限と上限を示します。課金、組織、マルチテナント、サンプルのコマースは、テンプレートが生成するまで行がありません。行の合計は <RepositoryFact name="headStartLowHours" /> 〜 <RepositoryFact name="headStartHighHours" /> 時間で、見出しは下限の合計を `HEAD_START_ROUNDING_HOURS` 単位で切り捨て、`HEAD_START_CLAIM_MAX_HOURS` を上限とした値を使います。そのため表示は <RepositoryFact name="headStartHours" /> になり、行が減れば自動的に下がります。ブログは `<HeadStartTable />` で行を表示し、ラベルは `pages.blog.headStart` から取得します。
+
+ページ全体のカバレッジの数値は、`vite.config.ts` から読み取る `coverageThreshold` です。計測ではなく宣言する値は 2 種類あり、どちらも `src/data/marketing.ts` で一度だけ宣言します。reactprojects.com の数値（`REACTPROJECTS_FACTS`）と、価格の試算に使う例示の時給（`ILLUSTRATIVE_HOURLY_RATE`）です。`CORE_PRICE_IN_HOURS` はこの時給から、Core の価格が下回る時間数を整数で計算し、価格がそれを下回らなくなると `marketing.test.ts` が失敗します。
 
 `adminSections` は、`ADMIN_NAVIGATION` のうち `status` が `FEATURE_STATUS.AVAILABLE`（`src/data/navigation.constants.ts`）のエントリだけを数えます。各エリアはこの値を `src/data/<area>.navigation.ts` のエントリの横で宣言するため、デモデータを表示する管理画面は数えられず、現在は <RepositoryFact name="adminSections" /> です。Proof グリッドの **言語** は対応ロケールを表示し、テストの数値については、生成されたプロジェクトではなくこのサイト自体のソースで数えたものだと明記しています。
 
@@ -22,7 +26,11 @@ description: "/ のマーケティングページ、各セクション、地域�
 
 ## 料金と地域別価格
 
-`PricingSection` は `src/presentation/components/custom/pricing.tsx` の `PricingTiers` を表示します。これは[顧客アプリ](/docs/features/customer-app)がライセンスのないアカウントに表示するのと同じプランのカードです。各カードは `TIERS` のプランを、`TIER_PRICES` の金額と `components.custom.pricing` 名前空間の文言とともに表示し、ボタンは表示するページから受け取ります。ランディングページでは `/auth/sign-up?redirect=/app?tier=<tier>` へのリンクなので、選んだプランはサインアップ後も引き継がれます。グリッドは自身のコンテナの幅が 42rem 以上になると 3 列に切り替わる（`@container`）ため、幅の狭いアプリの列にも収まります。地域別価格はクライアント側の JavaScript なしで動くため、ページはプリレンダリングされたままです。
+`PricingSection` は `src/presentation/components/custom/pricing.tsx` の `PricingTiers` を表示します。これは[顧客アプリ](/docs/features/customer-app)がライセンスのないアカウントに表示するのと同じプランのカードです。各カードは `LICENSE_TIERS`（`src/modules/license/license.constants.ts`）のプランを、`TIER_PRICES` の金額と `components.custom.pricing` 名前空間の文言とともに表示し、ボタンは表示するページから受け取ります。ランディングページでは `/auth/sign-up?redirect=/app?tier=<tier>` へのリンクなので、選んだプランはサインアップ後も引き継がれます。グリッドは自身のコンテナの幅が 42rem 以上になると 3 列に切り替わる（`@container`）ため、幅の狭いアプリの列にも収まります。地域別価格はクライアント側の JavaScript なしで動くため、ページはプリレンダリングされたままです。
+
+カードの機能は `src/data/marketing.ts` の `TIER_FEATURES` から取得します。各エントリには ID（その文言は `tiers.<tier>.features.<id>`）と `FEATURE_STATUS` があり、カードはエントリを **提供中** と **提供予定**（`status.available` と `status.arriving`）に分けて表示します。そのため、現在動くものと提供予定のものの区分は一か所で宣言され、どの翻訳もステータスを書きません。提供中のグループの最後には、1 つのキーを同時に使える端末数が並びます。これは `LICENSE_ACTIVATION_LIMITS[tier]` を ICU の複数形である `machines` メッセージに渡したもので、Core は <ActivationLimit tier="core" />、Complete は <ActivationLimit tier="complete" />、Agency は <ActivationLimit tier="agency" /> です。`LicenseOfferPending` も `TIER_FEATURES` から同じグループを描画します。
+
+地域別価格は次のようにページに反映されます。
 
 1. `Price` は地域の倍率（`PPP_KEYS`）ごとに金額を 1 回ずつ表示し、通常価格を取り消し線付きで表示します。
 2. Worker がすべての HTML ページに適用する、ライセンスのエリアのドキュメントハンドラー（`src/data/license.worker.ts`）が `cf-ipcountry` を読み取ります。`PPP_TIERS` に含まれる国であれば、`HTMLRewriter` で `html` 要素に `data-ppp` と変数 `--ppp-region`、`--ppp-percent` を設定し、レスポンスを `private, no-cache` にします。
@@ -33,13 +41,17 @@ description: "/ のマーケティングページ、各セクション、地域�
 
 ## CLI コンフィギュレーター
 
-`CliSection` は `CliConfigurator`（`landing-page/components/cli-configurator.tsx`）を含みます。`src/data/cli.ts` の選択肢、追加機能、パッケージマネージャーからフラグ付きの <RepositoryFact name="scaffoldTarget" /> コマンドを組み立て、`CopyButton` でコピーできます。
+`CliSection` は `CliConfigurator`（`landing-page/components/cli-configurator.tsx`）を含みます。`src/data/cli.ts` の選択肢、追加機能、パッケージマネージャーからフラグ付きの <RepositoryFact name="scaffoldTarget" /> コマンドを組み立て、`CopyButton` でコピーできます。CLI がすでにこのコマンドを実行できるかどうかは、後述の `CLI_GENERATION` が決めます。現在の CLI でできることは [CLI ガイド](/docs/cli)にあります。
+
+構成ツールはデフォルト構成、つまりほかの回答が許す範囲で各選択肢の最初のオプション（`DEFAULT_STACK`）で開きます。`src/data/cli.ts` の `CLI_TEMPLATE_SUPPORT` が挙げるオプション、現在はデフォルト構成と `--no-auth` に点で印を付け、`aria-describedby` で凡例 `defaultStack` に関連付けます。`CLI_TEMPLATE_SUPPORT` は CLI の `TEMPLATE_SUPPORT` と同じ形で、`@saasyland/stack` はまだそれをエクスポートしていません。
+
+プロジェクト生成が提供されたかどうかは、`src/data/cli.ts` の `CLI_GENERATION`（`FEATURE_STATUS`）が決めます。これに依存するメッセージはすべて `generation` に対する ICU の `select` で、`available` のバリアントと提供予定のバリアント（`other`）を持ちます。コンポーネントは `CLI_GENERATION_VALUES`、つまりステータスとプロジェクトを作る npm コマンド <RepositoryFact name="cliInitCommand" /> を渡します。生成によって提供される Core の機能は、`TIER_FEATURES` で同じ定数からステータスを受け取ります。そのため定数を変えるだけで、すべての言語でそれらの文が変わり、その機能は**提供中**に移ります。`src/data/__test__/cli-generation.test.ts` はそれらのメッセージを列挙し、すべての言語で両方のバリアントを表示し、提供予定の文言が選択肢の外にあると失敗します。ブログ記事、このドキュメント、`public/llms.txt` は文章で書かれているため、生成を提供するリリースで更新します。
 
 ## ニュースレター
 
 `Footer` は `NewsletterForm`（`src/presentation/components/custom/newsletter-form.tsx`）を表示します。
 
-1. `subscribeToNewsletter`（レート制限あり）が保留中の `newsletter_subscriber` 行を保存し、`NewsletterConfirmationEmail` を送信します。すでに購読済みのアドレスには `alreadySubscribed` を返し、何も書き込みません。1 つのアドレスに 1 時間以内に 3 通の確認メールを送った後は、何も書き込まず何も送信せずに `confirmationSent` を返します。
+1. `subscribeToNewsletter`（レート制限あり）が保留中の `newsletter_subscriber` 行を保存し、`NewsletterConfirmationEmail` を送信します。すでに購読済みのアドレスには `alreadySubscribed` を返し、何も書き込みません。1 つのアドレスに 1 時間以内に <RepositoryFact name="recipientEmailsPerHour" /> 通の確認メールを送った後は、何も書き込まず何も送信せずに `confirmationSent` を返します。
 2. `/newsletter/confirm?token=` は訪問者に確認を求めます。ボタンを押すと `confirmNewsletterSubscription` が呼ばれ、購読を確定して `CONTACT_EMAIL` へ `NewsletterNotificationEmail` を送信します。
 3. `/newsletter/unsubscribe?token=` も同じように確認してから、`unsubscribeFromNewsletter` が購読を解除します。どちらのリンクも開いたりプリフェッチしたりするだけでは何も変わらないため、メールスキャナーが誰かを登録・解除することはできません。`/newsletter/unsubscribe` へリンクするメールはありません。`newsletter-subscriber.utils.ts` の `unsubscribeUrl` がリンクを作成しますが、それを呼び出すものはありません。
 

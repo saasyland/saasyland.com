@@ -1,5 +1,5 @@
 import { Transpiler, YAML } from "bun"
-import { accessSync, existsSync, globSync, readFileSync, readdirSync } from "node:fs"
+import { accessSync, existsSync, globSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import process from "node:process"
 import { z } from "zod/v4"
@@ -19,6 +19,10 @@ const CLIENT_DIR = "dist/client"
 const ASSETS_DIR = join(CLIENT_DIR, "assets")
 const DEPLOY_CONFIG_PATH = ".wrangler/deploy/config.json"
 const WORKER_CONFIG_PATH = "dist/server/wrangler.json"
+const SERVER_DIR = "dist/server"
+const WORKER_ENTRY_MODULE = "// src/server.ts"
+const BOOT_CLOSURE_MAX_BYTES = 51_200
+const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^/\n]+|drizzle-orm|resend)\//gmu
 
 const LOCALIZED_PAGES = [ROUTES.HOME, ROUTES.PRIVACY, ROUTES.TERMS, ROUTES.REFUNDS, ROUTES.LICENCE, ROUTES.AFFILIATES]
 const LOCALE_ALIASES = [...I18N.SUPPORTED_LOCALES.map((locale) => `/${locale.split("-")[0]}`), `/${I18N.DEFAULT_LOCALE}`]
@@ -131,6 +135,41 @@ for (const file of clientScripts) {
   }
 }
 
+const staticImportsOf = (file: string): string[] =>
+  scanner
+    .scan(readFileSync(file, "utf8"))
+    .imports.filter(({ kind, path: specifier }) => kind === "import-statement" && specifier.startsWith("."))
+    .map(({ path: specifier }) => resolve(dirname(file), specifier))
+
+const workerEntry = globSync("**/*.js", { cwd: SERVER_DIR })
+  .map((file) => resolve(SERVER_DIR, file))
+  .find((file) => readFileSync(file, "utf8").split("\n").includes(WORKER_ENTRY_MODULE))
+
+if (workerEntry === undefined) {
+  throw new Error(`No file in ${SERVER_DIR} holds the Worker entry, src/server.ts`)
+}
+
+const bootClosure = [workerEntry]
+
+for (const file of bootClosure) {
+  bootClosure.push(...staticImportsOf(file).filter((imported) => !bootClosure.includes(imported)))
+}
+
+const bootBytes = bootClosure.reduce((total, file) => total + statSync(file).size, 0)
+const bootPackages = new Set(
+  bootClosure.flatMap((file) =>
+    [...readFileSync(file, "utf8").matchAll(BOOT_CLOSURE_FORBIDDEN_MODULE)].map(({ groups }) => groups?.["name"]),
+  ),
+)
+
+if (bootPackages.size > 0) {
+  throw new Error(`The Worker loads ${[...bootPackages].join(", ")} on every cold start; import it where a request needs it`)
+}
+
+if (bootBytes > BOOT_CLOSURE_MAX_BYTES) {
+  throw new Error(`The Worker loads ${String(bootBytes)} bytes on every cold start, more than BOOT_CLOSURE_MAX_BYTES`)
+}
+
 process.stdout.write(
-  `Verified the ${environment} Worker deployment config, prerendered locales and content pages, fonts, and client assets.\n`,
+  `Verified the ${environment} Worker deployment config, prerendered locales and content pages, fonts, client assets, and the ${String(bootBytes)} bytes the Worker loads on a cold start.\n`,
 )

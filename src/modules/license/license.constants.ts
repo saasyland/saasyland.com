@@ -1,6 +1,8 @@
 import type { models } from "@polar-sh/sdk/2026-10"
 import type { API_ENDPOINT, Api } from "@saasyland/stack/api"
 
+import { POLAR_WEBHOOK_EVENT } from "../../integrations/polar/polar.constants.ts"
+
 export const LICENSE_TIER = {
   AGENCY: "agency",
   COMPLETE: "complete",
@@ -20,8 +22,8 @@ export const LICENSE_ACTIVATION_LIMITS = {
 export const LICENSE_WEBHOOK_EVENTS = {
   onBenefitGrantCreated: "benefit_grant.created",
   onBenefitGrantRevoked: "benefit_grant.revoked",
-  onOrderPaid: "order.paid",
-  onOrderRefunded: "order.refunded",
+  onOrderPaid: POLAR_WEBHOOK_EVENT.ORDER_PAID,
+  onOrderRefunded: POLAR_WEBHOOK_EVENT.ORDER_REFUNDED,
 } as const satisfies Record<string, models.WebhookEventType>
 
 export const LICENSE_STATUS = {

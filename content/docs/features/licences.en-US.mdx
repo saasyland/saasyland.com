@@ -1,0 +1,57 @@
+---
+title: "Licences"
+description: "Polar checkout for the licence tiers, regional prices, the webhooks that grant and revoke licences, and the customer's licence screens."
+---
+
+The licence area sells the tiers `core`, `complete` and `agency` as Polar products, on top of the polar area's plugin and webhooks ([Payments](/docs/features/payments)). `POLAR_PRODUCT_IDS` in `src/modules/license/license.utils.ts` maps the tiers to `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` and `POLAR_PRODUCT_ID_AGENCY`, and `licenseTierForProduct` reads the tier of a product from the same map. [Polar setup](/docs/getting-started/polar-setup) describes the products, licence keys and discounts the tiers need in Polar.
+
+## Checkout
+
+A signed-in user without an active licence sees `LicenseOffer` on `/app` and `/app/license`: the tier cards of the landing page (`PricingTiers`, see [Landing page](/docs/features/landing-page)) with a `CheckoutButton` for each tier, the regional pricing checkbox, the purchase terms and the course lessons the purchase unlocks. `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`) takes `{ locale, tier }` and:
+
+1. refuses with `AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)` when the account already has an `active` licence. The button shows `errors.codes.LICENSE_ALREADY_ACTIVE` and refreshes the licence, so a page left open since the purchase switches to the licence;
+2. looks up a regional discount with `pppDiscountId` (`license.ppp.ts`): the percentage for the `cf-ipcountry` country, matched by `findRegionalDiscount` (`src/integrations/polar/polar.discounts.ts`) against the automatic percentage discounts in Polar that are redeemable now, skipped when the `regional_pricing` cookie is `off`;
+3. creates a Polar checkout for the tier with `polar.checkouts.create`, tied to the account (`external_customer_id`) and filled in with its email and name (`customer_email`, `customer_name`), so the checkout form opens with them. It also carries the buyer's IP address from `cf-connecting-ip` (`customer_ip_address`, read with Better Auth's `getIP`), discount codes disabled, the affiliate referral in `metadata` when the visitor came through an affiliate link (see [Affiliate programme](/docs/features/affiliates)), and the success URL `/app?checkoutId={CHECKOUT_ID}` in the buyer's language (`localizePathname`). Polar replaces `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) with the checkout ID;
+4. returns the checkout URL, which the browser opens.
+
+A refunded (`refunded`) or revoked (`revoked`) licence does not block a new purchase.
+
+### Upgrades
+
+An account has one licence, and a newer paid order replaces the tier of the older one (`grantLicense`). The Polar products have no upgrade prices, so a self-service upgrade would charge the full price of the higher tier on top of the first purchase, and buying a lower tier would downgrade the licence. Checkout is therefore refused while a licence is active, and `LicenseCard` tells owners to email support to change tier. Create upgrade products or discounts in Polar before allowing a second checkout.
+
+### A tier chosen before sign-up
+
+Each tier button on the landing page links to `/auth/sign-up?redirect=/app?tier=<tier>`. The return path survives sign-up, email verification and sign-in (`useAuthRedirect`), and a visitor who is already signed in goes straight to it. `licenseSearchSchema` (`src/data/license.ts`, built with `searchParam`) validates `tier` against `LICENSE_TIER` on `/app/license` and, as a param the licence area adds to the overview, on `/app`, and both `/app` and `/app/license` show `ChosenTier` above the tier cards: the tier, its price with the regional discount and a **Continue to checkout** button. A locked paid course lesson links a signed-in viewer to `/app/license?tier=complete` and a guest to the landing page's pricing section; a lesson that needs an account links to sign-in ([Courses](/docs/features/courses)).
+
+### After payment
+
+Polar returns the buyer to `/app?checkoutId=<id>`, usually before the `order.paid` webhook has granted the licence. While `checkoutId` is present and the licence is not active, the page hides the tier cards and shows `CheckoutActivation`, which refetches `currentLicenseQuery` every <RepositoryFact name="activationPollSeconds" unit="second" /> (`ACTIVATION_POLL_MS`):
+
+- once the licence is active, it thanks the buyer and the licence appears below;
+- after <RepositoryFact name="activationTimeoutSeconds" unit="second" /> (`ACTIVATION_TIMEOUT_MS`) without a licence, it stops polling and says that Polar has not confirmed the payment yet, with the support email, the checkout ID as a reference and a **Check again** button.
+
+A `checkoutId` that is not a UUID is ignored.
+
+## Webhooks and licences
+
+`src/data/license.polar-events.ts` adds the licence area to the Polar events (see [Payments](/docs/features/payments#webhooks)) with the events listed in `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`), whose order events come from `POLAR_WEBHOOK_EVENT`, and its `handle` passes each event to the handler of the same name in `licenseWebhookHandlers`. `licenseWebhookHandlers` satisfies `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, so a handler without its event, or an event without its handler, does not compile. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) match the user through the Polar customer `external_id`. An event for a customer with no account here is logged when it needed one and acknowledged, so Polar does not retry it:
+
+- `onOrderPaid` → `grantLicense`: upserts the user's single licence with the tier of the purchased product; a newer purchase replaces an older one.
+- `onBenefitGrantCreated` → `attachLicenseKey`: stores the Polar licence key on the licence. While the paid order is not recorded yet it fails, so Polar retries it; a key for a refunded order or for a product that is not a licence is acknowledged.
+- `onOrderRefunded` → `revokeLicense` with the status `refunded`, only once the order is fully refunded; a partial refund keeps the licence.
+- `onBenefitGrantRevoked` → `revokeLicense` with the status `revoked`.
+
+`revokeLicense` sets the status of the licence bought with that order and records the order in `revoked_license_order`, so a late webhook cannot grant it again. It never replaces `refunded`: Polar also revokes the benefit of a refunded order, and the two events can arrive in either order. The [CLI licence API](/docs/features/cli-licence-api) answers `licenseRefunded` or `licenseRevoked` from this status.
+
+## Customer screens
+
+`/app/license` shows `LicenseCard` (tier, key, CLI commands, a link to the Polar customer portal at `/api/auth/customer/portal` and the support email for a change of tier) and `LicenseActivations`, which lists key activations from Polar and removes one with `deactivateLicense`; it answers `NOT_FOUND` when Polar no longer holds that activation. The CLI adds and removes activations through the [CLI licence API](/docs/features/cli-licence-api). Polar enforces the activation limit of each tier's licence-key benefit, which must equal `LICENSE_ACTIVATION_LIMITS`: <ActivationLimit tier="core" /> for Core, <ActivationLimit tier="complete" /> for Complete and <ActivationLimit tier="agency" /> for Agency. See [Customer app](/docs/features/customer-app).
+
+## Related pages
+
+- [Payments](/docs/features/payments) for the Polar plugin, the webhook dispatch and the customer portal
+- [Polar setup](/docs/getting-started/polar-setup) for the configuration in Polar and `polar:verify`
+- [Landing page](/docs/features/landing-page) for the tier cards and regional prices
+- [Customer app](/docs/features/customer-app) for the screens around checkout
+- [CLI licence API](/docs/features/cli-licence-api)

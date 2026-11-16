@@ -6,7 +6,7 @@ import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.c
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
 import { sha256Hex } from "~/src/lib/hex"
-import { withinRateLimit, withinRecipientRateLimit } from "~/src/lib/rate-limit"
+import { consumeRateLimit, countRequest, withinRateLimit, withinRecipientRateLimit } from "~/src/lib/rate-limit"
 
 const EMAIL_KIND = { CONFIRMATION: "confirmation", RESET: "reset" } as const
 
@@ -58,6 +58,24 @@ describe("atomic rate limits", () => {
     vi.spyOn(console, "error").mockImplementation(() => {})
 
     expect(await withinRateLimit(input)).toBe(false)
+  })
+
+  it("refuses a request it cannot count for the whole window, and logs the storage failure", async () => {
+    const outage = new Error("D1 unavailable")
+    vi.spyOn(db, "batch").mockRejectedValueOnce(outage)
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    expect(await consumeRateLimit(input)).toStrictEqual({ allowed: false, retryAfter: input.windowSeconds })
+    expect(errors).toHaveBeenCalledWith("Rate-limit storage unavailable", outage)
+  })
+
+  it("hands a storage failure to the caller of countRequest instead of refusing the request", async () => {
+    const outage = new Error("D1 unavailable")
+    vi.spyOn(db, "batch").mockRejectedValueOnce(outage)
+    const errors = vi.spyOn(console, "error")
+
+    await expect(countRequest(input)).rejects.toBe(outage)
+    expect(errors).not.toHaveBeenCalled()
   })
 })
 

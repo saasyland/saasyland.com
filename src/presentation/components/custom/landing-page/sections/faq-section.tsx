@@ -3,6 +3,7 @@ import type { JSX } from "react"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -46,14 +47,14 @@ export const FaqSection = (): JSX.Element => {
             {FAQ_ITEM_IDS.map((id) => (
               <AccordionItem id={id} key={id}>
                 <AccordionTrigger className="gap-8 rounded-none py-5 text-body-sm font-medium text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground hover:no-underline **:data-[slot=accordion-trigger-icon]:hidden">
-                  <span className="min-w-0 text-pretty">{t(`items.${id}.question`)}</span>
+                  <span className="min-w-0 text-pretty">{t(`items.${id}.question`, REPOSITORY_FACTS)}</span>
                   <span aria-hidden className="relative mt-1.5 size-3 shrink-0">
                     <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-muted-foreground transition-colors duration-200 ease-exp group-aria-expanded/accordion-trigger:bg-foreground" />
                     <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-muted-foreground transition-[opacity,transform] duration-300 ease-exp group-aria-expanded/accordion-trigger:scale-y-0 group-aria-expanded/accordion-trigger:opacity-0" />
                   </span>
                 </AccordionTrigger>
                 <AccordionContent className="max-w-[68ch] pr-8 pb-6 text-body text-pretty text-muted-foreground">
-                  {t(`items.${id}.answer`, REPOSITORY_FACTS)}
+                  {t(`items.${id}.answer`, { ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}
                 </AccordionContent>
               </AccordionItem>
             ))}

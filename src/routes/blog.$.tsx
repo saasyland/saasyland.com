@@ -18,6 +18,7 @@ import { buildBlogPostStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
 import { blogContent } from "~/src/presentation/components/custom/blog-content"
 import { BlogPostPending } from "~/src/presentation/components/custom/blog/blog-pending"
 import { PostCta } from "~/src/presentation/components/custom/blog/post-cta"
+import { usePostFaq } from "~/src/presentation/components/custom/blog/post-faq"
 import { PostMeta } from "~/src/presentation/components/custom/blog/post-meta"
 import { PostShare } from "~/src/presentation/components/custom/blog/post-share"
 import { PostToc } from "~/src/presentation/components/custom/blog/post-toc"
@@ -63,13 +64,14 @@ const BlogPostPage = (): JSX.Element => {
   const { post } = Route.useLoaderData()
   const content = blogContent.useContent(post.path)
   const t = useTranslations("pages.blog.post")
+  const faq = usePostFaq(post.faq)
 
   const structuredDataHtml = buildBlogPostStructuredDataHtml({
     authorName: post.authorName,
     baseUrl: APP_URL,
     date: post.date,
     description: post.summary,
-    faq: post.faq,
+    faq,
     image: post.image,
     title: post.title,
     updated: post.updated,

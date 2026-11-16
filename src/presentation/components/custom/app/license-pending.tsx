@@ -3,12 +3,13 @@ import type { JSX } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouterState } from "@tanstack/react-router"
 
-import { LICENSE_STATUS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
+import { LICENSE_STATUS, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
 import { CLI_LICENSE_COMMANDS } from "~/src/data/cli"
 import { licenseSearchSchema } from "~/src/data/license"
 import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
+import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constants"
 
 import { cn } from "~/src/lib/cn"
 
@@ -16,7 +17,7 @@ import { Card, CardAction, CardContent, CardHeader } from "~/src/presentation/co
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { PageHeaderPending } from "~/src/presentation/components/custom/app/pending-blocks"
-import { FEATURED_TIER, FEATURE_IDS } from "~/src/presentation/components/custom/pricing"
+import { FEATURED_TIER, tierFeaturesWith } from "~/src/presentation/components/custom/pricing"
 
 const usePendingLicenseView = () => {
   const queryClient = useQueryClient()
@@ -78,7 +79,23 @@ const ChosenTierPending = (): JSX.Element => (
   </div>
 )
 
-const TierColumnPending = ({ featured }: Readonly<{ featured: boolean }>): JSX.Element => (
+const TierFeaturesPending = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element => (
+  <div className="mt-7 space-y-6 border-t border-border pt-7">
+    {FEATURE_STATUSES.map((status) => (
+      <div key={status}>
+        <Skeleton className="h-lh w-24 scale-y-70 text-label" />
+        <div className="mt-3 space-y-3">
+          {tierFeaturesWith(tier, status).map((feature) => (
+            <Skeleton className="h-lh w-4/5 scale-y-70 text-body-sm" key={feature.id} />
+          ))}
+          {status === FEATURE_STATUS.AVAILABLE && <Skeleton className="h-lh w-4/5 scale-y-70 text-body-sm" />}
+        </div>
+      </div>
+    ))}
+  </div>
+)
+
+const TierColumnPending = ({ featured, tier }: Readonly<{ featured: boolean; tier: LicenseTier }>): JSX.Element => (
   <div
     className={cn("flex flex-col border-border not-last:border-b @2xl:not-last:border-r @2xl:not-last:border-b-0", {
       "bg-background": !featured,
@@ -93,12 +110,7 @@ const TierColumnPending = ({ featured }: Readonly<{ featured: boolean }>): JSX.E
       <TextLines className="mt-1.5 text-body-sm @2xl:min-h-12" />
       <Skeleton className="mt-7 h-lh w-28 scale-y-70 text-price" />
       <TextLines className="mt-3 text-body-sm @2xl:min-h-12" />
-      <div className="mt-7 space-y-3 border-t border-border pt-7">
-        {FEATURE_IDS.map((feature) => (
-          <Skeleton className="h-lh w-4/5 scale-y-70 text-body-sm" key={feature} />
-        ))}
-        <Skeleton className="h-lh w-4/5 scale-y-70 text-body-sm" />
-      </div>
+      <TierFeaturesPending tier={tier} />
       <div className="mt-auto pt-10 @2xl:pt-12">
         <Skeleton className="h-11 w-full rounded-lg" />
       </div>
@@ -115,7 +127,7 @@ const LicenseOfferPending = (): JSX.Element => (
     <div className="@container">
       <div className="grid overflow-hidden rounded-xl border border-border @2xl:grid-cols-3">
         {LICENSE_TIERS.map((tier) => (
-          <TierColumnPending featured={tier === FEATURED_TIER} key={tier} />
+          <TierColumnPending featured={tier === FEATURED_TIER} key={tier} tier={tier} />
         ))}
       </div>
     </div>

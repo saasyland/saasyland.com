@@ -7,13 +7,14 @@ import { affonsoReferralMetadata } from "~/src/integrations/affonso/affonso.refe
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { polar } from "~/src/integrations/polar/polar.config"
-import { POLAR_CHECKOUT_ID_PLACEHOLDER, POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
+import { POLAR_CHECKOUT_ID_PLACEHOLDER } from "~/src/integrations/polar/polar.constants"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { LICENSE_MUTATION_KEYS, LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { pppDiscountId } from "~/src/modules/license/license.ppp"
 import type { License } from "~/src/modules/license/license.types"
+import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 

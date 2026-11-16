@@ -57,7 +57,7 @@ export const QualitySection = (): JSX.Element => {
 
   return (
     <section className="relative border-t border-border" id={MARKETING_SECTION_IDS.QUALITY}>
-      <div className="mx-auto grid w-full max-w-7xl gap-x-16 gap-y-14 px-6 py-24 md:px-10 md:py-32 lg:grid-cols-[1fr_1.05fr] lg:items-start">
+      <div className="mx-auto grid w-full max-w-site gap-x-16 gap-y-14 px-6 py-24 md:px-10 md:py-32 lg:grid-cols-[1fr_1.05fr] lg:items-start">
         <Reveal variant="heading">
           <h2 className="max-w-[14ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
           <p className="mt-5 max-w-xl text-statement text-pretty text-foreground">{t("lead")}</p>

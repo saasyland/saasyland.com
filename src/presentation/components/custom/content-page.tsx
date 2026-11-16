@@ -8,7 +8,7 @@ interface ContentPageProps {
   readonly title: ReactNode
 }
 
-const CONTAINER_CLASSNAME = "mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32"
+const CONTAINER_CLASSNAME = "mx-auto w-full max-w-site px-6 py-24 md:px-10 md:py-32"
 
 export const ContentPage = ({ children, lead, title }: ContentPageProps): JSX.Element => (
   <section className="relative">

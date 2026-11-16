@@ -35,7 +35,7 @@ export const CataloguePending = (): JSX.Element => (
 
 export const CoursePending = (): JSX.Element => (
   <section aria-busy="true" className="relative">
-    <div className="mx-auto grid w-full max-w-7xl gap-14 px-6 py-24 md:px-10 md:py-32 lg:grid-cols-[1fr_22rem]">
+    <div className="mx-auto grid w-full max-w-site gap-14 px-6 py-24 md:px-10 md:py-32 lg:grid-cols-[1fr_22rem]">
       <div>
         <Skeleton className="h-lh w-28 scale-y-70 font-mono text-label" />
         <Skeleton className="mt-4 h-lh w-full max-w-[18ch] scale-y-75 text-headline-peak" />
@@ -51,7 +51,7 @@ export const CoursePending = (): JSX.Element => (
 
 export const LessonPending = (): JSX.Element => (
   <section aria-busy="true" className="relative">
-    <div className="mx-auto grid w-full max-w-7xl gap-12 px-6 py-12 md:px-10 md:py-16 lg:grid-cols-[1fr_22rem]">
+    <div className="mx-auto grid w-full max-w-site gap-12 px-6 py-12 md:px-10 md:py-16 lg:grid-cols-[1fr_22rem]">
       <div>
         <PlayerPending />
         <Skeleton className="mt-8 h-lh w-40 scale-y-70 font-mono text-label" />

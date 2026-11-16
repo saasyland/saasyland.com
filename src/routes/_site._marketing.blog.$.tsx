@@ -89,7 +89,7 @@ const BlogPostPage = (): JSX.Element => {
   return (
     <article className="relative">
       <script dangerouslySetInnerHTML={structuredDataHtml} type="application/ld+json" />
-      <div className="mx-auto w-full max-w-7xl px-6 py-20 md:px-10 md:py-28">
+      <div className="mx-auto w-full max-w-site px-6 py-20 md:px-10 md:py-28">
         <Link
           className="inline-flex items-center gap-2 font-mono text-label text-muted-foreground uppercase transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           to={ROUTES.BLOG}

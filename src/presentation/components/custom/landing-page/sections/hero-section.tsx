@@ -51,7 +51,7 @@ export const HeroSection = (): JSX.Element => {
       <div aria-hidden className="field-grid pointer-events-none absolute inset-0" />
       <div aria-hidden className="field-signal pointer-events-none absolute inset-0" />
 
-      <div className="relative mx-auto w-full max-w-7xl px-6 pt-32 pb-16 md:px-10 md:pt-40 md:pb-20">
+      <div className="relative mx-auto w-full max-w-site px-6 pt-32 pb-16 md:px-10 md:pt-40 md:pb-20">
         <h1 className="max-w-[11.6em] text-display-hero text-foreground sm:motion-safe:animate-rise">
           {t.rich("title", { ...HERO_TAGS, ...REPOSITORY_FACTS })}
         </h1>

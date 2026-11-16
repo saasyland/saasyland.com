@@ -7,7 +7,7 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 export const HomePending = (): JSX.Element => (
   <section aria-busy="true" className="relative overflow-hidden">
     <div className="field-grid pointer-events-none absolute inset-0" />
-    <div className="relative mx-auto w-full max-w-7xl px-6 pt-32 pb-16 md:px-10 md:pt-40 md:pb-20">
+    <div className="relative mx-auto w-full max-w-site px-6 pt-32 pb-16 md:px-10 md:pt-40 md:pb-20">
       <div className="flex max-w-[11.6em] flex-col text-display-hero">
         <Skeleton className="h-lh w-full scale-y-75" />
         <Skeleton className="h-lh w-11/12 scale-y-75" />

@@ -45,7 +45,7 @@ export const MobileMenu = (): JSX.Element => {
         <Modal className="h-full">
           <Dialog aria-label={t("menu")} className="flex h-full flex-col outline-none">
             <div className="border-b border-border bg-background">
-              <div className="mx-auto flex h-header w-full max-w-7xl items-center justify-between gap-6 px-6 md:px-10">
+              <div className="mx-auto flex h-header w-full max-w-site items-center justify-between gap-6 px-6 md:px-10">
                 <HomeLink onClick={close} />
                 <Button aria-label={t("closeMenu")} autoFocus className="size-11" size="icon-lg" slot="close" variant="ghost">
                   <X aria-hidden className="size-4.5" strokeWidth={1.5} />
@@ -53,7 +53,7 @@ export const MobileMenu = (): JSX.Element => {
               </div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-background transition-[opacity,transform] duration-300 ease-exp motion-reduce:transition-none starting:-translate-y-2 starting:opacity-0">
-              <div className="mx-auto w-full max-w-7xl px-6 pb-10 md:px-10">
+              <div className="mx-auto w-full max-w-site px-6 pb-10 md:px-10">
                 <nav aria-label={t("ariaLabel")}>
                   <ul className="divide-y divide-border">
                     {HEADER_NAVIGATION.map((entry) => (

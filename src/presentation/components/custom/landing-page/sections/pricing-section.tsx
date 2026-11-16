@@ -51,7 +51,7 @@ export const PricingSection = (): JSX.Element => {
 
   return (
     <section className="relative border-t border-border" id={MARKETING_SECTION_IDS.PRICING}>
-      <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32">
+      <div className="mx-auto w-full max-w-site px-6 py-24 md:px-10 md:py-32">
         <Reveal variant="heading">
           <div className="grid gap-x-16 gap-y-5 md:grid-cols-[1.1fr_1fr] md:items-end">
             <h2 className="max-w-[12ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>

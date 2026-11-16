@@ -30,6 +30,7 @@ import { CLI_LICENSE_COMMANDS, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cl
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
+import { SECRET_PLACEHOLDER_WORDS } from "~/src/lib/deploy-secrets"
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
 import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
@@ -383,6 +384,31 @@ describe("OAuth callbacks", () => {
     expect(listItems()).toEqual([
       new Intl.ListFormat("en-US").format(OAUTH_PROVIDERS.map(({ id }) => id)),
       `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_SOCIAL}`,
+    ])
+  })
+})
+
+describe("deploy checks", () => {
+  it("prints the client ID variables auth:verify checks and the placeholders prepare-deploy-secrets refuses", () => {
+    renderInLocale(
+      "en-US",
+      <ul>
+        <li>
+          <RepositoryFact name="oauthClientIdVariables" />
+        </li>
+        <li>
+          <RepositoryFact name="secretPlaceholderBrackets" />
+        </li>
+        <li>
+          <RepositoryFact name="secretPlaceholderWords" />
+        </li>
+      </ul>,
+    )
+
+    expect(listItems()).toEqual([
+      englishList(["AUTH_GOOGLE_CLIENT_ID", "AUTH_GITHUB_CLIENT_ID"]),
+      englishList(["[…]", "<…>", "{{…}}"]),
+      englishList(SECRET_PLACEHOLDER_WORDS),
     ])
   })
 })

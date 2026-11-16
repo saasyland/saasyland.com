@@ -51,7 +51,7 @@ import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { APP_STATEMENTS } from "~/src/data/access"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
-import { OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH, oauthCallbackPath } from "~/src/data/auth"
+import { OAUTH_CLIENTS, OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH, oauthCallbackPath } from "~/src/data/auth"
 import {
   CLI_API_URL_VARIABLE,
   CLI_COMMAND,
@@ -76,6 +76,7 @@ import { CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE } from "~/src/data/market
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
+import { SECRET_PLACEHOLDER_BRACKETS, SECRET_PLACEHOLDER_WORDS } from "~/src/lib/deploy-secrets"
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
 import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
@@ -144,6 +145,7 @@ const FACTS = {
   oauthCallbackPath: oauthCallbackPath("<provider>"),
   oauthCallbackPaths: OAUTH_PROVIDERS.map(({ id }) => oauthCallbackPath(id)),
   oauthCallbackUrls: OAUTH_PROVIDERS.map(({ id }) => `https://<host>${oauthCallbackPath(id)}`),
+  oauthClientIdVariables: OAUTH_PROVIDERS.map(({ id }) => OAUTH_CLIENTS[id].clientIdVariable),
   oauthProviderIds: OAUTH_PROVIDERS.map(({ id }) => id),
   passwordMaxLength: PASSWORD_MAX_LENGTH,
   passwordMinLength: PASSWORD_MIN_LENGTH,
@@ -156,6 +158,8 @@ const FACTS = {
   regionalDiscountsRefreshMinutes: REGIONAL_DISCOUNTS_REFRESH_AFTER_MS / MILLISECONDS_PER_MINUTE,
   routerStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   scaffoldTarget: SCAFFOLD_TARGET,
+  secretPlaceholderBrackets: SECRET_PLACEHOLDER_BRACKETS.map(([open, close]) => `${open}…${close}`),
+  secretPlaceholderWords: SECRET_PLACEHOLDER_WORDS,
   sensitiveRateLimit: RATE_LIMITS.SENSITIVE.max,
   signedMediaHours: PLAYBACK_TTL_SECONDS / SECONDS_PER_HOUR,
   slugMaxLength: SLUG_MAX_LENGTH,

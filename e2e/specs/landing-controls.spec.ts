@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test"
 
 import { CLI_EXEC, CLI_PACKAGE_SPEC, PACKAGE_MANAGER } from "../../src/data/cli"
+import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 
 import { expect, test } from "../fixtures/test"
 
@@ -88,14 +89,16 @@ test("foundation shares its hover highlight and clears it when leaving", async (
 test("mobile menu closes with Escape and after choosing the pricing section", async ({ landingPage, page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await landingPage.goto()
+  const menu = page.getByRole("dialog", { name: "Menu", exact: true })
   await page.getByRole("button", { name: "Open menu", exact: true }).click()
-  await expect(page.locator("#mobile-menu")).toBeVisible()
+  await expect(menu).toBeVisible()
   await page.keyboard.press("Escape")
-  await expect(page.locator("#mobile-menu")).not.toBeVisible()
+  await expect(menu).toBeHidden()
   await page.getByRole("button", { name: "Open menu", exact: true }).click()
-  await page.locator("#mobile-menu").getByRole("link", { name: "Pricing", exact: true }).click()
-  await expect(page.locator("#mobile-menu")).not.toBeVisible()
-  await expect(page).toHaveURL(/#pricing$/u)
+  await menu.getByRole("link", { name: "Pricing", exact: true }).click()
+  await expect(menu).toBeHidden()
+  await expect(page).toHaveURL(new RegExp(`#${MARKETING_SECTION_IDS.PRICING}$`, "u"))
+  await expect(page.locator(`#${MARKETING_SECTION_IDS.PRICING}`)).toBeInViewport()
 })
 
 test("back to top appears past the first screen and returns smoothly to the page heading", async ({ landingPage, page }) => {

@@ -30,7 +30,7 @@ Un seul import statique d'un nom d'en-tête depuis un module qui importait aussi
 
 Drizzle ne s'exécute que dans le Worker. Le navigateur a besoin des schémas Zod d'un module pour ses formulaires et de ses tuples d'enum pour ses listes déroulantes : les deux se trouvent donc dans des fichiers qui n'importent rien de Drizzle, `<table>.zod.ts` et `<table>.constants.ts` (voir [Modules](/docs/conventions/modules)). Un import du navigateur qui atteint un `<table>.schema.ts` exécute `sqliteTable(...)`, un appel que le bundler doit conserver, et entraîne `drizzle-orm` avec lui.
 
-`<table>.zod.ts` construisait autrefois aussi des schémas `insert`, `select` et `update` à partir des tables avec `drizzle-zod`, et rien ne les lisait à l'exécution. `drizzle-zod` retient tout l'espace de noms de zod, si bien que le bundler conservait aussi chaque locale de zod, son convertisseur JSON Schema et son compilateur. Les squelettes de chargement de `/admin` et `/app` importent `PreferencesCardPending` de `preferences-card.tsx`, qui importait `user.zod.ts`, et les composants de chargement échappent au découpage du code : tout cela se chargeait donc sur chaque page. Déplacer les tuples dans les constantes et supprimer ces schémas a retiré environ 75 Kio de JavaScript compressé avec gzip de chaque page. Les tailles ci-dessous totalisent tous les scripts que charge chaque page, compressés avec gzip, d'après la sortie de `bun run build:test` :
+`<table>.zod.ts` construisait autrefois aussi des schémas `insert`, `select` et `update` à partir des tables avec `drizzle-zod`, et rien ne les lisait à l'exécution. `drizzle-zod` retient tout l'espace de noms de zod, si bien que le bundler conservait aussi chaque locale de zod, son convertisseur JSON Schema et son compilateur. Les squelettes de chargement de `/admin` et `/app` importaient `PreferencesCardPending` de `preferences-card.tsx`, qui importait `user.zod.ts`, et les composants de chargement échappent au découpage du code : tout cela se chargeait donc sur chaque page. Déplacer les tuples dans les constantes et supprimer ces schémas a retiré environ 75 Kio de JavaScript compressé avec gzip de chaque page. Les tailles ci-dessous totalisent tous les scripts que charge chaque page, compressés avec gzip, d'après la sortie de `bun run build:test` :
 
 | Page           | Avant     | Après     |
 | -------------- | --------- | --------- |
@@ -90,6 +90,25 @@ TanStack Router enveloppe les outlets de route dans des frontières Suspense, et
 - `MotionProvider` au-dessus de l'outlet d'une route publie un nouveau contexte lorsque ses fonctionnalités d'animation ont fini de se charger. Sur un article de blog, cette mise à jour arrivait pendant que la page chargeait encore son contenu : React se rabattait sur le rendu côté client, et la mise en page se décalait.
 
 Avant d'ajouter un fournisseur à `__root.tsx` ou à un layout, vérifiez si sa valeur peut changer après l'hydratation. Si c'est le cas, montez-le à côté des composants qui le lisent, sous chaque `<Outlet />` de route. Les emplacements sont listés dans [Composants et styles](/docs/conventions/components).
+
+## Les squelettes restent dans le script d'entrée [#skeletons-stay-in-the-entry-script]
+
+TanStack Router ne sépare pas `pendingComponent` dans un chunk à part par défaut, et `src/data/tanstack.vite.ts` conserve ce réglage, si bien que chaque squelette se trouve dans le script d'entrée et s'affiche dès qu'une navigation dépasse `pendingMs`. Les séparer a été mesuré puis écarté :
+
+- Les squelettes de layout `AdminPending`, `AppPending` et `MarketingPending` dessinent le squelette de la page à partir de `PAGE_SKELETONS`, qui importe les squelettes de toutes les zones, et le routeur charge les composants de chargement des routes correspondantes avant l'hydratation de la page. `/`, `/app` et `/admin` chargeaient toujours chaque squelette, désormais dans des chunks à part, et grossissaient de 3,5 à 6,5 Kio compressés avec gzip ; seules les pages dont le layout a son propre squelette, comme `/docs` et `/blog`, s'allégeaient.
+- Un squelette séparé doit être chargé avant de pouvoir s'afficher. Dans Chromium sans interface, avec 400 ms de latence ajoutée et 200 Kio/s, une navigation côté client de `/` vers `/blog` affichait le blog après 2 290 ms au lieu de 1 390 ms, derrière un squelette dont le build non séparé n'avait jamais eu besoin ; avec 150 ms de latence, elle prenait 800 ms au lieu de 640 ms.
+
+Comme chaque page charge chaque squelette, un squelette importe `Skeleton`, les primitives shadcn, d'autres squelettes et les constantes qui fixent ses longueurs, jamais un formulaire. `PreferencesCardPending` était exporté par `preferences-card.tsx`, si bien que les squelettes de `/admin` et `/app` mettaient le formulaire des préférences, TanStack Form, la liste des fuseaux horaires et les schémas utilisateur dans le script d'entrée de chaque page ; il a désormais son propre fichier, `preferences-card-pending.tsx`. Tous les scripts que charge chaque page, compressés avec gzip, d'après la sortie de `bun run build:test` :
+
+| Page           | Avant     | Après     |
+| -------------- | --------- | --------- |
+| `/`            | 463,0 Kio | 451,9 Kio |
+| `/docs/<page>` | 553,6 Kio | 527,3 Kio |
+| `/blog`        | 424,7 Kio | 413,6 Kio |
+| `/app`         | 430,4 Kio | 404,1 Kio |
+| `/admin`       | 452,9 Kio | 427,7 Kio |
+
+`/` et `/blog` économisent moins parce que leurs layouts affichent le formulaire de la newsletter, qui a de toute façon besoin de TanStack Form. `pending-imports.test.ts` suit les imports de chaque `*-pending.tsx` et échoue lorsque l'un d'eux atteint `@tanstack/react-form`. Les panneaux du tableau de bord d'administration et les sections de l'aperçu client associent toujours chaque squelette à son composant dans la liste de la zone, si bien que ces composants se chargent avec les squelettes.
 
 ## Un seul build Tailwind
 

@@ -73,6 +73,18 @@ const REFUSED_BY_ADDRESS = 10
 
 const keyLimitAddress = (request: number): string => `198.51.100.${String(request % KEY_LIMIT_ADDRESSES)}`
 
+const activationFrom = (key: string, address: string): Request =>
+  rawRequest(API_ROUTE.ACTIVATIONS, {
+    body: JSON.stringify(STUDIO_ACTIVATION.body),
+    headers: { ...signedHeaders(key, STUDIO), [IP_ADDRESS_HEADER]: address },
+    method: HTTP_METHOD.POST,
+  })
+
+const EXHAUSTED_LIMITS = [
+  { limit: "address", refusedFrom: ADDRESS, requests: RATE_LIMIT.REQUESTS_PER_ADDRESS, sentFrom: (): string => ADDRESS },
+  { limit: "licence key", refusedFrom: OTHER_ADDRESS, requests: RATE_LIMIT.REQUESTS_PER_LICENSE_KEY, sentFrom: keyLimitAddress },
+]
+
 const otherMachine = (
   details: Api["activateRequest"]["body"],
   { created_at: createdAt, id }: models.LicenseKeyActivationBase,
@@ -481,17 +493,34 @@ describe("rate limits", () => {
     expect(answers).toStrictEqual([...Array.from({ length: keyRequestsLeft }, () => true), false])
   })
 
-  it("counts a request that it cannot read against the address alone", async () => {
-    vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+  it.each(EXHAUSTED_LIMITS)(
+    "refuses a request over the $limit limit before it reads the body",
+    async ({ refusedFrom, requests, sentFrom }) => {
+      vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+      const { key } = await buy()
+      for (let request = 0; request < requests; request++) {
+        await getLicense({ address: sentFrom(request), key, machine: STUDIO })
+      }
+      const refused = activationFrom(key, refusedFrom)
+
+      const { result } = await exchange(API_ENDPOINT.ACTIVATE, licenseApiHandlers.activate, refused)
+
+      expect(result).toStrictEqual({
+        failure: { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: RATE_LIMIT.PERIOD_SECONDS },
+        success: false,
+      })
+      expect(refused.bodyUsed).toBe(false)
+    },
+  )
+
+  it("reads the body of a request that both limits admit", async () => {
     const { key } = await buy()
-    for (let request = 0; request < RATE_LIMIT.REQUESTS_PER_LICENSE_KEY; request++) {
-      const headers = { [API_HEADER.AUTHORIZATION]: `${AUTHORIZATION_SCHEME} ${key}`, [IP_ADDRESS_HEADER]: keyLimitAddress(request) }
-      await exchange(API_ENDPOINT.LICENSE, licenseApiHandlers.license, rawRequest(API_ROUTE.LICENSE, { headers }))
-    }
+    const admitted = activationFrom(key, ADDRESS)
 
-    const { result } = await getLicense({ address: OTHER_ADDRESS, key, machine: STUDIO })
+    const { result } = await exchange(API_ENDPOINT.ACTIVATE, licenseApiHandlers.activate, admitted)
 
-    expect(result.success).toBe(true)
+    expect(result).toMatchObject({ status: HTTP_STATUS.CREATED, success: true })
+    expect(admitted.bodyUsed).toBe(true)
   })
 
   it("counts a request against both limits and reads its licence in one round trip to D1", async () => {

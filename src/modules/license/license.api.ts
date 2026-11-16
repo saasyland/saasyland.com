@@ -132,34 +132,46 @@ const perPeriod = (key: string, limit: number): RateLimitInput => ({ key, limit,
 const rateLimitError = ({ allowed, retryAfter }: RateLimitDecision): Api["error"] | undefined =>
   allowed ? undefined : { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: retryAfter }
 
-const admit = async <Schema extends zod.ZodType>(
-  endpoint: Endpoint<Schema>,
-  { params, request }: ApiCall,
-): Promise<Admission<zod.output<Schema>>> => {
-  const read = await readApiRequest(endpoint, request, params)
-  const address = perPeriod(`${ADDRESS_RATE_LIMIT_PREFIX}${clientAddress(request.headers)}`, RATE_LIMIT.REQUESTS_PER_ADDRESS)
+const presentedKey = ({ headers }: Request) => apiZodSchemas.authorization.safeParse(headers.get(API_HEADER.AUTHORIZATION))
 
-  if (!read.success) {
-    return refuse(rateLimitError(await countRequest(address)) ?? read.error)
-  }
-
-  const { credentials } = read
+const countAndFindLicense = async (address: RateLimitInput, key: string) => {
   const rateLimits = rateLimitBatch([
     address,
-    perPeriod(`${LICENSE_KEY_RATE_LIMIT_PREFIX}${await sha256Hex(credentials.key)}`, RATE_LIMIT.REQUESTS_PER_LICENSE_KEY),
+    perPeriod(`${LICENSE_KEY_RATE_LIMIT_PREFIX}${await sha256Hex(key)}`, RATE_LIMIT.REQUESTS_PER_LICENSE_KEY),
   ])
   const [[row], ...counters] = await db.batch([
     db
       .select({ polarLicenseKeyId: license.polarLicenseKeyId, status: license.status, tier: license.tier })
       .from(license)
-      .where(eq(license.key, credentials.key))
+      .where(eq(license.key, key))
       .limit(SINGLE_ROW),
     ...rateLimits.statements,
   ])
-  const limited = rateLimitError(rateLimits.decision(counters))
+
+  return { limited: rateLimitError(rateLimits.decision(counters)), row }
+}
+
+const admit = async <Schema extends zod.ZodType>(
+  endpoint: Endpoint<Schema>,
+  { params, request }: ApiCall,
+): Promise<Admission<zod.output<Schema>>> => {
+  const address = perPeriod(`${ADDRESS_RATE_LIMIT_PREFIX}${clientAddress(request.headers)}`, RATE_LIMIT.REQUESTS_PER_ADDRESS)
+  const key = presentedKey(request)
+
+  if (!key.success) {
+    return refuse(rateLimitError(await countRequest(address)) ?? { code: API_ERROR.INVALID_LICENSE_KEY })
+  }
+
+  const { limited, row } = await countAndFindLicense(address, key.data)
 
   if (limited !== undefined) {
     return refuse(limited)
+  }
+
+  const read = await readApiRequest(endpoint, request, params)
+
+  if (!read.success) {
+    return refuse(read.error)
   }
 
   if (typeof row?.polarLicenseKeyId !== "string") {
@@ -176,12 +188,12 @@ const admit = async <Schema extends zod.ZodType>(
     return refuse({ code: API_ERROR.LICENSE_REVOKED })
   }
 
-  return { credentials, input: read.request, licenseKey, success: true, tier: row.tier }
+  return { credentials: read.credentials, input: read.request, licenseKey, success: true, tier: row.tier }
 }
 
-const describeFailure = (error: unknown, { headers }: Request): string => {
+const describeFailure = (error: unknown, request: Request): string => {
   const failure = inspect(error)
-  const key = apiZodSchemas.authorization.safeParse(headers.get(API_HEADER.AUTHORIZATION))
+  const key = presentedKey(request)
 
   return key.success ? failure.replaceAll(key.data, REDACTED_LICENSE_KEY) : failure
 }

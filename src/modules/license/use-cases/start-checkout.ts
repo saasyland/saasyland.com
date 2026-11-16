@@ -10,7 +10,12 @@ import { polar } from "~/src/integrations/polar/polar.config"
 import { POLAR_CHECKOUT_ID_PLACEHOLDER } from "~/src/integrations/polar/polar.constants"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { LICENSE_MUTATION_KEYS, LICENSE_STATUS } from "~/src/modules/license/license.constants"
+import {
+  LICENSE_CHECKOUT_FIELD,
+  LICENSE_CHECKOUT_METADATA,
+  LICENSE_MUTATION_KEYS,
+  LICENSE_STATUS,
+} from "~/src/modules/license/license.constants"
 import { pppDiscountId } from "~/src/modules/license/license.ppp"
 import type { License } from "~/src/modules/license/license.types"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
@@ -22,7 +27,7 @@ import { ROUTES } from "~/src/routes"
 export const startCheckout = createServerFn({ method: "POST" })
   .middleware([authorized()])
   .validator((input: License["startCheckout"]) => licenseZodSchemas.startCheckout.parse(input))
-  .handler(async ({ context, data: { locale, tier } }) => {
+  .handler(async ({ context, data: { locale, tier, withdrawalConsent } }) => {
     const { user } = context.auth
     const current = await getLicense(user.id)
     if (current?.status === LICENSE_STATUS.ACTIVE) {
@@ -36,11 +41,12 @@ export const startCheckout = createServerFn({ method: "POST" })
     )
     const { url } = await polar.checkouts.create({
       allow_discount_codes: false,
+      custom_field_data: { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: withdrawalConsent },
       customer_email: user.email,
       customer_ip_address: getIP(context.requestHeaders, auth.options),
       customer_name: user.name,
       external_customer_id: user.id,
-      metadata: affonsoReferralMetadata(context.requestHeaders),
+      metadata: { ...affonsoReferralMetadata(context.requestHeaders), [LICENSE_CHECKOUT_METADATA.LOCALE]: locale },
       products: [POLAR_PRODUCT_IDS[tier]],
       success_url: successUrl.toString(),
       ...(discountId === undefined ? {} : { discount_id: discountId }),

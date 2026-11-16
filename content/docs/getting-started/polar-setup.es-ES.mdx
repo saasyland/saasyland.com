@@ -1,6 +1,6 @@
 ---
 title: "Configuración de Polar"
-description: "Las organizaciones, el token, los productos, las claves de licencia, los descuentos regionales y los webhooks de Polar que espera el código, y cómo los comprueba polar:verify."
+description: "Las organizaciones, el token, los productos, las claves de licencia, la casilla de consentimiento, los descuentos regionales y los webhooks de Polar que espera el código, y cómo los comprueba polar:verify."
 ---
 
 Polar vende los tres niveles, emite sus claves de licencia y aplica los descuentos regionales. El código espera una configuración precisa en Polar, y Polar no avisa cuando ambos dejan de coincidir: un producto sin un beneficio de clave de licencia sigue aceptando el pago, pero no emite ninguna clave. `bun run polar:verify:<environment>` compara Polar con el código, y los scripts de despliegue lo ejecutan antes de cada despliegue manual.
@@ -61,6 +61,20 @@ Crea un beneficio de tipo **License Keys** (claves de licencia) por nivel y vinc
 
 Cada producto necesita exactamente un beneficio de clave de licencia; puede tener otros beneficios además de ese. Cuando Polar concede el beneficio, el webhook `benefit_grant.created` guarda la clave en la licencia del comprador.
 
+## Casilla de consentimiento [#consent-checkbox]
+
+El diálogo de pago del sitio pide al comprador el consentimiento al suministro inmediato (consulta [Licencias](/docs/features/licences#consent-to-immediate-supply)), y el pago de Polar lo registra en el pedido. Crea un campo personalizado en la organización y vincúlalo a los tres productos:
+
+- **Tipo**: casilla de verificación.
+- **Identificador (slug)**: <RepositoryFact name="licenseWithdrawalConsentField" />, `LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT` en `src/modules/license/license.constants.ts`. El pedido guarda la casilla marcada con esta clave en `custom_field_data`.
+- **Etiqueta**: exactamente `WITHDRAWAL_CONSENT_FIELD.label` de `src/lib/polar.ts`, la frase en inglés construida a partir de `REFUND_TERMS.WITHDRAWAL_DAYS` que termina con un enlace en Markdown a la Política de Reembolsos de producción.
+- **Nombre**: el que prefieras; `WITHDRAWAL_CONSENT_FIELD.name` es el que sugiere el código, y `polar:verify` no lo comprueba.
+- **Obligatorio** en cada uno de los tres productos. Los demás campos que pidan los productos pueden quedarse.
+
+`startCheckout` envía como valor del campo el consentimiento que el comprador acaba de dar, así que Polar muestra la casilla ya marcada. Polar solo conserva los valores de los campos que pide el producto: antes de vincular el campo, el pago sigue funcionando, pero el pedido no registra ningún consentimiento, y la [confirmación de compra](/docs/features/licences#purchase-confirmation) indica en su lugar el derecho de desistimiento legal.
+
+Crear el campo y vincularlo a un producto requiere los ámbitos `custom_fields:write` y `products:write`, que el token anterior no tiene. Créalo y vincúlalo en el panel de Polar, o mediante la API con otro token que sí los tenga. `polar:verify` lee los campos vinculados en el listado de productos, así que no necesita ningún otro ámbito.
+
 ## Descuentos regionales
 
 El proceso de pago aplica un precio regional mediante un descuento automático de Polar (consulta [Licencias](/docs/features/licences)). Crea un descuento porcentual para cada tramo de `PPP_TIERS` (`src/modules/license/license.pricing.ts`): <RegionalDiscounts />. Cada descuento debe:
@@ -113,6 +127,7 @@ Cada script lee las claves de Polar de `.env.<environment>` y solo envía petici
 - el archivo de entorno define todas las claves de Polar, con `POLAR_SERVER=sandbox` para desarrollo y preview y `POLAR_SERVER=production` para producción;
 - cada `POLAR_PRODUCT_ID_*` corresponde a un producto de la organización que no está archivado ni es una suscripción, y cuyos precios son fijos, están en `DEFAULT_CURRENCY_CODE` y son iguales a `TIER_PRICES`;
 - cada producto tiene exactamente un beneficio de clave de licencia con el límite del nivel según `LICENSE_ACTIVATION_LIMITS`, sin caducidad y sin límite de uso;
+- cada producto exige el campo de casilla <RepositoryFact name="licenseWithdrawalConsentField" /> con la etiqueta de `WITHDRAWAL_CONSENT_FIELD`;
 - para cada tramo de `PPP_TIERS`, hay un descuento porcentual automático que puede canjearse en el producto de cada nivel, según la regla que usa el pago;
 - preview y producción tienen un endpoint raw activado en su URL de webhook, firmado con `POLAR_WEBHOOK_SECRET` y suscrito exactamente a `POLAR_EVENTS`;
 - ningún endpoint envía eventos al host de un entorno que usa el otro servicio de Polar.
@@ -136,6 +151,7 @@ Un fallo detiene el despliegue antes de que se compile, se migre o se suba nada.
 - **`lacks the … scope`**: crea un token con los ámbitos indicados más arriba.
 - **`names no product of the organisation`**: el ID de producto o `POLAR_ORGANIZATION_ID` es incorrecto, o pertenece al otro servicio.
 - **Un precio, una clave de licencia o un descuento**: cámbialo en Polar para que coincida con el código. Cuando un valor de negocio cambie a propósito, cambia primero `TIER_PRICES`, `LICENSE_ACTIVATION_LIMITS` o `PPP_TIERS` y después Polar.
+- **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` o `label differs`**: crea, vincula o corrige la [casilla de consentimiento](#consent-checkbox). Cuando la redacción cambie a propósito, cambia primero `WITHDRAWAL_CONSENT_FIELD.label` y después la etiqueta en Polar.
 - **Un endpoint de webhook**: corrige el endpoint que indica el mensaje o elimina un endpoint que envíe eventos al host de otro entorno.
 
 ## Páginas relacionadas

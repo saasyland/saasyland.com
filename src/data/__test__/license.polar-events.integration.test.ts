@@ -6,11 +6,13 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { signedPolarWebhook } from "~/src/platform/testing/lib/polar"
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 import { createPolarOrder } from "~/src/platform/testing/mocks/polar"
+import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
 import { signUpAndVerify } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
+import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { LICENSE_STATUS, LICENSE_TIER, LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
@@ -43,6 +45,9 @@ const paidLicenseOrder = async () => {
 const licencesOf = (userId: string) => db.select().from(license).where(eq(license.userId, userId))
 
 const copiesOf = (userId: string) => db.select().from(order).where(eq(order.userId, userId))
+
+const confirmationsTo = (recipient: string) =>
+  getSentEmails(recipient).filter(({ idempotencyKey }) => idempotencyKey?.startsWith(`${EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/`) === true)
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -80,5 +85,6 @@ describe("one paid licence order for the licence and the billing area", () => {
     await expect(licencesOf(buyer.userId)).resolves.toStrictEqual([granted])
     const copies = await copiesOf(buyer.userId)
     expect(copies).toStrictEqual([{ ...copied, updatedAt: copies[0]?.updatedAt }])
+    expect(confirmationsTo(buyer.account.email)).toHaveLength(1)
   })
 })

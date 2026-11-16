@@ -3,7 +3,7 @@ title: "Modèles d'e-mails"
 description: "Écrivez des modèles React Email avec des messages traduits et envoyez-les depuis les cas d'usage via Resend."
 ---
 
-Un e-mail comporte trois parties : un modèle dans `src/presentation/emails/`, un espace de noms de messages dans `messages/<locale>/emails.<name>.json` et le cas d'usage qui charge les messages, affiche le modèle et l'envoie. Modèles : `verify-email`, `reset-password-email`, `change-email-confirmation-email`, `newsletter-confirmation-email` et `newsletter-notification-email`.
+Un e-mail comporte trois parties : un modèle dans `src/presentation/emails/`, un espace de noms de messages dans `messages/<locale>/emails.<name>.json` et le cas d'usage qui charge les messages, affiche le modèle et l'envoie. Modèles : `verify-email`, `reset-password-email`, `change-email-confirmation-email`, `newsletter-confirmation-email`, `newsletter-notification-email` et `purchase-confirmation-email`.
 
 ## Modèle
 
@@ -119,6 +119,7 @@ export const sendVerifyEmail = async ({
 - Les hooks Better Auth de `src/integrations/better-auth/auth.server.ts` appellent les cas d'usage via `RESEND_AUTH_EMAILS` (`src/data/resend.auth-emails.ts`) : `sendVerifyEmail` pour `emailVerification.sendVerificationEmail` et les inscriptions répétées de comptes non vérifiés, `sendResetPasswordEmail` pour `emailAndPassword.sendResetPassword` et `sendChangeEmailConfirmationEmail` pour `user.changeEmail`.
 - Les requêtes Better Auth arrivent sur `/api/auth` sans préfixe de langue : les hooks déterminent donc la langue de l'e-mail à partir du `callbackURL` du parcours, un chemin de page localisé, avec `extractLocaleFromCallbackURL` ou `extractLocaleFromPath` de `src/integrations/use-intl/i18n.paths.ts`. L'anglais sert de langue de repli.
 - Les cas d'usage de la newsletter envoient eux-mêmes les e-mails de confirmation et de notification, par exemple `subscribeToNewsletter`.
+- Le handler de webhook `onOrderPaid` de la zone des licences appelle `sendPurchaseConfirmationEmail` après avoir accordé la licence. L'e-mail tire sa langue du `metadata.locale` de la commande, ses liens de l'hôte qui a reçu le webhook et son jeton d'idempotence de l'identifiant de la commande Polar, et un envoi en échec fait échouer le handler afin que Polar réessaie.
 - `sendVerifyEmail`, `sendResetPasswordEmail` et `subscribeToNewsletter` appellent `withinRecipientRateLimit` (`src/lib/rate-limit.ts`) avant l'envoi : au plus <RepositoryFact name="recipientEmailsPerHour" /> e-mails d'un même type par adresse et par heure, avec pour clé un hachage SHA-256 de l'adresse. Au-delà de la limite, ils journalisent un avertissement et n'envoient rien. Ajoutez la même vérification à tout e-mail qu'un visiteur peut déclencher sans compte.
 
 ## Ajouter un e-mail

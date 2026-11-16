@@ -1,6 +1,6 @@
 ---
 title: "Konfiguracja Polar"
-description: "Organizacje, token, produkty, klucze licencyjne, rabaty regionalne i webhooki Polar, których oczekuje kod, oraz to, jak sprawdza je polar:verify."
+description: "Organizacje, token, produkty, klucze licencyjne, pole wyboru zgody, rabaty regionalne i webhooki Polar, których oczekuje kod, oraz to, jak sprawdza je polar:verify."
 ---
 
 Polar sprzedaje trzy plany, wydaje ich klucze licencyjne i stosuje rabaty regionalne. Kod oczekuje w Polar ściśle określonej konfiguracji, a Polar nie ostrzega, gdy jedno rozjedzie się z drugim: produkt bez benefitu kluczy licencyjnych nadal przyjmuje płatność, ale nie wydaje klucza. `bun run polar:verify:<environment>` porównuje Polar z kodem, a skrypty wdrożeniowe uruchamiają go przed każdym ręcznym wdrożeniem.
@@ -61,6 +61,20 @@ Dla każdego planu utwórz jeden benefit typu **License Keys** (klucze licencyjn
 
 Każdy produkt potrzebuje dokładnie jednego benefitu kluczy licencyjnych; inne benefity obok niego nie przeszkadzają. Gdy Polar przyzna benefit, webhook `benefit_grant.created` zapisuje klucz w licencji kupującego.
 
+## Pole wyboru zgody [#consent-checkbox]
+
+Okno dialogowe płatności w serwisie prosi kupującego o zgodę na natychmiastowe dostarczenie (zobacz [Licencje](/docs/features/licences#consent-to-immediate-supply)), a formularz płatności Polar zapisuje ją w zamówieniu. Utwórz w organizacji jedno pole niestandardowe i dołącz je do trzech produktów:
+
+- **Typ**: pole wyboru (Checkbox).
+- **Slug**: <RepositoryFact name="licenseWithdrawalConsentField" />, czyli `LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT` w `src/modules/license/license.constants.ts`. Zamówienie zapisuje zaznaczone pole pod tym kluczem w `custom_field_data`.
+- **Etykieta**: dokładnie `WITHDRAWAL_CONSENT_FIELD.label` z `src/lib/polar.ts`, czyli angielskie zdanie zbudowane na podstawie `REFUND_TERMS.WITHDRAWAL_DAYS`, zakończone linkiem Markdown do produkcyjnych Zasad zwrotów.
+- **Nazwa**: dowolna; `WITHDRAWAL_CONSENT_FIELD.name` to nazwa, którą proponuje kod, a `polar:verify` jej nie sprawdza.
+- **Wymagane** w każdym z trzech produktów. Inne pola, o które proszą produkty, mogą pozostać.
+
+`startCheckout` wysyła jako wartość pola zgodę, której kupujący właśnie udzielił, więc Polar pokazuje pole jako zaznaczone. Polar zachowuje tylko wartości pól, o które prosi produkt: zanim pole zostanie dołączone, płatność nadal działa, ale zamówienie nie zapisuje zgody, a [potwierdzenie zakupu](/docs/features/licences#purchase-confirmation) informuje zamiast tego o ustawowym prawie odstąpienia od umowy.
+
+Utworzenie pola i dołączenie go do produktu wymagają zakresów `custom_fields:write` i `products:write`, których nie ma opisany powyżej token. Utwórz i dołącz pole w panelu Polar albo przez API, używając osobnego tokenu z tymi zakresami. `polar:verify` odczytuje dołączone pola z listy produktów, więc nie potrzebuje żadnego innego zakresu.
+
 ## Rabaty regionalne
 
 Płatność stosuje cenę regionalną przez automatyczny rabat w Polar (zobacz [Licencje](/docs/features/licences)). Utwórz po jednym rabacie procentowym dla każdego przedziału w `PPP_TIERS` (`src/modules/license/license.pricing.ts`): <RegionalDiscounts />. Każdy rabat musi:
@@ -113,6 +127,7 @@ Każdy skrypt odczytuje klucze Polar z `.env.<environment>` i wysyła wyłączni
 - plik środowiskowy ustawia każdy klucz Polar, z `POLAR_SERVER=sandbox` dla trybu deweloperskiego i preview oraz `POLAR_SERVER=production` dla produkcji;
 - każdy `POLAR_PRODUCT_ID_*` wskazuje produkt organizacji, który nie jest zarchiwizowany ani nie jest subskrypcją, a jego ceny są stałe, w `DEFAULT_CURRENCY_CODE` i równe `TIER_PRICES`;
 - każdy produkt ma dokładnie jeden benefit kluczy licencyjnych z limitem planu z `LICENSE_ACTIVATION_LIMITS`, bez wygaśnięcia i bez limitu użycia;
+- każdy produkt wymaga pola wyboru <RepositoryFact name="licenseWithdrawalConsentField" /> z etykietą z `WITHDRAWAL_CONSENT_FIELD`;
 - dla każdego przedziału w `PPP_TIERS` automatyczny rabat procentowy da się wykorzystać przy produkcie każdego planu, według reguły, której używa płatność;
 - preview i produkcja mają włączony endpoint w formacie Raw pod swoim adresem URL webhooka, podpisany za pomocą `POLAR_WEBHOOK_SECRET` i zasubskrybowany dokładnie na `POLAR_EVENTS`;
 - żaden endpoint nie wysyła zdarzeń do hosta środowiska, które używa drugiej usługi Polar.
@@ -136,6 +151,7 @@ Błąd zatrzymuje wdrożenie, zanim cokolwiek zostanie zbudowane, zmigrowane lub
 - **`lacks the … scope`**: utwórz token z zakresami uprawnień wymienionymi powyżej.
 - **`names no product of the organisation`**: ID produktu lub `POLAR_ORGANIZATION_ID` jest błędne albo należy do drugiej usługi.
 - **Cena, klucz licencyjny lub rabat**: zmień ustawienie w Polar tak, aby zgadzało się z kodem. Gdy wartość biznesowa zmienia się celowo, najpierw zmień `TIER_PRICES`, `LICENSE_ACTIVATION_LIMITS` lub `PPP_TIERS`, a dopiero potem Polar.
+- **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` lub `label differs`**: utwórz, dołącz lub popraw [pole wyboru zgody](#consent-checkbox). Gdy brzmienie etykiety zmienia się celowo, najpierw zmień `WITHDRAWAL_CONSENT_FIELD.label`, a dopiero potem etykietę w Polar.
 - **Endpoint webhooka**: popraw endpoint wskazany w komunikacie albo usuń endpoint, który wysyła zdarzenia do hosta innego środowiska.
 
 ## Powiązane strony

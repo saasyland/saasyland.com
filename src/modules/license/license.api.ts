@@ -17,9 +17,8 @@ import {
   readApiRequest,
 } from "@saasyland/stack/api"
 import { eq } from "drizzle-orm"
-import { createHash } from "node:crypto"
 import { inspect } from "node:util"
-import type * as zod from "zod"
+import * as zod from "zod"
 
 import { clientAddress } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
@@ -28,6 +27,7 @@ import { POLAR_LICENSE_KEY_STATUS } from "~/src/integrations/polar/polar.constan
 
 import { bundleObjectKey, signBundle } from "~/src/modules/license/license.bundles"
 import {
+  BUNDLE_METADATA,
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_API_RETRY_AFTER_SECONDS,
   LICENSE_STATUS,
@@ -42,9 +42,6 @@ const SINGLE_ROW = 1
 const ONE_SLOT = 1
 const ADDRESS_RATE_LIMIT_PREFIX = "cli:address:"
 const LICENSE_KEY_RATE_LIMIT_PREFIX = "cli:key:"
-const ARCHIVE_COMPRESSION = "gzip"
-const DIGEST_ALGORITHM = "sha256"
-const DIGEST_ENCODING = "hex"
 const REDACTED_LICENSE_KEY = "[licence key]"
 
 const SERVICE_UNAVAILABLE = { code: API_ERROR.SERVICE_UNAVAILABLE, retryAfterSeconds: LICENSE_API_RETRY_AFTER_SECONDS } as const
@@ -58,6 +55,8 @@ const activationMetaSchema = API_ENDPOINT.ACTIVATE.request.shape.body
   .omit({ label: true })
   .extend({ machine: apiZodSchemas.machineId })
   .partial()
+
+const bundleMetadataSchema = zod.object({ [BUNDLE_METADATA.SHA256]: apiZodSchemas.sha256 })
 
 interface Endpoint<Schema extends zod.ZodType> {
   readonly errors: readonly Api["errorCode"][]
@@ -103,28 +102,21 @@ const machinesOf = ({ activations }: models.LicenseKeyWithActivations, machine: 
 const holdsActivation = (machines: readonly Api["machine"][], activationId: string): boolean =>
   machines.some(({ current, id }) => current && id === activationId)
 
-const contentDigest = async ({ body }: R2ObjectBody): Promise<string> => {
-  const hash = createHash(DIGEST_ALGORITHM)
-
-  await body.pipeThrough(new DecompressionStream(ARCHIVE_COMPRESSION)).pipeTo(
-    new WritableStream({
-      write: (chunk) => {
-        hash.update(chunk)
-      },
-    }),
-  )
-
-  return hash.digest(DIGEST_ENCODING)
-}
-
 const storedBundle = async (version: string): Promise<StoredBundle> => {
-  const object = await env.BUNDLES.get(bundleObjectKey(version))
+  const key = bundleObjectKey(version)
+  const object = await env.BUNDLES.head(key)
 
   if (object === null) {
     return { error: { code: API_ERROR.VERSION_NOT_FOUND, version }, success: false }
   }
 
-  return { bundle: { sha256: await contentDigest(object), size: object.size }, success: true }
+  const metadata = bundleMetadataSchema.safeParse(object.customMetadata)
+
+  if (!metadata.success) {
+    throw new Error(`${key} has no ${BUNDLE_METADATA.SHA256} digest in its custom metadata`, { cause: metadata.error })
+  }
+
+  return { bundle: { sha256: metadata.data[BUNDLE_METADATA.SHA256], size: object.size }, success: true }
 }
 
 const consume = async (key: string, limit: number): Promise<Api["error"] | undefined> => {

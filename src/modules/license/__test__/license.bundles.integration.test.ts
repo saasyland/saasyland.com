@@ -32,7 +32,7 @@ import {
 } from "~/src/modules/license/__test__/fixtures/license-api"
 import { licenseApiHandlers } from "~/src/modules/license/license.api"
 import { bundleObjectKey } from "~/src/modules/license/license.bundles"
-import { BUNDLE_PATH_PREFIX, LICENSE_STATUS } from "~/src/modules/license/license.constants"
+import { BUNDLE_METADATA, BUNDLE_PATH_PREFIX, LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { serveBundle } from "~/src/modules/license/license.delivery"
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 
@@ -42,10 +42,12 @@ import { sha256Hex } from "~/src/lib/hex"
 const UNRELEASED_VERSION = "9.9.9"
 const ARCHIVE_CONTENT = JSON.stringify({ layers: [], schemaVersion: 1, version: CLI_VERSION })
 const ARCHIVE = gzipSync(ARCHIVE_CONTENT)
+const ARCHIVE_DIGEST = await sha256Hex(ARCHIVE_CONTENT)
+const DESCRIBED = { customMetadata: { [BUNDLE_METADATA.SHA256]: ARCHIVE_DIGEST } }
 const KEY_LIMIT_ADDRESSES = 3
 const APP_HOST = new URL(TEST_APP_URL).host
 const R2_OUTAGE = "We encountered an internal error. Please try again."
-const NOT_GZIP = "incorrect header check"
+const UNDESCRIBED = `${bundleObjectKey(CLI_VERSION)} has no ${BUNDLE_METADATA.SHA256} digest in its custom metadata`
 
 const bundleRoute = (activationId: string): string =>
   API_ROUTE.ACTIVATION_BUNDLES.replace(`:${ROUTE_PARAMETER.ACTIVATION_ID}`, activationId)
@@ -58,7 +60,7 @@ const studioBundle = async () => {
 
 beforeEach(async () => {
   vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
-  await env.BUNDLES.put(bundleObjectKey(CLI_VERSION), ARCHIVE)
+  await env.BUNDLES.put(bundleObjectKey(CLI_VERSION), ARCHIVE, DESCRIBED)
 })
 
 afterEach(() => {
@@ -67,8 +69,9 @@ afterEach(() => {
 })
 
 describe("POST /activations/:activationId/bundles", () => {
-  it("signs a URL to the release's archive with the digest of its content, its size and when the URL expires", async () => {
+  it("signs a URL to the release's archive with the digest of its content from the object's metadata, its size and when the URL expires, without reading the archive", async () => {
     const { activationId, key } = await studioBundle()
+    const reads = vi.spyOn(env.BUNDLES, "get")
 
     const { result } = await requestBundle({ key, machine: STUDIO }, activationId)
 
@@ -77,9 +80,10 @@ describe("POST /activations/:activationId/bundles", () => {
     expect(result.status).toBe(HTTP_STATUS.OK)
     expect(described).toStrictEqual({
       expiresAt: new Date(NOW.getTime() + API_LIMIT.BUNDLE_URL_TTL_SECONDS * MILLISECONDS_PER_SECOND).toISOString(),
-      sha256: await sha256Hex(ARCHIVE_CONTENT),
+      sha256: ARCHIVE_DIGEST,
       size: ARCHIVE.byteLength,
     })
+    expect(reads).not.toHaveBeenCalled()
     expect(new URL(url)).toMatchObject({ host: APP_HOST, protocol: "https:" })
     expect(new URL(url).pathname.startsWith(`${BUNDLE_PATH_PREFIX}/`)).toBe(true)
   })
@@ -122,7 +126,7 @@ describe("POST /activations/:activationId/bundles", () => {
     const laptop = await activated({ key: buyer.key, machine: LAPTOP }, LAPTOP_ACTIVATION)
     await activated({ key: buyer.key, machine: CI }, CI_ACTIVATION)
     await deactivate({ key: buyer.key, machine: STUDIO }, laptop)
-    const reads = vi.spyOn(env.BUNDLES, "get")
+    const reads = vi.spyOn(env.BUNDLES, "head")
 
     const results = await Promise.all([
       requestBundle({ key: buyer.key, machine: STUDIO }, crypto.randomUUID()),
@@ -166,26 +170,32 @@ describe("bundle storage", () => {
   it("answers serviceUnavailable with retry-after when the bucket cannot be read, and logs the failure", async () => {
     const { activationId, key } = await studioBundle()
     const errors = consoleErrors()
-    vi.spyOn(env.BUNDLES, "get").mockRejectedValueOnce(new Error(R2_OUTAGE))
+    vi.spyOn(env.BUNDLES, "head").mockRejectedValueOnce(new Error(R2_OUTAGE))
 
     expectServiceUnavailable(await requestBundle({ key, machine: STUDIO }, activationId))
     expectFailureLogged(errors, API_ENDPOINT.BUNDLE, R2_OUTAGE)
   })
 
-  it("answers serviceUnavailable instead of a digest when the stored object is not a gzip archive, and logs the failure", async () => {
-    const { activationId, key } = await studioBundle()
-    const errors = consoleErrors()
-    await env.BUNDLES.put(bundleObjectKey(CLI_VERSION), ARCHIVE_CONTENT)
+  it.each([
+    { customMetadata: {}, state: "no digest" },
+    { customMetadata: { [BUNDLE_METADATA.SHA256]: ARCHIVE_CONTENT }, state: "a value that is not a SHA-256" },
+  ])(
+    "answers serviceUnavailable instead of a digest when the stored object's metadata holds $state, and logs the failure",
+    async ({ customMetadata }) => {
+      const { activationId, key } = await studioBundle()
+      const errors = consoleErrors()
+      await env.BUNDLES.put(bundleObjectKey(CLI_VERSION), ARCHIVE, { customMetadata })
 
-    expectServiceUnavailable(await requestBundle({ key, machine: STUDIO }, activationId))
-    expectFailureLogged(errors, API_ENDPOINT.BUNDLE, NOT_GZIP)
-  })
+      expectServiceUnavailable(await requestBundle({ key, machine: STUDIO }, activationId))
+      expectFailureLogged(errors, API_ENDPOINT.BUNDLE, UNDESCRIBED)
+    },
+  )
 })
 
 describe("invalid bundle requests", () => {
   it("names the answer the stack's rules refuse and a version that is not a release, without reading the bucket", async () => {
     const { activationId, key } = await studioBundle()
-    const reads = vi.spyOn(env.BUNDLES, "get")
+    const reads = vi.spyOn(env.BUNDLES, "head")
     const request = rawRequest(bundleRoute(activationId), {
       body: JSON.stringify({ answers: { ...STACK_DEFAULTS, deployment: DEPLOYMENT.VERCEL }, version: "latest" }),
       headers: signedHeaders(key, STUDIO),

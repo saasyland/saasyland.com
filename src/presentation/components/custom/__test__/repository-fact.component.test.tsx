@@ -14,6 +14,7 @@ import {
   BUNDLE_ARCHIVE_EXTENSION,
   BUNDLE_BINDING,
   BUNDLE_CONTENT_TYPE,
+  BUNDLE_METADATA,
   BUNDLE_PATH_PREFIX,
   LICENSE_API_ENDPOINTS,
   LICENSE_API_RETRY_AFTER_SECONDS,
@@ -277,7 +278,7 @@ describe("RepositoryTable", () => {
 })
 
 describe("CLI template bundles", () => {
-  it("prints the bundle URL's lifetime from the contract and the archive's path, key and media type from the licence module", () => {
+  it("prints the bundle URL's lifetime from the contract and the archive's path, key, media type and digest metadata from the licence module", () => {
     renderInLocale(
       "en-US",
       <ul>
@@ -293,6 +294,9 @@ describe("CLI template bundles", () => {
         <li>
           <RepositoryFact name="cliBundleContentType" />
         </li>
+        <li>
+          <RepositoryFact name="cliBundleDigestMetadata" />
+        </li>
       </ul>,
     )
 
@@ -301,6 +305,7 @@ describe("CLI template bundles", () => {
       `${BUNDLE_PATH_PREFIX}/<expiry>.<signature>/<version>${BUNDLE_ARCHIVE_EXTENSION}`,
       `<version>${BUNDLE_ARCHIVE_EXTENSION}`,
       BUNDLE_CONTENT_TYPE,
+      BUNDLE_METADATA.SHA256,
     ])
   })
 

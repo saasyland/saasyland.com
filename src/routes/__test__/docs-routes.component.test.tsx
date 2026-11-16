@@ -44,7 +44,7 @@ vi.mock("~/src/presentation/components/custom/docs-content", () => ({
 }))
 vi.mock(import("@fumadocs/base-ui/layouts/docs"), async (original) => ({
   ...(await original()),
-  DocsLayout: ({ children, nav, sidebar, links, themeSwitch }: ComponentProps<typeof DocsLayout>) => (
+  DocsLayout: ({ children, nav, sidebar, links, slots, themeSwitch }: ComponentProps<typeof DocsLayout>) => (
     <div>
       <nav aria-label="Documentation navigation">
         {typeof nav?.title === "function" ? undefined : <a href={nav?.url}>{nav?.title}</a>}
@@ -53,6 +53,7 @@ vi.mock(import("@fumadocs/base-ui/layouts/docs"), async (original) => ({
       {typeof sidebar === "object" && sidebar.footer}
       <main>{children}</main>
       <span data-testid="builtin-theme-switch">{String(themeSwitch?.enabled)}</span>
+      <span data-testid="builtin-skip-link">{String(slots?.skipToContent)}</span>
     </div>
   ),
 }))
@@ -138,6 +139,8 @@ it.each([
   expect(screen.getByRole("link", { name: `${APP_GITHUB_OWNER}/${APP_GITHUB_REPO}` })).toHaveAttribute("href", APP_GITHUB_URL)
   expect(screen.getByRole("button", { name: selectTriggerNamed(localeSwitcherMessages.label) })).toHaveTextContent("English")
   expect(screen.getByTestId("builtin-theme-switch")).toHaveTextContent("false")
+  expect(screen.getByTestId("builtin-skip-link")).toHaveTextContent("false")
+  expect(screen.getByRole("contentinfo")).toBeInTheDocument()
   expect(docsContent.useContent).toHaveBeenCalledWith(path)
   if (slug === undefined) {
     expect(loadDocsPage).toHaveBeenCalledWith()

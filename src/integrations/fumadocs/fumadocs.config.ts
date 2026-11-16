@@ -3,6 +3,7 @@ import { defineCollections, defineConfig, defineDocs } from "fumadocs-mdx/config
 import zod from "zod/v4"
 
 import { rehypeOmitRenderedContent } from "../../../scripts/deployed-worker"
+import { BLOG_TAGS } from "../../data/blog"
 import { changelogEntries } from "./fumadocs.changelog"
 
 export const docs = defineDocs({
@@ -22,7 +23,7 @@ const blogSchema = pageSchema.extend({
   featured: zod.boolean().optional(),
   image: zod.string().optional(),
   published: zod.boolean().default(true),
-  tags: zod.array(zod.string()).optional(),
+  tags: zod.array(zod.enum(BLOG_TAGS)).optional(),
   updated: blogDateSchema.optional(),
 })
 

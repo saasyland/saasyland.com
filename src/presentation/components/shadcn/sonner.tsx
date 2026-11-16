@@ -1,6 +1,7 @@
 import { useTheme } from "@wrksz/themes/client"
 import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon } from "lucide-react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { useTranslations } from "use-intl/react"
 
 import { THEME } from "~/src/presentation/theme"
 
@@ -20,10 +21,12 @@ const TOAST_OPTIONS = {
 
 const Toaster = (props: Readonly<ToasterProps>) => {
   const { theme = THEME.DEFAULT_THEME } = useTheme()
+  const t = useTranslations("components.shadcn.sonner")
 
   return (
     <Sonner
       className="toaster group [--border-radius:var(--radius)] [--normal-bg:var(--popover)] [--normal-border:var(--border)] [--normal-text:var(--popover-foreground)]"
+      containerAriaLabel={t("label")}
       icons={TOASTER_ICONS}
       theme={theme}
       toastOptions={TOAST_OPTIONS}

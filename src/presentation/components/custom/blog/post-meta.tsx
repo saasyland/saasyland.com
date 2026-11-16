@@ -7,10 +7,11 @@ const route = getRouteApi("/_site/_marketing/blog/$")
 
 export const PostMeta = (): JSX.Element => {
   const { post } = route.useLoaderData()
-  const t = useTranslations("pages.blog.post")
+  const t = useTranslations("pages.blog")
   const format = useFormatter()
 
-  const details = [post.authorName, t("readingTime", { minutes: post.readingTimeMinutes }), post.tags.join(", ")].filter(
+  const tags = post.tags.map((tag) => t(`tags.${tag}`)).join(", ")
+  const details = [post.authorName, t("post.readingTime", { minutes: post.readingTimeMinutes }), tags].filter(
     (item) => item.trim().length > 0,
   )
 

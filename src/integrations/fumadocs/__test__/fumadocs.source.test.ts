@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { getPublishedBlogPosts } from "~/src/integrations/fumadocs/fumadocs.source"
 
-const { blog } = vi.hoisted(() => {
+import { BLOG_TAG } from "~/src/data/blog"
+
+const { blog } = await vi.hoisted(async () => {
+  const { BLOG_TAG: TAG } = await import("~/src/data/blog")
   const base = { authorName: "Test Author", published: true, toc: [] }
   return {
     blog: [
@@ -21,7 +24,7 @@ const { blog } = vi.hoisted(() => {
         excerpt: "Newer excerpt",
         info: { fullPath: "/content/blog/newer.en-US.mdx", path: "newer.en-US.mdx" },
         structuredData: { contents: [{ content: "word ".repeat(660), heading: undefined }], headings: [] },
-        tags: ["stack"],
+        tags: [TAG.STACK],
         title: "Newer",
       },
       {
@@ -57,7 +60,7 @@ describe("published blog posts", () => {
     const posts = getPublishedBlogPosts("en-US")
 
     expect(posts.map((post) => post.title)).toStrictEqual(["Newer", "Older", "Short"])
-    expect(posts[0]).toMatchObject({ featured: false, summary: "Newer excerpt", tags: ["stack"], url: "/blog/newer" })
+    expect(posts[0]).toMatchObject({ featured: false, summary: "Newer excerpt", tags: [BLOG_TAG.STACK], url: "/blog/newer" })
     expect(posts[1]).toMatchObject({ summary: "Older description", tags: [] })
   })
 

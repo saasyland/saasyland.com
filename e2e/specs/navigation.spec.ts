@@ -143,7 +143,7 @@ test.describe("one site header", () => {
     }
 
     await visit(page, DOCS_PAGE)
-    const sidebarButton = page.getByRole("navigation", { exact: true, name: "Docs" }).getByRole("button", { exact: true, name: "Open Sidebar" })
+    const sidebarButton = page.getByRole("navigation", { exact: true, name: "Docs" }).getByRole("button", { exact: true, name: "Open docs menu" })
     const header = await page.getByRole("banner").boundingBox()
     expect((await sidebarButton.boundingBox())?.y).toBeGreaterThanOrEqual((header?.y ?? 0) + (header?.height ?? 0))
     await sidebarButton.click()

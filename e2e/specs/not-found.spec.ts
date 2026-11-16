@@ -23,16 +23,16 @@ const COPY = {
 } as const satisfies Partial<Record<SupportedLocale, { backHome: string; title: string }>>
 
 const MISSING_PAGES = [
-  { locale: "en-US", path: `/${MISSING}`, siteFooter: true },
-  { locale: "en-US", path: `/${MISSING}/deeper/still`, siteFooter: true },
-  { locale: POLISH, path: localizePathname({ locale: POLISH, pathname: `/${MISSING}` }), siteFooter: true },
-  { locale: "en-US", path: `${ROUTES.AUTH}/${MISSING}`, siteFooter: true },
-  { locale: "en-US", path: `${ROUTES.APP}/${MISSING}`, siteFooter: true },
-  { locale: "en-US", path: `${ROUTES.BLOG}/${MISSING}`, siteFooter: true },
-  { locale: POLISH, path: localizePathname({ locale: POLISH, pathname: `${ROUTES.BLOG}/${MISSING}` }), siteFooter: true },
-  { locale: "en-US", path: `${ROUTES.COURSES}/${MISSING}`, siteFooter: true },
-  { locale: "en-US", path: `${ROUTES.COURSES}/${TEST_COURSE.slug}/${MISSING}`, siteFooter: true },
-  { locale: "en-US", path: `${ROUTES.DOCS}/${MISSING}`, siteFooter: false },
+  { locale: "en-US", path: `/${MISSING}` },
+  { locale: "en-US", path: `/${MISSING}/deeper/still` },
+  { locale: POLISH, path: localizePathname({ locale: POLISH, pathname: `/${MISSING}` }) },
+  { locale: "en-US", path: `${ROUTES.AUTH}/${MISSING}` },
+  { locale: "en-US", path: `${ROUTES.APP}/${MISSING}` },
+  { locale: "en-US", path: `${ROUTES.BLOG}/${MISSING}` },
+  { locale: POLISH, path: localizePathname({ locale: POLISH, pathname: `${ROUTES.BLOG}/${MISSING}` }) },
+  { locale: "en-US", path: `${ROUTES.COURSES}/${MISSING}` },
+  { locale: "en-US", path: `${ROUTES.COURSES}/${TEST_COURSE.slug}/${MISSING}` },
+  { locale: "en-US", path: `${ROUTES.DOCS}/${MISSING}` },
 ] as const
 
 const visit = async (page: Page, path: string): Promise<number | undefined> => {
@@ -41,7 +41,7 @@ const visit = async (page: Page, path: string): Promise<number | undefined> => {
   return response?.status()
 }
 
-for (const { locale, path, siteFooter } of MISSING_PAGES) {
+for (const { locale, path } of MISSING_PAGES) {
   test(`${path} answers 404 with the one titled not-found page under the site header`, async ({ page }) => {
     const copy = COPY[locale]
 
@@ -58,7 +58,7 @@ for (const { locale, path, siteFooter } of MISSING_PAGES) {
       "href",
       localizePathname({ locale, pathname: ROUTES.HOME }),
     )
-    await expect(page.getByRole("contentinfo")).toHaveCount(siteFooter ? 1 : 0)
+    await expect(page.getByRole("contentinfo")).toHaveCount(1)
   })
 }
 

@@ -11,7 +11,7 @@ export const PostRow = ({ post }: Readonly<{ post: BlogPostSummary }>): JSX.Elem
   const t = useTranslations("pages.blog")
   const format = useFormatter()
 
-  const tags = post.tags.join(" · ")
+  const tags = post.tags.map((tag) => t(`tags.${tag}`)).join(" · ")
 
   return (
     <HighlightItem

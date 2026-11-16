@@ -12,6 +12,7 @@ import { Route as MarketingRoute } from "~/src/routes/_site._marketing"
 import { Route as NotFoundRoute } from "~/src/routes/_site._marketing.$"
 import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
 
+import { BLOG_TAG } from "~/src/data/blog"
 import { TIER_PRICES } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -29,6 +30,7 @@ import { ROUTES } from "~/src/routes"
 
 vi.mock("collections/server", async () => {
   const { createElement } = await import("react")
+  const { BLOG_TAG: TAG } = await import("~/src/data/blog")
   const prose = { contents: [{ content: "word ".repeat(1100), heading: undefined }], headings: [] }
   const post = (slug: string, data: Record<string, unknown>, locale = "en-US") => ({
     authorName: "Ada",
@@ -37,7 +39,7 @@ vi.mock("collections/server", async () => {
     info: { fullPath: `/content/blog/${slug}.${locale}.mdx`, path: `${slug}.${locale}.mdx` },
     published: true,
     structuredData: prose,
-    tags: ["React"],
+    tags: [TAG.TANSTACK_START],
     toc: [],
     ...data,
   })
@@ -140,7 +142,7 @@ describe("blog index loader", () => {
       locale: "en-US",
       metadata: pagesBlogMessages.metadata,
       posts: [
-        { readingTimeMinutes: 5, summary: "Article summary", tags: ["React"], title: "Recent", url: "/blog/recent" },
+        { readingTimeMinutes: 5, summary: "Article summary", tags: [BLOG_TAG.TANSTACK_START], title: "Recent", url: "/blog/recent" },
         { title: "Older" },
         { title: "Complete guide" },
         { title: "Featured" },

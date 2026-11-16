@@ -1,9 +1,12 @@
-import { Suspense } from "react"
+import { type JSX, Suspense } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
 
 import { docsHead, loadDocsPage } from "~/src/integrations/fumadocs/fumadocs.docs"
 
+import { SITE_CONTENT_ID } from "~/src/data/navigation.constants"
+
+import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
 import { docsContent } from "~/src/presentation/components/custom/docs-content"
 
 const DocumentationPage = () => {
@@ -13,10 +16,17 @@ const DocumentationPage = () => {
   return <Suspense key={path}>{content}</Suspense>
 }
 
+const DocumentationNotFound = (): JSX.Element => (
+  <main className="[grid-area:main]" id={SITE_CONTENT_ID}>
+    <DefaultNotFound />
+  </main>
+)
+
 export const Route = createFileRoute("/_site/docs/$")({
   component: DocumentationPage,
   head: docsHead,
   loader: ({ params }) => loadDocsPage(params._splat),
+  notFoundComponent: DocumentationNotFound,
   pendingMs: Number.POSITIVE_INFINITY,
   wrapInSuspense: false,
 })

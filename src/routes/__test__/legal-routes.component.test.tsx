@@ -41,7 +41,7 @@ it.each(I18N.SUPPORTED_LOCALES)("renders every legal document completely in %s",
     )
     const title = screen.getByRole("heading", { level: 1 })
     expect(messages).toHaveProperty(["pages", "legal", document, "title"], title.textContent)
-    expect(messages).toHaveProperty(["pages", "legal", document, "lastUpdated"], title.previousElementSibling?.textContent)
+    expect(messages).toHaveProperty(["pages", "legal", document, "lastUpdated"], title.nextElementSibling?.nextElementSibling?.textContent)
     expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(Object.keys(copy.sections).length)
     expect(view.container).toHaveTextContent(CONTACT_EMAIL)
     view.unmount()

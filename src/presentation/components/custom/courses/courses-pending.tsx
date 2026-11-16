@@ -2,6 +2,7 @@ import type { JSX } from "react"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
+import { ContentPagePending } from "~/src/presentation/components/custom/content-page"
 import { PlayerPending } from "~/src/presentation/components/custom/courses/lesson-player"
 
 const CARDS = ["first", "second"] as const
@@ -23,20 +24,13 @@ const LessonRowsPending = (): JSX.Element => (
 )
 
 export const CataloguePending = (): JSX.Element => (
-  <section aria-busy="true" className="relative">
-    <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32">
-      <Skeleton className="h-lh w-full max-w-[14ch] scale-y-75 text-headline-peak" />
-      <div className="mt-5 flex max-w-2xl flex-col text-lead">
-        <Skeleton className="h-lh w-full scale-y-70" />
-        <Skeleton className="h-lh w-3/5 scale-y-70" />
-      </div>
-      <div className="mt-14 grid gap-6 md:mt-20 lg:grid-cols-2">
-        {CARDS.map((card) => (
-          <Skeleton className="h-72 w-full rounded-xl" key={card} />
-        ))}
-      </div>
+  <ContentPagePending>
+    <div className="mt-14 grid gap-6 md:mt-20 lg:grid-cols-2">
+      {CARDS.map((card) => (
+        <Skeleton className="h-72 w-full rounded-xl" key={card} />
+      ))}
     </div>
-  </section>
+  </ContentPagePending>
 )
 
 export const CoursePending = (): JSX.Element => (
@@ -67,10 +61,4 @@ export const LessonPending = (): JSX.Element => (
       <LessonRowsPending />
     </div>
   </section>
-)
-
-export const CoursesPending = (): JSX.Element => (
-  <div className="pt-header">
-    <CataloguePending />
-  </div>
 )

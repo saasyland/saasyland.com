@@ -10,11 +10,13 @@ import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 
 import { COURSE_ACCESS_GRANTS } from "~/src/data/course-access"
+import { CTA_CLASSES } from "~/src/data/cta"
+
+import { cn } from "~/src/lib/cn"
 
 import { ROUTES } from "~/src/routes"
 
-const CTA_CLASSNAME =
-  "mt-6 inline-flex h-10 items-center rounded-lg bg-primary px-5 text-body-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-exp hover:bg-primary/88 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px"
+const CTA_CLASSNAME = cn("mt-6", CTA_CLASSES.PRIMARY)
 
 interface LockedLessonProps {
   readonly access: Course["pageLesson"]["access"]

@@ -30,7 +30,10 @@ const AdminLayout = (): JSX.Element => (
           <AdminCommandPalette />
         </div>
       </header>
-      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-5 pb-6 md:px-6 md:pt-7 md:pb-8">
+      <div
+        className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-5 pb-6 md:px-6 md:pt-7 md:pb-8"
+        data-page-scroller
+      >
         <Outlet />
       </div>
     </SidebarInset>

@@ -4,7 +4,7 @@ import { Copy } from "lucide-react"
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 
-import { DRAW, PRESS, SWAP, TAP } from "~/src/integrations/motion/motion.tokens"
+import { DRAW, PRESS, SWAP } from "~/src/integrations/motion/motion.tokens"
 
 import { cn } from "~/src/lib/cn"
 
@@ -74,7 +74,6 @@ export const CopyButton = ({ copiedLabel, copyLabel, value }: CopyButtonProps): 
       onClick={copy}
       transition={PRESS}
       type="button"
-      whileTap={TAP}
     >
       <AnimatePresence initial={false} mode="popLayout">
         <m.span

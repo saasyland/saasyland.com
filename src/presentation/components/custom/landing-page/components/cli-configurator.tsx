@@ -1,10 +1,11 @@
-import { Fragment, type JSX, type ReactNode, useEffect, useId, useState } from "react"
+import { Fragment, type JSX, useEffect, useId, useState } from "react"
 
 import { AnimatePresence, animate, useMotionValue, useTransform } from "motion/react"
 import * as m from "motion/react-m"
+import type { ToggleButtonGroupProps } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 
-import { EXP, EXP_FAST, PRESS, TAP } from "~/src/integrations/motion/motion.tokens"
+import { EXP, EXP_FAST } from "~/src/integrations/motion/motion.tokens"
 
 import {
   CLI_CHOICES,
@@ -21,17 +22,18 @@ import {
 
 import { cn } from "~/src/lib/cn"
 
+import { ToggleGroup, ToggleGroupItem } from "~/src/presentation/components/shadcn/toggle-group"
+
 import { CopyButton } from "~/src/presentation/components/custom/copy-button"
 import { RunnerTabs } from "~/src/presentation/components/custom/landing-page/components/runner-tabs"
 
-type Taken = Readonly<Record<string, string>>
+type Answers = Readonly<Record<string, string>>
 
-type CliChoiceId = (typeof CLI_CHOICES)[number]["id"]
+type CliExtra = (typeof CLI_EXTRAS)[number]
 
-interface ChoiceOption {
+interface CliOption {
   readonly id: string
   readonly unavailableWhen?: Readonly<Record<string, readonly string[]>> | undefined
-  readonly visibleWhen?: Readonly<Record<string, readonly string[]>> | undefined
 }
 
 const EXTRAS_GROUP = "extras"
@@ -41,95 +43,76 @@ const LAST_LINE_OFFSET = 1
 const ROW_ENTER = { opacity: 0, x: -8 }
 const ROW_SETTLED = { opacity: 1, x: 0 }
 
-const CHIP_CLASSNAME =
-  "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-body-sm transition-colors duration-200 ease-exp focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+const OPTION_CLASSNAME =
+  "h-auto cursor-pointer gap-2 rounded-md border border-border px-3 py-1.5 text-body-sm font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:border-muted-foreground/30 hover:bg-transparent hover:text-foreground data-pressed:bg-muted data-selected:border-transparent data-selected:bg-muted data-selected:text-foreground data-disabled:line-through"
 
-const isUnavailable = (option: ChoiceOption, taken: Taken): boolean =>
-  Object.entries(option.unavailableWhen ?? {}).some(([choiceId, blocked]) => blocked.some((optionId) => optionId === taken[choiceId]))
+const isAvailable = (option: CliOption, answers: Answers): boolean =>
+  !Object.entries(option.unavailableWhen ?? {}).some(([choiceId, blocked]) => blocked.some((optionId) => optionId === answers[choiceId]))
 
-const isVisible = (option: ChoiceOption, taken: Taken): boolean =>
-  Object.entries(option.visibleWhen ?? {}).every(([choiceId, allowed]) => allowed.some((optionId) => optionId === taken[choiceId]))
-
-const reconcile = (taken: Taken): Taken => {
-  const next: Record<string, string> = { ...taken }
+const reconcile = (answers: Answers): Answers => {
+  const next: Record<string, string> = {}
   for (const choice of CLI_CHOICES) {
-    const current: ChoiceOption | undefined = choice.options.find((option) => option.id === next[choice.id])
-    const isLegal = current !== undefined && isVisible(current, next) && !isUnavailable(current, next)
-    if (!isLegal) {
-      const fallback: ChoiceOption | undefined = choice.options.find((option) => isVisible(option, next) && !isUnavailable(option, next))
-      if (fallback) {
-        next[choice.id] = fallback.id
-      }
+    const legal = choice.options.filter((option) => isAvailable(option, next))
+    const kept = legal.find((option) => option.id === answers[choice.id]) ?? legal[0]
+    if (kept !== undefined) {
+      next[choice.id] = kept.id
     }
   }
   return next
 }
 
-const supportedOptions = (choiceId: CliChoiceId): readonly string[] => CLI_TEMPLATE_SUPPORT.choices[choiceId]
-
-const DEFAULT_STACK = reconcile(Object.fromEntries(CLI_CHOICES.map((choice) => [choice.id, choice.options[0].id])))
+const DEFAULT_STACK = reconcile({})
 
 const SupportedMark = (): JSX.Element => <span aria-hidden className="inline-block size-1.25 shrink-0 rounded-xs bg-ring align-middle" />
 
 const LEGEND_VALUES = { ...CLI_GENERATION_VALUES, mark: () => <SupportedMark /> }
 
-const SUPPORTED_EXTRAS: readonly string[] = CLI_TEMPLATE_SUPPORT.extras
-
-interface ChipProps {
+interface ChoiceRowProps extends Pick<ToggleButtonGroupProps, "disallowEmptySelection" | "onSelectionChange" | "selectionMode"> {
+  readonly answers: Answers
   readonly choiceId: string
-  readonly isBlocked: boolean
-  readonly isPressed: boolean
-  readonly isSupported: boolean
   readonly legendId: string
-  readonly onPress: () => void
-  readonly optionId: string
+  readonly options: readonly CliOption[]
+  readonly picked: readonly CliOption[]
+  readonly supported: readonly string[]
 }
 
-const Chip = ({ choiceId, isBlocked, isPressed, isSupported, legendId, onPress, optionId }: ChipProps): JSX.Element => {
+const ChoiceRow = ({ answers, choiceId, legendId, options, picked, supported, ...selection }: ChoiceRowProps): JSX.Element => {
   const t = useTranslations("pages.landing.cli")
-  const label = t(`choices.${choiceId}.options.${optionId}`)
-
-  if (isBlocked) {
-    return (
-      <button
-        aria-describedby={isSupported ? legendId : undefined}
-        className={cn(CHIP_CLASSNAME, "cursor-not-allowed border-border/40 text-muted-foreground/40")}
-        disabled
-        title={t(`choices.${choiceId}.unavailable.${optionId}`)}
-        type="button"
-      >
-        {isSupported && <SupportedMark />}
-        <span className="line-through decoration-muted-foreground/30">{label}</span>
-      </button>
-    )
-  }
+  const labelId = useId()
+  const noteId = useId()
 
   return (
-    <m.button
-      aria-describedby={isSupported ? legendId : undefined}
-      aria-pressed={isPressed}
-      className={cn(CHIP_CLASSNAME, "cursor-pointer", {
-        "border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground": !isPressed,
-        "border-transparent bg-muted font-medium text-foreground": isPressed,
-      })}
-      onClick={onPress}
-      transition={PRESS}
-      type="button"
-      whileTap={TAP}
-    >
-      {isSupported && <SupportedMark />}
-      {label}
-    </m.button>
-  )
-}
+    <div className="grid gap-x-5 gap-y-3 px-5 py-3.5 md:grid-cols-[7.5rem_1fr] md:items-baseline md:px-7 md:py-4">
+      <dt className="font-mono text-label text-muted-foreground uppercase" id={labelId}>
+        {t(`choices.${choiceId}.label`)}
+      </dt>
+      <dd className="grid gap-3">
+        <ToggleGroup aria-labelledby={labelId} className="flex-wrap gap-2.5" selectedKeys={picked.map(({ id }) => id)} {...selection}>
+          {options.map((option) => {
+            const isSupported = supported.includes(option.id)
+            const isDisabled = !isAvailable(option, answers)
+            const describedBy = [isSupported && legendId, isDisabled && noteId].filter((id) => id !== false).join(" ")
 
-const ChoiceRow = ({ children, choiceId }: Readonly<{ children: ReactNode; choiceId: string }>): JSX.Element => {
-  const t = useTranslations("pages.landing.cli")
-
-  return (
-    <div className="grid gap-x-5 gap-y-3 px-5 py-3.5 md:grid-cols-[7.5rem_1fr] md:items-center md:px-7 md:py-4">
-      <dt className="font-mono text-label text-muted-foreground uppercase">{t(`choices.${choiceId}.label`)}</dt>
-      <dd className="flex flex-wrap items-center gap-2.5">{children}</dd>
+            return (
+              <ToggleGroupItem
+                className={OPTION_CLASSNAME}
+                id={option.id}
+                isDisabled={isDisabled}
+                key={option.id}
+                {...(describedBy !== "" && { "aria-describedby": describedBy })}
+              >
+                {isSupported && <SupportedMark />}
+                {t(`choices.${choiceId}.options.${option.id}`)}
+              </ToggleGroupItem>
+            )
+          })}
+        </ToggleGroup>
+        {options.some(({ unavailableWhen }) => unavailableWhen !== undefined) && (
+          <p className="text-body-sm text-pretty text-muted-foreground" id={noteId}>
+            {t(`choices.${choiceId}.note`)}
+          </p>
+        )}
+      </dd>
     </div>
   )
 }
@@ -248,31 +231,26 @@ const NextSteps = ({ dev }: Readonly<{ dev: string }>): JSX.Element => {
 
 export const CliConfigurator = (): JSX.Element => {
   const t = useTranslations("pages.landing.cli")
-  const [taken, setTaken] = useState<Taken>(DEFAULT_STACK)
   const legendId = useId()
-  const [extras, setExtras] = useState<readonly string[]>([])
+  const [answers, setAnswers] = useState<Answers>(DEFAULT_STACK)
+  const [extras, setExtras] = useState<readonly CliExtra[]>([])
   const [runner, setRunner] = useState<(typeof PACKAGE_MANAGERS)[number]>(PACKAGE_MANAGERS[0])
 
-  const shown = CLI_CHOICES.map(({ group, id, options }) => ({
-    group,
-    id,
-    options: options.filter((option) => isVisible(option, taken)),
-    supported: supportedOptions(id),
-  }))
-  const picked = shown.flatMap(({ id, options }) => options.filter((option) => option.id === taken[id]))
-  const added = CLI_EXTRAS.filter((extra) => extras.includes(extra.id) && !isUnavailable(extra, taken))
-  const lines = [`${runner.exec} ${SCAFFOLD_TARGET}`, ...picked.map((option) => option.flag), ...added.map((extra) => extra.flag)]
+  const rows = CLI_CHOICES.map((choice) => ({ choice, picked: choice.options.filter((option) => option.id === answers[choice.id]) }))
+  const lines = [
+    `${runner.exec} ${SCAFFOLD_TARGET}`,
+    ...rows.flatMap(({ picked }) => picked.map((option) => option.flag)),
+    ...extras.map((extra) => extra.flag),
+  ]
   const modules = [
-    ...CLI_MODULES.filter((module) => !("choiceId" in module) || taken[module.choiceId] !== NONE).map((module) => module.id),
-    ...added.map((extra) => extra.module),
+    ...CLI_MODULES.filter((module) => !("choiceId" in module) || answers[module.choiceId] !== NONE).map((module) => module.id),
+    ...extras.map((extra) => extra.module),
   ]
 
   const select = (choiceId: string, optionId: string): void => {
-    setTaken((current) => reconcile({ ...current, [choiceId]: optionId }))
-  }
-
-  const toggle = (extraId: string): void => {
-    setExtras((current) => (current.includes(extraId) ? current.filter((id) => id !== extraId) : [...current, extraId]))
+    const next = reconcile({ ...answers, [choiceId]: optionId })
+    setAnswers(next)
+    setExtras(extras.filter((extra) => isAvailable(extra, next)))
   }
 
   return (
@@ -287,43 +265,41 @@ export const CliConfigurator = (): JSX.Element => {
                 {t(`groups.${group}`)}
               </div>
               <dl className="divide-y divide-border">
-                {shown
-                  .filter((choice) => choice.group === group && choice.options.length > 0)
-                  .map((choice) => (
-                    <ChoiceRow choiceId={choice.id} key={choice.id}>
-                      {choice.options.map((option) => (
-                        <Chip
-                          choiceId={choice.id}
-                          isBlocked={isUnavailable(option, taken)}
-                          isPressed={taken[choice.id] === option.id}
-                          isSupported={choice.supported.includes(option.id)}
-                          legendId={legendId}
-                          key={option.id}
-                          onPress={() => {
+                {rows
+                  .filter(({ choice }) => choice.group === group)
+                  .map(({ choice, picked }) => (
+                    <ChoiceRow
+                      answers={answers}
+                      choiceId={choice.id}
+                      disallowEmptySelection
+                      key={choice.id}
+                      legendId={legendId}
+                      onSelectionChange={(keys) => {
+                        for (const option of choice.options) {
+                          if (keys.has(option.id)) {
                             select(choice.id, option.id)
-                          }}
-                          optionId={option.id}
-                        />
-                      ))}
-                    </ChoiceRow>
+                          }
+                        }
+                      }}
+                      options={choice.options}
+                      picked={picked}
+                      selectionMode="single"
+                      supported={CLI_TEMPLATE_SUPPORT.choices[choice.id]}
+                    />
                   ))}
                 {group === EXTRAS_GROUP && (
-                  <ChoiceRow choiceId={EXTRAS_GROUP}>
-                    {CLI_EXTRAS.map((extra) => (
-                      <Chip
-                        choiceId={EXTRAS_GROUP}
-                        isBlocked={isUnavailable(extra, taken)}
-                        isPressed={extras.includes(extra.id)}
-                        isSupported={SUPPORTED_EXTRAS.includes(extra.id)}
-                        legendId={legendId}
-                        key={extra.id}
-                        onPress={() => {
-                          toggle(extra.id)
-                        }}
-                        optionId={extra.id}
-                      />
-                    ))}
-                  </ChoiceRow>
+                  <ChoiceRow
+                    answers={answers}
+                    choiceId={EXTRAS_GROUP}
+                    legendId={legendId}
+                    onSelectionChange={(keys) => {
+                      setExtras(CLI_EXTRAS.filter((extra) => keys.has(extra.id)))
+                    }}
+                    options={CLI_EXTRAS}
+                    picked={extras}
+                    selectionMode="multiple"
+                    supported={CLI_TEMPLATE_SUPPORT.extras}
+                  />
                 )}
               </dl>
             </Fragment>

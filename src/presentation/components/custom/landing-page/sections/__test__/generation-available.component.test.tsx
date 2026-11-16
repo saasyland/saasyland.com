@@ -113,7 +113,7 @@ describe("copy once project generation is available", () => {
     ]) {
       expect(container.textContent).toContain(plain(message))
     }
-    expect(screen.getByRole("button", { name: landing.cli.choices.framework.options.tanstack })).toHaveAccessibleDescription(
+    expect(screen.getByRole("radio", { name: landing.cli.choices.framework.options.tanstack })).toHaveAccessibleDescription(
       plain(landing.cli.defaultStack).trim(),
     )
     expect(container.textContent).toContain(CLI_INIT_COMMAND)

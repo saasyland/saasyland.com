@@ -1,4 +1,4 @@
-import type { JSX, ReactNode } from "react"
+import { type JSX, type ReactNode, Suspense } from "react"
 
 import { useTranslations } from "use-intl/react"
 
@@ -29,8 +29,10 @@ export const CliSection = (): JSX.Element => {
           </p>
         </Reveal>
 
-        <Reveal className="mt-14 md:mt-20" delay={FRAME_DELAY_MS}>
-          <CliConfigurator />
+        <Reveal className="mt-14 md:mt-20" delay={FRAME_DELAY_MS} variant="quiet">
+          <Suspense>
+            <CliConfigurator />
+          </Suspense>
         </Reveal>
 
         <Reveal className="mt-14 md:mt-16" delay={FRAME_DELAY_MS} variant="quiet">

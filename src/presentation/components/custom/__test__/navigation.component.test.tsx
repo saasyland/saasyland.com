@@ -1,6 +1,6 @@
 import { type ReactElement, StrictMode } from "react"
 
-import { act, cleanup, fireEvent, screen, within } from "@testing-library/react"
+import { act, cleanup, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
@@ -11,7 +11,7 @@ import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/r
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
-import { SITE_CONTENT_ID } from "~/src/data/navigation.constants"
+import { MARKETING_SECTION_IDS, SITE_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { Navigation } from "~/src/presentation/components/custom/navigation"
 
@@ -115,15 +115,21 @@ const currentLinks = (): string[] =>
     .queryAllByRole("link", { current: "page" })
     .map((link) => link.textContent)
 
-const mobileMenu = (): HTMLElement | null => document.querySelector<HTMLElement>("#mobile-menu")
+const menuButton = (): HTMLElement => screen.getByRole("button", { hidden: true, name: navigationMessages.openMenu })
 
-const openedMobileMenu = (): HTMLElement => {
-  const menu = mobileMenu()
-  if (!menu) {
-    throw new Error("The mobile menu is closed")
-  }
-  return menu
-}
+const menu = (): HTMLElement => screen.getByRole("dialog", { name: navigationMessages.menu })
+
+const queryMenu = (): HTMLElement | null => screen.queryByRole("dialog", { name: navigationMessages.menu })
+
+const callToAction = (scope: HTMLElement): HTMLElement => within(scope).getByRole("link", { name: navigationMessages.getStarted })
+
+const PRICING_PATH = `${ROUTES.HOME}#${MARKETING_SECTION_IDS.PRICING}`
+
+const PRICING_LABELS = HEADER_NAVIGATION.filter(({ hash }) => hash === MARKETING_SECTION_IDS.PRICING).map((entry) => pageLabel(entry))
+
+const MENU_LINKS = [APP_NAME, ...HEADER_NAVIGATION.map((entry) => pageLabel(entry)), navigationMessages.getStarted]
+
+type User = ReturnType<typeof userEvent.setup>
 
 const progressBar = (container: HTMLElement) => container.querySelector<HTMLDivElement>(".scroll-progress")
 
@@ -132,7 +138,7 @@ beforeEach(() => {
   resizeCallbacks.length = 0
   vi.clearAllMocks()
   supports.mockReturnValue(false)
-  vi.stubGlobal("CSS", { supports })
+  vi.spyOn(CSS, "supports").mockImplementation(supports)
   vi.stubGlobal("ResizeObserver", TestResizeObserver)
   vi.stubGlobal("IntersectionObserver", TestIntersectionObserver)
   vi.stubGlobal("innerHeight", 800)
@@ -183,44 +189,85 @@ describe("public navigation links", () => {
     renderNavigation(<Navigation />, { router: createTestRouter(ROUTES.LICENCE) })
     expect(currentLinks()).toStrictEqual([])
   })
+
+  it("marks Pricing on the pricing section and never the call to action that leads there", () => {
+    renderNavigation(<Navigation />, { router: createTestRouter(PRICING_PATH) })
+
+    expect(currentLinks()).toStrictEqual([APP_NAME, ...PRICING_LABELS])
+    expect(callToAction(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }))).not.toHaveAttribute("aria-current")
+  })
 })
 
 describe("mobile menu", () => {
-  it("opens with its trigger, ignores other keys and closes on Escape or the close button", async () => {
+  it("opens as a modal dialog with focus on its close button and hides the page behind it", async () => {
     const user = userEvent.setup({ delay: null })
     renderNavigation()
-    const open = () => user.click(screen.getByRole("button", { name: navigationMessages.openMenu }))
 
-    await open()
-    expect(screen.getByRole("button", { name: navigationMessages.closeMenu })).toHaveAttribute("aria-expanded", "true")
-    fireEvent.keyDown(document, { key: "ArrowDown" })
-    expect(mobileMenu()).toBeInTheDocument()
-    await user.keyboard("{Escape}")
-    expect(mobileMenu()).not.toBeInTheDocument()
+    await user.click(menuButton())
 
-    await open()
-    await user.click(screen.getByRole("button", { name: navigationMessages.closeMenu }))
-    expect(mobileMenu()).not.toBeInTheDocument()
+    expect(menu()).toBeVisible()
+    await waitFor(() => {
+      expect(within(menu()).getByRole("button", { name: navigationMessages.closeMenu })).toHaveFocus()
+    })
+    expect(menuButton()).toHaveAttribute("aria-expanded", "true")
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument()
+    expect(screen.getByRole("banner", { hidden: true }).closest('[aria-hidden="true"]')).not.toBeNull()
   })
 
-  it("links the same entries in the same order as the desktop navigation, closes after a link and removes its Escape listener on unmount", async () => {
+  it.each([
+    { action: "Escape", close: (user: User) => user.keyboard("{Escape}") },
+    {
+      action: "the close button",
+      close: (user: User) => user.click(within(menu()).getByRole("button", { name: navigationMessages.closeMenu })),
+    },
+  ])("closes on $action and returns focus to the menu button", async ({ close }) => {
     const user = userEvent.setup({ delay: null })
-    const { unmount } = renderNavigation()
-    const open = () => user.click(screen.getByRole("button", { name: navigationMessages.openMenu }))
+    renderNavigation()
+
+    await user.click(menuButton())
+    await close(user)
+
+    expect(queryMenu()).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(menuButton()).toHaveFocus()
+    })
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false")
+    expect(screen.getByRole("banner")).toBeVisible()
+  })
+
+  it("lists the logo, the header entries in their order and the call to action, and closes after any of them", async () => {
+    const user = userEvent.setup({ delay: null })
+    renderNavigation(<Navigation />, { router: createTestRouter(ROUTES.LICENCE) })
+    const open = () => user.click(menuButton())
 
     await open()
-    expect(entryLinks(openedMobileMenu())).toStrictEqual(HEADER_NAVIGATION.map((entry) => [pageLabel(entry), hrefOf(entry)]))
-    expect(within(openedMobileMenu()).getAllByRole("link")).toHaveLength(HEADER_NAVIGATION.length)
+    expect(entryLinks(menu())).toStrictEqual(HEADER_NAVIGATION.map((entry) => [pageLabel(entry), hrefOf(entry)]))
+    expect(callToAction(menu())).toHaveAttribute("href", PRICING_PATH)
+    expect(
+      within(menu())
+        .getAllByRole("link")
+        .map((link) => link.textContent),
+    ).toStrictEqual(MENU_LINKS)
 
-    for (const entry of HEADER_NAVIGATION) {
-      await user.click(within(openedMobileMenu()).getByRole("link", { name: pageLabel(entry) }))
-      expect(mobileMenu()).not.toBeInTheDocument()
+    for (const name of MENU_LINKS) {
+      await user.click(within(menu()).getByRole("link", { name }))
+      expect(queryMenu()).not.toBeInTheDocument()
       await open()
     }
+  })
 
-    const remove = vi.spyOn(document, "removeEventListener")
-    unmount()
-    expect(remove).toHaveBeenCalledWith("keydown", expect.any(Function))
+  it("marks Pricing on the pricing section and never the call to action", async () => {
+    const user = userEvent.setup({ delay: null })
+    renderNavigation(<Navigation />, { router: createTestRouter(PRICING_PATH) })
+
+    await user.click(menuButton())
+
+    expect(
+      within(menu())
+        .getAllByRole("link", { current: "page" })
+        .map((link) => link.textContent),
+    ).toStrictEqual([APP_NAME, ...PRICING_LABELS])
+    expect(callToAction(menu())).not.toHaveAttribute("aria-current")
   })
 })
 

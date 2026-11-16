@@ -23,7 +23,7 @@ import {
 } from "~/src/presentation/components/shadcn/select"
 
 const SUMMARY_CLASS =
-  "inline-flex min-h-6 cursor-pointer list-none items-center gap-1.5 text-[0.9375rem] whitespace-nowrap text-muted-foreground transition-colors duration-300 outline-none select-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring group-open:text-foreground [&::-webkit-details-marker]:hidden"
+  "inline-flex min-h-6 cursor-pointer list-none items-center gap-1.5 rounded-sm text-[0.9375rem] whitespace-nowrap text-muted-foreground transition-colors duration-300 select-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring group-open:text-foreground [&::-webkit-details-marker]:hidden"
 
 const MENU_CLASS = "absolute end-0 bottom-full z-50 mb-3 min-w-40 border border-border bg-background p-1 shadow-lg"
 

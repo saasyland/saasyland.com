@@ -6,12 +6,14 @@ import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
 import { ROUTES } from "~/src/routes"
 
-export const HomeLink = (): JSX.Element => {
+export const HomeLink = ({ onClick }: { readonly onClick?: () => void }): JSX.Element => {
   const navigate = useNavigate()
 
   const { hash, pathname } = useLocation()
 
   const returnToTop = (event: MouseEvent<HTMLAnchorElement>): void => {
+    onClick?.()
+
     const opensElsewhere = event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
     if (pathname !== ROUTES.HOME || opensElsewhere) {
       return
@@ -27,7 +29,7 @@ export const HomeLink = (): JSX.Element => {
 
   return (
     <Link
-      className="rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+      className="rounded-md py-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
       onClick={returnToTop}
       to={ROUTES.HOME}
     >

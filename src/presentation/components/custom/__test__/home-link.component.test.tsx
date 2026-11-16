@@ -90,3 +90,15 @@ describe("logo on another page", () => {
     expect(scrollTo).not.toHaveBeenCalled()
   })
 })
+
+describe("logo in the mobile menu", () => {
+  it.each([ROUTES.HOME, ROUTES.BLOG])("lets the menu close when it is chosen on %s", async (path) => {
+    const user = userEvent.setup({ delay: null })
+    const onClick = vi.fn<() => void>()
+    renderWithRouter(<HomeLink onClick={onClick} />, { router: createTestRouter(path) })
+
+    await user.click(logo())
+
+    expect(onClick).toHaveBeenCalledOnce()
+  })
+})

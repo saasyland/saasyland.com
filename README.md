@@ -232,7 +232,7 @@ Email-verification links enter `/auth/verify-email` and redirect to Better Auth'
 
 [`src/server.ts`](src/server.ts) sets baseline security headers on every Worker response: a Content Security Policy that sets `base-uri`, `frame-ancestors` and `object-src` to `'none'`, `Cross-Origin-Opener-Policy`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options`, `X-Frame-Options: DENY`, and HSTS on HTTPS responses. They are defined once, as `SECURITY_HEADERS` and `HTTPS_SECURITY_HEADERS` in [`src/modules/_core/constants/api.ts`](src/modules/_core/constants/api.ts), and replace any value already on the response. Static files that bypass the Worker get the same headers from the `/*` rule in [`public/_headers`](public/_headers), which a test keeps equal to those constants.
 
-Every page also runs only the scripts it was served with, under a strict policy with `'strict-dynamic'`: a page the Worker renders gets a nonce of its own in its header, and [`scripts/secure-prerendered-html.ts`](scripts/secure-prerendered-html.ts) gives every prerendered page the hashes of its inline scripts in a meta tag. Each spec of the browser suite fails when a page reports a violation.
+Every page also runs only the scripts it was served with, under a strict policy with `'strict-dynamic'`: every HTML response gets a nonce of its own in its header, which TanStack Start puts on the scripts of a page it renders and an `HTMLRewriter` puts on the scripts of a prerendered page, so Cloudflare can give it to the scripts it injects at the edge. Each spec of the browser suite fails when a page reports a violation.
 
 ## Commands and verification
 
@@ -422,7 +422,7 @@ These are lab results. PageSpeed Insights runs on shared hardware, so scores var
 
 The following decisions produce these results. Review them before changing the related code:
 
-- Public pages are prerendered. [`optimize-prerendered-html.ts`](scripts/optimize-prerendered-html.ts) removes dependency `modulepreload` hints and keeps each page's entry hint at low priority, so the stylesheet and fonts load first. The script policy keeps that order: [`secure-prerendered-html.ts`](scripts/secure-prerendered-html.ts) loads the entry from a hashed inline script at the place of the original `<script>`, after the same hint.
+- Public pages are prerendered. [`optimize-prerendered-html.ts`](scripts/optimize-prerendered-html.ts) removes dependency `modulepreload` hints and keeps each page's entry hint at low priority, so the stylesheet and fonts load first. The script policy keeps that order: the Worker only adds each response's nonce to the entry script and its hint.
 - Providers whose value changes after hydration, such as the [theme](src/providers/theme-provider.tsx) and [Motion](src/providers/motion-provider.tsx) providers, wrap only their consumers and never a route `<Outlet />`. A change above a route's Suspense boundary forces that route to hydrate synchronously in one long task, or to render on the client and shift the layout.
 - `robots.txt` and `llms.txt` are static files that bypass the Worker through `run_worker_first` in [`wrangler.jsonc`](wrangler.jsonc). Lighthouse fails the SEO and Agentic Browsing audits for these files when the requests time out.
 - [`src/server.ts`](src/server.ts) serves prerendered pages from static assets and imports the TanStack Start handler only for other requests, so page requests do not load the full server bundle. Its static imports stay free of TanStack Start and provider SDKs, because a cold Worker evaluates them before it can answer.

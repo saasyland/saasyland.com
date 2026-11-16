@@ -26,7 +26,7 @@ const RootComponent = () => (
 )
 ```
 
-`/admin`、`/app`、`/docs` は保存されたテーマに従います。テーマの切り替えはドキュメントのサイドバーにしかありません。ランディングページ、認証、ブログ、コースのレイアウトはコンテナーに `dark` クラスを付けるため、常にダークで表示されます。
+`/admin`、`/app`、`/docs` は保存されたテーマに従います。テーマの切り替えはドキュメントのサイドバーにしかありません。ランディングページ、認証、ブログ、コースのレイアウトはコンテナーに `dark` クラスを付けるため、常にダークで表示されます。これらのコンテナーが `body` の直接の子である間は、`globals.css` が `html` にもダークのトークンを与えます（`:root:has(> body > .dark)`）。そのため、ページの周りのウィンドウはスクロールバーの背後も含め、ライトテーマでもダークになります。
 
 ## トークン
 
@@ -37,6 +37,27 @@ const RootComponent = () => (
 ```
 
 `@theme inline` は変数を Tailwind の色に対応付け、フォントファミリーとタイプスケールを定義します。`globals.css` は Fumadocs UI のスタイルもインポートしているため、ドキュメントも同じトークンを使います。
+
+## スクロールバー [#scrollbars]
+
+ウィンドウはどのページでもスクロールバーの場所を確保します。そのため、ページが短くてスクロールしないときも、ページが伸びたときも、ダイアログ、ポップオーバー、メニューがページのスクロールを止めたときも、コンテンツは動きません。`globals.css` は細いページのスクロールバーとあわせて `html` に `scrollbar-gutter: stable` を設定します。ブラウザーはウィンドウのスクロールバーに `html` の `scrollbar-color` と `scrollbar-width` を使い、`body` の値は使いません。
+
+```css
+html {
+  scroll-behavior: smooth;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 20%, transparent) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+html:has([data-page-scroller]) {
+  scrollbar-gutter: auto;
+}
+[data-page-scroller] {
+  scrollbar-gutter: stable;
+}
+```
+
+`/app` と `/admin` はウィンドウいっぱいに広がり、代わりにコンテンツ領域をスクロールします。そのため、レイアウトでも読み込み中のスケルトンでも、その要素に `data-page-scroller` を付けます。確保する場所はその要素に移り、ワークスペースはウィンドウの幅いっぱいに広がります。React Aria の `usePreventScroll` と、ドキュメントの検索を動かす Base UI も、パディングではなく `scrollbar-gutter: stable` でページを止めるため、場所が二重に補われることはありません。ヘッダー、ページの枠、トップへ戻るボタンなどの固定レイヤーは、その場所を除いたウィンドウ内に配置され、コンテンツと揃います。スクロールバーのトラックは透明なので、確保した場所にはページ自身の背景が見えます。
 
 ## タイプスケール
 

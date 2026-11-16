@@ -15,9 +15,13 @@ Os workflows ficam em `.github/workflows/`. Os workflows da aplicação (`ci.yml
 
 `remotion.yml` é acionado pelos mesmos caminhos em pull requests e pushes: `remotion/`, o próprio workflow e os arquivos do site que `remotion/src` importa, diretamente ou por meio de outros arquivos do site. `src/__test__/workflows.test.ts` segue essas importações e falha quando um arquivo alcançado não corresponde a nenhum dos caminhos ou quando um caminho não corresponde a nenhum dos arquivos.
 
+Os checkouts que fazem o build do site, em `e2e-reusable.yml` e `deploy-reusable.yml`, e o do job `release` buscam todos os commits sem as suas árvores (`fetch-depth: 0` e `filter: tree:0`): o [changelog](/docs/project/changelog) data cada entrada pelo commit que a levou à `main`. Em relação a um clone raso, só os próprios commits são acrescentados; com um clone raso o build falharia em vez de datar as entradas errado. `src/__test__/workflows.test.ts` falha quando um desses checkouts deixa de buscar o histórico.
+
 ## Verificações
 
 O job `verify` em `ci.yml` executa `bun run check` (tabelas de nomes de classes, verificações de i18n e de conteúdo, formatação, lint e tipos) e `bun run test:coverage` e, em seguida, envia o relatório de cobertura. O job `e2e` executa `db:reset:test` e `build:test`, instala o navegador e executa `bunx playwright test e2e/specs --project=chromium`. Execuções de E2E com falha enviam o relatório do Playwright.
+
+Em um pull request, `bun run check` também falha até que o pull request adicione a sua [entrada do changelog](/docs/conventions/git-workflow#changelog-entries).
 
 ## Deploys
 
@@ -38,7 +42,7 @@ O Dependabot atualiza as GitHub Actions semanalmente.
 
 O site recebe deploys contínuos, então suas versões são datas, não versões semânticas. Quando um deploy de produção termina com sucesso, o job `release` do `ci.yml` marca o commit implantado com a tag `vYYYY.MM.DD` na data UTC e publica uma GitHub Release para ele. Um segundo deploy de produção no mesmo dia recebe a tag `vYYYY.MM.DD.2`, o seguinte `.3`, e assim por diante. Deploys de preview nunca recebem tag. O job `release` é o único com `contents: write`.
 
-As notas da release são a seção daquele dia do [changelog](/docs/project/changelog), então cada mudança é descrita em um só lugar; quando o changelog não tem seção para o dia, as notas apontam para ele. `scripts/publish-release.ts` escolhe a tag e as notas com `src/lib/release.ts` e executa `gh release create`. Uma nova execução mantém a tag que o commit já tem e pula uma release que já existe.
+As notas da release são as entradas do [changelog](/docs/project/changelog) que chegaram à `main` naquele dia, então cada mudança é descrita em um só lugar; quando nenhuma chegou, as notas apontam para o changelog. `scripts/publish-release.ts` escolhe a tag e as notas com `src/lib/release.ts` e executa `gh release create`. Uma nova execução mantém a tag que o commit já tem e pula uma release que já existe.
 
 Para voltar a produção a uma release, reverta em um pull request tudo o que veio depois da tag dela:
 

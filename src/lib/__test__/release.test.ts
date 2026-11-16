@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
 
-import { CHANGELOG_FILE, releaseNotes, releaseTag } from "~/src/lib/release"
+import type { Changelog } from "~/src/lib/changelog"
+import { releaseNotes, releaseTag } from "~/src/lib/release"
 
 const DEPLOYED_COMMIT = "4f9c2d1e8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e"
 
@@ -11,32 +11,19 @@ const DEPLOYED_AT = new Date("2026-11-14T09:30:00Z")
 
 const CHANGELOG_LINK = "See the [changelog](https://saasyland.com/docs/project/changelog)."
 
-const DATED_HEADING = /^## (?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})$/gmu
-
-const CHANGELOG = `---
-title: "Changelog"
-description: "Notable changes over time."
----
-
-## 2026-11-15
-
-## 2026-11-14
-
-- Videos play with captions. See [Videos](/docs/features/videos).
-- Dependencies updated, see [Vite+](https://viteplus.dev/).
-
-### Fixed
-
-- The logo scrolls to the top.
-
-## 2026-11-13
-
-- Courses.
-
-## Earlier
-
-- Moved to TanStack Start.
-`
+const CHANGELOG: Changelog = {
+  days: [
+    {
+      date: "2026-11-14",
+      entries: [
+        { key: "151", source: "- Videos play with captions. See [Videos](/docs/features/videos).\n" },
+        { key: "150", source: "- Dependencies updated, see [Vite+](https://viteplus.dev/).\n- Fixed: the logo scrolls to the top.\n" },
+      ],
+    },
+    { date: "2026-11-13", entries: [{ key: "120", source: "- Courses.\n" }] },
+  ],
+  unreleased: [{ key: "152", source: "- Changelog entries.\n" }],
+}
 
 const earlierTags = (...names: readonly string[]): { commit: string; name: string }[] =>
   names.map((name) => ({ commit: EARLIER_COMMIT, name }))
@@ -77,35 +64,21 @@ describe("releaseTag", () => {
 })
 
 describe("releaseNotes", () => {
-  it.each(["v2026.11.14", "v2026.11.14.2"])("gives %s the changelog section of its day, subsections included", (tag) => {
+  it.each(["v2026.11.14", "v2026.11.14.2"])("gives %s the entries that reached main on its day, with absolute site links", (tag) => {
     expect(releaseNotes(CHANGELOG, tag)).toBe(
       [
         "- Videos play with captions. See [Videos](https://saasyland.com/docs/features/videos).",
         "- Dependencies updated, see [Vite+](https://viteplus.dev/).",
-        "",
-        "### Fixed",
-        "",
-        "- The logo scrolls to the top.",
+        "- Fixed: the logo scrolls to the top.",
       ].join("\n"),
     )
   })
 
-  it("ends a section at the next heading of the same level", () => {
+  it("leaves out the entries of other days and the ones not on main yet", () => {
     expect(releaseNotes(CHANGELOG, "v2026.11.13")).toBe("- Courses.")
   })
 
-  it.each([
-    { reason: "has no section for the day", tag: "v2026.11.12" },
-    { reason: "has an empty section for the day", tag: "v2026.11.15" },
-  ])("links to the changelog when it $reason", ({ tag }) => {
-    expect(releaseNotes(CHANGELOG, tag)).toBe(CHANGELOG_LINK)
-  })
-
-  it("finds the section of every dated heading in the docs changelog", () => {
-    const changelog = readFileSync(CHANGELOG_FILE, "utf8")
-    const tags = [...changelog.matchAll(DATED_HEADING)].map(([heading]) => heading.replaceAll(DATED_HEADING, "v$<year>.$<month>.$<day>"))
-
-    expect(tags.length).toBeGreaterThan(0)
-    expect(tags.filter((tag) => releaseNotes(changelog, tag) === CHANGELOG_LINK)).toStrictEqual([])
+  it("links to the changelog when no entry reached main that day", () => {
+    expect(releaseNotes(CHANGELOG, "v2026.11.12")).toBe(CHANGELOG_LINK)
   })
 })

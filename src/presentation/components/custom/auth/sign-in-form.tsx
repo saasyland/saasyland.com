@@ -156,7 +156,7 @@ export const SignInForm = (): JSX.Element => {
 
       <Button
         aria-label={t("pages.auth.sign-in.form.submit")}
-        className="h-12 w-full gap-2 text-body-sm font-semibold transition-[background-color,color,transform]"
+        className="h-11 w-full gap-2 px-5 text-body-sm font-semibold transition-[background-color,color,transform]"
         data-testid="sign-in-form-submit-button"
         isPending={signInRequest.isPending}
         type="submit"

@@ -19,17 +19,17 @@ const AuthLayout = (): JSX.Element => {
   const isSignUp = useMatch({ from: ROUTES.SIGN_UP, shouldThrow: false }) !== undefined
 
   return (
-    <div className="dark relative grid min-h-svh grid-cols-1 bg-background text-foreground antialiased lg:grid-cols-2">
-      <header className="absolute inset-x-0 top-0 z-10 flex h-20 items-center justify-between gap-6 px-6 md:px-10">
+    <div className="dark grid min-h-svh grid-cols-[minmax(0,var(--form-width))] grid-rows-[auto_1fr] justify-center bg-background px-(--gutter) text-foreground antialiased [--form-width:--spacing(105)] [--gutter:--spacing(6)] md:[--gutter:--spacing(10)] lg:grid-cols-2 lg:px-0">
+      <header className="relative z-10 col-span-full row-start-1 flex h-header items-center justify-between gap-6 lg:grid lg:grid-cols-subgrid lg:px-(--gutter)">
         <Link
-          className="flex h-11 items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+          className="flex h-11 items-center justify-self-start rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           to={ROUTES.HOME}
         >
           <Wordmark />
         </Link>
 
         <Link
-          className="group inline-flex h-11 items-center gap-2 text-body-sm font-medium text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground"
+          className="group inline-flex h-11 items-center gap-2 justify-self-end text-body-sm font-medium text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground"
           to={ROUTES.HOME}
         >
           <ArrowLeft
@@ -41,25 +41,25 @@ const AuthLayout = (): JSX.Element => {
         </Link>
       </header>
 
-      <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-background p-12 lg:flex xl:p-16">
+      <aside className="relative hidden overflow-hidden border-r border-border px-(--gutter) lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:grid lg:grid-rows-subgrid">
         <div aria-hidden className="field-grid pointer-events-none absolute inset-0" />
 
-        <p className="relative max-w-md text-display-gate text-balance text-foreground">
-          {t(isSignUp ? "gate.signUpHeadline" : "gate.headline")}
-        </p>
+        <div className="relative row-start-2 flex flex-col justify-between gap-12 py-12">
+          <p className="max-w-md text-display-gate text-balance text-foreground">{t(isSignUp ? "gate.signUpHeadline" : "gate.headline")}</p>
 
-        <ul className="relative flex flex-col gap-5">
-          {AUTH_ASSURANCES.map((id) => (
-            <li className="flex items-start gap-3" key={id}>
-              <span aria-hidden className="mt-2 size-1.25 shrink-0 rounded-xs bg-ring" />
-              <span className="font-mono text-spec text-muted-foreground">{t(`gate.assurances.${id}`)}</span>
-            </li>
-          ))}
-        </ul>
+          <ul className="flex flex-col gap-5">
+            {AUTH_ASSURANCES.map((id) => (
+              <li className="flex items-start gap-3" key={id}>
+                <span aria-hidden className="mt-2 size-1.25 shrink-0 rounded-xs bg-ring" />
+                <span className="font-mono text-spec text-muted-foreground">{t(`gate.assurances.${id}`)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </aside>
 
-      <main className="relative flex flex-col items-center justify-center px-6 py-28 md:px-10 lg:py-32">
-        <div className="flex w-full max-w-105 flex-col">
+      <main className="row-start-2 flex flex-col items-center py-12 lg:col-start-2 lg:px-(--gutter)">
+        <div className="flex w-full max-w-(--form-width) flex-col">
           <Outlet />
         </div>
       </main>

@@ -14,6 +14,8 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import type * as SignUpUseCase from "~/src/modules/account/use-cases/sign-up-with-password"
 
+import { OAUTH_PROVIDERS } from "~/src/data/auth"
+
 import { AUTH_LINK_TAGS } from "~/src/presentation/components/custom/auth/auth-link-tags"
 import { OAuthButtons } from "~/src/presentation/components/custom/auth/oauth-buttons"
 import { SignInForm } from "~/src/presentation/components/custom/auth/sign-in-form"
@@ -21,6 +23,9 @@ import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-fo
 
 import authOauthMessages from "~/messages/en-US/auth.oauth.json"
 import { ROUTES } from "~/src/routes"
+
+const [, githubProvider] = OAUTH_PROVIDERS
+const continueWith = (provider: string): string => authOauthMessages.continueWith.replace("{provider}", provider)
 
 const RETURN_TO = "/pl-PL/app/settings"
 const ENCODED_RETURN_TO = encodeURIComponent(RETURN_TO)
@@ -142,7 +147,7 @@ describe("return path through the auth pages", () => {
   it("sends OAuth back through the auth callback, and failures back to sign-in, keeping the return path", async () => {
     const { user } = renderOnPage(ROUTES.SIGN_IN, <OAuthButtons />)
 
-    await user.click(screen.getByRole("button", { name: authOauthMessages.github }))
+    await user.click(screen.getByRole("button", { name: continueWith(githubProvider.name) }))
 
     await waitFor(() => {
       expect(signInSocialMock).toHaveBeenCalledWith(

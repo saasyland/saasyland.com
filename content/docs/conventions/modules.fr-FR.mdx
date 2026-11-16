@@ -5,7 +5,7 @@ description: "Un module correspond à une table de la base de données : son sch
 
 `src/modules/<table>/` n'existe que pour une vraie table de la base de données. Le dossier reflète le schéma Drizzle : en créer un revient à affirmer qu'une table existe. Le code qui sert une fonctionnalité sans table propre va ailleurs : une fonction serveur qui lit GitHub ou la collection de la documentation se trouve dans `src/lib/<topic>.ts` ou dans l'unique route qui l'utilise, et la configuration d'un fournisseur se trouve dans `src/integrations/<vendor>`.
 
-Les modules sont `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user`, `verification` et `video`. `license` possède deux tables, `license` et `revoked_license_order`. `_core` n'est pas un module : il contient les codes d'erreur, les catalogues et les champs Zod que partagent tous les modules.
+Les modules sont `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` et `video`. `license` possède deux tables, `license` et `revoked_license_order`. `_core` n'est pas un module : il contient les codes d'erreur, les catalogues et les champs Zod que partagent tous les modules.
 
 ## Anatomie
 
@@ -13,8 +13,8 @@ Les modules sont `account`, `category`, `chapter`, `course`, `lesson`, `lesson-p
 
 | Fichier                      | Contenu                                                                                                                        |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `<table>.schema.ts`          | La table Drizzle, ses index et ses relations, et les tuples d'enum qu'utilisent ses colonnes                                   |
-| `<table>.constants.ts`       | Les objets de valeurs du domaine, les clés de query, les clés de mutation et les limites du module                             |
+| `<table>.schema.ts`          | La table Drizzle, ses index et ses relations                                                                                   |
+| `<table>.constants.ts`       | Les objets de valeurs du domaine, leurs tuples d'enum, les clés de query, les clés de mutation et les limites du module        |
 | `<table>.zod.ts`             | Un schéma d'entrée par opération, tous exportés dans un seul objet `<table>ZodSchemas`                                         |
 | `<table>.types.ts`           | Une interface au nom du module                                                                                                 |
 | `<table>.utils.ts`           | Des utilitaires pour la table, purs et utilisables sans risque dans le navigateur, sauf s'ils lisent l'environnement du Worker |
@@ -25,9 +25,6 @@ Les modules sont `account`, `category`, `chapter`, `course`, `lesson`, `lesson-p
 ## Schéma
 
 ```ts
-export const COURSE_KINDS = [COURSE_KIND.COURSE, COURSE_KIND.TUTORIAL, COURSE_KIND.PROJECT] as const
-export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
-
 export const course = sqliteTable(
   "course",
   {
@@ -46,10 +43,22 @@ export const course = sqliteTable(
 
 - Les colonnes sont en camelCase en TypeScript et en snake_case en SQL. Les clés sont triées, comme l'exige le linter, avec `...timestamps()` en dernière entrée.
 - `createdAt` et `updatedAt` proviennent de `timestamps()` dans `src/integrations/drizzle-orm/drizzle.columns.ts` : des millisecondes, renseignées par SQLite à l'insertion, `updatedAt` étant actualisée à chaque mise à jour. Ne les écrivez jamais à la main. `lesson_progress` n'a besoin que de la seconde et prend donc `updatedAt: timestamps().updatedAt`. Deux tables n'ont pas d'horodatage : `rate_limit` contient des compteurs de courte durée qui portent leur propre `expiresAt` et changent à chaque requête, et `revoked_license_order` enregistre une seule fois chaque commande Polar remboursée, par son identifiant.
-- Les clés primaires sont de type texte. Un cas d'usage qui insère une ligne remplit la clé avec un UUID v7 (`v7()` de `uuid`).
-- Les colonnes d'enum prennent un tuple construit à partir de l'objet de constantes du module, jamais une liste de littéraux. Le tuple se trouve dans le fichier du schéma, sauf si du code hors du serveur le lit, comme la grille tarifaire de la page d'accueil (`LICENSE_TIERS`) ou la suite du navigateur (`NEWSLETTER_STATUSES`) ; il se trouve alors dans `<table>.constants.ts`, qui n'importe rien de Drizzle.
+- Les clés primaires sont de type texte. Un cas d'usage qui insère une ligne remplit la clé avec un UUID v7 (`v7()` de `uuid`) ; une [table miroir d'un fournisseur](#tables-that-mirror-a-provider) prend plutôt l'identifiant du fournisseur.
+- Les colonnes d'enum prennent un tuple construit à partir de l'objet de constantes du module, jamais une liste de littéraux. Le tuple se trouve à côté de l'objet dans `<table>.constants.ts`, car les schémas Zod et le navigateur le lisent aussi, et ce fichier n'importe rien de Drizzle.
 - Un texte qu'un visiteur lit en plusieurs langues est une colonne JSON `LocalizedText`, validée par `localizedTextSchema` et lue avec `localize(text, locale)` de `src/modules/_core/utils/localized-text.ts`.
 - Une nouvelle table est réexportée par `src/integrations/drizzle-orm/drizzle.schemas.ts`, et sa migration est générée avec `bun run db:generate`. Voir [Migrations de base de données](/docs/guides/database-migrations).
+
+## Tables miroirs d'un fournisseur [#tables-that-mirror-a-provider]
+
+`order` et `subscription` contiennent des copies des commandes et des abonnements de Polar, écrites uniquement à partir des données de Polar et jamais modifiées à la main. Une table miroir suit le fournisseur là où les règles ci-dessus ne le feraient pas :
+
+- Sa clé primaire est l'identifiant du fournisseur, une colonne texte de longueur `POLAR_ID_MAX_LENGTH`, et ses colonnes reprennent les noms de champ du fournisseur, comme `customer_id`, `product_id` et `subscription_id`. Une table à nous qui pointe vers le fournisseur préfixe plutôt le nom, comme le fait `license.polar_order_id`.
+- Les dates propres au fournisseur se trouvent à côté de `...timestamps()`. `placedAt` indique quand Polar a créé la commande, et `changedAt` la version de l'enregistrement Polar que contient la ligne : son `modified_at`, ou son `created_at` tant qu'il n'a jamais changé. `createdAt` et `updatedAt` enregistrent toujours quand D1 a écrit la ligne.
+- Les colonnes d'enum prennent des tuples des valeurs du fournisseur : `ORDER_STATUSES` dans `order.constants.ts` énumère `POLAR_ORDER_STATUS` de `src/integrations/polar/polar.constants.ts`, et un test de types échoue quand le SDK nomme une valeur absente du tuple.
+- Aucune colonne n'a de valeur par défaut hormis `createdAt` et `updatedAt`, car chaque valeur vient du fournisseur.
+- `user_id` est `ON DELETE SET NULL` : supprimer un compte conserve ses commandes et ses abonnements et ne retire que le lien.
+
+`order` est un mot-clé SQL. Drizzle met chaque identifiant entre guillemets, ses requêtes n'ont donc besoin de rien ; le SQL brut nomme la table par l'objet du schéma, sous la forme `${order}` dans un template `sql`, jamais par un `order` nu.
 
 ## Constantes
 
@@ -58,6 +67,8 @@ export const COURSE_STATUS = {
   DRAFT: "draft",
   PUBLISHED: "published",
 } as const
+
+export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
 
 export const COURSE_STALE_MS = 60_000
 
@@ -87,11 +98,18 @@ export const COURSE_MUTATION_KEYS = {
 - Les clés de mutation sont formées du nom du module et du nom de la fonction serveur.
 - Les longueurs des colonnes et des entrées sont nommées ici et partagées par le schéma et par le schéma Zod, comme `PRODUCT_NAME_MAX_LENGTH` dans `product.constants.ts`.
 - `<MODULE>_VALIDATION_PARAMS` contient les nombres qu'interpolent les messages de validation, comme `{ slugTooLong: { max: SLUG_MAX_LENGTH } }`.
+- `scripts/repository-facts.ts` lit certains fichiers de constantes, comme `license.constants.ts`, pendant que Vite charge sa configuration, alors que l'alias `~` n'est pas encore résolu. Un tel fichier importe les autres fichiers source par un chemin relatif, comme `license.constants.ts` importe `POLAR_WEBHOOK_EVENT` depuis `../../integrations/polar/polar.constants.ts` ; les imports de types seuls sont effacés et peuvent garder l'alias.
 
 ## Schémas Zod
 
-```ts
-const { createInsertSchema, createSelectSchema } = createSchemaFactory({ zodInstance: zod })
+```ts title="src/modules/course/course.zod.ts"
+import zod from "zod/v4"
+
+import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
+import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
+import { paginationSchema } from "~/src/modules/_core/utils/pagination"
+import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
+import { COURSE_KINDS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
 
 const courseIdInput = zod.object({
   courseId: idField,
@@ -130,9 +148,6 @@ const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) }
 
 const updateCourse = courseFields.extend(courseIdInput.shape)
 
-const insert = createInsertSchema(course)
-const select = createSelectSchema(course)
-
 export const courseZodSchemas = {
   createCourse,
   deleteCourse,
@@ -141,14 +156,14 @@ export const courseZodSchemas = {
   getCourseEditor,
   getCourseShowcase,
   getCourses,
-  insert,
   moveCourse,
-  select,
   updateCourse,
 }
 ```
 
-- `<table>.zod.ts` importe `zod from "zod/v4"` et exporte un seul objet dont les clés sont les noms des opérations, plus `insert` et `select` issus de `drizzle-zod`.
+- `<table>.zod.ts` importe `zod from "zod/v4"` et exporte un seul objet dont les clés sont les noms des opérations.
+- Les formulaires valident avec ces mêmes schémas dans le navigateur, si bien que `<table>.zod.ts` n'importe rien de Drizzle ni d'un `.schema.ts`. Les tuples d'enum et les longueurs proviennent de `<table>.constants.ts`, que la table importe aussi : la colonne et le schéma partagent ainsi une seule définition. Le build client échoue lorsque `drizzle-orm` atteint le navigateur ; voir [Gardez l'ORM hors du navigateur](/docs/conventions/performance#keep-the-orm-out-of-the-browser).
+- Aucun schéma Zod n'est dérivé de la table : rien ne valide une ligne entière à l'exécution, et les types de ligne de l'interface du module proviennent de `$inferSelect` et `$inferInsert`.
 - Les champs proviennent de `src/modules/_core/utils/zod-fields.ts` (`idField`, `localeField`, `slugField`) et de fragments partagés dans le même fichier, sans jamais être redéclarés pour chaque schéma.
 - Les listes paginées réutilisent `paginationSchema` ; les opérations sur un seul enregistrement prennent un objet comme `{ courseId }`, jamais une chaîne seule.
 - Les messages d'erreur sont des clés de traduction (`{ message: "slugInvalid" }`), affichées à partir de l'espace de noms `<table>.validations` du module. Voir [Formulaires et tableaux](/docs/conventions/forms-and-tables).
@@ -185,16 +200,17 @@ Lorsqu'une table a besoin d'une logique qui n'est ni un cas d'usage ni un utilit
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `lesson/lesson.access.ts`                               | Qui peut regarder une leçon ; pur, utilisé sur le serveur et dans les tests         |
 | `lesson/lesson.viewer.ts`                               | Résout côté serveur le spectateur connecté et son accès aux cours                   |
-| `license/license.webhooks.ts`                           | Les handlers des webhooks Polar, enregistrés par `license.auth-plugins.ts`          |
+| `license/license.webhooks.ts`                           | Les handlers des webhooks Polar, appelés par `license.polar-events.ts`              |
 | `license/license.api.ts`                                | Les handlers de l'API de licence de la CLI, servis par `src/routes/api/cli.v1.*.ts` |
 | `license/license.bundles.ts`                            | La signature des URL des bundles de modèles de la CLI ; leurs clés d'objet          |
 | `license/license.delivery.ts`                           | Le handler du Worker pour les requêtes `/bundles/` signées                          |
 | `license/license.ppp.ts`                                | Les remises de tarification régionale pour le paiement                              |
+| `license/license.pricing.ts`                            | Paliers de tarification régionale et cookie de refus ; pur                          |
 | `newsletter-subscriber/newsletter-subscriber.server.ts` | Les vérifications de requête exclusivement serveur                                  |
 | `video/video.delivery.ts`                               | Le handler du Worker pour les requêtes `/media/` signées                            |
 | `video/video.playback.ts`, `video/video.files.ts`       | La signature des URL de lecture ; les clés d'objet et les types de contenu          |
 
-Un fichier qui ne doit jamais atteindre le bundle du navigateur commence par `import "@tanstack/react-start/server-only"`, comme le font `lesson.viewer.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` et `license.utils.ts` (qui lit les identifiants des produits Polar dans l'environnement du Worker). Les fichiers purs comme `lesson.access.ts` et `course.utils.ts` n'importent rien de propre au serveur : les composants et les tests peuvent donc les utiliser.
+Un fichier qui ne doit jamais atteindre le bundle du navigateur commence par `import "@tanstack/react-start/server-only"`, comme le font `lesson.viewer.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` et `license.utils.ts` (qui lit les identifiants des produits Polar, `POLAR_PRODUCT_IDS`, dans l'environnement du Worker). Les fichiers purs comme `lesson.access.ts` et `course.utils.ts` n'importent rien de propre au serveur : les composants et les tests peuvent donc les utiliser.
 
 ## Ajouter un module
 

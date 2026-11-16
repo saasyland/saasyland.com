@@ -2,7 +2,7 @@ import type { JSX } from "react"
 
 import { useFormatter } from "use-intl/react"
 
-import { PPP_PERCENT, PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
+import { PPP_PERCENT, PPP_PERCENTS_OFF } from "~/src/modules/license/license.pricing"
 
 export const RegionalDiscounts = (): JSX.Element => {
   const format = useFormatter()

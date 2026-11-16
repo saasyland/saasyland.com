@@ -4,11 +4,11 @@ import { describe, expect, it } from "vite-plus/test"
 import { buildMessageTree, loadNamespace, messagesQueryOptions, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 
 describe("bundled locale namespaces", () => {
-  it("rejects missing namespace files", () => {
-    expect(() => loadNamespace({ locale: "en-US", namespace: "missing" })).toThrow("No messages/en-US/missing.json")
+  it("rejects missing namespace files", async () => {
+    await expect(loadNamespace({ locale: "en-US", namespace: "missing" })).rejects.toThrow("No messages/en-US/missing.json")
   })
-  it("reports the locale in missing namespace errors", () => {
-    expect(() => loadNamespace({ locale: "pl-PL", namespace: "missing" })).toThrow("No messages/pl-PL/missing.json")
+  it("reports the locale in missing namespace errors", async () => {
+    await expect(loadNamespace({ locale: "pl-PL", namespace: "missing" })).rejects.toThrow("No messages/pl-PL/missing.json")
   })
   it("loads independently of the filesystem working directory", async () => {
     expect(await loadNamespace({ locale: "en-US", namespace: "errors.global" })).toHaveProperty("title")

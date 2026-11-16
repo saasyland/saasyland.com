@@ -1,15 +1,11 @@
-import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.roles"
-import { emailSchema, imageUrlSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
+import { emailSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField } from "~/src/modules/_core/utils/zod-fields"
-import { BAN_REASON_MAX_LENGTH } from "~/src/modules/user/user.constants"
-import { TIMEZONE_CODES, user } from "~/src/modules/user/user.schema"
-
-const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
+import { BAN_REASON_MAX_LENGTH, TIMEZONE_CODES } from "~/src/modules/user/user.constants"
 
 const MAX_SORT_COLUMNS = 8
 
@@ -28,8 +24,8 @@ const banUser = zod.object({
 const createUser = zod.object({
   email: emailSchema,
   name: nameSchema,
-  password: strictPasswordSchema.optional(),
-  role: zod.enum(ROLE_VALUES).optional(),
+  password: strictPasswordSchema,
+  role: zod.enum(ROLE_VALUES),
 })
 
 const deleteUser = userIdInput
@@ -63,20 +59,10 @@ const unbanUser = userIdInput
 
 const updatePreferences = zod.object({ timezone })
 
-const updateUser = zod
-  .object({
-    image: imageUrlSchema.nullable().optional(),
-    name: nameSchema.optional(),
-    timezone: timezone.optional(),
-    userId: idField,
-  })
-  .refine(({ userId: _userId, ...fields }) => Object.values(fields).some((val) => val !== undefined), {
-    message: "atLeastOneFieldRequired",
-  })
-
-const insert = createInsertSchema(user)
-const select = createSelectSchema(user)
-const update = createUpdateSchema(user)
+const updateUser = zod.object({
+  name: nameSchema,
+  userId: idField,
+})
 
 export const userZodSchemas = {
   banUser,
@@ -85,13 +71,10 @@ export const userZodSchemas = {
   getUser,
   getUsers,
   impersonateUser,
-  insert,
-  select,
   setUserPassword,
   setUserPasswordForm,
   setUserRole,
   unbanUser,
-  update,
   updatePreferences,
   updateUser,
 }

@@ -1,6 +1,7 @@
 import { resolve } from "node:path"
 import { type UserConfig, defineConfig, lazyPlugins, loadEnv } from "vite-plus"
 
+import { LOCAL_SERVER } from "./src/data/local-server.ts"
 import { vitePlugins } from "./src/data/vite.ts"
 
 const projectRoot = import.meta.dirname
@@ -165,14 +166,20 @@ const tooling = {
     env: { browser: true, es2024: true, node: true, worker: true },
     globals: { HTMLRewriter: "readonly", caches: "readonly" },
     ignorePatterns,
+    jsPlugins: ["./scripts/hydration-lint-plugin.ts"],
     options: {
       typeAware: true,
       typeCheck: true,
     },
     overrides: [
       {
+        files: ["src/hooks/**", "src/presentation/**", "src/providers/**", "src/routes/*.tsx"],
+        rules: { "hydration/no-clock-or-locale-in-render": "error" },
+      },
+      {
         files: ["src/**/*.test.{ts,tsx}", "src/**/__test__/**", "src/platform/testing/**"],
         rules: {
+          "hydration/no-clock-or-locale-in-render": "off",
           "no-await-in-loop": "off",
           "no-magic-numbers": "off",
           "unicorn/no-null": "off",
@@ -221,8 +228,9 @@ const tooling = {
 export default defineConfig(({ mode }) => ({
   ...tooling,
   plugins: lazyPlugins(() => vitePlugins({ mode, vitest: process.env["VITEST"] === "true" })) ?? [],
+  preview: { host: LOCAL_SERVER.HOST, port: LOCAL_SERVER.PORT },
   resolve: { tsconfigPaths: true },
-  server: { port: 3000, strictPort: true, watch: { ignored: ["**/coverage/**"] } },
+  server: { port: LOCAL_SERVER.PORT, strictPort: true, watch: { ignored: ["**/coverage/**"] } },
   staged: { "*": "vp check --fix" },
   test: {
     alias: [

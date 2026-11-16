@@ -12,6 +12,10 @@ export const COURSE_STATUS = {
   PUBLISHED: "published",
 } as const
 
+export const COURSE_KINDS = [COURSE_KIND.COURSE, COURSE_KIND.TUTORIAL, COURSE_KIND.PROJECT] as const
+
+export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const
+
 export const COURSE_STALE_MS = 60_000
 
 export const COURSE_SHOWCASE = {

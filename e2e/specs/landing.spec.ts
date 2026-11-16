@@ -3,9 +3,12 @@ import type { Route } from "@playwright/test"
 import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
+import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const [freeLesson] = TEST_LESSONS
 const MOTION_FEATURES_CHUNK = /\/assets\/motion\.features-[\w-]+\.js$/u
+const BROWSER_TIMEZONE = "Pacific/Kiritimati"
+const BROWSER_TIME = new Date("2099-01-01T00:05:00+14:00")
 
 test.describe("landing page", () => {
   test("renders hero, navigation, and primary CTA", async ({ landingPage }) => {
@@ -124,6 +127,26 @@ test.describe("a page that is still loading", () => {
     await landingPage.leaveWhileLoading(await features.promise, ROUTES.PRIVACY)
 
     await expect(page).toHaveURL(ROUTES.PRIVACY)
+    expect(errors).toEqual([])
+  })
+})
+
+test.describe("a browser whose clock reads 1 January of a later year, east of UTC", () => {
+  test.use({ timezoneId: BROWSER_TIMEZONE })
+
+  test("hydrates the copyright year the build printed", async ({ appPage, page }) => {
+    const errors: string[] = []
+    page.on("pageerror", (error) => errors.push(error.message))
+    await page.clock.setSystemTime(BROWSER_TIME)
+
+    const response = await page.goto("/", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    const html = (await response?.text()) ?? ""
+    await appPage.waitForAppReady()
+    const footer = page.getByRole("contentinfo")
+    await appPage.waitForHydration(footer)
+    const printed = await footer.getByText(/^© /u).innerText()
+
+    expect(html, `the build printed "${printed}"`).toContain(printed)
     expect(errors).toEqual([])
   })
 })

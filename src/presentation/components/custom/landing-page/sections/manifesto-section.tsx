@@ -3,7 +3,8 @@ import type { JSX } from "react"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { Accent } from "~/src/presentation/components/custom/landing-page/components/accent"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
@@ -21,7 +22,7 @@ export const ManifestoSection = (): JSX.Element => {
           <p className="max-w-[24ch] text-headline-peak text-balance text-foreground">{t("p1")}</p>
         </Reveal>
         <Reveal variant="quiet" delay={LINE_STEP_MS}>
-          <p className="mt-8 max-w-[43.5rem] text-statement text-pretty text-muted-foreground">{t("p2")}</p>
+          <p className="mt-8 max-w-[43.5rem] text-statement text-pretty text-muted-foreground">{t("p2", REPOSITORY_FACTS)}</p>
         </Reveal>
         <Reveal variant="block" delay={SECOND_LINE_DELAY_MS}>
           <div className="mt-12 flex">
@@ -29,7 +30,7 @@ export const ManifestoSection = (): JSX.Element => {
               className="group inline-flex items-center gap-4 text-display-gate text-foreground focus-visible:outline-2 focus-visible:outline-offset-6 focus-visible:outline-ring"
               href={`#${MARKETING_SECTION_IDS.PRICING}`}
             >
-              <Accent id="manifesto">{t("p3")}</Accent>
+              <Accent id="manifesto">{t("p3", REPOSITORY_FACTS)}</Accent>
               <ArrowRight
                 aria-hidden
                 className="size-[0.62em] shrink-0 text-ring transition-transform duration-200 ease-exp group-hover:translate-x-1.5 motion-reduce:transition-none"

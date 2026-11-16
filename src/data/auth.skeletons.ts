@@ -11,7 +11,6 @@ export const AUTH_SKELETONS = [
   { pendingComponent: AdminSettingsPending, to: ROUTES.ADMIN_SETTINGS },
   { pendingComponent: AdminUsersPending, to: ROUTES.ADMIN_USERS },
   { pendingComponent: AdminUsersPending, to: ROUTES.ADMIN_USERS_ALL },
-  { pendingComponent: AdminUsersPending, to: ROUTES.ADMIN_USERS_SECURITY },
   { pendingComponent: AppOverviewPending, to: ROUTES.APP },
   { pendingComponent: AppSettingsPending, to: ROUTES.APP_SETTINGS },
 ] as const satisfies readonly PageSkeleton[]

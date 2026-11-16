@@ -1,3 +1,5 @@
+import { CLI_COMMAND, CLI_PACKAGE_SPEC, PACKAGE_MANAGER } from "../../../src/data/cli"
+
 import { AbsoluteFill, Easing, Interactive, interpolate, useCurrentFrame } from "remotion"
 
 import { Plate } from "../components/plate"
@@ -5,10 +7,10 @@ import { MONO } from "../fonts"
 import { FPS, THEME } from "../theme"
 
 const PAD = 52
-const COMMAND = "bunx saasyland@latest init"
+const COMMAND = `${PACKAGE_MANAGER.BUN.exec} ${CLI_PACKAGE_SPEC} ${CLI_COMMAND.INIT}`
 
 const PROMPT = "What are you building?"
-const ANSWER = "A multi-tenant SaaS"
+const ANSWER = "A SaaS on Cloudflare"
 
 const TREE = ["src/routes", "src/modules", "src/integrations", "src/presentation", "src/platform", "e2e"] as const
 

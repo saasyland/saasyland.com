@@ -58,7 +58,7 @@ describe("getCourses", () => {
 
 - Oczekiwane statusy, rodzaje, role i kody błędów to stałe, których używa kod: `COURSE_STATUS.DRAFT`, `ROLE_CODES.ADMIN`, `rejects.toThrow(ERROR_CODES.FORBIDDEN)`. Test nigdy nie powtarza literału tekstowego z domeny; nie robią tego też dane e2e ani dane zasilające testową bazę: `e2e/data/courses.ts` zapisuje `kind: COURSE_KIND.COURSE`.
 - Testy schematów to jedyne miejsce, w którym zapisuje się przechowywaną wartość wprost: `product.schema.test.ts` utrwala `expect(PRODUCT_STATUSES).toStrictEqual(["draft", "published", "archived"])`, więc zmiana wartości zapisanej w bazie danych kończy się błędem testu, a nie potrzebą migracji, której nikt nie napisał.
-- Zestaw testów przeglądarkowych importuje stałe z aplikacji (`LICENSE_TIER`, `ROLE_CODES`, `I18N.SUPPORTED_LOCALES`), więc może importować tylko pliki, które ładują się poza Workerem. Jedyna wartość dostawcy, którą deklaruje sam, to status opłaconego zamówienia w `e2e/fixtures/polar.ts`, bo `polar.constants.ts` czyta `cloudflare:workers` i działa wyłącznie na serwerze; samo zamówienie pochodzi z `src/platform/testing/lib/polar.ts`.
+- Zestaw testów przeglądarkowych importuje stałe z aplikacji (`LICENSE_TIER`, `ROLE_CODES`, `I18N.SUPPORTED_LOCALES`), więc może importować tylko pliki, które ładują się poza Workerem. Wartości Polar pochodzą z `polar.constants.ts`, który nie odczytuje środowiska: `e2e/fixtures/license.ts` i test ścieżki klienta w sandboksie biorą statusy zamówień z `POLAR_ORDER_STATUS`, a samo zamówienie pochodzi z `src/platform/testing/lib/polar.ts`. Wyjątkiem są identyfikatory produktów planów: `POLAR_PRODUCT_IDS` czyta `cloudflare:workers`, więc zestaw testów przeglądarkowych odczytuje je z `.env.test`.
 - Testy komponentów odczytują oczekiwane teksty z angielskich plików komunikatów, tak jak `admin-course-routes.component.test.tsx` z `import labels from "~/messages/en-US/pages.admin.courses.json"` i `labels.form.kinds.course`, a elementy znajdują po roli i dostępnej nazwie.
 - Test, który potrzebuje typu, odczytuje go z typowanego źródła lub sprawdza w czasie działania przez `toHaveProperty`; nigdy nie rzutuje.
 - Nazwy testów opisują zachowanie pełnym zdaniem: „lists every course with its lesson count, drafts included”.
@@ -70,7 +70,18 @@ describe("getCourses", () => {
 - **Usuwaj gałęzie, które nigdy nie mogą się wykonać**, zamiast pokrywać je zaślepkami. `?? fallback` na danych, które zawsze są obecne, czy opcjonalny łańcuch na wartości, która nie może być `undefined`, usuwa się z kodu źródłowego, a nie osiąga przez podmianę obiektu globalnego.
 - **Pokrywaj rzeczywiste zachowanie.** Stany oczekiwania utrzymują żądanie otwarte za pomocą `Promise.withResolvers()`, sprawdzają UI oczekiwania, rozwiązują obietnicę wewnątrz `act` i sprawdzają UI bezczynności, tak jak `expectPending` i `expectIdle` w `auth-forms.component.test.tsx`.
 - **Zachowuj asercje, gdy reguła się zgłasza.** Gdy test przekracza `max-statements`, wydziel nazwany helper, zamiast usuwać sprawdzenia.
-- **Ładuj każdy plik komunikatów.** `i18n.messages.test.ts` ładuje każdą przestrzeń nazw każdego języka i to on pokrywa linie `import.meta.glob` w `i18n.messages.ts`. Nowy plik komunikatów jest przez niego pokryty automatycznie.
+- **Ładuj każdy plik komunikatów.** `i18n.messages.test.ts` ładuje każdą przestrzeń nazw każdego języka i to on pokrywa linie `import.meta.glob` w `i18n.loaders.ts`. Nowy plik komunikatów jest przez niego pokryty automatycznie.
+
+## Testy na obciążonej maszynie
+
+Limit czasu Vitest i jednosekundowy zapas `waitFor` i `findBy*` liczą czas rzeczywisty, więc test, który wykonuje pracę niepotrzebną dla sprawdzanego zachowania albo czeka na zegar, nie przechodzi na obciążonej maszynie, choć nic nie jest zepsute. Domyślny limit zostaje bez zmian; wolny test przebudowuje się tak, żeby robił mniej:
+
+- **Sprawdzenie wielu plików to jeden test na plik.** `check-content.test.ts` uruchamia `pageProblems` dla każdej angielskiej strony przez `it.each(sourcePages())`, a rozbieżność podaje swoją stronę.
+- **To, na co komponent czeka w Suspense, ładuje się przed jego renderowaniem**, tak jak robi to `preloadNamespaces` z tłumaczeniami. Gdy test dotyczy samego ładowania, rozwiązuje je wewnątrz `act`, jak `translations-provider.component.test.tsx`: treść wznowiona poza `act` pojawia się dopiero po opóźnieniu, z jakim React ją odsłania, na prawdziwym zegarze, a test musi na nią czekać, odpytując DOM.
+- **Test podmienia listę obszaru bez ponownego importowania komponentu.** `translations-provider.component.test.tsx` raz mockuje `TIME_ZONE_SOURCES` i wypełnia ją w każdym teście, a `time-zone.test.ts` sprawdza, jak łączą się listy obszarów. Ponowny import komponentu po `vi.resetModules()` wykonuje od nowa cały jego graf importów wewnątrz testu.
+- **Fixtures, które czyta każdy test, tworzy się raz na plik**, jak komunikaty z `getTestMessages`.
+- **Formularz wypełnia się przez `user.paste`, chyba że testowanym zachowaniem są naciśnięcia klawiszy.** `fill` w `admin-course-routes.component.test.tsx` klika pole i wkleja tekst; `user.type` uruchamia walidację i renderowanie formularza dla każdego znaku.
+- **Długą listę opcji da się tanio renderować ponownie.** Combobox stref czasowych w `preferences-card.tsx` przekazuje swoje opcje do `ComboboxList` jako zmemoizowane `items`, więc React Aria używa ich ponownie, gdy formularz renderuje się od nowa.
 
 ## Testy podążają za obszarami [#tests-follow-the-areas]
 

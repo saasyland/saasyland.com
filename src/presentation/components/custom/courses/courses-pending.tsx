@@ -68,3 +68,9 @@ export const LessonPending = (): JSX.Element => (
     </div>
   </section>
 )
+
+export const CoursesPending = (): JSX.Element => (
+  <div className="pt-header">
+    <CataloguePending />
+  </div>
+)

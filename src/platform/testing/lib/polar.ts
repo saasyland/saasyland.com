@@ -1,12 +1,12 @@
 import type { models } from "@polar-sh/sdk/2026-10"
 import { createHmac } from "node:crypto"
 
+import { POLAR_LICENSE_KEY_STATUS } from "~/src/integrations/polar/polar.constants"
 import { BASIS_POINTS_PER_PERCENT } from "~/src/integrations/polar/polar.discounts"
 
-import { PPP_PERCENT } from "~/src/modules/_core/constants/pricing"
-
 const MS_PER_SECOND = 1000
-const POLAR_API_VERSION = "2026-10"
+const PERCENT_PER_WHOLE = 100
+export const POLAR_API_VERSION = "2026-10"
 const DISPLAYED_KEY_CHARACTERS = 6
 const CATALOGUE_CREATED_AT = "2026-11-01T00:00:00.000Z"
 const RECURRING_INTERVAL_COUNT = 1
@@ -39,7 +39,7 @@ export interface PolarCatalogue {
 }
 
 export const polarDiscountAmount = (amount: number, discount: models.DiscountPercentageOnceForeverDurationBase | null): number =>
-  discount === null ? 0 : Math.round((amount * discount.basis_points) / (BASIS_POINTS_PER_PERCENT * PPP_PERCENT))
+  discount === null ? 0 : Math.round((amount * discount.basis_points) / (BASIS_POINTS_PER_PERCENT * PERCENT_PER_WHOLE))
 
 const productFields = (organizationId: string, { id, name, recurringInterval }: PolarProduct): Omit<models.OrderProduct, "metadata"> => ({
   created_at: CATALOGUE_CREATED_AT,
@@ -223,7 +223,7 @@ export const polarLicenseKey = ({
   member_id: null,
   modified_at: null,
   organization_id: customer.organization_id,
-  status: "granted",
+  status: POLAR_LICENSE_KEY_STATUS.GRANTED,
   usage: 0,
   validations: 0,
 })

@@ -1,0 +1,74 @@
+---
+title: "SaaSy Land CLI"
+description: "Run the saasyland CLI from npm's beta tag, activate your licence key on your machines and in CI, and see what arrives in later releases."
+---
+
+A SaaSy Land licence is a licence to the `saasyland` command line. This page describes the release on npm's <RepositoryFact name="cliReleaseChannel" /> tag, <RepositoryFact name="cliPackageSpec" />, and the [release notes](/docs/cli/releases) list what each release changed.
+
+## What works today
+
+- `activate`, `whoami` and `deactivate` manage your licence key on a machine.
+- `--help` and `--version` work fully, and every command takes `--json` and `--locale`.
+- Project generation arrives in a later release. Until then <RepositoryFact name="cliInit" /> checks its flags and exits with code <RepositoryFact name="cliExitNotAvailable" />, and so do `change`, `update` and `status`. The [configurator](/#cli) on the landing page marks what the first release with project generation writes, the default stack with or without auth, and the [roadmap](/docs/project/roadmap) lists what follows it.
+
+## Run it
+
+Run the CLI from the <RepositoryFact name="cliReleaseChannel" /> tag with your package manager. Nothing needs to be installed globally:
+
+<RepositoryTable columns={["Package manager", "Command"]} name="cliRunners" />
+
+Without the tag, your package manager runs npm's `latest` tag, which still holds the placeholder release that reserved the name, and none of its commands work. The CLI needs Node.js <RepositoryFact name="cliNodeEngine" />, or Bun.
+
+## Activate your key
+
+1. Sign in and copy your key from [your licence page](/app/license).
+2. Run <RepositoryFact name="cliActivate" />. In a terminal, the CLI asks for the key and hides it while you type.
+3. Instead of typing it, you can pass the key as an argument, which stays in your shell history, or set <RepositoryFact name="cliLicenseKeyVariable" />, which does not. Without a key, `activate` uses the key already activated on this machine.
+
+`--label` names the machine on your licence page; by default the name is the host name. Activating a machine again keeps the slot it already has.
+
+## Machines
+
+Each machine you activate takes one of your licence's slots: <ActivationLimit tier="core" /> on Core, <ActivationLimit tier="complete" /> on Complete and <ActivationLimit tier="agency" /> on Agency.
+
+- <RepositoryFact name="cliWhoami" /> shows your tier, the slots in use and this machine's name.
+- <RepositoryFact name="cliDeactivate" /> frees this machine's slot and removes the licence from it.
+- To free the slot of a machine you no longer use, remove it under **Machines** on [your licence page](/app/license). The next `whoami` or `deactivate` on that machine notices.
+
+When every slot is taken, `activate` lists the machines that hold them and sends you to your licence page to free one.
+
+## CI
+
+Store the key as a secret in <RepositoryFact name="cliLicenseKeyVariable" />. On <RepositoryFact name="cliCiProviders" />, every run of one repository derives the same machine ID, so the repository takes one slot however often it runs, labelled with the provider and the repository's name. On any other CI system, or in a container without a machine ID, set <RepositoryFact name="cliCiRepositoryVariable" /> to the repository's name.
+
+## Where the licence is kept
+
+The CLI keeps the licence in <RepositoryFact name="cliCredentialsFile" />, which only your user can read (mode <RepositoryFact name="cliCredentialsFileMode" />), in your config directory:
+
+<RepositoryTable columns={["System", "Directory"]} name="cliCredentialDirectories" />
+
+When `XDG_CONFIG_HOME` is not set, Linux uses <RepositoryFact name="cliCredentialsLinuxFallback" />. The CLI sends saasyland.com a keyed hash of this machine's ID, never the ID itself. When saasyland.com reports the licence as refunded or revoked, the CLI removes it from the machine and points you to your licence page and to support.
+
+## Environment variables
+
+| Variable                                          | What it sets                                                                                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| <RepositoryFact name="cliLicenseKeyVariable" />   | The licence key, for CI and for sessions that cannot ask for it                                              |
+| <RepositoryFact name="cliCiRepositoryVariable" /> | The repository's name on a CI system the CLI does not recognise                                              |
+| <RepositoryFact name="cliLocaleVariable" />       | The language of the output: `--locale` comes first, then this variable, then your system language            |
+| <RepositoryFact name="cliApiUrlVariable" />       | Another deployment of saasyland.com, such as a preview: an `https` URL, or an `http` URL on your own machine |
+
+## Scripts and coding agents
+
+`--json` prints the result or the error as one JSON document. In CI, in a coding agent or without a terminal, the CLI never waits for input: `activate` without a key stops with exit code <RepositoryFact name="cliExitUsage" /> and says how to pass one.
+
+| Exit code                                         | When                                                                                                                         |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| <RepositoryFact name="cliExitSuccess" />          | The command did what it says                                                                                                 |
+| <RepositoryFact name="cliExitFailure" />          | Something went wrong inside the CLI                                                                                          |
+| <RepositoryFact name="cliExitUsage" />            | A flag or <RepositoryFact name="cliApiUrlVariable" /> is invalid, or the key is missing in a session that cannot ask for it  |
+| <RepositoryFact name="cliExitNotAvailable" />     | The command is not available yet, this machine's ID cannot be read, or the system is not Linux, macOS or Windows             |
+| <RepositoryFact name="cliExitTemporaryFailure" /> | saasyland.com cannot be reached, or asks you to try again later                                                              |
+| <RepositoryFact name="cliExitProtocol" />         | saasyland.com and this version of the CLI cannot understand each other; update the CLI                                       |
+| <RepositoryFact name="cliExitNoPermission" />     | No licence is activated here, this machine's slot was freed, the key is invalid, revoked or refunded, or every slot is taken |
+| <RepositoryFact name="cliExitCancelled" />        | You cancelled the question with Ctrl+C                                                                                       |

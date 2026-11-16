@@ -1,7 +1,6 @@
+import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
-import { LICENSE_TIER } from "../../src/modules/license/license.constants"
-import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "../data/accounts"
-import { TEST_LICENSE } from "../data/licenses"
+import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 import { BasePage, LandingPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
@@ -47,7 +46,7 @@ for (const account of TEST_ACCOUNTS) {
     context.on("weberror", (webError) => errors.push(webError.error().message))
     const signedIn = await context.request.post("/api/auth/sign-in/email", {
       data: { email: account.email, password: TEST_PASSWORD },
-      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
     })
     expect(signedIn.ok()).toBe(true)
     const workspace = account.role === ROLE_CODES.ADMIN ? "/admin" : "/app"
@@ -71,12 +70,6 @@ for (const account of TEST_ACCOUNTS) {
     await new BasePage(fromLanding).waitForAppReady()
     await expect(fromLanding.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
     await fromLanding.close()
-    const fromPricing = await context.newPage()
-    await new LandingPage(fromPricing).goto()
-    await fromPricing.locator("#pricing").getByRole("link", { name: "Get Core", exact: true }).click()
-    await expect(fromPricing).toHaveURL(`/app?tier=${LICENSE_TIER.CORE}`)
-    await new BasePage(fromPricing).waitForAppReady()
-    await expect(fromPricing.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
     expect(errors).toEqual([])
   })
 }
@@ -85,15 +78,15 @@ test("client navigation rechecks an ended session despite cached workspace data"
   const customer = TEST_ACCOUNTS[1]
   const signedIn = await page.request.post("/api/auth/sign-in/email", {
     data: { email: customer.email, password: TEST_PASSWORD },
-    headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+    headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
   })
   expect(signedIn.ok()).toBe(true)
   await page.goto("/app", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   const signedOut = await page.request.post("/api/auth/sign-out", { data: {}, headers: { Origin: new URL(page.url()).origin } })
   expect(signedOut.ok()).toBe(true)
-  await page.getByRole("navigation", { name: "App navigation", exact: true }).getByRole("link", { name: "Licence", exact: true }).click()
-  await expect(page).toHaveURL(`/auth/sign-in?redirect=${encodeURIComponent("/app/license")}`)
+  await page.getByRole("navigation", { name: "App navigation", exact: true }).getByRole("link", { name: "Settings", exact: true }).click()
+  await expect(page).toHaveURL(`/auth/sign-in?redirect=${encodeURIComponent("/app/settings")}`)
   await appPage.waitForAppReady()
   await expect(authPage.signInSubmitButton()).toBeVisible()
   await expect(page.getByText(customer.email, { exact: true })).toHaveCount(0)
@@ -114,7 +107,7 @@ test("a signed-in visitor who presses a header link while the landing page hydra
   page.on("pageerror", (error) => errors.push(error.message))
   const signedIn = await page.request.post("/api/auth/sign-in/email", {
     data: { email: customer.email, password: TEST_PASSWORD },
-    headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+    headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
   })
   expect(signedIn.ok()).toBe(true)
   if (browserName === "chromium") {
@@ -128,73 +121,4 @@ test("a signed-in visitor who presses a header link while the landing page hydra
   await appPage.waitForAppReady()
   await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible()
   expect(errors).toEqual([])
-})
-
-test.describe("cached data when the account changes", () => {
-  test("a client navigation after another account signs in shows that account's licence, not the previous one's", async ({
-    appPage,
-    baseURL,
-    page,
-  }) => {
-    const customer = TEST_ACCOUNTS[1]
-    const navigation = page.getByRole("navigation", { name: "App navigation", exact: true })
-    const licensedSignIn = await page.request.post("/api/auth/sign-in/email", {
-      data: { email: TEST_LICENSED_ACCOUNT.email, password: TEST_PASSWORD },
-      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
-    })
-    expect(licensedSignIn.ok()).toBe(true)
-    await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
-    await appPage.waitForAppReady()
-    await expect(page.getByText(TEST_LICENSE.key, { exact: true })).toBeVisible()
-    await navigation.getByRole("link", { name: "Overview", exact: true }).click()
-    await expect(page).toHaveURL("/app")
-    await appPage.waitForAppReady()
-
-    const customerSignIn = await page.request.post("/api/auth/sign-in/email", {
-      data: { email: customer.email, password: TEST_PASSWORD },
-      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
-    })
-    expect(customerSignIn.ok()).toBe(true)
-    await navigation.getByRole("link", { name: "Licence", exact: true }).click()
-    await expect(page).toHaveURL("/app/license")
-    await appPage.waitForAppReady()
-
-    await expect(page.getByRole("heading", { name: "Get your licence", exact: true })).toBeVisible()
-    await expect(page.getByText(customer.email, { exact: true })).toBeVisible()
-    await expect(page.getByText(TEST_LICENSE.key, { exact: true })).toHaveCount(0)
-    await expect(page.getByText(TEST_LICENSED_ACCOUNT.email, { exact: true })).toHaveCount(0)
-  })
-
-  test("signing out and signing in as another account leaves none of the first account's data", async ({ appPage, authPage, page }) => {
-    const customer = TEST_ACCOUNTS[1]
-    const navigation = page.getByRole("navigation", { name: "App navigation", exact: true })
-    await page.setExtraHTTPHeaders({ "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::` })
-    await authPage.gotoSignIn()
-    await authPage.emailField().fill(TEST_LICENSED_ACCOUNT.email)
-    await authPage.passwordField().fill(TEST_PASSWORD)
-    await authPage.signInSubmitButton().click()
-    await expect(page).toHaveURL("/app")
-    await appPage.waitForAppReady()
-    await navigation.getByRole("link", { name: "Licence", exact: true }).click()
-    await expect(page).toHaveURL("/app/license")
-    await appPage.waitForAppReady()
-    await expect(page.getByText(TEST_LICENSE.key, { exact: true })).toBeVisible()
-
-    await page.getByRole("button", { name: "Sign out", exact: true }).click()
-    await expect(page).toHaveURL("/auth/sign-in")
-    await authPage.waitForAppReady()
-    await authPage.emailField().fill(customer.email)
-    await authPage.passwordField().fill(TEST_PASSWORD)
-    await authPage.signInSubmitButton().click()
-    await expect(page).toHaveURL("/app")
-    await appPage.waitForAppReady()
-    await navigation.getByRole("link", { name: "Licence", exact: true }).click()
-    await expect(page).toHaveURL("/app/license")
-    await appPage.waitForAppReady()
-
-    await expect(page.getByRole("heading", { name: "Get your licence", exact: true })).toBeVisible()
-    await expect(page.getByText(customer.email, { exact: true })).toBeVisible()
-    await expect(page.getByText(TEST_LICENSE.key, { exact: true })).toHaveCount(0)
-    await expect(page.getByText(TEST_LICENSED_ACCOUNT.email, { exact: true })).toHaveCount(0)
-  })
 })

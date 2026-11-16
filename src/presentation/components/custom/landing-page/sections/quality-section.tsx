@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { ArrowRight, Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { ConceptLoop } from "~/src/presentation/components/custom/landing-page/components/concept-loop"
@@ -68,7 +68,7 @@ export const QualitySection = (): JSX.Element => {
             {SPEC_KEYS.map((key) => (
               <li className="flex items-start gap-3" key={key}>
                 <Check aria-hidden className="mt-0.5 size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
-                <span className="font-mono text-spec text-pretty text-muted-foreground">{t(`specs.${key}`)}</span>
+                <span className="font-mono text-spec text-pretty text-muted-foreground">{t(`specs.${key}`, REPOSITORY_FACTS)}</span>
               </li>
             ))}
           </ul>

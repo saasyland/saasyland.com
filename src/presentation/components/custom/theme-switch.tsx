@@ -26,7 +26,7 @@ export const ThemeSwitch = (): JSX.Element => {
   const { theme, setTheme } = useTheme()
 
   if (!hydrated) {
-    return <Skeleton className="h-8 w-full" />
+    return <Skeleton className="h-9 w-full" />
   }
 
   const themeLabels = {

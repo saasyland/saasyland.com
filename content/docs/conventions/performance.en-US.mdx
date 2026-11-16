@@ -1,6 +1,6 @@
 ---
 title: "Performance"
-description: "The measured rules that keep pages fast: a small Worker boot graph, stripped preload hints, provider placement, one Tailwind build, media sizing and the reveal pattern."
+description: "The measured rules that keep pages fast: a small Worker boot graph, no ORM in the browser, messages loaded on demand, stripped preload hints, provider placement, one Tailwind build, media sizing and the reveal pattern."
 ---
 
 Each rule on this page came from a measurement, and several replaced an intuitive fix that made things worse. Change the code behind one of them only with a new measurement that beats it.
@@ -24,7 +24,51 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-One static import of a header name from a module that also imported the Polar client once pulled about 1.4 MB of SDK into every cold start, and the first byte of the landing page took up to 1.4 seconds. That is why `COUNTRY_HEADER` and `IP_ADDRESS_HEADER` live in `src/modules/_core/constants/api.ts`, which imports nothing heavy. Before adding a static import to `server.ts` or to an `<area>.worker.ts`, follow its import chain: anything that reaches `polar`, `drizzle-orm` or `resend` is a regression.
+One static import of a header name from a module that also imported the Polar client once pulled about 1.4 MB of SDK into every cold start, and the first byte of the landing page took up to 1.4 seconds. That is why `COUNTRY_HEADER` and `IP_ADDRESS_HEADER` live in `src/modules/_core/constants/api.ts`, which imports nothing heavy. Before adding a static import to `server.ts` or to an `<area>.worker.ts`, follow its import chain: anything that reaches `polar`, `drizzle-orm` or `resend` is a regression. `scripts/verify-build.ts` checks it on every build: it follows the static imports of the deployed Worker's entry, `dist/server/index.js`, and fails when they reach code bundled from `@polar-sh`, `drizzle-orm` or `resend`, or add up to more than `BOOT_CLOSURE_MAX_BYTES`.
+
+## Keep the ORM out of the browser
+
+Drizzle runs only in the Worker. The browser needs a module's Zod schemas for its forms and its enum tuples for its selects, so both live in files that import nothing from Drizzle: `<table>.zod.ts` and `<table>.constants.ts` (see [Modules](/docs/conventions/modules)). A browser import that reaches a `<table>.schema.ts` runs `sqliteTable(...)`, a call the bundler has to keep, and brings `drizzle-orm` with it.
+
+`<table>.zod.ts` once also built `insert`, `select` and `update` schemas from the tables with `drizzle-zod`, and nothing read them at runtime. `drizzle-zod` holds on to the whole zod namespace, so the bundler also kept every zod locale, its JSON Schema converter and its compiler. The `/admin` and `/app` pending skeletons imported `PreferencesCardPending` from `preferences-card.tsx`, which imported `user.zod.ts`, and pending components are not code-split, so all of it loaded on every page. Moving the tuples to the constants and deleting those schemas took about 75 KiB of gzipped JavaScript off every page. The sizes below are every script each page loads, gzipped, from the `bun run build:test` output:
+
+| Page           | Before    | After     |
+| -------------- | --------- | --------- |
+| `/`            | 526.2 KiB | 450.7 KiB |
+| `/docs/<page>` | 612.1 KiB | 536.5 KiB |
+| `/blog`        | 487.2 KiB | 411.7 KiB |
+| `/app`         | 496.6 KiB | 421.0 KiB |
+| `/admin`       | 515.0 KiB | 439.4 KiB |
+
+`src/data/tanstack.vite.ts` denies `drizzle-orm` to the client environment through TanStack Start's import protection:
+
+```ts title="src/data/tanstack.vite.ts"
+const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
+```
+
+A build in which an import of it survives tree-shaking fails and prints the chain of imports from the route to the file that reached Drizzle. Break the chain where it starts: import the tuple from the module's constants, or move the code into a server function. Type-only imports are erased and never count.
+
+## Load messages when a page needs them
+
+The first page a visitor opens loads no message file in the browser: the root route and the matched routes preload their namespaces into the query cache on the server, and TanStack Start sends that cache with the HTML. The browser loads a namespace only when a later navigation needs one that the cache does not hold yet.
+
+`import.meta.glob` gives every message file a chunk of its own, but the map from each file to its chunk, which names every namespace in every locale, ships in the module that calls the glob. That module was `i18n.messages.ts`, which the root route imports, and it held the map twice, once for the messages and once for the page metadata, so every page loaded about 240 KiB of loaders, 21 KiB gzipped. The map now lives on its own in `i18n.loaders.ts`, and `loadNamespace` imports it the first time it loads a namespace:
+
+```ts title="src/integrations/use-intl/i18n.messages.ts"
+const { MESSAGE_LOADERS } = await import("~/src/integrations/use-intl/i18n.loaders")
+```
+
+`loadPageMetadata` reads `metadata` from the page's namespace instead of from a second map, so a page's head and its messages come from one chunk. The browser fetches `i18n.loaders.ts`, about 11 KiB gzipped, with the first namespace it loads, on a navigation or on the hover that preloads one. The root namespaces are still found by file name in `i18n.messages.ts`, and that glob's keys cost about 2 KiB gzipped. Every script each page loads, gzipped, from the `bun run build:test` output:
+
+| Page           | Before    | After     |
+| -------------- | --------- | --------- |
+| `/`            | 462.9 KiB | 442.3 KiB |
+| `/docs/<page>` | 553.5 KiB | 532.9 KiB |
+| `/blog`        | 424.6 KiB | 404.0 KiB |
+| `/app`         | 430.4 KiB | 409.7 KiB |
+| `/admin`       | 452.8 KiB | 432.2 KiB |
+
+Load messages only through `loadNamespace`, and never add an `import.meta.glob` over `messages/` to a module that the root route imports. `scripts/verify-build.ts` follows the static imports of the browser's entry script and fails the build when they hold the loader of a page namespace.
 
 ## Prerendered pages load CSS and fonts first
 
@@ -48,6 +92,25 @@ TanStack Router wraps route outlets in Suspense boundaries, and React hydrates t
 - `MotionProvider` above a route outlet publishes a new context when its animation features finish loading. On a blog post that update arrived while the page was still loading its content, React fell back to client rendering, and the layout shifted.
 
 Before adding a provider to `__root.tsx` or a layout, check whether its value can change after hydration. If it can, mount it next to the components that read it, below every route `<Outlet />`. The placements are listed in [Components and styling](/docs/conventions/components).
+
+## Skeletons stay in the entry script
+
+TanStack Router does not split `pendingComponent` into its own chunk by default, and `src/data/tanstack.vite.ts` keeps that default, so every skeleton is in the entry script and shows the moment a navigation passes `pendingMs`. Splitting them was measured and rejected:
+
+- The layout skeletons `AdminPending`, `AppPending` and `MarketingPending` draw the page skeleton from `PAGE_SKELETONS`, which imports every area's skeletons, and the router loads the pending components of the matched routes before the page hydrates. `/`, `/app` and `/admin` still loaded every skeleton, now in chunks of their own, and grew by 3.5 to 6.5 KiB gzipped; only pages whose layout has a skeleton of its own, such as `/docs` and `/blog`, got lighter.
+- A split skeleton has to load before it can show. In headless Chromium with 400 ms of added latency and 200 KiB/s, a client navigation from `/` to `/blog` rendered the blog after 2,290 ms instead of 1,390 ms, behind a skeleton the unsplit build never needed; with 150 ms of latency it took 800 ms instead of 640 ms.
+
+Because every page loads every skeleton, a skeleton imports `Skeleton`, the shadcn primitives, other skeletons and the constants that give it its lengths, never a form. `PreferencesCardPending` was exported from `preferences-card.tsx`, so the `/admin` and `/app` skeletons put the preferences form, TanStack Form, the time zone list and the user schemas into every page's entry script; it now has a file of its own, `preferences-card-pending.tsx`. Every script each page loads, gzipped, from the `bun run build:test` output:
+
+| Page           | Before    | After     |
+| -------------- | --------- | --------- |
+| `/`            | 463.0 KiB | 451.9 KiB |
+| `/docs/<page>` | 553.6 KiB | 527.3 KiB |
+| `/blog`        | 424.7 KiB | 413.6 KiB |
+| `/app`         | 430.4 KiB | 404.1 KiB |
+| `/admin`       | 452.9 KiB | 427.7 KiB |
+
+`/` and `/blog` save less because their layouts render the newsletter form, which needs TanStack Form anyway. `pending-imports.test.ts` follows the imports of every `*-pending.tsx` and fails when one reaches `@tanstack/react-form`. The admin dashboard's panels and the customer overview's sections still pair each skeleton with its component in the area's list, so those components load with the skeletons.
 
 ## One Tailwind build
 

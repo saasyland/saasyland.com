@@ -6,16 +6,21 @@ import userEvent from "@testing-library/user-event"
 import { IntlProvider, createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { getHeaderHref } from "~/src/platform/testing/lib/navigation"
+
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizeUrl, localizeUrl } from "~/src/integrations/use-intl/i18n.utils"
 
-import { Route as BlogRoute } from "~/src/routes/blog"
-import { Route as BlogPostRoute } from "~/src/routes/blog.$"
-import { Route as BlogIndexRoute } from "~/src/routes/blog.index"
+import { Route as SiteRoute } from "~/src/routes/_site"
+import { Route as MarketingRoute } from "~/src/routes/_site._marketing"
+import { Route as BlogRoute } from "~/src/routes/_site._marketing.blog"
+import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
+import { Route as BlogIndexRoute } from "~/src/routes/_site._marketing.blog.index"
 
-import { NAVIGATION_PAGES } from "~/src/data/navigation"
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
+import { HEADER_NAVIGATION } from "~/src/data/navigation"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
@@ -88,7 +93,9 @@ const createBlogRouter = ({
 }) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
-  Object.assign(BlogRoute.options, { getParentRoute: () => root, id: "/blog", path: "/blog" })
+  Object.assign(SiteRoute.options, { getParentRoute: () => root, id: "_site" })
+  Object.assign(MarketingRoute.options, { getParentRoute: () => SiteRoute, id: "_marketing" })
+  Object.assign(BlogRoute.options, { getParentRoute: () => MarketingRoute, id: "/blog", path: "/blog" })
   Object.assign(BlogIndexRoute.options, {
     getParentRoute: () => BlogRoute,
     id: "/",
@@ -101,12 +108,14 @@ const createBlogRouter = ({
     loader: (): typeof BlogPostRoute.types.loaderData => ({ locale, post, section: pagesBlogMessages.metadata.title }),
     path: "/$",
   })
+  const blog = BlogRoute.addChildren([BlogIndexRoute, BlogPostRoute])
+  const site = SiteRoute.addChildren([MarketingRoute.addChildren([blog])])
   return createRouter({
     context: { queryClient },
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
     rewrite: { input: ({ url }) => deLocalizeUrl(url), output: ({ url }) => localizeUrl(url) },
-    routeTree: root.addChildren([BlogRoute.addChildren([BlogIndexRoute, BlogPostRoute])]),
+    routeTree: root.addChildren([site]),
   })
 }
 
@@ -153,6 +162,7 @@ beforeEach(() => {
       disconnect = vi.fn()
     },
   )
+  vi.stubGlobal("CSS", { supports: () => true })
   vi.stubGlobal("scrollTo", vi.fn())
 })
 
@@ -172,13 +182,17 @@ describe("blog routes", () => {
     const nav = within(screen.getByRole("navigation", { name: plNavigationMessages.ariaLabel }))
     const pageLabel = getNavigationLabel("pl-PL")
     expect(nav.getByRole("link", { current: "page" })).toHaveAccessibleName(plContentNavigationMessages.header.blog)
-    for (const entry of NAVIGATION_PAGES) {
-      expect(nav.getByRole("link", { name: pageLabel(entry) })).toHaveAttribute("href", `/pl-PL${entry.to}`)
+    const headerHref = getHeaderHref("pl-PL")
+    for (const entry of HEADER_NAVIGATION) {
+      expect(nav.getByRole("link", { name: pageLabel(entry) })).toHaveAttribute("href", headerHref(entry))
     }
     expect(nav.getByRole("link", { name: plNavigationMessages.getStarted })).toHaveAttribute("href", "/pl-PL#pricing")
     expect(screen.getByRole("link", { name: plPagesBlogMessages.post.cta.primary })).toHaveAttribute("href", "/pl-PL#pricing")
     expect(screen.getByRole("link", { name: plPagesBlogMessages.post.cta.secondary })).toHaveAttribute("href", "/pl-PL/docs")
-    const ctaBody = createTranslator({ locale: "pl-PL", messages: plPagesBlogMessages.post.cta })("body", REPOSITORY_FACTS)
+    const ctaBody = createTranslator({ locale: "pl-PL", messages: plPagesBlogMessages.post.cta })("body", {
+      ...REPOSITORY_FACTS,
+      ...CLI_GENERATION_VALUES,
+    })
     expect(screen.getByText(ctaBody)).toBeVisible()
   })
 

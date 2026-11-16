@@ -8,19 +8,21 @@ import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.sourc
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { Route as LandingRoute } from "~/src/routes/_landing"
-import { Route as AffiliatesRoute } from "~/src/routes/_landing.affiliates"
-import { Route as HomeRoute } from "~/src/routes/_landing.index"
-import { Route as LicenceRoute } from "~/src/routes/_landing.licence"
-import { Route as PremiumRoute } from "~/src/routes/_landing.premium"
-import { Route as PrivacyRoute } from "~/src/routes/_landing.privacy"
-import { Route as RefundsRoute } from "~/src/routes/_landing.refunds"
-import { Route as TermsRoute } from "~/src/routes/_landing.terms"
-import { Route as BlogRoute } from "~/src/routes/blog"
-import { Route as BlogPostRoute } from "~/src/routes/blog.$"
-import { Route as BlogIndexRoute } from "~/src/routes/blog.index"
+import { Route as SiteRoute } from "~/src/routes/_site"
+import { Route as MarketingRoute } from "~/src/routes/_site._marketing"
+import { Route as AffiliatesRoute } from "~/src/routes/_site._marketing.affiliates"
+import { Route as BlogRoute } from "~/src/routes/_site._marketing.blog"
+import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
+import { Route as BlogIndexRoute } from "~/src/routes/_site._marketing.blog.index"
+import { Route as HomeRoute } from "~/src/routes/_site._marketing.index"
+import { Route as LicenceRoute } from "~/src/routes/_site._marketing.licence"
+import { Route as PremiumRoute } from "~/src/routes/_site._marketing.premium"
+import { Route as PrivacyRoute } from "~/src/routes/_site._marketing.privacy"
+import { Route as RefundsRoute } from "~/src/routes/_site._marketing.refunds"
+import { Route as TermsRoute } from "~/src/routes/_site._marketing.terms"
 
 import { AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { starCountQuery } from "~/src/lib/github"
 import { ORGANIZATION_STRUCTURED_DATA_HTML, ROBOTS } from "~/src/lib/seo"
@@ -110,10 +112,11 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(starCountQuery.queryKey, 456)
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
-  Object.assign(LandingRoute.options, { getParentRoute: () => root, id: "_landing" })
-  Object.assign(BlogRoute.options, { getParentRoute: () => root, id: "/blog", path: "/blog" })
+  Object.assign(SiteRoute.options, { getParentRoute: () => root, id: "_site" })
+  Object.assign(MarketingRoute.options, { getParentRoute: () => SiteRoute, id: "_marketing" })
+  Object.assign(BlogRoute.options, { getParentRoute: () => MarketingRoute, id: "/blog", path: "/blog" })
   Object.assign(HomeRoute.options, {
-    getParentRoute: () => LandingRoute,
+    getParentRoute: () => MarketingRoute,
     id: "/",
     loader: (): typeof HomeRoute.types.loaderData => ({ locale: "en-US", metadata: pagesLandingMessages.metadata, posts }),
     path: "/",
@@ -126,7 +129,7 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
     [RefundsRoute, "/refunds"],
     [TermsRoute, "/terms"],
   ] as const) {
-    Object.assign(route.options, { getParentRoute: () => LandingRoute, id: pathName, path: pathName })
+    Object.assign(route.options, { getParentRoute: () => MarketingRoute, id: pathName, path: pathName })
   }
   Object.assign(BlogIndexRoute.options, {
     getParentRoute: () => BlogRoute,
@@ -140,14 +143,22 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
     loader: (): typeof BlogPostRoute.types.loaderData => ({ locale: "en-US", post, section: pagesBlogMessages.metadata.title }),
     path: "/$",
   })
+  const blog = BlogRoute.addChildren([BlogIndexRoute, BlogPostRoute])
+  const marketing = MarketingRoute.addChildren([
+    AffiliatesRoute,
+    HomeRoute,
+    LicenceRoute,
+    PremiumRoute,
+    PrivacyRoute,
+    RefundsRoute,
+    TermsRoute,
+    blog,
+  ])
   return createRouter({
     context: { queryClient },
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree: root.addChildren([
-      LandingRoute.addChildren([AffiliatesRoute, HomeRoute, LicenceRoute, PremiumRoute, PrivacyRoute, RefundsRoute, TermsRoute]),
-      BlogRoute.addChildren([BlogIndexRoute, BlogPostRoute]),
-    ]),
+    routeTree: root.addChildren([SiteRoute.addChildren([marketing])]),
   })
 }
 
@@ -226,7 +237,7 @@ describe("public route content", () => {
 
   it("renders the landing page with cached stars, installation controls and public navigation", async () => {
     await renderRoute("/")
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("300+ hour head start")
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(`${String(REPOSITORY_FACTS.headStartHours)}+ hour head start`)
     expect(screen.getByText("456", { selector: "dd" })).toBeVisible()
     expect(screen.getAllByRole("radio", { name: "bun" })).toHaveLength(2)
     expect(screen.getByRole("contentinfo")).toBeVisible()

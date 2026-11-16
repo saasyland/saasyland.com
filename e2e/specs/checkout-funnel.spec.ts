@@ -6,7 +6,7 @@ import { TEST_CHECKOUT_ID } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
 import { expectVerificationEmail } from "../fixtures/emails"
-import { deliverPaidOrder } from "../fixtures/polar"
+import { deliverPaidOrder } from "../fixtures/license"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -15,6 +15,7 @@ import { CONTACT_EMAIL } from "../../src/presentation/branding"
 
 const [, customer] = TEST_ACCOUNTS
 const SIGN_UP_PASSWORD = "StrongPassword123!"
+const BROWSER_CLOCK_BEHIND_MS = 300_000
 
 const sessionSchema = zod.object({ user: zod.object({ id: zod.string() }) })
 
@@ -41,6 +42,28 @@ const signUpAndVerify = async ({ authPage, page, request }: { authPage: AuthPage
 }
 
 test.describe("checkout funnel", () => {
+  for (const account of TEST_ACCOUNTS) {
+    test(`a signed-in ${account.role} who picks a tier on the landing page skips sign-in and opens the offer`, async ({
+      appPage,
+      authPage,
+      landingPage,
+      page,
+    }) => {
+      const errors: string[] = []
+      page.on("pageerror", (error) => errors.push(error.message))
+      await authPage.signIn(account.email)
+      await expect(page).toHaveURL(/\/(?:admin|app)$/u)
+
+      await landingPage.goto()
+      await page.locator("#pricing").getByRole("link", { name: "Get Core", exact: true }).click()
+
+      await expect(page).toHaveURL(`/app?tier=${LICENSE_TIER.CORE}`)
+      await appPage.waitForAppReady()
+      await expect(page.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
+      expect(errors).toEqual([])
+    })
+  }
+
   test("a tier picked on the landing page survives sign-up, opens checkout in one press and activates", async ({
     appPage,
     authPage,
@@ -106,6 +129,22 @@ test.describe("checkout funnel", () => {
       await page.emulateMedia({ colorScheme })
       expect(await accessibilityViolations(page)).toEqual([])
     }
+  })
+
+  test("a browser clock five minutes behind the server hydrates the activation the server rendered", async ({ appPage, authPage, page }) => {
+    const errors: string[] = []
+    page.on("pageerror", (error) => errors.push(error.message))
+    await page.clock.setSystemTime(Date.now() - BROWSER_CLOCK_BEHIND_MS)
+    await authPage.signIn(customer.email)
+    await expect(page).toHaveURL("/app")
+
+    await page.goto(`/app/license?checkoutId=${TEST_CHECKOUT_ID}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    const activation = page.getByRole("status").filter({ has: page.getByRole("heading", { level: 2 }) })
+    await appPage.waitForHydration(activation)
+
+    await expect(activation.getByRole("heading", { level: 2 })).toHaveText("Payment received")
+    expect(errors).toEqual([])
   })
 
   test("a page left open after buying refuses a second checkout and shows the license instead", async ({

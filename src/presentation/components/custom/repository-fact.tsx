@@ -1,6 +1,7 @@
 import type { JSX } from "react"
 
 import defaultMdxComponents from "@fumadocs/base-ui/mdx"
+import { CI_PROVIDER, CI_PROVIDERS, CI_REPOSITORY_VARIABLE, PLATFORM } from "@saasyland/stack/api"
 import { adminAc } from "better-auth/plugins/admin/access"
 import { useFormatter } from "use-intl/react"
 import { cliApiTables, commitEmojis, seededAccounts } from "virtual:repository-facts"
@@ -16,7 +17,7 @@ import { RATE_LIMITS, RATE_LIMIT_WINDOW_SECONDS } from "~/src/integrations/bette
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { PPP_TIERS } from "~/src/modules/_core/constants/pricing"
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LOCALIZED_TEXT_MAX_LENGTH } from "~/src/modules/_core/utils/localized-text"
 import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
@@ -29,6 +30,7 @@ import {
   LICENSE_API_RETRY_AFTER_SECONDS,
   REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
 } from "~/src/modules/license/license.constants"
+import { PPP_TIERS } from "~/src/modules/license/license.pricing"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { POSTER_SMALL_WIDTH, POSTER_WIDTH, VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 import {
@@ -48,8 +50,28 @@ import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { APP_STATEMENTS } from "~/src/data/access"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
-import { CLI_EXEC, CLI_LICENSE_COMMANDS, CLI_LICENSE_KEY_VARIABLE, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
+import { OAUTH_PROVIDERS } from "~/src/data/auth"
+import {
+  CLI_API_URL_VARIABLE,
+  CLI_COMMAND,
+  CLI_CREDENTIALS_DIRECTORY,
+  CLI_CREDENTIALS_FILE,
+  CLI_CREDENTIALS_FILE_MODE,
+  CLI_EXEC,
+  CLI_EXIT_CODE,
+  CLI_INIT_COMMAND,
+  CLI_LICENSE_COMMANDS,
+  CLI_LICENSE_KEY_VARIABLE,
+  CLI_LOCALE_VARIABLE,
+  CLI_PACKAGE_SPEC,
+  CLI_RELEASE_CHANNEL,
+  PACKAGE_MANAGERS,
+  SCAFFOLD_TARGET,
+  cliCommand,
+} from "~/src/data/cli"
+import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
+import { CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
@@ -60,9 +82,16 @@ import { SOCIAL_IMAGE } from "~/src/lib/seo"
 
 import { ACTIVATION_POLL_MS, ACTIVATION_TIMEOUT_MS } from "~/src/presentation/components/custom/app/checkout-activation"
 
+import { ROUTES } from "~/src/routes"
+
 type Value = number | string | readonly string[]
 
+const OCTAL_RADIX = 8
+const FILE_MODE_DIGITS = 4
+
 const renditionName = (height: number): string => `${String(height)}p`
+
+const oauthCallbackPath = (provider: string): string => `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}/${provider}`
 
 const FACTS = {
   ...REPOSITORY_FACTS,
@@ -73,22 +102,50 @@ const FACTS = {
   audioSampleRate: AUDIO_SAMPLE_RATE,
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
   backupCodeMinLength: BACKUP_CODE_MIN_LENGTH,
+  cliActivate: cliCommand(CLI_COMMAND.ACTIVATE),
   cliApiRetryAfterSeconds: LICENSE_API_RETRY_AFTER_SECONDS,
+  cliApiUrlVariable: CLI_API_URL_VARIABLE,
   cliBundleBinding: BUNDLE_BINDING,
   cliBundleContentType: BUNDLE_CONTENT_TYPE,
   cliBundleKey: `<version>${BUNDLE_ARCHIVE_EXTENSION}`,
   cliBundleUrlPath: `${BUNDLE_PATH_PREFIX}/<expiry>.<signature>/<version>${BUNDLE_ARCHIVE_EXTENSION}`,
+  cliCiProviders: CI_PROVIDERS.filter(({ id }) => id !== CI_PROVIDER.CUSTOM).map(({ id }) => id),
+  cliCiRepositoryVariable: CI_REPOSITORY_VARIABLE,
+  cliCredentialsFile: CLI_CREDENTIALS_FILE,
+  cliCredentialsFileMode: CLI_CREDENTIALS_FILE_MODE.toString(OCTAL_RADIX).padStart(FILE_MODE_DIGITS, "0"),
+  cliCredentialsLinuxFallback: CLI_CREDENTIALS_DIRECTORY.LINUX_FALLBACK,
+  cliDeactivate: cliCommand(CLI_COMMAND.DEACTIVATE),
   cliExec: CLI_EXEC,
+  cliExitCancelled: CLI_EXIT_CODE.CANCELLED,
+  cliExitFailure: CLI_EXIT_CODE.FAILURE,
+  cliExitNoPermission: CLI_EXIT_CODE.NO_PERMISSION,
+  cliExitNotAvailable: CLI_EXIT_CODE.NOT_AVAILABLE,
+  cliExitProtocol: CLI_EXIT_CODE.PROTOCOL,
+  cliExitSuccess: CLI_EXIT_CODE.SUCCESS,
+  cliExitTemporaryFailure: CLI_EXIT_CODE.TEMPORARY_FAILURE,
+  cliExitUsage: CLI_EXIT_CODE.USAGE,
+  cliInit: cliCommand(CLI_COMMAND.INIT),
+  cliInitCommand: CLI_INIT_COMMAND,
   cliLicenseCommands: CLI_LICENSE_COMMANDS.map((command) => cliCommand(command)),
   cliLicenseKeyVariable: CLI_LICENSE_KEY_VARIABLE,
+  cliLocaleVariable: CLI_LOCALE_VARIABLE,
+  cliPackageSpec: CLI_PACKAGE_SPEC,
+  cliReleaseChannel: CLI_RELEASE_CHANNEL,
+  cliWhoami: cliCommand(CLI_COMMAND.WHOAMI),
+  corePriceInHours: CORE_PRICE_IN_HOURS,
   courseShowcaseCourses: COURSE_SHOWCASE.COURSES,
   courseShowcaseLessons: COURSE_SHOWCASE.LESSONS,
   defaultPageSize: DEFAULT_PAGE_SIZE,
+  headStartClaimMaxHours: HEAD_START_CLAIM_MAX_HOURS,
+  illustrativeHourlyRate: ILLUSTRATIVE_HOURLY_RATE,
   lessonProgressSaveSeconds: SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
   liveSiteCheckPaths: LIVE_SITE_CHECKS.map(({ path }) => path),
   liveSiteCheckRetries: LIVE_SITE_CHECK_RETRY_DELAYS_MS.length,
   liveSiteCheckRetrySeconds: LIVE_SITE_CHECK_RETRY_DELAY_MS / MILLISECONDS_PER_SECOND,
   localizedTextMaxLength: LOCALIZED_TEXT_MAX_LENGTH,
+  oauthCallbackPath: oauthCallbackPath("<provider>"),
+  oauthCallbackPaths: OAUTH_PROVIDERS.map(({ id }) => oauthCallbackPath(id)),
+  oauthCallbackUrls: OAUTH_PROVIDERS.map(({ id }) => `https://<host>${oauthCallbackPath(id)}`),
   passwordMaxLength: PASSWORD_MAX_LENGTH,
   passwordMinLength: PASSWORD_MIN_LENGTH,
   posterSmallWidth: POSTER_SMALL_WIDTH,
@@ -127,12 +184,19 @@ const TABLES = {
   cliApiEndpoints: cliApiTables.endpoints,
   cliApiErrors: cliApiTables.errors,
   cliBundleBuckets: cliApiTables.bundleBuckets,
+  cliCredentialDirectories: [
+    [PLATFORM.LINUX, CLI_CREDENTIALS_DIRECTORY.LINUX],
+    [PLATFORM.MACOS, CLI_CREDENTIALS_DIRECTORY.MACOS],
+    [PLATFORM.WINDOWS, CLI_CREDENTIALS_DIRECTORY.WINDOWS],
+  ],
+  cliRunners: PACKAGE_MANAGERS.map(({ exec, id }) => [id, `${exec} ${CLI_PACKAGE_SPEC} ${CLI_COMMAND.ACTIVATE}`] as const),
   commitTypes: Object.entries(commitEmojis),
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
   seededAccounts,
 } satisfies Record<string, readonly (readonly [number | string, ...Value[]])[]>
 
 const UNIT_FORMATS = {
+  currency: CURRENCY_FORMAT,
   hour: { style: "unit", unit: "hour", unitDisplay: "long" },
   minute: { style: "unit", unit: "minute", unitDisplay: "long" },
   percent: { style: "unit", unit: "percent" },

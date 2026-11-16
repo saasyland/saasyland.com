@@ -6,6 +6,7 @@ declare module "@tanstack/react-router" {
     server: { requestContext: { nonce: string } }
   }
   interface StaticDataRouteOption {
+    dark?: boolean
     namespaces?: readonly string[]
   }
 }

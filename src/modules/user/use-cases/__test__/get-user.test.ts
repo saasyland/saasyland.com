@@ -1,66 +1,64 @@
-import type * as StartServerModule from "@tanstack/react-start/server"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { QueryClient } from "@tanstack/react-query"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import {
-  createAuthSessionFixture,
-  createAuthUserMutationResult,
-  createMissingAuthSessionResult,
-} from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { executeQuery } from "~/src/platform/testing/lib/query"
+
+import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
-import type { auth } from "~/src/integrations/better-auth/auth.server"
-import * as authServer from "~/src/integrations/better-auth/auth.server"
+import { auth } from "~/src/integrations/better-auth/auth.server"
+import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { getUser } from "~/src/modules/user/use-cases/get-user"
+import { getUserQuery } from "~/src/modules/user/use-cases/get-user"
+import { user } from "~/src/modules/user/user.schema"
 
-const HEADERS = new Headers()
-const TARGET_USER_ID = "01900000-0000-7000-8000-000000000002"
 const ADMIN_USER_ID = "01900000-0000-7000-8000-000000000001"
+const TARGET_USER_ID = "01900000-0000-7000-8000-000000000002"
+const MISSING_USER_ID = "01900000-0000-7000-8000-000000000009"
 
-type AuthApi = typeof auth.api
-
-const getSessionMock = vi.hoisted(() => vi.fn<AuthApi["getSession"]>())
-const getUserMock = vi.hoisted(() => vi.fn<AuthApi["getUser"]>())
-
-vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
-
-vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerModule> => ({
-  getRequest: vi.fn(() => new Request("http://127.0.0.1:3000/", { headers: HEADERS })),
-}))
+beforeEach(async () => {
+  await db.delete(user)
+  await db.insert(user).values([
+    { email: "admin@example.test", id: ADMIN_USER_ID, name: "Admin", role: ROLE_CODES.ADMIN },
+    { email: "grace@example.test", id: TARGET_USER_ID, name: "Grace Hopper", role: ROLE_CODES.CUSTOMER },
+  ])
+  vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: ADMIN_USER_ID }))
+})
+afterEach(() => vi.restoreAllMocks())
 
 describe("get-user", () => {
-  it("fetches a user when the caller is an admin", async () => {
-    expect.hasAssertions()
-    getSessionMock.mockReset()
-    getUserMock.mockReset()
-    vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
-    vi.spyOn(authServer.auth.api, "getUser").mockImplementation(getUserMock)
-    getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN, userId: ADMIN_USER_ID }))
-    const userResult = createAuthUserMutationResult({ userId: TARGET_USER_ID }).user
-    getUserMock.mockResolvedValue(userResult)
-
-    await expect(getUser({ data: { userId: TARGET_USER_ID } })).resolves.toMatchObject(userResult)
-    expect(getUserMock).toHaveBeenCalledWith({
-      headers: HEADERS,
-      query: { id: TARGET_USER_ID },
+  it("reads one user's row for an administrator", async () => {
+    await expect(executeQuery(getUserQuery({ userId: TARGET_USER_ID }))).resolves.toMatchObject({
+      email: "grace@example.test",
+      id: TARGET_USER_ID,
+      name: "Grace Hopper",
+      role: ROLE_CODES.CUSTOMER,
     })
   })
 
-  it("rejects when the caller is not an admin", async () => {
-    expect.hasAssertions()
-    getSessionMock.mockReset()
-    vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
-    getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: ADMIN_USER_ID }))
+  it("caches each user under their own key", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
 
-    await expect(getUser({ data: { userId: TARGET_USER_ID } })).rejects.toMatchObject({ code: ERROR_CODES.FORBIDDEN })
+    await queryClient.query(getUserQuery({ userId: TARGET_USER_ID }))
+    await queryClient.query(getUserQuery({ userId: ADMIN_USER_ID }))
+
+    expect(queryClient.getQueryData(getUserQuery({ userId: TARGET_USER_ID }).queryKey)).toMatchObject({ name: "Grace Hopper" })
+    expect(queryClient.getQueryData(getUserQuery({ userId: ADMIN_USER_ID }).queryKey)).toMatchObject({ name: "Admin" })
   })
 
-  it("rejects when the caller is signed out", async () => {
-    expect.hasAssertions()
-    getSessionMock.mockReset()
-    vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
-    getSessionMock.mockResolvedValue(createMissingAuthSessionResult())
+  it("reports a user who does not exist as not found", async () => {
+    await expect(executeQuery(getUserQuery({ userId: MISSING_USER_ID }))).rejects.toMatchObject({ code: ERROR_CODES.NOT_FOUND })
+  })
 
-    await expect(getUser({ data: { userId: TARGET_USER_ID } })).rejects.toMatchObject({ code: ERROR_CODES.UNAUTHORIZED })
+  it("rejects a caller without the permission to read users", async () => {
+    vi.mocked(auth.api.getSession).mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: TARGET_USER_ID }))
+
+    await expect(executeQuery(getUserQuery({ userId: TARGET_USER_ID }))).rejects.toMatchObject({ code: ERROR_CODES.FORBIDDEN })
+  })
+
+  it("rejects a signed-out caller", async () => {
+    vi.mocked(auth.api.getSession).mockResolvedValue(null)
+
+    await expect(executeQuery(getUserQuery({ userId: TARGET_USER_ID }))).rejects.toMatchObject({ code: ERROR_CODES.UNAUTHORIZED })
   })
 })

@@ -1,6 +1,6 @@
 import type { JSX } from "react"
 
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { Laptop, Loader2, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 import { useFormatter, useTranslations } from "use-intl/react"
@@ -8,6 +8,8 @@ import { useFormatter, useTranslations } from "use-intl/react"
 import type { AuthActiveSession } from "~/src/integrations/better-auth/auth.types"
 
 import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
+import { isMobileSession, sessionDeviceLabel } from "~/src/modules/session/session.utils"
+import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 import { revokeSessionMutation } from "~/src/modules/session/use-cases/revoke-session"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
@@ -15,26 +17,14 @@ import { useErrorMessage } from "~/src/hooks/use-error-message"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
 import { Button } from "~/src/presentation/components/shadcn/button"
 
-const MOBILE_USER_AGENT_PATTERN = /mobile|iphone|android|ipad|ipod/iu
-
-const deviceLabel = (session: AuthActiveSession): string | undefined => {
-  if (session.userAgent !== null && session.userAgent !== "") {
-    return session.userAgent
-  }
-
-  if (session.ipAddress !== null && session.ipAddress !== "") {
-    return session.ipAddress
-  }
-
-  return undefined
-}
-
 export const SessionRow = ({ isCurrent, session }: { readonly isCurrent: boolean; readonly session: AuthActiveSession }): JSX.Element => {
   const t = useTranslations("pages.admin")
   const format = useFormatter()
 
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
+
+  const { dataUpdatedAt } = useSuspenseQuery(getActiveSessionsQuery)
 
   const revokeSession = useMutation({
     ...revokeSessionMutation,
@@ -47,8 +37,8 @@ export const SessionRow = ({ isCurrent, session }: { readonly isCurrent: boolean
     },
   })
 
-  const isMobile = session.userAgent !== null && MOBILE_USER_AGENT_PATTERN.test(session.userAgent)
-  const lastActive = t("settings.security.sessions.activeAgo", { time: format.relativeTime(session.updatedAt, new Date()) })
+  const isMobile = isMobileSession(session)
+  const lastActive = t("settings.security.sessions.activeAgo", { time: format.relativeTime(session.updatedAt, dataUpdatedAt) })
   const activity = isCurrent ? session.ipAddress : lastActive
 
   return (
@@ -60,7 +50,9 @@ export const SessionRow = ({ isCurrent, session }: { readonly isCurrent: boolean
         </div>
         <div>
           <div className="mb-0.5 flex items-center gap-2">
-            <p className="text-sm font-medium text-foreground">{deviceLabel(session) ?? t("settings.security.sessions.unknownDevice")}</p>
+            <p className="text-sm font-medium text-foreground">
+              {sessionDeviceLabel(session) ?? t("settings.security.sessions.unknownDevice")}
+            </p>
             {isCurrent && (
               <Badge className="px-0 text-xs font-medium text-ring" variant="outline">
                 {t("settings.security.sessions.currentBadge")}

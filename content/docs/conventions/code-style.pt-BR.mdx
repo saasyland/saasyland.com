@@ -20,11 +20,22 @@ O oxlint executa as categorias `correctness`, `nursery`, `pedantic`, `perf`, `st
 | `unicorn/no-null`            | ativada fora dos testes e de `src/platform/testing`               | Valores ausentes são `undefined`                            |
 | `typescript/no-explicit-any` | `error`                                                           | Nenhum valor é tipado como `any`                            |
 
-Os overrides são restritos e valem por arquivo: os testes e os helpers de teste compartilhados em `src/platform/testing` relaxam `no-magic-numbers`, `no-await-in-loop` e `unicorn/no-null`; `src/presentation` e `src/hooks` relaxam `typescript/consistent-return`; os mocks de teste relaxam `require-await`; `src/routes` desativa `sort-keys`, porque as opções de rota seguem uma ordem própria (veja [Arquivos de rota](/docs/conventions/routes)).
+Os overrides são restritos e valem por arquivo: os testes e os helpers de teste compartilhados em `src/platform/testing` relaxam `no-magic-numbers`, `no-await-in-loop`, `unicorn/no-null` e `hydration/no-clock-or-locale-in-render`; `src/presentation` e `src/hooks` relaxam `typescript/consistent-return`; os mocks de teste relaxam `require-await`; `src/routes` desativa `sort-keys`, porque as opções de rota seguem uma ordem própria (veja [Arquivos de rota](/docs/conventions/routes)).
 
 `tsconfig.json` adiciona as flags estritas que mudam a forma de escrever código: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` e `noUnusedParameters`. Uma leitura indexada pode ser `undefined`, uma propriedade opcional não pode receber `undefined` explicitamente, e uma assinatura de índice é lida como `record["key"]`.
 
 O formatador imprime sem ponto e vírgula, com aspas duplas, vírgulas finais e largura de <RepositoryFact name="printWidth" />. Ele também ordena os imports em grupos fixos, as classes do Tailwind em `className` e nas chamadas a `cn`, e os scripts do `package.json` pelo nome (`sortPackageJson: { sortScripts: true }`), então nunca ordene nenhum deles à mão: `vp check` falha quando um deles está fora de ordem. Veja [Lint e formatação](/docs/tooling/lint-format) para os comandos.
+
+## Renderizar o que o servidor renderizou
+
+Uma página renderiza duas vezes: no servidor e de novo no navegador, quando o React hidrata o HTML. As duas renderizações precisam imprimir o mesmo texto; senão, o React relata um erro de hidratação (erro #418) e renderiza a página de novo. Por isso o código de renderização nunca lê o relógio nem o locale do ambiente de execução, que diferem entre os dois: nada de `new Date()` sem argumento, de `Date.now` nem de `toLocaleString`, `toLocaleDateString` ou `toLocaleTimeString`. Use um valor que os dois lados compartilham:
+
+- um tempo relativo conta a partir do `dataUpdatedAt` da query que leu os dados, como mostra [Internacionalização e idiomas](/docs/features/internationalization);
+- um ano que o site imprime vem da build: o rodapé termina o copyright em `REPOSITORY_FACTS.buildYear`, o ano UTC em que o site foi construído;
+- números e datas passam por `useFormatter` do use-intl, no idioma da página e no fuso horário do usuário;
+- uma espera no navegador, como o tempo limite de ativação de `CheckoutActivation`, é um timer iniciado em `useEffect`, então a primeira renderização é a do servidor.
+
+`hydration/no-clock-or-locale-in-render`, a regra do plugin próprio de oxlint do repositório em `scripts/hydration-lint-plugin.ts`, aplica isso em `src/hooks`, `src/presentation`, `src/providers` e `src/routes/*.tsx`. Ali tudo conta como código de renderização, exceto uma função que roda depois: um handler de evento `on…`, como prop de JSX, propriedade de objeto ou variável; uma `queryFn` ou `mutationFn`; e um callback passado a `useEffect`, `useLayoutEffect`, `useCallback`, `setTimeout`, `setInterval`, `requestAnimationFrame` ou `addEventListener`. Essas listas no plugin são a lista de permissões: outro tipo de callback adiado entra ali, com um caso em `src/__test__/hydration-lint-plugin.test.ts`, nunca com um comentário de desativação.
 
 ## Nada de comentários
 
@@ -95,7 +106,7 @@ export const COURSE_STATUS = {
 } as const
 ```
 
-A tupla de que uma coluna ou um schema de enum precisa é montada a partir do objeto, não digitada de novo: `course.schema.ts` declara `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, que alimenta tanto `text("status", { enum: COURSE_STATUSES })` quanto `zod.enum(COURSE_STATUSES)`. Uma tupla que o código do navegador também lê é declarada nas constantes do módulo, que não importam nada do Drizzle: a tabela de preços percorre `LICENSE_TIERS` de `license.constants.ts`.
+A tupla de que uma coluna ou um schema de enum precisa é montada a partir do objeto, não digitada de novo, e fica ao lado dele nas constantes do módulo, que não importam nada do Drizzle: `course.constants.ts` declara `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, que alimenta tanto `text("status", { enum: COURSE_STATUSES })` em `course.schema.ts` quanto `zod.enum(COURSE_STATUSES)` em `course.zod.ts`. O código do navegador também lê as tuplas de lá: a tabela de preços percorre `LICENSE_TIERS` de `license.constants.ts`.
 
 - As constantes de um módulo ficam no seu `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); os valores de um provedor ficam no `*.constants.ts` da integração (`POLAR_ORDER_STATUS` em `polar.constants.ts`, `AUTH_PROVIDER` em `auth.constants.ts`).
 - Os comprimentos de colunas e de entradas são nomeados uma única vez, nas constantes do módulo, e lidos tanto pelo schema do Drizzle quanto pelo schema do Zod: `PRODUCT_NAME_MAX_LENGTH` em `product.constants.ts`.

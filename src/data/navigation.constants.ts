@@ -5,7 +5,20 @@ export const FEATURE_STATUS = {
   AVAILABLE: "available",
 } as const
 
-type FeatureStatus = (typeof FEATURE_STATUS)[keyof typeof FEATURE_STATUS]
+export const FEATURE_STATUSES = [FEATURE_STATUS.AVAILABLE, FEATURE_STATUS.ARRIVING] as const
+
+export type FeatureStatus = (typeof FEATURE_STATUSES)[number]
+
+export const SITE_CONTENT_ID = "content"
+
+export const MARKETING_SECTION_IDS = {
+  CLI: "cli",
+  FAQ: "faq",
+  FOUNDATION: "foundation",
+  PRICING: "pricing",
+  QUALITY: "quality",
+  TOOLKIT: "toolkit",
+} as const
 
 export const NAVIGATION_PLACEMENT = {
   ADMIN: "admin",
@@ -72,6 +85,7 @@ interface FooterEntry extends Entry {
 }
 
 interface HeaderEntry extends Entry {
+  readonly hash?: string
   readonly placement: typeof NAVIGATION_PLACEMENT.HEADER
 }
 

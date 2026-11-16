@@ -3,7 +3,8 @@ import type { JSX } from "react"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
@@ -57,7 +58,7 @@ export const CompareSection = (): JSX.Element => {
                   </dd>
                   <dd className="text-body-sm text-pretty text-foreground md:bg-card md:px-5 md:py-4">
                     <span className="mr-2 font-mono text-label text-muted-foreground uppercase md:hidden">{t("columns.saasyland")}</span>
-                    {t.rich(`dimensions.${id}.ours`, PRICE_TAGS)}
+                    {t.rich(`dimensions.${id}.ours`, { ...PRICE_TAGS, ...REPOSITORY_FACTS })}
                   </dd>
                 </HighlightItem>
               ))}

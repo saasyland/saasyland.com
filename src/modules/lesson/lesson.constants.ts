@@ -9,6 +9,10 @@ export const LESSON_STATUS = {
   PUBLISHED: "published",
 } as const
 
+export const LESSON_ACCESS_LEVELS = [LESSON_ACCESS.PREVIEW, LESSON_ACCESS.ACCOUNT, LESSON_ACCESS.PAID] as const
+
+export const LESSON_STATUSES = [LESSON_STATUS.DRAFT, LESSON_STATUS.PUBLISHED] as const
+
 export const LESSON_QUERY_KEYS = {
   ALL: ["lesson"],
   PLAYBACK: ["lesson", "getLessonPlayback"],

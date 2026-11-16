@@ -63,7 +63,7 @@ Cada producto necesita exactamente un beneficio de clave de licencia; puede tene
 
 ## Descuentos regionales
 
-El proceso de pago aplica un precio regional mediante un descuento automático de Polar (consulte [Pagos y licencias](/docs/features/payments)). Cree un descuento porcentual para cada tramo de `PPP_TIERS` (`src/modules/_core/constants/pricing.ts`): <RegionalDiscounts />. Cada descuento debe:
+El proceso de pago aplica un precio regional mediante un descuento automático de Polar (consulte [Licencias](/docs/features/licences)). Cree un descuento porcentual para cada tramo de `PPP_TIERS` (`src/modules/license/license.pricing.ts`): <RegionalDiscounts />. Cada descuento debe:
 
 - descontar un porcentaje; Polar lo guarda en puntos básicos, es decir, en centésimas de punto porcentual;
 - no tener código, para que el pago pueda aplicarlo sin que el comprador escriba ninguno;
@@ -81,7 +81,7 @@ Cree un endpoint de webhook para cada entorno desplegado, en la organización qu
 | `preview`    | Sandbox      | `https://preview.saasyland.com/api/auth/polar/webhooks` |
 | `production` | Producción   | `https://saasyland.com/api/auth/polar/webhooks`         |
 
-El host sale de `DEPLOYED_HOSTS` y la ruta, de `ROUTES`. Elija el formato raw, mantenga el endpoint activado y suscríbalo exactamente a los eventos que gestiona `licenseWebhookHandlers`, enumerados en `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`):
+El host sale de `DEPLOYED_HOSTS` y la ruta, de `ROUTES`. Elija el formato raw, mantenga el endpoint activado y suscríbalo exactamente a los eventos de `POLAR_EVENTS` (`src/data/polar-events.ts`), que reúne los eventos que gestiona cada área (consulte [Pagos](/docs/features/payments#webhooks)). Hoy solo el área de licencias gestiona eventos, enumerados en `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`):
 
 - `order.paid` concede la licencia;
 - `order.refunded` la marca como reembolsada cuando el pedido se ha reembolsado por completo;
@@ -106,7 +106,7 @@ Cada script lee las claves de Polar de `.env.<environment>` y solo envía petici
 - cada `POLAR_PRODUCT_ID_*` corresponde a un producto de la organización que no está archivado ni es una suscripción, y cuyos precios son fijos, están en `DEFAULT_CURRENCY_CODE` y son iguales a `TIER_PRICES`;
 - cada producto tiene exactamente un beneficio de clave de licencia con el límite del nivel según `LICENSE_ACTIVATION_LIMITS`, sin caducidad y sin límite de uso;
 - para cada tramo de `PPP_TIERS`, hay un descuento porcentual automático que puede canjearse en el producto de cada nivel, según la regla que usa el pago;
-- preview y producción tienen un endpoint raw activado en su URL de webhook, firmado con `POLAR_WEBHOOK_SECRET` y suscrito exactamente a los eventos gestionados;
+- preview y producción tienen un endpoint raw activado en su URL de webhook, firmado con `POLAR_WEBHOOK_SECRET` y suscrito exactamente a `POLAR_EVENTS`;
 - ningún endpoint envía eventos al host de un entorno que usa el otro servicio de Polar.
 
 `polar:verify` es la comprobación de despliegue del área de Polar (`POLAR_DEPLOY_CHECKS` en `src/data/polar.deploy.ts`), así que `deploy:preview` y `deploy:production` lo ejecutan a través de `scripts/run-deploy-checks.ts`, justo después de `scripts/verify-bindings.ts` y antes de la compilación. Los despliegues de la CI no ejecutan ninguna comprobación de despliegue, tampoco `polar:verify`: `deploy-reusable.yml` no tiene ningún paso para `scripts/run-deploy-checks.ts`, los entornos de GitHub no guardan ningún token de Polar, y el Worker conserva los secretos de Polar ya configurados en Cloudflare. Ejecute usted mismo `polar:verify` después de cada cambio en Polar.
@@ -132,7 +132,8 @@ Un fallo detiene el despliegue antes de que se compile, se migre o se suba nada.
 
 ## Páginas relacionadas
 
-- [Pagos y licencias](/docs/features/payments)
+- [Pagos](/docs/features/payments)
+- [Licencias](/docs/features/licences)
 - [Variables de entorno](/docs/getting-started/environment-variables)
 - [Desplegar una preview](/docs/getting-started/deploy-preview)
 - [Modelos de precios](/docs/features/pricing-models)

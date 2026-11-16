@@ -3,8 +3,9 @@ import { type JSX, type ReactNode, useState } from "react"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { PACKAGE_MANAGERS, SCAFFOLD_TARGET } from "~/src/data/cli"
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { CLI_GENERATION_VALUES, PACKAGE_MANAGERS, SCAFFOLD_TARGET } from "~/src/data/cli"
+import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { CopyButton } from "~/src/presentation/components/custom/copy-button"
 import { Accent } from "~/src/presentation/components/custom/landing-page/components/accent"
@@ -50,10 +51,12 @@ export const HeroSection = (): JSX.Element => {
       <div aria-hidden className="field-signal pointer-events-none absolute inset-0" />
 
       <div className="relative mx-auto w-full max-w-7xl px-6 pt-32 pb-16 md:px-10 md:pt-40 md:pb-20">
-        <h1 className="max-w-[11.6em] text-display-hero text-foreground sm:motion-safe:animate-rise">{t.rich("title", HERO_TAGS)}</h1>
+        <h1 className="max-w-[11.6em] text-display-hero text-foreground sm:motion-safe:animate-rise">
+          {t.rich("title", { ...HERO_TAGS, ...REPOSITORY_FACTS })}
+        </h1>
 
         <p className="mt-6 max-w-2xl text-lead text-pretty text-muted-foreground sm:[--rise-delay:100ms] sm:motion-safe:animate-rise">
-          {t.rich("description", HERO_TAGS)}
+          {t.rich("description", { ...HERO_TAGS, ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}
         </p>
 
         <div className="mt-9 flex flex-wrap items-center gap-x-3 gap-y-4 sm:[--rise-delay:200ms] sm:motion-safe:animate-rise">

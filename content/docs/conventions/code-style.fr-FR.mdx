@@ -20,11 +20,22 @@ oxlint traite les catégories `correctness`, `nursery`, `pedantic`, `perf`, `sty
 | `unicorn/no-null`            | activée hors des tests et de `src/platform/testing`                             | Les valeurs absentes sont `undefined`                                         |
 | `typescript/no-explicit-any` | `error`                                                                         | Aucune valeur n'est typée `any`                                               |
 
-Les surcharges sont étroites et limitées à certains fichiers : les tests et les utilitaires de test partagés de `src/platform/testing` assouplissent `no-magic-numbers`, `no-await-in-loop` et `unicorn/no-null` ; `src/presentation` et `src/hooks` assouplissent `typescript/consistent-return` ; les mocks de test assouplissent `require-await` ; `src/routes` désactive `sort-keys`, car les options de route suivent leur propre ordre (voir [Fichiers de route](/docs/conventions/routes)).
+Les surcharges sont étroites et limitées à certains fichiers : les tests et les utilitaires de test partagés de `src/platform/testing` assouplissent `no-magic-numbers`, `no-await-in-loop`, `unicorn/no-null` et `hydration/no-clock-or-locale-in-render` ; `src/presentation` et `src/hooks` assouplissent `typescript/consistent-return` ; les mocks de test assouplissent `require-await` ; `src/routes` désactive `sort-keys`, car les options de route suivent leur propre ordre (voir [Fichiers de route](/docs/conventions/routes)).
 
 `tsconfig.json` ajoute les options strictes qui changent la façon d'écrire le code : `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` et `noUnusedParameters`. Une lecture indexée peut valoir `undefined`, une propriété optionnelle ne peut pas recevoir `undefined` explicitement, et une signature d'index se lit sous la forme `record["key"]`.
 
 Le formateur écrit sans points-virgules, avec des guillemets doubles, des virgules finales et une largeur de <RepositoryFact name="printWidth" />. Il trie aussi les imports en groupes fixes, les classes Tailwind dans `className` et dans les appels à `cn`, et les scripts de `package.json` par nom (`sortPackageJson: { sortScripts: true }`) : n'ordonnez donc jamais aucun d'eux à la main, car `vp check` échoue dès que l'un d'eux n'est pas dans l'ordre. Voir [Lint et formatage](/docs/tooling/lint-format) pour les commandes.
+
+## Rendre ce que le serveur a rendu
+
+Une page est rendue deux fois : sur le serveur, puis dans le navigateur quand React hydrate le HTML. Les deux rendus doivent afficher le même texte, sinon React signale une erreur d’hydratation (erreur #418) et rend la page à nouveau. Le code de rendu ne lit donc jamais l’horloge ni la locale de l’environnement d’exécution, qui diffèrent entre les deux : pas de `new Date()` sans argument, pas de `Date.now`, ni de `toLocaleString`, `toLocaleDateString` ou `toLocaleTimeString`. Utilisez une valeur que les deux côtés partagent :
+
+- un temps relatif se compte à partir du `dataUpdatedAt` de la requête qui a lu ses données, comme le montre [Internationalisation et langues](/docs/features/internationalization) ;
+- une année affichée par le site vient du build : le pied de page termine son copyright par `REPOSITORY_FACTS.buildYear`, l’année UTC du build du site ;
+- les nombres et les dates passent par `useFormatter` de use-intl, dans la langue de la page et le fuseau horaire de l’utilisateur ;
+- une attente dans le navigateur, comme le délai d’activation de `CheckoutActivation`, est un minuteur démarré dans `useEffect`, si bien que le premier rendu est celui du serveur.
+
+`hydration/no-clock-or-locale-in-render`, la règle du plugin oxlint propre au dépôt dans `scripts/hydration-lint-plugin.ts`, l’impose dans `src/hooks`, `src/presentation`, `src/providers` et `src/routes/*.tsx`. Tout y compte comme code de rendu, sauf une fonction qui s’exécute plus tard : un gestionnaire d’événements `on…`, en prop JSX, en propriété d’objet ou en variable ; une `queryFn` ou une `mutationFn` ; et un callback passé à `useEffect`, `useLayoutEffect`, `useCallback`, `setTimeout`, `setInterval`, `requestAnimationFrame` ou `addEventListener`. Ces listes du plugin sont la liste d’autorisation : un autre type de callback différé s’y ajoute, avec un cas dans `src/__test__/hydration-lint-plugin.test.ts`, jamais par un commentaire de désactivation.
 
 ## Pas de commentaires
 
@@ -95,7 +106,7 @@ export const COURSE_STATUS = {
 } as const
 ```
 
-Le tuple dont une colonne ou un schéma d'enum a besoin est construit à partir de l'objet, et non retapé : `course.schema.ts` déclare `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, qui alimente à la fois `text("status", { enum: COURSE_STATUSES })` et `zod.enum(COURSE_STATUSES)`. Un tuple que lit aussi le code du navigateur est déclaré à la place dans les constantes du module, qui n'importent rien de Drizzle : la grille tarifaire parcourt `LICENSE_TIERS` de `license.constants.ts`.
+Le tuple dont une colonne ou un schéma d'enum a besoin est construit à partir de l'objet, et non retapé, et se trouve à côté de lui dans les constantes du module, qui n'importent rien de Drizzle : `course.constants.ts` déclare `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, qui alimente à la fois `text("status", { enum: COURSE_STATUSES })` dans `course.schema.ts` et `zod.enum(COURSE_STATUSES)` dans `course.zod.ts`. Le code du navigateur y lit lui aussi les tuples : la grille tarifaire parcourt `LICENSE_TIERS` de `license.constants.ts`.
 
 - Les constantes d'un module se trouvent dans son `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`) ; les valeurs d'un fournisseur se trouvent dans le `*.constants.ts` de l'intégration (`POLAR_ORDER_STATUS` dans `polar.constants.ts`, `AUTH_PROVIDER` dans `auth.constants.ts`).
 - Les longueurs des colonnes et des entrées sont nommées une seule fois, dans les constantes du module, et lues à la fois par le schéma Drizzle et par le schéma Zod : `PRODUCT_NAME_MAX_LENGTH` dans `product.constants.ts`.

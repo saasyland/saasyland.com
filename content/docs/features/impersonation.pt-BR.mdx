@@ -1,6 +1,6 @@
 ---
 title: "Personificação"
-description: "Personificação administrativa do Better Auth: as funções de servidor existem, mas nenhuma tela as usa ainda."
+description: "Personificação administrativa do Better Auth: um administrador entra como cliente pela tela de usuários e encerra a personificação por um banner no workspace."
 ---
 
 O plugin `admin` do Better Auth oferece personificação, e `src/modules/user/use-cases` a encapsula:
@@ -14,11 +14,25 @@ export const impersonateUser = createServerFn({ method: "POST" })
 
 `stopImpersonatingUser` exige apenas uma sessão logada. Os dois arquivos exportam opções de mutação (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-## Situação atual
+## Início
 
-- Nenhuma tela chama essas funções: o menu de ações das linhas de usuários não tem item de personificação e não existe um aviso para encerrá-la.
-- O Better Auth marca as sessões de personificação com `impersonatedBy`; `getActiveSessions` as exclui da lista de sessões das configurações.
-- As guardas de rota removem os dados do usuário anterior do cache de consultas quando o usuário da sessão muda, então a próxima navegação após personificar carrega os dados do outro usuário.
-- Não existe log de auditoria de personificações.
+**Entrar como este usuário** no menu de ações de um usuário ([Usuários (admin)](/docs/features/users-admin)), em `/admin/users/all` ou no perfil do usuário, chama `impersonateUser`. O Better Auth cria para o usuário uma sessão marcada com `impersonatedBy`, guarda o token de sessão do administrador em um cookie assinado `admin_session` e troca o cookie de sessão para a nova sessão; `tanstackStartCookies()` leva os dois cookies na resposta da função de servidor. Em seguida, o menu remove os dados do administrador do cache de consultas com `removeUserData`, limpa o cache do roteador e abre `/app`.
 
-Para adicioná-la, coloque um item de menu em `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) e uma forma visível de encerrar a personificação nos layouts.
+O item aparece apenas para um usuário que não é administrador nem está bloqueado. O Better Auth se recusa a personificar um usuário com papel de administrador, a menos que quem chama tenha `user: ["impersonate-admins"]`, que nenhum papel em `auth.access.ts` concede, e o hook de sessão dele nega a sessão a um usuário bloqueado. `auth.server.ts` não define `impersonationSessionDuration`, então a sessão dura o quanto o padrão do Better Auth permitir.
+
+## Banner e encerramento
+
+`ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) fica acima do cabeçalho do layout de `/app`. Ele lê `getCurrentSessionQuery` e só é renderizado quando a sessão tem `impersonatedBy`: uma região rotulada a partir de `components.custom.impersonation-banner.json` que mostra o usuário personificado e o e-mail dele, e um botão **Encerrar personificação**. O botão chama `stopImpersonatingUser`, que exclui a sessão de personificação e restaura a sessão do administrador a partir do cookie `admin_session`; depois o banner remove os dados do usuário do cache e abre o perfil desse usuário em `/admin/users`.
+
+## Sessões
+
+- `getActiveSessions` deixa as sessões de personificação de fora da lista de sessões das configurações, e o próprio endpoint `list-sessions` do Better Auth faz o mesmo.
+- O card de sessões no perfil de um usuário as lista, então um administrador pode revogar uma sessão de personificação que outro administrador deixou aberta.
+- As guardas de rota removem os dados do usuário anterior do cache de consultas quando o usuário da sessão muda, então cada navegação depois de iniciar ou encerrar carrega os dados do usuário certo.
+
+Não existe log de auditoria de personificações.
+
+## Guias relacionados
+
+- [Usuários (admin)](/docs/features/users-admin)
+- [Sessões](/docs/features/sessions)

@@ -285,17 +285,20 @@ const translationProblems = ({ locale, source, sourcePath }: { locale: Supported
   return isMdx ? mdxProblems(translation) : metaProblems(translation)
 }
 
-export const contentProblems = (): string[] =>
+export const sourcePages = (): string[] =>
   listFiles(CONTENT_DIR)
     .filter((path) => path.endsWith(SOURCE_MDX_SUFFIX) || path.endsWith(SOURCE_META_SUFFIX))
-    .flatMap((sourcePath) => {
-      const source = readFileSync(sourcePath, "utf8")
+    .map((path) => relative(CONTENT_DIR, path))
 
-      return I18N.SUPPORTED_LOCALES.flatMap((locale) => translationProblems({ locale, source, sourcePath }))
-    })
+export const pageProblems = (page: string): string[] => {
+  const sourcePath = join(CONTENT_DIR, page)
+  const source = readFileSync(sourcePath, "utf8")
+
+  return I18N.SUPPORTED_LOCALES.flatMap((locale) => translationProblems({ locale, source, sourcePath }))
+}
 
 if (import.meta.main) {
-  const problems = contentProblems()
+  const problems = sourcePages().flatMap((page) => pageProblems(page))
 
   if (problems.length > 0) {
     console.error(problems.join("\n"))

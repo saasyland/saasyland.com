@@ -2,7 +2,8 @@ import type { JSX } from "react"
 
 import { useTranslations } from "use-intl/react"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
+import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
@@ -41,7 +42,7 @@ export const LineSection = (): JSX.Element => {
               <HighlightItem className="group bg-background" contentClassName="flex h-full flex-col p-7 md:p-10" id={id} key={id}>
                 <h3 className="text-headline-support text-balance text-foreground">{t(`stations.${id}.title`, REPOSITORY_FACTS)}</h3>
                 <p className="mt-4 max-w-[44ch] text-body text-pretty text-muted-foreground transition-colors duration-400 ease-exp group-hover:text-foreground">
-                  {t(`stations.${id}.body`, REPOSITORY_FACTS)}
+                  {t(`stations.${id}.body`, { ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}
                 </p>
                 <p className="mt-auto flex items-center gap-2.5 pt-8">
                   <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-ring" />

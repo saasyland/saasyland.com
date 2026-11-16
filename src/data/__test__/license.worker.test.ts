@@ -5,9 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER, HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { PPP_ATTRIBUTE, PPP_COOKIE, PPP_DECLINED } from "~/src/modules/_core/constants/pricing"
 import { bundleObjectKey, signBundle } from "~/src/modules/license/license.bundles"
 import { BUNDLE_PATH_PREFIX } from "~/src/modules/license/license.constants"
+import { PPP_ATTRIBUTE, PPP_COOKIE, PPP_DECLINED } from "~/src/modules/license/license.pricing"
 
 import { LICENSE_WORKER_HANDLERS } from "~/src/data/license.worker"
 import { WORKER_HANDLER_KIND } from "~/src/data/worker.constants"

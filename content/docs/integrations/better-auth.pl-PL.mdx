@@ -3,7 +3,7 @@ title: "Uwierzytelnianie i bezpieczeństwo"
 description: "Sesje Better Auth, strażnicy tras, middleware funkcji serwerowych i role."
 ---
 
-Better Auth przechowuje użytkowników, konta, sesje i tokeny weryfikacyjne w D1 za pośrednictwem adaptera Drizzle. Zapewnia rejestrację e-mailem i hasłem z obowiązkową weryfikacją adresu e-mail, logowanie przez GitHub i Google, reset hasła, zmianę adresu e-mail, uwierzytelnianie dwuskładnikowe TOTP, zarządzanie użytkownikami przez administratora oraz płatności Polar. Jego API HTTP obsługuje `src/routes/api/auth.$.ts`.
+Better Auth przechowuje użytkowników, konta, sesje i tokeny weryfikacyjne w D1 za pośrednictwem adaptera Drizzle. Zapewnia rejestrację e-mailem i hasłem z obowiązkową weryfikacją adresu e-mail, logowanie przez GitHub i Google, reset hasła, zmianę adresu e-mail, uwierzytelnianie dwuskładnikowe TOTP, zarządzanie użytkownikami przez administratora oraz płatności Polar. Jego API HTTP obsługuje `src/routes/api/auth.$.ts`. `auth.server.ts` i `auth.client.ts` ustawiają `basePath` Better Auth na `ROUTES.API_AUTH_BASE`, ścieżkę obsługiwaną przez ten plik, więc serwer i klient w przeglądarce biorą ją z jednej stałej.
 
 ## Pliki
 
@@ -47,10 +47,10 @@ Strażnicy stron chronią wyłącznie nawigację, dlatego każda chroniona funkc
 
 `auth.server.ts` nie wymienia żadnego innego obszaru. Dwie własne listy obszaru uwierzytelniania łączą to, co dodają pozostałe:
 
-| Lista                    | Każdy obszar deklaruje                                                                                                        | Zbiorczy eksport                   | Używa                                                                                     |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
-| Pluginy uwierzytelniania | `src/data/<area>.auth-plugins.ts`: pluginy wraz ze ścieżkami, które Better Auth zamyka dla HTTP i wyłącza z limitowania żądań | `src/data/auth-plugins.entries.ts` | `plugins`, `disabledPaths` i `rateLimit.customRules`; obszar licencji dodaje plugin Polar |
-| E-maile uwierzytelniania | `src/data/<area>.auth-emails.ts`: funkcje wysyłające e-maile weryfikacyjne, resetu hasła i zmiany adresu e-mail               | `src/data/auth-emails.entries.ts`  | `AUTH_EMAILS`, które wywołują hooki e-mailowe; Resend dodaje `RESEND_AUTH_EMAILS`         |
+| Lista                    | Każdy obszar deklaruje                                                                                          | Zbiorczy eksport                   | Używa                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------- |
+| Pluginy uwierzytelniania | `src/data/<area>.auth-plugins.ts`: pluginy wraz ze ścieżkami, które Better Auth wyłącza z limitowania żądań     | `src/data/auth-plugins.entries.ts` | `plugins` i `rateLimit.customRules`; obszar Polar dodaje plugin Polar             |
+| E-maile uwierzytelniania | `src/data/<area>.auth-emails.ts`: funkcje wysyłające e-maile weryfikacyjne, resetu hasła i zmiany adresu e-mail | `src/data/auth-emails.entries.ts`  | `AUTH_EMAILS`, które wywołują hooki e-mailowe; Resend dodaje `RESEND_AUTH_EMAILS` |
 
 Pluginy obszarów następują po `admin` i `twoFactor` i poprzedzają `tanstackStartCookies`, który musi być ostatni. Better Auth odczytuje pola użytkownika i sesji swoich pluginów z listy pluginów po kolei, aż do pierwszej listy rozwiniętej operatorem spread, więc plugin, który dodaje takie pola, należy do `auth.server.ts`. Hooki e-mailowe przekazują każdy e-mail funkcji wysyłającej każdego obszaru, który go wysyła: `sendVerifyEmail`, `sendResetPasswordEmail` i `sendChangeEmailConfirmationEmail`. Wbudowany limiter Better Auth przechowuje liczniki w tabeli D1 `rate_limit` pod prefiksem `auth:` za pośrednictwem `consumeRateLimit` z `src/lib/rate-limit.ts`, który korzysta z atomowych upsertów i odrzuca żądania, gdy magazyn jest niedostępny. `clientAddress` w `auth.middleware.ts` ustala klienta żądania tak samo jak ten limiter: z `cf-connecting-ip`, grupując adresy IPv6 według /64. Prefiksem ciasteczek jest `APP_SLUG` z brandingu. `getRequestSession` pomija cache ciasteczka, więc autoryzacja zawsze odczytuje sesję z D1.
 

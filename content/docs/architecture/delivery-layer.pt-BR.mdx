@@ -7,16 +7,17 @@ description: "Como os arquivos de rota são nomeados e estruturados, e como o ro
 
 As rotas são arquivos planos em `src/routes`. Os pontos viram segmentos de caminho:
 
-| Arquivo               | URL                | Observações                                     |
-| --------------------- | ------------------ | ----------------------------------------------- |
-| `__root.tsx`          | todas as páginas   | Shell do documento e namespaces raiz            |
-| `_landing.tsx`        | nenhuma            | Layout sem caminho para as páginas de marketing |
-| `_landing.terms.tsx`  | `/terms`           | Página dentro do layout da landing              |
-| `admin.tsx`           | `/admin`           | Layout com o guard `requireAdmin`               |
-| `admin.users.all.tsx` | `/admin/users/all` | Página dentro do layout do admin                |
-| `blog.index.tsx`      | `/blog`            | Página índice do layout `blog`                  |
-| `docs.$.tsx`          | `/docs/*`          | Rota splat para as páginas da documentação      |
-| `api/auth.$.ts`       | `/api/auth/*`      | Handler HTTP, sem componente                    |
+| Arquivo                           | URL                | Observações                                     |
+| --------------------------------- | ------------------ | ----------------------------------------------- |
+| `__root.tsx`                      | todas as páginas   | Shell do documento e namespaces raiz            |
+| `_site.tsx`                       | nenhuma            | Layout sem caminho com o cabeçalho do site      |
+| `_site._marketing.tsx`            | nenhuma            | Layout sem caminho para as páginas de marketing |
+| `_site._marketing.terms.tsx`      | `/terms`           | Página dentro do layout de marketing            |
+| `admin.tsx`                       | `/admin`           | Layout com o guard `requireAdmin`               |
+| `admin.users.all.tsx`             | `/admin/users/all` | Página dentro do layout do admin                |
+| `_site._marketing.blog.index.tsx` | `/blog`            | Página índice do layout `blog`                  |
+| `_site.docs.$.tsx`                | `/docs/*`          | Rota splat para as páginas da documentação      |
+| `api/auth.$.ts`                   | `/api/auth/*`      | Handler HTTP, sem componente                    |
 
 Os IDs em `createFileRoute("…")` são literais de string mantidos pelo gerador de rotas, que também escreve `src/routeTree.gen.ts`. Arquivos em pastas `__test__` são ignorados. Toda URL tem uma constante em `ROUTES` (`src/routes.ts`), e os links usam `<Link to={ROUTES.X}>`.
 
@@ -27,7 +28,7 @@ Uma rota de página define um componente `<Name>Page`, uma constante `NAMESPACE`
 ```tsx
 const NAMESPACE = "pages.legal.terms"
 
-export const Route = createFileRoute("/_landing/terms")({
+export const Route = createFileRoute("/_site/_marketing/terms")({
   component: TermsPage,
   head: pageHead(ROUTES.TERMS),
   loader: async ({ context }) => {
@@ -67,10 +68,10 @@ Os guards `requireSignedIn`, `requireAdmin`, `redirectIfSignedIn` e `redirectAft
 
 A maioria das navegações termina antes que qualquer UI de carregamento apareça. Os links pré-carregam a sua rota no hover e no toque, as páginas públicas são pré-renderizadas e o router espera o seu `pendingMs` padrão de um segundo antes de mostrar qualquer coisa. Um esqueleto só aparece quando uma navegação demora mais, normalmente na primeira visita a uma área com uma conexão lenta.
 
-Não há componente de carregamento padrão. Cada rota de layout e de página define o seu próprio `pendingComponent`, exceto as páginas da documentação: `docs.index.tsx` e `docs.$.tsx` definem `pendingMs: Number.POSITIVE_INFINITY` no lugar, de modo que nunca mostram um esqueleto próprio, e `DocsPending` pertence ao layout `docs`. Cada esqueleto reproduz a página que substitui:
+Não há componente de carregamento padrão. Cada rota de layout e de página define o seu próprio `pendingComponent`, exceto as páginas da documentação: `_site.docs.index.tsx` e `_site.docs.$.tsx` definem `pendingMs: Number.POSITIVE_INFINITY` no lugar, de modo que nunca mostram um esqueleto próprio, e `DocsPending` pertence ao layout `docs`. Cada esqueleto reproduz a página que substitui:
 
 - **Esqueletos de página**, como `SignInPending` e `LegalPending`, ficam no arquivo de esqueletos da área e marcam o seu elemento raiz com `aria-busy="true"`. Os arquivos são `custom/auth/auth-pending.tsx`, os arquivos de administração em `custom/admin/` (`admin-pending.tsx` para o layout, um arquivo `<area>-pending.tsx` por área, como `products-pending.tsx`, e blocos compartilhados em `pending-blocks.tsx`), os arquivos do app do cliente em `custom/app/` (`app-pending.tsx` para o layout, `auth-pending.tsx` e `license-pending.tsx`, e o cabeçalho de página que compartilham em `pending-blocks.tsx`), os arquivos do layout público na raiz de `custom/` (`marketing-pending.tsx` para o layout, `core-pending.tsx`, `legal-pending.tsx`, `license-pending.tsx` e `newsletter-pending.tsx`), `custom/blog/blog-pending.tsx`, `custom/courses/courses-pending.tsx` e `custom/docs-pending.tsx`.
-- **Esqueletos de layout**, como `AuthPending` e `MarketingPending`, renderizam a moldura do layout e escolhem o esqueleto de página do caminho atual em um mapa indexado por `ROUTES`. Os layouts de administração, do app do cliente e público compartilham um único mapa, `PAGE_SKELETONS` em `src/data/skeletons.ts`, que reúne as listas que cada área declara em `src/data/<area>.skeletons.ts`. Por isso, entrar em uma área vindo de outro lugar mostra a página certa. Os elementos da moldura que não precisam de dados, como `Wordmark`, `PageFrame` e a `Navigation` do marketing, são renderizados de verdade.
+- **Esqueletos de layout**, como `AuthPending` e `MarketingPending`, renderizam a moldura do layout e escolhem o esqueleto de página do caminho atual em um mapa indexado por `ROUTES`. Os layouts de administração, do app do cliente e público compartilham um único mapa, `PAGE_SKELETONS` em `src/data/skeletons.ts`, que reúne as listas que cada área declara em `src/data/<area>.skeletons.ts`. Por isso, entrar em uma área vindo de outro lugar mostra a página certa. Os elementos da moldura que não precisam de dados, como `Wordmark` e `PageFrame`, são renderizados de verdade, e o cabeçalho do site continua na tela, porque o layout `_site`, que o renderiza, não tem loader pelo qual esperar.
 - **Placeholders de texto** são barras `Skeleton` com o token tipográfico do elemento real mais `h-lh scale-y-70`, de modo que cada barra preenche exatamente uma caixa de linha. Os blocos usam as alturas e os raios reais. As listas tiram o seu comprimento das mesmas constantes da UI, como `OAUTH_PROVIDERS` e `PASSWORD_RULES` em `src/data/auth.ts`.
 
 Ao adicionar uma página, adicione o esqueleto dela ao arquivo de esqueletos da área, registre-o no mapa do esqueleto de layout (para uma página de administração, do app do cliente ou pública, em `src/data/<area>.skeletons.ts` da área dela) e defina-o como `pendingComponent` da rota.
@@ -78,7 +79,7 @@ Ao adicionar uma página, adicione o esqueleto dela ao arquivo de esqueletos da 
 ## Outros aspectos das rotas
 
 - **Search params** são processados por `validateSearch` na rota, por exemplo o parâmetro `tab` de `/admin/products` ou o parâmetro `view` de `/admin/blog`. O schema é um `zod.object` montado com os helpers de `src/lib/search-params.ts`: `searchText()` e `searchFlag()` resultam em `undefined` para um valor ausente, vazio ou malformado, e `searchChoice(choices, fallback)` resulta no fallback. `searchParam(schema)` resulta em `undefined`, a menos que o valor siga outro schema do zod, como o token da newsletter.
-- **Server functions de uma única rota** podem ser definidas no arquivo da rota com `createServerFn`, como acontece com `getBlogPosts` em `blog.index.tsx`.
+- **Server functions de uma única rota** podem ser definidas no arquivo da rota com `createServerFn`, como acontece com `getBlogPosts` em `_site._marketing.blog.index.tsx`.
 - **Endpoints HTTP** ficam em `src/routes/api`. Veja [Handlers HTTP do TanStack Start](/docs/architecture/api-layer).
 
 ## Router

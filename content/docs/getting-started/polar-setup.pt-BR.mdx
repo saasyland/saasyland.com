@@ -63,7 +63,7 @@ Cada produto precisa de exatamente um benefício de chave de licença; outros be
 
 ## Descontos regionais
 
-O checkout aplica um preço regional por meio de um desconto automático no Polar (veja [Pagamentos e licenças](/docs/features/payments)). Crie um desconto percentual para cada faixa de `PPP_TIERS` (`src/modules/_core/constants/pricing.ts`): <RegionalDiscounts />. Cada desconto deve:
+O checkout aplica um preço regional por meio de um desconto automático no Polar (veja [Licenças](/docs/features/licences)). Crie um desconto percentual para cada faixa de `PPP_TIERS` (`src/modules/license/license.pricing.ts`): <RegionalDiscounts />. Cada desconto deve:
 
 - abater um percentual; o Polar o guarda em pontos-base, centésimos de ponto percentual;
 - não ter código, para que o checkout possa aplicá-lo sem que o comprador digite um;
@@ -81,7 +81,7 @@ Crie um endpoint de webhook para cada ambiente com deploy, na organização que 
 | `preview`    | Sandbox     | `https://preview.saasyland.com/api/auth/polar/webhooks` |
 | `production` | Produção    | `https://saasyland.com/api/auth/polar/webhooks`         |
 
-O host vem de `DEPLOYED_HOSTS` e o caminho, de `ROUTES`. Escolha o formato raw, mantenha o endpoint ativado e inscreva-o exatamente nos eventos que `licenseWebhookHandlers` trata, listados em `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`):
+O host vem de `DEPLOYED_HOSTS` e o caminho, de `ROUTES`. Escolha o formato raw, mantenha o endpoint ativado e inscreva-o exatamente nos eventos de `POLAR_EVENTS` (`src/data/polar-events.ts`), que reúne os eventos que todas as áreas tratam (veja [Pagamentos](/docs/features/payments#webhooks)). Hoje só a área de licenças trata eventos, os listados em `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`):
 
 - `order.paid` concede a licença;
 - `order.refunded` a marca como reembolsada quando o pedido é reembolsado por completo;
@@ -106,7 +106,7 @@ Cada script lê as chaves do Polar de `.env.<environment>` e envia apenas requis
 - cada `POLAR_PRODUCT_ID_*` indica um produto da organização que não está arquivado nem é uma assinatura, com preços fixos, em `DEFAULT_CURRENCY_CODE` e iguais a `TIER_PRICES`;
 - cada produto tem exatamente um benefício de chave de licença com o limite do plano definido em `LICENSE_ACTIVATION_LIMITS`, sem expiração e sem limite de uso;
 - para cada faixa de `PPP_TIERS`, um desconto percentual automático pode ser resgatado para todos os produtos de plano, pela regra que o checkout usa;
-- preview e produção têm um endpoint raw ativado na respectiva URL de webhook, assinado com `POLAR_WEBHOOK_SECRET` e inscrito exatamente nos eventos tratados;
+- preview e produção têm um endpoint raw ativado na respectiva URL de webhook, assinado com `POLAR_WEBHOOK_SECRET` e inscrito exatamente em `POLAR_EVENTS`;
 - nenhum endpoint envia eventos para o host de um ambiente que usa o outro serviço do Polar.
 
 `polar:verify` é a verificação de deploy da área do Polar (`POLAR_DEPLOY_CHECKS` em `src/data/polar.deploy.ts`), então `deploy:preview` e `deploy:production` o executam por meio de `scripts/run-deploy-checks.ts`, logo depois de `scripts/verify-bindings.ts` e antes do build. Os deploys da CI não executam nenhuma verificação de deploy, nem mesmo `polar:verify`: `deploy-reusable.yml` não tem nenhuma etapa para `scripts/run-deploy-checks.ts`, os ambientes do GitHub não guardam nenhum token do Polar, e o Worker mantém os secrets do Polar já configurados na Cloudflare. Execute `polar:verify` você mesmo depois de cada alteração no Polar.
@@ -132,7 +132,8 @@ Uma falha interrompe o deploy antes de qualquer build, migração ou envio. O sc
 
 ## Páginas relacionadas
 
-- [Pagamentos e licenças](/docs/features/payments)
+- [Pagamentos](/docs/features/payments)
+- [Licenças](/docs/features/licences)
 - [Variáveis de ambiente](/docs/getting-started/environment-variables)
 - [Deploy de um preview](/docs/getting-started/deploy-preview)
 - [Modelos de preço](/docs/features/pricing-models)

@@ -23,13 +23,13 @@ import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
 import { browserHeaders, createTestAccount, signUpAndVerify } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
-import { POLAR_CHECKOUT_ID_PLACEHOLDER, POLAR_PRODUCT_IDS } from "~/src/integrations/polar/polar.constants"
+import { POLAR_CHECKOUT_ID_PLACEHOLDER } from "~/src/integrations/polar/polar.constants"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER, HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
-import { DEFAULT_CURRENCY_CODE, PPP_COOKIE, PPP_DECLINED, PPP_PERCENT, pppMultiplierKey } from "~/src/modules/_core/constants/pricing"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { REGIONAL_POLAR_DISCOUNTS } from "~/src/modules/license/__test__/fixtures/license.polar-catalogue"
 import {
   LICENSE_ACTIVATION_LIMITS,
@@ -38,6 +38,8 @@ import {
   LICENSE_WEBHOOK_EVENTS,
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
+import { PPP_COOKIE, PPP_DECLINED, PPP_PERCENT, pppMultiplierKey } from "~/src/modules/license/license.pricing"
+import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
@@ -76,7 +78,11 @@ const startCheckout = async (
   { locale = "en-US", tier, ...browser }: BrowserState & { readonly locale?: SupportedLocale; readonly tier: LicenseTier },
 ): Promise<models.Checkout> => {
   actAs(buyer, browser)
-  const { url } = await executeMutation(startCheckoutMutation, { locale, tier })
+  const started = await executeMutation(startCheckoutMutation, { locale, tier })
+  if ("alreadyActive" in started) {
+    throw new Error("The account already holds an active licence, so no checkout started")
+  }
+  const { url } = started
   const checkout = polarCheckouts().find(({ id }) => new URL(url).searchParams.get("checkoutId") === id)
   if (checkout === undefined) {
     throw new Error(`Polar holds no checkout for ${url}`)
@@ -188,7 +194,10 @@ describe("checkout", () => {
     const { buyer } = await buyLicense()
     const checkoutsBefore = polarCheckouts().length
 
-    await expect(startCheckout(buyer, { tier: LICENSE_TIER.AGENCY })).rejects.toThrow(ERROR_CODES.LICENSE_ALREADY_ACTIVE)
+    actAs(buyer)
+    await expect(executeMutation(startCheckoutMutation, { locale: "en-US", tier: LICENSE_TIER.AGENCY })).resolves.toStrictEqual({
+      alreadyActive: true,
+    })
 
     expect(polarCheckouts()).toHaveLength(checkoutsBefore)
   })

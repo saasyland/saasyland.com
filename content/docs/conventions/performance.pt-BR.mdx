@@ -1,6 +1,6 @@
 ---
 title: "Desempenho"
-description: "As regras medidas que mantêm as páginas rápidas: um grafo de inicialização do Worker pequeno, hints de preload removidos, o posicionamento dos providers, um único build do Tailwind, o dimensionamento das mídias e o padrão de revelação."
+description: "As regras medidas que mantêm as páginas rápidas: um grafo de inicialização do Worker pequeno, nenhum ORM no navegador, mensagens carregadas sob demanda, hints de preload removidos, o posicionamento dos providers, um único build do Tailwind, o dimensionamento das mídias e o padrão de revelação."
 ---
 
 Cada regra desta página veio de uma medição, e várias substituíram uma correção intuitiva que piorava as coisas. Altere o código por trás de uma delas apenas com uma nova medição que a supere.
@@ -24,7 +24,51 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-Um único import estático do nome de um cabeçalho, vindo de um módulo que também importava o cliente do Polar, já colocou cerca de 1,4 MB de SDK em todo cold start, e o primeiro byte da landing page chegou a levar 1,4 segundo. É por isso que `COUNTRY_HEADER` e `IP_ADDRESS_HEADER` ficam em `src/modules/_core/constants/api.ts`, que não importa nada pesado. Antes de adicionar um import estático a `server.ts` ou a um `<area>.worker.ts`, siga a sua cadeia de imports: qualquer coisa que chegue a `polar`, `drizzle-orm` ou `resend` é uma regressão.
+Um único import estático do nome de um cabeçalho, vindo de um módulo que também importava o cliente do Polar, já colocou cerca de 1,4 MB de SDK em todo cold start, e o primeiro byte da landing page chegou a levar 1,4 segundo. É por isso que `COUNTRY_HEADER` e `IP_ADDRESS_HEADER` ficam em `src/modules/_core/constants/api.ts`, que não importa nada pesado. Antes de adicionar um import estático a `server.ts` ou a um `<area>.worker.ts`, siga a sua cadeia de imports: qualquer coisa que chegue a `polar`, `drizzle-orm` ou `resend` é uma regressão. `scripts/verify-build.ts` verifica isso em todo build: segue os imports estáticos da entrada do Worker que vai para o deploy, `dist/server/index.js`, e falha quando eles chegam a código de `@polar-sh`, `drizzle-orm` ou `resend` incluído no bundle, ou quando somam mais que `BOOT_CLOSURE_MAX_BYTES`.
+
+## Mantenha o ORM fora do navegador [#keep-the-orm-out-of-the-browser]
+
+O Drizzle roda apenas no Worker. O navegador precisa dos schemas Zod de um módulo para os seus formulários e das tuplas de enum dele para os seus campos de seleção, então os dois ficam em arquivos que não importam nada do Drizzle: `<table>.zod.ts` e `<table>.constants.ts` (veja [Módulos](/docs/conventions/modules)). Um import do navegador que chega a um `<table>.schema.ts` executa `sqliteTable(...)`, uma chamada que o bundler precisa manter, e traz o `drizzle-orm` junto.
+
+Antes, `<table>.zod.ts` também montava schemas `insert`, `select` e `update` a partir das tabelas com `drizzle-zod`, e nada os lia em tempo de execução. O `drizzle-zod` segura todo o namespace do zod, então o bundler também mantinha todos os locales do zod, o seu conversor de JSON Schema e o seu compilador. Os esqueletos de carregamento de `/admin` e `/app` importavam `PreferencesCardPending` de `preferences-card.tsx`, que importava `user.zod.ts`, e o code splitting não separa os componentes de carregamento, então tudo isso era carregado em todas as páginas. Mover as tuplas para as constantes e apagar esses schemas tirou cerca de 75 KiB de JavaScript com gzip de cada página. Os tamanhos abaixo somam todos os scripts que cada página carrega, com gzip, segundo a saída de `bun run build:test`:
+
+| Página         | Antes     | Depois    |
+| -------------- | --------- | --------- |
+| `/`            | 526,2 KiB | 450,7 KiB |
+| `/docs/<page>` | 612,1 KiB | 536,5 KiB |
+| `/blog`        | 487,2 KiB | 411,7 KiB |
+| `/app`         | 496,6 KiB | 421,0 KiB |
+| `/admin`       | 515,0 KiB | 439,4 KiB |
+
+`src/data/tanstack.vite.ts` proíbe o `drizzle-orm` no ambiente do cliente por meio da proteção de imports do TanStack Start:
+
+```ts title="src/data/tanstack.vite.ts"
+const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
+```
+
+Um build em que um import dele sobrevive ao tree-shaking falha e imprime a cadeia de imports da rota até o arquivo que chegou ao Drizzle. Quebre a cadeia onde ela começa: importe a tupla das constantes do módulo ou mova o código para uma server function. Imports só de tipos são apagados e nunca contam.
+
+## Carregue as mensagens quando uma página precisar delas [#load-messages-when-a-page-needs-them]
+
+A primeira página que um visitante abre não carrega nenhum arquivo de mensagens no navegador: a rota raiz e as rotas correspondentes pré-carregam seus namespaces no cache de queries no servidor, e o TanStack Start envia esse cache junto com o HTML. O navegador carrega um namespace só quando uma navegação posterior precisa de um que o cache ainda não tem.
+
+O `import.meta.glob` dá a cada arquivo de mensagens um chunk próprio, mas o mapa de cada arquivo para o seu chunk, que nomeia todos os namespaces de todos os locales, vai no módulo que chama o glob. Esse módulo era o `i18n.messages.ts`, que a rota raiz importa, e ele tinha o mapa duas vezes, uma para as mensagens e outra para os metadados de página, então cada página carregava cerca de 240 KiB de loaders, 21 KiB com gzip. O mapa agora fica sozinho em `i18n.loaders.ts`, e `loadNamespace` o importa na primeira vez que carrega um namespace:
+
+```ts title="src/integrations/use-intl/i18n.messages.ts"
+const { MESSAGE_LOADERS } = await import("~/src/integrations/use-intl/i18n.loaders")
+```
+
+`loadPageMetadata` lê `metadata` do namespace da página em vez de um segundo mapa, então o head de uma página e as suas mensagens vêm do mesmo chunk. O navegador baixa `i18n.loaders.ts`, cerca de 11 KiB com gzip, junto com o primeiro namespace que carrega, numa navegação ou no hover que pré-carrega um. Os namespaces raiz continuam sendo encontrados pelo nome do arquivo em `i18n.messages.ts`, e as chaves desse glob custam cerca de 2 KiB com gzip. Todos os scripts que cada página carrega, com gzip, segundo a saída de `bun run build:test`:
+
+| Página         | Antes     | Depois    |
+| -------------- | --------- | --------- |
+| `/`            | 462,9 KiB | 442,3 KiB |
+| `/docs/<page>` | 553,5 KiB | 532,9 KiB |
+| `/blog`        | 424,6 KiB | 404,0 KiB |
+| `/app`         | 430,4 KiB | 409,7 KiB |
+| `/admin`       | 452,8 KiB | 432,2 KiB |
+
+Carregue mensagens só por meio de `loadNamespace`, e nunca adicione um `import.meta.glob` sobre `messages/` a um módulo que a rota raiz importa. O `scripts/verify-build.ts` segue os imports estáticos do script de entrada do navegador e faz o build falhar quando eles contêm o loader de um namespace de página.
 
 ## Páginas pré-renderizadas carregam CSS e fontes primeiro
 
@@ -48,6 +92,25 @@ O TanStack Router envolve os outlets de rota em boundaries de Suspense, e o Reac
 - `MotionProvider` acima de um outlet de rota publica um novo contexto quando os seus recursos de animação terminam de carregar. Em um post do blog, essa atualização chegou enquanto a página ainda carregava o seu conteúdo, o React recorreu à renderização no cliente e o layout se deslocou.
 
 Antes de adicionar um provider a `__root.tsx` ou a um layout, verifique se o valor dele pode mudar depois da hidratação. Se puder, monte-o ao lado dos componentes que o leem, abaixo de todo `<Outlet />` de rota. Os posicionamentos estão listados em [Componentes e estilização](/docs/conventions/components).
+
+## Os esqueletos ficam no script de entrada [#skeletons-stay-in-the-entry-script]
+
+O TanStack Router não separa `pendingComponent` em um chunk próprio por padrão, e `src/data/tanstack.vite.ts` mantém esse padrão, então todo esqueleto fica no script de entrada e aparece assim que uma navegação passa de `pendingMs`. Separá-los foi medido e descartado:
+
+- Os esqueletos de layout `AdminPending`, `AppPending` e `MarketingPending` desenham o esqueleto da página a partir de `PAGE_SKELETONS`, que importa os esqueletos de todas as áreas, e o router carrega os componentes de carregamento das rotas correspondentes antes de a página ser hidratada. `/`, `/app` e `/admin` continuaram carregando todos os esqueletos, agora em chunks próprios, e cresceram de 3,5 a 6,5 KiB com gzip; só ficaram mais leves as páginas cujo layout tem um esqueleto próprio, como `/docs` e `/blog`.
+- Um esqueleto separado precisa ser carregado antes de aparecer. No Chromium headless, com 400 ms de latência adicional e 200 KiB/s, uma navegação no cliente de `/` para `/blog` mostrou o blog depois de 2.290 ms em vez de 1.390 ms, atrás de um esqueleto que o build sem separação nunca precisou; com 150 ms de latência, levou 800 ms em vez de 640 ms.
+
+Como toda página carrega todos os esqueletos, um esqueleto importa `Skeleton`, as primitivas do shadcn, outros esqueletos e as constantes que definem os seus comprimentos, nunca um formulário. `PreferencesCardPending` era exportado por `preferences-card.tsx`, então os esqueletos de `/admin` e `/app` colocavam o formulário de preferências, o TanStack Form, a lista de fusos horários e os schemas de usuário no script de entrada de toda página; agora ele tem um arquivo próprio, `preferences-card-pending.tsx`. Todos os scripts que cada página carrega, com gzip, segundo a saída de `bun run build:test`:
+
+| Página         | Antes     | Depois    |
+| -------------- | --------- | --------- |
+| `/`            | 463,0 KiB | 451,9 KiB |
+| `/docs/<page>` | 553,6 KiB | 527,3 KiB |
+| `/blog`        | 424,7 KiB | 413,6 KiB |
+| `/app`         | 430,4 KiB | 404,1 KiB |
+| `/admin`       | 452,9 KiB | 427,7 KiB |
+
+`/` e `/blog` economizam menos porque os seus layouts renderizam o formulário da newsletter, que precisa do TanStack Form de qualquer forma. `pending-imports.test.ts` segue os imports de cada `*-pending.tsx` e falha quando algum chega a `@tanstack/react-form`. Os painéis do dashboard de administração e as seções da visão geral do cliente ainda emparelham cada esqueleto com o seu componente na lista da área, então esses componentes carregam junto com os esqueletos.
 
 ## Um único build do Tailwind
 

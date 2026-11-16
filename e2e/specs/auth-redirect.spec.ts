@@ -22,26 +22,30 @@ test.describe("returning after sign-in", () => {
     await useOwnRateLimit(page)
   })
 
-  for (const locale of ["", "/pl-PL"]) {
-    test(`a signed-out visitor who opens ${locale}/app/license signs in and lands back on it`, async ({ authPage, page }) => {
-      await page.goto(`${locale}/app/license`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  for (const { heading, locale } of [
+    { heading: "Settings", locale: "" },
+    { heading: "Ustawienia", locale: "/pl-PL" },
+  ]) {
+    test(`a signed-out visitor who opens ${locale}/app/settings signs in and lands back on it`, async ({ authPage, page }) => {
+      await page.goto(`${locale}/app/settings`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
-      await expect(page).toHaveURL(`${locale}/auth/sign-in?redirect=${encodeURIComponent(`${locale}/app/license`)}`)
+      await expect(page).toHaveURL(`${locale}/auth/sign-in?redirect=${encodeURIComponent(`${locale}/app/settings`)}`)
       await authPage.waitForAppReady()
       await signInAsCustomer(page, authPage)
 
-      await expect(page).toHaveURL(`${locale}/app/license`)
+      await expect(page).toHaveURL(`${locale}/app/settings`)
+      await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible()
     })
   }
 
   test("the return path survives the switch from sign-in to sign-up and back", async ({ authPage, page }) => {
-    await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto("/app/settings", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await authPage.waitForAppReady()
 
     await page.getByRole("main").getByRole("link", { name: "Sign up", exact: true }).click()
-    await expect(page).toHaveURL(`/auth/sign-up?redirect=${encodeURIComponent("/app/license")}`)
+    await expect(page).toHaveURL(`/auth/sign-up?redirect=${encodeURIComponent("/app/settings")}`)
     await page.getByRole("main").getByRole("link", { name: "Sign in", exact: true }).click()
-    await expect(page).toHaveURL(`/auth/sign-in?redirect=${encodeURIComponent("/app/license")}`)
+    await expect(page).toHaveURL(`/auth/sign-in?redirect=${encodeURIComponent("/app/settings")}`)
   })
 
   test("a signed-in visitor who follows a sign-in link goes straight to its return path", async ({ authPage, page }) => {
@@ -49,9 +53,10 @@ test.describe("returning after sign-in", () => {
     await signInAsCustomer(page, authPage)
     await expect(page).toHaveURL("/app")
 
-    await page.goto(`/auth/sign-in?redirect=${encodeURIComponent("/app/license")}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(`/auth/sign-in?redirect=${encodeURIComponent("/app/settings")}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
-    await expect(page).toHaveURL("/app/license")
+    await expect(page).toHaveURL("/app/settings")
+    await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible()
   })
 
   test("a return path that leaves the site is ignored", async ({ authPage, page }) => {

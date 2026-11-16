@@ -1,9 +1,9 @@
 import type { JSX } from "react"
 
-import { ArrowRight, ArrowUpRight } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { cn } from "~/src/lib/cn"
+import { REACTPROJECTS_FACTS } from "~/src/data/marketing"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
@@ -14,32 +14,7 @@ const GRID_DELAY_MS = 100
 
 const FEATURE_HREF = `mailto:${CONTACT_EMAIL}?subject=Built%20on%20SaaSy%20Land`
 
-const CASES = [
-  { href: "https://reactprojects.com", id: "reactprojects", isLive: true },
-  { href: undefined, id: "marte", isLive: false },
-] as const
-
-const CaseName = ({ children, href }: Readonly<{ children: string; href: string | undefined }>): JSX.Element | string => {
-  if (href === undefined) {
-    return children
-  }
-
-  return (
-    <a
-      className="inline-flex items-center gap-1.5 after:absolute after:inset-0 hover:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-      href={href}
-      rel="noreferrer"
-      target="_blank"
-    >
-      {children}
-      <ArrowUpRight
-        aria-hidden
-        className="size-4 text-muted-foreground transition-transform duration-200 ease-exp group-hover:-translate-y-0.5"
-        strokeWidth={2}
-      />
-    </a>
-  )
-}
+const CASES = ["reactprojects", "marte"] as const
 
 export const CasesSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.cases")
@@ -54,7 +29,7 @@ export const CasesSection = (): JSX.Element => {
 
         <Reveal className="mt-14 md:mt-20" delay={GRID_DELAY_MS}>
           <HighlightGroup className="grid gap-px border-y border-border bg-border md:grid-cols-2" name="cases-highlight">
-            {CASES.map(({ href, id, isLive }) => (
+            {CASES.map((id) => (
               <HighlightItem
                 className="group bg-background"
                 contentClassName="flex h-full flex-col px-6 py-8 md:px-8 md:py-10"
@@ -62,22 +37,19 @@ export const CasesSection = (): JSX.Element => {
                 key={id}
               >
                 <p className="flex items-center gap-2.5 font-mono text-label text-muted-foreground uppercase">
-                  <span
-                    aria-hidden
-                    className={cn("size-1.25 shrink-0 rounded-xs", { "bg-muted-foreground/40": !isLive, "bg-ring": isLive })}
-                  />
-                  {isLive ? t("statusLive") : t("statusSoon")}
+                  <span aria-hidden className="size-1.25 shrink-0 rounded-xs bg-muted-foreground/40" />
+                  {t("statusSoon")}
                   <span aria-hidden className="text-border">
                     ·
                   </span>
                   {t(`items.${id}.kind`)}
                 </p>
 
-                <h3 className="mt-5 text-title text-foreground">
-                  <CaseName href={href}>{t(`items.${id}.name`)}</CaseName>
-                </h3>
+                <h3 className="mt-5 text-title text-foreground">{t(`items.${id}.name`)}</h3>
 
-                <p className="mt-3 max-w-[54ch] text-body-sm text-pretty text-muted-foreground">{t(`items.${id}.body`)}</p>
+                <p className="mt-3 max-w-[54ch] text-body-sm text-pretty text-muted-foreground">
+                  {t(`items.${id}.body`, REACTPROJECTS_FACTS)}
+                </p>
 
                 <div className="mt-auto pt-8">
                   <p className="font-mono text-label text-muted-foreground uppercase">{t("modulesLabel")}</p>

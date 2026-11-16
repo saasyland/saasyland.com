@@ -1,6 +1,8 @@
 import type { models } from "@polar-sh/sdk/2026-10"
 import type { API_ENDPOINT, Api } from "@saasyland/stack/api"
 
+import { POLAR_WEBHOOK_EVENT } from "../../integrations/polar/polar.constants.ts"
+
 export const LICENSE_TIER = {
   AGENCY: "agency",
   COMPLETE: "complete",
@@ -20,8 +22,8 @@ export const LICENSE_ACTIVATION_LIMITS = {
 export const LICENSE_WEBHOOK_EVENTS = {
   onBenefitGrantCreated: "benefit_grant.created",
   onBenefitGrantRevoked: "benefit_grant.revoked",
-  onOrderPaid: "order.paid",
-  onOrderRefunded: "order.refunded",
+  onOrderPaid: POLAR_WEBHOOK_EVENT.ORDER_PAID,
+  onOrderRefunded: POLAR_WEBHOOK_EVENT.ORDER_REFUNDED,
 } as const satisfies Record<string, models.WebhookEventType>
 
 export const LICENSE_STATUS = {
@@ -29,6 +31,8 @@ export const LICENSE_STATUS = {
   REFUNDED: "refunded",
   REVOKED: "revoked",
 } as const
+
+export const LICENSE_STATUSES = [LICENSE_STATUS.ACTIVE, LICENSE_STATUS.REVOKED, LICENSE_STATUS.REFUNDED] as const
 
 export const LICENSE_API_ENDPOINTS = [
   "LICENSE",
@@ -49,8 +53,6 @@ export const BUNDLE_PATH_PREFIX = "/bundles"
 export const BUNDLE_ARCHIVE_EXTENSION = ".json.gz"
 
 export const BUNDLE_CONTENT_TYPE = "application/gzip"
-
-export const POLAR_ID_MAX_LENGTH = 64
 
 export const LICENSE_QUERY_KEYS = {
   ACTIVATIONS: ["license", "activations"],

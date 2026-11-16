@@ -2,6 +2,7 @@ import type { JSX } from "react"
 
 import { useTranslations } from "use-intl/react"
 
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
@@ -19,7 +20,7 @@ export const ManifestSection = (): JSX.Element => {
       <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32">
         <Reveal variant="heading">
           <h2 className="max-w-[16ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
-          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("lead")}</p>
+          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("lead", CLI_GENERATION_VALUES)}</p>
         </Reveal>
 
         <Reveal className="mt-14 md:mt-20" delay={LEDGER_DELAY_MS}>

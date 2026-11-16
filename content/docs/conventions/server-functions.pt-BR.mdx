@@ -83,19 +83,18 @@ Uma operação sobre os dados do próprio chamador lê o usuário da sessão, nu
 
 O código de servidor lança `AppError` com um código de `ERROR_CODES` em `src/modules/_core/constants/errors.ts`:
 
-| Código                   | Quando                                                                              |
-| ------------------------ | ----------------------------------------------------------------------------------- |
-| `NOT_FOUND`              | A linha não existe, inclusive em uma atualização ou exclusão que não encontrou nada |
-| `CONFLICT`               | Uma restrição de unicidade falhou                                                   |
-| `UNAUTHORIZED`           | Não há sessão (lançado por `authorized`)                                            |
-| `FORBIDDEN`              | Falta permissão ou acesso                                                           |
-| `VALIDATION`             | A entrada não passou no seu schema (mapeado a partir de `ZodError`)                 |
-| `TOO_MANY_REQUESTS`      | Um rate limit foi atingido                                                          |
-| `LICENSE_ALREADY_ACTIVE` | `startCheckout` para uma conta que já tem uma licença ativa                         |
-| `AUTH_API_ERROR`         | O Better Auth rejeitou a chamada, com a chave de mensagem do erro                   |
-| `INTERNAL_ERROR`         | Qualquer outra coisa; a causa é registrada em log, nunca enviada                    |
+| Código              | Quando                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `NOT_FOUND`         | A linha não existe, inclusive em uma atualização ou exclusão que não encontrou nada |
+| `CONFLICT`          | Uma restrição de unicidade falhou                                                   |
+| `UNAUTHORIZED`      | Não há sessão (lançado por `authorized`)                                            |
+| `FORBIDDEN`         | Falta permissão ou acesso                                                           |
+| `VALIDATION`        | A entrada não passou no seu schema (mapeado a partir de `ZodError`)                 |
+| `TOO_MANY_REQUESTS` | Um rate limit foi atingido                                                          |
+| `AUTH_API_ERROR`    | O Better Auth rejeitou a chamada, com a chave de mensagem do erro                   |
+| `INTERNAL_ERROR`    | Qualquer outra coisa; a causa é registrada em log, nunca enviada                    |
 
-- Uma recusa que o visitante precisa entender ganha o seu próprio código em `ERROR_CODES` e uma mensagem em `errors.codes` em todos os locales, como faz `LICENSE_ALREADY_ACTIVE`. O código é tudo o que o navegador recebe.
+- Uma falha que qualquer área pode encontrar ganha o seu código em `ERROR_CODES` e uma mensagem em `errors.codes` em todos os locales. O código é tudo o que o navegador recebe. Uma recusa que só uma área explica faz parte, em vez disso, do resultado da sua server function: `startCheckout` retorna `{ alreadyActive: true }` para uma conta que já tem uma licença ativa, e o botão de checkout mostra `buy.alreadyActive` de `pages.license`.
 - Detecte uma linha ausente pelo resultado (`const [row] = await ... .returning(...)`, depois `if (row === undefined)`), não com uma segunda consulta.
 - Transforme uma violação de unicidade em `CONFLICT` com `.catch(rethrowAsConflict)` de `src/integrations/drizzle-orm/drizzle.errors.ts`, como fazem `create-course.ts` e `update-course.ts`.
 - `withRequest` relança um `AppError` apenas com o seu código, mapeia os erros do Better Auth e do Zod e registra em log todo o resto antes de responder `INTERNAL_ERROR`, então nenhum stack trace ou SQL chega ao navegador.
@@ -110,12 +109,12 @@ O código de servidor lança `AppError` com um código de `ERROR_CODES` em `src/
 
 ## Onde ficam as server functions
 
-| Server function                                           | Fica em                                                           |
-| --------------------------------------------------------- | ----------------------------------------------------------------- |
-| Lê ou grava uma tabela                                    | `src/modules/<table>/use-cases/<verb>-<noun>.ts`                  |
-| É usada por uma única rota e não é dona de nenhuma tabela | Esse arquivo de rota, como em `src/routes/blog.index.tsx`         |
-| Lê um serviço externo ou conteúdo, e é compartilhada      | `src/lib/<topic>.ts`, como `getStarCount` em `src/lib/github.ts`  |
-| Só roda no servidor e nunca é chamada pelo navegador      | Uma função `async` comum em um arquivo marcado como `server-only` |
+| Server function                                           | Fica em                                                                    |
+| --------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Lê ou grava uma tabela                                    | `src/modules/<table>/use-cases/<verb>-<noun>.ts`                           |
+| É usada por uma única rota e não é dona de nenhuma tabela | Esse arquivo de rota, como em `src/routes/_site._marketing.blog.index.tsx` |
+| Lê um serviço externo ou conteúdo, e é compartilhada      | `src/lib/<topic>.ts`, como `getStarCount` em `src/lib/github.ts`           |
+| Só roda no servidor e nunca é chamada pelo navegador      | Uma função `async` comum em um arquivo marcado como `server-only`          |
 
 Os componentes nunca importam `db`, `env` de `cloudflare:workers` nem o cliente de um provedor. Eles chamam as server functions por meio das query options e das mutation options.
 

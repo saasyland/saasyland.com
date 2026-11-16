@@ -20,11 +20,22 @@ oxlint runs the `correctness`, `nursery`, `pedantic`, `perf`, `style` and `suspi
 | `unicorn/no-null`            | on outside tests and `src/platform/testing`             | Absent values are `undefined`                  |
 | `typescript/no-explicit-any` | `error`                                                 | No value is typed `any`                        |
 
-The overrides are narrow and file-scoped: tests and the shared test helpers in `src/platform/testing` relax `no-magic-numbers`, `no-await-in-loop` and `unicorn/no-null`; `src/presentation` and `src/hooks` relax `typescript/consistent-return`; test mocks relax `require-await`; `src/routes` turns off `sort-keys`, because route options follow their own order (see [Route files](/docs/conventions/routes)).
+The overrides are narrow and file-scoped: tests and the shared test helpers in `src/platform/testing` relax `no-magic-numbers`, `no-await-in-loop`, `unicorn/no-null` and `hydration/no-clock-or-locale-in-render`; `src/presentation` and `src/hooks` relax `typescript/consistent-return`; test mocks relax `require-await`; `src/routes` turns off `sort-keys`, because route options follow their own order (see [Route files](/docs/conventions/routes)).
 
 `tsconfig.json` adds the strict flags that change how code is written: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` and `noUnusedParameters`. An indexed read is possibly `undefined`, an optional property cannot be set to `undefined` explicitly, and an index signature is read as `record["key"]`.
 
 The formatter prints without semicolons, with double quotes, trailing commas and a width of <RepositoryFact name="printWidth" />. It also sorts imports into fixed groups, Tailwind classes in `className` and `cn` calls, and the `package.json` scripts by name (`sortPackageJson: { sortScripts: true }`), so never order any of them by hand: `vp check` fails when one is out of order. See [Lint and format](/docs/tooling/lint-format) for the commands.
+
+## Render what the server rendered
+
+A page renders twice: on the server, and again in the browser when React hydrates the HTML. Both renders must print the same text, or React reports a hydration mismatch (error #418) and renders the page again. So render code never reads the clock or the runtime's locale, which differ between the two: no `new Date()` without an argument, no `Date.now`, and no `toLocaleString`, `toLocaleDateString` or `toLocaleTimeString`. Use a value both sides share:
+
+- a relative time counts from the `dataUpdatedAt` of the query that read its data, as [Internationalization and locales](/docs/features/internationalization) shows;
+- a year the site prints comes from the build: the footer ends its copyright in `REPOSITORY_FACTS.buildYear`, the UTC year the site was built in;
+- numbers and dates go through `useFormatter` from use-intl, in the page's locale and the user's time zone;
+- a wait in the browser, such as the activation timeout of `CheckoutActivation`, is a timer started in `useEffect`, so the first render is the server's.
+
+`hydration/no-clock-or-locale-in-render`, the rule of the repository's own oxlint plugin in `scripts/hydration-lint-plugin.ts`, enforces this in `src/hooks`, `src/presentation`, `src/providers` and `src/routes/*.tsx`. Everything there counts as render code except a function that runs later: an `on…` event handler, as a JSX prop, an object property or a variable; a `queryFn` or a `mutationFn`; and a callback passed to `useEffect`, `useLayoutEffect`, `useCallback`, `setTimeout`, `setInterval`, `requestAnimationFrame` or `addEventListener`. Those lists in the plugin are the allow-list: another kind of deferred callback is added there, with a case in `src/__test__/hydration-lint-plugin.test.ts`, never with a disable comment.
 
 ## No comments
 
@@ -95,7 +106,7 @@ export const COURSE_STATUS = {
 } as const
 ```
 
-The tuple a column or an enum schema needs is built from the object, not retyped: `course.schema.ts` declares `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, which feeds both `text("status", { enum: COURSE_STATUSES })` and `zod.enum(COURSE_STATUSES)`. A tuple that browser code also reads is declared in the module's constants instead, which import nothing from Drizzle: the pricing table iterates `LICENSE_TIERS` from `license.constants.ts`.
+The tuple a column or an enum schema needs is built from the object, not retyped, and sits beside it in the module's constants, which import nothing from Drizzle: `course.constants.ts` declares `COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as const`, which feeds both `text("status", { enum: COURSE_STATUSES })` in `course.schema.ts` and `zod.enum(COURSE_STATUSES)` in `course.zod.ts`. Browser code reads the tuples from there too: the pricing table iterates `LICENSE_TIERS` from `license.constants.ts`.
 
 - A module's constants live in its `<module>.constants.ts` (`LESSON_ACCESS`, `LICENSE_TIER`); a provider's values live in the integration's `*.constants.ts` (`POLAR_ORDER_STATUS` in `polar.constants.ts`, `AUTH_PROVIDER` in `auth.constants.ts`).
 - Column and input lengths are named once, in the module's constants, and read by both the Drizzle schema and the Zod schema: `PRODUCT_NAME_MAX_LENGTH` in `product.constants.ts`.

@@ -75,6 +75,9 @@ describe("Cloudflare auth configuration", () => {
     expect(auth.options.baseURL.allowedHosts).toEqual(["localhost:3000", "127.0.0.1:3000", "localhost:3020", "127.0.0.1:3020"])
     expect(auth.options.baseURL.allowedHosts.some((host) => host.includes("*") || host.includes("workers.dev"))).toBe(false)
   })
+  it("serves its endpoints under the auth routes' base path", () => {
+    expect(auth.options.basePath).toBe(ROUTES.API_AUTH_BASE)
+  })
   it("sends API errors to the sign-in page", () => {
     expect(auth.options.onAPIError.errorURL).toBe(ROUTES.SIGN_IN)
   })

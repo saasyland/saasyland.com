@@ -4,8 +4,8 @@ import { posix } from "node:path"
 import type { Plugin } from "vite-plus"
 import * as zod from "zod"
 
-import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "../e2e/data/accounts.ts"
-import { TEST_LICENSE } from "../e2e/data/licenses.ts"
+import { TEST_ACCOUNTS, TEST_PASSWORD } from "../e2e/data/accounts.ts"
+import { TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "../e2e/data/licenses.ts"
 import playwrightConfig, { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
 import { MILLISECONDS_PER_SECOND } from "../src/lib/duration.ts"
 import { COUNTRIES } from "../src/modules/_core/constants/country.ts"
@@ -25,11 +25,13 @@ const COVERAGE_COMMAND = "bun run test:coverage"
 const I18N_CHECK_COMMAND = "bun run check:i18n"
 const COVERAGE_SUMMARY_REPORTER = "json-summary"
 const COVERAGE_SUMMARY_FILE = "coverage-summary.json"
+const CLI_CONTRACT_PACKAGE = "@saasyland/stack"
 
 const BUN_PACKAGE_MANAGER = /^bun@(?<version>\S+)$/u
 const WORKFLOW_CRON = /cron:\s*"(?<schedule>[^"]+)"/u
 
 const packageSchema = zod.object({ version: zod.string() })
+const enginesSchema = zod.object({ engines: zod.object({ node: zod.string() }) })
 const rootPackageSchema = zod.object({ packageManager: zod.string() })
 const versionMatchSchema = zod.object({ version: zod.string() })
 const scheduleMatchSchema = zod.object({ schedule: zod.string() })
@@ -77,6 +79,8 @@ const majorVersionOf = (packageName: string): number => {
   return Number(major)
 }
 
+const readCliNodeEngine = (): string => enginesSchema.parse(readJson(`node_modules/${CLI_CONTRACT_PACKAGE}/package.json`)).engines.node
+
 const readBunVersion = (): string => {
   const { packageManager } = rootPackageSchema.parse(readJson("package.json"))
 
@@ -120,6 +124,7 @@ export const collectRepositoryFacts = (config: unknown) => {
 
   return {
     authIntegrationPath: AUTH_INTEGRATION_PATH,
+    buildYear: new Date().getUTCFullYear(),
     bunVersion: readBunVersion(),
     ciWorkflowPath: CI_WORKFLOW,
     cliApiBasePath: API_BASE_PATH,
@@ -129,6 +134,7 @@ export const collectRepositoryFacts = (config: unknown) => {
     cliApiRateLimitSeconds: RATE_LIMIT.PERIOD_SECONDS,
     cliApiRequestsPerAddress: RATE_LIMIT.REQUESTS_PER_ADDRESS,
     cliApiRequestsPerLicenseKey: RATE_LIMIT.REQUESTS_PER_LICENSE_KEY,
+    cliNodeEngine: readCliNodeEngine(),
     countries: COUNTRIES.length,
     coverageCommand: COVERAGE_COMMAND,
     coverageSummaryPath: posix.join(test.coverage.reportsDirectory, COVERAGE_SUMMARY_FILE),

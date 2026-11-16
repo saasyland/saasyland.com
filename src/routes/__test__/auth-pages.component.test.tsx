@@ -244,7 +244,7 @@ describe("authentication routes", () => {
   })
 
   it.each([
-    { expected: { redirect: "/pl-PL/app/license" }, path: `${ROUTES.SIGN_UP}?redirect=%2Fpl-PL%2Fapp%2Flicense` },
+    { expected: { redirect: "/pl-PL/app/settings" }, path: `${ROUTES.SIGN_UP}?redirect=%2Fpl-PL%2Fapp%2Fsettings` },
     { expected: {}, path: `${ROUTES.SIGN_UP}?redirect=%2F%2Fevil.example` },
     { expected: {}, path: `${ROUTES.SIGN_UP}?redirect=https%3A%2F%2Fevil.example%2Fapp` },
     { expected: { token: "valid" }, path: `${ROUTES.RESET_PASSWORD}?token=valid&error=false` },

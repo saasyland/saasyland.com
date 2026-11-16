@@ -16,6 +16,12 @@ export const CATEGORY_VISIBILITY = {
   PUBLIC: "public",
 } as const
 
+export const CATEGORY_ICONS = [CATEGORY_ICON.ARCHIVE, CATEGORY_ICON.FOLDER_OPEN, CATEGORY_ICON.PUZZLE] as const
+
+export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
+
+export const CATEGORY_VISIBILITIES = [CATEGORY_VISIBILITY.PUBLIC, CATEGORY_VISIBILITY.HIDDEN] as const
+
 export const CATEGORY_QUERY_KEYS = {
   ALL: ["category"],
   LIST: ["category", "getCategories"],

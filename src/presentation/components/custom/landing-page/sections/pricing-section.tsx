@@ -6,7 +6,8 @@ import { useFormatter, useTranslations } from "use-intl/react"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 
-import { CONSULTING_HOURLY_RATE, MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { CONSULTING_HOURLY_RATE, CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { cn } from "~/src/lib/cn"
@@ -95,7 +96,14 @@ export const PricingSection = (): JSX.Element => {
         <Reveal className="mt-20 border-t border-border pt-14 md:mt-28 md:pt-16" delay={GRID_DELAY_MS}>
           <div className="grid gap-x-16 gap-y-6 md:grid-cols-[1fr_1fr] md:items-start">
             <p className="text-display-blast text-balance text-foreground">{t("ledger.lead")}</p>
-            <p className="text-body text-pretty text-muted-foreground">{t.rich("ledger.body", { ...PRICE_TAGS, ...REPOSITORY_FACTS })}</p>
+            <p className="text-body text-pretty text-muted-foreground">
+              {t.rich("ledger.body", {
+                ...PRICE_TAGS,
+                ...REPOSITORY_FACTS,
+                coreHours: CORE_PRICE_IN_HOURS,
+                hourlyRate: format.number(ILLUSTRATIVE_HOURLY_RATE, CURRENCY_FORMAT),
+              })}
+            </p>
           </div>
         </Reveal>
       </div>

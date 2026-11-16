@@ -67,7 +67,5 @@ describe("course schemas", () => {
     expect(lessonProgressZodSchemas.saveLessonProgress.safeParse({ completed: false, lessonId: "lesson", positionMs: -1 }).success).toBe(
       false,
     )
-    expect(courseZodSchemas.select.safeParse({}).success).toBe(false)
-    expect(courseZodSchemas.insert.safeParse({ id: "c", slug: "c", summary: { "en-US": "S" }, title: { "en-US": "T" } }).success).toBe(true)
   })
 })

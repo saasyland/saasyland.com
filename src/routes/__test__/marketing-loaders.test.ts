@@ -7,9 +7,10 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
-import { Route as BlogPostRoute } from "~/src/routes/blog.$"
+import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
 
 import { TIER_PRICES } from "~/src/data/marketing"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { starCountQuery } from "~/src/lib/github"
 
@@ -111,7 +112,10 @@ describe("landing loader", () => {
     const price = new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(TIER_PRICES[LICENSE_TIER.CORE])
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
       metadata: {
-        description: pagesLandingMessages.metadata.description.replace("{price}", price),
+        description: pagesLandingMessages.metadata.description
+          .replace("{price}", price)
+          .replace("{coverageThreshold, number}", String(REPOSITORY_FACTS.coverageThreshold))
+          .replace("{languages, number}", String(REPOSITORY_FACTS.languages)),
         title: pagesLandingMessages.metadata.title,
       },
     })

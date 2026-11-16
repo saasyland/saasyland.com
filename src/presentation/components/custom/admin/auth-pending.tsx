@@ -1,6 +1,6 @@
 import type { JSX } from "react"
 
-import { ADMIN_DASHBOARD_PREVIEW_PAGINATION, ADMIN_SETTINGS_TABS } from "~/src/data/admin"
+import { ADMIN_DASHBOARD_PREVIEW_PAGINATION, ADMIN_SETTINGS_TABS, ADMIN_USER_DETAILS } from "~/src/data/admin"
 import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
 import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
 
@@ -11,7 +11,6 @@ import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, Ta
 import {
   CheckboxPending,
   DescriptionPending,
-  IconPending,
   LongDescriptionPending,
   PAGE_ROWS,
   PaginationPending,
@@ -19,7 +18,7 @@ import {
   SortableHeadPending,
   TitlePending,
 } from "~/src/presentation/components/custom/admin/pending-blocks"
-import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card"
+import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card-pending"
 
 const PREVIEW_ROWS = Array.from({ length: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }, (_, index) => index)
 
@@ -49,16 +48,6 @@ const DashboardUserRowPending = (): JSX.Element => (
     <TableCell>
       <Skeleton className="h-lh w-19 scale-y-70 text-xs" />
     </TableCell>
-    <TableCell>
-      <div className="flex items-center justify-end gap-2">
-        <div className="flex size-7 items-center justify-center">
-          <IconPending />
-        </div>
-        <div className="flex size-7 items-center justify-center">
-          <IconPending />
-        </div>
-      </div>
-    </TableCell>
   </TableRow>
 )
 
@@ -70,7 +59,6 @@ export const AdminDashboardPending = (): JSX.Element => (
         <DescriptionPending />
       </div>
       <div className="flex items-center gap-3">
-        <Skeleton className="h-9 w-33 rounded-lg" />
         {ADMIN_DASHBOARD_ACTIONS.map((action) => (
           <Skeleton className="h-9 w-32 rounded-lg" key={action.key} />
         ))}
@@ -119,9 +107,6 @@ export const AdminDashboardPending = (): JSX.Element => (
               </TableHead>
               <TableHead>
                 <SortableHeadPending />
-              </TableHead>
-              <TableHead>
-                <Skeleton className="h-lh w-12 scale-y-70" />
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -325,8 +310,49 @@ export const AdminUsersAllPending = (): JSX.Element => (
   </div>
 )
 
-export const AdminUsersSecurityPending = (): JSX.Element => (
-  <div aria-busy="true" className="mt-6">
-    <Skeleton className="h-lh w-36 scale-y-70 text-sm" />
+export const AdminUserProfilePending = (): JSX.Element => (
+  <div aria-busy="true" className="flex min-h-0 w-full flex-1 flex-col gap-6 pb-6">
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex min-w-0 items-center gap-4">
+        <Skeleton className="size-12 shrink-0 rounded-lg" />
+        <div className="min-w-0">
+          <Skeleton className="h-lh w-40 scale-y-70 text-title" />
+          <Skeleton className="h-lh w-56 max-w-full scale-y-70 text-sm" />
+        </div>
+      </div>
+      <RowActionPending />
+    </div>
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,24rem)_1fr]">
+      <Card>
+        <CardHeader className="border-b">
+          <Skeleton className="h-lh w-20 scale-y-70 text-base leading-snug" />
+        </CardHeader>
+        <CardContent>
+          <div className="divide-y divide-border text-sm">
+            {ADMIN_USER_DETAILS.map((detail) => (
+              <div className="flex items-center justify-between gap-4 py-2.5" key={detail}>
+                <Skeleton className="h-lh w-28 scale-y-70" />
+                <Skeleton className="h-lh w-20 scale-y-70" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="border-b">
+          <Skeleton className="h-lh w-20 scale-y-70 text-base leading-snug" />
+          <Skeleton className="h-lh w-64 max-w-full scale-y-70 text-sm" />
+        </CardHeader>
+        <CardContent className="px-0">
+          <div className="flex items-center gap-3 px-(--card-spacing) py-3">
+            <Skeleton className="size-9 shrink-0 rounded-lg" />
+            <div className="min-w-0">
+              <Skeleton className="h-lh w-48 max-w-full scale-y-70 text-sm" />
+              <Skeleton className="h-lh w-40 max-w-full scale-y-70 text-xs" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   </div>
 )

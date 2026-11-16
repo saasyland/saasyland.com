@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
+
 import { userZodSchemas } from "~/src/modules/user/user.zod"
 
 const USER_ID = "00000000-0000-7000-8000-000000000001"
@@ -9,32 +11,29 @@ describe("user zod schemas", () => {
     expect(userZodSchemas.banUser.safeParse({ banExpiresIn, userId: USER_ID }).success).toBe(false)
   })
 
-  it("accepts valid insert payloads", () => {
-    expect.hasAssertions()
-    expect(
-      userZodSchemas.insert.safeParse({
-        email: "user@example.com",
-        id: USER_ID,
-        name: "User",
-      }).success,
-    ).toBe(true)
-  })
-
   it("accepts valid create payloads", () => {
     expect.hasAssertions()
     expect(
       userZodSchemas.createUser.safeParse({
         email: "user@example.com",
         name: "User",
+        password: "Secret1!",
+        role: ROLE_CODES.CUSTOMER,
       }).success,
     ).toBe(true)
   })
 
-  it("rejects update payloads with no mutable fields", () => {
+  it("creates an account only with an initial password and a known role", () => {
     expect.hasAssertions()
-    expect(
-      userZodSchemas.updateUser.safeParse({ userId: USER_ID }).error?.issues.some((issue) => issue.message === "atLeastOneFieldRequired"),
-    ).toBe(true)
+    const account = { email: "user@example.com", name: "User", password: "Secret1!", role: ROLE_CODES.CUSTOMER }
+    expect(userZodSchemas.createUser.safeParse({ ...account, password: undefined }).success).toBe(false)
+    expect(userZodSchemas.createUser.safeParse({ ...account, role: "owner" }).success).toBe(false)
+  })
+
+  it("renames a user and refuses an empty name", () => {
+    expect.hasAssertions()
+    expect(userZodSchemas.updateUser.safeParse({ name: "Grace", userId: USER_ID }).success).toBe(true)
+    expect(userZodSchemas.updateUser.safeParse({ name: "", userId: USER_ID }).success).toBe(false)
   })
 
   it("accepts a catalogued time zone as a preference and refuses any other", () => {

@@ -18,22 +18,20 @@ import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
 
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
-import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
 import { Route as AppRoute } from "~/src/routes/app"
 import { Route as OverviewRoute } from "~/src/routes/app.index"
-import { Route as LicenseRoute } from "~/src/routes/app.license"
 import { Route as SettingsRoute } from "~/src/routes/app.settings"
+
+import type { AppOverviewArea } from "~/src/data/app-overview"
 
 import commonMessages from "~/messages/en-US/common.json"
 import preferencesCardMessages from "~/messages/en-US/components.custom.preferences-card.json"
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import navigationContentMessages from "~/messages/en-US/navigation.content.json"
-import navigationLicenseMessages from "~/messages/en-US/navigation.license.json"
 import pagesAppMessages from "~/messages/en-US/pages.app.json"
 import pagesAppSettingsMessages from "~/messages/en-US/pages.app.settings.json"
 import pagesAppSidebarMessages from "~/messages/en-US/pages.app.sidebar.json"
-import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
 import timezonesMessages from "~/messages/en-US/timezones.json"
 import plCommonMessages from "~/messages/pl-PL/common.json"
 import plErrorMessages from "~/messages/pl-PL/errors.json"
@@ -44,25 +42,31 @@ import { ROUTES } from "~/src/routes"
 type SignOutResult = Awaited<ReturnType<NonNullable<typeof signOutUserMutation.mutationFn>>>
 
 const sessionRequest = vi.hoisted(() => vi.fn())
-const currentLicense = vi.hoisted(() => vi.fn())
-const activations = vi.hoisted(() => vi.fn())
+const summaryRequest = vi.hoisted(() => vi.fn<() => Promise<{ readonly orders: number }>>())
+const SUMMARY_QUERY_KEY = vi.hoisted(() => ["summary"] as const)
+const SUMMARY_SECTION = vi.hoisted(() => "Account summary")
 const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
 const SIGN_OUT_SUCCESS = { redirect: undefined, success: true, url: undefined } satisfies SignOutResult
+const SUMMARY = { orders: 2 }
 const { account, navigation } = pagesAppSidebarMessages
 
 vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual, getCurrentSessionQuery: { ...actual.getCurrentSessionQuery, queryFn: sessionRequest } }
 })
-vi.mock(import("~/src/modules/license/use-cases/get-current-license"), async (importOriginal) => {
-  const actual = await importOriginal()
-  return { ...actual, currentLicenseQuery: { ...actual.currentLicenseQuery, queryFn: currentLicense } }
-})
-vi.mock(import("~/src/modules/license/use-cases/get-current-license-activations"), async (importOriginal) => {
-  const actual = await importOriginal()
-  return { ...actual, licenseActivationsQuery: { ...actual.licenseActivationsQuery, queryFn: activations } }
-})
-vi.mock("~/src/data/license-offer.entries", () => ({}))
+vi.mock("~/src/data/app-overview.entries", () => ({
+  TEST_APP_OVERVIEW: {
+    search: {},
+    sections: [
+      {
+        key: "summary",
+        load: ({ queryClient }) => queryClient.query({ queryFn: summaryRequest, queryKey: SUMMARY_QUERY_KEY, staleTime: "static" }),
+        Pending: () => {},
+        Section: () => <section aria-label={SUMMARY_SECTION} />,
+      },
+    ],
+  } satisfies AppOverviewArea,
+}))
 vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
   signOutUserMutation: { mutationFn: signOutMock, mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_OUT },
 }))
@@ -78,16 +82,15 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
   })
   Object.assign(AppRoute.options, { getParentRoute: () => root, id: "/app", path: "/app" })
   Object.assign(OverviewRoute.options, { getParentRoute: () => AppRoute, id: "/", path: "/" })
-  Object.assign(LicenseRoute.options, { getParentRoute: () => AppRoute, id: "/license", path: "/license" })
   Object.assign(SettingsRoute.options, { getParentRoute: () => AppRoute, id: "/settings", path: "/settings" })
-  const nested = createRoute({ component: () => <p>Activation details</p>, getParentRoute: () => AppRoute, path: "/license/details" })
+  const nested = createRoute({ component: () => <p>Session details</p>, getParentRoute: () => AppRoute, path: "/settings/details" })
   const signIn = createRoute({ component: () => <h1>Sign in required</h1>, getParentRoute: () => root, path: ROUTES.SIGN_IN })
   const docs = createRoute({ component: () => <h1>Documentation</h1>, getParentRoute: () => root, path: ROUTES.DOCS })
   const router = createRouter({
     context: { queryClient },
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree: root.addChildren([signIn, docs, AppRoute.addChildren([OverviewRoute, LicenseRoute, SettingsRoute, nested])]),
+    routeTree: root.addChildren([signIn, docs, AppRoute.addChildren([OverviewRoute, SettingsRoute, nested])]),
   })
   render(
     <QueryClientProvider client={queryClient}>
@@ -102,8 +105,7 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
 
 beforeEach(() => {
   sessionRequest.mockReset().mockResolvedValue(createAuthSessionFixture())
-  currentLicense.mockReset().mockResolvedValue({ license: undefined })
-  activations.mockReset().mockResolvedValue({ activations: [], limitActivations: 2 })
+  summaryRequest.mockReset().mockResolvedValue(SUMMARY)
   signOutMock.mockReset().mockResolvedValue(SIGN_OUT_SUCCESS)
   vi.spyOn(toast, "success").mockReturnValue(0)
   vi.spyOn(toast, "error").mockReturnValue(0)
@@ -126,33 +128,30 @@ afterEach(() => {
 })
 
 describe("customer workspace routes", () => {
-  it("redirects guests before loading account or license data", async () => {
+  it("redirects guests before loading account or overview data", async () => {
     sessionRequest.mockResolvedValue(JSON_NULL)
     const { router } = await renderApp(ROUTES.APP)
     expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeVisible()
     expect(router.state.location.pathname).toBe(ROUTES.SIGN_IN)
-    expect(currentLicense).not.toHaveBeenCalled()
-    expect(activations).not.toHaveBeenCalled()
+    expect(summaryRequest).not.toHaveBeenCalled()
   })
 
-  it.each([
-    [ROUTES.APP, navigationAuthMessages.app.overview, pagesAppMessages.metadata.title],
-    [ROUTES.APP_LICENSE, navigationLicenseMessages.app.license, pagesLicenseMessages.metadata.title],
-  ])("loads %s with active navigation, metadata, and a single license lookup", async (path, active, heading) => {
-    const { queryClient, router } = await renderApp(path)
-    expect(await screen.findByRole("heading", { level: 1, name: heading })).toBeVisible()
+  it("loads the overview with active navigation, metadata, and each overview section loaded once", async () => {
+    const { queryClient, router } = await renderApp(ROUTES.APP)
+    expect(await screen.findByRole("heading", { level: 1, name: pagesAppMessages.metadata.title })).toBeVisible()
     const nav = screen.getByRole("navigation", { name: navigation.label })
-    expect(within(nav).getByRole("link", { name: active })).toHaveAttribute("aria-current", "page")
+    expect(within(nav).getByRole("link", { name: navigationAuthMessages.app.overview })).toHaveAttribute("aria-current", "page")
     expect(
       within(screen.getByRole("navigation", { name: navigation.resources })).getByRole("link", { name: navigation.support }),
     ).toHaveAttribute("href", `mailto:${CONTACT_EMAIL}`)
     expect(screen.getByRole("link", { name: navigation.website })).toHaveAttribute("href", ROUTES.HOME)
+    expect(screen.getByRole("region", { name: SUMMARY_SECTION })).toBeVisible()
     expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.app.sidebar" }).queryKey)).toBeDefined()
-    expect(currentLicense).toHaveBeenCalledOnce()
+    expect(summaryRequest).toHaveBeenCalledOnce()
     expect(router.state.matches.at(-1)?.meta).toEqual(expect.arrayContaining([expect.objectContaining({ name: "description" })]))
   })
 
-  it("loads the settings page with its navigation, metadata and the saved time zone, without a license lookup", async () => {
+  it("loads the settings page with its navigation, metadata and the saved time zone, without the overview's data", async () => {
     const { queryClient, router } = await renderApp(ROUTES.APP_SETTINGS)
 
     expect(await screen.findByRole("heading", { level: 1, name: pagesAppSettingsMessages.metadata.title })).toBeVisible()
@@ -161,17 +160,17 @@ describe("customer workspace routes", () => {
     expect(screen.getByRole("heading", { level: 2, name: preferencesCardMessages.title })).toBeVisible()
     expect(screen.getByRole("combobox", { name: preferencesCardMessages.timezone.label })).toHaveValue(timezonesMessages["Europe/Warsaw"])
     expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "timezones" }).queryKey)).toBeDefined()
-    expect(currentLicense).not.toHaveBeenCalled()
+    expect(summaryRequest).not.toHaveBeenCalled()
     expect(router.state.matches.at(-1)?.meta).toEqual(
       expect.arrayContaining([expect.objectContaining({ content: pagesAppSettingsMessages.metadata.description, name: "description" })]),
     )
   })
 
-  it("keeps the license navigation active for nested pages and falls back to the overview header", async () => {
-    await renderApp(`${ROUTES.APP_LICENSE}/details`)
-    expect(await screen.findByText("Activation details")).toBeVisible()
+  it("keeps the settings navigation active for nested pages and falls back to the overview header", async () => {
+    await renderApp(`${ROUTES.APP_SETTINGS}/details`)
+    expect(await screen.findByText("Session details")).toBeVisible()
     const nav = screen.getByRole("navigation", { name: navigation.label })
-    expect(within(nav).getByRole("link", { name: navigationLicenseMessages.app.license })).toHaveAttribute("aria-current", "page")
+    expect(within(nav).getByRole("link", { name: navigationAuthMessages.app.settings })).toHaveAttribute("aria-current", "page")
     expect(within(nav).getByRole("link", { name: navigationAuthMessages.app.overview })).not.toHaveAttribute("aria-current")
     expect(within(screen.getByRole("banner")).getByText(navigationAuthMessages.app.overview)).toBeVisible()
   })
@@ -188,8 +187,8 @@ describe("customer workspace routes", () => {
     const { router, user } = await renderApp(ROUTES.APP)
     await screen.findByRole("heading", { name: pagesAppMessages.metadata.title })
     const nav = screen.getByRole("navigation", { name: navigation.label })
-    await user.click(within(nav).getByRole("link", { name: navigationLicenseMessages.app.license }))
-    expect(await screen.findByRole("heading", { level: 1, name: pagesLicenseMessages.metadata.title })).toBeVisible()
+    await user.click(within(nav).getByRole("link", { name: navigationAuthMessages.app.settings }))
+    expect(await screen.findByRole("heading", { level: 1, name: pagesAppSettingsMessages.metadata.title })).toBeVisible()
     await user.click(screen.getByRole("link", { name: APP_NAME }))
     expect(await screen.findByRole("heading", { name: pagesAppMessages.metadata.title })).toBeVisible()
     await user.click(screen.getByRole("link", { name: navigationContentMessages.appResources.docs }))
@@ -209,7 +208,7 @@ describe("customer workspace account", () => {
     expect(signOutMock).not.toHaveBeenCalled()
   })
 
-  it("removes the cached session and licence, keeps the translations, and opens sign in after successful sign-out", async () => {
+  it("removes the cached session and account data, keeps the translations, and opens sign in after successful sign-out", async () => {
     const { queryClient, router, user } = await renderApp(ROUTES.APP)
     await user.click(await screen.findByRole("button", { name: commonMessages.signOut }))
 
@@ -217,14 +216,14 @@ describe("customer workspace account", () => {
     expect(router.state.location.pathname).toBe(ROUTES.SIGN_IN)
     expect(signOutMock).toHaveBeenCalledOnce()
     expect(queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toBeUndefined()
-    expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toBeUndefined()
+    expect(queryClient.getQueryData(SUMMARY_QUERY_KEY)).toBeUndefined()
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0)
     expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.app.sidebar" }).queryKey)).toBeDefined()
     expect(toast.success).toHaveBeenCalledWith(commonMessages.signedOut)
     expect(toast.error).not.toHaveBeenCalled()
   })
 
-  it("keeps the cached account and license when sign-out fails and shows the localized error", async () => {
+  it("keeps the cached session and account data when sign-out fails and shows the localized error", async () => {
     signOutMock.mockRejectedValue(new Error("Connection failed"))
     const session = createAuthSessionFixture()
     const { queryClient, router, user } = await renderApp(ROUTES.APP, "pl-PL")
@@ -234,7 +233,7 @@ describe("customer workspace account", () => {
       expect(toast.error).toHaveBeenCalledWith(plErrorMessages.codes.INTERNAL_ERROR)
     })
     expect(queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toStrictEqual(session)
-    expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toStrictEqual({ license: undefined })
+    expect(queryClient.getQueryData(SUMMARY_QUERY_KEY)).toStrictEqual(SUMMARY)
     expect(screen.getByRole("button", { name: plCommonMessages.signOut })).toBeEnabled()
     expect(router.state.location.pathname).toBe(ROUTES.APP)
     expect(toast.success).not.toHaveBeenCalled()
@@ -261,6 +260,6 @@ describe("customer workspace account", () => {
 
     expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeVisible()
     expect(queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toBeUndefined()
-    expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toBeUndefined()
+    expect(queryClient.getQueryData(SUMMARY_QUERY_KEY)).toBeUndefined()
   })
 })

@@ -3,10 +3,12 @@ import { describe, expect, it } from "vite-plus/test"
 import { ROOT_NAMESPACES, buildMessageTree, loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
 describe("route message selection", () => {
-  it("keeps email namespaces out of the shared browser tree", () => {
+  it("keeps email namespaces out of the shared browser tree", async () => {
     expect(ROOT_NAMESPACES.some((namespace) => namespace.startsWith("emails"))).toBe(false)
-    expect(() => loadNamespace({ locale: "en-US", namespace: "emails" })).toThrow("No messages/en-US/emails.json")
-    expect(() => loadNamespace({ locale: "en-US", namespace: "emails.newsletter" })).toThrow("No messages/en-US/emails.newsletter.json")
+    await expect(loadNamespace({ locale: "en-US", namespace: "emails" })).rejects.toThrow("No messages/en-US/emails.json")
+    await expect(loadNamespace({ locale: "en-US", namespace: "emails.newsletter" })).rejects.toThrow(
+      "No messages/en-US/emails.newsletter.json",
+    )
   })
   it("does not mutate a source namespace when constructing the tree", () => {
     const common = Object.freeze({ title: "Shared" })

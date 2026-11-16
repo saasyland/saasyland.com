@@ -66,44 +66,47 @@ URL は、コントラクトが求めるとおり HTTPS で、リクエストに
 - `invalidLicenseKey`: キーがない、形式が正しくない、または存在しません。レスポンスには `www-authenticate: Bearer` が付きます。
 - `licenseRefunded`: Polar が注文を全額返金しました。
 - `licenseRevoked`: 返金なしでライセンスが取り消されました。たとえば、Polar がキーを取り消した場合です。
-- `activationLimitReached`: すべての枠が使用中です。レスポンスにはライセンスとその端末が含まれるため、CLI はいずれかの解放を提案できます。
+- `activationLimitReached`: すべての枠が使用中です。レスポンスにはライセンスとその端末が含まれるため、CLI はそれらを一覧表示し、`/app/license` で枠を解放するよう顧客を案内できます。
 - `activationNotFound`: キーにそのアクティベーションがないか、アクティベーションが別の端末のものです。
 - `versionNotFound`: リリースにテンプレートバンドルがありません。レスポンスには `version` が含まれます。
 - `invalidRequest`: 問題を 1 つずつ、`body.label` のようなパスとメッセージとともに `issues` に列挙します。
-- `rateLimited` と `serviceUnavailable`: `retryAfterSeconds` と、同じ数値を入れた `retry-after` ヘッダーを返します。`serviceUnavailable` は、Polar に到達できなかった、Polar が失敗した、Polar がサイトのリクエストを制限した、またはバンドルのバケットを読み取れなかったことを意味します。CLI は <RepositoryFact name="cliApiRetryAfterSeconds" unit="second" />後（`LICENSE_API_RETRY_AFTER_SECONDS`）に再試行してください。
+- `rateLimited` と `serviceUnavailable`: `retryAfterSeconds` と、同じ数値を入れた `retry-after` ヘッダーを返します。`rateLimited` は、そのアドレスまたはキーが期間内のリクエストを使い切ったことを意味します。`serviceUnavailable` は、サイトが応答できなかったことを意味します。D1 がリクエストをカウントできなかった、またはライセンスを読み取れなかった、Polar に到達できなかった、Polar が失敗した、サイトのリクエストを制限した、またはリクエストを拒否した、バンドルのバケットを読み取れなかった、あるいは Worker がそれ以外の理由で失敗した場合です。CLI は <RepositoryFact name="cliApiRetryAfterSeconds" unit="second" />後（`LICENSE_API_RETRY_AFTER_SECONDS`）に再試行してください。
+
+どのエンドポイントも、サイトの失敗には HTTP 500 ではなく `serviceUnavailable` を返します。HTTP 500 は、コントラクトの `readApiResponse` が `unexpectedResponse` に変換し、CLI が自身の更新を促す案内に変えてしまうためです。ハンドラーは `license.api.ts` の `serve` という 1 つの境界を共有します。`serve` はコントラクトのどの回答にも当てはまらないエラーをすべて捕捉し、エラーとその原因、スタックとともに `[license] <method> <path> failed` をログに記録して、`serviceUnavailable` を返します。ログでは呼び出し元のライセンスキーが `[licence key]` に置き換わります。Drizzle のクエリエラーにはクエリにバインドされた値が含まれ、Polar の検証エラーにはリクエストの内容が含まれることがあるためです。
 
 ## レート制限
 
 <RepositoryFact name="cliApiRateLimitSeconds" unit="second" />
 あたり、IP アドレスごとに <RepositoryFact name="cliApiRequestsPerAddress" /> 件、ライセンスキーごとに
 <RepositoryFact name="cliApiRequestsPerLicenseKey" /> 件のリクエストを送信できます。キーを読み取る前に、まずアドレスがカウントされるため、1
-つのアドレスからキーを推測しようとしても、アドレスの上限で止まります。`consumeRateLimit`（`src/lib/rate-limit.ts`）はカウンターを
-`rate_limit` テーブルに保持し、アドレスと、ライセンスキーの SHA-256
-ハッシュで識別します。ライセンスキーそのものを使うことはありません。バンドルのリクエストはほかのリクエストと同じようにカウントされますが、署名済み
-URL からのダウンロードはカウントされません。
+つのアドレスからキーを推測しようとしても、アドレスの上限で止まります。`countRequest`（`src/lib/rate-limit.ts`）はカウンターを `rate_limit`
+テーブルに保持し、アドレスと、ライセンスキーの SHA-256 ハッシュで識別します。ライセンスキーそのものを使うことはありません。D1
+がリクエストをカウントできないとき、`countRequest` はリクエストを拒否する代わりにエラーを投げるため、API は `rateLimited` ではなく
+`serviceUnavailable` を返します。バンドルのリクエストはほかのリクエストと同じようにカウントされますが、署名済み URL
+からのダウンロードはカウントされません。
 
 ## 返金済みと取り消し済みのライセンス
 
-判断するのは、キーが属する `license` 行です。Polar の Webhook がこの行を最新の状態に保ちます（[決済とライセンス](/docs/features/payments)を参照）。全額返金でステータスは `refunded` になり、特典の取り消しで `revoked` になります。Polar は返金された注文の特典も取り消し、2 つのイベントはどちらの順序でも届く可能性があるため、取り消しが `refunded` を置き換えることはありません。Polar がすでにキーを取り消すか無効にしていて、その Webhook がまだ届いていない場合も、API は `licenseRevoked` を返します。
+判断するのは、キーが属する `license` 行です。Polar の Webhook がこの行を最新の状態に保ちます（[ライセンス](/docs/features/licences)を参照）。全額返金でステータスは `refunded` になり、特典の取り消しで `revoked` になります。Polar は返金された注文の特典も取り消し、2 つのイベントはどちらの順序でも届く可能性があるため、取り消しが `refunded` を置き換えることはありません。Polar がすでにキーを取り消すか無効にしていて、その Webhook がまだ届いていない場合も、API は `licenseRevoked` を返します。
 
 ## コード内の実装
 
-| ファイル                                                                                                                                          | 役割                                                                                                                                                                                                                                                                                            |
-| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/routes/api/cli.v1.license.ts`、`cli.v1.activations.ts`、`cli.v1.activations.$activationId.ts`、`cli.v1.activations.$activationId.bundles.ts` | ルートファイル。コントラクトのエンドポイントごとに 1 つのメソッドを持ちます                                                                                                                                                                                                                     |
-| `src/modules/license/license.api.ts`                                                                                                              | `licenseApiHandlers`: レート制限、D1 の検索、組織トークンで呼び出す Polar のライセンスキーのエンドポイント、R2 から読み取るバンドルのダイジェストとサイズ、レスポンス                                                                                                                           |
-| `src/modules/license/license.bundles.ts`                                                                                                          | `bundleObjectKey`、`signBundle`、`verifyBundle`、`SIGNED_BUNDLE_PATH`: リリースのバンドルのバケットのキーと署名済み URL                                                                                                                                                                         |
-| `src/modules/license/license.delivery.ts`                                                                                                         | 署名済みの `/bundles/` パスに R2 から応答する `serveBundle`                                                                                                                                                                                                                                     |
-| `src/modules/license/__test__/license.api.integration.test.ts`                                                                                    | D1 と Polar の厳密なテストダブルを相手にしたすべてのエンドポイント: 成功、再利用、上限、返金済みと取り消し済みのライセンス、レート制限、Polar の障害。各レスポンスは `readApiResponse` で読み取ります                                                                                           |
-| `src/modules/license/__test__/license.bundles.integration.test.ts`                                                                                | D1、インメモリの R2 バケット、Polar のテストダブルを相手にしたバンドルのリクエスト: 保存されたアーカイブのダイジェストとサイズ、URL の期限が切れるまでのダウンロード、`versionNotFound`、`activationNotFound`、返金済みと取り消し済みのライセンス、ストレージの障害、拒否される回答、レート制限 |
-| `src/routes/api/__test__/cli.v1.test.ts`                                                                                                          | ルーターがコントラクトの各パスを対応するルートファイルに渡すこと                                                                                                                                                                                                                                |
-| `e2e/specs/cli-licence-api.spec.ts`                                                                                                               | ビルドした Worker が、コントラクト自身のクライアントに、API と、ローカルの R2 バケットにあるリリースのバンドルを提供すること                                                                                                                                                                    |
+| ファイル                                                                                                                                          | 役割                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/api/cli.v1.license.ts`、`cli.v1.activations.ts`、`cli.v1.activations.$activationId.ts`、`cli.v1.activations.$activationId.bundles.ts` | ルートファイル。コントラクトのエンドポイントごとに 1 つのメソッドを持ちます                                                                                                                                                                                                                                 |
+| `src/modules/license/license.api.ts`                                                                                                              | `licenseApiHandlers`: レート制限、D1 の検索、組織トークンで呼び出す Polar のライセンスキーのエンドポイント、R2 から読み取るバンドルのダイジェストとサイズ、レスポンス、そしてサイトのあらゆる失敗に `serviceUnavailable` を返す `serve`                                                                     |
+| `src/modules/license/license.bundles.ts`                                                                                                          | `bundleObjectKey`、`signBundle`、`verifyBundle`、`SIGNED_BUNDLE_PATH`: リリースのバンドルのバケットのキーと署名済み URL                                                                                                                                                                                     |
+| `src/modules/license/license.delivery.ts`                                                                                                         | 署名済みの `/bundles/` パスに R2 から応答する `serveBundle`                                                                                                                                                                                                                                                 |
+| `src/modules/license/__test__/license.api.integration.test.ts`                                                                                    | D1 と Polar の厳密なテストダブルを相手にしたすべてのエンドポイント: 成功、再利用、上限、返金済みと取り消し済みのライセンス、レート制限、そしてレート制限のストレージ、ライセンスの検索、Polar が失敗したときの `serviceUnavailable` と、キーを含まないログ。各レスポンスは `readApiResponse` で読み取ります |
+| `src/modules/license/__test__/license.bundles.integration.test.ts`                                                                                | D1、インメモリの R2 バケット、Polar のテストダブルを相手にしたバンドルのリクエスト: 保存されたアーカイブのダイジェストとサイズ、URL の期限が切れるまでのダウンロード、`versionNotFound`、`activationNotFound`、返金済みと取り消し済みのライセンス、ストレージの障害、拒否される回答、レート制限             |
+| `src/routes/api/__test__/cli.v1.test.ts`                                                                                                          | ルーターがコントラクトの各パスを対応するルートファイルに渡すこと                                                                                                                                                                                                                                            |
+| `e2e/specs/cli-licence-api.spec.ts`                                                                                                               | ビルドした Worker が、コントラクト自身のクライアントに、API と、ローカルの R2 バケットにあるリリースのバンドルを提供すること                                                                                                                                                                                |
 
 `license.constants.ts` の `LICENSE_API_ENDPOINTS` は、コントラクトのエンドポイントのうち、サイトが提供するもの（現在はすべて）を列挙します。上の表とルーティングのテストはこれを読み取り、コントラクトにこのリストにないエンドポイントがあると、ルーティングのテストが失敗します。
 
 ## 関連ページ
 
-- [決済とライセンス](/docs/features/payments)
+- [ライセンス](/docs/features/licences)
 - [顧客アプリ](/docs/features/customer-app)
 - [HTTP ハンドラー](/docs/features/api-surface)
 - [Cloudflare R2](/docs/integrations/cloudflare-r2)

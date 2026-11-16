@@ -1,3 +1,5 @@
+import { LOCAL_SERVER } from "~/src/data/local-server"
+
 import { APP_DOMAIN, APP_PREVIEW_DOMAIN } from "~/src/presentation/branding"
 
 export const HTTP_STATUS = {
@@ -61,8 +63,12 @@ export const DEPLOYED_HOSTS = {
 
 const LOCAL_MODES = new Set<string>([ENVIRONMENT.DEVELOPMENT, ENVIRONMENT.TEST])
 
-const LOCAL_HOSTS = ["localhost:3000", "127.0.0.1:3000"]
-const SECOND_TEST_SERVER_HOSTS = ["localhost:3020", "127.0.0.1:3020"]
+const SECOND_TEST_SERVER_PORT = 3020
+
+const loopbackHosts = (port: number): string[] => ["localhost", LOCAL_SERVER.HOST].map((host) => `${host}:${String(port)}`)
+
+const LOCAL_HOSTS = loopbackHosts(LOCAL_SERVER.PORT)
+const SECOND_TEST_SERVER_HOSTS = loopbackHosts(SECOND_TEST_SERVER_PORT)
 
 const HOSTS_BY_MODE: Readonly<Record<string, readonly string[]>> = {
   [ENVIRONMENT.PREVIEW]: [DEPLOYED_HOSTS[ENVIRONMENT.PREVIEW]],

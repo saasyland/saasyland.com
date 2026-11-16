@@ -7,11 +7,8 @@ import type { LocalizedText } from "~/src/modules/_core/utils/localized-text"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
 import { course } from "~/src/modules/course/course.schema"
-import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_ACCESS, LESSON_ACCESS_LEVELS, LESSON_STATUS, LESSON_STATUSES } from "~/src/modules/lesson/lesson.constants"
 import { video } from "~/src/modules/video/video.schema"
-
-export const LESSON_ACCESS_LEVELS = [LESSON_ACCESS.PREVIEW, LESSON_ACCESS.ACCOUNT, LESSON_ACCESS.PAID] as const
-export const LESSON_STATUSES = [LESSON_STATUS.DRAFT, LESSON_STATUS.PUBLISHED] as const
 
 export const lesson = sqliteTable(
   "lesson",

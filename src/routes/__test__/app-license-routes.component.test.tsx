@@ -4,6 +4,7 @@ import { getRequest } from "@tanstack/react-start/server"
 import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
+import { createTranslator } from "use-intl"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -16,7 +17,8 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
+import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
 import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS, LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import type { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"
@@ -29,13 +31,18 @@ import { Route as OverviewRoute } from "~/src/routes/app.index"
 import { Route as LicenseRoute } from "~/src/routes/app.license"
 
 import { CLI_LICENSE_COMMANDS, CLI_LICENSE_KEY_VARIABLE, cliCommand } from "~/src/data/cli"
+import { REACTPROJECTS_FACTS } from "~/src/data/marketing"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { LicenseCard } from "~/src/presentation/components/custom/app/license-card"
 import { LicenseStatusCard } from "~/src/presentation/components/custom/app/license-status-card"
 
+import commonMessages from "~/messages/en-US/common.json"
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import errorsMessages from "~/messages/en-US/errors.json"
+import navigationLicenseMessages from "~/messages/en-US/navigation.license.json"
 import pagesAppMessages from "~/messages/en-US/pages.app.json"
+import pagesAppSidebarMessages from "~/messages/en-US/pages.app.sidebar.json"
 import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
 import plPricingMessages from "~/messages/pl-PL/components.custom.pricing.json"
 import plPagesLicenseMessages from "~/messages/pl-PL/pages.license.json"
@@ -54,6 +61,7 @@ const activationsMock = vi.hoisted(() => vi.fn<() => ReturnType<typeof getCurren
 const sectionLoad = vi.hoisted(() => vi.fn<() => Promise<unknown>>())
 const checkoutMock = vi.hoisted(() => vi.fn<NonNullable<typeof startCheckoutMutation.mutationFn>>())
 const deactivateMock = vi.hoisted(() => vi.fn<NonNullable<typeof deactivateLicenseMutation.mutationFn>>())
+const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
 
 vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
   const actual = await importOriginal()
@@ -83,6 +91,9 @@ vi.mock(import("~/src/modules/license/use-cases/start-checkout"), () => ({
 vi.mock(import("~/src/modules/license/use-cases/deactivate-license"), () => ({
   deactivateLicenseMutation: { mutationFn: deactivateMock, mutationKey: LICENSE_MUTATION_KEYS.DEACTIVATE },
 }))
+vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
+  signOutUserMutation: { mutationFn: signOutMock, mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_OUT },
+}))
 
 const ownedLicense: License["select"] = {
   createdAt: new Date("2026-09-08T10:00:00Z"),
@@ -111,11 +122,12 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
   Object.assign(OverviewRoute.options, { getParentRoute: () => AppRoute, id: "/", path: "/" })
   Object.assign(LicenseRoute.options, { getParentRoute: () => AppRoute, id: "/license", path: "/license" })
   const terms = createRoute({ component: () => <h1>Terms</h1>, getParentRoute: () => root, path: ROUTES.TERMS })
+  const signIn = createRoute({ component: () => <h1>Sign in required</h1>, getParentRoute: () => root, path: ROUTES.SIGN_IN })
   const router = createRouter({
     context: { queryClient },
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree: root.addChildren([terms, AppRoute.addChildren([OverviewRoute, LicenseRoute])]),
+    routeTree: root.addChildren([terms, signIn, AppRoute.addChildren([OverviewRoute, LicenseRoute])]),
   })
   render(
     <QueryClientProvider client={queryClient}>
@@ -139,6 +151,7 @@ beforeEach(() => {
   sectionLoad.mockReset().mockResolvedValue(undefined)
   checkoutMock.mockReset()
   deactivateMock.mockReset()
+  signOutMock.mockReset().mockResolvedValue({ redirect: undefined, success: true, url: undefined })
   vi.spyOn(toast, "error").mockReturnValue(0)
   vi.spyOn(toast, "success").mockReturnValue(0)
   vi.spyOn(globalThis, "scrollTo").mockImplementation(() => {})
@@ -160,6 +173,12 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+const withFeatureValues = (message: string): string =>
+  createTranslator({ locale: "en-US", messages: { message } })("message", {
+    coverageThreshold: REPOSITORY_FACTS.coverageThreshold,
+    ...REACTPROJECTS_FACTS,
+  })
+
 describe("buying a license", () => {
   it.each([ROUTES.APP, ROUTES.APP_LICENSE])("offers every tier with its price and features on %s", async (path) => {
     await renderApp(path)
@@ -168,8 +187,12 @@ describe("buying a license", () => {
     for (const tier of Object.values(pricingMessages.tiers)) {
       expect(within(region).getByRole("heading", { level: 3, name: tier.name })).toBeVisible()
       expect(within(region).getByRole("button", { name: tier.cta })).toBeEnabled()
-      expect(within(region).getByText(tier.features.f1)).toBeVisible()
+      for (const feature of Object.values(tier.features)) {
+        expect(within(region).getByText(withFeatureValues(feature))).toBeVisible()
+      }
     }
+    expect(within(region).getAllByText(pricingMessages.status.available)).toHaveLength(Object.keys(pricingMessages.tiers).length)
+    expect(within(region).getAllByText(pricingMessages.status.arriving)).toHaveLength(Object.keys(pricingMessages.tiers).length)
     expect(within(region).getAllByText(pricingMessages.mostPopular)).toHaveLength(1)
     expect(within(region).getByRole("link", { name: "Terms of Service" })).toHaveAttribute("href", ROUTES.TERMS)
     expect(screen.queryByRole("region", { name: chosen.title.replace("{tier}", pricingMessages.tiers.complete.name) })).toBeNull()
@@ -249,7 +272,7 @@ describe("buying a license", () => {
   })
 
   it("explains a refused checkout and switches a stale page to the license it already owns", async () => {
-    checkoutMock.mockRejectedValue(new AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE))
+    checkoutMock.mockResolvedValue({ alreadyActive: true })
     const { user } = await renderApp(ROUTES.APP)
     await offer()
     currentLicenseMock.mockResolvedValue({ license: ownedLicense })
@@ -257,7 +280,7 @@ describe("buying a license", () => {
     await user.click(tierButton(LICENSE_TIER.COMPLETE))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(errorsMessages.codes.LICENSE_ALREADY_ACTIVE.replace("{email}", CONTACT_EMAIL))
+      expect(toast.error).toHaveBeenCalledWith(`You already have an active licence. To move to another tier, email ${CONTACT_EMAIL}.`)
     })
     expect(await screen.findByRole("heading", { name: statusCard.title })).toBeVisible()
     expect(screen.queryByRole("region", { name: buy.title })).toBeNull()
@@ -343,7 +366,7 @@ describe("owning a license", () => {
     expect(screen.getByRole("link", { name: statusCard.action })).toHaveAttribute("href", ROUTES.APP_LICENSE)
     expect(screen.queryByText(LICENSE_KEY)).toBeNull()
     expect(screen.queryByRole("region", { name: buy.title })).toBeNull()
-    expect(screen.getByRole("link", { name: pagesAppMessages.overview.docs.action })).toHaveAttribute("href", ROUTES.DOCS)
+    expect(screen.getByRole("link", { name: pagesAppMessages.overview.docs.action })).toHaveAttribute("href", ROUTES.DOCS_CLI)
   })
 
   it.each([LICENSE_STATUS.REFUNDED, LICENSE_STATUS.REVOKED])("offers a new license next to a %s one", async (status) => {
@@ -470,6 +493,31 @@ describe("license cards", () => {
     )
 
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+describe("the license in the customer workspace", () => {
+  it("marks the license active in the navigation, sets the page metadata and looks the license up once", async () => {
+    const { router } = await renderApp(ROUTES.APP_LICENSE)
+
+    expect(await screen.findByRole("heading", { level: 1, name: pagesLicenseMessages.metadata.title })).toBeVisible()
+    const navigation = screen.getByRole("navigation", { name: pagesAppSidebarMessages.navigation.label })
+    expect(within(navigation).getByRole("link", { name: navigationLicenseMessages.app.license })).toHaveAttribute("aria-current", "page")
+    expect(currentLicenseMock).toHaveBeenCalledOnce()
+    expect(router.state.matches.at(-1)?.meta).toEqual(
+      expect.arrayContaining([expect.objectContaining({ content: pagesLicenseMessages.metadata.description, name: "description" })]),
+    )
+  })
+
+  it("removes the cached license when the customer signs out", async () => {
+    const { queryClient, user } = await renderApp(ROUTES.APP_LICENSE)
+    await screen.findByRole("heading", { level: 1, name: pagesLicenseMessages.metadata.title })
+    expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toStrictEqual({ license: undefined })
+
+    await user.click(screen.getByRole("button", { name: commonMessages.signOut }))
+
+    expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeVisible()
+    expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toBeUndefined()
   })
 })
 

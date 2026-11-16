@@ -60,7 +60,7 @@ describe("readPageHead", () => {
   })
 
   it("reads the robots directive of a page that asks not to be indexed", () => {
-    const head = buildPageHead({ indexable: false, pathname: ROUTES.PREMIUM, title: "Premium" })
+    const head = buildPageHead({ indexable: false, pathname: ROUTES.HOME, title: "Home" })
 
     expect(readPageHead(renderDocument(head, "en-US"))).toMatchObject({ robots: ROBOTS.NOINDEX, section: undefined })
   })

@@ -3,7 +3,7 @@ import zod from "zod/v4"
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
 import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { idField, slugField } from "~/src/modules/_core/utils/zod-fields"
-import { LESSON_ACCESS_LEVELS, LESSON_STATUSES } from "~/src/modules/lesson/lesson.schema"
+import { LESSON_ACCESS_LEVELS, LESSON_STATUSES } from "~/src/modules/lesson/lesson.constants"
 
 const lessonIdInput = zod.object({
   lessonId: idField,

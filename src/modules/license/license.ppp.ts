@@ -14,8 +14,8 @@ import {
 } from "~/src/integrations/polar/polar.discounts"
 
 import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
-import { PPP_COOKIE, PPP_DECLINED, getPppPercentOff } from "~/src/modules/_core/constants/pricing"
 import { REGIONAL_DISCOUNTS_REFRESH_AFTER_MS } from "~/src/modules/license/license.constants"
+import { PPP_COOKIE, PPP_DECLINED, getPppPercentOff } from "~/src/modules/license/license.pricing"
 
 import { readCookie } from "~/src/lib/cookie"
 

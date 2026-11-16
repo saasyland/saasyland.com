@@ -5,7 +5,7 @@ description: "A module is one database table: its schema, constants, Zod schemas
 
 `src/modules/<table>/` exists only for a real database table. The folder mirrors the Drizzle schema, so creating one claims that a table exists. Code that serves a feature without a table of its own goes elsewhere: a server function that reads GitHub or the docs collection lives in `src/lib/<topic>.ts` or in the one route that uses it, and vendor setup lives in `src/integrations/<vendor>`.
 
-The modules are `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user`, `verification` and `video`. `license` owns two tables, `license` and `revoked_license_order`. `_core` is not a module: it holds the error codes, catalogues and Zod fields every module shares.
+The modules are `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` and `video`. `license` owns two tables, `license` and `revoked_license_order`. `_core` is not a module: it holds the error codes, catalogues and Zod fields every module shares.
 
 ## Anatomy
 
@@ -43,10 +43,22 @@ export const course = sqliteTable(
 
 - Columns are camelCase in TypeScript and snake_case in SQL. Keys are sorted, as the linter requires, with `...timestamps()` as the last entry.
 - `createdAt` and `updatedAt` come from `timestamps()` in `src/integrations/drizzle-orm/drizzle.columns.ts`: milliseconds, filled by SQLite on insert, with `updatedAt` refreshed on every update. Never write them by hand. `lesson_progress` needs only the second, so it takes `updatedAt: timestamps().updatedAt`. Two tables have no timestamps: `rate_limit` holds short-lived counters that carry their own `expiresAt` and change on every request, and `revoked_license_order` records each refunded Polar order once, by its ID.
-- Primary keys are text. A use case that inserts a row fills the key with a UUID v7 (`v7()` from `uuid`).
+- Primary keys are text. A use case that inserts a row fills the key with a UUID v7 (`v7()` from `uuid`); a [table that mirrors a provider](#tables-that-mirror-a-provider) takes the provider's ID instead.
 - Enum columns take a tuple built from the module's constant object, never a list of literals. The tuple sits beside the object in `<table>.constants.ts`, because the Zod schemas and the browser read it too, and that file imports nothing from Drizzle.
 - Text a visitor reads in several languages is a `LocalizedText` JSON column, validated by `localizedTextSchema` and read with `localize(text, locale)` from `src/modules/_core/utils/localized-text.ts`.
 - A new table is re-exported from `src/integrations/drizzle-orm/drizzle.schemas.ts`, and its migration is generated with `bun run db:generate`. See [Database migrations](/docs/guides/database-migrations).
+
+## Tables that mirror a provider
+
+`order` and `subscription` hold copies of Polar's orders and subscriptions, written only from Polar's data and never edited by hand. A mirror table follows the provider where the rules above would not:
+
+- Its primary key is the provider's ID, a text column of `POLAR_ID_MAX_LENGTH`, and its columns take the provider's field names, such as `customer_id`, `product_id` and `subscription_id`. A table of ours that points at the provider prefixes the name instead, as `license.polar_order_id` does.
+- The provider's own times sit beside `...timestamps()`. `placedAt` is when Polar created the order, and `changedAt` is the version of Polar's record that the row holds: its `modified_at`, or its `created_at` while it has never changed. `createdAt` and `updatedAt` still record when D1 wrote the row.
+- Enum columns take tuples of the provider's values: `ORDER_STATUSES` in `order.constants.ts` lists `POLAR_ORDER_STATUS` from `src/integrations/polar/polar.constants.ts`, and a type test fails when the SDK names a value that the tuple lacks.
+- No column has a default apart from `createdAt` and `updatedAt`, because every value comes from the provider.
+- `user_id` is `ON DELETE SET NULL`: deleting an account keeps its orders and subscriptions and only removes the link.
+
+`order` is an SQL keyword. Drizzle quotes every identifier, so its queries need nothing; raw SQL names the table through the schema object, as `${order}` inside a `sql` template, never as a bare `order`.
 
 ## Constants
 
@@ -193,6 +205,7 @@ When a table needs logic that is neither a use case nor a pure helper, it gets o
 | `license/license.bundles.ts`                            | Signing the URLs of the CLI's template bundles; their object keys    |
 | `license/license.delivery.ts`                           | The Worker handler for signed `/bundles/` requests                   |
 | `license/license.ppp.ts`                                | Regional pricing discounts for checkout                              |
+| `license/license.pricing.ts`                            | Regional price bands and the opt-out cookie; pure                    |
 | `newsletter-subscriber/newsletter-subscriber.server.ts` | Server-only request checks                                           |
 | `video/video.delivery.ts`                               | The Worker handler for signed `/media/` requests                     |
 | `video/video.playback.ts`, `video/video.files.ts`       | Signing playback URLs; object keys and content types                 |

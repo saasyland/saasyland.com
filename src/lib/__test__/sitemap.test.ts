@@ -29,7 +29,7 @@ describe("isIndexable", () => {
 
 describe("listedPages", () => {
   it("leaves out pages that ask not to be indexed and paths robots.txt disallows", () => {
-    const pages = [page("/"), page("/premium", ROBOTS.NOINDEX), page("/private/report"), page("/docs", ROBOTS.NON_PRODUCTION)]
+    const pages = [page("/"), page("/draft", ROBOTS.NOINDEX), page("/private/report"), page("/docs", ROBOTS.NON_PRODUCTION)]
 
     expect(listedPages(pages, "User-agent: *\nDisallow: /private/").map(({ canonical }) => canonical)).toStrictEqual([
       `${APP_URL}/`,

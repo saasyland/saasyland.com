@@ -5,7 +5,7 @@ description: "Um módulo é uma tabela do banco de dados: seu schema, suas const
 
 `src/modules/<table>/` existe apenas para uma tabela real do banco de dados. A pasta espelha o schema do Drizzle, então criar uma pasta afirma que uma tabela existe. O código que atende a um recurso sem tabela própria vai para outro lugar: uma server function que lê o GitHub ou a coleção da documentação fica em `src/lib/<topic>.ts` ou na única rota que a usa, e a configuração de fornecedores fica em `src/integrations/<vendor>`.
 
-Os módulos são `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user`, `verification` e `video`. `license` é dono de duas tabelas, `license` e `revoked_license_order`. `_core` não é um módulo: ele contém os códigos de erro, os catálogos e os campos Zod que todos os módulos compartilham.
+Os módulos são `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` e `video`. `license` é dono de duas tabelas, `license` e `revoked_license_order`. `_core` não é um módulo: ele contém os códigos de erro, os catálogos e os campos Zod que todos os módulos compartilham.
 
 ## Anatomia
 
@@ -43,10 +43,22 @@ export const course = sqliteTable(
 
 - As colunas usam camelCase no TypeScript e snake_case no SQL. As chaves ficam ordenadas, como o linter exige, com `...timestamps()` como a última entrada.
 - `createdAt` e `updatedAt` vêm de `timestamps()` em `src/integrations/drizzle-orm/drizzle.columns.ts`: em milissegundos, preenchidos pelo SQLite na inserção, com `updatedAt` renovado a cada atualização. Nunca os escreva à mão. `lesson_progress` precisa apenas do segundo, então recebe `updatedAt: timestamps().updatedAt`. Duas tabelas não têm timestamps: `rate_limit` guarda contadores de vida curta que têm seu próprio `expiresAt` e mudam a cada requisição, e `revoked_license_order` registra uma única vez cada pedido do Polar reembolsado, pelo seu ID.
-- As chaves primárias são texto. Um caso de uso que insere uma linha preenche a chave com um UUID v7 (`v7()` de `uuid`).
+- As chaves primárias são texto. Um caso de uso que insere uma linha preenche a chave com um UUID v7 (`v7()` de `uuid`); uma [tabela que espelha um provedor](#tables-that-mirror-a-provider) usa o ID do provedor no lugar.
 - Colunas de enum recebem uma tupla montada a partir do objeto de constantes do módulo, nunca uma lista de literais. A tupla fica ao lado do objeto em `<table>.constants.ts`, porque os schemas Zod e o navegador também a leem, e esse arquivo não importa nada do Drizzle.
 - Um texto que os visitantes leem em vários idiomas é uma coluna JSON `LocalizedText`, validada por `localizedTextSchema` e lida com `localize(text, locale)` de `src/modules/_core/utils/localized-text.ts`.
 - Uma tabela nova é reexportada em `src/integrations/drizzle-orm/drizzle.schemas.ts`, e a sua migração é gerada com `bun run db:generate`. Veja [Migrações de banco de dados](/docs/guides/database-migrations).
+
+## Tabelas que espelham um provedor [#tables-that-mirror-a-provider]
+
+`order` e `subscription` guardam cópias dos pedidos e das assinaturas do Polar, gravadas apenas a partir dos dados do Polar e nunca editadas à mão. Uma tabela espelho segue o provedor onde as regras acima diriam outra coisa:
+
+- A chave primária é o ID do provedor, uma coluna de texto com `POLAR_ID_MAX_LENGTH`, e as colunas usam os nomes de campo do provedor, como `customer_id`, `product_id` e `subscription_id`. Uma tabela nossa que aponta para o provedor prefixa o nome, como faz `license.polar_order_id`.
+- Os horários do próprio provedor ficam ao lado de `...timestamps()`. `placedAt` é quando o Polar criou o pedido, e `changedAt` é a versão do registro do Polar que a linha guarda: o seu `modified_at` ou, enquanto ele nunca mudou, o seu `created_at`. `createdAt` e `updatedAt` continuam registrando quando o D1 gravou a linha.
+- Colunas de enum recebem tuplas com os valores do provedor: `ORDER_STATUSES` em `order.constants.ts` lista `POLAR_ORDER_STATUS` de `src/integrations/polar/polar.constants.ts`, e um teste de tipos falha quando o SDK nomeia um valor que falta na tupla.
+- Nenhuma coluna tem valor padrão além de `createdAt` e `updatedAt`, porque todo valor vem do provedor.
+- `user_id` é `ON DELETE SET NULL`: excluir uma conta mantém os seus pedidos e assinaturas e remove apenas o vínculo.
+
+`order` é uma palavra reservada do SQL. O Drizzle coloca aspas em todo identificador, então as suas consultas não precisam de nada; SQL bruto nomeia a tabela pelo objeto do schema, como `${order}` dentro de um template `sql`, nunca como `order` solto.
 
 ## Constantes
 
@@ -193,6 +205,7 @@ Quando uma tabela precisa de uma lógica que não é nem um caso de uso nem um h
 | `license/license.bundles.ts`                            | Assinatura das URLs dos pacotes de templates da CLI; as chaves de objeto deles   |
 | `license/license.delivery.ts`                           | O handler do Worker para as requisições `/bundles/` assinadas                    |
 | `license/license.ppp.ts`                                | Descontos de preço regional no checkout                                          |
+| `license/license.pricing.ts`                            | Faixas de preços regionais e o cookie de recusa; puro                            |
 | `newsletter-subscriber/newsletter-subscriber.server.ts` | Verificações de requisição exclusivas do servidor                                |
 | `video/video.delivery.ts`                               | O handler do Worker para as requisições `/media/` assinadas                      |
 | `video/video.playback.ts`, `video/video.files.ts`       | Assinatura das URLs de reprodução; chaves de objeto e tipos de conteúdo          |

@@ -5,10 +5,3 @@ export const TEST_ACCOUNTS = [
   { email: "admin@example.test", id: "test-admin", name: "Test Admin", role: ROLE_CODES.ADMIN },
   { email: "customer@example.test", id: "test-customer", name: "Test Customer", role: ROLE_CODES.CUSTOMER },
 ] as const
-
-export const TEST_LICENSED_ACCOUNT = {
-  email: "licensed@example.test",
-  id: "test-licensed",
-  name: "Test Licensee",
-  role: ROLE_CODES.CUSTOMER,
-} as const

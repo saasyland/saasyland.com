@@ -22,7 +22,7 @@ import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-fo
 import authOauthMessages from "~/messages/en-US/auth.oauth.json"
 import { ROUTES } from "~/src/routes"
 
-const RETURN_TO = "/pl-PL/app/license"
+const RETURN_TO = "/pl-PL/app/settings"
 const ENCODED_RETURN_TO = encodeURIComponent(RETURN_TO)
 const EMAIL = "ada@example.test"
 const PASSWORD = "Secret1!"

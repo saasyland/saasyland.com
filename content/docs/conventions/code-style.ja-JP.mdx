@@ -20,11 +20,22 @@ oxlint は `correctness`、`nursery`、`pedantic`、`perf`、`style`、`suspicio
 | `unicorn/no-null`            | テストと `src/platform/testing` 以外で有効               | 値がないことは `undefined` で表す              |
 | `typescript/no-explicit-any` | `error`                                                  | どの値も `any` で型付けしない                  |
 
-オーバーライドは限定的で、ファイル単位で適用されます。テストと `src/platform/testing` の共有テストヘルパーは `no-magic-numbers`、`no-await-in-loop`、`unicorn/no-null` を緩和し、`src/presentation` と `src/hooks` は `typescript/consistent-return` を、テスト用モックは `require-await` を緩和します。`src/routes` では `sort-keys` を無効にしています。ルートのオプションは独自の順序に従うためです（[ルートファイル](/docs/conventions/routes)を参照）。
+オーバーライドは限定的で、ファイル単位で適用されます。テストと `src/platform/testing` の共有テストヘルパーは `no-magic-numbers`、`no-await-in-loop`、`unicorn/no-null`、`hydration/no-clock-or-locale-in-render` を緩和し、`src/presentation` と `src/hooks` は `typescript/consistent-return` を、テスト用モックは `require-await` を緩和します。`src/routes` では `sort-keys` を無効にしています。ルートのオプションは独自の順序に従うためです（[ルートファイル](/docs/conventions/routes)を参照）。
 
 `tsconfig.json` は、コードの書き方を左右する厳格なフラグを追加しています。`strict`、`exactOptionalPropertyTypes`、`noUncheckedIndexedAccess`、`noPropertyAccessFromIndexSignature`、`noImplicitReturns`、`noFallthroughCasesInSwitch`、`noUnusedLocals`、`noUnusedParameters` です。インデックスによる読み取りは `undefined` の可能性があり、省略可能なプロパティに明示的に `undefined` を設定することはできず、インデックスシグネチャは `record["key"]` の形で読み取ります。
 
 フォーマッターは、セミコロンなし、ダブルクォート、末尾カンマあり、行幅 <RepositoryFact name="printWidth" /> で出力します。また、インポートを固定のグループに並べ替え、`className` と `cn` の呼び出し内の Tailwind のクラスも並べ替え、`package.json` のスクリプトを名前順に並べ替えます（`sortPackageJson: { sortScripts: true }`）。そのため、いずれも手作業で並べないでください。1 つでも順序が乱れていると `vp check` が失敗します。コマンドについては[リントとフォーマット](/docs/tooling/lint-format)を参照してください。
+
+## サーバーと同じ内容をレンダリングする
+
+ページは 2 回レンダリングされます。サーバーで 1 回、React が HTML をハイドレーションするときにブラウザでもう 1 回です。両方のレンダリングが同じテキストを出力しなければ、React はハイドレーションの不一致（エラー #418）を報告してページをレンダリングし直します。そのためレンダリングのコードは、両者で異なる時計や実行環境のロケールを読みません。引数なしの `new Date()`、`Date.now`、`toLocaleString`、`toLocaleDateString`、`toLocaleTimeString` は使わず、両方が共有する値を使います。
+
+- 相対時間は、そのデータを読み込んだクエリの `dataUpdatedAt` から数えます（[国際化とロケール](/docs/features/internationalization)を参照）。
+- サイトが出力する年はビルドから取ります。フッターの著作権表示は、サイトをビルドした UTC の年である `REPOSITORY_FACTS.buildYear` で終わります。
+- 数値と日付は use-intl の `useFormatter` を通し、ページのロケールとユーザーのタイムゾーンでフォーマットします。
+- `CheckoutActivation` の有効化タイムアウトのようなブラウザでの待ち時間は `useEffect` で開始するタイマーにするので、最初のレンダリングはサーバーと同じになります。
+
+`hydration/no-clock-or-locale-in-render` は、リポジトリ独自の oxlint プラグイン `scripts/hydration-lint-plugin.ts` のルールで、これを `src/hooks`、`src/presentation`、`src/providers`、`src/routes/*.tsx` で強制します。そこではすべてがレンダリングのコードとみなされますが、後で実行される関数は例外です。JSX の prop、オブジェクトのプロパティ、変数としての `on…` イベントハンドラー、`queryFn` と `mutationFn`、そして `useEffect`、`useLayoutEffect`、`useCallback`、`setTimeout`、`setInterval`、`requestAnimationFrame`、`addEventListener` に渡すコールバックです。プラグインのこれらのリストが許可リストです。別の種類の遅延コールバックは `src/__test__/hydration-lint-plugin.test.ts` にケースを加えてそこへ追加し、無効化コメントは決して使いません。
 
 ## コメントを書かない
 

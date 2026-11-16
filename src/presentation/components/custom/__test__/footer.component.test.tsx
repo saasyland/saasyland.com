@@ -16,6 +16,13 @@ import footerMessages from "~/messages/en-US/components.custom.footer.json"
 import newsletterFormMessages from "~/messages/en-US/components.custom.newsletter-form.json"
 import { APP_FOUNDED_YEAR, APP_GITHUB_URL, APP_INSTAGRAM_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 
+const facts = vi.hoisted(() => ({ buildYear: 0 }))
+
+vi.mock(import("~/src/data/repository-facts"), async (importOriginal) => {
+  const { REPOSITORY_FACTS } = await importOriginal()
+  return { REPOSITORY_FACTS: Object.assign(facts, REPOSITORY_FACTS) }
+})
+
 const renderFooter = () =>
   renderWithRouter(
     <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
@@ -82,8 +89,8 @@ describe("marketing footer", () => {
   it.each([
     { expected: String(APP_FOUNDED_YEAR), year: APP_FOUNDED_YEAR },
     { expected: `${APP_FOUNDED_YEAR}–2030`, year: 2030 },
-  ])("formats the copyright for $year", ({ year, expected }) => {
-    vi.spyOn(Date.prototype, "getFullYear").mockReturnValue(year)
+  ])("ends the copyright in the year the site was built, $year", ({ year, expected }) => {
+    facts.buildYear = year
     renderFooter()
     expect(screen.getByRole("contentinfo")).toHaveTextContent(expected)
   })

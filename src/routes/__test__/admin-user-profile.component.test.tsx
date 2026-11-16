@@ -52,6 +52,7 @@ const labels = pagesAdminUsersMessages
 const sessionLabels = labels.profile.sessions
 const FORBIDDEN = new AppError(ERROR_CODES.FORBIDDEN)
 const SIGNED_IN = new Date("2025-01-01T12:00:00Z")
+const SESSIONS_READ_AT = new Date("2025-01-01T12:05:00Z")
 
 const session = (overrides: Partial<UserSession> = {}): UserSession => ({
   createdAt: SIGNED_IN,
@@ -74,7 +75,7 @@ const renderProfile = async ({ sessions = SESSIONS, user = adminUser() }: { sess
   const queryClient = adminQueryClient()
   queryClient.setQueryData(getCurrentSessionQuery.queryKey, createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))
   queryClient.setQueryData(getUserQuery({ userId: user.id }).queryKey, user)
-  queryClient.setQueryData(listUserSessionsQuery({ userId: user.id }).queryKey, sessions)
+  queryClient.setQueryData(listUserSessionsQuery({ userId: user.id }).queryKey, sessions, { updatedAt: SESSIONS_READ_AT.getTime() })
   const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue()
   const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
   const list = createRoute({ component: () => <p>{labels.title}</p>, getParentRoute: () => root, path: ROUTES.ADMIN_USERS_ALL })
@@ -159,6 +160,12 @@ describe("user profile", () => {
     await renderProfile({ user: Object.assign(adminUser(), { role: "external-role" }) })
 
     expect(screen.getByText("external-role")).toBeVisible()
+  })
+
+  it("tells how long ago each session was active when the sessions were read", async () => {
+    await renderProfile()
+
+    expect(within(sessionRow(sessionLabels.unknownDevice)).getByText("Signed in Jan 1, 2025 · active 5 minutes ago")).toBeVisible()
   })
 
   it("says when the user has no session and offers nothing to revoke", async () => {

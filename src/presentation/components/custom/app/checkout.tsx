@@ -15,6 +15,7 @@ import { useErrorMessage } from "~/src/hooks/use-error-message"
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const LINK_CLASSNAME = "underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
@@ -49,15 +50,22 @@ export const CheckoutButton = ({ children, featured, tier }: CheckoutButtonProps
   const errorMessage = useErrorMessage()
   const isStarting = useIsMutating({ mutationKey: LICENSE_MUTATION_KEYS.START_CHECKOUT }) > 0
 
+  const refreshLicense = () => queryClient.invalidateQueries({ queryKey: LICENSE_QUERY_KEYS.ALL })
+
   const { isPending, mutate } = useMutation({
     ...startCheckoutMutation,
     onError: async (error) => {
       toast.error(errorMessage(error))
-      await queryClient.invalidateQueries({ queryKey: LICENSE_QUERY_KEYS.ALL })
+      await refreshLicense()
     },
-    onSuccess: async ({ url }) => {
-      await queryClient.invalidateQueries({ queryKey: LICENSE_QUERY_KEYS.ALL })
-      globalThis.location.href = url
+    onSuccess: async (checkout) => {
+      if ("alreadyActive" in checkout) {
+        toast.error(t("alreadyActive", { email: CONTACT_EMAIL }))
+        await refreshLicense()
+        return
+      }
+      await refreshLicense()
+      globalThis.location.href = checkout.url
     },
   })
 

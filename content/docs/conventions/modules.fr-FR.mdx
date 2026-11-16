@@ -5,7 +5,7 @@ description: "Un module correspond à une table de la base de données : son sch
 
 `src/modules/<table>/` n'existe que pour une vraie table de la base de données. Le dossier reflète le schéma Drizzle : en créer un revient à affirmer qu'une table existe. Le code qui sert une fonctionnalité sans table propre va ailleurs : une fonction serveur qui lit GitHub ou la collection de la documentation se trouve dans `src/lib/<topic>.ts` ou dans l'unique route qui l'utilise, et la configuration d'un fournisseur se trouve dans `src/integrations/<vendor>`.
 
-Les modules sont `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user`, `verification` et `video`. `license` possède deux tables, `license` et `revoked_license_order`. `_core` n'est pas un module : il contient les codes d'erreur, les catalogues et les champs Zod que partagent tous les modules.
+Les modules sont `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` et `video`. `license` possède deux tables, `license` et `revoked_license_order`. `_core` n'est pas un module : il contient les codes d'erreur, les catalogues et les champs Zod que partagent tous les modules.
 
 ## Anatomie
 
@@ -43,10 +43,22 @@ export const course = sqliteTable(
 
 - Les colonnes sont en camelCase en TypeScript et en snake_case en SQL. Les clés sont triées, comme l'exige le linter, avec `...timestamps()` en dernière entrée.
 - `createdAt` et `updatedAt` proviennent de `timestamps()` dans `src/integrations/drizzle-orm/drizzle.columns.ts` : des millisecondes, renseignées par SQLite à l'insertion, `updatedAt` étant actualisée à chaque mise à jour. Ne les écrivez jamais à la main. `lesson_progress` n'a besoin que de la seconde et prend donc `updatedAt: timestamps().updatedAt`. Deux tables n'ont pas d'horodatage : `rate_limit` contient des compteurs de courte durée qui portent leur propre `expiresAt` et changent à chaque requête, et `revoked_license_order` enregistre une seule fois chaque commande Polar remboursée, par son identifiant.
-- Les clés primaires sont de type texte. Un cas d'usage qui insère une ligne remplit la clé avec un UUID v7 (`v7()` de `uuid`).
+- Les clés primaires sont de type texte. Un cas d'usage qui insère une ligne remplit la clé avec un UUID v7 (`v7()` de `uuid`) ; une [table miroir d'un fournisseur](#tables-that-mirror-a-provider) prend plutôt l'identifiant du fournisseur.
 - Les colonnes d'enum prennent un tuple construit à partir de l'objet de constantes du module, jamais une liste de littéraux. Le tuple se trouve à côté de l'objet dans `<table>.constants.ts`, car les schémas Zod et le navigateur le lisent aussi, et ce fichier n'importe rien de Drizzle.
 - Un texte qu'un visiteur lit en plusieurs langues est une colonne JSON `LocalizedText`, validée par `localizedTextSchema` et lue avec `localize(text, locale)` de `src/modules/_core/utils/localized-text.ts`.
 - Une nouvelle table est réexportée par `src/integrations/drizzle-orm/drizzle.schemas.ts`, et sa migration est générée avec `bun run db:generate`. Voir [Migrations de base de données](/docs/guides/database-migrations).
+
+## Tables miroirs d'un fournisseur [#tables-that-mirror-a-provider]
+
+`order` et `subscription` contiennent des copies des commandes et des abonnements de Polar, écrites uniquement à partir des données de Polar et jamais modifiées à la main. Une table miroir suit le fournisseur là où les règles ci-dessus ne le feraient pas :
+
+- Sa clé primaire est l'identifiant du fournisseur, une colonne texte de longueur `POLAR_ID_MAX_LENGTH`, et ses colonnes reprennent les noms de champ du fournisseur, comme `customer_id`, `product_id` et `subscription_id`. Une table à nous qui pointe vers le fournisseur préfixe plutôt le nom, comme le fait `license.polar_order_id`.
+- Les dates propres au fournisseur se trouvent à côté de `...timestamps()`. `placedAt` indique quand Polar a créé la commande, et `changedAt` la version de l'enregistrement Polar que contient la ligne : son `modified_at`, ou son `created_at` tant qu'il n'a jamais changé. `createdAt` et `updatedAt` enregistrent toujours quand D1 a écrit la ligne.
+- Les colonnes d'enum prennent des tuples des valeurs du fournisseur : `ORDER_STATUSES` dans `order.constants.ts` énumère `POLAR_ORDER_STATUS` de `src/integrations/polar/polar.constants.ts`, et un test de types échoue quand le SDK nomme une valeur absente du tuple.
+- Aucune colonne n'a de valeur par défaut hormis `createdAt` et `updatedAt`, car chaque valeur vient du fournisseur.
+- `user_id` est `ON DELETE SET NULL` : supprimer un compte conserve ses commandes et ses abonnements et ne retire que le lien.
+
+`order` est un mot-clé SQL. Drizzle met chaque identifiant entre guillemets, ses requêtes n'ont donc besoin de rien ; le SQL brut nomme la table par l'objet du schéma, sous la forme `${order}` dans un template `sql`, jamais par un `order` nu.
 
 ## Constantes
 
@@ -193,6 +205,7 @@ Lorsqu'une table a besoin d'une logique qui n'est ni un cas d'usage ni un utilit
 | `license/license.bundles.ts`                            | La signature des URL des bundles de modèles de la CLI ; leurs clés d'objet          |
 | `license/license.delivery.ts`                           | Le handler du Worker pour les requêtes `/bundles/` signées                          |
 | `license/license.ppp.ts`                                | Les remises de tarification régionale pour le paiement                              |
+| `license/license.pricing.ts`                            | Paliers de tarification régionale et cookie de refus ; pur                          |
 | `newsletter-subscriber/newsletter-subscriber.server.ts` | Les vérifications de requête exclusivement serveur                                  |
 | `video/video.delivery.ts`                               | Le handler du Worker pour les requêtes `/media/` signées                            |
 | `video/video.playback.ts`, `video/video.files.ts`       | La signature des URL de lecture ; les clés d'objet et les types de contenu          |

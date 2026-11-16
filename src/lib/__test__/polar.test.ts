@@ -6,7 +6,7 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { BASIS_POINTS_PER_PERCENT, POLAR_DISCOUNT_TYPE } from "~/src/integrations/polar/polar.discounts"
 
 import { ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
-import { DEFAULT_CURRENCY_CODE, PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import {
   LICENSE_ACTIVATION_LIMITS,
   LICENSE_TIER,
@@ -14,6 +14,7 @@ import {
   LICENSE_WEBHOOK_EVENTS,
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
+import { PPP_PERCENTS_OFF } from "~/src/modules/license/license.pricing"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 import { POLAR_EVENTS } from "~/src/data/polar-events"

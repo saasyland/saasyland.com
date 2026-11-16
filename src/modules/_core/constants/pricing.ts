@@ -1,47 +1,9 @@
-import type { CountryCode } from "~/src/modules/_core/constants/country"
 import type { CurrencyCode } from "~/src/modules/_core/constants/currency"
 
 export const DEFAULT_CURRENCY_CODE: CurrencyCode = "USD"
-
-export const FULL_PRICE_MULTIPLIER = 1
-
-export const PPP_PERCENT = 100
-
-export const PPP_TIERS = [
-  { countries: ["CY", "EE", "GR", "KR", "LT", "LV", "PT", "TW"], multiplier: 0.8 },
-  { countries: ["BG", "BR", "CL", "CZ", "HU", "MX", "MY", "PL", "RO", "SK", "ZA"], multiplier: 0.7 },
-  { countries: ["CO", "ID", "IN", "PE", "PH", "TH", "TR", "VN"], multiplier: 0.6 },
-  { countries: ["BD", "EG", "KE", "MA", "NG", "PK", "UA"], multiplier: 0.5 },
-] as const satisfies readonly { countries: readonly CountryCode[]; multiplier: number }[]
-
-const PPP_MULTIPLIERS: ReadonlyMap<string, number> = new Map(
-  PPP_TIERS.flatMap(({ countries, multiplier }) => countries.map((country) => [country, multiplier] as const)),
-)
-
-export const getPppMultiplier = (countryCode: string | undefined): number =>
-  PPP_MULTIPLIERS.get(countryCode?.toUpperCase() ?? "") ?? FULL_PRICE_MULTIPLIER
-
-const percentOff = (multiplier: number): number => Math.round((FULL_PRICE_MULTIPLIER - multiplier) * PPP_PERCENT)
-
-export const getPppPercentOff = (countryCode: string | undefined): number => percentOff(getPppMultiplier(countryCode))
-
-export const PPP_PERCENTS_OFF: readonly number[] = PPP_TIERS.map(({ multiplier }) => percentOff(multiplier))
 
 export const CURRENCY_FORMAT = {
   currency: DEFAULT_CURRENCY_CODE,
   style: "currency",
   trailingZeroDisplay: "stripIfInteger",
 } as const
-
-export const PPP_ATTRIBUTE = "data-ppp"
-
-export const PPP_KEYS: readonly number[] = [
-  FULL_PRICE_MULTIPLIER * PPP_PERCENT,
-  ...PPP_TIERS.map(({ multiplier }) => Math.round(multiplier * PPP_PERCENT)),
-]
-
-export const pppMultiplierKey = (countryCode: string | undefined): number => Math.round(getPppMultiplier(countryCode) * PPP_PERCENT)
-
-export const PPP_COOKIE = "regional_pricing"
-
-export const PPP_DECLINED = "off"

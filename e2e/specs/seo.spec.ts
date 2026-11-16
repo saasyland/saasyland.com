@@ -4,7 +4,7 @@ import { basename, join } from "node:path"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { readPageHead } from "../../src/lib/page-head"
 import { ORGANIZATION_STRUCTURED_DATA_HTML, SITEMAP_PATH, SOCIAL_IMAGE } from "../../src/lib/seo"
-import { listedPages } from "../../src/lib/sitemap"
+import { isIndexable, listedPages } from "../../src/lib/sitemap"
 import { APP_URL } from "../../src/presentation/branding"
 import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
@@ -29,11 +29,12 @@ test("the sitemap lists every prerendered page that allows indexing and nothing 
   const listed = await readSitemap(request)
   const pages = globSync("**/index.html", { cwd: CLIENT_DIR }).map((file) => readPageHead(readFileSync(join(CLIENT_DIR, file), "utf8")))
   const expected = listedPages(pages, readFileSync("public/robots.txt", "utf8")).map(({ canonical }) => canonical)
+  const unindexed = new Set(pages.filter(({ robots }) => !isIndexable(robots)).map(({ canonical }) => canonical))
 
   expect(listed.toSorted()).toStrictEqual(expected.toSorted())
   expect(listed).toContain(`${APP_URL}${ROUTES.HOME}`)
   expect(listed).toContain(`${APP_URL}/ja-JP${DOCS_PAGE}`)
-  expect(listed).not.toContain(`${APP_URL}${ROUTES.PREMIUM}`)
+  expect(listed.filter((url) => unindexed.has(url))).toStrictEqual([])
 })
 
 test("every sitemap URL answers 200 on the built site without a redirect", async ({ request }) => {

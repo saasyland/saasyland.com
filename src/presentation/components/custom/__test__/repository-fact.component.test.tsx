@@ -10,7 +10,6 @@ import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tansta
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
-import { PPP_TIERS } from "~/src/modules/_core/constants/pricing"
 import {
   BUNDLE_ARCHIVE_EXTENSION,
   BUNDLE_BINDING,
@@ -20,6 +19,7 @@ import {
   LICENSE_API_RETRY_AFTER_SECONDS,
   REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
 } from "~/src/modules/license/license.constants"
+import { PPP_TIERS } from "~/src/modules/license/license.pricing"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
@@ -34,8 +34,8 @@ import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/
 
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
 
-import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT } from "~/e2e/data/accounts"
-import { TEST_LICENSE } from "~/e2e/data/licenses"
+import { TEST_ACCOUNTS } from "~/e2e/data/accounts"
+import { TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
 import { COMMIT_EMOJIS } from "~/scripts/commit-msg"
 import { ROUTES } from "~/src/routes"
 

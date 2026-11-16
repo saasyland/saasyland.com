@@ -5,7 +5,7 @@ description: "Un módulo es una tabla de la base de datos: su esquema, sus const
 
 `src/modules/<table>/` existe solo para una tabla real de la base de datos. La carpeta refleja el esquema de Drizzle, así que crear una equivale a afirmar que existe una tabla. El código que da servicio a una funcionalidad sin tabla propia va en otro sitio: una función de servidor que lee de GitHub o de la colección de la documentación vive en `src/lib/<topic>.ts` o en la única ruta que la usa, y la configuración de un proveedor vive en `src/integrations/<vendor>`.
 
-Los módulos son `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user`, `verification` y `video`. `license` es dueño de dos tablas, `license` y `revoked_license_order`. `_core` no es un módulo: contiene los códigos de error, los catálogos y los campos de Zod que comparten todos los módulos.
+Los módulos son `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` y `video`. `license` es dueño de dos tablas, `license` y `revoked_license_order`. `_core` no es un módulo: contiene los códigos de error, los catálogos y los campos de Zod que comparten todos los módulos.
 
 ## Anatomía
 
@@ -43,10 +43,22 @@ export const course = sqliteTable(
 
 - Las columnas van en camelCase en TypeScript y en snake_case en SQL. Las claves están ordenadas, como exige el linter, con `...timestamps()` como último elemento.
 - `createdAt` y `updatedAt` vienen de `timestamps()` en `src/integrations/drizzle-orm/drizzle.columns.ts`: son milisegundos, SQLite los rellena al insertar y `updatedAt` se renueva en cada actualización. Nunca los escribas a mano. `lesson_progress` solo necesita el segundo, así que toma `updatedAt: timestamps().updatedAt`. Dos tablas no tienen marcas de tiempo: `rate_limit` guarda contadores de vida corta que llevan su propio `expiresAt` y cambian con cada petición, y `revoked_license_order` registra una sola vez cada pedido reembolsado de Polar, por su ID.
-- Las claves primarias son de texto. Un caso de uso que inserta una fila rellena la clave con un UUID v7 (`v7()` de `uuid`).
+- Las claves primarias son de texto. Un caso de uso que inserta una fila rellena la clave con un UUID v7 (`v7()` de `uuid`); una [tabla espejo de un proveedor](#tables-that-mirror-a-provider) toma en cambio el ID del proveedor.
 - Las columnas enum reciben una tupla construida a partir del objeto de constantes del módulo, nunca una lista de literales. La tupla está junto al objeto en `<table>.constants.ts`, porque también la leen los esquemas Zod y el navegador, y ese archivo no importa nada de Drizzle.
 - El texto que un visitante lee en varios idiomas es una columna JSON `LocalizedText`, validada por `localizedTextSchema` y leída con `localize(text, locale)` de `src/modules/_core/utils/localized-text.ts`.
 - Una tabla nueva se reexporta desde `src/integrations/drizzle-orm/drizzle.schemas.ts`, y su migración se genera con `bun run db:generate`. Consulta [Migraciones de base de datos](/docs/guides/database-migrations).
+
+## Tablas espejo de un proveedor [#tables-that-mirror-a-provider]
+
+`order` y `subscription` guardan copias de los pedidos y las suscripciones de Polar, escritas solo a partir de datos de Polar y nunca editadas a mano. Una tabla espejo sigue al proveedor allí donde las reglas anteriores no lo harían:
+
+- Su clave primaria es el ID del proveedor, una columna de texto de longitud `POLAR_ID_MAX_LENGTH`, y sus columnas llevan los nombres de campo del proveedor, como `customer_id`, `product_id` y `subscription_id`. Una tabla nuestra que apunta al proveedor antepone en cambio un prefijo al nombre, como hace `license.polar_order_id`.
+- Los instantes propios del proveedor van junto a `...timestamps()`. `placedAt` es cuándo creó Polar el pedido, y `changedAt` es la versión del registro de Polar que guarda la fila: su `modified_at`, o su `created_at` mientras nunca haya cambiado. `createdAt` y `updatedAt` siguen registrando cuándo escribió D1 la fila.
+- Las columnas enum reciben tuplas de los valores del proveedor: `ORDER_STATUSES` en `order.constants.ts` enumera `POLAR_ORDER_STATUS` de `src/integrations/polar/polar.constants.ts`, y una prueba de tipos falla cuando el SDK nombra un valor que falta en la tupla.
+- Ninguna columna tiene valor predeterminado aparte de `createdAt` y `updatedAt`, porque cada valor viene del proveedor.
+- `user_id` es `ON DELETE SET NULL`: eliminar una cuenta conserva sus pedidos y suscripciones y solo quita el vínculo.
+
+`order` es una palabra clave de SQL. Drizzle entrecomilla cada identificador, así que sus consultas no necesitan nada más; el SQL en bruto nombra la tabla a través del objeto del esquema, como `${order}` dentro de una plantilla `sql`, nunca como un `order` suelto.
 
 ## Constantes
 
@@ -193,6 +205,7 @@ Cuando una tabla necesita lógica que no es ni un caso de uso ni un helper puro,
 | `license/license.bundles.ts`                            | Firma de las URL de los bundles de plantillas de la CLI; sus claves de objeto            |
 | `license/license.delivery.ts`                           | El handler del Worker para las peticiones firmadas a `/bundles/`                         |
 | `license/license.ppp.ts`                                | Descuentos de precios regionales para el checkout                                        |
+| `license/license.pricing.ts`                            | Tramos de precios regionales y la cookie para rechazarlos; puro                          |
 | `newsletter-subscriber/newsletter-subscriber.server.ts` | Comprobaciones de peticiones solo de servidor                                            |
 | `video/video.delivery.ts`                               | El handler del Worker para las peticiones firmadas a `/media/`                           |
 | `video/video.playback.ts`, `video/video.files.ts`       | Firma de las URL de reproducción; claves de objeto y tipos de contenido                  |

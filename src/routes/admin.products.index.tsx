@@ -43,6 +43,7 @@ const ProductsPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.products")
 
   const { tab } = Route.useSearch()
+  const categoryKind = tab === "collections" ? CATEGORY_KIND.COLLECTION : CATEGORY_KIND.CATEGORY
 
   return (
     <div className="flex w-full animate-in flex-col space-y-8 duration-500 fade-in-50">
@@ -78,16 +79,9 @@ const ProductsPage = (): JSX.Element => {
           )}
           {(tab === "categories" || tab === "collections") && (
             <DataTable
-              columns={categoryColumns}
+              columns={categoryColumns[categoryKind]}
               key={tab}
-              options={{
-                query: ({ pageIndex, pageSize }) =>
-                  getCategoriesPageQuery({
-                    kind: tab === "collections" ? CATEGORY_KIND.COLLECTION : CATEGORY_KIND.CATEGORY,
-                    pageIndex,
-                    pageSize,
-                  }),
-              }}
+              options={{ query: ({ pageIndex, pageSize }) => getCategoriesPageQuery({ kind: categoryKind, pageIndex, pageSize }) }}
             />
           )}
         </TabsContent>

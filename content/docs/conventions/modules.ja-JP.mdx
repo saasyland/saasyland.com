@@ -5,7 +5,7 @@ description: "モジュールは 1 つのデータベーステーブルです。
 
 `src/modules/<table>/` は、実在するデータベーステーブルのためだけに存在します。このフォルダーは Drizzle のスキーマを映したものなので、フォルダーを作ることは、テーブルが存在すると宣言することになります。独自のテーブルを持たない機能のためのコードは別の場所に置きます。GitHub やドキュメントのコレクションを読むサーバー関数は `src/lib/<topic>.ts` か、それを使う唯一のルートに置き、ベンダーのセットアップは `src/integrations/<vendor>` に置きます。
 
-モジュールは `account`、`category`、`chapter`、`course`、`lesson`、`lesson-progress`、`license`、`newsletter-subscriber`、`product`、`rate-limit`、`session`、`two-factor`、`user`、`verification`、`video` です。`license` は `license` と `revoked_license_order` の 2 つのテーブルを所有します。`_core` はモジュールではなく、すべてのモジュールが共有するエラーコード、カタログ、Zod のフィールドを保持します。
+モジュールは `account`、`category`、`chapter`、`course`、`lesson`、`lesson-progress`、`license`、`newsletter-subscriber`、`order`、`product`、`rate-limit`、`session`、`subscription`、`two-factor`、`user`、`verification`、`video` です。`license` は `license` と `revoked_license_order` の 2 つのテーブルを所有します。`_core` はモジュールではなく、すべてのモジュールが共有するエラーコード、カタログ、Zod のフィールドを保持します。
 
 ## 構成
 
@@ -43,10 +43,22 @@ export const course = sqliteTable(
 
 - カラムは TypeScript ではキャメルケース、SQL ではスネークケースです。リンターの要求どおり、キーは並べ替え、`...timestamps()` を最後のエントリーにします。
 - `createdAt` と `updatedAt` は `src/integrations/drizzle-orm/drizzle.columns.ts` の `timestamps()` から取得します。ミリ秒単位で、挿入時に SQLite が値を設定し、`updatedAt` は更新のたびに打ち直されます。これらを手書きしてはいけません。`lesson_progress` は後者だけが必要なので、`updatedAt: timestamps().updatedAt` を使います。タイムスタンプを持たないテーブルが 2 つあります。`rate_limit` は独自の `expiresAt` を持ち、リクエストのたびに変わる短命なカウンターを保持します。`revoked_license_order` は返金された Polar の注文を ID ごとに 1 回だけ記録します。
-- 主キーはテキストです。行を挿入するユースケースは、キーに UUID v7（`uuid` の `v7()`）を設定します。
+- 主キーはテキストです。行を挿入するユースケースは、キーに UUID v7（`uuid` の `v7()`）を設定します。[プロバイダーのミラーテーブル](#tables-that-mirror-a-provider)は、代わりにプロバイダーの ID を使います。
 - enum カラムには、リテラルを並べたリストではなく、モジュールの定数オブジェクトから組み立てたタプルを渡します。Zod スキーマとブラウザーもタプルを読むため、タプルはオブジェクトと並べて `<table>.constants.ts` に置きます。このファイルは Drizzle から何もインポートしません。
 - 訪問者が複数の言語で読むテキストは `LocalizedText` の JSON カラムにし、`localizedTextSchema` で検証して、`src/modules/_core/utils/localized-text.ts` の `localize(text, locale)` で読み取ります。
 - 新しいテーブルは `src/integrations/drizzle-orm/drizzle.schemas.ts` から再エクスポートし、そのマイグレーションは `bun run db:generate` で生成します。[データベースマイグレーション](/docs/guides/database-migrations)を参照してください。
+
+## プロバイダーのミラーテーブル [#tables-that-mirror-a-provider]
+
+`order` と `subscription` は Polar の注文とサブスクリプションのコピーを保持します。書き込むのは Polar のデータだけで、手作業で編集することはありません。ミラーテーブルは、上記のルールと食い違う点ではプロバイダーに従います。
+
+- 主キーはプロバイダーの ID で、長さ `POLAR_ID_MAX_LENGTH` のテキストカラムです。カラム名には `customer_id`、`product_id`、`subscription_id` のようにプロバイダーのフィールド名を使います。プロバイダーを指す自前のテーブルでは、`license.polar_order_id` のように名前にプレフィックスを付けます。
+- プロバイダー自身の時刻は `...timestamps()` と並べて持ちます。`placedAt` は Polar が注文を作成した時刻で、`changedAt` は行が保持している Polar のレコードのバージョン、つまりその `modified_at` か、一度も変更されていない間は `created_at` です。`createdAt` と `updatedAt` は、これまでどおり D1 が行を書き込んだ時刻を記録します。
+- enum カラムにはプロバイダーの値のタプルを渡します。`order.constants.ts` の `ORDER_STATUSES` は `src/integrations/polar/polar.constants.ts` の `POLAR_ORDER_STATUS` を列挙し、タプルにない値を SDK が定義すると型テストが失敗します。
+- 値はすべてプロバイダーから来るため、`createdAt` と `updatedAt` 以外のカラムにはデフォルト値がありません。
+- `user_id` は `ON DELETE SET NULL` です。アカウントを削除しても、その注文とサブスクリプションは残り、紐付けだけが外れます。
+
+`order` は SQL のキーワードです。Drizzle はすべての識別子を引用符で囲むため、Drizzle のクエリでは何もする必要はありません。生の SQL では `sql` テンプレートの中で `${order}` のようにスキーマのオブジェクトを通してテーブルを指定し、`order` とそのまま書くことはしません。
 
 ## 定数
 
@@ -193,6 +205,7 @@ export interface Lesson {
 | `license/license.bundles.ts`                            | CLI のテンプレートバンドルの URL の署名、そのオブジェクトキー            |
 | `license/license.delivery.ts`                           | 署名付きの `/bundles/` リクエスト用の Worker ハンドラー                  |
 | `license/license.ppp.ts`                                | チェックアウト用の地域別価格の割引                                       |
+| `license/license.pricing.ts`                            | 地域別価格の区分と適用を外すクッキー。純粋な値と関数                     |
 | `newsletter-subscriber/newsletter-subscriber.server.ts` | サーバー専用のリクエストチェック                                         |
 | `video/video.delivery.ts`                               | 署名付きの `/media/` リクエスト用の Worker ハンドラー                    |
 | `video/video.playback.ts`、`video/video.files.ts`       | 再生 URL の署名、オブジェクトキーとコンテンツタイプ                      |

@@ -164,6 +164,8 @@ export const CURRENCIES = {
 
 export type CurrencyCode = keyof typeof CURRENCIES
 
+export const CURRENCY_CODE_LENGTH = 3
+
 const isCurrencyCode = (value: string): value is CurrencyCode => value in CURRENCIES
 
 export const CURRENCY_CODES = Object.keys(CURRENCIES).filter((code) => isCurrencyCode(code))

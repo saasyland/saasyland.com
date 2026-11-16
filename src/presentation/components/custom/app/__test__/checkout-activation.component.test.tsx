@@ -41,9 +41,11 @@ const grantedLicense: License["select"] = {
   userId: "user-1",
 }
 
-const renderActivation = () => {
+const SERVER_CLOCK_AHEAD_MS = 300_000
+
+const renderActivation = ({ serverReadAt = Date.now() }: { serverReadAt?: number } = {}) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  queryClient.setQueryData(currentLicenseQuery.queryKey, { license: undefined })
+  queryClient.setQueryData(currentLicenseQuery.queryKey, { license: undefined }, { updatedAt: serverReadAt })
   renderWithRouter(
     <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
       <CheckoutActivation checkoutId={CHECKOUT_ID} />
@@ -99,6 +101,17 @@ describe("checkout activation", () => {
 
     await advance(ACTIVATION_TIMEOUT_MS)
     expect(currentLicenseMock).toHaveBeenCalledTimes(polls)
+  })
+
+  it("waits the whole timeout on the browser's own timer when the server's clock runs ahead of it", async () => {
+    renderActivation({ serverReadAt: Date.now() + SERVER_CLOCK_AHEAD_MS })
+
+    expect(screen.getByRole("status")).toHaveTextContent(activation.activating.title)
+    await advance(ACTIVATION_TIMEOUT_MS - ACTIVATION_POLL_MS)
+    expect(screen.getByRole("status")).toHaveTextContent(activation.activating.title)
+
+    await advance(ACTIVATION_POLL_MS)
+    expect(screen.getByRole("heading", { name: activation.delayed.title })).toBeVisible()
   })
 
   it("checks again on request and shows the license once it has arrived", async () => {

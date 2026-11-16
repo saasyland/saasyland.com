@@ -3,6 +3,7 @@ import { defineCollections, defineConfig, defineDocs } from "fumadocs-mdx/config
 import zod from "zod/v4"
 
 import { rehypeOmitRenderedContent } from "../../../scripts/deployed-worker"
+import { changelogEntries } from "./fumadocs.changelog"
 
 export const docs = defineDocs({
   dir: "./content/docs",
@@ -42,4 +43,5 @@ export default defineConfig({
     },
     rehypePlugins: (plugins) => [...plugins, rehypeOmitRenderedContent],
   },
+  plugins: [changelogEntries],
 })

@@ -7,8 +7,14 @@ import { DEPLOYED_HOSTS, ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
 const REMOTION_WORKFLOW = ".github/workflows/remotion.yml"
 const DEPLOY_WORKFLOW = ".github/workflows/deploy-reusable.yml"
+const E2E_WORKFLOW = ".github/workflows/e2e-reusable.yml"
+const CI_WORKFLOW = ".github/workflows/ci.yml"
 const REMOTION = readFileSync(REMOTION_WORKFLOW, "utf8")
 const DEPLOY = readFileSync(DEPLOY_WORKFLOW, "utf8")
+const E2E = readFileSync(E2E_WORKFLOW, "utf8")
+const CI = readFileSync(CI_WORKFLOW, "utf8")
+const RELEASE_JOB = "\n  release:\n"
+const WHOLE_COMMIT_HISTORY = ["fetch-depth: 0", "filter: tree:0"]
 const REMOTION_PATHS = "remotion/**"
 const REMOTION_SOURCES = "remotion/src/**/*.{ts,tsx}"
 const ROOT_ALIAS = "~/"
@@ -18,12 +24,14 @@ const IMPORT_SPECIFIER = /^(?:import|export) (?:[^"]*? from )?"(?<specifier>[^"]
 const LOCAL_SPECIFIER = /^(?:\.|~\/)/u
 const TRIGGER_PATHS = /paths:\n(?<entries>(?: +- "[^"]+"\n)+)/gu
 const TRIGGER_PATH = /"(?<path>[^"]+)"/gu
+const CHECKOUT_OPTIONS = /uses: actions\/checkout@v\d+\n +with:\n(?<options>(?: {10}[\w-]+: .+\n)+)/gu
 const ENVIRONMENT_URL = /url: \$\{\{ inputs\.target == '(?<target>[^']+)' && '(?<targetUrl>[^']+)' \|\| '(?<fallbackUrl>[^']+)' \}\}/u
 
 const specifierSchema = zod.object({ specifier: zod.string() })
 const entriesSchema = zod.object({ entries: zod.string() })
 const pathSchema = zod.object({ path: zod.string() })
 const triggerListsSchema = zod.tuple([zod.array(zod.string()), zod.array(zod.string())])
+const checkoutOptionsSchema = zod.object({ options: zod.string() })
 const environmentUrlSchema = zod.object({ fallbackUrl: zod.string(), target: zod.string(), targetUrl: zod.string() })
 
 const isFile = (path: string): boolean => statSync(path, { throwIfNoEntry: false })?.isFile() === true
@@ -63,6 +71,17 @@ const WORKFLOW_OWN_PATHS = [REMOTION_PATHS, REMOTION_WORKFLOW]
 const WEBSITE_PATHS = PULL_REQUEST_PATHS.filter((glob) => !WORKFLOW_OWN_PATHS.includes(glob))
 const IMPORTED_WEBSITE_FILES = importClosure(globSync(REMOTION_SOURCES)).filter((file) => !posix.matchesGlob(file, REMOTION_PATHS))
 
+const optionsOf = (checkout: RegExpExecArray): string[] =>
+  checkoutOptionsSchema
+    .parse(checkout.groups)
+    .options.trim()
+    .split("\n")
+    .map((option) => option.trim())
+
+const checkoutsOf = (workflow: string): string[][] => [...workflow.matchAll(CHECKOUT_OPTIONS)].map((checkout) => optionsOf(checkout))
+
+const releaseJobOf = (workflow: string): string => workflow.slice(workflow.indexOf(RELEASE_JOB))
+
 const isWatched = (file: string): boolean => WEBSITE_PATHS.some((glob) => posix.matchesGlob(file, glob))
 const isImported = (glob: string): boolean => IMPORTED_WEBSITE_FILES.some((file) => posix.matchesGlob(file, glob))
 
@@ -93,5 +112,16 @@ describe(DEPLOY_WORKFLOW, () => {
       target: ENVIRONMENT.PRODUCTION,
       targetUrl: `https://${DEPLOYED_HOSTS[ENVIRONMENT.PRODUCTION]}`,
     })
+  })
+})
+
+describe("checkouts that read the changelog", () => {
+  it.each([
+    { checkouts: checkoutsOf(E2E), job: `the build in ${E2E_WORKFLOW}` },
+    { checkouts: checkoutsOf(DEPLOY), job: `the build in ${DEPLOY_WORKFLOW}` },
+    { checkouts: checkoutsOf(releaseJobOf(CI)), job: `the release job in ${CI_WORKFLOW}` },
+  ])("fetch every commit without its trees for $job, which dates the changelog entries", ({ checkouts }) => {
+    expect(checkouts).toHaveLength(1)
+    expect(checkouts.flat()).toEqual(expect.arrayContaining(WHOLE_COMMIT_HISTORY))
   })
 })

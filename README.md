@@ -179,6 +179,7 @@ The website associates purchases and issued keys with authenticated customers, e
 ```text
 content/
   blog/                          Localized MDX posts
+  changelog/                     One changelog entry per pull request and locale, dated from the Git history
   docs/                          Localized MDX documentation and navigation metadata
 messages/{locale}/               JSON catalogues split into dotted namespaces
 e2e/                             Playwright specs, the journey suite, and the seeded test accounts, video, and course
@@ -352,7 +353,7 @@ Deployment jobs build and verify artifacts, apply the target D1 migrations, then
 
 GitHub creates deployment records from the job's `environment` declaration and shows the job's real result. See [GitHub's deployment tracking documentation](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments).
 
-After a production deploy succeeds, the `release` job tags the deployed commit `vYYYY.MM.DD` with the UTC date (later deploys that day get `.2`, `.3`, and so on) and publishes a GitHub Release whose notes are that day's section of the [changelog](content/docs/project/changelog.en-US.mdx). It is the only job with `contents: write`, and preview deploys are never tagged. [CI/CD](content/docs/tooling/ci-cd.en-US.mdx) explains how to roll back to a release.
+After a production deploy succeeds, the `release` job tags the deployed commit `vYYYY.MM.DD` with the UTC date (later deploys that day get `.2`, `.3`, and so on) and publishes a GitHub Release whose notes are the [changelog entries](content/changelog) that reached `main` that day. It is the only job with `contents: write`, and preview deploys are never tagged. The changelog dates each entry by the squash commit that brought its pull request to `main`, so the checkouts that build the site and the `release` job fetch every commit without its trees (`fetch-depth: 0` and `filter: tree:0`). [CI/CD](content/docs/tooling/ci-cd.en-US.mdx) explains how to roll back to a release.
 
 Keep this workflow the only deployment owner: disable automatic deploy triggers in Cloudflare Workers Builds so a push does not deploy twice or bypass the CI gate. Worker source maps are not uploaded (`upload_source_maps: false` in `wrangler.jsonc`), because they pushed the upload past Cloudflare's size limit. Production environment branch rules can restrict deployment to `main`; preview rules must allow PR merge refs. Required environment reviewers, if configured, pause deployment until approval.
 
@@ -385,7 +386,7 @@ The supported locales are `en-US`, `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `ja-JP`, 
 English uses unprefixed paths. Other languages use the full locale, such as `/de-DE/docs` or `/pl-PL/blog`; short aliases redirect to canonical paths. Switching language opens the current path in the chosen language; the query string and fragment are not carried over. The locale always comes from the URL path, so server functions that need it receive it as input, because their `/_serverFn` URLs carry no locale prefix.
 
 - Store UI messages in `messages/{locale}/`, using the same keys, ICU arguments, rich-text tags, file paths, and commands across locales and each language's plural categories.
-- Store documentation and blog content as `slug.{locale}.mdx` under `content/docs` and `content/blog`; localized navigation uses `meta.{locale}.json`.
+- Store documentation and blog content as `slug.{locale}.mdx` under `content/docs` and `content/blog`, and each pull request's changelog entry as `{number}.{locale}.mdx` under `content/changelog`; localized navigation uses `meta.{locale}.json`.
 - Translate frontmatter, visible component attributes, FAQ entries, and body text. Preserve slugs, inline code, MDX components and their untranslated props, code examples, table rows, and link destinations; `bun run check:i18n` compares them with English.
 - Every page route owns one namespace (`const NAMESPACE = "pages.x"`, with `metadata.title` and `metadata.description` for its head); layout routes preload the namespaces their subtree shares. Root namespaces (`common`, `components.*`, `errors*`) load for every page, and the translations provider wraps the whole document so error screens are translated too.
 - Use one `useTranslations` per component and name the translator `t`. A later `useTranslations` call re-scopes every following `t()` for i18n-ally, and `bun run check:i18n` fails on keys that do not resolve in their scope.
@@ -444,7 +445,7 @@ Normal application builds serve the checked-in assets without installing Remotio
 
 Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) before contributing, and [`SUPPORT.md`](SUPPORT.md) for where to get help. Report vulnerabilities privately as [`SECURITY.md`](SECURITY.md) describes, not in a public issue.
 
-Follow the [conventions](content/docs/conventions/index.en-US.mdx) and the [architecture guides](content/docs/architecture), and use the existing [theme and typography definitions](src/presentation/styles). Keep tests beside their owner, and update localized content and documentation under `content/docs/` when changing user-facing behavior.
+Follow the [conventions](content/docs/conventions/index.en-US.mdx) and the [architecture guides](content/docs/architecture), and use the existing [theme and typography definitions](src/presentation/styles). Keep tests beside their owner, update localized content and documentation under `content/docs/` when changing user-facing behavior, and add the pull request's changelog entry, `content/changelog/<number>.<locale>.mdx` in every locale, once it has its number (see [Changelog entries](content/docs/conventions/git-workflow.en-US.mdx#changelog-entries)).
 
 Before opening a pull request, run the checks relevant to your change. The application verification sequence is:
 

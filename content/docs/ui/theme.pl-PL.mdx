@@ -26,7 +26,7 @@ const RootComponent = () => (
 )
 ```
 
-`/admin`, `/app` i `/docs` stosują zapisany motyw; jedyny przełącznik motywu znajduje się w pasku bocznym dokumentacji. Layouty strony głównej, uwierzytelniania, bloga i kursów dodają klasę `dark` do swojego kontenera i zawsze są ciemne.
+`/admin`, `/app` i `/docs` stosują zapisany motyw; jedyny przełącznik motywu znajduje się w pasku bocznym dokumentacji. Layout `_site` dodaje klasę `dark` do swojego kontenera, dopóki dopasowana trasa ustawia `dark: true` w swoich `staticData`, jak robi to layout `_marketing` strony głównej, stron prawnych, bloga i kursów, a layout uwierzytelniania dodaje ją do własnego kontenera; te strony są zawsze ciemne. `globals.css` nadaje ciemne tokeny także elementowi `html`, dopóki jeden z tych kontenerów jest bezpośrednim dzieckiem `body` (`:root:has(> body > .dark)`), więc okno wokół strony, również pod paskiem przewijania, jest ciemne także w jasnym motywie.
 
 ## Tokeny
 
@@ -37,6 +37,28 @@ const RootComponent = () => (
 ```
 
 `@theme inline` mapuje zmienne na kolory Tailwinda, ustawia rodziny czcionek i definiuje skalę typograficzną. `globals.css` importuje też style Fumadocs UI, więc dokumentacja używa tych samych tokenów.
+
+## Paski przewijania [#scrollbars]
+
+Okno na każdej stronie rezerwuje miejsce na pasek przewijania, więc treść nie przesuwa się, gdy strona jest za krótka, by ją przewijać, gdy się wydłuża i gdy okno dialogowe, popover lub menu blokuje przewijanie strony. `globals.css` ustawia `scrollbar-gutter: stable` na `html`, obok cienkiego paska strony: przeglądarki stylują pasek okna według `scrollbar-color` i `scrollbar-width` z `html`, nigdy z `body`.
+
+```css
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--spacing-header);
+  scrollbar-color: color-mix(in oklab, var(--foreground) 20%, transparent) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+html:has([data-page-scroller]) {
+  scrollbar-gutter: auto;
+}
+[data-page-scroller] {
+  scrollbar-gutter: stable;
+}
+```
+
+`/app` i `/admin` wypełniają okno i zamiast tego przewijają swój obszar treści, dlatego ten element ma `data-page-scroller`, zarówno w layoutach, jak i w ich szkieletach ładowania: zarezerwowane miejsce przechodzi tam, a obszar roboczy zajmuje całą szerokość okna. `usePreventScroll` z React Aria i Base UI, na którym działa wyszukiwarka dokumentacji, również unieruchamiają stronę przez `scrollbar-gutter: stable`, a nie przez padding, więc nic nie wyrównuje miejsca podwójnie. Stałe warstwy, takie jak nagłówek, ramka strony i przycisk powrotu na górę, leżą w oknie bez tego miejsca i są wyrównane z treścią, a tor paska jest przezroczysty, więc w tym miejscu widać tło samej strony.
 
 ## Skala typograficzna
 

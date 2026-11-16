@@ -32,7 +32,7 @@ Each table has its own module in `src/modules`, created by the migration `202611
 Roles with `course: ["read"]`, which admins have, can watch every lesson. `hasLessonAccess` (`src/modules/lesson/lesson.access.ts`) makes the decision for a viewer that `resolveViewer` (`lesson.viewer.ts`) builds from the session, the role and the course access that other areas grant (`holdsCourseAccess`). Every server function that serves course content applies it, not only the pages:
 
 - `getCatalogue` (public) returns the published courses with their lesson count, total video length and number of free previews.
-- `getCourseShowcase` (public) returns, for the landing page, the first <RepositoryFact name="courseShowcaseCourses" /> published courses (`COURSE_SHOWCASE`) with their lesson count, total video length, number of free previews and first <RepositoryFact name="courseShowcaseLessons" /> published lessons, and the first free preview that has a video. It reports each lesson's access level, not the viewer's locks.
+- `getCourseShowcase` (public) returns, for the landing page, the first <RepositoryFact name="courseShowcaseCourses" /> published courses (`COURSE_SHOWCASE`), each with its lesson count, total video length, number of free previews and first free preview that has a video. It does not read the viewer's session.
 - `getCourse` (public) returns a published course with its chapters and published lessons in the visitor's locale, each with `locked`, `completed` and `positionMs` for the viewer.
 - `getLessonPlayback` (public) returns signed playback paths from `createPlayback`. It answers `UNAUTHORIZED` to a guest and `FORBIDDEN` to a signed-in user who may not watch the lesson, and `NOT_FOUND` for an unpublished lesson or one without a video.
 - `saveLessonProgress` requires a session and checks the same access before it writes.
@@ -52,8 +52,8 @@ The `/courses` layout (`_site._marketing.courses.tsx`) sits in the same `_site` 
 The course block in the landing page's **Toolkit** section (`course-showcase.tsx` in `src/presentation/components/custom/landing-page/components/`) shows what D1 holds, so it never lists a course or lesson that does not exist:
 
 - The landing page is prerendered, so its HTML contains the block's heading, the course tour and placeholders. When the block comes within one screen height of the viewport, the browser calls `getCourseShowcase` once through `courseShowcaseQuery` and fills it in. Visitors who never scroll that far send no request.
-- Each course shows its kind, lesson count, minutes and free lessons, then its first lessons with their access level. Every course and lesson links to its page, and a course with more lessons ends with a link to all of them.
-- **Watch a free lesson** opens the first free preview that has a video. Without one, the link is left out.
+- Each course is a column of three lines: its title, which links to its page; its kind, lesson count and minutes; and its first free preview that has a video, which opens the lesson, or its number of free lessons when none can be watched. The columns sit side by side from the `md` breakpoint and scroll sideways below it.
+- The block keeps the size of its placeholder whatever the request returns. The title, the details and the free preview each stay on one line and truncate, the placeholder draws the same lines in the same type, and the messages for no published course and for a failed request sit in a frame the size of a column. Nothing below the block moves when the courses arrive, at any width. `landing.spec.ts` checks this on a desktop and on a phone.
 - With no published course, the block says so; if the request fails, it points to the course catalogue. **Browse all courses** links to `/courses` in every case.
 - The course tour is the video of the `course-tour` composition in the `remotion/` project. It is a static file in `src/presentation/assets/motion/` with AVIF and WebP posters, and plays in place with the browser's controls when pressed. It does not use the video library.
 
@@ -129,7 +129,7 @@ The foreign keys do this with `ON DELETE CASCADE`. Videos are never deleted with
 
 ## Tests
 
-`scripts/seed-test.ts` seeds a published course with one chapter and four lessons for the browser tests in `e2e/specs/courses.spec.ts`. In `e2e/specs/course-admin.spec.ts`, an admin creates a course, a chapter and a free lesson with the seeded video, a visitor in another browser page watches the lesson, and the admin deletes the course. `e2e/specs/landing.spec.ts` checks that the landing page links the seeded course and its lessons, opens the free lesson and plays the course tour. `e2e/specs/course-access.spec.ts` signs in a customer without a licence and checks that a paid lesson offers Complete with a link to `/app/license?tier=complete` and that the overview lists the locked course beside the licence offer.
+`scripts/seed-test.ts` seeds a published course with one chapter and four lessons for the browser tests in `e2e/specs/courses.spec.ts`. In `e2e/specs/course-admin.spec.ts`, an admin creates a course, a chapter and a free lesson with the seeded video, a visitor in another browser page watches the lesson, and the admin deletes the course. `e2e/specs/landing.spec.ts` checks that the landing page links the seeded course and its free lesson, opens the free lesson and plays the course tour, and that the course block keeps its height and moves nothing when the courses arrive or fail to load. `e2e/specs/course-access.spec.ts` signs in a customer without a licence and checks that a paid lesson offers Complete with a link to `/app/license?tier=complete` and that the overview lists the locked course beside the licence offer.
 
 ## Related pages
 

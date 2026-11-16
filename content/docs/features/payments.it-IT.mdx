@@ -36,7 +36,7 @@ export interface PolarEventHandler {
 - Quando uno di essi fallisce, `handlePolarEvent` attende comunque che gli altri terminino, così nessuna area si ferma a metà delle sue scritture, e poi rifiuta con un `AggregateError` di tutti gli errori. Il plugin risponde 500 e Polar consegna di nuovo l’evento più tardi, quindi ogni handler deve poter essere eseguito due volte per lo stesso evento senza effetti indesiderati. Polar disattiva un endpoint che continua a fallire, e `polar:verify` segnala un endpoint disattivato.
 - Un evento che nessuna voce elenca viene confermato e non viene inoltrato a nessuno.
 - `POLAR_EVENTS` riunisce gli eventi di tutte le voci, ordinati e ciascuno una sola volta. L’endpoint del webhook in Polar deve inviare esattamente questi, e `polar:verify` li confronta.
-- L’area Polar aggiunge una lista vuota in `src/data/polar.polar-events.ts`, così il barrel non è mai vuoto. Oggi solo l’area delle licenze gestisce eventi, in `src/data/license.polar-events.ts`; vedi [Licenze](/docs/features/licences#webhooks-and-licences).
+- L’area Polar aggiunge una lista vuota in `src/data/polar.polar-events.ts`, così il barrel non è mai vuoto. L’area di fatturazione copia in D1 ordini e abbonamenti, in `src/data/billing.polar-events.ts` (vedi [Scrivere le copie](#writing-the-copies)), e l’area delle licenze concede e revoca le licenze in `src/data/license.polar-events.ts` (vedi [Licenze](/docs/features/licences#webhooks-and-licences)).
 
 `polar:verify` gira in Bun, fuori dal Worker, e legge `POLAR_EVENTS`, quindi `src/data/polar-events.ts` e ogni `<area>.polar-events.ts` non importano codice server. L’`handle` di un’area carica i suoi handler quando arriva un evento:
 
@@ -48,7 +48,7 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 
 ## Ordini e abbonamenti in D1 [#orders-and-subscriptions-in-d1]
 
-L’area Polar conserva copie degli ordini e degli abbonamenti di Polar in due tabelle D1, `order` (`src/modules/order/`) e `subscription` (`src/modules/subscription/`), così che elenchi, ricerche e controlli di accesso possano leggerli con SQL e continuino a funzionare quando Polar è lento. Polar resta la fonte: ogni riga è il record di Polar con l’ID di Polar, e niente la modifica a mano. Per ora nessun codice scrive in queste tabelle. [Moduli](/docs/conventions/modules#tables-that-mirror-a-provider) indica le regole che segue ogni tabella specchio di questo tipo.
+L’area Polar conserva copie degli ordini e degli abbonamenti di Polar in due tabelle D1, `order` (`src/modules/order/`) e `subscription` (`src/modules/subscription/`), così che elenchi, ricerche e controlli di accesso possano leggerli con SQL e continuino a funzionare quando Polar è lento. Polar resta la fonte: ogni riga è il record di Polar con l’ID di Polar, scritta solo a partire dai webhook di Polar e mai modificata a mano. [Moduli](/docs/conventions/modules#tables-that-mirror-a-provider) indica le regole che segue ogni tabella specchio di questo tipo.
 
 | Tabella        | Colonne                                                                                                                                                                                                                                                                                             |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -60,6 +60,20 @@ L’area Polar conserva copie degli ordini e degli abbonamenti di Polar in due t
 - Gli importi sono nell’unità minore della valuta, così come li invia Polar. `description` è ciò che l’ordine ha acquistato, così come Polar l’ha fatturato, e `product_name` il nome del prodotto dell’abbonamento così come Polar l’ha indicato l’ultima volta.
 - `placed_at` indica quando Polar ha creato l’ordine. `changed_at` è la versione del record di Polar contenuta nella riga: il `modified_at` di Polar oppure, per un record mai modificato, il `created_at` di Polar. Le colonne `created_at` e `updated_at` proprie della riga registrano quando D1 l’ha scritta.
 - Gli indici servono gli elenchi per cui esistono queste copie: `order_user_placed_at_idx` gli ordini di un account e `order_status_placed_at_idx` gli ordini con un dato stato, entrambi per data dell’ordine; `subscription_user_status_idx` gli abbonamenti di un account per stato e `subscription_status_current_period_end_idx` gli abbonamenti con un dato stato per fine del periodo.
+
+### Scrivere le copie [#writing-the-copies]
+
+`src/data/billing.polar-events.ts` aggiunge due voci agli eventi di Polar (vedi [Webhook](#webhooks)), e ognuna carica il proprio caso d’uso quando arriva un evento:
+
+| Eventi                                                           | Caso d’uso                                                                          |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `order.created`, `order.updated`, `order.paid`, `order.refunded` | `recordOrder` in `src/modules/order/use-cases/record-order.ts`                      |
+| `subscription.created`, `subscription.updated`                   | `recordSubscription` in `src/modules/subscription/use-cases/record-subscription.ts` |
+
+- Ogni caso d’uso riceve il record di Polar, `models.Order` o `models.Subscription`, e lo scrive con un’unica istruzione: un inserimento con l’ID di Polar che, se la riga esiste già, la aggiorna solo quando il suo `changed_at` salvato non è successivo a quello del record. Una versione più recente viene applicata, una più vecchia che arriva in ritardo non cambia nulla e la stessa versione consegnata due volte viene riscritta con gli stessi valori. Tra due stati diversi con lo stesso `modified_at` resta l’ultimo scritto, finché Polar non modifica di nuovo il record.
+- La stessa istruzione compila `user_id` con `polarCustomerAccount`, in `src/integrations/polar/polar.customers.ts`: l’account il cui ID è l’`external_id` del cliente, che l’area che vende imposta al checkout, come fa `startCheckout` nell’area delle licenze. Resta vuoto quando il cliente non ha un `external_id` o nessun account ha quell’ID, per esempio perché l’account è stato eliminato.
+- Anche l’area delle licenze gestisce `order.paid` e `order.refunded`. La copia li riceve a sua volta, quindi registra il pagamento e il rimborso sia che Polar invii anche `order.updated` per essi sia che non lo faccia. `handlePolarEvent` esegue le due aree insieme; se la copia fallisce, la consegna risponde 500 e il nuovo tentativo di Polar ripete entrambe le scritture senza cambiare ciò che una delle due ha già scritto.
+- Nessuna pagina legge ancora le copie.
 
 ## Portale clienti
 

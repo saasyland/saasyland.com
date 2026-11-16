@@ -37,15 +37,13 @@ const order = (fields: Partial<models.Order> = {}) => ({
 
 const spaced = (text: string): string => text.replaceAll(/\s+/gu, " ")
 
-const textOf = (html: string): string => spaced(html.replaceAll(/<[^>]+>/gu, ""))
-
 const onlyEmail = () => {
   const [email, ...others] = getSentEmails(RECIPIENT)
   expect(others).toStrictEqual([])
   if (email === undefined) {
     throw new Error(`No email was sent to ${RECIPIENT}`)
   }
-  return { ...email, text: textOf(email.html) }
+  return { ...email, text: spaced(email.html) }
 }
 
 afterEach(() => {
@@ -85,7 +83,7 @@ describe("the purchase confirmation", () => {
 
     const { text } = onlyEmail()
     expect(text).toContain(
-      `You can withdraw from this purchase within ${String(REFUND_TERMS.WITHDRAWAL_DAYS)} days of the order date without giving a reason. Write to ${CONTACT_EMAIL}.`,
+      `You can withdraw from this purchase within ${String(REFUND_TERMS.WITHDRAWAL_DAYS)} days of the order date without giving a reason. Write to <a href="mailto:${CONTACT_EMAIL}"`,
     )
     expect(text).not.toContain("the right of withdrawal does not apply")
   })

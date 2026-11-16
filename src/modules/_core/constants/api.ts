@@ -25,8 +25,19 @@ export const COUNTRY_HEADER = "cf-ipcountry"
 
 export const IP_ADDRESS_HEADER = "cf-connecting-ip"
 
+export const CONTENT_SECURITY_POLICY = {
+  BASE_URI: "base-uri 'none'",
+  FRAME_ANCESTORS: "frame-ancestors 'none'",
+  OBJECT_SRC: "object-src 'none'",
+  SCRIPT_FALLBACKS: "'strict-dynamic' 'unsafe-inline' https:",
+} as const
+
 export const SECURITY_HEADERS = {
-  "Content-Security-Policy": "base-uri 'self'; frame-ancestors 'none'; object-src 'none'",
+  "Content-Security-Policy": [
+    CONTENT_SECURITY_POLICY.BASE_URI,
+    CONTENT_SECURITY_POLICY.FRAME_ANCESTORS,
+    CONTENT_SECURITY_POLICY.OBJECT_SRC,
+  ].join("; "),
   "Cross-Origin-Opener-Policy": "same-origin",
   "Permissions-Policy": "browsing-topics=(), camera=(), geolocation=(), microphone=()",
   "Referrer-Policy": "strict-origin-when-cross-origin",

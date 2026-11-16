@@ -36,7 +36,7 @@ import {
 import { license } from "~/src/modules/license/license.schema"
 
 import { sha256Hex } from "~/src/lib/hex"
-import { countRequest } from "~/src/lib/rate-limit"
+import { type RateLimitDecision, type RateLimitInput, countRequest, rateLimitBatch } from "~/src/lib/rate-limit"
 
 const SINGLE_ROW = 1
 const ONE_SLOT = 1
@@ -127,20 +127,45 @@ const storedBundle = async (version: string): Promise<StoredBundle> => {
   return { bundle: { sha256: await contentDigest(object), size: object.size }, success: true }
 }
 
-const consume = async (key: string, limit: number): Promise<Api["error"] | undefined> => {
-  const { allowed, retryAfter } = await countRequest({ key, limit, windowSeconds: RATE_LIMIT.PERIOD_SECONDS })
+const perPeriod = (key: string, limit: number): RateLimitInput => ({ key, limit, windowSeconds: RATE_LIMIT.PERIOD_SECONDS })
 
-  return allowed ? undefined : { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: retryAfter }
+const rateLimitError = ({ allowed, retryAfter }: RateLimitDecision): Api["error"] | undefined =>
+  allowed ? undefined : { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: retryAfter }
+
+const presentedKey = ({ headers }: Request) => apiZodSchemas.authorization.safeParse(headers.get(API_HEADER.AUTHORIZATION))
+
+const countAndFindLicense = async (address: RateLimitInput, key: string) => {
+  const rateLimits = rateLimitBatch([
+    address,
+    perPeriod(`${LICENSE_KEY_RATE_LIMIT_PREFIX}${await sha256Hex(key)}`, RATE_LIMIT.REQUESTS_PER_LICENSE_KEY),
+  ])
+  const [[row], ...counters] = await db.batch([
+    db
+      .select({ polarLicenseKeyId: license.polarLicenseKeyId, status: license.status, tier: license.tier })
+      .from(license)
+      .where(eq(license.key, key))
+      .limit(SINGLE_ROW),
+    ...rateLimits.statements,
+  ])
+
+  return { limited: rateLimitError(rateLimits.decision(counters)), row }
 }
 
 const admit = async <Schema extends zod.ZodType>(
   endpoint: Endpoint<Schema>,
   { params, request }: ApiCall,
 ): Promise<Admission<zod.output<Schema>>> => {
-  const addressLimited = await consume(`${ADDRESS_RATE_LIMIT_PREFIX}${clientAddress(request.headers)}`, RATE_LIMIT.REQUESTS_PER_ADDRESS)
+  const address = perPeriod(`${ADDRESS_RATE_LIMIT_PREFIX}${clientAddress(request.headers)}`, RATE_LIMIT.REQUESTS_PER_ADDRESS)
+  const key = presentedKey(request)
 
-  if (addressLimited !== undefined) {
-    return refuse(addressLimited)
+  if (!key.success) {
+    return refuse(rateLimitError(await countRequest(address)) ?? { code: API_ERROR.INVALID_LICENSE_KEY })
+  }
+
+  const { limited, row } = await countAndFindLicense(address, key.data)
+
+  if (limited !== undefined) {
+    return refuse(limited)
   }
 
   const read = await readApiRequest(endpoint, request, params)
@@ -148,22 +173,6 @@ const admit = async <Schema extends zod.ZodType>(
   if (!read.success) {
     return refuse(read.error)
   }
-
-  const { credentials } = read
-  const keyLimited = await consume(
-    `${LICENSE_KEY_RATE_LIMIT_PREFIX}${await sha256Hex(credentials.key)}`,
-    RATE_LIMIT.REQUESTS_PER_LICENSE_KEY,
-  )
-
-  if (keyLimited !== undefined) {
-    return refuse(keyLimited)
-  }
-
-  const [row] = await db
-    .select({ polarLicenseKeyId: license.polarLicenseKeyId, status: license.status, tier: license.tier })
-    .from(license)
-    .where(eq(license.key, credentials.key))
-    .limit(SINGLE_ROW)
 
   if (typeof row?.polarLicenseKeyId !== "string") {
     return refuse({ code: API_ERROR.INVALID_LICENSE_KEY })
@@ -179,12 +188,12 @@ const admit = async <Schema extends zod.ZodType>(
     return refuse({ code: API_ERROR.LICENSE_REVOKED })
   }
 
-  return { credentials, input: read.request, licenseKey, success: true, tier: row.tier }
+  return { credentials: read.credentials, input: read.request, licenseKey, success: true, tier: row.tier }
 }
 
-const describeFailure = (error: unknown, { headers }: Request): string => {
+const describeFailure = (error: unknown, request: Request): string => {
   const failure = inspect(error)
-  const key = apiZodSchemas.authorization.safeParse(headers.get(API_HEADER.AUTHORIZATION))
+  const key = presentedKey(request)
 
   return key.success ? failure.replaceAll(key.data, REDACTED_LICENSE_KEY) : failure
 }

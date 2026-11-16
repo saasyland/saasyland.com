@@ -1,16 +1,38 @@
+import { eq, lte } from "drizzle-orm"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
+import { EXPIRED_COUNTERS_PER_CLEANUP, RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 
 import { sha256Hex } from "~/src/lib/hex"
-import { consumeRateLimit, countRequest, withinRateLimit, withinRecipientRateLimit } from "~/src/lib/rate-limit"
+import {
+  type RateLimitDecision,
+  type RateLimitInput,
+  consumeRateLimit,
+  countRequest,
+  rateLimitBatch,
+  withinRateLimit,
+  withinRecipientRateLimit,
+} from "~/src/lib/rate-limit"
 
 const EMAIL_KIND = { CONFIRMATION: "confirmation", RESET: "reset" } as const
+const SINGLE_REQUEST = 1
+const WINDOW_START = new Date("2026-11-16T10:00:00.000Z")
+const PART_OF_A_SECOND_MS = 200
+const LATE_IN_THE_WINDOW_MS = 25_200
+const SECONDS_LEFT_LATE_IN_THE_WINDOW = 35
+const LEFT_FOR_THE_NEXT_REQUEST = 7
 
 const input = { key: "sensitive:127.0.0.1", limit: 3, windowSeconds: 60 }
+
+const countersOf = ({ key }: RateLimitInput) => db.select({ attempts: rateLimit.attempts }).from(rateLimit).where(eq(rateLimit.key, key))
+
+const countAll = async (limits: readonly [RateLimitInput, ...RateLimitInput[]]): Promise<RateLimitDecision> => {
+  const { decision, statements } = rateLimitBatch(limits)
+  return decision(await db.batch(statements))
+}
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -76,6 +98,69 @@ describe("atomic rate limits", () => {
 
     await expect(countRequest(input)).rejects.toBe(outage)
     expect(errors).not.toHaveBeenCalled()
+  })
+
+  it("answers a refused request with the seconds left in the window that refused it", async () => {
+    vi.useFakeTimers({ now: WINDOW_START })
+    await countRequest(input)
+    vi.setSystemTime(WINDOW_START.getTime() + PART_OF_A_SECOND_MS)
+    await countRequest(input)
+    await countRequest(input)
+    vi.setSystemTime(WINDOW_START.getTime() + LATE_IN_THE_WINDOW_MS)
+
+    expect(await countRequest(input)).toStrictEqual({ allowed: false, retryAfter: SECONDS_LEFT_LATE_IN_THE_WINDOW })
+  })
+
+  it("leaves a counter that refuses a request unwritten", async () => {
+    for (let attempt = 0; attempt <= input.limit; attempt++) {
+      await countRequest(input)
+    }
+
+    expect(await countersOf(input)).toStrictEqual([{ attempts: input.limit }])
+  })
+})
+
+describe("limits counted in one batch", () => {
+  const first = { key: "address:127.0.0.1", limit: 1, windowSeconds: 60 }
+  const second = { key: "key:0f8a3c51", limit: 2, windowSeconds: 30 }
+  const machine = { key: "machine:4c4c4544", limit: 3, windowSeconds: 120 }
+
+  it("admits a request that every limit admits, with the seconds until the last of its counters resets", async () => {
+    expect(await countAll([first, second, machine])).toStrictEqual({ allowed: true, retryAfter: machine.windowSeconds })
+  })
+
+  it("counts a request against the other limits only when the first limit admits it", async () => {
+    await countAll([first, second])
+
+    expect(await countAll([first, second])).toStrictEqual({ allowed: false, retryAfter: first.windowSeconds })
+    expect(await countersOf(first)).toStrictEqual([{ attempts: first.limit }])
+    expect(await countersOf(second)).toStrictEqual([{ attempts: SINGLE_REQUEST }])
+  })
+
+  it("answers with the first limit in order that refuses, once the first limit has counted the request", async () => {
+    const loose = { ...first, limit: machine.limit }
+    for (let attempt = 0; attempt < second.limit; attempt++) {
+      await countAll([loose, second, machine])
+    }
+
+    expect(await countAll([loose, second, machine])).toStrictEqual({ allowed: false, retryAfter: second.windowSeconds })
+    expect(await countersOf(loose)).toStrictEqual([{ attempts: second.limit + SINGLE_REQUEST }])
+    expect(await countersOf(second)).toStrictEqual([{ attempts: second.limit }])
+  })
+
+  it("removes one bounded batch of expired counters per request, whatever the number of limits", async () => {
+    vi.useFakeTimers({ now: WINDOW_START })
+    await db.insert(rateLimit).values(
+      Array.from({ length: EXPIRED_COUNTERS_PER_CLEANUP + LEFT_FOR_THE_NEXT_REQUEST }, (_, index) => ({
+        attempts: SINGLE_REQUEST,
+        expiresAt: new Date(WINDOW_START.getTime() - PART_OF_A_SECOND_MS),
+        key: `expired:${String(index)}`,
+      })),
+    )
+
+    await countAll([first, second, machine])
+
+    expect(await db.select().from(rateLimit).where(lte(rateLimit.expiresAt, WINDOW_START))).toHaveLength(LEFT_FOR_THE_NEXT_REQUEST)
   })
 })
 

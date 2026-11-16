@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
@@ -9,14 +9,12 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 
 import { COURSE_KIND, COURSE_SHOWCASE } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
-import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 
 import { CourseShowcase } from "~/src/presentation/components/custom/landing-page/components/course-showcase"
 
 import english from "~/messages/en-US/pages.landing.json"
 
-type Showcase = Course["showcase"]
-type ShowcaseCourse = Showcase["courses"][number]
+type ShowcaseCourse = Course["showcase"][number]
 
 const copy = english.studio.masterclass
 
@@ -63,25 +61,12 @@ const approach = (): void => {
   })
 }
 
-const lesson = (slug: string, access: ShowcaseCourse["lessons"][number]["access"], durationMs: number | null = 125_000) => ({
-  access,
-  durationMs,
-  id: `lesson-${slug}`,
-  slug,
-  title: `Lesson ${slug}`,
-})
-
 const WALKTHROUGH: ShowcaseCourse = {
   durationMs: 1_500_000,
+  freeLesson: { slug: "boundaries", title: "Lesson boundaries" },
   id: "walkthrough",
   kind: COURSE_KIND.COURSE,
   lessonCount: 8,
-  lessons: [
-    lesson("boundaries", LESSON_ACCESS.PREVIEW),
-    lesson("sessions", LESSON_ACCESS.ACCOUNT),
-    lesson("billing", LESSON_ACCESS.PAID),
-    lesson("coverage", LESSON_ACCESS.PAID, null),
-  ],
   previewCount: 1,
   slug: "the-walkthrough",
   title: "The walkthrough",
@@ -89,19 +74,27 @@ const WALKTHROUGH: ShowcaseCourse = {
 
 const TUTORIAL: ShowcaseCourse = {
   durationMs: 0,
+  freeLesson: undefined,
   id: "tutorial",
   kind: COURSE_KIND.TUTORIAL,
   lessonCount: 0,
-  lessons: [],
   previewCount: 0,
   slug: "one-off",
   title: "One-off tutorial",
 }
 
-const FULL: Showcase = {
-  courses: [WALKTHROUGH, TUTORIAL],
-  freeLesson: { courseSlug: "the-walkthrough", slug: "boundaries", title: "Lesson boundaries" },
+const UNRECORDED: ShowcaseCourse = {
+  durationMs: 0,
+  freeLesson: undefined,
+  id: "project",
+  kind: COURSE_KIND.PROJECT,
+  lessonCount: 2,
+  previewCount: 1,
+  slug: "unrecorded",
+  title: "Unrecorded project",
 }
+
+const SKELETONS_PER_COURSE = 3
 
 const renderShowcase = () =>
   renderWithRouter(
@@ -117,11 +110,21 @@ const showcaseLoaded = async (): Promise<void> => {
   })
 }
 
+const expectCourseFrame = (message: string): void => {
+  const text = screen.getByText(message)
+  const frame = text.previousElementSibling
+
+  expect(text).toHaveClass("contain-size")
+  expect(frame).toHaveClass("invisible")
+  expect(frame).toHaveAttribute("aria-hidden", "true")
+  expect(frame?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(SKELETONS_PER_COURSE)
+}
+
 const playButton = () => screen.getByRole("button", { name: copy.tour.play })
 
 beforeEach(() => {
   observers.length = 0
-  loadShowcase.mockReset().mockResolvedValue(FULL)
+  loadShowcase.mockReset().mockResolvedValue([WALKTHROUGH, TUTORIAL])
   vi.stubGlobal("IntersectionObserver", TestIntersectionObserver)
 })
 
@@ -132,83 +135,62 @@ afterEach(() => {
 })
 
 describe("course showcase data", () => {
-  it("renders the static block and placeholders without asking for courses until it nears the viewport", () => {
+  it("renders the static block and one placeholder column per course without asking for courses until it nears the viewport", () => {
     const { container } = renderShowcase()
 
     expect(screen.getByRole("heading", { level: 3, name: copy.title })).toBeVisible()
     expect(screen.getByText(copy.body)).toBeVisible()
     expect(screen.getByRole("link", { name: copy.browse })).toHaveAttribute("href", "/courses")
     expect(screen.getByRole("article")).toHaveAttribute("aria-busy", "false")
-    expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(COURSE_SHOWCASE.COURSES * (COURSE_SHOWCASE.LESSONS + 2))
+    expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(COURSE_SHOWCASE.COURSES * SKELETONS_PER_COURSE)
     expect(loadShowcase).not.toHaveBeenCalled()
   })
 
-  it("links every course and lesson to its page once the courses arrive", async () => {
+  it("links every course and its free lesson to their pages once the courses arrive", async () => {
     const { container } = renderShowcase()
     await showcaseLoaded()
 
     expect(loadShowcase).toHaveBeenCalledOnce()
     expect(screen.getByRole("link", { name: WALKTHROUGH.title })).toHaveAttribute("href", "/courses/the-walkthrough")
     expect(screen.getByRole("link", { name: TUTORIAL.title })).toHaveAttribute("href", "/courses/one-off")
-    for (const entry of WALKTHROUGH.lessons) {
-      expect(screen.getByRole("link", { name: new RegExp(`^${entry.title}`, "u") })).toHaveAttribute(
-        "href",
-        `/courses/the-walkthrough/${entry.slug}`,
-      )
-    }
-    expect(screen.getByRole("link", { name: new RegExp(`^${copy.freeLesson}`, "u") })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: `Lesson boundaries ${copy.preview}` })).toHaveAttribute(
       "href",
       "/courses/the-walkthrough/boundaries",
     )
-    expect(screen.getByRole("link", { name: "All 8 lessons in The walkthrough" })).toHaveAttribute("href", "/courses/the-walkthrough")
+    expect(screen.getAllByRole("listitem")).toHaveLength(2)
     expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(0)
-    expect(container.querySelector(String.raw`.md\:grid-cols-2`)).toBeInTheDocument()
   })
 
-  it("describes each course and marks how every lesson can be watched", async () => {
+  it("describes each course on one line and counts the free lessons of a course with none to watch", async () => {
+    loadShowcase.mockResolvedValue([WALKTHROUGH, TUTORIAL, UNRECORDED])
     renderShowcase()
     await showcaseLoaded()
 
     expect(screen.getByText("Course")).toBeVisible()
     expect(screen.getByText("8 lessons")).toBeVisible()
     expect(screen.getByText("25 min")).toBeVisible()
-    expect(screen.getByText("1 free lesson")).toBeVisible()
     expect(screen.getByText("No free lessons")).toBeVisible()
-    expect(screen.getByText(copy.noLessons)).toBeVisible()
-    expect(screen.getAllByText("2:05")).toHaveLength(3)
-
-    const preview = screen.getByRole("link", { name: /^Lesson boundaries/u })
-    expect(within(preview).getByText(copy.access.preview)).toBeVisible()
-    expect(screen.getByRole("link", { name: /^Lesson sessions/u })).toHaveTextContent(copy.access.account)
-    expect(screen.getByRole("link", { name: /^Lesson billing/u })).toHaveTextContent(copy.access.paid)
+    expect(screen.getByText("1 free lesson")).toBeVisible()
+    expect(screen.getAllByRole("link", { name: new RegExp(`${copy.preview}$`, "u") })).toHaveLength(1)
   })
 
-  it("keeps a single course on one column and leaves out links it cannot fill", async () => {
-    loadShowcase.mockResolvedValue({ courses: [{ ...WALKTHROUGH, lessonCount: WALKTHROUGH.lessons.length }], freeLesson: undefined })
-    const { container } = renderShowcase()
-    await showcaseLoaded()
-
-    expect(container.querySelector(String.raw`.md\:grid-cols-2`)).not.toBeInTheDocument()
-    expect(screen.queryByRole("link", { name: new RegExp(`^${copy.freeLesson}`, "u") })).not.toBeInTheDocument()
-    expect(screen.queryByRole("link", { name: /^All/u })).not.toBeInTheDocument()
-  })
-
-  it("says when no course is published", async () => {
-    loadShowcase.mockResolvedValue({ courses: [], freeLesson: undefined })
+  it("says in the frame of a course column when no course is published", async () => {
+    loadShowcase.mockResolvedValue([])
     renderShowcase()
     await showcaseLoaded()
 
-    expect(screen.getByText(copy.empty)).toBeVisible()
+    expectCourseFrame(copy.empty)
+    expect(screen.queryByRole("list")).not.toBeInTheDocument()
     expect(screen.getByRole("link", { name: copy.browse })).toHaveAttribute("href", "/courses")
   })
 
-  it("points to the courses page when the courses cannot be loaded", async () => {
+  it("points to the courses page in the same frame when the courses cannot be loaded", async () => {
     loadShowcase.mockRejectedValue(new Error("offline"))
-    const { container } = renderShowcase()
+    renderShowcase()
     approach()
 
     expect(await screen.findByText(copy.error)).toBeVisible()
-    expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(0)
+    expectCourseFrame(copy.error)
     expect(screen.getByRole("link", { name: copy.browse })).toHaveAttribute("href", "/courses")
   })
 })

@@ -1,7 +1,7 @@
 import type { JSX } from "react"
 
+import { Link } from "@tanstack/react-router"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
-import { PenLine, Trash2 } from "lucide-react"
 import { useFormatter, useTranslations } from "use-intl/react"
 
 import type { User } from "~/src/modules/user/user.types"
@@ -13,13 +13,12 @@ import { cn } from "~/src/lib/cn"
 
 import { Avatar, AvatarFallback, AvatarImage } from "~/src/presentation/components/shadcn/avatar"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
-import { Button } from "~/src/presentation/components/shadcn/button"
 
 import type { DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type DashboardUser = User["select"]
 
-const ColumnHeader = ({ id }: { readonly id: "actions" | "lastActive" | "role" | "status" | "user" }): string => {
+const ColumnHeader = ({ id }: { readonly id: "lastActive" | "role" | "status" | "user" }): string => {
   const t = useTranslations("pages.admin.dashboard.users.table.columns")
 
   return t(id)
@@ -43,21 +42,6 @@ const LastActiveCell = ({ getValue }: CellContext<DataTableFeatures, DashboardUs
   return <span className="text-xs text-muted-foreground">{format.dateTime(getValue(), "date")}</span>
 }
 
-const ActionsCell = (): JSX.Element => {
-  const t = useTranslations("pages.admin.dashboard.users.table.rowActions")
-
-  return (
-    <div className="flex items-center justify-end gap-2">
-      <Button aria-label={t("edit")} className="size-7" size="icon" variant="ghost">
-        <PenLine className="size-4 text-muted-foreground" />
-      </Button>
-      <Button aria-label={t("delete")} className="size-7 hover:bg-destructive/10 hover:text-destructive" size="icon" variant="ghost">
-        <Trash2 className="size-4 text-muted-foreground" />
-      </Button>
-    </div>
-  )
-}
-
 const columnHelper = createColumnHelper<DataTableFeatures, DashboardUser>()
 
 export const dashboardUserColumns = columnHelper.columns([
@@ -71,7 +55,13 @@ export const dashboardUserColumns = columnHelper.columns([
           </AvatarFallback>
         </Avatar>
         <div>
-          <p className="font-medium text-foreground">{row.original.name}</p>
+          <Link
+            className="rounded-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            params={{ userId: row.original.id }}
+            to="/admin/users/$userId"
+          >
+            {row.original.name}
+          </Link>
           <p className="text-xs text-muted-foreground">{row.original.email}</p>
         </div>
       </div>
@@ -97,10 +87,5 @@ export const dashboardUserColumns = columnHelper.columns([
     header: () => <ColumnHeader id="lastActive" />,
     id: "lastActive",
     sortFn: "datetime",
-  }),
-  columnHelper.display({
-    cell: ActionsCell,
-    header: () => <ColumnHeader id="actions" />,
-    id: "actions",
   }),
 ])

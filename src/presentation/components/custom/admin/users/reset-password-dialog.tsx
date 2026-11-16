@@ -5,9 +5,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
-import { AUTH_VALIDATION_PARAMS } from "~/src/integrations/better-auth/auth.constraints"
-import { fieldErrorMessage } from "~/src/integrations/tanstack-form/form.fields"
-
 import { setUserPasswordMutation } from "~/src/modules/user/use-cases/set-user-password"
 import { USER_QUERY_KEYS } from "~/src/modules/user/user.constants"
 import type { User } from "~/src/modules/user/user.types"
@@ -17,10 +14,9 @@ import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "~/src/presentation/components/shadcn/dialog"
-import { Field, FieldGroup, FieldLabel } from "~/src/presentation/components/shadcn/field"
-import { Input } from "~/src/presentation/components/shadcn/input"
+import { FieldGroup } from "~/src/presentation/components/shadcn/field"
 
-import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
+import { UserTextField } from "~/src/presentation/components/custom/admin/users/user-text-field"
 
 interface ResetPasswordDialogProps {
   readonly isOpen: boolean
@@ -75,36 +71,15 @@ export const ResetPasswordDialog = ({ isOpen, onOpenChange, user }: ResetPasswor
       >
         <FieldGroup>
           <form.Field name="newPassword">
-            {(field) => {
-              const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
-
-              return (
-                <Field data-invalid={isInvalid}>
-                  <FieldLabel htmlFor={passwordId}>{t("resetPasswordDialog.password")}</FieldLabel>
-                  <Input
-                    aria-describedby={`${passwordId}-error`}
-                    aria-invalid={isInvalid}
-                    autoComplete="new-password"
-                    id={passwordId}
-                    name={field.name}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => {
-                      field.handleChange(event.target.value)
-                    }}
-                    type="password"
-                    value={field.state.value}
-                  />
-                  {isInvalid && (
-                    <ValidationFieldError
-                      id={`${passwordId}-error`}
-                      message={fieldErrorMessage(field.state.meta.errors)}
-                      namespace="auth.validations"
-                      params={AUTH_VALIDATION_PARAMS}
-                    />
-                  )}
-                </Field>
-              )
-            }}
+            {(field) => (
+              <UserTextField
+                autoComplete="new-password"
+                field={field}
+                id={passwordId}
+                label={t("resetPasswordDialog.password")}
+                type="password"
+              />
+            )}
           </form.Field>
           <DialogFooter>
             <Button

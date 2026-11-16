@@ -9,8 +9,6 @@ import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
 import { AdminDashboardPending } from "~/src/presentation/components/custom/admin/auth-pending"
 import { DashboardActions } from "~/src/presentation/components/custom/admin/dashboard/actions"
 
-import pagesAdminDashboardMessages from "~/messages/en-US/pages.admin.dashboard.json"
-
 const TEST_ACTION = await vi.hoisted(async () => {
   const { FileDown } = await import("lucide-react")
   const { NAVIGATION_PLACEMENT } = await import("~/src/data/navigation.constants")
@@ -35,25 +33,24 @@ vi.mock(import("~/src/data/navigation"), async (importOriginal) => ({
 
 const messages = {
   navigation: { [TEST_ACTION.area]: { [TEST_ACTION.placement]: { [TEST_ACTION.key]: TEST_ACTION_LABEL } } },
-  pages: { admin: { dashboard: { actions: { last30Days: pagesAdminDashboardMessages.actions.last30Days } } } },
 }
 
 describe("dashboard actions", () => {
-  it("links every action an area contributes after the disabled date range, labelled by its area", () => {
+  it("links every action an area contributes, labelled by its area, and nothing else", () => {
     renderWithRouter(
       <IntlProvider locale="en-US" messages={messages} timeZone="UTC">
         <DashboardActions />
       </IntlProvider>,
     )
 
-    expect(screen.getByRole("button", { name: pagesAdminDashboardMessages.actions.last30Days })).toBeDisabled()
     expect(screen.getByRole("link", { name: TEST_ACTION_LABEL })).toHaveAttribute("href", TEST_ACTION.to)
     expect(screen.getAllByRole("link")).toHaveLength(ADMIN_DASHBOARD_ACTIONS.length)
+    expect(screen.queryByRole("button")).toBeNull()
   })
 
-  it("draws a button placeholder beside the date range for every action", () => {
+  it("draws a button placeholder for every action", () => {
     const { container } = render(<AdminDashboardPending />)
 
-    expect(container.querySelectorAll(".h-9.rounded-lg")).toHaveLength(ADMIN_DASHBOARD_ACTIONS.length + 1)
+    expect(container.querySelectorAll(".h-9.rounded-lg")).toHaveLength(ADMIN_DASHBOARD_ACTIONS.length)
   })
 })

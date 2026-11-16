@@ -1,5 +1,6 @@
 import type { JSX } from "react"
 
+import { Link } from "@tanstack/react-router"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { useTranslations } from "use-intl/react"
 
@@ -8,13 +9,10 @@ import { isRole } from "~/src/integrations/better-auth/auth.roles"
 import type { User } from "~/src/modules/user/user.types"
 import { type UserStatus, getUserInitials, getUserStatus } from "~/src/modules/user/user.utils"
 
-import { ADMIN_STATUS_BADGE_CLASSES, USER_STATUS_COLORS } from "~/src/data/admin"
-
 import { cn } from "~/src/lib/cn"
 
-import { Badge } from "~/src/presentation/components/shadcn/badge"
-
 import { UserRowActions } from "~/src/presentation/components/custom/admin/users/row-actions"
+import { UserStatusBadge } from "~/src/presentation/components/custom/admin/users/user-status-badge"
 import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentation/components/custom/data-table"
 
 type AdminUser = User["select"]
@@ -28,7 +26,7 @@ const ColumnHeader = ({ id }: { readonly id: UserColumn }): string => {
 }
 
 const UserCell = ({ row }: CellContext<DataTableFeatures, AdminUser, string>): JSX.Element => {
-  const { banned, email, image, name } = row.original
+  const { banned, email, id, image, name } = row.original
 
   return (
     <div className="flex items-center gap-3">
@@ -52,7 +50,16 @@ const UserCell = ({ row }: CellContext<DataTableFeatures, AdminUser, string>): J
         </div>
       )}
       <div className="min-w-0">
-        <p className={cn("font-medium", { "text-foreground": !banned, "text-muted-foreground line-through": banned })}>{name}</p>
+        <Link
+          className={cn(
+            "rounded-sm font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+            { "text-foreground": !banned, "text-muted-foreground line-through": banned },
+          )}
+          params={{ userId: id }}
+          to="/admin/users/$userId"
+        >
+          {name}
+        </Link>
         <p className="text-xs text-muted-foreground">{email}</p>
       </div>
     </div>
@@ -66,19 +73,9 @@ const RoleCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, string
   return <span className="text-muted-foreground">{isRole(role) ? t(role) : role}</span>
 }
 
-const StatusCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, UserStatus>): JSX.Element => {
-  const t = useTranslations("pages.admin.users.filters.status.options")
-  const status = getValue()
-
-  return (
-    <Badge
-      className={cn("gap-1.5 rounded-md px-2 py-0.5 text-[0.6875rem] font-medium", ADMIN_STATUS_BADGE_CLASSES[USER_STATUS_COLORS[status]])}
-      variant="outline"
-    >
-      {t(status)}
-    </Badge>
-  )
-}
+const StatusCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, UserStatus>): JSX.Element => (
+  <UserStatusBadge status={getValue()} />
+)
 
 const BooleanCell = ({ getValue }: CellContext<DataTableFeatures, AdminUser, boolean>): JSX.Element => {
   const t = useTranslations("pages.admin.users.table.booleans")

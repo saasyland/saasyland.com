@@ -1,24 +1,24 @@
 ---
 title: "Sitzungen"
-description: "Better-Auth-Sitzungen in D1, mit selbst verwaltetem Widerruf in den Admin-Einstellungen."
+description: "Better-Auth-Sitzungen in D1, mit selbst verwaltetem Widerruf in den Admin-Einstellungen und dem Widerruf der Sitzungen jedes Benutzers über sein Admin-Profil."
 ---
 
 Sitzungen liegen in der D1-Tabelle `session` (`src/modules/session/session.schema.ts`). `auth.session.ts` liest sie mit `getRequestSession`, pro Anfrage memoisiert, und stellt Routen und Komponenten `getCurrentSessionQuery` bereit. Die clientseitige Kopie enthält nie das Sitzungstoken.
 
 ## Anwendungsfälle
 
-| Anwendungsfall                            | Middleware                       | Verwendet von                |
-| ----------------------------------------- | -------------------------------- | ---------------------------- |
-| `getActiveSessions`                       | angemeldet                       | `SettingsSessions`           |
-| `revokeSession`                           | angemeldet; nur eigene Sitzungen | `SessionRow`                 |
-| `revokeOtherSessions`                     | angemeldet                       | `SettingsSessions`           |
-| `listUserSessions`                        | `session: ["list"]`              | von keiner Ansicht verwendet |
-| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`            | von keiner Ansicht verwendet |
+| Anwendungsfall                            | Middleware                       | Verwendet von      |
+| ----------------------------------------- | -------------------------------- | ------------------ |
+| `getActiveSessions`                       | angemeldet                       | `SettingsSessions` |
+| `revokeSession`                           | angemeldet; nur eigene Sitzungen | `SessionRow`       |
+| `revokeOtherSessions`                     | angemeldet                       | `SettingsSessions` |
+| `listUserSessions`                        | `session: ["list"]`              | `UserSessions`     |
+| `revokeUserSession`, `revokeUserSessions` | `session: ["revoke"]`            | `UserSessions`     |
 
-`getActiveSessions` liefert die nicht abgelaufenen Sitzungen des aktuellen Benutzers, die neuesten zuerst, und lässt Impersonation-Sitzungen weg.
+`getActiveSessions` liefert die nicht abgelaufenen Sitzungen des aktuellen Benutzers, die neuesten zuerst, und lässt Impersonation-Sitzungen weg. `listUserSessions` liefert die nicht abgelaufenen Sitzungen eines anderen Benutzers aus `listUserSessions` von Better Auth, die neuesten zuerst und ohne ihre Tokens, Impersonation-Sitzungen eingeschlossen. `revokeUserSession` nimmt eine Sitzungs-ID entgegen und sucht ihr Token auf dem Server heraus, sodass kein Token den Browser erreicht.
 
 ## Benutzeroberfläche
 
 **Einstellungen → Sicherheit** in `/admin/settings` rendert `SettingsSessions` (`src/presentation/components/custom/admin/settings/sessions.tsx`). Jede `SessionRow` zeigt das Gerät (User-Agent oder IP-Adresse), die letzte Aktivität und ein Badge bei der aktuellen Sitzung und kann diese Sitzung widerrufen. Eine Schaltfläche im Header widerruft alle anderen Sitzungen. Eine Passwortänderung aktualisiert ebenfalls die Sitzungsliste.
 
-Die Admin-Varianten für Sitzungen anderer Benutzer existieren nur als Serverfunktionen.
+Das Profil eines Benutzers in `/admin/users` rendert `UserSessions` (`src/presentation/components/custom/admin/users/user-sessions.tsx`): für jede Sitzung das Gerät, wann die Anmeldung erfolgte und wann sie zuletzt aktiv war, eine Schaltfläche, die sie widerruft, und nach einer Bestätigung eine Schaltfläche, die den Benutzer überall abmeldet. Siehe [Benutzer (Admin)](/docs/features/users-admin).

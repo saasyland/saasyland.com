@@ -1,7 +1,7 @@
 import type { models } from "@polar-sh/sdk/2026-10"
 import { createHmac } from "node:crypto"
 
-import { POLAR_LICENSE_KEY_STATUS } from "~/src/integrations/polar/polar.constants"
+import { POLAR_LICENSE_KEY_STATUS, POLAR_RECURRING_INTERVAL } from "~/src/integrations/polar/polar.constants"
 import { BASIS_POINTS_PER_PERCENT } from "~/src/integrations/polar/polar.discounts"
 
 const MS_PER_SECOND = 1000
@@ -10,6 +10,7 @@ export const POLAR_API_VERSION = "2026-10"
 const DISPLAYED_KEY_CHARACTERS = 6
 const CATALOGUE_CREATED_AT = "2026-11-01T00:00:00.000Z"
 const RECURRING_INTERVAL_COUNT = 1
+const DAYS_PER_WEEK = 7
 
 export interface PolarProduct {
   readonly id: string
@@ -194,6 +195,78 @@ export const polarOrder = ({ checkoutId, customer, discount, metadata, product, 
   }
 }
 
+const polarProduct = (organizationId: string, product: PolarProduct): models.Product => ({
+  ...productFields(organizationId, product),
+  attached_custom_fields: [],
+  benefits: [],
+  is_deletable: false,
+  medias: [],
+  metadata: {},
+  prices: [polarProductPrice(product)],
+})
+
+const periodEnd = (start: Date, interval: models.RecurringInterval): Date => {
+  const end = new Date(start)
+  const advance = {
+    [POLAR_RECURRING_INTERVAL.DAY]: () => end.setUTCDate(end.getUTCDate() + RECURRING_INTERVAL_COUNT),
+    [POLAR_RECURRING_INTERVAL.WEEK]: () => end.setUTCDate(end.getUTCDate() + DAYS_PER_WEEK * RECURRING_INTERVAL_COUNT),
+    [POLAR_RECURRING_INTERVAL.MONTH]: () => end.setUTCMonth(end.getUTCMonth() + RECURRING_INTERVAL_COUNT),
+    [POLAR_RECURRING_INTERVAL.YEAR]: () => end.setUTCFullYear(end.getUTCFullYear() + RECURRING_INTERVAL_COUNT),
+  } satisfies Record<models.RecurringInterval, () => number>
+  advance[interval]()
+  return end
+}
+
+interface PolarSubscriptionInput {
+  readonly customer: models.CustomerIndividual
+  readonly product: PolarProduct & { readonly recurringInterval: models.RecurringInterval }
+  readonly status: models.SubscriptionStatus
+}
+
+export const polarSubscription = ({ customer, product, status }: PolarSubscriptionInput): models.Subscription => {
+  const startedAt = new Date()
+  const createdAt = startedAt.toISOString()
+
+  return {
+    amount: product.price.amount,
+    cancel_at_period_end: false,
+    canceled_at: null,
+    checkout_id: null,
+    created_at: createdAt,
+    currency: product.price.currency.toLowerCase(),
+    current_meter_period_end: null,
+    current_meter_period_start: null,
+    current_period_end: periodEnd(startedAt, product.recurringInterval).toISOString(),
+    current_period_start: createdAt,
+    customer,
+    customer_cancellation_comment: null,
+    customer_cancellation_reason: null,
+    customer_id: customer.id,
+    discount: null,
+    discount_id: null,
+    ended_at: null,
+    ends_at: null,
+    id: crypto.randomUUID(),
+    metadata: {},
+    meters: [],
+    modified_at: null,
+    pause_at_period_end: false,
+    paused_at: null,
+    pending_update: null,
+    prices: [polarProductPrice(product)],
+    product: polarProduct(customer.organization_id, product),
+    product_id: product.id,
+    recurring_interval: product.recurringInterval,
+    recurring_interval_count: RECURRING_INTERVAL_COUNT,
+    resumes_at: null,
+    started_at: createdAt,
+    status,
+    trial_end: null,
+    trial_start: null,
+    units: null,
+  }
+}
+
 export const polarLicenseKey = ({
   activations = [],
   benefit,
@@ -280,7 +353,7 @@ export const signedPolarWebhook = ({
   sentAt = new Date(),
   type,
 }: {
-  readonly data: models.BenefitGrantWebhook | models.Order
+  readonly data: models.BenefitGrantWebhook | models.Order | models.Subscription
   readonly secret: string
   readonly sentAt?: Date
   readonly type: models.WebhookEventType

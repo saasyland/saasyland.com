@@ -2,7 +2,7 @@ import type { ComponentProps } from "react"
 
 import type { DocsLayout } from "@fumadocs/base-ui/layouts/docs"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
+import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter, notFound } from "@tanstack/react-router"
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
@@ -18,10 +18,13 @@ import { Route as DocsRoute } from "~/src/routes/_site.docs"
 import { Route as DocsPageRoute } from "~/src/routes/_site.docs.$"
 import { Route as DocsIndexRoute } from "~/src/routes/_site.docs.index"
 
+import { SITE_CONTENT_ID } from "~/src/data/navigation.constants"
+
 import { docsContent } from "~/src/presentation/components/custom/docs-content"
 
 import localeSwitcherMessages from "~/messages/en-US/components.custom.locale-switcher.json"
 import navigationMessages from "~/messages/en-US/components.custom.navigation.json"
+import notFoundMessages from "~/messages/en-US/errors.not-found.json"
 import contentNavigationMessages from "~/messages/en-US/navigation.content.json"
 import { APP_GITHUB_OWNER, APP_GITHUB_REPO, APP_GITHUB_URL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
@@ -161,4 +164,17 @@ it("shows the docs-shaped skeleton while the documentation layout loads", async 
   })
   expect(screen.getByRole("navigation", { name: navigationMessages.ariaLabel })).toBeVisible()
   expect(screen.queryByText("Documentation content")).not.toBeInTheDocument()
+})
+
+it("shows a missing docs page as the not-found page in the docs' content landmark", async () => {
+  vi.mocked(loadDocsPage).mockRejectedValue(notFound())
+  const router = createDocsRouter({ href: "/docs/missing", layout: () => LAYOUT_DATA })
+  renderDocs(router)
+  await act(() => router.load())
+
+  const heading = screen.getByRole("heading", { level: 1, name: notFoundMessages.metadata.title })
+  expect(heading.closest("main")).toHaveAttribute("id", SITE_CONTENT_ID)
+  expect(screen.queryByText("Documentation content")).not.toBeInTheDocument()
+  expect(router.state.matches.at(-1)?.status).toBe("notFound")
+  router.options.context.queryClient.clear()
 })

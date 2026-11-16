@@ -7,12 +7,18 @@ import {
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { USERS, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
 import { LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 
+import { ROBOTS, buildTitle } from "~/src/lib/seo"
+
+import notFoundMessages from "~/messages/en-US/errors.not-found.json"
+import { APP_URL } from "~/src/presentation/branding"
 import { getRouter } from "~/src/router"
+import { ROUTES } from "~/src/routes"
 
 vi.mock("collections/server", () => ({ blog: [], docs: { toFumadocsSource: () => ({ files: [] }) } }))
 
@@ -87,11 +93,28 @@ describe("course route loaders", () => {
     expect(router.options.context.queryClient.getQueryCache().findAll({ queryKey: LESSON_QUERY_KEYS.ALL })).toStrictEqual([])
   })
 
-  it.each(["/courses/missing", "/courses/unreleased", "/courses/the-walkthrough/missing"])("answers %s with not found", async (path) => {
-    signOut()
+  it.each(["/courses/missing", "/courses/unreleased", "/courses/the-walkthrough/missing"])(
+    "answers %s with the not-found page, titled and kept out of search results",
+    async (path) => {
+      signOut()
 
-    const router = await load(path)
+      const router = await load(path)
+      const missing = router.state.matches.find((match) => match.status === "notFound")
 
-    expect(router.state.matches.some((match) => match.status === "notFound")).toBe(true)
-  })
+      expect(missing?.meta).toContainEqual({ title: buildTitle({ locale: I18N.DEFAULT_LOCALE, title: notFoundMessages.metadata.title }) })
+      expect(missing?.meta).toContainEqual({ content: ROBOTS.NOINDEX, name: "robots" })
+    },
+  )
+
+  it.each(["/courses/the-walkthrough", "/courses/the-walkthrough/boundaries"])(
+    "keeps the catalogue as the address of %s when its course fails to load",
+    async (path) => {
+      vi.spyOn(auth.api, "getSession").mockRejectedValue(new Error("The session store is unavailable"))
+
+      const router = await load(path)
+      const failed = router.state.matches.find((match) => match.status === "error")
+
+      expect(failed?.meta).toContainEqual({ content: `${APP_URL}${ROUTES.COURSES}`, property: "og:url" })
+    },
+  )
 })

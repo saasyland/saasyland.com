@@ -81,12 +81,20 @@ Polar は価格を通貨の補助単位（米ドルではセント）で保存�
 | `preview`    | サンドボックス | `https://preview.saasyland.com/api/auth/polar/webhooks` |
 | `production` | 本番           | `https://saasyland.com/api/auth/polar/webhooks`         |
 
-ホストは `DEPLOYED_HOSTS` から、パスは `ROUTES` から取得されます。形式は Raw を選び、エンドポイントを有効のままにして、`POLAR_EVENTS`（`src/data/polar-events.ts`）のイベントだけを過不足なく購読させます。`POLAR_EVENTS` は、各エリアが処理するイベントをまとめたものです（[決済](/docs/features/payments#webhooks)を参照）。現在イベントを処理するのはライセンスのエリアだけで、そのイベントは `LICENSE_WEBHOOK_EVENTS`（`src/modules/license/license.constants.ts`）に列挙されています。
+ホストは `DEPLOYED_HOSTS` から、パスは `ROUTES` から取得されます。形式は Raw を選び、エンドポイントを有効のままにして、`POLAR_EVENTS`（`src/data/polar-events.ts`）のイベントだけを過不足なく購読させます。`POLAR_EVENTS` は、各エリアが処理するイベントをまとめたものです（[決済](/docs/features/payments#webhooks)を参照）。現在は、ライセンスのエリアが `LICENSE_WEBHOOK_EVENTS`（`src/modules/license/license.constants.ts`）のイベントを、請求のエリアが `src/data/billing.polar-events.ts` のイベントを処理します。
 
-- `order.paid` はライセンスを付与します。
-- `order.refunded` は、注文が全額返金された時点でライセンスを返金済みにします。
-- `benefit_grant.created` はライセンスキーを保存します。
-- `benefit_grant.revoked` はライセンスを取り消します。
+| イベント                | ライセンスのエリア                                     | 請求のエリア                           |
+| ----------------------- | ------------------------------------------------------ | -------------------------------------- |
+| `benefit_grant.created` | ライセンスキーを保存します                             |                                        |
+| `benefit_grant.revoked` | ライセンスを取り消します                               |                                        |
+| `order.created`         |                                                        | 注文を D1 にコピーします               |
+| `order.paid`            | ライセンスを付与します                                 | 注文のコピーを更新します               |
+| `order.refunded`        | 注文が全額返金された時点でライセンスを返金済みにします | 注文のコピーを更新します               |
+| `order.updated`         |                                                        | 注文のコピーを更新します               |
+| `subscription.created`  |                                                        | サブスクリプションを D1 にコピーします |
+| `subscription.updated`  |                                                        | サブスクリプションのコピーを更新します |
+
+あるエリアが新しいイベントを処理し始めるときは、そのコードをデプロイする前に、各エンドポイントにそのイベントを追加してください。それまでデプロイされているコードは、どのエリアも処理しないイベントに 200 を返して何もしないため、先にイベントを追加しても問題ありません。また、エンドポイントが `POLAR_EVENTS` のすべてのイベントを送らない限り、`polar:verify` はデプロイを失敗させます。
 
 エンドポイントの署名シークレットを、同じ環境ファイルの `POLAR_WEBHOOK_SECRET` にコピーします。Polar は `localhost` に到達できないため、開発用のエンドポイントは不要です。
 

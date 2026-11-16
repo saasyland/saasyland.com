@@ -84,6 +84,12 @@ Die Skript-Richtlinie behält diese Reihenfolge bei. Der Worker streamt jede vor
 
 `robots.txt` und `llms.txt` sind statische Dateien in `public/`, die den Worker umgehen (`"!/robots.txt", "!/llms.txt"` in `run_worker_first`). Lighthouse ruft beide mit einem Timeout von zwei Sekunden ab, und eine langsame Antwort des Workers ließ die Audits von Lighthouse für SEO und Agent-Readiness fehlschlagen.
 
+## Early Hints nennen nur Dateien, die ein Deployment überdauern
+
+Der `Link`-Header des Workers auf HTML-Antworten nennt die Schriften der Locale und sonst nichts. Cloudflare speichert den Header pro URL und sendet ihn als `103 Early Hints`-Antwort, bevor der Worker die nächste Anfrage an diese URL beantwortet, und die gespeicherte Kopie übersteht ein Deployment. Vite benennt das Stylesheet nach seinem Inhalt, daher ist ein angekündigtes Stylesheet nach einem Deployment, das irgendein CSS ändert, eine Datei, die es nicht mehr gibt: Der Browser lädt einen 404 und findet das neue Stylesheet ohnehin im HTML. Die Dateien in `public/fonts` behalten ihre Namen von einem Deployment zum nächsten.
+
+Gemessen auf saasyland.com mit Chromium, 15 verschränkte Läufe pro Variante auf drei Seiten, mit dem tatsächlichen Early-Hints-Timing der Edge: Die Ankündigung der Schriften senkte den First Contentful Paint von 168–208 ms auf 144–164 ms. Eine Ankündigung des Stylesheets sparte weitere 12–28 ms, wenn seine URL aktuell war, und nichts, wenn ein Deployment sie ersetzt hatte; 25 Minuten nach einem Deployment kündigten 67 der 91 Sitemap-Seiten, die Early Hints erhielten, noch das vorherige Stylesheet an. Das `<link>` des Stylesheets steht im ersten Kilobyte jeder Seite, sodass der Browser es mit den ersten Bytes des HTML findet. Kündigen Sie nur Dateien an, deren URLs ein Deployment überdauern.
+
 ## Provider umschließen nie ein Routen-Outlet
 
 TanStack Router umschließt Routen-Outlets mit Suspense-Boundaries, und React hydriert diese Boundaries später, in kleinen Stücken. Ein Context-Provider darüber, dessen Wert sich direkt nach der Hydration ändert, zwingt React, alles darunter auf einmal zu hydrieren:
@@ -135,6 +141,10 @@ Ein zweiter Tailwind-Build in einem Routen-Stylesheet lieferte einmal seine eige
 `Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) blendet Abschnitte der Landingpage ein, wenn sie in den Viewport kommen. Es teilt einen `IntersectionObserver` zwischen allen Instanzen, entscheidet anhand des ersten Callbacks des Observers, ob ein Element unterhalb des sichtbaren Bereichs beginnt, und schreibt `data-reveal`-Attribute direkt, ohne React-State und ohne erneutes Rendern. Eine Version, die die Sichtbarkeit in React-State hielt, verdoppelte die Total Blocking Time, weil jeder Abschnitt neu renderte und die Seite zweimal das Layout berechnete. Verlagern Sie es nicht zurück in State, und ersetzen Sie es nicht ohne Vergleichsmessung.
 
 Zwei weitere Optimierungen wurden gemessen und verworfen: `content-visibility: auto` auf Abschnitten der Landingpage, was seiteninterne Links zu weiter unten liegenden Abschnitten kaputt machte, und das verzögerte Laden des Newsletter-Formulars, das gleich gut oder schlechter abschnitt, als es direkt zu rendern.
+
+## Später geladene Inhalte behalten ihre Größe
+
+Eine vorgerenderte Seite wird gezeichnet, bevor ein Skript läuft, also muss ein Abschnitt, der sich danach füllt, in den Platz passen, den er bekommen hat. Der Kursblock der Landingpage ist ein solcher Abschnitt: Er liest die veröffentlichten Kurse, sobald er in die Nähe gescrollt wird, und sein Platzhalter nahm früher zwei Kurse mit je sechs Lektionen an, sodass der Block beim Eintreffen der Kurse wuchs oder schrumpfte und alles darunter um hundert Pixel und mehr verschob. Seine Spalten haben jetzt eine feste Folge einzeiliger Zeilen, der Platzhalter zeichnet dieselben Zeilen, und seine Hinweise stehen in einem Rahmen von der Größe einer Spalte, sodass jeder Zustand bei jeder Breite dieselbe Höhe hat (siehe [Kurse](/docs/features/courses)). Die Sternanzahl auf der Landingpage macht es genauso, mit einem Skeleton so hoch wie die Zahl. Die Kurse ins vorgerenderte HTML zu schreiben, ist keine Option: Der Build hat keine Produktionsdatenbank, und die Landingpage bei jeder Anfrage im Worker zu rendern, würde die Zeit bis zum ersten Byte wieder hergeben, die das Vorrendern spart.
 
 ## Verwandte Seiten
 

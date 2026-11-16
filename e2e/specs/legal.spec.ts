@@ -29,7 +29,7 @@ for (const path of [ROUTES.TERMS, ROUTES.PRIVACY]) {
     await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
 
-    await expect(page.getByTestId("legal-document-title")).toBeVisible()
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
   })
 }
 
@@ -44,6 +44,6 @@ for (const [name, path] of [
     await page.getByRole("link", { exact: true, name }).click()
 
     await expect(page).toHaveURL(path)
-    await expect(page.getByTestId("legal-document-title")).toBeVisible()
+    await expect(page.getByRole("heading", { exact: true, level: 1, name })).toBeVisible()
   })
 }

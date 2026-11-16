@@ -1,4 +1,4 @@
-import { createMemoryHistory } from "@tanstack/react-router"
+import { createMemoryHistory, rootRouteId } from "@tanstack/react-router"
 import { getRequest } from "@tanstack/react-start/server"
 import { describe, expect, it, vi } from "vite-plus/test"
 
@@ -7,6 +7,9 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
+import { Route as SiteRoute } from "~/src/routes/_site"
+import { Route as MarketingRoute } from "~/src/routes/_site._marketing"
+import { Route as NotFoundRoute } from "~/src/routes/_site._marketing.$"
 import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
 
 import { BLOG_TAG } from "~/src/data/blog"
@@ -14,12 +17,14 @@ import { TIER_PRICES } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { starCountQuery } from "~/src/lib/github"
+import { ROBOTS, buildTitle } from "~/src/lib/seo"
 
 import { blogContent } from "~/src/presentation/components/custom/blog-content"
 
+import notFoundMessages from "~/messages/en-US/errors.not-found.json"
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import pagesLandingMessages from "~/messages/en-US/pages.landing.json"
-import { APP_NAME, APP_URL } from "~/src/presentation/branding"
+import { APP_URL } from "~/src/presentation/branding"
 import { getRouter } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
@@ -64,6 +69,12 @@ vi.mock("collections/server", async () => {
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
   blogContent: { preload: vi.fn(() => Promise.resolve()) },
 }))
+
+const NOT_FOUND_META = [
+  { title: buildTitle({ locale: I18N.DEFAULT_LOCALE, title: notFoundMessages.metadata.title }) },
+  { content: notFoundMessages.metadata.description, name: "description" },
+  { content: ROBOTS.NOINDEX, name: "robots" },
+]
 
 const createRouterAt = (path: string) => {
   vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000${path}`))
@@ -173,12 +184,36 @@ describe("blog post loader", () => {
     })
   })
 
-  it("keeps the blog index as the canonical page of a missing article", async () => {
+  it("titles a missing article as not found and keeps it out of search results", async () => {
     const router = await load("/blog/missing")
     const article = router.state.matches.find((match) => match.routeId === BlogPostRoute.id)
-    expect(article?.meta).toContainEqual({ content: `${APP_URL}${ROUTES.BLOG}`, property: "og:url" })
-    expect(article?.meta).toContainEqual({ title: APP_NAME })
+    expect(article?.status).toBe("notFound")
+    expect(article?.meta).toStrictEqual(NOT_FOUND_META)
   })
+
+  it("keeps the blog index as the address of an article that failed to load", async () => {
+    vi.mocked(blogContent.preload).mockRejectedValueOnce(new Error("The article content could not be loaded"))
+    const router = await load("/blog/complete")
+    const article = router.state.matches.find((match) => match.routeId === BlogPostRoute.id)
+    expect(article?.status).toBe("error")
+    expect(article?.meta).toContainEqual({ content: `${APP_URL}${ROUTES.BLOG}`, property: "og:url" })
+  })
+
+  it.each(["/nope", "/pl-PL/a/b/c", "/auth/nope", "/admin/nope"])(
+    "answers the unknown path %s from the site's not-found route",
+    async (path) => {
+      const router = await load(path)
+      const notFoundMatch = router.state.matches.at(-1)
+      expect(router.state.matches.map(({ routeId }) => routeId)).toStrictEqual([
+        rootRouteId,
+        SiteRoute.id,
+        MarketingRoute.id,
+        NotFoundRoute.id,
+      ])
+      expect(notFoundMatch?.status).toBe("notFound")
+      expect(notFoundMatch?.meta).toContainEqual({ content: ROBOTS.NOINDEX, name: "robots" })
+    },
+  )
 
   it.each<{ _splat?: string }>([{ _splat: "draft" }, { _splat: "missing" }, { _splat: "" }, {}])(
     "treats params %j as a missing article",

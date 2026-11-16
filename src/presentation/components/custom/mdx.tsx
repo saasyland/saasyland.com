@@ -6,7 +6,7 @@ import { Step, Steps } from "@fumadocs/base-ui/components/steps"
 import { Tab, Tabs } from "@fumadocs/base-ui/components/tabs"
 import defaultMdxComponents from "@fumadocs/base-ui/mdx"
 
-import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
+import { localizeHref } from "~/src/integrations/use-intl/i18n.paths"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { Alert, AlertDescription, AlertTitle } from "~/src/presentation/components/shadcn/alert"
@@ -36,7 +36,7 @@ const TASK_LIST_ITEM = "task-list-item"
 
 const MdxLink = ({ href, ...props }: ComponentProps<"a">): JSX.Element => {
   if (href?.startsWith(INTERNAL_PREFIX) === true) {
-    return <a href={localizePathname({ locale: getCurrentLocale(), pathname: href })} {...props} />
+    return <a href={localizeHref({ href, locale: getCurrentLocale() })} {...props} />
   }
 
   return <a href={href} {...props} />
@@ -46,7 +46,7 @@ const MdxCard = (props: ComponentProps<typeof Card>): JSX.Element => {
   const { href } = props
 
   if (href?.startsWith(INTERNAL_PREFIX) === true) {
-    return <Card {...props} href={localizePathname({ locale: getCurrentLocale(), pathname: href })} />
+    return <Card {...props} href={localizeHref({ href, locale: getCurrentLocale() })} />
   }
 
   return <Card {...props} />

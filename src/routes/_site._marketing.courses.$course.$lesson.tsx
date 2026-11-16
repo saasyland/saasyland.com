@@ -1,7 +1,7 @@
 import type { JSX } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Link, createFileRoute, notFound } from "@tanstack/react-router"
+import { Link, createFileRoute, isNotFound, notFound } from "@tanstack/react-router"
 import { ArrowLeft, ArrowRight, Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
@@ -17,7 +17,7 @@ import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-p
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useLessonProgress } from "~/src/hooks/use-lesson-progress"
 
-import { rethrowAsNotFound } from "~/src/lib/not-found"
+import { notFoundHead, rethrowAsNotFound } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
@@ -165,13 +165,24 @@ const NAMESPACE = "pages.courses"
 
 export const Route = createFileRoute("/_site/_marketing/courses/$course/$lesson")({
   component: LessonPage,
-  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; summary: string; title: string } | undefined }) =>
-    buildPageHead({
+  head: ({
+    loaderData,
+    match,
+  }: {
+    loaderData?: { locale: SupportedLocale; pathname: string; summary: string; title: string } | undefined
+    match: { error: unknown }
+  }) => {
+    if (isNotFound(match.error)) {
+      return notFoundHead(getCurrentLocale())
+    }
+
+    return buildPageHead({
       description: loaderData?.summary,
       locale: loaderData?.locale,
       pathname: loaderData?.pathname ?? ROUTES.COURSES,
       title: loaderData?.title,
-    }),
+    })
+  },
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [data] = await Promise.all([

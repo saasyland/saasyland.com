@@ -88,6 +88,34 @@ describe("check-content", () => {
     ])
   })
 
+  it.each([
+    ["[pricing](/pl-PL/#pricing)", "/pl-PL/", "/"],
+    ["[docs](/docs/#install)", "/docs/", "/docs"],
+    ["[blog](/blog/?page=2)", "/blog/", "/blog"],
+    ['<Card title="Guides" href="/docs/guides/" />', "/docs/guides/", "/docs/guides"],
+    ["[about](/docs/index)", "/docs/index", "/docs"],
+    ["[home](/index.html)", "/index.html", "/"],
+    ["[docs](/docs.html)", "/docs.html", "/docs"],
+    ["[docs](/en-US/docs)", "/en-US/docs", "/docs"],
+    ["[docs](/pl/docs)", "/pl/docs", "/docs"],
+    ["[docs](/de-DE/docs)", "/de-DE/docs", "/docs"],
+  ])("fails %s, which links to %s instead of %s", (link, path, canonical) => {
+    expect(mdxProblems({ label: EXAMPLE_LABEL, locale: "de-DE", source: page(link), target: page(link) })).toContain(
+      `${EXAMPLE_LABEL} links to ${path} instead of ${canonical}, which the site serves without a redirect in the reader's locale`,
+    )
+  })
+
+  it("passes internal links in their canonical form and leaves external links and code alone", () => {
+    expect(
+      problemsOf({
+        source:
+          "See [pricing](/#pricing), [home](/), [docs](/docs?tab=cli#install), [feed](/feed.xml), [site](https://example.com/docs/) and `[x](/docs/)`.",
+        target:
+          "Siehe [Preise](/#pricing), [Start](/), [Doku](/docs?tab=cli#install), [Feed](/feed.xml), [Seite](https://example.com/docs/) und `[x](/docs/)`.",
+      }),
+    ).toEqual([])
+  })
+
   it("checks a changelog entry without asking it for a title, and keeps its English out of the translations", () => {
     expect(
       mdxProblems({

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 
+import { POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
 import { BASIS_POINTS_PER_PERCENT, POLAR_DISCOUNT_TYPE } from "~/src/integrations/polar/polar.discounts"
 
 import { ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
@@ -549,6 +550,15 @@ describe("verifyPolar on the webhook endpoints", () => {
   })
 
   it("reports events the handlers need but Polar does not send, and events no handler handles", async () => {
+    const unsent = [
+      LICENSE_WEBHOOK_EVENTS.onBenefitGrantCreated,
+      LICENSE_WEBHOOK_EVENTS.onBenefitGrantRevoked,
+      POLAR_WEBHOOK_EVENT.ORDER_CREATED,
+      POLAR_WEBHOOK_EVENT.ORDER_UPDATED,
+      POLAR_WEBHOOK_EVENT.SUBSCRIPTION_CREATED,
+      POLAR_WEBHOOK_EVENT.SUBSCRIPTION_UPDATED,
+    ]
+
     await expectPreviewProblems(
       {
         endpoints: [
@@ -557,7 +567,7 @@ describe("verifyPolar on the webhook endpoints", () => {
           }),
         ],
       },
-      `The webhook endpoint for ${PREVIEW_WEBHOOK} does not send benefit_grant.created, benefit_grant.revoked.`,
+      `The webhook endpoint for ${PREVIEW_WEBHOOK} does not send ${unsent.join(", ")}.`,
       `The webhook endpoint for ${PREVIEW_WEBHOOK} also sends checkout.created, which no area handles (POLAR_EVENTS).`,
     )
   })

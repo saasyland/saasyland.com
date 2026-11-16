@@ -84,6 +84,12 @@ A política de scripts mantém essa ordem. O Worker transmite toda página pré-
 
 `robots.txt` e `llms.txt` são arquivos estáticos em `public/` que não passam pelo Worker (`"!/robots.txt", "!/llms.txt"` em `run_worker_first`). O Lighthouse busca os dois com um timeout de dois segundos, e uma resposta lenta do Worker fez falhar as suas auditorias de SEO e de prontidão para agentes.
 
+## Early Hints citam só arquivos que sobrevivem a um deploy
+
+O header `Link` do Worker nas respostas HTML cita as fontes do locale e nada mais. O Cloudflare guarda o header por URL e o envia como resposta `103 Early Hints` antes que o Worker responda à próxima requisição dessa URL, e a cópia guardada sobrevive a um deploy. O Vite dá à folha de estilo um nome baseado no conteúdo, então, depois de um deploy que muda qualquer CSS, uma folha de estilo anunciada é um arquivo que não existe mais: o navegador baixa um 404 e encontra a nova folha de estilo no HTML de qualquer forma. Os arquivos em `public/fonts` mantêm o nome de um deploy para o outro.
+
+Medido em saasyland.com com o Chromium, 15 execuções intercaladas por variante em três páginas, com o tempo real dos Early Hints na edge: anunciar as fontes levou o First Contentful Paint de 168–208 ms para 144–164 ms. Anunciar a folha de estilo economizou outros 12–28 ms quando a URL dela estava atual e nada quando um deploy a havia substituído; 25 minutos depois de um deploy, 67 das 91 páginas do sitemap que receberam Early Hints ainda anunciavam a folha de estilo anterior. O `<link>` da folha de estilo fica no primeiro kilobyte de cada página, então o navegador o encontra nos primeiros bytes do HTML. Anuncie só arquivos cujas URLs sobrevivem a um deploy.
+
 ## Os providers nunca envolvem um outlet de rota
 
 O TanStack Router envolve os outlets de rota em boundaries de Suspense, e o React hidrata essas boundaries depois, em pequenas fatias. Um provider de contexto acima delas cujo valor muda logo após a hidratação força o React a hidratar tudo o que está abaixo dele de uma vez:
@@ -135,6 +141,10 @@ Um segundo build do Tailwind em uma folha de estilo de rota já entregou os seus
 `Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) faz as seções da landing page aparecerem com fade à medida que entram na viewport. Ele compartilha um único `IntersectionObserver` entre todas as instâncias, decide a partir do primeiro callback do observer se um elemento começa abaixo da dobra e grava atributos `data-reveal` diretamente, sem estado do React e sem nova renderização. Uma versão que guardava a visibilidade no estado do React dobrou o Total Blocking Time, porque todas as seções eram renderizadas de novo e o layout da página era calculado duas vezes. Não o leve de volta para o estado, e não o substitua sem uma comparação.
 
 Duas outras otimizações foram medidas e rejeitadas: `content-visibility: auto` nas seções da landing page, que quebrou os links internos para seções mais abaixo, e carregar o formulário da newsletter de forma lazy, que teve nota igual ou pior do que renderizá-lo diretamente.
+
+## O conteúdo que chega depois mantém o tamanho
+
+Uma página pré-renderizada é desenhada antes de qualquer script rodar, então uma seção que se preenche depois precisa caber no espaço que recebeu. O bloco de cursos da landing page é uma delas: ele lê os cursos publicados quando a rolagem o aproxima, e o espaço reservado dele supunha antes dois cursos de seis aulas cada, então o bloco crescia ou encolhia quando os cursos chegavam e movia tudo o que estava abaixo dele em cem pixels ou mais. Agora as colunas dele têm um conjunto fixo de linhas únicas, o espaço reservado desenha as mesmas linhas e as mensagens ficam em uma moldura do tamanho de uma coluna, então cada estado tem a mesma altura em qualquer largura (veja [Cursos](/docs/features/courses)). A contagem de estrelas da landing page faz o mesmo com um esqueleto da altura do número. Escrever os cursos no HTML pré-renderizado não é uma opção: o build não tem o banco de dados de produção, e renderizar a landing page no Worker a cada requisição devolveria o tempo até o primeiro byte que a pré-renderização economiza.
 
 ## Páginas relacionadas
 

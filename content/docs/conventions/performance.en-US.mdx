@@ -84,6 +84,12 @@ The script policy keeps this order. The Worker streams every prerendered page th
 
 `robots.txt` and `llms.txt` are static files in `public/` that bypass the Worker (`"!/robots.txt", "!/llms.txt"` in `run_worker_first`). Lighthouse fetches both with a two-second timeout, and a slow Worker response failed its SEO and agent-readiness audits.
 
+## Early Hints name only files that outlive a deploy
+
+The Worker's `Link` header on HTML responses names the locale's fonts and nothing else. Cloudflare stores the header per URL and sends it as a `103 Early Hints` response before the Worker answers the next request for that URL, and the stored copy survives a deploy. Vite names the stylesheet after its content, so after a deploy that changes any CSS, a hinted stylesheet is a file that no longer exists: the browser downloads a 404 and finds the new stylesheet in the HTML anyway. The files in `public/fonts` keep their names from one deploy to the next.
+
+Measured on saasyland.com with Chromium, 15 interleaved runs per variant on three pages, with the edge's own Early Hints timing: hinting the fonts brought First Contentful Paint from 168–208 ms down to 144–164 ms. A stylesheet hint saved another 12–28 ms when its URL was current and nothing when a deploy had replaced it, and 25 minutes after a deploy, 67 of the 91 sitemap pages that got Early Hints still hinted the previous stylesheet. The stylesheet's `<link>` sits in the first kilobyte of every page, so the browser finds it with the first bytes of HTML. Hint only files whose URLs outlive a deploy.
+
 ## Providers never wrap a route outlet
 
 TanStack Router wraps route outlets in Suspense boundaries, and React hydrates those boundaries later, in small slices. A context provider above them whose value changes right after hydration forces React to hydrate everything below it at once:
@@ -135,6 +141,10 @@ A second Tailwind build in a route stylesheet once shipped its own `.hidden`, `.
 `Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) fades landing sections in as they enter the viewport. It shares one `IntersectionObserver` between every instance, decides from the observer's first callback whether an element starts below the fold, and writes `data-reveal` attributes directly, with no React state and no re-render. A version that kept the visibility in React state doubled Total Blocking Time, because every section re-rendered and the page laid out twice. Do not move it back into state, and do not replace it without a comparison.
 
 Two other optimisations were measured and rejected: `content-visibility: auto` on landing sections, which broke in-page links to sections further down, and loading the newsletter form lazily, which scored the same or worse than rendering it directly.
+
+## Content that arrives later keeps its size
+
+A prerendered page paints before any script runs, so a section that fills in afterwards has to fit the space it was given. The landing page's course block is one: it reads the published courses once it scrolls near, and its placeholder used to guess two courses of six lessons each, so the block grew or shrank when the courses arrived and moved everything below it by a hundred pixels or more. Its columns now hold a fixed set of single lines, the placeholder draws the same lines, and its messages sit in a frame the size of a column, so every state has the same height at every width (see [Courses](/docs/features/courses)). The star count on the landing page does the same with a skeleton as tall as the number. Printing the courses into the prerendered HTML is not an option: the build has no production database, and rendering the landing page in the Worker on every request would give back the time to first byte that prerendering saves.
 
 ## Related pages
 

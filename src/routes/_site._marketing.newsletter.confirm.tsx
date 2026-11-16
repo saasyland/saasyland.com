@@ -2,6 +2,7 @@ import type { JSX } from "react"
 
 import { useMutation } from "@tanstack/react-query"
 import { Link, createFileRoute, stripSearchParams } from "@tanstack/react-router"
+import { Button } from "react-aria-components"
 import { useTranslations } from "use-intl/react"
 import * as zod from "zod"
 
@@ -14,12 +15,16 @@ import { confirmNewsletterSubscriptionMutation } from "~/src/modules/newsletter-
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
+import { CTA_CLASSES } from "~/src/data/cta"
+
+import { cn } from "~/src/lib/cn"
 import { searchChoice, searchParam } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
-import { Button } from "~/src/presentation/components/shadcn/button"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
+import { BackHomeLink } from "~/src/presentation/components/custom/back-home-link"
+import { ContentPage } from "~/src/presentation/components/custom/content-page"
 import { NewsletterPending } from "~/src/presentation/components/custom/newsletter-pending"
 
 import { ROUTES } from "~/src/routes"
@@ -33,19 +38,17 @@ const NewsletterConfirmResult = ({ status }: { readonly status: ConfirmationStat
   const t = useTranslations("pages.newsletter.confirm")
 
   return (
-    <section className="relative">
-      <div className="mx-auto flex w-full max-w-2xl flex-col items-center px-6 py-32 text-center md:py-40">
-        <h1 className="text-headline-peak text-balance text-foreground">{t(`${status}.title`)}</h1>
-        <p className="mt-5 text-lead text-pretty text-muted-foreground">{t(`${status}.body`)}</p>
-        <p className="mt-8 text-body-sm text-pretty text-muted-foreground">{t(`${status}.note`)}</p>
-        <Link
-          className="mt-10 rounded-sm text-body-sm font-medium text-foreground underline underline-offset-4 transition-colors duration-200 ease-exp hover:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-          to={ROUTES.HOME}
-        >
-          {t(`${status}.action`)}
-        </Link>
+    <ContentPage lead={t(`${status}.body`)} title={t(`${status}.title`)}>
+      <p className="mt-6 max-w-2xl text-body-sm text-pretty text-muted-foreground">{t(`${status}.note`)}</p>
+      <div className="mt-10">
+        {status === CONFIRMATION_STATUS.CONFIRMED && (
+          <Link className={CTA_CLASSES.PRIMARY} to={ROUTES.HOME}>
+            {t("confirmed.action")}
+          </Link>
+        )}
+        {status !== CONFIRMATION_STATUS.CONFIRMED && <BackHomeLink />}
       </div>
-    </section>
+    </ContentPage>
   )
 }
 
@@ -61,25 +64,21 @@ const NewsletterConfirmPrompt = ({ token }: { readonly token: string }): JSX.Ele
   })
 
   return (
-    <section className="relative">
-      <div className="mx-auto flex w-full max-w-2xl flex-col items-center px-6 py-32 text-center md:py-40">
-        <h1 className="text-headline-peak text-balance text-foreground">{t("prompt.title")}</h1>
-        <p className="mt-5 text-lead text-pretty text-muted-foreground">{t("prompt.body")}</p>
-        <Button
-          className="mt-10 h-12 gap-2 px-6 text-body-sm font-semibold"
-          isPending={confirm.isPending}
-          onPress={() => {
-            confirm.mutate({ token })
-          }}
-        >
-          {confirm.isPending && <Spinner />}
-          {t("prompt.action")}
-        </Button>
-        <p className="mt-4 min-h-5 text-body-sm text-pretty text-destructive" role="alert">
-          {confirm.isError && errorMessage(confirm.error)}
-        </p>
-      </div>
-    </section>
+    <ContentPage lead={t("prompt.body")} title={t("prompt.title")}>
+      <Button
+        className={cn("mt-10", CTA_CLASSES.PRIMARY)}
+        isPending={confirm.isPending}
+        onPress={() => {
+          confirm.mutate({ token })
+        }}
+      >
+        {confirm.isPending && <Spinner />}
+        {t("prompt.action")}
+      </Button>
+      <p className="mt-4 min-h-5 text-body-sm text-pretty text-destructive" role="alert">
+        {confirm.isError && errorMessage(confirm.error)}
+      </p>
+    </ContentPage>
   )
 }
 

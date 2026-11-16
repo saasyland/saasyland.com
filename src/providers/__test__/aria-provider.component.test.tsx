@@ -18,6 +18,7 @@ const renderLink = () => {
   renderWithRouter(
     <AriaProvider>
       <Link href="/admin">Console</Link>
+      <Link href="/#pricing">Pricing</Link>
       <Calendar aria-label="Calendar" defaultValue={new CalendarDate(2026, 9, 6)} />
     </AriaProvider>,
     { router },
@@ -27,6 +28,7 @@ const renderLink = () => {
 it("gives React Aria links and calendar labels the selected app locale", () => {
   renderLink()
   expect(screen.getByRole("link", { name: "Console" })).toHaveAttribute("href", "/pl-PL/admin")
+  expect(screen.getByRole("link", { name: "Pricing" })).toHaveAttribute("href", "/pl-PL#pricing")
   expect(screen.getByText("wrzesień 2026")).toBeVisible()
 })
 it("navigates through TanStack Router on click", async () => {

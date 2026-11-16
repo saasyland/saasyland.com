@@ -37,11 +37,11 @@ import { Route as AuthSignUpRouteImport } from './routes/auth.sign-up'
 import { Route as AuthTwoFactorRouteImport } from './routes/auth.two-factor'
 import { Route as AuthVerifyEmailRouteImport } from './routes/auth.verify-email'
 import { Route as SiteMarketingIndexRouteImport } from './routes/_site._marketing.index'
+import { Route as SiteMarketingSplatRouteImport } from './routes/_site._marketing.$'
 import { Route as SiteMarketingAffiliatesRouteImport } from './routes/_site._marketing.affiliates'
 import { Route as SiteMarketingBlogRouteImport } from './routes/_site._marketing.blog'
 import { Route as SiteMarketingCoursesRouteImport } from './routes/_site._marketing.courses'
 import { Route as SiteMarketingLicenceRouteImport } from './routes/_site._marketing.licence'
-import { Route as SiteMarketingPremiumRouteImport } from './routes/_site._marketing.premium'
 import { Route as SiteMarketingPrivacyRouteImport } from './routes/_site._marketing.privacy'
 import { Route as SiteMarketingRefundsRouteImport } from './routes/_site._marketing.refunds'
 import { Route as SiteMarketingTermsRouteImport } from './routes/_site._marketing.terms'
@@ -210,6 +210,11 @@ const SiteMarketingIndexRoute = SiteMarketingIndexRouteImport.update({
   path: '/',
   getParentRoute: () => SiteMarketingRoute,
 } as any)
+const SiteMarketingSplatRoute = SiteMarketingSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => SiteMarketingRoute,
+} as any)
 const SiteMarketingAffiliatesRoute = SiteMarketingAffiliatesRouteImport.update({
   id: '/affiliates',
   path: '/affiliates',
@@ -228,11 +233,6 @@ const SiteMarketingCoursesRoute = SiteMarketingCoursesRouteImport.update({
 const SiteMarketingLicenceRoute = SiteMarketingLicenceRouteImport.update({
   id: '/licence',
   path: '/licence',
-  getParentRoute: () => SiteMarketingRoute,
-} as any)
-const SiteMarketingPremiumRoute = SiteMarketingPremiumRouteImport.update({
-  id: '/premium',
-  path: '/premium',
   getParentRoute: () => SiteMarketingRoute,
 } as any)
 const SiteMarketingPrivacyRoute = SiteMarketingPrivacyRouteImport.update({
@@ -415,11 +415,11 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/api/': typeof ApiIndexRoute
   '/app/': typeof AppIndexRoute
+  '/$': typeof SiteMarketingSplatRoute
   '/affiliates': typeof SiteMarketingAffiliatesRoute
   '/blog': typeof SiteMarketingBlogRouteWithChildren
   '/courses': typeof SiteMarketingCoursesRouteWithChildren
   '/licence': typeof SiteMarketingLicenceRoute
-  '/premium': typeof SiteMarketingPremiumRoute
   '/privacy': typeof SiteMarketingPrivacyRoute
   '/refunds': typeof SiteMarketingRefundsRoute
   '/terms': typeof SiteMarketingTermsRoute
@@ -472,9 +472,9 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/api': typeof ApiIndexRoute
   '/app': typeof AppIndexRoute
+  '/$': typeof SiteMarketingSplatRoute
   '/affiliates': typeof SiteMarketingAffiliatesRoute
   '/licence': typeof SiteMarketingLicenceRoute
-  '/premium': typeof SiteMarketingPremiumRoute
   '/privacy': typeof SiteMarketingPrivacyRoute
   '/refunds': typeof SiteMarketingRefundsRoute
   '/terms': typeof SiteMarketingTermsRoute
@@ -534,11 +534,11 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/api/': typeof ApiIndexRoute
   '/app/': typeof AppIndexRoute
+  '/_site/_marketing/$': typeof SiteMarketingSplatRoute
   '/_site/_marketing/affiliates': typeof SiteMarketingAffiliatesRoute
   '/_site/_marketing/blog': typeof SiteMarketingBlogRouteWithChildren
   '/_site/_marketing/courses': typeof SiteMarketingCoursesRouteWithChildren
   '/_site/_marketing/licence': typeof SiteMarketingLicenceRoute
-  '/_site/_marketing/premium': typeof SiteMarketingPremiumRoute
   '/_site/_marketing/privacy': typeof SiteMarketingPrivacyRoute
   '/_site/_marketing/refunds': typeof SiteMarketingRefundsRoute
   '/_site/_marketing/terms': typeof SiteMarketingTermsRoute
@@ -599,11 +599,11 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/api/'
     | '/app/'
+    | '/$'
     | '/affiliates'
     | '/blog'
     | '/courses'
     | '/licence'
-    | '/premium'
     | '/privacy'
     | '/refunds'
     | '/terms'
@@ -656,9 +656,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/api'
     | '/app'
+    | '/$'
     | '/affiliates'
     | '/licence'
-    | '/premium'
     | '/privacy'
     | '/refunds'
     | '/terms'
@@ -717,11 +717,11 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/api/'
     | '/app/'
+    | '/_site/_marketing/$'
     | '/_site/_marketing/affiliates'
     | '/_site/_marketing/blog'
     | '/_site/_marketing/courses'
     | '/_site/_marketing/licence'
-    | '/_site/_marketing/premium'
     | '/_site/_marketing/privacy'
     | '/_site/_marketing/refunds'
     | '/_site/_marketing/terms'
@@ -964,6 +964,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteMarketingIndexRouteImport
       parentRoute: typeof SiteMarketingRoute
     }
+    '/_site/_marketing/$': {
+      id: '/_site/_marketing/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SiteMarketingSplatRouteImport
+      parentRoute: typeof SiteMarketingRoute
+    }
     '/_site/_marketing/affiliates': {
       id: '/_site/_marketing/affiliates'
       path: '/affiliates'
@@ -990,13 +997,6 @@ declare module '@tanstack/react-router' {
       path: '/licence'
       fullPath: '/licence'
       preLoaderRoute: typeof SiteMarketingLicenceRouteImport
-      parentRoute: typeof SiteMarketingRoute
-    }
-    '/_site/_marketing/premium': {
-      id: '/_site/_marketing/premium'
-      path: '/premium'
-      fullPath: '/premium'
-      preLoaderRoute: typeof SiteMarketingPremiumRouteImport
       parentRoute: typeof SiteMarketingRoute
     }
     '/_site/_marketing/privacy': {
@@ -1234,11 +1234,11 @@ const SiteMarketingCoursesRouteWithChildren =
   SiteMarketingCoursesRoute._addFileChildren(SiteMarketingCoursesRouteChildren)
 
 interface SiteMarketingRouteChildren {
+  SiteMarketingSplatRoute: typeof SiteMarketingSplatRoute
   SiteMarketingAffiliatesRoute: typeof SiteMarketingAffiliatesRoute
   SiteMarketingBlogRoute: typeof SiteMarketingBlogRouteWithChildren
   SiteMarketingCoursesRoute: typeof SiteMarketingCoursesRouteWithChildren
   SiteMarketingLicenceRoute: typeof SiteMarketingLicenceRoute
-  SiteMarketingPremiumRoute: typeof SiteMarketingPremiumRoute
   SiteMarketingPrivacyRoute: typeof SiteMarketingPrivacyRoute
   SiteMarketingRefundsRoute: typeof SiteMarketingRefundsRoute
   SiteMarketingTermsRoute: typeof SiteMarketingTermsRoute
@@ -1248,11 +1248,11 @@ interface SiteMarketingRouteChildren {
 }
 
 const SiteMarketingRouteChildren: SiteMarketingRouteChildren = {
+  SiteMarketingSplatRoute: SiteMarketingSplatRoute,
   SiteMarketingAffiliatesRoute: SiteMarketingAffiliatesRoute,
   SiteMarketingBlogRoute: SiteMarketingBlogRouteWithChildren,
   SiteMarketingCoursesRoute: SiteMarketingCoursesRouteWithChildren,
   SiteMarketingLicenceRoute: SiteMarketingLicenceRoute,
-  SiteMarketingPremiumRoute: SiteMarketingPremiumRoute,
   SiteMarketingPrivacyRoute: SiteMarketingPrivacyRoute,
   SiteMarketingRefundsRoute: SiteMarketingRefundsRoute,
   SiteMarketingTermsRoute: SiteMarketingTermsRoute,

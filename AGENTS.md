@@ -54,7 +54,7 @@ Do not change these without a person's explicit go-ahead in the task:
 - `src/data/access.ts`, `src/data/access.entries.ts` and each `src/data/<area>.access.ts`: permission statements and the grants of each role.
 - `src/data/auth-plugins.ts`, `src/data/auth-emails.ts`, their `.entries.ts` barrels and each `src/data/<area>.auth-plugins.ts` and `<area>.auth-emails.ts`: the Better Auth plugins, among them the Polar plugin and its webhooks, and the auth emails.
 - `src/data/course-access.ts`, `src/data/course-access.entries.ts` and each `src/data/<area>.course-access.ts`: who may open paid lessons.
-- `src/data/polar-events.ts`, `src/data/polar-events.entries.ts` and each `src/data/<area>.polar-events.ts`: which code each Polar webhook event reaches, such as the licence grants and revocations.
+- `src/data/polar-events.ts`, `src/data/polar-events.entries.ts` and each `src/data/<area>.polar-events.ts`: which code each Polar webhook event reaches, such as the licence grants and revocations and the copies of Polar's orders and subscriptions.
 - `src/modules/license/license.api.ts` and `src/routes/api/cli.v1.*`: the CLI licence API, which activates, checks and releases licence keys.
 - `wrangler.jsonc`, `.env*`, `.github/workflows/` and anything that reads a secret.
 

@@ -5,7 +5,7 @@ description: "Ein Modul ist eine Datenbanktabelle: ihr Schema, ihre Konstanten, 
 
 `src/modules/<table>/` gibt es nur für eine echte Datenbanktabelle. Der Ordner spiegelt das Drizzle-Schema, und wer einen anlegt, behauptet damit, dass eine Tabelle existiert. Code, der einer Funktion ohne eigene Tabelle dient, gehört woandershin: Eine Server Function, die GitHub oder die Dokumentationssammlung liest, liegt in `src/lib/<topic>.ts` oder in der einen Route, die sie nutzt, und die Einrichtung eines Anbieters liegt in `src/integrations/<vendor>`.
 
-Die Module sind `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user`, `verification` und `video`. `license` besitzt zwei Tabellen, `license` und `revoked_license_order`. `_core` ist kein Modul: Es enthält die Fehlercodes, Kataloge und Zod-Felder, die alle Module gemeinsam nutzen.
+Die Module sind `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` und `video`. `license` besitzt zwei Tabellen, `license` und `revoked_license_order`. `_core` ist kein Modul: Es enthält die Fehlercodes, Kataloge und Zod-Felder, die alle Module gemeinsam nutzen.
 
 ## Aufbau
 
@@ -43,10 +43,22 @@ export const course = sqliteTable(
 
 - Spalten sind in TypeScript camelCase und in SQL snake_case. Schlüssel sind sortiert, wie es der Linter verlangt, mit `...timestamps()` als letztem Eintrag.
 - `createdAt` und `updatedAt` stammen aus `timestamps()` in `src/integrations/drizzle-orm/drizzle.columns.ts`: Millisekunden, beim Einfügen von SQLite gefüllt, wobei `updatedAt` bei jedem Update aktualisiert wird. Schreiben Sie sie nie von Hand. `lesson_progress` braucht nur die zweite Spalte und übernimmt deshalb `updatedAt: timestamps().updatedAt`. Zwei Tabellen haben keine Zeitstempel: `rate_limit` enthält kurzlebige Zähler, die ihr eigenes `expiresAt` tragen und sich bei jeder Anfrage ändern, und `revoked_license_order` erfasst jede erstattete Polar-Bestellung einmal, anhand ihrer ID.
-- Primärschlüssel sind Text. Ein Use Case, der eine Zeile einfügt, füllt den Schlüssel mit einer UUID v7 (`v7()` aus `uuid`).
+- Primärschlüssel sind Text. Ein Use Case, der eine Zeile einfügt, füllt den Schlüssel mit einer UUID v7 (`v7()` aus `uuid`); eine [Tabelle, die einen Anbieter spiegelt](#tables-that-mirror-a-provider), übernimmt stattdessen die ID des Anbieters.
 - Enum-Spalten erhalten ein Tupel, das aus dem Konstantenobjekt des Moduls gebildet wird, niemals eine Liste von Literalen. Das Tupel steht neben dem Objekt in `<table>.constants.ts`, weil auch die Zod-Schemas und der Browser es lesen, und diese Datei importiert nichts aus Drizzle.
 - Text, den Besucher in mehreren Sprachen lesen, ist eine JSON-Spalte vom Typ `LocalizedText`, validiert durch `localizedTextSchema` und gelesen mit `localize(text, locale)` aus `src/modules/_core/utils/localized-text.ts`.
 - Eine neue Tabelle wird aus `src/integrations/drizzle-orm/drizzle.schemas.ts` re-exportiert, und ihre Migration wird mit `bun run db:generate` erzeugt. Siehe [Datenbankmigrationen](/docs/guides/database-migrations).
+
+## Tabellen, die einen Anbieter spiegeln [#tables-that-mirror-a-provider]
+
+`order` und `subscription` enthalten Kopien der Bestellungen und Abonnements von Polar, die nur aus Daten von Polar geschrieben und nie von Hand bearbeitet werden. Eine solche Spiegeltabelle folgt dem Anbieter dort, wo die Regeln oben es nicht täten:
+
+- Ihr Primärschlüssel ist die ID des Anbieters, eine Textspalte der Länge `POLAR_ID_MAX_LENGTH`, und ihre Spalten tragen die Feldnamen des Anbieters, etwa `customer_id`, `product_id` und `subscription_id`. Eine eigene Tabelle, die auf den Anbieter verweist, stellt dem Namen stattdessen ein Präfix voran, wie `license.polar_order_id`.
+- Die eigenen Zeitpunkte des Anbieters stehen neben `...timestamps()`. `placedAt` ist der Zeitpunkt, zu dem Polar die Bestellung angelegt hat, und `changedAt` die Version des Polar-Datensatzes, die die Zeile enthält: sein `modified_at` oder, solange er nie geändert wurde, sein `created_at`. `createdAt` und `updatedAt` halten weiterhin fest, wann D1 die Zeile geschrieben hat.
+- Enum-Spalten erhalten Tupel aus den Werten des Anbieters: `ORDER_STATUSES` in `order.constants.ts` führt `POLAR_ORDER_STATUS` aus `src/integrations/polar/polar.constants.ts` auf, und ein Typtest schlägt fehl, wenn das SDK einen Wert nennt, der im Tupel fehlt.
+- Außer `createdAt` und `updatedAt` hat keine Spalte einen Standardwert, weil jeder Wert vom Anbieter kommt.
+- `user_id` ist `ON DELETE SET NULL`: Wird ein Konto gelöscht, bleiben seine Bestellungen und Abonnements erhalten, und nur die Verknüpfung entfällt.
+
+`order` ist ein SQL-Schlüsselwort. Drizzle setzt jeden Bezeichner in Anführungszeichen, daher brauchen seine Abfragen nichts weiter; rohes SQL nennt die Tabelle über das Schemaobjekt, als `${order}` in einem `sql`-Template, und nie als bloßes `order`.
 
 ## Konstanten
 

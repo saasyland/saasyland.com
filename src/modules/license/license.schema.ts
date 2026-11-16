@@ -3,8 +3,9 @@ import { relations, sql } from "drizzle-orm"
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
+import { POLAR_ID_MAX_LENGTH } from "~/src/integrations/polar/polar.constants"
 
-import { LICENSE_STATUS, LICENSE_STATUSES, LICENSE_TIERS, POLAR_ID_MAX_LENGTH } from "~/src/modules/license/license.constants"
+import { LICENSE_STATUS, LICENSE_STATUSES, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 import { user } from "~/src/modules/user/user.schema"
 
 export const license = sqliteTable(

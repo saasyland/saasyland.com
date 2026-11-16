@@ -37,17 +37,13 @@ describe("admin dashboard", () => {
     renderAdminPage(DashboardRoute.options.component, { queryClient })
     expect(screen.getByRole("heading", { name: pagesAdminDashboardMessages.metadata.title })).toBeVisible()
     expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(Math.max(Math.min(count, 5), 1) + 1)
-    if (count > 5) {
-      expect(screen.getByRole("link", { name: pagesAdminDashboardMessages.users.table.pagination.viewAll })).toHaveAttribute(
-        "href",
-        "/admin/users",
-      )
-    } else {
-      expect(screen.getByRole("button", { name: pagesAdminDashboardMessages.users.table.pagination.viewAll })).toBeDisabled()
-    }
+    expect(screen.getByRole("link", { name: pagesAdminDashboardMessages.users.table.pagination.viewAll })).toHaveAttribute(
+      "href",
+      "/admin/users",
+    )
   })
 
-  it("shows a dashboard user's identity, avatar and last activity date", () => {
+  it("links a dashboard user to their profile and shows their identity, avatar and last activity date", () => {
     const queryClient = adminQueryClient()
     queryClient.setQueryData(getUsersQuery.queryKey, {
       pendingVerification: 0,
@@ -59,7 +55,8 @@ describe("admin dashboard", () => {
     if (!adaRow) {
       throw new Error("Missing dashboard row")
     }
-    expect(adaRow).toHaveTextContent("Ada Lovelace")
+    expect(within(adaRow).getByRole("link", { name: "Ada Lovelace" })).toHaveAttribute("href", "/admin/users/ada")
+    expect(within(adaRow).queryByRole("button")).toBeNull()
     expect(adaRow).toHaveTextContent("ada@example.com")
     expect(adaRow).toHaveTextContent("Jan 1, 2025")
     expect(adaRow).toHaveTextContent("AL")

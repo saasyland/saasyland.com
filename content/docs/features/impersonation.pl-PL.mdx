@@ -1,6 +1,6 @@
 ---
 title: "Podszywanie się"
-description: "Podszywanie się administratora pod użytkownika w Better Auth: funkcje serwerowe istnieją, ale żaden ekran jeszcze z nich nie korzysta."
+description: "Podszywanie się administratora pod użytkownika w Better Auth: administrator loguje się jako klient z ekranu użytkowników i kończy to z paska w panelu klienta."
 ---
 
 Wtyczka `admin` z Better Auth zapewnia podszywanie się pod użytkowników, a `src/modules/user/use-cases` ją opakowuje:
@@ -14,11 +14,25 @@ export const impersonateUser = createServerFn({ method: "POST" })
 
 `stopImpersonatingUser` wymaga jedynie zalogowanej sesji. Oba pliki eksportują opcje mutacji (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-## Stan obecny
+## Rozpoczęcie
 
-- Żaden ekran nie wywołuje tych funkcji: menu akcji wiersza użytkownika nie ma pozycji podszywania się i nie ma paska pozwalającego je zakończyć.
-- Better Auth oznacza sesje podszywania się polem `impersonatedBy`; `getActiveSessions` pomija je na liście sesji w ustawieniach.
-- Strażnicy tras usuwają dane poprzedniego użytkownika z pamięci podręcznej zapytań, gdy zmienia się użytkownik sesji, więc następna nawigacja po rozpoczęciu podszywania się ładuje dane drugiego użytkownika.
-- Nie ma dziennika audytu podszywania się.
+**Zaloguj się jako użytkownik** w menu akcji użytkownika ([Użytkownicy (admin)](/docs/features/users-admin)), na `/admin/users/all` lub w profilu użytkownika, wywołuje `impersonateUser`. Better Auth tworzy dla użytkownika sesję oznaczoną polem `impersonatedBy`, zachowuje token sesji administratora w podpisanym ciasteczku `admin_session` i przełącza ciasteczko sesji na nową sesję; `tanstackStartCookies()` przenosi oba ciasteczka w odpowiedzi funkcji serwerowej. Następnie menu usuwa dane administratora z pamięci podręcznej zapytań przez `removeUserData`, czyści pamięć podręczną routera i otwiera `/app`.
 
-Aby to dodać, umieść pozycję menu w `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) i widoczny sposób zakończenia podszywania się w layoutach.
+Pozycja pojawia się tylko przy użytkowniku, który nie jest administratorem ani nie jest zablokowany. Better Auth odmawia podszywania się pod użytkownika z rolą administratora, chyba że wywołujący ma `user: ["impersonate-admins"]`, którego nie przyznaje żadna rola w `auth.access.ts`, a jego hook sesji odmawia sesji zablokowanemu użytkownikowi. `auth.server.ts` nie ustawia `impersonationSessionDuration`, więc sesja trwa tak długo, jak pozwala na to domyślna wartość Better Auth.
+
+## Pasek i zakończenie
+
+`ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) znajduje się nad nagłówkiem layoutu `/app`. Odczytuje `getCurrentSessionQuery` i renderuje się tylko wtedy, gdy sesja ma `impersonatedBy`: to region z etykietą z `components.custom.impersonation-banner.json`, który podaje użytkownika, pod którego podszywa się administrator, i jego e-mail, oraz przycisk **Zakończ podszywanie się**. Przycisk wywołuje `stopImpersonatingUser`, który usuwa sesję podszywania się i przywraca sesję administratora z ciasteczka `admin_session`; następnie pasek usuwa dane użytkownika z pamięci podręcznej i otwiera profil tego użytkownika w `/admin/users`.
+
+## Sesje
+
+- `getActiveSessions` pomija sesje podszywania się na liście sesji w ustawieniach, a własny endpoint `list-sessions` z Better Auth robi to samo.
+- Karta sesji w profilu użytkownika je pokazuje, więc administrator może unieważnić sesję podszywania się, którą inny administrator zostawił otwartą.
+- Strażnicy tras usuwają dane poprzedniego użytkownika z pamięci podręcznej zapytań, gdy zmienia się użytkownik sesji, więc każda nawigacja po rozpoczęciu lub zakończeniu ładuje dane właściwego użytkownika.
+
+Nie ma dziennika audytu podszywania się.
+
+## Powiązane przewodniki
+
+- [Użytkownicy (admin)](/docs/features/users-admin)
+- [Sesje](/docs/features/sessions)

@@ -5,7 +5,7 @@ description: "Модуль — це одна таблиця бази даних:
 
 `src/modules/<table>/` існує лише для справжньої таблиці бази даних. Папка віддзеркалює схему Drizzle, тож її створення стверджує, що така таблиця існує. Код, який обслуговує функціональність без власної таблиці, розміщується деінде: серверна функція, що читає GitHub або колекцію документації, лежить у `src/lib/<topic>.ts` або в єдиному маршруті, який її використовує, а налаштування постачальника — у `src/integrations/<vendor>`.
 
-Модулі: `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `product`, `rate-limit`, `session`, `two-factor`, `user`, `verification` і `video`. `license` володіє двома таблицями, `license` і `revoked_license_order`. `_core` — не модуль: він містить коди помилок, каталоги й поля Zod, спільні для всіх модулів.
+Модулі: `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` і `video`. `license` володіє двома таблицями, `license` і `revoked_license_order`. `_core` — не модуль: він містить коди помилок, каталоги й поля Zod, спільні для всіх модулів.
 
 ## Будова
 
@@ -43,10 +43,22 @@ export const course = sqliteTable(
 
 - Стовпці мають назви в camelCase у TypeScript і в snake_case у SQL. Ключі відсортовано, як цього вимагає лінтер, а `...timestamps()` іде останнім записом.
 - `createdAt` і `updatedAt` беруться з `timestamps()` у `src/integrations/drizzle-orm/drizzle.columns.ts`: це мілісекунди, які SQLite заповнює під час вставлення, а `updatedAt` оновлюється під час кожного оновлення. Ніколи не записуйте їх вручну. `lesson_progress` потрібен лише другий, тому він бере `updatedAt: timestamps().updatedAt`. Дві таблиці не мають часових міток: `rate_limit` зберігає короткоживучі лічильники, які мають власний `expiresAt` і змінюються з кожним запитом, а `revoked_license_order` один раз записує кожне повернене замовлення Polar за його ID.
-- Первинні ключі текстові. Сценарій використання, що вставляє рядок, заповнює ключ значенням UUID v7 (`v7()` з `uuid`).
+- Первинні ключі текстові. Сценарій використання, що вставляє рядок, заповнює ключ значенням UUID v7 (`v7()` з `uuid`); [таблиця-дзеркало постачальника](#tables-that-mirror-a-provider) натомість бере ідентифікатор постачальника.
 - Стовпці-переліки отримують кортеж, побудований з об’єкта констант модуля, а не список літералів. Кортеж лежить поруч з об’єктом у `<table>.constants.ts`, бо його також читають схеми Zod і браузер, а цей файл нічого не імпортує з Drizzle.
 - Текст, який відвідувач читає кількома мовами, — це JSON-стовпець `LocalizedText`, який валідує `localizedTextSchema` і читає `localize(text, locale)` з `src/modules/_core/utils/localized-text.ts`.
 - Нову таблицю реекспортують з `src/integrations/drizzle-orm/drizzle.schemas.ts`, а її міграцію генерують командою `bun run db:generate`. Див. [Міграції бази даних](/docs/guides/database-migrations).
+
+## Таблиці-дзеркала постачальника [#tables-that-mirror-a-provider]
+
+`order` і `subscription` зберігають копії замовлень і підписок Polar, записані лише з даних Polar і ніколи не змінювані вручну. Таблиця-дзеркало слідує за постачальником там, де наведені вище правила кажуть інакше:
+
+- Її первинний ключ — ідентифікатор постачальника, текстовий стовпець довжиною `POLAR_ID_MAX_LENGTH`, а стовпці мають назви полів постачальника, як-от `customer_id`, `product_id` і `subscription_id`. Наша власна таблиця, що посилається на постачальника, натомість додає до назви префікс, як `license.polar_order_id`.
+- Власні часові позначки постачальника лежать поряд із `...timestamps()`. `placedAt` — момент, коли Polar створив замовлення, а `changedAt` — версія запису Polar, яку зберігає рядок: його `modified_at` або, поки запис жодного разу не змінювався, його `created_at`. `createdAt` і `updatedAt` і далі фіксують, коли D1 записала рядок.
+- Стовпці-переліки отримують кортежі значень постачальника: `ORDER_STATUSES` в `order.constants.ts` перелічує `POLAR_ORDER_STATUS` з `src/integrations/polar/polar.constants.ts`, а тест типів не проходить, коли SDK називає значення, якого немає в кортежі.
+- Жоден стовпець, крім `createdAt` і `updatedAt`, не має значення за замовчуванням, бо кожне значення надходить від постачальника.
+- `user_id` має `ON DELETE SET NULL`: видалення облікового запису зберігає його замовлення й підписки і прибирає лише зв’язок.
+
+`order` — ключове слово SQL. Drizzle бере в лапки кожен ідентифікатор, тож його запитам нічого не потрібно; сирий SQL називає таблицю через об’єкт схеми, як `${order}` у шаблоні `sql`, і ніколи як просто `order`.
 
 ## Константи
 

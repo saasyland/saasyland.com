@@ -59,10 +59,10 @@ import { Route as AdminCoursesCreateRouteImport } from './routes/admin.courses.c
 import { Route as AdminProductsIndexRouteImport } from './routes/admin.products.index'
 import { Route as AdminProductsCreateRouteImport } from './routes/admin.products.create'
 import { Route as AdminUsersIndexRouteImport } from './routes/admin.users.index'
+import { Route as AdminUsersUserIdRouteImport } from './routes/admin.users.$userId'
 import { Route as AdminUsersAllRouteImport } from './routes/admin.users.all'
 import { Route as AdminUsersInvitationsRouteImport } from './routes/admin.users.invitations'
 import { Route as AdminUsersRolesRouteImport } from './routes/admin.users.roles'
-import { Route as AdminUsersSecurityRouteImport } from './routes/admin.users.security'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as CoursesCourseIndexRouteImport } from './routes/courses.$course.index'
 import { Route as CoursesCourseLessonRouteImport } from './routes/courses.$course.$lesson'
@@ -322,6 +322,11 @@ const AdminUsersIndexRoute = AdminUsersIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminUsersRoute,
 } as any)
+const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
+  id: '/$userId',
+  path: '/$userId',
+  getParentRoute: () => AdminUsersRoute,
+} as any)
 const AdminUsersAllRoute = AdminUsersAllRouteImport.update({
   id: '/all',
   path: '/all',
@@ -335,11 +340,6 @@ const AdminUsersInvitationsRoute = AdminUsersInvitationsRouteImport.update({
 const AdminUsersRolesRoute = AdminUsersRolesRouteImport.update({
   id: '/roles',
   path: '/roles',
-  getParentRoute: () => AdminUsersRoute,
-} as any)
-const AdminUsersSecurityRoute = AdminUsersSecurityRouteImport.update({
-  id: '/security',
-  path: '/security',
   getParentRoute: () => AdminUsersRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -426,10 +426,10 @@ export interface FileRoutesByFullPath {
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
   '/admin/products/create': typeof AdminProductsCreateRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
   '/admin/users/invitations': typeof AdminUsersInvitationsRoute
   '/admin/users/roles': typeof AdminUsersRolesRoute
-  '/admin/users/security': typeof AdminUsersSecurityRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/courses/$course/$lesson': typeof CoursesCourseLessonRoute
   '/admin/blog/': typeof AdminBlogIndexRoute
@@ -481,10 +481,10 @@ export interface FileRoutesByTo {
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
   '/admin/products/create': typeof AdminProductsCreateRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
   '/admin/users/invitations': typeof AdminUsersInvitationsRoute
   '/admin/users/roles': typeof AdminUsersRolesRoute
-  '/admin/users/security': typeof AdminUsersSecurityRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/courses/$course/$lesson': typeof CoursesCourseLessonRoute
   '/admin/blog': typeof AdminBlogIndexRoute
@@ -545,10 +545,10 @@ export interface FileRoutesById {
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
   '/admin/products/create': typeof AdminProductsCreateRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/admin/users/all': typeof AdminUsersAllRoute
   '/admin/users/invitations': typeof AdminUsersInvitationsRoute
   '/admin/users/roles': typeof AdminUsersRolesRoute
-  '/admin/users/security': typeof AdminUsersSecurityRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/courses/$course/$lesson': typeof CoursesCourseLessonRoute
   '/admin/blog/': typeof AdminBlogIndexRoute
@@ -609,10 +609,10 @@ export interface FileRouteTypes {
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
     | '/admin/products/create'
+    | '/admin/users/$userId'
     | '/admin/users/all'
     | '/admin/users/invitations'
     | '/admin/users/roles'
-    | '/admin/users/security'
     | '/api/auth/$'
     | '/courses/$course/$lesson'
     | '/admin/blog/'
@@ -664,10 +664,10 @@ export interface FileRouteTypes {
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
     | '/admin/products/create'
+    | '/admin/users/$userId'
     | '/admin/users/all'
     | '/admin/users/invitations'
     | '/admin/users/roles'
-    | '/admin/users/security'
     | '/api/auth/$'
     | '/courses/$course/$lesson'
     | '/admin/blog'
@@ -727,10 +727,10 @@ export interface FileRouteTypes {
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
     | '/admin/products/create'
+    | '/admin/users/$userId'
     | '/admin/users/all'
     | '/admin/users/invitations'
     | '/admin/users/roles'
-    | '/admin/users/security'
     | '/api/auth/$'
     | '/courses/$course/$lesson'
     | '/admin/blog/'
@@ -1111,6 +1111,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersIndexRouteImport
       parentRoute: typeof AdminUsersRoute
     }
+    '/admin/users/$userId': {
+      id: '/admin/users/$userId'
+      path: '/$userId'
+      fullPath: '/admin/users/$userId'
+      preLoaderRoute: typeof AdminUsersUserIdRouteImport
+      parentRoute: typeof AdminUsersRoute
+    }
     '/admin/users/all': {
       id: '/admin/users/all'
       path: '/all'
@@ -1130,13 +1137,6 @@ declare module '@tanstack/react-router' {
       path: '/roles'
       fullPath: '/admin/users/roles'
       preLoaderRoute: typeof AdminUsersRolesRouteImport
-      parentRoute: typeof AdminUsersRoute
-    }
-    '/admin/users/security': {
-      id: '/admin/users/security'
-      path: '/security'
-      fullPath: '/admin/users/security'
-      preLoaderRoute: typeof AdminUsersSecurityRouteImport
       parentRoute: typeof AdminUsersRoute
     }
     '/api/auth/$': {
@@ -1235,18 +1235,18 @@ const AdminCoursesRouteWithChildren = AdminCoursesRoute._addFileChildren(
 )
 
 interface AdminUsersRouteChildren {
+  AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
   AdminUsersAllRoute: typeof AdminUsersAllRoute
   AdminUsersInvitationsRoute: typeof AdminUsersInvitationsRoute
   AdminUsersRolesRoute: typeof AdminUsersRolesRoute
-  AdminUsersSecurityRoute: typeof AdminUsersSecurityRoute
   AdminUsersIndexRoute: typeof AdminUsersIndexRoute
 }
 
 const AdminUsersRouteChildren: AdminUsersRouteChildren = {
+  AdminUsersUserIdRoute: AdminUsersUserIdRoute,
   AdminUsersAllRoute: AdminUsersAllRoute,
   AdminUsersInvitationsRoute: AdminUsersInvitationsRoute,
   AdminUsersRolesRoute: AdminUsersRolesRoute,
-  AdminUsersSecurityRoute: AdminUsersSecurityRoute,
   AdminUsersIndexRoute: AdminUsersIndexRoute,
 }
 

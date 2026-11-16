@@ -56,7 +56,6 @@ describe("team invitations and roles", () => {
       navigationAuthMessages.userTabs.allUsers,
       navigationTeamMessages.userTabs.invitations,
       navigationTeamMessages.userTabs.roles,
-      navigationAuthMessages.userTabs.security,
     ])
   })
 })

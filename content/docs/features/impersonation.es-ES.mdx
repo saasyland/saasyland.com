@@ -1,6 +1,6 @@
 ---
 title: "Suplantación"
-description: "Suplantación de administración de Better Auth: las funciones de servidor existen, pero ninguna pantalla las usa todavía."
+description: "Suplantación de administración de Better Auth: un administrador inicia sesión como un cliente desde la pantalla de usuarios y la termina desde un banner en el espacio de trabajo."
 ---
 
 El plugin `admin` de Better Auth ofrece la suplantación, y `src/modules/user/use-cases` la envuelve:
@@ -14,11 +14,25 @@ export const impersonateUser = createServerFn({ method: "POST" })
 
 `stopImpersonatingUser` solo necesita una sesión iniciada. Ambos archivos exportan opciones de mutación (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-## Estado actual
+## Inicio
 
-- Ninguna pantalla llama a estas funciones: el menú de acciones de fila de usuarios no tiene opción de suplantar y no existe un aviso para dejar de suplantar.
-- Better Auth marca las sesiones de suplantación con `impersonatedBy`; `getActiveSessions` las excluye de la lista de sesiones de los ajustes.
-- Las guardas de ruta eliminan de la caché de consultas los datos del usuario anterior cuando cambia el usuario de la sesión, así que la siguiente navegación después de suplantar carga los datos del otro usuario.
-- No existe un registro de auditoría de la suplantación.
+**Suplantar** en el menú de acciones de un usuario ([Usuarios (admin)](/docs/features/users-admin)), en `/admin/users/all` o en el perfil del usuario, llama a `impersonateUser`. Better Auth crea para el usuario una sesión marcada con `impersonatedBy`, guarda el token de sesión del administrador en una cookie firmada `admin_session` y cambia la cookie de sesión a la nueva sesión; `tanstackStartCookies()` lleva ambas cookies en la respuesta de la función de servidor. Después, el menú elimina de la caché de consultas los datos del administrador con `removeUserData`, vacía la caché del router y abre `/app`.
 
-Para añadirla, pon una opción de menú en `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) y una forma visible de dejar de suplantar en los layouts.
+El elemento solo aparece para un usuario que no es administrador ni está bloqueado. Better Auth se niega a suplantar a un usuario con rol de administrador salvo que quien llama tenga `user: ["impersonate-admins"]`, que ningún rol de `auth.access.ts` concede, y su hook de sesión niega la sesión a un usuario bloqueado. `auth.server.ts` no define `impersonationSessionDuration`, así que la sesión dura lo que permita el valor predeterminado de Better Auth.
+
+## Banner y fin
+
+`ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) está encima de la cabecera del layout de `/app`. Lee `getCurrentSessionQuery` y solo se muestra cuando la sesión tiene `impersonatedBy`: una región con la etiqueta de `components.custom.impersonation-banner.json` que nombra al usuario suplantado y su correo, y un botón **Dejar de suplantar**. El botón llama a `stopImpersonatingUser`, que elimina la sesión de suplantación y restaura la sesión del administrador a partir de la cookie `admin_session`; después, el banner elimina de la caché los datos del usuario y abre el perfil de ese usuario en `/admin/users`.
+
+## Sesiones
+
+- `getActiveSessions` excluye las sesiones de suplantación de la lista de sesiones de los ajustes, y el propio endpoint `list-sessions` de Better Auth hace lo mismo.
+- La tarjeta de sesiones del perfil de un usuario sí las muestra, así que un administrador puede revocar una sesión de suplantación que otro administrador dejó abierta.
+- Las guardas de ruta eliminan de la caché de consultas los datos del usuario anterior cuando cambia el usuario de la sesión, así que cada navegación después de empezar o terminar carga los datos del usuario correcto.
+
+No existe un registro de auditoría de la suplantación.
+
+## Guías relacionadas
+
+- [Usuarios (admin)](/docs/features/users-admin)
+- [Sesiones](/docs/features/sessions)

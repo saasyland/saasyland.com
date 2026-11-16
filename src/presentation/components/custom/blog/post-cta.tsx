@@ -5,7 +5,7 @@ import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { ROUTES } from "~/src/routes"

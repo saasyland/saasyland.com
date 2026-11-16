@@ -93,7 +93,7 @@ const NewsletterConfirmPage = (): JSX.Element => {
   return <NewsletterConfirmResult status={status} />
 }
 
-export const Route = createFileRoute("/_landing/newsletter/confirm")({
+export const Route = createFileRoute("/_site/_marketing/newsletter/confirm")({
   validateSearch: zod.object({
     status: searchChoice([CONFIRMATION_STATUS.CONFIRMED, CONFIRMATION_STATUS.EXPIRED], CONFIRMATION_STATUS.EXPIRED),
     token: searchParam(newsletterSubscriberZodSchemas.confirmNewsletterSubscription.shape.token),

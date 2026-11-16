@@ -5,17 +5,19 @@ import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { renderWithRouter } from "~/src/platform/testing/lib/render"
+import { getHeaderHref } from "~/src/platform/testing/lib/navigation"
+import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { NAVIGATION_SECTIONS } from "~/src/data/marketing"
-import { NAVIGATION_PAGES } from "~/src/data/navigation"
+import { HEADER_NAVIGATION } from "~/src/data/navigation"
+import { SITE_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { Navigation } from "~/src/presentation/components/custom/navigation"
 
 import navigationMessages from "~/messages/en-US/components.custom.navigation.json"
 import { APP_NAME } from "~/src/presentation/branding"
+import { ROUTES } from "~/src/routes"
 
 interface ResizeEntry {
   contentRect: Pick<DOMRectReadOnly, "height">
@@ -27,8 +29,6 @@ interface TestObserver {
   readonly observe: ReturnType<typeof vi.fn<(element: Element) => void>>
   readonly options: IntersectionObserverInit | undefined
 }
-
-const SECTION_BAND = "-42% 0px -58% 0px"
 
 const pageLabel = getNavigationLabel("en-US")
 
@@ -67,14 +67,6 @@ const sentinelObserver = (): TestObserver => {
   return observer
 }
 
-const sectionObserver = (): TestObserver => {
-  const observer = observers.find(({ options }) => options?.rootMargin === SECTION_BAND)
-  if (!observer) {
-    throw new Error("The section observer is missing")
-  }
-  return observer
-}
-
 const intersect = (observer: TestObserver, entries: Partial<IntersectionObserverEntry>[]) => {
   act(() => {
     observer.callback(
@@ -99,13 +91,29 @@ const resizeBody = (height?: number) => {
   })
 }
 
-const renderNavigation = (ui: ReactElement = <Navigation />, options: { wrapper?: typeof StrictMode } = {}) =>
+const renderNavigation = (
+  ui: ReactElement = <Navigation />,
+  options: { router?: ReturnType<typeof createTestRouter>; wrapper?: typeof StrictMode } = {},
+) =>
   renderWithRouter(
     <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
       {ui}
     </IntlProvider>,
     options,
   )
+
+const hrefOf = getHeaderHref("en-US")
+
+const entryLinks = (container: HTMLElement): string[][] =>
+  HEADER_NAVIGATION.map((entry) => {
+    const link = within(container).getByRole("link", { name: pageLabel(entry) })
+    return [pageLabel(entry), link.getAttribute("href") ?? ""]
+  })
+
+const currentLinks = (): string[] =>
+  within(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }))
+    .queryAllByRole("link", { current: "page" })
+    .map((link) => link.textContent)
 
 const mobileMenu = (): HTMLElement | null => document.querySelector<HTMLElement>("#mobile-menu")
 
@@ -116,8 +124,6 @@ const openedMobileMenu = (): HTMLElement => {
   }
   return menu
 }
-
-const linkNamed = (name: string) => screen.getByRole("link", { name })
 
 const progressBar = (container: HTMLElement) => container.querySelector<HTMLDivElement>(".scroll-progress")
 
@@ -140,49 +146,42 @@ afterEach(() => {
 })
 
 describe("public navigation links", () => {
-  it("links the logo, account, pricing, every public page and every landing section through the router", () => {
+  it("links the logo, every header entry in its order and the call to action through the router", () => {
     renderNavigation()
     const nav = screen.getByRole("navigation", { name: navigationMessages.ariaLabel })
 
     expect(within(nav).getByRole("link", { name: APP_NAME })).toHaveAttribute("href", "/")
-    expect(within(nav).getAllByRole("link", { name: navigationMessages.signIn })[0]).toHaveAttribute("href", "/auth/sign-in")
     expect(within(nav).getByRole("link", { name: navigationMessages.getStarted })).toHaveAttribute("href", "/#pricing")
-    for (const page of NAVIGATION_PAGES) {
-      expect(within(nav).getByRole("link", { name: pageLabel(page) })).toHaveAttribute("href", page.to)
-    }
-    for (const section of NAVIGATION_SECTIONS) {
-      expect(within(nav).getByRole("link", { name: navigationMessages.items[section] })).toHaveAttribute("href", `/#${section}`)
-    }
+    expect(entryLinks(nav)).toStrictEqual(HEADER_NAVIGATION.map((entry) => [pageLabel(entry), hrefOf(entry)]))
   })
 
-  it("highlights the section in the reading band and keeps it until another section enters", () => {
-    const { unmount } = renderNavigation(
-      <>
-        <section id="foundation">Foundation</section>
-        <section id="pricing">Pricing</section>
-        <Navigation />
-      </>,
-    )
-    const foundation = screen.getByText("Foundation", { selector: "section" })
-    const pricing = screen.getByText("Pricing", { selector: "section" })
-    const observer = sectionObserver()
+  it("opens with a link that skips the header to the page content", () => {
+    const { container } = renderNavigation()
 
-    expect(observer.observe).toHaveBeenCalledWith(foundation)
-    expect(observer.observe).toHaveBeenCalledWith(pricing)
+    expect(container.firstElementChild).toBe(screen.getByRole("link", { name: navigationMessages.skipToContent }))
+    expect(container.firstElementChild).toHaveAttribute("href", `#${SITE_CONTENT_ID}`)
+  })
 
-    intersect(observer, [{ target: foundation }])
-    expect(linkNamed(navigationMessages.items.foundation)).toHaveClass("text-foreground")
-    expect(linkNamed(navigationMessages.items.pricing)).toHaveClass("text-muted-foreground")
+  it.each(HEADER_NAVIGATION)("marks $key as the current page with a dot only where the visitor is", (entry) => {
+    const { container } = renderNavigation(<Navigation />, { router: createTestRouter(hrefOf(entry)) })
+    const current = within(screen.getByRole("navigation", { name: navigationMessages.ariaLabel })).getByRole("link", {
+      current: "page",
+      name: pageLabel(entry),
+    })
 
-    intersect(observer, [{ isIntersecting: false, target: foundation }])
-    expect(linkNamed(navigationMessages.items.foundation)).toHaveClass("text-foreground")
+    expect(current).toHaveClass("data-[status=active]:text-foreground")
+    expect(current).toHaveAttribute("data-status", "active")
+    expect(current.querySelector('span[aria-hidden="true"]')).toBeInTheDocument()
+    expect(container.querySelectorAll('nav a > span[aria-hidden="true"]')).toHaveLength(1)
+  })
 
-    intersect(observer, [{ target: pricing }])
-    expect(linkNamed(navigationMessages.items.pricing)).toHaveClass("text-foreground")
-    expect(linkNamed(navigationMessages.items.foundation)).toHaveClass("text-muted-foreground")
+  it("marks only the logo current on the rest of the home page, and nothing on a page the header does not list", () => {
+    renderNavigation(<Navigation />, { router: createTestRouter(ROUTES.HOME) })
+    expect(currentLinks()).toStrictEqual([APP_NAME])
+    cleanup()
 
-    unmount()
-    expect(observer.disconnect).toHaveBeenCalledOnce()
+    renderNavigation(<Navigation />, { router: createTestRouter(ROUTES.LICENCE) })
+    expect(currentLinks()).toStrictEqual([])
   })
 })
 
@@ -204,31 +203,21 @@ describe("mobile menu", () => {
     expect(mobileMenu()).not.toBeInTheDocument()
   })
 
-  it("links the same pages and sections as the desktop navigation, closes after a link and removes its Escape listener on unmount", async () => {
+  it("links the same entries in the same order as the desktop navigation, closes after a link and removes its Escape listener on unmount", async () => {
     const user = userEvent.setup({ delay: null })
     const { unmount } = renderNavigation()
     const open = () => user.click(screen.getByRole("button", { name: navigationMessages.openMenu }))
 
     await open()
-    for (const page of NAVIGATION_PAGES) {
-      expect(within(openedMobileMenu()).getByRole("link", { name: pageLabel(page) })).toHaveAttribute("href", page.to)
-    }
-    for (const section of NAVIGATION_SECTIONS) {
-      expect(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items[section] })).toHaveAttribute(
-        "href",
-        `/#${section}`,
-      )
-    }
-    await user.click(within(openedMobileMenu()).getByRole("link", { name: navigationMessages.items.foundation }))
-    expect(mobileMenu()).not.toBeInTheDocument()
+    expect(entryLinks(openedMobileMenu())).toStrictEqual(HEADER_NAVIGATION.map((entry) => [pageLabel(entry), hrefOf(entry)]))
+    expect(within(openedMobileMenu()).getAllByRole("link")).toHaveLength(HEADER_NAVIGATION.length)
 
-    for (const page of NAVIGATION_PAGES) {
-      await open()
-      await user.click(within(openedMobileMenu()).getByRole("link", { name: pageLabel(page) }))
+    for (const entry of HEADER_NAVIGATION) {
+      await user.click(within(openedMobileMenu()).getByRole("link", { name: pageLabel(entry) }))
       expect(mobileMenu()).not.toBeInTheDocument()
+      await open()
     }
 
-    await open()
     const remove = vi.spyOn(document, "removeEventListener")
     unmount()
     expect(remove).toHaveBeenCalledWith("keydown", expect.any(Function))
@@ -258,7 +247,7 @@ describe("navigation scroll progress", () => {
     expect(resizeCallbacks).toHaveLength(0)
     expect(observeSize).not.toHaveBeenCalled()
     expect(addListener.mock.calls.filter(([type]) => type === "scroll" || type === "resize")).toEqual([])
-    expect(sentinelObserver().observe).toHaveBeenCalledExactlyOnceWith(container.firstElementChild)
+    expect(sentinelObserver().observe).toHaveBeenCalledExactlyOnceWith(container.querySelector(':scope > div[aria-hidden="true"]'))
 
     unmount()
     expect(sentinelObserver().disconnect).toHaveBeenCalledOnce()

@@ -85,7 +85,7 @@ test("foundation shares its hover highlight and clears it when leaving", async (
   await expect(cells.nth(1)).toHaveCSS("z-index", "auto")
 })
 
-test("mobile menu closes with Escape and after choosing a section", async ({ landingPage, page }) => {
+test("mobile menu closes with Escape and after choosing the pricing section", async ({ landingPage, page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await landingPage.goto()
   await page.getByRole("button", { name: "Open menu", exact: true }).click()
@@ -93,9 +93,9 @@ test("mobile menu closes with Escape and after choosing a section", async ({ lan
   await page.keyboard.press("Escape")
   await expect(page.locator("#mobile-menu")).not.toBeVisible()
   await page.getByRole("button", { name: "Open menu", exact: true }).click()
-  await page.locator("#mobile-menu").getByRole("link", { name: "Foundation", exact: true }).click()
+  await page.locator("#mobile-menu").getByRole("link", { name: "Pricing", exact: true }).click()
   await expect(page.locator("#mobile-menu")).not.toBeVisible()
-  await expect(page).toHaveURL(/#foundation$/u)
+  await expect(page).toHaveURL(/#pricing$/u)
 })
 
 test("back to top appears past the first screen and returns smoothly to the page heading", async ({ landingPage, page }) => {

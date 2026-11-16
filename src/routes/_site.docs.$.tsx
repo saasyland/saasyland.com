@@ -13,7 +13,7 @@ const DocumentationPage = () => {
   return <Suspense key={path}>{content}</Suspense>
 }
 
-export const Route = createFileRoute("/docs/$")({
+export const Route = createFileRoute("/_site/docs/$")({
   component: DocumentationPage,
   head: docsHead,
   loader: ({ params }) => loadDocsPage(params._splat),

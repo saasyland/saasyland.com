@@ -51,7 +51,7 @@ const CoursesPage = (): JSX.Element => {
 
 const NAMESPACE = "pages.courses"
 
-export const Route = createFileRoute("/courses/")({
+export const Route = createFileRoute("/_site/_marketing/courses/")({
   component: CoursesPage,
   head: pageHead(ROUTES.COURSES),
   loader: async ({ context }) => {

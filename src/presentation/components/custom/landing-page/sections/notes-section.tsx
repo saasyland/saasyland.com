@@ -11,7 +11,7 @@ import { Reveal } from "~/src/presentation/components/custom/landing-page/compon
 
 import { ROUTES } from "~/src/routes"
 
-const landingRoute = getRouteApi("/_landing/")
+const landingRoute = getRouteApi("/_site/_marketing/")
 
 const GRID_DELAY_MS = 100
 

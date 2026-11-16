@@ -75,7 +75,7 @@ const LandingPage = (): JSX.Element => (
 
 const NAMESPACE = "pages.landing"
 
-export const Route = createFileRoute("/_landing/")({
+export const Route = createFileRoute("/_site/_marketing/")({
   component: LandingPage,
   head: pageHead(ROUTES.HOME),
   loader: async ({ context }) => {

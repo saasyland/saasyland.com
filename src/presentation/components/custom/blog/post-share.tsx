@@ -9,7 +9,7 @@ import { CopyButton } from "~/src/presentation/components/custom/copy-button"
 
 import { APP_URL } from "~/src/presentation/branding"
 
-const route = getRouteApi("/blog/$")
+const route = getRouteApi("/_site/_marketing/blog/$")
 
 const LINK_CLASSNAME =
   "inline-flex h-7 shrink-0 cursor-pointer items-center justify-center rounded-md px-1.5 text-muted-foreground transition-colors duration-200 ease-exp hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

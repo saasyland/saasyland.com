@@ -4,7 +4,7 @@ import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
-const TERMS_CHUNK = /\/assets\/_landing\.terms-[\w-]+\.js$/u
+const TERMS_CHUNK = /\/assets\/_site\._marketing\.terms-[\w-]+\.js$/u
 
 test(`${ROUTES.TERMS} renders its heading before JavaScript runs`, async ({ pageWithoutJavaScript }) => {
   await pageWithoutJavaScript.goto(ROUTES.TERMS)

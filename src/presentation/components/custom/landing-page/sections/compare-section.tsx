@@ -3,7 +3,7 @@ import type { JSX } from "react"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"

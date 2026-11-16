@@ -6,8 +6,6 @@ import { useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { AFFILIATE_TERMS } from "~/src/data/affiliates"
-
 import { pageHead } from "~/src/lib/seo"
 
 import { LegalPending } from "~/src/presentation/components/custom/legal-pending"
@@ -15,10 +13,10 @@ import { LegalPending } from "~/src/presentation/components/custom/legal-pending
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const SECTIONS = ["controller", "collection", "purposes", "basis", "providers", "retention", "cookies", "rights", "changes"] as const
+const SECTIONS = ["delivery", "afterDelivery", "consumerRights", "request", "processing", "freeServices"] as const
 
-const PrivacyPage = (): JSX.Element => {
-  const t = useTranslations("pages.legal.privacy")
+const RefundsPage = (): JSX.Element => {
+  const t = useTranslations("pages.legal.refunds")
 
   return (
     <div className="container mx-auto max-w-3xl px-6 py-16 md:py-24">
@@ -35,7 +33,7 @@ const PrivacyPage = (): JSX.Element => {
           <section className="flex flex-col gap-3" key={section}>
             <h2 className="text-xl font-medium text-foreground">{t(`sections.${section}.title`)}</h2>
             <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
-              {t(`sections.${section}.body`, { cookieDays: AFFILIATE_TERMS.COOKIE_DAYS, email: CONTACT_EMAIL })}
+              {t(`sections.${section}.body`, { email: CONTACT_EMAIL })}
             </p>
           </section>
         ))}
@@ -44,11 +42,11 @@ const PrivacyPage = (): JSX.Element => {
   )
 }
 
-const NAMESPACE = "pages.legal.privacy"
+const NAMESPACE = "pages.legal.refunds"
 
-export const Route = createFileRoute("/_landing/privacy")({
-  component: PrivacyPage,
-  head: pageHead(ROUTES.PRIVACY),
+export const Route = createFileRoute("/_site/_marketing/refunds")({
+  component: RefundsPage,
+  head: pageHead(ROUTES.REFUNDS),
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([

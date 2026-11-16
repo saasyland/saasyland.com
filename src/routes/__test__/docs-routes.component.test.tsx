@@ -3,7 +3,7 @@ import type { ComponentProps } from "react"
 import type { DocsLayout } from "@fumadocs/base-ui/layouts/docs"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
@@ -13,15 +13,19 @@ import type * as docsIntegration from "~/src/integrations/fumadocs/fumadocs.docs
 import { loadDocsPage } from "~/src/integrations/fumadocs/fumadocs.docs"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { Route as DocsRoute } from "~/src/routes/docs"
-import { Route as DocsPageRoute } from "~/src/routes/docs.$"
-import { Route as DocsIndexRoute } from "~/src/routes/docs.index"
+import { Route as SiteRoute } from "~/src/routes/_site"
+import { Route as DocsRoute } from "~/src/routes/_site.docs"
+import { Route as DocsPageRoute } from "~/src/routes/_site.docs.$"
+import { Route as DocsIndexRoute } from "~/src/routes/_site.docs.index"
 
 import { docsContent } from "~/src/presentation/components/custom/docs-content"
 
 import localeSwitcherMessages from "~/messages/en-US/components.custom.locale-switcher.json"
-import { APP_GITHUB_OWNER, APP_GITHUB_REPO, APP_GITHUB_URL, APP_NAME } from "~/src/presentation/branding"
+import navigationMessages from "~/messages/en-US/components.custom.navigation.json"
+import contentNavigationMessages from "~/messages/en-US/navigation.content.json"
+import { APP_GITHUB_OWNER, APP_GITHUB_REPO, APP_GITHUB_URL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
+import { ROUTES } from "~/src/routes"
 
 const LAYOUT_DATA: typeof DocsRoute.types.loaderData = {
   tree: { $fumadocs_loader: "page-tree", data: { children: [], name: "Documentation" } },
@@ -40,7 +44,7 @@ vi.mock(import("@fumadocs/base-ui/layouts/docs"), async (original) => ({
   DocsLayout: ({ children, nav, sidebar, links, themeSwitch }: ComponentProps<typeof DocsLayout>) => (
     <div>
       <nav aria-label="Documentation navigation">
-        {typeof nav?.title === "function" ? undefined : nav?.title}
+        {typeof nav?.title === "function" ? undefined : <a href={nav?.url}>{nav?.title}</a>}
         {links?.map((link, index) => (link.type === "custom" ? <div key={index}>{link.children}</div> : undefined))}
       </nav>
       {typeof sidebar === "object" && sidebar.footer}
@@ -49,6 +53,31 @@ vi.mock(import("@fumadocs/base-ui/layouts/docs"), async (original) => ({
     </div>
   ),
 }))
+
+const createDocsRouter = ({ href, layout }: { href: string; layout: () => unknown }) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
+  Object.assign(SiteRoute.options, { getParentRoute: () => root, id: "_site" })
+  Object.assign(DocsRoute.options, { getParentRoute: () => SiteRoute, id: "/docs", loader: layout, path: "/docs" })
+  Object.assign(DocsIndexRoute.options, { getParentRoute: () => DocsRoute, id: "/", path: "/" })
+  Object.assign(DocsPageRoute.options, { getParentRoute: () => DocsRoute, id: "/$", path: "/$" })
+  const docs = DocsRoute.addChildren([DocsIndexRoute, DocsPageRoute])
+  return createRouter({
+    context: { queryClient },
+    defaultPendingMs: 0,
+    history: createMemoryHistory({ initialEntries: [href] }),
+    routeTree: root.addChildren([SiteRoute.addChildren([docs])]),
+  })
+}
+
+const renderDocs = (router: ReturnType<typeof createDocsRouter>) =>
+  render(
+    <QueryClientProvider client={router.options.context.queryClient}>
+      <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
+        <RouterProvider router={router} />
+      </IntlProvider>
+    </QueryClientProvider>,
+  )
 
 beforeEach(() => {
   vi.mocked(loadDocsPage).mockImplementation((slug = "") =>
@@ -69,6 +98,7 @@ beforeEach(() => {
       disconnect = vi.fn()
     },
   )
+  vi.stubGlobal("CSS", { supports: () => true })
   vi.stubGlobal("scrollTo", vi.fn())
   vi.stubGlobal(
     "matchMedia",
@@ -92,26 +122,16 @@ it.each([
   { href: "/docs", slug: undefined, path: "index.mdx", title: "Introduction" },
   { href: "/docs/getting-started", slug: "getting-started", path: "getting-started.mdx", title: "getting-started" },
 ])("loads documentation and its metadata at $href", async ({ href, slug, path, title }) => {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
-  Object.assign(DocsRoute.options, { getParentRoute: () => root, id: "/docs", loader: () => LAYOUT_DATA, path: "/docs" })
-  Object.assign(DocsIndexRoute.options, { getParentRoute: () => DocsRoute, id: "/", path: "/" })
-  Object.assign(DocsPageRoute.options, { getParentRoute: () => DocsRoute, id: "/$", path: "/$" })
-  const router = createRouter({
-    context: { queryClient },
-    history: createMemoryHistory({ initialEntries: [href] }),
-    routeTree: root.addChildren([DocsRoute.addChildren([DocsIndexRoute, DocsPageRoute])]),
-  })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
-        <RouterProvider router={router} />
-      </IntlProvider>
-    </QueryClientProvider>,
-  )
+  const router = createDocsRouter({ href, layout: () => LAYOUT_DATA })
+  renderDocs(router)
   await act(() => router.load())
   expect(screen.getByText("Documentation content")).toBeVisible()
-  expect(screen.getByRole("navigation", { name: "Documentation navigation" })).toHaveTextContent(APP_NAME)
+  expect(screen.getAllByRole("navigation", { name: navigationMessages.ariaLabel })).toHaveLength(1)
+  expect(
+    within(screen.getByRole("navigation", { name: "Documentation navigation" })).getByRole("link", {
+      name: contentNavigationMessages.header.docs,
+    }),
+  ).toHaveAttribute("href", ROUTES.DOCS)
   expect(screen.getByRole("link", { name: `${APP_GITHUB_OWNER}/${APP_GITHUB_REPO}` })).toHaveAttribute("href", APP_GITHUB_URL)
   expect(screen.getByRole("button", { name: selectTriggerNamed(localeSwitcherMessages.label) })).toHaveTextContent("English")
   expect(screen.getByTestId("builtin-theme-switch")).toHaveTextContent("false")
@@ -128,27 +148,14 @@ it.each([
     title,
   })
   expect(router.state.matches.some((match) => match.links?.some((link) => link?.rel === "stylesheet") === true)).toBe(true)
-  queryClient.clear()
+  router.options.context.queryClient.clear()
 })
 
 it("shows the docs-shaped skeleton while the documentation layout loads", async () => {
-  const queryClient = new QueryClient()
-  const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
-  Object.assign(DocsRoute.options, { getParentRoute: () => root, id: "/docs", loader: () => new Promise(() => {}), path: "/docs" })
-  Object.assign(DocsIndexRoute.options, { getParentRoute: () => DocsRoute, id: "/", path: "/" })
-  const router = createRouter({
-    context: { queryClient },
-    defaultPendingMs: 0,
-    history: createMemoryHistory({ initialEntries: ["/docs"] }),
-    routeTree: root.addChildren([DocsRoute.addChildren([DocsIndexRoute])]),
-  })
-  const { container } = render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
-  )
+  const { container } = renderDocs(createDocsRouter({ href: "/docs", layout: () => new Promise(() => {}) }))
   await waitFor(() => {
     expect(container.querySelector('[aria-busy="true"]')).toBeInTheDocument()
   })
+  expect(screen.getByRole("navigation", { name: navigationMessages.ariaLabel })).toBeVisible()
   expect(screen.queryByText("Documentation content")).not.toBeInTheDocument()
 })

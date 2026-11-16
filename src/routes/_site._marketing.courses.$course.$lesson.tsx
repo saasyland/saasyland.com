@@ -163,7 +163,7 @@ const LessonPage = (): JSX.Element => {
 
 const NAMESPACE = "pages.courses"
 
-export const Route = createFileRoute("/courses/$course/$lesson")({
+export const Route = createFileRoute("/_site/_marketing/courses/$course/$lesson")({
   component: LessonPage,
   head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; summary: string; title: string } | undefined }) =>
     buildPageHead({

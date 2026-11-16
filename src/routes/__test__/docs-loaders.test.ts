@@ -4,7 +4,7 @@ import { expect, it, vi } from "vite-plus/test"
 
 import { source } from "~/src/integrations/fumadocs/fumadocs.source"
 
-import { Route as DocsRoute } from "~/src/routes/docs"
+import { Route as DocsRoute } from "~/src/routes/_site.docs"
 
 import { getRouter } from "~/src/router"
 

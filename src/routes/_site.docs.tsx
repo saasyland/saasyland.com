@@ -5,6 +5,7 @@ import { RootProvider } from "@fumadocs/base-ui/provider/tanstack"
 import { Outlet, createFileRoute } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { useFumadocsLoader } from "fumadocs-core/source/client"
+import { useTranslations } from "use-intl/react"
 
 import { ThemeProvider } from "~/src/providers/theme-provider"
 
@@ -13,15 +14,16 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
 
-import { BackToTop } from "~/src/presentation/components/custom/back-to-top"
 import { DocsPending } from "~/src/presentation/components/custom/docs-pending"
+import { DocsToolbar } from "~/src/presentation/components/custom/docs-toolbar"
 import { Github } from "~/src/presentation/components/custom/icons"
 import { LocaleSelect } from "~/src/presentation/components/custom/locale-switcher"
 import { ThemeSwitch } from "~/src/presentation/components/custom/theme-switch"
 
 import docsCss from "~/src/presentation/styles/docs.css?url"
 
-import { APP_GITHUB_OWNER, APP_GITHUB_REPO, APP_GITHUB_URL, APP_NAME } from "~/src/presentation/branding"
+import { APP_GITHUB_OWNER, APP_GITHUB_REPO, APP_GITHUB_URL } from "~/src/presentation/branding"
+import { ROUTES } from "~/src/routes"
 
 const getPageTree = createServerFn({ method: "GET" })
   .validator(localeField)
@@ -46,10 +48,10 @@ const LINKS = [
   },
 ]
 
-const NAV = { title: APP_NAME } as const
+const CONTAINER = { className: "pt-header [--fd-banner-height:var(--spacing-header)] max-md:[--fd-header-height:--spacing(14)]" } as const
 const THEME = { enabled: false } as const
 const THEME_SWITCH = { enabled: false } as const
-const SLOTS = { languageSelect: false } as const
+const SLOTS = { header: DocsToolbar, languageSelect: false } as const
 
 const SIDEBAR = {
   footer: (
@@ -66,19 +68,21 @@ const DocumentationLayout = (): JSX.Element => {
   const locale = getCurrentLocale()
   const i18n = useMemo(() => ({ locale }), [locale])
 
+  const t = useTranslations("navigation.content")
+  const nav = useMemo(() => ({ title: t("header.docs"), url: ROUTES.DOCS }), [t])
+
   const { tree } = useFumadocsLoader(Route.useLoaderData())
 
   return (
     <RootProvider i18n={i18n} theme={THEME}>
-      <DocsLayout links={LINKS} nav={NAV} sidebar={SIDEBAR} slots={SLOTS} themeSwitch={THEME_SWITCH} tree={tree}>
+      <DocsLayout containerProps={CONTAINER} links={LINKS} nav={nav} sidebar={SIDEBAR} slots={SLOTS} themeSwitch={THEME_SWITCH} tree={tree}>
         <Outlet />
       </DocsLayout>
-      <BackToTop />
     </RootProvider>
   )
 }
 
-export const Route = createFileRoute("/docs")({
+export const Route = createFileRoute("/_site/docs")({
   component: DocumentationLayout,
   head: () => ({ links: [{ href: docsCss, rel: "stylesheet" }] }),
   loader: () => getPageTree({ data: getCurrentLocale() }),

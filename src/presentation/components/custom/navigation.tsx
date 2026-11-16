@@ -1,12 +1,12 @@
-import { type JSX, useCallback, useEffect, useState } from "react"
+import { type JSX, useCallback, useState } from "react"
 
 import { Link } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
-import { MARKETING_SECTION_IDS, NAVIGATION_SECTIONS } from "~/src/data/marketing"
-import { NAVIGATION_PAGES } from "~/src/data/navigation"
+import { HEADER_NAVIGATION } from "~/src/data/navigation"
+import { MARKETING_SECTION_IDS, SITE_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { cn } from "~/src/lib/cn"
 
@@ -15,11 +15,7 @@ import { MobileMenu } from "~/src/presentation/components/custom/mobile-menu"
 
 import { ROUTES } from "~/src/routes"
 
-const ACTIVE_BAND = "-42% 0px -58% 0px"
 const MAX_PROGRESS = 1
-
-const LINK_CLASSNAME =
-  "relative rounded-md px-2 py-1.5 text-body-sm transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 
 const observeProgress = (element: HTMLDivElement | null): (() => void) | undefined => {
   if (!element || CSS.supports("animation-timeline: scroll(root)")) {
@@ -51,64 +47,11 @@ const observeProgress = (element: HTMLDivElement | null): (() => void) | undefin
   }
 }
 
-const SectionLinks = (): JSX.Element => {
-  const t = useTranslations("components.custom.navigation")
-  const navigationLabel = useNavigationLabel()
-  const [active, setActive] = useState<string>()
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActive(entry.target.id)
-          }
-        }
-      },
-      { rootMargin: ACTIVE_BAND },
-    )
-
-    for (const id of NAVIGATION_SECTIONS) {
-      const section = document.querySelector(`#${id}`)
-      if (section) {
-        observer.observe(section)
-      }
-    }
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [])
-
-  return (
-    <nav className="hidden items-center gap-1 xl:flex">
-      {NAVIGATION_SECTIONS.map((id) => (
-        <Link
-          className={cn(LINK_CLASSNAME, {
-            "text-foreground": active === id,
-            "text-muted-foreground": active !== id,
-          })}
-          hash={id}
-          key={id}
-          to={ROUTES.HOME}
-        >
-          {t(`items.${id}`)}
-          {active === id && <span aria-hidden className="absolute inset-x-0 -bottom-0.5 mx-auto size-0.75 rounded-full bg-ring" />}
-        </Link>
-      ))}
-      {NAVIGATION_PAGES.map((page) => (
-        <Link className={cn(LINK_CLASSNAME, "text-muted-foreground")} key={page.key} to={page.to}>
-          {navigationLabel(page)}
-        </Link>
-      ))}
-    </nav>
-  )
-}
-
 export const Navigation = (): JSX.Element => {
   const [hasScrolled, setHasScrolled] = useState(false)
 
   const t = useTranslations("components.custom.navigation")
+  const navigationLabel = useNavigationLabel()
 
   const observeSentinel = useCallback((sentinel: HTMLDivElement): (() => void) => {
     const observer = new IntersectionObserver(([entry]) => {
@@ -123,28 +66,48 @@ export const Navigation = (): JSX.Element => {
 
   return (
     <>
+      <a
+        className="sr-only rounded-md bg-background px-3 py-2 text-body-sm font-medium text-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        href={`#${SITE_CONTENT_ID}`}
+      >
+        {t("skipToContent")}
+      </a>
       <div aria-hidden className="pointer-events-none absolute top-0 left-0 h-px w-px" ref={observeSentinel} />
       <header
         className={cn(
-          "fixed inset-x-0 top-0 z-50 border-b transition-[background-color,border-color,backdrop-filter] duration-300 ease-exp motion-reduce:transition-none",
+          "fixed inset-x-0 top-0 z-40 border-b transition-[background-color,border-color,backdrop-filter] duration-300 ease-exp motion-reduce:transition-none",
           {
             "border-border bg-background/72 backdrop-blur-xl": hasScrolled,
             "border-transparent bg-transparent": !hasScrolled,
           },
         )}
       >
-        <nav aria-label={t("ariaLabel")} className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-6 px-6 md:px-10">
+        <nav
+          aria-label={t("ariaLabel")}
+          className="mx-auto flex h-header w-full max-w-7xl items-center justify-between gap-6 px-6 md:px-10"
+        >
           <HomeLink />
 
-          <div className="flex items-center gap-2 xl:gap-4">
-            <SectionLinks />
+          <div className="flex items-center gap-2 lg:gap-4">
+            <div className="hidden items-center gap-1 lg:flex">
+              {HEADER_NAVIGATION.map((entry) => (
+                <Link
+                  {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
+                  className="relative rounded-md px-2 py-1.5 text-body-sm whitespace-nowrap text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[status=active]:text-foreground"
+                  key={entry.key}
+                  to={entry.to}
+                >
+                  {({ isActive }) => (
+                    <>
+                      {navigationLabel(entry)}
+                      {isActive && <span aria-hidden className="absolute inset-x-0 -bottom-0.5 mx-auto size-0.75 rounded-full bg-ring" />}
+                    </>
+                  )}
+                </Link>
+              ))}
+            </div>
             <Link
-              className="hidden shrink-0 rounded-md px-1 text-body-sm font-medium whitespace-nowrap text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:inline-flex"
-              to={ROUTES.SIGN_IN}
-            >
-              {t("signIn")}
-            </Link>
-            <Link
+              activeOptions={{ includeHash: true }}
               className="hidden h-9 shrink-0 items-center rounded-lg border border-border bg-card/60 px-3.5 text-body-sm font-medium whitespace-nowrap text-foreground transition-[color,border-color,background-color] duration-200 ease-exp hover:border-border hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px sm:inline-flex"
               hash={MARKETING_SECTION_IDS.PRICING}
               to={ROUTES.HOME}

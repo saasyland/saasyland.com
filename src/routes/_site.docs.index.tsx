@@ -13,7 +13,7 @@ const DocumentationIndexPage = () => {
   return <Suspense key={path}>{content}</Suspense>
 }
 
-export const Route = createFileRoute("/docs/")({
+export const Route = createFileRoute("/_site/docs/")({
   component: DocumentationIndexPage,
   head: docsHead,
   loader: () => loadDocsPage(),

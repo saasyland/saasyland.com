@@ -6,9 +6,6 @@ import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import { PageFrame } from "~/src/presentation/components/custom/page-frame"
-import { Wordmark } from "~/src/presentation/components/custom/wordmark"
-
 import { ROUTES } from "~/src/routes"
 
 const POSTS = ["first", "second", "third", "fourth"] as const
@@ -103,22 +100,9 @@ export const BlogPending = (): JSX.Element => {
   const isIndex = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) === ROUTES.BLOG })
 
   return (
-    <div className="dark relative isolate min-h-svh bg-background text-foreground">
-      <PageFrame />
-      <div className="relative z-50 border-b border-border">
-        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-6 px-6 md:px-10">
-          <Wordmark />
-          <div className="flex items-center gap-5 text-body-sm lg:gap-7">
-            <Skeleton className="h-lh w-10 scale-y-70" />
-            <Skeleton className="h-lh w-9 scale-y-70" />
-            <Skeleton className="h-9 w-30 rounded-lg" />
-          </div>
-        </div>
-      </div>
-      <main className="relative z-10">
-        {isIndex && <BlogIndexPending />}
-        {!isIndex && <BlogPostPending />}
-      </main>
+    <div className="pt-header">
+      {isIndex && <BlogIndexPending />}
+      {!isIndex && <BlogPostPending />}
     </div>
   )
 }

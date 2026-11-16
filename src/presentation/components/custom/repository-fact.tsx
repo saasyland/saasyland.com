@@ -6,6 +6,7 @@ import { adminAc } from "better-auth/plugins/admin/access"
 import { useFormatter } from "use-intl/react"
 import { cliApiTables, commitEmojis, seededAccounts } from "virtual:repository-facts"
 
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import {
   BACKUP_CODE_MAX_LENGTH,
   BACKUP_CODE_MIN_LENGTH,
@@ -50,7 +51,7 @@ import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { APP_STATEMENTS } from "~/src/data/access"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
-import { OAUTH_PROVIDERS } from "~/src/data/auth"
+import { OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH, oauthCallbackPath } from "~/src/data/auth"
 import {
   CLI_API_URL_VARIABLE,
   CLI_COMMAND,
@@ -82,16 +83,12 @@ import { SOCIAL_IMAGE } from "~/src/lib/seo"
 
 import { ACTIVATION_POLL_MS, ACTIVATION_TIMEOUT_MS } from "~/src/presentation/components/custom/app/checkout-activation"
 
-import { ROUTES } from "~/src/routes"
-
 type Value = number | string | readonly string[]
 
 const OCTAL_RADIX = 8
 const FILE_MODE_DIGITS = 4
 
 const renditionName = (height: number): string => `${String(height)}p`
-
-const oauthCallbackPath = (provider: string): string => `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}/${provider}`
 
 const FACTS = {
   ...REPOSITORY_FACTS,
@@ -135,16 +132,18 @@ const FACTS = {
   corePriceInHours: CORE_PRICE_IN_HOURS,
   courseShowcaseCourses: COURSE_SHOWCASE.COURSES,
   defaultPageSize: DEFAULT_PAGE_SIZE,
+  googleCallbackUrl: `https://<host>${oauthCallbackPath(AUTH_PROVIDER.GOOGLE)}`,
   headStartClaimMaxHours: HEAD_START_CLAIM_MAX_HOURS,
   illustrativeHourlyRate: ILLUSTRATIVE_HOURLY_RATE,
   lessonProgressSaveSeconds: SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
-  liveSiteCheckPaths: LIVE_SITE_CHECKS.map(({ path }) => path),
+  liveSiteCheckPaths: [...new Set(LIVE_SITE_CHECKS.map(({ path }) => path))],
   liveSiteCheckRetries: LIVE_SITE_CHECK_RETRY_DELAYS_MS.length,
   liveSiteCheckRetrySeconds: LIVE_SITE_CHECK_RETRY_DELAY_MS / MILLISECONDS_PER_SECOND,
   localizedTextMaxLength: LOCALIZED_TEXT_MAX_LENGTH,
   oauthCallbackPath: oauthCallbackPath("<provider>"),
   oauthCallbackPaths: OAUTH_PROVIDERS.map(({ id }) => oauthCallbackPath(id)),
   oauthCallbackUrls: OAUTH_PROVIDERS.map(({ id }) => `https://<host>${oauthCallbackPath(id)}`),
+  oauthProviderIds: OAUTH_PROVIDERS.map(({ id }) => id),
   passwordMaxLength: PASSWORD_MAX_LENGTH,
   passwordMinLength: PASSWORD_MIN_LENGTH,
   posterSmallWidth: POSTER_SMALL_WIDTH,
@@ -161,6 +160,7 @@ const FACTS = {
   slugMaxLength: SLUG_MAX_LENGTH,
   socialImageHeight: SOCIAL_IMAGE.HEIGHT,
   socialImageWidth: SOCIAL_IMAGE.WIDTH,
+  socialSignInPath: SOCIAL_SIGN_IN_PATH,
   starCountFetchTimeoutSeconds: STAR_COUNT_FETCH_TIMEOUT_MS / MILLISECONDS_PER_SECOND,
   starCountRefreshHours: STAR_COUNT_REFRESH_AFTER_MS / MILLISECONDS_PER_HOUR,
   storyboardIntervalSeconds: STORYBOARD_MIN_INTERVAL_SECONDS,

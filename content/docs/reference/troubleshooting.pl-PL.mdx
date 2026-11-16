@@ -45,7 +45,14 @@ description: "Typowe błędy podczas developmentu, testowania i wdrażania oraz 
 
 **Wdrożenie zatrzymuje się na `prepare-deploy-secrets.ts`.** Klucza wymienionego w `secrets.required` danego środowiska brakuje w `.env.<environment>` albo jest on pusty. Komunikat błędu podaje nazwy tych kluczy.
 
-**Wdrożenie zatrzymuje się na `verify-deployment.ts`.** Worker jest wdrożony, ale sprawdzana ścieżka nie odpowiedziała kodem `200` z oczekiwanym typem zawartości. Komunikat błędu wymienia każdy URL i otrzymaną odpowiedź; otwórz ten URL i przejrzyj logi Workera w Cloudflare. `bun scripts/verify-deployment.ts <preview|production>` ponownie uruchamia kontrolę.
+**Wdrożenie zatrzymuje się na `verify-deployment.ts`.** Worker jest wdrożony, ale sprawdzana ścieżka nie odpowiedziała kodem `200` z oczekiwanym typem zawartości albo logowanie nie dotarło do swojego dostawcy tak, jak powinno. Komunikat błędu wymienia każde żądanie i problem; otwórz ten URL i przejrzyj logi Workera w Cloudflare. Linia kończąca się na `client_id is not a Google OAuth client ID.` oznacza, że Worker nie ma prawdziwego identyfikatora klienta tego dostawcy; zobacz następny punkt. `bun scripts/verify-deployment.ts <preview|production>` ponownie uruchamia kontrolę.
+
+**Google odpowiada `Error 401: invalid_client` i `The OAuth client was not found.`** Worker wysłał do Google identyfikator klienta, którego Google nie zna, na przykład placeholder z `.env.<environment>`, który wdrożenie wgrało jako sekret `AUTH_GOOGLE_CLIENT_ID`. Aby to naprawić:
+
+1. W konsoli Google Cloud otwórz **Google Auth Platform → Clients** i utwórz klienta typu **Web application** albo otwórz tego, którego chcesz użyć. Jego identyfikator klienta kończy się na `.apps.googleusercontent.com`.
+2. Dla każdego hosta, na który wdrażasz, dodaj `https://<host>` do **Authorized JavaScript origins** i <RepositoryFact name="googleCallbackUrl" /> do **Authorized redirect URIs**; Google może potrzebować kilku minut, aby je zastosować.
+3. W **Google Auth Platform → Audience** wybierz **Publish app**, aby mogło się zalogować każde konto Google, a nie tylko użytkownicy testowi.
+4. Wpisz identyfikator i sekret klienta do `AUTH_GOOGLE_CLIENT_ID` i `AUTH_GOOGLE_CLIENT_SECRET` w `.env.<environment>` i uruchom `bun run deploy:<environment>`, które wgra oba sekrety Workera i ponownie sprawdzi logowanie.
 
 **Build z prerenderingiem kończy się błędem.** Wynik builda podaje pierwszy URL, dla którego wystąpił błąd. Otwórz tę stronę w `bun run dev`, aby zobaczyć błąd.
 

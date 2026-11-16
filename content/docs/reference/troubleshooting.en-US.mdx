@@ -45,7 +45,14 @@ description: "Common errors during development, testing and deployment, and how 
 
 **Deploy stops at `prepare-deploy-secrets.ts`.** A key listed in the environment's `secrets.required` is missing or empty in `.env.<environment>`. The error names the keys.
 
-**Deploy stops at `verify-deployment.ts`.** The Worker is deployed but a checked path did not answer `200` with the expected content type. The error lists each URL and its answer; open it and read the Worker's logs in Cloudflare. `bun scripts/verify-deployment.ts <preview|production>` runs the check again.
+**Deploy stops at `verify-deployment.ts`.** The Worker is deployed, but a checked path did not answer `200` with the expected content type, or a sign-in did not reach its provider as it should. The error lists each request and what was wrong; open the URL and read the Worker's logs in Cloudflare. A line ending in `client_id is not a Google OAuth client ID.` means that the Worker holds no real client ID for that provider; see the next entry. `bun scripts/verify-deployment.ts <preview|production>` runs the check again.
+
+**Google answers `Error 401: invalid_client` and `The OAuth client was not found.`** The Worker sent Google a client ID that Google does not know, such as a placeholder in `.env.<environment>` that the deploy uploaded as the `AUTH_GOOGLE_CLIENT_ID` secret. To fix it:
+
+1. In the Google Cloud console, open **Google Auth Platform → Clients** and create a client of type **Web application**, or open the one you want to use. Its client ID ends in `.apps.googleusercontent.com`.
+2. Add `https://<host>` to **Authorized JavaScript origins** and <RepositoryFact name="googleCallbackUrl" /> to **Authorized redirect URIs** for every host you deploy to; Google can take a few minutes to apply them.
+3. On **Google Auth Platform → Audience**, select **Publish app**, so that every Google account can sign in, not only the test users.
+4. Put the client ID and secret into `AUTH_GOOGLE_CLIENT_ID` and `AUTH_GOOGLE_CLIENT_SECRET` in `.env.<environment>` and run `bun run deploy:<environment>`, which uploads both Worker secrets and checks the sign-in again.
 
 **A prerender build fails.** The build output names the first URL that failed. Open that page with `bun run dev` to see the error.
 

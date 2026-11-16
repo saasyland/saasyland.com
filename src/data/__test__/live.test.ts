@@ -9,12 +9,12 @@ afterEach(() => {
 })
 
 describe("live site check composition", () => {
-  it("checks the paths of every area once", async () => {
+  it("checks the requests of every area once", async () => {
     const { LIVE_SITE_CHECKS } = await import("~/src/data/live")
     const declared: readonly LiveSiteCheck[] = Object.values(AREA_LIVE_CHECKS).flat()
 
     expect(LIVE_SITE_CHECKS).toStrictEqual(declared)
-    expect(new Set(declared.map(({ path }) => path)).size).toBe(declared.length)
+    expect(new Set(declared.map(({ path, post }) => [path, post?.name].join(" "))).size).toBe(declared.length)
   })
 
   it("checks only the core paths of a project without other areas", async () => {

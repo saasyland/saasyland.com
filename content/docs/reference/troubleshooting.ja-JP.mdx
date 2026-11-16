@@ -45,7 +45,14 @@ description: "開発、テスト、デプロイ時によくあるエラーとそ
 
 **デプロイが `prepare-deploy-secrets.ts` で止まる。** 環境の `secrets.required` に列挙されたキーが、`.env.<environment>` にないか空になっています。エラーにそのキーが表示されます。
 
-**デプロイが `verify-deployment.ts` で止まる。** Worker はデプロイされましたが、確認対象のパスが、期待されるコンテンツタイプで `200` を返しませんでした。エラーには各 URL とその応答が表示されます。その URL を開き、Cloudflare で Worker のログを確認してください。`bun scripts/verify-deployment.ts <preview|production>` で確認をもう一度実行できます。
+**デプロイが `verify-deployment.ts` で止まる。** Worker はデプロイされましたが、確認対象のパスが期待されるコンテンツタイプで `200` を返さなかったか、サインインが本来のとおりにプロバイダーへ届きませんでした。エラーには各リクエストと問題点が表示されます。その URL を開き、Cloudflare で Worker のログを確認してください。`client_id is not a Google OAuth client ID.` で終わる行は、Worker がそのプロバイダーの正しいクライアント ID を持っていないことを意味します。次の項目を参照してください。`bun scripts/verify-deployment.ts <preview|production>` で確認をもう一度実行できます。
+
+**Google が `Error 401: invalid_client` と `The OAuth client was not found.` を返す。** Worker が Google の知らないクライアント ID を送っています。たとえば、`.env.<environment>` に残っていたプレースホルダーが、デプロイによって `AUTH_GOOGLE_CLIENT_ID` シークレットとしてアップロードされた場合です。次の手順で修正します。
+
+1. Google Cloud コンソールで **Google Auth Platform → Clients** を開き、種類が **Web application** のクライアントを作成するか、使いたいクライアントを開きます。そのクライアント ID は `.apps.googleusercontent.com` で終わります。
+2. デプロイ先のすべてのホストについて、**Authorized JavaScript origins** に `https://<host>` を、**Authorized redirect URIs** に <RepositoryFact name="googleCallbackUrl" /> を追加します。Google が反映するまで数分かかることがあります。
+3. **Google Auth Platform → Audience** で **Publish app** を選び、テストユーザーだけでなくすべての Google アカウントがサインインできるようにします。
+4. クライアント ID とシークレットを `.env.<environment>` の `AUTH_GOOGLE_CLIENT_ID` と `AUTH_GOOGLE_CLIENT_SECRET` に設定し、`bun run deploy:<environment>` を実行します。このスクリプトが 2 つの Worker シークレットをアップロードし、サインインをもう一度確認します。
 
 **プリレンダリングのビルドが失敗する。** ビルドの出力に、最初に失敗した URL が表示されます。`bun run dev` でそのページを開き、エラーを確認してください。
 

@@ -45,7 +45,14 @@ description: "Erros comuns durante o desenvolvimento, os testes e o deploy, e co
 
 **O deploy para em `prepare-deploy-secrets.ts`.** Uma chave listada em `secrets.required` do ambiente está ausente ou vazia em `.env.<environment>`. O erro informa as chaves.
 
-**O deploy para em `verify-deployment.ts`.** O deploy do Worker foi feito, mas um dos caminhos verificados não respondeu `200` com o tipo de conteúdo esperado. O erro lista cada URL e a resposta dela; abra-a e leia os logs do Worker no Cloudflare. `bun scripts/verify-deployment.ts <preview|production>` executa a verificação de novo.
+**O deploy para em `verify-deployment.ts`.** O deploy do Worker foi feito, mas um dos caminhos verificados não respondeu `200` com o tipo de conteúdo esperado, ou um login não chegou ao seu provedor como deveria. O erro lista cada requisição e o que deu errado; abra a URL e leia os logs do Worker no Cloudflare. Uma linha que termina em `client_id is not a Google OAuth client ID.` significa que o Worker não tem um client ID real para esse provedor; veja a entrada seguinte. `bun scripts/verify-deployment.ts <preview|production>` executa a verificação de novo.
+
+**O Google responde `Error 401: invalid_client` e `The OAuth client was not found.`** O Worker enviou ao Google um client ID que o Google não conhece, como um placeholder do `.env.<environment>` que o deploy enviou como o secret `AUTH_GOOGLE_CLIENT_ID`. Para corrigir:
+
+1. No console do Google Cloud, abra **Google Auth Platform → Clients** e crie um cliente do tipo **Web application**, ou abra o que você quer usar. O client ID dele termina em `.apps.googleusercontent.com`.
+2. Adicione `https://<host>` em **Authorized JavaScript origins** e <RepositoryFact name="googleCallbackUrl" /> em **Authorized redirect URIs** para cada host em que você faz deploy; o Google pode levar alguns minutos para aplicá-los.
+3. Em **Google Auth Platform → Audience**, selecione **Publish app**, para que qualquer conta do Google possa fazer login, e não só os usuários de teste.
+4. Coloque o client ID e o secret em `AUTH_GOOGLE_CLIENT_ID` e `AUTH_GOOGLE_CLIENT_SECRET` no `.env.<environment>` e execute `bun run deploy:<environment>`, que envia os dois secrets do Worker e verifica o login de novo.
 
 **Um build com pré-renderização falha.** A saída do build informa a primeira URL que falhou. Abra essa página com `bun run dev` para ver o erro.
 

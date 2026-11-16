@@ -3,10 +3,37 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { DEPLOYED_HOSTS, ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
+import type { LiveSiteCheck } from "~/src/data/live.constants"
 
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_TIMEOUT_MS, verifyDeployment } from "~/src/lib/deployment"
 
 import { ROUTES } from "~/src/routes"
+
+const LOOKUP = await vi.hoisted(async () => {
+  const [{ CONTENT_TYPE }, { HTTP_STATUS }, zod] = await Promise.all([
+    import("~/src/data/live.constants"),
+    import("~/src/modules/_core/constants/api"),
+    import("zod"),
+  ])
+  const answerSchema = zod.object({ problems: zod.array(zod.string()) })
+
+  return {
+    contentType: CONTENT_TYPE.JSON,
+    path: "/api/lookup",
+    post: {
+      body: { term: "deployment" },
+      findProblems: (answer: unknown, origin: string) => answerSchema.parse(answer).problems.map((problem) => `${problem} on ${origin}`),
+      name: "lookup",
+    },
+    status: HTTP_STATUS.OK,
+  } satisfies LiveSiteCheck
+})
+
+vi.mock(import("~/src/data/live"), async () => {
+  const { CORE_LIVE_CHECKS } = await import("~/src/data/core.live")
+
+  return { LIVE_SITE_CHECKS: [...CORE_LIVE_CHECKS, LOOKUP] }
+})
 
 const PRODUCTION_ORIGIN = `https://${DEPLOYED_HOSTS[ENVIRONMENT.PRODUCTION]}`
 
@@ -19,6 +46,8 @@ const JSON_BODY = "application/json"
 const XML = "application/xml"
 
 const CHECKED_PATHS = LIVE_SITE_CHECKS.map(({ path }) => path)
+
+const DESCRIBED_CHECKS = CHECKED_PATHS.map((path) => (path === LOOKUP.path ? `${path} (${LOOKUP.post.name})` : path))
 
 const ATTEMPTS = LIVE_SITE_CHECK_RETRY_DELAYS_MS.length + 1
 
@@ -36,9 +65,15 @@ const untyped =
   () =>
     Promise.resolve(new Response(null, { status }))
 
-const WORKING_SITE: Readonly<Record<string, Answer>> = Object.fromEntries(
-  LIVE_SITE_CHECKS.map(({ contentType, path, status }) => [path, page(status, `${contentType}; charset=utf-8`)]),
-)
+const lookupAnswer =
+  (status: number, problems: readonly string[]): Answer =>
+  () =>
+    Promise.resolve(Response.json({ problems }, { status }))
+
+const WORKING_SITE: Readonly<Record<string, Answer>> = {
+  ...Object.fromEntries(LIVE_SITE_CHECKS.map(({ contentType, path, status }) => [path, page(status, `${contentType}; charset=utf-8`)])),
+  [LOOKUP.path]: lookupAnswer(LOOKUP.status, []),
+}
 
 const fetchMock = vi.fn<(input: URL, init: RequestInit) => Promise<Response>>()
 
@@ -85,7 +120,7 @@ describe("verifyDeployment on a working site", () => {
     serve()
 
     await expect(verifyDeployment(environment)).resolves.toBe(
-      `The ${environment} Worker at ${origin} answered ${CHECKED_PATHS.join(", ")} as expected.`,
+      `The ${environment} Worker at ${origin} answered ${DESCRIBED_CHECKS.join(", ")} as expected.`,
     )
     expect(fetchMock.mock.calls.map(([url]) => url.href).toSorted()).toStrictEqual(
       CHECKED_PATHS.map((path) => `${origin}${path}`).toSorted(),
@@ -101,6 +136,24 @@ describe("verifyDeployment on a working site", () => {
     expect(fetchMock).toHaveBeenCalledTimes(CHECKED_PATHS.length)
     expect(fetchMock.mock.calls.every(([, init]) => init.redirect === "manual" && init.signal instanceof AbortSignal)).toBe(true)
     expect(timeout).toHaveBeenCalledWith(LIVE_SITE_CHECK_TIMEOUT_MS)
+  })
+
+  it("posts a check's JSON body from the site's own origin and fetches every other path without a body", async () => {
+    serve()
+
+    await verifyDeployment(ENVIRONMENT.PREVIEW)
+
+    const posts = fetchMock.mock.calls.filter(([url]) => url.pathname === LOOKUP.path).map(([, init]) => init)
+    expect(posts).toStrictEqual([
+      expect.objectContaining({
+        body: JSON.stringify(LOOKUP.post.body),
+        headers: { "content-type": JSON_BODY, origin: PREVIEW_ORIGIN },
+        method: "POST",
+      }),
+    ])
+    expect(fetchMock.mock.calls.filter(([url]) => url.pathname !== LOOKUP.path).map(([, init]) => [init.method, init.body])).toStrictEqual(
+      CHECKED_PATHS.slice(1).map(() => [undefined, undefined]),
+    )
   })
 })
 
@@ -199,5 +252,24 @@ describe("verifyDeployment on a site that answers wrongly", () => {
 
     await expect(verifying).resolves.toContain("as expected")
     expect(home).toHaveBeenCalledTimes(2)
+  })
+
+  it("names the posted request and the check when its endpoint fails", async () => {
+    serve({ [LOOKUP.path]: lookupAnswer(500, []) })
+
+    await expectProductionRefusal(
+      productionRefusal(`POST ${PRODUCTION_ORIGIN}${LOOKUP.path} (lookup) answered 500 ${JSON_BODY} instead of 200 ${JSON_BODY}.`),
+    )
+  })
+
+  it("reports every problem the check finds in the answer, which it judges against the site's own origin", async () => {
+    serve({ [LOOKUP.path]: lookupAnswer(200, ["no match", "stale index"]) })
+
+    await expectProductionRefusal(
+      productionRefusal(
+        `POST ${PRODUCTION_ORIGIN}${LOOKUP.path} (lookup): no match on ${PRODUCTION_ORIGIN}, stale index on ${PRODUCTION_ORIGIN}.`,
+      ),
+    )
+    expect(requestsFor(LOOKUP.path)).toBe(ATTEMPTS)
   })
 })

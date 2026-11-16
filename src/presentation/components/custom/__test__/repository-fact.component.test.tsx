@@ -6,6 +6,7 @@ import { adminAc } from "better-auth/plugins/admin/access"
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
 
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
@@ -26,6 +27,7 @@ import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 import { APP_STATEMENTS } from "~/src/data/access"
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
 import { CLI_LICENSE_COMMANDS, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
+import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
@@ -318,7 +320,7 @@ describe("CLI template bundles", () => {
 })
 
 describe("OAuth callbacks", () => {
-  it("prints the callback paths and URLs of every OAuth provider under the auth routes' base path", () => {
+  it("prints the callback paths and URLs of every OAuth provider, and Google's alone, under the auth routes' base path", () => {
     renderInLocale(
       "en-US",
       <ul>
@@ -331,6 +333,9 @@ describe("OAuth callbacks", () => {
         <li>
           <RepositoryFact name="oauthCallbackUrls" />
         </li>
+        <li>
+          <RepositoryFact name="googleCallbackUrl" />
+        </li>
       </ul>,
     )
 
@@ -340,6 +345,37 @@ describe("OAuth callbacks", () => {
       `${callback}/<provider>`,
       list.format(OAUTH_PROVIDERS.map(({ id }) => `${callback}/${id}`)),
       list.format(OAUTH_PROVIDERS.map(({ id }) => `https://<host>${callback}/${id}`)),
+      `https://<host>${callback}/${AUTH_PROVIDER.GOOGLE}`,
     ])
+  })
+
+  it("prints the providers the live site check signs in with and the path it starts each sign-in at", () => {
+    renderInLocale(
+      "en-US",
+      <ul>
+        <li>
+          <RepositoryFact name="oauthProviderIds" />
+        </li>
+        <li>
+          <RepositoryFact name="socialSignInPath" />
+        </li>
+      </ul>,
+    )
+
+    expect(listItems()).toEqual([
+      new Intl.ListFormat("en-US").format(OAUTH_PROVIDERS.map(({ id }) => id)),
+      `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_SOCIAL}`,
+    ])
+  })
+})
+
+describe("live site checks", () => {
+  it("names every path the live site check requests once, though it starts a sign-in there for each provider", () => {
+    renderInLocale("en-US", <RepositoryFact name="liveSiteCheckPaths" />)
+
+    const paths = LIVE_SITE_CHECKS.map(({ path }) => path)
+    const printed = [...screen.getByTestId("fact").querySelectorAll("code")].map((code) => code.textContent)
+    expect(printed).toEqual([...new Set(paths)])
+    expect(printed.length).toBeLessThan(paths.length)
   })
 })

@@ -45,7 +45,14 @@ description: "Erreurs courantes pendant le développement, les tests et le dépl
 
 **Le déploiement s'arrête à `prepare-deploy-secrets.ts`.** Une clé listée dans `secrets.required` de l'environnement est absente ou vide dans `.env.<environment>`. L'erreur indique les clés concernées.
 
-**Le déploiement s'arrête à `verify-deployment.ts`.** Le Worker est déployé, mais un chemin vérifié n'a pas répondu `200` avec le type de contenu attendu. L'erreur liste chaque URL et sa réponse ; ouvrez-la et consultez les journaux du Worker dans Cloudflare. `bun scripts/verify-deployment.ts <preview|production>` relance la vérification.
+**Le déploiement s'arrête à `verify-deployment.ts`.** Le Worker est déployé, mais un chemin vérifié n'a pas répondu `200` avec le type de contenu attendu, ou une connexion n'a pas atteint son fournisseur comme prévu. L'erreur liste chaque requête et ce qui ne va pas ; ouvrez l'URL et consultez les journaux du Worker dans Cloudflare. Une ligne qui se termine par `client_id is not a Google OAuth client ID.` signifie que le Worker n'a pas de véritable identifiant client pour ce fournisseur ; voir l'entrée suivante. `bun scripts/verify-deployment.ts <preview|production>` relance la vérification.
+
+**Google répond `Error 401: invalid_client` et `The OAuth client was not found.`** Le Worker a envoyé à Google un identifiant client que Google ne connaît pas, par exemple un espace réservé de `.env.<environment>` que le déploiement a envoyé comme secret `AUTH_GOOGLE_CLIENT_ID`. Pour corriger :
+
+1. Dans la console Google Cloud, ouvrez **Google Auth Platform → Clients** et créez un client de type **Web application**, ou ouvrez celui que vous voulez utiliser. Son identifiant client se termine par `.apps.googleusercontent.com`.
+2. Ajoutez `https://<host>` à **Authorized JavaScript origins** et <RepositoryFact name="googleCallbackUrl" /> à **Authorized redirect URIs** pour chaque hôte sur lequel vous déployez ; Google peut mettre quelques minutes à les appliquer.
+3. Dans **Google Auth Platform → Audience**, sélectionnez **Publish app** pour que tout compte Google puisse se connecter, et pas seulement les utilisateurs de test.
+4. Placez l'identifiant et le secret du client dans `AUTH_GOOGLE_CLIENT_ID` et `AUTH_GOOGLE_CLIENT_SECRET` de `.env.<environment>` et lancez `bun run deploy:<environment>`, qui envoie les deux secrets du Worker et vérifie de nouveau la connexion.
 
 **Un build avec prérendu échoue.** La sortie du build indique la première URL en échec. Ouvrez cette page avec `bun run dev` pour voir l'erreur.
 

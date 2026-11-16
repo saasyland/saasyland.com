@@ -80,6 +80,8 @@ moduleEntries.has(hint) ? `<link rel="modulepreload" href="${hint}" fetchpriorit
 
 Rimuovere gli hint ha ridotto il First Contentful Paint di circa un terzo; mantenere l'hint di ingresso a bassa priorità ha ridotto di altri 375 ms il First Contentful Paint su mobile. Non aggiungere mai di nuovo hint di preload, né per le dipendenze né per i chunk delle route. Lo script fa fallire la build quando non trova alcun hint da rimuovere o nessuno da mantenere, così un cambiamento nell'output della build viene intercettato invece di annullare in silenzio questa ottimizzazione.
 
+TanStack Start ora emette ogni hint con `fetchpriority="low"`, quindi la regola è stata misurata di nuovo a novembre 2026 sulla landing page, cinque esecuzioni alternate per variante. Tenere tutti i 156 hint ha permesso al browser di scaricare i chunk della pagina in un'unica ondata invece di undici e di idratare il configuratore della CLI 250 ms prima su desktop e 315 ms prima su un telefono rallentato, ma il First Contentful Paint è arrivato 68 ms più tardi su desktop e 77 ms più tardi su mobile. Gli hint restano rimossi.
+
 La policy degli script mantiene questo ordine. Il Worker fa passare in streaming ogni pagina prerenderizzata attraverso `withNonce`, un `HTMLRewriter` che aggiunge il nonce della risposta al `<script type="module">` di ingresso e al suo hint e non cambia nient'altro, così l'hint nell'head avvia ancora il download a bassa priorità e il modulo viene ancora eseguito quando il parser raggiunge la fine del body. La riscrittura avviene in streaming, quindi non trattiene alcun byte, ma poiché le risposte HTML non hanno `ETag`, un browser scarica di nuovo una pagina invece di rivalidarla.
 
 `robots.txt` e `llms.txt` sono file statici in `public/` che aggirano il Worker (`"!/robots.txt", "!/llms.txt"` in `run_worker_first`). Lighthouse li recupera entrambi con un timeout di due secondi, e una risposta lenta del Worker faceva fallire i suoi audit SEO e di preparazione per gli agenti.
@@ -98,6 +100,10 @@ TanStack Router avvolge gli outlet delle route in boundary di Suspense, e React 
 - `MotionProvider` sopra un outlet di route pubblica un nuovo contesto quando le sue funzionalità di animazione finiscono di caricarsi. In un articolo del blog quell'aggiornamento arrivava mentre la pagina stava ancora caricando il contenuto, React ripiegava sul rendering lato client e il layout si spostava.
 
 Prima di aggiungere un provider a `__root.tsx` o a un layout, verifica se il suo valore può cambiare dopo l'idratazione. Se può, montalo accanto ai componenti che lo leggono, sotto ogni `<Outlet />` di route. Le posizioni sono elencate in [Componenti e stili](/docs/conventions/components).
+
+## Un widget costoso da idratare ha un proprio boundary [#a-widget-that-is-heavy-to-hydrate-gets-its-own-boundary]
+
+Il configuratore della CLI nella landing page renderizza quaranta pulsanti React Aria, ciascuno con i propri hook di pressione, hover e focus. Idratati insieme al resto della pagina, i loro effetti rendevano il commit che conclude l'idratazione della pagina un task di 70–100 ms con il throttling desktop di Lighthouse, che portava il Total Blocking Time da 101 a 147 ms. `CliSection` avvolge `CliConfigurator` in un boundary `Suspense` che non sospende mai. React idrata un boundary del genere da solo, dopo il resto della pagina, e lo conferma in un commit separato, così il task lungo sparisce e il Total Blocking Time è di 100 ms, con First Contentful Paint e Largest Contentful Paint invariati. Il configuratore stesso si idrata circa 50 ms più tardi. Dai un boundary proprio a un altro widget solo quando un confronto mostra lo stesso task lungo.
 
 ## Gli scheletri restano nello script di ingresso [#skeletons-stay-in-the-entry-script]
 

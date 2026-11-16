@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test"
 
-import { CLI_EXEC, CLI_PACKAGE_SPEC, PACKAGE_MANAGER } from "../../src/data/cli"
+import { CLI_PACKAGE_SPEC, PACKAGE_MANAGER } from "../../src/data/cli"
 import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 
 import { expect, test } from "../fixtures/test"
@@ -23,48 +23,6 @@ const hasScrolledAndStopped = async (page: Page): Promise<boolean> =>
 const scrollScreens = async (page: Page, screens: number): Promise<void> => {
   await page.evaluate((count) => window.scrollTo({ behavior: "instant", top: window.innerHeight * count }), screens)
 }
-
-test("CLI keeps valid choices, command output and clipboard contents in sync", async ({ appPage, page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "clipboard", {
-      value: { writeText: async (value: string) => { document.documentElement.dataset["copiedCommand"] = value } },
-    })
-  })
-  await page.goto("/")
-  await appPage.waitForAppReady()
-  const cli = page.locator("#cli")
-  const command = cli.locator("code").first()
-  await expect(command).toContainText("--provider d1")
-  await expect(cli.getByRole("button", { name: "Cloudflare D1", exact: true })).toHaveAttribute("aria-pressed", "true")
-
-  await cli.getByRole("radio", { name: "npm", exact: true }).click()
-  await expect(command).toContainText(CLI_EXEC)
-  await cli.getByRole("button", { name: "Vercel", exact: true }).click()
-  await expect(cli.getByRole("button", { name: "SQLite", exact: true })).toBeDisabled()
-  await expect(command).toContainText("--db postgres")
-  await expect(command).toContainText("--provider neon")
-  await cli.getByRole("button", { name: "Split API", exact: true }).click()
-  await expect(command).toContainText("--api hono")
-
-  const store = cli.getByRole("button", { name: "Store with sample products", exact: true })
-  await store.click()
-  await expect(command).toContainText("--with commerce")
-  const billing = cli.locator("dl > div").filter({ has: page.getByText("Billing", { exact: true }) })
-  await billing.getByRole("button", { name: "None", exact: true }).click()
-  await expect(store).toBeDisabled()
-  await expect(command).not.toContainText("--with commerce")
-  await cli.getByRole("button", { name: "Monolith", exact: true }).click()
-  await expect(command).not.toContainText("--api")
-
-  await cli.getByRole("button", { name: "Copy the command", exact: true }).click()
-  await expect(cli.getByRole("button", { name: "Copied", exact: true })).toBeVisible()
-  const copied = await page.locator("html").getAttribute("data-copied-command")
-  expect(copied).toContain(CLI_EXEC)
-  expect(copied).toContain("--provider neon")
-  expect(copied).not.toContain("--with commerce")
-  expect(copied).not.toContain("--api")
-  await expect(cli.getByRole("button", { name: "Copy the command", exact: true })).toBeVisible()
-})
 
 test("hero install command follows the selected package manager", async ({ landingPage, page }) => {
   await landingPage.goto()

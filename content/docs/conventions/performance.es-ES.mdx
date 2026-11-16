@@ -80,6 +80,8 @@ moduleEntries.has(hint) ? `<link rel="modulepreload" href="${hint}" fetchpriorit
 
 Eliminar las sugerencias redujo el First Contentful Paint en aproximadamente un tercio; mantener la sugerencia de entrada con prioridad baja redujo el First Contentful Paint en móvil otros 375 ms. Nunca vuelvas a añadir sugerencias de precarga, ni para dependencias ni para chunks de rutas. El script hace fallar el build cuando no encuentra ninguna sugerencia que eliminar o ninguna que conservar, de modo que un cambio en la salida del build se detecta en lugar de deshacer esto en silencio.
 
+TanStack Start emite ahora cada indicación con `fetchpriority="low"`, así que la regla se volvió a medir en noviembre de 2026 en la página de inicio, con cinco ejecuciones intercaladas por variante. Conservar las 156 indicaciones hizo que el navegador descargara los chunks de la página en una sola tanda en lugar de once y que el configurador de la CLI se hidratara 250 ms antes en escritorio y 315 ms antes en un móvil limitado, pero el First Contentful Paint llegó 68 ms más tarde en escritorio y 77 ms más tarde en móvil. Las indicaciones se siguen eliminando.
+
 La política de scripts mantiene este orden. El Worker pasa en streaming cada página prerenderizada por `withNonce`, un `HTMLRewriter` que añade el nonce de la respuesta al `<script type="module">` de entrada y a su sugerencia y no cambia nada más, de modo que la sugerencia del head sigue iniciando la descarga con prioridad baja y el módulo sigue ejecutándose cuando el parser llega al final del body. La reescritura se hace en streaming, así que no retiene ningún byte, pero como las respuestas HTML no llevan `ETag`, un navegador vuelve a descargar una página en lugar de revalidarla.
 
 `robots.txt` y `llms.txt` son archivos estáticos de `public/` que no pasan por el Worker (`"!/robots.txt", "!/llms.txt"` en `run_worker_first`). Lighthouse descarga ambos con un tiempo de espera de dos segundos, y una respuesta lenta del Worker hacía fallar sus auditorías de SEO y de preparación para agentes.
@@ -98,6 +100,10 @@ TanStack Router envuelve los outlets de ruta en límites de Suspense, y React hi
 - `MotionProvider` por encima de un outlet de ruta publica un contexto nuevo cuando terminan de cargarse sus funcionalidades de animación. En una entrada del blog, esa actualización llegaba mientras la página aún cargaba su contenido, React recurría al renderizado en el cliente y el diseño se desplazaba.
 
 Antes de añadir un proveedor a `__root.tsx` o a un layout, comprueba si su valor puede cambiar después de la hidratación. Si puede, móntalo junto a los componentes que lo leen, por debajo de todo `<Outlet />` de ruta. Las ubicaciones se enumeran en [Componentes y estilos](/docs/conventions/components).
+
+## Un widget costoso de hidratar tiene su propio límite [#a-widget-that-is-heavy-to-hydrate-gets-its-own-boundary]
+
+El configurador de la CLI de la página de inicio renderiza cuarenta botones de React Aria, cada uno con sus propios hooks de pulsación, hover y foco. Hidratados con el resto de la página, sus efectos convertían el commit que termina la hidratación de la página en una tarea de 70–100 ms con la limitación de escritorio de Lighthouse, que subía el Total Blocking Time de 101 a 147 ms. `CliSection` envuelve `CliConfigurator` en un límite `Suspense` que nunca suspende. React hidrata ese límite por separado, después del resto de la página, y lo confirma en su propio commit, así que la tarea larga desaparece y el Total Blocking Time queda en 100 ms, sin cambios en el First Contentful Paint ni en el Largest Contentful Paint. El propio configurador se hidrata unos 50 ms más tarde. Da un límite propio a otro widget solo cuando una comparación muestre la misma tarea larga.
 
 ## Los esqueletos se quedan en el script de entrada [#skeletons-stay-in-the-entry-script]
 

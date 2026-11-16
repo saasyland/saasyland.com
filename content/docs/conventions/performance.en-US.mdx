@@ -80,6 +80,8 @@ moduleEntries.has(hint) ? `<link rel="modulepreload" href="${hint}" fetchpriorit
 
 Removing the hints cut First Contentful Paint by about a third; keeping the entry hint at low priority cut mobile First Contentful Paint by another 375 ms. Never add preload hints back, for dependencies or for route chunks. The script fails the build when it finds no hint to strip or none to keep, so a change in the build output is caught rather than silently undoing this.
 
+TanStack Start now emits every hint with `fetchpriority="low"`, so the rule was measured again in November 2026 on the landing page, five interleaved runs per variant. Keeping all 156 hints let the browser fetch the page's chunks in one wave instead of eleven and hydrated the CLI configurator 250 ms sooner on desktop and 315 ms sooner on a throttled phone, but First Contentful Paint came 68 ms later on desktop and 77 ms later on mobile. The hints stay stripped.
+
 The script policy keeps this order. The Worker streams every prerendered page through `withNonce`, an `HTMLRewriter` that adds the response's nonce to the entry's `<script type="module">` and to its hint and changes nothing else, so the hint in the head still starts the download at low priority and the module still runs when the parser reaches the end of the body. The rewrite streams, so it holds back no byte, but HTML responses carry no `ETag`, so a browser downloads a page again instead of revalidating it.
 
 `robots.txt` and `llms.txt` are static files in `public/` that bypass the Worker (`"!/robots.txt", "!/llms.txt"` in `run_worker_first`). Lighthouse fetches both with a two-second timeout, and a slow Worker response failed its SEO and agent-readiness audits.
@@ -98,6 +100,10 @@ TanStack Router wraps route outlets in Suspense boundaries, and React hydrates t
 - `MotionProvider` above a route outlet publishes a new context when its animation features finish loading. On a blog post that update arrived while the page was still loading its content, React fell back to client rendering, and the layout shifted.
 
 Before adding a provider to `__root.tsx` or a layout, check whether its value can change after hydration. If it can, mount it next to the components that read it, below every route `<Outlet />`. The placements are listed in [Components and styling](/docs/conventions/components).
+
+## A widget that is heavy to hydrate gets its own boundary
+
+The CLI configurator on the landing page renders forty React Aria buttons, each with its own press, hover and focus hooks. Hydrated with the rest of the page, their effects made the commit that ends the page's hydration a 70–100 ms task under Lighthouse's desktop throttling, which raised Total Blocking Time from 101 to 147 ms. `CliSection` wraps `CliConfigurator` in a `Suspense` boundary that never suspends. React hydrates such a boundary on its own, after the rest of the page, and commits it separately, so the long task is gone and Total Blocking Time is 100 ms, with First Contentful Paint and Largest Contentful Paint unchanged. The configurator itself hydrates about 50 ms later. Give another widget a boundary of its own only when a comparison shows the same long task.
 
 ## Skeletons stay in the entry script
 

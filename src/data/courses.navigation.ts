@@ -27,5 +27,5 @@ export const COURSES_NAVIGATION = [
     status: FEATURE_STATUS.AVAILABLE,
     to: ROUTES.ADMIN_VIDEOS,
   },
-  { area: AREA, key: "courses", order: 10, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
+  { area: AREA, key: "courses", order: 20, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
 ] as const satisfies readonly NavigationEntry[]

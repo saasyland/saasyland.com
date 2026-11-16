@@ -9,8 +9,8 @@ const LIST_WIDTHS = ["w-full", "w-11/12", "w-4/5", "w-5/6"]
 const TOC_WIDTHS = ["w-20", "w-24", "w-28"]
 
 export const DocsPending = (): JSX.Element => (
-  <div aria-busy="true" className="flex min-h-dvh w-full">
-    <div className="sticky top-0 hidden h-dvh w-67 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
+  <div aria-busy="true" className="flex min-h-dvh w-full pt-header">
+    <div className="sticky top-header hidden h-[calc(100dvh-var(--spacing-header))] w-67 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
       <div className="flex flex-col gap-3 p-4 pb-2">
         <div className="flex h-7.5 items-center justify-between">
           <Skeleton className="h-lh w-20 scale-y-70 text-[0.9375rem]" />
@@ -75,7 +75,7 @@ export const DocsPending = (): JSX.Element => (
         </div>
       </div>
     </div>
-    <div className="sticky top-0 hidden h-dvh w-67 shrink-0 flex-col pt-12 pr-4 text-sm xl:flex">
+    <div className="sticky top-header hidden h-[calc(100dvh-var(--spacing-header))] w-67 shrink-0 flex-col pt-12 pr-4 text-sm xl:flex">
       <div className="flex items-center gap-2">
         <Skeleton className="size-4" />
         <Skeleton className="h-lh w-22 scale-y-70" />

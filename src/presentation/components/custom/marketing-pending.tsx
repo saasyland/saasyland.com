@@ -4,9 +4,9 @@ import { useRouterState } from "@tanstack/react-router"
 
 import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { SITE_CONTENT_ID } from "~/src/data/navigation.constants"
 import { PAGE_SKELETONS } from "~/src/data/skeletons"
 
-import { Navigation } from "~/src/presentation/components/custom/navigation"
 import { PageFrame } from "~/src/presentation/components/custom/page-frame"
 
 export const MarketingPending = (): JSX.Element => {
@@ -14,10 +14,11 @@ export const MarketingPending = (): JSX.Element => {
   const Page = PAGE_SKELETONS.get(pathname)
 
   return (
-    <div className="dark relative isolate min-h-svh bg-background text-foreground">
+    <>
       <PageFrame />
-      <Navigation />
-      <main className="relative z-10">{Page && <Page />}</main>
-    </div>
+      <main className="relative z-10" id={SITE_CONTENT_ID}>
+        {Page && <Page />}
+      </main>
+    </>
   )
 }

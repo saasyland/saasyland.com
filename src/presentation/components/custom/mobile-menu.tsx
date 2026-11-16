@@ -6,17 +6,11 @@ import { useTranslations } from "use-intl/react"
 
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
-import { NAVIGATION_SECTIONS } from "~/src/data/marketing"
-import { NAVIGATION_PAGES } from "~/src/data/navigation"
+import { HEADER_NAVIGATION } from "~/src/data/navigation"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 
-import { ROUTES } from "~/src/routes"
-
 const MENU_ID = "mobile-menu"
-
-const ROW_CLASSNAME =
-  "group flex items-center justify-between gap-6 py-4 text-[1.0625rem] font-medium tracking-tight text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground"
 
 export const MobileMenu = (): JSX.Element => {
   const [isOpen, setIsOpen] = useState(false)
@@ -47,7 +41,7 @@ export const MobileMenu = (): JSX.Element => {
   }, [isOpen])
 
   return (
-    <div className="xl:hidden">
+    <div className="lg:hidden">
       <Button
         aria-controls={MENU_ID}
         aria-expanded={isOpen}
@@ -64,21 +58,19 @@ export const MobileMenu = (): JSX.Element => {
       </Button>
       {isOpen && (
         <div
-          className="absolute inset-x-0 top-full h-[calc(100svh-4rem)] overflow-y-auto overscroll-contain border-t border-border bg-background transition-[opacity,transform] duration-300 ease-exp motion-reduce:transition-none starting:-translate-y-2 starting:opacity-0"
+          className="absolute inset-x-0 top-full h-[calc(100svh-var(--spacing-header))] overflow-y-auto overscroll-contain border-t border-border bg-background transition-[opacity,transform] duration-300 ease-exp motion-reduce:transition-none starting:-translate-y-2 starting:opacity-0"
           id={MENU_ID}
         >
           <ul className="mx-auto w-full max-w-7xl divide-y divide-border px-6 pb-10">
-            {NAVIGATION_SECTIONS.map((id) => (
-              <li key={id}>
-                <Link className={ROW_CLASSNAME} hash={id} onClick={close} to={ROUTES.HOME}>
-                  {t(`items.${id}`)}
-                </Link>
-              </li>
-            ))}
-            {NAVIGATION_PAGES.map((page) => (
-              <li key={page.key}>
-                <Link className={ROW_CLASSNAME} onClick={close} to={page.to}>
-                  {navigationLabel(page)}
+            {HEADER_NAVIGATION.map((entry) => (
+              <li key={entry.key}>
+                <Link
+                  {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
+                  className="group flex items-center justify-between gap-6 py-4 text-[1.0625rem] font-medium tracking-tight text-foreground transition-colors duration-200 ease-exp hover:text-muted-foreground"
+                  onClick={close}
+                  to={entry.to}
+                >
+                  {navigationLabel(entry)}
                   <ArrowUpRight
                     aria-hidden
                     className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-exp group-hover:translate-x-px group-hover:-translate-y-px"
@@ -87,11 +79,6 @@ export const MobileMenu = (): JSX.Element => {
                 </Link>
               </li>
             ))}
-            <li>
-              <Link className={ROW_CLASSNAME} onClick={close} to={ROUTES.SIGN_IN}>
-                {t("signIn")}
-              </Link>
-            </li>
           </ul>
         </div>
       )}

@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { Route as AuthRoute } from "~/src/routes/api/auth.$"
 
+import { createNonce } from "~/src/lib/content-security-policy"
+
 import { getRouter } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
@@ -38,7 +40,7 @@ describe("API route forwarding", () => {
       throw new TypeError("Missing auth method")
     }
     const result = await handler({
-      context: undefined,
+      context: { nonce: createNonce() },
       next: () => {
         throw new Error("Auth must return its own response")
       },

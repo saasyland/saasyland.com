@@ -8,6 +8,8 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 
 import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
 
+import { CHANGELOG_DIRECTORY, ENTRY_KEY, pullRequestOf } from "~/src/lib/changelog"
+
 import { readWranglerEnvironment } from "./wrangler-config"
 import { APP_DOMAIN } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
@@ -19,7 +21,8 @@ const REPOSITORY_DIR = join(import.meta.dirname, "..")
 const CONTENT_DIR = join(REPOSITORY_DIR, "content")
 const SOURCE_MDX_SUFFIX = `.${I18N.DEFAULT_LOCALE}.mdx`
 const SOURCE_META_SUFFIX = `.${I18N.DEFAULT_LOCALE}.json`
-const TRANSLATED_FIELDS = ["title", "description", "excerpt"]
+const TRANSLATED_FIELDS = ["title", "description", "excerpt", "unreleased"]
+const CHANGELOG_PREFIX = `${relative(CONTENT_DIR, join(REPOSITORY_DIR, CHANGELOG_DIRECTORY))}/`
 
 const CODE_BLOCK_PATTERN = /^(?<fence>`{3,}|~{3,})[^\n]*\n[\s\S]*?^\k<fence>\s*$/gmu
 const TRANSLATION_MARKER_PATTERN = /ZXQ\d+QXZ|<ph\d+|▁|\{"translation":/u
@@ -215,36 +218,40 @@ const codeValueProblems = (translation: Translation): string[] => {
   return [...quotedSourceProblems(translation), ...hostProblems(translation), ...(DOCS_PAGE_CHECKS[page]?.(translation) ?? [])]
 }
 
-const untranslatedProblems = ({ label, source, target }: Translation): string[] => {
-  const problems: string[] = []
+const untranslatedParagraphProblems = ({ label, source, target }: Translation): string[] => {
   const translatedParagraphs = new Set(proseParagraphs(target))
+  const untranslated = proseParagraphs(source).some((paragraph) => translatedParagraphs.has(paragraph))
 
-  if (proseParagraphs(source).some((paragraph) => translatedParagraphs.has(paragraph))) {
-    problems.push(`Untranslated English paragraph in ${label}`)
-  }
+  return untranslated ? [`Untranslated English paragraph in ${label}`] : []
+}
 
+const untranslatedFieldProblems = ({ label, source, target }: Translation): string[] => {
   const sourceMetadata = readFrontmatter(source)
   const metadata = readFrontmatter(target)
 
-  for (const field of TRANSLATED_FIELDS) {
+  return TRANSLATED_FIELDS.filter((field) => {
     const original = sourceMetadata[field]
 
-    if (typeof original === "string" && isEnglishProse(original) && metadata[field] === original) {
-      problems.push(`Untranslated ${field} in ${label}`)
-    }
-  }
+    return typeof original === "string" && isEnglishProse(original) && metadata[field] === original
+  }).map((field) => `Untranslated ${field} in ${label}`)
+}
 
-  return problems
+const titleProblems = ({ label, target }: Translation): string[] => {
+  const { title } = readFrontmatter(target)
+
+  return typeof title === "string" && title.trim().length > 0 ? [] : [`Missing title in ${label}`]
+}
+
+const entryKeyProblems = ({ label, locale }: Translation): string[] => {
+  const key = label.slice(CHANGELOG_PREFIX.length, -`.${locale}.mdx`.length)
+
+  return ENTRY_KEY.test(key) ? [] : [`${label} is named after neither a pull request number nor a full commit hash`]
 }
 
 export const mdxProblems = (translation: Translation): string[] => {
   const { label, locale, source, target } = translation
-  const problems: string[] = []
-  const metadata = readFrontmatter(target)
-
-  if (typeof metadata["title"] !== "string" || metadata["title"].trim().length === 0) {
-    problems.push(`Missing title in ${label}`)
-  }
+  const isChangelogEntry = label.startsWith(CHANGELOG_PREFIX)
+  const problems = isChangelogEntry ? entryKeyProblems(translation) : titleProblems(translation)
 
   if (JSON.stringify(codeBlocks(source)) !== JSON.stringify(codeBlocks(target))) {
     problems.push(`Changed code examples in ${label}`)
@@ -260,7 +267,9 @@ export const mdxProblems = (translation: Translation): string[] => {
     return problems
   }
 
-  return [...problems, ...structureProblems(translation), ...untranslatedProblems(translation)]
+  problems.push(...structureProblems(translation), ...untranslatedParagraphProblems(translation))
+
+  return isChangelogEntry ? problems : [...problems, ...untranslatedFieldProblems(translation)]
 }
 
 const metaProblems = ({ label, source, target }: Translation): string[] => {
@@ -297,8 +306,18 @@ export const pageProblems = (page: string): string[] => {
   return I18N.SUPPORTED_LOCALES.flatMap((locale) => translationProblems({ locale, source, sourcePath }))
 }
 
+export const pullRequestEntryProblems = (ref: string): string[] => {
+  const pullRequest = pullRequestOf(ref)
+
+  if (pullRequest === undefined || existsSync(join(REPOSITORY_DIR, CHANGELOG_DIRECTORY, `${pullRequest}${SOURCE_MDX_SUFFIX}`))) {
+    return []
+  }
+
+  return [`Pull request #${pullRequest} has no changelog entry: add ${CHANGELOG_DIRECTORY}/${pullRequest}.<locale>.mdx in every locale`]
+}
+
 if (import.meta.main) {
-  const problems = sourcePages().flatMap((page) => pageProblems(page))
+  const problems = [...sourcePages().flatMap((page) => pageProblems(page)), ...pullRequestEntryProblems(process.env["GITHUB_REF"] ?? "")]
 
   if (problems.length > 0) {
     console.error(problems.join("\n"))

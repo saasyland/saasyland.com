@@ -19,7 +19,7 @@ Run tests with `bun run test`, never `bun test`. `bun run db:reset:test` recreat
 
 ## Definition of done
 
-`bun run check`, `bun run test:coverage`, `bun run build:test` and `bun run test:e2e:pr`, in that order, all exit 0 on the branch you are about to push. A documentation-only change may skip the browser suite, not the build. Nothing else counts as done, including a summary that says it is.
+`bun run check`, `bun run test:coverage`, `bun run build:test` and `bun run test:e2e:pr`, in that order, all exit 0 on the branch you are about to push, and the pull request carries its changelog entry (rule 10). A documentation-only change may skip the browser suite, not the build. Nothing else counts as done, including a summary that says it is.
 
 ## Where code goes
 
@@ -27,7 +27,7 @@ Run tests with `bun run test`, never `bun test`. `bun run db:reset:test` recreat
 - `src/routes/`: route files that compose pages, with `NAMESPACE` or `NAMESPACES`, one `Promise.all` loader and a skeleton `pendingComponent`. Copy `src/routes/admin.courses.index.tsx`.
 - `src/presentation/components/custom/`: a file per component, named after it, in flat area folders; it may also export the companions that only make sense beside it (a compound part, an area's skeletons, a field family). Components read their own translations and data; controls are shadcn primitives or React Aria components, not hand-written elements.
 - `src/integrations/<vendor>/`: vendor configuration. `src/lib/`: utilities and server functions that own no table. `src/data/`: data several files share, and each area's paths, menu entries, dashboard statistics, page skeletons and permission statements in `<area>.routes.ts`, `<area>.navigation.ts`, `<area>.dashboard.ts`, `<area>.skeletons.ts` and `<area>.access.ts`, its namespaces in other areas' layouts in `<area>.namespaces.ts`, and its Worker handlers, root components, time zone, Vite plugins, deploy checks and live site checks in `<area>.worker.ts`, `<area>.root.ts`, `<area>.time-zone.ts`, `<area>.vite.ts`, `<area>.deploy.ts` and `<area>.live.ts`, and the purposes of the emails it sends in `<area>.email-purposes.ts`, joined by the `*.entries.ts` barrels, to which the core adds an empty list (`core.worker.ts`, `core.root.ts`) when only optional areas fill one; an area may define a list that other areas add to, such as course access (`<area>.course-access.ts`), the licence offer (`<area>.license-offer.ts`), the auth area's Better Auth plugins, emails and customer overview (`<area>.auth-plugins.ts`, `<area>.auth-emails.ts`, `<area>.app-overview.ts`) and the polar area's webhook events (`<area>.polar-events.ts`), and leaving the area out leaves out that list and its additions; the admin console and the customer workspace belong to the auth area; no file lists every area, and `src/server.ts`, `vite.config.ts`, `__root.tsx` and the deploy scripts name none.
-- `messages/<locale>/<namespace>.json` and `content/docs/**/<page>.<locale>.mdx`: every string and every docs page in every locale; an area labels its menu entries in `navigation.<area>.json` and its dashboard statistics in `dashboard.<area>.json`.
+- `messages/<locale>/<namespace>.json`, `content/docs/**/<page>.<locale>.mdx` and `content/changelog/<number>.<locale>.mdx`: every string, every docs page and every changelog entry in every locale; an area labels its menu entries in `navigation.<area>.json` and its dashboard statistics in `dashboard.<area>.json`.
 
 ## Rules without exceptions
 
@@ -40,7 +40,7 @@ Run tests with `bun run test`, never `bun test`. `bun run db:reset:test` recreat
 7. Forms follow the shadcn TanStack Form pattern; tables use the one `DataTable` with an `<entity>-columns.tsx` file.
 8. Every user-facing string in every locale; numbers shown on the site are measured (`REPOSITORY_FACTS`) or declared once in `src/data` (`TIER_PRICES`), and the docs print values the code defines with `<RepositoryFact>` and `<RepositoryTable>`; nothing is typed.
 9. Coverage stays at 100% for lines, statements, functions and branches; delete unreachable branches instead of stubbing them.
-10. A change updates the README, the docs in every locale, the changelog and the site copy it affects.
+10. A change updates the README, the docs in every locale and the site copy it affects, and its pull request adds its changelog entry: once the pull request has its number, write `content/changelog/<number>.<locale>.mdx` in every locale, a bulleted list without a date. The changelog dates each entry by the squash commit that brings it to `main`, and `bun run check` fails a pull request's CI run while its entry is missing.
 11. Commits are conventional (`fix(auth): keep the locale in verification links`), never `--no-verify`, and carry no `Co-Authored-By` trailer or any other AI attribution; the same goes for pull request descriptions. Do not type the emoji: the hook adds it from the type (`feat` ✨, `fix` 🐛, `docs` 📚, `refactor` 📦, `chore` ♻️, `test` 🚨, `perf` 🚀, `build` 🛠️, `ci` ⚙️, `style` 💎, `revert` 🗑️).
 12. Stay on the latest dependency versions: adapt the code, or carry an upstream bug as a `bun patch` and report it upstream. Never pin back.
 

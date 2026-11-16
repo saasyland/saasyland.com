@@ -5,7 +5,7 @@ import { LICENSE_STATUS, LICENSE_TIER, type LicenseTier } from "~/src/modules/li
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 
 import type { CourseAccessGrant } from "~/src/data/course-access"
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
 import { ROUTES } from "~/src/routes"
 

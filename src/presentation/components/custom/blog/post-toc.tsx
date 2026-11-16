@@ -5,7 +5,7 @@ import { useTranslations } from "use-intl/react"
 
 import { cn } from "~/src/lib/cn"
 
-const route = getRouteApi("/blog/$")
+const route = getRouteApi("/_site/_marketing/blog/$")
 
 const TOP_DEPTH = 2
 

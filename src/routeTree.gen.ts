@@ -9,20 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as LandingRouteImport } from './routes/_landing'
+import { Route as SiteRouteImport } from './routes/_site'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as BlogRouteImport } from './routes/blog'
-import { Route as CoursesRouteImport } from './routes/courses'
-import { Route as DocsRouteImport } from './routes/docs'
-import { Route as LandingIndexRouteImport } from './routes/_landing.index'
-import { Route as LandingAffiliatesRouteImport } from './routes/_landing.affiliates'
-import { Route as LandingLicenceRouteImport } from './routes/_landing.licence'
-import { Route as LandingPremiumRouteImport } from './routes/_landing.premium'
-import { Route as LandingPrivacyRouteImport } from './routes/_landing.privacy'
-import { Route as LandingRefundsRouteImport } from './routes/_landing.refunds'
-import { Route as LandingTermsRouteImport } from './routes/_landing.terms'
+import { Route as SiteMarketingRouteImport } from './routes/_site._marketing'
+import { Route as SiteDocsRouteImport } from './routes/_site.docs'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminCoursesRouteImport } from './routes/admin.courses'
@@ -44,13 +36,17 @@ import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth.sign-up'
 import { Route as AuthTwoFactorRouteImport } from './routes/auth.two-factor'
 import { Route as AuthVerifyEmailRouteImport } from './routes/auth.verify-email'
-import { Route as BlogIndexRouteImport } from './routes/blog.index'
-import { Route as BlogSplatRouteImport } from './routes/blog.$'
-import { Route as CoursesIndexRouteImport } from './routes/courses.index'
-import { Route as DocsIndexRouteImport } from './routes/docs.index'
-import { Route as DocsSplatRouteImport } from './routes/docs.$'
-import { Route as LandingNewsletterConfirmRouteImport } from './routes/_landing.newsletter.confirm'
-import { Route as LandingNewsletterUnsubscribeRouteImport } from './routes/_landing.newsletter.unsubscribe'
+import { Route as SiteMarketingIndexRouteImport } from './routes/_site._marketing.index'
+import { Route as SiteMarketingAffiliatesRouteImport } from './routes/_site._marketing.affiliates'
+import { Route as SiteMarketingBlogRouteImport } from './routes/_site._marketing.blog'
+import { Route as SiteMarketingCoursesRouteImport } from './routes/_site._marketing.courses'
+import { Route as SiteMarketingLicenceRouteImport } from './routes/_site._marketing.licence'
+import { Route as SiteMarketingPremiumRouteImport } from './routes/_site._marketing.premium'
+import { Route as SiteMarketingPrivacyRouteImport } from './routes/_site._marketing.privacy'
+import { Route as SiteMarketingRefundsRouteImport } from './routes/_site._marketing.refunds'
+import { Route as SiteMarketingTermsRouteImport } from './routes/_site._marketing.terms'
+import { Route as SiteDocsIndexRouteImport } from './routes/_site.docs.index'
+import { Route as SiteDocsSplatRouteImport } from './routes/_site.docs.$'
 import { Route as AdminBlogIndexRouteImport } from './routes/admin.blog.index'
 import { Route as AdminBlogCreateRouteImport } from './routes/admin.blog.create'
 import { Route as AdminCoursesIndexRouteImport } from './routes/admin.courses.index'
@@ -64,15 +60,20 @@ import { Route as AdminUsersAllRouteImport } from './routes/admin.users.all'
 import { Route as AdminUsersInvitationsRouteImport } from './routes/admin.users.invitations'
 import { Route as AdminUsersRolesRouteImport } from './routes/admin.users.roles'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
-import { Route as CoursesCourseIndexRouteImport } from './routes/courses.$course.index'
-import { Route as CoursesCourseLessonRouteImport } from './routes/courses.$course.$lesson'
+import { Route as SiteMarketingBlogIndexRouteImport } from './routes/_site._marketing.blog.index'
+import { Route as SiteMarketingBlogSplatRouteImport } from './routes/_site._marketing.blog.$'
+import { Route as SiteMarketingCoursesIndexRouteImport } from './routes/_site._marketing.courses.index'
+import { Route as SiteMarketingNewsletterConfirmRouteImport } from './routes/_site._marketing.newsletter.confirm'
+import { Route as SiteMarketingNewsletterUnsubscribeRouteImport } from './routes/_site._marketing.newsletter.unsubscribe'
 import { Route as ApiCliV1ActivationsRouteImport } from './routes/api/cli.v1.activations'
 import { Route as ApiCliV1LicenseRouteImport } from './routes/api/cli.v1.license'
+import { Route as SiteMarketingCoursesCourseIndexRouteImport } from './routes/_site._marketing.courses.$course.index'
+import { Route as SiteMarketingCoursesCourseLessonRouteImport } from './routes/_site._marketing.courses.$course.$lesson'
 import { Route as ApiCliV1ActivationsActivationIdRouteImport } from './routes/api/cli.v1.activations.$activationId'
 import { Route as ApiCliV1ActivationsActivationIdBundlesRouteImport } from './routes/api/cli.v1.activations.$activationId.bundles'
 
-const LandingRoute = LandingRouteImport.update({
-  id: '/_landing',
+const SiteRoute = SiteRouteImport.update({
+  id: '/_site',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -90,55 +91,14 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BlogRoute = BlogRouteImport.update({
-  id: '/blog',
-  path: '/blog',
-  getParentRoute: () => rootRouteImport,
+const SiteMarketingRoute = SiteMarketingRouteImport.update({
+  id: '/_marketing',
+  getParentRoute: () => SiteRoute,
 } as any)
-const CoursesRoute = CoursesRouteImport.update({
-  id: '/courses',
-  path: '/courses',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocsRoute = DocsRouteImport.update({
+const SiteDocsRoute = SiteDocsRouteImport.update({
   id: '/docs',
   path: '/docs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LandingIndexRoute = LandingIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => LandingRoute,
-} as any)
-const LandingAffiliatesRoute = LandingAffiliatesRouteImport.update({
-  id: '/affiliates',
-  path: '/affiliates',
-  getParentRoute: () => LandingRoute,
-} as any)
-const LandingLicenceRoute = LandingLicenceRouteImport.update({
-  id: '/licence',
-  path: '/licence',
-  getParentRoute: () => LandingRoute,
-} as any)
-const LandingPremiumRoute = LandingPremiumRouteImport.update({
-  id: '/premium',
-  path: '/premium',
-  getParentRoute: () => LandingRoute,
-} as any)
-const LandingPrivacyRoute = LandingPrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => LandingRoute,
-} as any)
-const LandingRefundsRoute = LandingRefundsRouteImport.update({
-  id: '/refunds',
-  path: '/refunds',
-  getParentRoute: () => LandingRoute,
-} as any)
-const LandingTermsRoute = LandingTermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
-  getParentRoute: () => LandingRoute,
+  getParentRoute: () => SiteRoute,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
@@ -245,43 +205,61 @@ const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
   path: '/verify-email',
   getParentRoute: () => AuthRoute,
 } as any)
-const BlogIndexRoute = BlogIndexRouteImport.update({
+const SiteMarketingIndexRoute = SiteMarketingIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => BlogRoute,
+  getParentRoute: () => SiteMarketingRoute,
 } as any)
-const BlogSplatRoute = BlogSplatRouteImport.update({
+const SiteMarketingAffiliatesRoute = SiteMarketingAffiliatesRouteImport.update({
+  id: '/affiliates',
+  path: '/affiliates',
+  getParentRoute: () => SiteMarketingRoute,
+} as any)
+const SiteMarketingBlogRoute = SiteMarketingBlogRouteImport.update({
+  id: '/blog',
+  path: '/blog',
+  getParentRoute: () => SiteMarketingRoute,
+} as any)
+const SiteMarketingCoursesRoute = SiteMarketingCoursesRouteImport.update({
+  id: '/courses',
+  path: '/courses',
+  getParentRoute: () => SiteMarketingRoute,
+} as any)
+const SiteMarketingLicenceRoute = SiteMarketingLicenceRouteImport.update({
+  id: '/licence',
+  path: '/licence',
+  getParentRoute: () => SiteMarketingRoute,
+} as any)
+const SiteMarketingPremiumRoute = SiteMarketingPremiumRouteImport.update({
+  id: '/premium',
+  path: '/premium',
+  getParentRoute: () => SiteMarketingRoute,
+} as any)
+const SiteMarketingPrivacyRoute = SiteMarketingPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => SiteMarketingRoute,
+} as any)
+const SiteMarketingRefundsRoute = SiteMarketingRefundsRouteImport.update({
+  id: '/refunds',
+  path: '/refunds',
+  getParentRoute: () => SiteMarketingRoute,
+} as any)
+const SiteMarketingTermsRoute = SiteMarketingTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => SiteMarketingRoute,
+} as any)
+const SiteDocsIndexRoute = SiteDocsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SiteDocsRoute,
+} as any)
+const SiteDocsSplatRoute = SiteDocsSplatRouteImport.update({
   id: '/$',
   path: '/$',
-  getParentRoute: () => BlogRoute,
+  getParentRoute: () => SiteDocsRoute,
 } as any)
-const CoursesIndexRoute = CoursesIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => CoursesRoute,
-} as any)
-const DocsIndexRoute = DocsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => DocsRoute,
-} as any)
-const DocsSplatRoute = DocsSplatRouteImport.update({
-  id: '/$',
-  path: '/$',
-  getParentRoute: () => DocsRoute,
-} as any)
-const LandingNewsletterConfirmRoute =
-  LandingNewsletterConfirmRouteImport.update({
-    id: '/newsletter/confirm',
-    path: '/newsletter/confirm',
-    getParentRoute: () => LandingRoute,
-  } as any)
-const LandingNewsletterUnsubscribeRoute =
-  LandingNewsletterUnsubscribeRouteImport.update({
-    id: '/newsletter/unsubscribe',
-    path: '/newsletter/unsubscribe',
-    getParentRoute: () => LandingRoute,
-  } as any)
 const AdminBlogIndexRoute = AdminBlogIndexRouteImport.update({
   id: '/blog/',
   path: '/blog/',
@@ -347,16 +325,34 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CoursesCourseIndexRoute = CoursesCourseIndexRouteImport.update({
-  id: '/$course/',
-  path: '/$course/',
-  getParentRoute: () => CoursesRoute,
+const SiteMarketingBlogIndexRoute = SiteMarketingBlogIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SiteMarketingBlogRoute,
 } as any)
-const CoursesCourseLessonRoute = CoursesCourseLessonRouteImport.update({
-  id: '/$course/$lesson',
-  path: '/$course/$lesson',
-  getParentRoute: () => CoursesRoute,
+const SiteMarketingBlogSplatRoute = SiteMarketingBlogSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => SiteMarketingBlogRoute,
 } as any)
+const SiteMarketingCoursesIndexRoute =
+  SiteMarketingCoursesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => SiteMarketingCoursesRoute,
+  } as any)
+const SiteMarketingNewsletterConfirmRoute =
+  SiteMarketingNewsletterConfirmRouteImport.update({
+    id: '/newsletter/confirm',
+    path: '/newsletter/confirm',
+    getParentRoute: () => SiteMarketingRoute,
+  } as any)
+const SiteMarketingNewsletterUnsubscribeRoute =
+  SiteMarketingNewsletterUnsubscribeRouteImport.update({
+    id: '/newsletter/unsubscribe',
+    path: '/newsletter/unsubscribe',
+    getParentRoute: () => SiteMarketingRoute,
+  } as any)
 const ApiCliV1ActivationsRoute = ApiCliV1ActivationsRouteImport.update({
   id: '/api/cli/v1/activations',
   path: '/api/cli/v1/activations',
@@ -367,6 +363,18 @@ const ApiCliV1LicenseRoute = ApiCliV1LicenseRouteImport.update({
   path: '/api/cli/v1/license',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SiteMarketingCoursesCourseIndexRoute =
+  SiteMarketingCoursesCourseIndexRouteImport.update({
+    id: '/$course/',
+    path: '/$course/',
+    getParentRoute: () => SiteMarketingCoursesRoute,
+  } as any)
+const SiteMarketingCoursesCourseLessonRoute =
+  SiteMarketingCoursesCourseLessonRouteImport.update({
+    id: '/$course/$lesson',
+    path: '/$course/$lesson',
+    getParentRoute: () => SiteMarketingCoursesRoute,
+  } as any)
 const ApiCliV1ActivationsActivationIdRoute =
   ApiCliV1ActivationsActivationIdRouteImport.update({
     id: '/$activationId',
@@ -381,19 +389,11 @@ const ApiCliV1ActivationsActivationIdBundlesRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof LandingIndexRoute
+  '/': typeof SiteMarketingIndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
-  '/blog': typeof BlogRouteWithChildren
-  '/courses': typeof CoursesRouteWithChildren
-  '/docs': typeof DocsRouteWithChildren
-  '/affiliates': typeof LandingAffiliatesRoute
-  '/licence': typeof LandingLicenceRoute
-  '/premium': typeof LandingPremiumRoute
-  '/privacy': typeof LandingPrivacyRoute
-  '/refunds': typeof LandingRefundsRoute
-  '/terms': typeof LandingTermsRoute
+  '/docs': typeof SiteDocsRouteWithChildren
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/courses': typeof AdminCoursesRouteWithChildren
   '/admin/landing-page': typeof AdminLandingPageRoute
@@ -412,16 +412,18 @@ export interface FileRoutesByFullPath {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
   '/auth/verify-email': typeof AuthVerifyEmailRoute
-  '/blog/$': typeof BlogSplatRoute
-  '/docs/$': typeof DocsSplatRoute
   '/admin/': typeof AdminIndexRoute
   '/api/': typeof ApiIndexRoute
   '/app/': typeof AppIndexRoute
-  '/blog/': typeof BlogIndexRoute
-  '/courses/': typeof CoursesIndexRoute
-  '/docs/': typeof DocsIndexRoute
-  '/newsletter/confirm': typeof LandingNewsletterConfirmRoute
-  '/newsletter/unsubscribe': typeof LandingNewsletterUnsubscribeRoute
+  '/affiliates': typeof SiteMarketingAffiliatesRoute
+  '/blog': typeof SiteMarketingBlogRouteWithChildren
+  '/courses': typeof SiteMarketingCoursesRouteWithChildren
+  '/licence': typeof SiteMarketingLicenceRoute
+  '/premium': typeof SiteMarketingPremiumRoute
+  '/privacy': typeof SiteMarketingPrivacyRoute
+  '/refunds': typeof SiteMarketingRefundsRoute
+  '/terms': typeof SiteMarketingTermsRoute
+  '/docs/$': typeof SiteDocsSplatRoute
   '/admin/blog/create': typeof AdminBlogCreateRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
@@ -431,25 +433,26 @@ export interface FileRoutesByFullPath {
   '/admin/users/invitations': typeof AdminUsersInvitationsRoute
   '/admin/users/roles': typeof AdminUsersRolesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/courses/$course/$lesson': typeof CoursesCourseLessonRoute
+  '/docs/': typeof SiteDocsIndexRoute
   '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/courses/': typeof AdminCoursesIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
-  '/courses/$course/': typeof CoursesCourseIndexRoute
+  '/blog/$': typeof SiteMarketingBlogSplatRoute
+  '/newsletter/confirm': typeof SiteMarketingNewsletterConfirmRoute
+  '/newsletter/unsubscribe': typeof SiteMarketingNewsletterUnsubscribeRoute
   '/api/cli/v1/activations': typeof ApiCliV1ActivationsRouteWithChildren
   '/api/cli/v1/license': typeof ApiCliV1LicenseRoute
+  '/blog/': typeof SiteMarketingBlogIndexRoute
+  '/courses/': typeof SiteMarketingCoursesIndexRoute
+  '/courses/$course/$lesson': typeof SiteMarketingCoursesCourseLessonRoute
   '/api/cli/v1/activations/$activationId': typeof ApiCliV1ActivationsActivationIdRouteWithChildren
+  '/courses/$course/': typeof SiteMarketingCoursesCourseIndexRoute
   '/api/cli/v1/activations/$activationId/bundles': typeof ApiCliV1ActivationsActivationIdBundlesRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof SiteMarketingIndexRoute
   '/auth': typeof AuthRouteWithChildren
-  '/affiliates': typeof LandingAffiliatesRoute
-  '/licence': typeof LandingLicenceRoute
-  '/premium': typeof LandingPremiumRoute
-  '/privacy': typeof LandingPrivacyRoute
-  '/refunds': typeof LandingRefundsRoute
-  '/terms': typeof LandingTermsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/landing-page': typeof AdminLandingPageRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -466,17 +469,16 @@ export interface FileRoutesByTo {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
   '/auth/verify-email': typeof AuthVerifyEmailRoute
-  '/blog/$': typeof BlogSplatRoute
-  '/docs/$': typeof DocsSplatRoute
-  '/': typeof LandingIndexRoute
   '/admin': typeof AdminIndexRoute
   '/api': typeof ApiIndexRoute
   '/app': typeof AppIndexRoute
-  '/blog': typeof BlogIndexRoute
-  '/courses': typeof CoursesIndexRoute
-  '/docs': typeof DocsIndexRoute
-  '/newsletter/confirm': typeof LandingNewsletterConfirmRoute
-  '/newsletter/unsubscribe': typeof LandingNewsletterUnsubscribeRoute
+  '/affiliates': typeof SiteMarketingAffiliatesRoute
+  '/licence': typeof SiteMarketingLicenceRoute
+  '/premium': typeof SiteMarketingPremiumRoute
+  '/privacy': typeof SiteMarketingPrivacyRoute
+  '/refunds': typeof SiteMarketingRefundsRoute
+  '/terms': typeof SiteMarketingTermsRoute
+  '/docs/$': typeof SiteDocsSplatRoute
   '/admin/blog/create': typeof AdminBlogCreateRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
@@ -486,32 +488,31 @@ export interface FileRoutesByTo {
   '/admin/users/invitations': typeof AdminUsersInvitationsRoute
   '/admin/users/roles': typeof AdminUsersRolesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/courses/$course/$lesson': typeof CoursesCourseLessonRoute
+  '/docs': typeof SiteDocsIndexRoute
   '/admin/blog': typeof AdminBlogIndexRoute
   '/admin/courses': typeof AdminCoursesIndexRoute
   '/admin/products': typeof AdminProductsIndexRoute
   '/admin/users': typeof AdminUsersIndexRoute
-  '/courses/$course': typeof CoursesCourseIndexRoute
+  '/blog/$': typeof SiteMarketingBlogSplatRoute
+  '/newsletter/confirm': typeof SiteMarketingNewsletterConfirmRoute
+  '/newsletter/unsubscribe': typeof SiteMarketingNewsletterUnsubscribeRoute
   '/api/cli/v1/activations': typeof ApiCliV1ActivationsRouteWithChildren
   '/api/cli/v1/license': typeof ApiCliV1LicenseRoute
+  '/blog': typeof SiteMarketingBlogIndexRoute
+  '/courses': typeof SiteMarketingCoursesIndexRoute
+  '/courses/$course/$lesson': typeof SiteMarketingCoursesCourseLessonRoute
   '/api/cli/v1/activations/$activationId': typeof ApiCliV1ActivationsActivationIdRouteWithChildren
+  '/courses/$course': typeof SiteMarketingCoursesCourseIndexRoute
   '/api/cli/v1/activations/$activationId/bundles': typeof ApiCliV1ActivationsActivationIdBundlesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_landing': typeof LandingRouteWithChildren
+  '/_site': typeof SiteRouteWithChildren
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
-  '/blog': typeof BlogRouteWithChildren
-  '/courses': typeof CoursesRouteWithChildren
-  '/docs': typeof DocsRouteWithChildren
-  '/_landing/affiliates': typeof LandingAffiliatesRoute
-  '/_landing/licence': typeof LandingLicenceRoute
-  '/_landing/premium': typeof LandingPremiumRoute
-  '/_landing/privacy': typeof LandingPrivacyRoute
-  '/_landing/refunds': typeof LandingRefundsRoute
-  '/_landing/terms': typeof LandingTermsRoute
+  '/_site/_marketing': typeof SiteMarketingRouteWithChildren
+  '/_site/docs': typeof SiteDocsRouteWithChildren
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/courses': typeof AdminCoursesRouteWithChildren
   '/admin/landing-page': typeof AdminLandingPageRoute
@@ -530,17 +531,18 @@ export interface FileRoutesById {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
   '/auth/verify-email': typeof AuthVerifyEmailRoute
-  '/blog/$': typeof BlogSplatRoute
-  '/docs/$': typeof DocsSplatRoute
-  '/_landing/': typeof LandingIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/api/': typeof ApiIndexRoute
   '/app/': typeof AppIndexRoute
-  '/blog/': typeof BlogIndexRoute
-  '/courses/': typeof CoursesIndexRoute
-  '/docs/': typeof DocsIndexRoute
-  '/_landing/newsletter/confirm': typeof LandingNewsletterConfirmRoute
-  '/_landing/newsletter/unsubscribe': typeof LandingNewsletterUnsubscribeRoute
+  '/_site/_marketing/affiliates': typeof SiteMarketingAffiliatesRoute
+  '/_site/_marketing/blog': typeof SiteMarketingBlogRouteWithChildren
+  '/_site/_marketing/courses': typeof SiteMarketingCoursesRouteWithChildren
+  '/_site/_marketing/licence': typeof SiteMarketingLicenceRoute
+  '/_site/_marketing/premium': typeof SiteMarketingPremiumRoute
+  '/_site/_marketing/privacy': typeof SiteMarketingPrivacyRoute
+  '/_site/_marketing/refunds': typeof SiteMarketingRefundsRoute
+  '/_site/_marketing/terms': typeof SiteMarketingTermsRoute
+  '/_site/docs/$': typeof SiteDocsSplatRoute
   '/admin/blog/create': typeof AdminBlogCreateRoute
   '/admin/courses/$courseId': typeof AdminCoursesCourseIdRoute
   '/admin/courses/create': typeof AdminCoursesCreateRoute
@@ -550,15 +552,22 @@ export interface FileRoutesById {
   '/admin/users/invitations': typeof AdminUsersInvitationsRoute
   '/admin/users/roles': typeof AdminUsersRolesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/courses/$course/$lesson': typeof CoursesCourseLessonRoute
+  '/_site/_marketing/': typeof SiteMarketingIndexRoute
+  '/_site/docs/': typeof SiteDocsIndexRoute
   '/admin/blog/': typeof AdminBlogIndexRoute
   '/admin/courses/': typeof AdminCoursesIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/users/': typeof AdminUsersIndexRoute
-  '/courses/$course/': typeof CoursesCourseIndexRoute
+  '/_site/_marketing/blog/$': typeof SiteMarketingBlogSplatRoute
+  '/_site/_marketing/newsletter/confirm': typeof SiteMarketingNewsletterConfirmRoute
+  '/_site/_marketing/newsletter/unsubscribe': typeof SiteMarketingNewsletterUnsubscribeRoute
   '/api/cli/v1/activations': typeof ApiCliV1ActivationsRouteWithChildren
   '/api/cli/v1/license': typeof ApiCliV1LicenseRoute
+  '/_site/_marketing/blog/': typeof SiteMarketingBlogIndexRoute
+  '/_site/_marketing/courses/': typeof SiteMarketingCoursesIndexRoute
+  '/_site/_marketing/courses/$course/$lesson': typeof SiteMarketingCoursesCourseLessonRoute
   '/api/cli/v1/activations/$activationId': typeof ApiCliV1ActivationsActivationIdRouteWithChildren
+  '/_site/_marketing/courses/$course/': typeof SiteMarketingCoursesCourseIndexRoute
   '/api/cli/v1/activations/$activationId/bundles': typeof ApiCliV1ActivationsActivationIdBundlesRoute
 }
 export interface FileRouteTypes {
@@ -568,15 +577,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/auth'
-    | '/blog'
-    | '/courses'
     | '/docs'
-    | '/affiliates'
-    | '/licence'
-    | '/premium'
-    | '/privacy'
-    | '/refunds'
-    | '/terms'
     | '/admin/analytics'
     | '/admin/courses'
     | '/admin/landing-page'
@@ -595,16 +596,18 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/auth/two-factor'
     | '/auth/verify-email'
-    | '/blog/$'
-    | '/docs/$'
     | '/admin/'
     | '/api/'
     | '/app/'
-    | '/blog/'
-    | '/courses/'
-    | '/docs/'
-    | '/newsletter/confirm'
-    | '/newsletter/unsubscribe'
+    | '/affiliates'
+    | '/blog'
+    | '/courses'
+    | '/licence'
+    | '/premium'
+    | '/privacy'
+    | '/refunds'
+    | '/terms'
+    | '/docs/$'
     | '/admin/blog/create'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
@@ -614,25 +617,26 @@ export interface FileRouteTypes {
     | '/admin/users/invitations'
     | '/admin/users/roles'
     | '/api/auth/$'
-    | '/courses/$course/$lesson'
+    | '/docs/'
     | '/admin/blog/'
     | '/admin/courses/'
     | '/admin/products/'
     | '/admin/users/'
-    | '/courses/$course/'
+    | '/blog/$'
+    | '/newsletter/confirm'
+    | '/newsletter/unsubscribe'
     | '/api/cli/v1/activations'
     | '/api/cli/v1/license'
+    | '/blog/'
+    | '/courses/'
+    | '/courses/$course/$lesson'
     | '/api/cli/v1/activations/$activationId'
+    | '/courses/$course/'
     | '/api/cli/v1/activations/$activationId/bundles'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/auth'
-    | '/affiliates'
-    | '/licence'
-    | '/premium'
-    | '/privacy'
-    | '/refunds'
-    | '/terms'
     | '/admin/analytics'
     | '/admin/landing-page'
     | '/admin/payments'
@@ -649,17 +653,16 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/auth/two-factor'
     | '/auth/verify-email'
-    | '/blog/$'
-    | '/docs/$'
-    | '/'
     | '/admin'
     | '/api'
     | '/app'
-    | '/blog'
-    | '/courses'
-    | '/docs'
-    | '/newsletter/confirm'
-    | '/newsletter/unsubscribe'
+    | '/affiliates'
+    | '/licence'
+    | '/premium'
+    | '/privacy'
+    | '/refunds'
+    | '/terms'
+    | '/docs/$'
     | '/admin/blog/create'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
@@ -669,31 +672,30 @@ export interface FileRouteTypes {
     | '/admin/users/invitations'
     | '/admin/users/roles'
     | '/api/auth/$'
-    | '/courses/$course/$lesson'
+    | '/docs'
     | '/admin/blog'
     | '/admin/courses'
     | '/admin/products'
     | '/admin/users'
-    | '/courses/$course'
+    | '/blog/$'
+    | '/newsletter/confirm'
+    | '/newsletter/unsubscribe'
     | '/api/cli/v1/activations'
     | '/api/cli/v1/license'
+    | '/blog'
+    | '/courses'
+    | '/courses/$course/$lesson'
     | '/api/cli/v1/activations/$activationId'
+    | '/courses/$course'
     | '/api/cli/v1/activations/$activationId/bundles'
   id:
     | '__root__'
-    | '/_landing'
+    | '/_site'
     | '/admin'
     | '/app'
     | '/auth'
-    | '/blog'
-    | '/courses'
-    | '/docs'
-    | '/_landing/affiliates'
-    | '/_landing/licence'
-    | '/_landing/premium'
-    | '/_landing/privacy'
-    | '/_landing/refunds'
-    | '/_landing/terms'
+    | '/_site/_marketing'
+    | '/_site/docs'
     | '/admin/analytics'
     | '/admin/courses'
     | '/admin/landing-page'
@@ -712,17 +714,18 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/auth/two-factor'
     | '/auth/verify-email'
-    | '/blog/$'
-    | '/docs/$'
-    | '/_landing/'
     | '/admin/'
     | '/api/'
     | '/app/'
-    | '/blog/'
-    | '/courses/'
-    | '/docs/'
-    | '/_landing/newsletter/confirm'
-    | '/_landing/newsletter/unsubscribe'
+    | '/_site/_marketing/affiliates'
+    | '/_site/_marketing/blog'
+    | '/_site/_marketing/courses'
+    | '/_site/_marketing/licence'
+    | '/_site/_marketing/premium'
+    | '/_site/_marketing/privacy'
+    | '/_site/_marketing/refunds'
+    | '/_site/_marketing/terms'
+    | '/_site/docs/$'
     | '/admin/blog/create'
     | '/admin/courses/$courseId'
     | '/admin/courses/create'
@@ -732,26 +735,30 @@ export interface FileRouteTypes {
     | '/admin/users/invitations'
     | '/admin/users/roles'
     | '/api/auth/$'
-    | '/courses/$course/$lesson'
+    | '/_site/_marketing/'
+    | '/_site/docs/'
     | '/admin/blog/'
     | '/admin/courses/'
     | '/admin/products/'
     | '/admin/users/'
-    | '/courses/$course/'
+    | '/_site/_marketing/blog/$'
+    | '/_site/_marketing/newsletter/confirm'
+    | '/_site/_marketing/newsletter/unsubscribe'
     | '/api/cli/v1/activations'
     | '/api/cli/v1/license'
+    | '/_site/_marketing/blog/'
+    | '/_site/_marketing/courses/'
+    | '/_site/_marketing/courses/$course/$lesson'
     | '/api/cli/v1/activations/$activationId'
+    | '/_site/_marketing/courses/$course/'
     | '/api/cli/v1/activations/$activationId/bundles'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  LandingRoute: typeof LandingRouteWithChildren
+  SiteRoute: typeof SiteRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
-  BlogRoute: typeof BlogRouteWithChildren
-  CoursesRoute: typeof CoursesRouteWithChildren
-  DocsRoute: typeof DocsRouteWithChildren
   ApiSearchRoute: typeof ApiSearchRoute
   ApiIndexRoute: typeof ApiIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -761,11 +768,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_landing': {
-      id: '/_landing'
+    '/_site': {
+      id: '/_site'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof LandingRouteImport
+      preLoaderRoute: typeof SiteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -789,75 +796,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/blog': {
-      id: '/blog'
-      path: '/blog'
-      fullPath: '/blog'
-      preLoaderRoute: typeof BlogRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_site/_marketing': {
+      id: '/_site/_marketing'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof SiteMarketingRouteImport
+      parentRoute: typeof SiteRoute
     }
-    '/courses': {
-      id: '/courses'
-      path: '/courses'
-      fullPath: '/courses'
-      preLoaderRoute: typeof CoursesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/docs': {
-      id: '/docs'
+    '/_site/docs': {
+      id: '/_site/docs'
       path: '/docs'
       fullPath: '/docs'
-      preLoaderRoute: typeof DocsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_landing/': {
-      id: '/_landing/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof LandingIndexRouteImport
-      parentRoute: typeof LandingRoute
-    }
-    '/_landing/affiliates': {
-      id: '/_landing/affiliates'
-      path: '/affiliates'
-      fullPath: '/affiliates'
-      preLoaderRoute: typeof LandingAffiliatesRouteImport
-      parentRoute: typeof LandingRoute
-    }
-    '/_landing/licence': {
-      id: '/_landing/licence'
-      path: '/licence'
-      fullPath: '/licence'
-      preLoaderRoute: typeof LandingLicenceRouteImport
-      parentRoute: typeof LandingRoute
-    }
-    '/_landing/premium': {
-      id: '/_landing/premium'
-      path: '/premium'
-      fullPath: '/premium'
-      preLoaderRoute: typeof LandingPremiumRouteImport
-      parentRoute: typeof LandingRoute
-    }
-    '/_landing/privacy': {
-      id: '/_landing/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof LandingPrivacyRouteImport
-      parentRoute: typeof LandingRoute
-    }
-    '/_landing/refunds': {
-      id: '/_landing/refunds'
-      path: '/refunds'
-      fullPath: '/refunds'
-      preLoaderRoute: typeof LandingRefundsRouteImport
-      parentRoute: typeof LandingRoute
-    }
-    '/_landing/terms': {
-      id: '/_landing/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof LandingTermsRouteImport
-      parentRoute: typeof LandingRoute
+      preLoaderRoute: typeof SiteDocsRouteImport
+      parentRoute: typeof SiteRoute
     }
     '/admin/': {
       id: '/admin/'
@@ -1006,54 +957,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthVerifyEmailRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/blog/': {
-      id: '/blog/'
+    '/_site/_marketing/': {
+      id: '/_site/_marketing/'
       path: '/'
-      fullPath: '/blog/'
-      preLoaderRoute: typeof BlogIndexRouteImport
-      parentRoute: typeof BlogRoute
+      fullPath: '/'
+      preLoaderRoute: typeof SiteMarketingIndexRouteImport
+      parentRoute: typeof SiteMarketingRoute
     }
-    '/blog/$': {
-      id: '/blog/$'
-      path: '/$'
-      fullPath: '/blog/$'
-      preLoaderRoute: typeof BlogSplatRouteImport
-      parentRoute: typeof BlogRoute
+    '/_site/_marketing/affiliates': {
+      id: '/_site/_marketing/affiliates'
+      path: '/affiliates'
+      fullPath: '/affiliates'
+      preLoaderRoute: typeof SiteMarketingAffiliatesRouteImport
+      parentRoute: typeof SiteMarketingRoute
     }
-    '/courses/': {
-      id: '/courses/'
-      path: '/'
-      fullPath: '/courses/'
-      preLoaderRoute: typeof CoursesIndexRouteImport
-      parentRoute: typeof CoursesRoute
+    '/_site/_marketing/blog': {
+      id: '/_site/_marketing/blog'
+      path: '/blog'
+      fullPath: '/blog'
+      preLoaderRoute: typeof SiteMarketingBlogRouteImport
+      parentRoute: typeof SiteMarketingRoute
     }
-    '/docs/': {
-      id: '/docs/'
+    '/_site/_marketing/courses': {
+      id: '/_site/_marketing/courses'
+      path: '/courses'
+      fullPath: '/courses'
+      preLoaderRoute: typeof SiteMarketingCoursesRouteImport
+      parentRoute: typeof SiteMarketingRoute
+    }
+    '/_site/_marketing/licence': {
+      id: '/_site/_marketing/licence'
+      path: '/licence'
+      fullPath: '/licence'
+      preLoaderRoute: typeof SiteMarketingLicenceRouteImport
+      parentRoute: typeof SiteMarketingRoute
+    }
+    '/_site/_marketing/premium': {
+      id: '/_site/_marketing/premium'
+      path: '/premium'
+      fullPath: '/premium'
+      preLoaderRoute: typeof SiteMarketingPremiumRouteImport
+      parentRoute: typeof SiteMarketingRoute
+    }
+    '/_site/_marketing/privacy': {
+      id: '/_site/_marketing/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof SiteMarketingPrivacyRouteImport
+      parentRoute: typeof SiteMarketingRoute
+    }
+    '/_site/_marketing/refunds': {
+      id: '/_site/_marketing/refunds'
+      path: '/refunds'
+      fullPath: '/refunds'
+      preLoaderRoute: typeof SiteMarketingRefundsRouteImport
+      parentRoute: typeof SiteMarketingRoute
+    }
+    '/_site/_marketing/terms': {
+      id: '/_site/_marketing/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof SiteMarketingTermsRouteImport
+      parentRoute: typeof SiteMarketingRoute
+    }
+    '/_site/docs/': {
+      id: '/_site/docs/'
       path: '/'
       fullPath: '/docs/'
-      preLoaderRoute: typeof DocsIndexRouteImport
-      parentRoute: typeof DocsRoute
+      preLoaderRoute: typeof SiteDocsIndexRouteImport
+      parentRoute: typeof SiteDocsRoute
     }
-    '/docs/$': {
-      id: '/docs/$'
+    '/_site/docs/$': {
+      id: '/_site/docs/$'
       path: '/$'
       fullPath: '/docs/$'
-      preLoaderRoute: typeof DocsSplatRouteImport
-      parentRoute: typeof DocsRoute
-    }
-    '/_landing/newsletter/confirm': {
-      id: '/_landing/newsletter/confirm'
-      path: '/newsletter/confirm'
-      fullPath: '/newsletter/confirm'
-      preLoaderRoute: typeof LandingNewsletterConfirmRouteImport
-      parentRoute: typeof LandingRoute
-    }
-    '/_landing/newsletter/unsubscribe': {
-      id: '/_landing/newsletter/unsubscribe'
-      path: '/newsletter/unsubscribe'
-      fullPath: '/newsletter/unsubscribe'
-      preLoaderRoute: typeof LandingNewsletterUnsubscribeRouteImport
-      parentRoute: typeof LandingRoute
+      preLoaderRoute: typeof SiteDocsSplatRouteImport
+      parentRoute: typeof SiteDocsRoute
     }
     '/admin/blog/': {
       id: '/admin/blog/'
@@ -1146,19 +1125,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/courses/$course/': {
-      id: '/courses/$course/'
-      path: '/$course'
-      fullPath: '/courses/$course/'
-      preLoaderRoute: typeof CoursesCourseIndexRouteImport
-      parentRoute: typeof CoursesRoute
+    '/_site/_marketing/blog/': {
+      id: '/_site/_marketing/blog/'
+      path: '/'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof SiteMarketingBlogIndexRouteImport
+      parentRoute: typeof SiteMarketingBlogRoute
     }
-    '/courses/$course/$lesson': {
-      id: '/courses/$course/$lesson'
-      path: '/$course/$lesson'
-      fullPath: '/courses/$course/$lesson'
-      preLoaderRoute: typeof CoursesCourseLessonRouteImport
-      parentRoute: typeof CoursesRoute
+    '/_site/_marketing/blog/$': {
+      id: '/_site/_marketing/blog/$'
+      path: '/$'
+      fullPath: '/blog/$'
+      preLoaderRoute: typeof SiteMarketingBlogSplatRouteImport
+      parentRoute: typeof SiteMarketingBlogRoute
+    }
+    '/_site/_marketing/courses/': {
+      id: '/_site/_marketing/courses/'
+      path: '/'
+      fullPath: '/courses/'
+      preLoaderRoute: typeof SiteMarketingCoursesIndexRouteImport
+      parentRoute: typeof SiteMarketingCoursesRoute
+    }
+    '/_site/_marketing/newsletter/confirm': {
+      id: '/_site/_marketing/newsletter/confirm'
+      path: '/newsletter/confirm'
+      fullPath: '/newsletter/confirm'
+      preLoaderRoute: typeof SiteMarketingNewsletterConfirmRouteImport
+      parentRoute: typeof SiteMarketingRoute
+    }
+    '/_site/_marketing/newsletter/unsubscribe': {
+      id: '/_site/_marketing/newsletter/unsubscribe'
+      path: '/newsletter/unsubscribe'
+      fullPath: '/newsletter/unsubscribe'
+      preLoaderRoute: typeof SiteMarketingNewsletterUnsubscribeRouteImport
+      parentRoute: typeof SiteMarketingRoute
     }
     '/api/cli/v1/activations': {
       id: '/api/cli/v1/activations'
@@ -1173,6 +1173,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/cli/v1/license'
       preLoaderRoute: typeof ApiCliV1LicenseRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_site/_marketing/courses/$course/': {
+      id: '/_site/_marketing/courses/$course/'
+      path: '/$course'
+      fullPath: '/courses/$course/'
+      preLoaderRoute: typeof SiteMarketingCoursesCourseIndexRouteImport
+      parentRoute: typeof SiteMarketingCoursesRoute
+    }
+    '/_site/_marketing/courses/$course/$lesson': {
+      id: '/_site/_marketing/courses/$course/$lesson'
+      path: '/$course/$lesson'
+      fullPath: '/courses/$course/$lesson'
+      preLoaderRoute: typeof SiteMarketingCoursesCourseLessonRouteImport
+      parentRoute: typeof SiteMarketingCoursesRoute
     }
     '/api/cli/v1/activations/$activationId': {
       id: '/api/cli/v1/activations/$activationId'
@@ -1191,32 +1205,92 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface LandingRouteChildren {
-  LandingAffiliatesRoute: typeof LandingAffiliatesRoute
-  LandingLicenceRoute: typeof LandingLicenceRoute
-  LandingPremiumRoute: typeof LandingPremiumRoute
-  LandingPrivacyRoute: typeof LandingPrivacyRoute
-  LandingRefundsRoute: typeof LandingRefundsRoute
-  LandingTermsRoute: typeof LandingTermsRoute
-  LandingIndexRoute: typeof LandingIndexRoute
-  LandingNewsletterConfirmRoute: typeof LandingNewsletterConfirmRoute
-  LandingNewsletterUnsubscribeRoute: typeof LandingNewsletterUnsubscribeRoute
+interface SiteMarketingBlogRouteChildren {
+  SiteMarketingBlogSplatRoute: typeof SiteMarketingBlogSplatRoute
+  SiteMarketingBlogIndexRoute: typeof SiteMarketingBlogIndexRoute
 }
 
-const LandingRouteChildren: LandingRouteChildren = {
-  LandingAffiliatesRoute: LandingAffiliatesRoute,
-  LandingLicenceRoute: LandingLicenceRoute,
-  LandingPremiumRoute: LandingPremiumRoute,
-  LandingPrivacyRoute: LandingPrivacyRoute,
-  LandingRefundsRoute: LandingRefundsRoute,
-  LandingTermsRoute: LandingTermsRoute,
-  LandingIndexRoute: LandingIndexRoute,
-  LandingNewsletterConfirmRoute: LandingNewsletterConfirmRoute,
-  LandingNewsletterUnsubscribeRoute: LandingNewsletterUnsubscribeRoute,
+const SiteMarketingBlogRouteChildren: SiteMarketingBlogRouteChildren = {
+  SiteMarketingBlogSplatRoute: SiteMarketingBlogSplatRoute,
+  SiteMarketingBlogIndexRoute: SiteMarketingBlogIndexRoute,
 }
 
-const LandingRouteWithChildren =
-  LandingRoute._addFileChildren(LandingRouteChildren)
+const SiteMarketingBlogRouteWithChildren =
+  SiteMarketingBlogRoute._addFileChildren(SiteMarketingBlogRouteChildren)
+
+interface SiteMarketingCoursesRouteChildren {
+  SiteMarketingCoursesIndexRoute: typeof SiteMarketingCoursesIndexRoute
+  SiteMarketingCoursesCourseLessonRoute: typeof SiteMarketingCoursesCourseLessonRoute
+  SiteMarketingCoursesCourseIndexRoute: typeof SiteMarketingCoursesCourseIndexRoute
+}
+
+const SiteMarketingCoursesRouteChildren: SiteMarketingCoursesRouteChildren = {
+  SiteMarketingCoursesIndexRoute: SiteMarketingCoursesIndexRoute,
+  SiteMarketingCoursesCourseLessonRoute: SiteMarketingCoursesCourseLessonRoute,
+  SiteMarketingCoursesCourseIndexRoute: SiteMarketingCoursesCourseIndexRoute,
+}
+
+const SiteMarketingCoursesRouteWithChildren =
+  SiteMarketingCoursesRoute._addFileChildren(SiteMarketingCoursesRouteChildren)
+
+interface SiteMarketingRouteChildren {
+  SiteMarketingAffiliatesRoute: typeof SiteMarketingAffiliatesRoute
+  SiteMarketingBlogRoute: typeof SiteMarketingBlogRouteWithChildren
+  SiteMarketingCoursesRoute: typeof SiteMarketingCoursesRouteWithChildren
+  SiteMarketingLicenceRoute: typeof SiteMarketingLicenceRoute
+  SiteMarketingPremiumRoute: typeof SiteMarketingPremiumRoute
+  SiteMarketingPrivacyRoute: typeof SiteMarketingPrivacyRoute
+  SiteMarketingRefundsRoute: typeof SiteMarketingRefundsRoute
+  SiteMarketingTermsRoute: typeof SiteMarketingTermsRoute
+  SiteMarketingIndexRoute: typeof SiteMarketingIndexRoute
+  SiteMarketingNewsletterConfirmRoute: typeof SiteMarketingNewsletterConfirmRoute
+  SiteMarketingNewsletterUnsubscribeRoute: typeof SiteMarketingNewsletterUnsubscribeRoute
+}
+
+const SiteMarketingRouteChildren: SiteMarketingRouteChildren = {
+  SiteMarketingAffiliatesRoute: SiteMarketingAffiliatesRoute,
+  SiteMarketingBlogRoute: SiteMarketingBlogRouteWithChildren,
+  SiteMarketingCoursesRoute: SiteMarketingCoursesRouteWithChildren,
+  SiteMarketingLicenceRoute: SiteMarketingLicenceRoute,
+  SiteMarketingPremiumRoute: SiteMarketingPremiumRoute,
+  SiteMarketingPrivacyRoute: SiteMarketingPrivacyRoute,
+  SiteMarketingRefundsRoute: SiteMarketingRefundsRoute,
+  SiteMarketingTermsRoute: SiteMarketingTermsRoute,
+  SiteMarketingIndexRoute: SiteMarketingIndexRoute,
+  SiteMarketingNewsletterConfirmRoute: SiteMarketingNewsletterConfirmRoute,
+  SiteMarketingNewsletterUnsubscribeRoute:
+    SiteMarketingNewsletterUnsubscribeRoute,
+}
+
+const SiteMarketingRouteWithChildren = SiteMarketingRoute._addFileChildren(
+  SiteMarketingRouteChildren,
+)
+
+interface SiteDocsRouteChildren {
+  SiteDocsSplatRoute: typeof SiteDocsSplatRoute
+  SiteDocsIndexRoute: typeof SiteDocsIndexRoute
+}
+
+const SiteDocsRouteChildren: SiteDocsRouteChildren = {
+  SiteDocsSplatRoute: SiteDocsSplatRoute,
+  SiteDocsIndexRoute: SiteDocsIndexRoute,
+}
+
+const SiteDocsRouteWithChildren = SiteDocsRoute._addFileChildren(
+  SiteDocsRouteChildren,
+)
+
+interface SiteRouteChildren {
+  SiteMarketingRoute: typeof SiteMarketingRouteWithChildren
+  SiteDocsRoute: typeof SiteDocsRouteWithChildren
+}
+
+const SiteRouteChildren: SiteRouteChildren = {
+  SiteMarketingRoute: SiteMarketingRouteWithChildren,
+  SiteDocsRoute: SiteDocsRouteWithChildren,
+}
+
+const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
 
 interface AdminCoursesRouteChildren {
   AdminCoursesCourseIdRoute: typeof AdminCoursesCourseIdRoute
@@ -1324,45 +1398,6 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
-interface BlogRouteChildren {
-  BlogSplatRoute: typeof BlogSplatRoute
-  BlogIndexRoute: typeof BlogIndexRoute
-}
-
-const BlogRouteChildren: BlogRouteChildren = {
-  BlogSplatRoute: BlogSplatRoute,
-  BlogIndexRoute: BlogIndexRoute,
-}
-
-const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
-
-interface CoursesRouteChildren {
-  CoursesIndexRoute: typeof CoursesIndexRoute
-  CoursesCourseLessonRoute: typeof CoursesCourseLessonRoute
-  CoursesCourseIndexRoute: typeof CoursesCourseIndexRoute
-}
-
-const CoursesRouteChildren: CoursesRouteChildren = {
-  CoursesIndexRoute: CoursesIndexRoute,
-  CoursesCourseLessonRoute: CoursesCourseLessonRoute,
-  CoursesCourseIndexRoute: CoursesCourseIndexRoute,
-}
-
-const CoursesRouteWithChildren =
-  CoursesRoute._addFileChildren(CoursesRouteChildren)
-
-interface DocsRouteChildren {
-  DocsSplatRoute: typeof DocsSplatRoute
-  DocsIndexRoute: typeof DocsIndexRoute
-}
-
-const DocsRouteChildren: DocsRouteChildren = {
-  DocsSplatRoute: DocsSplatRoute,
-  DocsIndexRoute: DocsIndexRoute,
-}
-
-const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
-
 interface ApiCliV1ActivationsActivationIdRouteChildren {
   ApiCliV1ActivationsActivationIdBundlesRoute: typeof ApiCliV1ActivationsActivationIdBundlesRoute
 }
@@ -1391,13 +1426,10 @@ const ApiCliV1ActivationsRouteWithChildren =
   ApiCliV1ActivationsRoute._addFileChildren(ApiCliV1ActivationsRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  LandingRoute: LandingRouteWithChildren,
+  SiteRoute: SiteRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
-  BlogRoute: BlogRouteWithChildren,
-  CoursesRoute: CoursesRouteWithChildren,
-  DocsRoute: DocsRouteWithChildren,
   ApiSearchRoute: ApiSearchRoute,
   ApiIndexRoute: ApiIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

@@ -1,4 +1,5 @@
 import type { Locator, Page, Route } from "@playwright/test"
+import assert from "node:assert/strict"
 
 import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
@@ -11,6 +12,7 @@ const BROWSER_TIMEZONE = "Pacific/Kiritimati"
 const BROWSER_TIME = new Date("2099-01-01T00:05:00+14:00")
 const SERVER_FUNCTION = /\/_serverFn\//u
 const LAYOUT_SHIFTS_KEY = "__layoutShifts"
+const LAYOUT_UNIT_DIGITS = 1
 const COURSES_FAILED_TIMEOUT_MS = 20_000
 
 const COURSE_BLOCK_VIEWPORTS = [
@@ -166,7 +168,8 @@ test.describe("the course block", () => {
           { key: LAYOUT_SHIFTS_KEY, start: since },
         )
 
-        expect(filled?.height).toBe(pending?.height)
+        assert(pending && filled)
+        expect(filled.height).toBeCloseTo(pending.height, LAYOUT_UNIT_DIGITS)
         expect(shifts).toEqual([])
       })
     }

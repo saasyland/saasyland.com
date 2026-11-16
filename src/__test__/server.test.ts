@@ -14,7 +14,7 @@ import { DOCUMENT_STYLESHEET } from "~/src/presentation/document-assets"
 import worker from "~/src/server"
 
 const AREA_PATH_PREFIX = vi.hoisted(() => "/area-files/")
-const fetchHandler = vi.hoisted(() => vi.fn<(request: Request, options?: { context: { nonce: string } }) => Promise<Response>>())
+const fetchHandler = vi.hoisted(() => vi.fn<(request: Request, options: { context: { nonce: string } }) => Promise<Response>>())
 const areaFetch = vi.hoisted(() => vi.fn<(request: Request) => Promise<Response>>())
 const areaRewrite = vi.hoisted(() => vi.fn<(document: Response, context: { locale: string; request: Request }) => Response>())
 
@@ -66,7 +66,7 @@ const POLICY_HEADER = "Content-Security-Policy"
 
 const { [POLICY_HEADER]: BASE_POLICY, ...OTHER_SECURITY_HEADERS } = SECURITY_HEADERS
 
-const renderedNonce = (call: number): string => fetchHandler.mock.calls[call]?.[1]?.context.nonce ?? ""
+const renderedNonce = (call: number): string => fetchHandler.mock.calls[call]?.[1].context.nonce ?? ""
 
 it.each([
   { kind: "page", url: "http://localhost/" },
@@ -97,7 +97,7 @@ it("renders pages on the dev server under the base policy, because Vite's own in
   const response = await worker.fetch(request, env)
 
   expect(response.headers.get(POLICY_HEADER)).toBe(BASE_POLICY)
-  expect(fetchHandler).toHaveBeenCalledExactlyOnceWith(request)
+  expect(fetchHandler).toHaveBeenCalledExactlyOnceWith(request, { context: { nonce: renderedNonce(0) } })
 })
 
 it.each([

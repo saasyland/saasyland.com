@@ -30,12 +30,14 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     }
   }
   const { default: handler } = await import("@tanstack/react-start/server-entry")
+  const nonce = createNonce()
+  const response = await handler.fetch(request, { context: { nonce } })
+
   if (import.meta.env.DEV) {
-    return { policy: BASE_POLICY, response: await handler.fetch(request) }
+    return { policy: BASE_POLICY, response }
   }
 
-  const nonce = createNonce()
-  return { policy: renderedPagePolicy(nonce), response: await handler.fetch(request, { context: { nonce } }) }
+  return { policy: renderedPagePolicy(nonce), response }
 }
 
 const withSecurityHeaders = (response: Response, { policy, protocol }: { policy: string; protocol: string }): Response => {

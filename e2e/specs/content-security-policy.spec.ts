@@ -17,7 +17,7 @@ const PRERENDERED_PAGES = [ROUTES.HOME, `${ROUTES.DOCS}/features/security`, `${R
 const RENDERED_PAGES = [ROUTES.SIGN_IN, ROUTES.COURSES]
 const META_POLICY = /<meta http-equiv="Content-Security-Policy" content="(?<policy>[^"]+)"\/>/u
 const NONCE = /'nonce-(?<nonce>[\da-f]{32})'/u
-const SCRIPT = /<script(?<attributes>[^>]*)>(?<source>[\s\S]*?)<\/script>/gu
+const SCRIPT = /<script(?<attributes>[^>]*)>(?<source>[\s\S]*?)<\/script[^>]*>/giu
 const DATA_BLOCK = /\btype="application\/ld\+json"/u
 
 const sha256 = (source: string): string => `'sha256-${createHash("sha256").update(source).digest("base64")}'`

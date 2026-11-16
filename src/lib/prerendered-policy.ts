@@ -6,7 +6,8 @@ const CHARSET = '<meta charSet="utf-8"/>'
 const NONCE_META = /<meta property="csp-nonce" content="[^"]*"\/>/gu
 const NONCE_ATTRIBUTE = /(?<tag><(?:link|meta|script|style)\b[^>]*?) nonce="[^"]*"/gu
 const ENTRY_SCRIPT = /<script type="module" async="" src="(?<src>\/assets\/[^"]+\.js)"><\/script>/gu
-const SCRIPT = /<script(?<attributes>[^>]*)>(?<source>[\s\S]*?)<\/script>/gu
+const SCRIPT = /<script(?<attributes>[^>]*)>(?<source>[\s\S]*?)<\/script[^>]*>/giu
+const SCRIPT_START = /<script/iu
 const SCRIPT_TYPE = /\btype="(?<type>[^"]*)"/u
 const SCRIPT_SOURCE = /\bsrc=/u
 const JAVASCRIPT_TYPES = new Set(["module", "text/javascript"])
@@ -50,7 +51,7 @@ export const securePrerenderedPage = async (html: string): Promise<SecuredPage> 
     throw new Error("A script with a src attribute is left, and a hash-based policy would block it.")
   }
 
-  if (!loaded.slice(0, loaded.indexOf("<script")).includes(CHARSET)) {
+  if (!loaded.slice(0, loaded.search(SCRIPT_START)).includes(CHARSET)) {
     throw new Error("The charset meta tag must come before the first script, so the policy can be inserted after it.")
   }
 

@@ -63,6 +63,15 @@ describe("securePrerenderedPage", () => {
     expect(html).toContain(scriptPolicy([sha256(THEME), sha256(END), sha256(LOADER)]))
   })
 
+  it("hashes an inline script whatever the case of its tag and however its end tag is written", async () => {
+    const { hashes, html } = await securePrerenderedPage(
+      prerendered({ body: `<script type="module" async="" src="${ENTRY}"></script><SCRIPT>${STATE}</SCRIPT ><Script>${END}</script\n>` }),
+    )
+
+    expect(hashes).toBe(4)
+    expect(html).toContain(scriptPolicy([sha256(THEME), sha256(LOADER), sha256(STATE), sha256(END)]))
+  })
+
   it.each([
     { body: "", count: 0 },
     {

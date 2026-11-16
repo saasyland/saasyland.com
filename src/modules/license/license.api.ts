@@ -36,7 +36,7 @@ import {
 import { license } from "~/src/modules/license/license.schema"
 
 import { sha256Hex } from "~/src/lib/hex"
-import { countRequest } from "~/src/lib/rate-limit"
+import { type RateLimitDecision, type RateLimitInput, countRequest, rateLimitBatch } from "~/src/lib/rate-limit"
 
 const SINGLE_ROW = 1
 const ONE_SLOT = 1
@@ -127,43 +127,40 @@ const storedBundle = async (version: string): Promise<StoredBundle> => {
   return { bundle: { sha256: await contentDigest(object), size: object.size }, success: true }
 }
 
-const consume = async (key: string, limit: number): Promise<Api["error"] | undefined> => {
-  const { allowed, retryAfter } = await countRequest({ key, limit, windowSeconds: RATE_LIMIT.PERIOD_SECONDS })
+const perPeriod = (key: string, limit: number): RateLimitInput => ({ key, limit, windowSeconds: RATE_LIMIT.PERIOD_SECONDS })
 
-  return allowed ? undefined : { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: retryAfter }
-}
+const rateLimitError = ({ allowed, retryAfter }: RateLimitDecision): Api["error"] | undefined =>
+  allowed ? undefined : { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: retryAfter }
 
 const admit = async <Schema extends zod.ZodType>(
   endpoint: Endpoint<Schema>,
   { params, request }: ApiCall,
 ): Promise<Admission<zod.output<Schema>>> => {
-  const addressLimited = await consume(`${ADDRESS_RATE_LIMIT_PREFIX}${clientAddress(request.headers)}`, RATE_LIMIT.REQUESTS_PER_ADDRESS)
-
-  if (addressLimited !== undefined) {
-    return refuse(addressLimited)
-  }
-
   const read = await readApiRequest(endpoint, request, params)
+  const address = perPeriod(`${ADDRESS_RATE_LIMIT_PREFIX}${clientAddress(request.headers)}`, RATE_LIMIT.REQUESTS_PER_ADDRESS)
 
   if (!read.success) {
-    return refuse(read.error)
+    return refuse(rateLimitError(await countRequest(address)) ?? read.error)
   }
 
   const { credentials } = read
-  const keyLimited = await consume(
-    `${LICENSE_KEY_RATE_LIMIT_PREFIX}${await sha256Hex(credentials.key)}`,
-    RATE_LIMIT.REQUESTS_PER_LICENSE_KEY,
-  )
+  const rateLimits = rateLimitBatch([
+    address,
+    perPeriod(`${LICENSE_KEY_RATE_LIMIT_PREFIX}${await sha256Hex(credentials.key)}`, RATE_LIMIT.REQUESTS_PER_LICENSE_KEY),
+  ])
+  const [[row], ...counters] = await db.batch([
+    db
+      .select({ polarLicenseKeyId: license.polarLicenseKeyId, status: license.status, tier: license.tier })
+      .from(license)
+      .where(eq(license.key, credentials.key))
+      .limit(SINGLE_ROW),
+    ...rateLimits.statements,
+  ])
+  const limited = rateLimitError(rateLimits.decision(counters))
 
-  if (keyLimited !== undefined) {
-    return refuse(keyLimited)
+  if (limited !== undefined) {
+    return refuse(limited)
   }
-
-  const [row] = await db
-    .select({ polarLicenseKeyId: license.polarLicenseKeyId, status: license.status, tier: license.tier })
-    .from(license)
-    .where(eq(license.key, credentials.key))
-    .limit(SINGLE_ROW)
 
   if (typeof row?.polarLicenseKeyId !== "string") {
     return refuse({ code: API_ERROR.INVALID_LICENSE_KEY })

@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers"
+
 import type { models } from "@polar-sh/sdk/2026-10"
 import {
   ACTIVATION_KIND,
@@ -67,6 +69,9 @@ import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
 
 const KEY_LIMIT_ADDRESSES = 3
+const REFUSED_BY_ADDRESS = 10
+
+const keyLimitAddress = (request: number): string => `198.51.100.${String(request % KEY_LIMIT_ADDRESSES)}`
 
 const otherMachine = (
   details: Api["activateRequest"]["body"],
@@ -117,18 +122,6 @@ const POLAR_FAILURES = [
 const D1_OUTAGE = "D1_ERROR: Network connection lost."
 const OFFLINE_LICENSE_TABLE = "license_offline"
 const MISSING_LICENSE_TABLE = `no such table: ${getTableName(license)}`
-const runBatch = db.batch.bind(db)
-
-const RATE_LIMIT_FAILURES = [
-  {
-    count: "the address",
-    fail: () => vi.spyOn(db, "batch").mockRejectedValueOnce(new Error(D1_OUTAGE)),
-  },
-  {
-    count: "the licence key",
-    fail: () => vi.spyOn(db, "batch").mockImplementationOnce(runBatch).mockRejectedValueOnce(new Error(D1_OUTAGE)),
-  },
-]
 
 const takeLicenseTableOffline = async (): Promise<void> => {
   await db.run(sql`alter table ${license} rename to ${sql.identifier(OFFLINE_LICENSE_TABLE)}`)
@@ -457,7 +450,7 @@ describe("rate limits", () => {
     const limited = await buy()
     const other = await buy()
     for (let request = 0; request < RATE_LIMIT.REQUESTS_PER_LICENSE_KEY; request++) {
-      await getLicense({ address: `198.51.100.${String(request % KEY_LIMIT_ADDRESSES)}`, key: limited.key, machine: STUDIO })
+      await getLicense({ address: keyLimitAddress(request), key: limited.key, machine: STUDIO })
     }
 
     const { headers, result } = await getLicense({ address: OTHER_ADDRESS, key: limited.key, machine: STUDIO })
@@ -470,19 +463,62 @@ describe("rate limits", () => {
     const otherKey = await getLicense({ address: OTHER_ADDRESS, key: other.key, machine: STUDIO })
     expect(otherKey.result.success).toBe(true)
   })
+
+  it("does not count the requests that the address limit refused against the key", async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+    const { key } = await buy()
+    for (let request = 0; request < RATE_LIMIT.REQUESTS_PER_ADDRESS + REFUSED_BY_ADDRESS; request++) {
+      await getLicense({ key, machine: STUDIO })
+    }
+
+    const keyRequestsLeft = RATE_LIMIT.REQUESTS_PER_LICENSE_KEY - RATE_LIMIT.REQUESTS_PER_ADDRESS
+    const answers = []
+    for (let request = 0; request <= keyRequestsLeft; request++) {
+      const { result } = await getLicense({ address: keyLimitAddress(request), key, machine: STUDIO })
+      answers.push(result.success)
+    }
+
+    expect(answers).toStrictEqual([...Array.from({ length: keyRequestsLeft }, () => true), false])
+  })
+
+  it("counts a request that it cannot read against the address alone", async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+    const { key } = await buy()
+    for (let request = 0; request < RATE_LIMIT.REQUESTS_PER_LICENSE_KEY; request++) {
+      const headers = { [API_HEADER.AUTHORIZATION]: `${AUTHORIZATION_SCHEME} ${key}`, [IP_ADDRESS_HEADER]: keyLimitAddress(request) }
+      await exchange(API_ENDPOINT.LICENSE, licenseApiHandlers.license, rawRequest(API_ROUTE.LICENSE, { headers }))
+    }
+
+    const { result } = await getLicense({ address: OTHER_ADDRESS, key, machine: STUDIO })
+
+    expect(result.success).toBe(true)
+  })
+
+  it("counts a request against both limits and reads its licence in one round trip to D1", async () => {
+    const { key } = await buy()
+    const batches = vi.spyOn(env.DB, "batch")
+    const statements = vi.spyOn(env.DB, "prepare")
+
+    const { result } = await getLicense({ key, machine: STUDIO })
+
+    expect(result.success).toBe(true)
+    expect(batches).toHaveBeenCalledOnce()
+    expect(statements).toHaveBeenCalledTimes(batches.mock.calls.flatMap(([batch]) => batch).length)
+  })
 })
 
 describe("server-side failures", () => {
-  describe.each(RATE_LIMIT_FAILURES)("when the rate-limit storage cannot count $count", ({ fail }) => {
-    it.each(ENDPOINT_CALLS)("answers $name with serviceUnavailable, not rateLimited, and logs the failure", async ({ call, endpoint }) => {
+  it.each(ENDPOINT_CALLS)(
+    "answers $name with serviceUnavailable, not rateLimited, when D1 cannot count the request, and logs the failure",
+    async ({ call, endpoint }) => {
       const { key } = await buy()
       const errors = consoleErrors()
-      fail()
+      vi.spyOn(db, "batch").mockRejectedValueOnce(new Error(D1_OUTAGE))
 
       expectServiceUnavailable(await call({ key, machine: STUDIO }))
       expectFailureLogged(errors, endpoint, D1_OUTAGE)
-    })
-  })
+    },
+  )
 
   it("answers a request without a key with serviceUnavailable when its address cannot be counted", async () => {
     const errors = consoleErrors()

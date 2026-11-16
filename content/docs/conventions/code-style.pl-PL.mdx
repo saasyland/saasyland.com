@@ -20,11 +20,22 @@ oxlint zgłasza kategorie `correctness`, `nursery`, `pedantic`, `perf`, `style` 
 | `unicorn/no-null`            | włączona poza testami i `src/platform/testing`              | Brakujące wartości to `undefined`                          |
 | `typescript/no-explicit-any` | `error`                                                     | Żadna wartość nie ma typu `any`                            |
 
-Nadpisania są wąskie i dotyczą konkretnych plików: testy i wspólne pomocnicze moduły testowe w `src/platform/testing` łagodzą `no-magic-numbers`, `no-await-in-loop` i `unicorn/no-null`; `src/presentation` i `src/hooks` łagodzą `typescript/consistent-return`; mocki testowe łagodzą `require-await`; `src/routes` wyłącza `sort-keys`, ponieważ opcje tras mają własną kolejność (zobacz [Pliki tras](/docs/conventions/routes)).
+Nadpisania są wąskie i dotyczą konkretnych plików: testy i wspólne pomocnicze moduły testowe w `src/platform/testing` łagodzą `no-magic-numbers`, `no-await-in-loop`, `unicorn/no-null` i `hydration/no-clock-or-locale-in-render`; `src/presentation` i `src/hooks` łagodzą `typescript/consistent-return`; mocki testowe łagodzą `require-await`; `src/routes` wyłącza `sort-keys`, ponieważ opcje tras mają własną kolejność (zobacz [Pliki tras](/docs/conventions/routes)).
 
 `tsconfig.json` dodaje rygorystyczne flagi, które zmieniają sposób pisania kodu: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` i `noUnusedParameters`. Odczyt po indeksie może zwrócić `undefined`, właściwości opcjonalnej nie można jawnie ustawić na `undefined`, a sygnaturę indeksu odczytuje się jako `record["key"]`.
 
 Formatter zapisuje kod bez średników, z podwójnymi cudzysłowami, przecinkami końcowymi i szerokością wiersza <RepositoryFact name="printWidth" />. Sortuje też importy w stałe grupy, klasy Tailwind w `className` i wywołaniach `cn` oraz skrypty w `package.json` według nazwy (`sortPackageJson: { sortScripts: true }`), więc nigdy nie porządkuj żadnego z nich ręcznie: `vp check` kończy się błędem, gdy któryś z nich jest w złej kolejności. Polecenia opisuje strona [Lint i formatowanie](/docs/tooling/lint-format).
+
+## Renderuj to, co wyrenderował serwer
+
+Strona renderuje się dwa razy: na serwerze i ponownie w przeglądarce, gdy React hydratuje HTML. Oba renderowania muszą wypisać ten sam tekst, inaczej React zgłasza niezgodność hydratacji (błąd #418) i renderuje stronę od nowa. Dlatego kod renderujący nigdy nie odczytuje zegara ani języka środowiska uruchomieniowego, które różnią się między nimi: żadnego `new Date()` bez argumentu, żadnego `Date.now` ani `toLocaleString`, `toLocaleDateString` czy `toLocaleTimeString`. Użyj wartości wspólnej dla obu stron:
+
+- czas względny liczy się od `dataUpdatedAt` zapytania, które odczytało jego dane, jak pokazuje [Internacjonalizacja i języki](/docs/features/internationalization);
+- rok wypisywany przez stronę pochodzi z builda: stopka kończy informację o prawach autorskich na `REPOSITORY_FACTS.buildYear`, roku UTC, w którym zbudowano stronę;
+- liczby i daty przechodzą przez `useFormatter` z use-intl, w języku strony i strefie czasowej użytkownika;
+- oczekiwanie w przeglądarce, takie jak limit czasu aktywacji w `CheckoutActivation`, to licznik czasu uruchamiany w `useEffect`, więc pierwsze renderowanie jest takie jak na serwerze.
+
+`hydration/no-clock-or-locale-in-render`, reguła własnej wtyczki oxlint repozytorium w `scripts/hydration-lint-plugin.ts`, wymusza to w `src/hooks`, `src/presentation`, `src/providers` i `src/routes/*.tsx`. Wszystko tam jest kodem renderującym poza funkcją, która wykonuje się później: obsługą zdarzenia `on…`, jako prop JSX, właściwość obiektu lub zmienna; `queryFn` lub `mutationFn`; oraz callbackiem przekazanym do `useEffect`, `useLayoutEffect`, `useCallback`, `setTimeout`, `setInterval`, `requestAnimationFrame` lub `addEventListener`. Te listy we wtyczce są listą dozwolonych: nowy rodzaj odroczonego callbacku dopisuje się tam, z przypadkiem w `src/__test__/hydration-lint-plugin.test.ts`, nigdy komentarzem wyłączającym regułę.
 
 ## Bez komentarzy
 

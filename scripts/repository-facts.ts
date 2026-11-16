@@ -124,6 +124,7 @@ export const collectRepositoryFacts = (config: unknown) => {
 
   return {
     authIntegrationPath: AUTH_INTEGRATION_PATH,
+    buildYear: new Date().getUTCFullYear(),
     bunVersion: readBunVersion(),
     ciWorkflowPath: CI_WORKFLOW,
     cliApiBasePath: API_BASE_PATH,

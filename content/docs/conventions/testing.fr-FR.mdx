@@ -72,6 +72,17 @@ describe("getCourses", () => {
 - **Conservez les assertions quand une règle se déclenche.** Lorsqu'un test dépasse `max-statements`, extrayez une fonction utilitaire nommée au lieu de supprimer des vérifications.
 - **Chargez chaque fichier de messages.** `i18n.messages.test.ts` charge chaque espace de noms de chaque locale, ce qui couvre les lignes `import.meta.glob` de `i18n.messages.ts`. Un nouveau fichier de messages est automatiquement couvert par ce test.
 
+## Tests sur une machine chargée
+
+Le délai de Vitest et la marge d'une seconde de `waitFor` et `findBy*` se comptent en temps réel : un test qui fait un travail dont son comportement n'a pas besoin, ou qui attend un minuteur, échoue sur une machine chargée alors que rien n'est cassé. Le délai par défaut reste tel quel ; un test lent est modifié pour en faire moins :
+
+- **Une vérification sur de nombreux fichiers lance un test par fichier.** `check-content.test.ts` exécute `pageProblems` pour chaque page anglaise avec `it.each(sourcePages())`, et un écart nomme sa page.
+- **Ce qu'un composant attend avec Suspense est chargé avant son rendu**, comme le fait `preloadNamespaces` pour les traductions. Quand le test porte sur le chargement lui-même, il le résout dans `act`, comme `translations-provider.component.test.tsx` : un contenu qui reprend en dehors de `act` n'apparaît qu'après le délai que React impose à son affichage, sur un vrai minuteur, et le test doit interroger le DOM jusqu'à le voir.
+- **Un test remplace la liste d'une zone sans réimporter le composant.** `translations-provider.component.test.tsx` simule `TIME_ZONE_SOURCES` une fois et la remplit dans chaque test, et `time-zone.test.ts` vérifie comment les listes des zones sont réunies. Réimporter un composant après `vi.resetModules()` réévalue tout son graphe d'imports pendant le test.
+- **Les fixtures que lit chaque test sont construites une fois par fichier**, comme les messages de `getTestMessages`.
+- **Un formulaire se remplit avec `user.paste`, sauf si ses frappes sont le comportement testé.** `fill` dans `admin-course-routes.component.test.tsx` clique dans le champ et colle ; `user.type` exécute la validation et le rendu du formulaire pour chaque caractère.
+- **Une longue liste d'options se ré-affiche à faible coût.** Le combobox des fuseaux horaires de `preferences-card.tsx` passe ses options à `ComboboxList` sous forme d'`items` mémoïsés, si bien que React Aria les réutilise quand le formulaire se ré-affiche.
+
 ## Les tests suivent les zones [#tests-follow-the-areas]
 
 Les zones qui déclarent leurs propres chemins et entrées de menu (voir [Chemins et navigation](/docs/conventions/routes#paths-and-navigation)) possèdent aussi leurs tests : la CLI `saasyland` peut ainsi retirer une zone d'un projet généré avec ses tests, et tous les autres tests continuent de passer.

@@ -49,6 +49,7 @@ import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { APP_STATEMENTS } from "~/src/data/access"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
+import { OAUTH_PROVIDERS } from "~/src/data/auth"
 import {
   CLI_API_URL_VARIABLE,
   CLI_COMMAND,
@@ -80,12 +81,16 @@ import { SOCIAL_IMAGE } from "~/src/lib/seo"
 
 import { ACTIVATION_POLL_MS, ACTIVATION_TIMEOUT_MS } from "~/src/presentation/components/custom/app/checkout-activation"
 
+import { ROUTES } from "~/src/routes"
+
 type Value = number | string | readonly string[]
 
 const OCTAL_RADIX = 8
 const FILE_MODE_DIGITS = 4
 
 const renditionName = (height: number): string => `${String(height)}p`
+
+const oauthCallbackPath = (provider: string): string => `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}/${provider}`
 
 const FACTS = {
   ...REPOSITORY_FACTS,
@@ -137,6 +142,9 @@ const FACTS = {
   liveSiteCheckRetries: LIVE_SITE_CHECK_RETRY_DELAYS_MS.length,
   liveSiteCheckRetrySeconds: LIVE_SITE_CHECK_RETRY_DELAY_MS / MILLISECONDS_PER_SECOND,
   localizedTextMaxLength: LOCALIZED_TEXT_MAX_LENGTH,
+  oauthCallbackPath: oauthCallbackPath("<provider>"),
+  oauthCallbackPaths: OAUTH_PROVIDERS.map(({ id }) => oauthCallbackPath(id)),
+  oauthCallbackUrls: OAUTH_PROVIDERS.map(({ id }) => `https://<host>${oauthCallbackPath(id)}`),
   passwordMaxLength: PASSWORD_MAX_LENGTH,
   passwordMinLength: PASSWORD_MIN_LENGTH,
   posterSmallWidth: POSTER_SMALL_WIDTH,

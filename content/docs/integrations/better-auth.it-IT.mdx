@@ -3,7 +3,7 @@ title: "Autenticazione e sicurezza"
 description: "Sessioni Better Auth, guard delle route, middleware delle funzioni server e ruoli."
 ---
 
-Better Auth salva utenti, account, sessioni e token di verifica in D1 tramite l'adattatore Drizzle. Offre registrazione con email e password con verifica dell'email obbligatoria, accesso con GitHub e Google, reimpostazione della password, cambio dell'email, autenticazione a due fattori TOTP, gestione degli utenti da parte degli amministratori e checkout Polar. La sua API HTTP è servita da `src/routes/api/auth.$.ts`.
+Better Auth salva utenti, account, sessioni e token di verifica in D1 tramite l'adattatore Drizzle. Offre registrazione con email e password con verifica dell'email obbligatoria, accesso con GitHub e Google, reimpostazione della password, cambio dell'email, autenticazione a due fattori TOTP, gestione degli utenti da parte degli amministratori e checkout Polar. La sua API HTTP è servita da `src/routes/api/auth.$.ts`. `auth.server.ts` e `auth.client.ts` impostano il `basePath` di Better Auth su `ROUTES.API_AUTH_BASE`, il percorso servito da quel file, così il server e il client del browser lo prendono da un'unica costante.
 
 ## File
 
@@ -47,10 +47,10 @@ I guard delle pagine proteggono solo la navigazione, quindi ogni funzione server
 
 `auth.server.ts` non nomina nessun'altra area. Due liste proprie dell'area di autenticazione riuniscono ciò che vi aggiungono le altre:
 
-| Lista                    | Ogni area dichiara                                                                                                       | Barrel                             | Usato da                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------- |
-| Plugin di autenticazione | `src/data/<area>.auth-plugins.ts`: plugin, con i percorsi che Better Auth chiude a HTTP ed esclude dal rate limiting     | `src/data/auth-plugins.entries.ts` | `plugins`, `disabledPaths` e `rateLimit.customRules`; l'area Polar aggiunge il plugin Polar |
-| Email di autenticazione  | `src/data/<area>.auth-emails.ts`: i mittenti delle email di verifica, di reimpostazione della password e di cambio email | `src/data/auth-emails.entries.ts`  | `AUTH_EMAILS`, che gli hook per le email chiamano; Resend aggiunge `RESEND_AUTH_EMAILS`     |
+| Lista                    | Ogni area dichiara                                                                                                       | Barrel                             | Usato da                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------- |
+| Plugin di autenticazione | `src/data/<area>.auth-plugins.ts`: plugin, con i percorsi che Better Auth esclude dal rate limiting                      | `src/data/auth-plugins.entries.ts` | `plugins` e `rateLimit.customRules`; l'area Polar aggiunge il plugin Polar              |
+| Email di autenticazione  | `src/data/<area>.auth-emails.ts`: i mittenti delle email di verifica, di reimpostazione della password e di cambio email | `src/data/auth-emails.entries.ts`  | `AUTH_EMAILS`, che gli hook per le email chiamano; Resend aggiunge `RESEND_AUTH_EMAILS` |
 
 I plugin delle aree seguono `admin` e `twoFactor` e precedono `tanstackStartCookies`, che deve venire per ultimo. Better Auth legge i campi utente e sessione dei suoi plugin dalla lista dei plugin, in ordine, fino alla prima lista espansa, quindi un plugin che aggiunge campi di questo tipo va in `auth.server.ts`. Gli hook per le email passano ogni email al mittente di ogni area che la invia: `sendVerifyEmail`, `sendResetPasswordEmail` e `sendChangeEmailConfirmationEmail`. Il rate limiter integrato di Better Auth salva i propri contatori nella tabella D1 `rate_limit` con un prefisso `auth:` tramite `consumeRateLimit` di `src/lib/rate-limit.ts`, che usa upsert atomici e rifiuta le richieste quando lo storage non è disponibile. `clientAddress` in `auth.middleware.ts` individua il client di una richiesta come fa quel limiter, da `cf-connecting-ip`, raggruppando gli indirizzi IPv6 per /64. Il prefisso dei cookie è `APP_SLUG` dell'identità del marchio. `getRequestSession` scavalca la cache dei cookie, quindi l'autorizzazione legge sempre la sessione da D1.
 

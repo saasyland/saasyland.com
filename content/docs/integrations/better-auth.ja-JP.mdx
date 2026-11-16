@@ -3,7 +3,7 @@ title: "認証とセキュリティ"
 description: "Better Auth のセッション、ルートガード、サーバー関数のミドルウェア、ロールです。"
 ---
 
-Better Auth は、ユーザー、アカウント、セッション、検証トークンを Drizzle アダプター経由で D1 に保存します。メールアドレスとパスワードによるサインアップ（メール認証必須）、GitHub と Google によるサインイン、パスワードリセット、メールアドレスの変更、TOTP による二要素認証、管理者によるユーザー管理、Polar のチェックアウトを提供します。HTTP API は `src/routes/api/auth.$.ts` から提供されます。
+Better Auth は、ユーザー、アカウント、セッション、検証トークンを Drizzle アダプター経由で D1 に保存します。メールアドレスとパスワードによるサインアップ（メール認証必須）、GitHub と Google によるサインイン、パスワードリセット、メールアドレスの変更、TOTP による二要素認証、管理者によるユーザー管理、Polar のチェックアウトを提供します。HTTP API は `src/routes/api/auth.$.ts` から提供されます。`auth.server.ts` と `auth.client.ts` は、Better Auth の `basePath` をこのファイルが提供するパス `ROUTES.API_AUTH_BASE` に設定します。そのため、サーバーとブラウザのクライアントは 1 つの定数からパスを取得します。
 
 ## ファイル
 
@@ -47,10 +47,10 @@ Better Auth は、ユーザー、アカウント、セッション、検証ト�
 
 `auth.server.ts` はほかのエリアを名指ししません。ほかのエリアが追加するものは、認証エリア自身の 2 つのリストがまとめます。
 
-| リスト         | 各エリアが宣言するもの                                                                                          | バレル                             | 使う側                                                                                             |
-| -------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
-| 認証プラグイン | `src/data/<area>.auth-plugins.ts`：プラグインと、Better Auth が HTTP に対して閉じ、レート制限の対象外にするパス | `src/data/auth-plugins.entries.ts` | `plugins`、`disabledPaths`、`rateLimit.customRules`。Polar のエリアが Polar プラグインを追加します |
-| 認証メール     | `src/data/<area>.auth-emails.ts`：確認、パスワードリセット、メールアドレス変更の各メールの送信関数              | `src/data/auth-emails.entries.ts`  | メールフックが呼び出す `AUTH_EMAILS`。Resend が `RESEND_AUTH_EMAILS` を追加します                  |
+| リスト         | 各エリアが宣言するもの                                                                             | バレル                             | 使う側                                                                              |
+| -------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------- |
+| 認証プラグイン | `src/data/<area>.auth-plugins.ts`：プラグインと、Better Auth がレート制限の対象外にするパス        | `src/data/auth-plugins.entries.ts` | `plugins` と `rateLimit.customRules`。Polar のエリアが Polar プラグインを追加します |
+| 認証メール     | `src/data/<area>.auth-emails.ts`：確認、パスワードリセット、メールアドレス変更の各メールの送信関数 | `src/data/auth-emails.entries.ts`  | メールフックが呼び出す `AUTH_EMAILS`。Resend が `RESEND_AUTH_EMAILS` を追加します   |
 
 エリアのプラグインは `admin` と `twoFactor` の後、最後に置かなければならない `tanstackStartCookies` の前に入ります。Better Auth は、プラグインのユーザーとセッションのフィールドを、プラグインのリストから最初に展開されたリストの手前まで順に読み取るため、そうしたフィールドを追加するプラグインは `auth.server.ts` に置きます。メールフックは、それぞれのメールを、そのメールを送るすべてのエリアの送信関数に渡します。`sendVerifyEmail`、`sendResetPasswordEmail`、`sendChangeEmailConfirmationEmail` です。Better Auth 自身のレートリミッターは、`src/lib/rate-limit.ts` の `consumeRateLimit` を通じて、D1 の `rate_limit` テーブルに `auth:` プレフィックス付きでカウンターを保存します。この関数はアトミックなアップサートを使い、ストレージが利用できない場合はリクエストを拒否します。`auth.middleware.ts` の `clientAddress` は、このリミッターと同じ方法でリクエストのクライアントを特定します。`cf-connecting-ip` を使い、IPv6 アドレスは /64 単位でまとめます。Cookie のプレフィックスはブランディングの `APP_SLUG` です。`getRequestSession` は Cookie キャッシュを経由しないため、認可では常に D1 からセッションを読み込みます。
 

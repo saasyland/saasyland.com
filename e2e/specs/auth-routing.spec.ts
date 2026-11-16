@@ -1,3 +1,4 @@
+import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "../data/accounts"
@@ -47,7 +48,7 @@ for (const account of TEST_ACCOUNTS) {
     context.on("weberror", (webError) => errors.push(webError.error().message))
     const signedIn = await context.request.post("/api/auth/sign-in/email", {
       data: { email: account.email, password: TEST_PASSWORD },
-      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
     })
     expect(signedIn.ok()).toBe(true)
     const workspace = account.role === ROLE_CODES.ADMIN ? "/admin" : "/app"
@@ -85,7 +86,7 @@ test("client navigation rechecks an ended session despite cached workspace data"
   const customer = TEST_ACCOUNTS[1]
   const signedIn = await page.request.post("/api/auth/sign-in/email", {
     data: { email: customer.email, password: TEST_PASSWORD },
-    headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+    headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
   })
   expect(signedIn.ok()).toBe(true)
   await page.goto("/app", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -114,7 +115,7 @@ test("a signed-in visitor who presses a header link while the landing page hydra
   page.on("pageerror", (error) => errors.push(error.message))
   const signedIn = await page.request.post("/api/auth/sign-in/email", {
     data: { email: customer.email, password: TEST_PASSWORD },
-    headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+    headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
   })
   expect(signedIn.ok()).toBe(true)
   if (browserName === "chromium") {
@@ -140,7 +141,7 @@ test.describe("cached data when the account changes", () => {
     const navigation = page.getByRole("navigation", { name: "App navigation", exact: true })
     const licensedSignIn = await page.request.post("/api/auth/sign-in/email", {
       data: { email: TEST_LICENSED_ACCOUNT.email, password: TEST_PASSWORD },
-      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
     })
     expect(licensedSignIn.ok()).toBe(true)
     await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -152,7 +153,7 @@ test.describe("cached data when the account changes", () => {
 
     const customerSignIn = await page.request.post("/api/auth/sign-in/email", {
       data: { email: customer.email, password: TEST_PASSWORD },
-      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
     })
     expect(customerSignIn.ok()).toBe(true)
     await navigation.getByRole("link", { name: "Licence", exact: true }).click()

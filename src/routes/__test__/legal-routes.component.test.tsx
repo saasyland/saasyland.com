@@ -44,6 +44,7 @@ it.each(I18N.SUPPORTED_LOCALES)("renders every legal document completely in %s",
     expect(messages).toHaveProperty(["pages", "legal", document, "lastUpdated"], title.nextElementSibling?.nextElementSibling?.textContent)
     expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(Object.keys(copy.sections).length)
     expect(view.container).toHaveTextContent(CONTACT_EMAIL)
+    expect(view.container).not.toHaveTextContent(`pages.legal.${document}`)
     view.unmount()
   }
 })

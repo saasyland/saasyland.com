@@ -26,6 +26,7 @@ import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.c
 import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
 import { APP_STATEMENTS } from "~/src/data/access"
+import { AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
 import { CLI_LICENSE_COMMANDS, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
@@ -439,5 +440,15 @@ describe("licence refund terms", () => {
     renderInLocale("en-US", <RepositoryFact name="licenseWithdrawalConsentField" />)
 
     expect(screen.getByText(LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT).tagName).toBe("CODE")
+  })
+})
+
+describe("affiliate terms", () => {
+  it.each(["en-US", "pl-PL"] as const)("prints the commission hold in days for %s, from the affiliate terms", (locale) => {
+    renderInLocale(locale, <RepositoryFact name="affiliateHoldDays" unit="day" />)
+
+    expect(screen.getByTestId("fact")).toHaveTextContent(
+      new Intl.NumberFormat(locale, { style: "unit", unit: "day", unitDisplay: "long" }).format(AFFILIATE_TERMS.HOLD_DAYS),
+    )
   })
 })

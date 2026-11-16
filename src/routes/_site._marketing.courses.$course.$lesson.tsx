@@ -120,7 +120,7 @@ const LessonPage = (): JSX.Element => {
 
   return (
     <section className="relative">
-      <div className="mx-auto grid w-full max-w-7xl gap-12 px-6 py-12 md:px-10 md:py-16 lg:grid-cols-[1fr_22rem]">
+      <div className="mx-auto grid w-full max-w-site gap-12 px-6 py-12 md:px-10 md:py-16 lg:grid-cols-[1fr_22rem]">
         <div className="min-w-0">
           <LessonStage courseSlug={data.course.slug} lesson={lesson} signedIn={data.viewer.signedIn} />
 

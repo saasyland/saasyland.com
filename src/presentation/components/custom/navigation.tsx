@@ -1,4 +1,4 @@
-import { type JSX, useCallback, useState } from "react"
+import type { JSX } from "react"
 
 import { Link, useLinkProps } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
@@ -7,8 +7,6 @@ import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
 import { MARKETING_SECTION_IDS, SITE_CONTENT_ID } from "~/src/data/navigation.constants"
-
-import { cn } from "~/src/lib/cn"
 
 import { HomeLink } from "~/src/presentation/components/custom/home-link"
 import { MobileMenu } from "~/src/presentation/components/custom/mobile-menu"
@@ -48,22 +46,9 @@ const observeProgress = (element: HTMLDivElement | null): (() => void) | undefin
 }
 
 export const Navigation = (): JSX.Element => {
-  const [hasScrolled, setHasScrolled] = useState(false)
-
   const t = useTranslations("components.custom.navigation")
   const navigationLabel = useNavigationLabel()
   const startBuilding = useLinkProps({ hash: MARKETING_SECTION_IDS.PRICING, to: ROUTES.HOME })
-
-  const observeSentinel = useCallback((sentinel: HTMLDivElement): (() => void) => {
-    const observer = new IntersectionObserver(([entry]) => {
-      setHasScrolled(entry?.isIntersecting !== true)
-    })
-    observer.observe(sentinel)
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [])
 
   return (
     <>
@@ -73,19 +58,10 @@ export const Navigation = (): JSX.Element => {
       >
         {t("skipToContent")}
       </a>
-      <div aria-hidden className="pointer-events-none absolute top-0 left-0 h-px w-px" ref={observeSentinel} />
-      <header
-        className={cn(
-          "fixed inset-x-0 top-0 z-40 border-b transition-[background-color,border-color,backdrop-filter] duration-300 ease-exp motion-reduce:transition-none",
-          {
-            "border-border bg-background/72 backdrop-blur-xl": hasScrolled,
-            "border-transparent bg-transparent": !hasScrolled,
-          },
-        )}
-      >
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-border bg-background/72 backdrop-blur-xl">
         <nav
           aria-label={t("ariaLabel")}
-          className="mx-auto flex h-header w-full max-w-7xl items-center justify-between gap-6 px-6 md:px-10"
+          className="mx-auto flex h-header w-full max-w-site items-center justify-between gap-6 px-6 md:px-10"
         >
           <HomeLink />
 

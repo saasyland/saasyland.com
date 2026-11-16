@@ -76,7 +76,7 @@ const CoursePage = (): JSX.Element => {
 
   return (
     <section className="relative">
-      <div className="mx-auto grid w-full max-w-7xl gap-14 px-6 py-24 md:px-10 md:py-32 lg:grid-cols-[1fr_22rem]">
+      <div className="mx-auto grid w-full max-w-site gap-14 px-6 py-24 md:px-10 md:py-32 lg:grid-cols-[1fr_22rem]">
         <div className="min-w-0">
           <Link
             className="inline-flex items-center gap-2 rounded-md font-mono text-label text-muted-foreground uppercase transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"

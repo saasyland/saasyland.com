@@ -42,7 +42,7 @@ export const BlogIndexPending = (): JSX.Element => (
 
 export const BlogPostPending = (): JSX.Element => (
   <article aria-busy="true" className="relative">
-    <div className="mx-auto w-full max-w-7xl px-6 py-20 md:px-10 md:py-28">
+    <div className="mx-auto w-full max-w-site px-6 py-20 md:px-10 md:py-28">
       <Skeleton className="h-lh w-24 scale-y-70 font-mono text-label" />
 
       <div className="mt-8 flex max-w-[24ch] flex-col text-display-gate">

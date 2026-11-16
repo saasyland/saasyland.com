@@ -1,12 +1,13 @@
 import { readFileSync, readdirSync } from "node:fs"
 
 import { uiTranslations } from "@fumadocs/base-ui/i18n"
-import type { Page } from "@playwright/test"
+import type { Locator, Page } from "@playwright/test"
 import * as zod from "zod"
 
 import { SITE_CONTENT_ID } from "../../src/data/navigation.constants"
 import { I18N, type SupportedLocale } from "../../src/integrations/use-intl/i18n.config"
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
+import { APP_NAME } from "../../src/presentation/branding"
 import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
@@ -17,6 +18,15 @@ const VIEWPORTS = [
   { height: 844, width: 390 },
 ] as const
 const [, PHONE_VIEWPORT] = VIEWPORTS
+const WIDE_VIEWPORTS = [
+  { height: 900, width: 1280 },
+  { height: 900, width: 1440 },
+  { height: 900, width: 1583 },
+  { height: 1000, width: 1870 },
+] as const
+const PIXEL_TOLERANCE = 1
+const DOCS_SIDEBAR = "#nd-sidebar"
+const DOCS_TABLE_OF_CONTENTS = "#nd-toc"
 const DOCS_PAGE = `${ROUTES.DOCS}/features/authentication`
 const BLOG_POST = `${ROUTES.BLOG}/better-t-stack-vs-saas-starter-kit`
 const TAGGED_POST = "ai-coding-agents-repository-readiness"
@@ -35,7 +45,8 @@ const TAG_ITEM = /^ {2}- /u
 const treeSchema = zod.record(zod.string(), zod.unknown())
 const blogSchema = zod.object({ tags: zod.record(zod.string(), zod.string()) })
 const contentNavigationSchema = zod.object({ header: zod.object({ docs: zod.string() }) })
-const fumadocsSchema = zod.object({ sidebar: zod.object({ open: zod.string() }) })
+const fumadocsSchema = zod.object({ sidebar: zod.object({ collapse: zod.string(), open: zod.string() }) })
+const siteNavigationSchema = zod.object({ getStarted: zod.string() })
 const sonnerSchema = zod.object({ label: zod.string() })
 
 const readMessages = (locale: SupportedLocale, namespace: string): unknown =>
@@ -85,6 +96,12 @@ const visit = async (page: Page, path: string): Promise<void> => {
   await app.waitForAppReady()
   await app.waitForHydration(page.locator(`#${SITE_CONTENT_ID}`))
 }
+
+const edgesOf = (locator: Locator): Promise<{ bottom: number; left: number; right: number; top: number }> =>
+  locator.evaluate((element) => {
+    const { bottom, left, right, top } = element.getBoundingClientRect()
+    return { bottom, left, right, top }
+  })
 
 const stickyBars = (page: Page): Promise<{ count: number; covered: number }> =>
   page.evaluate(() => {
@@ -150,6 +167,38 @@ for (const locale of LOCALES) {
     })
   })
 }
+
+test.describe("docs on a wide screen", () => {
+  for (const viewport of WIDE_VIEWPORTS) {
+    test(`line the sidebar and the table of contents up with the site header and keep the sidebar under it at ${String(viewport.width)} px`, async ({
+      page,
+    }) => {
+      const { sidebar } = fumadocsSchema.parse(readMessages(I18N.DEFAULT_LOCALE, "fumadocs"))
+      const { getStarted } = siteNavigationSchema.parse(readMessages(I18N.DEFAULT_LOCALE, "components.custom.navigation"))
+      await page.setViewportSize(viewport)
+      await visit(page, DOCS_PAGE)
+      const banner = page.getByRole("banner")
+      const logo = await edgesOf(banner.getByRole("link", { exact: true, name: APP_NAME }))
+      const callToAction = await edgesOf(banner.getByRole("link", { exact: true, name: getStarted }))
+
+      const expectLinedUp = async (moment: string): Promise<void> => {
+        const header = await edgesOf(banner)
+        const docsSidebar = await edgesOf(page.locator(DOCS_SIDEBAR))
+        const tableOfContents = await edgesOf(page.locator(DOCS_TABLE_OF_CONTENTS))
+        await expect(page.locator(DOCS_SIDEBAR), moment).toBeInViewport()
+        expect(Math.abs(docsSidebar.left - logo.left), moment).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+        expect(Math.abs(tableOfContents.right - callToAction.right), moment).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+        expect(Math.abs(docsSidebar.top - header.bottom), moment).toBeLessThanOrEqual(PIXEL_TOLERANCE)
+      }
+
+      await expectLinedUp("at the top of the page")
+      await page.locator(`#${SITE_CONTENT_ID} h2`).nth(SECOND_SECTION).scrollIntoViewIfNeeded()
+      expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+      await expectLinedUp("after scrolling")
+      await expect(page.locator(DOCS_SIDEBAR).getByRole("button", { exact: true, name: sidebar.collapse })).toHaveCount(0)
+    })
+  }
+})
 
 test.describe("docs on a phone", () => {
   test.beforeEach(async ({ page }) => {

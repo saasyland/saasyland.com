@@ -54,12 +54,17 @@ const LINKS = [
   },
 ]
 
-const CONTAINER = { className: "pt-header [--fd-banner-height:var(--spacing-header)] max-md:[--fd-header-height:--spacing(12)]" } as const
+const CONTAINER = {
+  className:
+    "mx-auto w-full max-w-site pt-header [--fd-banner-height:var(--spacing-header)] max-md:[--fd-header-height:--spacing(12)] md:px-10",
+} as const
 const THEME = { enabled: false } as const
 const THEME_SWITCH = { enabled: false } as const
 const SLOTS = { header: DocsToolbar, languageSelect: false, skipToContent: false } as const
 
 const SIDEBAR = {
+  className: "border-s",
+  collapsible: false,
   footer: (
     <div className="flex flex-col gap-2">
       <LocaleSelect />

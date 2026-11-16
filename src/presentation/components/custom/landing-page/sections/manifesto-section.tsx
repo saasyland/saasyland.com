@@ -17,7 +17,7 @@ export const ManifestoSection = (): JSX.Element => {
 
   return (
     <section className="relative border-t border-border" id="manifesto">
-      <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-28">
+      <div className="mx-auto w-full max-w-site px-6 py-24 md:px-10 md:py-28">
         <Reveal variant="quiet">
           <p className="max-w-[24ch] text-headline-peak text-balance text-foreground">{t("p1")}</p>
         </Reveal>

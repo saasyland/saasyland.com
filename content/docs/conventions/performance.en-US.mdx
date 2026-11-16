@@ -1,6 +1,6 @@
 ---
 title: "Performance"
-description: "The measured rules that keep pages fast: a small Worker boot graph, no ORM in the browser, stripped preload hints, provider placement, one Tailwind build, media sizing and the reveal pattern."
+description: "The measured rules that keep pages fast: a small Worker boot graph, no ORM in the browser, messages loaded on demand, stripped preload hints, provider placement, one Tailwind build, media sizing and the reveal pattern."
 ---
 
 Each rule on this page came from a measurement, and several replaced an intuitive fix that made things worse. Change the code behind one of them only with a new measurement that beats it.
@@ -47,6 +47,28 @@ const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
 ```
 
 A build in which an import of it survives tree-shaking fails and prints the chain of imports from the route to the file that reached Drizzle. Break the chain where it starts: import the tuple from the module's constants, or move the code into a server function. Type-only imports are erased and never count.
+
+## Load messages when a page needs them
+
+The first page a visitor opens loads no message file in the browser: the root route and the matched routes preload their namespaces into the query cache on the server, and TanStack Start sends that cache with the HTML. The browser loads a namespace only when a later navigation needs one that the cache does not hold yet.
+
+`import.meta.glob` gives every message file a chunk of its own, but the map from each file to its chunk, which names every namespace in every locale, ships in the module that calls the glob. That module was `i18n.messages.ts`, which the root route imports, and it held the map twice, once for the messages and once for the page metadata, so every page loaded about 240 KiB of loaders, 21 KiB gzipped. The map now lives on its own in `i18n.loaders.ts`, and `loadNamespace` imports it the first time it loads a namespace:
+
+```ts title="src/integrations/use-intl/i18n.messages.ts"
+const { MESSAGE_LOADERS } = await import("~/src/integrations/use-intl/i18n.loaders")
+```
+
+`loadPageMetadata` reads `metadata` from the page's namespace instead of from a second map, so a page's head and its messages come from one chunk. The browser fetches `i18n.loaders.ts`, about 11 KiB gzipped, with the first namespace it loads, on a navigation or on the hover that preloads one. The root namespaces are still found by file name in `i18n.messages.ts`, and that glob's keys cost about 2 KiB gzipped. Every script each page loads, gzipped, from the `bun run build:test` output:
+
+| Page           | Before    | After     |
+| -------------- | --------- | --------- |
+| `/`            | 462.9 KiB | 442.3 KiB |
+| `/docs/<page>` | 553.5 KiB | 532.9 KiB |
+| `/blog`        | 424.6 KiB | 404.0 KiB |
+| `/app`         | 430.4 KiB | 409.7 KiB |
+| `/admin`       | 452.8 KiB | 432.2 KiB |
+
+Load messages only through `loadNamespace`, and never add an `import.meta.glob` over `messages/` to a module that the root route imports. `scripts/verify-build.ts` follows the static imports of the browser's entry script and fails the build when they hold the loader of a page namespace.
 
 ## Prerendered pages load CSS and fonts first
 

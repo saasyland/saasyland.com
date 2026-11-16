@@ -1,11 +1,10 @@
 import type { JSX } from "react"
 
-import { useRouterState } from "@tanstack/react-router"
 import { type CellContext, createColumnHelper } from "@tanstack/react-table"
 import { Eye, EyeOff } from "lucide-react"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
+import { CATEGORY_KIND, type CATEGORY_KINDS, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
 import type { Category } from "~/src/modules/category/category.types"
 
 import { ADMIN_STATUS_BADGE_CLASSES } from "~/src/data/admin"
@@ -22,19 +21,22 @@ const ITEMS_PLACEHOLDER = "0"
 
 type CategoryRow = Category["select"]
 
-const CategoryHeader = ({ id }: { readonly id: "items" | "lastUpdated" | "name" | "visibility" }): string => {
-  const tab = useRouterState({ select: (state) => state.location.search.tab })
+type CategoryKind = (typeof CATEGORY_KINDS)[number]
+
+const NameHeader = ({ kind }: { readonly kind: CategoryKind }): string => {
   const t = useTranslations("pages.admin.products")
 
-  if (id !== "name") {
-    return t(`categories.table.headers.${id}`)
-  }
-
-  if (tab === "collections") {
+  if (kind === CATEGORY_KIND.COLLECTION) {
     return t("collections.table.headers.collection")
   }
 
   return t("categories.table.headers.category")
+}
+
+const CategoryHeader = ({ id }: { readonly id: "items" | "lastUpdated" | "visibility" }): string => {
+  const t = useTranslations("pages.admin.products")
+
+  return t(`categories.table.headers.${id}`)
 }
 
 const VisibilityCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow, CategoryRow["visibility"]>): JSX.Element => {
@@ -74,14 +76,20 @@ const UpdatedCell = ({ getValue }: CellContext<DataTableFeatures, CategoryRow, D
 
 const columnHelper = createColumnHelper<DataTableFeatures, CategoryRow>()
 
-export const categoryColumns = columnHelper.columns([
-  columnHelper.accessor("name", {
-    cell: ({ row }) => <ItemName description={row.original.description} name={row.original.name} />,
-    enableSorting: false,
-    header: () => <CategoryHeader id="name" />,
-  }),
-  columnHelper.accessor("visibility", { cell: VisibilityCell, enableSorting: false, header: () => <CategoryHeader id="visibility" /> }),
-  columnHelper.display({ cell: ItemsCell, header: () => <CategoryHeader id="items" />, id: "items" }),
-  columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CategoryHeader id="lastUpdated" /> }),
-  columnHelper.display({ cell: RowActionsCell, header: DataTableActionsHeader, id: "actions" }),
-])
+const columnsFor = (kind: CategoryKind) =>
+  columnHelper.columns([
+    columnHelper.accessor("name", {
+      cell: ({ row }) => <ItemName description={row.original.description} name={row.original.name} />,
+      enableSorting: false,
+      header: () => <NameHeader kind={kind} />,
+    }),
+    columnHelper.accessor("visibility", { cell: VisibilityCell, enableSorting: false, header: () => <CategoryHeader id="visibility" /> }),
+    columnHelper.display({ cell: ItemsCell, header: () => <CategoryHeader id="items" />, id: "items" }),
+    columnHelper.accessor("updatedAt", { cell: UpdatedCell, enableSorting: false, header: () => <CategoryHeader id="lastUpdated" /> }),
+    columnHelper.display({ cell: RowActionsCell, header: DataTableActionsHeader, id: "actions" }),
+  ])
+
+export const categoryColumns = {
+  [CATEGORY_KIND.CATEGORY]: columnsFor(CATEGORY_KIND.CATEGORY),
+  [CATEGORY_KIND.COLLECTION]: columnsFor(CATEGORY_KIND.COLLECTION),
+}

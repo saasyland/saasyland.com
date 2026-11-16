@@ -20,11 +20,22 @@ oxlint запускає категорії `correctness`, `nursery`, `pedantic`,
 | `unicorn/no-null`            | увімкнено поза тестами й `src/platform/testing`                         | Відсутні значення — це `undefined`                              |
 | `typescript/no-explicit-any` | `error`                                                                 | Жодне значення не має типу `any`                                |
 
-Перевизначення вузькі й обмежені файлами: тести та спільні тестові допоміжні модулі в `src/platform/testing` послаблюють `no-magic-numbers`, `no-await-in-loop` і `unicorn/no-null`; `src/presentation` і `src/hooks` послаблюють `typescript/consistent-return`; тестові моки послаблюють `require-await`; `src/routes` вимикає `sort-keys`, бо опції маршруту мають власний порядок (див. [Файли маршрутів](/docs/conventions/routes)).
+Перевизначення вузькі й обмежені файлами: тести та спільні тестові допоміжні модулі в `src/platform/testing` послаблюють `no-magic-numbers`, `no-await-in-loop`, `unicorn/no-null` і `hydration/no-clock-or-locale-in-render`; `src/presentation` і `src/hooks` послаблюють `typescript/consistent-return`; тестові моки послаблюють `require-await`; `src/routes` вимикає `sort-keys`, бо опції маршруту мають власний порядок (див. [Файли маршрутів](/docs/conventions/routes)).
 
 `tsconfig.json` додає суворі прапорці, що змінюють спосіб написання коду: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` і `noUnusedParameters`. Читання за індексом може повернути `undefined`, необов’язковій властивості не можна явно присвоїти `undefined`, а сигнатуру індексу читають як `record["key"]`.
 
 Форматер виводить код без крапок з комою, з подвійними лапками, завершальними комами й шириною рядка <RepositoryFact name="printWidth" />. Він також сортує імпорти у фіксовані групи, класи Tailwind — у `className` і викликах `cn`, а скрипти `package.json` — за назвою (`sortPackageJson: { sortScripts: true }`), тож ніколи не впорядковуйте нічого з цього вручну: `vp check` завершується помилкою, коли щось із цього стоїть не в тому порядку. Команди описано на сторінці [Лінтинг і форматування](/docs/tooling/lint-format).
+
+## Рендерити те, що відрендерив сервер
+
+Сторінка рендериться двічі: на сервері й ще раз у браузері, коли React гідратує HTML. Обидва рендери мають вивести однаковий текст, інакше React повідомляє про невідповідність гідратації (помилка #418) і рендерить сторінку заново. Тому код рендерингу ніколи не читає годинник чи локаль середовища виконання, які відрізняються між ними: жодного `new Date()` без аргументу, жодного `Date.now` і жодних `toLocaleString`, `toLocaleDateString` чи `toLocaleTimeString`. Використовуйте значення, спільне для обох сторін:
+
+- відносний час відлічується від `dataUpdatedAt` запиту, який прочитав його дані, як показано в [Інтернаціоналізація та мови](/docs/features/internationalization);
+- рік, який виводить сайт, походить зі збірки: футер закінчує копірайт на `REPOSITORY_FACTS.buildYear`, році за UTC, коли зібрали сайт;
+- числа й дати проходять через `useFormatter` з use-intl, мовою сторінки та в часовому поясі користувача;
+- очікування в браузері, як-от тайм-аут активації в `CheckoutActivation`, — це таймер, запущений у `useEffect`, тож перший рендер збігається із серверним.
+
+`hydration/no-clock-or-locale-in-render`, правило власного oxlint-плагіна репозиторію в `scripts/hydration-lint-plugin.ts`, забезпечує це в `src/hooks`, `src/presentation`, `src/providers` і `src/routes/*.tsx`. Усе там вважається кодом рендерингу, крім функції, яка виконується пізніше: обробника подій `on…` як JSX-пропа, властивості об’єкта чи змінної; `queryFn` або `mutationFn`; і колбека, переданого в `useEffect`, `useLayoutEffect`, `useCallback`, `setTimeout`, `setInterval`, `requestAnimationFrame` або `addEventListener`. Ці списки в плагіні й є списком дозволених: новий вид відкладеного колбека додають туди з випадком у `src/__test__/hydration-lint-plugin.test.ts`, а не коментарем, що вимикає правило.
 
 ## Жодних коментарів
 

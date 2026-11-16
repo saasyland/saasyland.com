@@ -1,4 +1,4 @@
-import { type JSX, type ReactNode, useState } from "react"
+import { type JSX, type ReactNode, useEffect, useState } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { CircleCheck, Clock } from "lucide-react"
@@ -31,8 +31,6 @@ const EMAIL_TAGS = {
 
 const isActive = (license: License["select"] | undefined): license is License["select"] => license?.status === LICENSE_STATUS.ACTIVE
 
-const hasTimedOut = (dataUpdatedAt: number, startedAt: number): boolean => dataUpdatedAt - startedAt >= ACTIVATION_TIMEOUT_MS
-
 const ActivationPanel = ({ children, icon }: Readonly<{ children: ReactNode; icon: ReactNode }>): JSX.Element => (
   <section className="flex items-start gap-5 rounded-xl border border-border bg-card p-6 md:p-8" role="status">
     <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full border border-ring/40 bg-ring/10 text-ring">
@@ -46,12 +44,20 @@ export const CheckoutActivation = ({ checkoutId }: Readonly<{ checkoutId: string
   const tTier = useTranslations("components.custom.pricing")
   const t = useTranslations("pages.license.activation")
 
-  const [startedAt] = useState(Date.now)
+  const [hasTimedOut, setHasTimedOut] = useState(false)
 
-  const { data, dataUpdatedAt, isRefetching, refetch } = useSuspenseQuery({
+  useEffect(() => {
+    const timeoutId = globalThis.setTimeout(() => {
+      setHasTimedOut(true)
+    }, ACTIVATION_TIMEOUT_MS)
+    return () => {
+      globalThis.clearTimeout(timeoutId)
+    }
+  }, [])
+
+  const { data, isRefetching, refetch } = useSuspenseQuery({
     ...currentLicenseQuery,
-    refetchInterval: ({ state }) =>
-      isActive(state.data?.license) || hasTimedOut(state.dataUpdatedAt, startedAt) ? false : ACTIVATION_POLL_MS,
+    refetchInterval: ({ state }) => (isActive(state.data?.license) || hasTimedOut ? false : ACTIVATION_POLL_MS),
   })
 
   if (isActive(data.license)) {
@@ -65,7 +71,7 @@ export const CheckoutActivation = ({ checkoutId }: Readonly<{ checkoutId: string
     )
   }
 
-  if (hasTimedOut(dataUpdatedAt, startedAt)) {
+  if (hasTimedOut) {
     return (
       <ActivationPanel icon={<Clock className="size-4.5" strokeWidth={2.25} />}>
         <h2 className="text-title text-balance text-foreground">{t("delayed.title")}</h2>

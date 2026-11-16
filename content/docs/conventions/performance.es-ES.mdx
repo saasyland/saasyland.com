@@ -1,6 +1,6 @@
 ---
 title: "Rendimiento"
-description: "Las reglas medidas que mantienen rápidas las páginas: un grafo de arranque del Worker pequeño, ningún ORM en el navegador, sugerencias de precarga eliminadas, la ubicación de los proveedores, un solo build de Tailwind, el tamaño de los medios y el patrón de aparición al desplazarse."
+description: "Las reglas medidas que mantienen rápidas las páginas: un grafo de arranque del Worker pequeño, ningún ORM en el navegador, mensajes cargados bajo demanda, sugerencias de precarga eliminadas, la ubicación de los proveedores, un solo build de Tailwind, el tamaño de los medios y el patrón de aparición al desplazarse."
 ---
 
 Cada regla de esta página salió de una medición, y varias sustituyeron una solución intuitiva que empeoraba las cosas. Cambia el código que hay detrás de una de ellas solo con una nueva medición que la supere.
@@ -47,6 +47,28 @@ const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
 ```
 
 Un build en el que una importación suya sobrevive al tree-shaking falla e imprime la cadena de importaciones desde la ruta hasta el archivo que llegó a Drizzle. Rompe la cadena donde empieza: importa la tupla desde las constantes del módulo o mueve el código a una función de servidor. Las importaciones de solo tipos se eliminan y nunca cuentan.
+
+## Carga los mensajes cuando una página los necesita [#load-messages-when-a-page-needs-them]
+
+La primera página que abre un visitante no carga ningún archivo de mensajes en el navegador: la ruta raíz y las rutas coincidentes precargan sus namespaces en la caché de consultas en el servidor, y TanStack Start envía esa caché con el HTML. El navegador carga un namespace solo cuando una navegación posterior necesita uno que la caché todavía no tiene.
+
+`import.meta.glob` da a cada archivo de mensajes un chunk propio, pero el mapa de cada archivo a su chunk, que nombra todos los namespaces de todos los locales, viaja en el módulo que llama al glob. Ese módulo era `i18n.messages.ts`, que importa la ruta raíz, y tenía el mapa dos veces, una para los mensajes y otra para los metadatos de página, así que cada página cargaba unos 240 KiB de loaders, 21 KiB con gzip. El mapa vive ahora solo en `i18n.loaders.ts`, y `loadNamespace` lo importa la primera vez que carga un namespace:
+
+```ts title="src/integrations/use-intl/i18n.messages.ts"
+const { MESSAGE_LOADERS } = await import("~/src/integrations/use-intl/i18n.loaders")
+```
+
+`loadPageMetadata` lee `metadata` del namespace de la página en lugar de un segundo mapa, así que el head de una página y sus mensajes salen del mismo chunk. El navegador descarga `i18n.loaders.ts`, unos 11 KiB con gzip, junto con el primer namespace que carga, en una navegación o al pasar el puntero sobre un enlace que precarga uno. Los namespaces raíz se siguen encontrando por nombre de archivo en `i18n.messages.ts`, y las claves de ese glob cuestan unos 2 KiB con gzip. Todos los scripts que carga cada página, con gzip, según la salida de `bun run build:test`:
+
+| Página         | Antes     | Después   |
+| -------------- | --------- | --------- |
+| `/`            | 462,9 KiB | 442,3 KiB |
+| `/docs/<page>` | 553,5 KiB | 532,9 KiB |
+| `/blog`        | 424,6 KiB | 404,0 KiB |
+| `/app`         | 430,4 KiB | 409,7 KiB |
+| `/admin`       | 452,8 KiB | 432,2 KiB |
+
+Carga los mensajes solo a través de `loadNamespace`, y nunca añadas un `import.meta.glob` sobre `messages/` a un módulo que importe la ruta raíz. `scripts/verify-build.ts` sigue los imports estáticos del script de entrada del navegador y hace fallar el build cuando contienen el loader de un namespace de página.
 
 ## Las páginas prerenderizadas cargan primero el CSS y las fuentes
 

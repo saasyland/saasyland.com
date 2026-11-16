@@ -1,6 +1,6 @@
 import type { JSX } from "react"
 
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { Laptop, Loader2, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 import { useFormatter, useTranslations } from "use-intl/react"
@@ -9,6 +9,7 @@ import type { AuthActiveSession } from "~/src/integrations/better-auth/auth.type
 
 import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 import { isMobileSession, sessionDeviceLabel } from "~/src/modules/session/session.utils"
+import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 import { revokeSessionMutation } from "~/src/modules/session/use-cases/revoke-session"
 
 import { useErrorMessage } from "~/src/hooks/use-error-message"
@@ -23,6 +24,8 @@ export const SessionRow = ({ isCurrent, session }: { readonly isCurrent: boolean
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
 
+  const { dataUpdatedAt } = useSuspenseQuery(getActiveSessionsQuery)
+
   const revokeSession = useMutation({
     ...revokeSessionMutation,
     onError: (error) => {
@@ -35,7 +38,7 @@ export const SessionRow = ({ isCurrent, session }: { readonly isCurrent: boolean
   })
 
   const isMobile = isMobileSession(session)
-  const lastActive = t("settings.security.sessions.activeAgo", { time: format.relativeTime(session.updatedAt, new Date()) })
+  const lastActive = t("settings.security.sessions.activeAgo", { time: format.relativeTime(session.updatedAt, dataUpdatedAt) })
   const activity = isCurrent ? session.ipAddress : lastActive
 
   return (

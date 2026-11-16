@@ -49,7 +49,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
@@ -59,7 +58,7 @@ const renderSessions = (
 ) => {
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false, staleTime: Infinity } } })
   queryClient.setQueryData(getCurrentSessionQuery.queryKey, currentSession)
-  queryClient.setQueryData(getActiveSessionsQuery.queryKey, sessions)
+  queryClient.setQueryData(getActiveSessionsQuery.queryKey, sessions, { updatedAt: now.getTime() })
   const invalidate = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue()
   const result = renderWithRouter(
     <IntlProvider locale={locale} messages={getTestMessages(locale)}>
@@ -142,8 +141,6 @@ describe("session revocation", () => {
 
 describe("active session details", () => {
   it("localizes session details in Polish", () => {
-    vi.useFakeTimers({ toFake: ["Date"] })
-    vi.setSystemTime(now)
     renderSessions([{ ...session, ipAddress: "", updatedAt: new Date(now.getTime() - 180_000), userAgent: "" }], "pl-PL")
     expect(screen.getByText("Nieznane urządzenie")).toBeInTheDocument()
     expect(screen.getByText(/Ostatnia aktywność: 3 minuty temu/u)).toBeInTheDocument()
@@ -154,11 +151,9 @@ describe("active session details", () => {
     { elapsed: 180_000, time: "3 minutes ago" },
     { elapsed: 7_200_000, time: "2 hours ago" },
     { elapsed: 172_800_000, time: "2 days ago" },
-  ])("shows $time for an inactive session", ({ elapsed, time }) => {
-    vi.useFakeTimers({ toFake: ["Date"] })
-    vi.setSystemTime(now)
+  ])("shows $time for a session inactive that long when the sessions were read", ({ elapsed, time }) => {
     renderSessions([{ ...session, updatedAt: new Date(now.getTime() - elapsed), userAgent: "Firefox desktop" }])
-    expect(screen.getByText(new RegExp(time, "u"))).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(`Active ${time}`, "u"))).toBeInTheDocument()
     expect(screen.getByText("Firefox desktop")).toBeInTheDocument()
   })
 

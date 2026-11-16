@@ -9,6 +9,9 @@ import { APP_NAVIGATION_WAIT_UNTIL, BasePage, RENDERED_LOCATION_KEY, recordRende
 
 const [admin] = TEST_ACCOUNTS
 
+const BROWSER_TIMEZONE = "America/Los_Angeles"
+const BROWSER_TIME = new Date("2026-11-16T00:05:00Z")
+
 const signInAsAdmin = async ({ appPage, authPage, page }: { appPage: BasePage; authPage: AuthPage; page: Page }): Promise<void> => {
   await authPage.signIn(admin.email)
   await expect(page).toHaveURL(/\/admin\/?$/u)
@@ -142,4 +145,27 @@ test("a user the admin adds verifies their email, signs in and is signed out whe
   await customerPage.goto("/app", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await expect(customerPage).toHaveURL(/\/auth\/sign-in/u)
   await customerContext.close()
+})
+
+test.describe("a browser whose clock and time zone are not the server's", () => {
+  test.use({ timezoneId: BROWSER_TIMEZONE })
+
+  test("hydrates the dashboard and a user's sessions as the server printed them", async ({ appPage, authPage, page }) => {
+    const errors: string[] = []
+    page.on("pageerror", (error) => errors.push(error.message))
+    await page.clock.setSystemTime(BROWSER_TIME)
+    await signInAsAdmin({ appPage, authPage, page })
+    await page.goto("/admin", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+
+    const response = await page.goto(`/admin/users/${admin.id}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    const html = (await response?.text()) ?? ""
+    await appPage.waitForAppReady()
+    const sessions = page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { name: "Sessions" }) })
+    const activity = sessions.getByRole("listitem").first().locator("p").last()
+    await appPage.waitForHydration(sessions)
+    const printed = await activity.innerText()
+    expect(html, `the server printed "${printed}"`).toContain(printed)
+    expect(errors).toEqual([])
+  })
 })

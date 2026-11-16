@@ -8,6 +8,7 @@ import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 import { FOOTER_SECTIONS } from "~/src/data/marketing"
 import { FOOTER_NAVIGATION } from "~/src/data/navigation"
 import { FOOTER_COLUMN } from "~/src/data/navigation.constants"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { cn } from "~/src/lib/cn"
 
@@ -32,8 +33,8 @@ export const Footer = (): JSX.Element => {
   const t = useTranslations("components.custom.footer")
   const navigationLabel = useNavigationLabel()
 
-  const currentYear = new Date().getFullYear()
-  const years = currentYear > APP_FOUNDED_YEAR ? `${APP_FOUNDED_YEAR}–${currentYear}` : String(APP_FOUNDED_YEAR)
+  const { buildYear } = REPOSITORY_FACTS
+  const years = buildYear > APP_FOUNDED_YEAR ? `${APP_FOUNDED_YEAR}–${buildYear}` : String(APP_FOUNDED_YEAR)
 
   return (
     <footer className="relative z-10 border-t border-border bg-background">

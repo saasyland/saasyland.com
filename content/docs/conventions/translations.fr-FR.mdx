@@ -37,10 +37,22 @@ const t = useTranslations("pages.admin.courses.form")
 
 - Les clés sont des objets JSON imbriqués aux noms en camelCase, regroupés comme l'est l'écran : `table.headers.course`, `delete.confirm`.
 - Les pluriels, les nombres et les dates utilisent la syntaxe ICU dans le message, jamais une concaténation de chaînes dans le code : `"{e2eSpecs, plural, one {# Playwright suite} other {# Playwright suites}}"`.
-- `scripts/check-message-formats.ts` exige dans chaque locale les mêmes arguments et balises ICU, ainsi que chaque chemin de fichier et chaque commande `bun run`, `bunx`, `npx` ou `vp` du message anglais à l’identique. Il rejette le texte anglais laissé dans une autre locale et les accents graves Markdown, que les messages n’affichent pas.
+- `scripts/check-message-formats.ts` exige dans chaque locale les mêmes arguments et balises ICU, ainsi que chaque chemin de fichier et chaque commande `bun run`, `bunx`, `npx` ou `vp` du message anglais à l’identique. Il rejette le texte anglais laissé dans une autre locale, les accents graves Markdown, que les messages n’affichent pas, et une [forme d’adresse](#one-form-of-address) que la locale n’utilise pas.
 - Formatez les nombres, les dates et les devises pour la locale du lecteur avec `useFormatter` de use-intl, jamais à la main. Les dates utilisent un format nommé de `I18N.FORMATS` (`date`, `time`, `calendarDate`), afin que le fuseau horaire et son libellé restent cohérents. Un format nommé contient une date ou une heure, jamais les deux : chaque moteur les relie à sa façon, et Safari écrit « Jan 1, 2025 at 7:00 AM » là où le serveur écrit « Jan 1, 2025, 7:00 AM », donc une date avec son heure passe par le message `common.dateTime`, comme dans `t("common.dateTime", { value })`. Un temps relatif se compte à partir de la lecture de ses données, le `dataUpdatedAt` de sa requête, comme dans `format.relativeTime(session.updatedAt, dataUpdatedAt)`, jamais à partir de `new Date()`, que le serveur et le navigateur lisent à des moments différents. `useCurrencyFormatter` formate un montant dans une devise donnée.
 - Les messages Zod des schémas d'un module sont des clés de son espace de noms `<table>.validations` (`"slugInvalid"`), et les nombres qu'ils mentionnent proviennent de `<MODULE>_VALIDATION_PARAMS`. Voir [Formulaires et tableaux](/docs/conventions/forms-and-tables).
 - Le texte stocké dans la base de données que les visiteurs lisent en plusieurs langues est une colonne `LocalizedText`. L'anglais est obligatoire et sert de repli que `localize(text, locale)` renvoie pour une traduction manquante.
+
+## Une seule forme d’adresse [#one-form-of-address]
+
+Chaque locale s’adresse au lecteur d’une seule façon, dans chaque message, e-mail, page juridique, page de documentation, article de blog et entrée du changelog : la forme qu’emploient les outils de développement dans cette langue. `FORMS_OF_ADDRESS` dans `src/lib/forms-of-address.ts` nomme la forme de chaque locale et liste les formes qui la contredisent, et `scripts/check-message-formats.ts` et `scripts/check-content.ts` échouent lorsqu’une traduction en emploie une en dehors du code, des cibles de liens et des citations japonaises entre 「」.
+
+<RepositoryTable name="formsOfAddress" columns={["Locale", "Forme", "Jamais", "Jamais dans une phrase", "Jamais en fin de phrase"]} />
+
+- Un mot sous **Jamais** échoue où qu’il se trouve, y compris avec une majuscule en début de phrase.
+- Un mot sous **Jamais dans une phrase** échoue après un mot, un nombre ou une virgule sur la même ligne. En début de phrase, le même mot est souvent une troisième personne, comme dans `Sie laufen im Worker` (« ils s’exécutent dans le Worker »), si bien que la vérification l’y laisse et s’en remet à la relecture.
+- Une forme sous **Jamais en fin de phrase** échoue devant un point japonais.
+
+L’allemand tutoie avec du, en minuscule comme le recommande le Duden, y compris dans les pages juridiques : la forme d’adresse n’a aucun effet juridique. Le polonais écrit Ty et Twój avec une majuscule par courtoisie. Le japonais termine ses phrases en です・ます, tandis que les titres, les éléments de liste, les cellules de tableau et les slogans peuvent se terminer par un nom ou un verbe à la forme simple, jamais par la copule simple. La vérification trouve les pronoms et les terminaisons sans ambiguïté ; un impératif ou une terminaison verbale que seul le sens de la phrase distingue, comme l’espagnol `Ejecute` pour `Ejecuta`, relève de la relecture.
 
 ## Les nombres sont mesurés, pas saisis
 
@@ -59,6 +71,7 @@ Chaque page sous `content/docs`, chaque article sous `content/blog` et chaque en
 - un `meta.<locale>.json` liste d'autres slugs que l'anglais ;
 - un titre, une description ou un paragraphe est encore en anglais ;
 - un marqueur de traduction automatique reste dans le texte ;
+- une traduction s’adresse au lecteur dans une forme que sa locale n’utilise pas (voir [Une seule forme d’adresse](#one-form-of-address)) ;
 - une URL nue se colle sans espace au texte qui la suit, comme devant une parenthèse ou un point pleine chasse en japonais, si bien que son lien engloberait aussi ce texte ;
 - un bloc de code dont le titre est un chemin du dépôt, comme `title="src/integrations/better-auth/auth.access.ts"`, n'est pas un extrait de ce fichier ;
 - une page de documentation nomme un hôte local ou un sous-domaine de `APP_DOMAIN` que `appHostsForMode` n'autorise dans aucun mode de build ;
@@ -67,7 +80,7 @@ Chaque page sous `content/docs`, chaque article sous `content/blog` et chaque en
 - un lien interne se termine par une barre oblique, `/index` ou `.html`, ou commence par une locale ou un alias de langue comme `/pl/` : le site redirige un tel chemin, et `localizeHref` ajoute la locale de la page à chaque lien interne ;
 - une traduction omet ou ajoute du code en ligne, un composant, une prop de composant autre que `title`, `description`, `excerpt` et `unreleased`, ou un lien vers une autre page, ou n’a pas le même nombre de lignes de tableau que la page anglaise.
 
-Rédigez les traductions comme le ferait un locuteur natif, avec la terminologie que la locale utilise déjà dans `messages/<locale>/` (le polonais, par exemple, nomme les offres Komplet et Agencja). Les identifiants de code, les chemins de fichiers, les commandes et les noms de produits restent tels quels, et les liens conservent leurs chemins `/docs/...` sans préfixe de locale, que le site ajoute au moment du rendu.
+Rédigez les traductions comme le ferait un locuteur natif, avec la terminologie que la locale utilise déjà dans `messages/<locale>/` (le polonais, par exemple, nomme les offres Podstawa, Komplet et Agencja et appelle une remise « rabat »). Les identifiants de code, les chemins de fichiers, les commandes et les noms de produits restent tels quels, et les liens conservent leurs chemins `/docs/...` sans préfixe de locale, que le site ajoute au moment du rendu.
 
 ## Pages associées
 

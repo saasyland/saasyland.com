@@ -34,7 +34,7 @@ Los despliegues solo se ejecutan después de que `verify` y `e2e` se superen:
 
 `deploy-reusable.yml` asigna a cada entorno de GitHub su URL, y `src/__test__/workflows.test.ts` falla cuando una no coincide con su host en `DEPLOYED_HOSTS` (`src/modules/_core/constants/api.ts`). Las pull requests desde forks y de Dependabot se validan, pero no se despliegan. La preview es compartida: cada despliegue sustituye al anterior y usa la misma base de datos D1, el mismo espacio de nombres de KV y los mismos buckets de R2 de preview.
 
-`deploy-reusable.yml` comprueba que existan los secretos `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID`, ejecuta `scripts/verify-bindings.ts`, compila con los valores ficticios de `.env.test`, elimina el `dist/server/.dev.vars` generado, aplica `db:migrate:<target>` y ejecuta `vp exec wrangler deploy --config dist/server/wrangler.json`. No ejecuta `scripts/verify-deployment.ts`, la comprobación del sitio desplegado de los scripts `deploy:<target>`, porque la protección contra bots de Cloudflare responde con 403 a las peticiones de los runners de CI. Tampoco ejecuta `scripts/run-deploy-checks.ts`, así que la CI no ejecuta ninguna de las comprobaciones de despliegue que las áreas declaran en `DEPLOY_CHECKS`: en la CI no hay ningún `.env.<target>` y los entornos de GitHub solo guardan las credenciales de Cloudflare. Hoy la única es `polar:verify`, del área de Polar; ejecute `bun run polar:verify:<target>` en local después de cada cambio en Polar ([Configuración de Polar](/docs/getting-started/polar-setup)). No se sube ningún archivo de secretos: el Worker conserva los secretos de ejecución ya configurados en Cloudflare. Los despliegues al mismo destino se ponen en cola en lugar de cancelarse entre sí.
+`deploy-reusable.yml` comprueba que existan los secretos `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID`, ejecuta `scripts/verify-bindings.ts`, compila con los valores ficticios de `.env.test`, elimina el `dist/server/.dev.vars` generado, aplica `db:migrate:<target>` y ejecuta `vp exec wrangler deploy --config dist/server/wrangler.json`. No ejecuta `scripts/verify-deployment.ts`, la comprobación del sitio desplegado de los scripts `deploy:<target>`, porque la protección contra bots de Cloudflare responde con 403 a las peticiones de los runners de CI. Tampoco ejecuta `scripts/run-deploy-checks.ts`, así que la CI no ejecuta ninguna de las comprobaciones de despliegue que las áreas declaran en `DEPLOY_CHECKS`: en la CI no hay ningún `.env.<target>` y los entornos de GitHub solo guardan las credenciales de Cloudflare. Hoy la única es `polar:verify`, del área de Polar; ejecuta `bun run polar:verify:<target>` en local después de cada cambio en Polar ([Configuración de Polar](/docs/getting-started/polar-setup)). No se sube ningún archivo de secretos: el Worker conserva los secretos de ejecución ya configurados en Cloudflare. Los despliegues al mismo destino se ponen en cola en lugar de cancelarse entre sí.
 
 Dependabot actualiza las GitHub Actions semanalmente.
 
@@ -44,7 +44,7 @@ El sitio se despliega de forma continua, así que sus versiones son fechas, no v
 
 Las notas de la versión son las entradas del [registro de cambios](/docs/project/changelog) que llegaron a `main` ese día, de modo que cada cambio se describe en un solo lugar; si ninguna llegó, las notas enlazan al registro de cambios. `scripts/publish-release.ts` elige la etiqueta y las notas con `src/lib/release.ts` y ejecuta `gh release create`. Una nueva ejecución conserva la etiqueta que ya tiene el commit y omite la GitHub Release si ya existe.
 
-Para devolver producción a una versión, revierta en una pull request todo lo posterior a su etiqueta:
+Para devolver producción a una versión, revierte en una pull request todo lo posterior a su etiqueta:
 
 ```sh
 git fetch --tags origin
@@ -53,7 +53,7 @@ git revert --no-commit v2026.11.13..HEAD
 git commit --message "revert: roll back to v2026.11.13"
 ```
 
-Al fusionarla, el código etiquetado se despliega tras las comprobaciones habituales y se etiqueta como una nueva versión. Las migraciones de D1 no se revierten, así que el código anterior se ejecuta sobre el esquema más reciente. Cada cambio de esquema debe funcionar con la aplicación desplegada antes que él, lo que hace que esto sea seguro para la versión anterior; lea las migraciones intermedias antes de retroceder más.
+Al fusionarla, el código etiquetado se despliega tras las comprobaciones habituales y se etiqueta como una nueva versión. Las migraciones de D1 no se revierten, así que el código anterior se ejecuta sobre el esquema más reciente. Cada cambio de esquema debe funcionar con la aplicación desplegada antes que él, lo que hace que esto sea seguro para la versión anterior; lee las migraciones intermedias antes de retroceder más.
 
 ## Guías relacionadas
 

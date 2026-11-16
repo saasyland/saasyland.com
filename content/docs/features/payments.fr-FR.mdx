@@ -1,6 +1,6 @@
 ---
 title: "Paiements"
-description: "La zone Polar : le plugin Polar de Better Auth, le portail client, les webhooks qu’elle transmet aux zones et la démo des paiements de l’administration."
+description: "La zone Polar : le plugin Polar de Better Auth, le portail client, les webhooks qu’elle transmet aux zones, les copies dans D1 des commandes et des abonnements de Polar et la démo des paiements de l’administration."
 ---
 
 Les paiements passent par Polar avec le plugin `@polar-sh/better-auth`, que la zone Polar ajoute à Better Auth dans `src/data/polar.auth-plugins.ts` :
@@ -19,7 +19,7 @@ export const POLAR_AUTH_PLUGINS = [
 
 Le plugin ajoute le portail client et les webhooks, exemptés du limiteur de débit de Better Auth, mais aucun paiement : son `checkout()` créerait un paiement avec le seul identifiant du compte, si bien que Polar redemanderait son e-mail à un acheteur connecté. Better Auth ne ferme aucun chemin en HTTP : `src/data/__test__/polar.auth-plugins.integration.test.ts` vérifie donc que le chemin de paiement du plugin répond 404, et échoue dès que `checkout()` est ajouté au plugin. Une zone qui vend crée ses paiements avec le SDK Polar après ses propres vérifications, comme le fait `startCheckout` dans la zone des licences (voir [Licences](/docs/features/licences)).
 
-`src/integrations/polar/polar.config.ts` crée `polarCore` à partir de `POLAR_ACCESS_TOKEN` et `POLAR_SERVER`, que le plugin utilise, ainsi que `polar`, les services de paiements, de remises, de clés de licence et de commandes construits dessus. `POLAR_ORGANIZATION_ID` restreint à l’organisation chaque appel à Polar qui nomme une organisation ; [Environnement et bindings](/docs/reference/environment) les énumère. `src/integrations/polar/polar.constants.ts` contient les valeurs propres à Polar, `POLAR_ORDER_STATUS`, `POLAR_LICENSE_KEY_STATUS`, `POLAR_WEBHOOK_EVENT` et `POLAR_CHECKOUT_ID_PLACEHOLDER`, chacune vérifiée par rapport aux types du SDK ; il ne lit aucun environnement, si bien que le navigateur et la suite du navigateur l’importent aussi. Les chemins de la zone Polar, `API_AUTH_POLAR` et `API_AUTH_CUSTOMER_PORTAL`, se trouvent dans `src/data/polar.routes.ts`. [Configurer Polar](/docs/getting-started/polar-setup) décrit les produits, les clés de licence, les remises, le webhook et le jeton que ce code attend dans Polar, et `bun run polar:verify:<environment>` les vérifie.
+`src/integrations/polar/polar.config.ts` crée `polarCore` à partir de `POLAR_ACCESS_TOKEN` et `POLAR_SERVER`, que le plugin utilise, ainsi que `polar`, les services de paiements, de remises, de clés de licence et de commandes construits dessus. `POLAR_ORGANIZATION_ID` restreint à l’organisation chaque appel à Polar qui nomme une organisation ; [Environnement et bindings](/docs/reference/environment) les énumère. `src/integrations/polar/polar.constants.ts` contient les valeurs propres à Polar : `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` et `POLAR_WEBHOOK_EVENT`, chacune vérifiée par rapport aux types du SDK, `POLAR_CHECKOUT_ID_PLACEHOLDER`, ainsi que `POLAR_ID_MAX_LENGTH`, la longueur de chaque colonne qui contient un identifiant Polar. Il ne lit aucun environnement, si bien que le navigateur et la suite du navigateur l’importent aussi. Les chemins de la zone Polar, `API_AUTH_POLAR` et `API_AUTH_CUSTOMER_PORTAL`, se trouvent dans `src/data/polar.routes.ts`. [Configurer Polar](/docs/getting-started/polar-setup) décrit les produits, les clés de licence, les remises, le webhook et le jeton que ce code attend dans Polar, et `bun run polar:verify:<environment>` les vérifie.
 
 ## Webhooks [#webhooks]
 
@@ -45,6 +45,21 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 ```
 
 `src/data/__test__/polar-events.test.ts` importe `src/data/polar-events.ts` dans Bun et échoue lorsque cet import atteint le runtime du Worker.
+
+## Commandes et abonnements dans D1 [#orders-and-subscriptions-in-d1]
+
+La zone Polar conserve des copies des commandes et des abonnements de Polar dans deux tables D1, `order` (`src/modules/order/`) et `subscription` (`src/modules/subscription/`), afin que les listes, les recherches et les contrôles d’accès puissent les lire en SQL et continuent de fonctionner quand Polar est lent. Polar reste la source : chaque ligne est l’enregistrement de Polar sous l’identifiant de Polar, et rien ne la modifie à la main. Aucun code n’écrit encore dans ces tables. [Modules](/docs/conventions/modules#tables-that-mirror-a-provider) donne les règles que suit chacune de ces tables miroirs.
+
+| Table          | Colonnes                                                                                                                                                                                                                                                                                            |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `order`        | `id`, `user_id`, `customer_id`, `product_id`, `subscription_id`, `status` (`ORDER_STATUSES`), `currency`, `total_amount`, `refunded_amount`, `invoice_number`, `description`, `placed_at`, `changed_at`                                                                                             |
+| `subscription` | `id`, `user_id`, `customer_id`, `product_id`, `product_name`, `status` (`SUBSCRIPTION_STATUSES`), `amount`, `currency`, `recurring_interval` (`SUBSCRIPTION_RECURRING_INTERVALS`), `recurring_interval_count`, `current_period_end`, `cancel_at_period_end`, `started_at`, `ended_at`, `changed_at` |
+
+- `id`, `customer_id`, `product_id` et `subscription_id` sont des identifiants de Polar, et chaque colonne copiée de Polar reprend le nom de champ de Polar. `subscription_id` n’a pas de clé étrangère, car les événements de Polar peuvent arriver dans n’importe quel ordre.
+- `user_id` relie le compte et reste vide pour un client qui n’en a pas. Supprimer un compte conserve ses commandes et ses abonnements et vide leur `user_id` (`ON DELETE SET NULL`).
+- Les montants sont exprimés dans l’unité mineure de la devise, tels que Polar les envoie. `description` est ce que la commande a acheté, tel que Polar l’a facturé, et `product_name` le nom du produit de l’abonnement tel que Polar l’a indiqué en dernier.
+- `placed_at` indique quand Polar a créé la commande. `changed_at` est la version de l’enregistrement Polar que contient la ligne : le `modified_at` de Polar, ou le `created_at` de Polar pour un enregistrement qui n’a jamais changé. Les colonnes `created_at` et `updated_at` propres à la ligne enregistrent quand D1 l’a écrite.
+- Les index servent les listes pour lesquelles ces copies existent : `order_user_placed_at_idx` les commandes d’un compte et `order_status_placed_at_idx` les commandes d’un statut donné, toutes deux par date de commande ; `subscription_user_status_idx` les abonnements d’un compte par statut et `subscription_status_current_period_end_idx` les abonnements d’un statut donné par date de fin de période.
 
 ## Portail client
 

@@ -1,6 +1,6 @@
 ---
 title: "決済"
-description: "Polar のエリア。Better Auth の Polar プラグイン、カスタマーポータル、各エリアに渡す Webhook、管理画面の決済のデモ。"
+description: "Polar のエリア。Better Auth の Polar プラグイン、カスタマーポータル、各エリアに渡す Webhook、D1 に保持する Polar の注文とサブスクリプションのコピー、管理画面の決済のデモ。"
 ---
 
 決済は、Polar のエリアが `src/data/polar.auth-plugins.ts` で Better Auth に追加する `@polar-sh/better-auth` プラグインを通じて Polar で処理されます。
@@ -19,7 +19,7 @@ export const POLAR_AUTH_PLUGINS = [
 
 プラグインはカスタマーポータルと Webhook を追加し、Webhook は Better Auth のレート制限の対象外です。購入セッションはプラグインでは作成しません。プラグインの `checkout()` はアカウントの ID だけで購入セッションを作成するため、Polar がサインイン済みの購入者にメールアドレスをもう一度尋ねることになるからです。Better Auth は HTTP に対してパスを閉じないため、`src/data/__test__/polar.auth-plugins.integration.test.ts` がプラグインのチェックアウトのパスが 404 を返すことを確認し、プラグインに `checkout()` を追加すると失敗します。販売を行うエリアは、独自のチェックを行った後、Polar SDK で購入セッションを作成します。ライセンスのエリアの `startCheckout` がその例です（[ライセンス](/docs/features/licences)を参照）。
 
-`src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に購入セッション、割引、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は、組織を指定する Polar の呼び出しすべての対象を組織に絞り込みます。その一覧は[環境とバインディング](/docs/reference/environment)にあります。`src/integrations/polar/polar.constants.ts` は Polar 固有の値である `POLAR_ORDER_STATUS`、`POLAR_LICENSE_KEY_STATUS`、`POLAR_WEBHOOK_EVENT`、`POLAR_CHECKOUT_ID_PLACEHOLDER` を保持し、それぞれを SDK の型と照合しています。このファイルは環境を読み取らないため、ブラウザーとブラウザーテストのスイートもこれをインポートします。Polar のエリアのパスである `API_AUTH_POLAR` と `API_AUTH_CUSTOMER_PORTAL` は `src/data/polar.routes.ts` にあります。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、割引、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
+`src/integrations/polar/polar.config.ts` は、`POLAR_ACCESS_TOKEN` と `POLAR_SERVER` からプラグインが使う `polarCore` を作成し、その上に購入セッション、割引、ライセンスキー、注文のサービスをまとめた `polar` を構築します。`POLAR_ORGANIZATION_ID` は、組織を指定する Polar の呼び出しすべての対象を組織に絞り込みます。その一覧は[環境とバインディング](/docs/reference/environment)にあります。`src/integrations/polar/polar.constants.ts` は Polar 固有の値を保持します。`POLAR_ORDER_STATUS`、`POLAR_SUBSCRIPTION_STATUS`、`POLAR_RECURRING_INTERVAL`、`POLAR_LICENSE_KEY_STATUS`、`POLAR_WEBHOOK_EVENT` はそれぞれ SDK の型と照合されており、ほかに `POLAR_CHECKOUT_ID_PLACEHOLDER` と、Polar の ID を保持するすべての列の長さである `POLAR_ID_MAX_LENGTH` があります。このファイルは環境を読み取らないため、ブラウザーとブラウザーテストのスイートもこれをインポートします。Polar のエリアのパスである `API_AUTH_POLAR` と `API_AUTH_CUSTOMER_PORTAL` は `src/data/polar.routes.ts` にあります。[Polar の設定](/docs/getting-started/polar-setup)では、このコードが Polar に求める商品、ライセンスキー、割引、Webhook、トークンを説明しており、`bun run polar:verify:<environment>` がそれらを確認します。
 
 ## Webhook [#webhooks]
 
@@ -45,6 +45,21 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 ```
 
 `src/data/__test__/polar-events.test.ts` は Bun で `src/data/polar-events.ts` をインポートし、そのインポートが Worker のランタイムに到達すると失敗します。
+
+## D1 の注文とサブスクリプション [#orders-and-subscriptions-in-d1]
+
+Polar のエリアは、Polar の注文とサブスクリプションのコピーを D1 の 2 つのテーブル、`order`（`src/modules/order/`）と `subscription`（`src/modules/subscription/`）に保持します。これにより、一覧、検索、アクセスチェックが SQL で読み取れ、Polar の応答が遅いときも動き続けます。情報源はあくまで Polar です。各行は Polar の ID で保存された Polar のレコードであり、手作業で編集することはありません。これらのテーブルに書き込むコードはまだありません。こうしたミラーテーブルが従うルールは[モジュール](/docs/conventions/modules#tables-that-mirror-a-provider)にあります。
+
+| テーブル       | 列                                                                                                                                                                                                                                                                                                    |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `order`        | `id`、`user_id`、`customer_id`、`product_id`、`subscription_id`、`status`（`ORDER_STATUSES`）、`currency`、`total_amount`、`refunded_amount`、`invoice_number`、`description`、`placed_at`、`changed_at`                                                                                              |
+| `subscription` | `id`、`user_id`、`customer_id`、`product_id`、`product_name`、`status`（`SUBSCRIPTION_STATUSES`）、`amount`、`currency`、`recurring_interval`（`SUBSCRIPTION_RECURRING_INTERVALS`）、`recurring_interval_count`、`current_period_end`、`cancel_at_period_end`、`started_at`、`ended_at`、`changed_at` |
+
+- `id`、`customer_id`、`product_id`、`subscription_id` は Polar の ID で、Polar からコピーする列はすべて Polar のフィールド名を使います。Polar のイベントは順不同で届くことがあるため、`subscription_id` には外部キーがありません。
+- `user_id` はアカウントを紐付け、アカウントを持たない顧客では空のままです。アカウントを削除しても、その注文とサブスクリプションは残り、`user_id` が空になります（`ON DELETE SET NULL`）。
+- 金額は、Polar が送るとおり通貨の最小単位で表します。`description` は Polar が請求書に記載した注文の購入内容、`product_name` は Polar が最後に伝えたサブスクリプションの商品名です。
+- `placed_at` は Polar が注文を作成した時刻です。`changed_at` は行が保持している Polar のレコードのバージョンで、Polar の `modified_at`、一度も変更されていないレコードでは Polar の `created_at` です。行自身の `created_at` と `updated_at` は、D1 が行を書き込んだ時刻を記録します。
+- インデックスは、これらのコピーの用途である一覧を支えます。`order_user_placed_at_idx` はアカウントの注文を、`order_status_placed_at_idx` はあるステータスの注文を、いずれも注文された日時の順に、`subscription_user_status_idx` はアカウントのサブスクリプションをステータス別に、`subscription_status_current_period_end_idx` はあるステータスのサブスクリプションを期間の終了日時の順に引きます。
 
 ## カスタマーポータル
 

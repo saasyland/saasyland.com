@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { CURRENCIES, CURRENCY_CODES, toMinorUnits } from "~/src/modules/_core/constants/currency"
+import { CURRENCIES, CURRENCY_CODES, CURRENCY_CODE_LENGTH, toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
 describe("currency catalog", () => {
@@ -8,7 +8,8 @@ describe("currency catalog", () => {
     expect.hasAssertions()
     expect(CURRENCY_CODES).toHaveLength(Object.keys(CURRENCIES).length)
     for (const code of CURRENCY_CODES) {
-      expect(code).toMatch(/^[A-Z]{3}$/u)
+      expect(code).toMatch(/^[A-Z]+$/u)
+      expect(code).toHaveLength(CURRENCY_CODE_LENGTH)
     }
   })
 

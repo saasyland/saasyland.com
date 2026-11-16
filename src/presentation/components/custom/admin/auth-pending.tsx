@@ -18,7 +18,7 @@ import {
   SortableHeadPending,
   TitlePending,
 } from "~/src/presentation/components/custom/admin/pending-blocks"
-import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card"
+import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card-pending"
 
 const PREVIEW_ROWS = Array.from({ length: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }, (_, index) => index)
 

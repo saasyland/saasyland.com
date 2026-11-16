@@ -3,6 +3,9 @@ import { renderToString } from "react-dom/server"
 
 import { useQueryClient } from "@tanstack/react-query"
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router"
+import { getGlobalStartContext } from "@tanstack/react-start"
+import { getGlobalStartContext as readStartContext } from "@tanstack/start-client-core"
+import { runWithStartContext } from "@tanstack/start-storage-context"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, expect, it, vi } from "vite-plus/test"
 
@@ -28,6 +31,23 @@ vi.mock("~/src/routeTree.gen", async () => {
 })
 
 afterEach(() => beforeLoad.mockReset())
+
+it("gives the router the nonce of the request it renders, so its scripts match the page's policy", () => {
+  vi.mocked(getGlobalStartContext).mockImplementationOnce(readStartContext)
+  const context = {
+    contextAfterGlobalMiddlewares: { nonce: "0123456789abcdef0123456789abcdef" },
+    getRouter,
+    handlerType: "router" as const,
+    request: new Request("http://localhost/"),
+    startOptions: {},
+  }
+
+  expect(runWithStartContext(context, getRouter).options.ssr).toStrictEqual({ nonce: "0123456789abcdef0123456789abcdef" })
+})
+
+it("leaves the nonce out where no request is rendered, as in the browser and in prerendered pages", () => {
+  expect(getRouter().options.ssr).toStrictEqual({})
+})
 
 it("creates isolated query caches for separate requests", () => {
   const first = getRouter()

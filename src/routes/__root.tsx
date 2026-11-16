@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 
-import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router"
+import { HeadContent, Outlet, Scripts, createRootRouteWithContext, useRouter } from "@tanstack/react-router"
 import { ThemeScript } from "@wrksz/themes/script"
 
 import { AriaProvider } from "~/src/providers/aria-provider"
@@ -41,6 +41,7 @@ const RootComponent = () => (
 
 const RootDocument = ({ children }: Readonly<{ children: ReactNode }>) => {
   const locale = getCurrentLocale()
+  const { ssr } = useRouter().options
 
   return (
     <html
@@ -52,7 +53,7 @@ const RootDocument = ({ children }: Readonly<{ children: ReactNode }>) => {
     >
       <head>
         <meta charSet="utf-8" />
-        <ThemeScript defaultTheme={THEME.DEFAULT_THEME} storage="cookie" storageKey={THEME.COOKIE_NAME} />
+        <ThemeScript {...ssr} defaultTheme={THEME.DEFAULT_THEME} storage="cookie" storageKey={THEME.COOKIE_NAME} />
         <HeadContent />
         {I18N.SUPPORTED_LOCALES.filter((supported) => supported !== locale).map((alternate) => (
           <meta content={toOpenGraphLocale(alternate)} key={alternate} property="og:locale:alternate" />

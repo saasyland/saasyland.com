@@ -11,4 +11,4 @@
 
 - [ ] README
 - [ ] Docs in all nine locales
-- [ ] Changelog in all nine locales
+- [ ] Changelog entry `content/changelog/<number>.<locale>.mdx` in all nine locales

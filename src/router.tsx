@@ -1,9 +1,11 @@
 import { QueryClient } from "@tanstack/react-query"
 import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
+import { getGlobalStartContext } from "@tanstack/react-start"
 
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
+import "~/src/integrations/zod/zod.config"
 
 import { DefaultError } from "~/src/presentation/components/custom/default-error"
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
@@ -38,6 +40,7 @@ export const getRouter = () => {
     routeTree,
     scrollRestoration: true,
     scrollRestorationBehavior: "instant",
+    ssr: getGlobalStartContext() ?? {},
   })
 
   setupRouterSsrQueryIntegration({ queryClient, router })

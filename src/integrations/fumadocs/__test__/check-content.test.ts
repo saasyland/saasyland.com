@@ -1,12 +1,15 @@
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
 
-import { mdxProblems, pageProblems, sourcePages } from "~/scripts/check-content"
+import { mdxProblems, pageProblems, pullRequestEntryProblems, sourcePages } from "~/scripts/check-content"
 
 const API_SURFACE = "content/docs/features/api-surface"
 const API_SURFACE_LABEL = "docs/features/api-surface.pl-PL.mdx"
 const CLI_API_ROW = 'name="cliApiBasePath"'
 const EXAMPLE_LABEL = "docs/example.de-DE.mdx"
+const MERGED_PULL_REQUEST = "201"
+const ENTRY_LABEL = "changelog/202.de-DE.mdx"
+const ENGLISH_ENTRY = "- Fixed: the checkout keeps the buyer's email address when they return from Polar.\n"
 
 const readApiSurface = (locale: string): string => readFileSync(`${API_SURFACE}.${locale}.mdx`, "utf8")
 
@@ -16,9 +19,14 @@ const problemsOf = ({ source, target }: { source: string; target: string }): str
   mdxProblems({ label: EXAMPLE_LABEL, locale: "de-DE", source: page(source), target: page(target) })
 
 describe("check-content", () => {
-  it("checks every English docs page, blog post and navigation file", () => {
+  it("checks every English docs page, blog post, changelog entry and navigation file", () => {
     expect(sourcePages()).toEqual(
-      expect.arrayContaining(["blog/ai-coding-agents-repository-readiness.en-US.mdx", "docs/index.en-US.mdx", "docs/meta.en-US.json"]),
+      expect.arrayContaining([
+        "blog/ai-coding-agents-repository-readiness.en-US.mdx",
+        `changelog/${MERGED_PULL_REQUEST}.en-US.mdx`,
+        "docs/index.en-US.mdx",
+        "docs/meta.en-US.json",
+      ]),
     )
   })
 
@@ -76,6 +84,45 @@ describe("check-content", () => {
     ).toEqual([])
     expect(problemsOf({ source: "See [Routes](/docs/reference/routes).", target: "Siehe Routen." })).toEqual([
       `${EXAMPLE_LABEL} leaves out /docs/reference/routes from the English page`,
+    ])
+  })
+
+  it("checks a changelog entry without asking it for a title, and keeps its English out of the translations", () => {
+    expect(
+      mdxProblems({
+        label: ENTRY_LABEL,
+        locale: "de-DE",
+        source: ENGLISH_ENTRY,
+        target: "- Behoben: Der Checkout behält die E-Mail-Adresse.\n",
+      }),
+    ).toEqual([])
+    expect(mdxProblems({ label: ENTRY_LABEL, locale: "de-DE", source: ENGLISH_ENTRY, target: ENGLISH_ENTRY })).toEqual([
+      `Untranslated English paragraph in ${ENTRY_LABEL}`,
+    ])
+  })
+
+  it.each(["changelog/latest.de-DE.mdx", "changelog/0b9a1b986.de-DE.mdx"])("fails %s, which no merge can date", (label) => {
+    expect(mdxProblems({ label, locale: "de-DE", source: ENGLISH_ENTRY, target: "- Behoben.\n" })).toEqual([
+      `${label} is named after neither a pull request number nor a full commit hash`,
+    ])
+  })
+
+  it("lets a translation translate the heading of the changes not on main yet", () => {
+    expect(
+      problemsOf({ source: '<ChangelogEntries unreleased="Unreleased" />', target: '<ChangelogEntries unreleased="Unveröffentlicht" />' }),
+    ).toEqual([])
+  })
+})
+
+describe("pullRequestEntryProblems", () => {
+  it("passes a pull request that adds its changelog entry, and a run that is not for a pull request", () => {
+    expect(pullRequestEntryProblems(`refs/pull/${MERGED_PULL_REQUEST}/merge`)).toEqual([])
+    expect(pullRequestEntryProblems("refs/heads/main")).toEqual([])
+  })
+
+  it("fails a pull request without its changelog entry", () => {
+    expect(pullRequestEntryProblems("refs/pull/99999/merge")).toEqual([
+      "Pull request #99999 has no changelog entry: add content/changelog/99999.<locale>.mdx in every locale",
     ])
   })
 })

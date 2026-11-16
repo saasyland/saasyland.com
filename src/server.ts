@@ -9,7 +9,7 @@ import { DOCUMENT_HANDLERS, REQUEST_HANDLERS } from "~/src/data/worker"
 import { createNonce, documentPolicy, withNonce } from "~/src/lib/content-security-policy"
 import { serializeCookie } from "~/src/lib/cookie"
 
-import { DOCUMENT_STYLESHEET, fontPreloads } from "~/src/presentation/document-assets"
+import { fontPreloads } from "~/src/presentation/document-assets"
 
 const HTML = /^text\/html(?:\s*;|$)/iu
 
@@ -67,7 +67,7 @@ const setDocumentHeaders = (headers: Headers, locale: SupportedLocale): void => 
     (font) => `<${font.href}>; rel=preload; as=font; type="${font.type}"; crossorigin=${font.crossOrigin}`,
   )
 
-  headers.append("Link", [`<${DOCUMENT_STYLESHEET.href}>; rel=preload; as=style`, ...fonts].join(", "))
+  headers.append("Link", fonts.join(", "))
   headers.set("Cache-Control", DOCUMENT_CACHE_CONTROL)
   for (const name of STALE_DOCUMENT_HEADERS) {
     headers.delete(name)

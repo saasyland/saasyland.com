@@ -84,6 +84,12 @@ La política de scripts mantiene este orden. El Worker pasa en streaming cada p�
 
 `robots.txt` y `llms.txt` son archivos estáticos de `public/` que no pasan por el Worker (`"!/robots.txt", "!/llms.txt"` en `run_worker_first`). Lighthouse descarga ambos con un tiempo de espera de dos segundos, y una respuesta lenta del Worker hacía fallar sus auditorías de SEO y de preparación para agentes.
 
+## Los Early Hints solo nombran archivos que sobreviven a un despliegue
+
+La cabecera `Link` del Worker en las respuestas HTML nombra las fuentes del locale y nada más. Cloudflare guarda la cabecera por URL y la envía como respuesta `103 Early Hints` antes de que el Worker responda a la siguiente solicitud de esa URL, y la copia guardada sobrevive a un despliegue. Vite nombra la hoja de estilos según su contenido, así que, tras un despliegue que cambia cualquier CSS, una hoja de estilos anunciada es un archivo que ya no existe: el navegador descarga un 404 y encuentra igualmente la nueva hoja de estilos en el HTML. Los archivos de `public/fonts` conservan su nombre de un despliegue a otro.
+
+Medido en saasyland.com con Chromium, 15 ejecuciones intercaladas por variante en tres páginas, con los tiempos reales de Early Hints del edge: anunciar las fuentes bajó el First Contentful Paint de 168–208 ms a 144–164 ms. Anunciar la hoja de estilos ahorró otros 12–28 ms cuando su URL estaba vigente y nada cuando un despliegue la había sustituido, y 25 minutos después de un despliegue, 67 de las 91 páginas del sitemap que recibieron Early Hints seguían anunciando la hoja de estilos anterior. El `<link>` de la hoja de estilos está en el primer kilobyte de cada página, así que el navegador lo encuentra con los primeros bytes del HTML. Anuncia solo archivos cuyas URL sobreviven a un despliegue.
+
 ## Los proveedores nunca envuelven un outlet de ruta
 
 TanStack Router envuelve los outlets de ruta en límites de Suspense, y React hidrata esos límites más tarde, en pequeños fragmentos. Un proveedor de contexto situado por encima de ellos cuyo valor cambia justo después de la hidratación obliga a React a hidratar de golpe todo lo que tiene debajo:

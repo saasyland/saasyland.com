@@ -5,6 +5,8 @@ import { RENDERED_LOCATION_KEY, recordRenderedLocations } from "../pages/base-pa
 
 export const CSP_VIOLATION = "Content Security Policy violation:"
 
+const PERMISSIONS_POLICY_ERROR = /^Error with Permissions-Policy header/u
+
 const reportCspViolations = (prefix: string): void => {
   document.addEventListener("securitypolicyviolation", ({ blockedURI, lineNumber, sourceFile, violatedDirective }) => {
     console.error(`${prefix} ${violatedDirective} blocked ${blockedURI} in ${sourceFile}:${String(lineNumber)}`)
@@ -16,6 +18,7 @@ interface AppFixtures {
   landingPage: LandingPage
   pageWithoutJavaScript: Page
   checkTranslations: void
+  checkPermissionsPolicy: void
   cspViolations: string[]
   recordRenders: void
 }
@@ -32,6 +35,17 @@ export const test = base.extend<AppFixtures>({
       })
       await runWith()
       expect(errors, "Every visited page must resolve and format its translations").toEqual([])
+    },
+    { auto: true },
+  ],
+  checkPermissionsPolicy: [
+    async ({ context }, runWith) => {
+      const errors: string[] = []
+      context.on("console", (message) => {
+        if (PERMISSIONS_POLICY_ERROR.test(message.text())) errors.push(message.text())
+      })
+      await runWith()
+      expect(errors, "Every page must send a Permissions-Policy whose features the browser recognizes").toEqual([])
     },
     { auto: true },
   ],

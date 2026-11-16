@@ -21,11 +21,18 @@ Każde środowisko wiąże D1 jako `DB`, KV jako `CACHE` oraz R2 jako `MEDIA` i 
 1. Ścieżka, którą przejmuje jakiś obszar, trafia przed wszystkim innym do handlera żądań tego obszaru. Obszar kursów przejmuje `/media/` i przekazuje ją do `serveMedia`, który serwuje podpisane pliki wideo z cache Workers lub z R2 (zobacz [Cloudflare R2](/docs/integrations/cloudflare-r2)), a obszar licencji przejmuje `/bundles/` i przekazuje ją do `serveBundle`, który serwuje z R2 podpisane paczki szablonów CLI (zobacz [API licencji CLI](/docs/features/cli-licence-api#template-bundles)). Z poniższych kroków dotyczą ich tylko nagłówki bezpieczeństwa.
 2. `resolveLocale` z `i18n.middleware.ts` analizuje żądania dokumentów `GET` i `HEAD` spoza `/api` i `/_serverFn`. Przekierowuje aliasy języków i niekanoniczne ścieżki językowe ze statusem 308 oraz sygnalizuje, gdy ciasteczko języka różni się od języka w URL-u.
 3. Żądania `GET` i `HEAD` spoza `/api` i `/_serverFn` są najpierw obsługiwane z `ASSETS`, co obejmuje prerenderowane strony. Odpowiedź 404 przechodzi dalej do handlera TanStack Start.
-4. Gdy ciasteczko języka wymaga aktualizacji, Worker dołącza je do odpowiedzi. Odpowiedzi HTML otrzymują też nagłówki `Link` z preloadem arkusza stylów i czcionek danego języka.
+4. Gdy ciasteczko języka wymaga aktualizacji, Worker dołącza je do odpowiedzi. Odpowiedzi HTML otrzymują też nagłówek `Link` z preloadem czcionek danego języka, który Cloudflare wysyła jako Early Hints (zobacz Ustawienia strefy niżej).
 5. Odpowiedzi HTML przechodzą przez handlery dokumentów obszarów. Handler obszaru licencji dodaje ceny regionalne: gdy kraj z `cf-ipcountry` kwalifikuje się do zniżki opartej na parytecie siły nabywczej, `HTMLRewriter` dodaje atrybuty zniżki do `<html>`, a odpowiedź otrzymuje nagłówek `private, no-cache`.
 6. Każda odpowiedź, także przekierowania, wywołania API i pliki multimedialne, dostaje nagłówki bezpieczeństwa z [Bezpieczeństwo i utwardzanie](/docs/features/security), a każda odpowiedź HTML, renderowana lub prerenderowana, dostaje politykę skryptów z własnym nonce, który Cloudflare przekazuje też skryptom wstrzykiwanym przez siebie. Pliki, które omijają Workera, dostają ten sam zestaw z `public/_headers`.
 
 `src/server.ts` nie wymienia żadnego obszaru: każdy obszar deklaruje swoje handlery żądań i dokumentów w `src/data/<area>.worker.ts`, a `src/data/worker.entries.ts` je łączy (zobacz [Co dodają obszary](/docs/architecture/platform-layer#what-the-areas-add)).
+
+## Ustawienia strefy
+
+Dwa ustawienia strefy wpływają na każdą stronę. Oba znajdziesz w panelu Cloudflare w **Speed** > **Settings** > **Content Optimization**:
+
+- **Early Hints**: włączone. Cloudflare zapamiętuje nagłówek `Link` ostatniej odpowiedzi strony i wysyła go jako odpowiedź `103 Early Hints`, gdy Worker przygotowuje kolejną odpowiedź dla tego samego URL-a, więc przeglądarka wcześniej zaczyna pobierać czcionki. Nagłówek wymienia tylko czcionki, bo Cloudflare wysyła go ponownie także po wdrożeniu; zobacz [Wydajność](/docs/conventions/performance).
+- **Speed Brain**: wyłączone. Dodaje nagłówek `Speculation-Rules`, który prosi Chromium o pobranie z wyprzedzeniem linku, który odwiedzający zaraz otworzy, ale Cloudflare odmawia pobierania z wyprzedzeniem adresów, które uruchamiają Workera, a tutaj robi to każda strona (`run_worker_first`), więc każde takie pobranie kończy się `503` i `cf-speculation-refused: prefetch refused: disabled for worker requests`. Cloudflare podaje też, że nie obsługuje polityk z `'strict-dynamic'` i nonce'ami, takich jak ta. Wyłączenie nic nie kosztuje: TanStack Router już ładuje kod i dane linku pod kursorem (`defaultPreload: "intent"`) i otwiera go bez pobierania nowego dokumentu. W planie Free Speed Brain jest domyślnie włączony.
 
 ## Wdrożenie
 

@@ -39,7 +39,7 @@ export const SECURITY_HEADERS = {
     CONTENT_SECURITY_POLICY.OBJECT_SRC,
   ].join("; "),
   "Cross-Origin-Opener-Policy": "same-origin",
-  "Permissions-Policy": "browsing-topics=(), camera=(), geolocation=(), microphone=()",
+  "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",

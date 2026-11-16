@@ -14,6 +14,8 @@ describe("MDX components", () => {
   it.each([
     ["/docs/architecture", "/pl-PL/docs/architecture"],
     ["/blog/first-post#faq", "/pl-PL/blog/first-post#faq"],
+    ["/#pricing", "/pl-PL#pricing"],
+    ["/docs?tab=cli#install", "/pl-PL/docs?tab=cli#install"],
     ["https://example.com", "https://example.com"],
     ["#shape", "#shape"],
   ])("links %s to %s in the current locale", (href, expected) => {
@@ -23,6 +25,7 @@ describe("MDX components", () => {
 
   it.each([
     ["/blog/first-post", "/pl-PL/blog/first-post"],
+    ["/#faq", "/pl-PL#faq"],
     ["https://example.com", "https://example.com"],
   ])("links a card to %s as %s in the current locale", (href, expected) => {
     render(<Card href={href} title="Related post" />)

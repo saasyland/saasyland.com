@@ -9,7 +9,16 @@ import * as zod from "zod"
 
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 
-import { CLI_LICENSE_KEY_VARIABLE, CLI_PACKAGE_SPEC, PACKAGE_MANAGER } from "../../src/data/cli"
+import {
+  CLI_API_URL_VARIABLE,
+  CLI_CREDENTIALS_FILE,
+  CLI_EXIT_CODE,
+  CLI_LICENSE_KEY_VARIABLE,
+  CLI_LOCALE_VARIABLE,
+  CLI_PACKAGE,
+  CLI_PACKAGE_SPEC,
+  PACKAGE_MANAGER,
+} from "../../src/data/cli"
 
 export const CLI_RESULT = {
   ACTIVATED: "activated",
@@ -23,24 +32,12 @@ export const CLI_ERROR = {
   NOT_ACTIVATED: "notActivated",
 } as const
 
-export const CLI_EXIT_CODE = {
-  NO_PERMISSION: 77,
-  SUCCESS: 0,
-} as const
-
 const CLI_STATUS = {
   ERROR: "error",
   SUCCESS: "success",
 } as const
 
-const CLI_VARIABLE = {
-  API_URL: "SAASYLAND_API_URL",
-  LOCALE: "SAASYLAND_LOCALE",
-} as const
-
-export const PRIVATE_FILE_MODE = 0o600
-
-const CREDENTIALS_PATH = join("saasyland", "credentials.json")
+const CREDENTIALS_PATH = join(CLI_PACKAGE, CLI_CREDENTIALS_FILE)
 const PERMISSION_BITS = 0o777
 
 const outputSchema = zod.discriminatedUnion("status", [
@@ -90,8 +87,8 @@ export const createMachine = async ({ apiUrl, home, licenseKey, npmCache, reposi
     env: {
       HOME: home,
       PATH: process.env["PATH"] ?? "",
-      [CLI_VARIABLE.API_URL]: apiUrl,
-      [CLI_VARIABLE.LOCALE]: I18N.DEFAULT_LOCALE,
+      [CLI_API_URL_VARIABLE]: apiUrl,
+      [CLI_LOCALE_VARIABLE]: I18N.DEFAULT_LOCALE,
       npm_config_cache: npmCache,
       npm_config_update_notifier: String(false),
       ...(licenseKey === undefined ? {} : { [CLI_LICENSE_KEY_VARIABLE]: licenseKey }),

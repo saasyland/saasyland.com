@@ -9,6 +9,7 @@ import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { starCountQuery } from "~/src/lib/github"
 
@@ -87,10 +88,10 @@ describe("landing page star count during server rendering", () => {
       locale: "en-US",
       metadata: {
         ...english.metadata,
-        description: english.metadata.description.replace(
-          "{price}",
-          new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(TIER_PRICES[LICENSE_TIER.CORE]),
-        ),
+        description: english.metadata.description
+          .replace("{price}", new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(TIER_PRICES[LICENSE_TIER.CORE]))
+          .replace("{coverageThreshold, number}", String(REPOSITORY_FACTS.coverageThreshold))
+          .replace("{languages, number}", String(REPOSITORY_FACTS.languages)),
       },
       posts: [],
     })

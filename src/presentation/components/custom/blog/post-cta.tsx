@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -16,7 +17,9 @@ export const PostCta = (): JSX.Element => {
     <aside className="mt-16 rounded-xl border border-border bg-card p-7 md:p-8">
       <p className="font-mono text-label text-muted-foreground uppercase">{t("label")}</p>
       <h2 className="mt-3 max-w-[26ch] text-title text-balance text-foreground">{t("title")}</h2>
-      <p className="mt-3 max-w-[64ch] text-body-sm text-pretty text-muted-foreground">{t("body", REPOSITORY_FACTS)}</p>
+      <p className="mt-3 max-w-[64ch] text-body-sm text-pretty text-muted-foreground">
+        {t("body", { ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}
+      </p>
 
       <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-4">
         <Link

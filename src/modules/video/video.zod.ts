@@ -1,12 +1,8 @@
-import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { MIN_FIELD_LENGTH, idField, localeField } from "~/src/modules/_core/utils/zod-fields"
 import { VIDEO_TITLE_MAX_LENGTH } from "~/src/modules/video/video.constants"
-import { video } from "~/src/modules/video/video.schema"
-
-const { createInsertSchema, createSelectSchema } = createSchemaFactory({ zodInstance: zod })
 
 const videoIdInput = zod.object({
   videoId: idField,
@@ -28,14 +24,9 @@ const registerVideo = zod.object({
   width: zod.int().positive(),
 })
 
-const insert = createInsertSchema(video)
-const select = createSelectSchema(video)
-
 export const videoZodSchemas = {
   deleteVideo,
   getVideoPlayback,
   getVideos,
-  insert,
   registerVideo,
-  select,
 }

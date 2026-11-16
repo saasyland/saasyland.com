@@ -1,4 +1,3 @@
-import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.roles"
@@ -6,10 +5,7 @@ import { emailSchema, imageUrlSchema, nameSchema, strictPasswordSchema } from "~
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField } from "~/src/modules/_core/utils/zod-fields"
-import { BAN_REASON_MAX_LENGTH } from "~/src/modules/user/user.constants"
-import { TIMEZONE_CODES, user } from "~/src/modules/user/user.schema"
-
-const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
+import { BAN_REASON_MAX_LENGTH, TIMEZONE_CODES } from "~/src/modules/user/user.constants"
 
 const MAX_SORT_COLUMNS = 8
 
@@ -74,10 +70,6 @@ const updateUser = zod
     message: "atLeastOneFieldRequired",
   })
 
-const insert = createInsertSchema(user)
-const select = createSelectSchema(user)
-const update = createUpdateSchema(user)
-
 export const userZodSchemas = {
   banUser,
   createUser,
@@ -85,13 +77,10 @@ export const userZodSchemas = {
   getUser,
   getUsers,
   impersonateUser,
-  insert,
-  select,
   setUserPassword,
   setUserPasswordForm,
   setUserRole,
   unbanUser,
-  update,
   updatePreferences,
   updateUser,
 }

@@ -17,10 +17,10 @@ All **suites** live next to the code under `src/**/__test__/`. This folder is Vi
 
 Colocate tests with the module they cover. Name files after the **source file**, not a generic `schemas.test.ts`:
 
-| Source file          | Drizzle / table tests     | Zod (drizzle-zod) tests |
-| -------------------- | ------------------------- | ----------------------- |
-| `{entity}.schema.ts` | `{entity}.schema.test.ts` | —                       |
-| `{entity}.zod.ts`    | —                         | `{entity}.zod.test.ts`  |
+| Source file          | Drizzle / table tests     | Zod tests              |
+| -------------------- | ------------------------- | ---------------------- |
+| `{entity}.schema.ts` | `{entity}.schema.test.ts` | —                      |
+| `{entity}.zod.ts`    | —                         | `{entity}.zod.test.ts` |
 
 Examples: `verification.zod.test.ts`, `user.schema.test.ts`. Cross-table and D1 integration checks live in `src/integrations/drizzle-orm/__test__/`.
 

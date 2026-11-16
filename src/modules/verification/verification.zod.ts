@@ -1,12 +1,8 @@
-import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { emailSchema, strictPasswordSchema, withMatchingPasswords } from "~/src/integrations/better-auth/auth.zod"
 
 import { MIN_FIELD_LENGTH } from "~/src/modules/_core/utils/zod-fields"
-import { verification } from "~/src/modules/verification/verification.schema"
-
-const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
 
 const forgotPassword = zod.object({
   email: emailSchema,
@@ -36,17 +32,10 @@ const sendVerificationEmail = zod.object({
   email: emailSchema,
 })
 
-const insert = createInsertSchema(verification)
-const select = createSelectSchema(verification)
-const update = createUpdateSchema(verification)
-
 export const verificationZodSchemas = {
   forgotPassword,
-  insert,
   requestPasswordReset,
   resetPassword,
   resetPasswordForm,
-  select,
   sendVerificationEmail,
-  update,
 }

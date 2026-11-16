@@ -3,11 +3,6 @@ import { describe, expect, it } from "vite-plus/test"
 import { twoFactorZodSchemas } from "~/src/modules/two-factor/two-factor.zod"
 
 describe("two-factor zod schemas", () => {
-  it("rejects empty select payloads", () => {
-    expect.hasAssertions()
-    expect(twoFactorZodSchemas.select.safeParse({}).success).toBe(false)
-  })
-
   it("accepts a six-digit code on verify totp", () => {
     expect.hasAssertions()
     expect(twoFactorZodSchemas.verifyTotp.safeParse({ code: "123456" }).success).toBe(true)

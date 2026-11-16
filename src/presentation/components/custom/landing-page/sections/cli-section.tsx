@@ -2,6 +2,7 @@ import type { JSX, ReactNode } from "react"
 
 import { useTranslations } from "use-intl/react"
 
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -10,7 +11,10 @@ import { Reveal } from "~/src/presentation/components/custom/landing-page/compon
 
 const FRAME_DELAY_MS = 100
 
-const REUSE_TAGS = { accent: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong> }
+const REUSE_VALUES = {
+  ...CLI_GENERATION_VALUES,
+  accent: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong>,
+}
 
 export const CliSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.cli")
@@ -20,7 +24,9 @@ export const CliSection = (): JSX.Element => {
       <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32">
         <Reveal variant="heading">
           <h2 className="max-w-[18ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
-          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("lead", REPOSITORY_FACTS)}</p>
+          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">
+            {t("lead", { ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}
+          </p>
         </Reveal>
 
         <Reveal className="mt-14 md:mt-20" delay={FRAME_DELAY_MS}>
@@ -29,7 +35,7 @@ export const CliSection = (): JSX.Element => {
 
         <Reveal className="mt-14 md:mt-16" delay={FRAME_DELAY_MS} variant="quiet">
           <h3 className="max-w-[34ch] text-headline-support text-balance text-foreground">{t("reuse.title")}</h3>
-          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t.rich("reuse.body", REUSE_TAGS)}</p>
+          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t.rich("reuse.body", REUSE_VALUES)}</p>
         </Reveal>
       </div>
     </section>

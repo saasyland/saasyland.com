@@ -42,7 +42,5 @@ describe("video schema", () => {
     expect(videoZodSchemas.getVideos.parse({})).toStrictEqual({ pageIndex: 0, pageSize: 10 })
     expect(videoZodSchemas.deleteVideo.safeParse({ videoId: "" }).success).toBe(false)
     expect(videoZodSchemas.getVideoPlayback.safeParse({ videoId: VIDEO_ID }).success).toBe(true)
-    expect(videoZodSchemas.select.safeParse({}).success).toBe(false)
-    expect(videoZodSchemas.insert.safeParse(registration()).success).toBe(true)
   })
 })

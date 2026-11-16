@@ -21,6 +21,7 @@ import { Route as BlogPostRoute } from "~/src/routes/blog.$"
 import { Route as BlogIndexRoute } from "~/src/routes/blog.index"
 
 import { AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { starCountQuery } from "~/src/lib/github"
 import { ORGANIZATION_STRUCTURED_DATA_HTML, ROBOTS } from "~/src/lib/seo"
@@ -226,7 +227,7 @@ describe("public route content", () => {
 
   it("renders the landing page with cached stars, installation controls and public navigation", async () => {
     await renderRoute("/")
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("300+ hour head start")
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(`${String(REPOSITORY_FACTS.headStartHours)}+ hour head start`)
     expect(screen.getByText("456", { selector: "dd" })).toBeVisible()
     expect(screen.getAllByRole("radio", { name: "bun" })).toHaveLength(2)
     expect(screen.getByRole("contentinfo")).toBeVisible()

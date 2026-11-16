@@ -47,7 +47,7 @@ export const loadPageMetadata = async ({
 }: {
   locale: SupportedLocale
   namespace: string
-  values?: Readonly<Record<string, string>>
+  values?: Readonly<Record<string, number | string>>
 }): Promise<PageMetadata> => {
   const load = metadataModules[modulePath({ locale, namespace })]
 

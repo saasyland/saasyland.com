@@ -3,11 +3,6 @@ import { describe, expect, it } from "vite-plus/test"
 import { verificationZodSchemas } from "~/src/modules/verification/verification.zod"
 
 describe("verification zod schemas", () => {
-  it("rejects empty select payloads", () => {
-    expect.hasAssertions()
-    expect(verificationZodSchemas.select.safeParse({}).success).toBe(false)
-  })
-
   it("accepts valid email on forgot password", () => {
     expect.hasAssertions()
     expect(verificationZodSchemas.forgotPassword.safeParse({ email: "user@example.com" }).success).toBe(true)

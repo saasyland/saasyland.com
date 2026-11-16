@@ -15,6 +15,7 @@ import { Route as BlogRoute } from "~/src/routes/blog"
 import { Route as BlogPostRoute } from "~/src/routes/blog.$"
 import { Route as BlogIndexRoute } from "~/src/routes/blog.index"
 
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { NAVIGATION_PAGES } from "~/src/data/navigation"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -178,7 +179,10 @@ describe("blog routes", () => {
     expect(nav.getByRole("link", { name: plNavigationMessages.getStarted })).toHaveAttribute("href", "/pl-PL#pricing")
     expect(screen.getByRole("link", { name: plPagesBlogMessages.post.cta.primary })).toHaveAttribute("href", "/pl-PL#pricing")
     expect(screen.getByRole("link", { name: plPagesBlogMessages.post.cta.secondary })).toHaveAttribute("href", "/pl-PL/docs")
-    const ctaBody = createTranslator({ locale: "pl-PL", messages: plPagesBlogMessages.post.cta })("body", REPOSITORY_FACTS)
+    const ctaBody = createTranslator({ locale: "pl-PL", messages: plPagesBlogMessages.post.cta })("body", {
+      ...REPOSITORY_FACTS,
+      ...CLI_GENERATION_VALUES,
+    })
     expect(screen.getByText(ctaBody)).toBeVisible()
   })
 

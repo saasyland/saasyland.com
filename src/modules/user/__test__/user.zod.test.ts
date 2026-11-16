@@ -9,17 +9,6 @@ describe("user zod schemas", () => {
     expect(userZodSchemas.banUser.safeParse({ banExpiresIn, userId: USER_ID }).success).toBe(false)
   })
 
-  it("accepts valid insert payloads", () => {
-    expect.hasAssertions()
-    expect(
-      userZodSchemas.insert.safeParse({
-        email: "user@example.com",
-        id: USER_ID,
-        name: "User",
-      }).success,
-    ).toBe(true)
-  })
-
   it("accepts valid create payloads", () => {
     expect.hasAssertions()
     expect(

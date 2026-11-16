@@ -7,20 +7,20 @@ Un modulo corrisponde a una tabella del database. `src/modules/<table>/` esiste 
 
 ## File
 
-| File                       | Contenuto                                                                                                                                              |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `<table>.schema.ts`        | Tabella Drizzle, indici, relazioni e tuple di valori enumerati costruite dalle costanti                                                                |
-| `<table>.zod.ts`           | Uno schema di input per operazione più gli schemi `drizzle-zod`, esportati come `<table>ZodSchemas`                                                    |
-| `<table>.constants.ts`     | Valori di dominio con nome come `CATEGORY_KIND`, limiti delle colonne e tuple di chiavi di query e mutation                                            |
-| `<table>.types.ts`         | Un’interfaccia con i tipi di riga e il tipo di input di ogni operazione                                                                                |
-| `<table>.utils.ts`         | Funzioni di supporto facoltative; `license.utils.ts` legge l’ambiente del Worker, quindi è solo lato server                                            |
-| `<table>.<concern>.ts`     | Codice facoltativo che non è una singola operazione, come `license.webhooks.ts` o `video.playback.ts` ([Catalogo dei moduli](/docs/reference/modules)) |
-| `use-cases/<operation>.ts` | Una funzione server per file con le sue opzioni di query o mutation                                                                                    |
-| `__test__/`                | Test con il nome del file sorgente, come `category.schema.test.ts` e `category.zod.test.ts`                                                            |
+| File                       | Contenuto                                                                                                                                                   |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<table>.schema.ts`        | Tabella Drizzle, indici e relazioni                                                                                                                         |
+| `<table>.zod.ts`           | Uno schema di input per operazione, esportati come `<table>ZodSchemas`                                                                                      |
+| `<table>.constants.ts`     | Valori di dominio con nome come `CATEGORY_KIND`, le tuple di valori enumerati costruite da essi, limiti delle colonne e tuple di chiavi di query e mutation |
+| `<table>.types.ts`         | Un’interfaccia con i tipi di riga e il tipo di input di ogni operazione                                                                                     |
+| `<table>.utils.ts`         | Funzioni di supporto facoltative; `license.utils.ts` legge l’ambiente del Worker, quindi è solo lato server                                                 |
+| `<table>.<concern>.ts`     | Codice facoltativo che non è una singola operazione, come `license.webhooks.ts` o `video.playback.ts` ([Catalogo dei moduli](/docs/reference/modules))      |
+| `use-cases/<operation>.ts` | Una funzione server per file con le sue opzioni di query o mutation                                                                                         |
+| `__test__/`                | Test con il nome del file sorgente, come `category.schema.test.ts` e `category.zod.test.ts`                                                                 |
 
 ## 1. Definisci la tabella
 
-Dai un nome ai valori della tabella una sola volta in `category.constants.ts`. Lo schema, gli schemi Zod, i casi d'uso, i componenti, i test e i dati e2e li importano da lì invece di ripetere una stringa come `"collection"`:
+Dai un nome ai valori della tabella una sola volta in `category.constants.ts`, insieme alla tupla che riceve una colonna enum. Lo schema, gli schemi Zod, i casi d'uso, i componenti, i test e i dati e2e li importano da lì invece di ripetere una stringa come `"collection"`:
 
 ```ts
 export const CATEGORY_NAME_MAX_LENGTH = 255
@@ -29,6 +29,8 @@ export const CATEGORY_KIND = {
   CATEGORY: "category",
   COLLECTION: "collection",
 } as const
+
+export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
 ```
 
 Costruisci la tabella a partire da quei nomi:
@@ -38,9 +40,7 @@ import { index, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 
-import { CATEGORY_KIND, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
-
-export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
+import { CATEGORY_KIND, CATEGORY_KINDS, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
 
 export const category = sqliteTable(
   "category",
@@ -84,14 +84,10 @@ Rivedi l'SQL generato in `src/integrations/drizzle-orm/migrations/` ed esegui il
 Ogni operazione ha il proprio schema di input. I messaggi di validazione sono chiavi di traduzione; un form li mostra con `ValidationFieldError` nel namespace che indica.
 
 ```ts
-import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
-import { CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
-import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
-
-const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
+import { CATEGORY_KINDS, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
 
 const createCategory = zod.object({
   kind: zod.enum(CATEGORY_KINDS),
@@ -103,11 +99,10 @@ const deleteCategory = zod.object({ categoryId: idField })
 export const categoryZodSchemas = {
   createCategory,
   deleteCategory,
-  insert: createInsertSchema(category),
-  select: createSelectSchema(category),
-  update: createUpdateSchema(category),
 }
 ```
+
+I form validano con questi schemi nel browser, quindi il file prende tuple e limiti da `category.constants.ts` e non importa nulla da Drizzle né da `category.schema.ts`. Una build in cui `drizzle-orm` arriva nel browser fallisce; vedi [Tieni l'ORM fuori dal browser](/docs/conventions/performance#keep-the-orm-out-of-the-browser).
 
 Aggiungi `messages/<locale>/<table>.validations.json` in tutte le lingue con tutte le chiavi usate dagli schemi. Un form mostra quelle chiavi solo quando la sua route precarica il namespace e lo passa a `ValidationFieldError`; i form dei corsi dell'amministrazione usano `course.validations` e gli altri form usano `auth.validations`.
 

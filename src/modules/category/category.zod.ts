@@ -1,12 +1,8 @@
-import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
-import { CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
-import { CATEGORY_ICONS, CATEGORY_KINDS, CATEGORY_VISIBILITIES, category } from "~/src/modules/category/category.schema"
-
-const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
+import { CATEGORY_ICONS, CATEGORY_KINDS, CATEGORY_NAME_MAX_LENGTH, CATEGORY_VISIBILITIES } from "~/src/modules/category/category.constants"
 
 const categoryIconSchema = zod.enum(CATEGORY_ICONS)
 const categoryKindSchema = zod.enum(CATEGORY_KINDS)
@@ -41,17 +37,10 @@ const updateCategory = createCategory
     message: "atLeastOneFieldRequired",
   })
 
-const insert = createInsertSchema(category)
-const select = createSelectSchema(category)
-const update = createUpdateSchema(category)
-
 export const categoryZodSchemas = {
   createCategory,
   deleteCategory,
   getCategories,
   getCategory,
-  insert,
-  select,
-  update,
   updateCategory,
 }

@@ -5,7 +5,9 @@ export const FEATURE_STATUS = {
   AVAILABLE: "available",
 } as const
 
-type FeatureStatus = (typeof FEATURE_STATUS)[keyof typeof FEATURE_STATUS]
+export const FEATURE_STATUSES = [FEATURE_STATUS.AVAILABLE, FEATURE_STATUS.ARRIVING] as const
+
+export type FeatureStatus = (typeof FEATURE_STATUSES)[number]
 
 export const NAVIGATION_PLACEMENT = {
   ADMIN: "admin",

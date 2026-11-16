@@ -42,6 +42,7 @@ import {
   NEWER_CLI_VERSION,
   NOW,
   OTHER_ADDRESS,
+  RECORD_OUTAGE,
   STUDIO,
   STUDIO_ACTIVATION,
   UNKNOWN_KEY,
@@ -56,10 +57,13 @@ import {
   expectKeyNotLogged,
   expectServiceUnavailable,
   getLicense,
+  licenseRecords,
   rawRequest,
+  refuseRecordWrites,
   signedHeaders,
   summary,
   validate,
+  watchLicenseUpdates,
 } from "~/src/modules/license/__test__/fixtures/license-api"
 import { licenseApiHandlers } from "~/src/modules/license/license.api"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
@@ -70,6 +74,7 @@ import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
 
 const KEY_LIMIT_ADDRESSES = 3
 const REFUSED_BY_ADDRESS = 10
+const LATER = new Date(NOW.getTime() + MILLISECONDS_PER_SECOND)
 
 const keyLimitAddress = (request: number): string => `198.51.100.${String(request % KEY_LIMIT_ADDRESSES)}`
 
@@ -257,6 +262,95 @@ describe("POST /activations", () => {
     expect(listing.result).toMatchObject({
       data: { machines: [{ createdAt: foreign.created_at, current: false, id: foreign.id, label: foreign.label }, { current: true }] },
     })
+  })
+})
+
+describe("the record of the first activation", () => {
+  it("records when Polar first activates a machine for the key, in one update", async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+    const { key } = await buy()
+    const updates = watchLicenseUpdates()
+
+    const { result } = await activate({ key, machine: STUDIO })
+
+    expect(result).toMatchObject({ status: HTTP_STATUS.CREATED, success: true })
+    expect(updates()).toHaveLength(1)
+    expect(await licenseRecords(key)).toStrictEqual({ activatedAt: NOW, deliveredAt: null })
+  })
+
+  it("writes nothing to the licence once its first activation is recorded", async () => {
+    const { key } = await buy()
+    await activated({ key, machine: STUDIO })
+    const updates = watchLicenseUpdates()
+
+    const again = await activate({ key, machine: STUDIO })
+    const another = await activate({ key, machine: LAPTOP }, LAPTOP_ACTIVATION)
+
+    expect([again.result, another.result]).toMatchObject([
+      { status: HTTP_STATUS.OK, success: true },
+      { status: HTTP_STATUS.CREATED, success: true },
+    ])
+    expect(updates()).toStrictEqual([])
+  })
+
+  it("never overwrites the first activation when the key activates more machines later", async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+    const { key } = await buy()
+    await activated({ key, machine: STUDIO })
+    vi.setSystemTime(LATER)
+
+    await activated({ key, machine: LAPTOP }, LAPTOP_ACTIVATION)
+    await activated({ key, machine: STUDIO })
+
+    expect(await licenseRecords(key)).toStrictEqual({ activatedAt: NOW, deliveredAt: null })
+  })
+
+  it("records an activation that a machine already held when none is recorded yet", async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+    const { key } = await buy()
+    const activationId = await activated({ key, machine: STUDIO })
+    await db.update(license).set({ activatedAt: null }).where(eq(license.key, key))
+    vi.setSystemTime(LATER)
+
+    const { result } = await activate({ key, machine: STUDIO })
+
+    expect(result).toMatchObject({ data: { activationId }, status: HTTP_STATUS.OK, success: true })
+    expect(await licenseRecords(key)).toStrictEqual({ activatedAt: LATER, deliveredAt: null })
+  })
+
+  it("records nothing when every slot is taken by machines activated elsewhere", async () => {
+    const buyer = await buy()
+    for (let slot = 0; slot < LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE]; slot++) {
+      activatePolarLicenseKey(buyer.grant, `Portal machine ${String(slot)}`)
+    }
+
+    const { result } = await activate({ key: buyer.key, machine: LAPTOP }, LAPTOP_ACTIVATION)
+
+    expect(result).toMatchObject({ failure: { code: API_ERROR.ACTIVATION_LIMIT_REACHED }, success: false })
+    expect(await licenseRecords(buyer.key)).toStrictEqual({ activatedAt: null, deliveredAt: null })
+  })
+
+  it("answers serviceUnavailable while it cannot record the activation, and records it when the CLI retries", async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+    const buyer = await buy()
+    const errors = consoleErrors()
+    const restore = await refuseRecordWrites(license.activatedAt)
+
+    expectServiceUnavailable(await activate({ key: buyer.key, machine: STUDIO }))
+    expectFailureLogged(errors, API_ENDPOINT.ACTIVATE, RECORD_OUTAGE)
+    expect(await licenseRecords(buyer.key)).toStrictEqual({ activatedAt: null, deliveredAt: null })
+
+    await restore()
+    vi.setSystemTime(LATER)
+    const { result } = await activate({ key: buyer.key, machine: STUDIO })
+
+    const [activation] = polarLicenseKeyOf(buyer.grant).activations
+    expect(result).toStrictEqual({
+      data: { activationId: activation?.id, license: summary(LICENSE_TIER.CORE, 1) },
+      status: HTTP_STATUS.OK,
+      success: true,
+    })
+    expect(await licenseRecords(buyer.key)).toStrictEqual({ activatedAt: LATER, deliveredAt: null })
   })
 })
 

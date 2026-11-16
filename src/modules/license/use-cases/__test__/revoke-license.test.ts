@@ -20,6 +20,7 @@ beforeEach(async () => {
     purchaseCreatedAt: new Date(),
     tier: LICENSE_TIER.CORE,
     userId: USER_ID,
+    withdrawalConsentAt: undefined,
   })
 })
 

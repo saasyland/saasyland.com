@@ -96,7 +96,9 @@ vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
 }))
 
 const ownedLicense: License["select"] = {
+  activatedAt: null,
   createdAt: new Date("2026-09-08T10:00:00Z"),
+  deliveredAt: null,
   id: "license-1",
   key: LICENSE_KEY,
   polarCustomerId: "customer-1",
@@ -107,6 +109,7 @@ const ownedLicense: License["select"] = {
   tier: LICENSE_TIER.AGENCY,
   updatedAt: new Date("2026-09-08T10:00:00Z"),
   userId: "user-1",
+  withdrawalConsentAt: null,
 }
 
 const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {

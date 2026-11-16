@@ -1,9 +1,11 @@
 import type { Page } from "@playwright/test"
 
+import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
 import { expectVerificationEmail } from "../fixtures/emails"
+import { deliverPaidOrder } from "../fixtures/license"
 import { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage, RENDERED_LOCATION_KEY, recordRenderedLocations } from "../pages/base-page"
 
@@ -145,6 +147,37 @@ test("a user the admin adds verifies their email, signs in and is signed out whe
   await customerPage.goto("/app", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await expect(customerPage).toHaveURL(/\/auth\/sign-in/u)
   await customerContext.close()
+})
+
+test("admin reads a buyer's licence, consent, first uses and refund terms on the profile", async ({
+  appPage,
+  authPage,
+  page,
+  request,
+}, testInfo) => {
+  await signInAsAdmin({ appPage, authPage, page })
+  const { id } = await addUser({ appPage, page }, "Licensed Buyer")
+  const licence = page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { name: "Licence", exact: true }) })
+  const detail = (label: string) => licence.getByText(label, { exact: true }).locator("xpath=following-sibling::dd")
+  await expect(licence.getByText("This account has not bought a licence.")).toBeVisible()
+
+  await deliverPaidOrder(request, { tier: LICENSE_TIER.COMPLETE, userId: id, withdrawalConsent: true })
+  await page.reload({ waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await appPage.waitForAppReady()
+
+  await expect(detail("Tier")).toHaveText("Complete")
+  await expect(detail("Status")).toHaveText("Active")
+  await expect(detail("Consent to immediate delivery")).toHaveText(/^Given on /u)
+  await expect(detail("First activation")).toHaveText("Never")
+  await expect(detail("First template download")).toHaveText("Never")
+  await expect(detail("Refund")).toHaveText(
+    /^Refundable until .+\. The buyer consented to immediate delivery, and the CLI has not downloaded templates with this licence yet\.$/u,
+  )
+  for (const colorScheme of COLOR_SCHEMES) {
+    await page.emulateMedia({ colorScheme })
+    expect(await accessibilityViolations(page)).toEqual([])
+    await licence.screenshot({ animations: "disabled", path: testInfo.outputPath(`admin-user-licence-${colorScheme}.png`) })
+  }
 })
 
 test.describe("a browser whose clock and time zone are not the server's", () => {

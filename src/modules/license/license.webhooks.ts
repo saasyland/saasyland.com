@@ -2,11 +2,12 @@ import "@tanstack/react-start/server-only"
 
 import type { models } from "@polar-sh/sdk/2026-10"
 import { eq } from "drizzle-orm"
+import * as zod from "zod"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
-import { LICENSE_STATUS, type LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
+import { LICENSE_CHECKOUT_FIELD, LICENSE_STATUS, type LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
 import { licenseTierForProduct } from "~/src/modules/license/license.utils"
 import { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
 import { grantLicense } from "~/src/modules/license/use-cases/grant-license"
@@ -20,6 +21,7 @@ interface PolarCustomer {
 interface OrderEvent {
   readonly data: {
     readonly created_at: string
+    readonly custom_field_data?: models.Order["custom_field_data"]
     readonly customer: PolarCustomer
     readonly customer_id: string
     readonly id: string
@@ -39,6 +41,8 @@ interface BenefitGrantEvent {
 
 const SINGLE_ROW = 1
 
+const withdrawalConsentSchema = zod.object({ [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: zod.literal(true) })
+
 const accountId = async ({ external_id: externalId }: PolarCustomer): Promise<string | undefined> => {
   if (typeof externalId !== "string" || externalId.length === 0) {
     return undefined
@@ -48,6 +52,9 @@ const accountId = async ({ external_id: externalId }: PolarCustomer): Promise<st
 
   return account?.id
 }
+
+const withdrawalConsentAt = ({ created_at: createdAt, custom_field_data: fields }: OrderEvent["data"]): Date | undefined =>
+  withdrawalConsentSchema.safeParse(fields).success ? new Date(createdAt) : undefined
 
 const grantedLicenseKeyId = ({ properties }: BenefitGrantEvent["data"]): string | undefined =>
   "license_key_id" in properties ? properties.license_key_id : undefined
@@ -97,6 +104,7 @@ export const licenseWebhookHandlers = {
       purchaseCreatedAt: new Date(data.created_at),
       tier,
       userId,
+      withdrawalConsentAt: withdrawalConsentAt(data),
     })
   },
 

@@ -29,6 +29,7 @@ import {
   BUNDLE_CONTENT_TYPE,
   BUNDLE_PATH_PREFIX,
   LICENSE_API_RETRY_AFTER_SECONDS,
+  LICENSE_CHECKOUT_FIELD,
   REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
 } from "~/src/modules/license/license.constants"
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
@@ -73,6 +74,7 @@ import {
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import { CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE } from "~/src/data/marketing"
+import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
@@ -138,6 +140,7 @@ const FACTS = {
   headStartClaimMaxHours: HEAD_START_CLAIM_MAX_HOURS,
   illustrativeHourlyRate: ILLUSTRATIVE_HOURLY_RATE,
   lessonProgressSaveSeconds: SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
+  licenseWithdrawalConsentField: LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT,
   liveSiteCheckPaths: [...new Set(LIVE_SITE_CHECKS.map(({ path }) => path))],
   liveSiteCheckRetries: LIVE_SITE_CHECK_RETRY_DELAYS_MS.length,
   liveSiteCheckRetrySeconds: LIVE_SITE_CHECK_RETRY_DELAY_MS / MILLISECONDS_PER_SECOND,
@@ -155,6 +158,7 @@ const FACTS = {
   queryStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   rateLimitWindowSeconds: RATE_LIMIT_WINDOW_SECONDS,
   recipientEmailsPerHour: RECIPIENT_EMAILS_PER_HOUR,
+  refundWithdrawalDays: REFUND_TERMS.WITHDRAWAL_DAYS,
   regionalDiscountsRefreshMinutes: REGIONAL_DISCOUNTS_REFRESH_AFTER_MS / MILLISECONDS_PER_MINUTE,
   routerStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   scaffoldTarget: SCAFFOLD_TARGET,
@@ -206,6 +210,7 @@ const TABLES = {
 
 const UNIT_FORMATS = {
   currency: CURRENCY_FORMAT,
+  day: { style: "unit", unit: "day", unitDisplay: "long" },
   hour: { style: "unit", unit: "hour", unitDisplay: "long" },
   minute: { style: "unit", unit: "minute", unitDisplay: "long" },
   percent: { style: "unit", unit: "percent" },

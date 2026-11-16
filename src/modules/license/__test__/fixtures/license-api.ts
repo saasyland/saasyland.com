@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers"
+
 import type { models } from "@polar-sh/sdk/2026-10"
 import { STACK_DEFAULTS } from "@saasyland/stack"
 import {
@@ -14,7 +16,9 @@ import {
   deriveMachineId,
   readApiResponse,
 } from "@saasyland/stack/api"
-import { type MockInstance, assert, expect, vi } from "vite-plus/test"
+import { eq, getTableName, sql } from "drizzle-orm"
+import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core"
+import { type MockInstance, assert, expect, onTestFinished, vi } from "vite-plus/test"
 import type * as zod from "zod"
 
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
@@ -30,6 +34,7 @@ import {
   LICENSE_TIER,
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
+import { license } from "~/src/modules/license/license.schema"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 import { user } from "~/src/modules/user/user.schema"
@@ -40,6 +45,8 @@ export const CLI_VERSION = "0.1.0"
 export const NEWER_CLI_VERSION = "0.2.0"
 export const UNKNOWN_KEY = "SAASYLAND-00000000-0000-4000-8000-000000000000"
 export const NOW = new Date("2026-11-14T10:00:00.000Z")
+export const RECORD_OUTAGE = "D1_ERROR: the licence records cannot be written"
+const LICENSE_UPDATE = new RegExp(`^update "${getTableName(license)}" set `, "iu")
 const GITHUB_ENVIRONMENT = {
   GITHUB_REPOSITORY: "saasyland/app",
   GITHUB_REPOSITORY_ID: "873621045",
@@ -213,3 +220,31 @@ export const signedHeaders = (key: string, machine: string): Record<string, stri
   [API_HEADER.MACHINE]: machine,
   [IP_ADDRESS_HEADER]: ADDRESS,
 })
+
+export const licenseRecords = async (key: string) => {
+  const [records] = await db
+    .select({ activatedAt: license.activatedAt, deliveredAt: license.deliveredAt })
+    .from(license)
+    .where(eq(license.key, key))
+  assert(records)
+  return records
+}
+
+export const watchLicenseUpdates = (): (() => string[]) => {
+  const prepared = vi.spyOn(env.DB, "prepare")
+  return () => prepared.mock.calls.map(([query]) => query).filter((query) => LICENSE_UPDATE.test(query))
+}
+
+export const refuseRecordWrites = async (column: AnySQLiteColumn): Promise<() => Promise<void>> => {
+  const trigger = `refuse_${column.name}`
+  const restore = async (): Promise<void> => {
+    await db.run(sql.raw(`drop trigger if exists ${trigger}`))
+  }
+  await db.run(
+    sql.raw(
+      `create trigger ${trigger} before update of ${column.name} on ${getTableName(license)} begin select raise(abort, '${RECORD_OUTAGE}'); end`,
+    ),
+  )
+  onTestFinished(restore)
+  return restore
+}

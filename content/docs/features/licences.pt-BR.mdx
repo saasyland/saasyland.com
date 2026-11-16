@@ -37,12 +37,35 @@ Um `checkoutId` que não é um UUID é ignorado.
 
 `src/data/license.polar-events.ts` adiciona a área de licenças aos eventos do Polar (veja [Pagamentos](/docs/features/payments#webhooks)) com os eventos listados em `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`), cujos eventos de pedido vêm de `POLAR_WEBHOOK_EVENT`, e o `handle` dele repassa cada evento ao handler de mesmo nome em `licenseWebhookHandlers`. `licenseWebhookHandlers` satisfaz `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, então um handler sem o seu evento, ou um evento sem o seu handler, não compila. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) identificam o usuário pelo `external_id` do cliente no Polar. Um evento de um cliente sem conta no app é registrado no log quando precisava de uma e confirmado, para que o Polar não o reenvie:
 
-- `onOrderPaid` → `grantLicense`: cria ou atualiza a licença única do usuário com o plano do produto comprado; uma compra mais recente substitui uma anterior.
+- `onOrderPaid` → `grantLicense`: cria ou atualiza a licença única do usuário com o plano do produto comprado e o consentimento do comprador à entrega imediata (veja [Registros e reembolsos](#records-and-refunds)); uma compra mais recente substitui uma anterior.
 - `onBenefitGrantCreated` → `attachLicenseKey`: grava a chave de licença do Polar na licença. Enquanto o pedido pago não está registrado ele falha, para que o Polar reenvie; a chave de um pedido reembolsado ou de um produto que não é uma licença é confirmada.
 - `onOrderRefunded` → `revokeLicense` com o status `refunded`, só quando o pedido é reembolsado por completo; um reembolso parcial mantém a licença.
 - `onBenefitGrantRevoked` → `revokeLicense` com o status `revoked`.
 
 `revokeLicense` define o status da licença comprada com esse pedido e registra o pedido em `revoked_license_order`, para que um webhook atrasado não possa concedê-la de novo. Ele nunca substitui `refunded`: o Polar também revoga o benefício de um pedido reembolsado, e os dois eventos podem chegar em qualquer ordem. A [API de licenças da CLI](/docs/features/cli-licence-api) responde `licenseRefunded` ou `licenseRevoked` a partir desse status.
+
+## Registros e reembolsos [#records-and-refunds]
+
+A linha de `license` guarda três registros da compra atual, e cada um fica vazio até acontecer:
+
+| Coluna                  | Registra                                                                                                                                                 | Gravado por                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `withdrawal_consent_at` | Quando o comprador consentiu no checkout com a entrega imediata e reconheceu que perde o direito de arrependimento: o momento em que o pedido foi criado | `grantLicense`, a partir de `order.paid`                                  |
+| `activated_at`          | A primeira ativação da chave em qualquer dispositivo                                                                                                     | A [API de licenças da CLI](/docs/features/cli-licence-api#records-of-use) |
+| `delivered_at`          | A primeira vez que a CLI baixou templates com a chave                                                                                                    | A [API de licenças da CLI](/docs/features/cli-licence-api#records-of-use) |
+
+O consentimento é uma caixa de seleção obrigatória que o checkout do Polar mostra para os produtos de licença e guarda no pedido como `custom_field_data.<slug>`, em que o identificador é <RepositoryFact name="licenseWithdrawalConsentField" /> (`LICENSE_CHECKOUT_FIELD` em `license.constants.ts`). `onOrderPaid` valida o campo com Zod e só registra o consentimento quando ele vale `true`. Um novo pedido da mesma conta, como uma compra depois de um reembolso, substitui o consentimento pelo dele e esvazia `activated_at` e `delivered_at`, então os registros sempre descrevem a compra atual. Licenças compradas antes de os registros existirem não têm nenhum registro daquela época.
+
+`refundEligibility` (`src/modules/license/license.refunds.ts`) é uma função pura do momento da compra, do consentimento, do primeiro download e do horário atual. O prazo é de <RepositoryFact name="refundWithdrawalDays" unit="day" /> a partir da compra, `REFUND_TERMS.WITHDRAWAL_DAYS` em `src/data/refunds.ts`, o único lugar em que esse número é declarado. Ela retorna um tipo de `REFUND_ELIGIBILITY`:
+
+| Tipo                  | Quando                                                                                                                       | Traz          |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `refundable`          | Dentro do prazo, o comprador consentiu e a CLI não baixou templates                                                          | `until`       |
+| `statutoryWithdrawal` | Dentro do prazo, nenhum consentimento foi registrado, então vale o direito de arrependimento previsto em lei, com ou sem uso | `until`       |
+| `used`                | Dentro do prazo, o comprador consentiu e a CLI baixou templates                                                              | `deliveredAt` |
+| `expired`             | O prazo terminou                                                                                                             | `endedAt`     |
+
+Um administrador vê os registros e o resultado por extenso no perfil do usuário; veja [Usuários (admin)](/docs/features/users-admin#profile).
 
 ## Telas do cliente
 

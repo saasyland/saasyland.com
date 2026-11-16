@@ -4,7 +4,7 @@ import { createPolarOrder } from "~/src/platform/testing/mocks/polar"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
@@ -13,12 +13,16 @@ import { user } from "~/src/modules/user/user.schema"
 
 const USER_ID = "grant-owner"
 const PURCHASED_AT = "2026-09-24T10:00:00.000Z"
+const REPURCHASED_AT = "2026-10-30T08:15:00.000Z"
+const FIRST_ACTIVATION = new Date("2026-09-24T10:05:00.000Z")
+const FIRST_DOWNLOAD = new Date("2026-09-24T10:06:00.000Z")
 const purchase = {
   polarCustomerId: "cus_1",
   polarOrderId: "ord_1",
   purchaseCreatedAt: new Date(PURCHASED_AT),
   tier: LICENSE_TIER.COMPLETE,
   userId: USER_ID,
+  withdrawalConsentAt: undefined,
 } as const
 
 beforeEach(async () => {
@@ -33,6 +37,54 @@ describe("grant-license", () => {
     await db.update(license).set({ key: "license-key", polarLicenseKeyId: "lk_1" })
     await grantLicense(purchase)
     expect(await getLicense(USER_ID)).toMatchObject({ key: "license-key", polarLicenseKeyId: "lk_1", tier: LICENSE_TIER.COMPLETE })
+  })
+
+  it("records the buyer's consent with the purchase and keeps every record when the same order arrives again", async () => {
+    await grantLicense({ ...purchase, withdrawalConsentAt: new Date(PURCHASED_AT) })
+    await db.update(license).set({ activatedAt: FIRST_ACTIVATION, deliveredAt: FIRST_DOWNLOAD })
+
+    await grantLicense({ ...purchase, withdrawalConsentAt: new Date(PURCHASED_AT) })
+
+    expect(await getLicense(USER_ID)).toMatchObject({
+      activatedAt: FIRST_ACTIVATION,
+      deliveredAt: FIRST_DOWNLOAD,
+      withdrawalConsentAt: new Date(PURCHASED_AT),
+    })
+  })
+
+  it("records a purchase without consent as such", async () => {
+    await grantLicense(purchase)
+
+    expect(await getLicense(USER_ID)).toMatchObject({ activatedAt: null, deliveredAt: null, withdrawalConsentAt: null })
+  })
+
+  it("starts the records again for a new order, so they describe the current purchase", async () => {
+    await grantLicense(purchase)
+    await db.update(license).set({ activatedAt: FIRST_ACTIVATION, deliveredAt: FIRST_DOWNLOAD, status: LICENSE_STATUS.REFUNDED })
+
+    await grantLicense({
+      ...purchase,
+      polarOrderId: "ord_2",
+      purchaseCreatedAt: new Date(REPURCHASED_AT),
+      withdrawalConsentAt: new Date(REPURCHASED_AT),
+    })
+
+    expect(await getLicense(USER_ID)).toMatchObject({
+      activatedAt: null,
+      deliveredAt: null,
+      polarOrderId: "ord_2",
+      purchaseCreatedAt: new Date(REPURCHASED_AT),
+      status: LICENSE_STATUS.ACTIVE,
+      withdrawalConsentAt: new Date(REPURCHASED_AT),
+    })
+  })
+
+  it("forgets the consent of the previous purchase when the new order carries none", async () => {
+    await grantLicense({ ...purchase, withdrawalConsentAt: new Date(PURCHASED_AT) })
+
+    await grantLicense({ ...purchase, polarOrderId: "ord_2", purchaseCreatedAt: new Date(REPURCHASED_AT) })
+
+    expect(await getLicense(USER_ID)).toMatchObject({ polarOrderId: "ord_2", withdrawalConsentAt: null })
   })
 
   it("replaces a legacy license without an order", async () => {

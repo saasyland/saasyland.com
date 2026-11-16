@@ -37,12 +37,35 @@ Un `checkoutId` qui n’est pas un UUID est ignoré.
 
 `src/data/license.polar-events.ts` ajoute la zone des licences aux événements Polar (voir [Paiements](/docs/features/payments#webhooks)) avec les événements listés dans `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`), dont les événements de commande proviennent de `POLAR_WEBHOOK_EVENT`, et son `handle` transmet chaque événement au handler du même nom dans `licenseWebhookHandlers`. `licenseWebhookHandlers` satisfait `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>` : un handler sans son événement, ou un événement sans son handler, ne compile donc pas. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) retrouvent l’utilisateur grâce au `external_id` du client Polar. Un événement d’un client sans compte dans l’application est journalisé quand il en fallait un, puis acquitté, pour que Polar ne le renvoie pas :
 
-- `onOrderPaid` → `grantLicense` : crée ou met à jour la licence unique de l’utilisateur avec l’offre du produit acheté ; un achat plus récent remplace un achat plus ancien.
+- `onOrderPaid` → `grantLicense` : crée ou met à jour la licence unique de l’utilisateur avec l’offre du produit acheté et le consentement de l’acheteur à la fourniture immédiate (voir [Enregistrements et remboursements](#records-and-refunds)) ; un achat plus récent remplace un achat plus ancien.
 - `onBenefitGrantCreated` → `attachLicenseKey` : enregistre la clé de licence Polar sur la licence. Tant que la commande payée n’est pas enregistrée, il échoue pour que Polar le renvoie ; la clé d’une commande remboursée ou d’un produit qui n’est pas une licence est acquittée.
 - `onOrderRefunded` → `revokeLicense` avec le statut `refunded`, seulement une fois la commande remboursée en totalité ; un remboursement partiel conserve la licence.
 - `onBenefitGrantRevoked` → `revokeLicense` avec le statut `revoked`.
 
 `revokeLicense` fixe le statut de la licence achetée avec cette commande et consigne la commande dans `revoked_license_order`, afin qu’un webhook tardif ne puisse pas l’accorder de nouveau. Il ne remplace jamais `refunded` : Polar révoque aussi l’avantage d’une commande remboursée, et les deux événements peuvent arriver dans n’importe quel ordre. L’[API de licence de la CLI](/docs/features/cli-licence-api) répond `licenseRefunded` ou `licenseRevoked` d’après ce statut.
+
+## Enregistrements et remboursements [#records-and-refunds]
+
+La ligne `license` conserve trois enregistrements de l’achat en cours, chacun vide tant que l’événement ne s’est pas produit :
+
+| Colonne                 | Enregistre                                                                                                                                                       | Écrit par                                                                   |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `withdrawal_consent_at` | Le moment où l’acheteur a consenti, lors du paiement, à la fourniture immédiate et reconnu perdre son droit de rétractation : l’heure de création de la commande | `grantLicense`, à partir de `order.paid`                                    |
+| `activated_at`          | La première activation de la clé sur une machine, quelle qu’elle soit                                                                                            | L’[API de licence de la CLI](/docs/features/cli-licence-api#records-of-use) |
+| `delivered_at`          | La première fois que la CLI a téléchargé des modèles avec la clé                                                                                                 | L’[API de licence de la CLI](/docs/features/cli-licence-api#records-of-use) |
+
+Le consentement est une case à cocher obligatoire que le paiement Polar affiche pour les produits de licence et enregistre sur la commande sous la forme `custom_field_data.<slug>`, où le slug est <RepositoryFact name="licenseWithdrawalConsentField" /> (`LICENSE_CHECKOUT_FIELD` dans `license.constants.ts`). `onOrderPaid` valide le champ avec Zod et n’enregistre le consentement que lorsqu’il vaut `true`. Une nouvelle commande pour le même compte, comme un achat après un remboursement, remplace le consentement par le sien et vide `activated_at` et `delivered_at`, de sorte que les enregistrements décrivent toujours l’achat en cours. Les licences achetées avant que ces enregistrements existent n’en ont aucun datant de cette période.
+
+`refundEligibility` (`src/modules/license/license.refunds.ts`) est une fonction pure du moment de l’achat, du consentement, du premier téléchargement et de l’heure actuelle. Le délai est de <RepositoryFact name="refundWithdrawalDays" unit="day" /> à compter de l’achat, `REFUND_TERMS.WITHDRAWAL_DAYS` dans `src/data/refunds.ts`, le seul endroit où ce nombre est déclaré. Elle renvoie un type de `REFUND_ELIGIBILITY` :
+
+| Type                  | Quand                                                                                                                                  | Porte         |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `refundable`          | Dans le délai, l’acheteur a donné son consentement et la CLI n’a pas téléchargé de modèles                                             | `until`       |
+| `statutoryWithdrawal` | Dans le délai, aucun consentement n’a été enregistré : le droit de rétractation légal s’applique donc, que la licence ait servi ou non | `until`       |
+| `used`                | Dans le délai, l’acheteur a donné son consentement et la CLI a téléchargé des modèles                                                  | `deliveredAt` |
+| `expired`             | Le délai a pris fin                                                                                                                    | `endedAt`     |
+
+Un administrateur voit les enregistrements et le résultat, formulé en toutes lettres, sur le profil de l’utilisateur ; voir [Utilisateurs (admin)](/docs/features/users-admin#profile).
 
 ## Écrans client
 

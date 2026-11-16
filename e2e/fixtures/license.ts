@@ -6,7 +6,12 @@ import * as zod from "zod"
 
 import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants"
 import { licensePolarProduct } from "../../src/modules/license/__test__/fixtures/polar-product"
-import { LICENSE_TIER, LICENSE_WEBHOOK_EVENTS, type LicenseTier } from "../../src/modules/license/license.constants"
+import {
+  LICENSE_CHECKOUT_FIELD,
+  LICENSE_TIER,
+  LICENSE_WEBHOOK_EVENTS,
+  type LicenseTier,
+} from "../../src/modules/license/license.constants"
 import { polarCustomer, polarOrder, signedPolarWebhook } from "../../src/platform/testing/lib/polar"
 import { ROUTES } from "../../src/routes"
 import { expect } from "./test"
@@ -27,8 +32,14 @@ const PRODUCT_IDS: Readonly<Record<LicenseTier, string>> = {
   [LICENSE_TIER.CORE]: TEST_ENV.POLAR_PRODUCT_ID_CORE,
 }
 
-export const deliverPaidOrder = async (request: APIRequestContext, { tier, userId }: { tier: LicenseTier; userId: string }) => {
-  const order = polarOrder({
+interface PaidOrder {
+  readonly tier: LicenseTier
+  readonly userId: string
+  readonly withdrawalConsent?: boolean
+}
+
+export const deliverPaidOrder = async (request: APIRequestContext, { tier, userId, withdrawalConsent = false }: PaidOrder) => {
+  const paid = polarOrder({
     checkoutId: null,
     customer: polarCustomer(TEST_ENV.POLAR_ORGANIZATION_ID, userId),
     discount: null,
@@ -36,6 +47,7 @@ export const deliverPaidOrder = async (request: APIRequestContext, { tier, userI
     product: licensePolarProduct(tier, PRODUCT_IDS[tier]),
     status: POLAR_ORDER_STATUS.PAID,
   })
+  const order = { ...paid, custom_field_data: { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: withdrawalConsent } }
   const { body, headers } = signedPolarWebhook({ data: order, secret: TEST_ENV.POLAR_WEBHOOK_SECRET, type: LICENSE_WEBHOOK_EVENTS.onOrderPaid })
 
   const response = await request.post(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, { data: body, headers })

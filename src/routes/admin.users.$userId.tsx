@@ -10,6 +10,8 @@ import { listUserSessionsQuery } from "~/src/modules/session/use-cases/list-user
 import { getUserQuery } from "~/src/modules/user/use-cases/get-user"
 import { getUserInitials } from "~/src/modules/user/user.utils"
 
+import { USER_PROFILE_SECTIONS } from "~/src/data/user-profile"
+
 import { rethrowAsNotFound } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"
 
@@ -45,7 +47,12 @@ const UserProfilePage = (): JSX.Element => {
         <UserActions user={user} />
       </div>
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,24rem)_1fr]">
-        <UserDetails user={user} />
+        <div className="flex min-w-0 flex-col gap-6">
+          <UserDetails user={user} />
+          {USER_PROFILE_SECTIONS.map(({ key, Section }) => (
+            <Section key={key} userId={user.id} />
+          ))}
+        </div>
         <UserSessions user={user} />
       </div>
     </div>
@@ -61,6 +68,7 @@ export const Route = createFileRoute("/admin/users/$userId")({
     const [user] = await Promise.all([
       context.queryClient.query(getUserQuery({ userId: params.userId })).catch(rethrowAsNotFound),
       context.queryClient.query(listUserSessionsQuery({ userId: params.userId })),
+      ...USER_PROFILE_SECTIONS.map(({ load }) => load({ queryClient: context.queryClient, userId: params.userId })),
     ])
     return { locale, pathname: `${ROUTES.ADMIN_USERS}/${user.id}`, title: user.name }
   },

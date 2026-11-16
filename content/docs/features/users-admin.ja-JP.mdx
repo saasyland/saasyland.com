@@ -7,12 +7,12 @@ description: "/admin/users のユーザー管理: 稼働中のユーザーテー
 
 `src/routes/admin.users.tsx` はレイアウトで、リンク形式のタブは `src/data/user-tabs.ts` の `USER_TABS` です。これは各エリアの `src/data/<area>.user-tabs.ts` を `order` の順にまとめます。タブはパスとページのスケルトンを指定し、エリアの `navigation.<area>.json` にあるタブのラベルはパンくずリストでもそのページの名前になります。認証エリアは **全ユーザー** を、チームエリアは **招待** と **ロールと権限** を追加します。`/admin/users` は `/admin/users/all` へリダイレクトします。どのタブもページタイトルは `pages.admin.users` から取ります。チームエリア自身の文言は `pages.admin.users.invitations` と `pages.admin.users.roles` にあり、チームエリアが `src/data/team.namespaces.ts` でレイアウトに追加します。
 
-| ルート                     | 内容                                                 |
-| -------------------------- | ---------------------------------------------------- |
-| `/admin/users/all`         | 稼働中のユーザーテーブル                             |
-| `/admin/users/$userId`     | ユーザーのプロフィール: アカウントの詳細とセッション |
-| `/admin/users/invitations` | メール検索付きのデモ行（`ADMIN_INVITATION_ROWS`）    |
-| `/admin/users/roles`       | デモ行（`ADMIN_ROLE_ROWS`）                          |
+| ルート                     | 内容                                                                               |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| `/admin/users/all`         | 稼働中のユーザーテーブル                                                           |
+| `/admin/users/$userId`     | ユーザーのプロフィール: アカウントの詳細、セッション、ほかのエリアが追加するカード |
+| `/admin/users/invitations` | メール検索付きのデモ行（`ADMIN_INVITATION_ROWS`）                                  |
+| `/admin/users/roles`       | デモ行（`ADMIN_ROLE_ROWS`）                                                        |
 
 ## すべてのユーザー
 
@@ -26,12 +26,13 @@ description: "/admin/users のユーザー管理: 稼働中のユーザーテー
 
 **ユーザーを追加** は `CreateUserDialog`（`create-user-dialog.tsx`）を開きます。これは `userZodSchemas.createUser` で検証する TanStack Form のフォームで、名前、メールアドレス、初期パスワード、ロールを入力します。`createUser`（`user: ["create"]`。ロールについては Better Auth が `user: ["set-role"]` もチェックします）を呼び出し、新しいユーザーのプロフィールを開きます。Better Auth はメールアドレスが未確認の状態でアカウントを作成するため、最初のサインインで `/auth/verify-email` に移動し、そこで確認リンクが送信されます。
 
-## プロフィール
+## プロフィール [#profile]
 
-`src/routes/admin.users.$userId.tsx` は 2 つのクエリを同時に読み込み、ページのタイトルをユーザーの名前にします。存在しないユーザーの場合は Not Found ページになります。
+`src/routes/admin.users.$userId.tsx` は、ユーザー、そのセッション、ほかのエリアのカードのデータを同時に読み込み、ページのタイトルをユーザーの名前にします。存在しないユーザーの場合は Not Found ページになります。
 
 - `getUserQuery` はユーザーの行を読み取ります（`get-user.ts`、`user: ["get"]`）。`UserDetails`（`user-details.tsx`）は、ロール、ステータス、メール確認、二要素認証、タイムゾーン、作成日時と更新日時を `ADMIN_USER_DETAILS`（`src/data/admin.ts`）の順に表示し、`AdminUserProfilePending` も同じ順序に従います。
 - `listUserSessionsQuery` はユーザーの有効なセッションを、トークンを除いて新しい順に一覧表示します（`list-user-sessions.ts`、`session: ["list"]`）。`UserSessions`（`user-sessions.tsx`）は各デバイスとそのアクティビティを表示し、`revokeUserSession` で 1 つのセッションを、確認のうえ `revokeUserSessions` ですべてのセッションを失効させます（どちらも `session: ["revoke"]`）。`revokeUserSession` はセッションの ID を受け取り、サーバー側でそのトークンを調べます。これは `revokeSession` が管理者自身のセッションに対して行うのと同じです。
+- ほかのエリアは、アカウントの詳細の下に表示するカードを `src/data/<area>.user-profile.ts` で追加し、`src/data/user-profile.entries.ts` がそれらを `USER_PROFILE_SECTIONS`（`src/data/user-profile.ts`）にまとめます。セクションは、カード、`AdminUserProfilePending` も描画するそのスケルトン、そしてページがそのユーザーについて読み込むデータを指定します。認証エリアは何も追加しません。ライセンスのエリアは `UserLicense`（`user-license.tsx`）を追加します。これは `userLicenseQuery`（`get-user-license.ts`、`user: ["get"]`）を読み取り、プラン、ステータス、購入日時、即時提供への同意、最初のアクティベーション、最初のテンプレートのダウンロード、そして有効なライセンスの場合は返金できるかどうかを表示します。返金できるかどうかは、リクエストの時点でサーバーが判断します（[ライセンス](/docs/features/licences#records-and-refunds)を参照）。その文言は `pages.admin.users.license` にあり、ライセンスのエリアが `src/data/license.namespaces.ts` でレイアウトに追加します。
 
 ヘッダーには、ユーザーの名前とメールアドレス、そしてテーブルの行と同じアクションメニューが表示されます。
 

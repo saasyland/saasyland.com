@@ -1,6 +1,6 @@
 ---
 title: "Wydajność"
-description: "Zmierzone reguły, dzięki którym strony pozostają szybkie: mały graf startowy Workera, ORM poza przeglądarką, usunięte wskazówki preload, rozmieszczenie providerów, jeden build Tailwind, rozmiary mediów i wzorzec odsłaniania."
+description: "Zmierzone reguły, dzięki którym strony pozostają szybkie: mały graf startowy Workera, ORM poza przeglądarką, komunikaty ładowane na żądanie, usunięte wskazówki preload, rozmieszczenie providerów, jeden build Tailwind, rozmiary mediów i wzorzec odsłaniania."
 ---
 
 Każda reguła na tej stronie wynika z pomiaru, a kilka z nich zastąpiło intuicyjną poprawkę, która pogorszyła sytuację. Zmieniaj kod stojący za którąkolwiek z nich tylko wtedy, gdy nowy pomiar wypadnie lepiej.
@@ -47,6 +47,28 @@ const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
 ```
 
 Build, w którym import tego pakietu przetrwa tree-shaking, kończy się błędem i wypisuje łańcuch importów od trasy do pliku, który dotarł do Drizzle. Przerwij łańcuch tam, gdzie się zaczyna: zaimportuj krotkę ze stałych modułu albo przenieś kod do funkcji serwerowej. Importy samych typów są usuwane i nigdy się nie liczą.
+
+## Komunikaty ładowane wtedy, gdy strona ich potrzebuje [#load-messages-when-a-page-needs-them]
+
+Pierwsza strona, którą otwiera odwiedzający, nie ładuje w przeglądarce żadnego pliku komunikatów: główna trasa i dopasowane trasy wstępnie ładują swoje przestrzenie nazw do cache zapytań na serwerze, a TanStack Start wysyła ten cache razem z HTML-em. Przeglądarka ładuje przestrzeń nazw dopiero wtedy, gdy późniejsza nawigacja potrzebuje takiej, której cache jeszcze nie ma.
+
+`import.meta.glob` daje każdemu plikowi komunikatów osobny chunk, ale mapa z każdego pliku na jego chunk, która wymienia każdą przestrzeń nazw w każdym locale, trafia do modułu wywołującego glob. Tym modułem był `i18n.messages.ts`, który importuje główna trasa, i trzymał tę mapę dwa razy, raz dla komunikatów i raz dla metadanych strony, więc każda strona ładowała około 240 KiB loaderów, 21 KiB po kompresji gzip. Mapa znajduje się teraz w osobnym pliku `i18n.loaders.ts`, a `loadNamespace` importuje ją, gdy pierwszy raz ładuje przestrzeń nazw:
+
+```ts title="src/integrations/use-intl/i18n.messages.ts"
+const { MESSAGE_LOADERS } = await import("~/src/integrations/use-intl/i18n.loaders")
+```
+
+`loadPageMetadata` odczytuje `metadata` z przestrzeni nazw strony zamiast z drugiej mapy, więc head strony i jej komunikaty pochodzą z jednego chunka. Przeglądarka pobiera `i18n.loaders.ts`, około 11 KiB po kompresji gzip, razem z pierwszą ładowaną przestrzenią nazw, przy nawigacji albo przy najechaniu kursorem, które ją wstępnie ładuje. Główne przestrzenie nazw nadal są wyszukiwane po nazwach plików w `i18n.messages.ts`, a klucze tego globa kosztują około 2 KiB po kompresji gzip. Wszystkie skrypty ładowane przez daną stronę, po kompresji gzip, według wyniku `bun run build:test`:
+
+| Strona         | Przed     | Po        |
+| -------------- | --------- | --------- |
+| `/`            | 462,9 KiB | 442,3 KiB |
+| `/docs/<page>` | 553,5 KiB | 532,9 KiB |
+| `/blog`        | 424,6 KiB | 404,0 KiB |
+| `/app`         | 430,4 KiB | 409,7 KiB |
+| `/admin`       | 452,8 KiB | 432,2 KiB |
+
+Ładuj komunikaty wyłącznie przez `loadNamespace` i nigdy nie dodawaj `import.meta.glob` po `messages/` do modułu, który importuje główna trasa. `scripts/verify-build.ts` śledzi statyczne importy skryptu wejściowego przeglądarki i przerywa build, gdy zawierają loader przestrzeni nazw strony.
 
 ## Prerenderowane strony najpierw ładują CSS i czcionki
 

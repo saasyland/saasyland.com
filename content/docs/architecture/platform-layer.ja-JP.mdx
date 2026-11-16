@@ -36,7 +36,7 @@ Vite プラグインのエントリーには、ほかのエリアのプラグイ
 
 タイムゾーンのソースは、日付のフォーマットに使うタイムゾーンを返すフックです。認証のエリアのソースは、ルートガードが読み込んだセッションからサインイン中のユーザーのタイムゾーンを返し、セッションがなければ `UTC` を返します。ソースがない場合も、`TranslationsProvider` は `UTC` を使います。
 
-デプロイ前チェックは、デプロイ先の環境ごとに 1 つずつバリエーションを持つパッケージスクリプトを指定します。Polar のエリアは `polar:verify` を宣言しているので、`bun scripts/run-deploy-checks.ts preview` は `bun run polar:verify:preview` を実行します。
+デプロイ前チェックは、デプロイ先の環境ごとに 1 つずつバリエーションを持つパッケージスクリプトを指定します。認証エリアは `auth:verify` を、Polar のエリアは `polar:verify` を宣言しているので、`bun scripts/run-deploy-checks.ts preview` は `bun run auth:verify:preview` と `bun run polar:verify:preview` を実行します。空のシークレットやプレースホルダーのシークレットに対するチェックは、どのエリアも宣言しません。デプロイ前チェックの前に `scripts/prepare-deploy-secrets.ts` が実行され、`wrangler.jsonc` が宣言するすべてのシークレットの中からそうした値を拒否するからです。
 
 公開サイトのチェックは、デプロイ後にリクエストするパスと、そのパスが返すべきステータスとコンテンツタイプを指定します。コアはトップページ、`robots.txt`、サイトマップ、サイトカード、`/api` を、認証のエリアはセッションのエンドポイントを、コースのエリアはリクエストごとに D1 から描画される `/courses` をチェックします。`post` を持つチェックは、代わりにサイト自身のオリジンから JSON の本文を送り、JSON の応答を `findProblems` に渡します。認証のエリアはこの方法で `OAUTH_PROVIDERS` の各プロバイダーのサインインを開始し、認可 URL がプロバイダーのホスト上にない場合、`client_id` が別の形式の場合、`redirect_uri` がデプロイ先のドメインに戻らない場合に拒否します（[OAuth プロバイダー](/docs/features/oauth)）。
 
@@ -55,7 +55,7 @@ Vite プラグインのエントリーには、ほかのエリアのプラグイ
 | `production`  | 本番用 D1、KV、R2                        | `bun run build:production`、`deploy:production` |
 | `test`        | `.wrangler/test` 内のローカル D1、KV、R2 | `bun run build:test`、Playwright                |
 
-各環境は、必要なシークレットを `secrets.required` に列挙します。値は対応する `.env.<environment>` ファイルから取得され、デプロイスクリプトが宣言されたキーを `.wrangler/secrets.<environment>.json` に書き出し、そのファイルを `--secrets-file` で Wrangler に渡します。`test` 環境は、エントリーとして `src/platform/testing/worker.ts` を使い、`.env.test` にコミットされたダミー値を使います。`AFFONSO_PROGRAM_ID` は公開情報なので、シークレットではなく `vars` の下の通常の Worker 変数です。設定しているのは `test` だけです。1 つのモジュールのシークレットはまとめて、`.env.example`（`test` では `.env.test`）と同じ順序で並びます。そのため、エリアはシークレットを 1 つのまとまりとして追加できます。`src/__test__/wrangler.test.ts` は名前を順序どおりに比較し、異なると失敗します。まとまりの間の空行は読みやすさのためだけのもので、フォーマッターが削除することもあるため、テストは空行を比較しません。
+各環境は、必要なシークレットを `secrets.required` に列挙します。値は対応する `.env.<environment>` ファイルから取得され、デプロイスクリプトは空の値やプレースホルダーの値を拒否したうえで、宣言されたキーを `.wrangler/secrets.<environment>.json` に書き出し、そのファイルを `--secrets-file` で Wrangler に渡します。`test` 環境は、エントリーとして `src/platform/testing/worker.ts` を使い、`.env.test` にコミットされたダミー値を使います。`AFFONSO_PROGRAM_ID` は公開情報なので、シークレットではなく `vars` の下の通常の Worker 変数です。設定しているのは `test` だけです。1 つのモジュールのシークレットはまとめて、`.env.example`（`test` では `.env.test`）と同じ順序で並びます。そのため、エリアはシークレットを 1 つのまとまりとして追加できます。`src/__test__/wrangler.test.ts` は名前を順序どおりに比較し、異なると失敗します。まとまりの間の空行は読みやすさのためだけのもので、フォーマッターが削除することもあるため、テストは空行を比較しません。
 
 エリアのバインディングも独立したブロックになります。R2 バケットはエリアのもので、`MEDIA` はコースの、`BUNDLES` はライセンス販売のエリアのものです。そのため、各環境で `r2_buckets` は最後に置かれてエリアごとに 1 つのエントリーを持ち、あるエリアのないプロジェクトではそのエントリーがありません。`wrangler.test.ts` は、`development` と異なる D1 データベース、KV 名前空間、R2 バケットをバインドする環境があっても失敗し、`scripts/verify-bindings.ts` はどのバインディングも名指しせずに、対象環境が宣言するすべてのバインディングをチェックします。
 

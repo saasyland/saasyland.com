@@ -8,7 +8,6 @@ Payments run through Polar with the `@polar-sh/better-auth` plugin, which the po
 ```ts
 export const POLAR_AUTH_PLUGINS = [
   {
-    disabledPaths: [],
     plugin: polar({
       client: polarCore,
       use: [portal(), webhooks({ onPayload: handlePolarEvent, secret: env.POLAR_WEBHOOK_SECRET })],
@@ -18,7 +17,7 @@ export const POLAR_AUTH_PLUGINS = [
 ] as const satisfies readonly AuthPluginEntry[]
 ```
 
-The plugin adds the customer portal and the webhooks, which are exempt from Better Auth's rate limiter, and no checkout: its `checkout()` would create a checkout with the account's ID alone, so Polar would ask a signed-in buyer for their email again. An area that sells creates its checkouts with the Polar SDK after its own checks, as the licence area's `startCheckout` does (see [Licences](/docs/features/licences)).
+The plugin adds the customer portal and the webhooks, which are exempt from Better Auth's rate limiter, and no checkout: its `checkout()` would create a checkout with the account's ID alone, so Polar would ask a signed-in buyer for their email again. Better Auth closes no path to HTTP, so `src/data/__test__/polar.auth-plugins.integration.test.ts` checks that the plugin's checkout path answers 404 and fails once `checkout()` is added to the plugin. An area that sells creates its checkouts with the Polar SDK after its own checks, as the licence area's `startCheckout` does (see [Licences](/docs/features/licences)).
 
 `src/integrations/polar/polar.config.ts` creates `polarCore` from `POLAR_ACCESS_TOKEN` and `POLAR_SERVER`, which the plugin uses, and `polar`, the checkouts, discounts, licence keys and orders services built on it. `POLAR_ORGANIZATION_ID` scopes every Polar call that names an organisation; [Environment and bindings](/docs/reference/environment) lists them. `src/integrations/polar/polar.constants.ts` holds Polar's own values, `POLAR_ORDER_STATUS`, `POLAR_LICENSE_KEY_STATUS`, `POLAR_WEBHOOK_EVENT` and `POLAR_CHECKOUT_ID_PLACEHOLDER`, each checked against the SDK's types; it reads no environment, so the browser and the browser suite import it too. The polar area's paths, `API_AUTH_POLAR` and `API_AUTH_CUSTOMER_PORTAL`, are in `src/data/polar.routes.ts`. [Polar setup](/docs/getting-started/polar-setup) describes the products, licence keys, discounts, webhook and token this code expects in Polar, and `bun run polar:verify:<environment>` checks them.
 

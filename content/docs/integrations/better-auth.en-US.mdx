@@ -3,7 +3,7 @@ title: "Authentication and security"
 description: "Better Auth sessions, route guards, server-function middleware and roles."
 ---
 
-Better Auth stores users, accounts, sessions and verification tokens in D1 through the Drizzle adapter. It provides email and password sign-up with required email verification, GitHub and Google sign-in, password reset, email change, TOTP two-factor authentication, admin user management and Polar checkout. Its HTTP API is served by `src/routes/api/auth.$.ts`.
+Better Auth stores users, accounts, sessions and verification tokens in D1 through the Drizzle adapter. It provides email and password sign-up with required email verification, GitHub and Google sign-in, password reset, email change, TOTP two-factor authentication, admin user management and Polar checkout. Its HTTP API is served by `src/routes/api/auth.$.ts`. `auth.server.ts` and `auth.client.ts` set Better Auth's `basePath` to `ROUTES.API_AUTH_BASE`, the path that file serves, so the server and the browser client take it from one constant.
 
 ## Files
 
@@ -47,10 +47,10 @@ Page guards only protect navigation, so every protected server function checks t
 
 `auth.server.ts` names no other area. Two lists of the auth area's own join what the others add:
 
-| List         | Each area declares                                                                                                   | Barrel                             | Used by                                                                                      |
-| ------------ | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------- |
-| Auth plugins | `src/data/<area>.auth-plugins.ts`: plugins, with the paths Better Auth closes to HTTP and exempts from rate limiting | `src/data/auth-plugins.entries.ts` | `plugins`, `disabledPaths` and `rateLimit.customRules`; the polar area adds the Polar plugin |
-| Auth emails  | `src/data/<area>.auth-emails.ts`: senders of the verification, password reset and email change emails                | `src/data/auth-emails.entries.ts`  | `AUTH_EMAILS`, which the email hooks call; Resend adds `RESEND_AUTH_EMAILS`                  |
+| List         | Each area declares                                                                                    | Barrel                             | Used by                                                                     |
+| ------------ | ----------------------------------------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------- |
+| Auth plugins | `src/data/<area>.auth-plugins.ts`: plugins, with the paths Better Auth exempts from rate limiting     | `src/data/auth-plugins.entries.ts` | `plugins` and `rateLimit.customRules`; the polar area adds the Polar plugin |
+| Auth emails  | `src/data/<area>.auth-emails.ts`: senders of the verification, password reset and email change emails | `src/data/auth-emails.entries.ts`  | `AUTH_EMAILS`, which the email hooks call; Resend adds `RESEND_AUTH_EMAILS` |
 
 The areas' plugins follow `admin` and `twoFactor` and precede `tanstackStartCookies`, which must come last. Better Auth reads the user and session fields of its plugins from the plugin list in order up to the first spread list, so a plugin that adds such fields belongs in `auth.server.ts`. The email hooks pass every email to the sender of every area that sends them: `sendVerifyEmail`, `sendResetPasswordEmail` and `sendChangeEmailConfirmationEmail`. Better Auth's own rate limiter stores its counters in the D1 `rate_limit` table under an `auth:` prefix through `consumeRateLimit` from `src/lib/rate-limit.ts`, which uses atomic upserts and rejects requests when its storage is unavailable. `clientAddress` in `auth.middleware.ts` resolves a request's client the way that limiter does, from `cf-connecting-ip` with IPv6 addresses grouped by /64. The cookie prefix is `APP_SLUG` from the branding. `getRequestSession` bypasses the cookie cache, so authorization always reads the session from D1.
 

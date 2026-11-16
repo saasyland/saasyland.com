@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
+import { changelogEntries } from "~/src/integrations/fumadocs/fumadocs.changelog"
 import config, { blog, docs } from "~/src/integrations/fumadocs/fumadocs.config"
 
 import { rehypeOmitRenderedContent } from "~/scripts/deployed-worker"
@@ -29,5 +30,11 @@ describe("MDX options", () => {
       throw new TypeError("Missing rehype plugins")
     }
     expect(mdxOptions.rehypePlugins([])).toEqual([rehypeOmitRenderedContent])
+  })
+})
+
+describe("plugins", () => {
+  it("puts the changelog entries on the page that asks for them", () => {
+    expect(config.plugins).toStrictEqual([changelogEntries])
   })
 })

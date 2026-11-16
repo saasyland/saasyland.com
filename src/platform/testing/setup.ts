@@ -28,6 +28,7 @@ vi.mock(import("@tanstack/react-start"), async (importOriginal) => {
     createServerFn: new Proxy(actual.createServerFn, {
       apply: (target, thisArg, args: unknown[]) => withTestRpc(Reflect.apply(target, thisArg, args)),
     }),
+    getGlobalStartContext: vi.fn(),
   }
 })
 

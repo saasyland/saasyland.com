@@ -8,7 +8,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { HTTPS_SECURITY_HEADERS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
 
-import { renderedPagePolicy } from "~/src/lib/content-security-policy"
+import { documentPolicy } from "~/src/lib/content-security-policy"
 
 import { DOCUMENT_STYLESHEET } from "~/src/presentation/document-assets"
 import worker from "~/src/server"
@@ -17,6 +17,19 @@ const AREA_PATH_PREFIX = vi.hoisted(() => "/area-files/")
 const fetchHandler = vi.hoisted(() => vi.fn<(request: Request, options: { context: { nonce: string } }) => Promise<Response>>())
 const areaFetch = vi.hoisted(() => vi.fn<(request: Request) => Promise<Response>>())
 const areaRewrite = vi.hoisted(() => vi.fn<(document: Response, context: { locale: string; request: Request }) => Response>())
+
+const rewriteHandlers = vi.hoisted(() => vi.fn<(selector: string, handlers: HTMLRewriterElementContentHandlers) => void>())
+
+class TestHTMLRewriter {
+  on(selector: string, handlers: HTMLRewriterElementContentHandlers): this {
+    rewriteHandlers(selector, handlers)
+    return this
+  }
+
+  transform(page: Response): Response {
+    return page
+  }
+}
 
 vi.mock("@tanstack/react-start/server-entry", () => ({ default: { fetch: fetchHandler } }))
 vi.mock("~/src/data/worker.entries", async () => {
@@ -32,6 +45,8 @@ vi.mock("~/src/data/worker.entries", async () => {
 
 beforeEach(() => {
   vi.stubEnv("DEV", false)
+  vi.stubGlobal("HTMLRewriter", TestHTMLRewriter)
+  rewriteHandlers.mockReset()
   fetchHandler.mockReset()
   fetchHandler.mockResolvedValue(new Response("rendered", { headers: { "Set-Cookie": "session=kept" } }))
   areaFetch.mockReset()
@@ -42,6 +57,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
 })
 const HEADER_LINE_PATTERN = /^ {2}(?<name>[^:]+): (?<value>.+)$/u
 
@@ -85,8 +101,8 @@ it("gives every page the Worker renders a script policy with a nonce of its own,
 
   expect(renderedNonce(0)).toMatch(/^[\da-f]{32}$/u)
   expect(renderedNonce(1)).not.toBe(renderedNonce(0))
-  expect(first.headers.get(POLICY_HEADER)).toBe(renderedPagePolicy(renderedNonce(0)))
-  expect(second.headers.get(POLICY_HEADER)).toBe(renderedPagePolicy(renderedNonce(1)))
+  expect(first.headers.get(POLICY_HEADER)).toBe(documentPolicy(renderedNonce(0)))
+  expect(second.headers.get(POLICY_HEADER)).toBe(documentPolicy(renderedNonce(1)))
   expect(first.headers.get(POLICY_HEADER)).toContain("frame-ancestors 'none'")
 })
 
@@ -100,18 +116,72 @@ it("renders pages on the dev server under the base policy, because Vite's own in
   expect(fetchHandler).toHaveBeenCalledExactlyOnceWith(request, { context: { nonce: renderedNonce(0) } })
 })
 
+const prerenderedPage = (): Response =>
+  new Response("<html>Page</html>", {
+    headers: { "Cache-Control": "public, max-age=0, must-revalidate", "Content-Type": "text/html", ETag: '"page"' },
+  })
+
+const nonceOnScripts = async (): Promise<unknown[][]> => {
+  const handlers = new Map(rewriteHandlers.mock.calls).get('script:not([type="application/ld+json"])')
+  const setAttribute = vi.fn()
+  if (!handlers?.element) {
+    throw new Error("The Worker registered no script handler")
+  }
+  await Reflect.apply(handlers.element.bind(handlers), handlers, [{ setAttribute }])
+  return setAttribute.mock.calls
+}
+
+const policyNonce = (response: Response): string =>
+  /'nonce-(?<nonce>[\da-f]{32})'/u.exec(response.headers.get(POLICY_HEADER) ?? "")?.groups?.["nonce"] ?? ""
+
+it("gives every prerendered page a nonce of its own in the header, and on the scripts of its HTML, as Cloudflare's edge needs", async () => {
+  vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(prerenderedPage()).mockResolvedValueOnce(prerenderedPage())
+
+  const first = await worker.fetch(new Request("http://localhost/docs"), env)
+  const firstScripts = await nonceOnScripts()
+  rewriteHandlers.mockClear()
+  const second = await worker.fetch(new Request("http://localhost/docs"), env)
+
+  expect(first.headers.get(POLICY_HEADER)).toBe(documentPolicy(policyNonce(first)))
+  expect(policyNonce(second)).not.toBe(policyNonce(first))
+  expect(firstScripts).toStrictEqual([["nonce", policyNonce(first)]])
+  expect(await nonceOnScripts()).toStrictEqual([["nonce", policyNonce(second)]])
+  expect(fetchHandler).not.toHaveBeenCalled()
+})
+
+it.each(["prerendered", "rendered"])(
+  "keeps no validator on %s HTML and makes it private, so no cached copy is reused with another response's nonce",
+  async (source) => {
+    if (source === "prerendered") {
+      vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(prerenderedPage())
+    } else {
+      fetchHandler.mockResolvedValueOnce(prerenderedPage())
+    }
+
+    const response = await worker.fetch(new Request("http://localhost/docs"), env)
+
+    expect(headersNamed(response, ["cache-control", "content-length", "etag", "last-modified"])).toStrictEqual({
+      "cache-control": "private, no-cache",
+      "content-length": null,
+      etag: null,
+      "last-modified": null,
+    })
+  },
+)
+
 it.each([
-  { kind: "prerendered page", url: "http://localhost/docs" },
+  { kind: "asset that is not HTML", url: "http://localhost/images/hero.png" },
   { kind: "locale redirect", url: "http://localhost/pl/docs" },
   { kind: "file an area serves", url: `http://localhost${AREA_PATH_PREFIX}bundle.tgz` },
-])("keeps a $kind on the base policy, because prerendered pages carry their script hashes themselves", async ({ kind, url }) => {
-  if (kind === "prerendered page") {
-    vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(new Response("<html>Page</html>", { headers: { "Content-Type": "text/html" } }))
+])("keeps a $kind on the base policy and rewrites nothing", async ({ kind, url }) => {
+  if (kind === "asset that is not HTML") {
+    vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(new Response("image", { headers: { "Content-Type": "image/png" } }))
   }
 
   const response = await worker.fetch(new Request(url), env)
 
   expect(response.headers.get(POLICY_HEADER)).toBe(BASE_POLICY)
+  expect(rewriteHandlers).not.toHaveBeenCalled()
   expect(fetchHandler).not.toHaveBeenCalled()
 })
 
@@ -193,7 +263,7 @@ it("serves prerendered HTML through the locale middleware without rerendering", 
 })
 
 it.each(["prerendered", "rendered"])(
-  "preloads the document stylesheet and fonts for %s HTML while preserving response headers",
+  "preloads the document stylesheet and fonts for %s HTML, keeping the links and cookies the response set",
   async (source) => {
     const html = new Response("<html>Page</html>", {
       headers: {
@@ -221,9 +291,6 @@ it.each(["prerendered", "rendered"])(
       '</fonts/caa3a2e1cccd8315-s.p.0wgildi0cnwt9.woff2>; rel=preload; as=font; type="font/woff2"; crossorigin=anonymous',
       '</fonts/797e433ab948586e-s.0r6juujl39pe6.woff2>; rel=preload; as=font; type="font/woff2"; crossorigin=anonymous',
     ])
-    expect(response.headers.get("cache-control")).toBe(html.headers.get("cache-control"))
-    expect(response.headers.get("content-length")).toBe("17")
-    expect(response.headers.get("etag")).toBe('"page"')
     expect(response.headers.get("set-cookie")).toBe("session=kept; HttpOnly")
   },
 )

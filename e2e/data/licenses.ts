@@ -1,4 +1,12 @@
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { LICENSE_STATUS, LICENSE_TIER } from "../../src/modules/license/license.constants"
+
+export const TEST_LICENSED_ACCOUNT = {
+  email: "licensed@example.test",
+  id: "test-licensed",
+  name: "Test Licensee",
+  role: ROLE_CODES.CUSTOMER,
+} as const
 
 export const TEST_LICENSE = {
   activation: { createdAt: "2025-01-01T12:00:00.000Z", id: "3f8e2a91-6c4d-4b7e-a2f5-9d1c8e7b6a40", label: "Development laptop" },

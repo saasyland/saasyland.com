@@ -240,11 +240,11 @@ describe("verification email idempotency", () => {
 
 describe("verification email link", () => {
   it("keeps the sign-up's redirect and locale, and always points at this site's verification page", async () => {
-    const body = { ...createSignUp(), callbackURL: "/pl-PL/auth/callback?redirect=%2Fpl-PL%2Fapp%2Flicense" }
+    const body = { ...createSignUp(), callbackURL: "/pl-PL/auth/callback?redirect=%2Fpl-PL%2Fapp%2Fsettings" }
 
     await signUp(body)
 
-    expect(getSentEmails(body.email)[0]?.html).toContain(`${ORIGIN}/pl-PL/auth/verify-email?redirect=%2Fpl-PL%2Fapp%2Flicense&amp;token=`)
+    expect(getSentEmails(body.email)[0]?.html).toContain(`${ORIGIN}/pl-PL/auth/verify-email?redirect=%2Fpl-PL%2Fapp%2Fsettings&amp;token=`)
   })
 
   it("links to the verification page in the default locale when Better Auth's link names no callback", async () => {

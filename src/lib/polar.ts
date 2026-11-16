@@ -14,8 +14,9 @@ import {
 
 import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { toMinorUnits } from "~/src/modules/_core/constants/currency"
-import { DEFAULT_CURRENCY_CODE, PPP_PERCENTS_OFF } from "~/src/modules/_core/constants/pricing"
+import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
+import { PPP_PERCENTS_OFF } from "~/src/modules/license/license.pricing"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 import { POLAR_EVENTS } from "~/src/data/polar-events"

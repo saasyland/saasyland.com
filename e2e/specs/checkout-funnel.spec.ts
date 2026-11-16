@@ -6,7 +6,7 @@ import { TEST_CHECKOUT_ID } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
 import { expectVerificationEmail } from "../fixtures/emails"
-import { deliverPaidOrder } from "../fixtures/polar"
+import { deliverPaidOrder } from "../fixtures/license"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -41,6 +41,28 @@ const signUpAndVerify = async ({ authPage, page, request }: { authPage: AuthPage
 }
 
 test.describe("checkout funnel", () => {
+  for (const account of TEST_ACCOUNTS) {
+    test(`a signed-in ${account.role} who picks a tier on the landing page skips sign-in and opens the offer`, async ({
+      appPage,
+      authPage,
+      landingPage,
+      page,
+    }) => {
+      const errors: string[] = []
+      page.on("pageerror", (error) => errors.push(error.message))
+      await authPage.signIn(account.email)
+      await expect(page).toHaveURL(/\/(?:admin|app)$/u)
+
+      await landingPage.goto()
+      await page.locator("#pricing").getByRole("link", { name: "Get Core", exact: true }).click()
+
+      await expect(page).toHaveURL(`/app?tier=${LICENSE_TIER.CORE}`)
+      await appPage.waitForAppReady()
+      await expect(page.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
+      expect(errors).toEqual([])
+    })
+  }
+
   test("a tier picked on the landing page survives sign-up, opens checkout in one press and activates", async ({
     appPage,
     authPage,

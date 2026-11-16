@@ -17,7 +17,7 @@ import { RATE_LIMITS, RATE_LIMIT_WINDOW_SECONDS } from "~/src/integrations/bette
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
-import { CURRENCY_FORMAT, PPP_TIERS } from "~/src/modules/_core/constants/pricing"
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LOCALIZED_TEXT_MAX_LENGTH } from "~/src/modules/_core/utils/localized-text"
 import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
@@ -30,6 +30,7 @@ import {
   LICENSE_API_RETRY_AFTER_SECONDS,
   REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
 } from "~/src/modules/license/license.constants"
+import { PPP_TIERS } from "~/src/modules/license/license.pricing"
 import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.constants"
 import { POSTER_SMALL_WIDTH, POSTER_WIDTH, VIDEO_LIBRARY_PAGE_SIZE } from "~/src/modules/video/video.constants"
 import {

@@ -10,7 +10,6 @@ import { polar } from "~/src/integrations/polar/polar.config"
 import { POLAR_CHECKOUT_ID_PLACEHOLDER } from "~/src/integrations/polar/polar.constants"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { LICENSE_MUTATION_KEYS, LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { pppDiscountId } from "~/src/modules/license/license.ppp"
 import type { License } from "~/src/modules/license/license.types"
@@ -27,7 +26,7 @@ export const startCheckout = createServerFn({ method: "POST" })
     const { user } = context.auth
     const current = await getLicense(user.id)
     if (current?.status === LICENSE_STATUS.ACTIVE) {
-      throw new AppError(ERROR_CODES.LICENSE_ALREADY_ACTIVE)
+      return { alreadyActive: true } as const
     }
 
     const discountId = await pppDiscountId(context.requestHeaders, POLAR_PRODUCT_IDS[tier])

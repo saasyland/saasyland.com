@@ -162,15 +162,15 @@ describe("social preview", () => {
 
 describe("robots directive", () => {
   it("asks crawlers not to index a page that is not indexable", () => {
-    expect(buildPageHead({ indexable: false, pathname: ROUTES.PREMIUM }).meta).toContainEqual({ content: ROBOTS.NOINDEX, name: "robots" })
+    expect(buildPageHead({ indexable: false, pathname: ROUTES.HOME }).meta).toContainEqual({ content: ROBOTS.NOINDEX, name: "robots" })
   })
 
   it("leaves the robots directive of an indexable page to the deployment", () => {
-    expect(buildPageHead({ pathname: ROUTES.PREMIUM }).meta).not.toContainEqual(expect.objectContaining({ name: "robots" }))
+    expect(buildPageHead({ pathname: ROUTES.HOME }).meta).not.toContainEqual(expect.objectContaining({ name: "robots" }))
   })
 
   it("passes the indexing choice of a route through its page head", () => {
-    expect(pageHead(ROUTES.PREMIUM, { indexable: false })({ loaderData: undefined }).meta).toContainEqual({
+    expect(pageHead(ROUTES.HOME, { indexable: false })({ loaderData: undefined }).meta).toContainEqual({
       content: ROBOTS.NOINDEX,
       name: "robots",
     })

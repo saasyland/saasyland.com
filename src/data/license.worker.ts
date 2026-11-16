@@ -1,4 +1,5 @@
 import { COUNTRY_HEADER } from "~/src/modules/_core/constants/api"
+import { BUNDLE_PATH_PREFIX } from "~/src/modules/license/license.constants"
 import {
   PPP_ATTRIBUTE,
   PPP_COOKIE,
@@ -6,8 +7,7 @@ import {
   PPP_PERCENT,
   getPppPercentOff,
   pppMultiplierKey,
-} from "~/src/modules/_core/constants/pricing"
-import { BUNDLE_PATH_PREFIX } from "~/src/modules/license/license.constants"
+} from "~/src/modules/license/license.pricing"
 
 import { WORKER_HANDLER_KIND, type WorkerHandler } from "~/src/data/worker.constants"
 

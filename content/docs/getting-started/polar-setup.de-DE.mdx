@@ -81,12 +81,20 @@ Legen Sie für jede deployte Umgebung einen Webhook-Endpunkt an, und zwar in der
 | `preview`    | Sandbox      | `https://preview.saasyland.com/api/auth/polar/webhooks` |
 | `production` | Produktion   | `https://saasyland.com/api/auth/polar/webhooks`         |
 
-Der Host stammt aus `DEPLOYED_HOSTS` und der Pfad aus `ROUTES`. Wählen Sie das Raw-Format, lassen Sie den Endpunkt aktiviert und abonnieren Sie für ihn genau die Ereignisse in `POLAR_EVENTS` (`src/data/polar-events.ts`), das die Ereignisse aller Bereiche zusammenführt (siehe [Zahlungen](/docs/features/payments#webhooks)). Derzeit verarbeitet nur der Lizenzbereich Ereignisse; sie sind in `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`) aufgeführt:
+Der Host stammt aus `DEPLOYED_HOSTS` und der Pfad aus `ROUTES`. Wählen Sie das Raw-Format, lassen Sie den Endpunkt aktiviert und abonnieren Sie für ihn genau die Ereignisse in `POLAR_EVENTS` (`src/data/polar-events.ts`), das die Ereignisse aller Bereiche zusammenführt (siehe [Zahlungen](/docs/features/payments#webhooks)). Derzeit verarbeitet der Lizenzbereich die Ereignisse in `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`) und der Abrechnungsbereich die in `src/data/billing.polar-events.ts`:
 
-- `order.paid` vergibt die Lizenz;
-- `order.refunded` markiert sie als erstattet, sobald die Bestellung vollständig erstattet ist;
-- `benefit_grant.created` speichert den Lizenzschlüssel;
-- `benefit_grant.revoked` widerruft die Lizenz.
+| Ereignis                | Lizenzbereich                                                                      | Abrechnungsbereich                     |
+| ----------------------- | ---------------------------------------------------------------------------------- | -------------------------------------- |
+| `benefit_grant.created` | Speichert den Lizenzschlüssel                                                      |                                        |
+| `benefit_grant.revoked` | Widerruft die Lizenz                                                               |                                        |
+| `order.created`         |                                                                                    | Kopiert die Bestellung nach D1         |
+| `order.paid`            | Vergibt die Lizenz                                                                 | Aktualisiert die Kopie der Bestellung  |
+| `order.refunded`        | Markiert die Lizenz als erstattet, sobald die Bestellung vollständig erstattet ist | Aktualisiert die Kopie der Bestellung  |
+| `order.updated`         |                                                                                    | Aktualisiert die Kopie der Bestellung  |
+| `subscription.created`  |                                                                                    | Kopiert das Abonnement nach D1         |
+| `subscription.updated`  |                                                                                    | Aktualisiert die Kopie des Abonnements |
+
+Wenn ein Bereich beginnt, ein Ereignis zu verarbeiten, fügen Sie das Ereignis jedem Endpunkt hinzu, bevor Sie diesen Code deployen. Der bis dahin deployte Code bestätigt ein Ereignis, das kein Bereich verarbeitet, mit 200 und tut nichts damit, daher schadet es nicht, das Ereignis zuerst hinzuzufügen, und `polar:verify` lässt das Deployment fehlschlagen, solange ein Endpunkt nicht jedes Ereignis in `POLAR_EVENTS` sendet.
 
 Kopieren Sie das Signatur-Secret des Endpunkts in `POLAR_WEBHOOK_SECRET` in derselben Umgebungsdatei. Die Entwicklung braucht keinen Endpunkt, weil Polar `localhost` nicht erreichen kann.
 

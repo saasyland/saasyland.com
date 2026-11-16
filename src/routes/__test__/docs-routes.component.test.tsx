@@ -54,6 +54,7 @@ vi.mock(import("@fumadocs/base-ui/layouts/docs"), async (original) => ({
       <main>{children}</main>
       <span data-testid="builtin-theme-switch">{String(themeSwitch?.enabled)}</span>
       <span data-testid="builtin-skip-link">{String(slots?.skipToContent)}</span>
+      <span data-testid="sidebar-collapsible">{typeof sidebar === "object" && String(sidebar.collapsible)}</span>
     </div>
   ),
 }))
@@ -140,6 +141,7 @@ it.each([
   expect(screen.getByRole("button", { name: selectTriggerNamed(localeSwitcherMessages.label) })).toHaveTextContent("English")
   expect(screen.getByTestId("builtin-theme-switch")).toHaveTextContent("false")
   expect(screen.getByTestId("builtin-skip-link")).toHaveTextContent("false")
+  expect(screen.getByTestId("sidebar-collapsible")).toHaveTextContent("false")
   expect(screen.getByRole("contentinfo")).toBeInTheDocument()
   expect(docsContent.useContent).toHaveBeenCalledWith(path)
   if (slug === undefined) {

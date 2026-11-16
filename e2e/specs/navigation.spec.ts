@@ -9,6 +9,9 @@ import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 
 const CLIENT_SCRIPT = /\/assets\/[\w.-]+\.js$/u
 const MOBILE_VIEWPORT = { height: 844, width: 390 }
+const HEADER_VIEWPORTS = [MOBILE_VIEWPORT, { height: 900, width: 1280 }, { height: 900, width: 1440 }, { height: 1000, width: 1870 }]
+const HEADER_LINE_WIDTH = "1px"
+const TRANSPARENT = "rgba(0, 0, 0, 0)"
 const MINIMUM_TARGET = 24
 const POLISH = "pl-PL"
 const [freeLesson] = TEST_LESSONS
@@ -27,7 +30,9 @@ const PUBLIC_PAGES = [
   "/this-page-does-not-exist",
 ]
 
-const POLISH_PAGES = [ROUTES.HOME, ROUTES.BLOG, ROUTES.DOCS].map((pathname) => localizePathname({ locale: POLISH, pathname }))
+const HEADER_PAGES = [ROUTES.HOME, ROUTES.BLOG, ROUTES.DOCS]
+
+const POLISH_PAGES = HEADER_PAGES.map((pathname) => localizePathname({ locale: POLISH, pathname }))
 
 const HEADER_LABELS = ["SaaSy Land", "Pricing", "Courses", "Blog", "Docs", "Sign in", "Start building"]
 
@@ -38,6 +43,18 @@ const CURRENT_ENTRIES = [
   { current: ["Docs"], path: DOCS_PAGE },
   { current: [], path: ROUTES.LICENCE },
 ]
+
+interface Box {
+  bottom: number
+  left: number
+  right: number
+  top: number
+}
+
+const boxOf = (element: Element): Box => {
+  const { bottom, left, right, top } = element.getBoundingClientRect()
+  return { bottom, left, right, top }
+}
 
 const visit = async (page: Page, path: string): Promise<void> => {
   await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -55,6 +72,21 @@ const isInMenu = async (page: Page): Promise<boolean> =>
   page.evaluate(() => document.querySelector('[role="dialog"]')?.contains(document.activeElement) === true)
 
 const isInert = async (locator: Locator): Promise<boolean> => locator.evaluate((element) => element.closest("[inert]") !== null)
+
+const headerPlacement = async (page: Page): Promise<{ header: Box; logo: Box; navigation: Box }> => {
+  const header = page.getByRole("banner")
+  return {
+    header: await header.evaluate(boxOf),
+    logo: await header.getByRole("link", { exact: true, name: "SaaSy Land" }).evaluate(boxOf),
+    navigation: await header.getByRole("navigation").evaluate(boxOf),
+  }
+}
+
+const headerLine = async (page: Page): Promise<{ color: string; width: string }> =>
+  page.getByRole("banner").evaluate((header) => {
+    const { borderBottomColor, borderBottomWidth } = getComputedStyle(header)
+    return { color: borderBottomColor, width: borderBottomWidth }
+  })
 
 const headerLinks = async (page: Page): Promise<string[][]> => {
   await expect(page.getByRole("banner")).toHaveCount(1)
@@ -106,6 +138,33 @@ test.describe("one site header", () => {
     expect(landing?.map(([label]) => label)).toStrictEqual(HEADER_LABELS)
     for (const [path, links] of headers) {
       expect(links, path).toStrictEqual(landing)
+    }
+  })
+
+  test("stays in one place with its bottom line on the landing page, the blog and the docs, at the top of the page and after scrolling", async ({
+    page,
+  }) => {
+    for (const viewport of HEADER_VIEWPORTS) {
+      await page.setViewportSize(viewport)
+      const placements = new Map<string, Awaited<ReturnType<typeof headerPlacement>>>()
+      for (const path of HEADER_PAGES) {
+        await visit(page, path)
+        const top = { line: await headerLine(page), placement: await headerPlacement(page) }
+        await page.evaluate(() => {
+          window.scrollTo({ behavior: "instant", top: window.innerHeight })
+        })
+        expect(await page.evaluate(() => window.scrollY), path).toBeGreaterThan(0)
+
+        expect(top.line.width, path).toBe(HEADER_LINE_WIDTH)
+        expect(top.line.color, path).not.toBe(TRANSPARENT)
+        expect({ line: await headerLine(page), placement: await headerPlacement(page) }, path).toStrictEqual(top)
+        placements.set(path, top.placement)
+      }
+
+      const [landing] = placements.values()
+      for (const [path, placement] of placements) {
+        expect(placement, `${path} at ${String(viewport.width)} px`).toStrictEqual(landing)
+      }
     }
   })
 

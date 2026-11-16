@@ -18,7 +18,7 @@ export const RallySection = (): JSX.Element => {
       <div aria-hidden className="field-grid pointer-events-none absolute inset-0" />
       <div aria-hidden className="field-signal field-taper pointer-events-none absolute inset-0" />
 
-      <div className="relative mx-auto grid w-full max-w-7xl gap-x-16 gap-y-8 px-6 py-20 md:grid-cols-[1.2fr_auto] md:items-end md:px-10 md:py-24">
+      <div className="relative mx-auto grid w-full max-w-site gap-x-16 gap-y-8 px-6 py-20 md:grid-cols-[1.2fr_auto] md:items-end md:px-10 md:py-24">
         <Reveal variant="heading">
           <h2 className="max-w-[20ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
           <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("body")}</p>

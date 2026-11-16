@@ -23,7 +23,7 @@ export const ProofSection = (): JSX.Element => {
 
   return (
     <section className="relative border-t border-border">
-      <div className="mx-auto w-full max-w-7xl">
+      <div className="mx-auto w-full max-w-site">
         <HighlightGroup className="grid grid-cols-2 gap-px bg-border md:grid-cols-5" element="dl" name="proof-highlight">
           {FACT_KEYS.map((key) => (
             <HighlightItem className="bg-background" contentClassName="px-6 py-8 md:px-8 md:py-10" id={key} key={key}>

@@ -23,32 +23,13 @@ interface ResizeEntry {
   contentRect: Pick<DOMRectReadOnly, "height">
 }
 
-interface TestObserver {
-  readonly callback: IntersectionObserverCallback
-  readonly disconnect: ReturnType<typeof vi.fn<() => void>>
-  readonly observe: ReturnType<typeof vi.fn<(element: Element) => void>>
-  readonly options: IntersectionObserverInit | undefined
-}
-
 const pageLabel = getNavigationLabel("en-US")
 
 const browserWindow: Window = globalThis.window
-const observers: TestObserver[] = []
 const resizeCallbacks: ((entries: ResizeEntry[]) => void)[] = []
 const observeSize = vi.fn<(element: Element) => void>()
 const disconnectSize = vi.fn<() => void>()
 const supports = vi.fn<(value: string) => boolean>()
-
-const TestIntersectionObserver = vi.fn(function intersectionObserver(
-  this: Pick<IntersectionObserver, "disconnect" | "observe">,
-  callback: IntersectionObserverCallback,
-  options?: IntersectionObserverInit,
-) {
-  const observer: TestObserver = { callback, disconnect: vi.fn<() => void>(), observe: vi.fn<(element: Element) => void>(), options }
-  observers.push(observer)
-  this.disconnect = observer.disconnect
-  this.observe = observer.observe
-})
 
 const TestResizeObserver = vi.fn(function resizeObserver(
   this: Pick<ResizeObserver, "disconnect" | "observe">,
@@ -58,32 +39,6 @@ const TestResizeObserver = vi.fn(function resizeObserver(
   this.disconnect = disconnectSize
   this.observe = observeSize
 })
-
-const sentinelObserver = (): TestObserver => {
-  const observer = observers.find(({ options }) => options?.rootMargin === undefined)
-  if (!observer) {
-    throw new Error("The header sentinel observer is missing")
-  }
-  return observer
-}
-
-const intersect = (observer: TestObserver, entries: Partial<IntersectionObserverEntry>[]) => {
-  act(() => {
-    observer.callback(
-      entries.map((entry) => ({
-        boundingClientRect: new DOMRect(),
-        intersectionRatio: 1,
-        intersectionRect: new DOMRect(),
-        isIntersecting: true,
-        rootBounds: null,
-        target: document.body,
-        time: 0,
-        ...entry,
-      })),
-      new IntersectionObserver(vi.fn<IntersectionObserverCallback>()),
-    )
-  })
-}
 
 const resizeBody = (height?: number) => {
   act(() => {
@@ -134,13 +89,11 @@ type User = ReturnType<typeof userEvent.setup>
 const progressBar = (container: HTMLElement) => container.querySelector<HTMLDivElement>(".scroll-progress")
 
 beforeEach(() => {
-  observers.length = 0
   resizeCallbacks.length = 0
   vi.clearAllMocks()
   supports.mockReturnValue(false)
   vi.spyOn(CSS, "supports").mockImplementation(supports)
   vi.stubGlobal("ResizeObserver", TestResizeObserver)
-  vi.stubGlobal("IntersectionObserver", TestIntersectionObserver)
   vi.stubGlobal("innerHeight", 800)
   vi.stubGlobal("scrollY", 0)
 })
@@ -294,10 +247,8 @@ describe("navigation scroll progress", () => {
     expect(resizeCallbacks).toHaveLength(0)
     expect(observeSize).not.toHaveBeenCalled()
     expect(addListener.mock.calls.filter(([type]) => type === "scroll" || type === "resize")).toEqual([])
-    expect(sentinelObserver().observe).toHaveBeenCalledExactlyOnceWith(container.querySelector(':scope > div[aria-hidden="true"]'))
 
     unmount()
-    expect(sentinelObserver().disconnect).toHaveBeenCalledOnce()
     expect(disconnectSize).not.toHaveBeenCalled()
   })
 
@@ -350,7 +301,6 @@ describe("navigation scroll progress", () => {
     expect(addListener).toHaveBeenCalledWith("resize", resizeListener)
     unmount()
     expect(disconnectSize).toHaveBeenCalledOnce()
-    expect(sentinelObserver().disconnect).toHaveBeenCalledOnce()
     expect(removeListener).toHaveBeenCalledWith("scroll", scrollListener)
     expect(removeListener).toHaveBeenCalledWith("resize", resizeListener)
     vi.stubGlobal("scrollY", 500)
@@ -359,29 +309,28 @@ describe("navigation scroll progress", () => {
     expect(progress?.style.transform).toBe("scaleX(0)")
   })
 
-  it("changes the header background from sentinel visibility and restores it at the top", () => {
-    renderNavigation()
+  it("keeps the header's line and background at every scroll position, without watching the scroll for them", () => {
+    supports.mockReturnValue(true)
+    const addListener = vi.spyOn(browserWindow, "addEventListener")
+    const { container } = renderNavigation()
     const header = screen.getByRole("banner")
-    expect(header).toHaveClass("border-transparent", "bg-transparent")
+    const before = header.className
 
-    intersect(sentinelObserver(), [{ isIntersecting: false }])
-    expect(header).toHaveClass("border-border", "bg-background/72", "backdrop-blur-xl")
-    expect(header).not.toHaveClass("bg-transparent")
-    intersect(sentinelObserver(), [{ isIntersecting: true }])
-    expect(header).toHaveClass("border-transparent", "bg-transparent")
-    expect(header).not.toHaveClass("backdrop-blur-xl")
-    intersect(sentinelObserver(), [])
-    expect(header).toHaveClass("border-border", "bg-background/72")
+    vi.stubGlobal("scrollY", 500)
+    globalThis.dispatchEvent(new Event("scroll"))
+
+    expect(header).toHaveClass("border-b", "border-border", "bg-background/72", "backdrop-blur-xl")
+    expect(header.className).toBe(before)
+    expect(container.querySelectorAll(':scope > [aria-hidden="true"]')).toHaveLength(0)
+    expect(addListener.mock.calls.filter(([type]) => type === "scroll")).toEqual([])
   })
 
-  it("disconnects and reattaches the sentinel safely in Strict Mode", () => {
-    supports.mockReturnValue(true)
+  it("disconnects and reattaches the progress fallback safely in Strict Mode", () => {
     const { unmount } = renderNavigation(<Navigation />, { wrapper: StrictMode })
-    const sentinels = observers.filter(({ options }) => options?.rootMargin === undefined)
-    expect(sentinels.flatMap(({ observe }) => observe.mock.calls)).toHaveLength(2)
-    expect(sentinels.filter(({ disconnect }) => disconnect.mock.calls.length > 0)).toHaveLength(1)
+    expect(observeSize).toHaveBeenCalledTimes(2)
+    expect(disconnectSize).toHaveBeenCalledOnce()
     expect(screen.getByRole("banner")).toBeInTheDocument()
     unmount()
-    expect(sentinels.every(({ disconnect }) => disconnect.mock.calls.length === 1)).toBe(true)
+    expect(disconnectSize).toHaveBeenCalledTimes(2)
   })
 })

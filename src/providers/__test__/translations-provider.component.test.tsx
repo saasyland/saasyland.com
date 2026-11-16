@@ -2,7 +2,7 @@ import { Suspense } from "react"
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
-import { render, screen } from "@testing-library/react"
+import { act, render, screen } from "@testing-library/react"
 import { useFormatter, useTranslations } from "use-intl/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -10,13 +10,21 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { TranslationsProvider } from "~/src/providers/translations-provider"
 
-import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
+import { I18N } from "~/src/integrations/use-intl/i18n.config"
+import { ROOT_NAMESPACES, messagesQueryOptions, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
+
+import type { TimeZoneSource } from "~/src/data/time-zone"
 
 import errorsGlobalMessages from "~/messages/en-US/errors.global.json"
 import pagesLandingMessages from "~/messages/en-US/pages.landing.json"
 
 const ACTIVATED_AT = new Date("2025-01-01T12:00:00Z")
 const PUBLISHED_ON = new Date("2026-11-14")
+const PENDING = "pending"
+
+const timeZoneSources = vi.hoisted((): TimeZoneSource[] => [])
+
+vi.mock(import("~/src/data/time-zone"), () => ({ TIME_ZONE_SOURCES: timeZoneSources }))
 
 const DateProbe = () => {
   const format = useFormatter()
@@ -30,21 +38,24 @@ const DateProbe = () => {
 }
 
 afterEach(() => {
-  vi.doUnmock("~/src/data/time-zone.entries")
-  vi.resetModules()
+  timeZoneSources.splice(0)
 })
 
-const renderDatesWith = async (sources: Readonly<Record<string, readonly { readonly useTimeZone: () => string }[]>>) => {
-  vi.resetModules()
-  vi.doMock("~/src/data/time-zone.entries", () => sources)
-  const { TranslationsProvider: Provider } = await import("~/src/providers/translations-provider")
+const loadNamespaces = (queryClient: QueryClient, namespaces: readonly string[] = ROOT_NAMESPACES) =>
+  act(() => preloadNamespaces({ locale: I18N.DEFAULT_LOCALE, namespaces, queryClient }))
+
+const renderDatesIn = async (...timeZones: readonly string[]) => {
+  timeZoneSources.push(...timeZones.map((timeZone) => ({ useTimeZone: () => timeZone })))
+  const queryClient = new QueryClient()
+  await preloadNamespaces({ locale: I18N.DEFAULT_LOCALE, namespaces: ROOT_NAMESPACES, queryClient })
 
   return renderWithRouter(
-    <Suspense fallback="pending">
-      <Provider>
+    <Suspense fallback={PENDING}>
+      <TranslationsProvider>
         <DateProbe />
-      </Provider>
+      </TranslationsProvider>
     </Suspense>,
+    { queryClient },
   )
 }
 
@@ -60,13 +71,18 @@ const LandingProbe = () => {
 
 it("loads shared translations through React Query before rendering consumers", async () => {
   const { queryClient } = renderWithRouter(
-    <Suspense fallback="pending">
+    <Suspense fallback={PENDING}>
       <TranslationsProvider>
         <Probe />
       </TranslationsProvider>
     </Suspense>,
   )
-  expect(await screen.findByText(errorsGlobalMessages.title)).toBeInTheDocument()
+  expect(screen.getByText(PENDING)).toBeInTheDocument()
+  expect(screen.queryByText(errorsGlobalMessages.title)).toBeNull()
+
+  await loadNamespaces(queryClient)
+
+  expect(screen.getByText(errorsGlobalMessages.title)).toBeInTheDocument()
   expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "errors.global" }).queryKey)).toEqual(
     errorsGlobalMessages,
   )
@@ -75,7 +91,7 @@ it("loads shared translations through React Query before rendering consumers", a
 it("adds the namespaces declared by matched routes to the shared translations", async () => {
   const root = createRootRoute({
     component: () => (
-      <Suspense fallback="pending">
+      <Suspense fallback={PENDING}>
         <TranslationsProvider>
           <Probe />
           <Outlet />
@@ -96,7 +112,11 @@ it("adds the namespaces declared by matched routes to the shared translations", 
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
-  expect(await screen.findByText(pagesLandingMessages.metadata.title)).toBeInTheDocument()
+  await act(() => router.load())
+
+  await loadNamespaces(queryClient, [...ROOT_NAMESPACES, "pages.landing"])
+
+  expect(screen.getByText(pagesLandingMessages.metadata.title)).toBeInTheDocument()
   expect(screen.getByText(errorsGlobalMessages.title)).toBeInTheDocument()
   expect(queryClient.getQueryData(messagesQueryOptions({ locale: "en-US", namespace: "pages.landing" }).queryKey)).toEqual(
     pagesLandingMessages,
@@ -104,20 +124,17 @@ it("adds the namespaces declared by matched routes to the shared translations", 
 })
 
 describe("time zone", () => {
-  it("formats dates in UTC when no area supplies a time zone", async () => {
-    await renderDatesWith({})
+  it("formats dates in UTC when no source supplies a time zone", async () => {
+    await renderDatesIn()
 
-    expect(await screen.findByTestId("instant")).toHaveTextContent("Jan 1, 2025, 12:00 PM UTC")
+    expect(screen.getByTestId("instant")).toHaveTextContent("Jan 1, 2025, 12:00 PM UTC")
     expect(screen.getByTestId("calendar-date")).toHaveTextContent("Nov 14, 2026")
   })
 
-  it("formats dates in the time zone of the first area that supplies one and keeps calendar dates on their day", async () => {
-    await renderDatesWith({
-      FIRST_TIME_ZONES: [{ useTimeZone: () => "America/Los_Angeles" }],
-      SECOND_TIME_ZONES: [{ useTimeZone: () => "Asia/Tokyo" }],
-    })
+  it("formats dates in the time zone of the first source and keeps calendar dates on their day", async () => {
+    await renderDatesIn("America/Los_Angeles", "Asia/Tokyo")
 
-    expect(await screen.findByTestId("instant")).toHaveTextContent("Jan 1, 2025, 4:00 AM PST")
+    expect(screen.getByTestId("instant")).toHaveTextContent("Jan 1, 2025, 4:00 AM PST")
     expect(screen.getByTestId("calendar-date")).toHaveTextContent("Nov 14, 2026")
   })
 })

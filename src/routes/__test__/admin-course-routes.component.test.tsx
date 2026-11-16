@@ -111,6 +111,7 @@ vi.mock(import("~/src/modules/lesson/use-cases/move-lesson"), () => ({
   moveLessonMutation: { mutationFn: mutations.moveLesson, mutationKey: LESSON_MUTATION_KEYS.MOVE },
 }))
 
+const MESSAGES = getTestMessages("en-US")
 const UPDATED_AT = new Date("2026-11-01T12:00:00Z")
 const COURSE_ID = "01960000-0000-7000-8000-00000000c001"
 const CREATED_ID = "01960000-0000-7000-8000-00000000c009"
@@ -246,7 +247,7 @@ const renderAdminCourses = async (path: string, editor: Course["editor"] = EDITO
   routers.push(router)
   render(
     <QueryClientProvider client={queryClient}>
-      <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={getTestMessages("en-US")} timeZone={I18N.DEFAULT_TIMEZONE}>
+      <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={MESSAGES} timeZone={I18N.DEFAULT_TIMEZONE}>
         <RouterProvider router={router} />
       </IntlProvider>
     </QueryClientProvider>,
@@ -269,6 +270,11 @@ const lessonRow = (title: string): HTMLElement => {
     throw new Error(`Missing lesson ${title}`)
   }
   return row
+}
+
+const fill = async (user: ReturnType<typeof userEvent.setup>, field: HTMLElement, text: string): Promise<void> => {
+  await user.click(field)
+  await user.paste(text)
 }
 
 const chooseOption = async (user: ReturnType<typeof userEvent.setup>, label: string, option: string): Promise<void> => {
@@ -380,13 +386,13 @@ describe("admin course creation", () => {
   it("creates the course and opens its editor", async () => {
     const { router, user } = await renderAdminCourses("/admin/courses/create")
 
-    await user.type(screen.getByLabelText(labels.form.courseTitle), "Build a SaaS")
-    await user.type(screen.getByLabelText(labels.form.summary), "From zero.")
+    await fill(user, screen.getByLabelText(labels.form.courseTitle), "Build a SaaS")
+    await fill(user, screen.getByLabelText(labels.form.summary), "From zero.")
     await user.click(within(screen.getByRole("tablist", { name: labels.form.titleLanguages })).getByRole("tab", { name: "pl-PL" }))
-    await user.type(screen.getByLabelText(labels.form.courseTitle), "Zbuduj SaaS")
+    await fill(user, screen.getByLabelText(labels.form.courseTitle), "Zbuduj SaaS")
     await user.click(within(screen.getByRole("tablist", { name: labels.form.summaryLanguages })).getByRole("tab", { name: "pl-PL" }))
     expect(screen.getByLabelText(labels.form.summary)).toHaveValue("")
-    await user.type(screen.getByLabelText(labels.form.slug), "build-a-saas")
+    await fill(user, screen.getByLabelText(labels.form.slug), "build-a-saas")
     await chooseOption(user, labels.form.kind, labels.form.kinds.project)
     await user.click(screen.getByRole("button", { name: labels.form.create }))
 
@@ -412,9 +418,9 @@ describe("admin course creation", () => {
     fireEvent.change(within(screen.getByText(labels.form.kind).closest("div") ?? document.body).getByRole("combobox", { hidden: true }), {
       target: { value: "" },
     })
-    await user.type(screen.getByLabelText(labels.form.courseTitle), "Build a SaaS")
-    await user.type(screen.getByLabelText(labels.form.summary), "From zero.")
-    await user.type(screen.getByLabelText(labels.form.slug), "build-a-saas")
+    await fill(user, screen.getByLabelText(labels.form.courseTitle), "Build a SaaS")
+    await fill(user, screen.getByLabelText(labels.form.summary), "From zero.")
+    await fill(user, screen.getByLabelText(labels.form.slug), "build-a-saas")
     await user.click(screen.getByRole("button", { name: labels.form.create }))
 
     await waitFor(() => {
@@ -426,9 +432,9 @@ describe("admin course creation", () => {
     mutations.createCourse.mockRejectedValueOnce(new Error(ERROR_CODES.CONFLICT))
     const { user } = await renderAdminCourses("/admin/courses/create")
 
-    await user.type(screen.getByLabelText(labels.form.courseTitle), "Again")
-    await user.type(screen.getByLabelText(labels.form.summary), "Twice.")
-    await user.type(screen.getByLabelText(labels.form.slug), "the-walkthrough")
+    await fill(user, screen.getByLabelText(labels.form.courseTitle), "Again")
+    await fill(user, screen.getByLabelText(labels.form.summary), "Twice.")
+    await fill(user, screen.getByLabelText(labels.form.slug), "the-walkthrough")
     await user.click(screen.getByRole("button", { name: labels.form.create }))
 
     await waitFor(() => {
@@ -509,7 +515,7 @@ describe("admin course chapters", () => {
 
     await user.click(screen.getByRole("button", { name: labels.curriculum.addChapter }))
     const dialog = await screen.findByRole("dialog")
-    await user.type(within(dialog).getByLabelText(labels.chapter.title), "Launch")
+    await fill(user, within(dialog).getByLabelText(labels.chapter.title), "Launch")
     await user.click(within(dialog).getByRole("button", { name: labels.chapter.save }))
 
     await waitFor(() => {
@@ -522,7 +528,7 @@ describe("admin course chapters", () => {
     const rename = await screen.findByRole("dialog")
     expect(within(rename).getByRole("heading", { name: labels.chapter.edit })).toBeVisible()
     await user.clear(within(rename).getByLabelText(labels.chapter.title))
-    await user.type(within(rename).getByLabelText(labels.chapter.title), "Shipping")
+    await fill(user, within(rename).getByLabelText(labels.chapter.title), "Shipping")
     await user.click(within(rename).getByRole("button", { name: labels.chapter.save }))
 
     await waitFor(() => {
@@ -584,9 +590,9 @@ describe("admin course lessons", () => {
 
     await user.click(within(chapterSection("Product")).getByRole("button", { name: labels.curriculum.addLesson }))
     const dialog = await screen.findByRole("dialog")
-    await user.type(within(dialog).getByLabelText(labels.lesson.title), "Checkout")
-    await user.type(within(dialog).getByLabelText(labels.lesson.summary), "Paying.")
-    await user.type(within(dialog).getByLabelText(labels.lesson.slug), "checkout")
+    await fill(user, within(dialog).getByLabelText(labels.lesson.title), "Checkout")
+    await fill(user, within(dialog).getByLabelText(labels.lesson.summary), "Paying.")
+    await fill(user, within(dialog).getByLabelText(labels.lesson.slug), "checkout")
     await chooseOption(user, labels.lesson.access, labels.lesson.accessLevels.account)
     await chooseOption(user, labels.lesson.video, "Boundaries take · 2:05")
     await user.click(within(dialog).getByRole("button", { name: labels.lesson.save }))

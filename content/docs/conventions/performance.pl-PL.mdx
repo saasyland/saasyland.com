@@ -84,6 +84,12 @@ Polityka skryptów zachowuje tę kolejność. Worker strumieniuje każdą preren
 
 `robots.txt` i `llms.txt` to pliki statyczne w `public/`, które omijają Workera (`"!/robots.txt", "!/llms.txt"` w `run_worker_first`). Lighthouse pobiera oba z dwusekundowym limitem czasu, a wolna odpowiedź Workera powodowała niepowodzenie jego audytów SEO i gotowości dla agentów.
 
+## Early Hints wymieniają tylko pliki, które przetrwają wdrożenie
+
+Nagłówek `Link` Workera w odpowiedziach HTML wymienia czcionki danego locale i nic więcej. Cloudflare zapisuje ten nagłówek dla każdego URL-a i wysyła go jako odpowiedź `103 Early Hints`, zanim Worker odpowie na kolejne żądanie tego URL-a, a zapisana kopia przetrwa wdrożenie. Vite nazywa arkusz stylów od jego zawartości, więc po wdrożeniu, które zmienia jakikolwiek CSS, zapowiedziany arkusz stylów to plik, którego już nie ma: przeglądarka pobiera 404 i i tak znajduje nowy arkusz stylów w HTML-u. Pliki w `public/fonts` zachowują nazwy między wdrożeniami.
+
+Zmierzone na saasyland.com w Chromium, 15 przeplatanych przebiegów na wariant na trzech stronach, z rzeczywistym czasem Early Hints na brzegu sieci: zapowiedź czcionek obniżyła First Contentful Paint z 168–208 ms do 144–164 ms. Zapowiedź arkusza stylów oszczędzała kolejne 12–28 ms, gdy jego URL był aktualny, a nic, gdy wdrożenie go zastąpiło; 25 minut po wdrożeniu 67 z 91 stron z mapy witryny, które dostały Early Hints, wciąż zapowiadało poprzedni arkusz stylów. `<link>` arkusza stylów jest w pierwszym kilobajcie każdej strony, więc przeglądarka znajduje go w pierwszych bajtach HTML-a. Zapowiadaj tylko pliki, których URL-e przetrwają wdrożenie.
+
 ## Providery nigdy nie otaczają outletu trasy
 
 TanStack Router otacza outlety tras granicami Suspense, a React hydratuje te granice później, w małych porcjach. Provider kontekstu nad nimi, którego wartość zmienia się zaraz po hydratacji, zmusza React do zhydratowania wszystkiego poniżej naraz:

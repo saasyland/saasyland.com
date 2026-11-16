@@ -2,6 +2,7 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 
 const IGNORED_PATHS_REGEX = /^\/(?:api|_serverFn|media)(?:\/|$)/u
 const LOCALE_SEGMENT_REGEX = /^\/(?<locale>[a-zA-Z-]+)(?:\/|$)/u
+const HREF_PATHNAME_REGEX = /^[^?#]*/u
 
 const SLASH_LENGTH = 1
 
@@ -76,6 +77,9 @@ export const localizePathname = ({ locale, pathname }: { locale: SupportedLocale
 
   return `/${locale}${basePath}`
 }
+
+export const localizeHref = ({ href, locale }: { href: string; locale: SupportedLocale }): string =>
+  href.replace(HREF_PATHNAME_REGEX, (pathname) => localizePathname({ locale, pathname }))
 
 export const canonicalizePathname = (pathname: string): string => {
   const segment = LOCALE_SEGMENT_REGEX.exec(pathname)?.groups?.["locale"]

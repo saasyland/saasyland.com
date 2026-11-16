@@ -84,6 +84,12 @@ La politique de scripts préserve cet ordre. Le Worker fait passer chaque page p
 
 `robots.txt` et `llms.txt` sont des fichiers statiques de `public/` qui contournent le Worker (`"!/robots.txt", "!/llms.txt"` dans `run_worker_first`). Lighthouse récupère les deux avec un délai d'expiration de deux secondes, et une réponse lente du Worker faisait échouer ses audits SEO et de préparation aux agents.
 
+## Les Early Hints ne citent que des fichiers qui survivent à un déploiement
+
+L’en-tête `Link` du Worker sur les réponses HTML cite les polices de la locale et rien d’autre. Cloudflare stocke l’en-tête par URL et l’envoie sous forme de réponse `103 Early Hints` avant que le Worker ne réponde à la requête suivante pour cette URL, et la copie stockée survit à un déploiement. Vite nomme la feuille de style d’après son contenu : après un déploiement qui modifie le moindre CSS, une feuille de style annoncée est un fichier qui n’existe plus, si bien que le navigateur télécharge une 404 et trouve de toute façon la nouvelle feuille de style dans le HTML. Les fichiers de `public/fonts` gardent leur nom d’un déploiement à l’autre.
+
+Mesuré sur saasyland.com avec Chromium, 15 exécutions entrelacées par variante sur trois pages, avec le minutage réel des Early Hints de l’edge : annoncer les polices a fait passer le First Contentful Paint de 168–208 ms à 144–164 ms. Annoncer la feuille de style a fait gagner 12–28 ms de plus quand son URL était à jour, et rien quand un déploiement l’avait remplacée ; 25 minutes après un déploiement, 67 des 91 pages du sitemap qui recevaient des Early Hints annonçaient encore l’ancienne feuille de style. Le `<link>` de la feuille de style se trouve dans le premier kilo-octet de chaque page, donc le navigateur le trouve dès les premiers octets du HTML. N’annoncez que des fichiers dont l’URL survit à un déploiement.
+
 ## Les fournisseurs n'enveloppent jamais l'outlet d'une route
 
 TanStack Router enveloppe les outlets de route dans des frontières Suspense, et React hydrate ces frontières plus tard, par petites tranches. Un fournisseur de contexte placé au-dessus d'elles et dont la valeur change juste après l'hydratation oblige React à hydrater d'un coup tout ce qui se trouve en dessous :

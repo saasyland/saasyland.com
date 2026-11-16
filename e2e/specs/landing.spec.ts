@@ -1,4 +1,5 @@
-import type { Route } from "@playwright/test"
+import type { Locator, Page, Route } from "@playwright/test"
+import assert from "node:assert/strict"
 
 import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
@@ -9,6 +10,51 @@ const [freeLesson] = TEST_LESSONS
 const MOTION_FEATURES_CHUNK = /\/assets\/motion\.features-[\w-]+\.js$/u
 const BROWSER_TIMEZONE = "Pacific/Kiritimati"
 const BROWSER_TIME = new Date("2099-01-01T00:05:00+14:00")
+const SERVER_FUNCTION = /\/_serverFn\//u
+const LAYOUT_SHIFTS_KEY = "__layoutShifts"
+const LAYOUT_UNIT_DIGITS = 1
+const COURSES_FAILED_TIMEOUT_MS = 20_000
+
+const COURSE_BLOCK_VIEWPORTS = [
+  { name: "desktop", viewport: { height: 720, width: 1280 } },
+  { name: "phone", viewport: { height: 844, width: 390 } },
+] as const
+
+const COURSE_BLOCK_OUTCOMES = [
+  {
+    filled: (showcase: Locator) => showcase.getByRole("link", { exact: true, name: TEST_COURSE.title["en-US"] }),
+    name: "the courses arrive",
+    settle: async (request: Route) => request.continue(),
+  },
+  {
+    filled: (showcase: Locator) => showcase.getByText(/^The courses could not be loaded/u),
+    name: "the courses cannot be loaded",
+    settle: async (request: Route) => request.abort(),
+  },
+] as const
+
+const recordLayoutShifts = (key: string): void => {
+  const shifts: number[] = []
+  Reflect.set(window, key, shifts)
+  new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      shifts.push(entry.startTime)
+    }
+  }).observe({ buffered: true, type: "layout-shift" })
+}
+
+const afterTwoFrames = async (page: Page): Promise<void> => {
+  await page.evaluate(
+    async () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            resolve()
+          })
+        })
+      }),
+  )
+}
 
 test.describe("landing page", () => {
   test("renders hero, navigation, and primary CTA", async ({ landingPage }) => {
@@ -53,7 +99,7 @@ test.describe("landing page", () => {
     )
   })
 
-  test("course showcase links the published course and its lessons to their pages", async ({ landingPage, page }) => {
+  test("course showcase links the published course and its free lesson to their pages", async ({ landingPage, page }) => {
     await landingPage.goto()
     const showcase = landingPage.courseShowcase()
     await showcase.scrollIntoViewIfNeeded()
@@ -62,15 +108,10 @@ test.describe("landing page", () => {
       "href",
       `/courses/${TEST_COURSE.slug}`,
     )
-    for (const lesson of TEST_LESSONS) {
-      await expect(showcase.getByRole("link", { name: new RegExp(`^${lesson.title["en-US"]}`, "u") })).toHaveAttribute(
-        "href",
-        `/courses/${TEST_COURSE.slug}/${lesson.slug}`,
-      )
-    }
+    await expect(showcase.getByText(`${String(TEST_LESSONS.length)} lessons`)).toBeVisible()
     await expect(showcase.getByRole("link", { name: "Browse all courses" })).toHaveAttribute("href", "/courses")
 
-    await showcase.getByRole("link", { name: /^Watch a free lesson/u }).click()
+    await showcase.getByRole("link", { name: new RegExp(`^${freeLesson.title["en-US"]}`, "u") }).click()
     await expect(page).toHaveURL(`/courses/${TEST_COURSE.slug}/${freeLesson.slug}`)
     await expect(page.getByRole("heading", { level: 1, name: freeLesson.title["en-US"] })).toBeVisible()
   })
@@ -89,6 +130,50 @@ test.describe("landing page", () => {
     await expect.poll(async () => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(0)
     await expect(showcase.locator("picture")).toBeHidden()
   })
+})
+
+test.describe("the course block", () => {
+  for (const { name, viewport } of COURSE_BLOCK_VIEWPORTS) {
+    for (const outcome of COURSE_BLOCK_OUTCOMES) {
+      test(`keeps its height and moves nothing on a ${name} when ${outcome.name}`, async ({ browserName, landingPage, page }) => {
+        test.skip(browserName !== "chromium", "Layout shift entries are a Chromium API")
+        await page.setViewportSize(viewport)
+        await page.addInitScript(recordLayoutShifts, LAYOUT_SHIFTS_KEY)
+        await landingPage.goto()
+        const showcase = landingPage.courseShowcase()
+        const requested = Promise.withResolvers<void>()
+        const released = Promise.withResolvers<void>()
+        await page.route(SERVER_FUNCTION, async (route) => {
+          requested.resolve()
+          await released.promise
+          await outcome.settle(route)
+        })
+
+        await showcase.evaluate((article) => {
+          window.scrollTo({ behavior: "instant", top: window.scrollY + article.getBoundingClientRect().bottom - window.innerHeight / 2 })
+        })
+        await requested.promise
+        await expect(showcase).toHaveAttribute("aria-busy", "true")
+        await afterTwoFrames(page)
+        const pending = await showcase.boundingBox()
+        const since = await page.evaluate(() => performance.now())
+
+        released.resolve()
+        await expect(outcome.filled(showcase)).toBeVisible({ timeout: COURSES_FAILED_TIMEOUT_MS })
+        await expect(showcase).toHaveAttribute("aria-busy", "false")
+        await afterTwoFrames(page)
+        const filled = await showcase.boundingBox()
+        const shifts = await page.evaluate(
+          ({ key, start }) => Reflect.get(window, key).filter((time: number) => time >= start),
+          { key: LAYOUT_SHIFTS_KEY, start: since },
+        )
+
+        assert(pending && filled)
+        expect(filled.height).toBeCloseTo(pending.height, LAYOUT_UNIT_DIGITS)
+        expect(shifts).toEqual([])
+      })
+    }
+  }
 })
 
 test.describe("server rendering and client navigation", () => {

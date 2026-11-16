@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test"
 
 import { CLI_EXEC, CLI_PACKAGE_SPEC, PACKAGE_MANAGER } from "../../src/data/cli"
-import { TEST_COURSE } from "../data/courses"
+
 import { expect, test } from "../fixtures/test"
 
 const scrollY = async (page: Page): Promise<number> => page.evaluate(() => window.scrollY)
@@ -129,9 +129,6 @@ test("back to top jumps straight to the top for reduced motion", async ({ landin
 test("the logo on the landing page scrolls back to the top and drops the section hash", async ({ landingPage, page }) => {
   await landingPage.goto()
   const logo = landingPage.navigation().getByRole("link", { name: "SaaSy Land", exact: true })
-  const showcase = landingPage.courseShowcase()
-  await showcase.scrollIntoViewIfNeeded()
-  await expect(showcase.getByRole("link", { exact: true, name: TEST_COURSE.title["en-US"] })).toBeVisible()
 
   await scrollScreens(page, 3)
   await logo.click()

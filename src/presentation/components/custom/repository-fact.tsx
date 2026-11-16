@@ -134,7 +134,6 @@ const FACTS = {
   cliWhoami: cliCommand(CLI_COMMAND.WHOAMI),
   corePriceInHours: CORE_PRICE_IN_HOURS,
   courseShowcaseCourses: COURSE_SHOWCASE.COURSES,
-  courseShowcaseLessons: COURSE_SHOWCASE.LESSONS,
   defaultPageSize: DEFAULT_PAGE_SIZE,
   headStartClaimMaxHours: HEAD_START_CLAIM_MAX_HOURS,
   illustrativeHourlyRate: ILLUSTRATIVE_HOURLY_RATE,

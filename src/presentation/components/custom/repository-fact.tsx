@@ -78,6 +78,7 @@ import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
+import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
 import { SOCIAL_IMAGE } from "~/src/lib/seo"
 
@@ -190,6 +191,11 @@ const TABLES = {
   ],
   cliRunners: PACKAGE_MANAGERS.map(({ exec, id }) => [id, `${exec} ${CLI_PACKAGE_SPEC} ${CLI_COMMAND.ACTIVATE}`] as const),
   commitTypes: Object.entries(commitEmojis),
+  formsOfAddress: I18N.SUPPORTED_LOCALES.filter((locale) => locale !== I18N.DEFAULT_LOCALE).map((locale) => {
+    const { form, never, neverEndingSentence, neverInsideSentence } = FORMS_OF_ADDRESS[locale]
+
+    return [locale, form, never, neverInsideSentence, neverEndingSentence] as const
+  }),
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
   seededAccounts,
 } satisfies Record<string, readonly (readonly [number | string, ...Value[]])[]>

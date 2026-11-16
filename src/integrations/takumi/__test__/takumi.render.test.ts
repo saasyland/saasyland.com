@@ -30,7 +30,7 @@ describe("createSocialCardRenderer", () => {
     {
       lang: "de-DE",
       section: "Blog",
-      title: "Größenänderungen über Grenzen hinweg: Löschen, was Sie nicht brauchen, oder es gar nicht erst erzeugen",
+      title: "Größenänderungen über Grenzen hinweg: Löschen, was du nicht brauchst, oder es gar nicht erst erzeugen",
     },
   ] as const)("renders a $lang page card", async (card) => {
     const render = await renderer

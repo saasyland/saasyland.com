@@ -32,6 +32,7 @@ import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
+import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
 
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
@@ -50,6 +51,8 @@ const renderInLocale = (locale: SupportedLocale, children: ReactNode) =>
 
 const inUnit = (unit: string, value: number): string =>
   new Intl.NumberFormat("en-US", { style: "unit", unit, unitDisplay: "long" }).format(value)
+
+const englishList = (words: readonly string[]): string => new Intl.ListFormat("en-US").format(words)
 
 const listItems = (): (string | null)[] => screen.getAllByRole("listitem").map((item) => item.textContent)
 
@@ -274,6 +277,21 @@ describe("RepositoryTable", () => {
         new Intl.NumberFormat("pl-PL").format(multiplier),
         new Intl.ListFormat("pl-PL").format(countries),
       ]),
+    )
+  })
+
+  it("prints the form of address of every translated locale with the forms its check rejects", () => {
+    const columns = ["Locale", "Form", "Never", "Never inside a sentence", "Never ending a sentence"]
+
+    renderInLocale("en-US", <RepositoryTable columns={columns} name="formsOfAddress" />)
+
+    expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual(columns)
+    expect(tableRows().slice(1)).toEqual(
+      I18N.SUPPORTED_LOCALES.filter((locale) => locale !== I18N.DEFAULT_LOCALE).map((locale) => {
+        const { form, never, neverEndingSentence, neverInsideSentence } = FORMS_OF_ADDRESS[locale]
+
+        return [locale, form, englishList(never), englishList(neverInsideSentence), englishList(neverEndingSentence)]
+      }),
     )
   })
 })

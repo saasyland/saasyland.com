@@ -7,8 +7,11 @@ import { useTranslations } from "use-intl/react"
 
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
+import { CTA_CLASSES } from "~/src/data/cta"
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
+
+import { cn } from "~/src/lib/cn"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
 
@@ -72,11 +75,7 @@ export const MobileMenu = (): JSX.Element => {
                     ))}
                   </ul>
                 </nav>
-                <a
-                  {...startBuilding}
-                  aria-current={undefined}
-                  className="mt-6 flex h-11 items-center justify-center rounded-lg bg-primary px-5 text-body-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-exp hover:bg-primary/88 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px"
-                >
+                <a {...startBuilding} aria-current={undefined} className={cn("mt-6 w-full", CTA_CLASSES.PRIMARY)}>
                   {t("getStarted")}
                 </a>
               </div>

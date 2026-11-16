@@ -36,7 +36,7 @@ export interface PolarEventHandler {
 - Schlägt einer davon fehl, antwortet das Plugin mit 500, und Polar stellt das Ereignis später erneut zu. Deshalb muss jeder Handler gefahrlos zweimal für dasselbe Ereignis laufen können. Polar deaktiviert einen Endpunkt, der immer wieder fehlschlägt, und `polar:verify` meldet einen deaktivierten Endpunkt.
 - Ein Ereignis, das kein Eintrag aufführt, wird bestätigt und geht nirgendwohin.
 - `POLAR_EVENTS` führt die Ereignisse aller Einträge zusammen, sortiert und jedes nur einmal. Der Webhook-Endpunkt in Polar muss genau diese senden, und `polar:verify` vergleicht sie.
-- Der Polar-Bereich trägt in `src/data/polar.polar-events.ts` eine leere Liste bei, sodass das Barrel nie leer ist. Derzeit verarbeitet nur der Lizenzbereich Ereignisse, in `src/data/license.polar-events.ts`; siehe [Lizenzen](/docs/features/licences#webhooks-and-licences).
+- Der Polar-Bereich trägt in `src/data/polar.polar-events.ts` eine leere Liste bei, sodass das Barrel nie leer ist. Der Abrechnungsbereich kopiert Bestellungen und Abonnements in `src/data/billing.polar-events.ts` nach D1 (siehe [Die Kopien schreiben](#writing-the-copies)), und der Lizenzbereich vergibt und widerruft Lizenzen in `src/data/license.polar-events.ts` (siehe [Lizenzen](/docs/features/licences#webhooks-and-licences)).
 
 `polar:verify` läuft in Bun, außerhalb des Workers, und liest `POLAR_EVENTS`, daher importieren `src/data/polar-events.ts` und jede `<area>.polar-events.ts` keinen Servercode. Das `handle` eines Bereichs lädt seine Handler erst, wenn ein Ereignis eintrifft:
 
@@ -48,7 +48,7 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 
 ## Bestellungen und Abonnements in D1 [#orders-and-subscriptions-in-d1]
 
-Der Polar-Bereich hält Kopien der Bestellungen und Abonnements von Polar in zwei D1-Tabellen, `order` (`src/modules/order/`) und `subscription` (`src/modules/subscription/`), damit Listen, Suchen und Zugriffsprüfungen sie mit SQL lesen können und weiter funktionieren, während Polar langsam ist. Polar bleibt die Quelle: Jede Zeile ist der Datensatz von Polar unter der ID von Polar, und nichts bearbeitet ihn von Hand. Noch schreibt kein Code in die Tabellen. [Module](/docs/conventions/modules#tables-that-mirror-a-provider) nennt die Regeln, denen jede solche Spiegeltabelle folgt.
+Der Polar-Bereich hält Kopien der Bestellungen und Abonnements von Polar in zwei D1-Tabellen, `order` (`src/modules/order/`) und `subscription` (`src/modules/subscription/`), damit Listen, Suchen und Zugriffsprüfungen sie mit SQL lesen können und weiter funktionieren, während Polar langsam ist. Polar bleibt die Quelle: Jede Zeile ist der Datensatz von Polar unter der ID von Polar, wird nur aus den Webhooks von Polar geschrieben und nie von Hand bearbeitet. [Module](/docs/conventions/modules#tables-that-mirror-a-provider) nennt die Regeln, denen jede solche Spiegeltabelle folgt.
 
 | Tabelle        | Spalten                                                                                                                                                                                                                                                                                             |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -60,6 +60,20 @@ Der Polar-Bereich hält Kopien der Bestellungen und Abonnements von Polar in zwe
 - Beträge stehen in der kleinsten Einheit der Währung, so wie Polar sie sendet. `description` ist das, was mit der Bestellung gekauft wurde, so wie Polar es in Rechnung gestellt hat, und `product_name` der Name des Produkts des Abonnements, so wie Polar ihn zuletzt gemeldet hat.
 - `placed_at` ist der Zeitpunkt, zu dem Polar die Bestellung angelegt hat. `changed_at` ist die Version des Polar-Datensatzes, die die Zeile enthält: das `modified_at` von Polar oder, bei einem nie geänderten Datensatz, das `created_at` von Polar. Die eigenen Spalten `created_at` und `updated_at` der Zeile halten fest, wann D1 sie geschrieben hat.
 - Die Indizes dienen den Listen, für die es diese Kopien gibt: `order_user_placed_at_idx` den Bestellungen eines Kontos und `order_status_placed_at_idx` den Bestellungen mit einem bestimmten Status, beide nach dem Zeitpunkt der Bestellung; `subscription_user_status_idx` den Abonnements eines Kontos nach Status und `subscription_status_current_period_end_idx` den Abonnements mit einem bestimmten Status nach dem Ende ihres Zeitraums.
+
+### Die Kopien schreiben [#writing-the-copies]
+
+`src/data/billing.polar-events.ts` fügt den Polar-Ereignissen zwei Einträge hinzu (siehe [Webhooks](#webhooks)), und jeder lädt seinen Use Case, wenn ein Ereignis eintrifft:
+
+| Ereignisse                                                       | Use Case                                                                            |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `order.created`, `order.updated`, `order.paid`, `order.refunded` | `recordOrder` in `src/modules/order/use-cases/record-order.ts`                      |
+| `subscription.created`, `subscription.updated`                   | `recordSubscription` in `src/modules/subscription/use-cases/record-subscription.ts` |
+
+- Jeder Use Case nimmt den Datensatz von Polar, `models.Order` oder `models.Subscription`, und schreibt ihn in einer einzigen Anweisung: einem Insert unter der ID von Polar, der eine bereits vorhandene Zeile nur dann aktualisiert, wenn ihr gespeichertes `changed_at` nicht später liegt als das des Datensatzes. Eine neuere Version wird übernommen, eine ältere, die verspätet eintrifft, ändert nichts, und dieselbe Version wird, zweimal zugestellt, mit denselben Werten erneut geschrieben. Von zwei verschiedenen Zuständen mit demselben `modified_at` bleibt der zuletzt geschriebene, bis Polar den Datensatz erneut ändert.
+- Dieselbe Anweisung füllt `user_id` über `polarCustomerAccount` in `src/integrations/polar/polar.customers.ts`: das Konto, dessen ID die `external_id` des Kunden ist, die der verkaufende Bereich beim Checkout setzt, so wie es `startCheckout` im Lizenzbereich tut. Sie bleibt leer, wenn der Kunde keine `external_id` hat oder kein Konto diese ID trägt, etwa weil das Konto gelöscht wurde.
+- Auch der Lizenzbereich verarbeitet `order.paid` und `order.refunded`. Die Kopie übernimmt sie ebenfalls und hält so die Zahlung und die Rückerstattung fest, ob Polar dafür zusätzlich `order.updated` sendet oder nicht. `handlePolarEvent` führt beide Bereiche gleichzeitig aus; schlägt die Kopie fehl, antwortet die Zustellung mit 500, und der erneute Versuch von Polar wiederholt beide Schreibvorgänge, ohne zu ändern, was einer von ihnen bereits geschrieben hat.
+- Noch liest keine Seite die Kopien.
 
 ## Kundenportal
 

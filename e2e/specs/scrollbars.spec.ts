@@ -42,6 +42,11 @@ const openDocs = async ({ appPage, page }: PageFixtures): Promise<void> => {
   expect(await hiddenHeight(page.locator("html")), "the docs page scrolls").toBeGreaterThan(0)
 }
 
+const openLegalPage = async ({ appPage, page }: PageFixtures): Promise<void> => {
+  await page.goto(ROUTES.TERMS)
+  await appPage.waitForAppReady()
+}
+
 const openAdminPage = async ({ appPage, authPage, page }: PageFixtures & { authPage: AuthPage }, path: string): Promise<void> => {
   await authPage.signIn(admin.email)
   await expect(page).toHaveURL(/\/admin\/?$/u)
@@ -71,8 +76,8 @@ const expectPageToStayWhileOpen = async (page: Page, trigger: Locator, overlay: 
   expect(await boxOf(heading(page))).toEqual(closed)
 }
 
-test("a docs page keeps its column in place whether or not it scrolls", async ({ appPage, page }) => {
-  await openDocs({ appPage, page })
+test("a public page keeps its column in place whether or not it scrolls", async ({ appPage, page }) => {
+  await openLegalPage({ appPage, page })
   await expectPageToStayWhenItFits(page, page.locator("html"))
 })
 
@@ -94,7 +99,7 @@ test("an admin page keeps its content in place whether or not it scrolls, and th
 
 test("the window keeps the scrollbar's room on a page that fits", async ({ appPage, browserName, page }) => {
   test.skip(browserName !== "chromium", "WebKit on macOS draws overlay scrollbars, which take no room")
-  await openDocs({ appPage, page })
+  await openLegalPage({ appPage, page })
   await growPastPage(page, page.locator("html"))
   expect((await boxOf(page.locator("body"))).width).toBeLessThan(WINDOW.width)
 })

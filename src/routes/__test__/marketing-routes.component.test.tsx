@@ -22,6 +22,7 @@ import { Route as RefundsRoute } from "~/src/routes/_site._marketing.refunds"
 import { Route as TermsRoute } from "~/src/routes/_site._marketing.terms"
 
 import { AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { BLOG_TAG } from "~/src/data/blog"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { starCountQuery } from "~/src/lib/github"
@@ -63,7 +64,7 @@ const summary = (title: string, slug: string): BlogPostSummary => ({
   featured: false,
   readingTimeMinutes: 5,
   summary: "Article summary",
-  tags: ["React"],
+  tags: [BLOG_TAG.TANSTACK_START],
   title,
   url: `/blog/${slug}`,
 })

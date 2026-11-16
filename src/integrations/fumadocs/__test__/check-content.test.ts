@@ -7,6 +7,7 @@ const API_SURFACE = "content/docs/features/api-surface"
 const API_SURFACE_LABEL = "docs/features/api-surface.pl-PL.mdx"
 const CLI_API_ROW = 'name="cliApiBasePath"'
 const EXAMPLE_LABEL = "docs/example.de-DE.mdx"
+const JAPANESE_LABEL = "docs/example.ja-JP.mdx"
 const MERGED_PULL_REQUEST = "201"
 const ENTRY_LABEL = "changelog/202.de-DE.mdx"
 const ENGLISH_ENTRY = "- Fixed: the checkout keeps the buyer's email address when they return from Polar.\n"
@@ -105,6 +106,23 @@ describe("check-content", () => {
     expect(mdxProblems({ label, locale: "de-DE", source: ENGLISH_ENTRY, target: "- Behoben.\n" })).toEqual([
       `${label} is named after neither a pull request number nor a full commit hash`,
     ])
+  })
+
+  it("fails a bare URL that runs into the text after it, as the Japanese preview deploy page's did", () => {
+    const sentence = "ホスト（https://preview.saasyland.com）が応答することを確認します。"
+
+    expect(mdxProblems({ label: JAPANESE_LABEL, locale: "ja-JP", source: page(sentence), target: page(sentence) })).toEqual([
+      `${JAPANESE_LABEL} has a bare URL that runs into the text after it, so the link takes that text too: https://preview.saasyland.com）が応答することを確認します。`,
+    ])
+  })
+
+  it.each([
+    "ホスト（`https://preview.saasyland.com`）が応答します。",
+    "ホスト（[プレビュー](https://preview.saasyland.com)）が応答します。",
+    "ホスト (https://preview.saasyland.com) が応答します。",
+    'ホスト<a href="https://preview.saasyland.com">プレビュー</a>が応答します。',
+  ])("passes a URL that ends where the link should: %s", (sentence) => {
+    expect(mdxProblems({ label: JAPANESE_LABEL, locale: "ja-JP", source: page(sentence), target: page(sentence) })).toEqual([])
   })
 
   it("lets a translation translate the heading of the changes not on main yet", () => {

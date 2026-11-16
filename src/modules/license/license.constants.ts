@@ -32,6 +32,8 @@ export const LICENSE_STATUS = {
   REVOKED: "revoked",
 } as const
 
+export const LICENSE_STATUSES = [LICENSE_STATUS.ACTIVE, LICENSE_STATUS.REVOKED, LICENSE_STATUS.REFUNDED] as const
+
 export const LICENSE_API_ENDPOINTS = [
   "LICENSE",
   "ACTIVATE",

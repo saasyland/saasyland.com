@@ -7,20 +7,20 @@ description: "Drizzle スキーマ、Zod スキーマ、定数、型、ユース
 
 ## ファイル
 
-| ファイル                   | 内容                                                                                                                                   |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `<table>.schema.ts`        | Drizzle のテーブル、インデックス、リレーション、定数から組み立てた enum のタプル                                                       |
-| `<table>.zod.ts`           | 操作ごとに 1 つの入力スキーマと `drizzle-zod` のスキーマ。`<table>ZodSchemas` としてエクスポート                                       |
-| `<table>.constants.ts`     | `CATEGORY_KIND` のような名前付きのドメイン値、カラムの上限値、クエリキーとミューテーションキーのタプル                                 |
-| `<table>.types.ts`         | 行の型と各操作の入力型をまとめた 1 つのインターフェース                                                                                |
-| `<table>.utils.ts`         | 任意のヘルパー。`license.utils.ts` は Worker の環境を読み取るため、サーバー専用です                                                    |
-| `<table>.<concern>.ts`     | 1 つの操作に当たらない任意のコード。`license.webhooks.ts` や `video.playback.ts` など（[モジュールカタログ](/docs/reference/modules)） |
-| `use-cases/<operation>.ts` | 1 ファイルにつき 1 つのサーバー関数と、そのクエリオプションまたはミューテーションオプション                                            |
-| `__test__/`                | ソースファイル名に合わせたテスト。例：`category.schema.test.ts`、`category.zod.test.ts`                                                |
+| ファイル                   | 内容                                                                                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `<table>.schema.ts`        | Drizzle のテーブル、インデックス、リレーション                                                                                             |
+| `<table>.zod.ts`           | 操作ごとに 1 つの入力スキーマ。`<table>ZodSchemas` としてエクスポート                                                                      |
+| `<table>.constants.ts`     | `CATEGORY_KIND` のような名前付きのドメイン値、それらから組み立てた enum のタプル、カラムの上限値、クエリキーとミューテーションキーのタプル |
+| `<table>.types.ts`         | 行の型と各操作の入力型をまとめた 1 つのインターフェース                                                                                    |
+| `<table>.utils.ts`         | 任意のヘルパー。`license.utils.ts` は Worker の環境を読み取るため、サーバー専用です                                                        |
+| `<table>.<concern>.ts`     | 1 つの操作に当たらない任意のコード。`license.webhooks.ts` や `video.playback.ts` など（[モジュールカタログ](/docs/reference/modules)）     |
+| `use-cases/<operation>.ts` | 1 ファイルにつき 1 つのサーバー関数と、そのクエリオプションまたはミューテーションオプション                                                |
+| `__test__/`                | ソースファイル名に合わせたテスト。例：`category.schema.test.ts`、`category.zod.test.ts`                                                    |
 
 ## 1. テーブルを定義する
 
-テーブルの値には `category.constants.ts` で一度だけ名前を付けます。スキーマ、Zod スキーマ、ユースケース、コンポーネント、テスト、e2e のデータはここからインポートし、`"collection"` のような文字列を繰り返し書きません。
+テーブルの値には、enum カラムが受け取るタプルとあわせて `category.constants.ts` で一度だけ名前を付けます。スキーマ、Zod スキーマ、ユースケース、コンポーネント、テスト、e2e のデータはここからインポートし、`"collection"` のような文字列を繰り返し書きません。
 
 ```ts
 export const CATEGORY_NAME_MAX_LENGTH = 255
@@ -29,6 +29,8 @@ export const CATEGORY_KIND = {
   CATEGORY: "category",
   COLLECTION: "collection",
 } as const
+
+export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
 ```
 
 その名前を使ってテーブルを組み立てます。
@@ -38,9 +40,7 @@ import { index, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 
-import { CATEGORY_KIND, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
-
-export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
+import { CATEGORY_KIND, CATEGORY_KINDS, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
 
 export const category = sqliteTable(
   "category",
@@ -84,14 +84,10 @@ bun run db:migrate:local
 操作ごとに専用の入力スキーマを用意します。バリデーションメッセージは翻訳キーです。フォームは、`ValidationFieldError` に指定した名前空間でそれらを表示します。
 
 ```ts
-import { createSchemaFactory } from "drizzle-zod"
 import zod from "zod/v4"
 
 import { MIN_FIELD_LENGTH, idField } from "~/src/modules/_core/utils/zod-fields"
-import { CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
-import { CATEGORY_KINDS, category } from "~/src/modules/category/category.schema"
-
-const { createInsertSchema, createSelectSchema, createUpdateSchema } = createSchemaFactory({ zodInstance: zod })
+import { CATEGORY_KINDS, CATEGORY_NAME_MAX_LENGTH } from "~/src/modules/category/category.constants"
 
 const createCategory = zod.object({
   kind: zod.enum(CATEGORY_KINDS),
@@ -103,11 +99,10 @@ const deleteCategory = zod.object({ categoryId: idField })
 export const categoryZodSchemas = {
   createCategory,
   deleteCategory,
-  insert: createInsertSchema(category),
-  select: createSelectSchema(category),
-  update: createUpdateSchema(category),
 }
 ```
+
+フォームはブラウザーでこれらのスキーマを使って検証するため、このファイルはタプルと上限値を `category.constants.ts` から取り、Drizzle からも `category.schema.ts` からも何もインポートしません。`drizzle-orm` がブラウザーに届くビルドは失敗します。[ORM をブラウザーに入れない](/docs/conventions/performance#keep-the-orm-out-of-the-browser)を参照してください。
 
 すべてのロケールに `messages/<locale>/<table>.validations.json` を追加し、スキーマが使うすべてのキーを含めます。フォームがこれらのキーを表示するのは、そのルートが名前空間をプリロードし、それを `ValidationFieldError` に渡す場合だけです。管理画面のコースのフォームは `course.validations` を、それ以外のフォームは `auth.validations` を使います。
 

@@ -21,7 +21,7 @@ import * as schema from "~/src/integrations/drizzle-orm/drizzle.schemas"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { IP_ADDRESS_HEADER, appHostsForMode, isLocalMode } from "~/src/modules/_core/constants/api"
-import { TIMEZONE_CODES } from "~/src/modules/user/user.schema"
+import { TIMEZONE_CODES } from "~/src/modules/user/user.constants"
 
 import { AUTH_EMAILS } from "~/src/data/auth-emails"
 import { AUTH_PLUGINS, DISABLED_AUTH_PATHS, RATE_LIMIT_EXEMPT_AUTH_PATHS } from "~/src/data/auth-plugins"

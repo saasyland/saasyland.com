@@ -7,6 +7,8 @@ import { i18n } from "~/src/integrations/fumadocs/fumadocs.i18n"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { formatPostText } from "~/src/lib/post-text"
+
 import { ROUTES } from "~/src/routes"
 
 const WORDS_PER_MINUTE = 220
@@ -42,7 +44,7 @@ export const toBlogPostSummary = (page: BlogPost, locale: SupportedLocale) => ({
   readingTimeMinutes: readingTimeMinutes(page, locale),
   summary: page.data.excerpt ?? page.data.description,
   tags: page.data.tags ?? [],
-  title: page.data.title,
+  title: formatPostText({ locale, text: page.data.title }),
   url: localizePathname({ locale, pathname: page.url }),
 })
 

@@ -1,7 +1,8 @@
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { describe, expect, it } from "vite-plus/test"
 
-import { CATEGORY_ICONS, CATEGORY_KINDS, CATEGORY_VISIBILITIES, category } from "~/src/modules/category/category.schema"
+import { CATEGORY_ICONS, CATEGORY_KINDS, CATEGORY_VISIBILITIES } from "~/src/modules/category/category.constants"
+import { category } from "~/src/modules/category/category.schema"
 
 describe("category schema", () => {
   it("materializes through drizzle adapter", () => {

@@ -1,6 +1,6 @@
 ---
 title: "Performances"
-description: "Les règles mesurées qui gardent les pages rapides : un petit graphe de démarrage du Worker, des indications de préchargement supprimées, le placement des fournisseurs, un seul build Tailwind, le dimensionnement des médias et le modèle d'apparition."
+description: "Les règles mesurées qui gardent les pages rapides : un petit graphe de démarrage du Worker, aucun ORM dans le navigateur, des indications de préchargement supprimées, le placement des fournisseurs, un seul build Tailwind, le dimensionnement des médias et le modèle d'apparition."
 ---
 
 Chaque règle de cette page est issue d'une mesure, et plusieurs ont remplacé une correction intuitive qui aggravait les choses. Ne modifiez le code qui sous-tend l'une d'elles qu'avec une nouvelle mesure qui fait mieux.
@@ -25,6 +25,28 @@ const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
 Un seul import statique d'un nom d'en-tête depuis un module qui importait aussi le client Polar a un jour ajouté environ 1,4 Mo de SDK à chaque démarrage à froid, et le premier octet de la page d'accueil mettait jusqu'à 1,4 seconde à arriver. C'est pourquoi `COUNTRY_HEADER` et `IP_ADDRESS_HEADER` se trouvent dans `src/modules/_core/constants/api.ts`, qui n'importe rien de lourd. Avant d'ajouter un import statique à `server.ts` ou à un `<area>.worker.ts`, suivez sa chaîne d'imports : tout ce qui atteint `polar`, `drizzle-orm` ou `resend` est une régression. `scripts/verify-build.ts` le vérifie à chaque build : il suit les imports statiques du point d'entrée du Worker déployé, `dist/server/index.js`, et échoue lorsqu'ils atteignent du code issu de `@polar-sh`, `drizzle-orm` ou `resend` dans le bundle, ou qu'ils totalisent plus de `BOOT_CLOSURE_MAX_BYTES`.
+
+## Gardez l'ORM hors du navigateur [#keep-the-orm-out-of-the-browser]
+
+Drizzle ne s'exécute que dans le Worker. Le navigateur a besoin des schémas Zod d'un module pour ses formulaires et de ses tuples d'enum pour ses listes déroulantes : les deux se trouvent donc dans des fichiers qui n'importent rien de Drizzle, `<table>.zod.ts` et `<table>.constants.ts` (voir [Modules](/docs/conventions/modules)). Un import du navigateur qui atteint un `<table>.schema.ts` exécute `sqliteTable(...)`, un appel que le bundler doit conserver, et entraîne `drizzle-orm` avec lui.
+
+`<table>.zod.ts` construisait autrefois aussi des schémas `insert`, `select` et `update` à partir des tables avec `drizzle-zod`, et rien ne les lisait à l'exécution. `drizzle-zod` retient tout l'espace de noms de zod, si bien que le bundler conservait aussi chaque locale de zod, son convertisseur JSON Schema et son compilateur. Les squelettes de chargement de `/admin` et `/app` importent `PreferencesCardPending` de `preferences-card.tsx`, qui importait `user.zod.ts`, et les composants de chargement échappent au découpage du code : tout cela se chargeait donc sur chaque page. Déplacer les tuples dans les constantes et supprimer ces schémas a retiré environ 75 Kio de JavaScript compressé avec gzip de chaque page. Les tailles ci-dessous totalisent tous les scripts que charge chaque page, compressés avec gzip, d'après la sortie de `bun run build:test` :
+
+| Page           | Avant     | Après     |
+| -------------- | --------- | --------- |
+| `/`            | 526,2 Kio | 450,7 Kio |
+| `/docs/<page>` | 612,1 Kio | 536,5 Kio |
+| `/blog`        | 487,2 Kio | 411,7 Kio |
+| `/app`         | 496,6 Kio | 421,0 Kio |
+| `/admin`       | 515,0 Kio | 439,4 Kio |
+
+`src/data/tanstack.vite.ts` interdit `drizzle-orm` à l'environnement client grâce à la protection des imports de TanStack Start :
+
+```ts title="src/data/tanstack.vite.ts"
+const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
+```
+
+Un build dans lequel un import de ce paquet survit au tree shaking échoue et affiche la chaîne d'imports qui mène de la route au fichier qui a atteint Drizzle. Rompez la chaîne là où elle commence : importez le tuple depuis les constantes du module, ou déplacez le code dans une fonction serveur. Les imports qui ne portent que sur des types sont effacés et ne comptent jamais.
 
 ## Les pages prérendues chargent d'abord le CSS et les polices
 

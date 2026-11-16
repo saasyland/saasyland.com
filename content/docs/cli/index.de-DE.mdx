@@ -1,0 +1,74 @@
+---
+title: "SaaSy Land CLI"
+description: "Die saasyland CLI über das beta-Tag von npm ausführen, den Lizenzschlüssel auf Ihren Geräten und in CI aktivieren und sehen, was spätere Versionen bringen."
+---
+
+Eine SaaSy-Land-Lizenz ist eine Lizenz für die Kommandozeile `saasyland`. Diese Seite beschreibt die Version auf dem npm-Tag <RepositoryFact name="cliReleaseChannel" />, <RepositoryFact name="cliPackageSpec" />, und die [Release Notes](/docs/cli/releases) listen auf, was sich mit jeder Version geändert hat.
+
+## Was heute funktioniert
+
+- `activate`, `whoami` und `deactivate` verwalten Ihren Lizenzschlüssel auf einem Gerät.
+- `--help` und `--version` funktionieren vollständig, und jeder Befehl nimmt `--json` und `--locale` an.
+- Die Projektgenerierung kommt mit einer späteren Version. Bis dahin prüft <RepositoryFact name="cliInit" /> seine Flags und beendet sich mit dem Code <RepositoryFact name="cliExitNotAvailable" />, ebenso `change`, `update` und `status`. Der [Konfigurator](/#cli) auf der Landingpage markiert, was die erste Version mit Projektgenerierung schreibt, den Standard-Stack mit oder ohne Authentifizierung, und die [Roadmap](/docs/project/roadmap) listet, was danach folgt.
+
+## Ausführen
+
+Führen Sie die CLI mit Ihrem Paketmanager vom Tag <RepositoryFact name="cliReleaseChannel" /> aus. Global installieren müssen Sie nichts:
+
+<RepositoryTable columns={["Paketmanager", "Befehl"]} name="cliRunners" />
+
+Ohne das Tag führt Ihr Paketmanager das npm-Tag `latest` aus. Dort liegt noch die Platzhalterversion, die den Namen reserviert hat, und keiner ihrer Befehle funktioniert. Die CLI braucht Node.js <RepositoryFact name="cliNodeEngine" /> oder Bun.
+
+## Schlüssel aktivieren
+
+1. Melden Sie sich an und kopieren Sie Ihren Schlüssel von [Ihrer Lizenzseite](/app/license).
+2. Führen Sie <RepositoryFact name="cliActivate" /> aus. In einem Terminal fragt die CLI nach dem Schlüssel und blendet ihn bei der Eingabe aus.
+3. Statt ihn einzugeben, können Sie den Schlüssel als Argument übergeben, das in Ihrem Shell-Verlauf bleibt, oder <RepositoryFact name="cliLicenseKeyVariable" /> setzen, was dort nicht landet. Ohne Schlüssel verwendet `activate` den Schlüssel, der auf diesem Gerät bereits aktiviert ist.
+
+`--label` benennt das Gerät auf Ihrer Lizenzseite; standardmäßig ist der Name der Hostname. Wird ein Gerät erneut aktiviert, behält es seinen Aktivierungsplatz.
+
+## Geräte
+
+Jedes Gerät, das Sie aktivieren, belegt einen Aktivierungsplatz Ihrer Lizenz: <ActivationLimit tier="core" /> bei Core, <ActivationLimit tier="complete" /> bei Complete und <ActivationLimit tier="agency" /> bei Agency.
+
+- <RepositoryFact name="cliWhoami" /> zeigt Ihre Stufe, die belegten Aktivierungsplätze und den Namen dieses Geräts.
+- <RepositoryFact name="cliDeactivate" /> gibt den Aktivierungsplatz dieses Geräts frei und entfernt die Lizenz davon.
+- Um den Platz eines Geräts freizugeben, das Sie nicht mehr verwenden, entfernen Sie es unter **Geräte** auf [Ihrer Lizenzseite](/app/license). Das nächste `whoami` oder `deactivate` auf diesem Gerät bemerkt es.
+
+Sind alle Plätze belegt, listet `activate` die Geräte auf, die sie belegen, und schickt Sie auf Ihre Lizenzseite, um einen freizugeben.
+
+## CI
+
+Hinterlegen Sie den Schlüssel als Secret in <RepositoryFact name="cliLicenseKeyVariable" />. Auf <RepositoryFact name="cliCiProviders" /> leitet jeder Lauf eines Repositorys dieselbe Geräte-ID ab, sodass das Repository einen Aktivierungsplatz belegt, egal wie oft es läuft, benannt nach dem Anbieter und dem Namen des Repositorys. Auf jedem anderen CI-System oder in einem Container ohne Geräte-ID setzen Sie <RepositoryFact name="cliCiRepositoryVariable" /> auf den Namen des Repositorys.
+
+## Wo die Lizenz gespeichert wird
+
+Die CLI speichert die Lizenz in <RepositoryFact name="cliCredentialsFile" />, die nur Ihr Benutzer lesen kann (Modus <RepositoryFact name="cliCredentialsFileMode" />), in Ihrem Konfigurationsverzeichnis:
+
+<RepositoryTable columns={["System", "Verzeichnis"]} name="cliCredentialDirectories" />
+
+Ist `XDG_CONFIG_HOME` nicht gesetzt, verwendet Linux <RepositoryFact name="cliCredentialsLinuxFallback" />. Die CLI sendet saasyland.com einen mit Schlüssel gebildeten Hash der Geräte-ID, nie die ID selbst. Meldet saasyland.com die Lizenz als erstattet oder widerrufen, entfernt die CLI sie vom Gerät und verweist Sie auf Ihre Lizenzseite und an den Support.
+
+## Umgebungsvariablen
+
+| Variable                                          | Was sie festlegt                                                                                                             |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| <RepositoryFact name="cliLicenseKeyVariable" />   | Den Lizenzschlüssel, für CI und für Sitzungen, die nicht danach fragen können                                                |
+| <RepositoryFact name="cliCiRepositoryVariable" /> | Den Namen des Repositorys auf einem CI-System, das die CLI nicht erkennt                                                     |
+| <RepositoryFact name="cliLocaleVariable" />       | Die Sprache der Ausgabe: zuerst gilt `--locale`, dann diese Variable, dann die Sprache Ihres Systems                         |
+| <RepositoryFact name="cliApiUrlVariable" />       | Ein anderes Deployment von saasyland.com, etwa eine Preview: eine `https`-URL oder eine `http`-URL auf Ihrem eigenen Rechner |
+
+## Skripte und Coding-Agents
+
+`--json` gibt das Ergebnis oder den Fehler als ein einziges JSON-Dokument aus. In CI, in einem Coding-Agent oder ohne Terminal wartet die CLI nie auf eine Eingabe: `activate` ohne Schlüssel bricht mit dem Exit-Code <RepositoryFact name="cliExitUsage" /> ab und sagt, wie Sie einen übergeben.
+
+| Exit-Code                                         | Wann                                                                                                                                                            |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <RepositoryFact name="cliExitSuccess" />          | Der Befehl hat getan, was er verspricht                                                                                                                         |
+| <RepositoryFact name="cliExitFailure" />          | In der CLI ist etwas schiefgegangen                                                                                                                             |
+| <RepositoryFact name="cliExitUsage" />            | Ein Flag oder <RepositoryFact name="cliApiUrlVariable" /> ist ungültig, oder der Schlüssel fehlt in einer Sitzung, die nicht danach fragen kann                 |
+| <RepositoryFact name="cliExitNotAvailable" />     | Der Befehl ist noch nicht verfügbar, die ID dieses Geräts lässt sich nicht lesen, oder das System ist weder Linux noch macOS noch Windows                       |
+| <RepositoryFact name="cliExitTemporaryFailure" /> | saasyland.com ist nicht erreichbar oder bittet, es später erneut zu versuchen                                                                                   |
+| <RepositoryFact name="cliExitProtocol" />         | saasyland.com und diese Version der CLI verstehen einander nicht; aktualisieren Sie die CLI                                                                     |
+| <RepositoryFact name="cliExitNoPermission" />     | Hier ist keine Lizenz aktiviert, der Platz dieses Geräts wurde freigegeben, der Schlüssel ist ungültig, widerrufen oder erstattet, oder alle Plätze sind belegt |
+| <RepositoryFact name="cliExitCancelled" />        | Sie haben die Frage mit Strg+C abgebrochen                                                                                                                      |

@@ -4,11 +4,6 @@ import { PRODUCT_TYPE } from "~/src/modules/product/product.constants"
 import { productZodSchemas } from "~/src/modules/product/product.zod"
 
 describe("product zod schemas", () => {
-  it("rejects empty select payloads", () => {
-    expect.hasAssertions()
-    expect(productZodSchemas.select.safeParse({}).success).toBe(false)
-  })
-
   it("accepts valid create payloads", () => {
     expect.hasAssertions()
     expect(

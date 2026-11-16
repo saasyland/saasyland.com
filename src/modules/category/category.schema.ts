@@ -2,11 +2,15 @@ import { index, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 
-import { CATEGORY_ICON, CATEGORY_KIND, CATEGORY_NAME_MAX_LENGTH, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
-
-export const CATEGORY_ICONS = [CATEGORY_ICON.ARCHIVE, CATEGORY_ICON.FOLDER_OPEN, CATEGORY_ICON.PUZZLE] as const
-export const CATEGORY_KINDS = [CATEGORY_KIND.CATEGORY, CATEGORY_KIND.COLLECTION] as const
-export const CATEGORY_VISIBILITIES = [CATEGORY_VISIBILITY.PUBLIC, CATEGORY_VISIBILITY.HIDDEN] as const
+import {
+  CATEGORY_ICON,
+  CATEGORY_ICONS,
+  CATEGORY_KIND,
+  CATEGORY_KINDS,
+  CATEGORY_NAME_MAX_LENGTH,
+  CATEGORY_VISIBILITIES,
+  CATEGORY_VISIBILITY,
+} from "~/src/modules/category/category.constants"
 
 export const category = sqliteTable(
   "category",

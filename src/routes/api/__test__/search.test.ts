@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { Route as SearchRoute } from "~/src/routes/api/search"
 
+import { createNonce } from "~/src/lib/content-security-policy"
+
 const { searchHandler } = vi.hoisted(() => ({
   searchHandler: vi.fn<(request: Request) => Promise<Response>>(),
 }))
@@ -19,7 +21,7 @@ describe("API route forwarding", () => {
     }
     expect(
       await handlers.GET({
-        context: undefined,
+        context: { nonce: createNonce() },
         next: () => {
           throw new Error("Search must return its own response")
         },

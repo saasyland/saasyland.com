@@ -13,7 +13,9 @@ import * as licenses from "~/src/modules/license/use-cases/get-license"
 
 const session = createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER })
 const ownedLicense = {
+  activatedAt: null,
   createdAt: new Date(),
+  deliveredAt: null,
   id: "owned",
   key: "key",
   polarCustomerId: "customer",
@@ -24,6 +26,7 @@ const ownedLicense = {
   tier: LICENSE_TIER.CORE,
   updatedAt: new Date(),
   userId: session.user.id,
+  withdrawalConsentAt: null,
 } satisfies NonNullable<Awaited<ReturnType<typeof licenses.getLicense>>>
 afterEach(() => vi.restoreAllMocks())
 it("loads only the authenticated customer's license", async () => {

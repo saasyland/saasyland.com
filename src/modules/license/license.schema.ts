@@ -11,6 +11,8 @@ import { user } from "~/src/modules/user/user.schema"
 export const license = sqliteTable(
   "license",
   {
+    activatedAt: integer("activated_at", { mode: "timestamp_ms" }),
+    deliveredAt: integer("delivered_at", { mode: "timestamp_ms" }),
     id: text("id").primaryKey(),
     key: text("key", { length: API_LIMIT.LICENSE_KEY_MAX_LENGTH }).unique(),
     polarCustomerId: text("polar_customer_id", { length: POLAR_ID_MAX_LENGTH }).notNull(),
@@ -25,6 +27,7 @@ export const license = sqliteTable(
       .notNull()
       .unique()
       .references(() => user.id, { onDelete: "cascade" }),
+    withdrawalConsentAt: integer("withdrawal_consent_at", { mode: "timestamp_ms" }),
     ...timestamps(),
   },
   (table) => [index("license_status_tier_idx").on(table.status, table.tier)],

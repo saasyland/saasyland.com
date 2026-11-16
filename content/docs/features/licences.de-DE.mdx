@@ -37,12 +37,35 @@ Eine `checkoutId`, die keine UUID ist, wird ignoriert.
 
 `src/data/license.polar-events.ts` trägt den Lizenzbereich in die Polar-Ereignisse ein (siehe [Zahlungen](/docs/features/payments#webhooks)), mit den in `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`) aufgeführten Ereignissen, deren Bestellereignisse aus `POLAR_WEBHOOK_EVENT` stammen, und sein `handle` übergibt jedes Ereignis an den gleichnamigen Handler in `licenseWebhookHandlers`. `licenseWebhookHandlers` erfüllt `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, sodass ein Handler ohne sein Ereignis oder ein Ereignis ohne seinen Handler nicht kompiliert. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) ordnen den Benutzer über die `external_id` des Polar-Kunden zu. Ein Ereignis für einen Kunden ohne Konto in dieser App wird protokolliert, wenn es eines gebraucht hätte, und bestätigt, damit Polar es nicht erneut sendet:
 
-- `onOrderPaid` → `grantLicense`: legt die einzige Lizenz des Benutzers mit der Stufe des gekauften Produkts an oder aktualisiert sie; ein neuerer Kauf ersetzt einen älteren.
+- `onOrderPaid` → `grantLicense`: legt die einzige Lizenz des Benutzers mit der Stufe des gekauften Produkts und der Zustimmung des Käufers zur sofortigen Bereitstellung an oder aktualisiert sie (siehe [Nachweise und Erstattungen](#records-and-refunds)); ein neuerer Kauf ersetzt einen älteren.
 - `onBenefitGrantCreated` → `attachLicenseKey`: speichert den Polar-Lizenzschlüssel in der Lizenz. Solange die bezahlte Bestellung noch nicht erfasst ist, schlägt es fehl, damit Polar es erneut sendet; ein Schlüssel für eine erstattete Bestellung oder für ein Produkt ohne Lizenz wird bestätigt.
 - `onOrderRefunded` → `revokeLicense` mit dem Status `refunded`, erst wenn die Bestellung vollständig erstattet ist; eine Teilerstattung behält die Lizenz.
 - `onBenefitGrantRevoked` → `revokeLicense` mit dem Status `revoked`.
 
 `revokeLicense` setzt den Status der mit dieser Bestellung gekauften Lizenz und erfasst die Bestellung in `revoked_license_order`, sodass ein verspäteter Webhook sie nicht erneut vergeben kann. `refunded` ersetzt es nie: Polar widerruft auch den Benefit einer erstatteten Bestellung, und die beiden Ereignisse können in beliebiger Reihenfolge eintreffen. Die [CLI-Lizenz-API](/docs/features/cli-licence-api) antwortet anhand dieses Status mit `licenseRefunded` oder `licenseRevoked`.
+
+## Nachweise und Erstattungen [#records-and-refunds]
+
+Die Zeile der Tabelle `license` hält drei Nachweise zum aktuellen Kauf fest, die jeweils leer bleiben, bis das Ereignis eintritt:
+
+| Spalte                  | Hält fest                                                                                                                                                                                     | Geschrieben von                                                     |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `withdrawal_consent_at` | Wann der Käufer im Checkout der sofortigen Bereitstellung zugestimmt und zur Kenntnis genommen hat, dass er sein Widerrufsrecht verliert: der Zeitpunkt, zu dem die Bestellung erstellt wurde | `grantLicense`, aus `order.paid`                                    |
+| `activated_at`          | Die erste Aktivierung des Schlüssels auf irgendeinem Gerät                                                                                                                                    | Die [CLI-Lizenz-API](/docs/features/cli-licence-api#records-of-use) |
+| `delivered_at`          | Das erste Mal, dass die CLI mit dem Schlüssel Vorlagen heruntergeladen hat                                                                                                                    | Die [CLI-Lizenz-API](/docs/features/cli-licence-api#records-of-use) |
+
+Die Zustimmung ist eine Pflicht-Checkbox, die der Checkout von Polar für die Lizenzprodukte anzeigt und an der Bestellung als `custom_field_data.<slug>` speichert, wobei der Slug <RepositoryFact name="licenseWithdrawalConsentField" /> ist (`LICENSE_CHECKOUT_FIELD` in `license.constants.ts`). `onOrderPaid` validiert das Feld mit Zod und erfasst die Zustimmung nur, wenn es `true` ist. Eine neue Bestellung für dasselbe Konto, etwa ein Kauf nach einer Erstattung, ersetzt die Zustimmung durch ihre eigene und leert `activated_at` und `delivered_at`, sodass die Nachweise immer den aktuellen Kauf beschreiben. Lizenzen, die gekauft wurden, bevor es die Nachweise gab, haben keine aus dieser Zeit.
+
+`refundEligibility` (`src/modules/license/license.refunds.ts`) ist eine reine Funktion aus Kaufzeitpunkt, Zustimmung, erstem Download und aktueller Zeit. Die Frist beträgt <RepositoryFact name="refundWithdrawalDays" unit="day" /> ab dem Kauf, festgelegt in `REFUND_TERMS.WITHDRAWAL_DAYS` in `src/data/refunds.ts`, der einzigen Stelle, an der diese Zahl deklariert ist. Die Funktion gibt eine Art von `REFUND_ELIGIBILITY` zurück:
+
+| Art                   | Wann                                                                                                                          | Enthält       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `refundable`          | Innerhalb der Frist, der Käufer hat zugestimmt, und die CLI hat noch keine Vorlagen heruntergeladen                           | `until`       |
+| `statutoryWithdrawal` | Innerhalb der Frist, es wurde keine Zustimmung erfasst, daher gilt das gesetzliche Widerrufsrecht, unabhängig von der Nutzung | `until`       |
+| `used`                | Innerhalb der Frist, der Käufer hat zugestimmt, und die CLI hat Vorlagen heruntergeladen                                      | `deliveredAt` |
+| `expired`             | Die Frist ist abgelaufen                                                                                                      | `endedAt`     |
+
+Ein Admin sieht die Nachweise und das Ergebnis in Worten im Profil des Benutzers; siehe [Benutzer (Admin)](/docs/features/users-admin#profile).
 
 ## Kundenansichten
 

@@ -37,12 +37,35 @@ A `checkoutId` that is not a UUID is ignored.
 
 `src/data/license.polar-events.ts` adds the licence area to the Polar events (see [Payments](/docs/features/payments#webhooks)) with the events listed in `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`), whose order events come from `POLAR_WEBHOOK_EVENT`, and its `handle` passes each event to the handler of the same name in `licenseWebhookHandlers`. `licenseWebhookHandlers` satisfies `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, so a handler without its event, or an event without its handler, does not compile. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) match the user through the Polar customer `external_id`. An event for a customer with no account here is logged when it needed one and acknowledged, so Polar does not retry it:
 
-- `onOrderPaid` → `grantLicense`: upserts the user's single licence with the tier of the purchased product; a newer purchase replaces an older one.
+- `onOrderPaid` → `grantLicense`: upserts the user's single licence with the tier of the purchased product and the buyer's consent to immediate delivery (see [Records and refunds](#records-and-refunds)); a newer purchase replaces an older one.
 - `onBenefitGrantCreated` → `attachLicenseKey`: stores the Polar licence key on the licence. While the paid order is not recorded yet it fails, so Polar retries it; a key for a refunded order or for a product that is not a licence is acknowledged.
 - `onOrderRefunded` → `revokeLicense` with the status `refunded`, only once the order is fully refunded; a partial refund keeps the licence.
 - `onBenefitGrantRevoked` → `revokeLicense` with the status `revoked`.
 
 `revokeLicense` sets the status of the licence bought with that order and records the order in `revoked_license_order`, so a late webhook cannot grant it again. It never replaces `refunded`: Polar also revokes the benefit of a refunded order, and the two events can arrive in either order. The [CLI licence API](/docs/features/cli-licence-api) answers `licenseRefunded` or `licenseRevoked` from this status.
+
+## Records and refunds
+
+The `license` row keeps three records of the current purchase, each empty until it happens:
+
+| Column                  | Records                                                                                                                                    | Written by                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `withdrawal_consent_at` | When the buyer consented at checkout to immediate delivery and acknowledged losing the right of withdrawal: the time the order was created | `grantLicense`, from `order.paid`                                    |
+| `activated_at`          | The first activation of the key on any machine                                                                                             | The [CLI licence API](/docs/features/cli-licence-api#records-of-use) |
+| `delivered_at`          | The first time the CLI downloaded templates with the key                                                                                   | The [CLI licence API](/docs/features/cli-licence-api#records-of-use) |
+
+The consent is a required checkbox that Polar's checkout shows for the licence products and stores on the order as `custom_field_data.<slug>`, where the slug is <RepositoryFact name="licenseWithdrawalConsentField" /> (`LICENSE_CHECKOUT_FIELD` in `license.constants.ts`). `onOrderPaid` validates the field with Zod and records the consent only when it is `true`. A new order for the same account, such as a purchase after a refund, replaces the consent with its own and empties `activated_at` and `delivered_at`, so the records always describe the current purchase. Licences bought before the records existed have none from that time.
+
+`refundEligibility` (`src/modules/license/license.refunds.ts`) is a pure function of the purchase time, the consent, the first download and the current time. The period is <RepositoryFact name="refundWithdrawalDays" unit="day" /> from the purchase, `REFUND_TERMS.WITHDRAWAL_DAYS` in `src/data/refunds.ts`, the one place that number is declared. It returns one kind of `REFUND_ELIGIBILITY`:
+
+| Kind                  | When                                                                                         | Carries       |
+| --------------------- | -------------------------------------------------------------------------------------------- | ------------- |
+| `refundable`          | Within the period, the buyer consented and the CLI has not downloaded templates              | `until`       |
+| `statutoryWithdrawal` | Within the period, no consent was recorded, so the statutory withdrawal applies, used or not | `until`       |
+| `used`                | Within the period, the buyer consented and the CLI has downloaded templates                  | `deliveredAt` |
+| `expired`             | The period has ended                                                                         | `endedAt`     |
+
+An admin sees the records and the result in words on the user's profile; see [Users (admin)](/docs/features/users-admin#profile).
 
 ## Customer screens
 

@@ -40,12 +40,35 @@ UUID ではない `checkoutId` は無視されます。
 
 `src/data/license.polar-events.ts` は、`LICENSE_WEBHOOK_EVENTS`（`license.constants.ts`）に列挙されたイベントでライセンスのエリアを Polar のイベントに追加し（[決済](/docs/features/payments#webhooks)を参照）、そのうち注文のイベントには `POLAR_WEBHOOK_EVENT` の値を使います。このファイルの `handle` は、各イベントを `licenseWebhookHandlers` の同じ名前のハンドラーに渡します。`licenseWebhookHandlers` は `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>` を満たすため、イベントのないハンドラーや、ハンドラーのないイベントがあるとコンパイルが通りません。`licenseWebhookHandlers`（`src/modules/license/license.webhooks.ts`）は Polar の顧客の `external_id` でユーザーを特定します。このアプリにアカウントがない顧客のイベントは、アカウントが必要な場合はログに記録したうえで受領し、Polar が再送しないようにします。
 
-- `onOrderPaid` → `grantLicense`: 購入した商品のプランでユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。
+- `onOrderPaid` → `grantLicense`: 購入した商品のプランと、即時提供への購入者の同意（[記録と返金](#records-and-refunds)を参照）で、ユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。
 - `onBenefitGrantCreated` → `attachLicenseKey`: Polar のライセンスキーをライセンスに保存します。支払い済みの注文がまだ記録されていない間は失敗させ、Polar に再送させます。返金済みの注文やライセンスではない商品のキーは受領します。
 - `onOrderRefunded` → ステータス `refunded` で `revokeLicense`。注文が全額返金された場合のみで、一部返金ではライセンスを維持します。
 - `onBenefitGrantRevoked` → ステータス `revoked` で `revokeLicense`。
 
 `revokeLicense` は、その注文で購入したライセンスのステータスを設定し、注文を `revoked_license_order` に記録して、遅れて届いた Webhook が再び付与できないようにします。`refunded` を置き換えることはありません。Polar は返金された注文の特典も取り消し、2 つのイベントはどちらの順序でも届く可能性があるためです。[CLI ライセンス API](/docs/features/cli-licence-api) は、このステータスに応じて `licenseRefunded` または `licenseRevoked` を返します。
+
+## 記録と返金 [#records-and-refunds]
+
+`license` 行は、現在の購入について 3 つの記録を保持します。いずれも、そのできごとが起こるまでは空のままです。
+
+| 列                      | 記録する内容                                                                                             | 書き込み元                                                          |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `withdrawal_consent_at` | 購入者がチェックアウトで即時提供に同意し、撤回権を失うことを了承した日時。注文が作成された時刻を使います | `order.paid` を受けた `grantLicense`                                |
+| `activated_at`          | いずれかの端末でのキーの最初のアクティベーション                                                         | [CLI ライセンス API](/docs/features/cli-licence-api#records-of-use) |
+| `delivered_at`          | CLI がそのキーで初めてテンプレートをダウンロードした日時                                                 | [CLI ライセンス API](/docs/features/cli-licence-api#records-of-use) |
+
+同意は、Polar のチェックアウトがライセンスの商品に表示する必須のチェックボックスで、注文に `custom_field_data.<slug>` として保存されます。スラッグは <RepositoryFact name="licenseWithdrawalConsentField" />（`license.constants.ts` の `LICENSE_CHECKOUT_FIELD`）です。`onOrderPaid` は Zod でこのフィールドを検証し、値が `true` の場合にだけ同意を記録します。返金後の購入など、同じアカウントの新しい注文は、同意をその注文自身の同意で置き換え、`activated_at` と `delivered_at` を空にします。そのため、記録は常に現在の購入を表します。これらの記録が導入される前に購入されたライセンスには、その当時の記録はありません。
+
+`refundEligibility`（`src/modules/license/license.refunds.ts`）は、購入時刻、同意、最初のダウンロード、現在時刻だけから結果を求める純粋関数です。期間は購入から <RepositoryFact name="refundWithdrawalDays" unit="day" />で、この数値を宣言する唯一の場所である `src/data/refunds.ts` の `REFUND_TERMS.WITHDRAWAL_DAYS` で定められています。戻り値は `REFUND_ELIGIBILITY` のいずれか 1 つの種類です。
+
+| 種類                  | 条件                                                                                     | 含む値        |
+| --------------------- | ---------------------------------------------------------------------------------------- | ------------- |
+| `refundable`          | 期間内で、購入者が同意しており、CLI がまだテンプレートをダウンロードしていない場合       | `until`       |
+| `statutoryWithdrawal` | 期間内で、同意が記録されていないため、使用の有無にかかわらず法定の撤回権が適用される場合 | `until`       |
+| `used`                | 期間内で、購入者が同意しており、CLI がすでにテンプレートをダウンロードした場合           | `deliveredAt` |
+| `expired`             | 期間が終了した場合                                                                       | `endedAt`     |
+
+管理者は、ユーザーのプロフィールで記録と、その結果を説明する文を確認できます。[ユーザー（管理）](/docs/features/users-admin#profile)を参照してください。
 
 ## 顧客向け画面
 

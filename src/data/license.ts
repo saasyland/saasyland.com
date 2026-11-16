@@ -8,3 +8,5 @@ export const licenseSearchSchema = zod.object({
   checkoutId: searchParam(zod.uuid()),
   tier: searchParam(zod.enum(LICENSE_TIER)),
 })
+
+export const USER_LICENSE_DETAILS = ["tier", "status", "purchasedAt", "withdrawalConsent", "firstActivation", "firstDownload"] as const

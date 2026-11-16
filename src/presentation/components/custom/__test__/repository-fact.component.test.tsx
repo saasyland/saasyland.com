@@ -18,6 +18,7 @@ import {
   BUNDLE_PATH_PREFIX,
   LICENSE_API_ENDPOINTS,
   LICENSE_API_RETRY_AFTER_SECONDS,
+  LICENSE_CHECKOUT_FIELD,
   REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
 } from "~/src/modules/license/license.constants"
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
@@ -28,6 +29,7 @@ import { APP_STATEMENTS } from "~/src/data/access"
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
 import { CLI_LICENSE_COMMANDS, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
+import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { SECRET_PLACEHOLDER_WORDS } from "~/src/lib/deploy-secrets"
@@ -421,5 +423,21 @@ describe("live site checks", () => {
     const printed = [...screen.getByTestId("fact").querySelectorAll("code")].map((code) => code.textContent)
     expect(printed).toEqual([...new Set(paths)])
     expect(printed.length).toBeLessThan(paths.length)
+  })
+})
+
+describe("licence refund terms", () => {
+  it.each(["en-US", "de-DE", "uk-UA"] as const)("prints the refund period in days for %s, from the refund terms", (locale) => {
+    renderInLocale(locale, <RepositoryFact name="refundWithdrawalDays" unit="day" />)
+
+    expect(screen.getByTestId("fact")).toHaveTextContent(
+      new Intl.NumberFormat(locale, { style: "unit", unit: "day", unitDisplay: "long" }).format(REFUND_TERMS.WITHDRAWAL_DAYS),
+    )
+  })
+
+  it("prints the slug of the checkout's consent field as code", () => {
+    renderInLocale("en-US", <RepositoryFact name="licenseWithdrawalConsentField" />)
+
+    expect(screen.getByText(LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT).tagName).toBe("CODE")
   })
 })

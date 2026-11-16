@@ -8,7 +8,7 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
-import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
+import { LICENSE_CHECKOUT_FIELD, LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 import type { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
 import type { grantLicense } from "~/src/modules/license/use-cases/grant-license"
@@ -18,6 +18,7 @@ import { user } from "~/src/modules/user/user.schema"
 const USER_ID = "018f2b9c-0000-7000-8000-000000000005"
 const UNKNOWN_PRODUCT_ID = "00000000-0000-4000-8000-00000000ffff"
 const DELETED_USER_ID = "018f2b9c-0000-7000-8000-0000000000de"
+const ORDERED_AT = "2026-09-24T10:00:00.000Z"
 
 const useCaseMocks = vi.hoisted(() => ({
   attachLicenseKey: vi.fn<typeof attachLicenseKey>(),
@@ -37,7 +38,7 @@ vi.mock(import("~/src/modules/license/use-cases/revoke-license"), () => ({ revok
 
 const orderPayload = (productId: string | null = JSON_NULL, externalId?: string, status: models.OrderStatus = POLAR_ORDER_STATUS.PAID) => ({
   data: {
-    created_at: "2026-09-24T10:00:00.000Z",
+    created_at: ORDERED_AT,
     customer: { external_id: externalId },
     customer_id: "cus_1",
     id: "ord_1",
@@ -47,6 +48,19 @@ const orderPayload = (productId: string | null = JSON_NULL, externalId?: string,
 })
 
 const LICENSE_KEY_GRANT = { license_key_id: "lk_1" }
+const paidWith = (customFieldData: models.Order["custom_field_data"]) => {
+  const { data } = orderPayload(env.POLAR_PRODUCT_ID_CORE, USER_ID)
+  return { data: { ...data, custom_field_data: customFieldData } }
+}
+
+const WITHOUT_CONSENT = [
+  { fields: undefined, order: "an order without custom fields" },
+  { fields: {}, order: "an order without the consent field" },
+  { fields: { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: false }, order: "an order whose consent box was left empty" },
+  { fields: { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: null }, order: "an order whose consent field is empty" },
+  { fields: { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: "true" }, order: "an order whose consent field holds text" },
+  { fields: { consent: true }, order: "an order whose only checked box is another field" },
+]
 
 const grantPayload = (properties: models.BenefitGrantWebhook["properties"], externalId?: string) => ({
   data: { customer: { external_id: externalId }, id: "grant_1", order_id: "ord_1", properties },
@@ -76,7 +90,28 @@ describe("license webhooks", () => {
       purchaseCreatedAt: new Date("2026-09-24T10:00:00Z"),
       tier: LICENSE_TIER.COMPLETE,
       userId: USER_ID,
+      withdrawalConsentAt: undefined,
     })
+  })
+
+  it("records the buyer's consent to immediate delivery at the time of the order", async () => {
+    expect.hasAssertions()
+    resetUseCases()
+
+    await licenseWebhookHandlers.onOrderPaid(paidWith({ [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true }))
+
+    expect(useCaseMocks.grantLicense).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ purchaseCreatedAt: new Date(ORDERED_AT), withdrawalConsentAt: new Date(ORDERED_AT) }),
+    )
+  })
+
+  it.each(WITHOUT_CONSENT)("records no consent for $order", async ({ fields }) => {
+    expect.hasAssertions()
+    resetUseCases()
+
+    await licenseWebhookHandlers.onOrderPaid(paidWith(fields))
+
+    expect(useCaseMocks.grantLicense).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ withdrawalConsentAt: undefined }))
   })
 
   it("refuses an order for a product this app does not sell", async () => {

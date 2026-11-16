@@ -29,6 +29,7 @@ const purchase = () => {
       purchaseCreatedAt: new Date(order.created_at),
       tier: LICENSE_TIER.CORE,
       userId: USER_ID,
+      withdrawalConsentAt: undefined,
     },
   }
 }

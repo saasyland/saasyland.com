@@ -28,7 +28,9 @@ vi.mock(import("~/src/modules/license/use-cases/get-current-license"), async (im
 })
 
 const grantedLicense: License["select"] = {
+  activatedAt: null,
   createdAt: new Date("2026-11-13T10:00:00Z"),
+  deliveredAt: null,
   id: "license-1",
   key: null,
   polarCustomerId: "customer-1",
@@ -39,6 +41,7 @@ const grantedLicense: License["select"] = {
   tier: LICENSE_TIER.COMPLETE,
   updatedAt: new Date("2026-11-13T10:00:00Z"),
   userId: "user-1",
+  withdrawalConsentAt: null,
 }
 
 const SERVER_CLOCK_AHEAD_MS = 300_000

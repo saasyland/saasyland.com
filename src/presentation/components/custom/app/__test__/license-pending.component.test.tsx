@@ -28,7 +28,9 @@ const SELECTORS = {
 } as const
 
 const license = (overrides: Partial<License["select"]> = {}): License["select"] => ({
+  activatedAt: null,
   createdAt: new Date("2026-09-08T10:00:00Z"),
+  deliveredAt: null,
   id: "license-1",
   key: "key",
   polarCustomerId: "customer-1",
@@ -39,6 +41,7 @@ const license = (overrides: Partial<License["select"]> = {}): License["select"] 
   tier: LICENSE_TIER.CORE,
   updatedAt: new Date("2026-09-08T10:00:00Z"),
   userId: "user-1",
+  withdrawalConsentAt: null,
   ...overrides,
 })
 

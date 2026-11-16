@@ -16,7 +16,7 @@ import {
   apiZodSchemas,
   readApiRequest,
 } from "@saasyland/stack/api"
-import { eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import { createHash } from "node:crypto"
 import { inspect } from "node:util"
 import type * as zod from "zod"
@@ -132,6 +132,20 @@ const perPeriod = (key: string, limit: number): RateLimitInput => ({ key, limit,
 const rateLimitError = ({ allowed, retryAfter }: RateLimitDecision): Api["error"] | undefined =>
   allowed ? undefined : { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: retryAfter }
 
+const recordFirstActivation = async (key: string): Promise<void> => {
+  await db
+    .update(license)
+    .set({ activatedAt: new Date() })
+    .where(and(eq(license.key, key), isNull(license.activatedAt)))
+}
+
+const recordFirstDelivery = async (key: string): Promise<void> => {
+  await db
+    .update(license)
+    .set({ deliveredAt: new Date() })
+    .where(and(eq(license.key, key), isNull(license.deliveredAt)))
+}
+
 const presentedKey = ({ headers }: Request) => apiZodSchemas.authorization.safeParse(headers.get(API_HEADER.AUTHORIZATION))
 
 const countAndFindLicense = async (address: RateLimitInput, key: string) => {
@@ -225,6 +239,7 @@ export const licenseApiHandlers = {
       const current = machines.find((machine) => machine.current)
 
       if (current !== undefined) {
+        await recordFirstActivation(credentials.key)
         return apiResponse(API_ENDPOINT.ACTIVATE, HTTP_STATUS.OK, { activationId: current.id, license: summary(tier, machines.length) })
       }
 
@@ -238,6 +253,7 @@ export const licenseApiHandlers = {
           meta: { ...details, machine: credentials.machine },
           organization_id: env.POLAR_ORGANIZATION_ID,
         })
+        await recordFirstActivation(credentials.key)
 
         return apiResponse(API_ENDPOINT.ACTIVATE, HTTP_STATUS.CREATED, {
           activationId: id,
@@ -274,6 +290,7 @@ export const licenseApiHandlers = {
         secret: env.AUTH_SECRET,
         version: body.version,
       })
+      await recordFirstDelivery(credentials.key)
 
       return apiResponse(API_ENDPOINT.BUNDLE, HTTP_STATUS.OK, { ...stored.bundle, ...signed })
     }),

@@ -10,6 +10,8 @@ const [admin] = TEST_ACCOUNTS
 
 const WINDOW = { height: 720, width: 1280 } as const
 
+const MENU_WINDOW_WIDTH = 768
+
 test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] }, viewport: WINDOW })
 
 interface Box {
@@ -112,6 +114,22 @@ test("opening the docs search leaves the docs page in place", async ({ appPage, 
 test("opening the language select leaves the docs page in place", async ({ appPage, page }) => {
   await openDocs({ appPage, page })
   await expectPageToStayWhileOpen(page, page.getByRole("button", { name: /Choose a language/u }), page.getByRole("listbox"))
+})
+
+test("opening and closing the site menu leaves the page in place", async ({ appPage, page }) => {
+  await page.setViewportSize({ height: WINDOW.height, width: MENU_WINDOW_WIDTH })
+  await page.goto(ROUTES.LICENCE)
+  await appPage.waitForAppReady()
+  expect(await hiddenHeight(page.locator("html")), "the licence page scrolls").toBeGreaterThan(0)
+  const closed = await boxOf(heading(page))
+  const menu = page.getByRole("dialog", { exact: true, name: "Menu" })
+
+  await expectPageToStayWhileOpen(page, page.getByRole("button", { exact: true, name: "Open menu" }), menu)
+  await page.keyboard.press("Escape")
+  await expect(menu).toBeHidden()
+
+  await expect.poll(async () => isScrollLocked(page)).toBe(false)
+  expect(await boxOf(heading(page))).toEqual(closed)
 })
 
 test("opening a dialog leaves the admin page in place", async ({ appPage, authPage, page }) => {

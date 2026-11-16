@@ -1,6 +1,6 @@
 import { type JSX, useCallback, useState } from "react"
 
-import { Link } from "@tanstack/react-router"
+import { Link, useLinkProps } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
@@ -52,6 +52,7 @@ export const Navigation = (): JSX.Element => {
 
   const t = useTranslations("components.custom.navigation")
   const navigationLabel = useNavigationLabel()
+  const startBuilding = useLinkProps({ hash: MARKETING_SECTION_IDS.PRICING, to: ROUTES.HOME })
 
   const observeSentinel = useCallback((sentinel: HTMLDivElement): (() => void) => {
     const observer = new IntersectionObserver(([entry]) => {
@@ -106,14 +107,13 @@ export const Navigation = (): JSX.Element => {
                 </Link>
               ))}
             </div>
-            <Link
-              activeOptions={{ includeHash: true }}
+            <a
+              {...startBuilding}
+              aria-current={undefined}
               className="hidden h-9 shrink-0 items-center rounded-lg border border-border bg-card/60 px-3.5 text-body-sm font-medium whitespace-nowrap text-foreground transition-[color,border-color,background-color] duration-200 ease-exp hover:border-border hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px sm:inline-flex"
-              hash={MARKETING_SECTION_IDS.PRICING}
-              to={ROUTES.HOME}
             >
               {t("getStarted")}
-            </Link>
+            </a>
             <MobileMenu />
           </div>
         </nav>

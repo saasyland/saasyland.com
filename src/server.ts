@@ -1,4 +1,4 @@
-import { I18N } from "~/src/integrations/use-intl/i18n.config"
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { resolveLocale } from "~/src/integrations/use-intl/i18n.middleware"
 import { extractLocaleFromPath, shouldIgnorePath } from "~/src/integrations/use-intl/i18n.paths"
 
@@ -6,7 +6,7 @@ import { HTTPS_SECURITY_HEADERS, HTTP_STATUS, SECURITY_HEADERS } from "~/src/mod
 
 import { DOCUMENT_HANDLERS, REQUEST_HANDLERS } from "~/src/data/worker"
 
-import { createNonce, renderedPagePolicy } from "~/src/lib/content-security-policy"
+import { createNonce, documentPolicy, withNonce } from "~/src/lib/content-security-policy"
 import { serializeCookie } from "~/src/lib/cookie"
 
 import { DOCUMENT_STYLESHEET, fontPreloads } from "~/src/presentation/document-assets"
@@ -22,9 +22,20 @@ interface Rendered {
   readonly response: Response
 }
 
+const DOCUMENT_CACHE_CONTROL = "private, no-cache"
+
+const STALE_DOCUMENT_HEADERS = ["Content-Length", "ETag", "Last-Modified"]
+
+const isDocument = (response: Response): boolean =>
+  response.status === HTTP_STATUS.OK && HTML.test(response.headers.get("Content-Type") ?? "")
+
 const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> => {
   if ((request.method === "GET" || request.method === "HEAD") && !shouldIgnorePath(new URL(request.url).pathname)) {
     const asset = await env.ASSETS.fetch(request)
+    if (isDocument(asset)) {
+      const nonce = createNonce()
+      return { policy: documentPolicy(nonce), response: withNonce(asset, nonce) }
+    }
     if (asset.status !== HTTP_STATUS.NOT_FOUND) {
       return { policy: BASE_POLICY, response: asset }
     }
@@ -37,7 +48,7 @@ const render = async (request: Request, env: Cloudflare.Env): Promise<Rendered> 
     return { policy: BASE_POLICY, response }
   }
 
-  return { policy: renderedPagePolicy(nonce), response }
+  return { policy: documentPolicy(nonce), response }
 }
 
 const withSecurityHeaders = (response: Response, { policy, protocol }: { policy: string; protocol: string }): Response => {
@@ -51,6 +62,18 @@ const withSecurityHeaders = (response: Response, { policy, protocol }: { policy:
   return secured
 }
 
+const setDocumentHeaders = (headers: Headers, locale: SupportedLocale): void => {
+  const fonts = fontPreloads(locale).map(
+    (font) => `<${font.href}>; rel=preload; as=font; type="${font.type}"; crossorigin=${font.crossOrigin}`,
+  )
+
+  headers.append("Link", [`<${DOCUMENT_STYLESHEET.href}>; rel=preload; as=style`, ...fonts].join(", "))
+  headers.set("Cache-Control", DOCUMENT_CACHE_CONTROL)
+  for (const name of STALE_DOCUMENT_HEADERS) {
+    headers.delete(name)
+  }
+}
+
 const respond = async (request: Request, env: Cloudflare.Env): Promise<Rendered> => {
   const { redirect, setCookie } = resolveLocale(request)
 
@@ -61,7 +84,7 @@ const respond = async (request: Request, env: Cloudflare.Env): Promise<Rendered>
   const { policy, response } = await render(request, env)
   const { pathname, protocol } = new URL(request.url)
 
-  const isHtml = response.status === HTTP_STATUS.OK && !shouldIgnorePath(pathname) && HTML.test(response.headers.get("Content-Type") ?? "")
+  const isHtml = !shouldIgnorePath(pathname) && isDocument(response)
   if (!setCookie && !isHtml) {
     return { policy, response }
   }
@@ -77,12 +100,7 @@ const respond = async (request: Request, env: Cloudflare.Env): Promise<Rendered>
   }
 
   const locale = extractLocaleFromPath(pathname) ?? I18N.DEFAULT_LOCALE
-
-  const fonts = fontPreloads(locale).map(
-    (font) => `<${font.href}>; rel=preload; as=font; type="${font.type}"; crossorigin=${font.crossOrigin}`,
-  )
-
-  page.headers.append("Link", [`<${DOCUMENT_STYLESHEET.href}>; rel=preload; as=style`, ...fonts].join(", "))
+  setDocumentHeaders(page.headers, locale)
 
   return { policy, response: DOCUMENT_HANDLERS.reduce((document, { rewrite }) => rewrite(document, { locale, request }), page) }
 }

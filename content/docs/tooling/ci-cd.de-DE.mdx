@@ -15,9 +15,13 @@ Workflows liegen in `.github/workflows/`. Die Anwendungs-Workflows (`ci.yml`, `e
 
 `remotion.yml` reagiert bei Pull Requests und Pushes auf dieselben Pfade: `remotion/`, den Workflow selbst und die Dateien der Website, die `remotion/src` importiert, direkt oder über andere Dateien der Website. `src/__test__/workflows.test.ts` folgt diesen Imports und schlägt fehl, wenn eine erreichte Datei zu keinem der Pfade passt oder ein Pfad zu keiner der Dateien.
 
+Die Checkouts, die die Website bauen, in `e2e-reusable.yml` und `deploy-reusable.yml`, und der Checkout des Jobs `release` holen jeden Commit ohne seine Trees (`fetch-depth: 0` und `filter: tree:0`): Der [Changelog](/docs/project/changelog) datiert jeden Eintrag nach dem Commit, der ihn nach `main` gebracht hat. Gegenüber einem Shallow Clone kommen nur die Commits selbst hinzu; ein Shallow Clone ließe den Build fehlschlagen, statt die Einträge falsch zu datieren. `src/__test__/workflows.test.ts` schlägt fehl, wenn einer dieser Checkouts die Historie nicht mehr holt.
+
 ## Prüfungen
 
 Der Job `verify` in `ci.yml` führt `bun run check` (Klassennamen-Tabellen, i18n- und Inhaltsprüfungen, Formatierung, Linting und Typen) und `bun run test:coverage` aus und lädt anschließend den Abdeckungsbericht hoch. Der Job `e2e` führt `db:reset:test` und `build:test` aus, installiert den Browser und startet `bunx playwright test e2e/specs --project=chromium`. Bei fehlgeschlagenen E2E-Läufen wird der Playwright-Bericht hochgeladen.
+
+In einem Pull Request schlägt `bun run check` außerdem fehl, bis der Pull Request seinen [Changelog-Eintrag](/docs/conventions/git-workflow#changelog-entries) hinzufügt.
 
 ## Deployments
 
@@ -38,7 +42,7 @@ Dependabot aktualisiert die GitHub Actions wöchentlich.
 
 Die Website wird kontinuierlich deployt, deshalb sind ihre Versionen Datumsangaben statt semantischer Versionen. Wenn ein Deployment in Produktion erfolgreich war, versieht der Job `release` in `ci.yml` den deployten Commit mit dem Tag `vYYYY.MM.DD` nach dem UTC-Datum und veröffentlicht dazu ein GitHub Release. Ein zweites Deployment in Produktion am selben Tag erhält den Tag `vYYYY.MM.DD.2`, das nächste `.3` und so weiter. Preview-Deployments erhalten nie einen Tag. Der Job `release` ist der einzige Job mit `contents: write`.
 
-Die Release Notes sind der Abschnitt dieses Tages im [Changelog](/docs/project/changelog), sodass jede Änderung an genau einer Stelle beschrieben ist; hat der Changelog keinen Abschnitt für den Tag, verlinken die Notes auf ihn. `scripts/publish-release.ts` bestimmt Tag und Notes mit `src/lib/release.ts` und führt `gh release create` aus. Ein erneuter Lauf behält den Tag, den der Commit bereits hat, und überspringt ein bereits vorhandenes Release.
+Die Release Notes sind die Einträge im [Changelog](/docs/project/changelog), die an diesem Tag in `main` angekommen sind, sodass jede Änderung an genau einer Stelle beschrieben ist; ist an dem Tag keiner angekommen, verlinken die Notes auf den Changelog. `scripts/publish-release.ts` bestimmt Tag und Notes mit `src/lib/release.ts` und führt `gh release create` aus. Ein erneuter Lauf behält den Tag, den der Commit bereits hat, und überspringt ein bereits vorhandenes Release.
 
 Um die Produktion auf ein Release zurückzusetzen, machen Sie in einem Pull Request alles nach seinem Tag rückgängig:
 

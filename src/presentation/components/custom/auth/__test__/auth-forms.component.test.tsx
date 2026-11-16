@@ -27,6 +27,8 @@ import { VERIFICATION_MUTATION_KEYS } from "~/src/modules/verification/verificat
 
 import { Route as ResetPasswordRoute } from "~/src/routes/auth.reset-password"
 
+import { OAUTH_PROVIDERS } from "~/src/data/auth"
+
 import { ForgotPasswordForm } from "~/src/presentation/components/custom/auth/forgot-password-form"
 import { OAuthButtons } from "~/src/presentation/components/custom/auth/oauth-buttons"
 import { SignInForm } from "~/src/presentation/components/custom/auth/sign-in-form"
@@ -618,6 +620,9 @@ describe("reset password form", () => {
   })
 })
 
+const [, githubProvider] = OAUTH_PROVIDERS
+const continueWith = (provider: string): string => authOauthMessages.continueWith.replace("{provider}", provider)
+
 describe("o auth buttons", () => {
   it("shows the provider error when OAuth cannot start", async () => {
     setupOAuthButtonsMocks()
@@ -630,20 +635,21 @@ describe("o auth buttons", () => {
     })
     const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<OAuthButtons />)
-    await user.click(screen.getByRole("button", { name: authOauthMessages.github }))
+    await user.click(screen.getByRole("button", { name: continueWith(githubProvider.name) }))
     await waitFor(() => {
       expect(toastErrorMock).toHaveBeenCalledWith(authErrorsMessages.invalidEmailOrPassword)
     })
     expect(toastSuccessMock).not.toHaveBeenCalled()
   })
 
-  it("uses a neutral continue label when creating an account", () => {
+  it("labels every provider with the same continue wording", () => {
     setupOAuthButtonsMocks()
-    renderWithAuthMessages(<OAuthButtons intent="sign-up" />)
+    renderWithAuthMessages(<OAuthButtons />)
 
-    expect(screen.getByRole("button", { name: "Continue with GitHub" })).toBeVisible()
-    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeVisible()
-    expect(screen.queryByRole("button", { name: authOauthMessages.github })).not.toBeInTheDocument()
+    expect(screen.getAllByRole("button")).toHaveLength(OAUTH_PROVIDERS.length)
+    for (const { name } of OAUTH_PROVIDERS) {
+      expect(screen.getByRole("button", { name: continueWith(name) })).toBeVisible()
+    }
   })
 
   it("starts GitHub OAuth sign-in", async () => {
@@ -651,7 +657,7 @@ describe("o auth buttons", () => {
     const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<OAuthButtons />)
 
-    await user.click(screen.getByRole("button", { name: authOauthMessages.github }))
+    await user.click(screen.getByRole("button", { name: continueWith(githubProvider.name) }))
 
     await waitFor(() => {
       expect(toastSuccessMock).toHaveBeenCalledWith(authOauthMessages.success)

@@ -192,7 +192,7 @@ describe("authentication routes", () => {
     expect(router.state.matches[0]?.meta).toContainEqual({ content: ROBOTS.NON_PRODUCTION, name: "robots" })
   })
 
-  it("uses new-account copy on signup, and returning-account copy on sign in", async () => {
+  it("uses new-account copy on signup, returning-account copy on sign in, and the same provider buttons on both", async () => {
     const { router } = await renderAuth(ROUTES.SIGN_UP)
     expect(await screen.findByText(authGateMessages.signUpHeadline)).toBeInTheDocument()
     expect(screen.queryByText(authGateMessages.headline)).not.toBeInTheDocument()
@@ -201,6 +201,8 @@ describe("authentication routes", () => {
     await act(() => router.navigate({ to: ROUTES.SIGN_IN }))
     expect(await screen.findByText(authGateMessages.headline)).toBeInTheDocument()
     expect(screen.queryByText(authGateMessages.signUpHeadline)).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeVisible()
+    expect(screen.getByRole("button", { name: "Continue with GitHub" })).toBeVisible()
     expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", ROUTES.SIGN_UP)
   })
 

@@ -24,7 +24,7 @@ const ICONS = { [AUTH_PROVIDER.GITHUB]: Github, [AUTH_PROVIDER.GOOGLE]: Google }
 
 const signInSocial = createClientOnlyFn((data: Parameters<typeof authClient.signIn.social>[0]) => authClient.signIn.social(data))
 
-export const OAuthButtons = ({ intent = "sign-in" }: Readonly<{ intent?: "sign-in" | "sign-up" }>): JSX.Element => {
+export const OAuthButtons = (): JSX.Element => {
   const t = useTranslations("auth")
 
   const { hrefWithRedirect } = useAuthRedirect()
@@ -64,7 +64,7 @@ export const OAuthButtons = ({ intent = "sign-in" }: Readonly<{ intent?: "sign-i
           >
             {isPending && <Loader2 aria-hidden className="size-4 animate-spin" strokeWidth={1.5} />}
             {!isPending && <Icon className="size-4" />}
-            {intent === "sign-up" ? t("oauth.continueWith", { provider: name }) : t(`oauth.${id}`)}
+            {t("oauth.continueWith", { provider: name })}
           </Button>
         )
       })}

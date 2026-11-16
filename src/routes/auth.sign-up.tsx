@@ -29,7 +29,7 @@ const SignUpPage = (): JSX.Element => {
       <p className="mt-3 text-body text-pretty text-muted-foreground">{t("form.description", { appName: APP_NAME })}</p>
 
       <div className="mt-10 flex flex-col gap-6">
-        <OAuthButtons intent="sign-up" />
+        <OAuthButtons />
         <div className="flex items-center gap-4">
           <span aria-hidden className="h-px flex-1 bg-border" />
           <span className="text-body-sm text-muted-foreground">{t("form.or")}</span>

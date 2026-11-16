@@ -71,7 +71,7 @@ export class AuthPage extends BasePage {
   }
 
   oauthGitHubButton(): Locator {
-    return this.page.getByRole("button", { name: /sign in with github/iu })
+    return this.page.getByRole("button", { name: /continue with github/iu })
   }
 
   async gotoVerifyEmail(localePrefix = "", query = ""): Promise<void> {

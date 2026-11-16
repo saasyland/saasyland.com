@@ -5,7 +5,7 @@ import { APP_OVERVIEW_SECTIONS } from "~/src/data/app-overview"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { PageHeaderPending } from "~/src/presentation/components/custom/app/pending-blocks"
-import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card"
+import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card-pending"
 
 const DocsStepPending = (): JSX.Element => (
   <div className="flex flex-col items-start gap-3">

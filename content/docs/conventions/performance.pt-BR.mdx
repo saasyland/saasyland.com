@@ -30,7 +30,7 @@ Um único import estático do nome de um cabeçalho, vindo de um módulo que tam
 
 O Drizzle roda apenas no Worker. O navegador precisa dos schemas Zod de um módulo para os seus formulários e das tuplas de enum dele para os seus campos de seleção, então os dois ficam em arquivos que não importam nada do Drizzle: `<table>.zod.ts` e `<table>.constants.ts` (veja [Módulos](/docs/conventions/modules)). Um import do navegador que chega a um `<table>.schema.ts` executa `sqliteTable(...)`, uma chamada que o bundler precisa manter, e traz o `drizzle-orm` junto.
 
-Antes, `<table>.zod.ts` também montava schemas `insert`, `select` e `update` a partir das tabelas com `drizzle-zod`, e nada os lia em tempo de execução. O `drizzle-zod` segura todo o namespace do zod, então o bundler também mantinha todos os locales do zod, o seu conversor de JSON Schema e o seu compilador. Os esqueletos de carregamento de `/admin` e `/app` importam `PreferencesCardPending` de `preferences-card.tsx`, que importava `user.zod.ts`, e o code splitting não separa os componentes de carregamento, então tudo isso era carregado em todas as páginas. Mover as tuplas para as constantes e apagar esses schemas tirou cerca de 75 KiB de JavaScript com gzip de cada página. Os tamanhos abaixo somam todos os scripts que cada página carrega, com gzip, segundo a saída de `bun run build:test`:
+Antes, `<table>.zod.ts` também montava schemas `insert`, `select` e `update` a partir das tabelas com `drizzle-zod`, e nada os lia em tempo de execução. O `drizzle-zod` segura todo o namespace do zod, então o bundler também mantinha todos os locales do zod, o seu conversor de JSON Schema e o seu compilador. Os esqueletos de carregamento de `/admin` e `/app` importavam `PreferencesCardPending` de `preferences-card.tsx`, que importava `user.zod.ts`, e o code splitting não separa os componentes de carregamento, então tudo isso era carregado em todas as páginas. Mover as tuplas para as constantes e apagar esses schemas tirou cerca de 75 KiB de JavaScript com gzip de cada página. Os tamanhos abaixo somam todos os scripts que cada página carrega, com gzip, segundo a saída de `bun run build:test`:
 
 | Página         | Antes     | Depois    |
 | -------------- | --------- | --------- |
@@ -68,6 +68,25 @@ O TanStack Router envolve os outlets de rota em boundaries de Suspense, e o Reac
 - `MotionProvider` acima de um outlet de rota publica um novo contexto quando os seus recursos de animação terminam de carregar. Em um post do blog, essa atualização chegou enquanto a página ainda carregava o seu conteúdo, o React recorreu à renderização no cliente e o layout se deslocou.
 
 Antes de adicionar um provider a `__root.tsx` ou a um layout, verifique se o valor dele pode mudar depois da hidratação. Se puder, monte-o ao lado dos componentes que o leem, abaixo de todo `<Outlet />` de rota. Os posicionamentos estão listados em [Componentes e estilização](/docs/conventions/components).
+
+## Os esqueletos ficam no script de entrada [#skeletons-stay-in-the-entry-script]
+
+O TanStack Router não separa `pendingComponent` em um chunk próprio por padrão, e `src/data/tanstack.vite.ts` mantém esse padrão, então todo esqueleto fica no script de entrada e aparece assim que uma navegação passa de `pendingMs`. Separá-los foi medido e descartado:
+
+- Os esqueletos de layout `AdminPending`, `AppPending` e `MarketingPending` desenham o esqueleto da página a partir de `PAGE_SKELETONS`, que importa os esqueletos de todas as áreas, e o router carrega os componentes de carregamento das rotas correspondentes antes de a página ser hidratada. `/`, `/app` e `/admin` continuaram carregando todos os esqueletos, agora em chunks próprios, e cresceram de 3,5 a 6,5 KiB com gzip; só ficaram mais leves as páginas cujo layout tem um esqueleto próprio, como `/docs` e `/blog`.
+- Um esqueleto separado precisa ser carregado antes de aparecer. No Chromium headless, com 400 ms de latência adicional e 200 KiB/s, uma navegação no cliente de `/` para `/blog` mostrou o blog depois de 2.290 ms em vez de 1.390 ms, atrás de um esqueleto que o build sem separação nunca precisou; com 150 ms de latência, levou 800 ms em vez de 640 ms.
+
+Como toda página carrega todos os esqueletos, um esqueleto importa `Skeleton`, as primitivas do shadcn, outros esqueletos e as constantes que definem os seus comprimentos, nunca um formulário. `PreferencesCardPending` era exportado por `preferences-card.tsx`, então os esqueletos de `/admin` e `/app` colocavam o formulário de preferências, o TanStack Form, a lista de fusos horários e os schemas de usuário no script de entrada de toda página; agora ele tem um arquivo próprio, `preferences-card-pending.tsx`. Todos os scripts que cada página carrega, com gzip, segundo a saída de `bun run build:test`:
+
+| Página         | Antes     | Depois    |
+| -------------- | --------- | --------- |
+| `/`            | 463,0 KiB | 451,9 KiB |
+| `/docs/<page>` | 553,6 KiB | 527,3 KiB |
+| `/blog`        | 424,7 KiB | 413,6 KiB |
+| `/app`         | 430,4 KiB | 404,1 KiB |
+| `/admin`       | 452,9 KiB | 427,7 KiB |
+
+`/` e `/blog` economizam menos porque os seus layouts renderizam o formulário da newsletter, que precisa do TanStack Form de qualquer forma. `pending-imports.test.ts` segue os imports de cada `*-pending.tsx` e falha quando algum chega a `@tanstack/react-form`. Os painéis do dashboard de administração e as seções da visão geral do cliente ainda emparelham cada esqueleto com o seu componente na lista da área, então esses componentes carregam junto com os esqueletos.
 
 ## Um único build do Tailwind
 

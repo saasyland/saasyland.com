@@ -30,7 +30,7 @@ Ein einziger statischer Import eines Header-Namens aus einem Modul, das auch den
 
 Drizzle läuft nur im Worker. Der Browser braucht die Zod-Schemas eines Moduls für seine Formulare und dessen Enum-Tupel für seine Auswahlfelder, deshalb liegen beide in Dateien, die nichts aus Drizzle importieren: `<table>.zod.ts` und `<table>.constants.ts` (siehe [Module](/docs/conventions/modules)). Ein Browser-Import, der eine `<table>.schema.ts` erreicht, führt `sqliteTable(...)` aus, einen Aufruf, den der Bundler behalten muss, und bringt `drizzle-orm` mit.
 
-`<table>.zod.ts` erzeugte früher außerdem mit `drizzle-zod` die Schemas `insert`, `select` und `update` aus den Tabellen, und zur Laufzeit las sie nichts. `drizzle-zod` hält den gesamten Zod-Namespace fest, sodass der Bundler auch jede Zod-Locale, den JSON-Schema-Konverter von Zod und seinen Compiler behielt. Die Pending-Skeletons von `/admin` und `/app` importieren `PreferencesCardPending` aus `preferences-card.tsx`, das `user.zod.ts` importierte, und Pending-Komponenten werden nicht in eigene Chunks aufgeteilt, sodass all das auf jeder Seite geladen wurde. Die Tupel in die Konstanten zu verschieben und diese Schemas zu löschen, hat jede Seite um etwa 75 KiB gzip-komprimiertes JavaScript verkleinert. Die Größen unten umfassen jedes Skript, das die jeweilige Seite lädt, gzip-komprimiert, laut Ausgabe von `bun run build:test`:
+`<table>.zod.ts` erzeugte früher außerdem mit `drizzle-zod` die Schemas `insert`, `select` und `update` aus den Tabellen, und zur Laufzeit las sie nichts. `drizzle-zod` hält den gesamten Zod-Namespace fest, sodass der Bundler auch jede Zod-Locale, den JSON-Schema-Konverter von Zod und seinen Compiler behielt. Die Pending-Skeletons von `/admin` und `/app` importierten `PreferencesCardPending` aus `preferences-card.tsx`, das `user.zod.ts` importierte, und Pending-Komponenten werden nicht in eigene Chunks aufgeteilt, sodass all das auf jeder Seite geladen wurde. Die Tupel in die Konstanten zu verschieben und diese Schemas zu löschen, hat jede Seite um etwa 75 KiB gzip-komprimiertes JavaScript verkleinert. Die Größen unten umfassen jedes Skript, das die jeweilige Seite lädt, gzip-komprimiert, laut Ausgabe von `bun run build:test`:
 
 | Seite          | Vorher    | Nachher   |
 | -------------- | --------- | --------- |
@@ -68,6 +68,25 @@ TanStack Router umschließt Routen-Outlets mit Suspense-Boundaries, und React hy
 - `MotionProvider` über einem Routen-Outlet veröffentlicht einen neuen Context, wenn seine Animationsfunktionen fertig geladen sind. Bei einem Blogbeitrag traf diese Aktualisierung ein, während die Seite noch ihren Inhalt lud; React wich auf clientseitiges Rendern aus, und das Layout verschob sich.
 
 Bevor Sie `__root.tsx` oder einem Layout einen Provider hinzufügen, prüfen Sie, ob sich sein Wert nach der Hydration ändern kann. Wenn ja, binden Sie ihn neben den Komponenten ein, die ihn lesen, unterhalb jedes Routen-`<Outlet />`. Die Platzierungen sind unter [Komponenten und Styling](/docs/conventions/components) aufgeführt.
+
+## Skeletons bleiben im Einstiegsskript [#skeletons-stay-in-the-entry-script]
+
+TanStack Router teilt `pendingComponent` standardmäßig nicht in einen eigenen Chunk auf, und `src/data/tanstack.vite.ts` behält diese Voreinstellung bei, sodass jedes Skeleton im Einstiegsskript liegt und erscheint, sobald eine Navigation `pendingMs` überschreitet. Sie aufzuteilen wurde gemessen und verworfen:
+
+- Die Layout-Skeletons `AdminPending`, `AppPending` und `MarketingPending` zeichnen das Seiten-Skeleton aus `PAGE_SKELETONS`, das die Skeletons aller Bereiche importiert, und der Router lädt die Pending-Komponenten der passenden Routen, bevor die Seite hydriert. `/`, `/app` und `/admin` luden weiterhin jedes Skeleton, nun in eigenen Chunks, und wurden um 3,5 bis 6,5 KiB gzip-komprimiert größer; leichter wurden nur Seiten, deren Layout ein eigenes Skeleton hat, etwa `/docs` und `/blog`.
+- Ein aufgeteiltes Skeleton muss geladen sein, bevor es erscheinen kann. In Headless-Chromium mit 400 ms zusätzlicher Latenz und 200 KiB/s zeigte eine clientseitige Navigation von `/` zu `/blog` den Blog nach 2.290 ms statt nach 1.390 ms, hinter einem Skeleton, das der Build ohne Aufteilung nie brauchte; mit 150 ms Latenz dauerte sie 800 ms statt 640 ms.
+
+Weil jede Seite jedes Skeleton lädt, importiert ein Skeleton `Skeleton`, die shadcn-Primitive, andere Skeletons und die Konstanten, die seine Längen bestimmen, nie ein Formular. `PreferencesCardPending` wurde aus `preferences-card.tsx` exportiert, sodass die Skeletons von `/admin` und `/app` das Einstellungsformular, TanStack Form, die Zeitzonenliste und die Benutzer-Schemas in das Einstiegsskript jeder Seite brachten; es hat jetzt eine eigene Datei, `preferences-card-pending.tsx`. Jedes Skript, das die jeweilige Seite lädt, gzip-komprimiert, laut Ausgabe von `bun run build:test`:
+
+| Seite          | Vorher    | Nachher   |
+| -------------- | --------- | --------- |
+| `/`            | 463,0 KiB | 451,9 KiB |
+| `/docs/<page>` | 553,6 KiB | 527,3 KiB |
+| `/blog`        | 424,7 KiB | 413,6 KiB |
+| `/app`         | 430,4 KiB | 404,1 KiB |
+| `/admin`       | 452,9 KiB | 427,7 KiB |
+
+`/` und `/blog` sparen weniger, weil ihre Layouts das Newsletter-Formular rendern, das TanStack Form ohnehin braucht. `pending-imports.test.ts` folgt den Importen jeder `*-pending.tsx` und schlägt fehl, wenn eine davon `@tanstack/react-form` erreicht. Die Panels des Admin-Dashboards und die Abschnitte der Kundenübersicht koppeln jedes Skeleton weiterhin in der Liste des Bereichs an seine Komponente, sodass diese Komponenten mit den Skeletons geladen werden.
 
 ## Ein einziger Tailwind-Build
 

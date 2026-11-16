@@ -30,7 +30,7 @@ Jeden statyczny import nazwy nagłówka z modułu, który importował też klien
 
 Drizzle działa tylko w Workerze. Przeglądarka potrzebuje schematów Zod modułu do formularzy i jego krotek enumów do list rozwijanych, więc jedne i drugie znajdują się w plikach, które nie importują niczego z Drizzle: `<table>.zod.ts` i `<table>.constants.ts` (zobacz [Moduły](/docs/conventions/modules)). Import w przeglądarce, który dociera do pliku `<table>.schema.ts`, wykonuje `sqliteTable(...)`, czyli wywołanie, które bundler musi zachować, i ciągnie za sobą `drizzle-orm`.
 
-`<table>.zod.ts` budował kiedyś także schematy `insert`, `select` i `update` z tabel za pomocą `drizzle-zod`, a w czasie działania nic ich nie czytało. `drizzle-zod` trzyma się całej przestrzeni nazw zod, więc bundler zachowywał też wszystkie locale zod, jego konwerter JSON Schema i jego kompilator. Szkielety stanu oczekiwania `/admin` i `/app` importują `PreferencesCardPending` z `preferences-card.tsx`, który importował `user.zod.ts`, a komponenty stanu oczekiwania nie są wydzielane do osobnych chunków, więc wszystko to ładowało się na każdej stronie. Przeniesienie krotek do stałych i usunięcie tych schematów odchudziło każdą stronę o około 75 KiB JavaScriptu po kompresji gzip. Poniższe rozmiary obejmują wszystkie skrypty ładowane przez daną stronę, po kompresji gzip, według wyniku `bun run build:test`:
+`<table>.zod.ts` budował kiedyś także schematy `insert`, `select` i `update` z tabel za pomocą `drizzle-zod`, a w czasie działania nic ich nie czytało. `drizzle-zod` trzyma się całej przestrzeni nazw zod, więc bundler zachowywał też wszystkie locale zod, jego konwerter JSON Schema i jego kompilator. Szkielety stanu oczekiwania `/admin` i `/app` importowały `PreferencesCardPending` z `preferences-card.tsx`, który importował `user.zod.ts`, a komponenty stanu oczekiwania nie są wydzielane do osobnych chunków, więc wszystko to ładowało się na każdej stronie. Przeniesienie krotek do stałych i usunięcie tych schematów odchudziło każdą stronę o około 75 KiB JavaScriptu po kompresji gzip. Poniższe rozmiary obejmują wszystkie skrypty ładowane przez daną stronę, po kompresji gzip, według wyniku `bun run build:test`:
 
 | Strona         | Przed     | Po        |
 | -------------- | --------- | --------- |
@@ -68,6 +68,25 @@ TanStack Router otacza outlety tras granicami Suspense, a React hydratuje te gra
 - `MotionProvider` nad outletem trasy publikuje nowy kontekst, gdy jego funkcje animacji skończą się ładować. We wpisie na blogu ta aktualizacja docierała, gdy strona wciąż ładowała treść, React przechodził na renderowanie po stronie klienta, a układ się przesuwał.
 
 Zanim dodasz provider do `__root.tsx` lub layoutu, sprawdź, czy jego wartość może się zmienić po hydratacji. Jeśli tak, zamontuj go obok komponentów, które go odczytują, poniżej każdego `<Outlet />` trasy. Rozmieszczenie providerów opisuje strona [Komponenty i stylowanie](/docs/conventions/components).
+
+## Szkielety zostają w skrypcie wejściowym [#skeletons-stay-in-the-entry-script]
+
+TanStack Router domyślnie nie wydziela `pendingComponent` do osobnego chunka, a `src/data/tanstack.vite.ts` zachowuje to ustawienie, więc każdy szkielet znajduje się w skrypcie wejściowym i pojawia się, gdy tylko nawigacja przekroczy `pendingMs`. Wydzielenie ich zostało zmierzone i odrzucone:
+
+- Szkielety layoutów `AdminPending`, `AppPending` i `MarketingPending` rysują szkielet strony z `PAGE_SKELETONS`, które importuje szkielety wszystkich obszarów, a router ładuje komponenty stanu oczekiwania dopasowanych tras, zanim strona przejdzie hydratację. `/`, `/app` i `/admin` nadal ładowały każdy szkielet, teraz w osobnych chunkach, i urosły o 3,5 do 6,5 KiB po kompresji gzip; lżejsze stały się tylko strony, których layout ma własny szkielet, takie jak `/docs` i `/blog`.
+- Wydzielony szkielet musi się załadować, zanim może się pojawić. W Chromium bez interfejsu, z dodatkowymi 400 ms opóźnienia i przepustowością 200 KiB/s, nawigacja po stronie klienta z `/` na `/blog` pokazała blog po 2290 ms zamiast po 1390 ms, za szkieletem, którego build bez wydzielania nigdy nie potrzebował; przy 150 ms opóźnienia trwała 800 ms zamiast 640 ms.
+
+Ponieważ każda strona ładuje każdy szkielet, szkielet importuje `Skeleton`, prymitywy shadcn, inne szkielety i stałe, które wyznaczają jego długości, nigdy formularz. `PreferencesCardPending` był eksportowany z `preferences-card.tsx`, więc szkielety `/admin` i `/app` wnosiły do skryptu wejściowego każdej strony formularz preferencji, TanStack Form, listę stref czasowych i schematy użytkownika; teraz ma własny plik, `preferences-card-pending.tsx`. Wszystkie skrypty ładowane przez daną stronę, po kompresji gzip, według wyniku `bun run build:test`:
+
+| Strona         | Przed     | Po        |
+| -------------- | --------- | --------- |
+| `/`            | 463,0 KiB | 451,9 KiB |
+| `/docs/<page>` | 553,6 KiB | 527,3 KiB |
+| `/blog`        | 424,7 KiB | 413,6 KiB |
+| `/app`         | 430,4 KiB | 404,1 KiB |
+| `/admin`       | 452,9 KiB | 427,7 KiB |
+
+`/` i `/blog` oszczędzają mniej, bo ich layouty renderują formularz newslettera, który i tak potrzebuje TanStack Form. `pending-imports.test.ts` śledzi importy każdego `*-pending.tsx` i kończy się błędem, gdy któryś dociera do `@tanstack/react-form`. Panele pulpitu administracyjnego i sekcje przeglądu klienta nadal łączą w liście obszaru każdy szkielet z jego komponentem, więc te komponenty ładują się razem ze szkieletami.
 
 ## Jeden build Tailwind
 

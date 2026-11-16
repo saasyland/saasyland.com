@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers"
+
 import type { models } from "@polar-sh/sdk/2026-10"
 import { STACK_DEFAULTS } from "@saasyland/stack"
 import {
@@ -44,6 +46,7 @@ export const NEWER_CLI_VERSION = "0.2.0"
 export const UNKNOWN_KEY = "SAASYLAND-00000000-0000-4000-8000-000000000000"
 export const NOW = new Date("2026-11-14T10:00:00.000Z")
 export const RECORD_OUTAGE = "D1_ERROR: the licence records cannot be written"
+const LICENSE_UPDATE = new RegExp(`^update "${getTableName(license)}" set `, "iu")
 const GITHUB_ENVIRONMENT = {
   GITHUB_REPOSITORY: "saasyland/app",
   GITHUB_REPOSITORY_ID: "873621045",
@@ -225,6 +228,11 @@ export const licenseRecords = async (key: string) => {
     .where(eq(license.key, key))
   assert(records)
   return records
+}
+
+export const watchLicenseUpdates = (): (() => string[]) => {
+  const prepared = vi.spyOn(env.DB, "prepare")
+  return () => prepared.mock.calls.map(([query]) => query).filter((query) => LICENSE_UPDATE.test(query))
 }
 
 export const refuseRecordWrites = async (column: AnySQLiteColumn): Promise<() => Promise<void>> => {

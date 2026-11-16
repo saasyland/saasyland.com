@@ -63,6 +63,7 @@ import {
   signedHeaders,
   summary,
   validate,
+  watchLicenseUpdates,
 } from "~/src/modules/license/__test__/fixtures/license-api"
 import { licenseApiHandlers } from "~/src/modules/license/license.api"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
@@ -265,14 +266,31 @@ describe("POST /activations", () => {
 })
 
 describe("the record of the first activation", () => {
-  it("records when Polar first activates a machine for the key", async () => {
+  it("records when Polar first activates a machine for the key, in one update", async () => {
     vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
     const { key } = await buy()
+    const updates = watchLicenseUpdates()
 
     const { result } = await activate({ key, machine: STUDIO })
 
     expect(result).toMatchObject({ status: HTTP_STATUS.CREATED, success: true })
+    expect(updates()).toHaveLength(1)
     expect(await licenseRecords(key)).toStrictEqual({ activatedAt: NOW, deliveredAt: null })
+  })
+
+  it("writes nothing to the licence once its first activation is recorded", async () => {
+    const { key } = await buy()
+    await activated({ key, machine: STUDIO })
+    const updates = watchLicenseUpdates()
+
+    const again = await activate({ key, machine: STUDIO })
+    const another = await activate({ key, machine: LAPTOP }, LAPTOP_ACTIVATION)
+
+    expect([again.result, another.result]).toMatchObject([
+      { status: HTTP_STATUS.OK, success: true },
+      { status: HTTP_STATUS.CREATED, success: true },
+    ])
+    expect(updates()).toStrictEqual([])
   })
 
   it("never overwrites the first activation when the key activates more machines later", async () => {

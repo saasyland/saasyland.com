@@ -32,6 +32,7 @@ import {
   refuseRecordWrites,
   requestBundle,
   signedHeaders,
+  watchLicenseUpdates,
 } from "~/src/modules/license/__test__/fixtures/license-api"
 import { licenseApiHandlers } from "~/src/modules/license/license.api"
 import { bundleObjectKey } from "~/src/modules/license/license.bundles"
@@ -175,6 +176,28 @@ describe("the record of the first template download", () => {
 
     expect(result.success).toBe(true)
     expect(await licenseRecords(key)).toStrictEqual({ activatedAt: NOW, deliveredAt: NOW })
+  })
+
+  it("records the first download in one update", async () => {
+    const { activationId, key } = await studioBundle()
+    const updates = watchLicenseUpdates()
+
+    await requestBundle({ key, machine: STUDIO }, activationId)
+
+    expect(updates()).toHaveLength(1)
+  })
+
+  it("answers a later download with one round trip to D1 and writes nothing to the licence", async () => {
+    const { activationId, key } = await studioBundle()
+    await requestBundle({ key, machine: STUDIO }, activationId)
+    const updates = watchLicenseUpdates()
+    const batches = vi.spyOn(env.DB, "batch")
+
+    const { result } = await requestBundle({ key, machine: STUDIO }, activationId)
+
+    expect(result.success).toBe(true)
+    expect(updates()).toStrictEqual([])
+    expect(batches).toHaveBeenCalledOnce()
   })
 
   it("never overwrites the first download when the CLI downloads templates again", async () => {

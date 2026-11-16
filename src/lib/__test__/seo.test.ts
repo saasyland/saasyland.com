@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   ORGANIZATION_STRUCTURED_DATA_HTML,
-  ROBOTS,
   SOCIAL_IMAGE,
   buildBlogPostStructuredData,
   buildBlogPostStructuredDataHtml,
@@ -161,19 +160,11 @@ describe("social preview", () => {
 })
 
 describe("robots directive", () => {
-  it("asks crawlers not to index a page that is not indexable", () => {
-    expect(buildPageHead({ indexable: false, pathname: ROUTES.HOME }).meta).toContainEqual({ content: ROBOTS.NOINDEX, name: "robots" })
-  })
-
-  it("leaves the robots directive of an indexable page to the deployment", () => {
+  it("leaves the robots directive of a page to the deployment", () => {
     expect(buildPageHead({ pathname: ROUTES.HOME }).meta).not.toContainEqual(expect.objectContaining({ name: "robots" }))
   })
 
-  it("passes the indexing choice of a route through its page head", () => {
-    expect(pageHead(ROUTES.HOME, { indexable: false })({ loaderData: undefined }).meta).toContainEqual({
-      content: ROBOTS.NOINDEX,
-      name: "robots",
-    })
+  it("leaves it to the deployment on a route's page head too", () => {
     expect(pageHead(ROUTES.TERMS)({ loaderData: undefined }).meta).not.toContainEqual(expect.objectContaining({ name: "robots" }))
   })
 })

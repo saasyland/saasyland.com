@@ -21,11 +21,18 @@ description: "Worker のエントリー、ロケールミドルウェア、バ�
 1. いずれかのエリアが受け持つパスは、ほかの何よりも先にそのエリアのリクエストハンドラーに渡されます。コースのエリアは `/media/` を受け持ち、`serveMedia` に渡します。`serveMedia` は署名済みの動画ファイルを Workers のキャッシュまたは R2 から配信します（[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照）。ライセンスのエリアは `/bundles/` を受け持ち、`serveBundle` に渡します。`serveBundle` は CLI の署名済みのテンプレートバンドルを R2 から配信します（[CLI ライセンス API](/docs/features/cli-licence-api#template-bundles) を参照）。以下の手順のうち、これらに適用されるのはセキュリティヘッダーだけです。
 2. `i18n.middleware.ts` の `resolveLocale` が、`/api` と `/_serverFn` 以外への `GET` と `HEAD` のドキュメントリクエストを検査します。言語エイリアスと正規でないロケールパスをステータス 308 でリダイレクトし、ロケール Cookie が URL のロケールと異なる場合はそれを通知します。
 3. `/api` と `/_serverFn` 以外への `GET` と `HEAD` のリクエストは、まず `ASSETS` から配信されます。プリレンダリングされたページもここに含まれます。404 の場合は TanStack Start のハンドラーに処理が移ります。
-4. ロケール Cookie の更新が必要な場合、Worker はそれをレスポンスに追加します。HTML レスポンスには、スタイルシートとそのロケールのフォントに対する `Link` プリロードヘッダーも付与されます。
+4. ロケール Cookie の更新が必要な場合、Worker はそれをレスポンスに追加します。HTML レスポンスには、そのロケールのフォントに対する `Link` プリロードヘッダーも付与され、Cloudflare はこれを Early Hints として送ります（後述の「ゾーンの設定」を参照）。
 5. HTML レスポンスは各エリアのドキュメントハンドラーを通ります。ライセンスのエリアのハンドラーは地域別の価格を適用します。`cf-ipcountry` の国が購買力に基づく割引の対象である場合、`HTMLRewriter` が `<html>` に割引の属性を追加し、レスポンスは `private, no-cache` になります。
 6. リダイレクト、API 呼び出し、メディアファイルを含むすべてのレスポンスに、[セキュリティと堅牢化](/docs/features/security) のセキュリティヘッダーを付け、レンダリングされたものもプリレンダリングされたものも含め、すべての HTML レスポンスには、そのレスポンス専用の nonce を持つスクリプトのポリシーも付けます。Cloudflare も、自身が挿入するスクリプトにこの nonce を付けます。Worker を経由しないファイルには、`public/_headers` から同じセットが付きます。
 
 `src/server.ts` はどのエリアも名指ししません。各エリアがリクエストハンドラーとドキュメントハンドラーを `src/data/<area>.worker.ts` で宣言し、`src/data/worker.entries.ts` がそれらをまとめます（[エリアが追加するもの](/docs/architecture/platform-layer#what-the-areas-add)を参照）。
+
+## ゾーンの設定
+
+ゾーンの 2 つの設定がすべてのページに影響します。どちらも Cloudflare ダッシュボードの **Speed** > **Settings** > **Content Optimization** にあります。
+
+- **Early Hints**: オン。Cloudflare はページの直前のレスポンスの `Link` ヘッダーを保存し、Worker が同じ URL への次のレスポンスを用意している間に、それを `103 Early Hints` レスポンスとして送ります。そのためブラウザーはフォントのダウンロードを早く始められます。Cloudflare はデプロイ後にもこのヘッダーを送り直すので、ヘッダーにはフォントだけを並べます。[パフォーマンス](/docs/conventions/performance)を参照してください。
+- **Speed Brain**: オフ。訪問者がこれから開くリンクを Chromium にプリフェッチさせる `Speculation-Rules` ヘッダーを追加しますが、Cloudflare は Worker を実行する URL のプリフェッチを拒否します。このサイトではすべてのページがそうなので（`run_worker_first`）、プリフェッチはどれも `503` と `cf-speculation-refused: prefetch refused: disabled for worker requests` で失敗します。また Cloudflare は、このサイトのように `'strict-dynamic'` と nonce を使うポリシーには対応しないとしています。オフにしても失うものはありません。TanStack Router は、ポインターの下にあるリンクのコードとデータをすでに読み込み（`defaultPreload: "intent"`）、新しいドキュメントを要求せずにそのページを開きます。Free プランでは Speed Brain は既定でオンです。
 
 ## デプロイ
 

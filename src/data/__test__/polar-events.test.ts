@@ -115,13 +115,32 @@ describe("Polar event dispatch", () => {
     expect(settled).toHaveBeenCalledOnce()
   })
 
-  it("rejects when one area's handler fails, so the plugin answers 500 and Polar retries", async () => {
-    const failure = new Error("mirror unavailable")
-    const failing = handler([POLAR_WEBHOOK_EVENT.ORDER_PAID])
-    failing.handle.mockRejectedValue(failure)
-    const { handlePolarEvent } = await loadWith({ FAILING: [failing], WORKING: [handler([POLAR_WEBHOOK_EVENT.ORDER_PAID])] })
+  it("waits for every area before it rejects with every failure, so the plugin answers 500 and Polar retries", async () => {
+    const mirror = new Error("mirror unavailable")
+    const licence = new Error("licence store unavailable")
+    const slow = Promise.withResolvers<undefined>()
+    const failingFirst = handler([POLAR_WEBHOOK_EVENT.ORDER_PAID])
+    const failingSecond = handler([POLAR_WEBHOOK_EVENT.ORDER_PAID])
+    const working = handler([POLAR_WEBHOOK_EVENT.ORDER_PAID])
+    failingFirst.handle.mockRejectedValue(mirror)
+    failingSecond.handle.mockRejectedValue(licence)
+    working.handle.mockReturnValue(slow.promise)
+    const { handlePolarEvent } = await loadWith({ FIRST: [failingFirst], SECOND: [failingSecond], WORKING: [working] })
 
-    await expect(handlePolarEvent(PAID)).rejects.toBe(failure)
+    const rejected = vi.fn<(error: unknown) => void>()
+    const dispatch = handlePolarEvent(PAID).catch(rejected)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(rejected).not.toHaveBeenCalled()
+
+    slow.resolve(undefined)
+    await dispatch
+
+    expect(rejected).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ errors: [mirror, licence], message: `2 of 3 handlers failed on ${POLAR_WEBHOOK_EVENT.ORDER_PAID}` }),
+    )
+    expect(rejected.mock.calls[0]?.[0]).toBeInstanceOf(AggregateError)
   })
 
   it("subscribes to nothing and accepts every event when no area handles one", async () => {

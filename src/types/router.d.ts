@@ -8,5 +8,6 @@ declare module "@tanstack/react-router" {
   interface StaticDataRouteOption {
     dark?: boolean
     namespaces?: readonly string[]
+    underHeader?: boolean
   }
 }

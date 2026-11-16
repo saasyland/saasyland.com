@@ -13,6 +13,7 @@ import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 
 import { pageHead } from "~/src/lib/seo"
 
+import { ContentPage } from "~/src/presentation/components/custom/content-page"
 import { CourseCard } from "~/src/presentation/components/custom/courses/course-card"
 import { CataloguePending } from "~/src/presentation/components/custom/courses/courses-pending"
 
@@ -26,26 +27,24 @@ const CoursesPage = (): JSX.Element => {
   const { data: courses } = useSuspenseQuery(catalogueQuery({ locale }))
 
   return (
-    <section className="relative">
-      <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32">
-        <h1 className="max-w-[14ch] text-headline-peak text-balance text-foreground">{t("catalogue.title")}</h1>
-        <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("catalogue.description", { offer })}</p>
+    <ContentPage lead={t("catalogue.description", { offer })} title={t("catalogue.title")}>
+      {courses.length === 0 && (
+        <div className="mt-14 border-y border-border py-10 md:mt-20">
+          <h2 className="text-title text-balance text-foreground">{t("catalogue.empty.title")}</h2>
+          <p className="mt-2 max-w-2xl text-body text-pretty text-muted-foreground">{t("catalogue.empty.body")}</p>
+        </div>
+      )}
 
-        {courses.length === 0 && (
-          <p className="mt-14 border-y border-border py-10 text-body text-muted-foreground md:mt-20">{t("catalogue.empty")}</p>
-        )}
-
-        {courses.length > 0 && (
-          <ul className="mt-14 grid gap-6 md:mt-20 lg:grid-cols-2">
-            {courses.map((course) => (
-              <li key={course.id}>
-                <CourseCard course={course} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
+      {courses.length > 0 && (
+        <ul className="mt-14 grid gap-6 md:mt-20 lg:grid-cols-2">
+          {courses.map((course) => (
+            <li key={course.id}>
+              <CourseCard course={course} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </ContentPage>
   )
 }
 

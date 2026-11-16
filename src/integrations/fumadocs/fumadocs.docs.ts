@@ -1,4 +1,4 @@
-import { notFound } from "@tanstack/react-router"
+import { isNotFound, notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { getBreadcrumbItems } from "fumadocs-core/breadcrumb"
 import zod from "zod/v4"
@@ -8,6 +8,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
 
+import { notFoundHead } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"
 
 import { ROUTES } from "~/src/routes"
@@ -43,8 +44,18 @@ export const loadDocsPage = async (splat?: string) => {
   return page
 }
 
-export const docsHead = ({ loaderData }: { loaderData?: Awaited<ReturnType<typeof loadDocsPage>> | undefined }) =>
-  buildPageHead({
+export const docsHead = ({
+  loaderData,
+  match,
+}: {
+  loaderData?: Awaited<ReturnType<typeof loadDocsPage>> | undefined
+  match: { error: unknown }
+}) => {
+  if (isNotFound(match.error)) {
+    return notFoundHead(getCurrentLocale())
+  }
+
+  return buildPageHead({
     description: loaderData?.description,
     locale: loaderData?.locale,
     pathname: loaderData?.pathname ?? ROUTES.DOCS,
@@ -52,3 +63,4 @@ export const docsHead = ({ loaderData }: { loaderData?: Awaited<ReturnType<typeo
     title: loaderData?.title,
     type: "article",
   })
+}

@@ -1,7 +1,7 @@
 import type { JSX } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Link, createFileRoute } from "@tanstack/react-router"
+import { Link, createFileRoute, isNotFound } from "@tanstack/react-router"
 import { ArrowLeft, Play } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
@@ -16,7 +16,10 @@ import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 
-import { rethrowAsNotFound } from "~/src/lib/not-found"
+import { CTA_CLASSES } from "~/src/data/cta"
+
+import { cn } from "~/src/lib/cn"
+import { notFoundHead, rethrowAsNotFound } from "~/src/lib/not-found"
 import { buildPageHead } from "~/src/lib/seo"
 
 import { Progress, ProgressLabel } from "~/src/presentation/components/shadcn/progress"
@@ -27,8 +30,7 @@ import { UnlockLink } from "~/src/presentation/components/custom/courses/locked-
 
 import { ROUTES } from "~/src/routes"
 
-const START_CLASSNAME =
-  "mt-10 inline-flex h-11 items-center gap-2.5 rounded-lg bg-primary px-5 text-body-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-exp hover:bg-primary/88 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring active:translate-y-px"
+const START_CLASSNAME = cn("mt-10", CTA_CLASSES.PRIMARY)
 
 const CourseProgress = ({ lessons }: { readonly lessons: readonly Course["pageLesson"][] }): JSX.Element => {
   const t = useTranslations("pages.courses.course")
@@ -119,13 +121,24 @@ const NAMESPACE = "pages.courses"
 
 export const Route = createFileRoute("/_site/_marketing/courses/$course/")({
   component: CoursePage,
-  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; pathname: string; summary: string; title: string } | undefined }) =>
-    buildPageHead({
+  head: ({
+    loaderData,
+    match,
+  }: {
+    loaderData?: { locale: SupportedLocale; pathname: string; summary: string; title: string } | undefined
+    match: { error: unknown }
+  }) => {
+    if (isNotFound(match.error)) {
+      return notFoundHead(getCurrentLocale())
+    }
+
+    return buildPageHead({
       description: loaderData?.summary,
       locale: loaderData?.locale,
       pathname: loaderData?.pathname ?? ROUTES.COURSES,
       title: loaderData?.title,
-    }),
+    })
+  },
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [data] = await Promise.all([

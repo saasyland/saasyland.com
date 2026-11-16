@@ -36,7 +36,10 @@ const ResetPasswordPage = (): JSX.Element => {
           <>
             <p className="text-body text-pretty text-destructive">{t("form.invalidToken")}</p>
             <Link
-              className={cn(buttonVariants(), "h-12 w-full gap-2 text-body-sm font-semibold transition-[background-color,color,transform]")}
+              className={cn(
+                buttonVariants(),
+                "h-11 w-full gap-2 px-5 text-body-sm font-semibold transition-[background-color,color,transform]",
+              )}
               to={ROUTES.FORGOT_PASSWORD}
             >
               {t("form.requestNewLink")}

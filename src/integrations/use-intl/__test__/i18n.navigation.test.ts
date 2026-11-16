@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { I18N } from "~/src/integrations/use-intl/i18n.config"
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import {
   canonicalizePathname,
   deLocalizePathname,
   extractLocaleFromCallbackURL,
+  localizeHref,
   localizePathname,
 } from "~/src/integrations/use-intl/i18n.paths"
 describe("router locale rewrites", () => {
@@ -23,6 +24,17 @@ it("keeps external and fragment links unchanged", () => {
   for (const pathname of ["https://example.com", "//example.com", "#pricing", "mailto:test@example.com", "/api/search"]) {
     expect(localizePathname({ locale: "pl-PL", pathname })).toBe(pathname)
   }
+})
+it.each<{ expected: string; href: string; locale: SupportedLocale }>([
+  { expected: "/pl-PL#pricing", href: "/#pricing", locale: "pl-PL" },
+  { expected: "/#pricing", href: "/#pricing", locale: I18N.DEFAULT_LOCALE },
+  { expected: "/de-DE/docs?tab=cli#install", href: "/docs?tab=cli#install", locale: "de-DE" },
+  { expected: "/uk-UA/blog?page=2", href: "/pl-PL/blog?page=2", locale: "uk-UA" },
+  { expected: "#pricing", href: "#pricing", locale: "pl-PL" },
+  { expected: "/api/search?q=a#top", href: "/api/search?q=a#top", locale: "pl-PL" },
+  { expected: "https://example.com/?a#b", href: "https://example.com/?a#b", locale: "pl-PL" },
+])("localizes only the path of $href in $locale, keeping its query and fragment", ({ expected, href, locale }) => {
+  expect(localizeHref({ href, locale })).toBe(expected)
 })
 it("normalizes locale roots and prefixed API links", () => {
   expect(deLocalizePathname("/pl-PL")).toBe("/")

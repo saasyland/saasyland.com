@@ -13,6 +13,8 @@ import process from "node:process"
 
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
+import { formOfAddressProblems } from "~/src/lib/forms-of-address"
+
 const FAILURE_EXIT_CODE = 1
 const MIN_UNTRANSLATED_WORDS = 5
 
@@ -91,6 +93,7 @@ export const messageProblems = ({ locale, original, value }: { locale: Supported
       ...codeOf(literalTextOf(parsedOriginal))
         .filter((code) => !text.includes(code))
         .map((code) => `changed the path or command ${code}`),
+      ...formOfAddressProblems({ locale, text }),
     )
     if (locale !== I18N.DEFAULT_LOCALE && value === original && (text.match(/\p{L}+/gu)?.length ?? 0) >= MIN_UNTRANSLATED_WORDS) {
       problems.push("untranslated English text")

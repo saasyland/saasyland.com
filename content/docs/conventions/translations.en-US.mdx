@@ -37,10 +37,22 @@ const t = useTranslations("pages.admin.courses.form")
 
 - Keys are nested JSON objects with camelCase names, grouped the way the screen is: `table.headers.course`, `delete.confirm`.
 - Plurals, numbers and dates use ICU syntax inside the message, never string concatenation in code: `"{e2eSpecs, plural, one {# Playwright suite} other {# Playwright suites}}"`.
-- `scripts/check-message-formats.ts` requires the same ICU arguments and tags in every locale, and the English message's file paths and `bun run`, `bunx`, `npx` or `vp` commands character for character. It rejects English text left in another locale and Markdown backticks, which messages do not render.
+- `scripts/check-message-formats.ts` requires the same ICU arguments and tags in every locale, and the English message's file paths and `bun run`, `bunx`, `npx` or `vp` commands character for character. It rejects English text left in another locale, Markdown backticks, which messages do not render, and a [form of address](#one-form-of-address) that the locale does not use.
 - Format numbers, dates and currencies for the reader's locale with `useFormatter` from use-intl, never by hand. Dates use a named format from `I18N.FORMATS` (`date`, `time`, `calendarDate`), so the time zone and the zone label stay consistent. A named format holds a date or a time, never both: engines join the two differently, and Safari writes “Jan 1, 2025 at 7:00 AM” where the server writes “Jan 1, 2025, 7:00 AM”, so a date with its time is the `common.dateTime` message, as in `t("common.dateTime", { value })`. A relative time counts from when its data was read, the `dataUpdatedAt` of its query, as in `format.relativeTime(session.updatedAt, dataUpdatedAt)`, never from `new Date()`, which the server and the browser read at different moments. `useCurrencyFormatter` formats an amount in a given currency.
 - Zod messages in a module's schemas are keys of its `<table>.validations` namespace (`"slugInvalid"`), and the numbers they mention come from `<MODULE>_VALIDATION_PARAMS`. See [Forms and tables](/docs/conventions/forms-and-tables).
 - Text stored in the database that visitors read in several languages is a `LocalizedText` column. English is required and is the fallback that `localize(text, locale)` returns for a missing translation.
+
+## One form of address
+
+Every locale addresses the reader one way, in every message, email, legal page, docs page, blog post and changelog entry: the form that developer tools use in that language. `FORMS_OF_ADDRESS` in `src/lib/forms-of-address.ts` names the form of each locale and lists the forms that contradict it, and `scripts/check-message-formats.ts` and `scripts/check-content.ts` fail when a translation uses one of them outside code, link targets and Japanese 「」 quotations.
+
+<RepositoryTable name="formsOfAddress" columns={["Locale", "Form", "Never", "Never inside a sentence", "Never ending a sentence"]} />
+
+- A word under **Never** fails wherever it stands, capitalised at the start of a sentence too.
+- A word under **Never inside a sentence** fails after a word, a number or a comma on the same line. At the start of a sentence the same word is often the third person, as in `Sie laufen im Worker` (“they run in the Worker”), so the check leaves it there for the reviewer.
+- A form under **Never ending a sentence** fails before a Japanese full stop.
+
+German says du, in lowercase as Duden recommends, and the legal pages do too: the form of address has no legal effect. Polish capitalises Ty and Twój as a courtesy. Japanese ends its sentences in です・ます, while headings, list items, table cells and taglines may end in a noun or a plain verb, never in the plain copula. The check finds the pronouns and endings that are unambiguous; an imperative or a verb ending that only the meaning of the sentence tells apart, such as Spanish `Ejecute` for `Ejecuta`, is for the reviewer.
 
 ## Numbers are measured, not typed
 
@@ -59,6 +71,7 @@ Every page under `content/docs`, every post under `content/blog` and every chang
 - a `meta.<locale>.json` lists different slugs from English;
 - a title, description or paragraph is still in English;
 - a machine-translation marker is left in the text;
+- a translation addresses the reader in a form that its locale does not use (see [One form of address](#one-form-of-address));
 - a bare URL runs straight into the text after it, as one before a full-width bracket or full stop in Japanese does, so its link would take that text too;
 - a code block titled with a repository path, such as `title="src/integrations/better-auth/auth.access.ts"`, is not an excerpt of that file;
 - a docs page names a local host or an `APP_DOMAIN` subdomain that `appHostsForMode` allows in no build mode;
@@ -67,7 +80,7 @@ Every page under `content/docs`, every post under `content/blog` and every chang
 - an internal link ends in a slash, `/index` or `.html`, or starts with a locale or a language alias such as `/pl/`: the site redirects such a path, and `localizeHref` adds the page's locale to every internal link;
 - a translation leaves out or adds inline code, a component, a component prop other than `title`, `description`, `excerpt` and `unreleased`, or a link to another page, or has a different number of table rows from the English page.
 
-Write translations as a native speaker would, with the terminology the locale already uses in `messages/<locale>/` (Polish, for example, names the tiers Komplet and Agencja). Code identifiers, file paths, commands and product names stay as they are, and links keep their `/docs/...` paths without a locale prefix, which the site adds when it renders them.
+Write translations as a native speaker would, with the terminology the locale already uses in `messages/<locale>/` (Polish, for example, names the tiers Podstawa, Komplet and Agencja and calls a discount a rabat). Code identifiers, file paths, commands and product names stay as they are, and links keep their `/docs/...` paths without a locale prefix, which the site adds when it renders them.
 
 ## Related pages
 

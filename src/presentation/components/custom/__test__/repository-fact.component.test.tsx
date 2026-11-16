@@ -24,6 +24,7 @@ import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.c
 import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
 import { APP_STATEMENTS } from "~/src/data/access"
+import { OAUTH_PROVIDERS } from "~/src/data/auth"
 import { CLI_LICENSE_COMMANDS, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -36,6 +37,7 @@ import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/c
 import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT } from "~/e2e/data/accounts"
 import { TEST_LICENSE } from "~/e2e/data/licenses"
 import { COMMIT_EMOJIS } from "~/scripts/commit-msg"
+import { ROUTES } from "~/src/routes"
 
 const renderInLocale = (locale: SupportedLocale, children: ReactNode) =>
   render(
@@ -312,5 +314,32 @@ describe("CLI template bundles", () => {
     )
     expect(new Set(rows.map(([environment]) => environment))).toEqual(new Set(Object.values(ENVIRONMENT)))
     expect(rows).toEqual(expected)
+  })
+})
+
+describe("OAuth callbacks", () => {
+  it("prints the callback paths and URLs of every OAuth provider under the auth routes' base path", () => {
+    renderInLocale(
+      "en-US",
+      <ul>
+        <li>
+          <RepositoryFact name="oauthCallbackPath" />
+        </li>
+        <li>
+          <RepositoryFact name="oauthCallbackPaths" />
+        </li>
+        <li>
+          <RepositoryFact name="oauthCallbackUrls" />
+        </li>
+      </ul>,
+    )
+
+    const callback = `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}`
+    const list = new Intl.ListFormat("en-US")
+    expect(listItems()).toEqual([
+      `${callback}/<provider>`,
+      list.format(OAUTH_PROVIDERS.map(({ id }) => `${callback}/${id}`)),
+      list.format(OAUTH_PROVIDERS.map(({ id }) => `https://<host>${callback}/${id}`)),
+    ])
   })
 })

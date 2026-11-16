@@ -6,7 +6,6 @@ import { executeMutation } from "~/src/platform/testing/lib/query"
 import {
   createAuthSessionFixture,
   createAuthUserMutationResult,
-  createNullableStringNull,
 } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
 import { ROLE_CODES } from "~/src/integrations/better-auth/auth.roles"
 import type { auth } from "~/src/integrations/better-auth/auth.server"
@@ -18,8 +17,6 @@ import { updateUserMutation } from "~/src/modules/user/use-cases/update-user"
 const HEADERS = new Headers()
 const TARGET_USER_ID = "01900000-0000-7000-8000-000000000002"
 const ADMIN_USER_ID = "01900000-0000-7000-8000-000000000001"
-const TIMEZONE = "Europe/Warsaw"
-const CLEARED_IMAGE = createNullableStringNull()
 
 type AuthApi = typeof auth.api
 
@@ -41,7 +38,7 @@ const mockAdminSession = (): void => {
 }
 
 describe("update-user", () => {
-  it("passes userId and patch data to auth.api.adminUpdateUser", async () => {
+  it("renames the user through auth.api.adminUpdateUser", async () => {
     expect.hasAssertions()
     mockAdminSession()
     const updatedUser = createAuthUserMutationResult({ userId: TARGET_USER_ID }).user
@@ -55,40 +52,13 @@ describe("update-user", () => {
     })
   })
 
-  it("forwards only the fields present in the action input", async () => {
+  it("rejects an empty name before calling Better Auth", async () => {
     expect.hasAssertions()
     mockAdminSession()
-    adminUpdateUserMock.mockResolvedValue(createAuthUserMutationResult({ userId: TARGET_USER_ID }).user)
 
-    await executeMutation(updateUserMutation, {
-      name: "Updated Name",
-      timezone: TIMEZONE,
-      userId: TARGET_USER_ID,
-    })
+    await expect(executeMutation(updateUserMutation, { name: "", userId: TARGET_USER_ID })).rejects.toThrow(ERROR_CODES.VALIDATION)
 
-    expect(adminUpdateUserMock).toHaveBeenCalledWith({
-      body: {
-        data: { name: "Updated Name", timezone: TIMEZONE },
-        userId: TARGET_USER_ID,
-      },
-      headers: HEADERS,
-    })
-  })
-
-  it("forwards null image clears in patch data", async () => {
-    expect.hasAssertions()
-    mockAdminSession()
-    adminUpdateUserMock.mockResolvedValue(createAuthUserMutationResult({ userId: TARGET_USER_ID }).user)
-
-    await executeMutation(updateUserMutation, { image: CLEARED_IMAGE, userId: TARGET_USER_ID })
-
-    expect(adminUpdateUserMock).toHaveBeenCalledWith({
-      body: {
-        data: { image: CLEARED_IMAGE },
-        userId: TARGET_USER_ID,
-      },
-      headers: HEADERS,
-    })
+    expect(adminUpdateUserMock).not.toHaveBeenCalled()
   })
 
   it("returns a domain error when the caller is not an admin", async () => {

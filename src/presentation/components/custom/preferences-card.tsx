@@ -1,4 +1,4 @@
-import { type JSX, useId } from "react"
+import { type JSX, useId, useMemo } from "react"
 
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
@@ -39,6 +39,7 @@ export const PreferencesCard = (): JSX.Element => {
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
   const timezone = useSuspenseQuery(getCurrentSessionQuery).data?.user.timezone ?? I18N.DEFAULT_TIMEZONE
+  const timezoneOptions = useMemo(() => TIMEZONE_CODES.map((code) => ({ id: code, name: t(`timezones.${code}`) })), [t])
 
   const updatePreferences = useMutation({
     ...updatePreferencesMutation,
@@ -100,13 +101,10 @@ export const PreferencesCard = (): JSX.Element => {
                   <FieldDescription id={descriptionId}>{t("components.custom.preferences-card.timezone.description")}</FieldDescription>
                   <ComboboxContent>
                     <ComboboxList
+                      items={timezoneOptions}
                       renderEmptyState={() => <ComboboxEmpty>{t("components.custom.preferences-card.timezone.empty")}</ComboboxEmpty>}
                     >
-                      {TIMEZONE_CODES.map((code) => (
-                        <ComboboxItem id={code} key={code}>
-                          {t(`timezones.${code}`)}
-                        </ComboboxItem>
-                      ))}
+                      {(option) => <ComboboxItem id={option.id}>{option.name}</ComboboxItem>}
                     </ComboboxList>
                   </ComboboxContent>
                 </Combobox>

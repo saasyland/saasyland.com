@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers"
 
+import { checkout } from "@polar-sh/better-auth"
 import type { models } from "@polar-sh/sdk/2026-10"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -7,7 +8,9 @@ import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { type PolarProduct, polarCustomer, polarOrder, signedPolarWebhook } from "~/src/platform/testing/lib/polar"
 import { TEST_APP_URL } from "~/src/platform/testing/lib/test-request"
 
+import { postJson } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
+import { polarCore } from "~/src/integrations/polar/polar.config"
 import { POLAR_ORDER_STATUS, POLAR_WEBHOOK_EVENT } from "~/src/integrations/polar/polar.constants"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
@@ -62,8 +65,7 @@ describe("the polar area's Polar plugin", () => {
     expect(auth.options.plugins.map(({ id }) => id)).toContain(POLAR_AUTH_PLUGINS[0].plugin.id)
   })
 
-  it("exempts the webhooks from rate limiting and closes no path", () => {
-    expect(auth.options.disabledPaths).toStrictEqual([])
+  it("exempts the webhooks from rate limiting", () => {
     expect(auth.options.rateLimit.customRules).toHaveProperty([ROUTES.API_AUTH_POLAR.WEBHOOKS], false)
   })
 
@@ -71,6 +73,14 @@ describe("the polar area's Polar plugin", () => {
     expect(auth.api).not.toHaveProperty("checkout")
     expect(auth.api).toHaveProperty("portal")
     expect(auth.api).toHaveProperty("polarWebhooks")
+  })
+
+  it("answers 404 at the path of the plugin's own checkout, which no disabled path closes any more, so adding checkout() to the plugin fails here", async () => {
+    const checkoutPath = `${ROUTES.API_AUTH_BASE}${checkout()(polarCore).checkout.path}`
+
+    const response = await auth.handler(postJson(checkoutPath, { products: PRODUCT.id }))
+
+    expect(response.status).toBe(HTTP_STATUS.NOT_FOUND)
   })
 
   it("hands a signed event to the areas that handle it and acknowledges it", async () => {

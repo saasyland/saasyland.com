@@ -11,14 +11,9 @@ import { userZodSchemas } from "~/src/modules/user/user.zod"
 export const updateUser = createServerFn({ method: "POST" })
   .middleware([authorized({ user: ["update"] })])
   .validator((input: User["updateUser"]) => userZodSchemas.updateUser.parse(input))
-  .handler(({ context, data: input }) => {
-    const { userId, ...data } = input
-
-    return auth.api.adminUpdateUser({
-      body: { data, userId },
-      headers: context.requestHeaders,
-    })
-  })
+  .handler(({ context, data: { name, userId } }) =>
+    auth.api.adminUpdateUser({ body: { data: { name }, userId }, headers: context.requestHeaders }),
+  )
 
 export const updateUserMutation = mutationOptions({
   mutationFn: (data: User["updateUser"]) => updateUser({ data }),

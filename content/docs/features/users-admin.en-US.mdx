@@ -1,18 +1,18 @@
 ---
 title: "Users (admin)"
-description: "User management under /admin/users: a live users table with row actions, plus demo invitation and role tabs."
+description: "User management under /admin/users: a live users table, a profile page per user and actions that call the Better Auth admin API, plus demo invitation and role tabs."
 ---
 
 ## Routes
 
-`src/routes/admin.users.tsx` is a layout whose link tabs are `USER_TABS` in `src/data/user-tabs.ts`, which joins each area's `src/data/<area>.user-tabs.ts` by `order`. A tab names its path and its page skeleton, and its label in the area's `navigation.<area>.json` also names the page in the breadcrumbs. The auth area adds **All users** and **Security**, the team area **Invitations** and **Roles & Permissions**. `/admin/users` redirects to `/admin/users/all`. Every tab takes its page title from `pages.admin.users`; the team area's own copy is in `pages.admin.users.invitations` and `pages.admin.users.roles`, which it adds to the layout in `src/data/team.namespaces.ts`.
+`src/routes/admin.users.tsx` is a layout whose link tabs are `USER_TABS` in `src/data/user-tabs.ts`, which joins each area's `src/data/<area>.user-tabs.ts` by `order`. A tab names its path and its page skeleton, and its label in the area's `navigation.<area>.json` also names the page in the breadcrumbs. The auth area adds **All users**, the team area **Invitations** and **Roles & Permissions**. `/admin/users` redirects to `/admin/users/all`. Every tab takes its page title from `pages.admin.users`; the team area's own copy is in `pages.admin.users.invitations` and `pages.admin.users.roles`, which it adds to the layout in `src/data/team.namespaces.ts`.
 
 | Route                      | Content                                                  |
 | -------------------------- | -------------------------------------------------------- |
 | `/admin/users/all`         | Live users table                                         |
+| `/admin/users/$userId`     | A user's profile: account details and sessions           |
 | `/admin/users/invitations` | Demo rows (`ADMIN_INVITATION_ROWS`) with an email search |
 | `/admin/users/roles`       | Demo rows (`ADMIN_ROLE_ROWS`)                            |
-| `/admin/users/security`    | Empty state                                              |
 
 ## All users
 
@@ -21,24 +21,48 @@ description: "User management under /admin/users: a live users table with row ac
 ```
 
 - `getUsersPageQuery` calls the `getUsers` server function (`src/modules/user/use-cases/get-users.ts`, permission `user: ["list"]`). Pagination and sorting run on the server over name, role, status, email verification, 2FA, time zone and the created and updated dates.
-- Status is not a column. `getUserStatus` (`user.utils.ts`) derives `banned`, `pending` or `active` from `banned` and `emailVerified`, and the server sorts by the same SQL `case` expression.
-- `userColumns` lives in `src/presentation/components/custom/admin/users/user-columns.tsx`; the created and updated dates use the `common.dateTime` message, in the viewer's own time zone with its abbreviation, so both columns read and sort in one zone. Each user's zone has its own column.
+- Status is not a column. `getUserStatus` (`user.utils.ts`) derives `banned`, `pending` or `active` from `banned` and `emailVerified`, and the server sorts by the same SQL `case` expression. `UserStatusBadge` (`user-status-badge.tsx`) draws it in the table and on the profile.
+- `userColumns` lives in `src/presentation/components/custom/admin/users/user-columns.tsx`; each name links to the user's profile. The created and updated dates use the `common.dateTime` message, in the viewer's own time zone with its abbreviation, so both columns read and sort in one zone. Each user's zone has its own column.
 
-## Row actions
+**Add user** opens `CreateUserDialog` (`create-user-dialog.tsx`), a TanStack Form validated by `userZodSchemas.createUser`: name, email, a starting password and a role. It calls `createUser` (`user: ["create"]`, and Better Auth also checks `user: ["set-role"]` for the role), then opens the new user's profile. Better Auth creates the account with its email unverified, so the first sign-in leads to `/auth/verify-email`, which sends the verification link.
 
-`UserRowActions` (`row-actions.tsx`) is the menu in the last column:
+## Profile
 
-- **Reset password** opens `ResetPasswordDialog`, which calls `setUserPassword`.
-- **Ban** or **Unban** calls `banUser` or `unbanUser`.
-- **Delete** opens `DeleteUserDialog`, which calls `deleteUser`.
+`src/routes/admin.users.$userId.tsx` loads two queries at once and titles the page after the user; a user that does not exist is a not found page.
 
-Every success invalidates `USER_QUERY_KEYS.ALL` and shows a toast; errors go through `useErrorMessage`. The **Edit** and **View profile** items and the **Add user** button have no action yet.
+- `getUserQuery` reads the user's row (`get-user.ts`, `user: ["get"]`). `UserDetails` (`user-details.tsx`) lists the role, status, email verification, two-factor authentication, time zone and the created and updated dates, in the order of `ADMIN_USER_DETAILS` (`src/data/admin.ts`), which `AdminUserProfilePending` follows too.
+- `listUserSessionsQuery` lists the user's live sessions, newest first, without their tokens (`list-user-sessions.ts`, `session: ["list"]`). `UserSessions` (`user-sessions.tsx`) shows each device and its activity, revokes one session with `revokeUserSession` and, after a confirmation, every session with `revokeUserSessions` (both `session: ["revoke"]`). `revokeUserSession` takes the session's ID and looks its token up on the server, as `revokeSession` does for the admin's own sessions.
 
-## Not wired
+The header shows the user's name and email and the same actions menu as the table row.
 
-`createUser`, `getUser`, `updateUser`, `setUserRole`, `impersonateUser` and `stopImpersonatingUser` exist in `src/modules/user/use-cases` with permission middleware, but no screen calls them. There is no invitation table; the real roles are `admin` and `customer` in `auth.roles.ts`. The invitations and roles tabs are the team area's demo screens: their rows live in `src/data/admin-team.ts` and their skeletons in `team-pending.tsx`, and a project without the team area keeps the auth area's two tabs.
+## Actions
+
+`UserActions` (`row-actions.tsx`) is the menu of a user, in the last column of the table (`UserRowActions`) and on the profile:
+
+| Item               | Opens                    | Server function                                  |
+| ------------------ | ------------------------ | ------------------------------------------------ |
+| **Edit user**      | `EditUserDialog`         | `updateUser` (`user: ["update"]`), the name only |
+| **Change role**    | A submenu of the roles   | `setUserRole` (`user: ["set-role"]`)             |
+| **Reset password** | `ResetPasswordDialog`    | `setUserPassword` (`user: ["set-password"]`)     |
+| **Impersonate**    | Nothing, signs in        | `impersonateUser` (`user: ["impersonate"]`)      |
+| **Ban user**       | `BanUserDialog`, confirm | `banUser` (`user: ["ban"]`)                      |
+| **Unban user**     | Nothing                  | `unbanUser` (`user: ["ban"]`)                    |
+| **Delete user**    | `DeleteUserDialog`       | `deleteUser` (`user: ["delete"]`)                |
+
+- The signed-in admin's own row has no **Change role**, **Ban user** or **Delete user**, so an admin cannot lock themselves out; Better Auth refuses to ban or delete the caller anyway.
+- **Impersonate** appears only for a user who is neither an admin nor banned: Better Auth refuses to impersonate an admin without `user: ["impersonate-admins"]`, which no role holds, and refuses a session to a banned user. See [Impersonation](/docs/features/impersonation).
+- Deleting the user whose profile is open returns to `/admin/users/all`.
+- Every success invalidates `USER_QUERY_KEYS.ALL`, or `SESSION_QUERY_KEYS.USER` for sessions, and shows a toast; errors, a missing permission among them, go through `useErrorMessage`. The menu button is disabled while one of its actions runs.
+
+Each server function checks its own permission with `authorized(...)` from `auth.middleware.ts`. The `user` and `session` statements are Better Auth's `defaultStatements`, and the `admin` role holds Better Auth's `adminAc`, so `src/data/auth.access.ts` declares only `admin` and `settings`. The `/admin` guard admits only roles that hold `admin: ["access"]`.
+
+## Team area
+
+There is no invitation table; the real roles are `admin` and `customer` in `auth.roles.ts`. The invitations and roles tabs are the team area's demo screens: their rows live in `src/data/admin-team.ts` and their skeletons in `team-pending.tsx`, and a project without the team area keeps the auth area's one tab.
 
 ## Related guides
 
 - [DataTable](/docs/ui/data-table)
 - [Impersonation](/docs/features/impersonation)
+- [Sessions](/docs/features/sessions)
+- [Roles and permissions](/docs/guides/roles-and-permissions)

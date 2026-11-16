@@ -1,6 +1,6 @@
 ---
 title: "Usurpation d’identité"
-description: "Usurpation d’identité par l’administrateur avec Better Auth : les fonctions serveur existent, aucun écran ne les utilise encore."
+description: "Usurpation d’identité par l’administrateur avec Better Auth : un administrateur se connecte en tant que client depuis l’écran des utilisateurs et y met fin depuis un bandeau dans l’espace client."
 ---
 
 Le plugin `admin` de Better Auth fournit l’usurpation d’identité, et `src/modules/user/use-cases` l’encapsule :
@@ -14,11 +14,25 @@ export const impersonateUser = createServerFn({ method: "POST" })
 
 `stopImpersonatingUser` exige seulement une session connectée. Les deux fichiers exportent des options de mutation (`impersonateUserMutation`, `stopImpersonatingUserMutation`).
 
-## État actuel
+## Démarrer
 
-- Aucun écran n’appelle ces fonctions : le menu d’actions des lignes d’utilisateurs n’a pas d’entrée d’usurpation et il n’existe pas de bandeau pour y mettre fin.
-- Better Auth marque les sessions d’usurpation avec `impersonatedBy` ; `getActiveSessions` les exclut de la liste des sessions des paramètres.
-- Les gardes de route suppriment du cache des requêtes les données de l’utilisateur précédent lorsque l’utilisateur de la session change : la navigation suivante après l’usurpation charge donc les données de l’autre utilisateur.
-- Il n’existe pas de journal d’audit des usurpations.
+**Emprunter l’identité** dans le menu d’actions d’un utilisateur ([Utilisateurs (admin)](/docs/features/users-admin)), sur `/admin/users/all` ou sur le profil de l’utilisateur, appelle `impersonateUser`. Better Auth crée pour l’utilisateur une session marquée avec `impersonatedBy`, conserve le jeton de session de l’administrateur dans un cookie signé `admin_session` et bascule le cookie de session sur la nouvelle session ; `tanstackStartCookies()` transmet les deux cookies dans la réponse de la fonction serveur. Le menu supprime ensuite les données de l’administrateur du cache des requêtes avec `removeUserData`, vide le cache du routeur et ouvre `/app`.
 
-Pour l’ajouter, placez une entrée de menu dans `UserRowActions` (`src/presentation/components/custom/admin/users/row-actions.tsx`) et un moyen visible d’arrêter l’usurpation dans les layouts.
+L’entrée n’apparaît que pour un utilisateur qui n’est ni administrateur ni bloqué. Better Auth refuse d’usurper l’identité d’un utilisateur doté d’un rôle d’administrateur, sauf si l’appelant détient `user: ["impersonate-admins"]`, qu’aucun rôle de `auth.access.ts` n’accorde, et son hook de session refuse une session à un utilisateur bloqué. `auth.server.ts` ne définit pas `impersonationSessionDuration` : la session dure donc aussi longtemps que le permet la valeur par défaut de Better Auth.
+
+## Bandeau et arrêt
+
+`ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) se place au-dessus de l’en-tête du layout de `/app`. Il lit `getCurrentSessionQuery` et ne s’affiche que lorsque la session a `impersonatedBy` : une région dont le libellé vient de `components.custom.impersonation-banner.json`, qui nomme l’utilisateur dont l’identité est empruntée et son e-mail, et un bouton **Arrêter l’emprunt d’identité**. Le bouton appelle `stopImpersonatingUser`, qui supprime la session d’usurpation et restaure la session de l’administrateur à partir du cookie `admin_session` ; le bandeau supprime ensuite les données de l’utilisateur du cache et ouvre le profil de cet utilisateur dans `/admin/users`.
+
+## Sessions
+
+- `getActiveSessions` exclut les sessions d’usurpation de la liste des sessions des paramètres, et le point de terminaison `list-sessions` de Better Auth fait de même.
+- La carte des sessions du profil d’un utilisateur les affiche, si bien qu’un administrateur peut révoquer une session d’usurpation qu’un autre administrateur a laissée ouverte.
+- Les gardes de route suppriment du cache des requêtes les données de l’utilisateur précédent lorsque l’utilisateur de la session change : chaque navigation après le début ou la fin de l’usurpation charge donc les données du bon utilisateur.
+
+Il n’existe pas de journal d’audit des usurpations.
+
+## Guides associés
+
+- [Utilisateurs (admin)](/docs/features/users-admin)
+- [Sessions](/docs/features/sessions)

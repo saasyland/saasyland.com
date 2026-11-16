@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
 
-import { contentProblems, mdxProblems } from "~/scripts/check-content"
+import { mdxProblems, pageProblems, sourcePages } from "~/scripts/check-content"
 
 const API_SURFACE = "content/docs/features/api-surface"
 const API_SURFACE_LABEL = "docs/features/api-surface.pl-PL.mdx"
@@ -16,8 +16,14 @@ const problemsOf = ({ source, target }: { source: string; target: string }): str
   mdxProblems({ label: EXAMPLE_LABEL, locale: "de-DE", source: page(source), target: page(target) })
 
 describe("check-content", () => {
-  it("finds no drift between the English pages and their translations", () => {
-    expect(contentProblems()).toEqual([])
+  it("checks every English docs page, blog post and navigation file", () => {
+    expect(sourcePages()).toEqual(
+      expect.arrayContaining(["blog/ai-coding-agents-repository-readiness.en-US.mdx", "docs/index.en-US.mdx", "docs/meta.en-US.json"]),
+    )
+  })
+
+  it.each(sourcePages())("finds no drift between %s and its translations", (sourcePage) => {
+    expect(pageProblems(sourcePage)).toEqual([])
   })
 
   it("fails a translation that lost the CLI licence API row, as pl-PL and pt-BR had", () => {

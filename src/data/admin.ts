@@ -26,3 +26,5 @@ export const USER_STATUS_COLORS: Record<UserStatus, AdminStatusColor> = {
 export const ADMIN_DASHBOARD_PREVIEW_PAGINATION = { pageIndex: 0, pageSize: 5 } as const
 
 export const ADMIN_SETTINGS_TABS = ["general", "security"] as const
+
+export const ADMIN_USER_DETAILS = ["role", "status", "emailVerified", "twoFactorEnabled", "timezone", "createdAt", "updatedAt"] as const

@@ -1,7 +1,7 @@
 import zod from "zod/v4"
 
 import { ROLE_VALUES } from "~/src/integrations/better-auth/auth.roles"
-import { emailSchema, imageUrlSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
+import { emailSchema, nameSchema, strictPasswordSchema } from "~/src/integrations/better-auth/auth.zod"
 
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField } from "~/src/modules/_core/utils/zod-fields"
@@ -24,8 +24,8 @@ const banUser = zod.object({
 const createUser = zod.object({
   email: emailSchema,
   name: nameSchema,
-  password: strictPasswordSchema.optional(),
-  role: zod.enum(ROLE_VALUES).optional(),
+  password: strictPasswordSchema,
+  role: zod.enum(ROLE_VALUES),
 })
 
 const deleteUser = userIdInput
@@ -59,16 +59,10 @@ const unbanUser = userIdInput
 
 const updatePreferences = zod.object({ timezone })
 
-const updateUser = zod
-  .object({
-    image: imageUrlSchema.nullable().optional(),
-    name: nameSchema.optional(),
-    timezone: timezone.optional(),
-    userId: idField,
-  })
-  .refine(({ userId: _userId, ...fields }) => Object.values(fields).some((val) => val !== undefined), {
-    message: "atLeastOneFieldRequired",
-  })
+const updateUser = zod.object({
+  name: nameSchema,
+  userId: idField,
+})
 
 export const userZodSchemas = {
   banUser,

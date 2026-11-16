@@ -72,6 +72,17 @@ describe("getCourses", () => {
 - **Behalten Sie Assertions, wenn eine Regel greift.** Überschreitet ein Test `max-statements`, extrahieren Sie einen benannten Helfer, statt Prüfungen wegzulassen.
 - **Laden Sie jede Nachrichtendatei.** `i18n.messages.test.ts` lädt jeden Namespace jeder Locale; das deckt die `import.meta.glob`-Zeilen in `i18n.messages.ts` ab. Eine neue Nachrichtendatei wird dadurch automatisch abgedeckt.
 
+## Tests auf einem ausgelasteten Rechner
+
+Das Zeitlimit von Vitest und das Budget von einer Sekunde für `waitFor` und `findBy*` messen Echtzeit. Ein Test, der mehr Arbeit erledigt, als sein Verhalten braucht, oder auf einen Timer wartet, schlägt daher auf einem ausgelasteten Rechner fehl, obwohl nichts kaputt ist. Das Standardlimit bleibt, wie es ist; ein langsamer Test wird so umgebaut, dass er weniger tut:
+
+- **Eine Prüfung über viele Dateien läuft als ein Test pro Datei.** `check-content.test.ts` führt `pageProblems` mit `it.each(sourcePages())` für jede englische Seite aus, und eine Abweichung nennt ihre Seite.
+- **Was eine Komponente per Suspense lädt, wird vor dem Rendern geladen**, wie es `preloadNamespaces` für Übersetzungen tut. Geht es im Test um das Laden selbst, löst der Test es innerhalb von `act` auf, wie `translations-provider.component.test.tsx`: Inhalt, der außerhalb von `act` fortgesetzt wird, erscheint erst nach der Drosselung, mit der React ihn einblendet, auf einem echten Timer, und der Test muss danach pollen.
+- **Ein Test ersetzt eine Bereichsliste, ohne die Komponente erneut zu importieren.** `translations-provider.component.test.tsx` mockt `TIME_ZONE_SOURCES` einmal und füllt die Liste in jedem Test, und `time-zone.test.ts` prüft, wie die Listen der Bereiche zusammengeführt werden. Wer eine Komponente nach `vi.resetModules()` erneut importiert, wertet ihren gesamten Importgraphen innerhalb des Tests neu aus.
+- **Fixtures, die jeder Test liest, werden einmal pro Datei erzeugt**, etwa die Nachrichten aus `getTestMessages`.
+- **Ein Formular wird mit `user.paste` ausgefüllt, sofern nicht seine Tastenanschläge das getestete Verhalten sind.** `fill` in `admin-course-routes.component.test.tsx` klickt in das Feld und fügt ein; `user.type` führt die Validierung und das Rendern des Formulars für jedes Zeichen aus.
+- **Eine lange Optionsliste lässt sich günstig neu rendern.** Die Zeitzonen-Combobox in `preferences-card.tsx` übergibt ihre Optionen als memoisierte `items` an `ComboboxList`, sodass React Aria sie wiederverwendet, wenn das Formular neu rendert.
+
 ## Tests folgen den Bereichen [#tests-follow-the-areas]
 
 Die Bereiche, die ihre eigenen Pfade und Menüeinträge deklarieren (siehe [Pfade und Navigation](/docs/conventions/routes#paths-and-navigation)), besitzen auch ihre Tests. So kann die `saasyland`-CLI einen Bereich samt seinen Tests aus einem generierten Projekt weglassen, und alle übrigen Tests laufen weiter durch.

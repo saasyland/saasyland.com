@@ -20,11 +20,22 @@ oxlint tratta come errori le categorie `correctness`, `nursery`, `pedantic`, `pe
 | `unicorn/no-null`            | attiva fuori dai test e da `src/platform/testing`                       | I valori assenti sono `undefined`                         |
 | `typescript/no-explicit-any` | `error`                                                                 | Nessun valore è tipizzato `any`                           |
 
-Gli override sono mirati e limitati a determinati file: i test e gli helper di test condivisi in `src/platform/testing` rilassano `no-magic-numbers`, `no-await-in-loop` e `unicorn/no-null`; `src/presentation` e `src/hooks` rilassano `typescript/consistent-return`; i mock dei test rilassano `require-await`; `src/routes` disattiva `sort-keys`, perché le opzioni delle route seguono un proprio ordine (vedi [File di route](/docs/conventions/routes)).
+Gli override sono mirati e limitati a determinati file: i test e gli helper di test condivisi in `src/platform/testing` rilassano `no-magic-numbers`, `no-await-in-loop`, `unicorn/no-null` e `hydration/no-clock-or-locale-in-render`; `src/presentation` e `src/hooks` rilassano `typescript/consistent-return`; i mock dei test rilassano `require-await`; `src/routes` disattiva `sort-keys`, perché le opzioni delle route seguono un proprio ordine (vedi [File di route](/docs/conventions/routes)).
 
 `tsconfig.json` aggiunge i flag rigorosi che cambiano il modo di scrivere il codice: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals` e `noUnusedParameters`. Una lettura tramite indice può essere `undefined`, una proprietà opzionale non può essere impostata esplicitamente a `undefined` e una firma di indice si legge come `record["key"]`.
 
 Il formatter scrive senza punti e virgola, con virgolette doppie, virgole finali e una larghezza di <RepositoryFact name="printWidth" /> caratteri. Ordina anche gli import in gruppi fissi, le classi Tailwind in `className` e nelle chiamate a `cn`, e gli script di `package.json` per nome (`sortPackageJson: { sortScripts: true }`), quindi non ordinare mai nessuno di questi a mano: `vp check` fallisce quando uno è fuori ordine. Vedi [Lint e formattazione](/docs/tooling/lint-format) per i comandi.
+
+## Renderizzare ciò che ha renderizzato il server
+
+Una pagina viene renderizzata due volte: sul server e di nuovo nel browser, quando React idrata l’HTML. I due rendering devono stampare lo stesso testo, altrimenti React segnala un errore di idratazione (errore #418) e renderizza di nuovo la pagina. Per questo il codice di rendering non legge mai l’orologio né il locale dell’ambiente di esecuzione, che differiscono tra i due: niente `new Date()` senza argomenti, niente `Date.now` e niente `toLocaleString`, `toLocaleDateString` o `toLocaleTimeString`. Usa un valore che entrambi i lati condividono:
+
+- un tempo relativo si conta dal `dataUpdatedAt` della query che ha letto i suoi dati, come mostra [Internazionalizzazione e lingue](/docs/features/internationalization);
+- un anno stampato dal sito viene dalla build: il footer chiude il copyright con `REPOSITORY_FACTS.buildYear`, l’anno UTC in cui il sito è stato costruito;
+- numeri e date passano da `useFormatter` di use-intl, nella lingua della pagina e nel fuso orario dell’utente;
+- un’attesa nel browser, come il timeout di attivazione di `CheckoutActivation`, è un timer avviato in `useEffect`, così il primo rendering è quello del server.
+
+`hydration/no-clock-or-locale-in-render`, la regola del plugin oxlint proprio del repository in `scripts/hydration-lint-plugin.ts`, lo impone in `src/hooks`, `src/presentation`, `src/providers` e `src/routes/*.tsx`. Lì tutto conta come codice di rendering tranne una funzione che viene eseguita dopo: un gestore di eventi `on…`, come prop JSX, proprietà di un oggetto o variabile; una `queryFn` o una `mutationFn`; e una callback passata a `useEffect`, `useLayoutEffect`, `useCallback`, `setTimeout`, `setInterval`, `requestAnimationFrame` o `addEventListener`. Queste liste nel plugin sono la allowlist: un altro tipo di callback differita si aggiunge lì, con un caso in `src/__test__/hydration-lint-plugin.test.ts`, mai con un commento di disattivazione.
 
 ## Niente commenti
 

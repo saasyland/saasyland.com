@@ -15,6 +15,7 @@ import { CONTACT_EMAIL } from "../../src/presentation/branding"
 
 const [, customer] = TEST_ACCOUNTS
 const SIGN_UP_PASSWORD = "StrongPassword123!"
+const BROWSER_CLOCK_BEHIND_MS = 300_000
 
 const sessionSchema = zod.object({ user: zod.object({ id: zod.string() }) })
 
@@ -128,6 +129,22 @@ test.describe("checkout funnel", () => {
       await page.emulateMedia({ colorScheme })
       expect(await accessibilityViolations(page)).toEqual([])
     }
+  })
+
+  test("a browser clock five minutes behind the server hydrates the activation the server rendered", async ({ appPage, authPage, page }) => {
+    const errors: string[] = []
+    page.on("pageerror", (error) => errors.push(error.message))
+    await page.clock.setSystemTime(Date.now() - BROWSER_CLOCK_BEHIND_MS)
+    await authPage.signIn(customer.email)
+    await expect(page).toHaveURL("/app")
+
+    await page.goto(`/app/license?checkoutId=${TEST_CHECKOUT_ID}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    const activation = page.getByRole("status").filter({ has: page.getByRole("heading", { level: 2 }) })
+    await appPage.waitForHydration(activation)
+
+    await expect(activation.getByRole("heading", { level: 2 })).toHaveText("Payment received")
+    expect(errors).toEqual([])
   })
 
   test("a page left open after buying refuses a second checkout and shows the license instead", async ({

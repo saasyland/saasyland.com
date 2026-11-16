@@ -1,6 +1,6 @@
 ---
 title: "Performance"
-description: "Die gemessenen Regeln, die Seiten schnell halten: ein kleiner Boot-Graph des Workers, kein ORM im Browser, entfernte Preload-Hinweise, die Platzierung von Providern, ein einziger Tailwind-Build, die Größe von Medien und das Reveal-Muster."
+description: "Die gemessenen Regeln, die Seiten schnell halten: ein kleiner Boot-Graph des Workers, kein ORM im Browser, bei Bedarf geladene Nachrichten, entfernte Preload-Hinweise, die Platzierung von Providern, ein einziger Tailwind-Build, die Größe von Medien und das Reveal-Muster."
 ---
 
 Jede Regel auf dieser Seite stammt aus einer Messung, und mehrere haben eine intuitive Lösung ersetzt, die es schlimmer gemacht hat. Ändern Sie den Code hinter einer dieser Regeln nur mit einer neuen Messung, die sie übertrifft.
@@ -47,6 +47,28 @@ const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
 ```
 
 Ein Build, in dem ein Import davon das Tree-Shaking übersteht, schlägt fehl und gibt die Importkette von der Route bis zu der Datei aus, die Drizzle erreicht hat. Unterbrechen Sie die Kette dort, wo sie beginnt: Importieren Sie das Tupel aus den Konstanten des Moduls, oder verschieben Sie den Code in eine Server Function. Reine Typ-Importe werden entfernt und zählen nie.
+
+## Nachrichten laden, wenn eine Seite sie braucht [#load-messages-when-a-page-needs-them]
+
+Die erste Seite, die ein Besucher öffnet, lädt im Browser keine Nachrichtendatei: Die Root-Route und die passenden Routen laden ihre Namespaces auf dem Server in den Query-Cache vor, und TanStack Start schickt diesen Cache mit dem HTML. Der Browser lädt einen Namespace erst, wenn eine spätere Navigation einen braucht, den der Cache noch nicht enthält.
+
+`import.meta.glob` gibt jeder Nachrichtendatei einen eigenen Chunk, aber die Zuordnung jeder Datei zu ihrem Chunk, die jeden Namespace in jeder Locale nennt, landet in dem Modul, das den Glob aufruft. Dieses Modul war `i18n.messages.ts`, das die Root-Route importiert, und es enthielt die Zuordnung doppelt, einmal für die Nachrichten und einmal für die Seiten-Metadaten, sodass jede Seite etwa 240 KiB Loader lud, 21 KiB gzip-komprimiert. Die Zuordnung liegt jetzt allein in `i18n.loaders.ts`, und `loadNamespace` importiert sie, wenn es zum ersten Mal einen Namespace lädt:
+
+```ts title="src/integrations/use-intl/i18n.messages.ts"
+const { MESSAGE_LOADERS } = await import("~/src/integrations/use-intl/i18n.loaders")
+```
+
+`loadPageMetadata` liest `metadata` aus dem Namespace der Seite statt aus einer zweiten Zuordnung, sodass der Head einer Seite und ihre Nachrichten aus einem Chunk kommen. Der Browser holt `i18n.loaders.ts`, etwa 11 KiB gzip-komprimiert, mit dem ersten Namespace, den er lädt, bei einer Navigation oder beim Hovern, das eine vorlädt. Die Root-Namespaces werden weiterhin in `i18n.messages.ts` am Dateinamen erkannt, und die Schlüssel dieses Globs kosten etwa 2 KiB gzip-komprimiert. Jedes Skript, das die jeweilige Seite lädt, gzip-komprimiert, laut Ausgabe von `bun run build:test`:
+
+| Seite          | Vorher    | Nachher   |
+| -------------- | --------- | --------- |
+| `/`            | 462,9 KiB | 442,3 KiB |
+| `/docs/<page>` | 553,5 KiB | 532,9 KiB |
+| `/blog`        | 424,6 KiB | 404,0 KiB |
+| `/app`         | 430,4 KiB | 409,7 KiB |
+| `/admin`       | 452,8 KiB | 432,2 KiB |
+
+Laden Sie Nachrichten nur über `loadNamespace`, und fügen Sie nie ein `import.meta.glob` über `messages/` in ein Modul ein, das die Root-Route importiert. `scripts/verify-build.ts` folgt den statischen Importen des Einstiegsskripts im Browser und lässt den Build fehlschlagen, wenn sie den Loader eines Seiten-Namespace enthalten.
 
 ## Vorgerenderte Seiten laden zuerst CSS und Schriften
 

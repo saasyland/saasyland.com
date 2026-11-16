@@ -1,6 +1,6 @@
 ---
 title: "Payments"
-description: "The polar area: the Better Auth Polar plugin, the customer portal, the webhooks it hands to the areas, and the admin payments demo."
+description: "The polar area: the Better Auth Polar plugin, the customer portal, the webhooks it hands to the areas, the D1 copies of Polar's orders and subscriptions, and the admin payments demo."
 ---
 
 Payments run through Polar with the `@polar-sh/better-auth` plugin, which the polar area adds to Better Auth in `src/data/polar.auth-plugins.ts`:
@@ -20,7 +20,7 @@ export const POLAR_AUTH_PLUGINS = [
 
 The plugin adds the customer portal and the webhooks, which are exempt from Better Auth's rate limiter, and no checkout: its `checkout()` would create a checkout with the account's ID alone, so Polar would ask a signed-in buyer for their email again. An area that sells creates its checkouts with the Polar SDK after its own checks, as the licence area's `startCheckout` does (see [Licences](/docs/features/licences)).
 
-`src/integrations/polar/polar.config.ts` creates `polarCore` from `POLAR_ACCESS_TOKEN` and `POLAR_SERVER`, which the plugin uses, and `polar`, the checkouts, discounts, licence keys and orders services built on it. `POLAR_ORGANIZATION_ID` scopes every Polar call that names an organisation; [Environment and bindings](/docs/reference/environment) lists them. `src/integrations/polar/polar.constants.ts` holds Polar's own values, `POLAR_ORDER_STATUS`, `POLAR_LICENSE_KEY_STATUS`, `POLAR_WEBHOOK_EVENT` and `POLAR_CHECKOUT_ID_PLACEHOLDER`, each checked against the SDK's types; it reads no environment, so the browser and the browser suite import it too. The polar area's paths, `API_AUTH_POLAR` and `API_AUTH_CUSTOMER_PORTAL`, are in `src/data/polar.routes.ts`. [Polar setup](/docs/getting-started/polar-setup) describes the products, licence keys, discounts, webhook and token this code expects in Polar, and `bun run polar:verify:<environment>` checks them.
+`src/integrations/polar/polar.config.ts` creates `polarCore` from `POLAR_ACCESS_TOKEN` and `POLAR_SERVER`, which the plugin uses, and `polar`, the checkouts, discounts, licence keys and orders services built on it. `POLAR_ORGANIZATION_ID` scopes every Polar call that names an organisation; [Environment and bindings](/docs/reference/environment) lists them. `src/integrations/polar/polar.constants.ts` holds Polar's own values: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` and `POLAR_WEBHOOK_EVENT`, each checked against the SDK's types, `POLAR_CHECKOUT_ID_PLACEHOLDER`, and `POLAR_ID_MAX_LENGTH`, the length of every column that holds a Polar ID. It reads no environment, so the browser and the browser suite import it too. The polar area's paths, `API_AUTH_POLAR` and `API_AUTH_CUSTOMER_PORTAL`, are in `src/data/polar.routes.ts`. [Polar setup](/docs/getting-started/polar-setup) describes the products, licence keys, discounts, webhook and token this code expects in Polar, and `bun run polar:verify:<environment>` checks them.
 
 ## Webhooks
 
@@ -46,6 +46,21 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 ```
 
 `src/data/__test__/polar-events.test.ts` imports `src/data/polar-events.ts` in Bun and fails when that import reaches the Worker's runtime.
+
+## Orders and subscriptions in D1
+
+The polar area keeps copies of Polar's orders and subscriptions in two D1 tables, `order` (`src/modules/order/`) and `subscription` (`src/modules/subscription/`), so that lists, searches and access checks can read them with SQL and keep working while Polar is slow. Polar stays the source: each row is Polar's record under Polar's ID, and nothing edits it by hand. No code writes the tables yet. [Modules](/docs/conventions/modules#tables-that-mirror-a-provider) gives the rules every such mirror table follows.
+
+| Table          | Columns                                                                                                                                                                                                                                                                                             |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `order`        | `id`, `user_id`, `customer_id`, `product_id`, `subscription_id`, `status` (`ORDER_STATUSES`), `currency`, `total_amount`, `refunded_amount`, `invoice_number`, `description`, `placed_at`, `changed_at`                                                                                             |
+| `subscription` | `id`, `user_id`, `customer_id`, `product_id`, `product_name`, `status` (`SUBSCRIPTION_STATUSES`), `amount`, `currency`, `recurring_interval` (`SUBSCRIPTION_RECURRING_INTERVALS`), `recurring_interval_count`, `current_period_end`, `cancel_at_period_end`, `started_at`, `ended_at`, `changed_at` |
+
+- `id`, `customer_id`, `product_id` and `subscription_id` are Polar's IDs, and every column copied from Polar takes Polar's field name. `subscription_id` has no foreign key, because Polar's events can arrive in any order.
+- `user_id` links the account and stays empty for a customer without one. Deleting an account keeps its orders and subscriptions and empties their `user_id` (`ON DELETE SET NULL`).
+- Amounts are in the currency's minor units, as Polar sends them. `description` is what the order bought, as Polar invoiced it, and `product_name` the name of the subscription's product as Polar last reported it.
+- `placed_at` is when Polar created the order. `changed_at` is the version of Polar's record that the row holds: Polar's `modified_at`, or Polar's `created_at` for a record that never changed. The row's own `created_at` and `updated_at` record when D1 wrote it.
+- The indexes serve the lists these copies exist for: `order_user_placed_at_idx` an account's orders and `order_status_placed_at_idx` the orders of a status, both by when they were placed; `subscription_user_status_idx` an account's subscriptions by status and `subscription_status_current_period_end_idx` the subscriptions of a status by the end of their period.
 
 ## Customer portal
 

@@ -1,6 +1,6 @@
 ---
 title: "Pagamentos"
-description: "A área do Polar: o plugin do Polar para o Better Auth, o portal do cliente, os webhooks que ele repassa às áreas e a demonstração de pagamentos da administração."
+description: "A área do Polar: o plugin do Polar para o Better Auth, o portal do cliente, os webhooks que ele repassa às áreas, as cópias no D1 dos pedidos e das assinaturas do Polar e a demonstração de pagamentos da administração."
 ---
 
 Os pagamentos passam pelo Polar com o plugin `@polar-sh/better-auth`, que a área do Polar adiciona ao Better Auth em `src/data/polar.auth-plugins.ts`:
@@ -20,7 +20,7 @@ export const POLAR_AUTH_PLUGINS = [
 
 O plugin adiciona o portal do cliente e os webhooks, isentos do rate limiter do Better Auth, mas nenhum checkout: o `checkout()` dele criaria um checkout só com o ID da conta, então o Polar pediria o e-mail de novo a um comprador que já entrou na conta. Uma área que vende cria seus checkouts com o SDK do Polar depois das próprias verificações, como faz o `startCheckout` da área de licenças (veja [Licenças](/docs/features/licences)).
 
-`src/integrations/polar/polar.config.ts` cria `polarCore` a partir de `POLAR_ACCESS_TOKEN` e `POLAR_SERVER`, que o plugin usa, e `polar`, os serviços de checkouts, descontos, chaves de licença e pedidos construídos sobre ele. `POLAR_ORGANIZATION_ID` delimita à organização cada chamada ao Polar que nomeia uma organização; [Ambiente e bindings](/docs/reference/environment) lista todas. `src/integrations/polar/polar.constants.ts` guarda os valores do próprio Polar, `POLAR_ORDER_STATUS`, `POLAR_LICENSE_KEY_STATUS`, `POLAR_WEBHOOK_EVENT` e `POLAR_CHECKOUT_ID_PLACEHOLDER`, cada um conferido com os tipos do SDK; ele não lê nenhuma variável de ambiente, então o navegador e a suíte do navegador também o importam. Os caminhos da área do Polar, `API_AUTH_POLAR` e `API_AUTH_CUSTOMER_PORTAL`, ficam em `src/data/polar.routes.ts`. [Configuração do Polar](/docs/getting-started/polar-setup) descreve os produtos, as chaves de licença, os descontos, o webhook e o token que este código espera no Polar, e `bun run polar:verify:<environment>` os verifica.
+`src/integrations/polar/polar.config.ts` cria `polarCore` a partir de `POLAR_ACCESS_TOKEN` e `POLAR_SERVER`, que o plugin usa, e `polar`, os serviços de checkouts, descontos, chaves de licença e pedidos construídos sobre ele. `POLAR_ORGANIZATION_ID` delimita à organização cada chamada ao Polar que nomeia uma organização; [Ambiente e bindings](/docs/reference/environment) lista todas. `src/integrations/polar/polar.constants.ts` guarda os valores do próprio Polar: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` e `POLAR_WEBHOOK_EVENT`, cada um conferido com os tipos do SDK, `POLAR_CHECKOUT_ID_PLACEHOLDER` e `POLAR_ID_MAX_LENGTH`, o tamanho de toda coluna que guarda um ID do Polar. Ele não lê nenhuma variável de ambiente, então o navegador e a suíte do navegador também o importam. Os caminhos da área do Polar, `API_AUTH_POLAR` e `API_AUTH_CUSTOMER_PORTAL`, ficam em `src/data/polar.routes.ts`. [Configuração do Polar](/docs/getting-started/polar-setup) descreve os produtos, as chaves de licença, os descontos, o webhook e o token que este código espera no Polar, e `bun run polar:verify:<environment>` os verifica.
 
 ## Webhooks [#webhooks]
 
@@ -46,6 +46,21 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 ```
 
 `src/data/__test__/polar-events.test.ts` importa `src/data/polar-events.ts` no Bun e falha quando essa importação chega ao runtime do Worker.
+
+## Pedidos e assinaturas no D1 [#orders-and-subscriptions-in-d1]
+
+A área do Polar guarda cópias dos pedidos e das assinaturas do Polar em duas tabelas do D1, `order` (`src/modules/order/`) e `subscription` (`src/modules/subscription/`), para que listas, buscas e verificações de acesso possam lê-las com SQL e continuem funcionando enquanto o Polar estiver lento. O Polar continua sendo a fonte: cada linha é o registro do Polar sob o ID do Polar, e nada a edita à mão. Nenhum código grava essas tabelas ainda. [Módulos](/docs/conventions/modules#tables-that-mirror-a-provider) traz as regras que toda tabela espelho desse tipo segue.
+
+| Tabela         | Colunas                                                                                                                                                                                                                                                                                             |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `order`        | `id`, `user_id`, `customer_id`, `product_id`, `subscription_id`, `status` (`ORDER_STATUSES`), `currency`, `total_amount`, `refunded_amount`, `invoice_number`, `description`, `placed_at`, `changed_at`                                                                                             |
+| `subscription` | `id`, `user_id`, `customer_id`, `product_id`, `product_name`, `status` (`SUBSCRIPTION_STATUSES`), `amount`, `currency`, `recurring_interval` (`SUBSCRIPTION_RECURRING_INTERVALS`), `recurring_interval_count`, `current_period_end`, `cancel_at_period_end`, `started_at`, `ended_at`, `changed_at` |
+
+- `id`, `customer_id`, `product_id` e `subscription_id` são IDs do Polar, e toda coluna copiada do Polar leva o nome do campo no Polar. `subscription_id` não tem chave estrangeira, porque os eventos do Polar podem chegar em qualquer ordem.
+- `user_id` liga a conta e fica vazio para um cliente sem conta. Excluir uma conta mantém os seus pedidos e assinaturas e esvazia o `user_id` deles (`ON DELETE SET NULL`).
+- Os valores ficam nas menores unidades da moeda, como o Polar os envia. `description` é o que o pedido comprou, como o Polar faturou, e `product_name` é o nome do produto da assinatura conforme o Polar o informou por último.
+- `placed_at` é quando o Polar criou o pedido. `changed_at` é a versão do registro do Polar que a linha guarda: o `modified_at` do Polar ou, para um registro que nunca mudou, o `created_at` do Polar. Os `created_at` e `updated_at` da própria linha registram quando o D1 a gravou.
+- Os índices atendem às listas para as quais essas cópias existem: `order_user_placed_at_idx` os pedidos de uma conta e `order_status_placed_at_idx` os pedidos de um status, ambos pela data em que foram feitos; `subscription_user_status_idx` as assinaturas de uma conta por status e `subscription_status_current_period_end_idx` as assinaturas de um status pelo fim do período.
 
 ## Portal do cliente
 

@@ -54,8 +54,6 @@ export const BUNDLE_ARCHIVE_EXTENSION = ".json.gz"
 
 export const BUNDLE_CONTENT_TYPE = "application/gzip"
 
-export const POLAR_ID_MAX_LENGTH = 64
-
 export const LICENSE_QUERY_KEYS = {
   ACTIVATIONS: ["license", "activations"],
   ALL: ["license"],

@@ -1,4 +1,4 @@
-import { I18N } from "~/src/integrations/use-intl/i18n.config"
+import { type Changelog, joinEntries } from "~/src/lib/changelog"
 
 import { APP_URL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
@@ -8,16 +8,12 @@ interface GitTag {
   readonly name: string
 }
 
-const CHANGELOG_PAGE = "project/changelog"
-const CHANGELOG_URL = `${APP_URL}${ROUTES.DOCS}/${CHANGELOG_PAGE}`
-
-export const CHANGELOG_FILE = `content/docs/${CHANGELOG_PAGE}.${I18N.DEFAULT_LOCALE}.mdx`
+const CHANGELOG_URL = `${APP_URL}${ROUTES.DOCS}/project/changelog`
 
 const UTC_TIMESTAMP = /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T.+$/u
 const RELEASE_TAG = /^(?<firstTag>v(?<year>\d{4})\.(?<month>\d{2})\.(?<day>\d{2}))(?:\.(?<sequence>\d+))?$/u
 const FIRST_TAG = "v$<year>.$<month>.$<day>"
-const CHANGELOG_HEADING = "## $<year>-$<month>-$<day>\n"
-const SECTION_START = /^(?=## )/mu
+const RELEASE_DATE = "$<year>-$<month>-$<day>"
 const SITE_LINK = "](/"
 
 const FIRST_SEQUENCE = 1
@@ -46,14 +42,13 @@ export const releaseTag = (commit: string, deployedAt: Date, tags: readonly GitT
   return next === FIRST_SEQUENCE ? firstTag : `${firstTag}.${String(next)}`
 }
 
-export const releaseNotes = (changelog: string, tag: string): string => {
-  const heading = tag.replace(RELEASE_TAG, CHANGELOG_HEADING)
-  const section = changelog.split(SECTION_START).find((part) => part.startsWith(heading))
-  const notes = section?.slice(heading.length).trim() ?? ""
+export const releaseNotes = (changelog: Changelog, tag: string): string => {
+  const date = tag.replace(RELEASE_TAG, RELEASE_DATE)
+  const day = changelog.days.find((section) => section.date === date)
 
-  if (notes.length === 0) {
+  if (day === undefined) {
     return `See the [changelog](${CHANGELOG_URL}).`
   }
 
-  return notes.replaceAll(SITE_LINK, `](${APP_URL}/`)
+  return joinEntries(day.entries).replaceAll(SITE_LINK, `](${APP_URL}/`)
 }

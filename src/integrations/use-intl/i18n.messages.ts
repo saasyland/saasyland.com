@@ -1,5 +1,6 @@
 import { type QueryClient, queryOptions } from "@tanstack/react-query"
 import { type AbstractIntlMessages, createTranslator } from "use-intl"
+import * as zod from "zod"
 
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
@@ -9,16 +10,12 @@ type MessageTree = Record<string, AbstractIntlMessages>
 
 export type NamespaceEntry = readonly [namespace: string, messages: AbstractIntlMessages]
 
-interface PageMetadata {
-  description: string
-  title: string
-}
-
 const MESSAGES_QUERY_KEY = "i18n-messages"
 const NAMESPACE_SEPARATOR = "."
 
-const messageModules = import.meta.glob<AbstractIntlMessages>("../../../messages/*/*.json", { import: "default" })
-const metadataModules = import.meta.glob<PageMetadata | undefined>("../../../messages/*/*.json", { import: "metadata" })
+const pageMetadataSchema = zod.object({ description: zod.string(), title: zod.string() })
+
+type PageMetadata = zod.infer<typeof pageMetadataSchema>
 
 export const toNamespace = (path: string): string => path.replaceAll(/^.*\/|\.json$/gu, "")
 
@@ -49,19 +46,14 @@ export const loadPageMetadata = async ({
   namespace: string
   values?: Readonly<Record<string, number | string>>
 }): Promise<PageMetadata> => {
-  const load = metadataModules[modulePath({ locale, namespace })]
+  const { metadata } = await loadNamespace({ locale, namespace })
+  const parsed = pageMetadataSchema.safeParse(metadata)
 
-  if (load === undefined) {
-    throw missingNamespace({ locale, namespace })
-  }
-
-  const metadata = await load()
-
-  if (metadata === undefined) {
+  if (!parsed.success) {
     throw new Error(`messages/${locale}/${namespace}.json has no page metadata — a page namespace starts with its title and description.`)
   }
 
-  const t = createTranslator({ locale, messages: metadata })
+  const t = createTranslator({ locale, messages: parsed.data })
   const args = { appName: APP_NAME, ...values }
 
   return { description: t("description", args), title: t("title", args) }
@@ -71,8 +63,9 @@ export function loadNamespace<TMessages extends AbstractIntlMessages>(args: {
   locale: SupportedLocale
   namespace: string
 }): Promise<TMessages>
-export function loadNamespace({ locale, namespace }: { locale: SupportedLocale; namespace: string }): Promise<AbstractIntlMessages> {
-  const load = messageModules[modulePath({ locale, namespace })]
+export async function loadNamespace({ locale, namespace }: { locale: SupportedLocale; namespace: string }): Promise<AbstractIntlMessages> {
+  const { MESSAGE_LOADERS } = await import("~/src/integrations/use-intl/i18n.loaders")
+  const load = MESSAGE_LOADERS[modulePath({ locale, namespace })]
 
   if (load === undefined) {
     throw missingNamespace({ locale, namespace })

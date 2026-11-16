@@ -45,7 +45,14 @@ description: "Поширені помилки під час розробки, т
 
 **Розгортання зупиняється на `prepare-deploy-secrets.ts`.** Ключ, зазначений у `secrets.required` середовища, відсутній або порожній у `.env.<environment>`. Помилка називає ці ключі.
 
-**Розгортання зупиняється на `verify-deployment.ts`.** Worker розгорнуто, але один із перевірених шляхів не відповів `200` з очікуваним типом вмісту. Помилка перелічує кожну URL-адресу та її відповідь; відкрийте цю адресу та перегляньте журнали Worker у Cloudflare. `bun scripts/verify-deployment.ts <preview|production>` запускає перевірку ще раз.
+**Розгортання зупиняється на `verify-deployment.ts`.** Worker розгорнуто, але один із перевірених шляхів не відповів `200` з очікуваним типом вмісту або вхід не дійшов до свого провайдера так, як мав. Помилка перелічує кожен запит і проблему; відкрийте цю URL-адресу та перегляньте журнали Worker у Cloudflare. Рядок, що закінчується на `client_id is not a Google OAuth client ID.`, означає, що Worker не має справжнього ідентифікатора клієнта для цього провайдера; див. наступний пункт. `bun scripts/verify-deployment.ts <preview|production>` запускає перевірку ще раз.
+
+**Google відповідає `Error 401: invalid_client` і `The OAuth client was not found.`** Worker надіслав Google ідентифікатор клієнта, якого Google не знає, наприклад заповнювач із `.env.<environment>`, який розгортання завантажило як секрет `AUTH_GOOGLE_CLIENT_ID`. Щоб це виправити:
+
+1. У консолі Google Cloud відкрийте **Google Auth Platform → Clients** і створіть клієнт типу **Web application** або відкрийте той, який хочете використовувати. Його ідентифікатор клієнта закінчується на `.apps.googleusercontent.com`.
+2. Для кожного хоста, на який ви розгортаєте, додайте `https://<host>` до **Authorized JavaScript origins** і <RepositoryFact name="googleCallbackUrl" /> до **Authorized redirect URIs**; Google може застосовувати їх кілька хвилин.
+3. У **Google Auth Platform → Audience** виберіть **Publish app**, щоб увійти міг будь-який обліковий запис Google, а не лише тестові користувачі.
+4. Запишіть ідентифікатор і секрет клієнта в `AUTH_GOOGLE_CLIENT_ID` і `AUTH_GOOGLE_CLIENT_SECRET` у `.env.<environment>` і запустіть `bun run deploy:<environment>`: він завантажить обидва секрети Worker і знову перевірить вхід.
 
 **Збірка з пререндерингом завершується помилкою.** Вивід збірки називає першу URL-адресу, на якій стався збій. Відкрийте цю сторінку через `bun run dev`, щоб побачити помилку.
 

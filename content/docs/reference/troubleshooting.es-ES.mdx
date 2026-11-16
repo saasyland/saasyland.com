@@ -45,7 +45,14 @@ description: "Errores habituales durante el desarrollo, las pruebas y el desplie
 
 **El despliegue se detiene en `prepare-deploy-secrets.ts`.** Una clave que figura en `secrets.required` del entorno falta en `.env.<environment>` o está vacía. El error indica las claves.
 
-**El despliegue se detiene en `verify-deployment.ts`.** El Worker está desplegado, pero una de las rutas comprobadas no ha respondido `200` con el tipo de contenido esperado. El error enumera cada URL y su respuesta; ábrela y lee los registros del Worker en Cloudflare. `bun scripts/verify-deployment.ts <preview|production>` vuelve a ejecutar la comprobación.
+**El despliegue se detiene en `verify-deployment.ts`.** El Worker está desplegado, pero una de las rutas comprobadas no ha respondido `200` con el tipo de contenido esperado, o un inicio de sesión no ha llegado a su proveedor como debía. El error enumera cada petición y lo que ha fallado; abre la URL y lee los registros del Worker en Cloudflare. Una línea que termina en `client_id is not a Google OAuth client ID.` significa que el Worker no tiene un identificador de cliente real para ese proveedor; consulta la entrada siguiente. `bun scripts/verify-deployment.ts <preview|production>` vuelve a ejecutar la comprobación.
+
+**Google responde `Error 401: invalid_client` y `The OAuth client was not found.`** El Worker ha enviado a Google un identificador de cliente que Google no conoce, como un marcador de posición de `.env.<environment>` que el despliegue subió como el secreto `AUTH_GOOGLE_CLIENT_ID`. Para solucionarlo:
+
+1. En la consola de Google Cloud, abre **Google Auth Platform → Clients** y crea un cliente de tipo **Web application**, o abre el que quieras usar. Su identificador de cliente termina en `.apps.googleusercontent.com`.
+2. Añade `https://<host>` a **Authorized JavaScript origins** y <RepositoryFact name="googleCallbackUrl" /> a **Authorized redirect URIs** para cada host en el que despliegues; Google puede tardar unos minutos en aplicarlos.
+3. En **Google Auth Platform → Audience**, selecciona **Publish app** para que pueda iniciar sesión cualquier cuenta de Google y no solo los usuarios de prueba.
+4. Guarda el identificador y el secreto del cliente en `AUTH_GOOGLE_CLIENT_ID` y `AUTH_GOOGLE_CLIENT_SECRET` en `.env.<environment>` y ejecuta `bun run deploy:<environment>`, que sube los dos secretos del Worker y vuelve a comprobar el inicio de sesión.
 
 **Falla un build con prerenderizado.** La salida del build indica la primera URL que ha fallado. Abre esa página con `bun run dev` para ver el error.
 

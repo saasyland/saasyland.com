@@ -45,7 +45,14 @@ description: "Errori comuni durante sviluppo, test e deploy, e come risolverli."
 
 **Il deploy si ferma a `prepare-deploy-secrets.ts`.** Una chiave elencata in `secrets.required` dell'ambiente manca o è vuota in `.env.<environment>`. L'errore indica le chiavi.
 
-**Il deploy si ferma a `verify-deployment.ts`.** Il Worker è stato distribuito, ma un percorso controllato non ha risposto `200` con il tipo di contenuto previsto. L'errore elenca ogni URL e la relativa risposta; aprilo e leggi i log del Worker in Cloudflare. `bun scripts/verify-deployment.ts <preview|production>` ripete il controllo.
+**Il deploy si ferma a `verify-deployment.ts`.** Il Worker è stato distribuito, ma un percorso controllato non ha risposto `200` con il tipo di contenuto previsto, oppure un accesso non ha raggiunto il suo provider come dovrebbe. L'errore elenca ogni richiesta e il problema; apri l'URL e leggi i log del Worker in Cloudflare. Una riga che termina con `client_id is not a Google OAuth client ID.` significa che il Worker non ha un vero ID client per quel provider; vedi la voce successiva. `bun scripts/verify-deployment.ts <preview|production>` ripete il controllo.
+
+**Google risponde `Error 401: invalid_client` e `The OAuth client was not found.`** Il Worker ha inviato a Google un ID client che Google non conosce, per esempio un segnaposto di `.env.<environment>` che il deploy ha caricato come secret `AUTH_GOOGLE_CLIENT_ID`. Per risolvere:
+
+1. Nella console di Google Cloud apri **Google Auth Platform → Clients** e crea un client di tipo **Web application**, oppure apri quello che vuoi usare. Il suo ID client termina con `.apps.googleusercontent.com`.
+2. Aggiungi `https://<host>` a **Authorized JavaScript origins** e <RepositoryFact name="googleCallbackUrl" /> a **Authorized redirect URIs** per ogni host su cui fai il deploy; Google può impiegare qualche minuto ad applicarli.
+3. In **Google Auth Platform → Audience** seleziona **Publish app**, così può accedere qualsiasi account Google e non solo gli utenti di test.
+4. Inserisci ID e secret del client in `AUTH_GOOGLE_CLIENT_ID` e `AUTH_GOOGLE_CLIENT_SECRET` in `.env.<environment>` ed esegui `bun run deploy:<environment>`, che carica entrambi i secret del Worker e controlla di nuovo l'accesso.
 
 **Una build con prerendering fallisce.** L'output della build indica il primo URL che ha fallito. Apri quella pagina con `bun run dev` per vedere l'errore.
 

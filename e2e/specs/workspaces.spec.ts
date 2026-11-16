@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test"
 
+import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { THEME } from "../../src/presentation/theme"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
@@ -28,7 +29,7 @@ for (const preference of PREFERENCES) {
   }) => {
     await page.emulateMedia({ colorScheme: preference.system })
     if (preference.stored !== null) {
-      await page.context().addCookies([{ name: THEME.COOKIE_NAME, url: baseURL ?? "http://127.0.0.1:3000", value: preference.stored }])
+      await page.context().addCookies([{ name: THEME.COOKIE_NAME, url: baseURL ?? LOCAL_SERVER_ORIGIN, value: preference.stored }])
     }
     await page.addInitScript(() => {
       const observer = new MutationObserver(() => {
@@ -43,7 +44,7 @@ for (const preference of PREFERENCES) {
     const account = TEST_ACCOUNTS[0]
     const signedIn = await page.request.post("/api/auth/sign-in/email", {
       data: { email: account.email, password: TEST_PASSWORD },
-      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? "http://127.0.0.1:3000" },
+      headers: { "CF-Connecting-IP": `2001:db8:${crypto.randomUUID().slice(0, 4)}::`, Origin: baseURL ?? LOCAL_SERVER_ORIGIN },
     })
     expect(signedIn.ok()).toBe(true)
     for (const path of ["/app", "/admin"]) {

@@ -1,8 +1,9 @@
+import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { THEME } from "../../src/presentation/theme"
 import { expect, test } from "../fixtures/test"
 
 test("documentation theme selector changes and persists the selected theme", async ({ appPage, baseURL, page }) => {
-  await page.context().addCookies([{ name: THEME.COOKIE_NAME, url: baseURL ?? "http://127.0.0.1:3000", value: "dark" }])
+  await page.context().addCookies([{ name: THEME.COOKIE_NAME, url: baseURL ?? LOCAL_SERVER_ORIGIN, value: "dark" }])
   await page.goto("/docs/getting-started")
   await appPage.waitForAppReady()
   await page.getByRole("button", { name: /Dark/u }).click()

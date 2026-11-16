@@ -23,6 +23,7 @@ import type { NewsletterSubscriber } from "~/src/modules/newsletter-subscriber/n
 import { Route as ConfirmRoute } from "~/src/routes/_site._marketing.newsletter.confirm"
 import { Route as UnsubscribeRoute } from "~/src/routes/_site._marketing.newsletter.unsubscribe"
 
+import commonMessages from "~/messages/pl-PL/common.json"
 import spinnerMessages from "~/messages/pl-PL/components.shadcn.spinner.json"
 import errorMessages from "~/messages/pl-PL/errors.json"
 import confirmMessages from "~/messages/pl-PL/pages.newsletter.confirm.json"
@@ -145,6 +146,7 @@ describe("newsletter confirmation route", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: confirmMessages.expired.title })).toBeVisible()
     expect(router.state.location.searchStr).toBe("")
+    expect(screen.getByRole("link", { name: commonMessages.backHome })).toHaveAttribute("href", "/pl-PL")
   })
 
   it("keeps the confirmed result on reload without calling the server again", async () => {

@@ -1,9 +1,13 @@
+import { notFound } from "@tanstack/react-router"
 import { getRequest } from "@tanstack/react-start/server"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { docsHead, loadDocsPage } from "~/src/integrations/fumadocs/fumadocs.docs"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { ROBOTS, buildTitle } from "~/src/lib/seo"
+
+import notFoundMessages from "~/messages/en-US/errors.not-found.json"
 import { APP_NAME, APP_URL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
@@ -74,8 +78,8 @@ describe("documentation loader", () => {
 })
 
 describe("documentation head", () => {
-  it("describes the docs index before any page data has loaded", () => {
-    const { meta } = docsHead({ loaderData: undefined })
+  it("describes the docs index before any page data has loaded", async () => {
+    const { meta } = await docsHead({ loaderData: undefined, match: { error: undefined } })
     expect(meta).toContainEqual({ title: APP_NAME })
     expect(meta).toContainEqual({ content: "", name: "description" })
     expect(meta).toContainEqual({ content: "article", property: "og:type" })
@@ -84,8 +88,20 @@ describe("documentation head", () => {
   })
 
   it("names the section of a docs page beside its title", async () => {
-    const { meta } = docsHead({ loaderData: await loadDocsPage("getting-started") })
+    const { meta } = await docsHead({ loaderData: await loadDocsPage("getting-started"), match: { error: undefined } })
     expect(meta).toContainEqual({ content: "Basics", property: "article:section" })
     expect(meta).toContainEqual({ content: "Getting started", property: "og:title" })
+  })
+
+  it("titles a missing docs page as not found and keeps it out of search results", async () => {
+    const head = await docsHead({ loaderData: undefined, match: { error: notFound() } })
+
+    expect(head).toStrictEqual({
+      meta: [
+        { title: buildTitle({ locale: I18N.DEFAULT_LOCALE, title: notFoundMessages.metadata.title }) },
+        { content: notFoundMessages.metadata.description, name: "description" },
+        { content: ROBOTS.NOINDEX, name: "robots" },
+      ],
+    })
   })
 })

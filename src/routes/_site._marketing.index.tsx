@@ -94,5 +94,5 @@ export const Route = createFileRoute("/_site/_marketing/")({
     return { locale, metadata, posts }
   },
   pendingComponent: HomePending,
-  staticData: { namespaces: [NAMESPACE] },
+  staticData: { namespaces: [NAMESPACE], underHeader: true },
 })

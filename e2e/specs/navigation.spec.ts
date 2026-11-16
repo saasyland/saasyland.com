@@ -23,7 +23,7 @@ const PUBLIC_PAGES = [
   ROUTES.DOCS,
   DOCS_PAGE,
   ROUTES.LICENCE,
-  ROUTES.PREMIUM,
+  "/this-page-does-not-exist",
 ]
 
 const POLISH_PAGES = [ROUTES.HOME, ROUTES.BLOG, ROUTES.DOCS].map((pathname) => localizePathname({ locale: POLISH, pathname }))

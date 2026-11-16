@@ -1,7 +1,7 @@
 import { type JSX, type ReactNode, isValidElement } from "react"
 
 import { InlineTOC } from "@fumadocs/base-ui/components/inline-toc"
-import { Link, createFileRoute, notFound } from "@tanstack/react-router"
+import { Link, createFileRoute, isNotFound, notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { useTranslations } from "use-intl/react"
 import zod from "zod/v4"
@@ -13,6 +13,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
 
+import { notFoundHead } from "~/src/lib/not-found"
 import { buildBlogPostStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
 
 import { blogContent } from "~/src/presentation/components/custom/blog-content"
@@ -131,15 +132,26 @@ const NAMESPACE = "pages.blog"
 
 export const Route = createFileRoute("/_site/_marketing/blog/$")({
   component: BlogPostPage,
-  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; post: BlogPostSummary; section: string } | undefined }) =>
-    buildPageHead({
+  head: ({
+    loaderData,
+    match,
+  }: {
+    loaderData?: { locale: SupportedLocale; post: BlogPostSummary; section: string } | undefined
+    match: { error: unknown }
+  }) => {
+    if (isNotFound(match.error)) {
+      return notFoundHead(getCurrentLocale())
+    }
+
+    return buildPageHead({
       description: loaderData?.post.summary,
       locale: loaderData?.locale,
       pathname: loaderData?.post.url ?? ROUTES.BLOG,
       section: loaderData?.section,
       title: loaderData?.post.title,
       type: "article",
-    }),
+    })
+  },
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [post, blog] = await Promise.all([

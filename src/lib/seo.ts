@@ -71,7 +71,6 @@ const socialImage = ({
 
 export const buildPageHead = ({
   description = "",
-  indexable = true,
   locale = I18N.DEFAULT_LOCALE,
   pathname,
   section,
@@ -79,7 +78,6 @@ export const buildPageHead = ({
   type = "website",
 }: {
   readonly description?: string | undefined
-  readonly indexable?: boolean
   readonly locale?: SupportedLocale | undefined
   readonly pathname: string
   readonly section?: string | undefined
@@ -97,7 +95,6 @@ export const buildPageHead = ({
     meta: [
       { title: pageTitle },
       { content: description, name: "description" },
-      ...(indexable ? [] : [{ content: ROBOTS.NOINDEX, name: "robots" }]),
       { content: APP_NAME, property: "og:site_name" },
       { content: shareTitle, property: "og:title" },
       { content: description, property: "og:description" },
@@ -125,9 +122,9 @@ export interface PageLoaderData {
 }
 
 export const pageHead =
-  (pathname: string, { indexable = true }: { readonly indexable?: boolean } = {}) =>
+  (pathname: string) =>
   ({ loaderData }: { loaderData?: PageLoaderData | undefined }) =>
-    buildPageHead({ ...loaderData?.metadata, indexable, locale: loaderData?.locale, pathname })
+    buildPageHead({ ...loaderData?.metadata, locale: loaderData?.locale, pathname })
 
 type PostStructuredDataInput = Readonly<{
   authorName: string

@@ -7,7 +7,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
-import { Route as BlogPostRoute } from "~/src/routes/blog.$"
+import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"

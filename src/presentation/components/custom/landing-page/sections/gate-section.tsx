@@ -7,7 +7,8 @@ import { useTranslations } from "use-intl/react"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
-import { MARKETING_SECTION_IDS, TIER_PRICES } from "~/src/data/marketing"
+import { TIER_PRICES } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"

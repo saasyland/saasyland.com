@@ -21,7 +21,7 @@ import { user } from "~/src/modules/user/user.schema"
 
 import { COURSE_ACCESS_GRANTS } from "~/src/data/course-access"
 import { LICENSE_COURSE_ACCESS } from "~/src/data/license.course-access"
-import { MARKETING_SECTION_IDS } from "~/src/data/marketing"
+import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
 import { ROUTES } from "~/src/routes"
 

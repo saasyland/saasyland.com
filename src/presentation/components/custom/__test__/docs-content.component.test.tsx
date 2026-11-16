@@ -7,6 +7,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
+import { SITE_CONTENT_ID } from "~/src/data/navigation.constants"
+
 import { docsContent } from "~/src/presentation/components/custom/docs-content"
 
 vi.mock("collections/browser", async () => {
@@ -69,4 +71,5 @@ it("renders a documentation page with its title, description and MDX body", asyn
   expect(await screen.findByRole("heading", { name: "Getting started" })).toBeInTheDocument()
   expect(screen.getByText("Start your project")).toBeInTheDocument()
   expect(screen.getByText("Compiled MDX body")).toBeInTheDocument()
+  expect(screen.getByRole("article")).toHaveAttribute("id", SITE_CONTENT_ID)
 })

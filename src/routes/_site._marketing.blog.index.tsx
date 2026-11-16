@@ -57,7 +57,7 @@ const BlogIndexPage = (): JSX.Element => {
 
 const NAMESPACE = "pages.blog"
 
-export const Route = createFileRoute("/blog/")({
+export const Route = createFileRoute("/_site/_marketing/blog/")({
   component: BlogIndexPage,
   head: pageHead(ROUTES.BLOG),
   loader: async ({ context }) => {

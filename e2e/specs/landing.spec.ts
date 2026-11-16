@@ -23,7 +23,7 @@ test.describe("landing page", () => {
   test("navbar progress follows scrolling down and back up", async ({ landingPage, page }) => {
     await landingPage.goto()
     const line = landingPage.navigation().locator(':scope > div[aria-hidden="true"]')
-    const viewportWidth = await page.evaluate(() => window.innerWidth)
+    const headerWidth = await landingPage.navigation().evaluate((header) => header.getBoundingClientRect().width)
 
     await page.waitForFunction(() => document.documentElement.scrollHeight > window.innerHeight)
 
@@ -37,7 +37,7 @@ test.describe("landing page", () => {
 
           return (await line.boundingBox())?.width
         })
-        .toBeCloseTo(viewportWidth * progress, -1)
+        .toBeCloseTo(headerWidth * progress, -1)
       await expect(line).toHaveCSS("height", "1px")
     }
   })

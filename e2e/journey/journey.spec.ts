@@ -11,7 +11,8 @@ import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { toMinorUnits } from "../../src/modules/_core/constants/currency"
-import { CURRENCY_FORMAT, DEFAULT_CURRENCY_CODE, PPP_PERCENT, pppMultiplierKey } from "../../src/modules/_core/constants/pricing"
+import { CURRENCY_FORMAT, DEFAULT_CURRENCY_CODE } from "../../src/modules/_core/constants/pricing"
+import { PPP_PERCENT, pppMultiplierKey } from "../../src/modules/license/license.pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "../../src/modules/license/license.constants"
 
 import {

@@ -4,8 +4,8 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
-import { TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT, TEST_PASSWORD } from "~/e2e/data/accounts"
-import { TEST_LICENSE } from "~/e2e/data/licenses"
+import { TEST_ACCOUNTS, TEST_PASSWORD } from "~/e2e/data/accounts"
+import { TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
 import packageJson from "~/package.json"
 import { collectRepositoryFacts, collectSeededAccounts } from "~/scripts/repository-facts"
 

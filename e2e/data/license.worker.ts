@@ -1,5 +1,4 @@
-import { TEST_LICENSED_ACCOUNT } from "./accounts"
-import { TEST_LICENSE } from "./licenses"
+import { TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "./licenses"
 import { TEST_WORKER_KIND, type TestWorkerEntry } from "./worker"
 
 export const LICENSE_TEST_WORKER = [

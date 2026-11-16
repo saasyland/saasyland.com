@@ -18,6 +18,8 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
+import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
 import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS, LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import type { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"
@@ -36,9 +38,12 @@ import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { LicenseCard } from "~/src/presentation/components/custom/app/license-card"
 import { LicenseStatusCard } from "~/src/presentation/components/custom/app/license-status-card"
 
+import commonMessages from "~/messages/en-US/common.json"
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import errorsMessages from "~/messages/en-US/errors.json"
+import navigationLicenseMessages from "~/messages/en-US/navigation.license.json"
 import pagesAppMessages from "~/messages/en-US/pages.app.json"
+import pagesAppSidebarMessages from "~/messages/en-US/pages.app.sidebar.json"
 import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
 import plPricingMessages from "~/messages/pl-PL/components.custom.pricing.json"
 import plPagesLicenseMessages from "~/messages/pl-PL/pages.license.json"
@@ -57,6 +62,7 @@ const activationsMock = vi.hoisted(() => vi.fn<() => ReturnType<typeof getCurren
 const sectionLoad = vi.hoisted(() => vi.fn<() => Promise<unknown>>())
 const checkoutMock = vi.hoisted(() => vi.fn<NonNullable<typeof startCheckoutMutation.mutationFn>>())
 const deactivateMock = vi.hoisted(() => vi.fn<NonNullable<typeof deactivateLicenseMutation.mutationFn>>())
+const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
 
 vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
   const actual = await importOriginal()
@@ -86,6 +92,9 @@ vi.mock(import("~/src/modules/license/use-cases/start-checkout"), () => ({
 vi.mock(import("~/src/modules/license/use-cases/deactivate-license"), () => ({
   deactivateLicenseMutation: { mutationFn: deactivateMock, mutationKey: LICENSE_MUTATION_KEYS.DEACTIVATE },
 }))
+vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
+  signOutUserMutation: { mutationFn: signOutMock, mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_OUT },
+}))
 
 const ownedLicense: License["select"] = {
   createdAt: new Date("2026-09-08T10:00:00Z"),
@@ -114,11 +123,12 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
   Object.assign(OverviewRoute.options, { getParentRoute: () => AppRoute, id: "/", path: "/" })
   Object.assign(LicenseRoute.options, { getParentRoute: () => AppRoute, id: "/license", path: "/license" })
   const terms = createRoute({ component: () => <h1>Terms</h1>, getParentRoute: () => root, path: ROUTES.TERMS })
+  const signIn = createRoute({ component: () => <h1>Sign in required</h1>, getParentRoute: () => root, path: ROUTES.SIGN_IN })
   const router = createRouter({
     context: { queryClient },
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree: root.addChildren([terms, AppRoute.addChildren([OverviewRoute, LicenseRoute])]),
+    routeTree: root.addChildren([terms, signIn, AppRoute.addChildren([OverviewRoute, LicenseRoute])]),
   })
   render(
     <QueryClientProvider client={queryClient}>
@@ -142,6 +152,7 @@ beforeEach(() => {
   sectionLoad.mockReset().mockResolvedValue(undefined)
   checkoutMock.mockReset()
   deactivateMock.mockReset()
+  signOutMock.mockReset().mockResolvedValue({ redirect: undefined, success: true, url: undefined })
   vi.spyOn(toast, "error").mockReturnValue(0)
   vi.spyOn(toast, "success").mockReturnValue(0)
   vi.spyOn(globalThis, "scrollTo").mockImplementation(() => {})
@@ -483,6 +494,31 @@ describe("license cards", () => {
     )
 
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+describe("the license in the customer workspace", () => {
+  it("marks the license active in the navigation, sets the page metadata and looks the license up once", async () => {
+    const { router } = await renderApp(ROUTES.APP_LICENSE)
+
+    expect(await screen.findByRole("heading", { level: 1, name: pagesLicenseMessages.metadata.title })).toBeVisible()
+    const navigation = screen.getByRole("navigation", { name: pagesAppSidebarMessages.navigation.label })
+    expect(within(navigation).getByRole("link", { name: navigationLicenseMessages.app.license })).toHaveAttribute("aria-current", "page")
+    expect(currentLicenseMock).toHaveBeenCalledOnce()
+    expect(router.state.matches.at(-1)?.meta).toEqual(
+      expect.arrayContaining([expect.objectContaining({ content: pagesLicenseMessages.metadata.description, name: "description" })]),
+    )
+  })
+
+  it("removes the cached license when the customer signs out", async () => {
+    const { queryClient, user } = await renderApp(ROUTES.APP_LICENSE)
+    await screen.findByRole("heading", { level: 1, name: pagesLicenseMessages.metadata.title })
+    expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toStrictEqual({ license: undefined })
+
+    await user.click(screen.getByRole("button", { name: commonMessages.signOut }))
+
+    expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeVisible()
+    expect(queryClient.getQueryData(currentLicenseQuery.queryKey)).toBeUndefined()
   })
 })
 

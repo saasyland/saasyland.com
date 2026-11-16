@@ -84,6 +84,12 @@ La politique de scripts préserve cet ordre. Le Worker fait passer chaque page p
 
 `robots.txt` et `llms.txt` sont des fichiers statiques de `public/` qui contournent le Worker (`"!/robots.txt", "!/llms.txt"` dans `run_worker_first`). Lighthouse récupère les deux avec un délai d'expiration de deux secondes, et une réponse lente du Worker faisait échouer ses audits SEO et de préparation aux agents.
 
+## Les Early Hints ne citent que des fichiers qui survivent à un déploiement
+
+L’en-tête `Link` du Worker sur les réponses HTML cite les polices de la locale et rien d’autre. Cloudflare stocke l’en-tête par URL et l’envoie sous forme de réponse `103 Early Hints` avant que le Worker ne réponde à la requête suivante pour cette URL, et la copie stockée survit à un déploiement. Vite nomme la feuille de style d’après son contenu : après un déploiement qui modifie le moindre CSS, une feuille de style annoncée est un fichier qui n’existe plus, si bien que le navigateur télécharge une 404 et trouve de toute façon la nouvelle feuille de style dans le HTML. Les fichiers de `public/fonts` gardent leur nom d’un déploiement à l’autre.
+
+Mesuré sur saasyland.com avec Chromium, 15 exécutions entrelacées par variante sur trois pages, avec le minutage réel des Early Hints de l’edge : annoncer les polices a fait passer le First Contentful Paint de 168–208 ms à 144–164 ms. Annoncer la feuille de style a fait gagner 12–28 ms de plus quand son URL était à jour, et rien quand un déploiement l’avait remplacée ; 25 minutes après un déploiement, 67 des 91 pages du sitemap qui recevaient des Early Hints annonçaient encore l’ancienne feuille de style. Le `<link>` de la feuille de style se trouve dans le premier kilo-octet de chaque page, donc le navigateur le trouve dès les premiers octets du HTML. N’annoncez que des fichiers dont l’URL survit à un déploiement.
+
 ## Les fournisseurs n'enveloppent jamais l'outlet d'une route
 
 TanStack Router enveloppe les outlets de route dans des frontières Suspense, et React hydrate ces frontières plus tard, par petites tranches. Un fournisseur de contexte placé au-dessus d'elles et dont la valeur change juste après l'hydratation oblige React à hydrater d'un coup tout ce qui se trouve en dessous :
@@ -135,6 +141,10 @@ Un second build Tailwind dans la feuille de style d'une route a un jour livré s
 `Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) fait apparaître en fondu les sections de la page d'accueil lorsqu'elles entrent dans la zone d'affichage. Il partage un seul `IntersectionObserver` entre toutes les instances, détermine dès le premier callback de l'observateur si un élément commence sous la ligne de flottaison, et écrit directement des attributs `data-reveal`, sans état React ni nouveau rendu. Une version qui conservait la visibilité dans un état React doublait le Total Blocking Time, car chaque section était rendue à nouveau et la page calculait deux fois sa mise en page. Ne le remettez pas dans un état, et ne le remplacez pas sans comparaison.
 
 Deux autres optimisations ont été mesurées et rejetées : `content-visibility: auto` sur les sections de la page d'accueil, qui cassait les liens internes vers les sections plus bas dans la page, et le chargement différé du formulaire de newsletter, qui obtenait un score identique ou moins bon que son rendu direct.
+
+## Le contenu qui arrive plus tard garde sa taille
+
+Une page prérendue s'affiche avant qu'aucun script ne s'exécute : une section qui se remplit ensuite doit donc tenir dans la place qu'on lui a donnée. Le bloc des cours de la page d'accueil en est une : il lit les cours publiés quand le défilement l'approche, et son espace réservé supposait auparavant deux cours de six leçons chacun, si bien que le bloc grandissait ou rétrécissait à l'arrivée des cours et déplaçait tout ce qui se trouvait dessous de cent pixels ou plus. Ses colonnes contiennent désormais un ensemble fixe de lignes uniques, l'espace réservé dessine les mêmes lignes et ses messages s'inscrivent dans un cadre de la taille d'une colonne, si bien que chaque état a la même hauteur à toutes les largeurs (voir [Cours](/docs/features/courses)). Le nombre d'étoiles de la page d'accueil fait de même avec un squelette aussi haut que le nombre. Écrire les cours dans le HTML prérendu n'est pas une option : le build n'a pas la base de données de production, et rendre la page d'accueil dans le Worker à chaque requête ferait perdre le temps jusqu'au premier octet que le prérendu fait gagner.
 
 ## Pages associées
 

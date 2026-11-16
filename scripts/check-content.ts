@@ -5,6 +5,7 @@ import process from "node:process"
 import { z } from "zod/v4"
 
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+import { canonicalizePathname, deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
 
@@ -32,6 +33,8 @@ const INLINE_CODE_PATTERN = /`(?<code>[^`\n]+)`/gu
 const COMPONENT_PATTERN = /<(?<name>[A-Z][A-Za-z]*)(?<props>(?:\s+[A-Za-z-]+(?:=(?:"[^"]*"|\{[^}]*\}))?)*)\s*\/?>/gu
 const STRING_PROP_PATTERN = /(?<name>[A-Za-z-]+)="[^"]*"/gu
 const LINK_PATTERN = /\]\((?<href>[^)#\s]+)/gu
+const INTERNAL_LINK_PATTERN = /(?:\]\(|\bhref=")(?<path>\/(?!\/)[^)"\s?#]*)/gu
+const REDIRECTED_ENDING_PATTERN = /(?:\/index)?(?:\.html)?\/?$/u
 const HOST_PATTERN = /\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?\b|\b(?:localhost|127\.0\.0\.1):\d+\b/gu
 const LOCAL_HOST_PATTERN = /^(?:localhost|127\.0\.0\.1):/u
 const ENVIRONMENT_VARIABLE_PATTERN = /^[A-Z][A-Z0-9_]+$/u
@@ -106,6 +109,19 @@ const componentsOf = (source: string): string[] =>
 
 const linksOf = (source: string): string[] =>
   [...proseWithoutCode(source).matchAll(LINK_PATTERN)].flatMap(({ groups }) => groups?.["href"] ?? [])
+
+const canonicalPath = (path: string): string => deLocalizePathname(canonicalizePathname(path.replace(REDIRECTED_ENDING_PATTERN, "") || "/"))
+
+const linkProblems = ({ label, target }: Translation): string[] => {
+  const paths = new Set([...proseWithoutCode(target).matchAll(INTERNAL_LINK_PATTERN)].flatMap(({ groups }) => groups?.["path"] ?? []))
+
+  return [...paths]
+    .filter((path) => canonicalPath(path) !== path)
+    .map(
+      (path) =>
+        `${label} links to ${path} instead of ${canonicalPath(path)}, which the site serves without a redirect in the reader's locale`,
+    )
+}
 
 const inlineCodeOf = (source: string): string[] => inlineCode(proseOf(source)).map((code) => `\`${code}\``)
 
@@ -261,7 +277,7 @@ export const mdxProblems = (translation: Translation): string[] => {
     problems.push(`Unresolved translation marker in ${label}`)
   }
 
-  problems.push(...codeValueProblems(translation))
+  problems.push(...codeValueProblems(translation), ...linkProblems(translation))
 
   if (locale === I18N.DEFAULT_LOCALE) {
     return problems

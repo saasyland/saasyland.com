@@ -84,6 +84,12 @@ Polityka skryptów zachowuje tę kolejność. Worker strumieniuje każdą preren
 
 `robots.txt` i `llms.txt` to pliki statyczne w `public/`, które omijają Workera (`"!/robots.txt", "!/llms.txt"` w `run_worker_first`). Lighthouse pobiera oba z dwusekundowym limitem czasu, a wolna odpowiedź Workera powodowała niepowodzenie jego audytów SEO i gotowości dla agentów.
 
+## Early Hints wymieniają tylko pliki, które przetrwają wdrożenie
+
+Nagłówek `Link` Workera w odpowiedziach HTML wymienia czcionki danego locale i nic więcej. Cloudflare zapisuje ten nagłówek dla każdego URL-a i wysyła go jako odpowiedź `103 Early Hints`, zanim Worker odpowie na kolejne żądanie tego URL-a, a zapisana kopia przetrwa wdrożenie. Vite nazywa arkusz stylów od jego zawartości, więc po wdrożeniu, które zmienia jakikolwiek CSS, zapowiedziany arkusz stylów to plik, którego już nie ma: przeglądarka pobiera 404 i i tak znajduje nowy arkusz stylów w HTML-u. Pliki w `public/fonts` zachowują nazwy między wdrożeniami.
+
+Zmierzone na saasyland.com w Chromium, 15 przeplatanych przebiegów na wariant na trzech stronach, z rzeczywistym czasem Early Hints na brzegu sieci: zapowiedź czcionek obniżyła First Contentful Paint z 168–208 ms do 144–164 ms. Zapowiedź arkusza stylów oszczędzała kolejne 12–28 ms, gdy jego URL był aktualny, a nic, gdy wdrożenie go zastąpiło; 25 minut po wdrożeniu 67 z 91 stron z mapy witryny, które dostały Early Hints, wciąż zapowiadało poprzedni arkusz stylów. `<link>` arkusza stylów jest w pierwszym kilobajcie każdej strony, więc przeglądarka znajduje go w pierwszych bajtach HTML-a. Zapowiadaj tylko pliki, których URL-e przetrwają wdrożenie.
+
 ## Providery nigdy nie otaczają outletu trasy
 
 TanStack Router otacza outlety tras granicami Suspense, a React hydratuje te granice później, w małych porcjach. Provider kontekstu nad nimi, którego wartość zmienia się zaraz po hydratacji, zmusza React do zhydratowania wszystkiego poniżej naraz:
@@ -135,6 +141,10 @@ Drugi build Tailwind w arkuszu stylów trasy dostarczał kiedyś własne `.hidde
 `Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) płynnie pokazuje sekcje strony głównej, gdy wchodzą w obszar widoku. Współdzieli jeden `IntersectionObserver` między wszystkimi instancjami, na podstawie pierwszego callbacku obserwatora decyduje, czy element zaczyna się poniżej pierwszego ekranu, i zapisuje atrybuty `data-reveal` bezpośrednio, bez stanu React i bez ponownego renderowania. Wersja, która trzymała widoczność w stanie React, podwoiła Total Blocking Time, ponieważ każda sekcja renderowała się ponownie, a układ strony był obliczany dwa razy. Nie przenoś tego z powrotem do stanu i nie zastępuj bez porównania.
 
 Dwie inne optymalizacje zmierzono i odrzucono: `content-visibility: auto` na sekcjach strony głównej, które psuło linki wewnątrz strony do sekcji położonych niżej, oraz leniwe ładowanie formularza newslettera, które wypadało tak samo lub gorzej niż renderowanie go bezpośrednio.
+
+## Treść, która dociera później, zachowuje swój rozmiar
+
+Prerenderowana strona rysuje się, zanim uruchomi się jakikolwiek skrypt, więc sekcja, która wypełnia się później, musi zmieścić się w miejscu, które dostała. Taką sekcją jest blok kursów na stronie głównej: wczytuje opublikowane kursy, gdy przewijanie go zbliży, a jego element zastępczy zakładał wcześniej dwa kursy po sześć lekcji, więc po nadejściu kursów blok rósł albo się kurczył i przesuwał wszystko pod sobą o sto pikseli lub więcej. Teraz jego kolumny mają stały zestaw jednowierszowych linii, element zastępczy rysuje te same linie, a komunikaty stoją w ramce wielkości kolumny, więc każdy stan ma tę samą wysokość przy każdej szerokości (zob. [Kursy](/docs/features/courses)). Liczba gwiazdek na stronie głównej robi to samo ze szkieletem tak wysokim jak liczba. Wpisanie kursów do prerenderowanego HTML nie wchodzi w grę: build nie ma produkcyjnej bazy danych, a renderowanie strony głównej w Workerze przy każdym żądaniu oddałoby czas do pierwszego bajtu, który oszczędza prerenderowanie.
 
 ## Powiązane strony
 

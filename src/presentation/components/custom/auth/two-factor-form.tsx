@@ -24,7 +24,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "~/src/presentation/compon
 
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
-const SUBMIT_CLASS = "h-12 w-full gap-2 text-body-sm font-semibold transition-[background-color,color,transform]"
+const SUBMIT_CLASS = "h-11 w-full gap-2 px-5 text-body-sm font-semibold transition-[background-color,color,transform]"
 
 const totpSchema = twoFactorZodSchemas.verifyTotp.required({ trustDevice: true })
 const backupCodeSchema = twoFactorZodSchemas.verifyBackupCode.required({ trustDevice: true })

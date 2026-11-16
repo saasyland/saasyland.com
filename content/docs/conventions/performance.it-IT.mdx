@@ -84,6 +84,12 @@ La policy degli script mantiene questo ordine. Il Worker fa passare in streaming
 
 `robots.txt` e `llms.txt` sono file statici in `public/` che aggirano il Worker (`"!/robots.txt", "!/llms.txt"` in `run_worker_first`). Lighthouse li recupera entrambi con un timeout di due secondi, e una risposta lenta del Worker faceva fallire i suoi audit SEO e di preparazione per gli agenti.
 
+## Gli Early Hints nominano solo file che sopravvivono a un deploy
+
+L'header `Link` del Worker sulle risposte HTML nomina i font del locale e nient'altro. Cloudflare memorizza l'header per URL e lo invia come risposta `103 Early Hints` prima che il Worker risponda alla richiesta successiva per quell'URL, e la copia memorizzata sopravvive a un deploy. Vite dà al foglio di stile un nome basato sul contenuto, quindi dopo un deploy che cambia qualsiasi CSS un foglio di stile annunciato è un file che non esiste più: il browser scarica un 404 e trova comunque il nuovo foglio di stile nell'HTML. I file in `public/fonts` mantengono il loro nome da un deploy all'altro.
+
+Misurato su saasyland.com con Chromium, 15 esecuzioni alternate per variante su tre pagine, con i tempi reali degli Early Hints dell'edge: annunciare i font ha portato il First Contentful Paint da 168–208 ms a 144–164 ms. Annunciare il foglio di stile ha fatto risparmiare altri 12–28 ms quando il suo URL era aggiornato e niente quando un deploy l'aveva sostituito, e 25 minuti dopo un deploy 67 delle 91 pagine della sitemap che ricevevano Early Hints annunciavano ancora il foglio di stile precedente. Il `<link>` del foglio di stile si trova nel primo kilobyte di ogni pagina, quindi il browser lo trova con i primi byte dell'HTML. Annuncia solo file i cui URL sopravvivono a un deploy.
+
 ## I provider non avvolgono mai un outlet di route
 
 TanStack Router avvolge gli outlet delle route in boundary di Suspense, e React idrata questi boundary più tardi, a piccole porzioni. Un provider di contesto sopra di essi il cui valore cambia subito dopo l'idratazione costringe React a idratare tutto ciò che sta sotto in una volta sola:
@@ -135,6 +141,10 @@ Una seconda build Tailwind in un foglio di stile di route una volta ha distribui
 `Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) fa comparire in dissolvenza le sezioni della landing page quando entrano nel viewport. Condivide un unico `IntersectionObserver` tra tutte le istanze, decide dal primo callback dell'observer se un elemento parte sotto la piega e scrive direttamente gli attributi `data-reveal`, senza stato React e senza nuovi rendering. Una versione che manteneva la visibilità nello stato React raddoppiava il Total Blocking Time, perché ogni sezione veniva renderizzata di nuovo e il layout della pagina veniva calcolato due volte. Non riportarla nello stato, e non sostituirla senza un confronto.
 
 Altre due ottimizzazioni sono state misurate e scartate: `content-visibility: auto` sulle sezioni della landing page, che rompeva i link interni verso le sezioni più in basso, e il caricamento lazy del form della newsletter, che otteneva un punteggio uguale o peggiore rispetto al rendering diretto.
+
+## I contenuti che arrivano dopo mantengono le loro dimensioni
+
+Una pagina prerenderizzata viene disegnata prima che giri qualsiasi script, quindi una sezione che si riempie dopo deve stare nello spazio che le è stato dato. Il blocco dei corsi della landing page è una di queste: legge i corsi pubblicati quando lo scorrimento lo avvicina, e il suo segnaposto prima ipotizzava due corsi di sei lezioni ciascuno, così il blocco cresceva o si restringeva all'arrivo dei corsi e spostava tutto ciò che stava sotto di cento pixel o più. Ora le sue colonne contengono un insieme fisso di righe singole, il segnaposto disegna le stesse righe e i suoi messaggi stanno in una cornice grande quanto una colonna, così ogni stato ha la stessa altezza a ogni larghezza (vedi [Corsi](/docs/features/courses)). Il numero di stelle della landing page fa lo stesso con uno scheletro alto quanto il numero. Scrivere i corsi nell'HTML prerenderizzato non è un'opzione: la build non ha il database di produzione, e renderizzare la landing page nel Worker a ogni richiesta restituirebbe il tempo al primo byte che la prerenderizzazione fa risparmiare.
 
 ## Pagine correlate
 

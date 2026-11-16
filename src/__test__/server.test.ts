@@ -10,7 +10,6 @@ import { HTTPS_SECURITY_HEADERS, SECURITY_HEADERS } from "~/src/modules/_core/co
 
 import { documentPolicy } from "~/src/lib/content-security-policy"
 
-import { DOCUMENT_STYLESHEET } from "~/src/presentation/document-assets"
 import worker from "~/src/server"
 
 const AREA_PATH_PREFIX = vi.hoisted(() => "/area-files/")
@@ -262,38 +261,47 @@ it("serves prerendered HTML through the locale middleware without rerendering", 
   assets.mockRestore()
 })
 
-it.each(["prerendered", "rendered"])(
-  "preloads the document stylesheet and fonts for %s HTML, keeping the links and cookies the response set",
-  async (source) => {
-    const html = new Response("<html>Page</html>", {
-      headers: {
-        "Cache-Control": "public, max-age=0, must-revalidate",
-        "Content-Length": "17",
-        "Content-Type": "text/html; charset=utf-8",
-        ETag: '"page"',
-        Link: "</feed.xml>; rel=alternate",
-        "Set-Cookie": "session=kept; HttpOnly",
-      },
-    })
-    if (source === "prerendered") {
-      vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(html)
-    } else {
-      fetchHandler.mockResolvedValueOnce(html)
-    }
+it.each(["prerendered", "rendered"])("preloads the fonts for %s HTML, keeping the links and cookies the response set", async (source) => {
+  const html = new Response("<html>Page</html>", {
+    headers: {
+      "Cache-Control": "public, max-age=0, must-revalidate",
+      "Content-Length": "17",
+      "Content-Type": "text/html; charset=utf-8",
+      ETag: '"page"',
+      Link: "</feed.xml>; rel=alternate",
+      "Set-Cookie": "session=kept; HttpOnly",
+    },
+  })
+  if (source === "prerendered") {
+    vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(html)
+  } else {
+    fetchHandler.mockResolvedValueOnce(html)
+  }
 
-    const response = await worker.fetch(new Request("https://localhost/docs"), env)
+  const response = await worker.fetch(new Request("https://localhost/docs"), env)
 
-    expect(response.body).toBe(html.body)
-    expect(await response.text()).toBe("<html>Page</html>")
-    expect(response.headers.get("link")?.split(", ")).toEqual([
-      "</feed.xml>; rel=alternate",
-      `<${DOCUMENT_STYLESHEET.href}>; rel=preload; as=style`,
-      '</fonts/caa3a2e1cccd8315-s.p.0wgildi0cnwt9.woff2>; rel=preload; as=font; type="font/woff2"; crossorigin=anonymous',
-      '</fonts/797e433ab948586e-s.0r6juujl39pe6.woff2>; rel=preload; as=font; type="font/woff2"; crossorigin=anonymous',
-    ])
-    expect(response.headers.get("set-cookie")).toBe("session=kept; HttpOnly")
-  },
-)
+  expect(response.body).toBe(html.body)
+  expect(await response.text()).toBe("<html>Page</html>")
+  expect(response.headers.get("link")?.split(", ")).toEqual([
+    "</feed.xml>; rel=alternate",
+    '</fonts/caa3a2e1cccd8315-s.p.0wgildi0cnwt9.woff2>; rel=preload; as=font; type="font/woff2"; crossorigin=anonymous',
+    '</fonts/797e433ab948586e-s.0r6juujl39pe6.woff2>; rel=preload; as=font; type="font/woff2"; crossorigin=anonymous',
+  ])
+  expect(response.headers.get("set-cookie")).toBe("session=kept; HttpOnly")
+})
+
+it("hints only the fonts, whose files keep their names across deploys, because Cloudflare replays a page's last Link header as Early Hints after the next deploy", async () => {
+  vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(new Response("<html>Page</html>", { headers: { "Content-Type": "text/html" } }))
+
+  const response = await worker.fetch(new Request("https://localhost/docs"), env)
+
+  expect(
+    response.headers
+      .get("link")
+      ?.split(", ")
+      .every((link) => link.startsWith("</fonts/")),
+  ).toBe(true)
+})
 
 it.each([
   ["/pl-PL/docs", "7178b3e590c64307-s.p.21jp631_3pja2.woff2"],
@@ -304,7 +312,6 @@ it.each([
   const response = await worker.fetch(new Request(`https://localhost${pathname}`), env)
 
   expect(response.headers.get("link")?.split(", ")).toEqual([
-    `<${DOCUMENT_STYLESHEET.href}>; rel=preload; as=style`,
     '</fonts/caa3a2e1cccd8315-s.p.0wgildi0cnwt9.woff2>; rel=preload; as=font; type="font/woff2"; crossorigin=anonymous',
     '</fonts/797e433ab948586e-s.0r6juujl39pe6.woff2>; rel=preload; as=font; type="font/woff2"; crossorigin=anonymous',
     `</fonts/${font}>; rel=preload; as=font; type="font/woff2"; crossorigin=anonymous`,
@@ -379,7 +386,7 @@ it.each([
 
   expect(await response.text()).toBe("rewritten page")
   expect(areaRewrite).toHaveBeenCalledExactlyOnceWith(expect.any(Response), { locale, request })
-  expect(areaRewrite.mock.calls[0]?.[0].headers.get("link")).toContain(`<${DOCUMENT_STYLESHEET.href}>; rel=preload; as=style`)
+  expect(areaRewrite.mock.calls[0]?.[0].headers.get("link")).toContain("</fonts/caa3a2e1cccd8315-s.p.0wgildi0cnwt9.woff2>; rel=preload")
   expect(headersNamed(response, Object.keys(OTHER_SECURITY_HEADERS))).toStrictEqual(OTHER_SECURITY_HEADERS)
 })
 

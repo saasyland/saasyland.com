@@ -33,10 +33,10 @@ export interface PolarEventHandler {
 ```
 
 - `handlePolarEvent` は、そのイベントの種類を列挙しているすべてのエントリーの `handle` を同時に実行し、すべての完了を待ちます。
-- いずれかが失敗すると、プラグインは 500 を返し、Polar は後でイベントを再送します。そのため、各ハンドラーは同じイベントで 2 回実行されても安全でなければなりません。Polar は失敗し続けるエンドポイントを無効にし、`polar:verify` は無効になったエンドポイントを報告します。
+- いずれかが失敗しても、`handlePolarEvent` は他のハンドラーの完了を待ち、どの領域も書き込みの途中で止まらないようにしてから、すべての失敗をまとめた `AggregateError` で reject します。プラグインは 500 を返し、Polar は後でイベントを再送します。そのため、各ハンドラーは同じイベントで 2 回実行されても安全でなければなりません。Polar は失敗し続けるエンドポイントを無効にし、`polar:verify` は無効になったエンドポイントを報告します。
 - どのエントリーにも列挙されていないイベントは受領され、どこにも渡されません。
 - `POLAR_EVENTS` は、すべてのエントリーのイベントを重複なく並べ替えてまとめたものです。Polar の Webhook エンドポイントはこれらのイベントだけを過不足なく送信する必要があり、`polar:verify` が両者を比較します。
-- Polar のエリアは `src/data/polar.polar-events.ts` で空のリストを追加するため、バレルが空になることはありません。現在イベントを処理するのはライセンスのエリアだけで、`src/data/license.polar-events.ts` で処理します。[ライセンス](/docs/features/licences#webhooks-and-licences)を参照してください。
+- Polar のエリアは `src/data/polar.polar-events.ts` で空のリストを追加するため、バレルが空になることはありません。請求のエリアは `src/data/billing.polar-events.ts` で注文とサブスクリプションを D1 にコピーし（[コピーの書き込み](#writing-the-copies)を参照）、ライセンスのエリアは `src/data/license.polar-events.ts` でライセンスを付与し、取り消します（[ライセンス](/docs/features/licences#webhooks-and-licences)を参照）。
 
 `polar:verify` は Worker の外の Bun で実行され、`POLAR_EVENTS` を読み取ります。そのため、`src/data/polar-events.ts` とすべての `<area>.polar-events.ts` はサーバーのコードを何もインポートしません。エリアの `handle` は、イベントが届いたときにハンドラーを読み込みます。
 
@@ -48,7 +48,7 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 
 ## D1 の注文とサブスクリプション [#orders-and-subscriptions-in-d1]
 
-Polar のエリアは、Polar の注文とサブスクリプションのコピーを D1 の 2 つのテーブル、`order`（`src/modules/order/`）と `subscription`（`src/modules/subscription/`）に保持します。これにより、一覧、検索、アクセスチェックが SQL で読み取れ、Polar の応答が遅いときも動き続けます。情報源はあくまで Polar です。各行は Polar の ID で保存された Polar のレコードであり、手作業で編集することはありません。これらのテーブルに書き込むコードはまだありません。こうしたミラーテーブルが従うルールは[モジュール](/docs/conventions/modules#tables-that-mirror-a-provider)にあります。
+Polar のエリアは、Polar の注文とサブスクリプションのコピーを D1 の 2 つのテーブル、`order`（`src/modules/order/`）と `subscription`（`src/modules/subscription/`）に保持します。これにより、一覧、検索、アクセスチェックが SQL で読み取れ、Polar の応答が遅いときも動き続けます。情報源はあくまで Polar です。各行は Polar の ID で保存された Polar のレコードであり、Polar の Webhook からのみ書き込まれ、手作業で編集することはありません。こうしたミラーテーブルが従うルールは[モジュール](/docs/conventions/modules#tables-that-mirror-a-provider)にあります。
 
 | テーブル       | 列                                                                                                                                                                                                                                                                                                    |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -60,6 +60,20 @@ Polar のエリアは、Polar の注文とサブスクリプションのコピ�
 - 金額は、Polar が送るとおり通貨の最小単位で表します。`description` は Polar が請求書に記載した注文の購入内容、`product_name` は Polar が最後に伝えたサブスクリプションの商品名です。
 - `placed_at` は Polar が注文を作成した時刻です。`changed_at` は行が保持している Polar のレコードのバージョンで、Polar の `modified_at`、一度も変更されていないレコードでは Polar の `created_at` です。行自身の `created_at` と `updated_at` は、D1 が行を書き込んだ時刻を記録します。
 - インデックスは、これらのコピーの用途である一覧を支えます。`order_user_placed_at_idx` はアカウントの注文を、`order_status_placed_at_idx` はあるステータスの注文を、いずれも注文された日時の順に、`subscription_user_status_idx` はアカウントのサブスクリプションをステータス別に、`subscription_status_current_period_end_idx` はあるステータスのサブスクリプションを期間の終了日時の順に引きます。
+
+### コピーの書き込み [#writing-the-copies]
+
+`src/data/billing.polar-events.ts` は Polar のイベントに 2 つのエントリーを追加し（[Webhook](#webhooks)を参照）、各エントリーはイベントが届いたときに自分のユースケースを読み込みます。
+
+| イベント                                                         | ユースケース                                                                        |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `order.created`, `order.updated`, `order.paid`, `order.refunded` | `src/modules/order/use-cases/record-order.ts` の `recordOrder`                      |
+| `subscription.created`, `subscription.updated`                   | `src/modules/subscription/use-cases/record-subscription.ts` の `recordSubscription` |
+
+- 各ユースケースは Polar のレコード（`models.Order` または `models.Subscription`）を受け取り、1 つの文で書き込みます。Polar の ID で行を挿入し、行がすでにある場合は、保存されている `changed_at` がレコードのものより後でないときだけ更新します。新しいバージョンは反映され、遅れて届いた古いバージョンは何も変えず、2 回届いた同じバージョンは同じ値で書き直されます。同じ `modified_at` を持つ 2 つの異なる状態では、最後に書き込まれたほうが、Polar がレコードを再び変更するまで残ります。
+- 同じ文が、`src/integrations/polar/polar.customers.ts` の `polarCustomerAccount` で `user_id` を埋めます。これは ID が顧客の `external_id` と一致するアカウントで、`external_id` は販売するエリアがチェックアウト時に設定します。ライセンスのエリアの `startCheckout` もそうしています。顧客に `external_id` がない場合や、その ID のアカウントがない場合（アカウントが削除された場合など）は空のままです。
+- ライセンスのエリアも `order.paid` と `order.refunded` を処理します。コピーもこれらを受け取るため、Polar がそれらについて `order.updated` も送るかどうかに関係なく、支払いと返金を保持します。`handlePolarEvent` は両方のエリアを同時に実行します。コピーが失敗すると配信は 500 を返し、Polar の再試行は両方の書き込みを繰り返しますが、どちらかがすでに書き込んだ内容は変わりません。
+- コピーを読み取るページはまだありません。
 
 ## カスタマーポータル
 

@@ -38,6 +38,10 @@ export const POLAR_LICENSE_KEY_STATUS = {
 } as const satisfies Record<string, models.LicenseKeyStatus>
 
 export const POLAR_WEBHOOK_EVENT = {
+  ORDER_CREATED: "order.created",
   ORDER_PAID: "order.paid",
   ORDER_REFUNDED: "order.refunded",
+  ORDER_UPDATED: "order.updated",
+  SUBSCRIPTION_CREATED: "subscription.created",
+  SUBSCRIPTION_UPDATED: "subscription.updated",
 } as const satisfies Record<string, models.WebhookEventType>

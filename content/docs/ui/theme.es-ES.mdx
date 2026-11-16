@@ -26,7 +26,7 @@ const RootComponent = () => (
 )
 ```
 
-`/admin`, `/app` y `/docs` siguen el tema guardado; el único selector de tema está en la barra lateral de la documentación. Los layouts de la página de inicio, de autenticación, del blog y de los cursos añaden la clase `dark` a su contenedor y siempre se muestran en oscuro.
+`/admin`, `/app` y `/docs` siguen el tema guardado; el único selector de tema está en la barra lateral de la documentación. El layout `_site` añade la clase `dark` a su contenedor mientras una ruta coincidente define `dark: true` en su `staticData`, como hace el layout `_marketing` de la página de inicio, las páginas legales, el blog y los cursos, y el layout de autenticación la añade a su propio contenedor; esas páginas siempre se muestran en oscuro. `globals.css` también da a `html` los tokens oscuros mientras uno de esos contenedores sea hijo directo de `body` (`:root:has(> body > .dark)`), de modo que la ventana alrededor de la página, también detrás de la barra de desplazamiento, es oscura incluso con el tema claro.
 
 ## Tokens
 
@@ -37,6 +37,28 @@ const RootComponent = () => (
 ```
 
 `@theme inline` asocia las variables a los colores de Tailwind, define las familias tipográficas y la escala tipográfica. `globals.css` también importa los estilos de Fumadocs UI, así que la documentación usa los mismos tokens.
+
+## Barras de desplazamiento [#scrollbars]
+
+La ventana reserva espacio para su barra de desplazamiento en todas las páginas, así que el contenido no se mueve cuando una página es demasiado corta para desplazarse, cuando crece y cuando un diálogo, un popover o un menú impide desplazar la página. `globals.css` pone `scrollbar-gutter: stable` en `html`, junto a la barra fina de la página: los navegadores dan estilo a la barra de la ventana con `scrollbar-color` y `scrollbar-width` de `html`, nunca con los de `body`.
+
+```css
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--spacing-header);
+  scrollbar-color: color-mix(in oklab, var(--foreground) 20%, transparent) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+html:has([data-page-scroller]) {
+  scrollbar-gutter: auto;
+}
+[data-page-scroller] {
+  scrollbar-gutter: stable;
+}
+```
+
+`/app` y `/admin` ocupan la ventana y desplazan en su lugar su área de contenido, así que ese elemento lleva `data-page-scroller`, tanto en los layouts como en sus esqueletos de carga: el espacio pasa allí y el área de trabajo ocupa todo el ancho de la ventana. `usePreventScroll` de React Aria y Base UI, que hace funcionar la búsqueda de la documentación, también fijan la página con `scrollbar-gutter: stable` en lugar de con padding, así que nada compensa el espacio dos veces. Las capas fijas, como la cabecera, el marco de la página y el botón para volver arriba, se colocan en la ventana sin ese espacio y quedan alineadas con el contenido, y el carril de la barra es transparente, así que el espacio muestra el propio fondo de la página.
 
 ## Escala tipográfica
 

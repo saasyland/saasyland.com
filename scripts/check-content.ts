@@ -33,6 +33,8 @@ const INLINE_CODE_PATTERN = /`(?<code>[^`\n]+)`/gu
 const COMPONENT_PATTERN = /<(?<name>[A-Z][A-Za-z]*)(?<props>(?:\s+[A-Za-z-]+(?:=(?:"[^"]*"|\{[^}]*\}))?)*)\s*\/?>/gu
 const STRING_PROP_PATTERN = /(?<name>[A-Za-z-]+)="[^"]*"/gu
 const LINK_PATTERN = /\]\((?<href>[^)#\s]+)/gu
+const BARE_URL_PATTERN = /(?<!\]\()(?<!["'=[])https?:\/\/[^\s<]+/gu
+const NON_ASCII_PATTERN = /\P{ASCII}/u
 const INTERNAL_LINK_PATTERN = /(?:\]\(|\bhref=")(?<path>\/(?!\/)[^)"\s?#]*)/gu
 const REDIRECTED_ENDING_PATTERN = /(?:\/index)?(?:\.html)?\/?$/u
 const HOST_PATTERN = /\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?\b|\b(?:localhost|127\.0\.0\.1):\d+\b/gu
@@ -124,6 +126,11 @@ const linkProblems = ({ label, target }: Translation): string[] => {
 }
 
 const inlineCodeOf = (source: string): string[] => inlineCode(proseOf(source)).map((code) => `\`${code}\``)
+
+const bareUrlProblems = ({ label, target }: Translation): string[] =>
+  (proseWithoutCode(target).match(BARE_URL_PATTERN) ?? [])
+    .filter((url) => NON_ASCII_PATTERN.test(url))
+    .map((url) => `${label} has a bare URL that runs into the text after it, so the link takes that text too: ${url}`)
 
 const tableRows = (source: string): string[][] =>
   [...source.matchAll(TABLE_ROW_PATTERN)].map(({ groups }) => (groups?.["cells"] ?? "").split("|").map((cell) => cell.trim()))
@@ -277,7 +284,7 @@ export const mdxProblems = (translation: Translation): string[] => {
     problems.push(`Unresolved translation marker in ${label}`)
   }
 
-  problems.push(...codeValueProblems(translation), ...linkProblems(translation))
+  problems.push(...codeValueProblems(translation), ...linkProblems(translation), ...bareUrlProblems(translation))
 
   if (locale === I18N.DEFAULT_LOCALE) {
     return problems

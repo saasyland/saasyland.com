@@ -7,7 +7,7 @@ import { BlogPending } from "~/src/presentation/components/custom/blog/blog-pend
 
 import docsCss from "~/src/presentation/styles/docs.css?url"
 
-const NAMESPACES = ["pages.blog"] as const
+const NAMESPACES = ["fumadocs", "pages.blog"] as const
 
 export const Route = createFileRoute("/_site/_marketing/blog")({
   head: () => ({ links: [{ href: docsCss, rel: "stylesheet" }] }),

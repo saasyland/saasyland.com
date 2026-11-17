@@ -6,6 +6,7 @@ import { adminAc } from "better-auth/plugins/admin/access"
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
 
+import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
@@ -26,7 +27,7 @@ import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.c
 import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
 import { APP_STATEMENTS } from "~/src/data/access"
-import { AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { AFFILIATE_PORTAL_URL, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
 import { CLI_LICENSE_COMMANDS, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
@@ -449,6 +450,57 @@ describe("affiliate terms", () => {
 
     expect(screen.getByTestId("fact")).toHaveTextContent(
       new Intl.NumberFormat(locale, { style: "unit", unit: "day", unitDisplay: "long" }).format(AFFILIATE_TERMS.HOLD_DAYS),
+    )
+  })
+
+  it("prints the commission, cookie duration, payout, partner portal and referral parameters Affonso is set to, from the code", () => {
+    renderInLocale(
+      "en-US",
+      <ul>
+        <li>
+          <RepositoryFact name="affiliateCommissionPercent" unit="percent" />
+        </li>
+        <li>
+          <RepositoryFact name="affiliateCookieDays" unit="day" />
+        </li>
+        <li>
+          <RepositoryFact name="affiliateMinimumPayout" unit="payout" />
+        </li>
+        <li>
+          <RepositoryFact name="affiliatePayoutCurrency" />
+        </li>
+        <li>
+          <RepositoryFact name="affiliatePortalUrl" />
+        </li>
+        <li>
+          <RepositoryFact name="affonsoReferralParams" />
+        </li>
+      </ul>,
+    )
+
+    expect(listItems()).toEqual([
+      new Intl.NumberFormat("en-US", { style: "unit", unit: "percent" }).format(AFFILIATE_TERMS.COMMISSION_PERCENT),
+      inUnit("day", AFFILIATE_TERMS.COOKIE_DAYS),
+      new Intl.NumberFormat("en-US", {
+        currency: AFFILIATE_TERMS.PAYOUT_CURRENCY,
+        style: "currency",
+        trailingZeroDisplay: "stripIfInteger",
+      }).format(AFFILIATE_TERMS.MINIMUM_PAYOUT),
+      AFFILIATE_TERMS.PAYOUT_CURRENCY,
+      AFFILIATE_PORTAL_URL,
+      englishList(AFFONSO.REFERRAL_PARAMS),
+    ])
+  })
+
+  it.each(["en-US", "de-DE", "ja-JP"] as const)("prints the minimum payout in the payout currency, formatted for %s", (locale) => {
+    renderInLocale(locale, <RepositoryFact name="affiliateMinimumPayout" unit="payout" />)
+
+    expect(screen.getByTestId("fact").textContent).toBe(
+      new Intl.NumberFormat(locale, {
+        currency: AFFILIATE_TERMS.PAYOUT_CURRENCY,
+        style: "currency",
+        trailingZeroDisplay: "stripIfInteger",
+      }).format(AFFILIATE_TERMS.MINIMUM_PAYOUT),
     )
   })
 })

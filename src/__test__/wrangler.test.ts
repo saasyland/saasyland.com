@@ -8,6 +8,7 @@ import { DEPLOYED_HOSTS, ENVIRONMENT } from "~/src/modules/_core/constants/api"
 const WRANGLER = readFileSync("wrangler.jsonc", "utf8")
 const SECRET_NAME = /[A-Z][A-Z0-9_]*/gu
 const VARIABLE_NAME = /^[A-Z][A-Z0-9_]*(?==)/gmu
+const AFFONSO_PROGRAM_ID = "AFFONSO_PROGRAM_ID"
 
 const bindingListSchema = zod.array(zod.object({ binding: zod.string() })).default([])
 const environmentBindingsSchema = zod.object({
@@ -39,6 +40,8 @@ const bindingNames = (environment: string): Record<string, string[]> => {
 
 const variableNames = (file: string): string[] => readFileSync(file, "utf8").match(VARIABLE_NAME) ?? []
 
+const programId = (environment: string): unknown => getNodeValue(nodeAt(["env", environment, "vars", AFFONSO_PROGRAM_ID]))
+
 describe("wrangler.jsonc", () => {
   it.each([ENVIRONMENT.DEVELOPMENT, ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])(
     "requires the secrets of .env.example in %s, in the same order",
@@ -57,6 +60,18 @@ describe("wrangler.jsonc", () => {
       expect(bindingNames(environment)).toStrictEqual(bindingNames(ENVIRONMENT.DEVELOPMENT))
     },
   )
+
+  it.each([ENVIRONMENT.DEVELOPMENT, ENVIRONMENT.PREVIEW])(
+    "leaves affiliate tracking off in %s, which takes no real payments",
+    (environment) => {
+      expect(getNodeValue(nodeAt(["env", environment]))).not.toHaveProperty("vars")
+    },
+  )
+
+  it("tracks affiliate referrals in production with a programme ID of its own, not the browser tests' dummy", () => {
+    expect(programId(ENVIRONMENT.PRODUCTION)).toEqual(expect.any(String))
+    expect(programId(ENVIRONMENT.PRODUCTION)).not.toBe(programId(ENVIRONMENT.TEST))
+  })
 
   it.each([ENVIRONMENT.PREVIEW, ENVIRONMENT.PRODUCTION])("serves %s on its host in DEPLOYED_HOSTS", (environment) => {
     expect(getNodeValue(nodeAt(["env", environment, "routes"]))).toEqual([{ custom_domain: true, pattern: DEPLOYED_HOSTS[environment] }])

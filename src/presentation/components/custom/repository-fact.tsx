@@ -6,6 +6,7 @@ import { adminAc } from "better-auth/plugins/admin/access"
 import { useFormatter } from "use-intl/react"
 import { cliApiTables, commitEmojis, seededAccounts } from "virtual:repository-facts"
 
+import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import {
   BACKUP_CODE_MAX_LENGTH,
@@ -52,7 +53,7 @@ import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { APP_STATEMENTS } from "~/src/data/access"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
-import { AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { AFFILIATE_PORTAL_URL, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { OAUTH_CLIENTS, OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH, oauthCallbackPath } from "~/src/data/auth"
 import {
   CLI_API_URL_VARIABLE,
@@ -100,7 +101,13 @@ const FACTS = {
   activationPollSeconds: ACTIVATION_POLL_MS / MILLISECONDS_PER_SECOND,
   activationTimeoutSeconds: ACTIVATION_TIMEOUT_MS / MILLISECONDS_PER_SECOND,
   adminPreviewPageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize,
+  affiliateCommissionPercent: AFFILIATE_TERMS.COMMISSION_PERCENT,
+  affiliateCookieDays: AFFILIATE_TERMS.COOKIE_DAYS,
   affiliateHoldDays: AFFILIATE_TERMS.HOLD_DAYS,
+  affiliateMinimumPayout: AFFILIATE_TERMS.MINIMUM_PAYOUT,
+  affiliatePayoutCurrency: AFFILIATE_TERMS.PAYOUT_CURRENCY,
+  affiliatePortalUrl: AFFILIATE_PORTAL_URL,
+  affonsoReferralParams: AFFONSO.REFERRAL_PARAMS,
   audioBitrate: AUDIO_BITRATE,
   audioSampleRate: AUDIO_SAMPLE_RATE,
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
@@ -215,6 +222,7 @@ const UNIT_FORMATS = {
   day: { style: "unit", unit: "day", unitDisplay: "long" },
   hour: { style: "unit", unit: "hour", unitDisplay: "long" },
   minute: { style: "unit", unit: "minute", unitDisplay: "long" },
+  payout: { currency: AFFILIATE_TERMS.PAYOUT_CURRENCY, style: "currency", trailingZeroDisplay: "stripIfInteger" },
   percent: { style: "unit", unit: "percent" },
   second: { style: "unit", unit: "second", unitDisplay: "long" },
 } as const satisfies Record<string, Intl.NumberFormatOptions>

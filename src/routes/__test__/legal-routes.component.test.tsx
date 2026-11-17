@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import { IntlProvider } from "use-intl/react"
 import { expect, it } from "vite-plus/test"
 
@@ -10,6 +10,8 @@ import { Route as LicenceRoute } from "~/src/routes/_site._marketing.licence"
 import { Route as PrivacyRoute } from "~/src/routes/_site._marketing.privacy"
 import { Route as RefundsRoute } from "~/src/routes/_site._marketing.refunds"
 import { Route as TermsRoute } from "~/src/routes/_site._marketing.terms"
+
+import { AFFILIATE_PORTAL_URL } from "~/src/data/affiliates"
 
 import affiliates from "~/messages/en-US/pages.legal.affiliates.json"
 import licence from "~/messages/en-US/pages.legal.licence.json"
@@ -47,4 +49,22 @@ it.each(I18N.SUPPORTED_LOCALES)("renders every legal document completely in %s",
     expect(view.container).not.toHaveTextContent(`pages.legal.${document}`)
     view.unmount()
   }
+})
+
+it.each(I18N.SUPPORTED_LOCALES)("links the partner portal from the affiliate terms in %s", (locale) => {
+  const Page = AffiliatesRoute.options.component
+  if (Page === undefined) {
+    throw new Error("The affiliates route has no page component")
+  }
+  const view = render(
+    <IntlProvider locale={locale} messages={getTestMessages(locale)}>
+      <Page />
+    </IntlProvider>,
+  )
+
+  expect(within(view.container).getByRole("link", { name: new URL(AFFILIATE_PORTAL_URL).host })).toHaveAttribute(
+    "href",
+    AFFILIATE_PORTAL_URL,
+  )
+  view.unmount()
 })

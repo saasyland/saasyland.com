@@ -7,8 +7,8 @@ description: "Реферальні посилання, які відстежує
 
 ## Шлях рекомендації
 
-1. Партнер ділиться будь-якою сторінкою з реферальним параметром, наприклад `/?via=jane`. Параметри, які читає Affonso, перелічено в `AFFONSO.REFERRAL_PARAMS` (`src/integrations/affonso/affonso.constants.ts`): `affonso`, `atp`, `aff`, `via` і `ref`.
-2. `AffiliateReferral` (`src/presentation/components/custom/affiliate-referral.tsx`), який `src/data/affiliates.root.ts` монтує один раз у кореневому маршруті, перевіряє URL після гідратації. Лише коли присутній один із цих параметрів, він запитує в сервера ID програми (`getAffonsoProgramId`, `src/integrations/affonso/affonso.program.ts`) і рендерить скрипт Affonso з `data-cookie_duration`, що дорівнює `AFFILIATE_TERMS.COOKIE_DAYS`. Відвідування без реферального параметра не завантажують жодних сторонніх скриптів.
+1. Партнер ділиться будь-якою сторінкою з реферальним параметром, наприклад `/?via=jane`. Параметри, які читає Affonso, перелічено в `AFFONSO.REFERRAL_PARAMS` (`src/integrations/affonso/affonso.constants.ts`): <RepositoryFact name="affonsoReferralParams" />.
+2. `AffiliateReferral` (`src/presentation/components/custom/affiliate-referral.tsx`), який `src/data/affiliates.root.ts` монтує один раз у кореневому маршруті, перевіряє URL після гідратації. Лише коли присутній один із цих параметрів, він запитує в сервера ID програми (`getAffonsoProgramId`, `src/integrations/affonso/affonso.program.ts`) і рендерить скрипт Affonso з `data-cookie_duration`, що дорівнює `AFFILIATE_TERMS.COOKIE_DAYS`, тобто <RepositoryFact name="affiliateCookieDays" unit="day" />. Відвідування без реферального параметра не завантажують жодних сторонніх скриптів.
 3. Скрипт фіксує клік в Affonso і зберігає ID кліку в основному (first-party) cookie `affonso_referral`.
 4. Коли відвідувач починає оформлення замовлення, `startCheckout` додає `affonsoReferralMetadata(headers)` (`src/integrations/affonso/affonso.referral.ts`) до `metadata` сеансу оплати поруч із мовою покупця. Функція читає cookie, приймає лише літери, цифри, `_` і `-` довжиною до 128 символів і повертає `{ affonso_referral: <click ID> }` або порожній об’єкт, якщо дійсної рекомендації немає.
 5. Polar копіює метадані сеансу оплати в замовлення й надсилає `order.created` і `order.refunded` до Affonso, а Affonso нараховує або скасовує комісію.
@@ -27,23 +27,32 @@ description: "Реферальні посилання, які відстежує
 }
 ```
 
+Власний продакшн-Worker SaaSy Land задає її у `wrangler.jsonc`, тож робочий сайт відстежує рекомендації. У Worker для development і preview її не задано, а `test` задає фіктивний ID для браузерних тестів.
+
 Потім один раз:
 
 1. Створіть програму в Affonso і підключіть Polar за допомогою токена доступу організації без терміну дії. Посібник Affonso для Polar перелічує потрібні області доступу (scopes).
 2. У Polar додайте кінцеву точку вебхука, яку показує Affonso, з форматом **Raw** і подіями `order.created`, `order.refunded` і `subscription.canceled`.
-3. У налаштуваннях програми використайте значення з публічної сторінки умов: комісія, тривалість cookie, строк утримання й мінімальна виплата беруться з `AFFILIATE_TERMS` (`src/data/affiliates.ts`), тож сторінка й скрипт завжди узгоджені між собою. Установіть в Affonso строк утримання, що становить <RepositoryFact name="affiliateHoldDays" unit="day" />; він довший за строк повернення коштів, що становить <RepositoryFact name="refundWithdrawalDays" unit="day" />, тож повернення коштів і більшість спорів щодо платежів завершуються до затвердження комісії.
+3. Налаштуйте програму відповідно до умов, указаних на публічній сторінці. Числа беруться з `AFFILIATE_TERMS` (`src/data/affiliates.ts`), тож сторінка, скрипт і Affonso узгоджені:
+   - Комісія: <RepositoryFact name="affiliateCommissionPercent" unit="percent" /> від кожного продажу, на всі продукти.
+   - Строк утримання: <RepositoryFact name="affiliateHoldDays" unit="day" />; він довший за строк повернення коштів, що становить <RepositoryFact name="refundWithdrawalDays" unit="day" />, тож повернення коштів і більшість спорів щодо платежів завершуються до затвердження комісії.
+   - Тривалість cookie: <RepositoryFact name="affiliateCookieDays" unit="day" />, з атрибуцією за останнім кліком, тож зараховується партнерське посилання, яке покупець відкрив останнім.
+   - Виплати: щомісяця, на PayPal або банківським переказом, щойно баланс досягне <RepositoryFact name="affiliateMinimumPayout" unit="payout" />, у <RepositoryFact name="affiliatePayoutCurrency" />.
+   - Реферальні параметри: усі назви з <RepositoryFact name="affonsoReferralParams" />; у посиланнях, які видає Affonso, за замовчуванням використовується `via`.
+   - Доступ: публічний, тож будь-хто може зареєструватися в партнерському порталі, <RepositoryFact name="affiliatePortalUrl" />, і одразу отримує схвалення. Програма лише за запрошеннями потребує платного плану Growth в Affonso.
 4. Перевірте налаштування: відкрийте `/?atp=test`, переконайтеся, що cookie `affonso_referral` встановлено, а сеанс оплати Polar містить `affonso_referral` у метаданих.
 
 ## Сторінка умов
 
-`/affiliates` (`src/routes/_site._marketing.affiliates.tsx`, повідомлення в `pages.legal.affiliates`) публікує умови всіма мовами, і на неї веде посилання з футера. Кожне число на ній підставляється з `AFFILIATE_TERMS`; мінімальна виплата форматується відповідно до локалі відвідувача у `AFFILIATE_TERMS.PAYOUT_CURRENCY` — валюті, у якій Affonso виплачує кошти партнерам і яка залишається доларом США незалежно від того, у якій валюті приймає оплату магазин. Політика конфіденційності описує реферальний cookie, дані, які отримує Affonso, і правову підставу.
+`/affiliates` (`src/routes/_site._marketing.affiliates.tsx`, повідомлення в `pages.legal.affiliates`) публікує умови всіма мовами, і на неї веде посилання з футера. Її розділ «Як приєднатися» веде на партнерський портал з `AFFILIATE_PORTAL_URL` (`src/data/affiliates.ts`): повідомлення обгортає `{portal}`, ім’я хоста порталу, тегом `<link>`, який маршрут рендерить як посилання на портал. Кожне число на ній підставляється з `AFFILIATE_TERMS`; мінімальна виплата форматується відповідно до локалі відвідувача у `AFFILIATE_TERMS.PAYOUT_CURRENCY` — валюті, у якій Affonso виплачує кошти партнерам і яка залишається доларом США незалежно від того, у якій валюті приймає оплату магазин. Політика конфіденційності описує реферальний cookie, дані, які отримує Affonso, і правову підставу.
 
 ## Тести
 
 - `affonso.referral.test.ts`: дійсний cookie стає метаданими; відсутнє, некоректне або задовге значення ігнорується.
 - `start-checkout.test.ts`: рекомендація потрапляє в тіло запиту сеансу оплати Polar поруч із регіональною знижкою.
 - `affiliate-referral.component.test.tsx`: скрипт рендериться лише за наявності реферального параметра й налаштованого ID програми.
-- `legal-routes.component.test.tsx`: сторінка умов повністю рендериться кожною мовою.
+- `legal-routes.component.test.tsx`: сторінка умов повністю рендериться кожною мовою й веде на партнерський портал.
 - `affiliates.test.ts`: строк утримання довший за строк повернення коштів.
-- `e2e/specs/affiliates.spec.ts`: звичайний візит не завантажує жодного скрипту; візит із `?via=` завантажує його з ID програми тестового середовища й зберігає реферальний cookie (скрипт підміняється через `page.route`); сторінка умов відображається.
+- `wrangler.test.ts`: production має власний ID програми, а development і preview не мають жодного.
+- `e2e/specs/affiliates.spec.ts`: звичайний візит не завантажує жодного скрипту; візит із `?via=` завантажує його з ID програми, який `wrangler.jsonc` задає для `test`, і зберігає реферальний cookie (скрипт підміняється через `page.route`); сторінка умов показує комісію й мінімальну виплату з `AFFILIATE_TERMS` і веде на партнерський портал.
 - `e2e/specs/accessibility.spec.ts`: axe сканує `/affiliates` у світлому й темному режимах.

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
 import { act, cleanup, render, screen } from "@testing-library/react"
-import { IntlProvider } from "use-intl"
+import { IntlProvider, createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
@@ -64,11 +64,9 @@ const TERMS_VALUES: Record<string, number | string> = {
   portal: PORTAL_HOST,
 }
 
-const rendered = (text: string): string =>
-  text
-    .replaceAll(/\{(?<name>\w+)\}/gu, (_placeholder, name: string) => String(TERMS_VALUES[name]))
-    .replaceAll(/<\/?\w+>/gu, "")
-    .replaceAll(/\s+/gu, " ")
+const LEGAL_VALUES = { ...TERMS_VALUES, link: (chunks: string) => chunks }
+
+const legalText = (body: string): string => createTranslator({ locale: "en-US", messages: { body } }).markup("body", LEGAL_VALUES)
 
 const summary = (title: string, slug: string): BlogPostSummary => ({
   date: "2026-09-01",
@@ -236,7 +234,7 @@ describe("public route content", () => {
     for (const section of Object.values(sections)) {
       const heading = screen.getByRole("heading", { name: section.title })
       expect(heading).toBeVisible()
-      expect(heading.nextElementSibling).toHaveTextContent(rendered(section.body))
+      expect(heading.nextElementSibling?.textContent).toBe(legalText(section.body))
     }
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ locale: "en-US", metadata: copy.metadata })
     expect(router.state.matches.at(-1)?.status).toBe("success")

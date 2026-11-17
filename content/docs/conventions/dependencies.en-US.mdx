@@ -39,17 +39,15 @@ When the application already follows the documented usage and the new version is
 
 The current patches:
 
-- `patches/@videojs%2Futils@10.4.0.patch` fixes storyboard thumbnail URLs in the video player. `@videojs/react` is pinned to 10.4.0 with it.
 - `patches/@tanstack%2Frouter-core@1.171.39.patch` stops the router's first render after hydration from scrolling the window back to the top.
 - `patches/@tanstack%2Freact-router@1.170.46.patch` stops `lazyRouteComponent` from reloading a page whose route chunk the browser cancelled because the visitor is leaving. It is the fix proposed in [TanStack/router#8830](https://github.com/TanStack/router/pull/8830).
 - `patches/framer-motion@14.14.0.patch` makes `LazyMotion` ignore a feature bundle that fails to load instead of leaving the rejection unhandled. `motion` is pinned to 14.14.0 with it.
-- `patches/@fumadocs%2Fbase-ui@16.19.3.patch` gives the docs layout a `skipToContent` slot, so a site with its own skip link can drop the invisible one that Fumadocs points at `#nd-page` (see [Docs site](/docs/features/docs-site)). `@fumadocs/base-ui` is pinned to 16.19.3 with it.
 
-`@tanstack/react-router` is pinned to 1.170.46 and `@tanstack/react-start` to 1.169.5, because they depend on exactly the patched TanStack versions. A patch to `fumadocs-mdx` 15.6.0 was carried the same way and removed when 15.6.1 shipped the upstream fix, and so were the patches to `@fumadocs/base-ui` and `fumadocs-core` 16.19.2 when 16.19.3 shipped theirs.
+`@tanstack/react-router` is pinned to 1.170.46 and `@tanstack/react-start` to 1.169.5, because they depend on exactly the patched TanStack versions. A patch to `fumadocs-mdx` 15.6.0 was carried the same way and removed when 15.6.1 shipped the upstream fix, and so were the patches to `@fumadocs/base-ui` and `fumadocs-core` 16.19.2 when 16.19.3 shipped theirs. The patch to `@videojs/utils` 10.4.0 went when 10.5.0 shipped its fix. A patch that gave the Fumadocs docs layout a `skipToContent` slot was removed when Fumadocs declined the slot; the docs now use Fumadocs' own skip link (see [Docs site](/docs/features/docs-site)).
 
 A patch changes a package's files, not the versions Bun installs for it. When a package pins one of its own dependencies below the release the application uses, an `overrides` entry in `package.json` lifts it instead:
 
-- `"@polar-sh/sdk": "^1.1.0"`. `@polar-sh/adapter-utils` 1.1.0, which `@polar-sh/better-auth` uses, pins `@polar-sh/sdk` 1.0.2 and types the plugin's `webhooks({ onPayload })` with that copy, while the plugin validates each event with the application's 1.1.0. `handlePolarEvent` takes the 1.1.0 payload, which the 1.0.2 type does not accept. The adapter imports the SDK only for types, so the override changes no bundled code. Delete it when an `@polar-sh/adapter-utils` release depends on `@polar-sh/sdk` 1.1.0 or later (`npm view @polar-sh/adapter-utils dependencies`).
+- `"@polar-sh/sdk": "^1.3.0"`. `@polar-sh/adapter-utils` 1.1.0, which `@polar-sh/better-auth` uses, pins `@polar-sh/sdk` 1.0.2 and types the plugin's `webhooks({ onPayload })` with that copy, while the plugin validates each event with the application's 1.3.0. `handlePolarEvent` takes the 1.3.0 payload, which the 1.0.2 type does not accept. The adapter imports the SDK only for types, so the override changes no bundled code. Delete it when an `@polar-sh/adapter-utils` release depends on `@polar-sh/sdk` 1.3.0 or later (`npm view @polar-sh/adapter-utils dependencies`).
 
 ## Security advisories
 
@@ -68,12 +66,12 @@ When no release of the parent allows the fix yet, an `overrides` entry lifts the
 ## The Vite+ entries in package.json
 
 ```json
-"vite": "npm:@voidzero-dev/vite-plus-core@1.6.0",
-"vite-plus": "1.6.0",
+"vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000",
+"vite-plus": "1.7.0",
 "vitest": "5.1.0"
 ```
 
-These lines, and the same `vite` alias and `vitest` version under `overrides`, are exactly what Vite+'s own migrator writes: `vite-plus` is pinned to an exact version, Bun needs the core as a direct `vite` dependency, and `vitest` is listed because `@vitest/coverage-v8` and the test types need it. Upgrade them together with `vp migrate`, never with `bun update`. To find out whether one of them can go, copy the project, run `vp migrate` on the copy and diff the result; do not decide by reasoning about it. The `minimatch` entry under `overrides` is the security override described above, and `vp migrate` leaves it unchanged.
+These lines, and the same `vite` alias and `vitest` version under `overrides`, are exactly what Vite+'s own migrator writes: `vite-plus` is pinned to an exact version, Bun needs the core as a direct `vite` dependency, and `vitest` is listed because `@vitest/coverage-v8` and the test types need it. Since `vite-plus` 1.7.0 the core carries the version of the Vite release it bundles, so 8.3.8000 is Vite 8.3.8; `vp toolchain` prints the pairing. Upgrade them together with `vp migrate`, never with `bun update`. To find out whether one of them can go, copy the project, run `vp migrate` on the copy and diff the result; do not decide by reasoning about it. The `minimatch` entry under `overrides` is the security override described above, and `vp migrate` leaves it unchanged.
 
 `build.rolldownOptions.external`, which `src/data/polar.vite.ts` sets, lists optional peer dependencies of `@polar-sh/sdk` that are not installed and are tree-shaken out of the Worker; see [Vite+](/docs/tooling/vite-plus). Remove the list when Polar fixes its packaging.
 

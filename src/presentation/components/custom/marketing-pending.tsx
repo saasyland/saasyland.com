@@ -9,6 +9,7 @@ import { PAGE_SKELETONS } from "~/src/data/skeletons"
 
 import { cn } from "~/src/lib/cn"
 
+import { Navigation, SkipLink } from "~/src/presentation/components/custom/navigation"
 import { PageFrame } from "~/src/presentation/components/custom/page-frame"
 
 export const MarketingPending = (): JSX.Element => {
@@ -18,6 +19,8 @@ export const MarketingPending = (): JSX.Element => {
 
   return (
     <>
+      <SkipLink />
+      <Navigation />
       <PageFrame />
       <main className={cn("relative z-10", { "pt-header": !isUnderHeader })} id={SITE_CONTENT_ID}>
         {Page && <Page />}

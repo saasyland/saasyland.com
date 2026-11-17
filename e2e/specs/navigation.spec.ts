@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test"
 
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
-import { MARKETING_SECTION_IDS, SITE_CONTENT_ID } from "../../src/data/navigation.constants"
+import { DOCS_CONTENT_ID, MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
@@ -268,7 +268,7 @@ test.describe("one site header", () => {
           .map((node: Node) => (node instanceof Element ? node : node.parentElement))
           .filter((element: Element | null) => element?.closest(`header, #${content}`))
           .map((element: Element) => element.outerHTML.slice(0, 120)),
-      SITE_CONTENT_ID,
+      DOCS_CONTENT_ID,
     )
 
     expect(problems).toEqual([])

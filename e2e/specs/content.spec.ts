@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 
-import { SITE_CONTENT_ID } from "../../src/data/navigation.constants"
+import { DOCS_CONTENT_ID } from "../../src/data/navigation.constants"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -87,14 +87,14 @@ test.describe("server rendering and client navigation", () => {
     })
     await page.goto("/docs/getting-started", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    const pager = page.locator(`#${SITE_CONTENT_ID} > :last-child a`)
+    const pager = page.locator(`#${DOCS_CONTENT_ID} > :last-child a`)
     const pages = await pager.evaluateAll((links) => links.map((link) => link.getAttribute("href")))
     expect(pages.length).toBeGreaterThan(0)
 
     await page.locator(`a[href="${INSTALLATION_PATH}"]`).first().click()
     await expect(page).toHaveURL(INSTALLATION_PATH)
     current.resolve()
-    await appPage.waitForHydration(page.locator(`#${SITE_CONTENT_ID}`))
+    await appPage.waitForHydration(page.locator(`#${DOCS_CONTENT_ID}`))
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(titleOf("content/docs/getting-started/index.en-US.mdx") ?? "")
     expect(await pager.evaluateAll((links) => links.map((link) => link.getAttribute("href")))).toEqual(pages)
 

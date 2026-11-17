@@ -11,6 +11,8 @@ export type FeatureStatus = (typeof FEATURE_STATUSES)[number]
 
 export const SITE_CONTENT_ID = "content"
 
+export const DOCS_CONTENT_ID = "nd-page"
+
 export const MARKETING_SECTION_IDS = {
   CLI: "cli",
   FAQ: "faq",

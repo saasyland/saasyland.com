@@ -30,17 +30,29 @@ const FUMADOCS_MESSAGES = {
   "Table of Contents(inline table of contents)": "tableOfContents",
 } as const satisfies Partial<Record<keyof Translations, string>>
 
+const SKIP_LINK = "Skip to Content(skip link)" satisfies keyof Translations
+
 const messageSchema = zod.string()
+
+const useSkipLinkLabel = (): string => {
+  const t = useTranslations("components.custom.navigation")
+
+  return t("skipToContent")
+}
 
 export const useFumadocsI18n = (): NonNullable<RootProviderProps["i18n"]> => {
   const locale = getCurrentLocale()
+  const skipLink = useSkipLinkLabel()
   const t = useTranslations("fumadocs")
 
   return useMemo(
     () => ({
       locale,
-      translations: Object.fromEntries(Object.entries(FUMADOCS_MESSAGES).map(([text, key]) => [text, messageSchema.parse(t.raw(key))])),
+      translations: {
+        ...Object.fromEntries(Object.entries(FUMADOCS_MESSAGES).map(([text, key]) => [text, messageSchema.parse(t.raw(key))])),
+        [SKIP_LINK]: skipLink,
+      },
     }),
-    [locale, t],
+    [locale, skipLink, t],
   )
 }

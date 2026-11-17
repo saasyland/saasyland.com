@@ -7,17 +7,17 @@ description: "Wie Routendateien benannt und aufgebaut sind und wie der Router ko
 
 Routen sind flache Dateien in `src/routes`. Punkte werden zu Pfadsegmenten:
 
-| Datei                             | URL                | Hinweise                                |
-| --------------------------------- | ------------------ | --------------------------------------- |
-| `__root.tsx`                      | alle Seiten        | Dokument-Shell und Root-Namespaces      |
-| `_site.tsx`                       | keine              | Pfadloses Layout mit dem Website-Header |
-| `_site._marketing.tsx`            | keine              | Pfadloses Layout für Marketingseiten    |
-| `_site._marketing.terms.tsx`      | `/terms`           | Seite innerhalb des Marketing-Layouts   |
-| `admin.tsx`                       | `/admin`           | Layout mit dem Guard `requireAdmin`     |
-| `admin.users.all.tsx`             | `/admin/users/all` | Seite innerhalb des Admin-Layouts       |
-| `_site._marketing.blog.index.tsx` | `/blog`            | Indexseite des `blog`-Layouts           |
-| `_site.docs.$.tsx`                | `/docs/*`          | Splat-Route für Dokumentationsseiten    |
-| `api/auth.$.ts`                   | `/api/auth/*`      | HTTP-Handler, keine Komponente          |
+| Datei                             | URL                | Hinweise                                    |
+| --------------------------------- | ------------------ | ------------------------------------------- |
+| `__root.tsx`                      | alle Seiten        | Dokument-Shell und Root-Namespaces          |
+| `_site.tsx`                       | keine              | Pfadloses Layout um die öffentlichen Seiten |
+| `_site._marketing.tsx`            | keine              | Pfadloses Layout für Marketingseiten        |
+| `_site._marketing.terms.tsx`      | `/terms`           | Seite innerhalb des Marketing-Layouts       |
+| `admin.tsx`                       | `/admin`           | Layout mit dem Guard `requireAdmin`         |
+| `admin.users.all.tsx`             | `/admin/users/all` | Seite innerhalb des Admin-Layouts           |
+| `_site._marketing.blog.index.tsx` | `/blog`            | Indexseite des `blog`-Layouts               |
+| `_site.docs.$.tsx`                | `/docs/*`          | Splat-Route für Dokumentationsseiten        |
+| `api/auth.$.ts`                   | `/api/auth/*`      | HTTP-Handler, keine Komponente              |
 
 Die IDs in `createFileRoute("…")` sind String-Literale, die der Router-Generator pflegt; er schreibt auch `src/routeTree.gen.ts`. Dateien in `__test__`-Ordnern werden ignoriert. Jede URL hat eine Konstante in `ROUTES` (`src/routes.ts`), und Links verwenden `<Link to={ROUTES.X}>`.
 
@@ -71,7 +71,7 @@ Die meisten Navigationen sind abgeschlossen, bevor überhaupt eine Pending-UI er
 Es gibt keine Standardkomponente für Pending. Jede Layout- und Seitenroute legt ihre eigene `pendingComponent` fest, außer den Docs-Seiten: `_site.docs.index.tsx` und `_site.docs.$.tsx` setzen stattdessen `pendingMs: Number.POSITIVE_INFINITY`, zeigen also nie ein eigenes Skeleton, und `DocsPending` gehört zum `docs`-Layout. Jedes Skeleton bildet die Seite nach, die es vertritt:
 
 - **Seiten-Skeletons** wie `SignInPending` und `LegalPending` liegen in der Pending-Datei des Bereichs und kennzeichnen ihr Wurzelelement mit `aria-busy="true"`. Die Dateien sind `custom/auth/auth-pending.tsx`, die Admin-Dateien in `custom/admin/` (`admin-pending.tsx` für das Layout, eine Datei `<area>-pending.tsx` pro Bereich, etwa `products-pending.tsx`, und gemeinsame Bausteine in `pending-blocks.tsx`), die Dateien der Kunden-App in `custom/app/` (`app-pending.tsx` für das Layout, `auth-pending.tsx` und `license-pending.tsx` sowie der gemeinsame Seitenkopf in `pending-blocks.tsx`), die Dateien des öffentlichen Layouts direkt in `custom/` (`marketing-pending.tsx` für das Layout, `core-pending.tsx`, `legal-pending.tsx`, `license-pending.tsx` und `newsletter-pending.tsx`), `custom/blog/blog-pending.tsx`, `custom/courses/courses-pending.tsx` und `custom/docs-pending.tsx`.
-- **Layout-Skeletons** wie `AuthPending` und `MarketingPending` rendern den Rahmen des Layouts und wählen das Seiten-Skeleton für den aktuellen Pfad aus einer Map mit `ROUTES` als Schlüsseln. Das Admin-Layout, die Kunden-App und das öffentliche Layout teilen sich eine Map, `PAGE_SKELETONS` in `src/data/skeletons.ts`, die die Listen zusammenführt, die jeder Bereich in `src/data/<area>.skeletons.ts` deklariert. Wer von woanders in einen Bereich wechselt, sieht deshalb gleich die richtige Seite. Rahmenelemente, die keine Daten benötigen, etwa `Wordmark` und `PageFrame`, werden echt gerendert, und der Website-Header bleibt sichtbar, weil das Layout `_site`, das ihn rendert, keinen Loader hat, auf den es warten müsste.
+- **Layout-Skeletons** wie `AuthPending` und `MarketingPending` rendern den Rahmen des Layouts und wählen das Seiten-Skeleton für den aktuellen Pfad aus einer Map mit `ROUTES` als Schlüsseln. Das Admin-Layout, die Kunden-App und das öffentliche Layout teilen sich eine Map, `PAGE_SKELETONS` in `src/data/skeletons.ts`, die die Listen zusammenführt, die jeder Bereich in `src/data/<area>.skeletons.ts` deklariert. Wer von woanders in einen Bereich wechselt, sieht deshalb gleich die richtige Seite. Rahmenelemente, die keine Daten benötigen, etwa `Wordmark` und `PageFrame`, werden echt gerendert, ebenso der Website-Header: `MarketingPending` und `DocsPending` rendern ihn, sodass er sichtbar bleibt, während ein öffentliches Layout lädt.
 - **Textplatzhalter** sind `Skeleton`-Balken mit dem Schrift-Token des echten Elements plus `h-lh scale-y-70`, sodass jeder Balken genau eine Zeilenbox füllt. Boxen verwenden die echten Höhen und Radien. Listen beziehen ihre Länge aus denselben Konstanten wie die UI, etwa `OAUTH_PROVIDERS` und `PASSWORD_RULES` in `src/data/auth.ts`.
 
 Wenn du eine Seite hinzufügst, ergänze ihr Skeleton in der Pending-Datei des Bereichs, registriere es in der Map des Layout-Skeletons (bei einer Seite des Admins, der Kunden-App oder des öffentlichen Layouts in `src/data/<area>.skeletons.ts` ihres Bereichs) und setze es als `pendingComponent` der Route.

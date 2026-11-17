@@ -24,6 +24,7 @@ import { DocsToolbar } from "~/src/presentation/components/custom/docs-toolbar"
 import { Footer } from "~/src/presentation/components/custom/footer"
 import { Github } from "~/src/presentation/components/custom/icons"
 import { LocaleSelect } from "~/src/presentation/components/custom/locale-switcher"
+import { Navigation } from "~/src/presentation/components/custom/navigation"
 import { ThemeSwitch } from "~/src/presentation/components/custom/theme-switch"
 
 import docsCss from "~/src/presentation/styles/docs.css?url"
@@ -54,13 +55,20 @@ const LINKS = [
   },
 ]
 
+const DocsHeader = (): JSX.Element => (
+  <>
+    <Navigation />
+    <DocsToolbar />
+  </>
+)
+
 const CONTAINER = {
   className:
     "mx-auto w-full max-w-site pt-header [--fd-banner-height:var(--spacing-header)] max-md:[--fd-header-height:--spacing(12)] md:px-10",
 } as const
 const THEME = { enabled: false } as const
 const THEME_SWITCH = { enabled: false } as const
-const SLOTS = { header: DocsToolbar, languageSelect: false, skipToContent: false } as const
+const SLOTS = { header: DocsHeader, languageSelect: false } as const
 
 const SIDEBAR = {
   className: "border-s",

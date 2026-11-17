@@ -12,6 +12,7 @@ import { cn } from "~/src/lib/cn"
 
 import { Footer } from "~/src/presentation/components/custom/footer"
 import { MarketingPending } from "~/src/presentation/components/custom/marketing-pending"
+import { Navigation, SkipLink } from "~/src/presentation/components/custom/navigation"
 import { PageFrame } from "~/src/presentation/components/custom/page-frame"
 
 const MarketingLayout = (): JSX.Element => {
@@ -19,6 +20,8 @@ const MarketingLayout = (): JSX.Element => {
 
   return (
     <>
+      <SkipLink />
+      <Navigation />
       <PageFrame />
       <main className={cn("relative z-10", { "pt-header": !isUnderHeader })} id={SITE_CONTENT_ID}>
         <Outlet />

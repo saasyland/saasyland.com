@@ -1,5 +1,5 @@
 import { RouterContextProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import { IntlProvider } from "use-intl"
 import { describe, expect, it } from "vite-plus/test"
 
@@ -12,6 +12,8 @@ import {
 } from "~/src/presentation/components/custom/__test__/fixtures/marketing-pending"
 import { HomePending } from "~/src/presentation/components/custom/core-pending"
 import { MarketingPending } from "~/src/presentation/components/custom/marketing-pending"
+
+import navigationMessages from "~/messages/en-US/components.custom.navigation.json"
 
 stubMarketingObservers()
 
@@ -44,6 +46,15 @@ describe("path-aware skeletons", () => {
 })
 
 describe("the fixed site header", () => {
+  it("opens with the skip link and then the site header", () => {
+    const { container } = renderMarketingPending("/unknown")
+    const [skipLink, header] = container.children
+
+    expect(skipLink).toBe(screen.getByRole("link", { name: navigationMessages.skipToContent }))
+    expect(header).toBe(screen.getByRole("banner"))
+    expect(within(screen.getByRole("banner")).getByRole("navigation", { name: navigationMessages.ariaLabel })).toBeVisible()
+  })
+
   it("starts the skeleton of a page below the header", async () => {
     await renderPendingPage({ underHeader: false })
 

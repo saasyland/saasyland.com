@@ -7,7 +7,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
-import { SITE_CONTENT_ID } from "~/src/data/navigation.constants"
+import { DOCS_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { docsContent } from "~/src/presentation/components/custom/docs-content"
 
@@ -81,7 +81,16 @@ it("renders a documentation page with its title, description and MDX body", asyn
   expect(await screen.findByRole("heading", { name: "Getting started" })).toBeInTheDocument()
   expect(screen.getByText("Start your project")).toBeInTheDocument()
   expect(screen.getByText("Compiled MDX body")).toBeInTheDocument()
-  expect(screen.getByRole("article")).toHaveAttribute("id", SITE_CONTENT_ID)
+  expect(screen.getByRole("article")).toHaveAttribute("id", DOCS_CONTENT_ID)
+})
+
+it("keeps the id that the docs layout's skip link, its first link, jumps to", async () => {
+  await renderContent("getting-started.mdx")
+  const article = await screen.findByRole("article")
+  const [skipLink] = screen.getAllByRole("link")
+
+  expect(article).toHaveAttribute("id", DOCS_CONTENT_ID)
+  expect(skipLink).toHaveAttribute("href", `#${DOCS_CONTENT_ID}`)
 })
 
 it("lists a page's headings in a table of contents at its top on narrow screens, and in no sticky bar", async () => {

@@ -1,6 +1,6 @@
 ---
 title: "Performances"
-description: "Les règles mesurées qui gardent les pages rapides : un petit graphe de démarrage du Worker, aucun ORM dans le navigateur, des messages chargés à la demande, des indications de préchargement supprimées, le placement des fournisseurs, un seul build Tailwind, le dimensionnement des médias et le modèle d'apparition."
+description: "Les règles mesurées qui gardent les pages rapides : un petit graphe de démarrage du Worker, un arbre des routes léger, aucun ORM dans le navigateur, des messages chargés à la demande, des indications de préchargement supprimées, le placement des fournisseurs, des squelettes affichés tôt, un seul build Tailwind, le dimensionnement des médias et le modèle d'apparition."
 ---
 
 Chaque règle de cette page est issue d'une mesure, et plusieurs ont remplacé une correction intuitive qui aggravait les choses. Ne modifiez le code qui sous-tend l'une d'elles qu'avec une nouvelle mesure qui fait mieux.
@@ -25,6 +25,39 @@ const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
 Un seul import statique d'un nom d'en-tête depuis un module qui importait aussi le client Polar a un jour ajouté environ 1,4 Mo de SDK à chaque démarrage à froid, et le premier octet de la page d'accueil mettait jusqu'à 1,4 seconde à arriver. C'est pourquoi `COUNTRY_HEADER` et `IP_ADDRESS_HEADER` se trouvent dans `src/modules/_core/constants/api.ts`, qui n'importe rien de lourd. Avant d'ajouter un import statique à `server.ts` ou à un `<area>.worker.ts`, suivez sa chaîne d'imports : tout ce qui atteint `polar`, `drizzle-orm` ou `resend` est une régression. `scripts/verify-build.ts` le vérifie à chaque build : il suit les imports statiques du point d'entrée du Worker déployé, `dist/server/index.js`, et échoue lorsqu'ils atteignent du code issu de `@polar-sh`, `drizzle-orm` ou `resend` dans le bundle, ou qu'ils totalisent plus de `BOOT_CLOSURE_MAX_BYTES`.
+
+## Gardez l'arbre des routes léger [#keep-the-route-tree-light]
+
+Le Worker confie à TanStack Start chaque requête qui n'est ni une page prérendue ni un fichier statique, et Start charge l'arbre des routes avant toute autre chose, pour l'appel d'une fonction serveur comme pour une page qu'il rend : `src/routeTree.gen.ts` et chaque module que les fichiers de route importent statiquement, y compris les handlers des routes serveur comme `/api/search`. Un isolat du Worker l'évalue à sa première requête de ce type, et une fonction serveur charge son propre chunk à son premier appel. Les deux se produisent pendant qu'un visiteur attend une navigation côté client : tout ce qu'ils importent fait donc partie de l'attente sur un nouvel isolat.
+
+Les collections de la documentation et du blog étaient auparavant chargées d'emblée : `.source/server.ts` importait le MDX compilé de chaque page de la documentation et de chaque article du blog dans chaque locale, 1 305 modules avec les titres et le texte de recherche de chaque page, et le plugin d'icônes Lucide ajoutait tout le jeu d'icônes pour les quelques icônes que nomment les fichiers meta de la documentation. Le layout de la documentation, les pages de la documentation, la page d'accueil et le blog lisaient cette source via leurs fonctions serveur, et `/api/search` l'importait statiquement, ce qui la plaçait dans l'arbre des routes. Sur saasyland.com, une navigation côté client de `/` vers `/docs` attendait ses deux fonctions serveur environ 1,3 seconde sur un nouvel isolat, et environ 25 ms sur un isolat déjà chaud ; la page d'accueil et le blog payaient le même prix à leur première navigation.
+
+- `fumadocs.config.ts` rend les deux collections `async`. La source contient le frontmatter de chaque page, et `page.data.load()` importe le MDX compilé d'une page lorsqu'une requête a besoin de ses titres ou de son texte de recherche. L'arborescence des pages et `getDocsPage` ne lisent que le frontmatter ; la page d'accueil charge les articles qu'elle affiche, l'index du blog les articles d'une locale, un article du blog lui-même, et `/api/search` chaque page à sa première requête.
+- `/api/search` importe `fumadocs.search.ts` dans son handler, si bien que l'index de recherche reste hors de l'arbre des routes.
+- `fumadocs.icons.ts` n'importe que les icônes que nomment les fichiers meta, et `fumadocs.icons.test.ts` échoue lorsqu'un fichier meta nomme une icône que ce fichier n'importe pas, ou lorsqu'il en importe une qu'aucun fichier meta ne nomme.
+
+Les tailles correspondent à ce que chaque partie importe statiquement dans le Worker de `bun run build:test`, et les durées sont la médiane de cinq exécutions entrelacées sur un ordinateur portable :
+
+| Mesure                                                                                        | Avant                    | Après                    |
+| --------------------------------------------------------------------------------------------- | ------------------------ | ------------------------ |
+| L'arbre des routes, que charge chaque requête serveur                                         | 1 635 modules, 21,7 Mio  | 296 modules, 4,9 Mio     |
+| L'arborescence des pages de la documentation et `getDocsPage`, chacun avec ses imports        | 1 402 modules, 16,9 Mio  | 41 modules, 1,3 Mio      |
+| Le JavaScript de `dist/server`                                                                | 4 275 fichiers, 28,0 Mio | 2 953 fichiers, 26,8 Mio |
+| L'évaluation de l'arbre des routes dans Node                                                  | 554 ms                   | 162 ms                   |
+| L'évaluation de la source Fumadocs dans Node                                                  | 375 ms                   | 24 ms                    |
+| La première navigation de `/` jusqu'au titre de `/docs` sur un nouveau Worker de `vp preview` | 260 ms                   | 198 ms                   |
+
+`scripts/verify-build.ts` suit les imports statiques de l'arbre des routes et de chaque fonction serveur de `dist/server`, et fait échouer le build lorsqu'ils atteignent une page compilée de la documentation ou du blog. L'essentiel de ce que l'arbre des routes charge encore, environ 3 Mio, est Better Auth et les modules qu'il importe, que `/api/auth/$`, le schéma de recherche des pages d'authentification et l'API de licence de la CLI importent statiquement.
+
+## Une navigation lente affiche son squelette sans attendre [#a-slow-navigation-shows-its-skeleton-at-once]
+
+`src/router.tsx` règle `defaultPendingMs` sur <RepositoryFact name="navigationPendingMs" unit="millisecond" /> et `defaultPendingMinMs` sur <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, valeurs issues de `src/data/navigation.constants.ts`. Avec les valeurs par défaut de TanStack Router, une seconde et une demi-seconde, une navigation lente n'affichait rien d'autre qu'une nouvelle adresse pendant une seconde entière : un premier clic sur **Documentation** sur un nouvel isolat prenait environ 1,6 seconde et n'affichait le squelette de la documentation qu'au bout d'une seconde, voire jamais, et un clic d'une page de la documentation vers une autre, dont les routes avaient `pendingMs: Number.POSITIVE_INFINITY`, conservait la page précédente pendant toute l'attente.
+
+- Une navigation qui se termine dans ce délai conserve la page précédente jusqu'à ce que la suivante soit prête et n'affiche jamais de squelette. Sur saasyland.com, une navigation vers une page que le routeur avait préchargée au survol ou déjà chargée se terminait 40 à 115 ms après le clic.
+- Une navigation encore en cours de chargement après ce délai affiche le squelette de sa route, qui reste ensuite affiché au moins pendant la durée minimale : il se lit ainsi comme un état de la page et ne clignote jamais. React attend aussi longtemps entre l'affichage de deux frontières Suspense, pour que le contenu n'apparaisse pas morceau par morceau. Une navigation qui se termine juste après le délai, comme une première visite d'une section avec une connexion lente sans avoir survolé son lien, se termine donc jusqu'à cette durée minimale plus tard.
+- Les pages de la documentation ont leurs propres squelettes, `DocsIndexPending` et `DocsPagePending`, qui remplissent l'article et la table des matières à côté de la barre latérale : une navigation lente entre pages de la documentation montre ainsi la forme de la page suivante au lieu de laisser la précédente en place.
+
+`e2e/specs/content.spec.ts` retient les fonctions serveur d'une navigation vers `/docs` et d'une navigation entre pages de la documentation, et vérifie que chacune affiche son squelette, avec la barre latérale dans la seconde, jusqu'à ce qu'elles répondent.
 
 ## Gardez l'ORM hors du navigateur [#keep-the-orm-out-of-the-browser]
 

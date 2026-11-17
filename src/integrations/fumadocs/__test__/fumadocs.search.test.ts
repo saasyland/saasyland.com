@@ -5,12 +5,13 @@ import { describe, expect, it, vi } from "vite-plus/test"
 import { search } from "~/src/integrations/fumadocs/fumadocs.search"
 import { source } from "~/src/integrations/fumadocs/fumadocs.source"
 
-const { gettingStarted } = vi.hoisted(() => ({
-  gettingStarted: {
+const { gettingStarted, load } = vi.hoisted(() => {
+  const structuredData = {
     contents: [{ content: "Clone the starter and install dependencies.", heading: "install" }],
     headings: [{ content: "Install", id: "install" }],
-  },
-}))
+  }
+  return { gettingStarted: structuredData, load: () => Promise.resolve({ structuredData }) }
+})
 
 vi.mock("fumadocs-core/search/server", async (importOriginal) => {
   const actual = await importOriginal<typeof SearchServer>()
@@ -23,11 +24,11 @@ vi.mock("collections/server", () => ({
     toFumadocsSource: () => ({
       files: [
         {
-          data: { description: "Set up the starter", structuredData: gettingStarted, title: "Getting started" },
+          data: { description: "Set up the starter", load, title: "Getting started" },
           path: "getting-started.mdx",
           type: "page",
         },
-        { data: { structuredData: gettingStarted, title: "Pierwsze kroki" }, path: "getting-started.pl-PL.mdx", type: "page" },
+        { data: { load, title: "Pierwsze kroki" }, path: "getting-started.pl-PL.mdx", type: "page" },
       ],
     }),
   },
@@ -61,7 +62,13 @@ describe("docs search index", () => {
   })
 
   it("keys pages from an unlocalized source by url alone", async () => {
-    const page = { data: { title: "Standalone" }, path: "standalone.mdx", slugs: ["standalone"], type: "page", url: "/docs/standalone" }
+    const page = {
+      data: { load, title: "Standalone" },
+      path: "standalone.mdx",
+      slugs: ["standalone"],
+      type: "page",
+      url: "/docs/standalone",
+    }
     expect(await indexPage?.(page)).toMatchObject({ description: "", id: ":/docs/standalone", url: "/docs/standalone" })
   })
 

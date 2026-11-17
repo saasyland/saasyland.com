@@ -1,6 +1,6 @@
 ---
 title: "Wydajność"
-description: "Zmierzone reguły, dzięki którym strony pozostają szybkie: mały graf startowy Workera, ORM poza przeglądarką, komunikaty ładowane na żądanie, usunięte wskazówki preload, rozmieszczenie providerów, jeden build Tailwind, rozmiary mediów i wzorzec odsłaniania."
+description: "Zmierzone reguły, dzięki którym strony pozostają szybkie: mały graf startowy Workera, lekkie drzewo tras, ORM poza przeglądarką, komunikaty ładowane na żądanie, usunięte wskazówki preload, rozmieszczenie providerów, wczesne szkielety, jeden build Tailwind, rozmiary mediów i wzorzec odsłaniania."
 ---
 
 Każda reguła na tej stronie wynika z pomiaru, a kilka z nich zastąpiło intuicyjną poprawkę, która pogorszyła sytuację. Zmieniaj kod stojący za którąkolwiek z nich tylko wtedy, gdy nowy pomiar wypadnie lepiej.
@@ -25,6 +25,39 @@ const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
 Jeden statyczny import nazwy nagłówka z modułu, który importował też klienta Polar, wciągał kiedyś około 1,4 MB SDK do każdego zimnego startu, a pierwszy bajt strony głównej przychodził nawet po 1,4 sekundy. Dlatego `COUNTRY_HEADER` i `IP_ADDRESS_HEADER` znajdują się w `src/modules/_core/constants/api.ts`, który nie importuje niczego ciężkiego. Zanim dodasz statyczny import do `server.ts` lub do pliku `<area>.worker.ts`, prześledź jego łańcuch importów: wszystko, co dociera do `polar`, `drizzle-orm` lub `resend`, jest regresją. `scripts/verify-build.ts` sprawdza to przy każdym buildzie: śledzi statyczne importy punktu wejścia wdrażanego Workera, `dist/server/index.js`, i kończy się błędem, gdy docierają one do kodu zbundlowanego z `@polar-sh`, `drizzle-orm` lub `resend` albo gdy razem przekraczają `BOOT_CLOSURE_MAX_BYTES`.
+
+## Lekkie drzewo tras [#keep-the-route-tree-light]
+
+Worker przekazuje do TanStack Start każde żądanie, które nie jest ani prerenderowaną stroną, ani plikiem statycznym, a Start, zanim zrobi cokolwiek innego, ładuje drzewo tras, zarówno przy wywołaniu funkcji serwerowej, jak i przy renderowaniu strony: `src/routeTree.gen.ts` i każdy moduł, który pliki tras importują statycznie, w tym handlery tras serwerowych, takich jak `/api/search`. Izolat Workera wykonuje je przy pierwszym takim żądaniu, a funkcja serwerowa ładuje własny chunk przy pierwszym wywołaniu. Jedno i drugie dzieje się wtedy, gdy odwiedzający czeka na nawigację po stronie klienta, więc wszystko, co importują, jest na nowym izolacie częścią tego oczekiwania.
+
+Kolekcje dokumentacji i bloga były wcześniej ładowane z góry: `.source/server.ts` importował skompilowany MDX każdej strony dokumentacji i każdego wpisu na blogu we wszystkich językach, 1305 modułów z nagłówkami i tekstem do wyszukiwania każdej strony, a plugin ikon Lucide dodawał cały zestaw ikon dla kilku ikon wymienionych w plikach meta dokumentacji. Layout dokumentacji, strony dokumentacji, strona główna i blog czytały to źródło przez swoje funkcje serwerowe, a `/api/search` importował je statycznie, co umieszczało je w drzewie tras. Na saasyland.com nawigacja po stronie klienta z `/` na `/docs` czekała na swoje dwie funkcje serwerowe około 1,3 sekundy na nowym izolacie i około 25 ms na rozgrzanym; strona główna i blog płaciły tyle samo przy swojej pierwszej nawigacji.
+
+- `fumadocs.config.ts` ustawia obie kolekcje jako `async`. Źródło przechowuje frontmatter każdej strony, a `page.data.load()` importuje skompilowany MDX jednej strony, gdy żądanie potrzebuje jej nagłówków lub tekstu do wyszukiwania. Drzewo stron i `getDocsPage` czytają tylko frontmatter; strona główna ładuje wpisy, które pokazuje, indeks bloga wpisy w jednym języku, strona wpisu tylko ten wpis, a `/api/search` wszystkie strony przy swoim pierwszym żądaniu.
+- `/api/search` importuje `fumadocs.search.ts` w swoim handlerze, więc indeks wyszukiwania nie trafia do drzewa tras.
+- `fumadocs.icons.ts` importuje tylko ikony wymienione w plikach meta, a `fumadocs.icons.test.ts` kończy się błędem, gdy plik meta wymienia ikonę, której ten plik nie importuje, albo gdy importuje on ikonę, której nie wymienia żaden plik meta.
+
+Rozmiary obejmują to, co każda z części importuje statycznie w Workerze zbudowanym przez `bun run build:test`, a czasy są medianą pięciu naprzemiennych przebiegów na laptopie:
+
+| Pomiar                                                                      | Przed                  | Po                   |
+| --------------------------------------------------------------------------- | ---------------------- | -------------------- |
+| Drzewo tras, które ładuje każde żądanie do serwera                          | 1635 modułów, 21,7 MiB | 296 modułów, 4,9 MiB |
+| Drzewo stron dokumentacji i `getDocsPage`, każde ze swoimi importami        | 1402 moduły, 16,9 MiB  | 41 modułów, 1,3 MiB  |
+| JavaScript w `dist/server`                                                  | 4275 plików, 28,0 MiB  | 2953 pliki, 26,8 MiB |
+| Wykonanie drzewa tras w Node                                                | 554 ms                 | 162 ms               |
+| Wykonanie źródła Fumadocs w Node                                            | 375 ms                 | 24 ms                |
+| Pierwsza nawigacja z `/` do nagłówka `/docs` na nowym Workerze `vp preview` | 260 ms                 | 198 ms               |
+
+`scripts/verify-build.ts` śledzi statyczne importy drzewa tras i każdej funkcji serwerowej w `dist/server` i przerywa build, gdy docierają one do skompilowanej strony dokumentacji lub wpisu na blogu. Większość tego, co drzewo tras nadal ładuje, około 3 MiB, to Better Auth i importowane przez niego moduły; statycznie importują je `/api/auth/$`, schemat parametrów wyszukiwania stron uwierzytelniania i API licencji CLI.
+
+## Wolna nawigacja od razu pokazuje szkielet [#a-slow-navigation-shows-its-skeleton-at-once]
+
+`src/router.tsx` ustawia `defaultPendingMs` na <RepositoryFact name="navigationPendingMs" unit="millisecond" />, a `defaultPendingMinMs` na <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, z `src/data/navigation.constants.ts`. Przy domyślnych wartościach TanStack Router, jednej sekundzie i pół sekundy, wolna nawigacja przez całą sekundę nie pokazywała niczego poza nowym adresem: pierwsze kliknięcie **Dokumentacja** na nowym izolacie trwało około 1,6 sekundy i pokazywało szkielet dokumentacji dopiero po sekundzie albo wcale, a kliknięcie z jednej strony dokumentacji na drugą, których trasy miały `pendingMs: Number.POSITIVE_INFINITY`, zostawiało poprzednią stronę przez cały czas oczekiwania.
+
+- Nawigacja, która kończy się przed upływem tego opóźnienia, zostawia poprzednią stronę, dopóki następna nie będzie gotowa, i nigdy nie pokazuje szkieletu. Na saasyland.com nawigacja do strony, którą router wstępnie załadował po najechaniu kursorem albo już wcześniej załadował, kończyła się 40–115 ms po kliknięciu.
+- Nawigacja, która po upływie opóźnienia nadal się ładuje, pokazuje szkielet swojej trasy, a ten zostaje potem na ekranie co najmniej przez minimalny czas, więc wygląda jak stan strony i nigdy nie miga. React czeka tyle samo między odsłanianiem kolejnych granic Suspense, żeby treść nie wskakiwała kawałek po kawałku. Nawigacja, która kończy się tuż po upływie opóźnienia, np. pierwsza wizyta w sekcji przy wolnym połączeniu bez najechania kursorem na jej link, kończy się więc najwyżej o ten minimalny czas później.
+- Strony dokumentacji mają własne szkielety, `DocsIndexPending` i `DocsPagePending`, które wypełniają artykuł i spis treści obok paska bocznego, więc wolna nawigacja między stronami dokumentacji pokazuje kształt następnej strony, zamiast zostawiać na miejscu poprzednią.
+
+`e2e/specs/content.spec.ts` wstrzymuje funkcje serwerowe nawigacji do `/docs` i nawigacji między stronami dokumentacji i sprawdza, że dopóki nie odpowiedzą, każda z tych nawigacji pokazuje swój szkielet, a druga także pasek boczny.
 
 ## ORM poza przeglądarką [#keep-the-orm-out-of-the-browser]
 

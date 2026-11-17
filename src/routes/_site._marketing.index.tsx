@@ -6,7 +6,7 @@ import { createFormatter } from "use-intl"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
-import { getPublishedBlogPosts } from "~/src/integrations/fumadocs/fumadocs.source"
+import { getPublishedBlogPages, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
@@ -46,8 +46,9 @@ const NOTE_COUNT = 3
 const getLatestBlogPosts = createServerFn({ method: "GET" })
   .validator(localeField)
   .handler(({ data: locale }) => {
-    const posts = getPublishedBlogPosts(locale)
-    return [...posts.filter((post) => post.featured), ...posts.filter((post) => !post.featured)].slice(0, NOTE_COUNT)
+    const pages = getPublishedBlogPages(locale)
+    const notes = [...pages.filter((page) => page.data.featured === true), ...pages.filter((page) => page.data.featured !== true)]
+    return Promise.all(notes.slice(0, NOTE_COUNT).map((page) => toBlogPostSummary(page, locale)))
   })
 
 const LandingPage = (): JSX.Element => (

@@ -1,6 +1,6 @@
 ---
 title: "Performance"
-description: "Die gemessenen Regeln, die Seiten schnell halten: ein kleiner Boot-Graph des Workers, kein ORM im Browser, bei Bedarf geladene Nachrichten, entfernte Preload-Hinweise, die Platzierung von Providern, ein einziger Tailwind-Build, die Größe von Medien und das Reveal-Muster."
+description: "Die gemessenen Regeln, die Seiten schnell halten: ein kleiner Boot-Graph des Workers, ein leichter Routenbaum, kein ORM im Browser, bei Bedarf geladene Nachrichten, entfernte Preload-Hinweise, die Platzierung von Providern, früh angezeigte Skeletons, ein einziger Tailwind-Build, die Größe von Medien und das Reveal-Muster."
 ---
 
 Jede Regel auf dieser Seite stammt aus einer Messung, und mehrere haben eine intuitive Lösung ersetzt, die es schlimmer gemacht hat. Ändere den Code hinter einer dieser Regeln nur mit einer neuen Messung, die sie übertrifft.
@@ -25,6 +25,39 @@ const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
 Ein einziger statischer Import eines Header-Namens aus einem Modul, das auch den Polar-Client importierte, zog einmal etwa 1,4 MB SDK in jeden Kaltstart, und das erste Byte der Landingpage brauchte bis zu 1,4 Sekunden. Deshalb liegen `COUNTRY_HEADER` und `IP_ADDRESS_HEADER` in `src/modules/_core/constants/api.ts`, das nichts Schweres importiert. Bevor du `server.ts` oder einer `<area>.worker.ts` einen statischen Import hinzufügst, verfolge dessen Importkette: Alles, was `polar`, `drizzle-orm` oder `resend` erreicht, ist eine Regression. `scripts/verify-build.ts` prüft das bei jedem Build: Es verfolgt die statischen Importe des Einstiegspunkts des deployten Workers, `dist/server/index.js`, und schlägt fehl, wenn sie Code erreichen, der aus `@polar-sh`, `drizzle-orm` oder `resend` gebündelt wurde, oder zusammen mehr als `BOOT_CLOSURE_MAX_BYTES` ergeben.
+
+## Den Routenbaum leicht halten [#keep-the-route-tree-light]
+
+Der Worker übergibt jede Anfrage, die weder eine vorgerenderte Seite noch eine statische Datei ist, an TanStack Start, und Start lädt vor allem anderen den Routenbaum, für den Aufruf einer Server Function ebenso wie für eine Seite, die es rendert: `src/routeTree.gen.ts` und jedes Modul, das die Routendateien statisch importieren, einschließlich der Handler von Server-Routen wie `/api/search`. Ein Worker-Isolate wertet ihn bei seiner ersten solchen Anfrage aus, und eine Server Function lädt ihren eigenen Chunk bei ihrem ersten Aufruf. Beides geschieht, während ein Besucher auf eine clientseitige Navigation wartet, deshalb gehört alles, was sie importieren, auf einem neuen Isolate zur Wartezeit.
+
+Die Collections von Dokumentation und Blog wurden früher vollständig im Voraus geladen: `.source/server.ts` importierte das kompilierte MDX jeder Docs-Seite und jedes Blogbeitrags in jeder Locale, 1.305 Module mit den Überschriften und dem Suchtext jeder Seite, und das Lucide-Icons-Plugin fügte für die wenigen Icons, die die Meta-Dateien der Dokumentation nennen, den gesamten Icon-Satz hinzu. Das Docs-Layout, die Docs-Seiten, die Landingpage und der Blog lasen diese Quelle über ihre Server Functions, und `/api/search` importierte sie statisch, wodurch sie im Routenbaum landete. Auf saasyland.com wartete eine clientseitige Navigation von `/` zu `/docs` auf einem neuen Isolate etwa 1,3 Sekunden auf ihre beiden Server Functions, auf einem warmen etwa 25 ms; die Landingpage und der Blog zahlten bei ihrer ersten Navigation dasselbe.
+
+- `fumadocs.config.ts` macht beide Collections `async`. Die Quelle enthält das Frontmatter jeder Seite, und `page.data.load()` importiert das kompilierte MDX einer Seite, wenn eine Anfrage deren Überschriften oder Suchtext braucht. Der Seitenbaum und `getDocsPage` lesen nur Frontmatter; die Landingpage lädt die Beiträge, die sie zeigt, die Blog-Übersicht die Beiträge einer Locale, ein Blogbeitrag sich selbst und `/api/search` bei seiner ersten Anfrage jede Seite.
+- `/api/search` importiert `fumadocs.search.ts` in seinem Handler, sodass der Suchindex außerhalb des Routenbaums bleibt.
+- `fumadocs.icons.ts` importiert nur die Icons, die die Meta-Dateien nennen, und `fumadocs.icons.test.ts` schlägt fehl, wenn eine Meta-Datei ein Icon nennt, das die Datei nicht importiert, oder wenn sie eines importiert, das keine Meta-Datei nennt.
+
+Die Größen geben an, was jeder Teil im Worker von `bun run build:test` statisch importiert, und die Zeiten sind der Median aus fünf verschränkten Läufen auf einem Laptop:
+
+| Messung                                                                                          | Vorher                  | Nachher                 |
+| ------------------------------------------------------------------------------------------------ | ----------------------- | ----------------------- |
+| Der Routenbaum, den jede Serveranfrage lädt                                                      | 1.635 Module, 21,7 MiB  | 296 Module, 4,9 MiB     |
+| Der Seitenbaum der Dokumentation und `getDocsPage`, jeweils mit ihren Importen                   | 1.402 Module, 16,9 MiB  | 41 Module, 1,3 MiB      |
+| JavaScript in `dist/server`                                                                      | 4.275 Dateien, 28,0 MiB | 2.953 Dateien, 26,8 MiB |
+| Auswertung des Routenbaums in Node                                                               | 554 ms                  | 162 ms                  |
+| Auswertung der Fumadocs-Quelle in Node                                                           | 375 ms                  | 24 ms                   |
+| Erste Navigation von `/` bis zur Überschrift von `/docs` auf einem neuen Worker von `vp preview` | 260 ms                  | 198 ms                  |
+
+`scripts/verify-build.ts` folgt den statischen Importen des Routenbaums und jeder Server Function in `dist/server` und lässt den Build fehlschlagen, wenn sie eine kompilierte Seite der Dokumentation oder des Blogs erreichen. Das meiste, was der Routenbaum noch lädt, etwa 3 MiB, sind Better Auth und die Module, die es importiert; `/api/auth/$`, das Suchschema der Auth-Seiten und die Lizenz-API der CLI importieren sie statisch.
+
+## Eine langsame Navigation zeigt ihr Skeleton sofort [#a-slow-navigation-shows-its-skeleton-at-once]
+
+`src/router.tsx` setzt `defaultPendingMs` auf <RepositoryFact name="navigationPendingMs" unit="millisecond" /> und `defaultPendingMinMs` auf <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, aus `src/data/navigation.constants.ts`. Mit den Standardwerten von TanStack Router, einer Sekunde und einer halben Sekunde, zeigte eine langsame Navigation eine volle Sekunde lang nichts außer einer neuen Adresse: Ein erster Klick auf **Dokumentation** auf einem neuen Isolate dauerte etwa 1,6 Sekunden und zeigte das Skeleton der Dokumentation erst nach einer Sekunde oder gar nicht, und ein Klick von einer Docs-Seite zu einer anderen, deren Routen `pendingMs: Number.POSITIVE_INFINITY` hatten, behielt die vorherige Seite während der gesamten Wartezeit.
+
+- Eine Navigation, die innerhalb der Verzögerung abgeschlossen ist, behält die vorherige Seite, bis die nächste bereit ist, und zeigt nie ein Skeleton. Auf saasyland.com war eine Navigation zu einer Seite, die der Router beim Hovern vorab oder bereits geladen hatte, 40 bis 115 ms nach dem Klick abgeschlossen.
+- Eine Navigation, die nach der Verzögerung noch lädt, zeigt das Skeleton ihrer Route, das dann mindestens für die Mindestdauer stehen bleibt, sodass es als Zustand der Seite wirkt und nie flackert. React wartet zwischen dem Aufdecken von Suspense-Boundaries ebenso lange, damit Inhalte nicht Stück für Stück erscheinen. Eine Navigation, die kurz nach der Verzögerung endet, etwa ein erster Besuch eines Bereichs über eine langsame Verbindung, ohne mit der Maus über dessen Link zu fahren, endet daher bis zu dieser Mindestdauer später.
+- Die Docs-Seiten haben eigene Skeletons, `DocsIndexPending` und `DocsPagePending`, die den Artikel und das Inhaltsverzeichnis neben der Seitenleiste füllen, sodass eine langsame Navigation zwischen Docs-Seiten die Form der nächsten Seite zeigt, statt die vorherige stehen zu lassen.
+
+`e2e/specs/content.spec.ts` hält die Server Functions einer Navigation zu `/docs` und einer Navigation zwischen Docs-Seiten zurück und prüft, dass jede ihr Skeleton zeigt, die zweite auch die Seitenleiste, bis sie antworten.
 
 ## Das ORM aus dem Browser heraushalten [#keep-the-orm-out-of-the-browser]
 

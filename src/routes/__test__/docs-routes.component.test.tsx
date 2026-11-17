@@ -168,6 +168,24 @@ it("shows the docs-shaped skeleton while the documentation layout loads", async 
   expect(screen.queryByText("Documentation content")).not.toBeInTheDocument()
 })
 
+it("keeps the docs layout and shows the page skeleton in place of the article while the next docs page loads", async () => {
+  const router = createDocsRouter({ href: "/docs", layout: () => LAYOUT_DATA })
+  renderDocs(router)
+  await act(() => router.load())
+  vi.mocked(loadDocsPage).mockReturnValueOnce(new Promise(() => {}))
+
+  act(() => {
+    void router.navigate({ params: { _splat: "getting-started" }, to: "/docs/$" })
+  })
+
+  await waitFor(() => {
+    expect(screen.getByRole("main", { busy: true })).toBeInTheDocument()
+  })
+  expect(screen.getByRole("navigation", { name: "Documentation navigation" })).toBeVisible()
+  expect(screen.getByText("Documentation content")).not.toBeVisible()
+  router.options.context.queryClient.clear()
+})
+
 it("shows a missing docs page as the not-found page in the docs' content landmark", async () => {
   vi.mocked(loadDocsPage).mockRejectedValue(notFound())
   const router = createDocsRouter({ href: "/docs/missing", layout: () => LAYOUT_DATA })

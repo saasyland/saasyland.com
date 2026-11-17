@@ -51,18 +51,19 @@ const THEME = { enabled: false } as const
 
 const getBlogPost = createServerFn({ method: "GET" })
   .validator(zod.object({ locale: localeField, slug: zod.string() }))
-  .handler(({ data: { locale, slug } }) => {
+  .handler(async ({ data: { locale, slug } }) => {
     const page = blogSource.getPage(slug.split("/"), locale)
     if (!page || !page.data.published) {
       throw notFound()
     }
+    const [summary, { toc }] = await Promise.all([toBlogPostSummary(page, locale), page.data.load()])
     return {
-      ...toBlogPostSummary(page, locale),
+      ...summary,
       authorName: page.data.authorName,
       faq: page.data.faq,
       image: page.data.image,
       path: page.path,
-      toc: page.data.toc.map((item) => ({ depth: item.depth, title: tocItemTitle(item.title), url: item.url })),
+      toc: toc.map((item) => ({ depth: item.depth, title: tocItemTitle(item.title), url: item.url })),
       updated: page.data.updated,
     }
   })

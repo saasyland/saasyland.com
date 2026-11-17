@@ -11,6 +11,10 @@ export type FeatureStatus = (typeof FEATURE_STATUSES)[number]
 
 export const SITE_CONTENT_ID = "content"
 
+export const NAVIGATION_PENDING_MS = 200
+
+export const NAVIGATION_PENDING_MIN_MS = 300
+
 export const MARKETING_SECTION_IDS = {
   CLI: "cli",
   FAQ: "faq",

@@ -8,6 +8,7 @@ import { DOCS_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
 import { docsContent } from "~/src/presentation/components/custom/docs-content"
+import { DocsPagePending } from "~/src/presentation/components/custom/docs-pending"
 
 const DocumentationPage = () => {
   const { path } = Route.useLoaderData()
@@ -27,6 +28,5 @@ export const Route = createFileRoute("/_site/docs/$")({
   head: docsHead,
   loader: ({ params }) => loadDocsPage(params._splat),
   notFoundComponent: DocumentationNotFound,
-  pendingMs: Number.POSITIVE_INFINITY,
-  wrapInSuspense: false,
+  pendingComponent: DocsPagePending,
 })

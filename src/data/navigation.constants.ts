@@ -13,6 +13,10 @@ export const SITE_CONTENT_ID = "content"
 
 export const DOCS_CONTENT_ID = "nd-page"
 
+export const NAVIGATION_PENDING_MS = 400
+
+export const NAVIGATION_PENDING_MIN_MS = 0
+
 export const MARKETING_SECTION_IDS = {
   CLI: "cli",
   FAQ: "faq",

@@ -8,6 +8,7 @@ import { changelogEntries } from "./fumadocs.changelog"
 
 export const docs = defineDocs({
   dir: "./content/docs",
+  docs: { async: true },
 })
 
 const blogDateSchema = zod.union([zod.string(), zod.date()])
@@ -28,6 +29,7 @@ const blogSchema = pageSchema.extend({
 })
 
 export const blog = defineCollections({
+  async: true,
   dir: "./content/blog",
   schema: blogSchema,
   type: "doc",

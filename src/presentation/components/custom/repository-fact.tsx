@@ -77,6 +77,7 @@ import {
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import { CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE } from "~/src/data/marketing"
+import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { UNLISTED_ROUTES } from "~/src/data/unlisted"
@@ -157,6 +158,8 @@ const FACTS = {
   liveSiteCheckRetries: LIVE_SITE_CHECK_RETRY_DELAYS_MS.length,
   liveSiteCheckRetrySeconds: LIVE_SITE_CHECK_RETRY_DELAY_MS / MILLISECONDS_PER_SECOND,
   localizedTextMaxLength: LOCALIZED_TEXT_MAX_LENGTH,
+  navigationPendingMinMs: NAVIGATION_PENDING_MIN_MS,
+  navigationPendingMs: NAVIGATION_PENDING_MS,
   oauthCallbackPath: oauthCallbackPath("<provider>"),
   oauthCallbackPaths: OAUTH_PROVIDERS.map(({ id }) => oauthCallbackPath(id)),
   oauthCallbackUrls: OAUTH_PROVIDERS.map(({ id }) => `https://<host>${oauthCallbackPath(id)}`),
@@ -224,6 +227,7 @@ const UNIT_FORMATS = {
   currency: CURRENCY_FORMAT,
   day: { style: "unit", unit: "day", unitDisplay: "long" },
   hour: { style: "unit", unit: "hour", unitDisplay: "long" },
+  millisecond: { style: "unit", unit: "millisecond", unitDisplay: "short" },
   minute: { style: "unit", unit: "minute", unitDisplay: "long" },
   payout: { currency: AFFILIATE_TERMS.PAYOUT_CURRENCY, style: "currency", trailingZeroDisplay: "stripIfInteger" },
   percent: { style: "unit", unit: "percent" },

@@ -1,15 +1,20 @@
 import { readFileSync } from "node:fs"
 
 import { DOCS_CONTENT_ID } from "../../src/data/navigation.constants"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const titleOf = (file: string) => /^title: "(?<title>.+)"$/mu.exec(readFileSync(file, "utf8"))?.groups?.["title"]
 
 const INSTALLATION_TITLE = titleOf("content/docs/getting-started/installation.en-US.mdx")
+const DOCS_TITLE = titleOf("content/docs/index.en-US.mdx")
 const ENGLISH_MDX_CHUNK = /\/assets\/[\w.-]+\.en-US-[\w-]+\.js$/u
-const INSTALLATION_PATH = "/docs/getting-started/installation"
+const SERVER_FUNCTION = "**/_serverFn/**"
+const GETTING_STARTED_PATH = `${ROUTES.DOCS}/getting-started`
+const INSTALLATION_PATH = `${GETTING_STARTED_PATH}/installation`
 const INSTALLATION_CHUNK = "/installation.en-US-"
+const PAGER = `#${DOCS_CONTENT_ID} > :last-child a`
 
 test("documentation loads MDX and follows a sidebar link through the router before the page's MDX has loaded", async ({ appPage, page }) => {
   const errors: string[] = []
@@ -76,7 +81,11 @@ test.describe("server rendering and client navigation", () => {
     })
   }
 
-  test("docs content that renders while the next page loads keeps its own previous and next links", async ({ appPage, page }) => {
+  test("a docs page whose content is still loading gives way to the page skeleton, and the next page brings its own previous and next links", async ({
+    appPage,
+    browser,
+    page,
+  }) => {
     const errors: string[] = []
     page.on("pageerror", (error) => errors.push(error.message))
     const current = Promise.withResolvers<void>()
@@ -85,22 +94,65 @@ test.describe("server rendering and client navigation", () => {
       await (route.request().url().includes(INSTALLATION_CHUNK) ? next.promise : current.promise)
       await route.continue()
     })
-    await page.goto("/docs/getting-started", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(GETTING_STARTED_PATH, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    const pager = page.locator(`#${DOCS_CONTENT_ID} > :last-child a`)
-    const pages = await pager.evaluateAll((links) => links.map((link) => link.getAttribute("href")))
-    expect(pages.length).toBeGreaterThan(0)
 
     await page.locator(`a[href="${INSTALLATION_PATH}"]`).first().click()
     await expect(page).toHaveURL(INSTALLATION_PATH)
+    await expect(page.locator('main[aria-busy="true"]')).toBeVisible()
     current.resolve()
-    await appPage.waitForHydration(page.locator(`#${DOCS_CONTENT_ID}`))
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(titleOf("content/docs/getting-started/index.en-US.mdx") ?? "")
-    expect(await pager.evaluateAll((links) => links.map((link) => link.getAttribute("href")))).toEqual(pages)
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0)
 
     next.resolve()
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(INSTALLATION_TITLE ?? "")
+    const reference = await browser.newPage()
+    await reference.goto(INSTALLATION_PATH)
+    await expect(reference.getByRole("heading", { level: 1 })).toHaveText(INSTALLATION_TITLE ?? "")
+    const pages = await reference.locator(PAGER).evaluateAll((links) => links.map((link) => link.getAttribute("href")))
+    await reference.close()
+    expect(pages.length).toBeGreaterThan(0)
+    expect(await page.locator(PAGER).evaluateAll((links) => links.map((link) => link.getAttribute("href")))).toEqual(pages)
     expect(errors).toEqual([])
+  })
+})
+
+test.describe("a slow navigation to the docs", () => {
+  test("shows the docs skeleton below the site header until the docs layout and page have loaded", async ({ appPage, page }) => {
+    const loaded = Promise.withResolvers<void>()
+    await page.goto(ROUTES.HOME, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await page.route(SERVER_FUNCTION, async (route) => {
+      await loaded.promise
+      await route.continue()
+    })
+
+    await page.locator(`header a[href="${ROUTES.DOCS}"]`).first().click()
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0)
+    await expect(page.locator('[aria-busy="true"] [data-slot="skeleton"]').filter({ visible: true }).first()).toBeVisible()
+    await expect(page.getByRole("banner")).toBeVisible()
+
+    loaded.resolve()
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(DOCS_TITLE ?? "")
+    await expect(page.locator('[aria-busy="true"]').filter({ visible: true })).toHaveCount(0)
+  })
+
+  test("keeps the docs sidebar and shows the page skeleton until the next docs page has loaded", async ({ appPage, page }) => {
+    const loaded = Promise.withResolvers<void>()
+    await page.goto(GETTING_STARTED_PATH, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await page.route(SERVER_FUNCTION, async (route) => {
+      await loaded.promise
+      await route.continue()
+    })
+
+    await page.locator(`#nd-sidebar a[href="${INSTALLATION_PATH}"]`).click()
+    await expect(page.locator('main[aria-busy="true"]')).toBeVisible()
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0)
+    await expect(page.locator(`#nd-sidebar a[href="${INSTALLATION_PATH}"]`)).toBeVisible()
+
+    loaded.resolve()
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(INSTALLATION_TITLE ?? "")
+    await expect(page.locator('main[aria-busy="true"]')).toHaveCount(0)
   })
 })

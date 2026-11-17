@@ -32,6 +32,7 @@ import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
 import { CLI_LICENSE_COMMANDS, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
+import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -510,6 +511,28 @@ describe("affiliate terms", () => {
         style: "currency",
         trailingZeroDisplay: "stripIfInteger",
       }).format(AFFILIATE_TERMS.MINIMUM_PAYOUT),
+    )
+  })
+})
+
+describe("RepositoryFact navigation timings", () => {
+  it("prints how long a navigation waits before its skeleton and how long the skeleton stays, in milliseconds", () => {
+    renderInLocale(
+      "en-US",
+      <ul>
+        <li>
+          <RepositoryFact name="navigationPendingMs" unit="millisecond" />
+        </li>
+        <li>
+          <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />
+        </li>
+      </ul>,
+    )
+
+    expect(listItems()).toEqual(
+      [NAVIGATION_PENDING_MS, NAVIGATION_PENDING_MIN_MS].map((milliseconds) =>
+        new Intl.NumberFormat("en-US", { style: "unit", unit: "millisecond", unitDisplay: "short" }).format(milliseconds),
+      ),
     )
   })
 })

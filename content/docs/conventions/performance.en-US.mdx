@@ -1,6 +1,6 @@
 ---
 title: "Performance"
-description: "The measured rules that keep pages fast: a small Worker boot graph, no ORM in the browser, messages loaded on demand, stripped preload hints, provider placement, one Tailwind build, media sizing and the reveal pattern."
+description: "The measured rules that keep pages fast: a small Worker boot graph, a light route tree, no ORM in the browser, messages loaded on demand, stripped preload hints, provider placement, early skeletons, one Tailwind build, media sizing and the reveal pattern."
 ---
 
 Each rule on this page came from a measurement, and several replaced an intuitive fix that made things worse. Change the code behind one of them only with a new measurement that beats it.
@@ -25,6 +25,39 @@ const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
 One static import of a header name from a module that also imported the Polar client once pulled about 1.4 MB of SDK into every cold start, and the first byte of the landing page took up to 1.4 seconds. That is why `COUNTRY_HEADER` and `IP_ADDRESS_HEADER` live in `src/modules/_core/constants/api.ts`, which imports nothing heavy. Before adding a static import to `server.ts` or to an `<area>.worker.ts`, follow its import chain: anything that reaches `polar`, `drizzle-orm` or `resend` is a regression. `scripts/verify-build.ts` checks it on every build: it follows the static imports of the deployed Worker's entry, `dist/server/index.js`, and fails when they reach code bundled from `@polar-sh`, `drizzle-orm` or `resend`, or add up to more than `BOOT_CLOSURE_MAX_BYTES`.
+
+## Keep the route tree light
+
+The Worker hands every request that is neither a prerendered page nor a static file to TanStack Start, and Start loads the route tree before it does anything else, for a server function call as much as for a page it renders: `src/routeTree.gen.ts` and every module the route files import statically, including the handlers of server routes such as `/api/search`. A Worker isolate evaluates it on its first such request, and a server function loads its own chunk on its first call. Both happen while a visitor waits for a client navigation, so everything they import is part of the wait on a new isolate.
+
+The docs and blog collections used to be eager: `.source/server.ts` imported the compiled MDX of every docs page and blog post in every locale, 1,305 modules with each page's headings and search text, and the Lucide icons plugin added the whole icon set for the few icons the docs meta files name. The docs layout, the docs pages, the landing page and the blog read that source through their server functions, and `/api/search` imported it statically, which put it in the route tree. On saasyland.com, a client navigation from `/` to `/docs` waited about 1.3 seconds for its two server functions on a new isolate, and about 25 ms on a warm one; the landing page and the blog paid the same on their first navigation.
+
+- `fumadocs.config.ts` makes both collections `async`. The source holds each page's frontmatter, and `page.data.load()` imports one page's compiled MDX when a request needs its headings or search text. The page tree and `getDocsPage` read frontmatter only; the landing page loads the posts it shows, the blog index the posts of one locale, a blog post itself, and `/api/search` every page on its first request.
+- `/api/search` imports `fumadocs.search.ts` in its handler, so the search index stays out of the route tree.
+- `fumadocs.icons.ts` imports only the icons the meta files name, and `fumadocs.icons.test.ts` fails when a meta file names an icon it does not import or it imports one that no meta file names.
+
+The sizes are what each part imports statically in the `bun run build:test` Worker, and the times are the median of five interleaved runs on a laptop:
+
+| Measure                                                                       | Before                  | After                 |
+| ----------------------------------------------------------------------------- | ----------------------- | --------------------- |
+| Route tree, which every server request loads                                  | 1,635 modules, 21.7 MiB | 296 modules, 4.9 MiB  |
+| The docs page tree and `getDocsPage`, each with its imports                   | 1,402 modules, 16.9 MiB | 41 modules, 1.3 MiB   |
+| JavaScript in `dist/server`                                                   | 4,275 files, 28.0 MiB   | 2,953 files, 26.8 MiB |
+| Evaluating the route tree in Node                                             | 554 ms                  | 162 ms                |
+| Evaluating the Fumadocs source in Node                                        | 375 ms                  | 24 ms                 |
+| First navigation from `/` to the `/docs` heading on a new `vp preview` Worker | 260 ms                  | 198 ms                |
+
+`scripts/verify-build.ts` follows the static imports of the route tree and of every server function in `dist/server` and fails the build when they reach a compiled docs or blog page. Most of what the route tree still loads, about 3 MiB, is Better Auth and the modules it imports, which `/api/auth/$`, the search schema of the auth pages and the CLI licence API import statically.
+
+## A slow navigation shows its skeleton at once
+
+`src/router.tsx` sets `defaultPendingMs` to <RepositoryFact name="navigationPendingMs" unit="millisecond" /> and `defaultPendingMinMs` to <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, from `src/data/navigation.constants.ts`. With TanStack Router's defaults, one second and half a second, a slow navigation showed nothing but a new address for a full second: a first click on **Docs** on a new isolate took about 1.6 seconds and showed the docs skeleton only after one second or not at all, and a click from one docs page to another, whose routes had `pendingMs: Number.POSITIVE_INFINITY`, kept the previous page for the whole wait.
+
+- A navigation that finishes within the delay keeps the previous page until the next one is ready and never shows a skeleton. On saasyland.com, a navigation to a page the router had preloaded on hover or already loaded finished 40 to 115 ms after the click. A first visit to a section on a warm Worker, measured locally with 40 ms of latency per request and without hovering the link, took 184 to 314 ms; the delay is above both, so neither shows a skeleton.
+- A navigation that is still loading after the delay shows its route's skeleton for exactly as long as it keeps loading: `defaultPendingMinMs` is <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, so the router removes the skeleton the moment the page is ready instead of holding it on screen.
+- The docs pages have skeletons of their own, `DocsIndexPending` and `DocsPagePending`, which fill the article and table of contents beside the sidebar, so a slow navigation between docs pages shows the shape of the next page instead of leaving the previous one in place.
+
+`e2e/specs/content.spec.ts` holds the server functions of a navigation to `/docs` and of one between docs pages and checks that each shows its skeleton, and the sidebar in the second, until they answer.
 
 ## Keep the ORM out of the browser
 

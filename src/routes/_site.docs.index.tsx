@@ -5,6 +5,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { docsHead, loadDocsPage } from "~/src/integrations/fumadocs/fumadocs.docs"
 
 import { docsContent } from "~/src/presentation/components/custom/docs-content"
+import { DocsIndexPending } from "~/src/presentation/components/custom/docs-pending"
 
 const DocumentationIndexPage = () => {
   const { path } = Route.useLoaderData()
@@ -17,6 +18,5 @@ export const Route = createFileRoute("/_site/docs/")({
   component: DocumentationIndexPage,
   head: docsHead,
   loader: () => loadDocsPage(),
-  pendingMs: Number.POSITIVE_INFINITY,
-  wrapInSuspense: false,
+  pendingComponent: DocsIndexPending,
 })

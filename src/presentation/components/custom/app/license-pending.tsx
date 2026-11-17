@@ -53,13 +53,6 @@ const ActivationPending = (): JSX.Element => (
   </div>
 )
 
-const AgreementPending = (): JSX.Element => (
-  <div className="flex w-full flex-col text-xs leading-relaxed">
-    <Skeleton className="h-lh w-full scale-y-70 lg:w-4/5" />
-    <Skeleton className="h-lh w-1/2 scale-y-70 lg:hidden" />
-  </div>
-)
-
 const ChosenTierPending = (): JSX.Element => (
   <div className="overflow-hidden rounded-xl border border-ring/40 bg-card">
     <div className="grid gap-x-10 gap-y-7 p-6 md:p-8 lg:grid-cols-[1fr_18rem] lg:items-end">
@@ -71,10 +64,7 @@ const ChosenTierPending = (): JSX.Element => (
           <Skeleton className="h-lh w-16 scale-y-70 text-spec" />
         </div>
       </div>
-      <div className="flex flex-col gap-3">
-        <Skeleton className="h-11 w-full rounded-lg" />
-        <AgreementPending />
-      </div>
+      <Skeleton className="h-11 w-full rounded-lg" />
     </div>
   </div>
 )
@@ -131,7 +121,6 @@ const LicenseOfferPending = (): JSX.Element => (
         ))}
       </div>
     </div>
-    <AgreementPending />
     {LICENSE_OFFER_SECTIONS.map(({ key, Pending }) => (
       <Pending key={key} />
     ))}

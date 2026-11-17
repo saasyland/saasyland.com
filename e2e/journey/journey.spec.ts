@@ -5,6 +5,7 @@ import type { models } from "@polar-sh/sdk/2026-10"
 import * as zod from "zod"
 
 import { expect, test as base } from "../fixtures/auth"
+import { consentAndPay } from "../fixtures/license"
 import type { AuthPage, BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -13,7 +14,14 @@ import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { toMinorUnits } from "../../src/modules/_core/constants/currency"
 import { CURRENCY_FORMAT, DEFAULT_CURRENCY_CODE } from "../../src/modules/_core/constants/pricing"
 import { PPP_PERCENT, pppMultiplierKey } from "../../src/modules/license/license.pricing"
-import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "../../src/modules/license/license.constants"
+import {
+  LICENSE_ACTIVATION_LIMITS,
+  LICENSE_CHECKOUT_FIELD,
+  LICENSE_CHECKOUT_METADATA,
+  LICENSE_TIER,
+  LICENSE_TIERS,
+  type LicenseTier,
+} from "../../src/modules/license/license.constants"
 
 import {
   CLI_COMMAND,
@@ -26,7 +34,7 @@ import {
 import { TIER_PRICES } from "../../src/data/marketing"
 
 import { CLI_ERROR, CLI_RESULT, type Machine, createMachine, runCli, storedCredentials } from "./cli"
-import { inboxAddress, verificationLink } from "./inbox"
+import { inboxAddress, purchaseConfirmation, verificationLink } from "./inbox"
 import { POLAR_SANDBOX_CHECKOUT, PolarCheckoutPage } from "./polar-checkout-page"
 import { accountOrders, refundOrder, refundPaidOrders } from "./sandbox"
 import { PRODUCT_IDS } from "./settings"
@@ -120,6 +128,7 @@ const buy = async (pages: Pages, buyer: Buyer, price: number): Promise<void> => 
   await expect(offer).toContainText(formatPrice(price), { useInnerText: true })
 
   await offer.getByRole("button", { name: `Get ${TIER_NAMES[buyer.tier]}`, exact: true }).click()
+  await consentAndPay(page)
   await page.waitForURL(POLAR_SANDBOX_CHECKOUT)
   await new PolarCheckoutPage(page).pay(buyer)
 
@@ -134,6 +143,8 @@ const paidOrder = async ({ tier, userId }: Buyer, price: number): Promise<models
   assert(order !== undefined)
   expect(others).toEqual([])
   expect(order).toMatchObject({
+    custom_field_data: { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true },
+    metadata: { [LICENSE_CHECKOUT_METADATA.LOCALE]: I18N.DEFAULT_LOCALE },
     product_id: PRODUCT_IDS[tier],
     status: POLAR_ORDER_STATUS.PAID,
     subtotal_amount: toMinorUnits(TIER_PRICES[tier], DEFAULT_CURRENCY_CODE),
@@ -205,6 +216,11 @@ for (const tier of LICENSE_TIERS) {
 
     await test.step("pay the regional price with the Stripe test card", async () => buy(pages, buyer, price))
     const order = await test.step("Polar records the order of the tier", async () => paidOrder(buyer, price))
+    await test.step("the buyer receives the confirmation of the consent to immediate supply by email", async () => {
+      expect(await purchaseConfirmation(buyer.email, `Your SaaSy Land ${TIER_NAMES[tier]} licence`)).toContain(
+        "so the right of withdrawal does not apply to this order",
+      )
+    })
     const key = await test.step("the webhooks issue the key on /app/license", async () => issuedKey(pages, tier))
     const { ci, overflow, workstation } = await machines(testInfo, { key, origin: String(baseURL), tier })
 

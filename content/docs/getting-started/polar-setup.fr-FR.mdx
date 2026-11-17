@@ -1,6 +1,6 @@
 ---
 title: "Configurer Polar"
-description: "Les organisations, le jeton, les produits, les clés de licence, les remises régionales et les webhooks Polar qu'attend le code, et comment polar:verify les vérifie."
+description: "Les organisations, le jeton, les produits, les clés de licence, la case de consentement, les remises régionales et les webhooks Polar qu'attend le code, et comment polar:verify les vérifie."
 ---
 
 Polar vend les trois offres, émet leurs clés de licence et applique les remises régionales. Le code attend une configuration précise dans Polar, et Polar ne vous prévient pas quand les deux divergent : un produit sans avantage de clé de licence encaisse quand même le paiement, mais n'émet aucune clé. `bun run polar:verify:<environment>` compare Polar au code, et les scripts de déploiement l'exécutent avant chaque déploiement manuel.
@@ -61,6 +61,20 @@ Créez un avantage de type **License Keys** (clés de licence) par offre et ratt
 
 Chaque produit doit avoir exactement un avantage de clé de licence ; d'autres avantages à côté ne posent pas de problème. Quand Polar accorde l'avantage, le webhook `benefit_grant.created` enregistre la clé sur la licence de l'acheteur.
 
+## Case de consentement [#consent-checkbox]
+
+La boîte de dialogue de paiement du site demande à l'acheteur son consentement à la fourniture immédiate (voir [Licences](/docs/features/licences#consent-to-immediate-supply)), et le paiement Polar l'enregistre sur la commande. Créez un champ personnalisé dans l'organisation et rattachez-le aux trois produits :
+
+- **Type** : case à cocher.
+- **Slug** : <RepositoryFact name="licenseWithdrawalConsentField" />, `LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT` dans `src/modules/license/license.constants.ts`. La commande enregistre la case cochée sous cette clé dans `custom_field_data`.
+- **Libellé** : exactement `WITHDRAWAL_CONSENT_FIELD.label` de `src/lib/polar.ts`, la phrase en anglais construite à partir de `REFUND_TERMS.WITHDRAWAL_DAYS`, qui se termine par un lien Markdown vers la Politique de remboursement de production.
+- **Nom** : au choix ; `WITHDRAWAL_CONSENT_FIELD.name` est celui que suggère le code, et `polar:verify` ne le vérifie pas.
+- **Obligatoire** sur chacun des trois produits. Les autres champs que demandent les produits peuvent rester.
+
+`startCheckout` envoie comme valeur du champ le consentement que l'acheteur vient de donner, si bien que Polar affiche la case cochée. Polar ne conserve que les valeurs des champs que le produit demande : tant que le champ n'est pas rattaché, un paiement fonctionne quand même, mais la commande n'enregistre aucun consentement, et la [confirmation d'achat](/docs/features/licences#purchase-confirmation) indique à la place le droit de rétractation légal.
+
+Créer le champ et le rattacher à un produit nécessitent les scopes `custom_fields:write` et `products:write`, que le jeton ci-dessus n'a pas. Créez-le et rattachez-le dans le tableau de bord Polar, ou via l'API avec un jeton distinct qui possède ces scopes. `polar:verify` lit les champs rattachés dans la liste des produits : il n'a donc besoin d'aucun autre scope.
+
 ## Remises régionales
 
 Le paiement applique un prix régional au moyen d'une remise automatique dans Polar (voir [Licences](/docs/features/licences)). Créez une remise en pourcentage pour chaque palier de `PPP_TIERS` (`src/modules/license/license.pricing.ts`) : <RegionalDiscounts />. Chaque remise doit :
@@ -113,6 +127,7 @@ Chaque script lit les clés Polar dans `.env.<environment>` et n'envoie que des 
 - le fichier d'environnement définit chaque clé Polar, avec `POLAR_SERVER=sandbox` pour le développement et la préversion et `POLAR_SERVER=production` pour la production ;
 - chaque `POLAR_PRODUCT_ID_*` désigne un produit de l'organisation qui n'est ni archivé ni un abonnement, et dont les prix sont fixes, en `DEFAULT_CURRENCY_CODE` et égaux à `TIER_PRICES` ;
 - chaque produit a exactement un avantage de clé de licence, avec la limite de l'offre tirée de `LICENSE_ACTIVATION_LIMITS`, sans expiration ni limite d'utilisation ;
+- chaque produit exige le champ de type case à cocher <RepositoryFact name="licenseWithdrawalConsentField" /> avec le libellé de `WITHDRAWAL_CONSENT_FIELD` ;
 - pour chaque palier de `PPP_TIERS`, une remise automatique en pourcentage est utilisable pour chaque produit d'offre, selon la règle qu'applique le paiement ;
 - la préversion et la production ont, à leur URL de webhook, un point de terminaison activé au format Raw, signé avec `POLAR_WEBHOOK_SECRET` et abonné exactement à `POLAR_EVENTS` ;
 - aucun point de terminaison n'envoie ses événements à l'hôte d'un environnement qui utilise l'autre service Polar.
@@ -136,6 +151,7 @@ Un échec arrête le déploiement avant que quoi que ce soit ne soit construit, 
 - **`lacks the … scope`** : créez un jeton avec les scopes ci-dessus.
 - **`names no product of the organisation`** : l'identifiant du produit ou `POLAR_ORGANIZATION_ID` est erroné, ou appartient à l'autre service.
 - **Un prix, une clé de licence ou une remise** : modifiez-le dans Polar pour qu'il corresponde au code. Quand une valeur métier change volontairement, modifiez d'abord `TIER_PRICES`, `LICENSE_ACTIVATION_LIMITS` ou `PPP_TIERS`, puis Polar.
+- **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` ou `label differs`** : créez, rattachez ou corrigez la [case de consentement](#consent-checkbox). Quand la formulation change volontairement, modifiez d'abord `WITHDRAWAL_CONSENT_FIELD.label`, puis le libellé dans Polar.
 - **Un point de terminaison de webhook** : corrigez le point de terminaison que nomme le message, ou supprimez un point de terminaison qui envoie ses événements à l'hôte d'un autre environnement.
 
 ## Pages associées

@@ -138,7 +138,7 @@ export const payPolarCheckout = (checkoutId: string): models.Order => {
     product,
     status: POLAR_ORDER_STATUS.PAID,
   })
-  return saveOrder(order)
+  return saveOrder({ ...order, custom_field_data: checkout.custom_field_data ?? {} })
 }
 
 export const refundPolarOrder = (orderId: string, amount: number): models.Order => {
@@ -249,8 +249,11 @@ const metadataSchema = zod
   .record(zod.string().max(METADATA_KEY_MAX_LENGTH), zod.union([zod.string().max(METADATA_VALUE_MAX_LENGTH), zod.number(), zod.boolean()]))
   .refine((metadata) => Object.keys(metadata).length <= METADATA_MAX_KEYS, `metadata holds at most ${String(METADATA_MAX_KEYS)} keys`)
 
+const customFieldDataSchema = zod.record(zod.string(), zod.union([zod.string(), zod.number(), zod.boolean(), zod.null()]))
+
 const checkoutCreateSchema = zod.strictObject({
   allow_discount_codes: zod.boolean(),
+  custom_field_data: customFieldDataSchema.optional(),
   customer_email: zod.email(),
   customer_ip_address: zod.union([zod.ipv4(), zod.ipv6()]).nullable(),
   customer_name: zod.string(),
@@ -335,6 +338,7 @@ const createCheckout = async (request: Request) => {
     client_secret: `polar_c_${id.replaceAll("-", "")}`,
     created_at: createdAt.toISOString(),
     currency: price.price_currency,
+    custom_field_data: body.data.custom_field_data ?? {},
     customer_billing_address: null,
     customer_billing_name: null,
     customer_email: body.data.customer_email,

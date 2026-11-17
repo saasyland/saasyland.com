@@ -1,5 +1,6 @@
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
+import { consentAndPay } from "../fixtures/license"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 import { documentPolicy } from "../../src/lib/content-security-policy"
@@ -59,6 +60,7 @@ test.describe("content security policy", () => {
     await appPage.waitForAppReady()
 
     await page.getByRole("region", { name: "Continue with Complete" }).getByRole("button", { name: "Continue to checkout" }).click()
+    await consentAndPay(page)
 
     await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
     await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()

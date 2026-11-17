@@ -32,6 +32,7 @@ import { Route as LicenseRoute } from "~/src/routes/app.license"
 
 import { CLI_LICENSE_COMMANDS, CLI_LICENSE_KEY_VARIABLE, cliCommand } from "~/src/data/cli"
 import { REACTPROJECTS_FACTS } from "~/src/data/marketing"
+import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { LicenseCard } from "~/src/presentation/components/custom/app/license-card"
@@ -45,6 +46,8 @@ import pagesAppMessages from "~/messages/en-US/pages.app.json"
 import pagesAppSidebarMessages from "~/messages/en-US/pages.app.sidebar.json"
 import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
 import plPricingMessages from "~/messages/pl-PL/components.custom.pricing.json"
+import plErrorsMessages from "~/messages/pl-PL/errors.json"
+import plLicenseValidationMessages from "~/messages/pl-PL/license.validations.json"
 import plPagesLicenseMessages from "~/messages/pl-PL/pages.license.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
@@ -147,6 +150,36 @@ const offer = () => screen.findByRole("region", { name: buy.title })
 
 const tierButton = (tier: keyof typeof pricingMessages.tiers) => screen.getByRole("button", { name: pricingMessages.tiers[tier].cta })
 
+const consentLabel = (tier: keyof typeof pricingMessages.tiers): string =>
+  createTranslator({ locale: "en-US", messages: pagesLicenseMessages })("buy.consent.label", {
+    days: REFUND_TERMS.WITHDRAWAL_DAYS,
+    tier: pricingMessages.tiers[tier].name,
+  })
+
+const plConsent = (key: "description" | "label"): string =>
+  createTranslator({ locale: "pl-PL", messages: plPagesLicenseMessages })(`buy.consent.${key}`, {
+    days: REFUND_TERMS.WITHDRAWAL_DAYS,
+    tier: plPricingMessages.tiers.agency.name,
+  })
+
+const openPolishConsent = async () => {
+  vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/pl-PL/app/license"))
+  const { user } = await renderApp(ROUTES.APP_LICENSE, "pl-PL")
+  const region = await screen.findByRole("region", { name: plPagesLicenseMessages.buy.title })
+
+  await user.click(within(region).getByRole("button", { name: plPricingMessages.tiers.agency.cta }))
+
+  const dialog = screen.getByRole("dialog", { name: plPagesLicenseMessages.buy.consent.title })
+  await within(dialog).findByRole("checkbox")
+  return { dialog, user }
+}
+
+const consentAndContinue = async (user: ReturnType<typeof userEvent.setup>, tier: keyof typeof pricingMessages.tiers): Promise<void> => {
+  const dialog = screen.getByRole("dialog", { name: buy.consent.title })
+  await user.click(await within(dialog).findByRole("checkbox", { name: consentLabel(tier) }))
+  await user.click(within(dialog).getByRole("button", { name: buy.consent.continue }))
+}
+
 beforeEach(() => {
   sessionRequest.mockReset().mockResolvedValue(createAuthSessionFixture())
   currentLicenseMock.mockReset().mockResolvedValue({ license: undefined })
@@ -197,7 +230,7 @@ describe("buying a license", () => {
     expect(within(region).getAllByText(pricingMessages.status.available)).toHaveLength(Object.keys(pricingMessages.tiers).length)
     expect(within(region).getAllByText(pricingMessages.status.arriving)).toHaveLength(Object.keys(pricingMessages.tiers).length)
     expect(within(region).getAllByText(pricingMessages.mostPopular)).toHaveLength(1)
-    expect(within(region).getByRole("link", { name: "Terms of Service" })).toHaveAttribute("href", ROUTES.TERMS)
+    expect(within(region).queryByRole("link", { name: "Terms of Service" })).toBeNull()
     expect(screen.queryByRole("region", { name: chosen.title.replace("{tier}", pricingMessages.tiers.complete.name) })).toBeNull()
   })
 
@@ -208,54 +241,88 @@ describe("buying a license", () => {
     expect(sectionLoad).toHaveBeenCalledWith({ locale: "en-US", queryClient })
   })
 
-  it("starts one checkout in the page's language and locks every tier until it opens or fails", async () => {
+  it("asks for consent to immediate supply in the page's language, with the terms it links to", async () => {
+    const { dialog } = await openPolishConsent()
+
+    expect(dialog).toHaveFocus()
+    expect(within(dialog).getByText(plConsent("description"))).toBeVisible()
+    const box = within(dialog).getByRole("checkbox", { name: plConsent("label") })
+    expect(box).not.toBeChecked()
+    expect(box).toBeRequired()
+    expect(within(dialog).getByRole("link", { name: "Zasady zwrotów" })).toHaveAttribute("href", ROUTES.REFUNDS)
+    expect(within(dialog).getByRole("link", { name: "Regulamin" })).toHaveAttribute("href", ROUTES.TERMS)
+    expect(within(dialog).getByRole("link", { name: "Licencję komercyjną" })).toHaveAttribute("href", ROUTES.LICENCE)
+  })
+
+  it("starts no checkout until the box is ticked, says why, and starts it once the label is pressed", async () => {
+    checkoutMock.mockReturnValue(new Promise(() => {}))
+    const { dialog, user } = await openPolishConsent()
+    const box = within(dialog).getByRole("checkbox", { name: plConsent("label") })
+    const required = plLicenseValidationMessages.withdrawalConsentRequired
+
+    await user.click(within(dialog).getByRole("button", { name: plPagesLicenseMessages.buy.consent.continue }))
+
+    expect(checkoutMock).not.toHaveBeenCalled()
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(required)
+    expect(box).toBeInvalid()
+    expect(box).toHaveAccessibleDescription(required)
+
+    await user.click(within(dialog).getByText(plConsent("label")))
+    expect(box).toBeChecked()
+    expect(within(dialog).queryByRole("alert")).toBeNull()
+    await user.click(within(dialog).getByRole("button", { name: plPagesLicenseMessages.buy.consent.continue }))
+
+    expect(checkoutMock).toHaveBeenCalledExactlyOnceWith(
+      { locale: "pl-PL", tier: LICENSE_TIER.AGENCY, withdrawalConsent: true },
+      expect.anything(),
+    )
+  })
+
+  it("keeps the dialog open while the checkout starts, then closes it and recovers after a failure", async () => {
     const checkout = Promise.withResolvers<{ url: string }>()
     checkoutMock.mockReturnValue(checkout.promise)
-    vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/pl-PL/app/license"))
-    const { user } = await renderApp(ROUTES.APP_LICENSE, "pl-PL")
-    const region = await screen.findByRole("region", { name: plPagesLicenseMessages.buy.title })
+    const { dialog, user } = await openPolishConsent()
+    await user.click(within(dialog).getByRole("checkbox", { name: plConsent("label") }))
+    await user.click(within(dialog).getByRole("button", { name: plPagesLicenseMessages.buy.consent.continue }))
 
-    await user.click(within(region).getByRole("button", { name: plPricingMessages.tiers.agency.cta }))
+    const pending = within(dialog).getByRole("button", { name: (name) => name.endsWith(plPagesLicenseMessages.buy.pending) })
+    expect(pending).toHaveAttribute("aria-disabled", "true")
+    expect(within(dialog).getByRole("button", { name: plPagesLicenseMessages.buy.consent.cancel })).toBeDisabled()
+    await user.keyboard("{Escape}")
+    expect(screen.getByRole("dialog")).toBeVisible()
 
-    expect(checkoutMock).toHaveBeenCalledExactlyOnceWith({ locale: "pl-PL", tier: LICENSE_TIER.AGENCY }, expect.anything())
-    const buttons = within(region).getAllByRole("button")
-    expect(buttons).toHaveLength(Object.keys(plPricingMessages.tiers).length)
-    for (const button of buttons) {
-      expect(button).toBeDisabled()
-    }
     await act(async () => {
       checkout.reject(new Error("Checkout unavailable"))
       await checkout.promise.catch(() => {})
     })
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: plPricingMessages.tiers.agency.cta })).toBeEnabled()
+      expect(screen.queryByRole("dialog")).toBeNull()
     })
+    expect(toast.error).toHaveBeenCalledWith(plErrorsMessages.codes.INTERNAL_ERROR)
+    expect(screen.getByRole("button", { name: plPricingMessages.tiers.agency.cta })).toBeEnabled()
     expect(checkoutMock).toHaveBeenCalledOnce()
   })
 
-  it("shows the pending label on the pressed tier only and recovers after a failure", async () => {
-    const checkout = Promise.withResolvers<{ url: string }>()
-    checkoutMock.mockReturnValue(checkout.promise)
+  it("cancels with the button or Escape without starting a checkout, and asks again the next time", async () => {
     const { user } = await renderApp(ROUTES.APP)
     await offer()
 
     await user.click(tierButton(LICENSE_TIER.CORE))
-
-    expect(screen.getByRole("button", { name: (name) => name.endsWith(buy.pending) })).toBeDisabled()
-    expect(tierButton(LICENSE_TIER.COMPLETE)).toBeDisabled()
-    await user.click(tierButton(LICENSE_TIER.COMPLETE))
-    expect(checkoutMock).toHaveBeenCalledOnce()
-
-    await act(async () => {
-      checkout.reject(new Error("Checkout unavailable"))
-      await checkout.promise.catch(() => {})
-    })
+    await user.click(await screen.findByRole("checkbox", { name: consentLabel(LICENSE_TIER.CORE) }))
+    await user.click(screen.getByRole("button", { name: buy.consent.cancel }))
 
     await waitFor(() => {
-      expect(tierButton(LICENSE_TIER.CORE)).toBeEnabled()
+      expect(screen.queryByRole("dialog")).toBeNull()
     })
-    expect(toast.error).toHaveBeenCalledWith(errorsMessages.codes.INTERNAL_ERROR)
+    await user.click(tierButton(LICENSE_TIER.CORE))
+    expect(await screen.findByRole("checkbox", { name: consentLabel(LICENSE_TIER.CORE) })).not.toBeChecked()
+    await user.keyboard("{Escape}")
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull()
+    })
+    expect(checkoutMock).not.toHaveBeenCalled()
   })
 
   it("refreshes the license before opening the checkout", async () => {
@@ -265,12 +332,16 @@ describe("buying a license", () => {
     const invalidate = vi.spyOn(queryClient, "invalidateQueries")
 
     await user.click(tierButton(LICENSE_TIER.CORE))
+    await consentAndContinue(user, LICENSE_TIER.CORE)
 
     await waitFor(() => {
       expect(globalThis.location.hash).toBe("#checkout")
     })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: LICENSE_QUERY_KEYS.ALL })
-    expect(checkoutMock).toHaveBeenCalledExactlyOnceWith({ locale: "en-US", tier: LICENSE_TIER.CORE }, expect.anything())
+    expect(checkoutMock).toHaveBeenCalledExactlyOnceWith(
+      { locale: "en-US", tier: LICENSE_TIER.CORE, withdrawalConsent: true },
+      expect.anything(),
+    )
     globalThis.history.replaceState({}, "", "/")
   })
 
@@ -281,17 +352,19 @@ describe("buying a license", () => {
     currentLicenseMock.mockResolvedValue({ license: ownedLicense })
 
     await user.click(tierButton(LICENSE_TIER.COMPLETE))
+    await consentAndContinue(user, LICENSE_TIER.COMPLETE)
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(`You already have an active licence. To move to another tier, email ${CONTACT_EMAIL}.`)
     })
     expect(await screen.findByRole("heading", { name: statusCard.title })).toBeVisible()
+    expect(screen.queryByRole("dialog")).toBeNull()
     expect(screen.queryByRole("region", { name: buy.title })).toBeNull()
   })
 })
 
 describe("a tier chosen on the pricing page", () => {
-  it.each([ROUTES.APP, ROUTES.APP_LICENSE])("is highlighted on %s and goes to checkout in one press", async (path) => {
+  it.each([ROUTES.APP, ROUTES.APP_LICENSE])("is highlighted on %s and goes to checkout once the buyer consents", async (path) => {
     checkoutMock.mockReturnValue(new Promise(() => {}))
     const { user } = await renderApp(`${path}?tier=${LICENSE_TIER.COMPLETE}`)
 
@@ -300,8 +373,12 @@ describe("a tier chosen on the pricing page", () => {
     expect(within(card).getByText("$399", { selector: ".pv-100" })).toBeInTheDocument()
 
     await user.click(within(card).getByRole("button", { name: chosen.continue }))
+    await consentAndContinue(user, LICENSE_TIER.COMPLETE)
 
-    expect(checkoutMock).toHaveBeenCalledExactlyOnceWith({ locale: "en-US", tier: LICENSE_TIER.COMPLETE }, expect.anything())
+    expect(checkoutMock).toHaveBeenCalledExactlyOnceWith(
+      { locale: "en-US", tier: LICENSE_TIER.COMPLETE, withdrawalConsent: true },
+      expect.anything(),
+    )
   })
 
   it("ignores a tier the app does not sell", async () => {

@@ -19,14 +19,17 @@ import { PPP_PERCENTS_OFF } from "~/src/modules/license/license.pricing"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 import { POLAR_EVENTS } from "~/src/data/polar-events"
+import { REFUND_TERMS } from "~/src/data/refunds"
 
 import {
   POLAR_BENEFIT_TYPE,
+  POLAR_CUSTOM_FIELD_TYPE,
   POLAR_PRICE_TYPE,
   POLAR_SCOPE,
   POLAR_SERVER,
   POLAR_WEBHOOK_FORMAT,
   type PolarEnvironment,
+  WITHDRAWAL_CONSENT_FIELD,
   verifyPolar,
 } from "~/src/lib/polar"
 
@@ -131,6 +134,39 @@ const customBenefit = (tier: LicenseTier): models.BenefitCustom => ({
   type: POLAR_BENEFIT_TYPE.CUSTOM,
 })
 
+const CUSTOM_FIELD_FIELDS = {
+  created_at: CREATED_AT,
+  metadata: {},
+  modified_at: JSON_NULL,
+  organization_id: ORGANIZATION_ID,
+} as const
+
+const consentField = (fields: Partial<models.CustomFieldCheckbox> = {}): models.CustomFieldCheckbox => ({
+  ...CUSTOM_FIELD_FIELDS,
+  id: "consent-field",
+  name: WITHDRAWAL_CONSENT_FIELD.name,
+  properties: { form_label: WITHDRAWAL_CONSENT_FIELD.label },
+  slug: WITHDRAWAL_CONSENT_FIELD.slug,
+  type: POLAR_CUSTOM_FIELD_TYPE.CHECKBOX,
+  ...fields,
+})
+
+const textField = (slug: string): models.CustomFieldText => ({
+  ...CUSTOM_FIELD_FIELDS,
+  id: `text-field-${slug}`,
+  name: slug,
+  properties: { form_label: WITHDRAWAL_CONSENT_FIELD.label },
+  slug,
+  type: "text",
+})
+
+const attached = (field: models.CustomField, required = true): models.AttachedCustomField => ({
+  custom_field: field,
+  custom_field_id: field.id,
+  order: 0,
+  required,
+})
+
 const PRODUCT_FIELDS = {
   created_at: CREATED_AT,
   description: JSON_NULL,
@@ -150,7 +186,7 @@ const PRODUCT_FIELDS = {
 
 const product = (tier: LicenseTier, fields: Partial<models.Product> = {}): models.Product => ({
   ...PRODUCT_FIELDS,
-  attached_custom_fields: [],
+  attached_custom_fields: [attached(consentField())],
   benefits: [licenseKeys(tier)],
   id: PRODUCT_IDS[tier],
   is_deletable: false,
@@ -273,6 +309,9 @@ const withProduct = (tier: LicenseTier, fields: Partial<models.Product>): Partia
   products: LICENSE_TIERS.map((each) => product(each, each === tier ? fields : {})),
 })
 
+const withCheckoutFields = (tier: LicenseTier, ...fields: readonly models.AttachedCustomField[]): Partial<PolarOrganisation> =>
+  withProduct(tier, { attached_custom_fields: [...fields] })
+
 const requestedUrls = (): URL[] => fetchMock.mock.calls.map(([input]) => new URL(input))
 
 beforeEach(() => {
@@ -291,7 +330,7 @@ describe("verifyPolar on an organisation that matches the code", () => {
     serve()
 
     await expect(verify(ENVIRONMENT.PREVIEW)).resolves.toBe(
-      `Polar sandbox matches the code for preview: 3 products with their prices and licence keys; 4 regional discounts; the webhook at ${PREVIEW_WEBHOOK}.`,
+      `Polar sandbox matches the code for preview: 3 products with their prices, licence keys and consent field; 4 regional discounts; the webhook at ${PREVIEW_WEBHOOK}.`,
     )
     expect(new Set(requestedUrls().map(({ host, pathname }) => `${host}${pathname}`))).toStrictEqual(
       new Set(["sandbox-api.polar.sh/v1/products/", "sandbox-api.polar.sh/v1/discounts/", "sandbox-api.polar.sh/v1/webhooks/endpoints"]),
@@ -317,7 +356,7 @@ describe("verifyPolar on an organisation that matches the code", () => {
     serve({ endpoints: [webhookEndpoint(PRODUCTION_WEBHOOK)] })
 
     await expect(verify(ENVIRONMENT.PRODUCTION)).resolves.toBe(
-      `Polar production matches the code for production: 3 products with their prices and licence keys; 4 regional discounts; the webhook at ${PRODUCTION_WEBHOOK}.`,
+      `Polar production matches the code for production: 3 products with their prices, licence keys and consent field; 4 regional discounts; the webhook at ${PRODUCTION_WEBHOOK}.`,
     )
     expect(requestedUrls().every(({ host }) => host === SERVER_HOSTS[POLAR_SERVER.PRODUCTION])).toBe(true)
   })
@@ -326,16 +365,17 @@ describe("verifyPolar on an organisation that matches the code", () => {
     serve()
 
     await expect(verify(ENVIRONMENT.DEVELOPMENT)).resolves.toBe(
-      "Polar sandbox matches the code for development: 3 products with their prices and licence keys; 4 regional discounts.",
+      "Polar sandbox matches the code for development: 3 products with their prices, licence keys and consent field; 4 regional discounts.",
     )
     expect(requestedUrls().every(({ host }) => host === SERVER_HOSTS[POLAR_SERVER.SANDBOX])).toBe(true)
   })
 
-  it("accepts other benefits next to the licence key, archived prices and a regional discount for every product", async () => {
+  it("accepts other benefits next to the licence key, other checkout fields, archived prices and a regional discount for every product", async () => {
     serve({
       discounts: PPP_PERCENTS_OFF.map((percentOff) => regionalDiscount(percentOff, { products: [] })),
       products: LICENSE_TIERS.map((tier) =>
         product(tier, {
+          attached_custom_fields: [attached(textField("company"), false), attached(consentField())],
           benefits: [customBenefit(tier), licenseKeys(tier)],
           prices: [fixedPrice(tier, { id: `old-${tier}`, is_archived: true, price_amount: 1 }), fixedPrice(tier)],
         }),
@@ -485,6 +525,45 @@ describe("verifyPolar on the licence keys", () => {
       }),
       "The agency product (POLAR_PRODUCT_ID_AGENCY) issues keys that expire; they must never expire.",
       "The agency product (POLAR_PRODUCT_ID_AGENCY) issues keys with a usage limit; they must have none.",
+    )
+  })
+})
+
+describe("verifyPolar on the consent checkout field", () => {
+  const { label, slug } = WITHDRAWAL_CONSENT_FIELD
+  const companyField = attached(textField("company"))
+  const optionalConsent = attached(consentField(), false)
+  const textConsent = attached(textField(slug))
+  const relabelledConsent = attached(consentField({ properties: { form_label: `${label} ` } }))
+
+  it("reports a product whose checkout does not ask for the consent", async () => {
+    await expectPreviewProblems(
+      withCheckoutFields(LICENSE_TIER.CORE, companyField),
+      `The core product (POLAR_PRODUCT_ID_CORE) does not ask for the ${slug} checkout field (WITHDRAWAL_CONSENT_FIELD).`,
+    )
+  })
+
+  it("reports a consent the buyer may leave unticked", async () => {
+    await expectPreviewProblems(
+      withCheckoutFields(LICENSE_TIER.AGENCY, optionalConsent),
+      `The agency product (POLAR_PRODUCT_ID_AGENCY) asks for the ${slug} checkout field without requiring it.`,
+    )
+  })
+
+  it("reports a consent field that is not a checkbox or whose label differs from the wording in the code", async () => {
+    await expectPreviewProblems(
+      withCheckoutFields(LICENSE_TIER.COMPLETE, textConsent),
+      `The ${slug} checkout field is a text field instead of a checkbox.`,
+    )
+    await expectPreviewProblems(
+      withCheckoutFields(LICENSE_TIER.COMPLETE, relabelledConsent),
+      `The ${slug} checkout field's label differs from WITHDRAWAL_CONSENT_FIELD.label.`,
+    )
+  })
+
+  it("builds the label from the refund period and the production refund page", () => {
+    expect(label).toBe(
+      `I ask SaaSy Land to supply my purchase immediately, and I acknowledge that I lose my ${String(REFUND_TERMS.WITHDRAWAL_DAYS)}-day right of withdrawal once supply begins, when my licence key is issued. [Refund Policy](https://saasyland.com/refunds)`,
     )
   })
 })

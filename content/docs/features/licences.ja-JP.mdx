@@ -1,17 +1,27 @@
 ---
 title: "ライセンス"
-description: "ライセンスのプランを販売する Polar の購入処理、地域価格、ライセンスを付与して取り消す Webhook、顧客のライセンス画面。"
+description: "ライセンスのプランを販売する Polar の購入処理と即時提供への同意、地域価格、ライセンスを付与して取り消す Webhook、購入確認メール、顧客のライセンス画面。"
 ---
 
 ライセンスのエリアは、Polar のエリアのプラグインと Webhook（[決済](/docs/features/payments)）を土台に、プラン `core`、`complete`、`agency` を Polar の商品として販売します。`src/modules/license/license.utils.ts` の `POLAR_PRODUCT_IDS` はプランを `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付け、`licenseTierForProduct` は同じ対応付けから商品のプランを読み取ります。[Polar の設定](/docs/getting-started/polar-setup)では、各プランが Polar で必要とする商品、ライセンスキー、割引を説明しています。
 
 ## 購入
 
-有効なライセンスを持たないサインイン済みユーザーには、`/app` と `/app/license` に `LicenseOffer` が表示されます。ランディングページのプランのカード（`PricingTiers`。[ランディングページ](/docs/features/landing-page)を参照）にプランごとの `CheckoutButton` を付けたもので、地域価格のチェックボックス、購入条件、購入で視聴できるようになるコースのレッスンも表示されます。`startCheckout`（`src/modules/license/use-cases/start-checkout.ts`）は `{ locale, tier }` を受け取り、次の処理を行います。
+有効なライセンスを持たないサインイン済みユーザーには、`/app` と `/app/license` に `LicenseOffer` が表示されます。ランディングページのプランのカード（`PricingTiers`。[ランディングページ](/docs/features/landing-page)を参照）にプランごとの `CheckoutButton` を付けたもので、地域価格のチェックボックスと、購入で視聴できるようになるコースのレッスンも表示されます。
+
+### 即時提供への同意 [#consent-to-immediate-supply]
+
+`CheckoutButton`（`src/presentation/components/custom/app/checkout.tsx`）は、自分では購入を開始しません。代わりにダイアログを開き、そのプランがデジタルコンテンツで、購入者が支払うとすぐに提供されることを伝え、必須のチェックボックスを 1 つ求めます。このチェックボックスで、購入者は即時提供を求め、ライセンスキーの発行によって提供が始まった時点で <RepositoryFact name="refundWithdrawalDays" unit="day" />間の撤回権を失うことを了承します。ボックスの下には、プロジェクトを生成していなければ同じ期間内は全額返金を受けられることが示され、返金ポリシー、利用規約、商用ライセンスへのリンクがあります。これらは、EU でデジタルコンテンツの撤回権を消滅させる条件です。つまり、購入者の事前の明示的な同意、撤回権を失うことの了承、そして永続的な媒体での確認で、この確認が[購入確認](#purchase-confirmation)メールです。
+
+フォームは `CheckoutConsent`（`checkout-consent.tsx`）で、`licenseZodSchemas.startCheckout.pick({ withdrawalConsent: true })` で検証する TanStack Form です。ボックスが空のまま **支払いに進む** を押しても何も始まりません。ボックスは無効としてマークされ、`aria-describedby` で `license.validations` の `withdrawalConsentRequired` を指し、このメッセージはアラートとして読み上げられます。ラベルを押してもボックスにチェックが入り、フォーカスはダイアログ内から始まります。Escape キーまたは **キャンセル** でダイアログを閉じられますが、購入の開始中は閉じられません。概要ページのセクションはすべてのページのスケルトンとともに読み込まれるため、`checkout.tsx` はダイアログが開いたときにフォームを `lazy` で読み込み、TanStack Form をエントリースクリプトに含めません（[パフォーマンス](/docs/conventions/performance#skeletons-stay-in-the-entry-script)を参照）。
+
+### 購入の開始
+
+`startCheckout`（`src/modules/license/use-cases/start-checkout.ts`）は `{ locale, tier, withdrawalConsent }` を受け取ります。そのスキーマは `withdrawalConsent` が `true` の場合にしか受け付けないため、サーバーは同意のない購入を拒否します。`startCheckout` は次の処理を行います。
 
 1. アカウントにすでに `active` なライセンスがある場合は、チェックアウトの代わりに `{ alreadyActive: true }` を返します。ボタンは `pages.license` の `buy.alreadyActive` を表示してライセンスを再取得するため、購入後も開いたままだったページはライセンスの表示に切り替わります。
 2. `pppDiscountId`（`license.ppp.ts`）で地域割引を探します。`cf-ipcountry` の国に対応する割引率を、`findRegionalDiscount`（`src/integrations/polar/polar.discounts.ts`）が Polar で現在利用できる自動のパーセント割引と照合します。`regional_pricing` Cookie が `off` の場合は適用しません。
-3. `polar.checkouts.create` で、そのプランの Polar 購入セッションを作成します。セッションはアカウントに結び付けられ（`external_customer_id`）、アカウントのメールアドレスと名前が入力済みになる（`customer_email`、`customer_name`）ため、購入フォームはそれらが入った状態で開きます。さらに、`cf-connecting-ip` から得た購入者の IP アドレス（`customer_ip_address`、Better Auth の `getIP` で取得）を渡し、割引コードを無効にし、成功 URL を購入者の言語の `/app?checkoutId={CHECKOUT_ID}`（`localizePathname`）にします。訪問者がアフィリエイトリンク経由で来た場合は、アフィリエイトの紹介情報を `metadata` に含めます（[アフィリエイトプログラム](/docs/features/affiliates)を参照）。Polar は `{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）を購入セッションの ID に置き換えます。
+3. `polar.checkouts.create` で、そのプランの Polar 購入セッションを作成します。セッションはアカウントに結び付けられ（`external_customer_id`）、アカウントのメールアドレスと名前が入力済みになる（`customer_email`、`customer_name`）ため、購入フォームはそれらが入った状態で開きます。さらに、`cf-connecting-ip` から得た購入者の IP アドレス（`customer_ip_address`、Better Auth の `getIP` で取得）を渡し、割引コードを無効にし、同意を `custom_field_data` に入れて、Polar 自身の必須チェックボックスに購入者に代わってチェックを入れます。購入者の言語は `metadata` の `locale`（`LICENSE_CHECKOUT_METADATA`）に入れ、訪問者がアフィリエイトリンク経由で来た場合は、その隣にアフィリエイトの紹介情報も含めます（[アフィリエイトプログラム](/docs/features/affiliates)を参照）。成功 URL は購入者の言語の `/app?checkoutId={CHECKOUT_ID}`（`localizePathname`）にします。Polar はメタデータとカスタムフィールドのデータを注文にコピーし、`{CHECKOUT_ID}`（`POLAR_CHECKOUT_ID_PLACEHOLDER`）を購入セッションの ID に置き換えます。
 4. 購入 URL を返し、ブラウザーがそれを開きます。
 
 返金済み（`refunded`）または取り消し済み（`revoked`）のライセンスがあっても、新しい購入はできます。
@@ -22,7 +32,7 @@ description: "ライセンスのプランを販売する Polar の購入処理�
 
 ### サインアップ前に選んだプラン
 
-ランディングページの各プランのボタンは `/auth/sign-up?redirect=/app?tier=<tier>` にリンクします。戻り先のパスはサインアップ、メール認証、サインインを経ても保持され（`useAuthRedirect`）、すでにサインインしている訪問者はそのまま戻り先に移動します。`licenseSearchSchema`（`src/data/license.ts`。`searchParam` で構築）は、`/app/license` で、またライセンスのエリアが概要ページに追加するパラメーターとして `/app` で、`tier` を `LICENSE_TIER` と照合します。`/app` と `/app/license` はどちらもプランのカードの上に `ChosenTier` を表示します。プラン、地域割引を適用した価格、**決済に進む** ボタンが含まれます。ロックされた有料レッスンは、サインイン済みの視聴者を `/app/license?tier=complete` に、ゲストをランディングページの料金セクションにリンクします。アカウントが必要なレッスンはサインインにリンクします（[コース](/docs/features/courses)）。
+ランディングページの各プランのボタンは `/auth/sign-up?redirect=/app?tier=<tier>` にリンクします。戻り先のパスはサインアップ、メール認証、サインインを経ても保持され（`useAuthRedirect`）、すでにサインインしている訪問者はそのまま戻り先に移動します。`licenseSearchSchema`（`src/data/license.ts`。`searchParam` で構築）は、`/app/license` で、またライセンスのエリアが概要ページに追加するパラメーターとして `/app` で、`tier` を `LICENSE_TIER` と照合します。`/app` と `/app/license` はどちらもプランのカードの上に `ChosenTier` を表示します。プラン、地域割引を適用した価格、**決済に進む** ボタンが含まれ、このボタンも同じ同意のダイアログを開きます。ロックされた有料レッスンは、サインイン済みの視聴者を `/app/license?tier=complete` に、ゲストをランディングページの料金セクションにリンクします。アカウントが必要なレッスンはサインインにリンクします（[コース](/docs/features/courses)）。
 
 ### 支払い後
 
@@ -40,7 +50,7 @@ UUID ではない `checkoutId` は無視されます。
 
 `src/data/license.polar-events.ts` は、`LICENSE_WEBHOOK_EVENTS`（`license.constants.ts`）に列挙されたイベントでライセンスのエリアを Polar のイベントに追加し（[決済](/docs/features/payments#webhooks)を参照）、そのうち注文のイベントには `POLAR_WEBHOOK_EVENT` の値を使います。このファイルの `handle` は、各イベントを `licenseWebhookHandlers` の同じ名前のハンドラーに渡します。`licenseWebhookHandlers` は `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>` を満たすため、イベントのないハンドラーや、ハンドラーのないイベントがあるとコンパイルが通りません。`licenseWebhookHandlers`（`src/modules/license/license.webhooks.ts`）は Polar の顧客の `external_id` でユーザーを特定します。このアプリにアカウントがない顧客のイベントは、アカウントが必要な場合はログに記録したうえで受領し、Polar が再送しないようにします。
 
-- `onOrderPaid` → `grantLicense`: 購入した商品のプランと、即時提供への購入者の同意（[記録と返金](#records-and-refunds)を参照）で、ユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。
+- `onOrderPaid` → `grantLicense`: 購入した商品のプランと、即時提供への購入者の同意（[記録と返金](#records-and-refunds)を参照）で、ユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。続いて `sendPurchaseConfirmationEmail` が購入を確認します（[購入確認](#purchase-confirmation)を参照）。送信に失敗するとハンドラーも失敗するため、Polar がイベントを再送します。
 - `onBenefitGrantCreated` → `attachLicenseKey`: Polar のライセンスキーをライセンスに保存します。支払い済みの注文がまだ記録されていない間は失敗させ、Polar に再送させます。返金済みの注文やライセンスではない商品のキーは受領します。
 - `onOrderRefunded` → ステータス `refunded` で `revokeLicense`。注文が全額返金された場合のみで、一部返金ではライセンスを維持します。
 - `onBenefitGrantRevoked` → ステータス `revoked` で `revokeLicense`。
@@ -57,7 +67,7 @@ UUID ではない `checkoutId` は無視されます。
 | `activated_at`          | いずれかの端末でのキーの最初のアクティベーション                                                         | [CLI ライセンス API](/docs/features/cli-licence-api#records-of-use) |
 | `delivered_at`          | CLI がそのキーで初めてテンプレートをダウンロードした日時                                                 | [CLI ライセンス API](/docs/features/cli-licence-api#records-of-use) |
 
-同意は、Polar のチェックアウトがライセンスの商品に表示する必須のチェックボックスで、注文に `custom_field_data.<slug>` として保存されます。スラッグは <RepositoryFact name="licenseWithdrawalConsentField" />（`license.constants.ts` の `LICENSE_CHECKOUT_FIELD`）です。`onOrderPaid` は Zod でこのフィールドを検証し、値が `true` の場合にだけ同意を記録します。返金後の購入など、同じアカウントの新しい注文は、同意をその注文自身の同意で置き換え、`activated_at` と `delivered_at` を空にします。そのため、記録は常に現在の購入を表します。これらの記録が導入される前に購入されたライセンスには、その当時の記録はありません。
+購入者は[購入ダイアログ](#consent-to-immediate-supply)で同意します。Polar のチェックアウトは、すべてのライセンスの商品でこの同意を必須のチェックボックスとして改めて求め、`startCheckout` は直前に与えられた同意でそのボックスにチェックを入れます。同意は注文に `custom_field_data.<slug>` として保存されます。スラッグは <RepositoryFact name="licenseWithdrawalConsentField" />（`license.constants.ts` の `LICENSE_CHECKOUT_FIELD`）です。`src/lib/polar.ts` の `WITHDRAWAL_CONSENT_FIELD` はフィールドの名前、タイプ、英語のラベルを保持し、このフィールドを必須にしていない商品がある間は `polar:verify` が失敗します（[Polar の設定](/docs/getting-started/polar-setup#consent-checkbox)を参照）。`onOrderPaid` は Zod でこのフィールドを検証し、値が `true` の場合にだけ同意を記録します。返金後の購入など、同じアカウントの新しい注文は、同意をその注文自身の同意で置き換え、`activated_at` と `delivered_at` を空にします。そのため、記録は常に現在の購入を表します。これらの記録が導入される前に購入されたライセンスには、その当時の記録はありません。
 
 `refundEligibility`（`src/modules/license/license.refunds.ts`）は、購入時刻、同意、最初のダウンロード、現在時刻だけから結果を求める純粋関数です。期間は購入から <RepositoryFact name="refundWithdrawalDays" unit="day" />で、この数値を宣言する唯一の場所である `src/data/refunds.ts` の `REFUND_TERMS.WITHDRAWAL_DAYS` で定められています。戻り値は `REFUND_ELIGIBILITY` のいずれか 1 つの種類です。
 
@@ -69,6 +79,18 @@ UUID ではない `checkoutId` は無視されます。
 | `expired`             | 期間が終了した場合                                                                       | `endedAt`     |
 
 管理者は、ユーザーのプロフィールで記録と、その結果を説明する文を確認できます。[ユーザー（管理）](/docs/features/users-admin#profile)を参照してください。
+
+## 購入確認 [#purchase-confirmation]
+
+`grantLicense` の後、`onOrderPaid` は、同意に必要な永続的な媒体での確認を購入者に送ります。`sendPurchaseConfirmationEmail`（`src/modules/license/use-cases/send-purchase-confirmation-email.ts`）は `PurchaseConfirmationEmail`（`src/presentation/emails/purchase-confirmation-email.tsx`、名前空間 `emails.purchase-confirmation-email`）をレンダリングし、購入したアカウントのアドレスに送信します。
+
+- **言語**: 注文の `metadata.locale` を `localeField` で検証して使います。サイトが対応する言語を持たない注文には英語を使います。
+- **注文**: 請求書番号（注文にまだ請求書番号がない場合は Polar の注文 ID）、注文日、その言語の料金カードと同じ名前で示すプラン、そして注文の通貨での `total_amount` です。`total_amount` は `fromMinorUnits` で補助単位から変換します。
+- **撤回権**: `custom_field_data` に同意が含まれている場合、メールは、購入者が即時提供を求め、撤回権を失うことを了承したことを改めて示し、そのためこの注文には撤回権が適用されないことを伝えます。同意がない場合、メールは、購入者が注文日から <RepositoryFact name="refundWithdrawalDays" unit="day" />以内に撤回できることを伝えます。
+- **返金**: 初回使用前の全額返金の期限 `refundDeadline`（`license.refunds.ts`）です。購入時刻に `REFUND_TERMS.WITHDRAWAL_DAYS` を加えた日付で、`refundEligibility` が使うのと同じ日付です。
+- **リンク**: メールの言語のライセンスページ、利用規約、商用ライセンス、返金ポリシーです。リンク先は Webhook を受け取ったホストです。
+
+日付は UTC で表示します。冪等性キーは `PURCHASE_CONFIRMATION`（`src/data/license.email-purposes.ts`）と Polar の注文 ID の組み合わせなので、Polar が `order.paid` を何度配信しても、Resend が送るメールは注文ごとに 1 通です。また、メールは注文だけから組み立てるため、再配信でも同じリクエストが送られます。アカウントやプランに対応しない注文には、メールを送りません。[トランザクションメール](/docs/features/email)を参照してください。
 
 ## 顧客向け画面
 

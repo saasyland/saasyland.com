@@ -53,6 +53,10 @@ export const LICENSE_CHECKOUT_FIELD = {
   WITHDRAWAL_CONSENT: "withdrawal_consent",
 } as const
 
+export const LICENSE_CHECKOUT_METADATA = {
+  LOCALE: "locale",
+} as const
+
 export const LICENSE_API_RETRY_AFTER_SECONDS = 30
 
 export const REGIONAL_DISCOUNTS_REFRESH_AFTER_MS = 300_000

@@ -1,13 +1,21 @@
 import type { Locator, Page } from "@playwright/test"
 
+import authNavigation from "../../messages/en-US/navigation.auth.json" with { type: "json" }
+import contentNavigation from "../../messages/en-US/navigation.content.json" with { type: "json" }
+import coreNavigation from "../../messages/en-US/navigation.core.json" with { type: "json" }
+import coursesNavigation from "../../messages/en-US/navigation.courses.json" with { type: "json" }
+import signIn from "../../messages/en-US/pages.auth.sign-in.json" with { type: "json" }
+import blog from "../../messages/en-US/pages.blog.json" with { type: "json" }
+import courses from "../../messages/en-US/pages.courses.json" with { type: "json" }
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { DOCS_CONTENT_ID, MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
-import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
+import { APP_NAVIGATION_WAIT_UNTIL, BasePage, turnOnDataSaver } from "../pages/base-page"
 
 const CLIENT_SCRIPT = /\/assets\/[\w.-]+\.js$/u
+const SERVER_FUNCTION = "**/_serverFn/**"
 const MOBILE_VIEWPORT = { height: 844, width: 390 }
 const HEADER_VIEWPORTS = [MOBILE_VIEWPORT, { height: 900, width: 1280 }, { height: 900, width: 1440 }, { height: 1000, width: 1870 }]
 const HEADER_LINE_WIDTH = "1px"
@@ -343,5 +351,77 @@ test.describe("the phone menu", () => {
     await expect(menu(page)).toBeHidden()
     await expect(page).toHaveURL(new RegExp(`#${MARKETING_SECTION_IDS.PRICING}$`, "u"))
     await expect(page.locator(`#${MARKETING_SECTION_IDS.PRICING}`)).toBeInViewport()
+  })
+})
+
+const PRELOADED_DESTINATIONS = [
+  { from: ROUTES.HOME, link: contentNavigation.header.docs, shown: (page: Page) => page.locator(`#${DOCS_CONTENT_ID} h1`) },
+  { from: ROUTES.HOME, link: contentNavigation.header.blog, shown: (page: Page) => page.getByRole("heading", { level: 1, name: blog.index.title }) },
+  {
+    from: ROUTES.HOME,
+    link: coursesNavigation.header.courses,
+    shown: (page: Page) => page.getByRole("heading", { level: 1, name: courses.catalogue.title }),
+  },
+  { from: ROUTES.HOME, link: authNavigation.header.signIn, shown: (page: Page) => page.getByRole("heading", { level: 1, name: signIn.form.title }) },
+  { from: ROUTES.DOCS, link: coreNavigation.header.pricing, shown: (page: Page) => page.locator(`#${MARKETING_SECTION_IDS.PRICING}`) },
+]
+
+const serverFunctionRequests = (page: Page): string[] => {
+  const requests: string[] = []
+  page.on("request", (request) => {
+    if (request.url().includes("/_serverFn/")) requests.push(request.url())
+  })
+  return requests
+}
+
+const waitForHeaderPreloads = async (page: Page, path: string): Promise<void> => {
+  const requests = serverFunctionRequests(page)
+  await visit(page, path)
+  await expect.poll(() => requests.length).toBeGreaterThan(0)
+  await page.waitForLoadState("networkidle")
+}
+
+const holdServerFunctions = async (page: Page): Promise<() => void> => {
+  const held = Promise.withResolvers<void>()
+  await page.route(SERVER_FUNCTION, async (route) => {
+    await held.promise
+    await route.continue()
+  })
+  return held.resolve
+}
+
+test.describe("the header's pages", () => {
+  for (const { from, link, shown } of PRELOADED_DESTINATIONS) {
+    test(`are loaded once ${from} is idle, so ${link} opens while every server function is held`, async ({ page }) => {
+      await waitForHeaderPreloads(page, from)
+      const release = await holdServerFunctions(page)
+
+      await page.getByRole("banner").getByRole("link", { exact: true, name: link }).click()
+
+      await expect(shown(page)).toBeVisible()
+      release()
+    })
+  }
+
+  test("are loaded on a phone too, so Docs opens from the menu while every server function is held", async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT)
+    await waitForHeaderPreloads(page, ROUTES.HOME)
+    const release = await holdServerFunctions(page)
+
+    await menuButton(page).click()
+    await menu(page).getByRole("link", { exact: true, name: contentNavigation.header.docs }).click()
+
+    await expect(page.locator(`#${DOCS_CONTENT_ID} h1`)).toBeVisible()
+    release()
+  })
+
+  test("are not loaded ahead of a click for a visitor who has turned on data saver", async ({ page }) => {
+    const requests = serverFunctionRequests(page)
+    await page.addInitScript(turnOnDataSaver)
+
+    await visit(page, ROUTES.HOME)
+    await page.waitForLoadState("networkidle")
+
+    expect(requests).toEqual([])
   })
 })

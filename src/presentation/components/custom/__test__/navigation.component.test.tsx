@@ -334,3 +334,57 @@ describe("navigation scroll progress", () => {
     expect(disconnectSize).toHaveBeenCalledTimes(2)
   })
 })
+
+const preloadedPaths = (preloadRoute: { mock: { calls: unknown[][] } }) => preloadRoute.mock.calls.map(([options]) => options)
+
+describe("header preloading", () => {
+  const idleCallbacks: IdleRequestCallback[] = []
+  const cancelIdle = vi.fn<(handle: number) => void>()
+
+  const becomeIdle = () => {
+    act(() => {
+      for (const callback of idleCallbacks.splice(0)) {
+        callback({ didTimeout: false, timeRemaining: () => 0 })
+      }
+    })
+  }
+
+  beforeEach(() => {
+    idleCallbacks.length = 0
+    vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => idleCallbacks.push(callback))
+    vi.stubGlobal("cancelIdleCallback", cancelIdle)
+  })
+
+  it("loads the page of every header entry through the router once the browser is idle, and not before", () => {
+    const router = createTestRouter(ROUTES.LICENCE)
+    const preloadRoute = vi.spyOn(router, "preloadRoute").mockResolvedValue(undefined)
+    renderNavigation(<Navigation />, { router })
+
+    expect(preloadRoute).not.toHaveBeenCalled()
+    becomeIdle()
+    expect(preloadedPaths(preloadRoute)).toStrictEqual(HEADER_NAVIGATION.map(({ to }) => ({ to })))
+  })
+
+  it("loads them again once the next page is shown", async () => {
+    const router = createTestRouter(ROUTES.LICENCE)
+    const preloadRoute = vi.spyOn(router, "preloadRoute").mockResolvedValue(undefined)
+    renderNavigation(<Navigation />, { router })
+    becomeIdle()
+
+    await act(() => router.navigate({ to: ROUTES.BLOG }))
+    becomeIdle()
+
+    expect(preloadedPaths(preloadRoute)).toStrictEqual([...HEADER_NAVIGATION, ...HEADER_NAVIGATION].map(({ to }) => ({ to })))
+  })
+
+  it("loads nothing when the header goes away before the browser is idle", () => {
+    const router = createTestRouter(ROUTES.LICENCE)
+    const preloadRoute = vi.spyOn(router, "preloadRoute").mockResolvedValue(undefined)
+    const { unmount } = renderNavigation(<Navigation />, { router })
+
+    unmount()
+
+    expect(cancelIdle).toHaveBeenCalledOnce()
+    expect(preloadRoute).not.toHaveBeenCalled()
+  })
+})

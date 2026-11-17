@@ -87,7 +87,7 @@ Ao adicionar uma página, adicione o esqueleto dela ao arquivo de esqueletos da 
 `src/router.tsx` exporta `getRouter`, que cria um novo `QueryClient` e um novo router a cada requisição. Ele configura:
 
 - os componentes padrão de erro e de página não encontrada, vindos de `presentation/components/custom`, e nenhum componente de carregamento padrão (veja [Esqueletos de carregamento](#esqueletos-de-carregamento))
-- o pré-carregamento por intenção e um stale time padrão de <RepositoryFact name="routerStaleTimeMinutes" unit="minute" />
+- o pré-carregamento por intenção e um stale time padrão de <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> tanto para páginas carregadas quanto para pré-carregadas, de modo que uma página que `Navigation` pré-carrega para o cabeçalho assim que uma página fica ociosa ainda está atualizada quando é clicada (veja [Desempenho](/docs/conventions/performance#the-headers-pages-load-before-a-click))
 - um `rewrite` que remove o prefixo de locale das URLs recebidas e o adiciona de volta aos links gerados
 - a integração das queries com o SSR por meio de `setupRouterSsrQueryIntegration`
 
@@ -102,7 +102,7 @@ Cada deploy substitui os assets estáticos do Worker, e o Vite dá a cada arquiv
 
 Diante de um erro assim, `DefaultError` carrega como página nova o endereço para o qual o visitante navegou, com `router.navigate({ href, reloadDocument: true, replace: true })`, então o visitante chega à página em que clicou, já servida pelo novo deploy; até o navegador sair da página, o componente mostra um `main` vazio e marcado como ocupado no lugar da mensagem de erro. `claimReload` permite uma recarga dessas por destino e build. Ele grava o destino em `sessionStorage` junto com a URL do script de entrada da página, que muda a cada deploy que altera um arquivo carregado pelo navegador, porque cada chunk é alcançado a partir da entrada pelo nome baseado no conteúdo. Uma segunda falha para o mesmo destino no mesmo build mostra a página de erro, então um arquivo que realmente falta não consegue fazer a página recarregar sem parar, e o próximo deploy ganha uma recarga própria. Quando o navegador recusa o armazenamento de sessão, nada é recarregado.
 
-Um pré-carregamento que falhou não consome nada. Passar o ponteiro sobre um link pré-carrega a rota dele; se isso falhar, nenhum componente de erro aparece, e o router busca o chunk de novo quando o visitante clica. `e2e/specs/stale-build.spec.ts` tira os chunks do blog de uma página aberta e verifica que um clique, também depois de um pré-carregamento que falhou ao passar o ponteiro, chega ao blog depois de uma recarga, e que uma página cujos chunks continuam faltando mostra a página de erro depois de duas recargas, uma de `DefaultError` e uma de `lazyRouteComponent`.
+Um pré-carregamento que falhou não consome nada. Passar o ponteiro sobre um link pré-carrega a rota dele, como o cabeçalho faz com os próprios links assim que uma página fica ociosa; se isso falhar, nenhum componente de erro aparece, e o router busca o chunk de novo quando o visitante clica. `e2e/specs/stale-build.spec.ts` ativa a economia de dados, para que o cabeçalho não carregue o blog antes, tira os chunks do blog de uma página aberta e verifica que um clique, também depois de um pré-carregamento que falhou ao passar o ponteiro, chega ao blog depois de uma recarga, e que uma página cujos chunks continuam faltando mostra a página de erro depois de duas recargas, uma de `DefaultError` e uma de `lazyRouteComponent`.
 
 ## Páginas relacionadas
 

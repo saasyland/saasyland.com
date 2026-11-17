@@ -87,7 +87,7 @@ When you add a page, add its skeleton to the area's pending file, register it in
 `src/router.tsx` exports `getRouter`, which creates a new `QueryClient` and router for every request. It sets:
 
 - default error and not-found components from `presentation/components/custom`, and no default pending component (see [Loading skeletons](#loading-skeletons))
-- preloading on intent and a default stale time of <RepositoryFact name="routerStaleTimeMinutes" unit="minute" />
+- preloading on intent, and a default stale time of <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> for loaded and preloaded pages alike, so a page that `Navigation` preloads for the header once a page is idle is still fresh when it is clicked (see [Performance](/docs/conventions/performance#the-headers-pages-load-before-a-click))
 - a `rewrite` that removes the locale prefix from incoming URLs and adds it back to generated links
 - SSR query integration through `setupRouterSsrQueryIntegration`
 
@@ -102,7 +102,7 @@ Every deploy replaces the Worker's static assets, and Vite names each file after
 
 For such an error, `DefaultError` loads the address the visitor navigated to as a new page, with `router.navigate({ href, reloadDocument: true, replace: true })`, so the visitor lands on the page they clicked, served by the new deploy; until the browser leaves, it renders an empty, busy `main` instead of the error message. `claimReload` allows one such reload for each destination and build. It records the destination in `sessionStorage` with the URL of the page's entry script, which changes with every deploy that changes a file the browser loads, because every chunk is reached from the entry through its content-hashed name. A second failure for the same destination in the same build shows the error page, so a file that is really missing cannot make the page reload forever, and the next deploy gets a reload of its own. When the browser refuses session storage, nothing reloads.
 
-A failed preload claims nothing. Hovering a link preloads its route, and when that fails, no error component renders; the router fetches the chunk again when the visitor clicks. `e2e/specs/stale-build.spec.ts` removes the blog's chunks from an open page and checks that a click, also after a failed hover, lands on the blog after one reload, and that a page whose chunks stay missing shows the error page after two reloads, one by `DefaultError` and one by `lazyRouteComponent`.
+A failed preload claims nothing. Hovering a link preloads its route, as the header does for its own links once a page is idle, and when that fails, no error component renders; the router fetches the chunk again when the visitor clicks. `e2e/specs/stale-build.spec.ts` turns on data saver, so the header does not load the blog first, removes the blog's chunks from an open page and checks that a click, also after a failed hover, lands on the blog after one reload, and that a page whose chunks stay missing shows the error page after two reloads, one by `DefaultError` and one by `lazyRouteComponent`.
 
 ## Related pages
 

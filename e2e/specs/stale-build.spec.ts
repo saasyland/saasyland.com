@@ -5,7 +5,7 @@ import blog from "../../messages/en-US/pages.blog.json" with { type: "json" }
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
-import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
+import { APP_NAVIGATION_WAIT_UNTIL, BasePage, turnOnDataSaver } from "../pages/base-page"
 
 const BLOG_CODE = /\/assets\/_site\._marketing\.blog[.-][\w.-]+\.js$/u
 
@@ -40,6 +40,7 @@ const removeBlogCodeUntilNextPageLoad = async (page: Page): Promise<void> => {
 }
 
 const openHome = async (page: Page): Promise<Locator> => {
+  await page.addInitScript(turnOnDataSaver)
   await page.goto(ROUTES.HOME, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   const appPage = new BasePage(page)
   await appPage.waitForAppReady()

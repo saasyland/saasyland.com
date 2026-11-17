@@ -37,7 +37,7 @@ export const getRouter = () => {
     defaultPreload: "intent",
     defaultPreloadDelay: 100,
     defaultPreloadIntentProximity: 0,
-    defaultPreloadStaleTime: 0,
+    defaultPreloadStaleTime: QUERY_STALE_TIME_MS,
     defaultStaleTime: QUERY_STALE_TIME_MS,
     defaultStructuralSharing: true,
     rewrite: LOCALE_REWRITE,

@@ -57,7 +57,59 @@ Les tailles correspondent à ce que chaque partie importe statiquement dans le W
 - Une navigation encore en cours de chargement après ce délai affiche le squelette de sa route exactement tant qu'elle charge : `defaultPendingMinMs` vaut <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, donc le routeur retire le squelette dès que la page est prête au lieu de le garder à l'écran.
 - Les pages de la documentation ont leurs propres squelettes, `DocsIndexPending` et `DocsPagePending`, qui remplissent l'article et la table des matières à côté de la barre latérale : une navigation lente entre pages de la documentation montre ainsi la forme de la page suivante au lieu de laisser la précédente en place.
 
-`e2e/specs/content.spec.ts` retient les fonctions serveur d'une navigation vers `/docs` et d'une navigation entre pages de la documentation, et vérifie que chacune affiche son squelette, avec la barre latérale dans la seconde, jusqu'à ce qu'elles répondent.
+`e2e/specs/content.spec.ts` retient les fonctions serveur d'une navigation vers `/docs` et d'une navigation entre pages de la documentation, et vérifie que chacune affiche son squelette, avec la barre latérale dans la seconde, jusqu'à ce qu'elles répondent. Ces tests activent d'abord l'économiseur de données, pour que l'en-tête ne charge pas la documentation avant le clic.
+
+## Les pages de l'en-tête se chargent avant le clic [#the-headers-pages-load-before-a-click]
+
+`defaultPreload: "intent"` ne charge le code et les données d'un lien qu'une fois que le pointeur s'y est posé pendant `defaultPreloadDelay`, ce que ne lui laissent jamais un clic rapide, un toucher sur un téléphone ni le clavier. Après l'allègement de l'arbre des routes, une navigation côté client de `/` jusqu'au titre de `/docs` sur saasyland.com prenait de 255 à 283 ms sur un isolate du Worker déjà chaud et de 1,3 à 2,0 secondes sur un nouveau, parce que les deux fonctions serveur de la documentation attendaient de 1,1 à 2,0 secondes le démarrage de l'isolate.
+
+`Navigation` précharge donc par TanStack Router la page de chaque entrée de `HEADER_NAVIGATION` dès que la page affichée est inactive : un nouvel isolate démarre avant le clic, et le clic trouve le code et les données de la page dans le cache du routeur. Il appelle `router.preloadRoute` pour chaque entrée dans un effet et planifie les appels avec `preloadWhenIdle` :
+
+```ts title="src/lib/idle-preload.ts"
+const schedule = (preload: () => void, signal: AbortSignal): void => {
+  if (dataSaverSchema.safeParse(navigator).success) {
+    return
+  }
+  if (document.readyState === "complete") {
+    whenIdle(preload, signal)
+    return
+  }
+  globalThis.addEventListener(
+    "load",
+    () => {
+      whenIdle(preload, signal)
+    },
+    { once: true, signal },
+  )
+}
+```
+
+- `preloadWhenIdle` (`src/lib/idle-preload.ts`) attend l'événement `load`, puis `requestIdleCallback`, si bien que les préchargements n'entrent jamais en concurrence avec les requêtes de la page elle-même, son Largest Contentful Paint ou son hydratation. Safari n'a pas `requestIdleCallback` ; il y attend <RepositoryFact name="idleFallbackDelayMs" unit="millisecond" /> après `load`. Il renvoie la fonction qui annule l'attente, que l'effet appelle si l'en-tête disparaît ou si la page change avant.
+- Il ne précharge rien pour un visiteur qui a activé l'économiseur de données (`navigator.connection.saveData`).
+- L'effet dépend de `shownPath`, le chemin de la page affichée d'après `resolvedLocation` du routeur : l'en-tête précharge donc à nouveau dès que la page suivante est inactive, et garde ses pages fraîches pendant la visite. Une page dont les données sont encore fraîches n'est pas rechargée. La page par laquelle commence une visite a été rendue au build ; le routeur tient donc ses données pour périmées et les recharge la première fois que l'en-tête la précharge depuis une autre page.
+- `preload="viewport"` de TanStack Router sur les liens de l'en-tête démarrerait dès qu'un lien est dans le viewport, ce qu'est toujours l'en-tête fixe, et entrerait donc en concurrence avec l'hydratation ; de plus, sur un téléphone, les liens sont dans le menu, qui ne les rend qu'à son ouverture.
+- Seuls les liens de l'en-tête préchargent ainsi. Tous les autres liens, comme les centaines de la barre latérale de la documentation, gardent `defaultPreload: "intent"`.
+
+`src/router.tsx` fixe `defaultPreloadStaleTime` à `QUERY_STALE_TIME_MS`, les mêmes <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> que `defaultStaleTime`. La valeur était `0`, celle que TanStack Router recommande quand TanStack Query gère le cache, mais les loaders de la documentation et du blog appellent directement leurs fonctions serveur : avec `0`, un clic après un préchargement les relançait. Pendant ce délai, un clic affiche la page préchargée sans exécuter son loader. Ensuite, et jusqu'à ce que TanStack Router abandonne la page préchargée cinq minutes après l'avoir chargée (`defaultPreloadGcTime`), un clic affiche toujours la page préchargée tout de suite et la recharge en arrière-plan.
+
+Mesuré sur preview.saasyland.com avec un navigateur neuf à chaque passage, qui charge `/`, attend que le réseau soit calme et deux secondes de plus, puis clique sur **Documentation**. Cloudflare répartit les requêtes d'un même navigateur entre plusieurs isolates, si bien qu'avant le changement la plupart des passages en ont rencontré un nouveau. Chaque cellule donne la médiane et, entre parenthèses, l'étendue :
+
+| Mesure                                                                                                             | Avant                  | Après          |
+| ------------------------------------------------------------------------------------------------------------------ | ---------------------- | -------------- |
+| Du clic au titre de la documentation, quand une fonction serveur de la documentation a rencontré un nouvel isolate | 1 287 ms (1 116–2 137) | 87 ms (67–145) |
+| Du clic au titre de la documentation, quand les deux ont rencontré des isolates chauds                             | 194 ms (177–208)       | 96 ms (91–101) |
+| Requêtes de fonctions serveur qu'attend le clic                                                                    | 2                      | 0              |
+
+La page d'accueil n'est pas plus lente. Lighthouse sur `/`, sur un build `bun run build:test` derrière un proxy HTTP/2 avec compression, médiane de 13 passages par build, la moitié dans chaque ordre :
+
+| Mesure                                  | Avant    | Après    |
+| --------------------------------------- | -------- | -------- |
+| Largest Contentful Paint sur mobile     | 1 546 ms | 1 538 ms |
+| Total Blocking Time sur mobile          | 12 ms    | 12 ms    |
+| Largest Contentful Paint sur ordinateur | 729 ms   | 728 ms   |
+| Total Blocking Time sur ordinateur      | 137 ms   | 136 ms   |
+
+`e2e/specs/navigation.spec.ts` attend la fin des préchargements de l'en-tête sur `/` et sur `/docs`, retient toutes les fonctions serveur et clique sur chaque lien de l'en-tête, sur ordinateur et dans le menu du téléphone ; chaque page s'ouvre quand même. Il vérifie aussi que, pour un visiteur qui a activé l'économiseur de données, rien n'est chargé avant un clic.
 
 ## Gardez l'ORM hors du navigateur [#keep-the-orm-out-of-the-browser]
 

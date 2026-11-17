@@ -57,7 +57,59 @@ Rozmiary obejmują to, co każda z części importuje statycznie w Workerze zbud
 - Nawigacja, która po upływie opóźnienia nadal się ładuje, pokazuje szkielet swojej trasy dokładnie tak długo, jak trwa ładowanie: `defaultPendingMinMs` wynosi <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, więc router usuwa szkielet w chwili, gdy strona jest gotowa, zamiast trzymać go na ekranie.
 - Strony dokumentacji mają własne szkielety, `DocsIndexPending` i `DocsPagePending`, które wypełniają artykuł i spis treści obok paska bocznego, więc wolna nawigacja między stronami dokumentacji pokazuje kształt następnej strony, zamiast zostawiać na miejscu poprzednią.
 
-`e2e/specs/content.spec.ts` wstrzymuje funkcje serwerowe nawigacji do `/docs` i nawigacji między stronami dokumentacji i sprawdza, że dopóki nie odpowiedzą, każda z tych nawigacji pokazuje swój szkielet, a druga także pasek boczny.
+`e2e/specs/content.spec.ts` wstrzymuje funkcje serwerowe nawigacji do `/docs` i nawigacji między stronami dokumentacji i sprawdza, że dopóki nie odpowiedzą, każda z tych nawigacji pokazuje swój szkielet, a druga także pasek boczny. Testy najpierw włączają oszczędzanie danych, żeby nagłówek nie załadował dokumentacji przed kliknięciem.
+
+## Strony nagłówka ładują się przed kliknięciem [#the-headers-pages-load-before-a-click]
+
+`defaultPreload: "intent"` ładuje kod i dane linku dopiero wtedy, gdy kursor spocznie na nim przez `defaultPreloadDelay`, a tego czasu nigdy nie daje mu szybkie kliknięcie, dotknięcie na telefonie ani klawiatura. Po odchudzeniu drzewa tras nawigacja po stronie klienta z `/` do nagłówka `/docs` na saasyland.com trwała od 255 do 283 ms na rozgrzanym isolate Workera i od 1,3 do 2,0 sekundy na nowym, bo dwie funkcje serwerowe dokumentacji czekały od 1,1 do 2,0 sekundy na start isolate.
+
+Dlatego `Navigation` wstępnie ładuje przez TanStack Router stronę każdej pozycji `HEADER_NAVIGATION`, gdy wyświetlana strona jest bezczynna. Nowy isolate startuje więc przed kliknięciem, a kliknięcie znajduje kod i dane strony w pamięci podręcznej routera. W efekcie wywołuje `router.preloadRoute` dla każdej pozycji i planuje te wywołania za pomocą `preloadWhenIdle`:
+
+```ts title="src/lib/idle-preload.ts"
+const schedule = (preload: () => void, signal: AbortSignal): void => {
+  if (dataSaverSchema.safeParse(navigator).success) {
+    return
+  }
+  if (document.readyState === "complete") {
+    whenIdle(preload, signal)
+    return
+  }
+  globalThis.addEventListener(
+    "load",
+    () => {
+      whenIdle(preload, signal)
+    },
+    { once: true, signal },
+  )
+}
+```
+
+- `preloadWhenIdle` (`src/lib/idle-preload.ts`) czeka na zdarzenie `load`, a potem na `requestIdleCallback`, więc wstępne ładowanie nigdy nie konkuruje z żądaniami samej strony, jej Largest Contentful Paint ani hydratacją. Safari nie ma `requestIdleCallback`, więc tam czeka <RepositoryFact name="idleFallbackDelayMs" unit="millisecond" /> po `load`. Zwraca funkcję, która przerywa czekanie; efekt wywołuje ją, gdy wcześniej nagłówek zniknie albo zmieni się strona.
+- Nie ładuje niczego wstępnie dla odwiedzających, którzy włączyli oszczędzanie danych (`navigator.connection.saveData`).
+- Efekt zależy od `shownPath`, ścieżki wyświetlanej strony z `resolvedLocation` routera, więc nagłówek ładuje wstępnie ponownie, gdy kolejna strona jest bezczynna, i utrzymuje swoje strony świeże, gdy ktoś przegląda witrynę. Strona, której dane są wciąż świeże, nie jest ładowana ponownie. Strona, od której zaczyna się wizyta, została wyrenderowana podczas builda, więc router uznaje jej dane za nieświeże i ładuje je ponownie, gdy nagłówek pierwszy raz wstępnie ładuje ją z innej strony.
+- `preload="viewport"` z TanStack Router na linkach nagłówka zaczynałby, gdy tylko link znajdzie się w viewporcie, a przypięty nagłówek jest w nim zawsze, więc konkurowałby z hydratacją; poza tym na telefonie linki są w menu, które renderuje je dopiero po otwarciu.
+- Tylko linki nagłówka ładują się wstępnie w ten sposób. Każdy inny link, na przykład setki linków na pasku bocznym dokumentacji, zachowuje `defaultPreload: "intent"`.
+
+`src/router.tsx` ustawia `defaultPreloadStaleTime` na `QUERY_STALE_TIME_MS`, te same <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> co `defaultStaleTime`. Wcześniej było to `0`, wartość, którą TanStack Router zaleca, gdy pamięcią podręczną zarządza TanStack Query, ale loadery dokumentacji i bloga wywołują swoje funkcje serwerowe bezpośrednio, więc przy `0` kliknięcie po wstępnym ładowaniu uruchamiało je ponownie. W tym czasie kliknięcie pokazuje wstępnie załadowaną stronę bez uruchamiania jej loadera. Później, aż TanStack Router odrzuci wstępnie załadowaną stronę pięć minut po jej załadowaniu (`defaultPreloadGcTime`), kliknięcie wciąż od razu pokazuje wstępnie załadowaną stronę i ładuje ją ponownie w tle.
+
+Zmierzone na preview.saasyland.com z nową przeglądarką w każdym przebiegu: każdy ładuje `/`, czeka, aż sieć się uspokoi, i jeszcze dwie sekundy, a potem klika **Dokumentacja**. Cloudflare rozkłada żądania jednej przeglądarki na kilka isolate, więc przed zmianą większość przebiegów trafiała na nowy. Każda komórka podaje medianę, a w nawiasie zakres:
+
+| Pomiar                                                                                             | Przed               | Po             |
+| -------------------------------------------------------------------------------------------------- | ------------------- | -------------- |
+| Od kliknięcia do nagłówka dokumentacji, gdy funkcja serwerowa dokumentacji trafiła na nowy isolate | 1287 ms (1116–2137) | 87 ms (67–145) |
+| Od kliknięcia do nagłówka dokumentacji, gdy obie trafiły na rozgrzane isolate                      | 194 ms (177–208)    | 96 ms (91–101) |
+| Żądania funkcji serwerowych, na które czeka kliknięcie                                             | 2                   | 0              |
+
+Strona główna nie jest wolniejsza. Lighthouse na `/`, na buildzie `bun run build:test` za proxy HTTP/2 z kompresją, mediana z 13 przebiegów na build, po połowie w każdej kolejności:
+
+| Pomiar                                 | Przed   | Po      |
+| -------------------------------------- | ------- | ------- |
+| Largest Contentful Paint na telefonie  | 1546 ms | 1538 ms |
+| Total Blocking Time na telefonie       | 12 ms   | 12 ms   |
+| Largest Contentful Paint na komputerze | 729 ms  | 728 ms  |
+| Total Blocking Time na komputerze      | 137 ms  | 136 ms  |
+
+`e2e/specs/navigation.spec.ts` czeka, aż wstępne ładowanie nagłówka zakończy się na `/` i na `/docs`, wstrzymuje wszystkie funkcje serwerowe i klika każdy link nagłówka, na komputerze i w menu na telefonie; każda strona i tak się otwiera. Sprawdza też, że dla odwiedzających z włączonym oszczędzaniem danych nic nie jest ładowane przed kliknięciem.
 
 ## ORM poza przeglądarką [#keep-the-orm-out-of-the-browser]
 

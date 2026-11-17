@@ -57,7 +57,59 @@ Die Größen geben an, was jeder Teil im Worker von `bun run build:test` statisc
 - Eine Navigation, die nach der Verzögerung noch lädt, zeigt das Skeleton ihrer Route genau so lange, wie sie noch lädt: `defaultPendingMinMs` beträgt <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, also entfernt der Router das Skeleton, sobald die Seite bereit ist, statt es auf dem Bildschirm festzuhalten.
 - Die Docs-Seiten haben eigene Skeletons, `DocsIndexPending` und `DocsPagePending`, die den Artikel und das Inhaltsverzeichnis neben der Seitenleiste füllen, sodass eine langsame Navigation zwischen Docs-Seiten die Form der nächsten Seite zeigt, statt die vorherige stehen zu lassen.
 
-`e2e/specs/content.spec.ts` hält die Server Functions einer Navigation zu `/docs` und einer Navigation zwischen Docs-Seiten zurück und prüft, dass jede ihr Skeleton zeigt, die zweite auch die Seitenleiste, bis sie antworten.
+`e2e/specs/content.spec.ts` hält die Server Functions einer Navigation zu `/docs` und einer Navigation zwischen Docs-Seiten zurück und prüft, dass jede ihr Skeleton zeigt, die zweite auch die Seitenleiste, bis sie antworten. Diese Tests schalten zuerst den Datensparmodus ein, damit der Header die Dokumentation nicht schon vor dem Klick lädt.
+
+## Die Seiten des Headers laden vor dem Klick [#the-headers-pages-load-before-a-click]
+
+`defaultPreload: "intent"` lädt Code und Daten eines Links erst, wenn der Mauszeiger `defaultPreloadDelay` lang darauf geruht hat, und diese Zeit gibt ihm weder ein schneller Klick noch ein Tippen auf dem Telefon noch die Tastatur. Nachdem der Routenbaum leichter geworden war, dauerte eine clientseitige Navigation von `/` bis zur Überschrift von `/docs` auf saasyland.com auf einem warmen Worker-Isolate 255 bis 283 ms und auf einem neuen 1,3 bis 2,0 Sekunden, weil die beiden Server Functions der Dokumentation 1,1 bis 2,0 Sekunden auf den Start des Isolates warteten.
+
+Deshalb lädt `Navigation` die Seite jedes Eintrags von `HEADER_NAVIGATION` über TanStack Router vorab, sobald die angezeigte Seite im Leerlauf ist. So startet ein neues Isolate vor dem Klick, und der Klick findet Code und Daten der Seite im Cache des Routers. Es ruft in einem Effekt für jeden Eintrag `router.preloadRoute` auf und plant die Aufrufe mit `preloadWhenIdle`:
+
+```ts title="src/lib/idle-preload.ts"
+const schedule = (preload: () => void, signal: AbortSignal): void => {
+  if (dataSaverSchema.safeParse(navigator).success) {
+    return
+  }
+  if (document.readyState === "complete") {
+    whenIdle(preload, signal)
+    return
+  }
+  globalThis.addEventListener(
+    "load",
+    () => {
+      whenIdle(preload, signal)
+    },
+    { once: true, signal },
+  )
+}
+```
+
+- `preloadWhenIdle` (`src/lib/idle-preload.ts`) wartet auf das Ereignis `load` und dann auf `requestIdleCallback`, sodass das Vorabladen nie mit den eigenen Anfragen der Seite, ihrem Largest Contentful Paint oder ihrer Hydration konkurriert. Safari hat kein `requestIdleCallback`, dort wartet es <RepositoryFact name="idleFallbackDelayMs" unit="millisecond" /> nach `load`. Es gibt die Funktion zurück, die das Warten abbricht; der Effekt ruft sie auf, wenn der Header vorher verschwindet oder die Seite wechselt.
+- Für Besucher, die den Datensparmodus eingeschaltet haben (`navigator.connection.saveData`), lädt es nichts vorab.
+- Der Effekt hängt von `shownPath` ab, dem Pfad der angezeigten Seite aus `resolvedLocation` des Routers, deshalb lädt der Header erneut vorab, sobald die nächste Seite im Leerlauf ist, und hält seine Seiten frisch, während jemand die Website durchstöbert. Eine Seite, deren Daten noch frisch sind, wird nicht erneut geladen. Die Seite, mit der ein Besuch beginnt, wurde beim Build gerendert, deshalb hält der Router ihre Daten für veraltet und lädt sie erneut, wenn der Header sie zum ersten Mal von einer anderen Seite aus vorab lädt.
+- `preload="viewport"` von TanStack Router an den Links des Headers würde beginnen, sobald ein Link im Viewport ist, und der fixierte Header ist es immer, also würde es mit der Hydration konkurrieren; außerdem liegen die Links auf dem Telefon im Menü, das sie erst rendert, wenn es sich öffnet.
+- Nur die Links des Headers laden auf diese Weise vorab. Jeder andere Link, etwa die Hunderte in der Seitenleiste der Dokumentation, behält `defaultPreload: "intent"`.
+
+`src/router.tsx` setzt `defaultPreloadStaleTime` auf `QUERY_STALE_TIME_MS`, dieselben <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> wie `defaultStaleTime`. Der Wert war `0`, den TanStack Router empfiehlt, wenn TanStack Query den Cache verwaltet, aber die Loader von Dokumentation und Blog rufen ihre Server Functions direkt auf, deshalb führte ein Klick nach dem Vorabladen sie mit `0` erneut aus. Innerhalb der Stale-Time zeigt ein Klick die vorab geladene Seite, ohne ihren Loader auszuführen. Danach, bis TanStack Router die vorab geladene Seite fünf Minuten nach dem Laden verwirft (`defaultPreloadGcTime`), zeigt ein Klick die vorab geladene Seite trotzdem sofort und lädt sie im Hintergrund neu.
+
+Gemessen auf preview.saasyland.com mit einem frischen Browser pro Lauf, der jeweils `/` lädt, wartet, bis das Netzwerk ruhig ist, und zwei Sekunden länger, und dann auf **Dokumentation** klickt. Cloudflare verteilt die Anfragen eines Browsers auf mehrere Isolates, deshalb traf vor der Änderung der größte Teil der Läufe auf ein neues. Jede Zelle nennt den Median und in Klammern die Spanne:
+
+| Messung                                                                                                                 | Vorher                 | Nachher        |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------- |
+| Vom Klick bis zur Überschrift der Dokumentation, wenn eine Server Function der Dokumentation auf ein neues Isolate traf | 1.287 ms (1.116–2.137) | 87 ms (67–145) |
+| Vom Klick bis zur Überschrift der Dokumentation, wenn beide auf warme Isolates trafen                                   | 194 ms (177–208)       | 96 ms (91–101) |
+| Anfragen an Server Functions, auf die der Klick wartet                                                                  | 2                      | 0              |
+
+Die Startseite ist nicht langsamer geworden. Lighthouse auf `/`, auf einem Build von `bun run build:test` hinter einem HTTP/2-Proxy mit Kompression, Median aus 13 Läufen je Build, die Hälfte davon in jeder Reihenfolge:
+
+| Messung                           | Vorher   | Nachher  |
+| --------------------------------- | -------- | -------- |
+| Largest Contentful Paint, mobil   | 1.546 ms | 1.538 ms |
+| Total Blocking Time, mobil        | 12 ms    | 12 ms    |
+| Largest Contentful Paint, Desktop | 729 ms   | 728 ms   |
+| Total Blocking Time, Desktop      | 137 ms   | 136 ms   |
+
+`e2e/specs/navigation.spec.ts` wartet, bis das Vorabladen des Headers auf `/` und auf `/docs` abgeschlossen ist, hält jede Server Function zurück und klickt auf jeden Link des Headers, auf dem Desktop und im Telefonmenü; jede Seite öffnet sich trotzdem. Außerdem prüft es, dass für Besucher mit eingeschaltetem Datensparmodus vor einem Klick nichts geladen wird.
 
 ## Das ORM aus dem Browser heraushalten [#keep-the-orm-out-of-the-browser]
 

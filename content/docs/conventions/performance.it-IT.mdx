@@ -57,7 +57,59 @@ Le dimensioni sono ciò che ogni parte importa staticamente nel Worker di `bun r
 - Una navigazione che sta ancora caricando dopo il ritardo mostra lo scheletro della sua route esattamente finché continua a caricare: `defaultPendingMinMs` è <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, quindi il router toglie lo scheletro non appena la pagina è pronta invece di trattenerlo sullo schermo.
 - Le pagine della documentazione hanno scheletri propri, `DocsIndexPending` e `DocsPagePending`, che riempiono l'articolo e l'indice dei contenuti accanto alla barra laterale, così una navigazione lenta tra pagine della documentazione mostra la forma della pagina successiva invece di lasciare al suo posto quella precedente.
 
-`e2e/specs/content.spec.ts` trattiene le funzioni server di una navigazione verso `/docs` e di una tra pagine della documentazione e verifica che ciascuna mostri il suo scheletro, e nella seconda la barra laterale, finché non rispondono.
+`e2e/specs/content.spec.ts` trattiene le funzioni server di una navigazione verso `/docs` e di una tra pagine della documentazione e verifica che ciascuna mostri il suo scheletro, e nella seconda la barra laterale, finché non rispondono. Questi test attivano prima il risparmio dati, così l'intestazione non carica la documentazione prima del clic.
+
+## Le pagine dell'intestazione si caricano prima del clic [#the-headers-pages-load-before-a-click]
+
+`defaultPreload: "intent"` carica il codice e i dati di un link solo dopo che il puntatore vi è rimasto sopra per `defaultPreloadDelay`, un tempo che non gli concedono mai un clic veloce, un tocco sul telefono o la tastiera. Dopo che l'albero delle route era stato alleggerito, una navigazione lato client da `/` al titolo di `/docs` su saasyland.com richiedeva da 255 a 283 ms su un isolate del Worker già caldo e da 1,3 a 2,0 secondi su uno nuovo, perché le due funzioni server della documentazione aspettavano da 1,1 a 2,0 secondi l'avvio dell'isolate.
+
+Per questo `Navigation` precarica tramite TanStack Router la pagina di ogni voce di `HEADER_NAVIGATION` appena la pagina sullo schermo è inattiva: un isolate nuovo si avvia prima del clic, e il clic trova il codice e i dati della pagina nella cache del router. Chiama `router.preloadRoute` per ogni voce in un effetto e pianifica le chiamate con `preloadWhenIdle`:
+
+```ts title="src/lib/idle-preload.ts"
+const schedule = (preload: () => void, signal: AbortSignal): void => {
+  if (dataSaverSchema.safeParse(navigator).success) {
+    return
+  }
+  if (document.readyState === "complete") {
+    whenIdle(preload, signal)
+    return
+  }
+  globalThis.addEventListener(
+    "load",
+    () => {
+      whenIdle(preload, signal)
+    },
+    { once: true, signal },
+  )
+}
+```
+
+- `preloadWhenIdle` (`src/lib/idle-preload.ts`) aspetta l'evento `load` e poi `requestIdleCallback`, così i precaricamenti non competono mai con le richieste della pagina stessa, con il suo Largest Contentful Paint o con la sua idratazione. Safari non ha `requestIdleCallback`, quindi lì aspetta <RepositoryFact name="idleFallbackDelayMs" unit="millisecond" /> dopo `load`. Restituisce la funzione che annulla l'attesa, che l'effetto chiama se prima l'intestazione viene smontata o la pagina cambia.
+- Non precarica nulla per chi ha attivato il risparmio dati (`navigator.connection.saveData`).
+- L'effetto dipende da `shownPath`, il percorso della pagina sullo schermo secondo `resolvedLocation` del router, quindi l'intestazione precarica di nuovo appena la pagina successiva è inattiva e tiene fresche le sue pagine mentre qualcuno naviga nel sito. Una pagina i cui dati sono ancora freschi non viene ricaricata. La pagina con cui inizia una visita è stata renderizzata durante il build, quindi il router considera scaduti i suoi dati e li ricarica la prima volta che l'intestazione la precarica da un'altra pagina.
+- `preload="viewport"` di TanStack Router sui link dell'intestazione partirebbe appena un link è nel viewport, e l'intestazione fissa lo è sempre, quindi competerebbe con l'idratazione; inoltre sul telefono i link stanno nel menu, che li renderizza solo quando si apre.
+- Solo i link dell'intestazione precaricano in questo modo. Ogni altro link, come le centinaia della barra laterale della documentazione, mantiene `defaultPreload: "intent"`.
+
+`src/router.tsx` imposta `defaultPreloadStaleTime` a `QUERY_STALE_TIME_MS`, gli stessi <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> di `defaultStaleTime`. Valeva `0`, il valore che TanStack Router consiglia quando la cache è gestita da TanStack Query, ma i loader della documentazione e del blog chiamano direttamente le loro funzioni server, quindi con `0` un clic dopo un precaricamento le eseguiva di nuovo. Entro quel tempo un clic mostra la pagina precaricata senza eseguire il suo loader. Dopo, e finché TanStack Router non scarta la pagina precaricata cinque minuti dopo averla caricata (`defaultPreloadGcTime`), un clic mostra comunque subito la pagina precaricata e la ricarica in background.
+
+Misurato su preview.saasyland.com con un browser nuovo per ogni esecuzione, che carica `/`, aspetta che la rete sia tranquilla e altri due secondi, poi fa clic su **Documentazione**. Cloudflare distribuisce le richieste di uno stesso browser su più isolate, quindi prima della modifica la maggior parte delle esecuzioni ne ha incontrato uno nuovo. Ogni cella riporta la mediana e, tra parentesi, l'intervallo:
+
+| Misura                                                                                                                  | Prima               | Dopo           |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------- | -------------- |
+| Dal clic al titolo della documentazione, quando una funzione server della documentazione ha incontrato un isolate nuovo | 1287 ms (1116–2137) | 87 ms (67–145) |
+| Dal clic al titolo della documentazione, quando entrambe hanno incontrato isolate caldi                                 | 194 ms (177–208)    | 96 ms (91–101) |
+| Richieste a funzioni server che il clic attende                                                                         | 2                   | 0              |
+
+La home page non è più lenta. Lighthouse su `/`, su un build di `bun run build:test` dietro un proxy HTTP/2 con compressione, mediana di 13 esecuzioni per build, metà in ciascun ordine:
+
+| Misura                              | Prima   | Dopo    |
+| ----------------------------------- | ------- | ------- |
+| Largest Contentful Paint su mobile  | 1546 ms | 1538 ms |
+| Total Blocking Time su mobile       | 12 ms   | 12 ms   |
+| Largest Contentful Paint su desktop | 729 ms  | 728 ms  |
+| Total Blocking Time su desktop      | 137 ms  | 136 ms  |
+
+`e2e/specs/navigation.spec.ts` aspetta che i precaricamenti dell'intestazione siano finiti su `/` e su `/docs`, trattiene tutte le funzioni server e fa clic su ogni link dell'intestazione, su desktop e nel menu del telefono; ogni pagina si apre comunque. Verifica anche che, per chi ha attivato il risparmio dati, nulla venga caricato prima di un clic.
 
 ## Tieni l'ORM fuori dal browser [#keep-the-orm-out-of-the-browser]
 

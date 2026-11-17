@@ -87,7 +87,7 @@ Quando aggiungi una pagina, aggiungi il suo scheletro al file pending dell'area,
 `src/router.tsx` esporta `getRouter`, che crea un nuovo `QueryClient` e un nuovo router per ogni richiesta. Imposta:
 
 - i componenti predefiniti di errore e not-found da `presentation/components/custom`, e nessun componente pending predefinito (vedi [Scheletri di caricamento](#scheletri-di-caricamento))
-- il precaricamento su intent e uno stale time predefinito di <RepositoryFact name="routerStaleTimeMinutes" unit="minute" />
+- il precaricamento su intent e uno stale time predefinito di <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> sia per le pagine caricate sia per quelle precaricate, così una pagina che `Navigation` precarica per l'intestazione appena una pagina è inattiva è ancora fresca al momento del clic (vedi [Prestazioni](/docs/conventions/performance#the-headers-pages-load-before-a-click))
 - un `rewrite` che rimuove il prefisso del locale dagli URL in entrata e lo aggiunge di nuovo ai link generati
 - l'integrazione SSR delle query tramite `setupRouterSsrQueryIntegration`
 
@@ -102,7 +102,7 @@ Ogni deploy sostituisce gli asset statici del Worker, e Vite dà a ogni file un 
 
 Per un errore del genere, `DefaultError` carica come nuova pagina l'indirizzo verso cui il visitatore ha navigato, con `router.navigate({ href, reloadDocument: true, replace: true })`, così il visitatore arriva sulla pagina che ha cliccato, servita dal nuovo deploy; finché il browser non lascia la pagina, il componente mostra un `main` vuoto e segnato come occupato al posto del messaggio di errore. `claimReload` consente un solo ricaricamento del genere per destinazione e build. Salva la destinazione in `sessionStorage` insieme all'URL dello script di ingresso della pagina, che cambia con ogni deploy che modifica un file caricato dal browser, perché ogni chunk si raggiunge dall'ingresso tramite il suo nome basato sul contenuto. Un secondo errore per la stessa destinazione nella stessa build mostra la pagina di errore, così un file che manca davvero non può far ricaricare la pagina all'infinito, e il deploy successivo ha un ricaricamento tutto suo. Se il browser rifiuta il session storage, non si ricarica nulla.
 
-Un precaricamento fallito non consuma nulla. Passare il puntatore su un link ne precarica la route; se il precaricamento fallisce, non compare alcun componente di errore, e il router richiede di nuovo il chunk al clic. `e2e/specs/stale-build.spec.ts` toglie i chunk del blog a una pagina aperta e verifica che un clic, anche dopo un precaricamento fallito al passaggio del puntatore, arrivi sul blog dopo un ricaricamento, e che una pagina i cui chunk continuano a mancare mostri la pagina di errore dopo due ricaricamenti, uno di `DefaultError` e uno di `lazyRouteComponent`.
+Un precaricamento fallito non consuma nulla. Passare il puntatore su un link ne precarica la route, come fa l'intestazione per i propri link appena una pagina è inattiva; se il precaricamento fallisce, non compare alcun componente di errore, e il router richiede di nuovo il chunk al clic. `e2e/specs/stale-build.spec.ts` attiva il risparmio dati, così l'intestazione non carica prima il blog, toglie i chunk del blog a una pagina aperta e verifica che un clic, anche dopo un precaricamento fallito al passaggio del puntatore, arrivi sul blog dopo un ricaricamento, e che una pagina i cui chunk continuano a mancare mostri la pagina di errore dopo due ricaricamenti, uno di `DefaultError` e uno di `lazyRouteComponent`.
 
 ## Pagine correlate
 

@@ -1,12 +1,14 @@
-import type { JSX } from "react"
+import { type JSX, useEffect } from "react"
 
-import { Link, useLinkProps, useMatches } from "@tanstack/react-router"
+import { Link, useLinkProps, useMatches, useRouter, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
 import { MARKETING_SECTION_IDS, SITE_CONTENT_ID } from "~/src/data/navigation.constants"
+
+import { preloadWhenIdle } from "~/src/lib/idle-preload"
 
 import { HomeLink } from "~/src/presentation/components/custom/home-link"
 import { MobileMenu } from "~/src/presentation/components/custom/mobile-menu"
@@ -50,6 +52,18 @@ export const Navigation = (): JSX.Element => {
   const contentId = useMatches({
     select: (matches) => matches.map(({ staticData }) => staticData.contentId).findLast((id) => id !== undefined) ?? SITE_CONTENT_ID,
   })
+  const router = useRouter()
+  const shownPath = useRouterState({ select: ({ resolvedLocation }) => resolvedLocation?.pathname })
+
+  useEffect(
+    () =>
+      preloadWhenIdle(() => {
+        for (const { to } of HEADER_NAVIGATION) {
+          void router.preloadRoute({ to })
+        }
+      }),
+    [router, shownPath],
+  )
 
   return (
     <>

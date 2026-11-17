@@ -28,11 +28,6 @@ export const LICENSE_WORKER_HANDLERS = [
       const percent = new Intl.NumberFormat(locale, { style: "percent" }).format(getPppPercentOff(country) / PPP_PERCENT)
       const declined = readCookie({ header: request.headers.get("Cookie"), name: PPP_COOKIE }) === PPP_DECLINED
 
-      page.headers.set("Cache-Control", "private, no-cache")
-      page.headers.delete("Content-Length")
-      page.headers.delete("ETag")
-      page.headers.delete("Last-Modified")
-
       return new HTMLRewriter()
         .on("html", {
           element: (html) => {

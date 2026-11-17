@@ -20,7 +20,16 @@ import {
 } from "~/src/data/cli"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
+import english from "~/messages/en-US/pages.landing.json"
+
 const PRERELEASE = /^\d+\.\d+\.\d+-(?<channel>[a-z]+)\.\d+$/u
+
+interface RuledOption {
+  readonly id: string
+  readonly unavailableWhen?: Readonly<Record<string, readonly string[]>>
+}
+
+const ruled = (options: readonly RuledOption[]): string[] => options.flatMap((option) => Object.keys(option.unavailableWhen ?? {}))
 
 it("keeps scaffold choices and option identifiers unambiguous", () => {
   expect(new Set(CLI_CHOICES.map((choice) => choice.id)).size).toBe(CLI_CHOICES.length)
@@ -41,6 +50,21 @@ it("counts a CLI module as optional only when its question can be answered with 
     cliModules: CLI_MODULES.length,
     cliOptionalModules: optionalChoices.length,
   })
+})
+
+it("rules an option out only by answers to earlier questions, and explains every rule beside its question", () => {
+  const asked: string[] = []
+  for (const choice of CLI_CHOICES) {
+    for (const choiceId of ruled(choice.options)) {
+      expect(asked).toContain(choiceId)
+    }
+    expect("note" in english.cli.choices[choice.id]).toBe(ruled(choice.options).length > 0)
+    asked.push(choice.id)
+  }
+  for (const choiceId of ruled(CLI_EXTRAS)) {
+    expect(asked).toContain(choiceId)
+  }
+  expect(english.cli.choices.extras.note).not.toBe("")
 })
 
 it("runs the CLI from the npm tag that the installed @saasyland/stack release was published on", () => {

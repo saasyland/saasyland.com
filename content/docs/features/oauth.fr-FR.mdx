@@ -14,13 +14,15 @@ socialProviders: {
 
 ## Déroulement
 
-`OAuthButtons` (`src/presentation/components/custom/auth/oauth-buttons.tsx`) affiche un bouton par fournisseur sur la connexion et l’inscription. Il appelle `signIn.social` de Better Auth avec un `callbackURL` localisé (`/auth/callback`) et un `errorCallbackURL` (`/auth/sign-in`). Au retour du fournisseur, `/auth/callback` redirige les administrateurs vers `/admin` et les clients vers `/app`. Une tentative échouée revient sur la page de connexion avec `?error=`, qui affiche le message traduit de `auth.errors`.
+`OAuthButtons` (`src/presentation/components/custom/auth/oauth-buttons.tsx`) affiche un bouton par fournisseur sur la connexion et l’inscription, intitulé **Continuer avec Google** ou **Continuer avec GitHub** (`auth.oauth.continueWith`) sur les deux pages. Il appelle `signIn.social` de Better Auth avec un `callbackURL` localisé (`/auth/callback`) et un `errorCallbackURL` (`/auth/sign-in`). Au retour du fournisseur, `/auth/callback` redirige les administrateurs vers `/admin` et les clients vers `/app`. Une tentative échouée revient sur la page de connexion avec `?error=`, qui affiche le message traduit de `auth.errors`.
 
 `accountLinking` est activé : une connexion sociale est rattachée à un utilisateur existant ayant le même e-mail. Les jetons du fournisseur sont stockés chiffrés dans la table `account`.
 
 ## Configuration du fournisseur
 
 Enregistrez les URL de rappel <RepositoryFact name="oauthCallbackPaths" /> pour chaque hôte utilisé : `localhost:3000` en local, `preview.saasyland.com` et `saasyland.com` (voir `DEPLOYED_HOSTS` dans `src/modules/_core/constants/api.ts`). Placez les identifiants et secrets client dans les variables d’environnement ci-dessus.
+
+Avant le build, `bun run deploy:<environment>` refuse un identifiant client que le fournisseur rejetterait : `scripts/prepare-deploy-secrets.ts` échoue sur un espace réservé comme `[UPDATE]` dans n'importe quel secret, et la vérification de déploiement de la zone d'authentification, `auth:verify`, échoue si <RepositoryFact name="oauthClientIdVariables" /> dans `.env.<environment>` ne contiennent pas chacune un identifiant client au format de son fournisseur. Après un déploiement, `scripts/verify-deployment.ts` lance la connexion avec chaque fournisseur sur le domaine déployé et échoue lorsque l'URL d'autorisation du fournisseur n'est pas sur son hôte, porte un `client_id` qui n'est pas au format de ce fournisseur ou un `redirect_uri` qui ne ramène pas au même domaine ([Scripts du projet](/docs/tooling/scripts)). [Dépannage](/docs/reference/troubleshooting) explique comment corriger l'erreur `Error 401: invalid_client` de Google.
 
 Les identifiants GitHub authentifient aussi la requête du nombre d’étoiles du dépôt dans `src/lib/github.ts`.
 

@@ -26,7 +26,7 @@ Die Schemas folgen denselben Konventionen:
 
 ## Atomare Schreibvorgänge
 
-D1 hat keine interaktiven Transaktionen. Halten Sie eine Operation mit einer einzelnen Anweisung atomar, etwa einem Upsert mit `onConflictDoUpdate`, oder fassen Sie Anweisungen mit `db.batch` zusammen. Die Anwendungsfälle für paginierte Listen laden eine Seite und die Gesamtzahl in einem Batch (`src/modules/category/use-cases/get-categories.ts`):
+D1 hat keine interaktiven Transaktionen. Halte eine Operation mit einer einzelnen Anweisung atomar, etwa einem Upsert mit `onConflictDoUpdate`, oder fasse Anweisungen mit `db.batch` zusammen. Die Anwendungsfälle für paginierte Listen laden eine Seite und die Gesamtzahl in einem Batch (`src/modules/category/use-cases/get-categories.ts`):
 
 ```ts
 const filter = data.kind && eq(category.kind, data.kind)
@@ -43,11 +43,11 @@ const [rows, totals] = await db.batch([
 return { rows, total: totals.reduce((sum, row) => sum + row.total, 0) }
 ```
 
-Die Ratenbegrenzung in `src/lib/rate-limit.ts` kombiniert Bereinigung, einen atomaren Upsert und einen Lesevorgang in einem Batch, sodass alle Worker-Instanzen dieselben Limits teilen.
+Die Ratenbegrenzung in `src/lib/rate-limit.ts` liest die Zähler, die einen Request ablehnen, entfernt eine begrenzte Zahl abgelaufener Zähler und zählt den Request mit einem atomaren Upsert pro Limit, alles in einem Batch, sodass alle Worker-Instanzen dieselben Limits teilen und ein abgelehnter Request nichts schreibt. `rateLimitBatch` gibt diese Anweisungen zurück, damit ein Aufrufer seine eigene Abfrage in denselben Batch legen kann; die CLI-Lizenz-API fügt ihre Abfrage der Lizenz hinzu.
 
 ## Migrationen
 
-Migrationen sind SQL-Dateien in `src/integrations/drizzle-orm/migrations/`, die mit `bun run db:generate` erzeugt und mit Wrangler angewendet werden. Vitest führt sie gegen eine In-Memory-SQLite-Datenbank aus. Die Befehle finden Sie unter [Datenbankmigrationen](/docs/tooling/database).
+Migrationen sind SQL-Dateien in `src/integrations/drizzle-orm/migrations/`, die mit `bun run db:generate` erzeugt und mit Wrangler angewendet werden. Vitest führt sie gegen eine In-Memory-SQLite-Datenbank aus. Die Befehle findest du unter [Datenbankmigrationen](/docs/tooling/database).
 
 ## Verwandte Anleitungen
 

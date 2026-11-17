@@ -5,8 +5,8 @@ import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_CHECKOUT_ID } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
-import { expectVerificationEmail } from "../fixtures/emails"
-import { deliverPaidOrder } from "../fixtures/license"
+import { expectPurchaseConfirmation, expectVerificationEmail } from "../fixtures/emails"
+import { consentAndPay, consentDialog, deliverPaidOrder } from "../fixtures/license"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -38,7 +38,7 @@ const signUpAndVerify = async ({ authPage, page, request }: { authPage: AuthPage
   await page.goto((await expectVerificationEmail(request, email)).toString(), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
 
   const session = sessionSchema.parse(await (await page.request.get("/api/auth/get-session")).json())
-  return session.user.id
+  return { email, userId: session.user.id }
 }
 
 test.describe("checkout funnel", () => {
@@ -64,7 +64,7 @@ test.describe("checkout funnel", () => {
     })
   }
 
-  test("a tier picked on the landing page survives sign-up, opens checkout in one press and activates", async ({
+  test("a tier picked on the landing page survives sign-up, opens checkout once the buyer consents, and activates", async ({
     appPage,
     authPage,
     landingPage,
@@ -76,7 +76,7 @@ test.describe("checkout funnel", () => {
     await expect(page).toHaveURL(`/auth/sign-up?redirect=${encodeURIComponent(`/app?tier=${LICENSE_TIER.COMPLETE}`)}`)
     await authPage.waitForAppReady()
 
-    const userId = await signUpAndVerify({ authPage, page, request })
+    const { email, userId } = await signUpAndVerify({ authPage, page, request })
 
     await expect(page).toHaveURL(`/app?tier=${LICENSE_TIER.COMPLETE}`)
     await appPage.waitForAppReady()
@@ -84,15 +84,19 @@ test.describe("checkout funnel", () => {
     await expect(chosen).toBeVisible()
 
     await chosen.getByRole("button", { name: "Continue to checkout" }).click()
+    await consentAndPay(page)
 
     await expect(page).toHaveURL(/\/app\?checkoutId=[\da-f-]{36}$/u)
     await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible()
     await expect(page.getByRole("button", { name: "Get Core" })).toHaveCount(0)
 
-    await deliverPaidOrder(request, { tier: LICENSE_TIER.COMPLETE, userId })
+    await deliverPaidOrder(request, { tier: LICENSE_TIER.COMPLETE, userId, withdrawalConsent: true })
 
     await expect(page.getByRole("heading", { name: "Your licence is active" })).toBeVisible()
     await expect(page.getByText("Thank you for buying Complete.")).toBeVisible()
+    const confirmation = await expectPurchaseConfirmation(request, email)
+    expect(confirmation).toContain("Your SaaSy Land Complete licence")
+    expect(confirmation).toContain("so the right of withdrawal does not apply to this order")
 
     await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
@@ -101,6 +105,38 @@ test.describe("checkout funnel", () => {
       await page.emulateMedia({ colorScheme })
       expect(await accessibilityViolations(page)).toEqual([])
     }
+  })
+
+  test("checkout starts only once the buyer ticks the consent to immediate supply, and the dialog says why", async ({
+    appPage,
+    authPage,
+    page,
+  }) => {
+    await useOwnRateLimit(page)
+    await authPage.signIn(customer.email)
+    await expect(page).toHaveURL("/app")
+    await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await appPage.waitForAppReady()
+    await page.getByRole("button", { name: "Get Core", exact: true }).click()
+
+    const dialog = consentDialog(page)
+    await expect(dialog).toBeFocused()
+    const box = dialog.getByRole("checkbox", { name: /^I ask SaaSy Land to supply Core immediately/u })
+    await expect(box).not.toBeChecked()
+    await dialog.getByRole("button", { name: "Continue to payment" }).click()
+
+    await expect(dialog.getByRole("alert")).toHaveText("Tick the box to continue.")
+    await expect(box).toHaveAttribute("aria-invalid", "true")
+    await expect(page).toHaveURL("/app/license")
+    for (const colorScheme of COLOR_SCHEMES) {
+      await page.emulateMedia({ colorScheme })
+      expect(await accessibilityViolations(page)).toEqual([])
+    }
+
+    await page.keyboard.press("Escape")
+    await expect(dialog).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Get Core", exact: true })).toBeFocused()
+    await expect(page).toHaveURL("/app/license")
   })
 
   test("a slow activation ends in an honest message with the contact email and checkout reference", async ({ appPage, authPage, page }) => {
@@ -155,7 +191,7 @@ test.describe("checkout funnel", () => {
     request,
   }) => {
     await authPage.gotoSignUp()
-    const userId = await signUpAndVerify({ authPage, page, request })
+    const { userId } = await signUpAndVerify({ authPage, page, request })
     await expect(page).toHaveURL("/app")
     await page.goto("/app/license", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
@@ -163,6 +199,7 @@ test.describe("checkout funnel", () => {
 
     await deliverPaidOrder(request, { tier: LICENSE_TIER.CORE, userId })
     await page.getByRole("button", { name: "Get Agency", exact: true }).click()
+    await consentAndPay(page)
 
     await expect(page.getByText("You already have an active licence. To move to another tier, email hello@saasyland.com.")).toBeVisible()
     await expect(page.getByRole("heading", { name: "Core", exact: true })).toBeVisible()

@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers"
+
 import type { models } from "@polar-sh/sdk/2026-10"
 import {
   ACTIVATION_KIND,
@@ -40,6 +42,7 @@ import {
   NEWER_CLI_VERSION,
   NOW,
   OTHER_ADDRESS,
+  RECORD_OUTAGE,
   STUDIO,
   STUDIO_ACTIVATION,
   UNKNOWN_KEY,
@@ -54,10 +57,13 @@ import {
   expectKeyNotLogged,
   expectServiceUnavailable,
   getLicense,
+  licenseRecords,
   rawRequest,
+  refuseRecordWrites,
   signedHeaders,
   summary,
   validate,
+  watchLicenseUpdates,
 } from "~/src/modules/license/__test__/fixtures/license-api"
 import { licenseApiHandlers } from "~/src/modules/license/license.api"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
@@ -67,6 +73,22 @@ import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
 
 const KEY_LIMIT_ADDRESSES = 3
+const REFUSED_BY_ADDRESS = 10
+const LATER = new Date(NOW.getTime() + MILLISECONDS_PER_SECOND)
+
+const keyLimitAddress = (request: number): string => `198.51.100.${String(request % KEY_LIMIT_ADDRESSES)}`
+
+const activationFrom = (key: string, address: string): Request =>
+  rawRequest(API_ROUTE.ACTIVATIONS, {
+    body: JSON.stringify(STUDIO_ACTIVATION.body),
+    headers: { ...signedHeaders(key, STUDIO), [IP_ADDRESS_HEADER]: address },
+    method: HTTP_METHOD.POST,
+  })
+
+const EXHAUSTED_LIMITS = [
+  { limit: "address", refusedFrom: ADDRESS, requests: RATE_LIMIT.REQUESTS_PER_ADDRESS, sentFrom: (): string => ADDRESS },
+  { limit: "licence key", refusedFrom: OTHER_ADDRESS, requests: RATE_LIMIT.REQUESTS_PER_LICENSE_KEY, sentFrom: keyLimitAddress },
+]
 
 const otherMachine = (
   details: Api["activateRequest"]["body"],
@@ -117,18 +139,6 @@ const POLAR_FAILURES = [
 const D1_OUTAGE = "D1_ERROR: Network connection lost."
 const OFFLINE_LICENSE_TABLE = "license_offline"
 const MISSING_LICENSE_TABLE = `no such table: ${getTableName(license)}`
-const runBatch = db.batch.bind(db)
-
-const RATE_LIMIT_FAILURES = [
-  {
-    count: "the address",
-    fail: () => vi.spyOn(db, "batch").mockRejectedValueOnce(new Error(D1_OUTAGE)),
-  },
-  {
-    count: "the licence key",
-    fail: () => vi.spyOn(db, "batch").mockImplementationOnce(runBatch).mockRejectedValueOnce(new Error(D1_OUTAGE)),
-  },
-]
 
 const takeLicenseTableOffline = async (): Promise<void> => {
   await db.run(sql`alter table ${license} rename to ${sql.identifier(OFFLINE_LICENSE_TABLE)}`)
@@ -252,6 +262,95 @@ describe("POST /activations", () => {
     expect(listing.result).toMatchObject({
       data: { machines: [{ createdAt: foreign.created_at, current: false, id: foreign.id, label: foreign.label }, { current: true }] },
     })
+  })
+})
+
+describe("the record of the first activation", () => {
+  it("records when Polar first activates a machine for the key, in one update", async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+    const { key } = await buy()
+    const updates = watchLicenseUpdates()
+
+    const { result } = await activate({ key, machine: STUDIO })
+
+    expect(result).toMatchObject({ status: HTTP_STATUS.CREATED, success: true })
+    expect(updates()).toHaveLength(1)
+    expect(await licenseRecords(key)).toStrictEqual({ activatedAt: NOW, deliveredAt: null })
+  })
+
+  it("writes nothing to the licence once its first activation is recorded", async () => {
+    const { key } = await buy()
+    await activated({ key, machine: STUDIO })
+    const updates = watchLicenseUpdates()
+
+    const again = await activate({ key, machine: STUDIO })
+    const another = await activate({ key, machine: LAPTOP }, LAPTOP_ACTIVATION)
+
+    expect([again.result, another.result]).toMatchObject([
+      { status: HTTP_STATUS.OK, success: true },
+      { status: HTTP_STATUS.CREATED, success: true },
+    ])
+    expect(updates()).toStrictEqual([])
+  })
+
+  it("never overwrites the first activation when the key activates more machines later", async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+    const { key } = await buy()
+    await activated({ key, machine: STUDIO })
+    vi.setSystemTime(LATER)
+
+    await activated({ key, machine: LAPTOP }, LAPTOP_ACTIVATION)
+    await activated({ key, machine: STUDIO })
+
+    expect(await licenseRecords(key)).toStrictEqual({ activatedAt: NOW, deliveredAt: null })
+  })
+
+  it("records an activation that a machine already held when none is recorded yet", async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+    const { key } = await buy()
+    const activationId = await activated({ key, machine: STUDIO })
+    await db.update(license).set({ activatedAt: null }).where(eq(license.key, key))
+    vi.setSystemTime(LATER)
+
+    const { result } = await activate({ key, machine: STUDIO })
+
+    expect(result).toMatchObject({ data: { activationId }, status: HTTP_STATUS.OK, success: true })
+    expect(await licenseRecords(key)).toStrictEqual({ activatedAt: LATER, deliveredAt: null })
+  })
+
+  it("records nothing when every slot is taken by machines activated elsewhere", async () => {
+    const buyer = await buy()
+    for (let slot = 0; slot < LICENSE_ACTIVATION_LIMITS[LICENSE_TIER.CORE]; slot++) {
+      activatePolarLicenseKey(buyer.grant, `Portal machine ${String(slot)}`)
+    }
+
+    const { result } = await activate({ key: buyer.key, machine: LAPTOP }, LAPTOP_ACTIVATION)
+
+    expect(result).toMatchObject({ failure: { code: API_ERROR.ACTIVATION_LIMIT_REACHED }, success: false })
+    expect(await licenseRecords(buyer.key)).toStrictEqual({ activatedAt: null, deliveredAt: null })
+  })
+
+  it("answers serviceUnavailable while it cannot record the activation, and records it when the CLI retries", async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+    const buyer = await buy()
+    const errors = consoleErrors()
+    const restore = await refuseRecordWrites(license.activatedAt)
+
+    expectServiceUnavailable(await activate({ key: buyer.key, machine: STUDIO }))
+    expectFailureLogged(errors, API_ENDPOINT.ACTIVATE, RECORD_OUTAGE)
+    expect(await licenseRecords(buyer.key)).toStrictEqual({ activatedAt: null, deliveredAt: null })
+
+    await restore()
+    vi.setSystemTime(LATER)
+    const { result } = await activate({ key: buyer.key, machine: STUDIO })
+
+    const [activation] = polarLicenseKeyOf(buyer.grant).activations
+    expect(result).toStrictEqual({
+      data: { activationId: activation?.id, license: summary(LICENSE_TIER.CORE, 1) },
+      status: HTTP_STATUS.OK,
+      success: true,
+    })
+    expect(await licenseRecords(buyer.key)).toStrictEqual({ activatedAt: LATER, deliveredAt: null })
   })
 })
 
@@ -457,7 +556,7 @@ describe("rate limits", () => {
     const limited = await buy()
     const other = await buy()
     for (let request = 0; request < RATE_LIMIT.REQUESTS_PER_LICENSE_KEY; request++) {
-      await getLicense({ address: `198.51.100.${String(request % KEY_LIMIT_ADDRESSES)}`, key: limited.key, machine: STUDIO })
+      await getLicense({ address: keyLimitAddress(request), key: limited.key, machine: STUDIO })
     }
 
     const { headers, result } = await getLicense({ address: OTHER_ADDRESS, key: limited.key, machine: STUDIO })
@@ -470,19 +569,79 @@ describe("rate limits", () => {
     const otherKey = await getLicense({ address: OTHER_ADDRESS, key: other.key, machine: STUDIO })
     expect(otherKey.result.success).toBe(true)
   })
+
+  it("does not count the requests that the address limit refused against the key", async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+    const { key } = await buy()
+    for (let request = 0; request < RATE_LIMIT.REQUESTS_PER_ADDRESS + REFUSED_BY_ADDRESS; request++) {
+      await getLicense({ key, machine: STUDIO })
+    }
+
+    const keyRequestsLeft = RATE_LIMIT.REQUESTS_PER_LICENSE_KEY - RATE_LIMIT.REQUESTS_PER_ADDRESS
+    const answers = []
+    for (let request = 0; request <= keyRequestsLeft; request++) {
+      const { result } = await getLicense({ address: keyLimitAddress(request), key, machine: STUDIO })
+      answers.push(result.success)
+    }
+
+    expect(answers).toStrictEqual([...Array.from({ length: keyRequestsLeft }, () => true), false])
+  })
+
+  it.each(EXHAUSTED_LIMITS)(
+    "refuses a request over the $limit limit before it reads the body",
+    async ({ refusedFrom, requests, sentFrom }) => {
+      vi.useFakeTimers({ now: NOW, toFake: ["Date"] })
+      const { key } = await buy()
+      for (let request = 0; request < requests; request++) {
+        await getLicense({ address: sentFrom(request), key, machine: STUDIO })
+      }
+      const refused = activationFrom(key, refusedFrom)
+
+      const { result } = await exchange(API_ENDPOINT.ACTIVATE, licenseApiHandlers.activate, refused)
+
+      expect(result).toStrictEqual({
+        failure: { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: RATE_LIMIT.PERIOD_SECONDS },
+        success: false,
+      })
+      expect(refused.bodyUsed).toBe(false)
+    },
+  )
+
+  it("reads the body of a request that both limits admit", async () => {
+    const { key } = await buy()
+    const admitted = activationFrom(key, ADDRESS)
+
+    const { result } = await exchange(API_ENDPOINT.ACTIVATE, licenseApiHandlers.activate, admitted)
+
+    expect(result).toMatchObject({ status: HTTP_STATUS.CREATED, success: true })
+    expect(admitted.bodyUsed).toBe(true)
+  })
+
+  it("counts a request against both limits and reads its licence in one round trip to D1", async () => {
+    const { key } = await buy()
+    const batches = vi.spyOn(env.DB, "batch")
+    const statements = vi.spyOn(env.DB, "prepare")
+
+    const { result } = await getLicense({ key, machine: STUDIO })
+
+    expect(result.success).toBe(true)
+    expect(batches).toHaveBeenCalledOnce()
+    expect(statements).toHaveBeenCalledTimes(batches.mock.calls.flatMap(([batch]) => batch).length)
+  })
 })
 
 describe("server-side failures", () => {
-  describe.each(RATE_LIMIT_FAILURES)("when the rate-limit storage cannot count $count", ({ fail }) => {
-    it.each(ENDPOINT_CALLS)("answers $name with serviceUnavailable, not rateLimited, and logs the failure", async ({ call, endpoint }) => {
+  it.each(ENDPOINT_CALLS)(
+    "answers $name with serviceUnavailable, not rateLimited, when D1 cannot count the request, and logs the failure",
+    async ({ call, endpoint }) => {
       const { key } = await buy()
       const errors = consoleErrors()
-      fail()
+      vi.spyOn(db, "batch").mockRejectedValueOnce(new Error(D1_OUTAGE))
 
       expectServiceUnavailable(await call({ key, machine: STUDIO }))
       expectFailureLogged(errors, endpoint, D1_OUTAGE)
-    })
-  })
+    },
+  )
 
   it("answers a request without a key with serviceUnavailable when its address cannot be counted", async () => {
     const errors = consoleErrors()

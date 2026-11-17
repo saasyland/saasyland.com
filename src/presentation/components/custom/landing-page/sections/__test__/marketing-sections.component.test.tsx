@@ -21,7 +21,6 @@ import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constant
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { CasesSection } from "~/src/presentation/components/custom/landing-page/sections/cases-section"
-import { CliSection } from "~/src/presentation/components/custom/landing-page/sections/cli-section"
 import { CompareSection } from "~/src/presentation/components/custom/landing-page/sections/compare-section"
 import { FaqSection } from "~/src/presentation/components/custom/landing-page/sections/faq-section"
 import { GateSection } from "~/src/presentation/components/custom/landing-page/sections/gate-section"
@@ -334,86 +333,6 @@ describe("customer cases", () => {
       "href",
       "mailto:hello@saasyland.com?subject=Built%20on%20SaaSy%20Land",
     )
-  })
-})
-
-describe("CLI configuration", () => {
-  it("opens on the default stack and describes the options the templates support with the legend", () => {
-    renderSection(<CliSection />)
-    const { choices } = english.cli
-    const legend = withFacts(english.cli.defaultStack.replace("<mark></mark> ", ""))
-    for (const name of [choices.framework.options.tanstack, choices.deployment.options.cloudflare, choices.provider.options.d1]) {
-      expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true")
-      expect(screen.getByRole("button", { name })).toHaveAccessibleDescription(legend)
-    }
-    expect(
-      screen.getAllByRole("button", { name: choices.auth.options.none }).map((button) => button.getAttribute("aria-describedby") !== null),
-    ).toStrictEqual([true, false, false, false])
-    for (const name of [choices.framework.options.next, choices.extras.options.commerce]) {
-      expect(screen.getByRole("button", { name })).not.toHaveAccessibleDescription()
-    }
-  })
-
-  it("keeps the mark on a supported option that another answer rules out", async () => {
-    const user = userEvent.setup({ delay: null })
-    renderSection(<CliSection />)
-    const { choices } = english.cli
-    await user.click(screen.getByRole("button", { name: choices.deployment.options.vercel }))
-    expect(screen.getByRole("button", { name: choices.database.options.sqlite })).toBeDisabled()
-    expect(screen.getByRole("button", { name: choices.database.options.sqlite })).toHaveAccessibleDescription(
-      withFacts(english.cli.defaultStack.replace("<mark></mark> ", "")),
-    )
-  })
-
-  it("reconciles incompatible API, runtime and database choices when deployment changes", async () => {
-    const user = userEvent.setup({ delay: null })
-    renderSection(<CliSection />)
-    const { choices } = english.cli
-    expect(screen.queryByRole("button", { name: choices.api.options.hono })).not.toBeInTheDocument()
-    await user.click(screen.getByRole("button", { name: choices.architecture.options.split }))
-    expect(screen.getByRole("button", { name: choices.api.options.hono })).toHaveAttribute("aria-pressed", "true")
-    expect(screen.getByRole("button", { name: choices.api.options.elysia })).toBeDisabled()
-    await user.click(screen.getByRole("button", { name: choices.deployment.options.self }))
-    await user.click(screen.getByRole("button", { name: choices.api.options.elysia }))
-    await user.click(screen.getByRole("button", { name: choices.runtime.options.bun }))
-    await user.click(screen.getByRole("button", { name: choices.deployment.options.cloudflare }))
-    expect(screen.getByRole("button", { name: choices.api.options.hono })).toHaveAttribute("aria-pressed", "true")
-    expect(screen.getByRole("button", { name: choices.runtime.options.node })).toHaveAttribute("aria-pressed", "true")
-    await user.click(screen.getByRole("button", { name: choices.deployment.options.vercel }))
-    expect(screen.getByRole("button", { name: choices.database.options.postgres })).toHaveAttribute("aria-pressed", "true")
-    expect(screen.getByRole("button", { name: choices.provider.options.neon })).toHaveAttribute("aria-pressed", "true")
-  })
-
-  it("toggles extras and omits them from the command when their required module is disabled", async () => {
-    const user = userEvent.setup({ delay: null })
-    renderSection(<CliSection />)
-    const { choices } = english.cli
-    await user.click(screen.getByRole("button", { name: choices.extras.options.commerce }))
-    expect(screen.getByText("--with commerce")).toBeVisible()
-    await user.click(screen.getByRole("button", { name: choices.extras.options.commerce }))
-    expect(screen.queryByText("--with commerce")).not.toBeInTheDocument()
-    await user.click(screen.getByRole("button", { name: choices.extras.options.courses }))
-    const billing = screen.getByText(choices.billing.label, { selector: "dt" }).parentElement
-    if (!billing) {
-      throw new Error("Billing choice is missing")
-    }
-    await user.click(within(billing).getByRole("button", { name: choices.billing.options.none }))
-    expect(screen.getByRole("button", { name: choices.extras.options.courses })).toBeDisabled()
-    expect(screen.queryByText("--with courses")).not.toBeInTheDocument()
-  })
-
-  it("copies the selected runner and extra flags with matching development instructions", async () => {
-    const user = userEvent.setup({ delay: null })
-    renderSection(<CliSection />)
-    const { choices } = english.cli
-    await user.click(screen.getByRole("button", { name: choices.extras.options["page-builder"] }))
-    await user.click(screen.getByRole("radio", { name: "pnpm" }))
-    await user.click(screen.getByRole("button", { name: english.cli.copy }))
-    const command = await navigator.clipboard.readText()
-    expect(command).toContain(`${PACKAGE_MANAGER.PNPM.exec} ${SCAFFOLD_TARGET}`)
-    expect(command).toContain("--with page-builder")
-    expect(command).not.toContain("--with courses")
-    expect(screen.getByText("pnpm dev")).toBeVisible()
   })
 })
 

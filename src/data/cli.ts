@@ -112,13 +112,8 @@ export const CLI_CHOICES = [
     group: "platform",
     id: "api",
     options: [
-      { flag: "--api hono", id: "hono", visibleWhen: { architecture: ["split", "microservices"] } },
-      {
-        flag: "--api elysia",
-        id: "elysia",
-        unavailableWhen: { deployment: ["cloudflare"] },
-        visibleWhen: { architecture: ["split", "microservices"] },
-      },
+      { flag: "--api hono", id: "hono", unavailableWhen: { architecture: ["monolith"] } },
+      { flag: "--api elysia", id: "elysia", unavailableWhen: { architecture: ["monolith"], deployment: ["cloudflare"] } },
     ],
   },
   {
@@ -141,12 +136,12 @@ export const CLI_CHOICES = [
     group: "data",
     id: "provider",
     options: [
-      { flag: "--provider neon", id: "neon", visibleWhen: { database: ["postgres"] } },
-      { flag: "--provider supabase", id: "supabase", visibleWhen: { database: ["postgres"] } },
-      { flag: "--provider self", id: "self-postgres", visibleWhen: { database: ["postgres"] } },
-      { flag: "--provider d1", id: "d1", unavailableWhen: { deployment: ["self"] }, visibleWhen: { database: ["sqlite"] } },
-      { flag: "--provider turso", id: "turso", visibleWhen: { database: ["sqlite"] } },
-      { flag: "--provider file", id: "file", unavailableWhen: { deployment: ["cloudflare"] }, visibleWhen: { database: ["sqlite"] } },
+      { flag: "--provider d1", id: "d1", unavailableWhen: { database: ["postgres"], deployment: ["self"] } },
+      { flag: "--provider turso", id: "turso", unavailableWhen: { database: ["postgres"] } },
+      { flag: "--provider file", id: "file", unavailableWhen: { database: ["postgres"], deployment: ["cloudflare"] } },
+      { flag: "--provider neon", id: "neon", unavailableWhen: { database: ["sqlite"] } },
+      { flag: "--provider supabase", id: "supabase", unavailableWhen: { database: ["sqlite"] } },
+      { flag: "--provider self", id: "self-postgres", unavailableWhen: { database: ["sqlite"] } },
     ],
   },
   {

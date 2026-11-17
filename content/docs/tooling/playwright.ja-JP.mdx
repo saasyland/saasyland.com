@@ -39,10 +39,10 @@ bun run test:journey
 
 ## 構成
 
-- `e2e/specs/`: スモークチェック、ランディングページとその操作、ナビゲーション、ロケール、テーマ、SEO、認証とそのリダイレクトおよびルーティング、ワークスペース、ユーザー管理、ニュースレター、コンテンツ、法務ページ、地域別価格、購入ファネル、ライセンスページ、CLI ライセンス API、アフィリエイト、動画、コース、コースへのアクセス、コース管理、アクセシビリティのスペック（<RepositoryFact name="e2eSpecs" /> ファイル）。
+- `e2e/specs/`: スモークチェック、ランディングページとその操作、ナビゲーション、ロケール、テーマ、SEO、認証とそのリダイレクトおよびルーティング、ワークスペース、ユーザー管理、ニュースレター、コンテンツ、法務ページ、地域別価格、購入ファネル、ライセンスページ、CLI ライセンス API、アフィリエイト、動画、コース、コースへのアクセス、コース管理、フッター、フォーカスリング、スクロールバー、アクセシビリティのスペック（<RepositoryFact name="e2eSpecs" /> ファイル）。
 - `e2e/pages/`: ページオブジェクト。
-- `e2e/fixtures/`: 拡張した `test` フィクスチャ、キャプチャしたメール用のヘルパー、署名付きの `order.paid` Webhook を送信してライセンスを付与する `license.ts` の `deliverPaidOrder`、`accessibility.ts` の `accessibilityViolations` とライトとダークの `COLOR_SCHEMES`。
-- `e2e/data/accounts.ts`: シードされるアカウント（管理者と顧客）とそのパスワード。ライセンスを持つ顧客とそのライセンスは `e2e/data/licenses.ts` にあります。
+- `e2e/fixtures/`: 拡張した `test` フィクスチャ、キャプチャしたメール用のヘルパー、署名付きの `order.paid` Webhook を送信してライセンスを付与する `license.ts` の `deliverPaidOrder`、購入ダイアログの同意のチェックボックスにチェックを入れて先に進む `consentAndPay`、`accessibility.ts` の `accessibilityViolations` とライトとダークの `COLOR_SCHEMES`。
+- `e2e/data/accounts.ts`: シードされるアカウント（管理者と顧客）とそのパスワード。ライセンスを持つ顧客とそのライセンス、および CLI ライセンス API のスペックが端末をアクティベートする、並列ワーカーごとのライセンスは `e2e/data/licenses.ts` にあります。
 - `e2e/data/videos.ts` と `e2e/data/courses.ts`: シードされるテスト動画（ファイルは `e2e/fixtures/video/`）と、シードされるコース。コースは 1 つのチャプターに、無料プレビュー、アカウント用レッスン、有料レッスン 2 つ（うち 1 つは動画なし）を持ちます。
 - `e2e/data/<area>.pages.ts` と `e2e/data/<area>.seed.ts`: 各エリアのページ（`accessibility.spec.ts` と `workspaces.spec.ts` が訪れます）と、テスト用データベースに入るそのエリアの行とメディア。`pages.entries.ts` と `seed.entries.ts` がまとめます。
 - `e2e/journey/`: 独自の設定を持つ[ジャーニースイート](#journey-suite)。
@@ -53,14 +53,20 @@ bun run test:journey
 
 `e2e/specs/accessibility.spec.ts` は `@axe-core/playwright` を通じて [axe-core](https://github.com/dequelabs/axe-core) を実行し、公開ページ、コースのページ、ドキュメントのトップページ、規約のすべてのページと、それ以外の各ドキュメントセクションから 1 ページずつ、ブログ記事、管理者とカスタマーのワークスペースをライトテーマとダークテーマで検査します。管理画面のページには `/admin/courses`、`/admin/courses/create`、シード済みのコースのエディターが含まれ、これらは `e2e/specs/workspaces.spec.ts` でも巡回します。WCAG 2.0、2.1、2.2 の A と AA のルールに加えて axe のベストプラクティスを適用し、ページが成功ステータスで読み込まれなければ失敗とし、スクロールで表示されるセクションも検査できるようページ全体をスクロールし、有限のアニメーションが終わるのを待ってから検査します。違反が 1 件でもあれば、ルール、影響度、該当するセレクターを示して失敗します。
 
+axe はキーボードの操作の流れもレイアウトも確認できないため、サイトのヘッダーとフッターについては 3 つのスペックがそれを確認します。`e2e/specs/navigation.spec.ts` はスマートフォンのメニューがフォーカスを自身に移し、Tab を中にとどめ、背後のページを `inert` にし、フォーカスをボタンに戻すことを、`e2e/specs/footer.spec.ts` はどのロケールでも 320、390、430 px でフッターのリンク同士が接したりフッターからはみ出したりしないこと、およびホームページのセクションへのリンクが自身のセクションでだけ現在のリンクになることを、`e2e/specs/focus-rings.spec.ts` はフッターの言語切り替えと管理画面のコマンドパレットのトリガーがキーボードに対してリングを描くことを確認します。
+
+## スクロールバー [#scrollbars]
+
+`e2e/specs/scrollbars.spec.ts` は、`launchOptions` の `ignoreDefaultArgs` で Playwright の `--hide-scrollbars` スイッチを外して Chromium を起動します。そのため Chromium は、Windows や Linux、スクロールバーを常に表示する設定の Mac と同じく、場所を取るクラシックなスクロールバーを描画します。このスペックは、法的情報のページ、認証ページ、管理画面のページが、ページがスクロールしなくなるまでウィンドウを広げても見出しの位置を保つこと（ドキュメントのページは、画面の高さいっぱいのレイアウトの後にサイトのフッターが続くため、常にスクロールします）、ドキュメントの検索、言語の選択、ダイアログ、メニューを開いても何も動かないこと、`/admin` がウィンドウいっぱいに広がること、ライトテーマでもダークなページの背後のウィンドウがダークであることを確認します。macOS の WebKit は場所を取らないオーバーレイのスクロールバーしか描画せず、起動オプションでは変えられないため、確保した場所の確認は Chromium でのみ実行します。ヘッダーのリンクを `lg` 未満で置き換えるサイトのメニューは 768 px で確認し、開閉しても何も動かないことを確かめます。
+
 ## ジャーニースイート [#journey-suite]
 
 `bun run test:journey` は、顧客と同じ手順でライセンスを購入し、CLI を使います。対象は `https://preview.saasyland.com` のプレビューデプロイで、支払いは Polar のサンドボックスで処理されます。`e2e/journey/playwright.config.ts` は専用の Chromium プロジェクトを持ち、Web サーバーを起動しない独立した設定なので、`test:e2e` やプルリクエストのチェックでは実行されません。プランごとに独立したテストがあり、テストは並行して実行されます。
 
 1. **アカウント。** Resend のテスト用受信箱の新しいアドレス `delivered+journey-<run>-<tier>@resend.dev` で登録し、Resend API で認証メールを見つけて、そのリンクを開きます。
 2. **価格。** `/app/license` は、`/cdn-cgi/trace` が示す、Cloudflare がランナーの所在地とみなす国の価格でプランを提示しなければなりません。`PPP_TIERS` に含まれる国では地域価格、それ以外の国では通常価格です。
-3. **チェックアウト。** Polar サンドボックスのチェックアウトは、アカウントのメールアドレスが入力済みの状態で開かなければなりません。テストは [Stripe のテストカード](https://docs.stripe.com/testing)を使って支払います。請求先はポーランドで、請求先住所は国だけで済みます。
-4. **注文とキー。** Polar には、プランの商品に対する支払い済みの注文が 1 件だけあり、その金額は通常価格から地域割引を引いたものでなければなりません。また `/app/license` には、Webhook が発行したキー、CLI コマンド、使用中の端末がないことが表示されなければなりません。
+3. **チェックアウト。** テストはサイトのダイアログで即時提供への同意にチェックを入れます。その後、Polar サンドボックスのチェックアウトは、アカウントのメールアドレスが入力済みの状態で開かなければなりません。テストは [Stripe のテストカード](https://docs.stripe.com/testing)を使って支払います。請求先はポーランドで、請求先住所は国だけで済みます。
+4. **注文とキー。** Polar には、プランの商品に対する支払い済みの注文が 1 件だけあり、その金額は通常価格から地域割引を引いたものでなければなりません。注文には同意と購入者の言語も含まれていなければなりません。また、購入確認メールが受信箱に届き、`/app/license` には、Webhook が発行したキー、CLI コマンド、使用中の端末がないことが表示されなければなりません。
 5. **CLI。** 公開済みの CLI は、`/app/license` のコマンドと同じく <RepositoryFact name="cliExec" /> として実行され、`SAASYLAND_API_URL` を通じてプレビューと通信します。`activate` は認証情報ファイルをモード `0600` で書き込み、もう一度アクティベートしても同じ枠のままで、`whoami` は端末を表示します。`SAASYLAND_CI_REPOSITORY` で区別される CI 端末が残りの枠（Core は最大 <ActivationLimit tier="core" /> 台、Complete は <ActivationLimit tier="complete" /> 台、Agency は <ActivationLimit tier="agency" /> 台）を埋め、次の端末は `activationLimitReached` で拒否されます。`/app/license` で枠を解放すると、拒否された端末がその枠を得て、解放された端末には `activationNotFound` が返ります。`deactivate` は最初の端末を解放し、その認証情報を削除します。
 6. **返金。** Polar サンドボックスの API で注文を返金し、`/app/license` にライセンスが返金済みと表示されるまで待ちます。その後、`whoami` は `licenseRefunded` を返し、認証情報を削除しなければなりません。
 

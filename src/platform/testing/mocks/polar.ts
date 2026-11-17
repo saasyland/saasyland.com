@@ -89,11 +89,17 @@ const discountOf = (discountId: string | null): models.DiscountPercentageOnceFor
   return discount === undefined ? null : polarDiscount(env.POLAR_ORGANIZATION_ID, discount)
 }
 
-const customerFor = (externalId: string): models.CustomerIndividual => {
-  const customer = customers.get(externalId) ?? polarCustomer(env.POLAR_ORGANIZATION_ID, externalId)
-  customers.set(externalId, customer)
+const saveCustomer = (customer: models.CustomerIndividual): models.CustomerIndividual => {
+  customers.set(customer.id, customer)
   return customer
 }
+
+const customerFor = (externalId: string): models.CustomerIndividual =>
+  [...customers.values()].find(({ external_id: id }) => id === externalId) ??
+  saveCustomer(polarCustomer(env.POLAR_ORGANIZATION_ID, externalId))
+
+const customerOf = (order: models.Order): models.CustomerIndividual =>
+  found(customers.get(order.customer_id), "customer of order", order.id)
 
 export const polarCheckouts = (): models.Checkout[] => [...checkouts.values()]
 
@@ -125,6 +131,39 @@ export const createPolarOrder = (
   return saveOrder({ ...order, ...overrides })
 }
 
+export const createGuestPolarOrder = ({
+  email,
+  name,
+  productId,
+}: {
+  readonly email: string
+  readonly name: string
+  readonly productId: string
+}): models.Order => {
+  const customer = saveCustomer({ ...polarCustomer(env.POLAR_ORGANIZATION_ID, email), email, external_id: null, name })
+  return saveOrder(
+    polarOrder({
+      checkoutId: null,
+      customer,
+      discount: null,
+      metadata: {},
+      product: productOf(productId),
+      status: POLAR_ORDER_STATUS.PAID,
+    }),
+  )
+}
+
+export const setPolarCustomerExternalId = (customerId: string, externalId: string): void => {
+  const customer = found(customers.get(customerId), "customer", customerId)
+  if (typeof customer.external_id === "string") {
+    throw new TypeError(`Polar keeps the external ID of customer ${customerId} once it is set`)
+  }
+  if ([...customers.values()].some(({ external_id: id }) => id === externalId)) {
+    throw new Error(`Another customer already has the external ID ${externalId}`)
+  }
+  saveCustomer({ ...customer, external_id: externalId })
+}
+
 export const payPolarCheckout = (checkoutId: string): models.Order => {
   const checkout = found(checkouts.get(checkoutId), "checkout", checkoutId)
   const externalCustomerId = found(checkout.external_customer_id, "external customer of checkout", checkoutId)
@@ -138,7 +177,7 @@ export const payPolarCheckout = (checkoutId: string): models.Order => {
     product,
     status: POLAR_ORDER_STATUS.PAID,
   })
-  return saveOrder(order)
+  return saveOrder({ ...order, custom_field_data: checkout.custom_field_data ?? {} })
 }
 
 export const refundPolarOrder = (orderId: string, amount: number): models.Order => {
@@ -160,7 +199,7 @@ export const grantPolarLicenseKey = (
   productId: string = found(order.product_id, "product of order", order.id),
 ): models.BenefitGrantLicenseKeysWebhook => {
   const benefit = licenseKeyBenefitOf(productId)
-  const customer = customerFor(found(order.customer.external_id, "external customer of order", order.id))
+  const customer = customerOf(order)
   const licenseKey = polarLicenseKey({ benefit, customer })
   licenseKeys.set(licenseKey.id, licenseKey)
   return polarLicenseKeyGrant({ benefit, customer, licenseKey, orderId: order.id })
@@ -249,8 +288,11 @@ const metadataSchema = zod
   .record(zod.string().max(METADATA_KEY_MAX_LENGTH), zod.union([zod.string().max(METADATA_VALUE_MAX_LENGTH), zod.number(), zod.boolean()]))
   .refine((metadata) => Object.keys(metadata).length <= METADATA_MAX_KEYS, `metadata holds at most ${String(METADATA_MAX_KEYS)} keys`)
 
+const customFieldDataSchema = zod.record(zod.string(), zod.union([zod.string(), zod.number(), zod.boolean(), zod.null()]))
+
 const checkoutCreateSchema = zod.strictObject({
   allow_discount_codes: zod.boolean(),
+  custom_field_data: customFieldDataSchema.optional(),
   customer_email: zod.email(),
   customer_ip_address: zod.union([zod.ipv4(), zod.ipv6()]).nullable(),
   customer_name: zod.string(),
@@ -335,6 +377,7 @@ const createCheckout = async (request: Request) => {
     client_secret: `polar_c_${id.replaceAll("-", "")}`,
     created_at: createdAt.toISOString(),
     currency: price.price_currency,
+    custom_field_data: body.data.custom_field_data ?? {},
     customer_billing_address: null,
     customer_billing_name: null,
     customer_email: body.data.customer_email,
@@ -447,6 +490,11 @@ const deactivateLicenseKey = async (request: Request) => {
 const read = (value: models.LicenseKeyWithActivations | models.Order | undefined): Response =>
   value === undefined ? notFound() : respond(HTTP_STATUS.OK, value)
 
+const currentOrder = (orderId: string): models.Order | undefined => {
+  const order = orders.get(orderId)
+  return order === undefined ? undefined : { ...order, customer: customerOf(order) }
+}
+
 const route = (request: Request) => {
   const url = new URL(request.url)
   const endpoint = `${request.method} ${url.pathname}`
@@ -468,7 +516,7 @@ const route = (request: Request) => {
   }
   const orderId = request.method === "GET" ? ORDER_PATH.exec(url.pathname)?.groups?.["id"] : undefined
   if (orderId !== undefined) {
-    return read(orders.get(orderId))
+    return read(currentOrder(orderId))
   }
   return refuse(HTTP_STATUS.NOT_FOUND, { detail: "Not Found" }, `the test double does not serve ${endpoint}`)
 }

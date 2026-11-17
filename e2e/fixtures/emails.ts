@@ -45,3 +45,16 @@ export const expectVerificationEmail = async (
   expect(email.idempotencyKey).toBe(`${EMAIL_PURPOSE.VERIFY_EMAIL}/${createHash("sha256").update(verificationUrl.searchParams.get("token") ?? "").digest("hex")}`)
   return verificationUrl
 }
+
+export const expectPurchaseConfirmation = async (request: APIRequestContext, recipient: string): Promise<string> => {
+  const isConfirmation = ({ idempotencyKey }: { idempotencyKey: string }): boolean =>
+    idempotencyKey.startsWith(`${EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/`)
+
+  await expect.poll(async () => (await getSentEmails(request, recipient)).filter(isConfirmation).length).toBe(1)
+
+  const [email] = (await getSentEmails(request, recipient)).filter(isConfirmation)
+  if (!email) throw new Error(`No purchase confirmation was sent to ${recipient}`)
+
+  expect(email.to).toEqual([recipient])
+  return `${email.subject}\n${email.html}`
+}

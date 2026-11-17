@@ -10,12 +10,18 @@ import { useTranslations } from "use-intl/react"
 import { ThemeProvider } from "~/src/providers/theme-provider"
 
 import { source } from "~/src/integrations/fumadocs/fumadocs.source"
+import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
 
+import { useFumadocsI18n } from "~/src/hooks/use-fumadocs-i18n"
+
+import { layoutNamespaces } from "~/src/data/namespaces"
+
 import { DocsPending } from "~/src/presentation/components/custom/docs-pending"
 import { DocsToolbar } from "~/src/presentation/components/custom/docs-toolbar"
+import { Footer } from "~/src/presentation/components/custom/footer"
 import { Github } from "~/src/presentation/components/custom/icons"
 import { LocaleSelect } from "~/src/presentation/components/custom/locale-switcher"
 import { ThemeSwitch } from "~/src/presentation/components/custom/theme-switch"
@@ -48,12 +54,17 @@ const LINKS = [
   },
 ]
 
-const CONTAINER = { className: "pt-header [--fd-banner-height:var(--spacing-header)] max-md:[--fd-header-height:--spacing(14)]" } as const
+const CONTAINER = {
+  className:
+    "mx-auto w-full max-w-site pt-header [--fd-banner-height:var(--spacing-header)] max-md:[--fd-header-height:--spacing(12)] md:px-10",
+} as const
 const THEME = { enabled: false } as const
 const THEME_SWITCH = { enabled: false } as const
-const SLOTS = { header: DocsToolbar, languageSelect: false } as const
+const SLOTS = { header: DocsToolbar, languageSelect: false, skipToContent: false } as const
 
 const SIDEBAR = {
+  className: "border-s",
+  collapsible: false,
   footer: (
     <div className="flex flex-col gap-2">
       <LocaleSelect />
@@ -65,8 +76,7 @@ const SIDEBAR = {
 }
 
 const DocumentationLayout = (): JSX.Element => {
-  const locale = getCurrentLocale()
-  const i18n = useMemo(() => ({ locale }), [locale])
+  const i18n = useFumadocsI18n()
 
   const t = useTranslations("navigation.content")
   const nav = useMemo(() => ({ title: t("header.docs"), url: ROUTES.DOCS }), [t])
@@ -74,17 +84,38 @@ const DocumentationLayout = (): JSX.Element => {
   const { tree } = useFumadocsLoader(Route.useLoaderData())
 
   return (
-    <RootProvider i18n={i18n} theme={THEME}>
-      <DocsLayout containerProps={CONTAINER} links={LINKS} nav={nav} sidebar={SIDEBAR} slots={SLOTS} themeSwitch={THEME_SWITCH} tree={tree}>
-        <Outlet />
-      </DocsLayout>
-    </RootProvider>
+    <>
+      <RootProvider i18n={i18n} theme={THEME}>
+        <DocsLayout
+          containerProps={CONTAINER}
+          links={LINKS}
+          nav={nav}
+          sidebar={SIDEBAR}
+          slots={SLOTS}
+          themeSwitch={THEME_SWITCH}
+          tree={tree}
+        >
+          <Outlet />
+        </DocsLayout>
+      </RootProvider>
+      <Footer />
+    </>
   )
 }
+
+const NAMESPACES = ["fumadocs", ...layoutNamespaces("/_site/docs")] as const
 
 export const Route = createFileRoute("/_site/docs")({
   component: DocumentationLayout,
   head: () => ({ links: [{ href: docsCss, rel: "stylesheet" }] }),
-  loader: () => getPageTree({ data: getCurrentLocale() }),
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    const [pageTree] = await Promise.all([
+      getPageTree({ data: locale }),
+      preloadNamespaces({ locale, namespaces: NAMESPACES, queryClient: context.queryClient }),
+    ])
+    return pageTree
+  },
   pendingComponent: DocsPending,
+  staticData: { namespaces: NAMESPACES },
 })

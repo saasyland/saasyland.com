@@ -26,7 +26,7 @@ const RootComponent = () => (
 )
 ```
 
-`/admin`, `/app` y `/docs` siguen el tema guardado; el único selector de tema está en la barra lateral de la documentación. Los layouts de la página de inicio, de autenticación, del blog y de los cursos añaden la clase `dark` a su contenedor y siempre se muestran en oscuro.
+`/admin`, `/app` y `/docs` siguen el tema guardado; el único selector de tema está en la barra lateral de la documentación. El layout `_site` añade la clase `dark` a su contenedor mientras una ruta coincidente define `dark: true` en su `staticData`, como hace el layout `_marketing` de la página de inicio, las páginas legales, el blog y los cursos, y el layout de autenticación la añade a su propio contenedor; esas páginas siempre se muestran en oscuro. `globals.css` también da a `html` los tokens oscuros mientras uno de esos contenedores sea hijo directo de `body` (`:root:has(> body > .dark)`), de modo que la ventana alrededor de la página, también detrás de la barra de desplazamiento, es oscura incluso con el tema claro.
 
 ## Tokens
 
@@ -38,9 +38,37 @@ const RootComponent = () => (
 
 `@theme inline` asocia las variables a los colores de Tailwind, define las familias tipográficas y la escala tipográfica. `globals.css` también importa los estilos de Fumadocs UI, así que la documentación usa los mismos tokens.
 
+`@theme` añade dos tokens de maquetación: `--spacing-header`, la altura de la cabecera del sitio (`h-header`), y `--container-site`, el ancho de las páginas públicas (`max-w-site`). `Navigation`, `MobileMenu`, `Footer`, `PageFrame`, las secciones de la página de inicio, `ContentPage`, los artículos del blog, las páginas de los cursos y el layout de la documentación usan `max-w-site` y, desde `md`, el mismo relleno lateral, así que la cabecera no se mueve de una página a otra y el contenido queda alineado bajo ella. `--fd-layout-width` de Fumadocs, el ancho máximo de su documentación, toma el mismo token.
+
+## Barras de desplazamiento [#scrollbars]
+
+La ventana reserva espacio para su barra de desplazamiento en todas las páginas, así que el contenido no se mueve cuando una página es demasiado corta para desplazarse, cuando crece y cuando un diálogo, un popover o un menú impide desplazar la página. `globals.css` pone `scrollbar-gutter: stable` en `html`, junto a la barra fina de la página: los navegadores dan estilo a la barra de la ventana con `scrollbar-color` y `scrollbar-width` de `html`, nunca con los de `body`.
+
+```css
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--spacing-header);
+  scrollbar-color: color-mix(in oklab, var(--foreground) 20%, transparent) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+html:has([data-page-scroller]) {
+  scrollbar-gutter: auto;
+}
+[data-page-scroller] {
+  scrollbar-gutter: stable;
+}
+```
+
+`/app` y `/admin` ocupan la ventana y desplazan en su lugar su área de contenido, así que ese elemento lleva `data-page-scroller`, tanto en los layouts como en sus esqueletos de carga: el espacio pasa allí y el área de trabajo ocupa todo el ancho de la ventana. `usePreventScroll` de React Aria y Base UI, que hace funcionar la búsqueda de la documentación, también fijan la página con `scrollbar-gutter: stable` en lugar de con padding, así que nada compensa el espacio dos veces. Las capas fijas, como la cabecera, el marco de la página y el botón para volver arriba, se colocan en la ventana sin ese espacio y quedan alineadas con el contenido, y el carril de la barra es transparente, así que el espacio muestra el propio fondo de la página.
+
 ## Escala tipográfica
 
 Usa las utilidades de texto con nombre en lugar de tamaños sueltos: `text-display-hero`, `text-display-gate`, `text-display-blast`, `text-headline-peak`, `text-headline-support`, `text-price`, `text-title`, `text-statement`, `text-lead`, `text-body`, `text-body-sm`, `text-spec` y `text-label`. Cada una define tamaño, interlineado, espaciado entre letras y, en los titulares, el peso. `src/lib/cn.config.ts` las registra para que `cn` las conserve al combinar clases; `bun run generate:cn` regenera las tablas de consulta.
+
+## Títulos de página y llamadas a la acción [#page-titles-and-calls-to-action]
+
+Las páginas de contenido (el índice del blog, el catálogo de cursos, las páginas del boletín, las páginas legales y la página de no encontrado) empiezan con `ContentPage` (`src/presentation/components/custom/content-page.tsx`): el `h1` en `text-headline-peak` y la entradilla en `text-lead`, a la misma distancia por debajo de la cabecera del sitio en todas ellas, y `ContentPagePending` dibuja el mismo bloque en sus esqueletos. Las entradas del blog mantienen el `text-display-gate`, más grande, para el título del artículo. Las llamadas a la acción de las páginas públicas usan `CTA_CLASSES.PRIMARY` o `CTA_CLASSES.SECONDARY` de `src/data/cta.ts`, así que todas tienen la misma altura (`h-11`), el mismo relleno y la misma tipografía; `BackHomeLink` es la principal para volver a `/`, con el texto de `common.backHome`, en la página de no encontrado y en las páginas del boletín.
 
 ## Hojas de estilo por ruta
 

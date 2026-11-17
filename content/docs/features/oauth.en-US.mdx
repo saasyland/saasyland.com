@@ -14,13 +14,15 @@ socialProviders: {
 
 ## Flow
 
-`OAuthButtons` (`src/presentation/components/custom/auth/oauth-buttons.tsx`) renders one button per provider on sign-in and sign-up. It calls Better Auth `signIn.social` with a localized `callbackURL` (`/auth/callback`) and `errorCallbackURL` (`/auth/sign-in`). After the provider returns, `/auth/callback` redirects admins to `/admin` and customers to `/app`. A failed attempt returns to the sign-in page with `?error=`, which shows the translated `auth.errors` message.
+`OAuthButtons` (`src/presentation/components/custom/auth/oauth-buttons.tsx`) renders one button per provider on sign-in and sign-up, labelled **Continue with Google** and **Continue with GitHub** (`auth.oauth.continueWith`) on both pages. It calls Better Auth `signIn.social` with a localized `callbackURL` (`/auth/callback`) and `errorCallbackURL` (`/auth/sign-in`). After the provider returns, `/auth/callback` redirects admins to `/admin` and customers to `/app`. A failed attempt returns to the sign-in page with `?error=`, which shows the translated `auth.errors` message.
 
 `accountLinking` is enabled, so a social sign-in attaches to an existing user with the same email. Provider tokens are stored encrypted in the `account` table.
 
 ## Provider setup
 
 Register the callback URLs <RepositoryFact name="oauthCallbackPaths" /> for every host you run: `localhost:3000` locally, `preview.saasyland.com` and `saasyland.com` (see `DEPLOYED_HOSTS` in `src/modules/_core/constants/api.ts`). Put the client IDs and secrets in the environment variables above.
+
+Before the build, `bun run deploy:<environment>` refuses a client ID that the provider would reject: `scripts/prepare-deploy-secrets.ts` fails on a placeholder such as `[UPDATE]` in any secret, and the auth area's deploy check, `auth:verify`, fails unless <RepositoryFact name="oauthClientIdVariables" /> in `.env.<environment>` each hold a client ID in the format of its provider. After a deploy, `scripts/verify-deployment.ts` starts the sign-in with each provider on the deployed domain and fails when the provider's authorize URL is not on the provider's host, carries a `client_id` that is not in that provider's format, or has a `redirect_uri` that does not return to the same domain ([Project scripts](/docs/tooling/scripts)). [Troubleshooting](/docs/reference/troubleshooting) explains how to fix Google's `Error 401: invalid_client`.
 
 The GitHub credentials also authenticate the repository star count request in `src/lib/github.ts`.
 

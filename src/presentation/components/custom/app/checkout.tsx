@@ -1,42 +1,25 @@
-import type { JSX, ReactNode } from "react"
+import { type JSX, type ReactNode, Suspense, lazy, useState } from "react"
 
-import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
-import { toast } from "sonner"
+import { useIsMutating } from "@tanstack/react-query"
 import { useTranslations } from "use-intl/react"
 
-import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
-
-import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS, type LicenseTier } from "~/src/modules/license/license.constants"
-import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
-
-import { useErrorMessage } from "~/src/hooks/use-error-message"
+import { LICENSE_MUTATION_KEYS, type LicenseTier } from "~/src/modules/license/license.constants"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
-import { Spinner } from "~/src/presentation/components/shadcn/spinner"
+import { Dialog, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "~/src/presentation/components/shadcn/dialog"
+import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
-import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import { ROUTES } from "~/src/routes"
+const CheckoutConsent = lazy(() =>
+  import("~/src/presentation/components/custom/app/checkout-consent").then((module) => ({ default: module.CheckoutConsent })),
+)
 
-const LINK_CLASSNAME = "underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-
-const AGREEMENT_TAGS = {
-  licence: (chunks: ReactNode) => (
-    <Link className={LINK_CLASSNAME} to={ROUTES.LICENCE}>
-      {chunks}
-    </Link>
-  ),
-  refunds: (chunks: ReactNode) => (
-    <Link className={LINK_CLASSNAME} to={ROUTES.REFUNDS}>
-      {chunks}
-    </Link>
-  ),
-  terms: (chunks: ReactNode) => (
-    <Link className={LINK_CLASSNAME} to={ROUTES.TERMS}>
-      {chunks}
-    </Link>
-  ),
-}
+const CheckoutConsentPending = (): JSX.Element => (
+  <div className="flex flex-col gap-4">
+    <Skeleton className="h-28 w-full rounded-lg" />
+    <Skeleton className="h-10 w-full" />
+    <Skeleton className="h-8 w-full" />
+  </div>
+)
 
 interface CheckoutButtonProps {
   readonly children: ReactNode
@@ -45,47 +28,35 @@ interface CheckoutButtonProps {
 }
 
 export const CheckoutButton = ({ children, featured, tier }: CheckoutButtonProps): JSX.Element => {
+  const tTier = useTranslations("components.custom.pricing")
   const t = useTranslations("pages.license.buy")
-  const queryClient = useQueryClient()
-  const errorMessage = useErrorMessage()
   const isStarting = useIsMutating({ mutationKey: LICENSE_MUTATION_KEYS.START_CHECKOUT }) > 0
-
-  const refreshLicense = () => queryClient.invalidateQueries({ queryKey: LICENSE_QUERY_KEYS.ALL })
-
-  const { isPending, mutate } = useMutation({
-    ...startCheckoutMutation,
-    onError: async (error) => {
-      toast.error(errorMessage(error))
-      await refreshLicense()
-    },
-    onSuccess: async (checkout) => {
-      if ("alreadyActive" in checkout) {
-        toast.error(t("alreadyActive", { email: CONTACT_EMAIL }))
-        await refreshLicense()
-        return
-      }
-      await refreshLicense()
-      globalThis.location.href = checkout.url
-    },
-  })
+  const [isOpen, setOpen] = useState(false)
 
   return (
-    <Button
-      className="h-11 w-full px-5 text-body-sm font-semibold"
-      isDisabled={isStarting}
-      onPress={() => {
-        mutate({ locale: getCurrentLocale(), tier })
-      }}
-      variant={featured ? "default" : "outline"}
-    >
-      {isPending && <Spinner />}
-      {isPending ? t("pending") : children}
-    </Button>
+    <DialogTrigger isOpen={isOpen} onOpenChange={setOpen}>
+      <Button className="h-11 w-full px-5 text-body-sm font-semibold" variant={featured ? "default" : "outline"}>
+        {children}
+      </Button>
+      <Dialog
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg"
+        isDismissable={!isStarting}
+        isKeyboardDismissDisabled={isStarting}
+        showCloseButton={false}
+      >
+        <DialogHeader>
+          <DialogTitle>{t("consent.title")}</DialogTitle>
+          <DialogDescription className="text-pretty">{t("consent.description", { tier: tTier(`tiers.${tier}.name`) })}</DialogDescription>
+        </DialogHeader>
+        <Suspense fallback={<CheckoutConsentPending />}>
+          <CheckoutConsent
+            onClose={() => {
+              setOpen(false)
+            }}
+            tier={tier}
+          />
+        </Suspense>
+      </Dialog>
+    </DialogTrigger>
   )
-}
-
-export const CheckoutAgreement = (): JSX.Element => {
-  const t = useTranslations("pages.license.buy")
-
-  return <p className="text-xs leading-relaxed text-pretty text-muted-foreground">{t.rich("agreement", AGREEMENT_TAGS)}</p>
 }

@@ -2,15 +2,19 @@ import "@tanstack/react-start/server-only"
 
 import type { models } from "@polar-sh/sdk/2026-10"
 import { eq } from "drizzle-orm"
+import * as zod from "zod"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+import { polar } from "~/src/integrations/polar/polar.config"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
-import { LICENSE_STATUS, type LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
+import { LICENSE_CHECKOUT_FIELD, LICENSE_STATUS, type LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
 import { licenseTierForProduct } from "~/src/modules/license/license.utils"
 import { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
 import { grantLicense } from "~/src/modules/license/use-cases/grant-license"
 import { revokeLicense } from "~/src/modules/license/use-cases/revoke-license"
+import { sendPurchaseConfirmationEmail } from "~/src/modules/license/use-cases/send-purchase-confirmation-email"
+import { sendUnmatchedOrderAlert } from "~/src/modules/license/use-cases/send-unmatched-order-alert"
 import { user } from "~/src/modules/user/user.schema"
 
 interface PolarCustomer {
@@ -20,11 +24,16 @@ interface PolarCustomer {
 interface OrderEvent {
   readonly data: {
     readonly created_at: string
-    readonly customer: PolarCustomer
+    readonly currency: string
+    readonly custom_field_data?: models.Order["custom_field_data"]
+    readonly customer: PolarCustomer & Pick<models.OrderCustomer, "email" | "name">
     readonly customer_id: string
     readonly id: string
+    readonly invoice_number: models.Order["invoice_number"]
+    readonly metadata: models.Order["metadata"]
     readonly product_id: string | null
     readonly status: models.OrderStatus
+    readonly total_amount: number
   }
 }
 
@@ -39,15 +48,37 @@ interface BenefitGrantEvent {
 
 const SINGLE_ROW = 1
 
-const accountId = async ({ external_id: externalId }: PolarCustomer): Promise<string | undefined> => {
+const withdrawalConsentSchema = zod.object({ [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: zod.literal(true) })
+
+interface Account {
+  readonly email: string
+  readonly id: string
+}
+
+const findAccount = async ({ external_id: externalId }: PolarCustomer): Promise<Account | undefined> => {
   if (typeof externalId !== "string" || externalId.length === 0) {
     return undefined
   }
 
-  const [account] = await db.select({ id: user.id }).from(user).where(eq(user.id, externalId)).limit(SINGLE_ROW)
+  const [account] = await db.select({ email: user.email, id: user.id }).from(user).where(eq(user.id, externalId)).limit(SINGLE_ROW)
 
-  return account?.id
+  return account
 }
+
+const findOrderAccount = async (customer: PolarCustomer, orderId: string): Promise<Account | undefined> => {
+  const account = await findAccount(customer)
+
+  if (account !== undefined) {
+    return account
+  }
+
+  const current = await polar.orders.get(orderId)
+
+  return findAccount(current.customer)
+}
+
+const withdrawalConsentAt = ({ created_at: createdAt, custom_field_data: fields }: OrderEvent["data"]): Date | undefined =>
+  withdrawalConsentSchema.safeParse(fields).success ? new Date(createdAt) : undefined
 
 const grantedLicenseKeyId = ({ properties }: BenefitGrantEvent["data"]): string | undefined =>
   "license_key_id" in properties ? properties.license_key_id : undefined
@@ -60,14 +91,14 @@ export const licenseWebhookHandlers = {
       return
     }
 
-    const userId = await accountId(data.customer)
+    const account = await findOrderAccount(data.customer, data.order_id)
 
-    if (userId === undefined) {
+    if (account === undefined) {
       console.error(`[license] benefit grant ${data.id} does not belong to a known account`)
       return
     }
 
-    await attachLicenseKey({ polarLicenseKeyId: licenseKeyId, polarOrderId: data.order_id, userId })
+    await attachLicenseKey({ polarLicenseKeyId: licenseKeyId, polarOrderId: data.order_id, userId: account.id })
   },
 
   onBenefitGrantRevoked: async ({ data }: BenefitGrantEvent): Promise<void> => {
@@ -75,29 +106,40 @@ export const licenseWebhookHandlers = {
       return
     }
 
-    const userId = await accountId(data.customer)
+    const account = await findAccount(data.customer)
 
-    if (userId !== undefined) {
-      await revokeLicense({ polarOrderId: data.order_id, status: LICENSE_STATUS.REVOKED, userId })
+    if (account !== undefined) {
+      await revokeLicense({ polarOrderId: data.order_id, status: LICENSE_STATUS.REVOKED, userId: account.id })
     }
   },
 
   onOrderPaid: async ({ data }: OrderEvent): Promise<void> => {
     const tier = data.product_id === null ? undefined : licenseTierForProduct(data.product_id)
-    const userId = await accountId(data.customer)
 
-    if (userId === undefined || tier === undefined) {
-      console.error(`[license] order ${data.id} does not map to a known account and tier`)
+    if (tier === undefined) {
+      console.error(`[license] order ${data.id} is not for a licence product`)
       return
     }
+
+    const account = await findOrderAccount(data.customer, data.id)
+
+    if (account === undefined) {
+      console.error(`[license] paid order ${data.id} maps to no account`)
+      await sendUnmatchedOrderAlert({ order: data, tier })
+      return
+    }
+
+    const consentAt = withdrawalConsentAt(data)
 
     await grantLicense({
       polarCustomerId: data.customer_id,
       polarOrderId: data.id,
       purchaseCreatedAt: new Date(data.created_at),
       tier,
-      userId,
+      userId: account.id,
+      withdrawalConsentAt: consentAt,
     })
+    await sendPurchaseConfirmationEmail({ order: data, recipient: account.email, tier, withdrawalConsent: consentAt !== undefined })
   },
 
   onOrderRefunded: async ({ data }: OrderEvent): Promise<void> => {
@@ -105,10 +147,10 @@ export const licenseWebhookHandlers = {
       return
     }
 
-    const userId = await accountId(data.customer)
+    const account = await findAccount(data.customer)
 
-    if (userId !== undefined) {
-      await revokeLicense({ polarOrderId: data.id, status: LICENSE_STATUS.REFUNDED, userId })
+    if (account !== undefined) {
+      await revokeLicense({ polarOrderId: data.id, status: LICENSE_STATUS.REFUNDED, userId: account.id })
     }
   },
 } satisfies Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>

@@ -6,7 +6,7 @@ import type { LicenseTier } from "~/src/modules/license/license.constants"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 
-import { CheckoutAgreement, CheckoutButton } from "~/src/presentation/components/custom/app/checkout"
+import { CheckoutButton } from "~/src/presentation/components/custom/app/checkout"
 import { Price, REGIONAL_TAGS } from "~/src/presentation/components/custom/pricing"
 
 export const ChosenTier = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element => {
@@ -34,12 +34,9 @@ export const ChosenTier = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Eleme
             </span>
           </p>
         </div>
-        <div className="flex flex-col gap-3">
-          <CheckoutButton featured tier={tier}>
-            {t("continue")}
-          </CheckoutButton>
-          <CheckoutAgreement />
-        </div>
+        <CheckoutButton featured tier={tier}>
+          {t("continue")}
+        </CheckoutButton>
       </div>
     </section>
   )

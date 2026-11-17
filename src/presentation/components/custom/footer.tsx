@@ -38,7 +38,7 @@ export const Footer = (): JSX.Element => {
 
   return (
     <footer className="relative z-10 border-t border-border bg-background">
-      <div className="mx-auto w-full max-w-7xl px-6 md:px-10">
+      <div className="mx-auto w-full max-w-site px-6 md:px-10">
         <div className="grid gap-x-16 gap-y-8 border-b border-border py-14 md:grid-cols-2 md:items-end md:py-16">
           <div>
             <h2 className="text-headline-support text-foreground">{t("buildLog.title")}</h2>
@@ -47,12 +47,12 @@ export const Footer = (): JSX.Element => {
           <NewsletterForm />
         </div>
 
-        <div className="grid grid-cols-2 items-start gap-x-8 gap-y-12 py-14 md:grid-cols-[1.5fr_1.3fr_1fr] md:gap-x-12 md:py-16">
-          <div className="col-span-2 md:col-span-1">
+        <div className="flex flex-wrap items-start gap-x-8 gap-y-12 py-14 md:gap-x-12 md:py-16">
+          <div className="basis-full md:flex-[1.5]">
             <Wordmark />
             <p className="mt-4 max-w-[24rem] text-body text-pretty text-muted-foreground">{t("tagline")}</p>
             <a
-              className="mt-6 inline-block rounded-sm font-mono text-spec text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="mt-4.5 inline-block rounded-sm py-1.5 font-mono text-spec text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               href={`mailto:${CONTACT_EMAIL}`}
             >
               {CONTACT_EMAIL}
@@ -60,13 +60,13 @@ export const Footer = (): JSX.Element => {
           </div>
 
           {FOOTER_NAVIGATION.map((column) => (
-            <div key={column.key}>
+            <div className={cn("flex-1", { "md:flex-[1.3]": column.key === FOOTER_COLUMN.PRODUCT })} key={column.key}>
               <h3 className={HEADING_CLASSNAME}>{t(`columns.${column.key}`)}</h3>
-              <ul className={cn("mt-4", { "grid grid-cols-2 gap-x-8": column.key === FOOTER_COLUMN.PRODUCT })}>
+              <ul className={cn("mt-4", { "md:grid md:grid-cols-[1fr_1fr] md:gap-x-8": column.key === FOOTER_COLUMN.PRODUCT })}>
                 {column.key === FOOTER_COLUMN.PRODUCT &&
                   FOOTER_SECTIONS.map((section) => (
                     <li key={section}>
-                      <Link className={LINK_CLASSNAME} hash={section} to={ROUTES.HOME}>
+                      <Link activeOptions={{ includeHash: true }} className={LINK_CLASSNAME} hash={section} to={ROUTES.HOME}>
                         {t(`links.${section}`)}
                       </Link>
                     </li>

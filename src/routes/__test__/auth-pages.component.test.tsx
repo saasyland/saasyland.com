@@ -155,6 +155,26 @@ it("includes a themed, accessible document shell and keeps production pages inde
   )
   expect(alternateLocales).toEqual(["de_DE", "es_ES", "fr_FR", "it_IT", "ja_JP", "pl_PL", "pt_BR", "uk_UA"])
 })
+
+it("gives the theme script the nonce of a page the Worker renders, so the page's policy lets it run", async () => {
+  const { queryClient, router } = createAuthRouter(ROUTES.HOME)
+  Object.assign(router.options, { ssr: { nonce: "0123456789abcdef0123456789abcdef" } })
+  await router.load()
+  await preloadNamespaces({ locale: "en-US", namespaces: ROOT_NAMESPACES, queryClient })
+  if (!RootShell) {
+    throw new Error("The root route must provide an HTML document shell")
+  }
+  const html = renderToStaticMarkup(
+    <QueryClientProvider client={queryClient}>
+      <RouterContextProvider router={router}>
+        <RootShell>
+          <p>Application content</p>
+        </RootShell>
+      </RouterContextProvider>
+    </QueryClientProvider>,
+  )
+  expect(html).toMatch(/<script nonce="0123456789abcdef0123456789abcdef">[^<]*localStorage/u)
+})
 describe("authentication routes", () => {
   it.each([
     [ROUTES.SIGN_IN, "sign-in", pagesAuthSignInMessages.form.title],
@@ -172,7 +192,7 @@ describe("authentication routes", () => {
     expect(router.state.matches[0]?.meta).toContainEqual({ content: ROBOTS.NON_PRODUCTION, name: "robots" })
   })
 
-  it("uses new-account copy on signup, and returning-account copy on sign in", async () => {
+  it("uses new-account copy on signup, returning-account copy on sign in, and the same provider buttons on both", async () => {
     const { router } = await renderAuth(ROUTES.SIGN_UP)
     expect(await screen.findByText(authGateMessages.signUpHeadline)).toBeInTheDocument()
     expect(screen.queryByText(authGateMessages.headline)).not.toBeInTheDocument()
@@ -181,6 +201,8 @@ describe("authentication routes", () => {
     await act(() => router.navigate({ to: ROUTES.SIGN_IN }))
     expect(await screen.findByText(authGateMessages.headline)).toBeInTheDocument()
     expect(screen.queryByText(authGateMessages.signUpHeadline)).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeVisible()
+    expect(screen.getByRole("button", { name: "Continue with GitHub" })).toBeVisible()
     expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", ROUTES.SIGN_UP)
   })
 

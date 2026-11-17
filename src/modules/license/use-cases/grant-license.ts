@@ -1,6 +1,6 @@
 import "@tanstack/react-start/server-only"
 
-import { and, eq, sql } from "drizzle-orm"
+import { type SQL, and, eq, sql } from "drizzle-orm"
 import { v7 } from "uuid"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
@@ -34,7 +34,10 @@ interface GrantLicenseInput {
   readonly purchaseCreatedAt: Date
   readonly tier: LicenseTier
   readonly userId: string
+  readonly withdrawalConsentAt: Date | undefined
 }
+
+const timeOrNull = (date: Date | undefined): SQL => (date === undefined ? sql`null` : sql`${date.getTime()}`)
 
 export const grantLicense = async ({
   polarCustomerId,
@@ -42,20 +45,24 @@ export const grantLicense = async ({
   purchaseCreatedAt,
   tier,
   userId,
+  withdrawalConsentAt,
 }: Readonly<GrantLicenseInput>): Promise<void> => {
   await backfillPurchaseDate(userId)
   await db.run(sql`
-    insert into ${license} (id, polar_customer_id, polar_order_id, purchase_created_at, tier, user_id)
-    select ${v7()}, ${polarCustomerId}, ${polarOrderId}, ${purchaseCreatedAt.getTime()}, ${tier}, ${userId}
+    insert into ${license} (id, polar_customer_id, polar_order_id, purchase_created_at, tier, user_id, withdrawal_consent_at)
+    select ${v7()}, ${polarCustomerId}, ${polarOrderId}, ${purchaseCreatedAt.getTime()}, ${tier}, ${userId}, ${timeOrNull(withdrawalConsentAt)}
     where not exists (select 1 from ${revokedLicenseOrder} where polar_order_id = ${polarOrderId})
     on conflict(user_id) do update set
       polar_customer_id = excluded.polar_customer_id,
       polar_order_id = excluded.polar_order_id,
       purchase_created_at = excluded.purchase_created_at,
+      withdrawal_consent_at = excluded.withdrawal_consent_at,
       tier = excluded.tier,
       status = ${LICENSE_STATUS.ACTIVE},
       key = null,
       polar_license_key_id = null,
+      activated_at = null,
+      delivered_at = null,
       updated_at = ${Date.now()}
     where (license.polar_order_id is null or license.polar_order_id <> excluded.polar_order_id)
       and license.purchase_created_at < excluded.purchase_created_at

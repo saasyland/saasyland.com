@@ -1,5 +1,5 @@
 import { PolarClientError } from "@polar-sh/sdk"
-import { type Environment, createPolarCore, type models } from "@polar-sh/sdk/2026-10"
+import { createPolarCore, type models } from "@polar-sh/sdk/2026-10"
 import { createDiscountsService } from "@polar-sh/sdk/2026-10/services/discounts"
 import { createProductsService } from "@polar-sh/sdk/2026-10/services/products"
 import { createWebhooksService } from "@polar-sh/sdk/2026-10/services/webhooks"
@@ -15,18 +15,22 @@ import {
 import { DEPLOYED_HOSTS, ENVIRONMENT, HTTP_STATUS } from "~/src/modules/_core/constants/api"
 import { toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
-import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
+import {
+  LICENSE_ACTIVATION_LIMITS,
+  LICENSE_CHECKOUT_FIELD,
+  LICENSE_TIER,
+  LICENSE_TIERS,
+  type LicenseTier,
+} from "~/src/modules/license/license.constants"
 import { PPP_PERCENTS_OFF } from "~/src/modules/license/license.pricing"
 
 import { TIER_PRICES } from "~/src/data/marketing"
+import { POLAR_SERVER } from "~/src/data/polar"
 import { POLAR_EVENTS } from "~/src/data/polar-events"
+import { REFUND_TERMS } from "~/src/data/refunds"
 
+import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
-
-export const POLAR_SERVER = {
-  PRODUCTION: "production",
-  SANDBOX: "sandbox",
-} as const satisfies Record<string, Environment>
 
 export const POLAR_PRICE_TYPE = {
   CUSTOM: "custom",
@@ -37,6 +41,17 @@ export const POLAR_BENEFIT_TYPE = {
   CUSTOM: "custom",
   LICENSE_KEYS: "license_keys",
 } as const satisfies Record<string, models.BenefitType>
+
+export const POLAR_CUSTOM_FIELD_TYPE = {
+  CHECKBOX: "checkbox",
+} as const satisfies Record<string, models.CustomFieldType>
+
+export const WITHDRAWAL_CONSENT_FIELD = {
+  label: `I ask ${APP_NAME} to supply my purchase immediately, and I acknowledge that I lose my ${String(REFUND_TERMS.WITHDRAWAL_DAYS)}-day right of withdrawal once supply begins, when my licence key is issued. [Refund Policy](https://${DEPLOYED_HOSTS[ENVIRONMENT.PRODUCTION]}${ROUTES.REFUNDS})`,
+  name: "Consent to immediate supply",
+  slug: LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT,
+  type: POLAR_CUSTOM_FIELD_TYPE.CHECKBOX,
+} as const
 
 export const POLAR_WEBHOOK_FORMAT = {
   RAW: "raw",
@@ -205,6 +220,26 @@ const licenseKeyProblems = (tier: LicenseTier, product: models.Product, label: s
   ])
 }
 
+const consentFieldProblems = (product: models.Product, label: string): string[] => {
+  const { slug } = WITHDRAWAL_CONSENT_FIELD
+  const attached = product.attached_custom_fields.find(({ custom_field: field }) => field.slug === slug)
+
+  if (attached === undefined) {
+    return [`${label} does not ask for the ${slug} checkout field (WITHDRAWAL_CONSENT_FIELD).`]
+  }
+
+  const { custom_field: field, required } = attached
+
+  return failing([
+    [!required, `${label} asks for the ${slug} checkout field without requiring it.`],
+    [field.type !== WITHDRAWAL_CONSENT_FIELD.type, `The ${slug} checkout field is a ${field.type} field instead of a checkbox.`],
+    [
+      field.properties.form_label !== WITHDRAWAL_CONSENT_FIELD.label,
+      `The ${slug} checkout field's label differs from WITHDRAWAL_CONSENT_FIELD.label.`,
+    ],
+  ])
+}
+
 const productProblems = (tier: LicenseTier, settings: Settings, products: readonly models.Product[]): string[] => {
   const key = PRODUCT_ID_KEYS[tier]
   const product = products.find(({ id }) => id === settings[key])
@@ -221,6 +256,7 @@ const productProblems = (tier: LicenseTier, settings: Settings, products: readon
     ]),
     ...priceProblems(tier, product, label),
     ...licenseKeyProblems(tier, product, label),
+    ...consentFieldProblems(product, label),
   ]
 }
 
@@ -303,7 +339,7 @@ export const verifyPolar = async ({
   }
 
   const checked = [
-    `${String(LICENSE_TIERS.length)} products with their prices and licence keys`,
+    `${String(LICENSE_TIERS.length)} products with their prices, licence keys and consent field`,
     `${String(PPP_PERCENTS_OFF.length)} regional discounts`,
     ...webhookUrls.map((url) => `the webhook at ${url}`),
   ]

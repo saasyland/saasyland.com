@@ -31,9 +31,9 @@ description: "開発、テスト、デプロイ時によくあるエラーとそ
 
 **ドキュメントページが 404 を返す。** ファイル名を `<page>.<locale>.mdx` にし、フォルダーの `meta.<locale>.json` の `pages` に列挙する必要があります。`bun run content` を実行して `.source` を再生成してください。
 
-**`check-content.ts` が失敗する。** このスクリプトは、すべてのロケールを en-US と比較します。`Changed code examples` は、コードブロックが英語版と異なることを意味します。コードブロックは同一でなければなりません。`Untranslated English paragraph` は、段落が翻訳されずにコピーされたことを意味します。`Missing <file>` は、ロケールのファイルが存在しないことを意味します。`leaves out … from the English page` と `adds …, which the English page does not have` は、翻訳がインラインコード、コンポーネントやその props、ほかのページへのリンクを落としたり加えたりしたことを意味します。英語のページのとおりに写してください。`has … table rows where the English page has …` は、表の行が減ったか増えたことを意味します。
+**`check-content.ts` が失敗する。** このスクリプトは、すべてのロケールを en-US と比較します。`Changed code examples` は、コードブロックが英語版と異なることを意味します。コードブロックは同一でなければなりません。`Untranslated English paragraph` は、段落が翻訳されずにコピーされたことを意味します。`Missing <file>` は、ロケールのファイルが存在しないことを意味します。`leaves out … from the English page` と `adds …, which the English page does not have` は、翻訳がインラインコード、コンポーネントやその props、ほかのページへのリンクを落としたり加えたりしたことを意味します。英語のページのとおりに写してください。`has … table rows where the English page has …` は、表の行が減ったか増えたことを意味します。`links to … instead of …` は、サイトがリダイレクトする内部リンク、またはロケールを含む内部リンクがあることを意味します。メッセージが示すパスに書き換えてください。
 
-**`check-message-formats.ts` が失敗する。** `changed the path or command …` は、翻訳が英語のメッセージのファイルパスやコマンドを変えたことを意味します。そのまま残すか、`REPOSITORY_FACTS` から ICU 引数として渡してください。`unexpected Markdown code` は、翻訳がバッククォートを加えたことを意味します。メッセージはバッククォートをそのまま表示します。
+**`check-message-formats.ts` が失敗する。** `changed the path or command …` は、翻訳が英語のメッセージのファイルパスやコマンドを変えたことを意味します。そのまま残すか、`REPOSITORY_FACTS` から ICU 引数として渡してください。`unexpected Markdown code` は、翻訳がバッククォートを加えたことを意味します。メッセージはバッククォートをそのまま表示します。`uses “Sie” where de-DE addresses the reader as “du”` は、翻訳がロケールの使わない形で読み手に呼びかけていることを意味します。ロケールの[文体](/docs/conventions/translations#one-form-of-address)で文を書き直してください。`check-content.ts` は、ドキュメントのページ、ブログ記事、変更履歴のエントリーについて同じことを報告します。
 
 ## テストとデプロイ
 
@@ -41,11 +41,20 @@ description: "開発、テスト、デプロイ時によくあるエラーとそ
 
 **デプロイが `verify-bindings.ts` で止まる。** `wrangler.jsonc` の対象環境に `development` 環境が宣言しているバインディング（`DB`、`CACHE`、`MEDIA`、`BUNDLES`）のいずれかがないか、D1 や KV のプレースホルダー ID が残っているか、本番の場合はプレビューとリソースを共有しています。Cloudflare でリソースを作成し、ID を置き換えてください。
 
+**デプロイが `prepare-deploy-secrets.ts` で止まる。** 環境の `secrets.required` に列挙されたキーが、`.env.<environment>` にないか、空か、プレースホルダーになっています。`Set …` はないか空のキーを、`Replace the placeholders …` は `[UPDATE]` のように括弧で囲まれた値や、`TODO`、`changeme` のような単語を持つキーを示します。どちらも値は表示しません。拒否されるプレースホルダーの一覧は [プロジェクトのスクリプト](/docs/tooling/scripts) にあります。ファイルに本当の値を設定して、もう一度デプロイしてください。
+
+**デプロイが `auth:verify` で止まる。** `.env.<environment>` の OAuth クライアント ID がそのプロバイダーの形式ではないため、プロバイダーはサインインを拒否します。エラーには変数名、ファイル、プロバイダーが表示され、値は表示されません。たとえば `AUTH_GOOGLE_CLIENT_ID in .env.production is not a Google OAuth client ID.` のように表示されます。プロバイダーのコンソールからクライアント ID をコピーし（Google については下の `invalid_client` の項目を参照してください）、`bun run auth:verify:<environment>` でもう一度確認してください。
+
 **デプロイが `polar:verify` で止まる。** Polar がコードと一致していません。`.env.<environment>` のキーがないか誤った Polar サービスを指している、トークンが拒否されたかスコープが足りない、あるいは商品、価格、ライセンスキー、地域割引、Webhook のいずれかがコードの前提と異なっています。エラーには各問題が列挙され、各メッセージの意味は [Polar の設定](/docs/getting-started/polar-setup)で説明しています。`bun run polar:verify:<environment>` でチェックを再実行できます。
 
-**デプロイが `prepare-deploy-secrets.ts` で止まる。** 環境の `secrets.required` に列挙されたキーが、`.env.<environment>` にないか空になっています。エラーにそのキーが表示されます。
+**デプロイが `verify-deployment.ts` で止まる。** Worker はデプロイされましたが、確認対象のパスが期待されるコンテンツタイプで `200` を返さなかったか、サインインが本来のとおりにプロバイダーへ届きませんでした。エラーには各リクエストと問題点が表示されます。その URL を開き、Cloudflare で Worker のログを確認してください。`client_id is not a Google OAuth client ID.` で終わる行は、Worker がそのプロバイダーの正しいクライアント ID を持っていないことを意味します。次の項目を参照してください。`bun scripts/verify-deployment.ts <preview|production>` で確認をもう一度実行できます。
 
-**デプロイが `verify-deployment.ts` で止まる。** Worker はデプロイされましたが、確認対象のパスが、期待されるコンテンツタイプで `200` を返しませんでした。エラーには各 URL とその応答が表示されます。その URL を開き、Cloudflare で Worker のログを確認してください。`bun scripts/verify-deployment.ts <preview|production>` で確認をもう一度実行できます。
+**Google が `Error 401: invalid_client` と `The OAuth client was not found.` を返す。** Worker が Google の知らないクライアント ID を送っています。`bun run deploy:<environment>` は、`AUTH_GOOGLE_CLIENT_ID` のプレースホルダーや別の形式の値をビルドの前に拒否します（上の `prepare-deploy-secrets.ts` と `auth:verify` を参照してください）。そのため、そうした値を持つ Worker シークレットは、`wrangler secret put` など別の方法で設定されたものです。Google の形式なのに Google が知らないクライアント ID は、削除されたクライアントか、別の Google Cloud プロジェクトにあるクライアントのものです。次の手順で修正します。
+
+1. Google Cloud コンソールで **Google Auth Platform → Clients** を開き、種類が **Web application** のクライアントを作成するか、使いたいクライアントを開きます。そのクライアント ID は `.apps.googleusercontent.com` で終わります。
+2. デプロイ先のすべてのホストについて、**Authorized JavaScript origins** に `https://<host>` を、**Authorized redirect URIs** に <RepositoryFact name="googleCallbackUrl" /> を追加します。Google が反映するまで数分かかることがあります。
+3. **Google Auth Platform → Audience** で **Publish app** を選び、テストユーザーだけでなくすべての Google アカウントがサインインできるようにします。
+4. クライアント ID とシークレットを `.env.<environment>` の `AUTH_GOOGLE_CLIENT_ID` と `AUTH_GOOGLE_CLIENT_SECRET` に設定し、`bun run deploy:<environment>` を実行します。このスクリプトがビルドの前にクライアント ID を確認し、2 つの Worker シークレットをアップロードし、サインインをもう一度確認します。
 
 **プリレンダリングのビルドが失敗する。** ビルドの出力に、最初に失敗した URL が表示されます。`bun run dev` でそのページを開き、エラーを確認してください。
 

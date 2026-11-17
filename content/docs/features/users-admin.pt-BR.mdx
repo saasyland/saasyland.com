@@ -7,12 +7,12 @@ description: "Gestão de usuários em /admin/users: uma tabela de usuários real
 
 `src/routes/admin.users.tsx` é um layout cujas abas em forma de link são `USER_TABS` em `src/data/user-tabs.ts`, que junta o `src/data/<area>.user-tabs.ts` de cada área pelo `order`. Uma aba informa seu caminho e o esqueleto da sua página, e seu rótulo no `navigation.<area>.json` da área também dá nome à página na trilha de navegação. A área de autenticação adiciona **Todos os usuários**, a área de equipe **Convites** e **Funções e Permissões**. `/admin/users` redireciona para `/admin/users/all`. Cada aba usa o título de página de `pages.admin.users`; os textos próprios da área de equipe ficam em `pages.admin.users.invitations` e `pages.admin.users.roles`, que ela adiciona ao layout em `src/data/team.namespaces.ts`.
 
-| Rota                       | Conteúdo                                                              |
-| -------------------------- | --------------------------------------------------------------------- |
-| `/admin/users/all`         | Tabela de usuários real                                               |
-| `/admin/users/$userId`     | Perfil de um usuário: dados da conta e sessões                        |
-| `/admin/users/invitations` | Linhas de demonstração (`ADMIN_INVITATION_ROWS`) com busca por e-mail |
-| `/admin/users/roles`       | Linhas de demonstração (`ADMIN_ROLE_ROWS`)                            |
+| Rota                       | Conteúdo                                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| `/admin/users/all`         | Tabela de usuários real                                                             |
+| `/admin/users/$userId`     | Perfil de um usuário: dados da conta, sessões e os cards que outras áreas adicionam |
+| `/admin/users/invitations` | Linhas de demonstração (`ADMIN_INVITATION_ROWS`) com busca por e-mail               |
+| `/admin/users/roles`       | Linhas de demonstração (`ADMIN_ROLE_ROWS`)                                          |
 
 ## Todos os usuários
 
@@ -26,12 +26,13 @@ description: "Gestão de usuários em /admin/users: uma tabela de usuários real
 
 **Adicionar usuário** abre `CreateUserDialog` (`create-user-dialog.tsx`), um formulário do TanStack Form validado por `userZodSchemas.createUser`: nome, e-mail, uma senha inicial e um papel. Ele chama `createUser` (`user: ["create"]`, e o Better Auth também verifica `user: ["set-role"]` para o papel) e depois abre o perfil do novo usuário. O Better Auth cria a conta com o e-mail não verificado, então o primeiro login leva a `/auth/verify-email`, que envia o link de verificação.
 
-## Perfil
+## Perfil [#profile]
 
-`src/routes/admin.users.$userId.tsx` carrega duas consultas ao mesmo tempo e dá à página o nome do usuário; para um usuário que não existe, mostra a página de não encontrado.
+`src/routes/admin.users.$userId.tsx` carrega ao mesmo tempo o usuário, as sessões dele e os dados dos cards das outras áreas e dá à página o nome do usuário; para um usuário que não existe, mostra a página de não encontrado.
 
 - `getUserQuery` lê a linha do usuário (`get-user.ts`, `user: ["get"]`). `UserDetails` (`user-details.tsx`) lista o papel, o status, a verificação de e-mail, a autenticação em dois fatores, o fuso horário e as datas de criação e atualização, na ordem de `ADMIN_USER_DETAILS` (`src/data/admin.ts`), que `AdminUserProfilePending` também segue.
 - `listUserSessionsQuery` lista as sessões ativas do usuário, das mais recentes para as mais antigas, sem os tokens (`list-user-sessions.ts`, `session: ["list"]`). `UserSessions` (`user-sessions.tsx`) mostra cada dispositivo e sua atividade, revoga uma sessão com `revokeUserSession` e, após uma confirmação, todas as sessões com `revokeUserSessions` (ambas com `session: ["revoke"]`). `revokeUserSession` recebe o ID da sessão e procura o token dela no servidor, como `revokeSession` faz com as sessões do próprio administrador.
+- Outras áreas adicionam cards abaixo dos dados da conta em `src/data/<area>.user-profile.ts`, que `src/data/user-profile.entries.ts` junta em `USER_PROFILE_SECTIONS` (`src/data/user-profile.ts`). Uma seção informa o seu card, o seu esqueleto, que `AdminUserProfilePending` também desenha, e os dados que a página carrega para o usuário. A área de autenticação não adiciona nenhuma. A área de licenças adiciona `UserLicense` (`user-license.tsx`), que lê `userLicenseQuery` (`get-user-license.ts`, `user: ["get"]`): o plano, o status, o momento da compra, o consentimento à entrega imediata, a primeira ativação, o primeiro download de templates e, para uma licença ativa, se ela pode ser reembolsada, o que o servidor calcula no momento da requisição (veja [Licenças](/docs/features/licences#records-and-refunds)). Os textos dela ficam em `pages.admin.users.license`, que a área de licenças adiciona ao layout em `src/data/license.namespaces.ts`.
 
 O cabeçalho mostra o nome e o e-mail do usuário e o mesmo menu de ações da linha da tabela.
 

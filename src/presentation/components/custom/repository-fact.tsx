@@ -6,6 +6,8 @@ import { adminAc } from "better-auth/plugins/admin/access"
 import { useFormatter } from "use-intl/react"
 import { cliApiTables, commitEmojis, seededAccounts } from "virtual:repository-facts"
 
+import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import {
   BACKUP_CODE_MAX_LENGTH,
   BACKUP_CODE_MIN_LENGTH,
@@ -29,6 +31,7 @@ import {
   BUNDLE_METADATA,
   BUNDLE_PATH_PREFIX,
   LICENSE_API_RETRY_AFTER_SECONDS,
+  LICENSE_CHECKOUT_FIELD,
   REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
 } from "~/src/modules/license/license.constants"
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
@@ -51,7 +54,8 @@ import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { APP_STATEMENTS } from "~/src/data/access"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
-import { OAUTH_PROVIDERS } from "~/src/data/auth"
+import { AFFILIATE_PORTAL_URL, AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { OAUTH_CLIENTS, OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH, oauthCallbackPath } from "~/src/data/auth"
 import {
   CLI_API_URL_VARIABLE,
   CLI_COMMAND,
@@ -73,17 +77,18 @@ import {
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import { CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE } from "~/src/data/marketing"
+import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 import { UNLISTED_ROUTES } from "~/src/data/unlisted"
 
+import { SECRET_PLACEHOLDER_BRACKETS, SECRET_PLACEHOLDER_WORDS } from "~/src/lib/deploy-secrets"
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
+import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
 import { SOCIAL_IMAGE } from "~/src/lib/seo"
 
 import { ACTIVATION_POLL_MS, ACTIVATION_TIMEOUT_MS } from "~/src/presentation/components/custom/app/checkout-activation"
-
-import { ROUTES } from "~/src/routes"
 
 type Value = number | string | readonly string[]
 
@@ -92,13 +97,18 @@ const FILE_MODE_DIGITS = 4
 
 const renditionName = (height: number): string => `${String(height)}p`
 
-const oauthCallbackPath = (provider: string): string => `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}/${provider}`
-
 const FACTS = {
   ...REPOSITORY_FACTS,
   activationPollSeconds: ACTIVATION_POLL_MS / MILLISECONDS_PER_SECOND,
   activationTimeoutSeconds: ACTIVATION_TIMEOUT_MS / MILLISECONDS_PER_SECOND,
   adminPreviewPageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize,
+  affiliateCommissionPercent: AFFILIATE_TERMS.COMMISSION_PERCENT,
+  affiliateCookieDays: AFFILIATE_TERMS.COOKIE_DAYS,
+  affiliateHoldDays: AFFILIATE_TERMS.HOLD_DAYS,
+  affiliateMinimumPayout: AFFILIATE_TERMS.MINIMUM_PAYOUT,
+  affiliatePayoutCurrency: AFFILIATE_TERMS.PAYOUT_CURRENCY,
+  affiliatePortalUrl: AFFILIATE_PORTAL_URL,
+  affonsoReferralParams: AFFONSO.REFERRAL_PARAMS,
   audioBitrate: AUDIO_BITRATE,
   audioSampleRate: AUDIO_SAMPLE_RATE,
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
@@ -136,18 +146,21 @@ const FACTS = {
   cliWhoami: cliCommand(CLI_COMMAND.WHOAMI),
   corePriceInHours: CORE_PRICE_IN_HOURS,
   courseShowcaseCourses: COURSE_SHOWCASE.COURSES,
-  courseShowcaseLessons: COURSE_SHOWCASE.LESSONS,
   defaultPageSize: DEFAULT_PAGE_SIZE,
+  googleCallbackUrl: `https://<host>${oauthCallbackPath(AUTH_PROVIDER.GOOGLE)}`,
   headStartClaimMaxHours: HEAD_START_CLAIM_MAX_HOURS,
   illustrativeHourlyRate: ILLUSTRATIVE_HOURLY_RATE,
   lessonProgressSaveSeconds: SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
-  liveSiteCheckPaths: LIVE_SITE_CHECKS.map(({ path }) => path),
+  licenseWithdrawalConsentField: LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT,
+  liveSiteCheckPaths: [...new Set(LIVE_SITE_CHECKS.map(({ path }) => path))],
   liveSiteCheckRetries: LIVE_SITE_CHECK_RETRY_DELAYS_MS.length,
   liveSiteCheckRetrySeconds: LIVE_SITE_CHECK_RETRY_DELAY_MS / MILLISECONDS_PER_SECOND,
   localizedTextMaxLength: LOCALIZED_TEXT_MAX_LENGTH,
   oauthCallbackPath: oauthCallbackPath("<provider>"),
   oauthCallbackPaths: OAUTH_PROVIDERS.map(({ id }) => oauthCallbackPath(id)),
   oauthCallbackUrls: OAUTH_PROVIDERS.map(({ id }) => `https://<host>${oauthCallbackPath(id)}`),
+  oauthClientIdVariables: OAUTH_PROVIDERS.map(({ id }) => OAUTH_CLIENTS[id].clientIdVariable),
+  oauthProviderIds: OAUTH_PROVIDERS.map(({ id }) => id),
   passwordMaxLength: PASSWORD_MAX_LENGTH,
   passwordMinLength: PASSWORD_MIN_LENGTH,
   posterSmallWidth: POSTER_SMALL_WIDTH,
@@ -156,14 +169,18 @@ const FACTS = {
   queryStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   rateLimitWindowSeconds: RATE_LIMIT_WINDOW_SECONDS,
   recipientEmailsPerHour: RECIPIENT_EMAILS_PER_HOUR,
+  refundWithdrawalDays: REFUND_TERMS.WITHDRAWAL_DAYS,
   regionalDiscountsRefreshMinutes: REGIONAL_DISCOUNTS_REFRESH_AFTER_MS / MILLISECONDS_PER_MINUTE,
   routerStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   scaffoldTarget: SCAFFOLD_TARGET,
+  secretPlaceholderBrackets: SECRET_PLACEHOLDER_BRACKETS.map(([open, close]) => `${open}…${close}`),
+  secretPlaceholderWords: SECRET_PLACEHOLDER_WORDS,
   sensitiveRateLimit: RATE_LIMITS.SENSITIVE.max,
   signedMediaHours: PLAYBACK_TTL_SECONDS / SECONDS_PER_HOUR,
   slugMaxLength: SLUG_MAX_LENGTH,
   socialImageHeight: SOCIAL_IMAGE.HEIGHT,
   socialImageWidth: SOCIAL_IMAGE.WIDTH,
+  socialSignInPath: SOCIAL_SIGN_IN_PATH,
   starCountFetchTimeoutSeconds: STAR_COUNT_FETCH_TIMEOUT_MS / MILLISECONDS_PER_SECOND,
   starCountRefreshHours: STAR_COUNT_REFRESH_AFTER_MS / MILLISECONDS_PER_HOUR,
   storyboardIntervalSeconds: STORYBOARD_MIN_INTERVAL_SECONDS,
@@ -193,14 +210,21 @@ const TABLES = {
   ],
   cliRunners: PACKAGE_MANAGERS.map(({ exec, id }) => [id, `${exec} ${CLI_PACKAGE_SPEC} ${CLI_COMMAND.ACTIVATE}`] as const),
   commitTypes: Object.entries(commitEmojis),
+  formsOfAddress: I18N.SUPPORTED_LOCALES.filter((locale) => locale !== I18N.DEFAULT_LOCALE).map((locale) => {
+    const { form, never, neverEndingSentence, neverInsideSentence } = FORMS_OF_ADDRESS[locale]
+
+    return [locale, form, never, neverInsideSentence, neverEndingSentence] as const
+  }),
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
   seededAccounts,
 } satisfies Record<string, readonly (readonly [number | string, ...Value[]])[]>
 
 const UNIT_FORMATS = {
   currency: CURRENCY_FORMAT,
+  day: { style: "unit", unit: "day", unitDisplay: "long" },
   hour: { style: "unit", unit: "hour", unitDisplay: "long" },
   minute: { style: "unit", unit: "minute", unitDisplay: "long" },
+  payout: { currency: AFFILIATE_TERMS.PAYOUT_CURRENCY, style: "currency", trailingZeroDisplay: "stripIfInteger" },
   percent: { style: "unit", unit: "percent" },
   second: { style: "unit", unit: "second", unitDisplay: "long" },
 } as const satisfies Record<string, Intl.NumberFormatOptions>

@@ -80,7 +80,17 @@ moduleEntries.has(hint) ? `<link rel="modulepreload" href="${hint}" fetchpriorit
 
 Usunięcie wskazówek skróciło First Contentful Paint o mniej więcej jedną trzecią; pozostawienie wskazówki punktu wejścia z niskim priorytetem skróciło mobilny First Contentful Paint o kolejne 375 ms. Nigdy nie przywracaj wskazówek preload, ani dla zależności, ani dla chunków tras. Skrypt przerywa build, gdy nie znajdzie żadnej wskazówki do usunięcia lub żadnej do zachowania, więc zmiana w wyniku builda nie cofnie tego po cichu, tylko zostanie wychwycona.
 
+TanStack Start oznacza teraz każdą wskazówkę jako `fetchpriority="low"`, więc w listopadzie 2026 regułę zmierzono ponownie na stronie głównej, po pięć naprzemiennych przebiegów na wariant. Zachowanie wszystkich 156 wskazówek pozwoliło przeglądarce pobrać chunki strony w jednej fali zamiast jedenastu i zhydratować konfigurator CLI o 250 ms wcześniej na komputerze i o 315 ms wcześniej na spowolnionym telefonie, ale First Contentful Paint przyszedł o 68 ms później na komputerze i o 77 ms później na telefonie. Wskazówki nadal są usuwane.
+
+Polityka skryptów zachowuje tę kolejność. Worker strumieniuje każdą prerenderowaną stronę przez `withNonce`, czyli `HTMLRewriter`, który dodaje nonce odpowiedzi do `<script type="module">` punktu wejścia i do jego wskazówki, a niczego więcej nie zmienia, więc wskazówka w sekcji head nadal rozpoczyna pobieranie z niskim priorytetem, a moduł nadal uruchamia się, gdy parser dojdzie do końca sekcji body. Przepisywanie odbywa się strumieniowo, więc nie wstrzymuje ani jednego bajtu, ale odpowiedzi HTML nie mają `ETag`, więc przeglądarka pobiera stronę ponownie, zamiast ją rewalidować.
+
 `robots.txt` i `llms.txt` to pliki statyczne w `public/`, które omijają Workera (`"!/robots.txt", "!/llms.txt"` w `run_worker_first`). Lighthouse pobiera oba z dwusekundowym limitem czasu, a wolna odpowiedź Workera powodowała niepowodzenie jego audytów SEO i gotowości dla agentów.
+
+## Early Hints wymieniają tylko pliki, które przetrwają wdrożenie
+
+Nagłówek `Link` Workera w odpowiedziach HTML wymienia czcionki danego locale i nic więcej. Cloudflare zapisuje ten nagłówek dla każdego URL-a i wysyła go jako odpowiedź `103 Early Hints`, zanim Worker odpowie na kolejne żądanie tego URL-a, a zapisana kopia przetrwa wdrożenie. Vite nazywa arkusz stylów od jego zawartości, więc po wdrożeniu, które zmienia jakikolwiek CSS, zapowiedziany arkusz stylów to plik, którego już nie ma: przeglądarka pobiera 404 i i tak znajduje nowy arkusz stylów w HTML-u. Pliki w `public/fonts` zachowują nazwy między wdrożeniami.
+
+Zmierzone na saasyland.com w Chromium, 15 przeplatanych przebiegów na wariant na trzech stronach, z rzeczywistym czasem Early Hints na brzegu sieci: zapowiedź czcionek obniżyła First Contentful Paint z 168–208 ms do 144–164 ms. Zapowiedź arkusza stylów oszczędzała kolejne 12–28 ms, gdy jego URL był aktualny, a nic, gdy wdrożenie go zastąpiło; 25 minut po wdrożeniu 67 z 91 stron z mapy witryny, które dostały Early Hints, wciąż zapowiadało poprzedni arkusz stylów. `<link>` arkusza stylów jest w pierwszym kilobajcie każdej strony, więc przeglądarka znajduje go w pierwszych bajtach HTML-a. Zapowiadaj tylko pliki, których URL-e przetrwają wdrożenie.
 
 ## Providery nigdy nie otaczają outletu trasy
 
@@ -90,6 +100,10 @@ TanStack Router otacza outlety tras granicami Suspense, a React hydratuje te gra
 - `MotionProvider` nad outletem trasy publikuje nowy kontekst, gdy jego funkcje animacji skończą się ładować. We wpisie na blogu ta aktualizacja docierała, gdy strona wciąż ładowała treść, React przechodził na renderowanie po stronie klienta, a układ się przesuwał.
 
 Zanim dodasz provider do `__root.tsx` lub layoutu, sprawdź, czy jego wartość może się zmienić po hydratacji. Jeśli tak, zamontuj go obok komponentów, które go odczytują, poniżej każdego `<Outlet />` trasy. Rozmieszczenie providerów opisuje strona [Komponenty i stylowanie](/docs/conventions/components).
+
+## Widżet, którego hydratacja jest kosztowna, dostaje własną granicę [#a-widget-that-is-heavy-to-hydrate-gets-its-own-boundary]
+
+Konfigurator CLI na stronie głównej renderuje czterdzieści przycisków React Aria, każdy z własnymi hookami naciśnięcia, najechania i fokusu. Hydratowane razem z resztą strony, ich efekty zmieniały commit kończący hydratację strony w zadanie trwające 70–100 ms przy desktopowym spowolnieniu Lighthouse, co podnosiło Total Blocking Time z 101 do 147 ms. `CliSection` otacza `CliConfigurator` granicą `Suspense`, która nigdy nie wstrzymuje renderowania. React hydratuje taką granicę osobno, po reszcie strony, i zatwierdza ją w osobnym commicie, więc długie zadanie znika, a Total Blocking Time wynosi 100 ms przy niezmienionych First Contentful Paint i Largest Contentful Paint. Sam konfigurator hydratuje się około 50 ms później. Dawaj innemu widżetowi własną granicę tylko wtedy, gdy porównanie pokaże to samo długie zadanie.
 
 ## Szkielety zostają w skrypcie wejściowym [#skeletons-stay-in-the-entry-script]
 
@@ -108,7 +122,7 @@ Ponieważ każda strona ładuje każdy szkielet, szkielet importuje `Skeleton`, 
 | `/app`         | 430,4 KiB | 404,1 KiB |
 | `/admin`       | 452,9 KiB | 427,7 KiB |
 
-`/` i `/blog` oszczędzają mniej, bo ich layouty renderują formularz newslettera, który i tak potrzebuje TanStack Form. `pending-imports.test.ts` śledzi importy każdego `*-pending.tsx` i kończy się błędem, gdy któryś dociera do `@tanstack/react-form`. Panele pulpitu administracyjnego i sekcje przeglądu klienta nadal łączą w liście obszaru każdy szkielet z jego komponentem, więc te komponenty ładują się razem ze szkieletami.
+`/` i `/blog` oszczędzają mniej, bo ich layouty renderują formularz newslettera, który i tak potrzebuje TanStack Form. `pending-imports.test.ts` śledzi importy każdego `*-pending.tsx` i kończy się błędem, gdy któryś dociera do `@tanstack/react-form`. Panele pulpitu administracyjnego i sekcje przeglądu klienta nadal łączą w liście obszaru każdy szkielet z jego komponentem, więc te komponenty ładują się razem ze szkieletami. Oferta licencji jest jedną z tych sekcji, dlatego jej okno dialogowe płatności ładuje formularz zgody, `checkout-consent.tsx`, za pomocą `lazy` dopiero w chwili otwarcia okna.
 
 ## Jeden build Tailwind
 
@@ -133,6 +147,10 @@ Drugi build Tailwind w arkuszu stylów trasy dostarczał kiedyś własne `.hidde
 `Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) płynnie pokazuje sekcje strony głównej, gdy wchodzą w obszar widoku. Współdzieli jeden `IntersectionObserver` między wszystkimi instancjami, na podstawie pierwszego callbacku obserwatora decyduje, czy element zaczyna się poniżej pierwszego ekranu, i zapisuje atrybuty `data-reveal` bezpośrednio, bez stanu React i bez ponownego renderowania. Wersja, która trzymała widoczność w stanie React, podwoiła Total Blocking Time, ponieważ każda sekcja renderowała się ponownie, a układ strony był obliczany dwa razy. Nie przenoś tego z powrotem do stanu i nie zastępuj bez porównania.
 
 Dwie inne optymalizacje zmierzono i odrzucono: `content-visibility: auto` na sekcjach strony głównej, które psuło linki wewnątrz strony do sekcji położonych niżej, oraz leniwe ładowanie formularza newslettera, które wypadało tak samo lub gorzej niż renderowanie go bezpośrednio.
+
+## Treść, która dociera później, zachowuje swój rozmiar
+
+Prerenderowana strona rysuje się, zanim uruchomi się jakikolwiek skrypt, więc sekcja, która wypełnia się później, musi zmieścić się w miejscu, które dostała. Taką sekcją jest blok kursów na stronie głównej: wczytuje opublikowane kursy, gdy przewijanie go zbliży, a jego element zastępczy zakładał wcześniej dwa kursy po sześć lekcji, więc po nadejściu kursów blok rósł albo się kurczył i przesuwał wszystko pod sobą o sto pikseli lub więcej. Teraz jego kolumny mają stały zestaw jednowierszowych linii, element zastępczy rysuje te same linie, a komunikaty stoją w ramce wielkości kolumny, więc każdy stan ma tę samą wysokość przy każdej szerokości (zob. [Kursy](/docs/features/courses)). Liczba gwiazdek na stronie głównej robi to samo ze szkieletem tak wysokim jak liczba. Wpisanie kursów do prerenderowanego HTML nie wchodzi w grę: build nie ma produkcyjnej bazy danych, a renderowanie strony głównej w Workerze przy każdym żądaniu oddałoby czas do pierwszego bajtu, który oszczędza prerenderowanie.
 
 ## Powiązane strony
 

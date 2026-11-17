@@ -1,9 +1,9 @@
 ---
-title: "Impersonation"
-description: "Impersonation über das Admin-Plugin von Better Auth: Ein Admin meldet sich über die Benutzeransicht als Kunde an und beendet das über ein Banner im Kundenbereich."
+title: "Identitätswechsel"
+description: "Identitätswechsel über das Admin-Plugin von Better Auth: Ein Admin meldet sich über die Benutzeransicht als Kunde an und beendet das über ein Banner im Kundenbereich."
 ---
 
-Das Better-Auth-Plugin `admin` stellt Impersonation bereit, und `src/modules/user/use-cases` kapselt sie:
+Das Better-Auth-Plugin `admin` stellt den Identitätswechsel bereit, und `src/modules/user/use-cases` kapselt ihn:
 
 ```ts
 export const impersonateUser = createServerFn({ method: "POST" })
@@ -18,19 +18,19 @@ export const impersonateUser = createServerFn({ method: "POST" })
 
 **Als Benutzer anmelden** im Aktionsmenü eines Benutzers ([Benutzer (Admin)](/docs/features/users-admin)), auf `/admin/users/all` oder im Profil des Benutzers, ruft `impersonateUser` auf. Better Auth erstellt für den Benutzer eine mit `impersonatedBy` gekennzeichnete Sitzung, legt das Sitzungstoken des Admins in einem signierten Cookie `admin_session` ab und stellt das Sitzungscookie auf die neue Sitzung um; `tanstackStartCookies()` überträgt beide Cookies mit der Antwort der Serverfunktion. Danach entfernt das Menü mit `removeUserData` die Daten des Admins aus dem Query-Cache, leert den Router-Cache und öffnet `/app`.
 
-Der Eintrag erscheint nur bei einem Benutzer, der weder Admin noch gesperrt ist. Better Auth lehnt die Impersonation eines Benutzers mit Admin-Rolle ab, sofern der Aufrufer nicht `user: ["impersonate-admins"]` besitzt, was keine Rolle in `auth.access.ts` gewährt, und sein Session-Hook verweigert einem gesperrten Benutzer eine Sitzung. `auth.server.ts` setzt kein `impersonationSessionDuration`, daher hält die Sitzung so lange, wie es die Voreinstellung von Better Auth zulässt.
+Der Eintrag erscheint nur bei einem Benutzer, der weder Admin noch gesperrt ist. Better Auth lehnt den Identitätswechsel zu einem Benutzer mit Admin-Rolle ab, sofern der Aufrufer nicht `user: ["impersonate-admins"]` besitzt, was keine Rolle in `auth.access.ts` gewährt, und sein Session-Hook verweigert einem gesperrten Benutzer eine Sitzung. `auth.server.ts` setzt kein `impersonationSessionDuration`, daher hält die Sitzung so lange, wie es die Voreinstellung von Better Auth zulässt.
 
 ## Banner und Beenden
 
-`ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) sitzt über dem Header des Layouts von `/app`. Es liest `getCurrentSessionQuery` und wird nur gerendert, wenn die Sitzung `impersonatedBy` hat: eine Region, beschriftet aus `components.custom.impersonation-banner.json`, die den Benutzer, als der der Admin angemeldet ist, und seine E-Mail-Adresse nennt, sowie eine Schaltfläche **Identitätswechsel beenden**. Die Schaltfläche ruft `stopImpersonatingUser` auf, das die Impersonation-Sitzung löscht und die Sitzung des Admins aus dem Cookie `admin_session` wiederherstellt; anschließend entfernt das Banner die Daten des Benutzers aus dem Cache und öffnet dessen Profil unter `/admin/users`.
+`ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) sitzt über dem Header des Layouts von `/app`. Es liest `getCurrentSessionQuery` und wird nur gerendert, wenn die Sitzung `impersonatedBy` hat: eine Region, beschriftet aus `components.custom.impersonation-banner.json`, die den Benutzer, als der der Admin angemeldet ist, und seine E-Mail-Adresse nennt, sowie eine Schaltfläche **Identitätswechsel beenden**. Die Schaltfläche ruft `stopImpersonatingUser` auf, das die Sitzung des Identitätswechsels löscht und die Sitzung des Admins aus dem Cookie `admin_session` wiederherstellt; anschließend entfernt das Banner die Daten des Benutzers aus dem Cache und öffnet dessen Profil unter `/admin/users`.
 
 ## Sitzungen
 
-- `getActiveSessions` lässt Impersonation-Sitzungen in der Sitzungsliste der Einstellungen weg, und der eigene Endpunkt `list-sessions` von Better Auth tut dasselbe.
-- Die Sitzungskarte im Profil eines Benutzers listet sie auf, sodass ein Admin eine Impersonation-Sitzung widerrufen kann, die ein anderer Admin offen gelassen hat.
+- `getActiveSessions` lässt die Sitzungen von Identitätswechseln in der Sitzungsliste der Einstellungen weg, und der eigene Endpunkt `list-sessions` von Better Auth tut dasselbe.
+- Die Sitzungskarte im Profil eines Benutzers listet sie auf, sodass ein Admin die Sitzung eines Identitätswechsels widerrufen kann, die ein anderer Admin offen gelassen hat.
 - Die Route Guards entfernen die Daten des vorherigen Benutzers aus dem Query-Cache, wenn sich der Benutzer der Sitzung ändert, sodass jede Navigation nach dem Beginnen oder Beenden die Daten des richtigen Benutzers lädt.
 
-Es gibt kein Audit-Log für Impersonation.
+Es gibt kein Audit-Log für Identitätswechsel.
 
 ## Verwandte Anleitungen
 

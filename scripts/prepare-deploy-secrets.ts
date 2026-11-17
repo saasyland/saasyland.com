@@ -4,6 +4,8 @@ import { parseEnv } from "node:util"
 
 import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 
+import { readDeploySecrets } from "~/src/lib/deploy-secrets"
+
 import { readWranglerEnvironment } from "./wrangler-config.ts"
 
 const SCRIPT_ARGUMENTS_START = 2
@@ -20,15 +22,9 @@ const secretsFile = `.wrangler/secrets.${environment}.json`
 
 const { secrets } = await readWranglerEnvironment(environment)
 const values = parseEnv(await readFile(environmentFile, "utf8"))
-const readSecret = (name: string): [string, string] => [name, values[name] ?? ""]
-const entries = secrets.required.map(readSecret)
-const missing = entries.filter(([, value]) => value.trim() === "").map(([name]) => name)
-
-if (missing.length > 0) {
-  throw new Error(`Set ${missing.join(", ")} in ${environmentFile}.`)
-}
+const deploySecrets = readDeploySecrets({ file: environmentFile, names: secrets.required, values })
 
 await mkdir(".wrangler", { recursive: true })
-await writeFile(secretsFile, JSON.stringify(Object.fromEntries(entries)), { mode: OWNER_ONLY })
+await writeFile(secretsFile, JSON.stringify(deploySecrets), { mode: OWNER_ONLY })
 
-process.stdout.write(`Wrote the ${String(entries.length)} secrets wrangler.jsonc declares for ${environment} to ${secretsFile}.\n`)
+process.stdout.write(`Wrote the ${String(secrets.required.length)} secrets wrangler.jsonc declares for ${environment} to ${secretsFile}.\n`)

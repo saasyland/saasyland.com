@@ -6,6 +6,8 @@ import { adminAc } from "better-auth/plugins/admin/access"
 import { IntlProvider } from "use-intl/react"
 import { describe, expect, it } from "vite-plus/test"
 
+import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
+import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
@@ -18,6 +20,7 @@ import {
   BUNDLE_PATH_PREFIX,
   LICENSE_API_ENDPOINTS,
   LICENSE_API_RETRY_AFTER_SECONDS,
+  LICENSE_CHECKOUT_FIELD,
   REGIONAL_DISCOUNTS_REFRESH_AFTER_MS,
 } from "~/src/modules/license/license.constants"
 import { PPP_TIERS } from "~/src/modules/license/license.pricing"
@@ -25,12 +28,17 @@ import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.c
 import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
 import { APP_STATEMENTS } from "~/src/data/access"
+import { AFFILIATE_PORTAL_URL, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
 import { CLI_LICENSE_COMMANDS, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
+import { LIVE_SITE_CHECKS } from "~/src/data/live"
+import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
+import { SECRET_PLACEHOLDER_WORDS } from "~/src/lib/deploy-secrets"
 import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from "~/src/lib/deployment"
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
+import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
 
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
@@ -49,6 +57,8 @@ const renderInLocale = (locale: SupportedLocale, children: ReactNode) =>
 
 const inUnit = (unit: string, value: number): string =>
   new Intl.NumberFormat("en-US", { style: "unit", unit, unitDisplay: "long" }).format(value)
+
+const englishList = (words: readonly string[]): string => new Intl.ListFormat("en-US").format(words)
 
 const listItems = (): (string | null)[] => screen.getAllByRole("listitem").map((item) => item.textContent)
 
@@ -275,6 +285,21 @@ describe("RepositoryTable", () => {
       ]),
     )
   })
+
+  it("prints the form of address of every translated locale with the forms its check rejects", () => {
+    const columns = ["Locale", "Form", "Never", "Never inside a sentence", "Never ending a sentence"]
+
+    renderInLocale("en-US", <RepositoryTable columns={columns} name="formsOfAddress" />)
+
+    expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual(columns)
+    expect(tableRows().slice(1)).toEqual(
+      I18N.SUPPORTED_LOCALES.filter((locale) => locale !== I18N.DEFAULT_LOCALE).map((locale) => {
+        const { form, never, neverEndingSentence, neverInsideSentence } = FORMS_OF_ADDRESS[locale]
+
+        return [locale, form, englishList(never), englishList(neverInsideSentence), englishList(neverEndingSentence)]
+      }),
+    )
+  })
 })
 
 describe("CLI template bundles", () => {
@@ -323,7 +348,7 @@ describe("CLI template bundles", () => {
 })
 
 describe("OAuth callbacks", () => {
-  it("prints the callback paths and URLs of every OAuth provider under the auth routes' base path", () => {
+  it("prints the callback paths and URLs of every OAuth provider, and Google's alone, under the auth routes' base path", () => {
     renderInLocale(
       "en-US",
       <ul>
@@ -336,6 +361,9 @@ describe("OAuth callbacks", () => {
         <li>
           <RepositoryFact name="oauthCallbackUrls" />
         </li>
+        <li>
+          <RepositoryFact name="googleCallbackUrl" />
+        </li>
       </ul>,
     )
 
@@ -345,6 +373,139 @@ describe("OAuth callbacks", () => {
       `${callback}/<provider>`,
       list.format(OAUTH_PROVIDERS.map(({ id }) => `${callback}/${id}`)),
       list.format(OAUTH_PROVIDERS.map(({ id }) => `https://<host>${callback}/${id}`)),
+      `https://<host>${callback}/${AUTH_PROVIDER.GOOGLE}`,
     ])
+  })
+
+  it("prints the providers the live site check signs in with and the path it starts each sign-in at", () => {
+    renderInLocale(
+      "en-US",
+      <ul>
+        <li>
+          <RepositoryFact name="oauthProviderIds" />
+        </li>
+        <li>
+          <RepositoryFact name="socialSignInPath" />
+        </li>
+      </ul>,
+    )
+
+    expect(listItems()).toEqual([
+      new Intl.ListFormat("en-US").format(OAUTH_PROVIDERS.map(({ id }) => id)),
+      `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_SOCIAL}`,
+    ])
+  })
+})
+
+describe("deploy checks", () => {
+  it("prints the client ID variables auth:verify checks and the placeholders prepare-deploy-secrets refuses", () => {
+    renderInLocale(
+      "en-US",
+      <ul>
+        <li>
+          <RepositoryFact name="oauthClientIdVariables" />
+        </li>
+        <li>
+          <RepositoryFact name="secretPlaceholderBrackets" />
+        </li>
+        <li>
+          <RepositoryFact name="secretPlaceholderWords" />
+        </li>
+      </ul>,
+    )
+
+    expect(listItems()).toEqual([
+      englishList(["AUTH_GOOGLE_CLIENT_ID", "AUTH_GITHUB_CLIENT_ID"]),
+      englishList(["[…]", "<…>", "{{…}}"]),
+      englishList(SECRET_PLACEHOLDER_WORDS),
+    ])
+  })
+})
+
+describe("live site checks", () => {
+  it("names every path the live site check requests once, though it starts a sign-in there for each provider", () => {
+    renderInLocale("en-US", <RepositoryFact name="liveSiteCheckPaths" />)
+
+    const paths = LIVE_SITE_CHECKS.map(({ path }) => path)
+    const printed = [...screen.getByTestId("fact").querySelectorAll("code")].map((code) => code.textContent)
+    expect(printed).toEqual([...new Set(paths)])
+    expect(printed.length).toBeLessThan(paths.length)
+  })
+})
+
+describe("licence refund terms", () => {
+  it.each(["en-US", "de-DE", "uk-UA"] as const)("prints the refund period in days for %s, from the refund terms", (locale) => {
+    renderInLocale(locale, <RepositoryFact name="refundWithdrawalDays" unit="day" />)
+
+    expect(screen.getByTestId("fact")).toHaveTextContent(
+      new Intl.NumberFormat(locale, { style: "unit", unit: "day", unitDisplay: "long" }).format(REFUND_TERMS.WITHDRAWAL_DAYS),
+    )
+  })
+
+  it("prints the slug of the checkout's consent field as code", () => {
+    renderInLocale("en-US", <RepositoryFact name="licenseWithdrawalConsentField" />)
+
+    expect(screen.getByText(LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT).tagName).toBe("CODE")
+  })
+})
+
+describe("affiliate terms", () => {
+  it.each(["en-US", "pl-PL"] as const)("prints the commission hold in days for %s, from the affiliate terms", (locale) => {
+    renderInLocale(locale, <RepositoryFact name="affiliateHoldDays" unit="day" />)
+
+    expect(screen.getByTestId("fact")).toHaveTextContent(
+      new Intl.NumberFormat(locale, { style: "unit", unit: "day", unitDisplay: "long" }).format(AFFILIATE_TERMS.HOLD_DAYS),
+    )
+  })
+
+  it("prints the commission, cookie duration, payout, partner portal and referral parameters Affonso is set to, from the code", () => {
+    renderInLocale(
+      "en-US",
+      <ul>
+        <li>
+          <RepositoryFact name="affiliateCommissionPercent" unit="percent" />
+        </li>
+        <li>
+          <RepositoryFact name="affiliateCookieDays" unit="day" />
+        </li>
+        <li>
+          <RepositoryFact name="affiliateMinimumPayout" unit="payout" />
+        </li>
+        <li>
+          <RepositoryFact name="affiliatePayoutCurrency" />
+        </li>
+        <li>
+          <RepositoryFact name="affiliatePortalUrl" />
+        </li>
+        <li>
+          <RepositoryFact name="affonsoReferralParams" />
+        </li>
+      </ul>,
+    )
+
+    expect(listItems()).toEqual([
+      new Intl.NumberFormat("en-US", { style: "unit", unit: "percent" }).format(AFFILIATE_TERMS.COMMISSION_PERCENT),
+      inUnit("day", AFFILIATE_TERMS.COOKIE_DAYS),
+      new Intl.NumberFormat("en-US", {
+        currency: AFFILIATE_TERMS.PAYOUT_CURRENCY,
+        style: "currency",
+        trailingZeroDisplay: "stripIfInteger",
+      }).format(AFFILIATE_TERMS.MINIMUM_PAYOUT),
+      AFFILIATE_TERMS.PAYOUT_CURRENCY,
+      AFFILIATE_PORTAL_URL,
+      englishList(AFFONSO.REFERRAL_PARAMS),
+    ])
+  })
+
+  it.each(["en-US", "de-DE", "ja-JP"] as const)("prints the minimum payout in the payout currency, formatted for %s", (locale) => {
+    renderInLocale(locale, <RepositoryFact name="affiliateMinimumPayout" unit="payout" />)
+
+    expect(screen.getByTestId("fact").textContent).toBe(
+      new Intl.NumberFormat(locale, {
+        currency: AFFILIATE_TERMS.PAYOUT_CURRENCY,
+        style: "currency",
+        trailingZeroDisplay: "stripIfInteger",
+      }).format(AFFILIATE_TERMS.MINIMUM_PAYOUT),
+    )
   })
 })

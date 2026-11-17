@@ -9,7 +9,6 @@ import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getHeaderHref } from "~/src/platform/testing/lib/navigation"
-import { busyMarkup, markupOf } from "~/src/platform/testing/lib/skeleton"
 
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
@@ -36,12 +35,7 @@ import { Route as CataloguePageRoute } from "~/src/routes/_site._marketing.cours
 
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
 
-import {
-  CataloguePending,
-  CoursePending,
-  CoursesPending,
-  LessonPending,
-} from "~/src/presentation/components/custom/courses/courses-pending"
+import { CataloguePending, CoursePending, LessonPending } from "~/src/presentation/components/custom/courses/courses-pending"
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
 import type { VideoPlayer } from "~/src/presentation/components/custom/video-player"
 
@@ -297,10 +291,11 @@ describe("course catalogue", () => {
     expect(screen.getByRole("link", { name: /One-off tutorial/u })).toHaveTextContent(messages.kinds.tutorial)
   })
 
-  it("says when nothing is published", async () => {
+  it("says the first courses are being recorded and points to the build log when nothing is published", async () => {
     await renderCourses({ catalogue: [], path: "/courses" })
 
-    expect(screen.getByText(messages.catalogue.empty)).toBeVisible()
+    expect(screen.getByRole("heading", { level: 2, name: messages.catalogue.empty.title })).toBeVisible()
+    expect(screen.getByText(messages.catalogue.empty.body)).toBeVisible()
   })
 
   it("keeps the courses link current in the localized navigation", async () => {
@@ -478,12 +473,5 @@ describe("course skeletons", () => {
     const { container } = render(<Pending />)
 
     expect(container.querySelector('[aria-busy="true"]')).not.toBeNull()
-  })
-
-  it("draws the catalogue skeleton below the site header while the courses layout loads", () => {
-    const { container } = render(<CoursesPending />)
-
-    expect(container.firstElementChild).toHaveClass("pt-header")
-    expect(busyMarkup(container)).toBe(markupOf(<CataloguePending />))
   })
 })

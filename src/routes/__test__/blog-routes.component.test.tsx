@@ -19,6 +19,7 @@ import { Route as BlogRoute } from "~/src/routes/_site._marketing.blog"
 import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
 import { Route as BlogIndexRoute } from "~/src/routes/_site._marketing.blog.index"
 
+import { BLOG_TAG } from "~/src/data/blog"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -43,7 +44,7 @@ const GUIDE: BlogPost = {
   path: "guide.en-US.mdx",
   readingTimeMinutes: 5,
   summary: "Article summary",
-  tags: ["React", "SaaS"],
+  tags: [BLOG_TAG.TANSTACK_START, BLOG_TAG.SAAS],
   title: SHARED_TITLE,
   toc: [
     { depth: 2, title: "Start", url: "#start" },
@@ -57,9 +58,9 @@ const POLISH_GUIDE: BlogPost = {
   ...GUIDE,
   path: "guide.pl-PL.mdx",
   summary: undefined,
-  tags: [],
+  tags: [BLOG_TAG.TESTING, BLOG_TAG.TOOLING],
   title: "Przewodnik",
-  toc: [],
+  toc: [{ depth: 2, title: "Start", url: "#start" }],
   url: "/pl-PL/blog/guide",
 }
 
@@ -212,17 +213,23 @@ describe("blog routes", () => {
 
   it("links table-of-contents entries and distinguishes nested headings", async () => {
     await renderBlog({ locale: "en-US", path: "/blog/guide" })
-    const toc = within(section(screen.getByText(pagesBlogMessages.post.contents), "aside"))
+    const toc = within(section(screen.getByText(pagesBlogMessages.post.contents, { selector: "aside p" }), "aside"))
     expect(toc.getByRole("link", { name: "Start" })).toHaveAttribute("href", "#start")
     expect(toc.getByRole("link", { name: "Start" })).toHaveClass("pl-4")
     expect(toc.getByRole("link", { name: "Detail" })).toHaveClass("pl-7")
+  })
+
+  it("names a post's tags and its table of contents in the post's language", async () => {
+    await renderBlog({ locale: "pl-PL", path: "/pl-PL/blog/guide", post: POLISH_GUIDE })
+    expect(screen.getByText(`${plPagesBlogMessages.tags[BLOG_TAG.TESTING]}, ${plPagesBlogMessages.tags[BLOG_TAG.TOOLING]}`)).toBeVisible()
+    expect(screen.getByRole("button", { name: plPagesBlogMessages.post.contents })).toBeInTheDocument()
   })
 
   it("renders summaries, tags and reading times without empty placeholders", async () => {
     await renderBlog({ locale: "en-US", path: "/blog", posts: [GUIDE, MINIMAL] })
     const ledger = within(section(screen.getByRole("heading", { level: 1, name: pagesBlogMessages.index.title }), "section"))
     expect(ledger.getByText("Article summary")).toBeVisible()
-    expect(ledger.getByText("React · SaaS")).toBeVisible()
+    expect(ledger.getByText(`${pagesBlogMessages.tags[BLOG_TAG.TANSTACK_START]} · ${pagesBlogMessages.tags[BLOG_TAG.SAAS]}`)).toBeVisible()
     expect(ledger.getByText("5 min read")).toBeVisible()
     expect(ledger.getAllByText(/·/u)).toHaveLength(1)
     expect(ledger.getByRole("link", { name: "Minimal" })).toHaveAttribute("href", "/blog/minimal")

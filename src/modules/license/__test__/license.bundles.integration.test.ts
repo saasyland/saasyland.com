@@ -17,6 +17,7 @@ import {
   LAPTOP,
   LAPTOP_ACTIVATION,
   NOW,
+  RECORD_OUTAGE,
   STUDIO,
   activated,
   buy,
@@ -26,14 +27,18 @@ import {
   expectFailureLogged,
   expectInvalid,
   expectServiceUnavailable,
+  licenseRecords,
   rawRequest,
+  refuseRecordWrites,
   requestBundle,
   signedHeaders,
+  watchLicenseUpdates,
 } from "~/src/modules/license/__test__/fixtures/license-api"
 import { licenseApiHandlers } from "~/src/modules/license/license.api"
 import { bundleObjectKey } from "~/src/modules/license/license.bundles"
 import { BUNDLE_PATH_PREFIX, LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { serveBundle } from "~/src/modules/license/license.delivery"
+import { license } from "~/src/modules/license/license.schema"
 import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 
 import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
@@ -46,6 +51,7 @@ const KEY_LIMIT_ADDRESSES = 3
 const APP_HOST = new URL(TEST_APP_URL).host
 const R2_OUTAGE = "We encountered an internal error. Please try again."
 const NOT_GZIP = "incorrect header check"
+const LATER = new Date(NOW.getTime() + MILLISECONDS_PER_SECOND)
 
 const bundleRoute = (activationId: string): string =>
   API_ROUTE.ACTIVATION_BUNDLES.replace(`:${ROUTE_PARAMETER.ACTIVATION_ID}`, activationId)
@@ -159,6 +165,73 @@ describe("POST /activations/:activationId/bundles", () => {
     const { result } = await requestBundle({ key: buyer.key, machine: STUDIO }, buyer.activationId)
 
     expect(result).toStrictEqual({ failure: { code }, success: false })
+  })
+})
+
+describe("the record of the first template download", () => {
+  it("records the first download before it hands out the signed URL", async () => {
+    const { activationId, key } = await studioBundle()
+
+    const { result } = await requestBundle({ key, machine: STUDIO }, activationId)
+
+    expect(result.success).toBe(true)
+    expect(await licenseRecords(key)).toStrictEqual({ activatedAt: NOW, deliveredAt: NOW })
+  })
+
+  it("records the first download in one update", async () => {
+    const { activationId, key } = await studioBundle()
+    const updates = watchLicenseUpdates()
+
+    await requestBundle({ key, machine: STUDIO }, activationId)
+
+    expect(updates()).toHaveLength(1)
+  })
+
+  it("answers a later download with one round trip to D1 and writes nothing to the licence", async () => {
+    const { activationId, key } = await studioBundle()
+    await requestBundle({ key, machine: STUDIO }, activationId)
+    const updates = watchLicenseUpdates()
+    const batches = vi.spyOn(env.DB, "batch")
+
+    const { result } = await requestBundle({ key, machine: STUDIO }, activationId)
+
+    expect(result.success).toBe(true)
+    expect(updates()).toStrictEqual([])
+    expect(batches).toHaveBeenCalledOnce()
+  })
+
+  it("never overwrites the first download when the CLI downloads templates again", async () => {
+    const { activationId, key } = await studioBundle()
+    await requestBundle({ key, machine: STUDIO }, activationId)
+    vi.setSystemTime(LATER)
+
+    const { result } = await requestBundle({ key, machine: STUDIO }, activationId)
+
+    expect(result.success).toBe(true)
+    expect(await licenseRecords(key)).toStrictEqual({ activatedAt: NOW, deliveredAt: NOW })
+  })
+
+  it("records nothing when it refuses the bundle", async () => {
+    const { activationId, key } = await studioBundle()
+
+    const results = await Promise.all([
+      requestBundle({ key, machine: STUDIO }, activationId, { ...BUNDLE_REQUEST, version: UNRELEASED_VERSION }),
+      requestBundle({ key, machine: STUDIO }, crypto.randomUUID()),
+      requestBundle({ key, machine: LAPTOP }, activationId),
+    ])
+
+    expect(results.map(({ result }) => result.success)).toStrictEqual([false, false, false])
+    expect(await licenseRecords(key)).toStrictEqual({ activatedAt: NOW, deliveredAt: null })
+  })
+
+  it("does not hand out the bundle when it cannot record the download, and logs the failure", async () => {
+    const { activationId, key } = await studioBundle()
+    const errors = consoleErrors()
+    await refuseRecordWrites(license.deliveredAt)
+
+    expectServiceUnavailable(await requestBundle({ key, machine: STUDIO }, activationId))
+    expectFailureLogged(errors, API_ENDPOINT.BUNDLE, RECORD_OUTAGE)
+    expect(await licenseRecords(key)).toStrictEqual({ activatedAt: NOW, deliveredAt: null })
   })
 })
 

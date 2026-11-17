@@ -3,6 +3,7 @@ import type { JSX } from "react"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION, ADMIN_SETTINGS_TABS, ADMIN_USER_DETAILS } from "~/src/data/admin"
 import { ADMIN_DASHBOARD_PANELS, ADMIN_DASHBOARD_STATS } from "~/src/data/dashboard"
 import { ADMIN_DASHBOARD_ACTIONS } from "~/src/data/navigation"
+import { USER_PROFILE_SECTIONS } from "~/src/data/user-profile"
 
 import { Card, CardContent, CardHeader } from "~/src/presentation/components/shadcn/card"
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
@@ -323,21 +324,26 @@ export const AdminUserProfilePending = (): JSX.Element => (
       <RowActionPending />
     </div>
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,24rem)_1fr]">
-      <Card>
-        <CardHeader className="border-b">
-          <Skeleton className="h-lh w-20 scale-y-70 text-base leading-snug" />
-        </CardHeader>
-        <CardContent>
-          <div className="divide-y divide-border text-sm">
-            {ADMIN_USER_DETAILS.map((detail) => (
-              <div className="flex items-center justify-between gap-4 py-2.5" key={detail}>
-                <Skeleton className="h-lh w-28 scale-y-70" />
-                <Skeleton className="h-lh w-20 scale-y-70" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex min-w-0 flex-col gap-6">
+        <Card>
+          <CardHeader className="border-b">
+            <Skeleton className="h-lh w-20 scale-y-70 text-base leading-snug" />
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-border text-sm">
+              {ADMIN_USER_DETAILS.map((detail) => (
+                <div className="flex items-center justify-between gap-4 py-2.5" key={detail}>
+                  <Skeleton className="h-lh w-28 scale-y-70" />
+                  <Skeleton className="h-lh w-20 scale-y-70" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+        {USER_PROFILE_SECTIONS.map(({ key, Pending }) => (
+          <Pending key={key} />
+        ))}
+      </div>
       <Card>
         <CardHeader className="border-b">
           <Skeleton className="h-lh w-20 scale-y-70 text-base leading-snug" />

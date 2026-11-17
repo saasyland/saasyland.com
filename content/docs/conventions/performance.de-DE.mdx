@@ -3,14 +3,14 @@ title: "Performance"
 description: "Die gemessenen Regeln, die Seiten schnell halten: ein kleiner Boot-Graph des Workers, kein ORM im Browser, bei Bedarf geladene Nachrichten, entfernte Preload-Hinweise, die Platzierung von Providern, ein einziger Tailwind-Build, die Größe von Medien und das Reveal-Muster."
 ---
 
-Jede Regel auf dieser Seite stammt aus einer Messung, und mehrere haben eine intuitive Lösung ersetzt, die es schlimmer gemacht hat. Ändern Sie den Code hinter einer dieser Regeln nur mit einer neuen Messung, die sie übertrifft.
+Jede Regel auf dieser Seite stammt aus einer Messung, und mehrere haben eine intuitive Lösung ersetzt, die es schlimmer gemacht hat. Ändere den Code hinter einer dieser Regeln nur mit einer neuen Messung, die sie übertrifft.
 
 ## Erst messen, dann behaupten
 
-- Vergleichen Sie den vorherigen und den neuen Build auf derselben Seite mit mindestens fünf Lighthouse-Läufen pro Build, abwechselnd ausgeführt, und vergleichen Sie die Mediane. Ein einzelner Lauf beweist nichts: Etwa jeder fünfte Lauf ist ein Ausreißer, verursacht durch Rauschen auf der Maschine.
-- Beurteilen Sie eine Änderung nicht anhand eines einzigen Laufs von PageSpeed Insights. Dasselbe Deployment erzielt je nach Geschwindigkeit der Maschine, die den Test ausführt, sehr unterschiedliche Werte; diese Geschwindigkeit meldet Lighthouse als `benchmarkIndex`.
-- Messen Sie einen Produktions-Build (`bun run build:test`, dann `bun run start:test`), ausgeliefert über HTTP/2 mit Komprimierung. Über einfaches lokales HTTP/1.1 ohne Komprimierung modelliert die Netzwerksimulation von Lighthouse Verbindungen und Übertragungsgrößen, die es in Produktion nie gibt.
-- Eine Lighthouse-Diagnose ist kein Score. Ein Hinweis wie „forced reflow“ oder „properly size images“ kann für die Seite falsch sein, wie die folgenden Abschnitte zeigen; prüfen Sie die bewerteten Metriken, bevor Sie danach handeln.
+- Vergleiche den vorherigen und den neuen Build auf derselben Seite mit mindestens fünf Lighthouse-Läufen pro Build, abwechselnd ausgeführt, und vergleiche die Mediane. Ein einzelner Lauf beweist nichts: Etwa jeder fünfte Lauf ist ein Ausreißer, verursacht durch Rauschen auf der Maschine.
+- Beurteile eine Änderung nicht anhand eines einzigen Laufs von PageSpeed Insights. Dasselbe Deployment erzielt je nach Geschwindigkeit der Maschine, die den Test ausführt, sehr unterschiedliche Werte; diese Geschwindigkeit meldet Lighthouse als `benchmarkIndex`.
+- Miss einen Produktions-Build (`bun run build:test`, dann `bun run start:test`), ausgeliefert über HTTP/2 mit Komprimierung. Über einfaches lokales HTTP/1.1 ohne Komprimierung modelliert die Netzwerksimulation von Lighthouse Verbindungen und Übertragungsgrößen, die es in Produktion nie gibt.
+- Eine Lighthouse-Diagnose ist kein Score. Ein Hinweis wie „forced reflow“ oder „properly size images“ kann für die Seite falsch sein, wie die folgenden Abschnitte zeigen; prüfe die bewerteten Metriken, bevor du danach handelst.
 
 ## Den Boot-Graph des Workers klein halten
 
@@ -24,7 +24,7 @@ const { default: handler } = await import("@tanstack/react-start/server-entry")
 const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
-Ein einziger statischer Import eines Header-Namens aus einem Modul, das auch den Polar-Client importierte, zog einmal etwa 1,4 MB SDK in jeden Kaltstart, und das erste Byte der Landingpage brauchte bis zu 1,4 Sekunden. Deshalb liegen `COUNTRY_HEADER` und `IP_ADDRESS_HEADER` in `src/modules/_core/constants/api.ts`, das nichts Schweres importiert. Bevor Sie `server.ts` oder einer `<area>.worker.ts` einen statischen Import hinzufügen, verfolgen Sie dessen Importkette: Alles, was `polar`, `drizzle-orm` oder `resend` erreicht, ist eine Regression. `scripts/verify-build.ts` prüft das bei jedem Build: Es verfolgt die statischen Importe des Einstiegspunkts des deployten Workers, `dist/server/index.js`, und schlägt fehl, wenn sie Code erreichen, der aus `@polar-sh`, `drizzle-orm` oder `resend` gebündelt wurde, oder zusammen mehr als `BOOT_CLOSURE_MAX_BYTES` ergeben.
+Ein einziger statischer Import eines Header-Namens aus einem Modul, das auch den Polar-Client importierte, zog einmal etwa 1,4 MB SDK in jeden Kaltstart, und das erste Byte der Landingpage brauchte bis zu 1,4 Sekunden. Deshalb liegen `COUNTRY_HEADER` und `IP_ADDRESS_HEADER` in `src/modules/_core/constants/api.ts`, das nichts Schweres importiert. Bevor du `server.ts` oder einer `<area>.worker.ts` einen statischen Import hinzufügst, verfolge dessen Importkette: Alles, was `polar`, `drizzle-orm` oder `resend` erreicht, ist eine Regression. `scripts/verify-build.ts` prüft das bei jedem Build: Es verfolgt die statischen Importe des Einstiegspunkts des deployten Workers, `dist/server/index.js`, und schlägt fehl, wenn sie Code erreichen, der aus `@polar-sh`, `drizzle-orm` oder `resend` gebündelt wurde, oder zusammen mehr als `BOOT_CLOSURE_MAX_BYTES` ergeben.
 
 ## Das ORM aus dem Browser heraushalten [#keep-the-orm-out-of-the-browser]
 
@@ -46,7 +46,7 @@ Drizzle läuft nur im Worker. Der Browser braucht die Zod-Schemas eines Moduls f
 const SERVER_ONLY_PACKAGES = [/^drizzle-orm(?:\/|$)/u]
 ```
 
-Ein Build, in dem ein Import davon das Tree-Shaking übersteht, schlägt fehl und gibt die Importkette von der Route bis zu der Datei aus, die Drizzle erreicht hat. Unterbrechen Sie die Kette dort, wo sie beginnt: Importieren Sie das Tupel aus den Konstanten des Moduls, oder verschieben Sie den Code in eine Server Function. Reine Typ-Importe werden entfernt und zählen nie.
+Ein Build, in dem ein Import davon das Tree-Shaking übersteht, schlägt fehl und gibt die Importkette von der Route bis zu der Datei aus, die Drizzle erreicht hat. Unterbrich die Kette dort, wo sie beginnt: Importiere das Tupel aus den Konstanten des Moduls, oder verschiebe den Code in eine Server Function. Reine Typ-Importe werden entfernt und zählen nie.
 
 ## Nachrichten laden, wenn eine Seite sie braucht [#load-messages-when-a-page-needs-them]
 
@@ -68,7 +68,7 @@ const { MESSAGE_LOADERS } = await import("~/src/integrations/use-intl/i18n.loade
 | `/app`         | 430,4 KiB | 409,7 KiB |
 | `/admin`       | 452,8 KiB | 432,2 KiB |
 
-Laden Sie Nachrichten nur über `loadNamespace`, und fügen Sie nie ein `import.meta.glob` über `messages/` in ein Modul ein, das die Root-Route importiert. `scripts/verify-build.ts` folgt den statischen Importen des Einstiegsskripts im Browser und lässt den Build fehlschlagen, wenn sie den Loader eines Seiten-Namespace enthalten.
+Lade Nachrichten nur über `loadNamespace`, und füge nie ein `import.meta.glob` über `messages/` in ein Modul ein, das die Root-Route importiert. `scripts/verify-build.ts` folgt den statischen Importen des Einstiegsskripts im Browser und lässt den Build fehlschlagen, wenn sie den Loader eines Seiten-Namespace enthalten.
 
 ## Vorgerenderte Seiten laden zuerst CSS und Schriften
 
@@ -78,9 +78,19 @@ Laden Sie Nachrichten nur über `loadNamespace`, und fügen Sie nie ein `import.
 moduleEntries.has(hint) ? `<link rel="modulepreload" href="${hint}" fetchpriority="low"/>` : ""
 ```
 
-Das Entfernen der Hinweise senkte den First Contentful Paint um etwa ein Drittel; den Entry-Hinweis mit niedriger Priorität zu behalten, senkte den mobilen First Contentful Paint um weitere 375 ms. Fügen Sie nie wieder Preload-Hinweise hinzu, weder für Abhängigkeiten noch für Routen-Chunks. Das Skript lässt den Build fehlschlagen, wenn es keinen Hinweis zum Entfernen oder keinen zum Behalten findet, sodass eine Änderung der Build-Ausgabe auffällt, statt dies stillschweigend rückgängig zu machen.
+Das Entfernen der Hinweise senkte den First Contentful Paint um etwa ein Drittel; den Entry-Hinweis mit niedriger Priorität zu behalten, senkte den mobilen First Contentful Paint um weitere 375 ms. Füge nie wieder Preload-Hinweise hinzu, weder für Abhängigkeiten noch für Routen-Chunks. Das Skript lässt den Build fehlschlagen, wenn es keinen Hinweis zum Entfernen oder keinen zum Behalten findet, sodass eine Änderung der Build-Ausgabe auffällt, statt dies stillschweigend rückgängig zu machen.
+
+TanStack Start gibt inzwischen jeden Hinweis mit `fetchpriority="low"` aus, deshalb wurde die Regel im November 2026 auf der Landingpage neu gemessen, fünf abwechselnde Läufe je Variante. Mit allen 156 Hinweisen lud der Browser die Chunks der Seite in einer Welle statt in elf und hydrierte den CLI-Konfigurator auf dem Desktop 250 ms und auf einem gedrosselten Smartphone 315 ms früher, aber der First Contentful Paint kam auf dem Desktop 68 ms und mobil 77 ms später. Die Hinweise bleiben entfernt.
+
+Die Skript-Richtlinie behält diese Reihenfolge bei. Der Worker streamt jede vorgerenderte Seite durch `withNonce`, einen `HTMLRewriter`, der die Nonce der Antwort dem `<script type="module">` des Entry-Moduls und seinem Hinweis hinzufügt und sonst nichts ändert, sodass der Hinweis im Head den Download weiterhin mit niedriger Priorität startet und das Modul weiterhin läuft, sobald der Parser das Ende des Body erreicht. Das Umschreiben geschieht im Stream und hält daher kein Byte zurück, aber HTML-Antworten tragen kein `ETag`, deshalb lädt ein Browser eine Seite erneut herunter, statt sie zu revalidieren.
 
 `robots.txt` und `llms.txt` sind statische Dateien in `public/`, die den Worker umgehen (`"!/robots.txt", "!/llms.txt"` in `run_worker_first`). Lighthouse ruft beide mit einem Timeout von zwei Sekunden ab, und eine langsame Antwort des Workers ließ die Audits von Lighthouse für SEO und Agent-Readiness fehlschlagen.
+
+## Early Hints nennen nur Dateien, die ein Deployment überdauern
+
+Der `Link`-Header des Workers auf HTML-Antworten nennt die Schriften der Locale und sonst nichts. Cloudflare speichert den Header pro URL und sendet ihn als `103 Early Hints`-Antwort, bevor der Worker die nächste Anfrage an diese URL beantwortet, und die gespeicherte Kopie übersteht ein Deployment. Vite benennt das Stylesheet nach seinem Inhalt, daher ist ein angekündigtes Stylesheet nach einem Deployment, das irgendein CSS ändert, eine Datei, die es nicht mehr gibt: Der Browser lädt einen 404 und findet das neue Stylesheet ohnehin im HTML. Die Dateien in `public/fonts` behalten ihre Namen von einem Deployment zum nächsten.
+
+Gemessen auf saasyland.com mit Chromium, 15 verschränkte Läufe pro Variante auf drei Seiten, mit dem tatsächlichen Early-Hints-Timing der Edge: Die Ankündigung der Schriften senkte den First Contentful Paint von 168–208 ms auf 144–164 ms. Eine Ankündigung des Stylesheets sparte weitere 12–28 ms, wenn seine URL aktuell war, und nichts, wenn ein Deployment sie ersetzt hatte; 25 Minuten nach einem Deployment kündigten 67 der 91 Sitemap-Seiten, die Early Hints erhielten, noch das vorherige Stylesheet an. Das `<link>` des Stylesheets steht im ersten Kilobyte jeder Seite, sodass der Browser es mit den ersten Bytes des HTML findet. Kündige nur Dateien an, deren URLs ein Deployment überdauern.
 
 ## Provider umschließen nie ein Routen-Outlet
 
@@ -89,7 +99,11 @@ TanStack Router umschließt Routen-Outlets mit Suspense-Boundaries, und React hy
 - `ThemeProvider` um die gesamte Anwendung machte die Hydration der Landingpage zu einer einzigen Aufgabe von 200 ms, die Eingaben blockierte. Nachdem er nur noch um seine beiden Nutzer herum eingebunden wurde, den `Toaster` und den `ThemeSwitch` der Dokumentation, sank die Total Blocking Time von etwa 150 ms auf unter 10 ms.
 - `MotionProvider` über einem Routen-Outlet veröffentlicht einen neuen Context, wenn seine Animationsfunktionen fertig geladen sind. Bei einem Blogbeitrag traf diese Aktualisierung ein, während die Seite noch ihren Inhalt lud; React wich auf clientseitiges Rendern aus, und das Layout verschob sich.
 
-Bevor Sie `__root.tsx` oder einem Layout einen Provider hinzufügen, prüfen Sie, ob sich sein Wert nach der Hydration ändern kann. Wenn ja, binden Sie ihn neben den Komponenten ein, die ihn lesen, unterhalb jedes Routen-`<Outlet />`. Die Platzierungen sind unter [Komponenten und Styling](/docs/conventions/components) aufgeführt.
+Bevor du `__root.tsx` oder einem Layout einen Provider hinzufügst, prüfe, ob sich sein Wert nach der Hydration ändern kann. Wenn ja, binde ihn neben den Komponenten ein, die ihn lesen, unterhalb jedes Routen-`<Outlet />`. Die Platzierungen sind unter [Komponenten und Styling](/docs/conventions/components) aufgeführt.
+
+## Ein Widget, das teuer zu hydrieren ist, bekommt eine eigene Boundary [#a-widget-that-is-heavy-to-hydrate-gets-its-own-boundary]
+
+Der CLI-Konfigurator auf der Landingpage rendert vierzig React-Aria-Buttons, jeder mit eigenen Hooks für Drücken, Hover und Fokus. Zusammen mit dem Rest der Seite hydriert, machten ihre Effekte den Commit, der die Hydration der Seite abschließt, unter der Desktop-Drosselung von Lighthouse zu einer Aufgabe von 70–100 ms, die die Total Blocking Time von 101 auf 147 ms hob. `CliSection` umschließt `CliConfigurator` mit einer `Suspense`-Boundary, die nie suspendiert. React hydriert eine solche Boundary für sich, nach dem Rest der Seite, und committet sie getrennt, sodass die lange Aufgabe verschwindet und die Total Blocking Time 100 ms beträgt, bei unverändertem First Contentful Paint und Largest Contentful Paint. Der Konfigurator selbst hydriert etwa 50 ms später. Gib einem anderen Widget nur dann eine eigene Boundary, wenn ein Vergleich dieselbe lange Aufgabe zeigt.
 
 ## Skeletons bleiben im Einstiegsskript [#skeletons-stay-in-the-entry-script]
 
@@ -108,7 +122,7 @@ Weil jede Seite jedes Skeleton lädt, importiert ein Skeleton `Skeleton`, die sh
 | `/app`         | 430,4 KiB | 404,1 KiB |
 | `/admin`       | 452,9 KiB | 427,7 KiB |
 
-`/` und `/blog` sparen weniger, weil ihre Layouts das Newsletter-Formular rendern, das TanStack Form ohnehin braucht. `pending-imports.test.ts` folgt den Importen jeder `*-pending.tsx` und schlägt fehl, wenn eine davon `@tanstack/react-form` erreicht. Die Panels des Admin-Dashboards und die Abschnitte der Kundenübersicht koppeln jedes Skeleton weiterhin in der Liste des Bereichs an seine Komponente, sodass diese Komponenten mit den Skeletons geladen werden.
+`/` und `/blog` sparen weniger, weil ihre Layouts das Newsletter-Formular rendern, das TanStack Form ohnehin braucht. `pending-imports.test.ts` folgt den Importen jeder `*-pending.tsx` und schlägt fehl, wenn eine davon `@tanstack/react-form` erreicht. Die Panels des Admin-Dashboards und die Abschnitte der Kundenübersicht koppeln jedes Skeleton weiterhin in der Liste des Bereichs an seine Komponente, sodass diese Komponenten mit den Skeletons geladen werden. Das Lizenzangebot ist einer dieser Abschnitte, deshalb lädt sein Checkout-Dialog das Zustimmungsformular `checkout-consent.tsx` mit `lazy`, wenn sich der Dialog öffnet.
 
 ## Ein einziger Tailwind-Build
 
@@ -123,16 +137,20 @@ Ein zweiter Tailwind-Build in einem Routen-Stylesheet lieferte einmal seine eige
 
 ## Medien
 
-- **Landing-Loops.** Jede `src/presentation/assets/motion/<name>.webm` hat ein Posterbild `<name>.webp` mit genau den Abmessungen des Videos, damit der Übergang vom Posterbild zum Video nicht sichtbar schärfer wird. Die Abmessungen sind `LANDING_VIDEO_SIZES` in `src/data/landing-videos.ts`, die sowohl die Remotion-Kompositionen als auch `ConceptLoop` lesen. Kleinere Breiten sind eigene Dateien, `<name>-<width>.webp`, angeboten über das `srcSet` des Posterbilds. `landing-videos.test.ts` schlägt fehl, wenn die Größe eines Posterbilds von seiner Komposition oder von der Breite in seinem Dateinamen abweicht. Verkleinern Sie nie das Posterbild in voller Größe; um es leichter zu machen, kodieren Sie es in denselben Abmessungen neu. Die Videos laden mit `preload="none"`, spielen nur, solange ein Viertel davon sichtbar ist, und spielen nie für Leser, die reduzierte Bewegung bevorzugen.
+- **Landing-Loops.** Jede `src/presentation/assets/motion/<name>.webm` hat ein Posterbild `<name>.webp` mit genau den Abmessungen des Videos, damit der Übergang vom Posterbild zum Video nicht sichtbar schärfer wird. Die Abmessungen sind `LANDING_VIDEO_SIZES` in `src/data/landing-videos.ts`, die sowohl die Remotion-Kompositionen als auch `ConceptLoop` lesen. Kleinere Breiten sind eigene Dateien, `<name>-<width>.webp`, angeboten über das `srcSet` des Posterbilds. `landing-videos.test.ts` schlägt fehl, wenn die Größe eines Posterbilds von seiner Komposition oder von der Breite in seinem Dateinamen abweicht. Verkleinere nie das Posterbild in voller Größe; um es leichter zu machen, kodiere es in denselben Abmessungen neu. Die Videos laden mit `preload="none"`, spielen nur, solange ein Viertel davon sichtbar ist, und spielen nie für Leser, die reduzierte Bewegung bevorzugen.
 - **Die Kurstour** in `course-showcase.tsx` ist keine Schleife. Ihr `<video>` wird erst gerendert, wenn jemand auf Abspielen drückt, sodass die Seite bis dahin nur das Posterbild lädt: ein `<picture>` mit AVIF- und WebP-Quellen in den 1600 Pixeln des Videos und in 800 Pixeln. Das Video selbst wird als WebM mit MP4 als Ausweichformat ausgeliefert.
 - **Kursvideos** werden vorab in adaptives HLS kodiert und mit dem Workers-Cache aus R2 ausgeliefert. Siehe [Videos](/docs/features/videos).
 - **Per Scrollen gesteuertes Video.** Die Website hat derzeit keines. Ein Video, dessen Zeit der Scrollposition folgt, muss all-intra kodiert sein (jeder Frame ein Keyframe, `keyint=1`): Bei einer normalen Kodierung dauert ein Sprung etwa 200 ms, bei einer all-intra-Kodierung etwa 3 ms, und keine noch so starke Glättung in JavaScript macht aus einem Sprung von 200 ms ein flüssiges Scrubbing.
 
 ## Einblenden beim Scrollen
 
-`Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) blendet Abschnitte der Landingpage ein, wenn sie in den Viewport kommen. Es teilt einen `IntersectionObserver` zwischen allen Instanzen, entscheidet anhand des ersten Callbacks des Observers, ob ein Element unterhalb des sichtbaren Bereichs beginnt, und schreibt `data-reveal`-Attribute direkt, ohne React-State und ohne erneutes Rendern. Eine Version, die die Sichtbarkeit in React-State hielt, verdoppelte die Total Blocking Time, weil jeder Abschnitt neu renderte und die Seite zweimal das Layout berechnete. Verlagern Sie es nicht zurück in State, und ersetzen Sie es nicht ohne Vergleichsmessung.
+`Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) blendet Abschnitte der Landingpage ein, wenn sie in den Viewport kommen. Es teilt einen `IntersectionObserver` zwischen allen Instanzen, entscheidet anhand des ersten Callbacks des Observers, ob ein Element unterhalb des sichtbaren Bereichs beginnt, und schreibt `data-reveal`-Attribute direkt, ohne React-State und ohne erneutes Rendern. Eine Version, die die Sichtbarkeit in React-State hielt, verdoppelte die Total Blocking Time, weil jeder Abschnitt neu renderte und die Seite zweimal das Layout berechnete. Verlagere es nicht zurück in State, und ersetze es nicht ohne Vergleichsmessung.
 
 Zwei weitere Optimierungen wurden gemessen und verworfen: `content-visibility: auto` auf Abschnitten der Landingpage, was seiteninterne Links zu weiter unten liegenden Abschnitten kaputt machte, und das verzögerte Laden des Newsletter-Formulars, das gleich gut oder schlechter abschnitt, als es direkt zu rendern.
+
+## Später geladene Inhalte behalten ihre Größe
+
+Eine vorgerenderte Seite wird gezeichnet, bevor ein Skript läuft, also muss ein Abschnitt, der sich danach füllt, in den Platz passen, den er bekommen hat. Der Kursblock der Landingpage ist ein solcher Abschnitt: Er liest die veröffentlichten Kurse, sobald er in die Nähe gescrollt wird, und sein Platzhalter nahm früher zwei Kurse mit je sechs Lektionen an, sodass der Block beim Eintreffen der Kurse wuchs oder schrumpfte und alles darunter um hundert Pixel und mehr verschob. Seine Spalten haben jetzt eine feste Folge einzeiliger Zeilen, der Platzhalter zeichnet dieselben Zeilen, und seine Hinweise stehen in einem Rahmen von der Größe einer Spalte, sodass jeder Zustand bei jeder Breite dieselbe Höhe hat (siehe [Kurse](/docs/features/courses)). Die Sternanzahl auf der Landingpage macht es genauso, mit einem Skeleton so hoch wie die Zahl. Die Kurse ins vorgerenderte HTML zu schreiben, ist keine Option: Der Build hat keine Produktionsdatenbank, und die Landingpage bei jeder Anfrage im Worker zu rendern, würde die Zeit bis zum ersten Byte wieder hergeben, die das Vorrendern spart.
 
 ## Verwandte Seiten
 

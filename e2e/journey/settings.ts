@@ -4,7 +4,7 @@ import { parseEnv } from "node:util"
 
 import * as zod from "zod"
 
-import { POLAR_SERVER } from "../../src/lib/polar"
+import { POLAR_SERVER } from "../../src/data/polar"
 import { LICENSE_TIER, type LicenseTier } from "../../src/modules/license/license.constants"
 
 const ENV_FILE = new URL("../../.env.preview", import.meta.url)

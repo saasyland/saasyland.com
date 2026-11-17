@@ -1,7 +1,7 @@
-import type { Page } from "@playwright/test"
+import type { Locator, Page } from "@playwright/test"
 
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
-import { SITE_CONTENT_ID } from "../../src/data/navigation.constants"
+import { MARKETING_SECTION_IDS, SITE_CONTENT_ID } from "../../src/data/navigation.constants"
 import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
@@ -9,6 +9,10 @@ import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 
 const CLIENT_SCRIPT = /\/assets\/[\w.-]+\.js$/u
 const MOBILE_VIEWPORT = { height: 844, width: 390 }
+const HEADER_VIEWPORTS = [MOBILE_VIEWPORT, { height: 900, width: 1280 }, { height: 900, width: 1440 }, { height: 1000, width: 1870 }]
+const HEADER_LINE_WIDTH = "1px"
+const TRANSPARENT = "rgba(0, 0, 0, 0)"
+const MINIMUM_TARGET = 24
 const POLISH = "pl-PL"
 const [freeLesson] = TEST_LESSONS
 
@@ -23,10 +27,12 @@ const PUBLIC_PAGES = [
   ROUTES.DOCS,
   DOCS_PAGE,
   ROUTES.LICENCE,
-  ROUTES.PREMIUM,
+  "/this-page-does-not-exist",
 ]
 
-const POLISH_PAGES = [ROUTES.HOME, ROUTES.BLOG, ROUTES.DOCS].map((pathname) => localizePathname({ locale: POLISH, pathname }))
+const HEADER_PAGES = [ROUTES.HOME, ROUTES.BLOG, ROUTES.DOCS]
+
+const POLISH_PAGES = HEADER_PAGES.map((pathname) => localizePathname({ locale: POLISH, pathname }))
 
 const HEADER_LABELS = ["SaaSy Land", "Pricing", "Courses", "Blog", "Docs", "Sign in", "Start building"]
 
@@ -38,16 +44,49 @@ const CURRENT_ENTRIES = [
   { current: [], path: ROUTES.LICENCE },
 ]
 
+interface Box {
+  bottom: number
+  left: number
+  right: number
+  top: number
+}
+
+const boxOf = (element: Element): Box => {
+  const { bottom, left, right, top } = element.getBoundingClientRect()
+  return { bottom, left, right, top }
+}
+
 const visit = async (page: Page, path: string): Promise<void> => {
   await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await new BasePage(page).waitForAppReady()
 }
 
-const linksOf = async (page: Page, scope: string): Promise<string[][]> =>
-  page
-    .locator(scope)
-    .getByRole("link")
-    .evaluateAll((links) => links.map((link) => [link.textContent.trim(), link.getAttribute("href") ?? ""]))
+const linksOf = async (scope: Locator): Promise<string[][]> =>
+  scope.getByRole("link").evaluateAll((links) => links.map((link) => [link.textContent.trim(), link.getAttribute("href") ?? ""]))
+
+const menuButton = (page: Page): Locator => page.getByRole("button", { exact: true, name: "Open menu" })
+
+const menu = (page: Page): Locator => page.getByRole("dialog", { exact: true, name: "Menu" })
+
+const isInMenu = async (page: Page): Promise<boolean> =>
+  page.evaluate(() => document.querySelector('[role="dialog"]')?.contains(document.activeElement) === true)
+
+const isInert = async (locator: Locator): Promise<boolean> => locator.evaluate((element) => element.closest("[inert]") !== null)
+
+const headerPlacement = async (page: Page): Promise<{ header: Box; logo: Box; navigation: Box }> => {
+  const header = page.getByRole("banner")
+  return {
+    header: await header.evaluate(boxOf),
+    logo: await header.getByRole("link", { exact: true, name: "SaaSy Land" }).evaluate(boxOf),
+    navigation: await header.getByRole("navigation").evaluate(boxOf),
+  }
+}
+
+const headerLine = async (page: Page): Promise<{ color: string; width: string }> =>
+  page.getByRole("banner").evaluate((header) => {
+    const { borderBottomColor, borderBottomWidth } = getComputedStyle(header)
+    return { color: borderBottomColor, width: borderBottomWidth }
+  })
 
 const headerLinks = async (page: Page): Promise<string[][]> => {
   await expect(page.getByRole("banner")).toHaveCount(1)
@@ -102,6 +141,33 @@ test.describe("one site header", () => {
     }
   })
 
+  test("stays in one place with its bottom line on the landing page, the blog and the docs, at the top of the page and after scrolling", async ({
+    page,
+  }) => {
+    for (const viewport of HEADER_VIEWPORTS) {
+      await page.setViewportSize(viewport)
+      const placements = new Map<string, Awaited<ReturnType<typeof headerPlacement>>>()
+      for (const path of HEADER_PAGES) {
+        await visit(page, path)
+        const top = { line: await headerLine(page), placement: await headerPlacement(page) }
+        await page.evaluate(() => {
+          window.scrollTo({ behavior: "instant", top: window.innerHeight })
+        })
+        expect(await page.evaluate(() => window.scrollY), path).toBeGreaterThan(0)
+
+        expect(top.line.width, path).toBe(HEADER_LINE_WIDTH)
+        expect(top.line.color, path).not.toBe(TRANSPARENT)
+        expect({ line: await headerLine(page), placement: await headerPlacement(page) }, path).toStrictEqual(top)
+        placements.set(path, top.placement)
+      }
+
+      const [landing] = placements.values()
+      for (const [path, placement] of placements) {
+        expect(placement, `${path} at ${String(viewport.width)} px`).toStrictEqual(landing)
+      }
+    }
+  })
+
   test("keeps the same links, localized, on the Polish landing page, blog and docs", async ({ page }) => {
     await visit(page, ROUTES.HOME)
     const english = await headerLinks(page)
@@ -116,25 +182,27 @@ test.describe("one site header", () => {
     }
   })
 
-  test("opens the same menu on a phone on every public page, and the docs keep their own sidebar", async ({ page }) => {
+  test("opens the same menu, with every header link, on a phone on every public page, and the docs keep their own sidebar", async ({
+    page,
+  }) => {
     await page.setViewportSize(MOBILE_VIEWPORT)
     const menus = new Map<string, string[][]>()
     for (const path of PUBLIC_PAGES) {
       await visit(page, path)
       await expect(page.getByRole("banner")).toHaveCount(1)
-      await page.getByRole("button", { exact: true, name: "Open menu" }).click()
-      await expect(page.locator("#mobile-menu")).toBeVisible()
-      menus.set(path, await linksOf(page, "#mobile-menu"))
+      await menuButton(page).click()
+      await expect(menu(page)).toBeVisible()
+      menus.set(path, await linksOf(menu(page)))
     }
 
     const [landing] = menus.values()
-    expect(landing?.map(([label]) => label)).toStrictEqual(HEADER_LABELS.slice(1, -1))
+    expect(landing?.map(([label]) => label)).toStrictEqual(HEADER_LABELS)
     for (const [path, links] of menus) {
       expect(links, path).toStrictEqual(landing)
     }
 
     await visit(page, DOCS_PAGE)
-    const sidebarButton = page.getByRole("navigation", { exact: true, name: "Docs" }).getByRole("button", { exact: true, name: "Open Sidebar" })
+    const sidebarButton = page.getByRole("navigation", { exact: true, name: "Docs" }).getByRole("button", { exact: true, name: "Open docs menu" })
     const header = await page.getByRole("banner").boundingBox()
     expect((await sidebarButton.boundingBox())?.y).toBeGreaterThanOrEqual((header?.y ?? 0) + (header?.height ?? 0))
     await sidebarButton.click()
@@ -153,6 +221,23 @@ test.describe("one site header", () => {
       expect(marked.filter((label) => label !== "SaaSy Land")).toStrictEqual(current)
     })
   }
+
+  test("marks Pricing on the pricing section, and never the Start building call to action that leads there", async ({ page }) => {
+    await visit(page, `${ROUTES.HOME}#${MARKETING_SECTION_IDS.PRICING}`)
+    const header = page.getByRole("banner")
+
+    await expect(header.getByRole("link", { exact: true, name: "Pricing" })).toHaveAttribute("aria-current", "page")
+    await expect(header.getByRole("link", { exact: true, name: "Start building" })).not.toHaveAttribute("aria-current")
+  })
+
+  test("gives the logo a tap target of at least 24 by 24 pixels", async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT)
+    await visit(page, ROUTES.LICENCE)
+    const logo = await page.getByRole("banner").getByRole("link", { exact: true, name: "SaaSy Land" }).boundingBox()
+
+    expect(logo?.width).toBeGreaterThanOrEqual(MINIMUM_TARGET)
+    expect(logo?.height).toBeGreaterThanOrEqual(MINIMUM_TARGET)
+  })
 
   test("the docs page renders without a hydration error, and nothing in the header or the article moves", async ({ browserName, page }) => {
     test.skip(browserName !== "chromium", "Layout shift entries are a Chromium API")
@@ -189,5 +274,55 @@ test.describe("one site header", () => {
     expect(problems).toEqual([])
     expect(moved).toEqual([])
     expect(heading?.y).toBeGreaterThanOrEqual((header?.y ?? 0) + (header?.height ?? 0))
+  })
+})
+
+test.describe("the phone menu", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT)
+    await visit(page, ROUTES.HOME)
+  })
+
+  test("is a modal: focus moves to its close button, Tab stays inside, and the page behind is inert", async ({ page }) => {
+    await menuButton(page).focus()
+    await page.keyboard.press("Enter")
+
+    await expect(menu(page)).toBeVisible()
+    await expect(menu(page).getByRole("button", { exact: true, name: "Close menu" })).toBeFocused()
+    expect(await isInert(page.locator("main"))).toBe(true)
+    expect(await isInert(page.locator("header"))).toBe(true)
+
+    const focusable = await menu(page).locator("a[href], button").count()
+    for (let step = 1; step <= focusable + 1; step += 1) {
+      await page.keyboard.press("Tab")
+      expect(await isInMenu(page), `Tab ${String(step)} stays in the menu`).toBe(true)
+    }
+    for (let step = 1; step <= focusable + 1; step += 1) {
+      await page.keyboard.press("Shift+Tab")
+      expect(await isInMenu(page), `Shift+Tab ${String(step)} stays in the menu`).toBe(true)
+    }
+  })
+
+  test("returns focus to the menu button after Escape and after its close button", async ({ page }) => {
+    await menuButton(page).click()
+    await expect(menu(page)).toBeVisible()
+    await page.keyboard.press("Escape")
+    await expect(menu(page)).toBeHidden()
+    await expect(menuButton(page)).toBeFocused()
+
+    await menuButton(page).click()
+    await menu(page).getByRole("button", { exact: true, name: "Close menu" }).click()
+    await expect(menu(page)).toBeHidden()
+    await expect(menuButton(page)).toBeFocused()
+    expect(await isInert(page.locator("main"))).toBe(false)
+  })
+
+  test("leads to the pricing section from its Start building call to action", async ({ page }) => {
+    await menuButton(page).click()
+    await menu(page).getByRole("link", { exact: true, name: "Start building" }).click()
+
+    await expect(menu(page)).toBeHidden()
+    await expect(page).toHaveURL(new RegExp(`#${MARKETING_SECTION_IDS.PRICING}$`, "u"))
+    await expect(page.locator(`#${MARKETING_SECTION_IDS.PRICING}`)).toBeInViewport()
   })
 })

@@ -15,9 +15,13 @@ Workflow-файли розміщено в `.github/workflows/`. Workflow-фай�
 
 `remotion.yml` запускається для pull request і push за тими самими шляхами: `remotion/`, сам workflow і файли сайту, які імпортує `remotion/src`, напряму або через інші файли сайту. `src/__test__/workflows.test.ts` іде за цими імпортами й не проходить, коли знайдений через них файл не відповідає жодному зі шляхів або шлях не відповідає жодному з файлів.
 
+Checkout-и, що збирають сайт, у `e2e-reusable.yml` і `deploy-reusable.yml`, а також checkout завдання `release` завантажують усі коміти без їхніх дерев (`fetch-depth: 0` і `filter: tree:0`): [журнал змін](/docs/project/changelog) датує кожен запис комітом, який приніс його в `main`. Порівняно з неглибоким клоном додаються лише самі коміти; з неглибоким клоном збірка завершилася б помилкою, а не датувала б записи неправильно. `src/__test__/workflows.test.ts` не проходить, коли один із цих checkout-ів перестає завантажувати історію.
+
 ## Перевірки
 
 Завдання `verify` у `ci.yml` запускає `bun run check` (таблиці імен класів, перевірки i18n і контенту, форматування, лінтинг і типи) та `bun run test:coverage`, а потім завантажує звіт про покриття. Завдання `e2e` запускає `db:reset:test` і `build:test`, встановлює браузер і запускає `bunx playwright test e2e/specs --project=chromium`. Невдалі запуски E2E завантажують звіт Playwright.
+
+У pull request `bun run check` також завершується помилкою, доки pull request не додасть власний [запис журналу змін](/docs/conventions/git-workflow#changelog-entries).
 
 ## Розгортання
 
@@ -30,7 +34,7 @@ Workflow-файли розміщено в `.github/workflows/`. Workflow-фай�
 
 `deploy-reusable.yml` задає кожному середовищу GitHub його URL, а `src/__test__/workflows.test.ts` не проходить, коли якийсь із них відрізняється від хоста середовища в `DEPLOYED_HOSTS` (`src/modules/_core/constants/api.ts`). Pull request із форків і від Dependabot перевіряються, але не розгортаються. Preview спільний: кожне розгортання замінює попереднє й використовує ту саму базу даних D1, простір імен KV і бакети R2 для preview.
 
-`deploy-reusable.yml` перевіряє наявність секретів `CLOUDFLARE_API_TOKEN` і `CLOUDFLARE_ACCOUNT_ID`, запускає `scripts/verify-bindings.ts`, виконує збірку з фіктивними значеннями з `.env.test`, видаляє згенерований `dist/server/.dev.vars`, застосовує `db:migrate:<target>` і запускає `vp exec wrangler deploy --config dist/server/wrangler.json`. `scripts/verify-deployment.ts`, перевірка розгорнутого сайту зі скриптів `deploy:<target>`, тут не запускається, бо захист Cloudflare від ботів відповідає 403 на запити з раннерів CI. `scripts/run-deploy-checks.ts` тут теж не запускається, тож CI не виконує жодної з перевірок перед розгортанням, які розділи оголошують у `DEPLOY_CHECKS`: у CI немає `.env.<target>`, а середовища GitHub містять лише облікові дані Cloudflare. Зараз єдина така перевірка — `polar:verify` із розділу Polar; запускайте `bun run polar:verify:<target>` локально після кожної зміни в Polar ([Налаштування Polar](/docs/getting-started/polar-setup)). Файл секретів не завантажується: Worker зберігає секрети середовища виконання, уже задані в Cloudflare. Розгортання в ту саму ціль стають у чергу, а не скасовують одне одного.
+`deploy-reusable.yml` перевіряє наявність секретів `CLOUDFLARE_API_TOKEN` і `CLOUDFLARE_ACCOUNT_ID`, запускає `scripts/verify-bindings.ts`, виконує збірку з фіктивними значеннями з `.env.test`, видаляє згенерований `dist/server/.dev.vars`, застосовує `db:migrate:<target>` і запускає `vp exec wrangler deploy --config dist/server/wrangler.json`. `scripts/verify-deployment.ts`, перевірка розгорнутого сайту зі скриптів `deploy:<target>`, тут не запускається, бо захист Cloudflare від ботів відповідає 403 на запити з раннерів CI. `scripts/run-deploy-checks.ts` тут теж не запускається, тож CI не виконує жодної з перевірок перед розгортанням, які розділи оголошують у `DEPLOY_CHECKS`: у CI немає `.env.<target>`, а середовища GitHub містять лише облікові дані Cloudflare. Зараз це `auth:verify` із розділу автентифікації та `polar:verify` із розділу Polar; запускайте локально `bun run auth:verify:<target>` після зміни клієнта OAuth і `bun run polar:verify:<target>` після кожної зміни в Polar ([Налаштування Polar](/docs/getting-started/polar-setup)). Файл секретів не завантажується: Worker зберігає секрети середовища виконання, уже задані в Cloudflare. Розгортання в ту саму ціль стають у чергу, а не скасовують одне одного.
 
 Dependabot щотижня оновлює GitHub Actions.
 
@@ -38,7 +42,7 @@ Dependabot щотижня оновлює GitHub Actions.
 
 Сайт розгортається безперервно, тож його версії — це дати, а не семантичні версії. Коли розгортання production завершується успішно, завдання `release` у `ci.yml` позначає розгорнутий коміт тегом `vYYYY.MM.DD` з датою за UTC і публікує для нього GitHub Release. Друге розгортання production того самого дня отримує тег `vYYYY.MM.DD.2`, наступне — `.3` і так далі. Розгортання preview ніколи не отримують тегів. Завдання `release` — єдине з `contents: write`.
 
-Нотатки до релізу — це розділ цього дня з [журналу змін](/docs/project/changelog), тож кожну зміну описано в одному місці; якщо в журналі змін немає розділу для цього дня, нотатки містять посилання на нього. `scripts/publish-release.ts` визначає тег і нотатки за допомогою `src/lib/release.ts` і запускає `gh release create`. Повторний запуск залишає тег, який коміт уже має, і пропускає реліз, що вже існує.
+Нотатки до релізу — це записи [журналу змін](/docs/project/changelog), що потрапили в `main` того дня, тож кожну зміну описано в одному місці; якщо жоден не потрапив, нотатки містять посилання на журнал змін. `scripts/publish-release.ts` визначає тег і нотатки за допомогою `src/lib/release.ts` і запускає `gh release create`. Повторний запуск залишає тег, який коміт уже має, і пропускає реліз, що вже існує.
 
 Щоб повернути production до релізу, скасуйте в pull request усе, що йде після його тегу:
 

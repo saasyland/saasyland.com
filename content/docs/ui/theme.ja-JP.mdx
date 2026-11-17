@@ -26,7 +26,7 @@ const RootComponent = () => (
 )
 ```
 
-`/admin`、`/app`、`/docs` は保存されたテーマに従います。テーマの切り替えはドキュメントのサイドバーにしかありません。ランディングページ、認証、ブログ、コースのレイアウトはコンテナーに `dark` クラスを付けるため、常にダークで表示されます。
+`/admin`、`/app`、`/docs` は保存されたテーマに従います。テーマの切り替えはドキュメントのサイドバーにしかありません。`_site` レイアウトは、一致したルートが `staticData` に `dark: true` を設定している間、コンテナーに `dark` クラスを付けます。ランディングページ、法務ページ、ブログ、コースの `_marketing` レイアウトがこれを設定し、認証のレイアウトは自身のコンテナーに `dark` クラスを付けるため、これらのページは常にダークで表示されます。これらのコンテナーが `body` の直接の子である間は、`globals.css` が `html` にもダークのトークンを与えます（`:root:has(> body > .dark)`）。そのため、ページの周りのウィンドウはスクロールバーの背後も含め、ライトテーマでもダークになります。
 
 ## トークン
 
@@ -38,9 +38,37 @@ const RootComponent = () => (
 
 `@theme inline` は変数を Tailwind の色に対応付け、フォントファミリーとタイプスケールを定義します。`globals.css` は Fumadocs UI のスタイルもインポートしているため、ドキュメントも同じトークンを使います。
 
+`@theme` はレイアウト用のトークンを 2 つ追加します。サイトヘッダーの高さ `--spacing-header`（`h-header`）と、公開ページの幅 `--container-site`（`max-w-site`）です。`Navigation`、`MobileMenu`、`Footer`、`PageFrame`、ランディングページの各セクション、`ContentPage`、ブログ記事、コースのページ、ドキュメントのレイアウトはすべて `max-w-site` を使い、`md` 以上では同じ左右の余白を取るため、ヘッダーはページを移っても動かず、内容はその下にそろいます。Fumadocs の `--fd-layout-width`（ドキュメントの最大幅）にも同じトークンを設定しています。
+
+## スクロールバー [#scrollbars]
+
+ウィンドウはどのページでもスクロールバーの場所を確保します。そのため、ページが短くてスクロールしないときも、ページが伸びたときも、ダイアログ、ポップオーバー、メニューがページのスクロールを止めたときも、コンテンツは動きません。`globals.css` は細いページのスクロールバーとあわせて `html` に `scrollbar-gutter: stable` を設定します。ブラウザーはウィンドウのスクロールバーに `html` の `scrollbar-color` と `scrollbar-width` を使い、`body` の値は使いません。
+
+```css
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--spacing-header);
+  scrollbar-color: color-mix(in oklab, var(--foreground) 20%, transparent) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+html:has([data-page-scroller]) {
+  scrollbar-gutter: auto;
+}
+[data-page-scroller] {
+  scrollbar-gutter: stable;
+}
+```
+
+`/app` と `/admin` はウィンドウいっぱいに広がり、代わりにコンテンツ領域をスクロールします。そのため、レイアウトでも読み込み中のスケルトンでも、その要素に `data-page-scroller` を付けます。確保する場所はその要素に移り、ワークスペースはウィンドウの幅いっぱいに広がります。React Aria の `usePreventScroll` と、ドキュメントの検索を動かす Base UI も、パディングではなく `scrollbar-gutter: stable` でページを止めるため、場所が二重に補われることはありません。ヘッダー、ページの枠、トップへ戻るボタンなどの固定レイヤーは、その場所を除いたウィンドウ内に配置され、コンテンツと揃います。スクロールバーのトラックは透明なので、確保した場所にはページ自身の背景が見えます。
+
 ## タイプスケール
 
 生のサイズ指定ではなく、名前付きのテキストユーティリティを使います。`text-display-hero`、`text-display-gate`、`text-display-blast`、`text-headline-peak`、`text-headline-support`、`text-price`、`text-title`、`text-statement`、`text-lead`、`text-body`、`text-body-sm`、`text-spec`、`text-label` です。それぞれサイズ、行の高さ、字間、見出しではウェイトを設定します。`src/lib/cn.config.ts` がこれらを登録しているため、`cn` はクラスを結合するときにこれらを保持します。`bun run generate:cn` はルックアップテーブルを再生成します。
+
+## ページタイトルと行動喚起 [#page-titles-and-calls-to-action]
+
+コンテンツページ（ブログの一覧、講座カタログ、ニュースレターのページ、法務ページ、ページが見つからない場合のページ）は `ContentPage`（`src/presentation/components/custom/content-page.tsx`）で始まります。`h1` は `text-headline-peak`、リードは `text-lead` で、どのページでもサイトヘッダーから同じ距離に置かれます。スケルトンでは `ContentPagePending` が同じブロックを描きます。ブログ記事は記事タイトルに、より大きな `text-display-gate` を使います。公開ページの行動喚起は `src/data/cta.ts` の `CTA_CLASSES.PRIMARY` または `CTA_CLASSES.SECONDARY` を使うため、高さ（`h-11`）、余白、文字はすべて同じです。`BackHomeLink` は `/` へ戻る主要な行動喚起で、ラベルは `common.backHome` から取り、ページが見つからない場合のページとニュースレターのページに表示されます。
 
 ## ルートごとのスタイルシート
 

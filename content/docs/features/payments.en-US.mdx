@@ -33,10 +33,10 @@ export interface PolarEventHandler {
 ```
 
 - `handlePolarEvent` runs the `handle` of every entry that lists the event's type, all at once, and waits for all of them.
-- When one rejects, the plugin answers 500 and Polar delivers the event again later, so each handler must be safe to run twice for the same event. Polar disables an endpoint that keeps failing, and `polar:verify` reports a disabled endpoint.
+- When one rejects, `handlePolarEvent` still waits for the others to finish, so no area stops halfway through its writes, and then rejects with an `AggregateError` of every failure. The plugin answers 500 and Polar delivers the event again later, so each handler must be safe to run twice for the same event. Polar disables an endpoint that keeps failing, and `polar:verify` reports a disabled endpoint.
 - An event that no entry lists is acknowledged and goes nowhere.
 - `POLAR_EVENTS` joins the events of every entry, sorted and each once. The webhook endpoint in Polar must send exactly these, and `polar:verify` compares them.
-- The polar area adds an empty list in `src/data/polar.polar-events.ts`, so the barrel is never empty. Today only the licence area handles events, in `src/data/license.polar-events.ts`; see [Licences](/docs/features/licences#webhooks-and-licences).
+- The polar area adds an empty list in `src/data/polar.polar-events.ts`, so the barrel is never empty. The billing area copies orders and subscriptions into D1 in `src/data/billing.polar-events.ts` (see [Writing the copies](#writing-the-copies)), and the licence area grants and revokes licences in `src/data/license.polar-events.ts` (see [Licences](/docs/features/licences#webhooks-and-licences)).
 
 `polar:verify` runs in Bun, outside the Worker, and reads `POLAR_EVENTS`, so `src/data/polar-events.ts` and every `<area>.polar-events.ts` import no server code. An area's `handle` loads its handlers when an event arrives:
 
@@ -48,7 +48,7 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 
 ## Orders and subscriptions in D1
 
-The polar area keeps copies of Polar's orders and subscriptions in two D1 tables, `order` (`src/modules/order/`) and `subscription` (`src/modules/subscription/`), so that lists, searches and access checks can read them with SQL and keep working while Polar is slow. Polar stays the source: each row is Polar's record under Polar's ID, and nothing edits it by hand. No code writes the tables yet. [Modules](/docs/conventions/modules#tables-that-mirror-a-provider) gives the rules every such mirror table follows.
+The polar area keeps copies of Polar's orders and subscriptions in two D1 tables, `order` (`src/modules/order/`) and `subscription` (`src/modules/subscription/`), so that lists, searches and access checks can read them with SQL and keep working while Polar is slow. Polar stays the source: each row is Polar's record under Polar's ID, written only from Polar's webhooks and never edited by hand. [Modules](/docs/conventions/modules#tables-that-mirror-a-provider) gives the rules every such mirror table follows.
 
 | Table          | Columns                                                                                                                                                                                                                                                                                             |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -61,13 +61,27 @@ The polar area keeps copies of Polar's orders and subscriptions in two D1 tables
 - `placed_at` is when Polar created the order. `changed_at` is the version of Polar's record that the row holds: Polar's `modified_at`, or Polar's `created_at` for a record that never changed. The row's own `created_at` and `updated_at` record when D1 wrote it.
 - The indexes serve the lists these copies exist for: `order_user_placed_at_idx` an account's orders and `order_status_placed_at_idx` the orders of a status, both by when they were placed; `subscription_user_status_idx` an account's subscriptions by status and `subscription_status_current_period_end_idx` the subscriptions of a status by the end of their period.
 
+### Writing the copies
+
+`src/data/billing.polar-events.ts` adds two entries to the Polar events (see [Webhooks](#webhooks)), and each loads its use case when an event arrives:
+
+| Events                                                           | Use case                                                                            |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `order.created`, `order.updated`, `order.paid`, `order.refunded` | `recordOrder` in `src/modules/order/use-cases/record-order.ts`                      |
+| `subscription.created`, `subscription.updated`                   | `recordSubscription` in `src/modules/subscription/use-cases/record-subscription.ts` |
+
+- Each use case takes Polar's record, `models.Order` or `models.Subscription`, and writes it in one statement: an insert under Polar's ID that, when the row already exists, updates it only if the stored `changed_at` is not later than the record's. A newer version applies, an older one that arrives late changes nothing, and the same version delivered twice is written again with the same values. Of two different states with the same `modified_at`, the one written last stays until Polar changes the record again.
+- The same statement fills `user_id` through `polarCustomerAccount` in `src/integrations/polar/polar.customers.ts`: the account whose ID is the customer's `external_id`, which the area that sells sets at checkout, as the licence area's `startCheckout` does. It stays empty when the customer has no `external_id` or when no account has that ID, for instance because the account was deleted.
+- The licence area handles `order.paid` and `order.refunded` too. The copy takes them as well, so it holds the payment and the refund whether or not Polar also sends `order.updated` for them. `handlePolarEvent` runs both areas at once; when the copy fails, the delivery answers 500, and Polar's retry repeats both writes without changing what one of them already wrote.
+- The admin dashboard reads the order copies to list the paid licence orders that have no licence (see [Licences](/docs/features/licences#orders-that-match-no-account)); no page reads the subscription copies yet.
+
 ## Customer portal
 
 `ROUTES.API_AUTH_CUSTOMER_PORTAL` (`/api/auth/customer/portal`) opens the Polar customer portal of the signed-in account. The licence card on `/app/license` links to it.
 
 ## Admin screen (demo)
 
-`/admin/payments` renders `RefundStats` and a refunds `DataTable` over `ADMIN_PAYMENT_ROWS` from `src/data/admin-payments.ts`; its buttons are not wired. The payments area declares the `order` permission statements (`read`, `update`, `refund`) in `src/data/payments.access.ts`, but no use case reads orders or refunds.
+`/admin/payments` renders `RefundStats` and a refunds `DataTable` over `ADMIN_PAYMENT_ROWS` from `src/data/admin-payments.ts`; its buttons are not wired. The payments area declares the `order` permission statements (`read`, `update`, `refund`) in `src/data/payments.access.ts`. The licence area's `get-unlicensed-orders` checks `order: ["read"]`; no use case updates or refunds orders.
 
 ## Related pages
 

@@ -97,14 +97,11 @@ describe("regional pricing", () => {
     ])
   })
 
-  it("makes the page private and drops the validators of the shared copy, keeping its other headers", () => {
+  it("rewrites the page and leaves its headers to the Worker, which keeps every document private", () => {
     const page = rewrite(regionalPage(), { locale: I18N.DEFAULT_LOCALE, request: requestFrom("PL") })
 
     expect(transformPage).toHaveBeenCalledOnce()
-    expect(page.headers.get("cache-control")).toBe("private, no-cache")
-    expect(page.headers.get("content-length")).toBeNull()
-    expect(page.headers.get("etag")).toBeNull()
-    expect(page.headers.get("last-modified")).toBeNull()
+    expect(page.headers.get("cache-control")).toBe("public, max-age=0, must-revalidate")
     expect(page.headers.get("link")).toBe("</styles.css>; rel=preload; as=style")
     expect(page.headers.get("set-cookie")).toBe("session=kept; HttpOnly")
   })
@@ -122,7 +119,7 @@ describe("regional pricing", () => {
 
   it("rewrites the pages the Worker serves", async () => {
     vi.spyOn(env.ASSETS, "fetch").mockResolvedValueOnce(regionalPage())
-    transformPage.mockImplementationOnce(() => new Response("regional page"))
+    transformPage.mockImplementationOnce((page) => page).mockImplementationOnce(() => new Response("regional page"))
 
     const response = await worker.fetch(new Request("http://localhost/pl-PL/docs", { headers: { [COUNTRY_HEADER]: "PL" } }), env)
 

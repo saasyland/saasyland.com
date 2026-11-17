@@ -1,6 +1,6 @@
 ---
 title: "Konfiguracja Polar"
-description: "Organizacje, token, produkty, klucze licencyjne, rabaty regionalne i webhooki Polar, których oczekuje kod, oraz to, jak sprawdza je polar:verify."
+description: "Organizacje, token, produkty, klucze licencyjne, pole wyboru zgody, rabaty regionalne i webhooki Polar, których oczekuje kod, oraz to, jak sprawdza je polar:verify."
 ---
 
 Polar sprzedaje trzy plany, wydaje ich klucze licencyjne i stosuje rabaty regionalne. Kod oczekuje w Polar ściśle określonej konfiguracji, a Polar nie ostrzega, gdy jedno rozjedzie się z drugim: produkt bez benefitu kluczy licencyjnych nadal przyjmuje płatność, ale nie wydaje klucza. `bun run polar:verify:<environment>` porównuje Polar z kodem, a skrypty wdrożeniowe uruchamiają go przed każdym ręcznym wdrożeniem.
@@ -23,7 +23,7 @@ Nigdy nie wpisuj do `.env.development` ani `.env.preview` tokenu, ID organizacji
 
 Najpierw w usłudze sandbox, potem w produkcyjnej:
 
-1. Utwórz organizację i skopiuj jej ID z ustawień organizacji do `POLAR_ORGANIZATION_ID`.
+1. Utwórz organizację i skopiuj jej ID z ustawień organizacji do `POLAR_ORGANIZATION_ID`. Nadaj obu organizacjom slug z `POLAR_ORGANIZATION_SLUG` (`src/data/polar.ts`) albo zmień tę stałą na ich slug: [alert i lista zamówień niepasujących do żadnego konta w panelu administracyjnym](/docs/features/licences#orders-that-match-no-account) podają przy każdym zamówieniu link do panelu Polar z tym slugiem.
 2. W ustawieniach organizacji utwórz token dostępu organizacji z poniższymi zakresami uprawnień, i tylko z nimi, a następnie skopiuj go do `POLAR_ACCESS_TOKEN`.
 
 | Zakres                    | Wymagany przez                                                                                                                                       |
@@ -32,7 +32,7 @@ Najpierw w usłudze sandbox, potem w produkcyjnej:
 | `customer_sessions:write` | Link do portalu klienta, `/api/auth/customer/portal`                                                                                                 |
 | `discounts:read`          | Wyszukiwanie rabatu regionalnego przy płatności (`pppDiscountId`) i `polar:verify`                                                                   |
 | `license_keys:write`      | Odczyt klucza i jego aktywacji, aktywacja maszyny oraz usuwanie aktywacji (`deactivateLicense` i [API licencji CLI](/docs/features/cli-licence-api)) |
-| `orders:read`             | Handlery webhooków, które odczytują zamówienie powiązane z licencją                                                                                  |
+| `orders:read`             | Handlery webhooków, które odczytują zamówienie powiązane z licencją oraz bieżącego klienta zamówienia, którego zdarzenie nie pasuje do żadnego konta |
 | `products:read`           | `polar:verify`                                                                                                                                       |
 | `webhooks:read`           | `polar:verify`                                                                                                                                       |
 
@@ -42,11 +42,11 @@ Zakres zapisu obejmuje odczyt, więc `license_keys:write` pozwala też odczytywa
 
 Utwórz po jednym produkcie dla każdego planu: zakup jednorazowy, a nie subskrypcję, ze stałą ceną w `DEFAULT_CURRENCY_CODE` (w dolarach amerykańskich) równą `TIER_PRICES` w `src/data/marketing.ts`. Skopiuj ID każdego produktu do odpowiadającego mu klucza.
 
-| Plan    | Klucz                       | Cena                          | Aktywacje na klucz                  |
-| ------- | --------------------------- | ----------------------------- | ----------------------------------- |
-| Core    | `POLAR_PRODUCT_ID_CORE`     | <TierPrice tier="core" />     | <ActivationLimit tier="core" />     |
-| Komplet | `POLAR_PRODUCT_ID_COMPLETE` | <TierPrice tier="complete" /> | <ActivationLimit tier="complete" /> |
-| Agencja | `POLAR_PRODUCT_ID_AGENCY`   | <TierPrice tier="agency" />   | <ActivationLimit tier="agency" />   |
+| Plan     | Klucz                       | Cena                          | Aktywacje na klucz                  |
+| -------- | --------------------------- | ----------------------------- | ----------------------------------- |
+| Podstawa | `POLAR_PRODUCT_ID_CORE`     | <TierPrice tier="core" />     | <ActivationLimit tier="core" />     |
+| Komplet  | `POLAR_PRODUCT_ID_COMPLETE` | <TierPrice tier="complete" /> | <ActivationLimit tier="complete" /> |
+| Agencja  | `POLAR_PRODUCT_ID_AGENCY`   | <TierPrice tier="agency" />   | <ActivationLimit tier="agency" />   |
 
 Polar przechowuje cenę w najmniejszych jednostkach waluty, w przypadku dolarów amerykańskich w centach, a `polar:verify` przed porównaniem przelicza `TIER_PRICES` w ten sam sposób. Zarchiwizowane ceny pomija.
 
@@ -60,6 +60,20 @@ Dla każdego planu utwórz jeden benefit typu **License Keys** (klucze licencyjn
 - **Prefiks**: dowolny; `polar:verify` go nie sprawdza.
 
 Każdy produkt potrzebuje dokładnie jednego benefitu kluczy licencyjnych; inne benefity obok niego nie przeszkadzają. Gdy Polar przyzna benefit, webhook `benefit_grant.created` zapisuje klucz w licencji kupującego.
+
+## Pole wyboru zgody [#consent-checkbox]
+
+Okno dialogowe płatności w serwisie prosi kupującego o zgodę na natychmiastowe dostarczenie (zobacz [Licencje](/docs/features/licences#consent-to-immediate-supply)), a formularz płatności Polar zapisuje ją w zamówieniu. Utwórz w organizacji jedno pole niestandardowe i dołącz je do trzech produktów:
+
+- **Typ**: pole wyboru (Checkbox).
+- **Slug**: <RepositoryFact name="licenseWithdrawalConsentField" />, czyli `LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT` w `src/modules/license/license.constants.ts`. Zamówienie zapisuje zaznaczone pole pod tym kluczem w `custom_field_data`.
+- **Etykieta**: dokładnie `WITHDRAWAL_CONSENT_FIELD.label` z `src/lib/polar.ts`, czyli angielskie zdanie zbudowane na podstawie `REFUND_TERMS.WITHDRAWAL_DAYS`, zakończone linkiem Markdown do produkcyjnych Zasad zwrotów.
+- **Nazwa**: dowolna; `WITHDRAWAL_CONSENT_FIELD.name` to nazwa, którą proponuje kod, a `polar:verify` jej nie sprawdza.
+- **Wymagane** w każdym z trzech produktów. Inne pola, o które proszą produkty, mogą pozostać.
+
+`startCheckout` wysyła jako wartość pola zgodę, której kupujący właśnie udzielił, więc Polar pokazuje pole jako zaznaczone. Polar zachowuje tylko wartości pól, o które prosi produkt: zanim pole zostanie dołączone, płatność nadal działa, ale zamówienie nie zapisuje zgody, a [potwierdzenie zakupu](/docs/features/licences#purchase-confirmation) informuje zamiast tego o ustawowym prawie odstąpienia od umowy.
+
+Utworzenie pola i dołączenie go do produktu wymagają zakresów `custom_fields:write` i `products:write`, których nie ma opisany powyżej token. Utwórz i dołącz pole w panelu Polar albo przez API, używając osobnego tokenu z tymi zakresami. `polar:verify` odczytuje dołączone pola z listy produktów, więc nie potrzebuje żadnego innego zakresu.
 
 ## Rabaty regionalne
 
@@ -81,12 +95,20 @@ Utwórz po jednym endpoincie webhooka dla każdego wdrożonego środowiska, w or
 | `preview`    | Sandbox     | `https://preview.saasyland.com/api/auth/polar/webhooks` |
 | `production` | Produkcyjna | `https://saasyland.com/api/auth/polar/webhooks`         |
 
-Host pochodzi z `DEPLOYED_HOSTS`, a ścieżka z `ROUTES`. Wybierz format Raw, pozostaw endpoint włączony i zasubskrybuj w nim dokładnie zdarzenia z `POLAR_EVENTS` (`src/data/polar-events.ts`), które łączy zdarzenia obsługiwane przez wszystkie obszary (zobacz [Płatności](/docs/features/payments#webhooks)). Obecnie obsługuje je tylko obszar licencji, a wymienia je `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`):
+Host pochodzi z `DEPLOYED_HOSTS`, a ścieżka z `ROUTES`. Wybierz format Raw, pozostaw endpoint włączony i zasubskrybuj w nim dokładnie zdarzenia z `POLAR_EVENTS` (`src/data/polar-events.ts`), które łączy zdarzenia obsługiwane przez wszystkie obszary (zobacz [Płatności](/docs/features/payments#webhooks)). Obecnie obszar licencji obsługuje zdarzenia z `LICENSE_WEBHOOK_EVENTS` (`src/modules/license/license.constants.ts`), a obszar rozliczeń te z `src/data/billing.polar-events.ts`:
 
-- `order.paid` przyznaje licencję;
-- `order.refunded` oznacza zwrot pieniędzy za licencję, gdy zamówienie zostanie zwrócone w całości;
-- `benefit_grant.created` zapisuje klucz licencyjny;
-- `benefit_grant.revoked` cofa licencję.
+| Zdarzenie               | Obszar licencji                                                                 | Obszar rozliczeń              |
+| ----------------------- | ------------------------------------------------------------------------------- | ----------------------------- |
+| `benefit_grant.created` | Zapisuje klucz licencyjny                                                       |                               |
+| `benefit_grant.revoked` | Cofa licencję                                                                   |                               |
+| `order.created`         |                                                                                 | Kopiuje zamówienie do D1      |
+| `order.paid`            | Przyznaje licencję                                                              | Aktualizuje kopię zamówienia  |
+| `order.refunded`        | Oznacza zwrot pieniędzy za licencję, gdy zamówienie zostanie zwrócone w całości | Aktualizuje kopię zamówienia  |
+| `order.updated`         |                                                                                 | Aktualizuje kopię zamówienia  |
+| `subscription.created`  |                                                                                 | Kopiuje subskrypcję do D1     |
+| `subscription.updated`  |                                                                                 | Aktualizuje kopię subskrypcji |
+
+Gdy obszar zaczyna obsługiwać nowe zdarzenie, dodaj je do każdego endpointu, zanim wdrożysz ten kod. Wdrożony do tego czasu kod odpowiada 200 na zdarzenie, którego nie obsługuje żaden obszar, i nic z nim nie robi, więc wcześniejsze dodanie zdarzenia niczego nie psuje, a `polar:verify` przerywa wdrożenie, dopóki któryś endpoint nie wysyła wszystkich zdarzeń z `POLAR_EVENTS`.
 
 Skopiuj sekret podpisu endpointu do `POLAR_WEBHOOK_SECRET` w pliku środowiskowym tego samego środowiska. Tryb deweloperski nie potrzebuje endpointu, ponieważ Polar nie może dotrzeć do `localhost`.
 
@@ -105,11 +127,12 @@ Każdy skrypt odczytuje klucze Polar z `.env.<environment>` i wysyła wyłączni
 - plik środowiskowy ustawia każdy klucz Polar, z `POLAR_SERVER=sandbox` dla trybu deweloperskiego i preview oraz `POLAR_SERVER=production` dla produkcji;
 - każdy `POLAR_PRODUCT_ID_*` wskazuje produkt organizacji, który nie jest zarchiwizowany ani nie jest subskrypcją, a jego ceny są stałe, w `DEFAULT_CURRENCY_CODE` i równe `TIER_PRICES`;
 - każdy produkt ma dokładnie jeden benefit kluczy licencyjnych z limitem planu z `LICENSE_ACTIVATION_LIMITS`, bez wygaśnięcia i bez limitu użycia;
+- każdy produkt wymaga pola wyboru <RepositoryFact name="licenseWithdrawalConsentField" /> z etykietą z `WITHDRAWAL_CONSENT_FIELD`;
 - dla każdego przedziału w `PPP_TIERS` automatyczny rabat procentowy da się wykorzystać przy produkcie każdego planu, według reguły, której używa płatność;
 - preview i produkcja mają włączony endpoint w formacie Raw pod swoim adresem URL webhooka, podpisany za pomocą `POLAR_WEBHOOK_SECRET` i zasubskrybowany dokładnie na `POLAR_EVENTS`;
 - żaden endpoint nie wysyła zdarzeń do hosta środowiska, które używa drugiej usługi Polar.
 
-`polar:verify` jest sprawdzeniem przed wdrożeniem obszaru Polar (`POLAR_DEPLOY_CHECKS` w `src/data/polar.deploy.ts`), więc `deploy:preview` i `deploy:production` uruchamiają go przez `scripts/run-deploy-checks.ts`, zaraz po `scripts/verify-bindings.ts` i przed buildem. Wdrożenia z CI nie uruchamiają żadnego sprawdzenia przed wdrożeniem, w tym `polar:verify`: `deploy-reusable.yml` nie ma kroku z `scripts/run-deploy-checks.ts`, środowiska GitHub nie przechowują tokenu Polar, a Worker zachowuje sekrety Polar ustawione już w Cloudflare. Po każdej zmianie w Polar uruchom `polar:verify` samodzielnie.
+`polar:verify` jest sprawdzeniem przed wdrożeniem obszaru Polar (`POLAR_DEPLOY_CHECKS` w `src/data/polar.deploy.ts`), więc `deploy:preview` i `deploy:production` uruchamiają go przez `scripts/run-deploy-checks.ts`, po `scripts/verify-bindings.ts` i `scripts/prepare-deploy-secrets.ts`, a przed buildem. Wdrożenia z CI nie uruchamiają żadnego sprawdzenia przed wdrożeniem, w tym `polar:verify`: `deploy-reusable.yml` nie ma kroku z `scripts/run-deploy-checks.ts`, środowiska GitHub nie przechowują tokenu Polar, a Worker zachowuje sekrety Polar ustawione już w Cloudflare. Po każdej zmianie w Polar uruchom `polar:verify` samodzielnie.
 
 ## Gdy kontrola kończy się błędem
 
@@ -128,6 +151,7 @@ Błąd zatrzymuje wdrożenie, zanim cokolwiek zostanie zbudowane, zmigrowane lub
 - **`lacks the … scope`**: utwórz token z zakresami uprawnień wymienionymi powyżej.
 - **`names no product of the organisation`**: ID produktu lub `POLAR_ORGANIZATION_ID` jest błędne albo należy do drugiej usługi.
 - **Cena, klucz licencyjny lub rabat**: zmień ustawienie w Polar tak, aby zgadzało się z kodem. Gdy wartość biznesowa zmienia się celowo, najpierw zmień `TIER_PRICES`, `LICENSE_ACTIVATION_LIMITS` lub `PPP_TIERS`, a dopiero potem Polar.
+- **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` lub `label differs`**: utwórz, dołącz lub popraw [pole wyboru zgody](#consent-checkbox). Gdy brzmienie etykiety zmienia się celowo, najpierw zmień `WITHDRAWAL_CONSENT_FIELD.label`, a dopiero potem etykietę w Polar.
 - **Endpoint webhooka**: popraw endpoint wskazany w komunikacie albo usuń endpoint, który wysyła zdarzenia do hosta innego środowiska.
 
 ## Powiązane strony

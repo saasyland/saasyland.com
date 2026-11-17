@@ -15,9 +15,13 @@ I workflow si trovano in `.github/workflows/`. I workflow dell'applicazione (`ci
 
 `remotion.yml` si attiva sugli stessi percorsi per le pull request e i push: `remotion/`, il workflow stesso e i file del sito che `remotion/src` importa, direttamente o tramite altri file del sito. `src/__test__/workflows.test.ts` segue queste importazioni e fallisce quando un file che raggiungono non corrisponde a nessuno dei percorsi, o un percorso non corrisponde a nessuno dei file.
 
+I checkout che compilano il sito, in `e2e-reusable.yml` e `deploy-reusable.yml`, e quello del job `release` scaricano tutti i commit senza i loro alberi (`fetch-depth: 0` e `filter: tree:0`): il [changelog](/docs/project/changelog) data ogni voce in base al commit che l'ha portata su `main`. Rispetto a un clone superficiale si aggiungono solo i commit stessi; un clone superficiale farebbe fallire la build invece di datare male le voci. `src/__test__/workflows.test.ts` fallisce quando uno di questi checkout smette di scaricare la cronologia.
+
 ## Controlli
 
 Il job `verify` in `ci.yml` esegue `bun run check` (tabelle dei nomi delle classi, controlli di i18n e dei contenuti, formattazione, lint e tipi) e `bun run test:coverage`, poi carica il report di copertura. Il job `e2e` esegue `db:reset:test` e `build:test`, installa il browser ed esegue `bunx playwright test e2e/specs --project=chromium`. Le esecuzioni E2E fallite caricano il report di Playwright.
+
+In una pull request, `bun run check` fallisce anche finché la pull request non aggiunge la propria [voce del changelog](/docs/conventions/git-workflow#changelog-entries).
 
 ## Deploy
 
@@ -30,7 +34,7 @@ I deploy vengono eseguiti solo dopo il successo di `verify` ed `e2e`:
 
 `deploy-reusable.yml` assegna a ogni ambiente GitHub il suo URL, e `src/__test__/workflows.test.ts` fallisce quando uno differisce dal suo host in `DEPLOYED_HOSTS` (`src/modules/_core/constants/api.ts`). Le pull request provenienti da fork e da Dependabot vengono validate ma non distribuite. La preview è condivisa: ogni deploy sostituisce il precedente e usa lo stesso database D1, lo stesso namespace KV e gli stessi bucket R2 di preview.
 
-`deploy-reusable.yml` verifica la presenza dei secret `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`, esegue `scripts/verify-bindings.ts`, compila con i valori fittizi di `.env.test`, rimuove il file generato `dist/server/.dev.vars`, applica `db:migrate:<target>` ed esegue `vp exec wrangler deploy --config dist/server/wrangler.json`. Non esegue `scripts/verify-deployment.ts`, il controllo del sito online degli script `deploy:<target>`, perché la protezione dai bot di Cloudflare risponde 403 alle richieste dei runner di CI. Non esegue nemmeno `scripts/run-deploy-checks.ts`, quindi la CI non esegue nessuno dei controlli di deploy che le aree dichiarano in `DEPLOY_CHECKS`: nella CI non c'è alcun `.env.<target>` e gli ambienti GitHub contengono solo le credenziali di Cloudflare. Oggi l'unico è `polar:verify` dell'area Polar; esegui `bun run polar:verify:<target>` in locale dopo ogni modifica in Polar ([Configurazione di Polar](/docs/getting-started/polar-setup)). Non viene caricato alcun file di secret: il Worker mantiene i secret di runtime già impostati in Cloudflare. I deploy verso la stessa destinazione si mettono in coda invece di annullarsi a vicenda.
+`deploy-reusable.yml` verifica la presenza dei secret `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`, esegue `scripts/verify-bindings.ts`, compila con i valori fittizi di `.env.test`, rimuove il file generato `dist/server/.dev.vars`, applica `db:migrate:<target>` ed esegue `vp exec wrangler deploy --config dist/server/wrangler.json`. Non esegue `scripts/verify-deployment.ts`, il controllo del sito online degli script `deploy:<target>`, perché la protezione dai bot di Cloudflare risponde 403 alle richieste dei runner di CI. Non esegue nemmeno `scripts/run-deploy-checks.ts`, quindi la CI non esegue nessuno dei controlli di deploy che le aree dichiarano in `DEPLOY_CHECKS`: nella CI non c'è alcun `.env.<target>` e gli ambienti GitHub contengono solo le credenziali di Cloudflare. Oggi sono `auth:verify` dell'area di autenticazione e `polar:verify` dell'area Polar; esegui in locale `bun run auth:verify:<target>` dopo aver modificato un client OAuth e `bun run polar:verify:<target>` dopo ogni modifica in Polar ([Configurazione di Polar](/docs/getting-started/polar-setup)). Non viene caricato alcun file di secret: il Worker mantiene i secret di runtime già impostati in Cloudflare. I deploy verso la stessa destinazione si mettono in coda invece di annullarsi a vicenda.
 
 Dependabot aggiorna le GitHub Actions ogni settimana.
 
@@ -38,7 +42,7 @@ Dependabot aggiorna le GitHub Actions ogni settimana.
 
 Il sito viene distribuito in modo continuo, quindi le sue versioni sono date e non versioni semantiche. Quando un deploy di produzione va a buon fine, il job `release` di `ci.yml` assegna al commit distribuito il tag `vYYYY.MM.DD` con la data UTC e pubblica una GitHub Release. Un secondo deploy di produzione nello stesso giorno riceve il tag `vYYYY.MM.DD.2`, il successivo `.3` e così via. I deploy di preview non ricevono mai un tag. Il job `release` è l'unico con `contents: write`.
 
-Le note di rilascio sono la sezione di quel giorno del [changelog](/docs/project/changelog), così ogni modifica è descritta in un solo posto; se il changelog non ha una sezione per quel giorno, le note rimandano al changelog. `scripts/publish-release.ts` sceglie il tag e le note con `src/lib/release.ts` ed esegue `gh release create`. Una nuova esecuzione mantiene il tag che il commit ha già e salta una release che esiste già.
+Le note di rilascio sono le voci del [changelog](/docs/project/changelog) arrivate su `main` in quel giorno, così ogni modifica è descritta in un solo posto; se non ne è arrivata nessuna, le note rimandano al changelog. `scripts/publish-release.ts` sceglie il tag e le note con `src/lib/release.ts` ed esegue `gh release create`. Una nuova esecuzione mantiene il tag che il commit ha già e salta una release che esiste già.
 
 Per riportare la produzione a una release, annulla in una pull request tutto ciò che viene dopo il suo tag:
 

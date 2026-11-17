@@ -16,7 +16,7 @@ import {
   apiZodSchemas,
   readApiRequest,
 } from "@saasyland/stack/api"
-import { eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import { createHash } from "node:crypto"
 import { inspect } from "node:util"
 import type * as zod from "zod"
@@ -34,9 +34,10 @@ import {
   type LicenseTier,
 } from "~/src/modules/license/license.constants"
 import { license } from "~/src/modules/license/license.schema"
+import type { License } from "~/src/modules/license/license.types"
 
 import { sha256Hex } from "~/src/lib/hex"
-import { countRequest } from "~/src/lib/rate-limit"
+import { type RateLimitDecision, type RateLimitInput, countRequest, rateLimitBatch } from "~/src/lib/rate-limit"
 
 const SINGLE_ROW = 1
 const ONE_SLOT = 1
@@ -75,8 +76,11 @@ interface Licence<Input> {
   readonly credentials: Api["credentials"]
   readonly input: Input
   readonly licenseKey: models.LicenseKeyWithActivations
+  readonly records: Pick<License["select"], "activatedAt" | "deliveredAt">
   readonly tier: LicenseTier
 }
+
+type FirstUse = Pick<Licence<unknown>, "credentials" | "records">
 
 type Admission<Input> = (Licence<Input> & { readonly success: true }) | { readonly error: Api["error"]; readonly success: false }
 
@@ -127,20 +131,73 @@ const storedBundle = async (version: string): Promise<StoredBundle> => {
   return { bundle: { sha256: await contentDigest(object), size: object.size }, success: true }
 }
 
-const consume = async (key: string, limit: number): Promise<Api["error"] | undefined> => {
-  const { allowed, retryAfter } = await countRequest({ key, limit, windowSeconds: RATE_LIMIT.PERIOD_SECONDS })
+const perPeriod = (key: string, limit: number): RateLimitInput => ({ key, limit, windowSeconds: RATE_LIMIT.PERIOD_SECONDS })
 
-  return allowed ? undefined : { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: retryAfter }
+const rateLimitError = ({ allowed, retryAfter }: RateLimitDecision): Api["error"] | undefined =>
+  allowed ? undefined : { code: API_ERROR.RATE_LIMITED, retryAfterSeconds: retryAfter }
+
+const recordFirstActivation = async ({ credentials, records }: FirstUse): Promise<void> => {
+  if (records.activatedAt !== null) {
+    return
+  }
+
+  await db
+    .update(license)
+    .set({ activatedAt: new Date() })
+    .where(and(eq(license.key, credentials.key), isNull(license.activatedAt)))
+}
+
+const recordFirstDelivery = async ({ credentials, records }: FirstUse): Promise<void> => {
+  if (records.deliveredAt !== null) {
+    return
+  }
+
+  await db
+    .update(license)
+    .set({ deliveredAt: new Date() })
+    .where(and(eq(license.key, credentials.key), isNull(license.deliveredAt)))
+}
+
+const presentedKey = ({ headers }: Request) => apiZodSchemas.authorization.safeParse(headers.get(API_HEADER.AUTHORIZATION))
+
+const countAndFindLicense = async (address: RateLimitInput, key: string) => {
+  const rateLimits = rateLimitBatch([
+    address,
+    perPeriod(`${LICENSE_KEY_RATE_LIMIT_PREFIX}${await sha256Hex(key)}`, RATE_LIMIT.REQUESTS_PER_LICENSE_KEY),
+  ])
+  const [[row], ...counters] = await db.batch([
+    db
+      .select({
+        activatedAt: license.activatedAt,
+        deliveredAt: license.deliveredAt,
+        polarLicenseKeyId: license.polarLicenseKeyId,
+        status: license.status,
+        tier: license.tier,
+      })
+      .from(license)
+      .where(eq(license.key, key))
+      .limit(SINGLE_ROW),
+    ...rateLimits.statements,
+  ])
+
+  return { limited: rateLimitError(rateLimits.decision(counters)), row }
 }
 
 const admit = async <Schema extends zod.ZodType>(
   endpoint: Endpoint<Schema>,
   { params, request }: ApiCall,
 ): Promise<Admission<zod.output<Schema>>> => {
-  const addressLimited = await consume(`${ADDRESS_RATE_LIMIT_PREFIX}${clientAddress(request.headers)}`, RATE_LIMIT.REQUESTS_PER_ADDRESS)
+  const address = perPeriod(`${ADDRESS_RATE_LIMIT_PREFIX}${clientAddress(request.headers)}`, RATE_LIMIT.REQUESTS_PER_ADDRESS)
+  const key = presentedKey(request)
 
-  if (addressLimited !== undefined) {
-    return refuse(addressLimited)
+  if (!key.success) {
+    return refuse(rateLimitError(await countRequest(address)) ?? { code: API_ERROR.INVALID_LICENSE_KEY })
+  }
+
+  const { limited, row } = await countAndFindLicense(address, key.data)
+
+  if (limited !== undefined) {
+    return refuse(limited)
   }
 
   const read = await readApiRequest(endpoint, request, params)
@@ -148,22 +205,6 @@ const admit = async <Schema extends zod.ZodType>(
   if (!read.success) {
     return refuse(read.error)
   }
-
-  const { credentials } = read
-  const keyLimited = await consume(
-    `${LICENSE_KEY_RATE_LIMIT_PREFIX}${await sha256Hex(credentials.key)}`,
-    RATE_LIMIT.REQUESTS_PER_LICENSE_KEY,
-  )
-
-  if (keyLimited !== undefined) {
-    return refuse(keyLimited)
-  }
-
-  const [row] = await db
-    .select({ polarLicenseKeyId: license.polarLicenseKeyId, status: license.status, tier: license.tier })
-    .from(license)
-    .where(eq(license.key, credentials.key))
-    .limit(SINGLE_ROW)
 
   if (typeof row?.polarLicenseKeyId !== "string") {
     return refuse({ code: API_ERROR.INVALID_LICENSE_KEY })
@@ -179,12 +220,19 @@ const admit = async <Schema extends zod.ZodType>(
     return refuse({ code: API_ERROR.LICENSE_REVOKED })
   }
 
-  return { credentials, input: read.request, licenseKey, success: true, tier: row.tier }
+  return {
+    credentials: read.credentials,
+    input: read.request,
+    licenseKey,
+    records: { activatedAt: row.activatedAt, deliveredAt: row.deliveredAt },
+    success: true,
+    tier: row.tier,
+  }
 }
 
-const describeFailure = (error: unknown, { headers }: Request): string => {
+const describeFailure = (error: unknown, request: Request): string => {
   const failure = inspect(error)
-  const key = apiZodSchemas.authorization.safeParse(headers.get(API_HEADER.AUTHORIZATION))
+  const key = presentedKey(request)
 
   return key.success ? failure.replaceAll(key.data, REDACTED_LICENSE_KEY) : failure
 }
@@ -211,11 +259,12 @@ const serve = async <Schema extends zod.ZodType>(
 
 export const licenseApiHandlers = {
   activate: (call: ApiCall): Promise<Response> =>
-    serve(API_ENDPOINT.ACTIVATE, call, async ({ credentials, input: { body }, licenseKey, tier }) => {
+    serve(API_ENDPOINT.ACTIVATE, call, async ({ credentials, input: { body }, licenseKey, records, tier }) => {
       const machines = machinesOf(licenseKey, credentials.machine)
       const current = machines.find((machine) => machine.current)
 
       if (current !== undefined) {
+        await recordFirstActivation({ credentials, records })
         return apiResponse(API_ENDPOINT.ACTIVATE, HTTP_STATUS.OK, { activationId: current.id, license: summary(tier, machines.length) })
       }
 
@@ -229,6 +278,7 @@ export const licenseApiHandlers = {
           meta: { ...details, machine: credentials.machine },
           organization_id: env.POLAR_ORGANIZATION_ID,
         })
+        await recordFirstActivation({ credentials, records })
 
         return apiResponse(API_ENDPOINT.ACTIVATE, HTTP_STATUS.CREATED, {
           activationId: id,
@@ -248,7 +298,7 @@ export const licenseApiHandlers = {
     }),
 
   bundle: (call: ApiCall): Promise<Response> =>
-    serve(API_ENDPOINT.BUNDLE, call, async ({ credentials, input: { body, params }, licenseKey }) => {
+    serve(API_ENDPOINT.BUNDLE, call, async ({ credentials, input: { body, params }, licenseKey, records }) => {
       if (!holdsActivation(machinesOf(licenseKey, credentials.machine), params.activationId)) {
         return apiErrorResponse(API_ENDPOINT.BUNDLE, { code: API_ERROR.ACTIVATION_NOT_FOUND })
       }
@@ -265,6 +315,7 @@ export const licenseApiHandlers = {
         secret: env.AUTH_SECRET,
         version: body.version,
       })
+      await recordFirstDelivery({ credentials, records })
 
       return apiResponse(API_ENDPOINT.BUNDLE, HTTP_STATUS.OK, { ...stored.bundle, ...signed })
     }),

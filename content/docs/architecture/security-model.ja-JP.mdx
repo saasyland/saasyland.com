@@ -36,11 +36,11 @@ Better Auth は、メール認証（サインイン前に必須）、パスワ�
 
 訪問者が送信をトリガーできるメールには、2 つ目の制限があります。`withinRecipientRateLimit` は、メールアドレスの SHA-256 ハッシュをキーとして、種類（確認、パスワードリセット、ニュースレターの確認）ごとに、アドレスあたり 1 時間に <RepositoryFact name="recipientEmailsPerHour" /> 通までメールを許可し、それを超えるとメールを黙ってスキップします。
 
-CLI ライセンス API は、`countRequest` を通じて、すべてのリクエストを同じテーブルで 2 回カウントします。1 回はクライアントの IP ごと、もう 1 回はライセンスキーの SHA-256 ハッシュごとで、<RepositoryFact name="cliApiRateLimitSeconds" unit="second" />あたり、アドレスごとに <RepositoryFact name="cliApiRequestsPerAddress" /> 件、キーごとに <RepositoryFact name="cliApiRequestsPerLicenseKey" /> 件のリクエストを許可します。アドレスはキーを読み取る前にカウントされ、どちらかの上限を超えると、`retry-after` ヘッダーを付けて `rateLimited` を返します。カウンターのストレージが失敗したときは、上限に達したかどうかを判断できないため、代わりに `serviceUnavailable` でリクエストを拒否します。[CLI ライセンス API](/docs/features/cli-licence-api) を参照してください。
+CLI ライセンス API は、すべてのリクエストを同じテーブルで 2 回カウントします。1 回はクライアントの IP ごと、もう 1 回はライセンスキーの SHA-256 ハッシュごとで、<RepositoryFact name="cliApiRateLimitSeconds" unit="second" />あたり、アドレスごとに <RepositoryFact name="cliApiRequestsPerAddress" /> 件、キーごとに <RepositoryFact name="cliApiRequestsPerLicenseKey" /> 件のリクエストを許可します。最初に判定するのはアドレスの上限で、そこで拒否されたリクエストはキーにはカウントされません。2 つのカウンターとライセンスの検索は 1 つの D1 バッチ（`rateLimitBatch`）で実行されます。どちらかの上限を超えると、`retry-after` ヘッダーを付けて `rateLimited` を返します。カウンターのストレージが失敗したときは、上限に達したかどうかを判断できないため、代わりに `serviceUnavailable` でリクエストを拒否します。[CLI ライセンス API](/docs/features/cli-licence-api) を参照してください。
 
 ## レスポンスヘッダー
 
-`src/server.ts` は、Worker が返すすべてのレスポンスに `SECURITY_HEADERS`（Content Security Policy、`Cross-Origin-Opener-Policy`、`Permissions-Policy`、`Referrer-Policy`、`X-Content-Type-Options`、`X-Frame-Options`）を設定し、HTTPS では `HTTPS_SECURITY_HEADERS`（`Strict-Transport-Security`）も加えます。レスポンスや `public/_headers` のルールがすでに設定した値は置き換えます。どちらの定数も `src/modules/_core/constants/api.ts` にあります。Worker を経由せずに配信されるファイルには、`public/_headers` の `/*` ルールから同じヘッダーが付き、そのルールと定数が異なると `src/__test__/server.test.ts` が失敗します。[セキュリティと堅牢化](/docs/features/security)を参照してください。
+`src/server.ts` は、Worker が返すすべてのレスポンスに `SECURITY_HEADERS`（Content Security Policy、`Cross-Origin-Opener-Policy`、`Permissions-Policy`、`Referrer-Policy`、`X-Content-Type-Options`、`X-Frame-Options`）を設定し、HTTPS では `HTTPS_SECURITY_HEADERS`（`Strict-Transport-Security`）も加えます。レスポンスや `public/_headers` のルールがすでに設定した値は置き換えます。どちらの定数も `src/modules/_core/constants/api.ts` にあります。Worker を経由せずに配信されるファイルには、`public/_headers` の `/*` ルールから同じヘッダーが付き、そのルールと定数が異なると `src/__test__/server.test.ts` が失敗します。すべての HTML レスポンスには、そのレスポンス専用の nonce を含むスクリプトのポリシーもヘッダーで付きます。TanStack Start は、自身がレンダリングするページのスクリプトにその nonce を付け、`withNonce` は、プリレンダリングされたページを `HTMLRewriter` に通してストリーミングし、そのページのスクリプトに nonce を付けます。[セキュリティと堅牢化](/docs/features/security)を参照してください。
 
 ## メディアのリンク
 

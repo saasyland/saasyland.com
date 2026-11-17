@@ -1,4 +1,4 @@
-import type { JSX, ReactNode } from "react"
+import { type JSX, type ReactNode, Suspense } from "react"
 
 import { useTranslations } from "use-intl/react"
 
@@ -21,7 +21,7 @@ export const CliSection = (): JSX.Element => {
 
   return (
     <section className="relative border-t border-border" id={MARKETING_SECTION_IDS.CLI}>
-      <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32">
+      <div className="mx-auto w-full max-w-site px-6 py-24 md:px-10 md:py-32">
         <Reveal variant="heading">
           <h2 className="max-w-[18ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
           <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">
@@ -29,8 +29,10 @@ export const CliSection = (): JSX.Element => {
           </p>
         </Reveal>
 
-        <Reveal className="mt-14 md:mt-20" delay={FRAME_DELAY_MS}>
-          <CliConfigurator />
+        <Reveal className="mt-14 md:mt-20" delay={FRAME_DELAY_MS} variant="quiet">
+          <Suspense>
+            <CliConfigurator />
+          </Suspense>
         </Reveal>
 
         <Reveal className="mt-14 md:mt-16" delay={FRAME_DELAY_MS} variant="quiet">

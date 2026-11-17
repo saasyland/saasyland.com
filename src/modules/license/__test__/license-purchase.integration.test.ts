@@ -18,12 +18,14 @@ import {
   refundPolarOrder,
   revokePolarLicenseKey,
 } from "~/src/platform/testing/mocks/polar"
+import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
 import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
 import { browserHeaders, createTestAccount, signUpAndVerify } from "~/src/integrations/better-auth/__test__/fixtures/auth.harness"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_CHECKOUT_ID_PLACEHOLDER } from "~/src/integrations/polar/polar.constants"
+import { EMAIL_PURPOSE } from "~/src/integrations/resend/resend.constants"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER, HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
@@ -33,6 +35,8 @@ import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 import { REGIONAL_POLAR_DISCOUNTS } from "~/src/modules/license/__test__/fixtures/license.polar-catalogue"
 import {
   LICENSE_ACTIVATION_LIMITS,
+  LICENSE_CHECKOUT_FIELD,
+  LICENSE_CHECKOUT_METADATA,
   LICENSE_STATUS,
   LICENSE_TIER,
   LICENSE_WEBHOOK_EVENTS,
@@ -49,6 +53,7 @@ import { user } from "~/src/modules/user/user.schema"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const STALE_SIGNATURE_MS = 600_000
@@ -78,7 +83,7 @@ const startCheckout = async (
   { locale = "en-US", tier, ...browser }: BrowserState & { readonly locale?: SupportedLocale; readonly tier: LicenseTier },
 ): Promise<models.Checkout> => {
   actAs(buyer, browser)
-  const started = await executeMutation(startCheckoutMutation, { locale, tier })
+  const started = await executeMutation(startCheckoutMutation, { locale, tier, withdrawalConsent: true })
   if ("alreadyActive" in started) {
     throw new Error("The account already holds an active licence, so no checkout started")
   }
@@ -141,9 +146,10 @@ describe("checkout", () => {
 
     expect(checkout).toMatchObject({
       allow_discount_codes: false,
+      custom_field_data: { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true },
       discount_id: null,
       external_customer_id: buyer.userId,
-      metadata: {},
+      metadata: { [LICENSE_CHECKOUT_METADATA.LOCALE]: "pl-PL" },
       net_amount: listPrice(LICENSE_TIER.COMPLETE),
       product_id: POLAR_PRODUCT_IDS[LICENSE_TIER.COMPLETE],
       success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}`,
@@ -186,8 +192,9 @@ describe("checkout", () => {
 
     const checkout = await startCheckout(buyer, { cookie: `${AFFONSO.REFERRAL_COOKIE}=${referral}`, tier: LICENSE_TIER.CORE })
 
-    expect(checkout.metadata).toStrictEqual({ [AFFONSO.METADATA_KEY]: referral })
-    expect(payPolarCheckout(checkout.id).metadata).toStrictEqual({ [AFFONSO.METADATA_KEY]: referral })
+    const metadata = { [AFFONSO.METADATA_KEY]: referral, [LICENSE_CHECKOUT_METADATA.LOCALE]: "en-US" }
+    expect(checkout.metadata).toStrictEqual(metadata)
+    expect(payPolarCheckout(checkout.id).metadata).toStrictEqual(metadata)
   })
 
   it("refuses a second checkout while the account holds an active licence, without asking Polar", async () => {
@@ -195,7 +202,9 @@ describe("checkout", () => {
     const checkoutsBefore = polarCheckouts().length
 
     actAs(buyer)
-    await expect(executeMutation(startCheckoutMutation, { locale: "en-US", tier: LICENSE_TIER.AGENCY })).resolves.toStrictEqual({
+    await expect(
+      executeMutation(startCheckoutMutation, { locale: "en-US", tier: LICENSE_TIER.AGENCY, withdrawalConsent: true }),
+    ).resolves.toStrictEqual({
       alreadyActive: true,
     })
 
@@ -212,16 +221,26 @@ describe("checkout", () => {
   })
 
   it("refuses a tier this app does not sell and a language it does not speak", () => {
-    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", tier: "enterprise" }).success).toBe(false)
-    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "xx-XX", tier: LICENSE_TIER.CORE }).success).toBe(false)
+    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", tier: "enterprise", withdrawalConsent: true }).success).toBe(false)
+    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "xx-XX", tier: LICENSE_TIER.CORE, withdrawalConsent: true }).success).toBe(
+      false,
+    )
+  })
+
+  it.each([
+    ["without the consent", {}],
+    ["with the box left empty", { withdrawalConsent: false }],
+    ["with consent given as text", { withdrawalConsent: "true" }],
+  ])("refuses a checkout %s to immediate supply", (_case, consent) => {
+    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", tier: LICENSE_TIER.CORE, ...consent }).success).toBe(false)
   })
 
   it("refuses a visitor who is not signed in", async () => {
     vi.mocked(getRequest).mockReturnValue(new Request(`${TEST_APP_URL}/_serverFn/license`, { headers: browserHeaders(), method: "POST" }))
 
-    await expect(executeMutation(startCheckoutMutation, { locale: "en-US", tier: LICENSE_TIER.CORE })).rejects.toThrow(
-      ERROR_CODES.UNAUTHORIZED,
-    )
+    await expect(
+      executeMutation(startCheckoutMutation, { locale: "en-US", tier: LICENSE_TIER.CORE, withdrawalConsent: true }),
+    ).rejects.toThrow(ERROR_CODES.UNAUTHORIZED)
     expect(polarCheckouts()).toStrictEqual([])
   })
 })
@@ -248,6 +267,22 @@ describe("Polar webhooks", () => {
       polarLicenseKeyId: licenseKey.id,
       status: LICENSE_STATUS.ACTIVE,
     })
+  })
+
+  it("confirms the purchase by email in the checkout's language, with the consent the buyer gave before paying", async () => {
+    const buyer = await signUpAndVerify()
+    const checkout = await startCheckout(buyer, { locale: "pl-PL", tier: LICENSE_TIER.COMPLETE })
+    const order = payPolarCheckout(checkout.id)
+
+    expect(await deliver(LICENSE_WEBHOOK_EVENTS.onOrderPaid, order)).toBe(HTTP_STATUS.OK)
+
+    const confirmations = getSentEmails(buyer.account.email).filter(
+      ({ idempotencyKey }) => idempotencyKey?.startsWith(`${EMAIL_PURPOSE.PURCHASE_CONFIRMATION}/`) === true,
+    )
+    expect(confirmations).toStrictEqual([expect.objectContaining({ subject: "Twoja licencja SaaSy Land na pakiet Komplet" })])
+    expect(confirmations[0]?.html).toContain('lang="pl-PL"')
+    expect(confirmations[0]?.html).toContain("prawo odstąpienia od umowy nie dotyczy tego zamówienia")
+    expect(await currentLicense(buyer)).toMatchObject({ withdrawalConsentAt: new Date(order.created_at) })
   })
 
   it("keeps the licence through a partial refund and marks it refunded once the order is refunded in full", async () => {
@@ -374,7 +409,7 @@ describe("Polar webhook delivery order", () => {
     expect(await currentLicense(buyer)).toMatchObject({ polarOrderId: newer.id, tier: LICENSE_TIER.AGENCY })
   })
 
-  it("acknowledges every event for an account deleted after its purchase, and logs a new paid order", async () => {
+  it("acknowledges every event for an account deleted after its purchase, and logs and reports a new paid order", async () => {
     const { buyer, grant, order } = await buyLicense()
     const later = createPolarOrder({ externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.AGENCY] })
     await db.delete(user).where(eq(user.id, buyer.userId))
@@ -387,7 +422,8 @@ describe("Polar webhook delivery order", () => {
     ]
 
     expect(statuses).toStrictEqual([HTTP_STATUS.OK, HTTP_STATUS.OK, HTTP_STATUS.OK])
-    expect(consoleError).toHaveBeenCalledWith(`[license] order ${later.id} does not map to a known account and tier`)
+    expect(consoleError).toHaveBeenCalledWith(`[license] paid order ${later.id} maps to no account`)
+    expect(getSentEmails(CONTACT_EMAIL).map(({ subject }) => subject)).toStrictEqual(["Paid Agency order without a licence"])
   })
 })
 

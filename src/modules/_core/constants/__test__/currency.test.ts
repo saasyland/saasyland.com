@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { CURRENCIES, CURRENCY_CODES, CURRENCY_CODE_LENGTH, toMinorUnits } from "~/src/modules/_core/constants/currency"
+import { CURRENCIES, CURRENCY_CODES, CURRENCY_CODE_LENGTH, fromMinorUnits, toMinorUnits } from "~/src/modules/_core/constants/currency"
 import { DEFAULT_CURRENCY_CODE } from "~/src/modules/_core/constants/pricing"
 
 describe("currency catalog", () => {
@@ -23,5 +23,13 @@ describe("currency catalog", () => {
     { amount: 12.3456, currency: "BHD", minorUnits: 12_346 },
   ] as const)("converts $amount $currency to $minorUnits minor units by the ISO 4217 exponent", ({ amount, currency, minorUnits }) => {
     expect(toMinorUnits(amount, currency)).toBe(minorUnits)
+  })
+
+  it.each([
+    { amount: 174.3, currency: "USD", minorUnits: 17_430 },
+    { amount: 1235, currency: "JPY", minorUnits: 1235 },
+    { amount: 12.346, currency: "BHD", minorUnits: 12_346 },
+  ] as const)("reads $minorUnits minor units of $currency as $amount by the ISO 4217 exponent", ({ amount, currency, minorUnits }) => {
+    expect(fromMinorUnits(minorUnits, currency)).toBe(amount)
   })
 })

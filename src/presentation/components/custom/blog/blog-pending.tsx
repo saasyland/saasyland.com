@@ -6,6 +6,8 @@ import { deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
+import { ContentPagePending } from "~/src/presentation/components/custom/content-page"
+
 import { ROUTES } from "~/src/routes"
 
 const POSTS = ["first", "second", "third", "fourth"] as const
@@ -13,42 +15,34 @@ const PARAGRAPHS = ["first", "second", "third", "fourth"] as const
 const CONTENTS = ["first", "second", "third", "fourth", "fifth", "sixth"] as const
 
 export const BlogIndexPending = (): JSX.Element => (
-  <section aria-busy="true" className="relative">
-    <div className="mx-auto w-full max-w-7xl px-6 py-24 md:px-10 md:py-32">
-      <Skeleton className="h-lh w-full max-w-[16ch] scale-y-75 text-headline-peak" />
-      <div className="mt-5 flex max-w-2xl flex-col text-lead">
-        <Skeleton className="h-lh w-full scale-y-70" />
-        <Skeleton className="h-lh w-4/5 scale-y-70" />
-      </div>
-
-      <div className="mt-14 md:mt-20">
-        <div className="-mx-4 divide-y divide-border border-y border-border md:-mx-6">
-          {POSTS.map((post) => (
-            <div className="grid gap-x-10 gap-y-2 px-4 py-7 md:grid-cols-[10rem_1fr] md:px-6 md:py-8" key={post}>
-              <div className="flex flex-col font-mono text-spec">
-                <Skeleton className="h-lh w-24 scale-y-70" />
-                <Skeleton className="mt-1 h-lh w-20 scale-y-70" />
-              </div>
-              <div className="min-w-0">
-                <Skeleton className="h-lh w-3/5 scale-y-70 text-title" />
-                <div className="mt-2 flex max-w-[68ch] flex-col text-body">
-                  <Skeleton className="h-lh w-full scale-y-70" />
-                  <Skeleton className="h-lh w-full scale-y-70" />
-                  <Skeleton className="h-lh w-1/4 scale-y-70" />
-                </div>
-                <Skeleton className="mt-4 h-lh w-80 max-w-full scale-y-70 font-mono text-label" />
-              </div>
+  <ContentPagePending>
+    <div className="mt-14 md:mt-20">
+      <div className="-mx-4 divide-y divide-border border-y border-border md:-mx-6">
+        {POSTS.map((post) => (
+          <div className="grid gap-x-10 gap-y-2 px-4 py-7 md:grid-cols-[10rem_1fr] md:px-6 md:py-8" key={post}>
+            <div className="flex flex-col font-mono text-spec">
+              <Skeleton className="h-lh w-24 scale-y-70" />
+              <Skeleton className="mt-1 h-lh w-20 scale-y-70" />
             </div>
-          ))}
-        </div>
+            <div className="min-w-0">
+              <Skeleton className="h-lh w-3/5 scale-y-70 text-title" />
+              <div className="mt-2 flex max-w-[68ch] flex-col text-body">
+                <Skeleton className="h-lh w-full scale-y-70" />
+                <Skeleton className="h-lh w-full scale-y-70" />
+                <Skeleton className="h-lh w-1/4 scale-y-70" />
+              </div>
+              <Skeleton className="mt-4 h-lh w-80 max-w-full scale-y-70 font-mono text-label" />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
-  </section>
+  </ContentPagePending>
 )
 
 export const BlogPostPending = (): JSX.Element => (
   <article aria-busy="true" className="relative">
-    <div className="mx-auto w-full max-w-7xl px-6 py-20 md:px-10 md:py-28">
+    <div className="mx-auto w-full max-w-site px-6 py-20 md:px-10 md:py-28">
       <Skeleton className="h-lh w-24 scale-y-70 font-mono text-label" />
 
       <div className="mt-8 flex max-w-[24ch] flex-col text-display-gate">
@@ -99,10 +93,9 @@ export const BlogPostPending = (): JSX.Element => (
 export const BlogPending = (): JSX.Element => {
   const isIndex = useRouterState({ select: (state) => deLocalizePathname(state.location.pathname) === ROUTES.BLOG })
 
-  return (
-    <div className="pt-header">
-      {isIndex && <BlogIndexPending />}
-      {!isIndex && <BlogPostPending />}
-    </div>
-  )
+  if (isIndex) {
+    return <BlogIndexPending />
+  }
+
+  return <BlogPostPending />
 }

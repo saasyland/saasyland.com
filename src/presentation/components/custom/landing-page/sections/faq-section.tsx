@@ -24,7 +24,7 @@ export const FaqSection = (): JSX.Element => {
 
   return (
     <section className="relative border-t border-border" id={MARKETING_SECTION_IDS.FAQ}>
-      <div className="mx-auto grid w-full max-w-7xl gap-x-16 gap-y-12 px-6 py-24 md:px-10 md:py-32 lg:grid-cols-[1fr_1.5fr] lg:items-start">
+      <div className="mx-auto grid w-full max-w-site gap-x-16 gap-y-12 px-6 py-24 md:px-10 md:py-32 lg:grid-cols-[1fr_1.5fr] lg:items-start">
         <Reveal variant="heading" className="lg:sticky lg:top-24">
           <h2 className="max-w-[14ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
           <p className="mt-5 max-w-md text-lead text-pretty text-muted-foreground">{t("lead")}</p>

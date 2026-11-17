@@ -15,14 +15,22 @@ describe("deploy checks", () => {
     expect(DEPLOY_CHECKS.filter((check) => scripts[`${check}:${environment}`] === undefined)).toStrictEqual([])
   })
 
-  it.each(DEPLOYED_ENVIRONMENTS)("runs every area's checks for %s after the bindings and before the build", (environment) => {
-    expect(scripts[`deploy:${environment}`]).toMatch(
-      new RegExp(
-        `^bun scripts/verify-bindings\\.ts ${environment} && bun scripts/run-deploy-checks\\.ts ${environment} && bun run build:${environment} `,
-        "u",
-      ),
-    )
-  })
+  it.each(DEPLOYED_ENVIRONMENTS)(
+    "runs every area's checks for %s after the bindings and the secrets and before the build",
+    (environment) => {
+      expect(scripts[`deploy:${environment}`]).toMatch(
+        new RegExp(
+          [
+            `^bun scripts/verify-bindings\\.ts ${environment}`,
+            `bun scripts/prepare-deploy-secrets\\.ts ${environment}`,
+            `bun scripts/run-deploy-checks\\.ts ${environment}`,
+            `bun run build:${environment} `,
+          ].join(" && "),
+          "u",
+        ),
+      )
+    },
+  )
 
   it.each(DEPLOYED_ENVIRONMENTS)("leaves the checks of the areas out of the %s deploy script itself", (environment) => {
     expect(DEPLOY_CHECKS.filter((check) => (scripts[`deploy:${environment}`] ?? "").includes(check))).toStrictEqual([])

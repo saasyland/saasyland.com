@@ -101,7 +101,7 @@ export const ForgotPasswordForm = (): JSX.Element => {
 
       <Button
         aria-label={t("pages.auth.forgot-password.form.submit")}
-        className="h-12 w-full gap-2 text-body-sm font-semibold transition-[background-color,color,transform]"
+        className="h-11 w-full gap-2 px-5 text-body-sm font-semibold transition-[background-color,color,transform]"
         data-testid="forgot-password-form-submit-button"
         isDisabled={requestPasswordReset.isSuccess}
         isPending={requestPasswordReset.isPending}

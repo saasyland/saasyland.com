@@ -42,6 +42,21 @@ export const LICENSE_API_ENDPOINTS = [
   "DEACTIVATE",
 ] as const satisfies readonly (keyof typeof API_ENDPOINT)[]
 
+export const REFUND_ELIGIBILITY = {
+  EXPIRED: "expired",
+  REFUNDABLE: "refundable",
+  STATUTORY_WITHDRAWAL: "statutoryWithdrawal",
+  USED: "used",
+} as const
+
+export const LICENSE_CHECKOUT_FIELD = {
+  WITHDRAWAL_CONSENT: "withdrawal_consent",
+} as const
+
+export const LICENSE_CHECKOUT_METADATA = {
+  LOCALE: "locale",
+} as const
+
 export const LICENSE_API_RETRY_AFTER_SECONDS = 30
 
 export const REGIONAL_DISCOUNTS_REFRESH_AFTER_MS = 300_000
@@ -62,6 +77,8 @@ export const LICENSE_QUERY_KEYS = {
   ACTIVATIONS: ["license", "activations"],
   ALL: ["license"],
   CURRENT: ["license", "current"],
+  UNLICENSED_ORDERS: ["license", "getUnlicensedOrders"],
+  USER: ["license", "getUserLicense"],
 } as const
 
 export const LICENSE_MUTATION_KEYS = {

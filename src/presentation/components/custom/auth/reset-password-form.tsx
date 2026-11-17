@@ -105,7 +105,7 @@ export const ResetPasswordForm = ({ token }: { readonly token: string }): JSX.El
 
       <Button
         aria-label={t("submit")}
-        className="h-12 w-full gap-2 text-body-sm font-semibold transition-[background-color,color,transform]"
+        className="h-11 w-full gap-2 px-5 text-body-sm font-semibold transition-[background-color,color,transform]"
         data-testid="reset-password-form-submit-button"
         isPending={resetPassword.isPending}
         type="submit"

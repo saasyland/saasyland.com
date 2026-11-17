@@ -80,7 +80,17 @@ moduleEntries.has(hint) ? `<link rel="modulepreload" href="${hint}" fetchpriorit
 
 Rimuovere gli hint ha ridotto il First Contentful Paint di circa un terzo; mantenere l'hint di ingresso a bassa priorità ha ridotto di altri 375 ms il First Contentful Paint su mobile. Non aggiungere mai di nuovo hint di preload, né per le dipendenze né per i chunk delle route. Lo script fa fallire la build quando non trova alcun hint da rimuovere o nessuno da mantenere, così un cambiamento nell'output della build viene intercettato invece di annullare in silenzio questa ottimizzazione.
 
+TanStack Start ora emette ogni hint con `fetchpriority="low"`, quindi la regola è stata misurata di nuovo a novembre 2026 sulla landing page, cinque esecuzioni alternate per variante. Tenere tutti i 156 hint ha permesso al browser di scaricare i chunk della pagina in un'unica ondata invece di undici e di idratare il configuratore della CLI 250 ms prima su desktop e 315 ms prima su un telefono rallentato, ma il First Contentful Paint è arrivato 68 ms più tardi su desktop e 77 ms più tardi su mobile. Gli hint restano rimossi.
+
+La policy degli script mantiene questo ordine. Il Worker fa passare in streaming ogni pagina prerenderizzata attraverso `withNonce`, un `HTMLRewriter` che aggiunge il nonce della risposta al `<script type="module">` di ingresso e al suo hint e non cambia nient'altro, così l'hint nell'head avvia ancora il download a bassa priorità e il modulo viene ancora eseguito quando il parser raggiunge la fine del body. La riscrittura avviene in streaming, quindi non trattiene alcun byte, ma poiché le risposte HTML non hanno `ETag`, un browser scarica di nuovo una pagina invece di rivalidarla.
+
 `robots.txt` e `llms.txt` sono file statici in `public/` che aggirano il Worker (`"!/robots.txt", "!/llms.txt"` in `run_worker_first`). Lighthouse li recupera entrambi con un timeout di due secondi, e una risposta lenta del Worker faceva fallire i suoi audit SEO e di preparazione per gli agenti.
+
+## Gli Early Hints nominano solo file che sopravvivono a un deploy
+
+L'header `Link` del Worker sulle risposte HTML nomina i font del locale e nient'altro. Cloudflare memorizza l'header per URL e lo invia come risposta `103 Early Hints` prima che il Worker risponda alla richiesta successiva per quell'URL, e la copia memorizzata sopravvive a un deploy. Vite dà al foglio di stile un nome basato sul contenuto, quindi dopo un deploy che cambia qualsiasi CSS un foglio di stile annunciato è un file che non esiste più: il browser scarica un 404 e trova comunque il nuovo foglio di stile nell'HTML. I file in `public/fonts` mantengono il loro nome da un deploy all'altro.
+
+Misurato su saasyland.com con Chromium, 15 esecuzioni alternate per variante su tre pagine, con i tempi reali degli Early Hints dell'edge: annunciare i font ha portato il First Contentful Paint da 168–208 ms a 144–164 ms. Annunciare il foglio di stile ha fatto risparmiare altri 12–28 ms quando il suo URL era aggiornato e niente quando un deploy l'aveva sostituito, e 25 minuti dopo un deploy 67 delle 91 pagine della sitemap che ricevevano Early Hints annunciavano ancora il foglio di stile precedente. Il `<link>` del foglio di stile si trova nel primo kilobyte di ogni pagina, quindi il browser lo trova con i primi byte dell'HTML. Annuncia solo file i cui URL sopravvivono a un deploy.
 
 ## I provider non avvolgono mai un outlet di route
 
@@ -90,6 +100,10 @@ TanStack Router avvolge gli outlet delle route in boundary di Suspense, e React 
 - `MotionProvider` sopra un outlet di route pubblica un nuovo contesto quando le sue funzionalità di animazione finiscono di caricarsi. In un articolo del blog quell'aggiornamento arrivava mentre la pagina stava ancora caricando il contenuto, React ripiegava sul rendering lato client e il layout si spostava.
 
 Prima di aggiungere un provider a `__root.tsx` o a un layout, verifica se il suo valore può cambiare dopo l'idratazione. Se può, montalo accanto ai componenti che lo leggono, sotto ogni `<Outlet />` di route. Le posizioni sono elencate in [Componenti e stili](/docs/conventions/components).
+
+## Un widget costoso da idratare ha un proprio boundary [#a-widget-that-is-heavy-to-hydrate-gets-its-own-boundary]
+
+Il configuratore della CLI nella landing page renderizza quaranta pulsanti React Aria, ciascuno con i propri hook di pressione, hover e focus. Idratati insieme al resto della pagina, i loro effetti rendevano il commit che conclude l'idratazione della pagina un task di 70–100 ms con il throttling desktop di Lighthouse, che portava il Total Blocking Time da 101 a 147 ms. `CliSection` avvolge `CliConfigurator` in un boundary `Suspense` che non sospende mai. React idrata un boundary del genere da solo, dopo il resto della pagina, e lo conferma in un commit separato, così il task lungo sparisce e il Total Blocking Time è di 100 ms, con First Contentful Paint e Largest Contentful Paint invariati. Il configuratore stesso si idrata circa 50 ms più tardi. Dai un boundary proprio a un altro widget solo quando un confronto mostra lo stesso task lungo.
 
 ## Gli scheletri restano nello script di ingresso [#skeletons-stay-in-the-entry-script]
 
@@ -108,7 +122,7 @@ Poiché ogni pagina carica ogni scheletro, uno scheletro importa `Skeleton`, le 
 | `/app`         | 430,4 KiB | 404,1 KiB |
 | `/admin`       | 452,9 KiB | 427,7 KiB |
 
-`/` e `/blog` risparmiano meno perché i loro layout mostrano il form della newsletter, che richiede comunque TanStack Form. `pending-imports.test.ts` segue gli import di ogni `*-pending.tsx` e fallisce quando uno di essi raggiunge `@tanstack/react-form`. I pannelli della dashboard di amministrazione e le sezioni della panoramica cliente abbinano ancora ogni scheletro al suo componente nell'elenco dell'area, quindi quei componenti si caricano insieme agli scheletri.
+`/` e `/blog` risparmiano meno perché i loro layout mostrano il form della newsletter, che richiede comunque TanStack Form. `pending-imports.test.ts` segue gli import di ogni `*-pending.tsx` e fallisce quando uno di essi raggiunge `@tanstack/react-form`. I pannelli della dashboard di amministrazione e le sezioni della panoramica cliente abbinano ancora ogni scheletro al suo componente nell'elenco dell'area, quindi quei componenti si caricano insieme agli scheletri. L'offerta della licenza è una di quelle sezioni, quindi la sua finestra di dialogo del checkout carica il modulo del consenso, `checkout-consent.tsx`, con `lazy` quando la finestra si apre.
 
 ## Una sola build Tailwind
 
@@ -133,6 +147,10 @@ Una seconda build Tailwind in un foglio di stile di route una volta ha distribui
 `Reveal` (`src/presentation/components/custom/landing-page/components/reveal.tsx`) fa comparire in dissolvenza le sezioni della landing page quando entrano nel viewport. Condivide un unico `IntersectionObserver` tra tutte le istanze, decide dal primo callback dell'observer se un elemento parte sotto la piega e scrive direttamente gli attributi `data-reveal`, senza stato React e senza nuovi rendering. Una versione che manteneva la visibilità nello stato React raddoppiava il Total Blocking Time, perché ogni sezione veniva renderizzata di nuovo e il layout della pagina veniva calcolato due volte. Non riportarla nello stato, e non sostituirla senza un confronto.
 
 Altre due ottimizzazioni sono state misurate e scartate: `content-visibility: auto` sulle sezioni della landing page, che rompeva i link interni verso le sezioni più in basso, e il caricamento lazy del form della newsletter, che otteneva un punteggio uguale o peggiore rispetto al rendering diretto.
+
+## I contenuti che arrivano dopo mantengono le loro dimensioni
+
+Una pagina prerenderizzata viene disegnata prima che giri qualsiasi script, quindi una sezione che si riempie dopo deve stare nello spazio che le è stato dato. Il blocco dei corsi della landing page è una di queste: legge i corsi pubblicati quando lo scorrimento lo avvicina, e il suo segnaposto prima ipotizzava due corsi di sei lezioni ciascuno, così il blocco cresceva o si restringeva all'arrivo dei corsi e spostava tutto ciò che stava sotto di cento pixel o più. Ora le sue colonne contengono un insieme fisso di righe singole, il segnaposto disegna le stesse righe e i suoi messaggi stanno in una cornice grande quanto una colonna, così ogni stato ha la stessa altezza a ogni larghezza (vedi [Corsi](/docs/features/courses)). Il numero di stelle della landing page fa lo stesso con uno scheletro alto quanto il numero. Scrivere i corsi nell'HTML prerenderizzato non è un'opzione: la build non ha il database di produzione, e renderizzare la landing page nel Worker a ogni richiesta restituirebbe il tempo al primo byte che la prerenderizzazione fa risparmiare.
 
 ## Pagine correlate
 

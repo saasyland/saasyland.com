@@ -7,13 +7,15 @@ description: "Plantillas de React Email en src/presentation/emails, enviadas por
 
 Las plantillas están en `src/presentation/emails`. Cada archivo contiene solo marcado y exporta su constante de espacio de nombres:
 
-| Plantilla                      | Espacio de nombres                       | La envía                                                 |
-| ------------------------------ | ---------------------------------------- | -------------------------------------------------------- |
-| `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail` (hook de Better Auth)                  |
-| `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail` (hook de Better Auth)           |
-| `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail` (hook de Better Auth) |
-| `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                                  |
-| `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`, a `CONTACT_EMAIL`       |
+| Plantilla                      | Espacio de nombres                       | La envía                                                             |
+| ------------------------------ | ---------------------------------------- | -------------------------------------------------------------------- |
+| `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail` (hook de Better Auth)                              |
+| `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail` (hook de Better Auth)                       |
+| `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail` (hook de Better Auth)             |
+| `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                                              |
+| `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`, a `CONTACT_EMAIL`                   |
+| `PurchaseConfirmationEmail`    | `emails.purchase-confirmation-email`     | `sendPurchaseConfirmationEmail` (`order.paid` de Polar)              |
+| `UnmatchedOrderAlertEmail`     | `emails.unmatched-order-alert-email`     | `sendUnmatchedOrderAlert` (`order.paid` de Polar), a `CONTACT_EMAIL` |
 
 Una plantilla recibe `locale` y `messages` y traduce con `createTranslator` de use-intl:
 
@@ -45,11 +47,11 @@ await sendEmail({
 })
 ```
 
-`sendEmail` (`src/integrations/resend/resend.utils.ts`) envía a través de Resend desde `RESEND_EMAIL_FROM`, salvo que se indique un `from` (la notificación al propietario usa `NOTIFICATIONS_EMAIL`), pasa la clave de idempotencia y lanza un error si el envío falla.
+`sendEmail` (`src/integrations/resend/resend.utils.ts`) envía a través de Resend desde `RESEND_EMAIL_FROM`, salvo que se indique un `from` (la notificación al propietario y el aviso de pedido sin cuenta usan `NOTIFICATIONS_EMAIL`), pasa la clave de idempotencia y lanza un error si el envío falla.
 
-Los correos de cuenta usan el idioma de la página donde empezó el flujo, que se lee del `callbackURL` del enlace del correo; en un registro repetido sale del `callbackURL` de la petición de registro. Los correos del boletín usan el idioma enviado con el formulario; la notificación al propietario siempre está en `en-US`.
+Los correos de cuenta usan el idioma de la página donde empezó el flujo, que se lee del `callbackURL` del enlace del correo; en un registro repetido sale del `callbackURL` de la petición de registro. Los correos del boletín usan el idioma enviado con el formulario; la notificación al propietario siempre está en `en-US`. La confirmación de compra usa el idioma que `startCheckout` guardó en los metadatos del pedido, y el inglés cuando no hay ninguno; confirma en un soporte duradero el consentimiento del comprador al suministro inmediato, consulta [Licencias](/docs/features/licences#purchase-confirmation). El aviso de pedido sin cuenta, que informa al sitio de un pedido de licencia pagado cuyo cliente no corresponde a ninguna cuenta, está en `I18N.DEFAULT_LOCALE`; consulta [Licencias](/docs/features/licences#orders-that-match-no-account).
 
-`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) permite como máximo <RepositoryFact name="recipientEmailsPerHour" /> correos de cada tipo (verificación, restablecimiento de contraseña y confirmación del boletín) por dirección y hora, contados en la tabla `rate_limit` con un hash SHA-256 de la dirección. Por encima del límite el correo se omite y la petición sigue recibiendo su respuesta normal. La confirmación del cambio de correo y la notificación al propietario no tienen límite.
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) permite como máximo <RepositoryFact name="recipientEmailsPerHour" /> correos de cada tipo (verificación, restablecimiento de contraseña y confirmación del boletín) por dirección y hora, contados en la tabla `rate_limit` con un hash SHA-256 de la dirección. Por encima del límite el correo se omite y la petición sigue recibiendo su respuesta normal. La confirmación del cambio de correo, la notificación al propietario, la confirmación de compra y el aviso de pedido sin cuenta no tienen límite; los dos últimos los provoca el webhook de Polar, no un visitante, una vez por pedido.
 
 ## Guías relacionadas
 

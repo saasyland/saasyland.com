@@ -1,7 +1,8 @@
 import { type JSX, type ReactNode, isValidElement } from "react"
 
 import { InlineTOC } from "@fumadocs/base-ui/components/inline-toc"
-import { Link, createFileRoute, notFound } from "@tanstack/react-router"
+import { RootProvider } from "@fumadocs/base-ui/provider/tanstack"
+import { Link, createFileRoute, isNotFound, notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { useTranslations } from "use-intl/react"
 import zod from "zod/v4"
@@ -13,6 +14,9 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
 
+import { useFumadocsI18n } from "~/src/hooks/use-fumadocs-i18n"
+
+import { notFoundHead } from "~/src/lib/not-found"
 import { buildBlogPostStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
 
 import { blogContent } from "~/src/presentation/components/custom/blog-content"
@@ -42,6 +46,9 @@ const tocItemTitle = (title: ReactNode): string => {
   return ""
 }
 
+const SEARCH = { enabled: false } as const
+const THEME = { enabled: false } as const
+
 const getBlogPost = createServerFn({ method: "GET" })
   .validator(zod.object({ locale: localeField, slug: zod.string() }))
   .handler(({ data: { locale, slug } }) => {
@@ -65,6 +72,7 @@ const BlogPostPage = (): JSX.Element => {
   const content = blogContent.useContent(post.path)
   const t = useTranslations("pages.blog.post")
   const faq = usePostFaq(post.faq)
+  const i18n = useFumadocsI18n()
 
   const structuredDataHtml = buildBlogPostStructuredDataHtml({
     authorName: post.authorName,
@@ -81,7 +89,7 @@ const BlogPostPage = (): JSX.Element => {
   return (
     <article className="relative">
       <script dangerouslySetInnerHTML={structuredDataHtml} type="application/ld+json" />
-      <div className="mx-auto w-full max-w-7xl px-6 py-20 md:px-10 md:py-28">
+      <div className="mx-auto w-full max-w-site px-6 py-20 md:px-10 md:py-28">
         <Link
           className="inline-flex items-center gap-2 font-mono text-label text-muted-foreground uppercase transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           to={ROUTES.BLOG}
@@ -112,9 +120,11 @@ const BlogPostPage = (): JSX.Element => {
         <div className="mt-14 grid gap-x-16 lg:grid-cols-[minmax(0,72ch)_1fr]">
           <div className="min-w-0">
             <div className="mb-10 lg:hidden">
-              <InlineTOC items={post.toc} />
+              <InlineTOC items={post.toc}>{t("contents")}</InlineTOC>
             </div>
-            <div className="typeset typeset-article">{content}</div>
+            <RootProvider i18n={i18n} search={SEARCH} theme={THEME}>
+              <div className="typeset typeset-article">{content}</div>
+            </RootProvider>
             <PostCta />
             <div className="mt-16 border-t border-border pt-8">
               <PostShare />
@@ -131,15 +141,26 @@ const NAMESPACE = "pages.blog"
 
 export const Route = createFileRoute("/_site/_marketing/blog/$")({
   component: BlogPostPage,
-  head: ({ loaderData }: { loaderData?: { locale: SupportedLocale; post: BlogPostSummary; section: string } | undefined }) =>
-    buildPageHead({
+  head: ({
+    loaderData,
+    match,
+  }: {
+    loaderData?: { locale: SupportedLocale; post: BlogPostSummary; section: string } | undefined
+    match: { error: unknown }
+  }) => {
+    if (isNotFound(match.error)) {
+      return notFoundHead(getCurrentLocale())
+    }
+
+    return buildPageHead({
       description: loaderData?.post.summary,
       locale: loaderData?.locale,
       pathname: loaderData?.post.url ?? ROUTES.BLOG,
       section: loaderData?.section,
       title: loaderData?.post.title,
       type: "article",
-    }),
+    })
+  },
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [post, blog] = await Promise.all([

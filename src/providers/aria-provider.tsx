@@ -3,7 +3,7 @@ import { type JSX, type ReactNode, useCallback } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { I18nProvider, RouterProvider } from "react-aria-components"
 
-import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
+import { localizeHref } from "~/src/integrations/use-intl/i18n.paths"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 export const AriaProvider = ({ children }: { readonly children: ReactNode }): JSX.Element => {
@@ -16,7 +16,7 @@ export const AriaProvider = ({ children }: { readonly children: ReactNode }): JS
     },
     [navigateRoute],
   )
-  const useHref = useCallback((href: string) => localizePathname({ locale, pathname: href }), [locale])
+  const useHref = useCallback((href: string) => localizeHref({ href, locale }), [locale])
 
   return (
     <I18nProvider locale={locale}>

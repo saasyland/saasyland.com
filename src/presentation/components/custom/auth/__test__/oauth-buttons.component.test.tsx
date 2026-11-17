@@ -12,11 +12,16 @@ import { createTestRequestUrl } from "~/src/platform/testing/lib/test-request"
 import type * as AuthClient from "~/src/integrations/better-auth/auth.client"
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 
+import { OAUTH_PROVIDERS } from "~/src/data/auth"
+
 import { OAuthButtons } from "~/src/presentation/components/custom/auth/oauth-buttons"
 
 import authErrorsMessages from "~/messages/en-US/auth.errors.json"
 import authOauthMessages from "~/messages/en-US/auth.oauth.json"
 import { ROUTES } from "~/src/routes"
+
+const [googleProvider, githubProvider] = OAUTH_PROVIDERS
+const continueWith = (provider: string): string => authOauthMessages.continueWith.replace("{provider}", provider)
 
 const signInSocialMock = vi.hoisted(() => vi.fn<typeof AuthClient.authClient.signIn.social>())
 
@@ -46,7 +51,7 @@ const clickSignIn = async (): Promise<void> => {
       <OAuthButtons />
     </IntlProvider>,
   )
-  await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: authOauthMessages.github }))
+  await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: continueWith(githubProvider.name) }))
 }
 
 beforeEach(() => {
@@ -76,8 +81,8 @@ describe("OAuth buttons", () => {
 
     await clickSignIn()
 
-    const github = screen.getByRole("button", { name: authOauthMessages.github })
-    const google = screen.getByRole("button", { name: authOauthMessages.google })
+    const github = screen.getByRole("button", { name: continueWith(githubProvider.name) })
+    const google = screen.getByRole("button", { name: continueWith(googleProvider.name) })
     await waitFor(() => {
       expect(github).toHaveAttribute("aria-disabled", "true")
     })

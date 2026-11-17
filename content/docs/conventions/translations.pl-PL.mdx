@@ -9,16 +9,17 @@ SaaSy Land jest dostępny w następujących językach (łącznie <RepositoryFact
 
 Komunikaty znajdują się w `messages/<locale>/<namespace>.json`, po jednym pliku na przestrzeń nazw, a nazwa pliku jest nazwą przestrzeni nazw.
 
-| Przestrzeń nazw                                              | Zawartość                                                                          | Ładowana                                             |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `common`, `errors`, `errors.global`                          | Teksty, których może potrzebować każdy ekran, w tym `errors.codes.<CODE>`          | Dla każdej trasy                                     |
-| `components.custom.<file>`, `components.shadcn.<file>`       | Teksty jednego współdzielonego komponentu, np. `components.custom.newsletter-form` | Dla każdej trasy                                     |
-| `pages.<area>`, `pages.<area>.<page>`                        | Jeden layout lub jedna strona, z `metadata.title` i `metadata.description`         | Przez trasę, za pomocą `NAMESPACE` lub `NAMESPACES`  |
-| `navigation.<area>`, `dashboard.<area>`                      | Etykiety pozycji menu, okruszków i statystyk pulpitu jednego obszaru               | Na poziomie głównym, z każdą stroną                  |
-| `<table>.validations`                                        | Komunikaty Zod jednego modułu, np. `course.validations`                            | Przez layout, którego formularze ich używają         |
-| `auth.errors`, `auth.validations` i pozostałe pliki `auth.*` | Błędy Better Auth, walidacja i ekrany uwierzytelniania                             | Przez layouty, które ich potrzebują                  |
-| `emails.<template>`                                          | Jeden szablon e-maila                                                              | Na serwerze, przez przypadek użycia, który go wysyła |
-| `countries`, `currencies`, `locales`, `timezones`            | Katalogi                                                                           | Przez layouty, które ich potrzebują                  |
+| Przestrzeń nazw                                              | Zawartość                                                                                                    | Ładowana                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| `common`, `errors`, `errors.global`                          | Teksty, których może potrzebować każdy ekran, w tym `errors.codes.<CODE>`                                    | Dla każdej trasy                                     |
+| `components.custom.<file>`, `components.shadcn.<file>`       | Teksty jednego współdzielonego komponentu, np. `components.custom.newsletter-form`                           | Dla każdej trasy                                     |
+| `fumadocs`                                                   | Teksty własnych kontrolek Fumadocs w dokumentacji i na blogu, które `useFumadocsI18n` przekazuje do Fumadocs | Przez layouty dokumentacji i bloga                   |
+| `pages.<area>`, `pages.<area>.<page>`                        | Jeden layout lub jedna strona, z `metadata.title` i `metadata.description`                                   | Przez trasę, za pomocą `NAMESPACE` lub `NAMESPACES`  |
+| `navigation.<area>`, `dashboard.<area>`                      | Etykiety pozycji menu, okruszków i statystyk pulpitu jednego obszaru                                         | Na poziomie głównym, z każdą stroną                  |
+| `<table>.validations`                                        | Komunikaty Zod jednego modułu, np. `course.validations`                                                      | Przez layout, którego formularze ich używają         |
+| `auth.errors`, `auth.validations` i pozostałe pliki `auth.*` | Błędy Better Auth, walidacja i ekrany uwierzytelniania                                                       | Przez layouty, które ich potrzebują                  |
+| `emails.<template>`                                          | Jeden szablon e-maila                                                                                        | Na serwerze, przez przypadek użycia, który go wysyła |
+| `countries`, `currencies`, `locales`, `timezones`            | Katalogi                                                                                                     | Przez layouty, które ich potrzebują                  |
 
 Główne przestrzenie nazw są wyszukiwane po nazwie pliku (`common.json`, `components.*.json`, `errors*.json`) w `src/integrations/use-intl/i18n.messages.ts`. Teksty współdzielonego komponentu znajdują się w jego własnej przestrzeni nazw `components.custom.<file>`, nigdy w przestrzeni nazw strony, dzięki czemu renderuje on ten sam tekst wszędzie, gdzie się pojawia. Każda przestrzeń nazw zadeklarowana przez trasę musi istnieć jako plik w każdym języku; `loadNamespace` rzuca błąd dla takiej, której brakuje.
 
@@ -36,10 +37,22 @@ const t = useTranslations("pages.admin.courses.form")
 
 - Klucze to zagnieżdżone obiekty JSON z nazwami w camelCase, pogrupowane tak jak ekran: `table.headers.course`, `delete.confirm`.
 - Liczba mnoga, liczby i daty używają składni ICU wewnątrz komunikatu, nigdy sklejania stringów w kodzie: `"{e2eSpecs, plural, one {# Playwright suite} other {# Playwright suites}}"`.
-- `scripts/check-message-formats.ts` wymaga w każdym języku tych samych argumentów i znaczników ICU oraz niezmienionych ścieżek plików i poleceń `bun run`, `bunx`, `npx` lub `vp` z angielskiego komunikatu. Odrzuca angielski tekst pozostawiony w innym języku i grawisy Markdown, których komunikaty nie renderują.
+- `scripts/check-message-formats.ts` wymaga w każdym języku tych samych argumentów i znaczników ICU oraz niezmienionych ścieżek plików i poleceń `bun run`, `bunx`, `npx` lub `vp` z angielskiego komunikatu. Odrzuca angielski tekst pozostawiony w innym języku, grawisy Markdown, których komunikaty nie renderują, i [formę zwracania się](#one-form-of-address), której dany język nie używa.
 - Liczby, daty i waluty formatuj dla języka czytelnika za pomocą `useFormatter` z use-intl, nigdy ręcznie. Daty używają nazwanego formatu z `I18N.FORMATS` (`date`, `time`, `calendarDate`), dzięki czemu strefa czasowa i jej oznaczenie pozostają spójne. Nazwany format zawiera datę albo godzinę, nigdy obie: silniki łączą je inaczej, Safari pisze „Jan 1, 2025 at 7:00 AM”, a serwer „Jan 1, 2025, 7:00 AM”, więc data z godziną to komunikat `common.dateTime`, jak w `t("common.dateTime", { value })`. Czas względny liczy się od odczytu jego danych, czyli od `dataUpdatedAt` jego zapytania, jak w `format.relativeTime(session.updatedAt, dataUpdatedAt)`, nigdy od `new Date()`, które serwer i przeglądarka odczytują w różnych chwilach. `useCurrencyFormatter` formatuje kwotę w podanej walucie.
 - Komunikaty Zod w schematach modułu są kluczami jego przestrzeni nazw `<table>.validations` (`"slugInvalid"`), a liczby, o których mówią, pochodzą z `<MODULE>_VALIDATION_PARAMS`. Zobacz [Formularze i tabele](/docs/conventions/forms-and-tables).
 - Tekst zapisany w bazie danych, który odwiedzający czytają w kilku językach, jest kolumną `LocalizedText`. Angielski jest wymagany i jest wartością zastępczą, którą `localize(text, locale)` zwraca przy brakującym tłumaczeniu.
+
+## Jedna forma zwracania się [#one-form-of-address]
+
+Każdy język zwraca się do czytelnika w jeden sposób, w każdym komunikacie, e-mailu, stronie prawnej, stronie dokumentacji, wpisie na blogu i wpisie w dzienniku zmian: w formie, której w tym języku używają narzędzia dla programistów. `FORMS_OF_ADDRESS` w `src/lib/forms-of-address.ts` podaje formę każdego języka i wymienia formy, które jej przeczą, a `scripts/check-message-formats.ts` i `scripts/check-content.ts` kończą się błędem, gdy tłumaczenie użyje którejś z nich poza kodem, celami linków i japońskimi cytatami w 「」.
+
+<RepositoryTable name="formsOfAddress" columns={["Język", "Forma", "Nigdy", "Nigdy wewnątrz zdania", "Nigdy na końcu zdania"]} />
+
+- Słowo z kolumny **Nigdy** powoduje błąd w każdym miejscu, także pisane wielką literą na początku zdania.
+- Słowo z kolumny **Nigdy wewnątrz zdania** powoduje błąd po słowie, liczbie lub przecinku w tym samym wierszu. Na początku zdania to samo słowo często jest trzecią osobą, jak w `Sie laufen im Worker` („działają w Workerze”), więc sprawdzenie zostawia je tam do przeglądu.
+- Forma z kolumny **Nigdy na końcu zdania** powoduje błąd przed japońską kropką.
+
+Niemiecki zwraca się przez du, małą literą, jak zaleca Duden, także na stronach prawnych: forma zwracania się nie ma skutków prawnych. Polski pisze Ty i Twój wielką literą przez grzeczność. Japoński kończy zdania na です・ます, a nagłówki, punkty list, komórki tabel i hasła mogą kończyć się rzeczownikiem albo czasownikiem w formie prostej, nigdy prostą kopulą. Sprawdzenie znajduje jednoznaczne zaimki i końcówki; tryb rozkazujący albo końcówkę czasownika, które rozróżnia dopiero sens zdania, jak hiszpańskie `Ejecute` zamiast `Ejecuta`, sprawdza przegląd.
 
 ## Liczby są mierzone, a nie wpisywane
 
@@ -47,23 +60,27 @@ Liczba czegokolwiek w repozytorium, np. plików testowych, zestawów Playwright,
 
 Ścieżki plików i polecenia, które przytacza tekst, też są faktami z repozytorium, żeby żaden język nie mógł ich przetłumaczyć. `RecordSection` na stronie głównej przekazuje `{coverageSummaryPath}`, `{coverageCommand}`, `{ciWorkflowPath}`, `{e2eSpecsPath}`, `{messagesPath}`, `{i18nCheckCommand}` i `{authIntegrationPath}` z `REPOSITORY_FACTS`: katalog podsumowania to `reportsDirectory` z `vite.config.ts`, katalog specyfikacji to `testDir` z `playwright.config.ts`, a `repository-facts.test.ts` sprawdza, czy każda ścieżka istnieje i czy każde polecenie jest skryptem z `package.json`.
 
-Strony dokumentacji również nie wpisują ręcznie wartości zdefiniowanych w kodzie. `<RepositoryFact name="…" />` z `src/presentation/components/custom/repository-fact.tsx` wyświetla zmierzoną liczbę, ustawienie, które `repositoryFacts` odczytuje z `vite.config.ts`, `playwright.config.ts`, `.nvmrc`, `package.json` lub pliku workflowu, albo stałą zaimportowaną z kodu, np. `RATE_LIMITS` czy `PLAYBACK_TTL_SECONDS`. Liczbę formatuje zgodnie z językiem strony (gdy wartość ma jednostkę, z atrybutem `unit="second"`, `"minute"`, `"hour"` lub `"percent"`), tekst wyświetla jako kod, a listę jako listę elementów kodu. `<RepositoryTable name="…" columns={["…", "…"]} />` wyświetla tabelę zbudowaną z kodu, np. deklaracje uprawnień, typy commitów czy regionalne mnożniki cen, pod nazwami kolumn, które tłumaczy dana strona. Czasy cache routera i limit e-maili na odbiorcę są zadeklarowane w `src/integrations/tanstack-query/query.cache.ts` i `src/modules/rate-limit/rate-limit.constants.ts`, a nie w `src/router.tsx` i działającym tylko na serwerze `src/lib/rate-limit.ts`, których dokumentacja nie może importować; test komponentu porównuje wyświetlane wartości z routerem i limiterem. Wartość, która musi pozostać w bloku kodu lub we frontmatterze, sprawdza zamiast tego `scripts/check-content.ts`.
+Strony dokumentacji również nie wpisują ręcznie wartości zdefiniowanych w kodzie. `<RepositoryFact name="…" />` z `src/presentation/components/custom/repository-fact.tsx` wyświetla zmierzoną liczbę, ustawienie, które `repositoryFacts` odczytuje z `vite.config.ts`, `playwright.config.ts`, `.nvmrc`, `package.json` lub pliku workflowu, albo stałą zaimportowaną z kodu, np. `RATE_LIMITS` czy `PLAYBACK_TTL_SECONDS`. Liczbę formatuje zgodnie z językiem strony (gdy wartość ma jednostkę, z atrybutem `unit="second"`, `"minute"`, `"hour"`, `"day"` lub `"percent"`), tekst wyświetla jako kod, a listę jako listę elementów kodu. `<RepositoryTable name="…" columns={["…", "…"]} />` wyświetla tabelę zbudowaną z kodu, np. deklaracje uprawnień, typy commitów czy regionalne mnożniki cen, pod nazwami kolumn, które tłumaczy dana strona. Czasy cache routera i limit e-maili na odbiorcę są zadeklarowane w `src/integrations/tanstack-query/query.cache.ts` i `src/modules/rate-limit/rate-limit.constants.ts`, a nie w `src/router.tsx` i działającym tylko na serwerze `src/lib/rate-limit.ts`, których dokumentacja nie może importować; test komponentu porównuje wyświetlane wartości z routerem i limiterem. Wartość, która musi pozostać w bloku kodu lub we frontmatterze, sprawdza zamiast tego `scripts/check-content.ts`.
 
 ## Dokumentacja i blog
 
-Każda strona w `content/docs` i każdy wpis w `content/blog` istnieje jako `<slug>.<locale>.mdx` w każdym języku, a nawigacja każdego folderu jako `meta.<locale>.json`. `scripts/check-content.ts`, uruchamiany przez `bun run check:i18n`, kończy się błędem, gdy:
+Każda strona w `content/docs`, każdy wpis w `content/blog` i każdy wpis historii zmian w `content/changelog` istnieje jako `<slug>.<locale>.mdx` w każdym języku, a nawigacja każdego folderu jako `meta.<locale>.json`. `scripts/check-content.ts`, uruchamiany przez `bun run check:i18n`, kończy się błędem, gdy:
 
 - brakuje pliku dla któregoś języka;
 - blok kodu różni się od angielskiego (bloki kodu kopiuje się bajt po bajcie);
 - `meta.<locale>.json` wymienia inne slugi niż wersja angielska;
 - tytuł, opis lub akapit jest nadal po angielsku;
 - w tekście pozostał znacznik tłumaczenia maszynowego;
+- tłumaczenie zwraca się do czytelnika w formie, której jego język nie używa (zobacz [Jedna forma zwracania się](#one-form-of-address));
+- goły adres URL łączy się bez spacji z tekstem po nim, jak przed japońskim nawiasem lub kropką o pełnej szerokości, więc jego link objąłby też ten tekst;
 - blok kodu zatytułowany ścieżką w repozytorium, np. `title="src/integrations/better-auth/auth.access.ts"`, nie jest fragmentem tego pliku;
 - strona dokumentacji wymienia lokalny host lub subdomenę `APP_DOMAIN`, których `appHostsForMode` nie dopuszcza w żadnym trybie builda;
+- wpis historii zmian nie jest nazwany ani numerem pull requesta, ani pełnym hashem commita albo przebieg CI pull requesta nie znajduje `content/changelog/<number>.en-US.mdx` z jego numerem;
 - strona referencyjna tras, strona ze skryptami lub tabela zmiennych środowiskowych pomija stałą `ROUTES`, skrypt z `package.json` lub sekret z `wrangler.jsonc` albo podaje błędną wartość któregoś z nich;
-- tłumaczenie pomija lub dodaje kod w linii, komponent, prop komponentu inny niż `title`, `description` i `excerpt` albo link do innej strony, albo ma inną liczbę wierszy tabel niż strona angielska.
+- link wewnętrzny kończy się ukośnikiem, `/index` lub `.html` albo zaczyna się od locale lub aliasu języka, takiego jak `/pl/`: strona przekierowuje taką ścieżkę, a `localizeHref` dodaje locale strony do każdego linku wewnętrznego;
+- tłumaczenie pomija lub dodaje kod w linii, komponent, prop komponentu inny niż `title`, `description`, `excerpt` i `unreleased` albo link do innej strony, albo ma inną liczbę wierszy tabel niż strona angielska.
 
-Pisz tłumaczenia tak, jak napisałby je rodzimy użytkownik języka, z terminologią, której dany język już używa w `messages/<locale>/` (na przykład polski nazywa poziomy licencji Komplet i Agencja). Identyfikatory w kodzie, ścieżki plików, polecenia i nazwy produktów pozostają bez zmian, a linki zachowują ścieżki `/docs/...` bez prefiksu języka, który serwis dodaje podczas renderowania.
+Pisz tłumaczenia tak, jak napisałby je rodzimy użytkownik języka, z terminologią, której dany język już używa w `messages/<locale>/` (na przykład polski nazywa poziomy licencji Podstawa, Komplet i Agencja, a obniżkę ceny rabatem). Identyfikatory w kodzie, ścieżki plików, polecenia i nazwy produktów pozostają bez zmian, a linki zachowują ścieżki `/docs/...` bez prefiksu języka, który serwis dodaje podczas renderowania.
 
 ## Powiązane strony
 

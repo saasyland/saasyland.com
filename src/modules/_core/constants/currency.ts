@@ -174,3 +174,6 @@ const MINOR_UNIT_BASE = 10
 
 export const toMinorUnits = (amount: number, currency: CurrencyCode): number =>
   Math.round(amount * MINOR_UNIT_BASE ** CURRENCIES[currency].exponent)
+
+export const fromMinorUnits = (minorUnits: number, currency: CurrencyCode): number =>
+  minorUnits / MINOR_UNIT_BASE ** CURRENCIES[currency].exponent

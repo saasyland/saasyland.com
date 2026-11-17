@@ -14,13 +14,15 @@ socialProviders: {
 
 ## フロー
 
-`OAuthButtons`（`src/presentation/components/custom/auth/oauth-buttons.tsx`）は、サインインと登録の画面にプロバイダーごとのボタンを表示します。ローカライズされた `callbackURL`（`/auth/callback`）と `errorCallbackURL`（`/auth/sign-in`）を指定して Better Auth の `signIn.social` を呼び出します。プロバイダーから戻ると、`/auth/callback` が管理者を `/admin` へ、顧客を `/app` へリダイレクトします。失敗した場合は `?error=` 付きでサインイン画面に戻り、翻訳済みの `auth.errors` メッセージが表示されます。
+`OAuthButtons`（`src/presentation/components/custom/auth/oauth-buttons.tsx`）は、サインインと登録の画面にプロバイダーごとのボタンを表示します。ラベルはどちらの画面でも **Google で続行** と **GitHub で続行**（`auth.oauth.continueWith`）です。ローカライズされた `callbackURL`（`/auth/callback`）と `errorCallbackURL`（`/auth/sign-in`）を指定して Better Auth の `signIn.social` を呼び出します。プロバイダーから戻ると、`/auth/callback` が管理者を `/admin` へ、顧客を `/app` へリダイレクトします。失敗した場合は `?error=` 付きでサインイン画面に戻り、翻訳済みの `auth.errors` メッセージが表示されます。
 
 `accountLinking` が有効なため、ソーシャルサインインは同じメールアドレスを持つ既存ユーザーに連携されます。プロバイダーのトークンは `account` テーブルに暗号化して保存されます。
 
 ## プロバイダーの設定
 
 使用するすべてのホストについて、コールバック URL <RepositoryFact name="oauthCallbackPaths" /> を登録します。ローカルでは `localhost:3000`、ほかに `preview.saasyland.com` と `saasyland.com` です（`src/modules/_core/constants/api.ts` の `DEPLOYED_HOSTS` を参照）。クライアント ID とシークレットは上記の環境変数に設定します。
+
+`bun run deploy:<environment>` は、プロバイダーが拒否するクライアント ID をビルドの前に拒否します。`scripts/prepare-deploy-secrets.ts` はいずれかのシークレットに `[UPDATE]` のようなプレースホルダーがあると失敗し、認証エリアのデプロイ前チェック `auth:verify` は、`.env.<environment>` の <RepositoryFact name="oauthClientIdVariables" /> がそれぞれのプロバイダーの形式のクライアント ID を含んでいない限り失敗します。デプロイ後、`scripts/verify-deployment.ts` はデプロイ先のドメインで各プロバイダーのサインインを開始し、プロバイダーの認可 URL がそのプロバイダーのホスト上にない場合、`client_id` がそのプロバイダーの形式ではない場合、`redirect_uri` が同じドメインに戻らない場合に失敗します（[プロジェクトのスクリプト](/docs/tooling/scripts)）。Google の `Error 401: invalid_client` の直し方は [トラブルシューティング](/docs/reference/troubleshooting) で説明しています。
 
 GitHub の認証情報は、`src/lib/github.ts` でリポジトリのスター数を取得するリクエストの認証にも使われます。
 

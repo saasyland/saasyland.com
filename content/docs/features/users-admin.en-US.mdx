@@ -7,12 +7,12 @@ description: "User management under /admin/users: a live users table, a profile 
 
 `src/routes/admin.users.tsx` is a layout whose link tabs are `USER_TABS` in `src/data/user-tabs.ts`, which joins each area's `src/data/<area>.user-tabs.ts` by `order`. A tab names its path and its page skeleton, and its label in the area's `navigation.<area>.json` also names the page in the breadcrumbs. The auth area adds **All users**, the team area **Invitations** and **Roles & Permissions**. `/admin/users` redirects to `/admin/users/all`. Every tab takes its page title from `pages.admin.users`; the team area's own copy is in `pages.admin.users.invitations` and `pages.admin.users.roles`, which it adds to the layout in `src/data/team.namespaces.ts`.
 
-| Route                      | Content                                                  |
-| -------------------------- | -------------------------------------------------------- |
-| `/admin/users/all`         | Live users table                                         |
-| `/admin/users/$userId`     | A user's profile: account details and sessions           |
-| `/admin/users/invitations` | Demo rows (`ADMIN_INVITATION_ROWS`) with an email search |
-| `/admin/users/roles`       | Demo rows (`ADMIN_ROLE_ROWS`)                            |
+| Route                      | Content                                                                   |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `/admin/users/all`         | Live users table                                                          |
+| `/admin/users/$userId`     | A user's profile: account details, sessions and the cards other areas add |
+| `/admin/users/invitations` | Demo rows (`ADMIN_INVITATION_ROWS`) with an email search                  |
+| `/admin/users/roles`       | Demo rows (`ADMIN_ROLE_ROWS`)                                             |
 
 ## All users
 
@@ -28,10 +28,11 @@ description: "User management under /admin/users: a live users table, a profile 
 
 ## Profile
 
-`src/routes/admin.users.$userId.tsx` loads two queries at once and titles the page after the user; a user that does not exist is a not found page.
+`src/routes/admin.users.$userId.tsx` loads the user, their sessions and the data of the other areas' cards at once and titles the page after the user; a user that does not exist is a not found page.
 
 - `getUserQuery` reads the user's row (`get-user.ts`, `user: ["get"]`). `UserDetails` (`user-details.tsx`) lists the role, status, email verification, two-factor authentication, time zone and the created and updated dates, in the order of `ADMIN_USER_DETAILS` (`src/data/admin.ts`), which `AdminUserProfilePending` follows too.
 - `listUserSessionsQuery` lists the user's live sessions, newest first, without their tokens (`list-user-sessions.ts`, `session: ["list"]`). `UserSessions` (`user-sessions.tsx`) shows each device and its activity, revokes one session with `revokeUserSession` and, after a confirmation, every session with `revokeUserSessions` (both `session: ["revoke"]`). `revokeUserSession` takes the session's ID and looks its token up on the server, as `revokeSession` does for the admin's own sessions.
+- Other areas add cards below the account details in `src/data/<area>.user-profile.ts`, which `src/data/user-profile.entries.ts` joins into `USER_PROFILE_SECTIONS` (`src/data/user-profile.ts`). A section names its card, its skeleton, which `AdminUserProfilePending` draws as well, and the data the page loads for the user. The auth area adds none. The licence area adds `UserLicense` (`user-license.tsx`), which reads `userLicenseQuery` (`get-user-license.ts`, `user: ["get"]`): the tier, the status, the purchase time, the consent to immediate delivery, the first activation, the first template download and, for an active licence, whether it can be refunded, which the server works out at the time of the request (see [Licences](/docs/features/licences#records-and-refunds)). Its copy is in `pages.admin.users.license`, which the licence area adds to the layout in `src/data/license.namespaces.ts`.
 
 The header shows the user's name and email and the same actions menu as the table row.
 

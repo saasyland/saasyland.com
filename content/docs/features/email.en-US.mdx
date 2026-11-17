@@ -7,13 +7,15 @@ description: "React Email templates in src/presentation/emails, sent by use case
 
 Templates live in `src/presentation/emails`. Each file holds markup only and exports its namespace constant:
 
-| Template                       | Namespace                                | Sent by                                               |
-| ------------------------------ | ---------------------------------------- | ----------------------------------------------------- |
-| `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail` (Better Auth hook)                  |
-| `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail` (Better Auth hook)           |
-| `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail` (Better Auth hook) |
-| `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                               |
-| `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`, to `CONTACT_EMAIL`   |
+| Template                       | Namespace                                | Sent by                                                            |
+| ------------------------------ | ---------------------------------------- | ------------------------------------------------------------------ |
+| `VerifyEmail`                  | `emails.verify-email`                    | `sendVerifyEmail` (Better Auth hook)                               |
+| `ResetPasswordEmail`           | `emails.reset-password-email`            | `sendResetPasswordEmail` (Better Auth hook)                        |
+| `ChangeEmailConfirmationEmail` | `emails.change-email-confirmation-email` | `sendChangeEmailConfirmationEmail` (Better Auth hook)              |
+| `NewsletterConfirmationEmail`  | `emails.newsletter-confirmation-email`   | `subscribeToNewsletter`                                            |
+| `NewsletterNotificationEmail`  | `emails.newsletter-notification-email`   | `confirmNewsletterSubscription`, to `CONTACT_EMAIL`                |
+| `PurchaseConfirmationEmail`    | `emails.purchase-confirmation-email`     | `sendPurchaseConfirmationEmail` (Polar `order.paid`)               |
+| `UnmatchedOrderAlertEmail`     | `emails.unmatched-order-alert-email`     | `sendUnmatchedOrderAlert` (Polar `order.paid`), to `CONTACT_EMAIL` |
 
 A template receives `locale` and `messages` and translates with use-intl `createTranslator`:
 
@@ -45,11 +47,11 @@ await sendEmail({
 })
 ```
 
-`sendEmail` (`src/integrations/resend/resend.utils.ts`) sends through Resend from `RESEND_EMAIL_FROM` unless a `from` is given (the owner notification uses `NOTIFICATIONS_EMAIL`), passes the idempotency key and throws on failure.
+`sendEmail` (`src/integrations/resend/resend.utils.ts`) sends through Resend from `RESEND_EMAIL_FROM` unless a `from` is given (the owner notification and the unmatched order alert use `NOTIFICATIONS_EMAIL`), passes the idempotency key and throws on failure.
 
-Account emails use the locale of the page where the flow started, read from the `callbackURL` in the email link; for a repeated sign-up it comes from the `callbackURL` of the sign-up request. Newsletter emails use the locale submitted with the form; the owner notification is always in `en-US`.
+Account emails use the locale of the page where the flow started, read from the `callbackURL` in the email link; for a repeated sign-up it comes from the `callbackURL` of the sign-up request. Newsletter emails use the locale submitted with the form; the owner notification is always in `en-US`. The purchase confirmation uses the locale that `startCheckout` stored in the order's metadata, and English when there is none; it confirms the buyer's consent to immediate supply on a durable medium, see [Licences](/docs/features/licences#purchase-confirmation). The unmatched order alert, which tells the site about a paid licence order whose customer matches no account, is in `I18N.DEFAULT_LOCALE`, see [Licences](/docs/features/licences#orders-that-match-no-account).
 
-`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) allows at most <RepositoryFact name="recipientEmailsPerHour" /> emails of each kind (verification, password reset and newsletter confirmation) per address per hour, counted in the `rate_limit` table under a SHA-256 hash of the address. Over the limit the email is skipped and the request still gets its normal answer. The change-email confirmation and the owner notification are not limited.
+`withinRecipientRateLimit` (`src/lib/rate-limit.ts`) allows at most <RepositoryFact name="recipientEmailsPerHour" /> emails of each kind (verification, password reset and newsletter confirmation) per address per hour, counted in the `rate_limit` table under a SHA-256 hash of the address. Over the limit the email is skipped and the request still gets its normal answer. The change-email confirmation, the owner notification, the purchase confirmation and the unmatched order alert are not limited; Polar's webhook, not a visitor, triggers the last two, once per order.
 
 ## Related guides
 

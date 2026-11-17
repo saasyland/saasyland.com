@@ -1,12 +1,16 @@
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
 
-import { mdxProblems, pageProblems, sourcePages } from "~/scripts/check-content"
+import { mdxProblems, pageProblems, pullRequestEntryProblems, sourcePages } from "~/scripts/check-content"
 
 const API_SURFACE = "content/docs/features/api-surface"
 const API_SURFACE_LABEL = "docs/features/api-surface.pl-PL.mdx"
 const CLI_API_ROW = 'name="cliApiBasePath"'
 const EXAMPLE_LABEL = "docs/example.de-DE.mdx"
+const JAPANESE_LABEL = "docs/example.ja-JP.mdx"
+const MERGED_PULL_REQUEST = "201"
+const ENTRY_LABEL = "changelog/202.de-DE.mdx"
+const ENGLISH_ENTRY = "- Fixed: the checkout keeps the buyer's email address when they return from Polar.\n"
 
 const readApiSurface = (locale: string): string => readFileSync(`${API_SURFACE}.${locale}.mdx`, "utf8")
 
@@ -16,9 +20,14 @@ const problemsOf = ({ source, target }: { source: string; target: string }): str
   mdxProblems({ label: EXAMPLE_LABEL, locale: "de-DE", source: page(source), target: page(target) })
 
 describe("check-content", () => {
-  it("checks every English docs page, blog post and navigation file", () => {
+  it("checks every English docs page, blog post, changelog entry and navigation file", () => {
     expect(sourcePages()).toEqual(
-      expect.arrayContaining(["blog/ai-coding-agents-repository-readiness.en-US.mdx", "docs/index.en-US.mdx", "docs/meta.en-US.json"]),
+      expect.arrayContaining([
+        "blog/ai-coding-agents-repository-readiness.en-US.mdx",
+        `changelog/${MERGED_PULL_REQUEST}.en-US.mdx`,
+        "docs/index.en-US.mdx",
+        "docs/meta.en-US.json",
+      ]),
     )
   })
 
@@ -46,7 +55,7 @@ describe("check-content", () => {
     expect(
       problemsOf({
         source: "Spread `timestamps()` and await `flushWaitUntil()`.",
-        target: "Rufen Sie `...timestamps()` auf und warten Sie mit `await` auf `flushWaitUntil()`.",
+        target: "Rufe `...timestamps()` auf und warte mit `await` auf `flushWaitUntil()`.",
       }),
     ).toEqual([
       `${EXAMPLE_LABEL} leaves out \`timestamps()\` from the English page`,
@@ -77,5 +86,103 @@ describe("check-content", () => {
     expect(problemsOf({ source: "See [Routes](/docs/reference/routes).", target: "Siehe Routen." })).toEqual([
       `${EXAMPLE_LABEL} leaves out /docs/reference/routes from the English page`,
     ])
+  })
+
+  it.each([
+    ["[pricing](/pl-PL/#pricing)", "/pl-PL/", "/"],
+    ["[docs](/docs/#install)", "/docs/", "/docs"],
+    ["[blog](/blog/?page=2)", "/blog/", "/blog"],
+    ['<Card title="Guides" href="/docs/guides/" />', "/docs/guides/", "/docs/guides"],
+    ["[about](/docs/index)", "/docs/index", "/docs"],
+    ["[home](/index.html)", "/index.html", "/"],
+    ["[docs](/docs.html)", "/docs.html", "/docs"],
+    ["[docs](/en-US/docs)", "/en-US/docs", "/docs"],
+    ["[docs](/pl/docs)", "/pl/docs", "/docs"],
+    ["[docs](/de-DE/docs)", "/de-DE/docs", "/docs"],
+  ])("fails %s, which links to %s instead of %s", (link, path, canonical) => {
+    expect(mdxProblems({ label: EXAMPLE_LABEL, locale: "de-DE", source: page(link), target: page(link) })).toContain(
+      `${EXAMPLE_LABEL} links to ${path} instead of ${canonical}, which the site serves without a redirect in the reader's locale`,
+    )
+  })
+
+  it("passes internal links in their canonical form and leaves external links and code alone", () => {
+    expect(
+      problemsOf({
+        source:
+          "See [pricing](/#pricing), [home](/), [docs](/docs?tab=cli#install), [feed](/feed.xml), [site](https://example.com/docs/) and `[x](/docs/)`.",
+        target:
+          "Siehe [Preise](/#pricing), [Start](/), [Doku](/docs?tab=cli#install), [Feed](/feed.xml), [Seite](https://example.com/docs/) und `[x](/docs/)`.",
+      }),
+    ).toEqual([])
+  })
+
+  it("checks a changelog entry without asking it for a title, and keeps its English out of the translations", () => {
+    expect(
+      mdxProblems({
+        label: ENTRY_LABEL,
+        locale: "de-DE",
+        source: ENGLISH_ENTRY,
+        target: "- Behoben: Der Checkout behält die E-Mail-Adresse.\n",
+      }),
+    ).toEqual([])
+    expect(mdxProblems({ label: ENTRY_LABEL, locale: "de-DE", source: ENGLISH_ENTRY, target: ENGLISH_ENTRY })).toEqual([
+      `Untranslated English paragraph in ${ENTRY_LABEL}`,
+    ])
+  })
+
+  it.each(["changelog/latest.de-DE.mdx", "changelog/0b9a1b986.de-DE.mdx"])("fails %s, which no merge can date", (label) => {
+    expect(mdxProblems({ label, locale: "de-DE", source: ENGLISH_ENTRY, target: "- Behoben.\n" })).toEqual([
+      `${label} is named after neither a pull request number nor a full commit hash`,
+    ])
+  })
+
+  it("fails a bare URL that runs into the text after it, as the Japanese preview deploy page's did", () => {
+    const sentence = "ホスト（https://preview.saasyland.com）が応答することを確認します。"
+
+    expect(mdxProblems({ label: JAPANESE_LABEL, locale: "ja-JP", source: page(sentence), target: page(sentence) })).toEqual([
+      `${JAPANESE_LABEL} has a bare URL that runs into the text after it, so the link takes that text too: https://preview.saasyland.com）が応答することを確認します。`,
+    ])
+  })
+
+  it.each([
+    "ホスト（`https://preview.saasyland.com`）が応答します。",
+    "ホスト（[プレビュー](https://preview.saasyland.com)）が応答します。",
+    "ホスト (https://preview.saasyland.com) が応答します。",
+    'ホスト<a href="https://preview.saasyland.com">プレビュー</a>が応答します。',
+  ])("passes a URL that ends where the link should: %s", (sentence) => {
+    expect(mdxProblems({ label: JAPANESE_LABEL, locale: "ja-JP", source: page(sentence), target: page(sentence) })).toEqual([])
+  })
+
+  it("lets a translation translate the heading of the changes not on main yet", () => {
+    expect(
+      problemsOf({ source: '<ChangelogEntries unreleased="Unreleased" />', target: '<ChangelogEntries unreleased="Unveröffentlicht" />' }),
+    ).toEqual([])
+  })
+})
+
+describe("pullRequestEntryProblems", () => {
+  it("passes a pull request that adds its changelog entry, and a run that is not for a pull request", () => {
+    expect(pullRequestEntryProblems(`refs/pull/${MERGED_PULL_REQUEST}/merge`)).toEqual([])
+    expect(pullRequestEntryProblems("refs/heads/main")).toEqual([])
+  })
+
+  it("fails a pull request without its changelog entry", () => {
+    expect(pullRequestEntryProblems("refs/pull/99999/merge")).toEqual([
+      "Pull request #99999 has no changelog entry: add content/changelog/99999.<locale>.mdx in every locale",
+    ])
+  })
+})
+
+describe("check-content forms of address", () => {
+  it.each([
+    {
+      problems: [`${EXAMPLE_LABEL} uses “Sie” where de-DE addresses the reader as “du”`],
+      prose: "Führen Sie `echo Sie` aus, bevor du pushst.",
+    },
+    { problems: [], prose: "Führe `echo Sie` aus, bevor du pushst." },
+  ])("checks the form of address in the prose of a translation and never in its code: $prose", ({ problems, prose }) => {
+    const code = "\n\n```sh\necho Sie\n```"
+
+    expect(problemsOf({ source: `Run \`echo Sie\` before you push.${code}`, target: `${prose}${code}` })).toEqual(problems)
   })
 })

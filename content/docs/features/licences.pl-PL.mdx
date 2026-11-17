@@ -1,17 +1,27 @@
 ---
 title: "Licencje"
-description: "Zakup planów licencji przez Polar, ceny regionalne, webhooki, które przyznają i cofają licencje, oraz ekrany licencji klienta."
+description: "Zakup planów licencji przez Polar ze zgodą na natychmiastowe dostarczenie, ceny regionalne, webhooki, które przyznają i cofają licencje, e-mail z potwierdzeniem zakupu, alert i lista w panelu administracyjnym dla opłaconego zamówienia, które nie pasuje do żadnego konta, oraz ekrany licencji klienta."
 ---
 
 Obszar licencji sprzedaje plany `core`, `complete` i `agency` jako produkty Polar, korzystając z wtyczki i webhooków obszaru Polar ([Płatności](/docs/features/payments)). `POLAR_PRODUCT_IDS` w `src/modules/license/license.utils.ts` przypisuje plany do `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` i `POLAR_PRODUCT_ID_AGENCY`, a `licenseTierForProduct` odczytuje plan produktu z tego samego przypisania. [Konfiguracja Polar](/docs/getting-started/polar-setup) opisuje produkty, klucze licencyjne i rabaty, których plany potrzebują w Polar.
 
 ## Zakup
 
-Zalogowany użytkownik bez aktywnej licencji widzi `LicenseOffer` na `/app` i `/app/license`: karty planów ze strony głównej (`PricingTiers`, zobacz [Strona główna](/docs/features/landing-page)) z przyciskiem `CheckoutButton` dla każdego planu, pole wyboru cen regionalnych, warunki zakupu i lekcje kursów, które odblokowuje zakup. `startCheckout` (`src/modules/license/use-cases/start-checkout.ts`) przyjmuje `{ locale, tier }` i:
+Zalogowany użytkownik bez aktywnej licencji widzi `LicenseOffer` na `/app` i `/app/license`: karty planów ze strony głównej (`PricingTiers`, zobacz [Strona główna](/docs/features/landing-page)) z przyciskiem `CheckoutButton` dla każdego planu, pole wyboru cen regionalnych i lekcje kursów, które odblokowuje zakup.
+
+### Zgoda na natychmiastowe dostarczenie [#consent-to-immediate-supply]
+
+`CheckoutButton` (`src/presentation/components/custom/app/checkout.tsx`) sam nie rozpoczyna płatności. Otwiera okno dialogowe, które informuje, że plan jest treścią cyfrową dostarczaną od razu po zapłacie, i prosi o zaznaczenie jednego obowiązkowego pola wyboru: kupujący prosi o natychmiastowe dostarczenie i przyjmuje do wiadomości, że z chwilą rozpoczęcia dostarczania, czyli wydania klucza licencyjnego, traci prawo odstąpienia od umowy, które przysługuje przez <RepositoryFact name="refundWithdrawalDays" unit="day" />. Pod polem okno informuje, że przez ten sam okres pełny zwrot pieniędzy pozostaje możliwy, dopóki nie wygenerowano żadnego projektu, i zawiera linki do Zasad zwrotów, Regulaminu i Licencji komercyjnej. To właśnie warunki, po których spełnieniu w UE wygasa prawo odstąpienia od umowy w przypadku treści cyfrowych: uprzednia wyraźna zgoda kupującego, przyjęcie przez niego do wiadomości utraty tego prawa oraz potwierdzenie na trwałym nośniku, którym jest e-mail z [potwierdzeniem zakupu](#purchase-confirmation).
+
+Formularz to `CheckoutConsent` (`checkout-consent.tsx`), formularz TanStack Form walidowany przez `licenseZodSchemas.startCheckout.pick({ withdrawalConsent: true })`. **Dalej do płatności** przy pustym polu niczego nie rozpoczyna: pole zostaje oznaczone jako nieprawidłowe i wskazuje przez `aria-describedby` komunikat `withdrawalConsentRequired` z `license.validations`, ogłaszany jako alert. Kliknięcie etykiety zaznacza pole, fokus zaczyna się w oknie dialogowym, a Escape lub **Anuluj** zamykają okno, chyba że płatność właśnie się rozpoczyna. Sekcje przeglądu ładują się razem ze szkieletami każdej strony, więc `checkout.tsx` ładuje formularz za pomocą `lazy` dopiero w chwili otwarcia okna dialogowego, a TanStack Form pozostaje poza skryptem wejściowym (zobacz [Wydajność](/docs/conventions/performance#skeletons-stay-in-the-entry-script)).
+
+### Rozpoczęcie płatności
+
+`startCheckout` (`src/modules/license/use-cases/start-checkout.ts`) przyjmuje `{ locale, tier, withdrawalConsent }`. Jego schemat akceptuje `withdrawalConsent` tylko wtedy, gdy ma wartość `true`, więc serwer odrzuca płatność bez zgody, a funkcja:
 
 1. zwraca `{ alreadyActive: true }` zamiast płatności, gdy konto ma już licencję `active`. Przycisk pokazuje `buy.alreadyActive` z `pages.license` i odświeża licencję, więc strona pozostawiona otwarta od czasu zakupu przełącza się na licencję;
 2. szuka rabatu regionalnego przez `pppDiscountId` (`license.ppp.ts`): procentu dla kraju z `cf-ipcountry`, dopasowanego przez `findRegionalDiscount` (`src/integrations/polar/polar.discounts.ts`) do automatycznych rabatów procentowych w Polar, które można teraz wykorzystać, i pomija go, gdy ciasteczko `regional_pricing` ma wartość `off`;
-3. tworzy za pomocą `polar.checkouts.create` sesję płatności Polar dla planu, powiązaną z kontem (`external_customer_id`) i wypełnioną jego adresem e-mail i imieniem (`customer_email`, `customer_name`), więc formularz płatności otwiera się z tymi danymi. Sesja zawiera też adres IP kupującego z `cf-connecting-ip` (`customer_ip_address`, odczytany przez `getIP` z Better Auth), wyłączone kody rabatowe, polecenie partnerskie w `metadata`, gdy odwiedzający trafił przez link partnerski (zobacz [Program partnerski](/docs/features/affiliates)), i adres powrotu po udanej płatności `/app?checkoutId={CHECKOUT_ID}` w języku kupującego (`localizePathname`). Polar zastępuje `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) identyfikatorem płatności;
+3. tworzy za pomocą `polar.checkouts.create` sesję płatności Polar dla planu, powiązaną z kontem (`external_customer_id`) i wypełnioną jego adresem e-mail i imieniem (`customer_email`, `customer_name`), więc formularz płatności otwiera się z tymi danymi. Sesja zawiera też adres IP kupującego z `cf-connecting-ip` (`customer_ip_address`, odczytany przez `getIP` z Better Auth), wyłączone kody rabatowe, zgodę w `custom_field_data`, dzięki której własne obowiązkowe pole wyboru Polar jest już zaznaczone za kupującego, język kupującego pod kluczem `locale` (`LICENSE_CHECKOUT_METADATA`) w `metadata`, obok polecenia partnerskiego, gdy odwiedzający trafił przez link partnerski (zobacz [Program partnerski](/docs/features/affiliates)), i adres powrotu po udanej płatności `/app?checkoutId={CHECKOUT_ID}` w języku kupującego (`localizePathname`). Polar kopiuje metadane i dane pól niestandardowych do zamówienia oraz zastępuje `{CHECKOUT_ID}` (`POLAR_CHECKOUT_ID_PLACEHOLDER`) identyfikatorem płatności;
 4. zwraca adres płatności, który otwiera przeglądarka.
 
 Ani licencja po zwrocie pieniędzy (`refunded`), ani licencja cofnięta (`revoked`) nie blokuje nowego zakupu.
@@ -22,7 +32,7 @@ Konto ma jedną licencję, a nowsze opłacone zamówienie zastępuje plan starsz
 
 ### Plan wybrany przed rejestracją
 
-Każdy przycisk planu na stronie głównej prowadzi do `/auth/sign-up?redirect=/app?tier=<tier>`. Ścieżka powrotu zostaje zachowana podczas rejestracji, weryfikacji adresu e-mail i logowania (`useAuthRedirect`), a odwiedzający, który jest już zalogowany, trafia prosto do niej. `licenseSearchSchema` (`src/data/license.ts`, zbudowany z `searchParam`) sprawdza `tier` względem `LICENSE_TIER` na `/app/license` oraz, jako parametr, który obszar licencji dodaje do przeglądu, na `/app`, a zarówno `/app`, jak i `/app/license` pokazują `ChosenTier` nad kartami planów: plan, jego cenę z rabatem regionalnym i przycisk **Przejdź do płatności**. Zablokowana płatna lekcja kursu prowadzi zalogowanego widza do `/app/license?tier=complete`, a gościa do sekcji cennika na stronie głównej; lekcja wymagająca konta prowadzi do logowania ([Kursy](/docs/features/courses)).
+Każdy przycisk planu na stronie głównej prowadzi do `/auth/sign-up?redirect=/app?tier=<tier>`. Ścieżka powrotu zostaje zachowana podczas rejestracji, weryfikacji adresu e-mail i logowania (`useAuthRedirect`), a odwiedzający, który jest już zalogowany, trafia prosto do niej. `licenseSearchSchema` (`src/data/license.ts`, zbudowany z `searchParam`) sprawdza `tier` względem `LICENSE_TIER` na `/app/license` oraz, jako parametr, który obszar licencji dodaje do przeglądu, na `/app`, a zarówno `/app`, jak i `/app/license` pokazują `ChosenTier` nad kartami planów: plan, jego cenę z rabatem regionalnym i przycisk **Przejdź do płatności**, który otwiera to samo okno dialogowe zgody. Zablokowana płatna lekcja kursu prowadzi zalogowanego widza do `/app/license?tier=complete`, a gościa do sekcji cennika na stronie głównej; lekcja wymagająca konta prowadzi do logowania ([Kursy](/docs/features/courses)).
 
 ### Po płatności
 
@@ -35,18 +45,88 @@ Polar odsyła kupującego na `/app?checkoutId=<id>`, zwykle zanim webhook `order
 
 ## Webhooki i licencje [#webhooks-and-licences]
 
-`src/data/license.polar-events.ts` dodaje obszar licencji do zdarzeń Polar (zobacz [Płatności](/docs/features/payments#webhooks)) ze zdarzeniami wymienionymi w `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`), których zdarzenia zamówień pochodzą z `POLAR_WEBHOOK_EVENT`, a jego `handle` przekazuje każde zdarzenie do handlera o tej samej nazwie w `licenseWebhookHandlers`. `licenseWebhookHandlers` spełnia `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, więc handler bez swojego zdarzenia albo zdarzenie bez swojego handlera nie przechodzi kompilacji. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) rozpoznają użytkownika po `external_id` klienta Polar. Zdarzenie klienta, który nie ma konta w aplikacji, jest logowane, gdy konto było potrzebne, i potwierdzane, aby Polar go nie ponawiał:
+`src/data/license.polar-events.ts` dodaje obszar licencji do zdarzeń Polar (zobacz [Płatności](/docs/features/payments#webhooks)) ze zdarzeniami wymienionymi w `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`), których zdarzenia zamówień pochodzą z `POLAR_WEBHOOK_EVENT`, a jego `handle` przekazuje każde zdarzenie do handlera o tej samej nazwie w `licenseWebhookHandlers`. `licenseWebhookHandlers` spełnia `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, więc handler bez swojego zdarzenia albo zdarzenie bez swojego handlera nie przechodzi kompilacji. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) rozpoznają użytkownika po `external_id` klienta Polar. Zdarzenie zawiera klienta w postaci, w jakiej Polar zapisał go w chwili utworzenia zdarzenia, a ponowne dostarczenie wysyła tę samą kopię, więc gdy jego `external_id` nie wskazuje żadnego konta, `onOrderPaid` i `onBenefitGrantCreated` ponownie odczytują zamówienie przez `polar.orders.get` i dopasowują jego bieżącego klienta. Zdarzenie klienta, który nie ma konta w aplikacji, jest logowane, gdy konto było potrzebne, i potwierdzane, aby Polar go nie ponawiał:
 
-- `onOrderPaid` → `grantLicense`: tworzy lub aktualizuje jedyną licencję użytkownika z planem kupionego produktu; nowszy zakup zastępuje starszy.
+- `onOrderPaid` → `grantLicense`: tworzy lub aktualizuje jedyną licencję użytkownika z planem kupionego produktu i zgodą kupującego na natychmiastowe dostarczenie (zobacz [Zapisy i zwroty](#records-and-refunds)); nowszy zakup zastępuje starszy. Następnie `sendPurchaseConfirmationEmail` potwierdza zakup (zobacz [Potwierdzenie zakupu](#purchase-confirmation)); gdy wysyłka się nie powiedzie, handler kończy się błędem, więc Polar ponownie dostarcza zdarzenie. Zamówienie produktu, który nie jest licencją, jest tylko logowane, a zamówienie licencji, którego klient nie pasuje do żadnego konta, jest logowane i zgłaszane (zobacz [Zamówienia niepasujące do żadnego konta](#orders-that-match-no-account)).
 - `onBenefitGrantCreated` → `attachLicenseKey`: zapisuje w licencji klucz licencyjny Polar. Dopóki opłacone zamówienie nie jest zapisane, kończy się błędem, aby Polar je ponowił; klucz dla zwróconego zamówienia lub produktu, który nie jest licencją, jest potwierdzany.
 - `onOrderRefunded` → `revokeLicense` ze statusem `refunded`, dopiero gdy zamówienie zostało zwrócone w całości; częściowy zwrot zachowuje licencję.
 - `onBenefitGrantRevoked` → `revokeLicense` ze statusem `revoked`.
 
 `revokeLicense` ustawia status licencji kupionej w tym zamówieniu i zapisuje zamówienie w `revoked_license_order`, aby spóźniony webhook nie mógł ponownie przyznać licencji. Nigdy nie zastępuje statusu `refunded`: Polar cofa też benefit zwróconego zamówienia, a oba zdarzenia mogą przyjść w dowolnej kolejności. Na podstawie tego statusu [API licencji CLI](/docs/features/cli-licence-api) odpowiada kodem `licenseRefunded` lub `licenseRevoked`.
 
+## Zapisy i zwroty [#records-and-refunds]
+
+Wiersz `license` przechowuje trzy zapisy dotyczące bieżącego zakupu, a każdy z nich pozostaje pusty, dopóki dane zdarzenie nie nastąpi:
+
+| Kolumna                 | Co zapisuje                                                                                                                                                            | Kto ją zapisuje                                                   |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `withdrawal_consent_at` | Kiedy kupujący zgodził się w formularzu płatności na natychmiastowe dostarczenie i przyjął do wiadomości utratę prawa odstąpienia od umowy: czas utworzenia zamówienia | `grantLicense`, na podstawie `order.paid`                         |
+| `activated_at`          | Pierwszą aktywację klucza na dowolnej maszynie                                                                                                                         | [API licencji CLI](/docs/features/cli-licence-api#records-of-use) |
+| `delivered_at`          | Pierwsze pobranie szablonów przez CLI z użyciem klucza                                                                                                                 | [API licencji CLI](/docs/features/cli-licence-api#records-of-use) |
+
+Kupujący wyraża zgodę w [oknie dialogowym płatności](#consent-to-immediate-supply). Formularz płatności Polar powtarza ją jako obowiązkowe pole wyboru przy każdym produkcie licencyjnym, które `startCheckout` zaznacza na podstawie właśnie udzielonej zgody, i zapisuje ją w zamówieniu jako `custom_field_data.<slug>`, gdzie slug to <RepositoryFact name="licenseWithdrawalConsentField" /> (`LICENSE_CHECKOUT_FIELD` w `license.constants.ts`). `WITHDRAWAL_CONSENT_FIELD` w `src/lib/polar.ts` zawiera nazwę, typ i angielską etykietę pola, a `polar:verify` kończy się błędem, dopóki któryś produkt go nie wymaga (zobacz [Konfiguracja Polar](/docs/getting-started/polar-setup#consent-checkbox)). `onOrderPaid` waliduje to pole przez Zod i zapisuje zgodę tylko wtedy, gdy ma ono wartość `true`. Nowe zamówienie na to samo konto, na przykład zakup po zwrocie pieniędzy, zastępuje zgodę własną i czyści `activated_at` oraz `delivered_at`, więc zapisy zawsze opisują bieżący zakup. Licencje kupione, zanim pojawiły się zapisy, nie mają zapisów z tamtego okresu.
+
+`refundEligibility` (`src/modules/license/license.refunds.ts`) to czysta funkcja czasu zakupu, zgody, pierwszego pobrania i bieżącego czasu. Okres wynosi <RepositoryFact name="refundWithdrawalDays" unit="day" /> od zakupu i jest określony przez `REFUND_TERMS.WITHDRAWAL_DAYS` w `src/data/refunds.ts`, jedyne miejsce, w którym zadeklarowano tę liczbę. Funkcja zwraca jeden rodzaj `REFUND_ELIGIBILITY`:
+
+| Rodzaj                | Kiedy                                                                                                         | Zawiera       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------- | ------------- |
+| `refundable`          | W tym okresie, kupujący wyraził zgodę, a CLI nie pobrało jeszcze szablonów                                    | `until`       |
+| `statutoryWithdrawal` | W tym okresie, nie zapisano zgody, więc obowiązuje ustawowe prawo odstąpienia od umowy, niezależnie od użycia | `until`       |
+| `used`                | W tym okresie, kupujący wyraził zgodę, a CLI pobrało już szablony                                             | `deliveredAt` |
+| `expired`             | Okres się zakończył                                                                                           | `endedAt`     |
+
+Administrator widzi zapisy i wynik opisany słowami w profilu użytkownika; zobacz [Użytkownicy (admin)](/docs/features/users-admin#profile).
+
+## Potwierdzenie zakupu [#purchase-confirmation]
+
+Po `grantLicense` handler `onOrderPaid` wysyła kupującemu potwierdzenie na trwałym nośniku, którego wymaga zgoda. `sendPurchaseConfirmationEmail` (`src/modules/license/use-cases/send-purchase-confirmation-email.ts`) renderuje `PurchaseConfirmationEmail` (`src/presentation/emails/purchase-confirmation-email.tsx`, przestrzeń nazw `emails.purchase-confirmation-email`) i wysyła go na adres konta, z którego dokonano zakupu:
+
+- **Język**: `metadata.locale` zamówienia, walidowane przez `localeField`; zamówienie bez języka, w którym działa serwis, dostaje e-mail po angielsku.
+- **Zamówienie**: numer faktury albo, dopóki zamówienie go nie ma, identyfikator zamówienia Polar; data zamówienia; plan, nazwany tak, jak nazywają go karty cennika w tym języku; oraz `total_amount` w walucie zamówienia, przeliczone z najmniejszych jednostek przez `fromMinorUnits`.
+- **Prawo odstąpienia od umowy**: gdy `custom_field_data` zawiera zgodę, e-mail powtarza, że kupujący poprosił o natychmiastowe dostarczenie i przyjął do wiadomości utratę prawa odstąpienia od umowy, więc to prawo nie dotyczy tego zamówienia. Bez zgody e-mail informuje, że kupujący może odstąpić od umowy w ciągu <RepositoryFact name="refundWithdrawalDays" unit="day" /> od daty zamówienia.
+- **Zwrot pieniędzy**: termin pełnego zwrotu pieniędzy przed pierwszym użyciem, `refundDeadline` (`license.refunds.ts`), czyli czas zakupu powiększony o `REFUND_TERMS.WITHDRAWAL_DAYS`, ta sama data, której używa `refundEligibility`.
+- **Linki**: strona licencji, Regulamin, Licencja komercyjna i Zasady zwrotów w języku e-maila, na hoście, który odebrał webhook.
+
+Daty są podawane w UTC. Kluczem idempotencji jest `PURCHASE_CONFIRMATION` (`src/data/license.email-purposes.ts`) z identyfikatorem zamówienia Polar, więc Resend wysyła jeden e-mail na zamówienie bez względu na to, ile razy Polar dostarczy `order.paid`, a ponieważ e-mail powstaje wyłącznie na podstawie zamówienia, ponowne dostarczenie wysyła to samo żądanie. Zamówienie, którego nie da się przypisać do konta lub planu, nie dostaje potwierdzenia; za zamówienie licencji bez konta serwis dostaje zamiast tego alert (zobacz [Zamówienia niepasujące do żadnego konta](#orders-that-match-no-account)). Zobacz [E-maile transakcyjne](/docs/features/email).
+
+## Zamówienia niepasujące do żadnego konta [#orders-that-match-no-account]
+
+`startCheckout` wiąże każdą płatność z zalogowanym kontem, więc zamówienie nie pasuje do żadnego konta tylko wtedy, gdy opłacono je przez sesję płatności, której nie utworzył `startCheckout`, na przykład przez link do płatności utworzony w panelu Polar, albo gdy konto usunięto między rozpoczęciem płatności a zapłatą. Kupujący zapłacił, a nie ma licencji, więc serwis zgłasza zamówienie i wyświetla je na liście, dopóki nie dostanie ono licencji.
+
+### Alert
+
+`onOrderPaid` loguje takie zamówienie i przekazuje je do `sendUnmatchedOrderAlert` (`src/modules/license/use-cases/send-unmatched-order-alert.ts`), który wysyła `UnmatchedOrderAlertEmail` (`src/presentation/emails/unmatched-order-alert-email.tsx`, przestrzeń nazw `emails.unmatched-order-alert-email`) z adresu `NOTIFICATIONS_EMAIL` na `CONTACT_EMAIL`, w języku `I18N.DEFAULT_LOCALE`. Alert podaje:
+
+- identyfikator zamówienia Polar i datę zamówienia w UTC;
+- plan i `total_amount` w walucie zamówienia;
+- adres e-mail oraz imię i nazwisko klienta w postaci, w jakiej zawiera je zdarzenie, albo informację, że ich nie podano;
+- link do zamówienia w panelu Polar, który `polarOrderUrl` (`src/modules/license/license.utils.ts`) buduje z hosta przypisanego w `POLAR_DASHBOARD_HOSTS` do `POLAR_SERVER`, z `POLAR_ORGANIZATION_SLUG` (oba w `src/data/polar.ts`) i z identyfikatora zamówienia;
+- kroki, które pozwalają [odzyskać zamówienie](#recovering-an-order).
+
+Kluczem idempotencji jest `UNMATCHED_ORDER_ALERT` (`src/data/license.email-purposes.ts`) z identyfikatorem zamówienia Polar. Resend przechowuje klucz przez 24 godziny, więc kolejne dostarczenia zamówienia w tym czasie wysyłają jeden alert, a ponowne dostarczenie po tym czasie wysyła alert jeszcze raz, jeśli zamówienie nadal nie pasuje do żadnego konta. Gdy alertu nie da się wysłać, handler kończy się błędem, więc Polar ponownie dostarcza zdarzenie.
+
+### Lista w panelu administracyjnym
+
+Obszar licencji dodaje w `src/data/license.dashboard.ts` `UnlicensedOrders` (`src/presentation/components/custom/admin/license/unlicensed-orders.tsx`) do paneli [pulpitu administracyjnego](/docs/features/admin-dashboard), a loader pulpitu wstępnie pobiera jego zapytanie. `unlicensedOrdersQuery` (`src/modules/license/use-cases/get-unlicensed-orders.ts`) sprawdza `order: ["read"]` i wyświetla, od najnowszych, te [kopie zamówień Polar](/docs/features/payments#orders-and-subscriptions-in-d1), które:
+
+- mają status `paid`;
+- mają `product_id` z `POLAR_PRODUCT_IDS`;
+- nie są `polar_order_id` żadnej licencji;
+- nie występują w `revoked_license_order`.
+
+Każdy wiersz (`unlicensed-order-columns.tsx`) pokazuje identyfikator zamówienia, który otwiera zamówienie w Polar w nowej karcie, datę, identyfikator klienta Polar i kwotę przeliczoną z najmniejszych jednostek. Gdy takich zamówień nie ma, panel informuje, że każde opłacone zamówienie licencji ma swoją licencję. Na liście znajduje się też zamówienie, którego dostarczenie `order.paid` jeszcze się nie powiodło, oraz zamówienie usuniętego konta, którego licencję usunięto razem z nim.
+
+### Odzyskiwanie zamówienia [#recovering-an-order]
+
+1. Znajdź konto kupującego w zarządzaniu użytkownikami w panelu administracyjnym albo utwórz je przyciskiem **Dodaj użytkownika**, podając adres e-mail z alertu (zobacz [Użytkownicy (admin)](/docs/features/users-admin)). ID konta to ostatnia część adresu jego profilu, `/admin/users/<ID>`.
+2. Otwórz zamówienie w Polar z alertu lub z listy w panelu administracyjnym, a potem jego klienta, wybierz **Edit Customer** w menu klienta, ustaw **External ID** na ID konta i wybierz **Save Customer**. Przez API wyślij `external_id` w `PATCH /v1/customers/{id}` z tokenem, który ma `customers:write`. Polar nie zmienia raz ustawionego zewnętrznego ID i wymaga, by było ono unikalne w obrębie organizacji, więc ten krok działa tylko dla klienta, który go jeszcze nie ma i którego konto nie ma innego klienta w Polar; w przeciwnym razie zwróć pieniądze za zamówienie w Polar i poproś kupującego, by kupił ponownie po zalogowaniu.
+3. W ustawieniach webhooków Polar otwórz dostarczenia endpointu, znajdź zdarzenie `order.paid` tego zamówienia i wybierz **Redeliver**, a potem zrób to samo z jego zdarzeniem `benefit_grant.created`. `onOrderPaid` przyznaje licencję i wysyła potwierdzenie zakupu na adres konta, a `onBenefitGrantCreated` zapisuje klucz licencyjny; `benefit_grant.created`, które przyjdzie jako pierwsze, kończy się błędem, dopóki licencja nie istnieje, a Polar je ponawia. Zamówienie znika wtedy z listy w panelu administracyjnym.
+
+Polar może ponownie dostarczyć zdarzenie tylko tak długo, jak przechowuje jego dane, które serwer Polar archiwizuje po 90 dniach.
+
 ## Ekrany klienta
 
-`/app/license` wyświetla `LicenseCard` (plan, klucz, polecenia CLI, link do portalu klienta Polar pod `/api/auth/customer/portal` i adres e-mail pomocy w sprawie zmiany planu) oraz `LicenseActivations`, który pokazuje aktywacje klucza w Polar i usuwa wybraną przez `deactivateLicense`; ta funkcja odpowiada `NOT_FOUND`, gdy Polar nie ma już tej aktywacji. CLI dodaje i usuwa aktywacje przez [API licencji CLI](/docs/features/cli-licence-api). Polar egzekwuje limit aktywacji benefitu kluczy licencyjnych każdego planu, który musi być równy `LICENSE_ACTIVATION_LIMITS`: <ActivationLimit tier="core" /> dla planu Core, <ActivationLimit tier="complete" /> dla planu Komplet i <ActivationLimit tier="agency" /> dla planu Agencja. Zobacz [Aplikacja klienta](/docs/features/customer-app).
+`/app/license` wyświetla `LicenseCard` (plan, klucz, polecenia CLI, link do portalu klienta Polar pod `/api/auth/customer/portal` i adres e-mail pomocy w sprawie zmiany planu) oraz `LicenseActivations`, który pokazuje aktywacje klucza w Polar i usuwa wybraną przez `deactivateLicense`; ta funkcja odpowiada `NOT_FOUND`, gdy Polar nie ma już tej aktywacji. CLI dodaje i usuwa aktywacje przez [API licencji CLI](/docs/features/cli-licence-api). Polar egzekwuje limit aktywacji benefitu kluczy licencyjnych każdego planu, który musi być równy `LICENSE_ACTIVATION_LIMITS`: <ActivationLimit tier="core" /> dla planu Podstawa, <ActivationLimit tier="complete" /> dla planu Komplet i <ActivationLimit tier="agency" /> dla planu Agencja. Zobacz [Aplikacja klienta](/docs/features/customer-app).
 
 ## Powiązane strony
 

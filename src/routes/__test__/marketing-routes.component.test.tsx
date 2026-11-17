@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
 import { act, cleanup, render, screen } from "@testing-library/react"
-import { IntlProvider } from "use-intl"
+import { IntlProvider, createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
@@ -10,24 +10,30 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { Route as SiteRoute } from "~/src/routes/_site"
 import { Route as MarketingRoute } from "~/src/routes/_site._marketing"
+import { Route as NotFoundRoute } from "~/src/routes/_site._marketing.$"
 import { Route as AffiliatesRoute } from "~/src/routes/_site._marketing.affiliates"
 import { Route as BlogRoute } from "~/src/routes/_site._marketing.blog"
 import { Route as BlogPostRoute } from "~/src/routes/_site._marketing.blog.$"
 import { Route as BlogIndexRoute } from "~/src/routes/_site._marketing.blog.index"
 import { Route as HomeRoute } from "~/src/routes/_site._marketing.index"
 import { Route as LicenceRoute } from "~/src/routes/_site._marketing.licence"
-import { Route as PremiumRoute } from "~/src/routes/_site._marketing.premium"
 import { Route as PrivacyRoute } from "~/src/routes/_site._marketing.privacy"
 import { Route as RefundsRoute } from "~/src/routes/_site._marketing.refunds"
 import { Route as TermsRoute } from "~/src/routes/_site._marketing.terms"
 
-import { AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { AFFILIATE_PORTAL_URL, AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { BLOG_TAG } from "~/src/data/blog"
+import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { starCountQuery } from "~/src/lib/github"
 import { ORGANIZATION_STRUCTURED_DATA_HTML, ROBOTS } from "~/src/lib/seo"
 
+import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
+
+import commonMessages from "~/messages/en-US/common.json"
 import componentsNavigationMessages from "~/messages/en-US/components.custom.navigation.json"
+import notFoundMessages from "~/messages/en-US/errors.not-found.json"
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import pagesLandingMessages from "~/messages/en-US/pages.landing.json"
 import pagesLegalAffiliatesMessages from "~/messages/en-US/pages.legal.affiliates.json"
@@ -35,7 +41,6 @@ import pagesLegalLicenceMessages from "~/messages/en-US/pages.legal.licence.json
 import pagesLegalPrivacyMessages from "~/messages/en-US/pages.legal.privacy.json"
 import pagesLegalRefundsMessages from "~/messages/en-US/pages.legal.refunds.json"
 import pagesLegalTermsMessages from "~/messages/en-US/pages.legal.terms.json"
-import pagesPremiumMessages from "~/messages/en-US/pages.premium.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
 
@@ -43,9 +48,12 @@ type BlogPost = (typeof BlogPostRoute.types.loaderData)["post"]
 
 const messages = getTestMessages("en-US")
 
+const PORTAL_HOST = new URL(AFFILIATE_PORTAL_URL).host
+
 const TERMS_VALUES: Record<string, number | string> = {
   commission: AFFILIATE_TERMS.COMMISSION_PERCENT,
   cookieDays: AFFILIATE_TERMS.COOKIE_DAYS,
+  days: REFUND_TERMS.WITHDRAWAL_DAYS,
   email: CONTACT_EMAIL,
   holdDays: AFFILIATE_TERMS.HOLD_DAYS,
   minimumPayout: new Intl.NumberFormat("en-US", {
@@ -53,17 +61,19 @@ const TERMS_VALUES: Record<string, number | string> = {
     maximumFractionDigits: 0,
     style: "currency",
   }).format(AFFILIATE_TERMS.MINIMUM_PAYOUT),
+  portal: PORTAL_HOST,
 }
 
-const rendered = (text: string): string =>
-  text.replaceAll(/\{(?<name>\w+)\}/gu, (_placeholder, name: string) => String(TERMS_VALUES[name])).replaceAll(/\s+/gu, " ")
+const LEGAL_VALUES = { ...TERMS_VALUES, link: (chunks: string) => chunks }
+
+const legalText = (body: string): string => createTranslator({ locale: "en-US", messages: { body } }).markup("body", LEGAL_VALUES)
 
 const summary = (title: string, slug: string): BlogPostSummary => ({
   date: "2026-09-01",
   featured: false,
   readingTimeMinutes: 5,
   summary: "Article summary",
-  tags: ["React"],
+  tags: [BLOG_TAG.TANSTACK_START],
   title,
   url: `/blog/${slug}`,
 })
@@ -124,13 +134,13 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
   for (const [route, pathName] of [
     [AffiliatesRoute, "/affiliates"],
     [LicenceRoute, "/licence"],
-    [PremiumRoute, "/premium"],
     [PrivacyRoute, "/privacy"],
     [RefundsRoute, "/refunds"],
     [TermsRoute, "/terms"],
   ] as const) {
     Object.assign(route.options, { getParentRoute: () => MarketingRoute, id: pathName, path: pathName })
   }
+  Object.assign(NotFoundRoute.options, { getParentRoute: () => MarketingRoute, id: "/$", path: "/$" })
   Object.assign(BlogIndexRoute.options, {
     getParentRoute: () => BlogRoute,
     id: "/",
@@ -148,7 +158,7 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
     AffiliatesRoute,
     HomeRoute,
     LicenceRoute,
-    PremiumRoute,
+    NotFoundRoute,
     PrivacyRoute,
     RefundsRoute,
     TermsRoute,
@@ -156,6 +166,7 @@ const createMarketingRouter = ({ path, post, posts }: { path: string; post: Blog
   ])
   return createRouter({
     context: { queryClient },
+    defaultNotFoundComponent: DefaultNotFound,
     defaultPendingMinMs: 0,
     history: createMemoryHistory({ initialEntries: [path] }),
     routeTree: root.addChildren([SiteRoute.addChildren([marketing])]),
@@ -221,18 +232,41 @@ describe("public route content", () => {
     expect(screen.getByRole("heading", { name: copy.title })).toBeVisible()
     const sections: Record<string, { title: string; body: string }> = copy.sections
     for (const section of Object.values(sections)) {
-      expect(screen.getByRole("heading", { name: section.title })).toBeVisible()
-      expect(screen.getByText(rendered(section.body))).toBeVisible()
+      const heading = screen.getByRole("heading", { name: section.title })
+      expect(heading).toBeVisible()
+      expect(heading.nextElementSibling?.textContent).toBe(legalText(section.body))
     }
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ locale: "en-US", metadata: copy.metadata })
     expect(router.state.matches.at(-1)?.status).toBe("success")
   })
 
-  it("loads the premium page metadata and translated content, and keeps the placeholder out of search results", async () => {
-    const router = await renderRoute("/premium")
-    expect(screen.getByText(pagesPremiumMessages.metadata.title)).toBeVisible()
-    expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ metadata: pagesPremiumMessages.metadata })
-    expect(router.state.matches.at(-1)?.meta).toContainEqual({ content: ROBOTS.NOINDEX, name: "robots" })
+  it("links the partner portal from the affiliate terms, under its host name", async () => {
+    await renderRoute("/affiliates")
+    expect(screen.getByRole("link", { name: PORTAL_HOST })).toHaveAttribute("href", AFFILIATE_PORTAL_URL)
+  })
+
+  it("answers an unknown path with the not-found page between the site header and footer, kept out of search results", async () => {
+    const router = await renderRoute("/no/such/page")
+
+    expect(screen.getByRole("heading", { level: 1, name: notFoundMessages.metadata.title })).toBeVisible()
+    expect(screen.getByText(notFoundMessages.metadata.description)).toBeVisible()
+    expect(screen.getByRole("link", { name: commonMessages.backHome })).toHaveAttribute("href", "/")
+    expect(screen.getByRole("navigation", { name: componentsNavigationMessages.ariaLabel })).toBeVisible()
+    expect(screen.getByRole("contentinfo")).toBeVisible()
+    const notFoundMatch = router.state.matches.at(-1)
+    expect(notFoundMatch?.routeId).toBe(NotFoundRoute.id)
+    expect(notFoundMatch?.status).toBe("notFound")
+    expect(notFoundMatch?.meta).toContainEqual({ content: ROBOTS.NOINDEX, name: "robots" })
+  })
+
+  it.each(["/terms", "/blog", "/no/such/page"])("starts %s below the fixed site header", async (path) => {
+    await renderRoute(path)
+    expect(screen.getByRole("main")).toHaveClass("pt-header")
+  })
+
+  it("lets the landing page draw its hero under the site header", async () => {
+    await renderRoute("/")
+    expect(screen.getByRole("main")).not.toHaveClass("pt-header")
   })
 
   it("renders the landing page with cached stars, installation controls and public navigation", async () => {

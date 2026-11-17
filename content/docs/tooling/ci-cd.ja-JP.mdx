@@ -15,9 +15,13 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 
 `remotion.yml` は、プルリクエストでもプッシュでも同じパスで実行されます。対象は `remotion/`、ワークフロー自体、そして `remotion/src` が直接または他のサイトのファイルを通じてインポートするサイトのファイルです。`src/__test__/workflows.test.ts` はそのインポートをたどり、たどり着いたファイルがどのパスにも一致しない場合や、どのファイルにも一致しないパスがある場合に失敗します。
 
+サイトをビルドする `e2e-reusable.yml` と `deploy-reusable.yml` のチェックアウト、そして `release` ジョブのチェックアウトは、すべてのコミットをツリーなしで取得します（`fetch-depth: 0` と `filter: tree:0`）。[変更履歴](/docs/project/changelog)が、各エントリの日付をそれを `main` に入れたコミットから決めるためです。シャロークローンと比べて増えるのはコミットそのものだけです。シャロークローンでは、エントリの日付を誤る代わりにビルドが失敗します。これらのチェックアウトが履歴を取得しなくなると、`src/__test__/workflows.test.ts` が失敗します。
+
 ## チェック
 
 `ci.yml` の `verify` ジョブは、`bun run check`（クラス名テーブル、i18n とコンテンツのチェック、フォーマット、リント、型チェック）と `bun run test:coverage` を実行し、カバレッジレポートをアップロードします。`e2e` ジョブは `db:reset:test` と `build:test` を実行し、ブラウザーをインストールして `bunx playwright test e2e/specs --project=chromium` を実行します。E2E が失敗した場合は Playwright のレポートをアップロードします。
+
+プルリクエストでは、自分の[変更履歴のエントリ](/docs/conventions/git-workflow#changelog-entries)を追加するまで `bun run check` も失敗します。
 
 ## デプロイ
 
@@ -30,7 +34,7 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 
 `deploy-reusable.yml` は GitHub の各環境に URL を設定します。`src/__test__/workflows.test.ts` は、そのいずれかが `DEPLOYED_HOSTS`（`src/modules/_core/constants/api.ts`）にあるその環境のホストと異なる場合に失敗します。フォークと Dependabot からのプルリクエストは検証されますが、デプロイはされません。プレビューは共有されており、各デプロイは前回のデプロイを置き換え、同じプレビュー用の D1 データベース、KV 名前空間、R2 の各バケットを使います。
 
-`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。`scripts/run-deploy-checks.ts` も実行しません。そのため、各エリアが `DEPLOY_CHECKS` で宣言したデプロイ前チェックは CI ではいずれも実行されません。CI には `.env.<target>` がなく、GitHub の環境には Cloudflare の認証情報しかないからです。現在のチェックは Polar エリアの `polar:verify` だけです。Polar を変更するたびに、ローカルで `bun run polar:verify:<target>` を実行してください（[Polar の設定](/docs/getting-started/polar-setup)）。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入ります。
+`deploy-reusable.yml` は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` のシークレットがあることを確認し、`scripts/verify-bindings.ts` を実行し、`.env.test` のダミー値でビルドし、生成された `dist/server/.dev.vars` を削除し、`db:migrate:<target>` を適用し、`vp exec wrangler deploy --config dist/server/wrangler.json` を実行します。`deploy:<target>` スクリプトが行う稼働中のサイトの確認 `scripts/verify-deployment.ts` は実行しません。Cloudflare のボット対策が CI ランナーからのリクエストに 403 を返すためです。`scripts/run-deploy-checks.ts` も実行しません。そのため、各エリアが `DEPLOY_CHECKS` で宣言したデプロイ前チェックは CI ではいずれも実行されません。CI には `.env.<target>` がなく、GitHub の環境には Cloudflare の認証情報しかないからです。現在のチェックは認証エリアの `auth:verify` と Polar エリアの `polar:verify` です。OAuth クライアントを変更したらローカルで `bun run auth:verify:<target>` を、Polar を変更するたびに `bun run polar:verify:<target>` を実行してください（[Polar の設定](/docs/getting-started/polar-setup)）。シークレットファイルはアップロードしません。Worker は Cloudflare にすでに設定されているランタイムのシークレットをそのまま使います。同じデプロイ先へのデプロイは、互いにキャンセルするのではなくキューに入ります。
 
 Dependabot は GitHub Actions を毎週更新します。
 
@@ -38,7 +42,7 @@ Dependabot は GitHub Actions を毎週更新します。
 
 サイトは継続的にデプロイされるため、バージョンはセマンティックバージョンではなく日付です。本番へのデプロイが成功すると、`ci.yml` の `release` ジョブがデプロイしたコミットに UTC の日付で `vYYYY.MM.DD` のタグを付け、GitHub Release を公開します。同じ日の 2 回目の本番デプロイには `vYYYY.MM.DD.2`、その次には `.3` というようにタグが付きます。プレビューへのデプロイにはタグを付けません。`contents: write` を持つジョブは `release` ジョブだけです。
 
-リリースノートは[変更履歴](/docs/project/changelog)のその日のセクションなので、変更の説明は 1 か所にまとまります。変更履歴にその日のセクションがない場合、リリースノートは変更履歴へのリンクになります。`scripts/publish-release.ts` が `src/lib/release.ts` でタグとリリースノートを決め、`gh release create` を実行します。再実行すると、コミットにすでに付いているタグをそのまま使い、既存のリリースは作り直しません。
+リリースノートは、その日に `main` に入った[変更履歴](/docs/project/changelog)のエントリなので、変更の説明は 1 か所にまとまります。その日に入ったエントリがない場合、リリースノートは変更履歴へのリンクになります。 `scripts/publish-release.ts` が `src/lib/release.ts` でタグとリリースノートを決め、`gh release create` を実行します。再実行すると、コミットにすでに付いているタグをそのまま使い、既存のリリースは作り直しません。
 
 本番をあるリリースに戻すには、そのタグより後の変更をすべてプルリクエストで取り消します。
 

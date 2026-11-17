@@ -1,6 +1,6 @@
 ---
 title: "Polar の設定"
-description: "コードが前提とする Polar の組織、トークン、商品、ライセンスキー、地域割引、Webhook と、polar:verify によるその確認方法です。"
+description: "コードが前提とする Polar の組織、トークン、商品、ライセンスキー、同意のチェックボックス、地域割引、Webhook と、polar:verify によるその確認方法です。"
 ---
 
 Polar は 3 つのプランを販売し、そのライセンスキーを発行し、地域割引を適用します。コードは Polar 側に決まった設定があることを前提としていますが、両者が食い違っても Polar は警告しません。たとえば、ライセンスキーの特典がない商品でも支払いは受け付けますが、キーは発行されません。`bun run polar:verify:<environment>` は Polar とコードを比較し、デプロイスクリプトは手動デプロイのたびに事前にこれを実行します。
@@ -23,7 +23,7 @@ Polar は 2 つの独立したサービスを運営しています。本番（`p
 
 サンドボックスで、次に本番で、以下を行います。
 
-1. 組織を作成し、組織の設定からその ID を `POLAR_ORGANIZATION_ID` にコピーします。
+1. 組織を作成し、組織の設定からその ID を `POLAR_ORGANIZATION_ID` にコピーします。両方の組織のスラッグを `POLAR_ORGANIZATION_SLUG`（`src/data/polar.ts`）の値にするか、この定数を組織のスラッグに変更します。[アカウントに対応しない注文のアラートと管理画面の一覧](/docs/features/licences#orders-that-match-no-account)は、このスラッグを使って各注文を Polar のダッシュボードにリンクします。
 2. 組織の設定で、次のスコープだけを持ち、それ以外のスコープを持たない組織アクセストークンを作成し、`POLAR_ACCESS_TOKEN` にコピーします。
 
 | スコープ                  | 必要とする箇所                                                                                                                                                              |
@@ -32,7 +32,7 @@ Polar は 2 つの独立したサービスを運営しています。本番（`p
 | `customer_sessions:write` | カスタマーポータルへのリンク `/api/auth/customer/portal`                                                                                                                    |
 | `discounts:read`          | 購入時の地域割引の検索（`pppDiscountId`）と `polar:verify`                                                                                                                  |
 | `license_keys:write`      | キーとそのアクティベーションの読み取り、端末のアクティベート、およびアクティベーションの解除（`deactivateLicense` と [CLI ライセンス API](/docs/features/cli-licence-api)） |
-| `orders:read`             | ライセンスの元になった注文を読み取る Webhook ハンドラー                                                                                                                     |
+| `orders:read`             | ライセンスの元になった注文と、イベントがどのアカウントにも対応しない注文の現在の顧客を読み取る Webhook ハンドラー                                                           |
 | `products:read`           | `polar:verify`                                                                                                                                                              |
 | `webhooks:read`           | `polar:verify`                                                                                                                                                              |
 
@@ -61,6 +61,20 @@ Polar は価格を通貨の補助単位（米ドルではセント）で保存�
 
 各商品には、ライセンスキーの特典がちょうど 1 つ必要です。それ以外の特典が一緒に付いていても問題ありません。Polar が特典を付与すると、`benefit_grant.created` Webhook がキーを購入者のライセンスに保存します。
 
+## 同意のチェックボックス [#consent-checkbox]
+
+サイトの購入ダイアログは購入者に即時提供への同意を求め（[ライセンス](/docs/features/licences#consent-to-immediate-supply)を参照）、Polar のチェックアウトはその同意を注文に記録します。組織にカスタムフィールドを 1 つ作成し、3 つの商品に付けてください。
+
+- **タイプ**: チェックボックス。
+- **スラッグ**: <RepositoryFact name="licenseWithdrawalConsentField" />。`src/modules/license/license.constants.ts` の `LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT` です。注文は、チェックされたボックスを `custom_field_data` のこのキーに保存します。
+- **ラベル**: `src/lib/polar.ts` の `WITHDRAWAL_CONSENT_FIELD.label` と完全に同じにします。これは `REFUND_TERMS.WITHDRAWAL_DAYS` から組み立てる英語の文で、本番の返金ポリシーへの Markdown リンクで終わります。
+- **名前**: 任意です。コードが提案するのは `WITHDRAWAL_CONSENT_FIELD.name` で、`polar:verify` はチェックしません。
+- **必須**: 3 つの商品のそれぞれで必須にします。商品が求めるほかのフィールドは残しておいてかまいません。
+
+`startCheckout` は購入者が直前に与えた同意をフィールドの値として送信するため、Polar はボックスにチェックが入った状態で表示します。Polar は、商品が求めるフィールドの値しか保持しません。そのため、フィールドを付ける前でもチェックアウトは機能しますが、注文には同意が記録されず、[購入確認メール](/docs/features/licences#purchase-confirmation)では代わりに法定の撤回権が案内されます。
+
+フィールドを作成して商品に付けるには `custom_fields:write` と `products:write` のスコープが必要ですが、上記のトークンにはこれらのスコープがありません。Polar のダッシュボードで作成して付けるか、これらのスコープを持つ別のトークンを使って API で行ってください。`polar:verify` は商品の一覧から付いているフィールドを読み取るため、ほかのスコープは必要ありません。
+
 ## 地域割引
 
 購入時の地域価格は、Polar の自動割引によって適用されます（[ライセンス](/docs/features/licences)を参照）。`PPP_TIERS`（`src/modules/license/license.pricing.ts`）の区分ごとに 1 つずつ、<RegionalDiscounts /> のパーセント割引を作成します。各割引は次の条件を満たす必要があります。
@@ -81,12 +95,20 @@ Polar は価格を通貨の補助単位（米ドルではセント）で保存�
 | `preview`    | サンドボックス | `https://preview.saasyland.com/api/auth/polar/webhooks` |
 | `production` | 本番           | `https://saasyland.com/api/auth/polar/webhooks`         |
 
-ホストは `DEPLOYED_HOSTS` から、パスは `ROUTES` から取得されます。形式は Raw を選び、エンドポイントを有効のままにして、`POLAR_EVENTS`（`src/data/polar-events.ts`）のイベントだけを過不足なく購読させます。`POLAR_EVENTS` は、各エリアが処理するイベントをまとめたものです（[決済](/docs/features/payments#webhooks)を参照）。現在イベントを処理するのはライセンスのエリアだけで、そのイベントは `LICENSE_WEBHOOK_EVENTS`（`src/modules/license/license.constants.ts`）に列挙されています。
+ホストは `DEPLOYED_HOSTS` から、パスは `ROUTES` から取得されます。形式は Raw を選び、エンドポイントを有効のままにして、`POLAR_EVENTS`（`src/data/polar-events.ts`）のイベントだけを過不足なく購読させます。`POLAR_EVENTS` は、各エリアが処理するイベントをまとめたものです（[決済](/docs/features/payments#webhooks)を参照）。現在は、ライセンスのエリアが `LICENSE_WEBHOOK_EVENTS`（`src/modules/license/license.constants.ts`）のイベントを、請求のエリアが `src/data/billing.polar-events.ts` のイベントを処理します。
 
-- `order.paid` はライセンスを付与します。
-- `order.refunded` は、注文が全額返金された時点でライセンスを返金済みにします。
-- `benefit_grant.created` はライセンスキーを保存します。
-- `benefit_grant.revoked` はライセンスを取り消します。
+| イベント                | ライセンスのエリア                                     | 請求のエリア                           |
+| ----------------------- | ------------------------------------------------------ | -------------------------------------- |
+| `benefit_grant.created` | ライセンスキーを保存します                             |                                        |
+| `benefit_grant.revoked` | ライセンスを取り消します                               |                                        |
+| `order.created`         |                                                        | 注文を D1 にコピーします               |
+| `order.paid`            | ライセンスを付与します                                 | 注文のコピーを更新します               |
+| `order.refunded`        | 注文が全額返金された時点でライセンスを返金済みにします | 注文のコピーを更新します               |
+| `order.updated`         |                                                        | 注文のコピーを更新します               |
+| `subscription.created`  |                                                        | サブスクリプションを D1 にコピーします |
+| `subscription.updated`  |                                                        | サブスクリプションのコピーを更新します |
+
+あるエリアが新しいイベントを処理し始めるときは、そのコードをデプロイする前に、各エンドポイントにそのイベントを追加してください。それまでデプロイされているコードは、どのエリアも処理しないイベントに 200 を返して何もしないため、先にイベントを追加しても問題ありません。また、エンドポイントが `POLAR_EVENTS` のすべてのイベントを送らない限り、`polar:verify` はデプロイを失敗させます。
 
 エンドポイントの署名シークレットを、同じ環境ファイルの `POLAR_WEBHOOK_SECRET` にコピーします。Polar は `localhost` に到達できないため、開発用のエンドポイントは不要です。
 
@@ -105,11 +127,12 @@ bun run polar:verify:production
 - 環境ファイルにすべての Polar のキーが設定されており、開発とプレビューでは `POLAR_SERVER=sandbox`、本番では `POLAR_SERVER=production` になっていること。
 - 各 `POLAR_PRODUCT_ID_*` が、アーカイブ済みでもサブスクリプションでもない組織の商品を指し、その価格が固定価格で、`DEFAULT_CURRENCY_CODE` 建てで、`TIER_PRICES` と等しいこと。
 - 各商品にライセンスキーの特典がちょうど 1 つあり、その特典が `LICENSE_ACTIVATION_LIMITS` にあるプランの上限を持ち、有効期限も使用回数の上限もないこと。
+- 各商品が、`WITHDRAWAL_CONSENT_FIELD` のラベルを持つチェックボックスのフィールド <RepositoryFact name="licenseWithdrawalConsentField" /> を必須にしていること。
 - `PPP_TIERS` のすべての区分について、購入時と同じルールで、自動のパーセント割引がすべてのプランの商品に利用できること。
 - プレビューと本番の Webhook URL に、有効な Raw 形式のエンドポイントがあり、`POLAR_WEBHOOK_SECRET` で署名され、`POLAR_EVENTS` だけを過不足なく購読していること。
 - もう一方の Polar サービスを使う環境のホストに送信するエンドポイントがないこと。
 
-`polar:verify` は Polar のエリアのデプロイ前チェック（`src/data/polar.deploy.ts` の `POLAR_DEPLOY_CHECKS`）なので、`deploy:preview` と `deploy:production` は `scripts/verify-bindings.ts` の直後、ビルドの前に `scripts/run-deploy-checks.ts` を通じてこれを実行します。CI のデプロイでは、`polar:verify` を含め、デプロイ前チェックをいずれも実行しません。`deploy-reusable.yml` には `scripts/run-deploy-checks.ts` を実行するステップがなく、GitHub の環境には Polar のトークンもありません。Worker は Cloudflare にすでに設定されている Polar のシークレットをそのまま使います。Polar で何かを変更したら、そのたびに自分で `polar:verify` を実行してください。
+`polar:verify` は Polar のエリアのデプロイ前チェック（`src/data/polar.deploy.ts` の `POLAR_DEPLOY_CHECKS`）なので、`deploy:preview` と `deploy:production` は `scripts/verify-bindings.ts` と `scripts/prepare-deploy-secrets.ts` の後、ビルドの前に `scripts/run-deploy-checks.ts` を通じてこれを実行します。CI のデプロイでは、`polar:verify` を含め、デプロイ前チェックをいずれも実行しません。`deploy-reusable.yml` には `scripts/run-deploy-checks.ts` を実行するステップがなく、GitHub の環境には Polar のトークンもありません。Worker は Cloudflare にすでに設定されている Polar のシークレットをそのまま使います。Polar で何かを変更したら、そのたびに自分で `polar:verify` を実行してください。
 
 ## 失敗した場合
 
@@ -128,6 +151,7 @@ A webhook endpoint posts to https://preview.saasyland.com/api/auth/polar/webhook
 - **`lacks the … scope`**: 上記のスコープを持つトークンを作成してください。
 - **`names no product of the organisation`**: 商品 ID または `POLAR_ORGANIZATION_ID` が間違っているか、もう一方のサービスのものです。
 - **価格、ライセンスキー、割引**: コードに合わせて Polar 側を変更してください。ビジネス上の値を意図的に変える場合は、先に `TIER_PRICES`、`LICENSE_ACTIVATION_LIMITS`、`PPP_TIERS` を変更し、その後で Polar を変更します。
+- **`does not ask for the … checkout field`、`without requiring it`、`instead of a checkbox`、`label differs`**: [同意のチェックボックス](#consent-checkbox)を作成するか、商品に付けるか、修正してください。文言を意図的に変える場合は、先に `WITHDRAWAL_CONSENT_FIELD.label` を変更し、その後で Polar のラベルを変更します。
 - **Webhook エンドポイント**: メッセージが示すエンドポイントを修正するか、別の環境のホストに送信しているエンドポイントを削除してください。
 
 ## 関連ページ

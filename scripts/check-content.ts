@@ -5,8 +5,12 @@ import process from "node:process"
 import { z } from "zod/v4"
 
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+import { canonicalizePathname, deLocalizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
+
+import { CHANGELOG_DIRECTORY, ENTRY_KEY, pullRequestOf } from "~/src/lib/changelog"
+import { formOfAddressProblems } from "~/src/lib/forms-of-address"
 
 import { readWranglerEnvironment } from "./wrangler-config"
 import { APP_DOMAIN } from "~/src/presentation/branding"
@@ -19,7 +23,8 @@ const REPOSITORY_DIR = join(import.meta.dirname, "..")
 const CONTENT_DIR = join(REPOSITORY_DIR, "content")
 const SOURCE_MDX_SUFFIX = `.${I18N.DEFAULT_LOCALE}.mdx`
 const SOURCE_META_SUFFIX = `.${I18N.DEFAULT_LOCALE}.json`
-const TRANSLATED_FIELDS = ["title", "description", "excerpt"]
+const TRANSLATED_FIELDS = ["title", "description", "excerpt", "unreleased"]
+const CHANGELOG_PREFIX = `${relative(CONTENT_DIR, join(REPOSITORY_DIR, CHANGELOG_DIRECTORY))}/`
 
 const CODE_BLOCK_PATTERN = /^(?<fence>`{3,}|~{3,})[^\n]*\n[\s\S]*?^\k<fence>\s*$/gmu
 const TRANSLATION_MARKER_PATTERN = /ZXQ\d+QXZ|<ph\d+|▁|\{"translation":/u
@@ -29,6 +34,10 @@ const INLINE_CODE_PATTERN = /`(?<code>[^`\n]+)`/gu
 const COMPONENT_PATTERN = /<(?<name>[A-Z][A-Za-z]*)(?<props>(?:\s+[A-Za-z-]+(?:=(?:"[^"]*"|\{[^}]*\}))?)*)\s*\/?>/gu
 const STRING_PROP_PATTERN = /(?<name>[A-Za-z-]+)="[^"]*"/gu
 const LINK_PATTERN = /\]\((?<href>[^)#\s]+)/gu
+const BARE_URL_PATTERN = /(?<!\]\()(?<!["'=[])https?:\/\/[^\s<]+/gu
+const NON_ASCII_PATTERN = /\P{ASCII}/u
+const INTERNAL_LINK_PATTERN = /(?:\]\(|\bhref=")(?<path>\/(?!\/)[^)"\s?#]*)/gu
+const REDIRECTED_ENDING_PATTERN = /(?:\/index)?(?:\.html)?\/?$/u
 const HOST_PATTERN = /\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?\b|\b(?:localhost|127\.0\.0\.1):\d+\b/gu
 const LOCAL_HOST_PATTERN = /^(?:localhost|127\.0\.0\.1):/u
 const ENVIRONMENT_VARIABLE_PATTERN = /^[A-Z][A-Z0-9_]+$/u
@@ -104,7 +113,25 @@ const componentsOf = (source: string): string[] =>
 const linksOf = (source: string): string[] =>
   [...proseWithoutCode(source).matchAll(LINK_PATTERN)].flatMap(({ groups }) => groups?.["href"] ?? [])
 
+const canonicalPath = (path: string): string => deLocalizePathname(canonicalizePathname(path.replace(REDIRECTED_ENDING_PATTERN, "") || "/"))
+
+const linkProblems = ({ label, target }: Translation): string[] => {
+  const paths = new Set([...proseWithoutCode(target).matchAll(INTERNAL_LINK_PATTERN)].flatMap(({ groups }) => groups?.["path"] ?? []))
+
+  return [...paths]
+    .filter((path) => canonicalPath(path) !== path)
+    .map(
+      (path) =>
+        `${label} links to ${path} instead of ${canonicalPath(path)}, which the site serves without a redirect in the reader's locale`,
+    )
+}
+
 const inlineCodeOf = (source: string): string[] => inlineCode(proseOf(source)).map((code) => `\`${code}\``)
+
+const bareUrlProblems = ({ label, target }: Translation): string[] =>
+  (proseWithoutCode(target).match(BARE_URL_PATTERN) ?? [])
+    .filter((url) => NON_ASCII_PATTERN.test(url))
+    .map((url) => `${label} has a bare URL that runs into the text after it, so the link takes that text too: ${url}`)
 
 const tableRows = (source: string): string[][] =>
   [...source.matchAll(TABLE_ROW_PATTERN)].map(({ groups }) => (groups?.["cells"] ?? "").split("|").map((cell) => cell.trim()))
@@ -215,36 +242,45 @@ const codeValueProblems = (translation: Translation): string[] => {
   return [...quotedSourceProblems(translation), ...hostProblems(translation), ...(DOCS_PAGE_CHECKS[page]?.(translation) ?? [])]
 }
 
-const untranslatedProblems = ({ label, source, target }: Translation): string[] => {
-  const problems: string[] = []
+const untranslatedParagraphProblems = ({ label, source, target }: Translation): string[] => {
   const translatedParagraphs = new Set(proseParagraphs(target))
+  const untranslated = proseParagraphs(source).some((paragraph) => translatedParagraphs.has(paragraph))
 
-  if (proseParagraphs(source).some((paragraph) => translatedParagraphs.has(paragraph))) {
-    problems.push(`Untranslated English paragraph in ${label}`)
-  }
+  return untranslated ? [`Untranslated English paragraph in ${label}`] : []
+}
 
+const untranslatedFieldProblems = ({ label, source, target }: Translation): string[] => {
   const sourceMetadata = readFrontmatter(source)
   const metadata = readFrontmatter(target)
 
-  for (const field of TRANSLATED_FIELDS) {
+  return TRANSLATED_FIELDS.filter((field) => {
     const original = sourceMetadata[field]
 
-    if (typeof original === "string" && isEnglishProse(original) && metadata[field] === original) {
-      problems.push(`Untranslated ${field} in ${label}`)
-    }
-  }
-
-  return problems
+    return typeof original === "string" && isEnglishProse(original) && metadata[field] === original
+  }).map((field) => `Untranslated ${field} in ${label}`)
 }
+
+const titleProblems = ({ label, target }: Translation): string[] => {
+  const { title } = readFrontmatter(target)
+
+  return typeof title === "string" && title.trim().length > 0 ? [] : [`Missing title in ${label}`]
+}
+
+const entryKeyProblems = ({ label, locale }: Translation): string[] => {
+  const key = label.slice(CHANGELOG_PREFIX.length, -`.${locale}.mdx`.length)
+
+  return ENTRY_KEY.test(key) ? [] : [`${label} is named after neither a pull request number nor a full commit hash`]
+}
+
+const addressProblems = ({ label, locale, target }: Translation): string[] =>
+  formOfAddressProblems({ locale, text: target.replaceAll(CODE_BLOCK_PATTERN, "").replaceAll(INLINE_CODE_PATTERN, "") }).map(
+    (problem) => `${label} ${problem}`,
+  )
 
 export const mdxProblems = (translation: Translation): string[] => {
   const { label, locale, source, target } = translation
-  const problems: string[] = []
-  const metadata = readFrontmatter(target)
-
-  if (typeof metadata["title"] !== "string" || metadata["title"].trim().length === 0) {
-    problems.push(`Missing title in ${label}`)
-  }
+  const isChangelogEntry = label.startsWith(CHANGELOG_PREFIX)
+  const problems = isChangelogEntry ? entryKeyProblems(translation) : titleProblems(translation)
 
   if (JSON.stringify(codeBlocks(source)) !== JSON.stringify(codeBlocks(target))) {
     problems.push(`Changed code examples in ${label}`)
@@ -254,13 +290,20 @@ export const mdxProblems = (translation: Translation): string[] => {
     problems.push(`Unresolved translation marker in ${label}`)
   }
 
-  problems.push(...codeValueProblems(translation))
+  problems.push(
+    ...codeValueProblems(translation),
+    ...linkProblems(translation),
+    ...bareUrlProblems(translation),
+    ...addressProblems(translation),
+  )
 
   if (locale === I18N.DEFAULT_LOCALE) {
     return problems
   }
 
-  return [...problems, ...structureProblems(translation), ...untranslatedProblems(translation)]
+  problems.push(...structureProblems(translation), ...untranslatedParagraphProblems(translation))
+
+  return isChangelogEntry ? problems : [...problems, ...untranslatedFieldProblems(translation)]
 }
 
 const metaProblems = ({ label, source, target }: Translation): string[] => {
@@ -297,8 +340,18 @@ export const pageProblems = (page: string): string[] => {
   return I18N.SUPPORTED_LOCALES.flatMap((locale) => translationProblems({ locale, source, sourcePath }))
 }
 
+export const pullRequestEntryProblems = (ref: string): string[] => {
+  const pullRequest = pullRequestOf(ref)
+
+  if (pullRequest === undefined || existsSync(join(REPOSITORY_DIR, CHANGELOG_DIRECTORY, `${pullRequest}${SOURCE_MDX_SUFFIX}`))) {
+    return []
+  }
+
+  return [`Pull request #${pullRequest} has no changelog entry: add ${CHANGELOG_DIRECTORY}/${pullRequest}.<locale>.mdx in every locale`]
+}
+
 if (import.meta.main) {
-  const problems = sourcePages().flatMap((page) => pageProblems(page))
+  const problems = [...sourcePages().flatMap((page) => pageProblems(page)), ...pullRequestEntryProblems(process.env["GITHUB_REF"] ?? "")]
 
   if (problems.length > 0) {
     console.error(problems.join("\n"))

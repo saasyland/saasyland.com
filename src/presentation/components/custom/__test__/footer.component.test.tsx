@@ -2,9 +2,9 @@ import { cleanup, screen, within } from "@testing-library/react"
 import { IntlProvider } from "use-intl"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { renderWithRouter } from "~/src/platform/testing/lib/render"
+import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 
-import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { FOOTER_SECTIONS } from "~/src/data/marketing"
 import { FOOTER_NAVIGATION } from "~/src/data/navigation"
@@ -15,6 +15,9 @@ import { Footer } from "~/src/presentation/components/custom/footer"
 import footerMessages from "~/messages/en-US/components.custom.footer.json"
 import newsletterFormMessages from "~/messages/en-US/components.custom.newsletter-form.json"
 import { APP_FOUNDED_YEAR, APP_GITHUB_URL, APP_INSTAGRAM_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
+import { ROUTES } from "~/src/routes"
+
+const pageLabel = getNavigationLabel("en-US")
 
 const facts = vi.hoisted(() => ({ buildYear: 0 }))
 
@@ -23,12 +26,18 @@ vi.mock(import("~/src/data/repository-facts"), async (importOriginal) => {
   return { REPOSITORY_FACTS: Object.assign(facts, REPOSITORY_FACTS) }
 })
 
-const renderFooter = () =>
+const renderFooter = (path: string = ROUTES.HOME) =>
   renderWithRouter(
     <IntlProvider locale="en-US" messages={getTestMessages("en-US")} timeZone="UTC">
       <Footer />
     </IntlProvider>,
+    { router: createTestRouter(path) },
   )
+
+const currentPages = (): string[] =>
+  within(screen.getByRole("contentinfo"))
+    .queryAllByRole("link", { current: "page" })
+    .map((link) => link.textContent)
 
 afterEach(() => {
   cleanup()
@@ -84,6 +93,25 @@ describe("marketing footer", () => {
       .map((link) => link.getAttribute("href"))
 
     expect(hrefs).toStrictEqual([...sections, ...links.map(({ to }) => to)])
+  })
+
+  it("marks no landing section current on the rest of the home page", () => {
+    renderFooter(ROUTES.HOME)
+
+    expect(currentPages()).toStrictEqual([])
+  })
+
+  it.each(FOOTER_SECTIONS)("marks only the %s link current on its own section", (section) => {
+    renderFooter(`${ROUTES.HOME}#${section}`)
+
+    expect(currentPages()).toStrictEqual([footerMessages.links[section]])
+  })
+
+  it("marks the page the visitor is on", () => {
+    renderFooter(ROUTES.LICENCE)
+    const licence = FOOTER_NAVIGATION.flatMap(({ links }) => links).filter(({ to }) => to === ROUTES.LICENCE)
+
+    expect(currentPages()).toStrictEqual(licence.map((link) => pageLabel(link)))
   })
 
   it.each([

@@ -6,7 +6,8 @@ import { useFormatter, useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { AFFILIATE_PORTAL_URL, AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 
 import { pageHead } from "~/src/lib/seo"
 
@@ -35,6 +36,7 @@ const AffiliatesPage = (): JSX.Element => {
   const format = useFormatter()
 
   const terms = {
+    ...CLI_GENERATION_VALUES,
     commission: AFFILIATE_TERMS.COMMISSION_PERCENT,
     cookieDays: AFFILIATE_TERMS.COOKIE_DAYS,
     email: CONTACT_EMAIL,
@@ -44,6 +46,7 @@ const AffiliatesPage = (): JSX.Element => {
       maximumFractionDigits: 0,
       style: "currency",
     }),
+    program: AFFILIATE_PROGRAM,
   }
 
   return (

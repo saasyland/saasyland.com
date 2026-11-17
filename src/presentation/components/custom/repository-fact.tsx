@@ -54,7 +54,7 @@ import { SAVE_INTERVAL_MS } from "~/src/hooks/use-lesson-progress"
 
 import { APP_STATEMENTS } from "~/src/data/access"
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
-import { AFFILIATE_PORTAL_URL, AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { OAUTH_CLIENTS, OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH, oauthCallbackPath } from "~/src/data/auth"
 import {
   CLI_API_URL_VARIABLE,
@@ -108,6 +108,7 @@ const FACTS = {
   affiliateMinimumPayout: AFFILIATE_TERMS.MINIMUM_PAYOUT,
   affiliatePayoutCurrency: AFFILIATE_TERMS.PAYOUT_CURRENCY,
   affiliatePortalUrl: AFFILIATE_PORTAL_URL,
+  affiliateProgram: AFFILIATE_PROGRAM,
   affonsoReferralParams: AFFONSO.REFERRAL_PARAMS,
   audioBitrate: AUDIO_BITRATE,
   audioSampleRate: AUDIO_SAMPLE_RATE,

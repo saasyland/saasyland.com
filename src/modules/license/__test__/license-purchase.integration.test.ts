@@ -197,6 +197,16 @@ describe("checkout", () => {
     expect(payPolarCheckout(checkout.id).metadata).toStrictEqual(metadata)
   })
 
+  it("sends Polar no referral when the buyer carries no affiliate cookie, and the paid order has none either", async () => {
+    const buyer = await signUpAndVerify()
+
+    const checkout = await startCheckout(buyer, { tier: LICENSE_TIER.CORE })
+
+    const metadata = { [LICENSE_CHECKOUT_METADATA.LOCALE]: "en-US" }
+    expect(checkout.metadata).toStrictEqual(metadata)
+    expect(payPolarCheckout(checkout.id).metadata).toStrictEqual(metadata)
+  })
+
   it("refuses a second checkout while the account holds an active licence, without asking Polar", async () => {
     const { buyer } = await buyLicense()
     const checkoutsBefore = polarCheckouts().length

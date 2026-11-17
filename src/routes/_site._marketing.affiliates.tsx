@@ -1,4 +1,4 @@
-import type { JSX } from "react"
+import type { JSX, ReactNode } from "react"
 
 import { createFileRoute } from "@tanstack/react-router"
 import { useFormatter, useTranslations } from "use-intl/react"
@@ -6,7 +6,7 @@ import { useFormatter, useTranslations } from "use-intl/react"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { AFFILIATE_PORTAL_URL, AFFILIATE_TERMS } from "~/src/data/affiliates"
 
 import { pageHead } from "~/src/lib/seo"
 
@@ -17,6 +17,18 @@ import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const SECTIONS = ["commission", "attribution", "verification", "payouts", "refunds", "rules", "buyers", "changes", "join"] as const
+
+const PORTAL_TAGS = {
+  link: (chunks: ReactNode) => (
+    <a
+      className="text-foreground underline underline-offset-4 hover:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      href={AFFILIATE_PORTAL_URL}
+    >
+      {chunks}
+    </a>
+  ),
+  portal: new URL(AFFILIATE_PORTAL_URL).host,
+}
 
 const AffiliatesPage = (): JSX.Element => {
   const t = useTranslations("pages.legal.affiliates")
@@ -42,7 +54,9 @@ const AffiliatesPage = (): JSX.Element => {
         {SECTIONS.map((section) => (
           <section className="flex flex-col gap-3" key={section}>
             <h2 className="text-xl font-medium text-foreground">{t(`sections.${section}.title`)}</h2>
-            <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{t(`sections.${section}.body`, terms)}</p>
+            <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
+              {t.rich(`sections.${section}.body`, { ...terms, ...PORTAL_TAGS })}
+            </p>
           </section>
         ))}
       </div>

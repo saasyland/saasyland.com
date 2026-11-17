@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
 import { act, cleanup, render, screen } from "@testing-library/react"
-import { IntlProvider } from "use-intl"
+import { IntlProvider, createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.source"
@@ -21,7 +21,7 @@ import { Route as PrivacyRoute } from "~/src/routes/_site._marketing.privacy"
 import { Route as RefundsRoute } from "~/src/routes/_site._marketing.refunds"
 import { Route as TermsRoute } from "~/src/routes/_site._marketing.terms"
 
-import { AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { AFFILIATE_PORTAL_URL, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { BLOG_TAG } from "~/src/data/blog"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -48,6 +48,8 @@ type BlogPost = (typeof BlogPostRoute.types.loaderData)["post"]
 
 const messages = getTestMessages("en-US")
 
+const PORTAL_HOST = new URL(AFFILIATE_PORTAL_URL).host
+
 const TERMS_VALUES: Record<string, number | string> = {
   commission: AFFILIATE_TERMS.COMMISSION_PERCENT,
   cookieDays: AFFILIATE_TERMS.COOKIE_DAYS,
@@ -59,10 +61,12 @@ const TERMS_VALUES: Record<string, number | string> = {
     maximumFractionDigits: 0,
     style: "currency",
   }).format(AFFILIATE_TERMS.MINIMUM_PAYOUT),
+  portal: PORTAL_HOST,
 }
 
-const rendered = (text: string): string =>
-  text.replaceAll(/\{(?<name>\w+)\}/gu, (_placeholder, name: string) => String(TERMS_VALUES[name])).replaceAll(/\s+/gu, " ")
+const LEGAL_VALUES = { ...TERMS_VALUES, link: (chunks: string) => chunks }
+
+const legalText = (body: string): string => createTranslator({ locale: "en-US", messages: { body } }).markup("body", LEGAL_VALUES)
 
 const summary = (title: string, slug: string): BlogPostSummary => ({
   date: "2026-09-01",
@@ -228,11 +232,17 @@ describe("public route content", () => {
     expect(screen.getByRole("heading", { name: copy.title })).toBeVisible()
     const sections: Record<string, { title: string; body: string }> = copy.sections
     for (const section of Object.values(sections)) {
-      expect(screen.getByRole("heading", { name: section.title })).toBeVisible()
-      expect(screen.getByText(rendered(section.body))).toBeVisible()
+      const heading = screen.getByRole("heading", { name: section.title })
+      expect(heading).toBeVisible()
+      expect(heading.nextElementSibling?.textContent).toBe(legalText(section.body))
     }
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ locale: "en-US", metadata: copy.metadata })
     expect(router.state.matches.at(-1)?.status).toBe("success")
+  })
+
+  it("links the partner portal from the affiliate terms, under its host name", async () => {
+    await renderRoute("/affiliates")
+    expect(screen.getByRole("link", { name: PORTAL_HOST })).toHaveAttribute("href", AFFILIATE_PORTAL_URL)
   })
 
   it("answers an unknown path with the not-found page between the site header and footer, kept out of search results", async () => {

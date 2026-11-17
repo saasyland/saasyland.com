@@ -15,13 +15,16 @@ export type RefundEligibility =
   | { readonly kind: typeof REFUND_ELIGIBILITY.STATUTORY_WITHDRAWAL; readonly until: Date }
   | { readonly deliveredAt: Date; readonly kind: typeof REFUND_ELIGIBILITY.USED }
 
+export const refundDeadline = (purchaseCreatedAt: Date): Date =>
+  new Date(purchaseCreatedAt.getTime() + REFUND_TERMS.WITHDRAWAL_DAYS * MILLISECONDS_PER_DAY)
+
 export const refundEligibility = ({
   deliveredAt,
   now,
   purchaseCreatedAt,
   withdrawalConsentAt,
 }: RefundEligibilityInput): RefundEligibility => {
-  const until = new Date(purchaseCreatedAt.getTime() + REFUND_TERMS.WITHDRAWAL_DAYS * MILLISECONDS_PER_DAY)
+  const until = refundDeadline(purchaseCreatedAt)
 
   if (now >= until) {
     return { endedAt: until, kind: REFUND_ELIGIBILITY.EXPIRED }

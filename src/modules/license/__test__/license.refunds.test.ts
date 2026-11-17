@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { REFUND_ELIGIBILITY } from "~/src/modules/license/license.constants"
-import { refundEligibility } from "~/src/modules/license/license.refunds"
+import { refundDeadline, refundEligibility } from "~/src/modules/license/license.refunds"
 
 import { REFUND_TERMS } from "~/src/data/refunds"
 
@@ -35,6 +35,7 @@ const RECORDS = [
 describe("refund eligibility", () => {
   it("counts the period in whole days from the purchase", () => {
     expect(PERIOD_END.getTime() - PURCHASED_AT.getTime()).toBe(REFUND_TERMS.WITHDRAWAL_DAYS * MILLISECONDS_PER_DAY)
+    expect(refundDeadline(PURCHASED_AT)).toStrictEqual(PERIOD_END)
   })
 
   it.each(WITHIN_THE_PERIOD)(

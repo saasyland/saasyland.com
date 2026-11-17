@@ -1,6 +1,6 @@
 ---
 title: "Polar setup"
-description: "The Polar organisations, token, products, licence keys, regional discounts and webhooks the code expects, and how polar:verify checks them."
+description: "The Polar organisations, token, products, licence keys, consent checkbox, regional discounts and webhooks the code expects, and how polar:verify checks them."
 ---
 
 Polar sells the three tiers, issues their licence keys and applies the regional discounts. The code expects a precise setup in Polar, and Polar does not warn you when the two drift apart: a product without a licence-key benefit still takes the payment but issues no key. `bun run polar:verify:<environment>` compares Polar with the code, and the deploy scripts run it before every manual deploy.
@@ -61,6 +61,20 @@ Create one **License Keys** benefit per tier and attach it to that tier's produc
 
 Each product needs exactly one licence-key benefit; other benefits beside it are fine. When Polar grants the benefit, the `benefit_grant.created` webhook stores the key on the buyer's licence.
 
+## Consent checkbox
+
+The site's checkout dialog asks the buyer for consent to immediate supply (see [Licences](/docs/features/licences#consent-to-immediate-supply)), and Polar's checkout records it on the order. Create one custom field in the organisation and attach it to the three products:
+
+- **Type**: checkbox.
+- **Slug**: <RepositoryFact name="licenseWithdrawalConsentField" />, `LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT` in `src/modules/license/license.constants.ts`. The order stores the ticked box under this key in `custom_field_data`.
+- **Label**: exactly `WITHDRAWAL_CONSENT_FIELD.label` from `src/lib/polar.ts`, the English sentence built from `REFUND_TERMS.WITHDRAWAL_DAYS` that ends with a Markdown link to the production Refund Policy.
+- **Name**: your choice; `WITHDRAWAL_CONSENT_FIELD.name` is the one the code suggests, and `polar:verify` does not check it.
+- **Required** on each of the three products. Other fields the products ask for may stay.
+
+`startCheckout` sends the consent the buyer has just given as the field's value, so Polar shows the box ticked. Polar keeps only the values of fields that the product asks for: before the field is attached, a checkout still works, but the order records no consent, and the [purchase confirmation](/docs/features/licences#purchase-confirmation) states the statutory right of withdrawal instead.
+
+Creating the field and attaching it to a product need the `custom_fields:write` and `products:write` scopes, which the token above does not have. Create and attach it in the Polar dashboard, or through the API with a separate token that has them. `polar:verify` reads the attached fields from the products listing, so it needs no other scope.
+
 ## Regional discounts
 
 Checkout applies a regional price through an automatic discount in Polar (see [Licences](/docs/features/licences)). Create one percentage discount for each band in `PPP_TIERS` (`src/modules/license/license.pricing.ts`): <RegionalDiscounts />. Each discount must:
@@ -113,6 +127,7 @@ Each script reads the Polar keys from `.env.<environment>` and sends only GET re
 - the environment file sets every Polar key, with `POLAR_SERVER=sandbox` for development and preview and `POLAR_SERVER=production` for production;
 - each `POLAR_PRODUCT_ID_*` names a product of the organisation that is neither archived nor a subscription, whose prices are fixed, in `DEFAULT_CURRENCY_CODE` and equal to `TIER_PRICES`;
 - each product has exactly one licence-key benefit with the tier's limit from `LICENSE_ACTIVATION_LIMITS`, no expiration and no usage limit;
+- each product requires the checkbox field <RepositoryFact name="licenseWithdrawalConsentField" /> with the label in `WITHDRAWAL_CONSENT_FIELD`;
 - for every band in `PPP_TIERS`, an automatic percentage discount is redeemable for every tier product, by the rule checkout uses;
 - preview and production have an enabled raw endpoint at their webhook URL, signed with `POLAR_WEBHOOK_SECRET` and subscribed to exactly `POLAR_EVENTS`;
 - no endpoint posts to the host of an environment that uses the other Polar service.
@@ -136,6 +151,7 @@ A failure stops the deploy before anything is built, migrated or uploaded. The s
 - **`lacks the … scope`**: create a token with the scopes above.
 - **`names no product of the organisation`**: the product ID or `POLAR_ORGANIZATION_ID` is wrong, or belongs to the other service.
 - **A price, licence key or discount**: change it in Polar to match the code. When a business value changes on purpose, change `TIER_PRICES`, `LICENSE_ACTIVATION_LIMITS` or `PPP_TIERS` first, then Polar.
+- **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` or `label differs`**: create, attach or correct the [consent checkbox](#consent-checkbox). When the wording changes on purpose, change `WITHDRAWAL_CONSENT_FIELD.label` first, then the label in Polar.
 - **A webhook endpoint**: fix the endpoint the message names, or remove an endpoint that posts to another environment's host.
 
 ## Related pages

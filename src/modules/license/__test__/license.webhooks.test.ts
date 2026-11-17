@@ -13,17 +13,20 @@ import { licenseWebhookHandlers } from "~/src/modules/license/license.webhooks"
 import type { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license-key"
 import type { grantLicense } from "~/src/modules/license/use-cases/grant-license"
 import type { revokeLicense } from "~/src/modules/license/use-cases/revoke-license"
+import type { sendPurchaseConfirmationEmail } from "~/src/modules/license/use-cases/send-purchase-confirmation-email"
 import { user } from "~/src/modules/user/user.schema"
 
 const USER_ID = "018f2b9c-0000-7000-8000-000000000005"
 const UNKNOWN_PRODUCT_ID = "00000000-0000-4000-8000-00000000ffff"
 const DELETED_USER_ID = "018f2b9c-0000-7000-8000-0000000000de"
 const ORDERED_AT = "2026-09-24T10:00:00.000Z"
+const BUYER_EMAIL = "buyer@example.test"
 
 const useCaseMocks = vi.hoisted(() => ({
   attachLicenseKey: vi.fn<typeof attachLicenseKey>(),
   grantLicense: vi.fn<typeof grantLicense>(),
   revokeLicense: vi.fn<typeof revokeLicense>(),
+  sendPurchaseConfirmationEmail: vi.fn<typeof sendPurchaseConfirmationEmail>(),
 }))
 
 vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
@@ -36,14 +39,22 @@ vi.mock(import("~/src/modules/license/use-cases/grant-license"), () => ({ grantL
 
 vi.mock(import("~/src/modules/license/use-cases/revoke-license"), () => ({ revokeLicense: useCaseMocks.revokeLicense }))
 
+vi.mock(import("~/src/modules/license/use-cases/send-purchase-confirmation-email"), () => ({
+  sendPurchaseConfirmationEmail: useCaseMocks.sendPurchaseConfirmationEmail,
+}))
+
 const orderPayload = (productId: string | null = JSON_NULL, externalId?: string, status: models.OrderStatus = POLAR_ORDER_STATUS.PAID) => ({
   data: {
     created_at: ORDERED_AT,
+    currency: "usd",
     customer: { external_id: externalId },
     customer_id: "cus_1",
     id: "ord_1",
+    invoice_number: "SAASYLAND-0001",
+    metadata: {},
     product_id: productId,
     status,
+    total_amount: 39_900,
   },
 })
 
@@ -70,19 +81,21 @@ const resetUseCases = (): void => {
   useCaseMocks.attachLicenseKey.mockClear()
   useCaseMocks.grantLicense.mockClear()
   useCaseMocks.revokeLicense.mockClear()
+  useCaseMocks.sendPurchaseConfirmationEmail.mockReset()
 }
 
 beforeEach(async () => {
   await db.delete(user)
-  await db.insert(user).values({ email: "buyer@example.test", id: USER_ID, name: "Buyer" })
+  await db.insert(user).values({ email: BUYER_EMAIL, id: USER_ID, name: "Buyer" })
 })
 
-describe("license webhooks", () => {
-  it("grants the tier the buyer paid for", async () => {
+describe("license webhooks on paid orders", () => {
+  it("grants the tier the buyer paid for, then confirms the purchase to the account's address", async () => {
     expect.hasAssertions()
     resetUseCases()
+    const paid = orderPayload(env.POLAR_PRODUCT_ID_COMPLETE, USER_ID)
 
-    await licenseWebhookHandlers.onOrderPaid(orderPayload(env.POLAR_PRODUCT_ID_COMPLETE, USER_ID))
+    await licenseWebhookHandlers.onOrderPaid(paid)
 
     expect(useCaseMocks.grantLicense).toHaveBeenCalledWith({
       polarCustomerId: "cus_1",
@@ -92,9 +105,16 @@ describe("license webhooks", () => {
       userId: USER_ID,
       withdrawalConsentAt: undefined,
     })
+    expect(useCaseMocks.sendPurchaseConfirmationEmail).toHaveBeenCalledExactlyOnceWith({
+      order: paid.data,
+      recipient: BUYER_EMAIL,
+      tier: LICENSE_TIER.COMPLETE,
+      withdrawalConsent: false,
+    })
+    expect(useCaseMocks.grantLicense).toHaveBeenCalledBefore(useCaseMocks.sendPurchaseConfirmationEmail)
   })
 
-  it("records the buyer's consent to immediate delivery at the time of the order", async () => {
+  it("records the buyer's consent to immediate delivery at the time of the order and confirms it by email", async () => {
     expect.hasAssertions()
     resetUseCases()
 
@@ -103,15 +123,30 @@ describe("license webhooks", () => {
     expect(useCaseMocks.grantLicense).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ purchaseCreatedAt: new Date(ORDERED_AT), withdrawalConsentAt: new Date(ORDERED_AT) }),
     )
+    expect(useCaseMocks.sendPurchaseConfirmationEmail).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ withdrawalConsent: true }))
   })
 
-  it.each(WITHOUT_CONSENT)("records no consent for $order", async ({ fields }) => {
+  it.each(WITHOUT_CONSENT)("records no consent for $order and confirms the statutory withdrawal instead", async ({ fields }) => {
     expect.hasAssertions()
     resetUseCases()
 
     await licenseWebhookHandlers.onOrderPaid(paidWith(fields))
 
     expect(useCaseMocks.grantLicense).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ withdrawalConsentAt: undefined }))
+    expect(useCaseMocks.sendPurchaseConfirmationEmail).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ withdrawalConsent: false }),
+    )
+  })
+
+  it("fails the delivery when the confirmation cannot be sent, after granting the licence, so Polar retries it", async () => {
+    expect.hasAssertions()
+    resetUseCases()
+    const failure = new Error("Resend is unavailable")
+    useCaseMocks.sendPurchaseConfirmationEmail.mockRejectedValueOnce(failure)
+
+    await expect(licenseWebhookHandlers.onOrderPaid(orderPayload(env.POLAR_PRODUCT_ID_CORE, USER_ID))).rejects.toBe(failure)
+
+    expect(useCaseMocks.grantLicense).toHaveBeenCalledOnce()
   })
 
   it("refuses an order for a product this app does not sell", async () => {
@@ -122,6 +157,7 @@ describe("license webhooks", () => {
     await licenseWebhookHandlers.onOrderPaid(orderPayload(UNKNOWN_PRODUCT_ID, USER_ID))
 
     expect(useCaseMocks.grantLicense).not.toHaveBeenCalled()
+    expect(useCaseMocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
     consoleError.mockRestore()
   })
 
@@ -135,7 +171,9 @@ describe("license webhooks", () => {
     expect(useCaseMocks.grantLicense).not.toHaveBeenCalled()
     consoleError.mockRestore()
   })
+})
 
+describe("license webhooks on keys, refunds and revocations", () => {
   it("attaches a key from a license benefit grant", async () => {
     expect.hasAssertions()
     resetUseCases()
@@ -208,6 +246,7 @@ describe("license webhooks", () => {
     await licenseWebhookHandlers.onBenefitGrantRevoked(grantPayload(LICENSE_KEY_GRANT, DELETED_USER_ID))
 
     expect(useCaseMocks.grantLicense).not.toHaveBeenCalled()
+    expect(useCaseMocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
     expect(useCaseMocks.attachLicenseKey).not.toHaveBeenCalled()
     expect(useCaseMocks.revokeLicense).not.toHaveBeenCalled()
     expect(consoleError).toHaveBeenCalledWith("[license] order ord_1 does not map to a known account and tier")

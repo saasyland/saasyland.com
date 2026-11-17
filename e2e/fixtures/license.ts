@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { parseEnv } from "node:util"
 
-import type { APIRequestContext } from "@playwright/test"
+import type { APIRequestContext, Locator, Page } from "@playwright/test"
 import * as zod from "zod"
 
 import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants"
@@ -52,4 +52,13 @@ export const deliverPaidOrder = async (request: APIRequestContext, { tier, userI
 
   const response = await request.post(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, { data: body, headers })
   expect(response.ok()).toBe(true)
+}
+
+export const consentDialog = (page: Page): Locator => page.getByRole("dialog", { name: "Before you pay" })
+
+export const consentAndPay = async (page: Page): Promise<void> => {
+  const dialog = consentDialog(page)
+  await dialog.getByText(/^I ask SaaSy Land to supply /u).click()
+  await expect(dialog.getByRole("checkbox")).toBeChecked()
+  await dialog.getByRole("button", { name: "Continue to payment" }).click()
 }

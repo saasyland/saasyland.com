@@ -3,6 +3,7 @@ import { createFormatter, createTranslator } from "use-intl"
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { TIER_PRICES } from "~/src/data/marketing"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -13,6 +14,7 @@ export const postTextValues = (locale: string): Readonly<Record<string, number |
 
   return {
     ...REPOSITORY_FACTS,
+    ...CLI_GENERATION_VALUES,
     ...Object.fromEntries<number | string>(
       LICENSE_TIERS.flatMap((tier) => [
         [`${tier}Machines`, LICENSE_ACTIVATION_LIMITS[tier]],

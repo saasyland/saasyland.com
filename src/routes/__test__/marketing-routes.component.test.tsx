@@ -21,8 +21,9 @@ import { Route as PrivacyRoute } from "~/src/routes/_site._marketing.privacy"
 import { Route as RefundsRoute } from "~/src/routes/_site._marketing.refunds"
 import { Route as TermsRoute } from "~/src/routes/_site._marketing.terms"
 
-import { AFFILIATE_PORTAL_URL, AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { BLOG_TAG } from "~/src/data/blog"
+import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -51,6 +52,7 @@ const messages = getTestMessages("en-US")
 const PORTAL_HOST = new URL(AFFILIATE_PORTAL_URL).host
 
 const TERMS_VALUES: Record<string, number | string> = {
+  ...CLI_GENERATION_VALUES,
   commission: AFFILIATE_TERMS.COMMISSION_PERCENT,
   cookieDays: AFFILIATE_TERMS.COOKIE_DAYS,
   days: REFUND_TERMS.WITHDRAWAL_DAYS,
@@ -62,6 +64,7 @@ const TERMS_VALUES: Record<string, number | string> = {
     style: "currency",
   }).format(AFFILIATE_TERMS.MINIMUM_PAYOUT),
   portal: PORTAL_HOST,
+  program: AFFILIATE_PROGRAM,
 }
 
 const LEGAL_VALUES = { ...TERMS_VALUES, link: (chunks: string) => chunks }
@@ -238,11 +241,6 @@ describe("public route content", () => {
     }
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ locale: "en-US", metadata: copy.metadata })
     expect(router.state.matches.at(-1)?.status).toBe("success")
-  })
-
-  it("links the partner portal from the affiliate terms, under its host name", async () => {
-    await renderRoute("/affiliates")
-    expect(screen.getByRole("link", { name: PORTAL_HOST })).toHaveAttribute("href", AFFILIATE_PORTAL_URL)
   })
 
   it("answers an unknown path with the not-found page between the site header and footer, kept out of search results", async () => {

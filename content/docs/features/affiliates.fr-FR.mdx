@@ -5,10 +5,25 @@ description: "Liens de recommandation suivis par Affonso, crédités sur la comm
 
 Les affiliés touchent une commission sur les ventes qu’ils apportent. SaaSy Land ne compte pas les recommandations lui-même : [Affonso](https://affonso.io) enregistre les clics, reçoit les commandes et les remboursements de Polar, calcule les commissions et paie les affiliés. Aucun chiffre ne reste ainsi entre les mains du vendeur, et c’est ce qui rend le programme crédible aux yeux des affiliés.
 
+## Ouvrir le programme [#opening-the-programme]
+
+L’ouverture du programme dépend de `AFFILIATE_PROGRAM` dans `src/data/affiliates.ts`, un `FEATURE_STATUS` comme `CLI_GENERATION`. Il vaut aujourd’hui <RepositoryFact name="affiliateProgram" /> : Affonso ne fait tourner un programme qu’avec un forfait payant, et celui de SaaSy Land ouvrira lorsque la CLI commencera à générer des projets. Ce statut décide de deux choses :
+
+- **Suivi des recommandations.** `src/data/affiliates.root.ts` ne monte `AffiliateReferral` dans la route racine que lorsque le statut vaut `FEATURE_STATUS.AVAILABLE`. Tant qu’il vaut `FEATURE_STATUS.ARRIVING`, la zone ne monte rien : aucune visite, pas même avec un paramètre de recommandation, ne charge le script d’Affonso, n’envoie de requête à Affonso ni ne dépose le cookie `affonso_referral`. Le parcours d’achat ne trouve alors aucun cookie et n’envoie aucune recommandation à Polar, seulement la langue de l’acheteur.
+- **Comment participer.** Les messages `description` et `sections.join.body` de la page sont des select ICU sur `program`, avec une variante `available` et une variante pour le programme à venir (`other`). La variante ouverte renvoie au portail partenaire ; l’autre invite les affiliés à écrire à l’adresse de contact. Sa première phrase est un select sur `generation` (voir [Page d’accueil](/docs/features/landing-page)) : elle indique que le programme ouvrira lorsque la CLI commencera à générer des projets puis, une fois la génération disponible, qu’il ouvrira bientôt. La commission, la période de rétention, les versements et toutes les autres conditions restent sur la page dans les deux états, car ce sont les conditions qui s’appliqueront.
+
+Pour ouvrir le programme :
+
+1. Dans Affonso, souscrivez un forfait payant. D’ici là, le portail partenaire répond à chaque visiteur que le programme n’est pas encore actif.
+2. Passez `AFFILIATE_PROGRAM` à `FEATURE_STATUS.AVAILABLE` et publiez la modification. La page renvoie de nouveau au portail, et les visites avec un paramètre de recommandation chargent le script.
+3. Testez-le avec l’étape 4 de la configuration ci-dessous.
+
+Aucun secret n’intervient. La seule valeur d’Affonso que lit le Worker est `AFFONSO_PROGRAM_ID`, l’identifiant public du programme sous `vars`, qui reste défini tant que le programme est à venir ; rien dans `.env.example` ni dans `secrets.required` ne concerne Affonso, et Polar envoie lui-même les commandes et les remboursements à Affonso, si bien que le site n’appelle jamais l’API d’Affonso.
+
 ## Le parcours d’une recommandation
 
 1. Un affilié partage n’importe quelle page avec un paramètre de recommandation, par exemple `/?via=jane`. Les paramètres lus par Affonso sont listés dans `AFFONSO.REFERRAL_PARAMS` (`src/integrations/affonso/affonso.constants.ts`) : <RepositoryFact name="affonsoReferralParams" />.
-2. `AffiliateReferral` (`src/presentation/components/custom/affiliate-referral.tsx`), que `src/data/affiliates.root.ts` monte une seule fois dans la route racine, vérifie l’URL après l’hydratation. Ce n’est que lorsque l’un de ces paramètres est présent qu’il demande au serveur l’identifiant du programme (`getAffonsoProgramId`, `src/integrations/affonso/affonso.program.ts`) et rend le script d’Affonso avec `data-cookie_duration` réglé sur `AFFILIATE_TERMS.COOKIE_DAYS`, soit <RepositoryFact name="affiliateCookieDays" unit="day" />. Les visites sans paramètre de recommandation ne chargent aucun script tiers.
+2. `AffiliateReferral` (`src/presentation/components/custom/affiliate-referral.tsx`), que `src/data/affiliates.root.ts` monte une seule fois dans la route racine tant que le programme est ouvert, vérifie l’URL après l’hydratation. Ce n’est que lorsque l’un de ces paramètres est présent qu’il demande au serveur l’identifiant du programme (`getAffonsoProgramId`, `src/integrations/affonso/affonso.program.ts`) et rend le script d’Affonso avec `data-cookie_duration` réglé sur `AFFILIATE_TERMS.COOKIE_DAYS`, soit <RepositoryFact name="affiliateCookieDays" unit="day" />. Les visites sans paramètre de recommandation ne chargent aucun script tiers.
 3. Le script enregistre le clic auprès d’Affonso et stocke l’identifiant du clic dans le cookie propriétaire `affonso_referral`.
 4. Lorsque le visiteur lance un paiement, `startCheckout` ajoute `affonsoReferralMetadata(headers)` (`src/integrations/affonso/affonso.referral.ts`) aux `metadata` du paiement, à côté de la langue de l’acheteur. Cette fonction lit le cookie, n’accepte que des lettres, des chiffres, `_` et `-`, jusqu’à 128 caractères, et renvoie `{ affonso_referral: <click ID> }`, ou un objet vide en l’absence de recommandation valide.
 5. Polar copie les métadonnées du paiement sur la commande et envoie `order.created` et `order.refunded` à Affonso, qui crédite ou annule la commission.
@@ -17,7 +32,7 @@ Le tarif régional s’applique toujours aux acheteurs recommandés : la recomma
 
 ## Configuration
 
-Le suivi reste désactivé tant que le Worker n’a pas `AFFONSO_PROGRAM_ID`. Cette valeur est publique (elle apparaît dans la balise script) ; c’est donc une simple variable et non un secret. Ne la définissez que pour l’environnement qui reçoit de vrais paiements :
+Le suivi reste désactivé, même programme ouvert, tant que le Worker n’a pas `AFFONSO_PROGRAM_ID`. Cette valeur est publique (elle apparaît dans la balise script) ; c’est donc une simple variable et non un secret. Ne la définissez que pour l’environnement qui reçoit de vrais paiements :
 
 ```jsonc
 "production": {
@@ -27,7 +42,7 @@ Le suivi reste désactivé tant que le Worker n’a pas `AFFONSO_PROGRAM_ID`. Ce
 }
 ```
 
-Le Worker de production de SaaSy Land la définit lui-même dans `wrangler.jsonc`, si bien que le site en ligne suit les recommandations. Les Workers de développement et de preview n’en définissent aucune, et `test` définit un identifiant factice pour les tests dans le navigateur.
+Le Worker de production de SaaSy Land la définit lui-même dans `wrangler.jsonc`, si bien que le site en ligne suit les recommandations dès l’ouverture du programme. Les Workers de développement et de preview n’en définissent aucune, et `test` définit un identifiant factice pour les tests dans le navigateur.
 
 Ensuite, une seule fois :
 
@@ -44,15 +59,17 @@ Ensuite, une seule fois :
 
 ## Page des conditions
 
-`/affiliates` (`src/routes/_site._marketing.affiliates.tsx`, messages dans `pages.legal.affiliates`) publie les conditions dans chaque locale et est accessible depuis le pied de page. Sa section « Comment participer » renvoie au portail partenaire défini par `AFFILIATE_PORTAL_URL` (`src/data/affiliates.ts`) : le message entoure `{portal}`, le nom d’hôte du portail, d’une balise `<link>` que la route rend sous forme de lien vers le portail. Chaque nombre y est interpolé depuis `AFFILIATE_TERMS` ; le seuil de versement est formaté selon la locale du visiteur dans `AFFILIATE_TERMS.PAYOUT_CURRENCY`, la devise dans laquelle Affonso paie les affiliés, qui reste le dollar américain quelle que soit la devise dans laquelle la boutique facture. La politique de confidentialité décrit le cookie de recommandation, ce que reçoit Affonso et la base légale.
+`/affiliates` (`src/routes/_site._marketing.affiliates.tsx`, messages dans `pages.legal.affiliates`) publie les conditions dans chaque locale et est accessible depuis le pied de page. Tant que le programme est ouvert, sa section « Comment participer » renvoie au portail partenaire défini par `AFFILIATE_PORTAL_URL` (`src/data/affiliates.ts`) : le message entoure `{portal}`, le nom d’hôte du portail, d’une balise `<link>` que la route rend sous forme de lien vers le portail. Tant que le programme est à venir, la section invite plutôt les affiliés à écrire, et la route transmet le statut sous le nom `program` à côté de `CLI_GENERATION_VALUES`. Chaque nombre y est interpolé depuis `AFFILIATE_TERMS` ; le seuil de versement est formaté selon la locale du visiteur dans `AFFILIATE_TERMS.PAYOUT_CURRENCY`, la devise dans laquelle Affonso paie les affiliés, qui reste le dollar américain quelle que soit la devise dans laquelle la boutique facture. La politique de confidentialité décrit le cookie de recommandation, ce que reçoit Affonso et la base légale.
 
 ## Tests
 
 - `affonso.referral.test.ts` : un cookie valide devient des métadonnées ; une valeur absente, mal formée ou trop longue est ignorée.
-- `start-checkout.test.ts` : la recommandation atteint le corps du paiement Polar à côté de la remise régionale.
+- `license-purchase.integration.test.ts` : la recommandation atteint le paiement Polar et reste sur la commande payée ; sans le cookie, le paiement ne porte que la langue de l’acheteur.
 - `affiliate-referral.component.test.tsx` : le script n’est rendu qu’avec un paramètre de recommandation et un identifiant de programme configuré.
-- `legal-routes.component.test.tsx` : la page des conditions s’affiche entièrement dans toutes les locales et renvoie au portail partenaire.
+- `affiliates.root.test.ts` : la zone monte `AffiliateReferral` tant que le programme est ouvert, et rien tant qu’il est à venir.
+- `legal-routes.component.test.tsx` : la page des conditions s’affiche entièrement dans toutes les locales ; dans chacune, elle renvoie au portail partenaire tant que le programme est ouvert et, tant qu’il est à venir, garde toutes les conditions mais invite les affiliés à écrire, sans le portail.
+- `cli-generation.test.ts` : le texte « Comment participer » du programme à venir s’affiche dans les deux variantes de la génération, dans toutes les locales.
 - `affiliates.test.ts` : la période de rétention dépasse le délai de remboursement.
 - `wrangler.test.ts` : la production a son propre identifiant de programme, le développement et la preview n’en ont aucun.
-- `e2e/specs/affiliates.spec.ts` : une visite normale ne charge aucun script ; une visite avec `?via=` le charge avec l'ID de programme que `wrangler.jsonc` attribue à `test` et conserve le cookie de parrainage (le script est remplacé avec `page.route`) ; la page des conditions affiche la commission et le seuil de versement issus de `AFFILIATE_TERMS` et renvoie au portail partenaire.
+- `e2e/specs/affiliates.spec.ts` : les attentes suivent `AFFILIATE_PROGRAM`. Une visite normale ne charge aucun script. Tant que le programme est ouvert, une visite avec `?via=` le charge avec l’identifiant de programme que `wrangler.jsonc` attribue à `test` et conserve le cookie de recommandation (le script est remplacé avec `page.route`) ; tant qu’il est à venir, la même visite n’envoie aucune requête à Affonso et ne dépose aucun cookie. La page des conditions affiche la commission et le seuil de versement issus de `AFFILIATE_TERMS` ainsi que le texte « Comment participer » du statut, et ne renvoie au portail partenaire que tant que le programme est ouvert.
 - `e2e/specs/accessibility.spec.ts` : axe analyse `/affiliates` en mode clair et en mode sombre.

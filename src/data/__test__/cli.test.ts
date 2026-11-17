@@ -1,3 +1,4 @@
+import { CHOICE_GROUP, STACK_DEFAULTS } from "@saasyland/stack"
 import stack from "@saasyland/stack/package.json" with { type: "json" }
 import { expect, it } from "vite-plus/test"
 
@@ -84,6 +85,16 @@ it("marks as supported by the templates only options and extras that the configu
   for (const extraId of CLI_TEMPLATE_SUPPORT.extras) {
     expect(extras).toContain(extraId)
   }
+})
+
+it("lists first in each question the default that init --yes picks when the templates generate it", () => {
+  const { [CHOICE_GROUP.EXTRAS]: defaultExtras, ...defaultChoices } = STACK_DEFAULTS
+  const firstOptions = Object.fromEntries(
+    CLI_CHOICES.filter((choice) => choice.id in defaultChoices).map((choice) => [choice.id, choice.options[0].id]),
+  )
+
+  expect(firstOptions).toStrictEqual(defaultChoices)
+  expect(defaultExtras).toStrictEqual([])
 })
 
 it("passes the generation status and the npm init command to the copy that depends on them", () => {

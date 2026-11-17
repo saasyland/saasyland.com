@@ -1,5 +1,6 @@
 import { Fragment, type JSX, useEffect, useId, useState } from "react"
 
+import { Hourglass } from "lucide-react"
 import { AnimatePresence, animate, useMotionValue, useTransform } from "motion/react"
 import * as m from "motion/react-m"
 import type { ToggleButtonGroupProps } from "react-aria-components"
@@ -44,16 +45,19 @@ const ROW_ENTER = { opacity: 0, x: -8 }
 const ROW_SETTLED = { opacity: 1, x: 0 }
 
 const OPTION_CLASSNAME =
-  "h-auto cursor-pointer gap-2 rounded-md border border-border px-3 py-1.5 text-body-sm font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:border-muted-foreground/30 hover:bg-transparent hover:text-foreground data-pressed:bg-muted data-selected:border-transparent data-selected:bg-muted data-selected:text-foreground data-disabled:line-through"
+  "h-auto cursor-pointer gap-2 rounded-md border border-border px-3 py-1.5 text-body-sm font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:border-muted-foreground/30 hover:bg-transparent hover:text-foreground data-pressed:bg-muted data-selected:border-transparent data-selected:bg-muted data-selected:text-foreground"
 
 const isAvailable = (option: CliOption, answers: Answers): boolean =>
   !Object.entries(option.unavailableWhen ?? {}).some(([choiceId, blocked]) => blocked.some((optionId) => optionId === answers[choiceId]))
 
+const isSelectable = (option: CliOption, supported: readonly string[], answers: Answers): boolean =>
+  supported.includes(option.id) && isAvailable(option, answers)
+
 const reconcile = (answers: Answers): Answers => {
   const next: Record<string, string> = {}
   for (const choice of CLI_CHOICES) {
-    const legal = choice.options.filter((option) => isAvailable(option, next))
-    const kept = legal.find((option) => option.id === answers[choice.id]) ?? legal[0]
+    const selectable = choice.options.filter((option) => isSelectable(option, CLI_TEMPLATE_SUPPORT.choices[choice.id], next))
+    const kept = selectable.find((option) => option.id === answers[choice.id]) ?? selectable[0]
     if (kept !== undefined) {
       next[choice.id] = kept.id
     }
@@ -61,22 +65,23 @@ const reconcile = (answers: Answers): Answers => {
   return next
 }
 
+const keepExtras = (extras: readonly CliExtra[], answers: Answers): readonly CliExtra[] =>
+  extras.filter((extra) => isSelectable(extra, CLI_TEMPLATE_SUPPORT.extras, answers))
+
 const DEFAULT_STACK = reconcile({})
 
-const SupportedMark = (): JSX.Element => <span aria-hidden className="inline-block size-1.25 shrink-0 rounded-xs bg-ring align-middle" />
-
-const LEGEND_VALUES = { ...CLI_GENERATION_VALUES, mark: () => <SupportedMark /> }
+const ComingMark = (): JSX.Element => <Hourglass aria-hidden className="size-3.5 shrink-0" />
 
 interface ChoiceRowProps extends Pick<ToggleButtonGroupProps, "disallowEmptySelection" | "onSelectionChange" | "selectionMode"> {
   readonly answers: Answers
   readonly choiceId: string
-  readonly legendId: string
+  readonly comingId: string
   readonly options: readonly CliOption[]
   readonly picked: readonly CliOption[]
   readonly supported: readonly string[]
 }
 
-const ChoiceRow = ({ answers, choiceId, legendId, options, picked, supported, ...selection }: ChoiceRowProps): JSX.Element => {
+const ChoiceRow = ({ answers, choiceId, comingId, options, picked, supported, ...selection }: ChoiceRowProps): JSX.Element => {
   const t = useTranslations("pages.landing.cli")
   const labelId = useId()
   const noteId = useId()
@@ -89,20 +94,20 @@ const ChoiceRow = ({ answers, choiceId, legendId, options, picked, supported, ..
       <dd className="grid gap-3">
         <ToggleGroup aria-labelledby={labelId} className="flex-wrap gap-2.5" selectedKeys={picked.map(({ id }) => id)} {...selection}>
           {options.map((option) => {
-            const isSupported = supported.includes(option.id)
-            const isDisabled = !isAvailable(option, answers)
-            const describedBy = [isSupported && legendId, isDisabled && noteId].filter((id) => id !== false).join(" ")
+            const isComing = !supported.includes(option.id)
+            const isRuledOut = !isAvailable(option, answers)
+            const describedBy = [isComing && comingId, isRuledOut && noteId].filter((id) => id !== false).join(" ")
 
             return (
               <ToggleGroupItem
-                className={OPTION_CLASSNAME}
+                className={cn(OPTION_CLASSNAME, { "line-through": isRuledOut })}
                 id={option.id}
-                isDisabled={isDisabled}
+                isDisabled={isComing || isRuledOut}
                 key={option.id}
                 {...(describedBy !== "" && { "aria-describedby": describedBy })}
               >
-                {isSupported && <SupportedMark />}
                 {t(`choices.${choiceId}.options.${option.id}`)}
+                {isComing && <ComingMark />}
               </ToggleGroupItem>
             )
           })}
@@ -231,7 +236,7 @@ const NextSteps = ({ dev }: Readonly<{ dev: string }>): JSX.Element => {
 
 export const CliConfigurator = (): JSX.Element => {
   const t = useTranslations("pages.landing.cli")
-  const legendId = useId()
+  const comingId = useId()
   const [answers, setAnswers] = useState<Answers>(DEFAULT_STACK)
   const [extras, setExtras] = useState<readonly CliExtra[]>([])
   const [runner, setRunner] = useState<(typeof PACKAGE_MANAGERS)[number]>(PACKAGE_MANAGERS[0])
@@ -250,12 +255,18 @@ export const CliConfigurator = (): JSX.Element => {
   const select = (choiceId: string, optionId: string): void => {
     const next = reconcile({ ...answers, [choiceId]: optionId })
     setAnswers(next)
-    setExtras(extras.filter((extra) => isAvailable(extra, next)))
+    setExtras(keepExtras(extras, next))
   }
 
   return (
     <div className="overflow-hidden rounded-xl border border-border">
-      <RunnerTabs className="bg-card px-3 py-2 md:px-5" onSelect={setRunner} taken={runner.id} />
+      <div className="flex flex-wrap items-center gap-x-6 border-b border-border bg-card px-3 md:px-5">
+        <RunnerTabs className="w-auto border-b-0 py-2" onSelect={setRunner} taken={runner.id} />
+        <p className="flex items-center gap-2 px-2.5 pb-2.5 text-body-sm text-muted-foreground md:ml-auto md:pb-0">
+          <ComingMark />
+          <span id={comingId}>{t("coming")}</span>
+        </p>
+      </div>
 
       <div className="grid divide-y divide-border lg:grid-cols-[1.45fr_1fr] lg:divide-x lg:divide-y-0">
         <div className="divide-y divide-border">
@@ -271,9 +282,9 @@ export const CliConfigurator = (): JSX.Element => {
                     <ChoiceRow
                       answers={answers}
                       choiceId={choice.id}
+                      comingId={comingId}
                       disallowEmptySelection
                       key={choice.id}
-                      legendId={legendId}
                       onSelectionChange={(keys) => {
                         for (const option of choice.options) {
                           if (keys.has(option.id)) {
@@ -291,9 +302,14 @@ export const CliConfigurator = (): JSX.Element => {
                   <ChoiceRow
                     answers={answers}
                     choiceId={EXTRAS_GROUP}
-                    legendId={legendId}
+                    comingId={comingId}
                     onSelectionChange={(keys) => {
-                      setExtras(CLI_EXTRAS.filter((extra) => keys.has(extra.id)))
+                      setExtras(
+                        keepExtras(
+                          CLI_EXTRAS.filter((extra) => keys.has(extra.id)),
+                          answers,
+                        ),
+                      )
                     }}
                     options={CLI_EXTRAS}
                     picked={extras}
@@ -314,9 +330,7 @@ export const CliConfigurator = (): JSX.Element => {
       </div>
 
       <div className="flex flex-col gap-2 border-t border-border bg-card px-5 py-4 text-body-sm text-pretty text-muted-foreground md:px-7">
-        <p className="text-foreground" id={legendId}>
-          {t.rich("defaultStack", LEGEND_VALUES)}
-        </p>
+        <p className="text-foreground">{t("generates", CLI_GENERATION_VALUES)}</p>
         <p>{t("choicesLabel")}</p>
       </div>
     </div>

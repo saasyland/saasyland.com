@@ -42,6 +42,7 @@ import { LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETRY_DELAY_MS } from 
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
 import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
+import { IDLE_FALLBACK_DELAY_MS } from "~/src/lib/idle-preload"
 
 import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/custom/repository-fact"
 
@@ -535,7 +536,7 @@ describe("course platform access", () => {
 })
 
 describe("RepositoryFact navigation timings", () => {
-  it("prints how long a navigation waits before its skeleton and how long the skeleton stays, in milliseconds", () => {
+  it("prints how long a navigation waits before its skeleton, how long the skeleton stays and how long the header waits to preload where the browser cannot report idle, in milliseconds", () => {
     renderInLocale(
       "en-US",
       <ul>
@@ -545,11 +546,14 @@ describe("RepositoryFact navigation timings", () => {
         <li>
           <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />
         </li>
+        <li>
+          <RepositoryFact name="idleFallbackDelayMs" unit="millisecond" />
+        </li>
       </ul>,
     )
 
     expect(listItems()).toEqual(
-      [NAVIGATION_PENDING_MS, NAVIGATION_PENDING_MIN_MS].map((milliseconds) =>
+      [NAVIGATION_PENDING_MS, NAVIGATION_PENDING_MIN_MS, IDLE_FALLBACK_DELAY_MS].map((milliseconds) =>
         new Intl.NumberFormat("en-US", { style: "unit", unit: "millisecond", unitDisplay: "short" }).format(milliseconds),
       ),
     )

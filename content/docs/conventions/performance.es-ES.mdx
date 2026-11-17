@@ -57,7 +57,51 @@ Los tamaños son lo que cada parte importa de forma estática en el Worker de `b
 - Una navegación que sigue cargando pasado el retardo muestra el esqueleto de su ruta exactamente mientras sigue cargando: `defaultPendingMinMs` es <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, así que el router quita el esqueleto en cuanto la página está lista en lugar de retenerlo en pantalla.
 - Las páginas de la documentación tienen esqueletos propios, `DocsIndexPending` y `DocsPagePending`, que ocupan el artículo y la tabla de contenidos junto a la barra lateral, así que una navegación lenta entre páginas de la documentación muestra la forma de la página siguiente en lugar de dejar la anterior en su sitio.
 
-`e2e/specs/content.spec.ts` retiene las funciones de servidor de una navegación a `/docs` y de otra entre páginas de la documentación, y comprueba que cada una muestra su esqueleto, y la barra lateral en la segunda, hasta que responden.
+`e2e/specs/content.spec.ts` retiene las funciones de servidor de una navegación a `/docs` y de otra entre páginas de la documentación, y comprueba que cada una muestra su esqueleto, y la barra lateral en la segunda, hasta que responden. Estas pruebas activan antes el ahorro de datos, para que la cabecera no cargue la documentación antes del clic.
+
+## Las páginas de la cabecera cargan antes del clic [#the-headers-pages-load-before-a-click]
+
+`defaultPreload: "intent"` carga el código y los datos de un enlace solo cuando el puntero ha reposado sobre él durante `defaultPreloadDelay`, un tiempo que nunca le dan un clic rápido, un toque en el teléfono ni el teclado. Después de aligerar el árbol de rutas, una navegación de cliente de `/` al encabezado de `/docs` en saasyland.com tardaba de 255 a 283 ms en un isolate del Worker ya caliente y de 1,3 a 2,0 segundos en uno nuevo, porque las dos funciones de servidor de la documentación esperaban de 1,1 a 2,0 segundos a que el isolate arrancara.
+
+Por eso `Navigation` precarga mediante TanStack Router la página de cada entrada de `HEADER_NAVIGATION` en cuanto la página en pantalla queda inactiva, de modo que un isolate nuevo arranca antes del clic y el clic encuentra el código y los datos de la página en la caché del router. Llama a `router.preloadRoute` para cada entrada dentro de un efecto y programa las llamadas con `preloadWhenIdle`:
+
+```ts title="src/lib/idle-preload.ts"
+const schedule = (preload: () => void, signal: AbortSignal): void => {
+  if (dataSaverSchema.safeParse(navigator).success) {
+    return
+  }
+  if (document.readyState === "complete") {
+    whenIdle(preload, signal)
+    return
+  }
+  globalThis.addEventListener(
+    "load",
+    () => {
+      whenIdle(preload, signal)
+    },
+    { once: true, signal },
+  )
+}
+```
+
+- `preloadWhenIdle` (`src/lib/idle-preload.ts`) espera al evento `load` y después a `requestIdleCallback`, así que las precargas nunca compiten con las solicitudes de la propia página, con su Largest Contentful Paint ni con su hidratación. Safari no tiene `requestIdleCallback`, así que allí espera <RepositoryFact name="idleFallbackDelayMs" unit="millisecond" /> después de `load`. Devuelve la función que cancela la espera, que el efecto llama si antes la cabecera se desmonta o cambia la página.
+- No precarga nada para quien ha activado el ahorro de datos (`navigator.connection.saveData`).
+- El efecto depende de `shownPath`, la ruta de la página en pantalla según `resolvedLocation` del router, así que la cabecera vuelve a precargar en cuanto la siguiente página queda inactiva y mantiene sus páginas vigentes mientras alguien navega por el sitio. Una página cuyos datos siguen vigentes no se vuelve a cargar. La página con la que empieza una visita se renderizó en el build, así que el router considera caducados sus datos y los vuelve a cargar la primera vez que la cabecera la precarga desde otra página.
+- `preload="viewport"` de TanStack Router en los enlaces de la cabecera empezaría en cuanto un enlace estuviera en el viewport, y la cabecera fija siempre lo está, así que competiría con la hidratación; además, en el teléfono los enlaces están en el menú, que solo los renderiza cuando se abre.
+- Solo los enlaces de la cabecera precargan así. Cualquier otro enlace, como los cientos de la barra lateral de la documentación, mantiene `defaultPreload: "intent"`.
+
+`src/router.tsx` fija `defaultPreloadStaleTime` en `QUERY_STALE_TIME_MS`, los mismos <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> que `defaultStaleTime`. Valía `0`, el valor que TanStack Router recomienda cuando TanStack Query gestiona la caché, pero los loaders de la documentación y del blog llaman directamente a sus funciones de servidor, así que con `0` un clic después de una precarga las volvía a ejecutar. Dentro de ese tiempo, un clic muestra la página precargada sin ejecutar su loader. Después, y hasta que TanStack Router descarta la página precargada cinco minutos después de cargarla (`defaultPreloadGcTime`), un clic sigue mostrando la página precargada al instante y la vuelve a cargar en segundo plano.
+
+La página de inicio no es más lenta. Lighthouse en `/`, sobre un build de `bun run build:test` detrás de un proxy HTTP/2 con compresión, mediana de 13 ejecuciones por build, la mitad en cada orden:
+
+| Medida                                 | Antes   | Después |
+| -------------------------------------- | ------- | ------- |
+| Largest Contentful Paint en móvil      | 1546 ms | 1538 ms |
+| Total Blocking Time en móvil           | 12 ms   | 12 ms   |
+| Largest Contentful Paint en escritorio | 729 ms  | 728 ms  |
+| Total Blocking Time en escritorio      | 137 ms  | 136 ms  |
+
+`e2e/specs/navigation.spec.ts` espera a que terminen las precargas de la cabecera en `/` y en `/docs`, retiene todas las funciones de servidor y hace clic en cada enlace de la cabecera, en escritorio y en el menú del teléfono; cada página se abre igualmente. También comprueba que, para quien tiene activado el ahorro de datos, no se carga nada antes de un clic.
 
 ## Mantén el ORM fuera del navegador [#keep-the-orm-out-of-the-browser]
 

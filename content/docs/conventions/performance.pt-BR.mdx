@@ -57,7 +57,51 @@ Os tamanhos são o que cada parte importa estaticamente no Worker de `bun run bu
 - Uma navegação que ainda está carregando depois do atraso mostra o esqueleto da sua rota exatamente enquanto continua carregando: `defaultPendingMinMs` é <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, então o router remove o esqueleto assim que a página fica pronta em vez de segurá-lo na tela.
 - As páginas da documentação têm esqueletos próprios, `DocsIndexPending` e `DocsPagePending`, que preenchem o artigo e o sumário ao lado da barra lateral, então uma navegação lenta entre páginas da documentação mostra a forma da próxima página em vez de deixar a anterior no lugar.
 
-`e2e/specs/content.spec.ts` segura as funções de servidor de uma navegação para `/docs` e de uma navegação entre páginas da documentação e verifica que cada uma mostra o seu esqueleto, e a segunda também a barra lateral, até que elas respondam.
+`e2e/specs/content.spec.ts` segura as funções de servidor de uma navegação para `/docs` e de uma navegação entre páginas da documentação e verifica que cada uma mostra o seu esqueleto, e a segunda também a barra lateral, até que elas respondam. Esses testes ativam antes a economia de dados, para que o cabeçalho não carregue a documentação antes do clique.
+
+## As páginas do cabeçalho carregam antes do clique [#the-headers-pages-load-before-a-click]
+
+`defaultPreload: "intent"` só carrega o código e os dados de um link depois que o ponteiro fica sobre ele por `defaultPreloadDelay`, tempo que um clique rápido, um toque no celular ou o teclado nunca lhe dão. Depois que a árvore de rotas ficou mais leve, uma navegação no cliente de `/` até o título de `/docs` em saasyland.com levava de 255 a 283 ms num isolate do Worker já aquecido e de 1,3 a 2,0 segundos num novo, porque as duas funções de servidor da documentação esperavam de 1,1 a 2,0 segundos o isolate iniciar.
+
+Por isso `Navigation` pré-carrega pelo TanStack Router a página de cada item de `HEADER_NAVIGATION` assim que a página na tela fica ociosa: um isolate novo inicia antes do clique, e o clique encontra o código e os dados da página no cache do roteador. Ele chama `router.preloadRoute` para cada item num efeito e agenda as chamadas com `preloadWhenIdle`:
+
+```ts title="src/lib/idle-preload.ts"
+const schedule = (preload: () => void, signal: AbortSignal): void => {
+  if (dataSaverSchema.safeParse(navigator).success) {
+    return
+  }
+  if (document.readyState === "complete") {
+    whenIdle(preload, signal)
+    return
+  }
+  globalThis.addEventListener(
+    "load",
+    () => {
+      whenIdle(preload, signal)
+    },
+    { once: true, signal },
+  )
+}
+```
+
+- `preloadWhenIdle` (`src/lib/idle-preload.ts`) espera o evento `load` e depois `requestIdleCallback`, então os pré-carregamentos nunca competem com as requisições da própria página, com o seu Largest Contentful Paint ou com a sua hidratação. O Safari não tem `requestIdleCallback`, então lá ele espera <RepositoryFact name="idleFallbackDelayMs" unit="millisecond" /> depois de `load`. Ele devolve a função que cancela a espera, que o efeito chama se antes o cabeçalho for desmontado ou a página mudar.
+- Não pré-carrega nada para quem ativou a economia de dados (`navigator.connection.saveData`).
+- O efeito depende de `shownPath`, o caminho da página na tela segundo o `resolvedLocation` do roteador, então o cabeçalho pré-carrega de novo assim que a próxima página fica ociosa e mantém suas páginas atualizadas enquanto alguém navega pelo site. Uma página cujos dados ainda estão atualizados não é carregada de novo. A página em que uma visita começa foi renderizada no build, então o roteador considera seus dados desatualizados e os carrega de novo na primeira vez que o cabeçalho a pré-carrega a partir de outra página.
+- `preload="viewport"` do TanStack Router nos links do cabeçalho começaria assim que um link estivesse no viewport, e o cabeçalho fixo sempre está, então competiria com a hidratação; além disso, no celular os links ficam no menu, que só os renderiza quando abre.
+- Só os links do cabeçalho pré-carregam assim. Todos os outros links, como as centenas da barra lateral da documentação, mantêm `defaultPreload: "intent"`.
+
+`src/router.tsx` define `defaultPreloadStaleTime` como `QUERY_STALE_TIME_MS`, os mesmos <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> de `defaultStaleTime`. O valor era `0`, o que o TanStack Router recomenda quando o TanStack Query cuida do cache, mas os loaders da documentação e do blog chamam suas funções de servidor diretamente, então com `0` um clique depois de um pré-carregamento as executava de novo. Dentro desse tempo, um clique mostra a página pré-carregada sem executar o seu loader. Depois dele, e até que o TanStack Router descarte a página pré-carregada cinco minutos depois de carregá-la (`defaultPreloadGcTime`), um clique ainda mostra a página pré-carregada na hora e a carrega de novo em segundo plano.
+
+A página inicial não ficou mais lenta. Lighthouse em `/`, num build de `bun run build:test` atrás de um proxy HTTP/2 com compressão, mediana de 13 execuções por build, metade em cada ordem:
+
+| Medida                              | Antes    | Depois   |
+| ----------------------------------- | -------- | -------- |
+| Largest Contentful Paint no celular | 1.546 ms | 1.538 ms |
+| Total Blocking Time no celular      | 12 ms    | 12 ms    |
+| Largest Contentful Paint no desktop | 729 ms   | 728 ms   |
+| Total Blocking Time no desktop      | 137 ms   | 136 ms   |
+
+`e2e/specs/navigation.spec.ts` espera os pré-carregamentos do cabeçalho terminarem em `/` e em `/docs`, segura todas as funções de servidor e clica em cada link do cabeçalho, no desktop e no menu do celular; cada página abre mesmo assim. Também verifica que, para quem ativou a economia de dados, nada é carregado antes de um clique.
 
 ## Mantenha o ORM fora do navegador [#keep-the-orm-out-of-the-browser]
 

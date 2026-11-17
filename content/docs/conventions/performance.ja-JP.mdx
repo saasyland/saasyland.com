@@ -57,7 +57,51 @@ Worker は、プリレンダリング済みのページでも静的ファイル�
 - 遅延時間を過ぎてもまだ読み込み中のナビゲーションは、読み込みが続いている間だけルートのスケルトンを表示します。`defaultPendingMinMs` は <RepositoryFact name="navigationPendingMinMs" unit="millisecond" /> なので、ルーターはスケルトンを画面に留めておくことはせず、ページの準備ができた時点で取り除きます。
 - ドキュメントのページには独自のスケルトン `DocsIndexPending` と `DocsPagePending` があり、サイドバーの横の記事と目次を埋めます。そのため、ドキュメントページ間の遅いナビゲーションでは、前のページをそのまま残すのではなく、次のページの形が表示されます。
 
-`e2e/specs/content.spec.ts` は、`/docs` へのナビゲーションとドキュメントページ間のナビゲーションのサーバー関数を保留し、サーバー関数が応答するまで、それぞれがスケルトンを表示し、2 つ目ではサイドバーも表示することを確認します。
+`e2e/specs/content.spec.ts` は、`/docs` へのナビゲーションとドキュメントページ間のナビゲーションのサーバー関数を保留し、サーバー関数が応答するまで、それぞれがスケルトンを表示し、2 つ目ではサイドバーも表示することを確認します。これらのテストは先にデータセーバーを有効にし、クリックの前にヘッダーがドキュメントを読み込まないようにします。
+
+## ヘッダーのページはクリックの前に読み込む [#the-headers-pages-load-before-a-click]
+
+`defaultPreload: "intent"` は、ポインターがリンクの上に `defaultPreloadDelay` のあいだ留まって初めて、そのリンクのコードとデータを読み込みます。素早いクリック、スマートフォンでのタップ、キーボード操作では、その時間は決して得られません。ルートツリーを軽くした後、saasyland.com で `/` から `/docs` の見出しまでのクライアントナビゲーションは、温まった Worker の isolate では 255〜283 ms、新しい isolate では 1.3〜2.0 秒かかっていました。ドキュメントの 2 つのサーバー関数が、isolate の起動を 1.1〜2.0 秒待っていたためです。
+
+そこで `Navigation` は、表示中のページがアイドルになると、`HEADER_NAVIGATION` の各項目のページを TanStack Router を通じてプリロードします。新しい isolate はクリックの前に起動し、クリック時にはページのコードとデータがルーターのキャッシュにあります。エフェクトの中で各項目について `router.preloadRoute` を呼び出し、その呼び出しを `preloadWhenIdle` でスケジュールします。
+
+```ts title="src/lib/idle-preload.ts"
+const schedule = (preload: () => void, signal: AbortSignal): void => {
+  if (dataSaverSchema.safeParse(navigator).success) {
+    return
+  }
+  if (document.readyState === "complete") {
+    whenIdle(preload, signal)
+    return
+  }
+  globalThis.addEventListener(
+    "load",
+    () => {
+      whenIdle(preload, signal)
+    },
+    { once: true, signal },
+  )
+}
+```
+
+- `preloadWhenIdle`（`src/lib/idle-preload.ts`）は `load` イベントを待ち、次に `requestIdleCallback` を待つので、プリロードがページ自身のリクエスト、Largest Contentful Paint、ハイドレーションと競合することはありません。Safari には `requestIdleCallback` がないため、そこでは `load` の <RepositoryFact name="idleFallbackDelayMs" unit="millisecond" /> 後まで待ちます。待機を取り消す関数を返し、その前にヘッダーがアンマウントされたりページが変わったりすると、エフェクトがそれを呼び出します。
+- データセーバー（`navigator.connection.saveData`）を有効にした訪問者には何もプリロードしません。
+- エフェクトは `shownPath`、つまりルーターの `resolvedLocation` から得た表示中のページのパスに依存するので、次のページがアイドルになるとヘッダーはもう一度プリロードし、サイトを見て回るあいだ自分のページを新しいまま保ちます。データがまだ新しいページは読み込み直しません。訪問の最初のページはビルド時にレンダリングされたものなので、ルーターはそのデータを古いとみなし、ヘッダーが別のページから初めてそれをプリロードするときに読み込み直します。
+- ヘッダーのリンクに TanStack Router の `preload="viewport"` を付けると、リンクがビューポートに入った時点で始まります。固定ヘッダーは常にビューポート内にあるので、ハイドレーションと競合してしまいます。またスマートフォンではリンクがメニューの中にあり、メニューは開いたときに初めてリンクをレンダリングします。
+- この方法でプリロードするのはヘッダーのリンクだけです。ドキュメントのサイドバーにある何百ものリンクをはじめ、ほかのリンクはすべて `defaultPreload: "intent"` のままです。
+
+`src/router.tsx` は `defaultPreloadStaleTime` を `QUERY_STALE_TIME_MS`、つまり `defaultStaleTime` と同じ <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> に設定します。以前の値は `0` で、TanStack Query がキャッシュを管理する場合に TanStack Router が推奨する値ですが、ドキュメントとブログのローダーはサーバー関数を直接呼び出すため、`0` ではプリロード後のクリックでそれらがもう一度実行されていました。この時間内のクリックは、ローダーを実行せずにプリロード済みのページを表示します。それを過ぎても、TanStack Router がプリロード済みのページを読み込みから 5 分後に破棄するまで（`defaultPreloadGcTime`）は、クリックするとプリロード済みのページがすぐに表示され、バックグラウンドで読み込み直されます。
+
+ホームページは遅くなっていません。`bun run build:test` のビルドを圧縮付きの HTTP/2 プロキシの背後に置き、`/` で Lighthouse を実行した結果で、ビルドごとに 13 回、半分ずつ順序を入れ替えて実行した中央値です。
+
+| 指標                                    | 変更前   | 変更後   |
+| --------------------------------------- | -------- | -------- |
+| モバイルの Largest Contentful Paint     | 1,546 ms | 1,538 ms |
+| モバイルの Total Blocking Time          | 12 ms    | 12 ms    |
+| デスクトップの Largest Contentful Paint | 729 ms   | 728 ms   |
+| デスクトップの Total Blocking Time      | 137 ms   | 136 ms   |
+
+`e2e/specs/navigation.spec.ts` は、`/` と `/docs` でヘッダーのプリロードが終わるのを待ってから、すべてのサーバー関数を保留し、デスクトップとスマートフォンのメニューでヘッダーの各リンクをクリックします。それでも各ページは開きます。また、データセーバーを有効にした訪問者にはクリック前に何も読み込まないことも確認します。
 
 ## ORM をブラウザーに入れない [#keep-the-orm-out-of-the-browser]
 

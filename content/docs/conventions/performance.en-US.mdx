@@ -57,7 +57,51 @@ The sizes are what each part imports statically in the `bun run build:test` Work
 - A navigation that is still loading after the delay shows its route's skeleton for exactly as long as it keeps loading: `defaultPendingMinMs` is <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, so the router removes the skeleton the moment the page is ready instead of holding it on screen.
 - The docs pages have skeletons of their own, `DocsIndexPending` and `DocsPagePending`, which fill the article and table of contents beside the sidebar, so a slow navigation between docs pages shows the shape of the next page instead of leaving the previous one in place.
 
-`e2e/specs/content.spec.ts` holds the server functions of a navigation to `/docs` and of one between docs pages and checks that each shows its skeleton, and the sidebar in the second, until they answer.
+`e2e/specs/content.spec.ts` holds the server functions of a navigation to `/docs` and of one between docs pages and checks that each shows its skeleton, and the sidebar in the second, until they answer. These tests turn on data saver first, so the header does not load the docs before the click.
+
+## The header's pages load before a click
+
+`defaultPreload: "intent"` loads the code and data of a link only once the pointer has rested on it for `defaultPreloadDelay`, which a quick click, a tap on a phone and a keyboard never give it. After the route tree was made lighter, a client navigation from `/` to the heading of `/docs` on saasyland.com took 255 to 283 ms on a warm Worker isolate and 1.3 to 2.0 seconds on a new one, because the two docs server functions waited 1.1 to 2.0 seconds for the isolate to start.
+
+`Navigation` therefore preloads the page of every `HEADER_NAVIGATION` entry through TanStack Router once the page on screen is idle, so a new isolate starts before the click and the click finds the page's code and data in the router's cache. It calls `router.preloadRoute` for each entry in an effect and schedules the calls with `preloadWhenIdle`:
+
+```ts title="src/lib/idle-preload.ts"
+const schedule = (preload: () => void, signal: AbortSignal): void => {
+  if (dataSaverSchema.safeParse(navigator).success) {
+    return
+  }
+  if (document.readyState === "complete") {
+    whenIdle(preload, signal)
+    return
+  }
+  globalThis.addEventListener(
+    "load",
+    () => {
+      whenIdle(preload, signal)
+    },
+    { once: true, signal },
+  )
+}
+```
+
+- `preloadWhenIdle` (`src/lib/idle-preload.ts`) waits for the `load` event and then for `requestIdleCallback`, so the preloads never compete with the page's own requests, its Largest Contentful Paint or its hydration. Safari has no `requestIdleCallback`, so there it waits <RepositoryFact name="idleFallbackDelayMs" unit="millisecond" /> after `load`. It returns the function that cancels the wait, which the effect calls when the header unmounts or the page changes first.
+- It preloads nothing for a visitor who has turned on data saver (`navigator.connection.saveData`).
+- The effect depends on `shownPath`, the path of the page on screen from the router's `resolvedLocation`, so the header preloads again once the next page is idle and keeps its pages fresh while someone browses. A page whose data is still fresh is not loaded again. The page a visit starts on was rendered at build time, so the router counts its data as stale and loads it again the first time the header preloads it from another page.
+- TanStack Router's `preload="viewport"` on the header's links would start as soon as a link is in the viewport, which the fixed header always is, so it would compete with hydration; and on a phone the links sit in the menu, which renders them only when it opens.
+- Only the header's links preload this way. Every other link, such as the hundreds in the docs sidebar, keeps `defaultPreload: "intent"`.
+
+`src/router.tsx` sets `defaultPreloadStaleTime` to `QUERY_STALE_TIME_MS`, the same <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> as `defaultStaleTime`. It was `0`, the value TanStack Router recommends when TanStack Query owns the cache, but the docs and blog loaders call their server functions directly, so with `0` a click after a preload ran them again. Within the stale time a click shows the preloaded page without running its loader. After it, and until TanStack Router drops the preloaded page five minutes after loading it (`defaultPreloadGcTime`), a click still shows the preloaded page at once and loads it again in the background.
+
+The home page is not slower. Lighthouse on `/`, on a `bun run build:test` build behind an HTTP/2 proxy with compression, median of 13 runs per build, half of them in each order:
+
+| Measure                          | Before   | After    |
+| -------------------------------- | -------- | -------- |
+| Mobile Largest Contentful Paint  | 1,546 ms | 1,538 ms |
+| Mobile Total Blocking Time       | 12 ms    | 12 ms    |
+| Desktop Largest Contentful Paint | 729 ms   | 728 ms   |
+| Desktop Total Blocking Time      | 137 ms   | 136 ms   |
+
+`e2e/specs/navigation.spec.ts` waits until the header's preloads have finished on `/` and on `/docs`, holds every server function and clicks each header link, on a desktop and in the phone menu; each page opens all the same. It also checks that a visitor with data saver on loads nothing ahead of a click.
 
 ## Keep the ORM out of the browser
 

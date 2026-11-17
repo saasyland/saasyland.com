@@ -23,6 +23,10 @@ export const recordRenderedLocations = (key: string): void => {
   })
 }
 
+export const turnOnDataSaver = (): void => {
+  Object.defineProperty(Navigator.prototype, "connection", { configurable: true, get: () => ({ saveData: true }) })
+}
+
 export class BasePage {
   protected readonly page: Page
 

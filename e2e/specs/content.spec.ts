@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import { DOCS_CONTENT_ID } from "../../src/data/navigation.constants"
 import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
-import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
+import { APP_NAVIGATION_WAIT_UNTIL, turnOnDataSaver } from "../pages/base-page"
 
 const titleOf = (file: string) => /^title: "(?<title>.+)"$/mu.exec(readFileSync(file, "utf8"))?.groups?.["title"]
 
@@ -118,6 +118,10 @@ test.describe("server rendering and client navigation", () => {
 })
 
 test.describe("a slow navigation to the docs", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(turnOnDataSaver)
+  })
+
   test("shows the docs skeleton below the site header until the docs layout and page have loaded", async ({ appPage, page }) => {
     const loaded = Promise.withResolvers<void>()
     await page.goto(ROUTES.HOME, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })

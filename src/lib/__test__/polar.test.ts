@@ -18,6 +18,7 @@ import {
 import { PPP_PERCENTS_OFF } from "~/src/modules/license/license.pricing"
 
 import { TIER_PRICES } from "~/src/data/marketing"
+import { POLAR_SERVER } from "~/src/data/polar"
 import { POLAR_EVENTS } from "~/src/data/polar-events"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
@@ -26,7 +27,6 @@ import {
   POLAR_CUSTOM_FIELD_TYPE,
   POLAR_PRICE_TYPE,
   POLAR_SCOPE,
-  POLAR_SERVER,
   POLAR_WEBHOOK_FORMAT,
   type PolarEnvironment,
   WITHDRAWAL_CONSENT_FIELD,

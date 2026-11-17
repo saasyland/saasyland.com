@@ -7,10 +7,12 @@ import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 import type changeEmailMessages from "~/messages/en-US/emails.change-email-confirmation-email.json"
 import type purchaseConfirmationMessages from "~/messages/en-US/emails.purchase-confirmation-email.json"
 import type resetPasswordMessages from "~/messages/en-US/emails.reset-password-email.json"
+import type unmatchedOrderAlertMessages from "~/messages/en-US/emails.unmatched-order-alert-email.json"
 import type verifyEmailMessages from "~/messages/en-US/emails.verify-email.json"
 import { ChangeEmailConfirmationEmail } from "~/src/presentation/emails/change-email-confirmation-email"
 import { PURCHASE_CONFIRMATION_EMAIL_NAMESPACE, PurchaseConfirmationEmail } from "~/src/presentation/emails/purchase-confirmation-email"
 import { ResetPasswordEmail } from "~/src/presentation/emails/reset-password-email"
+import { UNMATCHED_ORDER_ALERT_EMAIL_NAMESPACE, UnmatchedOrderAlertEmail } from "~/src/presentation/emails/unmatched-order-alert-email"
 import { VerifyEmail } from "~/src/presentation/emails/verify-email"
 
 it.each(I18N.SUPPORTED_LOCALES)("renders account emails in %s with working action links", async (locale) => {
@@ -74,5 +76,33 @@ it.each(I18N.SUPPORTED_LOCALES.flatMap((locale) => [true, false].map((withdrawal
     for (const href of Object.values(PURCHASE_LINKS)) {
       expect(html).toContain(`href="${href}"`)
     }
+  },
+)
+
+it.each(I18N.SUPPORTED_LOCALES)(
+  "renders the unmatched order alert in %s with every value filled in and the link to Polar",
+  async (locale) => {
+    const messages = await loadNamespace<typeof unmatchedOrderAlertMessages>({ locale, namespace: UNMATCHED_ORDER_ALERT_EMAIL_NAMESPACE })
+    const polarUrl = "https://polar.sh/dashboard/saasyland/sales/ord_unmatched"
+
+    const html = await render(
+      <UnmatchedOrderAlertEmail
+        amount={719.2}
+        currency="EUR"
+        customer={{ email: "guest@example.test", name: "Grace Hopper" }}
+        locale={locale}
+        messages={messages}
+        orderId="ord_unmatched"
+        orderedAt={new Date("2026-11-16T09:30:00.000Z")}
+        polarUrl={polarUrl}
+        tierName="Agency"
+      />,
+    )
+
+    expect(html).toContain(`lang="${locale}"`)
+    for (const value of ["ord_unmatched", "Agency", "guest@example.test", "Grace Hopper", `href="${polarUrl}"`]) {
+      expect(html).toContain(value)
+    }
+    expect(html).not.toMatch(/\{\w+\}/u)
   },
 )

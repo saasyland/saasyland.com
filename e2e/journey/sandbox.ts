@@ -3,7 +3,7 @@ import { createOrdersService } from "@polar-sh/sdk/2026-10/services/orders"
 import { createRefundsService } from "@polar-sh/sdk/2026-10/services/refunds"
 
 import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants"
-import { POLAR_SERVER } from "../../src/lib/polar"
+import { POLAR_SERVER } from "../../src/data/polar"
 import { JOURNEY_SETTINGS } from "./settings"
 
 const REFUND_REASON: models.RefundCreate["reason"] = "customer_request"

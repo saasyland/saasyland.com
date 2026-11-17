@@ -218,7 +218,7 @@ export const CLI_TEMPLATE_SUPPORT: CliTemplateSupport = {
     api: [],
     architecture: ["monolith"],
     auth: ["better-auth", NONE],
-    billing: ["polar"],
+    billing: [NONE],
     content: ["mdx"],
     database: ["sqlite"],
     deployment: ["cloudflare"],

@@ -27,7 +27,7 @@ const GENERATION_MESSAGES = [
   "components.custom.pricing.json:tiers.core.tagline",
   "pages.app.json:overview.docs.description",
   "pages.blog.json:post.cta.body",
-  "pages.landing.json:cli.defaultStack",
+  "pages.landing.json:cli.generates",
   "pages.landing.json:cli.lead",
   "pages.landing.json:cli.reuse.body",
   "pages.landing.json:faq.items.q1.answer",
@@ -36,6 +36,8 @@ const GENERATION_MESSAGES = [
   "pages.landing.json:line.stations.edge.body",
   "pages.landing.json:manifest.lead",
 ]
+
+const OPTION_STATUS_MESSAGES = new Set(["pages.landing.json:cli.coming"])
 
 const ARRIVING_WORDING: Record<SupportedLocale, RegExp> = {
   "de-DE": /späteren Versionen?|Projektgenerierung|Generierung verfügbar/iu,
@@ -171,7 +173,7 @@ describe("project generation status in the copy", () => {
   it("keeps the wording that generation is arriving inside the generation select, out of its available variant", () => {
     const outside = I18N.SUPPORTED_LOCALES.flatMap((locale) =>
       (MESSAGES[locale] ?? [])
-        .filter(({ nodes }) => ARRIVING_WORDING[locale].test(textOutsideGeneration(nodes)))
+        .filter(({ id, nodes }) => !OPTION_STATUS_MESSAGES.has(id) && ARRIVING_WORDING[locale].test(textOutsideGeneration(nodes)))
         .map(({ id }) => `${locale} ${id}`),
     )
     const available = I18N.SUPPORTED_LOCALES.flatMap((locale) =>

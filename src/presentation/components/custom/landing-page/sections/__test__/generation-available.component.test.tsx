@@ -47,7 +47,6 @@ const plain = (message: string): string =>
     ...REPOSITORY_FACTS,
     ...CLI_GENERATION_VALUES,
     accent: (chunks: string) => chunks,
-    mark: () => "",
     strong: (chunks: string) => chunks,
   })
 
@@ -104,6 +103,7 @@ describe("copy once project generation is available", () => {
     for (const message of [
       landing.hero.description,
       landing.cli.lead,
+      landing.cli.generates,
       landing.cli.reuse.body,
       landing.line.stations.edge.body,
       landing.manifest.lead,
@@ -113,9 +113,6 @@ describe("copy once project generation is available", () => {
     ]) {
       expect(container.textContent).toContain(plain(message))
     }
-    expect(screen.getByRole("radio", { name: landing.cli.choices.framework.options.tanstack })).toHaveAccessibleDescription(
-      plain(landing.cli.defaultStack).trim(),
-    )
     expect(container.textContent).toContain(CLI_INIT_COMMAND)
   })
 

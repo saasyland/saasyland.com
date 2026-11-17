@@ -4,7 +4,7 @@ import { uiTranslations } from "@fumadocs/base-ui/i18n"
 import type { Locator, Page } from "@playwright/test"
 import * as zod from "zod"
 
-import { SITE_CONTENT_ID } from "../../src/data/navigation.constants"
+import { DOCS_CONTENT_ID, SITE_CONTENT_ID } from "../../src/data/navigation.constants"
 import { I18N, type SupportedLocale } from "../../src/integrations/use-intl/i18n.config"
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { APP_NAME } from "../../src/presentation/branding"
@@ -33,6 +33,11 @@ const TAGGED_POST = "ai-coding-agents-repository-readiness"
 const DOCS_MENU = "nd-sidebar-mobile"
 const SONNER_HOTKEY = "alt+T"
 const STICKY_BARS = 2
+const SKIP_LINK_PAGES = [
+  { contentId: DOCS_CONTENT_ID, path: DOCS_PAGE },
+  { contentId: SITE_CONTENT_ID, path: BLOG_POST },
+  { contentId: SITE_CONTENT_ID, path: ROUTES.HOME },
+] as const
 
 const NOTES = /(?:\([^()]*\))+$/u
 const FUMADOCS_ENGLISH = [...new Set(uiTranslations().keys.map((key) => key.replace(NOTES, "")))]
@@ -45,7 +50,7 @@ const treeSchema = zod.record(zod.string(), zod.unknown())
 const blogSchema = zod.object({ tags: zod.record(zod.string(), zod.string()) })
 const contentNavigationSchema = zod.object({ header: zod.object({ docs: zod.string() }) })
 const fumadocsSchema = zod.object({ sidebar: zod.object({ collapse: zod.string(), open: zod.string() }) })
-const siteNavigationSchema = zod.object({ getStarted: zod.string() })
+const siteNavigationSchema = zod.object({ getStarted: zod.string(), skipToContent: zod.string() })
 const sonnerSchema = zod.object({ label: zod.string() })
 
 const readMessages = (locale: SupportedLocale, namespace: string): unknown =>
@@ -93,7 +98,7 @@ const visit = async (page: Page, path: string): Promise<void> => {
   const app = new BasePage(page)
   await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await app.waitForAppReady()
-  await app.waitForHydration(page.locator(`#${SITE_CONTENT_ID}`))
+  await app.waitForHydration(page.getByRole("main"))
 }
 
 const edgesOf = (locator: Locator): Promise<{ bottom: number; left: number; right: number; top: number }> =>
@@ -133,7 +138,7 @@ for (const locale of LOCALES) {
         await page.setViewportSize(viewport)
         for (const path of [DOCS_PAGE, BLOG_POST]) {
           await visit(page, localizePathname({ locale, pathname: path }))
-          await expect(page.locator(`#${SITE_CONTENT_ID}`)).toBeVisible()
+          await expect(page.getByRole("main")).toBeVisible()
           expect(await untranslatedFumadocsNames(page, locale), path).toEqual([])
         }
         const { label } = sonnerSchema.parse(readMessages(locale, "components.shadcn.sonner"))
@@ -141,20 +146,36 @@ for (const locale of LOCALES) {
       })
     }
 
-    test(`give ${locale} docs one skip link, to the article, and no link to a missing fragment`, async ({ page }) => {
-      await visit(page, localizePathname({ locale, pathname: DOCS_PAGE }))
-      await expect(page.locator(`#${SITE_CONTENT_ID}`)).toBeVisible()
-      const missing = await page
-        .locator('a[href^="#"]')
-        .evaluateAll((links) =>
-          links
-            .map((link) => link.getAttribute("href") ?? "")
-            .filter((href) => href.length > 1 && document.getElementById(decodeURIComponent(href.slice(1))) === null),
-        )
-      expect(missing).toEqual([])
-      await expect(page.locator(`a[href="#${SITE_CONTENT_ID}"]`)).toHaveCount(1)
-      await page.keyboard.press("Tab")
-      await expect(page.locator(":focus")).toHaveAttribute("href", `#${SITE_CONTENT_ID}`)
+    test(`give ${locale} docs, blog and landing pages one skip link, first in the tab order, that moves focus to the content`, async ({
+      page,
+    }) => {
+      const { skipToContent } = siteNavigationSchema.parse(readMessages(locale, "components.custom.navigation"))
+      for (const { contentId, path } of SKIP_LINK_PAGES) {
+        await visit(page, localizePathname({ locale, pathname: path }))
+        const missing = await page
+          .locator('a[href^="#"]')
+          .evaluateAll((links) =>
+            links
+              .map((link) => link.getAttribute("href") ?? "")
+              .filter((href) => href.length > 1 && document.getElementById(decodeURIComponent(href.slice(1))) === null),
+          )
+        expect(missing, path).toEqual([])
+        const skipLink = page.getByRole("link", { exact: true, name: skipToContent })
+        await expect(skipLink, path).toHaveCount(1)
+        await expect(skipLink, path).toHaveAttribute("href", `#${contentId}`)
+        await expect(page.getByRole("link").and(page.locator(`a[href="#${contentId}"]`)), path).toHaveCount(1)
+
+        await page.keyboard.press("Tab")
+        await expect(skipLink, path).toBeFocused()
+        const box = await skipLink.boundingBox()
+        expect(box?.width, path).toBeGreaterThan(PIXEL_TOLERANCE)
+        expect(box?.height, path).toBeGreaterThan(PIXEL_TOLERANCE)
+
+        await page.keyboard.press("Enter")
+        await expect(page, path).toHaveURL(new RegExp(`#${contentId}$`, "u"))
+        await page.keyboard.press("Tab")
+        expect(await page.evaluate((id) => document.activeElement?.closest(`#${id}`) !== null, contentId), path).toBe(true)
+      }
     })
 
     test(`show ${locale} blog tags in the page's language`, async ({ page }) => {
@@ -191,7 +212,7 @@ test.describe("docs on a wide screen", () => {
       }
 
       await expectLinedUp("at the top of the page")
-      await page.locator(`#${SITE_CONTENT_ID} h2`).nth(1).scrollIntoViewIfNeeded()
+      await page.locator(`#${DOCS_CONTENT_ID} h2`).nth(1).scrollIntoViewIfNeeded()
       expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
       await expectLinedUp("after scrolling")
       await expect(page.locator(DOCS_SIDEBAR).getByRole("button", { exact: true, name: sidebar.collapse })).toHaveCount(0)
@@ -208,7 +229,7 @@ test.describe("docs on a phone", () => {
     const { sidebar } = fumadocsSchema.parse(readMessages(I18N.DEFAULT_LOCALE, "fumadocs"))
     const { header } = contentNavigationSchema.parse(readMessages(I18N.DEFAULT_LOCALE, "navigation.content"))
     await visit(page, DOCS_PAGE)
-    await page.locator(`#${SITE_CONTENT_ID} h2`).nth(1).scrollIntoViewIfNeeded()
+    await page.locator(`#${DOCS_CONTENT_ID} h2`).nth(1).scrollIntoViewIfNeeded()
     const banner = await page.getByRole("banner").boundingBox()
     const docsBar = await page.getByRole("navigation", { exact: true, name: header.docs }).locator("header").boundingBox()
     const { count, covered } = await stickyBars(page)

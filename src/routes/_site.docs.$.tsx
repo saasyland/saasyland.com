@@ -4,7 +4,7 @@ import { createFileRoute } from "@tanstack/react-router"
 
 import { docsHead, loadDocsPage } from "~/src/integrations/fumadocs/fumadocs.docs"
 
-import { SITE_CONTENT_ID } from "~/src/data/navigation.constants"
+import { DOCS_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
 import { docsContent } from "~/src/presentation/components/custom/docs-content"
@@ -17,7 +17,7 @@ const DocumentationPage = () => {
 }
 
 const DocumentationNotFound = (): JSX.Element => (
-  <main className="[grid-area:main]" id={SITE_CONTENT_ID}>
+  <main className="[grid-area:main]" id={DOCS_CONTENT_ID}>
     <DefaultNotFound />
   </main>
 )

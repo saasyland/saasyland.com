@@ -18,7 +18,7 @@ import { Route as DocsRoute } from "~/src/routes/_site.docs"
 import { Route as DocsPageRoute } from "~/src/routes/_site.docs.$"
 import { Route as DocsIndexRoute } from "~/src/routes/_site.docs.index"
 
-import { SITE_CONTENT_ID } from "~/src/data/navigation.constants"
+import { DOCS_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { docsContent } from "~/src/presentation/components/custom/docs-content"
 
@@ -44,7 +44,7 @@ vi.mock("~/src/presentation/components/custom/docs-content", () => ({
 }))
 vi.mock(import("@fumadocs/base-ui/layouts/docs"), async (original) => ({
   ...(await original()),
-  DocsLayout: ({ children, nav, sidebar, links, slots, themeSwitch }: ComponentProps<typeof DocsLayout>) => (
+  DocsLayout: ({ children, nav, sidebar, links, themeSwitch }: ComponentProps<typeof DocsLayout>) => (
     <div>
       <nav aria-label="Documentation navigation">
         {typeof nav?.title === "function" ? undefined : <a href={nav?.url}>{nav?.title}</a>}
@@ -53,7 +53,6 @@ vi.mock(import("@fumadocs/base-ui/layouts/docs"), async (original) => ({
       {typeof sidebar === "object" && sidebar.footer}
       <main>{children}</main>
       <span data-testid="builtin-theme-switch">{String(themeSwitch?.enabled)}</span>
-      <span data-testid="builtin-skip-link">{String(slots?.skipToContent)}</span>
       <span data-testid="sidebar-collapsible">{typeof sidebar === "object" && String(sidebar.collapsible)}</span>
     </div>
   ),
@@ -140,7 +139,7 @@ it.each([
   expect(screen.getByRole("link", { name: `${APP_GITHUB_OWNER}/${APP_GITHUB_REPO}` })).toHaveAttribute("href", APP_GITHUB_URL)
   expect(screen.getByRole("button", { name: selectTriggerNamed(localeSwitcherMessages.label) })).toHaveTextContent("English")
   expect(screen.getByTestId("builtin-theme-switch")).toHaveTextContent("false")
-  expect(screen.getByTestId("builtin-skip-link")).toHaveTextContent("false")
+  expect(screen.getByRole("link", { name: navigationMessages.skipToContent })).toHaveAttribute("href", `#${DOCS_CONTENT_ID}`)
   expect(screen.getByTestId("sidebar-collapsible")).toHaveTextContent("false")
   expect(screen.getByRole("contentinfo")).toBeInTheDocument()
   expect(docsContent.useContent).toHaveBeenCalledWith(path)
@@ -175,7 +174,7 @@ it("shows a missing docs page as the not-found page in the docs' content landmar
   await act(() => router.load())
 
   const heading = screen.getByRole("heading", { level: 1, name: notFoundMessages.metadata.title })
-  expect(heading.closest("main")).toHaveAttribute("id", SITE_CONTENT_ID)
+  expect(heading.closest("main")).toHaveAttribute("id", DOCS_CONTENT_ID)
   expect(screen.queryByText("Documentation content")).not.toBeInTheDocument()
   expect(router.state.matches.at(-1)?.status).toBe("notFound")
   router.options.context.queryClient.clear()

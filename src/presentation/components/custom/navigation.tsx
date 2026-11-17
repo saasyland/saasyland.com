@@ -1,6 +1,6 @@
 import type { JSX } from "react"
 
-import { Link, useLinkProps } from "@tanstack/react-router"
+import { Link, useLinkProps, useMatches } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
@@ -47,12 +47,15 @@ export const Navigation = (): JSX.Element => {
   const t = useTranslations("components.custom.navigation")
   const navigationLabel = useNavigationLabel()
   const startBuilding = useLinkProps({ hash: MARKETING_SECTION_IDS.PRICING, to: ROUTES.HOME })
+  const contentId = useMatches({
+    select: (matches) => matches.map(({ staticData }) => staticData.contentId).findLast((id) => id !== undefined) ?? SITE_CONTENT_ID,
+  })
 
   return (
     <>
       <a
         className="sr-only rounded-md bg-background px-3 py-2 text-body-sm font-medium text-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        href={`#${SITE_CONTENT_ID}`}
+        href={`#${contentId}`}
       >
         {t("skipToContent")}
       </a>

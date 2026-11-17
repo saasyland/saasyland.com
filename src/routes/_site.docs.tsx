@@ -18,6 +18,7 @@ import { localeField } from "~/src/modules/_core/utils/zod-fields"
 import { useFumadocsI18n } from "~/src/hooks/use-fumadocs-i18n"
 
 import { layoutNamespaces } from "~/src/data/namespaces"
+import { DOCS_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { DocsPending } from "~/src/presentation/components/custom/docs-pending"
 import { DocsToolbar } from "~/src/presentation/components/custom/docs-toolbar"
@@ -60,7 +61,7 @@ const CONTAINER = {
 } as const
 const THEME = { enabled: false } as const
 const THEME_SWITCH = { enabled: false } as const
-const SLOTS = { header: DocsToolbar, languageSelect: false, skipToContent: false } as const
+const SLOTS = { header: DocsToolbar, languageSelect: false } as const
 
 const SIDEBAR = {
   className: "border-s",
@@ -117,5 +118,5 @@ export const Route = createFileRoute("/_site/docs")({
     return pageTree
   },
   pendingComponent: DocsPending,
-  staticData: { namespaces: NAMESPACES },
+  staticData: { contentId: DOCS_CONTENT_ID, namespaces: NAMESPACES },
 })

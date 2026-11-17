@@ -40,6 +40,7 @@ const pendingTasks = new Set<Promise<unknown>>()
 
 interface StoredObject {
   readonly body: Uint8Array<ArrayBuffer>
+  readonly customMetadata: Record<string, string>
   readonly etag: string
 }
 
@@ -58,7 +59,12 @@ const testBuckets = testBucketsSchema.parse(wranglerConfig).env.test.r2_buckets
 
 const buckets = new Map(testBuckets.map(({ binding }) => [binding, new Map<string, StoredObject>()]))
 
-const objectMetadata = (key: string, stored: StoredObject) => ({ httpEtag: `"${stored.etag}"`, key, size: stored.body.byteLength })
+const objectMetadata = (key: string, stored: StoredObject) => ({
+  customMetadata: { ...stored.customMetadata },
+  httpEtag: `"${stored.etag}"`,
+  key,
+  size: stored.body.byteLength,
+})
 
 const createBucket = (objects: Map<string, StoredObject>) => ({
   delete: async (keys: string | string[]) => {
@@ -85,9 +91,9 @@ const createBucket = (objects: Map<string, StoredObject>) => ({
     const truncated = keys.length > limit
     return { objects: page.map((key) => ({ key })), truncated, ...(truncated ? { cursor: page.at(-1) } : {}) }
   },
-  put: async (key: string, value: string | Uint8Array<ArrayBuffer>) => {
+  put: async (key: string, value: string | Uint8Array<ArrayBuffer>, options?: { customMetadata?: Record<string, string> }) => {
     const body = typeof value === "string" ? new TextEncoder().encode(value) : value
-    objects.set(key, { body, etag: `${key}:${String(body.byteLength)}` })
+    objects.set(key, { body, customMetadata: { ...options?.customMetadata }, etag: `${key}:${String(body.byteLength)}` })
   },
 })
 

@@ -1,5 +1,9 @@
 import type { CurrencyCode } from "~/src/modules/_core/constants/currency"
 
+import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
+
+export const AFFILIATE_PROGRAM: FeatureStatus = FEATURE_STATUS.ARRIVING
+
 export const AFFILIATE_TERMS = {
   COMMISSION_PERCENT: 30,
   COOKIE_DAYS: 60,

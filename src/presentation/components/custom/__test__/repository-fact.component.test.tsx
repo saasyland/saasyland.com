@@ -28,7 +28,7 @@ import { RECIPIENT_EMAILS_PER_HOUR } from "~/src/modules/rate-limit/rate-limit.c
 import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 
 import { APP_STATEMENTS } from "~/src/data/access"
-import { AFFILIATE_PORTAL_URL, AFFILIATE_TERMS } from "~/src/data/affiliates"
+import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
 import { CLI_LICENSE_COMMANDS, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
@@ -458,10 +458,13 @@ describe("affiliate terms", () => {
     )
   })
 
-  it("prints the commission, cookie duration, payout, partner portal and referral parameters Affonso is set to, from the code", () => {
+  it("prints the programme's status, commission, cookie duration, payout, partner portal and referral parameters, from the code", () => {
     renderInLocale(
       "en-US",
       <ul>
+        <li>
+          <RepositoryFact name="affiliateProgram" />
+        </li>
         <li>
           <RepositoryFact name="affiliateCommissionPercent" unit="percent" />
         </li>
@@ -484,6 +487,7 @@ describe("affiliate terms", () => {
     )
 
     expect(listItems()).toEqual([
+      AFFILIATE_PROGRAM,
       new Intl.NumberFormat("en-US", { style: "unit", unit: "percent" }).format(AFFILIATE_TERMS.COMMISSION_PERCENT),
       inUnit("day", AFFILIATE_TERMS.COOKIE_DAYS),
       new Intl.NumberFormat("en-US", {

@@ -14,14 +14,22 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
+import { AFFILIATE_PORTAL_URL } from "~/src/data/affiliates"
 import { CLI_GENERATION_VALUES, CLI_INIT_COMMAND } from "~/src/data/cli"
 import { FEATURE_STATUS } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
+
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
 
 const MESSAGES_DIRECTORY = join(import.meta.dirname, "../../../messages")
 const GENERATION_ARGUMENT = "generation"
 const OTHER_OPTION = "other"
 const MESSAGE_KEY = "message"
+const ARRIVING_AFFILIATE_PROGRAM_VALUES = {
+  email: CONTACT_EMAIL,
+  portal: new URL(AFFILIATE_PORTAL_URL).host,
+  program: FEATURE_STATUS.ARRIVING,
+}
 
 const GENERATION_MESSAGES = [
   "components.custom.pricing.json:tiers.core.tagline",
@@ -35,6 +43,7 @@ const GENERATION_MESSAGES = [
   "pages.landing.json:hero.description",
   "pages.landing.json:line.stations.edge.body",
   "pages.landing.json:manifest.lead",
+  "pages.legal.affiliates.json:sections.join.body",
 ]
 
 const OPTION_STATUS_MESSAGES = new Set(["pages.landing.json:cli.coming"])
@@ -120,6 +129,7 @@ const render = ({ generation, locale, message }: { generation: string; locale: S
   createTranslator({ locale, messages: { [MESSAGE_KEY]: message.value } }).markup(MESSAGE_KEY, {
     ...REPOSITORY_FACTS,
     ...CLI_GENERATION_VALUES,
+    ...ARRIVING_AFFILIATE_PROGRAM_VALUES,
     ...Object.fromEntries(tagNames(message.nodes).map((tag) => [tag, (chunks: string) => chunks])),
     generation,
   })

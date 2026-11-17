@@ -13,7 +13,7 @@ import { formatPostText, postTextValues } from "~/src/lib/post-text"
 const BLOG_DIR = "content/blog"
 const POST_FAQ = "<PostFaq entries={frontmatter.faq} />"
 const LOCALE_PATTERN = /\.(?<locale>[a-z]{2}-[A-Z]{2})\.mdx$/u
-const GENERATION_ARGUMENT = "generation"
+const STATUS_ARGUMENTS = ["generation", "billingGeneration", "affiliateProgram"] as const
 const OTHER_OPTION = "other"
 const TEXT_KEY = "text"
 
@@ -29,11 +29,20 @@ const posts = readdirSync(BLOG_DIR).map((file) => {
   return { content, faq, file, locale: LOCALE_PATTERN.exec(file)?.groups?.["locale"] ?? "", title }
 })
 
-const generationSelects = (text: string): SelectElement[] =>
-  parse(text).filter((node: MessageFormatElement): node is SelectElement => isSelectElement(node) && node.value === GENERATION_ARGUMENT)
+type StatusArgument = (typeof STATUS_ARGUMENTS)[number]
 
-const formatWithGeneration = ({ generation, locale, text }: { generation: FeatureStatus; locale: string; text: string }): string =>
-  createTranslator({ locale, messages: { [TEXT_KEY]: text } })(TEXT_KEY, { ...postTextValues(locale), generation })
+const statusSelects = (text: string, argument: StatusArgument): SelectElement[] =>
+  parse(text).filter((node: MessageFormatElement): node is SelectElement => isSelectElement(node) && node.value === argument)
+
+interface StatusFormat {
+  readonly argument: StatusArgument
+  readonly locale: string
+  readonly status: FeatureStatus
+  readonly text: string
+}
+
+const formatWithStatus = ({ argument, locale, status, text }: StatusFormat): string =>
+  createTranslator({ locale, messages: { [TEXT_KEY]: text } })(TEXT_KEY, { ...postTextValues(locale), [argument]: status })
 
 describe("blog FAQs", () => {
   it.each(posts)("$file writes its FAQ once, in the frontmatter, and renders it with PostFaq", ({ content, faq }) => {
@@ -51,20 +60,20 @@ describe("blog FAQs", () => {
     }
   })
 
-  it("words every sentence that changes when project generation ships for both statuses", () => {
+  it.each(STATUS_ARGUMENTS)("words every sentence that changes with %s for both statuses", (argument) => {
     const texts = posts.flatMap(({ faq, file, locale, title }) =>
       [title, ...faq.flatMap(({ answer, question }) => [question, answer])]
-        .filter((text) => generationSelects(text).length > 0)
+        .filter((text) => statusSelects(text, argument).length > 0)
         .map((text) => ({ file, locale, text })),
     )
 
     expect(texts.length).toBeGreaterThan(0)
 
     for (const { file, locale, text } of texts) {
-      const available = formatWithGeneration({ generation: FEATURE_STATUS.AVAILABLE, locale, text })
-      const arriving = formatWithGeneration({ generation: FEATURE_STATUS.ARRIVING, locale, text })
+      const available = formatWithStatus({ argument, locale, status: FEATURE_STATUS.AVAILABLE, text })
+      const arriving = formatWithStatus({ argument, locale, status: FEATURE_STATUS.ARRIVING, text })
 
-      for (const select of generationSelects(text)) {
+      for (const select of statusSelects(text, argument)) {
         expect(Object.keys(select.options).toSorted(), file).toStrictEqual([FEATURE_STATUS.AVAILABLE, OTHER_OPTION])
       }
       expect(available, file).not.toBe(arriving)

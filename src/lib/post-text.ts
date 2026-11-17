@@ -3,8 +3,10 @@ import { createFormatter, createTranslator } from "use-intl"
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
+import { AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
-import { TIER_PRICES } from "~/src/data/marketing"
+import { BILLING_GENERATION, TIER_PRICES } from "~/src/data/marketing"
+import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 const TEXT_KEY = "text"
@@ -15,6 +17,10 @@ export const postTextValues = (locale: string): Readonly<Record<string, number |
   return {
     ...REPOSITORY_FACTS,
     ...CLI_GENERATION_VALUES,
+    affiliateHoldDays: AFFILIATE_TERMS.HOLD_DAYS,
+    affiliateProgram: AFFILIATE_PROGRAM,
+    billingGeneration: BILLING_GENERATION,
+    refundWithdrawalDays: REFUND_TERMS.WITHDRAWAL_DAYS,
     ...Object.fromEntries<number | string>(
       LICENSE_TIERS.flatMap((tier) => [
         [`${tier}Machines`, LICENSE_ACTIVATION_LIMITS[tier]],

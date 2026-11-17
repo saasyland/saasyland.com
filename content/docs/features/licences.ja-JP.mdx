@@ -1,6 +1,6 @@
 ---
 title: "ライセンス"
-description: "ライセンスのプランを販売する Polar の購入処理と即時提供への同意、地域価格、ライセンスを付与して取り消す Webhook、購入確認メール、顧客のライセンス画面。"
+description: "ライセンスのプランを販売する Polar の購入処理と即時提供への同意、地域価格、ライセンスを付与して取り消す Webhook、購入確認メール、どのアカウントにも対応しない支払い済み注文のアラートと管理画面の一覧、顧客のライセンス画面。"
 ---
 
 ライセンスのエリアは、Polar のエリアのプラグインと Webhook（[決済](/docs/features/payments)）を土台に、プラン `core`、`complete`、`agency` を Polar の商品として販売します。`src/modules/license/license.utils.ts` の `POLAR_PRODUCT_IDS` はプランを `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付け、`licenseTierForProduct` は同じ対応付けから商品のプランを読み取ります。[Polar の設定](/docs/getting-started/polar-setup)では、各プランが Polar で必要とする商品、ライセンスキー、割引を説明しています。
@@ -48,9 +48,9 @@ UUID ではない `checkoutId` は無視されます。
 
 ## Webhook とライセンス [#webhooks-and-licences]
 
-`src/data/license.polar-events.ts` は、`LICENSE_WEBHOOK_EVENTS`（`license.constants.ts`）に列挙されたイベントでライセンスのエリアを Polar のイベントに追加し（[決済](/docs/features/payments#webhooks)を参照）、そのうち注文のイベントには `POLAR_WEBHOOK_EVENT` の値を使います。このファイルの `handle` は、各イベントを `licenseWebhookHandlers` の同じ名前のハンドラーに渡します。`licenseWebhookHandlers` は `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>` を満たすため、イベントのないハンドラーや、ハンドラーのないイベントがあるとコンパイルが通りません。`licenseWebhookHandlers`（`src/modules/license/license.webhooks.ts`）は Polar の顧客の `external_id` でユーザーを特定します。このアプリにアカウントがない顧客のイベントは、アカウントが必要な場合はログに記録したうえで受領し、Polar が再送しないようにします。
+`src/data/license.polar-events.ts` は、`LICENSE_WEBHOOK_EVENTS`（`license.constants.ts`）に列挙されたイベントでライセンスのエリアを Polar のイベントに追加し（[決済](/docs/features/payments#webhooks)を参照）、そのうち注文のイベントには `POLAR_WEBHOOK_EVENT` の値を使います。このファイルの `handle` は、各イベントを `licenseWebhookHandlers` の同じ名前のハンドラーに渡します。`licenseWebhookHandlers` は `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>` を満たすため、イベントのないハンドラーや、ハンドラーのないイベントがあるとコンパイルが通りません。`licenseWebhookHandlers`（`src/modules/license/license.webhooks.ts`）は Polar の顧客の `external_id` でユーザーを特定します。イベントには Polar がイベントを作成した時点で記録していた顧客が含まれ、再配信でも同じ内容が送られます。そのため、その `external_id` がどのアカウントも指していない場合、`onOrderPaid` と `onBenefitGrantCreated` は `polar.orders.get` で注文を読み直し、注文の現在の顧客で照合します。このアプリにアカウントがない顧客のイベントは、アカウントが必要な場合はログに記録したうえで受領し、Polar が再送しないようにします。
 
-- `onOrderPaid` → `grantLicense`: 購入した商品のプランと、即時提供への購入者の同意（[記録と返金](#records-and-refunds)を参照）で、ユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。続いて `sendPurchaseConfirmationEmail` が購入を確認します（[購入確認](#purchase-confirmation)を参照）。送信に失敗するとハンドラーも失敗するため、Polar がイベントを再送します。
+- `onOrderPaid` → `grantLicense`: 購入した商品のプランと、即時提供への購入者の同意（[記録と返金](#records-and-refunds)を参照）で、ユーザーの唯一のライセンスを作成または更新します。新しい購入が古い購入を置き換えます。続いて `sendPurchaseConfirmationEmail` が購入を確認します（[購入確認](#purchase-confirmation)を参照）。送信に失敗するとハンドラーも失敗するため、Polar がイベントを再送します。ライセンスではない商品の注文はログに記録するだけです。顧客がどのアカウントにも対応しないライセンスの注文は、ログに記録したうえで通知します（[アカウントに対応しない注文](#orders-that-match-no-account)を参照）。
 - `onBenefitGrantCreated` → `attachLicenseKey`: Polar のライセンスキーをライセンスに保存します。支払い済みの注文がまだ記録されていない間は失敗させ、Polar に再送させます。返金済みの注文やライセンスではない商品のキーは受領します。
 - `onOrderRefunded` → ステータス `refunded` で `revokeLicense`。注文が全額返金された場合のみで、一部返金ではライセンスを維持します。
 - `onBenefitGrantRevoked` → ステータス `revoked` で `revokeLicense`。
@@ -90,7 +90,42 @@ UUID ではない `checkoutId` は無視されます。
 - **返金**: 初回使用前の全額返金の期限 `refundDeadline`（`license.refunds.ts`）です。購入時刻に `REFUND_TERMS.WITHDRAWAL_DAYS` を加えた日付で、`refundEligibility` が使うのと同じ日付です。
 - **リンク**: メールの言語のライセンスページ、利用規約、商用ライセンス、返金ポリシーです。リンク先は Webhook を受け取ったホストです。
 
-日付は UTC で表示します。冪等性キーは `PURCHASE_CONFIRMATION`（`src/data/license.email-purposes.ts`）と Polar の注文 ID の組み合わせなので、Polar が `order.paid` を何度配信しても、Resend が送るメールは注文ごとに 1 通です。また、メールは注文だけから組み立てるため、再配信でも同じリクエストが送られます。アカウントやプランに対応しない注文には、メールを送りません。[トランザクションメール](/docs/features/email)を参照してください。
+日付は UTC で表示します。冪等性キーは `PURCHASE_CONFIRMATION`（`src/data/license.email-purposes.ts`）と Polar の注文 ID の組み合わせなので、Polar が `order.paid` を何度配信しても、Resend が送るメールは注文ごとに 1 通です。また、メールは注文だけから組み立てるため、再配信でも同じリクエストが送られます。アカウントやプランに対応しない注文には、確認メールを送りません。アカウントのないライセンスの注文については、代わりにサイト宛てにアラートを送ります（[アカウントに対応しない注文](#orders-that-match-no-account)を参照）。[トランザクションメール](/docs/features/email)を参照してください。
+
+## アカウントに対応しない注文 [#orders-that-match-no-account]
+
+`startCheckout` はすべての購入セッションをサインイン中のアカウントに結び付けます。そのため、注文がどのアカウントにも対応しないのは、Polar のダッシュボードで作成した購入リンクなど、`startCheckout` が作成していない購入セッションで支払われた場合か、購入セッションの開始から支払いまでの間にアカウントが削除された場合だけです。購入者は支払いを済ませているのにライセンスを持っていないため、サイトはその注文を通知し、ライセンスが付与されるまで一覧に表示します。
+
+### アラート
+
+`onOrderPaid` はこのような注文をログに記録し、`sendUnmatchedOrderAlert`（`src/modules/license/use-cases/send-unmatched-order-alert.ts`）に渡します。この関数は `UnmatchedOrderAlertEmail`（`src/presentation/emails/unmatched-order-alert-email.tsx`、名前空間 `emails.unmatched-order-alert-email`）を `I18N.DEFAULT_LOCALE` で、`NOTIFICATIONS_EMAIL` から `CONTACT_EMAIL` に送信します。メールには次の内容が記載されます。
+
+- Polar の注文 ID と注文日（UTC）
+- プランと、注文の通貨での `total_amount`
+- イベントに含まれる顧客のメールアドレスと名前。含まれていない場合はその旨
+- Polar のダッシュボードで注文を開くリンク。`polarOrderUrl`（`src/modules/license/license.utils.ts`）が、`POLAR_DASHBOARD_HOSTS` のうち `POLAR_SERVER` に対応するホスト、`POLAR_ORGANIZATION_SLUG`（どちらも `src/data/polar.ts`）、注文 ID から組み立てます
+- [注文を復旧する](#recovering-an-order)手順
+
+冪等性キーは `UNMATCHED_ORDER_ALERT`（`src/data/license.email-purposes.ts`）と Polar の注文 ID の組み合わせです。Resend はキーを 24 時間保持するため、その間に同じ注文が何度配信されても、アラートは 1 通だけ送られます。それ以降の再配信では、注文がまだどのアカウントにも対応していなければ、改めてアラートを送ります。アラートを送信できない場合はハンドラーが失敗するため、Polar がイベントを再送します。
+
+### 管理画面の一覧
+
+ライセンスのエリアは、`src/data/license.dashboard.ts` で `UnlicensedOrders`（`src/presentation/components/custom/admin/license/unlicensed-orders.tsx`）を[管理ダッシュボード](/docs/features/admin-dashboard)のパネルに追加し、ダッシュボードのローダーがそのクエリをプリフェッチします。`unlicensedOrdersQuery`（`src/modules/license/use-cases/get-unlicensed-orders.ts`）は `order: ["read"]` をチェックし、[Polar の注文のコピー](/docs/features/payments#orders-and-subscriptions-in-d1)のうち、次の条件をすべて満たすものを新しい順に一覧表示します。
+
+- ステータスが `paid` であること
+- `product_id` が `POLAR_PRODUCT_IDS` に含まれること
+- どのライセンスの `polar_order_id` でもないこと
+- `revoked_license_order` に含まれないこと
+
+各行（`unlicensed-order-columns.tsx`）には、Polar の注文を新しいタブで開く注文 ID、日時、Polar の顧客 ID、補助単位から変換した金額が表示されます。該当する注文がない場合、パネルには、支払い済みのライセンス注文にはすべてライセンスがあることが表示されます。一覧には、`order.paid` の配信がまだ成功していない注文や、削除されたアカウントの注文（ライセンスもアカウントとともに削除されたもの）も含まれます。
+
+### 注文の復旧 [#recovering-an-order]
+
+1. 管理画面のユーザー管理で購入者のアカウントを探すか、**ユーザーを追加する** を使い、アラートに記載されたメールアドレスでアカウントを作成します（[ユーザー（管理）](/docs/features/users-admin)を参照）。アカウントの ID は、プロフィールのアドレス `/admin/users/<ID>` の最後の部分です。
+2. アラートまたは管理画面の一覧から Polar で注文を開き、続いてその顧客を開きます。顧客のメニューで **Edit Customer** を選び、**External ID** にアカウントの ID を設定して **Save Customer** を選びます。API を使う場合は、`customers:write` を持つトークンで `PATCH /v1/customers/{id}` に `external_id` を送ります。Polar は外部 ID を一度設定すると保持し続け、組織内で一意であることを求めます。そのため、この方法が使えるのは、顧客に外部 ID がまだなく、アカウントに別の Polar の顧客がない場合だけです。それ以外の場合は、Polar で注文を返金し、サインインした状態でもう一度購入するよう購入者に依頼します。
+3. Polar の Webhook の設定でエンドポイントの配信履歴を開き、その注文の `order.paid` イベントを見つけて **Redeliver** を選びます。続いて、`benefit_grant.created` イベントでも同じ操作をします。`onOrderPaid` がライセンスを付与してアカウントのアドレスに購入確認メールを送り、`onBenefitGrantCreated` がライセンスキーを保存します。`benefit_grant.created` が先に届いた場合は、ライセンスができるまで失敗し、Polar が再試行します。その後、注文は管理画面の一覧から消えます。
+
+Polar がイベントを再配信できるのは、そのイベントのペイロードを保持している間だけです。Polar のサーバーはペイロードを 90 日後にアーカイブします。
 
 ## 顧客向け画面
 

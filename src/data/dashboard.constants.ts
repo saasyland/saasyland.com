@@ -23,6 +23,7 @@ export interface AdminDashboardPanel extends Entry {
   readonly Panel: () => JSX.Element
   readonly Pending: () => JSX.Element
   readonly placement: typeof DASHBOARD_PLACEMENT.PANEL
+  readonly prefetch?: (queryClient: QueryClient) => Promise<unknown>
 }
 
 export type AdminDashboardEntry = AdminDashboardPanel | AdminDashboardStat

@@ -1,15 +1,19 @@
 import type { Page } from "@playwright/test"
 
 import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
+import { TIER_PRICES } from "../../src/data/marketing"
+import { POLAR_DASHBOARD_HOSTS, POLAR_ORGANIZATION_SLUG } from "../../src/data/polar"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
+import { DEFAULT_CURRENCY_CODE } from "../../src/modules/_core/constants/pricing"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
-import { TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "../data/licenses"
+import { TEST_LICENSE, TEST_LICENSED_ACCOUNT, TEST_UNLICENSED_ORDER } from "../data/licenses"
+import { TEST_POLAR } from "../data/polar-settings"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
 import { expect, test } from "../fixtures/auth"
 import type { BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
-const [, customer] = TEST_ACCOUNTS
+const [admin, customer] = TEST_ACCOUNTS
 const BROWSER_TIMEZONE = "Asia/Tokyo"
 
 const openSettings = async (page: Page, appPage: BasePage): Promise<void> => {
@@ -81,6 +85,36 @@ test("customer opens the licence from the mobile app sidebar and signing out pro
   await expect(page).toHaveURL(`/auth/sign-in?redirect=${encodeURIComponent("/app/license")}`)
   await appPage.waitForAppReady()
   await expect(authPage.signInSubmitButton()).toBeEnabled()
+  expect(errors).toEqual([])
+})
+
+test("admin finds a paid licence order without a licence on the dashboard, linked to the order in Polar", async ({
+  appPage,
+  authPage,
+  page,
+}) => {
+  const errors: string[] = []
+  page.on("pageerror", (error) => errors.push(error.message))
+  await authPage.signIn(admin.email)
+  await expect(page).toHaveURL(/\/admin\/?$/u)
+  await appPage.waitForAppReady()
+
+  const heading = page.getByRole("heading", { level: 2, name: "Paid orders without a licence", exact: true })
+  const panel = page.locator("[data-slot=card]").filter({ has: heading })
+  const orderLink = page.getByRole("link", { name: `Open order ${TEST_UNLICENSED_ORDER.id} in Polar`, exact: true })
+  const link = panel.locator(orderLink)
+  await expect(link).toHaveAttribute(
+    "href",
+    `https://${POLAR_DASHBOARD_HOSTS[TEST_POLAR.POLAR_SERVER]}/dashboard/${POLAR_ORGANIZATION_SLUG}/sales/${TEST_UNLICENSED_ORDER.id}`,
+  )
+  await expect(link).toHaveAttribute("target", "_blank")
+  const row = panel.getByRole("row").filter({ has: orderLink })
+  await expect(row).toContainText(TEST_UNLICENSED_ORDER.customerId)
+  await expect(row).toContainText(
+    new Intl.NumberFormat(I18N.DEFAULT_LOCALE, { currency: DEFAULT_CURRENCY_CODE, style: "currency" }).format(
+      TIER_PRICES[TEST_UNLICENSED_ORDER.tier],
+    ),
+  )
   expect(errors).toEqual([])
 })
 

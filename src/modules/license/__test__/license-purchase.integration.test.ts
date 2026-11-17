@@ -53,6 +53,7 @@ import { user } from "~/src/modules/user/user.schema"
 
 import { TIER_PRICES } from "~/src/data/marketing"
 
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const STALE_SIGNATURE_MS = 600_000
@@ -408,7 +409,7 @@ describe("Polar webhook delivery order", () => {
     expect(await currentLicense(buyer)).toMatchObject({ polarOrderId: newer.id, tier: LICENSE_TIER.AGENCY })
   })
 
-  it("acknowledges every event for an account deleted after its purchase, and logs a new paid order", async () => {
+  it("acknowledges every event for an account deleted after its purchase, and logs and reports a new paid order", async () => {
     const { buyer, grant, order } = await buyLicense()
     const later = createPolarOrder({ externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.AGENCY] })
     await db.delete(user).where(eq(user.id, buyer.userId))
@@ -421,7 +422,8 @@ describe("Polar webhook delivery order", () => {
     ]
 
     expect(statuses).toStrictEqual([HTTP_STATUS.OK, HTTP_STATUS.OK, HTTP_STATUS.OK])
-    expect(consoleError).toHaveBeenCalledWith(`[license] order ${later.id} does not map to a known account and tier`)
+    expect(consoleError).toHaveBeenCalledWith(`[license] paid order ${later.id} maps to no account`)
+    expect(getSentEmails(CONTACT_EMAIL).map(({ subject }) => subject)).toStrictEqual(["Paid Agency order without a licence"])
   })
 })
 

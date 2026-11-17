@@ -23,6 +23,7 @@ import { Route as TermsRoute } from "~/src/routes/_site._marketing.terms"
 
 import { AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { BLOG_TAG } from "~/src/data/blog"
+import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { starCountQuery } from "~/src/lib/github"
@@ -50,6 +51,7 @@ const messages = getTestMessages("en-US")
 const TERMS_VALUES: Record<string, number | string> = {
   commission: AFFILIATE_TERMS.COMMISSION_PERCENT,
   cookieDays: AFFILIATE_TERMS.COOKIE_DAYS,
+  days: REFUND_TERMS.WITHDRAWAL_DAYS,
   email: CONTACT_EMAIL,
   holdDays: AFFILIATE_TERMS.HOLD_DAYS,
   minimumPayout: new Intl.NumberFormat("en-US", {

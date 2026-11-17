@@ -15,8 +15,6 @@ import { LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { resolveViewer } from "~/src/modules/lesson/lesson.viewer"
 
-const SINGLE_ROW_LIMIT = 1
-
 export const saveLessonProgress = createServerFn({ method: "POST" })
   .middleware([authorized()])
   .validator((input: LessonProgress["saveLessonProgress"]) => lessonProgressZodSchemas.saveLessonProgress.parse(input))
@@ -25,7 +23,7 @@ export const saveLessonProgress = createServerFn({ method: "POST" })
       .select({ access: lesson.access })
       .from(lesson)
       .where(and(eq(lesson.id, lessonId), eq(lesson.status, LESSON_STATUS.PUBLISHED)))
-      .limit(SINGLE_ROW_LIMIT)
+      .limit(1)
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

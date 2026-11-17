@@ -13,8 +13,6 @@ import { MobileMenu } from "~/src/presentation/components/custom/mobile-menu"
 
 import { ROUTES } from "~/src/routes"
 
-const MAX_PROGRESS = 1
-
 const observeProgress = (element: HTMLDivElement | null): (() => void) | undefined => {
   if (!element || CSS.supports("animation-timeline: scroll(root)")) {
     return
@@ -24,7 +22,7 @@ const observeProgress = (element: HTMLDivElement | null): (() => void) | undefin
 
   const updateProgress = (): void => {
     const scrollableHeight = contentHeight - globalThis.innerHeight
-    const progress = scrollableHeight > 0 ? Math.max(0, Math.min(MAX_PROGRESS, globalThis.scrollY / scrollableHeight)) : 0
+    const progress = scrollableHeight > 0 ? Math.max(0, Math.min(1, globalThis.scrollY / scrollableHeight)) : 0
     element.style.transform = `scaleX(${progress})`
   }
 

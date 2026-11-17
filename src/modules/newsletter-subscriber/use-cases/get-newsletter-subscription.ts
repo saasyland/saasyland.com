@@ -8,8 +8,6 @@ import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { NEWSLETTER_STATUS, NEWSLETTER_SUBSCRIBER_QUERY_KEYS } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { newsletterSubscriber } from "~/src/modules/newsletter-subscriber/newsletter-subscriber.schema"
 
-const SINGLE_ROW = 1
-
 export const getNewsletterSubscription = createServerFn({ method: "GET" })
   .middleware([authorized()])
   .handler(async ({ context }) => {
@@ -19,7 +17,7 @@ export const getNewsletterSubscription = createServerFn({ method: "GET" })
       .select({ status: newsletterSubscriber.status })
       .from(newsletterSubscriber)
       .where(eq(newsletterSubscriber.email, address))
-      .limit(SINGLE_ROW)
+      .limit(1)
 
     return { isSubscribed: row?.status === NEWSLETTER_STATUS.SUBSCRIBED }
   })

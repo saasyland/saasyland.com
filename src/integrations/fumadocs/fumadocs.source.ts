@@ -12,7 +12,6 @@ import { formatPostText } from "~/src/lib/post-text"
 import { ROUTES } from "~/src/routes"
 
 const WORDS_PER_MINUTE = 220
-const SHORTEST_READ_MINUTES = 1
 
 export const source = loader({
   baseUrl: ROUTES.DOCS,
@@ -35,7 +34,7 @@ const readingTimeMinutes = (page: BlogPost, locale: SupportedLocale): number => 
     .flatMap(({ content }) => [...segmenter.segment(content)])
     .filter((segment) => segment.isWordLike === true)
 
-  return Math.max(SHORTEST_READ_MINUTES, Math.round(words.length / WORDS_PER_MINUTE))
+  return Math.max(1, Math.round(words.length / WORDS_PER_MINUTE))
 }
 
 export const toBlogPostSummary = (page: BlogPost, locale: SupportedLocale) => ({

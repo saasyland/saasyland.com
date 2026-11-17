@@ -57,9 +57,8 @@ export const ADMIN_ANALYTICS_REVENUE_BARS: readonly AdminAnalyticsRevenueBar[] =
 
 const AXIS_MAX = 4000
 const AXIS_STEP = 1000
-const ZERO_TICK = 1
 
 export const ADMIN_ANALYTICS_Y_AXIS_VALUES = Array.from(
-  { length: AXIS_MAX / AXIS_STEP + ZERO_TICK },
+  { length: AXIS_MAX / AXIS_STEP + 1 },
   (_unused, index) => AXIS_MAX - index * AXIS_STEP,
 )

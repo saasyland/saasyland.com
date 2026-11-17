@@ -69,6 +69,10 @@ export const BUNDLE_ARCHIVE_EXTENSION = ".json.gz"
 
 export const BUNDLE_CONTENT_TYPE = "application/gzip"
 
+export const BUNDLE_METADATA = {
+  SHA256: "sha256",
+} as const
+
 export const LICENSE_QUERY_KEYS = {
   ACTIVATIONS: ["license", "activations"],
   ALL: ["license"],

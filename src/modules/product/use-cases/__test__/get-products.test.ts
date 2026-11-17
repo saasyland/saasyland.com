@@ -18,7 +18,6 @@ import { product } from "~/src/modules/product/product.schema"
 import { getProductsPageQuery, getProductsQuery } from "~/src/modules/product/use-cases/get-products"
 
 const HEADERS = new Headers()
-const SINGLE_CALL = 1
 const USER_ID = "01900000-0000-7000-8000-000000000001"
 
 type AuthApi = typeof auth.api
@@ -68,7 +67,7 @@ describe("list-products", () => {
     ])
     expect(result.total).toBe(12)
 
-    expect(getSessionMock).toHaveBeenCalledTimes(SINGLE_CALL)
+    expect(getSessionMock).toHaveBeenCalledTimes(1)
   })
 
   it("rejects when the caller is not an admin", async () => {

@@ -7,8 +7,6 @@ import { cn } from "~/src/lib/cn"
 import { Label } from "~/src/presentation/components/shadcn/label"
 import { Separator } from "~/src/presentation/components/shadcn/separator"
 
-const SINGLE_ERROR_COUNT = 1
-
 const hasRenderableNode = (node: ReactNode): boolean => {
   if (node === undefined || node === null || node === false || node === true) {
     return false
@@ -156,7 +154,7 @@ const FieldError = ({
 
     const uniqueErrors = [...new Map(errors.map((error) => [error?.message, error])).values()]
 
-    if (uniqueErrors.length === SINGLE_ERROR_COUNT) {
+    if (uniqueErrors.length === 1) {
       return uniqueErrors[0]?.message
     }
 

@@ -23,8 +23,6 @@ import {
 import { cn } from "~/src/lib/cn"
 
 const DROPDOWN_MENU_OFFSET = 4
-const DROPDOWN_MENU_CROSS_OFFSET = 0
-const DROPDOWN_MENU_SUB_OFFSET = 0
 const DROPDOWN_MENU_SUB_CROSS_OFFSET = -3
 
 const DropdownMenuTrigger = ({ ...props }: Readonly<MenuTriggerProps>) => (
@@ -35,7 +33,7 @@ const DropdownMenu = ({
   "data-slot": dataSlot = "dropdown-menu-content",
   children,
   className,
-  crossOffset = DROPDOWN_MENU_CROSS_OFFSET,
+  crossOffset = 0,
   offset = DROPDOWN_MENU_OFFSET,
   placement = "bottom start",
   ...props
@@ -175,7 +173,7 @@ const DropdownMenuSubTrigger = ({
 const DropdownMenuSubContent = ({
   className,
   crossOffset = DROPDOWN_MENU_SUB_CROSS_OFFSET,
-  offset = DROPDOWN_MENU_SUB_OFFSET,
+  offset = 0,
   placement = "end top",
   ...props
 }: ComponentProps<typeof DropdownMenu>) => (

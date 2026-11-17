@@ -91,6 +91,19 @@ Wenn du eine Seite hinzufügst, ergänze ihr Skeleton in der Pending-Datei des B
 - ein `rewrite`, das das Locale-Präfix aus eingehenden URLs entfernt und es in generierten Links wieder hinzufügt
 - die SSR-Query-Integration über `setupRouterSsrQueryIntegration`
 
+## Nach einem Deployment [#after-a-deploy]
+
+Jedes Deployment ersetzt die statischen Assets des Workers, und Vite benennt jede Datei nach ihrem Inhalt, sodass ein Tab, der vor einem Deployment geöffnet wurde, Routen-Chunks anfordert, die es nicht mehr gibt. TanStack Start legt die Komponente und den Loader jeder Route in eigene Chunks. TanStack Router lädt die Seite neu, wenn der Chunk einer Komponente nicht geladen werden kann (`lazyRouteComponent`), aber router-core lädt den Chunk eines Loaders mit `lazyFn`, das den fehlgeschlagenen Import als Fehler des Loaders an die Route weitergibt. Ein Klick auf **Blog** in einem solchen Tab scheiterte am Loader-Chunk des Blog-Layouts und zeigte die Fehlerseite.
+
+`DefaultError`, die Standard-Fehlerkomponente des Routers, fängt das jetzt ab. `isStaleBuildError` in `src/lib/stale-build.ts` erkennt einen Fehler, der bedeutet, dass die Seite Code ausführt, den ein neueres Deployment entfernt hat:
+
+- einen fehlgeschlagenen dynamischen Import, den `isModuleNotFoundError` aus router-core in Chromium, Firefox und Safari erkennt;
+- eine Datei, die Vite für einen Chunk nicht vorladen konnte, etwa sein Stylesheet; Vite meldet sie mit einem Event `vite:preloadError`. Die Root-Route hört auf dieses Event, solange die Anwendung geöffnet ist (`listenForPreloadErrors`).
+
+Bei einem solchen Fehler lädt `DefaultError` die Adresse, zu der der Besucher navigiert ist, mit `router.navigate({ href, reloadDocument: true, replace: true })` als neue Seite, sodass er auf der angeklickten Seite landet, ausgeliefert vom neuen Deployment; bis der Browser die Seite verlässt, rendert die Komponente statt der Fehlermeldung ein leeres, als beschäftigt markiertes `main`. `claimReload` erlaubt ein solches Neuladen pro Ziel und Build. Es speichert das Ziel in `sessionStorage` zusammen mit der URL des Entry-Skripts der Seite, die sich mit jedem Deployment ändert, das eine vom Browser geladene Datei ändert, weil jeder Chunk vom Entry aus über seinen inhaltsbasierten Namen erreicht wird. Ein zweiter Fehler für dasselbe Ziel im selben Build zeigt die Fehlerseite, sodass eine Datei, die wirklich fehlt, die Seite nicht endlos neu laden lässt, und das nächste Deployment bekommt ein eigenes Neuladen. Verweigert der Browser den Session Storage, wird nichts neu geladen.
+
+Ein fehlgeschlagenes Preload beansprucht nichts. Fährt ein Besucher mit dem Zeiger über einen Link, lädt der Router dessen Route vor; schlägt das fehl, rendert keine Fehlerkomponente, und der Router lädt den Chunk beim Klick erneut. `e2e/specs/stale-build.spec.ts` entfernt die Chunks des Blogs aus einer geöffneten Seite und prüft, dass ein Klick, auch nach einem fehlgeschlagenen Preload beim Überfahren, nach einem Neuladen auf dem Blog landet und dass eine Seite, deren Chunks weiter fehlen, nach zwei Neuladevorgängen die Fehlerseite zeigt, einem durch `DefaultError` und einem durch `lazyRouteComponent`.
+
 ## Verwandte Seiten
 
 - [Request-Lebenszyklus](/docs/architecture/request-lifecycle)

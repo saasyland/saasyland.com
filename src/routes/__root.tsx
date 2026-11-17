@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { type ReactNode, useEffect } from "react"
 
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext, useRouter } from "@tanstack/react-router"
 import { ThemeScript } from "@wrksz/themes/script"
@@ -18,6 +18,7 @@ import { ROOT_COMPONENTS } from "~/src/data/root"
 import { THEME } from "~/src/presentation/theme"
 
 import { ROBOTS, toOpenGraphLocale } from "~/src/lib/seo"
+import { listenForPreloadErrors } from "~/src/lib/stale-build"
 
 import { Toaster } from "~/src/presentation/components/shadcn/sonner"
 
@@ -26,18 +27,22 @@ import { OfflineBanner } from "~/src/presentation/components/custom/offline-bann
 import { DOCUMENT_STYLESHEET, fontPreloads } from "~/src/presentation/document-assets"
 import type { RouterContext } from "~/src/router"
 
-const RootComponent = () => (
-  <AriaProvider>
-    <OfflineBanner />
-    {ROOT_COMPONENTS.map(({ component: Component, key }) => (
-      <Component key={key} />
-    ))}
-    <Outlet />
-    <ThemeProvider>
-      <Toaster />
-    </ThemeProvider>
-  </AriaProvider>
-)
+const RootComponent = () => {
+  useEffect(listenForPreloadErrors, [])
+
+  return (
+    <AriaProvider>
+      <OfflineBanner />
+      {ROOT_COMPONENTS.map(({ component: Component, key }) => (
+        <Component key={key} />
+      ))}
+      <Outlet />
+      <ThemeProvider>
+        <Toaster />
+      </ThemeProvider>
+    </AriaProvider>
+  )
+}
 
 const RootDocument = ({ children }: Readonly<{ children: ReactNode }>) => {
   const locale = getCurrentLocale()

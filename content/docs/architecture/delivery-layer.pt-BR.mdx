@@ -91,6 +91,19 @@ Ao adicionar uma página, adicione o esqueleto dela ao arquivo de esqueletos da 
 - um `rewrite` que remove o prefixo de locale das URLs recebidas e o adiciona de volta aos links gerados
 - a integração das queries com o SSR por meio de `setupRouterSsrQueryIntegration`
 
+## Depois de um deploy [#after-a-deploy]
+
+Cada deploy substitui os assets estáticos do Worker, e o Vite dá a cada arquivo um nome baseado no conteúdo, então uma aba aberta antes de um deploy pede chunks de rota que não existem mais. O TanStack Start coloca o componente e o loader de cada rota em chunks próprios. O TanStack Router recarrega a página quando o chunk de um componente não carrega (`lazyRouteComponent`), mas o router-core carrega o chunk de um loader com `lazyFn`, que entrega a importação que falhou à rota como erro do loader. Um clique em **Blog** numa aba assim falhava no chunk do loader do layout do blog e mostrava a página de erro.
+
+`DefaultError`, o componente de erro padrão do router, agora se recupera disso. `isStaleBuildError`, em `src/lib/stale-build.ts`, reconhece um erro que indica que a página executa código que um deploy mais recente removeu:
+
+- uma importação dinâmica que falhou, que `isModuleNotFoundError` do router-core reconhece no Chromium, no Firefox e no Safari;
+- um arquivo que o Vite não conseguiu pré-carregar para um chunk, como a folha de estilos dele, que o Vite informa com um evento `vite:preloadError`. A rota raiz escuta esse evento enquanto a aplicação está aberta (`listenForPreloadErrors`).
+
+Diante de um erro assim, `DefaultError` carrega como página nova o endereço para o qual o visitante navegou, com `router.navigate({ href, reloadDocument: true, replace: true })`, então o visitante chega à página em que clicou, já servida pelo novo deploy; até o navegador sair da página, o componente mostra um `main` vazio e marcado como ocupado no lugar da mensagem de erro. `claimReload` permite uma recarga dessas por destino e build. Ele grava o destino em `sessionStorage` junto com a URL do script de entrada da página, que muda a cada deploy que altera um arquivo carregado pelo navegador, porque cada chunk é alcançado a partir da entrada pelo nome baseado no conteúdo. Uma segunda falha para o mesmo destino no mesmo build mostra a página de erro, então um arquivo que realmente falta não consegue fazer a página recarregar sem parar, e o próximo deploy ganha uma recarga própria. Quando o navegador recusa o armazenamento de sessão, nada é recarregado.
+
+Um pré-carregamento que falhou não consome nada. Passar o ponteiro sobre um link pré-carrega a rota dele; se isso falhar, nenhum componente de erro aparece, e o router busca o chunk de novo quando o visitante clica. `e2e/specs/stale-build.spec.ts` tira os chunks do blog de uma página aberta e verifica que um clique, também depois de um pré-carregamento que falhou ao passar o ponteiro, chega ao blog depois de uma recarga, e que uma página cujos chunks continuam faltando mostra a página de erro depois de duas recargas, uma de `DefaultError` e uma de `lazyRouteComponent`.
+
 ## Páginas relacionadas
 
 - [Ciclo de vida da requisição](/docs/architecture/request-lifecycle)

@@ -1,12 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider, createMemoryHistory, createRoute, createRouter } from "@tanstack/react-router"
 import { getRequest } from "@tanstack/react-start/server"
-import { act, render, screen } from "@testing-library/react"
+import { act, cleanup, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 
 import { TranslationsProvider } from "~/src/providers/translations-provider"
 
 import { Route as RootRoute } from "~/src/routes/__root"
+
+import { isStaleBuildError } from "~/src/lib/stale-build"
 
 import sonnerMessages from "~/messages/pl-PL/components.shadcn.sonner.json"
 import { ROUTES } from "~/src/routes"
@@ -54,6 +56,10 @@ const renderRoot = async (): Promise<void> => {
   await act(() => router.load())
 }
 
+const failPreload = (error: Error): void => {
+  globalThis.dispatchEvent(Object.assign(new Event("vite:preloadError"), { payload: error }))
+}
+
 it("mounts the components the areas add to the root beside every page", async () => {
   await renderRoot()
 
@@ -66,4 +72,16 @@ it("names the notifications region in the page's language", async () => {
   await renderRoot()
 
   expect(await screen.findByRole("region", { name: `${sonnerMessages.label} alt+T` })).toBeInTheDocument()
+})
+
+it("remembers the files Vite fails to preload while the application is open", async () => {
+  await renderRoot()
+  const whileOpen = new Error("Unable to preload CSS for http://127.0.0.1:3000/assets/video-player-CQyycmlF.css")
+  failPreload(whileOpen)
+  cleanup()
+  const afterClosing = new Error("Unable to preload CSS for http://127.0.0.1:3000/assets/docs-B1yvD2kQ.css")
+  failPreload(afterClosing)
+
+  expect(isStaleBuildError(whileOpen)).toBe(true)
+  expect(isStaleBuildError(afterClosing)).toBe(false)
 })

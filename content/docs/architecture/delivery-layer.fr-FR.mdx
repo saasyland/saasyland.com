@@ -91,6 +91,19 @@ Quand vous ajoutez une page, ajoutez son squelette au fichier de squelettes de l
 - un `rewrite` qui retire le préfixe de locale des URL entrantes et le rajoute aux liens générés
 - l'intégration SSR des queries via `setupRouterSsrQueryIntegration`
 
+## Après un déploiement [#after-a-deploy]
+
+Chaque déploiement remplace les assets statiques du Worker, et Vite nomme chaque fichier d'après son contenu : un onglet ouvert avant un déploiement demande donc des chunks de route qui n'existent plus. TanStack Start place le composant et le loader de chaque route dans des chunks distincts. TanStack Router recharge la page quand le chunk d'un composant ne se charge pas (`lazyRouteComponent`), mais router-core charge le chunk d'un loader avec `lazyFn`, qui transmet l'import échoué à la route comme erreur de son loader. Un clic sur **Blog** dans un tel onglet échouait sur le chunk du loader du layout du blog et affichait la page d'erreur.
+
+`DefaultError`, le composant d'erreur par défaut du routeur, s'en remet désormais. `isStaleBuildError` dans `src/lib/stale-build.ts` reconnaît une erreur qui signifie que la page exécute du code qu'un déploiement plus récent a supprimé :
+
+- un import dynamique échoué, que `isModuleNotFoundError` de router-core reconnaît dans Chromium, Firefox et Safari ;
+- un fichier que Vite n'a pas pu précharger pour un chunk, comme sa feuille de style, que Vite signale par un événement `vite:preloadError`. La route racine écoute cet événement tant que l'application est ouverte (`listenForPreloadErrors`).
+
+Pour une telle erreur, `DefaultError` charge comme une nouvelle page l'adresse vers laquelle le visiteur a navigué, avec `router.navigate({ href, reloadDocument: true, replace: true })` : le visiteur arrive ainsi sur la page qu'il a cliquée, servie par le nouveau déploiement. Jusqu'à ce que le navigateur quitte la page, le composant affiche un `main` vide et marqué comme occupé au lieu du message d'erreur. `claimReload` autorise un seul rechargement de ce type par destination et par build. Il enregistre la destination dans `sessionStorage` avec l'URL du script d'entrée de la page, qui change à chaque déploiement modifiant un fichier que charge le navigateur, car chaque chunk est atteint depuis l'entrée par son nom dérivé du contenu. Un second échec pour la même destination dans le même build affiche la page d'erreur : un fichier réellement manquant ne peut donc pas faire recharger la page sans fin, et le déploiement suivant obtient son propre rechargement. Si le navigateur refuse le stockage de session, rien n'est rechargé.
+
+Un préchargement échoué ne consomme rien. Le survol d'un lien précharge sa route ; si cela échoue, aucun composant d'erreur ne s'affiche, et le routeur redemande le chunk lors du clic. `e2e/specs/stale-build.spec.ts` retire les chunks du blog d'une page ouverte et vérifie qu'un clic, y compris après un survol dont le préchargement a échoué, arrive sur le blog après un rechargement, et qu'une page dont les chunks manquent toujours affiche la page d'erreur après deux rechargements, l'un par `DefaultError` et l'autre par `lazyRouteComponent`.
+
 ## Pages associées
 
 - [Cycle de vie d'une requête](/docs/architecture/request-lifecycle)

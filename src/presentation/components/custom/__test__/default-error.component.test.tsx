@@ -1,12 +1,14 @@
 import { QueryClient, queryOptions, useSuspenseQuery } from "@tanstack/react-query"
 import { Link, Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
-import { render, screen } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl/react"
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from "vite-plus/test"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
+
+import { claimReload, listenForPreloadErrors } from "~/src/lib/stale-build"
 
 import { DefaultError } from "~/src/presentation/components/custom/default-error"
 
@@ -55,8 +57,49 @@ const renderFailure = (failure: "root" | "loader" | "render") => {
   return { error, load, log }
 }
 
+const DESTINATION = "/blog"
+
+const MISSING_CHUNK = new TypeError(
+  "Failed to fetch dynamically imported module: http://localhost:3000/assets/_site._marketing.blog-BLaFCBnh.js",
+)
+
+const MISSING_STYLESHEET = new Error("Unable to preload CSS for http://localhost:3000/assets/video-player-CQyycmlF.css")
+
+const RELOAD = { href: DESTINATION, ignoreBlocker: true, reloadDocument: true, replace: true }
+
+const renderStaleBuild = (error: Error) => {
+  const root = createRootRoute({ component: Outlet })
+  const home = createRoute({ component: () => <p>Home content</p>, getParentRoute: () => root, path: "/" })
+  const blog = createRoute({
+    component: () => <p>Blog content</p>,
+    getParentRoute: () => root,
+    loader: () => Promise.reject(error),
+    path: DESTINATION,
+  })
+  const router = createRouter({
+    defaultErrorComponent: DefaultError,
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+    routeTree: root.addChildren([home, blog]),
+  })
+  const navigate = vi.spyOn(router, "navigate").mockResolvedValue()
+  vi.spyOn(console, "error").mockImplementation(() => {})
+  render(
+    <IntlProvider locale="en-US" messages={getTestMessages("en-US")}>
+      <RouterProvider router={router} />
+    </IntlProvider>,
+  )
+  return { navigate, router }
+}
+
+const failPreload = (error: Error): void => {
+  globalThis.dispatchEvent(Object.assign(new Event("vite:preloadError"), { payload: error }))
+}
+
 beforeEach(() => vi.spyOn(globalThis, "scrollTo").mockImplementation(() => {}))
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  sessionStorage.clear()
+})
 
 it.each(["root", "loader", "render"] as const)(
   "retries a %s failure through the router without exposing private details",
@@ -84,4 +127,53 @@ it("retries a failed query when returning through navigation without pressing re
   await userEvent.click(screen.getByRole("link", { name: "Data" }))
   expect(await screen.findByText("Recovered data")).toBeVisible()
   expect(load).toHaveBeenCalledTimes(2)
+})
+
+it.each([
+  ["its code", MISSING_CHUNK],
+  ["a stylesheet Vite preloads for it", MISSING_STYLESHEET],
+])("loads the destination as a new page when a newer deploy removed %s", async (_, error) => {
+  onTestFinished(listenForPreloadErrors())
+  failPreload(MISSING_STYLESHEET)
+  const { navigate, router } = renderStaleBuild(error)
+  expect(await screen.findByText("Home content")).toBeVisible()
+
+  act(() => {
+    router.history.push(DESTINATION)
+  })
+
+  await waitFor(() => {
+    expect(navigate).toHaveBeenCalledWith(RELOAD)
+  })
+  expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "true")
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+})
+
+it("shows the error page when the destination's code is still missing after its reload", async () => {
+  claimReload(DESTINATION)
+  const { navigate, router } = renderStaleBuild(MISSING_CHUNK)
+  expect(await screen.findByText("Home content")).toBeVisible()
+
+  act(() => {
+    router.history.push(DESTINATION)
+  })
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong")
+  expect(navigate).not.toHaveBeenCalled()
+})
+
+it("keeps the reload for the navigation when a preload of the destination failed first", async () => {
+  const { navigate, router } = renderStaleBuild(MISSING_CHUNK)
+  expect(await screen.findByText("Home content")).toBeVisible()
+
+  await act(() => router.preloadRoute({ to: DESTINATION }))
+  expect(navigate).not.toHaveBeenCalled()
+  expect(screen.getByText("Home content")).toBeVisible()
+  act(() => {
+    router.history.push(DESTINATION)
+  })
+
+  await waitFor(() => {
+    expect(navigate).toHaveBeenCalledWith(RELOAD)
+  })
 })

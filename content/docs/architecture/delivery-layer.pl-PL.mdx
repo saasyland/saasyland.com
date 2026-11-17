@@ -91,6 +91,19 @@ Gdy dodajesz stronę, dodaj jej szkielet do pliku szkieletów obszaru, zarejestr
 - `rewrite`, który usuwa prefiks locale z przychodzących URL-i i dodaje go z powrotem do generowanych linków
 - integrację zapytań z SSR przez `setupRouterSsrQueryIntegration`
 
+## Po wdrożeniu [#after-a-deploy]
+
+Każde wdrożenie zastępuje statyczne zasoby Workera, a Vite nazywa każdy plik według jego zawartości, więc karta otwarta przed wdrożeniem prosi o chunki tras, których już nie ma. TanStack Start umieszcza komponent i loader każdej trasy w osobnych chunkach. TanStack Router przeładowuje stronę, gdy nie uda się załadować chunka komponentu (`lazyRouteComponent`), ale chunk loadera router-core ładuje przez `lazyFn`, które przekazuje nieudany import trasie jako błąd jej loadera. Kliknięcie **Blog** w takiej karcie kończyło się błędem na chunku loadera layoutu bloga i stroną błędu.
+
+`DefaultError`, domyślny komponent błędu routera, radzi sobie teraz z tą sytuacją. `isStaleBuildError` w `src/lib/stale-build.ts` rozpoznaje błąd, który oznacza, że strona wykonuje kod usunięty przez nowsze wdrożenie:
+
+- nieudany import dynamiczny, który `isModuleNotFoundError` z router-core rozpoznaje w Chromium, Firefoksie i Safari;
+- plik, którego Vite nie zdołał wstępnie załadować dla chunka, na przykład jego arkusz stylów; Vite zgłasza go zdarzeniem `vite:preloadError`. Trasa główna nasłuchuje tego zdarzenia, dopóki aplikacja jest otwarta (`listenForPreloadErrors`).
+
+Przy takim błędzie `DefaultError` ładuje adres, do którego przeszedł odwiedzający, jako nową stronę przez `router.navigate({ href, reloadDocument: true, replace: true })`, więc odwiedzający trafia na klikniętą stronę, już z nowego wdrożenia; dopóki przeglądarka nie opuści strony, komponent zamiast komunikatu o błędzie renderuje pusty `main` oznaczony jako zajęty. `claimReload` pozwala na jedno takie przeładowanie dla każdego celu i builda. Zapisuje cel w `sessionStorage` razem z URL-em skryptu wejściowego strony, który zmienia się przy każdym wdrożeniu zmieniającym plik ładowany przez przeglądarkę, bo do każdego chunka prowadzi droga od skryptu wejściowego przez jego nazwę opartą na zawartości. Drugi błąd dla tego samego celu w tym samym buildzie pokazuje stronę błędu, więc plik, którego naprawdę brakuje, nie może przeładowywać strony bez końca, a następne wdrożenie dostaje własne przeładowanie. Gdy przeglądarka odmawia dostępu do pamięci sesji, nic się nie przeładowuje.
+
+Nieudane wstępne ładowanie niczego nie zużywa. Najechanie kursorem na link wstępnie ładuje jego trasę; gdy to się nie uda, nie renderuje się żaden komponent błędu, a router pobiera chunk ponownie, gdy odwiedzający kliknie. `e2e/specs/stale-build.spec.ts` usuwa chunki bloga z otwartej strony i sprawdza, że kliknięcie, także po nieudanym wstępnym ładowaniu przy najechaniu, trafia na bloga po jednym przeładowaniu, a strona, której chunków nadal brakuje, pokazuje stronę błędu po dwóch przeładowaniach, jednym przez `DefaultError` i jednym przez `lazyRouteComponent`.
+
 ## Powiązane strony
 
 - [Cykl życia żądania](/docs/architecture/request-lifecycle)

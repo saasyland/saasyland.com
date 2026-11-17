@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
+import { COURSE_PLATFORM_VALUES } from "~/src/data/marketing"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -54,7 +55,7 @@ export const FaqSection = (): JSX.Element => {
                   </span>
                 </AccordionTrigger>
                 <AccordionContent className="max-w-[68ch] pr-8 pb-6 text-body text-pretty text-muted-foreground">
-                  {t(`items.${id}.answer`, { ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}
+                  {t(`items.${id}.answer`, { ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES, ...COURSE_PLATFORM_VALUES })}
                 </AccordionContent>
               </AccordionItem>
             ))}

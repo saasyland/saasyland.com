@@ -76,7 +76,7 @@ import {
 } from "~/src/data/cli"
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
-import { CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE } from "~/src/data/marketing"
+import { ANGULARPROJECTS_ACCESS, CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
 import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -111,6 +111,7 @@ const FACTS = {
   affiliatePortalUrl: AFFILIATE_PORTAL_URL,
   affiliateProgram: AFFILIATE_PROGRAM,
   affonsoReferralParams: AFFONSO.REFERRAL_PARAMS,
+  angularprojectsAccess: ANGULARPROJECTS_ACCESS,
   audioBitrate: AUDIO_BITRATE,
   audioSampleRate: AUDIO_SAMPLE_RATE,
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
@@ -172,6 +173,7 @@ const FACTS = {
   queryGcTimeMinutes: QUERY_GC_TIME_MS / MILLISECONDS_PER_MINUTE,
   queryStaleTimeMinutes: QUERY_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   rateLimitWindowSeconds: RATE_LIMIT_WINDOW_SECONDS,
+  reactprojectsAccess: REACTPROJECTS_ACCESS,
   recipientEmailsPerHour: RECIPIENT_EMAILS_PER_HOUR,
   refundWithdrawalDays: REFUND_TERMS.WITHDRAWAL_DAYS,
   regionalDiscountsRefreshMinutes: REGIONAL_DISCOUNTS_REFRESH_AFTER_MS / MILLISECONDS_PER_MINUTE,

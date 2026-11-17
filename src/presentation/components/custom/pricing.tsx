@@ -10,7 +10,7 @@ import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIER, LICENSE_TIERS, type LicenseTie
 import { PPP_COOKIE, PPP_DECLINED, PPP_KEYS, PPP_PERCENT } from "~/src/modules/license/license.pricing"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
-import { REACTPROJECTS_FACTS, TIER_FEATURES, TIER_PRICES } from "~/src/data/marketing"
+import { COURSE_PLATFORM_VALUES, TIER_FEATURES, TIER_PRICES } from "~/src/data/marketing"
 import { FEATURE_STATUS, FEATURE_STATUSES, type FeatureStatus } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -54,7 +54,7 @@ const storeRegionalChoice = (isSelected: boolean): void => {
   })
 }
 
-const FEATURE_VALUES = { coverageThreshold: REPOSITORY_FACTS.coverageThreshold, ...REACTPROJECTS_FACTS }
+const FEATURE_VALUES = { coverageThreshold: REPOSITORY_FACTS.coverageThreshold, ...COURSE_PLATFORM_VALUES }
 
 const FEATURE_ICONS = { [FEATURE_STATUS.ARRIVING]: CircleDashed, [FEATURE_STATUS.AVAILABLE]: Check } as const
 

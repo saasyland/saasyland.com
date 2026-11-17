@@ -1,6 +1,6 @@
 ---
 title: "Desempenho"
-description: "As regras medidas que mantêm as páginas rápidas: um grafo de inicialização do Worker pequeno, nenhum ORM no navegador, mensagens carregadas sob demanda, hints de preload removidos, o posicionamento dos providers, um único build do Tailwind, o dimensionamento das mídias e o padrão de revelação."
+description: "As regras medidas que mantêm as páginas rápidas: um grafo de inicialização do Worker pequeno, uma árvore de rotas leve, nenhum ORM no navegador, mensagens carregadas sob demanda, hints de preload removidos, o posicionamento dos providers, esqueletos que aparecem cedo, um único build do Tailwind, o dimensionamento das mídias e o padrão de revelação."
 ---
 
 Cada regra desta página veio de uma medição, e várias substituíram uma correção intuitiva que piorava as coisas. Altere o código por trás de uma delas apenas com uma nova medição que a supere.
@@ -25,6 +25,39 @@ const { serveMedia } = await import("~/src/modules/video/video.delivery")
 ```
 
 Um único import estático do nome de um cabeçalho, vindo de um módulo que também importava o cliente do Polar, já colocou cerca de 1,4 MB de SDK em todo cold start, e o primeiro byte da landing page chegou a levar 1,4 segundo. É por isso que `COUNTRY_HEADER` e `IP_ADDRESS_HEADER` ficam em `src/modules/_core/constants/api.ts`, que não importa nada pesado. Antes de adicionar um import estático a `server.ts` ou a um `<area>.worker.ts`, siga a sua cadeia de imports: qualquer coisa que chegue a `polar`, `drizzle-orm` ou `resend` é uma regressão. `scripts/verify-build.ts` verifica isso em todo build: segue os imports estáticos da entrada do Worker que vai para o deploy, `dist/server/index.js`, e falha quando eles chegam a código de `@polar-sh`, `drizzle-orm` ou `resend` incluído no bundle, ou quando somam mais que `BOOT_CLOSURE_MAX_BYTES`.
+
+## Mantenha leve a árvore de rotas [#keep-the-route-tree-light]
+
+O Worker entrega ao TanStack Start toda requisição que não é nem uma página pré-renderizada nem um arquivo estático, e o Start carrega a árvore de rotas antes de fazer qualquer outra coisa, tanto para uma chamada de função de servidor quanto para uma página que renderiza: `src/routeTree.gen.ts` e todos os módulos que os arquivos de rota importam estaticamente, incluindo os handlers de rotas de servidor como `/api/search`. Um isolate do Worker a avalia na primeira requisição desse tipo, e uma função de servidor carrega o próprio chunk na primeira chamada. As duas coisas acontecem enquanto um visitante espera por uma navegação no cliente, então tudo o que elas importam faz parte da espera em um isolate novo.
+
+As coleções da documentação e do blog eram carregadas de antemão: `.source/server.ts` importava o MDX compilado de todas as páginas da documentação e de todos os posts do blog em todos os idiomas, 1.305 módulos com os títulos e o texto de busca de cada página, e o plugin de ícones Lucide acrescentava o conjunto inteiro de ícones para os poucos ícones que os arquivos meta da documentação nomeiam. O layout da documentação, as páginas da documentação, a landing page e o blog liam essa fonte pelas suas funções de servidor, e `/api/search` a importava estaticamente, o que a colocava na árvore de rotas. Em saasyland.com, uma navegação no cliente de `/` para `/docs` esperava cerca de 1,3 segundo pelas suas duas funções de servidor em um isolate novo, e cerca de 25 ms em um isolate já aquecido; a landing page e o blog pagavam o mesmo na sua primeira navegação.
+
+- `fumadocs.config.ts` torna as duas coleções `async`. A fonte guarda o frontmatter de cada página, e `page.data.load()` importa o MDX compilado de uma página quando uma requisição precisa dos títulos ou do texto de busca dela. A árvore de páginas e `getDocsPage` leem apenas o frontmatter; a landing page carrega os posts que mostra, o índice do blog, os posts de um idioma, um post do blog, apenas ele mesmo, e `/api/search`, todas as páginas na sua primeira requisição.
+- `/api/search` importa `fumadocs.search.ts` no seu handler, então o índice de busca fica fora da árvore de rotas.
+- `fumadocs.icons.ts` importa apenas os ícones que os arquivos meta nomeiam, e `fumadocs.icons.test.ts` falha quando um arquivo meta nomeia um ícone que ele não importa ou quando ele importa um ícone que nenhum arquivo meta nomeia.
+
+Os tamanhos são o que cada parte importa estaticamente no Worker de `bun run build:test`, e os tempos são a mediana de cinco execuções intercaladas em um laptop:
+
+| Medida                                                                              | Antes                    | Depois                   |
+| ----------------------------------------------------------------------------------- | ------------------------ | ------------------------ |
+| Árvore de rotas, que toda requisição ao servidor carrega                            | 1.635 módulos, 21,7 MiB  | 296 módulos, 4,9 MiB     |
+| A árvore de páginas da documentação e `getDocsPage`, cada um com os seus imports    | 1.402 módulos, 16,9 MiB  | 41 módulos, 1,3 MiB      |
+| JavaScript em `dist/server`                                                         | 4.275 arquivos, 28,0 MiB | 2.953 arquivos, 26,8 MiB |
+| Avaliação da árvore de rotas no Node                                                | 554 ms                   | 162 ms                   |
+| Avaliação da fonte do Fumadocs no Node                                              | 375 ms                   | 24 ms                    |
+| Primeira navegação de `/` até o título de `/docs` em um Worker novo de `vp preview` | 260 ms                   | 198 ms                   |
+
+`scripts/verify-build.ts` segue os imports estáticos da árvore de rotas e de cada função de servidor em `dist/server` e faz o build falhar quando eles chegam a uma página compilada da documentação ou do blog. A maior parte do que a árvore de rotas ainda carrega, cerca de 3 MiB, é o Better Auth e os módulos que ele importa, que `/api/auth/$`, o schema dos search params das páginas de autenticação e a API de licenças da CLI importam estaticamente.
+
+## Uma navegação lenta mostra o seu esqueleto na hora [#a-slow-navigation-shows-its-skeleton-at-once]
+
+`src/router.tsx` define `defaultPendingMs` como <RepositoryFact name="navigationPendingMs" unit="millisecond" /> e `defaultPendingMinMs` como <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, a partir de `src/data/navigation.constants.ts`. Com os padrões do TanStack Router, um segundo e meio segundo, uma navegação lenta não mostrava nada além de um novo endereço durante um segundo inteiro: um primeiro clique em **Documentação** em um isolate novo levava cerca de 1,6 segundo e só mostrava o esqueleto da documentação depois de um segundo, ou nem chegava a mostrá-lo, e um clique de uma página da documentação para outra, cujas rotas tinham `pendingMs: Number.POSITIVE_INFINITY`, mantinha a página anterior durante toda a espera.
+
+- Uma navegação que termina dentro desse atraso mantém a página anterior até que a próxima esteja pronta e nunca mostra um esqueleto. Em saasyland.com, uma navegação para uma página que o router tinha pré-carregado no hover ou já tinha carregado terminou de 40 a 115 ms depois do clique. Uma primeira visita a uma seção com o Worker já aquecido, medida localmente com 40 ms de latência por requisição e sem passar o mouse sobre o link, levou de 184 a 314 ms; o atraso fica acima dos dois, então nenhuma delas mostra um esqueleto.
+- Uma navegação que ainda está carregando depois do atraso mostra o esqueleto da sua rota exatamente enquanto continua carregando: `defaultPendingMinMs` é <RepositoryFact name="navigationPendingMinMs" unit="millisecond" />, então o router remove o esqueleto assim que a página fica pronta em vez de segurá-lo na tela.
+- As páginas da documentação têm esqueletos próprios, `DocsIndexPending` e `DocsPagePending`, que preenchem o artigo e o sumário ao lado da barra lateral, então uma navegação lenta entre páginas da documentação mostra a forma da próxima página em vez de deixar a anterior no lugar.
+
+`e2e/specs/content.spec.ts` segura as funções de servidor de uma navegação para `/docs` e de uma navegação entre páginas da documentação e verifica que cada uma mostra o seu esqueleto, e a segunda também a barra lateral, até que elas respondam.
 
 ## Mantenha o ORM fora do navegador [#keep-the-orm-out-of-the-browser]
 

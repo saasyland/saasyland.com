@@ -32,15 +32,14 @@ vi.mock("collections/server", async () => {
   const { createElement } = await import("react")
   const { BLOG_TAG: TAG } = await import("~/src/data/blog")
   const prose = { contents: [{ content: "word ".repeat(1100), heading: undefined }], headings: [] }
-  const post = (slug: string, data: Record<string, unknown>, locale = "en-US") => ({
+  const post = (slug: string, { toc = [], ...data }: Record<string, unknown>, locale = "en-US") => ({
     authorName: "Ada",
     date: "2026-09-01",
     description: "Article summary",
     info: { fullPath: `/content/blog/${slug}.${locale}.mdx`, path: `${slug}.${locale}.mdx` },
+    load: () => Promise.resolve({ structuredData: prose, toc }),
     published: true,
-    structuredData: prose,
     tags: [TAG.TANSTACK_START],
-    toc: [],
     ...data,
   })
   return {

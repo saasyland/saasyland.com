@@ -21,6 +21,10 @@ const DEPLOY_CONFIG_PATH = ".wrangler/deploy/config.json"
 const WORKER_CONFIG_PATH = "dist/server/wrangler.json"
 const SERVER_DIR = "dist/server"
 const WORKER_ENTRY_MODULE = "// src/server.ts"
+const ROUTE_TREE_MODULE = "// src/routeTree.gen.ts"
+const SERVER_FUNCTION_RESOLVER_MODULE = String.raw`// \0%23tanstack-start-server-fn-resolver`
+const SERVER_FUNCTION_IMPORTER = /importer: \(\) => import\("(?<chunk>\.\/[^"]+)"\)/gu
+const COMPILED_CONTENT_MODULE = /^\/\/ content\/.+\.mdx\?collection=[\w-]+$/mu
 const BOOT_CLOSURE_MAX_BYTES = 51_200
 const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^/\n]+|drizzle-orm|resend)\//gmu
 const CLIENT_ENTRY_SCRIPT = /<script\b(?=[^>]*\btype="module")(?=[^>]*\bsrc="\/(?<entry>assets\/[^"]+)")[^>]*>/u
@@ -45,6 +49,7 @@ const deploymentSchema = z.object({ configPath: z.string() })
 const workerConfigSchema = z.object({ name: z.string() })
 const contentPageSchema = z.object({ locale: z.enum(I18N.SUPPORTED_LOCALES), slug: z.string() })
 const frontmatterSchema = z.object({ yaml: z.string() })
+const serverFunctionSchema = z.object({ chunk: z.string() })
 const publicationSchema = z.object({ published: z.boolean().default(true) })
 
 const isPublished = (file: string): boolean => {
@@ -169,17 +174,23 @@ if (eagerMessages.length > 0) {
   )
 }
 
-const workerEntry = globSync("**/*.js", { cwd: SERVER_DIR })
-  .map((file) => resolve(SERVER_DIR, file))
-  .find((file) => readFileSync(file, "utf8").split("\n").includes(WORKER_ENTRY_MODULE))
+const serverChunks = globSync("**/*.js", { cwd: SERVER_DIR }).map((file) => resolve(SERVER_DIR, file))
 
-if (workerEntry === undefined) {
-  throw new Error(`No file in ${SERVER_DIR} holds the Worker entry, src/server.ts`)
+const chunkOf = (module: string): string => {
+  const chunk = serverChunks.find((file) => readFileSync(file, "utf8").split("\n").includes(module))
+
+  if (chunk === undefined) {
+    throw new Error(`No file in ${SERVER_DIR} holds ${module.slice("// ".length)}`)
+  }
+
+  return chunk
 }
 
-const bootClosure = staticClosureOf(workerEntry)
+const bytesOf = (files: string[]): number => files.reduce((total, file) => total + statSync(file).size, 0)
 
-const bootBytes = bootClosure.reduce((total, file) => total + statSync(file).size, 0)
+const bootClosure = staticClosureOf(chunkOf(WORKER_ENTRY_MODULE))
+
+const bootBytes = bytesOf(bootClosure)
 const bootPackages = new Set(
   bootClosure.flatMap((file) =>
     [...readFileSync(file, "utf8").matchAll(BOOT_CLOSURE_FORBIDDEN_MODULE)].map(({ groups }) => groups?.["name"]),
@@ -194,6 +205,28 @@ if (bootBytes > BOOT_CLOSURE_MAX_BYTES) {
   throw new Error(`The Worker loads ${String(bootBytes)} bytes on every cold start, more than BOOT_CLOSURE_MAX_BYTES`)
 }
 
+const routeTree = chunkOf(ROUTE_TREE_MODULE)
+const resolver = chunkOf(SERVER_FUNCTION_RESOLVER_MODULE)
+const serverFunctions = [...readFileSync(resolver, "utf8").matchAll(SERVER_FUNCTION_IMPORTER)].map(({ groups }) =>
+  resolve(dirname(resolver), serverFunctionSchema.parse(groups).chunk),
+)
+
+if (serverFunctions.length === 0) {
+  throw new Error(`${relative(process.cwd(), resolver)} lists no server functions`)
+}
+
+for (const entry of [routeTree, ...serverFunctions]) {
+  const pages = staticClosureOf(entry).filter((file) => COMPILED_CONTENT_MODULE.test(readFileSync(file, "utf8")))
+
+  if (pages.length > 0) {
+    throw new Error(
+      `${relative(process.cwd(), entry)} loads the compiled MDX of ${String(pages.length)} docs and blog pages on its first request; load a page when a request needs it`,
+    )
+  }
+}
+
+const routeTreeBytes = bytesOf(staticClosureOf(routeTree))
+
 process.stdout.write(
-  `Verified the ${environment} Worker deployment config, prerendered locales and content pages, fonts, client assets, an entry script without the page messages, and the ${String(bootBytes)} bytes the Worker loads on a cold start.\n`,
+  `Verified the ${environment} Worker deployment config, prerendered locales and content pages, fonts, client assets, an entry script without the page messages, the ${String(bootBytes)} bytes the Worker loads on a cold start, and the ${String(routeTreeBytes)} bytes of the route tree and the ${String(serverFunctions.length)} server functions, none of which loads a compiled docs or blog page.\n`,
 )

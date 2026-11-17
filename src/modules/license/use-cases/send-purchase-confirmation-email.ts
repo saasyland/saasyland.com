@@ -13,12 +13,12 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import { CURRENCY_CODES, fromMinorUnits } from "~/src/modules/_core/constants/currency"
+import { fromMinorUnits } from "~/src/modules/_core/constants/currency"
 import { localeField } from "~/src/modules/_core/utils/zod-fields"
 import { LICENSE_CHECKOUT_METADATA, type LicenseTier } from "~/src/modules/license/license.constants"
 import { refundDeadline } from "~/src/modules/license/license.refunds"
+import { localizedTierName, orderCurrencySchema } from "~/src/modules/license/license.utils"
 
-import type pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import type purchaseConfirmationMessages from "~/messages/en-US/emails.purchase-confirmation-email.json"
 import {
   PURCHASE_CONFIRMATION_EMAIL_NAMESPACE,
@@ -27,11 +27,7 @@ import {
 } from "~/src/presentation/emails/purchase-confirmation-email"
 import { ROUTES } from "~/src/routes"
 
-const PRICING_NAMESPACE = "components.custom.pricing"
-
 const orderLocaleSchema = zod.object({ [LICENSE_CHECKOUT_METADATA.LOCALE]: localeField })
-
-const orderCurrencySchema = zod.string().toUpperCase().pipe(zod.enum(CURRENCY_CODES))
 
 type PaidOrder = Pick<models.Order, "created_at" | "currency" | "id" | "invoice_number" | "metadata" | "total_amount">
 
@@ -67,11 +63,10 @@ export const sendPurchaseConfirmationEmail = async ({
   const locale = orderLocale(order.metadata)
   const currency = orderCurrencySchema.parse(order.currency)
   const orderedAt = new Date(order.created_at)
-  const [messages, pricing] = await Promise.all([
+  const [messages, tierName] = await Promise.all([
     loadNamespace<typeof purchaseConfirmationMessages>({ locale, namespace: PURCHASE_CONFIRMATION_EMAIL_NAMESPACE }),
-    loadNamespace<typeof pricingMessages>({ locale, namespace: PRICING_NAMESPACE }),
+    localizedTierName(locale, tier),
   ])
-  const tierName = createTranslator({ locale, messages: pricing })(`tiers.${tier}.name`)
 
   await sendEmail({
     idempotency: { purpose: EMAIL_PURPOSE.PURCHASE_CONFIRMATION, token: order.id },

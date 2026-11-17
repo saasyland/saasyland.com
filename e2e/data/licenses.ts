@@ -43,6 +43,13 @@ export const TEST_CLI_LICENSES = Array.from({ length: PARALLEL_WORKERS }, (_, pa
 
 export const TEST_LICENSES = [TEST_LICENSE, ...TEST_CLI_LICENSES]
 
+export const TEST_UNLICENSED_ORDER = {
+  customerId: "cus_test-unlicensed",
+  id: "ord_test-unlicensed",
+  placedAt: "2026-11-16T09:30:00.000Z",
+  tier: LICENSE_TIER.AGENCY,
+} as const
+
 export const TEST_CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
 
 export const TEST_BUNDLE = {

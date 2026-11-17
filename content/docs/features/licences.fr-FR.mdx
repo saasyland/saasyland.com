@@ -1,6 +1,6 @@
 ---
 title: "Licences"
-description: "Paiement Polar des offres de licence avec consentement à la fourniture immédiate, prix régionaux, webhooks qui accordent et révoquent les licences, e-mail de confirmation d’achat et écrans de licence du client."
+description: "Paiement Polar des offres de licence avec consentement à la fourniture immédiate, prix régionaux, webhooks qui accordent et révoquent les licences, e-mail de confirmation d’achat, alerte et liste d’administration pour une commande payée qui ne correspond à aucun compte, et écrans de licence du client."
 ---
 
 La zone des licences vend les offres `core`, `complete` et `agency` comme produits Polar, en s’appuyant sur le plugin et les webhooks de la zone Polar ([Paiements](/docs/features/payments)). `POLAR_PRODUCT_IDS`, dans `src/modules/license/license.utils.ts`, associe les offres à `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` et `POLAR_PRODUCT_ID_AGENCY`, et `licenseTierForProduct` lit l’offre d’un produit dans cette même correspondance. [Configurer Polar](/docs/getting-started/polar-setup) décrit les produits, les clés de licence et les remises dont les offres ont besoin dans Polar.
@@ -45,9 +45,9 @@ Un `checkoutId` qui n’est pas un UUID est ignoré.
 
 ## Webhooks et licences [#webhooks-and-licences]
 
-`src/data/license.polar-events.ts` ajoute la zone des licences aux événements Polar (voir [Paiements](/docs/features/payments#webhooks)) avec les événements listés dans `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`), dont les événements de commande proviennent de `POLAR_WEBHOOK_EVENT`, et son `handle` transmet chaque événement au handler du même nom dans `licenseWebhookHandlers`. `licenseWebhookHandlers` satisfait `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>` : un handler sans son événement, ou un événement sans son handler, ne compile donc pas. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) retrouvent l’utilisateur grâce au `external_id` du client Polar. Un événement d’un client sans compte dans l’application est journalisé quand il en fallait un, puis acquitté, pour que Polar ne le renvoie pas :
+`src/data/license.polar-events.ts` ajoute la zone des licences aux événements Polar (voir [Paiements](/docs/features/payments#webhooks)) avec les événements listés dans `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`), dont les événements de commande proviennent de `POLAR_WEBHOOK_EVENT`, et son `handle` transmet chaque événement au handler du même nom dans `licenseWebhookHandlers`. `licenseWebhookHandlers` satisfait `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>` : un handler sans son événement, ou un événement sans son handler, ne compile donc pas. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) retrouvent l’utilisateur grâce au `external_id` du client Polar. Un événement porte le client tel que Polar l’a enregistré au moment de créer l’événement, et une nouvelle remise envoie cette même copie : lorsque son `external_id` ne désigne aucun compte, `onOrderPaid` et `onBenefitGrantCreated` relisent donc la commande avec `polar.orders.get` et retrouvent son client actuel. Un événement d’un client sans compte dans l’application est journalisé quand il en fallait un, puis acquitté, pour que Polar ne le renvoie pas :
 
-- `onOrderPaid` → `grantLicense` : crée ou met à jour la licence unique de l’utilisateur avec l’offre du produit acheté et le consentement de l’acheteur à la fourniture immédiate (voir [Enregistrements et remboursements](#records-and-refunds)) ; un achat plus récent remplace un achat plus ancien. Ensuite, `sendPurchaseConfirmationEmail` confirme l’achat (voir [Confirmation d’achat](#purchase-confirmation)) ; en cas d’échec, le handler échoue, et Polar remet donc de nouveau l’événement.
+- `onOrderPaid` → `grantLicense` : crée ou met à jour la licence unique de l’utilisateur avec l’offre du produit acheté et le consentement de l’acheteur à la fourniture immédiate (voir [Enregistrements et remboursements](#records-and-refunds)) ; un achat plus récent remplace un achat plus ancien. Ensuite, `sendPurchaseConfirmationEmail` confirme l’achat (voir [Confirmation d’achat](#purchase-confirmation)) ; en cas d’échec, le handler échoue, et Polar remet donc de nouveau l’événement. Une commande d’un produit qui n’est pas une licence est seulement journalisée, et une commande de licence dont le client ne correspond à aucun compte est journalisée et signalée (voir [Commandes qui ne correspondent à aucun compte](#orders-that-match-no-account)).
 - `onBenefitGrantCreated` → `attachLicenseKey` : enregistre la clé de licence Polar sur la licence. Tant que la commande payée n’est pas enregistrée, il échoue pour que Polar le renvoie ; la clé d’une commande remboursée ou d’un produit qui n’est pas une licence est acquittée.
 - `onOrderRefunded` → `revokeLicense` avec le statut `refunded`, seulement une fois la commande remboursée en totalité ; un remboursement partiel conserve la licence.
 - `onBenefitGrantRevoked` → `revokeLicense` avec le statut `revoked`.
@@ -87,7 +87,42 @@ Après `grantLicense`, `onOrderPaid` envoie à l’acheteur la confirmation sur 
 - **Remboursement** : la date limite d’un remboursement intégral avant la première utilisation, `refundDeadline` (`license.refunds.ts`), c’est-à-dire le moment de l’achat plus `REFUND_TERMS.WITHDRAWAL_DAYS`, la même date que celle qu’utilise `refundEligibility`.
 - **Liens** : la page de licence, les Conditions générales, la Licence commerciale et la Politique de remboursement dans la langue de l’e-mail, sur l’hôte qui a reçu le webhook.
 
-Les dates sont affichées en UTC. La clé d’idempotence est `PURCHASE_CONFIRMATION` (`src/data/license.email-purposes.ts`) accompagnée de l’identifiant de la commande Polar : Resend n’envoie donc qu’un e-mail par commande, quel que soit le nombre de fois où Polar remet `order.paid`, et comme l’e-mail est construit à partir de la seule commande, une remise répétée envoie la même requête. Une commande qui ne correspond à aucun compte ou à aucune offre ne reçoit pas d’e-mail. Voir [E-mails transactionnels](/docs/features/email).
+Les dates sont affichées en UTC. La clé d’idempotence est `PURCHASE_CONFIRMATION` (`src/data/license.email-purposes.ts`) accompagnée de l’identifiant de la commande Polar : Resend n’envoie donc qu’un e-mail par commande, quel que soit le nombre de fois où Polar remet `order.paid`, et comme l’e-mail est construit à partir de la seule commande, une remise répétée envoie la même requête. Une commande qui ne correspond à aucun compte ou à aucune offre ne reçoit pas de confirmation ; pour une commande de licence sans compte, le site reçoit une alerte à la place (voir [Commandes qui ne correspondent à aucun compte](#orders-that-match-no-account)). Voir [E-mails transactionnels](/docs/features/email).
+
+## Commandes qui ne correspondent à aucun compte [#orders-that-match-no-account]
+
+`startCheckout` rattache chaque paiement au compte connecté : une commande ne correspond donc à aucun compte que lorsqu’elle a été réglée par un paiement que `startCheckout` n’a pas créé, comme un lien de paiement du tableau de bord Polar, ou lorsque le compte a été supprimé entre l’ouverture du paiement et son règlement. L’acheteur a payé et n’a pas de licence : le site signale donc la commande et la fait figurer dans une liste jusqu’à ce qu’elle en ait une.
+
+### Alerte
+
+`onOrderPaid` journalise une telle commande et la transmet à `sendUnmatchedOrderAlert` (`src/modules/license/use-cases/send-unmatched-order-alert.ts`), qui envoie `UnmatchedOrderAlertEmail` (`src/presentation/emails/unmatched-order-alert-email.tsx`, espace de noms `emails.unmatched-order-alert-email`) depuis `NOTIFICATIONS_EMAIL` à `CONTACT_EMAIL`, en `I18N.DEFAULT_LOCALE`. L’e-mail indique :
+
+- l’identifiant de la commande Polar et la date de la commande, en UTC ;
+- l’offre et `total_amount` dans la devise de la commande ;
+- l’e-mail et le nom du client tels que l’événement les porte, ou le fait qu’ils n’ont pas été fournis ;
+- un lien vers la commande dans le tableau de bord Polar, que `polarOrderUrl` (`src/modules/license/license.utils.ts`) construit à partir de l’hôte de `POLAR_DASHBOARD_HOSTS` pour `POLAR_SERVER`, de `POLAR_ORGANIZATION_SLUG` (tous deux dans `src/data/polar.ts`) et de l’identifiant de la commande ;
+- les étapes qui permettent de [récupérer la commande](#recovering-an-order).
+
+La clé d’idempotence est `UNMATCHED_ORDER_ALERT` (`src/data/license.email-purposes.ts`) accompagnée de l’identifiant de la commande Polar. Resend conserve une clé pendant 24 heures : les remises répétées de la commande pendant ce délai n’envoient donc qu’une alerte, et une nouvelle remise après ce délai envoie une nouvelle alerte tant que la commande ne correspond toujours à aucun compte. Lorsque l’alerte ne peut pas être envoyée, le handler échoue, et Polar remet donc de nouveau l’événement.
+
+### Liste d’administration
+
+La zone des licences ajoute `UnlicensedOrders` (`src/presentation/components/custom/admin/license/unlicensed-orders.tsx`) aux panneaux du [tableau de bord d’administration](/docs/features/admin-dashboard) dans `src/data/license.dashboard.ts`, et le loader du tableau de bord précharge sa requête. `unlicensedOrdersQuery` (`src/modules/license/use-cases/get-unlicensed-orders.ts`) vérifie `order: ["read"]` et liste, des plus récentes aux plus anciennes, les [copies des commandes de Polar](/docs/features/payments#orders-and-subscriptions-in-d1) qui :
+
+- ont le statut `paid` ;
+- ont un `product_id` présent dans `POLAR_PRODUCT_IDS` ;
+- ne sont le `polar_order_id` d’aucune licence ;
+- ne figurent pas dans `revoked_license_order`.
+
+Chaque ligne (`unlicensed-order-columns.tsx`) affiche l’identifiant de la commande, qui ouvre la commande dans Polar dans un nouvel onglet, la date, l’identifiant du client Polar et le montant, converti depuis la plus petite unité de la devise. Sans aucune commande de ce type, le panneau indique que chaque commande de licence payée a sa licence. La liste contient aussi une commande dont la remise de `order.paid` n’a pas encore réussi, ainsi que la commande d’un compte supprimé, dont la licence a été supprimée avec lui.
+
+### Récupérer une commande [#recovering-an-order]
+
+1. Trouvez le compte de l’acheteur dans la gestion des utilisateurs de l’administration, ou créez-le avec **Ajouter un utilisateur** et l’e-mail indiqué dans l’alerte (voir [Utilisateurs (admin)](/docs/features/users-admin)). L’identifiant du compte est la dernière partie de l’adresse de son profil, `/admin/users/<ID>`.
+2. Ouvrez la commande dans Polar depuis l’alerte ou la liste d’administration, puis son client, choisissez **Edit Customer** dans le menu du client, renseignez l’identifiant du compte dans **External ID** et choisissez **Save Customer**. Avec l’API, envoyez `external_id` dans `PATCH /v1/customers/{id}` avec un jeton qui dispose de `customers:write`. Polar conserve un identifiant externe une fois qu’il est défini et exige qu’il soit unique au sein de l’organisation : cela ne fonctionne donc que pour un client qui n’en a pas encore et dont le compte n’a aucun autre client Polar ; sinon, remboursez la commande dans Polar et demandez à l’acheteur d’acheter de nouveau en étant connecté.
+3. Dans les paramètres de webhooks de Polar, ouvrez les livraisons du point de terminaison, trouvez l’événement `order.paid` de la commande et choisissez **Redeliver**, puis faites de même pour son événement `benefit_grant.created`. `onOrderPaid` accorde la licence et envoie la confirmation d’achat à l’adresse du compte, et `onBenefitGrantCreated` enregistre la clé de licence ; un `benefit_grant.created` qui arrive en premier échoue tant que la licence n’existe pas, et Polar le renvoie. La commande quitte alors la liste d’administration.
+
+Polar ne remet de nouveau un événement que tant qu’il en conserve le contenu, que le serveur de Polar archive au bout de 90 jours.
 
 ## Écrans client
 

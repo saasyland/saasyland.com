@@ -4,6 +4,12 @@ import type { models } from "@polar-sh/sdk/2026-10"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
+import {
+  createGuestPolarOrder,
+  createPolarOrder,
+  grantPolarLicenseKey,
+  setPolarCustomerExternalId,
+} from "~/src/platform/testing/mocks/polar"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
@@ -14,6 +20,7 @@ import type { attachLicenseKey } from "~/src/modules/license/use-cases/attach-li
 import type { grantLicense } from "~/src/modules/license/use-cases/grant-license"
 import type { revokeLicense } from "~/src/modules/license/use-cases/revoke-license"
 import type { sendPurchaseConfirmationEmail } from "~/src/modules/license/use-cases/send-purchase-confirmation-email"
+import type { sendUnmatchedOrderAlert } from "~/src/modules/license/use-cases/send-unmatched-order-alert"
 import { user } from "~/src/modules/user/user.schema"
 
 const USER_ID = "018f2b9c-0000-7000-8000-000000000005"
@@ -21,12 +28,14 @@ const UNKNOWN_PRODUCT_ID = "00000000-0000-4000-8000-00000000ffff"
 const DELETED_USER_ID = "018f2b9c-0000-7000-8000-0000000000de"
 const ORDERED_AT = "2026-09-24T10:00:00.000Z"
 const BUYER_EMAIL = "buyer@example.test"
+const GUEST = { email: "guest@example.test", name: "Guest Buyer" }
 
 const useCaseMocks = vi.hoisted(() => ({
   attachLicenseKey: vi.fn<typeof attachLicenseKey>(),
   grantLicense: vi.fn<typeof grantLicense>(),
   revokeLicense: vi.fn<typeof revokeLicense>(),
   sendPurchaseConfirmationEmail: vi.fn<typeof sendPurchaseConfirmationEmail>(),
+  sendUnmatchedOrderAlert: vi.fn<typeof sendUnmatchedOrderAlert>(),
 }))
 
 vi.mock(import("@tanstack/react-start/server-only"), () => ({}))
@@ -43,11 +52,15 @@ vi.mock(import("~/src/modules/license/use-cases/send-purchase-confirmation-email
   sendPurchaseConfirmationEmail: useCaseMocks.sendPurchaseConfirmationEmail,
 }))
 
+vi.mock(import("~/src/modules/license/use-cases/send-unmatched-order-alert"), () => ({
+  sendUnmatchedOrderAlert: useCaseMocks.sendUnmatchedOrderAlert,
+}))
+
 const orderPayload = (productId: string | null = JSON_NULL, externalId?: string, status: models.OrderStatus = POLAR_ORDER_STATUS.PAID) => ({
   data: {
     created_at: ORDERED_AT,
     currency: "usd",
-    customer: { external_id: externalId },
+    customer: { email: BUYER_EMAIL, external_id: externalId, name: "Buyer" },
     customer_id: "cus_1",
     id: "ord_1",
     invoice_number: "SAASYLAND-0001",
@@ -82,7 +95,10 @@ const resetUseCases = (): void => {
   useCaseMocks.grantLicense.mockClear()
   useCaseMocks.revokeLicense.mockClear()
   useCaseMocks.sendPurchaseConfirmationEmail.mockReset()
+  useCaseMocks.sendUnmatchedOrderAlert.mockReset()
 }
+
+const guestOrder = () => createGuestPolarOrder({ ...GUEST, productId: env.POLAR_PRODUCT_ID_AGENCY })
 
 beforeEach(async () => {
   await db.delete(user)
@@ -149,27 +165,69 @@ describe("license webhooks on paid orders", () => {
     expect(useCaseMocks.grantLicense).toHaveBeenCalledOnce()
   })
 
-  it("refuses an order for a product this app does not sell", async () => {
+  it.each([
+    { order: "a product this app does not sell", payload: orderPayload(UNKNOWN_PRODUCT_ID, USER_ID) },
+    { order: "no product and no buyer", payload: orderPayload() },
+  ])("only logs an order for $order, without an alert", async ({ payload }) => {
     expect.hasAssertions()
     resetUseCases()
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
 
-    await licenseWebhookHandlers.onOrderPaid(orderPayload(UNKNOWN_PRODUCT_ID, USER_ID))
+    await licenseWebhookHandlers.onOrderPaid(payload)
 
+    expect(consoleError).toHaveBeenCalledExactlyOnceWith("[license] order ord_1 is not for a licence product")
+    expect(useCaseMocks.grantLicense).not.toHaveBeenCalled()
+    expect(useCaseMocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
+    expect(useCaseMocks.sendUnmatchedOrderAlert).not.toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+})
+
+describe("license webhooks on paid orders that match no account", () => {
+  it("logs the order and alerts the site's contact address, granting nothing", async () => {
+    expect.hasAssertions()
+    resetUseCases()
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    const paid = guestOrder()
+
+    await licenseWebhookHandlers.onOrderPaid({ data: paid })
+
+    expect(consoleError).toHaveBeenCalledExactlyOnceWith(`[license] paid order ${paid.id} maps to no account`)
+    expect(useCaseMocks.sendUnmatchedOrderAlert).toHaveBeenCalledExactlyOnceWith({ order: paid, tier: LICENSE_TIER.AGENCY })
     expect(useCaseMocks.grantLicense).not.toHaveBeenCalled()
     expect(useCaseMocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
     consoleError.mockRestore()
   })
 
-  it("refuses an order with no product and no buyer", async () => {
+  it("fails the delivery when the alert cannot be sent, so Polar retries it", async () => {
     expect.hasAssertions()
     resetUseCases()
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    const failure = new Error("Resend is unavailable")
+    useCaseMocks.sendUnmatchedOrderAlert.mockRejectedValueOnce(failure)
 
-    await licenseWebhookHandlers.onOrderPaid(orderPayload())
+    await expect(licenseWebhookHandlers.onOrderPaid({ data: guestOrder() })).rejects.toBe(failure)
 
     expect(useCaseMocks.grantLicense).not.toHaveBeenCalled()
     consoleError.mockRestore()
+  })
+
+  it("grants the licence from a redelivered event once the Polar customer is linked to an account", async () => {
+    expect.hasAssertions()
+    resetUseCases()
+    const paid = guestOrder()
+    setPolarCustomerExternalId(paid.customer_id, USER_ID)
+
+    await licenseWebhookHandlers.onOrderPaid({ data: paid })
+
+    expect(paid.customer.external_id).toBeNull()
+    expect(useCaseMocks.grantLicense).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ polarOrderId: paid.id, tier: LICENSE_TIER.AGENCY, userId: USER_ID }),
+    )
+    expect(useCaseMocks.sendPurchaseConfirmationEmail).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ order: paid, recipient: BUYER_EMAIL, tier: LICENSE_TIER.AGENCY }),
+    )
+    expect(useCaseMocks.sendUnmatchedOrderAlert).not.toHaveBeenCalled()
   })
 })
 
@@ -196,11 +254,30 @@ describe("license webhooks on keys, refunds and revocations", () => {
     expect.hasAssertions()
     resetUseCases()
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    const grant = grantPolarLicenseKey(guestOrder())
 
-    await licenseWebhookHandlers.onBenefitGrantCreated(grantPayload(LICENSE_KEY_GRANT))
+    await licenseWebhookHandlers.onBenefitGrantCreated({ data: grant })
 
+    expect(consoleError).toHaveBeenCalledExactlyOnceWith(`[license] benefit grant ${grant.id} does not belong to a known account`)
     expect(useCaseMocks.attachLicenseKey).not.toHaveBeenCalled()
     consoleError.mockRestore()
+  })
+
+  it("attaches the key from a redelivered grant once the Polar customer is linked to an account", async () => {
+    expect.hasAssertions()
+    resetUseCases()
+    const paid = guestOrder()
+    const grant = grantPolarLicenseKey(paid)
+    setPolarCustomerExternalId(paid.customer_id, USER_ID)
+
+    await licenseWebhookHandlers.onBenefitGrantCreated({ data: grant })
+
+    expect(grant.customer.external_id).toBeNull()
+    expect(useCaseMocks.attachLicenseKey).toHaveBeenCalledExactlyOnceWith({
+      polarLicenseKeyId: grant.properties.license_key_id,
+      polarOrderId: paid.id,
+      userId: USER_ID,
+    })
   })
 
   it("marks a fully refunded order refunded and a revoked grant revoked", async () => {
@@ -235,22 +312,27 @@ describe("license webhooks on keys, refunds and revocations", () => {
     expect(useCaseMocks.revokeLicense).not.toHaveBeenCalled()
   })
 
-  it("acknowledges every event for an account that no longer exists without touching licenses", async () => {
+  it("alerts about a paid order of an account that no longer exists and acknowledges its other events without touching licenses", async () => {
     expect.hasAssertions()
     resetUseCases()
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    const paid = createPolarOrder({ externalCustomerId: DELETED_USER_ID, productId: env.POLAR_PRODUCT_ID_CORE })
+    const grant = grantPolarLicenseKey(paid)
 
-    await licenseWebhookHandlers.onOrderPaid(orderPayload(env.POLAR_PRODUCT_ID_CORE, DELETED_USER_ID))
-    await licenseWebhookHandlers.onBenefitGrantCreated(grantPayload(LICENSE_KEY_GRANT, DELETED_USER_ID))
-    await licenseWebhookHandlers.onOrderRefunded(orderPayload(env.POLAR_PRODUCT_ID_CORE, DELETED_USER_ID, POLAR_ORDER_STATUS.REFUNDED))
-    await licenseWebhookHandlers.onBenefitGrantRevoked(grantPayload(LICENSE_KEY_GRANT, DELETED_USER_ID))
+    await licenseWebhookHandlers.onOrderPaid({ data: paid })
+    await licenseWebhookHandlers.onBenefitGrantCreated({ data: grant })
+    await licenseWebhookHandlers.onOrderRefunded({ data: { ...paid, status: POLAR_ORDER_STATUS.REFUNDED } })
+    await licenseWebhookHandlers.onBenefitGrantRevoked({ data: grant })
 
+    expect(useCaseMocks.sendUnmatchedOrderAlert).toHaveBeenCalledExactlyOnceWith({ order: paid, tier: LICENSE_TIER.CORE })
     expect(useCaseMocks.grantLicense).not.toHaveBeenCalled()
     expect(useCaseMocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
     expect(useCaseMocks.attachLicenseKey).not.toHaveBeenCalled()
     expect(useCaseMocks.revokeLicense).not.toHaveBeenCalled()
-    expect(consoleError).toHaveBeenCalledWith("[license] order ord_1 does not map to a known account and tier")
-    expect(consoleError).toHaveBeenCalledWith("[license] benefit grant grant_1 does not belong to a known account")
+    expect(consoleError.mock.calls).toStrictEqual([
+      [`[license] paid order ${paid.id} maps to no account`],
+      [`[license] benefit grant ${grant.id} does not belong to a known account`],
+    ])
     consoleError.mockRestore()
   })
 })

@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm"
 import * as zod from "zod"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+import { polar } from "~/src/integrations/polar/polar.config"
 import { POLAR_ORDER_STATUS } from "~/src/integrations/polar/polar.constants"
 
 import { LICENSE_CHECKOUT_FIELD, LICENSE_STATUS, type LICENSE_WEBHOOK_EVENTS } from "~/src/modules/license/license.constants"
@@ -13,6 +14,7 @@ import { attachLicenseKey } from "~/src/modules/license/use-cases/attach-license
 import { grantLicense } from "~/src/modules/license/use-cases/grant-license"
 import { revokeLicense } from "~/src/modules/license/use-cases/revoke-license"
 import { sendPurchaseConfirmationEmail } from "~/src/modules/license/use-cases/send-purchase-confirmation-email"
+import { sendUnmatchedOrderAlert } from "~/src/modules/license/use-cases/send-unmatched-order-alert"
 import { user } from "~/src/modules/user/user.schema"
 
 interface PolarCustomer {
@@ -24,7 +26,7 @@ interface OrderEvent {
     readonly created_at: string
     readonly currency: string
     readonly custom_field_data?: models.Order["custom_field_data"]
-    readonly customer: PolarCustomer
+    readonly customer: PolarCustomer & Pick<models.OrderCustomer, "email" | "name">
     readonly customer_id: string
     readonly id: string
     readonly invoice_number: models.Order["invoice_number"]
@@ -63,6 +65,18 @@ const findAccount = async ({ external_id: externalId }: PolarCustomer): Promise<
   return account
 }
 
+const findOrderAccount = async (customer: PolarCustomer, orderId: string): Promise<Account | undefined> => {
+  const account = await findAccount(customer)
+
+  if (account !== undefined) {
+    return account
+  }
+
+  const current = await polar.orders.get(orderId)
+
+  return findAccount(current.customer)
+}
+
 const withdrawalConsentAt = ({ created_at: createdAt, custom_field_data: fields }: OrderEvent["data"]): Date | undefined =>
   withdrawalConsentSchema.safeParse(fields).success ? new Date(createdAt) : undefined
 
@@ -77,7 +91,7 @@ export const licenseWebhookHandlers = {
       return
     }
 
-    const account = await findAccount(data.customer)
+    const account = await findOrderAccount(data.customer, data.order_id)
 
     if (account === undefined) {
       console.error(`[license] benefit grant ${data.id} does not belong to a known account`)
@@ -101,10 +115,17 @@ export const licenseWebhookHandlers = {
 
   onOrderPaid: async ({ data }: OrderEvent): Promise<void> => {
     const tier = data.product_id === null ? undefined : licenseTierForProduct(data.product_id)
-    const account = await findAccount(data.customer)
 
-    if (account === undefined || tier === undefined) {
-      console.error(`[license] order ${data.id} does not map to a known account and tier`)
+    if (tier === undefined) {
+      console.error(`[license] order ${data.id} is not for a licence product`)
+      return
+    }
+
+    const account = await findOrderAccount(data.customer, data.id)
+
+    if (account === undefined) {
+      console.error(`[license] paid order ${data.id} maps to no account`)
+      await sendUnmatchedOrderAlert({ order: data, tier })
       return
     }
 

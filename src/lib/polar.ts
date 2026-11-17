@@ -1,5 +1,5 @@
 import { PolarClientError } from "@polar-sh/sdk"
-import { type Environment, createPolarCore, type models } from "@polar-sh/sdk/2026-10"
+import { createPolarCore, type models } from "@polar-sh/sdk/2026-10"
 import { createDiscountsService } from "@polar-sh/sdk/2026-10/services/discounts"
 import { createProductsService } from "@polar-sh/sdk/2026-10/services/products"
 import { createWebhooksService } from "@polar-sh/sdk/2026-10/services/webhooks"
@@ -25,16 +25,12 @@ import {
 import { PPP_PERCENTS_OFF } from "~/src/modules/license/license.pricing"
 
 import { TIER_PRICES } from "~/src/data/marketing"
+import { POLAR_SERVER } from "~/src/data/polar"
 import { POLAR_EVENTS } from "~/src/data/polar-events"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { APP_NAME } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
-
-export const POLAR_SERVER = {
-  PRODUCTION: "production",
-  SANDBOX: "sandbox",
-} as const satisfies Record<string, Environment>
 
 export const POLAR_PRICE_TYPE = {
   CUSTOM: "custom",

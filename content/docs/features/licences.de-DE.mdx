@@ -1,6 +1,6 @@
 ---
 title: "Lizenzen"
-description: "Polar-Checkout für die Lizenzstufen mit Zustimmung zur sofortigen Bereitstellung, regionale Preise, die Webhooks, die Lizenzen vergeben und widerrufen, die E-Mail mit der Kaufbestätigung und die Lizenzansichten des Kunden."
+description: "Polar-Checkout für die Lizenzstufen mit Zustimmung zur sofortigen Bereitstellung, regionale Preise, die Webhooks, die Lizenzen vergeben und widerrufen, die E-Mail mit der Kaufbestätigung, die Warnung und die Admin-Liste für eine bezahlte Bestellung, die zu keinem Konto passt, und die Lizenzansichten des Kunden."
 ---
 
 Der Lizenzbereich verkauft die Stufen `core`, `complete` und `agency` als Polar-Produkte und baut dabei auf dem Plugin und den Webhooks des Polar-Bereichs auf ([Zahlungen](/docs/features/payments)). `POLAR_PRODUCT_IDS` in `src/modules/license/license.utils.ts` ordnet die Stufen den Variablen `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` und `POLAR_PRODUCT_ID_AGENCY` zu, und `licenseTierForProduct` liest die Stufe eines Produkts aus derselben Zuordnung. [Polar-Einrichtung](/docs/getting-started/polar-setup) beschreibt die Produkte, Lizenzschlüssel und Rabatte, die die Stufen in Polar brauchen.
@@ -45,9 +45,9 @@ Eine `checkoutId`, die keine UUID ist, wird ignoriert.
 
 ## Webhooks und Lizenzen [#webhooks-and-licences]
 
-`src/data/license.polar-events.ts` trägt den Lizenzbereich in die Polar-Ereignisse ein (siehe [Zahlungen](/docs/features/payments#webhooks)), mit den in `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`) aufgeführten Ereignissen, deren Bestellereignisse aus `POLAR_WEBHOOK_EVENT` stammen, und sein `handle` übergibt jedes Ereignis an den gleichnamigen Handler in `licenseWebhookHandlers`. `licenseWebhookHandlers` erfüllt `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, sodass ein Handler ohne sein Ereignis oder ein Ereignis ohne seinen Handler nicht kompiliert. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) ordnen den Benutzer über die `external_id` des Polar-Kunden zu. Ein Ereignis für einen Kunden ohne Konto in dieser App wird protokolliert, wenn es eines gebraucht hätte, und bestätigt, damit Polar es nicht erneut sendet:
+`src/data/license.polar-events.ts` trägt den Lizenzbereich in die Polar-Ereignisse ein (siehe [Zahlungen](/docs/features/payments#webhooks)), mit den in `LICENSE_WEBHOOK_EVENTS` (`license.constants.ts`) aufgeführten Ereignissen, deren Bestellereignisse aus `POLAR_WEBHOOK_EVENT` stammen, und sein `handle` übergibt jedes Ereignis an den gleichnamigen Handler in `licenseWebhookHandlers`. `licenseWebhookHandlers` erfüllt `Record<keyof typeof LICENSE_WEBHOOK_EVENTS, unknown>`, sodass ein Handler ohne sein Ereignis oder ein Ereignis ohne seinen Handler nicht kompiliert. `licenseWebhookHandlers` (`src/modules/license/license.webhooks.ts`) ordnen den Benutzer über die `external_id` des Polar-Kunden zu. Ein Ereignis enthält den Kunden so, wie Polar ihn beim Erstellen des Ereignisses erfasst hat, und eine erneute Zustellung sendet dieselbe Kopie. Nennt seine `external_id` kein Konto, lesen `onOrderPaid` und `onBenefitGrantCreated` die Bestellung deshalb mit `polar.orders.get` erneut und ordnen ihren aktuellen Kunden zu. Ein Ereignis für einen Kunden ohne Konto in dieser App wird protokolliert, wenn es eines gebraucht hätte, und bestätigt, damit Polar es nicht erneut sendet:
 
-- `onOrderPaid` → `grantLicense`: legt die einzige Lizenz des Benutzers mit der Stufe des gekauften Produkts und der Zustimmung des Käufers zur sofortigen Bereitstellung an oder aktualisiert sie (siehe [Nachweise und Erstattungen](#records-and-refunds)); ein neuerer Kauf ersetzt einen älteren. Danach bestätigt `sendPurchaseConfirmationEmail` den Kauf (siehe [Kaufbestätigung](#purchase-confirmation)); schlägt das fehl, schlägt auch der Handler fehl, sodass Polar das Ereignis erneut zustellt.
+- `onOrderPaid` → `grantLicense`: legt die einzige Lizenz des Benutzers mit der Stufe des gekauften Produkts und der Zustimmung des Käufers zur sofortigen Bereitstellung an oder aktualisiert sie (siehe [Nachweise und Erstattungen](#records-and-refunds)); ein neuerer Kauf ersetzt einen älteren. Danach bestätigt `sendPurchaseConfirmationEmail` den Kauf (siehe [Kaufbestätigung](#purchase-confirmation)); schlägt das fehl, schlägt auch der Handler fehl, sodass Polar das Ereignis erneut zustellt. Eine Bestellung für ein Produkt, das keine Lizenz ist, wird nur protokolliert, und eine Lizenzbestellung, deren Kunde zu keinem Konto passt, wird protokolliert und gemeldet (siehe [Bestellungen ohne passendes Konto](#orders-that-match-no-account)).
 - `onBenefitGrantCreated` → `attachLicenseKey`: speichert den Polar-Lizenzschlüssel in der Lizenz. Solange die bezahlte Bestellung noch nicht erfasst ist, schlägt es fehl, damit Polar es erneut sendet; ein Schlüssel für eine erstattete Bestellung oder für ein Produkt ohne Lizenz wird bestätigt.
 - `onOrderRefunded` → `revokeLicense` mit dem Status `refunded`, erst wenn die Bestellung vollständig erstattet ist; eine Teilerstattung behält die Lizenz.
 - `onBenefitGrantRevoked` → `revokeLicense` mit dem Status `revoked`.
@@ -87,7 +87,42 @@ Nach `grantLicense` schickt `onOrderPaid` dem Käufer die Bestätigung, die die 
 - **Erstattung**: die Frist für eine volle Erstattung vor der ersten Nutzung, `refundDeadline` (`license.refunds.ts`), also der Kaufzeitpunkt plus `REFUND_TERMS.WITHDRAWAL_DAYS`, dasselbe Datum, das `refundEligibility` verwendet.
 - **Links**: die Lizenzseite, die Nutzungsbedingungen, die kommerzielle Lizenz und die Rückerstattungsrichtlinie in der Sprache der E-Mail, auf dem Host, der den Webhook empfangen hat.
 
-Datumsangaben erscheinen in UTC. Der Idempotenzschlüssel ist `PURCHASE_CONFIRMATION` (`src/data/license.email-purposes.ts`) mit der Polar-Bestell-ID, sodass Resend pro Bestellung genau eine E-Mail sendet, egal wie oft Polar `order.paid` zustellt, und die E-Mail entsteht allein aus der Bestellung, sodass eine wiederholte Zustellung dieselbe Anfrage sendet. Eine Bestellung, die sich keinem Konto oder keiner Stufe zuordnen lässt, bekommt keine E-Mail. Siehe [Transaktions-E-Mails](/docs/features/email).
+Datumsangaben erscheinen in UTC. Der Idempotenzschlüssel ist `PURCHASE_CONFIRMATION` (`src/data/license.email-purposes.ts`) mit der Polar-Bestell-ID, sodass Resend pro Bestellung genau eine E-Mail sendet, egal wie oft Polar `order.paid` zustellt, und die E-Mail entsteht allein aus der Bestellung, sodass eine wiederholte Zustellung dieselbe Anfrage sendet. Eine Bestellung, die sich keinem Konto oder keiner Stufe zuordnen lässt, bekommt keine Bestätigung; eine Lizenzbestellung ohne Konto löst stattdessen eine Warnung an die Website aus (siehe [Bestellungen ohne passendes Konto](#orders-that-match-no-account)). Siehe [Transaktions-E-Mails](/docs/features/email).
+
+## Bestellungen ohne passendes Konto [#orders-that-match-no-account]
+
+`startCheckout` bindet jeden Checkout an das angemeldete Konto. Eine Bestellung passt deshalb nur dann zu keinem Konto, wenn sie über einen Checkout bezahlt wurde, den nicht `startCheckout` erstellt hat, etwa über einen Checkout-Link aus dem Polar-Dashboard, oder wenn das Konto zwischen Checkout und Zahlung gelöscht wurde. Der Käufer hat bezahlt und hat keine Lizenz, deshalb meldet die Website die Bestellung und führt sie auf, bis sie eine hat.
+
+### Warnung
+
+`onOrderPaid` protokolliert eine solche Bestellung und übergibt sie an `sendUnmatchedOrderAlert` (`src/modules/license/use-cases/send-unmatched-order-alert.ts`), das `UnmatchedOrderAlertEmail` (`src/presentation/emails/unmatched-order-alert-email.tsx`, Namespace `emails.unmatched-order-alert-email`) in `I18N.DEFAULT_LOCALE` von `NOTIFICATIONS_EMAIL` an `CONTACT_EMAIL` sendet. Die E-Mail nennt:
+
+- die Polar-Bestell-ID und das Bestelldatum, in UTC;
+- die Stufe und `total_amount` in der Währung der Bestellung;
+- E-Mail-Adresse und Namen des Kunden, so wie das Ereignis sie enthält, oder dass sie nicht angegeben wurden;
+- einen Link zur Bestellung im Polar-Dashboard, den `polarOrderUrl` (`src/modules/license/license.utils.ts`) aus dem Host in `POLAR_DASHBOARD_HOSTS` für `POLAR_SERVER`, aus `POLAR_ORGANIZATION_SLUG` (beide in `src/data/polar.ts`) und aus der Bestell-ID zusammensetzt;
+- die Schritte, mit denen du [die Bestellung nachträglich zuordnest](#recovering-an-order).
+
+Der Idempotenzschlüssel ist `UNMATCHED_ORDER_ALERT` (`src/data/license.email-purposes.ts`) mit der Polar-Bestell-ID. Resend bewahrt einen Schlüssel 24 Stunden lang auf, sodass wiederholte Zustellungen der Bestellung in dieser Zeit eine einzige Warnung senden, während eine erneute Zustellung danach noch einmal warnt, solange die Bestellung zu keinem Konto passt. Lässt sich die Warnung nicht senden, schlägt der Handler fehl, sodass Polar das Ereignis erneut zustellt.
+
+### Admin-Liste
+
+Der Lizenzbereich fügt in `src/data/license.dashboard.ts` den Panels des [Admin-Dashboards](/docs/features/admin-dashboard) `UnlicensedOrders` (`src/presentation/components/custom/admin/license/unlicensed-orders.tsx`) hinzu, und der Loader des Dashboards lädt dessen Query vorab. `unlicensedOrdersQuery` (`src/modules/license/use-cases/get-unlicensed-orders.ts`) prüft `order: ["read"]` und listet, die neuesten zuerst, die [Kopien der Polar-Bestellungen](/docs/features/payments#orders-and-subscriptions-in-d1) auf, die:
+
+- den Status `paid` haben;
+- eine `product_id` aus `POLAR_PRODUCT_IDS` haben;
+- bei keiner Lizenz als `polar_order_id` eingetragen sind;
+- nicht in `revoked_license_order` stehen.
+
+Jede Zeile (`unlicensed-order-columns.tsx`) zeigt die Bestell-ID, die die Bestellung in einem neuen Tab in Polar öffnet, das Datum, die Polar-Kunden-ID und den Betrag, aus der kleinsten Währungseinheit umgerechnet. Gibt es keine solche Bestellung, sagt das Panel, dass jede bezahlte Lizenzbestellung ihre Lizenz hat. Die Liste enthält auch eine Bestellung, deren Zustellung von `order.paid` noch nicht gelungen ist, und die Bestellung eines gelöschten Kontos, dessen Lizenz mit ihm gelöscht wurde.
+
+### Eine Bestellung nachträglich zuordnen [#recovering-an-order]
+
+1. Suche das Konto des Käufers in der Benutzerverwaltung des Admin-Bereichs oder lege es mit **Benutzer hinzufügen** und der E-Mail-Adresse aus der Warnung an (siehe [Benutzer (Admin)](/docs/features/users-admin)). Die ID des Kontos ist der letzte Teil der Adresse seines Profils, `/admin/users/<ID>`.
+2. Öffne die Bestellung in Polar aus der Warnung oder der Admin-Liste und dann ihren Kunden, wähle im Menü des Kunden **Edit Customer**, setze **External ID** auf die ID des Kontos und wähle **Save Customer**. Über die API sendest du `external_id` in `PATCH /v1/customers/{id}` mit einem Token, das `customers:write` hat. Polar behält eine externe ID, sobald sie gesetzt ist, und verlangt, dass sie innerhalb der Organisation eindeutig ist. Das funktioniert also nur für einen Kunden ohne externe ID, dessen Konto keinen anderen Polar-Kunden hat; andernfalls erstatte die Bestellung in Polar und bitte den Käufer, angemeldet erneut zu kaufen.
+3. Öffne in den Webhook-Einstellungen von Polar die Zustellungen des Endpunkts, suche das Ereignis `order.paid` der Bestellung und wähle **Redeliver**, dann dasselbe für ihr Ereignis `benefit_grant.created`. `onOrderPaid` vergibt die Lizenz und sendet die Kaufbestätigung an die Adresse des Kontos, und `onBenefitGrantCreated` speichert den Lizenzschlüssel; ein `benefit_grant.created`, das zuerst eintrifft, schlägt fehl, bis die Lizenz existiert, und Polar sendet es erneut. Danach verschwindet die Bestellung aus der Admin-Liste.
+
+Polar stellt ein Ereignis nur erneut zu, solange es dessen Payload aufbewahrt, und der Server von Polar archiviert sie nach 90 Tagen.
 
 ## Kundenansichten
 

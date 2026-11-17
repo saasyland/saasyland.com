@@ -14,7 +14,6 @@ import {
 import { cn } from "~/src/lib/cn"
 
 const TOOLTIP_OFFSET = 4
-const TOOLTIP_CROSS_OFFSET = 0
 
 const OVERLAY_ARROW_TRANSFORMS = {
   bottom: "translate(-50%, calc(50% + 2px)) rotate(45deg)",
@@ -56,7 +55,7 @@ const Tooltip = ({
   className,
   placement = "top",
   offset = TOOLTIP_OFFSET,
-  crossOffset = TOOLTIP_CROSS_OFFSET,
+  crossOffset = 0,
   children,
   ...props
 }: Omit<TooltipPrimitiveProps, "children" | "className"> & {

@@ -30,7 +30,6 @@ const DOCS_TABLE_OF_CONTENTS = "#nd-toc"
 const DOCS_PAGE = `${ROUTES.DOCS}/features/authentication`
 const BLOG_POST = `${ROUTES.BLOG}/better-t-stack-vs-saas-starter-kit`
 const TAGGED_POST = "ai-coding-agents-repository-readiness"
-const SECOND_SECTION = 1
 const DOCS_MENU = "nd-sidebar-mobile"
 const SONNER_HOTKEY = "alt+T"
 const STICKY_BARS = 2
@@ -192,7 +191,7 @@ test.describe("docs on a wide screen", () => {
       }
 
       await expectLinedUp("at the top of the page")
-      await page.locator(`#${SITE_CONTENT_ID} h2`).nth(SECOND_SECTION).scrollIntoViewIfNeeded()
+      await page.locator(`#${SITE_CONTENT_ID} h2`).nth(1).scrollIntoViewIfNeeded()
       expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
       await expectLinedUp("after scrolling")
       await expect(page.locator(DOCS_SIDEBAR).getByRole("button", { exact: true, name: sidebar.collapse })).toHaveCount(0)
@@ -209,7 +208,7 @@ test.describe("docs on a phone", () => {
     const { sidebar } = fumadocsSchema.parse(readMessages(I18N.DEFAULT_LOCALE, "fumadocs"))
     const { header } = contentNavigationSchema.parse(readMessages(I18N.DEFAULT_LOCALE, "navigation.content"))
     await visit(page, DOCS_PAGE)
-    await page.locator(`#${SITE_CONTENT_ID} h2`).nth(SECOND_SECTION).scrollIntoViewIfNeeded()
+    await page.locator(`#${SITE_CONTENT_ID} h2`).nth(1).scrollIntoViewIfNeeded()
     const banner = await page.getByRole("banner").boundingBox()
     const docsBar = await page.getByRole("navigation", { exact: true, name: header.docs }).locator("header").boundingBox()
     const { count, covered } = await stickyBars(page)

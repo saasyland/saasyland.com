@@ -38,8 +38,6 @@ import { DataTableActionsHeader, type DataTableFeatures } from "~/src/presentati
 
 import { ROUTES } from "~/src/routes"
 
-const LAST_INDEX_OFFSET = 1
-
 type CourseRow = Course["listRow"]
 
 type CourseHeaderId = "course" | "kind" | "lessons" | "status" | "updated"
@@ -119,7 +117,7 @@ const ActionsCell = ({ row, table }: CellContext<DataTableFeatures, CourseRow>):
     <div className="flex justify-end gap-1">
       <MoveButtons
         isFirst={index === 0}
-        isLast={index === table.getRowCount() - LAST_INDEX_OFFSET}
+        isLast={index === table.getRowCount() - 1}
         name={title}
         onMove={(direction) => {
           move.mutate({ courseId: row.original.id, direction })

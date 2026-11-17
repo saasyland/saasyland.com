@@ -30,8 +30,6 @@ import { cn } from "~/src/lib/cn"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "~/src/presentation/components/shadcn/input-group"
 import { Label } from "~/src/presentation/components/shadcn/label"
 
-const MULTI_SELECTED_ITEMS_THRESHOLD = 1
-const SELECT_POPOVER_CROSS_OFFSET = 0
 const SELECT_POPOVER_OFFSET = 4
 
 export type SelectComponentProps<TValue extends object, TSelectionMode extends "single" | "multiple" = "single"> = Omit<
@@ -71,8 +69,7 @@ const SelectValue = <TValue extends object>({ children, className, ...props }: R
   >
     {typeof children === "function"
       ? children
-      : ({ defaultChildren, selectedItems, selectedText }) =>
-          selectedItems.length > MULTI_SELECTED_ITEMS_THRESHOLD ? selectedText : defaultChildren}
+      : ({ defaultChildren, selectedItems, selectedText }) => (selectedItems.length > 1 ? selectedText : defaultChildren)}
   </SelectValuePrimitive>
 )
 
@@ -102,7 +99,7 @@ const SelectTrigger = ({
 const SelectPopover = ({
   children,
   className,
-  crossOffset = SELECT_POPOVER_CROSS_OFFSET,
+  crossOffset = 0,
   offset = SELECT_POPOVER_OFFSET,
   placement = "bottom start",
   ...props
@@ -128,7 +125,7 @@ const SelectPopover = ({
 const SelectContent = ({
   children,
   className,
-  crossOffset = SELECT_POPOVER_CROSS_OFFSET,
+  crossOffset = 0,
   offset = SELECT_POPOVER_OFFSET,
   placement = "bottom",
   ...props

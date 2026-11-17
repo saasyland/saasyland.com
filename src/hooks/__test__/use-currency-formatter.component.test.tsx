@@ -9,7 +9,6 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 import { useCurrencyFormatter } from "~/src/hooks/use-currency-formatter"
 
 const USD_SAMPLE_AMOUNT = 1234.5
-const MINIMAL_AMOUNT = 1
 const EUR_SAMPLE_AMOUNT = 42
 const LOCALE_COMPARE_AMOUNT = 50
 const PARTS_SAMPLE_AMOUNT = 10
@@ -48,7 +47,7 @@ describe("use currency formatter component", () => {
       wrapper: createWrapper("en-US"),
     })
 
-    expect(() => result.current.formatCurrency({ value: MINIMAL_AMOUNT })).toThrow("formatCurrency requires a currency code")
+    expect(() => result.current.formatCurrency({ value: 1 })).toThrow("formatCurrency requires a currency code")
   })
 
   it("accepts currency on each call when defaults omit it", () => {

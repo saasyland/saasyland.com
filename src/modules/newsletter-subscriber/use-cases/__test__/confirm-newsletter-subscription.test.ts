@@ -23,8 +23,6 @@ const HEADERS = new Headers()
 const TOKEN = "d".repeat(NEWSLETTER_TOKEN_LENGTH)
 const ADDRESS = "ada@example.com"
 
-const SINGLE_CALL = 1
-
 const dbMocks = vi.hoisted(() => {
   const returning = vi.fn<() => Promise<{ email: string; locale: string }[]>>()
   const where = vi.fn<() => { returning: typeof returning }>().mockReturnValue({ returning })
@@ -103,7 +101,7 @@ describe("confirm-newsletter-subscription", () => {
 
     await expect(confirmNewsletterSubscription({ data: { token: TOKEN } })).resolves.toMatchObject({ confirmed: true })
 
-    expect(consoleError).toHaveBeenCalledTimes(SINGLE_CALL)
+    expect(consoleError).toHaveBeenCalledTimes(1)
     consoleError.mockRestore()
   })
 

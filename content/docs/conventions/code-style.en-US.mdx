@@ -9,16 +9,16 @@ description: "What the formatter, linter and compiler enforce, and the rules the
 
 oxlint runs the `correctness`, `nursery`, `pedantic`, `perf`, `style` and `suspicious` categories as errors, with type-aware rules and type checking switched on. The limits that shape code most:
 
-| Rule                         | Setting                                                 | Effect                                         |
-| ---------------------------- | ------------------------------------------------------- | ---------------------------------------------- |
-| `max-lines`                  | <RepositoryFact name="maxLines" />                      | Split a file by responsibility before it grows |
-| `max-lines-per-function`     | <RepositoryFact name="maxLinesPerFunction" />           | Components and handlers stay small             |
-| `max-statements`             | <RepositoryFact name="maxStatements" />                 | Extract named helpers instead of long bodies   |
-| `no-magic-numbers`           | only `0` allowed, plus array indexes and default values | Every other number is a named constant         |
-| `id-length`                  | at least two characters, except `_`, `m` and `t`        | Identifiers are words; `t` is the translator   |
-| `one-var`                    | `never`                                                 | One declaration per statement                  |
-| `unicorn/no-null`            | on outside tests and `src/platform/testing`             | Absent values are `undefined`                  |
-| `typescript/no-explicit-any` | `error`                                                 | No value is typed `any`                        |
+| Rule                         | Setting                                                    | Effect                                         |
+| ---------------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
+| `max-lines`                  | <RepositoryFact name="maxLines" />                         | Split a file by responsibility before it grows |
+| `max-lines-per-function`     | <RepositoryFact name="maxLinesPerFunction" />              | Components and handlers stay small             |
+| `max-statements`             | <RepositoryFact name="maxStatements" />                    | Extract named helpers instead of long bodies   |
+| `no-magic-numbers`           | `0` and `1` allowed, plus array indexes and default values | Every other number is a named constant         |
+| `id-length`                  | at least two characters, except `_`, `m` and `t`           | Identifiers are words; `t` is the translator   |
+| `one-var`                    | `never`                                                    | One declaration per statement                  |
+| `unicorn/no-null`            | on outside tests and `src/platform/testing`                | Absent values are `undefined`                  |
+| `typescript/no-explicit-any` | `error`                                                    | No value is typed `any`                        |
 
 The overrides are narrow and file-scoped: tests and the shared test helpers in `src/platform/testing` relax `no-magic-numbers`, `no-await-in-loop`, `unicorn/no-null` and `hydration/no-clock-or-locale-in-render`; `src/presentation` and `src/hooks` relax `typescript/consistent-return`; test mocks relax `require-await`; `src/routes` turns off `sort-keys`, because route options follow their own order (see [Route files](/docs/conventions/routes)).
 
@@ -42,12 +42,12 @@ A page renders twice: on the server, and again in the browser when React hydrate
 Write no comments: not in TypeScript, TSX, tests, scripts, configuration or CSS, and not even to explain a non-obvious constraint. A name carries the meaning instead, and the reasoning goes into the commit message, the pull request or these docs.
 
 ```ts
-const SINGLE_ROW_LIMIT = 1
-const LAST_INDEX_OFFSET = 1
+const INCLUSIVE_END = 1
+const FIRST_SEQUENCE = 1
 const UNINSTALLED_POLAR_SDK_OPTIONAL_PEERS = [/^@opentelemetry\//u, "ioredis"]
 ```
 
-The first two come from `get-course-editor.ts` and `course-columns.tsx`, the third from `src/data/polar.vite.ts`: each would otherwise need a comment. Generated files (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) are exempt. Before you commit, search your diff for `//`, `/*` and `{/*`.
+The first two come from `video.delivery.ts` and `release.ts`, the third from `src/data/polar.vite.ts`: each would otherwise need a comment. Generated files (`src/routeTree.gen.ts`, `src/types/worker-configuration.d.ts`) are exempt. Before you commit, search your diff for `//`, `/*` and `{/*`.
 
 ## No escape hatches
 
@@ -97,7 +97,7 @@ export const hasLessonAccess = (access: Lesson["select"]["access"], viewer: View
 
 ## Named constants
 
-Numbers other than `0` are named (`COURSE_STALE_MS = 60_000`, `SAVE_INTERVAL_MS = 15_000`). Values that belong to the domain, such as statuses, kinds, access levels, tiers, roles and provider event values, are declared once as an `as const` object and referenced by name everywhere, including tests and fixtures:
+Numbers other than `0` and `1` are named (`COURSE_STALE_MS = 60_000`, `SAVE_INTERVAL_MS = 15_000`). `0` and `1` are written as literals, as in `.limit(1)`, `index + 1` and `toHaveBeenCalledTimes(1)`, unless they carry a meaning of their own: a process exit code is `FAILURE_EXIT_CODE`, and the inclusive end of an HTTP byte range is `INCLUSIVE_END`. Values that belong to the domain, such as statuses, kinds, access levels, tiers, roles and provider event values, are declared once as an `as const` object and referenced by name everywhere, including tests and fixtures:
 
 ```ts
 export const COURSE_STATUS = {
@@ -132,7 +132,7 @@ A component calls `useTranslations` once and names the result `t`; see [Translat
 
 - Files and folders are kebab-case; components are PascalCase; constants are SCREAMING_SNAKE_CASE; functions start with a verb (`resolveViewer`, `rethrowAsConflict`); booleans read as questions (`isPending`, `hasLessonAccess`).
 - Imports use the `~/src/...` alias and come from the file that defines the symbol. There are no barrel files that re-export a folder; the one re-export file is `src/integrations/drizzle-orm/drizzle.schemas.ts`, because Drizzle needs every table in one schema object.
-- Index arithmetic gets a name too: `index + NEXT` in `course.utils.ts`, never `slice(i + 1, -5)`.
+- Stepping an index by one uses the literal: `lessons[index + 1]` in `course.utils.ts`. Any other offset, `-1` included, gets a name: `groups.at(LAST_GROUP_INDEX)` in `robots.ts`, never `slice(index, -5)`.
 
 ## Related pages
 

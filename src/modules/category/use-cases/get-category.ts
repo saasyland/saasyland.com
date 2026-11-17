@@ -9,13 +9,11 @@ import { category } from "~/src/modules/category/category.schema"
 import type { Category } from "~/src/modules/category/category.types"
 import { categoryZodSchemas } from "~/src/modules/category/category.zod"
 
-const SINGLE_ROW_LIMIT = 1
-
 export const getCategory = createServerFn({ method: "GET" })
   .middleware([authorized({ category: ["read"] })])
   .validator((input: Category["getCategory"]) => categoryZodSchemas.getCategory.parse(input))
   .handler(async ({ data: { categoryId } }) => {
-    const [row] = await db.select().from(category).where(eq(category.id, categoryId)).limit(SINGLE_ROW_LIMIT)
+    const [row] = await db.select().from(category).where(eq(category.id, categoryId)).limit(1)
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

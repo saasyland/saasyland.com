@@ -14,8 +14,6 @@ import { courseZodSchemas } from "~/src/modules/course/course.zod"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { video } from "~/src/modules/video/video.schema"
 
-const SINGLE_ROW_LIMIT = 1
-
 const readLessons = (courseId: string) =>
   db
     .select({
@@ -38,7 +36,7 @@ export const getCourseEditor = createServerFn({ method: "GET" })
   .middleware([authorized({ course: ["read"] })])
   .validator((input: Course["getCourseEditor"]) => courseZodSchemas.getCourseEditor.parse(input))
   .handler(async ({ data: { courseId } }) => {
-    const [row] = await db.select().from(course).where(eq(course.id, courseId)).limit(SINGLE_ROW_LIMIT)
+    const [row] = await db.select().from(course).where(eq(course.id, courseId)).limit(1)
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

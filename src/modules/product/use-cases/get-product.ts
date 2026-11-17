@@ -9,13 +9,11 @@ import { product } from "~/src/modules/product/product.schema"
 import type { Product } from "~/src/modules/product/product.types"
 import { productZodSchemas } from "~/src/modules/product/product.zod"
 
-const SINGLE_ROW_LIMIT = 1
-
 export const getProduct = createServerFn({ method: "GET" })
   .middleware([authorized({ product: ["read"] })])
   .validator((input: Product["getProduct"]) => productZodSchemas.getProduct.parse(input))
   .handler(async ({ data: { productId } }) => {
-    const [row] = await db.select().from(product).where(eq(product.id, productId)).limit(SINGLE_ROW_LIMIT)
+    const [row] = await db.select().from(product).where(eq(product.id, productId)).limit(1)
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

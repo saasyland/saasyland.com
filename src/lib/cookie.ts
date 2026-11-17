@@ -18,8 +18,6 @@ const KEY_VALUE_DELIMITER = "="
 
 const KEY_VALUE_DELIMITER_LENGTH = KEY_VALUE_DELIMITER.length
 
-const ENTRY_START_INDEX = 0
-
 const decodeCookieValue = (value: string): string | undefined => {
   try {
     return decodeURIComponent(value)
@@ -32,7 +30,7 @@ export const readCookie = ({ header, name }: { header: string | null | undefined
   for (const entry of header?.split(ENTRY_DELIMITER) ?? []) {
     const separator = entry.indexOf(KEY_VALUE_DELIMITER)
 
-    if (separator > ENTRY_START_INDEX && entry.slice(ENTRY_START_INDEX, separator).trim() === name) {
+    if (separator > 0 && entry.slice(0, separator).trim() === name) {
       return decodeCookieValue(entry.slice(separator + KEY_VALUE_DELIMITER_LENGTH).trim())
     }
   }

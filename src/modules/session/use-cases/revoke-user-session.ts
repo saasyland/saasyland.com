@@ -11,13 +11,11 @@ import { session } from "~/src/modules/session/session.schema"
 import type { Session } from "~/src/modules/session/session.types"
 import { sessionZodSchemas } from "~/src/modules/session/session.zod"
 
-const SINGLE_ROW = 1
-
 export const revokeUserSession = createServerFn({ method: "POST" })
   .middleware([authorized({ session: ["revoke"] })])
   .validator((input: Session["revokeUserSession"]) => sessionZodSchemas.revokeUserSession.parse(input))
   .handler(async ({ context, data }) => {
-    const [row] = await db.select({ token: session.token }).from(session).where(eq(session.id, data.sessionId)).limit(SINGLE_ROW)
+    const [row] = await db.select({ token: session.token }).from(session).where(eq(session.id, data.sessionId)).limit(1)
     if (row === undefined) {
       return { success: true }
     }

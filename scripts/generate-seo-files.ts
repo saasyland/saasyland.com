@@ -13,7 +13,6 @@ import { APP_URL } from "~/src/presentation/branding"
 
 const CLIENT_DIR = "dist/client"
 const ROBOTS_TXT = "robots.txt"
-const DURATION_DECIMALS = 1
 
 const started = performance.now()
 
@@ -62,7 +61,7 @@ await Promise.all(
   }),
 )
 
-const seconds = ((performance.now() - started) / MILLISECONDS_PER_SECOND).toFixed(DURATION_DECIMALS)
+const seconds = ((performance.now() - started) / MILLISECONDS_PER_SECOND).toFixed(1)
 
 console.log(
   `Wrote ${SITEMAP_PATH} with ${listed.length} of ${pages.length} prerendered pages and ${cards.size} social images in ${seconds} s.`,

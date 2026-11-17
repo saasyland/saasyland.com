@@ -5,7 +5,6 @@ import type { AbstractIntlMessages } from "use-intl"
 type MessageTree = Record<string, unknown>
 
 const MESSAGES_DIR = join(import.meta.dirname, "../messages")
-const LAST_SEGMENT_OFFSET = 1
 
 const isPlainObject = (value: unknown): value is MessageTree => value !== null && typeof value === "object" && !Array.isArray(value)
 
@@ -40,7 +39,7 @@ const insertMessageFile = (tree: MessageTree, filename: string, content: Message
   for (const [index, segment] of segments.entries()) {
     const existing = node[segment]
 
-    if (index === segments.length - LAST_SEGMENT_OFFSET) {
+    if (index === segments.length - 1) {
       node[segment] = isPlainObject(existing) ? deepMergeMessages(existing, content) : content
       return
     }

@@ -10,7 +10,7 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { COURSE_KIND } from "~/src/modules/course/course.constants"
+import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL } from "~/src/modules/course/course.constants"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 import { LICENSE_TIER } from "~/src/modules/license/license.constants"
@@ -25,9 +25,11 @@ import { ROUTES } from "~/src/routes"
 const CATALOGUE = [
   {
     durationMs: 0,
+    icon: COURSE_ICON.BOOK_OPEN,
     id: "walkthrough",
     kind: COURSE_KIND.COURSE,
     lessons: 4,
+    level: COURSE_LEVEL.BEGINNER,
     paid: 2,
     previews: 1,
     slug: "the-walkthrough",

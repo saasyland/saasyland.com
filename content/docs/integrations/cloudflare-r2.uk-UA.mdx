@@ -1,6 +1,6 @@
 ---
 title: "Cloudflare R2"
-description: "Бакети MEDIA і BUNDLES: приватне сховище відео та бандли шаблонів CLI, які Worker віддає через підписані шляхи з обмеженим терміном дії."
+description: "Бакети MEDIA і BUNDLES: приватне сховище відео й матеріалів уроків та бандли шаблонів CLI, які Worker віддає через підписані шляхи з обмеженим терміном дії."
 ---
 
 Кожне середовище прив'язує бакет R2 як `MEDIA` у `wrangler.jsonc`: `saasyland` у production, `saasyland-preview` для preview і локальної розробки та локальний бакет `saasyland-test` для тестової збірки. Бакети приватні: публічний доступ і URL-адреса `r2.dev` залишаються вимкненими, а кожне читання проходить через Worker. Розділ ліцензій прив'язує другий бакет, `BUNDLES`, для бандлів шаблонів CLI (див. [Бандли шаблонів](#template-bundles)).
@@ -8,6 +8,8 @@ description: "Бакети MEDIA і BUNDLES: приватне сховище в�
 ## Структура об'єктів
 
 Файли кожного відео лежать у `videos/<videoId>/`, де `videoId` — ідентифікатор рядка `video`. `videoObjectKey` і `videoDirectory` у `src/modules/video/video.files.ts` будують ключі, а `mediaContentType` перелічує єдині назви файлів, які можна завантажувати чи віддавати, разом із їхніми медіатипами. Усе інше відхиляється.
+
+Кожен завантажений матеріал уроку лежить у `attachments/<attachmentId>/<fileName>`, де `attachmentId` — ідентифікатор рядка `lesson_attachment`, а `fileName` — назва завантаженого файлу, у якій залишено лише літери, цифри, крапки, дефіси й підкреслення. `attachmentObjectKey` і `attachmentContentType` у `src/modules/lesson-attachment/lesson-attachment.files.ts` будують ключ і дають медіатип розширень <RepositoryFact name="attachmentFileTypes" />, які можна завантажувати чи віддавати.
 
 ## Підписана доставка
 
@@ -30,9 +32,13 @@ description: "Бакети MEDIA і BUNDLES: приватне сховище в�
 
 Підписані шляхи працюють як посилання на пред'явника, доки не спливе їхній термін дії: будь-хто, у кого є такий шлях, може відтворити це відео. Право на перегляд перевіряється під час видачі шляху.
 
+Матеріали уроків використовують ту саму схему за шляхами `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>`, із власним ключем і терміном дії щонайменше <RepositoryFact name="signedDownloadHours" unit="hour" />. `getLesson` підписує їх лише для глядача, який може відкрити урок. `serveAttachment` (`src/modules/lesson-attachment/lesson-attachment.delivery.ts`) отримує від обробника `/media/` запити за шляхом `/media/downloads/` замість `serveMedia`, приймає лише `GET` і `HEAD`, відповідає `403` на прострочений або неправильний підпис і `404` на файл, якого немає, і віддає файл із `Content-Disposition: attachment` і `Cache-Control: private, no-store`.
+
 ## Завантаження
 
-Worker не приймає завантажень. `scripts/publish-video.ts` записує файли в бакет командою `wrangler r2 bulk put --remote`, використовуючи ваш вхід через `bunx wrangler login`; див. [Відео](/docs/features/videos). Видалення відео в адмінці отримує перелік об'єктів під його префіксом і видаляє їх сторінку за сторінкою через прив'язку.
+Worker не приймає завантажень відео. `scripts/publish-video.ts` записує файли в бакет командою `wrangler r2 bulk put --remote`, використовуючи ваш вхід через `bunx wrangler login`; див. [Відео](/docs/features/videos). Видалення відео в адмінці отримує перелік об'єктів під його префіксом і видаляє їх сторінку за сторінкою через прив'язку.
+
+Матеріали уроків — єдине завантаження, яке приймає Worker: `uploadLessonAttachment` отримує від адміністратора файл розміром до <RepositoryFact name="attachmentMaxMegabytes" /> МБ і записує його через прив'язку. Видалення матеріалу або уроку, розділу чи курсу, до якого він належить, видаляє його об'єкт; див. [Курси](/docs/features/courses#materials).
 
 ## Бандли шаблонів [#template-bundles]
 
@@ -44,7 +50,7 @@ Worker не приймає завантажень. `scripts/publish-video.ts` з
 
 ## Тести
 
-У Vitest `cloudflare:workers` розв'язується в `src/platform/testing/mocks/cloudflare.ts`, який надає бакет у пам'яті для кожної прив'язки R2 середовища `test`, тобто `MEDIA` і `BUNDLES`, з `get` (зокрема з діапазонами), `head`, `put` для тексту або байтів із користувацькими метаданими, `delete` і посторінковим `list`. `src/platform/testing/mocks/cache.ts` підміняє кеш Workers. Тестова збірка використовує локальні бакети `saasyland-test` і `saasyland-bundles-test` у `.wrangler/test`.
+У Vitest `cloudflare:workers` розв'язується в `src/platform/testing/mocks/cloudflare.ts`, який надає бакет у пам'яті для кожної прив'язки R2 середовища `test`, тобто `MEDIA` і `BUNDLES`, з `get` (зокрема з діапазонами), `head`, `put` для тексту, байтів або файлу з користувацькими метаданими, `delete` і посторінковим `list`. `src/platform/testing/mocks/cache.ts` підміняє кеш Workers. Тестова збірка використовує локальні бакети `saasyland-test` і `saasyland-bundles-test` у `.wrangler/test`.
 
 ## Пов'язані сторінки
 

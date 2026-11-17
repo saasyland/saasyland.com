@@ -3,6 +3,8 @@ import { resolve } from "node:path"
 import { DatabaseSync } from "node:sqlite"
 import { describe, expect, it } from "vite-plus/test"
 
+import { COURSE_ICON, COURSE_LEVEL } from "~/src/modules/course/course.constants"
+import { LESSON_ATTACHMENT_KIND } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 
 const MIGRATIONS = resolve("src/integrations/drizzle-orm/migrations")
@@ -122,5 +124,133 @@ describe("the migration that adds the licence records", () => {
     expect(licenseRows(database)).toStrictEqual([
       { ...licenseBefore, ...Object.fromEntries(RECORD_COLUMNS.map((column) => [column, null])) },
     ])
+  })
+})
+
+const COURSE_CONTENT = "20261117161820_safe_stardust.sql"
+const ATTACHMENT_TABLE = "lesson_attachment"
+const EXTENDED_TABLES = new Set(["chapter", "course", "lesson", "video"])
+const ADDED_COLUMNS = {
+  chapter: [["summary", "TEXT", "'{}'"]],
+  course: [
+    ["icon", "TEXT", "'book-open'"],
+    ["level", "TEXT", "'beginner'"],
+    ["outcomes", "TEXT", "'{}'"],
+    ["prerequisites", "TEXT", "'{}'"],
+  ],
+  lesson: [
+    ["description", "TEXT", "'{}'"],
+    ["key_moments", "TEXT", "'[]'"],
+  ],
+  video: [["placeholder", "INTEGER", "false"]],
+} as const
+const EXISTING_COURSE = { id: "migrated-course", slug: "migrated", summary: '{"en-US":"Before."}', title: '{"en-US":"Migrated"}' }
+const EXISTING_CHAPTER = { id: "migrated-chapter", title: '{"en-US":"Chapter"}' }
+const EXISTING_VIDEO = { id: "migrated-video", title: "Recording" }
+const EXISTING_LESSON = { id: "migrated-lesson", slug: "first", summary: '{"en-US":"First."}', title: '{"en-US":"First"}' }
+
+const isExtendedTable = (entry: Record<string, unknown>): boolean =>
+  entry["type"] === "table" && EXTENDED_TABLES.has(String(entry["tbl_name"]))
+
+const isAttachmentEntry = (entry: Record<string, unknown>): boolean => entry["tbl_name"] === ATTACHMENT_TABLE
+
+const rowOf = (database: DatabaseSync, table: string, id: string) =>
+  plain(database.prepare(`SELECT * FROM ${table} WHERE id = ?`).all(id))[0]
+
+const seedCourseContent = (database: DatabaseSync): void => {
+  database
+    .prepare("INSERT INTO course (id, slug, summary, title) VALUES (?, ?, ?, ?)")
+    .run(EXISTING_COURSE.id, EXISTING_COURSE.slug, EXISTING_COURSE.summary, EXISTING_COURSE.title)
+  database
+    .prepare("INSERT INTO chapter (id, course_id, title) VALUES (?, ?, ?)")
+    .run(EXISTING_CHAPTER.id, EXISTING_COURSE.id, EXISTING_CHAPTER.title)
+  database
+    .prepare("INSERT INTO video (id, title, duration_ms, width, height, size_bytes) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(EXISTING_VIDEO.id, EXISTING_VIDEO.title, 1000, 1920, 1080, 1)
+  database
+    .prepare("INSERT INTO lesson (id, chapter_id, course_id, slug, summary, title, video_id) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run(
+      EXISTING_LESSON.id,
+      EXISTING_CHAPTER.id,
+      EXISTING_COURSE.id,
+      EXISTING_LESSON.slug,
+      EXISTING_LESSON.summary,
+      EXISTING_LESSON.title,
+      EXISTING_VIDEO.id,
+    )
+}
+
+describe("the migration that adds the course content", () => {
+  it("creates the attachment table and its index, then only adds columns with defaults", () => {
+    const changes = statements(COURSE_CONTENT)
+
+    expect(changes.map((statement) => STATEMENT_HEAD.exec(statement)?.[0].trim())).toStrictEqual([
+      "CREATE TABLE `lesson_attachment`",
+      "CREATE INDEX `lesson_attachment_lesson_position_idx` ON `lesson_attachment`",
+      ...Object.entries(ADDED_COLUMNS).flatMap(([table, columns]) =>
+        columns.map(
+          ([column, type, value]) => `ALTER TABLE \`${table}\` ADD \`${column}\` ${type.toLowerCase()} DEFAULT ${value} NOT NULL;`,
+        ),
+      ),
+    ])
+  })
+
+  it("keeps every other table and index and every existing row, and gives old rows the new defaults", () => {
+    const database = databaseBefore(COURSE_CONTENT)
+    seedCourseContent(database)
+    const before = schemaOf(database)
+    const columnsBefore = Object.fromEntries(Object.keys(ADDED_COLUMNS).map((table) => [table, columnsOf(database, table)]))
+    const rowsBefore = {
+      chapter: rowOf(database, "chapter", EXISTING_CHAPTER.id),
+      course: rowOf(database, "course", EXISTING_COURSE.id),
+      lesson: rowOf(database, "lesson", EXISTING_LESSON.id),
+      video: rowOf(database, "video", EXISTING_VIDEO.id),
+    }
+
+    database.exec(migrationSql(COURSE_CONTENT))
+    const after = schemaOf(database)
+
+    expect(before.filter((entry) => isAttachmentEntry(entry))).toStrictEqual([])
+    expect(after.filter((entry) => !isExtendedTable(entry) && !isAttachmentEntry(entry))).toStrictEqual(
+      before.filter((entry) => !isExtendedTable(entry)),
+    )
+    for (const [table, columns] of Object.entries(ADDED_COLUMNS)) {
+      const existing = columnsBefore[table] ?? []
+      expect(columnsOf(database, table)).toStrictEqual([
+        ...existing,
+        ...columns.map(([name, type, value], index) => ({
+          cid: existing.length + index,
+          dflt_value: value,
+          name,
+          notnull: 1,
+          pk: 0,
+          type,
+        })),
+      ])
+    }
+    expect(rowOf(database, "course", EXISTING_COURSE.id)).toStrictEqual({
+      ...rowsBefore.course,
+      icon: COURSE_ICON.BOOK_OPEN,
+      level: COURSE_LEVEL.BEGINNER,
+      outcomes: "{}",
+      prerequisites: "{}",
+    })
+    expect(rowOf(database, "chapter", EXISTING_CHAPTER.id)).toStrictEqual({ ...rowsBefore.chapter, summary: "{}" })
+    expect(rowOf(database, "lesson", EXISTING_LESSON.id)).toStrictEqual({ ...rowsBefore.lesson, description: "{}", key_moments: "[]" })
+    expect(rowOf(database, "video", EXISTING_VIDEO.id)).toStrictEqual({ ...rowsBefore.video, placeholder: 0 })
+  })
+
+  it("deletes a lesson's attachments with the lesson", () => {
+    const database = databaseBefore(COURSE_CONTENT)
+    database.exec(migrationSql(COURSE_CONTENT))
+    database.exec("PRAGMA foreign_keys = ON")
+    seedCourseContent(database)
+    database
+      .prepare("INSERT INTO lesson_attachment (id, kind, lesson_id, title, url) VALUES (?, ?, ?, ?, ?)")
+      .run("migrated-attachment", LESSON_ATTACHMENT_KIND.LINK, EXISTING_LESSON.id, '{"en-US":"Docs"}', "/docs")
+
+    database.prepare("DELETE FROM lesson WHERE id = ?").run(EXISTING_LESSON.id)
+
+    expect(plain(database.prepare("SELECT id FROM lesson_attachment").all())).toStrictEqual([])
   })
 })

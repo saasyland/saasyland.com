@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm"
+import { relations, sql } from "drizzle-orm"
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
@@ -7,6 +7,7 @@ import type { LocalizedText } from "~/src/modules/_core/utils/localized-text"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
 import { course } from "~/src/modules/course/course.schema"
+import { lessonAttachment } from "~/src/modules/lesson-attachment/lesson-attachment.schema"
 import { LESSON_ACCESS, LESSON_ACCESS_LEVELS, LESSON_STATUS, LESSON_STATUSES } from "~/src/modules/lesson/lesson.constants"
 import { video } from "~/src/modules/video/video.schema"
 
@@ -20,7 +21,15 @@ export const lesson = sqliteTable(
     courseId: text("course_id")
       .notNull()
       .references(() => course.id, { onDelete: "cascade" }),
+    description: text("description", { mode: "json" })
+      .$type<LocalizedText>()
+      .notNull()
+      .default(sql`'{}'`),
     id: text("id").primaryKey(),
+    keyMoments: text("key_moments", { mode: "json" })
+      .$type<{ label: LocalizedText; seconds: number }[]>()
+      .notNull()
+      .default(sql`'[]'`),
     position: integer("position").notNull().default(0),
     slug: text("slug", { length: SLUG_MAX_LENGTH }).notNull(),
     status: text("status", { enum: LESSON_STATUSES }).notNull().default(LESSON_STATUS.DRAFT),
@@ -35,7 +44,8 @@ export const lesson = sqliteTable(
   ],
 )
 
-export const lessonRelations = relations(lesson, ({ one }) => ({
+export const lessonRelations = relations(lesson, ({ many, one }) => ({
+  attachments: many(lessonAttachment),
   chapter: one(chapter, { fields: [lesson.chapterId], references: [chapter.id] }),
   course: one(course, { fields: [lesson.courseId], references: [course.id] }),
   video: one(video, { fields: [lesson.videoId], references: [video.id] }),

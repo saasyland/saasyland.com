@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
+import { LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 
 export const SAVE_INTERVAL_MS = 15_000
 const MILLISECONDS_PER_SECOND = 1000
@@ -21,7 +22,10 @@ export const useLessonProgress = ({ enabled, lessonId }: LessonProgressOptions) 
     ...saveLessonProgressMutation,
     onSuccess: async ({ completed }) => {
       if (completed) {
-        await queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.DETAIL })
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.DETAIL }),
+          queryClient.invalidateQueries({ queryKey: LESSON_QUERY_KEYS.DETAIL }),
+        ])
       }
     },
   })

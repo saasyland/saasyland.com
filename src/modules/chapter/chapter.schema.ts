@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm"
+import { relations, sql } from "drizzle-orm"
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
@@ -15,6 +15,10 @@ export const chapter = sqliteTable(
       .references(() => course.id, { onDelete: "cascade" }),
     id: text("id").primaryKey(),
     position: integer("position").notNull().default(0),
+    summary: text("summary", { mode: "json" })
+      .$type<LocalizedText>()
+      .notNull()
+      .default(sql`'{}'`),
     title: text("title", { mode: "json" }).$type<LocalizedText>().notNull(),
     ...timestamps(),
   },

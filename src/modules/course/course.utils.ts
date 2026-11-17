@@ -12,3 +12,6 @@ export const locateLesson = (lessons: readonly Lesson[], slug: string) => {
 
   return { lesson: lessons[index], next: lessons[index + 1], previous: lessons[index - 1] }
 }
+
+export const findEditorLesson = (editor: Course["editor"], lessonId: string): Course["editorLesson"] | undefined =>
+  editor.chapters.flatMap(({ lessons }) => lessons).find((lesson) => lesson.id === lessonId)

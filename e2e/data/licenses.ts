@@ -23,6 +23,25 @@ export const TEST_LICENSE = {
   user: TEST_LICENSED_ACCOUNT,
 } as const
 
+export const TEST_COURSE_LEARNER = {
+  email: "learner@example.test",
+  id: "test-learner",
+  name: "Test Learner",
+  role: ROLE_CODES.CUSTOMER,
+} as const
+
+export const TEST_COURSE_LICENSE = {
+  ...TEST_LICENSE,
+  activation: { ...TEST_LICENSE.activation, id: "6a2d1f80-9b3c-4e5f-8a7b-1c2d3e4f5a60" },
+  id: "test-course-license",
+  key: "SAASY-TEST-0000-0002",
+  polarCustomerId: "cus_test-learner",
+  polarLicenseKeyId: "lk_test-learner",
+  polarOrderId: "ord_test-learner",
+  tier: LICENSE_TIER.COMPLETE,
+  user: TEST_COURSE_LEARNER,
+} as const
+
 const cliTestLicense = (parallelIndex: number) => {
   const id = `test-cli-${String(parallelIndex)}`
 
@@ -41,7 +60,7 @@ const cliTestLicense = (parallelIndex: number) => {
 
 export const TEST_CLI_LICENSES = Array.from({ length: PARALLEL_WORKERS }, (_, parallelIndex) => cliTestLicense(parallelIndex))
 
-export const TEST_LICENSES = [TEST_LICENSE, ...TEST_CLI_LICENSES]
+export const TEST_LICENSES = [TEST_LICENSE, TEST_COURSE_LICENSE, ...TEST_CLI_LICENSES]
 
 export const TEST_UNLICENSED_ORDER = {
   customerId: "cus_test-unlicensed",

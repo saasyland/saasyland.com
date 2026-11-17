@@ -12,12 +12,13 @@ import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
 import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import { playableVideo } from "~/src/modules/lesson/lesson.playable"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { video } from "~/src/modules/video/video.schema"
 
 const readCourses = () =>
   db
-    .select({ id: course.id, kind: course.kind, slug: course.slug, title: course.title })
+    .select({ icon: course.icon, id: course.id, kind: course.kind, level: course.level, slug: course.slug, title: course.title })
     .from(course)
     .where(eq(course.status, COURSE_STATUS.PUBLISHED))
     .orderBy(asc(course.position), asc(course.id))
@@ -34,7 +35,7 @@ const readLessons = (courseIds: readonly string[]) =>
     })
     .from(lesson)
     .innerJoin(chapter, eq(chapter.id, lesson.chapterId))
-    .leftJoin(video, eq(video.id, lesson.videoId))
+    .leftJoin(video, playableVideo)
     .where(and(inArray(lesson.courseId, [...courseIds]), eq(lesson.status, LESSON_STATUS.PUBLISHED)))
     .orderBy(asc(chapter.position), asc(chapter.id), asc(lesson.position), asc(lesson.id))
 
@@ -53,9 +54,11 @@ export const getCourseShowcase = createServerFn({ method: "GET" })
       return {
         durationMs: own.reduce((total, { durationMs }) => total + (durationMs ?? 0), 0),
         freeLesson: freeLesson && { slug: freeLesson.slug, title: localize(freeLesson.title, locale) },
+        icon: entry.icon,
         id: entry.id,
         kind: entry.kind,
         lessonCount: own.length,
+        level: entry.level,
         previewCount: own.filter(({ access }) => access === LESSON_ACCESS.PREVIEW).length,
         slug: entry.slug,
         title: localize(entry.title, locale),

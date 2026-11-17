@@ -10,16 +10,21 @@ import { CHAPTER_MUTATION_KEYS } from "~/src/modules/chapter/chapter.constants"
 import { chapter } from "~/src/modules/chapter/chapter.schema"
 import type { Chapter } from "~/src/modules/chapter/chapter.types"
 import { chapterZodSchemas } from "~/src/modules/chapter/chapter.zod"
+import { attachmentObjectKeys, removeAttachmentObjects } from "~/src/modules/lesson-attachment/lesson-attachment.objects"
+import { lesson } from "~/src/modules/lesson/lesson.schema"
 
 export const deleteChapter = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["update"] })])
   .validator((input: Chapter["deleteChapter"]) => chapterZodSchemas.deleteChapter.parse(input))
   .handler(async ({ data }) => {
+    const objectKeys = await attachmentObjectKeys(eq(lesson.chapterId, data.chapterId))
     const [row] = await db.delete(chapter).where(eq(chapter.id, data.chapterId)).returning({ id: chapter.id })
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
+
+    await removeAttachmentObjects(objectKeys)
 
     return row
   })

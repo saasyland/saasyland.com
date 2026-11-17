@@ -5,7 +5,7 @@ description: "Модуль — це одна таблиця бази даних:
 
 `src/modules/<table>/` існує лише для справжньої таблиці бази даних. Папка віддзеркалює схему Drizzle, тож її створення стверджує, що така таблиця існує. Код, який обслуговує функціональність без власної таблиці, розміщується деінде: серверна функція, що читає GitHub або колекцію документації, лежить у `src/lib/<topic>.ts` або в єдиному маршруті, який її використовує, а налаштування постачальника — у `src/integrations/<vendor>`.
 
-Модулі: `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` і `video`. `license` володіє двома таблицями, `license` і `revoked_license_order`. `_core` — не модуль: він містить коди помилок, каталоги й поля Zod, спільні для всіх модулів.
+Модулі: `account`, `category`, `chapter`, `course`, `lesson`, `lesson-attachment`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` і `video`. `license` володіє двома таблицями, `license` і `revoked_license_order`. `_core` — не модуль: він містить коди помилок, каталоги й поля Zod, спільні для всіх модулів.
 
 ## Будова
 
@@ -28,9 +28,19 @@ description: "Модуль — це одна таблиця бази даних:
 export const course = sqliteTable(
   "course",
   {
+    icon: text("icon", { enum: COURSE_ICONS }).notNull().default(COURSE_ICON.BOOK_OPEN),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
+    level: text("level", { enum: COURSE_LEVELS }).notNull().default(COURSE_LEVEL.BEGINNER),
+    outcomes: text("outcomes", { mode: "json" })
+      .$type<LocalizedList>()
+      .notNull()
+      .default(sql`'{}'`),
     position: integer("position").notNull().default(0),
+    prerequisites: text("prerequisites", { mode: "json" })
+      .$type<LocalizedList>()
+      .notNull()
+      .default(sql`'{}'`),
     slug: text("slug", { length: SLUG_MAX_LENGTH }).notNull().unique(),
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
@@ -105,17 +115,21 @@ export const COURSE_MUTATION_KEYS = {
 import zod from "zod/v4"
 
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
-import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
+import { localizedListSchema, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
-import { COURSE_KINDS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
+import { COURSE_ICONS, COURSE_KINDS, COURSE_LEVELS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
 
 const courseIdInput = zod.object({
   courseId: idField,
 })
 
 const courseFields = zod.object({
+  icon: zod.enum(COURSE_ICONS),
   kind: zod.enum(COURSE_KINDS),
+  level: zod.enum(COURSE_LEVELS),
+  outcomes: localizedListSchema,
+  prerequisites: localizedListSchema,
   slug: slugField,
   status: zod.enum(COURSE_STATUSES),
   summary: localizedTextSchema,
@@ -175,10 +189,15 @@ export const courseZodSchemas = {
 export interface Lesson {
   select: typeof lesson.$inferSelect
   insert: typeof lesson.$inferInsert
+  page: LessonPage
+  detail: LessonPage["lesson"]
+  attachment: LessonPage["lesson"]["attachments"][number]
   createLesson: zod.input<typeof lessonZodSchemas.createLesson>
   deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
+  getLesson: zod.input<typeof lessonZodSchemas.getLesson>
   getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
   moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
+  replaceLessonVideo: zod.input<typeof lessonZodSchemas.replaceLessonVideo>
   updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
 }
 ```
@@ -197,7 +216,11 @@ export interface Lesson {
 
 | Файл                                                    | Аспект                                                                       |
 | ------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `course/course.outline.ts`                              | Структура опублікованого курсу для глядача, для `getCourse` і `getLesson`    |
 | `lesson/lesson.access.ts`                               | Хто може дивитися урок; чистий, використовується на сервері й у тестах       |
+| `lesson/lesson.playable.ts`                             | З’єднання (join) з відео уроку, яке пропускає заглушки                       |
+| `lesson-attachment/lesson-attachment.download.ts`       | Підписування URL-адрес для завантаження матеріалів уроків                    |
+| `lesson-attachment/lesson-attachment.delivery.ts`       | Обробник Worker для підписаних запитів `/media/downloads/`                   |
 | `lesson/lesson.viewer.ts`                               | Визначає на сервері глядача, який увійшов, і його доступ до курсів           |
 | `license/license.webhooks.ts`                           | Обробники вебхуків Polar, які викликає `license.polar-events.ts`             |
 | `license/license.api.ts`                                | Обробники API ліцензій для CLI; їх обслуговують `src/routes/api/cli.v1.*.ts` |
@@ -210,7 +233,7 @@ export interface Lesson {
 | `video/video.delivery.ts`                               | Обробник Worker для підписаних запитів `/media/`                             |
 | `video/video.playback.ts`, `video/video.files.ts`       | Підписування URL-адрес відтворення; ключі об’єктів і типи вмісту             |
 
-Файл, який ніколи не має потрапити в браузерний бандл, починається з `import "@tanstack/react-start/server-only"`, як `lesson.viewer.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` і `license.utils.ts` (який читає ідентифікатори продуктів Polar, `POLAR_PRODUCT_IDS`, із середовища Worker). Чисті файли, як-от `lesson.access.ts` і `course.utils.ts`, нічого серверного не імпортують, тож їх можуть використовувати компоненти й тести.
+Файл, який ніколи не має потрапити в браузерний бандл, починається з `import "@tanstack/react-start/server-only"`, як `course.outline.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` і `license.utils.ts` (який читає ідентифікатори продуктів Polar, `POLAR_PRODUCT_IDS`, із середовища Worker). Чисті файли, як-от `lesson.access.ts` і `course.utils.ts`, нічого серверного не імпортують, тож їх можуть використовувати компоненти й тести.
 
 ## Додавання модуля
 

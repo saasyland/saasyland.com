@@ -5,8 +5,8 @@ import { executeQuery } from "~/src/platform/testing/lib/query"
 
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
-import { IDS, LESSON_IDS, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
-import { COURSE_KIND, COURSE_SHOWCASE, COURSE_STATUS } from "~/src/modules/course/course.constants"
+import { IDS, LESSON_IDS, playLessonOn, seedCatalogue } from "~/src/modules/course/__test__/fixtures/catalogue"
+import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_SHOWCASE, COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import { courseShowcaseQuery } from "~/src/modules/course/use-cases/get-course-showcase"
 import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
@@ -28,9 +28,11 @@ describe("getCourseShowcase", () => {
       {
         durationMs: 375_000,
         freeLesson: { slug: "boundaries", title: "Boundaries" },
+        icon: COURSE_ICON.BOOK_OPEN,
         id: IDS.COURSE,
         kind: COURSE_KIND.COURSE,
         lessonCount: 4,
+        level: COURSE_LEVEL.BEGINNER,
         previewCount: 1,
         slug: "the-walkthrough",
         title: "The walkthrough",
@@ -38,9 +40,11 @@ describe("getCourseShowcase", () => {
       {
         durationMs: 0,
         freeLesson: undefined,
+        icon: COURSE_ICON.BOOK_OPEN,
         id: IDS.TUTORIAL,
         kind: COURSE_KIND.TUTORIAL,
         lessonCount: 0,
+        level: COURSE_LEVEL.BEGINNER,
         previewCount: 0,
         slug: "one-off",
         title: "One-off tutorial",
@@ -107,6 +111,14 @@ describe("getCourseShowcase", () => {
 
     expect(walkthrough?.previewCount).toBe(1)
     expect(walkthrough?.freeLesson).toBeUndefined()
+  })
+
+  it("leaves lessons on the placeholder video out of the length and the free lesson", async () => {
+    await playLessonOn(LESSON_IDS.PREVIEW, IDS.PLACEHOLDER_VIDEO)
+
+    const [walkthrough] = await showcase()
+
+    expect(walkthrough).toMatchObject({ durationMs: 250_000, freeLesson: undefined, lessonCount: 4, previewCount: 1 })
   })
 
   it("returns no course when nothing is published", async () => {

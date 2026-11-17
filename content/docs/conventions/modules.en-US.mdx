@@ -5,7 +5,7 @@ description: "A module is one database table: its schema, constants, Zod schemas
 
 `src/modules/<table>/` exists only for a real database table. The folder mirrors the Drizzle schema, so creating one claims that a table exists. Code that serves a feature without a table of its own goes elsewhere: a server function that reads GitHub or the docs collection lives in `src/lib/<topic>.ts` or in the one route that uses it, and vendor setup lives in `src/integrations/<vendor>`.
 
-The modules are `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` and `video`. `license` owns two tables, `license` and `revoked_license_order`. `_core` is not a module: it holds the error codes, catalogues and Zod fields every module shares.
+The modules are `account`, `category`, `chapter`, `course`, `lesson`, `lesson-attachment`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` and `video`. `license` owns two tables, `license` and `revoked_license_order`. `_core` is not a module: it holds the error codes, catalogues and Zod fields every module shares.
 
 ## Anatomy
 
@@ -28,9 +28,19 @@ The modules are `account`, `category`, `chapter`, `course`, `lesson`, `lesson-pr
 export const course = sqliteTable(
   "course",
   {
+    icon: text("icon", { enum: COURSE_ICONS }).notNull().default(COURSE_ICON.BOOK_OPEN),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
+    level: text("level", { enum: COURSE_LEVELS }).notNull().default(COURSE_LEVEL.BEGINNER),
+    outcomes: text("outcomes", { mode: "json" })
+      .$type<LocalizedList>()
+      .notNull()
+      .default(sql`'{}'`),
     position: integer("position").notNull().default(0),
+    prerequisites: text("prerequisites", { mode: "json" })
+      .$type<LocalizedList>()
+      .notNull()
+      .default(sql`'{}'`),
     slug: text("slug", { length: SLUG_MAX_LENGTH }).notNull().unique(),
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
@@ -105,17 +115,21 @@ export const COURSE_MUTATION_KEYS = {
 import zod from "zod/v4"
 
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
-import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
+import { localizedListSchema, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
-import { COURSE_KINDS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
+import { COURSE_ICONS, COURSE_KINDS, COURSE_LEVELS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
 
 const courseIdInput = zod.object({
   courseId: idField,
 })
 
 const courseFields = zod.object({
+  icon: zod.enum(COURSE_ICONS),
   kind: zod.enum(COURSE_KINDS),
+  level: zod.enum(COURSE_LEVELS),
+  outcomes: localizedListSchema,
+  prerequisites: localizedListSchema,
   slug: slugField,
   status: zod.enum(COURSE_STATUSES),
   summary: localizedTextSchema,
@@ -175,10 +189,15 @@ export const courseZodSchemas = {
 export interface Lesson {
   select: typeof lesson.$inferSelect
   insert: typeof lesson.$inferInsert
+  page: LessonPage
+  detail: LessonPage["lesson"]
+  attachment: LessonPage["lesson"]["attachments"][number]
   createLesson: zod.input<typeof lessonZodSchemas.createLesson>
   deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
+  getLesson: zod.input<typeof lessonZodSchemas.getLesson>
   getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
   moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
+  replaceLessonVideo: zod.input<typeof lessonZodSchemas.replaceLessonVideo>
   updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
 }
 ```
@@ -195,22 +214,26 @@ A use case that runs only on the server, called by a Better Auth hook or a Polar
 
 When a table needs logic that is neither a use case nor a pure helper, it gets one file per concern, named `<table>.<concern>.ts`:
 
-| File                                                    | Concern                                                              |
-| ------------------------------------------------------- | -------------------------------------------------------------------- |
-| `lesson/lesson.access.ts`                               | Who may watch a lesson; pure, used on the server and in tests        |
-| `lesson/lesson.viewer.ts`                               | Resolves the signed-in viewer and their course access on the server  |
-| `license/license.webhooks.ts`                           | Polar webhook handlers, called by `license.polar-events.ts`          |
-| `license/license.api.ts`                                | The CLI licence API handlers, served by `src/routes/api/cli.v1.*.ts` |
-| `license/license.bundles.ts`                            | Signing the URLs of the CLI's template bundles; their object keys    |
-| `license/license.delivery.ts`                           | The Worker handler for signed `/bundles/` requests                   |
-| `license/license.ppp.ts`                                | Regional pricing discounts for checkout                              |
-| `license/license.pricing.ts`                            | Regional price bands and the opt-out cookie; pure                    |
-| `license/license.refunds.ts`                            | Whether a purchase can be refunded, from its records; pure           |
-| `newsletter-subscriber/newsletter-subscriber.server.ts` | Server-only request checks                                           |
-| `video/video.delivery.ts`                               | The Worker handler for signed `/media/` requests                     |
-| `video/video.playback.ts`, `video/video.files.ts`       | Signing playback URLs; object keys and content types                 |
+| File                                                    | Concern                                                                    |
+| ------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `course/course.outline.ts`                              | A published course's outline for a viewer, for `getCourse` and `getLesson` |
+| `lesson/lesson.access.ts`                               | Who may watch a lesson; pure, used on the server and in tests              |
+| `lesson/lesson.playable.ts`                             | The join to a lesson's video that leaves placeholders out                  |
+| `lesson-attachment/lesson-attachment.download.ts`       | Signing download URLs of lesson materials                                  |
+| `lesson-attachment/lesson-attachment.delivery.ts`       | The Worker handler for signed `/media/downloads/` requests                 |
+| `lesson/lesson.viewer.ts`                               | Resolves the signed-in viewer and their course access on the server        |
+| `license/license.webhooks.ts`                           | Polar webhook handlers, called by `license.polar-events.ts`                |
+| `license/license.api.ts`                                | The CLI licence API handlers, served by `src/routes/api/cli.v1.*.ts`       |
+| `license/license.bundles.ts`                            | Signing the URLs of the CLI's template bundles; their object keys          |
+| `license/license.delivery.ts`                           | The Worker handler for signed `/bundles/` requests                         |
+| `license/license.ppp.ts`                                | Regional pricing discounts for checkout                                    |
+| `license/license.pricing.ts`                            | Regional price bands and the opt-out cookie; pure                          |
+| `license/license.refunds.ts`                            | Whether a purchase can be refunded, from its records; pure                 |
+| `newsletter-subscriber/newsletter-subscriber.server.ts` | Server-only request checks                                                 |
+| `video/video.delivery.ts`                               | The Worker handler for signed `/media/` requests                           |
+| `video/video.playback.ts`, `video/video.files.ts`       | Signing playback URLs; object keys and content types                       |
 
-A file that must never reach the browser bundle starts with `import "@tanstack/react-start/server-only"`, as `lesson.viewer.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` and `license.utils.ts` (which reads the Polar product IDs, `POLAR_PRODUCT_IDS`, from the Worker environment) do. Pure files such as `lesson.access.ts` and `course.utils.ts` import nothing server-side, so components and tests can use them.
+A file that must never reach the browser bundle starts with `import "@tanstack/react-start/server-only"`, as `course.outline.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` and `license.utils.ts` (which reads the Polar product IDs, `POLAR_PRODUCT_IDS`, from the Worker environment) do. Pure files such as `lesson.access.ts` and `course.utils.ts` import nothing server-side, so components and tests can use them.
 
 ## Adding a module
 

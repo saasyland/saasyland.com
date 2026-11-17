@@ -28,7 +28,7 @@ export const createChapter = createServerFn({ method: "POST" })
 
     return db
       .insert(chapter)
-      .values({ courseId: data.courseId, id: v7(), position: nextPosition(siblings), title: data.title })
+      .values({ courseId: data.courseId, id: v7(), position: nextPosition(siblings), summary: data.summary, title: data.title })
       .returning({ id: chapter.id })
       .get()
   })

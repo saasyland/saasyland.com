@@ -4,9 +4,11 @@ import { toast } from "sonner"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
+import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import type { deleteVideoMutation } from "~/src/modules/video/use-cases/delete-video"
 import { videoPlaybackQuery } from "~/src/modules/video/use-cases/get-video-playback"
 import { getVideosQuery } from "~/src/modules/video/use-cases/get-videos"
+import type { setVideoPlaceholderMutation } from "~/src/modules/video/use-cases/set-video-placeholder"
 import { VIDEO_MUTATION_KEYS, VIDEO_QUERY_KEYS } from "~/src/modules/video/video.constants"
 import type { Video } from "~/src/modules/video/video.types"
 
@@ -19,6 +21,11 @@ import errors from "~/messages/en-US/errors.json"
 import labels from "~/messages/en-US/pages.admin.videos.json"
 
 const remove = vi.hoisted(() => vi.fn<NonNullable<typeof deleteVideoMutation.mutationFn>>())
+const setPlaceholder = vi.hoisted(() => vi.fn<NonNullable<typeof setVideoPlaceholderMutation.mutationFn>>())
+
+vi.mock(import("~/src/modules/video/use-cases/set-video-placeholder"), () => ({
+  setVideoPlaceholderMutation: { mutationFn: setPlaceholder, mutationKey: VIDEO_MUTATION_KEYS.SET_PLACEHOLDER },
+}))
 
 vi.mock(import("~/src/modules/video/use-cases/delete-video"), () => ({
   deleteVideoMutation: { mutationFn: remove, mutationKey: VIDEO_MUTATION_KEYS.DELETE },
@@ -38,6 +45,7 @@ const LESSON: Video["select"] = {
   durationMs: 754_000,
   height: 1080,
   id: "0195a2b4-6c8d-7e9f-8a0b-1c2d3e4f5a6b",
+  placeholder: false,
   sizeBytes: 123_400_000,
   title: "Module boundaries",
   updatedAt: fixtureDate,
@@ -49,6 +57,7 @@ const SILENT: Video["select"] = {
   captionLocales: [],
   durationMs: 3_725_000,
   id: "0195a2b4-6c8d-7e9f-8a0b-1c2d3e4f5a6c",
+  placeholder: true,
   title: "Long build",
 }
 
@@ -59,6 +68,8 @@ const PLAYBACK: Video["playback"] = {
   src: "/media/a.b/id/master.m3u8",
   storyboard: "/media/a.b/id/storyboard.vtt",
 }
+
+const placeholderSwitch = (title: string) => screen.getByRole("switch", { name: labels.placeholder.label.replace("{title}", title) })
 
 const renderVideos = () => {
   const queryClient = adminQueryClient()
@@ -75,6 +86,7 @@ const renderVideos = () => {
 beforeEach(() => {
   vi.clearAllMocks()
   remove.mockResolvedValue({ id: LESSON.id })
+  setPlaceholder.mockImplementation(({ placeholder, videoId }) => Promise.resolve({ id: videoId, placeholder }))
   vi.spyOn(toast, "success").mockReturnValue(0)
   vi.spyOn(toast, "error").mockReturnValue(0)
 })
@@ -151,6 +163,37 @@ describe("admin videos", () => {
 
     await user.click(screen.getByRole("button", { name: `Delete ${LESSON.title}` }))
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: labels.delete.confirm }))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(errors.codes.NOT_FOUND)
+    })
+  })
+
+  it("marks a video as the placeholder for lessons being recorded and clears it again", async () => {
+    const { invalidateQueries, user } = renderVideos()
+
+    expect(placeholderSwitch(LESSON.title)).not.toBeChecked()
+    expect(placeholderSwitch(SILENT.title)).toBeChecked()
+
+    await user.click(placeholderSwitch(LESSON.title))
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(`“${LESSON.title}” is now a placeholder: lessons on it show as being recorded`)
+    })
+    expect(setPlaceholder).toHaveBeenCalledWith({ placeholder: true, videoId: LESSON.id }, expect.anything())
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: VIDEO_QUERY_KEYS.ALL })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.ALL })
+
+    await user.click(placeholderSwitch(SILENT.title))
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(`“${SILENT.title}” is no longer a placeholder: lessons on it play`)
+    })
+  })
+
+  it("explains a placeholder change that failed", async () => {
+    setPlaceholder.mockRejectedValueOnce(new Error(ERROR_CODES.NOT_FOUND))
+    const { user } = renderVideos()
+
+    await user.click(screen.getByRole("switch", { name: labels.placeholder.label.replace("{title}", LESSON.title) }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(errors.codes.NOT_FOUND)

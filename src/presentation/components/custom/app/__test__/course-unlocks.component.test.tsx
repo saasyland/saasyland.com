@@ -11,7 +11,7 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { COURSE_ACCESS_TEST_MESSAGES, COURSE_ACCESS_TEST_NAMES } from "~/src/modules/course/__test__/fixtures/course-access.messages"
-import { COURSE_KIND } from "~/src/modules/course/course.constants"
+import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
 
@@ -27,9 +27,11 @@ const CATALOGUE_KEY = catalogueQuery({ locale: I18N.DEFAULT_LOCALE }).queryKey
 
 const course = (id: string, paid: number): Course["catalogue"][number] => ({
   durationMs: 0,
+  icon: COURSE_ICON.BOOK_OPEN,
   id,
   kind: COURSE_KIND.COURSE,
   lessons: paid + 1,
+  level: COURSE_LEVEL.BEGINNER,
   paid,
   previews: 1,
   slug: id,

@@ -12,6 +12,7 @@ import { COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import { hasLessonAccess } from "~/src/modules/lesson/lesson.access"
 import { LESSON_QUERY_KEYS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import { playableVideo } from "~/src/modules/lesson/lesson.playable"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import { resolveViewer } from "~/src/modules/lesson/lesson.viewer"
@@ -29,7 +30,7 @@ export const getLessonPlayback = createServerFn({ method: "GET" })
       .select({ access: lesson.access, captionLocales: video.captionLocales, id: video.id })
       .from(lesson)
       .innerJoin(course, eq(course.id, lesson.courseId))
-      .innerJoin(video, eq(video.id, lesson.videoId))
+      .innerJoin(video, playableVideo)
       .where(
         and(
           eq(course.slug, courseSlug),

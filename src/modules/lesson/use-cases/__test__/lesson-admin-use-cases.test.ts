@@ -17,6 +17,7 @@ import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { createLessonMutation } from "~/src/modules/lesson/use-cases/create-lesson"
 import { deleteLessonMutation } from "~/src/modules/lesson/use-cases/delete-lesson"
 import { moveLessonMutation } from "~/src/modules/lesson/use-cases/move-lesson"
+import { replaceLessonVideoMutation } from "~/src/modules/lesson/use-cases/replace-lesson-video"
 import { updateLessonMutation } from "~/src/modules/lesson/use-cases/update-lesson"
 
 const MISSING_ID = "01960000-0000-7000-8000-00000000dead"
@@ -27,6 +28,15 @@ const FIELDS = {
   status: LESSON_STATUS.PUBLISHED,
   summary: { "en-US": "Webhooks." },
   title: { "en-US": "Webhooks", "pl-PL": "Webhooki" },
+}
+
+const CONTENT = {
+  ...FIELDS,
+  description: { "en-US": "Run `bun run dev`.\n\nThen open the site.", "pl-PL": "Uruchom `bun run dev`." },
+  keyMoments: [
+    { at: "1:02:03", label: { "en-US": "Deploy", "pl-PL": "Wdrożenie" } },
+    { at: "1:15", label: { "en-US": "Install" } },
+  ],
 }
 
 const signInAs = (role: string): void => {
@@ -96,26 +106,26 @@ describe("createLesson", () => {
 })
 
 describe("updateLesson", () => {
-  it("saves the fields and detaches the video when none is chosen", async () => {
+  it("saves the fields, the description and the key moments in time order, and keeps the video", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await executeMutation(updateLessonMutation, { ...FIELDS, lessonId: LESSON_IDS.PAID })
+    await executeMutation(updateLessonMutation, { ...CONTENT, lessonId: LESSON_IDS.PAID })
 
-    await expect(lessonRow(LESSON_IDS.PAID)).resolves.toMatchObject({ ...FIELDS, videoId: null })
-  })
-
-  it("attaches a video", async () => {
-    signInAs(ROLE_CODES.ADMIN)
-
-    await executeMutation(updateLessonMutation, { ...FIELDS, lessonId: LESSON_IDS.PAID_WITHOUT_VIDEO, videoId: IDS.VIDEO })
-
-    await expect(lessonRow(LESSON_IDS.PAID_WITHOUT_VIDEO)).resolves.toMatchObject({ videoId: IDS.VIDEO })
+    await expect(lessonRow(LESSON_IDS.PAID)).resolves.toMatchObject({
+      ...FIELDS,
+      description: CONTENT.description,
+      keyMoments: [
+        { label: { "en-US": "Install" }, seconds: 75 },
+        { label: { "en-US": "Deploy", "pl-PL": "Wdrożenie" }, seconds: 3723 },
+      ],
+      videoId: IDS.VIDEO,
+    })
   })
 
   it("refuses a slug another lesson of the course uses", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await expect(executeMutation(updateLessonMutation, { ...FIELDS, lessonId: LESSON_IDS.PAID, slug: "sessions" })).rejects.toThrow(
+    await expect(executeMutation(updateLessonMutation, { ...CONTENT, lessonId: LESSON_IDS.PAID, slug: "sessions" })).rejects.toThrow(
       ERROR_CODES.CONFLICT,
     )
   })
@@ -123,7 +133,37 @@ describe("updateLesson", () => {
   it("rejects a missing lesson", async () => {
     signInAs(ROLE_CODES.ADMIN)
 
-    await expect(executeMutation(updateLessonMutation, { ...FIELDS, lessonId: MISSING_ID })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
+    await expect(executeMutation(updateLessonMutation, { ...CONTENT, lessonId: MISSING_ID })).rejects.toThrow(ERROR_CODES.NOT_FOUND)
+  })
+})
+
+describe("replaceLessonVideo", () => {
+  it("puts another video on the lesson in one step", async () => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    await executeMutation(replaceLessonVideoMutation, { lessonId: LESSON_IDS.PAID_WITHOUT_VIDEO, videoId: IDS.PLACEHOLDER_VIDEO })
+    await expect(lessonRow(LESSON_IDS.PAID_WITHOUT_VIDEO)).resolves.toMatchObject({ videoId: IDS.PLACEHOLDER_VIDEO })
+
+    await executeMutation(replaceLessonVideoMutation, { lessonId: LESSON_IDS.PAID_WITHOUT_VIDEO, videoId: IDS.VIDEO })
+    await expect(lessonRow(LESSON_IDS.PAID_WITHOUT_VIDEO)).resolves.toMatchObject({ videoId: IDS.VIDEO })
+  })
+
+  it.each([
+    { input: { lessonId: LESSON_IDS.PAID, videoId: MISSING_ID }, name: "a missing video" },
+    { input: { lessonId: MISSING_ID, videoId: IDS.VIDEO }, name: "a missing lesson" },
+  ])("rejects $name", async ({ input }) => {
+    signInAs(ROLE_CODES.ADMIN)
+
+    await expect(executeMutation(replaceLessonVideoMutation, input)).rejects.toThrow(ERROR_CODES.NOT_FOUND)
+    await expect(lessonRow(LESSON_IDS.PAID)).resolves.toMatchObject({ videoId: IDS.VIDEO })
+  })
+
+  it("is for staff only", async () => {
+    signInAs(ROLE_CODES.CUSTOMER)
+
+    await expect(executeMutation(replaceLessonVideoMutation, { lessonId: LESSON_IDS.PAID, videoId: IDS.VIDEO })).rejects.toThrow(
+      ERROR_CODES.FORBIDDEN,
+    )
   })
 })
 

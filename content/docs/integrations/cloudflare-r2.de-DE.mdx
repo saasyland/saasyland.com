@@ -1,6 +1,6 @@
 ---
 title: "Cloudflare R2"
-description: "Die Buckets MEDIA und BUNDLES: privater Videospeicher und die Vorlagen-Bundles der CLI, die der Worker über signierte, ablaufende Pfade ausliefert."
+description: "Die Buckets MEDIA und BUNDLES: privater Speicher für Videos und Lektionsmaterialien und die Vorlagen-Bundles der CLI, die der Worker über signierte, ablaufende Pfade ausliefert."
 ---
 
 Jede Umgebung bindet in `wrangler.jsonc` einen R2-Bucket als `MEDIA`: `saasyland` in Produktion, `saasyland-preview` für Preview und lokale Entwicklung sowie einen lokalen Bucket `saasyland-test` für den Test-Build. Die Buckets sind privat: Öffentlicher Zugriff und die `r2.dev`-URL bleiben deaktiviert, und jeder Lesezugriff läuft über den Worker. Der Lizenzbereich bindet einen zweiten Bucket, `BUNDLES`, für die Vorlagen-Bundles der CLI (siehe [Vorlagen-Bundles](#template-bundles)).
@@ -8,6 +8,8 @@ Jede Umgebung bindet in `wrangler.jsonc` einen R2-Bucket als `MEDIA`: `saasyland
 ## Objektstruktur
 
 Die Dateien jedes Videos liegen unter `videos/<videoId>/`, wobei `videoId` die ID der `video`-Zeile ist. `videoObjectKey` und `videoDirectory` in `src/modules/video/video.files.ts` bauen die Schlüssel, und `mediaContentType` listet die einzigen Dateinamen, die hochgeladen oder ausgeliefert werden dürfen, mit ihren Medientypen auf. Alles andere wird abgelehnt.
+
+Jedes hochgeladene Lektionsmaterial liegt unter `attachments/<attachmentId>/<fileName>`, wobei `attachmentId` die ID der `lesson_attachment`-Zeile ist und `fileName` der hochgeladene Name, reduziert auf Buchstaben, Ziffern, Punkte, Bindestriche und Unterstriche. `attachmentObjectKey` und `attachmentContentType` in `src/modules/lesson-attachment/lesson-attachment.files.ts` bauen den Schlüssel und liefern den Medientyp der Endungen <RepositoryFact name="attachmentFileTypes" />, die hochgeladen oder ausgeliefert werden dürfen.
 
 ## Signierte Auslieferung
 
@@ -30,9 +32,13 @@ Der Player sieht nie einen Bucket-Schlüssel. Eine Server Function ruft `createP
 
 Signierte Pfade funktionieren bis zu ihrem Ablauf wie Bearer-Links: Wer einen davon hat, kann dieses Video abspielen. Wer zuschauen darf, wird geprüft, wenn der Pfad ausgestellt wird.
 
+Lektionsmaterialien nutzen dasselbe Schema unter `/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>`, mit einem eigenen Schlüssel und einer Gültigkeit von mindestens <RepositoryFact name="signedDownloadHours" unit="hour" />. `getLesson` signiert sie nur für Betrachter, die die Lektion öffnen dürfen. `serveAttachment` (`src/modules/lesson-attachment/lesson-attachment.delivery.ts`) erhält vom Handler für `/media/` die Anfragen unter `/media/downloads/` anstelle von `serveMedia`, akzeptiert nur `GET` und `HEAD`, antwortet mit `403` bei einer abgelaufenen oder falschen Signatur und mit `404` bei einer Datei, die nicht vorhanden ist, und liefert die Datei mit `Content-Disposition: attachment` und `Cache-Control: private, no-store` aus.
+
 ## Uploads
 
-Der Worker nimmt keine Uploads an. `scripts/publish-video.ts` schreibt mit `wrangler r2 bulk put --remote` und deiner Anmeldung per `bunx wrangler login` in den Bucket; siehe [Videos](/docs/features/videos). Wird ein Video im Admin-Bereich gelöscht, wird das Präfix aufgelistet und die Objekte werden seitenweise über das Binding gelöscht.
+Der Worker nimmt keine Video-Uploads an. `scripts/publish-video.ts` schreibt mit `wrangler r2 bulk put --remote` und deiner Anmeldung per `bunx wrangler login` in den Bucket; siehe [Videos](/docs/features/videos). Wird ein Video im Admin-Bereich gelöscht, wird das Präfix aufgelistet und die Objekte werden seitenweise über das Binding gelöscht.
+
+Lektionsmaterialien sind der einzige Upload, den der Worker annimmt: `uploadLessonAttachment` nimmt von einem Admin eine Datei mit bis zu <RepositoryFact name="attachmentMaxMegabytes" /> MB entgegen und schreibt sie über das Binding. Das Löschen eines Materials oder der Lektion, des Kapitels oder des Kurses, zu dem es gehört, löscht sein Objekt; siehe [Kurse](/docs/features/courses#materials).
 
 ## Vorlagen-Bundles [#template-bundles]
 
@@ -44,7 +50,7 @@ Er enthält ein Objekt pro Release der CLI, das Vorlagen-Bundle des Releases unt
 
 ## Tests
 
-In Vitest wird `cloudflare:workers` zu `src/platform/testing/mocks/cloudflare.ts` aufgelöst, das für jedes R2-Binding der Umgebung `test`, `MEDIA` und `BUNDLES`, einen Bucket im Arbeitsspeicher mit `get` (einschließlich Byte-Bereichen), `head`, `put` von Text oder Bytes mit benutzerdefinierten Metadaten, `delete` und seitenweisem `list` bereitstellt. `src/platform/testing/mocks/cache.ts` ersetzt den Workers-Cache durch einen Stub. Der Test-Build verwendet die lokalen Buckets `saasyland-test` und `saasyland-bundles-test` unter `.wrangler/test`.
+In Vitest wird `cloudflare:workers` zu `src/platform/testing/mocks/cloudflare.ts` aufgelöst, das für jedes R2-Binding der Umgebung `test`, `MEDIA` und `BUNDLES`, einen Bucket im Arbeitsspeicher mit `get` (einschließlich Byte-Bereichen), `head`, `put` von Text, Bytes oder einer Datei mit benutzerdefinierten Metadaten, `delete` und seitenweisem `list` bereitstellt. `src/platform/testing/mocks/cache.ts` ersetzt den Workers-Cache durch einen Stub. Der Test-Build verwendet die lokalen Buckets `saasyland-test` und `saasyland-bundles-test` unter `.wrangler/test`.
 
 ## Verwandte Seiten
 

@@ -1,6 +1,6 @@
 ---
 title: "Cloudflare R2"
-description: "MEDIA と BUNDLES のバケット：Worker が期限付きの署名済みパスを通じて配信する、非公開の動画ストレージと CLI のテンプレートバンドルです。"
+description: "MEDIA と BUNDLES のバケット：Worker が期限付きの署名済みパスを通じて配信する、非公開の動画とレッスンの資料のストレージと CLI のテンプレートバンドルです。"
 ---
 
 どの環境も、`wrangler.jsonc` で R2 バケットを `MEDIA` としてバインドします。本番では `saasyland`、プレビューとローカル開発では `saasyland-preview`、テストビルドではローカルの `saasyland-test` バケットです。バケットは非公開です。パブリックアクセスと `r2.dev` の URL は無効のままで、すべての読み取りは Worker を経由します。ライセンスのエリアは、CLI のテンプレートバンドル用に 2 つ目のバケット `BUNDLES` をバインドします（[テンプレートバンドル](#template-bundles)を参照）。
@@ -8,6 +8,8 @@ description: "MEDIA と BUNDLES のバケット：Worker が期限付きの署�
 ## オブジェクトの配置
 
 各動画のファイルは `videos/<videoId>/` 配下に置かれます。`videoId` は `video` の行の ID です。キーは `src/modules/video/video.files.ts` の `videoObjectKey` と `videoDirectory` が組み立てます。`mediaContentType` は、アップロードまたは配信できるファイル名だけを、そのメディアタイプとともに列挙します。それ以外のファイルは拒否されます。
+
+アップロードされたレッスンの資料は、それぞれ `attachments/<attachmentId>/<fileName>` 配下に置かれます。`attachmentId` は `lesson_attachment` の行の ID で、`fileName` はアップロードされた名前を英字、数字、ドット、ハイフン、アンダースコアだけに絞ったものです。`src/modules/lesson-attachment/lesson-attachment.files.ts` の `attachmentObjectKey` と `attachmentContentType` がキーを組み立て、アップロードまたは配信できる <RepositoryFact name="attachmentFileTypes" /> の拡張子のメディアタイプを返します。
 
 ## 署名済みの配信
 
@@ -30,9 +32,13 @@ description: "MEDIA と BUNDLES のバケット：Worker が期限付きの署�
 
 署名済みパスは、期限が切れるまでベアラーリンクとして機能します。パスを持っていれば誰でもその動画を再生できます。誰が視聴できるかのチェックは、パスを発行する時点で行われます。
 
+レッスンの資料も、`/media/downloads/<expiry>.<signature>/<attachmentId>/<fileName>` の下で同じ方式を使います。鍵は専用で、有効期間は少なくとも <RepositoryFact name="signedDownloadHours" unit="hour" />です。`getLesson` は、レッスンを開ける視聴者に対してだけ署名します。`serveAttachment`（`src/modules/lesson-attachment/lesson-attachment.delivery.ts`）は `/media/` のハンドラーから `serveMedia` の代わりに `/media/downloads/` 以下のリクエストを受け取り、`GET` と `HEAD` だけを受け付け、期限切れまたは不正な署名には `403` を、存在しないファイルには `404` を返し、`Content-Disposition: attachment` と `Cache-Control: private, no-store` を付けてファイルを配信します。
+
 ## アップロード
 
-Worker はアップロードを受け付けません。`scripts/publish-video.ts` が、`bunx wrangler login` でのログインを使い、`wrangler r2 bulk put --remote` でバケットに書き込みます。[動画](/docs/features/videos)を参照してください。管理画面から動画を削除すると、バインディングを通じてプレフィックス配下を一覧し、オブジェクトをページ単位で削除します。
+Worker は動画のアップロードを受け付けません。`scripts/publish-video.ts` が、`bunx wrangler login` でのログインを使い、`wrangler r2 bulk put --remote` でバケットに書き込みます。[動画](/docs/features/videos)を参照してください。管理画面から動画を削除すると、バインディングを通じてプレフィックス配下を一覧し、オブジェクトをページ単位で削除します。
+
+Worker が受け付ける唯一のアップロードはレッスンの資料です。`uploadLessonAttachment` は管理者から最大 <RepositoryFact name="attachmentMaxMegabytes" /> MB のファイルを受け取り、バインディングを通じて書き込みます。資料、またはそれが属するレッスン、チャプター、コースを削除すると、そのオブジェクトも削除されます。[コース](/docs/features/courses#materials)を参照してください。
 
 ## テンプレートバンドル [#template-bundles]
 
@@ -44,7 +50,7 @@ Worker はアップロードを受け付けません。`scripts/publish-video.ts
 
 ## テスト
 
-Vitest では、`cloudflare:workers` が `src/platform/testing/mocks/cloudflare.ts` に解決され、`test` 環境の R2 バインディング（`MEDIA` と `BUNDLES`）ごとに、`get`（範囲指定を含む）、`head`、カスタムメタデータ付きのテキストまたはバイト列の `put`、`delete`、ページ単位の `list` を備えたインメモリのバケットが提供されます。`src/platform/testing/mocks/cache.ts` は Workers のキャッシュをスタブします。テストビルドは `.wrangler/test` 配下のローカルの `saasyland-test` バケットと `saasyland-bundles-test` バケットを使います。
+Vitest では、`cloudflare:workers` が `src/platform/testing/mocks/cloudflare.ts` に解決され、`test` 環境の R2 バインディング（`MEDIA` と `BUNDLES`）ごとに、`get`（範囲指定を含む）、`head`、カスタムメタデータ付きのテキスト、バイト列、ファイルの `put`、`delete`、ページ単位の `list` を備えたインメモリのバケットが提供されます。`src/platform/testing/mocks/cache.ts` は Workers のキャッシュをスタブします。テストビルドは `.wrangler/test` 配下のローカルの `saasyland-test` バケットと `saasyland-bundles-test` バケットを使います。
 
 ## 関連ページ
 

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "~/e2e/data/accounts"
-import { TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
+import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
 import packageJson from "~/package.json"
 import { collectRepositoryFacts, collectSeededAccounts } from "~/scripts/repository-facts"
 
@@ -88,7 +88,7 @@ describe("collectSeededAccounts", () => {
     const accounts = collectSeededAccounts()
 
     expect(accounts.map(([email, role]) => ({ email, role }))).toStrictEqual(
-      [...TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT].map(({ email, role }) => ({ email, role })),
+      [...TEST_ACCOUNTS, TEST_LICENSED_ACCOUNT, TEST_COURSE_LICENSE.user].map(({ email, role }) => ({ email, role })),
     )
     expect(new Set(accounts.map(([email]) => email)).size).toBe(accounts.length)
   })
@@ -97,6 +97,7 @@ describe("collectSeededAccounts", () => {
     const tiers = new Map(collectSeededAccounts().map(([email, , licensed]) => [email, licensed]))
 
     expect(tiers.get(TEST_LICENSED_ACCOUNT.email)).toStrictEqual([TEST_LICENSE.tier])
+    expect(tiers.get(TEST_COURSE_LICENSE.user.email)).toStrictEqual([TEST_COURSE_LICENSE.tier])
     for (const { email } of TEST_ACCOUNTS) {
       expect(tiers.get(email)).toStrictEqual([])
     }

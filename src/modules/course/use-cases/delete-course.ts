@@ -10,16 +10,21 @@ import { COURSE_MUTATION_KEYS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
+import { attachmentObjectKeys, removeAttachmentObjects } from "~/src/modules/lesson-attachment/lesson-attachment.objects"
+import { lesson } from "~/src/modules/lesson/lesson.schema"
 
 export const deleteCourse = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["delete"] })])
   .validator((input: Course["deleteCourse"]) => courseZodSchemas.deleteCourse.parse(input))
   .handler(async ({ data }) => {
+    const objectKeys = await attachmentObjectKeys(eq(lesson.courseId, data.courseId))
     const [row] = await db.delete(course).where(eq(course.id, data.courseId)).returning({ id: course.id })
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)
     }
+
+    await removeAttachmentObjects(objectKeys)
 
     return row
   })

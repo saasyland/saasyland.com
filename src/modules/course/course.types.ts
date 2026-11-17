@@ -10,6 +10,8 @@ import type { getCourses } from "~/src/modules/course/use-cases/get-courses"
 
 type CoursePage = Awaited<ReturnType<typeof getCourse>>
 
+type CourseEditor = Awaited<ReturnType<typeof getCourseEditor>>
+
 export interface Course {
   select: typeof course.$inferSelect
   insert: typeof course.$inferInsert
@@ -17,7 +19,10 @@ export interface Course {
   page: CoursePage
   pageLesson: CoursePage["chapters"][number]["lessons"][number]
   showcase: Awaited<ReturnType<typeof getCourseShowcase>>
-  editor: Awaited<ReturnType<typeof getCourseEditor>>
+  editor: CourseEditor
+  editorChapter: CourseEditor["chapters"][number]
+  editorLesson: CourseEditor["chapters"][number]["lessons"][number]
+  editorAttachment: CourseEditor["chapters"][number]["lessons"][number]["attachments"][number]
   listRow: Awaited<ReturnType<typeof getCourses>>["rows"][number]
   createCourse: zod.input<typeof courseZodSchemas.createCourse>
   deleteCourse: zod.input<typeof courseZodSchemas.deleteCourse>

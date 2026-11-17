@@ -7,12 +7,13 @@ import { slugField } from "~/src/modules/_core/utils/zod-fields"
 import { chapter, chapterRelations } from "~/src/modules/chapter/chapter.schema"
 import { course, courseRelations } from "~/src/modules/course/course.schema"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
+import { lessonAttachment, lessonAttachmentRelations } from "~/src/modules/lesson-attachment/lesson-attachment.schema"
 import { lessonProgress } from "~/src/modules/lesson-progress/lesson-progress.schema"
 import { lessonProgressZodSchemas } from "~/src/modules/lesson-progress/lesson-progress.zod"
 import { lesson, lessonRelations } from "~/src/modules/lesson/lesson.schema"
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 
-const parents = (table: typeof lesson | typeof chapter | typeof lessonProgress) =>
+const parents = (table: typeof lesson | typeof chapter | typeof lessonProgress | typeof lessonAttachment) =>
   getTableConfig(table).foreignKeys.map((foreignKey) => getTableName(foreignKey.reference().foreignTable))
 
 describe("course schemas", () => {
@@ -20,7 +21,20 @@ describe("course schemas", () => {
     expect(
       drizzleAdapter(
         {},
-        { provider: "sqlite", schema: { chapter, chapterRelations, course, courseRelations, lesson, lessonProgress, lessonRelations } },
+        {
+          provider: "sqlite",
+          schema: {
+            chapter,
+            chapterRelations,
+            course,
+            courseRelations,
+            lesson,
+            lessonAttachment,
+            lessonAttachmentRelations,
+            lessonProgress,
+            lessonRelations,
+          },
+        },
       ),
     ).toBeDefined()
   })
@@ -29,21 +43,23 @@ describe("course schemas", () => {
     expect(parents(chapter)).toStrictEqual(["course"])
     expect(parents(lesson)).toStrictEqual(["chapter", "course", "video"])
     expect(parents(lessonProgress)).toStrictEqual(["lesson", "user"])
+    expect(parents(lessonAttachment)).toStrictEqual(["lesson"])
   })
 
-  it("relates courses, chapters, lessons and videos", () => {
+  it("relates courses, chapters, lessons, their materials and videos", () => {
     const { tables } = extractTablesRelationalConfig(
-      { chapter, chapterRelations, course, courseRelations, lesson, lessonRelations },
+      { chapter, chapterRelations, course, courseRelations, lesson, lessonAttachment, lessonAttachmentRelations, lessonRelations },
       createTableRelationsHelpers,
     )
 
     expect(Object.keys(tables["course"]?.relations ?? {})).toStrictEqual(["chapters", "lessons"])
     expect(Object.keys(tables["chapter"]?.relations ?? {})).toStrictEqual(["course", "lessons"])
-    expect(Object.keys(tables["lesson"]?.relations ?? {})).toStrictEqual(["chapter", "course", "video"])
+    expect(Object.keys(tables["lesson"]?.relations ?? {})).toStrictEqual(["attachments", "chapter", "course", "video"])
+    expect(Object.keys(tables["lessonAttachment"]?.relations ?? {})).toStrictEqual(["lesson"])
   })
 
   it("stamps every update", () => {
-    for (const table of [course, chapter, lesson, lessonProgress]) {
+    for (const table of [course, chapter, lesson, lessonProgress, lessonAttachment]) {
       expect(table.updatedAt.onUpdateFn?.()).toBeInstanceOf(Date)
     }
   })

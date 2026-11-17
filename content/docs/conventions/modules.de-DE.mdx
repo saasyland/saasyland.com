@@ -5,7 +5,7 @@ description: "Ein Modul ist eine Datenbanktabelle: ihr Schema, ihre Konstanten, 
 
 `src/modules/<table>/` gibt es nur für eine echte Datenbanktabelle. Der Ordner spiegelt das Drizzle-Schema, und wer einen anlegt, behauptet damit, dass eine Tabelle existiert. Code, der einer Funktion ohne eigene Tabelle dient, gehört woandershin: Eine Server Function, die GitHub oder die Dokumentationssammlung liest, liegt in `src/lib/<topic>.ts` oder in der einen Route, die sie nutzt, und die Einrichtung eines Anbieters liegt in `src/integrations/<vendor>`.
 
-Die Module sind `account`, `category`, `chapter`, `course`, `lesson`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` und `video`. `license` besitzt zwei Tabellen, `license` und `revoked_license_order`. `_core` ist kein Modul: Es enthält die Fehlercodes, Kataloge und Zod-Felder, die alle Module gemeinsam nutzen.
+Die Module sind `account`, `category`, `chapter`, `course`, `lesson`, `lesson-attachment`, `lesson-progress`, `license`, `newsletter-subscriber`, `order`, `product`, `rate-limit`, `session`, `subscription`, `two-factor`, `user`, `verification` und `video`. `license` besitzt zwei Tabellen, `license` und `revoked_license_order`. `_core` ist kein Modul: Es enthält die Fehlercodes, Kataloge und Zod-Felder, die alle Module gemeinsam nutzen.
 
 ## Aufbau
 
@@ -28,9 +28,19 @@ Die Module sind `account`, `category`, `chapter`, `course`, `lesson`, `lesson-pr
 export const course = sqliteTable(
   "course",
   {
+    icon: text("icon", { enum: COURSE_ICONS }).notNull().default(COURSE_ICON.BOOK_OPEN),
     id: text("id").primaryKey(),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default(COURSE_KIND.COURSE),
+    level: text("level", { enum: COURSE_LEVELS }).notNull().default(COURSE_LEVEL.BEGINNER),
+    outcomes: text("outcomes", { mode: "json" })
+      .$type<LocalizedList>()
+      .notNull()
+      .default(sql`'{}'`),
     position: integer("position").notNull().default(0),
+    prerequisites: text("prerequisites", { mode: "json" })
+      .$type<LocalizedList>()
+      .notNull()
+      .default(sql`'{}'`),
     slug: text("slug", { length: SLUG_MAX_LENGTH }).notNull().unique(),
     status: text("status", { enum: COURSE_STATUSES }).notNull().default(COURSE_STATUS.DRAFT),
     summary: text("summary", { mode: "json" }).$type<LocalizedText>().notNull(),
@@ -105,17 +115,21 @@ export const COURSE_MUTATION_KEYS = {
 import zod from "zod/v4"
 
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
-import { localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
+import { localizedListSchema, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
 import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
-import { COURSE_KINDS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
+import { COURSE_ICONS, COURSE_KINDS, COURSE_LEVELS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
 
 const courseIdInput = zod.object({
   courseId: idField,
 })
 
 const courseFields = zod.object({
+  icon: zod.enum(COURSE_ICONS),
   kind: zod.enum(COURSE_KINDS),
+  level: zod.enum(COURSE_LEVELS),
+  outcomes: localizedListSchema,
+  prerequisites: localizedListSchema,
   slug: slugField,
   status: zod.enum(COURSE_STATUSES),
   summary: localizedTextSchema,
@@ -175,10 +189,15 @@ export const courseZodSchemas = {
 export interface Lesson {
   select: typeof lesson.$inferSelect
   insert: typeof lesson.$inferInsert
+  page: LessonPage
+  detail: LessonPage["lesson"]
+  attachment: LessonPage["lesson"]["attachments"][number]
   createLesson: zod.input<typeof lessonZodSchemas.createLesson>
   deleteLesson: zod.input<typeof lessonZodSchemas.deleteLesson>
+  getLesson: zod.input<typeof lessonZodSchemas.getLesson>
   getLessonPlayback: zod.input<typeof lessonZodSchemas.getLessonPlayback>
   moveLesson: zod.input<typeof lessonZodSchemas.moveLesson>
+  replaceLessonVideo: zod.input<typeof lessonZodSchemas.replaceLessonVideo>
   updateLesson: zod.input<typeof lessonZodSchemas.updateLesson>
 }
 ```
@@ -195,22 +214,26 @@ Ein Use Case, der nur auf dem Server läuft und von einem Better-Auth-Hook oder 
 
 Braucht eine Tabelle Logik, die weder ein Use Case noch eine reine Hilfsfunktion ist, bekommt sie eine Datei pro Aspekt, benannt `<table>.<concern>.ts`:
 
-| Datei                                                   | Aspekt                                                                          |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `lesson/lesson.access.ts`                               | Wer eine Lektion ansehen darf; rein, genutzt auf dem Server und in Tests        |
-| `lesson/lesson.viewer.ts`                               | Ermittelt auf dem Server den angemeldeten Betrachter und seinen Kurszugang      |
-| `license/license.webhooks.ts`                           | Polar-Webhook-Handler, aufgerufen von `license.polar-events.ts`                 |
-| `license/license.api.ts`                                | Die Handler der CLI-Lizenz-API, bereitgestellt von `src/routes/api/cli.v1.*.ts` |
-| `license/license.bundles.ts`                            | Signieren der URLs der Vorlagen-Bundles der CLI; ihre Objektschlüssel           |
-| `license/license.delivery.ts`                           | Der Worker-Handler für signierte `/bundles/`-Anfragen                           |
-| `license/license.ppp.ts`                                | Regionale Preisnachlässe für den Checkout                                       |
-| `license/license.pricing.ts`                            | Regionale Preisstufen und das Cookie zum Abwählen; rein                         |
-| `license/license.refunds.ts`                            | Ob ein Kauf erstattet werden kann, anhand seiner Nachweise; rein                |
-| `newsletter-subscriber/newsletter-subscriber.server.ts` | Prüfungen von Anfragen, die nur auf dem Server laufen                           |
-| `video/video.delivery.ts`                               | Der Worker-Handler für signierte `/media/`-Anfragen                             |
-| `video/video.playback.ts`, `video/video.files.ts`       | Signieren von Wiedergabe-URLs; Objektschlüssel und Content-Types                |
+| Datei                                                   | Aspekt                                                                                             |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `course/course.outline.ts`                              | Die Gliederung eines veröffentlichten Kurses für einen Betrachter, für `getCourse` und `getLesson` |
+| `lesson/lesson.access.ts`                               | Wer eine Lektion ansehen darf; rein, genutzt auf dem Server und in Tests                           |
+| `lesson/lesson.playable.ts`                             | Die Verknüpfung mit dem Video einer Lektion, die Platzhalter auslässt                              |
+| `lesson-attachment/lesson-attachment.download.ts`       | Signieren der Download-URLs von Lektionsmaterialien                                                |
+| `lesson-attachment/lesson-attachment.delivery.ts`       | Der Worker-Handler für signierte `/media/downloads/`-Anfragen                                      |
+| `lesson/lesson.viewer.ts`                               | Ermittelt auf dem Server den angemeldeten Betrachter und seinen Kurszugang                         |
+| `license/license.webhooks.ts`                           | Polar-Webhook-Handler, aufgerufen von `license.polar-events.ts`                                    |
+| `license/license.api.ts`                                | Die Handler der CLI-Lizenz-API, bereitgestellt von `src/routes/api/cli.v1.*.ts`                    |
+| `license/license.bundles.ts`                            | Signieren der URLs der Vorlagen-Bundles der CLI; ihre Objektschlüssel                              |
+| `license/license.delivery.ts`                           | Der Worker-Handler für signierte `/bundles/`-Anfragen                                              |
+| `license/license.ppp.ts`                                | Regionale Preisnachlässe für den Checkout                                                          |
+| `license/license.pricing.ts`                            | Regionale Preisstufen und das Cookie zum Abwählen; rein                                            |
+| `license/license.refunds.ts`                            | Ob ein Kauf erstattet werden kann, anhand seiner Nachweise; rein                                   |
+| `newsletter-subscriber/newsletter-subscriber.server.ts` | Prüfungen von Anfragen, die nur auf dem Server laufen                                              |
+| `video/video.delivery.ts`                               | Der Worker-Handler für signierte `/media/`-Anfragen                                                |
+| `video/video.playback.ts`, `video/video.files.ts`       | Signieren von Wiedergabe-URLs; Objektschlüssel und Content-Types                                   |
 
-Eine Datei, die niemals ins Browser-Bundle gelangen darf, beginnt mit `import "@tanstack/react-start/server-only"`, wie `lesson.viewer.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` und `license.utils.ts` (das die Polar-Produkt-IDs, `POLAR_PRODUCT_IDS`, aus der Worker-Umgebung liest). Reine Dateien wie `lesson.access.ts` und `course.utils.ts` importieren nichts Serverseitiges, sodass Komponenten und Tests sie verwenden können.
+Eine Datei, die niemals ins Browser-Bundle gelangen darf, beginnt mit `import "@tanstack/react-start/server-only"`, wie `course.outline.ts`, `lesson.viewer.ts`, `lesson-attachment.delivery.ts`, `lesson-attachment.objects.ts`, `license.webhooks.ts`, `license.api.ts`, `license.delivery.ts`, `newsletter-subscriber.server.ts`, `video.delivery.ts` und `license.utils.ts` (das die Polar-Produkt-IDs, `POLAR_PRODUCT_IDS`, aus der Worker-Umgebung liest). Reine Dateien wie `lesson.access.ts` und `course.utils.ts` importieren nichts Serverseitiges, sodass Komponenten und Tests sie verwenden können.
 
 ## Ein Modul hinzufügen
 

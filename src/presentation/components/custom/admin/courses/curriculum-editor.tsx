@@ -18,11 +18,11 @@ import { moveLessonMutation } from "~/src/modules/lesson/use-cases/move-lesson"
 
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
+import { useVideoLabel } from "~/src/hooks/use-video-library"
 
 import { ADMIN_STATUS_BADGE_CLASSES } from "~/src/data/admin"
 
 import { cn } from "~/src/lib/cn"
-import { formatClock } from "~/src/lib/duration"
 
 import {
   AlertDialog,
@@ -35,18 +35,20 @@ import {
   AlertDialogTrigger,
 } from "~/src/presentation/components/shadcn/alert-dialog"
 import { Badge } from "~/src/presentation/components/shadcn/badge"
-import { Button } from "~/src/presentation/components/shadcn/button"
+import { Button, LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
 import { ChapterDialog } from "~/src/presentation/components/custom/admin/courses/chapter-dialog"
 import { LessonDialog } from "~/src/presentation/components/custom/admin/courses/lesson-dialog"
 import { MoveButtons } from "~/src/presentation/components/custom/admin/courses/move-buttons"
 
+import { ROUTES } from "~/src/routes"
+
 const ICON_BUTTON_CLASSNAME = "size-8 text-muted-foreground"
 const LESSON_NUMBER_BASE = 1
 
-type EditorChapter = Course["editor"]["chapters"][number]
-type EditorLesson = EditorChapter["lessons"][number]
+type EditorChapter = Course["editorChapter"]
+type EditorLesson = Course["editorLesson"]
 
 const useCurriculumMutation = <TData, TVariables>(options: UseMutationOptions<TData, Error, TVariables>) => {
   const queryClient = useQueryClient()
@@ -92,15 +94,18 @@ const ConfirmDelete = ({ body, label, onConfirm, title }: ConfirmDeleteProps): J
 
 const LessonRow = ({
   chapter,
+  courseId,
   index,
   lesson,
 }: {
   readonly chapter: EditorChapter
+  readonly courseId: string
   readonly index: number
   readonly lesson: EditorLesson
 }) => {
   const t = useTranslations("pages.admin.courses")
   const title = localize(lesson.title, getCurrentLocale())
+  const videoLabel = useVideoLabel()
 
   const { holders } = useCourseAccessNames()
   const move = useCurriculumMutation(moveLessonMutation)
@@ -116,10 +121,15 @@ const LessonRow = ({
         <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span className="font-mono">{lesson.slug}</span>
           <span aria-hidden>·</span>
-          <span>{lesson.video === null ? t("curriculum.noVideo") : `${lesson.video.title} · ${formatClock(lesson.video.durationMs)}`}</span>
+          <span>{lesson.video === null ? t("curriculum.noVideo") : videoLabel(lesson.video)}</span>
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {(lesson.video === null || lesson.video.placeholder) && (
+          <Badge className={cn("text-[10px]", ADMIN_STATUS_BADGE_CLASSES.amber)} variant="outline">
+            {t("curriculum.recording")}
+          </Badge>
+        )}
         <Badge className="text-[10px]" variant="outline">
           {t(`lesson.accessLevels.${lesson.access}`, { holders })}
         </Badge>
@@ -140,15 +150,15 @@ const LessonRow = ({
             move.mutate({ direction, lessonId: lesson.id })
           }}
         />
-        <LessonDialog
-          chapterId={chapter.id}
-          lesson={lesson}
-          trigger={
-            <Button aria-label={t("curriculum.edit", { name: title })} className={ICON_BUTTON_CLASSNAME} size="icon" variant="ghost">
-              <Pencil aria-hidden className="size-4" />
-            </Button>
-          }
-        />
+        <LinkButton
+          aria-label={t("curriculum.edit", { name: title })}
+          className={ICON_BUTTON_CLASSNAME}
+          href={`${ROUTES.ADMIN_COURSES}/${courseId}/lessons/${lesson.id}`}
+          size="icon"
+          variant="ghost"
+        >
+          <Pencil aria-hidden className="size-4" />
+        </LinkButton>
         <ConfirmDelete
           body={t("curriculum.deleteLessonBody", { name: title })}
           label={t("curriculum.remove", { name: title })}
@@ -175,6 +185,7 @@ const ChapterSection = ({
 }) => {
   const t = useTranslations("pages.admin.courses.curriculum")
   const title = localize(chapter.title, getCurrentLocale())
+  const summary = localize(chapter.summary, getCurrentLocale())
 
   const move = useCurriculumMutation(moveChapterMutation)
   const remove = useCurriculumMutation(deleteChapterMutation)
@@ -182,7 +193,10 @@ const ChapterSection = ({
   return (
     <li className="rounded-lg border border-border">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/40 px-4 py-3">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          {summary.length > 0 && <p className="mt-0.5 text-xs text-muted-foreground">{summary}</p>}
+        </div>
         <div className="flex items-center gap-1">
           <MoveButtons
             isFirst={index === 0}
@@ -216,7 +230,7 @@ const ChapterSection = ({
         {chapter.lessons.length > 0 && (
           <ol>
             {chapter.lessons.map((lesson, lessonIndex) => (
-              <LessonRow chapter={chapter} index={lessonIndex} key={lesson.id} lesson={lesson} />
+              <LessonRow chapter={chapter} courseId={courseId} index={lessonIndex} key={lesson.id} lesson={lesson} />
             ))}
           </ol>
         )}

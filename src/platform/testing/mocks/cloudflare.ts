@@ -66,6 +66,16 @@ const objectMetadata = (key: string, stored: StoredObject) => ({
   size: stored.body.byteLength,
 })
 
+const bodyBytes = async (value: Blob | string | Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> => {
+  if (typeof value === "string") {
+    return new TextEncoder().encode(value)
+  }
+  if (value instanceof Blob) {
+    return new Uint8Array(await value.arrayBuffer())
+  }
+  return value
+}
+
 const createBucket = (objects: Map<string, StoredObject>) => ({
   delete: async (keys: string | string[]) => {
     for (const key of [keys].flat()) {
@@ -91,8 +101,8 @@ const createBucket = (objects: Map<string, StoredObject>) => ({
     const truncated = keys.length > limit
     return { objects: page.map((key) => ({ key })), truncated, ...(truncated ? { cursor: page.at(-1) } : {}) }
   },
-  put: async (key: string, value: string | Uint8Array<ArrayBuffer>, options?: { customMetadata?: Record<string, string> }) => {
-    const body = typeof value === "string" ? new TextEncoder().encode(value) : value
+  put: async (key: string, value: Blob | string | Uint8Array<ArrayBuffer>, options?: { customMetadata?: Record<string, string> }) => {
+    const body = await bodyBytes(value)
     objects.set(key, { body, customMetadata: { ...options?.customMetadata }, etag: `${key}:${String(body.byteLength)}` })
   },
 })

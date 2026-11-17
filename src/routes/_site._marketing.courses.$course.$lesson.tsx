@@ -1,7 +1,7 @@
 import type { JSX } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Link, createFileRoute, isNotFound, notFound } from "@tanstack/react-router"
+import { Link, createFileRoute, isNotFound } from "@tanstack/react-router"
 import { ArrowLeft, ArrowRight, Check } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
@@ -10,8 +10,7 @@ import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import type { Course } from "~/src/modules/course/course.types"
-import { courseLessons, locateLesson } from "~/src/modules/course/course.utils"
-import { courseQuery } from "~/src/modules/course/use-cases/get-course"
+import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 
 import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
@@ -26,7 +25,7 @@ import { LessonPending } from "~/src/presentation/components/custom/courses/cour
 import { Curriculum } from "~/src/presentation/components/custom/courses/curriculum"
 import { LessonPlayer } from "~/src/presentation/components/custom/courses/lesson-player"
 import { LockedLesson } from "~/src/presentation/components/custom/courses/locked-lesson"
-import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
+import { MaterialsList } from "~/src/presentation/components/custom/courses/materials-list"
 
 import { ROUTES } from "~/src/routes"
 
@@ -48,7 +47,7 @@ const LessonStage = ({ courseSlug, lesson, signedIn }: LessonStageProps): JSX.El
     return <LockedLesson access={lesson.access} signedIn={signedIn} />
   }
 
-  if (lesson.durationMs === null) {
+  if (lesson.recording) {
     return (
       <div className="flex aspect-video w-full items-center justify-center rounded-lg border border-border bg-card px-6 text-center text-body text-muted-foreground">
         {t("noVideo")}
@@ -110,13 +109,9 @@ const LessonPage = (): JSX.Element => {
   const params = Route.useParams()
 
   const { offer } = useCourseAccessNames()
-  const { data } = useSuspenseQuery(courseQuery({ locale, slug: params.course }))
+  const { data } = useSuspenseQuery(lessonQuery({ courseSlug: params.course, lessonSlug: params.lesson, locale }))
 
-  const { lesson, next, previous } = locateLesson(courseLessons(data), params.lesson)
-
-  if (lesson === undefined) {
-    return <DefaultNotFound />
-  }
+  const { lesson, next, previous } = data
 
   return (
     <section className="relative">
@@ -135,6 +130,7 @@ const LessonPage = (): JSX.Element => {
           <h1 className="mt-3 text-headline-support text-balance text-foreground">{lesson.title}</h1>
           <p className="mt-2 font-mono text-label text-ring uppercase">{t(`access.${lesson.access}`, { offer })}</p>
           <p className="mt-4 max-w-[68ch] text-body text-pretty text-muted-foreground">{lesson.summary}</p>
+          {lesson.attachments.length > 0 && <MaterialsList attachments={lesson.attachments} />}
 
           {data.viewer.signedIn && !lesson.locked && (
             <div className="mt-6">
@@ -186,14 +182,11 @@ export const Route = createFileRoute("/_site/_marketing/courses/$course/$lesson"
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const [data] = await Promise.all([
-      context.queryClient.query(courseQuery({ locale, slug: params.course })).catch(rethrowAsNotFound),
+      context.queryClient.query(lessonQuery({ courseSlug: params.course, lessonSlug: params.lesson, locale })).catch(rethrowAsNotFound),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
     ])
-    const { lesson } = locateLesson(courseLessons(data), params.lesson)
-    if (lesson === undefined) {
-      throw notFound()
-    }
-    if (!lesson.locked && lesson.durationMs !== null) {
+    const { lesson } = data
+    if (!lesson.locked && !lesson.recording) {
       await context.queryClient.query(lessonPlaybackQuery({ courseSlug: params.course, lessonSlug: params.lesson }))
     }
     return {

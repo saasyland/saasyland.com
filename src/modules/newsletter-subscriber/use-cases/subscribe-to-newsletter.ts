@@ -30,8 +30,6 @@ import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
 import type confirmationMessages from "~/messages/en-US/emails.newsletter-confirmation-email.json"
 import { NEWSLETTER_CONFIRMATION_NAMESPACE, NewsletterConfirmationEmail } from "~/src/presentation/emails/newsletter-confirmation-email"
 
-const SINGLE_ROW = 1
-
 export const subscribeToNewsletter = createServerFn({ method: "POST" })
   .middleware([withRateLimit("subscribe-to-newsletter", RATE_LIMITS.SENSITIVE)])
   .validator((input: NewsletterSubscriber["subscribeToNewsletter"]) => newsletterSubscriberZodSchemas.subscribeToNewsletter.parse(input))
@@ -43,7 +41,7 @@ export const subscribeToNewsletter = createServerFn({ method: "POST" })
       .select({ status: newsletterSubscriber.status })
       .from(newsletterSubscriber)
       .where(eq(newsletterSubscriber.email, address))
-      .limit(SINGLE_ROW)
+      .limit(1)
 
     if (existing?.status === NEWSLETTER_STATUS.SUBSCRIBED) {
       return { status: SUBSCRIPTION_RESULT.ALREADY_SUBSCRIBED }

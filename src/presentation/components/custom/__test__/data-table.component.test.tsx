@@ -44,11 +44,9 @@ const PAGED_ROWS: Person[] = Array.from({ length: PAGED_ROW_COUNT }, (_, index) 
 }))
 
 const EXPECTED_ROW_COUNT = 3
-const SELECTED_AFTER_ONE_CLICK = 1
-const FIRST_ROW_CHECKBOX = 0
 const HEADER_ROW_COUNT = 1
 
-const rowCheckbox = (): HTMLElement => screen.getAllByRole("checkbox", { name: "Select row" })[FIRST_ROW_CHECKBOX]!
+const rowCheckbox = (): HTMLElement => screen.getAllByRole("checkbox", { name: "Select row" })[0]!
 const firstBodyRow = (): HTMLElement => screen.getAllByRole("row")[HEADER_ROW_COUNT]!
 
 const ACTION_COLUMNS: DataTableColumnDef<Person>[] = columnHelper.columns([
@@ -100,11 +98,11 @@ describe("data table component", () => {
 
     await user.click(rowCheckbox())
     expect(rowCheckbox()).toBeChecked()
-    expect(screen.getByText(`${SELECTED_AFTER_ONE_CLICK} selected`)).toBeInTheDocument()
+    expect(screen.getByText("1 selected")).toBeInTheDocument()
 
     await user.click(rowCheckbox())
     expect(rowCheckbox()).not.toBeChecked()
-    expect(screen.queryByText(`${SELECTED_AFTER_ONE_CLICK} selected`)).not.toBeInTheDocument()
+    expect(screen.queryByText("1 selected")).not.toBeInTheDocument()
   })
 
   it("puts the header checkbox in a mixed state when only some rows are selected", async () => {
@@ -115,7 +113,7 @@ describe("data table component", () => {
     const selectAll = screen.getByRole("checkbox", { name: "Select all rows" })
     expect(selectAll).not.toBePartiallyChecked()
 
-    await user.click(screen.getAllByRole("checkbox", { name: "Select row" })[FIRST_ROW_CHECKBOX]!)
+    await user.click(rowCheckbox())
     expect(selectAll).toBePartiallyChecked()
     expect(selectAll).not.toBeChecked()
   })
@@ -227,7 +225,7 @@ describe("data table filters", () => {
     )
 
     await user.type(screen.getByRole("textbox", { name: "Search people" }), "ad")
-    expect(screen.getAllByRole("row")).toHaveLength(HEADER_ROW_COUNT + SELECTED_AFTER_ONE_CLICK)
+    expect(screen.getAllByRole("row")).toHaveLength(HEADER_ROW_COUNT + 1)
     expect(screen.getByText("Ada")).toBeInTheDocument()
 
     await user.clear(screen.getByRole("textbox", { name: "Search people" }))
@@ -235,7 +233,7 @@ describe("data table filters", () => {
 
     await user.click(screen.getByRole("button", { name: /Everyone/u }))
     await user.click(await screen.findByRole("option", { name: "Only Grace" }))
-    expect(screen.getAllByRole("row")).toHaveLength(HEADER_ROW_COUNT + SELECTED_AFTER_ONE_CLICK)
+    expect(screen.getAllByRole("row")).toHaveLength(HEADER_ROW_COUNT + 1)
     expect(screen.queryByText("Alan")).not.toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: /Everyone/u }))

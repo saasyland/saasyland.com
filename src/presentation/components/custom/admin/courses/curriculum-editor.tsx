@@ -134,7 +134,7 @@ const LessonRow = ({
         </Badge>
         <MoveButtons
           isFirst={index === 0}
-          isLast={index === chapter.lessons.length - LESSON_NUMBER_BASE}
+          isLast={index === chapter.lessons.length - 1}
           name={title}
           onMove={(direction) => {
             move.mutate({ direction, lessonId: lesson.id })
@@ -186,7 +186,7 @@ const ChapterSection = ({
         <div className="flex items-center gap-1">
           <MoveButtons
             isFirst={index === 0}
-            isLast={index === total - LESSON_NUMBER_BASE}
+            isLast={index === total - 1}
             name={title}
             onMove={(direction) => {
               move.mutate({ chapterId: chapter.id, direction })

@@ -5,13 +5,11 @@ import { timestamps } from "~/src/integrations/drizzle-orm/drizzle.columns"
 
 import { user } from "~/src/modules/user/user.schema"
 
-const DEFAULT_FAILED_VERIFICATION_COUNT = 0
-
 export const twoFactor = sqliteTable(
   "two_factor",
   {
     backupCodes: text("backup_codes", { length: 8192 }).notNull(),
-    failedVerificationCount: integer("failed_verification_count").default(DEFAULT_FAILED_VERIFICATION_COUNT).notNull(),
+    failedVerificationCount: integer("failed_verification_count").default(0).notNull(),
     id: text("id").primaryKey(),
     lockedUntil: integer("locked_until", { mode: "timestamp_ms" }),
     secret: text("secret", { length: 1024 }).notNull(),

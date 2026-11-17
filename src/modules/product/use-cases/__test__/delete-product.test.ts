@@ -13,7 +13,6 @@ import { deleteProductMutation } from "~/src/modules/product/use-cases/delete-pr
 
 const HEADERS = new Headers()
 const PRODUCT_ID = "01900000-0000-7000-8000-000000000002"
-const SINGLE_CALL = 1
 const USER_ID = "01900000-0000-7000-8000-000000000001"
 
 type AuthApi = typeof auth.api
@@ -53,8 +52,8 @@ describe("delete-product", () => {
 
     await expect(executeMutation(deleteProductMutation, { productId: PRODUCT_ID })).resolves.toMatchObject({ id: PRODUCT_ID })
 
-    expect(dbMocks.deleteMock).toHaveBeenCalledTimes(SINGLE_CALL)
-    expect(getSessionMock).toHaveBeenCalledTimes(SINGLE_CALL)
+    expect(dbMocks.deleteMock).toHaveBeenCalledTimes(1)
+    expect(getSessionMock).toHaveBeenCalledTimes(1)
   })
 
   it("returns not found when the product does not exist", async () => {

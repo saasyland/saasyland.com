@@ -5,11 +5,9 @@ interface Positioned {
   readonly position: number
 }
 
-const STEP = 1
-
 export const reorder = (items: readonly Positioned[], id: string, direction: MoveDirection): Positioned[] => {
   const index = items.findIndex((entry) => entry.id === id)
-  const target = direction === MOVE_DIRECTION.UP ? index - STEP : index + STEP
+  const target = direction === MOVE_DIRECTION.UP ? index - 1 : index + 1
   const item = items[index]
   const neighbour = items[target]
 
@@ -20,8 +18,8 @@ export const reorder = (items: readonly Positioned[], id: string, direction: Mov
   return items
     .with(index, neighbour)
     .with(target, item)
-    .map((entry, position) => ({ id: entry.id, position: position + STEP }))
+    .map((entry, position) => ({ id: entry.id, position: position + 1 }))
 }
 
 export const nextPosition = (items: readonly Pick<Positioned, "position">[]): number =>
-  items.reduce((highest, entry) => Math.max(highest, entry.position), 0) + STEP
+  items.reduce((highest, entry) => Math.max(highest, entry.position), 0) + 1

@@ -4,8 +4,6 @@ const IGNORED_PATHS_REGEX = /^\/(?:api|_serverFn|media)(?:\/|$)/u
 const LOCALE_SEGMENT_REGEX = /^\/(?<locale>[a-zA-Z-]+)(?:\/|$)/u
 const HREF_PATHNAME_REGEX = /^[^?#]*/u
 
-const SLASH_LENGTH = 1
-
 const LANGUAGE_SEPARATOR = "-"
 
 const SUPPORTED_LOCALE_SET = new Set<string>(I18N.SUPPORTED_LOCALES)
@@ -57,7 +55,7 @@ export const deLocalizePathname = (pathname: string): string => {
     return pathname
   }
 
-  return pathname.slice(prefix.length + SLASH_LENGTH) || "/"
+  return pathname.slice(`/${prefix}`.length) || "/"
 }
 
 export const localizePathname = ({ locale, pathname }: { locale: SupportedLocale; pathname: string }): string => {
@@ -89,7 +87,7 @@ export const canonicalizePathname = (pathname: string): string => {
     return pathname
   }
 
-  const rest = pathname.slice(segment.length + SLASH_LENGTH) || "/"
+  const rest = pathname.slice(`/${segment}`.length) || "/"
 
   return shouldIgnorePath(rest) ? rest : localizePathname({ locale, pathname: rest })
 }

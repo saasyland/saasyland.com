@@ -17,7 +17,6 @@ const RELEASE_DATE = "$<year>-$<month>-$<day>"
 const SITE_LINK = "](/"
 
 const FIRST_SEQUENCE = 1
-const STEP = 1
 
 const sequenceOn = (firstTag: string, name: string): number => {
   const release = RELEASE_TAG.exec(name)?.groups
@@ -37,7 +36,7 @@ export const releaseTag = (commit: string, deployedAt: Date, tags: readonly GitT
   }
 
   const firstTag = deployedAt.toISOString().replace(UTC_TIMESTAMP, FIRST_TAG)
-  const next = tags.reduce((latest, { name }) => Math.max(latest, sequenceOn(firstTag, name)), 0) + STEP
+  const next = tags.reduce((latest, { name }) => Math.max(latest, sequenceOn(firstTag, name)), 0) + 1
 
   return next === FIRST_SEQUENCE ? firstTag : `${firstTag}.${String(next)}`
 }

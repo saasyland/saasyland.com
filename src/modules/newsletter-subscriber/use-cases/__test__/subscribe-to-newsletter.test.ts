@@ -27,8 +27,6 @@ const HEADERS = new Headers()
 const SUBSCRIBER = "Ada@Example.com"
 const ADDRESS = "ada@example.com"
 
-const SINGLE_CALL = 1
-
 beforeEach(async () => {
   await db.delete(newsletterSubscriber)
 })
@@ -112,7 +110,7 @@ describe("subscribe-to-newsletter", () => {
       status: SUBSCRIPTION_RESULT.CONFIRMATION_SENT,
     })
 
-    expect(await db.select().from(newsletterSubscriber)).toHaveLength(SINGLE_CALL)
+    expect(await db.select().from(newsletterSubscriber)).toHaveLength(1)
   })
 
   it("reports a server error when Resend rejects the send", async () => {

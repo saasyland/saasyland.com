@@ -11,7 +11,6 @@ import {
 import { cn } from "~/src/lib/cn"
 
 const POPOVER_OFFSET = 4
-const POPOVER_CROSS_OFFSET = 0
 
 const PopoverTrigger = ({ children, ...props }: Readonly<DialogTriggerProps>) => (
   <DialogTrigger data-slot="popover-trigger" {...props}>
@@ -21,7 +20,7 @@ const PopoverTrigger = ({ children, ...props }: Readonly<DialogTriggerProps>) =>
 
 const Popover = ({
   className,
-  crossOffset = POPOVER_CROSS_OFFSET,
+  crossOffset = 0,
   offset = POPOVER_OFFSET,
   placement = "bottom",
   ...props

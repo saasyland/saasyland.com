@@ -5,7 +5,7 @@ excerpt: "The standard advice is to pick popular tools because agents have seen 
 authorName: Piotr J. Borowiecki
 authorImage: https://avatars.githubusercontent.com/u/27385980?s=96&v=4
 date: 2026-08-15
-updated: 2026-11-14
+updated: 2026-11-17
 image: /images/blog/choosing-a-saas-stack-for-ai-coding-agents.webp
 tags:
   - ai-agents
@@ -27,15 +27,15 @@ faq:
       volume once a library moves quickly.
   - question: Why does my agent write code using APIs that no longer exist?
     answer: >-
-      Because it is recalling the version it was trained on. Research measured deprecated API usage
-      rates of 25% to 38% across eight widely used libraries, attributed to stale parametric
-      knowledge and no live view of what the API is today. Your type checker is the cheapest
+      Because it is recalling the version it was trained on. A study of seven models on eight popular
+      Python libraries measured deprecated API usage rates of 25% to 38%, traced to deprecated usages
+      in the training data and no knowledge, while generating, that those APIs were deprecated. Your type checker is the cheapest
       correction for this, which is why untyped boundaries are where the problem survives.
   - question: Should I let an AI agent choose my dependencies?
     answer: >-
-      Not without checking that each package exists. Frontier models released between October 2025
-      and March 2026 hallucinated package names at rates between 4.62% and 6.10%, and attackers now
-      register those invented names on public registries, an attack called slopsquatting. Treat any
+      Not without checking that each package exists. Five 2026 frontier models hallucinated 3.6% to
+      5.0% of the package names they mentioned, and attackers now register those invented names on
+      public registries, an attack called slopsquatting. Treat any
       new dependency an agent adds as an unreviewed pull request from a stranger.
   - question: Is a monorepo better for AI coding agents?
     answer: >-
@@ -77,7 +77,7 @@ faq:
 
 The advice everyone gives about picking a stack for AI coding agents is that popular is better, because models have seen more of it. It sounds obviously true. It was true. In 2026 it is partly inverted, and the proof is a file Next.js writes into your project by itself.
 
-Run `next dev` on Next.js 16 and it writes this into your `AGENTS.md`, unprompted:
+Create an app with `create-next-app` 16.2 and it writes this into your `AGENTS.md`. From Next.js 16.3, `next dev` writes a longer version of the same block whenever it detects a coding agent:
 
 ```markdown
 # This is NOT the Next.js you know
@@ -101,7 +101,7 @@ This article is about that problem and what to do with it. It is not a shopping 
 
 </Callout>
 
-_Last updated 14 November 2026. This is the second piece in a series; the first covers [why your repository decides agent output quality](/blog/ai-coding-agents-repository-readiness) and is worth reading first if you have not._
+_Last updated 17 November 2026. This is the second piece in a series; the first covers [why your repository decides agent output quality](/blog/ai-coding-agents-repository-readiness) and is worth reading first if you have not._
 
 ## What does a stack actually do for an AI coding agent?
 
@@ -121,7 +121,7 @@ Here is the argument everyone makes: popular libraries appear more often in trai
 
 **The currency gap is the distance between the API a model remembers and the API you actually ship.** Training-data volume tells you how confidently a model will write a library. The currency gap tells you whether that confidence is warranted. They are different quantities, and for fast-moving frameworks they now point in opposite directions.
 
-The research on this is unambiguous. A study of eight widely used libraries measured **deprecated API usage rates of 25% to 38%** in model-generated code, attributing it to stale parametric knowledge and the absence of any live view of what the API is today ([APILOT, arXiv](https://arxiv.org/pdf/2409.16526)). Work on evolving APIs frames the same failure as a knowledge conflict: the model is not guessing, it is confidently recalling a version that no longer exists ([When LLMs Lag Behind, arXiv](https://arxiv.org/html/2604.09515v1)).
+The research on this is unambiguous. A study of seven models on eight popular Python libraries measured **deprecated API usage rates of 25% to 38%** in model-generated code, and traced it to deprecated usages in the training data and the absence, while generating, of any knowledge that those APIs were deprecated ([LLMs Meet Library Evolution, arXiv](https://arxiv.org/abs/2406.09834)). Giving the model the current API at generation time is the fix that works: in another study it cut the share of deprecated APIs recommended from 28.78% to 5.71% ([APILOT, arXiv](https://arxiv.org/pdf/2409.16526)). Work on evolving APIs frames the same failure as a knowledge conflict: the model is not guessing, it is confidently recalling a version that no longer exists ([When LLMs Lag Behind, arXiv](https://arxiv.org/html/2604.09515v1)).
 
 This produces a counterintuitive ranking. Sorted by how much trouble the model's memory causes:
 
@@ -181,7 +181,7 @@ The test is deliberately about the _shape_ of a dependency rather than its quali
 
 ## Applying the test, layer by layer
 
-What follows is the stack we ship, scored honestly, including where it costs something. Your answers may differ; the reasoning is the transferable part.
+What follows is the stack this site runs on, scored honestly, including where it costs something. The [configurator](/#cli) shows which of these layers the CLI's first release with project generation writes; billing is arriving. Your answers may differ; the reasoning is the transferable part.
 
 ### Language: TypeScript, strict, no escapes
 
@@ -275,7 +275,7 @@ Every dependency is an API the model might remember incorrectly. That reframes t
 
 The runtime dependencies are listed in `package.json`. What matters is not the count but the shape: nearly all of them are either typed end to end or wrapped at a boundary we own, so a wrong assumption about them fails to compile rather than failing in production.
 
-There is now a second reason to be careful, and it is a security one. Frontier models released between October 2025 and March 2026 were measured hallucinating package names at rates between **4.62% and 6.10%** ([arXiv](https://arxiv.org/pdf/2605.17062)). Attackers register those invented names on public registries and wait, an attack named **slopsquatting** ([Mend](https://www.mend.io/blog/the-hallucinated-package-attack-slopsquatting/)).
+There is now a second reason to be careful, and it is a security one. Five 2026 frontier models were measured hallucinating **3.6% to 5.0%** of the package names they mentioned ([arXiv](https://arxiv.org/abs/2605.17062)). Attackers register those invented names on public registries and wait, an attack named **slopsquatting** ([Mend](https://www.mend.io/blog/the-hallucinated-package-attack-slopsquatting/)).
 
 The practical rule: **a dependency an agent added is an unreviewed pull request from a stranger.** Check that the package exists, that its name is what you expected rather than a near-miss, and that you actually needed it. Lockfiles and a review step on `package.json` changes cover most of the exposure for close to zero effort.
 
@@ -330,8 +330,9 @@ The [documentation](/docs) is public and the coverage report is generated by the
 
 - [APILOT: Navigating Large Language Models to Generate Secure Code by Sidestepping Outdated API Pitfalls](https://arxiv.org/pdf/2409.16526)
 - [When LLMs Lag Behind: Knowledge Conflicts from Evolving APIs in Code Generation](https://arxiv.org/html/2604.09515v1)
-- [Re-evaluating LLM Package Hallucinations (2026)](https://arxiv.org/pdf/2605.17062)
+- [LLMs Meet Library Evolution: Evaluating Deprecated API Usage in LLM-based Code Completion](https://arxiv.org/abs/2406.09834)
+- [The Range Shrinks, the Threat Remains: Re-evaluating LLM Package Hallucinations on the 2026 Frontier-Model Cohort](https://arxiv.org/abs/2605.17062)
 - [The Hallucinated Package Attack: Slopsquatting Explained](https://www.mend.io/blog/the-hallucinated-package-attack-slopsquatting/)
 - [AGENTS.md open specification](https://agents.md/)
 
-_Written by Piotr J. Borowiecki, who builds SaaSyLand. The Next.js warning quoted at the top illustrates the risk of stale framework knowledge. This repository now uses TanStack Start and Cloudflare Workers; its root instructions and pinned skills describe that stack._
+_Written by Piotr J. Borowiecki, who builds SaaSy Land. The Next.js warning quoted at the top illustrates the risk of stale framework knowledge. This repository now uses TanStack Start and Cloudflare Workers; its root instructions and pinned skills describe that stack._

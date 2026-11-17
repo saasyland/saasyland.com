@@ -11,13 +11,11 @@ import { user } from "~/src/modules/user/user.schema"
 import type { User } from "~/src/modules/user/user.types"
 import { userZodSchemas } from "~/src/modules/user/user.zod"
 
-const SINGLE_ROW_LIMIT = 1
-
 export const getUser = createServerFn({ method: "GET" })
   .middleware([authorized({ user: ["get"] })])
   .validator((input: User["getUser"]) => userZodSchemas.getUser.parse(input))
   .handler(async ({ data: { userId } }) => {
-    const [row] = await db.select().from(user).where(eq(user.id, userId)).limit(SINGLE_ROW_LIMIT)
+    const [row] = await db.select().from(user).where(eq(user.id, userId)).limit(1)
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

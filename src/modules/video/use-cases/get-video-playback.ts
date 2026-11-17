@@ -14,17 +14,11 @@ import { video } from "~/src/modules/video/video.schema"
 import type { Video } from "~/src/modules/video/video.types"
 import { videoZodSchemas } from "~/src/modules/video/video.zod"
 
-const SINGLE_ROW_LIMIT = 1
-
 export const getVideoPlayback = createServerFn({ method: "GET" })
   .middleware([authorized({ video: ["read"] })])
   .validator((input: Video["getVideoPlayback"]) => videoZodSchemas.getVideoPlayback.parse(input))
   .handler(async ({ data: { videoId } }) => {
-    const [row] = await db
-      .select({ captionLocales: video.captionLocales, id: video.id })
-      .from(video)
-      .where(eq(video.id, videoId))
-      .limit(SINGLE_ROW_LIMIT)
+    const [row] = await db.select({ captionLocales: video.captionLocales, id: video.id }).from(video).where(eq(video.id, videoId)).limit(1)
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

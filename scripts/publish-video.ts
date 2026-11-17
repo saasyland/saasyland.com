@@ -36,7 +36,6 @@ import { MILLISECONDS_PER_MINUTE } from "~/src/lib/duration"
 import { readBucketName } from "./wrangler-config.ts"
 
 const SCRIPT_ARGUMENTS_START = 2
-const DECIMAL_PLACES = 1
 const DATABASE_BINDING = "DB"
 const WEBVTT_SIGNATURE = "WEBVTT"
 const LOCALE_SEPARATOR = "="
@@ -230,7 +229,7 @@ try {
   }
 
   console.log(
-    `Published ${row.title} (${videoId}) to ${bucket}: ${(source.durationMs / MILLISECONDS_PER_MINUTE).toFixed(DECIMAL_PLACES)} min, ${String(files.length)} files, ${new Intl.NumberFormat(I18N.DEFAULT_LOCALE, VIDEO_SIZE_FORMAT).format(sizeBytes / BYTES_PER_MEGABYTE)}`,
+    `Published ${row.title} (${videoId}) to ${bucket}: ${(source.durationMs / MILLISECONDS_PER_MINUTE).toFixed(1)} min, ${String(files.length)} files, ${new Intl.NumberFormat(I18N.DEFAULT_LOCALE, VIDEO_SIZE_FORMAT).format(sizeBytes / BYTES_PER_MEGABYTE)}`,
   )
 } finally {
   await rm(output, { force: true, recursive: true })

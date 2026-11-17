@@ -12,13 +12,11 @@ import { chapter } from "~/src/modules/chapter/chapter.schema"
 import type { Chapter } from "~/src/modules/chapter/chapter.types"
 import { chapterZodSchemas } from "~/src/modules/chapter/chapter.zod"
 
-const SINGLE_ROW_LIMIT = 1
-
 export const moveChapter = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["update"] })])
   .validator((input: Chapter["moveChapter"]) => chapterZodSchemas.moveChapter.parse(input))
   .handler(async ({ data: { chapterId, direction } }) => {
-    const [row] = await db.select({ courseId: chapter.courseId }).from(chapter).where(eq(chapter.id, chapterId)).limit(SINGLE_ROW_LIMIT)
+    const [row] = await db.select({ courseId: chapter.courseId }).from(chapter).where(eq(chapter.id, chapterId)).limit(1)
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

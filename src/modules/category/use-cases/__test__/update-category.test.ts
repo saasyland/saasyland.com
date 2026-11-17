@@ -13,7 +13,6 @@ import { updateCategoryMutation } from "~/src/modules/category/use-cases/update-
 
 const HEADERS = new Headers()
 const CATEGORY_ID = "01900000-0000-7000-8000-000000000002"
-const SINGLE_CALL = 1
 const USER_ID = "01900000-0000-7000-8000-000000000001"
 
 type AuthApi = typeof auth.api
@@ -73,8 +72,8 @@ describe("update-category", () => {
       }),
     ).resolves.toMatchObject(dbMocks.dbRow)
 
-    expect(dbMocks.updateMock).toHaveBeenCalledTimes(SINGLE_CALL)
-    expect(getSessionMock).toHaveBeenCalledTimes(SINGLE_CALL)
+    expect(dbMocks.updateMock).toHaveBeenCalledTimes(1)
+    expect(getSessionMock).toHaveBeenCalledTimes(1)
   })
 
   it("returns not found when the category does not exist", async () => {

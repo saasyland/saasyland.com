@@ -204,7 +204,7 @@ const tooling = {
       "max-lines-per-function": ["error", { max: 150 }],
       "max-statements": ["error", { max: 20 }],
       "new-cap": ["error", { properties: false }],
-      "no-magic-numbers": ["error", { ignore: [0], ignoreArrayIndexes: true, ignoreDefaultValues: true, ignoreTypeIndexes: true }],
+      "no-magic-numbers": ["error", { ignore: [0, 1], ignoreArrayIndexes: true, ignoreDefaultValues: true, ignoreTypeIndexes: true }],
       "no-ternary": "off",
       "no-underscore-dangle": ["error", { allow: ["_splat", "__executeServer"] }],
       "one-var": ["error", "never"],

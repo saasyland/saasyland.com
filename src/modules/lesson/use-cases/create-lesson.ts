@@ -15,17 +15,11 @@ import { lesson } from "~/src/modules/lesson/lesson.schema"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 
-const SINGLE_ROW_LIMIT = 1
-
 export const createLesson = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["update"] })])
   .validator((input: Lesson["createLesson"]) => lessonZodSchemas.createLesson.parse(input))
   .handler(async ({ data }) => {
-    const [owner] = await db
-      .select({ courseId: chapter.courseId })
-      .from(chapter)
-      .where(eq(chapter.id, data.chapterId))
-      .limit(SINGLE_ROW_LIMIT)
+    const [owner] = await db.select({ courseId: chapter.courseId }).from(chapter).where(eq(chapter.id, data.chapterId)).limit(1)
 
     if (owner === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

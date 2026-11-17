@@ -15,7 +15,6 @@ import { setNewsletterSubscriptionMutation } from "~/src/modules/newsletter-subs
 
 const HEADERS = new Headers()
 const USER_ID = "01900000-0000-7000-8000-000000000001"
-const SINGLE_CALL = 1
 
 type AuthApi = typeof auth.api
 
@@ -61,7 +60,7 @@ describe("set-newsletter-subscription", () => {
       isSubscribed: true,
     })
 
-    expect(dbMocks.insertMock).toHaveBeenCalledTimes(SINGLE_CALL)
+    expect(dbMocks.insertMock).toHaveBeenCalledTimes(1)
     expect(dbMocks.values).toHaveBeenCalledWith(expect.objectContaining({ source: NEWSLETTER_SOURCE.APP }))
   })
 
@@ -73,7 +72,7 @@ describe("set-newsletter-subscription", () => {
       isSubscribed: false,
     })
 
-    expect(dbMocks.updateMock).toHaveBeenCalledTimes(SINGLE_CALL)
+    expect(dbMocks.updateMock).toHaveBeenCalledTimes(1)
     expect(dbMocks.insertMock).not.toHaveBeenCalled()
     expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: NEWSLETTER_STATUS.UNSUBSCRIBED }))
   })

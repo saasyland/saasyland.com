@@ -18,7 +18,6 @@ import {
 } from "~/src/lib/rate-limit"
 
 const EMAIL_KIND = { CONFIRMATION: "confirmation", RESET: "reset" } as const
-const SINGLE_REQUEST = 1
 const WINDOW_START = new Date("2026-11-16T10:00:00.000Z")
 const PART_OF_A_SECOND_MS = 200
 const LATE_IN_THE_WINDOW_MS = 25_200
@@ -134,7 +133,7 @@ describe("limits counted in one batch", () => {
 
     expect(await countAll([first, second])).toStrictEqual({ allowed: false, retryAfter: first.windowSeconds })
     expect(await countersOf(first)).toStrictEqual([{ attempts: first.limit }])
-    expect(await countersOf(second)).toStrictEqual([{ attempts: SINGLE_REQUEST }])
+    expect(await countersOf(second)).toStrictEqual([{ attempts: 1 }])
   })
 
   it("answers with the first limit in order that refuses, once the first limit has counted the request", async () => {
@@ -144,7 +143,7 @@ describe("limits counted in one batch", () => {
     }
 
     expect(await countAll([loose, second, machine])).toStrictEqual({ allowed: false, retryAfter: second.windowSeconds })
-    expect(await countersOf(loose)).toStrictEqual([{ attempts: second.limit + SINGLE_REQUEST }])
+    expect(await countersOf(loose)).toStrictEqual([{ attempts: second.limit + 1 }])
     expect(await countersOf(second)).toStrictEqual([{ attempts: second.limit }])
   })
 
@@ -152,7 +151,7 @@ describe("limits counted in one batch", () => {
     vi.useFakeTimers({ now: WINDOW_START })
     await db.insert(rateLimit).values(
       Array.from({ length: EXPIRED_COUNTERS_PER_CLEANUP + LEFT_FOR_THE_NEXT_REQUEST }, (_, index) => ({
-        attempts: SINGLE_REQUEST,
+        attempts: 1,
         expiresAt: new Date(WINDOW_START.getTime() - PART_OF_A_SECOND_MS),
         key: `expired:${String(index)}`,
       })),

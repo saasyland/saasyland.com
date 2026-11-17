@@ -11,7 +11,6 @@ import * as authServer from "~/src/integrations/better-auth/auth.server"
 import { signUpWithPasswordMutation } from "~/src/modules/account/use-cases/sign-up-with-password"
 
 const HEADERS = new Headers()
-const SINGLE_CALL = 1
 
 type AuthApi = typeof auth.api
 
@@ -40,7 +39,7 @@ describe("signUpWithPassword use case", () => {
 
     await expect(executeMutation(signUpWithPasswordMutation, payload)).resolves.toMatchObject({ token: "test-token" })
 
-    expect(signUpEmailMock).toHaveBeenCalledTimes(SINGLE_CALL)
+    expect(signUpEmailMock).toHaveBeenCalledTimes(1)
     const call = signUpEmailMock.mock.calls[0]?.[0]
     expect(call).toMatchObject({
       asResponse: false,

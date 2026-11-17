@@ -12,12 +12,9 @@ import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 import { MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
 import { sha256Hex } from "~/src/lib/hex"
 
-const SINGLE_REQUEST = 1
-const NO_REFUSALS = 0
 const FIRST_LIMIT = "first_limit"
 const REFUSALS = "refusals"
 const RECIPIENT_KEY_PREFIX = "recipient:"
-const NO_WAIT_SECONDS = 0
 
 export interface RateLimitInput {
   readonly key: string
@@ -60,7 +57,7 @@ const upsertCounter = (insert: CounterInsert, input: RateLimitInput, now: Date) 
 }
 
 const countFirst = (input: RateLimitInput, now: Date) =>
-  upsertCounter(db.insert(rateLimit).values({ attempts: SINGLE_REQUEST, expiresAt: windowEnd(input, now), key: input.key }), input, now)
+  upsertCounter(db.insert(rateLimit).values({ attempts: 1, expiresAt: windowEnd(input, now), key: input.key }), input, now)
 
 const countUnlessRefusedBy = (first: RateLimitInput, input: RateLimitInput, now: Date) => {
   const firstLimit = db
@@ -70,12 +67,12 @@ const countUnlessRefusedBy = (first: RateLimitInput, input: RateLimitInput, now:
     .as(FIRST_LIMIT)
   const freshCounter = db
     .select({
-      attempts: sql`${SINGLE_REQUEST}`.as(rateLimit.attempts.name),
+      attempts: sql`1`.as(rateLimit.attempts.name),
       expiresAt: sql`${windowEnd(input, now).getTime()}`.as(rateLimit.expiresAt.name),
       key: sql`${input.key}`.as(rateLimit.key.name),
     })
     .from(firstLimit)
-    .where(eq(firstLimit.refusals, NO_REFUSALS))
+    .where(eq(firstLimit.refusals, 0))
 
   return upsertCounter(db.insert(rateLimit).select(freshCounter), input, now)
 }
@@ -101,7 +98,7 @@ export const rateLimitBatch = (limits: readonly [RateLimitInput, ...RateLimitInp
       const [refusal] = limits.flatMap(({ key }) => refused.filter((row) => row.key === key))
 
       if (refusal === undefined) {
-        return { allowed: true, retryAfter: Math.max(NO_WAIT_SECONDS, ...counted.flat().map((reset) => secondsUntil(reset, now))) }
+        return { allowed: true, retryAfter: Math.max(0, ...counted.flat().map((reset) => secondsUntil(reset, now))) }
       }
 
       return { allowed: false, retryAfter: secondsUntil(refusal, now) }

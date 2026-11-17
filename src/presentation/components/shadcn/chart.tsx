@@ -12,7 +12,6 @@ const THEME_ENTRIES = [
 ] as const
 
 const INITIAL_DIMENSION = { height: 200, width: 320 } as const
-const SINGLE_PAYLOAD_ITEM_COUNT = 1
 
 type TooltipNameType = number | string
 type ThemeName = (typeof THEME_ENTRIES)[number]["name"]
@@ -302,7 +301,7 @@ const ChartTooltipContent = ({
     return
   }
 
-  const nestLabel = payload.length === SINGLE_PAYLOAD_ITEM_COUNT && indicator !== "dot"
+  const nestLabel = payload.length === 1 && indicator !== "dot"
   const headerLabel = nestLabel ? undefined : tooltipLabel
 
   return (

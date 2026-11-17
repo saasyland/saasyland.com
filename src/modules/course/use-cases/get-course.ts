@@ -19,8 +19,6 @@ import { lesson } from "~/src/modules/lesson/lesson.schema"
 import { resolveViewer } from "~/src/modules/lesson/lesson.viewer"
 import { video } from "~/src/modules/video/video.schema"
 
-const SINGLE_ROW_LIMIT = 1
-
 const readChapters = (courseId: string) =>
   db.select().from(chapter).where(eq(chapter.courseId, courseId)).orderBy(asc(chapter.position), asc(chapter.id))
 
@@ -63,7 +61,7 @@ export const getCourse = createServerFn({ method: "GET" })
       .select()
       .from(course)
       .where(and(eq(course.slug, slug), eq(course.status, COURSE_STATUS.PUBLISHED)))
-      .limit(SINGLE_ROW_LIMIT)
+      .limit(1)
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

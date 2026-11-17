@@ -19,7 +19,6 @@ import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 import { createPlayback } from "~/src/modules/video/video.playback"
 import { video } from "~/src/modules/video/video.schema"
 
-const SINGLE_ROW_LIMIT = 1
 const PLAYBACK_STALE_MS = 3_600_000
 
 export const getLessonPlayback = createServerFn({ method: "GET" })
@@ -39,7 +38,7 @@ export const getLessonPlayback = createServerFn({ method: "GET" })
           eq(lesson.status, LESSON_STATUS.PUBLISHED),
         ),
       )
-      .limit(SINGLE_ROW_LIMIT)
+      .limit(1)
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

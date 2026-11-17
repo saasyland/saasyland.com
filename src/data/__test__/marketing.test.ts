@@ -3,10 +3,25 @@ import { describe, expect, it, vi } from "vite-plus/test"
 import { LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { NONE } from "~/src/data/cli"
-import { CORE_PRICE_IN_HOURS, ILLUSTRATIVE_HOURLY_RATE, TIER_FEATURES, TIER_PRICES } from "~/src/data/marketing"
+import {
+  ANGULARPROJECTS_ACCESS,
+  ANGULARPROJECTS_FACTS,
+  ANGULARPROJECTS_URL,
+  CORE_PRICE_IN_HOURS,
+  COURSE_PLATFORM_VALUES,
+  ILLUSTRATIVE_HOURLY_RATE,
+  PRODUCT_CASES,
+  PRODUCT_CASE_STATUS,
+  REACTPROJECTS_ACCESS,
+  REACTPROJECTS_FACTS,
+  REACTPROJECTS_URL,
+  TIER_FEATURES,
+  TIER_PRICES,
+} from "~/src/data/marketing"
 import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.constants"
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
+import landing from "~/messages/en-US/pages.landing.json"
 
 const coreStatuses = async ({
   billingProviders,
@@ -71,6 +86,32 @@ describe("marketing data", () => {
       expect(await coreStatuses({ billingProviders: false, generation })).toStrictEqual(
         generatedBy({ billing: FEATURE_STATUS.ARRIVING, generation }),
       )
+    }
+  })
+
+  it("takes the status of Complete's course platform access from each platform's own access status", () => {
+    const statuses = Object.fromEntries(TIER_FEATURES[LICENSE_TIER.COMPLETE].map(({ id, status }) => [id, status]))
+
+    expect(statuses).toMatchObject({ angularprojects: ANGULARPROJECTS_ACCESS, reactprojects: REACTPROJECTS_ACCESS })
+    expect(COURSE_PLATFORM_VALUES).toMatchObject({
+      angularprojectsAccess: ANGULARPROJECTS_ACCESS,
+      reactprojectsAccess: REACTPROJECTS_ACCESS,
+    })
+  })
+
+  it("names each course platform by the host of its one URL", () => {
+    expect(REACTPROJECTS_FACTS.reactprojects).toBe(new URL(REACTPROJECTS_URL).host)
+    expect(ANGULARPROJECTS_FACTS.angularprojects).toBe(new URL(ANGULARPROJECTS_URL).host)
+  })
+
+  it("lists each product case once, with copy in English, and links only the ones whose waitlist is open to their own host", () => {
+    const linked = PRODUCT_CASES.flatMap((product) => (product.status === PRODUCT_CASE_STATUS.WAITLIST ? [product] : []))
+
+    expect(new Set(PRODUCT_CASES.map(({ name }) => name)).size).toBe(PRODUCT_CASES.length)
+    expect(PRODUCT_CASES.map(({ id }) => id)).toStrictEqual(Object.keys(landing.cases.items))
+    expect(Object.keys(landing.cases.status).toSorted()).toStrictEqual(Object.values(PRODUCT_CASE_STATUS).toSorted())
+    for (const { name, url } of linked) {
+      expect(new URL(url).host).toBe(name)
     }
   })
 })

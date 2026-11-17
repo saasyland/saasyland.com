@@ -31,7 +31,7 @@ import { Route as OverviewRoute } from "~/src/routes/app.index"
 import { Route as LicenseRoute } from "~/src/routes/app.license"
 
 import { CLI_LICENSE_COMMANDS, CLI_LICENSE_KEY_VARIABLE, cliCommand } from "~/src/data/cli"
-import { REACTPROJECTS_FACTS } from "~/src/data/marketing"
+import { COURSE_PLATFORM_VALUES } from "~/src/data/marketing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -212,7 +212,7 @@ afterEach(() => {
 const withFeatureValues = (message: string): string =>
   createTranslator({ locale: "en-US", messages: { message } })("message", {
     coverageThreshold: REPOSITORY_FACTS.coverageThreshold,
-    ...REACTPROJECTS_FACTS,
+    ...COURSE_PLATFORM_VALUES,
   })
 
 describe("buying a license", () => {

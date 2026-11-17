@@ -16,7 +16,17 @@ import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_TIERS } from "~/src/modules/license/license.constants"
 
 import { CLI_GENERATION_VALUES, PACKAGE_MANAGER, SCAFFOLD_TARGET } from "~/src/data/cli"
-import { CONSULTING_HOURLY_RATE, REACTPROJECTS_FACTS, TIER_FEATURES } from "~/src/data/marketing"
+import {
+  ANGULARPROJECTS_FACTS,
+  ANGULARPROJECTS_URL,
+  CONSULTING_HOURLY_RATE,
+  COURSE_PLATFORM_VALUES,
+  PRODUCT_CASES,
+  PRODUCT_CASE_STATUS,
+  REACTPROJECTS_FACTS,
+  REACTPROJECTS_URL,
+  TIER_FEATURES,
+} from "~/src/data/marketing"
 import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constants"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
 
@@ -43,7 +53,7 @@ import { ROUTES } from "~/src/routes"
 const withFacts = (message: string): string =>
   createTranslator({ locale: "en-US", messages: { message } })("message", {
     ...REPOSITORY_FACTS,
-    ...REACTPROJECTS_FACTS,
+    ...COURSE_PLATFORM_VALUES,
     ...CLI_GENERATION_VALUES,
   })
 
@@ -320,19 +330,81 @@ describe("marketing content and purchase links", () => {
   })
 })
 
+const caseCard = (name: string): HTMLElement => {
+  const card = screen.getByRole("heading", { level: 3, name }).parentElement
+  if (!card) {
+    throw new Error(`The ${name} card is missing`)
+  }
+
+  return card
+}
+
 describe("customer cases", () => {
-  it("presents both upcoming products as shipping at launch, without links to products that are not live", () => {
+  it("shows every product with its status, kind, body and modules", () => {
     renderSection(<CasesSection />)
-    for (const item of Object.values(english.cases.items)) {
-      expect(screen.getByRole("heading", { name: item.name })).toBeVisible()
-      expect(screen.queryByRole("link", { name: item.name })).not.toBeInTheDocument()
+
+    expect(screen.getByRole("heading", { level: 2, name: english.cases.title })).toBeVisible()
+    expect(screen.getAllByRole("heading", { level: 3 }).map(({ textContent }) => textContent)).toStrictEqual(
+      PRODUCT_CASES.map(({ name }) => name),
+    )
+    for (const product of PRODUCT_CASES) {
+      const card = caseCard(product.name)
+      const item = english.cases.items[product.id]
+
+      expect(within(card).getByText(english.cases.status[product.status], { exact: false })).toHaveTextContent(
+        `${english.cases.status[product.status]}·${item.kind}`,
+      )
+      expect(within(card).getByText(withFacts(item.body))).toBeVisible()
+      expect(within(card).getByText(item.modules)).toBeVisible()
     }
-    expect(screen.getAllByText(english.cases.statusSoon, { exact: false })).toHaveLength(Object.keys(english.cases.items).length)
-    expect(screen.getByText(withFacts(english.cases.items.reactprojects.body))).toBeVisible()
+  })
+
+  it("links each product whose waitlist is open to its site in a new tab, and leaves products that are not live unlinked", () => {
+    renderSection(<CasesSection />)
+    const linked = PRODUCT_CASES.flatMap((product) => (product.status === PRODUCT_CASE_STATUS.WAITLIST ? [product] : []))
+    const unlinked = PRODUCT_CASES.filter((product) => product.status === PRODUCT_CASE_STATUS.LAUNCH)
+
+    expect(linked.map(({ name, url }) => [name, url])).toStrictEqual([
+      [REACTPROJECTS_FACTS.reactprojects, REACTPROJECTS_URL],
+      [ANGULARPROJECTS_FACTS.angularprojects, ANGULARPROJECTS_URL],
+    ])
+    for (const product of linked) {
+      const link = within(caseCard(product.name)).getByRole("link", { name: product.name })
+
+      expect(link).toHaveAttribute("href", product.url)
+      expect(link).toHaveAttribute("target", "_blank")
+      expect(link).toHaveAttribute("rel", "noreferrer")
+    }
+    expect(unlinked.length).toBeGreaterThan(0)
+    for (const product of unlinked) {
+      expect(within(caseCard(product.name)).queryByRole("link")).not.toBeInTheDocument()
+    }
     expect(screen.getByRole("link", { name: english.cases.inviteCta })).toHaveAttribute(
       "href",
       "mailto:hello@saasyland.com?subject=Built%20on%20SaaSy%20Land",
     )
+  })
+
+  it("lays the products out in three columns from the large breakpoint and highlights only the hovered one", () => {
+    const { container } = renderSection(<CasesSection />)
+    const grid = container.querySelector(".grid.gap-px")
+    if (!grid) {
+      throw new Error("Cases grid is missing")
+    }
+    const [first, second] = PRODUCT_CASES.map(({ name }) => caseCard(name).parentElement)
+    if (!first || !second) {
+      throw new Error("Case cards are missing")
+    }
+
+    expect(grid).toHaveClass("lg:grid-cols-3")
+    fireEvent.mouseEnter(first)
+    expect(first).toHaveClass("group", "z-10")
+    expect(second).not.toHaveClass("z-10")
+    fireEvent.mouseEnter(second)
+    expect(first).not.toHaveClass("z-10")
+    expect(second).toHaveClass("z-10")
+    fireEvent.mouseLeave(grid)
+    expect(second).not.toHaveClass("z-10")
   })
 })
 

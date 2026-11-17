@@ -92,6 +92,14 @@ const schedule = (preload: () => void, signal: AbortSignal): void => {
 
 `src/router.tsx` imposta `defaultPreloadStaleTime` a `QUERY_STALE_TIME_MS`, gli stessi <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> di `defaultStaleTime`. Valeva `0`, il valore che TanStack Router consiglia quando la cache è gestita da TanStack Query, ma i loader della documentazione e del blog chiamano direttamente le loro funzioni server, quindi con `0` un clic dopo un precaricamento le eseguiva di nuovo. Entro quel tempo un clic mostra la pagina precaricata senza eseguire il suo loader. Dopo, e finché TanStack Router non scarta la pagina precaricata cinque minuti dopo averla caricata (`defaultPreloadGcTime`), un clic mostra comunque subito la pagina precaricata e la ricarica in background.
 
+Misurato su preview.saasyland.com con un browser nuovo per ogni esecuzione, che carica `/`, aspetta che la rete sia tranquilla e altri due secondi, poi fa clic su **Documentazione**. Cloudflare distribuisce le richieste di uno stesso browser su più isolate, quindi prima della modifica la maggior parte delle esecuzioni ne ha incontrato uno nuovo. Ogni cella riporta la mediana e, tra parentesi, l'intervallo:
+
+| Misura                                                                                                                  | Prima               | Dopo           |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------- | -------------- |
+| Dal clic al titolo della documentazione, quando una funzione server della documentazione ha incontrato un isolate nuovo | 1287 ms (1116–2137) | 87 ms (67–145) |
+| Dal clic al titolo della documentazione, quando entrambe hanno incontrato isolate caldi                                 | 194 ms (177–208)    | 96 ms (91–101) |
+| Richieste a funzioni server che il clic attende                                                                         | 2                   | 0              |
+
 La home page non è più lenta. Lighthouse su `/`, su un build di `bun run build:test` dietro un proxy HTTP/2 con compressione, mediana di 13 esecuzioni per build, metà in ciascun ordine:
 
 | Misura                              | Prima   | Dopo    |

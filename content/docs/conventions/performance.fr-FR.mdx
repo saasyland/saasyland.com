@@ -92,6 +92,14 @@ const schedule = (preload: () => void, signal: AbortSignal): void => {
 
 `src/router.tsx` fixe `defaultPreloadStaleTime` à `QUERY_STALE_TIME_MS`, les mêmes <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> que `defaultStaleTime`. La valeur était `0`, celle que TanStack Router recommande quand TanStack Query gère le cache, mais les loaders de la documentation et du blog appellent directement leurs fonctions serveur : avec `0`, un clic après un préchargement les relançait. Pendant ce délai, un clic affiche la page préchargée sans exécuter son loader. Ensuite, et jusqu'à ce que TanStack Router abandonne la page préchargée cinq minutes après l'avoir chargée (`defaultPreloadGcTime`), un clic affiche toujours la page préchargée tout de suite et la recharge en arrière-plan.
 
+Mesuré sur preview.saasyland.com avec un navigateur neuf à chaque passage, qui charge `/`, attend que le réseau soit calme et deux secondes de plus, puis clique sur **Documentation**. Cloudflare répartit les requêtes d'un même navigateur entre plusieurs isolates, si bien qu'avant le changement la plupart des passages en ont rencontré un nouveau. Chaque cellule donne la médiane et, entre parenthèses, l'étendue :
+
+| Mesure                                                                                                             | Avant                  | Après          |
+| ------------------------------------------------------------------------------------------------------------------ | ---------------------- | -------------- |
+| Du clic au titre de la documentation, quand une fonction serveur de la documentation a rencontré un nouvel isolate | 1 287 ms (1 116–2 137) | 87 ms (67–145) |
+| Du clic au titre de la documentation, quand les deux ont rencontré des isolates chauds                             | 194 ms (177–208)       | 96 ms (91–101) |
+| Requêtes de fonctions serveur qu'attend le clic                                                                    | 2                      | 0              |
+
 La page d'accueil n'est pas plus lente. Lighthouse sur `/`, sur un build `bun run build:test` derrière un proxy HTTP/2 avec compression, médiane de 13 passages par build, la moitié dans chaque ordre :
 
 | Mesure                                  | Avant    | Après    |

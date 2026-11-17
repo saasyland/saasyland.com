@@ -92,6 +92,14 @@ const schedule = (preload: () => void, signal: AbortSignal): void => {
 
 `src/router.tsx` setzt `defaultPreloadStaleTime` auf `QUERY_STALE_TIME_MS`, dieselben <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> wie `defaultStaleTime`. Der Wert war `0`, den TanStack Router empfiehlt, wenn TanStack Query den Cache verwaltet, aber die Loader von Dokumentation und Blog rufen ihre Server Functions direkt auf, deshalb führte ein Klick nach dem Vorabladen sie mit `0` erneut aus. Innerhalb der Stale-Time zeigt ein Klick die vorab geladene Seite, ohne ihren Loader auszuführen. Danach, bis TanStack Router die vorab geladene Seite fünf Minuten nach dem Laden verwirft (`defaultPreloadGcTime`), zeigt ein Klick die vorab geladene Seite trotzdem sofort und lädt sie im Hintergrund neu.
 
+Gemessen auf preview.saasyland.com mit einem frischen Browser pro Lauf, der jeweils `/` lädt, wartet, bis das Netzwerk ruhig ist, und zwei Sekunden länger, und dann auf **Dokumentation** klickt. Cloudflare verteilt die Anfragen eines Browsers auf mehrere Isolates, deshalb traf vor der Änderung der größte Teil der Läufe auf ein neues. Jede Zelle nennt den Median und in Klammern die Spanne:
+
+| Messung                                                                                                                 | Vorher                 | Nachher        |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------- |
+| Vom Klick bis zur Überschrift der Dokumentation, wenn eine Server Function der Dokumentation auf ein neues Isolate traf | 1.287 ms (1.116–2.137) | 87 ms (67–145) |
+| Vom Klick bis zur Überschrift der Dokumentation, wenn beide auf warme Isolates trafen                                   | 194 ms (177–208)       | 96 ms (91–101) |
+| Anfragen an Server Functions, auf die der Klick wartet                                                                  | 2                      | 0              |
+
 Die Startseite ist nicht langsamer geworden. Lighthouse auf `/`, auf einem Build von `bun run build:test` hinter einem HTTP/2-Proxy mit Kompression, Median aus 13 Läufen je Build, die Hälfte davon in jeder Reihenfolge:
 
 | Messung                           | Vorher   | Nachher  |

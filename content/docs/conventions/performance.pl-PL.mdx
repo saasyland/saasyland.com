@@ -92,6 +92,14 @@ const schedule = (preload: () => void, signal: AbortSignal): void => {
 
 `src/router.tsx` ustawia `defaultPreloadStaleTime` na `QUERY_STALE_TIME_MS`, te same <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> co `defaultStaleTime`. Wcześniej było to `0`, wartość, którą TanStack Router zaleca, gdy pamięcią podręczną zarządza TanStack Query, ale loadery dokumentacji i bloga wywołują swoje funkcje serwerowe bezpośrednio, więc przy `0` kliknięcie po wstępnym ładowaniu uruchamiało je ponownie. W tym czasie kliknięcie pokazuje wstępnie załadowaną stronę bez uruchamiania jej loadera. Później, aż TanStack Router odrzuci wstępnie załadowaną stronę pięć minut po jej załadowaniu (`defaultPreloadGcTime`), kliknięcie wciąż od razu pokazuje wstępnie załadowaną stronę i ładuje ją ponownie w tle.
 
+Zmierzone na preview.saasyland.com z nową przeglądarką w każdym przebiegu: każdy ładuje `/`, czeka, aż sieć się uspokoi, i jeszcze dwie sekundy, a potem klika **Dokumentacja**. Cloudflare rozkłada żądania jednej przeglądarki na kilka isolate, więc przed zmianą większość przebiegów trafiała na nowy. Każda komórka podaje medianę, a w nawiasie zakres:
+
+| Pomiar                                                                                             | Przed               | Po             |
+| -------------------------------------------------------------------------------------------------- | ------------------- | -------------- |
+| Od kliknięcia do nagłówka dokumentacji, gdy funkcja serwerowa dokumentacji trafiła na nowy isolate | 1287 ms (1116–2137) | 87 ms (67–145) |
+| Od kliknięcia do nagłówka dokumentacji, gdy obie trafiły na rozgrzane isolate                      | 194 ms (177–208)    | 96 ms (91–101) |
+| Żądania funkcji serwerowych, na które czeka kliknięcie                                             | 2                   | 0              |
+
 Strona główna nie jest wolniejsza. Lighthouse na `/`, na buildzie `bun run build:test` za proxy HTTP/2 z kompresją, mediana z 13 przebiegów na build, po połowie w każdej kolejności:
 
 | Pomiar                                 | Przed   | Po      |

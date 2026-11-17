@@ -92,6 +92,14 @@ const schedule = (preload: () => void, signal: AbortSignal): void => {
 
 `src/router.tsx` sets `defaultPreloadStaleTime` to `QUERY_STALE_TIME_MS`, the same <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> as `defaultStaleTime`. It was `0`, the value TanStack Router recommends when TanStack Query owns the cache, but the docs and blog loaders call their server functions directly, so with `0` a click after a preload ran them again. Within the stale time a click shows the preloaded page without running its loader. After it, and until TanStack Router drops the preloaded page five minutes after loading it (`defaultPreloadGcTime`), a click still shows the preloaded page at once and loads it again in the background.
 
+Measured on preview.saasyland.com with a fresh browser per run, each loading `/`, waiting until the network was quiet and two seconds more, then clicking **Docs**. Cloudflare spreads the requests of one browser over several isolates, so most runs before the change met a new one. Each cell gives the median and, in brackets, the range:
+
+| Measure                                                                           | Before                 | After          |
+| --------------------------------------------------------------------------------- | ---------------------- | -------------- |
+| From the click to the docs heading, when a docs server function met a new isolate | 1,287 ms (1,116–2,137) | 87 ms (67–145) |
+| From the click to the docs heading, when both met warm isolates                   | 194 ms (177–208)       | 96 ms (91–101) |
+| Server function requests the click waits for                                      | 2                      | 0              |
+
 The home page is not slower. Lighthouse on `/`, on a `bun run build:test` build behind an HTTP/2 proxy with compression, median of 13 runs per build, half of them in each order:
 
 | Measure                          | Before   | After    |

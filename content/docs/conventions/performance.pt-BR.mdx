@@ -92,6 +92,14 @@ const schedule = (preload: () => void, signal: AbortSignal): void => {
 
 `src/router.tsx` define `defaultPreloadStaleTime` como `QUERY_STALE_TIME_MS`, os mesmos <RepositoryFact name="routerStaleTimeMinutes" unit="minute" /> de `defaultStaleTime`. O valor era `0`, o que o TanStack Router recomenda quando o TanStack Query cuida do cache, mas os loaders da documentação e do blog chamam suas funções de servidor diretamente, então com `0` um clique depois de um pré-carregamento as executava de novo. Dentro desse tempo, um clique mostra a página pré-carregada sem executar o seu loader. Depois dele, e até que o TanStack Router descarte a página pré-carregada cinco minutos depois de carregá-la (`defaultPreloadGcTime`), um clique ainda mostra a página pré-carregada na hora e a carrega de novo em segundo plano.
 
+Medido em preview.saasyland.com com um navegador novo a cada execução, que carrega `/`, espera a rede ficar quieta e mais dois segundos, e então clica em **Documentação**. O Cloudflare distribui as requisições de um mesmo navegador entre vários isolates, então antes da mudança a maioria das execuções encontrou um novo. Cada célula traz a mediana e, entre parênteses, o intervalo:
+
+| Medida                                                                                                       | Antes                  | Depois         |
+| ------------------------------------------------------------------------------------------------------------ | ---------------------- | -------------- |
+| Do clique ao título da documentação, quando uma função de servidor da documentação encontrou um isolate novo | 1.287 ms (1.116–2.137) | 87 ms (67–145) |
+| Do clique ao título da documentação, quando ambas encontraram isolates aquecidos                             | 194 ms (177–208)       | 96 ms (91–101) |
+| Requisições a funções de servidor que o clique espera                                                        | 2                      | 0              |
+
 A página inicial não ficou mais lenta. Lighthouse em `/`, num build de `bun run build:test` atrás de um proxy HTTP/2 com compressão, mediana de 13 execuções por build, metade em cada ordem:
 
 | Medida                              | Antes    | Depois   |

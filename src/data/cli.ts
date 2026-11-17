@@ -232,6 +232,34 @@ export const CLI_TEMPLATE_SUPPORT: CliTemplateSupport = {
   extras: [],
 }
 
+export type CliAnswers = Readonly<Record<string, string>>
+
+export interface CliOption {
+  readonly id: string
+  readonly unavailableWhen?: Readonly<Record<string, readonly string[]>> | undefined
+}
+
+export const isCliOptionAvailable = (option: CliOption, answers: CliAnswers): boolean =>
+  !Object.entries(option.unavailableWhen ?? {}).some(([choiceId, blocked]) => blocked.some((optionId) => optionId === answers[choiceId]))
+
+export const isCliOptionSelectable = (option: CliOption, supported: readonly string[], answers: CliAnswers): boolean =>
+  supported.includes(option.id) && isCliOptionAvailable(option, answers)
+
+export const resolveCliAnswers = (answers: CliAnswers, supported: CliTemplateSupport["choices"]): CliAnswers => {
+  const resolved: Record<string, string> = {}
+  for (const choice of CLI_CHOICES) {
+    const selectable = choice.options.filter((option) => isCliOptionSelectable(option, supported[choice.id], resolved))
+    const kept = selectable.find((option) => option.id === answers[choice.id]) ?? selectable[0]
+    if (kept !== undefined) {
+      resolved[choice.id] = kept.id
+    }
+  }
+  return resolved
+}
+
+export const cliFlags = (answers: CliAnswers): string[] =>
+  CLI_CHOICES.flatMap((choice) => choice.options.filter((option) => option.id === answers[choice.id]).map((option) => option.flag))
+
 export const CLI_MODULES = [
   { choiceId: "auth", id: "auth" },
   { id: "database" },

@@ -42,14 +42,10 @@ vi.mock("~/src/integrations/fumadocs/fumadocs.docs", async (original) => ({
 vi.mock("~/src/presentation/components/custom/docs-content", () => ({
   docsContent: { useContent: vi.fn(() => <p>Documentation content</p>) },
 }))
-vi.mock("~/src/presentation/components/custom/docs-toolbar", () => ({
-  DocsToolbar: () => <p>Docs toolbar</p>,
-}))
 vi.mock(import("@fumadocs/base-ui/layouts/docs"), async (original) => ({
   ...(await original()),
-  DocsLayout: ({ children, nav, sidebar, links, slots, themeSwitch }: ComponentProps<typeof DocsLayout>) => (
+  DocsLayout: ({ children, nav, sidebar, links, themeSwitch }: ComponentProps<typeof DocsLayout>) => (
     <div>
-      {slots?.header && <slots.header />}
       <nav aria-label="Documentation navigation">
         {typeof nav?.title === "function" ? undefined : <a href={nav?.url}>{nav?.title}</a>}
         {links?.map((link, index) => (link.type === "custom" ? <div key={index}>{link.children}</div> : undefined))}
@@ -135,8 +131,6 @@ it.each([
   await act(() => router.load())
   expect(screen.getByText("Documentation content")).toBeVisible()
   expect(screen.getAllByRole("navigation", { name: navigationMessages.ariaLabel })).toHaveLength(1)
-  expect(screen.getByRole("banner").nextElementSibling).toHaveTextContent("Docs toolbar")
-  expect(screen.queryByRole("link", { name: navigationMessages.skipToContent })).not.toBeInTheDocument()
   expect(
     within(screen.getByRole("navigation", { name: "Documentation navigation" })).getByRole("link", {
       name: contentNavigationMessages.header.docs,
@@ -145,6 +139,7 @@ it.each([
   expect(screen.getByRole("link", { name: `${APP_GITHUB_OWNER}/${APP_GITHUB_REPO}` })).toHaveAttribute("href", APP_GITHUB_URL)
   expect(screen.getByRole("button", { name: selectTriggerNamed(localeSwitcherMessages.label) })).toHaveTextContent("English")
   expect(screen.getByTestId("builtin-theme-switch")).toHaveTextContent("false")
+  expect(screen.getByRole("link", { name: navigationMessages.skipToContent })).toHaveAttribute("href", `#${DOCS_CONTENT_ID}`)
   expect(screen.getByTestId("sidebar-collapsible")).toHaveTextContent("false")
   expect(screen.getByRole("contentinfo")).toBeInTheDocument()
   expect(docsContent.useContent).toHaveBeenCalledWith(path)

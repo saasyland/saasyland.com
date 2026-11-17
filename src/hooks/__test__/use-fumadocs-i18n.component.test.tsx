@@ -12,7 +12,6 @@ import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { useFumadocsI18n } from "~/src/hooks/use-fumadocs-i18n"
 
-import navigationMessages from "~/messages/pl-PL/components.custom.navigation.json"
 import fumadocsMessages from "~/messages/pl-PL/fumadocs.json"
 import { ROUTES } from "~/src/routes"
 
@@ -39,7 +38,6 @@ it("gives Fumadocs the page locale and the project's own message for each of its
     "Open Sidebar(sidebar)(aria-label)": fumadocsMessages.sidebar.open,
     "Search failed, showing results for {query}(search dialog)": fumadocsMessages.search.failedWithResults,
     "Search(search trigger)": fumadocsMessages.search.label,
-    "Skip to Content(skip link)": navigationMessages.skipToContent,
   })
   expect(uiTranslations().keys).toEqual(expect.arrayContaining(Object.keys(translations)))
 })

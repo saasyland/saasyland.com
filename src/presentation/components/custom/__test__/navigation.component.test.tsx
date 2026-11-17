@@ -13,7 +13,7 @@ import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
 import { MARKETING_SECTION_IDS, SITE_CONTENT_ID } from "~/src/data/navigation.constants"
 
-import { Navigation, SkipLink } from "~/src/presentation/components/custom/navigation"
+import { Navigation } from "~/src/presentation/components/custom/navigation"
 
 import navigationMessages from "~/messages/en-US/components.custom.navigation.json"
 import { APP_NAME } from "~/src/presentation/branding"
@@ -114,18 +114,11 @@ describe("public navigation links", () => {
     expect(entryLinks(nav)).toStrictEqual(HEADER_NAVIGATION.map((entry) => [pageLabel(entry), hrefOf(entry)]))
   })
 
-  it("keeps the skip link out of the header, which renders only the banner", () => {
+  it("opens with a link that skips the header to the page content", () => {
     const { container } = renderNavigation()
 
-    expect(container.children).toHaveLength(1)
-    expect(container.firstElementChild).toBe(screen.getByRole("banner"))
-    expect(screen.queryByRole("link", { name: navigationMessages.skipToContent })).not.toBeInTheDocument()
-  })
-
-  it("skips the header to the page content with the skip link", () => {
-    renderNavigation(<SkipLink />)
-
-    expect(screen.getByRole("link", { name: navigationMessages.skipToContent })).toHaveAttribute("href", `#${SITE_CONTENT_ID}`)
+    expect(container.firstElementChild).toBe(screen.getByRole("link", { name: navigationMessages.skipToContent }))
+    expect(container.firstElementChild).toHaveAttribute("href", `#${SITE_CONTENT_ID}`)
   })
 
   it.each(HEADER_NAVIGATION)("marks $key as the current page with a dot only where the visitor is", (entry) => {

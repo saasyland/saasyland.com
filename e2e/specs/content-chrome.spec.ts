@@ -163,6 +163,7 @@ for (const locale of LOCALES) {
         const skipLink = page.getByRole("link", { exact: true, name: skipToContent })
         await expect(skipLink, path).toHaveCount(1)
         await expect(skipLink, path).toHaveAttribute("href", `#${contentId}`)
+        await expect(page.getByRole("link").and(page.locator(`a[href="#${contentId}"]`)), path).toHaveCount(1)
 
         await page.keyboard.press("Tab")
         await expect(skipLink, path).toBeFocused()

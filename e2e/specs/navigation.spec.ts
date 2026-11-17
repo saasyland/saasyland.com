@@ -13,6 +13,7 @@ const HEADER_VIEWPORTS = [MOBILE_VIEWPORT, { height: 900, width: 1280 }, { heigh
 const HEADER_LINE_WIDTH = "1px"
 const TRANSPARENT = "rgba(0, 0, 0, 0)"
 const MINIMUM_TARGET = 24
+const HEADER_MARK = "__sameHeader"
 const POLISH = "pl-PL"
 const [freeLesson] = TEST_LESSONS
 
@@ -127,6 +128,24 @@ test.describe("a page that is still loading", () => {
 })
 
 test.describe("one site header", () => {
+  test("keeps the same header element through client navigations from the landing page to the docs and back", async ({ page }) => {
+    await visit(page, ROUTES.HOME)
+    const header = page.getByRole("banner")
+    await new BasePage(page).waitForHydration(header)
+    await header.evaluate((element, mark) => Reflect.set(element, mark, true), HEADER_MARK)
+    const isSameHeader = (): Promise<boolean> => header.evaluate((element, mark) => Reflect.get(element, mark) === true, HEADER_MARK)
+
+    await header.getByRole("link", { exact: true, name: "Docs" }).click()
+    await expect(page).toHaveURL(ROUTES.DOCS)
+    await expect(page.locator(`#${DOCS_CONTENT_ID}`)).toBeVisible()
+    expect(await isSameHeader(), ROUTES.DOCS).toBe(true)
+
+    await header.getByRole("link", { exact: true, name: "SaaSy Land" }).click()
+    await expect(page).toHaveURL(ROUTES.HOME)
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+    expect(await isSameHeader(), ROUTES.HOME).toBe(true)
+  })
+
   test("lists the same links in the same order on every public page", async ({ page }) => {
     const headers = new Map<string, string[][]>()
     for (const path of PUBLIC_PAGES) {

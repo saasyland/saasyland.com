@@ -18,13 +18,13 @@ import { localeField } from "~/src/modules/_core/utils/zod-fields"
 import { useFumadocsI18n } from "~/src/hooks/use-fumadocs-i18n"
 
 import { layoutNamespaces } from "~/src/data/namespaces"
+import { DOCS_CONTENT_ID } from "~/src/data/navigation.constants"
 
 import { DocsPending } from "~/src/presentation/components/custom/docs-pending"
 import { DocsToolbar } from "~/src/presentation/components/custom/docs-toolbar"
 import { Footer } from "~/src/presentation/components/custom/footer"
 import { Github } from "~/src/presentation/components/custom/icons"
 import { LocaleSelect } from "~/src/presentation/components/custom/locale-switcher"
-import { Navigation } from "~/src/presentation/components/custom/navigation"
 import { ThemeSwitch } from "~/src/presentation/components/custom/theme-switch"
 
 import docsCss from "~/src/presentation/styles/docs.css?url"
@@ -55,20 +55,13 @@ const LINKS = [
   },
 ]
 
-const DocsHeader = (): JSX.Element => (
-  <>
-    <Navigation />
-    <DocsToolbar />
-  </>
-)
-
 const CONTAINER = {
   className:
     "mx-auto w-full max-w-site pt-header [--fd-banner-height:var(--spacing-header)] max-md:[--fd-header-height:--spacing(12)] md:px-10",
 } as const
 const THEME = { enabled: false } as const
 const THEME_SWITCH = { enabled: false } as const
-const SLOTS = { header: DocsHeader, languageSelect: false } as const
+const SLOTS = { header: DocsToolbar, languageSelect: false } as const
 
 const SIDEBAR = {
   className: "border-s",
@@ -125,5 +118,5 @@ export const Route = createFileRoute("/_site/docs")({
     return pageTree
   },
   pendingComponent: DocsPending,
-  staticData: { namespaces: NAMESPACES },
+  staticData: { contentId: DOCS_CONTENT_ID, namespaces: NAMESPACES },
 })

@@ -15,10 +15,16 @@ import {
   CLI_GROUPS,
   CLI_MODULES,
   CLI_TEMPLATE_SUPPORT,
+  type CliAnswers,
+  type CliOption,
   NONE,
   PACKAGE_MANAGERS,
   SCAFFOLD_DIR,
   SCAFFOLD_TARGET,
+  cliFlags,
+  isCliOptionAvailable,
+  isCliOptionSelectable,
+  resolveCliAnswers,
 } from "~/src/data/cli"
 
 import { cn } from "~/src/lib/cn"
@@ -28,14 +34,7 @@ import { ToggleGroup, ToggleGroupItem } from "~/src/presentation/components/shad
 import { CopyButton } from "~/src/presentation/components/custom/copy-button"
 import { RunnerTabs } from "~/src/presentation/components/custom/landing-page/components/runner-tabs"
 
-type Answers = Readonly<Record<string, string>>
-
 type CliExtra = (typeof CLI_EXTRAS)[number]
-
-interface CliOption {
-  readonly id: string
-  readonly unavailableWhen?: Readonly<Record<string, readonly string[]>> | undefined
-}
 
 const EXTRAS_GROUP = "extras"
 
@@ -45,33 +44,15 @@ const ROW_SETTLED = { opacity: 1, x: 0 }
 const OPTION_CLASSNAME =
   "h-auto cursor-pointer gap-2 rounded-md border border-border px-3 py-1.5 text-body-sm font-normal text-muted-foreground transition-colors duration-200 ease-exp hover:border-muted-foreground/30 hover:bg-transparent hover:text-foreground data-pressed:bg-muted data-selected:border-transparent data-selected:bg-muted data-selected:text-foreground"
 
-const isAvailable = (option: CliOption, answers: Answers): boolean =>
-  !Object.entries(option.unavailableWhen ?? {}).some(([choiceId, blocked]) => blocked.some((optionId) => optionId === answers[choiceId]))
+const keepExtras = (extras: readonly CliExtra[], answers: CliAnswers): readonly CliExtra[] =>
+  extras.filter((extra) => isCliOptionSelectable(extra, CLI_TEMPLATE_SUPPORT.extras, answers))
 
-const isSelectable = (option: CliOption, supported: readonly string[], answers: Answers): boolean =>
-  supported.includes(option.id) && isAvailable(option, answers)
-
-const reconcile = (answers: Answers): Answers => {
-  const next: Record<string, string> = {}
-  for (const choice of CLI_CHOICES) {
-    const selectable = choice.options.filter((option) => isSelectable(option, CLI_TEMPLATE_SUPPORT.choices[choice.id], next))
-    const kept = selectable.find((option) => option.id === answers[choice.id]) ?? selectable[0]
-    if (kept !== undefined) {
-      next[choice.id] = kept.id
-    }
-  }
-  return next
-}
-
-const keepExtras = (extras: readonly CliExtra[], answers: Answers): readonly CliExtra[] =>
-  extras.filter((extra) => isSelectable(extra, CLI_TEMPLATE_SUPPORT.extras, answers))
-
-const DEFAULT_STACK = reconcile({})
+const DEFAULT_STACK = resolveCliAnswers({}, CLI_TEMPLATE_SUPPORT.choices)
 
 const ComingMark = (): JSX.Element => <Hourglass aria-hidden className="size-3.5 shrink-0" />
 
 interface ChoiceRowProps extends Pick<ToggleButtonGroupProps, "disallowEmptySelection" | "onSelectionChange" | "selectionMode"> {
-  readonly answers: Answers
+  readonly answers: CliAnswers
   readonly choiceId: string
   readonly comingId: string
   readonly options: readonly CliOption[]
@@ -93,7 +74,7 @@ const ChoiceRow = ({ answers, choiceId, comingId, options, picked, supported, ..
         <ToggleGroup aria-labelledby={labelId} className="flex-wrap gap-2.5" selectedKeys={picked.map(({ id }) => id)} {...selection}>
           {options.map((option) => {
             const isComing = !supported.includes(option.id)
-            const isRuledOut = !isAvailable(option, answers)
+            const isRuledOut = !isCliOptionAvailable(option, answers)
             const describedBy = [isComing && comingId, isRuledOut && noteId].filter((id) => id !== false).join(" ")
 
             return (
@@ -235,23 +216,19 @@ const NextSteps = ({ dev }: Readonly<{ dev: string }>): JSX.Element => {
 export const CliConfigurator = (): JSX.Element => {
   const t = useTranslations("pages.landing.cli")
   const comingId = useId()
-  const [answers, setAnswers] = useState<Answers>(DEFAULT_STACK)
+  const [answers, setAnswers] = useState<CliAnswers>(DEFAULT_STACK)
   const [extras, setExtras] = useState<readonly CliExtra[]>([])
   const [runner, setRunner] = useState<(typeof PACKAGE_MANAGERS)[number]>(PACKAGE_MANAGERS[0])
 
   const rows = CLI_CHOICES.map((choice) => ({ choice, picked: choice.options.filter((option) => option.id === answers[choice.id]) }))
-  const lines = [
-    `${runner.exec} ${SCAFFOLD_TARGET}`,
-    ...rows.flatMap(({ picked }) => picked.map((option) => option.flag)),
-    ...extras.map((extra) => extra.flag),
-  ]
+  const lines = [`${runner.exec} ${SCAFFOLD_TARGET}`, ...cliFlags(answers), ...extras.map((extra) => extra.flag)]
   const modules = [
     ...CLI_MODULES.filter((module) => !("choiceId" in module) || answers[module.choiceId] !== NONE).map((module) => module.id),
     ...extras.map((extra) => extra.module),
   ]
 
   const select = (choiceId: string, optionId: string): void => {
-    const next = reconcile({ ...answers, [choiceId]: optionId })
+    const next = resolveCliAnswers({ ...answers, [choiceId]: optionId }, CLI_TEMPLATE_SUPPORT.choices)
     setAnswers(next)
     setExtras(keepExtras(extras, next))
   }

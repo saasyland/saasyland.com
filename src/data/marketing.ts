@@ -1,6 +1,6 @@
 import { LICENSE_TIER, type LicenseTier } from "~/src/modules/license/license.constants"
 
-import { CLI_GENERATION } from "~/src/data/cli"
+import { CLI_GENERATION, CLI_TEMPLATE_SUPPORT, NONE } from "~/src/data/cli"
 import { FEATURE_STATUS, type FeatureStatus, MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
 export const FOOTER_SECTIONS = [MARKETING_SECTION_IDS.FOUNDATION, MARKETING_SECTION_IDS.PRICING, MARKETING_SECTION_IDS.FAQ] as const
@@ -10,6 +10,10 @@ export const TIER_PRICES = {
   [LICENSE_TIER.COMPLETE]: 399,
   [LICENSE_TIER.CORE]: 249,
 } as const satisfies Record<LicenseTier, number>
+
+const TEMPLATES_GENERATE_BILLING = CLI_TEMPLATE_SUPPORT.choices.billing.some((option) => option !== NONE)
+
+const BILLING_GENERATION: FeatureStatus = TEMPLATES_GENERATE_BILLING ? CLI_GENERATION : FEATURE_STATUS.ARRIVING
 
 export const TIER_FEATURES = {
   [LICENSE_TIER.AGENCY]: [
@@ -32,6 +36,7 @@ export const TIER_FEATURES = {
     { id: "updates", status: FEATURE_STATUS.AVAILABLE },
     { id: "source", status: CLI_GENERATION },
     { id: "providers", status: CLI_GENERATION },
+    { id: "billing", status: BILLING_GENERATION },
     { id: "tests", status: CLI_GENERATION },
     { id: "projects", status: CLI_GENERATION },
   ],

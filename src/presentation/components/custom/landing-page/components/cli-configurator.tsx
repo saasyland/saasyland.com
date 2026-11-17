@@ -39,8 +39,6 @@ interface CliOption {
 
 const EXTRAS_GROUP = "extras"
 
-const LAST_LINE_OFFSET = 1
-
 const ROW_ENTER = { opacity: 0, x: -8 }
 const ROW_SETTLED = { opacity: 1, x: 0 }
 
@@ -145,7 +143,7 @@ const CommandBlock = ({ lines }: Readonly<{ lines: readonly string[] }>): JSX.El
             key={line}
           >
             {line}
-            {index < lines.length - LAST_LINE_OFFSET ? " \\" : ""}
+            {index < lines.length - 1 ? " \\" : ""}
           </span>
         ))}
       </code>

@@ -14,13 +14,11 @@ import type { Chapter } from "~/src/modules/chapter/chapter.types"
 import { chapterZodSchemas } from "~/src/modules/chapter/chapter.zod"
 import { course } from "~/src/modules/course/course.schema"
 
-const SINGLE_ROW_LIMIT = 1
-
 export const createChapter = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["update"] })])
   .validator((input: Chapter["createChapter"]) => chapterZodSchemas.createChapter.parse(input))
   .handler(async ({ data }) => {
-    const [owner] = await db.select({ id: course.id }).from(course).where(eq(course.id, data.courseId)).limit(SINGLE_ROW_LIMIT)
+    const [owner] = await db.select({ id: course.id }).from(course).where(eq(course.id, data.courseId)).limit(1)
 
     if (owner === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

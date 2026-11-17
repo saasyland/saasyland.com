@@ -18,7 +18,6 @@ import { category } from "~/src/modules/category/category.schema"
 import { getCategoriesPageQuery, getCategoriesQuery } from "~/src/modules/category/use-cases/get-categories"
 
 const HEADERS = new Headers()
-const SINGLE_CALL = 1
 const USER_ID = "01900000-0000-7000-8000-000000000001"
 
 type AuthApi = typeof auth.api
@@ -67,7 +66,7 @@ describe("list-categories", () => {
     ])
     expect(result.total).toBe(12)
 
-    expect(getSessionMock).toHaveBeenCalledTimes(SINGLE_CALL)
+    expect(getSessionMock).toHaveBeenCalledTimes(1)
   })
 
   it("rejects when the caller is not an admin", async () => {

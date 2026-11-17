@@ -36,8 +36,6 @@ import {
 import { cn } from "~/src/lib/cn"
 
 const CONTEXT_MENU_OFFSET = 4
-const CONTEXT_MENU_CROSS_OFFSET = 0
-const CONTEXT_MENU_SUB_OFFSET = 0
 const CONTEXT_MENU_SUB_CROSS_OFFSET = -3
 
 interface ContextMenuPosition {
@@ -72,7 +70,7 @@ const ContextMenu = ({
   "data-slot": dataSlot = "context-menu-content",
   children,
   className,
-  crossOffset = CONTEXT_MENU_CROSS_OFFSET,
+  crossOffset = 0,
   offset = CONTEXT_MENU_OFFSET,
   placement = "bottom start",
   ...props
@@ -272,7 +270,7 @@ const ContextMenuSubTrigger = ({
 const ContextMenuSubContent = ({
   className,
   crossOffset = CONTEXT_MENU_SUB_CROSS_OFFSET,
-  offset = CONTEXT_MENU_SUB_OFFSET,
+  offset = 0,
   placement = "end top",
   ...props
 }: ComponentProps<typeof ContextMenu>) => (

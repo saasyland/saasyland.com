@@ -32,6 +32,7 @@ export const coursesSeed = async (): Promise<TestSeed> => {
       binding: MEDIA_BINDING,
       file: join(TEST_VIDEO.fixture, file),
       key: videoObjectKey({ file, videoId: TEST_VIDEO.id }),
+      metadata: {},
       type: contentTypeOf(file),
     })),
     statements: [

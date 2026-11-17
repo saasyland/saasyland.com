@@ -11,8 +11,6 @@ import { session } from "~/src/modules/session/session.schema"
 import type { Session } from "~/src/modules/session/session.types"
 import { sessionZodSchemas } from "~/src/modules/session/session.zod"
 
-const SINGLE_ROW = 1
-
 export const revokeSession = createServerFn({ method: "POST" })
   .middleware([authorized()])
   .validator((input: Session["revokeSession"]) => sessionZodSchemas.revokeSession.parse(input))
@@ -21,7 +19,7 @@ export const revokeSession = createServerFn({ method: "POST" })
       .select({ token: session.token })
       .from(session)
       .where(and(eq(session.id, data.sessionId), eq(session.userId, context.auth.user.id)))
-      .limit(SINGLE_ROW)
+      .limit(1)
     if (row === undefined) {
       return { status: true }
     }

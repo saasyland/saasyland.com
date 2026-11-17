@@ -75,11 +75,10 @@ const LOOPS = {
   },
 }
 
-const NO_OFFSET = 0
 const VISIBLE_FRACTION = 0.25
 
 const play = (video: HTMLVideoElement, offsetSeconds: number): void => {
-  if (offsetSeconds > NO_OFFSET && video.currentTime === NO_OFFSET) {
+  if (offsetSeconds > 0 && video.currentTime === 0) {
     video.currentTime = offsetSeconds
   }
   video.play().catch(() => {})
@@ -94,7 +93,7 @@ interface ConceptLoopProps {
   readonly sizes: string
 }
 
-export const ConceptLoop = ({ className, label, name, offsetSeconds = NO_OFFSET, preloadMedia, sizes }: ConceptLoopProps): JSX.Element => {
+export const ConceptLoop = ({ className, label, name, offsetSeconds = 0, preloadMedia, sizes }: ConceptLoopProps): JSX.Element => {
   const [hasPlayed, setHasPlayed] = useState(false)
 
   const { poster, responsivePosters, video: source } = LOOPS[name]

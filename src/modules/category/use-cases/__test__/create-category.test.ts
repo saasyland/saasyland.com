@@ -12,7 +12,6 @@ import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { createCategoryMutation } from "~/src/modules/category/use-cases/create-category"
 
 const HEADERS = new Headers()
-const SINGLE_CALL = 1
 const USER_ID = "01900000-0000-7000-8000-000000000001"
 
 const CREATED_ID = vi.hoisted(() => "00000000-0000-7000-8000-000000000001")
@@ -67,8 +66,8 @@ describe("create-category", () => {
       }),
     ).resolves.toMatchObject(dbMocks.dbRow)
 
-    expect(dbMocks.insertMock).toHaveBeenCalledTimes(SINGLE_CALL)
-    expect(getSessionMock).toHaveBeenCalledTimes(SINGLE_CALL)
+    expect(dbMocks.insertMock).toHaveBeenCalledTimes(1)
+    expect(getSessionMock).toHaveBeenCalledTimes(1)
   })
 
   it("returns a domain error when the caller is not an admin", async () => {

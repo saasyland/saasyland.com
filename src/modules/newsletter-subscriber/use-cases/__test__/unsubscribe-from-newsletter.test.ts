@@ -12,7 +12,6 @@ import {
 
 const HEADERS = new Headers()
 const TOKEN = "b".repeat(NEWSLETTER_TOKEN_LENGTH)
-const SINGLE_CALL = 1
 
 const dbMocks = vi.hoisted(() => {
   const where = vi.fn<() => Promise<void>>().mockResolvedValue()
@@ -40,7 +39,7 @@ describe("unsubscribe-from-newsletter", () => {
 
     await expect(executeMutation(unsubscribeFromNewsletterMutation, { token: TOKEN })).resolves.toMatchObject({ unsubscribed: true })
 
-    expect(dbMocks.updateMock).toHaveBeenCalledTimes(SINGLE_CALL)
+    expect(dbMocks.updateMock).toHaveBeenCalledTimes(1)
     expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: NEWSLETTER_STATUS.UNSUBSCRIBED }))
   })
 

@@ -14,7 +14,6 @@ import { getProduct } from "~/src/modules/product/use-cases/get-product"
 
 const HEADERS = new Headers()
 const PRODUCT_ID = "01900000-0000-7000-8000-000000000002"
-const SINGLE_CALL = 1
 const USER_ID = "01900000-0000-7000-8000-000000000001"
 
 type AuthApi = typeof auth.api
@@ -77,8 +76,8 @@ describe("get-product", () => {
 
     await expect(getProduct({ data: { productId: PRODUCT_ID } })).resolves.toStrictEqual(dbMocks.dbRow)
 
-    expect(dbMocks.selectMock).toHaveBeenCalledTimes(SINGLE_CALL)
-    expect(getSessionMock).toHaveBeenCalledTimes(SINGLE_CALL)
+    expect(dbMocks.selectMock).toHaveBeenCalledTimes(1)
+    expect(getSessionMock).toHaveBeenCalledTimes(1)
   })
 
   it("rejects with not-found when the product does not exist", async () => {

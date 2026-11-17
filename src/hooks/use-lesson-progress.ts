@@ -7,7 +7,6 @@ import { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-ca
 
 export const SAVE_INTERVAL_MS = 15_000
 const MILLISECONDS_PER_SECOND = 1000
-const LESSON_START_MS = 0
 
 interface LessonProgressOptions {
   readonly enabled: boolean
@@ -41,7 +40,7 @@ export const useLessonProgress = ({ enabled, lessonId }: LessonProgressOptions) 
 
   const complete = useCallback(() => {
     if (enabled) {
-      mutate({ completed: true, lessonId, positionMs: LESSON_START_MS })
+      mutate({ completed: true, lessonId, positionMs: 0 })
     }
   }, [enabled, lessonId, mutate])
 

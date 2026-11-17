@@ -29,7 +29,6 @@ const STORYBOARD_TILE_BOX = 240
 const STORYBOARD_COLUMNS = 10
 export const STORYBOARD_MAX_FRAMES = 600
 export const STORYBOARD_MIN_INTERVAL_SECONDS = 2
-const MIN_STORYBOARD_FRAMES = 1
 
 const VTT_TIME_PAD = 2
 const VTT_MILLISECONDS_PAD = 3
@@ -230,7 +229,7 @@ export const posterFrameArguments = ({
 export const planStoryboard = (source: SourceVideo): Storyboard => {
   const seconds = source.durationMs / MILLISECONDS_PER_SECOND
   const intervalSeconds = Math.max(STORYBOARD_MIN_INTERVAL_SECONDS, Math.ceil(seconds / STORYBOARD_MAX_FRAMES))
-  const frames = Math.max(MIN_STORYBOARD_FRAMES, Math.ceil(seconds / intervalSeconds))
+  const frames = Math.max(1, Math.ceil(seconds / intervalSeconds))
   const columns = Math.min(STORYBOARD_COLUMNS, frames)
   const landscape = source.width >= source.height
   const tileWidth = landscape ? STORYBOARD_TILE_BOX : toEven((STORYBOARD_TILE_BOX * source.width) / source.height)

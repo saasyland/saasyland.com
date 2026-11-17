@@ -12,13 +12,11 @@ import { lesson } from "~/src/modules/lesson/lesson.schema"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 
-const SINGLE_ROW_LIMIT = 1
-
 export const moveLesson = createServerFn({ method: "POST" })
   .middleware([authorized({ course: ["update"] })])
   .validator((input: Lesson["moveLesson"]) => lessonZodSchemas.moveLesson.parse(input))
   .handler(async ({ data: { direction, lessonId } }) => {
-    const [row] = await db.select({ chapterId: lesson.chapterId }).from(lesson).where(eq(lesson.id, lessonId)).limit(SINGLE_ROW_LIMIT)
+    const [row] = await db.select({ chapterId: lesson.chapterId }).from(lesson).where(eq(lesson.id, lessonId)).limit(1)
 
     if (row === undefined) {
       throw new AppError(ERROR_CODES.NOT_FOUND)

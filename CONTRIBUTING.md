@@ -26,7 +26,7 @@ This repository is the saasyland.com website: the marketing pages, docs, blog, c
    bun run test:e2e:pr
    ```
 
-   `check` runs formatting, lint, types and the translation checks; coverage must stay at 100%; `build:test` runs the Cloudflare build that the unit tests do not; `test:e2e:pr` runs the browser suite in Chromium, as CI does.
+   `check` runs formatting, lint, types, the translation checks and the flow inventory check; code coverage must stay at 100%; `build:test` runs the Cloudflare build that the unit tests do not; `test:e2e:pr` runs the browser suite in Chromium, as CI does.
 
 5. Write commit messages in the [conventional commit](https://saasyland.com/docs/tooling/conventional-commits) format, such as `fix(auth): keep the locale in verification links`. The commit hook adds the emoji.
 

@@ -32,6 +32,8 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
+const shownStars = (label: string) => screen.getByText(label, { selector: "dt" }).nextElementSibling?.textContent
+
 const renderProof = (locale: "en-US" | "de-DE" = "en-US") =>
   render(
     <QueryClientProvider client={queryClient}>
@@ -69,15 +71,15 @@ describe("landing page proof statistics", () => {
   })
 
   it.each([
-    { formatted: "54,321", locale: "en-US" },
-    { formatted: "54.321", locale: "de-DE" },
-  ] as const)("formats the actual GitHub count for $locale", async ({ formatted, locale }) => {
+    { formatted: "54,321", label: english.proof.facts.stars.label, locale: "en-US" },
+    { formatted: "54.321", label: german.proof.facts.stars.label, locale: "de-DE" },
+  ] as const)("formats the actual GitHub count for $locale", async ({ formatted, label, locale }) => {
     fetchStarsMock.mockResolvedValue(54_321)
 
     renderProof(locale)
 
     expect(await screen.findByText(formatted, { selector: "dd" })).toBeVisible()
-    expect(screen.queryByText("435", { selector: "dd" })).not.toBeInTheDocument()
+    expect(shownStars(label)).toBe(formatted)
   })
 
   it("shows a genuine zero-star count", async () => {
@@ -141,6 +143,6 @@ describe("landing page proof statistics", () => {
     expect(screen.getByText("100%", { selector: "dd" })).toBeVisible()
     expect(screen.getByText("54,321", { selector: "dd" })).toBeVisible()
     expect(screen.queryByText("—", { selector: "dd" })).not.toBeInTheDocument()
-    expect(screen.queryByText("435", { selector: "dd" })).not.toBeInTheDocument()
+    expect(shownStars(english.proof.facts.stars.label)).toBe("54,321")
   })
 })

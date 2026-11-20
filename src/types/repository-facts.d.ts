@@ -3,5 +3,7 @@ declare module "virtual:repository-facts" {
   export const commitEmojis: Readonly<Record<string, string>>
   export const cliApiTables: import("~/scripts/repository-facts").CliApiTables
   export const seededAccounts: import("~/scripts/repository-facts").SeededAccounts
+  export const flowTables: import("~/scripts/repository-facts").FlowTables
+  export const coverageScope: import("~/scripts/repository-facts").CoverageScope
   export default facts
 }

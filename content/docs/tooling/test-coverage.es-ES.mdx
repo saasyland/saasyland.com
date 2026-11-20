@@ -1,0 +1,77 @@
+---
+title: "Cobertura de pruebas"
+description: "Qué demuestra cada capa de pruebas y cuánto se mide de ella: la cobertura de código, los flujos probados de principio a fin, la suite del recorrido del cliente y lo que está previsto."
+---
+
+Una sola cifra no puede decir qué demuestran las pruebas, así que el repositorio informa de cada capa por separado, y cada cifra de esta página sale del código.
+
+| Capa                                | Qué demuestra                                                                                                                                      | Hoy                                                                                          | Control                                                                  |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Cobertura de código                 | Cada línea, sentencia, función y rama del código de la aplicación que se mide se ejecuta bajo una prueba unitaria, de integración o de componentes | <RepositoryFact name="coverageThreshold" unit="percent" />                                   | `bun run test:coverage` falla por debajo del umbral                      |
+| Cobertura de flujos                 | Una prueba en el navegador realiza un flujo de usuario o de administración de principio a fin contra el Worker compilado y comprueba su resultado  | <RepositoryFact name="flowsCovered" /> de <RepositoryFact name="flows" /> flujos             | `bun run check` falla cuando un flujo nombra una prueba que ya no existe |
+| Suite del recorrido del cliente     | Un pago real en el sandbox de Polar, las claves que emite Polar y la CLI publicada contra preview                                                  | Se ejecuta a mano; realiza <RepositoryFact name="flowsInJourney" /> de los flujos sin cubrir | Ninguno todavía                                                          |
+| Pruebas de mutación                 | Que las pruebas fallan cuando cambia el código que cubren                                                                                          | Previstas                                                                                    | Ninguno                                                                  |
+| Cobertura de código en el navegador | Qué código de la aplicación ejecuta la suite del navegador                                                                                         | Prevista                                                                                     | Ninguno                                                                  |
+
+## Cobertura de código [#code-coverage]
+
+`bun run test:coverage` ejecuta los proyectos de Vitest <RepositoryFact name="vitestProjects" /> y falla cuando las líneas, las sentencias, las funciones o las ramas bajan del <RepositoryFact name="coverageThreshold" unit="percent" /> de <RepositoryFact name="coverageInclude" />. Deja fuera <RepositoryFact name="coverageExclude" />. La CI lo ejecuta en cada pull request y en cada push a `main`.
+
+La suite del navegador no cuenta para esta cifra: Playwright maneja el Worker de pruebas compilado, y allí no se recoge cobertura. Una cobertura de código completa significa que cada línea medida se ejecutó bajo una prueba que comprobó algo. No significa que las piezas funcionen juntas a través del Worker, D1, el navegador y los proveedores: la spec de bundles de la API de licencias de la CLI solo envía las respuestas por defecto, así que una petición de bundle con otra respuesta podría fallar en producción aunque cada línea del handler esté cubierta. La cobertura de flujos mide esa segunda cuestión.
+
+## Cobertura de flujos [#flow-coverage]
+
+El inventario de flujos enumera cada flujo del sitio, del espacio de trabajo del cliente y de la consola de administración. Cada área declara sus flujos en `e2e/data/<area>.flows.ts`, reunidos por `e2e/data/flows.entries.ts`, con los tipos y las constantes en `e2e/data/flows.ts`, igual que las áreas declaran sus páginas y sus datos iniciales. Un flujo tiene un id, un área, el resultado que una prueba debe comprobar y uno de tres estados:
+
+- **cubierto**: una prueba de Playwright realiza el flujo de principio a fin y comprueba su resultado. El flujo nombra la spec y el título completo de cada una de esas pruebas.
+- **sin cubrir**: la funcionalidad existe, pero ninguna prueba en el navegador realiza el flujo de principio a fin. El flujo dice qué falta y nombra las pruebas que hacen una parte y el paso del recorrido del cliente que lo realiza, si los hay.
+- **por construir**: la funcionalidad todavía no existe, como las pantallas de administración de productos, precios y descuentos, que muestran datos de ejemplo. El flujo dice qué ocupa su lugar.
+
+`bun run check` ejecuta `bun run check:flows`, que lista la suite del navegador con `playwright test --list` en Chromium, como la ejecutan las pull requests, y falla cuando:
+
+- un flujo nombra una spec o un título de prueba que la suite no tiene, que es lo que ocurre al renombrar o borrar la prueba;
+- un flujo nombra una prueba que se omite;
+- dos flujos comparten un id;
+- un flujo sin cubrir o un flujo por construir no dice por qué;
+- un flujo nombra un paso que la suite del recorrido del cliente no tiene.
+
+Por tanto, un flujo cubierto solo pierde su prueba cuando la misma pull request cambia su estado y deja escrito el motivo.
+
+Hoy hay <RepositoryFact name="flowsCovered" /> flujos cubiertos, <RepositoryFact name="flowsMissing" /> sin cubrir y <RepositoryFact name="flowsToBuild" /> todavía por construir, de un total de <RepositoryFact name="flows" />. La suite del navegador tiene <RepositoryFact name="e2eTests" /> pruebas en <RepositoryFact name="e2eSpecs" /> archivos de spec.
+
+<RepositoryTable columns={["Área", "Flujos", "Cubiertos", "Sin cubrir", "Por construir"]} name="flowAreaTable" />
+
+Muchos flujos sin cubrir ya se prueban en el mismo proceso: las [suites de integración](/docs/architecture/testing-architecture#integration-suites) entregan webhooks dos veces, fuera de orden y con firmas no válidas, reembolsan y revocan licencias y alcanzan los límites de peticiones de la API de licencias de la CLI. Un flujo solo cuenta como cubierto cuando una prueba en el navegador lo realiza contra el Worker compilado, así que esos cuentan como sin cubrir hasta que alguna lo haga.
+
+Las tablas siguientes muestran el inventario tal como lo declara `e2e/data`, en inglés, el idioma de los títulos de las pruebas.
+
+### Flujos cubiertos [#covered-flows]
+
+<RepositoryTable columns={["Flujo", "Área", "Resultado", "Pruebas"]} name="coveredFlowTable" />
+
+### Flujos sin cubrir [#missing-flows]
+
+<RepositoryTable columns={["Flujo", "Área", "Resultado", "Qué falta", "Hecho en parte por"]} name="missingFlowTable" />
+
+### Flujos por construir [#flows-to-build]
+
+<RepositoryTable columns={["Flujo", "Área", "Resultado", "Motivo"]} name="toBuildFlowTable" />
+
+## Suite del recorrido del cliente [#journey-suite]
+
+La [suite del recorrido del cliente](/docs/tooling/playwright#journey-suite) compra cada nivel en preview, en el sandbox de Polar, con la tarjeta de prueba de Stripe, espera a que los webhooks emitan la clave, usa la CLI publicada en tantos dispositivos como permite el nivel y reembolsa el pedido. Realiza <RepositoryFact name="flowsInJourney" /> de los flujos sin cubrir, que la tabla de flujos sin cubrir nombra en su última columna, pero ningún workflow de CI la ejecuta, así que esos flujos cuentan como sin cubrir. Ejecutarla en CI requiere tres pasos que solo puede dar el propietario:
+
+1. **Secretos.** El entorno `Preview` de GitHub guarda `POLAR_ACCESS_TOKEN`, un token del sandbox con los scopes `orders:read` y `refunds:write`; `POLAR_PRODUCT_ID_CORE`, `POLAR_PRODUCT_ID_COMPLETE` y `POLAR_PRODUCT_ID_AGENCY`, los productos del sandbox; y `RESEND_API_KEY`, una clave con acceso completo que puede leer los correos que envía preview. `POLAR_SERVER` es `sandbox` y no necesita ningún secreto.
+2. **Sandbox.** La organización del sandbox coincide con el código, lo que comprueba `bun run polar:verify:preview`, y su webhook apunta a preview.
+3. **Workflow.** Un job ejecuta `bun run test:journey` con Chromium instalado después del job **Deploy preview**, que despliega en preview la rama de una pull request. En este repositorio los workflows necesitan la revisión de una persona, así que el job se propone en lugar de añadirse.
+
+## Previsto [#planned]
+
+- **Pruebas de mutación.** Una herramienta de mutación cambia el código bajo prueba, un operador o una condición cada vez, y cuenta los cambios que ninguna prueba detecta. Mide si las pruebas comprueban resultados o solo ejecutan líneas. Empezaría por el código de licencias, pagos, precios, acceso a cursos y autenticación. Todavía no hay nada configurado.
+- **Cobertura de código en el navegador.** Recoger la cobertura de V8 mientras la suite del navegador ejecuta la aplicación compilada mostraría qué código no alcanza ninguna prueba en el navegador. Se informaría junto a la cifra de Vitest, sin sumarse a ella y sin umbral. Todavía no hay nada configurado.
+
+## Páginas relacionadas [#related-pages]
+
+- [Pruebas](/docs/tooling/testing)
+- [Playwright](/docs/tooling/playwright)
+- [Convenciones de pruebas](/docs/conventions/testing)

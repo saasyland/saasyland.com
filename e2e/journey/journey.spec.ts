@@ -246,7 +246,7 @@ for (const tier of LICENSE_TIERS) {
       })
     })
 
-    await test.step(`CI machines fill the ${String(limit)} slots and the next one is refused`, async () => {
+    await test.step("CI machines fill the remaining slots and the next one is refused", async () => {
       for (const [index, machine] of ci.entries()) {
         expect(await runCli(machine, [CLI_COMMAND.ACTIVATE])).toMatchObject({
           exitCode: EXIT_CODE.SUCCESS,

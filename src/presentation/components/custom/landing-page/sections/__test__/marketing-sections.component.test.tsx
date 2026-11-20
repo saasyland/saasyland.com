@@ -63,6 +63,8 @@ const EVIDENCE_CODE = [
   REPOSITORY_FACTS.coverageCommand,
   REPOSITORY_FACTS.coverageSummaryPath,
   REPOSITORY_FACTS.e2eSpecsPath,
+  REPOSITORY_FACTS.flowCheckCommand,
+  REPOSITORY_FACTS.flowInventoryPath,
   REPOSITORY_FACTS.i18nCheckCommand,
   REPOSITORY_FACTS.messagesPath,
 ]

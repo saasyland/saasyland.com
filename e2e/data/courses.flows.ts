@@ -1,0 +1,371 @@
+import { FLOW_AREA, FLOW_STATUS, type Flow } from "./flows"
+
+const BUILD_COURSE = {
+  spec: "course-admin.spec.ts",
+  title: "an administrator builds a course whose free lesson visitors can watch",
+} as const
+
+const WRITE_LESSON = {
+  spec: "course-admin.spec.ts",
+  title: "an administrator writes a lesson, swaps its video and adds materials that visitors download",
+} as const
+
+const PAID_MATERIALS = {
+  spec: "course-materials.spec.ts",
+  title: "lesson materials › a Complete licence holder downloads a paid lesson's materials and sees a lesson being recorded",
+} as const
+
+const CUSTOMER_KEPT_OUT = {
+  spec: "videos.spec.ts",
+  title: "video library › a customer cannot open the library or stream without a signed path",
+} as const
+
+export const COURSES_FLOWS = [
+  {
+    area: FLOW_AREA.COURSES,
+    id: "watch-free-lesson",
+    outcome: "A visitor finds the course on /courses, starts it and watches the free lesson through a signed playlist",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "courses.spec.ts", title: "courses › a visitor finds the course and watches its free lesson" }],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "account-lesson",
+    outcome: "A visitor who opens an account lesson signs in from it and comes back to watch it",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "courses.spec.ts", title: "courses › a visitor signs in from an account lesson and comes back to watch it" }],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "paid-lesson-offer",
+    outcome: "A customer without Complete is offered Complete on a paid lesson, with a link to the Complete offer on /app/license",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "course-access.spec.ts", title: "course access through a licence › a customer without Complete is offered it on a paid lesson" }],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "locked-courses-in-app",
+    outcome: "/app tells a customer without Complete how many lessons in how many courses they cannot open yet, with a link to each course",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-access.spec.ts",
+        title: "course access through a licence › a customer without Complete sees the locked courses beside the licence offer",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "complete-watches-paid",
+    outcome: "A Complete licence holder streams a paid lesson through a signed playlist",
+    reason: "The spec downloads the paid lesson's materials but never plays its video.",
+    status: FLOW_STATUS.MISSING,
+    tests: [PAID_MATERIALS],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "agency-watches-paid",
+    outcome: "An Agency licence holder opens and streams every paid lesson",
+    reason: "No seeded account holds Agency.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "core-refused-paid",
+    outcome: "A Core licence holder is offered Complete on a paid lesson and receives no signed playlist",
+    reason: "The paid-lesson specs sign in as a customer without a licence.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "refunded-loses-lessons",
+    outcome: "A refunded or revoked Complete licence no longer opens paid lessons or their materials",
+    reason: "No spec refunds or revokes a licence.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "admin-watches-every-lesson",
+    outcome: "An admin streams a paid lesson without a licence",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "courses.spec.ts", title: "courses › an administrator can watch every lesson" }],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "free-materials",
+    outcome: "A visitor downloads a free lesson's file through a signed path with its name and type, and follows its link materials",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "course-materials.spec.ts", title: "lesson materials › a visitor downloads the materials of a free lesson through a signed, expiring path" },
+    ],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "locked-materials",
+    outcome: "A visitor and a customer without Complete see a paid lesson's materials listed without a download link",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-materials.spec.ts",
+        title: "lesson materials › a visitor and a customer without Complete see a paid lesson's materials but cannot download them",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "paid-materials",
+    outcome: "A Complete licence holder downloads a paid lesson's file",
+    status: FLOW_STATUS.COVERED,
+    tests: [PAID_MATERIALS],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "lesson-being-recorded",
+    outcome: "A lesson on the placeholder video says that its recording is on its way and streams nothing",
+    status: FLOW_STATUS.COVERED,
+    tests: [PAID_MATERIALS, WRITE_LESSON],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "lesson-progress",
+    outcome: "A signed-in learner marks a lesson complete, and the course shows it as complete after a reload",
+    reason: "The spec finds the Mark as complete button but never presses it.",
+    status: FLOW_STATUS.MISSING,
+    tests: [{ spec: "courses.spec.ts", title: "courses › an administrator can watch every lesson" }],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "lesson-resume",
+    outcome: "The playback position is saved while a signed-in learner watches, and the lesson resumes there",
+    reason: "No spec plays a lesson long enough to save its position.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "draft-hidden",
+    outcome: "A draft course or lesson answers 404 to visitors and customers",
+    reason: "The specs open published courses only.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "course-showcase",
+    outcome: "The landing page's course block links the published course and its free lesson to their pages",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "landing.spec.ts", title: "landing page › course showcase links the published course and its free lesson to their pages" }],
+  },
+  {
+    area: FLOW_AREA.SECURITY,
+    id: "signed-media",
+    outcome: "A video stream or lesson download without a valid signature is refused",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      CUSTOMER_KEPT_OUT,
+      { spec: "videos.spec.ts", title: "video library › an administrator previews a published video through a signed, expiring path" },
+      { spec: "course-materials.spec.ts", title: "lesson materials › a visitor downloads the materials of a free lesson through a signed, expiring path" },
+    ],
+  },
+  {
+    area: FLOW_AREA.SECURITY,
+    id: "expired-signed-path",
+    outcome: "A signed video or download path past its expiry is refused",
+    reason: "The specs forge a signature; none presents an expired one.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-create-course",
+    outcome: "The admin creates a published course with a chapter and a free lesson on a video, and a visitor plays that lesson",
+    status: FLOW_STATUS.COVERED,
+    tests: [BUILD_COURSE],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-edit-lesson",
+    outcome: "The admin writes a lesson's description and key moments, and the lesson page shows them",
+    reason: "The spec checks the editor's preview and the saved notice, not the lesson page.",
+    status: FLOW_STATUS.MISSING,
+    tests: [WRITE_LESSON],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-replace-video",
+    outcome: "Replacing a lesson's video with the placeholder shows visitors the recording notice, and replacing it back plays the video",
+    status: FLOW_STATUS.COVERED,
+    tests: [WRITE_LESSON],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-upload-material",
+    outcome: "A file the admin uploads to a free lesson can be downloaded by a visitor",
+    status: FLOW_STATUS.COVERED,
+    tests: [WRITE_LESSON],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-link-material",
+    outcome: "A link the admin adds to a lesson appears on the lesson page with its address",
+    status: FLOW_STATUS.COVERED,
+    tests: [WRITE_LESSON],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-delete-course",
+    outcome: "Deleting a course removes it from the table, and its materials' download paths answer 404",
+    status: FLOW_STATUS.COVERED,
+    tests: [BUILD_COURSE, WRITE_LESSON],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-import-courses",
+    outcome:
+      "The admin checks a course file in a dry run, imports it, visitors find its courses being recorded, and importing the same file again changes nothing",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-import.spec.ts",
+        title: "an administrator imports the curriculum, visitors see it being recorded, and a second import changes nothing",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-export-courses",
+    outcome: "The admin exports every course, or one, as a JSON file that imports back into a site without changes",
+    reason: "The import spec reads the checked-in curriculum; no spec presses Export or imports what it downloaded.",
+    status: FLOW_STATUS.MISSING,
+    tests: [
+      {
+        spec: "course-import.spec.ts",
+        title: "an administrator imports the curriculum, visitors see it being recorded, and a second import changes nothing",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-update-course",
+    outcome: "The admin edits a course's title, summary, level, outcomes and status, the course page follows, and unpublishing hides it",
+    reason: "No spec edits a course after creating it.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-reorder-courses",
+    outcome: "Moving a course up or down changes its place on /courses",
+    reason: "No spec moves a course.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-edit-chapter",
+    outcome: "Renaming a chapter shows its new title on the course page",
+    reason: "No spec edits a chapter after creating it.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-reorder-chapters",
+    outcome: "Moving a chapter changes its place on the course page",
+    reason: "No spec moves a chapter.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-delete-chapter",
+    outcome: "Deleting a chapter removes it and its lessons from the course",
+    reason: "No spec deletes a chapter.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-reorder-lessons",
+    outcome: "Moving a lesson changes its place in its chapter and the course's next and previous links",
+    reason: "No spec moves a lesson.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-delete-lesson",
+    outcome: "Deleting a lesson removes it from the course, and its page answers 404",
+    reason: "No spec deletes a lesson.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-edit-material",
+    outcome: "Renaming and moving a material changes its title and its place on the lesson page",
+    reason: "No spec edits or moves a material after adding it.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-delete-material",
+    outcome: "Deleting a material removes it from the lesson, and its download path answers 404",
+    reason: "The specs delete the whole course, never one material.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-upload-limits",
+    outcome: "A file over the size limit or of a type outside the allowed list is refused, and so are uploads over the per-minute limit",
+    reason: "The spec uploads one allowed file.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-slug-taken",
+    outcome: "A course or lesson slug already in use is refused with a field error",
+    reason: "Every spec makes up a new slug.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-courses-refused",
+    outcome:
+      "A customer and a signed-out visitor are refused by every course, chapter, lesson, material, import and export server function, and nothing changes",
+    reason: "No spec calls a course-editing server function without the permission.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_VIDEOS,
+    id: "admin-preview-video",
+    outcome:
+      "The library shows a video's length and size, and its preview streams through a signed playlist whose segments may be cached, while a forged signature is refused",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "videos.spec.ts", title: "video library › an administrator previews a published video through a signed, expiring path" }],
+  },
+  {
+    area: FLOW_AREA.ADMIN_VIDEOS,
+    id: "admin-placeholder-video",
+    outcome: "The admin marks a video as the placeholder for lessons being recorded, the choice survives a reload, and clearing it works",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "videos.spec.ts",
+        title: "video library › an administrator marks a video as the placeholder for lessons being recorded and clears it",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ADMIN_VIDEOS,
+    id: "admin-delete-video",
+    outcome: "Deleting a video removes it from the library and its files from storage",
+    reason: "No spec deletes a video.",
+    status: FLOW_STATUS.MISSING,
+  },
+  {
+    area: FLOW_AREA.ADMIN_VIDEOS,
+    id: "admin-upload-video",
+    outcome: "The admin uploads a recording from the video library",
+    reason: "Recordings are encoded and uploaded with bun run video:publish; the library has no upload.",
+    status: FLOW_STATUS.TO_BUILD,
+  },
+  {
+    area: FLOW_AREA.ADMIN_VIDEOS,
+    id: "admin-videos-refused",
+    outcome: "A customer and a signed-out visitor are refused by every video library server function, and nothing changes",
+    reason: "The spec checks the route guard and an unsigned stream; no spec calls the library's server functions as a customer.",
+    status: FLOW_STATUS.MISSING,
+    tests: [CUSTOMER_KEPT_OUT],
+  },
+] as const satisfies readonly Flow[]

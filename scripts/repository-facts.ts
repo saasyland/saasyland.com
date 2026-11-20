@@ -5,6 +5,7 @@ import type { Plugin } from "vite-plus"
 import * as zod from "zod"
 
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../e2e/data/accounts.ts"
+import { FLOW_AREA, FLOW_STATUS, type Flow } from "../e2e/data/flows.ts"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "../e2e/data/licenses.ts"
 import playwrightConfig, { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
 import { MILLISECONDS_PER_SECOND } from "../src/lib/duration.ts"
@@ -12,6 +13,7 @@ import { COUNTRIES } from "../src/modules/_core/constants/country.ts"
 import { CURRENCY_CODES } from "../src/modules/_core/constants/currency.ts"
 import { TIMEZONES } from "../src/modules/_core/constants/timezone.ts"
 import { BUNDLE_BINDING, LICENSE_API_ENDPOINTS } from "../src/modules/license/license.constants.ts"
+import { type BrowserTest, FLOWS, TITLE_SEPARATOR, listBrowserTests, testLabel } from "./check-flows.ts"
 import { COMMIT_EMOJIS } from "./commit-msg.ts"
 import { readBucketNames } from "./wrangler-config.ts"
 
@@ -22,10 +24,13 @@ const CI_WORKFLOW = ".github/workflows/ci.yml"
 const MESSAGES_PATH = "messages/"
 const AUTH_INTEGRATION_PATH = "src/integrations/better-auth"
 const COVERAGE_COMMAND = "bun run test:coverage"
+const FLOW_CHECK_COMMAND = "bun run check:flows"
+const FLOW_INVENTORY_PATH = "e2e/data/flows.entries.ts"
 const I18N_CHECK_COMMAND = "bun run check:i18n"
 const COVERAGE_SUMMARY_REPORTER = "json-summary"
 const COVERAGE_SUMMARY_FILE = "coverage-summary.json"
 const CLI_CONTRACT_PACKAGE = "@saasyland/stack"
+const JOURNEY_SPEC = "journey.spec.ts"
 
 const BUN_PACKAGE_MANAGER = /^bun@(?<version>\S+)$/u
 const WORKFLOW_CRON = /cron:\s*"(?<schedule>[^"]+)"/u
@@ -59,7 +64,11 @@ const coverageSchema = zod
   .object({ reporter: zod.array(zod.string()), reportsDirectory: zod.string(), thresholds: thresholdsSchema })
   .refine(({ reporter }) => reporter.includes(COVERAGE_SUMMARY_REPORTER), "The landing page cites the coverage summary report")
 
-const testSchema = zod.object({ coverage: coverageSchema, projects: zod.array(zod.unknown()) })
+const coverageScopeSchema = zod.object({ exclude: zod.array(zod.string()), include: zod.array(zod.string()) })
+
+const testSchema = zod.object({ coverage: coverageSchema.and(coverageScopeSchema), projects: zod.array(zod.unknown()) })
+
+const namedProjectSchema = zod.object({ test: zod.object({ name: zod.string() }) })
 
 const playwrightSchema = zod.object({ testDir: zod.string() })
 
@@ -116,7 +125,57 @@ export const collectSeededAccounts = () => [
 
 export type SeededAccounts = ReturnType<typeof collectSeededAccounts>
 
-export const collectRepositoryFacts = (config: unknown) => {
+const flowsWith = (status: Flow["status"]): number => FLOWS.filter((flow) => flow.status === status).length
+
+const FLOW_AREAS = Object.values(FLOW_AREA)
+
+const byArea = (first: Flow, second: Flow): number => FLOW_AREAS.indexOf(first.area) - FLOW_AREAS.indexOf(second.area)
+
+const SORTED_FLOWS = FLOWS.toSorted(byArea)
+
+const coveredRow = (flow: Flow) => {
+  if (flow.status !== FLOW_STATUS.COVERED) {
+    return []
+  }
+
+  return [[flow.id, flow.area, flow.outcome, flow.tests.map((test) => testLabel(test))] as const]
+}
+
+const journeyEvidence = (flow: Flow): string[] => ("journey" in flow ? [`${JOURNEY_SPEC}${TITLE_SEPARATOR}${flow.journey}`] : [])
+
+const missingRow = (flow: Flow) => {
+  if (flow.status !== FLOW_STATUS.MISSING) {
+    return []
+  }
+
+  const partial = "tests" in flow ? flow.tests.map((test) => testLabel(test)) : []
+
+  return [[flow.id, flow.area, flow.outcome, flow.reason, [...partial, ...journeyEvidence(flow)]] as const]
+}
+
+const toBuildRow = (flow: Flow) => {
+  if (flow.status !== FLOW_STATUS.TO_BUILD) {
+    return []
+  }
+
+  return [[flow.id, flow.area, flow.outcome, flow.reason] as const]
+}
+
+export const collectFlowTables = () => ({
+  areas: FLOW_AREAS.map((area) => {
+    const flows = FLOWS.filter((flow) => flow.area === area)
+    const count = (status: Flow["status"]): number => flows.filter((flow) => flow.status === status).length
+
+    return [area, flows.length, count(FLOW_STATUS.COVERED), count(FLOW_STATUS.MISSING), count(FLOW_STATUS.TO_BUILD)] as const
+  }),
+  covered: SORTED_FLOWS.flatMap((flow) => coveredRow(flow)),
+  missing: SORTED_FLOWS.flatMap((flow) => missingRow(flow)),
+  toBuild: SORTED_FLOWS.flatMap((flow) => toBuildRow(flow)),
+})
+
+export type FlowTables = ReturnType<typeof collectFlowTables>
+
+export const collectRepositoryFacts = (config: unknown, browserTests: readonly BrowserTest[]) => {
   const { fmt, lint, test } = configSchema.parse(config)
   const e2eSpecsPath = posix.normalize(playwrightSchema.parse(playwrightConfig).testDir)
   const [, maxLines] = lint.rules["max-lines"]
@@ -144,6 +203,14 @@ export const collectRepositoryFacts = (config: unknown) => {
     e2eFullSchedule: readE2eFullSchedule(),
     e2eSpecs: countFiles(`${e2eSpecsPath}/*.spec.ts`),
     e2eSpecsPath,
+    e2eTests: browserTests.length,
+    flowCheckCommand: FLOW_CHECK_COMMAND,
+    flowInventoryPath: FLOW_INVENTORY_PATH,
+    flows: FLOWS.length,
+    flowsCovered: flowsWith(FLOW_STATUS.COVERED),
+    flowsInJourney: FLOWS.filter((flow) => "journey" in flow).length,
+    flowsMissing: flowsWith(FLOW_STATUS.MISSING),
+    flowsToBuild: flowsWith(FLOW_STATUS.TO_BUILD),
     i18nCheckCommand: I18N_CHECK_COMMAND,
     integrationTestTimeoutSeconds: findTimedProject(test.projects).test.testTimeout / MILLISECONDS_PER_SECOND,
     maxLines: maxLines.max,
@@ -168,16 +235,30 @@ export const collectRepositoryFacts = (config: unknown) => {
 
 export type RepositoryFacts = ReturnType<typeof collectRepositoryFacts>
 
+export const collectCoverageScope = (config: unknown) => {
+  const { test } = configSchema.parse(config)
+
+  return {
+    exclude: test.coverage.exclude,
+    include: test.coverage.include,
+    projects: test.projects.map((project) => namedProjectSchema.parse(project).test.name),
+  }
+}
+
+export type CoverageScope = ReturnType<typeof collectCoverageScope>
+
 export const repositoryFacts = (): Plugin => {
   let moduleSource = ""
 
   return {
     config: async (config) => {
       moduleSource = [
-        `export default ${JSON.stringify(collectRepositoryFacts(config))}`,
+        `export default ${JSON.stringify(collectRepositoryFacts(config, listBrowserTests()))}`,
         `export const commitEmojis = ${JSON.stringify(COMMIT_EMOJIS)}`,
         `export const cliApiTables = ${JSON.stringify(await collectCliApiTables())}`,
         `export const seededAccounts = ${JSON.stringify(collectSeededAccounts())}`,
+        `export const flowTables = ${JSON.stringify(collectFlowTables())}`,
+        `export const coverageScope = ${JSON.stringify(collectCoverageScope(config))}`,
       ].join("\n")
     },
     load: (id) => (id === RESOLVED_MODULE_ID ? moduleSource : undefined),

@@ -20,6 +20,7 @@ import { RATE_LIMITS, RATE_LIMIT_WINDOW_SECONDS } from "~/src/integrations/bette
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 import {
   LOCALIZED_LIST_ITEM_MAX_LENGTH,
@@ -222,6 +223,7 @@ const FACTS = {
   storyboardIntervalSeconds: STORYBOARD_MIN_INTERVAL_SECONDS,
   storyboardMaxTiles: STORYBOARD_MAX_FRAMES,
   supportedLocales: I18N.SUPPORTED_LOCALES,
+  testServerHosts: appHostsForMode(ENVIRONMENT.TEST),
   tokenRateLimit: RATE_LIMITS.TOKEN.max,
   twoFactorCodeLength: TWO_FACTOR_CODE_LENGTH,
   unlistedRoutes: UNLISTED_ROUTES,

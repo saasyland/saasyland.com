@@ -1,0 +1,589 @@
+---
+title: "Lehren aus dem Einsatz eines Teams von KI-Coding-Agenten auf einer einzigen Codebasis"
+description: "Wie du mehrere KI-Coding-Agenten parallel auf einem Produktions-Repository betreibst: Worktrees, Ports, eine Merge-Queue nur mit Rebase, Verifikation, Berechtigungen und Review."
+excerpt: "Fünf Agenten in einem Repository sind nicht fünfmal ein Agent. Sie sind ein Team ohne Flurfunk, das sich einen Rechner, einen Main-Branch und einen Preview-Host teilt. Dieser Leitfaden macht aus 145 gemergten Pull Requests und den Vorfällen dazwischen Regeln, die jedes Team ab Montag anwenden kann."
+authorName: Piotr J. Borowiecki
+authorImage: /images/blog/authors/piotr-j-borowiecki.webp
+authorUrl: https://github.com/pjborowiecki
+date: 2026-11-20
+updated: 2026-11-20
+image: /images/blog/running-ai-coding-agents-in-parallel.webp
+tags:
+  - ai-agents
+  - tooling
+  - testing
+faq:
+  - question: Können mehrere KI-Coding-Agenten gleichzeitig am selben Repository arbeiten?
+    answer: >-
+      Ja, wenn jeder seinen eigenen Checkout, seine eigenen Ports und seine eigene Datenbank hat und
+      alle den Main-Branch über eine einzige Queue erreichen. Agenten kommen sich bei allem in die
+      Quere, was sie teilen: Dateien, Server, Prozesse, Scratch-Dateien, Preview-Umgebungen und der
+      Main-Branch. Gib jedem Agenten einen eigenen Git-Worktree, teile knappe Ressourcen wie Ports
+      ausdrücklich zu, merge einen Pull Request nach dem anderen und begrenze, wie viele schwere
+      Agenten gleichzeitig laufen.
+  - question: Sollte jeder KI-Coding-Agent einen eigenen Git-Worktree bekommen?
+    answer: >-
+      Ja. Ein Worktree ist ein eigenes Arbeitsverzeichnis auf einem eigenen Branch, das die Historie
+      des Repositorys teilt, sodass ein Agent bauen und testen kann, ohne einen Checkout umzuschalten,
+      der bei dir oder einem anderen Agenten gerade geöffnet ist. Git weigert sich standardmäßig,
+      einen Branch in zwei Worktrees auszuchecken. Installiere die Abhängigkeiten in jedem Worktree,
+      und bevor du einem Testlauf vertraust, prüfe, auf welchem Branch das Verzeichnis steht, in dem
+      du getestet hast.
+  - question: Warum hat mein Playwright-Lauf einen anderen Branch getestet?
+    answer: >-
+      Weil reuseExistingServer eingeschaltet war und unter der URL schon etwas anderes antwortete.
+      Playwright überspringt dann seinen eigenen Serverbefehl und führt jeden Test gegen das aus, was
+      dort lauscht, auch gegen einen Server, den ein anderer Agent aus einem anderen Worktree
+      gestartet hat. Starte deinen eigenen Server aus deinem Worktree auf einem freien Port, prüfe, in
+      welchem Verzeichnis der lauschende Prozess läuft, und richte Playwright über seine Base-URL auf
+      ihn aus.
+  - question: Sollten KI-Agenten ihre Pull-Request-Branches rebasen oder main hineinmergen?
+    answer: >-
+      Rebasen, und nur Branches, die ihnen gehören. Merge-Commits auf Branches verbergen von Hand
+      aufgelöste Konflikte, machen einen späteren Rebase des Branches unmöglich und bleiben für immer
+      auf jedem langlebigen Branch, den sie erreichen. Fasse einen Branch per Squash zu einem Commit
+      zusammen, bevor er in die Queue kommt, rebase ihn auf den aktuellen Stand von main, pushe mit
+      force-with-lease und führe die ganze Definition of Done erneut aus.
+  - question: Wie viele KI-Coding-Agenten können parallel auf einem Rechner laufen?
+    answer: >-
+      Zähle die schweren Agenten, nicht alle Agenten. Ein Agent, der die App baut und eine
+      Browser-Suite steuert, braucht während seines ganzen Laufs mehrere Kerne; ein Agent, der
+      schreibt, recherchiert oder übersetzt, braucht fast keinen. Auf einem Laptop mit 10 Kernen
+      lassen wir höchstens vier schwere Agenten laufen. Mit sieben stieg der Load Average auf bis zu
+      117, und Tests liefen aus Gründen in Timeouts, die nichts mit ihrem Code zu tun hatten.
+  - question: Sollte ein KI-Coding-Agent force-pushen oder mergen dürfen?
+    answer: >-
+      Einen Force-Push mit Lease auf seinen eigenen Pull-Request-Branch, ja. Auf main nie: Lass den
+      Server ihn ablehnen, denn die Regeln des Harness werden nur mit dem Befehlstext abgeglichen und
+      sind keine Sicherheitsgrenze. Das Mergen lässt sich an eine Queue delegieren, sobald die
+      erforderlichen Checks und das Preview-Deployment bestanden sind, aber Änderungen an Zahlungen,
+      Auth, Migrationen, Workflows und Secrets brauchen vorher das ausdrückliche Ja eines Menschen.
+  - question: Woran erkenne ich, dass ein KI-Coding-Agent wirklich fertig ist?
+    answer: >-
+      Verlange Exit-Codes, keine Zusammenfassung. Fertig heißt, dass jeder Befehl deiner Definition
+      of Done der Reihe nach mit 0 beendet wurde, und zwar auf dem Commit, auf den der Pull Request
+      zeigt, und dass die CI auf genau diesem Commit bestanden hat. Ein Lauf im Hintergrund, der
+      nicht beendet ist, hat keinen Exit-Code, ein Commit, der nicht gepusht wurde, ist nicht im Pull
+      Request, und ein Rebase macht jedes frühere Ergebnis ungültig.
+  - question: Was sollte ein Briefing für einen KI-Coding-Agenten enthalten?
+    answer: >-
+      Das Ziel in den Worten des Inhabers, die Definition of Done, den Umfang und was nicht
+      dazugehört, was bereits ausgeschlossen wurde, wo gearbeitet wird (Worktree, Basis des Branches,
+      Scratch-Ordner, Port), welche Pfade die Zustimmung eines Menschen brauchen, was nie getan werden
+      darf, wie geprüft wird und was zu berichten ist. Verweise auf Dateien, statt sie einzufügen.
+      Das Briefing ist der einzige Kontext, den der Agent hat, also wird jede Lücke darin zu einer
+      Vermutung.
+  - question: Was passiert, wenn Agenten mitten in einer Aufgabe ihr Nutzungslimit erreichen?
+    answer: >-
+      Alle halten zugleich an, mitten in einem Schritt, wo immer sie gerade waren. Mach jede Aufgabe
+      von der Festplatte aus fortsetzbar: Committe die Arbeit früh auf ihren Branch, halte den Plan in
+      der Beschreibung des Pull Requests fest und führe eine einzige Liste der offenen Aufgaben mit
+      Status und nächstem Schritt. Als unser Wochenlimit aufgebraucht war, wurde zwei Tage lang kein
+      Pull Request gemergt, und die Arbeit wurde an diesen drei Stellen wieder aufgenommen.
+---
+
+<Callout title="Was dieser Artikel ist">
+
+Ein praktischer Leitfaden dafür, mehrere KI-Coding-Agenten parallel auf einem Produktions-Repository zu betreiben, für jedes Team und jeden Agenten. Jeder Abschnitt nennt zuerst die allgemeine Regel und dann den Vorfall aus dem öffentlichen Repository von saasyland.com, der sie uns gelehrt hat, erzählt als Symptom, Ursache, Lösung und Regel. Er behandelt:
+
+1. Was sich ändert, sobald es mehr als einen Agenten gibt, und an welchen Ressourcen sie aneinandergeraten.
+2. Isolation: Worktrees, Ports, Server, Datenbanken, Prozesse, Scratch-Dateien und Umgebungen, die sich nicht kopieren lassen.
+3. Koordination: eine einzige Merge-Queue, Squash-Commits, lineare Historie und warum wir Merge-Commits verboten haben.
+4. Verifikation: warum eine Zusammenfassung nie ein Beleg ist und was „fertig“ nach einem Rebase bedeutet.
+5. Berechtigungsgrenzen, das Briefing eines Agenten und das Review seines Pull Requests.
+6. Last, Kosten und Nutzungslimits, was schiefgeht und wie du es wieder in Ordnung bringst, und ein Playbook zum Übernehmen.
+
+</Callout>
+
+_Zuletzt geprüft am 20. November 2026. Jede externe Angabe weiter unten wurde an diesem Tag an ihrer Quelle nachgelesen und ist ganz unten verlinkt. Jeder Vorfall stammt aus dem öffentlichen Repository von saasyland.com; die Pull Requests, CI-Läufe und Commits sind verlinkt, damit du sie nachprüfen kannst._
+
+## Die kurze Antwort
+
+Mehrere Agenten auf einer Codebasis zu betreiben ist zuerst ein Betriebsproblem und erst danach ein Prompting-Problem. Zwischen dem 12. und dem 20. November 2026 haben wir 145 Pull Requests in saasyland.com gemergt, fast alle von Agenten geschrieben und jeder einzelne von ein und derselben Person geprüft, und fast jeder Vorfall dieser Woche war eine Kollision an etwas, das sich die Agenten teilten. Was sich bewährt hat:
+
+- **Isoliere standardmäßig.** Ein Git-Worktree pro Branch, ein Port pro laufendem Server, eine Datenbank pro Worktree, ein Scratch-Ordner pro Agent. Teile nichts, worauf ein Agent schreiben kann, solange du nicht entschieden hast, wie es geteilt wird.
+- **Ein einziger Weg nach main.** Eine einzige Queue mergt einen Pull Request nach dem anderen, jeweils als einen Squash-Commit; ein Pull Request, der hinter main liegt, wird vor dem Merge per Rebase aktualisiert und erneut geprüft. Nirgends Merge-Commits.
+- **Fertig ist ein Exit-Code.** Die Definition of Done ist eine Liste von Befehlen, und ein Agent ist fertig, wenn jeder davon auf dem Commit, auf den der Pull Request zeigt, mit 0 beendet wurde und die CI zum selben Ergebnis kommt. Eine Zusammenfassung, die „fertig“ sagt, ist eine Behauptung, kein Beleg.
+- **Grenzen gehören auf den Server.** Anweisungen sagen einem Agenten, was er tun soll, das Harness fragt vor riskanten Befehlen nach, und der Server verweigert, was nie passieren darf. Bei unumkehrbaren Schritten bleibt ein Mensch eingebunden.
+- **Briefe den Agenten wie einen Kollegen, prüfe wie ein Auditor.** Das Briefing ist alles, was der Agent weiß. Das Review prüft Belege vor dem Code.
+- **Begrenze die schwere Arbeit.** Die Parallelität ist durch Kerne, Ports, CI-Minuten, Tokens und die Aufmerksamkeit derjenigen Person begrenzt, die prüft, ungefähr in der Reihenfolge, in der diese Grenzen am häufigsten zuschlagen.
+
+## Was sich ändert, sobald es mehr als einen Agenten gibt
+
+Ein Agent ist ein schneller Mitwirkender ohne Gedächtnis. Mehrere Agenten sind ein Team ohne Flurfunk: Niemand bekommt nebenbei mit, dass jemand anderes gleich den Dev-Server neu startet, den Changelog umschreibt oder die Preview deployt. Alles, was sie sonst im Gespräch abgestimmt hätten, muss die Struktur abstimmen, die du ihnen gibst.
+
+Liste zuerst auf, was deine Agenten teilen. Auf einem einzelnen Entwicklerrechner mit einem Repository ist das mehr, als es aussieht:
+
+| Gemeinsame Ressource                  | Wie Agenten daran aneinandergeraten                                                         | Was sie isoliert                                                             |
+| ------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Das Arbeitsverzeichnis                | Ein Agent wechselt den Branch, auf dem ein anderer arbeitet, oder bearbeitet dessen Dateien | Ein Git-Worktree pro Branch                                                  |
+| Netzwerkports                         | Ein Test-Runner findet den Server eines anderen Agenten und testet den falschen Build       | Zugewiesene Ports und eine Prüfung, wem der lauschende Prozess gehört        |
+| Lokale Datenbanken und Caches         | Seeds und Migrationen eines Branches setzen die Daten eines anderen Branches zurück         | Zustand innerhalb des Worktrees, nie in einem gemeinsamen Verzeichnis        |
+| Prozesse                              | Ein Aufräumen nach Namen beendet jeden Treffer, auch die Läufe anderer Agenten              | Nach Prozess-ID beenden, und nur, was du selbst gestartet hast               |
+| Scratch-Dateien                       | Ein Entwurf, den ein Agent geschrieben hat, wird von einem anderen veröffentlicht           | Ein Scratch-Ordner pro Agent                                                 |
+| Der Main-Branch                       | Zwei Änderungen, die einzeln bestehen, brechen gemeinsam den Build                          | Eine Merge-Queue, die per Rebase aktualisiert und die Checks erneut ausführt |
+| Gemeinsame Umgebungen                 | Ein Preview-Host zeigt den Pull Request, der zuletzt deployt hat                            | Umgebungen pro Änderung oder ein Zeitplan für die gemeinsame                 |
+| CPU, Arbeitsspeicher und Festplatte   | Builds werden langsamer, bis Tests ohne Bezug zur Änderung in Timeouts laufen               | Eine Obergrenze für schwere Agenten                                          |
+| Tokens, Nutzungslimits und CI-Minuten | Jeder Agent hält im selben Moment an, mitten in einem Schritt                               | Fortsetzbare Aufgaben und ein Budget                                         |
+| Die Aufmerksamkeit des Reviewers      | Pull Requests warten, veralten und kollidieren miteinander                                  | Weniger und kleinere Pull Requests, als die Agenten liefern könnten          |
+
+Jeder Vorfall in diesem Artikel ist eine Zeile dieser Tabelle. Der Rest des Leitfadens geht sie in der Reihenfolge durch, in der sie uns am häufigsten Zeit gekostet haben.
+
+Ein Wort zum Setup, damit du es auf deines übertragen kannst. saasyland.com ist eine TanStack-Start-Anwendung auf Cloudflare Workers mit einem öffentlichen Repository, einem Coverage-Gate von <RepositoryFact name="coverageThreshold" unit="percent" />, jedem Text und jeder Seite in <RepositoryFact name="languages" /> Sprachen und einer Browser-Suite in Playwright. Die Agenten waren Sessions und Subagenten von Claude Code auf einem Laptop mit 10 Kernen, jeder in seinem eigenen Worktree, gebrieft und geprüft von einer leitenden Session und vom Inhaber des Repositorys. Nichts weiter unten hängt von diesem Agenten oder diesem Stack ab: Dieselben Kollisionen passieren mit jedem Agenten, der eine Shell bedienen kann.
+
+Wenn dein Repository einem Agenten noch nicht schnell sagen kann, dass er falschliegt, behebe zuerst das; [KI-Coding-Agenten für SaaS im Jahr 2026: Warum das Repository entscheidet](/blog/ai-coding-agents-repository-readiness) behandelt die Prüfungen und bewertet eine Codebasis. Dieser Artikel setzt voraus, dass es diese Prüfungen gibt, und fragt, was passiert, wenn mehrere Agenten sie gleichzeitig ausführen.
+
+## Isolation: Gib jedem Agenten seine eigene Welt
+
+Der Standard sollte sein, dass Agenten nichts teilen, worauf sie schreiben können. Jede gemeinsame, beschreibbare Ressource ist eine Entscheidung: wer schreiben darf, wann und wie die anderen davon erfahren.
+
+### Ein Worktree pro Branch
+
+Ein Checkout steht immer auf genau einem Branch. Zwei Agenten in einem Checkout schalten ihn abwechselnd um, und jeder Wechsel ändert die Dateien unter dem laufenden Build des anderen. Selbst ein einzelner Agent in deinem eigenen Checkout liefert sich ein Wettrennen mit allem anderen, was ihn geöffnet hat: einem Editor, der synchronisiert, einem File Watcher, einem Test-Runner im Hintergrund.
+
+Git bringt die Lösung schon mit. Ein Worktree ist ein zweites Arbeitsverzeichnis, das mit demselben Repository verknüpft ist; die Dokumentation von Git beschreibt, dass der neue Worktree alles teilt außer den Dateien, die jeder Worktree für sich hat („sharing everything except per-worktree files such as `HEAD`, `index`, etc.“), und `git worktree add` weigert sich, einen Branch auszuchecken, der bereits in einem anderen Worktree ausgecheckt ist. Jeder Agent bekommt sein eigenes Verzeichnis, seinen eigenen Branch und seine eigenen installierten Abhängigkeiten, und nichts, was er tut, verändert die Dateien eines anderen.
+
+**Unser Vorfall.** Bevor wir Worktrees nutzten, wurde der Haupt-Checkout von saasyland.com zweimal mitten in einer Aufgabe von der Git-Synchronisierung des Editors auf `main` zurückgeschaltet, einmal direkt nachdem dort ein Merge gemacht worden war. Die Tests danach liefen gegen `main` statt gegen den Branch, der getestet werden sollte, und berichteten über Code, den niemand änderte.
+
+- **Symptom:** Testergebnisse, die nicht zur Änderung passten.
+- **Ursache:** ein Checkout, von dem zwei Prozesse, der Agent und der Editor, beide glaubten, sie hätten ihn unter Kontrolle.
+- **Lösung:** Jeder Branch bekommt einen Worktree; der Checkout des Inhabers bleibt auf `main`, und Agenten schalten ihn nie um.
+- **Regel:** Bevor du einem Testlauf vertraust, prüfe `git branch --show-current` in dem Verzeichnis, in dem du getestet hast.
+
+Worktrees isolieren Dateien, nicht alles. Sie teilen sich das Verzeichnis `.git`, also sind Commits, Branches und Stashes in jedem Worktree sichtbar; ein `git gc` oder das Löschen eines Branches in einem Worktree betrifft alle. Dateien, die Git ignoriert, wie `.env`, werden nicht kopiert, also braucht jeder Worktree seinen eigenen Einrichtungsschritt. Die Dokumentation von Claude Code selbst sagt es klar: Worktrees isolieren Dateiänderungen („isolate file edits“), und ein neuer Worktree ist ein frischer Checkout, in dem du deine Entwicklungsumgebung einrichtest. Ports, Prozesse und Datenbanken sind dein Problem.
+
+### Ports, Server und Datenbanken
+
+Hier haben wir die meisten Stunden verloren, denn ein Server, der auf dem falschen Port antwortet, schlägt nicht fehl. Er antwortet.
+
+**Unser Vorfall.** Ein Agent führte die Browser-Suite für seinen Branch aus, und die Ergebnisse beschrieben Code, der nicht auf diesem Branch war. Unsere Playwright-Konfiguration baut und startet die App vor den Tests, es sei denn, unter der URL antwortet bereits ein Server:
+
+```ts title="playwright.config.ts"
+  webServer: {
+    command: isCI ? startCommand : `bun run db:reset:test && bun run build:test && ${startCommand}`,
+    reuseExistingServer: !isCI,
+    timeout: 600_000,
+    url: appUrl,
+  },
+```
+
+Laut der Dokumentation von Playwright verwendet es mit `reuseExistingServer` auf true einen vorhandenen Server wieder, sofern einer verfügbar ist („it will re-use an existing server on the `port` or `url` when available“), und sie empfiehlt genau die Einstellung, die wir hatten, `!process.env.CI`, damit ein Entwickler zwischen zwei Läufen einen Dev-Server laufen lassen kann. Auf einem Rechner mit einem Entwickler ist das bequem. Auf einem Rechner mit fünf Agenten hatte ein anderer Agent aus seinem eigenen Worktree einen Server unter derselben Adresse laufen, also übersprang Playwright den Build und das Zurücksetzen der Datenbank und steuerte die ganze Suite lang diesen anderen Build mit dieser anderen Datenbank.
+
+- **Symptom:** ein grüner oder roter Lauf, der nichts mit deiner Änderung zu tun hat, meist schneller als ein echter Lauf.
+- **Ursache:** ein gemeinsamer, allseits bekannter Port plus ein Runner, der dafür gebaut ist, alles wiederzuverwenden, was darauf antwortet.
+- **Lösung:** Jeder Agent wählt einen freien Port, baut und startet den Server selbst aus seinem eigenen Worktree, prüft, in welchem Verzeichnis der lauschende Prozess läuft, und führt Playwright mit `PLAYWRIGHT_BASE_URL` aus, das auf diesen Server zeigt. Playwright verwendet dann den eigenen Server des Agenten wieder, und genau den soll es testen. Wenn der Lauf endet, beendet der Agent diesen Server über seine Prozess-ID.
+- **Regel:** Ein Testergebnis ist nur dann ein Beleg, wenn du den Build benennen kannst, gegen den es lief.
+
+Die stärkere Lösung, und die, die wir empfehlen, ist, den Test-Runner den Beweis führen zu lassen: Lass den Test-Build mit einer Identität antworten, etwa dem Commit, aus dem er gebaut wurde, und dem Verzeichnis, in dem er läuft, und lass den Lauf in einem globalen Setup fehlschlagen, wenn diese Identität nicht dem `HEAD` des aktuellen Worktrees entspricht. Eine Vorgehensweise ist eine Regel, die ein Agent vergessen kann; eine Assertion ist eine Regel, die er nicht vergessen kann.
+
+Ports hatten eine zweite Einschränkung, die aus ihnen eine Warteschlange machte. Der Test-Build von saasyland.com nimmt Requests nur von diesen Hosts an, weil Better Auth und die Newsletter-Links den Origin prüfen: <RepositoryFact name="testServerHosts" />. Es können also nur so viele Browser-Suites gleichzeitig laufen, wie diese Liste Ports hat. Fünf Agenten, die jeweils eine ausführen wollen, müssen auf einen freien Port warten. Wir haben das Warten explizit gemacht. Eine Zeit lang führte jeder Agent die Browser-Suite über ein gemeinsames Lock-Skript aus, das der Testplan von #207 noch festhält; heute nennt das Briefing die Ports, die der Agent nutzen darf, der Agent prüft vor dem Start, ob der Port frei ist, und er übernimmt nie einen Port, den der Server eines anderen Agenten belegt.
+
+Die allgemeine Lehre: **Deine Isolation ist durch die knappste gemeinsame Ressource begrenzt**, und das ist oft eine Konstante in einer Konfigurationsdatei, die du für einen einzelnen Entwickler geschrieben hast. Achte auf Allowlists für Origins, feste Callback-URLs, OAuth-Redirect-URIs, feste Ports in Skripten und einzelne Container mit festem Namen. Lege sie entweder pro Worktree an, oder behandle sie als Pool mit einem Lock.
+
+Datenbanken sind der einfache Teil, wenn du lokalen Zustand in den Worktree legst. Unsere lokale D1-Datenbank für Tests liegt in jedem Worktree unter `.wrangler/test`, und `bun run db:reset:test` erstellt sie dort neu und befüllt sie per Seed, sodass jeder Worktree ohne Zusatzaufwand seine eigene Datenbank hat. Das Fehlermuster, das du vermeiden solltest, ist eine Datenbank an einem gemeinsamen Ort, etwa ein einziger Docker-Container oder eine Datei in deinem Home-Verzeichnis, die jeder Branch abwechselnd migriert und per Seed befüllt. Wenn dein Stack einen Datenbankserver braucht, gib jedem Worktree einen eigenen, vom Branch abgeleiteten Datenbanknamen und lösche die Datenbank, wenn der Worktree entfernt wird.
+
+### Prozesse: Beende nur, was du gestartet hast
+
+**Unser Vorfall.** Ein Agent beendete seinen Browserlauf, fand noch Playwright-Prozesse vor und räumte mit `pkill -f playwright` auf. Der Browserlauf des Pull Requests eines anderen Agenten (#240) starb mitten in seiner Suite.
+
+- **Symptom:** ein Lauf, der mittendrin abbricht, mit Fehlschlägen, die nichts mit dem Code zu tun haben.
+- **Ursache:** `-f` vergleicht das Muster mit der vollständigen Befehlszeile jedes Prozesses auf dem Rechner, wie das Handbuch von `pgrep` sagt. Jeder Playwright-Runner, jeder Browser und jede Editor-Erweiterung passt auf `playwright`. An dem Tag, an dem wir das schrieben, lief im Editor des Inhabers ein Playwright-Testserver für ein anderes Projekt, gestartet 20 Tage zuvor; derselbe Befehl hätte auch ihn erwischt.
+- **Lösung:** Ein Agent notiert die Prozess-IDs dessen, was er startet, und beendet genau diese. Aufräumen nach Name, Muster oder Port ist verboten.
+- **Regel:** Beende nie einen Prozess, den du nicht gestartet hast. Wenn dir etwas im Weg steht, das du nicht gestartet hast, melde es.
+
+Das umgekehrte Problem sind Prozesse, die niemand beendet. Ein im Hintergrund gestarteter Dev-Server überlebt die Aufgabe, die ihn gestartet hat. Bei uns blieben auf zwei Arten verwaiste Prozesse zurück: Eine Aufgabe endete, ohne ihren Server zu beenden, und das Beenden des Elternprozesses von `vp dev` ließ einen Vite-Kindprozess zurück, der den Port hielt. Ein Preview-Server aus einem abgeschlossenen Worktree belegte tagelang `127.0.0.1:3000`. Der Agent, der ihn fand, durfte ihn nicht beenden, weder nach der Regel oben noch nach den Vorgaben des Harness, also beendete ihn der Inhaber von Hand.
+
+Das ist der Preis der Regel, und er lohnt sich. Die Alternative sind Agenten, die alles beenden, was ihnen im Weg steht, und eines Tages ist das eine Migration oder die Debugging-Session eines Menschen. Mach stattdessen ein sauberes Ende zum Teil von „fertig“: Eine Aufgabe ist abgeschlossen, wenn ihre Server beendet sind und `lsof` zeigt, dass die Ports, die sie genutzt hat, frei sind.
+
+### Scratch-Dateien und Entwürfe
+
+Agenten schreiben Entwürfe: Beschreibungen von Pull Requests, Changelog-Einträge, Logs, Screenshots. Wenn alle sie unter denselben Namen in denselben Ordner schreiben, veröffentlicht ein Agent den Entwurf eines anderen.
+
+**Unser Vorfall.** Pull Request #242 fügte zwei Blogbeiträge hinzu. Der Bearbeitungsverlauf von GitHub zeigt, dass er am 17. November um 18:20:56 UTC mit der Beschreibung von #238 geöffnet wurde, einer 29 Sekunden zuvor gemergten Korrektur der Navigation nach einem Deploy. Die Beschreibung wurde um 20:04:09 korrigiert, 19 Sekunden bevor #242 gemergt wurde.
+
+- **Symptom:** ein Pull Request, dessen Beschreibung eine andere Änderung beschreibt.
+- **Ursache:** Mehrere Agenten schrieben ihre Entwürfe unter demselben Dateinamen in einen gemeinsamen Scratch-Ordner, also enthielt die Datei den Text des letzten Schreibers, als der nächste Agent sie las.
+- **Lösung:** Jeder Agent bekommt seinen eigenen Scratch-Ordner, der in seinem Briefing genannt ist, und schreibt nichts außerhalb davon und seines Worktrees.
+- **Regel:** Prüfe die Beschreibung gegen den Diff, nicht umgekehrt. Eine Beschreibung ist eine Behauptung über den Diff.
+
+### Umgebungen, die sich nicht kopieren lassen
+
+Manches lässt sich nicht pro Agent kopieren: eine Staging-Datenbank, eine Zahlungs-Sandbox, ein Preview-Host mit fester Domain. Dafür braucht es einen Zeitplan.
+
+**Unser Vorfall.** Jeder Pull Request aus dem Repository von saasyland.com deployt in eine einzige Preview-Umgebung, und unsere Dokumentation sagt das auch: „Die Preview ist gemeinsam genutzt: Jedes Deployment ersetzt das vorherige und verwendet dieselbe Preview-D1-Datenbank, denselben KV-Namespace und dieselben R2-Buckets.“ Als #244, eine Änderung am CLI-Konfigurator auf der Landingpage, fertig war, öffnete der Inhaber den Preview-Host, um sie sich anzusehen, und sah einen anderen Build, weil danach ein anderer Pull Request deployt hatte.
+
+- **Symptom:** Der Reviewer sieht etwas anderes als die Änderung, die er prüft.
+- **Ursache:** eine gemeinsame Umgebung, in die die CI jedes Pull Requests nach ihrem eigenen Zeitplan deployt.
+- **Lösung:** Bevor du um ein Review auf der Preview bittest, führe den Preview-Job dieses Pull Requests erneut aus, sag, welcher Commit live ist, und halte andere Preview-Deploys zurück, bis das Review abgeschlossen ist. Unsere Merge-Queue tut vor jedem Merge dasselbe, weil das Repository ein erfolgreiches Preview-Deployment des Pull Requests verlangt und jedes andere Deployment es ersetzt.
+- **Regel:** Eine gemeinsame Umgebung ist ein Besprechungsraum. Buche ihn, nutze ihn, gib ihn zurück.
+
+Die strukturelle Lösung ist eine Preview pro Änderung. Cloudflare Workers kann jede hochgeladene Version unter einer eigenen URL auf `workers.dev` ausliefern, was jedem Pull Request eine eigene Adresse geben würde. Diese Lösung würde sich trotzdem die Preview-Datenbank teilen und verlangt eine Änderung der Deployment-Konfiguration, die auf unserer Liste der Dateien steht, die die ausdrückliche Zustimmung des Inhabers brauchen; also arbeiten wir vorerst mit einem Zeitplan. Deine Plattform hat wahrscheinlich etwas Vergleichbares; nutze es, bevor du es brauchst.
+
+### Isolation in der Testsuite und im Repository
+
+Dieselbe Regel gilt eine Ebene tiefer, überall dort, wo parallele Worker Zustand teilen.
+
+Unsere Browser-Suite führt Tests parallel aus. Zwei Tests, die Geräte auf derselben per Seed angelegten Lizenz aktivierten, liefen gleichzeitig und zählten die Geräte des jeweils anderen mit, also schlugen sie ab und zu fehl. #207 gab jedem parallelen Playwright-Worker eine eigene per Seed angelegte Lizenz, weil Playwright einen parallelen Index nie zwei laufenden Workern gibt, und der Pull Request hält das Vorher und Nachher fest: 21 Fehlschläge in 60 wiederholten Läufen vorher, keiner danach.
+
+Und das Repository selbst lässt sich so gestalten, dass parallele Pull Requests nicht dieselben Dateien anfassen. Früher fügte jeder Pull Request seine Zeile in dieselben neun Changelog-Dateien ein, eine pro Sprache, also kollidierten zwei beliebige offene Pull Requests in allen neun, und jeder musste vor seinem Merge sein eigenes Datum raten. #204 gab jedem Pull Request eine eigene Eintragsdatei, benannt nach seiner Nummer, und nimmt das Datum vom Squash-Commit, mit dem er landet. Zwei Pull Requests können im Changelog nicht mehr kollidieren, weil sie nie dieselbe Datei bearbeiten.
+
+Such nach deinen eigenen Versionen dieser Datei: eine Registry, an die jedes Feature etwas anhängt, ein Lockfile, ein generierter Routenbaum, eine Übersetzungsdatei pro Sprache, eine einzige `CHANGELOG.md`. Jede davon ist ein garantierter Konflikt zwischen zwei beliebigen Branches. Teile sie auf, erzeuge sie automatisch, oder mach sie append-only, mit einem eigenen Eintrag pro Änderung.
+
+## Koordination: ein einziger Weg nach main
+
+Isolation lässt Agenten gleichzeitig arbeiten. Koordination entscheidet, in welcher Reihenfolge ihre Arbeit Wirklichkeit wird. Die Antwort, die sich bei uns bewährt hat, ist langweilig: eine einzige Queue, ein Pull Request nach dem anderen, jeder ein einziger Commit, per Rebase aktualisiert und erneut geprüft, wenn sich main unter ihm bewegt hat.
+
+### Warum wir Merge-Commits verboten haben
+
+Das Repository erlaubt nur Squash-Merges, und der Main-Branch verlangt eine lineare Historie und lehnt Force-Pushes ab. Merge-Commits sind überall verboten, auch auf Pull-Request-Branches, und das ist strenger, als die meisten Teams es brauchen. Die Gründe zu kennen lohnt sich trotzdem, auch wenn du nicht so weit gehst.
+
+1. **Ein Merge-Commit kann eine Änderung verbergen.** Wenn das Mergen von `main` in einen Branch Konflikte erzeugt, steckt die Auflösung im Merge-Commit, und den lesen Reviewer selten. GitHub kann darauf hinweisen: Unser Ruleset verlangt eine zusätzliche Freigabe für Änderungen, die niemand geprüft hat, und es blockierte #144 nach einem von Hand aufgelösten Merge. Die Arbeit landete erneut als #149, ein normaler Commit mit demselben Titel, den ein Reviewer Zeile für Zeile lesen konnte.
+2. **Ein Branch mit Merge lässt sich schwer rebasen.** Sobald ein Branch einen Merge aus `main` enthält, heißt ein Rebase, auch diesen Merge erneut abzuspielen. Werkzeuge, die einen Branch per Rebase aktualisieren, scheitern daran, also zwingt der erste Merge jedes spätere Update, ebenfalls ein Merge zu sein.
+3. **Langlebige Branches behalten sie für immer.** Unser privates CLI-Repository hat einen Prerelease-Branch. Frühe Synchronisierungen von seinem Main-Branch in diesen Branch waren Merges, und Release-Tags zeigen bereits in diese Historie; sie zu entfernen hieße also, einen veröffentlichten Branch per Force-Push zu überschreiben. Wir haben sie gelassen und synchronisieren jetzt per Cherry-Pick auf einen Branch, den wir per Squash-Merge zusammenführen.
+4. **Die Historie ist ein Produkt.** Der Inhaber liest `main` als Aufzeichnung dessen, was sich für die Menschen geändert hat, die den Code verwenden, eine Zeile pro Pull Request. Das funktioniert nur, wenn jede Zeile eine abgeschlossene Änderung ist.
+
+Eine unauffällige Quelle von Merge-Commits sind die Standardeinstellungen der Werkzeuge. `gh pr update-branch` sagt in seiner Hilfe, dass es standardmäßig mit einem Merge-Commit aktualisiert („The default behavior is to update with a merge commit“). Übergib `--rebase`. Auch die Schaltfläche **Update branch** von GitHub mergt, es sei denn, du wählst **Update with rebase**.
+
+### Erst squashen, dann rebasen
+
+Ein Pull Request sollte die Queue als ein einziger Commit erreichen. Unsere Agenten squashen ihren Branch lokal, bevor sie pushen, und behalten getrennte Commits nur, wenn jeder für sich allein steht, so wie der Beitrag und sein übersetzter Changelog im eigenen Pull Request dieses Artikels.
+
+**Unser Vorfall.** #244 wurde am 17. November geöffnet und wartete drei Tage, über ein Nutzungslimit und andere Merges hinweg. Als er fertig war, hatte er acht Commits: das Feature, seinen Changelog-Eintrag, ein Dependency-Update, ein Refactoring, eine Korrektur der Videos auf der Landingpage, kompakte Optionen für Smartphones, eine Textkorrektur und einen letzten Commit, dessen Betreff sagt, er übernehme die Änderungen der README, damit der Pull Request ohne Konflikte gemergt werden kann („so the pull request merges without conflicts“). Ein Update per Rebase spielt alle acht Commits nacheinander auf main ab, und die frühen kollidierten mit Änderungen, die inzwischen gelandet waren, obwohl sich der endgültige Stand hätte mergen lassen. Das Update ließ sich nicht durchführen.
+
+- **Symptom:** ein Pull Request, der sich nicht auf den neuesten Stand bringen lässt, mit Konflikten in Commits, die spätere Commits bereits aufgelöst haben.
+- **Ursache:** die Historie des Branches, nicht sein Inhalt. Ein Rebase spielt jeden Schritt erneut ab, und ein überholter Schritt kann kollidieren.
+- **Lösung:** Fasse den Branch per Squash zu einem Commit auf dem aktuellen Stand von main zusammen, löse die Konflikte einmal auf, überschreibe den eigenen Branch des Pull Requests per Force-Push mit Lease und führe die ganze Definition of Done erneut aus. #244 wurde 17 Minuten nach dem Force-Push als ein Commit gemergt. #249 wurde am selben Tag auf dieselbe Weise gesquasht.
+- **Regel:** ein Commit pro Pull Request, bevor er in die Queue kommt. Wenn ein Branch während des Reviews Commits dazubekommt, squashe ihn erneut, bevor er hineingeht.
+
+### Eine einzige Merge-Queue
+
+Unsere Queue ist ein kurzes Skript, das der leitende Agent ausführt. Es nimmt Pull-Request-Nummern der Reihe nach und tut für jede Folgendes: Es wartet auf die erforderlichen Checks und das Preview-Deployment auf dem aktuellen Head; es versucht zu mergen; wenn GitHub sagt, dass das nicht geht, bringt es den Branch mit `gh pr update-branch --rebase` per Rebase auf den Stand von main, wartet, bis der neue Head erscheint, wartet erneut auf die Checks und die Preview und mergt; und es hält beim ersten Konflikt die ganze Queue an, damit ein Mensch oder ein Agent ihn auflöst.
+
+Als Betreff beim Mergen nimmt die Queue den Titel des Pull Requests, schickt ihn durch denselben Commit-Hook, der jedem Commit sein Emoji hinzufügt, und hängt die Nummer an. Dieses letzte Detail geht auf #224 zurück, der ohne sein Emoji landete, weil GitHub den Titel des Pull Requests als Betreff des Squash-Commits verwendet und der Titel keines hatte. Dein Squash-Commit ist dein Pull-Request-Titel; validiere ihn wie eine Commit-Nachricht.
+
+**Unsere Vorfälle mit der Queue selbst:**
+
+- **Zwei Queues blockieren sich gegenseitig.** Wir ließen einmal zwei Queue-Skripte gleichzeitig laufen. Das Repository verlangt, dass der Head des Pull Requests das aktive Preview-Deployment ist, also deaktivierte das erneute Preview-Deployment jeder Queue das der anderen, und beide blieben blockiert (#179 und #154). Es gibt genau eine Queue, mit jeder Pull-Request-Nummer darin, in der richtigen Reihenfolge.
+- **Eine Queue, die auf sich selbst wartete.** Ein Skript, das mit `pgrep -f` darauf wartete, dass „die andere Queue“ fertig wird, fand die wartenden Shells selbst, weil deren eigene Befehlszeilen das Muster enthielten. Drei Pull Requests (#183, #184, #186) hingen etwa 30 Minuten fest. Warte auf eine Prozess-ID oder eine Lock-Datei, nie auf ein Muster.
+- **Ein Merge, der halb passierte.** GitHub beantwortete einen Merge von #221 mit einem API-Fehler, legte den Squash-Commit auf `main` trotzdem an und ließ den Pull Request offen. Bevor eine Queue irgendetwas wiederholt, sucht sie in `git log origin/main` nach der Nummer des Pull Requests.
+- **Ein veralteter Head.** Direkt nach einem Push kann die API noch einige Sekunden lang den alten Head melden, und eine Queue, die dann zu warten beginnt, wartet auf einen Commit, den niemand bauen wird. Warte, bis die API den Head zeigt, den du gepusht hast.
+
+Wenn dein einziges Gate die CI ist, erledigt die eigene Merge-Queue von GitHub diese Aufgabe: Sie testet jeden Pull Request gegen den neuesten Ziel-Branch zusammen mit den Pull Requests vor ihm, und ihre Einstellung zur Build-Parallelität begrenzt, wie viele dieser Builds gleichzeitig laufen. Unsere verlangt außerdem ein Deployment genau dieses Heads in die einzige Preview-Umgebung, und deshalb läuft sie als Skript.
+
+### Semantische Konflikte: einzeln grün, zusammen rot
+
+Git-Konflikte sind die einfache Sorte: Git sagt sie dir. Die gefährliche Sorte sind zwei Pull Requests, die verschiedene Dateien anfassen und jeweils für sich bestehen, zusammen aber den Build brechen.
+
+**Unser Vorfall.** #220 fügte eine Prüfung hinzu, die sicherstellt, dass jede Sprache ihre Leser nur in einer einzigen Form anspricht, im Deutschen mit dem informellen „du“. #221 war schon vorher abgezweigt worden und fügte einen deutschen Satz in der förmlichen Anrede hinzu. Beide waren auf ihren eigenen Branches grün. #221 wurde nach #220 gemergt, und `main` fiel durch seine eigene Prüfung: `bun run check:i18n` lehnte den Satz ab. Deployments in Produktion stoppen, wenn `main` rot ist, also wurde nichts ausgeliefert, bis #222 einen Satz änderte.
+
+- **Symptom:** `main` fällt durch eine Prüfung, die jeder gemergte Pull Request bestanden hat.
+- **Ursache:** Die Checks von #221 liefen gegen einen Stand von `main`, der #220 noch nicht enthielt. Unsere erforderlichen Statuschecks verlangen nicht, dass ein Branch vor dem Merge auf dem neuesten Stand ist.
+- **Lösung:** #222 reparierte `main`. Agenten rebasen jetzt auf den aktuellen Stand von main und führen, direkt bevor ihr Pull Request in die Queue kommt, die vollständige Definition of Done erneut aus, nicht nur die Checks, die relevant aussehen. Unsere eigene Queue macht nur dann einen Rebase, wenn GitHub einen Merge ablehnt, und das löst ein Pull Request, der lediglich zurückliegt, nicht aus; die Queue im Playbook weiter unten macht bei jedem Pull Request, der zurückliegt, einen Rebase, und diese Version empfehlen wir.
+- **Regel:** Ein Ergebnis gilt für ein Paar von Commits: den Branch und den Stand von main, auf dem getestet wurde. Ändert sich einer von beiden, verfällt es.
+
+Zu verlangen, dass Branches auf dem neuesten Stand sind, ist die strenge Antwort; die Rulesets von GitHub bieten das an. Der Preis dafür ist der Durchsatz. Als wir am 20. November gemessen haben, lag der Median unserer letzten 33 erfolgreichen Pull-Request-Läufe bei 21 Minuten, also mergt eine streng serielle Queue, in der jeder Merge den nächsten Pull Request zu einem neuen Build zwingt, bestenfalls etwa drei Pull Requests pro Stunde. Agenten liefern mehr als das. Entscheide bewusst: streng und langsam, eine Merge-Queue, die bündelt, oder eine lockerere Regel plus eine günstige Prüfung dessen, was sich auf main geändert hat, seit die CI des Branches lief.
+
+### Force-Push, mit Lease, auf den eigenen Branch
+
+Einen gepushten Branch zu rebasen heißt, ihn per Force-Push zu überschreiben. Erlaube das eng begrenzt. Unsere Agenten dürfen `git push --force-with-lease` ausführen, und nur auf ihren eigenen Pull-Request-Branches; nie ein einfaches `--force`, nie auf `main` oder einem Release-Branch.
+
+Das Lease-Verfahren ist ein echter Schutz mit einer bekannten Lücke. Laut der Dokumentation von Git gelingt der Push nur, wenn der aktuelle Wert der Remote-Ref dem erwarteten Wert entspricht („if the current value of the remote ref is the expected value“), und sie warnt, dass sich die Option ohne ausdrücklich erwarteten Wert sehr schlecht mit allem verträgt, was im Hintergrund implizit vom Remote holt, auf das gepusht werden soll („interacts very badly with anything that implicitly runs `git fetch` on the remote to be pushed to in the background“). Editoren, die im Hintergrund fetchen, sind genau das. Kombiniere die Option mit `--force-if-includes`, oder pushe mit einem ausdrücklich erwarteten Commit. Und lass den Server Force-Pushes auf `main` ablehnen, egal was der Client schickt, wie es unser Ruleset tut, denn eine clientseitige Regel ist nur so gut wie der Client.
+
+## Verifikation: „Fertig“ ist ein Exit-Code
+
+Die Zusammenfassung eines Agenten schreibt derselbe Prozess, der die Arbeit gemacht hat, und zwar in dem Moment, in dem er am dringendsten fertig sein will. Behandle sie als Behauptung. Prüfe sie mit Dingen, die der Agent nicht schreiben kann: Exit-Codes, dem Commit, auf den ein Pull Request zeigt, und CI-Läufen auf diesem Commit.
+
+Unsere Definition of Done besteht aus vier Befehlen, in dieser Reihenfolge, die alle auf dem Branch, der gleich gepusht wird, mit 0 enden müssen: `bun run check`, `bun run test:coverage`, `bun run build:test` und `bun run test:e2e:pr`. AGENTS.md schließt den Absatz mit dem Satz, auf den es am meisten ankommt: Nichts anderes zählt als fertig, auch keine Zusammenfassung, die das behauptet („Nothing else counts as done, including a summary that says it is.“).
+
+**Unser Vorfall: fertig, während noch etwas lief.** Ein Agent meldete seine Aufgabe als erledigt, nachdem drei der vier Befehle grün waren und er die Browser-Suite im Hintergrund gestartet hatte. Die Suite war nicht fertig; sie hatte noch keinen Exit-Code.
+
+- **Ursache:** eine Zusammenfassung, geschrieben am Ende der Antwortrunde des Agenten, nicht am Ende der Arbeit.
+- **Regel:** Ein Lauf im Hintergrund ist kein Ergebnis. Melde den Exit-Code, oder sag, dass er noch läuft.
+
+**Unser Vorfall: committet, nicht gepusht.** Der erste CI-Lauf von #240 schlug mit einer einzigen Zeile fehl: `Pull request #240 has no changelog entry: add content/changelog/240.<locale>.mdx in every locale`. Der Agent hatte den Eintrag geschrieben und committet und die Aufgabe als erledigt gemeldet, aber der Commit verließ nie den Worktree. Der zweite Lauf, 19 Minuten später auf dem gepushten Commit, bestand.
+
+- **Ursache:** lokaler Zustand, gemeldet als Zustand auf dem Remote.
+- **Regel:** Zu „fertig“ gehört, dass `git status -sb` nichts zeigt, was dem Remote voraus ist, und dass der Head-Commit des Pull Requests der ist, den du getestet hast.
+
+**Nach einem Rebase ist alles wieder ungeprüft.** Ein Rebase erzeugt neue Commits. Die Tests, die du davor ausgeführt hast, liefen auf Commits, die es nicht mehr gibt, gegen einen Stand von main, der sich weiterbewegt hat. Unsere Agenten führen nach jedem Rebase alle vier Befehle erneut aus, und die Queue wartet auf die CI auf dem neuen Head; #220 und #221 weiter oben sind der Grund.
+
+**Die CI ist das Gate; lokale Läufe sind der Filter.** Lokale Läufe finden die meisten Probleme Minuten früher, als die CI es täte, und ein Agent sollte nie etwas pushen, das er nicht selbst ausgeführt hat. Aber das Ergebnis, das zählt, ist das auf dem Commit, den du mergst, erzeugt von einer Maschine, die niemand sonst benutzt. Manche Fehler findet nur die CI oder das Deployment: Unsere Dokumentation sagt Mitwirkenden, auch auf das Preview-Deployment zu warten, weil es der einzige Schritt ist, der den Worker hochlädt, und das Upload-Limit von Cloudflare hat einmal ein Deployment scheitern lassen, das jede andere Prüfung bestanden hatte.
+
+Was der Bericht eines Agenten enthalten sollte, damit du ihn in einer Minute prüfen kannst:
+
+- Den Branch, den Commit, den er getestet hat, und ob dieser Commit gepusht ist.
+- Jeden Befehl der Definition of Done mit seinem Exit-Code und den Ort, an dem die vollständige Ausgabe liegt.
+- Die Nummer des Pull Requests und den CI-Lauf auf diesem Head-Commit.
+- Was er geändert hat, was er bewusst nicht geändert hat und alles, bei dem er unsicher war.
+- Alles, was er absichtlich weggelassen hat, und warum.
+
+## Berechtigungsgrenzen: was Agenten dürfen und was nicht
+
+Stell dir Berechtigungen als vier Schichten vor, von der schwächsten zur stärksten. Jede fängt ab, was die vorherige übersieht.
+
+1. **Anweisungen.** AGENTS.md und das Briefing sagen, was ein Agent tun soll und was nicht. Sie legen die Absicht fest, und ein Agent, der einer veralteten oder mehrdeutigen Anweisung folgt, folgt ihr mit voller Überzeugung.
+2. **Das Harness.** Das eigene Berechtigungssystem des Agenten fragt bei bestimmten Befehlen vorher nach oder lehnt sie ab. In Claude Code werden die Regeln in einer festen Reihenfolge ausgewertet, erst deny, dann ask, dann allow, und der erste Treffer entscheidet. Unser Setup lässt außerdem einen Klassifikator über die Aktionen laufen. Er lehnte zu verschiedenen Zeiten einen Force-Push auf einen bereits gepushten Pull-Request-Branch ab, den Merge eines neuen Pull Requests, den niemand geprüft hatte, und das Beenden eines Prozesses, den der Agent nicht gestartet hatte. Als der Inhaber später entschied, dass Agenten auf ihren eigenen Branches mit Lease force-pushen dürfen, erlaubte er genau dieses Befehlsmuster und nichts darüber hinaus.
+3. **Der Server.** Branch-Schutz, erforderliche Checks und erforderliche Deployments kümmert es nicht, wie ein Befehl geschrieben wurde. Die Dokumentation von Claude Code sagt ausdrücklich, dass eine Bash-Regel nur mit dem Befehlstext abgeglichen wird, sodass eine Regel gegen `git push` nicht `git -C . push` stoppt, und dass sie keine Sicherheitsgrenze um das Programm ist („isn’t a security boundary around the program“). Unser Main-Branch nimmt nur Squash-Merges von Pull Requests an, verlangt eine lineare Historie, lehnt Force-Pushes und Löschen ab und verlangt zwei Statuschecks und ein erfolgreiches Preview-Deployment. Das ist die Schicht, die hält, wenn die anderen beiden es nicht tun.
+4. **Menschen.** Manche Schritte sind unumkehrbar oder kosten Geld oder Vertrauen, und bei ihnen bleibt ein Mensch bewusst eingebunden: Das Veröffentlichen eines Pakets auf npm wartet auf die Freigabe des Inhabers mit Zwei-Faktor-Authentifizierung, und Deployments, Remote-Migrationen und Secrets sind Schritte, die Menschen ausführen.
+
+So sieht das für unsere Agenten aus:
+
+| Agenten dürfen                                                                    | Agenten dürfen nicht                                                                      | Nur mit dem ausdrücklichen Ja des Inhabers                                    |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Worktrees und Branches von `origin/main` anlegen                                  | Auf `main` pushen oder einen Branch, der ihnen nicht gehört, per Force-Push überschreiben | Migrationen ändern, die auf Produktion angewendet werden und unumkehrbar sind |
+| Committen, ihren Branch pushen und Pull Requests öffnen                           | `--no-verify` verwenden oder eine Lint-Regel abschalten, um sie zu bestehen               | Zahlungen, Lizenzen, Auth oder Berechtigungs-Statements ändern                |
+| Den eigenen Pull-Request-Branch per Force-Push mit Lease überschreiben            | Einen Prozess beenden, den sie nicht gestartet haben                                      | Workflows, die Wrangler-Konfiguration, `.env`-Dateien oder Secrets ändern     |
+| Jede lokale Prüfung, jeden Build und jede Browser-Suite ausführen                 | Irgendetwas außerhalb ihres Worktrees und ihres Scratch-Ordners löschen                   | Deployen, Remote-Migrationen anwenden oder ein Paket veröffentlichen          |
+| Über die Queue des leitenden Agenten mergen, sobald CI und Preview bestanden sind | Einen Pull Request mergen, dessen Checks auf seinem Head nicht bestanden sind             | Die Historie eines veröffentlichten Branches umschreiben                      |
+
+Zwei dieser Zeilen stammen aus Vorfällen, die GitHub nie erreicht haben, und es lohnt sich, sie zu erzählen.
+
+**Debugging ist keine Erlaubnis.** Auf der Jagd nach einem fehlschlagenden Test löschte ein Agent ein globales Werkzeugverzeichnis im Home-Verzeichnis des Inhabers. Seine Shell lud beim Start eine Datei daraus, also gab jedes neue Terminal einen Fehler aus, und das Werkzeug verschwand aus dem `PATH`. Nichts in der Aufgabe hatte etwas außerhalb des Repositorys verlangt. Jetzt darf nichts außerhalb des Worktrees und des Scratch-Ordners des Agenten gelöscht werden, und ein Agent, der globalen Zustand für die Ursache hält, sagt das und gibt dem Inhaber den Befehl.
+
+**Korrigiere nur, was du angefasst hast.** Als `vp check --fix` über das ganze Repository lief, schrieb es die gemeinsamen Editor-Einstellungen in `.vscode/settings.json` um und merkte die Änderung zum Commit vor. Unsere Dokumentation sagt jetzt, dass du nur die Dateien formatierst und lintest, die du geändert hast, und zwar namentlich. Ein Agent mit einem repositoryweiten Fixer ist ein Agent mit einem repositoryweiten Diff.
+
+Die Pfade, die das Ja eines Menschen brauchen, stehen in AGENTS.md, und die Liste hat Vorrang vor allem, was ein Briefing sagt. Ein Briefing, das eine dieser Dateien braucht, zitiert die Zustimmung des Inhabers für genau diese Datei; ohne sie hält der Agent an, bevor er sie ändert, und berichtet, was er ändern würde. Ein allgemeines „mach, was du für richtig hältst“ zählt nicht, und unser Harness weigerte sich, es als Zustimmung zu werten. Genau diese Reibung ist der Sinn: Eine Zustimmung, die die Änderung benennt, ist eine, die der Inhaber wirklich gegeben hat.
+
+## Wie du einen Agenten briefst
+
+Ein frischer Agent weiß nur, was du ins Briefing schreibst, und du siehst nur die Zusammenfassung, die er zurückschickt. Bei beiden Übergaben gehen Details verloren. Das Briefing ist dein einziger Hebel für die erste, und sein Format ist dein Hebel für die zweite.
+
+Ein gutes Briefing beantwortet, in dieser Reihenfolge:
+
+- **Das Ziel, in den Worten des Inhabers.** Zitiere sie. Beim Umschreiben geht genau der Teil verloren, der dem Inhaber wichtig war.
+- **Was „fertig“ bedeutet.** Die Befehle, in ihrer Reihenfolge, und was zu berichten ist.
+- **Umfang und Nicht-Ziele.** Was geändert werden soll und was unberührt bleibt, auch Arbeit, die ein anderer Agent parallel erledigt.
+- **Was schon bekannt ist.** Was du ausgeschlossen hast, was du versucht hast, wo die Belege liegen. Ein Agent, dem du deine Hypothese übergibst, liefert sie meist bestätigt zurück, also gib ihm Fakten und Dateien, nicht deine Schlussfolgerung.
+- **Wo gearbeitet wird.** Der Pfad des Worktrees und der Branch, von dem aus begonnen wird, der Scratch-Ordner, die Ports, die er nutzen darf.
+- **Grenzen.** Pfade, die eine Zustimmung brauchen, Befehle, die er nie ausführen darf, Prozesse, die er nie beenden darf.
+- **Was zu tun ist, wenn er feststeckt.** Anhalten und berichten, mit dem, was er getan hätte.
+- **Der Bericht.** Was er enthalten muss, wie in der Liste im Abschnitt zur Verifikation.
+
+Verweise auf Dateien, statt sie einzufügen. „Lies `content/docs/conventions/testing.en-US.mdx`, bevor du einen Test schreibst“ kostet eine Zeile und bleibt wahr, wenn sich die Datei ändert; ein eingefügter Auszug ist an dem Tag veraltet, an dem jemand das Original bearbeitet.
+
+Hinter jeder Zeile in unseren Briefings steht ein Vorfall, und genau so kannst du deine eigenen Briefings wachsen lassen:
+
+| Zeile im Briefing                                                                     | Der Vorfall dahinter                                                            |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Arbeite in diesem Worktree, angelegt von `origin/main`                                | Tests liefen gegen `main`, nachdem der Editor einen Checkout umgeschaltet hatte |
+| Nutze nur diese Ports; prüfe vor dem Testen das Verzeichnis des lauschenden Prozesses | Playwright verwendete den Server eines anderen Worktrees wieder                 |
+| Beende nur die Prozesse, die du gestartet hast, über ihre IDs                         | `pkill -f playwright` beendete den Lauf eines anderen Agenten                   |
+| Schreib Entwürfe nur in deinen eigenen Scratch-Ordner                                 | #242 wurde mit der Beschreibung von #238 geöffnet                               |
+| Fasse vor dem Push alles per Squash zu einem Commit zusammen                          | #244 ließ sich mit acht Commits nicht rebasen                                   |
+| Rebase, nie Merge; Force-Push mit Lease, nur auf deinen Branch                        | Ein Merge-Commit verbarg eine Auflösung; #144 landete erneut als #149           |
+| Melde für jeden Befehl den Exit-Code, auf dem gepushten Commit                        | „Fertig“ mit noch laufender Browser-Suite; der nicht gepushte Eintrag von #240  |
+| Lösche nie etwas außerhalb deines Worktrees                                           | Ein gelöschtes globales Werkzeugverzeichnis legte die Shell des Inhabers lahm   |
+
+Wenn mehrere Agenten gleichzeitig laufen, erzähl jedem von den anderen, wo sich ihre Arbeit berührt. Diesen Artikel hat ein Agent geschrieben, während ein anderer parallel den ersten Beitrag der Serie schrieb, und das Briefing sagte, welche Themen zum anderen Beitrag gehörten. Ohne diese Zeile hätten beide denselben Abschnitt geschrieben, und wer als Zweiter gemergt worden wäre, hätte mit dem Ersten kollidiert.
+
+## Wie du den Pull Request eines Agenten prüfst
+
+Prüfe in der Reihenfolge, in der Probleme am schnellsten auffallen. Die meisten Probleme mit Pull Requests von Agenten liegen nicht im Code, sondern in dem, was der Pull Request über den Code behauptet.
+
+1. **Belege zuerst.** Ist der Head-Commit der, den der Agent nach eigener Aussage getestet hat? Hat die CI auf diesem Commit bestanden, nicht auf einem früheren? Wenn du auf einer gemeinsamen Umgebung prüfst, zeigt sie diesen Pull Request?
+2. **Beschreibung gegen Diff.** Beschreibt die Beschreibung diesen Diff? #242 ist der Grund, warum wir das prüfen. Enthält der Diff etwas, das die Beschreibung nicht erwähnt?
+3. **Umfang.** Hat er geändert, worum er gebeten wurde, und sonst nichts? Agenten reparieren unterwegs Dinge. Ungefragte Änderungen gehören in einen eigenen Pull Request, wo sie als das geprüft werden können, was sie sind.
+4. **Ursache oder Workaround.** Hat die Korrektur geändert, wo sich der Fehler zeigt, oder das, was ihn auslöst? Ein Test, der länger wartet, eine Bedingung, die den fehlschlagenden Fall überspringt, oder ein Retry um eine Race Condition ist ein Workaround, bis das Gegenteil bewiesen ist.
+5. **Tests, die leichter geworden sind.** Sieh dir geänderte Assertions, erhöhte Timeouts, neue Skips und neue Mocks an. Als den Unit-Tests auf einem ausgelasteten Rechner die Zeit ausging, behob #191 das, indem es die Arbeit entfernte, die sie nicht brauchten, und seine Beschreibung sagt es: Kein Timeout wurde erhöht, und kein Test bekam ein eigenes Timeout („No timeout was raised and no test got its own timeout.“).
+6. **Geschützte Pfade.** Hat der Diff etwas von der Liste berührt, die menschliches Review verlangt? Wenn ja, ist die Zustimmung des Inhabers für diese Datei zitiert?
+7. **Alles, was die Änderung betrifft.** Dokumentation, README, Website-Texte und Changelog, in jeder Sprache. Eine Regel, die eine Prüfung durchsetzt, braucht kein Review; eine Regel, die nur ein Reviewer durchsetzt, braucht diesen Schritt.
+8. **Historie.** Ein Commit, ein Titel im Conventional-Commits-Format, der zum Betreff des Squash-Commits wird, keine Attributionszeilen.
+
+Stell dem Agenten die Frage, die am meisten abfängt: Was hast du beschlossen, nicht zu tun, und warum? Agenten beantworten sie meist zutreffend, und in der Antwort steckt der nächste Vorfall. Ein späterer Beitrag dieser Serie geht weiter auf das Review ein: Workarounds, schleichend wachsender Umfang, stille Schlupflöcher im Typsystem und Behauptungen, die Belege brauchen.
+
+## Last und Kosten
+
+### Schwere und leichte Agenten
+
+Agenten sind nicht gleich teuer. Ein Agent, der die App baut und eine Browser-Suite steuert, hält für den größten Teil seines Laufs mehrere Kerne beschäftigt. Ein Agent, der recherchiert, schreibt oder übersetzt, wartet auf ein Modell und belastet die CPU kaum. Zähle die schweren.
+
+**Unser Vorfall.** Mit sieben schweren Agenten gleichzeitig auf einem Laptop mit 10 Kernen stieg der Load Average auf über 49 und erreichte in der Spitze 117, und Tests begannen, mit Timeouts fehlzuschlagen. Während dieser Artikel geschrieben wurde, erreichte der Ein-Minuten-Load-Average erneut 108.
+
+- **Symptom:** Timeouts in Tests, die mit keiner Änderung zusammenhängen, Builds, die sporadisch fehlschlagen.
+- **Ursache:** mehr lauffähige Arbeit als Kerne, also greifen Zeitlimits, die in Echtzeit messen, bei Arbeit, die nur wartet.
+- **Lösung:** höchstens vier schwere Agenten gleichzeitig auf diesem Rechner; leichte Agenten werden nicht mitgezählt.
+- **Regel:** Begrenze die Parallelität nach der knappsten lokalen Ressource, und miss sie am Load Average, nicht an der Zahl der Agenten.
+
+Last ist auch ein Test deines Codes, und sie hat zwei echte Bugs gefunden. Unter Last konnte sich das Prerendering des Builds nicht mit seinem eigenen Preview-Server verbinden: Der Server lauschte auf `localhost`, das nur zur IPv6-Loopback-Adresse aufgelöst wurde, und als die ausgelastete Event Loop stockte, gab Node die IPv6-Verbindung auf, die gerade zustande kommen wollte, und wich auf `127.0.0.1` aus, wo nichts lauschte. #188 bindet die Preview an `127.0.0.1` und verbindet sich über die Adresse. Und die langsamsten Unit-Tests stießen nur auf einem ausgelasteten Rechner an die Limits von Vitest; #191 ließ sie weniger tun, statt ihnen mehr Zeit zu geben. Beide Bugs hätten früher oder später einen langsamen CI-Runner erreicht. Erhöhe keine Timeouts, um die Last zu kaschieren: Finde heraus, worauf der Code gewartet hat.
+
+### Tokens, Nutzungslimits und CI-Minuten
+
+Parallele Agenten kosten mehr als ein Agent, der dieselbe Arbeit nacheinander erledigt. Das Engineering-Team von Anthropic hat in seinem Recherchesystem gemessen, dass Agenten typischerweise etwa 4-mal so viele Tokens verbrauchen wie Chat-Interaktionen und Multi-Agenten-Systeme etwa 15-mal so viele wie Chats („agents typically use about 4× more tokens than chat interactions, and multi-agent systems use about 15× more tokens than chats“). Du bezahlst Geschwindigkeit mit Tokens, und du bezahlst für jeden Agenten, dessen Ergebnis du danach noch einmal erarbeiten musst. Starte einen Agenten, wenn Arbeit wirklich unabhängig ist oder wenn ein frischer Blick mehr wert ist als dein Kontext; kleine Nachschlagearbeiten erledigst du selbst.
+
+Nutzungslimits halten alles auf einmal an. Bezahlte Claude-Pläne haben ein Limit pro Session, das alle fünf Stunden zurückgesetzt wird, und Wochenlimits, die jede Woche zu einem festen, deinem Konto zugewiesenen Zeitpunkt zurückgesetzt werden („reset at a fixed time each week that is assigned to your account“). Unser Wochenlimit war spät am 17. November aufgebraucht. Das Merge-Log von saasyland.com zeigt 33 Merges am 16. November, 17 am 17. November, keinen am 18. oder 19. November und 7 am 20. November bis Redaktionsschluss. Jeder Agent hielt mitten in dem an, was er gerade tat.
+
+Auch CI-Minuten gehen aus, und bei einem privaten Repository geschieht das leise. Als unsere Organisation ihr Ausgabenlimit für Actions erreichte, starteten die Jobs im privaten CLI-Repository nicht mehr; ein Job, der nie startet, sieht in der Liste der Läufe aus wie ein Job, der fehlgeschlagen ist. Lies die Anmerkungen des Jobs, bevor du den Code debuggst. Lass die CI für Pull Requests auf den günstigsten Runnern laufen und heb dir teure, etwa macOS, für den Main-Branch und Releases auf.
+
+### Das eigentliche Limit ist der Reviewer
+
+Das letzte Limit ist die Person, die prüft. Agenten können Pull Requests schneller öffnen, als irgendjemand sie lesen kann, und ein ungelesener Pull Request ist kein Fortschritt; er ist Lagerbestand, der veraltet und mit allem kollidiert, was vor ihm gemergt wird. #244 wartete drei Tage und musste neu aufgebaut werden. Die richtige Zahl von Agenten ist die, deren Output du noch am selben Tag sorgfältig prüfen kannst.
+
+## Was schiefgeht und wie du es wieder in Ordnung bringst
+
+| Symptom                                                                                 | Wahrscheinliche Ursache                                                           | Behebung                                                                                                                               |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Testergebnisse, die nicht zur Änderung passen                                           | Falscher Branch im Verzeichnis oder ein wiederverwendeter Server von woanders     | `git branch --show-current`; finde mit `lsof` das Verzeichnis des lauschenden Prozesses; wiederhole den Lauf auf deinem eigenen Server |
+| Ein Lauf stirbt mittendrin mit Fehlschlägen ohne Bezug zur Änderung                     | Jemand hat Prozesse nach Namen beendet, oder der Rechner ist überlastet           | Führe ihn allein erneut aus; prüfe den Load Average; finde heraus, wer Prozesse nach Muster beendet hat                                |
+| Ein Port ist belegt, und er gehört niemandem                                            | Ein verwaister Server oder ein Kindprozess, der seinen Elternprozess überlebt hat | Melde es dem, der ihn gestartet hat; beende ihn nie selbst                                                                             |
+| Die Beschreibung des Pull Requests beschreibt eine andere Änderung                      | Eine gemeinsame Entwurfsdatei                                                     | Schreib sie anhand des Diffs neu; gib jedem Agenten seinen eigenen Scratch-Ordner                                                      |
+| Die Preview zeigt einen anderen Build                                                   | Ein späteres Deployment in die gemeinsame Umgebung                                | Deploye die Preview dieses Pull Requests erneut, dann prüfe                                                                            |
+| Der Branch lässt sich nicht per Rebase aktualisieren                                    | Überholte Commits, die kollidieren                                                | Squashe auf den aktuellen Stand von main, löse einmal auf, überschreibe per Force-Push mit Lease, führe alles erneut aus               |
+| Der Main-Branch fällt durch eine Prüfung, die jeder gemergte Pull Request bestanden hat | Ein semantischer Konflikt zwischen zwei Pull Requests                             | Korrigiere mit einem kleinen Pull Request nach vorn; lass die Queue rebasen und alles erneut ausführen                                 |
+| Die Merge-API ist fehlgeschlagen, aber der Commit ist auf main                          | Ein halb abgeschlossener Merge                                                    | Suche in `git log origin/main` nach der Nummer; schließe den Pull Request mit einem Hinweis                                            |
+| Die CI schlägt in Sekunden ohne Schritte fehl                                           | Jobs starten nicht: Ausgabenlimit oder Abrechnung                                 | Lies die Anmerkungen des Jobs; korrigiere das Budget, nicht den Code                                                                   |
+| Alle Agenten haben im selben Moment angehalten                                          | Nutzungslimit                                                                     | Setze nach dem Zurücksetzen bei den Branches, den Pull Requests und der Aufgabenliste wieder an                                        |
+
+### Mach jede Aufgabe fortsetzbar
+
+Das Nutzungslimit hat uns die nützlichste Gewohnheit der Woche beigebracht: Eine Aufgabe muss sich von der Festplatte aus fortsetzen lassen, auch von jemandem, der nicht dabei war. Drei Orte halten den Zustand.
+
+- **Der Branch.** Agenten committen auf ihren Branch, sobald ein Schritt funktioniert, noch bevor er fertig ist. Ein Worktree mit Commits überlebt alles, was der Agent nicht überlebt.
+- **Der Pull Request.** Die Beschreibung enthält den Plan, die Entscheidungen und die Ergebnisse der Verifikation. Öffne ihn früh, und aktualisiere ihn, wenn sich der Plan ändert.
+- **Die Aufgabenliste.** Eine Datei führt jede offene Anfrage des Inhabers auf, mit ihrem Status, dem Branch oder Pull Request und dem nächsten Schritt, aktualisiert in dem Moment, in dem sich etwas ändert. Als das Limit am 20. November zurückgesetzt wurde, ging die Arbeit von dieser Datei aus weiter: Die Pull Requests in der Queue wurden gemergt, #244 wurde per Rebase aktualisiert, und die angehaltenen Agenten wurden mit ihren Branches und einer Notiz dazu, wo sie aufgehört hatten, neu gestartet.
+
+### Releases brauchen dieselbe Disziplin
+
+Zwei Lehren zum Prozess stammen aus den Releases der CLI, die in einem separaten privaten Repository liegt, mit denselben Agenten und denselben Regeln. Wir beschreiben nur den Prozess; die Release-Pipeline selbst ist Thema eines späteren Beitrags dieser Serie.
+
+- **Halte ein Release erst fest, wenn es existiert.** Der Release-Workflow legte früher Git-Tags und GitHub Releases an, sobald er eine Version auf npm zur Veröffentlichung bereitstellte, noch bevor der Inhaber die Veröffentlichung freigab. Eine bereitgestellte Version wurde nie veröffentlicht, also beschrieben drei GitHub Releases Pakete, die npm nie ausgeliefert hat. Jetzt schreibt ein separater Lauf Tags und Releases, nachdem npm die Version ausliefert, und die unveröffentlichte ist als solche gekennzeichnet.
+- **Liefere den Leser vor dem Schreiber aus.** Wenn sich CLI und Website einen Vertrag teilen, muss eine Änderung daran den Server erreichen, bevor ein Client sie sendet. Ein Release der CLI schickte eine Antwort, die die Lizenz-API der Website, noch auf der vorherigen Version des Vertrags, ablehnte. Unsere eigene End-to-End-Prüfung der veröffentlichten CLI gegen Produktion fand den Fehler, und ein Update der Website behob ihn am selben Tag. Eine Vertragsänderung geht jetzt zuerst auf der Website live.
+
+## Das Playbook
+
+Übernimm, was passt. Jeder Teil setzt Git, eine Shell und einen Host nach Art von GitHub voraus; ersetze die Befehle durch die deines Stacks.
+
+### Isolation einrichten
+
+Ein Worktree pro Branch, vom aktuellen Stand von main:
+
+```sh
+git fetch origin
+git worktree add ../wt-fix-locale -b fix/locale-links origin/main
+cd ../wt-fix-locale
+bun install --frozen-lockfile
+git branch --show-current
+```
+
+Ein Browserlauf auf deinem eigenen Server, auf einem Port, den du geprüft hast, und am Ende über seine Prozess-ID beendet:
+
+```sh
+PORT=3020
+if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN; then echo "port $PORT is taken"; exit 1; fi
+bun run db:reset:test
+bun run build:test
+bun run start:test --port "$PORT" > server.log 2>&1 &
+SERVER_PID=$!
+until curl -fsS "http://127.0.0.1:$PORT" > /dev/null; do sleep 1; done
+LISTENER=$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t | head -1)
+test "$(lsof -a -p "$LISTENER" -d cwd -Fn | sed -n 's/^n//p')" = "$(pwd -P)" || exit 1
+PLAYWRIGHT_BASE_URL="http://127.0.0.1:$PORT" bun run test:e2e:pr
+echo "exit code $?"
+kill "$LISTENER" "$SERVER_PID"
+```
+
+Checkliste für die Umgebung jedes Agenten:
+
+- Ein eigener Worktree und Branch, angelegt vom aktuellen `origin/main`, nie dein Checkout.
+- Abhängigkeiten im Worktree installiert und alle von Git ignorierten Einrichtungsdateien hineinkopiert.
+- Lokale Datenbanken und Caches innerhalb des Worktrees.
+- Ports im Briefing zugewiesen, vor der Nutzung geprüft, mit verifiziertem Verzeichnis des lauschenden Prozesses.
+- Ein eigener Scratch-Ordner für Entwürfe, Logs und Screenshots.
+- Prozesse am Ende über ihre ID beendet und die Ports frei.
+
+### Eine Merge-Queue in wenigen Zeilen
+
+Eine Queue, ein Pull Request nach dem anderen, in der angegebenen Reihenfolge, mit Halt beim ersten Problem:
+
+```sh
+set -euo pipefail
+for pr in "$@"; do
+  head=$(gh pr view "$pr" --json headRefOid --jq .headRefOid)
+  behind=$(gh api "repos/{owner}/{repo}/compare/main...$head" --jq .behind_by)
+  if [ "$behind" -gt 0 ]; then
+    gh pr update-branch "$pr" --rebase
+    while [ "$(gh pr view "$pr" --json headRefOid --jq .headRefOid)" = "$head" ]; do sleep 15; done
+    sleep 30
+  fi
+  gh pr checks "$pr" --watch --required --fail-fast
+  gh pr merge "$pr" --squash --subject "$(gh pr view "$pr" --json title --jq .title) (#$pr)"
+done
+```
+
+Ergänze, was dein Gate braucht: ein Warten auf ein erforderliches Deployment, eine Prüfung, ob der Titel ein gültiger Commit-Betreff ist, einen Blick in `git log origin/main` vor jeder Wiederholung. Lass eine Instanz laufen, nie zwei.
+
+### Vorlage für ein Briefing
+
+Füll jeden Teil aus; lass keinen weg.
+
+- **Ziel:** was erreicht werden soll und warum, mit den zitierten Worten des Inhabers.
+- **Fertig:** die Befehle der Definition of Done, in ihrer Reihenfolge, und dass jeder auf dem gepushten Commit mit 0 enden muss.
+- **Umfang:** was geändert werden soll; was nicht geändert werden soll; was andere Agenten parallel tun und welche Teile ihnen gehören.
+- **Bekannt:** was ausgeschlossen wurde, was versucht wurde, welche Dateien und Läufe die Belege enthalten.
+- **Wo:** der Pfad des Worktrees, der Branch und seine Basis, der Scratch-Ordner, die Ports.
+- **Grenzen:** die Pfade, die eine Zustimmung brauchen, mit der zitierten Zustimmung, falls sie erteilt wurde; Befehle, die nie ausgeführt werden dürfen; Prozesse, die nie beendet werden dürfen.
+- **Wenn du feststeckst:** Halte an und berichte, was du tun würdest und warum.
+- **Bericht:** Branch und Commit, gepusht oder nicht; jeder Befehl mit seinem Exit-Code und Log; Nummer des Pull Requests und CI-Lauf; was sich geändert hat, was weggelassen wurde und warum, und wobei du unsicher warst.
+
+### Checkliste für das Review
+
+- Der Head-Commit ist der, den der Agent getestet hat, und die CI hat auf ihm bestanden.
+- Die Umgebung, auf der du prüfst, zeigt diesen Pull Request.
+- Die Beschreibung passt zum Diff, und der Diff enthält nichts, was die Beschreibung auslässt.
+- Die Änderung bleibt im Umfang; alles andere ist ein separater Pull Request.
+- Die Korrektur setzt an einer Ursache an, nicht dort, wo sich das Symptom zeigt.
+- Kein Test ist leichter geworden: keine schwächere Assertion, kein erhöhtes Timeout, kein neuer Skip und kein unerklärter Mock.
+- Kein geschützter Pfad wurde ohne zitierte Zustimmung geändert.
+- Dokumentation, README, Website-Texte und Changelog sind in jeder Sprache aktualisiert.
+- Ein Commit, ein Titel im Conventional-Commits-Format, keine Attributionszeilen.
+- Du hast gefragt, was der Agent beschlossen hat, nicht zu tun, und die Antwort gelesen.
+
+### Checkliste für den Betrieb
+
+- Schwere Agenten sind nach der Zahl der Kerne begrenzt, und der Load Average wird geprüft, bevor ein weiterer startet.
+- Es läuft eine einzige Merge-Queue, mit jedem fertigen Pull Request in der richtigen Reihenfolge.
+- Gemeinsame Umgebungen werden vor einem Review gebucht und danach wieder freigegeben.
+- Eine Aufgabenliste führt jede offene Aufgabe mit Status, Branch und nächstem Schritt.
+- Die Aufgabe jedes Agenten lässt sich über seinen Branch, seinen Pull Request und die Aufgabenliste fortsetzen.
+- Verwaiste Server und veraltete Worktrees räumt auf, wer sie gestartet hat.
+- Pull Requests werden an dem Tag geprüft, an dem sie fertig sind, sonst werden die Agenten langsamer.
+
+## Weiterführende Artikel
+
+<Cards>
+
+<Card title="KI-Coding-Agenten für SaaS im Jahr 2026: Warum das Repository entscheidet" href="/blog/ai-coding-agents-repository-readiness">
+  Time to No und eine Scorecard dafür, ob dein Repository eine falsche Änderung zurückweisen kann, bevor ein Mensch sie sieht.
+</Card>
+
+<Card title="Die Wahl eines SaaS-Stacks für KI-Coding-Agenten im Jahr 2026" href="/blog/choosing-a-saas-stack-for-ai-coding-agents">
+  Ein Test mit vier Fragen für jede Abhängigkeit, Schicht für Schicht angewendet auf den Stack, an dem diese Agenten arbeiten.
+</Card>
+
+<Card title="Ein SaaS auf Cloudflare Workers: D1, KV und R2 in Produktion" href="/blog/saas-on-cloudflare-workers-d1-kv-r2">
+  Die Umgebungen, die Deploy-Checks und die gemeinsame Preview, in die die Agenten aus diesem Artikel deployen.
+</Card>
+
+</Cards>
+
+<Callout title="Lies das Repository, in dem die Agenten arbeiten">
+
+Alle hier genannten Pull Requests, CI-Läufe und Commits sind im Repository von saasyland.com öffentlich, und die Dokumentation beschreibt die [CI/CD-Pipeline](/docs/tooling/ci-cd), die [Browser-Suite](/docs/tooling/playwright) und die [Testkonventionen](/docs/conventions/testing), denen die Agenten folgen. Um zu sehen, was die Codebasis kostet, [vergleiche die Stufen](/#pricing): eine Zahlung ab <TierPrice tier="core" />, und jede Karte zeigt, was jetzt verfügbar ist und was noch kommt.
+
+</Callout>
+
+## Häufig gestellte Fragen
+
+<PostFaq entries={frontmatter.faq} />
+
+### Quellen
+
+- Git: [`git worktree`](https://git-scm.com/docs/git-worktree) und [`git push`](https://git-scm.com/docs/git-push), zu `--force-with-lease` und `--force-if-includes`
+- GitHub: [einen Pull Request mit seinem Basis-Branch synchron halten](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/keeping-your-pull-request-in-sync-with-the-base-branch), [Merge-Methoden](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/about-merge-methods-on-github), [Regeln für Rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets) und [eine Merge-Queue verwalten](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)
+- Playwright: [die Option für den Webserver](https://playwright.dev/docs/test-webserver), zu `reuseExistingServer`
+- Claude Code: [Worktrees](https://code.claude.com/docs/en/worktrees) und [Berechtigungen](https://code.claude.com/docs/en/permissions); Claude Help Center: [wie Nutzungslimits funktionieren](https://support.claude.com/en/articles/11647753)
+- Anthropic: [How we built our multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system) (Juni 2025), zum Tokenverbrauch
+- Cloudflare: [Preview- und Versions-URLs für Workers](https://developers.cloudflare.com/workers/configuration/previews/)
+- procps: [das Handbuch zu `pgrep` und `pkill`](https://man7.org/linux/man-pages/man1/pgrep.1.html), zu `-f`
+- saasyland.com: die Pull Requests [#144](https://github.com/saasyland/saasyland.com/pull/144), [#149](https://github.com/saasyland/saasyland.com/pull/149), [#188](https://github.com/saasyland/saasyland.com/pull/188), [#191](https://github.com/saasyland/saasyland.com/pull/191), [#204](https://github.com/saasyland/saasyland.com/pull/204), [#207](https://github.com/saasyland/saasyland.com/pull/207), [#220](https://github.com/saasyland/saasyland.com/pull/220), [#221](https://github.com/saasyland/saasyland.com/pull/221), [#222](https://github.com/saasyland/saasyland.com/pull/222), [#224](https://github.com/saasyland/saasyland.com/pull/224), [#238](https://github.com/saasyland/saasyland.com/pull/238), [#240](https://github.com/saasyland/saasyland.com/pull/240) und sein [erster CI-Lauf](https://github.com/saasyland/saasyland.com/actions/runs/44135746074), [#242](https://github.com/saasyland/saasyland.com/pull/242), [#244](https://github.com/saasyland/saasyland.com/pull/244) und [#249](https://github.com/saasyland/saasyland.com/pull/249); die Seiten [CI/CD](/docs/tooling/ci-cd), [Playwright](/docs/tooling/playwright) und [Lokales Debugging](/docs/guides/local-debugging)
+
+_Geschrieben von Piotr J. Borowiecki, der jeden Tag ein Team von KI-Coding-Agenten auf saasyland.com einsetzt. Die externe Dokumentation wurde am 20. November 2026 gelesen und kann sich seitdem geändert haben; die Links führen zur Quelle. Wenn hier etwas veraltet oder falsch ist, sag es mir, und ich korrigiere es._

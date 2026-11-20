@@ -11,7 +11,7 @@ import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
+import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
 import {
   BUNDLE_ARCHIVE_EXTENSION,
   BUNDLE_BINDING,
@@ -434,6 +434,15 @@ describe("live site checks", () => {
     const printed = [...screen.getByTestId("fact").querySelectorAll("code")].map((code) => code.textContent)
     expect(printed).toEqual([...new Set(paths)])
     expect(printed.length).toBeLessThan(paths.length)
+  })
+})
+
+describe("local test servers", () => {
+  it("prints every host the test build accepts requests from, in the order the app allows them", () => {
+    renderInLocale("en-US", <RepositoryFact name="testServerHosts" />)
+
+    const printed = [...screen.getByTestId("fact").querySelectorAll("code")].map((code) => code.textContent)
+    expect(printed).toStrictEqual(appHostsForMode(ENVIRONMENT.TEST))
   })
 })
 

@@ -25,7 +25,8 @@ vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/_
 
 const CATALOGUE_KEY = catalogueQuery({ locale: I18N.DEFAULT_LOCALE }).queryKey
 
-const course = (id: string, paid: number): Course["catalogue"][number] => ({
+const course = (id: string, paid: number): Course["catalogueCourse"] => ({
+  completed: 0,
   durationMs: 0,
   icon: COURSE_ICON.BOOK_OPEN,
   id,
@@ -40,10 +41,10 @@ const course = (id: string, paid: number): Course["catalogue"][number] => ({
   title: `Course ${id}`,
 })
 
-const render = (ui: ReactElement, catalogue?: Course["catalogue"]) => {
+const render = (ui: ReactElement, courses?: Course["catalogue"]["courses"]) => {
   const queryClient = new QueryClient()
-  if (catalogue !== undefined) {
-    queryClient.setQueryData(CATALOGUE_KEY, catalogue)
+  if (courses !== undefined) {
+    queryClient.setQueryData(CATALOGUE_KEY, { courses, viewer: { mustConfirmEmail: false, signedIn: true, unlocked: false } })
   }
   return renderWithRouter(
     <IntlProvider

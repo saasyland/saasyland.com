@@ -7,6 +7,7 @@ import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.consta
 
 const lesson = (slug: string, overrides: Partial<Course["pageLesson"]> = {}): Course["pageLesson"] => ({
   access: LESSON_ACCESS.PREVIEW,
+  captioned: false,
   chapterId: "chapter",
   completed: false,
   durationMs: 1000,
@@ -37,6 +38,7 @@ describe("course utils", () => {
           id: "c",
           kind: COURSE_KIND.COURSE,
           level: COURSE_LEVEL.BEGINNER,
+          materials: 0,
           outcomes: [],
           prerequisites: [],
           slug: "c",

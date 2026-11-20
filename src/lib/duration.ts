@@ -38,3 +38,5 @@ export const parseClock = (clock: string): number | undefined => {
 
   return Number(parts["hours"] ?? 0) * SECONDS_PER_HOUR + minutes * SECONDS_PER_MINUTE + Number(parts["seconds"])
 }
+
+export const wholeMinutes = (milliseconds: number): number => Math.ceil(milliseconds / MILLISECONDS_PER_MINUTE)

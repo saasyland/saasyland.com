@@ -46,10 +46,12 @@ describe("getCatalogue", () => {
   it("lists published courses in order with their size, free lessons and paid lessons", async () => {
     signOut()
 
-    const courses = await executeQuery(catalogueQuery({ locale: "en-US" }))
+    const catalogue = await executeQuery(catalogueQuery({ locale: "en-US" }))
 
-    expect(courses).toStrictEqual([
+    expect(catalogue.viewer).toStrictEqual({ mustConfirmEmail: false, signedIn: false, unlocked: false })
+    expect(catalogue.courses).toStrictEqual([
       {
+        completed: 0,
         durationMs: 375_000,
         icon: COURSE_ICON.BOOK_OPEN,
         id: IDS.COURSE,
@@ -64,6 +66,7 @@ describe("getCatalogue", () => {
         title: "The walkthrough",
       },
       {
+        completed: 0,
         durationMs: 0,
         icon: COURSE_ICON.BOOK_OPEN,
         id: IDS.TUTORIAL,
@@ -84,15 +87,31 @@ describe("getCatalogue", () => {
     signOut()
     await playLessonOn(LESSON_IDS.PREVIEW, IDS.PLACEHOLDER_VIDEO)
 
-    const [walkthrough] = await executeQuery(catalogueQuery({ locale: "en-US" }))
+    const {
+      courses: [walkthrough],
+    } = await executeQuery(catalogueQuery({ locale: "en-US" }))
 
     expect(walkthrough).toMatchObject({ durationMs: 250_000, lessons: 4, recorded: 2 })
+  })
+
+  it("counts the lessons the viewer has completed and says that course access opens the paid ones", async () => {
+    signIn(USERS.ENTITLED)
+    await recordProgress({ completedAt: new Date(), lessonId: LESSON_IDS.PREVIEW, positionMs: 0, userId: USERS.ENTITLED })
+    await recordProgress({ lessonId: LESSON_IDS.ACCOUNT, positionMs: 1000, userId: USERS.ENTITLED })
+
+    const { courses, viewer } = await executeQuery(catalogueQuery({ locale: "en-US" }))
+
+    expect(viewer).toStrictEqual({ mustConfirmEmail: false, signedIn: true, unlocked: true })
+    expect(courses.map(({ completed, slug }) => [slug, completed])).toStrictEqual([
+      ["the-walkthrough", 1],
+      ["one-off", 0],
+    ])
   })
 
   it("localizes titles and falls back to English", async () => {
     signOut()
 
-    const courses = await executeQuery(catalogueQuery({ locale: "pl-PL" }))
+    const { courses } = await executeQuery(catalogueQuery({ locale: "pl-PL" }))
 
     expect(courses.map(({ summary, title }) => [title, summary])).toStrictEqual([
       ["Przewodnik", "Jak to działa."],
@@ -112,6 +131,7 @@ describe("getCourse", () => {
       id: IDS.COURSE,
       kind: COURSE_KIND.COURSE,
       level: COURSE_LEVEL.BEGINNER,
+      materials: 0,
       outcomes: [],
       prerequisites: [],
       slug: "the-walkthrough",
@@ -122,8 +142,8 @@ describe("getCourse", () => {
       ["Pierwszy", ["boundaries", "sessions"]],
       ["Second", ["billing", "coverage"]],
     ])
-    expect(page.chapters[0]?.lessons[0]).toMatchObject({ durationMs: 125_000, recording: false, title: "Granice" })
-    expect(page.chapters[1]?.lessons[1]).toMatchObject({ durationMs: null, recording: true })
+    expect(page.chapters[0]?.lessons[0]).toMatchObject({ captioned: true, durationMs: 125_000, recording: false, title: "Granice" })
+    expect(page.chapters[1]?.lessons[1]).toMatchObject({ captioned: false, durationMs: null, recording: true })
     expect(page.viewer).toStrictEqual({ mustConfirmEmail: false, signedIn: false })
   })
 

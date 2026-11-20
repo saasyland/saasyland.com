@@ -1,115 +1,86 @@
-import type { ComponentProps } from "react"
-
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
-import { getRequest } from "@tanstack/react-start/server"
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
-import { IntlProvider } from "use-intl"
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getHeaderHref } from "~/src/platform/testing/lib/navigation"
 
-import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
-import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
-import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
-import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
-import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
+import { getNavigationLabel } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
-import { COURSE_ACCESS_TEST_MESSAGES, COURSE_ACCESS_TEST_NAMES } from "~/src/modules/course/__test__/fixtures/course-access.messages"
-import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
-import { courseLessons, locateLesson } from "~/src/modules/course/course.utils"
+import { courseLessons } from "~/src/modules/course/course.utils"
 import { catalogueQuery } from "~/src/modules/course/use-cases/get-catalogue"
-import { courseQuery } from "~/src/modules/course/use-cases/get-course"
-import { LESSON_ATTACHMENT_FILE_TYPES, LESSON_ATTACHMENT_KIND } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { LESSON_PROGRESS_MUTATION_KEYS } from "~/src/modules/lesson-progress/lesson-progress.constants"
-import type { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
-import { LESSON_ACCESS, LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
-import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
-import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
-import type * as SendVerificationEmailUseCase from "~/src/modules/verification/use-cases/send-verification-email"
 import { VERIFICATION_MUTATION_KEYS } from "~/src/modules/verification/verification.constants"
-import type { Video } from "~/src/modules/video/video.types"
 
-import { Route as SiteRoute } from "~/src/routes/_site"
-import { Route as MarketingRoute } from "~/src/routes/_site._marketing"
-import { Route as CoursesRoute } from "~/src/routes/_site._marketing.courses"
-import { Route as LessonRoute } from "~/src/routes/_site._marketing.courses.$course.$lesson"
-import { Route as CourseRoute } from "~/src/routes/_site._marketing.courses.$course.index"
-import { Route as CataloguePageRoute } from "~/src/routes/_site._marketing.courses.index"
+import {
+  CATALOGUE_COURSES,
+  CUSTOMER_PAGE,
+  GUEST_PAGE,
+  LEARNER_PAGE,
+  type PlayerProps,
+  TUTORIAL_ROW,
+  WALKTHROUGH_ROW,
+  lesson,
+  page,
+  resetCoursePages,
+  signedInUnlock,
+  signedOutUnlock,
+  withOffer,
+  withRedirect,
+} from "~/src/routes/__test__/fixtures/course-pages"
+import { clearCourseRouters, expand, renderCourses, stubCourseGlobals } from "~/src/routes/__test__/fixtures/course-router"
 
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
 
 import { CataloguePending, CoursePending, LessonPending } from "~/src/presentation/components/custom/courses/courses-pending"
-import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
-import type { VideoPlayer } from "~/src/presentation/components/custom/video-player"
 
+import covers from "~/messages/en-US/components.custom.course-covers.json"
 import messages from "~/messages/en-US/pages.courses.json"
 import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.json"
 import plCoursesNavigationMessages from "~/messages/pl-PL/navigation.courses.json"
-import type { RouterContext } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
-type PlayerProps = ComponentProps<typeof VideoPlayer>
+vi.mock(import("~/src/modules/verification/use-cases/send-verification-email"), async () => {
+  const fixtures = await import("~/src/routes/__test__/fixtures/course-pages")
+  return { sendVerificationEmailMutation: { mutationFn: fixtures.resendVerification, mutationKey: VERIFICATION_MUTATION_KEYS.SEND_EMAIL } }
+})
 
-const player = vi.hoisted(() => new Map<"props", PlayerProps>())
-const coursePages = vi.hoisted(() => new Map<"current", Course["page"]>())
-const save = vi.hoisted(() => vi.fn<NonNullable<typeof saveLessonProgressMutation.mutationFn>>())
-const resendVerification = vi.hoisted(() =>
-  vi.fn<NonNullable<typeof SendVerificationEmailUseCase.sendVerificationEmailMutation.mutationFn>>(() => Promise.resolve({ sent: true })),
-)
-
-vi.mock(import("~/src/modules/verification/use-cases/send-verification-email"), () => ({
-  sendVerificationEmailMutation: { mutationFn: resendVerification, mutationKey: VERIFICATION_MUTATION_KEYS.SEND_EMAIL },
-}))
-
-vi.mock(import("~/src/presentation/components/custom/video-player"), () => ({
-  VideoPlayer: (props: PlayerProps) => {
-    player.set("props", props)
-    return <div data-start={props.startAt} data-testid="video-player" />
-  },
-}))
+vi.mock(import("~/src/presentation/components/custom/video-player"), async () => {
+  const fixtures = await import("~/src/routes/__test__/fixtures/course-pages")
+  return {
+    VideoPlayer: (props: PlayerProps) => {
+      fixtures.player.set("props", props)
+      return <div data-start={props.startAt} data-testid="video-player" />
+    },
+  }
+})
 
 vi.mock(import("~/src/modules/course/use-cases/get-course"), async (importOriginal) => {
   const actual = await importOriginal()
+  const fixtures = await import("~/src/routes/__test__/fixtures/course-pages")
   return {
     ...actual,
     courseQuery: (input: Course["getCourse"]) => ({
       ...actual.courseQuery(input),
       queryFn: () => {
-        const page = coursePages.get("current")
-        return page === undefined ? Promise.reject(new Error("No course page")) : Promise.resolve(page)
+        const current = fixtures.coursePages.get("current")
+        return current === undefined ? Promise.reject(new Error("No course page")) : Promise.resolve(current)
       },
     }),
   }
 })
 
-const materials = vi.hoisted(() => new Map<string, Lesson["attachment"][]>())
-
-const lessonPageOf = (source: Course["page"], slug: string): Lesson["page"] | undefined => {
-  const { lesson: entry, next, previous } = locateLesson(courseLessons(source), slug)
-  if (entry === undefined) {
-    return undefined
-  }
-  return {
-    ...source,
-    lesson: { ...entry, attachments: materials.get(slug) ?? [], captionLocales: [], description: "", keyMoments: [] },
-    next,
-    previous,
-  }
-}
-
 vi.mock(import("~/src/modules/lesson/use-cases/get-lesson"), async (importOriginal) => {
   const actual = await importOriginal()
+  const fixtures = await import("~/src/routes/__test__/fixtures/course-pages")
   return {
     ...actual,
     lessonQuery: (input: Lesson["getLesson"]) => ({
       ...actual.lessonQuery(input),
       queryFn: () => {
-        const source = coursePages.get("current")
-        const lessonPage = source === undefined ? undefined : lessonPageOf(source, input.lessonSlug)
+        const source = fixtures.coursePages.get("current")
+        const lessonPage = source === undefined ? undefined : fixtures.lessonPageOf(source, input.lessonSlug)
         return lessonPage === undefined ? Promise.reject(new Error("No lesson page")) : Promise.resolve(lessonPage)
       },
     }),
@@ -118,258 +89,103 @@ vi.mock(import("~/src/modules/lesson/use-cases/get-lesson"), async (importOrigin
 
 vi.mock("~/src/data/course-access.entries", () => import("~/src/modules/course/__test__/fixtures/course-access"))
 
-vi.mock(import("~/src/modules/lesson-progress/use-cases/save-lesson-progress"), () => ({
-  saveLessonProgressMutation: { mutationFn: save, mutationKey: LESSON_PROGRESS_MUTATION_KEYS.SAVE },
-}))
-
-const COURSE_SLUG = "the-walkthrough"
-
-const withOffer = (message: string): string => message.replace("{offer}", COURSE_ACCESS_TEST_NAMES.offer)
-
-const signedInUnlock = (path: string): string => `${ROUTES.APP_LICENSE}?${new URLSearchParams({ redirect: path }).toString()}`
-
-const signedOutUnlock = (path: string): string => `${ROUTES.SIGN_UP}?${new URLSearchParams({ redirect: signedInUnlock(path) }).toString()}`
-
-const unconfirmed = () => {
-  const session = createAuthSessionFixture()
-  return { ...session, user: { ...session.user, emailVerified: false } }
-}
-
-const withRedirect = (page: string, path: string): string => `${page}?${new URLSearchParams({ redirect: path }).toString()}`
-
-const PLAYBACK: Video["playback"] = {
-  captions: [],
-  poster: "/media/a.b/v/poster.webp",
-  posterSmall: "/media/a.b/v/poster-960.webp",
-  src: "/media/a.b/v/master.m3u8",
-  storyboard: "/media/a.b/v/storyboard.vtt",
-}
-
-const lesson = (slug: string, title: string, overrides: Partial<Course["pageLesson"]> = {}): Course["pageLesson"] => ({
-  access: LESSON_ACCESS.PAID,
-  chapterId: "chapter",
-  completed: false,
-  durationMs: 125_000,
-  id: `lesson-${slug}`,
-  locked: false,
-  positionMs: 0,
-  recording: overrides.durationMs === null,
-  slug,
-  summary: `${title} summary.`,
-  title,
-  ...overrides,
+vi.mock(import("~/src/modules/lesson-progress/use-cases/save-lesson-progress"), async () => {
+  const fixtures = await import("~/src/routes/__test__/fixtures/course-pages")
+  return { saveLessonProgressMutation: { mutationFn: fixtures.save, mutationKey: LESSON_PROGRESS_MUTATION_KEYS.SAVE } }
 })
-
-const page = ({
-  lessons,
-  viewer,
-}: {
-  readonly lessons: Course["pageLesson"][]
-  readonly viewer: Course["page"]["viewer"]
-}): Course["page"] => ({
-  chapters: [
-    { id: "chapter-one", lessons: lessons.slice(0, 2), summary: "", title: "Foundations" },
-    { id: "chapter-two", lessons: lessons.slice(2), summary: "", title: "Product" },
-  ],
-  course: {
-    icon: COURSE_ICON.BOOK_OPEN,
-    id: "course",
-    kind: COURSE_KIND.COURSE,
-    level: COURSE_LEVEL.BEGINNER,
-    outcomes: [],
-    prerequisites: [],
-    slug: COURSE_SLUG,
-    summary: "How it works.",
-    title: "The walkthrough",
-  },
-  viewer,
-})
-
-const GUEST_PAGE = page({
-  lessons: [
-    lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW }),
-    lesson("sessions", "Sessions", { access: LESSON_ACCESS.ACCOUNT, locked: true }),
-    lesson("billing", "Billing", { locked: true }),
-    lesson("coverage", "Coverage", { durationMs: null, locked: true }),
-  ],
-  viewer: { mustConfirmEmail: false, signedIn: false },
-})
-
-const LEARNER_PAGE = page({
-  lessons: [
-    lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW, completed: true }),
-    lesson("sessions", "Sessions", { access: LESSON_ACCESS.ACCOUNT, positionMs: 42_500 }),
-    lesson("billing", "Billing"),
-    lesson("coverage", "Coverage", { durationMs: null }),
-  ],
-  viewer: { mustConfirmEmail: false, signedIn: true },
-})
-
-const CUSTOMER_PAGE = page({
-  lessons: [
-    lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW }),
-    lesson("sessions", "Sessions", { access: LESSON_ACCESS.ACCOUNT }),
-    lesson("billing", "Billing", { locked: true }),
-  ],
-  viewer: { mustConfirmEmail: false, signedIn: true },
-})
-
-const completeLesson = (source: Course["page"], slug: string): Course["page"] => ({
-  ...source,
-  chapters: source.chapters.map((chapter) => ({
-    ...chapter,
-    lessons: chapter.lessons.map((entry) => ({ ...entry, completed: entry.completed || entry.slug === slug })),
-  })),
-})
-
-const CATALOGUE: Course["catalogue"] = [
-  {
-    durationMs: 375_000,
-    icon: COURSE_ICON.BOOK_OPEN,
-    id: "course",
-    kind: COURSE_KIND.COURSE,
-    lessons: 4,
-    level: COURSE_LEVEL.BEGINNER,
-    paid: 2,
-    previews: 1,
-    recorded: 3,
-    slug: COURSE_SLUG,
-    summary: "How it works.",
-    title: "The walkthrough",
-  },
-  {
-    durationMs: 0,
-    icon: COURSE_ICON.BOOK_OPEN,
-    id: "tutorial",
-    kind: COURSE_KIND.TUTORIAL,
-    lessons: 0,
-    level: COURSE_LEVEL.BEGINNER,
-    paid: 0,
-    previews: 0,
-    recorded: 0,
-    slug: "one-off",
-    summary: "A short one.",
-    title: "One-off tutorial",
-  },
-]
-
-const routers: ReturnType<typeof createCourseRouter>[] = []
-
-const createCourseRouter = ({
-  catalogue,
-  data,
-  locale,
-  path,
-}: {
-  catalogue: Course["catalogue"]
-  data: Course["page"]
-  locale: SupportedLocale
-  path: string
-}) => {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
-  queryClient.setQueryData(catalogueQuery({ locale }).queryKey, catalogue)
-  queryClient.setQueryData(courseQuery({ locale, slug: COURSE_SLUG }).queryKey, data)
-  coursePages.set("current", data)
-  for (const { slug } of data.chapters.flatMap((chapter) => chapter.lessons)) {
-    queryClient.setQueryData(lessonPlaybackQuery({ courseSlug: COURSE_SLUG, lessonSlug: slug }).queryKey, PLAYBACK)
-    queryClient.setQueryData(lessonQuery({ courseSlug: COURSE_SLUG, lessonSlug: slug, locale }).queryKey, lessonPageOf(data, slug))
-  }
-  const root = createRootRouteWithContext<RouterContext>()({ component: Outlet })
-  const metadata = { locale, metadata: messages.metadata }
-  const lessonData = { locale, pathname: path, summary: "", title: "" }
-  Object.assign(SiteRoute.options, { getParentRoute: () => root, id: "_site" })
-  Object.assign(MarketingRoute.options, { getParentRoute: () => SiteRoute, id: "_marketing" })
-  Object.assign(CoursesRoute.options, { getParentRoute: () => MarketingRoute, id: "/courses", path: "/courses" })
-  Object.assign(CataloguePageRoute.options, { getParentRoute: () => CoursesRoute, id: "/", loader: () => metadata, path: "/" })
-  Object.assign(CourseRoute.options, { getParentRoute: () => CoursesRoute, id: "/$course/", loader: () => lessonData, path: "/$course/" })
-  Object.assign(LessonRoute.options, {
-    getParentRoute: () => CoursesRoute,
-    id: "/$course/$lesson",
-    loader: () => lessonData,
-    path: "/$course/$lesson",
-  })
-  const courses = CoursesRoute.addChildren([CataloguePageRoute, CourseRoute, LessonRoute])
-  const site = SiteRoute.addChildren([MarketingRoute.addChildren([courses])])
-  return createRouter({
-    context: { queryClient },
-    defaultNotFoundComponent: DefaultNotFound,
-    defaultPendingMinMs: 0,
-    history: createMemoryHistory({ initialEntries: [path] }),
-    rewrite: LOCALE_REWRITE,
-    routeTree: root.addChildren([site]),
-  })
-}
-
-const renderCourses = async ({
-  catalogue = CATALOGUE,
-  data = GUEST_PAGE,
-  locale = "en-US",
-  path,
-}: {
-  catalogue?: Course["catalogue"]
-  data?: Course["page"]
-  locale?: SupportedLocale
-  path: string
-}) => {
-  vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000${path}`))
-  const router = createCourseRouter({ catalogue, data, locale, path })
-  routers.push(router)
-  render(
-    <QueryClientProvider client={router.options.context.queryClient}>
-      <IntlProvider locale={locale} messages={{ ...getTestMessages(locale), ...COURSE_ACCESS_TEST_MESSAGES }} timeZone="UTC">
-        <RouterProvider router={router} />
-      </IntlProvider>
-    </QueryClientProvider>,
-  )
-  await act(() => router.load())
-  return router
-}
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.stubGlobal(
-    "IntersectionObserver",
-    class {
-      observe = vi.fn()
-      unobserve = vi.fn()
-      disconnect = vi.fn()
-    },
-  )
-  vi.stubGlobal("CSS", { supports: () => true })
-  player.clear()
-  coursePages.clear()
-  materials.clear()
-  save.mockImplementation(({ completed, lessonId }) => Promise.resolve({ completed, lessonId }))
+  stubCourseGlobals()
+  resetCoursePages()
 })
 
 afterEach(() => {
   cleanup()
-  for (const router of routers) {
-    router.options.context.queryClient.clear()
-  }
-  routers.length = 0
+  clearCourseRouters()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
 describe("course catalogue", () => {
-  it("lists courses with their size, length and free lessons", async () => {
+  it("features the first course and lists the others with their state, size and free lessons", async () => {
     await renderCourses({ path: "/courses" })
 
-    const card = screen.getByRole("link", { name: /The walkthrough/u })
-    expect(card).toHaveAttribute("href", "/courses/the-walkthrough")
-    expect(within(card).getByText("4 lessons")).toBeVisible()
-    expect(within(card).getByText("6 min")).toBeVisible()
-    expect(within(card).getByText("1 free lesson")).toBeVisible()
-    expect(screen.getByRole("link", { name: /One-off tutorial/u })).toHaveTextContent(messages.kinds.tutorial)
-    expect(screen.getByRole("link", { name: /One-off tutorial/u })).toHaveTextContent(messages.catalogue.recording)
+    const featured = screen.getByRole("link", { name: /The walkthrough/u })
+    expect(featured).toHaveAttribute("href", "/courses/the-walkthrough")
+    expect(within(featured).getByText(messages.kinds.course)).toBeVisible()
+    expect(within(featured).getByText(messages.levels.beginner)).toBeVisible()
+    expect(within(featured).getByText("3 of 4 lessons recorded")).toBeVisible()
+    expect(within(featured).queryByText("4 lessons")).toBeNull()
+    expect(within(featured).getByText("7 min")).toBeVisible()
+    expect(within(featured).getByText("1 free lesson")).toBeVisible()
+    expect(within(featured).queryByRole("progressbar")).toBeNull()
+    expect(featured.querySelector("[data-slot=course-cover]")).toHaveAttribute("aria-hidden", "true")
+    expect(featured.querySelector("img")).toBeNull()
+  })
+
+  it("shows a course being recorded with its cover and offers what unlocks the paid lessons", async () => {
+    await renderCourses({ path: "/courses" })
+
+    const tutorial = screen.getByRole("link", { name: /One-off tutorial/u })
+    expect(tutorial).toHaveTextContent(`${messages.kinds.tutorial}${messages.levels.advanced}`)
+    expect(tutorial).toHaveTextContent(`${messages.catalogue.recordingNow}0 lessons`)
+    expect(tutorial).not.toHaveTextContent("min")
+    expect(tutorial.querySelector("img")).toHaveAttribute("alt", "")
+    expect(tutorial.querySelector("img")).toHaveAttribute("loading", "lazy")
+    const band = within(
+      screen.getByRole("heading", { level: 2, name: withOffer(messages.course.unlock.title) }).closest("aside") ?? document.body,
+    )
+    expect(band.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute(
+      "href",
+      signedOutUnlock(ROUTES.COURSES),
+    )
+    expect(band.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", withRedirect(ROUTES.SIGN_IN, ROUTES.COURSES))
+  })
+
+  it("offers a signed-in customer what unlocks the paid lessons, and a holder who has not confirmed their email nothing to buy", async () => {
+    const customer = await renderCourses({
+      catalogue: { courses: CATALOGUE_COURSES, viewer: { mustConfirmEmail: false, signedIn: true, unlocked: false } },
+      path: "/courses",
+    })
+
+    const band = within(
+      screen.getByRole("heading", { level: 2, name: withOffer(messages.course.unlock.title) }).closest("aside") ?? document.body,
+    )
+    expect(band.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute(
+      "href",
+      signedInUnlock(ROUTES.COURSES),
+    )
+    expect(band.queryByRole("link", { name: "Sign in" })).toBeNull()
+
+    customer.options.context.queryClient.setQueryData(catalogueQuery({ locale: "en-US" }).queryKey, {
+      courses: CATALOGUE_COURSES,
+      viewer: { mustConfirmEmail: true, signedIn: true, unlocked: false },
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { level: 2, name: withOffer(messages.course.unlock.title) })).toBeNull()
+    })
+  })
+
+  it("shows a learner's progress and offers nothing to buy to someone who can open every lesson", async () => {
+    const courses = [TUTORIAL_ROW, { ...WALKTHROUGH_ROW, completed: 2 }]
+    await renderCourses({ catalogue: { courses, viewer: { mustConfirmEmail: false, signedIn: true, unlocked: true } }, path: "/courses" })
+
+    expect(screen.getByRole("progressbar", { name: "2 of 4 completed" })).toHaveAttribute("aria-valuenow", "2")
+    expect(screen.getByRole("link", { name: /One-off tutorial/u }).querySelector("img")).toHaveAttribute("fetchpriority", "high")
+    expect(screen.queryByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeNull()
   })
 
   it("says the first courses are being recorded and points to the build log when nothing is published", async () => {
-    await renderCourses({ catalogue: [], path: "/courses" })
+    await renderCourses({
+      catalogue: { courses: [], viewer: { mustConfirmEmail: false, signedIn: false, unlocked: false } },
+      path: "/courses",
+    })
 
     expect(screen.getByRole("heading", { level: 2, name: messages.catalogue.empty.title })).toBeVisible()
     expect(screen.getByText(messages.catalogue.empty.body)).toBeVisible()
+    expect(screen.queryByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeNull()
   })
 
   it("keeps the courses link current in the localized navigation", async () => {
@@ -387,12 +203,14 @@ describe("course catalogue", () => {
 })
 
 describe("course page", () => {
-  it("starts a visitor on the free lesson and offers what unlocks the locked ones", async () => {
+  it("starts a visitor on the free lesson, offers what unlocks the locked ones and opens the first chapter", async () => {
     await renderCourses({ path: "/courses/the-walkthrough" })
 
     expect(screen.getByRole("heading", { level: 1, name: "The walkthrough" })).toBeVisible()
-    expect(screen.getByRole("link", { name: messages.course.start })).toHaveAttribute("href", "/courses/the-walkthrough/boundaries")
-    expect(screen.getByRole("link", { name: withOffer(messages.course.unlock.cta) })).toHaveAttribute(
+    const panel = within(screen.getByRole("region", { name: "The walkthrough" }))
+    expect(panel.getByText("3 of 4 lessons recorded")).toBeVisible()
+    expect(panel.getByRole("link", { name: messages.course.start })).toHaveAttribute("href", "/courses/the-walkthrough/boundaries")
+    expect(panel.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute(
       "href",
       signedOutUnlock("/courses/the-walkthrough"),
     )
@@ -401,31 +219,62 @@ describe("course page", () => {
     const boundaries = screen.getByRole("link", { name: /Boundaries/u })
     expect(boundaries).toHaveTextContent("01")
     expect(boundaries).toHaveTextContent("2:05")
-    expect(boundaries).toHaveTextContent(messages.access.preview)
-    expect(screen.getByRole("link", { name: /Sessions/u })).toHaveTextContent(messages.access.account)
-    expect(screen.getByRole("link", { name: /Coverage/u })).toHaveTextContent("04")
-    expect(screen.getByRole("link", { name: /Coverage/u })).not.toHaveTextContent(":")
-    expect(screen.getByRole("link", { name: /Coverage/u })).toHaveTextContent(messages.lesson.recording)
+    expect(boundaries).toHaveTextContent(messages.tags.preview)
+    expect(screen.getByRole("link", { name: /Sessions/u })).toHaveTextContent(messages.tags.account)
+    expect(screen.queryByRole("link", { name: /Coverage/u })).toBeNull()
+
+    await expand(/^Product/u)
+
+    const coverage = screen.getByRole("link", { name: /Coverage/u })
+    expect(coverage).toHaveTextContent("04")
+    expect(coverage).not.toHaveTextContent(":")
+    expect(coverage).toHaveTextContent(messages.lesson.recording)
+    expect(coverage).toHaveAccessibleName(new RegExp(withOffer(messages.access.paid), "u"))
     expect(screen.queryByText(messages.course.recording)).toBeNull()
   })
 
-  it("shows a learner's progress and continues where they stopped", async () => {
+  it("lets a guest who already holds the offer sign in from the panel and come back to the course", async () => {
+    await renderCourses({ path: "/courses/the-walkthrough" })
+
+    const panel = within(screen.getByRole("region", { name: "The walkthrough" }))
+    expect(panel.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", withRedirect(ROUTES.SIGN_IN, "/courses/the-walkthrough"))
+  })
+
+  it("shows a learner's progress, per chapter too, and continues where they stopped", async () => {
     await renderCourses({ data: LEARNER_PAGE, path: "/courses/the-walkthrough" })
 
     expect(screen.getByRole("progressbar", { name: "1 of 4 lessons completed" })).toHaveAttribute("aria-valuenow", "1")
-    expect(document.querySelectorAll("[data-slot=progress-indicator]")).toHaveLength(1)
+    expect(screen.getByRole("button", { name: /^Foundations/u })).toHaveTextContent("1/2")
     expect(screen.getByRole("link", { name: "Continue with Sessions" })).toHaveAttribute("href", "/courses/the-walkthrough/sessions")
     expect(screen.getByRole("link", { name: /Boundaries/u })).toHaveTextContent(messages.lesson.completed)
-    expect(screen.queryByRole("heading", { name: withOffer(messages.course.unlock.title) })).toBeNull()
+    expect(screen.getByText(messages.course.panel.access)).toBeVisible()
+    expect(screen.queryByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeNull()
   })
 
   it("sends a signed-in customer where an area grants course access", async () => {
     await renderCourses({ data: CUSTOMER_PAGE, path: "/courses/the-walkthrough" })
 
-    expect(screen.getByRole("link", { name: withOffer(messages.course.unlock.cta) })).toHaveAttribute(
+    const panel = within(screen.getByRole("region", { name: "The walkthrough" }))
+    expect(panel.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute(
       "href",
       signedInUnlock("/courses/the-walkthrough"),
     )
+    expect(panel.queryByRole("link", { name: "Sign in" })).toBeNull()
+  })
+
+  it("asks a holder who has not confirmed their email to confirm it instead of offering what they hold", async () => {
+    await renderCourses({
+      data: { ...CUSTOMER_PAGE, viewer: { mustConfirmEmail: true, signedIn: true } },
+      path: "/courses/the-walkthrough",
+    })
+
+    const panel = within(screen.getByRole("region", { name: "The walkthrough" }))
+    expect(panel.getByRole("link", { name: messages.lesson.locked.confirm.title })).toHaveAttribute(
+      "href",
+      withRedirect(ROUTES.VERIFY_EMAIL, "/courses/the-walkthrough"),
+    )
+    expect(panel.queryByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeNull()
+    expect(panel.queryByText(messages.course.panel.access)).toBeNull()
   })
 
   it("says a course is being recorded and offers no start link while no lesson plays", async () => {
@@ -442,6 +291,7 @@ describe("course page", () => {
     expect(screen.queryByRole("link", { name: messages.course.start })).toBeNull()
     expect(screen.getAllByText(messages.lesson.recording)).toHaveLength(2)
     expect(screen.getByRole("link", { name: /Boundaries/u }).querySelector("[data-slot=lesson-recording]")).not.toBeNull()
+    expect(screen.getByRole("button", { name: /^Foundations/u })).toHaveTextContent(messages.catalogue.recordingNow)
   })
 
   it("starts a learner on the first lesson that plays", async () => {
@@ -456,244 +306,75 @@ describe("course page", () => {
 
     expect(screen.getByRole("link", { name: messages.course.start })).toHaveAttribute("href", "/courses/the-walkthrough/sessions")
     expect(screen.queryByText(messages.course.recording)).toBeNull()
+    expect(screen.getByRole("button", { name: /^Foundations/u })).toHaveTextContent("1 of 2 lessons recorded")
   })
 
-  it("offers no start link when every lesson is locked", async () => {
+  it("offers only what unlocks a course whose lessons are all locked", async () => {
     const locked = page({ lessons: [lesson("billing", "Billing", { locked: true })], viewer: { mustConfirmEmail: false, signedIn: false } })
     await renderCourses({ data: locked, path: "/courses/the-walkthrough" })
 
     expect(screen.queryByRole("link", { name: messages.course.start })).toBeNull()
+    expect(screen.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeVisible()
   })
 })
 
-describe("lesson page", () => {
-  it("plays a free lesson for a visitor without saving progress", async () => {
-    await renderCourses({ path: "/courses/the-walkthrough/boundaries" })
+describe("course page panel and lists", () => {
+  it("offers no action on a course with no lesson to watch or buy", async () => {
+    const empty = { ...GUEST_PAGE, chapters: [] }
+    await renderCourses({ data: empty, path: "/courses/the-walkthrough" })
 
-    expect(await screen.findByTestId("video-player")).toHaveAttribute("data-start", "0")
-    expect(player.get("props")?.playback).toStrictEqual(PLAYBACK)
-    expect(screen.getByRole("heading", { level: 1, name: "Boundaries" })).toBeVisible()
-    expect(screen.getByText(messages.access.preview, { selector: "p" })).toBeVisible()
-    expect(screen.queryByRole("button", { name: messages.lesson.markComplete })).toBeNull()
-    player.get("props")?.onProgress?.(30)
-    player.get("props")?.onEnded?.()
-    expect(save).not.toHaveBeenCalled()
-
-    const neighbours = within(screen.getByRole("navigation", { name: messages.lesson.contents }))
-    expect(neighbours.getByRole("link", { name: /Sessions/u })).toHaveAttribute("href", "/courses/the-walkthrough/sessions")
-    expect(neighbours.queryByText(messages.lesson.previous)).toBeNull()
+    const panel = within(screen.getByRole("region", { name: "The walkthrough" }))
+    expect(panel.queryByRole("link")).toBeNull()
+    expect(panel.getByText("0 lessons")).toBeVisible()
   })
 
-  it("resumes a learner, saves the position at most every fifteen seconds and completes on the end", async () => {
-    const router = await renderCourses({ data: LEARNER_PAGE, path: "/courses/the-walkthrough/sessions" })
-    const invalidate = vi.spyOn(router.options.context.queryClient, "invalidateQueries")
-
-    expect(await screen.findByTestId("video-player")).toHaveAttribute("data-start", "42.5")
-    player.get("props")?.onProgress?.(50.4)
-    player.get("props")?.onProgress?.(55)
-    await waitFor(() => {
-      expect(save).toHaveBeenCalledOnce()
-    })
-    expect(save.mock.calls[0]?.[0]).toStrictEqual({ completed: false, lessonId: "lesson-sessions", positionMs: 50_400 })
-    expect(invalidate).not.toHaveBeenCalled()
-
-    coursePages.set("current", completeLesson(LEARNER_PAGE, "sessions"))
-    player.get("props")?.onEnded?.()
-    await waitFor(() => {
-      expect(invalidate).toHaveBeenCalledWith({ queryKey: COURSE_QUERY_KEYS.DETAIL })
-    })
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: LESSON_QUERY_KEYS.DETAIL })
-    expect(save.mock.calls[1]?.[0]).toStrictEqual({ completed: true, lessonId: "lesson-sessions", positionMs: 0 })
-    expect(await screen.findByText(messages.lesson.completed, { selector: "p" })).toBeVisible()
-  })
-
-  it("marks a lesson complete from the button", async () => {
-    const user = userEvent.setup({ delay: null })
-    await renderCourses({ data: LEARNER_PAGE, path: "/courses/the-walkthrough/sessions" })
-
-    await user.click(screen.getByRole("button", { name: messages.lesson.markComplete }))
-
-    await waitFor(() => {
-      expect(save).toHaveBeenCalledWith({ completed: true, lessonId: "lesson-sessions", positionMs: 0 }, expect.anything())
-    })
-  })
-
-  it("offers nothing to complete on a lesson that is being recorded", async () => {
-    await renderCourses({ data: LEARNER_PAGE, path: "/courses/the-walkthrough/coverage" })
-
-    expect(screen.getByText(messages.lesson.noVideo)).toBeVisible()
-    expect(screen.queryByRole("button", { name: messages.lesson.markComplete })).toBeNull()
-    const neighbours = within(screen.getByRole("navigation", { name: messages.lesson.contents }))
-    expect(neighbours.getByRole("link", { name: /Billing/u })).toHaveTextContent(messages.lesson.previous)
-  })
-
-  it("says a lesson is already completed", async () => {
-    await renderCourses({ data: LEARNER_PAGE, path: "/courses/the-walkthrough/boundaries" })
-
-    expect(screen.getByText(messages.lesson.completed, { selector: "p" })).toBeVisible()
-    expect(screen.queryByRole("button", { name: messages.lesson.markComplete })).toBeNull()
-  })
-
-  it.each([
-    {
-      cta: messages.lesson.locked.account.cta,
-      data: GUEST_PAGE,
-      href: withRedirect(ROUTES.SIGN_UP, "/courses/the-walkthrough/sessions"),
-      path: "sessions",
-    },
-    {
-      cta: withOffer(messages.lesson.locked.paid.cta),
-      data: GUEST_PAGE,
-      href: signedOutUnlock("/courses/the-walkthrough/billing"),
-      path: "billing",
-    },
-    {
-      cta: withOffer(messages.lesson.locked.paid.cta),
-      data: CUSTOMER_PAGE,
-      href: signedInUnlock("/courses/the-walkthrough/billing"),
-      path: "billing",
-    },
-  ])("locks $path and links to $href", async ({ cta, data, href, path }) => {
-    await renderCourses({ data, path: `/courses/the-walkthrough/${path}` })
-
-    expect(screen.queryByTestId("video-player")).toBeNull()
-    expect(screen.queryByRole("button", { name: messages.lesson.markComplete })).toBeNull()
-    expect(screen.getByRole("link", { name: cta })).toHaveAttribute("href", href)
-  })
-})
-
-describe("lesson locks", () => {
-  it("invites a guest to create a free account, and lets someone with an account sign in instead", async () => {
-    await renderCourses({ data: GUEST_PAGE, path: "/courses/the-walkthrough/sessions" })
-
-    const lock = within(screen.getByRole("heading", { name: messages.lesson.locked.account.title }).parentElement ?? document.body)
-    expect(lock.getByRole("link", { name: "Sign in" })).toHaveAttribute(
-      "href",
-      withRedirect(ROUTES.SIGN_IN, "/courses/the-walkthrough/sessions"),
-    )
-  })
-
-  it("prices the offer on a paid lock, and lets a guest who has it sign in instead", async () => {
-    await renderCourses({ data: GUEST_PAGE, path: "/courses/the-walkthrough/billing" })
-
-    const price = screen.getByText(withOffer(messages.lesson.locked.paid.price).replace("{price}", "$100"))
-    expect(price).toBeVisible()
-    expect(within(price.parentElement ?? document.body).getByRole("link", { name: "Sign in" })).toHaveAttribute(
-      "href",
-      withRedirect(ROUTES.SIGN_IN, "/courses/the-walkthrough/billing"),
-    )
-  })
-
-  it("asks a holder who has not confirmed their email to confirm it, and resends the link to their address", async () => {
-    const holder = { ...CUSTOMER_PAGE, viewer: { mustConfirmEmail: true, signedIn: true } }
-    const router = createCourseRouter({ catalogue: CATALOGUE, data: holder, locale: "en-US", path: "/courses/the-walkthrough/billing" })
-    const { queryClient } = router.options.context
-    const signedIn = createAuthSessionFixture()
-    const { user } = signedIn
-    queryClient.setQueryData(getCurrentSessionQuery.queryKey, unconfirmed())
-    routers.push(router)
-    render(
-      <QueryClientProvider client={queryClient}>
-        <IntlProvider locale="en-US" messages={{ ...getTestMessages("en-US"), ...COURSE_ACCESS_TEST_MESSAGES }} timeZone="UTC">
-          <RouterProvider router={router} />
-        </IntlProvider>
-      </QueryClientProvider>,
-    )
-    await act(() => router.load())
-
-    expect(screen.getByRole("heading", { name: messages.lesson.locked.confirm.title })).toBeVisible()
-    expect(screen.getByText(user.email, { selector: "strong" })).toBeVisible()
-    expect(screen.queryByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeNull()
-    expect(screen.getByRole("link", { name: messages.lesson.locked.confirm.change })).toHaveAttribute(
-      "href",
-      withRedirect(ROUTES.VERIFY_EMAIL, "/courses/the-walkthrough/billing"),
-    )
-    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: messages.lesson.locked.confirm.resend }))
-    await waitFor(() => {
-      expect(resendVerification).toHaveBeenCalledWith({ callbackURL: ROUTES.AUTH_CALLBACK, email: user.email }, expect.anything())
-    })
-
-    queryClient.setQueryData(getCurrentSessionQuery.queryKey, signedIn)
-    await waitFor(() => {
-      expect(
-        queryClient.getQueryState(lessonQuery({ courseSlug: COURSE_SLUG, lessonSlug: "billing", locale: "en-US" }).queryKey)?.isInvalidated,
-      ).toBe(true)
-    })
-  })
-
-  it("holds the player's place while the signed stream loads", async () => {
-    const router = createCourseRouter({
-      catalogue: CATALOGUE,
-      data: GUEST_PAGE,
-      locale: "en-US",
-      path: "/courses/the-walkthrough/boundaries",
-    })
-    const { queryClient } = router.options.context
-    queryClient.removeQueries({ queryKey: LESSON_QUERY_KEYS.PLAYBACK })
-    queryClient.setQueryDefaults(LESSON_QUERY_KEYS.PLAYBACK, { queryFn: () => new Promise<never>(() => {}) })
-    routers.push(router)
-    const { container } = render(
-      <QueryClientProvider client={queryClient}>
-        <IntlProvider locale="en-US" messages={{ ...getTestMessages("en-US"), ...COURSE_ACCESS_TEST_MESSAGES }} timeZone="UTC">
-          <RouterProvider router={router} />
-        </IntlProvider>
-      </QueryClientProvider>,
-    )
-    await act(() => router.load())
-
-    expect(screen.queryByTestId("video-player")).toBeNull()
-    expect(container.querySelector(".aspect-video[data-slot='skeleton']")).not.toBeNull()
-  })
-})
-
-describe("lesson page while recording, and its materials", () => {
-  it("shows a lesson on a placeholder video as being recorded and never plays it", async () => {
-    const recording = page({
-      lessons: [lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW, durationMs: null })],
-      viewer: { mustConfirmEmail: false, signedIn: false },
-    })
-    await renderCourses({ data: recording, path: "/courses/the-walkthrough/boundaries" })
-
-    expect(screen.getByText(messages.lesson.noVideo)).toBeVisible()
-    expect(screen.queryByTestId("video-player")).toBeNull()
-  })
-
-  it("says a locked lesson is being recorded instead of selling it", async () => {
-    await renderCourses({ path: "/courses/the-walkthrough/coverage" })
-
-    expect(screen.getByText(messages.lesson.noVideo)).toBeVisible()
-    expect(screen.queryByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeNull()
-  })
-
-  it("lists the materials, with downloads and links only for a lesson the viewer may open", async () => {
-    materials.set("boundaries", [
-      {
-        contentType: LESSON_ATTACHMENT_FILE_TYPES.pdf,
-        fileName: "slides.pdf",
-        href: "/media/downloads/a.b/attachment/slides.pdf",
-        id: "file",
-        kind: LESSON_ATTACHMENT_KIND.FILE,
-        sizeBytes: 2_500_000,
-        title: "Slides",
+  it("introduces the course with its cover, level, size, outcomes, prerequisites and what it includes", async () => {
+    const lessons = [
+      lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW, captioned: true }),
+      ...courseLessons(GUEST_PAGE).slice(1),
+    ]
+    const data = {
+      ...GUEST_PAGE,
+      chapters: [
+        { id: "chapter-one", lessons, summary: "Foundations in short.", title: "Foundations" },
+        { id: "chapter-two", lessons: [], summary: "", title: "Later" },
+      ],
+      course: {
+        ...GUEST_PAGE.course,
+        materials: 3,
+        outcomes: ["Ship it"],
+        prerequisites: ["Know React", "Laptop"],
+        slug: "code-walkthrough",
       },
-      { href: "/docs/features/courses", id: "link", kind: LESSON_ATTACHMENT_KIND.LINK, title: "Course docs" },
-    ])
-    materials.set("billing", [{ href: undefined, id: "locked", kind: LESSON_ATTACHMENT_KIND.LINK, title: "Pricing sheet" }])
-    await renderCourses({ path: "/courses/the-walkthrough/boundaries" })
+    }
+    await renderCourses({ data, path: "/courses/the-walkthrough" })
 
-    const list = within(screen.getByRole("region", { name: messages.lesson.materials.title }))
-    expect(list.getByRole("link", { name: "Slides" })).toHaveAttribute("href", "/media/downloads/a.b/attachment/slides.pdf")
-    expect(list.getByRole("link", { name: "Slides" })).toHaveAttribute("download", "slides.pdf")
-    expect(list.getByText("2.5 MB")).toBeVisible()
-    expect(list.getByRole("link", { name: "Course docs" })).toHaveAttribute("href", "/docs/features/courses")
+    expect(screen.getByText("Foundations in short.")).toBeVisible()
+    expect(screen.getByRole("img", { name: covers.codeWalkthrough })).toHaveAttribute("fetchpriority", "high")
+    expect(screen.getAllByText("3 of 4 lessons recorded")).toHaveLength(3)
+    const outcomes = screen.getByRole("heading", { level: 2, name: messages.course.outcomes }).nextElementSibling
+    expect(outcomes).toHaveTextContent("Ship it")
+    const prerequisites = screen.getByRole("heading", { level: 2, name: messages.course.prerequisites }).nextElementSibling
+    expect(prerequisites?.querySelectorAll("li")).toHaveLength(2)
+    const includes = screen.getByRole("list", { name: messages.course.includes.title })
+    const expected = ["4 lessons", "7 min of video", "1 free lesson", "3 downloads and links", messages.course.includes.captions]
+    expect(includes).toHaveTextContent([...expected, messages.course.includes.progress, `Level: ${messages.levels.beginner}`].join(""))
+  })
 
-    cleanup()
-    await renderCourses({ path: "/courses/the-walkthrough/billing" })
+  it("leaves out what a course does not have and the chapter heading of a course with one chapter", async () => {
+    const lessons = ["Boundaries", "Sessions", "Billing", "Coverage"].map((title) =>
+      lesson(title.toLowerCase(), title, { durationMs: null }),
+    )
+    const single = { ...GUEST_PAGE, chapters: [{ id: "only", lessons, summary: "Everything.", title: "Agents" }] }
+    await renderCourses({ data: single, path: "/courses/the-walkthrough" })
 
-    const locked = within(screen.getByRole("region", { name: messages.lesson.materials.title }))
-    expect(locked.getByText("Pricing sheet")).toBeVisible()
-    expect(locked.queryByRole("link")).toBeNull()
-    expect(locked.getByText(messages.lesson.materials.locked)).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: messages.course.outcomes })).toBeNull()
+    expect(screen.queryByRole("heading", { name: messages.course.prerequisites })).toBeNull()
+    expect(screen.getByRole("region", { name: messages.course.curriculum }).querySelector("h3")).toBeNull()
+    expect(screen.queryByText("Everything.")).toBeNull()
+    expect(screen.getByRole("link", { name: /Coverage/u })).toHaveTextContent("04")
+    const includes = within(screen.getByRole("list", { name: messages.course.includes.title }))
+    expect(includes.getAllByRole("listitem")).toHaveLength(4)
   })
 })
 

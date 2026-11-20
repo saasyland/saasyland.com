@@ -15,6 +15,16 @@ const PAID_MATERIALS = {
   title: "lesson materials › a Complete licence holder downloads a paid lesson's materials and sees a lesson being recorded",
 } as const
 
+const COMPLETE_LEARNER = {
+  spec: "course-pages.spec.ts",
+  title: "lesson pages for each viewer › a Complete learner sees what each kind of lesson offers",
+} as const
+
+const FRESH_COURSE = {
+  spec: "course-pages.spec.ts",
+  title: "a course created and renamed in the admin reaches the landing page and the catalogue without a deploy",
+} as const
+
 const CUSTOMER_KEPT_OUT = {
   spec: "videos.spec.ts",
   title: "video library › a customer cannot open the library or stream without a signed path",
@@ -83,9 +93,8 @@ export const COURSES_FLOWS = [
     area: FLOW_AREA.COURSES,
     id: "complete-watches-paid",
     outcome: "A Complete licence holder streams a paid lesson through a signed playlist",
-    reason: "The spec downloads the paid lesson's materials but never plays its video.",
-    status: FLOW_STATUS.MISSING,
-    tests: [PAID_MATERIALS],
+    status: FLOW_STATUS.COVERED,
+    tests: [COMPLETE_LEARNER],
   },
   {
     area: FLOW_AREA.COURSES,
@@ -187,9 +196,70 @@ export const COURSES_FLOWS = [
   {
     area: FLOW_AREA.COURSES,
     id: "course-showcase",
-    outcome: "The landing page's course block links the published course and its free lesson to their pages",
+    outcome:
+      "The landing page's course block lists each published course with its lessons by title: open lessons link to their pages, locked ones say what unlocks them, lessons being recorded are not links, and a link to the course counts the rest",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "landing.spec.ts", title: "landing page › course showcase links the published course and its free lesson to their pages" }],
+    tests: [{ spec: "landing.spec.ts", title: "landing page › course showcase lists real courses with their open and locked lessons" }],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "lesson-views",
+    outcome:
+      "A visitor, a customer without Complete and a Complete learner each get the player, the sign-in, the Complete offer or the recording notice that every kind of lesson promises them",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "course-pages.spec.ts", title: "lesson pages for each viewer › a visitor sees what each kind of lesson offers" },
+      { spec: "course-pages.spec.ts", title: "lesson pages for each viewer › a customer without Complete sees what each kind of lesson offers" },
+      COMPLETE_LEARNER,
+    ],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "course-curriculum",
+    outcome:
+      "The course page shows the level, the outcomes and the prerequisites, and lists each chapter as an accordion whose lessons say their access and whether they are being recorded",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-pages.spec.ts",
+        title: "course and lesson pages › the course page lists each chapter as an accordion with each lesson's access and recording",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "course-panel",
+    outcome: "On a wide screen the course panel stays below the header with the same gap while the visitor scrolls",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "course-pages.spec.ts", title: "course and lesson pages › the unlock panel sticks below the header with the same gap at every scroll" }],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "lesson-seek",
+    outcome: "A key moment or a transcript line moves the lesson's player to its time",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "course-pages.spec.ts", title: "course and lesson pages › key moments and transcript lines seek the player" }],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "lesson-contents",
+    outcome:
+      "The course contents sit beside the lesson on a wide screen, where the learner can hide and show them, and open in a sheet on a phone that closes on the next lesson",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "course-pages.spec.ts", title: "course and lesson pages › on a phone the course contents open in a sheet" },
+      {
+        spec: "course-pages.spec.ts",
+        title: "course and lesson pages › on a wide screen the course contents sit beside the lesson and can be hidden",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.I18N,
+    id: "courses-localized",
+    outcome: "The course page, its lessons and the landing page's course block read in the visitor's language",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "course-pages.spec.ts", title: "course and lesson pages › the course and its lessons read in Polish" }],
   },
   {
     area: FLOW_AREA.SECURITY,
@@ -282,8 +352,16 @@ export const COURSES_FLOWS = [
     area: FLOW_AREA.ADMIN_COURSES,
     id: "admin-update-course",
     outcome: "The admin edits a course's title, summary, level, outcomes and status, the course page follows, and unpublishing hides it",
-    reason: "No spec edits a course after creating it.",
+    reason: "The spec renames a course; none edits its summary, level, outcomes or status after creating it.",
     status: FLOW_STATUS.MISSING,
+    tests: [FRESH_COURSE],
+  },
+  {
+    area: FLOW_AREA.ADMIN_COURSES,
+    id: "admin-course-live",
+    outcome: "A course the admin publishes, moves to the top and renames shows its new title on the landing page and on /courses without a deploy",
+    status: FLOW_STATUS.COVERED,
+    tests: [FRESH_COURSE],
   },
   {
     area: FLOW_AREA.ADMIN_COURSES,

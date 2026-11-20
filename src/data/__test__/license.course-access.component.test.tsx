@@ -22,22 +22,26 @@ import { LockedLesson } from "~/src/presentation/components/custom/courses/locke
 
 import { ROUTES } from "~/src/routes"
 
-const CATALOGUE = [
-  {
-    durationMs: 0,
-    icon: COURSE_ICON.BOOK_OPEN,
-    id: "walkthrough",
-    kind: COURSE_KIND.COURSE,
-    lessons: 4,
-    level: COURSE_LEVEL.BEGINNER,
-    paid: 2,
-    previews: 1,
-    recorded: 0,
-    slug: "the-walkthrough",
-    summary: "How it works.",
-    title: "The walkthrough",
-  },
-]
+const CATALOGUE = {
+  courses: [
+    {
+      completed: 0,
+      durationMs: 0,
+      icon: COURSE_ICON.BOOK_OPEN,
+      id: "walkthrough",
+      kind: COURSE_KIND.COURSE,
+      lessons: 4,
+      level: COURSE_LEVEL.BEGINNER,
+      paid: 2,
+      previews: 1,
+      recorded: 0,
+      slug: "the-walkthrough",
+      summary: "How it works.",
+      title: "The walkthrough",
+    },
+  ],
+  viewer: { mustConfirmEmail: false, signedIn: true, unlocked: false },
+}
 
 const Names = (): JSX.Element => {
   const { holders, offer } = useCourseAccessNames()

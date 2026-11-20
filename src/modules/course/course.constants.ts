@@ -61,7 +61,8 @@ export const COURSE_STATUSES = [COURSE_STATUS.DRAFT, COURSE_STATUS.PUBLISHED] as
 export const COURSE_STALE_MS = 60_000
 
 export const COURSE_SHOWCASE = {
-  COURSES: 2,
+  COURSES: 5,
+  LESSONS: 5,
 } as const
 
 export const COURSE_QUERY_KEYS = {

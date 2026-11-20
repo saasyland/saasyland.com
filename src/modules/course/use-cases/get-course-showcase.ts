@@ -11,9 +11,11 @@ import { COURSE_QUERY_KEYS, COURSE_SHOWCASE, COURSE_STALE_MS, COURSE_STATUS } fr
 import { course } from "~/src/modules/course/course.schema"
 import type { Course } from "~/src/modules/course/course.types"
 import { courseZodSchemas } from "~/src/modules/course/course.zod"
-import { LESSON_ACCESS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import { hasLessonAccess } from "~/src/modules/lesson/lesson.access"
+import { LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { playableVideo } from "~/src/modules/lesson/lesson.playable"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
+import { resolveViewer } from "~/src/modules/lesson/lesson.viewer"
 import { video } from "~/src/modules/video/video.schema"
 
 const readCourses = () =>
@@ -43,23 +45,27 @@ export const getCourseShowcase = createServerFn({ method: "GET" })
   .middleware([withRequest])
   .validator((input: Course["getCourseShowcase"]) => courseZodSchemas.getCourseShowcase.parse(input))
   .handler(async ({ data: { locale } }) => {
-    const courses = await readCourses()
+    const [courses, viewer] = await Promise.all([readCourses(), resolveViewer()])
     const lessons = await readLessons(courses.map(({ id }) => id))
     const lessonsByCourse = Map.groupBy(lessons, (entry) => entry.courseId)
 
     return courses.map((entry) => {
       const own = lessonsByCourse.get(entry.id) ?? []
-      const freeLesson = own.find(({ access, durationMs }) => access === LESSON_ACCESS.PREVIEW && durationMs !== null)
 
       return {
         durationMs: own.reduce((total, { durationMs }) => total + (durationMs ?? 0), 0),
-        freeLesson: freeLesson && { slug: freeLesson.slug, title: localize(freeLesson.title, locale) },
         icon: entry.icon,
         id: entry.id,
         kind: entry.kind,
         lessonCount: own.length,
+        lessons: own.slice(0, COURSE_SHOWCASE.LESSONS).map(({ access, durationMs, slug, title }) => ({
+          access,
+          locked: !hasLessonAccess(access, viewer),
+          recording: durationMs === null,
+          slug,
+          title: localize(title, locale),
+        })),
         level: entry.level,
-        previewCount: own.filter(({ access }) => access === LESSON_ACCESS.PREVIEW).length,
         recordedCount: own.filter(({ durationMs }) => durationMs !== null).length,
         slug: entry.slug,
         title: localize(entry.title, locale),
@@ -69,7 +75,6 @@ export const getCourseShowcase = createServerFn({ method: "GET" })
 
 export const courseShowcaseQuery = (input: Course["getCourseShowcase"]) =>
   queryOptions({
-    meta: { public: true },
     queryFn: () => getCourseShowcase({ data: input }),
     queryKey: [...COURSE_QUERY_KEYS.SHOWCASE, input.locale],
     staleTime: COURSE_STALE_MS,

@@ -26,16 +26,18 @@ import { ResendLinkButton, ResendLinkStatus } from "~/src/presentation/component
 
 import { ROUTES } from "~/src/routes"
 
-const CTA_CLASSNAME = cn("mt-6", CTA_CLASSES.PRIMARY)
 const SIGN_IN_CLASSNAME =
   "font-medium text-foreground underline underline-offset-4 transition-colors duration-200 ease-exp hover:text-muted-foreground"
-const PANEL_CLASSNAME =
-  "flex aspect-video w-full flex-col items-center justify-center rounded-lg border border-border bg-radial from-ring/10 to-card to-70% px-6 text-center max-sm:aspect-auto max-sm:py-10"
+const SIGN_IN_LINE_CLASSNAME = "text-body-sm text-muted-foreground"
+const PANEL_CLASSNAME = "flex flex-col items-center px-6 text-center"
+const BADGE_CLASSNAME = "flex size-11 items-center justify-center rounded-full border border-ring/40 bg-background/70 backdrop-blur-sm"
 
 const ADDRESS_TAGS = { address: (chunks: ReactNode) => <strong className="font-medium wrap-break-word text-foreground">{chunks}</strong> }
 
+type Access = Course["pageLesson"]["access"]
+
 interface UnlockLinkProps {
-  readonly access: Course["pageLesson"]["access"]
+  readonly access: Access
   readonly signedIn: boolean
 }
 
@@ -43,21 +45,37 @@ interface LockedLessonProps extends UnlockLinkProps {
   readonly mustConfirmEmail: boolean
 }
 
-const SignInInstead = ({ message }: { readonly message: string }): JSX.Element => {
-  const t = useTranslations("pages.courses.lesson.locked")
+const SignInLink = ({ children }: { readonly children: ReactNode }): JSX.Element => {
   const redirect = useRouterState({ select: ({ location }) => location.publicHref })
 
   return (
-    <p className="mt-4 text-body-sm text-muted-foreground">
-      {t.rich(message, {
-        link: (chunks) => (
-          <Link className={SIGN_IN_CLASSNAME} search={{ redirect }} to={ROUTES.SIGN_IN}>
-            {chunks}
-          </Link>
-        ),
-      })}
-    </p>
+    <Link className={SIGN_IN_CLASSNAME} search={{ redirect }} to={ROUTES.SIGN_IN}>
+      {children}
+    </Link>
   )
+}
+
+const signInLink = (chunks: ReactNode): JSX.Element => <SignInLink>{chunks}</SignInLink>
+
+export const SignInInstead = ({
+  access,
+  className,
+}: {
+  readonly access: Access
+  readonly className?: string
+}): JSX.Element | JSX.Element[] => {
+  const tName = useTranslations()
+  const t = useTranslations("pages.courses.lesson.locked")
+
+  if (access === LESSON_ACCESS.ACCOUNT) {
+    return <p className={cn(SIGN_IN_LINE_CLASSNAME, className)}>{t.rich("account.signIn", { link: signInLink })}</p>
+  }
+
+  return COURSE_ACCESS_GRANTS.map(({ key, offer }) => (
+    <p className={cn(SIGN_IN_LINE_CLASSNAME, className)} key={key}>
+      {t.rich("paid.signIn", { link: signInLink, offer: tName(offer) })}
+    </p>
+  ))
 }
 
 export const UnlockLink = ({ access, signedIn }: UnlockLinkProps): JSX.Element | JSX.Element[] => {
@@ -68,44 +86,42 @@ export const UnlockLink = ({ access, signedIn }: UnlockLinkProps): JSX.Element |
 
   if (access === LESSON_ACCESS.ACCOUNT) {
     return (
-      <>
-        <Link className={CTA_CLASSNAME} search={{ redirect }} to={ROUTES.SIGN_UP}>
-          {t("account.cta")}
-        </Link>
-        <SignInInstead message="account.signIn" />
-      </>
+      <Link className={CTA_CLASSES.PRIMARY} search={{ redirect }} to={ROUTES.SIGN_UP}>
+        {t("account.cta")}
+      </Link>
     )
   }
 
   return COURSE_ACCESS_GRANTS.map(({ key, offer, unlock }) => {
     const purchase = unlock(redirect)
+    const label = t("paid.cta", { offer: tName(offer) })
 
     if (signedIn) {
       return (
-        <Link className={CTA_CLASSNAME} key={key} {...purchase}>
-          {t("paid.cta", { offer: tName(offer) })}
+        <Link className={CTA_CLASSES.PRIMARY} key={key} {...purchase}>
+          {label}
         </Link>
       )
     }
 
     return (
-      <div className="flex flex-col items-center" key={key}>
-        <Link className={CTA_CLASSNAME} search={{ redirect: router.buildLocation(purchase).publicHref }} to={ROUTES.SIGN_UP}>
-          {t("paid.cta", { offer: tName(offer) })}
-        </Link>
-        <p className="mt-4 text-body-sm text-muted-foreground">
-          {t.rich("paid.signIn", {
-            link: (chunks) => (
-              <Link className={SIGN_IN_CLASSNAME} search={{ redirect }} to={ROUTES.SIGN_IN}>
-                {chunks}
-              </Link>
-            ),
-            offer: tName(offer),
-          })}
-        </p>
-      </div>
+      <Link className={CTA_CLASSES.PRIMARY} key={key} search={{ redirect: router.buildLocation(purchase).publicHref }} to={ROUTES.SIGN_UP}>
+        {label}
+      </Link>
     )
   })
+}
+
+export const ConfirmEmailLink = (): JSX.Element => {
+  const t = useTranslations("pages.courses.lesson.locked.confirm")
+  const redirect = useRouterState({ select: ({ location }) => location.publicHref })
+
+  return (
+    <Link className={CTA_CLASSES.PRIMARY} search={{ redirect }} to={ROUTES.VERIFY_EMAIL}>
+      <MailWarning aria-hidden className="size-3.5" strokeWidth={2.25} />
+      {t("title")}
+    </Link>
+  )
 }
 
 const OfferPrices = (): JSX.Element[] => {
@@ -137,7 +153,7 @@ const ConfirmEmailToWatch = (): JSX.Element => {
 
   return (
     <div className={PANEL_CLASSNAME}>
-      <span aria-hidden className="flex size-11 items-center justify-center rounded-full border border-ring/40 bg-ring/10">
+      <span aria-hidden className={BADGE_CLASSNAME}>
         <MailWarning className="size-4 text-ring" strokeWidth={2.25} />
       </span>
       <h2 className="mt-5 text-title text-balance text-foreground">{t("title")}</h2>
@@ -179,13 +195,16 @@ export const LockedLesson = ({ access, mustConfirmEmail, signedIn }: LockedLesso
 
   return (
     <div className={PANEL_CLASSNAME}>
-      <span aria-hidden className="flex size-11 items-center justify-center rounded-full border border-ring/40 bg-ring/10">
+      <span aria-hidden className={BADGE_CLASSNAME}>
         <Lock className="size-4 text-ring" strokeWidth={2.25} />
       </span>
       <h2 className="mt-5 text-title text-balance text-foreground">{t(`${reason}.title`, { offer })}</h2>
       <p className="mt-2 max-w-[46ch] text-body-sm text-pretty text-muted-foreground">{t(`${reason}.body`, { offer })}</p>
       {reason === LESSON_ACCESS.PAID && <OfferPrices />}
-      <UnlockLink access={access} signedIn={signedIn} />
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        <UnlockLink access={access} signedIn={signedIn} />
+      </div>
+      {!signedIn && <SignInInstead access={reason} className="mt-4" />}
     </div>
   )
 }

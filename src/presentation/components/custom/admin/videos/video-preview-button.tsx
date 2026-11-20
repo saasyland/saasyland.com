@@ -1,6 +1,7 @@
 import { type JSX, Suspense, lazy } from "react"
 
 import { useQuery } from "@tanstack/react-query"
+import { VideoPlayer as Player } from "@videojs/react/video"
 import { Play } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
@@ -26,9 +27,11 @@ const VideoPreview = ({ title, videoId }: { readonly title: string; readonly vid
   }
 
   return (
-    <Suspense fallback={<PlayerPending />}>
-      <VideoPlayer playback={data} sizes={PLAYER_SIZES} title={title} />
-    </Suspense>
+    <Player poster={data.poster} title={title}>
+      <Suspense fallback={<PlayerPending />}>
+        <VideoPlayer playback={data} sizes={PLAYER_SIZES} />
+      </Suspense>
+    </Player>
   )
 }
 

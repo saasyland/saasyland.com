@@ -10,24 +10,21 @@ import { polar } from "~/src/integrations/polar/polar.config"
 import { POLAR_CHECKOUT_ID_PLACEHOLDER } from "~/src/integrations/polar/polar.constants"
 import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
-import {
-  LICENSE_CHECKOUT_FIELD,
-  LICENSE_CHECKOUT_METADATA,
-  LICENSE_MUTATION_KEYS,
-  LICENSE_STATUS,
-} from "~/src/modules/license/license.constants"
+import { LICENSE_CHECKOUT_METADATA, LICENSE_MUTATION_KEYS, LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { pppDiscountId } from "~/src/modules/license/license.ppp"
 import type { License } from "~/src/modules/license/license.types"
 import { POLAR_PRODUCT_IDS } from "~/src/modules/license/license.utils"
 import { licenseZodSchemas } from "~/src/modules/license/license.zod"
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 
+import { polarCheckoutLanguage } from "~/src/data/polar"
+
 import { ROUTES } from "~/src/routes"
 
 export const startCheckout = createServerFn({ method: "POST" })
   .middleware([authorized()])
   .validator((input: License["startCheckout"]) => licenseZodSchemas.startCheckout.parse(input))
-  .handler(async ({ context, data: { locale, redirect, tier, withdrawalConsent } }) => {
+  .handler(async ({ context, data: { locale, redirect, returnPath, tier } }) => {
     const { user } = context.auth
     const current = await getLicense(user.id)
     if (current?.status === LICENSE_STATUS.ACTIVE) {
@@ -35,20 +32,22 @@ export const startCheckout = createServerFn({ method: "POST" })
     }
 
     const discountId = await pppDiscountId(context.requestHeaders, POLAR_PRODUCT_IDS[tier])
+    const { url: requestUrl } = getRequest()
     const returnTo = redirect === undefined ? "" : `&${new URLSearchParams({ redirect }).toString()}`
     const successUrl = new URL(
       `${localizePathname({ locale, pathname: ROUTES.APP })}?checkoutId=${POLAR_CHECKOUT_ID_PLACEHOLDER}${returnTo}`,
-      getRequest().url,
+      requestUrl,
     )
     const { url } = await polar.checkouts.create({
       allow_discount_codes: false,
-      custom_field_data: { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: withdrawalConsent },
       customer_email: user.email,
       customer_ip_address: getIP(context.requestHeaders, auth.options),
       customer_name: user.name,
       external_customer_id: user.id,
+      locale: polarCheckoutLanguage(locale),
       metadata: { ...affonsoReferralMetadata(context.requestHeaders), [LICENSE_CHECKOUT_METADATA.LOCALE]: locale },
       products: [POLAR_PRODUCT_IDS[tier]],
+      return_url: new URL(returnPath, requestUrl).toString(),
       success_url: successUrl.toString(),
       ...(discountId === undefined ? {} : { discount_id: discountId }),
     })

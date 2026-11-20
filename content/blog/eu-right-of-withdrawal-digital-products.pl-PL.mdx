@@ -29,11 +29,12 @@ faq:
   - question: Czy potrzebuję dwóch pól wyboru, jednego na zgodę i drugiego na przyjęcie do wiadomości?
     answer: >-
       Dyrektywa wymaga obu oświadczeń, a nie określonej liczby pól. saasyland.com prosi o oba w
-      jednym obowiązkowym polu wyboru, które na początku jest puste, we własnym kroku przed
-      płatnością, z etykietą zawierającą zarówno prośbę, jak i przyjęcie do wiadomości; niektórzy
-      sprzedawcy stosują dwa pola, aby wyraźnie je rozdzielić. Niemieckie sądy wymagały aktywnego
-      zaznaczenia, odrębnego od samego zakupu, więc zrób ze zgody osobny krok i poproś prawnika o
-      potwierdzenie tego rozwiązania na rynkach, na których sprzedajesz.
+      jednym obowiązkowym polu wyboru, które na początku jest puste, na stronie płatności Polar tuż
+      przed tym, jak kupujący zapłaci, z etykietą zawierającą zarówno prośbę, jak i przyjęcie do
+      wiadomości; niektórzy sprzedawcy stosują dwa pola, aby wyraźnie je rozdzielić. Niemieckie sądy
+      wymagały aktywnego zaznaczenia, odrębnego od samego zakupu, więc zrób ze zgody osobną czynność,
+      oddzieloną od przycisku zakupu, i poproś prawnika o potwierdzenie tego rozwiązania na rynkach,
+      na których sprzedajesz.
   - question: Czy przy produktach cyfrowych potrzebuję unijnego przycisku odstąpienia od umowy?
     answer: >-
       Tam, gdzie przysługuje prawo odstąpienia od umowy, tak. Art. 11a dyrektywy, stosowany od 19
@@ -63,9 +64,9 @@ faq:
     answer: >-
       Zaplanuj ją. Warunki Polar dla kupujących czynią Polar sprzedawcą w tej transakcji, a Ty
       udzielasz licencji na produkt i go dostarczasz, przy czym chwila dostarczenia zależy od Twojego
-      produktu. saasyland.com zbiera zgodę we własnym kroku przed płatnością, zleca Polar zapisanie
-      jej w zamówieniu i samo wysyła potwierdzenie. To, która strona jest przedsiębiorcą w rozumieniu
-      tych przepisów, to pytanie do Twojego prawnika.
+      produktu. saasyland.com prosi kupującego o wyrażenie zgody w obowiązkowym polu w formularzu
+      płatności Polar, zleca Polar zapisanie jej w zamówieniu i samo wysyła potwierdzenie. To, która
+      strona jest przedsiębiorcą w rozumieniu tych przepisów, to pytanie do Twojego prawnika.
   - question: Czy po wygaśnięciu prawa odstąpienia od umowy nadal mogę oferować zwroty?
     answer: >-
       Tak, i dzięki temu łatwiej wyrazić zgodę. saasyland.com zwraca pełną kwotę za zakup w ciągu
@@ -179,17 +180,15 @@ Polskie prawo pokazuje też, jak tekst krajowy może wyjść poza dyrektywę. Zg
 
 saasyland.com sprzedaje licencje na CLI SaaSy Land przez Polar, formalnego sprzedawcę (merchant of record). Warunki Polar dla kupujących czynią Polar sprzedawcą w tej transakcji, a SaaSy Land udziela licencji na produkt i go dostarcza: dostarczanie rozpoczyna się z chwilą wydania klucza licencyjnego, zaraz po zapłacie. Opisany niżej proces zbiera, zapisuje i potwierdza zgodę bez względu na to, który z nich jest przedsiębiorcą, a każdy krok znajdziesz w [publicznym kodzie źródłowym](https://github.com/saasyland/saasyland.com) na licencji MIT.
 
-### 1. Krok zgody w naszym własnym procesie zakupu, w języku kupującego
+### 1. Jedna zgoda, w formularzu płatności Polar
 
-Przyciski zakupu nie otwierają Polar. Otwierają okno dialogowe na saasyland.com, w tym spośród <RepositoryFact name="languages" /> języków strony, w którym kupujący ją czyta. Okno informuje, że pakiet jest treścią cyfrową dostarczaną od razu po zapłacie, i prosi o zaznaczenie jednego obowiązkowego pola wyboru. Po polsku jego etykieta brzmi: „Proszę SaaSy Land o natychmiastowe dostarczenie pakietu Podstawa i przyjmuję do wiadomości, że tracę <RepositoryFact name="refundWithdrawalDays" />-dniowe prawo odstąpienia od umowy z chwilą rozpoczęcia dostarczania, czyli wydania mojego klucza licencyjnego.” Pole jest na początku puste, a kliknięcie **Dalej do płatności** przy pustym polu jedynie oznacza je jako nieprawidłowe.
+Formularz płatności Polar przyjmuje pola niestandardowe, a każdy produkt licencyjny wymaga pola wyboru o slugu <RepositoryFact name="licenseWithdrawalConsentField" />. Jego etykieta wyraża prośbę i przyjęcie do wiadomości: „I ask SaaSy Land to supply my purchase immediately, and I acknowledge that I lose my <RepositoryFact name="refundWithdrawalDays" />-day right of withdrawal once supply begins, when my licence key is issued.” [`start-checkout.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/use-cases/start-checkout.ts) nie przesyła żadnej wartości tego pola, więc pole jest na początku puste i zaznaczyć je może tylko kupujący. Gdy kupujący płaci, Polar sprawdza pola względem produktu i w przypadku obowiązkowego pola wyboru akceptuje wyłącznie zaznaczone pole, więc żadna płatność nie przejdzie bez zgody, a Polar zapisuje zaznaczone pole w zamówieniu. `polar:verify` kończy się błędem, dopóki którykolwiek produkt licencyjny nie wymaga tego pola.
 
-Serwer egzekwuje tę samą zasadę. Schemat wejścia `startCheckout` akceptuje `withdrawalConsent` tylko wtedy, gdy ma wartość `true`, więc bez zgody nie da się utworzyć żadnej płatności, cokolwiek wyśle przeglądarka. Okno dialogowe to [`checkout-consent.tsx`](https://github.com/saasyland/saasyland.com/blob/main/src/presentation/components/custom/app/checkout-consent.tsx), a schemat jest w [`license.zod.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.zod.ts).
+O zgodę prosi się tylko raz, na stronie, na której kupujący płaci. Pole zaznaczone tam przez kupującego tuż przed zapłatą to najczytelniejszy zapis wyraźnej zgody, a między kupującym a płatnością nie stoi żaden dodatkowy krok.
 
-### 2. Ta sama zgoda w formularzu płatności Polar
+### 2. Te same warunki wcześniej, w języku kupującego
 
-Formularz płatności Polar przyjmuje pola niestandardowe, a każdy produkt licencyjny wymaga pola wyboru o slugu <RepositoryFact name="licenseWithdrawalConsentField" />, które po angielsku wyraża tę samą prośbę i to samo przyjęcie do wiadomości. [`start-checkout.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/use-cases/start-checkout.ts) przesyła właśnie udzieloną przez kupującego zgodę jako wartość pola, więc Polar pokazuje pole już zaznaczone z wyboru samego kupującego i zapisuje je w zamówieniu. `polar:verify` kończy się błędem, dopóki którykolwiek produkt licencyjny nie wymaga tego pola.
-
-Po co pytać dwa razy? Bo zapis powinien znajdować się przy zamówieniu sprzedawcy, a formularz płatności Polar nie wyświetli tej treści w każdym języku: pole niestandardowe ma jedną etykietę, a formularz Polar dostosowuje się do języka przeglądarki kupującego w wersji beta obejmującej 15 języków. Pytając najpierw na naszej własnej stronie, przedstawiamy kupującemu zgodę w języku, który sam wybrał.
+Pole niestandardowe ma jedną etykietę, więc pole wyboru na stronie Polar jest po angielsku. Strona przekazuje te warunki wcześniej, w tym spośród swoich <RepositoryFact name="languages" /> języków, w którym kupujący ją czyta: pod przyciskami zakupu komunikat informuje, że Polar jest formalnym sprzedawcą i prosi o zgodę na stronie płatności, że zaznaczenie pola kończy prawo odstąpienia od umowy z chwilą wydania klucza licencyjnego oraz do kiedy nadal możliwy jest pełny zwrot pieniędzy. Przyciski zakupu otwierają następnie od razu formularz płatności Polar, w języku kupującego, jeśli Polar tłumaczy na niego swój formularz płatności, a gdy strona płatności otworzy się po angielsku, komunikat o tym uprzedza. Komunikat to `CheckoutNotice` w [`checkout.tsx`](https://github.com/saasyland/saasyland.com/blob/main/src/presentation/components/custom/app/checkout.tsx).
 
 ### 3. E-mail z potwierdzeniem, czyli trwały nośnik
 
@@ -246,7 +245,7 @@ saasyland.com nie ma funkcji odstąpienia od umowy w rodzaju opisanym w art. 11a
 
 1. Ustal, kiedy rozpoczyna się dostarczanie Twojego produktu, i zapisz to w swoich warunkach.
 2. Przed płatnością poproś o zgodę i przyjęcie do wiadomości za pomocą obowiązkowego pola wyboru, które na początku jest puste, w języku kupującego.
-3. Odrzucaj płatność na serwerze, gdy brakuje zgody.
+3. Spraw, by bez zgody nie dało się zapłacić, i egzekwuj to tam, gdzie przyjmowana jest płatność, a nie tylko na stronie.
 4. Zapisuj zgodę razem z zamówieniem, a także chwilę dostarczenia i pierwszego użycia.
 5. Wyślij e-mail z potwierdzeniem, który zawiera zgodę, przyjęcie do wiadomości i szczegóły zamówienia.
 6. Gdy brakuje zgody, zachowaj pełne 14 dni i pamiętaj, że kupujący nie ponosi wtedy żadnych kosztów.

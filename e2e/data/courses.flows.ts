@@ -152,6 +152,18 @@ export const COURSES_FLOWS = [
   },
   {
     area: FLOW_AREA.COURSES,
+    id: "courses-in-workspace",
+    outcome: "The workspace sidebar links to the courses and shows how many of the published lessons the customer has finished",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-access.spec.ts",
+        title: "course access through a licence › the workspace sidebar links to the courses with the lessons the customer has finished",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.COURSES,
     id: "lesson-progress",
     outcome: "A signed-in learner marks a lesson complete, and the course shows it as complete after a reload",
     reason: "The spec finds the Mark as complete button but never presses it.",

@@ -17,6 +17,7 @@ export interface PolarProduct {
   readonly name: string
   readonly price: { readonly amount: number; readonly currency: string }
   readonly recurringInterval: models.RecurringInterval | null
+  readonly requiredCheckboxes?: readonly string[]
 }
 
 export interface PolarDiscount {

@@ -11,9 +11,12 @@ import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current
 import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 
 import { cn } from "~/src/lib/cn"
+import { triggerConfetti } from "~/src/lib/confetti"
 
 import { Button, buttonVariants } from "~/src/presentation/components/shadcn/button"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
+
+import { GetStarted } from "~/src/presentation/components/custom/app/get-started"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 
@@ -67,20 +70,31 @@ export const CheckoutActivation = ({ checkoutId }: Readonly<{ checkoutId: string
     refetchInterval: ({ state }) => (isActive(state.data?.license) || hasTimedOut ? false : ACTIVATION_POLL_MS),
   })
 
+  const hasActivated = isActive(data.license)
+
+  useEffect(() => {
+    if (hasActivated) {
+      triggerConfetti()
+    }
+  }, [hasActivated])
+
   if (isActive(data.license)) {
     return (
-      <ActivationPanel icon={<CircleCheck className="size-4.5" strokeWidth={2.25} />}>
-        <h2 className="text-title text-balance text-foreground">{t("active.title")}</h2>
-        <p className="max-w-[60ch] text-body-sm text-pretty text-muted-foreground">
-          {t("active.body", { tier: tTier(`tiers.${data.license.tier}.name`) })}
-        </p>
-        {redirect !== undefined && (
-          <a className={cn(buttonVariants({ size: "lg" }), "mt-3 gap-2")} href={redirect}>
-            {t("active.continue")}
-            <ArrowRight aria-hidden className="size-4" />
-          </a>
-        )}
-      </ActivationPanel>
+      <div className="flex flex-col gap-6">
+        <ActivationPanel icon={<CircleCheck className="size-4.5" strokeWidth={2.25} />}>
+          <h2 className="text-title text-balance text-foreground">{t("active.title")}</h2>
+          <p className="max-w-[60ch] text-body-sm text-pretty text-muted-foreground">
+            {t("active.body", { tier: tTier(`tiers.${data.license.tier}.name`) })}
+          </p>
+          {redirect !== undefined && (
+            <a className={cn(buttonVariants({ size: "lg" }), "mt-3 gap-2")} href={redirect}>
+              {t("active.continue")}
+              <ArrowRight aria-hidden className="size-4" />
+            </a>
+          )}
+        </ActivationPanel>
+        <GetStarted />
+      </div>
     )
   }
 

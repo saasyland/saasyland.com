@@ -243,17 +243,79 @@ const webhookEndpoint = (url: string, fields: Partial<models.WebhookEndpoint> = 
   ...fields,
 })
 
+const organization = (featureSettings: models.Organization["feature_settings"]): models.Organization => ({
+  account_id: JSON_NULL,
+  allow_customer_updates: true,
+  avatar_url: JSON_NULL,
+  capabilities: {
+    api_access: true,
+    checkout_payments: true,
+    dashboard_access: true,
+    payouts: true,
+    refunds: true,
+    subscription_renewals: true,
+  },
+  created_at: CREATED_AT,
+  customer_email_settings: {
+    order_confirmation: true,
+    payment_method_expiration_reminder: true,
+    subscription_cancellation: true,
+    subscription_confirmation: true,
+    subscription_cycled: true,
+    subscription_cycled_after_trial: true,
+    subscription_past_due: true,
+    subscription_paused: true,
+    subscription_renewal_reminder: true,
+    subscription_resumed: true,
+    subscription_revoked: true,
+    subscription_trial_conversion_reminder: true,
+    subscription_uncanceled: true,
+    subscription_updated: true,
+  },
+  customer_portal_settings: { subscription: { update_plan: true, update_seats: true }, usage: { show: true } },
+  default_presentment_currency: DEFAULT_CURRENCY_CODE.toLowerCase(),
+  default_tax_behavior: "location",
+  details_submitted_at: CREATED_AT,
+  dispute_settings: { auto_accept_below_amount: JSON_NULL },
+  email: JSON_NULL,
+  embed_hosts: [],
+  feature_settings: featureSettings,
+  id: ORGANIZATION_ID,
+  modified_at: JSON_NULL,
+  name: "SaaSy Land",
+  onboarding_resubmission_requested_at: JSON_NULL,
+  payout_account_id: JSON_NULL,
+  proration_behavior: "prorate",
+  slug: "saasyland",
+  socials: [],
+  sso_enforced: false,
+  status: "active",
+  subscription_settings: {
+    allow_customer_updates: true,
+    allow_multiple_subscriptions: false,
+    benefit_revocation_grace_period: 0,
+    prevent_trial_abuse: false,
+    proration_behavior: "prorate",
+  },
+  website: JSON_NULL,
+})
+
 interface PolarOrganisation {
   readonly discounts: readonly models.Discount[]
   readonly endpoints: readonly models.WebhookEndpoint[]
+  readonly organization: models.Organization
   readonly products: readonly models.Product[]
 }
 
 const MATCHING_ORGANISATION: PolarOrganisation = {
   discounts: PPP_PERCENTS_OFF.map((percentOff) => regionalDiscount(percentOff)),
   endpoints: [webhookEndpoint(PREVIEW_WEBHOOK)],
+  organization: organization({ checkout_localization_enabled: true }),
   products: LICENSE_TIERS.map((tier) => product(tier)),
 }
+
+const LOCALIZATION_OFF =
+  "Checkout localization is off for the organisation, so Polar opens every checkout in English whatever locale startCheckout sends (POLAR_CHECKOUT_LANGUAGES); turn it on."
 
 const fetchMock = vi.fn<(input: string, init: RequestInit) => Promise<Response>>()
 
@@ -266,8 +328,10 @@ const paginate = (items: readonly unknown[], url: URL): Response => {
   })
 }
 
+const ORGANIZATION_PATH = `/v1/organizations/${ORGANIZATION_ID}`
+
 const serve = (organisation: Partial<PolarOrganisation> = {}, refusals: Readonly<Record<string, Response>> = {}): void => {
-  const { discounts, endpoints, products } = { ...MATCHING_ORGANISATION, ...organisation }
+  const { discounts, endpoints, organization: settings, products } = { ...MATCHING_ORGANISATION, ...organisation }
   const lists: Readonly<Record<string, readonly unknown[]>> = {
     "/v1/discounts/": discounts,
     "/v1/products/": products,
@@ -281,6 +345,10 @@ const serve = (organisation: Partial<PolarOrganisation> = {}, refusals: Readonly
 
     if (refusal !== undefined) {
       return Promise.resolve(refusal.clone())
+    }
+
+    if (url.pathname === ORGANIZATION_PATH) {
+      return Promise.resolve(Response.json(settings))
     }
 
     if (items === undefined) {
@@ -330,13 +398,19 @@ describe("verifyPolar on an organisation that matches the code", () => {
     serve()
 
     await expect(verify(ENVIRONMENT.PREVIEW)).resolves.toBe(
-      `Polar sandbox matches the code for preview: 3 products with their prices, licence keys and consent field; 4 regional discounts; the webhook at ${PREVIEW_WEBHOOK}.`,
+      `Polar sandbox matches the code for preview: checkout localization; 3 products with their prices, licence keys and consent field; 4 regional discounts; the webhook at ${PREVIEW_WEBHOOK}.`,
     )
     expect(new Set(requestedUrls().map(({ host, pathname }) => `${host}${pathname}`))).toStrictEqual(
-      new Set(["sandbox-api.polar.sh/v1/products/", "sandbox-api.polar.sh/v1/discounts/", "sandbox-api.polar.sh/v1/webhooks/endpoints"]),
+      new Set([
+        "sandbox-api.polar.sh/v1/products/",
+        "sandbox-api.polar.sh/v1/discounts/",
+        "sandbox-api.polar.sh/v1/webhooks/endpoints",
+        `sandbox-api.polar.sh${ORGANIZATION_PATH}`,
+      ]),
     )
-    expect(requestedUrls().every(({ searchParams }) => searchParams.get("organization_id") === ORGANIZATION_ID)).toBe(true)
-    expect(requestedUrls().every(({ searchParams }) => searchParams.get("limit") === "100")).toBe(true)
+    const listings = requestedUrls().filter(({ pathname }) => pathname !== ORGANIZATION_PATH)
+    expect(listings.every(({ searchParams }) => searchParams.get("organization_id") === ORGANIZATION_ID)).toBe(true)
+    expect(listings.every(({ searchParams }) => searchParams.get("limit") === "100")).toBe(true)
     expect(fetchMock.mock.calls.every(([, { method }]) => method === "GET")).toBe(true)
     expect(fetchMock.mock.calls.every(([, { headers }]) => new Headers(headers).get("Authorization") === `Bearer ${ACCESS_TOKEN}`)).toBe(
       true,
@@ -356,7 +430,7 @@ describe("verifyPolar on an organisation that matches the code", () => {
     serve({ endpoints: [webhookEndpoint(PRODUCTION_WEBHOOK)] })
 
     await expect(verify(ENVIRONMENT.PRODUCTION)).resolves.toBe(
-      `Polar production matches the code for production: 3 products with their prices, licence keys and consent field; 4 regional discounts; the webhook at ${PRODUCTION_WEBHOOK}.`,
+      `Polar production matches the code for production: checkout localization; 3 products with their prices, licence keys and consent field; 4 regional discounts; the webhook at ${PRODUCTION_WEBHOOK}.`,
     )
     expect(requestedUrls().every(({ host }) => host === SERVER_HOSTS[POLAR_SERVER.PRODUCTION])).toBe(true)
   })
@@ -365,7 +439,7 @@ describe("verifyPolar on an organisation that matches the code", () => {
     serve()
 
     await expect(verify(ENVIRONMENT.DEVELOPMENT)).resolves.toBe(
-      "Polar sandbox matches the code for development: 3 products with their prices, licence keys and consent field; 4 regional discounts.",
+      "Polar sandbox matches the code for development: checkout localization; 3 products with their prices, licence keys and consent field; 4 regional discounts.",
     )
     expect(requestedUrls().every(({ host }) => host === SERVER_HOSTS[POLAR_SERVER.SANDBOX])).toBe(true)
   })
@@ -429,7 +503,7 @@ describe("verifyPolar when Polar refuses the token", () => {
 
   it("names each scope the token lacks, in the order it reads them", async () => {
     const insufficientScope = Response.json({ error: "insufficient_scope" }, { status: HTTP_STATUS.FORBIDDEN })
-    serve({}, { "/v1/discounts/": insufficientScope, "/v1/webhooks/endpoints": insufficientScope })
+    serve({}, { "/v1/discounts/": insufficientScope, "/v1/webhooks/endpoints": insufficientScope, [ORGANIZATION_PATH]: insufficientScope })
 
     await expect(verify(ENVIRONMENT.PRODUCTION)).rejects.toThrow(
       new Error(
@@ -437,6 +511,7 @@ describe("verifyPolar when Polar refuses the token", () => {
           "Polar production could not be read with the token in .env.production:",
           `POLAR_ACCESS_TOKEN in .env.production lacks the ${POLAR_SCOPE.DISCOUNTS} scope.`,
           `POLAR_ACCESS_TOKEN in .env.production lacks the ${POLAR_SCOPE.WEBHOOKS} scope.`,
+          `POLAR_ACCESS_TOKEN in .env.production lacks the ${POLAR_SCOPE.ORGANIZATIONS} scope.`,
         ].join("\n"),
       ),
     )
@@ -677,15 +752,27 @@ describe("verifyPolar on the webhook endpoints", () => {
   )
 })
 
-it("lists every problem at once, in the order products, discounts, webhooks", async () => {
+describe("verifyPolar on the organisation", () => {
+  it.each([
+    ["no feature settings", JSON_NULL],
+    ["checkout localization unset", {}],
+    ["checkout localization off", { checkout_localization_enabled: false }],
+  ])("reports an organisation with %s, whose checkout ignores the buyer's language", async (_case, featureSettings) => {
+    await expectPreviewProblems({ organization: organization(featureSettings) }, LOCALIZATION_OFF)
+  })
+})
+
+it("lists every problem at once, in the order organisation, products, discounts, webhooks", async () => {
   const [missing = 0, ...offered] = PPP_PERCENTS_OFF
 
   await expectPreviewProblems(
     {
       discounts: offered.map((percentOff) => regionalDiscount(percentOff)),
       endpoints: [],
+      organization: organization({ checkout_localization_enabled: false }),
       products: LICENSE_TIERS.map((tier) => product(tier, { is_archived: tier === LICENSE_TIER.CORE })),
     },
+    LOCALIZATION_OFF,
     "The core product (POLAR_PRODUCT_ID_CORE) is archived.",
     noDiscount(missing, "core, complete, agency"),
     `No webhook endpoint posts to ${PREVIEW_WEBHOOK}.`,

@@ -25,5 +25,6 @@ export const COURSES_NAVIGATION = [
     placement: NAVIGATION_PLACEMENT.ADMIN,
     to: ROUTES.ADMIN_VIDEOS,
   },
+  { area: AREA, icon: GraduationCap, key: "courses", order: 25, placement: NAVIGATION_PLACEMENT.APP, to: ROUTES.COURSES },
   { area: AREA, key: "courses", order: 20, placement: NAVIGATION_PLACEMENT.HEADER, to: ROUTES.COURSES },
 ] as const satisfies readonly NavigationEntry[]

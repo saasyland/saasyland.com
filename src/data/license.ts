@@ -34,3 +34,5 @@ export const PURCHASE_STEP = {
 export const PURCHASE_STEP_COUNT = Object.keys(PURCHASE_STEP).length
 
 export const USER_LICENSE_DETAILS = ["tier", "status", "purchasedAt", "withdrawalConsent", "firstActivation", "firstDownload"] as const
+
+export const LICENSE_OFFER_ID = "license-offer"

@@ -6,6 +6,8 @@ import { AUTH_PROVIDER, EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/bet
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
+import { CLI_SETUP_LINES } from "~/src/data/cli"
+
 import type changeEmailMessages from "~/messages/en-US/emails.change-email-confirmation-email.json"
 import type existingAccountMessages from "~/messages/en-US/emails.existing-account-email.json"
 import type passwordChangedMessages from "~/messages/en-US/emails.password-changed-email.json"
@@ -119,10 +121,13 @@ it.each(I18N.SUPPORTED_LOCALES)("states in %s how long the verification, reset a
 
 const PURCHASE_LINKS = {
   account: "https://example.com/app/license",
+  docs: "https://example.com/docs/cli",
   licence: "https://example.com/licence",
   refunds: "https://example.com/refunds",
   terms: "https://example.com/terms",
 }
+
+const PURCHASE_STEP = { link: "Open the courses", text: "Your licence includes the courses.", url: "https://example.com/courses" }
 
 it.each(I18N.SUPPORTED_LOCALES.flatMap((locale) => [true, false].map((withdrawalConsent) => ({ locale, withdrawalConsent }))))(
   "renders the purchase confirmation in $locale with consent $withdrawalConsent, every value filled in and every link",
@@ -139,6 +144,7 @@ it.each(I18N.SUPPORTED_LOCALES.flatMap((locale) => [true, false].map((withdrawal
         orderedAt={new Date("2026-11-16T09:30:00.000Z")}
         reference="SAASYLAND-0042"
         refundDeadline={new Date("2026-11-30T09:30:00.000Z")}
+        steps={[PURCHASE_STEP]}
         tierName="Agency"
         withdrawalConsent={withdrawalConsent}
       />,
@@ -146,6 +152,10 @@ it.each(I18N.SUPPORTED_LOCALES.flatMap((locale) => [true, false].map((withdrawal
 
     expect(html).toContain(`lang="${locale}"`)
     expect(html).toContain("SAASYLAND-0042")
+    expect(html).toContain(`href="${PURCHASE_STEP.url}"`)
+    for (const { command } of CLI_SETUP_LINES) {
+      expect(html).toContain(command)
+    }
     expect(html).toContain("Agency")
     expect(html).not.toMatch(/\{\w+\}/u)
     for (const href of Object.values(PURCHASE_LINKS)) {

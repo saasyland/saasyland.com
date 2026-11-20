@@ -29,10 +29,11 @@ faq:
   - question: Do I need two checkboxes, one for the consent and one for the acknowledgement?
     answer: >-
       The directive requires both statements, not a number of boxes. saasyland.com asks for both in
-      one required checkbox that starts empty, on its own step before payment, with a label that
-      states the request and the acknowledgement; some sellers use two boxes to keep them visibly
-      apart. German courts have required an active tick separate from the purchase itself, so make
-      the consent its own step, and have your lawyer confirm the design for the markets you sell to.
+      one required checkbox that starts empty, on Polar's payment page right before the buyer pays,
+      with a label that states the request and the acknowledgement; some sellers use two boxes to
+      keep them visibly apart. German courts have required an active tick separate from the purchase
+      itself, so make the consent an act of its own, apart from the buy button, and have your lawyer
+      confirm the design for the markets you sell to.
   - question: Do I need the EU withdrawal button for digital products?
     answer: >-
       Where the right of withdrawal exists, yes. Article 11a of the directive, applied from 19 June
@@ -57,9 +58,9 @@ faq:
   - question: Do I still need the consent if I sell through a merchant of record?
     answer: >-
       Plan for it. Polar’s buyer terms make Polar the seller of the purchase, while you license and
-      deliver the product, and the moment of supply depends on your product. saasyland.com collects
-      the consent on its own checkout step, has Polar record it on the order and sends the
-      confirmation itself. Which party counts as the trader for these rules is a question for your
+      deliver the product, and the moment of supply depends on your product. saasyland.com has the
+      buyer give the consent in a required box on Polar's checkout, has Polar record it on the order
+      and sends the confirmation itself. Which party counts as the trader for these rules is a question for your
       lawyer.
   - question: Can I still offer refunds after the right of withdrawal ends?
     answer: >-
@@ -171,17 +172,15 @@ Polish law also shows how a national text can go beyond the directive. Under art
 
 saasyland.com sells licences for the SaaSy Land CLI through Polar, a merchant of record. Polar's buyer terms make Polar the seller of the purchase, while SaaSy Land licenses the product and supplies it: supply begins when the licence key is issued, right after payment. The flow below collects, records and confirms the consent whichever of the two counts as the trader, and every step is in the [public source](https://github.com/saasyland/saasyland.com) under the MIT licence.
 
-### 1. A consent step on our own checkout, in the buyer's language
+### 1. One consent, on Polar's checkout
 
-The buy buttons do not open Polar. They open a dialog on saasyland.com, in whichever of the site's <RepositoryFact name="languages" /> languages the buyer is reading, that says the tier is digital content supplied as soon as they pay, and asks for one required checkbox. In English it reads: "I ask SaaSy Land to supply Core immediately, and I acknowledge that I lose my <RepositoryFact name="refundWithdrawalDays" />-day right of withdrawal once supply begins, when my licence key is issued." The box starts empty, and **Continue to payment** with an empty box only marks it invalid.
+Polar's checkout takes custom fields, and each licence product requires a checkbox field with the slug <RepositoryFact name="licenseWithdrawalConsentField" />. Its label states the request and the acknowledgement: "I ask SaaSy Land to supply my purchase immediately, and I acknowledge that I lose my <RepositoryFact name="refundWithdrawalDays" />-day right of withdrawal once supply begins, when my licence key is issued." [`start-checkout.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/use-cases/start-checkout.ts) sends no value for the field, so the box starts empty and only the buyer can tick it. When the buyer pays, Polar checks the fields against the product and accepts only a ticked box for a required checkbox, so no payment goes through without the consent, and Polar stores the ticked box on the order. `polar:verify` fails while any licence product does not require the field.
 
-The server enforces the same rule. The input schema of `startCheckout` accepts `withdrawalConsent` only when it is `true`, so no checkout can be created without the consent, whatever the browser sends. The dialog is [`checkout-consent.tsx`](https://github.com/saasyland/saasyland.com/blob/main/src/presentation/components/custom/app/checkout-consent.tsx), and the schema is in [`license.zod.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.zod.ts).
+The consent is asked once, on the page where the buyer pays. A box the buyer ticks there, right before paying, is the plainest record of express consent, and no extra step stands between the buyer and the payment.
 
-### 2. The same consent on Polar's checkout
+### 2. The same terms beforehand, in the buyer's language
 
-Polar's checkout takes custom fields, and each licence product requires a checkbox field with the slug <RepositoryFact name="licenseWithdrawalConsentField" /> that states the same request and acknowledgement in English. [`start-checkout.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/use-cases/start-checkout.ts) sends the consent the buyer has just given as the field's value, so Polar shows the box already ticked by the buyer's own choice, and Polar stores it on the order. `polar:verify` fails while any licence product does not require the field.
-
-Why ask twice? Because the record should sit with the seller's order, and because Polar's checkout cannot carry the wording in every language: a custom field has one label, and Polar's checkout follows the buyer's browser language in a beta that covers 15 languages. Asking first on our own page puts the consent in front of the buyer in the language they chose.
+A custom field has one label, so the box on Polar's page is in English. The site says it first, in whichever of its <RepositoryFact name="languages" /> languages the buyer is reading: under the buy buttons, a notice says that Polar is the merchant of record and asks for the consent on the payment page, that ticking the box ends the right of withdrawal once the licence key is issued, and until when a full refund remains possible. The buy buttons then open Polar's checkout straight away, in the buyer's language where Polar translates its checkout, and the notice says so when the payment page will open in English. The notice is `CheckoutNotice` in [`checkout.tsx`](https://github.com/saasyland/saasyland.com/blob/main/src/presentation/components/custom/app/checkout.tsx).
 
 ### 3. A confirmation email, the durable medium
 
@@ -238,7 +237,7 @@ saasyland.com has no withdrawal function of the kind Article 11a describes. A bu
 
 1. Decide when supply begins for your product, and write it into your terms.
 2. Before payment, ask for the consent and the acknowledgement with a required checkbox that starts empty, in the buyer's language.
-3. Refuse the checkout on the server when the consent is missing.
+3. Make the payment impossible without the consent, enforced where the payment is taken, not only on the page.
 4. Record the consent with the order, and record the moment of supply and of first use.
 5. Send a confirmation email that includes the consent and the acknowledgement, and the order's details.
 6. When the consent is missing, keep the full 14 days, and remember that the buyer then bears no cost.

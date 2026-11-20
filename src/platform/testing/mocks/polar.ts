@@ -164,10 +164,14 @@ export const setPolarCustomerExternalId = (customerId: string, externalId: strin
   saveCustomer({ ...customer, external_id: externalId })
 }
 
-export const payPolarCheckout = (checkoutId: string): models.Order => {
+export const payPolarCheckout = (checkoutId: string, customFieldData: models.Order["custom_field_data"] = {}): models.Order => {
   const checkout = found(checkouts.get(checkoutId), "checkout", checkoutId)
   const externalCustomerId = found(checkout.external_customer_id, "external customer of checkout", checkoutId)
   const product = productOf(found(checkout.product_id, "product of checkout", checkoutId))
+  const unticked = (product.requiredCheckboxes ?? []).filter((slug) => customFieldData[slug] !== true)
+  if (unticked.length > 0) {
+    throw new Error(`Polar refuses to confirm checkout ${checkoutId}: the buyer must tick ${unticked.join(", ")}`)
+  }
   checkouts.set(checkoutId, { ...checkout, status: "succeeded" })
   const order = polarOrder({
     checkoutId,
@@ -177,7 +181,7 @@ export const payPolarCheckout = (checkoutId: string): models.Order => {
     product,
     status: POLAR_ORDER_STATUS.PAID,
   })
-  return saveOrder({ ...order, custom_field_data: checkout.custom_field_data ?? {} })
+  return saveOrder({ ...order, custom_field_data: customFieldData })
 }
 
 export const refundPolarOrder = (orderId: string, amount: number): models.Order => {
@@ -298,8 +302,10 @@ const checkoutCreateSchema = zod.strictObject({
   customer_name: zod.string(),
   discount_id: zod.uuid().optional(),
   external_customer_id: zod.string().min(1),
+  locale: zod.string().min(1).optional(),
   metadata: metadataSchema,
   products: zod.tuple([zod.string()]),
+  return_url: zod.url().optional(),
   success_url: zod.url(),
 } satisfies RequestSchema<models.CheckoutCreate>)
 
@@ -399,6 +405,7 @@ const createCheckout = async (request: Request) => {
     is_payment_form_required: true,
     is_payment_required: true,
     is_payment_setup_required: false,
+    locale: body.data.locale ?? null,
     max_units: null,
     metadata: body.data.metadata,
     min_units: null,
@@ -415,7 +422,7 @@ const createCheckout = async (request: Request) => {
     product_price_id: price.id,
     products: [product],
     require_billing_address: false,
-    return_url: null,
+    return_url: body.data.return_url ?? null,
     status: "open",
     subscription_id: null,
     success_url: body.data.success_url,

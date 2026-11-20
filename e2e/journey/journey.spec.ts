@@ -6,7 +6,6 @@ import { CLI_VARIABLE, CREDENTIALS_STORE, EXIT_CODE } from "@saasyland/stack/cli
 import * as zod from "zod"
 
 import { expect, test as base } from "../fixtures/auth"
-import { consentAndPay } from "../fixtures/license"
 import type { AuthPage, BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -24,7 +23,7 @@ import {
   type LicenseTier,
 } from "../../src/modules/license/license.constants"
 
-import { CLI_COMMAND, CLI_LICENSE_COMMANDS, cliCommand } from "../../src/data/cli"
+import { CLI_COMMAND, CLI_KEY_LINES } from "../../src/data/cli"
 import { TIER_PRICES } from "../../src/data/marketing"
 
 import { CLI_ERROR, CLI_RESULT, type Machine, createMachine, runCli, storedCredentials } from "./cli"
@@ -121,14 +120,14 @@ const buy = async (pages: Pages, buyer: Buyer, price: number): Promise<void> => 
   await expect(offer).toContainText(formatPrice(price), { useInnerText: true })
 
   await offer.getByRole("button", { name: `Get ${TIER_NAMES[buyer.tier]}`, exact: true }).click()
-  await consentAndPay(page)
   await page.waitForURL(POLAR_SANDBOX_CHECKOUT)
   await new PolarCheckoutPage(page).pay(buyer)
 
   await page.waitForURL(/\/app\?checkoutId=/u, { timeout: WEBHOOK_TIMEOUT_MS })
   await appPage.waitForAppReady()
   await expect(page.getByRole("heading", { name: "Your licence is active" })).toBeVisible({ timeout: WEBHOOK_TIMEOUT_MS })
-  await expect(page.getByText(`Thank you for buying ${TIER_NAMES[buyer.tier]}.`)).toBeVisible()
+  await expect(page.getByText(`Thank you for buying ${TIER_NAMES[buyer.tier]}.`, { exact: false })).toBeVisible()
+  await expect(page.getByRole("region", { name: "Get started" })).toBeVisible()
 }
 
 const paidOrder = async ({ tier, userId }: Buyer, price: number): Promise<models.Order> => {
@@ -157,7 +156,7 @@ const issuedKey = async (pages: Pages, tier: LicenseTier): Promise<string> => {
 
   await expect(page.getByRole("heading", { exact: true, level: 2, name: TIER_NAMES[tier] })).toBeVisible()
   await expect(page.getByText("Activate the key with the SaaSy Land CLI on each machine you build on. Keep the key private.")).toBeVisible()
-  await Promise.all(CLI_LICENSE_COMMANDS.map((command) => expect(page.getByText(cliCommand(command), { exact: true })).toBeVisible()))
+  await Promise.all(CLI_KEY_LINES.map(({ command }) => expect(page.getByText(command, { exact: true })).toBeVisible()))
   await expect(page.getByText(`In CI, store the key as a secret in ${CLI_VARIABLE.LICENSE_KEY}.`)).toBeVisible()
   await expect(page.getByText(usage(0, tier))).toBeVisible()
   await expect(page.getByText("No machines have used this key yet.")).toBeVisible()

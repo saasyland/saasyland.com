@@ -14,6 +14,7 @@ const BURSTS = [
 export const triggerConfetti = (): void => {
   for (const { particleRatio, ...options } of BURSTS) {
     void confetti({
+      disableForReducedMotion: true,
       origin: DEFAULT_ORIGIN,
       particleCount: Math.floor(BASE_PARTICLE_COUNT * particleRatio),
       ...options,

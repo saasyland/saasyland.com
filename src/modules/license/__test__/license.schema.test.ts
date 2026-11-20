@@ -29,14 +29,14 @@ describe("license schema", () => {
     expect(onUpdate?.()).toBeInstanceOf(Date)
   })
 
-  it("accepts a tier the checkout can start once the buyer consents to immediate supply", () => {
+  it("accepts a tier the checkout can start, with the page on the site its back button returns to", () => {
     expect.hasAssertions()
     expect(
-      licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", tier: LICENSE_TIER.COMPLETE, withdrawalConsent: true }).success,
+      licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", returnPath: "/app?tier=complete", tier: LICENSE_TIER.COMPLETE }).success,
     ).toBe(true)
-    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", tier: "enterprise", withdrawalConsent: true }).success).toBe(false)
+    expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", returnPath: "/app", tier: "enterprise" }).success).toBe(false)
     expect(licenseZodSchemas.startCheckout.safeParse({ locale: "en-US", tier: LICENSE_TIER.COMPLETE }).error?.issues).toStrictEqual([
-      expect.objectContaining({ message: "withdrawalConsentRequired", path: ["withdrawalConsent"] }),
+      expect.objectContaining({ path: ["returnPath"] }),
     ])
   })
 })

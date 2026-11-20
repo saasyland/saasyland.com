@@ -33,6 +33,7 @@ Zuerst in der Sandbox, dann in der Produktion:
 | `discounts:read`          | Die Abfrage des regionalen Rabatts beim Checkout (`pppDiscountId`) und `polar:verify`                                                                                                               |
 | `license_keys:write`      | Das Lesen eines Schlüssels und seiner Aktivierungen, das Aktivieren eines Geräts und das Entfernen einer Aktivierung (`deactivateLicense` und die [CLI-Lizenz-API](/docs/features/cli-licence-api)) |
 | `orders:read`             | Die Webhook-Handler, die die Bestellung hinter einer Lizenz und den aktuellen Kunden einer Bestellung lesen, deren Ereignis zu keinem Konto passt                                                   |
+| `organizations:read`      | `polar:verify`, das liest, ob die Checkout-Lokalisierung eingeschaltet ist                                                                                                                          |
 | `products:read`           | `polar:verify`                                                                                                                                                                                      |
 | `webhooks:read`           | `polar:verify`                                                                                                                                                                                      |
 
@@ -63,7 +64,7 @@ Jedes Produkt braucht genau einen Lizenzschlüssel-Benefit; weitere Benefits dan
 
 ## Zustimmungs-Checkbox [#consent-checkbox]
 
-Der Checkout-Dialog der Website bittet den Käufer um die Zustimmung zur sofortigen Bereitstellung (siehe [Lizenzen](/docs/features/licences#consent-to-immediate-supply)), und der Checkout von Polar hält sie an der Bestellung fest. Lege in der Organisation ein benutzerdefiniertes Feld an und hänge es an die drei Produkte an:
+Der Käufer gibt die Zustimmung zur sofortigen Bereitstellung im Checkout von Polar, und dieses Feld ist die einzige Stelle, an der sie eingeholt wird (siehe [Lizenzen](/docs/features/licences#consent-to-immediate-supply)); Polar hält sie an der Bestellung fest. Lege in der Organisation ein benutzerdefiniertes Feld an und hänge es an die drei Produkte an:
 
 - **Typ**: Checkbox.
 - **Slug**: <RepositoryFact name="licenseWithdrawalConsentField" />, `LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT` in `src/modules/license/license.constants.ts`. Die Bestellung speichert die angekreuzte Checkbox unter diesem Schlüssel in `custom_field_data`.
@@ -71,9 +72,13 @@ Der Checkout-Dialog der Website bittet den Käufer um die Zustimmung zur soforti
 - **Name**: nach Belieben; `WITHDRAWAL_CONSENT_FIELD.name` ist der, den der Code vorschlägt, und `polar:verify` prüft ihn nicht.
 - **Erforderlich** bei jedem der drei Produkte. Andere Felder, die die Produkte abfragen, dürfen bleiben.
 
-`startCheckout` sendet die Zustimmung, die der Käufer gerade gegeben hat, als Wert des Felds, sodass Polar die Checkbox angekreuzt zeigt. Polar behält nur die Werte von Feldern, die das Produkt abfragt: Bevor das Feld angehängt ist, funktioniert ein Checkout zwar weiterhin, aber die Bestellung hält keine Zustimmung fest, und die [Kaufbestätigung](/docs/features/licences#purchase-confirmation) nennt stattdessen das gesetzliche Widerrufsrecht.
+`startCheckout` sendet keinen Wert für das Feld, daher ist die Checkbox zunächst leer und der Käufer kreuzt sie an; Polar nimmt keine Zahlung an, solange eine Pflicht-Checkbox leer ist. Polar behält nur die Werte von Feldern, die das Produkt abfragt: Bevor das Feld angehängt ist, funktioniert ein Checkout zwar weiterhin, aber die Bestellung hält keine Zustimmung fest, und die [Kaufbestätigung](/docs/features/licences#purchase-confirmation) nennt stattdessen das gesetzliche Widerrufsrecht.
 
 Das Anlegen des Felds und das Anhängen an ein Produkt brauchen die Scopes `custom_fields:write` und `products:write`, die das Token oben nicht hat. Lege das Feld im Polar-Dashboard an und hänge es dort an, oder nutze die API mit einem separaten Token, das diese Scopes hat. `polar:verify` liest die angehängten Felder aus der Produktliste und braucht daher keinen weiteren Scope.
+
+## Sprache des Checkouts [#checkout-language]
+
+Polar zeigt seinen Checkout nur dann in der Sprache, die `startCheckout` anfordert, wenn die Checkout-Lokalisierung für die Organisation eingeschaltet ist; sonst öffnet sich jeder Checkout auf Englisch. Schalte sie in den Einstellungen der Organisation ein. Polars [Leitfaden zur Checkout-Lokalisierung](https://polar.sh/docs/features/checkout/localization) nennt sie ein Feature-Flag, und die API liefert sie als `feature_settings.checkout_localization_enabled` an der Organisation. `POLAR_CHECKOUT_LANGUAGES` in `src/data/polar.ts` listet die Sprachen, die der Code anfordert, und `polar:verify` schlägt fehl, solange die Lokalisierung ausgeschaltet ist.
 
 ## Regionale Rabatte
 
@@ -125,6 +130,7 @@ bun run polar:verify:production
 Jedes Skript liest die Polar-Schlüssel aus `.env.<environment>` und sendet nur GET-Anfragen an die API, die `POLAR_SERVER` nennt: Es listet die Produkte, Rabatte und Webhook-Endpunkte der Organisation auf und ändert nichts. Es prüft, dass:
 
 - die Umgebungsdatei jeden Polar-Schlüssel setzt, mit `POLAR_SERVER=sandbox` für Entwicklung und Preview und `POLAR_SERVER=production` für die Produktion;
+- die Checkout-Lokalisierung für die Organisation eingeschaltet ist;
 - jede `POLAR_PRODUCT_ID_*` ein Produkt der Organisation nennt, das weder archiviert noch ein Abonnement ist und dessen Preise fest sind, in `DEFAULT_CURRENCY_CODE` und gleich `TIER_PRICES`;
 - jedes Produkt genau einen Lizenzschlüssel-Benefit mit dem Limit der Stufe aus `LICENSE_ACTIVATION_LIMITS`, ohne Ablauf und ohne Nutzungslimit hat;
 - jedes Produkt das Checkbox-Feld <RepositoryFact name="licenseWithdrawalConsentField" /> mit der Beschriftung aus `WITHDRAWAL_CONSENT_FIELD` verlangt;
@@ -152,6 +158,7 @@ Ein Fehlschlag stoppt das Deployment, bevor etwas gebaut, migriert oder hochgela
 - **`names no product of the organisation`**: Die Produkt-ID oder `POLAR_ORGANIZATION_ID` ist falsch oder gehört zum anderen Dienst.
 - **Ein Preis, ein Lizenzschlüssel oder ein Rabatt**: Ändere ihn in Polar so, dass er zum Code passt. Wenn sich ein geschäftlicher Wert absichtlich ändert, ändere zuerst `TIER_PRICES`, `LICENSE_ACTIVATION_LIMITS` oder `PPP_TIERS` und dann Polar.
 - **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` oder `label differs`**: Lege die [Zustimmungs-Checkbox](#consent-checkbox) an, hänge sie an oder korrigiere sie. Wenn sich der Wortlaut absichtlich ändert, ändere zuerst `WITHDRAWAL_CONSENT_FIELD.label` und dann die Beschriftung in Polar.
+- **`Checkout localization is off`**: Schalte die [Checkout-Lokalisierung](#checkout-language) für die Organisation ein.
 - **Ein Webhook-Endpunkt**: Korrigiere den Endpunkt, den die Meldung nennt, oder entferne einen Endpunkt, der an den Host einer anderen Umgebung sendet.
 
 ## Verwandte Seiten

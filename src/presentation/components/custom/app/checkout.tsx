@@ -1,25 +1,49 @@
-import { type JSX, type ReactNode, Suspense, lazy, useState } from "react"
+import type { JSX, ReactNode } from "react"
 
-import { useIsMutating } from "@tanstack/react-query"
+import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query"
+import { Link, useRouterState } from "@tanstack/react-router"
+import { toast } from "sonner"
 import { useTranslations } from "use-intl/react"
 
-import { LICENSE_MUTATION_KEYS, type LicenseTier } from "~/src/modules/license/license.constants"
+import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
+
+import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS, type LicenseTier } from "~/src/modules/license/license.constants"
+import { startCheckoutMutation } from "~/src/modules/license/use-cases/start-checkout"
+
+import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
+import { useErrorMessage } from "~/src/hooks/use-error-message"
+
+import { isPolarCheckoutTranslated } from "~/src/data/polar"
+import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
-import { Dialog, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "~/src/presentation/components/shadcn/dialog"
-import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
+import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
-const CheckoutConsent = lazy(() =>
-  import("~/src/presentation/components/custom/app/checkout-consent").then((module) => ({ default: module.CheckoutConsent })),
-)
+import { CONTACT_EMAIL } from "~/src/presentation/branding"
+import { ROUTES } from "~/src/routes"
 
-const CheckoutConsentPending = (): JSX.Element => (
-  <div className="flex flex-col gap-4">
-    <Skeleton className="h-28 w-full rounded-lg" />
-    <Skeleton className="h-10 w-full" />
-    <Skeleton className="h-8 w-full" />
-  </div>
-)
+const LINK_CLASSNAME = "underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+
+const REFUND_VALUES = { days: REFUND_TERMS.WITHDRAWAL_DAYS }
+
+const LEGAL_TAGS = {
+  ...REFUND_VALUES,
+  licence: (chunks: ReactNode) => (
+    <Link className={LINK_CLASSNAME} to={ROUTES.LICENCE}>
+      {chunks}
+    </Link>
+  ),
+  refunds: (chunks: ReactNode) => (
+    <Link className={LINK_CLASSNAME} to={ROUTES.REFUNDS}>
+      {chunks}
+    </Link>
+  ),
+  terms: (chunks: ReactNode) => (
+    <Link className={LINK_CLASSNAME} to={ROUTES.TERMS}>
+      {chunks}
+    </Link>
+  ),
+}
 
 interface CheckoutButtonProps {
   readonly children: ReactNode
@@ -28,35 +52,59 @@ interface CheckoutButtonProps {
 }
 
 export const CheckoutButton = ({ children, featured, tier }: CheckoutButtonProps): JSX.Element => {
-  const tTier = useTranslations("components.custom.pricing")
   const t = useTranslations("pages.license.buy")
+  const queryClient = useQueryClient()
+  const errorMessage = useErrorMessage()
+  const returnPath = useRouterState({ select: ({ location }) => location.publicHref })
   const isStarting = useIsMutating({ mutationKey: LICENSE_MUTATION_KEYS.START_CHECKOUT }) > 0
-  const [isOpen, setOpen] = useState(false)
+
+  const { redirect } = useAuthRedirect()
+
+  const refreshLicense = () => queryClient.invalidateQueries({ queryKey: LICENSE_QUERY_KEYS.ALL })
+
+  const { isPending, mutate } = useMutation({
+    ...startCheckoutMutation,
+    onError: async (error) => {
+      toast.error(errorMessage(error))
+      await refreshLicense()
+    },
+    onSuccess: async (checkout) => {
+      await refreshLicense()
+      if ("alreadyActive" in checkout) {
+        toast.error(t("alreadyActive", { email: CONTACT_EMAIL }))
+        return
+      }
+      globalThis.location.href = checkout.url
+    },
+  })
 
   return (
-    <DialogTrigger isOpen={isOpen} onOpenChange={setOpen}>
-      <Button className="h-11 w-full px-5 text-body-sm font-semibold" variant={featured ? "default" : "outline"}>
-        {children}
-      </Button>
-      <Dialog
-        className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg"
-        isDismissable={!isStarting}
-        isKeyboardDismissDisabled={isStarting}
-        showCloseButton={false}
-      >
-        <DialogHeader>
-          <DialogTitle>{t("consent.title")}</DialogTitle>
-          <DialogDescription className="text-pretty">{t("consent.description", { tier: tTier(`tiers.${tier}.name`) })}</DialogDescription>
-        </DialogHeader>
-        <Suspense fallback={<CheckoutConsentPending />}>
-          <CheckoutConsent
-            onClose={() => {
-              setOpen(false)
-            }}
-            tier={tier}
-          />
-        </Suspense>
-      </Dialog>
-    </DialogTrigger>
+    <Button
+      className="h-11 w-full px-5 text-body-sm font-semibold"
+      isDisabled={isStarting && !isPending}
+      isPending={isPending}
+      onPress={() => {
+        mutate({ locale: getCurrentLocale(), redirect, returnPath, tier })
+      }}
+      variant={featured ? "default" : "outline"}
+    >
+      {isPending && <Spinner />}
+      {isPending ? t("pending") : children}
+    </Button>
+  )
+}
+
+export const CheckoutNotice = (): JSX.Element => {
+  const t = useTranslations("pages.license.buy.notice")
+
+  return (
+    <div className="flex max-w-[72ch] flex-col gap-1.5 text-xs leading-relaxed text-pretty text-muted-foreground">
+      <p>
+        {t("consent", REFUND_VALUES)}
+        {!isPolarCheckoutTranslated(getCurrentLocale()) && ` ${t("english")}`}
+      </p>
+      <p>{t.rich("refund", LEGAL_TAGS)}</p>
+      <p>{t.rich("agreement", LEGAL_TAGS)}</p>
+    </div>
   )
 }

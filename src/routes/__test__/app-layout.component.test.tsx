@@ -45,6 +45,7 @@ const sessionRequest = vi.hoisted(() => vi.fn())
 const summaryRequest = vi.hoisted(() => vi.fn<() => Promise<{ readonly orders: number }>>())
 const SUMMARY_QUERY_KEY = vi.hoisted(() => ["summary"] as const)
 const SUMMARY_SECTION = vi.hoisted(() => "Account summary")
+const SETTINGS_BADGE = vi.hoisted(() => "3 unread")
 const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
 const SIGN_OUT_SUCCESS = { redirect: undefined, success: true, url: undefined } satisfies SignOutResult
 const SUMMARY = { orders: 2 }
@@ -53,6 +54,10 @@ const { account, navigation } = pagesAppSidebarMessages
 vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual, getCurrentSessionQuery: { ...actual.getCurrentSessionQuery, queryFn: sessionRequest } }
+})
+vi.mock("~/src/data/app-badges.entries", async () => {
+  const { ROUTES: PATHS } = await import("~/src/routes")
+  return { TEST_APP_BADGES: [{ Badge: () => <span>{SETTINGS_BADGE}</span>, to: PATHS.APP_SETTINGS }] }
 })
 vi.mock("~/src/data/app-overview.entries", () => ({
   TEST_APP_OVERVIEW: {
@@ -141,6 +146,8 @@ describe("customer workspace routes", () => {
     expect(await screen.findByRole("heading", { level: 1, name: pagesAppMessages.metadata.title })).toBeVisible()
     const nav = screen.getByRole("navigation", { name: navigation.label })
     expect(within(nav).getByRole("link", { name: navigationAuthMessages.app.overview })).toHaveAttribute("aria-current", "page")
+    expect(within(nav).getByText(SETTINGS_BADGE).closest("[data-sidebar=menu-badge]")).not.toBeNull()
+    expect(within(nav).getAllByText(SETTINGS_BADGE)).toHaveLength(1)
     expect(
       within(screen.getByRole("navigation", { name: navigation.resources })).getByRole("link", { name: navigation.support }),
     ).toHaveAttribute("href", `mailto:${CONTACT_EMAIL}`)

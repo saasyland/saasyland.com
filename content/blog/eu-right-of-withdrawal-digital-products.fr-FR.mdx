@@ -30,12 +30,13 @@ faq:
       son argent.
   - question: Faut-il deux cases à cocher, l’une pour le consentement et l’autre pour la reconnaissance ?
     answer: >-
-      La directive exige les deux déclarations, pas un nombre de cases. saasyland.com demande les deux
-      au moyen d’une seule case obligatoire, vide au départ, dans une étape qui lui est propre avant le
-      paiement, avec un libellé qui énonce la demande et la reconnaissance ; certains vendeurs utilisent
-      deux cases pour bien les distinguer. Les tribunaux allemands ont exigé une coche active, distincte
-      de l’achat lui-même : faites donc du consentement une étape à part entière, et faites valider ce
-      choix par votre avocat pour les marchés où vous vendez.
+      La directive exige les deux déclarations, pas un nombre de cases. saasyland.com demande les
+      deux au moyen d’une seule case obligatoire, vide au départ, sur la page de paiement de Polar
+      juste avant que l’acheteur paie, avec un libellé qui énonce la demande et la reconnaissance ;
+      certains vendeurs utilisent deux cases pour bien les distinguer. Les tribunaux allemands ont
+      exigé une coche active, distincte de l’achat lui-même : faites donc du consentement un acte à
+      part entière, distinct du bouton d’achat, et faites valider ce choix par votre avocat pour les
+      marchés où vous vendez.
   - question: Ai-je besoin du bouton de rétractation de l’UE pour des produits numériques ?
     answer: >-
       Là où le droit de rétractation existe, oui. L’article 11 bis de la directive, appliqué à partir
@@ -63,11 +64,12 @@ faq:
       paiement pour des consommateurs.
   - question: Ai-je encore besoin du consentement si je vends via un Merchant of Record ?
     answer: >-
-      Prévoyez-le. Les conditions d’achat de Polar font de Polar le vendeur de l’achat, tandis que c’est
-      vous qui concédez la licence du produit et le livrez, et le moment de la fourniture dépend de
-      votre produit. saasyland.com recueille le consentement dans sa propre étape de paiement, le fait
-      enregistrer par Polar sur la commande et envoie lui-même la confirmation. Savoir quelle partie
-      est le professionnel au sens de ces règles est une question pour votre avocat.
+      Prévoyez-le. Les conditions d’achat de Polar font de Polar le vendeur de l’achat, tandis que
+      c’est vous qui concédez la licence du produit et le livrez, et le moment de la fourniture
+      dépend de votre produit. saasyland.com demande à l’acheteur de donner son consentement en
+      cochant une case obligatoire sur la page de paiement de Polar, le fait enregistrer par Polar
+      sur la commande et envoie lui-même la confirmation. Savoir quelle partie est le professionnel
+      au sens de ces règles est une question pour votre avocat.
   - question: Puis-je encore proposer des remboursements une fois le droit de rétractation éteint ?
     answer: >-
       Oui, et cela rend le consentement plus facile à donner. saasyland.com rembourse intégralement un
@@ -182,17 +184,15 @@ Le droit polonais montre aussi comment un texte national peut aller au-delà de 
 
 saasyland.com vend des licences pour la CLI de SaaSy Land via Polar, un Merchant of Record. Les conditions d’achat de Polar font de Polar le vendeur de l’achat, tandis que SaaSy Land concède la licence du produit et le fournit : la fourniture commence à l’émission de la clé de licence, juste après le paiement. Le parcours ci-dessous recueille, enregistre et confirme le consentement quelle que soit celle des deux parties qui est considérée comme le professionnel, et chaque étape se trouve dans le [code public](https://github.com/saasyland/saasyland.com), sous licence MIT.
 
-### 1. Une étape de consentement sur notre propre site, dans la langue de l’acheteur
+### 1. Un seul consentement, sur la page de paiement de Polar
 
-Les boutons d’achat n’ouvrent pas Polar. Ils ouvrent une boîte de dialogue sur saasyland.com, dans celle des <RepositoryFact name="languages" /> langues du site dans laquelle l’acheteur lit la page, qui indique que la formule est un contenu numérique fourni dès le paiement et demande de cocher une seule case obligatoire. En français, son libellé est : « Je demande à SaaSy Land de me fournir Core immédiatement et je reconnais perdre mon droit de rétractation de <RepositoryFact name="refundWithdrawalDays" /> jours dès le début de la fourniture, c’est-à-dire dès l’émission de ma clé de licence. » La case est vide au départ, et **Continuer vers le paiement** avec la case vide ne fait que la marquer comme invalide.
+Le paiement de Polar accepte des champs personnalisés, et chaque produit de licence exige une case à cocher dont le slug est <RepositoryFact name="licenseWithdrawalConsentField" />. Son libellé énonce la demande et la reconnaissance : « I ask SaaSy Land to supply my purchase immediately, and I acknowledge that I lose my <RepositoryFact name="refundWithdrawalDays" />-day right of withdrawal once supply begins, when my licence key is issued. » [`start-checkout.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/use-cases/start-checkout.ts) n’envoie aucune valeur pour ce champ : la case est donc vide au départ, et seul l’acheteur peut la cocher. Lorsque l’acheteur paie, Polar vérifie les champs par rapport au produit et, pour une case à cocher obligatoire, n’accepte qu’une case cochée : aucun paiement n’aboutit donc sans le consentement, et Polar enregistre la case cochée sur la commande. `polar:verify` échoue tant qu’un produit de licence n’exige pas ce champ.
 
-Le serveur applique la même règle. Le schéma d’entrée de `startCheckout` n’accepte `withdrawalConsent` que lorsqu’il vaut `true` : aucun paiement ne peut donc être créé sans le consentement, quoi que le navigateur envoie. La boîte de dialogue est [`checkout-consent.tsx`](https://github.com/saasyland/saasyland.com/blob/main/src/presentation/components/custom/app/checkout-consent.tsx), et le schéma se trouve dans [`license.zod.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/license.zod.ts).
+Le consentement est demandé une seule fois, sur la page où l’acheteur paie. Une case que l’acheteur coche à cet endroit, juste avant de payer, est la trace la plus claire d’un consentement exprès, et aucune étape supplémentaire ne s’intercale entre l’acheteur et le paiement.
 
-### 2. Le même consentement sur la page de paiement de Polar
+### 2. Les mêmes conditions à l’avance, dans la langue de l’acheteur
 
-Le paiement de Polar accepte des champs personnalisés, et chaque produit de licence exige une case à cocher dont le slug est <RepositoryFact name="licenseWithdrawalConsentField" /> et qui formule en anglais la même demande et la même reconnaissance. [`start-checkout.ts`](https://github.com/saasyland/saasyland.com/blob/main/src/modules/license/use-cases/start-checkout.ts) envoie comme valeur du champ le consentement que l’acheteur vient de donner : Polar affiche donc la case déjà cochée par le propre choix de l’acheteur, et l’enregistre sur la commande. `polar:verify` échoue tant qu’un produit de licence n’exige pas ce champ.
-
-Pourquoi demander deux fois ? Parce que la trace doit accompagner la commande du vendeur, et parce que le paiement de Polar ne peut pas porter le libellé dans toutes les langues : un champ personnalisé n’a qu’un seul libellé, et le paiement de Polar suit la langue du navigateur de l’acheteur, dans une version bêta qui couvre 15 langues. Demander d’abord sur notre propre page présente le consentement à l’acheteur dans la langue qu’il a choisie.
+Un champ personnalisé n’a qu’un seul libellé : la case de la page de Polar est donc en anglais. Le site le dit d’abord, dans celle de ses <RepositoryFact name="languages" /> langues dans laquelle l’acheteur lit la page : sous les boutons d’achat, un avis indique que Polar est le Merchant of Record et demande le consentement sur la page de paiement, que cocher la case met fin au droit de rétractation dès l’émission de la clé de licence, et jusqu’à quand un remboursement intégral reste possible. Les boutons d’achat ouvrent ensuite directement le paiement de Polar, dans la langue de l’acheteur lorsque Polar traduit son paiement dans cette langue, et l’avis le précise lorsque la page de paiement s’ouvrira en anglais. L’avis est `CheckoutNotice` dans [`checkout.tsx`](https://github.com/saasyland/saasyland.com/blob/main/src/presentation/components/custom/app/checkout.tsx).
 
 ### 3. Un e-mail de confirmation, le support durable
 
@@ -249,7 +249,7 @@ saasyland.com n’a pas de fonction de rétractation telle que la décrit l’ar
 
 1. Déterminez quand la fourniture commence pour votre produit, et inscrivez-le dans vos conditions.
 2. Avant le paiement, demandez le consentement et la reconnaissance au moyen d’une case obligatoire, vide au départ, dans la langue de l’acheteur.
-3. Refusez le paiement côté serveur lorsque le consentement manque.
+3. Rendez le paiement impossible sans le consentement, en l’imposant là où le paiement est encaissé, et pas seulement sur la page.
 4. Enregistrez le consentement avec la commande, ainsi que le moment de la fourniture et celui de la première utilisation.
 5. Envoyez un e-mail de confirmation qui reprend le consentement, la reconnaissance et les détails de la commande.
 6. Lorsque le consentement manque, maintenez la totalité des 14 jours, et n’oubliez pas que l’acheteur ne supporte alors aucun coût.

@@ -33,6 +33,7 @@ In the sandbox, then in production:
 | `discounts:read`          | The regional discount lookup at checkout (`pppDiscountId`) and `polar:verify`                                                                                      |
 | `license_keys:write`      | Reading a key and its activations, activating a machine and removing an activation (`deactivateLicense` and the [CLI licence API](/docs/features/cli-licence-api)) |
 | `orders:read`             | The webhook handlers, which read the order behind a licence and the current customer of an order whose event matches no account                                    |
+| `organizations:read`      | `polar:verify`, which reads whether checkout localization is on                                                                                                    |
 | `products:read`           | `polar:verify`                                                                                                                                                     |
 | `webhooks:read`           | `polar:verify`                                                                                                                                                     |
 
@@ -63,7 +64,7 @@ Each product needs exactly one licence-key benefit; other benefits beside it are
 
 ## Consent checkbox
 
-The site's checkout dialog asks the buyer for consent to immediate supply (see [Licences](/docs/features/licences#consent-to-immediate-supply)), and Polar's checkout records it on the order. Create one custom field in the organisation and attach it to the three products:
+The buyer gives the consent to immediate supply on Polar's checkout, and this field is the only place it is asked for (see [Licences](/docs/features/licences#consent-to-immediate-supply)); Polar records it on the order. Create one custom field in the organisation and attach it to the three products:
 
 - **Type**: checkbox.
 - **Slug**: <RepositoryFact name="licenseWithdrawalConsentField" />, `LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT` in `src/modules/license/license.constants.ts`. The order stores the ticked box under this key in `custom_field_data`.
@@ -71,9 +72,13 @@ The site's checkout dialog asks the buyer for consent to immediate supply (see [
 - **Name**: your choice; `WITHDRAWAL_CONSENT_FIELD.name` is the one the code suggests, and `polar:verify` does not check it.
 - **Required** on each of the three products. Other fields the products ask for may stay.
 
-`startCheckout` sends the consent the buyer has just given as the field's value, so Polar shows the box ticked. Polar keeps only the values of fields that the product asks for: before the field is attached, a checkout still works, but the order records no consent, and the [purchase confirmation](/docs/features/licences#purchase-confirmation) states the statutory right of withdrawal instead.
+`startCheckout` sends no value for the field, so the box starts empty and the buyer ticks it; Polar does not take the payment while a required box is empty. Polar keeps only the values of fields that the product asks for: before the field is attached, a checkout still works, but the order records no consent, and the [purchase confirmation](/docs/features/licences#purchase-confirmation) states the statutory right of withdrawal instead.
 
 Creating the field and attaching it to a product need the `custom_fields:write` and `products:write` scopes, which the token above does not have. Create and attach it in the Polar dashboard, or through the API with a separate token that has them. `polar:verify` reads the attached fields from the products listing, so it needs no other scope.
+
+## Checkout language
+
+Polar shows its checkout in the language `startCheckout` asks for only while checkout localization is on for the organisation; otherwise every checkout opens in English. Turn it on in the organisation's settings. Polar's [checkout localization guide](https://polar.sh/docs/features/checkout/localization) calls it a feature flag, and the API returns it as `feature_settings.checkout_localization_enabled` on the organisation. `POLAR_CHECKOUT_LANGUAGES` in `src/data/polar.ts` lists the languages the code asks for, and `polar:verify` fails while localization is off.
 
 ## Regional discounts
 
@@ -125,6 +130,7 @@ bun run polar:verify:production
 Each script reads the Polar keys from `.env.<environment>` and sends only GET requests to the API that `POLAR_SERVER` names: it lists the organisation's products, discounts and webhook endpoints, and changes nothing. It checks that:
 
 - the environment file sets every Polar key, with `POLAR_SERVER=sandbox` for development and preview and `POLAR_SERVER=production` for production;
+- checkout localization is on for the organisation;
 - each `POLAR_PRODUCT_ID_*` names a product of the organisation that is neither archived nor a subscription, whose prices are fixed, in `DEFAULT_CURRENCY_CODE` and equal to `TIER_PRICES`;
 - each product has exactly one licence-key benefit with the tier's limit from `LICENSE_ACTIVATION_LIMITS`, no expiration and no usage limit;
 - each product requires the checkbox field <RepositoryFact name="licenseWithdrawalConsentField" /> with the label in `WITHDRAWAL_CONSENT_FIELD`;
@@ -152,6 +158,7 @@ A failure stops the deploy before anything is built, migrated or uploaded. The s
 - **`names no product of the organisation`**: the product ID or `POLAR_ORGANIZATION_ID` is wrong, or belongs to the other service.
 - **A price, licence key or discount**: change it in Polar to match the code. When a business value changes on purpose, change `TIER_PRICES`, `LICENSE_ACTIVATION_LIMITS` or `PPP_TIERS` first, then Polar.
 - **`does not ask for the … checkout field`, `without requiring it`, `instead of a checkbox` or `label differs`**: create, attach or correct the [consent checkbox](#consent-checkbox). When the wording changes on purpose, change `WITHDRAWAL_CONSENT_FIELD.label` first, then the label in Polar.
+- **`Checkout localization is off`**: turn on [checkout localization](#checkout-language) for the organisation.
 - **A webhook endpoint**: fix the endpoint the message names, or remove an endpoint that posts to another environment's host.
 
 ## Related pages

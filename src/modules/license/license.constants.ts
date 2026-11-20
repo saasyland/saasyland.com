@@ -59,6 +59,11 @@ export const LICENSE_CHECKOUT_METADATA = {
 
 export const LICENSE_API_RETRY_AFTER_SECONDS = 30
 
+export const LICENSE_POLL_MS = {
+  KEY: 2000,
+  SETUP: 5000,
+} as const
+
 export const REGIONAL_DISCOUNTS_REFRESH_AFTER_MS = 300_000
 
 export const BUNDLE_BINDING = "BUNDLES"

@@ -30,7 +30,7 @@ import { PLAYBACK_TTL_SECONDS } from "~/src/modules/video/video.playback"
 import { APP_STATEMENTS } from "~/src/data/access"
 import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
 import { OAUTH_PROVIDERS } from "~/src/data/auth"
-import { CLI_LICENSE_COMMANDS, SCAFFOLD_TARGET, cliCommand } from "~/src/data/cli"
+import { CLI_KEY_LINES, SCAFFOLD_TARGET } from "~/src/data/cli"
 import { LIVE_SITE_CHECKS } from "~/src/data/live"
 import { ANGULARPROJECTS_ACCESS, REACTPROJECTS_ACCESS } from "~/src/data/marketing"
 import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
@@ -209,10 +209,7 @@ describe("RepositoryFact", () => {
       </ul>,
     )
 
-    expect(listItems()).toEqual([
-      new Intl.ListFormat("en-US").format(CLI_LICENSE_COMMANDS.map((command) => cliCommand(command))),
-      SCAFFOLD_TARGET,
-    ])
+    expect(listItems()).toEqual([new Intl.ListFormat("en-US").format(CLI_KEY_LINES.map(({ command }) => command)), SCAFFOLD_TARGET])
   })
 
   it("prints the per-recipient email limit that the server-only rate limiter applies", () => {

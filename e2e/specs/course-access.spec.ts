@@ -1,6 +1,7 @@
 import { TIER_PRICES } from "../../src/data/marketing"
 import { LESSON_ACCESS } from "../../src/modules/lesson/lesson.constants"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/auth"
@@ -42,6 +43,17 @@ test.describe("course access through a licence", () => {
       `/app/license?redirect=${encodeURIComponent(`/courses/${TEST_COURSE.slug}/${paid.slug}`)}&tier=${LICENSE_TIER.COMPLETE}`,
     )
     await expect(page.getByText("Already have Complete?")).toHaveCount(0)
+  })
+
+  test("the workspace sidebar links to the courses with the lessons the customer has finished", async ({ appPage, page }) => {
+    await appPage.waitForAppReady()
+
+    const navigation = page.getByRole("navigation", { name: "App navigation", exact: true })
+    await expect(navigation.getByText(/^\d+ of \d+ lessons completed$/u)).toBeAttached()
+    await navigation.getByRole("link", { name: "Courses", exact: true }).click()
+
+    await expect(page).toHaveURL(ROUTES.COURSES)
+    await expect(page.getByRole("link", { name: new RegExp(TEST_COURSE.title["en-US"], "u") }).first()).toBeVisible()
   })
 
   test("a customer without Complete sees the locked courses beside the licence offer", async ({ appPage, page }) => {

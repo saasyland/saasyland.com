@@ -3,6 +3,7 @@ import { useCallback, useRef } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
+import { LESSON_PROGRESS_QUERY_KEYS } from "~/src/modules/lesson-progress/lesson-progress.constants"
 import { saveLessonProgressMutation } from "~/src/modules/lesson-progress/use-cases/save-lesson-progress"
 import { LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 
@@ -25,6 +26,7 @@ export const useLessonProgress = ({ enabled, lessonId }: LessonProgressOptions) 
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: COURSE_QUERY_KEYS.DETAIL }),
           queryClient.invalidateQueries({ queryKey: LESSON_QUERY_KEYS.DETAIL }),
+          queryClient.invalidateQueries({ queryKey: LESSON_PROGRESS_QUERY_KEYS.COMPLETED_LESSONS }),
         ])
       }
     },

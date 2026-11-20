@@ -6,7 +6,7 @@ import { useRouterState } from "@tanstack/react-router"
 import { LICENSE_STATUS, LICENSE_TIERS, type LicenseTier } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
-import { CLI_LICENSE_COMMANDS } from "~/src/data/cli"
+import { CLI_KEY_LINES, CLI_SETUP_LINES } from "~/src/data/cli"
 import { licenseSearchSchema } from "~/src/data/license"
 import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
 import { FEATURE_STATUS, FEATURE_STATUSES } from "~/src/data/navigation.constants"
@@ -27,12 +27,15 @@ const usePendingLicenseView = () => {
   const hasActiveLicense = license?.status === LICENSE_STATUS.ACTIVE
   const isBuying = search.checkoutId === undefined && !hasActiveLicense
 
+  const showsLicense = license !== undefined && (hasActiveLicense || search.checkoutId === undefined)
+
   return {
-    hasActivations: typeof license?.polarLicenseKeyId === "string",
+    hasActivations: hasActiveLicense && typeof license.polarLicenseKeyId === "string",
+    hasActiveLicense,
     isAwaitingPayment: search.checkoutId !== undefined,
     isBuying,
     showsChosenTier: isBuying && search.tier !== undefined,
-    showsLicense: license !== undefined && (hasActiveLicense || search.checkoutId === undefined),
+    showsLicense,
   }
 }
 
@@ -53,6 +56,14 @@ const ActivationPending = (): JSX.Element => (
   </div>
 )
 
+const CheckoutNoticePending = (): JSX.Element => (
+  <div className="flex max-w-[72ch] flex-col gap-1.5 text-xs leading-relaxed">
+    <Skeleton className="h-lh w-full scale-y-70" />
+    <Skeleton className="h-lh w-3/4 scale-y-70" />
+    <Skeleton className="h-lh w-1/2 scale-y-70" />
+  </div>
+)
+
 const ChosenTierPending = (): JSX.Element => (
   <div className="overflow-hidden rounded-xl border border-ring/40 bg-card">
     <div className="grid gap-x-10 gap-y-7 p-6 md:p-8 lg:grid-cols-[1fr_18rem] lg:items-end">
@@ -65,6 +76,9 @@ const ChosenTierPending = (): JSX.Element => (
         </div>
       </div>
       <Skeleton className="h-11 w-full rounded-lg" />
+    </div>
+    <div className="border-t border-border px-6 py-4 md:px-8">
+      <CheckoutNoticePending />
     </div>
   </div>
 )
@@ -121,6 +135,7 @@ const LicenseOfferPending = (): JSX.Element => (
         ))}
       </div>
     </div>
+    <CheckoutNoticePending />
     {LICENSE_OFFER_SECTIONS.map(({ key, Pending }) => (
       <Pending key={key} />
     ))}
@@ -143,33 +158,86 @@ const LicenseStatusCardPending = (): JSX.Element => (
   </Card>
 )
 
-const LicenseCardPending = (): JSX.Element => (
+const CommandLinePending = (): JSX.Element => <Skeleton className="h-10.5 w-full rounded-lg" />
+
+const ActiveLicensePending = (): JSX.Element => (
+  <>
+    <div className="space-y-2">
+      <Skeleton className="h-lh w-24 scale-y-70 text-sm" />
+      <CommandLinePending />
+    </div>
+    <TextLines className="text-sm" />
+    <div className="flex flex-col gap-4">
+      {CLI_KEY_LINES.map(({ id }) => (
+        <div className="space-y-1.5" key={id}>
+          <CommandLinePending />
+          <Skeleton className="h-lh w-2/3 scale-y-70 text-sm" />
+        </div>
+      ))}
+    </div>
+    <Skeleton className="h-lh w-1/2 scale-y-70 text-sm" />
+  </>
+)
+
+const InactiveLicensePending = (): JSX.Element => (
+  <div className="flex flex-col items-start gap-4">
+    <Skeleton className="h-lh w-3/4 scale-y-70 text-sm" />
+    <div className="flex flex-wrap items-center gap-3">
+      <Skeleton className="h-7 w-36 rounded-lg" />
+      <Skeleton className="h-7 w-28 rounded-lg" />
+    </div>
+  </div>
+)
+
+const LicenseCardPending = ({ isActive }: Readonly<{ isActive: boolean }>): JSX.Element => (
   <Card>
     <CardHeader>
       <Skeleton className="h-lh w-24 scale-y-70 text-base leading-snug" />
     </CardHeader>
     <CardContent className="flex flex-col gap-4">
-      <div className="space-y-2">
-        <Skeleton className="h-lh w-24 scale-y-70 text-sm" />
-        <Skeleton className="h-11.5 w-full rounded-md" />
-      </div>
-      <TextLines className="text-sm" />
-      <div className="flex flex-col gap-3">
-        {CLI_LICENSE_COMMANDS.map((command) => (
-          <div className="space-y-1.5" key={command}>
-            <Skeleton className="h-11.5 w-full rounded-md" />
-            <Skeleton className="h-lh w-2/3 scale-y-70 text-sm" />
-          </div>
-        ))}
-      </div>
-      <Skeleton className="h-lh w-1/2 scale-y-70 text-sm" />
+      {isActive && <ActiveLicensePending />}
+      {!isActive && <InactiveLicensePending />}
       <Skeleton className="h-lh w-3/4 scale-y-70 text-xs leading-relaxed" />
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <Skeleton className="h-7 w-36 rounded-lg" />
-        <Skeleton className="h-lh w-56 scale-y-70 text-xs" />
+        {isActive && <Skeleton className="h-lh w-56 scale-y-70 text-xs" />}
       </div>
     </CardContent>
   </Card>
+)
+
+const GetStartedPending = (): JSX.Element => (
+  <div className="rounded-xl border border-border bg-card p-6 md:p-8">
+    <Skeleton className="h-lh w-40 scale-y-70 text-title" />
+    <TextLines className="mt-1.5 text-body-sm" />
+    <div className="mt-5 flex max-w-md flex-col gap-3">
+      <Skeleton className="h-lh w-28 scale-y-70 text-spec" />
+      <Skeleton className="h-1 w-full rounded-full" />
+    </div>
+    <div className="mt-5 divide-y divide-border border-y border-border">
+      <div className="flex gap-4 py-4">
+        <Skeleton className="size-6 shrink-0 rounded-full" />
+        <Skeleton className="h-lh w-40 scale-y-70 text-body-sm" />
+      </div>
+      <div className="flex gap-4 py-4">
+        <Skeleton className="size-6 shrink-0 rounded-full" />
+        <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+          <Skeleton className="h-lh w-48 scale-y-70 text-body-sm" />
+          <CommandLinePending />
+        </div>
+      </div>
+      {CLI_SETUP_LINES.map(({ id }) => (
+        <div className="flex gap-4 py-4" key={id}>
+          <Skeleton className="size-6 shrink-0 rounded-full" />
+          <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+            <Skeleton className="h-lh w-56 max-w-full scale-y-70 text-body-sm" />
+            <CommandLinePending />
+            <TextLines className="text-body-sm" />
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
 )
 
 const LicenseActivationsPending = (): JSX.Element => (
@@ -191,8 +259,10 @@ export const LicenseOverviewPending = (): JSX.Element => {
   return (
     <>
       {view.isAwaitingPayment && <ActivationPending />}
+      {view.isAwaitingPayment && view.hasActiveLicense && <GetStartedPending />}
       {view.showsChosenTier && <ChosenTierPending />}
       {view.showsLicense && <LicenseStatusCardPending />}
+      {view.hasActiveLicense && !view.isAwaitingPayment && <GetStartedPending />}
       {view.isBuying && <LicenseOfferPending />}
     </>
   )
@@ -205,9 +275,10 @@ export const AppLicensePending = (): JSX.Element => {
     <div aria-busy="true" className="flex w-full flex-col gap-8 pb-8">
       <PageHeaderPending />
       {view.isAwaitingPayment && <ActivationPending />}
+      {view.isAwaitingPayment && view.hasActiveLicense && <GetStartedPending />}
       {view.showsChosenTier && <ChosenTierPending />}
-      {view.showsLicense && <LicenseCardPending />}
-      {view.showsLicense && view.hasActivations && <LicenseActivationsPending />}
+      {view.showsLicense && <LicenseCardPending isActive={view.hasActiveLicense} />}
+      {view.hasActivations && <LicenseActivationsPending />}
       {view.isBuying && <LicenseOfferPending />}
       <Skeleton className="h-lh w-28 scale-y-70 text-sm" />
     </div>

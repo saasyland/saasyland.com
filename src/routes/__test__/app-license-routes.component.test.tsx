@@ -7,7 +7,7 @@ import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { createTranslator } from "use-intl"
 import { IntlProvider } from "use-intl/react"
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { JSON_NULL } from "~/src/platform/testing/lib/json-null"
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
@@ -15,12 +15,19 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 import { AriaProvider } from "~/src/providers/aria-provider"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { QUERY_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
-import { LICENSE_MUTATION_KEYS, LICENSE_QUERY_KEYS, LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
+import {
+  LICENSE_MUTATION_KEYS,
+  LICENSE_POLL_MS,
+  LICENSE_QUERY_KEYS,
+  LICENSE_STATUS,
+  LICENSE_TIER,
+} from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import type { deactivateLicenseMutation } from "~/src/modules/license/use-cases/deactivate-license"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
@@ -31,7 +38,8 @@ import { Route as AppRoute } from "~/src/routes/app"
 import { Route as OverviewRoute } from "~/src/routes/app.index"
 import { Route as LicenseRoute } from "~/src/routes/app.license"
 
-import { CLI_LICENSE_COMMANDS, cliCommand } from "~/src/data/cli"
+import { CLI_KEY_LINES, SCAFFOLD_DIR } from "~/src/data/cli"
+import { LICENSE_OFFER_ID } from "~/src/data/license"
 import { COURSE_PLATFORM_VALUES } from "~/src/data/marketing"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -49,15 +57,15 @@ import pagesAppSidebarMessages from "~/messages/en-US/pages.app.sidebar.json"
 import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
 import plPricingMessages from "~/messages/pl-PL/components.custom.pricing.json"
 import plErrorsMessages from "~/messages/pl-PL/errors.json"
-import plLicenseValidationMessages from "~/messages/pl-PL/license.validations.json"
 import plPagesLicenseMessages from "~/messages/pl-PL/pages.license.json"
+import ukPagesLicenseMessages from "~/messages/uk-UA/pages.license.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
 import { ROUTES } from "~/src/routes"
 
 const LICENSE_KEY = "private-purchased-license-key"
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
-const { activation, buy, chosen, statusCard } = pagesLicenseMessages
+const { activation, buy, chosen, copy, statusCard } = pagesLicenseMessages
 const SECTION_NAME = vi.hoisted(() => "Included with every tier")
 
 const sessionRequest = vi.hoisted(() => vi.fn())
@@ -68,6 +76,7 @@ const sectionLoad = vi.hoisted(() => vi.fn<() => Promise<unknown>>())
 const checkoutMock = vi.hoisted(() => vi.fn<NonNullable<typeof startCheckoutMutation.mutationFn>>())
 const deactivateMock = vi.hoisted(() => vi.fn<NonNullable<typeof deactivateLicenseMutation.mutationFn>>())
 const signOutMock = vi.hoisted(() => vi.fn<NonNullable<typeof signOutUserMutation.mutationFn>>())
+const triggerConfettiMock = vi.hoisted(() => vi.fn<() => void>())
 
 vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {
   const actual = await importOriginal()
@@ -75,13 +84,18 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
 })
 vi.mock(import("~/src/modules/license/use-cases/get-current-license"), async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, currentLicenseQuery: { ...actual.currentLicenseQuery, queryFn: currentLicenseMock } }
+  return {
+    ...actual,
+    currentLicenseQuery: { ...actual.currentLicenseQuery, queryFn: currentLicenseMock },
+    licenseSetupQuery: { ...actual.licenseSetupQuery, queryFn: currentLicenseMock },
+  }
 })
 vi.mock(import("~/src/modules/license/use-cases/get-current-license-key"), async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...actual,
     currentLicenseKeyQuery: { ...actual.currentLicenseKeyQuery, queryFn: licenseKeyMock },
+    licenseKeySetupQuery: { ...actual.licenseKeySetupQuery, queryFn: licenseKeyMock },
   }
 })
 vi.mock(import("~/src/modules/license/use-cases/get-current-license-activations"), async (importOriginal) => {
@@ -104,6 +118,7 @@ vi.mock(import("~/src/modules/license/use-cases/start-checkout"), () => ({
 vi.mock(import("~/src/modules/license/use-cases/deactivate-license"), () => ({
   deactivateLicenseMutation: { mutationFn: deactivateMock, mutationKey: LICENSE_MUTATION_KEYS.DEACTIVATE },
 }))
+vi.mock(import("~/src/lib/confetti"), () => ({ triggerConfetti: triggerConfettiMock }))
 vi.mock(import("~/src/modules/account/use-cases/sign-out-user"), () => ({
   signOutUserMutation: { mutationFn: signOutMock, mutationKey: ACCOUNT_MUTATION_KEYS.SIGN_OUT },
 }))
@@ -126,7 +141,9 @@ const ownedLicense: License["select"] = {
 }
 
 const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
-  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } })
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false, staleTime: QUERY_STALE_TIME_MS } },
+  })
   const root = createRootRouteWithContext<RouterContext>()({
     component: () => (
       <AriaProvider>
@@ -160,39 +177,24 @@ const offer = () => screen.findByRole("region", { name: buy.title })
 
 const tierButton = (tier: keyof typeof pricingMessages.tiers) => screen.getByRole("button", { name: pricingMessages.tiers[tier].cta })
 
-const consentLabel = (tier: keyof typeof pricingMessages.tiers): string =>
-  createTranslator({ locale: "en-US", messages: pagesLicenseMessages })("buy.consent.label", {
+const plainText = (chunks: string): string => chunks
+
+const notice = (key: "consent" | "refund"): string =>
+  createTranslator({ locale: "en-US", messages: pagesLicenseMessages }).markup(`buy.notice.${key}`, {
     days: REFUND_TERMS.WITHDRAWAL_DAYS,
-    tier: pricingMessages.tiers[tier].name,
+    refunds: plainText,
   })
 
-const plConsent = (key: "description" | "label"): string =>
-  createTranslator({ locale: "pl-PL", messages: plPagesLicenseMessages })(`buy.consent.${key}`, {
-    days: REFUND_TERMS.WITHDRAWAL_DAYS,
-    tier: plPricingMessages.tiers.agency.name,
-  })
+const paragraph = (text: string) => (_: string, element: Element | null) => element?.tagName === "P" && element.textContent === text
 
-const openPolishConsent = async () => {
+const startPolishCheckout = async () => {
   vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/pl-PL/app/license"))
   const { user } = await renderApp(ROUTES.APP_LICENSE, "pl-PL")
   const region = await screen.findByRole("region", { name: plPagesLicenseMessages.buy.title })
 
   await user.click(within(region).getByRole("button", { name: plPricingMessages.tiers.agency.cta }))
-
-  const dialog = screen.getByRole("dialog", { name: plPagesLicenseMessages.buy.consent.title })
-  await within(dialog).findByRole("checkbox")
-  return { dialog, user }
+  return { region, user }
 }
-
-const consentAndContinue = async (user: ReturnType<typeof userEvent.setup>, tier: keyof typeof pricingMessages.tiers): Promise<void> => {
-  const dialog = screen.getByRole("dialog", { name: buy.consent.title })
-  await user.click(await within(dialog).findByRole("checkbox", { name: consentLabel(tier) }))
-  await user.click(within(dialog).getByRole("button", { name: buy.consent.continue }))
-}
-
-beforeAll(async () => {
-  await import("~/src/presentation/components/custom/app/checkout-consent")
-})
 
 beforeEach(() => {
   sessionRequest.mockReset().mockResolvedValue(createAuthSessionFixture())
@@ -245,7 +247,7 @@ describe("buying a license", () => {
     expect(within(region).getAllByText(pricingMessages.status.available)).toHaveLength(Object.keys(pricingMessages.tiers).length)
     expect(within(region).getAllByText(pricingMessages.status.arriving)).toHaveLength(Object.keys(pricingMessages.tiers).length)
     expect(within(region).getAllByText(pricingMessages.mostPopular)).toHaveLength(1)
-    expect(within(region).queryByRole("link", { name: "Terms of Service" })).toBeNull()
+    expect(within(region).getByRole("link", { name: "Terms of Service" })).toHaveAttribute("href", ROUTES.TERMS)
     expect(screen.queryByRole("region", { name: chosen.title.replace("{tier}", pricingMessages.tiers.complete.name) })).toBeNull()
   })
 
@@ -256,55 +258,46 @@ describe("buying a license", () => {
     expect(sectionLoad).toHaveBeenCalledWith({ locale: "en-US", queryClient })
   })
 
-  it("asks for consent to immediate supply in the page's language, with the terms it links to", async () => {
-    const { dialog } = await openPolishConsent()
+  it("says next to the buttons that Polar asks for the consent, when the refund ends and which terms apply", async () => {
+    await renderApp(ROUTES.APP_LICENSE)
 
-    expect(dialog).toHaveFocus()
-    expect(within(dialog).getByText(plConsent("description"))).toBeVisible()
-    const box = within(dialog).getByRole("checkbox", { name: plConsent("label") })
-    expect(box).not.toBeChecked()
-    expect(box).toBeRequired()
-    expect(within(dialog).getByRole("link", { name: "Zasady zwrotów" })).toHaveAttribute("href", ROUTES.REFUNDS)
-    expect(within(dialog).getByRole("link", { name: "Regulamin" })).toHaveAttribute("href", ROUTES.TERMS)
-    expect(within(dialog).getByRole("link", { name: "Licencję komercyjną" })).toHaveAttribute("href", ROUTES.LICENCE)
+    const region = await offer()
+    expect(within(region).getByText(notice("consent"))).toBeVisible()
+    const refund = paragraph(notice("refund"))
+    expect(within(region).getByText(refund)).toBeVisible()
+    expect(within(region).getByRole("link", { name: "Refund Policy" })).toHaveAttribute("href", ROUTES.REFUNDS)
+    expect(within(region).getByRole("link", { name: "Terms of Service" })).toHaveAttribute("href", ROUTES.TERMS)
+    expect(within(region).getByRole("link", { name: "Commercial Licence" })).toHaveAttribute("href", ROUTES.LICENCE)
+    expect(within(region).queryByText(buy.notice.english, { exact: false })).toBeNull()
   })
 
-  it("starts no checkout until the box is ticked, says why, and starts it once the label is pressed", async () => {
+  it("warns a reader of a language Polar does not translate that the payment page opens in English", async () => {
+    vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/uk-UA/app/license"))
+    await renderApp(ROUTES.APP_LICENSE, "uk-UA")
+
+    const region = await screen.findByRole("region", { name: ukPagesLicenseMessages.buy.title })
+    expect(within(region).getByText(ukPagesLicenseMessages.buy.notice.english, { exact: false })).toBeVisible()
+  })
+
+  it("opens the checkout straight away, with no dialog, in the page's language and back to this page", async () => {
     checkoutMock.mockReturnValue(new Promise(() => {}))
-    const { dialog, user } = await openPolishConsent()
-    const box = within(dialog).getByRole("checkbox", { name: plConsent("label") })
-    const required = plLicenseValidationMessages.withdrawalConsentRequired
+    await startPolishCheckout()
 
-    await user.click(within(dialog).getByRole("button", { name: plPagesLicenseMessages.buy.consent.continue }))
-
-    expect(checkoutMock).not.toHaveBeenCalled()
-    expect(within(dialog).getByRole("alert")).toHaveTextContent(required)
-    expect(box).toBeInvalid()
-    expect(box).toHaveAccessibleDescription(required)
-
-    await user.click(within(dialog).getByText(plConsent("label")))
-    expect(box).toBeChecked()
-    expect(within(dialog).queryByRole("alert")).toBeNull()
-    await user.click(within(dialog).getByRole("button", { name: plPagesLicenseMessages.buy.consent.continue }))
-
+    expect(screen.queryByRole("dialog")).toBeNull()
     expect(checkoutMock).toHaveBeenCalledExactlyOnceWith(
-      { locale: "pl-PL", tier: LICENSE_TIER.AGENCY, withdrawalConsent: true },
+      { locale: "pl-PL", returnPath: ROUTES.APP_LICENSE, tier: LICENSE_TIER.AGENCY },
       expect.anything(),
     )
   })
 
-  it("keeps the dialog open while the checkout starts, then closes it and recovers after a failure", async () => {
+  it("keeps every tier button off while the checkout starts and recovers after a failure", async () => {
     const checkout = Promise.withResolvers<{ url: string }>()
     checkoutMock.mockReturnValue(checkout.promise)
-    const { dialog, user } = await openPolishConsent()
-    await user.click(within(dialog).getByRole("checkbox", { name: plConsent("label") }))
-    await user.click(within(dialog).getByRole("button", { name: plPagesLicenseMessages.buy.consent.continue }))
+    const { region } = await startPolishCheckout()
 
-    const pending = within(dialog).getByRole("button", { name: (name) => name.endsWith(plPagesLicenseMessages.buy.pending) })
+    const pending = within(region).getByRole("button", { name: (name) => name.endsWith(plPagesLicenseMessages.buy.pending) })
     expect(pending).toHaveAttribute("aria-disabled", "true")
-    expect(within(dialog).getByRole("button", { name: plPagesLicenseMessages.buy.consent.cancel })).toBeDisabled()
-    await user.keyboard("{Escape}")
-    expect(screen.getByRole("dialog")).toBeVisible()
+    expect(within(region).getByRole("button", { name: plPricingMessages.tiers.core.cta })).toBeDisabled()
 
     await act(async () => {
       checkout.reject(new Error("Checkout unavailable"))
@@ -312,32 +305,11 @@ describe("buying a license", () => {
     })
 
     await waitFor(() => {
-      expect(screen.queryByRole("dialog")).toBeNull()
+      expect(toast.error).toHaveBeenCalledWith(plErrorsMessages.codes.INTERNAL_ERROR)
     })
-    expect(toast.error).toHaveBeenCalledWith(plErrorsMessages.codes.INTERNAL_ERROR)
-    expect(screen.getByRole("button", { name: plPricingMessages.tiers.agency.cta })).toBeEnabled()
+    expect(within(region).getByRole("button", { name: plPricingMessages.tiers.agency.cta })).toBeEnabled()
+    expect(within(region).getByRole("button", { name: plPricingMessages.tiers.core.cta })).toBeEnabled()
     expect(checkoutMock).toHaveBeenCalledOnce()
-  })
-
-  it("cancels with the button or Escape without starting a checkout, and asks again the next time", async () => {
-    const { user } = await renderApp(ROUTES.APP)
-    await offer()
-
-    await user.click(tierButton(LICENSE_TIER.CORE))
-    await user.click(await screen.findByRole("checkbox", { name: consentLabel(LICENSE_TIER.CORE) }))
-    await user.click(screen.getByRole("button", { name: buy.consent.cancel }))
-
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog")).toBeNull()
-    })
-    await user.click(tierButton(LICENSE_TIER.CORE))
-    expect(await screen.findByRole("checkbox", { name: consentLabel(LICENSE_TIER.CORE) })).not.toBeChecked()
-    await user.keyboard("{Escape}")
-
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog")).toBeNull()
-    })
-    expect(checkoutMock).not.toHaveBeenCalled()
   })
 
   it("refreshes the license before opening the checkout", async () => {
@@ -347,14 +319,13 @@ describe("buying a license", () => {
     const invalidate = vi.spyOn(queryClient, "invalidateQueries")
 
     await user.click(tierButton(LICENSE_TIER.CORE))
-    await consentAndContinue(user, LICENSE_TIER.CORE)
 
     await waitFor(() => {
       expect(globalThis.location.hash).toBe("#checkout")
     })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: LICENSE_QUERY_KEYS.ALL })
     expect(checkoutMock).toHaveBeenCalledExactlyOnceWith(
-      { locale: "en-US", tier: LICENSE_TIER.CORE, withdrawalConsent: true },
+      { locale: "en-US", returnPath: ROUTES.APP, tier: LICENSE_TIER.CORE },
       expect.anything(),
     )
     globalThis.history.replaceState({}, "", "/")
@@ -367,7 +338,6 @@ describe("buying a license", () => {
     currentLicenseMock.mockResolvedValue({ license: ownedLicense })
 
     await user.click(tierButton(LICENSE_TIER.COMPLETE))
-    await consentAndContinue(user, LICENSE_TIER.COMPLETE)
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(`You already have an active licence. To move to another tier, email ${CONTACT_EMAIL}.`)
@@ -379,7 +349,7 @@ describe("buying a license", () => {
 })
 
 describe("a tier chosen on the pricing page", () => {
-  it.each([ROUTES.APP, ROUTES.APP_LICENSE])("is highlighted on %s and goes to checkout once the buyer consents", async (path) => {
+  it.each([ROUTES.APP, ROUTES.APP_LICENSE])("is highlighted on %s and goes straight to checkout", async (path) => {
     checkoutMock.mockReturnValue(new Promise(() => {}))
     const { user } = await renderApp(`${path}?tier=${LICENSE_TIER.COMPLETE}`)
 
@@ -387,11 +357,11 @@ describe("a tier chosen on the pricing page", () => {
     expect(within(card).getByText(`You chose ${pricingMessages.tiers.complete.name}`, { exact: false })).toBeVisible()
     expect(within(card).getByText("$399", { selector: ".pv-100" })).toBeInTheDocument()
 
+    expect(within(card).getByText(notice("consent"))).toBeVisible()
     await user.click(within(card).getByRole("button", { name: chosen.continue }))
-    await consentAndContinue(user, LICENSE_TIER.COMPLETE)
 
     expect(checkoutMock).toHaveBeenCalledExactlyOnceWith(
-      { locale: "en-US", tier: LICENSE_TIER.COMPLETE, withdrawalConsent: true },
+      { locale: "en-US", returnPath: `${path}?tier=${LICENSE_TIER.COMPLETE}`, tier: LICENSE_TIER.COMPLETE },
       expect.anything(),
     )
   })
@@ -399,14 +369,14 @@ describe("a tier chosen on the pricing page", () => {
   it("carries the page the buyer came from, such as a lesson, into the checkout", async () => {
     checkoutMock.mockReturnValue(new Promise(() => {}))
     const lesson = "/courses/the-walkthrough/billing"
-    const { user } = await renderApp(`${ROUTES.APP_LICENSE}?tier=${LICENSE_TIER.COMPLETE}&redirect=${encodeURIComponent(lesson)}`)
+    const path = `${ROUTES.APP_LICENSE}?tier=${LICENSE_TIER.COMPLETE}&redirect=${encodeURIComponent(lesson)}`
+    const { user } = await renderApp(path)
 
     const card = await screen.findByRole("region", { name: `Continue with ${pricingMessages.tiers.complete.name}` })
     await user.click(within(card).getByRole("button", { name: chosen.continue }))
-    await consentAndContinue(user, LICENSE_TIER.COMPLETE)
 
     expect(checkoutMock).toHaveBeenCalledExactlyOnceWith(
-      { locale: "en-US", redirect: lesson, tier: LICENSE_TIER.COMPLETE, withdrawalConsent: true },
+      { locale: "en-US", redirect: lesson, returnPath: path, tier: LICENSE_TIER.COMPLETE },
       expect.anything(),
     )
   })
@@ -443,7 +413,8 @@ describe("returning from checkout", () => {
     await renderApp(`${ROUTES.APP_LICENSE}?checkoutId=${CHECKOUT_ID}`)
 
     expect(await screen.findByRole("heading", { name: activation.active.title })).toBeVisible()
-    expect(screen.getByText(`Thank you for buying ${pricingMessages.tiers.agency.name}.`)).toBeVisible()
+    expect(screen.getByText(activation.active.body.replace("{tier}", pricingMessages.tiers.agency.name))).toBeVisible()
+    expect(screen.getByRole("region", { name: pagesLicenseMessages.setup.title })).toBeVisible()
     expect(screen.getByRole("heading", { name: pricingMessages.tiers.agency.name })).toBeVisible()
     expect(screen.getByText(pagesLicenseMessages.pending)).toBeVisible()
   })
@@ -466,27 +437,35 @@ describe("returning from checkout", () => {
 
 describe("owning a license", () => {
   it.each([
-    { license: ownedLicense, status: statusCard.active },
-    { license: { ...ownedLicense, key: JSON_NULL, polarLicenseKeyId: JSON_NULL }, status: statusCard.pending },
-  ])("shows the purchased tier and $status state on the overview without the key or the offer", async ({ license, status }) => {
-    currentLicenseMock.mockResolvedValue({ license })
-    await renderApp(ROUTES.APP)
+    { key: LICENSE_KEY, license: ownedLicense, status: statusCard.active },
+    { key: JSON_NULL, license: { ...ownedLicense, key: JSON_NULL, polarLicenseKeyId: JSON_NULL }, status: statusCard.pending },
+  ])(
+    "shows the purchased tier, its $status state and the first steps on the overview, without the offer",
+    async ({ key, license, status }) => {
+      currentLicenseMock.mockResolvedValue({ license })
+      licenseKeyMock.mockResolvedValue({ key })
+      await renderApp(ROUTES.APP)
 
-    expect(await screen.findByText(pricingMessages.tiers.agency.name)).toBeVisible()
-    expect(screen.getByText(status)).toBeVisible()
-    expect(screen.getByRole("link", { name: statusCard.action })).toHaveAttribute("href", ROUTES.APP_LICENSE)
-    expect(screen.queryByText(LICENSE_KEY)).toBeNull()
-    expect(screen.queryByRole("region", { name: buy.title })).toBeNull()
-    expect(screen.getByRole("link", { name: pagesAppMessages.overview.docs.action })).toHaveAttribute("href", ROUTES.DOCS_CLI)
-  })
+      expect(await screen.findByText(pricingMessages.tiers.agency.name)).toBeVisible()
+      expect(screen.getByText(status)).toBeVisible()
+      expect(screen.getByRole("link", { name: statusCard.action })).toHaveAttribute("href", ROUTES.APP_LICENSE)
+      expect(screen.getByRole("region", { name: pagesLicenseMessages.setup.title })).toBeVisible()
+      expect(screen.queryByRole("region", { name: buy.title })).toBeNull()
+      expect(screen.getByRole("link", { name: pagesAppMessages.overview.docs.action })).toHaveAttribute("href", ROUTES.DOCS_CLI)
+    },
+  )
 
-  it.each([LICENSE_STATUS.REFUNDED, LICENSE_STATUS.REVOKED])("offers a new license next to a %s one", async (status) => {
-    currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, key: JSON_NULL, status } })
-    await renderApp(ROUTES.APP)
+  it.each([LICENSE_STATUS.REFUNDED, LICENSE_STATUS.REVOKED])(
+    "offers a new license next to a %s one, without the first steps",
+    async (status) => {
+      currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, key: JSON_NULL, status } })
+      await renderApp(ROUTES.APP)
 
-    expect(await screen.findByText(statusCard[status])).toBeVisible()
-    expect(await offer()).toBeVisible()
-  })
+      expect(await screen.findByText(statusCard[status])).toBeVisible()
+      expect(screen.queryByRole("region", { name: pagesLicenseMessages.setup.title })).toBeNull()
+      expect(await offer()).toBeVisible()
+    },
+  )
 
   it("withholds the key and the invoices until the buyer confirms their email, and says where the link went", async () => {
     const confirmed = createAuthSessionFixture()
@@ -536,38 +515,61 @@ describe("owning a license", () => {
     expect(screen.getByText(pagesLicenseMessages.activations.none)).toBeVisible()
     expect(toast.success).toHaveBeenCalledWith(pagesLicenseMessages.activations.success)
   })
+})
 
-  it("shows the CLI commands that activate, show and free a machine, and the variable that holds the key in CI", async () => {
+describe("the licence key, its commands and its machines", () => {
+  it("shows the key and the CLI commands that activate it, generate a project, show and free a machine, each to copy", async () => {
     currentLicenseMock.mockResolvedValue({ license: ownedLicense })
     activationsMock.mockResolvedValue({ activations: [], limitActivations: 2 })
     await renderApp(ROUTES.APP_LICENSE)
 
     expect(await screen.findByText(pagesLicenseMessages.usage)).toBeVisible()
-    expect(screen.getAllByRole("term").map((term) => term.textContent)).toEqual(CLI_LICENSE_COMMANDS.map((command) => cliCommand(command)))
-    expect(screen.getAllByRole("definition").map((definition) => definition.textContent)).toEqual(
-      CLI_LICENSE_COMMANDS.map((command) => pagesLicenseMessages.commands[command]),
-    )
+    expect(screen.getByRole("button", { name: copy.key })).toBeEnabled()
+    const terms = screen.getAllByRole("term")
+    expect(terms).toHaveLength(CLI_KEY_LINES.length)
+    for (const [index, { command }] of CLI_KEY_LINES.entries()) {
+      expect(within(terms[index] ?? document.body).getByText(command)).toBeVisible()
+      expect(within(terms[index] ?? document.body).getByRole("button", { name: copy.command.replace("{command}", command) })).toBeEnabled()
+    }
+    const descriptions = screen.getAllByRole("definition").map((definition) => definition.textContent)
+    expect(descriptions).toContain(pagesLicenseMessages.commands.activate)
+    const t = createTranslator({ locale: "en-US", messages: pagesLicenseMessages })
+    expect(descriptions).toContain(t.markup("commands.init", { days: REFUND_TERMS.WITHDRAWAL_DAYS, dir: SCAFFOLD_DIR, refunds: plainText }))
     expect(screen.getByText(CLI_VARIABLE.LICENSE_KEY).tagName).toBe("CODE")
     expect(screen.getByText(CLI_VARIABLE.LICENSE_KEY).parentElement).toHaveTextContent(
       pagesLicenseMessages.ci.replace("<code>{variable}</code>", CLI_VARIABLE.LICENSE_KEY),
     )
   })
 
-  it.each([LICENSE_STATUS.REFUNDED, LICENSE_STATUS.REVOKED])("explains a %s license and offers a new one", async (status) => {
-    currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, status } })
-    await renderApp(ROUTES.APP_LICENSE)
+  it.each([LICENSE_STATUS.REFUNDED, LICENSE_STATUS.REVOKED])(
+    "explains a %s license without its key, commands or machines, and offers a new one or support",
+    async (status) => {
+      currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, status } })
+      await renderApp(ROUTES.APP_LICENSE)
 
-    expect(await screen.findByText(pagesLicenseMessages[status])).toBeVisible()
-    expect(await offer()).toBeVisible()
-  })
+      expect(await screen.findByText(pagesLicenseMessages[status])).toBeVisible()
+      expect(screen.getByRole("link", { name: pagesLicenseMessages.inactive.buyAgain })).toHaveAttribute("href", `#${LICENSE_OFFER_ID}`)
+      expect(screen.getByRole("link", { name: pagesLicenseMessages.inactive.support })).toHaveAttribute("href", `mailto:${CONTACT_EMAIL}`)
+      expect(screen.queryByText(LICENSE_KEY)).toBeNull()
+      expect(screen.queryByText(pagesLicenseMessages.pending)).toBeNull()
+      expect(screen.queryByText(pagesLicenseMessages.usage)).toBeNull()
+      expect(screen.queryByRole("heading", { name: pagesLicenseMessages.activations.title })).toBeNull()
+      expect(await offer()).toHaveAttribute("id", LICENSE_OFFER_ID)
+    },
+  )
 
-  it("shows a pending key honestly, without a machine list before provisioning", async () => {
-    currentLicenseMock.mockResolvedValue({ license: { ...ownedLicense, key: JSON_NULL, polarLicenseKeyId: JSON_NULL } })
+  it("says a pending key is on its way and shows it without a refresh, without a machine list before provisioning", async () => {
+    const pending = { ...ownedLicense, key: JSON_NULL, polarLicenseKeyId: JSON_NULL }
+    currentLicenseMock.mockResolvedValue({ license: pending })
     licenseKeyMock.mockResolvedValue({ key: JSON_NULL })
     await renderApp(ROUTES.APP_LICENSE)
 
     expect(await screen.findByText(pagesLicenseMessages.pending)).toBeVisible()
     expect(screen.queryByRole("heading", { name: pagesLicenseMessages.activations.title })).toBeNull()
+
+    currentLicenseMock.mockResolvedValue({ license: ownedLicense })
+    licenseKeyMock.mockResolvedValue({ key: LICENSE_KEY })
+    expect(await screen.findByText(LICENSE_KEY, {}, { timeout: LICENSE_POLL_MS.KEY * 2 })).toBeVisible()
   })
 
   it("supports unlimited activations and keeps the machine when deactivation fails", async () => {

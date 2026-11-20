@@ -26,13 +26,16 @@ import {
   CLI_GENERATION,
   CLI_GENERATION_VALUES,
   CLI_INIT_COMMAND,
+  CLI_KEY_LINES,
   CLI_PACKAGE,
   CLI_PACKAGE_SPEC,
   CLI_RELEASE_CHANNEL,
+  CLI_SETUP_LINES,
   CLI_TEMPLATE_SUPPORT,
   NPM_DIST_TAG,
   PACKAGE_MANAGER,
   SCAFFOLD_DIR,
+  cliCommand,
   resolveCliAnswers,
 } from "~/src/data/cli"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -145,4 +148,18 @@ it("pins lucide-react, React and React DOM in the landing videos, which render t
   expect(VIDEO_SHARED_PACKAGES.map((name) => motion.dependencies[name])).toStrictEqual(
     VIDEO_SHARED_PACKAGES.map((name) => root.dependencies[name].replace(CARET_RANGE, "")),
   )
+})
+
+it("takes a buyer from activating the key to a first project, and lists every command that uses the key", () => {
+  expect(CLI_SETUP_LINES).toStrictEqual([
+    { command: cliCommand(CLI_COMMAND.ACTIVATE), id: CLI_COMMAND.ACTIVATE },
+    { command: CLI_INIT_COMMAND, id: CLI_COMMAND.INIT },
+  ])
+  expect(CLI_KEY_LINES.map(({ id }) => id)).toStrictEqual([
+    CLI_COMMAND.ACTIVATE,
+    CLI_COMMAND.INIT,
+    CLI_COMMAND.WHOAMI,
+    CLI_COMMAND.DEACTIVATE,
+  ])
+  expect(CLI_KEY_LINES.every(({ command }) => command.startsWith(`${PACKAGE_MANAGER.NPM.exec} ${CLI_PACKAGE_SPEC} `))).toBe(true)
 })

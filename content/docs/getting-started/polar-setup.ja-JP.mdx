@@ -33,6 +33,7 @@ Polar は 2 つの独立したサービスを運営しています。本番（`p
 | `discounts:read`          | 購入時の地域割引の検索（`pppDiscountId`）と `polar:verify`                                                                                                                  |
 | `license_keys:write`      | キーとそのアクティベーションの読み取り、端末のアクティベート、およびアクティベーションの解除（`deactivateLicense` と [CLI ライセンス API](/docs/features/cli-licence-api)） |
 | `orders:read`             | ライセンスの元になった注文と、イベントがどのアカウントにも対応しない注文の現在の顧客を読み取る Webhook ハンドラー                                                           |
+| `organizations:read`      | チェックアウトのローカライズがオンかどうかを読み取る `polar:verify`                                                                                                         |
 | `products:read`           | `polar:verify`                                                                                                                                                              |
 | `webhooks:read`           | `polar:verify`                                                                                                                                                              |
 
@@ -63,7 +64,7 @@ Polar は価格を通貨の補助単位（米ドルではセント）で保存�
 
 ## 同意のチェックボックス [#consent-checkbox]
 
-サイトの購入ダイアログは購入者に即時提供への同意を求め（[ライセンス](/docs/features/licences#consent-to-immediate-supply)を参照）、Polar のチェックアウトはその同意を注文に記録します。組織にカスタムフィールドを 1 つ作成し、3 つの商品に付けてください。
+購入者は Polar のチェックアウトで即時提供に同意し、同意を求めるのはこのフィールドだけです（[ライセンス](/docs/features/licences#consent-to-immediate-supply)を参照）。Polar はその同意を注文に記録します。組織にカスタムフィールドを 1 つ作成し、3 つの商品に付けてください。
 
 - **タイプ**: チェックボックス。
 - **スラッグ**: <RepositoryFact name="licenseWithdrawalConsentField" />。`src/modules/license/license.constants.ts` の `LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT` です。注文は、チェックされたボックスを `custom_field_data` のこのキーに保存します。
@@ -71,9 +72,13 @@ Polar は価格を通貨の補助単位（米ドルではセント）で保存�
 - **名前**: 任意です。コードが提案するのは `WITHDRAWAL_CONSENT_FIELD.name` で、`polar:verify` はチェックしません。
 - **必須**: 3 つの商品のそれぞれで必須にします。商品が求めるほかのフィールドは残しておいてかまいません。
 
-`startCheckout` は購入者が直前に与えた同意をフィールドの値として送信するため、Polar はボックスにチェックが入った状態で表示します。Polar は、商品が求めるフィールドの値しか保持しません。そのため、フィールドを付ける前でもチェックアウトは機能しますが、注文には同意が記録されず、[購入確認メール](/docs/features/licences#purchase-confirmation)では代わりに法定の撤回権が案内されます。
+`startCheckout` はこのフィールドに値を送らないため、ボックスは空の状態で始まり、購入者がチェックを入れます。必須のボックスが空のままでは Polar は支払いを受け付けません。Polar は、商品が求めるフィールドの値しか保持しません。そのため、フィールドを付ける前でもチェックアウトは機能しますが、注文には同意が記録されず、[購入確認メール](/docs/features/licences#purchase-confirmation)では代わりに法定の撤回権が案内されます。
 
 フィールドを作成して商品に付けるには `custom_fields:write` と `products:write` のスコープが必要ですが、上記のトークンにはこれらのスコープがありません。Polar のダッシュボードで作成して付けるか、これらのスコープを持つ別のトークンを使って API で行ってください。`polar:verify` は商品の一覧から付いているフィールドを読み取るため、ほかのスコープは必要ありません。
+
+## チェックアウトの言語 [#checkout-language]
+
+Polar が `startCheckout` の求める言語でチェックアウトを表示するのは、組織でチェックアウトのローカライズがオンになっている間だけです。オフの場合、すべてのチェックアウトは英語で開きます。組織の設定でオンにしてください。Polar の[チェックアウトのローカライズのガイド](https://polar.sh/docs/features/checkout/localization)はこれを機能フラグと呼び、API は組織の `feature_settings.checkout_localization_enabled` として返します。コードが求める言語は `src/data/polar.ts` の `POLAR_CHECKOUT_LANGUAGES` にあり、ローカライズがオフの間は `polar:verify` が失敗します。
 
 ## 地域割引
 
@@ -125,6 +130,7 @@ bun run polar:verify:production
 各スクリプトは `.env.<environment>` から Polar のキーを読み込み、`POLAR_SERVER` が示す API に GET リクエストだけを送ります。組織の商品、割引、Webhook エンドポイントを一覧で取得するだけで、何も変更しません。確認する内容は次のとおりです。
 
 - 環境ファイルにすべての Polar のキーが設定されており、開発とプレビューでは `POLAR_SERVER=sandbox`、本番では `POLAR_SERVER=production` になっていること。
+- 組織でチェックアウトのローカライズがオンになっていること。
 - 各 `POLAR_PRODUCT_ID_*` が、アーカイブ済みでもサブスクリプションでもない組織の商品を指し、その価格が固定価格で、`DEFAULT_CURRENCY_CODE` 建てで、`TIER_PRICES` と等しいこと。
 - 各商品にライセンスキーの特典がちょうど 1 つあり、その特典が `LICENSE_ACTIVATION_LIMITS` にあるプランの上限を持ち、有効期限も使用回数の上限もないこと。
 - 各商品が、`WITHDRAWAL_CONSENT_FIELD` のラベルを持つチェックボックスのフィールド <RepositoryFact name="licenseWithdrawalConsentField" /> を必須にしていること。
@@ -152,6 +158,7 @@ A webhook endpoint posts to https://preview.saasyland.com/api/auth/polar/webhook
 - **`names no product of the organisation`**: 商品 ID または `POLAR_ORGANIZATION_ID` が間違っているか、もう一方のサービスのものです。
 - **価格、ライセンスキー、割引**: コードに合わせて Polar 側を変更してください。ビジネス上の値を意図的に変える場合は、先に `TIER_PRICES`、`LICENSE_ACTIVATION_LIMITS`、`PPP_TIERS` を変更し、その後で Polar を変更します。
 - **`does not ask for the … checkout field`、`without requiring it`、`instead of a checkbox`、`label differs`**: [同意のチェックボックス](#consent-checkbox)を作成するか、商品に付けるか、修正してください。文言を意図的に変える場合は、先に `WITHDRAWAL_CONSENT_FIELD.label` を変更し、その後で Polar のラベルを変更します。
+- **`Checkout localization is off`**: 組織で[チェックアウトのローカライズ](#checkout-language)をオンにしてください。
 - **Webhook エンドポイント**: メッセージが示すエンドポイントを修正するか、別の環境のホストに送信しているエンドポイントを削除してください。
 
 ## 関連ページ

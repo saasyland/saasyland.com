@@ -1,8 +1,11 @@
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
 
+import englishChangelogLinks from "../../messages/en-US/components.custom.changelog-links.json" with { type: "json" }
 import englishFumadocs from "../../messages/en-US/fumadocs.json" with { type: "json" }
 import polishFumadocs from "../../messages/pl-PL/fumadocs.json" with { type: "json" }
 import { DOCS_CONTENT_ID } from "../../src/data/navigation.constants"
+import { CHANGELOG_DIRECTORY, ENTRY_ORIGIN, originOf } from "../../src/lib/changelog"
+import { APP_GITHUB_URL } from "../../src/presentation/branding"
 import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, turnOnDataSaver } from "../pages/base-page"
@@ -20,6 +23,29 @@ const GETTING_STARTED_PATH = `${ROUTES.DOCS}/getting-started`
 const INSTALLATION_PATH = `${GETTING_STARTED_PATH}/installation`
 const INSTALLATION_CHUNK = "/installation.en-US-"
 const PAGER = `#${DOCS_CONTENT_ID} > :last-child a`
+const CHANGELOG_PATH = `${ROUTES.DOCS}/project/changelog`
+const ENGLISH_ENTRY = ".en-US.mdx"
+const SHORT_COMMIT_LENGTH = 7
+const ENTRY_LINKS = `#${DOCS_CONTENT_ID} a[href^="${APP_GITHUB_URL}/pull/"], #${DOCS_CONTENT_ID} a[href^="${APP_GITHUB_URL}/commit/"]`
+
+interface EntryLink {
+  readonly href: string
+  readonly name: string
+}
+
+const entryLinkOf = (key: string): EntryLink => {
+  if (originOf(key) === ENTRY_ORIGIN.PULL_REQUEST) {
+    return { href: `${APP_GITHUB_URL}/pull/${key}`, name: englishChangelogLinks.pullRequest.replace("{number}", key) }
+  }
+
+  return { href: `${APP_GITHUB_URL}/commit/${key}`, name: englishChangelogLinks.commit.replace("{commit}", key.slice(0, SHORT_COMMIT_LENGTH)) }
+}
+
+const byHref = (first: EntryLink, second: EntryLink): number => first.href.localeCompare(second.href)
+
+const CHANGELOG_KEYS = readdirSync(CHANGELOG_DIRECTORY)
+  .filter((file) => file.endsWith(ENGLISH_ENTRY))
+  .map((file) => file.slice(0, -ENGLISH_ENTRY.length))
 
 test("documentation loads MDX and follows a sidebar link through the router before the page's MDX has loaded", async ({ appPage, page }) => {
   const errors: string[] = []
@@ -49,6 +75,23 @@ test("Polish documentation retains its locale during navigation", async ({ appPa
   await page.locator('a[href="/pl-PL/docs/getting-started/installation"]').first().click()
   await expect(page).toHaveURL(/\/pl-PL\/docs\/getting-started\/installation$/u)
   await expect(page.locator("html")).toHaveAttribute("lang", "pl-PL")
+})
+
+test("the changelog ends every entry with a link to the pull request or commit it came from, named for screen readers", async ({
+  appPage,
+  page,
+}) => {
+  await page.goto(CHANGELOG_PATH)
+  await appPage.waitForAppReady()
+  for (const origin of Object.values(ENTRY_ORIGIN)) {
+    const key = CHANGELOG_KEYS.find((entry) => originOf(entry) === origin) ?? ""
+    const { href, name } = entryLinkOf(key)
+    await expect(page.getByRole("link", { exact: true, name })).toHaveAttribute("href", href)
+  }
+  const found = await page
+    .locator(ENTRY_LINKS)
+    .evaluateAll((anchors) => anchors.map((anchor) => ({ href: anchor.getAttribute("href") ?? "", name: anchor.getAttribute("aria-label") ?? "" })))
+  expect(found.toSorted(byHref)).toStrictEqual(CHANGELOG_KEYS.map((key) => entryLinkOf(key)).toSorted(byHref))
 })
 
 test("blog opens a published article without browser errors", async ({ appPage, page }) => {

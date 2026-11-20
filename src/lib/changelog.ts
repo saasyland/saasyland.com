@@ -19,9 +19,23 @@ export interface Changelog {
   readonly unreleased: readonly ChangelogEntry[]
 }
 
+export interface ChangelogRun {
+  readonly baseRef: string
+  readonly ref: string
+}
+
 export const CHANGELOG_DIRECTORY = "content/changelog"
 
 export const ENTRY_KEY = /^(?:[1-9]\d*|[\da-f]{40})$/u
+
+export const ENTRY_ORIGIN = { COMMIT: "commit", PULL_REQUEST: "pullRequest" } as const
+
+export type EntryOrigin = (typeof ENTRY_ORIGIN)[keyof typeof ENTRY_ORIGIN]
+
+export const MAIN_BRANCH = "main"
+
+const MAIN_REF = `refs/heads/${MAIN_BRANCH}`
+const PULL_REQUEST_KEY = /^[1-9]\d*$/u
 
 const SQUASHED_PULL_REQUEST = /\(#(?<number>[1-9]\d*)\)$/u
 const PULL_REQUEST_REF = /^refs\/pull\/(?<number>[1-9]\d*)\/merge$/u
@@ -89,6 +103,34 @@ export const readChangelog = async ({ cwd, locale }: { cwd: string; locale: stri
   }
 }
 
-export const joinEntries = (entries: readonly ChangelogEntry[]): string => entries.map(({ source }) => source.trim()).join("\n")
+export const originOf = (key: string): EntryOrigin => (PULL_REQUEST_KEY.test(key) ? ENTRY_ORIGIN.PULL_REQUEST : ENTRY_ORIGIN.COMMIT)
+
+export const joinEntries = (entries: readonly ChangelogEntry[], reference: (entry: ChangelogEntry) => string): string =>
+  entries.map((entry) => `${entry.source.trim()} ${reference(entry)}`).join("\n")
 
 export const pullRequestOf = (ref: string): string | undefined => PULL_REQUEST_REF.exec(ref)?.groups?.["number"]
+
+const awaitedEntryOf = ({ baseRef, ref }: ChangelogRun): string | undefined => (baseRef === MAIN_BRANCH ? pullRequestOf(ref) : undefined)
+
+const unreleasedProblems = (entries: readonly ChangelogEntry[], rule: string): string[] =>
+  entries.map(
+    ({ key }) =>
+      `${CHANGELOG_DIRECTORY}/${key}.<locale>.mdx matches no commit on main, so the changelog would list it as unreleased; ${rule}. Delete the entry of a pull request that was closed without merging.`,
+  )
+
+export const unreleasedEntryProblems = ({ changelog, run }: { changelog: Changelog; run: ChangelogRun }): string[] => {
+  const awaited = awaitedEntryOf(run)
+
+  if (awaited !== undefined) {
+    return unreleasedProblems(
+      changelog.unreleased.filter(({ key }) => key !== awaited),
+      `in pull request #${awaited}, only its own entry may wait for the merge`,
+    )
+  }
+
+  if (run.ref === MAIN_REF) {
+    return unreleasedProblems(changelog.unreleased, "on main, no entry may")
+  }
+
+  return []
+}

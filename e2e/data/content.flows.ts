@@ -20,6 +20,18 @@ export const CONTENT_FLOWS = [
   },
   {
     area: FLOW_AREA.CONTENT,
+    id: "changelog-links",
+    outcome: "The changelog ends every entry with a link to the pull request or commit it came from, named for screen readers",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "content.spec.ts",
+        title: "the changelog ends every entry with a link to the pull request or commit it came from, named for screen readers",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.CONTENT,
     id: "blog-article",
     outcome: "A visitor opens a published article from the blog without a browser error",
     status: FLOW_STATUS.COVERED,

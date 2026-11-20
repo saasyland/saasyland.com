@@ -1,4 +1,4 @@
-import { type Changelog, joinEntries } from "~/src/lib/changelog"
+import { type Changelog, type ChangelogEntry, ENTRY_ORIGIN, joinEntries, originOf } from "~/src/lib/changelog"
 
 import { APP_URL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
@@ -17,6 +17,8 @@ const RELEASE_DATE = "$<year>-$<month>-$<day>"
 const SITE_LINK = "](/"
 
 const FIRST_SEQUENCE = 1
+
+const referenceOf = ({ key }: ChangelogEntry): string => (originOf(key) === ENTRY_ORIGIN.PULL_REQUEST ? `(#${key})` : `(${key})`)
 
 const sequenceOn = (firstTag: string, name: string): number => {
   const release = RELEASE_TAG.exec(name)?.groups
@@ -49,5 +51,5 @@ export const releaseNotes = (changelog: Changelog, tag: string): string => {
     return `See the [changelog](${CHANGELOG_URL}).`
   }
 
-  return joinEntries(day.entries).replaceAll(SITE_LINK, `](${APP_URL}/`)
+  return joinEntries(day.entries, referenceOf).replaceAll(SITE_LINK, `](${APP_URL}/`)
 }

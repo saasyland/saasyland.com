@@ -65,7 +65,9 @@ test("copies the canonical URL and confirms it on screen", async ({ appPage, con
   await context.grantPermissions(["clipboard-read", "clipboard-write"])
   await page.goto(POST)
   await appPage.waitForAppReady()
-  await page.getByRole("button", { name: share.copy }).first().click()
+  const copy = page.getByRole("button", { name: share.copy }).first()
+  await appPage.waitForHydration(copy)
+  await copy.click()
 
   await expect(page.getByText(share.copied)).toBeVisible()
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(CANONICAL)

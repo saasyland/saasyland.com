@@ -5,7 +5,11 @@ description: "Posts MDX localizados em content/blog, carregados por uma coleçã
 
 ## Conteúdo
 
-Os posts ficam em `content/blog/<slug>.<locale>.mdx`, um arquivo por idioma. O schema do frontmatter em `src/integrations/fumadocs/fumadocs.schema.ts` exige `title`, `authorName` e `date`, e aceita `description`, `authorImage`, `excerpt`, `faq`, `featured`, `image`, `published` (padrão `true`), `tags` e `updated`. Uma tag é um dos `BLOG_TAGS` de `src/data/blog.ts`, e o schema rejeita qualquer outro valor; `PostRow` e `PostMeta` mostram cada tag pelo rótulo dela em `tags` no `pages.blog`, então as tags aparecem no idioma da página.
+Os posts ficam em `content/blog/<slug>.<locale>.mdx`, um arquivo por idioma. O schema do frontmatter em `src/integrations/fumadocs/fumadocs.schema.ts` exige `title`, `authorName` e `date`, e aceita `description`, `authorImage`, `authorUrl`, `excerpt`, `faq`, `featured`, `image`, `published` (padrão `true`), `tags` e `updated`. Uma tag é um dos `BLOG_TAGS` de `src/data/blog.ts`, e o schema rejeita qualquer outro valor; `PostRow` e `PostMeta` mostram cada tag pelo rótulo dela em `tags` no `pages.blog`, então as tags aparecem no idioma da página.
+
+- `description` é a descrição do post para os buscadores: as tags `description` e `og:description` e o feed a usam. `excerpt` é o resumo mais longo que aparece abaixo do título e no índice do blog, e substitui a `description` quando ela falta.
+- `image` é a capa, um arquivo WebP em `public/images/blog` do tamanho que `BLOG_COVER` declara em `src/data/blog.ts`. A página do post dá à capa esse `width` e esse `height`, e os dados estruturados a descrevem nesse tamanho; `src/data/__test__/blog.test.ts` falha quando uma capa tem outro tamanho.
+- `authorImage` precisa ser um caminho deste site, como `/images/blog/authors/piotr-j-borowiecki.webp`, para que o navegador do leitor nunca a peça a outro host; o schema rejeita uma URL. `authorUrl` é a URL do perfil do autor, para a qual apontam o bloco do autor, a tag `article:author` e os dados estruturados.
 
 ## Datas [#dates]
 
@@ -23,15 +27,48 @@ Um post mostra os valores que o código define em vez de digitá-los: `<Reposito
 
 ## Fonte
 
-Todo build transforma os posts em um índice do blog por idioma (veja [Fumadocs](/docs/integrations/fumadocs#content-indexes)): os posts publicados sob `/blog`, dos mais recentes para os mais antigos, com as mesmas configurações de i18n da documentação, cada um com o seu frontmatter, o seu sumário e o seu tempo de leitura, calculado com `Intl.Segmenter` para aquele idioma. `loadBlogIndex(locale)` importa o índice de um idioma, um arquivo em `/assets/`, e `toBlogPostSummary` em `fumadocs.blog.ts` formata o título de um post e localiza a URL dele. Os loaders abaixo o leem no navegador em uma navegação no cliente, então navegar pelo blog nunca chega ao Worker.
+Todo build transforma os posts em um índice do blog por idioma (veja [Fumadocs](/docs/integrations/fumadocs#content-indexes)): os posts publicados sob `/blog`, dos mais recentes para os mais antigos, com as mesmas configurações de i18n da documentação, cada um com o seu frontmatter, o seu sumário e o seu tempo de leitura, calculado com `Intl.Segmenter` para aquele idioma. `loadBlogIndex(locale)` importa o índice de um idioma, um arquivo em `/assets/`, e `toBlogPostSummary` em `fumadocs.blog.ts` formata o título de um post e localiza a URL dele. Os loaders abaixo o leem no navegador em uma navegação no cliente, então navegar pelo blog nunca chega ao Worker. `relatedBlogPosts`, no mesmo arquivo, escolhe no mesmo índice os outros posts que têm mais tags em comum com um post, os mais recentes primeiro em caso de empate, até o número que `RELATED_POSTS` permite.
 
 ## Rotas
 
-- O layout `/blog` (`_site._marketing.blog.tsx`) fica dentro dos layouts `_site` e `_marketing`, que acrescentam em volta dele o cabeçalho do site, `PageFrame`, `Footer` e `BackToTop` (veja [Landing page](/docs/features/landing-page#navigation-and-back-to-top)). Ele carrega `docs.css` para a tipografia dos artigos. O cabeçalho marca **Blog** como a seção atual no índice e em cada post. O loader dele pré-carrega `fumadocs` e `pages.blog`.
-- `/blog` (`_site._marketing.blog.index.tsx`) lista os posts do índice do blog com `PostRow`.
-- `/blog/$` (`_site._marketing.blog.$.tsx`) encontra um post no índice do blog (404 se ele não existir ou não estiver publicado), pré-carrega seu MDX compilado com `blogContent` e compõe `PostMeta`, `PostToc` (ou, em telas pequenas, `InlineTOC` com o mesmo título), `PostCta` e `PostShare` de `src/presentation/components/custom/blog`. Adiciona JSON-LD com `buildBlogPostStructuredDataHtml` e metadados de artigo com `buildPageHead`, com o título do blog vindo de `pages.blog` como `article:section` e um card social próprio; veja [Busca e prévias em redes sociais](/docs/features/seo). O post envolve o MDX dele no `RootProvider` do Fumadocs, com a pesquisa e a troca de tema desativadas e com os textos de `useFumadocsI18n`, para que os botões de copiar dos blocos de código e das âncoras dos títulos e os itens do acordeão do FAQ tenham nomes no idioma do post.
+- O layout `/blog` (`_site._marketing.blog.tsx`) fica dentro dos layouts `_site` e `_marketing`, que acrescentam em volta dele o cabeçalho do site, `PageFrame`, `Footer` e `BackToTop` (veja [Landing page](/docs/features/landing-page#navigation-and-back-to-top)). Ele carrega `docs.css` para a tipografia dos artigos. O cabeçalho marca **Blog** como a seção atual no índice e em cada post. O loader dele pré-carrega `fumadocs` e `pages.blog` e lê o título do blog, e o head dele indica o feed do idioma da página em um `<link rel="alternate" type="application/rss+xml">` (`blogFeedLinks`), para que leitores de feed e navegadores o encontrem a partir do índice e de cada post.
+- `/blog` (`_site._marketing.blog.index.tsx`) lista os posts do índice do blog com `PostRow`. Abaixo da introdução, ele traz um link para o feed do seu idioma, e se descreve para os buscadores como um `Blog` com os seus posts (`buildBlogStructuredDataHtml`).
+- `/blog/$` (`_site._marketing.blog.$.tsx`) encontra um post no índice do blog (404 se ele não existir ou não estiver publicado), pré-carrega seu MDX compilado com `blogContent` e compõe `PostMeta` e `PostShare` na barra abaixo do título, `PostToc` (ou, em telas pequenas, `InlineTOC` com o mesmo título) e, depois do artigo, `PostAuthor` ao lado de um segundo `PostShare`, seguidos de `PostCta` e `PostRelated`, todos de `src/presentation/components/custom/blog`. Adiciona JSON-LD com `buildBlogPostStructuredDataHtml` e metadados de artigo com `buildPageHead`, com o título do blog vindo de `pages.blog` como `article:section`, um `article:tag` para cada tag no idioma da página e um card social próprio; veja [Busca e prévias em redes sociais](/docs/features/seo). O post envolve o MDX dele no `RootProvider` do Fumadocs, com a pesquisa e a troca de tema desativadas e com os textos de `useFumadocsI18n`, para que os botões de copiar dos blocos de código e das âncoras dos títulos e os itens do acordeão do FAQ tenham nomes no idioma do post.
 
 A seção Notes da landing page mostra três posts do índice do blog: primeiro os destacados, depois os mais recentes.
+
+## Compartilhamento [#sharing]
+
+`PostShare` renderiza a mesma lista duas vezes em cada post: na barra abaixo do título e, depois do artigo, ao lado do autor. Cada controle compartilha a URL canônica do post no idioma da página, e cada rede recebe o título do post.
+
+- **Copiar link** é um `Button` do React Aria. Ele grava a URL na área de transferência, troca o ícone por um sinal de confirmação por um instante e mostra uma notificação `toast.success`, que a região de notificações anuncia aos leitores de tela. Quando o navegador recusa, `toast.error` avisa.
+- **X, LinkedIn, Bluesky, Hacker News e Reddit** são links simples para a página de compartilhamento de cada rede, abertos em uma nova aba com `rel="noopener noreferrer"`. A página não carrega nenhum script, widget ou pixel de rastreamento dessas redes, não define cookies para elas e não acrescenta parâmetros de rastreamento à URL, então o que se compartilha é a URL canônica, e os links funcionam sem JavaScript.
+- **Compartilhar por e-mail** é um link `mailto:` com o título como assunto e a URL como corpo, aberto no app de e-mail do leitor, e não em uma nova aba.
+- **Mais formas de compartilhar** abre o menu de compartilhamento do sistema com `navigator.share` nos navegadores que têm esse menu, como os de celular. O botão ocupa o seu lugar desde a primeira renderização e fica visível quando a página termina a hidratação em um desses navegadores, então nada se mexe. Se o leitor cancela o menu, nada acontece; se o compartilhamento falha, o botão copia o link.
+
+As marcas das redes são os logos oficiais delas no Simple Icons, em `src/presentation/components/custom/icons.tsx`, desenhados na cor do texto; os outros ícones vêm do Lucide. Cada controle tem nome em todos os idiomas em `post.share` no `pages.blog`.
+
+Todo título de um post tem um link para si mesmo, e o botão de copiar dele copia o link daquela seção, então o leitor pode compartilhar uma única seção, além do post inteiro.
+
+## Autor e posts relacionados
+
+`PostAuthor` apresenta o autor apenas com o que o frontmatter diz: `authorName`, a imagem em `authorImage`, quando houver, e um link para `authorUrl` com `rel="author"`, quando houver. Ele não acrescenta cargo, biografia nem afirmação que o frontmatter não faça.
+
+`PostRelated` lista os posts que `relatedBlogPosts` escolheu, com as datas e os tempos de leitura, para que todo post tenha links para outros sobre os mesmos assuntos. Ele não renderiza nada quando o idioma não tem outro post.
+
+## Feed RSS [#feed]
+
+Cada idioma tem um feed RSS 2.0 do seu blog em `BLOG_FEED.PATH`, de `src/lib/feed.ts`, localizado como uma página: `/blog/rss.xml`, `/de-DE/blog/rss.xml` e assim por diante. `scripts/generate-seo-files.ts` grava os feeds depois do build com `buildBlogFeeds`, a partir dos heads das páginas pré-renderizadas, então eles não custam nada ao Worker e dizem o que as páginas dizem:
+
+- O canal usa o título, o link e a descrição do índice do blog do idioma e indica a própria URL em um `atom:link rel="self"`.
+- Cada post é um item com o título, a URL canônica como `link` e `guid`, `article:published_time` como `pubDate`, o autor como `dc:creator`, cada tag no idioma da página como uma `category` e a descrição. Os itens vão dos mais recentes para os mais antigos, e `lastBuildDate` é a data mais recente de publicação ou de atualização dos posts.
+- Só são lidas as páginas que o sitemap lista, e um post não publicado nunca é pré-renderizado, então um rascunho nunca chega a um feed. O build falha quando um post não tem data de publicação ou quando um idioma não tem índice do blog.
+
+O pré-renderizador segue os links, e o link do feed no índice do blog aponta para um arquivo que o build grava depois, então `shouldPrerender`, em `src/data/tanstack.vite.ts`, ignora todo caminho com extensão de arquivo. Depois de um deploy, `verify-deployment.ts` faz uma requisição ao feed em inglês junto com as outras verificações do site no ar.
+
+## Tags
+
+As tags classificam os posts e preenchem os `article:tag`, as categorias do feed e as `keywords` dos dados estruturados, mas não têm páginas próprias. A maioria das tags reúne pouquíssimos posts, então uma página por tag em cada idioma repetiria o que o índice do blog já lista, e os buscadores tratam esses arquivos quase vazios como conteúdo raso. Vale a pena criar páginas de tags quando cada tag reunir posts suficientes para precisar de uma lista própria; até lá, elas só multiplicariam as URLs a rastrear.
 
 ## Blog da administração (demonstração)
 
@@ -40,3 +77,5 @@ A seção Notes da landing page mostra três posts do índice do blog: primeiro 
 ## Verificações
 
 Rode `bun run content` depois de adicionar um post. `bun scripts/check-content.ts` verifica se todos os idiomas existem, se títulos, descrições e resumos estão traduzidos, se os blocos de código são idênticos e se todos os idiomas de um post têm os mesmos `date` e `updated`.
+
+`blog-routes.component.test.tsx` verifica a URL de cada destino de compartilhamento, a confirmação da cópia, o menu de compartilhamento do sistema, o bloco do autor, os posts relacionados, o link do feed e os metadados do post; `feed.test.ts` verifica os feeds. Na suíte do navegador, `blog-share.spec.ts` compartilha um post em um desktop e em um celular, com e sem JavaScript, e `seo.spec.ts` lê o feed de cada idioma e o compara com os posts publicados.

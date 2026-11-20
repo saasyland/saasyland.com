@@ -22,7 +22,7 @@ import { Route as RefundsRoute } from "~/src/routes/_site._marketing.refunds"
 import { Route as TermsRoute } from "~/src/routes/_site._marketing.terms"
 
 import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "~/src/data/affiliates"
-import { BLOG_TAG } from "~/src/data/blog"
+import { BLOG_COVER, BLOG_TAG } from "~/src/data/blog"
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
 import { REFUND_TERMS } from "~/src/data/refunds"
 import { REPOSITORY_FACTS } from "~/src/data/repository-facts"
@@ -85,10 +85,14 @@ const NOTES = [summary("Featured", "featured"), summary("Recent", "recent"), sum
 
 const COMPLETE: BlogPost = {
   ...summary("Complete guide", "complete"),
+  authorImage: undefined,
   authorName: "Ada",
+  authorUrl: undefined,
+  description: undefined,
   faq: [{ answer: "Because.", question: "Why?" }],
   image: "/article.webp",
   path: "complete.en-US.mdx",
+  related: [],
   toc: [
     { depth: 2, title: "Introduction", url: "#intro" },
     { depth: 3, title: "Step 1 — Deploy", url: "#deploy" },
@@ -312,7 +316,8 @@ describe("public route content", () => {
     expect(screen.getByRole("heading", { name: "Complete guide" })).toBeVisible()
     expect(screen.getByText("Article content")).toBeVisible()
     expect(screen.getByText("Article summary")).toBeVisible()
-    expect(screen.getByText("Ada")).toBeVisible()
+    expect(screen.getAllByText("Ada")).toHaveLength(2)
+    expect(document.querySelector('img[src="/article.webp"]')).toHaveAttribute("width", String(BLOG_COVER.WIDTH))
     expect(screen.getAllByRole("link", { name: "Introduction" }).every((link) => link.getAttribute("href") === "#intro")).toBe(true)
     expect(screen.getAllByRole("link", { name: "Step 1 — Deploy" }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole("link", { name: "Ship it today" }).every((link) => link.getAttribute("href") === "#ship")).toBe(true)

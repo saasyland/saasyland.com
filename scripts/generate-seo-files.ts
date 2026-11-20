@@ -5,8 +5,9 @@ import { dirname, join } from "node:path"
 import { createSocialCardRenderer } from "~/src/integrations/takumi/takumi.render"
 
 import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
+import { buildBlogFeeds } from "~/src/lib/feed"
 import { readPageHead } from "~/src/lib/page-head"
-import { SITEMAP_PATH, SOCIAL_IMAGE } from "~/src/lib/seo"
+import { ORGANIZATION_LOGO, SITEMAP_PATH, SOCIAL_IMAGE } from "~/src/lib/seo"
 import { buildSitemap, listedPages } from "~/src/lib/sitemap"
 
 import { APP_URL } from "~/src/presentation/branding"
@@ -27,6 +28,10 @@ const listed = listedPages(pages, await readFile(join(CLIENT_DIR, ROBOTS_TXT), "
 
 await writeFile(join(CLIENT_DIR, SITEMAP_PATH), buildSitemap(listed))
 
+const feeds = buildBlogFeeds(listed)
+
+await Promise.all(feeds.map(({ path, xml }) => writeFile(join(CLIENT_DIR, path), xml)))
+
 const imagePath = (url: string): string => {
   const image = new URL(url)
 
@@ -38,7 +43,10 @@ const imagePath = (url: string): string => {
 }
 
 const render = await createSocialCardRenderer()
-const cards = new Map<string, () => Promise<Buffer>>([[SOCIAL_IMAGE.SITE_PATH, render.site]])
+const cards = new Map<string, () => Promise<Buffer>>([
+  [SOCIAL_IMAGE.SITE_PATH, render.site],
+  [ORGANIZATION_LOGO.PATH, render.logo],
+])
 
 for (const page of pages) {
   const path = imagePath(page.image)
@@ -64,5 +72,5 @@ await Promise.all(
 const seconds = ((performance.now() - started) / MILLISECONDS_PER_SECOND).toFixed(1)
 
 console.log(
-  `Wrote ${SITEMAP_PATH} with ${listed.length} of ${pages.length} prerendered pages and ${cards.size} social images in ${seconds} s.`,
+  `Wrote ${SITEMAP_PATH} with ${listed.length} of ${pages.length} prerendered pages, ${feeds.length} blog feeds, the organisation logo and ${cards.size - 1} social images in ${seconds} s.`,
 )

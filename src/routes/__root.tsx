@@ -80,7 +80,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     links: [DOCUMENT_STYLESHEET, ...fontPreloads(getCurrentLocale())],
     meta: [
       { content: "width=device-width, initial-scale=1", name: "viewport" },
-      ...(import.meta.env.MODE === ENVIRONMENT.PRODUCTION ? [] : [{ content: ROBOTS.NON_PRODUCTION, name: "robots" }]),
+      { content: import.meta.env.MODE === ENVIRONMENT.PRODUCTION ? ROBOTS.FULL_PREVIEWS : ROBOTS.NON_PRODUCTION, name: "robots" },
     ],
   }),
   shellComponent: RootDocument,

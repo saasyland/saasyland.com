@@ -1,12 +1,14 @@
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizePathname, localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { BLOG_COVER } from "~/src/data/blog"
 import { isUnlistedRoute } from "~/src/data/unlisted"
 
 import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 export const ROBOTS = {
+  FULL_PREVIEWS: "max-image-preview:large, max-snippet:-1, max-video-preview:-1",
   NOINDEX: "noindex",
   NON_PRODUCTION: "noindex, nofollow",
 } as const
@@ -22,6 +24,11 @@ export const SOCIAL_IMAGE = {
   TWITTER_CARD: "summary_large_image",
   TYPE: `image/${SOCIAL_IMAGE_FORMAT}`,
   WIDTH: 1200,
+} as const
+
+export const ORGANIZATION_LOGO = {
+  PATH: `/images/logo.${SOCIAL_IMAGE_FORMAT}`,
+  SIZE: 512,
 } as const
 
 export const SITEMAP_PATH = "/sitemap.xml"
@@ -90,7 +97,18 @@ const articleTimes = (dates: PostDates): { readonly content: string; readonly pr
   ]
 }
 
+interface ArticleAuthor {
+  readonly name: string
+  readonly url?: string | undefined
+}
+
+const authorMeta = (author: ArticleAuthor) => [
+  { content: author.name, name: "author" },
+  ...(author.url === undefined ? [] : [{ content: author.url, property: "article:author" }]),
+]
+
 export const buildPageHead = ({
+  author,
   dates,
   description = "",
   locale = I18N.DEFAULT_LOCALE,
@@ -99,6 +117,7 @@ export const buildPageHead = ({
   title,
   type = "website",
 }: {
+  readonly author?: ArticleAuthor | undefined
   readonly dates?: PostDates | undefined
   readonly description?: string | undefined
   readonly locale?: SupportedLocale | undefined
@@ -126,6 +145,7 @@ export const buildPageHead = ({
       { content: toOpenGraphLocale(locale), property: "og:locale" },
       ...(section === undefined ? [] : [{ content: section, property: "article:section" }]),
       ...(dates === undefined ? [] : articleTimes(dates)),
+      ...(author === undefined ? [] : authorMeta(author)),
       { content: imageUrl, property: "og:image" },
       { content: SOCIAL_IMAGE.TYPE, property: "og:image:type" },
       { content: String(SOCIAL_IMAGE.WIDTH), property: "og:image:width" },
@@ -152,11 +172,16 @@ export const pageHead =
 
 type PostStructuredDataInput = PostDates &
   Readonly<{
+    authorImage?: string | undefined
     authorName: string
+    authorUrl?: string | undefined
     baseUrl: string
+    blogTitle: string
     description?: string | undefined
     faq?: readonly { answer: string; question: string }[] | undefined
     image?: string | undefined
+    keywords: readonly string[]
+    locale: SupportedLocale
     title: string
     url: string
   }>
@@ -173,6 +198,12 @@ const SCHEMA_CONTEXT = "https://schema.org"
 const ORGANIZATION: StructuredDataNode = {
   "@type": "Organization",
   email: CONTACT_EMAIL,
+  logo: {
+    "@type": "ImageObject",
+    height: ORGANIZATION_LOGO.SIZE,
+    url: `${APP_URL}${ORGANIZATION_LOGO.PATH}`,
+    width: ORGANIZATION_LOGO.SIZE,
+  },
   name: APP_NAME,
   sameAs: [APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL],
   url: APP_URL,
@@ -186,16 +217,34 @@ export const ORGANIZATION_STRUCTURED_DATA_HTML = toStructuredDataHtml({ "@contex
 
 const absoluteUrl = (baseUrl: string, path: string): string => new URL(path, baseUrl).toString()
 
+const localizedUrl = ({ baseUrl, locale, pathname }: { baseUrl: string; locale: SupportedLocale; pathname: string }): string =>
+  absoluteUrl(baseUrl, localizePathname({ locale, pathname }))
+
+const author = (input: PostStructuredDataInput): StructuredDataNode => {
+  const person: StructuredDataNode = { "@type": "Person", name: input.authorName }
+
+  if (input.authorUrl !== undefined) {
+    person["url"] = input.authorUrl
+  }
+
+  if (input.authorImage !== undefined) {
+    person["image"] = absoluteUrl(input.baseUrl, input.authorImage)
+  }
+
+  return person
+}
+
 export const buildBlogPostStructuredData = (input: PostStructuredDataInput): PostStructuredData => {
   const canonical = absoluteUrl(input.baseUrl, input.url)
   const { modified, published } = postDates(input)
 
   const article: StructuredDataNode = {
     "@type": "BlogPosting",
-    author: { "@type": "Person", name: input.authorName },
+    author: author(input),
     dateModified: modified,
     datePublished: published,
     headline: input.title,
+    inLanguage: input.locale,
     mainEntityOfPage: { "@id": canonical, "@type": "WebPage" },
     publisher: ORGANIZATION,
     url: canonical,
@@ -206,7 +255,16 @@ export const buildBlogPostStructuredData = (input: PostStructuredDataInput): Pos
   }
 
   if (input.image !== undefined) {
-    article["image"] = absoluteUrl(input.baseUrl, input.image)
+    article["image"] = {
+      "@type": "ImageObject",
+      height: BLOG_COVER.HEIGHT,
+      url: absoluteUrl(input.baseUrl, input.image),
+      width: BLOG_COVER.WIDTH,
+    }
+  }
+
+  if (input.keywords.length > 0) {
+    article["keywords"] = input.keywords
   }
 
   const graph: Record<string, unknown>[] = [
@@ -214,8 +272,18 @@ export const buildBlogPostStructuredData = (input: PostStructuredDataInput): Pos
     {
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", item: absoluteUrl(input.baseUrl, ROUTES.HOME), name: "Home", position: 1 },
-        { "@type": "ListItem", item: absoluteUrl(input.baseUrl, ROUTES.BLOG), name: "Blog", position: 2 },
+        {
+          "@type": "ListItem",
+          item: localizedUrl({ baseUrl: input.baseUrl, locale: input.locale, pathname: ROUTES.HOME }),
+          name: APP_NAME,
+          position: 1,
+        },
+        {
+          "@type": "ListItem",
+          item: localizedUrl({ baseUrl: input.baseUrl, locale: input.locale, pathname: ROUTES.BLOG }),
+          name: input.blogTitle,
+          position: 2,
+        },
         { "@type": "ListItem", item: canonical, name: input.title, position: 3 },
       ],
     },
@@ -237,3 +305,29 @@ export const buildBlogPostStructuredData = (input: PostStructuredDataInput): Pos
 
 export const buildBlogPostStructuredDataHtml = (input: PostStructuredDataInput): { __html: string } =>
   toStructuredDataHtml(buildBlogPostStructuredData(input))
+
+type BlogStructuredDataInput = Readonly<{
+  description: string
+  locale: SupportedLocale
+  posts: readonly Readonly<{ date: string | Date; title: string; url: string }>[]
+  title: string
+}>
+
+export const buildBlogStructuredData = ({ description, locale, posts, title }: BlogStructuredDataInput): StructuredDataNode => ({
+  "@context": SCHEMA_CONTEXT,
+  "@type": "Blog",
+  blogPost: posts.map((post) => ({
+    "@type": "BlogPosting",
+    datePublished: toIsoDate(post.date),
+    headline: post.title,
+    url: absoluteUrl(APP_URL, post.url),
+  })),
+  description,
+  inLanguage: locale,
+  name: buildTitle({ locale, title }),
+  publisher: ORGANIZATION,
+  url: localizedUrl({ baseUrl: APP_URL, locale, pathname: ROUTES.BLOG }),
+})
+
+export const buildBlogStructuredDataHtml = (input: BlogStructuredDataInput): { __html: string } =>
+  toStructuredDataHtml(buildBlogStructuredData(input))

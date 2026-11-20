@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Outlet, RouterProvider, createMemoryHistory, createRootRouteWithContext, createRouter } from "@tanstack/react-router"
 import { getRequest } from "@tanstack/react-start/server"
-import { act, cleanup, render, screen, within } from "@testing-library/react"
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { toast } from "sonner"
 import { IntlProvider, createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -35,14 +36,28 @@ type BlogPost = (typeof BlogPostRoute.types.loaderData)["post"]
 
 const SHARED_TITLE = "React & SaaS / launch"
 
+const RELATED: BlogPostSummary = {
+  date: "2026-08-15",
+  featured: false,
+  readingTimeMinutes: 9,
+  summary: "Related summary",
+  tags: [BLOG_TAG.SAAS],
+  title: "Related guide",
+  url: "/blog/related",
+}
+
 const GUIDE: BlogPost = {
+  authorImage: "/images/blog/authors/ada.webp",
   authorName: "Ada",
+  authorUrl: "https://github.com/ada",
   date: "2026-09-01",
+  description: "Article description",
   faq: undefined,
   featured: false,
   image: undefined,
   path: "guide.en-US.mdx",
   readingTimeMinutes: 5,
+  related: [RELATED],
   summary: "Article summary",
   tags: [BLOG_TAG.TANSTACK_START, BLOG_TAG.SAAS],
   title: SHARED_TITLE,
@@ -56,7 +71,10 @@ const GUIDE: BlogPost = {
 
 const POLISH_GUIDE: BlogPost = {
   ...GUIDE,
+  authorImage: undefined,
+  authorUrl: undefined,
   path: "guide.pl-PL.mdx",
+  related: [],
   summary: undefined,
   tags: [BLOG_TAG.TESTING, BLOG_TAG.TOOLING],
   title: "Przewodnik",
@@ -196,20 +214,6 @@ describe("blog routes", () => {
     expect(screen.getByText(ctaBody)).toBeVisible()
   })
 
-  it("encodes sharing targets and copies the canonical URL", async () => {
-    const user = userEvent.setup({ delay: null })
-    await renderBlog({ locale: "en-US", path: "/blog/guide" })
-    const url = `${APP_URL}/blog/guide`
-    const shareOnX = screen.getByRole("link", { name: pagesBlogMessages.post.share.x })
-    expect(new URL(shareOnX.getAttribute("href") ?? "").searchParams.get("text")).toBe(SHARED_TITLE)
-    expect(new URL(shareOnX.getAttribute("href") ?? "").searchParams.get("url")).toBe(url)
-    expect(shareOnX).toHaveAttribute("rel", "noopener noreferrer")
-    const linkedIn = screen.getByRole("link", { name: pagesBlogMessages.post.share.linkedin })
-    expect(new URL(linkedIn.getAttribute("href") ?? "").searchParams.get("url")).toBe(url)
-    await user.click(screen.getByRole("button", { name: pagesBlogMessages.post.share.copy }))
-    expect(await navigator.clipboard.readText()).toBe(url)
-  })
-
   it("links table-of-contents entries and distinguishes nested headings", async () => {
     await renderBlog({ locale: "en-US", path: "/blog/guide" })
     const toc = within(section(screen.getByText(pagesBlogMessages.post.contents, { selector: "aside p" }), "aside"))
@@ -289,5 +293,159 @@ describe("blog routes", () => {
     await renderBlog({ locale, path: `/${locale}/blog`, posts: [post] })
     expect(screen.getByText(label)).toBeVisible()
     expect(segment).not.toHaveBeenCalled()
+  })
+})
+
+describe("the end of a blog post and its metadata", () => {
+  it("closes the article with its author, linked to the author's profile", async () => {
+    await renderBlog({ locale: "en-US", path: "/blog/guide" })
+    const author = screen.getByRole("link", { name: "Ada" })
+    expect(author).toHaveAttribute("href", "https://github.com/ada")
+    expect(author).toHaveAttribute("rel", "author noopener noreferrer")
+    expect(screen.getByText(pagesBlogMessages.post.author.label)).toBeVisible()
+    expect(document.querySelector('img[src="/images/blog/authors/ada.webp"]')).toHaveAttribute("loading", "lazy")
+  })
+
+  it("names an author without a profile or image as text", async () => {
+    await renderBlog({ locale: "pl-PL", path: "/pl-PL/blog/guide", post: POLISH_GUIDE })
+    expect(screen.queryByRole("link", { name: "Ada" })).not.toBeInTheDocument()
+    expect(screen.getByText(plPagesBlogMessages.post.author.label)).toBeVisible()
+    expect(document.querySelector('img[src^="/images/blog/authors"]')).not.toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: plPagesBlogMessages.post.related })).not.toBeInTheDocument()
+  })
+
+  it("links the related posts with their dates and reading times", async () => {
+    await renderBlog({ locale: "en-US", path: "/blog/guide" })
+    const related = within(section(screen.getByRole("heading", { level: 2, name: pagesBlogMessages.post.related }), "section"))
+    expect(related.getByRole("link", { name: "Related guide" })).toHaveAttribute("href", "/blog/related")
+    expect(related.getByText("9 min read", { exact: false })).toBeVisible()
+  })
+
+  it("describes the article to search engines and social networks in the page's language", async () => {
+    await renderBlog({ locale: "pl-PL", path: "/pl-PL/blog/guide", post: POLISH_GUIDE })
+    const tags = [plPagesBlogMessages.tags[BLOG_TAG.TESTING], plPagesBlogMessages.tags[BLOG_TAG.TOOLING]]
+    const structuredData: unknown = JSON.parse(document.querySelector('script[type="application/ld+json"]')?.textContent ?? "{}")
+    expect([...document.querySelectorAll('meta[property="article:tag"]')].map((meta) => meta.getAttribute("content"))).toStrictEqual(tags)
+    expect(structuredData).toMatchObject({
+      "@graph": [
+        { description: "Article description", inLanguage: "pl-PL", keywords: tags },
+        {
+          itemListElement: [
+            expect.anything(),
+            { item: `${APP_URL}/pl-PL/blog`, name: plPagesBlogMessages.metadata.title },
+            expect.anything(),
+          ],
+        },
+      ],
+    })
+  })
+
+  it("links the feed of the blog's language and describes the blog to search engines", async () => {
+    await renderBlog({ locale: "pl-PL", path: "/pl-PL/blog", posts: [GUIDE] })
+    expect(screen.getByRole("link", { name: plPagesBlogMessages.index.feed })).toHaveAttribute("href", "/pl-PL/blog/rss.xml")
+    const structuredData: unknown = JSON.parse(document.querySelector('script[type="application/ld+json"]')?.textContent ?? "{}")
+    expect(structuredData).toMatchObject({ "@type": "Blog", blogPost: [{ headline: SHARED_TITLE }], inLanguage: "pl-PL" })
+  })
+})
+
+const searchParam = (name: string, param: string, index: number): string | null =>
+  new URL(screen.getAllByRole("link", { name })[index]?.getAttribute("href") ?? "").searchParams.get(param)
+
+describe("sharing a blog post", () => {
+  it("shares the canonical URL and title on every network from the header and the end of the article", async () => {
+    await renderBlog({ locale: "en-US", path: "/blog/guide" })
+    const url = `${APP_URL}/blog/guide`
+    const { targets } = pagesBlogMessages.post.share
+
+    expect(screen.getAllByRole("list", { name: pagesBlogMessages.post.share.label })).toHaveLength(2)
+    for (const index of [0, 1]) {
+      expect([searchParam(targets.x, "text", index), searchParam(targets.x, "url", index)]).toStrictEqual([SHARED_TITLE, url])
+      expect(searchParam(targets.linkedin, "url", index)).toBe(url)
+      expect(searchParam(targets.bluesky, "text", index)).toBe(`${SHARED_TITLE} ${url}`)
+      expect([searchParam(targets.hackerNews, "u", index), searchParam(targets.hackerNews, "t", index)]).toStrictEqual([url, SHARED_TITLE])
+      expect([searchParam(targets.reddit, "url", index), searchParam(targets.reddit, "title", index)]).toStrictEqual([url, SHARED_TITLE])
+      expect(screen.getAllByRole("link", { name: targets.email })[index]).toHaveAttribute(
+        "href",
+        `mailto:?subject=${encodeURIComponent(SHARED_TITLE)}&body=${encodeURIComponent(url)}`,
+      )
+    }
+    for (const name of [targets.x, targets.linkedin, targets.bluesky, targets.hackerNews, targets.reddit]) {
+      for (const link of screen.getAllByRole("link", { name })) {
+        expect(link).toHaveAttribute("rel", "noopener noreferrer")
+        expect(link).toHaveAttribute("target", "_blank")
+      }
+    }
+    expect(screen.getAllByRole("link", { name: targets.email })[0]).not.toHaveAttribute("target")
+  })
+
+  it("copies the canonical URL and confirms it beside the button and in an announced notification", async () => {
+    const user = userEvent.setup({ delay: null })
+    const success = vi.spyOn(toast, "success")
+    await renderBlog({ locale: "en-US", path: "/blog/guide" })
+    const [copy] = screen.getAllByRole("button", { name: pagesBlogMessages.post.share.copy })
+    if (!copy) {
+      throw new Error("Missing copy button")
+    }
+    await user.click(copy)
+    expect(await navigator.clipboard.readText()).toBe(`${APP_URL}/blog/guide`)
+    expect(success).toHaveBeenCalledExactlyOnceWith(pagesBlogMessages.post.share.copied)
+    expect(copy).toHaveClass("text-ring")
+  })
+
+  it("puts the copy confirmation away after a moment", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi), delay: null })
+      await renderBlog({ locale: "en-US", path: "/blog/guide" })
+      const [copy] = screen.getAllByRole("button", { name: pagesBlogMessages.post.share.copy })
+      await user.click(copy ?? document.body)
+      await vi.waitFor(() => {
+        expect(copy).toHaveClass("text-ring")
+      })
+      await act(() => vi.advanceTimersByTimeAsync(2000))
+      expect(copy).not.toHaveClass("text-ring")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("says so when the browser refuses to copy", async () => {
+    const user = userEvent.setup({ delay: null })
+    const failure = vi.spyOn(toast, "error")
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(new Error("Clipboard denied"))
+    await renderBlog({ locale: "en-US", path: "/blog/guide" })
+    await user.click(screen.getAllByRole("button", { name: pagesBlogMessages.post.share.copy })[0] ?? document.body)
+    await waitFor(() => {
+      expect(failure).toHaveBeenCalledExactlyOnceWith(pagesBlogMessages.post.share.copyFailed)
+    })
+  })
+
+  it("keeps the native share button's place but hides it where the browser cannot share", async () => {
+    await renderBlog({ locale: "en-US", path: "/blog/guide" })
+    const buttons = screen.getAllByRole("button", { name: pagesBlogMessages.post.share.native })
+    expect(buttons.map((button) => button.closest("li"))).toStrictEqual([...document.querySelectorAll("li.invisible")])
+    expect(buttons).toHaveLength(2)
+  })
+
+  it.each([
+    { copied: false, error: new DOMException("Share cancelled", "AbortError"), outcome: "does nothing when the reader cancels" },
+    { copied: true, error: new DOMException("Share failed", "DataError"), outcome: "copies the link when sharing fails" },
+    { copied: false, error: undefined, outcome: "hands the post to the share sheet" },
+  ])("opens the system share sheet where the browser has one and $outcome", async ({ copied, error }) => {
+    const user = userEvent.setup({ delay: null })
+    const share = vi.fn(() => (error === undefined ? Promise.resolve() : Promise.reject(error)))
+    Object.defineProperty(navigator, "share", { configurable: true, value: share })
+    const success = vi.spyOn(toast, "success")
+    try {
+      await renderBlog({ locale: "en-US", path: "/blog/guide" })
+      const [native] = await screen.findAllByRole("button", { name: pagesBlogMessages.post.share.native })
+      await user.click(native ?? document.body)
+      expect(share).toHaveBeenCalledExactlyOnceWith({ title: SHARED_TITLE, url: `${APP_URL}/blog/guide` })
+      await waitFor(() => {
+        expect(success).toHaveBeenCalledTimes(copied ? 1 : 0)
+      })
+    } finally {
+      Reflect.deleteProperty(navigator, "share")
+    }
   })
 })

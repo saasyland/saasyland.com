@@ -13,10 +13,14 @@ import { ROUTES } from "~/src/routes"
 const POSTS = ["first", "second", "third", "fourth"] as const
 const PARAGRAPHS = ["first", "second", "third", "fourth"] as const
 const CONTENTS = ["first", "second", "third", "fourth", "fifth", "sixth"] as const
+const SHARE_CONTROLS = ["copy", "x", "linkedin", "bluesky", "hackerNews", "reddit", "email", "native"] as const
 
 export const BlogIndexPending = (): JSX.Element => (
   <ContentPagePending>
-    <div className="mt-14 md:mt-20">
+    <div className="mt-6 flex py-1.5 font-mono text-label">
+      <Skeleton className="h-lh w-28 scale-y-70" />
+    </div>
+    <div className="mt-10 md:mt-14">
       <div className="-mx-4 divide-y divide-border border-y border-border md:-mx-6">
         {POSTS.map((post) => (
           <div className="grid gap-x-10 gap-y-2 px-4 py-7 md:grid-cols-[10rem_1fr] md:px-6 md:py-8" key={post}>
@@ -55,13 +59,23 @@ export const BlogPostPending = (): JSX.Element => (
         <Skeleton className="h-lh w-1/2 scale-y-70" />
       </div>
 
-      <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-border py-4 font-mono text-body-sm">
-        <span className="size-1.25 shrink-0 rounded-xs bg-border" />
-        <Skeleton className="h-lh w-52 scale-y-70" />
-        <Skeleton className="h-lh w-52 scale-y-70" />
-        <Skeleton className="h-lh w-28 scale-y-70" />
-        <Skeleton className="h-lh w-20 scale-y-70" />
-        <Skeleton className="h-lh w-56 scale-y-70" />
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-y border-border py-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-1 font-mono text-body-sm">
+          <span className="size-1.25 shrink-0 rounded-xs bg-border" />
+          <Skeleton className="h-lh w-52 scale-y-70" />
+          <Skeleton className="h-lh w-52 scale-y-70" />
+          <Skeleton className="h-lh w-28 scale-y-70" />
+          <Skeleton className="h-lh w-20 scale-y-70" />
+          <Skeleton className="h-lh w-56 scale-y-70" />
+        </div>
+        <div className="flex items-center gap-x-3">
+          <Skeleton className="h-lh w-12 scale-y-70 font-mono text-label" />
+          <div className="flex items-center gap-1">
+            {SHARE_CONTROLS.map((control) => (
+              <Skeleton className="size-8 rounded-md" key={control} />
+            ))}
+          </div>
+        </div>
       </div>
 
       <Skeleton className="mt-10 aspect-[2.4/1] w-full rounded-xl border border-border" />

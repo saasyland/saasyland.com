@@ -6,45 +6,77 @@ import { Link, createFileRoute, isNotFound, notFound } from "@tanstack/react-rou
 import { useTranslations } from "use-intl/react"
 import { loadBlogIndex } from "virtual:content-indexes"
 
-import { type BlogPostSummary, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
-import type { BlogPost } from "~/src/integrations/fumadocs/fumadocs.indexes"
+import { relatedBlogPosts, toBlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
+import type { BlogIndex, BlogPost } from "~/src/integrations/fumadocs/fumadocs.indexes"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { useFumadocsI18n } from "~/src/hooks/use-fumadocs-i18n"
 
+import { BLOG_COVER } from "~/src/data/blog"
+
 import { notFoundHead } from "~/src/lib/not-found"
 import { buildBlogPostStructuredDataHtml, buildPageHead } from "~/src/lib/seo"
 
 import { blogContent } from "~/src/presentation/components/custom/blog-content"
 import { BlogPostPending } from "~/src/presentation/components/custom/blog/blog-pending"
+import { PostAuthor } from "~/src/presentation/components/custom/blog/post-author"
 import { PostCta } from "~/src/presentation/components/custom/blog/post-cta"
 import { usePostFaq } from "~/src/presentation/components/custom/blog/post-faq"
 import { PostMeta } from "~/src/presentation/components/custom/blog/post-meta"
+import { PostRelated } from "~/src/presentation/components/custom/blog/post-related"
 import { PostShare } from "~/src/presentation/components/custom/blog/post-share"
 import { PostToc } from "~/src/presentation/components/custom/blog/post-toc"
 
 import { APP_URL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
+const toPostData = ({ locale, post, posts }: { locale: SupportedLocale; post: BlogPost; posts: BlogIndex }) => {
+  const { authorImage, authorName, authorUrl, description, faq, image, path, toc, updated } = post
+
+  return {
+    ...toBlogPostSummary(post, locale),
+    authorImage,
+    authorName,
+    authorUrl,
+    description,
+    faq,
+    image,
+    path,
+    related: relatedBlogPosts({ locale, post, posts }),
+    toc,
+    updated,
+  }
+}
+
+type BlogPostData = ReturnType<typeof toPostData>
+
+const articleAuthor = (post: BlogPostData) => ({ name: post.authorName, url: post.authorUrl })
+
 const SEARCH = { enabled: false } as const
 const THEME = { enabled: false } as const
 
 const BlogPostPage = (): JSX.Element => {
-  const { post } = Route.useLoaderData()
+  const { locale, post, section } = Route.useLoaderData()
   const content = blogContent.useContent(post.path)
-  const t = useTranslations("pages.blog.post")
+  const t = useTranslations("pages.blog")
   const faq = usePostFaq(post.faq)
   const i18n = useFumadocsI18n()
 
+  const tags = post.tags.map((tag) => t(`tags.${tag}`))
   const structuredDataHtml = buildBlogPostStructuredDataHtml({
+    authorImage: post.authorImage,
     authorName: post.authorName,
+    authorUrl: post.authorUrl,
     baseUrl: APP_URL,
+    blogTitle: section,
     date: post.date,
-    description: post.summary,
+    description: post.description ?? post.summary,
     faq,
     image: post.image,
+    keywords: tags,
+    locale,
     title: post.title,
     updated: post.updated,
     url: post.url,
@@ -52,6 +84,9 @@ const BlogPostPage = (): JSX.Element => {
 
   return (
     <article className="relative">
+      {tags.map((tag) => (
+        <meta content={tag} key={tag} property="article:tag" />
+      ))}
       <script dangerouslySetInnerHTML={structuredDataHtml} type="application/ld+json" />
       <div className="mx-auto w-full max-w-site px-6 py-20 md:px-10 md:py-28">
         <Link
@@ -59,7 +94,7 @@ const BlogPostPage = (): JSX.Element => {
           to={ROUTES.BLOG}
         >
           <span aria-hidden>&larr;</span>
-          {t("backToBlog")}
+          {t("post.backToBlog")}
         </Link>
 
         <h1 className="mt-8 max-w-[24ch] text-display-gate text-balance text-foreground">{post.title}</h1>
@@ -67,7 +102,10 @@ const BlogPostPage = (): JSX.Element => {
           <p className="mt-6 max-w-[46ch] text-statement text-pretty text-muted-foreground">{post.summary}</p>
         )}
 
-        <PostMeta />
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-y border-border py-3">
+          <PostMeta />
+          <PostShare />
+        </div>
 
         {post.image !== undefined && post.image.length > 0 && (
           <div className="relative mt-10 aspect-[2.4/1] w-full overflow-hidden rounded-xl border border-border bg-card">
@@ -75,24 +113,27 @@ const BlogPostPage = (): JSX.Element => {
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
               fetchPriority="high"
+              height={BLOG_COVER.HEIGHT}
               loading="eager"
-              sizes="(max-width: 48rem) 100vw, 64rem"
               src={post.image}
+              width={BLOG_COVER.WIDTH}
             />
           </div>
         )}
         <div className="mt-14 grid gap-x-16 lg:grid-cols-[minmax(0,72ch)_1fr]">
           <div className="min-w-0">
             <div className="mb-10 lg:hidden">
-              <InlineTOC items={post.toc}>{t("contents")}</InlineTOC>
+              <InlineTOC items={post.toc}>{t("post.contents")}</InlineTOC>
             </div>
             <RootProvider i18n={i18n} search={SEARCH} theme={THEME}>
               <div className="typeset typeset-article">{content}</div>
             </RootProvider>
-            <PostCta />
-            <div className="mt-16 border-t border-border pt-8">
+            <div className="mt-16 flex flex-wrap items-center justify-between gap-x-8 gap-y-6 border-y border-border py-6">
+              <PostAuthor />
               <PostShare />
             </div>
+            <PostCta />
+            <PostRelated />
           </div>
           <PostToc />
         </div>
@@ -109,7 +150,7 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
     loaderData,
     match,
   }: {
-    loaderData?: { locale: SupportedLocale; post: BlogPostSummary & Pick<BlogPost, "updated">; section: string } | undefined
+    loaderData?: { locale: SupportedLocale; post: BlogPostData; section: string } | undefined
     match: { error: unknown }
   }) => {
     if (isNotFound(match.error)) {
@@ -117,8 +158,9 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
     }
 
     return buildPageHead({
+      author: loaderData === undefined ? undefined : articleAuthor(loaderData.post),
       dates: loaderData?.post,
-      description: loaderData?.post.summary,
+      description: loaderData?.post.description ?? loaderData?.post.summary,
       locale: loaderData?.locale,
       pathname: loaderData?.post.url ?? ROUTES.BLOG,
       section: loaderData?.section,
@@ -138,8 +180,7 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
       throw notFound()
     }
     await blogContent.preload(post.path)
-    const { authorName, faq, image, path, toc, updated } = post
-    return { locale, post: { ...toBlogPostSummary(post, locale), authorName, faq, image, path, toc, updated }, section: blog.title }
+    return { locale, post: toPostData({ locale, post, posts }), section: blog.title }
   },
   pendingComponent: BlogPostPending,
   staticData: { namespaces: [NAMESPACE] },

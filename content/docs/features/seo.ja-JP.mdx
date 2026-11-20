@@ -11,10 +11,10 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 
 - タイトル（言語ごとの区切り文字と `APP_NAME` 付き）、説明、正規 URL、そしてすべての言語と `x-default` に対する `hreflang` 付きの `alternate` リンク
 - Open Graph: `og:site_name`、`og:title`（Open Graph の想定どおり、サイト名を含まないページタイトル）、`og:description`、`og:type`、`og:url`、`og:locale`、そしてセクションに属するページでは `article:section`
-- ブログ記事では、フロントマターの `date` と `updated` から作る `article:published_time` と `article:modified_time`
+- ブログ記事では、フロントマターの `date` と `updated` から作る `article:published_time` と `article:modified_time`、そして `author` から作る `author` メタタグと、記事が執筆者のプロフィールを指定している場合はそのプロフィールを示す `article:author`
 - ソーシャル画像: `og:image`、`og:image:type`、`og:image:width` と `og:image:height`（<RepositoryFact name="socialImageWidth" /> × <RepositoryFact name="socialImageHeight" /> ピクセル）、`og:image:alt`、そして `summary_large_image` に設定した `twitter:card`、`twitter:title`、`twitter:description`、`twitter:image`、`twitter:image:alt`
 
-ルートルートは、ほかの言語の `og:locale:alternate` を追加します。`production` 以外のすべてのビルドモードでは、`robots` ディレクティブ `ROBOTS.NON_PRODUCTION`（`noindex, nofollow`）も追加し、プレビューとテストのデプロイが検索結果に表示されないようにします。
+ルートの head は名前またはプロパティごとにタグを 1 つしか保持しません。そのため、ブログ記事のタグを並べる `article:tag` のようなリストは記事ページ自身が描画し、React がそれらのタグをドキュメントの head に配置します。同じ理由で、ルートルートはほかの言語の `og:locale:alternate` をドキュメント自体に追加します。ルートルートは `robots` ディレクティブも設定します。`production` ビルドでは `ROBOTS.FULL_PREVIEWS` を設定し、検索エンジンが大きな画像プレビューと完全なスニペットを表示できるようにします。それ以外のすべてのビルドモードでは `ROBOTS.NON_PRODUCTION`（`noindex, nofollow`）を設定し、プレビューとテストのデプロイが検索結果に表示されないようにします。
 
 ページを検索結果から除外するには、`robots` メタタグに `ROBOTS.NOINDEX`（`noindex`）を設定します。ページが見つからない場合のページはすべてこれを使います。`src/lib/not-found.ts` の `notFoundHead` が `errors.not-found` から翻訳済みのタイトルと説明、そして `noindex` を設定し、canonical リンクとソーシャルカードは出力しません。
 
@@ -24,8 +24,9 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 
 `src/lib/seo.ts` は、検索エンジンにサイトを説明する JSON-LD も書き出します。JSON-LD のスクリプトはすべて `<` をエスケープしてシリアライズするため、どの値も `script` 要素を閉じられません。
 
-- ホームページは `ORGANIZATION_STRUCTURED_DATA_HTML` で組織を説明します。これは `APP_NAME`、`APP_URL`、`CONTACT_EMAIL` を持つ `Organization` で、`sameAs` には他のサイトにある組織のプロフィール、`APP_GITHUB_OWNER_URL` と `APP_INSTAGRAM_URL` が入ります。`sameAs` に挙げるのは組織自身のプロフィールなので、リポジトリではなく GitHub の組織を指します。Google はこの情報をホームページから読み取るため、ほかのページでは繰り返しません。
-- ブログ記事は、`publisher` が同じ組織である `BlogPosting`、`BreadcrumbList`、そしてフロントマターに `faq` の項目がある場合は `FAQPage` を追加します（`buildBlogPostStructuredDataHtml`）。[ブログ](/docs/features/blog)を参照してください。
+- ホームページは `ORGANIZATION_STRUCTURED_DATA_HTML` で組織を説明します。これは `APP_NAME`、`APP_URL`、`CONTACT_EMAIL`、`ORGANIZATION_LOGO.PATH` にあるロゴを持つ `Organization` で、`sameAs` には他のサイトにある組織のプロフィール、`APP_GITHUB_OWNER_URL` と `APP_INSTAGRAM_URL` が入ります。`sameAs` に挙げるのは組織自身のプロフィールなので、リポジトリではなく GitHub の組織を指します。Google はこの情報をホームページから読み取るため、ほかのページでは繰り返しません。
+- ブログ記事は、`BlogPosting`、`BreadcrumbList`、そしてフロントマターに `faq` の項目がある場合は `FAQPage` を追加します（`buildBlogPostStructuredDataHtml`）。[ブログ](/docs/features/blog)を参照してください。`BlogPosting` には、見出し、説明、`BLOG_COVER` のサイズの `ImageObject` としてのカバー画像、日付、`inLanguage` としての言語、`keywords` としてのその言語でのタグ、フロントマターが指定する `url` と `image` を持つ `Person` としての執筆者、そしてロゴを含めた組織が `publisher` として入ります。パンくずリストは、ページの言語の URL とブログのタイトルで、`APP_NAME` からブログを経て記事へとたどります。
+- ブログの一覧は、名前、説明、言語、発行者を持つ `Blog` を追加し、その言語で公開済みのすべての記事を、見出し、URL、公開日を持つ `BlogPosting` として列挙します（`buildBlogStructuredDataHtml`）。
 
 ## ソーシャルカード
 
@@ -33,7 +34,7 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 
 プリレンダリングされないページ、つまり <RepositoryFact name="unlistedRoutes" /> とその配下のすべてのパスは、`/images/og/site.png` を共有します。このカードはワードマークだけを表示し、代替テキストは `APP_NAME` です。こうしたエリアは、`COURSES_UNLISTED_ROUTES` のように、それぞれの `src/data/<area>.routes.ts` で自分のパスを指定し、`src/data/unlisted.ts` の `UNLISTED_ROUTES` がそれらをまとめます。`src/data/tanstack.vite.ts` の TanStack Start プラグインはこれらをプリレンダリングの対象から外し、`buildPageHead` はこれらにサイトカードを割り当てます。
 
-カードは React コンポーネントで、`src/presentation/social-card.tsx` の `PageCard` と `SiteCard` です。`src/integrations/takumi/takumi.render.tsx` の `createSocialCardRenderer` が、これらを [Takumi](https://takumi.kane.tw/docs/)（`@takumi-rs/core`）で描画します。Takumi はネイティブの Node バインディングを持つ Rust 製のレンダラーで、ブラウザーを必要としません。
+カードは React コンポーネントで、`src/presentation/social-card.tsx` の `PageCard` と `SiteCard` です。同じファイルの `LogoCard` は、組織のロゴ、つまり明るい背景に置いた `APP_LOGO_PATH` のマークを、正方形の PNG として `ORGANIZATION_LOGO.PATH` に描画します。これが、構造化データがロゴとして指定する画像です。`src/integrations/takumi/takumi.render.tsx` の `createSocialCardRenderer` が、これらを [Takumi](https://takumi.kane.tw/docs/)（`@takumi-rs/core`）で描画します。Takumi はネイティブの Node バインディングを持つ Rust 製のレンダラーで、ブラウザーを必要としません。
 
 - 色はライトテーマのトークンです。レンダラーは `src/presentation/styles/globals.css` を読み込むため、`var(--background)`、`var(--foreground)`、`var(--ring)`、そして `field-grid` と `field-signal` のクラスはサイトのものそのままです。
 - フォントはサイトが配信しているファイルそのものです。`takumi.fonts.ts` は、`url()` をソースに持つすべての `@font-face` ルールを、Unicode の範囲付きの Geist と Geist Mono のサブセットを宣言する `fonts.css` と、`@fontsource-variable/noto-sans-jp` から読み込みます。後者を使うのは、サイトでは日本語をシステムフォントに任せているためです。Takumi は、カードのテキストが使うサブセットだけを読み込みます。各フォントフェイスは `APP_NAME` にファミリー名を続けた名前で登録します。Takumi はラテン文字だけの独自の Geist を同梱しており、そうしないとサイトのキリル文字とラテン拡張のサブセットではなく、そちらが選ばれてしまうためです。
@@ -48,16 +49,17 @@ description: "ページのメタデータ、robots.txt、サイトマップ、�
 `scripts/generate-seo-files.ts` は、すべてのビルドスクリプトの最後、`optimize-prerendered-html.ts` の後に実行されます。`src/lib/page-head.ts` の `readPageHead` で `dist/client` にあるプリレンダリングされたすべてのページの head を読み取り、次の処理を行います。
 
 1. `robots` ディレクティブがインデックスを許可し、かつ `robots.txt` がそのパスを禁止していないすべてのページを載せた `dist/client/sitemap.xml` を書き出します（`src/lib/sitemap.ts` の `listedPages` と `buildSitemap`。照合には `src/lib/robots.ts` の RFC 9309 に沿ったマッチングを使います）。各 `<url>` には、そのページ自身の `alternate` リンクを `x-default` も含めて `xhtml:link` エントリーとして列挙します。サイトマップに載っていない代替ページをページが指定している場合や、同じ URL が 2 回現れる場合、ビルドは失敗します。`ROBOTS.NON_PRODUCTION` はページ自身のディレクティブとは見なされないため、どのビルドモードでも同じサイトマップが書き出されます。
-2. サイトカードとすべてのページのカードを `dist/client/images/og` に描画します。2 つのページが同じ画像を指定している場合は失敗します。
+2. サイトマップに載っているブログの一覧と記事の head から、すべての言語のブログの RSS フィードを書き出します（`src/lib/feed.ts` の `buildBlogFeeds`）。[ブログ](/docs/features/blog#feed)を参照してください。
+3. サイトカードとすべてのページのカードを `dist/client/images/og` に描画し、組織のロゴも描画します。2 つのページが同じ画像を指定している場合は失敗します。
 
-スクリプトは、サイトマップに載せたページ数、描画したカードの数、かかった時間を出力します。ブログ記事の `<url>` には `<lastmod>` が付きます。`readPageHead` が記事の `article:modified_time` を読み、`buildSitemap` がその日付を `YYYY-MM-DD` として、すべての言語で書き出します。ほかのページには付きません。ドキュメント、ランディングページ、法務ページには信頼できる更新日がなく、ビルドの時刻を使うと、起きていない変更を主張することになるからです。コースのページはサイトマップに含まれません。コースのページはリクエストごとに D1 から読み込まれますが、サイトマップはビルドが書き出すファイルだからです。
+スクリプトは、サイトマップに載せたページ数、書き出したフィードとカードの数、かかった時間を出力します。ブログ記事の `<url>` には `<lastmod>` が付きます。`readPageHead` が記事の `article:modified_time` を読み、`buildSitemap` がその日付を `YYYY-MM-DD` として、すべての言語で書き出します。ほかのページには付きません。ドキュメント、ランディングページ、法務ページには信頼できる更新日がなく、ビルドの時刻を使うと、起きていない変更を主張することになるからです。コースのページはサイトマップに含まれません。コースのページはリクエストごとに D1 から読み込まれますが、サイトマップはビルドが書き出すファイルだからです。
 
 Worker は変わりません。Takumi とこのスクリプトはビルド時にしか実行されず、`src/server.ts` は `sitemap.xml` とカードをほかのファイルと同じく静的アセットから、`public/_headers` が `/images/*` に設定したキャッシュポリシーで配信します。
 
 ## テスト
 
-- `src/lib/__test__` の `seo.test.ts`、`page-head.test.tsx`、`sitemap.test.ts`、`robots.test.ts` は、タグと構造化データの生成、タグの読み取り、サイトマップ、robots のルールをテストします。`takumi.render.test.ts` は英語、ドイツ語、ウクライナ語、日本語でカードを描画し、そのサイズを確認します。
-- `e2e/specs/seo.spec.ts` は、配信されたサイトマップをインデックスを許可するプリレンダリング済みのページと比較し、公開済みのすべての記事の `<lastmod>` がすべての言語でその `updated`（ない場合は `date`）であり、ほかの URL には付いていないことを確認し、サイトマップ内のすべての URL をリクエストしてリダイレクトなしで `200` が返ることを確認します。また、ホームページ、ドキュメントページ、ブログ記事を英語と日本語で開き、ソーシャル用のタグとそこで指定された画像を確認します。また、プリレンダリング済みのホームページに組織の構造化データが含まれていることも確認します。
+- `src/lib/__test__` の `seo.test.ts`、`page-head.test.tsx`、`sitemap.test.ts`、`feed.test.ts`、`robots.test.ts` は、タグと構造化データの生成、タグの読み取り、サイトマップ、フィード、robots のルールをテストします。`takumi.render.test.ts` は英語、ドイツ語、ウクライナ語、日本語のカードとロゴを描画し、そのサイズを確認します。
+- `e2e/specs/seo.spec.ts` は、配信されたサイトマップをインデックスを許可するプリレンダリング済みのページと比較し、公開済みのすべての記事の `<lastmod>` がすべての言語でその `updated`（ない場合は `date`）であり、ほかの URL には付いていないことを確認し、サイトマップ内のすべての URL をリクエストしてリダイレクトなしで `200` が返ることを確認します。また、ホームページ、ドキュメントページ、ブログ記事を英語と日本語で開き、ソーシャル用のタグとそこで指定された画像を確認します。さらに、プリレンダリング済みのホームページに組織の構造化データが含まれていること、ロゴがそのサイズで配信されていること、ブログの一覧と記事がその言語のフィードを示していること、すべてのフィードがその言語の公開済みの記事を過不足なく公開日付きで列挙していることも確認します。
 - デプロイ後、`verify-deployment.ts` は <RepositoryFact name="liveSiteCheckPaths" /> をリクエストします。サイトマップとサイトカードもこれに含まれます。
 
 ## 関連ページ

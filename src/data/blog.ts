@@ -31,3 +31,8 @@ export const BLOG_TAGS = [
   BLOG_TAG.TOOLING,
   BLOG_TAG.TYPESCRIPT,
 ] as const
+
+export const BLOG_COVER = {
+  HEIGHT: 660,
+  WIDTH: 1584,
+} as const

@@ -42,12 +42,16 @@ describe("readPageHead", () => {
     expect(alternates).toContainEqual({ href: `${APP_URL}/ja-JP${DOCS_PAGE}`, hreflang: "ja-JP" })
     expect(alternates).toContainEqual({ href: `${APP_URL}${DOCS_PAGE}`, hreflang: "x-default" })
     expect(page).toStrictEqual({
+      author: undefined,
       canonical: `${APP_URL}/ja-JP${DOCS_PAGE}`,
+      description: "",
       image: `${APP_URL}/images/og/ja-JP${DOCS_PAGE}.${SOCIAL_IMAGE.FORMAT}`,
       lang: "ja-JP",
       modified: undefined,
+      published: undefined,
       robots: undefined,
       section: "規約",
+      tags: [],
       title: "ファイルと命名",
     })
   })
@@ -56,6 +60,27 @@ describe("readPageHead", () => {
     const head = buildPageHead({ dates: { date: "2026-08-15", updated: "2026-11-17" }, pathname: `${ROUTES.BLOG}/post`, type: "article" })
 
     expect(readPageHead(renderDocument(head, "en-US")).modified).toBe("2026-11-17T00:00:00.000Z")
+  })
+
+  it("reads back an article's author, dates, description and every tag", () => {
+    const head = buildPageHead({
+      author: { name: "Ada" },
+      dates: { date: "2026-08-15", updated: "2026-09-01" },
+      description: "A post about tests",
+      pathname: `${ROUTES.BLOG}/post`,
+      title: "Post",
+      type: "article",
+    })
+    const tags = '<meta property="article:tag" content="Testing"/><meta property="article:tag" content="Tooling"/>'
+    const document = renderDocument(head, "en-US").replace("</head>", `${tags}</head>`)
+
+    expect(readPageHead(document)).toMatchObject({
+      author: "Ada",
+      description: "A post about tests",
+      modified: "2026-09-01T00:00:00.000Z",
+      published: "2026-08-15T00:00:00.000Z",
+      tags: ["Testing", "Tooling"],
+    })
   })
 
   it("decodes the characters React escapes in attribute values", () => {

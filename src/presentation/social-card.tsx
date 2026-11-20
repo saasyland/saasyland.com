@@ -81,3 +81,19 @@ export const SiteCard = (): JSX.Element => (
     </div>
   </CardFrame>
 )
+
+export const LogoCard = (): JSX.Element => (
+  <div
+    style={{
+      alignItems: "center",
+      backgroundColor: "var(--background)",
+      color: "var(--foreground)",
+      display: "flex",
+      height: "100%",
+      justifyContent: "center",
+      width: "100%",
+    }}
+  >
+    <Logo size="18rem" />
+  </div>
+)

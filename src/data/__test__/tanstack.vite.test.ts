@@ -32,6 +32,9 @@ describe("TanStack Start Vite plugin", () => {
     [`/de-DE${ROUTES.API}/search`, false],
     [`${ROUTES.DOCS}?search=one`, false],
     [`${ROUTES.HOME}#pricing`, false],
+    [`${ROUTES.BLOG}/rss.xml`, false],
+    ["/uk-UA/blog/rss.xml", false],
+    [`${ROUTES.BLOG}/eu-right-of-withdrawal-digital-products`, true],
   ])("prerenders %s: %s", (path, prerendered) => {
     expect(shouldPrerender({ path })).toBe(prerendered)
   })

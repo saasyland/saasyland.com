@@ -10,6 +10,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 import { licenseActivationsQuery } from "~/src/modules/license/use-cases/get-current-license-activations"
+import { currentLicenseKeyQuery } from "~/src/modules/license/use-cases/get-current-license-key"
 
 import { licenseSearchSchema } from "~/src/data/license"
 import { LICENSE_OFFER_SECTIONS } from "~/src/data/license-offer"
@@ -69,6 +70,7 @@ export const Route = createFileRoute("/app/license")({
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query({ ...currentLicenseQuery, staleTime: "static" }),
+      context.queryClient.query({ ...currentLicenseKeyQuery, staleTime: "static" }),
       context.queryClient.query({ ...licenseActivationsQuery, staleTime: "static" }),
       ...LICENSE_OFFER_SECTIONS.map(({ load }) => load({ locale, queryClient: context.queryClient })),
     ])

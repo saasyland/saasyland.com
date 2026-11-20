@@ -63,9 +63,9 @@ export const postJson = (pathname: string, body: Record<string, unknown>, browse
 }
 
 export const emailLink = (recipient: string, path: string): URL => {
-  const html = getSentEmails(recipient).at(-1)?.html ?? ""
-  const href = [...html.matchAll(LINK)]
-    .map(({ groups }) => groups?.["href"]?.replaceAll("&amp;", "&") ?? "")
+  const href = getSentEmails(recipient)
+    .toReversed()
+    .flatMap(({ html }) => [...html.matchAll(LINK)].map(({ groups }) => groups?.["href"]?.replaceAll("&amp;", "&") ?? ""))
     .find((link) => link.includes(path))
   if (href === undefined) {
     throw new Error(`No email to ${recipient} links to ${path}`)
@@ -82,9 +82,9 @@ export const signUp = async (account: TestAccount = createTestAccount()): Promis
   return account
 }
 
-export const verifyEmail = async (recipient: string): Promise<Headers> => {
+export const verifyEmail = async (recipient: string, browser: Headers = browserHeaders()): Promise<Headers> => {
   const { headers } = await auth.api.verifyEmail({
-    headers: browserHeaders(),
+    headers: browser,
     query: { token: emailToken(recipient, ROUTES.VERIFY_EMAIL) },
     returnHeaders: true,
   })
@@ -106,10 +106,16 @@ export const findUser = async (email: string) => {
 }
 
 export const signUpAndVerify = async (account: TestAccount = createTestAccount()) => {
-  await signUp(account)
-  const headers = await verifyEmail(account.email)
+  const signedUp = await signUpSignedIn(account)
+  const headers = await verifyEmail(account.email, signedUp.headers)
+  return { account, headers, userId: signedUp.userId }
+}
+
+export const signUpSignedIn = async (account: TestAccount = createTestAccount()) => {
+  const { headers } = await auth.api.signUpEmail({ body: account, headers: browserHeaders(), returnHeaders: true })
+  await flushWaitUntil()
   const { id } = await findUser(account.email)
-  return { account, headers, userId: id }
+  return { account, headers: browserHeaders({ cookie: sessionCookie(headers) }), userId: id }
 }
 
 export const promoteToAdmin = async (userId: string): Promise<void> => {

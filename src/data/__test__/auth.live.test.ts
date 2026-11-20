@@ -210,12 +210,12 @@ describe("the live sign-in check on a site whose providers are misconfigured", (
     })
 
     await expectRefusal(
-      `${SIGN_IN_REQUEST} (Google sign-in): client_id is not a Google OAuth client ID.`,
       [
         `${SIGN_IN_REQUEST} (GitHub sign-in): the authorize URL is not on https://github.com`,
         "client_id is not a GitHub OAuth client ID",
         `redirect_uri is not ${CALLBACK[AUTH_PROVIDER.GITHUB]}.`,
       ].join(", "),
+      `${SIGN_IN_REQUEST} (Google sign-in): client_id is not a Google OAuth client ID.`,
     )
   })
 

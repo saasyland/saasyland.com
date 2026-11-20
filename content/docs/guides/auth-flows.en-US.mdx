@@ -21,7 +21,7 @@ Better Auth (`src/integrations/better-auth/auth.server.ts`) stores users, sessio
 ## Sign-in
 
 1. `SignInForm` calls the Better Auth client's `signIn.email`.
-2. An unverified account gets the `EMAIL_NOT_VERIFIED` error, Better Auth sends a fresh verification link (`sendOnSignIn`) in the sign-in page's locale and with its `redirect`, and the form opens `/auth/verify-email` with the email address, `redirect` and `unverified`.
+2. A refusal stays above the button until the next attempt. For a wrong email or password it links to `/auth/forgot-password` with the typed address and `redirect`, and offers GitHub and Google. An account whose address is not confirmed gets `EMAIL_NOT_VERIFIED`, Better Auth sends a fresh verification link (`sendOnSignIn`) in the sign-in page's locale and with its `redirect`, and the form opens `/auth/verify-email` with the email address, `redirect` and `unverified`.
 3. An account with two-factor authentication receives `twoFactorRedirect`; `SignInForm` opens `/auth/two-factor`, keeping `redirect`.
 4. On success, `finishSignIn` from `useAuthRedirect` removes the previous user's data from the query cache, clears the router cache and navigates to `/auth/callback`, which continues to `redirect` or to the workspace for the role.
 
@@ -30,17 +30,17 @@ Errors that Better Auth reports by redirect arrive as `?error=` on `/auth/sign-i
 ## Sign-up and email verification
 
 1. `SignUpForm` validates `signUpWithPasswordSchema` and calls `signUpWithPasswordMutation`, a rate-limited server function that calls `auth.api.signUpEmail`.
-2. Better Auth creates the user and calls `sendVerifyEmail` with the form's `callbackURL`, the localized `/auth/callback` with `redirect`. The email links to `/auth/verify-email` on this site, in the callback's locale and with its `redirect`, plus the `token`. Signing up again with an unverified address sends a fresh link, and with a verified address the existing-account email, while the answer and the next screen stay the same. At most <RepositoryFact name="recipientEmailsPerHour" /> verification emails go to one address per hour; further requests send nothing.
-3. The form navigates to `/auth/verify-email?email=…`, where `VerifyEmailForm` can resend the link through the rate-limited `sendVerificationEmailMutation`.
-4. Opening the link: the route's `beforeLoad` hands the token to `/api/auth/verify-email`. Better Auth verifies it, signs the user in and returns to `/auth/verify-email?verified=true`, which redirects to `/auth/callback`, keeping `redirect`. An invalid or expired link returns with `error` and the page offers a new one.
+2. Better Auth creates the user and calls `sendVerifyEmail` with the form's `callbackURL`, the localized `/auth/callback` with `redirect`. The email links to `/auth/verify-email` on this site, in the callback's locale and with its `redirect`, plus the `token`. Signing up again with an unverified address sends a fresh link, and with a verified address the existing-account email. At most <RepositoryFact name="recipientEmailsPerHour" /> verification emails go to one address per hour; further requests send nothing.
+3. `signInNewAccount` signs the new account in, and the form continues through `/auth/callback` to `redirect`. A sign-up for an address that already has an account is not signed in and goes to `/auth/verify-email?email=…`, the same screen whether its address is confirmed or not.
+4. Opening the link: the route's `beforeLoad` hands the token to `/api/auth/verify-email`. Better Auth verifies it, signs the user in and returns to `/auth/verify-email?verified=true`, which continues to `redirect`. An invalid or expired link returns with `error` and the page offers a new one to the address it carried.
 
-Sign-in is blocked until the email is verified (`requireEmailVerification: true`).
+The licence key, the Polar customer portal and paid lessons wait for the confirmed address, and signing in again with a password requires it (`requireEmailVerification: true`). See [Email verification](/docs/features/email-verification).
 
 ## Password reset
 
-1. `/auth/forgot-password`: `ForgotPasswordForm` calls `requestPasswordResetMutation` with `redirectTo` set to the localized `/auth/reset-password`.
+1. `/auth/forgot-password`: `ForgotPasswordForm` calls `requestPasswordResetMutation` with `redirectTo` set to the localized `/auth/reset-password`, keeping `redirect`, and then shows a confirmation that names the address.
 2. Better Auth calls `sendResetPasswordEmail`, which sends at most <RepositoryFact name="recipientEmailsPerHour" /> reset emails to one address per hour. The emailed link passes through Better Auth, which redirects to `/auth/reset-password?token=…`, or with `error` when the token is invalid or expired.
-3. `ResetPasswordForm` submits the new password through `resetPasswordMutation`. Better Auth revokes every existing session (`revokeSessionsOnPasswordReset: true`), `onPasswordReset` emails the password change notice, and the form navigates to sign-in.
+3. `ResetPasswordForm` submits the new password through `resetPasswordMutation`. Better Auth revokes every existing session (`revokeSessionsOnPasswordReset: true`), `onPasswordReset` emails the password change notice, and the form navigates to sign-in, keeping `redirect`.
 
 ## Two-factor authentication
 
@@ -49,23 +49,24 @@ Sign-in is blocked until the email is verified (`requireEmailVerification: true`
 
 ## OAuth
 
-`OAuthButtons` calls `authClient.signIn.social` for Google or GitHub with `callbackURL` set to the localized `/auth/callback` and `errorCallbackURL` to the localized `/auth/sign-in`, both keeping `redirect`. The providers are configured in `socialProviders`; register <RepositoryFact name="oauthCallbackUrls" /> with them. Accounts with the same email link automatically, and provider tokens are stored encrypted.
+`OAuthButtons` calls `authClient.signIn.social` for GitHub or Google with `callbackURL` set to the localized `/auth/callback` and `errorCallbackURL` to the localized `/auth/sign-in`, both keeping `redirect`. The providers are configured in `socialProviders`; register <RepositoryFact name="oauthCallbackUrls" /> with them. Accounts with the same email link automatically, and provider tokens are stored encrypted.
 
 ## Return path
 
 A visitor who opens a protected page while signed out should end up on that page after signing in. Every auth page accepts a `redirect` search parameter for this, declared once as `authSearchSchema` in `auth.zod.ts`. It must be an internal path (`callbackPathSchema`); anything else is dropped.
 
 - `requireSignedIn` sends the visitor to `/auth/sign-in?redirect=` with the page they opened.
-- The auth pages keep `redirect` on the links between sign-in and sign-up, on the way to `/auth/two-factor` and `/auth/verify-email`, in the OAuth callbacks and in the verification email.
+- The auth pages keep `redirect` on the links between sign-in and sign-up, on the way to `/auth/two-factor`, `/auth/verify-email` and `/auth/forgot-password`, in the reset and verification emails, back to sign-in after a reset, and in the OAuth callbacks.
+- When the session of a signed-in visitor ends, `requireSignedIn` adds `error=SESSION_EXPIRED`, and the sign-in page says **Your session ended** and names the page in `redirect` from the customer or admin menu.
 - `/auth/callback` continues to `redirect`, or to the workspace for the role when there is none. A signed-in visitor who opens sign-in or sign-up goes the same way.
 
 The auth components get it from `useAuthRedirect` in `src/hooks/use-auth-redirect.ts`:
 
-| Member                   | Use                                                                                                                                                       |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `redirect`               | The page to land on after signing in, for links and navigation between auth pages                                                                         |
-| `hrefWithRedirect(page)` | A localized URL to `/auth/callback` or `/auth/sign-in` that keeps `redirect`, passed to Better Auth as `callbackURL` and `errorCallbackURL`               |
-| `finishSignIn()`         | Removes the previous user's data from the query cache, clears the router cache and continues to `/auth/callback` after sign-in or two-factor verification |
+| Member                   | Use                                                                                                                                                                               |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `redirect`               | The page to land on after signing in, for links and navigation between auth pages                                                                                                 |
+| `hrefWithRedirect(page)` | A localized URL to `/auth/callback`, `/auth/sign-in` or `/auth/reset-password` that keeps `redirect`, passed to Better Auth as `callbackURL`, `errorCallbackURL` and `redirectTo` |
+| `finishSignIn()`         | Removes the previous user's data from the query cache, clears the router cache and continues to `/auth/callback` after sign-in or two-factor verification                         |
 
 ## Sign-out
 

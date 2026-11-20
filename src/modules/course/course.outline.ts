@@ -98,6 +98,6 @@ export const readCourseOutline = async ({ course, locale, viewer }: OutlineReque
       summary: localize(course.summary, locale),
       title: localize(course.title, locale),
     },
-    viewer: { signedIn: viewer.userId !== undefined },
+    viewer: { mustConfirmEmail: viewer.mustConfirmEmail, signedIn: viewer.userId !== undefined },
   }
 }

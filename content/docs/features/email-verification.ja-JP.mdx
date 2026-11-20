@@ -1,22 +1,50 @@
 ---
 title: "メール確認"
-description: "ローカライズされたリンクと再送フォームを備えた必須のメール確認。"
+description: "登録してすぐに購入でき、確認済みのアドレスでライセンスキー、カスタマーポータル、有料レッスンが利用可能になります。"
 ---
 
-Better Auth は `requireEmailVerification`、`sendOnSignUp`、`sendOnSignIn`、`autoSignInAfterVerification` を有効にして動作するため、新しいアカウントはアドレスを確認するまでサインインできず、それまでに正しいパスワードでサインインするたびに新しいリンクが送られます。リンクは `EMAIL_LINK_LIFETIME_HOURS`（`emailVerification.expiresIn`）の間有効で、メールにもそのことが記載されます。
+メールアドレスとパスワードで作成した新しいアカウントは、登録した時点でサインイン済みになります。そのため購入者は、受信トレイを開かずに登録フォームからチェックアウトへ進めます。アドレスを確認すると、確認を必要とするもの、つまりライセンスキー、Polar のカスタマーポータル、有料レッスンが利用可能になります。パスワードで再度サインインするには、引き続き確認済みのアドレスが必要で、それまでに正しいパスワードでサインインするたびに新しいリンクが送られます。GitHub と Google のアカウントは確認済みの状態で作成されます。
+
+## 登録 [#signing-up]
+
+Better Auth は `requireEmailVerification`、`sendOnSignUp`、`sendOnSignIn`、`autoSignInAfterVerification` を有効にして動作します。`requireEmailVerification` が有効な場合、Better Auth はアドレスにすでにアカウントがあるかどうかにかかわらず登録に同じ応答を返し、訪問者をサインインさせません。その後、`hooks.after` ミドルウェアの `signInNewAccount`（`auth.hooks.ts`）が、登録で作成されたアカウントだけをサインインさせます。レスポンスが示すユーザーが D1 に存在する場合、Better Auth 自身の `autoSignIn` と同じようにセッションを作成し、その Cookie を設定します。すでにアカウントがあるアドレスでの登録にはセッションが作られず、訪問者は `/auth/verify-email` に移動し、`onExistingUserSignUp` がそのアドレスにメールを送ります（[既知のアドレスでのサインアップ](/docs/features/authentication#signing-up-with-a-known-address)を参照）。サーバー関数 `signUpWithPassword` は、レスポンスのセッション Cookie から読み取った `signedIn` を返し、セッショントークンそのものは決して返しません。
+
+`SignUpForm` は、サインイン済みのアカウントを `/auth/callback` 経由で `/app?tier=complete` などの `redirect` へ進めるので、購入者はすぐにチェックアウトにたどり着きます。
 
 ## 送信
 
-`auth.server.ts` の `emailVerification.sendVerificationEmail` はメールを認証メールの送信関数に渡し、Resend の送信関数は `sendVerifyEmail`（`src/modules/verification/use-cases/send-verify-email.ts`。`src/data/resend.auth-emails.ts` で組み込まれます）です。フローの `callbackURL` の言語と `redirect`、さらに `token` を付けて、このサイトの `/auth/verify-email` へのリンクを作成し、`VerifyEmail` テンプレートを送信します（[トランザクションメール](/docs/features/email)を参照）。確認メールはアドレスごとに 1 時間あたり最大 <RepositoryFact name="recipientEmailsPerHour" /> 通までしか送信しません（`withinRecipientRateLimit`）。それ以降のリクエストでは何も送信せず、通常のレスポンスを返します。未確認のアドレスで再登録された場合、`onExistingUserSignUp` はアカウントの存在を明かさずに新しいリンクを送信します。確認済みのアドレスの場合は、代わりに既存アカウントのメールを送信します（[既知のアドレスでのサインアップ](/docs/features/authentication#signing-up-with-a-known-address)を参照）。サインインで送られるリンクは、ロケールと `redirect` をサインインページから取得します。
+`auth.server.ts` の `emailVerification.sendVerificationEmail` はメールを認証メールの送信関数に渡し、Resend の送信関数は `sendVerifyEmail`（`src/modules/verification/use-cases/send-verify-email.ts`。`src/data/resend.auth-emails.ts` で組み込まれます）です。フローの `callbackURL` の言語と `redirect`、さらに `token` を付けて、このサイトの `/auth/verify-email` へのリンクを作成し、`VerifyEmail` テンプレートを送信します（[トランザクションメール](/docs/features/email)を参照）。リンクの有効期間は <RepositoryFact name="emailLinkHours" unit="hour" /> で（`auth.constants.ts` の `EMAIL_LINK_LIFETIME_HOURS`、Better Auth の `emailVerification.expiresIn`）、メールにもそのことが記載されます。確認メールはアドレスごとに 1 時間あたり最大 <RepositoryFact name="recipientEmailsPerHour" /> 通までしか送信しません（`withinRecipientRateLimit`）。未確認のアドレスで再登録された場合、`onExistingUserSignUp` は新しいリンクを送信します。確認済みのアドレスの場合は、代わりに既存アカウントのメールを送信します。サインインで送られるリンクは、ロケールと `redirect` をサインインページから取得します。
 
-## 確認
+## 確認済みのアドレスを待つもの [#what-waits-for-the-confirmed-address]
+
+| 対象           | 拒否する場所                                                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ライセンスキー | `getCurrentLicense` はキーを返さず、`getCurrentLicenseKey` はメールアドレスが確認済みのセッションにだけキーを返します                                        |
+| Polar ポータル | Polar エリアがすべての `/customer/` エンドポイントの前に実行する `requireVerifiedEmail`（`auth.hooks.ts`）が `403 EMAIL_NOT_VERIFIED` を返します             |
+| 有料レッスン   | `resolveViewer` は確認済みのアドレスにだけコースアクセスを与えるため、`getLesson`、`getLessonPlayback`、ダウンロードはそのレッスンをロック済みとして扱います |
+
+チェックアウト自体は誰でも利用できます。Polar が支払いを受け取ってそのアドレスに領収書を送り、ほかの購入者と同じく `order.paid` でライセンスが付与されます。CLI ライセンス API に独自のチェックは必要ありません。アドレスが確認されるまで、このサイトからキーが誰かに届くことはなく、Polar もその受信トレイを読める人にしかキーを表示しないからです。
+
+## アプリでの確認
+
+`EmailVerificationBanner` は、アドレスが確認されるまで `/app` のすべてのページの上部に表示されます。アドレスを示し、新しいリンクを送信し（`sendVerificationEmail`）、**別のメールアドレスを使う** を提供します。これは未確認のアカウントのアドレスをその場で変更し（`user.changeEmail.updateEmailWithoutVerification` を使う `changeEmail`）、新しいアドレスにリンクを送ります。アドレスが未確認の間、`useEmailVerification` は <RepositoryFact name="verificationPollSeconds" unit="second" />ごとと、タブにフォーカスが戻ったときにセッションを確認します。そのため、スマートフォンで開いたリンクでノートパソコン上のキーが利用可能になります。バナーはアドレスが確認されたことを伝え、ユーザーのクエリを再取得します。`LicenseCard` はキーの代わりにリンクの送信先を表示し、ポータルへのリンクを隠します。有料レッスンのロックには **視聴するにはメールアドレスを確認してください** と表示され、リンクを再送信して、その場でレッスンのロックを解除します。
+
+## 確認ページ
 
 `/auth/verify-email` は `beforeLoad` でリンクを処理します。
 
-- `?token=` がある場合は、同じ言語の `/auth/verify-email?verified=true` を `callbackURL` にして、`redirect` を保持したまま `/api/auth/verify-email` でドキュメントを再読み込みします。
-- `?verified=true` があり `error` がない場合は `redirect` 付きの `/auth/callback` へリダイレクトし、ユーザーを `redirect`、または `/admin` か `/app` へ送ります。
-- それ以外はページを表示し、`?error=` があれば無効なリンクのメッセージを表示します。
+- `?token=` がある場合は、トークンのペイロードからアドレスを読み取り（その内容は信用しません）、同じ言語の `/auth/verify-email?verified=true` を `callbackURL` にして、`redirect` とアドレスを保持したまま `/api/auth/verify-email` でドキュメントを再読み込みします。
+- `redirectIfVerified` は、アドレスが確認済みのセッションを `redirect`、または `/admin` か `/app` へ送ります。
+- それ以外の場合は、次のいずれかの状態を表示します。
 
-## 再送
+| 状態     | 条件                                  | 主な表示                                                                              |
+| -------- | ------------------------------------- | ------------------------------------------------------------------------------------- |
+| 送信済み | リンクを送信した                      | アドレスを示した **リンクを再送信**、**別のメールアドレスを使う**、**ログインに戻る** |
+| 無効     | `?error=`：リンクが期限切れか使用済み | リンクに含まれていたアドレスへの **新しいリンクを送信**、またはアドレスの入力欄       |
+| 確認済み | `?verified=true` でセッションがない   | アドレスと `redirect` を保持した **ログインして続ける**                               |
 
-`VerifyEmailForm` は、登録とサインインがここへリダイレクトするときに付ける `?email=` からアドレスを入力します。サインインでは `?unverified=true` も付き、ページは登録時の一般的な文言の代わりに、新しいリンクを送信したことを伝えます。サーバー関数 `sendVerificationEmail`（`src/modules/verification/use-cases/send-verification-email.ts`）を呼び出し、`RATE_LIMITS.SENSITIVE` で制限されます。
+`VerifyEmailForm` は、セッションから、または登録とサインインがここへリダイレクトするときに付ける `?email=` からアドレスを取得します。サインインでは `?unverified=true` も付き、ページはそのアドレスに新しいリンクを送信したことを伝えます。サインイン済みの訪問者にはアカウントのアドレスが表示され、`ChangeEmailForm` で変更できます。サインインしていない訪問者は別のアドレスを入力します。アドレスが未確認の間、ページはセッションを確認し、どこかでリンクが開かれるとすぐに `redirect` へ進みます。ページ上のすべてのリンクは `redirect` を保持します。横の案内パネルには登録ページの見出しを使います。
+
+## 正直な再送
+
+`RATE_LIMITS.SENSITIVE` で制限されるサーバー関数 `sendVerificationEmail` と `requestPasswordReset` は、まずアドレスの 1 時間あたりの残り送信数（`src/lib/rate-limit.ts` の `recipientAllowance`）をカウントせずに読み取ります。アドレスがすでに <RepositoryFact name="recipientEmailsPerHour" /> 通のメールを受け取っている場合は何も送信せず、`{ sent: false, retryAfterSeconds }` を返します。`ResendLinkStatus` はそのことを、再試行できる時刻とともに伝えます。送信後、`useEmailLinkResend` は次の送信を許可するまで <RepositoryFact name="resendCooldownSeconds" unit="second" />待ち、ボタンにカウントダウンを表示します。サインインしていない訪問者には、アドレスにアカウントがあるかどうかを明かさない言葉で送信を伝えます。

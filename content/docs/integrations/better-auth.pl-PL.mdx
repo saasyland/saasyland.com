@@ -3,31 +3,32 @@ title: "Uwierzytelnianie i bezpieczeństwo"
 description: "Sesje Better Auth, strażnicy tras, middleware funkcji serwerowych i role."
 ---
 
-Better Auth przechowuje użytkowników, konta, sesje i tokeny weryfikacyjne w D1 za pośrednictwem adaptera Drizzle. Zapewnia rejestrację e-mailem i hasłem z obowiązkową weryfikacją adresu e-mail, logowanie przez GitHub i Google, reset hasła, zmianę adresu e-mail, uwierzytelnianie dwuskładnikowe TOTP, zarządzanie użytkownikami przez administratora oraz płatności Polar. Jego API HTTP obsługuje `src/routes/api/auth.$.ts`. `auth.server.ts` i `auth.client.ts` ustawiają `basePath` Better Auth na `ROUTES.API_AUTH_BASE`, ścieżkę obsługiwaną przez ten plik, więc serwer i klient w przeglądarce biorą ją z jednej stałej.
+Better Auth przechowuje użytkowników, konta, sesje i tokeny weryfikacyjne w D1 za pośrednictwem adaptera Drizzle. Zapewnia rejestrację e-mailem i hasłem, która od razu loguje nowe konto, a to, co wymaga potwierdzonego adresu, odkłada na później, logowanie przez GitHub i Google, reset hasła, zmianę adresu e-mail, uwierzytelnianie dwuskładnikowe TOTP, zarządzanie użytkownikami przez administratora oraz płatności Polar. Jego API HTTP obsługuje `src/routes/api/auth.$.ts`. `auth.server.ts` i `auth.client.ts` ustawiają `basePath` Better Auth na `ROUTES.API_AUTH_BASE`, ścieżkę obsługiwaną przez ten plik, więc serwer i klient w przeglądarce biorą ją z jednej stałej.
 
 ## Pliki
 
-| Plik                                                   | Odpowiedzialność                                                                                                                                                                 |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.server.ts`                                       | Instancja `betterAuth`: dostawcy, pluginy `admin`, `twoFactor` i `tanstackStartCookies` oraz te, które dodają obszary, dozwolone hosty, limitowanie żądań w D1 i hooki e-mailowe |
-| `auth.client.ts`                                       | `authClient` i jego metody (`signIn`, `signUp`, `signOut`, `useSession`, `twoFactor` i inne)                                                                                     |
-| `auth.routes.ts`                                       | Strażnicy tras dla `beforeLoad`                                                                                                                                                  |
-| `auth.middleware.ts`                                   | Middleware funkcji serwerowych: `withRequest`, `authorized`, `withRateLimit` i `RATE_LIMITS`                                                                                     |
-| `auth.access.ts`                                       | `ac`, `ROLES` i `hasPermission`, zbudowane z deklaracji uprawnień i przydziałów ról, które deklarują obszary                                                                     |
-| `auth.roles.ts`                                        | `ROLE_CODES`, `ROLE_VALUES`, `DEFAULT_ROLE_CODE` i `isRole`                                                                                                                      |
-| `auth.constants.ts`                                    | `AUTH_PROVIDER`: identyfikatory dostawcy e-mail i hasła (`credential`) oraz dostawców OAuth                                                                                      |
-| `auth.session.ts`                                      | `getRequestSession`, funkcja serwerowa `getCurrentSession` i `getCurrentSessionQuery`                                                                                            |
-| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | Klucze błędów, schematy formularzy i ograniczenia haseł                                                                                                                          |
-| `auth.hooks.ts`                                        | `enforceInputPolicy`: schematy formularzy stosowane do endpointów Better Auth                                                                                                    |
+| Plik                                                   | Odpowiedzialność                                                                                                                                                                                    |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.server.ts`                                       | Instancja `betterAuth`: dostawcy, pluginy `admin`, `twoFactor`, `lastLoginMethod` i `tanstackStartCookies` oraz te, które dodają obszary, dozwolone hosty, limitowanie żądań w D1 i hooki e-mailowe |
+| `auth.client.ts`                                       | `authClient` i jego metody (`signIn`, `signUp`, `signOut`, `useSession`, `twoFactor` i inne)                                                                                                        |
+| `auth.routes.ts`                                       | Strażnicy tras dla `beforeLoad`                                                                                                                                                                     |
+| `auth.middleware.ts`                                   | Middleware funkcji serwerowych: `withRequest`, `authorized`, `withRateLimit` i `RATE_LIMITS`                                                                                                        |
+| `auth.access.ts`                                       | `ac`, `ROLES` i `hasPermission`, zbudowane z deklaracji uprawnień i przydziałów ról, które deklarują obszary                                                                                        |
+| `auth.roles.ts`                                        | `ROLE_CODES`, `ROLE_VALUES`, `DEFAULT_ROLE_CODE` i `isRole`                                                                                                                                         |
+| `auth.constants.ts`                                    | `AUTH_PROVIDER`: identyfikatory dostawcy e-mail i hasła (`credential`) oraz dostawców OAuth; `LOGIN_METHOD` i `LAST_LOGIN_METHOD_COOKIE` dla oznaczenia **Ostatnio używane**                        |
+| `auth.session.ts`                                      | `getRequestSession`, funkcja serwerowa `getCurrentSession` i `getCurrentSessionQuery`                                                                                                               |
+| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | Klucze błędów, schematy formularzy i ograniczenia haseł                                                                                                                                             |
+| `auth.hooks.ts`                                        | `enforceInputPolicy`: schematy formularzy stosowane do endpointów Better Auth; `signInNewAccount`: sesja dla nowego konta; `requireVerifiedEmail`: blokada tego, co wymaga potwierdzonego adresu    |
 
 ## Strażnicy tras
 
-| Strażnik             | Używany przez                    | Działanie                                                                                             |
-| -------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `requireSignedIn`    | `/app`                           | Bez sesji przekierowuje do logowania ze stroną jako `redirect`, a w przeciwnym razie zwraca sesję     |
-| `requireAdmin`       | `/admin`                         | Dodatkowo wymaga uprawnienia `admin: ["access"]`, w przeciwnym razie przekierowuje do `/app`          |
-| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Kieruje zalogowanego użytkownika do `redirect` albo, w zależności od roli, do `/admin` lub `/app`     |
-| `redirectAfterAuth`  | `/auth/callback`                 | Wymaga sesji, a następnie przekierowuje do `redirect` lub do obszaru roboczego odpowiedniego dla roli |
+| Strażnik             | Używany przez                    | Działanie                                                                                              |
+| -------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `requireSignedIn`    | `/app`                           | Bez sesji przekierowuje do logowania ze stroną jako `redirect`, a w przeciwnym razie zwraca sesję      |
+| `requireAdmin`       | `/admin`                         | Dodatkowo wymaga uprawnienia `admin: ["access"]`, w przeciwnym razie przekierowuje do `/app`           |
+| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Kieruje zalogowanego użytkownika do `redirect` albo, w zależności od roli, do `/admin` lub `/app`      |
+| `redirectAfterAuth`  | `/auth/callback`                 | Wymaga sesji, a następnie przekierowuje do `redirect` lub do obszaru roboczego odpowiedniego dla roli  |
+| `redirectIfVerified` | `/auth/verify-email`             | Kieruje sesję z potwierdzonym adresem do `redirect` albo, w zależności od roli, do `/admin` lub `/app` |
 
 Strażnicy ładują sesję przez cache zapytań, a gdy zmienia się zalogowany użytkownik, usuwają z niego każde niepubliczne zapytanie za pomocą `removeUserData` z `auth.session.ts`.
 

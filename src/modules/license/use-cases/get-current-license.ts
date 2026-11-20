@@ -8,6 +8,16 @@ import { getLicense } from "~/src/modules/license/use-cases/get-license"
 
 export const getCurrentLicense = createServerFn({ method: "GET" })
   .middleware([authorized()])
-  .handler(async ({ context }) => ({ license: await getLicense(context.auth.user.id) }))
+  .handler(async ({ context }) => {
+    const row = await getLicense(context.auth.user.id)
+
+    if (row === undefined) {
+      return { license: row }
+    }
+
+    const { key: _key, ...license } = row
+
+    return { license }
+  })
 
 export const currentLicenseQuery = queryOptions({ queryFn: () => getCurrentLicense(), queryKey: LICENSE_QUERY_KEYS.CURRENT })

@@ -124,7 +124,7 @@ describe("getCourse", () => {
     ])
     expect(page.chapters[0]?.lessons[0]).toMatchObject({ durationMs: 125_000, recording: false, title: "Granice" })
     expect(page.chapters[1]?.lessons[1]).toMatchObject({ durationMs: null, recording: true })
-    expect(page.viewer).toStrictEqual({ signedIn: false })
+    expect(page.viewer).toStrictEqual({ mustConfirmEmail: false, signedIn: false })
   })
 
   it("returns the course's level, icon, outcomes, prerequisites and chapter summaries in the visitor's language", async () => {
@@ -206,7 +206,7 @@ describe("getCourse", () => {
       ["billing", false, 0],
       ["coverage", false, 0],
     ])
-    expect(page.viewer).toStrictEqual({ signedIn: true })
+    expect(page.viewer).toStrictEqual({ mustConfirmEmail: false, signedIn: true })
   })
 
   it.each(["unreleased", "missing"])("reports %s as not found", async (slug) => {

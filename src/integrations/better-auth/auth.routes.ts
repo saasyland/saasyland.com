@@ -1,7 +1,8 @@
 import { type ParsedLocation, redirect } from "@tanstack/react-router"
 
 import { hasPermission } from "~/src/integrations/better-auth/auth.access"
-import { getCurrentSessionQuery, removeUserData } from "~/src/integrations/better-auth/auth.session"
+import { SESSION_EXPIRED_CODE } from "~/src/integrations/better-auth/auth.errors"
+import { getCurrentSessionQuery, hasSessionCookie, removeUserData } from "~/src/integrations/better-auth/auth.session"
 import type { AuthSearch } from "~/src/integrations/better-auth/auth.zod"
 
 import type { RouterContext } from "~/src/router"
@@ -32,7 +33,7 @@ const loadRouteSession = async ({ context: { queryClient }, preload = false }: A
 
 const isAdmin = (role: string | null | undefined): boolean => hasPermission({ permission: { admin: ["access"] }, role })
 
-const signInFirst = (search: AuthSearch): never => {
+const signInFirst = (search: AuthSearch & { readonly error?: typeof SESSION_EXPIRED_CODE }): never => {
   throw redirect({ replace: true, search, to: ROUTES.SIGN_IN })
 }
 
@@ -44,9 +45,10 @@ const goToRedirectOrWorkspace = (search: AuthSearch, role: string | null | undef
 }
 
 const requireSession = async (context: AuthRouteContext, search: AuthSearch) => {
+  const hadSession = context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)?.user !== undefined || hasSessionCookie()
   const session = await loadRouteSession(context, { recheck: true })
   if (!session) {
-    return signInFirst(search)
+    return signInFirst(hadSession ? { ...search, error: SESSION_EXPIRED_CODE } : search)
   }
   return session
 }
@@ -54,6 +56,13 @@ const requireSession = async (context: AuthRouteContext, search: AuthSearch) => 
 export const redirectIfSignedIn = async (context: AuthPageContext): Promise<void> => {
   const session = await loadRouteSession(context, { recheck: false })
   if (session) {
+    goToRedirectOrWorkspace(context.search, session.user.role)
+  }
+}
+
+export const redirectIfVerified = async (context: AuthPageContext): Promise<void> => {
+  const session = await loadRouteSession(context, { recheck: false })
+  if (session?.user.emailVerified === true) {
     goToRedirectOrWorkspace(context.search, session.user.role)
   }
 }

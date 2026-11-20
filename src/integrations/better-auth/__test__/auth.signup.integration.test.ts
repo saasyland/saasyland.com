@@ -2,7 +2,6 @@ import { env } from "cloudflare:workers"
 
 import { getRequest } from "@tanstack/react-start/server"
 import { eq } from "drizzle-orm"
-import { createHash } from "node:crypto"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import * as zod from "zod"
 
@@ -21,13 +20,12 @@ import { IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { signUpWithPasswordMutation } from "~/src/modules/account/use-cases/sign-up-with-password"
 import { user } from "~/src/modules/user/user.schema"
 
+import { APP_SLUG } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const ORIGIN = "http://127.0.0.1:3000"
 const RESEND_LIMIT = 256
 const A_MINUTE_MS = 60_000
-
-const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex")
 
 const signUpResponseSchema = zod.object({ token: zod.null(), user: zod.record(zod.string(), zod.unknown()) })
 
@@ -85,7 +83,7 @@ describe("production signup verification delivery", () => {
 
     const result = await signUp(body)
 
-    expect(result.token).toBeNull()
+    expect(result.signedIn).toBe(true)
     expect(result.user).toMatchObject({ email: body.email, emailVerified: false })
     const deliveries = getSentEmails(body.email)
     expect(deliveries).toHaveLength(1)
@@ -95,7 +93,7 @@ describe("production signup verification delivery", () => {
       to: [body.email],
     })
     expect(deliveries[0]?.html).toContain(`${ORIGIN}/pl-PL/auth/verify-email?token=`)
-    expect(deliveries[0]?.idempotencyKey).toBe(`${EMAIL_PURPOSE.VERIFY_EMAIL}/${sha256(deliveredVerificationToken(body.email))}`)
+    expect(deliveries[0]?.idempotencyKey).toMatch(new RegExp(`^${EMAIL_PURPOSE.VERIFY_EMAIL}/[0-9a-f]{64}$`, "u"))
     expect(deliveries[0]?.html).toContain('lang="pl-PL"')
 
     await verifyDeliveredEmail(body.email)
@@ -116,7 +114,8 @@ describe("production signup verification delivery", () => {
 
       const repeated = await signUp(body, `${I18N.COOKIE_NAME}=${cookie}`)
 
-      expect(repeated.token).toBeNull()
+      expect(first.signedIn).toBe(true)
+      expect(repeated.signedIn).toBe(false)
       expect(repeated.user.email).toBe(body.email)
       expect(repeated.user.id).not.toBe(first.user.id)
       const deliveries = getSentEmails(body.email)
@@ -218,7 +217,7 @@ describe("repeated sign-up of an existing account", () => {
 
     const repeated = await signUp(body)
 
-    expect(repeated.token).toBeNull()
+    expect(repeated.signedIn).toBe(false)
     expect(repeated.user).toMatchObject({ email: body.email, emailVerified: false })
     expect(repeated.user.id).not.toBe(first.user.id)
     const deliveries = getSentEmails(body.email)
@@ -231,7 +230,7 @@ describe("repeated sign-up of an existing account", () => {
     expect(deliveries[1]?.html).not.toContain("/auth/verify-email")
   })
 
-  it("answers a new, an existing verified and an existing unverified email with the same response", async () => {
+  it("answers an existing verified and an existing unverified email like a new one, and signs only the new account in", async () => {
     const verified = createSignUp()
     const unverified = createSignUp()
     const verifiedAccount = await signUp(verified)
@@ -262,9 +261,11 @@ describe("repeated sign-up of an existing account", () => {
       status,
       token: signUpResponseSchema.parse(json).token,
     }))
-    expect(shapes[1]).toStrictEqual(shapes[0])
-    expect(shapes[2]).toStrictEqual(shapes[0])
-    expect(shapes[0]).toMatchObject({ setCookie: null, status: 200, token: null })
+    const [created, verifiedShape, unverifiedShape] = shapes
+    expect(unverifiedShape).toStrictEqual(verifiedShape)
+    expect(verifiedShape).toMatchObject({ setCookie: null, status: 200, token: null })
+    expect(created).toMatchObject({ keys: verifiedShape?.keys, status: 200, token: null })
+    expect(created?.setCookie).toContain(`${APP_SLUG}.session_token=`)
     expect(getSentEmails(verified.email).map(({ idempotencyKey }) => idempotencyKey?.split("/")[0])).toStrictEqual([
       EMAIL_PURPOSE.VERIFY_EMAIL,
       EMAIL_PURPOSE.EXISTING_ACCOUNT,

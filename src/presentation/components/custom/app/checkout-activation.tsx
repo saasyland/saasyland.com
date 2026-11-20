@@ -1,14 +1,18 @@
 import { type JSX, type ReactNode, useEffect, useState } from "react"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { CircleCheck, Clock } from "lucide-react"
+import { ArrowRight, CircleCheck, Clock } from "lucide-react"
 import { useTranslations } from "use-intl/react"
 
 import { LICENSE_STATUS } from "~/src/modules/license/license.constants"
 import type { License } from "~/src/modules/license/license.types"
 import { currentLicenseQuery } from "~/src/modules/license/use-cases/get-current-license"
 
-import { Button } from "~/src/presentation/components/shadcn/button"
+import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
+
+import { cn } from "~/src/lib/cn"
+
+import { Button, buttonVariants } from "~/src/presentation/components/shadcn/button"
 import { Spinner } from "~/src/presentation/components/shadcn/spinner"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
@@ -29,7 +33,8 @@ const EMAIL_TAGS = {
   ),
 }
 
-const isActive = (license: License["select"] | undefined): license is License["select"] => license?.status === LICENSE_STATUS.ACTIVE
+const isActive = <Licence extends Pick<License["select"], "status">>(license: Licence | undefined): license is Licence =>
+  license?.status === LICENSE_STATUS.ACTIVE
 
 const ActivationPanel = ({ children, icon }: Readonly<{ children: ReactNode; icon: ReactNode }>): JSX.Element => (
   <section className="flex items-start gap-5 rounded-xl border border-border bg-card p-6 md:p-8" role="status">
@@ -45,6 +50,8 @@ export const CheckoutActivation = ({ checkoutId }: Readonly<{ checkoutId: string
   const t = useTranslations("pages.license.activation")
 
   const [hasTimedOut, setHasTimedOut] = useState(false)
+
+  const { redirect } = useAuthRedirect()
 
   useEffect(() => {
     const timeoutId = globalThis.setTimeout(() => {
@@ -67,6 +74,12 @@ export const CheckoutActivation = ({ checkoutId }: Readonly<{ checkoutId: string
         <p className="max-w-[60ch] text-body-sm text-pretty text-muted-foreground">
           {t("active.body", { tier: tTier(`tiers.${data.license.tier}.name`) })}
         </p>
+        {redirect !== undefined && (
+          <a className={cn(buttonVariants({ size: "lg" }), "mt-3 gap-2")} href={redirect}>
+            {t("active.continue")}
+            <ArrowRight aria-hidden className="size-4" />
+          </a>
+        )}
       </ActivationPanel>
     )
   }

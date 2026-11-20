@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { GUEST, type Viewer, hasLessonAccess } from "~/src/modules/lesson/lesson.access"
 import { LESSON_ACCESS } from "~/src/modules/lesson/lesson.constants"
 
-const ACCOUNT: Viewer = { entitled: false, isStaff: false, userId: "learner" }
+const ACCOUNT: Viewer = { entitled: false, isStaff: false, mustConfirmEmail: false, userId: "learner" }
 const ENTITLED: Viewer = { ...ACCOUNT, entitled: true }
 const STAFF: Viewer = { ...ACCOUNT, isStaff: true }
 

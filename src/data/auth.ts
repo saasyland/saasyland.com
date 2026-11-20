@@ -11,8 +11,8 @@ interface OAuthClient {
 export const AUTH_ASSURANCES = ["coverage", "pricing", "ownership"] as const
 
 export const OAUTH_PROVIDERS = [
-  { id: AUTH_PROVIDER.GOOGLE, name: "Google" },
   { id: AUTH_PROVIDER.GITHUB, name: "GitHub" },
+  { id: AUTH_PROVIDER.GOOGLE, name: "Google" },
 ] as const
 
 export const OAUTH_CLIENTS = {

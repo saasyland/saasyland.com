@@ -138,6 +138,21 @@ describe("signing in before verifying", () => {
     },
   )
 
+  it("sends the fresh link even when the sign-in falls in the same second as the sign-up, whose token is the same", async () => {
+    vi.useFakeTimers({ now: Date.now(), toFake: ["Date"] })
+    const account = await signUp()
+
+    const response = await signInFrom(account, undefined)
+
+    expect(response.status).toBe(HTTP_STATUS.FORBIDDEN)
+    const deliveries = getSentEmails(account.email)
+    expect(deliveries).toHaveLength(2)
+    const [signUpEmail, signInEmail] = deliveries
+    const token = /token=(?<token>[\w.-]+)/u.exec(signUpEmail?.html ?? "")?.groups?.["token"]
+    expect(signInEmail?.html).toContain(`token=${String(token)}`)
+    expect(signInEmail?.idempotencyKey).not.toBe(signUpEmail?.idempotencyKey)
+  })
+
   it("sends nothing when the password is wrong, so a stranger cannot trigger the email", async () => {
     const account = await signUp()
 

@@ -3,6 +3,7 @@ import { type JSX, useEffect } from "react"
 import { Link, useLinkProps, useMatches, useRouter, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
+import { headerDestination, useSignedInVisitor } from "~/src/hooks/use-header-navigation"
 import { useNavigationLabel } from "~/src/hooks/use-navigation-label"
 
 import { HEADER_NAVIGATION } from "~/src/data/navigation"
@@ -48,6 +49,7 @@ const observeProgress = (element: HTMLDivElement | null): (() => void) | undefin
 export const Navigation = (): JSX.Element => {
   const t = useTranslations("components.custom.navigation")
   const navigationLabel = useNavigationLabel()
+  const signedIn = useSignedInVisitor()
   const startBuilding = useLinkProps({ hash: MARKETING_SECTION_IDS.PRICING, to: ROUTES.HOME })
   const contentId = useMatches({
     select: (matches) => matches.map(({ staticData }) => staticData.contentId).findLast((id) => id !== undefined) ?? SITE_CONTENT_ID,
@@ -58,11 +60,11 @@ export const Navigation = (): JSX.Element => {
   useEffect(
     () =>
       preloadWhenIdle(() => {
-        for (const { to } of HEADER_NAVIGATION) {
-          void router.preloadRoute({ to })
+        for (const entry of HEADER_NAVIGATION) {
+          void router.preloadRoute({ to: headerDestination(entry, signedIn).to })
         }
       }),
-    [router, shownPath],
+    [router, shownPath, signedIn],
   )
 
   return (
@@ -82,21 +84,25 @@ export const Navigation = (): JSX.Element => {
 
           <div className="flex items-center gap-2 lg:gap-4">
             <div className="hidden items-center gap-1 lg:flex">
-              {HEADER_NAVIGATION.map((entry) => (
-                <Link
-                  {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
-                  className="relative rounded-md px-2 py-1.5 text-body-sm whitespace-nowrap text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[status=active]:text-foreground"
-                  key={entry.key}
-                  to={entry.to}
-                >
-                  {({ isActive }) => (
-                    <>
-                      {navigationLabel(entry)}
-                      {isActive && <span aria-hidden className="absolute inset-x-0 -bottom-0.5 mx-auto size-0.75 rounded-full bg-ring" />}
-                    </>
-                  )}
-                </Link>
-              ))}
+              {HEADER_NAVIGATION.map((entry) => {
+                const { key, to } = headerDestination(entry, signedIn)
+
+                return (
+                  <Link
+                    {...(entry.hash === undefined ? {} : { activeOptions: { includeHash: true }, hash: entry.hash })}
+                    className="relative rounded-md px-2 py-1.5 text-body-sm whitespace-nowrap text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[status=active]:text-foreground"
+                    key={entry.key}
+                    to={to}
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {navigationLabel({ area: entry.area, key, placement: entry.placement })}
+                        {isActive && <span aria-hidden className="absolute inset-x-0 -bottom-0.5 mx-auto size-0.75 rounded-full bg-ring" />}
+                      </>
+                    )}
+                  </Link>
+                )
+              })}
             </div>
             <a
               {...startBuilding}

@@ -3,9 +3,11 @@ import type { JSX } from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
+import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { searchText } from "~/src/lib/search-params"
 import { pageHead } from "~/src/lib/seo"
 
 import { AUTH_LINK_TAGS } from "~/src/presentation/components/custom/auth/auth-link-tags"
@@ -34,6 +36,9 @@ const ForgotPasswordPage = (): JSX.Element => {
 const NAMESPACE = "pages.auth.forgot-password"
 
 export const Route = createFileRoute("/auth/forgot-password")({
+  validateSearch: authSearchSchema.extend({
+    email: searchText(),
+  }),
   component: ForgotPasswordPage,
   head: pageHead(ROUTES.FORGOT_PASSWORD),
   loader: async ({ context }) => {

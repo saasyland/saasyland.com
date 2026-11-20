@@ -1,5 +1,7 @@
 import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
+import { SESSION_EXPIRED_CODE } from "../../src/integrations/better-auth/auth.errors"
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 import { BasePage, LandingPage } from "../pages"
@@ -86,8 +88,14 @@ test("client navigation rechecks an ended session despite cached workspace data"
   const signedOut = await page.request.post("/api/auth/sign-out", { data: {}, headers: { Origin: new URL(page.url()).origin } })
   expect(signedOut.ok()).toBe(true)
   await page.getByRole("navigation", { name: "App navigation", exact: true }).getByRole("link", { name: "Settings", exact: true }).click()
-  await expect(page).toHaveURL(`/auth/sign-in?redirect=${encodeURIComponent("/app/settings")}`)
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === ROUTES.SIGN_IN &&
+      url.searchParams.get("redirect") === ROUTES.APP_SETTINGS &&
+      url.searchParams.get("error") === SESSION_EXPIRED_CODE,
+  )
   await appPage.waitForAppReady()
+  await expect(page.getByRole("status")).toHaveText("Your session ended. Sign in to continue to Settings.")
   await expect(authPage.signInSubmitButton()).toBeVisible()
   await expect(page.getByText(customer.email, { exact: true })).toHaveCount(0)
   await page.goto("/auth/sign-up", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })

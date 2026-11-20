@@ -5,23 +5,36 @@ export const AUTH_FLOWS = [
     area: FLOW_AREA.ACCOUNT,
     id: "sign-up-and-verify",
     outcome:
-      "A visitor signs up, receives one verification email whose link opens on this site, and the link signs the new account into /app with a verified address",
+      "A visitor signs up and is signed straight into /app, which asks them to confirm the address, and the one verification email's link confirms it",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth.spec.ts", title: "auth › signup sends a verification email whose link signs the new account into the app" }],
+    tests: [{ spec: "auth.spec.ts", title: "auth › signs a new account in straight away, and its link confirms the address" }],
   },
   {
     area: FLOW_AREA.ACCOUNT,
     id: "verification-link-single-use",
-    outcome: "A verification link opened again after signing out signs nobody in",
+    outcome: "A verification link opened again after signing out signs nobody in and says the address is already confirmed",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth.spec.ts", title: "auth › signup sends a verification email whose link signs the new account into the app" }],
+    tests: [
+      { spec: "auth.spec.ts", title: "auth › signs a new account in straight away, and its link confirms the address" },
+      {
+        spec: "auth-journeys.spec.ts",
+        title:
+          "the verify page › names the address of a link that no longer works and leads with a new one, and says when the address is already confirmed",
+      },
+    ],
   },
   {
     area: FLOW_AREA.ACCOUNT,
     id: "verification-invalid-token",
-    outcome: "A wrong or expired verification token shows the invalid-link message, offers sign-in and a new email, and creates no session",
+    outcome:
+      "A wrong or expired verification token says the link no longer works, names the address it carried, leads with a new link, offers sign-in and creates no session",
     status: FLOW_STATUS.COVERED,
     tests: [
+      {
+        spec: "auth-journeys.spec.ts",
+        title:
+          "the verify page › names the address of a link that no longer works and leads with a new one, and says when the address is already confirmed",
+      },
       { spec: "auth.spec.ts", title: "auth › verify-email page with an invalid token offers sign-in and resend recovery" },
       { spec: "auth.spec.ts", title: "auth › localized verification errors preserve the locale and ignore an untrusted callback URL" },
     ],
@@ -32,17 +45,44 @@ export const AUTH_FLOWS = [
     outcome: "Signing up again with an unverified address, and pressing Resend, each send a new verification email whose link works",
     status: FLOW_STATUS.COVERED,
     tests: [
-      { spec: "auth.spec.ts", title: "auth › repeating signup for an unverified email sends another verification email and resend still works" },
-      { spec: "auth.spec.ts", title: "auth › sign-up shows one screen for a new, an existing verified and an existing unverified email, and the existing account resets its password and signs in" },
+      {
+        spec: "auth.spec.ts",
+        title: "auth › repeating signup for an unconfirmed email sends another link to the inbox and resend still works",
+      },
+      {
+        spec: "auth.spec.ts",
+        title:
+          "auth › sign-up signs a new account in at once, shows one screen for an existing confirmed and an existing unconfirmed email, and the existing account resets its password and signs in",
+      },
     ],
+  },
+  {
+    area: FLOW_AREA.ACCOUNT,
+    id: "verification-resend-limit",
+    outcome:
+      "Resend waits out a countdown between sends, and once the address has had its emails for the hour it sends nothing and says so instead of claiming a send",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "auth-journeys.spec.ts",
+        title: "the verify page › resends to the account's address after a countdown, and says so honestly when the hourly limit stops a send",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ACCOUNT,
+    id: "verification-elsewhere",
+    outcome: "A verify page left open continues to its return path by itself once the link is opened in another tab",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "auth-journeys.spec.ts", title: "the verify page › continues by itself once the link is opened in another tab" }],
   },
   {
     area: FLOW_AREA.ACCOUNT,
     id: "sign-up-taken-address",
     outcome:
-      "Signing up with the address of a verified account creates no second account, shows the same screen as for a new address, and emails the account a sign-in link and a reset link instead",
+      "Signing up with the address of a confirmed account creates no second account and no session, shows the same screen as for an unconfirmed one, and emails the account a sign-in link and a reset link instead",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth.spec.ts", title: "auth › sign-up shows one screen for a new, an existing verified and an existing unverified email, and the existing account resets its password and signs in" }],
+    tests: [{ spec: "auth.spec.ts", title: "auth › sign-up signs a new account in at once, shows one screen for an existing confirmed and an existing unconfirmed email, and the existing account resets its password and signs in" }],
   },
   {
     area: FLOW_AREA.ACCOUNT,
@@ -96,9 +136,44 @@ export const AUTH_FLOWS = [
   {
     area: FLOW_AREA.ACCOUNT,
     id: "sign-in-wrong-password",
-    outcome: "A wrong password is refused with an error and creates no session",
+    outcome:
+      "A wrong password is refused with an error that stays above the button, with a password reset and GitHub and Google, and creates no session",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth.spec.ts", title: "auth › sign-up shows one screen for a new, an existing verified and an existing unverified email, and the existing account resets its password and signs in" }],
+    tests: [
+      {
+        spec: "auth-journeys.spec.ts",
+        title: "signing in again › keeps a wrong password on the page, and a reset keeps the address and the return path all the way back",
+      },
+      {
+        spec: "auth.spec.ts",
+        title:
+          "auth › sign-up signs a new account in at once, shows one screen for an existing confirmed and an existing unconfirmed email, and the existing account resets its password and signs in",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.ACCOUNT,
+    id: "sign-in-last-used",
+    outcome: "The sign-in page lists GitHub first and marks the way the browser signed in last time",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "auth-journeys.spec.ts", title: "signing in again › lists GitHub first and marks the way the visitor signed in last time" }],
+  },
+  {
+    area: FLOW_AREA.ACCOUNT,
+    id: "session-ended",
+    outcome: "A visitor whose session ended is sent to sign-in, which says so and names the page it returns to",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      { spec: "auth-journeys.spec.ts", title: "signing in again › says a session ended and names the page it returns to" },
+      { spec: "auth-routing.spec.ts", title: "client navigation rechecks an ended session despite cached workspace data" },
+    ],
+  },
+  {
+    area: FLOW_AREA.ACCOUNT,
+    id: "header-account",
+    outcome: "A signed-in visitor sees Your account in the site header instead of Sign in",
+    status: FLOW_STATUS.COVERED,
+    tests: [{ spec: "auth-journeys.spec.ts", title: "signing in again › offers a signed-in visitor their account in the header instead of sign-in" }],
   },
   {
     area: FLOW_AREA.ACCOUNT,
@@ -111,7 +186,7 @@ export const AUTH_FLOWS = [
         spec: "admin-users.spec.ts",
         title: "a user the admin adds verifies their email, signs in and is signed out when the admin revokes every session",
       },
-      { spec: "auth.spec.ts", title: "auth › sign-up shows one screen for a new, an existing verified and an existing unverified email, and the existing account resets its password and signs in" },
+      { spec: "auth.spec.ts", title: "auth › sign-up signs a new account in at once, shows one screen for an existing confirmed and an existing unconfirmed email, and the existing account resets its password and signs in" },
     ],
   },
   {
@@ -162,9 +237,19 @@ export const AUTH_FLOWS = [
     area: FLOW_AREA.ACCOUNT,
     id: "password-reset",
     outcome:
-      "A user asks for a reset, opens the emailed link, sets a new password and signs in with it, while the old password and the user's other sessions stop working and an email says the password changed",
+      "A user asks for a reset, opens the emailed link, sets a new password and signs in with it, keeping the address and the return path from sign-in to the end, while the old password and the user's other sessions stop working and an email says the password changed",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "auth.spec.ts", title: "auth › sign-up shows one screen for a new, an existing verified and an existing unverified email, and the existing account resets its password and signs in" }],
+    tests: [
+      {
+        spec: "auth-journeys.spec.ts",
+        title: "signing in again › keeps a wrong password on the page, and a reset keeps the address and the return path all the way back",
+      },
+      {
+        spec: "auth.spec.ts",
+        title:
+          "auth › sign-up signs a new account in at once, shows one screen for an existing confirmed and an existing unconfirmed email, and the existing account resets its password and signs in",
+      },
+    ],
   },
   {
     area: FLOW_AREA.ACCOUNT,

@@ -76,7 +76,7 @@ describe("existing account email delivery", () => {
 
   it.each([
     {
-      methods: "You can sign in with your email and password, Google, or GitHub.",
+      methods: "You can sign in with your email and password, GitHub, or Google.",
       providers: [AUTH_PROVIDER.GITHUB, AUTH_PROVIDER.CREDENTIAL, AUTH_PROVIDER.GOOGLE],
     },
     { methods: "You can sign in with GitHub.", providers: [AUTH_PROVIDER.GITHUB] },

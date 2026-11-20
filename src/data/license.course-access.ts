@@ -5,7 +5,7 @@ import { LICENSE_STATUS, LICENSE_TIER, type LicenseTier } from "~/src/modules/li
 import { getLicense } from "~/src/modules/license/use-cases/get-license"
 
 import type { CourseAccessGrant } from "~/src/data/course-access"
-import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
+import { TIER_PRICES } from "~/src/data/marketing"
 
 import { ROUTES } from "~/src/routes"
 
@@ -23,9 +23,7 @@ export const LICENSE_COURSE_ACCESS = [
     includedWith: COURSE_TIERS.map((tier) => `components.custom.pricing.tiers.${tier}.name`),
     key: "license",
     offer: `components.custom.pricing.tiers.${OFFERED_TIER}.name`,
-    unlock: {
-      signedIn: linkOptions({ search: { tier: OFFERED_TIER }, to: ROUTES.APP_LICENSE }),
-      signedOut: linkOptions({ hash: MARKETING_SECTION_IDS.PRICING, to: ROUTES.HOME }),
-    },
+    price: TIER_PRICES[OFFERED_TIER],
+    unlock: (redirect) => linkOptions({ search: { redirect, tier: OFFERED_TIER }, to: ROUTES.APP_LICENSE }),
   },
 ] as const satisfies readonly CourseAccessGrant[]

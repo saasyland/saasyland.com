@@ -31,16 +31,41 @@ export const COURSES_FLOWS = [
   {
     area: FLOW_AREA.COURSES,
     id: "account-lesson",
-    outcome: "A visitor who opens an account lesson signs in from it and comes back to watch it",
+    outcome: "A visitor who opens an account lesson is invited to create a free account, and one who has an account signs in from it and comes back to watch it",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "courses.spec.ts", title: "courses › a visitor signs in from an account lesson and comes back to watch it" }],
+    tests: [
+      {
+        spec: "courses.spec.ts",
+        title:
+          "courses › a visitor is invited to create a free account on an account lesson, and one who has an account signs in and comes back to watch it",
+      },
+    ],
   },
   {
     area: FLOW_AREA.COURSES,
     id: "paid-lesson-offer",
-    outcome: "A customer without Complete is offered Complete on a paid lesson, with a link to the Complete offer on /app/license",
+    outcome: "A paid lesson prices Complete, and its offer on /app/license keeps the lesson; a guest gets there through sign-up or signs in instead",
     status: FLOW_STATUS.COVERED,
-    tests: [{ spec: "course-access.spec.ts", title: "course access through a licence › a customer without Complete is offered it on a paid lesson" }],
+    tests: [
+      { spec: "course-access.spec.ts", title: "course access through a licence › a customer without Complete is offered it on a paid lesson" },
+      {
+        spec: "course-access.spec.ts",
+        title: "a visitor sees the price on a paid lesson, and one who has Complete signs in and comes back to it",
+      },
+    ],
+  },
+  {
+    area: FLOW_AREA.COURSES,
+    id: "paid-lesson-back-after-checkout",
+    outcome: "A guest who buys Complete from a paid lesson signs up, checks out and is offered the way back to the lesson once the licence is active",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "checkout-funnel.spec.ts",
+        title:
+          "checkout funnel › a paid lesson's offer carries the lesson through sign-up and checkout, and comes back to it once the licence is active",
+      },
+    ],
   },
   {
     area: FLOW_AREA.COURSES,

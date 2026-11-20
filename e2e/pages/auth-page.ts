@@ -87,7 +87,16 @@ export class AuthPage extends BasePage {
   }
 
   verifyEmailResendButton(): Locator {
-    return this.page.getByTestId("verify-email-resend-button")
+    return this.page.getByTestId("email-link-resend-button")
+  }
+
+  async signUp(email: string, password: string, path = "/auth/sign-up"): Promise<void> {
+    await this.gotoPath(path)
+    await this.waitForAppReady()
+    await this.nameField().fill("Test User")
+    await this.emailField().fill(email)
+    await this.signUpPasswordField().fill(password)
+    await this.signUpSubmitButton().click()
   }
 
   async gotoResetPassword(localePrefix = "", query = ""): Promise<void> {

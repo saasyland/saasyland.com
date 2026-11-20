@@ -10,11 +10,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { getHeaderHref } from "~/src/platform/testing/lib/navigation"
 
+import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
+import { getCurrentSessionQuery } from "~/src/integrations/better-auth/auth.session"
 import { getNavigationLabel, getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 
-import { TEST_COURSE_ACCESS } from "~/src/modules/course/__test__/fixtures/course-access"
 import { COURSE_ACCESS_TEST_MESSAGES, COURSE_ACCESS_TEST_NAMES } from "~/src/modules/course/__test__/fixtures/course-access.messages"
 import { COURSE_ICON, COURSE_KIND, COURSE_LEVEL, COURSE_QUERY_KEYS } from "~/src/modules/course/course.constants"
 import type { Course } from "~/src/modules/course/course.types"
@@ -28,6 +29,8 @@ import { LESSON_ACCESS, LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.co
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
+import type * as SendVerificationEmailUseCase from "~/src/modules/verification/use-cases/send-verification-email"
+import { VERIFICATION_MUTATION_KEYS } from "~/src/modules/verification/verification.constants"
 import type { Video } from "~/src/modules/video/video.types"
 
 import { Route as SiteRoute } from "~/src/routes/_site"
@@ -47,12 +50,20 @@ import messages from "~/messages/en-US/pages.courses.json"
 import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.json"
 import plCoursesNavigationMessages from "~/messages/pl-PL/navigation.courses.json"
 import type { RouterContext } from "~/src/router"
+import { ROUTES } from "~/src/routes"
 
 type PlayerProps = ComponentProps<typeof VideoPlayer>
 
 const player = vi.hoisted(() => new Map<"props", PlayerProps>())
 const coursePages = vi.hoisted(() => new Map<"current", Course["page"]>())
 const save = vi.hoisted(() => vi.fn<NonNullable<typeof saveLessonProgressMutation.mutationFn>>())
+const resendVerification = vi.hoisted(() =>
+  vi.fn<NonNullable<typeof SendVerificationEmailUseCase.sendVerificationEmailMutation.mutationFn>>(() => Promise.resolve({ sent: true })),
+)
+
+vi.mock(import("~/src/modules/verification/use-cases/send-verification-email"), () => ({
+  sendVerificationEmailMutation: { mutationFn: resendVerification, mutationKey: VERIFICATION_MUTATION_KEYS.SEND_EMAIL },
+}))
 
 vi.mock(import("~/src/presentation/components/custom/video-player"), () => ({
   VideoPlayer: (props: PlayerProps) => {
@@ -113,9 +124,18 @@ vi.mock(import("~/src/modules/lesson-progress/use-cases/save-lesson-progress"), 
 
 const COURSE_SLUG = "the-walkthrough"
 
-const [{ unlock }] = TEST_COURSE_ACCESS
-
 const withOffer = (message: string): string => message.replace("{offer}", COURSE_ACCESS_TEST_NAMES.offer)
+
+const signedInUnlock = (path: string): string => `${ROUTES.APP_LICENSE}?${new URLSearchParams({ redirect: path }).toString()}`
+
+const signedOutUnlock = (path: string): string => `${ROUTES.SIGN_UP}?${new URLSearchParams({ redirect: signedInUnlock(path) }).toString()}`
+
+const unconfirmed = () => {
+  const session = createAuthSessionFixture()
+  return { ...session, user: { ...session.user, emailVerified: false } }
+}
+
+const withRedirect = (page: string, path: string): string => `${page}?${new URLSearchParams({ redirect: path }).toString()}`
 
 const PLAYBACK: Video["playback"] = {
   captions: [],
@@ -172,7 +192,7 @@ const GUEST_PAGE = page({
     lesson("billing", "Billing", { locked: true }),
     lesson("coverage", "Coverage", { durationMs: null, locked: true }),
   ],
-  viewer: { signedIn: false },
+  viewer: { mustConfirmEmail: false, signedIn: false },
 })
 
 const LEARNER_PAGE = page({
@@ -182,7 +202,7 @@ const LEARNER_PAGE = page({
     lesson("billing", "Billing"),
     lesson("coverage", "Coverage", { durationMs: null }),
   ],
-  viewer: { signedIn: true },
+  viewer: { mustConfirmEmail: false, signedIn: true },
 })
 
 const CUSTOMER_PAGE = page({
@@ -191,7 +211,7 @@ const CUSTOMER_PAGE = page({
     lesson("sessions", "Sessions", { access: LESSON_ACCESS.ACCOUNT }),
     lesson("billing", "Billing", { locked: true }),
   ],
-  viewer: { signedIn: true },
+  viewer: { mustConfirmEmail: false, signedIn: true },
 })
 
 const completeLesson = (source: Course["page"], slug: string): Course["page"] => ({
@@ -372,7 +392,10 @@ describe("course page", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "The walkthrough" })).toBeVisible()
     expect(screen.getByRole("link", { name: messages.course.start })).toHaveAttribute("href", "/courses/the-walkthrough/boundaries")
-    expect(screen.getByRole("link", { name: withOffer(messages.course.unlock.cta) })).toHaveAttribute("href", unlock.signedOut.to)
+    expect(screen.getByRole("link", { name: withOffer(messages.course.unlock.cta) })).toHaveAttribute(
+      "href",
+      signedOutUnlock("/courses/the-walkthrough"),
+    )
     expect(screen.queryByText(/lessons completed/u)).toBeNull()
 
     const boundaries = screen.getByRole("link", { name: /Boundaries/u })
@@ -399,7 +422,10 @@ describe("course page", () => {
   it("sends a signed-in customer where an area grants course access", async () => {
     await renderCourses({ data: CUSTOMER_PAGE, path: "/courses/the-walkthrough" })
 
-    expect(screen.getByRole("link", { name: withOffer(messages.course.unlock.cta) })).toHaveAttribute("href", unlock.signedIn.to)
+    expect(screen.getByRole("link", { name: withOffer(messages.course.unlock.cta) })).toHaveAttribute(
+      "href",
+      signedInUnlock("/courses/the-walkthrough"),
+    )
   })
 
   it("says a course is being recorded and offers no start link while no lesson plays", async () => {
@@ -408,7 +434,7 @@ describe("course page", () => {
         lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW, durationMs: null }),
         lesson("billing", "Billing", { durationMs: null, locked: true }),
       ],
-      viewer: { signedIn: false },
+      viewer: { mustConfirmEmail: false, signedIn: false },
     })
     await renderCourses({ data: recording, path: "/courses/the-walkthrough" })
 
@@ -424,7 +450,7 @@ describe("course page", () => {
         lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW, durationMs: null }),
         lesson("sessions", "Sessions", { access: LESSON_ACCESS.ACCOUNT }),
       ],
-      viewer: { signedIn: true },
+      viewer: { mustConfirmEmail: false, signedIn: true },
     })
     await renderCourses({ data: partly, path: "/courses/the-walkthrough" })
 
@@ -433,7 +459,7 @@ describe("course page", () => {
   })
 
   it("offers no start link when every lesson is locked", async () => {
-    const locked = page({ lessons: [lesson("billing", "Billing", { locked: true })], viewer: { signedIn: false } })
+    const locked = page({ lessons: [lesson("billing", "Billing", { locked: true })], viewer: { mustConfirmEmail: false, signedIn: false } })
     await renderCourses({ data: locked, path: "/courses/the-walkthrough" })
 
     expect(screen.queryByRole("link", { name: messages.course.start })).toBeNull()
@@ -512,17 +538,87 @@ describe("lesson page", () => {
     {
       cta: messages.lesson.locked.account.cta,
       data: GUEST_PAGE,
-      href: "/auth/sign-in?redirect=%2Fcourses%2Fthe-walkthrough%2Fsessions",
+      href: withRedirect(ROUTES.SIGN_UP, "/courses/the-walkthrough/sessions"),
       path: "sessions",
     },
-    { cta: withOffer(messages.lesson.locked.paid.cta), data: GUEST_PAGE, href: unlock.signedOut.to, path: "billing" },
-    { cta: withOffer(messages.lesson.locked.paid.cta), data: CUSTOMER_PAGE, href: unlock.signedIn.to, path: "billing" },
+    {
+      cta: withOffer(messages.lesson.locked.paid.cta),
+      data: GUEST_PAGE,
+      href: signedOutUnlock("/courses/the-walkthrough/billing"),
+      path: "billing",
+    },
+    {
+      cta: withOffer(messages.lesson.locked.paid.cta),
+      data: CUSTOMER_PAGE,
+      href: signedInUnlock("/courses/the-walkthrough/billing"),
+      path: "billing",
+    },
   ])("locks $path and links to $href", async ({ cta, data, href, path }) => {
     await renderCourses({ data, path: `/courses/the-walkthrough/${path}` })
 
     expect(screen.queryByTestId("video-player")).toBeNull()
     expect(screen.queryByRole("button", { name: messages.lesson.markComplete })).toBeNull()
     expect(screen.getByRole("link", { name: cta })).toHaveAttribute("href", href)
+  })
+})
+
+describe("lesson locks", () => {
+  it("invites a guest to create a free account, and lets someone with an account sign in instead", async () => {
+    await renderCourses({ data: GUEST_PAGE, path: "/courses/the-walkthrough/sessions" })
+
+    const lock = within(screen.getByRole("heading", { name: messages.lesson.locked.account.title }).parentElement ?? document.body)
+    expect(lock.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      withRedirect(ROUTES.SIGN_IN, "/courses/the-walkthrough/sessions"),
+    )
+  })
+
+  it("prices the offer on a paid lock, and lets a guest who has it sign in instead", async () => {
+    await renderCourses({ data: GUEST_PAGE, path: "/courses/the-walkthrough/billing" })
+
+    const price = screen.getByText(withOffer(messages.lesson.locked.paid.price).replace("{price}", "$100"))
+    expect(price).toBeVisible()
+    expect(within(price.parentElement ?? document.body).getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      withRedirect(ROUTES.SIGN_IN, "/courses/the-walkthrough/billing"),
+    )
+  })
+
+  it("asks a holder who has not confirmed their email to confirm it, and resends the link to their address", async () => {
+    const holder = { ...CUSTOMER_PAGE, viewer: { mustConfirmEmail: true, signedIn: true } }
+    const router = createCourseRouter({ catalogue: CATALOGUE, data: holder, locale: "en-US", path: "/courses/the-walkthrough/billing" })
+    const { queryClient } = router.options.context
+    const signedIn = createAuthSessionFixture()
+    const { user } = signedIn
+    queryClient.setQueryData(getCurrentSessionQuery.queryKey, unconfirmed())
+    routers.push(router)
+    render(
+      <QueryClientProvider client={queryClient}>
+        <IntlProvider locale="en-US" messages={{ ...getTestMessages("en-US"), ...COURSE_ACCESS_TEST_MESSAGES }} timeZone="UTC">
+          <RouterProvider router={router} />
+        </IntlProvider>
+      </QueryClientProvider>,
+    )
+    await act(() => router.load())
+
+    expect(screen.getByRole("heading", { name: messages.lesson.locked.confirm.title })).toBeVisible()
+    expect(screen.getByText(user.email, { selector: "strong" })).toBeVisible()
+    expect(screen.queryByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeNull()
+    expect(screen.getByRole("link", { name: messages.lesson.locked.confirm.change })).toHaveAttribute(
+      "href",
+      withRedirect(ROUTES.VERIFY_EMAIL, "/courses/the-walkthrough/billing"),
+    )
+    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: messages.lesson.locked.confirm.resend }))
+    await waitFor(() => {
+      expect(resendVerification).toHaveBeenCalledWith({ callbackURL: ROUTES.AUTH_CALLBACK, email: user.email }, expect.anything())
+    })
+
+    queryClient.setQueryData(getCurrentSessionQuery.queryKey, signedIn)
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryState(lessonQuery({ courseSlug: COURSE_SLUG, lessonSlug: "billing", locale: "en-US" }).queryKey)?.isInvalidated,
+      ).toBe(true)
+    })
   })
 
   it("holds the player's place while the signed stream loads", async () => {
@@ -554,7 +650,7 @@ describe("lesson page while recording, and its materials", () => {
   it("shows a lesson on a placeholder video as being recorded and never plays it", async () => {
     const recording = page({
       lessons: [lesson("boundaries", "Boundaries", { access: LESSON_ACCESS.PREVIEW, durationMs: null })],
-      viewer: { signedIn: false },
+      viewer: { mustConfirmEmail: false, signedIn: false },
     })
     await renderCourses({ data: recording, path: "/courses/the-walkthrough/boundaries" })
 

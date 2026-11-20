@@ -3,22 +3,22 @@ title: "Autenticazione e sicurezza"
 description: "Sessioni Better Auth, guard delle route, middleware delle funzioni server e ruoli."
 ---
 
-Better Auth salva utenti, account, sessioni e token di verifica in D1 tramite l'adattatore Drizzle. Offre registrazione con email e password con verifica dell'email obbligatoria, accesso con GitHub e Google, reimpostazione della password, cambio dell'email, autenticazione a due fattori TOTP, gestione degli utenti da parte degli amministratori e checkout Polar. La sua API HTTP è servita da `src/routes/api/auth.$.ts`. `auth.server.ts` e `auth.client.ts` impostano il `basePath` di Better Auth su `ROUTES.API_AUTH_BASE`, il percorso servito da quel file, così il server e il client del browser lo prendono da un'unica costante.
+Better Auth salva utenti, account, sessioni e token di verifica in D1 tramite l'adattatore Drizzle. Offre la registrazione con email e password, che fa accedere subito un nuovo account e rimanda a dopo ciò che richiede un indirizzo confermato, accesso con GitHub e Google, reimpostazione della password, cambio dell'email, autenticazione a due fattori TOTP, gestione degli utenti da parte degli amministratori e checkout Polar. La sua API HTTP è servita da `src/routes/api/auth.$.ts`. `auth.server.ts` e `auth.client.ts` impostano il `basePath` di Better Auth su `ROUTES.API_AUTH_BASE`, il percorso servito da quel file, così il server e il client del browser lo prendono da un'unica costante.
 
 ## File
 
-| File                                                   | Responsabilità                                                                                                                                                                   |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.server.ts`                                       | L'istanza `betterAuth`: provider, plugin `admin`, `twoFactor` e `tanstackStartCookies` e quelli che aggiungono le aree, host consentiti, rate limiting su D1 e hook per le email |
-| `auth.client.ts`                                       | `authClient` e i suoi metodi (`signIn`, `signUp`, `signOut`, `useSession`, `twoFactor` e altri)                                                                                  |
-| `auth.routes.ts`                                       | Guard delle route per `beforeLoad`                                                                                                                                               |
-| `auth.middleware.ts`                                   | Middleware delle funzioni server: `withRequest`, `authorized`, `withRateLimit` e `RATE_LIMITS`                                                                                   |
-| `auth.access.ts`                                       | `ac`, `ROLES` e `hasPermission`, costruiti dalle dichiarazioni dei permessi che le aree definiscono e concedono ai ruoli                                                         |
-| `auth.roles.ts`                                        | `ROLE_CODES`, `ROLE_VALUES`, `DEFAULT_ROLE_CODE` e `isRole`                                                                                                                      |
-| `auth.constants.ts`                                    | `AUTH_PROVIDER`: gli ID del provider email e password (`credential`) e dei provider OAuth                                                                                        |
-| `auth.session.ts`                                      | `getRequestSession`, la funzione server `getCurrentSession` e `getCurrentSessionQuery`                                                                                           |
-| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | Chiavi di errore, schemi dei form e limiti delle password                                                                                                                        |
-| `auth.hooks.ts`                                        | `enforceInputPolicy`: gli schemi dei form applicati agli endpoint di Better Auth                                                                                                 |
+| File                                                   | Responsabilità                                                                                                                                                                                                           |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auth.server.ts`                                       | L'istanza `betterAuth`: provider, plugin `admin`, `twoFactor`, `lastLoginMethod` e `tanstackStartCookies` e quelli che aggiungono le aree, host consentiti, rate limiting su D1 e hook per le email                      |
+| `auth.client.ts`                                       | `authClient` e i suoi metodi (`signIn`, `signUp`, `signOut`, `useSession`, `twoFactor` e altri)                                                                                                                          |
+| `auth.routes.ts`                                       | Guard delle route per `beforeLoad`                                                                                                                                                                                       |
+| `auth.middleware.ts`                                   | Middleware delle funzioni server: `withRequest`, `authorized`, `withRateLimit` e `RATE_LIMITS`                                                                                                                           |
+| `auth.access.ts`                                       | `ac`, `ROLES` e `hasPermission`, costruiti dalle dichiarazioni dei permessi che le aree definiscono e concedono ai ruoli                                                                                                 |
+| `auth.roles.ts`                                        | `ROLE_CODES`, `ROLE_VALUES`, `DEFAULT_ROLE_CODE` e `isRole`                                                                                                                                                              |
+| `auth.constants.ts`                                    | `AUTH_PROVIDER`: gli ID del provider email e password (`credential`) e dei provider OAuth; `LOGIN_METHOD` e `LAST_LOGIN_METHOD_COOKIE` per il badge **Usato l'ultima volta**                                             |
+| `auth.session.ts`                                      | `getRequestSession`, la funzione server `getCurrentSession` e `getCurrentSessionQuery`                                                                                                                                   |
+| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | Chiavi di errore, schemi dei form e limiti delle password                                                                                                                                                                |
+| `auth.hooks.ts`                                        | `enforceInputPolicy`: gli schemi dei form applicati agli endpoint di Better Auth; `signInNewAccount`: la sessione per un nuovo account; `requireVerifiedEmail`: il controllo su ciò che richiede un indirizzo confermato |
 
 ## Guard delle route
 
@@ -28,6 +28,7 @@ Better Auth salva utenti, account, sessioni e token di verifica in D1 tramite l'
 | `requireAdmin`       | `/admin`                         | Richiede inoltre il permesso `admin: ["access"]`, altrimenti reindirizza a `/app`                         |
 | `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Invia un utente già autenticato a `redirect` o, a seconda del ruolo, a `/admin` o `/app`                  |
 | `redirectAfterAuth`  | `/auth/callback`                 | Richiede una sessione, poi reindirizza a `redirect` o all'area di lavoro corrispondente al ruolo          |
+| `redirectIfVerified` | `/auth/verify-email`             | Invia una sessione con l'indirizzo confermato a `redirect` o, a seconda del ruolo, a `/admin` o `/app`    |
 
 I guard caricano la sessione tramite la cache delle query e, quando cambia l'utente autenticato, rimuovono con `removeUserData` di `auth.session.ts` ogni query in cache che non è pubblica.
 

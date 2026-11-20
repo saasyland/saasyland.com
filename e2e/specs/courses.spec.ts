@@ -42,10 +42,19 @@ test.describe("courses", () => {
     await expect(page.getByRole("heading", { level: 1, name: preview.title["en-US"] })).toBeVisible()
   })
 
-  test("a visitor signs in from an account lesson and comes back to watch it", async ({ appPage, authPage, page }) => {
+  test("a visitor is invited to create a free account on an account lesson, and one who has an account signs in and comes back to watch it", async ({
+    appPage,
+    authPage,
+    page,
+  }) => {
     await page.goto(lessonPath(account.slug), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
-    await page.getByRole("link", { name: "Sign in to watch" }).click()
+    await expect(page.getByRole("heading", { name: "Create a free account to watch" })).toBeVisible()
+    await expect(page.getByRole("link", { name: "Create a free account" })).toHaveAttribute(
+      "href",
+      `/auth/sign-up?redirect=${encodeURIComponent(lessonPath(account.slug))}`,
+    )
+    await page.getByText("Already have an account?").getByRole("link", { name: "Sign in" }).click()
     await expect(page).toHaveURL(`/auth/sign-in?redirect=${encodeURIComponent(lessonPath(account.slug))}`)
     await authPage.waitForAppReady()
 

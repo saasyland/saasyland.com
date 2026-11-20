@@ -16,6 +16,7 @@ import { SESSION_QUERY_KEYS } from "~/src/modules/session/session.constants"
 import { resetPasswordMutation } from "~/src/modules/verification/use-cases/reset-password"
 import { verificationZodSchemas } from "~/src/modules/verification/verification.zod"
 
+import { useAuthRedirect } from "~/src/hooks/use-auth-redirect"
 import { useErrorMessage } from "~/src/hooks/use-error-message"
 
 import { Button } from "~/src/presentation/components/shadcn/button"
@@ -33,12 +34,14 @@ export const ResetPasswordForm = ({ token }: { readonly token: string }): JSX.El
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage()
 
+  const { redirect } = useAuthRedirect()
+
   const resetPassword = useMutation({
     ...resetPasswordMutation,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEYS.ALL })
       toast.success(t("success"))
-      await router.navigate({ to: ROUTES.SIGN_IN })
+      await router.navigate({ search: { redirect }, to: ROUTES.SIGN_IN })
     },
   })
 

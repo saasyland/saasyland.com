@@ -21,7 +21,7 @@ import { user } from "~/src/modules/user/user.schema"
 
 import { COURSE_ACCESS_GRANTS } from "~/src/data/course-access"
 import { LICENSE_COURSE_ACCESS } from "~/src/data/license.course-access"
-import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
+import { TIER_PRICES } from "~/src/data/marketing"
 
 import { ROUTES } from "~/src/routes"
 
@@ -93,13 +93,28 @@ describe("course access through a licence", () => {
     expect(COURSE_ACCESS_GRANTS).toStrictEqual(LICENSE_COURSE_ACCESS)
   })
 
-  it("sends a signed-in learner to buy Complete on the licence page and a visitor to the pricing section", () => {
-    expect(LICENSE_COURSE_ACCESS.map(({ unlock }) => unlock)).toStrictEqual([
+  it("offers Complete at its price on the licence page, coming back to the lesson afterwards", () => {
+    const lesson = "/courses/the-walkthrough/billing"
+
+    expect(LICENSE_COURSE_ACCESS.map(({ price, unlock }) => ({ price, unlock: unlock(lesson) }))).toStrictEqual([
       {
-        signedIn: { search: { tier: LICENSE_TIER.COMPLETE }, to: ROUTES.APP_LICENSE },
-        signedOut: { hash: MARKETING_SECTION_IDS.PRICING, to: ROUTES.HOME },
+        price: TIER_PRICES[LICENSE_TIER.COMPLETE],
+        unlock: { search: { redirect: lesson, tier: LICENSE_TIER.COMPLETE }, to: ROUTES.APP_LICENSE },
       },
     ])
+  })
+
+  it("keeps paid lessons locked for a Complete holder until they confirm their email, and tells the page why", async () => {
+    const userId = `learner-${LICENSE_TIER.COMPLETE}-${LICENSE_STATUS.ACTIVE}`
+    const holder = createAuthSessionFixture({ userId })
+    vi.mocked(getRequest).mockReturnValue(new Request("http://127.0.0.1:3000/"))
+    vi.spyOn(auth.api, "getSession").mockResolvedValue({ ...holder, user: { ...holder.user, emailVerified: false } })
+
+    const page = await executeQuery(courseQuery({ locale: "en-US", slug: COURSE_SLUG }))
+
+    expect(page.viewer).toStrictEqual({ mustConfirmEmail: true, signedIn: true })
+    expect(page.chapters.flatMap(({ lessons }) => lessons).find(({ slug }) => slug === "billing")?.locked).toBe(true)
+    await expect(executeQuery(lessonPlaybackQuery({ courseSlug: COURSE_SLUG, lessonSlug: "billing" }))).rejects.toThrow("FORBIDDEN")
   })
 })
 

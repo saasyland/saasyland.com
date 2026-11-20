@@ -222,6 +222,18 @@ describe("RepositoryFact", () => {
   })
 })
 
+describe("email link facts", () => {
+  it.each([
+    { name: "emailLinkHours", text: "1 hour", unit: "hour" },
+    { name: "resendCooldownSeconds", text: "60 seconds", unit: "second" },
+    { name: "verificationPollSeconds", text: "5 seconds", unit: "second" },
+  ] as const)("prints $name, which the email links and the verify page use, as $text", ({ name, text, unit }) => {
+    renderInLocale("en-US", <RepositoryFact name={name} unit={unit} />)
+
+    expect(screen.getByTestId("fact")).toHaveTextContent(text)
+  })
+})
+
 describe("RepositoryTable", () => {
   it("prints the application statements under the page's column names", () => {
     renderInLocale("en-US", <RepositoryTable columns={["Resource", "Actions"]} name="appStatements" />)
@@ -491,7 +503,7 @@ describe("deploy checks", () => {
     )
 
     expect(listItems()).toEqual([
-      englishList(["AUTH_GOOGLE_CLIENT_ID", "AUTH_GITHUB_CLIENT_ID"]),
+      englishList(["AUTH_GITHUB_CLIENT_ID", "AUTH_GOOGLE_CLIENT_ID"]),
       englishList(["[…]", "<…>", "{{…}}"]),
       englishList(SECRET_PLACEHOLDER_WORDS),
     ])

@@ -104,7 +104,7 @@ export const sendVerifyEmail = async ({
   const messages = await loadNamespace<typeof verifyEmailMessages>({ locale, namespace: VERIFY_EMAIL_NAMESPACE })
 
   await sendEmail({
-    idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token },
+    idempotency: { purpose: EMAIL_PURPOSE.VERIFY_EMAIL, token: crypto.randomUUID() },
     react: createElement(VerifyEmail, { locale, messages, name: user.name, verifyUrl: verifyUrl.toString() }),
     subject: createTranslator({ locale, messages })("subject"),
     to: user.email,
@@ -113,6 +113,8 @@ export const sendVerifyEmail = async ({
 ```
 
 `sendEmail` (`src/integrations/resend/resend.utils.ts`) envoie via Resend depuis `RESEND_EMAIL_FROM` sauf si `from` est fourni, transmet la clé d'idempotence pour qu'une nouvelle tentative n'envoie jamais deux fois, et lève une erreur lorsque Resend en renvoie une.
+
+L’e-mail de vérification prend une clé neuve à chaque envoi, `crypto.randomUUID()`, comme les e-mails de compte existant et de mot de passe modifié : Better Auth signe ses jetons de vérification avec des horodatages à la seconde, donc une inscription et une connexion dans la même seconde portent le même jeton, et Resend traiterait le second e-mail comme une nouvelle tentative du premier.
 
 ## Qui envoie quoi
 

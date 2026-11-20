@@ -13,6 +13,7 @@ import {
   consumeRateLimit,
   countRequest,
   rateLimitBatch,
+  recipientAllowance,
   withinRateLimit,
   withinRecipientRateLimit,
 } from "~/src/lib/rate-limit"
@@ -201,5 +202,20 @@ describe("recipient email limits", () => {
 
     const keys = await db.select({ key: rateLimit.key }).from(rateLimit)
     expect(keys.map(({ key }) => key)).toStrictEqual([`recipient:${EMAIL_KIND.CONFIRMATION}:${await sha256Hex("ada@example.test")}`])
+  })
+
+  it("reports how many emails an address may still receive without counting the look", async () => {
+    vi.useFakeTimers({ now: new Date("2026-11-12T10:00:00.000Z") })
+    expect(await recipientAllowance(recipient)).toStrictEqual({ allowed: true, retryAfter: 0 })
+
+    for (let attempt = 0; attempt < RECIPIENT_EMAILS_PER_HOUR; attempt++) {
+      expect(await recipientAllowance(recipient)).toStrictEqual({ allowed: true, retryAfter: 0 })
+      await withinRecipientRateLimit(recipient)
+    }
+    vi.setSystemTime(Date.now() + HOUR_MS / 4)
+
+    expect(await recipientAllowance({ ...recipient, recipient: " ada@example.test " })).toStrictEqual({ allowed: false, retryAfter: 2700 })
+    vi.setSystemTime(Date.now() + HOUR_MS)
+    expect(await recipientAllowance(recipient)).toStrictEqual({ allowed: true, retryAfter: 0 })
   })
 })

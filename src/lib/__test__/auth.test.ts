@@ -30,7 +30,7 @@ describe("verifyAuth on an environment file whose OAuth clients are configured",
     const report = verifyAuth({ file: FILE, values: CONFIGURED })
 
     expect(report).toBe(
-      [`${GOOGLE_VARIABLE} in ${FILE} is a Google OAuth client ID.`, `${GITHUB_VARIABLE} in ${FILE} is a GitHub OAuth client ID.`].join(
+      [`${GITHUB_VARIABLE} in ${FILE} is a GitHub OAuth client ID.`, `${GOOGLE_VARIABLE} in ${FILE} is a Google OAuth client ID.`].join(
         "\n",
       ),
     )
@@ -71,6 +71,6 @@ describe("verifyAuth on an environment file whose OAuth clients are not configur
   })
 
   it("refuses a file without the client IDs, one line per provider", () => {
-    expect(() => verifyAuth({ file: FILE, values: {} })).toThrow(new Error([GOOGLE_REFUSAL, GITHUB_REFUSAL].join("\n")))
+    expect(() => verifyAuth({ file: FILE, values: {} })).toThrow(new Error([GITHUB_REFUSAL, GOOGLE_REFUSAL].join("\n")))
   })
 })

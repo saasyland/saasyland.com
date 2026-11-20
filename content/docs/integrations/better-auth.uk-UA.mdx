@@ -3,22 +3,22 @@ title: "Автентифікація та безпека"
 description: "Сесії Better Auth, гарди маршрутів, middleware серверних функцій і ролі."
 ---
 
-Better Auth зберігає користувачів, облікові записи, сесії та токени верифікації в D1 через адаптер Drizzle. Він забезпечує реєстрацію за електронною поштою й паролем з обов'язковим підтвердженням пошти, вхід через GitHub і Google, скидання пароля, зміну електронної пошти, двофакторну автентифікацію TOTP, керування користувачами для адміністраторів і оформлення замовлення через Polar. Його HTTP API обслуговує `src/routes/api/auth.$.ts`. `auth.server.ts` і `auth.client.ts` задають `basePath` Better Auth як `ROUTES.API_AUTH_BASE` — шлях, який обслуговує цей файл, — тож сервер і клієнт у браузері беруть його з однієї константи.
+Better Auth зберігає користувачів, облікові записи, сесії та токени верифікації в D1 через адаптер Drizzle. Він забезпечує реєстрацію за електронною поштою й паролем, яка одразу виконує вхід нового облікового запису й відкладає на потім те, що потребує підтвердженої адреси, вхід через GitHub і Google, скидання пароля, зміну електронної пошти, двофакторну автентифікацію TOTP, керування користувачами для адміністраторів і оформлення замовлення через Polar. Його HTTP API обслуговує `src/routes/api/auth.$.ts`. `auth.server.ts` і `auth.client.ts` задають `basePath` Better Auth як `ROUTES.API_AUTH_BASE` — шлях, який обслуговує цей файл, — тож сервер і клієнт у браузері беруть його з однієї константи.
 
 ## Файли
 
-| Файл                                                   | Відповідальність                                                                                                                                                                    |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.server.ts`                                       | Екземпляр `betterAuth`: провайдери, плагіни `admin`, `twoFactor` і `tanstackStartCookies` та ті, які додають розділи, дозволені хости, обмеження частоти запитів у D1 і хуки листів |
-| `auth.client.ts`                                       | `authClient` та його методи (`signIn`, `signUp`, `signOut`, `useSession`, `twoFactor` та інші)                                                                                      |
-| `auth.routes.ts`                                       | Гарди маршрутів для `beforeLoad`                                                                                                                                                    |
-| `auth.middleware.ts`                                   | Middleware серверних функцій: `withRequest`, `authorized`, `withRateLimit` і `RATE_LIMITS`                                                                                          |
-| `auth.access.ts`                                       | `ac`, `ROLES` і `hasPermission`, побудовані з оголошень дозволів, які розділи оголошують і надають ролям                                                                            |
-| `auth.roles.ts`                                        | `ROLE_CODES`, `ROLE_VALUES`, `DEFAULT_ROLE_CODE` і `isRole`                                                                                                                         |
-| `auth.constants.ts`                                    | `AUTH_PROVIDER`: ідентифікатори провайдера електронної пошти й пароля (`credential`) та OAuth-провайдерів                                                                           |
-| `auth.session.ts`                                      | `getRequestSession`, серверна функція `getCurrentSession` і `getCurrentSessionQuery`                                                                                                |
-| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | Ключі помилок, схеми форм і обмеження пароля                                                                                                                                        |
-| `auth.hooks.ts`                                        | `enforceInputPolicy`: схеми форм, застосовані до ендпоінтів Better Auth                                                                                                             |
+| Файл                                                   | Відповідальність                                                                                                                                                                                              |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.server.ts`                                       | Екземпляр `betterAuth`: провайдери, плагіни `admin`, `twoFactor`, `lastLoginMethod` і `tanstackStartCookies` та ті, які додають розділи, дозволені хости, обмеження частоти запитів у D1 і хуки листів        |
+| `auth.client.ts`                                       | `authClient` та його методи (`signIn`, `signUp`, `signOut`, `useSession`, `twoFactor` та інші)                                                                                                                |
+| `auth.routes.ts`                                       | Гарди маршрутів для `beforeLoad`                                                                                                                                                                              |
+| `auth.middleware.ts`                                   | Middleware серверних функцій: `withRequest`, `authorized`, `withRateLimit` і `RATE_LIMITS`                                                                                                                    |
+| `auth.access.ts`                                       | `ac`, `ROLES` і `hasPermission`, побудовані з оголошень дозволів, які розділи оголошують і надають ролям                                                                                                      |
+| `auth.roles.ts`                                        | `ROLE_CODES`, `ROLE_VALUES`, `DEFAULT_ROLE_CODE` і `isRole`                                                                                                                                                   |
+| `auth.constants.ts`                                    | `AUTH_PROVIDER`: ідентифікатори провайдера електронної пошти й пароля (`credential`) та OAuth-провайдерів; `LOGIN_METHOD` і `LAST_LOGIN_METHOD_COOKIE` для позначки **Останній спосіб**                       |
+| `auth.session.ts`                                      | `getRequestSession`, серверна функція `getCurrentSession` і `getCurrentSessionQuery`                                                                                                                          |
+| `auth.errors.ts`, `auth.zod.ts`, `auth.constraints.ts` | Ключі помилок, схеми форм і обмеження пароля                                                                                                                                                                  |
+| `auth.hooks.ts`                                        | `enforceInputPolicy`: схеми форм, застосовані до ендпоінтів Better Auth; `signInNewAccount`: сесія для нового облікового запису; `requireVerifiedEmail`: перевірка для того, що потребує підтвердженої адреси |
 
 ## Гарди маршрутів
 
@@ -28,6 +28,7 @@ Better Auth зберігає користувачів, облікові запи
 | `requireAdmin`       | `/admin`                         | Додатково вимагає дозвіл `admin: ["access"]`, інакше перенаправляє на `/app`                                |
 | `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Надсилає користувача, який уже ввійшов, на `redirect` або, залежно від ролі, на `/admin` чи `/app`          |
 | `redirectAfterAuth`  | `/auth/callback`                 | Вимагає сесію, а потім перенаправляє на `redirect` або до робочого простору відповідно до ролі              |
+| `redirectIfVerified` | `/auth/verify-email`             | Надсилає сесію з підтвердженою адресою на `redirect` або, залежно від ролі, на `/admin` чи `/app`           |
 
 Гарди завантажують сесію через кеш запитів і, коли змінюється користувач, що ввійшов, видаляють із кешу всі непублічні запити за допомогою `removeUserData` з `auth.session.ts`.
 

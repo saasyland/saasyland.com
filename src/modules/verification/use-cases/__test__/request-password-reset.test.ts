@@ -8,6 +8,8 @@ import * as authServer from "~/src/integrations/better-auth/auth.server"
 
 import { requestPasswordResetMutation } from "~/src/modules/verification/use-cases/request-password-reset"
 
+import * as rateLimits from "~/src/lib/rate-limit"
+
 const HEADERS = new Headers()
 
 type AuthApi = typeof auth.api
@@ -33,7 +35,7 @@ describe("request-password-reset", () => {
         email: "user@example.com",
         redirectTo: "https://example.com/reset-password",
       }),
-    ).resolves.toMatchObject(resetRequestResult)
+    ).resolves.toStrictEqual({ sent: true })
 
     expect(requestPasswordResetMock).toHaveBeenCalledWith({
       body: {
@@ -42,5 +44,15 @@ describe("request-password-reset", () => {
       },
       headers: HEADERS,
     })
+  })
+
+  it("sends nothing, and says when to try again, once the address has had its emails for the hour", async () => {
+    vi.spyOn(rateLimits, "recipientAllowance").mockResolvedValue({ allowed: false, retryAfter: 900 })
+    const request = vi.spyOn(authServer.auth.api, "requestPasswordReset")
+
+    await expect(
+      executeMutation(requestPasswordResetMutation, { email: "user@example.com", redirectTo: "https://example.com/reset-password" }),
+    ).resolves.toStrictEqual({ retryAfterSeconds: 900, sent: false })
+    expect(request).not.toHaveBeenCalled()
   })
 })

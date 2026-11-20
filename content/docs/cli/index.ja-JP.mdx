@@ -1,15 +1,17 @@
 ---
 title: "SaaSy Land CLI"
-description: "saasyland CLI を npm の beta タグから実行し、ライセンスキーを端末と CI で有効化して、今後のリリースで提供予定の内容を確認します。"
+description: "saasyland CLI を npm の beta タグから実行し、init でプロジェクトを作成し、ライセンスキーを端末と CI で有効化して、今後のリリースで提供予定の内容を確認します。"
 ---
 
 SaaSy Land のライセンスは、コマンドライン `saasyland` のライセンスです。このページでは npm の <RepositoryFact name="cliReleaseChannel" /> タグのリリース <RepositoryFact name="cliPackageSpec" /> を説明します。各リリースの変更点は[リリースノート](/docs/cli/releases)にあります。
 
 ## 現在使える機能
 
+- <RepositoryFact name="cliInit" /> はプロジェクトを作成します。Cloudflare Worker 上の React と TanStack Start で、Drizzle 経由の Cloudflare
+  D1 を使い、Better Auth のサインイン付きかサインインなしです。書き出す内容は[プロジェクトを作成する](#create-a-project)で説明します。
 - `activate`、`whoami`、`deactivate` で端末上のライセンスキーを管理します。
 - `--help` と `--version` はすべて動作し、どのコマンドも `--json` と `--locale` を受け付けます。
-- プロジェクト生成は今後のリリースで提供予定です。それまでは <RepositoryFact name="cliInit" /> はフラグを検証したうえでコード <RepositoryFact name="cliExitNotAvailable" /> で終了し、`change`、`update`、`status` も同じです。ランディングページの[構成ツール](/#cli)では、プロジェクト生成の最初のリリースが書き出すものだけを選択でき、それ以外のオプションは無効として表示されます。その後に続く内容は[ロードマップ](/docs/project/roadmap)にあります。
+- `change`、`update`、`status` はまだ利用できません。フラグを検証したうえでコード <RepositoryFact name="cliExitNotAvailable" /> で終了します。ランディングページの[構成ツール](/#cli)では、`init` が現在書き出すものだけを選択でき、それ以外のオプションは無効として表示されます。`init` はそれらのオプションを同じコードで拒否します。その後に続く内容は[ロードマップ](/docs/project/roadmap)にあります。
 
 ## 実行する
 
@@ -26,6 +28,20 @@ SaaSy Land のライセンスは、コマンドライン `saasyland` のライ�
 3. 入力する代わりに、キーを引数として渡すこともできます（シェルの履歴に残ります）。<RepositoryFact name="cliLicenseKeyVariable" /> を設定すれば履歴には残りません。キーを指定しない場合、`activate` はこの端末ですでに有効化されているキーを使います。
 
 `--label` はライセンスページ上の端末の名前を付けます。既定ではホスト名です。同じ端末を再度有効化しても、その端末がすでに使っている枠はそのままです。
+
+## プロジェクトを作成する [#create-a-project]
+
+[構成ツール](/#cli)が回答から組み立てるフラグを付けて、または下の既定値を使う `--yes` を付けて、<RepositoryFact name="cliInitCommand" /> を実行します。
+
+`init` は指定したディレクトリにプロジェクトを書き出します。そのディレクトリはまだ存在しないか、空でなければなりません。ディレクトリを指定しない場合は現在のディレクトリに書き出します。`--cwd` を付けると、別のディレクトリで起動したかのように実行します。回答はフラグで指定します。`--yes` は、どのフラグも指定していない回答すべてに既定値を使います。今後のリリースで質問が提供されるまでは、ターミナルのセッションも同じです。CI、コーディングエージェント、ターミナルのない環境では、`--yes` なしの `init` は足りないフラグを示し、すべての回答を含むコピー用のコマンドを出力します。
+
+既定値は、リリースにテンプレートがある範囲で、このサイト自身のスタックです。React と TanStack Start、Cloudflare Worker 上のシングルテナントのモノリス、Drizzle 経由の Cloudflare D1 上の SQLite、Better Auth、Resend、Fumadocs のドキュメント、MDX のブログで、課金はありません（`--no-billing`）。`--no-auth` は、同じプロジェクトをサインインなしで書き出します。それ以外の回答は、`--billing polar` も含め、ライセンスが確認される前にコード <RepositoryFact name="cliExitNotAvailable" /> で終了し、このリリースでは利用できないことを伝え、利用できる回答を示します。
+
+実行するたびに、ライセンスをオンラインで確認し、そのリリース自身のテンプレートを saasyland.com からダウンロードします。オフラインモードはありません。この端末で有効化されているライセンスを使います。ライセンスがない場合や、<RepositoryFact name="cliLicenseKeyVariable" /> に別のキーが設定されている場合は、まずその変数のキーを有効化するか、ターミナルではキーの入力を求めて有効化します。テンプレートを使う前に、そのサイズと SHA-256 を、saasyland.com が送ってきた値と、このリリースの CLI が固定したダイジェストに照らして確認し、少しでも違えば拒否します。プロジェクトはまず対象の隣にある一時ディレクトリに書き出してから所定の場所に移動するので、Ctrl+C や書き込みの失敗があっても何も残りません。`--dry-run` はテンプレートをダウンロードして確認し、`init` が書き出すすべてのファイルを一覧表示しますが、何も書き出しません。
+
+プロジェクト内の `saasyland.json` には、リリース、回答、`init` が書き出したすべてのファイルの SHA-256 が記録され、ライセンスキーが含まれることはありません。そこに記録された回答で `init` を再度実行すると、自分のプロジェクトと比較するためのクリーンなプロジェクトが得られます。
+
+プロジェクトの README が最初のインストールを案内します。`bun install` がロックファイルを書き出し、最初のコミットの前に 3 つのスクリプトが Worker の型、ルートツリー、データベースのマイグレーションを生成します。プロジェクトの `/docs` にあるドキュメントサイトは、そのインストールから最初のデプロイまでを説明します。
 
 ## 端末
 
@@ -60,15 +76,15 @@ CLI はライセンスを <RepositoryFact name="cliCredentialsFile" /> に保存
 
 ## スクリプトとコーディングエージェント
 
-`--json` は結果またはエラーを 1 つの JSON ドキュメントとして出力します。CI、コーディングエージェント、ターミナルのない環境では、CLI は入力を待ちません。キーなしの `activate` は終了コード <RepositoryFact name="cliExitUsage" /> で停止し、キーの渡し方を表示します。
+`--json` は結果またはエラーを 1 つの JSON ドキュメントとして出力します。CI、コーディングエージェント、ターミナルのない環境では、CLI は入力を待ちません。キーなしの `activate` と、必要な回答がない `init` は、終了コード <RepositoryFact name="cliExitUsage" /> で停止し、その渡し方を表示します。
 
-| 終了コード                                        | 状況                                                                                                                             |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| <RepositoryFact name="cliExitSuccess" />          | コマンドが説明どおりに完了した                                                                                                   |
-| <RepositoryFact name="cliExitFailure" />          | CLI の内部で問題が起きた                                                                                                         |
-| <RepositoryFact name="cliExitUsage" />            | フラグまたは <RepositoryFact name="cliApiUrlVariable" /> が無効、またはキーの入力を求められないセッションでキーがない            |
-| <RepositoryFact name="cliExitNotAvailable" />     | コマンドがまだ提供されていない、この端末の ID を読み取れない、またはシステムが Linux、macOS、Windows 以外                        |
-| <RepositoryFact name="cliExitTemporaryFailure" /> | saasyland.com に接続できない、または後で再試行するよう求められた                                                                 |
-| <RepositoryFact name="cliExitProtocol" />         | saasyland.com とこのバージョンの CLI が互いを理解できない。CLI を更新してください                                                |
-| <RepositoryFact name="cliExitNoPermission" />     | この端末でライセンスが有効化されていない、この端末の枠が解放された、キーが無効・取り消し済み・返金済み、またはすべての枠が使用中 |
-| <RepositoryFact name="cliExitCancelled" />        | Ctrl+C で質問をキャンセルした                                                                                                    |
+| 終了コード                                        | 状況                                                                                                                                                                          |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <RepositoryFact name="cliExitSuccess" />          | コマンドが説明どおりに完了した                                                                                                                                                |
+| <RepositoryFact name="cliExitFailure" />          | CLI の内部で問題が起きた                                                                                                                                                      |
+| <RepositoryFact name="cliExitUsage" />            | フラグまたは <RepositoryFact name="cliApiUrlVariable" /> が無効、入力を求められないセッションでキーまたは回答がない、またはプロジェクトのディレクトリが空でないか書き込めない |
+| <RepositoryFact name="cliExitNotAvailable" />     | コマンドまたは回答のいずれかがこのリリースでは提供されていない、この端末の ID を読み取れない、またはシステムが Linux、macOS、Windows 以外                                     |
+| <RepositoryFact name="cliExitTemporaryFailure" /> | saasyland.com に接続できない、後で再試行するよう求められた、またはテンプレートをダウンロードできなかった                                                                      |
+| <RepositoryFact name="cliExitProtocol" />         | saasyland.com とこのバージョンの CLI が互いを理解できない、またはテンプレートがダイジェストと一致しない。CLI を更新してください                                               |
+| <RepositoryFact name="cliExitNoPermission" />     | この端末でライセンスが有効化されていない、この端末の枠が解放された、キーが無効・取り消し済み・返金済み、またはすべての枠が使用中                                              |
+| <RepositoryFact name="cliExitCancelled" />        | Ctrl+C で質問をキャンセルした、または `init` を停止した。何も書き出されていない                                                                                               |

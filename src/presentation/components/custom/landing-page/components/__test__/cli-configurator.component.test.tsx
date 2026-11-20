@@ -70,7 +70,8 @@ const answer = (label: string, option: string): HTMLElement => within(question(l
 const extra = (name: string): HTMLElement =>
   within(screen.getByRole("toolbar", { name: choices.extras.label })).getByRole("button", { name })
 
-const command = (): string => screen.getByText(SCAFFOLD_TARGET, { exact: false }).closest("code")?.textContent ?? ""
+const command = (): string =>
+  screen.getByText(SCAFFOLD_TARGET, { exact: false, selector: "code > span" }).closest("code")?.textContent ?? ""
 
 afterEach(() => {
   cleanup()

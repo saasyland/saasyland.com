@@ -56,7 +56,8 @@ const extra = (name: string): HTMLElement =>
 
 const optionCount = (): number => screen.getAllByRole("radio").filter((radio) => radio.closest("dl")).length
 
-const command = (): string => screen.getByText(SCAFFOLD_TARGET, { exact: false }).closest("code")?.textContent ?? ""
+const command = (): string =>
+  screen.getByText(SCAFFOLD_TARGET, { exact: false, selector: "code > span" }).closest("code")?.textContent ?? ""
 
 afterEach(() => {
   cleanup()

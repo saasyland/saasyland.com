@@ -1,15 +1,17 @@
 ---
 title: "CLI di SaaSy Land"
-description: "Esegui la CLI saasyland dal tag beta di npm, attiva la tua chiave di licenza sui tuoi dispositivi e in CI e scopri cosa arriva nelle versioni successive."
+description: "Esegui la CLI saasyland dal tag beta di npm, crea un progetto con init, attiva la tua chiave di licenza sui tuoi dispositivi e in CI e scopri cosa arriva nelle versioni successive."
 ---
 
 Una licenza SaaSy Land è una licenza per la riga di comando `saasyland`. Questa pagina descrive la versione pubblicata sul tag <RepositoryFact name="cliReleaseChannel" /> di npm, <RepositoryFact name="cliPackageSpec" />, e le [note di rilascio](/docs/cli/releases) elencano cosa ha cambiato ogni versione.
 
 ## Cosa funziona oggi
 
+- <RepositoryFact name="cliInit" /> crea un progetto: React con TanStack Start su un Worker Cloudflare, con Cloudflare D1 tramite Drizzle,
+  con l’accesso tramite Better Auth o senza. [Crea un progetto](#create-a-project) spiega cosa scrive.
 - `activate`, `whoami` e `deactivate` gestiscono la tua chiave di licenza su un dispositivo.
 - `--help` e `--version` funzionano del tutto, e ogni comando accetta `--json` e `--locale`.
-- La generazione dei progetti arriva in una versione successiva. Fino ad allora <RepositoryFact name="cliInit" /> controlla i suoi flag ed esce con il codice <RepositoryFact name="cliExitNotAvailable" />, come `change`, `update` e `status`. Il [configuratore](/#cli) della landing page lascia scegliere solo ciò che scrive la prima versione con la generazione dei progetti e mostra disattivata ogni altra opzione, e la [roadmap](/docs/project/roadmap) elenca cosa viene dopo.
+- `change`, `update` e `status` non sono ancora disponibili: controllano i loro flag ed escono con il codice <RepositoryFact name="cliExitNotAvailable" />. Il [configuratore](/#cli) della landing page lascia scegliere solo ciò che `init` scrive oggi e mostra disattivata ogni altra opzione, `init` rifiuta quelle opzioni con lo stesso codice, e la [roadmap](/docs/project/roadmap) elenca cosa viene dopo.
 
 ## Eseguirla
 
@@ -26,6 +28,20 @@ Senza il tag, il tuo gestore di pacchetti esegue il tag `latest` di npm, che con
 3. Invece di digitarla, puoi passare la chiave come argomento, che resta nella cronologia della shell, oppure impostare <RepositoryFact name="cliLicenseKeyVariable" />, che non ci resta. Senza chiave, `activate` usa la chiave già attivata su questo dispositivo.
 
 `--label` dà un nome al dispositivo nella tua pagina della licenza; per impostazione predefinita il nome è quello dell’host. Attivare di nuovo un dispositivo mantiene l’attivazione che occupa già.
+
+## Crea un progetto [#create-a-project]
+
+Esegui <RepositoryFact name="cliInitCommand" /> con i flag che il [configuratore](/#cli) costruisce dalle tue risposte, oppure con `--yes` per i valori predefiniti qui sotto.
+
+`init` scrive il progetto nella directory che indichi, che non deve ancora esistere o deve essere vuota, oppure nella directory corrente quando non ne indichi nessuna; `--cwd` lo esegue come se fosse avviato in un’altra directory. Le risposte sono flag. `--yes` prende il valore predefinito per ogni risposta che nessun flag fornisce, e lo stesso fa una sessione in un terminale finché le domande non arriveranno in una versione successiva. In CI, in un agente di programmazione o senza terminale, `init` senza `--yes` indica i flag mancanti e stampa un comando con tutte le risposte da copiare.
+
+I valori predefiniti sono lo stack di questo sito ovunque la versione abbia i template per esso: React con TanStack Start, un monolite single-tenant su un Worker Cloudflare, SQLite su Cloudflare D1 tramite Drizzle, Better Auth, Resend, la documentazione Fumadocs e il blog MDX, senza fatturazione (`--no-billing`). `--no-auth` scrive lo stesso progetto senza accesso. Qualsiasi altra risposta, `--billing polar` compresa, esce con il codice <RepositoryFact name="cliExitNotAvailable" /> prima che la tua licenza venga verificata, dice che non è disponibile in questa versione e indica le risposte che lo sono.
+
+Ogni esecuzione verifica la tua licenza online e scarica da saasyland.com i template della propria versione; non esiste una modalità offline. Usa la licenza attivata su questo dispositivo. Quando non ce n’è una, o <RepositoryFact name="cliLicenseKeyVariable" /> contiene un’altra chiave, prima attiva la chiave di quella variabile, oppure, in un terminale, ti chiede la chiave e la attiva. Prima di usare i template, ne verifica la dimensione e lo SHA-256 rispetto a ciò che ha inviato saasyland.com e al digest fissato da questa versione della CLI, e li rifiuta alla minima differenza. Scrive il progetto in una directory temporanea accanto alla destinazione e poi lo sposta al suo posto, così Ctrl+C o una scrittura non riuscita non lasciano nulla. `--dry-run` scarica e verifica i template ed elenca ogni file che `init` scriverebbe, senza scriverne nessuno.
+
+`saasyland.json` nel progetto registra la versione, le tue risposte e lo SHA-256 di ogni file scritto da `init`, e non contiene mai la tua chiave di licenza. Esegui di nuovo `init` con le risposte che registra per ottenere un progetto pulito da confrontare con il tuo.
+
+Il README del progetto ti guida nella prima installazione: `bun install` scrive il lockfile, e tre script generano i tipi del Worker, l’albero delle route e le migrazioni del database prima del tuo primo commit. Il suo sito di documentazione, su `/docs` nel progetto, va da quell’installazione al primo deploy.
 
 ## Dispositivi
 
@@ -60,15 +76,15 @@ Quando `XDG_CONFIG_HOME` non è impostata, Linux usa <RepositoryFact name="cliCr
 
 ## Script e agenti di programmazione
 
-`--json` stampa il risultato o l’errore come un unico documento JSON. In CI, in un agente di programmazione o senza terminale, la CLI non attende mai un input: `activate` senza chiave si ferma con il codice di uscita <RepositoryFact name="cliExitUsage" /> e spiega come passarne una.
+`--json` stampa il risultato o l’errore come un unico documento JSON. In CI, in un agente di programmazione o senza terminale, la CLI non attende mai un input: `activate` senza chiave, e `init` senza una risposta di cui ha bisogno, si fermano con il codice di uscita <RepositoryFact name="cliExitUsage" /> e spiegano come passarla.
 
-| Codice di uscita                                  | Quando                                                                                                                                                                               |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| <RepositoryFact name="cliExitSuccess" />          | Il comando ha fatto quello che dice                                                                                                                                                  |
-| <RepositoryFact name="cliExitFailure" />          | Qualcosa è andato storto all’interno della CLI                                                                                                                                       |
-| <RepositoryFact name="cliExitUsage" />            | Un flag o <RepositoryFact name="cliApiUrlVariable" /> non è valido, oppure manca la chiave in una sessione che non può chiederla                                                     |
-| <RepositoryFact name="cliExitNotAvailable" />     | Il comando non è ancora disponibile, l’ID di questo dispositivo non è leggibile, oppure il sistema non è Linux, macOS o Windows                                                      |
-| <RepositoryFact name="cliExitTemporaryFailure" /> | saasyland.com non è raggiungibile, oppure chiede di riprovare più tardi                                                                                                              |
-| <RepositoryFact name="cliExitProtocol" />         | saasyland.com e questa versione della CLI non si capiscono; aggiorna la CLI                                                                                                          |
-| <RepositoryFact name="cliExitNoPermission" />     | Qui non è attivata nessuna licenza, l’attivazione di questo dispositivo è stata liberata, la chiave non è valida, è revocata o rimborsata, oppure tutte le attivazioni sono occupate |
-| <RepositoryFact name="cliExitCancelled" />        | Hai annullato la domanda con Ctrl+C                                                                                                                                                  |
+| Codice di uscita                                  | Quando                                                                                                                                                                                                    |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <RepositoryFact name="cliExitSuccess" />          | Il comando ha fatto quello che dice                                                                                                                                                                       |
+| <RepositoryFact name="cliExitFailure" />          | Qualcosa è andato storto all’interno della CLI                                                                                                                                                            |
+| <RepositoryFact name="cliExitUsage" />            | Un flag o <RepositoryFact name="cliApiUrlVariable" /> non è valido, manca la chiave o una risposta in una sessione che non può chiederla, oppure la directory del progetto non è vuota o non è scrivibile |
+| <RepositoryFact name="cliExitNotAvailable" />     | Il comando, o una delle tue risposte, non è disponibile in questa versione, l’ID di questo dispositivo non è leggibile, oppure il sistema non è Linux, macOS o Windows                                    |
+| <RepositoryFact name="cliExitTemporaryFailure" /> | saasyland.com non è raggiungibile o chiede di riprovare più tardi, oppure non è stato possibile scaricare i template                                                                                      |
+| <RepositoryFact name="cliExitProtocol" />         | saasyland.com e questa versione della CLI non si capiscono, oppure i template non corrispondono ai loro digest; aggiorna la CLI                                                                           |
+| <RepositoryFact name="cliExitNoPermission" />     | Qui non è attivata nessuna licenza, l’attivazione di questo dispositivo è stata liberata, la chiave non è valida, è revocata o rimborsata, oppure tutte le attivazioni sono occupate                      |
+| <RepositoryFact name="cliExitCancelled" />        | Hai annullato la domanda con Ctrl+C, oppure con lo stesso tasto hai interrotto `init`; non è stato scritto nulla                                                                                          |

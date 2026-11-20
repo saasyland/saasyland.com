@@ -44,7 +44,7 @@ export const SCAFFOLD_TARGET = `${CLI_PACKAGE_SPEC} ${CLI_COMMAND.INIT} ${SCAFFO
 
 export const CLI_INIT_COMMAND = `${PACKAGE_MANAGER.NPM.exec} ${SCAFFOLD_TARGET}`
 
-export const CLI_GENERATION: FeatureStatus = FEATURE_STATUS.ARRIVING
+export const CLI_GENERATION: FeatureStatus = FEATURE_STATUS.AVAILABLE
 
 export const CLI_GENERATION_VALUES: { readonly generation: FeatureStatus; readonly initCommand: string } = {
   generation: CLI_GENERATION,

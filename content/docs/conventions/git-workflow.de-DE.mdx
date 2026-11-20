@@ -1,6 +1,6 @@
 ---
 title: "Git und Pull Requests"
-description: "Conventional Commits mit dem Emoji-Hook, ein Worktree pro Branch, Merge statt Force-Push, kleine Pull Requests, die jede betroffene Dokumentation aktualisieren, und keine KI-Attribution."
+description: "Conventional Commits mit dem Emoji-Hook, ein Worktree pro Branch mit eigenen Hooks, eine lineare Historie durch Rebase, kleine Pull Requests, die jede betroffene Dokumentation aktualisieren, und keine KI-Attribution."
 ---
 
 Die Historie von `main` ist Teil des Produkts: Jeder per Squash-Merge zusammengeführte Pull Request ist eine Zeile, die sagt, was sich für die Menschen geändert hat, die den Code verwenden.
@@ -36,7 +36,33 @@ bun install --frozen-lockfile
 ```
 
 - Bevor du einem Testlauf vertraust, prüfe `git branch --show-current` in dem Verzeichnis, in dem du getestet hast.
-- Bringe einen Pull-Request-Branch auf den neuesten Stand, indem du `main` hineinmergst. Rebase keinen gepushten Branch und pushe ihn nicht per Force-Push: Pull Requests werden per Squash-Merge zusammengeführt, sodass die Historie des Branches nie `main` erreicht, und ein Force-Push zerstört nur die Review-Historie.
+
+### Hooks in jedem Worktree [#hooks-in-every-worktree]
+
+Git liest `core.hooksPath` aus der Konfiguration, die sich alle Worktrees eines Repositorys teilen, und Vite+ setzt den Wert auf den relativen Pfad `.vite-hooks/_`, sodass Git den Hook-Dispatcher des Worktrees ausführt, in dem du committest. Der Dispatcher wird generiert und nie committet, deshalb braucht jeder Worktree seinen eigenen, und wo er fehlt, überspringt Git die Hooks ohne Warnung. Zwei Schritte installieren ihn:
+
+- `git worktree add` führt den Hook `post-checkout` des Checkouts aus, in dem du den Befehl aufrufst, und `.vite-hooks/post-checkout` installiert mit `vp hooks enable` den Dispatcher des neuen Worktrees. Ein Commit vor `bun install` scheitert dann im Hook `pre-commit`, statt ihn zu überspringen.
+- `bun install` führt `prepare` aus, das den Dispatcher mit `vp config --no-agent` erneuert und danach `scripts/verify-git-hooks.ts` ausführt. Die Installation schlägt fehl, wenn `core.hooksPath` nicht `.vite-hooks/_` ist oder dem Dispatcher ein Hook aus `.vite-hooks/` fehlt, und die Fehlermeldung nennt den Befehl, der das behebt.
+
+Setze `core.hooksPath` nie auf einen anderen Wert und übergib Git nie `-c core.hooksPath`. Solange dort der absolute Pfad zum Dispatcher des Haupt-Checkouts stand, installierte `vp config` in den anderen Worktrees keinen Dispatcher, und als das nächste `bun install` im Haupt-Checkout den relativen Pfad zurücksetzte, liefen Commits in diesen Worktrees ohne Hooks. `vp hooks status` zeigt, ob die Hooks in einem Worktree aktiv sind.
+
+## Lineare Historie [#linear-history]
+
+Das Ruleset, das `main` auf GitHub schützt, verlangt eine lineare Historie, erlaubt nur Squash-Merges und lehnt Force-Pushes ab, sodass jeder Pull Request als ein Commit in `main` landet. Auch Pull-Request-Branches bleiben linear:
+
+- Erstelle nie einen Merge-Commit, weder auf `main` noch auf einem Pull-Request-Branch: Merge `main` nicht in einen Branch und löse keine Konflikte in einem Merge-Commit.
+- Bringe einen Branch auf den neuesten Stand, indem du ihn auf `main` rebasest, mit `gh pr update-branch --rebase` oder mit `git fetch origin` und `git rebase origin/main`.
+- Wenn GitHub einen Pull Request mit mehreren Commits nicht rebasen kann, bring ihn erneut als einen Commit auf `main` ein: Fasse den Branch an seiner Merge-Basis zu einem Commit zusammen und rebase dann diesen Commit, sodass du jeden Konflikt nur einmal löst:
+
+```sh
+git fetch origin
+git reset --soft "$(git merge-base origin/main HEAD)"
+git commit -m "feat(course): reorder the catalogue from the course list"
+git rebase origin/main
+git push --force-with-lease
+```
+
+- Pushe einen umgeschriebenen Branch mit `git push --force-with-lease`, und nur deinen eigenen Pull-Request-Branch. Pushe nie per Force-Push auf `main` oder den Branch einer anderen Person, und verwende nie ein einfaches `--force`, das Commits überschreibt, die seit deinem letzten Fetch gepusht wurden.
 
 ## Pull Requests
 

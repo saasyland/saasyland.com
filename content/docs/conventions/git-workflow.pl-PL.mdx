@@ -1,6 +1,6 @@
 ---
 title: "Git i pull requesty"
-description: "Konwencjonalne commity z hookiem dodającym emoji, jeden worktree na gałąź, merge zamiast force-pusha, małe pull requesty, które aktualizują każdą dokumentację, której dotyczą, i żadnej atrybucji AI."
+description: "Konwencjonalne commity z hookiem dodającym emoji, jeden worktree na gałąź z własnymi hookami, liniowa historia utrzymywana rebase’em, małe pull requesty, które aktualizują każdą dokumentację, której dotyczą, i żadnej atrybucji AI."
 ---
 
 Historia `main` jest częścią produktu: każdy pull request scalony przez squash to jeden wiersz, który mówi, co zmieniło się dla osób korzystających z kodu.
@@ -36,7 +36,33 @@ bun install --frozen-lockfile
 ```
 
 - Zanim zaufasz wynikom testów, sprawdź `git branch --show-current` w katalogu, w którym testowałeś.
-- Aktualizuj gałąź pull requesta, scalając do niej `main`. Nie rób rebase’u wypchniętej gałęzi i nie wypychaj jej z force-pushem: pull requesty są scalane przez squash, więc historia gałęzi nigdy nie trafia do `main`, a force-push niszczy jedynie historię przeglądu.
+
+### Hooki w każdym worktree [#hooks-in-every-worktree]
+
+Git odczytuje `core.hooksPath` z konfiguracji, którą współdzielą wszystkie worktree repozytorium, a Vite+ ustawia w niej ścieżkę względną `.vite-hooks/_`, więc Git uruchamia dyspozytor hooków tego worktree, w którym tworzysz commit. Dyspozytor jest generowany i nigdy nie trafia do commita, dlatego każdy worktree potrzebuje własnego, a tam, gdzie go brakuje, Git bez ostrzeżenia pomija hooki. Instalują go dwa kroki:
+
+- `git worktree add` uruchamia hook `post-checkout` checkoutu, z którego wywołujesz polecenie, a `.vite-hooks/post-checkout` instaluje dyspozytor nowego worktree poleceniem `vp hooks enable`. Commit utworzony przed `bun install` kończy się wtedy błędem w hooku `pre-commit`, zamiast go pominąć.
+- `bun install` uruchamia `prepare`, który odświeża dyspozytor poleceniem `vp config --no-agent`, a potem uruchamia `scripts/verify-git-hooks.ts`. Instalacja kończy się błędem, gdy `core.hooksPath` ma inną wartość niż `.vite-hooks/_` albo gdy w dyspozytorze brakuje hooka z `.vite-hooks/`, a komunikat błędu podaje polecenie, które to naprawia.
+
+Nigdy nie ustawiaj `core.hooksPath` na inną wartość i nigdy nie przekazuj Gitowi `-c core.hooksPath`. Dopóki to ustawienie zawierało bezwzględną ścieżkę do dyspozytora głównego checkoutu, `vp config` nie instalował dyspozytora w pozostałych worktree, a gdy następne `bun install` w głównym checkoucie przywróciło ścieżkę względną, commity w tych worktree powstawały bez hooków. `vp hooks status` pokazuje, czy hooki są aktywne w danym worktree.
+
+## Liniowa historia [#linear-history]
+
+Ruleset, który chroni `main` na GitHubie, wymaga liniowej historii, przyjmuje tylko scalanie przez squash i odrzuca force-push, więc każdy pull request trafia do `main` jako jeden commit. Gałęzie pull requestów również pozostają liniowe:
+
+- Nigdy nie twórz commita scalającego, ani na `main`, ani na gałęzi pull requesta: nie scalaj `main` do gałęzi i nie rozwiązuj konfliktów w commicie scalającym.
+- Aktualizuj gałąź, robiąc jej rebase na `main`, poleceniem `gh pr update-branch --rebase` albo poleceniami `git fetch origin` i `git rebase origin/main`.
+- Gdy GitHub nie może zrobić rebase’u pull requesta z kilkoma commitami, wprowadź go ponownie jako jeden commit na szczycie `main`: połącz gałąź w jeden commit na jej bazie scalania, a potem zrób rebase tego commita, dzięki czemu każdy konflikt rozwiązujesz tylko raz:
+
+```sh
+git fetch origin
+git reset --soft "$(git merge-base origin/main HEAD)"
+git commit -m "feat(course): reorder the catalogue from the course list"
+git rebase origin/main
+git push --force-with-lease
+```
+
+- Wypychaj przepisaną gałąź poleceniem `git push --force-with-lease` i tylko własną gałąź pull requesta. Nigdy nie rób force-pusha na `main` ani na gałąź innej osoby i nigdy nie używaj zwykłego `--force`, który nadpisuje commity wypchnięte od Twojego ostatniego fetcha.
 
 ## Pull requesty
 

@@ -58,6 +58,7 @@ describe("getCatalogue", () => {
         level: COURSE_LEVEL.BEGINNER,
         paid: 2,
         previews: 1,
+        recorded: 3,
         slug: "the-walkthrough",
         summary: "How it works.",
         title: "The walkthrough",
@@ -71,6 +72,7 @@ describe("getCatalogue", () => {
         level: COURSE_LEVEL.BEGINNER,
         paid: 0,
         previews: 0,
+        recorded: 0,
         slug: "one-off",
         summary: "A short one.",
         title: "One-off tutorial",
@@ -84,7 +86,7 @@ describe("getCatalogue", () => {
 
     const [walkthrough] = await executeQuery(catalogueQuery({ locale: "en-US" }))
 
-    expect(walkthrough).toMatchObject({ durationMs: 250_000, lessons: 4 })
+    expect(walkthrough).toMatchObject({ durationMs: 250_000, lessons: 4, recorded: 2 })
   })
 
   it("localizes titles and falls back to English", async () => {

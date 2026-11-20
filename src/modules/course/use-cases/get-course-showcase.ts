@@ -60,6 +60,7 @@ export const getCourseShowcase = createServerFn({ method: "GET" })
         lessonCount: own.length,
         level: entry.level,
         previewCount: own.filter(({ access }) => access === LESSON_ACCESS.PREVIEW).length,
+        recordedCount: own.filter(({ durationMs }) => durationMs !== null).length,
         slug: entry.slug,
         title: localize(entry.title, locale),
       }

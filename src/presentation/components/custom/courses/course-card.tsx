@@ -8,6 +8,16 @@ import type { Course } from "~/src/modules/course/course.types"
 
 import { MILLISECONDS_PER_MINUTE } from "~/src/lib/duration"
 
+const CourseLength = ({ course }: { readonly course: Course["catalogue"][number] }): JSX.Element => {
+  const t = useTranslations("pages.courses.catalogue")
+
+  if (course.recorded === 0) {
+    return <span>{t("recording")}</span>
+  }
+
+  return <span>{t("minutes", { minutes: Math.round(course.durationMs / MILLISECONDS_PER_MINUTE) })}</span>
+}
+
 export const CourseCard = ({ course }: { readonly course: Course["catalogue"][number] }): JSX.Element => {
   const t = useTranslations("pages.courses")
 
@@ -26,7 +36,7 @@ export const CourseCard = ({ course }: { readonly course: Course["catalogue"][nu
       <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5">
         <p className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-spec text-muted-foreground">
           <span>{t("catalogue.lessons", { count: course.lessons })}</span>
-          <span>{t("catalogue.minutes", { minutes: Math.round(course.durationMs / MILLISECONDS_PER_MINUTE) })}</span>
+          <CourseLength course={course} />
           <span className="text-ring">{t("catalogue.previews", { count: course.previews })}</span>
         </p>
         <ArrowRight

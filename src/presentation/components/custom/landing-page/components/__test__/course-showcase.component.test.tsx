@@ -70,6 +70,7 @@ const WALKTHROUGH: ShowcaseCourse = {
   lessonCount: 8,
   level: COURSE_LEVEL.BEGINNER,
   previewCount: 1,
+  recordedCount: 6,
   slug: "the-walkthrough",
   title: "The walkthrough",
 }
@@ -83,6 +84,7 @@ const TUTORIAL: ShowcaseCourse = {
   lessonCount: 0,
   level: COURSE_LEVEL.BEGINNER,
   previewCount: 0,
+  recordedCount: 0,
   slug: "one-off",
   title: "One-off tutorial",
 }
@@ -96,6 +98,7 @@ const UNRECORDED: ShowcaseCourse = {
   lessonCount: 2,
   level: COURSE_LEVEL.BEGINNER,
   previewCount: 1,
+  recordedCount: 0,
   slug: "unrecorded",
   title: "Unrecorded project",
 }
@@ -175,6 +178,7 @@ describe("course showcase data", () => {
     expect(screen.getByText("Course")).toBeVisible()
     expect(screen.getByText("8 lessons")).toBeVisible()
     expect(screen.getByText("25 min")).toBeVisible()
+    expect(screen.getAllByText(copy.recording)).toHaveLength(2)
     expect(screen.getByText("No free lessons")).toBeVisible()
     expect(screen.getByText("1 free lesson")).toBeVisible()
     expect(screen.getAllByRole("link", { name: new RegExp(`${copy.preview}$`, "u") })).toHaveLength(1)

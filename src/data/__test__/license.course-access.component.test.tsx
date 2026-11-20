@@ -32,6 +32,7 @@ const CATALOGUE = [
     level: COURSE_LEVEL.BEGINNER,
     paid: 2,
     previews: 1,
+    recorded: 0,
     slug: "the-walkthrough",
     summary: "How it works.",
     title: "The walkthrough",

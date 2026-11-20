@@ -3,8 +3,18 @@ import zod from "zod/v4"
 import { MOVE_DIRECTIONS } from "~/src/modules/_core/constants/ordering"
 import { localizedListSchema, localizedTextSchema } from "~/src/modules/_core/utils/localized-text"
 import { paginationSchema } from "~/src/modules/_core/utils/pagination"
-import { idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
-import { COURSE_ICONS, COURSE_KINDS, COURSE_LEVELS, COURSE_STATUSES } from "~/src/modules/course/course.constants"
+import { MIN_FIELD_LENGTH, idField, localeField, slugField } from "~/src/modules/_core/utils/zod-fields"
+import { chapterZodSchemas } from "~/src/modules/chapter/chapter.zod"
+import {
+  COURSE_DOCUMENT,
+  COURSE_DOCUMENT_MAX_LENGTH,
+  COURSE_ICONS,
+  COURSE_KINDS,
+  COURSE_LEVELS,
+  COURSE_STATUSES,
+} from "~/src/modules/course/course.constants"
+import { lessonAttachmentZodSchemas } from "~/src/modules/lesson-attachment/lesson-attachment.zod"
+import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 
 const courseIdInput = zod.object({
   courseId: idField,
@@ -24,7 +34,74 @@ const courseFields = zod.object({
 
 const createCourse = courseFields
 
+const documentLink = zod.strictObject(lessonAttachmentZodSchemas.createLessonAttachment.omit({ lessonId: true }).shape)
+
+const documentLesson = zod.strictObject({
+  ...lessonZodSchemas.updateLesson.omit({ lessonId: true }).shape,
+  links: zod.array(documentLink),
+  videoId: lessonZodSchemas.createLesson.shape.videoId,
+})
+
+const documentChapter = zod.strictObject({
+  ...chapterZodSchemas.createChapter.omit({ courseId: true }).shape,
+  lessons: zod.array(documentLesson),
+})
+
+const documentCourse = zod.strictObject({
+  ...courseFields.shape,
+  chapters: zod.array(documentChapter),
+})
+
+interface SlugEntry {
+  readonly path: (number | string)[]
+  readonly slug: string
+}
+
+const repeatedSlugs = (entries: readonly SlugEntry[]): SlugEntry[] =>
+  entries.filter((entry, index) => entries.findIndex(({ slug }) => slug === entry.slug) !== index)
+
+const courseSlugs = (courses: readonly zod.output<typeof documentCourse>[]): SlugEntry[] =>
+  courses.map((course, courseIndex) => ({ path: ["courses", courseIndex, "slug"], slug: course.slug }))
+
+const lessonSlugs = (course: zod.output<typeof documentCourse>, courseIndex: number): SlugEntry[] =>
+  course.chapters.flatMap((chapter, chapterIndex) =>
+    chapter.lessons.map((lesson, lessonIndex) => ({
+      path: ["courses", courseIndex, "chapters", chapterIndex, "lessons", lessonIndex, "slug"],
+      slug: lesson.slug,
+    })),
+  )
+
+const courseDocument = zod
+  .strictObject({
+    courses: zod.array(documentCourse),
+    format: zod.literal(COURSE_DOCUMENT.FORMAT, { message: "documentFormat" }),
+    version: zod.literal(COURSE_DOCUMENT.VERSION, { message: "documentVersion" }),
+  })
+  .superRefine(({ courses }, context) => {
+    const repeated = [
+      ...repeatedSlugs(courseSlugs(courses)),
+      ...courses.flatMap((course, courseIndex) => repeatedSlugs(lessonSlugs(course, courseIndex))),
+    ]
+
+    for (const { path, slug } of repeated) {
+      context.addIssue({ code: "custom", input: slug, message: "slugDuplicate", path })
+    }
+  })
+
 const deleteCourse = courseIdInput
+
+const exportCourses = zod.object({
+  courseId: idField.optional(),
+})
+
+const importCourses = zod.object({
+  document: zod
+    .string()
+    .min(MIN_FIELD_LENGTH, { message: "documentRequired" })
+    .max(COURSE_DOCUMENT_MAX_LENGTH, { message: "documentTooLarge" }),
+  dryRun: zod.boolean(),
+  removeMissing: zod.boolean(),
+})
 
 const getCatalogue = zod.object({
   locale: localeField,
@@ -48,13 +125,16 @@ const moveCourse = courseIdInput.extend({ direction: zod.enum(MOVE_DIRECTIONS) }
 const updateCourse = courseFields.extend(courseIdInput.shape)
 
 export const courseZodSchemas = {
+  courseDocument,
   createCourse,
   deleteCourse,
+  exportCourses,
   getCatalogue,
   getCourse,
   getCourseEditor,
   getCourseShowcase,
   getCourses,
+  importCourses,
   moveCourse,
   updateCourse,
 }

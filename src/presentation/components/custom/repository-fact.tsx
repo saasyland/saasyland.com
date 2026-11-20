@@ -28,7 +28,15 @@ import {
 } from "~/src/modules/_core/utils/localized-text"
 import { DEFAULT_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 import { SLUG_MAX_LENGTH } from "~/src/modules/_core/utils/zod-fields"
-import { COURSE_ICONS, COURSE_LEVELS, COURSE_SHOWCASE } from "~/src/modules/course/course.constants"
+import {
+  COURSE_DOCUMENT,
+  COURSE_DOCUMENT_MAX_LENGTH,
+  COURSE_ICONS,
+  COURSE_IMPORTS_PER_MINUTE,
+  COURSE_IMPORT_PROBLEMS_MAX,
+  COURSE_LEVELS,
+  COURSE_SHOWCASE,
+} from "~/src/modules/course/course.constants"
 import {
   LESSON_ATTACHMENT_DOWNLOAD_TTL_SECONDS,
   LESSON_ATTACHMENT_EXTENSIONS,
@@ -157,7 +165,12 @@ const FACTS = {
   cliReleaseChannel: CLI_RELEASE_CHANNEL,
   cliWhoami: cliCommand(CLI_COMMAND.WHOAMI),
   corePriceInHours: CORE_PRICE_IN_HOURS,
+  courseDocumentFormat: COURSE_DOCUMENT.FORMAT,
+  courseDocumentMaxLength: COURSE_DOCUMENT_MAX_LENGTH,
+  courseDocumentVersion: COURSE_DOCUMENT.VERSION,
   courseIcons: COURSE_ICONS,
+  courseImportProblemsMax: COURSE_IMPORT_PROBLEMS_MAX,
+  courseImportsPerMinute: COURSE_IMPORTS_PER_MINUTE,
   courseLevels: COURSE_LEVELS,
   courseShowcaseCourses: COURSE_SHOWCASE.COURSES,
   defaultPageSize: DEFAULT_PAGE_SIZE,

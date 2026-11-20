@@ -20,6 +20,7 @@ import { LinkButton } from "~/src/presentation/components/shadcn/button"
 import { AdminCourseEditorPending } from "~/src/presentation/components/custom/admin/courses-pending"
 import { CourseForm } from "~/src/presentation/components/custom/admin/courses/course-form"
 import { CurriculumEditor } from "~/src/presentation/components/custom/admin/courses/curriculum-editor"
+import { ExportCoursesButton } from "~/src/presentation/components/custom/admin/courses/export-courses-button"
 
 import { ROUTES } from "~/src/routes"
 
@@ -37,12 +38,15 @@ const CourseEditorPage = (): JSX.Element => {
           <h1 className="text-statement font-semibold text-foreground">{localize(data.course.title, getCurrentLocale())}</h1>
           <p className="text-sm text-muted-foreground">{t("description")}</p>
         </div>
-        {data.course.status === COURSE_STATUS.PUBLISHED && (
-          <LinkButton className="h-9 gap-2" href={`${ROUTES.COURSES}/${data.course.slug}`} size="sm" target="_blank" variant="outline">
-            <ExternalLink aria-hidden className="size-4" />
-            {t("view")}
-          </LinkButton>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <ExportCoursesButton course={data.course} />
+          {data.course.status === COURSE_STATUS.PUBLISHED && (
+            <LinkButton className="h-9 gap-2" href={`${ROUTES.COURSES}/${data.course.slug}`} size="sm" target="_blank" variant="outline">
+              <ExternalLink aria-hidden className="size-4" />
+              {t("view")}
+            </LinkButton>
+          )}
+        </div>
       </div>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,28rem)_1fr]">
         <CourseForm course={data.course} key={data.course.updatedAt.getTime()} />

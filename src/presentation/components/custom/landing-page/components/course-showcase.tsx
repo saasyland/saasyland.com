@@ -134,6 +134,16 @@ const FreeLesson = ({ course }: { readonly course: Course["showcase"][number] })
   )
 }
 
+const ShowcaseLength = ({ course }: { readonly course: Course["showcase"][number] }): JSX.Element => {
+  const t = useTranslations("pages.landing.studio.masterclass")
+
+  if (course.recordedCount === 0) {
+    return <span>{t("recording")}</span>
+  }
+
+  return <span>{t("minutes", { minutes: Math.round(course.durationMs / MILLISECONDS_PER_MINUTE) })}</span>
+}
+
 const ShowcaseCourse = ({ course }: { readonly course: Course["showcase"][number] }): JSX.Element => {
   const t = useTranslations("pages.landing.studio.masterclass")
 
@@ -151,7 +161,7 @@ const ShowcaseCourse = ({ course }: { readonly course: Course["showcase"][number
       <p className="mt-2 flex gap-x-5 overflow-hidden font-mono text-spec whitespace-nowrap text-muted-foreground">
         <span>{t(`kinds.${course.kind}`)}</span>
         <span>{t("lessons", { count: course.lessonCount })}</span>
-        <span>{t("minutes", { minutes: Math.round(course.durationMs / MILLISECONDS_PER_MINUTE) })}</span>
+        <ShowcaseLength course={course} />
       </p>
       <div className={COURSE_DETAIL}>
         <FreeLesson course={course} />

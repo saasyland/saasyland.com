@@ -5,7 +5,7 @@ description: "A public catalogue of courses whose lessons are free, need an acco
 
 Courses, tutorials and projects live in D1 and are watched under `/courses`. Each lesson plays a video from the [Videos](/docs/features/videos) library, and its access level decides who may watch it and download its materials.
 
-The admin is the single place to edit courses. Every title, summary, level, icon, outcome, prerequisite, chapter, lesson, description, key moment, video and material is a row in D1 that `/admin/courses` edits in every locale; no course content is written in the source code. The code only fixes the choices the admin offers: the kinds, levels, statuses, access levels and icon names are named constants.
+The admin is the single place to edit courses. Every title, summary, level, icon, outcome, prerequisite, chapter, lesson, description, key moment, video and material is a row in D1 that `/admin/courses` edits in every locale; no course content is written in the source code. The code only fixes the choices the admin offers: the kinds, levels, statuses, access levels and icon names are named constants. For changes to many courses at once, the admin exports the courses to a JSON file and imports the edited file; see [Import and export](#import-and-export).
 
 ## Data model
 
@@ -34,7 +34,14 @@ A lesson is being recorded when it has no video or its video is a placeholder (`
 
 - `getCourse` and `getLesson` return `recording: true` and `durationMs: null`, and `getLesson` returns no caption locales;
 - `getLessonPlayback` answers `NOT_FOUND`, so no signed stream exists;
-- `getCatalogue` and `getCourseShowcase` leave it out of the course length, and the showcase never offers it as the free lesson.
+- `getCatalogue` and `getCourseShowcase` leave it out of the course length and count only the lessons that play (`recorded` and `recordedCount`), and the showcase never offers it as the free lesson.
+
+A course can be published while its lessons are being recorded, and the pages say so instead of selling what does not play yet:
+
+- The catalogue card and the landing page's course block show **Being recorded** in place of the minutes while none of a course's lessons plays.
+- The course page says that the course is being recorded and that each lesson plays as soon as its recording is published, and offers no **Start the course** link. Once some lessons play, **Start the course** and **Continue with …** lead only to a lesson that plays (`nextLessonToWatch` in `course.utils.ts`).
+- The curriculum shows **Being recorded** where a lesson's length would be.
+- A lesson being recorded says that its recording is on its way, even when it is locked, so its page never asks the visitor to buy a lesson that cannot be watched, and it offers no **Mark as complete**.
 
 Replacing the video with a real recording, from the lesson editor or by clearing the placeholder flag in the library, makes the lesson play everywhere at once, with no other change.
 
@@ -70,16 +77,16 @@ A lesson's materials are files and links in `lesson_attachment`, ordered by `pos
 
 The `/courses` layout (`_site._marketing.courses.tsx`) sits in the same `_site` and `_marketing` layouts as the blog, so it has the same header and footer. The pages read D1 for each viewer, so they are not prerendered: `courses.routes.ts` names `ROUTES.COURSES` in `COURSES_UNLISTED_ROUTES`. They are not in the sitemap either, and they share the site card for link previews; see [Search and social previews](/docs/features/seo).
 
-- `/courses`: one card per published course with its kind, lesson count, minutes and free lessons. With no published course, it says that the first courses are being recorded and points to the build log signup in the footer; its first sentence matches the landing page's course block.
-- `/courses/<course>`: the summary, a progress bar for signed-in viewers, a **Start the course** or **Continue with …** link to the next lesson to watch, and the curriculum by chapter with **Free preview** badges, durations, and lock and completed icons. When a lesson is locked, the **Every lesson comes with Complete** panel links to the pricing section, or to `/app/license?tier=complete` for a signed-in viewer, where Complete is already chosen.
-- `/courses/<course>/<lesson>`: the player, or a locked panel with **Sign in to watch**, which returns to the lesson after sign-in through `redirect`, or **Get Complete**. A lesson [being recorded](#being-recorded) says that its recording is on its way. Below it are the access level, the **Materials**, which link and download only for a viewer who may open the lesson, **Mark as complete** for signed-in viewers and links to the previous and next lessons; the course contents stay beside it on wide screens. The page loads with one `getLesson` call.
+- `/courses`: one card per published course with its kind, lesson count, minutes or **Being recorded**, and free lessons. With no published course, it says that the first courses are being recorded and points to the build log signup in the footer; its first sentence matches the landing page's course block.
+- `/courses/<course>`: the summary, a progress bar for signed-in viewers, a **Start the course** or **Continue with …** link to the next lesson that plays, or a note that the course is being recorded, and the curriculum by chapter with **Free preview** badges, durations or **Being recorded**, and lock and completed icons. When a lesson is locked, the **Every lesson comes with Complete** panel links to the pricing section, or to `/app/license?tier=complete` for a signed-in viewer, where Complete is already chosen.
+- `/courses/<course>/<lesson>`: the player, or a locked panel with **Sign in to watch**, which returns to the lesson after sign-in through `redirect`, or **Get Complete**. A lesson [being recorded](#being-recorded) says that its recording is on its way, locked or not. Below it are the access level, the **Materials**, which link and download only for a viewer who may open the lesson, **Mark as complete** for signed-in viewers of a lesson that plays and links to the previous and next lessons; the course contents stay beside it on wide screens. The page loads with one `getLesson` call.
 
 ## On the landing page
 
 The course block in the landing page's **Toolkit** section (`course-showcase.tsx` in `src/presentation/components/custom/landing-page/components/`) shows what D1 holds, so it never lists a course or lesson that does not exist:
 
 - The landing page is prerendered, so its HTML contains the block's heading, the course tour and placeholders. When the block comes within one screen height of the viewport, the browser calls `getCourseShowcase` once through `courseShowcaseQuery` and fills it in. Visitors who never scroll that far send no request.
-- Each course is a column of three lines: its title, which links to its page; its kind, lesson count and minutes; and its first free preview that has a video, which opens the lesson, or its number of free lessons when none can be watched. The columns sit side by side from the `md` breakpoint and scroll sideways below it.
+- Each course is a column of three lines: its title, which links to its page; its kind, lesson count and minutes, or **Being recorded** while none of its lessons plays; and its first free preview that has a video, which opens the lesson, or its number of free lessons when none can be watched. The columns sit side by side from the `md` breakpoint and scroll sideways below it.
 - The block keeps the size of its placeholder whatever the request returns. The title, the details and the free preview each stay on one line and truncate, the placeholder draws the same lines in the same type, and the messages for no published course and for a failed request sit in a frame the size of a column. Nothing below the block moves when the courses arrive, at any width. `landing.spec.ts` checks this on a desktop and on a phone.
 - With no published course, the block says so; if the request fails, it points to the course catalogue. **Browse all courses** links to `/courses` in every case.
 - The course tour is the video of the `course-tour` composition in the `remotion/` project. It is a static file in `src/presentation/assets/motion/` with AVIF and WebP posters, and plays in place with the browser's controls when pressed. It does not use the video library.
@@ -91,6 +98,14 @@ For a signed-in viewer, the player starts at the saved `position_ms` and `useLes
 ## Lessons and videos
 
 A lesson stores no video files of its own. Publish the recording with `bun run video:publish:<environment>` (see [Videos](/docs/features/videos)), then pick it in the lesson editor's **Video** card, which sets `video_id`. Several lessons can use the same video, and every lesson can start on one shared placeholder video until its own recording exists. Durations on the catalogue and in the curriculum come from `video.duration_ms`, and a lesson being recorded has none.
+
+To replace a lesson being recorded with its real video:
+
+1. Publish the recording with `bun run video:publish:production <file> --title "…"`. It appears at the top of `/admin/videos`.
+2. Open the lesson in the lesson editor, choose the recording under **Replace with** in the **Video** card and press **Replace video**.
+3. The lesson plays on every page at once, its length counts towards the course, and **Being recorded** disappears.
+
+Lessons imported from a file without a video, like the curriculum below, have no video at all, which is also [being recorded](#being-recorded); the same three steps give them one.
 
 ## Managing courses
 
@@ -150,18 +165,86 @@ Every delete asks for confirmation first.
 
 The foreign keys remove the rows with `ON DELETE CASCADE`, and the delete use cases remove the uploaded files from R2 (`attachmentObjectKeys` and `removeAttachmentObjects` in `lesson-attachment.objects.ts`). Videos are never deleted with a course, a chapter or a lesson: they stay in the library.
 
+### Import and export
+
+The course list has **Import** and **Export all**, and the course editor has **Export** for its own course. Export writes a JSON file, `courses-<date>.json` or `<slug>-<date>.json`, and import reads one. The components are `import-courses-dialog.tsx` and `export-courses-button.tsx`, and the work is done in `src/modules/course/course.transfer.ts`.
+
+The file holds every course in course order with its chapters, its lessons in order, their text in every locale, access levels, statuses, descriptions, key moments, links and the id of each lesson's video:
+
+```json
+{
+  "courses": [
+    {
+      "chapters": [
+        {
+          "lessons": [
+            {
+              "access": "preview",
+              "description": {},
+              "keyMoments": [{ "at": "2:15", "label": { "en-US": "Install the CLI" } }],
+              "links": [{ "title": { "en-US": "Getting started" }, "url": "/docs/getting-started" }],
+              "slug": "what-you-will-build",
+              "status": "published",
+              "summary": { "en-US": "The finished application." },
+              "title": { "en-US": "What you'll build" },
+              "videoId": "0195a2b4-6c8d-7e9f-8a0b-1c2d3e4f5a6b"
+            }
+          ],
+          "summary": {},
+          "title": { "en-US": "Start" }
+        }
+      ],
+      "icon": "rocket",
+      "kind": "course",
+      "level": "beginner",
+      "outcomes": { "en-US": ["Deploy to Cloudflare"] },
+      "prerequisites": { "en-US": ["TypeScript and React"] },
+      "slug": "empty-folder-to-production",
+      "status": "published",
+      "summary": { "en-US": "From an empty folder to production." },
+      "title": { "en-US": "Empty folder to production" }
+    }
+  ],
+  "format": "courses",
+  "version": 1
+}
+```
+
+- `format` is <RepositoryFact name="courseDocumentFormat" /> and `version` is <RepositoryFact name="courseDocumentVersion" /> (`COURSE_DOCUMENT`). Each course, chapter, lesson and link is checked with the schemas the admin forms use (`createCourse`, `createChapter`, `updateLesson` and `createLessonAttachment`), joined in `courseDocument` in `course.zod.ts`. A field the format does not have is refused, so a misspelt key cannot be dropped silently.
+- Uploaded files do not travel in the file: it carries links only, and the dialog says so. Uploaded files stay on their lessons when a file is imported.
+- A lesson without `videoId` keeps the video it has, and a new one starts without a video, so it is [being recorded](#being-recorded). An import never takes a video off a lesson. A `videoId` that this database's library lacks, as after an export from another environment, leaves the lesson's video as it is and is listed as a warning.
+
+**Import** opens a dialog: choose the file, then **Check file**. The check is a dry run (`importCourses` with `dryRun: true`) that writes nothing and lists, for courses, chapters, lessons and links, how many the import adds, updates, leaves unchanged, removes and keeps although the file lacks them, how many uploaded files removal deletes, and the warnings. **Import** then runs the same plan for real. A file that breaks a rule lists its problems instead, each with the path of the field, such as `courses.0.chapters.1.lessons.2.slug`, and the message the admin form would show; the first <RepositoryFact name="courseImportProblemsMax" /> are listed and the rest counted. Nothing is imported until the file has no problem.
+
+The import matches what is already in the database by natural keys, never by row ids:
+
+- A course by its slug, and a lesson by its slug within its course, so a lesson can move to another chapter.
+- A chapter by its order within its course: the first chapter in the file updates the course's first chapter.
+- A link by its order among the lesson's links.
+
+It writes only what differs, so importing the same file twice changes nothing the second time. New courses go after the existing ones, in file order. The lessons of a chapter take the file's order; lessons the file leaves out stay after them. Every write of one import runs in one `db.batch`, a single D1 transaction, so an import is applied whole or not at all.
+
+**Remove what the file does not contain** is off by default. When it is ticked, the import also deletes the courses, chapters, lessons and links that the file lacks, with everyone's progress in them, and removes the uploaded files of the deleted lessons from R2. Exporting one course and importing it with this option deletes every other course, and the check shows that before anything is written.
+
+`importCourses` runs `withRateLimit` with <RepositoryFact name="courseImportsPerMinute" /> checks or imports per address a minute and requires `course: ["create", "update", "delete"]`, because one file can do all three. It reads the file as text of at most <RepositoryFact name="courseDocumentMaxLength" /> characters; split a larger catalogue into several files. `exportCourses` requires `course: ["read"]`.
+
+After an import, the database is the source of truth: edit courses in the admin, and for a change to many lessons at once, export, edit the file and import it.
+
+`content/courses/saasy-land-courses.json` is the curriculum of saasyland.com in every locale, published, with every lesson being recorded. It is the file to import into a new database, not data the application reads: the courses exist only once an admin imports it. `course-curriculum.test.ts` checks that the import accepts it.
+
 ### Server functions
 
-| Module              | Use cases                                                                                                                      | Permission           |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
-| `course`            | `getCourses`, `getCourseEditor`                                                                                                | `course: ["read"]`   |
-| `course`            | `createCourse`                                                                                                                 | `course: ["create"]` |
-| `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]` |
-| `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]` |
-| `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]` |
-| `lesson`            | `createLesson`, `updateLesson`, `replaceLessonVideo`, `deleteLesson`, `moveLesson`                                             | `course: ["update"]` |
-| `lesson-attachment` | `createLessonAttachment`, `uploadLessonAttachment`, `updateLessonAttachment`, `moveLessonAttachment`, `deleteLessonAttachment` | `course: ["update"]` |
-| `video`             | `setVideoPlaceholder`                                                                                                          | `course: ["update"]` |
+| Module              | Use cases                                                                                                                      | Permission                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| `course`            | `getCourses`, `getCourseEditor`, `exportCourses`                                                                               | `course: ["read"]`                       |
+| `course`            | `createCourse`                                                                                                                 | `course: ["create"]`                     |
+| `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]`                     |
+| `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]`                     |
+| `course`            | `importCourses`                                                                                                                | `course: ["create", "update", "delete"]` |
+| `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]`                     |
+| `lesson`            | `createLesson`, `updateLesson`, `replaceLessonVideo`, `deleteLesson`, `moveLesson`                                             | `course: ["update"]`                     |
+| `lesson-attachment` | `createLessonAttachment`, `uploadLessonAttachment`, `updateLessonAttachment`, `moveLessonAttachment`, `deleteLessonAttachment` | `course: ["update"]`                     |
+| `video`             | `setVideoPlaceholder`                                                                                                          | `course: ["update"]`                     |
 
 - `getCourseEditor` returns every lesson with its description, key moments, video (with its placeholder flag) and materials, so the course editor and the lesson editor share one query.
 - `uploadLessonAttachment` takes `FormData` (the file, the lesson and the title per locale, built by `uploadFormData`), and also runs `withRateLimit` with <RepositoryFact name="attachmentUploadsPerMinute" /> uploads per address a minute. It writes the row, then the file, and removes the row again if R2 refuses the file.
@@ -175,7 +258,9 @@ The foreign keys remove the rows with `ON DELETE CASCADE`, and the delete use ca
 
 ## Tests
 
-`scripts/seed-test.ts` seeds a published course with its level, icon, outcomes and prerequisites, one chapter with a summary and four lessons: the free one has a description, a key moment, a PDF and a docs link; the paid one has a PDF; the last one is on the seeded placeholder video. It also seeds `learner@example.test` with an active Complete licence. The browser tests in `e2e/specs/courses.spec.ts` watch the lessons. In `e2e/specs/course-admin.spec.ts`, an admin creates a course, a chapter and a free lesson with the seeded video, a visitor in another browser page watches the lesson, and the admin deletes the course; a second test writes a lesson's description and key moments, puts it on the placeholder video, uploads a file and adds a link, checks that a visitor sees the lesson as being recorded and downloads the file, replaces the video with the recording so the visitor's page plays it, and checks that deleting the course deletes the file. `e2e/specs/course-materials.spec.ts` checks the access rule on downloads: a visitor downloads a free lesson's file through a signed path and gets `403` for a forged one, a visitor and a customer without Complete see a paid lesson's materials without links, and the Complete licence holder downloads them and sees the lesson on the placeholder video as being recorded, with no stream requested. `e2e/specs/landing.spec.ts` checks that the landing page links the seeded course and its free lesson, opens the free lesson and plays the course tour, and that the course block keeps its height and moves nothing when the courses arrive or fail to load. `e2e/specs/course-access.spec.ts` signs in a customer without a licence and checks that a paid lesson offers Complete with a link to `/app/license?tier=complete` and that the overview lists the locked course beside the licence offer.
+`scripts/seed-test.ts` seeds a published course with its level, icon, outcomes and prerequisites, one chapter with a summary and four lessons: the free one has a description, a key moment, a PDF and a docs link; the paid one has a PDF; the last one is on the seeded placeholder video. It also seeds `learner@example.test` with an active Complete licence. The browser tests in `e2e/specs/courses.spec.ts` watch the lessons. In `e2e/specs/course-admin.spec.ts`, an admin creates a course, a chapter and a free lesson with the seeded video, a visitor in another browser page watches the lesson, and the admin deletes the course; a second test writes a lesson's description and key moments, puts it on the placeholder video, uploads a file and adds a link, checks that a visitor sees the lesson as being recorded and downloads the file, replaces the video with the recording so the visitor's page plays it, and checks that deleting the course deletes the file. `e2e/specs/course-materials.spec.ts` checks the access rule on downloads: a visitor downloads a free lesson's file through a signed path and gets `403` for a forged one, a visitor and a customer without Complete see a paid lesson's materials without links, and the Complete licence holder downloads them and sees the lesson on the placeholder video as being recorded, with no stream requested. `e2e/specs/landing.spec.ts` checks that the landing page links the seeded course and its free lesson, opens the free lesson and plays the course tour, and that the course block keeps its height and moves nothing when the courses arrive or fail to load. `e2e/specs/course-access.spec.ts` signs in a customer without a licence and checks that a paid lesson offers Complete with a link to `/app/license?tier=complete` and that the overview lists the locked course beside the licence offer. In `e2e/specs/course-import.spec.ts`, an admin imports `content/courses/saasy-land-courses.json` through the dialog, a visitor finds its courses on `/courses` with the first one being recorded, and a second check of the same file finds nothing to import.
+
+`course-import.test.ts` and `course-transfer.test.ts` run the import against the test database: the curriculum's dry run, its import, a second import that changes nothing and an export that returns the same document; updates, moves and new rows from an edited export; what removal deletes, uploaded files included; video references; and the problems a broken file reports.
 
 ## Related pages
 

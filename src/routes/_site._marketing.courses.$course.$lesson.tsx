@@ -43,16 +43,16 @@ interface LessonStageProps {
 const LessonStage = ({ courseSlug, lesson, signedIn }: LessonStageProps): JSX.Element => {
   const t = useTranslations("pages.courses.lesson")
 
-  if (lesson.locked) {
-    return <LockedLesson access={lesson.access} signedIn={signedIn} />
-  }
-
   if (lesson.recording) {
     return (
       <div className="flex aspect-video w-full items-center justify-center rounded-lg border border-border bg-card px-6 text-center text-body text-muted-foreground">
         {t("noVideo")}
       </div>
     )
+  }
+
+  if (lesson.locked) {
+    return <LockedLesson access={lesson.access} signedIn={signedIn} />
   }
 
   return <LessonPlayer courseSlug={courseSlug} lesson={lesson} signedIn={signedIn} />
@@ -132,7 +132,7 @@ const LessonPage = (): JSX.Element => {
           <p className="mt-4 max-w-[68ch] text-body text-pretty text-muted-foreground">{lesson.summary}</p>
           {lesson.attachments.length > 0 && <MaterialsList attachments={lesson.attachments} />}
 
-          {data.viewer.signedIn && !lesson.locked && (
+          {data.viewer.signedIn && !lesson.locked && !lesson.recording && (
             <div className="mt-6">
               <CompletionControl lesson={lesson} />
             </div>

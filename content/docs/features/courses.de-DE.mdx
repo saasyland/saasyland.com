@@ -5,7 +5,7 @@ description: "Ein öffentlicher Katalog von Kursen, deren Lektionen kostenlos si
 
 Kurse, Tutorials und Projekte liegen in D1 und werden unter `/courses` angesehen. Jede Lektion spielt ein Video aus der Bibliothek von [Videos](/docs/features/videos) ab, und ihre Zugriffsstufe entscheidet, wer sie ansehen und ihre Materialien herunterladen darf.
 
-Der Admin-Bereich ist der einzige Ort, an dem Kurse bearbeitet werden. Jeder Titel, jede Zusammenfassung, jedes Niveau, jedes Symbol, jedes Lernziel, jede Voraussetzung, jedes Kapitel, jede Lektion, jede Beschreibung, jeder Schlüsselmoment, jedes Video und jedes Material ist eine Zeile in D1, die `/admin/courses` in jeder Locale bearbeitet; kein Kursinhalt steht im Quellcode. Der Code legt nur die Auswahl fest, die der Admin-Bereich anbietet: Die Arten, Niveaus, Status, Zugriffsstufen und Symbolnamen sind benannte Konstanten.
+Der Admin-Bereich ist der einzige Ort, an dem Kurse bearbeitet werden. Jeder Titel, jede Zusammenfassung, jedes Niveau, jedes Symbol, jedes Lernziel, jede Voraussetzung, jedes Kapitel, jede Lektion, jede Beschreibung, jeder Schlüsselmoment, jedes Video und jedes Material ist eine Zeile in D1, die `/admin/courses` in jeder Locale bearbeitet; kein Kursinhalt steht im Quellcode. Der Code legt nur die Auswahl fest, die der Admin-Bereich anbietet: Die Arten, Niveaus, Status, Zugriffsstufen und Symbolnamen sind benannte Konstanten. Für Änderungen an vielen Kursen auf einmal exportiert der Admin-Bereich die Kurse in eine JSON-Datei und importiert die bearbeitete Datei; siehe [Import und Export](#import-and-export).
 
 ## Datenmodell
 
@@ -34,7 +34,14 @@ Eine Lektion wird aufgezeichnet, wenn sie kein Video hat oder ihr Video ein Plat
 
 - `getCourse` und `getLesson` liefern `recording: true` und `durationMs: null`, und `getLesson` liefert keine Locales für Untertitel;
 - `getLessonPlayback` antwortet mit `NOT_FOUND`, es gibt also keinen signierten Stream;
-- `getCatalogue` und `getCourseShowcase` lassen sie bei der Kurslänge weg, und der Showcase bietet sie nie als kostenlose Lektion an.
+- `getCatalogue` und `getCourseShowcase` lassen sie bei der Kurslänge weg und zählen nur die Lektionen, die abgespielt werden (`recorded` und `recordedCount`), und der Showcase bietet sie nie als kostenlose Lektion an.
+
+Ein Kurs kann veröffentlicht werden, während seine Lektionen aufgezeichnet werden, und die Seiten sagen das, statt zu verkaufen, was sich noch nicht abspielen lässt:
+
+- Die Katalogkarte und der Kursblock der Landingpage zeigen **Wird aufgezeichnet** anstelle der Minuten, solange keine Lektion des Kurses abgespielt wird.
+- Die Kursseite sagt, dass der Kurs gerade aufgezeichnet wird und dass jede Lektion abgespielt wird, sobald ihre Aufzeichnung veröffentlicht ist, und bietet keinen Link **Kurs starten** an. Sobald einige Lektionen abgespielt werden, führen **Kurs starten** und **Weiter mit …** nur zu einer Lektion, die abgespielt wird (`nextLessonToWatch` in `course.utils.ts`).
+- Der Lehrplan zeigt **Wird aufgezeichnet** dort, wo die Länge einer Lektion stünde.
+- Eine Lektion, die aufgezeichnet wird, meldet, dass ihre Aufzeichnung in Kürze folgt, auch wenn sie gesperrt ist. Ihre Seite fordert den Besucher also nie auf, eine Lektion zu kaufen, die sich nicht ansehen lässt, und sie bietet kein **Als abgeschlossen markieren** an.
 
 Ersetzt du das Video durch eine echte Aufnahme, im Lektionseditor oder durch Entfernen der Platzhalter-Markierung in der Bibliothek, wird die Lektion überall zugleich abgespielt, ohne weitere Änderung.
 
@@ -70,16 +77,16 @@ Die Materialien einer Lektion sind Dateien und Links in `lesson_attachment`, sor
 
 Das Layout `/courses` (`_site._marketing.courses.tsx`) liegt in denselben Layouts `_site` und `_marketing` wie der Blog, hat also denselben Header und Footer. Die Seiten lesen D1 für jeden Betrachter und werden daher nicht vorgerendert: `courses.routes.ts` nennt `ROUTES.COURSES` in `COURSES_UNLISTED_ROUTES`. Sie stehen auch nicht in der Sitemap und teilen sich für Linkvorschauen die Social Card der Website; siehe [Suche und Social-Media-Vorschauen](/docs/features/seo).
 
-- `/courses`: eine Karte pro veröffentlichtem Kurs mit Art, Anzahl der Lektionen, Minuten und kostenlosen Lektionen. Ohne veröffentlichten Kurs sagt die Seite, dass die ersten Kurse gerade aufgenommen werden, und verweist auf die Anmeldung zum Entwicklungsjournal im Footer; ihr erster Satz entspricht dem des Kursblocks der Landingpage.
-- `/courses/<course>`: die Zusammenfassung, ein Fortschrittsbalken für angemeldete Betrachter, ein Link **Kurs starten** oder **Weiter mit …** zur nächsten anzusehenden Lektion und der Lehrplan nach Kapiteln mit **Kostenlose Vorschau**-Badges, Dauern sowie Schloss- und Erledigt-Symbolen. Ist eine Lektion gesperrt, verlinkt das Panel **Jede Lektion ist in Complete enthalten** auf den Preisabschnitt oder, für angemeldete Betrachter, auf `/app/license?tier=complete`, wo Complete bereits ausgewählt ist.
-- `/courses/<course>/<lesson>`: der Player oder ein Sperrpanel mit **Anmelden und ansehen**, das nach der Anmeldung über `redirect` zur Lektion zurückführt, oder **Complete holen**. Eine Lektion, die [aufgezeichnet wird](#being-recorded), meldet, dass ihre Aufzeichnung in Kürze folgt. Darunter stehen die Zugriffsstufe, die **Materialien**, die nur für Betrachter, die die Lektion öffnen dürfen, verlinkt sind und sich herunterladen lassen, **Als abgeschlossen markieren** für angemeldete Betrachter und Links zur vorherigen und nächsten Lektion; der Kursinhalt bleibt auf breiten Bildschirmen daneben stehen. Die Seite lädt mit einem einzigen Aufruf von `getLesson`.
+- `/courses`: eine Karte pro veröffentlichtem Kurs mit Art, Anzahl der Lektionen, Minuten oder **Wird aufgezeichnet** und kostenlosen Lektionen. Ohne veröffentlichten Kurs sagt die Seite, dass die ersten Kurse gerade aufgenommen werden, und verweist auf die Anmeldung zum Entwicklungsjournal im Footer; ihr erster Satz entspricht dem des Kursblocks der Landingpage.
+- `/courses/<course>`: die Zusammenfassung, ein Fortschrittsbalken für angemeldete Betrachter, ein Link **Kurs starten** oder **Weiter mit …** zur nächsten Lektion, die abgespielt wird, oder ein Hinweis, dass der Kurs gerade aufgezeichnet wird, und der Lehrplan nach Kapiteln mit **Kostenlose Vorschau**-Badges, Dauern oder **Wird aufgezeichnet** sowie Schloss- und Erledigt-Symbolen. Ist eine Lektion gesperrt, verlinkt das Panel **Jede Lektion ist in Complete enthalten** auf den Preisabschnitt oder, für angemeldete Betrachter, auf `/app/license?tier=complete`, wo Complete bereits ausgewählt ist.
+- `/courses/<course>/<lesson>`: der Player oder ein Sperrpanel mit **Anmelden und ansehen**, das nach der Anmeldung über `redirect` zur Lektion zurückführt, oder **Complete holen**. Eine Lektion, die [aufgezeichnet wird](#being-recorded), meldet, dass ihre Aufzeichnung in Kürze folgt, ob gesperrt oder nicht. Darunter stehen die Zugriffsstufe, die **Materialien**, die nur für Betrachter, die die Lektion öffnen dürfen, verlinkt sind und sich herunterladen lassen, **Als abgeschlossen markieren** für angemeldete Betrachter einer Lektion, die abgespielt wird, und Links zur vorherigen und nächsten Lektion; der Kursinhalt bleibt auf breiten Bildschirmen daneben stehen. Die Seite lädt mit einem einzigen Aufruf von `getLesson`.
 
 ## Auf der Landingpage
 
 Der Kursblock im Abschnitt **Werkzeugkasten** der Landingpage (`course-showcase.tsx` in `src/presentation/components/custom/landing-page/components/`) zeigt, was in D1 steht, und listet daher nie einen Kurs oder eine Lektion, die es nicht gibt:
 
 - Die Landingpage ist vorgerendert, ihr HTML enthält also die Überschrift des Blocks, die Tour durch die Kursseiten und Platzhalter. Sobald der Block weniger als eine Bildschirmhöhe vom sichtbaren Bereich entfernt ist, ruft der Browser einmal `getCourseShowcase` über `courseShowcaseQuery` auf und füllt ihn. Besucher, die nicht so weit scrollen, senden keine Anfrage.
-- Jeder Kurs ist eine Spalte mit drei Zeilen: sein Titel, der auf seine Seite verlinkt; Art, Anzahl der Lektionen und Minuten; und seine erste kostenlose Vorschau mit Video, die die Lektion öffnet, oder die Zahl seiner kostenlosen Lektionen, wenn sich keine ansehen lässt. Ab dem Breakpoint `md` stehen die Spalten nebeneinander, darunter lassen sie sich seitlich scrollen.
+- Jeder Kurs ist eine Spalte mit drei Zeilen: sein Titel, der auf seine Seite verlinkt; Art, Anzahl der Lektionen und Minuten oder **Wird aufgezeichnet**, solange keine seiner Lektionen abgespielt wird; und seine erste kostenlose Vorschau mit Video, die die Lektion öffnet, oder die Zahl seiner kostenlosen Lektionen, wenn sich keine ansehen lässt. Ab dem Breakpoint `md` stehen die Spalten nebeneinander, darunter lassen sie sich seitlich scrollen.
 - Der Block behält die Größe seines Platzhalters, was auch immer die Anfrage liefert. Titel, Angaben und kostenlose Vorschau bleiben jeweils einzeilig und werden gekürzt, der Platzhalter zeichnet dieselben Zeilen in derselben Schrift, und die Hinweise für keinen veröffentlichten Kurs und für eine fehlgeschlagene Anfrage stehen in einem Rahmen von der Größe einer Spalte. Wenn die Kurse eintreffen, verschiebt sich unter dem Block nichts, bei keiner Breite. `landing.spec.ts` prüft das auf einem Desktop und auf einem Smartphone.
 - Ist kein Kurs veröffentlicht, sagt der Block das; schlägt die Anfrage fehl, verweist er auf den Kurskatalog. **Alle Kurse ansehen** führt in jedem Fall zu `/courses`.
 - Die Tour durch die Kursseiten ist das Video der Komposition `course-tour` im Projekt `remotion/`. Es liegt als statische Datei mit AVIF- und WebP-Postern in `src/presentation/assets/motion/` und wird auf Knopfdruck an Ort und Stelle mit den Bedienelementen des Browsers abgespielt. Es nutzt die Videobibliothek nicht.
@@ -91,6 +98,14 @@ Für angemeldete Betrachter startet der Player an der gespeicherten `position_ms
 ## Lektionen und Videos
 
 Eine Lektion speichert keine eigenen Videodateien. Veröffentliche die Aufnahme mit `bun run video:publish:<environment>` (siehe [Videos](/docs/features/videos)) und wähle sie dann in der Karte **Video** des Lektionseditors aus, die `video_id` setzt. Mehrere Lektionen können dasselbe Video nutzen, und jede Lektion kann mit einem gemeinsamen Platzhaltervideo beginnen, bis ihre eigene Aufnahme existiert. Die Dauern im Katalog und im Lehrplan stammen aus `video.duration_ms`, und eine Lektion, die aufgezeichnet wird, hat keine.
+
+So ersetzt du eine Lektion, die aufgezeichnet wird, durch ihr echtes Video:
+
+1. Veröffentliche die Aufnahme mit `bun run video:publish:production <file> --title "…"`. Sie erscheint oben in `/admin/videos`.
+2. Öffne die Lektion im Lektionseditor, wähle die Aufnahme unter **Ersetzen durch** in der Karte **Video** aus und drücke **Video ersetzen**.
+3. Die Lektion wird auf jeder Seite zugleich abgespielt, ihre Länge zählt zum Kurs, und **Wird aufgezeichnet** verschwindet.
+
+Lektionen, die ohne Video aus einer Datei importiert wurden, wie die des Lehrplans weiter unten, haben gar kein Video und werden damit ebenfalls [aufgezeichnet](#being-recorded); dieselben drei Schritte geben ihnen eines.
 
 ## Kurse verwalten
 
@@ -150,18 +165,86 @@ Jedes Löschen fragt zuerst nach einer Bestätigung.
 
 Die Fremdschlüssel entfernen die Zeilen mit `ON DELETE CASCADE`, und die Lösch-Use-Cases entfernen die hochgeladenen Dateien aus R2 (`attachmentObjectKeys` und `removeAttachmentObjects` in `lesson-attachment.objects.ts`). Videos werden nie mit einem Kurs, einem Kapitel oder einer Lektion gelöscht: Sie bleiben in der Bibliothek.
 
+### Import und Export [#import-and-export]
+
+Die Kursliste hat **Importieren** und **Alle exportieren**, und der Kurseditor hat **Exportieren** für seinen eigenen Kurs. Der Export schreibt eine JSON-Datei, `courses-<date>.json` oder `<slug>-<date>.json`, und der Import liest eine. Die Komponenten sind `import-courses-dialog.tsx` und `export-courses-button.tsx`, und die Arbeit erledigt `src/modules/course/course.transfer.ts`.
+
+Die Datei enthält jeden Kurs in der Reihenfolge der Kurse mit seinen Kapiteln, seinen Lektionen in ihrer Reihenfolge, deren Text in jeder Locale, Zugriffsstufen, Status, Beschreibungen, Schlüsselmomenten, Links und der ID des Videos jeder Lektion:
+
+```json
+{
+  "courses": [
+    {
+      "chapters": [
+        {
+          "lessons": [
+            {
+              "access": "preview",
+              "description": {},
+              "keyMoments": [{ "at": "2:15", "label": { "en-US": "Install the CLI" } }],
+              "links": [{ "title": { "en-US": "Getting started" }, "url": "/docs/getting-started" }],
+              "slug": "what-you-will-build",
+              "status": "published",
+              "summary": { "en-US": "The finished application." },
+              "title": { "en-US": "What you'll build" },
+              "videoId": "0195a2b4-6c8d-7e9f-8a0b-1c2d3e4f5a6b"
+            }
+          ],
+          "summary": {},
+          "title": { "en-US": "Start" }
+        }
+      ],
+      "icon": "rocket",
+      "kind": "course",
+      "level": "beginner",
+      "outcomes": { "en-US": ["Deploy to Cloudflare"] },
+      "prerequisites": { "en-US": ["TypeScript and React"] },
+      "slug": "empty-folder-to-production",
+      "status": "published",
+      "summary": { "en-US": "From an empty folder to production." },
+      "title": { "en-US": "Empty folder to production" }
+    }
+  ],
+  "format": "courses",
+  "version": 1
+}
+```
+
+- `format` ist <RepositoryFact name="courseDocumentFormat" /> und `version` ist <RepositoryFact name="courseDocumentVersion" /> (`COURSE_DOCUMENT`). Jeder Kurs, jedes Kapitel, jede Lektion und jeder Link wird mit den Schemas geprüft, die die Formulare des Admin-Bereichs verwenden (`createCourse`, `createChapter`, `updateLesson` und `createLessonAttachment`), zusammengeführt in `courseDocument` in `course.zod.ts`. Ein Feld, das das Format nicht kennt, wird abgelehnt, sodass ein falsch geschriebener Schlüssel nicht stillschweigend verloren gehen kann.
+- Hochgeladene Dateien reisen nicht in der Datei mit: Sie enthält nur Links, und der Dialog sagt das. Hochgeladene Dateien bleiben bei ihren Lektionen, wenn eine Datei importiert wird.
+- Eine Lektion ohne `videoId` behält ihr Video, und eine neue beginnt ohne Video, wird also [aufgezeichnet](#being-recorded). Ein Import nimmt einer Lektion nie ihr Video. Eine `videoId`, die in der Bibliothek dieser Datenbank fehlt, etwa nach einem Export aus einer anderen Umgebung, lässt das Video der Lektion unverändert und wird als Warnung aufgeführt.
+
+**Importieren** öffnet einen Dialog: Wähle die Datei aus und dann **Datei prüfen**. Die Prüfung ist ein Probelauf (`importCourses` mit `dryRun: true`), der nichts schreibt und für Kurse, Kapitel, Lektionen und Links aufführt, wie viele der Import hinzufügt, aktualisiert, unverändert lässt, entfernt und behält, obwohl die Datei sie nicht enthält, wie viele hochgeladene Dateien das Entfernen löscht, und die Warnungen. **Importieren** führt dann denselben Plan tatsächlich aus. Eine Datei, die gegen eine Regel verstößt, führt stattdessen ihre Probleme auf, jedes mit dem Pfad des Feldes, etwa `courses.0.chapters.1.lessons.2.slug`, und der Meldung, die das Formular des Admin-Bereichs zeigen würde; die ersten <RepositoryFact name="courseImportProblemsMax" /> werden aufgeführt und der Rest gezählt. Nichts wird importiert, solange die Datei ein Problem hat.
+
+Der Import ordnet das, was schon in der Datenbank steht, über natürliche Schlüssel zu, nie über Zeilen-IDs:
+
+- Einen Kurs über seinen Slug und eine Lektion über ihren Slug innerhalb ihres Kurses, sodass eine Lektion in ein anderes Kapitel wechseln kann.
+- Ein Kapitel über seine Reihenfolge innerhalb seines Kurses: Das erste Kapitel in der Datei aktualisiert das erste Kapitel des Kurses.
+- Einen Link über seine Reihenfolge unter den Links der Lektion.
+
+Er schreibt nur, was sich unterscheidet, sodass ein zweiter Import derselben Datei nichts ändert. Neue Kurse kommen in der Reihenfolge der Datei hinter die vorhandenen. Die Lektionen eines Kapitels übernehmen die Reihenfolge der Datei; Lektionen, die die Datei auslässt, bleiben dahinter. Alle Schreibvorgänge eines Imports laufen in einem einzigen `db.batch`, einer einzigen D1-Transaktion, sodass ein Import ganz oder gar nicht angewendet wird.
+
+**Entfernen, was die Datei nicht enthält** ist standardmäßig aus. Ist die Option angehakt, löscht der Import auch die Kurse, Kapitel, Lektionen und Links, die in der Datei fehlen, mit dem Fortschritt aller darin, und entfernt die hochgeladenen Dateien der gelöschten Lektionen aus R2. Exportierst du einen einzelnen Kurs und importierst ihn mit dieser Option, löschst du jeden anderen Kurs, und die Prüfung zeigt das, bevor etwas geschrieben wird.
+
+`importCourses` führt `withRateLimit` mit <RepositoryFact name="courseImportsPerMinute" /> Prüfungen oder Importen pro Adresse und Minute aus und verlangt `course: ["create", "update", "delete"]`, weil eine Datei alle drei Dinge tun kann. Es liest die Datei als Text mit höchstens <RepositoryFact name="courseDocumentMaxLength" /> Zeichen; teile einen größeren Katalog auf mehrere Dateien auf. `exportCourses` verlangt `course: ["read"]`.
+
+Nach einem Import ist die Datenbank die maßgebliche Quelle: Bearbeite Kurse im Admin-Bereich, und für eine Änderung an vielen Lektionen auf einmal exportierst du, bearbeitest die Datei und importierst sie.
+
+`content/courses/saasy-land-courses.json` ist der Lehrplan von saasyland.com in jeder Locale, veröffentlicht, und jede seiner Lektionen wird aufgezeichnet. Es ist die Datei, die du in eine neue Datenbank importierst, keine Daten, die die Anwendung liest: Die Kurse existieren erst, wenn ein Admin sie importiert. `course-curriculum.test.ts` prüft, dass der Import sie akzeptiert.
+
 ### Serverfunktionen
 
-| Modul               | Use Cases                                                                                                                      | Berechtigung         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
-| `course`            | `getCourses`, `getCourseEditor`                                                                                                | `course: ["read"]`   |
-| `course`            | `createCourse`                                                                                                                 | `course: ["create"]` |
-| `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]` |
-| `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]` |
-| `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]` |
-| `lesson`            | `createLesson`, `updateLesson`, `replaceLessonVideo`, `deleteLesson`, `moveLesson`                                             | `course: ["update"]` |
-| `lesson-attachment` | `createLessonAttachment`, `uploadLessonAttachment`, `updateLessonAttachment`, `moveLessonAttachment`, `deleteLessonAttachment` | `course: ["update"]` |
-| `video`             | `setVideoPlaceholder`                                                                                                          | `course: ["update"]` |
+| Modul               | Use Cases                                                                                                                      | Berechtigung                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| `course`            | `getCourses`, `getCourseEditor`, `exportCourses`                                                                               | `course: ["read"]`                       |
+| `course`            | `createCourse`                                                                                                                 | `course: ["create"]`                     |
+| `course`            | `updateCourse`, `moveCourse`                                                                                                   | `course: ["update"]`                     |
+| `course`            | `deleteCourse`                                                                                                                 | `course: ["delete"]`                     |
+| `course`            | `importCourses`                                                                                                                | `course: ["create", "update", "delete"]` |
+| `chapter`           | `createChapter`, `updateChapter`, `deleteChapter`, `moveChapter`                                                               | `course: ["update"]`                     |
+| `lesson`            | `createLesson`, `updateLesson`, `replaceLessonVideo`, `deleteLesson`, `moveLesson`                                             | `course: ["update"]`                     |
+| `lesson-attachment` | `createLessonAttachment`, `uploadLessonAttachment`, `updateLessonAttachment`, `moveLessonAttachment`, `deleteLessonAttachment` | `course: ["update"]`                     |
+| `video`             | `setVideoPlaceholder`                                                                                                          | `course: ["update"]`                     |
 
 - `getCourseEditor` liefert jede Lektion mit ihrer Beschreibung, ihren Schlüsselmomenten, ihrem Video (mit dessen Platzhalter-Markierung) und ihren Materialien, sodass sich Kurseditor und Lektionseditor eine einzige Abfrage teilen.
 - `uploadLessonAttachment` nimmt `FormData` entgegen (die Datei, die Lektion und den Titel pro Locale, gebaut von `uploadFormData`) und führt außerdem `withRateLimit` mit <RepositoryFact name="attachmentUploadsPerMinute" /> Uploads pro Adresse und Minute aus. Es schreibt die Zeile, dann die Datei, und entfernt die Zeile wieder, wenn R2 die Datei ablehnt.
@@ -175,7 +258,9 @@ Die Fremdschlüssel entfernen die Zeilen mit `ON DELETE CASCADE`, und die Lösch
 
 ## Tests
 
-`scripts/seed-test.ts` legt einen veröffentlichten Kurs mit Niveau, Symbol, Lernzielen und Voraussetzungen an, dazu ein Kapitel mit Zusammenfassung und vier Lektionen: Die kostenlose hat eine Beschreibung, einen Schlüsselmoment, ein PDF und einen Docs-Link; die kostenpflichtige hat ein PDF; die letzte nutzt das geseedete Platzhaltervideo. Außerdem legt es `learner@example.test` mit einer aktiven Complete-Lizenz an. Die Browsertests in `e2e/specs/courses.spec.ts` sehen sich die Lektionen an. In `e2e/specs/course-admin.spec.ts` erstellt ein Admin einen Kurs, ein Kapitel und eine kostenlose Lektion mit dem geseedeten Video, ein Besucher in einer anderen Browserseite sieht sich die Lektion an, und der Admin löscht den Kurs; ein zweiter Test schreibt die Beschreibung und die Schlüsselmomente einer Lektion, setzt sie auf das Platzhaltervideo, lädt eine Datei hoch und fügt einen Link hinzu, prüft, dass ein Besucher die Lektion als „Wird aufgezeichnet“ sieht und die Datei herunterlädt, ersetzt das Video durch die Aufnahme, sodass die Seite des Besuchers sie abspielt, und prüft, dass das Löschen des Kurses die Datei löscht. `e2e/specs/course-materials.spec.ts` prüft die Zugriffsregel für Downloads: Ein Besucher lädt die Datei einer kostenlosen Lektion über einen signierten Pfad herunter und erhält `403` für einen gefälschten, ein Besucher und ein Kunde ohne Complete sehen die Materialien einer kostenpflichtigen Lektion ohne Links, und der Inhaber der Complete-Lizenz lädt sie herunter und sieht die Lektion mit dem Platzhaltervideo als „Wird aufgezeichnet“, ohne dass ein Stream angefordert wird. `e2e/specs/landing.spec.ts` prüft, dass die Landingpage auf den geseedeten Kurs und seine kostenlose Lektion verlinkt, die kostenlose Lektion öffnet und die Tour durch die Kursseiten abspielt und dass der Kursblock seine Höhe behält und nichts verschiebt, wenn die Kurse eintreffen oder nicht geladen werden können. `e2e/specs/course-access.spec.ts` meldet einen Kunden ohne Lizenz an und prüft, dass eine kostenpflichtige Lektion Complete mit einem Link auf `/app/license?tier=complete` anbietet und dass die Übersicht den gesperrten Kurs neben dem Lizenzangebot auflistet.
+`scripts/seed-test.ts` legt einen veröffentlichten Kurs mit Niveau, Symbol, Lernzielen und Voraussetzungen an, dazu ein Kapitel mit Zusammenfassung und vier Lektionen: Die kostenlose hat eine Beschreibung, einen Schlüsselmoment, ein PDF und einen Docs-Link; die kostenpflichtige hat ein PDF; die letzte nutzt das geseedete Platzhaltervideo. Außerdem legt es `learner@example.test` mit einer aktiven Complete-Lizenz an. Die Browsertests in `e2e/specs/courses.spec.ts` sehen sich die Lektionen an. In `e2e/specs/course-admin.spec.ts` erstellt ein Admin einen Kurs, ein Kapitel und eine kostenlose Lektion mit dem geseedeten Video, ein Besucher in einer anderen Browserseite sieht sich die Lektion an, und der Admin löscht den Kurs; ein zweiter Test schreibt die Beschreibung und die Schlüsselmomente einer Lektion, setzt sie auf das Platzhaltervideo, lädt eine Datei hoch und fügt einen Link hinzu, prüft, dass ein Besucher die Lektion als „Wird aufgezeichnet“ sieht und die Datei herunterlädt, ersetzt das Video durch die Aufnahme, sodass die Seite des Besuchers sie abspielt, und prüft, dass das Löschen des Kurses die Datei löscht. `e2e/specs/course-materials.spec.ts` prüft die Zugriffsregel für Downloads: Ein Besucher lädt die Datei einer kostenlosen Lektion über einen signierten Pfad herunter und erhält `403` für einen gefälschten, ein Besucher und ein Kunde ohne Complete sehen die Materialien einer kostenpflichtigen Lektion ohne Links, und der Inhaber der Complete-Lizenz lädt sie herunter und sieht die Lektion mit dem Platzhaltervideo als „Wird aufgezeichnet“, ohne dass ein Stream angefordert wird. `e2e/specs/landing.spec.ts` prüft, dass die Landingpage auf den geseedeten Kurs und seine kostenlose Lektion verlinkt, die kostenlose Lektion öffnet und die Tour durch die Kursseiten abspielt und dass der Kursblock seine Höhe behält und nichts verschiebt, wenn die Kurse eintreffen oder nicht geladen werden können. `e2e/specs/course-access.spec.ts` meldet einen Kunden ohne Lizenz an und prüft, dass eine kostenpflichtige Lektion Complete mit einem Link auf `/app/license?tier=complete` anbietet und dass die Übersicht den gesperrten Kurs neben dem Lizenzangebot auflistet. In `e2e/specs/course-import.spec.ts` importiert ein Admin `content/courses/saasy-land-courses.json` über den Dialog, ein Besucher findet dessen Kurse unter `/courses`, den ersten davon als „Wird aufgezeichnet“, und eine zweite Prüfung derselben Datei findet nichts zu importieren.
+
+`course-import.test.ts` und `course-transfer.test.ts` führen den Import gegen die Testdatenbank aus: den Probelauf des Lehrplans, seinen Import, einen zweiten Import, der nichts ändert, und einen Export, der dasselbe Dokument liefert; Aktualisierungen, Verschiebungen und neue Zeilen aus einem bearbeiteten Export; was das Entfernen löscht, hochgeladene Dateien eingeschlossen; Videoverweise; und die Probleme, die eine fehlerhafte Datei meldet.
 
 ## Verwandte Seiten
 
